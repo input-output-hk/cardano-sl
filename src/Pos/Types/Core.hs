@@ -110,7 +110,7 @@ unsafeGetCoin = getCoin
 -- determine some threshold expressed as portion of total stake.
 newtype CoinPortion = CoinPortion
     { getCoinPortion :: Word64
-    } deriving (Show, Ord, Eq)
+    } deriving (Show, Ord, Eq, Generic, Typeable, NFData)
 
 -- | Denominator used by 'CoinPortion'.
 coinPortionDenominator :: Word64
@@ -146,7 +146,7 @@ unsafeCoinPortionFromDouble x = assert (0 <= x && x <= 1) $ CoinPortion v
 -- | Index of epoch.
 newtype EpochIndex = EpochIndex
     { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable, Bounded, Typeable)
+    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable, Bounded, Typeable, NFData)
 
 instance Buildable EpochIndex where
     build = bprint ("epoch #"%int)
@@ -161,7 +161,7 @@ class HasEpochIndex a where
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = LocalSlotIndex
     { getSlotIndex :: Word16
-    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Buildable, Typeable)
+    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Buildable, Typeable, NFData)
 
 -- | Slot is identified by index of epoch and local index of slot in
 -- this epoch. This is a global index
@@ -185,7 +185,7 @@ type FlatSlotId = Word64
 -- have only EpochIndex, while main blocks have SlotId.
 newtype EpochOrSlot = EpochOrSlot
     { unEpochOrSlot :: Either EpochIndex SlotId
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Generic, NFData)
 
 -- | Apply one of the function depending on content of EpochOrSlot.
 epochOrSlot :: (EpochIndex -> a) -> (SlotId -> a) -> EpochOrSlot -> a
@@ -224,7 +224,11 @@ instance HasEpochOrSlot SlotId where
 -- timestamps is microsecond. Hence underlying type is Microsecond.
 newtype Timestamp = Timestamp
     { getTimestamp :: Microsecond
-    } deriving (Num, Eq, Ord, Enum, Real, Integral, Typeable)
+    } deriving (Num, Eq, Ord, Enum, Real, Integral, Typeable, Generic)
+
+instance NFData SlotId
+instance NFData Timestamp where
+    rnf Timestamp{..} = rnf (toInteger getTimestamp)
 
 ----------------------------------------------------------------------------
 -- Address
@@ -240,16 +244,14 @@ data Address
     | UnknownAddressType !Word8 !ByteString
     deriving (Eq, Ord, Generic, Typeable, Show)
 
-data AddrPkAttrs = AddrPkAttrs
+instance NFData Address
+
+newtype AddrPkAttrs = AddrPkAttrs
     { addrPkDerivationPath :: Maybe [Word32]
-    }
-    deriving (Eq, Ord, Generic, Typeable, Show)
+    } deriving (Eq, Ord, Show, Generic, Typeable, NFData)
 
 instance Default AddrPkAttrs where
     def = AddrPkAttrs Nothing
-
-instance NFData Address
-instance NFData AddrPkAttrs
 
 -- | Stakeholder identifier (stakeholders are identified by their public keys)
 type StakeholderId = AddressHash PublicKey
@@ -264,7 +266,7 @@ type AddressHash = AbstractHash Blake2s_224
 -- chain. In the simplest case it can be number of blocks in chain.
 newtype ChainDifficulty = ChainDifficulty
     { getChainDifficulty :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Buildable, Typeable)
+    } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Buildable, Typeable, NFData)
 
 -- | Type class for something that has 'ChainDifficulty'.
 class HasDifficulty a where
@@ -283,7 +285,7 @@ data BlockVersion = BlockVersion
 
 newtype ApplicationName = ApplicationName
     { getApplicationName :: Text
-    } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable, Buildable)
+    } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable, Buildable, NFData)
 
 -- | Numeric software version associated with ApplicationName.
 type NumSoftwareVersion = Word32
@@ -293,6 +295,9 @@ data SoftwareVersion = SoftwareVersion
     { svAppName :: !ApplicationName
     , svNumber  :: !NumSoftwareVersion
     } deriving (Eq, Generic, Ord, Typeable)
+
+instance NFData BlockVersion
+instance NFData SoftwareVersion
 
 ----------------------------------------------------------------------------
 -- HeaderHash

@@ -44,7 +44,7 @@ import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT, WithKademliaDHTInstance)
-import           Pos.Slotting.Class          (MonadSlots)
+import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Statistics.StatEntry    (StatLabel (..))
 import           Pos.Txp.Class               (MonadTxpLD (..))
@@ -77,7 +77,7 @@ instance MonadStats m => MonadStats (ExceptT      e m)
 -- | Stats wrapper for collecting statistics without collecting it.
 newtype NoStatsT m a = NoStatsT
     { getNoStatsT :: m a  -- ^ action inside wrapper without collecting statistics
-    } deriving (Functor, Applicative, Monad, MonadThrow,
+    } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
                 MonadJL, CanLog, MonadUtxoRead, MonadUtxo,
@@ -135,7 +135,7 @@ newtype StatsT m a = StatsT
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
                 MonadTrans, MonadJL, CanLog, MonadUtxoRead, MonadUtxo,
-                MonadTxpLD ssc, MonadSscMem ssc, MonadDBLimits,
+                MonadTxpLD ssc, MonadSscMem ssc, MonadSlotsData, MonadDBLimits,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem)
 
 deriving instance MonadDB ssc m => MonadDB ssc (StatsT m)

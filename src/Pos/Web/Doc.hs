@@ -83,7 +83,7 @@ instance ToParam (QueryParam "epoch" EpochIndex) where
     toParam Proxy =
         DocQueryParam
         { _paramName = "epoch"
-        , _paramValues = ["0", "1", "2", "…"]
+        , _paramValues = ["0", "1", "2", "..."]
         , _paramDesc =
             "Epoch for which leaders are requested. By default current epoch is used."
         , _paramKind = Normal

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -7,7 +8,8 @@
 -- | Wallet web server.
 
 module Pos.Wallet.Web.Server.Methods
-       ( walletApplication
+       ( WalletWebHandler
+       , walletApplication
        , walletServer
        , walletServeImpl
        , walletServerOuts
@@ -16,11 +18,11 @@ module Pos.Wallet.Web.Server.Methods
 import           Control.Lens                  (makeLenses, (.=))
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
-import           Control.Monad.Trans.State     (get, runStateT)
+import           Control.Monad.State           (runStateT)
 import qualified Data.ByteString.Base64        as B64
 import           Data.Default                  (Default, def)
-import           Data.List                     (elemIndex, nub, (!!))
-import           Data.Time.Clock.POSIX         (POSIXTime, getPOSIXTime)
+import           Data.List                     (elemIndex, (!!))
+import           Data.Time.Clock.POSIX         (getPOSIXTime)
 import           Formatting                    (build, ords, sformat, stext, (%))
 import           Network.Wai                   (Application)
 import           Servant.API                   ((:<|>) ((:<|>)),
@@ -33,23 +35,24 @@ import           Universum
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Communication.Protocol    (OutSpecs, SendActions, hoistSendActions)
 import           Pos.Constants                 (curSoftwareVersion)
-import           Pos.Crypto                    (hash)
-import           Pos.Crypto                    (deterministicKeyGen, toPublic)
+import           Pos.Crypto                    (SecretKey, deterministicKeyGen, hash,
+                                                toPublic)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (getKnownPeers)
-import           Pos.Slotting                  (getSlotDuration)
 import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
                                                 TxOut (..), addressF, coinF,
                                                 decodeTextAddress, makePubKeyAddress,
                                                 mkCoin)
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, keysFromPhrase)
+import           Pos.Util.UserSecret           (readUserSecret, usKeys)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
 import           Pos.Wallet.Tx                 (sendTxOuts, submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
 import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
-                                                connectedPeers, getBalance, getTxHistory,
+                                                blockchainSlotDuration, connectedPeers,
+                                                getBalance, getTxHistory,
                                                 localChainDifficulty,
                                                 networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
@@ -64,18 +67,14 @@ import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProf
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
-                                                getWalletWebSocketsState,
-                                                initWSConnection, notify, runWalletWS,
-                                                upgradeApplicationWS)
+                                                getWalletWebSockets, initWSConnection,
+                                                notify, runWalletWS, upgradeApplicationWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, addUpdate, closeState,
-                                                createWallet, getNextUpdate,
-                                                getPostponeUpdateUntil, getProfile,
+                                                createWallet, getNextUpdate, getProfile,
                                                 getTxMeta, getWalletMeta, getWalletState,
-                                                openState, removeNextUpdate,
-                                                removePostponeUpdateUntil, removeWallet,
-                                                runWalletWebDB, setPostponeUpdateUntil,
-                                                setProfile, setWalletMeta,
+                                                openState, removeNextUpdate, removeWallet,
+                                                runWalletWebDB, setProfile, setWalletMeta,
                                                 setWalletTransactionMeta)
 import           Pos.Web.Server                (serveImpl)
 
@@ -141,7 +140,7 @@ walletServer sendActions nat = do
     whenM (isNothing <$> getProfile) $
         createUserProfile >>= setProfile
     ws    <- lift getWalletState
-    socks <- getWalletWebSocketsState
+    socks <- getWalletWebSockets
     let sendActions' = hoistSendActions
             (lift . lift)
             (runWalletWebDB ws . runWalletWS socks)
@@ -167,11 +166,9 @@ launchNotifier :: WalletWebMode ssc m => (m :~> Handler) -> m ()
 launchNotifier nat = void . liftIO $ mapM startForking
     [ dificultyNotifier
     , updateNotifier
-    , updateNotifierUnPostpone
     ]
   where
     cooldownPeriod = 5000000         -- 5 sec
-    cooldownPostponePeriod = 5000000 -- 5 sec
     difficultyNotifyPeriod = 500000  -- 0.5 sec
     forkForever action = forkFinally action $ const $ do
         -- TODO: log error
@@ -206,18 +203,7 @@ launchNotifier nat = void . liftIO $ mapM startForking
     updateNotifier = do
         cps <- waitForUpdate
         addUpdate $ toCUpdateInfo cps
-        -- FIXME: a light race condition might happen here.
-        -- Probability of hapening is really low and when it happens user might
-        -- get notified one more time about an update. Nothing critical.
-        whenNothingM_ getPostponeUpdateUntil $
-            liftIO getPOSIXTime >>= setPostponeUpdateUntil
-    updateNotifierUnPostpone = notifier cooldownPostponePeriod $ do
-        mPostpone <- getPostponeUpdateUntil
-        time <- liftIO getPOSIXTime
-        when (((<) <$> mPostpone <*> pure time) == Just True) $ do
-            whenJustM getNextUpdate $
-                const $ notify UpdateAvailable
-            removePostponeUpdateUntil
+        notify UpdateAvailable
 
     -- historyNotifier :: WalletWebMode ssc m => m ()
     -- historyNotifier = do
@@ -272,11 +258,11 @@ servantHandlers sendActions =
     :<|>
      catchWalletError applyUpdate
     :<|>
-     catchWalletError blockchainSlotDuration
+     catchWalletError (fromIntegral <$> blockchainSlotDuration)
     :<|>
      catchWalletError (pure curSoftwareVersion)
     :<|>
-     catchWalletError . postponeUpdatesUntil
+     catchWalletError . importKey sendActions
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
@@ -415,9 +401,6 @@ nextUpdate = getNextUpdate >>=
 applyUpdate :: WalletWebMode ssc m => m ()
 applyUpdate = removeNextUpdate >> applyLastUpdate
 
-blockchainSlotDuration :: WalletWebMode ssc m => m Word
-blockchainSlotDuration = fromIntegral <$> getSlotDuration
-
 redeemADA :: WalletWebMode ssc m => SendActions m -> CWalletRedeem -> m CWallet
 redeemADA sendActions CWalletRedeem {..} = do
     seedBs <- either
@@ -442,15 +425,44 @@ redeemADA sendActions CWalletRedeem {..} = do
                 (THEntry (hash tx) tx False Nothing)
             pure walletB
 
-postponeUpdatesUntil :: WalletWebMode ssc m => POSIXTime -> m ()
-postponeUpdatesUntil = setPostponeUpdateUntil
+importKey :: WalletWebMode ssc m => SendActions m -> Text -> m CWallet
+importKey sendActions (toString -> fp) = do
+    secret <- readUserSecret fp
+    forM_ (secret ^. usKeys) $ \key -> do
+        addSecretKey key
+        let addr = makePubKeyAddress $ toPublic key
+            cAddr = addressToCAddress addr
+        createWallet cAddr def
 
-----------------------------------------------------------------------------
+    let importedAddr = makePubKeyAddress $ toPublic $ (secret ^. usKeys) !! 0
+        importedCAddr = addressToCAddress importedAddr
+#ifdef DEV_MODE
+    psk <- myPrimaryKey
+    let pAddr = makePubKeyAddress $ toPublic psk
+    primaryBalance <- getBalance pAddr
+    when (primaryBalance > mkCoin 0) $ do
+        na <- getKnownPeers
+        etx <- submitTx sendActions psk na [(TxOut importedAddr primaryBalance, [])]
+        case etx of
+            Left err -> throwM . Internal $ "Cannot transfer funds from genesis key" <> err
+            Right (tx, _, _) ->  do
+                () <$ addHistoryTx importedCAddr ADA "Transfer money from genesis key" ""
+                    (THEntry (hash tx) tx False Nothing)
+#endif
+    getWallet importedCAddr
+
+
+---------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
+-- We omit first secret key, because it's considered to be block signing key
 myAddresses :: MonadKeys m => m [Address]
-myAddresses = nub . map (makePubKeyAddress . toPublic) <$> getSecretKeys
+myAddresses = map (makePubKeyAddress . toPublic) . drop 1 <$> getSecretKeys
+
+-- Sometimes we need omitted key
+myPrimaryKey :: MonadKeys m => m SecretKey
+myPrimaryKey = (!! 0) <$> getSecretKeys
 
 myCAddresses :: MonadKeys m => m [CAddress]
 myCAddresses = map addressToCAddress <$> myAddresses
@@ -467,7 +479,6 @@ genSaveAddress ph = addressToCAddress . makePubKeyAddress . toPublic <$> genSave
         let sk = fst $ keysFromPhrase ph'
         addSecretKey sk
         return sk
-
 
 ----------------------------------------------------------------------------
 -- Orphan instances

@@ -20,8 +20,8 @@ import           Universum
 import qualified Pos.CLI                     as CLI
 import           Pos.Communication           (ActionSpec (..), SendActions,
                                               convertSendActions, wrapSendActions)
-import           Pos.Constants               (genesisN, neighborsSendThreshold,
-                                              slotSecurityParam)
+import           Pos.Constants               (genesisN, genesisSlotDuration,
+                                              neighborsSendThreshold, slotSecurityParam)
 import           Pos.Crypto                  (KeyPair (..), hash)
 import           Pos.DHT.Model               (DHTNode, MonadDHT, discoverPeers,
                                               getKnownPeers)
@@ -31,7 +31,6 @@ import           Pos.Launcher                (BaseParams (..), LoggingParams (..
                                               bracketResources, initLrc, runNode',
                                               runProductionMode, runTimeSlaveReal,
                                               stakesDistr)
-import           Pos.Slotting                (getSlotDuration)
 import           Pos.Ssc.Class               (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing          (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon          (SscNistBeacon)
@@ -65,7 +64,7 @@ seedInitTx sendActions recipShare bp initTx = do
     logInfo "Issuing seed transaction"
     submitTxRaw sendActions na initTx
     logInfo "Waiting for 1 slot before resending..."
-    delay =<< getSlotDuration
+    delay genesisSlotDuration
     -- If next tx is present in utxo, then everything is all right
     tx <- liftIO $ curBambooTx bp 1
     isVer <- isTxVerified $ view _1 tx
@@ -92,9 +91,8 @@ runSmartGen :: forall ssc . SscConstraint ssc
 runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
   runProductionMode res np sscnp $ (,sendTxOuts <> wOuts) . ActionSpec $ \vI sendActions -> do
     initLrc
-    slotDuration <- getSlotDuration
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
-        initTx = initTransaction opts slotDuration
+        initTx = initTransaction opts
 
     bambooPools <- forM goGenesisIdxs $ \(fromIntegral -> i) ->
         liftIO $ createBambooPool goMOfNParams i $ initTx i
@@ -128,7 +126,7 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
     let phaseDurationMs :: Microsecond
         phaseDurationMs =
             fromIntegral (slotSecurityParam + goPropThreshold) *
-            convertUnit slotDuration
+            convertUnit genesisSlotDuration
         roundDurationSec =
             fromIntegral (goRoundPeriodRate + 1) *
             fromIntegral (phaseDurationMs `div` sec 1)
@@ -235,6 +233,9 @@ main = do
 
     KeyPair _ sk <- generate arbitrary
     vssKeyPair <- generate arbitrary
+    filePeers <- maybe (return []) CLI.readPeersFile
+                     (CLI.dhtPeersFile goCommonArgs)
+    let allPeers = CLI.dhtPeers goCommonArgs ++ filePeers
     let logParams =
             LoggingParams
             { lpRunnerTag     = "smart-gen"
@@ -246,7 +247,7 @@ main = do
             BaseParams
             { bpLoggingParams      = logParams
             , bpIpPort             = goIpPort
-            , bpDHTPeers           = CLI.dhtPeers goCommonArgs
+            , bpDHTPeers           = allPeers
             , bpDHTKey             = Nothing
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial goCommonArgs
             , bpKademliaDump       = "kademlia.dump"

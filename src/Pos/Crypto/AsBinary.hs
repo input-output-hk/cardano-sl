@@ -59,14 +59,15 @@ Ser(Share, 101, "Share") --4+33+64
 Ser(EncShare, 101, "EncShare")
 Ser(SecretProof, 64, "SecretProof")
 
+
 instance Buildable (AsBinary Secret) where
-    build _ = "secret ¯\\_(ツ)_/¯"
+    build _ = "secret \\_(o.o)_/"
 
 instance Buildable (AsBinary Share) where
-    build _ = "share ¯\\_(ツ)_/¯"
+    build _ = "share \\_(*.*)_/"
 
 instance Buildable (AsBinary EncShare) where
-    build _ = "encrypted share ¯\\_(ツ)_/¯"
+    build _ = "encrypted share \\_(0.0)_/"
 
 instance Buildable (AsBinary VssPublicKey) where
     build = bprint ("vsspub:"%shortHashF) . hash

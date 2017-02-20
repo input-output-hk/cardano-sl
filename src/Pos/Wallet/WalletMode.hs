@@ -17,13 +17,13 @@ module Pos.Wallet.WalletMode
        ) where
 
 import           Control.Concurrent.MVar     (takeMVar)
-import           Control.Concurrent.STM      (tryReadTMVar)
+import           Control.Concurrent.STM      (TMVar, tryReadTMVar)
 import           Control.Monad.Loops         (unfoldrM)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.Map                    as M
-import           Mockable                    (CurrentTime, Mockable)
+import           Data.Time.Units             (Millisecond)
 import           Mockable                    (MonadMockable, Production)
 import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
@@ -39,7 +39,9 @@ import qualified Pos.DB.GState               as GS
 import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
 import           Pos.DHT.Real                (KademliaDHT (..))
-import           Pos.Slotting                (MonadSlots, getCurrentSlot)
+import           Pos.Slotting                (NtpSlotting, SlottingHolder,
+                                              getCurrentSlotInaccurate,
+                                              getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp.Class               (getMemPool, getUtxoView)
@@ -56,6 +58,8 @@ import           Pos.Types.Utxo.Functions    (belongsTo, filterUtxoByAddr)
 import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
 import           Pos.Util                    (maybeThrow)
 import           Pos.Util.Shutdown           (triggerShutdown)
+import           Pos.WorkMode                (MinWorkMode, RawRealMode)
+
 import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)
@@ -63,7 +67,6 @@ import qualified Pos.Wallet.State            as WS
 import           Pos.Wallet.Tx.Pure          (TxHistoryEntry, deriveAddrHistory,
                                               deriveAddrHistoryPartial, getRelatedTxs)
 import           Pos.Wallet.Web.State        (WalletWebDB (..))
-import           Pos.WorkMode                (MinWorkMode, RawRealMode)
 
 -- | A class which have the methods to get state of address' balance
 class Monad m => MonadBalances m where
@@ -82,6 +85,8 @@ instance MonadBalances m => MonadBalances (StateT s m)
 instance MonadBalances m => MonadBalances (KademliaDHT m)
 instance MonadBalances m => MonadBalances (KeyStorage m)
 instance MonadBalances m => MonadBalances (PeerStateHolder m)
+instance MonadBalances m => MonadBalances (NtpSlotting m)
+instance MonadBalances m => MonadBalances (SlottingHolder m)
 
 deriving instance MonadBalances m => MonadBalances (PC.ContextHolder ssc m)
 deriving instance MonadBalances m => MonadBalances (SscHolder ssc m)
@@ -120,6 +125,8 @@ instance MonadTxHistory m => MonadTxHistory (StateT s m)
 instance MonadTxHistory m => MonadTxHistory (KademliaDHT m)
 instance MonadTxHistory m => MonadTxHistory (KeyStorage m)
 instance MonadTxHistory m => MonadTxHistory (PeerStateHolder m)
+instance MonadTxHistory m => MonadTxHistory (NtpSlotting m)
+instance MonadTxHistory m => MonadTxHistory (SlottingHolder m)
 
 deriving instance MonadTxHistory m => MonadTxHistory (PC.ContextHolder ssc m)
 deriving instance MonadTxHistory m => MonadTxHistory (SscHolder ssc m)
@@ -144,7 +151,7 @@ instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
     getTxHistory addr = do
         bot <- GS.getBot
         tip <- GS.getTip
-        genUtxo <- filterUtxoByAddr addr <$> GS.getGenUtxo
+        genUtxo <- GS.getFilteredGenUtxo addr
 
         -- Getting list of all hashes in main blockchain (excluding bottom block - it's genesis anyway)
         hashList <- flip unfoldrM tip $ \h ->
@@ -177,6 +184,7 @@ instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
 class Monad m => MonadBlockchainInfo m where
     networkChainDifficulty :: m ChainDifficulty
     localChainDifficulty :: m ChainDifficulty
+    blockchainSlotDuration :: m Millisecond
     connectedPeers :: m Word
 
     default networkChainDifficulty
@@ -186,6 +194,10 @@ class Monad m => MonadBlockchainInfo m where
     default localChainDifficulty
         :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m ChainDifficulty
     localChainDifficulty = lift localChainDifficulty
+
+    default blockchainSlotDuration
+        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m Millisecond
+    blockchainSlotDuration = lift blockchainSlotDuration
 
     default connectedPeers
         :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m Word
@@ -200,6 +212,7 @@ deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (WalletWebDB m)
 instance MonadBlockchainInfo WalletRealMode where
     networkChainDifficulty = panic "notImplemented"
     localChainDifficulty = panic "notImplemented"
+    blockchainSlotDuration = panic "notImplemented"
     connectedPeers = panic "notImplemented"
 
 -- | Helpers for avoiding copy-paste
@@ -207,12 +220,23 @@ topHeader :: (SscHelpersClass ssc, MonadDB ssc m) => m (BlockHeader ssc)
 topHeader = maybeThrow (DBMalformed "No block with tip hash!") =<<
             DB.getBlockHeader =<< GS.getTip
 
+getContextTMVar
+    :: (Ssc ssc, MonadIO m, PC.WithNodeContext ssc m)
+    => (PC.NodeContext ssc -> TMVar a)
+    -> m (Maybe a)
+getContextTMVar getter =
+    PC.getNodeContext >>=
+    atomically . tryReadTMVar . getter
+
 recoveryHeader
     :: (Ssc ssc, MonadIO m, PC.WithNodeContext ssc m)
     => m (Maybe (BlockHeader ssc))
-recoveryHeader = PC.getNodeContext >>=
-                 atomically . tryReadTMVar . PC.ncRecoveryHeader >>=
-                 return . fmap snd
+recoveryHeader = fmap snd <$> getContextTMVar PC.ncRecoveryHeader
+
+downloadHeader
+    :: (Ssc ssc, MonadIO m, PC.WithNodeContext ssc m)
+    => m (Maybe (BlockHeader ssc))
+downloadHeader = getContextTMVar PC.ncProgressHeader
 
 -- | Instance for full-node's ContextHolder
 instance SscHelpersClass ssc =>
@@ -221,13 +245,17 @@ instance SscHelpersClass ssc =>
         Just hh -> return $ hh ^. difficultyL
         Nothing -> do
             th <- topHeader
-            cSlot <- fromIntegral . flattenSlotId <$> getCurrentSlot
+            cSlot <- fromIntegral . flattenSlotId <$> getCurrentSlotInaccurate
             let hSlot = fromIntegral $ flattenEpochOrSlot th :: Int
                 blksLeft = fromIntegral $ max 0 $ cSlot - blkSecurityParam - hSlot
             return $ blksLeft + th ^. difficultyL
 
-    localChainDifficulty = view difficultyL <$> topHeader
+    localChainDifficulty = downloadHeader >>= \case
+        Just dh -> return $ dh ^. difficultyL
+        Nothing -> view difficultyL <$> topHeader
+
     connectedPeers = fromIntegral . length <$> getKnownPeers
+    blockchainSlotDuration = getLastKnownSlotDuration
 
 -- | Abstraction over getting update proposals
 class Monad m => MonadUpdates m where
@@ -247,6 +275,8 @@ instance MonadUpdates m => MonadUpdates (StateT s m)
 instance MonadUpdates m => MonadUpdates (KademliaDHT m)
 instance MonadUpdates m => MonadUpdates (KeyStorage m)
 instance MonadUpdates m => MonadUpdates (PeerStateHolder m)
+instance MonadUpdates m => MonadUpdates (NtpSlotting m)
+instance MonadUpdates m => MonadUpdates (SlottingHolder m)
 
 deriving instance MonadUpdates m => MonadUpdates (Modern.TxpLDHolder ssc m)
 deriving instance MonadUpdates m => MonadUpdates (SscHolder ssc m)
@@ -274,7 +304,6 @@ type TxMode ssc m
       , MonadBalances m
       , MonadTxHistory m
       , MonadMockable m
-      , MonadFail m
       , MonadMask m
       , MonadDBLimits m
       )
@@ -286,7 +315,6 @@ type WalletMode ssc m
       , MonadUpdates m
       , WithWalletContext m
       , MonadDHT m
-      , MonadSlots m
       , WithPeerState m
       )
 
@@ -298,6 +326,6 @@ type WalletRealMode = PeerStateHolder (KademliaDHT
                       (KeyStorage
                        (WalletDB
                         (ContextHolder
-                         (
-                           LoggerNameBox Production
+                         (LoggerNameBox
+                          Production
                            )))))

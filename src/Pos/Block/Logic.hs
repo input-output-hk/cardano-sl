@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -22,8 +23,8 @@ module Pos.Block.Logic
 
          -- * Blocks
        , verifyAndApplyBlocks
-       , applyWithRollback
        , rollbackBlocks
+       , applyWithRollback
        , createGenesisBlock
        , createMainBlock
        ) where
@@ -43,8 +44,7 @@ import           Serokell.Data.Memory.Units (toBytes)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (VerificationRes (..), formatAllErrors,
                                              isVerSuccess, verResToMonadError)
-import           System.Wlog                (CanLog, HasLoggerName, logDebug, logError,
-                                             logInfo)
+import           System.Wlog                (CanLog, HasLoggerName, logDebug, logInfo)
 import           Universum
 
 import qualified Pos.Binary.Class           as Bi
@@ -64,9 +64,10 @@ import qualified Pos.DB                     as DB
 import qualified Pos.DB.GState              as GS
 import qualified Pos.DB.Lrc                 as LrcDB
 import           Pos.Delegation.Logic       (delegationVerifyBlocks, getProxyMempool)
-import           Pos.Exception              (CardanoFatalError (..))
+import           Pos.Exception              (assertionFailed, reportFatalError)
 import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Worker             (lrcSingleShotNoLock)
+import           Pos.Reporting              (reportingFatal)
 import           Pos.Slotting.Class         (getCurrentSlot)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
                                              SscWorkersClass (..))
@@ -91,11 +92,10 @@ import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Update.Logic           (usCanCreateBlock, usPreparePayload,
                                              usVerifyBlocks)
 import           Pos.Update.Poll            (PollModifier)
-import           Pos.Util                   (Color (Red), NE, NewestFirst (..),
-                                             OldestFirst (..), colorize, inAssertMode,
-                                             maybeThrow, neZipWith3, spanSafe,
-                                             toNewestFirst, toOldestFirst, _neHead,
-                                             _neLast)
+import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
+                                             inAssertMode, maybeThrow, neZipWith3,
+                                             spanSafe, toNewestFirst, toOldestFirst,
+                                             _neHead, _neLast)
 import           Pos.WorkMode               (WorkMode)
 
 ----------------------------------------------------------------------------
@@ -174,7 +174,7 @@ classifyNewHeader (Right header) = do
     -- ignore it if it's not.
     pure $ if
         -- Checks on slots
-        | newHeaderSlot > curSlot ->
+        | maybe False (newHeaderSlot >) curSlot ->
             CHUseless $ sformat
                ("header is for future slot: our is "%build%
                 ", header's is "%build)
@@ -409,7 +409,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         _ -> pass
     bv <- GS.getAdoptedBV
     verResToMonadError formatAllErrors $
-        Types.verifyBlocks (Just curSlot) (Just leaders) (Just bv) blocks
+        Types.verifyBlocks curSlot (Just leaders) (Just bv) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
     txUndo <- ExceptT $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
@@ -435,7 +435,8 @@ verifyBlocksPrefix blocks = runExceptT $ do
 verifyAndApplyBlocks
     :: (WorkMode ssc m, SscWorkersClass ssc)
     => Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
-verifyAndApplyBlocks rollback = verifyAndApplyBlocksInternal True rollback
+verifyAndApplyBlocks rollback =
+    reportingFatal . verifyAndApplyBlocksInternal True rollback
 
 -- See the description for verifyAndApplyBlocks. This method also
 -- parameterizes LRC calculation which can be turned on/off with the first
@@ -555,7 +556,7 @@ applyWithRollback
     => NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
     -> OldestFirst NE (Block ssc)  -- ^ Blocks to apply
     -> m (Either Text HeaderHash)
-applyWithRollback toRollback toApply = runExceptT $ do
+applyWithRollback toRollback toApply = reportingFatal $ runExceptT $ do
     tip <- GS.getTip
     when (tip /= newestToRollback) $ do
         throwError (tipMismatchMsg "rollback in 'apply with rollback'" tip newestToRollback)
@@ -596,7 +597,7 @@ createGenesisBlock
     :: forall ssc m.
        WorkMode ssc m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
-createGenesisBlock epoch = do
+createGenesisBlock epoch = reportingFatal $ do
     leadersOrErr <-
         try $
         lrcActionOnEpochReason epoch "there are no leaders" LrcDB.getLeaders
@@ -634,7 +635,7 @@ createGenesisBlockDo epoch leaders tip = do
             let blk = mkGenesisBlock (Just tipHeader) epoch leaders
             let newTip = headerHash blk
             runExceptT (usVerifyBlocks (one (Left blk))) >>= \case
-                Left err -> onVerFail err
+                Left err -> reportFatalError $ pretty err
                 Right (pModifier, usUndos) -> do
                     let undo = def {undoUS = usUndos ^. _Wrapped . _neHead}
                     applyBlocksUnsafe (one (Left blk, undo)) (Just pModifier) $>
@@ -646,10 +647,6 @@ createGenesisBlockDo epoch leaders tip = do
     msgTryingFmt =
         "We are trying to create genesis block for " %ords %
         " epoch, our tip header is\n" %build
-    onVerFail err = do
-        logError $ colorize Red $
-            sformat ("We failed to verify our genesis block: " %build) err
-        throwM $ CardanoFatalError $ pretty err
 
 ----------------------------------------------------------------------------
 -- MainBlock creation
@@ -666,7 +663,8 @@ createMainBlock
     => SlotId
     -> Maybe ProxySKEither
     -> m (Either Text (MainBlock ssc))
-createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
+createMainBlock sId pSk =
+    reportingFatal $ withBlkSemaphore createMainBlockDo
   where
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockDo tip = do
@@ -674,7 +672,8 @@ createMainBlock sId pSk = withBlkSemaphore createMainBlockDo
         logInfo $ sformat msgFmt tipHeader
         canWrtUs <- usCanCreateBlock
         case (canCreateBlock sId tipHeader, canWrtUs) of
-            (_, False) -> return (Left "this software is obsolete", tip)
+            (_, False) ->
+                return (Left "this software can't create block", tip)
             (Nothing, True)  -> convertRes tip <$>
                 runExceptT (createMainBlockFinish sId pSk tipHeader)
             (Just err, True) -> return (Left err, tip)
@@ -719,7 +718,8 @@ createMainBlockFinish slotId pSk prevHeader = do
             fromMaybe (panic "Undo for tx not found")
                       (HM.lookup (fst tx) txUndo) : undos
     lift $ inAssertMode $ verifyBlocksPrefix (one (Right blk)) >>= \case
-        Left err -> logError $ sformat ("We've created bad block: "%stext) err
+        Left err ->
+            assertionFailed $ sformat ("We've created bad block: "%stext) err
         Right _ -> pass
     (pModifier,verUndo) <- runExceptT (usVerifyBlocks (one (Right blk))) >>= \case
         Left _ -> throwError "Couldn't get pModifier while creating MainBlock"
@@ -727,6 +727,8 @@ createMainBlockFinish slotId pSk prevHeader = do
     let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs)
                          pskUndo
                          (verUndo ^. _Wrapped . _neHead)
+    !() <- (blockUndo `deepseq` blk) `deepseq` pure ()
+    logDebug "Created main block/undos, applying"
     lift $ blk <$ applyBlocksUnsafe (one (Right blk, blockUndo)) (Just pModifier)
   where
     onBrokenTopo = throwError "Topology of local transactions is broken!"

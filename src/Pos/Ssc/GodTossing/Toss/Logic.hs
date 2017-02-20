@@ -32,7 +32,7 @@ import           Pos.Types                       (EpochIndex, EpochOrSlot (..),
                                                   MainBlockHeader, SlotId (siSlot),
                                                   epochIndexL, epochOrSlot,
                                                   getEpochOrSlot)
-import           Pos.Util                        (NewestFirst (..))
+import           Pos.Util                        (NewestFirst (..), getKeys)
 
 -- | Verify 'GtPayload' with respect to data provided by
 -- MonadToss. If data is valid it is also applied.  Otherwise
@@ -45,10 +45,10 @@ verifyAndApplyGtPayload eoh payload = do
     let blockCerts = _gpCertificates payload
     let curEpoch = either identity (^. epochIndexL) eoh
     stableCerts <- getStableCertificates curEpoch
-    richmenSet <- maybe (throwError $ NoRichmen curEpoch) pure =<< getRichmen curEpoch
-    logDebug $ sformat (" Stable certificates: "%listJson
+    richmenMap <- maybe (throwError $ NoRichmen curEpoch) pure =<< getRichmen curEpoch
+    logDebug $ sformat ("Stable certificates: "%listJson
                         %", richmen: "%listJson)
-                stableCerts richmenSet
+                stableCerts (getKeys richmenMap)
     checkPayload curEpoch payload
 
     -- Apply

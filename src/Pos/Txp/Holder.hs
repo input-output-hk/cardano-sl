@@ -32,7 +32,7 @@ import           Pos.Context               (WithNodeContext)
 import           Pos.DB.Class              (MonadDB)
 import           Pos.DB.Limits             (MonadDBLimits)
 import           Pos.DB.Holder             (DBHolder (..))
-import           Pos.Slotting.Class        (MonadSlots)
+import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra             (MonadSscMem)
 import           Pos.Txp.Class             (MonadTxpLD (..), TxpLDWrap (..))
 import           Pos.Txp.Types             (UtxoView)
@@ -47,8 +47,8 @@ import           Pos.Util.JsonLog          (MonadJL (..))
 
 newtype TxpLDHolder ssc m a = TxpLDHolder
     { getTxpLDHolder :: ReaderT (TxpLDWrap ssc) m a
-    } deriving (Functor, Applicative, Monad, MonadTrans,
-                MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
+    } deriving (Functor, Applicative, Monad, MonadTrans, MonadThrow,
+                MonadSlotsData, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, WithNodeContext ssc, MonadJL, MonadDBLimits,
                 CanLog, MonadMask, MonadSscMem ssc, MonadFix)
 

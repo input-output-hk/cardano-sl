@@ -30,7 +30,7 @@ import qualified Pos.DB.GState               as GS
 import           Pos.DB.Lrc                  (getIssuersStakes, getRichmenUS)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Lrc.Types               (FullRichmenData)
-import           Pos.Slotting.Class          (MonadSlots)
+import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Txp.Class               (MonadTxpLD (..))
 import           Pos.Types                   (Coin)
@@ -45,11 +45,30 @@ import           Pos.Util.JsonLog            (MonadJL (..))
 
 newtype DBPoll m a = DBPoll
     { runDBPoll :: m a
-    } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlots,
-                MonadCatch, MonadIO, MonadFail, HasLoggerName, MonadError e,
-                WithNodeContext ssc, MonadJL, CanLog, MonadMask, MonadUSMem,
-                MonadSscMem peka, MonadUtxoRead, MonadUtxo,
-                MonadTxpLD ssc, MonadBase io, MonadDelegation, MonadFix)
+    } deriving ( Functor
+               , Applicative
+               , Monad
+               , MonadThrow
+               , MonadSlotsData
+               , MonadSlots
+               , MonadCatch
+               , MonadIO
+               , MonadFail
+               , HasLoggerName
+               , MonadError e
+               , WithNodeContext ssc
+               , MonadJL
+               , CanLog
+               , MonadMask
+               , MonadUSMem
+               , MonadSscMem peka
+               , MonadUtxoRead
+               , MonadUtxo
+               , MonadTxpLD ssc
+               , MonadBase io
+               , MonadDelegation
+               , MonadFix
+               )
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code
@@ -112,3 +131,4 @@ instance (WithNodeContext ssc m, MonadDB ssc m, WithLogger m) =>
         lrcActionOnEpochReason epoch
             "couldn't get issuers's stakes"
             (fmap (Just . HM.lookup id) . getIssuersStakes)
+    getSlottingData = GS.getSlottingData

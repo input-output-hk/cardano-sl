@@ -48,6 +48,7 @@ import           Mockable                    (CurrentTime, Mockable, MonadMockab
                                               Production (..), Throw, bracket,
                                               currentTime, delay, finally, fork,
                                               killThread, throw)
+import           Network.QDisc.Fair          (fairQDisc)
 import           Network.Transport           (Transport, closeTransport)
 import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
@@ -86,6 +87,7 @@ import           Pos.Context                 (ContextHolder (..), NodeContext (.
 import           Pos.Crypto                  (createProxySecretKey, toPublic)
 import           Pos.DB                      (MonadDB (..), getTip, initNodeDBs,
                                               openNodeDBs, runDBHolder, _gStateDB)
+import qualified Pos.DB.Lrc                  as LrcDB
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Holder       (runDelegationT)
 import           Pos.DHT.Model               (MonadDHT (..), converseToNeighbors,
@@ -96,7 +98,8 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
                                               stopDHTInstance)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
-import           Pos.Slotting                (SlottingState (..))
+import           Pos.Slotting                (mkNtpSlottingVar, mkSlottingVar,
+                                              runNtpSlotting, runSlottingHolder)
 import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
                                               SscListenersClass, SscNodeContext,
                                               SscParams, sscCreateNodeContext)
@@ -104,8 +107,7 @@ import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscH
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp.Holder              (runTxpLDHolder)
 import qualified Pos.Txp.Types.UtxoView      as UV
-import           Pos.Types                   (Timestamp (Timestamp), timestampF,
-                                              unflattenSlotId)
+import           Pos.Types                   (Timestamp (Timestamp), timestampF)
 import           Pos.Update.MemState         (runUSHolder)
 import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
 import           Pos.Util.TimeWarp           (sec)
@@ -190,18 +192,22 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
     usingLoggerName lpRunnerTag $ do
        initNC <- sscCreateNodeContext @ssc sscnp
        modernDBs <- openNodeDBs npRebuildDb npDbPathM
-       -- FIXME: initialization logic must be in scenario.
+       -- TODO [CSL-775] ideally initialization logic should be in scenario.
        runDBHolder modernDBs . runCH np initNC $ initNodeDBs
        initTip <- runDBHolder modernDBs getTip
        stateM <- liftIO SM.newIO
        stateM_ <- liftIO SM.newIO
+       slottingVar <- runDBHolder modernDBs mkSlottingVar
+       ntpSlottingVar <- mkNtpSlottingVar
 
-       -- TODO need an effect-free way of running this into IO.
+       -- TODO [CSL-775] need an effect-free way of running this into IO.
        let runIO :: forall t . RawRealMode ssc t -> IO t
            runIO = runProduction .
                        usingLoggerName lpRunnerTag .
                        runDBHolder modernDBs .
                        runCH np initNC .
+                       runSlottingHolder slottingVar .
+                       runNtpSlotting ntpSlottingVar .
                        ignoreSscHolder .
                        runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .
                        runDelegationT def .
@@ -219,6 +225,8 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
 
        runDBHolder modernDBs .
           runCH np initNC .
+          runSlottingHolder slottingVar .
+          runNtpSlotting ntpSlottingVar .
           (mkStateAndRunSscHolder @ssc) .
           runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .
           runDelegationT def .
@@ -265,7 +273,6 @@ runServer transport packedLS_M (OutSpecs wouts) withNode afterNode (ActionSpec a
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo "%build) ourVerInfo
     node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) $ \__node ->
-        pure $
         NodeAction listeners $ \sendActions -> do
             t <- withNode __node
             a <- action ourVerInfo sendActions `finally` afterNode t
@@ -328,7 +335,9 @@ runCH params@NodeParams {..} sscNodeContext act = do
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     semaphore <- liftIO newEmptyMVar
     updSemaphore <- liftIO newEmptyMVar
-    lrcSync <- liftIO $ newTVarIO (True, 0)
+
+    -- TODO [CSL-775] lrc initialization logic is duplicated.
+    lrcSync <- liftIO . newTVarIO . (True,) =<< LrcDB.getEpochDefault
 
     let eternity = (minBound, maxBound)
         makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . toPublic
@@ -339,18 +348,13 @@ runCH params@NodeParams {..} sscNodeContext act = do
     queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     propQueue <- liftIO $ newTBQueueIO propagationQueueSize
     recoveryHeaderVar <- liftIO newEmptyTMVarIO
-    slottingStateVar <- do
-        _ssNtpData <- (0,) <$> currentTime
-        -- current time isn't quite validly, but it doesn't matter
-        let _ssNtpLastSlot = unflattenSlotId 0
-        liftIO $ newTVarIO SlottingState{..}
+    progressHeader <- liftIO newEmptyTMVarIO
     shutdownFlag <- liftIO $ newTVarIO False
     shutdownQueue <- liftIO $ newTBQueueIO allWorkersCount
     curTime <- liftIO Time.getCurrentTime
     let ctx =
             NodeContext
-            { ncSlottingState = slottingStateVar
-            , ncJLFile = jlFile
+            { ncJLFile = jlFile
             , ncSscContext = sscNodeContext
             , ncBlkSemaphore = semaphore
             , ncLrcSync = lrcSync
@@ -358,6 +362,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
             , ncBlockRetrievalQueue = queue
             , ncInvPropagationQueue = propQueue
             , ncRecoveryHeader = recoveryHeaderVar
+            , ncProgressHeader = progressHeader
             , ncUpdateSemaphore = updSemaphore
             , ncShutdownFlag = shutdownFlag
             , ncShutdownNotifyQueue = shutdownQueue
@@ -423,12 +428,15 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
         , kdcDumpPath = bpKademliaDump
         }
 
-createTransport :: (MonadIO m, WithLogger m, Mockable Throw m) => String -> Word16 -> m Transport
+createTransport
+    :: (MonadIO m, WithLogger m, Mockable Throw m)
+    => String -> Word16 -> m Transport
 createTransport ip port = do
     let tcpParams =
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =
                    Just $ fromIntegral networkConnectionTimeout
+             , TCP.tcpNewQDisc = fairQDisc
              })
     transportE <-
         liftIO $ TCP.createTransport "0.0.0.0" ip (show port) tcpParams

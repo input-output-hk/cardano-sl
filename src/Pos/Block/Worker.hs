@@ -15,8 +15,7 @@ import           Mockable                    (delay, fork)
 import           Pos.Communication.Protocol  (SendActions)
 import           Serokell.Util               (VerificationRes (..), listJson, pairF)
 import           Serokell.Util.Exceptions    ()
-import           System.Wlog                 (WithLogger, logDebug, logError, logInfo,
-                                              logWarning)
+import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication    ()
@@ -31,7 +30,9 @@ import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, psk
 import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Lrc                  (getLeaders)
 import           Pos.DB.Misc                 (getProxySecretKeys)
-import           Pos.Slotting                (MonadSlots (getCurrentTime), getSlotStart)
+import           Pos.Exception               (assertionFailed)
+import           Pos.Slotting                (currentTimeSlotting,
+                                              getSlotStartEmpatically)
 import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
 import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (..),
                                               Timestamp (Timestamp),
@@ -128,8 +129,8 @@ onNewSlotWhenLeader slotId pSk sendActions = do
         logCert (Right psk) =
             sformat ("using heavyweight proxy signature key "%build%", will do it soon") psk
     logInfo $ logReason <> maybe logLeader logCert pSk
-    nextSlotStart <- getSlotStart (succ slotId)
-    currentTime <- getCurrentTime
+    nextSlotStart <- getSlotStartEmpatically (succ slotId)
+    currentTime <- currentTimeSlotting
     let timeToCreate =
             max currentTime (nextSlotStart - Timestamp networkDiameter)
         Timestamp timeToWait = timeToCreate - currentTime
@@ -150,13 +151,16 @@ onNewSlotWhenLeader slotId pSk sendActions = do
             logInfo "onNewSlotWhenLeader: done"
     logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 
-verifyCreatedBlock :: (WithLogger m, SscHelpersClass ssc) => MainBlock ssc -> m ()
+verifyCreatedBlock
+    :: (WithLogger m, SscHelpersClass ssc, MonadThrow m)
+    => MainBlock ssc -> m ()
 verifyCreatedBlock blk =
     inAssertMode $
     case verifyBlock vbp (Right blk) of
         VerSuccess -> pass
         VerFailure errors ->
-            logError $ sformat ("New block failed some checks: " %listJson) errors
+            assertionFailed $
+            sformat ("New block failed some checks: " %listJson) errors
   where
     vbp =
         def

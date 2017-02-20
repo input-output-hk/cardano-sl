@@ -22,7 +22,9 @@ data Undo = Undo
     { undoTx  :: !TxUndo
     , undoPsk :: ![ProxySKHeavy] -- ^ PSKs we've overwritten/deleted
     , undoUS  :: !USUndo
-    }
+    } deriving (Generic)
+
+instance NFData Undo
 
 instance Default Undo where
     def = Undo {undoTx = mempty, undoPsk = mempty, undoUS = def}

@@ -15,8 +15,8 @@ module Pos.DB.GState.Update
        , getAppProposal
        , getProposalStateByApp
        , getConfirmedSV
-       , getSlotDuration
        , getMaxBlockSize
+       , getSlottingData
 
          -- * Operations
        , UpdateOp (..)
@@ -41,14 +41,14 @@ module Pos.DB.GState.Update
        ) where
 
 import           Control.Monad.Trans.Maybe  (MaybeT (..), runMaybeT)
-import           Data.Time.Units            (Millisecond)
+import           Data.Time.Units            (convertUnit)
 import qualified Database.RocksDB           as Rocks
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
 import           Pos.Binary.Class           (encodeStrict)
-import           Pos.Binary.DB              ()
-import           Pos.Constants              (ourAppName)
+import           Pos.Binary.Slotting        ()
+import           Pos.Constants              (epochSlots, ourAppName)
 import           Pos.Crypto                 (hash)
 import           Pos.DB.Class               (MonadDB, getUtxoDB)
 import           Pos.DB.Error               (DBError (DBMalformed))
@@ -61,9 +61,10 @@ import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
 import           Pos.DB.Types               (NodeDBs (..))
 import           Pos.Genesis                (genesisBlockVersion, genesisBlockVersionData,
                                              genesisSlotDuration, genesisSoftwareVersions)
+import           Pos.Slotting.Types         (EpochSlottingData (..), SlottingData (..))
 import           Pos.Types                  (ApplicationName, BlockVersion,
                                              ChainDifficulty, NumSoftwareVersion, SlotId,
-                                             SoftwareVersion (..))
+                                             SoftwareVersion (..), Timestamp (..))
 import           Pos.Update.Core            (BlockVersionData (..), UpId,
                                              UpdateProposal (..))
 import           Pos.Update.Poll.Types      (BlockVersionState (..),
@@ -94,11 +95,6 @@ getAdoptedBVFull = maybeThrow (DBMalformed msg) =<< getAdoptedBVFullMaybe
     msg =
         "Update System part of GState DB is not initialized (last adopted BV is missing)"
 
--- | Get actual slot duration.
-getSlotDuration :: MonadDB ssc m => m Millisecond
-getSlotDuration = pure genesisSlotDuration
--- getSlotDuration = bvdSlotDuration <$> getAdoptedBVData
-
 -- | Get maximum block size (in bytes).
 getMaxBlockSize :: MonadDB ssc m => m Byte
 getMaxBlockSize = bvdMaxBlockSize <$> getAdoptedBVData
@@ -126,6 +122,13 @@ getConfirmedSV
     => ApplicationName -> m (Maybe NumSoftwareVersion)
 getConfirmedSV = getBi . confirmedVersionKey
 
+-- | Get most recent 'SlottingData'.
+getSlottingData :: MonadDB ssc m => m SlottingData
+getSlottingData = maybeThrow (DBMalformed msg) =<< getBi slottingDataKey
+  where
+    msg =
+        "Update System part of GState DB is not initialized (slotting data is missing)"
+
 ----------------------------------------------------------------------------
 -- Operations
 ----------------------------------------------------------------------------
@@ -140,6 +143,7 @@ data UpdateOp
     | SetAdopted !BlockVersion BlockVersionData
     | SetBVState !BlockVersion !BlockVersionState
     | DelBV !BlockVersion
+    | PutSlottingData !SlottingData
 
 instance RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
@@ -166,6 +170,8 @@ instance RocksBatchOp UpdateOp where
         [Rocks.Put (bvStateKey bv) (encodeStrict st)]
     toBatchOp (DelBV bv) =
         [Rocks.Del (bvStateKey bv)]
+    toBatchOp (PutSlottingData sd) =
+        [Rocks.Put slottingDataKey (encodeStrict sd)]
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -174,13 +180,24 @@ instance RocksBatchOp UpdateOp where
 prepareGStateUS
     :: forall ssc m.
        MonadDB ssc m
-    => m ()
-prepareGStateUS =
+    => Timestamp -> m ()
+prepareGStateUS systemStart =
     unlessM isInitialized $ do
         db <- getUtxoDB
         flip rocksWriteBatch db $
+            PutSlottingData genesisSlottingData :
             SetAdopted genesisBlockVersion genesisBlockVersionData :
             map ConfirmVersion genesisSoftwareVersions
+  where
+    esdPenult =
+        EpochSlottingData
+        {esdSlotDuration = genesisSlotDuration, esdStart = systemStart}
+    epoch1Start = systemStart + epochSlots * Timestamp (convertUnit genesisSlotDuration)
+    esdLast =
+        EpochSlottingData
+        {esdSlotDuration = genesisSlotDuration, esdStart = epoch1Start}
+    genesisSlottingData =
+        SlottingData {sdPenult = esdPenult, sdPenultEpoch = 0, sdLast = esdLast}
 
 isInitialized :: MonadDB ssc m => m Bool
 isInitialized = isJust <$> getAdoptedBVFullMaybe
@@ -326,6 +343,9 @@ confirmedProposalKeySV = encodeWithKeyPrefix @ConfPropIter
 
 confirmedIterationPrefix :: ByteString
 confirmedIterationPrefix = "us/cp/"
+
+slottingDataKey :: ByteString
+slottingDataKey = "us/slotting/"
 
 ----------------------------------------------------------------------------
 -- Details

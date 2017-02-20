@@ -49,6 +49,7 @@ import           Pos.Context                   (NodeContext (..), SomeInvMsg (..
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (DHTNode, MonadDHT (..),
                                                 converseToNeighbors, converseToNode)
+import           Pos.Reporting                 (reportingFatal)
 import           Pos.WorkMode                  (MinWorkMode, WorkMode)
 
 -- | Typeclass for general Inv/Req/Dat framework. It describes monads,
@@ -312,19 +313,20 @@ relayWorkers :: forall ssc m .
              , Bi NOP, Message NOP
              )
              => ([WorkerSpec m], OutSpecs)
-relayWorkers = first (:[]) $ worker allOutSpecs $
-  \sendActions -> handleAll handleWE $ do
-    queue <- ncInvPropagationQueue <$> getNodeContext
-    forever $ do
-        inv <- atomically $ readTBQueue queue
-        case inv of
+relayWorkers =
+    first (:[]) $ worker allOutSpecs $ \sendActions ->
+        handleAll handleWE $ reportingFatal $ action sendActions
+  where
+    action sendActions = do
+        queue <- ncInvPropagationQueue <$> getNodeContext
+        forever $ atomically (readTBQueue queue) >>= \case
             SomeInvMsg (i@(Left (InvMsg{..}))) -> do
                 logDebug $
-                    sformat ("Propagation data with keys: "%listJson%" and tag: "%build) imKeys imTag
+                    sformat
+                    ("Propagation data with keys: "%listJson%" and tag: "%build) imKeys imTag
                 converseToNeighbors sendActions (convHandler i)
             SomeInvMsg (Right _) ->
                 logWarning $ "DataMsg is contains in inv propagation queue"
-  where
     convHandler inv __peerId
         (ConversationActions{..}::
         (ConversationActions (InvOrData tag1 key1 contents1) (ReqMsg key1 tag1) m)) = send inv

@@ -38,7 +38,7 @@ mpcSendInterval: 100 # must be less than (2 * k * slotDuration - networkDiameter
 lightDlgConfirmationTimeout: 500
 
 # Production start time
-productionNetworkStartTime: 1486848300
+productionNetworkStartTime: 1487197500
 
 # NTP
 ntpResponseTimeout: 1000000 # 1 sec

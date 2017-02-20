@@ -64,10 +64,11 @@ getSystemStart sscProxy inst args
             Nothing ->
                 if timeLord args
                     then runTimeLordReal (loggingParams "time-lord" args)
-                    else runTimeSlaveReal
-                             sscProxy
-                             inst
-                             (baseParams "time-slave" args)
+                    else do params <- liftIO $ baseParams "time-slave" args
+                            runTimeSlaveReal
+                                sscProxy
+                                inst
+                                params
             Just systemStart -> return systemStart
 
 loggingParams :: LoggerName -> Args -> LoggingParams
@@ -79,16 +80,19 @@ loggingParams tag Args{..} =
     , lpEkgPort = monitorPort
     }
 
-baseParams :: LoggerName -> Args -> BaseParams
-baseParams loggingTag args@Args {..} =
-    BaseParams
-    { bpLoggingParams = loggingParams loggingTag args
-    , bpIpPort = ipPort
-    , bpDHTPeers = CLI.dhtPeers commonArgs
-    , bpDHTKey = dhtKey
-    , bpDHTExplicitInitial = CLI.dhtExplicitInitial commonArgs
-    , bpKademliaDump = kademliaDumpPath
-    }
+baseParams :: LoggerName -> Args -> IO BaseParams
+baseParams loggingTag args@Args {..} = do
+    filePeers <- maybe (return []) CLI.readPeersFile
+                     (CLI.dhtPeersFile commonArgs)
+    let allPeers = CLI.dhtPeers commonArgs ++ filePeers
+    return $ BaseParams
+        { bpLoggingParams = loggingParams loggingTag args
+        , bpIpPort = ipPort
+        , bpDHTPeers = allPeers
+        , bpDHTKey = dhtKey
+        , bpDHTExplicitInitial = CLI.dhtExplicitInitial commonArgs
+        , bpKademliaDump = kademliaDumpPath
+        }
 
 action :: Args -> RealModeResources -> Production ()
 action args@Args {..} res = do
@@ -203,14 +207,14 @@ getNodeParams args@Args {..} systemStart = do
         userSecretWithGenesisKey args =<<
         updateUserSecretVSS args =<<
         peekUserSecret (getKeyfilePath args)
-
+    params <- liftIO $ baseParams "node" args
     return NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB
         , npSecretKey = primarySK
         , npUserSecret = userSecret
         , npSystemStart = systemStart
-        , npBaseParams = baseParams "node" args
+        , npBaseParams = params
         , npCustomUtxo =
                 genesisUtxo $
 #ifdef DEV_MODE
@@ -301,4 +305,5 @@ main :: IO ()
 main = do
     printFlags
     args <- getNodeOptions
-    bracketResources (baseParams "node" args) (action args)
+    params <- baseParams "node" args
+    bracketResources params (action args)

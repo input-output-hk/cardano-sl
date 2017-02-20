@@ -16,8 +16,7 @@ import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Ssc.NistBeacon         (SscNistBeacon)
 import qualified Pos.Types                  as BT
 
-import           Test.Pos.Util              (binaryTest, networkBinaryTest,
-                                             msgLenLimitedTest)
+import           Test.Pos.Util              (binaryTest, networkBinaryTest)
 
 spec :: Spec
 spec = describe "Block types" $ do
@@ -66,5 +65,3 @@ spec = describe "Block types" $ do
                 describe "Body" $ do
                     binaryTest @(BT.Body (BT.MainBlockchain SscNistBeacon))
                     binaryTest @(BT.Body (BT.MainBlockchain SscGodTossing))
-    describe "Message length limit" $ do
-        msgLenLimitedTest @BT.MsgGetBlocks

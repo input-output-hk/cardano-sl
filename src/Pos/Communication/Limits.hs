@@ -43,8 +43,8 @@ import           Universum
 
 import           Pos.Binary.Class                 (Bi (..))
 import qualified Pos.Binary.Class                 as Bi
-import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks (..),
-                                                   MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Block.Network.Types          (MsgBlock, MsgHeaders (..),
+                                                   MsgGetHeaders (..))
 import qualified Pos.Constants                    as Const
 import           Pos.Communication.Protocol       (ConversationActions (..))
 import           Pos.Communication.Types.Relay    (DataMsg (..), InvMsg, ReqMsg,
@@ -160,10 +160,6 @@ instance MessageLimited (MsgBlock ssc) where
     type LimitType (MsgBlock ssc) = Limit (MsgBlock ssc)
     getMsgLenLimit _ = Limit <$> DB.getMaxBlockSize
 
-instance MessageLimited MsgGetBlocks where
-    type LimitType MsgGetBlocks = Limit MsgGetBlocks
-    getMsgLenLimit _ = return msgLenLimit
-
 instance MessageLimited MsgGetHeaders where
     type LimitType MsgGetHeaders = Limit MsgGetHeaders
     getMsgLenLimit _ = return $
@@ -173,6 +169,7 @@ instance MessageLimited (MsgHeaders ssc) where
     type LimitType (MsgHeaders ssc) = Limit (MsgHeaders ssc)
     getMsgLenLimit _ = return $
         MsgHeaders <$> vectorOf Const.blkSecurityParam
+            -- TODO [CSL-804] put to update proposal consts
             (Limit Const.genesisMaxHeaderSize)
 
 instance MessageLimited (InvMsg key tag) where
@@ -247,9 +244,6 @@ instance MessageLimited (DataMsg contents)
 -- 3) Insert that value into instance.
 class MessageLimitedPure a where
     msgLenLimit :: Limit a
-
-instance MessageLimitedPure MsgGetBlocks where
-    msgLenLimit = MsgGetBlocks <$> msgLenLimit <*> msgLenLimit
 
 instance MessageLimitedPure (InvMsg key tag) where
     msgLenLimit = Limit Const.genesisMaxReqSize

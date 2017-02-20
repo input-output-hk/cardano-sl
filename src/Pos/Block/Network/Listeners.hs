@@ -25,7 +25,7 @@ import           Pos.Block.Network.Announce  (handleHeadersCommunication)
 import           Pos.Block.Network.Retrieval (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types     (MsgBlock (..), MsgGetBlocks (..),
                                               MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Limits    (LimitedLength, recvLimited, reifyMsgLimit)
+import           Pos.Communication.Limits    (recvLimited, reifyMsgLimit)
 import           Pos.Communication.Protocol  (ConversationActions (..), HandlerSpec (..),
                                               ListenerSpec (..), OutSpecs, PeerData,
                                               listenerConv, mergeLs, messageName)
@@ -89,16 +89,12 @@ handleGetBlocks
     :: forall ssc m.
        (WorkMode ssc m)
     => m (ListenerSpec m, OutSpecs)
-handleGetBlocks = reifyMsgLimit (Proxy :: Proxy MsgGetBlocks) $
-    \(_ :: Proxy s) ->
-      return $ listenerConv $
-        \_ __peerId (conv :: ConversationActions
-                               (MsgBlock ssc)
-                               (LimitedLength s MsgGetBlocks) m) ->
-        whenJustM (recvLimited conv) $ \mgb@MsgGetBlocks{..} -> do
-            logDebug $ sformat ("Got request on handleGetBlocks: "%build) mgb
-            hashes <- getHeadersFromToIncl mgbFrom mgbTo
-            maybe warn (sendBlocks conv) hashes
+handleGetBlocks = return $ listenerConv $
+    \_ __peerId (conv::ConversationActions (MsgBlock ssc) (MsgGetBlocks) m) ->
+    whenJustM (recv conv) $ \mgb@MsgGetBlocks{..} -> do
+        logDebug $ sformat ("Got request on handleGetBlocks: "%build) mgb
+        hashes <- getHeadersFromToIncl mgbFrom mgbTo
+        maybe warn (sendBlocks conv) hashes
   where
     warn = logWarning $ "getBlocksByHeaders@retrieveHeaders returned Nothing"
     failMalformed =

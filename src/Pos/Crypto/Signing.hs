@@ -135,7 +135,7 @@ parseFullPublicKey s =
 -- TODO: this is just a placeholder for actual (not ready yet) derivation
 -- of keypair from seed in cardano-crypto API
 createKeypairFromSeed :: BS.ByteString -> Maybe (CC.XPub, CC.XPrv)
-createKeypairFromSeed = undefined
+createKeypairFromSeed = panic "Keypair generation is not ready yet!"
 
 -- | Generate a key pair.
 keyGen :: MonadIO m => m (PublicKey, SecretKey)

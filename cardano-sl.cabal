@@ -215,6 +215,7 @@ library
                         Pos.Crypto.AsBinary
                         Pos.Crypto.Hashing
                         Pos.Crypto.Random
+                        Pos.Crypto.SafeSigning
                         Pos.Crypto.SecretSharing
                         Pos.Crypto.Signing
 

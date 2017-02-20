@@ -77,7 +77,7 @@ readPeersFile path = do
     xs <- lines <$> readFile path
     let parseLine x = case parse (dhtNodeParser <* eof) "" (toString x) of
             Left err -> fail $ formatToString
-                ("error when parsing peer "%build%
+                ("error when parsing peer "%shown%
                  " from peers file "%build%": "%shown) x path err
             Right a -> return a
     mapM parseLine xs

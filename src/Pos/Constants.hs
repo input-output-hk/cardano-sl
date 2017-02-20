@@ -27,10 +27,10 @@ module Pos.Constants
        , genesisSlotDuration
        , genesisMaxBlockSize
        , genesisMaxHeaderSize
-       , genesisMaxGetHeadersNum
+       , maxGetHeadersNum
        , genesisMaxTxSize
-       , genesisMaxReqSize
-       , genesisMaxInvSize
+       , maxReqSize
+       , maxInvSize
        , genesisMpcThd
        , genesisHeavyDelThd
        , genesisUpdateVoteThd
@@ -160,20 +160,20 @@ genesisMaxHeaderSize :: Byte
 genesisMaxHeaderSize = ccGenesisMaxHeaderSize $ compileConfig
 
 -- | Maximum number of block headers to request at once
-genesisMaxGetHeadersNum :: Int
-genesisMaxGetHeadersNum = ccGenesisMaxGetHeadersNum $ compileConfig
+maxGetHeadersNum :: Int
+maxGetHeadersNum = ccMaxGetHeadersNum $ compileConfig
 
 -- | See 'Pos.CompileConfig.ccGenesisMaxTxSize'.
 genesisMaxTxSize :: Byte
 genesisMaxTxSize = ccGenesisMaxTxSize cc
 
--- | See 'Pos.CompileConfig.ccGenesisMaxReqSize'.
-genesisMaxReqSize :: Byte
-genesisMaxReqSize = ccGenesisMaxReqSize cc
+-- | See 'Pos.CompileConfig.ccMaxReqSize'.
+maxReqSize :: Byte
+maxReqSize = ccMaxReqSize cc
 
--- | See 'Pos.CompileConfig.ccGenesisMaxInvSize'.
-genesisMaxInvSize :: Byte
-genesisMaxInvSize = ccGenesisMaxInvSize cc
+-- | See 'Pos.CompileConfig.ccMaxInvSize'.
+maxInvSize :: Byte
+maxInvSize = ccMaxInvSize cc
 
 -- | See 'Pos.CompileConfig.ccGenesisMpcThd'.
 genesisMpcThd :: CoinPortion

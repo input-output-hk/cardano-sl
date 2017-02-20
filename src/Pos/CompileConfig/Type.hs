@@ -35,7 +35,7 @@ data CompileConfig = CompileConfig
       -- ^ Maximum block size in bytes
     , ccGenesisMaxHeaderSize          :: !Byte
       -- ^ Maximum block header size in bytes
-    , ccGenesisMaxGetHeadersNum       :: !Int
+    , ccMaxGetHeadersNum              :: !Int
       -- ^ Maximum number of block headers to request at once
 
 ----------------------------------------------------------------------------
@@ -76,9 +76,9 @@ data CompileConfig = CompileConfig
 ----------------------------------------------------------------------------
 -- -- Relay
 ----------------------------------------------------------------------------
-    , ccGenesisMaxReqSize             :: !Byte
+    , ccMaxReqSize                    :: !Byte
       -- ^ Maximum `ReqMsg` size in bytes
-    , ccGenesisMaxInvSize             :: !Byte
+    , ccMaxInvSize                    :: !Byte
       -- ^ Maximum `InvMsg` size in bytes
 
 ----------------------------------------------------------------------------

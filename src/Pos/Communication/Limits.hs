@@ -163,7 +163,7 @@ instance MessageLimited (MsgBlock ssc) where
 instance MessageLimited MsgGetHeaders where
     type LimitType MsgGetHeaders = Limit MsgGetHeaders
     getMsgLenLimit _ = return $
-        MsgGetHeaders <$> vector Const.genesisMaxGetHeadersNum <*> msgLenLimit
+        MsgGetHeaders <$> vector Const.maxGetHeadersNum <*> msgLenLimit
 
 instance MessageLimited (MsgHeaders ssc) where
     type LimitType (MsgHeaders ssc) = Limit (MsgHeaders ssc)
@@ -246,10 +246,10 @@ class MessageLimitedPure a where
     msgLenLimit :: Limit a
 
 instance MessageLimitedPure (InvMsg key tag) where
-    msgLenLimit = Limit Const.genesisMaxReqSize
+    msgLenLimit = Limit Const.maxReqSize
 
 instance MessageLimitedPure (ReqMsg key tag) where
-    msgLenLimit = Limit Const.genesisMaxReqSize
+    msgLenLimit = Limit Const.maxReqSize
 
 instance MessageLimitedPure Commitment where
     msgLenLimit =

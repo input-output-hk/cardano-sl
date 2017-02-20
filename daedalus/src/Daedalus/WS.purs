@@ -1,11 +1,15 @@
 module Daedalus.WS where
 
+-- This module implements WS channel with wallet. Note that this is still
+-- work in progress and might be changed significantly.
+
 import Prelude
 import WebSocket as WS
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (writeRef, REF, readRef, Ref)
 import Control.Monad.Eff.Var (($=))
+import Control.Monad.Aff (later', launchAff, liftEff')
 import DOM.Event.Types (Event)
 import DOM.Websocket.Event.Types (MessageEvent)
 import Daedalus.Constants (wsUri)
@@ -37,6 +41,13 @@ data WSConnection
     | WSConnectionRequested
     | WSConnected WS.Connection
 
+isConnected :: forall eff. WSState eff -> Eff (ref :: REF, ws :: WS.WEBSOCKET, err :: EXCEPTION | eff) Boolean
+isConnected (WSState state) = do
+    connection <- readRef state.connection
+    pure $ case connection of
+        WSConnected (WS.Connection _) -> true
+        _ -> false
+
 closeConn :: forall eff. WSState eff -> Eff (ref :: REF, ws :: WS.WEBSOCKET
     , err :: EXCEPTION | eff) Unit
 closeConn (WSState state) = do
@@ -53,6 +64,7 @@ openConn (WSState state) = do
         WSNotConnected -> mkConn (WSState state)
         _ -> pure unit
 
+-- Initializes connection. Don't call this more then once!
 mkConn :: forall eff. WSState eff -> Eff (ref :: REF, ws :: WS.WEBSOCKET
     , err :: EXCEPTION | eff) Unit
 mkConn (WSState state) = do
@@ -66,13 +78,24 @@ mkConn (WSState state) = do
             Nothing -> pure unit
     socket.onopen $= \_ -> onOpened (WSState state) $ WS.Connection socket
 
-onClose :: forall eff. WSState eff -> Eff (ref :: REF | eff) Unit
-onClose (WSState state) = do
+onClose :: forall eff. WSState eff -> Eff (ref :: REF, ws :: WS.WEBSOCKET, err :: EXCEPTION | eff) Unit
+onClose st@(WSState state) = do
     -- FIXME: temp solution. Try reconnecting after close
-    case state.notifyCb of
-        Just cb -> unsafeInterleaveEff $ runEffFn1 cb "ConnectionClosed"
-        Nothing -> pure unit
     writeRef state.connection WSNotConnected
+    case state.notifyCb of
+        Just cb -> do
+            -- NOTE: this logic was introduced in order to resolve someone calling mkConn multiple times.
+            -- as REF is not working as I expected this logic of checking is it connected doesn't add
+            -- anything to the table but I hope there will be time to fix this. Currecntly if user by accident calls
+            -- mkConn more then once, there will be two mkConn trying to reconnect and they will interfer with each
+            -- other.
+            notConnected <- map not $ isConnected st
+            when notConnected $
+                void $ launchAff $ later' 5000 $ liftEff' $ mkConn st
+
+            -- FIXME: don't hardcode the message. Create new event!
+            unsafeInterleaveEff $ runEffFn1 cb "{\"tag\":\"ConnectionClosedReconnecting\",\"contents\":[]}"
+        Nothing -> pure unit
 
 onMessage :: forall eff. WSState eff -> MessageEvent -> Eff eff Unit
 onMessage (WSState state) event = do

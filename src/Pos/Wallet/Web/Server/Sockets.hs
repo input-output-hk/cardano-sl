@@ -16,7 +16,6 @@ module Pos.Wallet.Web.Server.Sockets
        , upgradeApplicationWS
        , notify
        , runWalletWS
-       , getWalletWebSocketsState
        ) where
 
 import           Control.Concurrent.STM.TVar    (TVar, newTVarIO, readTVarIO, writeTVar)
@@ -148,6 +147,3 @@ type WebWalletSockets m = (MonadWalletWebSockets m, MonadIO m)
 
 notify :: WebWalletSockets m => NotifyEvent -> m ()
 notify msg = getWalletWebSockets >>= flip sendWS msg
-
-getWalletWebSocketsState :: Monad m => WalletWebSockets m ConnectionsVar
-getWalletWebSocketsState = WalletWebSockets ask

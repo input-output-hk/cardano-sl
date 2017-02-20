@@ -50,7 +50,7 @@ import qualified Pos.Binary.Class     as Bi
 -- | A wrapper over 'ByteString' for adding type safety to
 -- 'Pos.Crypto.Pki.encryptRaw' and friends.
 newtype Raw = Raw ByteString
-    deriving (Bi, Eq, Ord, Show, Typeable)
+    deriving (Bi, Eq, Ord, Show, Typeable, NFData)
 
 ----------------------------------------------------------------------------
 -- SafeCopy
@@ -77,7 +77,7 @@ getCopyBinary typeName = contain $ do
 -- | See `Pos.Crypto.SerTypes` for details on this types
 newtype AsBinary a = AsBinary
     { getAsBinary :: ByteString
-    } deriving (Show, Eq, Ord, Hashable)
+    } deriving (Show, Eq, Ord, Hashable, NFData)
 
 instance SafeCopy (AsBinary a) where
     getCopy = contain $ AsBinary <$> safeGet

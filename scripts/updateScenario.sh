@@ -4,6 +4,8 @@ build=false
 runNode=false
 wallet_cli=""
 
+echo "Parsing command line arguments..."
+
 while [[ $# -gt 0 ]]
 do
   key="$1"
@@ -33,7 +35,10 @@ csldir=$(pwd)
 serverPort=8100 # Port for webfsd
 updatetar="binaries_000_010.tar"
 
+
 # Sanity checks
+echo "Sanity checks..."
+
 which stack > /dev/null
 which tmux > /dev/null
 which webfsd > /dev/null
@@ -42,13 +47,16 @@ if [ ! ${csldir: -10} == "cardano-sl" ]; then echo "You should launch this scrip
 if [ -z "$TMUX" ]; then echo "You should run this script inside tmux session" && exit; fi
 
 # Checking cardano-updater repo is there, cloning if not
+echo "Checking cardano-updater repo..."
 cd ..
 if [ ! -d cardano-updater ]; then
     echo "Didn't manage to locate cardano-update repo, cloning"
     git clone https://github.com/input-output-hk/cardano-updater.git
 fi
 cd cardano-updater
+echo "Searching for cardano-updater install path..."
 cardano_updater_local_bin=$(stack path --local-install-root)/bin
+echo "Searching for cardano-updater binary..."
 updater=$(find $cardano_updater_local_bin -name "cardano-updater" -exec readlink -f {} \; | head -n 1)
 cd $csldir
 
@@ -59,14 +67,6 @@ sleep 5
 sleep 20
 tmux select-window -t 0
 
-if $runNode; then
-  # Launcher launching
-  echo "Launching launcher"
-  sleep 1
-  rm -rf update-node-tmp.log
-  stack exec cardano-launcher -- --node binaries_v000/cardano-node --node-log-config scripts/update-log-config.yaml -n "--update-server"  -n "http://localhost:$serverPort" -n "--update-latest-path" -n "updateDownloaded.tar" -n "--listen" -n "127.0.0.1:3004" -n "--peer" -n "127.0.0.1:3000/a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA=" -n "--flat-distr" -n "(3,100000)" -n "--rebuild-db" -n "--wallet" -n "--web-port" -n 8090 --updater $updater -u "dir" -u "binaries_v000" --node-timeout 5 --report-server http://localhost:8555/ --update-archive updateDownloaded.tar $wallet_cli -w 1000 &
-  echo "Luncher started"
-fi
 
 if $build; then
   # Building updater
@@ -87,6 +87,17 @@ if $build; then
   cp -v $csl_bin/* binaries_v000/
   beforeBumpMd5=$(md5sum binaries_v000/cardano-node)
   echo "$beforeBumpMd5"
+
+  if $runNode; then
+    # Launcher launching
+    echo "Launching launcher"
+    sleep 1
+    rm -rf update-node-tmp.log
+    stack exec cardano-launcher -- --node binaries_v000/cardano-node --node-log-config scripts/update-log-config.yaml -n "--update-server"  -n "http://localhost:$serverPort" -n "--update-latest-path" -n "updateDownloaded.tar" -n "--listen" -n "127.0.0.1:3004" -n "--peer" -n "127.0.0.1:3000/a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA=" -n "--flat-distr" -n "(3,100000)" -n "--rebuild-db" -n "--wallet" -n "--web-port" -n 8090 --updater $updater -u "dir" -u "binaries_v000" --node-timeout 5 --report-server http://localhost:8555/ --update-archive updateDownloaded.tar $wallet_cli &
+    echo "Luncher started"
+  fi
+
+  echo "Waiting 10 secs before updating to new version"
   
   # Updating version in csl sources to v0.1.0
   sed -i.backup "s/BlockVersion 0 0 0/BlockVersion 0 1 0/" src/Pos/Constants.hs
@@ -125,7 +136,7 @@ sleep 1
 echo "Running: '$walletcmd'"
 
 walletOutputLog='walletOutput.log'
-until $(timeout 90 ./scripts/wallet.sh cmd --commands "$walletcmd" -p 0 > $walletOutputLog)
+until $(timeout 90 ./scripts/wallet.sh cmd --commands "$walletcmd" > $walletOutputLog)
 do 
     echo "Wallet exited with non-zero code $?, retrying" 
     cat $walletOutputLog
@@ -150,7 +161,7 @@ rm -rfv $walletOutputLog
 echo "Running wallet 2 in 10s"
 pkill cardano-wallet
 sleep 10
-until $(timeout 60 ./scripts/wallet.sh cmd --commands "vote 1 y $proposalHash" -p 0 &> /dev/tty)
+until $(timeout 60 ./scripts/wallet.sh cmd --commands "vote 1 y $proposalHash" &> /dev/tty)
 do 
   echo "Wallet 2 exited with non-zero code $?, retrying"
   pkill cardano-wallet

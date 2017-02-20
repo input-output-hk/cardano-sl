@@ -35,6 +35,7 @@ import           Pos.Lrc.Consumers           (allLrcConsumers)
 import           Pos.Lrc.Error               (LrcError (..))
 import           Pos.Lrc.FollowTheSatoshi    (followTheSatoshiM)
 import           Pos.Lrc.Logic               (findAllRichmenMaybe)
+import           Pos.Reporting               (reportMisbehaviourMasked)
 import           Pos.Ssc.Class               (SscWorkersClass)
 import           Pos.Ssc.Extra               (sscCalculateSeed)
 import           Pos.Types                   (EpochIndex, EpochOrSlot (..),
@@ -51,8 +52,12 @@ lrcOnNewSlotWorker
     :: (SscWorkersClass ssc, WorkMode ssc m)
     => (WorkerSpec m, OutSpecs)
 lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
-    when (siSlot < slotSecurityParam) $ lrcSingleShot siEpoch `catch` onLrcError
+    when (siSlot < slotSecurityParam) $
+    (lrcSingleShot siEpoch `catch` reportError) `catch` onLrcError
   where
+    reportError (SomeException e) = do
+        reportMisbehaviourMasked $ "Lrc worker failed with error: " <> show e
+        throwM e
     onLrcError UnknownBlocksForLrc =
         logInfo
             "LRC worker can't do anything, because recent blocks aren't known"

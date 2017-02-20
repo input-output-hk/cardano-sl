@@ -34,6 +34,7 @@ module Pos.Delegation.Logic
        ) where
 
 import           Control.Concurrent.STM.TVar (readTVar, writeTVar)
+import           Control.Exception           (Exception (..))
 import           Control.Lens                (makeLenses, uses, (%=), (.=), _Wrapped)
 import           Control.Monad.Trans.Except  (runExceptT, throwE)
 import qualified Data.HashMap.Strict         as HM
@@ -67,6 +68,8 @@ import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (.
                                               dwMessageCache, dwProxySKPool,
                                               dwThisEpochPosted)
 import           Pos.Delegation.Types        (SendProxySK (..))
+import           Pos.Exception               (cardanoExceptionFromException,
+                                              cardanoExceptionToException)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Types                   (Block, HeaderHash, ProxySKHeavy,
                                               ProxySKLight, ProxySigLight, addressHash,
@@ -129,9 +132,12 @@ getPSKsFromThisEpoch tip =
 data DelegationError =
     -- | Can't apply blocks to state of transactions processing.
     DelegationCantApplyBlocks Text
-    deriving (Show)
+    deriving (Typeable, Show)
 
-instance Exception DelegationError
+instance Exception DelegationError where
+    toException = cardanoExceptionToException
+    fromException = cardanoExceptionFromException
+    displayException = toString . pretty
 
 instance B.Buildable DelegationError where
     build (DelegationCantApplyBlocks msg) =

@@ -176,6 +176,13 @@ instance ToCapture (Capture "time" POSIXTime) where
         , _capDesc = "Postpone update until specific date/time"
         }
 
+instance ToCapture (Capture "key" FilePath) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "key"
+        , _capDesc = "File path to the secret key"
+        }
+
 instance ToSample WalletError where
     toSamples Proxy = notImplemented
 

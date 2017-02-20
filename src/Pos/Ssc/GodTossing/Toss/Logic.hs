@@ -46,7 +46,7 @@ verifyAndApplyGtPayload eoh payload = do
     let curEpoch = either identity (^. epochIndexL) eoh
     stableCerts <- getStableCertificates curEpoch
     richmenMap <- maybe (throwError $ NoRichmen curEpoch) pure =<< getRichmen curEpoch
-    logDebug $ sformat (" Stable certificates: "%listJson
+    logDebug $ sformat ("Stable certificates: "%listJson
                         %", richmen: "%listJson)
                 stableCerts (getKeys richmenMap)
     checkPayload curEpoch payload

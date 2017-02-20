@@ -69,7 +69,9 @@ data BlockSignature ssc
     = BlockSignature (Signature (MainToSign ssc))
     | BlockPSignatureEpoch (ProxySigLight (MainToSign ssc))
     | BlockPSignatureSimple (ProxySigHeavy (MainToSign ssc))
-    deriving (Show, Eq)
+    deriving (Show, Eq, Generic)
+
+instance NFData (BodyProof (MainBlockchain ssc)) => NFData (BlockSignature ssc)
 
 instance Buildable (BlockSignature ssc) where
     build (BlockSignature s)        = bprint ("BlockSignature: "%build) s
@@ -97,6 +99,8 @@ data MainExtraHeaderData = MainExtraHeaderData
     }
     deriving (Eq, Show, Generic)
 
+instance NFData MainExtraHeaderData
+
 instance Buildable MainExtraHeaderData where
     build MainExtraHeaderData {..} =
       bprint ( "    block: v"%build%"\n"
@@ -108,7 +112,7 @@ instance Buildable MainExtraHeaderData where
 -- | Represents main block extra data
 newtype MainExtraBodyData = MainExtraBodyData
     { _mebAttributes  :: BlockBodyAttributes
-    } deriving (Eq, Show, Generic)
+    } deriving (Eq, Show, Generic, NFData)
 
 instance Buildable MainExtraBodyData where
     -- Currently there is no extra data in block body, attributes are empty.
@@ -159,5 +163,6 @@ type Block ssc = Either (GenesisBlock ssc) (MainBlock ssc)
 ----------------------------------------------------------------------------
 -- Lenses
 ----------------------------------------------------------------------------
+
 makeLenses ''MainExtraHeaderData
 makeLenses ''MainExtraBodyData

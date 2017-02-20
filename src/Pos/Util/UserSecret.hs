@@ -10,6 +10,7 @@ module Pos.Util.UserSecret
        , getUSPath
        , simpleUserSecret
        , initializeUserSecret
+       , readUserSecret
        , peekUserSecret
        , takeUserSecret
        , writeUserSecret
@@ -85,14 +86,20 @@ initializeUserSecret path = do
             then return ()
             else T.output (fromString path) empty)
 
+-- | Reads user secret from file, assuming that file exists,
+-- throws exception in other case
+readUserSecret :: MonadIO m => FilePath -> m UserSecret
+readUserSecret path = takeReadLock path $ do
+    content <- either fail pure . decodeFull =<< BSL.readFile path
+    pure $ content & usPath .~ path
+
 -- | Reads user secret from the given file.
 -- If the file does not exist/is empty, returns empty user secret
 peekUserSecret :: (MonadIO m) => FilePath -> m UserSecret
-peekUserSecret path =
-    liftIO $ withFileLock (lockFilePath path) Shared $ const $ do
-        initializeUserSecret path
-        econtent <- decodeFull <$> BSL.readFile path
-        pure $ either (const def) identity econtent & usPath .~ path
+peekUserSecret path = takeReadLock path $ do
+    initializeUserSecret path
+    econtent <- decodeFull <$> BSL.readFile path
+    pure $ either (const def) identity econtent & usPath .~ path
 
 -- | Read user secret putting an exclusive lock on it. To unlock, use
 -- 'writeUserSecretRelease'.
@@ -124,3 +131,7 @@ writeUserSecretRelease u
 -- | Helper for writing secret to file
 writeRaw :: UserSecret -> IO ()
 writeRaw u = BSL.writeFile (u ^. usPath) $ encode u
+
+-- | Helper for taking shared lock on file
+takeReadLock :: MonadIO m => FilePath -> IO a -> m a
+takeReadLock path = liftIO . withFileLock (lockFilePath path) Shared . const

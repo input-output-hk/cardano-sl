@@ -22,7 +22,7 @@ module Pos.Slotting.Util
        , waitSystemStart
        ) where
 
-import           Control.Monad.Catch      (MonadCatch, catch)
+--import           Control.Monad.Catch      (catch)
 import           Data.Time.Units          (Millisecond)
 import           Data.Time.Units          (convertUnit)
 import           Formatting               (build, int, sformat, shown, (%))
@@ -34,7 +34,9 @@ import           Universum
 
 import           Pos.Context              (WithNodeContext (getNodeContext),
                                            ncSystemStart)
+import           Pos.DHT.Model.Class      (MonadDHT)
 import           Pos.Exception            (CardanoException)
+import           Pos.Reporting.Methods    (reportMisbehaviourMasked, reportingFatal)
 import           Pos.Slotting.Class       (MonadSlots (..), MonadSlotsData (..))
 import           Pos.Slotting.Error       (SlottingError (..))
 import           Pos.Slotting.Types       (EpochSlottingData (..), SlottingData (..))
@@ -76,7 +78,8 @@ getLastKnownSlotDuration = esdSlotDuration . sdLast <$> getSlottingData
 type OnNewSlot ssc m =
     ( MonadIO m
     , MonadSlots m
-    , MonadCatch m
+    , MonadMask m
+    , MonadDHT m
     , WithLogger m
     , Mockable Fork m
     , Mockable Delay m
@@ -102,9 +105,9 @@ onNewSlotImpl
        OnNewSlot ssc m
     => Bool -> Bool -> (SlotId -> m ()) -> m ()
 onNewSlotImpl withLogging startImmediately action =
-    onNewSlotDo withLogging Nothing startImmediately actionWithCatch `catch`
-    workerHandler
+    reportingFatal impl `catch` workerHandler
   where
+    impl = onNewSlotDo withLogging Nothing startImmediately actionWithCatch
     actionWithCatch s = action s `catch` actionHandler
     actionHandler
         :: forall ma.
@@ -113,8 +116,9 @@ onNewSlotImpl withLogging startImmediately action =
     actionHandler = logError . sformat ("Error occurred: " %build)
     workerHandler :: CardanoException -> m ()
     workerHandler e = do
-        logError $
-            sformat ("Error occurred in 'onNewSlot' worker itself: " %build) e
+        let msg = sformat ("Error occurred in 'onNewSlot' worker itself: " %build) e
+        logError $ msg
+        reportMisbehaviourMasked msg
         delay $ minute 1
 
 onNewSlotDo

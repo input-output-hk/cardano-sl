@@ -21,6 +21,7 @@ module Pos.CLI
        , portOption
        , timeLordOption
        , webPortOption
+       , walletPortOption
        , ipPortOption
 
        , readPeersFile
@@ -276,6 +277,13 @@ webPortOption :: Word16 -> String -> Opt.Parser Word16
 webPortOption portNum help =
     Opt.option Opt.auto $
         templateParser "web-port" "PORT" help -- "Port for web server"
+        <> Opt.value portNum
+        <> Opt.showDefault
+
+walletPortOption :: Word16 -> String -> Opt.Parser Word16
+walletPortOption portNum help =
+    Opt.option Opt.auto $
+        templateParser "wallet-port" "PORT" help -- "Port for wallet"
         <> Opt.value portNum
         <> Opt.showDefault
 

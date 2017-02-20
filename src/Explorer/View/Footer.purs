@@ -3,8 +3,11 @@ module Explorer.View.Footer (footerView) where
 import Prelude
 import Data.Maybe (fromMaybe)
 import Data.String (take)
-import Explorer.I18n.Lang (Language(..), readLanguage)
+import Data.Lens ((^.))
+import Explorer.I18n.Lang (Language(..), readLanguage, translate)
+import Explorer.I18n.Lenses (common, cCopyright, cApi, footer, fooLinks, fooRessources, fooFollow) as I18nL
 import Explorer.State (initialState)
+import Explorer.Lenses.State (lang)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
 import Explorer.Util.Version (version, commitHash)
@@ -15,6 +18,7 @@ import Pux.Html.Events (onChange) as P
 
 footerView :: State -> P.Html Action
 footerView state =
+    let lang' = state ^. lang in
     P.div [ P.className "explorer-footer" ]
     [
       P.div
@@ -29,9 +33,9 @@ footerView state =
                   ]
               , P.nav
                   [ P.className "nav__container"]
-                  [ navRowView navRow0
-                  , navRowView navRow1
-                  , navRowView navRow2
+                  [ navRowView $ navRow0 lang'
+                  , navRowView $ navRow1 lang'
+                  , navRowView $ navRow2 lang'
                   ]
               ]
           ]
@@ -43,7 +47,7 @@ footerView state =
                   [ P.className "content content__left" ]
                   [ P.p
                       [ P.className "copy" ]
-                      [ P.text $ "#Cardano blockchain Explorer @ 2017"
+                      [ P.text $ translate (I18nL.common <<< I18nL.cCopyright) lang'
                         <> " | v. "
                         <> show version
                         <> " | commit " <> take 8 commitHash ]
@@ -69,38 +73,46 @@ type NavRow =
     , items :: Array NavItem
     }
 
-navRow0 :: NavRow
-navRow0 =
-    { header: "Ressources"
-    , items: navItemsRow0 }
+navRow0 :: Language -> NavRow
+navRow0 lang =
+    { header: translate (I18nL.footer <<< I18nL.fooRessources) lang
+    , items: navItemsRow0 lang }
 
 
-navItemsRow0 :: Array NavItem
-navItemsRow0 =
-    [ { label: "#API", link: "#" }
-    , { label: "#Link 2", link: "#" }
-    , { label: "#Link 3", link: "#" }
-    , { label: "#Link 4", link: "#" }
+navItemsRow0 :: Language -> Array NavItem
+navItemsRow0 lang =
+    [ { label: translate (I18nL.common <<< I18nL.cApi) lang
+      , link: "#"
+      }
+    , { label: "#Link 2"
+      , link: "#"
+      }
+    , { label: "#Link 3"
+      , link: "#"
+      }
+    , { label: "#Link 4"
+      , link: "#"
+      }
     ]
 
-navRow1 :: NavRow
-navRow1 =
-    { header: "Follow us"
-    , items: navItemsRow1 }
+navRow1 :: Language -> NavRow
+navRow1 lang =
+    { header: translate (I18nL.footer <<< I18nL.fooFollow) lang
+    , items: navItemsRow1 lang }
 
-navItemsRow1 :: Array NavItem
-navItemsRow1 =
+navItemsRow1 :: Language -> Array NavItem
+navItemsRow1 lang =
     [ { label: "#IOHK Site", link: "#" }
     , { label: "#Link 2", link: "#" }
     ]
 
-navRow2 :: NavRow
-navRow2 =
-    { header: "Links"
-    , items: navItemsRow2 }
+navRow2 :: Language -> NavRow
+navRow2 lang =
+    { header: translate (I18nL.footer <<< I18nL.fooLinks) lang
+    , items: navItemsRow2 lang }
 
-navItemsRow2 :: Array NavItem
-navItemsRow2 =
+navItemsRow2 :: Language -> Array NavItem
+navItemsRow2 lang =
     [ { label: "#Most popular addresses", link: "#" }
     , { label: "#Link 2", link: "#" }
     , { label: "#Link 3", link: "#" }

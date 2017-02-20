@@ -3,7 +3,7 @@ module Explorer.View.Header (headerView) where
 import Prelude
 import Data.Lens ((^.))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (navBlockchain, navCharts, navHome, navMarket, navigation, navTools) as I18nL
+import Explorer.I18n.Lenses (common, cADA, cBCshort, navBlockchain, navCharts, navHome, navMarket, navigation, navTools) as I18nL
 import Explorer.Lenses.State (lang)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
@@ -47,17 +47,21 @@ type CurrencyItem =
     , value :: String
     }
 
-currencyItems :: Array CurrencyItem
-currencyItems =
-    [ { label: "#ADA", value: "" }
-    , { label: "#BC", value: "" }
+currencyItems :: Language -> Array CurrencyItem
+currencyItems lang =
+    [ { label: translate (I18nL.common <<< I18nL.cADA) lang
+      , value: ""
+      }
+    , { label: translate (I18nL.common <<< I18nL.cBCshort) lang
+      , value: ""
+      }
     ]
 
 currencyView :: State -> P.Html Action
 currencyView state =
   P.select
       [ P.className "currency__select bg-arrow-down" ]
-      $ map currencyItemView currencyItems
+      <<< map currencyItemView <<< currencyItems $ state ^. lang
 
 currencyItemView :: CurrencyItem -> P.Html Action
 currencyItemView item =

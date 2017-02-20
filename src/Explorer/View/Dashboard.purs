@@ -9,18 +9,19 @@ import Data.Newtype (unwrap)
 import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (dbLastBlocks, dbExploreBlocks, cAge, common, cExpand, cHeight, cRelayedBy, cSizeKB, cTotalSent, cTransactions, dashboard, hero, hrTitle, hrSearch, hrSubtitle, cTransactionFeed) as I18nL
+import Explorer.I18n.Lenses (dbExploreTransactions, dbTotalAmountOfTransactions, dbTotalAmountOf, dbTotalSupply, cADA, dbPriceSince, dbPriceForOne, dbPriceAverage, dbLastBlocksDescription, cNetwork, dbNetworkDifficultyDescription, dbApiDescription, dbAboutBlockchain, dbAboutBlockchainDescription, cUnknown, dbAddressSearch, dbAddressSearchDescription, dbBlockchainOffer, dbBlockSearch, dbBlockSearchDescription, dbCurl, dbGetAddress, dbLastBlocks, dbExploreBlocks, dbGetApiKey, dbMoreExamples, dbJQuery, dbNode, dbNetworkDifficulty, dbResponse, dbTransactionSearch, dbTransactionSearchDescription, cAge, cApi, cCollapse, cNoData, cExpand, cHeight, cRelayedBy, cSizeKB, cTotalSent, cTransactions, common, dashboard, hero, hrTitle, hrSearch, hrSubtitle, cTransactionFeed) as I18nL
 import Explorer.Lenses.State (blocksExpanded, dashboard, lang, latestBlocks, latestTransactions, searchInput, selectedApiCode, transactionsExpanded, viewStates)
+import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), DashboardAPICode(..), DashboardViewState, State, CBlockEntries, CTxEntries)
+import Explorer.Util.String (substitute)
 import Explorer.View.Common (currencyCSSClass, paginationView)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CTxEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeHeight, cbeRelayedBy, cbeSize, cbeTimeIssued, cbeTotalSent, cbeTxNum, cteId, cteAmount, cteTimeIssued, _CTxId, _CHash)
 import Pos.Types.Lenses.Core (_Coin, getCoin)
 import Pux.Html (Html, div, h3, text, h1, h2, input, h4, p, code) as P
-import Pux.Html.Attributes (className, type_, placeholder) as P
+import Pux.Html.Attributes (className, type_, placeholder, dangerouslySetInnerHTML) as P
 import Pux.Html.Events (onClick, onFocus, onBlur) as P
-import Explorer.Routes (Route(..), toUrl)
 import Pux.Router (link) as P
 
 dashboardView :: State -> P.Html Action
@@ -118,33 +119,48 @@ type NetworkItem =
     , description :: String
     }
 
-networkItems :: NetworkItems
-networkItems =
-    [ { headline: "Last Block", subheadline: "123456"
-      , description: "generated on 01.01.2017 12:00:00 \n\n 50 transactions" }
-    , { headline: "Network difficulty", subheadline: "1,234,567,890.12"
-      , description: "Difficulty is a measure of how difficult it is to find a new block below a given target." }
-    , { headline: "Price (average)", subheadline: "1,000,000$ for 1 ADA"
-      , description: "20% more since yesterday." }
-    , { headline: "Total supply", subheadline: "9,876,543,210 ADA"
-      , description: "Amount of ADA in the system." }
-    , { headline: "Transactions", subheadline: "82,491,247,592,742,929"
-      , description: "Total amount of transactions detected in system since the beginning." }
+networkItems :: Language -> NetworkItems
+networkItems lang =
+    let ada = translate (I18nL.common <<< I18nL.cADA) lang in
+    [ { headline: translate (I18nL.dashboard <<< I18nL.dbLastBlocks) lang
+      , subheadline: "123456"
+      , description: flip substitute ["20.02.2017 17:51:00", "50"]
+            $ translate (I18nL.dashboard <<< I18nL.dbLastBlocksDescription) lang
+      }
+    , { headline: translate (I18nL.dashboard <<< I18nL.dbNetworkDifficulty) lang
+      , subheadline: "1,234,567,890.12"
+      , description: translate (I18nL.dashboard <<< I18nL.dbNetworkDifficultyDescription) lang
+      }
+    , { headline: translate (I18nL.dashboard <<< I18nL.dbPriceAverage) lang
+      , subheadline: flip substitute ["1,000,000$", ada]
+            $ translate (I18nL.dashboard <<< I18nL.dbPriceForOne) lang
+      , description: flip substitute ["20% more"]
+            $ translate (I18nL.dashboard <<< I18nL.dbPriceSince) lang
+      }
+    , { headline: translate (I18nL.dashboard <<< I18nL.dbTotalSupply) lang
+      , subheadline: flip substitute ["9,876,543,210 "] $ translate (I18nL.common <<< I18nL.cADA) lang
+      , description: flip substitute [ada] $ translate (I18nL.dashboard <<< I18nL.dbTotalAmountOf) lang
+      }
+    , { headline: translate (I18nL.common <<< I18nL.cTransactions) lang
+      , subheadline: "82,491,247,592,742,929"
+      , description: translate (I18nL.dashboard <<< I18nL.dbTotalAmountOfTransactions) lang
+      }
     ]
 
 
 networkView :: State -> P.Html Action
 networkView state =
+    let lang' = state ^. lang in
     P.div
         [ P.className "explorer-dashboard__wrapper" ]
         [ P.div
           [ P.className "explorer-dashboard__container" ]
           [ P.h3
                 [ P.className "headline"]
-                [ P.text "#Network" ]
+                [ P.text $ translate (I18nL.common <<< I18nL.cNetwork) lang' ]
           , P.div
                 [ P.className "explorer-dashboard__teaser" ]
-                $ map (networkItem state) networkItems
+                <<< map (networkItem state) $ networkItems lang'
           ]
         ]
 
@@ -177,7 +193,7 @@ blocksView state =
             , blocksHeaderView state
             , P.div
                 [ P.className $ "blocks-waiting" <> visibleWaitingClazz ]
-                [ P.text "#no data"]
+                [ P.text $ translate (I18nL.common <<< I18nL.cNoData) lang' ]
             , P.div
                 [ P.className $ "blocks-body" <> visibleBlockClazz ]
                 $ map (blockRow state) latestBlocks'
@@ -234,7 +250,7 @@ blockRow state (CBlockEntry entry) =
         , blockColumn <<< show <<< unwrap $ entry ^. (cbeTimeIssued <<< _NominalDiffTime)
         , blockColumn <<< show $ entry ^. cbeTxNum
         , blockColumn <<< show $ entry ^. (cbeTotalSent <<< _Coin <<< getCoin)
-        , blockColumn <<< fromMaybe "#Unknown" $ entry ^. cbeRelayedBy
+        , blockColumn <<< fromMaybe (translate (I18nL.common <<< I18nL.cUnknown) $ state ^. lang) $ entry ^. cbeRelayedBy
         , blockColumn <<< show $ entry ^. cbeSize
         ]
 
@@ -283,7 +299,7 @@ transactionsView state =
           [ headerView state headerOptions
           , P.div
               [ P.className $ "transactions__waiting" <> visibleWaitingClazz ]
-              [ P.text "#no data"]
+              [ P.text $ translate (I18nL.common <<< I18nL.cNoData) lang' ]
           , P.div
               [ P.className $ "transactions__container" <> visibleTxClazz ]
               $ map (transactionRow state) $ transactions'
@@ -302,11 +318,16 @@ transactionsView state =
           ]
         ]
     where
+      lang' = state ^. lang
       expanded = state ^. dashboardTransactionsExpanded
-      expandLabel = if expanded then "#collapse" else "#expand"
+      expandLabel = if expanded
+          then translate (I18nL.common <<< I18nL.cCollapse) lang'
+          else translate (I18nL.common <<< I18nL.cExpand) lang'
       headerOptions = HeaderOptions
-          { headline: translate (I18nL.common <<< I18nL.cTransactionFeed) state.lang
-          , link: Just $ HeaderLink { label: "#Explore transactions", action: NoOp }
+          { headline: translate (I18nL.common <<< I18nL.cTransactionFeed) lang'
+          , link: Just $ HeaderLink { label: translate (I18nL.dashboard <<< I18nL.dbExploreTransactions) lang'
+                                    , action: NoOp
+                                    }
           }
       transactions = state ^. latestTransactions
       noTransactions = null transactions
@@ -348,31 +369,36 @@ type OfferItem =
     , description :: String
     }
 
-offerItems :: OfferItems
-offerItems =
-    [ { headline: "Block Search"
-      , description: "Block is a box where transactions are stored." }
-    , { headline: "Address Search"
-      , description: "Address is similar to what an account in ordinary bank is." }
-    , { headline: "Transactions Search"
-      , description: "Transaction is transfer of coins from user A to user B." }
-    , { headline: "API"
-      , description: "Our robust API is available in a variety of languages & SDKs." }
+offerItems :: Language -> OfferItems
+offerItems lang =
+    [ { headline: translate (I18nL.dashboard <<< I18nL.dbBlockSearch) lang
+      , description: translate (I18nL.dashboard <<< I18nL.dbBlockSearchDescription) lang
+      }
+    , { headline: translate (I18nL.dashboard <<< I18nL.dbAddressSearch) lang
+      , description: translate (I18nL.dashboard <<< I18nL.dbAddressSearchDescription) lang
+      }
+    , { headline: translate (I18nL.dashboard <<< I18nL.dbTransactionSearch) lang
+      , description: translate (I18nL.dashboard <<< I18nL.dbTransactionSearchDescription) lang
+      }
+    , { headline: translate (I18nL.common <<< I18nL.cApi) lang
+      , description: translate (I18nL.dashboard <<< I18nL.dbApiDescription) lang
+      }
     ]
 
 
 offerView :: State -> P.Html Action
 offerView state =
+    let lang' = state ^. lang in
     P.div
         [ P.className "explorer-dashboard__wrapper" ]
         [ P.div
           [ P.className "explorer-dashboard__container" ]
           [ P.h3
                 [ P.className "headline"]
-                [ P.text "#WHAT DO WE OFFER ON OUR BLOCK EXPLORER" ]
+                [ P.text $ translate (I18nL.dashboard <<< I18nL.dbBlockchainOffer) lang' ]
           , P.div
                 [ P.className "explorer-dashboard__teaser" ]
-                $ map (offerItem state) offerItems
+                <<< map (offerItem state) $ offerItems lang'
           ]
         ]
 
@@ -415,29 +441,29 @@ apiView state =
         [ P.className "explorer-dashboard__wrapper" ]
         [ P.div
           [ P.className "explorer-dashboard__container" ]
-          [ headerView state headerOptions
+          [ headerView state $ headerOptions lang'
           , P.div
             [ P.className "api-content" ]
             [ P.div
                 [ P.className "api-content__container api-code"]
                 [ P.div
                   [ P.className "api-code__tabs" ]
-                  $ map (apiCodeTabView state) $ M.toAscUnfoldable apiTabs
-                , apiCodeSnippetView "#Get Address" addressSnippet
-                , apiCodeSnippetView "#Get Response" responseSnippet
+                  <<< map (apiCodeTabView state) <<< M.toAscUnfoldable $ apiTabs lang'
+                , apiCodeSnippetView (translate (I18nL.dashboard <<< I18nL.dbGetAddress) lang') addressSnippet
+                , apiCodeSnippetView (translate (I18nL.dashboard <<< I18nL.dbResponse) lang') responseSnippet
                 ]
             , P.div
                 [ P.className "api-content__container api-about"]
                 [ P.h3
                     [ P.className "api-about__headline" ]
-                    [ P.text "#About Blockchain" ]
+                    [ P.text $ translate (I18nL.dashboard <<< I18nL.dbAboutBlockchain) lang' ]
                 , P.p
-                    [ P.className "api-about__description" ]
-                    [ P.text "#Blockchain API makes it easy yo build cryptocurrensies applications and features. We are focused on ... \n\n This API is free and unlimited while we are in beta. We are just getting started, and will be rolling out more ..."
-                    ]
+                    [ P.className "api-about__description"
+                    , P.dangerouslySetInnerHTML $ translate (I18nL.dashboard <<< I18nL.dbAboutBlockchainDescription) lang' ]
+                    []
                 , P.div
                   [ P.className "api-about__button" ]
-                  [ P.text "#Get API Key"]
+                  [ P.text $ translate (I18nL.dashboard <<< I18nL.dbGetApiKey) lang' ]
                 ]
             ]
           ]
@@ -445,19 +471,20 @@ apiView state =
     where
       apiCode :: ApiCode
       apiCode = fromMaybe emptyApiCode $ M.lookup (state ^. dashboardSelectedApiCode) apiCodes
+      lang' = state ^. lang
       addressSnippet = _.getAddress $ apiCode
       responseSnippet = _.response $ apiCode
-      headerOptions = HeaderOptions
-          { headline: "#API"
-          , link: Just $ HeaderLink { label: "#See more examples", action: NoOp }
+      headerOptions lang = HeaderOptions
+          { headline: translate (I18nL.common <<< I18nL.cApi) lang
+          , link: Just $ HeaderLink { label: translate (I18nL.dashboard <<< I18nL.dbMoreExamples) lang', action: NoOp }
           }
 
-apiTabs :: M.Map DashboardAPICode ApiTabLabel
-apiTabs =
+apiTabs :: Language -> M.Map DashboardAPICode ApiTabLabel
+apiTabs lang =
     M.fromFoldable(
-        [ Tuple Curl "#Curl"
-        , Tuple Node "#Node"
-        , Tuple JQuery "#jQuery"
+        [ Tuple Curl $ translate (I18nL.dashboard <<< I18nL.dbCurl) lang
+        , Tuple Node $ translate (I18nL.dashboard <<< I18nL.dbNode) lang
+        , Tuple JQuery $ translate (I18nL.dashboard <<< I18nL.dbJQuery) lang
         ])
 
 

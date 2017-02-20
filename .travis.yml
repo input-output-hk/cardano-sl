@@ -30,7 +30,7 @@ before_install:
 - mkdir s3
 script:
 - stack --nix --no-terminal --local-bin-path s3/ install --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
-  --test --no-haddock-deps --bench --jobs=4
+  --test --no-haddock-deps --jobs=4
   --flag cardano-sl:with-web
   --flag cardano-sl:with-wallet
   --flag cardano-sl:-asserts

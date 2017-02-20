@@ -21,6 +21,7 @@ module Pos.CLI
        , portOption
        , timeLordOption
        , webPortOption
+       , walletPortOption
        , ipPortOption
 
        , readPeersFile
@@ -77,7 +78,7 @@ readPeersFile path = do
     xs <- lines <$> readFile path
     let parseLine x = case parse (dhtNodeParser <* eof) "" (toString x) of
             Left err -> fail $ formatToString
-                ("error when parsing peer "%build%
+                ("error when parsing peer "%shown%
                  " from peers file "%build%": "%shown) x path err
             Right a -> return a
     mapM parseLine xs
@@ -276,6 +277,13 @@ webPortOption :: Word16 -> String -> Opt.Parser Word16
 webPortOption portNum help =
     Opt.option Opt.auto $
         templateParser "web-port" "PORT" help -- "Port for web server"
+        <> Opt.value portNum
+        <> Opt.showDefault
+
+walletPortOption :: Word16 -> String -> Opt.Parser Word16
+walletPortOption portNum help =
+    Opt.option Opt.auto $
+        templateParser "wallet-port" "PORT" help -- "Port for wallet"
         <> Opt.value portNum
         <> Opt.showDefault
 

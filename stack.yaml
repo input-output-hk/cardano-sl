@@ -29,13 +29,13 @@ packages:
     # We're waiting on next release
     commit: 57adb970e198a9b377769ab46e776ec29f19cff6
   extra-dep: true
-- location:
+- location: 
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 344f0e6e1b69b512cbfb04caf42bbe285cc7727a
+    commit: ede7a1a9eafd88e3449b38c7425f5529d6584014
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 9865cea6fe7a2b376d67c0ff77efaaa26ea73d45
+    commit: b913bfc698fd2927ee5031826688eb7245906e6d
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -46,6 +46,10 @@ packages:
     git: https://github.com/avieth/network-transport
     commit: e7a5f44d0d98370d16df103c9dc61ef7bf15aee8
   extra-dep: true
+# todo replace it with hackage version
+#- location:
+#    git: https://github.com/serokell/serokell-util/
+#    commit: 3675d2e8484c4e1bab98c92a4c9b01ca721ff808
 
 nix:
   shell-file: shell.nix
@@ -60,7 +64,7 @@ extra-deps:
 - QuickCheck-2.9.2
 - cryptonite-openssl-0.3
 - UtilityTM-0.0.4
-- serokell-util-0.1.3.2
+- serokell-util-0.1.3.4
 - pvss-0.1
 - base58-bytestring-0.1.0
 - log-warper-0.4.3
@@ -72,5 +76,3 @@ extra-deps:
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
-
-

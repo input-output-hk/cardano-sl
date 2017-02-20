@@ -186,11 +186,20 @@ getRelatedTxs addr txs = fmap DL.toList $
     step ls (WithHash tx txId, _wit, dist) = do
         let isIncoming = tx `hasReceiver` addr
         isOutgoing <- tx `hasSender` addr
+        let allToAddr = all ((== addr) . txOutAddress) $ txOutputs tx
+            isToItself = isOutgoing && allToAddr
         if isOutgoing || isIncoming
             then do
             applyTxToUtxo (WithHash tx txId) dist
             identity %= filterUtxoByAddr addr
-            return $ ls <> DL.singleton (THEntry txId tx isOutgoing Nothing)
+
+            -- Workaround to present A to A transactions as a pair of self-canceling
+            -- transactions in history
+            let resEntry = THEntry txId tx isOutgoing Nothing
+                resList = if isToItself
+                          then DL.fromList [resEntry & thIsOutput .~ False, resEntry]
+                          else DL.singleton resEntry
+            return $ ls <> resList
             else return ls
 
 -- | Given a full blockchain, derive address history and Utxo

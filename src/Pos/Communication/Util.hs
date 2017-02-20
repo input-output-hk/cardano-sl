@@ -49,7 +49,7 @@ stubListenerConv
     => Proxy (rcv, snd) -> (ListenerSpec m, OutSpecs)
 stubListenerConv p = (ListenerSpec listener (rcvName, ConvHandler sndName), mempty)
   where
-    modP :: Proxy (rcv, snd) -> Proxy (N.ConversationActions PeerData snd rcv m)
+    modP :: Proxy (rcv, snd) -> Proxy (N.ConversationActions snd rcv m)
     modP _ = Proxy
     sndProxy :: Proxy (rcv, snd) -> Proxy snd
     sndProxy _ = Proxy
@@ -77,15 +77,15 @@ sendActionsWithWaitLog sendActions = sendActions
                           N.sendTo sendActions nodeId msg
     , N.withConnectionTo =
         \nodeId action ->
-          N.withConnectionTo sendActions nodeId $
-              action . convWithWaitLog nodeId
+          N.withConnectionTo sendActions nodeId $ \peerData ->
+              action peerData . convWithWaitLog nodeId
     }
 
 convWithWaitLog
     :: (CanLogInParallel m, Message snd)
     => N.NodeId
-    -> N.ConversationActions PeerData snd rcv m
-    -> N.ConversationActions PeerData snd rcv m
+    -> N.ConversationActions snd rcv m
+    -> N.ConversationActions snd rcv m
 convWithWaitLog nodeId conv = conv { N.send = send', N.recv = recv' }
   where
     send' msg =
@@ -97,13 +97,13 @@ convWithWaitLog nodeId conv = conv { N.send = send', N.recv = recv' }
           (sformat ("Recv from "%shown%" in conversation") nodeId) $
            N.recv conv
     MessageName sndMsg = messageName $
-        ((\_ -> Proxy) :: N.ConversationActions PeerData snd rcv m -> Proxy snd) conv
+        ((\_ -> Proxy) :: N.ConversationActions snd rcv m -> Proxy snd) conv
 
 convWithWaitLogL
     :: (CanLogInParallel m, Message rcv)
     => N.NodeId
-    -> N.ConversationActions PeerData snd rcv m
-    -> N.ConversationActions PeerData snd rcv m
+    -> N.ConversationActions snd rcv m
+    -> N.ConversationActions snd rcv m
 convWithWaitLogL nodeId conv = conv { N.send = send', N.recv = recv' }
   where
     send' msg =
@@ -115,14 +115,14 @@ convWithWaitLogL nodeId conv = conv { N.send = send', N.recv = recv' }
           (sformat ("Recv "%shown%" from "%shown%" in conversation") rcvMsg nodeId) $
             N.recv conv
     MessageName rcvMsg = messageName $
-        ((\_ -> Proxy) :: N.ConversationActions PeerData snd rcv m -> Proxy rcv) conv
+        ((\_ -> Proxy) :: N.ConversationActions snd rcv m -> Proxy rcv) conv
 
 convWithTimeLimit
     :: (Mockable Async m, Mockable Bracket m, Mockable Delay m, WithLogger m)
     => Microsecond
     -> N.NodeId
-    -> N.ConversationActions PeerData snd rcv m
-    -> N.ConversationActions PeerData snd rcv m
+    -> N.ConversationActions snd rcv m
+    -> N.ConversationActions snd rcv m
 convWithTimeLimit timeout nodeId conv = conv { N.recv = recv', N.send = send' }
       where
         send' msg = do
@@ -147,8 +147,8 @@ sendActionsWithTimeLimit
     -> N.SendActions BiP PeerData m
 sendActionsWithTimeLimit timeout sendActions = sendActions
     { N.withConnectionTo = \nodeId action ->
-        N.withConnectionTo sendActions nodeId $
-            action . convWithTimeLimit timeout nodeId
+        N.withConnectionTo sendActions nodeId $ \peerData ->
+            action peerData . convWithTimeLimit timeout nodeId
     , N.sendTo = \nodeId msg -> do
                     res <- execWithTimeLimit timeout $ N.sendTo sendActions nodeId msg
                     whenNothing res . logWarning $

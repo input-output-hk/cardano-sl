@@ -233,6 +233,9 @@ main = do
 
     KeyPair _ sk <- generate arbitrary
     vssKeyPair <- generate arbitrary
+    filePeers <- maybe (return []) CLI.readPeersFile
+                     (CLI.dhtPeersFile goCommonArgs)
+    let allPeers = CLI.dhtPeers goCommonArgs ++ filePeers
     let logParams =
             LoggingParams
             { lpRunnerTag     = "smart-gen"
@@ -244,7 +247,7 @@ main = do
             BaseParams
             { bpLoggingParams      = logParams
             , bpIpPort             = goIpPort
-            , bpDHTPeers           = CLI.dhtPeers goCommonArgs
+            , bpDHTPeers           = allPeers
             , bpDHTKey             = Nothing
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial goCommonArgs
             , bpKademliaDump       = "kademlia.dump"

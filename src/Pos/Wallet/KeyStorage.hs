@@ -161,7 +161,9 @@ runKeyStorageRaw = runReaderT . getKeyStorage
 
 instance (MonadIO m) => MonadKeys (KeyStorage m) where
     getSecretKeys = use usKeys
-    addSecretKey sk = usKeys <>= [sk]
+    addSecretKey sk =
+        whenM (not . elem sk <$> use usKeys) $
+            usKeys <>= [sk]
     deleteSecretKey (fromIntegral -> i) = usKeys %= deleteAt i
 
 -------------------------------------------------------------------------
@@ -189,7 +191,9 @@ instance (MonadIO m) =>
 instance (MonadIO m, MonadThrow m) =>
          MonadKeys (ContextHolder ssc m) where
     getSecretKeys = use usKeys
-    addSecretKey sk = usKeys <>= [sk]
+    addSecretKey sk =
+        whenM (not . elem sk <$> use usKeys) $
+            usKeys <>= [sk]
     deleteSecretKey (fromIntegral -> i)
         | i == 0 = throwM $ PrimaryKey "Cannot delete a primary secret key"
         | otherwise = usKeys %= deleteAt i

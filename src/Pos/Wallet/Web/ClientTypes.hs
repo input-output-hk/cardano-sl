@@ -114,8 +114,10 @@ mkCTx
 mkCTx addr diff THEntry {..} meta = CTx {..}
   where
     ctId = txIdToCTxId _thTxId
+    outputs = txOutputs _thTx
+    isToItself = all ((== addr) . txOutAddress) outputs
     ctAmount = unsafeIntegerToCoin . sumCoins . map txOutValue $
-        filter (xor _thIsOutput . (== addr) . txOutAddress) $ txOutputs _thTx
+        filter ((|| isToItself) . xor _thIsOutput . (== addr) . txOutAddress) outputs
     ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
     ctType = if _thIsOutput
              then CTOut meta

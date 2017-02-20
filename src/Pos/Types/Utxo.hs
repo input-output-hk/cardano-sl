@@ -16,9 +16,8 @@ import           Universum
 import           Pos.Types.Address   (Address)
 import           Pos.Types.Coin      (unsafeAddCoin)
 import           Pos.Types.Core      (Coin, StakeholderId)
-import           Pos.Types.Types     (Tx (..), TxAux, TxDistribution (..), TxId,
-                                      TxIn (..), TxOut (..), TxOutAux, TxUndo, TxWitness,
-                                      TxsUndo, Utxo, txOutStake)
+import           Pos.Types.Types     (Tx (..), TxIn (..), TxOut (..), TxOutAux, Utxo,
+                                      txOutStake)
 ----------------------------------------------------------------------------
 -- Pure
 ----------------------------------------------------------------------------

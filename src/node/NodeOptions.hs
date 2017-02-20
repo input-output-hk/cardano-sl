@@ -153,7 +153,7 @@ argsParser =
   where
     peerHelpMsg =
         "Peer to connect to for initial peer discovery. Format\
-        \ example: \"localhost:1234/MHdtsP-oPf7UWly7QuXnLK5RDB8=\""
+        \ example: \"localhost:1234/dYGuDj0BrJxCsTC9ntJE7ePT7wUoVdQMH3sKLzQD8bo=\""
 
 getNodeOptions :: IO Args
 getNodeOptions = do

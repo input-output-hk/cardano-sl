@@ -15,14 +15,15 @@ import qualified Crypto.ECC.Edwards25519 as Ed25519
 import qualified Data.ByteString         as BS
 import qualified Data.ByteString.Lazy    as BSL
 import           Data.Coerce             (coerce)
+import           Data.SafeCopy           (base, deriveSafeCopySimple)
+import           Data.Text.Buildable     (build)
 import qualified Data.Text.Buildable     as B
-import           Formatting              (build)
 import           Prelude                 (show)
 import           Universum               hiding (show)
 
 import           Pos.Binary.Class        (Bi)
 import qualified Pos.Binary.Class        as Bi
-import           Pos.Crypto.Signing      (PublicKey)
+import           Pos.Crypto.Signing      (PublicKey (..), Signature (..))
 import           Pos.Util.Binary         (Raw)
 
 newtype EncryptedSecretKey = EncryptedSecretKey CC.XPrv

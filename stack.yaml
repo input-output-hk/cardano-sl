@@ -48,7 +48,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/flyingleafe/cardano-crypto
-    commit: 20c34b1e807f934446ca10b78ff8d927286e7398
+    commit: 016e9cb518894426badc92b1c7f4e4641f29aec2
   extra-dep: true
 # todo replace it with hackage version
 #- location:

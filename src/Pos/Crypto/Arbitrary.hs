@@ -3,18 +3,19 @@
 -- | `Arbitrary` instances for using in tests and benchmarks
 
 module Pos.Crypto.Arbitrary
-    ( KeyPair(..)
-    ) where
+       (
+       ) where
 
 import           Data.List.NonEmpty          (fromList)
 import           System.IO.Unsafe            (unsafePerformIO)
 import           Test.QuickCheck             (Arbitrary (..), choose, elements, generate)
 import           Universum
 
-import           Pos.Binary.Class            (Bi)
-import           Pos.Crypto.Arbitrary.Hash   ()
+import           Pos.Binary.Class            (AsBinary (..), AsBinaryClass (..), Bi)
+import           Pos.Binary.Crypto           ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
 import           Pos.Crypto.AsBinary         ()
+import           Pos.Crypto.Hashing          (AbstractHash, HashAlgorithm)
 import           Pos.Crypto.SecretSharing    (EncShare, Secret, SecretProof,
                                               SecretSharingExtra, Share, VssKeyPair,
                                               VssPublicKey, decryptShare, genSharedSecret,
@@ -23,8 +24,8 @@ import           Pos.Crypto.Signing          (ProxyCert, ProxySecretKey, ProxySi
                                               PublicKey, SecretKey, Signature, Signed,
                                               createProxyCert, createProxySecretKey,
                                               keyGen, mkSigned, proxySign, sign, toPublic)
-import           Pos.Util.Arbitrary          (Nonrepeating (..), sublistN, unsafeMakePool)
-import           Pos.Util.Binary             (AsBinary (..), AsBinaryClass (..))
+import           Pos.Util.Arbitrary          (Nonrepeating (..), arbitraryUnsafe,
+                                              sublistN, unsafeMakePool)
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -41,31 +42,23 @@ production and in tests?). So, we just generate lots of keys and seeds with
 -- Arbitrary signing keys
 ----------------------------------------------------------------------------
 
--- | 'PublicKey' with corresponding 'SecretKey'.
-data KeyPair = KeyPair
-    { getPub :: PublicKey
-    , getSec :: SecretKey
-    } deriving (Eq, Ord, Show)
+-- If you want an arbitrary keypair, just generate a secret key with
+-- 'arbitrary' and then use 'Pos.Crypto.toPublic' to get the corresponding
+-- public key.
 
-keys :: [KeyPair]
-keys = unsafeMakePool "[generating keys for tests...]" 50 $ uncurry KeyPair <$> keyGen
+keys :: [(PublicKey, SecretKey)]
+keys = unsafeMakePool "[generating keys for tests...]" 50 keyGen
 {-# NOINLINE keys #-}
 
-instance Arbitrary KeyPair where
-    arbitrary = elements keys
-
 instance Arbitrary PublicKey where
-    arbitrary = getPub <$> arbitrary
+    arbitrary = fst <$> elements keys
 instance Arbitrary SecretKey where
-    arbitrary = getSec <$> arbitrary
-
-instance Nonrepeating KeyPair where
-    nonrepeating n = sublistN n keys
+    arbitrary = snd <$> elements keys
 
 instance Nonrepeating PublicKey where
-    nonrepeating n = map getPub <$> nonrepeating n
+    nonrepeating n = map fst <$> sublistN n keys
 instance Nonrepeating SecretKey where
-    nonrepeating n = map getSec <$> nonrepeating n
+    nonrepeating n = map snd <$> sublistN n keys
 
 ----------------------------------------------------------------------------
 -- Arbitrary VSS keys
@@ -157,3 +150,10 @@ instance Arbitrary Share where
 
 instance Arbitrary (AsBinary Share) where
     arbitrary = asBinary @Share <$> arbitrary
+
+----------------------------------------------------------------------------
+-- Arbitrary hashes
+----------------------------------------------------------------------------
+
+instance (HashAlgorithm algo, Bi a) => Arbitrary (AbstractHash algo a) where
+    arbitrary = arbitraryUnsafe

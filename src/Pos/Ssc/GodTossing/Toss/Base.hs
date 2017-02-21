@@ -27,6 +27,7 @@ module Pos.Ssc.GodTossing.Toss.Base
        , verifyEntriesGuardM
        ) where
 
+import           Control.Monad.Except            (MonadError (throwError))
 import           Control.Monad.State             (get, put)
 import           Data.Containers                 (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict             as HM
@@ -37,7 +38,7 @@ import           System.Wlog                     (logWarning)
 
 import           Universum
 
-import           Control.Monad.Except            (MonadError (throwError))
+import           Pos.Binary.Class                (AsBinary, fromBinaryM)
 import           Pos.Constants                   (genesisMpcThd)
 import           Pos.Crypto                      (Share, verifyShare)
 import           Pos.Lrc.Types                   (RichmenSet, RichmenStake)
@@ -55,7 +56,7 @@ import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Types                       (EpochIndex, StakeholderId, addressHash,
                                                   unsafeGetCoin)
 import           Pos.Types.Core                  (coinPortionDenominator, getCoinPortion)
-import           Pos.Util                        (AsBinary, fromBinaryM, getKeys)
+import           Pos.Util                        (getKeys)
 
 ----------------------------------------------------------------------------
 -- Trivial getters (proper interface of MonadTossRead)

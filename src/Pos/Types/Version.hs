@@ -17,21 +17,21 @@ module Pos.Types.Version
 
 import           Universum              hiding (show)
 
+import qualified Control.Monad          as Monad
 import           Data.Char              (isAscii)
 import           Data.Hashable          (Hashable)
 import           Data.SafeCopy          (base, deriveSafeCopySimple)
 import qualified Data.Text              as T
 import qualified Data.Text.Buildable    as Buildable
 import           Formatting             (bprint, int, shown, stext, (%))
-import           Prelude                (show)
+import           Prelude                (read, show)
 import           Text.Parsec            (try)
-import           Text.Parsec.Char       (anyChar, char, letter, string)
+import           Text.Parsec.Char       (anyChar, char, digit, letter, string)
 import           Text.Parsec.Combinator (manyTill)
 import           Text.Parsec.Text       (Parser)
 
 import           Pos.Types.Core         (ApplicationName (..), BlockVersion (..),
                                          NumSoftwareVersion, SoftwareVersion (..))
-import           Pos.Util               (parseIntegralSafe)
 
 instance Show BlockVersion where
     show BlockVersion {..} =
@@ -78,6 +78,19 @@ parseSoftwareVersion = do
         ((:) <$> letter <*> manyTill anyChar (try $ string "-"))
     svNumber  <- parseIntegralSafe
     return SoftwareVersion{..}
+
+-- Copied from Pos.Util
+--
+-- TODO: move to serokell-util
+parseIntegralSafe :: Integral a => Parser a
+parseIntegralSafe = fromIntegerSafe . read =<< some digit
+  where
+    fromIntegerSafe :: Integral a => Integer -> Parser a
+    fromIntegerSafe x =
+        let res = fromInteger x
+        in  if fromIntegral res == x
+            then return res
+            else Monad.fail ("Number is too large: " ++ show x)
 
 deriveSafeCopySimple 0 'base ''ApplicationName
 deriveSafeCopySimple 0 'base ''BlockVersion

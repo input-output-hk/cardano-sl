@@ -23,24 +23,24 @@ firstRun = true;
 io.on('connection', function (socket) {
 
   if(firstRun) {
-
     // push blocks
     var blocksCount = 0;
     var sendBlocksId = setInterval(function() {
-      var blocks = randomBlocks(5);
       blocksCount++;
-      socket.broadcast.emit('latestBlocks', blocks);
-      // if(blocksCount>100) {
-      //   clearInterval(sendBlocksId);
-      // }
+      socket.broadcast.emit('latestBlocks', { "Right": randomBlocks(5) });
+      if(blocksCount>10) {
+        clearInterval(sendBlocksId);
+      }
     }, randomNumber(450, 1000));
 
     // push transactions
     var txCount = 0;
     var sendTxId = setInterval(function() {
-      var txs = randomTxs(5);
       txCount++;
-      socket.broadcast.emit('latestTransactions', txs);
+      socket.broadcast.emit('latestTransactions', { "Right": randomTxs(5) });
+      if(txCount>20) {
+        clearInterval(sendTxId);
+      }
     }, randomNumber(750, 1200));
   }
 
@@ -55,7 +55,8 @@ var blockId = 0;
 var randomBlock = function() {
   // Encoded CBlockEntry
   // @see src/Generated/Pos/Explorer/Web/ClientTypes.purs
-  return  { cbeHeight: randomNumber(1, 50000)
+  return  { cbeBlkHash: randomNumber(1, 50000).toString()
+          , cbeHeight: randomNumber(1, 50000)
           , cbeRelayedBy: randomStringFromList([null, "KNCMiner", "BMinor", "CMinor"])
           , cbeSize: randomNumber(1, 10000)
           , cbeTimeIssued: blockId++

@@ -12,8 +12,8 @@ data Action
     | UpdateView Route
     | ScrollTop
     | SocketConnected Boolean
-    | SocketLatestBlocks (Either String CBlockEntries)
-    | SocketLatestTransactions (Either String CTxEntries)
+    | SocketLatestBlocks (Either Error CBlockEntries)
+    | SocketLatestTransactions (Either Error CTxEntries)
     | Search
     | DashboardExpandBlocks Boolean
     | DashboardExpandTransactions Boolean

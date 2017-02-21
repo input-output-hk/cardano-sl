@@ -28,11 +28,11 @@ config state = do
   -- socket
   actionChannel <- channel $ Ex.SocketConnected false
   let socketSignal = subscribe actionChannel :: Signal Ex.Action
-  socket <- connect Ex.socketHost
-  on socket Ex.connectEvent $ Ex.connectHandler actionChannel
-  on socket Ex.closeEvent $ Ex.closeHandler actionChannel
-  on socket Ex.lastestBlocksEvent $ Ex.latestBlocksHandler actionChannel
-  on socket Ex.lastestTransactionsEvent $ Ex.latestTransactionsHandler actionChannel
+  -- socket <- connect Ex.socketHost
+  -- on socket Ex.connectEvent $ Ex.connectHandler actionChannel
+  -- on socket Ex.closeEvent $ Ex.closeHandler actionChannel
+  -- on socket Ex.lastestBlocksEvent $ Ex.latestBlocksHandler actionChannel
+  -- on socket Ex.lastestTransactionsEvent $ Ex.latestTransactionsHandler actionChannel
 
   pure
     { initialState: state

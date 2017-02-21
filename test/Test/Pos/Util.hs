@@ -13,8 +13,11 @@ module Test.Pos.Util
        , safeCopyTest
        , serDeserId
        , serDeserTest
+       , shouldThrowException
        , showRead
        , showReadTest
+       , (.=.)
+       , (>=.)
        ) where
 
 import           Data.Binary.Get       (Decoder (..), isEmpty, runGetIncremental)
@@ -30,7 +33,7 @@ import           Test.QuickCheck       (counterexample)
 import           Pos.Binary            (Bi (..), encode)
 import           Pos.Util              (AsBinaryClass (..))
 
-import           Test.Hspec            (Spec)
+import           Test.Hspec            (Expectation, Selector, Spec, shouldThrow)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Arbitrary, Property, (===))
 import           Universum
@@ -117,3 +120,30 @@ serDeserTest = identityTest @AsBinaryClass @a serDeserId
 
 showReadTest :: forall a. IdTestingRequiredClasses Read a => Spec
 showReadTest = identityTest @Read @a showRead
+
+-- | Extensional equality combinator. Useful to express function properties as functional
+-- equations.
+(.=.) :: (Eq b, Show b, Arbitrary a) => (a -> b) -> (a -> b) -> a -> Property
+(.=.) f g a = f a === g a
+
+infixr 5 .=.
+
+-- | Monadic extensional equality combinator.
+(>=.)
+    :: (Show (m b), Arbitrary a, Monad m, Eq (m b))
+    => (a -> m b)
+    -> (a -> m b)
+    -> a
+    -> Property
+(>=.) f g a = f a === g a
+
+infixr 5 >=.
+
+shouldThrowException
+    :: (Show a, Eq a, Exception e)
+    => (a -> b)
+    -> Selector e
+    -> a
+    -> Expectation
+shouldThrowException action exception arg =
+    (return $! action arg) `shouldThrow` exception

@@ -20,6 +20,7 @@ module Pos.Util
        -- * Various
        , mappendPair
        , mconcatPair
+       , (<//>)
        , readerToState
        , eitherPanic
        , inAssertMode
@@ -143,6 +144,15 @@ mappendPair = (uncurry (***)) . (mappend *** mappend)
 
 mconcatPair :: (Monoid a, Monoid b) => [(a, b)] -> (a, b)
 mconcatPair = foldr mappendPair (mempty, mempty)
+
+-- | Concatenates two url part using regular slash '/'.
+-- E.g. @"./dir/" <//> "/file" = "./dir/file"@.
+(<//>) :: String -> String -> String
+(<//>) lhs rhs = lhs' ++ "/" ++ rhs'
+  where
+    isSlash = (== '/')
+    lhs' = reverse $ dropWhile isSlash $ reverse lhs
+    rhs' = dropWhile isSlash rhs
 
 -- | Convert (Reader s) to any (MonadState s)
 readerToState

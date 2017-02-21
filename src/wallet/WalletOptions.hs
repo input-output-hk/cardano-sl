@@ -1,4 +1,5 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE CPP           #-}
 
 -- | Command line options of cardano-wallet
 
@@ -68,24 +69,34 @@ serveParser = command "serve" $ info opts desc
 #endif
 
 optionsParser :: Parser WalletOptions
-optionsParser = WalletOptions
-    <$> strOption (long "db-path"
-                <> metavar "FILEPATH"
-                <> value "wallet-db"
-                <> help "Path to the wallet database")
-    <*> switch (long "rebuild-db"
-             <> help ("If we DB already exist, discard it's contents and " <>
-                      "create new one from scratch"))
-    <*> CLI.ipPortOption ("0.0.0.0", 24961)   -- truly random value
-    <*> strOption (long "keys-path"
-            <> metavar "FILEPATH"
-            <> value "secret.key"
-            <> help "Path to file with secret keys")
-    <*> switch (long "debug"
-             <> help "Run in debug mode (with genesis keys included)")
-    <*> CLI.optionalJSONPath
-    <*> CLI.commonArgsParser "Initial DHT peer (may be many)"
-    <*> actionParser
+optionsParser = do
+    woDbPath <- strOption $
+        long    "db-path" <>
+        metavar "FILEPATH" <>
+        value   "wallet-db" <>
+        help    "Path to the wallet database"
+    woRebuildDb <- switch $
+        long "rebuild-db" <>
+        help "If the DB already exist, discard its contents and \
+             \create new one from scratch"
+    woIpPort <-
+        CLI.ipPortOption ("0.0.0.0", 24961)   -- truly random value
+    woKeyFilePath <- strOption $
+        long    "keys-path" <>
+        metavar "FILEPATH" <>
+        value   "secret.key" <>
+        help    "Path to file with secret keys"
+    woDebug <- switch $
+        long "debug" <>
+        help "Run in debug mode (with genesis keys included)"
+    woJLFile <-
+        CLI.optionalJSONPath
+    woCommonArgs <-
+        CLI.commonArgsParser "Initial DHT peer (may be many)"
+    woAction <-
+        actionParser
+
+    pure WalletOptions{..}
 
 optsInfo :: ParserInfo WalletOptions
 optsInfo = info (helper <*> optionsParser) $

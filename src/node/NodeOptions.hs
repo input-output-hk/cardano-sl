@@ -1,3 +1,4 @@
+{-# LANGUAGE ApplicativeDo       #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -61,95 +62,114 @@ data Args = Args
   deriving Show
 
 argsParser :: Parser Args
-argsParser =
-    Args <$>
-    strOption
-        (long "db-path" <> metavar "FILEPATH" <> value "node-db" <>
-        help "Path to the node database") <*>
-    switch
-        (long "rebuild-db" <>
-         help
-             "If we DB already exist, discard it's contents and create new one from\
-             \ scratch") <*>
+argsParser = do
+    dbPath <- strOption $
+        long    "db-path" <>
+        metavar "FILEPATH" <>
+        value   "node-db" <>
+        help    "Path to the node database"
+    rebuildDB <- switch $
+        long "rebuild-db" <>
+        help "If we DB already exist, discard its contents \
+             \and create a new one from scratch"
 #ifdef DEV_MODE
-    optional
-        (option
-             auto
-             (long "spending-genesis" <> metavar "INT" <>
-              help "Use genesis spending #i")) <*>
-    optional
-        (option
-             auto
-             (long "vss-genesis" <> metavar "INT" <> help "Use genesis vss #i")) <*>
+    spendingGenesisI <- optional $ option auto $
+        long    "spending-genesis" <>
+        metavar "INT" <>
+        help    "Use genesis spending #i"
+    vssGenesisI <- optional $ option auto $
+        long    "vss-genesis" <>
+        metavar "INT" <>
+        help    "Use genesis vss #i"
 #endif
-    strOption
-        (long "keyfile" <>
-         metavar "FILEPATH" <>
-         value "secret.key" <>
-         help "Path to file with secret keys") <*>
-    optional
-        (option auto $
-            long "backup-phrase" <>
-            metavar "PHRASE" <>
-            help (show backupPhraseWordsNum ++ "-word phrase to recover the wallet")) <*>
-    CLI.ipPortOption ("0.0.0.0", 3000) <*>
-    switch
-        (long "supporter" <> help "Launch DHT supporter instead of full node") <*>
-    optional
-        (option (fromParsec CLI.dhtKeyParser) $
-         long "dht-key" <> metavar "HOST_ID" <> help "DHT key in base64-url") <*>
-    CLI.timeLordOption <*>
-    switch (long "stats" <> help "Enable stats logging") <*>
-    CLI.optionalJSONPath <*>
-    many
-        (option (fromParsec CLI.attackTypeParser) $
-         long "attack" <> metavar "NoBlocks|NoCommitments"
-         <> help "Attack type to emulate") <*>
-    many
-        (option (fromParsec CLI.attackTargetParser) $
-         long "attack-target" <> metavar "HOST:PORT|PUBKEYHASH") <*>
-    strOption
-        (long "kademlia-dump-path" <> metavar "FILEPATH" <> showDefault <>
-        help "Path to kademlia dump file" <> value "kademlia.dump")
+    keyfilePath <- strOption $
+        long    "keyfile" <>
+        metavar "FILEPATH" <>
+        value   "secret.key" <>
+        help    "Path to file with secret keys"
+    backupPhrase <- optional $ option auto $
+        long    "backup-phrase" <>
+        metavar "PHRASE" <>
+        help    (show backupPhraseWordsNum ++
+                 "-word phrase to recover the wallet")
+    ipPort <-
+        CLI.ipPortOption ("0.0.0.0", 3000)
+    supporterNode <- switch $
+        long "supporter" <>
+        help "Launch DHT supporter instead of full node"
+    dhtKey <- optional $ option (fromParsec CLI.dhtKeyParser) $
+        long    "dht-key" <>
+        metavar "HOST_ID" <>
+        help    "DHT key in base64-url"
+    timeLord <-
+        CLI.timeLordOption
+    enableStats <- switch $
+        long "stats" <>
+        help "Enable stats logging"
+    jlPath <-
+        CLI.optionalJSONPath
+    maliciousEmulationAttacks <-
+        many $ option (fromParsec CLI.attackTypeParser) $
+        long    "attack" <>
+        metavar "NoBlocks|NoCommitments" <>
+        help    "Attack type to emulate"
+    maliciousEmulationTargets <-
+        many $ option (fromParsec CLI.attackTargetParser) $
+        long    "attack-target" <>
+        metavar "HOST:PORT|PUBKEYHASH"
+    kademliaDumpPath <- strOption $
+        long    "kademlia-dump-path" <>
+        metavar "FILEPATH" <>
+        value   "kademlia.dump" <>
+        help    "Path to kademlia dump file" <>
+        showDefault
 #ifdef WITH_WEB
-    <*>
-    switch
-        (long "web" <>
-         help "Run web server") <*>
-    CLI.webPortOption 8080 "Port for web server"
+    enableWeb <- switch $
+        long "web" <>
+        help "Run web server"
+    webPort <-
+        CLI.webPortOption 8080 "Port for web server"
 #ifdef WITH_WALLET
-    <*>
-    switch
-        (long "wallet" <>
-         help "Run wallet web api") <*>
-    CLI.walletPortOption 8090 "Port for Daedalus Wallet API" <*>
-    strOption
-        (long "wallet-db-path" <>
-         help "Path to the wallet acid-state" <>
-         value "wallet-db") <*>
-    switch
-        (long "wallet-rebuild-db" <>
-         help "If the wallet DB already exist, discard it's contents and create \
-              \new one from scratch") <*>
-    switch
-        (long "wallet-debug" <>
-         help "Run wallet with debug params (e. g. include all the genesis keys in the set of secret keys)")
+    enableWallet <- switch $
+        long "wallet" <>
+        help "Run wallet web api"
+    walletPort <-
+        CLI.walletPortOption 8090 "Port for Daedalus Wallet API"
+    walletDbPath <- strOption $
+        long  "wallet-db-path" <>
+        help  "Path to the wallet acid-state" <>
+        value "wallet-db"
+    walletRebuildDb <- switch $
+        long "wallet-rebuild-db" <>
+        help "If the wallet DB already exist, discard its contents \
+             \and create a new one from scratch"
+    walletDebug <- switch $
+        long "wallet-debug" <>
+        help "Run wallet with debug params (e.g. include \
+             \all the genesis keys in the set of secret keys)"
 #endif
 #endif
-    <*> CLI.commonArgsParser peerHelpMsg
-    <*> option auto (long "system-start" <> metavar "TIMESTAMP" <> value (-1))
-    <*> strOption (long "update-latest-path" <>
-                   metavar "FILEPATH" <>
-                   value "update-installer.exe" <>
-                   help "Path to update installer file, which should be downloaded by update system")
-    <*> switch (long "update-with-package" <>
-                help "Use updating via installer")
-    <*> optional
-            (option
-                 auto
-                 (long "monitor-port" <> metavar "INT" <>
-                  help "Run web monitor on this port"))
+    commonArgs <-
+        CLI.commonArgsParser peerHelpMsg
+    noSystemStart <- option auto $
+        long    "system-start" <>
+        metavar "TIMESTAMP" <>
+        value   (-1)
+    updateLatestPath <- strOption $
+        long    "update-latest-path" <>
+        metavar "FILEPATH" <>
+        value   "update-installer.exe" <>
+        help    "Path to update installer file,\
+                \which should be downloaded by update system"
+    updateWithPackage <- switch $
+        long "update-with-package" <>
+        help "Use updating via installer"
+    monitorPort <- optional $ option auto $
+        long    "monitor-port" <>
+        metavar "INT" <>
+        help    "Run web monitor on this port"
 
+    pure Args{..}
   where
     peerHelpMsg =
         "Peer to connect to for initial peer discovery. Format\

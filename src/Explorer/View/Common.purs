@@ -7,10 +7,15 @@ module Explorer.View.Common (
     , transactionPaginationView
     ) where
 
+import Prelude
 import Data.Maybe (Maybe(..))
+import Data.Lens ((^.))
 import Explorer.Routes (Route(..), toUrl)
+import Explorer.I18n.Lang (translate)
+import Explorer.I18n.Lenses (common, cOf) as I18nL
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
+import Explorer.Lenses.State (lang)
 import Pux.Html (Html, text, div, a, p, span, input) as P
 import Pux.Html.Attributes (className, href, value, disabled) as P
 import Pux.Router (link) as P
@@ -109,7 +114,7 @@ paginationView state =
                 []
             , P.p
                 [ P.className "label" ]
-                [ P.text "#of"]
+                [ P.text <<< translate (I18nL.common <<< I18nL.cOf) $ state ^. lang ]
             , P.input
                 [ P.className "page-number"
                 , P.disabled true

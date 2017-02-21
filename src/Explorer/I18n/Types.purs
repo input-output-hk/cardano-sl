@@ -9,6 +9,7 @@ type Translation =
     , dashboard :: Dashboard
     , address :: Address
     , tx :: Transaction
+    , block :: Block
     , footer :: Footer
     }
 
@@ -29,6 +30,7 @@ type Common =
     , cAddress :: String
     , cSummary :: String
     , cBlock :: String
+    , cHash :: String
     , cHashes :: String
     , cHeight :: String
     , cAge :: String
@@ -40,6 +42,8 @@ type Common =
     , cNoData :: String
     , cCopyright :: String
     , cUnknown :: String
+    , cTotalOutput :: String
+    , cOf :: String
     }
 
 -- translations of main navigation
@@ -108,7 +112,16 @@ type Transaction =
     { txTime :: String
     , txIncluded :: String
     , txRelayed :: String
-    , txTotal :: String
+    }
+
+-- translations of block detail page
+
+type Block =
+    { blFees :: String
+    , blEstVolume :: String
+    , blPrevBlock :: String
+    , blNextBlock :: String
+    , blRoot :: String
     }
 
 -- translations of footer

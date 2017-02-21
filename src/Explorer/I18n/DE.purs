@@ -18,6 +18,7 @@ translation =
         , cVersion: "Version"
         , cSummary: "Zusammenfassung"
         , cBlock: "Block"
+        , cHash: "Hash"
         , cHashes: "Hashes"
         , cHeight: "Höhe"
         , cAge: "Alter"
@@ -29,6 +30,8 @@ translation =
         , cNoData: "Keine Daten"
         , cCopyright: "Cardano Blockchain Explorer @2017"
         , cUnknown: "Unbekannt"
+        , cTotalOutput: "Gesamtausgabe"
+        , cOf: "von"
         }
     , navigation:
         { navHome: "Home"
@@ -82,7 +85,13 @@ translation =
         { txTime: "Eingangszeit"
         , txIncluded: "Bestand im Block"
         , txRelayed: "Weitergabe per IP"
-        , txTotal: "Gesamtausgabe"
+        }
+    , block:
+        { blFees: "Gebühren"
+        , blEstVolume: "Geschätztes Volumen"
+        , blPrevBlock: "Vorheriger Block"
+        , blNextBlock: "Nächster Block"
+        , blRoot: "Oberer Block"
         }
     , footer:
         { fooRessources: "Ressourcen"

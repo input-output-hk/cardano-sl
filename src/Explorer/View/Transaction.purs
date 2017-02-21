@@ -4,7 +4,7 @@ import Prelude
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (common, cTransaction, cSummary, tx, txTotal, txRelayed, txIncluded, txTime) as I18nL
+import Explorer.I18n.Lenses (common, cTransaction, cSummary, tx, cTotalOutput, txRelayed, txIncluded, txTime) as I18nL
 import Explorer.Lenses.State (lang)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
@@ -68,7 +68,7 @@ summaryItems lang =
       , value: "78.129.167.5 (whois)"
       , currency: Nothing
       }
-    , { label: translate (I18nL.tx <<< I18nL.txTotal) lang
+    , { label: translate (I18nL.common <<< I18nL.cTotalOutput) lang
       , value: "3,027,500"
       , currency: Just ADA
       }

@@ -1,0 +1,62 @@
+
+.explorer-dashboard {
+
+  .transactions {
+
+    &__container {
+      padding-bottom: 24px;
+    }
+
+    &__waiting {
+      padding: 10px 24px;
+
+      font-size: 10px;
+      font-family: var(--fontFamily0-Regular);
+      color: var(--color13);
+    }
+
+    &__row {
+      @neat-outer-container;
+      font-size: 10px;
+      font-family: var(--fontFamily0-Regular);
+      color: var(--color8);
+      padding: 10px 24px;
+
+      &:nth-child(odd) {
+        background-color: var(--color6);
+      }
+
+    }
+
+    &__column {
+      @neat-span-columns 2;
+
+      &.hash {
+        @neat-span-columns 8;
+        button: standard-button;
+        button-color: var(--color8) var(--color5) var(--color5);
+
+      }
+
+      &.ada,
+      &.usd {
+        padding-left: 10px;
+        background-repeat: no-repeat;
+        background-position: left center;
+      }
+
+      &.ada {
+        background-size: 8px 7px;
+      }
+
+      &.usd {
+        background-size: 6px 10px;
+      }
+    }
+
+    &__footer {
+      text-align: center;
+    }
+
+  }
+}

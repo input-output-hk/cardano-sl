@@ -10,6 +10,7 @@ import qualified Data.HashSet                 as HS (difference)
 import qualified Data.List.NonEmpty           as NE
 import           Universum
 
+import           Pos.Binary.Class             (fromBinaryM)
 import           Pos.Crypto                   (Secret, Share, unsafeRecoverSecret)
 import           Pos.Ssc.GodTossing.Core      (Commitment (..),
                                                CommitmentsMap (getCommitmentsMap),
@@ -18,7 +19,7 @@ import           Pos.Ssc.GodTossing.Core      (Commitment (..),
 import           Pos.Ssc.GodTossing.Error     (SeedError (..))
 import           Pos.Ssc.GodTossing.Functions (vssThreshold)
 import           Pos.Types                    (SharedSeed, StakeholderId, addressHash)
-import           Pos.Util                     (fromBinaryM, getKeys)
+import           Pos.Util                     (getKeys)
 
 
 -- | Calculate SharedSeed. SharedSeed is a random bytestring that all

@@ -10,16 +10,17 @@ import           Data.Ix             (inRange)
 import           Formatting          (formatToString, int, (%))
 import           Universum           hiding (putByteString)
 
-import           Pos.Binary.Class    (Bi (..), UnsignedVarInt (..))
+import           Pos.Binary.Class    (Bi (..), UnsignedVarInt (..),
+                                      getRemainingByteString, getWithLength,
+                                      putWithLength)
 import qualified Pos.Binary.Coin     as BinCoin
 import           Pos.Binary.Merkle   ()
+import           Pos.Binary.Script   ()
 import           Pos.Binary.Version  ()
 import           Pos.Constants       (epochSlots)
 import qualified Pos.Data.Attributes as A
 import qualified Pos.Types.Core      as T
 import qualified Pos.Types.Types     as T
-import           Pos.Util.Binary     (getRemainingByteString, getWithLength,
-                                      putWithLength)
 
 -- kind of boilerplate, but anyway that's what it was made for --
 -- verbosity and clarity

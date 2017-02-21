@@ -7,11 +7,11 @@ import           Data.Default        (def)
 import           Data.Digest.CRC32   (CRC32 (..), crc32)
 import           Universum           hiding (putByteString)
 
-import           Pos.Binary.Class    (Bi (..))
+import           Pos.Binary.Class    (Bi (..), getRemainingByteString, getSmallWithLength,
+                                      putSmallWithLength)
+import           Pos.Binary.Crypto   ()
 import           Pos.Data.Attributes (getAttributes, putAttributes)
 import           Pos.Types.Core      (AddrPkAttrs (..), Address (..))
-import           Pos.Util.Binary     (getRemainingByteString, getSmallWithLength,
-                                      putSmallWithLength)
 
 -- | Encode everything in an address except for CRC32
 putAddressIncomplete :: Address -> Put

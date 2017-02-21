@@ -14,14 +14,13 @@ import           System.FilePath      (takeDirectory)
 import           System.Random        (randomRIO)
 import           Universum            hiding (show)
 
-import           Pos.Binary           (decodeFull, encode)
+import           Pos.Binary           (asBinary, decodeFull, encode)
 import           Pos.Constants        (vssMaxTTL, vssMinTTL)
 import           Pos.Crypto           (PublicKey, keyGen, toPublic, toVssPublicKey,
                                        vssKeyGen)
 import           Pos.Genesis          (GenesisData (..), StakeDistribution (..))
 import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
 import           Pos.Types            (addressHash, makePubKeyAddress, mkCoin)
-import           Pos.Util             (asBinary)
 import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usKeys,
                                        usVss, writeUserSecretRelease)
 

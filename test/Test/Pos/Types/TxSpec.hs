@@ -23,7 +23,7 @@ import qualified Text.Regex.TDFA.Text  as TDFA
 import           Universum             hiding ((.&.))
 import           Unsafe                (unsafeHead)
 
-import           Pos.Crypto            (KeyPair (..), checkSig, hash, unsafeHash, whData,
+import           Pos.Crypto            (checkSig, hash, toPublic, unsafeHash, whData,
                                         withHash)
 import           Pos.Data.Attributes   (mkAttributes)
 import           Pos.Script            (Script)
@@ -148,8 +148,8 @@ scriptTxSpec = describe "script transactions" $ do
                 "input #0 isn't validated by its witness.*\
                     \reason: result of evaluation is 'failure'.*"]
 
-    let [KeyPair pk1 sk1, KeyPair pk2 sk2,
-         KeyPair pk3 sk3, KeyPair _pk4 sk4] = runGen $ nonrepeating 4
+    let sks@[sk1, sk2, sk3,  sk4] = runGen $ nonrepeating 4
+    let     [pk1, pk2, pk3, _pk4] = map toPublic sks
     let shouldBeFailure res = res `errorsShouldMatch` [
             "input #0 isn't validated by its witness.*\
                 \reason: result of evaluation is 'failure'.*"]

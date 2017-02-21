@@ -34,9 +34,12 @@ module Pos.Types.Block.Types
 import           Control.Lens          (makeLenses)
 import           Data.Text.Buildable   (Buildable)
 import qualified Data.Text.Buildable   as Buildable
+import           Formatting            (bprint, build, (%))
 import           Universum
 
+import           Pos.Binary.Address    ()
 import           Pos.Binary.Class      (Bi)
+import           Pos.Binary.Crypto     ()
 import           Pos.Crypto            (Signature)
 import           Pos.Data.Attributes   (Attributes)
 import           Pos.Ssc.Class.Types   (Ssc (..))
@@ -47,8 +50,6 @@ import           Pos.Types.Core        (BlockVersion, ChainDifficulty, HeaderHas
                                         SlotId (..), SoftwareVersion)
 import           Pos.Types.Types       (ProxySigHeavy, ProxySigLight)
 import           Pos.Types.Version     ()
-
-import           Formatting            (bprint, build, (%))
 
 ----------------------------------------------------------------------------
 -- MainBlock

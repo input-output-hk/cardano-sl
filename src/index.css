@@ -4,7 +4,7 @@
 @import "./Explorer/View/layout.css";
 @import "./Explorer/View/header.css";
 @import "./Explorer/View/footer.css";
-@import "./Explorer/View/dashboard.css";
+@import "./Explorer/View/Dashboard/dashboard.css";
 @import "./Explorer/View/address.css";
 @import "./Explorer/View/calculator.css";
 @import "./Explorer/View/transaction.css";

@@ -10,7 +10,7 @@ import Explorer.View.Address (addressView)
 import Explorer.View.Header (headerView)
 import Explorer.View.Footer (footerView)
 import Explorer.View.Calculator (calculatorView)
-import Explorer.View.Dashboard (dashboardView)
+import Explorer.View.Dashboard.Dashboard (dashboardView)
 import Explorer.View.Transaction (transactionView)
 import Explorer.View.Block (blockView)
 

@@ -1,0 +1,127 @@
+module Explorer.View.Dashboard.Blocks (blocksView) where
+
+import Prelude
+import Data.Array (null, slice)
+import Data.Lens ((^.))
+import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Newtype (unwrap)
+import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
+import Explorer.I18n.Lang (Language, translate)
+import Explorer.I18n.Lenses (dashboard, dbLastBlocks, common, dbExploreBlocks, cUnknown,cHeight, cExpand, cNoData, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB) as I18nL
+import Explorer.Lenses.State (lang, latestBlocks)
+import Explorer.Routes (Route(..), toUrl)
+import Explorer.Types.Actions (Action(..))
+import Explorer.Types.State (State, CBlockEntries)
+import Explorer.View.Common (paginationView)
+import Explorer.View.Dashboard.Lenses (dashboardBlocksExpanded)
+import Explorer.View.Dashboard.Shared (headerView)
+import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
+import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeHeight, cbeRelayedBy, cbeSize, cbeTimeIssued, cbeTotalSent, cbeTxNum)
+import Pos.Types.Lenses.Core (_Coin, getCoin)
+import Pux.Html (Html, div, text) as P
+import Pux.Html.Attributes (className) as P
+import Pux.Html.Events (onClick) as P
+import Pux.Router (link) as P
+
+
+-- blocks
+
+blocksView :: State -> P.Html Action
+blocksView state =
+    P.div
+        [ P.className "explorer-dashboard__wrapper" ]
+        [ P.div
+            [ P.className "explorer-dashboard__container" ]
+            [ headerView state headerOptions
+            , blocksHeaderView state
+            , P.div
+                [ P.className $ "blocks-waiting" <> visibleWaitingClazz ]
+                [ P.text $ translate (I18nL.common <<< I18nL.cNoData) lang' ]
+            , P.div
+                [ P.className $ "blocks-body" <> visibleBlockClazz ]
+                $ map (blockRow state) latestBlocks'
+            , P.div
+                [ P.className $ "blocks-footer" <> visibleBlockClazz ]
+                [ blocksFooterView ]
+            -- TODO (jk) For debugging only - has to be removed later on
+            , P.div
+                [ P.className $ "btn-debug"
+                , P.onClick $ const RequestLatestBlocks  ]
+                [ P.text "#Debug blocks" ]
+            ]
+        ]
+      where
+        headerOptions = HeaderOptions
+            { headline: translate (I18nL.dashboard <<< I18nL.dbLastBlocks) lang'
+            , link: Just $ HeaderLink { label: translate (I18nL.dashboard <<< I18nL.dbExploreBlocks) lang'
+                                      , action: NoOp }
+            }
+        lang' = state ^. lang
+        expanded = state ^. dashboardBlocksExpanded
+        blocks = state ^. latestBlocks
+        noBlocks = null blocks
+        visibleBlockClazz = if noBlocks then " invisible" else ""
+        visibleWaitingClazz = if not noBlocks then " invisible" else ""
+        -- TODO (jk) use pagination
+        latestBlocks' :: CBlockEntries
+        latestBlocks' = if expanded
+            then slice 0 maxBlockRows blocks
+            else slice 0 minBlockRows blocks
+
+
+        blocksFooterView :: P.Html Action
+        blocksFooterView = if expanded then
+            paginationView state
+            else
+            P.div
+              [ P.className "btn-expand"
+              , P.onClick <<< const $ DashboardExpandBlocks true ]
+              [ P.text $ translate (I18nL.common <<< I18nL.cExpand) lang']
+
+
+maxBlockRows :: Int
+maxBlockRows = 10
+
+minBlockRows :: Int
+minBlockRows = 3
+
+blockRow :: State -> CBlockEntry -> P.Html Action
+blockRow state (CBlockEntry entry) =
+    P.link (toUrl <<< Block $ entry ^. cbeBlkHash)
+        [ P.className "blocks-body__row" ]
+        [ blockColumn <<< show $ entry ^. cbeHeight
+        , blockColumn <<< show <<< unwrap $ entry ^. (cbeTimeIssued <<< _NominalDiffTime)
+        , blockColumn <<< show $ entry ^. cbeTxNum
+        , blockColumn <<< show $ entry ^. (cbeTotalSent <<< _Coin <<< getCoin)
+        , blockColumn <<< fromMaybe (translate (I18nL.common <<< I18nL.cUnknown) $ state ^. lang) $ entry ^. cbeRelayedBy
+        , blockColumn <<< show $ entry ^. cbeSize
+        ]
+
+blockColumn :: String -> P.Html Action
+blockColumn value =
+    P.div
+        [ P.className "blocks-body__column" ]
+        [ P.text value ]
+
+blocksHeaderView :: State -> P.Html Action
+blocksHeaderView state =
+    P.div
+          [ P.className $ "blocks-header" <> if null $ state ^. latestBlocks then " invisible" else "" ]
+          $ map (blockHeaderItemView state) $ mkBlocksHeaderItems state.lang
+
+blockHeaderItemView :: State -> String -> P.Html Action
+blockHeaderItemView state label =
+    P.div
+        [ P.className "blocks-header__item" ]
+        [ P.text label ]
+
+mkBlocksHeaderItems :: Language -> Array String
+mkBlocksHeaderItems lang =
+    [ translate (I18nL.common <<< I18nL.cHeight) lang
+    , translate (I18nL.common <<< I18nL.cAge) lang
+    , translate (I18nL.common <<< I18nL.cTransactions) lang
+    , translate (I18nL.common <<< I18nL.cTotalSent) lang
+    , translate (I18nL.common <<< I18nL.cRelayedBy) lang
+    , translate (I18nL.common <<< I18nL.cSizeKB) lang
+    ]

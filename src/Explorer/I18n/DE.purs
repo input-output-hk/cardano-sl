@@ -78,6 +78,12 @@ translation =
         , addQrCode: "QR-Code"
         , addFinalBalance: "Aktueller Kontostand"
         }
+    , tx:
+        { txTime: "Eingangszeit"
+        , txIncluded: "Bestand im Block"
+        , txRelayed: "Weitergabe per IP"
+        , txTotal: "Gesamtausgabe"
+        }
     , footer:
         { fooRessources: "Ressourcen"
         , fooFollow: "Folgen Sie uns"

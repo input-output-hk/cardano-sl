@@ -1,9 +1,11 @@
 module Explorer.View.Transaction (transactionView) where
 
 import Prelude
+import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
-import Explorer.I18n.Lang (translate)
-import Explorer.I18n.Lenses (common, cTransaction, cSummary) as I18nL
+import Explorer.I18n.Lang (Language, translate)
+import Explorer.I18n.Lenses (common, cTransaction, cSummary, tx, txTotal, txRelayed, txIncluded, txTime) as I18nL
+import Explorer.Lenses.State (lang)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.View.Common (currencyCSSClass, transactionHeaderView, transactionBodyView)
@@ -13,6 +15,7 @@ import Pux.Html.Attributes (className) as P
 
 transactionView :: State -> CHash -> P.Html Action
 transactionView state hash =
+    let lang' = state ^. lang in
     P.div
         [ P.className "explorer-transaction" ]
         [ P.div
@@ -21,7 +24,7 @@ transactionView state hash =
                 [ P.className "explorer-transaction__container" ]
                 [ P.h3
                     [ P.className "headline"]
-                    [ P.text $ translate (I18nL.common <<< I18nL.cTransaction) state.lang ]
+                    [ P.text $ translate (I18nL.common <<< I18nL.cTransaction) lang' ]
                 , transactionHeaderView state
                 , transactionBodyView state
                 ]
@@ -32,10 +35,10 @@ transactionView state hash =
                 [ P.className "explorer-transaction__container" ]
                 [ P.h3
                     [ P.className "headline"]
-                    [ P.text $ translate (I18nL.common <<< I18nL.cSummary) state.lang ]
+                    [ P.text $ translate (I18nL.common <<< I18nL.cSummary) lang' ]
                   , P.table
                       [ P.className "table-summary" ]
-                      $ map summaryRow summaryItems
+                      <<< map summaryRow $ summaryItems lang'
                 ]
             ]
         ]
@@ -51,12 +54,24 @@ type SummaryItem =
     , currency :: Maybe CCurrency
     }
 
-summaryItems :: SummaryItems
-summaryItems =
-    [ { label: "#Received time", value: "2016-07-08 11:56:48", currency: Nothing }
-    , { label: "#Included In Blocks", value: "419827 (2016-07-08 12:02:52 + 6 minutes)", currency: Nothing }
-    , { label: "#Relayed by IP", value: "78.129.167.5 (whois)", currency: Nothing }
-    , { label: "#Total Output", value: "3,027,500", currency: Just ADA }
+summaryItems :: Language -> SummaryItems
+summaryItems lang =
+    [ { label: translate (I18nL.tx <<< I18nL.txTime) lang
+      , value: "2016-07-08 11:56:48"
+      , currency: Nothing
+      }
+    , { label: translate (I18nL.tx <<< I18nL.txIncluded) lang
+      , value: "419827 (2016-07-08 12:02:52 + 6 minutes)"
+      , currency: Nothing
+      }
+    , { label: translate (I18nL.tx <<< I18nL.txRelayed) lang
+      , value: "78.129.167.5 (whois)"
+      , currency: Nothing
+      }
+    , { label: translate (I18nL.tx <<< I18nL.txTotal) lang
+      , value: "3,027,500"
+      , currency: Just ADA
+      }
     ]
 
 summaryRow :: SummaryItem -> P.Html Action

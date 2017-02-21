@@ -8,6 +8,7 @@ type Translation =
     , hero :: Hero
     , dashboard :: Dashboard
     , address :: Address
+    , tx :: Transaction
     , footer :: Footer
     }
 
@@ -99,6 +100,15 @@ type Address =
     { addScan :: String
     , addQrCode :: String
     , addFinalBalance :: String
+    }
+
+-- translations of transaction detail page
+
+type Transaction =
+    { txTime :: String
+    , txIncluded :: String
+    , txRelayed :: String
+    , txTotal :: String
     }
 
 -- translations of footer

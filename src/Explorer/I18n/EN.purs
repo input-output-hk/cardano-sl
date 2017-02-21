@@ -78,6 +78,12 @@ translation =
         , addQrCode: "QR-Code"
         , addFinalBalance: "Final balance"
         }
+    , tx:
+        { txTime: "Received time"
+        , txIncluded: "Included In Blocks"
+        , txRelayed: "Relayed by IP"
+        , txTotal: "Total Output"
+        }
     , footer:
         { fooRessources: "Ressources"
         , fooFollow: "Follow us"

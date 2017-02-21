@@ -47,11 +47,11 @@ import           Formatting            (build, sformat)
 
 import           Pos.Aeson.Types       ()
 import           Pos.Crypto            (hashHexF)
-import           Pos.Script.Type       (ScriptVersion)
 import           Pos.Types             (Address (..), BlockVersion, ChainDifficulty, Coin,
                                         SoftwareVersion, TxId, decodeTextAddress,
                                         sumCoins, txOutAddress, txOutValue, txOutputs,
                                         unsafeIntegerToCoin)
+import           Pos.Types.Script      (ScriptVersion)
 import           Pos.Update.Core       (BlockVersionData (..), StakeholderVotes,
                                         UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll       (ConfirmedProposalState (..))

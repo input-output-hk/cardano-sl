@@ -35,7 +35,7 @@ verifyTxUtxo
 verifyTxUtxo verifyAlone verifyVersions txaux = do
     res <- verifyTx verifyAlone verifyVersions VTxGlobalContext utxoGet' txaux
     case res of
-        Left errors -> throwError $ TxpInvalid $ T.intercalate "; " errors
+        Left errors -> throwError $ TxpInvalid $ T.intercalate ";\n" errors
         Right undo  -> pure undo
   where
     utxoGet' x = fmap VTxLocalContext <$> utxoGet x

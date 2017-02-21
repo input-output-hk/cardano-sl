@@ -24,7 +24,7 @@ import           System.Wlog                      (logDebug, logError, logInfo,
                                                    logWarning)
 import           Universum
 
-import           Pos.Binary.Class                 (Bi)
+import           Pos.Binary.Class                 (AsBinary, Bi, asBinary)
 import           Pos.Binary.Communication         ()
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
@@ -75,8 +75,7 @@ import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    SlotId (..), StakeholderId,
                                                    StakeholderId, Timestamp (..),
                                                    addressHash)
-import           Pos.Util                         (AsBinary, asBinary, getKeys,
-                                                   inAssertMode)
+import           Pos.Util                         (getKeys, inAssertMode)
 import           Pos.WorkMode                     (WorkMode)
 
 instance SscWorkersClass SscGodTossing where

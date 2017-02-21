@@ -12,8 +12,8 @@ import           Test.QuickCheck       (Arbitrary (..), listOf1, oneof)
 import           Universum
 
 import           Pos.Binary.Update     ()
-import           Pos.Crypto            (sign)
-import           Pos.Crypto.Arbitrary  (KeyPair (..))
+import           Pos.Crypto            (sign, toPublic)
+import           Pos.Crypto.Arbitrary  ()
 import           Pos.Data.Attributes   (mkAttributes)
 import           Pos.Types.Arbitrary   ()
 import           Pos.Update.Core.Types (BlockVersionData (..), SystemTag, UpdateData (..),
@@ -29,7 +29,8 @@ instance Arbitrary SystemTag where
 
 instance Arbitrary UpdateVote where
     arbitrary = do
-        KeyPair uvKey sk <- arbitrary
+        sk <- arbitrary
+        let uvKey = toPublic sk
         uvProposalId <- arbitrary
         uvDecision <- arbitrary
         let uvSignature = sign sk (uvProposalId, uvDecision)

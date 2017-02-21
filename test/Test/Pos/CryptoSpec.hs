@@ -7,23 +7,23 @@ module Test.Pos.CryptoSpec
 
 import qualified Data.ByteString       as BS
 import           Formatting            (sformat)
-import           Test.Hspec            (Expectation, Spec, describe, shouldBe, specify)
+import           Test.Hspec            (Expectation, Spec, describe, it, shouldBe,
+                                        specify)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (===), (==>))
 import           Universum
 
-import           Pos.Binary            (Bi)
-import           Pos.Crypto            (EncShare, Hash, KeyPair (..), ProxyCert,
-                                        ProxySecretKey (..), ProxySignature, PublicKey,
-                                        Secret, SecretKey, SecretProof,
-                                        SecretSharingExtra, Share, Signature, Signed,
-                                        VssPublicKey, checkSig, createProxySecretKey,
-                                        deterministic, fullPublicKeyF, hash, hashHexF,
+import           Pos.Binary            (AsBinary, Bi)
+import           Pos.Crypto            (EncShare, Hash, ProxyCert, ProxySecretKey (..),
+                                        ProxySignature, PublicKey, Secret, SecretKey,
+                                        SecretProof, SecretSharingExtra, Share, Signature,
+                                        Signed, VssPublicKey, checkSig,
+                                        createProxySecretKey, deterministic,
+                                        fullPublicKeyF, hash, hashHexF, keyGen,
                                         parseFullPublicKey, proxySign, proxyVerify,
                                         randomNumber, sign, toPublic,
                                         verifyProxySecretKey)
 import           Pos.Ssc.GodTossing    ()
-import           Pos.Util              (AsBinary)
 
 import           Test.Pos.Util         (binaryEncodeDecode, binaryTest,
                                         safeCopyEncodeDecode, safeCopyTest, serDeserId)
@@ -115,8 +115,7 @@ spec = describe "Crypto" $ do
             prop "SecretSharingExtra <-> AsBinary SecretSharingExtra"
                 (serDeserId @SecretSharingExtra)
         describe "keys" $ do
-            prop
-                "derived pubkey equals to generated pubkey"
+            it  "derived pubkey equals to generated pubkey"
                 keyDerivation
             prop
                 "formatted key can be parsed back"
@@ -156,8 +155,10 @@ hashInequality a b = a /= b ==> hash a /= hash b
 checkHash :: Bi a => a -> Text -> Expectation
 checkHash x s = sformat hashHexF (hash x) `shouldBe` s
 
-keyDerivation :: KeyPair -> Property
-keyDerivation kp = getPub kp === toPublic (getSec kp)
+keyDerivation :: Expectation
+keyDerivation = do
+    (pk, sk) <- keyGen
+    pk `shouldBe` toPublic sk
 
 keyParsing :: PublicKey -> Property
 keyParsing pk = parseFullPublicKey (sformat fullPublicKeyF pk) === Just pk

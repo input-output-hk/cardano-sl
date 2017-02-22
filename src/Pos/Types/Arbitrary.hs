@@ -28,7 +28,8 @@ import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.Time.Units            (Microsecond, Millisecond, fromMicroseconds)
 import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
-                                             choose, choose, elements, oneof, scale)
+                                             choose, choose, elements, oneof, scale,
+                                             suchThat)
 import           Test.QuickCheck.Instances  ()
 import           Universum
 
@@ -46,8 +47,7 @@ import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
 import           Pos.Types.Address          (makePubKeyAddress, makeScriptAddress)
 import           Pos.Types.Arbitrary.Unsafe ()
-import           Pos.Types.Coin             (coinToInteger, divCoin, unsafeIntegerToCoin,
-                                             unsafeSubCoin)
+import           Pos.Types.Coin             (coinToInteger, divCoin, unsafeSubCoin)
 import           Pos.Types.Core             (Address (..), ChainDifficulty (..), Coin,
                                              CoinPortion, EpochIndex (..),
                                              EpochOrSlot (..), LocalSlotIndex (..),
@@ -123,9 +123,12 @@ newtype CoinPairOverflowSub = TwoCoinsSub
 
 instance Arbitrary CoinPairOverflowSub where
     arbitrary = do
-        c2 <- arbitrary
-        let secondWord = unsafeGetCoin c2
-        c1 <- mkCoin <$> choose (0, secondWord - 1)
+        firstCoin <- arbitrary
+        let firstWord = unsafeGetCoin firstCoin
+            c1 = if firstCoin == maxBound
+                then mkCoin $ firstWord - 1
+                else firstCoin
+        c2 <- arbitrary `suchThat` (> c1)
         return $ TwoCoinsSub (c1, c2)
 
 -- | This datatype has two coins that will never underflow when subtracted.
@@ -155,12 +158,13 @@ instance Arbitrary CoinPairOverflowMul where
         c1 <- arbitrary
         let integralC1 = coinToInteger c1
             lowerBound =
-                integralC1 + (coinToInteger $ (maxBound @Coin) `divCoin` integralC1)
+                1 + (coinToInteger $ (maxBound @Coin) `divCoin` integralC1)
             upperBound = coinToInteger (maxBound @Coin)
         c2 <- fromIntegral @Integer <$> choose (lowerBound, upperBound)
         return $ TwoCoinsM (c1, c2)
 
--- | This datatype has two coins that will always overflow when multiplied.
+-- | This datatype has a 'Coin' and an 'Integer'  that will always overflow when
+-- multiplied.
 -- It is used to make sure coin multiplication by an integer raises the appropriate
 -- exception when this happens.
 newtype SafeCoinPairMul = CoinPairMul

@@ -29,10 +29,11 @@ library
   other-modules:        Pos.Explorer.Aeson.ClientTypes
 
                         Pos.Explorer.Web.Sockets.App
+                        Pos.Explorer.Web.Sockets.Instances
                         Pos.Explorer.Web.Sockets.Holder
                         Pos.Explorer.Web.Sockets.Methods
                         Pos.Explorer.Web.Sockets.Util
-                        
+
                         Pos.Explorer.Web.Server
                         Pos.Explorer.Web.Transform
                         Pos.Explorer.Web.Api
@@ -41,6 +42,8 @@ library
                       , bytestring
                       , base16-bytestring
                       , cardano-sl
+                      , engine-io
+                      , engine-io-snap
                       , exceptions
                       , formatting
                       , lens
@@ -51,6 +54,8 @@ library
                       , servant
                       , servant-server
                       , socket-io
+                      , snap-core
+                      , snap-server
                       , engine-io-wai
                       , stm
                       , text-format

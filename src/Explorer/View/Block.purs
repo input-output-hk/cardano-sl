@@ -1,13 +1,14 @@
 module Explorer.View.Block (blockView) where
 
 import Prelude
-import Data.Maybe (Maybe(..))
 import Data.Lens ((^.))
+import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (cBlock, common, block, blFees, blRoot, blNextBlock, blPrevBlock, blEstVolume, cHash, cSummary, cTotalOutput, cHashes, cTransactions) as I18nL
-import Explorer.Types.Actions (Action)
-import Explorer.Types.State (CCurrency(..), State)
+import Explorer.I18n.Lenses (cBlock, common, cOf, block, blFees, blRoot, blNextBlock, blPrevBlock, blEstVolume, cHash, cSummary, cTotalOutput, cHashes, cTransactions) as I18nL
 import Explorer.Lenses.State (lang)
+import Explorer.Types.Actions (Action(..))
+import Explorer.Types.State (CCurrency(..), State)
+import Explorer.Util.DOM (targetToHTMLInputElement)
 import Explorer.View.Common (currencyCSSClass, transactionPaginationView, transactionHeaderView, transactionBodyView)
 import Pos.Explorer.Web.ClientTypes (CHash)
 import Pux.Html (Html, div, text, h3) as P
@@ -17,7 +18,6 @@ import Pux.Html.Attributes (className) as P
 
 blockView :: State -> CHash -> P.Html Action
 blockView state hash =
-    let lang' = state ^. lang in
     P.div
         [ P.className "explorer-block" ]
         [ P.div
@@ -62,10 +62,19 @@ blockView state hash =
                         [ P.text $ translate (I18nL.common <<< I18nL.cSummary) lang' ]
                     , transactionHeaderView state
                     , transactionBodyView state
-                    , transactionPaginationView state
+                    , transactionPaginationView paginationViewProps
                     ]
                 ]
         ]
+        where
+            lang' = state ^. lang
+            paginationViewProps =
+                { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                , currentPage: 1
+                , maxPage: 1
+                , changePageAction: BlockPaginateTransactions
+                , onFocusAction: SelectInputText <<< targetToHTMLInputElement
+                }
 
 --  summary
 

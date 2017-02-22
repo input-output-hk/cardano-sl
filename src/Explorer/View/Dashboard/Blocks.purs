@@ -1,19 +1,20 @@
 module Explorer.View.Dashboard.Blocks (blocksView) where
 
 import Prelude
-import Data.Array (null, slice)
+import Data.Array (length, null, slice)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (dashboard, dbLastBlocks, common, dbExploreBlocks, cUnknown,cHeight, cExpand, cNoData, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB) as I18nL
-import Explorer.Lenses.State (lang, latestBlocks)
+import Explorer.I18n.Lenses (dashboard, dbLastBlocks, cOf, common, dbExploreBlocks, cUnknown, cHeight, cExpand, cNoData, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB) as I18nL
+import Explorer.Lenses.State (dashboardBlockPagination, lang, latestBlocks)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State, CBlockEntries)
+import Explorer.Util.DOM (targetToHTMLInputElement)
 import Explorer.View.Common (paginationView)
-import Explorer.View.Dashboard.Lenses (dashboardBlocksExpanded)
+import Explorer.View.Dashboard.Lenses (dashboardBlocksExpanded, dashboardViewState)
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
@@ -26,6 +27,13 @@ import Pux.Router (link) as P
 
 
 -- blocks
+
+
+maxBlockRows :: Int
+maxBlockRows = 10
+
+minBlockRows :: Int
+minBlockRows = 3
 
 blocksView :: State -> P.Html Action
 blocksView state =
@@ -63,28 +71,30 @@ blocksView state =
         noBlocks = null blocks
         visibleBlockClazz = if noBlocks then " invisible" else ""
         visibleWaitingClazz = if not noBlocks then " invisible" else ""
-        -- TODO (jk) use pagination
+        currentBlockPage = state ^. (dashboardViewState <<< dashboardBlockPagination)
+        minBlockIndex = (currentBlockPage - 1) * maxBlockRows
         latestBlocks' :: CBlockEntries
         latestBlocks' = if expanded
-            then slice 0 maxBlockRows blocks
+            then slice minBlockIndex (minBlockIndex + maxBlockRows) blocks
             else slice 0 minBlockRows blocks
 
 
         blocksFooterView :: P.Html Action
         blocksFooterView = if expanded then
-            paginationView state
+            let paginationViewProps =
+                  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                  , currentPage: currentBlockPage
+                  , maxPage: flip (/) maxBlockRows <<< length $ state ^. latestBlocks
+                  , changePageAction: DashboardPaginateBlocks
+                  , onFocusAction: SelectInputText <<< targetToHTMLInputElement
+                  }
+            in
+            paginationView paginationViewProps
             else
             P.div
               [ P.className "btn-expand"
               , P.onClick <<< const $ DashboardExpandBlocks true ]
               [ P.text $ translate (I18nL.common <<< I18nL.cExpand) lang']
-
-
-maxBlockRows :: Int
-maxBlockRows = 10
-
-minBlockRows :: Int
-minBlockRows = 3
 
 blockRow :: State -> CBlockEntry -> P.Html Action
 blockRow state (CBlockEntry entry) =

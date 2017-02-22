@@ -5,7 +5,7 @@ import Control.Monad.Eff (Eff)
 import Control.SocketIO.Client (Event, Host)
 import Data.Argonaut.Core (Json)
 import Data.Foreign (Foreign)
-import Explorer.Api.Helper (decodeJson, decodeResult)
+import Explorer.Api.Helper (decodeResult)
 import Explorer.Types.Actions (Action(..), ActionChannel)
 import Signal.Channel (CHANNEL, send)
 

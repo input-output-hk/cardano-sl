@@ -57,7 +57,7 @@ heroView state =
                     []
                 , P.div
                     [ P.className $ "hero-search-btn" <> searchIconClazz <> focusedClazz
-                    , P.onClick $ const Search ]
+                    , P.onClick $ const DashboardSearch ]
                     []
                 ]
             ]

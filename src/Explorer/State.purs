@@ -15,9 +15,16 @@ initialState =
     , viewStates:
         { dashboard:
             { blocksExpanded: false
+            , dashboardBlockPagination: 1 -- Note: We do start with 1 (not 0)
             , transactionsExpanded: false
             , selectedApiCode: Curl
             , searchInput: false
+            }
+        , addressDetail:
+            { addressTxPagination: 1 -- Note: We do start with 1 (not 0)
+            }
+        , blockDetail:
+            { blockTxPagination: 1 -- Note: We do start with 1 (not 0)
             }
         }
     , latestBlocks: []

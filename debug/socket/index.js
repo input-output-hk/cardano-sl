@@ -27,7 +27,7 @@ io.on('connection', function (socket) {
     var blocksCount = 0;
     var sendBlocksId = setInterval(function() {
       blocksCount++;
-      socket.broadcast.emit('latestBlocks', { "Right": randomBlocks(5) });
+      socket.broadcast.emit('latestBlocks', { "Right": randomBlocks(100) });
       if(blocksCount>10) {
         clearInterval(sendBlocksId);
       }

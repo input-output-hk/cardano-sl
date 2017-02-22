@@ -1,14 +1,15 @@
 module Explorer.View.Address where
 
 import Prelude
-import Data.Maybe (Maybe(..))
 import Data.Lens ((^.))
+import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (cAddress, common, cTransactions, address, addScan, addQrCode, addFinalBalance) as I18nL
-import Explorer.Routes (Route(..), toUrl)
-import Explorer.Types.Actions (Action)
-import Explorer.Types.State (CCurrency(..), State)
+import Explorer.I18n.Lenses (cAddress, common, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance) as I18nL
 import Explorer.Lenses.State (lang)
+import Explorer.Routes (Route(..), toUrl)
+import Explorer.Types.Actions (Action(..))
+import Explorer.Types.State (CCurrency(..), State)
+import Explorer.Util.DOM (targetToHTMLInputElement)
 import Explorer.View.Common (currencyCSSClass, transactionBodyView, transactionHeaderView, transactionPaginationView)
 import Pux.Html (Html, div, text, h3, p, img) as P
 import Pux.Html.Attributes (className, src) as P
@@ -16,7 +17,6 @@ import Pux.Router (link) as P
 
 addressView :: State -> P.Html Action
 addressView state =
-    let lang' = state ^. lang in
     P.div
         [ P.className "explorer-address" ]
         [ P.div
@@ -63,10 +63,19 @@ addressView state =
                     , transactionBodyView state
                     , transactionHeaderView state
                     , transactionBodyView state
-                    , transactionPaginationView state
+                    , transactionPaginationView paginationViewProps
                   ]
             ]
         ]
+        where
+            lang' = state ^. lang
+            paginationViewProps =
+                { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                , currentPage: 1
+                , maxPage: 1
+                , changePageAction: AddressPaginateTransactions
+                , onFocusAction: SelectInputText <<< targetToHTMLInputElement
+                }
 
 
 -- FIXME (jk): just for now, will use later `real` ADTs

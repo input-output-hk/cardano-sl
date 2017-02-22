@@ -8,16 +8,15 @@ module Explorer.View.Common (
     ) where
 
 import Prelude
-import Data.Maybe (Maybe(..))
-import Data.Lens ((^.))
+import Data.Int (binary, fromString, toStringAs)
+import Data.Maybe (Maybe(..), fromMaybe)
 import Explorer.Routes (Route(..), toUrl)
-import Explorer.I18n.Lang (translate)
-import Explorer.I18n.Lenses (common, cOf) as I18nL
-import Explorer.Types.Actions (Action)
+import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
-import Explorer.Lenses.State (lang)
 import Pux.Html (Html, text, div, a, p, span, input) as P
-import Pux.Html.Attributes (className, href, value, disabled) as P
+import Pux.Html.Attributes (className, href, value, disabled, type_, min, max) as P
+import Pux.Html.Events (FormEvent, MouseEvent, Target, onClick)
+import Pux.Html.Events (onChange, onFocus) as P
 import Pux.Router (link) as P
 
 -- transactions
@@ -87,48 +86,89 @@ transactionBodyView state =
               ]
         ]
 
-transactionPaginationView :: State -> P.Html Action
-transactionPaginationView state =
-    P.div
-        [ P.className "transaction-pagination"]
-        [ paginationView state ]
-
 -- pagination
 
-paginationView :: State -> P.Html Action
-paginationView state =
+type PaginationViewProps =
+    { label :: String
+    , currentPage :: Int
+    , maxPage :: Int
+    , changePageAction :: (Int -> Action)
+    , onFocusAction :: (Target -> Action)
+    }
+
+transactionPaginationView :: PaginationViewProps -> P.Html Action
+transactionPaginationView props =
+    P.div
+        [ P.className "transaction-pagination"]
+        [ paginationView props ]
+
+paginationView :: PaginationViewProps -> P.Html Action
+paginationView props =
     P.div
         [ P.className "pagination" ]
         [ P.div
             [ P.className "pagination__wrapper" ]
             [ P.div
-                [ P.className "btn-page" ]
+                [ P.className $ "btn-page" <> disablePrevBtnClazz
+                , onClick prevClickHandler ]
                 [ P.div
                     [ P.className "icon bg-triangle-left" ]
                     []
                 ]
             , P.input
                 [ P.className "page-number"
-                , P.value "22"
+                , P.value <<< show $ props.currentPage
+                , P.disabled $ props.maxPage == minPage
+                , P.min $ toStringAs binary minPage
+                , P.max $ toStringAs binary props.maxPage
+                , P.onChange changeHandler
+                , P.onFocus $ props.onFocusAction <<< _.target
                 ]
                 []
             , P.p
                 [ P.className "label" ]
-                [ P.text <<< translate (I18nL.common <<< I18nL.cOf) $ state ^. lang ]
+                [ P.text props.label ]
             , P.input
                 [ P.className "page-number"
                 , P.disabled true
-                , P.value "9201"
+                , P.type_ "number"
+                , P.value $ show props.maxPage
                 ]
                 []
             , P.div
-                [ P.className "btn-page" ]
+                [ P.className $ "btn-page" <> disableNextBtnClazz
+                  , onClick nextClickHandler ]
                 [ P.div
                     [ P.className "icon bg-triangle-right" ]
                     []
                 ]
             ]
         ]
+        where
+          minPage = 1
+          disablePrevBtnClazz = if props.currentPage == minPage then " disabled" else ""
+          disableNextBtnClazz = if props.currentPage == props.maxPage then " disabled" else ""
+          nextClickHandler :: MouseEvent -> Action
+          nextClickHandler _ =
+              if props.currentPage < props.maxPage then
+              props.changePageAction $ props.currentPage + 1
+              else
+              NoOp
+
+          prevClickHandler :: MouseEvent -> Action
+          prevClickHandler _ =
+              if props.currentPage > minPage then
+              props.changePageAction $ props.currentPage - 1
+              else
+              NoOp
+
+          changeHandler :: FormEvent -> Action
+          changeHandler ev =
+              let value = fromMaybe props.currentPage <<< fromString <<< _.value $ _.target ev in
+              if value >= minPage && value <= props.maxPage
+              then props.changePageAction value
+              else NoOp
+
 
 -- helper
 

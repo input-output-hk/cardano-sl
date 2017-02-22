@@ -35,7 +35,7 @@ import           Test.QuickCheck            (counterexample, property, forAll,
                                              (.&&.))
 
 import           Pos.Binary                 (Bi (..), encode)
-import           Pos.Communication          (MessageLimitedPure (..), Limit)
+import           Pos.Communication          (MessageLimitedPure (..), Limit (..))
 import           Pos.Util                   (AsBinaryClass (..))
 
 import           Test.Hspec                 (Spec)
@@ -92,7 +92,8 @@ networkBinaryEncodeDecode a = stage1 $ runGetIncremental get
 
 msgLenLimitedCheck
     :: (Show a, Bi a) => Limit a -> a -> Property
-msgLenLimitedCheck limit msg =
+msgLenLimitedCheck NoLimit _ = property True
+msgLenLimitedCheck (Limit limit) msg =
     let size = LBS.length . encode $ msg
     in if size <= fromIntegral limit
         then property True

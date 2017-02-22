@@ -140,7 +140,7 @@ wordToCoinToWord :: Word64 -> Property
 wordToCoinToWord = C.unsafeGetCoin . C.mkCoin .=. identity
 
 coinToIntegerToCoin :: C.Coin -> Property
-coinToIntegerToCoin = C.unsafeIntegerToCoin. C.coinToInteger .=. identity
+coinToIntegerToCoin = C.unsafeIntegerToCoin . C.coinToInteger .=. identity
 
 integerToCoinToInteger :: C.IntegerToCoinNoOverflow -> Property
 integerToCoinToInteger =

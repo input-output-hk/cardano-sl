@@ -73,13 +73,9 @@ newtype Limit t = Limit Byte
 instance Functor Limit where
     fmap _ (Limit x) = Limit x
 
-instance Monoid (Limit a) where
-    mempty = Limit 0
-    Limit a `mappend` Limit b = Limit $ a + b
-
-instance Applicative Limit where
-    pure = panic "Applicative.pure Limit"
-    (Limit a) <*> (Limit b) = Limit $ a + b
+infixl 4 <+>
+(<+>) :: Limit (a -> b) -> Limit a -> Limit b
+Limit x <+> Limit y = Limit $ x + y
 
 -- | Upper bound on number of `PVSS.Commitment`s in single `Commitment`.
 commitmentsNumLimit :: Int
@@ -113,7 +109,7 @@ multiMap
     => Int -> Limit l
 multiMap k =
     -- max message length is reached when each key has single value
-    vectorOf k $ (,) <$> msgLenLimit <*> vector 1
+    vectorOf k $ (,) <$> msgLenLimit <+> vector 1
 
 coerce :: Limit a -> Limit b
 coerce (Limit x) = Limit x
@@ -126,7 +122,7 @@ class Limiter l where
 
 instance Limiter (Limit t) where
     limitGet (Limit l) = Bi.limitGet $ fromIntegral l
-    addLimit a = mappend (Limit a)
+    addLimit a = (Limit a +)
 
 -- | Bounds `InvOrData`.
 instance Limiter l => Limiter (Limit t, l) where
@@ -163,7 +159,7 @@ instance MessageLimited (MsgBlock ssc) where
 instance MessageLimited MsgGetHeaders where
     type LimitType MsgGetHeaders = Limit MsgGetHeaders
     getMsgLenLimit _ = return $
-        MsgGetHeaders <$> vector Const.maxGetHeadersNum <*> msgLenLimit
+        MsgGetHeaders <$> vector Const.maxGetHeadersNum <+> msgLenLimit
 
 instance MessageLimited (MsgHeaders ssc) where
     type LimitType (MsgHeaders ssc) = Limit (MsgHeaders ssc)
@@ -201,7 +197,7 @@ mcCommitmentMsgLenLimit = MCCommitment <$> msgLenLimit
 
 mcSharesMsgLenLimit :: Limit GtMsgContents
 mcSharesMsgLenLimit =
-    MCShares <$> msgLenLimit <*> multiMap commitmentsNumLimit
+    MCShares <$> msgLenLimit <+> multiMap commitmentsNumLimit
 
 instance MessageLimited (DataMsg GtMsgContents) where
     type LimitType (DataMsg GtMsgContents) =
@@ -253,32 +249,32 @@ instance MessageLimitedPure (ReqMsg key tag) where
 
 instance MessageLimitedPure Commitment where
     msgLenLimit =
-        Commitment <$> msgLenLimit <*> msgLenLimit
-                   <*> multiMap commitmentsNumLimit
+        Commitment <$> msgLenLimit <+> msgLenLimit
+                   <+> multiMap commitmentsNumLimit
 
 instance MessageLimitedPure SecretSharingExtra where
     msgLenLimit =
-        SecretSharingExtra <$> msgLenLimit <*> vector commitmentsNumLimit
+        SecretSharingExtra <$> msgLenLimit <+> vector commitmentsNumLimit
 
 instance MessageLimitedPure UpdateProposal where
     msgLenLimit =
-        UpdateProposal <$> msgLenLimit <*> msgLenLimit <*> msgLenLimit
-                       <*> vector upDataNumLimit <*> msgLenLimit
+        UpdateProposal <$> msgLenLimit <+> msgLenLimit <+> msgLenLimit
+                       <+> vector upDataNumLimit <+> msgLenLimit
 
 instance MessageLimitedPure UpdateVote where
     msgLenLimit =
-        UpdateVote <$> msgLenLimit <*> msgLenLimit <*> msgLenLimit
-                   <*> msgLenLimit
+        UpdateVote <$> msgLenLimit <+> msgLenLimit <+> msgLenLimit
+                   <+> msgLenLimit
 
 instance MessageLimitedPure SoftwareVersion where
-    msgLenLimit = SoftwareVersion <$> msgLenLimit <*> msgLenLimit
+    msgLenLimit = SoftwareVersion <$> msgLenLimit <+> msgLenLimit
 
 instance MessageLimitedPure (DataMsg UpdateVote) where
     msgLenLimit = DataMsg <$> msgLenLimit
 
 instance MessageLimitedPure (DataMsg (UpdateProposal, [UpdateVote])) where
     msgLenLimit = DataMsg <$>
-        ((,) <$> msgLenLimit <*> vector updateVoteNumLimit)
+        ((,) <$> msgLenLimit <+> vector updateVoteNumLimit)
 
 instance MessageLimitedPure TxMsgContents where
     msgLenLimit = Limit Const.genesisMaxTxSize
@@ -299,14 +295,14 @@ instance ( MessageLimitedPure a
          , MessageLimitedPure b
          )
          => MessageLimitedPure (a, b) where
-    msgLenLimit = (,) <$> msgLenLimit <*> msgLenLimit
+    msgLenLimit = (,) <$> msgLenLimit <+> msgLenLimit
 
 instance ( MessageLimitedPure a
          , MessageLimitedPure b
          , MessageLimitedPure c
          )
          => MessageLimitedPure (a, b, c) where
-    msgLenLimit = (,,) <$> msgLenLimit <*> msgLenLimit <*> msgLenLimit
+    msgLenLimit = (,,) <$> msgLenLimit <+> msgLenLimit <+> msgLenLimit
 
 instance MessageLimitedPure (Signature a) where
     msgLenLimit = 64

@@ -10,40 +10,40 @@ module Pos.Explorer.Web.Server
        , explorerHandlers
        ) where
 
-import           Control.Monad.Catch            (try)
-import           Control.Monad.Loops            (unfoldrM)
-import           Control.Monad.Trans.Maybe      (MaybeT (..))
-import           Data.Maybe                     (fromMaybe)
-import           Network.Wai                    (Application)
-import           Servant.API                    ((:<|>) ((:<|>)))
-import           Servant.Server                 (Handler, Server, ServerT, serve)
+import           Control.Monad.Catch             (try)
+import           Control.Monad.Loops             (unfoldrM)
+import           Control.Monad.Trans.Maybe       (MaybeT (..))
+import           Data.Maybe                      (fromMaybe)
+import           Network.Wai                     (Application)
+import           Servant.API                     ((:<|>) ((:<|>)))
+import           Servant.Server                  (Handler, Server, ServerT, serve)
 import           Universum
 
-import           Pos.Communication              (SendActions)
-import           Pos.Crypto                     (WithHash (..), withHash)
-import qualified Pos.DB                         as DB
-import qualified Pos.DB.GState                  as GS
-import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.Class                  (SscHelpersClass)
-import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (getLocalTxs)
-import           Pos.Types                      (Address (..), HeaderHash, MainBlock,
-                                                 Timestamp, Tx, blockTxs, gbHeader,
-                                                 gbhConsensus, mcdSlot, mkCoin,
-                                                 prevBlockL, topsortTxs)
-import           Pos.Util                       (maybeThrow)
-import           Pos.Web                        (serveImpl)
-import           Pos.WorkMode                   (WorkMode)
+import           Pos.Communication               (SendActions)
+import           Pos.Crypto                      (WithHash (..), withHash)
+import qualified Pos.DB                          as DB
+import qualified Pos.DB.GState                   as GS
+import           Pos.Slotting                    (MonadSlots (..), getSlotStart)
+import           Pos.Ssc.Class                   (SscHelpersClass)
+import           Pos.Ssc.GodTossing              (SscGodTossing)
+import           Pos.Txp                         (getLocalTxs)
+import           Pos.Types                       (Address (..), HeaderHash, MainBlock,
+                                                  Timestamp, Tx, blockTxs, gbHeader,
+                                                  gbhConsensus, mcdSlot, mkCoin,
+                                                  prevBlockL, topsortTxs)
+import           Pos.Util                        (maybeThrow)
+import           Pos.Web                         (serveImpl)
+import           Pos.WorkMode                    (WorkMode)
 
-import           Pos.Explorer.Aeson.ClientTypes ()
-import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
-                                                 CBlockEntry (..), CBlockSummary (..),
-                                                 CHash, CTxEntry (..), fromCAddress,
-                                                 fromCHash', toBlockEntry, toBlockSummary,
-                                                 toTxEntry)
-import           Pos.Explorer.Web.Error         (ExplorerError (..))
-import           Pos.Explorer.Web.Sockets.App   (MonadExplorerSockets)
+import           Pos.Explorer.Aeson.ClientTypes  ()
+import           Pos.Explorer.Web.Api            (ExplorerApi, explorerApi)
+import           Pos.Explorer.Web.ClientTypes    (CAddress (..), CAddressSummary (..),
+                                                  CBlockEntry (..), CBlockSummary (..),
+                                                  CHash, CTxEntry (..), fromCAddress,
+                                                  fromCHash', toBlockEntry,
+                                                  toBlockSummary, toTxEntry)
+import           Pos.Explorer.Web.Error          (ExplorerError (..))
+import           Pos.Explorer.Web.Sockets.Holder (MonadExplorerSockets)
 
 ----------------------------------------------------------------
 -- Top level functionality

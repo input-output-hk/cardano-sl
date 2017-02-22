@@ -27,7 +27,12 @@ library
                         Pos.Explorer.Web.ClientTypes
                         Pos.Explorer.Web.Error
   other-modules:        Pos.Explorer.Aeson.ClientTypes
+
                         Pos.Explorer.Web.Sockets.App
+                        Pos.Explorer.Web.Sockets.Holder
+                        Pos.Explorer.Web.Sockets.Methods
+                        Pos.Explorer.Web.Sockets.Util
+                        
                         Pos.Explorer.Web.Server
                         Pos.Explorer.Web.Transform
                         Pos.Explorer.Web.Api
@@ -49,6 +54,7 @@ library
                       , engine-io-wai
                       , stm
                       , text-format
+                      , text
                       , time
                       , transformers
                       , universum

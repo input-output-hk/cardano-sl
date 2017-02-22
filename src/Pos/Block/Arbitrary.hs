@@ -2,10 +2,12 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Block.Arbitrary
-       ( BlockHeaderList (..)
+       ( HeaderAndParams (..)
+       , BlockHeaderList (..)
        ) where
 
 import           Data.Ix              (range)
+import           Data.List.NonEmpty   (fromList)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Formatting           (bprint, build, formatToString, (%))
@@ -26,6 +28,7 @@ import qualified Pos.Types            as T
 import           Pos.Update.Arbitrary ()
 import           Pos.Util.Arbitrary   (makeSmall)
 import qualified Prelude
+import           System.Random        (mkStdGen, randomR)
 
 newtype BodyDependsOnConsensus b = BodyDependsOnConsensus
     { genBodyDepsOnConsensus :: T.ConsensusData b -> Gen (T.Body b)
@@ -318,3 +321,56 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                 -- This `range` will give us pairs with all complete epochs and for each,
                 -- every slot therein.
                 [firstHeader]
+
+-- | This type is used to generate a valid blockheader and associated header
+-- verification params. With regards to the block header function
+-- 'Pos.Types.Blocks.Functions.verifyHeader', the blockheaders that may be part of the
+-- verification parameters are guaranteed to be valid, as are the slot leaders and the
+-- current slot.
+newtype HeaderAndParams ssc = HAndP
+    { getHAndP :: (T.VerifyHeaderParams ssc, T.BlockHeader ssc)
+    } deriving (Eq, Show)
+
+-- | A lot of the work to generate a valid sequence of blockheaders has already been done
+-- in the 'Arbitrary' instance of the 'BlockHeaderList' type, so it is used here and at
+-- most 3 blocks are taken from the generated list.
+instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
+    Arbitrary (HeaderAndParams ssc) where
+    arbitrary = do
+        consensus <- arbitrary :: Gen Bool
+        -- This integer is used as a seed to randomly choose a slot down below
+        seed <- arbitrary :: Gen Int
+        (headers, oldLeaders) <- first reverse . getHeaderList <$> arbitrary
+        let num = length headers
+        skip <- choose (0, num - 1)
+        let atMost3HeadersAndLeaders = take 3 headers
+            leaders = drop skip oldLeaders
+            (prev, header, next) =
+                case atMost3HeadersAndLeaders of
+                    [h] -> (Nothing, h, Nothing)
+                    [h1, h2] -> (Just h1, h2, Nothing)
+                    (h1 : h2 : h3 : _) -> (Just h1, h2, Just h3)
+                    _ -> panic "[BlockSpec] the headerchain doesn't have enough headers"
+            thisEpochStartIndex = fromIntegral $ epochSlots * (header ^. T.epochIndexL)
+            thisHeadersEpoch = drop thisEpochStartIndex leaders
+            betweenZeroAnd n = fst . randomR (0, n) . mkStdGen $ seed
+            randomSlotBeforeThisHeader =
+                case header of
+                    Left _  -> Nothing
+{-                        let e = header ^. T.epochIndexL
+                            rndSlot = T.SlotId (betweenZeroAnd e)
+                                               (betweenZeroAnd . pred $ epochSlots)
+                        in Just rndSlot-}
+                    Right h ->
+                        let (T.SlotId e s) = view T.headerSlot h
+                            rndSlot = T.SlotId (betweenZeroAnd e)
+                                               (betweenZeroAnd s)
+                        in Just rndSlot
+            params = T.VerifyHeaderParams
+                { T.vhpVerifyConsensus = consensus
+                , T.vhpPrevHeader = prev
+                , T.vhpNextHeader = next
+                , T.vhpCurrentSlot = randomSlotBeforeThisHeader
+                , T.vhpLeaders = Nothing --Just $ fromList $ map T.addressHash thisHeadersEpoch
+                }
+        return . HAndP $ (params, header)

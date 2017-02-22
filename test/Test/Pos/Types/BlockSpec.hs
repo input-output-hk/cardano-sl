@@ -11,7 +11,6 @@ import           Test.Hspec            (Spec, describe, it)
 import           Test.Hspec.QuickCheck (prop)
 import           Universum
 
-import           Data.List.NonEmpty    (fromList)
 import           Pos.Binary            (Bi)
 import           Pos.Block.Arbitrary   as T
 import           Pos.Constants         (epochSlots)
@@ -21,10 +20,8 @@ import           Pos.Ssc.Class         (Ssc (..), SscHelpersClass)
 import           Pos.Ssc.GodTossing    (SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import qualified Pos.Types             as T
-import           Pos.Types.Address     (addressHash)
 import           Pos.Util              (NewestFirst (..))
 import           Serokell.Util         (isVerSuccess)
-import           System.Random         (mkStdGen, randomR)
 
 import           Test.QuickCheck       (Property, (===))
 spec :: Spec
@@ -142,37 +139,9 @@ mainHeaderFormation prevHeader slotId signer body extra =
 
 validateGoodMainHeader
     :: forall ssc . Ssc ssc
-    => Bool -> Int -> T.BlockHeaderList ssc -> Bool
-validateGoodMainHeader
-    consensus
-    seed
-    (first reverse . T.getHeaderList -> (blocks, leaders)) =
-    let atMost3Blocks = take 3 blocks
-        (prev, block, next) =
-            case atMost3Blocks of
-                [b] -> (Nothing, b, Nothing)
-                [b1, b2] -> (Just b1, b2, Nothing)
-                (b1 : b2 : b3 : _) -> (Just b1, b2, Just b3)
-                _ -> panic "[BlockSpec] the blockchain doesn't have enough blocks"
-        thisEpochStartIndex = fromIntegral $ epochSlots * (block ^. T.epochIndexL)
-        thisBlocksEpoch = drop thisEpochStartIndex leaders
-        randomSlotBeforeThisBlock =
-            case block of
-                Left _  -> Nothing
-                Right h ->
-                    let (T.SlotId e s) = view T.headerSlot h
-                        betweenZeroAnd n = fst . randomR (0, n) . mkStdGen $ seed
-                        rndSlot = T.SlotId (betweenZeroAnd e)
-                                           (betweenZeroAnd s)
-                    in Just rndSlot
-        params = T.VerifyHeaderParams
-            { T.vhpVerifyConsensus = consensus
-            , T.vhpPrevHeader = prev
-            , T.vhpNextHeader = next
-            , T.vhpCurrentSlot = randomSlotBeforeThisBlock
-            , T.vhpLeaders = Just $ fromList $ map addressHash thisBlocksEpoch
-            }
-    in isVerSuccess $ T.verifyHeader params block
+    => T.HeaderAndParams ssc -> Bool
+validateGoodMainHeader (T.getHAndP -> (params, header)) =
+    isVerSuccess $ T.verifyHeader params header
 
 validateGoodHeaderChain
     :: forall ssc . Ssc ssc

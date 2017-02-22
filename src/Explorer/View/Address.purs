@@ -10,13 +10,15 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
+import Explorer.Util.Factory (mkCHash)
 import Explorer.View.Common (currencyCSSClass, transactionBodyView, transactionHeaderView, transactionPaginationView)
+import Pos.Explorer.Web.ClientTypes (CHash)
 import Pux.Html (Html, div, text, h3, p, img) as P
 import Pux.Html.Attributes (className, src) as P
 import Pux.Router (link) as P
 
-addressView :: State -> P.Html Action
-addressView state =
+addressView :: State -> CHash -> P.Html Action
+addressView state hash =
     P.div
         [ P.className "explorer-address" ]
         [ P.div
@@ -80,7 +82,8 @@ addressView state =
 
 -- FIXME (jk): just for now, will use later `real` ADTs
 type AddressRowItem =
-    { label :: String
+    { id :: CHash
+    , label :: String
     , amount :: String
     , currency :: Maybe CCurrency
     , link :: Boolean
@@ -92,20 +95,23 @@ type AddressItems = Array AddressRowItem
 -- FIXME (jk): just for now, will use later `real` ADTs
 addressItems :: Language -> AddressItems
 addressItems lang =
-    [ { label: translate (I18nL.common <<< I18nL.cAddress) lang
+    [ { id: mkCHash "0"
+      , label: translate (I18nL.common <<< I18nL.cAddress) lang
       , amount: "1NPj2Y8yswHLuw8Yr1FDdobKAW6WVkUZy9"
       , currency: Nothing
       , link: true
     }
-    , { label: translate (I18nL.common <<< I18nL.cTransactions) lang
+    , { id: mkCHash "1"
+      , label: translate (I18nL.common <<< I18nL.cTransactions) lang
       , amount: "177"
       , currency: Nothing
       , link: false
     }
-    , { label: translate (I18nL.address <<< I18nL.addFinalBalance) lang
-    , amount: "243,583"
-    , currency: Just ADA
-    , link: false
+    , { id: mkCHash "2"
+      , label: translate (I18nL.address <<< I18nL.addFinalBalance) lang
+      , amount: "243,583"
+      , currency: Just ADA
+      , link: false
   }
     ]
 
@@ -124,7 +130,7 @@ addressDetailRow item =
       renderValue :: AddressRowItem -> P.Html Action
       renderValue item' = if item'.link == true
           then
-            P.link (toUrl Address)
+            P.link (toUrl $ Address item'.id)
                 [ P.className "link" ]
                 [ P.text item'.amount ]
           else

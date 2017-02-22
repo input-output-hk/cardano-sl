@@ -12,7 +12,7 @@ import Explorer.Util.Factory (mkCHash)
 data Route =
     Dashboard
     | Transaction CHash
-    | Address
+    | Address CHash
     | Calculator
     | Block CHash
     | NotFound
@@ -23,7 +23,7 @@ match url = fromMaybe NotFound $ router url $
     <|>
     Transaction <<< mkCHash <$> (lit transactionLit *> str) <* end
     <|>
-    Address <$ lit addressLit <* end
+    Address <<< mkCHash <$> (lit addressLit  *> str) <* end
     <|>
     Calculator <$ lit calculatorLit <* end
     <|>
@@ -32,7 +32,7 @@ match url = fromMaybe NotFound $ router url $
 toUrl :: Route -> String
 toUrl Dashboard = dashboardUrl
 toUrl (Transaction hash) = transactionUrl hash
-toUrl Address = addressUrl
+toUrl (Address hash) = addressUrl hash
 toUrl Calculator = calculatorUrl
 toUrl (Block hash) = blockUrl hash
 toUrl NotFound = dashboardUrl
@@ -55,8 +55,8 @@ transactionUrl hash = litUrl transactionLit <> hash ^. _CHash
 addressLit :: String
 addressLit = "address"
 
-addressUrl :: String
-addressUrl = litUrl addressLit
+addressUrl :: CHash -> String
+addressUrl hash = litUrl addressLit <> hash ^. _CHash
 
 calculatorLit :: String
 calculatorLit = "calculator"

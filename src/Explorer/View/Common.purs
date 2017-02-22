@@ -13,6 +13,7 @@ import Data.Maybe (Maybe(..), fromMaybe)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
+import Explorer.Util.Factory (mkCHash)
 import Pux.Html (Html, text, div, a, p, span, input) as P
 import Pux.Html.Attributes (className, href, value, disabled, type_, min, max) as P
 import Pux.Html.Events (FormEvent, MouseEvent, Target, onClick)
@@ -53,16 +54,13 @@ transactionBodyView state =
           ]
         , P.div
               [ P.className "to-hash-container bg-transaction-arrow" ]
-              [ P.link
-                    (toUrl Address)
+              [ P.link (toUrl <<< Address $ mkCHash "1NPj2Y8yswHLuw8Yr1FDdobKAW6WVkUZy9")
                     [ P.className "to-hash"]
                     [ P.text "1NPj2Y8yswHLuw8Yr1FDdobKAW6WVkUZy9" ]
-              , P.link
-                    (toUrl Address)
+              , P.link (toUrl <<< Address $ mkCHash "1NPj2Y8yswHLuw8Yr1FDdobKasdfadsfaf")
                     [ P.className "to-hash"]
                     [ P.text "1NPj2Y8yswHLuw8Yr1FDdobKasdfadsfaf" ]
-              , P.link
-                    (toUrl Address)
+              , P.link (toUrl <<< Address $ mkCHash "1NPj2Y8yswHLuw8Yr1FDdobKasdfadsfaf")
                     [ P.className "to-hash"]
                     [ P.text "1NPj2Y8yswHLuw8Yr1FDdobKasdfadsfaf" ]
               ]

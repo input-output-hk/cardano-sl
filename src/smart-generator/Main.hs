@@ -22,7 +22,7 @@ import           Pos.Communication           (ActionSpec (..), SendActions,
                                               convertSendActions, wrapSendActions)
 import           Pos.Constants               (genesisN, genesisSlotDuration,
                                               neighborsSendThreshold, slotSecurityParam)
-import           Pos.Crypto                  (KeyPair (..), hash)
+import           Pos.Crypto                  (hash)
 import           Pos.DHT.Model               (DHTNode, MonadDHT, discoverPeers,
                                               getKnownPeers)
 import           Pos.Genesis                 (genesisUtxo)
@@ -231,8 +231,11 @@ main = do
                        then panic "Invalid `--m-of-n` value"
                        else return ()
 
-    KeyPair _ sk <- generate arbitrary
+    sk <- generate arbitrary
     vssKeyPair <- generate arbitrary
+    filePeers <- maybe (return []) CLI.readPeersFile
+                     (CLI.dhtPeersFile goCommonArgs)
+    let allPeers = CLI.dhtPeers goCommonArgs ++ filePeers
     let logParams =
             LoggingParams
             { lpRunnerTag     = "smart-gen"
@@ -244,7 +247,7 @@ main = do
             BaseParams
             { bpLoggingParams      = logParams
             , bpIpPort             = goIpPort
-            , bpDHTPeers           = CLI.dhtPeers goCommonArgs
+            , bpDHTPeers           = allPeers
             , bpDHTKey             = Nothing
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial goCommonArgs
             , bpKademliaDump       = "kademlia.dump"

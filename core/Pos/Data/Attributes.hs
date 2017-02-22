@@ -27,7 +27,7 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, int, (%))
 import           Universum           hiding (putByteString)
 
-import           Pos.Util.Binary     (getRemainingByteString, getWithLength,
+import           Pos.Binary.Class    (getRemainingByteString, getWithLength,
                                       getWithLengthLimited, putWithLength)
 
 mkAttributes :: h -> Attributes h

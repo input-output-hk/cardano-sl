@@ -1,0 +1,101 @@
+name:                cardano-sl-core
+version:             0.1.0.0
+synopsis:            Cardano SL - core
+description:         Cardano SL - core
+license:             MIT
+license-file:        LICENSE
+author:              Serokell
+maintainer:          hi@serokell.io
+copyright:           2016 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     Pos.Types.Block.Class
+                       Pos.Types.Coin
+                       Pos.Types.Script
+                       Pos.Types.Types
+                       Pos.Types.Timestamp
+                       Pos.Types.Address
+                       Pos.Types.Core
+
+                       Pos.Crypto
+                       Pos.Crypto.Hashing
+                       Pos.Crypto.SafeSigning
+                       Pos.Crypto.Signing
+                       Pos.Crypto.SecretSharing
+                       Pos.Crypto.Random
+                       Pos.Crypto.AsBinary
+
+                       Pos.Binary.Class
+                       Pos.Merkle
+                       Pos.Data.Attributes
+
+  build-depends:       HsOpenSSL
+                     , base
+                     , base58-bytestring
+                      -- This constraint on 'binary' is so strict because
+                      -- we're relying on the internal representation of
+                      -- 'Get' in Pos.Binary.Class. So, if you need to bump
+                      -- this constraint, first check that all code in
+                      -- Pos.Binary.Class that has been ripped from 'binary'
+                      -- hasn't changed upstream.
+                     , binary == 0.8.3.*
+                     , bytestring
+                     , cereal
+                     , containers
+                     , cryptonite
+                     , data-default
+                     , deepseq
+                     , derive
+                     , deriving-compat
+                     , ed25519
+                     , formatting
+                     , hashable
+                     , lens
+                     , memory
+                     , mtl
+                     , parsec
+                     , plutus-prototype
+                     , pvss
+                     , random
+                     , safecopy
+                     , semigroups
+                     , serokell-util
+                     , tagged
+                     , template-haskell
+                     , text
+                     , text-format
+                     , th-lift-instances
+                     , time-units
+                     , universum
+                     , unordered-containers
+                     , vector
+
+  default-language:    Haskell2010
+
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

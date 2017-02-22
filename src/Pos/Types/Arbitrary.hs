@@ -21,12 +21,14 @@ import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (
 import           Test.QuickCheck.Instances  ()
 import           Universum
 
-import           Pos.Binary.Class           (FixedSizeInt (..), SignedVarInt (..),
-                                             UnsignedVarInt (..))
+import           Pos.Binary.Class           (AsBinary, FixedSizeInt (..),
+                                             SignedVarInt (..), UnsignedVarInt (..))
+import           Pos.Binary.Crypto          ()
 import           Pos.Binary.Types           ()
 import           Pos.Constants              (epochSlots, sharedSeedLength)
 import           Pos.Crypto                 (PublicKey, SecretKey, Share, hash, sign,
                                              toPublic)
+import           Pos.Crypto.Arbitrary       ()
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Script                 (Script)
 import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
@@ -44,7 +46,7 @@ import           Pos.Types.Types            (SharedSeed (..), Tx (..),
 import           Pos.Types.Version          (ApplicationName (..), BlockVersion (..),
                                              SoftwareVersion (..),
                                              applicationNameMaxLength)
-import           Pos.Util                   (AsBinary, makeSmall)
+import           Pos.Util                   (makeSmall)
 
 ----------------------------------------------------------------------------
 -- Arbitrary core types

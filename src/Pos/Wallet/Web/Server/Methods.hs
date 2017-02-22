@@ -308,7 +308,7 @@ sendExtended sendActions srcCAddr dstCAddr c curr title desc = do
     srcAddr <- decodeCAddressOrFail srcCAddr
     dstAddr <- decodeCAddressOrFail dstCAddr
     idx <- getAddrIdx srcAddr
-    sks <- getSecretKeys
+    sks <- drop 1 <$> getSecretKeys
     let sk = sks !! idx
     na <- getKnownPeers
     etx <- submitTx sendActions sk na [(TxOut dstAddr c, [])]

@@ -36,12 +36,11 @@ import           Universum
 
 import           Pos.Binary.Class       (Bi)
 import qualified Pos.Binary.Class       as Bi
-import           Pos.Binary.Crypto      ()
 import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey)
 import           Pos.Data.Attributes    (mkAttributes)
-import           Pos.Script.Type        (Script)
 import           Pos.Types.Core         (AddrPkAttrs (..), Address (..), AddressHash,
                                          StakeholderId)
+import           Pos.Types.Script       (Script)
 
 instance Bi Address => Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.encode
@@ -70,14 +69,15 @@ decodeTextAddress :: Bi Address => Text -> Either Text Address
 decodeTextAddress = first toText . decodeAddress . encodeUtf8
 
 -- | A function for making an address from PublicKey
-makePubKeyAddress :: PublicKey -> Address
+makePubKeyAddress :: Bi PublicKey => PublicKey -> Address
 makePubKeyAddress key =
     PubKeyAddress (addressHash key)
                   (mkAttributes (AddrPkAttrs Nothing))
 
 -- | A function for making an HDW address
 makePubKeyHdwAddress
-    :: PublicKey
+    :: Bi PublicKey
+    => PublicKey
     -> [Word32]         -- ^ Derivation path
     -> Address
 makePubKeyHdwAddress key path =
@@ -90,7 +90,7 @@ makeScriptAddress scr = ScriptAddress (addressHash scr)
 
 -- CHECK: @checkPubKeyAddress
 -- | Check if given 'Address' is created from given 'PublicKey'
-checkPubKeyAddress :: PublicKey -> Address -> Bool
+checkPubKeyAddress :: Bi PublicKey => PublicKey -> Address -> Bool
 checkPubKeyAddress key (PubKeyAddress h _) = addressHash key == h
 checkPubKeyAddress _ _                     = False
 

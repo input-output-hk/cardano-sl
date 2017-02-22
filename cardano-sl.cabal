@@ -45,10 +45,8 @@ library
                         Pos.Communication.Relay
                         Pos.CompileConfig
                         Pos.Constants
-                        Pos.Crypto
                         Pos.DB
                         Pos.DB.GState
-                        Pos.Data.Attributes
                         Pos.Delegation
                         -- Pos.DHT
                         Pos.DHT.Model
@@ -75,11 +73,9 @@ library
                         -- Scripting
                         Pos.Script
                         Pos.Script.Examples
-                        Pos.Script.Type
 
                         -- Something
                         Pos.Launcher
-                        Pos.Merkle
                         Pos.Security
                         Pos.Security.Class
                         Pos.Security.CLI
@@ -105,19 +101,14 @@ library
                         Pos.Txp
                         Pos.Txp.Listeners
                         Pos.Types
-                        Pos.Types.Address
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block
-                        Pos.Types.Block.Class
                         Pos.Types.Block.Types
                         Pos.Types.Block.Functions
                         Pos.Types.Block.Instances
-                        Pos.Types.Coin
                         Pos.Types.Slotting
-                        Pos.Types.Timestamp
                         Pos.Types.Tx
-                        Pos.Types.Types
                         Pos.Types.Utxo
                         Pos.Types.Version
 
@@ -153,7 +144,6 @@ library
                         Pos.Binary.Block
                         Pos.Binary.Block.Types
                         Pos.Binary.Block.Block
-                        Pos.Binary.Class
                         Pos.Binary.Coin
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
@@ -210,14 +200,7 @@ library
 
                         -- Crypto
                         Pos.Crypto.Arbitrary
-                        Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
-                        Pos.Crypto.AsBinary
-                        Pos.Crypto.Hashing
-                        Pos.Crypto.Random
-                        Pos.Crypto.SafeSigning
-                        Pos.Crypto.SecretSharing
-                        Pos.Crypto.Signing
 
                         -- Heavy delegation
                         Pos.Delegation.Class
@@ -354,7 +337,6 @@ library
                         Pos.Txp.Types.BalancesView
 
                         -- Types
-                        Pos.Types.Core
                         Pos.Types.SharedSeed
                         Pos.Types.Utxo.Class
                         Pos.Types.Utxo.Functions
@@ -401,7 +383,6 @@ library
 
                         -- Utilities/helpers
                         Pos.Util.Arbitrary
-                        Pos.Util.Binary
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented
   if flag(with-web)
@@ -459,18 +440,13 @@ library
                       , base58-bytestring
                       , base64-bytestring
                       , temporary >= 1.2.0.4
-                      -- This constraint on 'binary' is so strict because
-                      -- we're relying on the internal representation of
-                      -- 'Get' in Pos.Util.Binary. So, if you need to bump
-                      -- this constraint, first check that all code in
-                      -- Pos.Util.Binary that has been ripped from 'binary'
-                      -- hasn't changed upstream.
-                      , binary == 0.8.3.*
+                      , binary
                       , binary-conduit >= 1.2.4.1
                       , binary-orphans
                       , bytestring
                       , cardano-crypto
                       , cardano-report-server >= 0.1.0
+                      , cardano-sl-core
                       , cereal
                       , concurrent-extra
                       , conduit >= 1.2.8
@@ -594,6 +570,7 @@ executable cardano-node
   build-depends:       base
                      , binary
                      , bytestring
+                     , cardano-sl-core
                      , cardano-sl
                      , data-default
                      , directory
@@ -649,6 +626,7 @@ executable cardano-analyzer
                      , aeson
                      , attoparsec
                      , bytestring
+                     , cardano-sl-core
                      , cardano-sl
                      , formatting
                      , log-warper >= 0.4.3
@@ -702,6 +680,7 @@ executable cardano-wallet
                      , base58-bytestring
                      , binary
                      , bytestring
+                     , cardano-sl-core
                      , cardano-sl
                      , formatting
                      , lens
@@ -762,6 +741,7 @@ executable cardano-wallet-hs2purs
   main-is:             Main.hs
   other-modules:       PSTypes
   build-depends:       base
+                     , cardano-sl-core
                      , cardano-sl
                      , purescript-bridge
                      , universum >= 0.1.11
@@ -813,6 +793,7 @@ executable cardano-smart-generator
                      , array
                      , bytestring
                      , data-default
+                     , cardano-sl-core
                      , cardano-sl
                      , filepath
                      , formatting
@@ -873,6 +854,7 @@ executable cardano-dht-keygen
                      , array
                      , bytestring
                      , data-default
+                     , cardano-sl-core
                      , cardano-sl
                      , filepath
                      , formatting
@@ -922,6 +904,7 @@ executable cardano-web-docs
   hs-source-dirs:      src/web-docs
   main-is:             Main.hs
   build-depends:       base
+                     , cardano-sl-core
                      , cardano-sl
                      , universum >= 0.1.11
   default-language:    Haskell2010
@@ -960,6 +943,7 @@ executable cardano-wallet-web-docs
   hs-source-dirs:      src/wallet-web-docs
   main-is:             Main.hs
   build-depends:       base
+                     , cardano-sl-core
                      , cardano-sl
                      , universum >= 0.1.11
                      , unordered-containers
@@ -1036,6 +1020,7 @@ executable cardano-avvmmigrate
                      , aeson
                      , base
                      , bytestring
+                     , cardano-sl-core
                      , cardano-sl
                      , directory
                      , ed25519
@@ -1056,6 +1041,7 @@ executable cardano-keygen
   hs-source-dirs:      src/keygen
   main-is:             Main.hs
   build-depends:       base
+                     , cardano-sl-core
                      , cardano-sl
                      , universum >= 0.1
                      , text
@@ -1153,6 +1139,7 @@ test-suite cardano-test
                      , base
                      , binary
                      , bytestring
+                     , cardano-sl-core
                      , cardano-sl
                      , cereal
                      , containers
@@ -1214,6 +1201,7 @@ benchmark cardano-bench-criterion
                      , base
                      , binary
                      , bytestring
+                     , cardano-sl-core
                      , cardano-sl
                      , containers
                      , criterion

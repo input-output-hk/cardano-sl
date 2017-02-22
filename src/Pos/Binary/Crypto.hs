@@ -20,7 +20,7 @@ import           Data.SafeCopy            (SafeCopy (..))
 import           Formatting               (int, sformat, stext, (%))
 import           Universum                hiding (putByteString)
 
-import           Pos.Binary.Class         (Bi (..))
+import           Pos.Binary.Class         (AsBinary (..), getCopyBi, putCopyBi, Bi (..))
 import           Pos.Crypto.Hashing       (AbstractHash (..), Hash, HashAlgorithm,
                                            WithHash (..), withHash)
 import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),
@@ -29,15 +29,14 @@ import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretPro
 import           Pos.Crypto.Signing       (ProxyCert (..), ProxySecretKey (..),
                                            ProxySignature (..), PublicKey (..),
                                            SecretKey (..), Signature (..), Signed (..))
-import           Pos.Util.Binary          (AsBinary (..), getCopyBinary, putCopyBinary)
 
 instance Bi a => Bi (WithHash a) where
     put = put . whData
     get = withHash <$> get
 
 instance Bi a => SafeCopy (WithHash a) where
-    putCopy = putCopyBinary
-    getCopy = getCopyBinary "WithHash"
+    putCopy = putCopyBi
+    getCopy = getCopyBi "WithHash"
 
 ----------------------------------------------------------------------------
 -- Hashing

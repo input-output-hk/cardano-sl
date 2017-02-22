@@ -44,16 +44,15 @@ import           Pos.Slotting                (NtpSlotting, SlottingHolder,
                                               getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
-import           Pos.Txp                     (TxpHolder (..), UtxoView (..),
-                                              evalUtxoStateT, getMemPool, getUtxoView,
-                                              _mpLocalTxs, runUtxoStateT,
-                                              txProcessTransaction)
+import           Pos.Txp                     (TxpHolder (..), UtxoView (..), belongsTo,
+                                              evalUtxoStateT, filterUtxoByAddr,
+                                              getMemPool, getUtxoView, runUtxoStateT,
+                                              txProcessTransaction, _mpLocalTxs)
 import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
                                               TxAux, TxId, Utxo, difficultyL,
                                               flattenEpochOrSlot, flattenSlotId,
                                               prevBlockL, sumCoins, toPair, txOutValue)
 import           Pos.Types.Coin              (unsafeIntegerToCoin)
-import           Pos.Types.Utxo              (belongsTo, filterUtxoByAddr)
 import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
 import           Pos.Util                    (maybeThrow)
 import           Pos.Util.Shutdown           (triggerShutdown)

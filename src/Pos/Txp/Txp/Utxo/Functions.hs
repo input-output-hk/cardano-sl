@@ -8,18 +8,28 @@ module Pos.Txp.Txp.Utxo.Functions
        , applyTxToUtxo
        , applyTxToUtxo'
        , rollbackTxUtxo
+       -- * Pure
+       , deleteTxIn
+       , findTxIn
+       , belongsTo
+       , filterUtxoByAddr
+       , utxoToStakes
        ) where
 
 import           Control.Monad.Error.Class (MonadError (..))
+import qualified Data.HashMap.Strict       as HM
+import qualified Data.Map.Strict           as M
 import qualified Data.Text                 as T
 import           Universum
 
 import           Pos.Binary.Types          ()
 import           Pos.Crypto                (WithHash (..), hash)
+import           Pos.Types                 (Address, Coin, StakeholderId, Tx (..), TxAux,
+                                            TxDistribution (..), TxId, TxIn (..),
+                                            TxOut (..), TxOutAux, TxUndo, Utxo,
+                                            txOutStake, unsafeAddCoin)
 import           Pos.Types.Tx              (VTxGlobalContext (..), VTxLocalContext (..),
                                             verifyTx)
-import           Pos.Types.Types           (Tx (..), TxAux, TxDistribution (..), TxId,
-                                            TxIn (..), TxUndo)
 
 import           Pos.Txp.Txp.Class         (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Txp.Failure       (TxpVerFailure (..))
@@ -66,3 +76,29 @@ applyTxToUtxo' :: MonadUtxo m => (TxId, TxAux) -> m ()
 applyTxToUtxo' (i, (t, _, d)) = applyTxToUtxo (WithHash t i) d
 
 -- TODO change types of normalizeTxs and related
+
+----------------------------------------------------------------------------
+-- Pure
+----------------------------------------------------------------------------
+
+-- | Find transaction input in Utxo assuming it is valid.
+findTxIn :: TxIn -> Utxo -> Maybe TxOutAux
+findTxIn TxIn{..} = M.lookup (txInHash, txInIndex)
+
+-- | Delete given TxIn from Utxo if any.
+deleteTxIn :: TxIn -> Utxo -> Utxo
+deleteTxIn TxIn{..} = M.delete (txInHash, txInIndex)
+
+-- | A predicate for `TxOut` which selects outputs for given address
+belongsTo :: TxOutAux -> Address -> Bool
+(out, _) `belongsTo` addr = addr == txOutAddress out
+
+-- | Select only TxOuts for given addresses
+filterUtxoByAddr :: Address -> Utxo -> Utxo
+filterUtxoByAddr addr = M.filter (`belongsTo` addr)
+
+utxoToStakes :: Utxo -> HashMap StakeholderId Coin
+utxoToStakes = foldl' putDistr mempty . M.toList
+  where
+    plusAt hm (key, val) = HM.insertWith unsafeAddCoin key val hm
+    putDistr hm (_, toaux) = foldl' plusAt hm (txOutStake toaux)

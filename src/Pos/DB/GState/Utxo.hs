@@ -1,7 +1,7 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
 
 -- | Part of GState DB which stores unspent transaction outputs.
 
@@ -46,9 +46,10 @@ import           Pos.DB.GState.Common (getBi, putBi, writeBatchGState)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
                                        IterType, runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
-import           Pos.Types            (Address, Coin, TxIn (..), TxOutAux, Utxo,
-                                       belongsTo, coinF, mkCoin, sumCoins, txOutStake,
-                                       unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Txp.Txp.Utxo     (belongsTo)
+import           Pos.Types            (Address, Coin, TxIn (..), TxOutAux, Utxo, coinF,
+                                       mkCoin, sumCoins, txOutStake, unsafeAddCoin,
+                                       unsafeIntegerToCoin)
 import           Pos.Util             (Color (..), colorize)
 import           Pos.Util.Iterator    (nextItem)
 

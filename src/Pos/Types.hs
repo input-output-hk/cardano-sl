@@ -10,7 +10,6 @@ module Pos.Types
        , module Pos.Types.Timestamp
        , module Pos.Types.Tx
        , module Pos.Types.Types
-       , module Pos.Types.Utxo
        , module Pos.Types.Version
        ) where
 
@@ -27,5 +26,4 @@ import           Pos.Types.Slotting
 import           Pos.Types.Timestamp
 import           Pos.Types.Tx
 import           Pos.Types.Types
-import           Pos.Types.Utxo
 import           Pos.Types.Version

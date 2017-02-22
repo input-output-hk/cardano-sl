@@ -108,7 +108,6 @@ library
                         Pos.Types.Block.Instances
                         Pos.Types.Slotting
                         Pos.Types.Tx
-                        Pos.Types.Utxo
                         Pos.Types.Version
 
                         -- Update system

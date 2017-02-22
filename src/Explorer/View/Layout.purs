@@ -1,18 +1,18 @@
 module Explorer.View.Layout where
 
-import Pux.Html (Html, div, h1, main, text) as P
-import Pux.Html.Attributes (className) as P
-
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
 import Explorer.View.Address (addressView)
-import Explorer.View.Header (headerView)
-import Explorer.View.Footer (footerView)
+import Explorer.View.Block (blockView)
 import Explorer.View.Calculator (calculatorView)
 import Explorer.View.Dashboard.Dashboard (dashboardView)
+import Explorer.View.Footer (footerView)
+import Explorer.View.Header (headerView)
+import Explorer.View.NotFound (notFoundView)
 import Explorer.View.Transaction (transactionView)
-import Explorer.View.Block (blockView)
+import Pux.Html (Html, div, main) as P
+import Pux.Html.Attributes (className) as P
 
 view :: State -> P.Html Action
 view state =
@@ -32,16 +32,9 @@ view state =
                           (Address hash) -> addressView state hash
                           Calculator -> calculatorView state
                           (Block hash) -> blockView state hash
-                          NotFound -> notFoundView
+                          NotFound -> notFoundView state
                     ]
                 , footerView state
                 ]
         , headerView state
       ]
-
-
-notFoundView :: P.Html Action
-notFoundView =
-  P.div [] [
-    P.h1 [] [P.text "404 Not Found"]
-  ]

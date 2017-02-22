@@ -40,11 +40,8 @@ toUrl NotFound = dashboardUrl
 litUrl :: String -> String
 litUrl lit = "/" <> lit <> "/"
 
-dashboardLit :: String
-dashboardLit = ""
-
 dashboardUrl :: String
-dashboardUrl = litUrl dashboardLit
+dashboardUrl = "/"
 
 transactionLit :: String
 transactionLit = "tx"

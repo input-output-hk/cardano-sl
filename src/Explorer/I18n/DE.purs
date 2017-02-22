@@ -98,4 +98,9 @@ translation =
         , fooFollow: "Folgen Sie uns"
         , fooLinks: "Links"
         }
+    , notfound:
+        { nfTitle: "404"
+        , nfDescription: "Seite nicht gefunden"
+        , nfBack2Dashboard: "Zurück zum Dashboard"
+        }
     }

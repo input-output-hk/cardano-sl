@@ -13,6 +13,7 @@
 @import "./Explorer/View/calculator.css";
 @import "./Explorer/View/transaction.css";
 @import "./Explorer/View/block.css";
+@import "./Explorer/View/notfound.css";
 
 /* normalize */
 @reset-global pc;

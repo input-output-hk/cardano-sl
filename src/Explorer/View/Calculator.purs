@@ -19,10 +19,9 @@ calculatorView state =
         [ P.className "explorer-calculator" ]
         [ P.div
             [ P.className "explorer-calculator__container" ]
-            [ P.link
-                  (toUrl Dashboard)
-                  [ P.className "" ]
-                  [ P.text $ translate (I18nL.common <<< I18nL.cBack) state.lang ]
+            [ P.link (toUrl Dashboard)
+                [ P.className "" ]
+                [ P.text $ translate (I18nL.common <<< I18nL.cBack) state.lang ]
             , placeholderView $ translate (I18nL.common <<< I18nL.cCalculator) state.lang
             ]
         ]

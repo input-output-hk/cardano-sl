@@ -7,6 +7,7 @@ type Translation =
     , navigation :: Nav
     , hero :: Hero
     , dashboard :: Dashboard
+    , notfound :: NotFound
     , address :: Address
     , tx :: Transaction
     , block :: Block
@@ -130,4 +131,12 @@ type Footer =
     { fooRessources :: String
     , fooFollow :: String
     , fooLinks :: String
+    }
+
+-- translations of 404
+
+type NotFound =
+    { nfTitle :: String
+    , nfDescription :: String
+    , nfBack2Dashboard :: String
     }

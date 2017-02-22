@@ -52,10 +52,10 @@ import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossM
                                                      TossT, TossVerFailure (..),
                                                      evalPureTossWithLogger, evalTossT,
                                                      execTossT, hasCertificate,
-                                                     hasCommitment, hasOpening, hasShares,
-                                                     isGoodSlotForTag, normalizeToss,
-                                                     tmCertificates, tmCommitments,
-                                                     tmOpenings, tmShares,
+                                                     hasCommitmentToss, hasOpeningToss,
+                                                     hasSharesToss, isGoodSlotForTag,
+                                                     normalizeToss, tmCertificates,
+                                                     tmCommitments, tmOpenings, tmShares,
                                                      verifyAndApplyGtPayload)
 import           Pos.Ssc.GodTossing.Type            (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types           (GtGlobalState)
@@ -142,9 +142,9 @@ sscIsDataUseful tag id =
         (evalTossInMem $ sscIsDataUsefulDo tag)
         (pure False)
   where
-    sscIsDataUsefulDo CommitmentMsg     = not <$> hasCommitment id
-    sscIsDataUsefulDo OpeningMsg        = not <$> hasOpening id
-    sscIsDataUsefulDo SharesMsg         = not <$> hasShares id
+    sscIsDataUsefulDo CommitmentMsg     = not <$> hasCommitmentToss id
+    sscIsDataUsefulDo OpeningMsg        = not <$> hasOpeningToss id
+    sscIsDataUsefulDo SharesMsg         = not <$> hasSharesToss id
     sscIsDataUsefulDo VssCertificateMsg = not <$> hasCertificate id
     evalTossInMem
         :: ( WithLogger m

@@ -6,9 +6,9 @@ module Pos.Ssc.GodTossing.Toss.Base
        (
          -- * Trivial functions
          getCommitment
-       , hasCommitment
-       , hasOpening
-       , hasShares
+       , hasCommitmentToss
+       , hasOpeningToss
+       , hasSharesToss
        , hasCertificate
 
        -- * Basic logic
@@ -67,16 +67,16 @@ getCommitment :: MonadTossRead m => StakeholderId -> m (Maybe SignedCommitment)
 getCommitment id = HM.lookup id . getCommitmentsMap <$> getCommitments
 
 -- | Check whether there is a 'SignedCommitment' from given stakeholder.
-hasCommitment :: MonadTossRead m => StakeholderId -> m Bool
-hasCommitment id = HM.member id . getCommitmentsMap <$> getCommitments
+hasCommitmentToss :: MonadTossRead m => StakeholderId -> m Bool
+hasCommitmentToss id = HM.member id . getCommitmentsMap <$> getCommitments
 
 -- | Check whether there is an 'Opening' from given stakeholder.
-hasOpening :: MonadTossRead m => StakeholderId -> m Bool
-hasOpening id = HM.member id <$> getOpenings
+hasOpeningToss :: MonadTossRead m => StakeholderId -> m Bool
+hasOpeningToss id = HM.member id <$> getOpenings
 
 -- | Check whether there is 'InnerSharesMap' from given stakeholder.
-hasShares :: MonadTossRead m => StakeholderId -> m Bool
-hasShares id = HM.member id <$> getShares
+hasSharesToss :: MonadTossRead m => StakeholderId -> m Bool
+hasSharesToss id = HM.member id <$> getShares
 
 -- | Check whether there is 'VssCertificate' from given stakeholder.
 hasCertificate :: MonadTossRead m => StakeholderId -> m Bool
@@ -313,7 +313,7 @@ checkCommitmentsPayload epoch (getCommitmentsMap -> comms) = do
     exceptGuard CommitingNoParticipants
         (`HM.member` participants) (HM.keys comms)
     exceptGuardM CommitmentAlreadySent
-        (notM hasCommitment) (HM.keys comms)
+        (notM hasCommitmentToss) (HM.keys comms)
     exceptGuardSnd CommSharesOnWrongParticipants
         (checkCommitmentShares distr participants) (HM.toList comms)
 
@@ -328,9 +328,9 @@ checkOpeningsPayload
     -> m ()
 checkOpeningsPayload opens = do
     exceptGuardM OpeningAlreadySent
-        (notM hasOpening) (HM.keys opens)
+        (notM hasOpeningToss) (HM.keys opens)
     exceptGuardM OpeningWithoutCommitment
-        hasCommitment (HM.keys opens)
+        hasCommitmentToss (HM.keys opens)
     exceptGuardEntryM OpeningNotMatchCommitment
         matchCommitment (HM.toList opens)
 
@@ -353,9 +353,9 @@ checkSharesPayload epoch shares = do
     exceptGuard SharesNotRichmen
         (`HM.member` part) (HM.keys shares)
     exceptGuardM InternalShareWithoutCommitment
-        hasCommitment (concatMap HM.keys $ toList shares)
+        hasCommitmentToss (concatMap HM.keys $ toList shares)
     exceptGuardM SharesAlreadySent
-        (notM hasShares) (HM.keys shares)
+        (notM hasSharesToss) (HM.keys shares)
     exceptGuardEntryM DecrSharesNotMatchCommitment
         (checkShares epoch) (HM.toList shares)
 

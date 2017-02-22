@@ -35,16 +35,18 @@ import           Universum
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Communication.Protocol    (OutSpecs, SendActions, hoistSendActions)
 import           Pos.Constants                 (curSoftwareVersion)
-import           Pos.Crypto                    (SecretKey, deterministicKeyGen, hash,
-                                                toPublic)
+import           Pos.Crypto                    (SecretKey, emptyPassphrase, encToPublic,
+                                                fakeSigner, hash, safeDeterministicKeyGen,
+                                                toEncrypted, toPublic, withSafeSigner,
+                                                withSafeSigner)
 import           Pos.DHT.Model                 (getKnownPeers)
 import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
                                                 TxOut (..), addressF, coinF,
                                                 decodeTextAddress, makePubKeyAddress,
                                                 mkCoin)
 import           Pos.Util                      (maybeThrow)
-import           Pos.Util.BackupPhrase         (BackupPhrase, keysFromPhrase)
-import           Pos.Util.UserSecret           (readUserSecret, usKeys)
+import           Pos.Util.BackupPhrase         (BackupPhrase, safeKeysFromPhrase)
+import           Pos.Util.UserSecret           (readUserSecret, usKeys, usPrimKey)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
 import           Pos.Wallet.Tx                 (sendTxOuts, submitTx)
@@ -308,20 +310,21 @@ sendExtended sendActions srcCAddr dstCAddr c curr title desc = do
     srcAddr <- decodeCAddressOrFail srcCAddr
     dstAddr <- decodeCAddressOrFail dstCAddr
     idx <- getAddrIdx srcAddr
-    sks <- drop 1 <$> getSecretKeys
+    sks <- getSecretKeys
     let sk = sks !! idx
     na <- getKnownPeers
-    etx <- submitTx sendActions sk na [(TxOut dstAddr c, [])]
-    case etx of
-        Left err -> throwM . Internal $ sformat ("Cannot send transaction: "%stext) err
-        Right (tx, _, _) -> do
-            logInfo $
-                sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
-                c idx dstAddr
-            -- TODO: this should be removed in production
-            let txHash = hash tx
-            () <$ addHistoryTx dstCAddr curr title desc (THEntry txHash tx False Nothing)
-            addHistoryTx srcCAddr curr title desc (THEntry txHash tx True Nothing)
+    withSafeSigner sk (return emptyPassphrase) $ \ss -> do
+        etx <- submitTx sendActions ss na [(TxOut dstAddr c, [])]
+        case etx of
+            Left err -> throwM . Internal $ sformat ("Cannot send transaction: "%stext) err
+            Right (tx, _, _) -> do
+                logInfo $
+                    sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
+                    c idx dstAddr
+                -- TODO: this should be removed in production
+                let txHash = hash tx
+                () <$ addHistoryTx dstCAddr curr title desc (THEntry txHash tx False Nothing)
+                addHistoryTx srcCAddr curr title desc (THEntry txHash tx True Nothing)
 
 getHistory :: WalletWebMode ssc m => CAddress -> Word -> Word -> m ([CTx], Word)
 getHistory cAddr skip limit = do
@@ -405,7 +408,7 @@ redeemADA sendActions CWalletRedeem {..} = do
         (\e -> throwM $ Internal ("Seed is invalid base64 string: " <> toText e))
         pure $ B64.decode (encodeUtf8 crSeed)
     (redeemPK, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
-                            deterministicKeyGen seedBs
+                            safeDeterministicKeyGen seedBs emptyPassphrase
     -- new redemption wallet
     walletB <- getWallet crWalletId
 
@@ -414,33 +417,38 @@ redeemADA sendActions CWalletRedeem {..} = do
     dstAddr <- decodeCAddressOrFail dstCAddr
     redeemBalance <- getBalance $ makePubKeyAddress redeemPK
     na <- getKnownPeers
-    etx <- submitTx sendActions redeemSK na [(TxOut dstAddr redeemBalance, [])]
-    case etx of
-        Left err -> throwM . Internal $ "Cannot send redemption transaction: " <> err
-        Right (tx, _, _) -> do
-            -- add redemption transaction to the history of new wallet
-            () <$ addHistoryTx dstCAddr ADA "ADA redemption" ""
-                (THEntry (hash tx) tx False Nothing)
-            pure walletB
+    withSafeSigner redeemSK (return emptyPassphrase) $ \ss -> do
+        etx <- submitTx sendActions ss na [(TxOut dstAddr redeemBalance, [])]
+        case etx of
+            Left err -> throwM . Internal $ "Cannot send redemption transaction: " <> err
+            Right (tx, _, _) -> do
+                -- add redemption transaction to the history of new wallet
+                () <$ addHistoryTx dstCAddr ADA "ADA redemption" ""
+                    (THEntry (hash tx) tx False Nothing)
+                pure walletB
 
 importKey :: WalletWebMode ssc m => SendActions m -> Text -> m CWallet
 importKey sendActions (toString -> fp) = do
     secret <- readUserSecret fp
+    let keys = case secret ^. usPrimKey of
+            Nothing -> secret ^. usKeys
+            Just k  -> toEncrypted k : secret ^. usKeys
     forM_ (secret ^. usKeys) $ \key -> do
         addSecretKey key
-        let addr = makePubKeyAddress $ toPublic key
+        let addr = makePubKeyAddress $ encToPublic key
             cAddr = addressToCAddress addr
         createWallet cAddr def
 
-    let importedAddr = makePubKeyAddress $ toPublic $ (secret ^. usKeys) !! 0
+    let importedAddr = makePubKeyAddress $ encToPublic $ (secret ^. usKeys) !! 0
         importedCAddr = addressToCAddress importedAddr
 #ifdef DEV_MODE
-    psk <- myPrimaryKey
+    psk <- maybeThrow (Internal "No primary key is present!")
+           =<< getPrimaryKey
     let pAddr = makePubKeyAddress $ toPublic psk
     primaryBalance <- getBalance pAddr
     when (primaryBalance > mkCoin 0) $ do
         na <- getKnownPeers
-        etx <- submitTx sendActions psk na [(TxOut importedAddr primaryBalance, [])]
+        etx <- submitTx sendActions (fakeSigner psk) na [(TxOut importedAddr primaryBalance, [])]
         case etx of
             Left err -> throwM . Internal $ "Cannot transfer funds from genesis key" <> err
             Right (tx, _, _) ->  do
@@ -454,13 +462,8 @@ importKey sendActions (toString -> fp) = do
 -- Helpers
 ----------------------------------------------------------------------------
 
--- We omit first secret key, because it's considered to be block signing key
 myAddresses :: MonadKeys m => m [Address]
-myAddresses = map (makePubKeyAddress . toPublic) . drop 1 <$> getSecretKeys
-
--- Sometimes we need omitted key
-myPrimaryKey :: MonadKeys m => m SecretKey
-myPrimaryKey = (!! 0) <$> getSecretKeys
+myAddresses = map (makePubKeyAddress . encToPublic) <$> getSecretKeys
 
 myCAddresses :: MonadKeys m => m [CAddress]
 myCAddresses = map addressToCAddress <$> myAddresses
@@ -471,10 +474,10 @@ getAddrIdx addr = elemIndex addr <$> myAddresses >>= maybe notFound pure
             sformat ("Address "%addressF%" is not found in wallet") $ addr
 
 genSaveAddress :: WalletWebMode ssc m => BackupPhrase -> m CAddress
-genSaveAddress ph = addressToCAddress . makePubKeyAddress . toPublic <$> genSaveSK ph
+genSaveAddress ph = addressToCAddress . makePubKeyAddress . encToPublic <$> genSaveSK ph
   where
     genSaveSK ph' = do
-        let sk = fst $ keysFromPhrase ph'
+        let sk = fst $ safeKeysFromPhrase emptyPassphrase ph'
         addSecretKey sk
         return sk
 

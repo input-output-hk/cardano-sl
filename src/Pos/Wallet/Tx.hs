@@ -20,7 +20,7 @@ import           Pos.Binary                 ()
 import           Pos.Communication.Methods  (sendTx)
 import           Pos.Communication.Protocol (SendActions)
 import           Pos.Communication.Specs    (sendTxOuts)
-import           Pos.Crypto                 (SecretKey, hash, toPublic)
+import           Pos.Crypto                 (SafeSigner, hash, safeToPublic)
 import           Pos.DHT.Model              (DHTNode)
 import           Pos.Types                  (TxAux, TxOutAux, makePubKeyAddress, txaF)
 import           Pos.Wallet.Tx.Pure         (TxError, createMOfNTx, createTx, makeMOfNTx,
@@ -32,14 +32,14 @@ import           Pos.WorkMode               (MinWorkMode)
 submitTx
     :: TxMode ssc m
     => SendActions m
-    -> SecretKey
+    -> SafeSigner
     -> [DHTNode]
     -> [TxOutAux]
     -> m (Either TxError TxAux)
-submitTx sendActions sk na outputs = do
-    utxo <- getOwnUtxo $ makePubKeyAddress $ toPublic sk
+submitTx sendActions ss na outputs = do
+    utxo <- getOwnUtxo $ makePubKeyAddress $ safeToPublic ss
     runExceptT $ do
-        txw <- ExceptT $ return $ createTx utxo sk outputs
+        txw <- ExceptT $ return $ createTx utxo ss outputs
         let txId = hash (txw ^. _1)
         lift $ submitTxRaw sendActions na txw
         lift $ saveTx (txId, txw)

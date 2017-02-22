@@ -34,8 +34,8 @@ import           NeatInterpolation (text)
 import           Universum
 
 import           Pos.Binary.Script ()
-import           Pos.Crypto        (PublicKey, SecretKey, fullPublicKeyHexF,
-                                    fullSignatureHexF, sign)
+import           Pos.Crypto        (PublicKey, SafeSigner, fullPublicKeyHexF,
+                                    fullSignatureHexF, safeSign)
 import           Pos.Script        (Script, parseRedeemer, parseValidator)
 import           Pos.Types.Types   (TxSigData)
 
@@ -130,7 +130,7 @@ multisigValidator n pks = fromE $ parseValidator [text|
     mkCons k s = sformat ("(Cons #"%fullPublicKeyHexF%" "%build%")") k s
     shownPks = foldr mkCons "Nil" pks
 
-multisigRedeemer :: TxSigData -> [Maybe SecretKey] -> Script
+multisigRedeemer :: TxSigData -> [Maybe SafeSigner] -> Script
 multisigRedeemer txSigData sks = fromE $ parseRedeemer Nothing [text|
     redeemer : Comp (List (Maybe ByteString)) {
         redeemer = success ${shownSigs} }
@@ -139,7 +139,7 @@ multisigRedeemer txSigData sks = fromE $ parseRedeemer Nothing [text|
     mkCons Nothing s = sformat ("(Cons Nothing "%build%")") s
     mkCons (Just sig) s = sformat
         ("(Cons (Just #"%fullSignatureHexF%") "%build%")") sig s
-    shownSigs = foldr mkCons "Nil" (map (fmap (`sign` txSigData)) sks)
+    shownSigs = foldr mkCons "Nil" (map (fmap (`safeSign` txSigData)) sks)
 
 ----------------------------------------------------------------------------
 -- A pair with extra names

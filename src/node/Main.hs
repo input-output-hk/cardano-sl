@@ -38,7 +38,7 @@ import           Pos.Ssc.SscAlgo       (SscAlgo (..))
 import           Pos.Types             (Timestamp (Timestamp))
 import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
-import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usVss,
+import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usVss, usPrimKey,
                                         writeUserSecret)
 #ifdef WITH_WEB
 import           Pos.Web               (serveWebBase, serveWebGT)
@@ -144,7 +144,7 @@ userSecretWithGenesisKey Args {..} userSecret = case spendingGenesisI of
     Nothing -> fetchPrimaryKey userSecret
     Just i -> do
         let sk = genesisSecretKeys !! i
-            us = userSecret & usKeys %~ (sk :) . filter (/= sk)
+            us = userSecret & usPrimKey .~ Just sk
         writeUserSecret us
         return (sk, us)
 
@@ -171,12 +171,12 @@ updateUserSecretVSS _ = fillUserSecretVSS
 #endif
 
 fetchPrimaryKey :: (MonadIO m, MonadFail m) => UserSecret -> m (SecretKey, UserSecret)
-fetchPrimaryKey userSecret = case userSecret ^? usKeys . _head of
+fetchPrimaryKey userSecret = case userSecret ^. usPrimKey of
     Just sk -> return (sk, userSecret)
     Nothing -> do
         putText "Found no signing keys in keyfile, generating random one..."
         sk <- snd <$> keyGen
-        let us = userSecret & usKeys .~ [sk]
+        let us = userSecret & usPrimKey .~ Just sk
         writeUserSecret us
         return (sk, us)
 
@@ -197,7 +197,7 @@ processUserSecret args@Args {..} userSecret = case backupPhrase of
     Nothing -> updateUserSecretVSS args userSecret >>= userSecretWithGenesisKey args
     Just ph -> do
         let (sk, vss) = keysFromPhrase ph
-            us = userSecret & usKeys .~ [sk] & usVss .~ Just vss
+            us = userSecret & usPrimKey .~ Just sk & usVss .~ Just vss
         writeUserSecret us
         return (sk, us)
 

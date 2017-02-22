@@ -42,6 +42,7 @@ module Pos.Crypto.Signing
 
 import qualified Cardano.Crypto.Wallet   as CC
 import qualified Crypto.ECC.Edwards25519 as Ed25519
+import           Data.ByteArray          (ScrubbedBytes)
 import qualified Data.ByteString         as BS
 import qualified Data.ByteString.Lazy    as BSL
 import           Data.Coerce             (coerce)
@@ -93,7 +94,7 @@ deriveSafeCopySimple 0 'base ''SecretKey
 -- | Generate a public key from a secret key. Fast (it just drops some bytes
 -- off the secret key).
 toPublic :: SecretKey -> PublicKey
-toPublic (SecretKey k) = PublicKey (CC.toXPub "" k)
+toPublic (SecretKey k) = PublicKey (CC.toXPub k)
 
 instance Show SecretKey where
     show sk = "<secret of " ++ show (toPublic sk) ++ ">"
@@ -131,12 +132,15 @@ parseFullPublicKey s =
                 | BSL.null unconsumed -> Just a
                 | otherwise -> Nothing
 
+emptyPass :: ScrubbedBytes
+emptyPass = mempty
+
 -- TODO: this is just a placeholder for actual (not ready yet) derivation
 -- of keypair from seed in cardano-crypto API
 createKeypairFromSeed :: BS.ByteString -> Maybe (CC.XPub, CC.XPrv)
 createKeypairFromSeed seed = do
-    prv <- CC.generate seed ""
-    return (CC.toXPub "" prv, prv)
+    prv <- CC.generate seed emptyPass
+    return (CC.toXPub prv, prv)
 
 -- | Generate a key pair.
 keyGen :: MonadIO m => m (PublicKey, SecretKey)
@@ -178,7 +182,7 @@ sign k = coerce . signRaw k . BSL.toStrict . Bi.encode
 
 -- | Alias for constructor.
 signRaw :: SecretKey -> ByteString -> Signature Raw
-signRaw (SecretKey k) x = Signature (CC.sign "" k x)
+signRaw (SecretKey k) x = Signature (CC.sign emptyPass k x)
 
 -- CHECK: @checkSig
 -- | Verify a signature.
@@ -232,7 +236,7 @@ createProxyCert :: (Bi w) => SecretKey -> PublicKey -> w -> ProxyCert w
 createProxyCert (SecretKey issuerSk) (PublicKey delegatePk) o =
     coerce $
     ProxyCert $
-    CC.sign "" issuerSk $
+    CC.sign emptyPass issuerSk $
     mconcat
         ["00", CC.unXPub delegatePk, BSL.toStrict $ Bi.encode o]
 
@@ -331,7 +335,7 @@ proxySign sk@(SecretKey delegateSk) ProxySecretKey{..} m
   where
     PublicKey issuerPk = pskIssuerPk
     sigma =
-        CC.sign "" delegateSk $
+        CC.sign emptyPass delegateSk $
         mconcat
             ["01", CC.unXPub issuerPk, BSL.toStrict $ Bi.encode m]
 

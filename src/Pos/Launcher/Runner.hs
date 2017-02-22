@@ -84,7 +84,7 @@ import           Pos.Constants               (blockRetrievalQueueSize,
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               runContextHolder)
-import           Pos.Crypto                  (createProxySecretKey, toPublic)
+import           Pos.Crypto                  (createProxySecretKey, encToPublic)
 import           Pos.DB                      (MonadDB (..), getTip, initNodeDBs,
                                               openNodeDBs, runDBHolder, _gStateDB)
 import qualified Pos.DB.Lrc                  as LrcDB
@@ -337,7 +337,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
     lrcSync <- liftIO . newTVarIO . (True,) =<< LrcDB.getEpochDefault
 
     let eternity = (minBound, maxBound)
-        makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . toPublic
+        makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . encToPublic
         ownPSKs = npUserSecret ^.. usKeys._tail.each.to makeOwnPSK
     forM_ ownPSKs addProxySecretKey
 

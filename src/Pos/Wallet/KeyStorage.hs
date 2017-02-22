@@ -34,7 +34,8 @@ import           Universum
 import           Pos.Communication.PeerState (PeerStateHolder)
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               WithNodeContext (..))
-import           Pos.Crypto                  (SecretKey, keyGen)
+import           Pos.Crypto                  (EncryptedSecretKey, PassPhrase, SecretKey,
+                                              safeKeyGen)
 import           Pos.DB                      (MonadDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Delegation.Holder       (DelegationT (..))
@@ -46,7 +47,7 @@ import           Pos.Txp.Holder              (TxpLDHolder (..))
 import           Pos.Update.MemState         (USHolder (..))
 import           Pos.Util                    ()
 import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys,
-                                              writeUserSecret)
+                                              usPrimKey, writeUserSecret)
 import           Pos.Wallet.Context          (WithWalletContext)
 import           Pos.Wallet.State.State      (MonadWalletDB)
 
@@ -57,14 +58,18 @@ type KeyData = STM.TVar UserSecret
 ----------------------------------------------------------------------
 
 class Monad m => MonadKeys m where
-    getSecretKeys :: m [SecretKey]
-    addSecretKey :: SecretKey -> m ()
+    getPrimaryKey :: m (Maybe SecretKey)
+    getSecretKeys :: m [EncryptedSecretKey]
+    addSecretKey :: EncryptedSecretKey -> m ()
     deleteSecretKey :: Word -> m ()
 
-    default getSecretKeys :: (MonadTrans t, MonadKeys m', t m' ~ m) => m [SecretKey]
+    default getPrimaryKey :: (MonadTrans t, MonadKeys m', t m' ~ m) => m (Maybe SecretKey)
+    getPrimaryKey = lift getPrimaryKey
+
+    default getSecretKeys :: (MonadTrans t, MonadKeys m', t m' ~ m) => m [EncryptedSecretKey]
     getSecretKeys = lift getSecretKeys
 
-    default addSecretKey :: (MonadTrans t, MonadKeys m', t m' ~ m) => SecretKey -> m ()
+    default addSecretKey :: (MonadTrans t, MonadKeys m', t m' ~ m) => EncryptedSecretKey -> m ()
     addSecretKey = lift . addSecretKey
 
     default deleteSecretKey :: (MonadTrans t, MonadKeys m', t m' ~ m) => Word -> m ()
@@ -81,9 +86,9 @@ instance MonadKeys m => MonadKeys (NtpSlotting m)
 instance MonadKeys m => MonadKeys (SlottingHolder m)
 
 -- | Helper for generating a new secret key
-newSecretKey :: (MonadIO m, MonadKeys m) => m SecretKey
-newSecretKey = do
-    (_, sk) <- keyGen
+newSecretKey :: (MonadIO m, MonadKeys m) => PassPhrase -> m EncryptedSecretKey
+newSecretKey pp = do
+    (_, sk) <- safeKeyGen pp
     addSecretKey sk
     return sk
 
@@ -160,6 +165,7 @@ runKeyStorageRaw :: KeyStorage m a -> KeyData -> m a
 runKeyStorageRaw = runReaderT . getKeyStorage
 
 instance (MonadIO m) => MonadKeys (KeyStorage m) where
+    getPrimaryKey = use usPrimKey
     getSecretKeys = use usKeys
     addSecretKey sk =
         whenM (not . elem sk <$> use usKeys) $
@@ -190,13 +196,12 @@ instance (MonadIO m) =>
 
 instance (MonadIO m, MonadThrow m) =>
          MonadKeys (ContextHolder ssc m) where
+    getPrimaryKey = use usPrimKey
     getSecretKeys = use usKeys
     addSecretKey sk =
         whenM (not . elem sk <$> use usKeys) $
             usKeys <>= [sk]
-    deleteSecretKey (fromIntegral -> i)
-        | i == 0 = throwM $ PrimaryKey "Cannot delete a primary secret key"
-        | otherwise = usKeys %= deleteAt i
+    deleteSecretKey (fromIntegral -> i) = usKeys %= deleteAt i
 
 -- | Derived instances for ancestors in monad stack
 deriving instance MonadKeys m => MonadKeys (SscHolder ssc m)

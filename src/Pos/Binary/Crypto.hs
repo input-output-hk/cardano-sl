@@ -23,6 +23,7 @@ import           Universum                hiding (putByteString)
 import           Pos.Binary.Class         (AsBinary (..), getCopyBi, putCopyBi, Bi (..))
 import           Pos.Crypto.Hashing       (AbstractHash (..), Hash, HashAlgorithm,
                                            WithHash (..), withHash)
+import           Pos.Crypto.SafeSigning   (EncryptedSecretKey (..))
 import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),
                                            SecretSharingExtra (..), Share (..),
                                            VssKeyPair (..), VssPublicKey (..))
@@ -158,6 +159,7 @@ deriving instance Bi CC.XSignature
 deriving instance Bi (Signature a)
 deriving instance Bi PublicKey
 deriving instance Bi SecretKey
+deriving instance Bi EncryptedSecretKey
 
 instance Bi a => Bi (Signed a) where
     put (Signed v s) = put (v,s)

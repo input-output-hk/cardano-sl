@@ -43,6 +43,7 @@ library
                       -- hasn't changed upstream.
                      , binary == 0.8.3.*
                      , bytestring
+                     , cardano-crypto
                      , cereal
                      , containers
                      , cryptonite

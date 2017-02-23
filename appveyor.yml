@@ -14,10 +14,10 @@ cache:
   # they get read access to the cache.
 
   # Another quirk of Appveyor's cache is any cache directory not listed here
-  # gets deleted at the end of the build. Consequently, a build on a branch
-  # different than the previous clobbers the previous branch's cache.
-  # Alternatively, we could maintain a hardcoded list of branch-namespaced cache
-  # directories.
+  # gets deleted at the end of the build. Consequently, without
+  # branch-namespacing a build on a branch different than the previous would
+  # clobber the previous branch's cache. Alternatively, we could maintain a
+  # hardcoded list of branch-namespaced cache directories.
   - "c:\\cache"
 
 # Avoid long paths on Windows

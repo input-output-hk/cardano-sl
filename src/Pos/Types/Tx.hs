@@ -18,7 +18,8 @@ import qualified Data.HashMap.Strict  as HM
 import qualified Data.HashSet         as HS
 import           Data.List            (tail, zipWith3)
 import           Formatting           (build, int, sformat, (%))
-import           Serokell.Util        (VerificationRes, verResToMonadError, verifyGeneric)
+import           Serokell.Util        (VerificationRes, allDistinct, verResToMonadError,
+                                       verifyGeneric)
 import           Universum
 
 import           Pos.Binary.Types     ()
@@ -30,7 +31,6 @@ import           Pos.Types.Coin       (coinToInteger, sumCoins)
 import           Pos.Types.Core       (Address (..), StakeholderId, coinF, mkCoin)
 import           Pos.Types.Types      (Tx (..), TxAux, TxDistribution (..), TxIn (..),
                                        TxInWitness (..), TxOut (..), TxOutAux)
-import           Pos.Util             (allDistinct)
 
 ----------------------------------------------------------------------------
 -- Verification

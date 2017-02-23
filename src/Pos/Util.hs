@@ -29,9 +29,6 @@ module Pos.Util
        , maybeThrow'
        , parseIntegralSafe
 
-       -- * Lists
-       , allDistinct
-
        -- * NonEmpty
        , NE
        , neZipWith3
@@ -208,15 +205,6 @@ maybeThrow e = maybe (throwM e) pure
 
 maybeThrow' :: (Mockable Throw m, Exception e) => e -> Maybe a -> m a
 maybeThrow' e = maybe (throw e) pure
-
-----------------------------------------------------------------------------
--- List utils
-----------------------------------------------------------------------------
-
-allDistinct :: Ord a => [a] -> Bool
-allDistinct xs = and $ zipWith (/=) sorted (drop 1 sorted)
-  where
-    sorted = sort xs
 
 ----------------------------------------------------------------------------
 -- NonEmpty

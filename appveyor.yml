@@ -17,7 +17,7 @@ environment:
 
 before_test:
 - Echo %APPVEYOR_BUILD_VERSION% > build-id
-- IF DEFINED APPVEYOR_PULL_REQUEST_NUMBER SET STACK_ROOT="C:\sr\pr"
+- IF DEFINED APPVEYOR_PULL_REQUEST_NUMBER SET STACK_ROOT=C:\sr\pr
 # Install stack
 - curl -sSL -o stack.zip --insecure http://www.stackage.org/stack/windows-x86_64
 - 7z x stack.zip stack.exe

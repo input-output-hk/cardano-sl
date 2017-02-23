@@ -1,7 +1,7 @@
-stack clean --full --nix
+stack clean --full
 rm -rf .stack-wok
-stack --nix clean cardano-sl
+stack clean cardano-sl
 rm -rf run/* wallet-db/ *key daedalus/src/Generated/
-stack --nix build
-stack --nix exec -- cardano-wallet-hs2purs
+stack build
+stack exec -- cardano-wallet-hs2purs
 cd daedalus && npm install && npm run build:prod && npm link

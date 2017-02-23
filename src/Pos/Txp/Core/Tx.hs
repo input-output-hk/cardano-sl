@@ -5,7 +5,7 @@
 
 -- | Transaction related functions.
 
-module Pos.Types.Tx
+module Pos.Txp.Core.Tx
        ( verifyTxAlone
        , VTxGlobalContext (..)
        , VTxLocalContext (..)

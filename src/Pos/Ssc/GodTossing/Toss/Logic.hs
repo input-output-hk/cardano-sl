@@ -14,7 +14,7 @@ import           Control.Monad.Except            (MonadError (throwError), runEx
 import qualified Data.HashMap.Strict             as HM
 import           Formatting                      (sformat, (%))
 import           Serokell.Util.Text              (listJson)
-import           System.Wlog                     (logDebug, logError)
+import           System.Wlog                     (logError)
 import           Universum
 
 import           Pos.Constants                   (slotSecurityParam)
@@ -44,8 +44,6 @@ verifyAndApplyGtPayload eoh payload = do
     verifyGtPayload eoh payload  -- not necessary for blocks, but just in case
     let blockCerts = _gpCertificates payload
     let curEpoch = either identity (^. epochIndexL) eoh
-    stableCerts <- getStableCertificates curEpoch
-    richmenMap <- maybe (throwError $ NoRichmen curEpoch) pure =<< getRichmen curEpoch
     checkPayload curEpoch payload
 
     -- Apply

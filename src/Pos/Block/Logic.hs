@@ -72,6 +72,7 @@ import           Pos.Slotting.Class         (getCurrentSlot)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
                                              SscWorkersClass (..))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscVerifyBlocks)
+import           Pos.Txp.Core               (topsortTxs)
 import           Pos.Txp.Logic              (txVerifyBlocks)
 import           Pos.Txp.MemState           (getLocalTxsNUndo)
 import           Pos.Types                  (Block, BlockHeader, EpochIndex,
@@ -85,7 +86,7 @@ import           Pos.Types                  (Block, BlockHeader, EpochIndex,
                                              genesisHash, getEpochOrSlot, headerHash,
                                              headerHashG, headerSlot, mkGenesisBlock,
                                              mkMainBlock, mkMainBody, prevBlockL,
-                                             topsortTxs, verifyHeader, verifyHeaders,
+                                             verifyHeader, verifyHeaders,
                                              vhpVerifyConsensus)
 import qualified Pos.Types                  as Types
 import           Pos.Update.Core            (UpdatePayload (..))

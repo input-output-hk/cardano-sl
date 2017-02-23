@@ -40,14 +40,13 @@ import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Script                (Script)
 import           Pos.Script.Examples       (multisigRedeemer, multisigValidator)
 import           Pos.Txp                   (MonadUtxoRead (utxoGet), UtxoStateT (..),
-                                            applyTxToUtxo, filterUtxoByAddr)
+                                            applyTxToUtxo, filterUtxoByAddr, topsortTxs)
 import           Pos.Types                 (Address, Block, ChainDifficulty, Coin,
                                             Tx (..), TxAux, TxDistribution (..), TxId,
                                             TxIn (..), TxInWitness (..), TxOut (..),
                                             TxOutAux, TxSigData, TxWitness, Utxo,
                                             blockTxas, difficultyL, makePubKeyAddress,
-                                            makeScriptAddress, mkCoin, sumCoins,
-                                            topsortTxs)
+                                            makeScriptAddress, mkCoin, sumCoins)
 import           Pos.Types.Coin            (unsafeIntegerToCoin, unsafeSubCoin)
 
 type TxOutIdx = (TxId, Word32)

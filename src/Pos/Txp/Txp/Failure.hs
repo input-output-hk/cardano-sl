@@ -24,7 +24,7 @@ instance Buildable TxpVerFailure where
     build TxpOverwhelmed =
         "max size of the mem pool is reached"
     build TxpCantTopsort =
-        "transactions can't be topsored sorted"
+        "transactions can't be topsored"
     build (TxpInvalidUndoLength ex rcv) =
         bprint ("length of transaction's inputs = "%int%
                " doesn't equal length of transaction's undo = "%int) ex rcv

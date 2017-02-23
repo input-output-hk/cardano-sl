@@ -19,11 +19,11 @@ import           Universum
 import           Pos.Constants        (maxLocalTxs)
 import           Pos.Crypto           (WithHash (..), hash)
 import           Pos.Types            (Coin, StakeholderId, Tx (..), TxAux, TxId, TxUndo,
-                                       TxsUndo, getTxDistribution, mkCoin, topsortTxs,
-                                       txOutStake)
+                                       TxsUndo, getTxDistribution, mkCoin, txOutStake)
 import           Pos.Types.Coin       (coinToInteger, sumCoins, unsafeAddCoin,
                                        unsafeIntegerToCoin, unsafeSubCoin)
 
+import           Pos.Txp.Core         (topsortTxs)
 import           Pos.Txp.Txp.Class    (MonadBalances (..), MonadBalancesRead (..),
                                        MonadTxPool (..), MonadUtxo (..))
 import           Pos.Txp.Txp.Failure  (TxpVerFailure (..))

@@ -77,7 +77,7 @@ instance MonadUtxoRead m => MonadUtxo (TxpT m) where
     utxoDel id = TxpT $ do
         inserted <- use $ txmUtxoView . uvAddUtxo . to (HM.member id)
         if | inserted  -> txmUtxoView . uvAddUtxo . at id .= Nothing
-           | otherwise -> txmUtxoView . uvDelUtxo %= HS.insert id
+           | otherwise -> txmUtxoView . uvDelUtxo . at id .= Just ()
 
 instance MonadBalancesRead m => MonadBalancesRead (TxpT m) where
     getStake id = TxpT $

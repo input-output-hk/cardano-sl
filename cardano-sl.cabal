@@ -107,7 +107,6 @@ library
                         Pos.Types.Block.Functions
                         Pos.Types.Block.Instances
                         Pos.Types.Slotting
-                        Pos.Types.Tx
                         Pos.Types.Version
 
                         -- Update system
@@ -324,6 +323,8 @@ library
 
                         -- Txp
                         Pos.Txp.Arbitrary
+                        Pos.Txp.Core
+                        Pos.Txp.Core.Tx
                         Pos.Txp.Error
                         Pos.Txp.Logic
                         Pos.Txp.Logic.Global

@@ -28,9 +28,9 @@ import           Pos.Types                 (Address, Coin, StakeholderId, Tx (..
                                             TxDistribution (..), TxId, TxIn (..),
                                             TxOut (..), TxOutAux, TxUndo, Utxo,
                                             txOutStake, unsafeAddCoin)
-import           Pos.Types.Tx              (VTxGlobalContext (..), VTxLocalContext (..),
-                                            verifyTx)
 
+import           Pos.Txp.Core.Tx           (VTxGlobalContext (..), VTxLocalContext (..),
+                                            verifyTx)
 import           Pos.Txp.Txp.Class         (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Txp.Failure       (TxpVerFailure (..))
 

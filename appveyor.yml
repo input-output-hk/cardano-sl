@@ -66,8 +66,8 @@ test_script:
   - npm run build:prod
 
 after_test:
- - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER xcopy /q /s /e /r /k /i /v /h /y %STACK_ROOT% %CACHED_STACK_ROOT%
- - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER xcopy /q /s /e /r /k /i /v /h /y %STACK_WORK% %CACHED_STACK_WORK%
+ - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %STACK_ROOT% %CACHED_STACK_ROOT%
+ - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_WORK% xcopy /q /s /e /r /k /i /v /h /y %STACK_WORK% %CACHED_STACK_WORK%
 
 artifacts:
   - path: daedalus/

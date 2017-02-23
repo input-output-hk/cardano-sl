@@ -12,13 +12,13 @@ cache:
 environment:
   global:
     # Avoid long paths on Windows
-    STACK_ROOT: "c:\\sr\\%APPVEYOR_REPO_BRANCH%"
+    CACHED_STACK_ROOT: "c:\\sr\\%APPVEYOR_REPO_BRANCH%"
+    STACK_ROOT: "c:\\sr"
     CSL_SYSTEM_TAG: "win64"
 
 before_test:
 - Echo %APPVEYOR_BUILD_VERSION% > build-id
-- IF DEFINED APPVEYOR_PULL_REQUEST_NUMBER SET STACK_ROOT=C:\sr\pr
-- Echo Using STACK_ROOT '%STACK_ROOT%'
+- IF EXIST %CACHED_STACK_ROOT% xcopy /q /s /e /r /k /i /v /h %CACHED_STACK_ROOT% %STACK_ROOT%
 # Install stack
 - curl -sSL -o stack.zip --insecure http://www.stackage.org/stack/windows-x86_64
 - 7z x stack.zip stack.exe
@@ -49,6 +49,9 @@ test_script:
   - ps: Install-Product node 7
   - npm install
   - npm run build:prod
+
+after_test:
+ - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER xcopy /q /s /e /r /k /i /v /h %STACK_ROOT% %CACHED_STACK_ROOT%
 
 artifacts:
   - path: daedalus/

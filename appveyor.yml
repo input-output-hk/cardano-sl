@@ -18,7 +18,7 @@ environment:
 
 before_test:
 - Echo %APPVEYOR_BUILD_VERSION% > build-id
-- IF EXIST %CACHED_STACK_ROOT% xcopy /q /s /e /r /k /i /v /h %CACHED_STACK_ROOT% %STACK_ROOT%
+- IF EXIST %CACHED_STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %CACHED_STACK_ROOT% %STACK_ROOT%
 # Install stack
 - curl -sSL -o stack.zip --insecure http://www.stackage.org/stack/windows-x86_64
 - 7z x stack.zip stack.exe
@@ -51,7 +51,7 @@ test_script:
   - npm run build:prod
 
 after_test:
- - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER xcopy /q /s /e /r /k /i /v /h %STACK_ROOT% %CACHED_STACK_ROOT%
+ - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER xcopy /q /s /e /r /k /i /v /h /y %STACK_ROOT% %CACHED_STACK_ROOT%
 
 artifacts:
   - path: daedalus/

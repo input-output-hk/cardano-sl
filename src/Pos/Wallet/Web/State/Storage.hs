@@ -25,9 +25,11 @@ module Pos.Wallet.Web.State.Storage
        , addUpdate
        , removeNextUpdate
        , updateHistoryCache
+       , testReset
        ) where
 
 import           Control.Lens               (at, ix, makeClassy, (%=), (.=), _Just, _head)
+import           Control.Monad.State.Class  (put)
 import           Data.Default               (Default, def)
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import           Pos.Types                  (HeaderHash, Utxo)
@@ -120,6 +122,9 @@ removeNextUpdate = wsReadyUpdates %= drop 1
 
 updateHistoryCache :: CAddress -> HeaderHash -> Utxo -> [TxHistoryEntry] -> Update ()
 updateHistoryCache cAddr cHash utxo cTxs = wsHistoryCache . at cAddr .= Just (cHash, utxo, cTxs)
+
+testReset :: Update ()
+testReset = put def
 
 deriveSafeCopySimple 0 'base ''CProfile
 deriveSafeCopySimple 0 'base ''CHash

@@ -159,3 +159,6 @@ importKey = mkEffFn1 $ fromAff <<< map encodeJson <<< B.importKey
 
 syncProgress :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 syncProgress = fromAff $ map encodeJson B.syncProgress
+
+testReset :: forall eff. Eff (ajax :: AJAX | eff) (Promise Unit)
+testReset = fromAff B.testReset

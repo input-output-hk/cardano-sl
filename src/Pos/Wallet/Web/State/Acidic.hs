@@ -19,6 +19,7 @@ module Pos.Wallet.Web.State.Acidic
        , GetUpdates (..)
        , GetNextUpdate (..)
        , GetHistoryCache (..)
+       , TestReset (..)
        , CreateWallet (..)
        , SetProfile (..)
        , SetWalletMeta (..)
@@ -70,7 +71,8 @@ tidyState = tidyExtendedState
 
 makeAcidic ''WalletStorage
     [
-      'WS.getProfile
+      'WS.testReset
+    , 'WS.getProfile
     , 'WS.getWalletMetas
     , 'WS.getWalletMeta
     , 'WS.getTxMeta

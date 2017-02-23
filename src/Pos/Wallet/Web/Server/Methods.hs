@@ -76,7 +76,7 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWeb
                                                 getWalletMeta, getWalletState, openState,
                                                 removeNextUpdate, removeWallet,
                                                 runWalletWebDB, setProfile, setWalletMeta,
-                                                setWalletTransactionMeta,
+                                                setWalletTransactionMeta, testReset,
                                                 updateHistoryCache)
 import           Pos.Web.Server                (serveImpl)
 
@@ -217,6 +217,10 @@ walletServerOuts = sendTxOuts
 
 servantHandlers :: WalletWebMode ssc m =>  SendActions m -> ServerT WalletApi m
 servantHandlers sendActions =
+#ifdef DEV_MODE
+     catchWalletError testResetAll
+    :<|>
+#endif
      (catchWalletError . getWallet)
     :<|>
      catchWalletError getWallets
@@ -467,6 +471,15 @@ syncProgress = do
     <$> localChainDifficulty
     <*> networkChainDifficulty
     <*> connectedPeers
+
+#ifdef DEV_MODE
+testResetAll :: WalletWebMode ssc m => m ()
+testResetAll = deleteAllKeys >> testReset
+  where
+    deleteAllKeys = do
+        keyNum <- fromIntegral . pred . length <$> getSecretKeys
+        sequence_ $ replicate keyNum $ deleteSecretKey 1
+#endif
 
 ---------------------------------------------------------------------------
 -- Helpers

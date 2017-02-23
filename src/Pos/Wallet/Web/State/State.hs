@@ -20,6 +20,7 @@ module Pos.Wallet.Web.State.State
        , getHistoryCache
 
        -- * Setters
+       , testReset
        , createWallet
        , setProfile
        , setWalletMeta
@@ -127,3 +128,6 @@ removeNextUpdate = updateDisk A.RemoveNextUpdate
 
 updateHistoryCache :: WebWalletModeDB m => CAddress -> HeaderHash -> Utxo -> [TxHistoryEntry] -> m ()
 updateHistoryCache cAddr h utxo = updateDisk . A.UpdateHistoryCache cAddr h utxo
+
+testReset :: WebWalletModeDB m => m ()
+testReset = updateDisk A.TestReset

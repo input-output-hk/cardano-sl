@@ -7,37 +7,47 @@ module Pos.Util.LogSafe
        , logNoticeS
        , logWarningS
        , logErrorS
-       , HasSecureFormatting(..)
        ) where
 
 import           Control.Monad.Trans (MonadTrans)
-import           Formatting          (Format)
+import           Data.List           (isSuffixOf)
+import qualified Data.Text           as T
+import qualified System.Log.Logger   as L
 import           System.Wlog         (CanLog (..), HasLoggerName (..), Severity (..),
-                                      WithLogger)
+                                      convertSeverity, loggerName)
 import           Universum
 
 
 newtype SecureLogWrapped m a = SecureLogWrapped
     { getSecureLogWrapped :: m a
-    } deriving (Functor, Applicative, Monad, CanLog)
+    } deriving (Functor, Applicative, Monad, MonadIO)
 
 instance MonadTrans SecureLogWrapped where
     lift = SecureLogWrapped
 
+instance (MonadIO m) => CanLog (SecureLogWrapped m) where
+    dispatchMessage
+        (loggerName      -> name)
+        (convertSeverity -> prior)
+        msg =
+      let acceptable p
+              | "fileHandler" `isPrefixOf` p ||
+                "rollerHandler" `isPrefixOf` p
+              = not $ ".pub" `isSuffixOf` p
+              | otherwise = True
+      in liftIO $ L.logMCond name prior (T.unpack msg) acceptable
+
 instance (Monad m, HasLoggerName m) => HasLoggerName (SecureLogWrapped m) where
-    getLoggerName = (<> ".Secret") <$> SecureLogWrapped getLoggerName
+    getLoggerName = SecureLogWrapped getLoggerName
     modifyLoggerName foo (SecureLogWrapped m) =
         SecureLogWrapped (modifyLoggerName foo m)
 
 execSecureLogWrapped :: SecureLogWrapped m a -> m a
 execSecureLogWrapped (SecureLogWrapped act) = act
 
-class HasSecureFormatting a where
-    secureF :: Bool -> Format r (a -> r)
-
 -- | Shortcut for 'logMessage' to use according severity.
 logDebugS, logInfoS, logNoticeS, logWarningS, logErrorS
-    :: WithLogger m
+    :: (HasLoggerName m, MonadIO m)
     => Text -> m ()
 logDebugS   = logMessageS Debug
 logInfoS    = logMessageS Info
@@ -48,7 +58,7 @@ logErrorS   = logMessageS Error
 -- | Same as 'logMesssage', but log to two loggers, put only insecure
 -- version to memmode.
 logMessageS
-    :: WithLogger m
+    :: (HasLoggerName m, MonadIO m)
     => Severity
     -> Text
     -> m ()

@@ -491,6 +491,7 @@ library
                       , formatting
                       , gitrev
                       , hashable
+                      , hslogger >= 1.3.0
                       , http-client
                       , http-client-tls
                       , http-conduit
@@ -498,7 +499,7 @@ library
                       , lens
                       , lifted-async
                       , list-t
-                      , log-warper >= 0.4.3
+                      , log-warper >= 0.4.5
                       , lrucache
                       , memory
                       , mmorph
@@ -599,7 +600,7 @@ executable cardano-node
                      , filepath
                      , formatting
                      , lens
-                     , log-warper >= 0.4.3
+                     , log-warper >= 0.4.5
                      , network-transport
                      , node-sketch
                      , optparse-simple
@@ -650,7 +651,7 @@ executable cardano-analyzer
                      , bytestring
                      , cardano-sl
                      , formatting
-                     , log-warper >= 0.4.3
+                     , log-warper >= 0.4.5
                      , optparse-simple
                      , serokell-util >= 0.1.3.4
                      , text
@@ -705,7 +706,7 @@ executable cardano-wallet
                      , formatting
                      , lens
                      , lifted-async
-                     , log-warper >= 0.4.3
+                     , log-warper >= 0.4.5
                      , mtl
                      , network-transport
                      , node-sketch
@@ -817,7 +818,7 @@ executable cardano-smart-generator
                      , formatting
                      , lens
                      , lifted-async
-                     , log-warper >= 0.4.3
+                     , log-warper >= 0.4.5
                      , node-sketch
                      , optparse-applicative
                      , parsec
@@ -878,7 +879,7 @@ executable cardano-dht-keygen
                      , kademlia
                      , lens
                      , lifted-async
-                     , log-warper >= 0.4.3
+                     , log-warper >= 0.4.5
                      , optparse-applicative
                      , parsec
                      , random
@@ -1095,7 +1096,7 @@ executable cardano-launcher
                      , base
                      , optparse-applicative
                      , cardano-report-server >= 0.1.0
-                     , log-warper >= 0.4.3
+                     , log-warper >= 0.4.5
                      , cardano-sl
                      , directory
                      , process
@@ -1159,7 +1160,7 @@ test-suite cardano-test
                      , formatting
                      , hspec
                      , lens
-                     , log-warper >= 0.4.3
+                     , log-warper >= 0.4.5
                      , memory
                      , mtl
                      , node-sketch
@@ -1219,7 +1220,7 @@ benchmark cardano-bench-criterion
                      , formatting
                      , hashtables
                      , lens
-                     , log-warper >= 0.4.3
+                     , log-warper >= 0.4.5
                      , serokell-util >= 0.1.3.4
                      , text-format
                      , universum >= 0.1.11

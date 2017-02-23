@@ -3,7 +3,7 @@ smart-wallet:
     severity: Error
 node:
     severity: Debug
-    file: {{file}}
+    file: {{file}}.pub
     comm:
         severity: Info
         file: comm-{{file}}

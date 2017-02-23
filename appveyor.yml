@@ -3,6 +3,17 @@ image: Visual Studio 2015
 
 build: off
 
+# Avoid long paths on Windows
+environment:
+  global:
+    BRANCH_CACHE_DIR: "c:\\cache\\%APPVEYOR_REPO_BRANCH:/=_%"
+    CACHED_STACK_ROOT: "%BRANCH_CACHE_DIR%\\sr"
+    # Avoid long paths on Windows
+    STACK_ROOT: "c:\\sr"
+    CACHED_STACK_WORK: "%BRANCH_CACHE_DIR%\\sw"
+    STACK_WORK: ".stack-work"
+    CSL_SYSTEM_TAG: "win64"
+
 cache:
   # TODO: https://github.com/commercialhaskell/stack/issues/1176#issuecomment-269520803
 
@@ -21,20 +32,10 @@ cache:
   # explicitly here are optimistically cached for consecutive builds on the same
   # branch; however, their cache directories will be deleted whenever a
   # different branch is built.
-  - "c:\\cache\\%APPVEYOR_REPO_BRANCH%"
+  - "%BRANCH_CACHE_DIR%"        # e.g. C:\cache\feature_abc123
   - "c:\\cache\\master"
   - "c:\\cache\\cardano-sl-0.2"
   # Add more "c:\\cache\\<branch_name>" directories as needed
-
-# Avoid long paths on Windows
-environment:
-  global:
-    # Avoid long paths on Windows
-    CACHED_STACK_ROOT: "c:\\cache\\%APPVEYOR_REPO_BRANCH%\\sr"
-    STACK_ROOT: "c:\\sr"
-    CACHED_STACK_WORK: "c:\\cache\\%APPVEYOR_REPO_BRANCH%\\sw"
-    STACK_WORK: ".stack-work"
-    CSL_SYSTEM_TAG: "win64"
 
 before_test:
 - Echo %APPVEYOR_BUILD_VERSION% > build-id

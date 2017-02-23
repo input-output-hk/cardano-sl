@@ -27,14 +27,17 @@ import qualified Data.ByteString.Lazy  as LBS
 import           Data.SafeCopy         (SafeCopy, safeGet, safePut)
 import           Data.Serialize        (runGet, runPut)
 import           Data.Typeable         (typeRep)
+import           Formatting            (formatToString, (%), int)
 import           Prelude               (read)
-import           Test.QuickCheck       (counterexample)
+import           Test.QuickCheck       (counterexample, property, (.&&.),
+                                        arbitrary, suchThat, forAll, resize,
+                                        vectorOf, conjoin)
 
 import           Pos.Binary            (AsBinaryClass (..), Bi (..), encode)
 import           Pos.Communication     (MessageLimitedPure (..), Limit (..))
 
 import           Test.Hspec            (Spec)
-import           Test.Hspec.QuickCheck (prop)
+import           Test.Hspec.QuickCheck (prop, modifyMaxSuccess)
 import           Test.QuickCheck       (Arbitrary, Property, (===))
 import           Universum
 

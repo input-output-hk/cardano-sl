@@ -18,7 +18,7 @@ environment:
 
 before_test:
 - Echo %APPVEYOR_BUILD_VERSION% > build-id
-- xcopy /q /s /e /r /k /i /v /h %CACHED_STACK_ROOT% %STACK_ROOT%
+- IF EXIST %CACHED_STACK_ROOT% xcopy /q /s /e /r /k /i /v /h %CACHED_STACK_ROOT% %STACK_ROOT%
 # Install stack
 - curl -sSL -o stack.zip --insecure http://www.stackage.org/stack/windows-x86_64
 - 7z x stack.zip stack.exe

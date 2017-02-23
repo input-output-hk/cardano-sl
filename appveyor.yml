@@ -5,14 +5,14 @@ build: off
 
 cache:
   # TODO: https://github.com/commercialhaskell/stack/issues/1176#issuecomment-269520803
-  - "c:\\sr\\%APPVEYOR_REPO_BRANCH%"
+  - "c:\\cache\\%APPVEYOR_REPO_BRANCH%"
   # - '.stack-work'
 
 # Avoid long paths on Windows
 environment:
   global:
     # Avoid long paths on Windows
-    CACHED_STACK_ROOT: "c:\\sr\\%APPVEYOR_REPO_BRANCH%"
+    CACHED_STACK_ROOT: "c:\\cache\\%APPVEYOR_REPO_BRANCH%"
     STACK_ROOT: "c:\\sr"
     CSL_SYSTEM_TAG: "win64"
 

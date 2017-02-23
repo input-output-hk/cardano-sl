@@ -23,7 +23,7 @@ import           Universum
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
-import           Pos.Block.Network.Retrieval (requestTip, requestTipOuts, retrievalWorker,
+import           Pos.Block.Network.Retrieval (requestTipOuts, retrievalWorker,
                                               triggerRecovery)
 import           Pos.Communication.Protocol  (OutSpecs, Worker', WorkerSpec,
                                               onNewSlotWorker, worker)
@@ -186,11 +186,11 @@ recoveryWorkerImpl sendActions = action `catch` handler
     delayed a = forever $ a >> delay (sec 5)
     action = reportingFatal $ delayed checkRecovery
     checkRecovery = do
-        unlessM isRecoveryMode $ getCurrentSlot >>= \case
-            Nothing -> do
-                logDebug "Recovery worker: don't know current slot"
-                triggerRecovery sendActions
-            Just slotId -> pass
+        recMode <- isRecoveryMode
+        curSlotNothing <- isNothing <$> getCurrentSlot
+        when (curSlotNothing && not recMode) $ do
+             logDebug "Recovery worker: don't know current slot"
+             triggerRecovery sendActions
     handler (e :: SomeException) = do
         logError $ "Error happened in recoveryWorker: " <> show e
         delay (sec 10)

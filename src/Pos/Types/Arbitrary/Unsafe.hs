@@ -5,6 +5,7 @@ module Pos.Types.Arbitrary.Unsafe () where
 import           Data.Default                (def)
 import           Universum
 
+import           Pos.Binary.Crypto           ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
 import           Pos.Data.Attributes         (mkAttributes)
 import           Pos.Types.Core              (Address (..), Coin, EpochIndex (..),

@@ -20,27 +20,22 @@ module Test.Pos.Util
        , showReadTest
        ) where
 
-import           Data.Binary.Get            (Decoder (..), isEmpty, runGetIncremental)
-import qualified Data.Binary.Get            as Bin
-import qualified Data.ByteString            as BS
-import qualified Data.ByteString.Lazy       as LBS
-import           Data.SafeCopy              (SafeCopy, safeGet, safePut)
-import           Data.Serialize             (runGet, runPut)
-import           Data.Typeable              (typeRep)
-import           Formatting                 ((%), int, formatToString)
-import           Prelude                    (read)
-import           Test.QuickCheck            (counterexample, property, forAll,
-                                             suchThat, vectorOf,
-                                             arbitrary, resize, conjoin,
-                                             (.&&.))
+import           Data.Binary.Get       (Decoder (..), isEmpty, runGetIncremental)
+import qualified Data.Binary.Get       as Bin
+import qualified Data.ByteString       as BS
+import qualified Data.ByteString.Lazy  as LBS
+import           Data.SafeCopy         (SafeCopy, safeGet, safePut)
+import           Data.Serialize        (runGet, runPut)
+import           Data.Typeable         (typeRep)
+import           Prelude               (read)
+import           Test.QuickCheck       (counterexample)
 
-import           Pos.Binary                 (Bi (..), encode)
-import           Pos.Communication          (MessageLimitedPure (..), Limit (..))
-import           Pos.Util                   (AsBinaryClass (..))
+import           Pos.Binary            (AsBinaryClass (..), Bi (..), encode)
+import           Pos.Communication     (MessageLimitedPure (..), Limit (..))
 
-import           Test.Hspec                 (Spec)
-import           Test.Hspec.QuickCheck      (modifyMaxSuccess, prop)
-import           Test.QuickCheck            (Arbitrary, Property, (===))
+import           Test.Hspec            (Spec)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck       (Arbitrary, Property, (===))
 import           Universum
 
 binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property

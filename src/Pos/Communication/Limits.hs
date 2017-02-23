@@ -41,7 +41,7 @@ import           Serokell.Data.Memory.Units       (Byte)
 import qualified Test.QuickCheck                  as T
 import           Universum
 
-import           Pos.Binary.Class                 (Bi (..))
+import           Pos.Binary.Class                 (AsBinary (..), Bi (..))
 import qualified Pos.Binary.Class                 as Bi
 import           Pos.Block.Network.Types          (MsgBlock, MsgHeaders (..),
                                                    MsgGetHeaders (..))
@@ -64,7 +64,6 @@ import           Pos.Txp.Types.Communication      (TxMsgContents)
 import           Pos.Update.Core.Types            (UpdateProposal (..), UpdateVote (..),
                                                    BlockVersionData, UpAttributes,
                                                    SystemTag, UpdateData)
-import           Pos.Util.Binary                  (AsBinary (..))
 
 -- | Specifies limit for given type @t@.
 data Limit t

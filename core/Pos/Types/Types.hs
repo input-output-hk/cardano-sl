@@ -61,16 +61,14 @@ import           Serokell.Util.Text     (listBuilderJSON, listJson, listJsonInde
                                          mapBuilderJson, pairBuilder)
 import           Universum
 
-import           Pos.Binary.Address     ()
 import           Pos.Binary.Class       (Bi)
-import           Pos.Binary.Script      ()
 import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, PublicKey,
                                          Signature, hash, shortHashF)
 import           Pos.Data.Attributes    (Attributes)
-import           Pos.Script.Type        (Script)
 import           Pos.Types.Address      ()
 import           Pos.Types.Core         (Address (..), Coin, EpochIndex, StakeholderId,
                                          coinF)
+import           Pos.Types.Script       (Script)
 
 ----------------------------------------------------------------------------
 -- Transaction
@@ -101,7 +99,7 @@ data TxInWitness
 
 instance Hashable TxInWitness
 
-instance Bi Script => Buildable TxInWitness where
+instance (Bi Script, Bi PublicKey) => Buildable TxInWitness where
     build (PkWitness key sig) =
         bprint ("PkWitness: key = "%build%", sig = "%build) key sig
     build (ScriptWitness val red) =
@@ -149,15 +147,15 @@ data TxOut = TxOut
     , txOutValue   :: !Coin
     } deriving (Eq, Ord, Generic, Show, Typeable)
 
-instance Hashable TxOut
+instance Bi Address => Hashable TxOut
 
-instance Buildable TxOut where
+instance Bi Address => Buildable TxOut where
     build TxOut {..} =
         bprint ("TxOut "%coinF%" -> "%build) txOutValue txOutAddress
 
 type TxOutAux = (TxOut, [(StakeholderId, Coin)])
 
-instance Buildable TxOutAux where
+instance Bi Address => Buildable TxOutAux where
     build (out, distr) =
         bprint ("{txout = "%build%", distr = "%listJson%"}")
                out (map pairBuilder distr)
@@ -184,20 +182,20 @@ makeLensesFor [("txInputs", "_txInputs"), ("txOutputs", "_txOutputs")
 -- | Transaction + auxiliary data
 type TxAux = (Tx, TxWitness, TxDistribution)
 
-instance Hashable Tx
+instance Bi Address => Hashable Tx
 
-instance Buildable Tx where
+instance Bi Address => Buildable Tx where
     build Tx {..} =
         bprint
             ("Transaction with inputs "%listJson%", outputs: "%listJson)
             txInputs txOutputs
 
 -- | Specialized formatter for 'Tx'.
-txF :: Format r (Tx -> r)
+txF :: Bi Address => Format r (Tx -> r)
 txF = build
 
 -- | Specialized formatter for 'Tx' with auxiliary data
-txaF :: Bi Script => Format r (TxAux -> r)
+txaF :: (Bi PublicKey, Bi Script, Bi Address) => Format r (TxAux -> r)
 txaF = later $ \(tx, w, d) ->
     bprint (build%"\n"%
             "witnesses: "%listJsonIndent 4%"\n"%
@@ -214,14 +212,14 @@ txaF = later $ \(tx, w, d) ->
 type Utxo = Map (TxId, Word32) TxOutAux
 
 -- | Format 'Utxo' map as json.
-formatUtxo :: Utxo -> Builder
+formatUtxo :: Bi Address => Utxo -> Builder
 formatUtxo =
     mapBuilderJson .
     map (first pairBuilder) .
     M.toList
 
 -- | Specialized formatter for 'Utxo'.
-utxoF :: Format r (Utxo -> r)
+utxoF :: Bi Address => Format r (Utxo -> r)
 utxoF = later formatUtxo
 
 ----------------------------------------------------------------------------

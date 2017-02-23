@@ -51,13 +51,13 @@ import           Pos.Crypto                 (PublicKey, SecretKey, deterministic
 import           Pos.Genesis.Parser         (compileGenData)
 import           Pos.Genesis.Types          (GenesisData (..), StakeDistribution (..))
 import           Pos.Lrc.FollowTheSatoshi   (followTheSatoshi)
-import           Pos.Script.Type            (ScriptVersion)
 import           Pos.Types                  (Address (..), BlockVersion (..), Coin,
                                              SharedSeed (SharedSeed), SlotLeaders,
                                              StakeholderId, TxOut (..), Utxo,
                                              applyCoinPortion, coinToInteger, divCoin,
                                              makePubKeyAddress, mkCoin, unsafeAddCoin,
                                              unsafeMulCoin)
+import           Pos.Types.Script           (ScriptVersion)
 import           Pos.Types.Version          (SoftwareVersion (..))
 import           Pos.Update.Core.Types      (BlockVersionData (..))
 

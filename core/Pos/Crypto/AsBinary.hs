@@ -1,30 +1,29 @@
-{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE CPP                  #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | AsBinary wrappers for Pos.Crypto.SecretSharing types.
 
 module Pos.Crypto.AsBinary () where
 
-import qualified Data.ByteString     as BS
+import qualified Data.ByteString          as BS
 import qualified Data.ByteString.Lazy     as LBS
 import           Data.Text.Buildable      (Buildable)
 import qualified Data.Text.Buildable      as Buildable
 import           Formatting               (bprint, int, sformat, stext, (%))
 import           Universum                hiding (putByteString)
 
-import           Pos.Binary.Class         (decodeFull, encode, encodeStrict)
-import           Pos.Binary.Crypto ()
+import           Pos.Binary.Class         (Bi, AsBinary (..), AsBinaryClass (..),
+                                           decodeFull, encode, encodeStrict)
 import           Pos.Crypto.Hashing       (hash, shortHashF)
 import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),
                                            SecretSharingExtra (..), Share (..),
                                            VssPublicKey (..))
-import           Pos.Util.Binary          (AsBinary (..), AsBinaryClass (..))
-
 
 ----------------------------------------------------------------------------
 -- AsBinary type wrappers
 --
--- wrappers over byte string to make it possible to transmit
--- crypto data types over network without high costs on serialization/hashing
+-- Wrappers over ByteString to allow transmitting crypto data types
+-- over network without high costs on serialization/hashing
 ----------------------------------------------------------------------------
 
 checkLen :: Text -> Text -> Int -> ByteString -> ByteString
@@ -49,7 +48,7 @@ checkLenImpl action name expectedLen len
             expectedLen
 
 #define Ser(B, Bytes, Name) \
-  instance AsBinaryClass B where {\
+  instance (Bi B, Bi (AsBinary B)) => AsBinaryClass B where {\
     asBinary = AsBinary . checkLen "asBinary" Name Bytes . encodeStrict ;\
     fromBinary = decodeFull . checkLenL "fromBinary" Name Bytes . encode }; \
 
@@ -58,7 +57,6 @@ Ser(Secret, 33, "Secret")
 Ser(Share, 101, "Share") --4+33+64
 Ser(EncShare, 101, "EncShare")
 Ser(SecretProof, 64, "SecretProof")
-
 
 instance Buildable (AsBinary Secret) where
     build _ = "secret \\_(o.o)_/"
@@ -69,9 +67,9 @@ instance Buildable (AsBinary Share) where
 instance Buildable (AsBinary EncShare) where
     build _ = "encrypted share \\_(0.0)_/"
 
-instance Buildable (AsBinary VssPublicKey) where
+instance Bi (AsBinary VssPublicKey) => Buildable (AsBinary VssPublicKey) where
     build = bprint ("vsspub:"%shortHashF) . hash
 
-instance AsBinaryClass SecretSharingExtra where
+instance Bi SecretSharingExtra => AsBinaryClass SecretSharingExtra where
     asBinary = AsBinary . encodeStrict
     fromBinary = decodeFull . LBS.fromStrict . getAsBinary

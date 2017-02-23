@@ -10,7 +10,8 @@ import           Formatting                       (int, sformat, (%))
 import           Node.Message                     (MessageName (..))
 import           Universum                        hiding (putByteString)
 
-import           Pos.Binary.Class                 (Bi (..))
+import           Pos.Binary.Class                 (Bi (..), getRemainingByteString,
+                                                   getWithLength, putWithLength)
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types          (SysStartRequest (..),
@@ -23,8 +24,6 @@ import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Ssc.Class.Types              (Ssc (..))
 import           Pos.Txp.Types                    (TxMsgTag (..))
 import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgTag (..))
-import           Pos.Util.Binary                  (getRemainingByteString, getWithLength,
-                                                   putWithLength)
 
 deriving instance Bi MessageName
 

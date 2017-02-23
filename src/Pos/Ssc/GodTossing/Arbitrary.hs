@@ -10,6 +10,7 @@ import qualified Data.HashMap.Strict              as HM
 import           Test.QuickCheck                  (Arbitrary (..), elements, oneof)
 import           Universum
 
+import           Pos.Binary.Class                 (asBinary)
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.Types.Relay    (DataMsg (..))
 import           Pos.Crypto                       (deterministicVssKeyGen, toPublic,
@@ -32,7 +33,6 @@ import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
 import           Pos.Types                        (SlotId (..))
 import           Pos.Types.Address                (addressHash)
 import           Pos.Types.Arbitrary.Unsafe       ()
-import           Pos.Util                         (asBinary)
 import           Pos.Util.Arbitrary               (Nonrepeating (..), makeSmall, sublistN,
                                                    unsafeMakePool)
 

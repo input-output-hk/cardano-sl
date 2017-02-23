@@ -28,6 +28,7 @@ import qualified Turtle               as T
 import           Universum            hiding (show)
 
 import           Pos.Binary.Class     (Bi (..), decodeFull, encode)
+import           Pos.Binary.Crypto    ()
 import           Pos.Crypto           (SecretKey, VssKeyPair)
 
 -- | User secret data. Includes secret keys only for now (not

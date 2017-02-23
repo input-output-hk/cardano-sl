@@ -15,6 +15,7 @@ module Pos.Block.Logic.Internal
 import           Control.Arrow        ((&&&))
 import           Control.Lens         (each, _Wrapped)
 import           Control.Monad.Catch  (bracketOnError)
+import qualified Data.List.NonEmpty   as NE
 import           Universum
 
 import           Pos.Block.Types      (Blund, Undo (undoUS))
@@ -28,7 +29,8 @@ import           Pos.Reporting        (reportingFatal)
 import           Pos.Slotting         (putSlottingData)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.Txp.Logic        (txApplyBlocks, txNormalize, txRollbackBlocks)
-import           Pos.Types            (HeaderHash, epochIndexL, headerHashG, prevBlockL)
+import           Pos.Types            (HeaderHash, epochIndexL, headerHash, headerHashG,
+                                       prevBlockL)
 import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll      (PollModifier)
 import           Pos.Util             (Color (Red), NE, NewestFirst (..),
@@ -85,7 +87,12 @@ applyBlocksUnsafeDo blunds pModifier = do
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
     txBatch <- txApplyBlocks blunds
     sscApplyBlocks blocks Nothing -- TODO: pass not only 'Nothing'
-    GS.writeBatchGState [delegateBatch, usBatch, txBatch, forwardLinksBatch, inMainBatch]
+    let putTip = SomeBatchOp $
+                 GS.PutTip $
+                 headerHash $
+                 NE.last $
+                 getOldestFirst blunds
+    GS.writeBatchGState [putTip, delegateBatch, usBatch, txBatch, forwardLinksBatch, inMainBatch]
     sscNormalize
     txNormalize
     usNormalize
@@ -111,7 +118,11 @@ rollbackBlocksUnsafe toRollback = reportingFatal $ do
     usRoll <- SomeBatchOp <$> usRollbackBlocks (toRollback & each._2 %~ undoUS)
     txRoll <- txRollbackBlocks toRollback
     sscRollbackBlocks $ fmap fst toRollback
-    GS.writeBatchGState [delRoll, usRoll, txRoll, forwardLinksBatch, inMainBatch]
+    let putTip = SomeBatchOp $
+                 GS.PutTip $
+                 headerHash $
+                 (NE.last $ getNewestFirst toRollback) ^. prevBlockL
+    GS.writeBatchGState [putTip, delRoll, usRoll, txRoll, forwardLinksBatch, inMainBatch]
     DB.sanityCheckDB
     inAssertMode $
         when (isGenesis0 (toRollback ^. _Wrapped . _neLast . _1)) $

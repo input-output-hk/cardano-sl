@@ -12,10 +12,8 @@ module Pos.Txp.Logic.Global
        , txRollbackBlocks
        ) where
 
-import           Control.Lens        (_Wrapped)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
-import qualified Data.List.NonEmpty  as NE
 import           System.Wlog         (WithLogger)
 import           Universum
 
@@ -24,10 +22,9 @@ import           Pos.DB              (MonadDB, SomeBatchOp (..))
 import qualified Pos.DB.GState       as GS
 import           Pos.Exception       (assertionFailed)
 import           Pos.Ssc.Class.Types (Ssc)
-import           Pos.Types           (Block, TxAux, TxUndo, TxsUndo, blockTxas,
-                                      headerHash, prevBlockL)
+import           Pos.Types           (Block, TxAux, TxUndo, TxsUndo, blockTxas)
 import           Pos.Util            (NE, NewestFirst (..), OldestFirst (..),
-                                      inAssertMode, _neHead)
+                                      inAssertMode)
 
 import           Pos.Txp.Error       (TxpError (..))
 import           Pos.Txp.MemState    (MonadTxpMem (..))
@@ -61,9 +58,6 @@ txApplyBlocks
     -> m SomeBatchOp
 txApplyBlocks blunds = do
     let blocks = map fst blunds
-    tip <- GS.getTip
-    when (tip /= blocks ^. _Wrapped . _neHead . prevBlockL) $
-        throwEx "oldest block in 'blunds' is not based on tip"
     inAssertMode $
         do verdict <- txVerifyBlocks blocks
            case verdict of
@@ -73,15 +67,10 @@ txApplyBlocks blunds = do
                    "txVerifyBlocks failed in txApplyBlocks call: " <> errors
     verdict <- runTxpAction $
                    mapM (applyTxp . blundToAuxNUndo) $ blunds
-    let putTip = SomeBatchOp $
-                 GS.PutTip $
-                 headerHash $
-                 NE.last $
-                 getOldestFirst blunds
     case verdict of
         Left er           -> throwEx $ pretty er
         Right (_, txpMod) ->
-            pure $ SomeBatchOp [putTip, txpModifierToBatch txpMod]
+            pure $ txpModifierToBatch txpMod
   where
     throwEx = throwM . TxpInternalError . (<>) "txApplyBlocks failed: "
 
@@ -92,14 +81,9 @@ txRollbackBlocks
 txRollbackBlocks blunds = do
     verdict <- runTxpAction $
                    mapM (rollbackTxp . blundToAuxNUndo) $ blunds
-    let putTip = SomeBatchOp $
-                 GS.PutTip $
-                 headerHash $
-                 (NE.last $ getNewestFirst blunds) ^. prevBlockL
     case verdict of
         Left er           -> throwEx $ pretty er
-        Right (_, txpMod) ->
-            pure $ SomeBatchOp [putTip, txpModifierToBatch txpMod]
+        Right (_, txpMod) -> pure $ txpModifierToBatch txpMod
   where
     throwEx = throwM . TxpInternalError . (<>) "txRollbackBlocks failed: "
 

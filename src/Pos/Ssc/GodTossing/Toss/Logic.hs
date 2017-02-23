@@ -32,7 +32,7 @@ import           Pos.Types                       (EpochIndex, EpochOrSlot (..),
                                                   MainBlockHeader, SlotId (siSlot),
                                                   epochIndexL, epochOrSlot,
                                                   getEpochOrSlot)
-import           Pos.Util                        (NewestFirst (..), getKeys)
+import           Pos.Util                        (NewestFirst (..))
 
 -- | Verify 'GtPayload' with respect to data provided by
 -- MonadToss. If data is valid it is also applied.  Otherwise

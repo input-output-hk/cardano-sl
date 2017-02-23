@@ -30,10 +30,12 @@ library
                        Pos.Binary.Class
                        Pos.Merkle
                        Pos.Data.Attributes
+                       Pos.Exception
 
   build-depends:       HsOpenSSL
                      , base
                      , base58-bytestring
+                     , log-warper
                       -- This constraint on 'binary' is so strict because
                       -- we're relying on the internal representation of
                       -- 'Get' in Pos.Binary.Class. So, if you need to bump

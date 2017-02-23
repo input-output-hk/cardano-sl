@@ -59,9 +59,6 @@ library
                         Pos.DHT.Real.Types
                         Pos.DHT.Workers
 
-                        -- Exceptions
-                        Pos.Exception
-
                         -- Genesis data
                         Pos.Genesis
                         Pos.Genesis.Arbitrary

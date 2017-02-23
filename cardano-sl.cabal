@@ -107,12 +107,10 @@ library
                         Pos.Types.Slotting
                         Pos.Types.Tx
                         Pos.Types.Utxo
-                        Pos.Types.Version
 
                         -- Update system
                         Pos.Update
                         Pos.Update.Arbitrary
-                        Pos.Update.Core
 
                         -- Utilities/helpers
                         Pos.Util
@@ -347,9 +345,7 @@ library
                         Pos.Update.Arbitrary.Core
                         Pos.Update.Arbitrary.Network
                         Pos.Update.Arbitrary.Poll
-                        Pos.Update.Core.Types
                         Pos.Update.Download
-                        Pos.Update.Error
                         Pos.Update.Logic
                         Pos.Update.Logic.Global
                         Pos.Update.Logic.Local
@@ -443,6 +439,7 @@ library
                       , bytestring
                       , cardano-report-server >= 0.1.0
                       , cardano-sl-core
+                      , cardano-sl-update
                       , cereal
                       , concurrent-extra
                       , conduit >= 1.2.8
@@ -677,6 +674,7 @@ executable cardano-wallet
                      , binary
                      , bytestring
                      , cardano-sl-core
+                     , cardano-sl-update
                      , cardano-sl
                      , formatting
                      , lens

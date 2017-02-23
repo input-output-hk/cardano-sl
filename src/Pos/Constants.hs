@@ -88,9 +88,9 @@ import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
 import           Pos.DHT.Model.Types        (DHTNode)
 import           Pos.Types.Core             (CoinPortion, unsafeCoinPortionFromDouble)
 import           Pos.Types.Timestamp        (Timestamp (..))
-import           Pos.Types.Version          (ApplicationName, BlockVersion (..),
-                                             SoftwareVersion (..), mkApplicationName)
 import           Pos.Update.Core            (SystemTag, mkSystemTag)
+import           Pos.Update.Version         (ApplicationName, BlockVersion (..),
+                                             SoftwareVersion (..), mkApplicationName)
 import           Pos.Util                   ()
 import           Pos.Util.TimeWarp          (mcs)
 

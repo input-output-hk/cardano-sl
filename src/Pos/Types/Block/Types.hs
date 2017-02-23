@@ -49,7 +49,7 @@ import           Pos.Types.Block.Class (Blockchain (..), GenericBlock, GenericBl
 import           Pos.Types.Core        (BlockVersion, ChainDifficulty, HeaderHash,
                                         SlotId (..), SoftwareVersion)
 import           Pos.Types.Types       (ProxySigHeavy, ProxySigLight)
-import           Pos.Types.Version     ()
+import           Pos.Update.Version    ()
 
 ----------------------------------------------------------------------------
 -- MainBlock

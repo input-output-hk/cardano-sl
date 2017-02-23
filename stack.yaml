@@ -8,6 +8,7 @@ extra-package-dbs: []
 packages:
 - '.'
 - core
+- update
 
 - location:
     git: https://github.com/serokell/acid-state.git

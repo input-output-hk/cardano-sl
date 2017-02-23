@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                  #-}
 {-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
@@ -24,7 +23,6 @@ module Pos.Types.Block.Class
 
 import           Control.Lens   (makeLenses)
 import           Universum
-
 
 import           Pos.Types.Core (HeaderHash)
 

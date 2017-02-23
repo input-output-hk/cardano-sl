@@ -43,7 +43,7 @@ import           Pos.Types.Core             (Address (..), ChainDifficulty (..),
 import           Pos.Types.Types            (SharedSeed (..), Tx (..),
                                              TxDistribution (..), TxIn (..),
                                              TxInWitness (..), TxOut (..), TxOutAux)
-import           Pos.Types.Version          (ApplicationName (..), BlockVersion (..),
+import           Pos.Update.Version         (ApplicationName (..), BlockVersion (..),
                                              SoftwareVersion (..),
                                              applicationNameMaxLength)
 import           Pos.Util                   (makeSmall)

@@ -58,8 +58,8 @@ import           Pos.Types                  (Address (..), BlockVersion (..), Co
                                              makePubKeyAddress, mkCoin, unsafeAddCoin,
                                              unsafeMulCoin)
 import           Pos.Types.Script           (ScriptVersion)
-import           Pos.Types.Version          (SoftwareVersion (..))
 import           Pos.Update.Core.Types      (BlockVersionData (..))
+import           Pos.Update.Version         (SoftwareVersion (..))
 
 ----------------------------------------------------------------------------
 -- Static state

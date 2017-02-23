@@ -1,14 +1,14 @@
 {-# LANGUAGE UndecidableInstances #-}
 
--- | Binary serialization of Pos.Types.Version module
+-- | Binary serialization of Pos.Update.Version module
 
 module Pos.Binary.Version () where
 
-import           Data.Binary.Get   (label)
+import           Data.Binary.Get    (label)
 import           Universum
 
-import           Pos.Binary.Class  (Bi (..), getAsciiString1b, putAsciiString1b)
-import qualified Pos.Types.Version as V
+import           Pos.Binary.Class   (Bi (..), getAsciiString1b, putAsciiString1b)
+import qualified Pos.Update.Version as V
 
 instance Bi V.ApplicationName where
     get = label "ApplicationName" $ V.mkApplicationName . toText

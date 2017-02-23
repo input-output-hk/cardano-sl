@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Pos.Types.Version
+module Pos.Update.Version
        (
          -- * Protocol Version
          BlockVersion (..)

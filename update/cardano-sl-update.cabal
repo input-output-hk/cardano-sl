@@ -1,0 +1,60 @@
+name:                cardano-sl-update
+version:             0.1.0.0
+synopsis:            Cardano SL - update
+description:         Cardano SL - update
+license:             MIT
+license-file:        LICENSE
+author:              Serokell
+maintainer:          hi@serokell.io
+copyright:           2016 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     Pos.Update.Error
+                       Pos.Update.Core
+                       Pos.Update.Core.Types
+                       Pos.Update.Version
+
+  build-depends:       base
+                     , cardano-sl-core
+                     , data-default
+                     , formatting
+                     , hashable
+                     , parsec
+                     , safecopy
+                     , serokell-util
+                     , template-haskell
+                     , text
+                     , text-format
+                     , time-units
+                     , universum
+                     , unordered-containers
+
+  default-language:    Haskell2010
+
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

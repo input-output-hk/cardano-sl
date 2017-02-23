@@ -59,7 +59,6 @@ import           Serokell.Util.Text         (listJson)
 import           Universum                  hiding (show)
 
 import           Pos.Binary.Class           (Bi, Raw)
-import           Pos.Binary.Crypto          ()
 import           Pos.Crypto                 (Hash, PublicKey, Signature, hash, shortHashF,
                                              unsafeHash)
 import           Pos.Data.Attributes        (Attributes)
@@ -68,7 +67,7 @@ import           Pos.Types.Coin             ()
 import           Pos.Types.Core             (BlockVersion, CoinPortion, FlatSlotId,
                                              SoftwareVersion)
 import           Pos.Types.Script           (ScriptVersion)
-import           Pos.Types.Version          ()
+import           Pos.Update.Version         ()
 
 ----------------------------------------------------------------------------
 -- UpdateProposal and related
@@ -89,7 +88,7 @@ mkSystemTag tag | T.length tag > systemTagMaxLength
                 | otherwise
                     = pure $ SystemTag tag
 
--- | ID of softwaree update proposal
+-- | ID of software update proposal
 type UpId = Hash UpdateProposal
 
 type UpAttributes = Attributes ()
@@ -123,10 +122,13 @@ instance Bi UpdateProposal => Buildable UpdateProposal where
         upBlockVersionData
         (HM.keys upData)
 
-instance (Bi UpdateProposal) => Buildable (UpdateProposal, [UpdateVote]) where
+instance (Bi UpdateProposal, Bi PublicKey) =>
+         Buildable (UpdateProposal, [UpdateVote]) where
     build (up, votes) =
-      bprint (build%" with votes: "%listJson)
-             up (map formatVoteShort votes)
+        bprint
+            (build % " with votes: " %listJson)
+            up
+            (map formatVoteShort votes)
 
 -- | Data which is associated with 'BlockVersion'.
 data BlockVersionData = BlockVersionData
@@ -230,13 +232,13 @@ data UpdateVote = UpdateVote
 
 instance NFData UpdateVote
 
-instance Buildable UpdateVote where
+instance Bi PublicKey => Buildable UpdateVote where
     build UpdateVote {..} =
       bprint ("Update Vote { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
              (addressHash uvKey) uvProposalId uvDecision
 
 -- | Format 'UpdateVote' compactly.
-formatVoteShort :: UpdateVote -> Builder
+formatVoteShort :: Bi PublicKey => UpdateVote -> Builder
 formatVoteShort UpdateVote {..} =
     bprint ("("%shortHashF%" "%builder%" "%shortHashF%")")
         (addressHash uvKey)
@@ -244,10 +246,10 @@ formatVoteShort UpdateVote {..} =
         uvProposalId
 
 -- | Formatter for 'UpdateVote' which displays it compactly.
-shortVoteF :: Format r (UpdateVote -> r)
+shortVoteF :: Bi PublicKey => Format r (UpdateVote -> r)
 shortVoteF = later formatVoteShort
 
-instance Buildable VoteId where
+instance Bi PublicKey => Buildable VoteId where
     build (upId, pk, dec) =
       bprint ("Vote Id { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
              pk upId dec
@@ -267,7 +269,7 @@ data UpdatePayload = UpdatePayload
 
 instance NFData UpdatePayload
 
-instance Bi UpdateProposal => Buildable UpdatePayload where
+instance (Bi UpdateProposal, Bi PublicKey) => Buildable UpdatePayload where
     build UpdatePayload {..}
         | null upVotes = formatMaybeProposal upProposal <> ", no votes"
         | otherwise =

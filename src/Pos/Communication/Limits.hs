@@ -181,12 +181,15 @@ instance MessageLimited (MsgBlock ssc) where
 instance MessageLimited MsgGetHeaders where
     type LimitType MsgGetHeaders = Limit MsgGetHeaders
     getMsgLenLimit _ = return $
-        MsgGetHeaders <$> vector Const.maxGetHeadersNum <+> msgLenLimit
+        MsgGetHeaders <$> vector maxGetHeadersNum <+> msgLenLimit
+      where
+        maxGetHeadersNum = ceiling $
+            log ((fromIntegral :: Int -> Double) Const.blkSecurityParam) + 5
 
 instance MessageLimited (MsgHeaders ssc) where
     type LimitType (MsgHeaders ssc) = Limit (MsgHeaders ssc)
     getMsgLenLimit _ = return $
-        MsgHeaders <$> vectorOf Const.blkSecurityParam
+        MsgHeaders <$> vectorOf Const.recoveryHeadersMessage
             -- TODO [CSL-804] put to update proposal consts
             (Limit Const.genesisMaxHeaderSize)
 

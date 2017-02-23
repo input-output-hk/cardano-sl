@@ -35,8 +35,6 @@ data CompileConfig = CompileConfig
       -- ^ Maximum block size in bytes
     , ccGenesisMaxHeaderSize          :: !Byte
       -- ^ Maximum block header size in bytes
-    , ccMaxGetHeadersNum              :: !Int
-      -- ^ Maximum number of block headers to request at once
 
 ----------------------------------------------------------------------------
 -- -- Txp

@@ -44,11 +44,9 @@ module Pos.Util
 
        -- * Lenses
        , makeLensesData
-       , magnify'
        , _neHead
        , _neTail
        , _neLast
-       , zoom'
 
        -- * Prettification
        , Color (..)
@@ -91,9 +89,8 @@ import           Control.Arrow                    ((***))
 import           Control.Concurrent.ReadWriteLock (RWLock, acquireRead, acquireWrite,
                                                    releaseRead, releaseWrite)
 import           Control.Concurrent.STM.TVar      (TVar, readTVar)
-import           Control.Lens                     (Each (..), LensLike', Magnified,
-                                                   Zoomed, lensRules, magnify,
-                                                   makeWrapped, zoom, _Wrapped)
+import           Control.Lens                     (Each (..), lensRules, makeWrapped,
+                                                   _Wrapped)
 import           Control.Lens.Internal.FieldTH    (makeFieldOpticsForDec)
 import qualified Control.Monad                    as Monad (fail)
 import           Control.Monad.STM                (retry)
@@ -362,25 +359,6 @@ instance SafeCopy Microsecond where
     getCopy = contain (fromInteger <$> safeGet)
     putCopy = contain . safePut . toInteger
     errorTypeName _ = "Microsecond"
-
--- | A 'zoom' which works in 'MonadState'.
---
--- See <https://github.com/ekmett/lens/issues/580>. You might be surprised
--- but actual 'zoom' doesn't work in any 'MonadState', it only works in a
--- handful of state monads and their combinations defined by 'Zoom'.
-zoom'
-    :: MonadState s m
-    => LensLike' (Zoomed (State s) a) s t -> StateT t Identity a -> m a
-zoom' l = state . runState . zoom l
-
--- | A 'magnify' which in 'MonadReader'.
-magnify'
-    :: MonadReader s m
-    => LensLike' (Magnified (Reader s) a) s t -> ReaderT t Identity a -> m a
-magnify' l = reader . runReader . magnify l
-
--- Monad z => Zoom (StateT s z) (StateT t z) s t
--- Monad z => Zoom (StateT s z) (StateT t z) s t
 
 ----------------------------------------------------------------------------
 -- Prettification.

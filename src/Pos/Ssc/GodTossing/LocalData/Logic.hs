@@ -27,6 +27,7 @@ import           Control.Lens                       (Getter, (.=))
 import           Control.Monad.Except               (MonadError (throwError), runExceptT)
 import qualified Data.HashMap.Strict                as HM
 import           Formatting                         (int, sformat, (%))
+import           Serokell.Util                      (magnify')
 import           System.Wlog                        (WithLogger, logWarning)
 import           Universum
 
@@ -61,7 +62,6 @@ import           Pos.Ssc.GodTossing.Type            (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types           (GtGlobalState)
 import           Pos.Types                          (EpochIndex, SlotId (..),
                                                      StakeholderId)
-import           Pos.Util                           (magnify')
 
 ----------------------------------------------------------------------------
 -- Methods from type class

@@ -182,13 +182,13 @@ instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
 --deriving instance MonadTxHistory m => MonadTxHistory (Modern.TxpLDHolder m)
 
 class Monad m => MonadBlockchainInfo m where
-    networkChainDifficulty :: m ChainDifficulty
+    networkChainDifficulty :: m (Maybe ChainDifficulty)
     localChainDifficulty :: m ChainDifficulty
     blockchainSlotDuration :: m Millisecond
     connectedPeers :: m Word
 
     default networkChainDifficulty
-        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m ChainDifficulty
+        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m (Maybe ChainDifficulty)
     networkChainDifficulty = lift networkChainDifficulty
 
     default localChainDifficulty
@@ -241,14 +241,7 @@ downloadHeader = getContextTMVar PC.ncProgressHeader
 -- | Instance for full-node's ContextHolder
 instance SscHelpersClass ssc =>
          MonadBlockchainInfo (RawRealMode ssc) where
-    networkChainDifficulty = recoveryHeader >>= \case
-        Just hh -> return $ hh ^. difficultyL
-        Nothing -> do
-            th <- topHeader
-            cSlot <- fromIntegral . flattenSlotId <$> getCurrentSlotInaccurate
-            let hSlot = fromIntegral $ flattenEpochOrSlot th :: Int
-                blksLeft = fromIntegral $ max 0 $ cSlot - blkSecurityParam - hSlot
-            return $ blksLeft + th ^. difficultyL
+    networkChainDifficulty = fmap (^. difficultyL) <$> recoveryHeader
 
     localChainDifficulty = downloadHeader >>= \case
         Just dh -> return $ dh ^. difficultyL

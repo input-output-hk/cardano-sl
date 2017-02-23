@@ -31,11 +31,12 @@ import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
+import           Pos.Binary.Crypto           ()
 import           Pos.Communication.PeerState (PeerStateHolder)
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               WithNodeContext (..))
 import           Pos.Crypto                  (EncryptedSecretKey, PassPhrase, SecretKey,
-                                              safeKeyGen)
+                                              hash, safeKeyGen)
 import           Pos.DB                      (MonadDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Delegation.Holder       (DelegationT (..))
@@ -109,6 +110,9 @@ putSecret s = ask >>= atomically . flip STM.writeTVar s >> writeUserSecret s
 deleteAt :: Int -> [a] -> [a]
 deleteAt j ls = let (l, r) = splitAt j ls in l ++ drop 1 r
 
+containsKey :: [EncryptedSecretKey] -> EncryptedSecretKey -> Bool
+containsKey ls k = hash k `elem` map hash ls
+
 ------------------------------------------------------------------------
 -- KeyStorage transformer
 ------------------------------------------------------------------------
@@ -168,7 +172,7 @@ instance (MonadIO m) => MonadKeys (KeyStorage m) where
     getPrimaryKey = use usPrimKey
     getSecretKeys = use usKeys
     addSecretKey sk =
-        whenM (not . elem sk <$> use usKeys) $
+        whenM (not . (`containsKey` sk) <$> use usKeys) $
             usKeys <>= [sk]
     deleteSecretKey (fromIntegral -> i) = usKeys %= deleteAt i
 
@@ -199,7 +203,7 @@ instance (MonadIO m, MonadThrow m) =>
     getPrimaryKey = use usPrimKey
     getSecretKeys = use usKeys
     addSecretKey sk =
-        whenM (not . elem sk <$> use usKeys) $
+        whenM (not . (`containsKey` sk) <$> use usKeys) $
             usKeys <>= [sk]
     deleteSecretKey (fromIntegral -> i) = usKeys %= deleteAt i
 

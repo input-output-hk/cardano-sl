@@ -102,6 +102,7 @@ BiMacro(SecretProof, 64)
 secretKeyLength, publicKeyLength, signatureLength, chainCodeLength :: Int
 secretKeyLength = 32
 publicKeyLength = 32
+encryptedKeyLength = 96
 signatureLength = 64
 chainCodeLength = 32
 
@@ -149,13 +150,20 @@ instance Bi CC.XPub where
 
 instance Bi CC.XPrv where
     put (CC.unXPrv -> kc) = do
-        putAssertLength "XPrv" (secretKeyLength + chainCodeLength) kc
+        putAssertLength "XPrv" encryptedKeyLength kc
         putByteString kc
     get = label "CC.XPrv" $
-        getByteString (secretKeyLength + chainCodeLength) >>=
+        getByteString encryptedKeyLength >>=
         either fail pure . CC.xprv
 
-deriving instance Bi CC.XSignature
+instance Bi CC.XSignature where
+    put (CC.unXSignature -> bs) = do
+        putAssertLength "XSignature" signatureLength bs
+        putByteString bs
+    get = label "CC.XSignature" $
+        getByteString signatureLength >>=
+        either fail pure . CC.xsignature
+
 deriving instance Bi (Signature a)
 deriving instance Bi PublicKey
 deriving instance Bi SecretKey

@@ -36,7 +36,6 @@ import           Pos.Crypto.Signing      (PublicKey (..), SecretKey (..), Signat
                                           sign, toPublic)
 
 newtype EncryptedSecretKey = EncryptedSecretKey CC.XPrv
-    deriving (Eq, NFData)
 
 instance Show EncryptedSecretKey where
     show _ = "<encrypted key>"

@@ -40,28 +40,29 @@ module Pos.Crypto.Signing
        , proxyVerify
        ) where
 
-import qualified Cardano.Crypto.Wallet   as CC
-import qualified Crypto.ECC.Edwards25519 as Ed25519
-import           Data.ByteArray          (ScrubbedBytes)
-import qualified Data.ByteString         as BS
-import qualified Data.ByteString.Lazy    as BSL
-import           Data.Coerce             (coerce)
-import           Data.Hashable           (Hashable)
-import           Data.SafeCopy           (SafeCopy (..), base, contain,
-                                          deriveSafeCopySimple, safeGet, safePut)
-import qualified Data.Text.Buildable     as B
-import           Data.Text.Lazy.Builder  (Builder)
-import           Formatting              (Format, bprint, build, later, (%))
-import           Prelude                 (show)
-import qualified Serokell.Util.Base16    as B16
-import qualified Serokell.Util.Base64    as Base64 (decode, encode)
-import           Serokell.Util.Text      (pairF)
-import           Universum               hiding (show)
+import qualified Cardano.Crypto.Wallet           as CC
+import qualified Cardano.Crypto.Wallet.Encrypted as CC
+import qualified Crypto.ECC.Edwards25519         as Ed25519
+import           Data.ByteArray                  (ScrubbedBytes)
+import qualified Data.ByteString                 as BS
+import qualified Data.ByteString.Lazy            as BSL
+import           Data.Coerce                     (coerce)
+import           Data.Hashable                   (Hashable)
+import           Data.SafeCopy                   (SafeCopy (..), base, contain,
+                                                  deriveSafeCopySimple, safeGet, safePut)
+import qualified Data.Text.Buildable             as B
+import           Data.Text.Lazy.Builder          (Builder)
+import           Formatting                      (Format, bprint, build, later, (%))
+import           Prelude                         (show)
+import qualified Serokell.Util.Base16            as B16
+import qualified Serokell.Util.Base64            as Base64 (decode, encode)
+import           Serokell.Util.Text              (pairF)
+import           Universum                       hiding (show)
 
-import           Pos.Binary.Class        (Bi, Raw)
-import qualified Pos.Binary.Class        as Bi
-import           Pos.Crypto.Hashing      (hash, shortHashF)
-import           Pos.Crypto.Random       (secureRandomBS)
+import           Pos.Binary.Class                (Bi, Raw)
+import qualified Pos.Binary.Class                as Bi
+import           Pos.Crypto.Hashing              (hash, shortHashF)
+import           Pos.Crypto.Random               (secureRandomBS)
 
 ----------------------------------------------------------------------------
 -- Some orphan instances
@@ -71,6 +72,7 @@ deriveSafeCopySimple 0 'base ''Ed25519.PointCompressed
 deriveSafeCopySimple 0 'base ''Ed25519.Scalar
 deriveSafeCopySimple 0 'base ''Ed25519.Signature
 
+deriveSafeCopySimple 0 'base ''CC.EncryptedKey
 deriveSafeCopySimple 0 'base ''CC.ChainCode
 deriveSafeCopySimple 0 'base ''CC.XPub
 deriveSafeCopySimple 0 'base ''CC.XPrv
@@ -86,7 +88,6 @@ newtype PublicKey = PublicKey CC.XPub
 
 -- | Wrapper around 'CC.XPrv'.
 newtype SecretKey = SecretKey CC.XPrv
-    deriving (Eq, NFData)
 
 deriveSafeCopySimple 0 'base ''PublicKey
 deriveSafeCopySimple 0 'base ''SecretKey
@@ -174,7 +175,7 @@ instance B.Buildable (Signature a) where
 -- | Formatter for 'Signature' to show it in hex.
 fullSignatureHexF :: Format r (Signature a -> r)
 fullSignatureHexF = later $ \(Signature x) ->
-    B16.formatBase16 . Ed25519.unSignature . CC.unXSignature $ x
+    B16.formatBase16 . CC.unXSignature $ x
 
 -- | Encode something with 'Binary' and sign it.
 sign :: Bi a => SecretKey -> a -> Signature a

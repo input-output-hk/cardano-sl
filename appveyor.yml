@@ -14,11 +14,17 @@ cache:
   # they get read access to the cache.
 
   # Another quirk of Appveyor's cache is any cache directory not listed here
-  # gets deleted at the end of the build. Consequently, without
-  # branch-namespacing a build on a branch different than the previous would
-  # clobber the previous branch's cache. Alternatively, we could maintain a
-  # hardcoded list of branch-namespaced cache directories.
-  - "c:\\cache"
+  # gets deleted at the end of the build. The hardcoded branch directories will
+  # be preserved, even when building a branch which isn't listed. Managing
+  # hardcoded branches is necessary because there's an upper limit on supported
+  # cache size of any single cache directory. Branches which don't appear
+  # explicitly here are optimistically cached for consecutive builds on the same
+  # branch; however, their cache directories will be deleted whenever a
+  # different branch is built.
+  - "c:\\cache\\%APPVEYOR_REPO_BRANCH%"
+  - "c:\\cache\\master"
+  - "c:\\cache\\cardano-sl-0.2"
+  # Add more "c:\\cache\\<branch_name>" directories as needed
 
 # Avoid long paths on Windows
 environment:

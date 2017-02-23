@@ -26,6 +26,7 @@ library
                        Pos.Crypto.Signing
                        Pos.Crypto.SecretSharing
                        Pos.Crypto.Random
+                       Pos.Crypto.RedeemSigning
                        Pos.Crypto.AsBinary
 
                        Pos.Binary.Class

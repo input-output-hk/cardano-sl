@@ -5,21 +5,24 @@ build: off
 
 cache:
   # TODO: https://github.com/commercialhaskell/stack/issues/1176#issuecomment-269520803
-  - "c:\\sr"
-  - '.stack-work'
+  - "c:\\sr\\%APPVEYOR_REPO_BRANCH%"
+  # - '.stack-work'
 
 # Avoid long paths on Windows
 environment:
   global:
     # Avoid long paths on Windows
-    STACK_ROOT: "c:\\sr"
+    STACK_ROOT: "c:\\sr\\%APPVEYOR_REPO_BRANCH%"
     CSL_SYSTEM_TAG: "win64"
 
 before_test:
 - Echo %APPVEYOR_BUILD_VERSION% > build-id
+- IF DEFINED APPVEYOR_PULL_REQUEST_NUMBER SET STACK_ROOT=C:\sr\pr
+- Echo Using STACK_ROOT '%STACK_ROOT%'
 # Install stack
 - curl -sSL -o stack.zip --insecure http://www.stackage.org/stack/windows-x86_64
 - 7z x stack.zip stack.exe
+
 
 # Install rocksdb
 - git clone https://github.com/facebook/rocksdb.git --branch v4.13.5

@@ -3,13 +3,14 @@
 -- | Server launcher
 
 module Pos.Explorer.Web.Sockets.App
-       ( notifierApp
-       , notifierHandler  -- TODO: to remove
+       ( socketIOApp
        , test
        ) where
 
-import           Control.Concurrent.MVar            (newMVar)
+import           Control.Lens                       ((<<.=))
 import           Data.ByteString                    (ByteString)
+import           Data.Time.Units                    (Millisecond)
+import           Mockable                           (Fork, Mockable)
 import           Network.EngineIO                   (SocketId)
 import           Network.EngineIO.Snap              (snapAPI)
 import           Network.SocketIO                   (RoutingTable, Socket,
@@ -17,29 +18,34 @@ import           Network.SocketIO                   (RoutingTable, Socket,
                                                      socketId)
 import           Snap.Core                          (Response, route)
 import           Snap.Http.Server                   (quickHttpServe)
+import           System.Wlog                        (LoggerName, LoggerNameBox,
+                                                     WithLogger, getLoggerName,
+                                                     usingLoggerName)
 import           Universum                          hiding (on)
 
+import qualified Pos.DB                             as DB
 import           Pos.Explorer.Web.Sockets.Holder    (ConnectionsState, ConnectionsVar,
                                                      mkConnectionsState,
-                                                     modifyConnectionsStateDo)
+                                                     modifyConnectionsStateDo,
+                                                     readConnectionsStateDo)
 import           Pos.Explorer.Web.Sockets.Instances ()
-import           Pos.Explorer.Web.Sockets.Methods   (ClientEvent (..), setClientAddress,
-                                                     setClientBlock, startSession,
-                                                     subscribeAddr, subscribeBlocks,
-                                                     unsubscribeAddr, unsubscribeBlocks,
-                                                     unsubscribeFully)
-import           Pos.Explorer.Web.Sockets.Util      (on, on_)
+import           Pos.Explorer.Web.Sockets.Methods   (ClientEvent (..),
+                                                     notifyAllAddrSubscribers,
+                                                     notifyBlocksSubscribers,
+                                                     setClientAddress, setClientBlock,
+                                                     startSession, subscribeAddr,
+                                                     subscribeBlocks, unsubscribeAddr,
+                                                     unsubscribeBlocks, unsubscribeFully)
+import           Pos.Explorer.Web.Sockets.Util      (forkAccompanion, on, on_,
+                                                     runPeriodicallyUnless)
 
 import           Data.Map                           as M
-import           Snap.Test
-
-notifierAddr :: ByteString
-notifierAddr = "/notifier"
+import qualified Snap.Test                          as T
 
 notifierHandler
-    :: MonadState RoutingTable m
-    => ConnectionsVar -> m ()
-notifierHandler connVar = do
+    :: (MonadState RoutingTable m)
+    => ConnectionsVar -> LoggerName -> m ()
+notifierHandler connVar loggerName = do
     on_ StartSession     $
         modifyConnectionsStateDo connVar . startSession =<< ask
     on  SubscribeAddr    $ asHandler subscribeAddr
@@ -51,24 +57,57 @@ notifierHandler connVar = do
     appendDisconnectHandler $ asHandler_ unsubscribeFully
  where
     asHandler
-        :: (MonadIO m, MonadMask m, MonadReader Socket m)
-        => (SocketId -> a -> StateT ConnectionsState m b) -> a -> m b
+        :: (MonadIO m, MonadMask m, MonadReader Socket m, MonadCatch m)
+        => (SocketId -> a -> LoggerNameBox (StateT ConnectionsState m) b)
+        -> a
+        -> m b
     asHandler f arg = do
         sock <- ask
-        modifyConnectionsStateDo connVar $ f (socketId sock) arg
+        modifyConnectionsStateDo connVar $ usingLoggerName loggerName $
+            f (socketId sock) arg
     asHandler_ f = do
         sock <- ask
-        modifyConnectionsStateDo connVar $ f (socketId sock)
+        modifyConnectionsStateDo connVar $ usingLoggerName loggerName $
+            f (socketId sock)
 
-notifierApp :: MonadIO m => ConnectionsVar -> m ()
-notifierApp connVar = liftIO $ do
+notifierAddr :: ByteString
+notifierAddr = "/notifier"
+
+notifierServer
+    :: (MonadIO m, WithLogger m, MonadCatch m, WithLogger m)
+    => ConnectionsVar -> m ()
+notifierServer connVar = do
+    loggerName <- getLoggerName
     -- TODO: decide, whether to use /snap/, /yesod/, or smth else
-    handler <- liftIO $ initialize snapAPI $ notifierHandler connVar
-    quickHttpServe $ route [(notifierAddr, handler)]
+    liftIO $ do
+        handler <- liftIO $ initialize snapAPI $
+            notifierHandler connVar loggerName
+        quickHttpServe $ route [(notifierAddr, handler)]
+
+periodicPollChanges
+    :: (MonadIO m, MonadMask m, DB.MonadDB ssc m, WithLogger m)
+    => ConnectionsVar -> m Bool -> m ()
+periodicPollChanges connVar closed =
+    runPeriodicallyUnless (500 :: Millisecond) closed Nothing $ do
+        curBlock  <- Just <$> DB.getTip
+        prevBlock <- identity <<.= curBlock
+        when (curBlock /= prevBlock) $
+            readConnectionsStateDo connVar $ do
+                notifyBlocksSubscribers
+                notifyAllAddrSubscribers  -- TODO: replace with smth more smart
+
+socketIOApp
+    :: (MonadIO m, MonadMask m, DB.MonadDB ssc m, Mockable Fork m,
+        WithLogger m)
+    => m ()
+socketIOApp = do
+    connVar <- liftIO $ newMVar mkConnectionsState
+    forkAccompanion (periodicPollChanges connVar)
+                    (notifierServer connVar)
 
 -- TODO: tmp
 test :: MonadIO m => m Response
 test = liftIO $ do
     connVar <- liftIO $ newMVar mkConnectionsState
-    handler <- initialize snapAPI $ notifierHandler connVar
-    runHandler (get "/notifier" M.empty) handler
+    handler <- initialize snapAPI $ notifierHandler connVar "*test*"
+    T.runHandler (T.get "/notifier" M.empty) handler

@@ -15,22 +15,31 @@ module Pos.Explorer.Web.Sockets.Methods
        , unsubscribeAddr
        , unsubscribeBlocks
        , unsubscribeFully
+
+       , notifyAddrSubscribers
+       , notifyAllAddrSubscribers
+       , notifyBlocksSubscribers
        ) where
 
 import           Control.Lens                    (at, (%=), (.=), _Just)
 import           Control.Monad                   (join)
 import           Control.Monad.State             (MonadState)
 import qualified Data.Set                        as S
+import           Formatting                      (build, sformat, shown, (%))
+import           GHC.Exts                        (toList)
 import           Network.EngineIO                (SocketId)
 import           Network.SocketIO                (Socket, socketId)
-import           Universum
+import           System.Wlog                     (WithLogger, logError, logWarning)
+import           Universum                       hiding (toList)
 
 import           Pos.Explorer.Web.Sockets.Holder (ConnectionsState, ccAddress, ccBlock,
-                                                  csAddressSubscribers,
+                                                  ccConnection, csAddressSubscribers,
                                                   csBlocksSubscribers, csClients,
                                                   mkClientContext)
-import           Pos.Explorer.Web.Sockets.Util   (EventName (..))
+import           Pos.Explorer.Web.Sockets.Util   (EventName (..), emitJSONTo)
 import           Pos.Types                       (Address, ChainDifficulty)
+
+-- * Event names
 
 data ClientEvent
     = StartSession
@@ -54,6 +63,12 @@ data ServerEvent
     = AddrUpdated
     | BlocksUpdated
 
+instance EventName ServerEvent where
+    toName AddrUpdated   = "A"
+    toName BlocksUpdated = "B"
+
+-- * Client requests provessing
+
 startSession
     :: MonadState ConnectionsState m
     => Socket -> m ()
@@ -71,7 +86,7 @@ finishSession i = whenJustM (use $ csClients . at i) finishSessionDo
         unsubscribeAddr i
 
 setClientAddress
-    :: MonadState ConnectionsState m
+    :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> Maybe Address -> m ()
 setClientAddress sessId addr = do
     unsubscribeAddr sessId
@@ -79,18 +94,23 @@ setClientAddress sessId addr = do
     whenJust addr $ subscribeAddr sessId
 
 setClientBlock
-    :: MonadState ConnectionsState m
+    :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> Maybe ChainDifficulty -> m ()
 setClientBlock sessId pId = do
     csClients . at sessId . _Just . ccBlock .= pId
     subscribeBlocks sessId
 
 subscribeAddr
-    :: MonadState ConnectionsState m
+    :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> Address -> m ()
-subscribeAddr i addr =
-    csAddressSubscribers . at addr %= Just .
-    (maybe (S.singleton i) (S.insert i))
+subscribeAddr i addr = do
+    session <- use $ csClients . at i
+    case session of
+        Just _ -> csAddressSubscribers . at addr %=
+            Just . (maybe (S.singleton i) (S.insert i))
+        _      -> logWarning $
+            sformat ("Unregistered client tries to subscribe on address \
+            \updates"%build) addr
 
 unsubscribeAddr
     :: MonadState ConnectionsState m
@@ -102,9 +122,14 @@ unsubscribeAddr i = do
     unsubscribeDo a = csAddressSubscribers . at a %= fmap (S.delete i)
 
 subscribeBlocks
-    :: MonadState ConnectionsState m
+    :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> m ()
-subscribeBlocks i = csBlocksSubscribers %= S.insert i
+subscribeBlocks i = do
+    session <- use $ csClients . at i
+    case session of
+        Just _  -> csBlocksSubscribers %= S.insert i
+        _       -> logWarning "Unregistered client tries to subscribe on block\
+                   \ updates"
 
 unsubscribeBlocks
     :: MonadState ConnectionsState m
@@ -115,3 +140,41 @@ unsubscribeFully
     :: MonadState ConnectionsState m
     => SocketId -> m ()
 unsubscribeFully i = unsubscribeBlocks i >> unsubscribeAddr i
+
+-- * Notifications
+
+broadcastTo
+    :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m)
+    => Set SocketId -> m ()
+broadcastTo recipients = do
+    forM_ recipients $ \sockid -> do
+        mSock <- preview $ csClients . at sockid . _Just . ccConnection
+        case mSock of
+            Nothing   -> logError $
+                sformat ("No socket with SocketId="%shown%" registered") sockid
+            Just sock -> emitJSONTo sock BlocksUpdated empty
+                `catchAll` handler sockid
+  where
+    handler sockid = logWarning .
+        sformat ("Failed to send to SocketId="%shown%": "%shown) sockid
+
+notifyAddrSubscribers
+    :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m)
+    => Address -> m ()
+notifyAddrSubscribers addr = do
+    mRecipients <- view $ csAddressSubscribers . at addr
+    whenJust mRecipients broadcastTo
+
+-- TODO: temporal solution, remove this
+notifyAllAddrSubscribers
+    :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m)
+    => m ()
+notifyAllAddrSubscribers = do
+    addrSubscribers <- view csAddressSubscribers
+    mapM_ notifyAddrSubscribers $ map fst $ toList addrSubscribers
+
+notifyBlocksSubscribers
+    :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m)
+    => m ()
+notifyBlocksSubscribers =
+    view csBlocksSubscribers >>= broadcastTo

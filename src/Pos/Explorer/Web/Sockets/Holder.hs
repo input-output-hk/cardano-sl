@@ -13,6 +13,7 @@ module Pos.Explorer.Web.Sockets.Holder
        , mkClientContext
        , mkConnectionsState
        , modifyConnectionsStateDo
+       , readConnectionsStateDo
        , withConnectionsState
 
        , csAddressSubscribers
@@ -20,9 +21,10 @@ module Pos.Explorer.Web.Sockets.Holder
        , csClients
        , ccAddress
        , ccBlock
+       , ccConnection
        ) where
 
-import           Control.Concurrent.MVar (MVar, newMVar)
+import           Control.Concurrent.MVar (MVar, newMVar, readMVar)
 import           Control.Lens            (makeClassy)
 import           Control.Monad.Catch     (MonadCatch, MonadMask, MonadThrow, onException)
 import           Control.Monad.Reader    (MonadReader)
@@ -72,13 +74,19 @@ mkConnectionsState =
 modifyConnectionsStateDo
     :: (MonadIO m, MonadMask m)
     => ConnectionsVar -> StateT ConnectionsState m a -> m a
-modifyConnectionsStateDo var st =
+modifyConnectionsStateDo var action =
     mask $ \restore -> do
         a      <- liftIO $ takeMVar var
-        (b, a') <- restore (runStateT st a)
+        (b, a') <- restore (runStateT action a)
             `onException` liftIO (putMVar var a)
         liftIO $ putMVar var a'
         return b
+
+readConnectionsStateDo
+    :: (MonadIO m, MonadMask m)
+    => ConnectionsVar -> ReaderT ConnectionsState m a -> m a
+readConnectionsStateDo var action =
+    liftIO (readMVar var) >>= runReaderT action
 
 newtype ExplorerSockets m a = ExplorerSockets
     { getExplorerSockets :: ReaderT ConnectionsVar m a

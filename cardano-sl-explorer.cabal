@@ -61,6 +61,7 @@ library
                       , text-format
                       , text
                       , time
+                      , time-units
                       , transformers
                       , universum
                       , wai

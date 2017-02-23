@@ -31,17 +31,17 @@ before_test:
 
 test_script:
   - stack setup --no-reinstall
-  # Retry transient failures due to https://github.com/haskell/cabal/issues/4005 
-  - scripts\appveyor-retry call stack --no-terminal --local-bin-path daedalus 
-      install -j 2 --test --no-haddock-deps --bench --no-run-benchmarks 
-      --flag cardano-sl:with-web 
-      --flag cardano-sl:with-wallet 
+  # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
+  - scripts\appveyor-retry call stack --no-terminal --local-bin-path daedalus
+      install -j 2 --test --no-haddock-deps --bench --no-run-benchmarks
+      --flag cardano-sl:with-web
+      --flag cardano-sl:with-wallet
       --flag cardano-sl:-asserts
       --flag cardano-sl:-dev-mode
-      --extra-include-dirs="C:\OpenSSL-Win64\include" 
-      --extra-lib-dirs="C:\OpenSSL-Win64" 
-      --extra-include-dirs="C:\projects\pos-haskell-prototype\rocksdb\include" 
-      --extra-lib-dirs="C:\projects\pos-haskell-prototype" 
+      --extra-include-dirs="C:\OpenSSL-Win64\include"
+      --extra-lib-dirs="C:\OpenSSL-Win64"
+      --extra-include-dirs="C:\projects\pos-haskell-prototype\rocksdb\include"
+      --extra-lib-dirs="C:\projects\pos-haskell-prototype"
   - stack exec -- cardano-wallet-hs2purs
   - copy log-config-prod.yaml daedalus\log-config-prod.yaml
   - cd daedalus

@@ -3,8 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Ssc.Class.Helpers
-       (
-         SscHelpersClass (..)
+       ( SscHelpersClass (..)
        ) where
 
 import           Data.Tagged           (Tagged)

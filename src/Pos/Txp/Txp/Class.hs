@@ -1,17 +1,23 @@
 {-# LANGUAGE TypeFamilies #-}
 
+-- | Type classes for Txp abstraction.
+-- * MonadUtxoRead and MonadUtxo for incapsulation of Utxo storage.
+-- * MonadBalancesRead and MonadBalances for incapsulation of Balances storage.
+-- * MonadTxPoll for incapsulation of mem pool of local transactions.
+
 module Pos.Txp.Txp.Class
-      ( MonadUtxoRead (..)
-      , MonadUtxo (..)
-      , MonadBalancesRead (..)
-      , MonadBalances (..)
-      , MonadTxPool (..)
-      ) where
+       ( MonadUtxoRead (..)
+       , MonadUtxo (..)
+       , MonadBalancesRead (..)
+       , MonadBalances (..)
+       , MonadTxPool (..)
+       ) where
 
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Universum
 
-import           Pos.Types                 (TxAux, TxId, TxIn, TxOutAux, TxUndo, StakeholderId, Coin)
+import           Pos.Types                 (Coin, StakeholderId, TxAux, TxId, TxIn,
+                                            TxOutAux, TxUndo)
 
 ----------------------------------------------------------------------------
 -- MonadUtxo

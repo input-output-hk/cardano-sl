@@ -1,9 +1,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
--- TODO Rewrite this module on MonadError.
-
 -- | Transaction related functions.
+
+-- TODO Rewrite this module on MonadError.
 
 module Pos.Txp.Core.Tx
        ( verifyTxAlone

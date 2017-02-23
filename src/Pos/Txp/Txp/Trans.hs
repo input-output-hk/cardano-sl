@@ -1,10 +1,12 @@
+-- | TxpT monad transformer. Single-threaded.
+
 module Pos.Txp.Txp.Trans
-    ( TxpT (..)
-    , runTxpT
-    , runTxpTGlobal
-    , runTxpTLocal
-    , execTxpTLocal
-    ) where
+       ( TxpT (..)
+       , runTxpT
+       , runTxpTGlobal
+       , runTxpTLocal
+       , execTxpTLocal
+       ) where
 
 import           Control.Lens              (at, to, (%=), (.=))
 import           Control.Monad.Except      (MonadError)

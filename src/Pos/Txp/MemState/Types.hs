@@ -1,7 +1,9 @@
+-- | Type stored in the Txp holder.
+
 module Pos.Txp.MemState.Types
-    ( TxpLocalData (..)
-    , TxpLocalDataPure
-    ) where
+       ( TxpLocalData (..)
+       , TxpLocalDataPure
+       ) where
 
 import qualified Control.Concurrent.STM as STM
 
@@ -18,9 +20,8 @@ import           Pos.Types.Core         (HeaderHash)
 -- 2. If one applies all transactions from 'memPool' to 'utxo1',
 -- resulting Utxo will be equivalent to 'uv' with respect to
 -- MonadUtxo.
--- TODO fix it ^
 
--- | Real data inside TxpLDHolder
+-- | Real data inside TxpHolder.
 data TxpLocalData = TxpLocalData
     { txpUtxoView :: !(STM.TVar UtxoView)
     , txpMemPool  :: !(STM.TVar MemPool)
@@ -28,4 +29,5 @@ data TxpLocalData = TxpLocalData
     , txpTip      :: !(STM.TVar HeaderHash)
     }
 
+-- | Pure version of TxpLocalData.
 type TxpLocalDataPure = (UtxoView,  MemPool, UndoMap, HeaderHash)

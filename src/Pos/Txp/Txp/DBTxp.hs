@@ -1,6 +1,8 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+-- | Instances of MoandUtxoRead and MonadBalancesRead which use DB.
+
 module Pos.Txp.Txp.DBTxp
     ( DBTxp (..)
     ) where

@@ -1,13 +1,16 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies    #-}
 
+-- | All logic of Txp,
+-- it operates in terms of MonadUtxo, MonadBalances and MonadTxPool.
+
 module Pos.Txp.Txp.Logic
-    ( verifyTxp
-    , applyTxp
-    , rollbackTxp
-    , normalizeTxp
-    , processTx
-    ) where
+       ( verifyTxp
+       , applyTxp
+       , rollbackTxp
+       , normalizeTxp
+       , processTx
+       ) where
 
 import           Control.Monad.Except (MonadError (..))
 import qualified Data.HashMap.Strict  as HM
@@ -47,20 +50,22 @@ type LocalTxpMode m = ( MonadUtxo m
 verifyTxp :: GlobalTxpMode m => [TxAux] -> m TxsUndo
 verifyTxp = mapM (processTxWithPureChecks True . withTxId)
 
+-- | Apply transactions from one block.
 applyTxp :: GlobalTxpMode m => [(TxAux, TxUndo)] -> m ()
 applyTxp txun = do
     let (txOutPlus, txInMinus) = concatStakes txun
     recomputeStakes txOutPlus txInMinus
     mapM_ (Utxo.applyTxToUtxo' . withTxId . fst) txun
 
+-- | Rollback transactions from one block.
 rollbackTxp :: GlobalTxpMode m => [(TxAux, TxUndo)] -> m ()
 rollbackTxp txun = do
     let (txOutMinus, txInPlus) = concatStakes txun
     recomputeStakes txInPlus txOutMinus
     mapM_ Utxo.rollbackTxUtxo $ reverse txun
 
--- | 1. Recompute UtxoView by current list of transactions.
--- | 2. Apply to MemPool (and to Utxo) only valid transactions.
+-- | Get rid of invalid transactions.
+-- All valid transactions will be added to mem pool and applied to utxo.
 normalizeTxp :: LocalTxpMode m => [(TxId, TxAux)] -> m ()
 normalizeTxp txs = do
     topsorted <- note TxpCantTopsort (topsortTxs wHash txs)
@@ -69,7 +74,9 @@ normalizeTxp txs = do
     wHash (i, (t, _, _)) = WithHash t i
 
 -- CHECK: @processTx
--- #verifyTxUtxo
+-- #processWithPureChecks
+-- Validate one transaction and also add it to mem pool and apply to utxo
+-- if transaction is valid.
 processTx
     :: LocalTxpMode m => (TxId, TxAux) -> m ()
 processTx tx@(id, aux) = do
@@ -82,6 +89,7 @@ processTx tx@(id, aux) = do
 -- Helpers
 ----------------------------------------------------------------------------
 
+-- Compute new stakeholder's stakes by lists of spent and received coins.
 recomputeStakes
     :: (MonadBalances m, WithLogger m)
     => [(StakeholderId, Coin)]

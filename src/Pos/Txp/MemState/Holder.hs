@@ -2,6 +2,8 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+-- | Monad transformer which implements MonadTxpMem based on ReaderT.
+
 module Pos.Txp.MemState.Holder
        ( TxpHolder (..)
        , runTxpHolder

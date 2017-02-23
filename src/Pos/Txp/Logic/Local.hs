@@ -1,11 +1,14 @@
 {-# LANGUAGE ConstraintKinds #-}
 
-module Pos.Txp.Logic.Local
-    ( txProcessTransaction
-    , txNormalize
-    ) where
+-- | Logic for local processing of transactions.
+-- Local transaction is transaction which hasn't been added in the blockchain yet.
 
-import           Control.Monad.Except (runExcept, MonadError (..))
+module Pos.Txp.Logic.Local
+       ( txProcessTransaction
+       , txNormalize
+       ) where
+
+import           Control.Monad.Except (MonadError (..), runExcept)
 import           Control.Monad.State  (modify')
 import           Control.Monad.Trans  (MonadTrans)
 import           Data.Default         (def)
@@ -42,6 +45,8 @@ txProcessTransaction itw@(txId, (Tx{..}, _, _)) = do
     tipBefore <- GS.getTip
     localUV <- getUtxoView
     (resolvedOuts, _) <- runDBTxp $ runUV localUV $ mapM utxoGet txInputs
+    -- Resolved are transaction outputs which haven't been deleted from the utxo yet
+    -- (from Utxo DB and from UtxoView also)
     let resolved = HM.fromList $
                    catMaybes $
                    zipWith (liftM2 (,) . Just) txInputs resolvedOuts
@@ -51,7 +56,7 @@ txProcessTransaction itw@(txId, (Tx{..}, _, _)) = do
             logDebug $ sformat ("Transaction processing failed: "%build) txId
             throwError er
         Right _   ->
-            logDebug (sformat ("Transaction processed successfully: "%build) txId)
+            logDebug (sformat ("Transaction is processed successfully: "%build) txId)
   where
     processTxDo resolved tipBefore tx txld@(uv, mp, undo, tip)
         | tipBefore /= tip = (Left $ TxpInvalid "Tips aren't same", txld)
@@ -84,6 +89,9 @@ txNormalize = do
 -- Helpers
 ----------------------------------------------------------------------------
 
+-- | Transformer which holds resolved outputs (see above) and
+-- and forwards all Utxo operations to inner monad.
+
 newtype DeepUtxoT m a = DeepUtxoT (StateT (HashMap TxIn TxOutAux) m a)
     deriving ( Functor
              , Applicative
@@ -95,15 +103,13 @@ instance MonadTxPool m => MonadTxPool (DeepUtxoT m) where
 
 instance MonadUtxoRead m => MonadUtxoRead (DeepUtxoT m) where
     utxoGet id = DeepUtxoT $ do
-        res <- gets (HM.lookup id)
+        res <- gets $ HM.lookup id
         case res of
             Nothing -> utxoGet id
             Just _  -> pure res
 
 instance MonadUtxo m => MonadUtxo (DeepUtxoT m) where
-    utxoPut id aux = DeepUtxoT $ do
-        modify' $ HM.insert id aux
-        utxoPut id aux
+    utxoPut id aux = DeepUtxoT $ utxoPut id aux
     utxoDel id = DeepUtxoT $ do
         modify' $ HM.delete id
         utxoDel id

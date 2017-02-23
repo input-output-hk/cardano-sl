@@ -33,15 +33,15 @@ import           Pos.Script.Examples   (alwaysSuccessValidator, badIntRedeemer,
                                         intValidatorWithBlah, multisigRedeemer,
                                         multisigValidator, shaStressRedeemer,
                                         sigStressRedeemer, stdlibValidator)
-import           Pos.Txp               (verifyTxUtxoPure)
+import           Pos.Txp               (VTxGlobalContext (..), VTxLocalContext (..),
+                                        topsortTxs, verifyTxAlone, verifyTxPure,
+                                        verifyTxUtxoPure)
 import           Pos.Types             (BadSigsTx (..), GoodTx (..), SmallBadSigsTx (..),
                                         SmallGoodTx (..), Tx (..), TxAux,
                                         TxDistribution (..), TxIn (..), TxInWitness (..),
                                         TxOut (..), TxOutAux, TxSigData, TxWitness, Utxo,
-                                        VTxGlobalContext (..), VTxLocalContext (..),
                                         checkPubKeyAddress, makePubKeyAddress,
-                                        makeScriptAddress, mkCoin, sumCoins, topsortTxs,
-                                        verifyTxAlone, verifyTxPure)
+                                        makeScriptAddress, mkCoin, sumCoins)
 import           Pos.Util              (nonrepeating, runGen, sublistN)
 
 

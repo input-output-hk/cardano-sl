@@ -1,5 +1,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 
+-- | Types used for managing of transactions
+-- and synchronization with database.
+
 module Pos.Txp.Txp.Types
        ( UtxoView (..)
        , uvAddUtxo

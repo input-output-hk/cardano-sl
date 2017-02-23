@@ -91,14 +91,17 @@ txRollbackBlocks blunds = do
 -- Helpers
 ----------------------------------------------------------------------------
 
+-- Convert TxpModifier to batch of database operations.
 txpModifierToBatch :: TxpModifier -> SomeBatchOp
-txpModifierToBatch (TxpModifier (UtxoView (HM.toList -> addS) (HS.toList -> delS))
-                                (BalancesView (HM.toList -> stakes) total) _ _) =
+txpModifierToBatch (TxpModifier
+                      (UtxoView (HM.toList -> addS) (HS.toList -> delS))
+                      (BalancesView (HM.toList -> stakes) total) _ _) =
     SomeBatchOp [
           SomeBatchOp $ map GS.DelTxIn delS ++ map (uncurry GS.AddTxOut) addS
         , SomeBatchOp $ map (uncurry GS.PutFtsStake) stakes ++ [GS.PutFtsSum total]
                 ]
 
+-- Run action which requires MonadUtxo and MonadTxPool interfaces.
 runTxpAction
     :: MonadDB ssc m
     => TxpT (DBTxp (ExceptT TxpVerFailure m)) a -> m (Either TxpVerFailure (a, TxpModifier))
@@ -107,9 +110,11 @@ runTxpAction action = do
     let balView = BalancesView mempty total
     runExceptT . runDBTxp . runTxpTGlobal balView $ action
 
+-- Zip block's TxAuxes and corresponding TxUndos.
 blundToAuxNUndo :: Blund ssc -> [(TxAux, TxUndo)]
 blundToAuxNUndo = uncurry zip . bimap getTxas undoTx
 
+-- Get block's TxAuxes.
 getTxas :: Block ssc -> [TxAux]
 getTxas (Left _)   = []
 getTxas (Right mb) = mb ^. blockTxas

@@ -47,6 +47,7 @@ import           System.Wlog                          (LoggerConfig (..),
                                                        parseLoggerConfig, zoomLogger)
 import           Text.Parsec                          (eof, parse, try)
 import qualified Text.Parsec.Char                     as P
+import qualified Text.Parsec.String                   as P
 
 import           Pos.Binary.Address                   ()
 import           Pos.Crypto                           (PublicKey)

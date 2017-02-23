@@ -1,4 +1,7 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+base=$(dirname "$0")
+. "$base"/common.sh
 
 build=false
 runNode=false
@@ -57,7 +60,7 @@ cd cardano-updater
 echo "Searching for cardano-updater install path..."
 cardano_updater_local_bin=$(stack path --local-install-root)/bin
 echo "Searching for cardano-updater binary..."
-updater=$(find $cardano_updater_local_bin -name "cardano-updater" -exec readlink -f {} \; | head -n 1)
+updater=$(find_binary cardano-updater)
 cd $csldir
 
 echo "Launching 3 nodes in 5 secs"

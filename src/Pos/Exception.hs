@@ -16,11 +16,10 @@ import           Control.Exception   (Exception (..))
 import qualified Data.Text.Buildable
 import           Data.Typeable       (cast)
 import           Formatting          (bprint, stext, (%))
+import           Serokell.Util       (Color (Red), colorize)
 import           System.Wlog         (WithLogger, logError)
 import qualified Text.Show
 import           Universum
-
-import           Pos.Util            (Color (Red), colorize)
 
 -- | Root of exceptions in cardano-sl.
 data CardanoException =

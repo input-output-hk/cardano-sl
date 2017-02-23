@@ -14,6 +14,7 @@ module Pos.Update.Logic.Global
 import           Control.Monad.Except (MonadError, runExceptT)
 import           Data.Default         (Default (def))
 import qualified Data.HashMap.Strict  as HM
+import           Serokell.Util        (Color (Red), colorize)
 import           System.Wlog          (WithLogger, logError, modifyLoggerName)
 import           Universum
 
@@ -37,8 +38,7 @@ import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState
                                        execRollT, processGenesisBlock,
                                        recordBlockIssuance, rollbackUS, runDBPoll,
                                        runPollT, verifyAndApplyUSPayload, verifyBlockSize)
-import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst,
-                                       colorize, inAssertMode)
+import           Pos.Util             (NE, NewestFirst, OldestFirst, inAssertMode)
 
 type USGlobalApplyMode ssc m = ( WithLogger m
                                , DB.MonadDB ssc m

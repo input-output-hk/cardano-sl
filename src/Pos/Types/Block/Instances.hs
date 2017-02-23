@@ -45,7 +45,7 @@ import           Data.Tagged           (untag)
 import           Data.Text.Buildable   (Buildable)
 import qualified Data.Text.Buildable   as Buildable
 import           Formatting            (bprint, build, int, sformat, stext, (%))
-import           Serokell.Util.Text    (listJson)
+import           Serokell.Util         (Color (Magenta), colorize, listJson)
 import           Universum
 
 import           Pos.Binary.Class      (Bi)
@@ -69,7 +69,6 @@ import           Pos.Types.Types       (ProxySKHeavy, SlotLeaders, Tx, TxAux,
                                         TxDistribution, TxWitness)
 import           Pos.Update.Core.Types (UpdatePayload, UpdateProof, UpdateProposal,
                                         mkUpdateProof)
-import           Pos.Util              (Color (Magenta), colorize)
 
 
 ----------------------------------------------------------------------------

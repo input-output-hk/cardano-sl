@@ -15,6 +15,7 @@ module Pos.Block.Logic.Internal
 import           Control.Arrow        ((&&&))
 import           Control.Lens         (each, _Wrapped)
 import           Control.Monad.Catch  (bracketOnError)
+import           Serokell.Util        (Color (Red), colorize)
 import           Universum
 
 import           Pos.Block.Types      (Blund, Undo (undoUS))
@@ -31,9 +32,8 @@ import           Pos.Txp.Logic        (normalizeTxpLD, txApplyBlocks, txRollback
 import           Pos.Types            (HeaderHash, epochIndexL, headerHashG, prevBlockL)
 import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll      (PollModifier)
-import           Pos.Util             (Color (Red), NE, NewestFirst (..),
-                                       OldestFirst (..), colorize, inAssertMode, spanSafe,
-                                       _neLast)
+import           Pos.Util             (NE, NewestFirst (..), OldestFirst (..),
+                                       inAssertMode, spanSafe, _neLast)
 import           Pos.WorkMode         (WorkMode)
 
 

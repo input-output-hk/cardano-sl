@@ -30,6 +30,7 @@ import qualified Data.HashMap.Strict  as HM
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB     as Rocks
 import           Formatting           (bprint, bprint, sformat, (%))
+import           Serokell.Util        (Color (Red), colorize)
 import           System.Wlog          (WithLogger, logError)
 import           Universum
 
@@ -45,7 +46,7 @@ import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
 import           Pos.Types            (Coin, StakeholderId, Utxo, coinF, mkCoin, sumCoins,
                                        txOutStake, unsafeAddCoin, unsafeIntegerToCoin,
                                        utxoToStakes)
-import           Pos.Util             (Color (Red), colorize, maybeThrow)
+import           Pos.Util             (maybeThrow)
 import           Pos.Util.Iterator    (MonadIterator (..))
 
 ----------------------------------------------------------------------------

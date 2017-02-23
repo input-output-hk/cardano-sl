@@ -1,7 +1,7 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
 
 -- | Part of GState DB which stores unspent transaction outputs.
 
@@ -32,6 +32,7 @@ import qualified Data.Map             as M
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB     as Rocks
 import           Formatting           (bprint, build, sformat, (%))
+import           Serokell.Util        (Color (Red), colorize)
 import           Serokell.Util.Text   (listJson, pairF)
 import           System.Wlog          (WithLogger, logError)
 import           Universum
@@ -49,7 +50,6 @@ import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
 import           Pos.Types            (Address, Coin, TxIn (..), TxOutAux, Utxo,
                                        belongsTo, coinF, mkCoin, sumCoins, txOutStake,
                                        unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Util             (Color (..), colorize)
 import           Pos.Util.Iterator    (nextItem)
 
 ----------------------------------------------------------------------------

@@ -45,11 +45,6 @@ module Pos.Util
        , _neTail
        , _neLast
 
-       -- * Prettification
-       , Color (..)
-       , colorize
-       , withColoredMessages
-
        -- * LRU
        , clearLRU
 
@@ -108,9 +103,6 @@ import           Mockable                         (Mockable, Throw, throw)
 import           Prelude                          (read)
 import           Serokell.Data.Memory.Units       (Byte, fromBytes, toBytes)
 import           Serokell.Util                    (VerificationRes (..))
-import           System.Console.ANSI              (Color (..), ColorIntensity (Vivid),
-                                                   ConsoleLayer (Foreground),
-                                                   SGR (Reset, SetColor), setSGRCode)
 import           System.Wlog                      (LoggerNameBox (..))
 import           Test.QuickCheck                  (Arbitrary)
 import           Text.Parsec                      (ParsecT, digit)
@@ -318,27 +310,6 @@ instance FromJSON Byte where
 
 instance ToJSON Byte where
     toJSON = toJSON . toBytes
-
-----------------------------------------------------------------------------
--- Prettification.
-----------------------------------------------------------------------------
-
--- | Prettify 'Text' message with 'Vivid' color.
-colorize :: Color -> Text -> Text
-colorize color msg =
-    mconcat
-        [ toText (setSGRCode [SetColor Foreground Vivid color])
-        , msg
-        , toText (setSGRCode [Reset])
-        ]
-
--- | Write colored message, do some action, write colored message.
--- Intended for debug only.
-withColoredMessages :: MonadIO m => Color -> Text -> m a -> m a
-withColoredMessages color activity action = do
-    putText (colorize color $ sformat ("Entered "%stext%"\n") activity)
-    res <- action
-    res <$ putText (colorize color $ sformat ("Finished "%stext%"\n") activity)
 
 ----------------------------------------------------------------------------
 -- LRU cache

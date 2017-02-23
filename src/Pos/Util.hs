@@ -27,7 +27,6 @@ module Pos.Util
        , getKeys
        , maybeThrow
        , maybeThrow'
-       , parseIntegralSafe
 
        -- * NonEmpty
        , NE
@@ -140,16 +139,6 @@ readerToState
 readerToState = gets . runReader
 
 deriveSafeCopySimple 0 'base ''VerificationRes
-
-parseIntegralSafe :: Integral a => Parser a
-parseIntegralSafe = fromIntegerSafe . read =<< some digit
-  where
-    fromIntegerSafe :: Integral a => Integer -> Parser a
-    fromIntegerSafe x =
-        let res = fromInteger x
-        in  if fromIntegral res == x
-            then return res
-            else fail ("Number is too large: " ++ show x)
 
 -- | A helper for simple error handling in executables
 eitherPanic :: Show a => Text -> Either a b -> b

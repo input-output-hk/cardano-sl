@@ -7,6 +7,7 @@ module Command
 
 import           Prelude                    (read, show)
 import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util.Parse        (parseIntegralSafe)
 import           Text.Parsec                (many1, parse, try, (<?>))
 import           Text.Parsec.Char           (alphaNum, anyChar, digit, space, spaces,
                                              string)
@@ -22,7 +23,6 @@ import           Pos.Types                  (Address (..), BlockVersion, EpochIn
 import           Pos.Types.Script           (ScriptVersion)
 import           Pos.Update                 (UpId)
 import           Pos.Update.Version         (parseBlockVersion, parseSoftwareVersion)
-import           Pos.Util                   (parseIntegralSafe)
 
 data Command
     = Balance Address

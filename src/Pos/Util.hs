@@ -70,9 +70,6 @@ module Pos.Util
        -- ** Lift Byte
        -- ** FromJSON Byte
        -- ** ToJSON Byte
-       -- ** SafeCopy (NonEmpty a)
-       -- ** SafeCopy Microsecond
-       -- ** SafeCopy Millisecond
        -- ** MonadFail (Either s), assuming IsString s
        -- ** MonadFail ParsecT
        -- ** MonadFail Dialog
@@ -103,7 +100,6 @@ import qualified Data.List.NonEmpty               as NE
 import           Data.SafeCopy                    (SafeCopy (..), base, contain,
                                                    deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text                        as T
-import           Data.Time.Units                  (Microsecond, Millisecond)
 import           Formatting                       (sformat, stext, (%))
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Syntax       (Lift)
@@ -123,7 +119,7 @@ import           Universum                        hiding (Async, async, bracket,
                                                    finally, waitAny)
 import           Unsafe                           (unsafeInit, unsafeLast)
 -- SafeCopy instance for HashMap
-import           Serokell.AcidState.Instances     ()
+import           Serokell.AcidState               ()
 
 import           Pos.Binary.Class                 (Bi)
 import           Pos.Util.Arbitrary
@@ -322,31 +318,6 @@ instance FromJSON Byte where
 
 instance ToJSON Byte where
     toJSON = toJSON . toBytes
-
--- [SRK-51]: we should try to get this one into safecopy itself though it's
--- unlikely that they will choose a different implementation (if they do
--- choose a different implementation we'll have to write a migration)
---
--- update: made a PR <https://github.com/acid-state/safecopy/pull/47>;
--- remove this instance when the pull request is merged
-instance SafeCopy a => SafeCopy (NonEmpty a) where
-    getCopy = contain $ do
-        xs <- safeGet
-        case nonEmpty xs of
-            Nothing -> fail "getCopy@NonEmpty: list can't be empty"
-            Just xx -> return xx
-    putCopy = contain . safePut . toList
-    errorTypeName _ = "NonEmpty"
-
-instance SafeCopy Millisecond where
-    getCopy = contain (fromInteger <$> safeGet)
-    putCopy = contain . safePut . toInteger
-    errorTypeName _ = "Millisecond"
-
-instance SafeCopy Microsecond where
-    getCopy = contain (fromInteger <$> safeGet)
-    putCopy = contain . safePut . toInteger
-    errorTypeName _ = "Microsecond"
 
 ----------------------------------------------------------------------------
 -- Prettification.

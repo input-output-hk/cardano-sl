@@ -5,21 +5,24 @@ build: off
 
 cache:
   # TODO: https://github.com/commercialhaskell/stack/issues/1176#issuecomment-269520803
-  - "c:\\sr"
-  - '.stack-work'
+  - "c:\\cache\\%APPVEYOR_REPO_BRANCH%"
+  # - '.stack-work'
 
 # Avoid long paths on Windows
 environment:
   global:
     # Avoid long paths on Windows
+    CACHED_STACK_ROOT: "c:\\cache\\%APPVEYOR_REPO_BRANCH%"
     STACK_ROOT: "c:\\sr"
     CSL_SYSTEM_TAG: "win64"
 
 before_test:
 - Echo %APPVEYOR_BUILD_VERSION% > build-id
+- IF EXIST %CACHED_STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %CACHED_STACK_ROOT% %STACK_ROOT%
 # Install stack
 - curl -sSL -o stack.zip --insecure http://www.stackage.org/stack/windows-x86_64
 - 7z x stack.zip stack.exe
+
 
 # Install rocksdb
 - git clone https://github.com/facebook/rocksdb.git --branch v4.13.5
@@ -28,17 +31,17 @@ before_test:
 
 test_script:
   - stack setup --no-reinstall
-  # Retry transient failures due to https://github.com/haskell/cabal/issues/4005 
-  - scripts\appveyor-retry call stack --no-terminal --local-bin-path daedalus 
-      install -j 2 --test --no-haddock-deps --bench --no-run-benchmarks 
-      --flag cardano-sl:with-web 
-      --flag cardano-sl:with-wallet 
+  # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
+  - scripts\appveyor-retry call stack --no-terminal --local-bin-path daedalus
+      install -j 2 --test --no-haddock-deps --bench --no-run-benchmarks
+      --flag cardano-sl:with-web
+      --flag cardano-sl:with-wallet
       --flag cardano-sl:-asserts
       --flag cardano-sl:-dev-mode
-      --extra-include-dirs="C:\OpenSSL-Win64\include" 
-      --extra-lib-dirs="C:\OpenSSL-Win64" 
-      --extra-include-dirs="C:\projects\pos-haskell-prototype\rocksdb\include" 
-      --extra-lib-dirs="C:\projects\pos-haskell-prototype" 
+      --extra-include-dirs="C:\OpenSSL-Win64\include"
+      --extra-lib-dirs="C:\OpenSSL-Win64"
+      --extra-include-dirs="C:\projects\pos-haskell-prototype\rocksdb\include"
+      --extra-lib-dirs="C:\projects\pos-haskell-prototype"
   - stack exec -- cardano-wallet-hs2purs
   - copy log-config-prod.yaml daedalus\log-config-prod.yaml
   - cd daedalus
@@ -46,6 +49,9 @@ test_script:
   - ps: Install-Product node 7
   - npm install
   - npm run build:prod
+
+after_test:
+ - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER xcopy /q /s /e /r /k /i /v /h /y %STACK_ROOT% %CACHED_STACK_ROOT%
 
 artifacts:
   - path: daedalus/

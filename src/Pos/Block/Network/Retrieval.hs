@@ -77,19 +77,22 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
                    isEmpty <- isEmptyTBQueue queue
                    recHeader <- tryReadTMVar recHeaderVar
                    pure $ guard isEmpty *> recHeader
-           whenJustM needQueryMore $ \(peerId, rHeader) ->
-               whileM (atomically $ isEmptyTBQueue queue) $ do
-                   logDebug "Queue is empty, we're in recovery mode -> querying more"
-                   whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
-                       handleAll (handleLE recHeaderVar ph) $ reportingFatal $
-                       withConnectionTo sendActions peerId $ \_peerData ->
-                           requestHeaders mghNext (Just rHeader) peerId
+           let tryFillQueue (0 :: Int) _ =
+                   void $ atomically $ tryTakeTMVar recHeaderVar
+               tryFillQueue tries action =
+                   whenM (atomically $ isEmptyTBQueue queue) $
+                       action >> tryFillQueue (tries - 1) action
+           tryFillQueue 5 $ whenJustM needQueryMore $ \(peerId, rHeader) -> do
+               logDebug "Queue is empty, we're in recovery mode -> querying more"
+               whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
+                   handleAll (handleLE recHeaderVar ph) $ reportingFatal $
+                   withConnectionTo sendActions peerId $ \_peerData ->
+                       requestHeaders mghNext (Just rHeader) peerId
            loop queue recHeaderVar
 
     logDebug "Starting retrievalWorker loop"
     loop ncBlockRetrievalQueue ncRecoveryHeader
   where
-    whileM a b = a >>= bool pass (b >> whileM a b)
     outs = announceBlockOuts
               <> toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
                                    (Proxy :: Proxy (MsgBlock s0 ssc))

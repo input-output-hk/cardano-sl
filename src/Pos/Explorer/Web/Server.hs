@@ -103,43 +103,14 @@ getLastBlocks lim off = do
 
 getLastTxs :: ExplorerMode m => Word -> Word -> m [CTxEntry]
 getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
-    let mkWhTx (txid, (tx, _, _)) = WithHash tx txid
-    localTxs <- fmap reverse $ topsortTxsOrFail mkWhTx =<< getLocalTxs
-    ts <- getCurrentTime
-
-    let neededLocalTxs = take lim $ drop off localTxs
-        localTxEntries = map (toTxEntry ts . view (_2 . _1)) neededLocalTxs
-        lenTxs = length localTxs
-        offLeft = off - lenTxs
-        nLeft = offLeft + lim
-
-    tip <- GS.getTip
-    let unfolder off lim h = do
-            when (lim <= 0) $
-                fail "Finished"
-            MaybeT (DB.getBlock h) >>= \case
-                Left gb -> unfolder off lim (gb ^. prevBlockL)
-                Right mb -> do
-                    let mTxs = mb ^. blockTxs
-                    if off >= length mTxs
-                        then return ([], (off - length mTxs, lim, mb ^. prevBlockL))
-                        else do
-                        txs <- topsortTxsOrFail identity $ map withHash $ toList mTxs
-                        blkSlotStart <- lift $ getSlotStart $
-                                        mb ^. gbHeader . gbhConsensus . mcdSlot
-                        let neededTxs = take lim $ drop off $ reverse txs
-                            blkTxEntries = map (toTxEntry blkSlotStart . whData) neededTxs
-                            offLeft = off - length mTxs
-                            nLeft = offLeft + lim
-                        return (blkTxEntries, (offLeft, nLeft, mb ^. prevBlockL))
-
-    blockTxEntries <- fmap concat $ flip unfoldrM (offLeft, nLeft, tip) $
-        \(o, l, h) -> runMaybeT $ unfolder o l h
-
-    return $ localTxEntries ++ blockTxEntries
+    txs <- allTxs
+    return $ take lim $ drop off $
+        map (\txi -> toTxEntry (tiTimestamp txi) (tiTx txi)) txs
 
 getBlockSummary :: ExplorerMode m => CHash -> m CBlockSummary
-getBlockSummary (fromCHash' -> h) = getMainBlock h >>= toBlockSummary
+getBlockSummary (fromCHash' -> h) = do
+    mainBlock <- getMainBlock h
+    toBlockSummary mainBlock
 
 getBlockTxs :: ExplorerMode m => CHash -> Word -> Word -> m [CTxEntry]
 getBlockTxs (fromCHash' -> h) (fromIntegral -> lim) (fromIntegral -> off) = do
@@ -161,6 +132,37 @@ getAddressSummary cAddr = cAddrToAddr cAddr >>= \case
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
+
+data TxInternal = TxInternal
+    { tiTimestamp :: !Timestamp
+    , tiTx :: Tx
+    } deriving (Show)
+
+allTxs :: ExplorerMode m => m [TxInternal]
+allTxs = do
+    let mkWhTx (txid, (tx, _, _)) = WithHash tx txid
+    localTxs <- fmap reverse $ topsortTxsOrFail mkWhTx =<< getLocalTxs
+    ts <- getCurrentTime
+
+    let localTxEntries = map (\tx -> TxInternal ts (view (_2 . _1) tx)) localTxs
+
+    tip <- GS.getTip
+    let unfolder h = do
+            MaybeT (DB.getBlock h) >>= \case
+                Left gb -> unfolder (gb ^. prevBlockL)
+                Right mb -> do
+                    let mTxs = mb ^. blockTxs
+                    txs <- topsortTxsOrFail identity $ map withHash $ toList mTxs
+                    blkSlotStart <- lift $ getSlotStart $
+                                    mb ^. gbHeader . gbhConsensus . mcdSlot
+                    let blkTxEntries = map (\tx -> TxInternal blkSlotStart (whData tx)) $
+                                       reverse txs
+                    return (blkTxEntries, mb ^. prevBlockL)
+
+    blockTxEntries <- fmap concat $ flip unfoldrM tip $
+        \h -> runMaybeT $ unfolder h
+
+    return $ localTxEntries ++ blockTxEntries
 
 getBlkSlotStart :: MonadSlots m => MainBlock ssc -> m Timestamp
 getBlkSlotStart blk = getSlotStart $ blk ^. gbHeader . gbhConsensus . mcdSlot

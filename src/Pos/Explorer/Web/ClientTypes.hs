@@ -163,7 +163,20 @@ data CAddressSummary = CAddressSummary
     { caAddress :: !CAddress
     , caTxNum   :: !Word
     , caBalance :: !Coin
+    -- , caTxList  :: ![CTxDetailed]
     } deriving (Show, Generic)
+
+data CTxDetailed = CTxDetailed
+    { ctdId         :: !CTxId
+    , ctdTimeIssued :: !POSIXTime
+    , ctdType       :: !CTxType
+    } deriving (Show, Generic)
+
+data CTxType =
+      CTxIncoming ![CAddress] !Coin
+    | CTxOutgoing ![CAddress] !Coin
+    | CTxBoth     ![CAddress] !Coin ![CAddress] !Coin
+    deriving (Show, Generic)
 
 -------------------------------------------------------------------------------------
 -- FromHttpApiData instances

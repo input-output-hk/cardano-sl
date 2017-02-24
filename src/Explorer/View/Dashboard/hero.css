@@ -11,7 +11,7 @@
 
     &-container {
       @neat-outer-container;
-      padding: 26px 0px 48px 0px;
+      padding: 26px 10px 48px 10px;
     }
     @media (--md) {
       &-container {
@@ -23,12 +23,14 @@
 
     &-headline {
       font-size: 26px;
+      line-height: 1.25;
       color: var(--color3);
       font-family: var(--fontFamily0-Light);
     }
 
     &-subheadline {
       font-size: 13px;
+      line-height: 1.4;
       font-family: var(--fontFamily0-Light);
       color: color(var(--color3) a(0.5));
       opacity: 0.5;

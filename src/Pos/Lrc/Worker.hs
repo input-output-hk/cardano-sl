@@ -26,7 +26,7 @@ import           Pos.Block.Logic.Internal    (applyBlocksUnsafe, rollbackBlocksU
 import           Pos.Communication.Protocol  (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants               (slotSecurityParam)
 import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
-import qualified Pos.DB                      as DB
+import qualified Pos.DB.DB                   as DB
 import qualified Pos.DB.GState               as GS
 import           Pos.DB.Lrc                  (IssuersStakes, getLeaders, putEpoch,
                                               putIssuersStakes, putLeaders)
@@ -125,10 +125,11 @@ tryAcuireExclusiveLock epoch lock action =
     doAction _       = action >> releaseLock epoch
 
 lrcDo
-    :: WorkMode ssc m
+    :: forall ssc m.
+       WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> HeaderHash -> m HeaderHash
 lrcDo epoch consumers tip = tip <$ do
-    blundsUpToGenesis <- DB.loadBlundsFromTipWhile upToGenesis
+    blundsUpToGenesis <- DB.loadBlundsFromTipWhile @ssc upToGenesis
     -- If there are blocks from 'epoch' it means that we somehow accepted them
     -- before running LRC for 'epoch'. It's very bad.
     unless (null blundsUpToGenesis) $ throwM LrcAfterGenesis
@@ -184,7 +185,7 @@ richmenComputationDo epochIdx consumers = unless (null consumers) $ do
     let minThreshold = safeThreshold total (not . lcConsiderDelegated)
     let minThresholdD = safeThreshold total lcConsiderDelegated
     (richmen, richmenD) <- GS.runBalanceIterator
-                               (findAllRichmenMaybe @ssc minThreshold minThresholdD)
+                               (findAllRichmenMaybe minThreshold minThresholdD)
     let callCallback cons = void $ fork $
             if lcConsiderDelegated cons
             then lcComputedCallback cons epochIdx total

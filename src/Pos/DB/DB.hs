@@ -45,7 +45,7 @@ import           Pos.Util                         (NewestFirst, inAssertMode)
 -- | Open all DBs stored on disk.
 openNodeDBs
     :: (MonadIO m)
-    => Bool -> FilePath -> m (NodeDBs ssc)
+    => Bool -> FilePath -> m NodeDBs
 openNodeDBs recreate fp = do
     liftIO $
         whenM ((recreate &&) <$> doesDirectoryExist fp) $
@@ -65,11 +65,11 @@ openNodeDBs recreate fp = do
 -- | Initialize DBs if necessary.
 initNodeDBs
     :: forall ssc m.
-       (SscHelpersClass ssc, WithNodeContext ssc m, MonadDB ssc m)
+       (SscHelpersClass ssc, WithNodeContext ssc m, MonadDB m)
     => m ()
 initNodeDBs = do
     leaders0 <- genesisLeadersM
-    let genesisBlock0 = mkGenesisBlock Nothing 0 leaders0
+    let genesisBlock0 = mkGenesisBlock @ssc Nothing 0 leaders0
         initialTip = headerHash genesisBlock0
     prepareBlockDB genesisBlock0
     prepareGStateDB initialTip
@@ -79,7 +79,7 @@ initNodeDBs = do
 
 -- | Get block corresponding to tip.
 getTipBlock
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => m (Block ssc)
 getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
   where
@@ -87,26 +87,26 @@ getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
 
 -- | Get BlockHeader corresponding to tip.
 getTipBlockHeader
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => m (BlockHeader ssc)
 getTipBlockHeader = getBlockHeader <$> getTipBlock
 
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.
 loadBlundsFromTipWhile
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => (Block ssc -> Bool) -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 -- | Load blunds from BlockDB starting from tip which have depth less than
 -- given.
 loadBlundsFromTipByDepth
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => Word -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 
 sanityCheckDB
-    :: (MonadMask m, MonadDB ssc m, WithLogger m)
+    :: (MonadMask m, MonadDB m, WithLogger m)
     => m ()
 sanityCheckDB = inAssertMode sanityCheckGStateDB
 

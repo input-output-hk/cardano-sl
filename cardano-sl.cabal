@@ -45,9 +45,12 @@ library
                         Pos.Communication.Relay
                         Pos.CompileConfig
                         Pos.Constants
-                        Pos.DB
+
+                        Pos.DB.DB
                         Pos.DB.GState
+
                         Pos.Delegation
+
                         -- Pos.DHT
                         Pos.DHT.Model
                         Pos.DHT.Model.Neighbors
@@ -219,10 +222,6 @@ library
 
                         -- DB
                         Pos.DB.Block
-                        Pos.DB.Class
-                        Pos.DB.DB
-                        Pos.DB.Error
-                        Pos.DB.Functions
                         Pos.DB.GState.Balances
                         Pos.DB.GState.Common
                         Pos.DB.GState.Delegation
@@ -230,18 +229,14 @@ library
                         Pos.DB.GState.Update
                         Pos.DB.GState.BlockExtra
                         Pos.DB.GState.Utxo
-                        Pos.DB.Holder
-                        Pos.DB.Iterator
-                        Pos.DB.Iterator.Class
-                        Pos.DB.Iterator.DBIterator
                         Pos.DB.Lrc
                         Pos.DB.Lrc.Common
                         Pos.DB.Lrc.Issuers
                         Pos.DB.Lrc.Leaders
                         Pos.DB.Lrc.Lrc
                         Pos.DB.Lrc.Richmen
+                        Pos.DB.Lrc.Types
                         Pos.DB.Misc
-                        Pos.DB.Types
 
                         -- Genesis
                         Pos.Genesis.Types
@@ -393,7 +388,6 @@ library
 
                         -- Utilities/helpers
                         Pos.Util.Arbitrary
-                        Pos.Util.Iterator
                         Pos.Util.NotImplemented
   if flag(with-web)
     other-modules:      Pos.Aeson.Crypto
@@ -455,6 +449,7 @@ library
                       , bytestring
                       , cardano-report-server >= 0.1.0
                       , cardano-sl-core
+                      , cardano-sl-db
                       , cereal
                       , concurrent-extra
                       , conduit >= 1.2.8
@@ -802,8 +797,8 @@ executable cardano-smart-generator
                      , array
                      , bytestring
                      , data-default
-                     , cardano-sl-core
                      , cardano-sl
+                     , cardano-sl-core
                      , filepath
                      , formatting
                      , lens

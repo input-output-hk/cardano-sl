@@ -41,9 +41,9 @@ import           Pos.WorkMode                (WorkMode)
 
 -- | Run full node in any WorkMode.
 runNode'
-    :: (SscConstraint ssc, WorkMode ssc m)
-    => [WorkerSpec m]
-    -> WorkerSpec m
+    :: forall ssc m.
+       (SscConstraint ssc, WorkMode ssc m)
+    => [WorkerSpec m] -> WorkerSpec m
 runNode' plugins' = ActionSpec $ \vI sendActions -> do
     logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     inAssertMode $ logInfo "Assert mode on"
@@ -54,7 +54,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
                        ", address: "%build%
                        ", pk hash: "%build) pk addr pkHash
     () <$ fork waitForPeers
-    initDelegation
+    initDelegation @ssc
     initLrc
     initUSMemState
     initSemaphore

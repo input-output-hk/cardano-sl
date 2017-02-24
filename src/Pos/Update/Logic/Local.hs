@@ -51,7 +51,7 @@ import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
                                          verifyAndApplyUSPayload)
 
 -- MonadMask is needed because are using Lock. It can be improved later.
-type USLocalLogicMode σ m = (MonadDB σ m, MonadUSMem m, MonadMask m
+type USLocalLogicMode σ m = ( MonadDB m, MonadUSMem m, MonadMask m
                             , WithLogger m, Ssc σ, WithNodeContext σ m)
 
 getMemPool :: (MonadUSMem m, MonadIO m) => m MemPool
@@ -147,7 +147,7 @@ processVote
     => UpdateVote -> m (Either PollVerFailure ())
 processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 
-withCurrentTip :: (MonadDB ssc m, MonadUSMem m) => (MemState -> m MemState) -> m ()
+withCurrentTip :: (MonadDB m, MonadUSMem m) => (MemState -> m MemState) -> m ()
 withCurrentTip action = do
     tipBefore <- DB.getTip
     stateVar <- askUSMemState

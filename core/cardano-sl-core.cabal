@@ -28,8 +28,9 @@ library
                        Pos.Crypto.AsBinary
 
                        Pos.Binary.Class
-                       Pos.Merkle
                        Pos.Data.Attributes
+                       Pos.Merkle
+                       Pos.Util.Iterator
 
   build-depends:       base
                      , base58-bytestring

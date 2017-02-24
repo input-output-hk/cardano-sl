@@ -130,7 +130,7 @@ normalize epoch richmen gs = do
 -- to current local data.
 sscIsDataUseful
     :: ( WithLogger m
-       , MonadDB SscGodTossing m
+       , MonadDB m
        , WithNodeContext kek m
        , MonadSlots m
        , MonadSscMem SscGodTossing m
@@ -148,7 +148,7 @@ sscIsDataUseful tag id =
     sscIsDataUsefulDo VssCertificateMsg = not <$> hasCertificateToss id
     evalTossInMem
         :: ( WithLogger m
-           , MonadDB SscGodTossing m
+           , MonadDB m
            , WithNodeContext kek m
            , MonadSscMem SscGodTossing m
            )
@@ -166,7 +166,7 @@ sscIsDataUseful tag id =
 
 type GtDataProcessingMode m =
     ( WithLogger m
-    , MonadDB SscGodTossing m  -- to get richmen
+    , MonadDB m  -- to get richmen
     , WithNodeContext SscGodTossing m  -- to get richmen
     , MonadSlots m
     , MonadSscMem SscGodTossing m

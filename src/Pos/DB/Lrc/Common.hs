@@ -35,16 +35,16 @@ import           Pos.Util         (maybeThrow)
 ----------------------------------------------------------------------------
 
 getBi
-    :: (MonadDB ssc m, Bi v)
+    :: (MonadDB m, Bi v)
     => ByteString -> m (Maybe v)
 getBi k = rocksGetBi k =<< getLrcDB
 
 putBi
-    :: (MonadDB ssc m, Bi v)
+    :: (MonadDB m, Bi v)
     => ByteString -> v -> m ()
 putBi k v = rocksPutBi k v =<< getLrcDB
 
-delete :: (MonadDB ssc m) => ByteString -> m ()
+delete :: (MonadDB m) => ByteString -> m ()
 delete k = rocksDelete k =<< getLrcDB
 
 ----------------------------------------------------------------------------
@@ -52,12 +52,12 @@ delete k = rocksDelete k =<< getLrcDB
 ----------------------------------------------------------------------------
 
 -- | Get epoch up to which LRC is definitely known.
-getEpoch :: MonadDB ssc m => m EpochIndex
+getEpoch :: MonadDB m => m EpochIndex
 getEpoch = maybeThrow (DBMalformed "no epoch in LRC DB") =<< getEpochMaybe
 
 -- It's a workaround and I would like to get rid of it in future (@gromak).
 -- | Get epoch up to which LRC is definitely known or 0.
-getEpochDefault :: MonadDB ssc m => m EpochIndex
+getEpochDefault :: MonadDB m => m EpochIndex
 getEpochDefault = fromMaybe 0 <$> getEpochMaybe
 
 ----------------------------------------------------------------------------
@@ -66,7 +66,7 @@ getEpochDefault = fromMaybe 0 <$> getEpochMaybe
 
 -- | Put epoch up to which all LRC data is computed. Caller must ensure
 -- that all LRC data for this epoch has been put already.
-putEpoch :: MonadDB ssc m => EpochIndex -> m ()
+putEpoch :: MonadDB m => EpochIndex -> m ()
 putEpoch = putBi epochKey
 
 ----------------------------------------------------------------------------
@@ -75,8 +75,8 @@ putEpoch = putBi epochKey
 
 -- | Put missing initial common data into LRC DB.
 prepareLrcCommon
-    :: forall ssc m.
-       MonadDB ssc m
+    :: forall m.
+       MonadDB m
     => m ()
 prepareLrcCommon = putIfEmpty getEpochMaybe (putEpoch 0)
   where
@@ -96,5 +96,5 @@ epochKey = "c/epoch"
 -- Details
 ----------------------------------------------------------------------------
 
-getEpochMaybe :: MonadDB ssc m => m (Maybe EpochIndex)
+getEpochMaybe :: MonadDB m => m (Maybe EpochIndex)
 getEpochMaybe = getBi epochKey

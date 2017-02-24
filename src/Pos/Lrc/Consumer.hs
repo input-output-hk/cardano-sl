@@ -53,8 +53,8 @@ lrcConsumerFromComponent ifNeedCompute callback =
 -- | Create simple LrcConsumer using constants from RichmenComponent
 -- which uses only LRC DB.
 lrcConsumerFromComponentSimple
-    :: forall c ssc m.
-       (RichmenComponent c, MonadDB ssc m)
+    :: forall c m.
+       (RichmenComponent c, MonadDB m)
     => LrcConsumer m
 lrcConsumerFromComponentSimple =
     lrcConsumerFromComponent @c ifNeedCompute onComputed

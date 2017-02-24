@@ -17,7 +17,7 @@ import           Pos.Util           (maybeThrow)
 
 -- | Put missing initial data into LRC DB.
 prepareLrcDB
-    :: (WithNodeContext ssc m, MonadDB ssc m)
+    :: (WithNodeContext ssc m, MonadDB m)
     => m ()
 prepareLrcDB = do
     prepareLrcLeaders

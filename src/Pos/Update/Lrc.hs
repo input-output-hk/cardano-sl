@@ -9,5 +9,5 @@ import           Pos.DB.Lrc       (RCUs)
 import           Pos.Lrc.Consumer (LrcConsumer (..), lrcConsumerFromComponentSimple)
 
 -- | Consumer will be called on every Richmen computation.
-usLrcConsumer :: DB.MonadDB ssc m => LrcConsumer m
+usLrcConsumer :: DB.MonadDB m => LrcConsumer m
 usLrcConsumer = lrcConsumerFromComponentSimple @RCUs

@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE CPP                  #-}
 {-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
@@ -32,7 +33,7 @@ import           Pos.Communication.PeerState (PeerStateHolder, WithPeerState)
 import qualified Pos.Context                 as PC
 import           Pos.Crypto                  (WithHash (..))
 import           Pos.DB                      (MonadDB)
-import qualified Pos.DB                      as DB
+import qualified Pos.DB.Block                as DB
 import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
 import           Pos.Delegation              (DelegationT (..))
@@ -94,7 +95,7 @@ deriving instance MonadBalances m => MonadBalances (WalletWebDB m)
 instance MonadIO m => MonadBalances (WalletDB m) where
     getOwnUtxo addr = WS.getUtxo >>= return . filterUtxoByAddr addr
 
-instance (MonadDB ssc m, MonadMask m) => MonadBalances (TxpHolder m) where
+instance (MonadDB m, MonadMask m) => MonadBalances (TxpHolder m) where
     getOwnUtxo addr = do
         utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoView
@@ -142,7 +143,7 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
             deriveAddrHistory addr chain
     saveTx _ = pure ()
 
-instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
+instance forall ssc m . (SscHelpersClass ssc, MonadDB m, MonadThrow m, WithLogger m)
          => MonadTxHistory (TxpHolder m) where
     getTxHistory addr = do
         bot <- GS.getBot
@@ -154,13 +155,13 @@ instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
             if h == bot
             then return Nothing
             else do
-                header <- DB.getBlockHeader h >>=
+                header <- DB.getBlockHeader @ssc h >>=
                     maybeThrow (DBMalformed "Best blockchain is non-continuous")
                 let prev = header ^. prevBlockL
                 return $ Just (h, prev)
 
         let blockFetcher h txs = do
-                blk <- lift . lift $ DB.getBlock h >>=
+                blk <- lift . lift $ DB.getBlock @ssc h >>=
                        maybeThrow (DBMalformed "A block mysteriously disappeared!")
                 deriveAddrHistoryPartial txs addr [blk]
             localFetcher blkTxs = do
@@ -212,7 +213,7 @@ instance MonadBlockchainInfo WalletRealMode where
     connectedPeers = panic "notImplemented"
 
 -- | Helpers for avoiding copy-paste
-topHeader :: (SscHelpersClass ssc, MonadDB ssc m) => m (BlockHeader ssc)
+topHeader :: (SscHelpersClass ssc, MonadDB m) => m (BlockHeader ssc)
 topHeader = maybeThrow (DBMalformed "No block with tip hash!") =<<
             DB.getBlockHeader =<< GS.getTip
 
@@ -235,13 +236,13 @@ downloadHeader
 downloadHeader = getContextTMVar PC.ncProgressHeader
 
 -- | Instance for full-node's ContextHolder
-instance SscHelpersClass ssc =>
+instance forall ssc . SscHelpersClass ssc =>
          MonadBlockchainInfo (RawRealMode ssc) where
     networkChainDifficulty = fmap (^. difficultyL) <$> recoveryHeader
 
     localChainDifficulty = downloadHeader >>= \case
         Just dh -> return $ dh ^. difficultyL
-        Nothing -> view difficultyL <$> topHeader
+        Nothing -> view difficultyL <$> topHeader @ssc
 
     connectedPeers = fromIntegral . length <$> getKnownPeers
     blockchainSlotDuration = getLastKnownSlotDuration

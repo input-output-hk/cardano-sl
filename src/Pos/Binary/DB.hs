@@ -4,18 +4,11 @@ module Pos.Binary.DB
        (
        ) where
 
-import           Data.Binary.Get       (label)
+import           Data.Binary.Get  (label)
 import           Universum
 
-import           Pos.Binary.Class      (Bi (..))
-import           Pos.DB.Types          (GtRichmenStorage (..), LeadersStorage (..),
-                                        StoredBlock (..))
-import           Pos.Ssc.Class.Helpers (SscHelpersClass)
-
-instance SscHelpersClass ssc =>
-         Bi (StoredBlock ssc) where
-    put StoredBlock {..} = put sbBlock
-    get = label "StoredBlock" $ StoredBlock <$> get
+import           Pos.Binary.Class (Bi (..))
+import           Pos.DB.Lrc.Types (GtRichmenStorage (..), LeadersStorage (..))
 
 instance Bi (LeadersStorage ssc) where
     put LeadersStorage {..} = put lrcEpoch >> put lrcLeaders

@@ -65,7 +65,7 @@ walletServeWebFull
     -> Bool      -- Rebuild flag
     -> Word16
     -> RawRealMode ssc ()
-walletServeWebFull sendActions debug = walletServeImpl action
+walletServeWebFull sendActions debug = undefined -- walletServeImpl @_ @ssc action
   where
     action :: WalletWebHandler (RawRealMode ssc) Application
     action = do
@@ -73,9 +73,8 @@ walletServeWebFull sendActions debug = walletServeImpl action
 #ifdef DEV_MODE
         when debug $ mapM_ addSecretKey genesisSecretKeys
 #endif
-        let server :: WebHandler ssc (Server WalletApi)
-            server = walletServer sendActions nat
-        walletApplication server
+        -- walletApplication @ssc $ walletServer sendActions nat
+        undefined
 
 type WebHandler ssc = WalletWebSockets (WalletWebDB (RawRealMode ssc))
 
@@ -98,7 +97,7 @@ convertHandler
     :: forall ssc a .
        KademliaDHTInstance
     -> NodeContext ssc              -- (.. insert monad `m` here ..)
-    -> NodeDBs ssc
+    -> NodeDBs
     -> TxpLocalData
     -> SscState ssc
     -> WalletState

@@ -22,7 +22,8 @@ import           Pos.Communication.Protocol (ConversationActions (..), NodeId (.
 import           Pos.Context                (getNodeContext, isRecoveryMode, ncNodeParams,
                                              npAttackTypes)
 import           Pos.Crypto                 (shortHashF)
-import qualified Pos.DB                     as DB
+import qualified Pos.DB.Block               as DB
+import qualified Pos.DB.DB                  as DB
 import           Pos.DHT.Model              (converseToNeighbors)
 import           Pos.Security               (AttackType (..), NodeAttackedError (..),
                                              shouldIgnoreAddress)
@@ -70,17 +71,17 @@ announceBlock sendActions header = do
         handleHeadersCommunication conv
 
 handleHeadersCommunication
-    :: WorkMode ssc m
-    => ConversationActions (MsgHeaders ssc) MsgGetHeaders m
-    -> m ()
+    :: forall ssc m.
+       WorkMode ssc m
+    => ConversationActions (MsgHeaders ssc) MsgGetHeaders m -> m ()
 handleHeadersCommunication conv = do
     (msg :: Maybe MsgGetHeaders) <- recv conv
     whenJust msg $ \mgh@(MsgGetHeaders {..}) -> do
         logDebug $ sformat ("Got request on handleGetHeaders: "%build) mgh
         ifM isRecoveryMode onRecovery $ do
             headers <- case (mghFrom,mghTo) of
-                ([], Nothing) -> Just . one <$> DB.getTipBlockHeader
-                ([], Just h)  -> fmap one <$> DB.getBlockHeader h
+                ([], Nothing) -> Just . one <$> DB.getTipBlockHeader @ssc
+                ([], Just h)  -> fmap one <$> DB.getBlockHeader @ssc h
                 (c1:cxs, _)   -> getHeadersFromManyTo (c1:|cxs) mghTo
             maybe onNoHeaders handleSuccess headers
   where

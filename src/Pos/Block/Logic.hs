@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -60,7 +61,8 @@ import           Pos.Crypto                 (SecretKey, WithHash (WithHash), has
                                              shortHashF)
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.DB                     (DBError (..), MonadDB)
-import qualified Pos.DB                     as DB
+import qualified Pos.DB.Block               as DB
+import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
 import qualified Pos.DB.Lrc                 as LrcDB
 import           Pos.Delegation.Logic       (delegationVerifyBlocks, getProxyMempool)
@@ -220,12 +222,13 @@ data ClassifyHeadersRes ssc
 -- * If chain of headers forks from our main chain too much, CHsUseless
 -- is returned, because paper suggests doing so.
 classifyHeaders
-    :: WorkMode ssc m
+    :: forall ssc m.
+       WorkMode ssc m
     => NewestFirst NE (BlockHeader ssc) -> m (ClassifyHeadersRes ssc)
 classifyHeaders headers = do
-    tipHeader <- DB.getTipBlockHeader
+    tipHeader <- DB.getTipBlockHeader @ssc
     let tip = headerHash tipHeader
-    haveOldestParent <- isJust <$> DB.getBlockHeader oldestParentHash
+    haveOldestParent <- isJust <$> DB.getBlockHeader @ssc oldestParentHash
     let headersValid = isVerSuccess $ verifyHeaders True (headers & _Wrapped %~ toList)
     if | not headersValid ->
              pure $ CHsInvalid "Header chain is invalid"
@@ -271,7 +274,7 @@ classifyHeaders headers = do
 -- checkpoint that's in our main chain to the newest ones.
 getHeadersFromManyTo
     :: forall ssc m.
-       (MonadDB ssc m, SscHelpersClass ssc, CanLog m, HasLoggerName m)
+       (MonadDB m, SscHelpersClass ssc, CanLog m, HasLoggerName m)
     => NonEmpty HeaderHash  -- ^ Checkpoints; not guaranteed to be
                             --   in any particular order
     -> Maybe HeaderHash
@@ -282,7 +285,7 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
                 checkpoints startM
     validCheckpoints <- MaybeT $
         nonEmpty . catMaybes <$>
-        mapM DB.getBlockHeader (toList checkpoints)
+        mapM (DB.getBlockHeader @ssc) (toList checkpoints)
     tip <- lift GS.getTip
     guard $ all ((/= tip) . headerHash) validCheckpoints
     let startFrom = fromMaybe tip startM
@@ -312,14 +315,15 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
 -- it returns not more than 'blkSecurityParam' blocks distributed
 -- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
-    :: (MonadDB ssc m, SscHelpersClass ssc)
+    :: forall ssc m.
+       (MonadDB m, SscHelpersClass ssc)
     => Maybe HeaderHash -> m (OldestFirst [] HeaderHash)
 getHeadersOlderExp upto = do
     tip <- GS.getTip
     let upToReal = fromMaybe tip upto
     -- Using 'blkSecurityParam + 1' because fork can happen on k+1th one.
     allHeaders <-
-        toOldestFirst <$> DB.loadHeadersByDepth (blkSecurityParam + 1) upToReal
+        toOldestFirst <$> DB.loadHeadersByDepth @ssc (blkSecurityParam + 1) upToReal
     pure $ OldestFirst $
         selectIndices
             (getOldestFirst (map headerHash allHeaders))
@@ -348,12 +352,12 @@ getHeadersOlderExp upto = do
 -- range @[from..to]@ will be found.
 getHeadersFromToIncl
     :: forall ssc m .
-       (MonadDB ssc m, SscHelpersClass ssc)
+       (MonadDB m, SscHelpersClass ssc)
     => HeaderHash -> HeaderHash -> m (Maybe (OldestFirst NE HeaderHash))
 getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
     -- oldest and newest blocks do exist
-    start <- MaybeT $ DB.getBlockHeader newer
-    end   <- MaybeT $ DB.getBlockHeader older
+    start <- MaybeT $ DB.getBlockHeader @ssc newer
+    end   <- MaybeT $ DB.getBlockHeader @ssc older
     guard $ getEpochOrSlot start >= getEpochOrSlot end
     let lowerBound = getEpochOrSlot end
     if newer == older
@@ -369,7 +373,7 @@ getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
         | nextHash == genesisHash = mzero
         | nextHash == older = pure $ nextHash <| hashes
         | otherwise = do
-            nextHeader <- MaybeT $ DB.getBlockHeader nextHash
+            nextHeader <- MaybeT $ (DB.getBlockHeader @ssc) nextHash
             guard $ getEpochOrSlot nextHeader > lowerBound
             -- hashes are being prepended so the oldest hash will be the last
             -- one to be prepended and thus the order is OldestFirst
@@ -389,12 +393,13 @@ getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
 -- verification fails. This function checks everything from block, including
 -- header, transactions, delegation data, SSC data, US data.
 verifyBlocksPrefix
-    :: WorkMode ssc m
+    :: forall ssc m.
+       WorkMode ssc m
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE Undo, PollModifier))
 verifyBlocksPrefix blocks = runExceptT $ do
     curSlot <- getCurrentSlot
-    tipBlk <- DB.getTipBlock
+    tipBlk <- DB.getTipBlock @ssc
     when (headerHash tipBlk /= blocks ^. _Wrapped . _neHead . prevBlockL) $
         throwError "the first block isn't based on the tip"
     leaders <-

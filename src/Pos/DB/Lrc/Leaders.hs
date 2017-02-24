@@ -29,14 +29,14 @@ import           Pos.Types             (EpochIndex, SlotLeaders)
 -- Getters
 ----------------------------------------------------------------------------
 
-getLeaders :: MonadDB ssc m => EpochIndex -> m (Maybe SlotLeaders)
+getLeaders :: MonadDB m => EpochIndex -> m (Maybe SlotLeaders)
 getLeaders = getBi . leadersKey
 
 ----------------------------------------------------------------------------
 -- Operations
 ----------------------------------------------------------------------------
 
-putLeaders :: MonadDB ssc m => EpochIndex -> SlotLeaders -> m ()
+putLeaders :: MonadDB m => EpochIndex -> SlotLeaders -> m ()
 putLeaders epoch = putBi (leadersKey epoch)
 
 ----------------------------------------------------------------------------
@@ -45,7 +45,7 @@ putLeaders epoch = putBi (leadersKey epoch)
 
 prepareLrcLeaders
     :: forall ssc m.
-       (WithNodeContext ssc m, MonadDB ssc m)
+       (WithNodeContext ssc m, MonadDB m)
     => m ()
 prepareLrcLeaders = putIfEmpty (getLeaders 0) (putLeaders 0 =<< genesisLeadersM)
   where

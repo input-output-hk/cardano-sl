@@ -59,7 +59,7 @@ newtype SlottingHolder m a = SlottingHolder
                , HasLoggerName
                , CanLog
 
-               , MonadDB σ
+               , MonadDB
                , WithNodeContext ssc
                , MonadJL
                )
@@ -124,7 +124,7 @@ runSlottingHolder :: SlottingVar -> SlottingHolder m a -> m a
 runSlottingHolder v = usingReaderT v . getSlottingHolder
 
 -- | Create new 'SlottingVar' using data from DB.
-mkSlottingVar :: MonadDB ε m => m SlottingVar
+mkSlottingVar :: MonadDB m => m SlottingVar
 mkSlottingVar = do
     sd <- GState.getSlottingData
     liftIO $ newTVarIO sd

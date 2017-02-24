@@ -30,7 +30,7 @@ import           Pos.Types              (HeaderHash)
 -- | Put missing initial data into GState DB.
 prepareGStateDB
     :: forall ssc m.
-       (WithNodeContext ssc m, MonadDB ssc m)
+       (WithNodeContext ssc m, MonadDB m)
     => HeaderHash -> m ()
 prepareGStateDB initialTip = do
     prepareGStateCommon initialTip
@@ -42,14 +42,14 @@ prepareGStateDB initialTip = do
 
 -- | Check that GState DB is consistent.
 sanityCheckGStateDB
-    :: forall ssc m.
-       (MonadDB ssc m, MonadMask m, WithLogger m)
+    :: forall m.
+       (MonadDB m, MonadMask m, WithLogger m)
     => m ()
 sanityCheckGStateDB = do
     sanityCheckBalances
     sanityCheckUtxo =<< getTotalFtsStake
 
-usingGStateSnapshot :: (MonadDB ssc m, MonadMask m) => m a -> m a
+usingGStateSnapshot :: (MonadDB m, MonadMask m) => m a -> m a
 usingGStateSnapshot action = do
     db <- _gStateDB <$> getNodeDBs
     let readOpts = rocksReadOpts db

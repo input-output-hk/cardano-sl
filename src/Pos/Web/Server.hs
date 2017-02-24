@@ -84,14 +84,14 @@ serveImpl application port =
 type WebHandler ssc =
     TxpHolder (
     ContextHolder ssc (
-    DB.DBHolder ssc
+    DB.DBHolder
     Production
     ))
 
 convertHandler
     :: forall ssc a.
        NodeContext ssc
-    -> DB.NodeDBs ssc
+    -> DB.NodeDBs
     -> TxpLocalData
     -> WebHandler ssc a
     -> Handler a

@@ -41,19 +41,19 @@ import           Pos.Util            (maybeThrow)
 ----------------------------------------------------------------------------
 
 getBi
-    :: (MonadDB ssc m, Bi v)
+    :: (MonadDB m, Bi v)
     => ByteString -> m (Maybe v)
 getBi k = rocksGetBi k =<< getUtxoDB
 
 putBi
-    :: (MonadDB ssc m, Bi v)
+    :: (MonadDB m, Bi v)
     => ByteString -> v -> m ()
 putBi k v = rocksPutBi k v =<< getUtxoDB
 
-delete :: (MonadDB ssc m) => ByteString -> m ()
+delete :: (MonadDB m) => ByteString -> m ()
 delete k = rocksDelete k =<< getUtxoDB
 
-writeBatchGState :: (RocksBatchOp a, MonadDB ssc m) => [a] -> m ()
+writeBatchGState :: (RocksBatchOp a, MonadDB m) => [a] -> m ()
 writeBatchGState batch = rocksWriteBatch batch =<< getUtxoDB
 
 ----------------------------------------------------------------------------
@@ -61,11 +61,11 @@ writeBatchGState batch = rocksWriteBatch batch =<< getUtxoDB
 ----------------------------------------------------------------------------
 
 -- | Get current tip from GState DB.
-getTip :: (MonadDB ssc m) => m HeaderHash
+getTip :: (MonadDB m) => m HeaderHash
 getTip = maybeThrow (DBMalformed "no tip in GState DB") =<< getTipMaybe
 
 -- | Get the hash of the first genesis block from GState DB.
-getBot :: (MonadDB ssc m) => m HeaderHash
+getBot :: (MonadDB m) => m HeaderHash
 getBot = maybeThrow (DBMalformed "no bot in GState DB") =<< getBotMaybe
 
 ----------------------------------------------------------------------------
@@ -86,8 +86,8 @@ instance RocksBatchOp CommonOp where
 
 -- | Put missing initial common data into GState DB.
 prepareGStateCommon
-    :: forall ssc m.
-       MonadDB ssc m
+    :: forall m.
+       MonadDB m
     => HeaderHash -> m ()
 prepareGStateCommon initialTip = do
     putIfEmpty getTipMaybe putGenesisTip
@@ -114,14 +114,14 @@ botKey = "c/bot"
 -- Details
 ----------------------------------------------------------------------------
 
-getTipMaybe :: MonadDB ssc m => m (Maybe HeaderHash)
+getTipMaybe :: MonadDB m => m (Maybe HeaderHash)
 getTipMaybe = getBi tipKey
 
-getBotMaybe :: MonadDB ssc m => m (Maybe HeaderHash)
+getBotMaybe :: MonadDB m => m (Maybe HeaderHash)
 getBotMaybe = getBi botKey
 
-putTip :: MonadDB ssc m => HeaderHash -> m ()
+putTip :: MonadDB m => HeaderHash -> m ()
 putTip = putBi tipKey
 
-putBot :: MonadDB ssc m => HeaderHash -> m ()
+putBot :: MonadDB m => HeaderHash -> m ()
 putBot = putBi botKey

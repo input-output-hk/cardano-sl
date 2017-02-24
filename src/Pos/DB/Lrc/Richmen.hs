@@ -77,14 +77,14 @@ class Bi (RichmenData a) => RichmenComponent a where
 ----------------------------------------------------------------------------
 
 getRichmen
-    :: forall c ssc m.
-       (RichmenComponent c, MonadDB ssc m)
+    :: forall c m.
+       (RichmenComponent c, MonadDB m)
     => EpochIndex -> m (Maybe (RichmenData c))
 getRichmen = getBi . richmenKey @c
 
 getRichmenP
-    :: forall c ssc m.
-       (RichmenComponent c, MonadDB ssc m)
+    :: forall c m.
+       (RichmenComponent c, MonadDB m)
     => Proxy c -> EpochIndex -> m (Maybe (RichmenData c))
 getRichmenP Proxy = getRichmen @c
 
@@ -93,14 +93,14 @@ getRichmenP Proxy = getRichmen @c
 ----------------------------------------------------------------------------
 
 putRichmen
-    :: forall c ssc m.
-       (RichmenComponent c, MonadDB ssc m)
+    :: forall c m.
+       (RichmenComponent c, MonadDB m)
     => EpochIndex -> FullRichmenData -> m ()
 putRichmen e = putBi (richmenKey @c e) . (rcToData @c)
 
 putRichmenP
-    :: forall c ssc m.
-       (RichmenComponent c, MonadDB ssc m)
+    :: forall c m.
+       (RichmenComponent c, MonadDB m)
     => Proxy c -> EpochIndex -> FullRichmenData -> m ()
 putRichmenP Proxy = putRichmen @c
 
@@ -119,7 +119,7 @@ someRichmenComponent
 someRichmenComponent = SomeRichmenComponent (Proxy :: Proxy c)
 
 prepareLrcRichmen
-    :: (WithNodeContext ssc m, MonadDB ssc m)
+    :: (WithNodeContext ssc m, MonadDB m)
     => m ()
 prepareLrcRichmen = do
     genesisDistribution <- concatMap txOutStake . toList <$> genesisUtxoM
@@ -187,11 +187,11 @@ instance RichmenComponent RCSsc where
     rcThreshold Proxy = applyCoinPortion genesisMpcThd
     rcConsiderDelegated Proxy = True
 
-getRichmenSsc :: MonadDB ssc m => EpochIndex -> m (Maybe RichmenStake)
+getRichmenSsc :: MonadDB m => EpochIndex -> m (Maybe RichmenStake)
 getRichmenSsc epoch = getRichmen @RCSsc epoch
 
 putRichmenSsc
-    :: (MonadDB ssc m)
+    :: (MonadDB m)
     => EpochIndex -> FullRichmenData -> m ()
 putRichmenSsc = putRichmen @RCSsc
 
@@ -208,11 +208,11 @@ instance RichmenComponent RCUs where
     rcThreshold Proxy = applyCoinPortion genesisUpdateVoteThd
     rcConsiderDelegated Proxy = True
 
-getRichmenUS :: MonadDB ssc m => EpochIndex -> m (Maybe FullRichmenData)
+getRichmenUS :: MonadDB m => EpochIndex -> m (Maybe FullRichmenData)
 getRichmenUS epoch = getRichmen @RCUs epoch
 
 putRichmenUS
-    :: (MonadDB ssc m)
+    :: (MonadDB m)
     => EpochIndex -> FullRichmenData -> m ()
 putRichmenUS = putRichmen @RCUs
 
@@ -229,8 +229,8 @@ instance RichmenComponent RCDlg where
     rcThreshold Proxy = applyCoinPortion genesisHeavyDelThd
     rcConsiderDelegated Proxy = False
 
-getRichmenDlg :: MonadDB ssc m => EpochIndex -> m (Maybe Richmen)
+getRichmenDlg :: MonadDB m => EpochIndex -> m (Maybe Richmen)
 getRichmenDlg epoch = getRichmen @RCDlg epoch
 
-putRichmenDlg :: (MonadDB ssc m) => EpochIndex -> FullRichmenData -> m ()
+putRichmenDlg :: MonadDB m => EpochIndex -> FullRichmenData -> m ()
 putRichmenDlg = putRichmen @RCDlg

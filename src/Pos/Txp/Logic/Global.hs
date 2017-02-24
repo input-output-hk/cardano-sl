@@ -21,7 +21,6 @@ import           Pos.Block.Types     (Blund, Undo (undoTx))
 import           Pos.DB              (MonadDB, SomeBatchOp (..))
 import qualified Pos.DB.GState       as GS
 import           Pos.Exception       (assertionFailed)
-import           Pos.Ssc.Class.Types (Ssc)
 import           Pos.Txp.Core.Types  (TxAux, TxUndo, TxsUndo)
 import           Pos.Types           (Block, blockTxas)
 import           Pos.Util            (NE, NewestFirst (..), OldestFirst (..),
@@ -33,15 +32,12 @@ import           Pos.Txp.Toil        (BalancesView (..), BalancesView (..), DBTx
                                       TxpModifier (..), TxpT, TxpVerFailure,
                                       UtxoView (..), applyTxp, rollbackTxp, runDBTxp,
                                       runTxpTGlobal, verifyTxp)
-type TxpWorkMode ssc m = ( Ssc ssc
-                         , WithLogger m
-                         , MonadDB ssc m
-                         , MonadTxpMem m
-                         , MonadThrow m)
+
+type TxpWorkMode m = (WithLogger m, MonadDB m, MonadTxpMem m, MonadThrow m)
 
 -- | Verify chain of blocks and return transaction undos of blocks.
 txVerifyBlocks
-    :: forall ssc m . TxpWorkMode ssc m
+    :: forall ssc m . TxpWorkMode m
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE TxsUndo))
 txVerifyBlocks newChain = do
@@ -54,7 +50,7 @@ txVerifyBlocks newChain = do
 -- | Apply chain of /definitely/ valid blocks to state on transactions
 -- processing.
 txApplyBlocks
-    :: TxpWorkMode ssc m
+    :: TxpWorkMode m
     => OldestFirst NE (Blund ssc)
     -> m SomeBatchOp
 txApplyBlocks blunds = do
@@ -77,7 +73,7 @@ txApplyBlocks blunds = do
 
 -- | Rollback chain of blocks.
 txRollbackBlocks
-    :: (WithLogger m, MonadDB ssc m)
+    :: (WithLogger m, MonadDB m)
     => NewestFirst NE (Blund ssc) -> m SomeBatchOp
 txRollbackBlocks blunds = do
     verdict <- runTxpAction $
@@ -104,8 +100,9 @@ txpModifierToBatch (TxpModifier
 
 -- Run action which requires MonadUtxo and MonadTxPool interfaces.
 runTxpAction
-    :: MonadDB ssc m
-    => TxpT (DBTxp (ExceptT TxpVerFailure m)) a -> m (Either TxpVerFailure (a, TxpModifier))
+    :: MonadDB m
+    => TxpT (DBTxp (ExceptT TxpVerFailure m)) a
+    -> m (Either TxpVerFailure (a, TxpModifier))
 runTxpAction action = do
     total <- GS.getTotalFtsStake
     let balView = BalancesView mempty total

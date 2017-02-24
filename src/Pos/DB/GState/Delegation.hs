@@ -33,14 +33,14 @@ import           Pos.Types        (ProxySKHeavy, StakeholderId, addressHash)
 ----------------------------------------------------------------------------
 
 -- | Retrieves certificate by issuer address (hash of public key) if present.
-getPSKByIssuerAddressHash :: MonadDB ssc m => StakeholderId -> m (Maybe ProxySKHeavy)
+getPSKByIssuerAddressHash :: MonadDB m => StakeholderId -> m (Maybe ProxySKHeavy)
 getPSKByIssuerAddressHash addrHash = rocksGetBi (pskKey addrHash) =<< getUtxoDB
 
 -- | Retrieves certificate by issuer public key if present.
-getPSKByIssuer :: MonadDB ssc m => PublicKey -> m (Maybe ProxySKHeavy)
+getPSKByIssuer :: MonadDB m => PublicKey -> m (Maybe ProxySKHeavy)
 getPSKByIssuer = getPSKByIssuerAddressHash . addressHash
 
-isIssuerByAddressHash :: MonadDB ssc m => StakeholderId -> m Bool
+isIssuerByAddressHash :: MonadDB m => StakeholderId -> m Bool
 isIssuerByAddressHash = fmap isJust . getPSKByIssuerAddressHash
 
 ----------------------------------------------------------------------------
@@ -74,13 +74,13 @@ instance DBIteratorClass PskIter where
     iterKeyPrefix _ = iterationPrefix
 
 runPskIterator
-    :: forall m ssc a . MonadDB ssc m
-    => DBnIterator ssc PskIter a -> m a
+    :: forall m a . MonadDB m
+    => DBnIterator PskIter a -> m a
 runPskIterator = runDBnIterator @PskIter _gStateDB
 
 runPskMapIterator
-    :: forall v m ssc a . MonadDB ssc m
-    => DBnMapIterator ssc PskIter v a -> (IterType PskIter -> v) -> m a
+    :: forall v m a . MonadDB m
+    => DBnMapIterator PskIter v a -> (IterType PskIter -> v) -> m a
 runPskMapIterator = runDBnMapIterator @PskIter _gStateDB
 
 ----------------------------------------------------------------------------

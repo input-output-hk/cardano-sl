@@ -65,13 +65,13 @@ newtype DBPoll m a = DBPoll
                , MonadBase io
                , MonadDelegation
                , MonadFix
+               , MonadDB
                )
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code
 ----------------------------------------------------------------------------
 
-deriving instance MonadDB ssc m => MonadDB ssc (DBPoll m)
 type instance ThreadId (DBPoll m) = ThreadId m
 type instance Promise (DBPoll m) = Promise m
 type instance SharedAtomicT (DBPoll m) = SharedAtomicT m
@@ -107,7 +107,7 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DBPoll m) where
 -- MonadPoll
 ----------------------------------------------------------------------------
 
-instance (WithNodeContext ssc m, MonadDB ssc m, WithLogger m) =>
+instance (WithNodeContext ssc m, MonadDB m, WithLogger m) =>
          MonadPollRead (DBPoll m) where
     getBVState = GS.getBVState
     getProposedBVs = GS.getProposedBVs

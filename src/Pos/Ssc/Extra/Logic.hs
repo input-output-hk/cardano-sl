@@ -41,7 +41,8 @@ import           System.Wlog             (LogEvent, LoggerName, LoggerNameBox, P
 import           Universum
 
 import           Pos.Context             (WithNodeContext, lrcActionOnEpochReason)
-import           Pos.DB                  (MonadDB, getTipBlockHeader)
+import           Pos.DB                  (MonadDB)
+import           Pos.DB.DB               (getTipBlockHeader)
 import qualified Pos.DB.Lrc              as LrcDB
 import           Pos.Exception           (assertionFailed)
 import           Pos.Slotting.Class      (MonadSlots)
@@ -128,7 +129,7 @@ sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 -- releasing lock on block application.
 sscNormalize
     :: forall ssc m.
-       ( MonadDB ssc m
+       ( MonadDB m
        , MonadSscMem ssc m
        , SscLocalDataClass ssc
        , WithNodeContext ssc m
@@ -137,7 +138,7 @@ sscNormalize
        )
     => m ()
 sscNormalize = do
-    tipEpoch <- view epochIndexL <$> getTipBlockHeader
+    tipEpoch <- view epochIndexL <$> getTipBlockHeader @ssc
     richmenData <-
         lrcActionOnEpochReason
             tipEpoch
@@ -163,10 +164,10 @@ sscNormalize = do
 -- to remove all local data to be sure it's valid.
 sscResetLocal
     :: forall ssc m.
-       (MonadDB ssc m, MonadSscMem ssc m, SscLocalDataClass ssc, MonadSlots m)
+       (MonadDB m, MonadSscMem ssc m, SscLocalDataClass ssc, MonadSlots m)
     => m ()
 sscResetLocal = do
-    emptyLD <- sscNewLocalData
+    emptyLD <- sscNewLocalData @ssc
     localVar <- sscLocal <$> askSscMem
     atomically $ writeTVar localVar emptyLD
 
@@ -179,10 +180,10 @@ sscResetLocal = do
 -- 'MonadDB' is needed only to get richmen.
 -- We can try to eliminate these constraints later.
 type SscGlobalApplyMode ssc m =
-    (MonadSscMem ssc m, SscGStateClass ssc, WithLogger m, MonadDB ssc m, WithNodeContext ssc m)
+    (MonadSscMem ssc m, SscGStateClass ssc, WithLogger m, MonadDB m, WithNodeContext ssc m)
 type SscGlobalVerifyMode ssc m =
     (MonadSscMem ssc m, SscGStateClass ssc, WithLogger m,
-     MonadDB ssc m, MonadError (SscVerifyError ssc) m, WithNodeContext ssc m)
+     MonadDB m, MonadError (SscVerifyError ssc) m, WithNodeContext ssc m)
 
 sscRunGlobalUpdatePure
     :: forall ssc a.

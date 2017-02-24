@@ -46,7 +46,7 @@ class Ssc ssc =>
       SscGStateClass ssc where
     -- | Load global state from DB by recreating it from recent blocks.
     sscLoadGlobalState
-        :: (WithNodeContext ssc m, MonadDB ssc m, WithLogger m)
+        :: (WithNodeContext ssc m, MonadDB m, WithLogger m)
         => m (SscGlobalState ssc)
     -- | Rollback application of blocks.
     sscRollbackU :: NewestFirst NE (Block ssc) -> SscGlobalUpdate ssc ()

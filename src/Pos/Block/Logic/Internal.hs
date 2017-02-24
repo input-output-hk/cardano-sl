@@ -21,7 +21,8 @@ import           Universum
 import           Pos.Block.Types      (Blund, Undo (undoUS))
 import           Pos.Context          (putBlkSemaphore, takeBlkSemaphore)
 import           Pos.DB               (SomeBatchOp (..))
-import qualified Pos.DB               as DB
+import qualified Pos.DB.Block         as DB
+import qualified Pos.DB.DB            as DB
 import qualified Pos.DB.GState        as GS
 import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollbackBlocks)
 import           Pos.Exception        (assertionFailed)

@@ -26,8 +26,8 @@ import           Universum
 import           Pos.Binary.Ssc                 ()
 import           Pos.Constants                  (vssMaxTTL)
 import           Pos.Context                    (WithNodeContext, lrcActionOnEpoch)
-import           Pos.DB                         (DBError (DBMalformed), MonadDB,
-                                                 getTipBlockHeader,
+import           Pos.DB                         (DBError (DBMalformed), MonadDB)
+import           Pos.DB.DB                      (getTipBlockHeader,
                                                  loadBlundsFromTipWhile)
 import qualified Pos.DB.Lrc                     as LrcDB
 import           Pos.Lrc.Types                  (RichmenStake)
@@ -91,10 +91,13 @@ instance SscGStateClass SscGodTossing where
         view gsShares
 
 loadGlobalState
-    :: (WithNodeContext kek m, WithLogger m, MonadDB SscGodTossing m)
+    :: ( WithNodeContext SscGodTossing m
+       , WithLogger m
+       , MonadDB m
+       )
     => m GtGlobalState
 loadGlobalState = do
-    endEpoch <- view epochIndexL <$> getTipBlockHeader
+    endEpoch <- view epochIndexL <$> getTipBlockHeader @SscGodTossing
     let startEpoch = safeSub endEpoch -- load blocks while >= endEpoch
         whileEpoch b = b ^. epochIndexL >= startEpoch
     logDebug $ sformat ("mpcLoadGlobalState: start epoch is " %build) startEpoch

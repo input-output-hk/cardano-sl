@@ -39,6 +39,7 @@ library
                         Pos.Explorer.Web.Api
   build-depends:        base
                       , aeson
+                      , binary
                       , bytestring
                       , base16-bytestring
                       , cardano-sl
@@ -51,6 +52,7 @@ library
                       , mtl
                       , monad-loops
                       , node-sketch
+                      , serokell-util
                       , servant
                       , servant-server
                       , socket-io

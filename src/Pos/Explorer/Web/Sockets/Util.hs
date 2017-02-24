@@ -22,8 +22,9 @@ import           Data.Time.Units             (TimeUnit (..))
 import           Formatting                  (sformat, shown, (%))
 import           Mockable                    (Fork, Mockable, fork)
 import qualified Network.SocketIO            as S
+import           Serokell.Util.Concurrent    (threadDelay)
 import           System.Wlog                 (WithLogger, logWarning)
-import           Universum                   hiding (on)
+import           Universum                   hiding (on, threadDelay)
 
 -- * Provides type-safity for event names in some socket-io functions.
 
@@ -67,7 +68,7 @@ runPeriodicallyUnless delay stop initState action =
     let loop st = unlessM stop $ do
             st' <- execStateT action st
                 `catchAll` \e -> handler e $> st
-            liftIO $ threadDelay $ fromIntegral $ toMicroseconds delay
+            threadDelay delay
             loop st'
     in  loop initState
   where

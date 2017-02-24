@@ -25,8 +25,9 @@ import           Pos.Genesis                   (genesisAddresses, genesisPublicK
                                                 genesisSecretKeys)
 import           Pos.Script                    (Script)
 import           Pos.Script.Examples           (multisigValidator)
-import           Pos.Types                     (Tx (..), TxAux, TxId, TxOut (..),
-                                                makePubKeyAddress, makeScriptAddress,
+import           Pos.Txp                       (Tx (..), TxAux, TxId, TxIn (..),
+                                                TxOut (..))
+import           Pos.Types                     (makePubKeyAddress, makeScriptAddress,
                                                 mkCoin)
 import           Pos.Util.TimeWarp             (sec)
 import           Pos.Wallet                    (makeMOfNTx, makePubKeyTx)
@@ -48,14 +49,14 @@ tpsTxBound tps propThreshold =
 genChain :: SecretKey -> TxId -> Word32 -> [TxAux]
 genChain sk txInHash txInIndex =
     let addr = makePubKeyAddress $ toPublic sk
-        (tx, w, d) = makePubKeyTx (fakeSigner sk) [(txInHash, txInIndex)]
+        (tx, w, d) = makePubKeyTx (fakeSigner sk) [TxIn txInHash txInIndex]
                                      [(TxOut addr (mkCoin 1), [])]
     in (tx, w, d) : genChain sk (hash tx) 0
 
 genMOfNChain :: Script -> [Maybe SecretKey] -> TxId -> Word32 -> [TxAux]
 genMOfNChain val sks txInHash txInIndex =
     let addr = makeScriptAddress val
-        (tx, w, d) = makeMOfNTx val (fmap fakeSigner <$> sks) [(txInHash, txInIndex)]
+        (tx, w, d) = makeMOfNTx val (fmap fakeSigner <$> sks) [TxIn txInHash txInIndex]
                      [(TxOut addr (mkCoin 1), [])]
     in (tx, w, d) : genMOfNChain val sks (hash tx) 0
 
@@ -66,7 +67,7 @@ initTransaction GenOptions{..} i =
         outputsNum = min n' goInitBalance
         inAddr = genesisAddresses !! i
         sk = genesisSecretKeys !! i
-        input = (unsafeHash inAddr, 0)
+        input = TxIn (unsafeHash inAddr) 0
         outAddr = case goMOfNParams of
             Nothing     -> inAddr
             Just (m, n) -> let pks = take n genesisPublicKeys
@@ -86,7 +87,7 @@ data BambooPool = BambooPool
 
 createBambooPool :: Maybe (Int, Int) -> Int -> TxAux -> IO BambooPool
 createBambooPool mOfN i (tx, w, d) = atomically $ BambooPool <$> newListArray (0, outputsN - 1) bamboos <*> newTVar 0
-    where outputsN = length $ txOutputs tx
+    where outputsN = length $ _txOutputs tx
           sk = genesisSecretKeys !! i
           bamboos = map (((tx, w, d) :) . mkChain . fromIntegral) [0 .. outputsN - 1]
           txId = hash tx
@@ -124,7 +125,7 @@ peekTx :: BambooPool -> IO TxAux
 peekTx bp = curBambooTx bp 0
 
 isTxVerified :: (WorkMode ssc m) => Tx -> m Bool
-isTxVerified tx = allM (fmap isJust . getTxOut) (txInputs tx)
+isTxVerified tx = allM (fmap isJust . getTxOut) (_txInputs tx)
 
 nextValidTx
     :: WorkMode ssc m

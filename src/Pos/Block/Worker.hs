@@ -1,5 +1,6 @@
-{-# LANGUAGE RankNTypes   #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Block processing related workers.
 
@@ -15,23 +16,26 @@ import           Mockable                    (delay, fork)
 import           Pos.Communication.Protocol  (SendActions)
 import           Serokell.Util               (VerificationRes (..), listJson, pairF)
 import           Serokell.Util.Exceptions    ()
-import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
+import           System.Wlog                 (WithLogger, logDebug, logError, logInfo,
+                                              logWarning)
 import           Universum
 
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
-import           Pos.Block.Network.Retrieval (retrievalWorker)
+import           Pos.Block.Network.Retrieval (requestTipOuts, retrievalWorker,
+                                              triggerRecovery)
 import           Pos.Communication.Protocol  (OutSpecs, Worker', WorkerSpec,
-                                              onNewSlotWorker)
+                                              onNewSlotWorker, worker)
 import           Pos.Constants               (networkDiameter)
-import           Pos.Context                 (getNodeContext, ncPublicKey)
+import           Pos.Context                 (getNodeContext, isRecoveryMode, ncPublicKey)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Lrc                  (getLeaders)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Exception               (assertionFailed)
-import           Pos.Slotting                (currentTimeSlotting,
+import           Pos.Reporting.Methods       (reportingFatal)
+import           Pos.Slotting                (currentTimeSlotting, getCurrentSlot,
                                               getSlotStartEmpatically)
 import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
 import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (..),
@@ -42,12 +46,13 @@ import           Pos.Types.Address           (addressHash)
 import           Pos.Util                    (inAssertMode, logWarningWaitLinear,
                                               mconcatPair)
 import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
+import           Pos.Util.TimeWarp           (sec)
 import           Pos.WorkMode                (WorkMode)
 
 
 -- | All workers specific to block processing.
 blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => ([WorkerSpec m], OutSpecs)
-blkWorkers = merge [blkOnNewSlot, retrievalWorker]
+blkWorkers = merge [blkOnNewSlot, retrievalWorker, recoveryWorker]
   where
     merge = mconcatPair . map (first pure)
 
@@ -168,3 +173,26 @@ verifyCreatedBlock blk =
         , vbpVerifyTxs = True
         , vbpVerifySsc = True
         }
+
+-- | Trigger recovery if we're definitely late in the blockchain (for >epoch).
+recoveryWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
+recoveryWorker = worker requestTipOuts recoveryWorkerImpl
+
+recoveryWorkerImpl
+    :: WorkMode ssc m
+    => SendActions m -> m ()
+recoveryWorkerImpl sendActions = action `catch` handler
+  where
+    action = reportingFatal $ forever $ checkRecovery >> delay (sec 5)
+    checkRecovery = do
+        recMode <- isRecoveryMode
+        curSlotNothing <- isNothing <$> getCurrentSlot
+        if (curSlotNothing && not recMode) then do
+             logDebug "Recovery worker: don't know current slot"
+             triggerRecovery sendActions
+        else logDebug $ "Recovery worker skipped: " <> show curSlotNothing <>
+                        " " <> show recMode
+    handler (e :: SomeException) = do
+        logError $ "Error happened in recoveryWorker: " <> show e
+        delay (sec 10)
+        action

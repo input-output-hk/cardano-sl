@@ -51,7 +51,6 @@ module Pos.Types.Core
        , headerHashF
        ) where
 
-import           Control.Exception   (assert)
 import           Control.Lens        (Getter, to)
 import           Crypto.Hash         (Blake2s_224)
 import           Data.Data           (Data)
@@ -134,7 +133,9 @@ mkCoinPortion x
 -- Internally 'CoinPortion' stores 'Word64' which is divided by 'coinPortionDenominator'
 -- to get actual value. So some rounding may take place.
 unsafeCoinPortionFromDouble :: Double -> CoinPortion
-unsafeCoinPortionFromDouble x = assert (0 <= x && x <= 1) $ CoinPortion v
+unsafeCoinPortionFromDouble x
+    | 0 <= x && x <= 1 = CoinPortion v
+    | otherwise = panic "unsafeCoinPortionFromDouble: double not in [0, 1]"
   where
     v = round $ realToFrac coinPortionDenominator * x
 {-# INLINE unsafeCoinPortionFromDouble #-}

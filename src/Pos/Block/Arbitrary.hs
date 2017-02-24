@@ -22,6 +22,7 @@ import           Pos.Data.Attributes  (Attributes (..), mkAttributes)
 import           Pos.Merkle           (MerkleRoot (..), MerkleTree, mkMerkleTree)
 import           Pos.Ssc.Arbitrary    (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.Class        (Ssc (..), SscHelpersClass)
+import qualified Pos.Txp.Core.Types   as T
 import qualified Pos.Types            as T
 import           Pos.Update.Arbitrary ()
 import           Pos.Util.Arbitrary   (makeSmall)

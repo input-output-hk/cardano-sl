@@ -14,7 +14,7 @@ import           Pos.Communication.Types.Relay    (DataMsg, InvOrData, ReqMsg)
 import           Pos.Communication.Types.SysStart (SysStartRequest, SysStartResponse)
 import           Pos.Delegation.Types             (ConfirmProxySK, SendProxySK)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents, GtTag)
-import           Pos.Txp.Types.Communication      (TxMsgContents, TxMsgTag)
+import           Pos.Txp.Network.Types            (TxMsgContents, TxMsgTag)
 import           Pos.Update.Core.Types            (UpdateProposal, UpdateVote)
 import           Pos.Update.Network.Types         (ProposalMsgTag, VoteMsgTag)
 

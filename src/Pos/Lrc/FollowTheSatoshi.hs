@@ -14,9 +14,10 @@ import           Universum
 
 import           Pos.Constants       (epochSlots)
 import           Pos.Crypto          (deterministic, randomNumber)
-import           Pos.Types           (Coin, SharedSeed (..), StakeholderId, Utxo,
-                                      coinToInteger, mkCoin, sumCoins, unsafeAddCoin)
-import           Pos.Types.Utxo      (utxoToStakes)
+import           Pos.Txp.Core.Types  (Utxo)
+import           Pos.Txp.Toil.Utxo   (utxoToStakes)
+import           Pos.Types           (Coin, SharedSeed (..), StakeholderId, coinToInteger,
+                                      mkCoin, sumCoins, unsafeAddCoin)
 import           Pos.Util.Iterator   (MonadIterator (..), runListHolder)
 
 -- | A version of 'followTheSatoshi' that uses an iterator over 'TxOut's

@@ -24,9 +24,9 @@ import           Pos.Communication.Specs    (sendTxOuts)
 import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
                                              redeemToPublic, safeToPublic)
 import           Pos.DHT.Model              (DHTNode)
-import           Pos.Types                  (Address, TxAux, TxOut (..), TxOutAux,
-                                             makePubKeyAddress, makeRedeemAddress, mkCoin,
-                                             txaF, unsafeAddCoin)
+import           Pos.Txp.Core.Types         (TxAux, TxOut (..), TxOutAux, txaF)
+import           Pos.Types                  (Address, makePubKeyAddress,
+                                             makeRedeemAddress, mkCoin, unsafeAddCoin)
 import           Pos.Wallet.Tx.Pure         (TxError, createMOfNTx, createRedemptionTx,
                                              createTx, makeMOfNTx, makePubKeyTx)
 import           Pos.Wallet.WalletMode      (TxMode, getOwnUtxo, saveTx)

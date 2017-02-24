@@ -19,6 +19,8 @@ module Pos.Explorer.Web.Sockets.Methods
        , notifyAddrSubscribers
        , notifyAllAddrSubscribers
        , notifyBlocksSubscribers
+       , getBlocksFromTo
+       , blockAddresses
        ) where
 
 import           Control.Lens                    (at, (%=), (.=), _Just)
@@ -29,6 +31,13 @@ import           Formatting                      (build, sformat, shown, (%))
 import           GHC.Exts                        (toList)
 import           Network.EngineIO                (SocketId)
 import           Network.SocketIO                (Socket, socketId)
+import           Pos.DB                          (MonadDB)
+import qualified Pos.DB                          as DB
+import qualified Pos.DB.GState                   as DB
+import           Pos.Ssc.Class                   (SscHelpersClass)
+import           Pos.Types                       (Address, Block, ChainDifficulty,
+                                                  HeaderHash, Tx (..), blockTxas,
+                                                  prevBlockL, txOutAddress)
 import           System.Wlog                     (WithLogger, logError, logWarning)
 import           Universum                       hiding (toList)
 
@@ -37,7 +46,6 @@ import           Pos.Explorer.Web.Sockets.Holder (ConnectionsState, ccAddress, c
                                                   csBlocksSubscribers, csClients,
                                                   mkClientContext)
 import           Pos.Explorer.Web.Sockets.Util   (EventName (..), emitJSONTo)
-import           Pos.Types                       (Address, ChainDifficulty)
 
 -- * Event names
 
@@ -165,7 +173,6 @@ notifyAddrSubscribers addr = do
     mRecipients <- view $ csAddressSubscribers . at addr
     whenJust mRecipients broadcastTo
 
--- TODO: temporal solution, remove this
 notifyAllAddrSubscribers
     :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m)
     => m ()
@@ -178,3 +185,35 @@ notifyBlocksSubscribers
     => m ()
 notifyBlocksSubscribers =
     view csBlocksSubscribers >>= broadcastTo
+
+getBlocksFromTo
+    :: (MonadDB ssc m, SscHelpersClass ssc)
+    => HeaderHash -> HeaderHash -> Int -> m (Maybe [Block ssc])
+getBlocksFromTo recentBlock oldBlock limit
+    | recentBlock == oldBlock = return $ Just []
+    | limit == 0              = return Nothing
+    | otherwise               = do
+        mBlock <- DB.getBlock recentBlock
+        case mBlock of
+            Nothing    -> return $ Just []
+            Just block ->
+                fmap (block :) <$> getBlocksFromTo
+                    (block ^. prevBlockL) oldBlock (limit - 1)
+
+blockAddresses
+    :: (MonadDB ssc m, WithLogger m)
+    => Block ssc -> m [Address]
+blockAddresses block = do
+    relatedTxs <- case block of
+        Left _          -> return S.empty
+        Right mainBlock -> fmap mconcat $
+            forM (mainBlock ^. blockTxas) $ \(tx, _, _) -> do
+                -- for each transaction, get its OutTx
+                -- and transactions from InTx
+                inTxs <- forM (txInputs tx) $ DB.getTxOut >=> \case
+                    Nothing       -> S.empty <$ logError "DB is malformed!"
+                    Just (tx', _) -> return $ one tx'
+
+                return $ S.fromList (txOutputs tx) <> mconcat inTxs
+
+    return $ txOutAddress <$> S.toList relatedTxs

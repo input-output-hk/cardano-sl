@@ -9,6 +9,7 @@ module Pos.Explorer.Web.Sockets.App
 
 import           Control.Lens                       ((<<.=))
 import           Data.ByteString                    (ByteString)
+import qualified Data.Set                           as S
 import           Data.Time.Units                    (Millisecond)
 import           Mockable                           (Fork, Mockable)
 import           Network.EngineIO                   (SocketId)
@@ -16,6 +17,8 @@ import           Network.EngineIO.Snap              (snapAPI)
 import           Network.SocketIO                   (RoutingTable, Socket,
                                                      appendDisconnectHandler, initialize,
                                                      socketId)
+import qualified Pos.DB                             as DB
+import           Pos.Ssc.Class                      (SscHelpersClass)
 import           Snap.Core                          (Response, route)
 import           Snap.Http.Server                   (quickHttpServe)
 import           System.Wlog                        (LoggerName, LoggerNameBox,
@@ -23,13 +26,15 @@ import           System.Wlog                        (LoggerName, LoggerNameBox,
                                                      usingLoggerName)
 import           Universum                          hiding (on)
 
-import qualified Pos.DB                             as DB
+import           Data.Map                           as M
 import           Pos.Explorer.Web.Sockets.Holder    (ConnectionsState, ConnectionsVar,
                                                      mkConnectionsState,
                                                      modifyConnectionsStateDo,
                                                      readConnectionsStateDo)
 import           Pos.Explorer.Web.Sockets.Instances ()
-import           Pos.Explorer.Web.Sockets.Methods   (ClientEvent (..),
+import           Pos.Explorer.Web.Sockets.Methods   (ClientEvent (..), blockAddresses,
+                                                     getBlocksFromTo,
+                                                     notifyAddrSubscribers,
                                                      notifyAllAddrSubscribers,
                                                      notifyBlocksSubscribers,
                                                      setClientAddress, setClientBlock,
@@ -38,8 +43,6 @@ import           Pos.Explorer.Web.Sockets.Methods   (ClientEvent (..),
                                                      unsubscribeBlocks, unsubscribeFully)
 import           Pos.Explorer.Web.Sockets.Util      (forkAccompanion, on, on_,
                                                      runPeriodicallyUnless)
-
-import           Data.Map                           as M
 import qualified Snap.Test                          as T
 
 notifierHandler
@@ -85,20 +88,37 @@ notifierServer connVar = do
         quickHttpServe $ route [(notifierAddr, handler)]
 
 periodicPollChanges
-    :: (MonadIO m, MonadMask m, DB.MonadDB ssc m, WithLogger m)
+    :: (MonadIO m, MonadMask m, DB.MonadDB ssc m, WithLogger m,
+        SscHelpersClass ssc)
     => ConnectionsVar -> m Bool -> m ()
 periodicPollChanges connVar closed =
     runPeriodicallyUnless (500 :: Millisecond) closed Nothing $ do
-        curBlock  <- Just <$> DB.getTip
-        prevBlock <- identity <<.= curBlock
-        when (curBlock /= prevBlock) $
+        curBlock  <- DB.getTip
+        mPrevBlock <- identity <<.= Just curBlock
+
+        -- notify about addrs
+        mBlocks <- fmap join $ forM mPrevBlock $ \prevBlock ->
+            getBlocksFromTo curBlock prevBlock 10
+        notifiedAddrs <- case mBlocks of
+            Nothing     -> return False
+            Just blocks -> do
+                addrs <- S.toList . mconcat . fmap S.fromList <$>
+                    mapM blockAddresses blocks
+                forM_ addrs $ \addr ->
+                    readConnectionsStateDo connVar $ notifyAddrSubscribers addr
+                return True
+
+        -- notify about blocks
+        when (mPrevBlock /= Just curBlock) $
             readConnectionsStateDo connVar $ do
                 notifyBlocksSubscribers
-                notifyAllAddrSubscribers  -- TODO: replace with smth more smart
+                unless notifiedAddrs notifyAllAddrSubscribers
+
+        -- or just `hasSender` + `hasReceiver` + `getTxOut`
 
 socketIOApp
     :: (MonadIO m, MonadMask m, DB.MonadDB ssc m, Mockable Fork m,
-        WithLogger m)
+        WithLogger m, SscHelpersClass ssc)
     => m ()
 socketIOApp = do
     connVar <- liftIO $ newMVar mkConnectionsState

@@ -28,13 +28,15 @@ import           Universum
 
 import           Data.Acid                (EventResult, EventState, QueryEvent,
                                            UpdateEvent, makeAcidic)
-import           Data.Default             (def)
-import           Pos.Wallet.State.Storage (Storage)
-import           Pos.Wallet.State.Storage as WS
 import           Serokell.AcidState       (ExtendedState, closeExtendedState,
                                            openLocalExtendedState,
                                            openMemoryExtendedState, queryExtended,
                                            tidyExtendedState, updateExtended)
+
+import           Pos.Types                (Utxo)
+
+import           Pos.Wallet.State.Storage (Storage)
+import           Pos.Wallet.State.Storage as WS
 
 type WalletState = ExtendedState Storage
 
@@ -48,11 +50,12 @@ update
     => WalletState -> event -> m (EventResult event)
 update = updateExtended
 
-openState :: MonadIO m => Bool -> FilePath -> m WalletState
-openState deleteIfExists fp = openLocalExtendedState deleteIfExists fp def
+openState :: MonadIO m => Bool -> Utxo -> FilePath -> m WalletState
+openState deleteIfExists genUtxo fp =
+    openLocalExtendedState deleteIfExists fp $ WS.mkStorage genUtxo
 
-openMemState :: MonadIO m => m WalletState
-openMemState = openMemoryExtendedState def
+openMemState :: MonadIO m => Utxo -> m WalletState
+openMemState = openMemoryExtendedState . WS.mkStorage
 
 closeState :: MonadIO m => WalletState -> m ()
 closeState = closeExtendedState

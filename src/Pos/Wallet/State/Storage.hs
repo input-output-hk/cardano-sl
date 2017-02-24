@@ -5,6 +5,8 @@ module Pos.Wallet.State.Storage
        ( Storage (..)
        , Block'
 
+       , mkStorage
+
        , Query
        , getBlock
        , getBestChain
@@ -21,9 +23,7 @@ module Pos.Wallet.State.Storage
        ) where
 
 import           Control.Lens                   (makeClassy)
-import           Data.Default                   (Default, def)
-import           Data.HashMap.Strict            (HashMap)
-import qualified Data.HashMap.Strict            as HM
+import           Data.Default                   (def)
 import           Data.SafeCopy                  (base, deriveSafeCopySimple)
 import           Data.Time.Units                (Millisecond)
 import           Serokell.Data.Memory.Units     (Byte)
@@ -31,12 +31,13 @@ import           Universum
 
 import qualified Pos.Constants                  as Const
 import           Pos.Crypto                     (ProxyCert)
-import           Pos.Types                      (Address, EpochIndex)
+import           Pos.Types                      (Address, EpochIndex, Utxo)
 import           Pos.Wallet.State.Storage.Block (Block', BlockStorage,
                                                  HasBlockStorage (..), blkSetHead,
                                                  getBestChain, getBlock)
 import           Pos.Wallet.State.Storage.Tx    (HasTxStorage (..), TxStorage,
-                                                 getOldestUtxo, getTxHistory, getUtxo)
+                                                 getOldestUtxo, getTxHistory, getUtxo,
+                                                 mkTxStorage)
 
 data Storage = Storage
     { -- Block-related part of wallet storage
@@ -55,9 +56,14 @@ data Storage = Storage
 makeClassy ''Storage
 deriveSafeCopySimple 0 'base ''Storage
 
-instance Default Storage where
-    def = Storage def def HM.empty
-                  Const.genesisSlotDuration Const.genesisMaxBlockSize
+mkStorage :: Utxo -> Storage
+mkStorage u =
+    Storage
+        def
+        (mkTxStorage u)
+        mempty
+        Const.genesisSlotDuration
+        Const.genesisMaxBlockSize
 
 instance HasBlockStorage Storage where
     blockStorage = _blockStorage

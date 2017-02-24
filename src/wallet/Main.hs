@@ -36,9 +36,10 @@ import           Pos.Delegation            (sendProxySKHeavy, sendProxySKHeavyOu
                                             sendProxySKLight, sendProxySKLightOuts)
 import           Pos.DHT.Model             (DHTNode, discoverPeers, getKnownPeers)
 import           Pos.Genesis               (genesisBlockVersionData, genesisPublicKeys,
-                                            genesisSecretKeys)
+                                            genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
-                                            bracketResources, runTimeSlaveReal)
+                                            bracketResources, runTimeSlaveReal,
+                                            stakesDistr)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Ssc.NistBeacon        (SscNistBeacon)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
@@ -254,6 +255,11 @@ main = do
                 , wpSystemStart = systemStart
                 , wpGenesisKeys = woDebug
                 , wpBaseParams  = baseParams
+                , wpGenesisUtxo =
+                    genesisUtxo $
+                    stakesDistr (CLI.flatDistr woCommonArgs)
+                                (CLI.bitcoinDistr woCommonArgs)
+                                (CLI.expDistr woCommonArgs)
                 }
 
             plugins :: ([ WorkerSpec WalletRealMode ], OutSpecs)

@@ -43,8 +43,8 @@ import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Ssc.NistBeacon        (SscNistBeacon)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
-import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress,
-                                            txaF)
+import           Pos.Txp                   (txaF)
+import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress)
 import           Pos.Update                (BlockVersionData (..), UpdateProposal (..),
                                             UpdateVote (..), patakUpdateData,
                                             skovorodaUpdateData)

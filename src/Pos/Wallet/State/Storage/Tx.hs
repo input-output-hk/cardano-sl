@@ -12,13 +12,13 @@ module Pos.Wallet.State.Storage.Tx
        , getTxHistory
        ) where
 
-import           Control.Lens  (makeClassy, to)
-import           Data.List     (last)
-import           Data.SafeCopy (base, deriveSafeCopySimple)
+import           Control.Lens       (makeClassy, to)
+import           Data.List          (last)
+import           Data.SafeCopy      (base, deriveSafeCopySimple)
 import           Universum
 
-import           Pos.SafeCopy  ()
-import           Pos.Types     (Tx, Utxo)
+import           Pos.SafeCopy       ()
+import           Pos.Txp.Core.Types (Tx, Utxo)
 
 data TxStorage = TxStorage
     { -- | History of utxo. Necessary for rollbacking transaction

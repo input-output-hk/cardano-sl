@@ -3,7 +3,7 @@
 
 -- | Types used for communication about Blocks.
 
-module Pos.Txp.Types.Communication
+module Pos.Txp.Network.Types
        ( TxMsgTag (..)
        , TxMsgContents (..)
        ) where
@@ -12,7 +12,8 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, (%))
 import           Universum
 
-import           Pos.Types           (Tx, TxDistribution, TxWitness)
+import           Pos.Binary.Address  ()
+import           Pos.Txp.Core.Types  (Tx, TxDistribution, TxWitness)
 
 data TxMsgTag = TxMsgTag deriving (Eq, Show)
 

@@ -5,7 +5,8 @@ module Pos.Wallet.Launcher.Param
 import           Universum
 
 import           Pos.Launcher (BaseParams)
-import           Pos.Types    (Timestamp, Utxo)
+import           Pos.Txp      (Utxo)
+import           Pos.Types    (Timestamp)
 
 data WalletParams = WalletParams
     { wpDbPath      :: !(Maybe FilePath)

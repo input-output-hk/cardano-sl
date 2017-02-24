@@ -33,7 +33,7 @@ import           Serokell.AcidState       (ExtendedState, closeExtendedState,
                                            openMemoryExtendedState, queryExtended,
                                            tidyExtendedState, updateExtended)
 
-import           Pos.Types                (Utxo)
+import           Pos.Txp                  (Utxo)
 
 import           Pos.Wallet.State.Storage (Storage)
 import           Pos.Wallet.State.Storage as WS

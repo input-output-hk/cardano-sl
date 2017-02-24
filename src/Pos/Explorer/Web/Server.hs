@@ -16,7 +16,7 @@ import           Control.Monad.Trans.Maybe      (MaybeT (..))
 import           Data.Maybe                     (fromMaybe)
 import           Network.Wai                    (Application)
 import           Servant.API                    ((:<|>) ((:<|>)))
-import           Servant.Server                 (Handler, Server, ServerT, serve)
+import           Servant.Server                 (Server, ServerT, serve)
 import           Universum
 
 import           Pos.Communication              (SendActions)
@@ -30,7 +30,8 @@ import           Pos.Txp                        (getLocalTxs)
 import           Pos.Types                      (Address (..), HeaderHash, MainBlock,
                                                  Timestamp, Tx, blockTxs, gbHeader,
                                                  gbhConsensus, mcdSlot, mkCoin,
-                                                 prevBlockL, topsortTxs)
+                                                 prevBlockL, topsortTxs, txOutAddress,
+                                                 txOutputs)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
@@ -39,9 +40,10 @@ import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
                                                  CBlockEntry (..), CBlockSummary (..),
-                                                 CHash, CTxEntry (..), fromCAddress,
-                                                 fromCHash', toBlockEntry, toBlockSummary,
-                                                 toTxEntry)
+                                                 CHash, CTxEntry (..), TxInternal (..),
+                                                 fromCAddress, fromCHash', toBlockEntry,
+                                                 toBlockSummary, toTxEntry,
+                                                 toTxDetailed)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 ----------------------------------------------------------------
@@ -104,7 +106,7 @@ getLastBlocks lim off = do
 getLastTxs :: ExplorerMode m => Word -> Word -> m [CTxEntry]
 getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
     txs <- allTxs
-    return $ take lim $ drop off $
+    pure $ take lim $ drop off $
         map (\txi -> toTxEntry (tiTimestamp txi) (tiTx txi)) txs
 
 getBlockSummary :: ExplorerMode m => CHash -> m CBlockSummary
@@ -121,22 +123,21 @@ getBlockTxs (fromCHash' -> h) (fromIntegral -> lim) (fromIntegral -> off) = do
         topsortTxsOrFail withHash txs
 
 getAddressSummary :: ExplorerMode m => CAddress -> m CAddressSummary
-getAddressSummary cAddr = cAddrToAddr cAddr >>= \case
+getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
     PubKeyAddress sid _ -> do
         balance <- fromMaybe (mkCoin 0) <$> GS.getFtsStake sid
         -- TODO: add number of coins when it's implemented
-        return $ CAddressSummary cAddr 0 balance
+        txs <- allTxs
+        let transactions = map (toTxDetailed addr) $
+                           filter (any (\txOut -> txOutAddress txOut == addr) .
+                               txOutputs . tiTx) txs
+        return $ CAddressSummary cAddr 0 balance transactions
     _ -> throwM $
          Internal "Non-P2PKH addresses are not supported in Explorer yet"
 
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
-
-data TxInternal = TxInternal
-    { tiTimestamp :: !Timestamp
-    , tiTx :: Tx
-    } deriving (Show)
 
 allTxs :: ExplorerMode m => m [TxInternal]
 allTxs = do
@@ -162,7 +163,7 @@ allTxs = do
     blockTxEntries <- fmap concat $ flip unfoldrM tip $
         \h -> runMaybeT $ unfolder h
 
-    return $ localTxEntries ++ blockTxEntries
+    return $ localTxEntries <> blockTxEntries
 
 getBlkSlotStart :: MonadSlots m => MainBlock ssc -> m Timestamp
 getBlkSlotStart blk = getSlotStart $ blk ^. gbHeader . gbhConsensus . mcdSlot

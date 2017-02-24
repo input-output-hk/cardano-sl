@@ -19,29 +19,12 @@ module Pos.Types.Types
        , ProxySKEither
        ) where
 
-import           Control.Lens           (makeLensesFor)
-import           Data.DeriveTH          (derive, makeNFData)
-import           Data.Hashable          (Hashable)
-import qualified Data.Map               as M (toList)
-import           Data.Text.Buildable    (Buildable)
-import qualified Data.Text.Buildable    as Buildable
-import           Data.Text.Lazy.Builder (Builder)
-import           Data.Vector            (Vector)
-import           Formatting             (Format, bprint, build, int, later, (%))
-import           Serokell.AcidState     ()
-import           Serokell.Util.Base16   (base16F, formatBase16)
-import           Serokell.Util.Text     (listBuilderJSON, listJson, listJsonIndent,
-                                         mapBuilderJson, pairBuilder)
+import qualified Data.Text.Buildable  as Buildable
+import           Serokell.Util.Base16 (formatBase16)
 import           Universum
 
-import           Pos.Binary.Class       (Bi)
-import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, PublicKey,
-                                         Signature, hash, shortHashF)
-import           Pos.Data.Attributes    (Attributes)
-import           Pos.Types.Address      ()
-import           Pos.Types.Core         (Address (..), Coin, EpochIndex, StakeholderId,
-                                         coinF)
-import           Pos.Types.Script       (Script)
+import           Pos.Crypto           (ProxySecretKey, ProxySignature)
+import           Pos.Types.Core       (EpochIndex, StakeholderId)
 
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw

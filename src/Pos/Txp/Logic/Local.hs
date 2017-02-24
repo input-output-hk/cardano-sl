@@ -22,8 +22,7 @@ import           Pos.Txp.Core.Types   (Tx (..), TxAux, TxId)
 
 import           Pos.Txp.MemState     (MonadTxpMem (..), getTxpLocalData, getUtxoView,
                                        modifyTxpLocalData, setTxpLocalData)
-import           Pos.Txp.Toil         (MemPool (..), MonadTxPool (..), MonadUtxo (..),
-                                       MonadUtxoRead (..), TxpModifier (..),
+import           Pos.Txp.Toil         (MemPool (..), MonadUtxoRead (..), TxpModifier (..),
                                        TxpVerFailure (..), execTxpTLocal, normalizeTxp,
                                        processTx, runDBTxp, runTxpTLocal, runUtxoReaderT,
                                        utxoGet)

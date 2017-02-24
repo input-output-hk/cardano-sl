@@ -19,7 +19,7 @@ import           Universum
 import           Pos.Constants         (epochSlots)
 import           Pos.Crypto            (unsafeHash)
 import           Pos.Lrc               (followTheSatoshi)
-import           Pos.Txp               (TxId, TxIn (..), TxOut (..), Utxo, txOutStake)
+import           Pos.Txp               (TxIn (..), TxOut (..), Utxo, txOutStake)
 import           Pos.Types             (Address (..), Coin, SharedSeed, StakeholderId,
                                         mkCoin, sumCoins)
 import           Pos.Types.Coin        (unsafeAddCoin, unsafeIntegerToCoin)

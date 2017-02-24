@@ -336,16 +336,16 @@ library
                         Pos.Txp.Network
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
-                        Pos.Txp.Txp
-                        Pos.Txp.Txp.Class
-                        Pos.Txp.Txp.DBTxp
-                        Pos.Txp.Txp.Failure
-                        Pos.Txp.Txp.Logic
-                        Pos.Txp.Txp.Trans
-                        Pos.Txp.Txp.Types
-                        Pos.Txp.Txp.Utxo
-                        Pos.Txp.Txp.Utxo.Functions
-                        Pos.Txp.Txp.Utxo.Pure
+                        Pos.Txp.Toil
+                        Pos.Txp.Toil.Class
+                        Pos.Txp.Toil.DBTxp
+                        Pos.Txp.Toil.Failure
+                        Pos.Txp.Toil.Logic
+                        Pos.Txp.Toil.Trans
+                        Pos.Txp.Toil.Types
+                        Pos.Txp.Toil.Utxo
+                        Pos.Txp.Toil.Utxo.Functions
+                        Pos.Txp.Toil.Utxo.Pure
 
                         -- Types
                         Pos.Types.SharedSeed

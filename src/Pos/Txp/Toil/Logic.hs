@@ -4,7 +4,7 @@
 -- | All logic of Txp,
 -- it operates in terms of MonadUtxo, MonadBalances and MonadTxPool.
 
-module Pos.Txp.Txp.Logic
+module Pos.Txp.Toil.Logic
        ( verifyTxp
        , applyTxp
        , rollbackTxp
@@ -27,10 +27,10 @@ import           Pos.Types.Coin       (coinToInteger, sumCoins, unsafeAddCoin,
                                        unsafeIntegerToCoin, unsafeSubCoin)
 
 import           Pos.Txp.Core         (topsortTxs)
-import           Pos.Txp.Txp.Class    (MonadBalances (..), MonadBalancesRead (..),
+import           Pos.Txp.Toil.Class    (MonadBalances (..), MonadBalancesRead (..),
                                        MonadTxPool (..), MonadUtxo (..))
-import           Pos.Txp.Txp.Failure  (TxpVerFailure (..))
-import qualified Pos.Txp.Txp.Utxo     as Utxo
+import           Pos.Txp.Toil.Failure  (TxpVerFailure (..))
+import qualified Pos.Txp.Toil.Utxo     as Utxo
 
 type GlobalTxpMode m = ( MonadUtxo m
                        , MonadBalances m

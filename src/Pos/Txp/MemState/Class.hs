@@ -26,7 +26,7 @@ import           Pos.DHT.Real           (KademliaDHT)
 import           Pos.Types              (TxAux, TxId, TxOutAux)
 
 import           Pos.Txp.MemState.Types (TxpLocalData (..), TxpLocalDataPure)
-import           Pos.Txp.Txp.Types      (MemPool (_mpLocalTxs), UtxoView)
+import           Pos.Txp.Toil.Types      (MemPool (_mpLocalTxs), UtxoView)
 
 
 

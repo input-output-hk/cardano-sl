@@ -1,6 +1,6 @@
 -- | Txp failures.
 
-module Pos.Txp.Txp.Failure
+module Pos.Txp.Toil.Failure
        ( TxpVerFailure (..)
        ) where
 

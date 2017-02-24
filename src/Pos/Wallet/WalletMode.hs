@@ -102,8 +102,8 @@ instance (MonadDB ssc m, MonadMask m) => MonadBalances (TxpHolder m) where
         updates <- getUtxoView
         let toDel = _uvDelUtxo updates
             toAdd = HM.filter (`belongsTo` addr) $ _uvAddUtxo updates
-            utxo' = foldr (M.delete . toPair) utxo toDel
-        return $ HM.foldrWithKey (M.insert . toPair) utxo' toAdd
+            utxo' = foldr M.delete utxo toDel
+        return $ HM.foldrWithKey M.insert utxo' toAdd
 
 --deriving instance MonadBalances m => MonadBalances (Modern.TxpLDHolder m)
 

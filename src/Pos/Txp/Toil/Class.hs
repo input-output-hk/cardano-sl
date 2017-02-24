@@ -3,9 +3,9 @@
 -- | Type classes for Txp abstraction.
 -- * MonadUtxoRead and MonadUtxo for incapsulation of Utxo storage.
 -- * MonadBalancesRead and MonadBalances for incapsulation of Balances storage.
--- * MonadTxPoll for incapsulation of mem pool of local transactions.
+-- * MonadTxPoll for encapsulation of mem pool of local transactions.
 
-module Pos.Txp.Txp.Class
+module Pos.Txp.Toil.Class
        ( MonadUtxoRead (..)
        , MonadUtxo (..)
        , MonadBalancesRead (..)

@@ -3,7 +3,7 @@
 
 -- | Functions operating on UTXO.
 
-module Pos.Txp.Txp.Utxo.Functions
+module Pos.Txp.Toil.Utxo.Functions
        ( verifyTxUtxo
        , applyTxToUtxo
        , applyTxToUtxo'
@@ -31,8 +31,8 @@ import           Pos.Types                 (Address, Coin, StakeholderId, Tx (..
 
 import           Pos.Txp.Core.Tx           (VTxGlobalContext (..), VTxLocalContext (..),
                                             verifyTx)
-import           Pos.Txp.Txp.Class         (MonadUtxo (..), MonadUtxoRead (..))
-import           Pos.Txp.Txp.Failure       (TxpVerFailure (..))
+import           Pos.Txp.Toil.Class         (MonadUtxo (..), MonadUtxoRead (..))
+import           Pos.Txp.Toil.Failure       (TxpVerFailure (..))
 
 -- CHECK: @verifyTxUtxo
 -- | Verify single Tx using MonadUtxoRead as TxIn resolver.
@@ -83,11 +83,11 @@ applyTxToUtxo' (i, (t, _, d)) = applyTxToUtxo (WithHash t i) d
 
 -- | Find transaction input in Utxo assuming it is valid.
 findTxIn :: TxIn -> Utxo -> Maybe TxOutAux
-findTxIn TxIn{..} = M.lookup (txInHash, txInIndex)
+findTxIn = M.lookup
 
 -- | Delete given TxIn from Utxo if any.
 deleteTxIn :: TxIn -> Utxo -> Utxo
-deleteTxIn TxIn{..} = M.delete (txInHash, txInIndex)
+deleteTxIn = M.delete
 
 -- | A predicate for `TxOut` which selects outputs for given address
 belongsTo :: TxOutAux -> Address -> Bool

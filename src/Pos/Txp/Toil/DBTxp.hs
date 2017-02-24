@@ -3,7 +3,7 @@
 
 -- | Instances of MoandUtxoRead and MonadBalancesRead which use DB.
 
-module Pos.Txp.Txp.DBTxp
+module Pos.Txp.Toil.DBTxp
     ( DBTxp (..)
     ) where
 
@@ -32,7 +32,7 @@ import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
-import           Pos.Txp.Txp.Class           (MonadBalancesRead (..), MonadUtxoRead (..))
+import           Pos.Txp.Toil.Class           (MonadBalancesRead (..), MonadUtxoRead (..))
 
 newtype DBTxp m a = DBTxp
     { runDBTxp :: m a

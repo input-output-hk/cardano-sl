@@ -26,7 +26,7 @@ import           Pos.Script                    (Script)
 import           Pos.Script.Examples           (multisigValidator)
 import           Pos.Types                     (Tx (..), TxAux, TxId, TxOut (..),
                                                 makePubKeyAddress, makeScriptAddress,
-                                                mkCoin)
+                                                mkCoin, TxIn (..))
 import           Pos.Util.TimeWarp             (sec)
 import           Pos.Wallet                    (makeMOfNTx, makePubKeyTx)
 import           Pos.WorkMode                  (WorkMode)
@@ -47,14 +47,14 @@ tpsTxBound tps propThreshold =
 genChain :: SecretKey -> TxId -> Word32 -> [TxAux]
 genChain sk txInHash txInIndex =
     let addr = makePubKeyAddress $ toPublic sk
-        (tx, w, d) = makePubKeyTx sk [(txInHash, txInIndex)]
+        (tx, w, d) = makePubKeyTx sk [TxIn txInHash txInIndex]
                                      [(TxOut addr (mkCoin 1), [])]
     in (tx, w, d) : genChain sk (hash tx) 0
 
 genMOfNChain :: Script -> [Maybe SecretKey] -> TxId -> Word32 -> [TxAux]
 genMOfNChain val sks txInHash txInIndex =
     let addr = makeScriptAddress val
-        (tx, w, d) = makeMOfNTx val sks [(txInHash, txInIndex)]
+        (tx, w, d) = makeMOfNTx val sks [TxIn txInHash txInIndex]
                      [(TxOut addr (mkCoin 1), [])]
     in (tx, w, d) : genMOfNChain val sks (hash tx) 0
 
@@ -65,7 +65,7 @@ initTransaction GenOptions{..} i =
         outputsNum = min n' goInitBalance
         inAddr = genesisAddresses !! i
         sk = genesisSecretKeys !! i
-        input = (unsafeHash inAddr, 0)
+        input = TxIn (unsafeHash inAddr) 0
         outAddr = case goMOfNParams of
             Nothing     -> inAddr
             Just (m, n) -> let pks = take n genesisPublicKeys

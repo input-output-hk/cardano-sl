@@ -38,7 +38,7 @@ import           Pos.Util.JsonLog          (MonadJL (..))
 
 import           Pos.Txp.MemState.Class    (MonadTxpMem (..))
 import           Pos.Txp.MemState.Types    (TxpLocalData (..))
-import           Pos.Txp.Txp.Types         (UtxoView)
+import           Pos.Txp.Toil.Types         (UtxoView)
 
 ----------------------------------------------------------------------------
 -- Holder

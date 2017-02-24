@@ -7,7 +7,7 @@ module Pos.Txp.MemState.Types
 
 import qualified Control.Concurrent.STM as STM
 
-import           Pos.Txp.Txp.Types      (MemPool, UndoMap, UtxoView)
+import           Pos.Txp.Toil.Types      (MemPool, UndoMap, UtxoView)
 import           Pos.Types.Core         (HeaderHash)
 
 -- | LocalData of transactions processing.

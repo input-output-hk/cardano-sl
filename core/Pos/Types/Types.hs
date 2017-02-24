@@ -210,14 +210,11 @@ txaF = later $ \(tx, w, d) ->
 --
 -- Transaction inputs are identified by (transaction ID, index in list of
 -- output) pairs.
-type Utxo = Map (TxId, Word32) TxOutAux
+type Utxo = Map TxIn TxOutAux
 
 -- | Format 'Utxo' map as json.
 formatUtxo :: Bi Address => Utxo -> Builder
-formatUtxo =
-    mapBuilderJson .
-    map (first pairBuilder) .
-    M.toList
+formatUtxo = mapBuilderJson . M.toList
 
 -- | Specialized formatter for 'Utxo'.
 utxoF :: Bi Address => Format r (Utxo -> r)

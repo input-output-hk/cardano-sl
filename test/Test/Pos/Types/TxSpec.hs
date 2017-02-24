@@ -263,7 +263,7 @@ scriptTxSpec = describe "script transactions" $ do
     mkUtxo :: TxOut -> (TxIn, TxOut, Utxo)
     mkUtxo outp =
         let txid = unsafeHash ("nonexistent tx" :: Text)
-        in  (TxIn txid 0, outp, M.singleton (txid, 0) (outp, []))
+        in  (TxIn txid 0, outp, M.singleton (TxIn txid 0) (outp, []))
     -- Try to apply a transaction (with given utxo as context) and say
     -- whether it applied successfully
     tryApplyTx :: Utxo -> TxAux -> VerificationRes

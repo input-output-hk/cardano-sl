@@ -1,6 +1,6 @@
 -- | Pure version of UTXO.
 
-module Pos.Txp.Txp.Utxo.Pure
+module Pos.Txp.Toil.Utxo.Pure
        ( UtxoReaderT (..)
        , runUtxoReaderT
 
@@ -34,8 +34,8 @@ import           Pos.Crypto                 (WithHash (..))
 import           Pos.Types.Types            (Tx, TxAux, TxDistribution, TxId, TxIn (..),
                                              Utxo)
 
-import           Pos.Txp.Txp.Class          (MonadUtxo (..), MonadUtxoRead (..))
-import           Pos.Txp.Txp.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', verifyTxUtxo)
+import           Pos.Txp.Toil.Class          (MonadUtxo (..), MonadUtxoRead (..))
+import           Pos.Txp.Toil.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', verifyTxUtxo)
 
 ----------------------------------------------------------------------------
 -- Reader
@@ -46,7 +46,7 @@ newtype UtxoReaderT m a = UtxoReaderT
     } deriving (Functor, Applicative, Monad, MonadReader Utxo, MonadError e)
 
 instance Monad m => MonadUtxoRead (UtxoReaderT m) where
-    utxoGet TxIn {..} = UtxoReaderT $ view $ at (txInHash, txInIndex)
+    utxoGet id = UtxoReaderT $ view $ at id
 
 instance MonadTrans UtxoReaderT where
     lift = UtxoReaderT . lift
@@ -68,11 +68,11 @@ newtype UtxoStateT m a = UtxoStateT
     } deriving (Functor, Applicative, Monad, MonadState Utxo)
 
 instance Monad m => MonadUtxoRead (UtxoStateT m) where
-    utxoGet TxIn {..} = UtxoStateT $ use $ at (txInHash, txInIndex)
+    utxoGet id = UtxoStateT $ use $ at id
 
 instance Monad m => MonadUtxo (UtxoStateT m) where
-    utxoPut TxIn {..} v = UtxoStateT $ at (txInHash, txInIndex) .= Just v
-    utxoDel TxIn {..} = UtxoStateT $ at (txInHash, txInIndex) .= Nothing
+    utxoPut id v = UtxoStateT $ at id .= Just v
+    utxoDel id = UtxoStateT $ at id .= Nothing
 
 instance MonadTrans UtxoStateT where
     lift = UtxoStateT . lift

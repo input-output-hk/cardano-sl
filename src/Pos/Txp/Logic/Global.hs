@@ -28,7 +28,7 @@ import           Pos.Util            (NE, NewestFirst (..), OldestFirst (..),
 
 import           Pos.Txp.Error       (TxpError (..))
 import           Pos.Txp.MemState    (MonadTxpMem (..))
-import           Pos.Txp.Txp         (BalancesView (..), BalancesView (..), DBTxp,
+import           Pos.Txp.Toil         (BalancesView (..), BalancesView (..), DBTxp,
                                       TxpModifier (..), TxpT, TxpVerFailure,
                                       UtxoView (..), applyTxp, rollbackTxp, runDBTxp,
                                       runTxpTGlobal, verifyTxp)

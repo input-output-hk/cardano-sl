@@ -13,6 +13,7 @@ import           Control.Monad.State  (modify')
 import           Control.Monad.Trans  (MonadTrans)
 import           Data.Default         (def)
 import qualified Data.HashMap.Strict  as HM
+import qualified Data.Map             as M (fromList)
 import           Formatting           (build, sformat, (%))
 import           System.Wlog          (WithLogger, logDebug)
 import           Universum
@@ -23,10 +24,11 @@ import           Pos.Types            (Tx (..), TxAux, TxId, TxIn, TxOutAux)
 
 import           Pos.Txp.MemState     (MonadTxpMem (..), getTxpLocalData, getUtxoView,
                                        modifyTxpLocalData, setTxpLocalData)
-import           Pos.Txp.Txp          (MemPool (..), MonadTxPool (..), MonadUtxo (..),
+import           Pos.Txp.Toil         (MemPool (..), MonadTxPool (..), MonadUtxo (..),
                                        MonadUtxoRead (..), TxpModifier (..),
                                        TxpVerFailure (..), execTxpTLocal, normalizeTxp,
-                                       processTx, runDBTxp, runTxpTLocal, utxoGet)
+                                       processTx, runDBTxp, runTxpTLocal, runUtxoReaderT,
+                                       utxoGet)
 
 
 type TxpLocalWorkMode ssc m =
@@ -62,8 +64,8 @@ txProcessTransaction itw@(txId, (Tx{..}, _, _)) = do
         | tipBefore /= tip = (Left $ TxpInvalid "Tips aren't same", txld)
         | otherwise =
             let res = runExcept $
+                      flip runUtxoReaderT (M.fromList $ HM.toList resolved) $
                       execTxpTLocal uv mp undo $
-                      evalDeepUtxoT resolved $
                       processTx tx in
             case res of
                 Left er  -> (Left er, txld)
@@ -84,35 +86,3 @@ txNormalize = do
     case res of
         Left _                -> setTxpLocalData (def, def, def, tip)
         Right TxpModifier{..} -> setTxpLocalData (_txmUtxoView, _txmMemPool, _txmUndos, tip)
-
-----------------------------------------------------------------------------
--- Helpers
-----------------------------------------------------------------------------
-
--- | Transformer which holds resolved outputs (see above) and
--- and forwards all Utxo operations to inner monad.
-
-newtype DeepUtxoT m a = DeepUtxoT (StateT (HashMap TxIn TxOutAux) m a)
-    deriving ( Functor
-             , Applicative
-             , Monad
-             , MonadTrans
-             , MonadError e)
-
-instance MonadTxPool m => MonadTxPool (DeepUtxoT m) where
-
-instance MonadUtxoRead m => MonadUtxoRead (DeepUtxoT m) where
-    utxoGet id = DeepUtxoT $ do
-        res <- gets $ HM.lookup id
-        case res of
-            Nothing -> utxoGet id
-            Just _  -> pure res
-
-instance MonadUtxo m => MonadUtxo (DeepUtxoT m) where
-    utxoPut id aux = DeepUtxoT $ utxoPut id aux
-    utxoDel id = DeepUtxoT $ do
-        modify' $ HM.delete id
-        utxoDel id
-
-evalDeepUtxoT :: Monad m => HashMap TxIn TxOutAux -> DeepUtxoT m a -> m a
-evalDeepUtxoT mp (DeepUtxoT st) = evalStateT st mp

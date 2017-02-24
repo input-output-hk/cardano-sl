@@ -49,8 +49,7 @@ import           Pos.Types                 (Address, Block, ChainDifficulty, Coi
                                             makeScriptAddress, mkCoin, sumCoins)
 import           Pos.Types.Coin            (unsafeIntegerToCoin, unsafeSubCoin)
 
-type TxOutIdx = (TxId, Word32)
-type TxInputs = [TxOutIdx]
+type TxInputs = [TxIn]
 type TxOutputs = [TxOutAux]
 type TxError = Text
 
@@ -61,16 +60,15 @@ type TxError = Text
 -- | Generic function to create a transaction, given desired inputs, outputs and a
 -- way to construct witness from signature data
 makeAbstractTx :: (TxSigData -> TxInWitness) -> TxInputs -> TxOutputs -> TxAux
-makeAbstractTx mkWit inputs outputs = (Tx {..}, txWitness, txDist)
-  where txInputs = map makeTxIn inputs
-        txOutputs = map fst outputs
-        txAttributes = mkAttributes ()
-        txOutHash = hash txOutputs
-        txDist = TxDistribution (map snd outputs)
-        txDistHash = hash txDist
-        txWitness = V.fromList $ map (mkWit . makeTxSigData) inputs
-        makeTxIn (txInHash, txInIndex) = TxIn {..}
-        makeTxSigData (txInHash, txInIndex) = (txInHash, txInIndex, txOutHash, txDistHash)
+makeAbstractTx mkWit txInputs outputs = (Tx {..}, txWitness, txDist)
+  where
+    txOutputs = map fst outputs
+    txAttributes = mkAttributes ()
+    txOutHash = hash txOutputs
+    txDist = TxDistribution (map snd outputs)
+    txDistHash = hash txDist
+    txWitness = V.fromList $ map (mkWit . makeTxSigData) txInputs
+    makeTxSigData TxIn{..} = (txInHash, txInIndex, txOutHash, txDistHash)
 
 -- | Makes a transaction which use P2PKH addresses as a source
 makePubKeyTx :: SecretKey -> TxInputs -> TxOutputs -> TxAux
@@ -88,7 +86,7 @@ makeMOfNTx validator sks = makeAbstractTx mkWit
             , twRedeemer = multisigRedeemer sigData sks
             }
 
-type FlatUtxo = [(TxOutIdx, TxOutAux)]
+type FlatUtxo = [(TxIn, TxOutAux)]
 type InputPicker = StateT (Coin, FlatUtxo) (Either TxError)
 
 -- | Given Utxo, desired source address and desired outputs, prepare lists

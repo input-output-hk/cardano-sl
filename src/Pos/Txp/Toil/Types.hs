@@ -3,7 +3,7 @@
 -- | Types used for managing of transactions
 -- and synchronization with database.
 
-module Pos.Txp.Txp.Types
+module Pos.Txp.Toil.Types
        ( UtxoView (..)
        , uvAddUtxo
        , uvDelUtxo
@@ -92,11 +92,11 @@ type UndoMap = HashMap TxId TxUndo
 instance Default UndoMap where
     def = mempty
 
--- | Real data inside TxpLDHolder
 data TxpModifier = TxpModifier
     { _txmUtxoView :: !UtxoView
     , _txmBalances :: !BalancesView
     , _txmMemPool  :: !MemPool
     , _txmUndos    :: !UndoMap
     }
+
 makeLenses ''TxpModifier

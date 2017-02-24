@@ -46,7 +46,7 @@ import           Pos.DB.GState.Common (getBi, putBi, writeBatchGState)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
                                        IterType, runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
-import           Pos.Txp.Txp.Utxo     (belongsTo)
+import           Pos.Txp.Toil.Utxo     (belongsTo)
 import           Pos.Types            (Address, Coin, TxIn (..), TxOutAux, Utxo, coinF,
                                        mkCoin, sumCoins, txOutStake, unsafeAddCoin,
                                        unsafeIntegerToCoin)
@@ -106,11 +106,8 @@ prepareGStateUtxo genesisUtxo =
         let utxoList = M.toList genesisUtxo
         writeBatchGState $ concat $ map createBatchOp utxoList
         putBi genUtxoFlagKey True
-    createBatchOp ((txid, id), txout) =
-        let txin = TxIn txid id
-        in [ AddTxOut txin txout
-           , AddGenTxOut txin txout
-           ]
+    createBatchOp (txin, txout) =
+        [AddTxOut txin txout , AddGenTxOut txin txout]
 
 ----------------------------------------------------------------------------
 -- Iteration
@@ -164,7 +161,7 @@ filterUtxo
 filterUtxo p = runUtxoIterator @i (step mempty)
   where
     step res = nextItem >>= maybe (pure res) (\e@(k, v) ->
-      if | p e       -> step (M.insert (txInHash k, txInIndex k) v res)
+      if | p e       -> step (M.insert k v res)
          | otherwise -> step res)
 
 -- | Get small sub-utxo containing only outputs of given address

@@ -38,8 +38,6 @@ script:
 - cd ..
 - XZ_OPT=-1 tar Jcvf s3/daedalus-bridge.tar.xz daedalus/ 
 - echo $TRAVIS_BUILD_NUMBER > s3/build-id
-# Fix https://github.com/NixOS/nix/issues/921#issuecomment-277612795
-- unset SSL_CERT_FILE
 deploy:
   provider: s3
   access_key_id: AKIAJETSFTAMXGNCGC6Q

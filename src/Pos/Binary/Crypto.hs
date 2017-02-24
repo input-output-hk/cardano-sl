@@ -10,7 +10,8 @@ module Pos.Binary.Crypto () where
 import           Crypto.Hash              (digestFromByteString, hashDigestSize)
 import qualified Crypto.PVSS              as Pvss
 import qualified Crypto.ECC.Edwards25519  as Ed25519
-import qualified Cardano.Crypto.Wallet as CC
+import qualified Crypto.Sign.Ed25519      as EdStandard
+import qualified Cardano.Crypto.Wallet    as CC
 import qualified Data.Binary              as Binary
 import           Data.Binary.Get          (label, getByteString)
 import           Data.Binary.Put          (putByteString)
@@ -30,6 +31,8 @@ import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretPro
 import           Pos.Crypto.Signing       (ProxyCert (..), ProxySecretKey (..),
                                            ProxySignature (..), PublicKey (..),
                                            SecretKey (..), Signature (..), Signed (..))
+import           Pos.Crypto.RedeemSigning (RedeemSecretKey (..), RedeemPublicKey (..),
+                                           RedeemSignature (..))
 
 instance Bi a => Bi (WithHash a) where
     put = put . whData
@@ -186,3 +189,37 @@ instance (Bi w) => Bi (ProxySignature w a) where
         put pdCert
         put pdSig
     get = label "ProxySignature" $ liftM4 ProxySignature get get get get
+
+-------------------------------------------------------------------------------
+-- Standard Ed25519 instances for ADA redeem keys
+-------------------------------------------------------------------------------
+
+standardSecretKeyLength, standardPublicKeyLength, standardSignatureLength :: Int
+standardSecretKeyLength = 64
+standardPublicKeyLength = 32
+standardSignatureLength = 64
+
+instance Bi EdStandard.PublicKey where
+    put (EdStandard.PublicKey k) = do
+        putAssertLength "PublicKey" standardPublicKeyLength k
+        putByteString k
+    get = label "EdStandard.PublicKey" $
+        EdStandard.PublicKey <$> getByteString standardPublicKeyLength
+
+instance Bi EdStandard.SecretKey where
+    put (EdStandard.SecretKey k) = do
+        putAssertLength "SecretKey" standardSecretKeyLength k
+        putByteString k
+    get = label "EdStandard.SecretKey" $
+        EdStandard.SecretKey <$> getByteString standardSecretKeyLength
+
+instance Bi EdStandard.Signature where
+    put (EdStandard.Signature s) = do
+        putAssertLength "Signature" standardSignatureLength s
+        putByteString s
+    get = label "EdStandard.Signature" $
+        EdStandard.Signature <$> getByteString standardSignatureLength
+
+deriving instance Bi RedeemPublicKey
+deriving instance Bi RedeemSecretKey
+deriving instance Bi (RedeemSignature a)

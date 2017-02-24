@@ -63,7 +63,8 @@ import           Universum
 
 import           Pos.Binary.Class       (Bi)
 import           Pos.Crypto             (Hash, ProxySecretKey, ProxySignature, PublicKey,
-                                         Signature, hash, shortHashF)
+                                         RedeemPublicKey, RedeemSignature, Signature,
+                                         hash, shortHashF)
 import           Pos.Data.Attributes    (Attributes)
 import           Pos.Types.Address      ()
 import           Pos.Types.Core         (Address (..), Coin, EpochIndex, StakeholderId,
@@ -94,6 +95,8 @@ data TxInWitness
                 , twSig :: !TxSig }
     | ScriptWitness { twValidator :: !Script
                     , twRedeemer  :: !Script }
+    | RedeemWitness { twRedeemKey :: !RedeemPublicKey
+                    , twRedeemSig :: !(RedeemSignature TxSigData) }
     | UnknownWitnessType !Word8 !ByteString
     deriving (Eq, Show, Generic, Typeable)
 

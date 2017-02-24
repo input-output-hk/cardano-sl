@@ -27,6 +27,9 @@ putAddressIncomplete = \case
         putWord8 1
         putSmallWithLength $
             put scrHash
+    RedeemAddress keyHash -> do
+        putWord8 2
+        putSmallWithLength $ put keyHash
     UnknownAddressType t bs -> do
         putWord8 t
         putSmallWithLength $
@@ -44,6 +47,7 @@ getAddressIncomplete = do
                     <$> get
                     <*> getAttributes mapper Nothing def
         1 -> ScriptAddress <$> get
+        2 -> RedeemAddress <$> get
         t -> UnknownAddressType t <$> getRemainingByteString
 
 instance CRC32 Address where

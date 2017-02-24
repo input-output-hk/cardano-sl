@@ -22,9 +22,9 @@ import           Serokell.Util        (VerificationRes, verResToMonadError, veri
 import           Universum
 
 import           Pos.Binary.Types     ()
-import           Pos.Crypto           (Hash, WithHash (..), checkSig, hash)
+import           Pos.Crypto           (Hash, WithHash (..), checkSig, hash, redeemCheckSig)
 import           Pos.Script           (Script (..), isKnownScriptVersion, txScriptCheck)
-import           Pos.Types.Address    (addressDetailedF, checkPubKeyAddress,
+import           Pos.Types.Address    (addressDetailedF, checkPubKeyAddress, checkRedeemAddress,
                                        checkScriptAddress, checkUnknownAddressType)
 import           Pos.Types.Coin       (coinToInteger, sumCoins)
 import           Pos.Types.Core       (Address (..), StakeholderId, coinF, mkCoin)
@@ -226,6 +226,7 @@ verifyTxDo verifyAlone verifyVersions _gContext extendedInputs
     checkAddrHash addr wit = case wit of
         PkWitness{..}          -> checkPubKeyAddress twKey addr
         ScriptWitness{..}      -> checkScriptAddress twValidator addr
+        RedeemWitness{..}      -> checkRedeemAddress twRedeemKey addr
         UnknownWitnessType t _ -> checkUnknownAddressType t addr
 
     validateTxIn _i TxIn{..} _ PkWitness{..} =
@@ -241,6 +242,10 @@ verifyTxDo verifyAlone verifyVersions _gContext extendedInputs
         | otherwise =
               let txSigData = (txInHash, txInIndex, txOutHash, distrsHash)
               in txScriptCheck txSigData twValidator twRedeemer
+    validateTxIn _i TxIn{..} _ RedeemWitness{..} =
+        if redeemCheckSig twRedeemKey (txInHash, txInIndex, txOutHash, distrsHash) twRedeemSig
+            then Right ()
+            else Left "signature check failed"
     validateTxIn _ _ _ (UnknownWitnessType t _)
         | verifyVersions = Left ("unknown witness type: " <> show t)
         | otherwise      = Right ()

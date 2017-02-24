@@ -66,7 +66,7 @@ import           Formatting          (Format, bprint, build, formatToString, int
 import           Serokell.AcidState  ()
 import           Universum
 
-import           Pos.Crypto          (AbstractHash, Hash, PublicKey)
+import           Pos.Crypto          (AbstractHash, Hash, PublicKey, RedeemPublicKey)
 import           Pos.Data.Attributes (Attributes)
 import           Pos.Types.Script    (Script)
 
@@ -241,6 +241,8 @@ data Address
           , addrPkAttributes :: !(Attributes AddrPkAttrs) }
     | ScriptAddress
           { addrScriptHash :: !(AddressHash Script) }
+    | RedeemAddress
+          { addrRedeemKeyHash :: !(AddressHash RedeemPublicKey) }
     | UnknownAddressType !Word8 !ByteString
     deriving (Eq, Ord, Generic, Typeable, Show)
 

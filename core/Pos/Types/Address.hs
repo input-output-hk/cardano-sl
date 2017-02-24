@@ -7,6 +7,7 @@ module Pos.Types.Address
        , addressDetailedF
        , checkPubKeyAddress
        , checkScriptAddress
+       , checkRedeemAddress
        , checkUnknownAddressType
        , makePubKeyAddress
        , makePubKeyHdwAddress
@@ -36,7 +37,7 @@ import           Universum
 
 import           Pos.Binary.Class       (Bi)
 import qualified Pos.Binary.Class       as Bi
-import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey)
+import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey, RedeemPublicKey)
 import           Pos.Data.Attributes    (mkAttributes)
 import           Pos.Types.Core         (AddrPkAttrs (..), Address (..), AddressHash,
                                          StakeholderId)
@@ -99,11 +100,17 @@ checkScriptAddress :: Bi Script => Script -> Address -> Bool
 checkScriptAddress scr (ScriptAddress h) = addressHash scr == h
 checkScriptAddress _ _                   = False
 
+-- | Check if given 'Address' is created from given 'RedeemPublicKey'
+checkRedeemAddress :: Bi RedeemPublicKey => RedeemPublicKey -> Address -> Bool
+checkRedeemAddress key (RedeemAddress h) = addressHash key == h
+checkRedeemAddress _ _                   = False
+
 -- | Check if given 'Address' has given type
 checkUnknownAddressType :: Word8 -> Address -> Bool
 checkUnknownAddressType t addr = case addr of
     PubKeyAddress{}        -> t == 0
     ScriptAddress{}        -> t == 1
+    RedeemAddress{}        -> t == 2
     UnknownAddressType p _ -> t == p
 
 -- | Specialized formatter for 'Address'.
@@ -122,6 +129,8 @@ addressDetailedF = later $ \case
         bprint ("PubKeyAddress "%build%" (attrs: "%build%")") x attrs
     ScriptAddress x ->
         bprint ("ScriptAddress "%build) x
+    RedeemAddress x ->
+        bprint ("RedeemAddress "%build) x
     UnknownAddressType t bs ->
         bprint ("UnknownAddressType "%build%" "%base16F) t bs
 

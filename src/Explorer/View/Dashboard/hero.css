@@ -9,9 +9,16 @@
 
   .hero {
 
-    &-container {
+    &__container {
       @neat-outer-container;
-      padding: 26px 48px 48px 48px;
+      padding: 26px 0px 48px 0px;
+    }
+    @media (--md) {
+      &__container {
+        @neat-outer-container;
+        max-width:var(--max-width-desktop);
+        padding: 26px 48px 48px 48px;
+      }
     }
 
     &-headline {

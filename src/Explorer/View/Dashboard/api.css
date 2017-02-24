@@ -4,7 +4,7 @@
   .api-content {
     @neat-outer-container;
     max-width:var(--max-width-desktop);
-    
+
     &__container {
       @neat-span-columns 6;
     }
@@ -32,8 +32,13 @@
         border-bottom: 1px solid var(--color8);
       }
     }
-
   }
+  @media (--sm) {
+    .api-code {
+      width:100%;
+    }
+  }
+
 
   .api-snippet {
 
@@ -98,5 +103,13 @@
       button-background: transparent var(--color5) var(--color5);
     }
   }
+  @media (--sm) {
+    .api-about {
+      width:100%;
+      padding: 18px 24px;
+    }
+  }
+
+
 
 }

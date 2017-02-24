@@ -12,7 +12,7 @@
 
   &__container {
     @neat-outer-container;
-    padding: 46px 15px 38px 15px;
+    padding: 46px 0px 38px 0px;
   }
   @media (--md) {
     &__container {

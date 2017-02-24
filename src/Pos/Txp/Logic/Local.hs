@@ -72,14 +72,16 @@ txProcessTransaction itw@(txId, (Tx{..}, _, _)) = do
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Remove invalid transactions from MemPool
+-- | 3. Set new tip to txp local data
 txNormalize
     :: (MonadDB ssc m, MonadTxpMem m) => m ()
 txNormalize = do
-    (_, MemPool{..}, _, tip) <- getTxpLocalData
+    utxoTip <- GS.getTip
+    (_, MemPool{..}, _, _) <- getTxpLocalData
     res <- runExceptT $
            runDBTxp $
            execTxpTLocal def def def $
            normalizeTxp $ HM.toList _mpLocalTxs
     case res of
-        Left _                -> setTxpLocalData (def, def, def, tip)
-        Right TxpModifier{..} -> setTxpLocalData (_txmUtxoView, _txmMemPool, _txmUndos, tip)
+        Left _                -> setTxpLocalData (def, def, def, utxoTip)
+        Right TxpModifier{..} -> setTxpLocalData (_txmUtxoView, _txmMemPool, _txmUndos, utxoTip)

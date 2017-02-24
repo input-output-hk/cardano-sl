@@ -9,7 +9,7 @@ module Pos.Ssc.GodTossing.Toss.Base
        , hasCommitmentToss
        , hasOpeningToss
        , hasSharesToss
-       , hasCertificate
+       , hasCertificateToss
 
        -- * Basic logic
        , getParticipants
@@ -79,8 +79,8 @@ hasSharesToss :: MonadTossRead m => StakeholderId -> m Bool
 hasSharesToss id = HM.member id <$> getShares
 
 -- | Check whether there is 'VssCertificate' from given stakeholder.
-hasCertificate :: MonadTossRead m => StakeholderId -> m Bool
-hasCertificate id = HM.member id <$> getVssCertificates
+hasCertificateToss :: MonadTossRead m => StakeholderId -> m Bool
+hasCertificateToss id = HM.member id <$> getVssCertificates
 
 ----------------------------------------------------------------------------
 -- Non-trivial getters
@@ -370,7 +370,7 @@ checkCertificatesPayload
 checkCertificatesPayload epoch certs = do
     richmenSet <- getKeys <$> (note (NoRichmen epoch) =<< getRichmen epoch)
     exceptGuardM CertificateAlreadySent
-        (notM hasCertificate) (HM.keys certs)
+        (notM hasCertificateToss) (HM.keys certs)
     exceptGuardSnd CertificateNotRichmen
         ((`HS.member` richmenSet) . addressHash . vcSigningKey)
         (HM.toList certs)

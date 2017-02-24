@@ -51,7 +51,7 @@ import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData (..), ldEpoch,
 import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossModifier,
                                                      TossT, TossVerFailure (..),
                                                      evalPureTossWithLogger, evalTossT,
-                                                     execTossT, hasCertificate,
+                                                     execTossT, hasCertificateToss,
                                                      hasCommitmentToss, hasOpeningToss,
                                                      hasSharesToss, isGoodSlotForTag,
                                                      normalizeToss, tmCertificates,
@@ -145,7 +145,7 @@ sscIsDataUseful tag id =
     sscIsDataUsefulDo CommitmentMsg     = not <$> hasCommitmentToss id
     sscIsDataUsefulDo OpeningMsg        = not <$> hasOpeningToss id
     sscIsDataUsefulDo SharesMsg         = not <$> hasSharesToss id
-    sscIsDataUsefulDo VssCertificateMsg = not <$> hasCertificate id
+    sscIsDataUsefulDo VssCertificateMsg = not <$> hasCertificateToss id
     evalTossInMem
         :: ( WithLogger m
            , MonadDB SscGodTossing m

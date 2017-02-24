@@ -1122,6 +1122,7 @@ test-suite cardano-test
                        Test.Pos.Txp.Identity.BinarySpec
                        Test.Pos.Types.AddressSpec
                        Test.Pos.Types.BlockSpec
+                       Test.Pos.Types.CoinSpec
                        Test.Pos.Types.Identity.BinarySpec
                        Test.Pos.Types.Identity.SafeCopySpec
                        Test.Pos.Types.Identity.TimestampSpec

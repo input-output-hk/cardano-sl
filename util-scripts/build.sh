@@ -6,6 +6,8 @@ set -o pipefail
 #   build.sh               build
 #   build.sh -t            build and run tests
 #   build.sh core          build the core
+#
+# Do `touch .no-nix` if you want builds without Nix.
 
 # This script builds the project in a way that is convenient for developers.
 # Specifically, it does the following:
@@ -40,6 +42,10 @@ done
 commonargs='--test --no-haddock-deps --bench --jobs=4'
 norun='--no-run-tests --no-run-benchmarks'
 webwallet='--flag cardano-sl:with-web --flag cardano-sl:with-wallet'
+
+if [ -e .no-nix ]; then
+  commonargs="$commonargs --no-nix"
+fi
 
 xperl='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'
 xgrep="(^.*warning.*$|^.*error.*$|^    .*$|^.*can't find source.*$|^Module imports form a cycle.*$|^  which imports.*$)|"

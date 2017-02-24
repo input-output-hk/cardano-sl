@@ -13,7 +13,7 @@ import           Control.Exception       (AssertionFailed)
 import qualified Pos.Types               as C
 
 import           Test.Pos.Util           ((.=.), (>=.), shouldThrowException)
-import           Test.QuickCheck         (Property)
+import           Test.QuickCheck         ((===), Property)
 
 spec :: Spec
 spec = describe "Coin properties" $ do
@@ -161,17 +161,9 @@ coinPortionToDoubleToPortion :: C.CoinPortion -> Property
 coinPortionToDoubleToPortion =
     C.unsafeCoinPortionFromDouble . C.coinPortionToDouble .=. identity
 
--- | Combinator to facilitate the 'wordToPortion' property.
-(=<<<) :: Monad m => (a -> b) -> (c -> m a) -> (c -> m b)
-(=<<<) f g = \c -> do
-    a <- g c
-    return . f $ a
-
-infixr 5 =<<<
-
 wordToPortionToWord :: C.SafeWord -> Property
-wordToPortionToWord =
-    (C.SafeWord . C.getCoinPortion =<<< C.mkCoinPortion . C.getSafeWord) >=. (pure @Maybe)
+wordToPortionToWord (C.getSafeWord -> w) =
+    (C.getCoinPortion <$> C.mkCoinPortion w) === (Just w)
 
 portionToWordToPortion :: C.CoinPortion -> Property
 portionToWordToPortion = C.mkCoinPortion . C.getCoinPortion >=. (pure @Maybe)

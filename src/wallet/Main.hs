@@ -131,7 +131,6 @@ runCmd _ Help = do
             , "                                  -- propose an update with given versions and other data"
             , "                                     with one positive vote for it, from own address #N"
             , "   listaddr                       -- list own addresses"
-            , "   listaddr                       -- list own addresses"
             , "   delegate-light <N> <M>         -- delegate secret key #N to #M (genesis) light version"
             , "   delegate-heavy <N> <M>         -- delegate secret key #N to #M (genesis) heavyweight "
             , "   help                           -- show this message"

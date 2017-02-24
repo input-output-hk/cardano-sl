@@ -10,6 +10,7 @@ module Pos.Types.Coin
        , unsafeGetCoin
        , coinToInteger
        , unsafeIntegerToCoin
+       , coinPortionToDouble
 
        -- * Arithmetic operations
        , unsafeAddCoin

@@ -9,9 +9,17 @@
     }
   }
 
+
   &__container {
     @neat-outer-container;
-    padding: 56px 48px 48px 48px;
+    padding: 46px 15px 38px 15px;
+  }
+  @media (--md) {
+    &__container {
+      @neat-outer-container;
+      max-width:var(--max-width-desktop);
+      padding: 56px 48px 48px 48px;
+    }
   }
 
   .subheadline {

@@ -3,7 +3,8 @@
 
   .api-content {
     @neat-outer-container;
-
+    max-width:var(--max-width-desktop);
+    
     &__container {
       @neat-span-columns 6;
     }

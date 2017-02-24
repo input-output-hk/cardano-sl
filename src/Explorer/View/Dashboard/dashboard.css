@@ -11,11 +11,19 @@
 
   &__container {
     @neat-outer-container;
-    padding: 56px 48px 48px 48px;
+    padding: 46px 15px 38px 15px;
+  }
+  @media (--md) {
+    &__container {
+      @neat-outer-container;
+      max-width:var(--max-width-desktop);
+      padding: 56px 48px 48px 48px;
+    }
   }
 
   &__header {
     @neat-outer-container;
+    max-width:var(--max-width-desktop);
 
     .headline {
       @neat-span-columns 6;
@@ -47,6 +55,7 @@
 
   &__teaser {
     @neat-outer-container;
+    max-width:var(--max-width-desktop);
     padding: 0 24px;
   }
 

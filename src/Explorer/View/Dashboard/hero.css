@@ -34,7 +34,8 @@
       font-family: var(--fontFamily0-Light);
       color: color(var(--color3) a(0.5));
       opacity: 0.5;
-      padding-bottom: 25px;
+      margin:10px 0;
+      padding-bottom: 15px;
     }
 
     &-search-container {

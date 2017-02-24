@@ -29,6 +29,12 @@
 
     .logo__container {
       @neat-span-columns 2;
+      width: 49px;
+    }
+    @media (--md) {
+      .logo__container {
+        @neat-span-columns 2;
+      }
     }
 
     .logo__wrapper {
@@ -63,7 +69,7 @@
       line-height: var(--height-header-top);
       font-family: var(--fontFamily0-Light);
       font-size: 12px;
-      padding: 0 20px;
+      padding: 0 10px;
 
       button: standard-button;
       button-color: color(var(--color0) a(0.7)) var(--color0) var(--color0);
@@ -84,6 +90,11 @@
           bottom: -3px;
         }
     }
+    @media (--lg) {
+      .nav__item-wrapper  {
+        padding: 0 20px;
+      }
+    }
 
     .nav__item-text {
       position: relative;
@@ -94,6 +105,12 @@
       @neat-span-columns 2;
       height: var(--height-header-top);
       text-align: right;
+      display: none;
+    }
+    @media (--md) {
+      .currency__container  {
+        display: block;
+      }
     }
 
     .currency__select {

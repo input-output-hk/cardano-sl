@@ -1,6 +1,6 @@
 -- | Core types used in 'Slotting'.
 
-module Pos.Slotting.MemState.Types
+module Pos.Slotting.Types
        ( EpochSlottingData (..)
        , SlottingData (..)
        ) where
@@ -8,8 +8,8 @@ module Pos.Slotting.MemState.Types
 import           Data.Time.Units     (Millisecond)
 import           Universum
 
-import           Pos.Types.Core      (EpochIndex, Timestamp)
-import           Pos.Types.Timestamp ()
+import           Pos.Core.Types      (EpochIndex, Timestamp)
+import           Pos.Core.Timestamp ()
 
 -- | Data which is necessary for slotting and corresponds to a particular epoch.
 data EpochSlottingData = EpochSlottingData

@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Pos.Types.Block.Class
+module Pos.Core.Block
        ( Blockchain (..)
        , GenericBlockHeader (..)
        , GenericBlock (..)
@@ -24,7 +24,7 @@ module Pos.Types.Block.Class
 import           Control.Lens   (makeLenses)
 import           Universum
 
-import           Pos.Types.Core (HeaderHash)
+import           Pos.Core.Types (HeaderHash)
 
 ----------------------------------------------------------------------------
 -- GenericBlock

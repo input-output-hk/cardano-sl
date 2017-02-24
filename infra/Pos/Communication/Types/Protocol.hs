@@ -47,7 +47,7 @@ import           Universum             hiding (show)
 
 import           Pos.Binary.Class      (Bi)
 import           Pos.Communication.BiP (BiP)
-import           Pos.Types.Core        (BlockVersion)
+import           Pos.Core.Types        (BlockVersion)
 import           Pos.Util.TimeWarp     (nodeIdToAddress)
 
 instance Show BlockVersion where

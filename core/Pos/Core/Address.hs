@@ -1,6 +1,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 
-module Pos.Types.Address
+module Pos.Core.Address
        ( Address (..)
        , AddrPkAttrs (..)
        , addressF
@@ -36,11 +36,10 @@ import           Universum
 
 import           Pos.Binary.Class       (Bi)
 import qualified Pos.Binary.Class       as Bi
+import           Pos.Core.Types         (AddrPkAttrs (..), Address (..), AddressHash,
+                                         Script, StakeholderId)
 import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey)
 import           Pos.Data.Attributes    (mkAttributes)
-import           Pos.Types.Core         (AddrPkAttrs (..), Address (..), AddressHash,
-                                         StakeholderId)
-import           Pos.Types.Script       (Script)
 
 instance Bi Address => Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.encode

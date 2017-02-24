@@ -30,15 +30,8 @@ import           Text.Parsec.Combinator (manyTill)
 import           Text.Parsec.Text       (Parser)
 import           Universum              hiding (show)
 
-import           Pos.Types.Core         (ApplicationName (..), BlockVersion (..),
+import           Pos.Core.Types         (ApplicationName (..), BlockVersion (..),
                                          NumSoftwareVersion, SoftwareVersion (..))
-
-instance Show BlockVersion where
-    show BlockVersion {..} =
-        intercalate "." [show bvMajor, show bvMinor, show bvAlt]
-
-instance Buildable BlockVersion where
-    build = bprint shown
 
 parseBlockVersion :: Parser BlockVersion
 parseBlockVersion = do

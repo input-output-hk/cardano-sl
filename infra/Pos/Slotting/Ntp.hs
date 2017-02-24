@@ -44,13 +44,13 @@ import           Universum
 
 
 import qualified Pos.Core.Constants          as C
-import           Pos.Types.Core              (EpochIndex, SlotId (..), Timestamp (..),
-                                              flattenEpochIndex, unflattenSlotId)
+import           Pos.Core.Slotting           (flattenEpochIndex, unflattenSlotId)
+import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..))
 
 import           Pos.Slotting.Class          (MonadSlots (..))
 import qualified Pos.Slotting.Constants      as C
 import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
-import           Pos.Slotting.MemState.Types (EpochSlottingData (..), SlottingData (..))
+import           Pos.Slotting.Types          (EpochSlottingData (..), SlottingData (..))
 
 ----------------------------------------------------------------------------
 -- State

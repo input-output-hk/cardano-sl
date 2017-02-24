@@ -24,7 +24,7 @@ library
                         Pos.Slotting.MemState
                         Pos.Slotting.MemState.Class
                         Pos.Slotting.MemState.Holder
-                        Pos.Slotting.MemState.Types
+                        Pos.Slotting.Types
                         Pos.Slotting.Class
                         Pos.Slotting.Error
                         Pos.Slotting.Ntp
@@ -45,14 +45,21 @@ library
                         Pos.DHT.Real.Types
                         Pos.DHT.Workers
 
-                        -- Pos.Binary
-                        Pos.Binary.Infra.DHTModel
-
-  other-modules:        Pos.Communication.Types.Protocol
+                        -- Pos.Communication
+                        Pos.Communication.Types.Protocol
                         Pos.Communication.Types.State
+                        Pos.Communication.Types.Relay
+                        Pos.Communication.Types.SysStart
                         Pos.Communication.BiP
                         Pos.Communication.PeerState
                         Pos.Communication.Protocol
+
+                        -- Pos.Binary
+                        Pos.Binary.Infra
+                        Pos.Binary.Infra.DHTModel
+                        Pos.Binary.Infra.Slotting
+
+  other-modules:
                         Pos.Slotting.Constants
                         Pos.DHT.Constants
   build-depends:        base

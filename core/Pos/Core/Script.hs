@@ -2,21 +2,13 @@
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Pos.Types.Script
-       ( Script(..)
-       , Script_v0
-       , ScriptVersion
-       ) where
+module Pos.Core.Script () where
 
 import           Data.Binary                (Binary)
 import qualified Data.Binary                as Binary
 import           Data.Eq.Deriving           (deriveEq1)
 import           Data.Hashable              (Hashable, hashWithSalt)
 import           Data.SafeCopy              (SafeCopy (..))
-import           Data.SafeCopy              (base, deriveSafeCopySimple)
-import           Data.Text.Buildable        (Buildable)
-import qualified Data.Text.Buildable        as Buildable
-import           Formatting                 (bprint, int, (%))
 import           Instances.TH.Lift          ()
 import           Language.Haskell.TH.Syntax (Lift (..))
 import qualified PlutusCore.Program         as PLCore
@@ -30,25 +22,6 @@ import qualified Utils.Vars                 as Vars
 
 import           Pos.Binary.Class           (Bi, getCopyBi, putCopyBi)
 
--- | Version of script
-type ScriptVersion = Word16
-
--- | A script for inclusion into a transaction.
-data Script = Script {
-    scrVersion :: ScriptVersion,    -- ^ Version
-    scrScript  :: LByteString}      -- ^ Serialized script
-  deriving (Eq, Show, Generic, Typeable)
-
-instance NFData Script
-instance Hashable Script
-
-instance Buildable Script where
-    build Script{..} = bprint ("<script v"%int%">") scrVersion
-
-deriveSafeCopySimple 0 'base ''Script
-
--- | Deserialized script (i.e. an AST), version 0.
-type Script_v0 = PLCore.Program
 
 ----------------------------------------------------------------------------
 -- Orphan instances, to be included into plutus-prototype

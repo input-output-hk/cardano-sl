@@ -1,7 +1,8 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns        #-}
-module Pos.Types.Coin
+
+module Pos.Core.Coin
        ( coinF
        , sumCoins
 
@@ -24,7 +25,7 @@ import qualified Data.Text.Buildable
 import           Formatting          (bprint, float, int, (%))
 import           Universum
 
-import           Pos.Types.Core      (Coin, CoinPortion (getCoinPortion), coinF,
+import           Pos.Core.Types      (Coin, CoinPortion (getCoinPortion), coinF,
                                       coinPortionDenominator, mkCoin, unsafeGetCoin)
 
 sumCoins :: [Coin] -> Integer

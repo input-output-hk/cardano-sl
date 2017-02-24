@@ -1,6 +1,6 @@
 -- | Slotting functionality.
 
-module Pos.Types.Timestamp
+module Pos.Core.Timestamp
        ( Timestamp (..)
        , timestampF
        ) where
@@ -11,7 +11,7 @@ import           Formatting          (Format, build)
 import           Prelude             (Read (..), Show (..))
 import           Universum           hiding (show)
 
-import           Pos.Types.Core      (Timestamp (..))
+import           Pos.Core.Types      (Timestamp (..))
 
 instance Show Timestamp where
   show = show . getTimestamp
@@ -25,3 +25,6 @@ instance Buildable Timestamp where
 -- | Specialized formatter for 'Timestamp' data type.
 timestampF :: Format r (Timestamp -> r)
 timestampF = build
+
+instance NFData Timestamp where
+    rnf Timestamp{..} = rnf (toInteger getTimestamp)

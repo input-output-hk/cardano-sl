@@ -38,14 +38,6 @@ instance Bi T.CoinPortion where
     put = put . T.getCoinPortion
     get = label "CoinPortion" $ get >>= T.mkCoinPortion
 
-instance Bi T.Timestamp where
-    get = label "Timestamp" $ fromInteger <$> get
-    put = put . toInteger
-
-instance Bi T.EpochIndex where
-    get = label "EpochIndex" $ T.EpochIndex . getUnsignedVarInt <$> get
-    put (T.EpochIndex c) = put (UnsignedVarInt c)
-
 instance Bi T.LocalSlotIndex where
     get = label "LocalSlotIndex" $ T.LocalSlotIndex . getUnsignedVarInt <$> get
     put (T.LocalSlotIndex c) = put (UnsignedVarInt c)

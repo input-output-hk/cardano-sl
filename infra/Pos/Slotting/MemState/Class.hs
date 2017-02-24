@@ -4,11 +4,11 @@ module Pos.Slotting.MemState.Class
        ( MonadSlotsData (..)
        ) where
 
-import           Control.Monad.Trans         (MonadTrans)
+import           Control.Monad.Trans (MonadTrans)
 import           Universum
 
-import           Pos.Slotting.MemState.Types (SlottingData)
-import           Pos.Types.Core              (EpochIndex, SlotId (..), Timestamp)
+import           Pos.Slotting.Types  (SlottingData)
+import           Pos.Core.Types      (EpochIndex, SlotId (..), Timestamp)
 
 -- | 'MonadSlotsData' provides access to data necessary for slotting to work.
 class Monad m =>

@@ -45,11 +45,11 @@ import           Pos.Binary.Class                 (Bi)
 import           Pos.Communication.BiP            (BiP)
 import           Pos.Communication.PeerState      (WithPeerState (..), peerVerInfo)
 import           Pos.Communication.Types.Protocol
+import           Pos.Core.Types                   (SlotId)
 import           Pos.DHT.Model.Class              (MonadDHT)
 import           Pos.Reporting.Class              (MonadReportingMem)
 import           Pos.Slotting.Class               (MonadSlots)
 import           Pos.Slotting.Util                (onNewSlot, onNewSlotImpl)
-import           Pos.Types.Core                   (SlotId)
 
 protocolListeners :: (Bi NOP, Message NOP, WithLogger m) => [Listener m]
 protocolListeners =

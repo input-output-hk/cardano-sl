@@ -9,9 +9,9 @@ import qualified Data.Text.Buildable
 import           Formatting          (bprint, (%))
 import           Universum
 
+import           Pos.Core.Types      (SlotId, slotIdF)
 import           Pos.Exception       (cardanoExceptionFromException,
                                       cardanoExceptionToException)
-import           Pos.Types.Core      (SlotId, slotIdF)
 
 -- | Type aggregating run-time errors related to Slotting.
 data SlottingError = SEUnknownSlotStart !SlotId

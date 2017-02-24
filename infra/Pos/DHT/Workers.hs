@@ -15,6 +15,8 @@ import           Universum
 
 import           Pos.Binary.Infra.DHTModel  ()
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
+import           Pos.Core.Slotting          (flattenSlotId)
+import           Pos.Core.Types             (slotIdF)
 import           Pos.DHT.Constants          (kademliaDumpInterval)
 import           Pos.DHT.MemState           (DhtContext (..), MonadDhtMem (..))
 import           Pos.DHT.Model.Class        (MonadDHT)
@@ -22,7 +24,6 @@ import           Pos.DHT.Real.Types         (KademliaDHTInstance (..),
                                              WithKademliaDHTInstance (..))
 import           Pos.Reporting.Class        (MonadReportingMem)
 import           Pos.Slotting.Class         (MonadSlots)
-import           Pos.Types.Core             (flattenSlotId, slotIdF)
 
 type DhtWorkMode m = ( WithLogger m
                      , MonadDhtMem m

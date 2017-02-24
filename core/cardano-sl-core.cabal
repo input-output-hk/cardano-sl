@@ -12,26 +12,27 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Pos.Types.Block.Class
-                       Pos.Types.Coin
-                       Pos.Types.Script
-                       Pos.Types.Types
-                       Pos.Types.Timestamp
-                       Pos.Types.Address
-                       Pos.Types.Core
+  exposed-modules:     Pos.Core.Address
+                       Pos.Core.Block
+                       Pos.Core.Coin
+                       Pos.Core.Constants
+                       Pos.Core.Script
+                       Pos.Core.Slotting
+                       Pos.Core.Timestamp
+                       Pos.Core.Types
+                       Pos.Core.Version
 
                        Pos.Crypto
+                       Pos.Crypto.AsBinary
+                       Pos.Crypto.Random
                        Pos.Crypto.Hashing
                        Pos.Crypto.Signing
                        Pos.Crypto.SecretSharing
-                       Pos.Crypto.Random
-                       Pos.Crypto.AsBinary
 
                        Pos.Binary.Class
                        Pos.Merkle
                        Pos.Data.Attributes
                        Pos.Exception
-                       Pos.Core.Constants
                        Pos.Util.TimeWarp
 
   build-depends:       HsOpenSSL

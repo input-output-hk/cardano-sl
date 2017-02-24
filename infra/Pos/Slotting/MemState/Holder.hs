@@ -28,7 +28,7 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
-import           Pos.Slotting.MemState.Types (SlottingData (sdPenultEpoch))
+import           Pos.Slotting.Types          (SlottingData (sdPenultEpoch))
 
 ----------------------------------------------------------------------------
 -- Transformer

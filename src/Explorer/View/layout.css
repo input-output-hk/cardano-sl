@@ -6,7 +6,7 @@
   right: 0;
   bottom: 0;
   background-color: var(--color2);
-  background-image: url('../static/images/header.jpg');
+  background-image: url('../static/images/car-sky.jpg');
   background-repeat: no-repeat;
   background-size: 100% var(--min-height-header-bg-image);
 }

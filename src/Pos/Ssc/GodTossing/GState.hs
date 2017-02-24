@@ -33,7 +33,7 @@ import qualified Pos.DB.Lrc                     as LrcDB
 import           Pos.Lrc.Types                  (RichmenStake)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
 import           Pos.Ssc.Extra                  (MonadSscMem, sscRunGlobalQuery)
-import           Pos.Ssc.GodTossing.Core        (VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Core        (GtPayload (..), VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Functions   (getStableCertsPure)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
@@ -104,11 +104,17 @@ loadGlobalState = do
         maybeThrow
             (DBMalformed "No blocks during mpc load global state")
             (_Wrapped NE.nonEmpty nfBlocks)
+    let (beforeEndEpoch, forEndEpoch) =
+            break ((== endEpoch) . view epochIndexL) $ toList blocks
     let initGState
             | startEpoch == 0 = over gsVssCertificates unionGenCerts def
             | otherwise = def
     multiRichmen <- foldM loadRichmenStep mempty [startEpoch .. endEpoch]
-    let action = verifyAndApplyMultiRichmen multiRichmen blocks
+    let action = do
+            whenNotNull beforeEndEpoch $
+                verifyAndApplyMultiRichmen True multiRichmen . OldestFirst
+            whenNotNull forEndEpoch $
+                verifyAndApplyMultiRichmen False multiRichmen . OldestFirst
     let errMsg e = "invalid blocks, can't load GodTossing state: " <> pretty e
     runExceptT (execStateT action initGState) >>= \case
         Left e -> throwM $ DBMalformed $ errMsg e
@@ -136,22 +142,28 @@ verifyAndApply
     :: RichmenStake
     -> OldestFirst NE (Block SscGodTossing)
     -> SscVerifier SscGodTossing ()
-verifyAndApply richmenStake blocks = verifyAndApplyMultiRichmen richmenData blocks
+verifyAndApply richmenStake blocks = verifyAndApplyMultiRichmen False richmenData blocks
   where
     epoch = blocks ^. _Wrapped . _neHead . epochIndexL
     richmenData = HM.fromList [(epoch, richmenStake)]
 
 verifyAndApplyMultiRichmen
-    :: MultiRichmenStake
+    :: Bool
+    -> MultiRichmenStake
     -> OldestFirst NE (Block SscGodTossing)
     -> SscVerifier SscGodTossing ()
-verifyAndApplyMultiRichmen richmenData = mapM_ verifyAndApplyDo
+verifyAndApplyMultiRichmen onlyCerts richmenData =
+    tossToVerifier richmenData . mapM_ verifyAndApplyDo
   where
-    verifyAndApplyDo (Left blk) =
-        tossToVerifier richmenData $ applyGenesisBlock $ blk ^. epochIndexL
+    verifyAndApplyDo (Left blk) = applyGenesisBlock $ blk ^. epochIndexL
     verifyAndApplyDo (Right blk) =
-        tossToVerifier richmenData $
-        verifyAndApplyGtPayload (Right $ blk ^. gbHeader) (blk ^. blockMpc)
+        verifyAndApplyGtPayload (Right $ blk ^. gbHeader) $ filterPayload (blk ^. blockMpc)
+    filterPayload payload | onlyCerts = leaveOnlyCerts payload
+                          | otherwise = payload
+    leaveOnlyCerts (CommitmentsPayload _ certs) = CommitmentsPayload mempty certs
+    leaveOnlyCerts (OpeningsPayload _ certs)    = OpeningsPayload mempty certs
+    leaveOnlyCerts (SharesPayload _ certs)      = SharesPayload mempty certs
+    leaveOnlyCerts c@(CertificatesPayload _)    = c
 
 tossToUpdate :: MultiRichmenStake -> PureToss a -> GSUpdate a
 tossToUpdate richmenData action = do

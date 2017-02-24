@@ -44,12 +44,12 @@ webwallet='--flag cardano-sl:with-web --flag cardano-sl:with-wallet'
 xperl='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'
 xgrep="(^.*warning.*$|^.*error.*$|^    .*$|^.*can't find source.*$|^Module imports form a cycle.*$|^  which imports.*$)|"
 
-if [[ $core == true ]]; then
-  stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun --dependencies-only $args core/
-  stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun --fast $args 2>&1 core/ | perl -pe "$xperl" | grep -E --color "$xgrep"
-else
+stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun --dependencies-only $args core/
+stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun --fast $args 2>&1 core/ | perl -pe "$xperl" | { grep -E --color "$xgrep" || true; }
+
+if [[ $core == false ]]; then
   stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun $webwallet --dependencies-only cardano-sl $args
-  stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun $webwallet --fast $args cardano-sl 2>&1 | perl -pe "$xperl" | grep -E --color "$xgrep"
+  stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun $webwallet --fast $args cardano-sl 2>&1 | perl -pe "$xperl" | { grep -E --color "$xgrep" || true; }
 fi
 
 if [[ $test == true ]]; then

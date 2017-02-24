@@ -21,7 +21,7 @@ import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (..), GtPayload
                                                   mkCommitmentsMapUnsafe, _gpCertificates)
 import           Pos.Ssc.GodTossing.Functions    (verifyGtPayload)
 import           Pos.Ssc.GodTossing.Toss.Base    (checkPayload)
-import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossRead (..))
+import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..))
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Toss.Types   (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type         ()

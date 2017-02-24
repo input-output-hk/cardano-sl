@@ -438,8 +438,7 @@ library
                         Pos.Wallet.Web.State.Holder
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
-  build-depends:        HsOpenSSL
-                      , IfElse
+  build-depends:        IfElse
                       , QuickCheck
                       , UtilityTM
                       , acid-state
@@ -461,6 +460,7 @@ library
                       , conduit >= 1.2.8
                       , containers
                       , cryptonite >= 0.19 && < 0.22
+                      , cryptonite-openssl >= 0.5
                       , data-default
                       , deepseq
                       , derive
@@ -1132,6 +1132,7 @@ test-suite cardano-test
                        Test.Pos.Txp.Identity.BinarySpec
                        Test.Pos.Types.AddressSpec
                        Test.Pos.Types.BlockSpec
+                       Test.Pos.Types.CoinSpec
                        Test.Pos.Types.Identity.BinarySpec
                        Test.Pos.Types.Identity.SafeCopySpec
                        Test.Pos.Types.Identity.TimestampSpec

@@ -47,8 +47,7 @@ import           Formatting            (build, sformat)
 
 import           Pos.Aeson.Types       ()
 import           Pos.Crypto            (hashHexF)
-import           Pos.Txp.Core.Types    (Tx (..), TxId, txOutAddress, txOutValue,
-                                        txOutputs)
+import           Pos.Txp.Core.Types    (Tx (..), TxId, txOutAddress, txOutValue)
 import           Pos.Types             (Address (..), BlockVersion, ChainDifficulty, Coin,
                                         SoftwareVersion, decodeTextAddress, sumCoins,
                                         unsafeIntegerToCoin)

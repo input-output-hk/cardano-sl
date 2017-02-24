@@ -29,7 +29,6 @@ import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
 
 import           Pos.Communication.PeerState (PeerStateHolder, WithPeerState)
-import           Pos.Constants               (blkSecurityParam)
 import qualified Pos.Context                 as PC
 import           Pos.Crypto                  (WithHash (..))
 import           Pos.DB                      (MonadDB)
@@ -40,7 +39,6 @@ import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
 import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Slotting                (NtpSlotting, SlottingHolder,
-                                              getCurrentSlotInaccurate,
                                               getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
@@ -48,10 +46,10 @@ import           Pos.Txp                     (TxpHolder (..), UtxoView (..), bel
                                               evalUtxoStateT, filterUtxoByAddr,
                                               getMemPool, getUtxoView, runUtxoStateT,
                                               txProcessTransaction, _mpLocalTxs)
-import           Pos.Txp.Core.Types          (TxAux, TxId, Utxo, toPair, txOutValue)
+import           Pos.Txp.Core.Types          (TxAux, TxId, Utxo, txOutValue)
 import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
-                                              difficultyL, flattenEpochOrSlot,
-                                              flattenSlotId, prevBlockL, sumCoins)
+                                              difficultyL, prevBlockL, prevBlockL,
+                                              sumCoins, sumCoins)
 import           Pos.Types.Coin              (unsafeIntegerToCoin)
 import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
 import           Pos.Util                    (maybeThrow)
@@ -180,13 +178,13 @@ instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
 --deriving instance MonadTxHistory m => MonadTxHistory (Modern.TxpLDHolder m)
 
 class Monad m => MonadBlockchainInfo m where
-    networkChainDifficulty :: m ChainDifficulty
+    networkChainDifficulty :: m (Maybe ChainDifficulty)
     localChainDifficulty :: m ChainDifficulty
     blockchainSlotDuration :: m Millisecond
     connectedPeers :: m Word
 
     default networkChainDifficulty
-        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m ChainDifficulty
+        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m (Maybe ChainDifficulty)
     networkChainDifficulty = lift networkChainDifficulty
 
     default localChainDifficulty
@@ -239,14 +237,7 @@ downloadHeader = getContextTMVar PC.ncProgressHeader
 -- | Instance for full-node's ContextHolder
 instance SscHelpersClass ssc =>
          MonadBlockchainInfo (RawRealMode ssc) where
-    networkChainDifficulty = recoveryHeader >>= \case
-        Just hh -> return $ hh ^. difficultyL
-        Nothing -> do
-            th <- topHeader
-            cSlot <- fromIntegral . flattenSlotId <$> getCurrentSlotInaccurate
-            let hSlot = fromIntegral $ flattenEpochOrSlot th :: Int
-                blksLeft = fromIntegral $ max 0 $ cSlot - blkSecurityParam - hSlot
-            return $ blksLeft + th ^. difficultyL
+    networkChainDifficulty = fmap (^. difficultyL) <$> recoveryHeader
 
     localChainDifficulty = downloadHeader >>= \case
         Just dh -> return $ dh ^. difficultyL

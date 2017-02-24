@@ -31,8 +31,7 @@ library
                        Pos.Merkle
                        Pos.Data.Attributes
 
-  build-depends:       HsOpenSSL
-                     , base
+  build-depends:       base
                      , base58-bytestring
                       -- This constraint on 'binary' is so strict because
                       -- we're relying on the internal representation of
@@ -45,6 +44,7 @@ library
                      , cereal
                      , containers
                      , cryptonite
+                     , cryptonite-openssl >= 0.5
                      , data-default
                      , deepseq
                      , derive

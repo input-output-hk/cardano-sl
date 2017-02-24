@@ -5,6 +5,7 @@
 
 module Pos.Block.Network.Retrieval
        ( retrievalWorker
+       , triggerRecovery
        , handleUnsolicitedHeaders
        , requestTip
        , requestHeaders
@@ -48,6 +49,7 @@ import           Pos.Context                (NodeContext (..), getNodeContext,
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB                     as DB
 import qualified Pos.DB.GState              as GState
+import           Pos.DHT.Model              (converseToNeighbors)
 import           Pos.Reporting.Methods      (reportMisbehaviourMasked, reportingFatal)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
@@ -71,11 +73,16 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
            ph <- atomically $ readTBQueue queue
            handleAll (handleLE recHeaderVar ph) $ reportingFatal $
                handle sendActions ph
-           needQueryMore <- atomically $ do
-               isEmpty <- isEmptyTBQueue queue
-               recHeader <- tryReadTMVar recHeaderVar
-               pure $ guard isEmpty *> recHeader
-           whenJust needQueryMore $ \(peerId, rHeader) -> do
+           let needQueryMore = atomically $ do
+                   isEmpty <- isEmptyTBQueue queue
+                   recHeader <- tryReadTMVar recHeaderVar
+                   pure $ guard isEmpty *> recHeader
+           let tryFillQueue (0 :: Int) _ =
+                   void $ atomically $ tryTakeTMVar recHeaderVar
+               tryFillQueue tries action =
+                   whenM (atomically $ isEmptyTBQueue queue) $
+                       action >> tryFillQueue (tries - 1) action
+           tryFillQueue 5 $ whenJustM needQueryMore $ \(peerId, rHeader) -> do
                logDebug "Queue is empty, we're in recovery mode -> querying more"
                whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
                    handleAll (handleLE recHeaderVar ph) $ reportingFatal $
@@ -97,20 +104,23 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
         progressHeaderVar <- ncProgressHeader <$> getNodeContext
         void $ atomically $ tryTakeTMVar progressHeaderVar
     dropRecoveryHeader recHeaderVar peerId = do
-        kicked <- atomically $ do
+        (kicked,realPeer) <- atomically $ do
             let processKick (peer,_) = do
                     let p = peer == peerId
                     when p $ void $ tryTakeTMVar recHeaderVar
-                    pure p
-            maybe (pure False) processKick =<< tryReadTMVar recHeaderVar
+                    pure (p, Just peer)
+            maybe (pure (True,Nothing)) processKick =<< tryReadTMVar recHeaderVar
         when kicked $ logWarning $
             sformat ("Recovery mode communication dropped with peer "%build) peerId
+        unless kicked $
+            logDebug $ "Recovery mode wasn't disabled: " <>
+                       maybe "noth" show realPeer <> " vs " <> show peerId
     handleLE recHeaderVar (peerId, headers) e = do
         logWarning $ sformat
             ("Error handling peerId="%build%", headers="%listJson%": "%shown)
             peerId (fmap headerHash headers) e
         dropUpdateHeader
-        dropRecoveryHeader recHeaderVar peerId
+        void $ dropRecoveryHeader recHeaderVar peerId
     handle sendActions (peerId, headers) = do
         logDebug $ sformat
             ("retrievalWorker: handling peerId="%build%", headers="%listJson)
@@ -207,6 +217,12 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
             if curH == endH
             then pure $ one block
             else over _Wrapped (block <|) <$> retrieveBlocks' (i+1) conv curH endH
+
+-- | Triggers recovery based on established communication.
+triggerRecovery :: WorkMode ssc m => SendActions m -> m ()
+triggerRecovery sendActions = unlessM isRecoveryMode $ do
+    logDebug "Recovery triggered"
+    converseToNeighbors sendActions requestTip
 
 -- | Make 'GetHeaders' message using our main chain. This function
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'

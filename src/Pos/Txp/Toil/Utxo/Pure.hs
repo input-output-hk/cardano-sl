@@ -31,8 +31,7 @@ import           Universum
 
 import           Pos.Binary.Types            ()
 import           Pos.Crypto                  (WithHash (..))
-import           Pos.Txp.Core.Types          (Tx, TxAux, TxDistribution, TxId, TxIn (..),
-                                              Utxo)
+import           Pos.Txp.Core.Types          (Tx, TxAux, TxDistribution, TxId, Utxo)
 
 import           Pos.Txp.Toil.Class          (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', verifyTxUtxo)

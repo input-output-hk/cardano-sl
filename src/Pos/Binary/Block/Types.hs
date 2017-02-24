@@ -20,7 +20,6 @@ import qualified Pos.Types.Block.Class     as T
 import qualified Pos.Types.Block.Instances as T
 import qualified Pos.Types.Block.Types     as T
 import qualified Pos.Types.Core            as T
-import qualified Pos.Types.Types           as T
 import           Pos.Update.Core.Types     (UpdatePayload)
 
 ----------------------------------------------------------------------------

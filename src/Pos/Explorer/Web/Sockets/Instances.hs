@@ -39,8 +39,8 @@ instance ToJSON AddrPkAttrs
 instance FromJSON ChainDifficulty where
 instance ToJSON ChainDifficulty where
 
--- this is bad style, but explorer is an application rather than a library,
--- right?
+-- this is a bad style to define such instances,
+-- but explorer is an application rather than a library, right?
 instance FromJSON LByteString where
     parseJSON = fmap LBS.fromStrict . parseJSON
 instance ToJSON LByteString where

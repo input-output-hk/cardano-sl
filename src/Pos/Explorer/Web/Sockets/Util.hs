@@ -31,6 +31,9 @@ import           Universum                   hiding (on, threadDelay)
 class EventName a where
     toName :: a -> Text
 
+-- ** Socket-io functions which works with `EventName name` rather than
+-- with plain `Text`.
+
 emit
     :: (ToJSON event, EventName name, MonadReader S.Socket m, MonadIO m)
     => name -> event -> m ()
@@ -61,6 +64,9 @@ on eventName handler = S.on (toName eventName) handler
 
 -- * Misc
 
+-- | Runs an action periodically.
+-- It's provided with a flag whether repetition should be stopped.
+-- Action is launched with state. If action fails, state remains unmodified.
 runPeriodicallyUnless
     :: (MonadIO m, MonadCatch m, WithLogger m, TimeUnit t)
     => t -> m Bool -> s -> StateT s m () -> m ()

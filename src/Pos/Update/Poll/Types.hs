@@ -56,10 +56,10 @@ import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Script.Type            (ScriptVersion)
 import           Pos.Slotting.Types         (SlottingData)
 import           Pos.Types.Core             (ChainDifficulty, Coin, HeaderHash, SlotId,
                                              StakeholderId, mkCoin)
+import           Pos.Types.Script           (ScriptVersion)
 import           Pos.Types.Version          (ApplicationName, BlockVersion,
                                              NumSoftwareVersion, SoftwareVersion)
 import           Pos.Update.Core            (BlockVersionData (..), StakeholderVotes,
@@ -160,6 +160,13 @@ mkUProposalState upsSlot upsProposal =
     , ..
     }
 
+instance NFData UpsExtra
+instance NFData DpsExtra
+instance NFData UndecidedProposalState
+instance NFData DecidedProposalState
+instance NFData ConfirmedProposalState
+instance NFData ProposalState
+
 ----------------------------------------------------------------------------
 -- BlockVersion state
 ----------------------------------------------------------------------------
@@ -183,7 +190,7 @@ data BlockVersionState = BlockVersionState
     -- ^ Identifier of last block which modified set of 'bvsIssuersStable'.
     , bvsLastBlockUnstable :: !(Maybe HeaderHash)
     -- ^ Identifier of last block which modified set of 'bvsIssuersUnstable'.
-    } deriving (Show)
+    } deriving (Show, Generic)
 
 bvsScriptVersion :: BlockVersionState -> ScriptVersion
 bvsScriptVersion = bvdScriptVersion . bvsData
@@ -237,6 +244,8 @@ makeLensesFor [ ("pmNewBVs", "pmNewBVsL")
 
 -- | Previous value of something that could be missing.
 data PrevValue a = PrevValue a | NoExist
+    deriving (Generic,Show)
+
 
 maybeToPrev :: Maybe a -> PrevValue a
 maybeToPrev (Just x) = PrevValue x
@@ -249,7 +258,8 @@ data USUndo = USUndo
     , unChangedProps     :: !(HashMap UpId (PrevValue ProposalState))
     , unChangedSV        :: !(HashMap ApplicationName (PrevValue NumSoftwareVersion))
     , unChangedConfProps :: !(HashMap SoftwareVersion (PrevValue ConfirmedProposalState))
-    }
+    } deriving (Generic,Show)
+
 
 makeLensesFor [ ("unChangedBV", "unChangedBVL")
               , ("unLastAdoptedBV", "unLastAdoptedBVL")
@@ -264,3 +274,11 @@ instance Buildable USUndo where
 
 instance Default USUndo where
     def = USUndo mempty Nothing mempty mempty mempty
+
+----------------------------------------------------------------------------
+-- NFData instances
+----------------------------------------------------------------------------
+
+instance NFData BlockVersionState
+instance NFData a => NFData (PrevValue a)
+instance NFData USUndo

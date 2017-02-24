@@ -65,6 +65,7 @@ class Blockchain p where
 
     verifyBBlock :: GenericBlock p -> Either Text ()
 
+
 -- | Header of block contains some kind of summary. There are various
 -- benefits which people get by separating header from other data.
 data GenericBlockHeader b = GenericBlockHeader
@@ -78,17 +79,26 @@ data GenericBlockHeader b = GenericBlockHeader
       _gbhExtra     :: !(ExtraHeaderData b)
     } deriving (Generic)
 
-deriving instance ( Show (BHeaderHash b)
-                  , Show (BodyProof b)
-                  , Show (ConsensusData b)
-                  , Show (ExtraHeaderData b)
-                  ) => Show (GenericBlockHeader b)
+deriving instance
+    ( Show (BHeaderHash b)
+    , Show (BodyProof b)
+    , Show (ConsensusData b)
+    , Show (ExtraHeaderData b)
+    ) => Show (GenericBlockHeader b)
 
-deriving instance ( Eq (BHeaderHash b)
-                  , Eq (BodyProof b)
-                  , Eq (ConsensusData b)
-                  , Eq (ExtraHeaderData b)
-                  ) => Eq (GenericBlockHeader b)
+deriving instance
+    ( Eq (BHeaderHash b)
+    , Eq (BodyProof b)
+    , Eq (ConsensusData b)
+    , Eq (ExtraHeaderData b)
+    ) => Eq (GenericBlockHeader b)
+
+instance
+    ( NFData (BHeaderHash b)
+    , NFData (BodyProof b)
+    , NFData (ConsensusData b)
+    , NFData (ExtraHeaderData b)
+    ) => NFData (GenericBlockHeader b)
 
 -- | In general Block consists of header and body. It may contain
 -- extra data as well.
@@ -99,17 +109,26 @@ data GenericBlock b = GenericBlock
     } deriving (Generic)
 
 deriving instance
-         (Show (GenericBlockHeader b), Show (Body b),
-          Show (ExtraBodyData b)) =>
-         Show (GenericBlock b)
+    ( Show (GenericBlockHeader b)
+    , Show (Body b)
+    , Show (ExtraBodyData b)
+    ) => Show (GenericBlock b)
 
-deriving instance ( Eq (BHeaderHash b)
-                  , Eq (Body b)
-                  , Eq (BodyProof b)
-                  , Eq (ConsensusData b)
-                  , Eq (ExtraBodyData b)
-                  , Eq (ExtraHeaderData b)
-                  ) => Eq (GenericBlock b)
+deriving instance
+    ( Eq (BHeaderHash b)
+    , Eq (Body b)
+    , Eq (BodyProof b)
+    , Eq (ConsensusData b)
+    , Eq (ExtraBodyData b)
+    , Eq (ExtraHeaderData b)
+    ) => Eq (GenericBlock b)
+
+-- Derived partially in Instances
+--instance
+--    ( NFData (GenericBlockHeader b)
+--    , NFData (Body b)
+--    , NFData (ExtraBodyData b)
+--    ) => NFData (GenericBlock b)
 
 makeLenses ''GenericBlockHeader
 makeLenses ''GenericBlock

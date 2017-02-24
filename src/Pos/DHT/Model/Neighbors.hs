@@ -82,7 +82,7 @@ converseToNode sendActions node handler =
       where
         handleE e | isDevelopment = tryConnect 1
                   | otherwise     = throw e
-        tryConnect i = withConnectionTo sendActions nodeId $ handler nodeId
+        tryConnect i = withConnectionTo sendActions nodeId $ \_peerData -> handler nodeId
           where
             nodeId = toNodeId i node
 

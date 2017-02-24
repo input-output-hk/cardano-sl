@@ -32,6 +32,7 @@ import           Pos.DB                 (MonadDB, SomePrettyBatchOp (SomePrettyB
                                          getUtxoDB)
 import           Pos.DB.GState          (BalancesOp (..), CommonOp (..), UtxoOp (..),
                                          getTip, getTotalFtsStake)
+import           Pos.Exception          (assertionFailed)
 import           Pos.Ssc.Class.Types    (Ssc)
 import           Pos.Txp.Class          (MonadTxpLD (..), TxpLD, getUtxoView)
 import           Pos.Txp.Error          (TxpError (..))
@@ -81,9 +82,10 @@ txApplyBlocks blunds = do
     inAssertMode $
         do verdict <- txVerifyBlocks blocks
            case verdict of
-               Right _ -> pass
+               Right _     -> pass
                Left errors ->
-                   panic $ "txVerifyBlocks failed: " <> errors
+                   assertionFailed $
+                   "txVerifyBlocks failed in txApplyBlocks call: " <> errors
     -- Apply all the block's transactions
     -- TODO actually, we can improve it: we can use UtxoView from txVerifyBlocks
     -- Now we recalculate TxIn which must be removed from Utxo DB or added to Utxo DB

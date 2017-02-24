@@ -44,7 +44,7 @@ import           Formatting                     (Format, bprint, (%))
 import           Serokell.Util                  (VerificationRes, listJson, verifyGeneric)
 import           Universum
 
-import           Pos.Binary.Class               (Bi)
+import           Pos.Binary.Class               (AsBinary, Bi, asBinary, fromBinaryM)
 import           Pos.Binary.Crypto              ()
 import           Pos.Binary.Ssc.GodTossing.Core ()
 import           Pos.Constants                  (blkSecurityParam, vssMaxTTL, vssMinTTL)
@@ -65,7 +65,6 @@ import           Pos.Types.Address              (addressHash)
 import           Pos.Types.Core                 (EpochIndex (..), LocalSlotIndex,
                                                  SlotId (..), StakeholderId)
 import           Pos.Types.Types                (SharedSeed (..))
-import           Pos.Util                       (AsBinary, asBinary, fromBinaryM)
 
 -- | Convert Secret to SharedSeed.
 secretToSharedSeed :: Secret -> SharedSeed

@@ -30,8 +30,7 @@ import           Data.Typeable         (typeRep)
 import           Prelude               (read)
 import           Test.QuickCheck       (counterexample)
 
-import           Pos.Binary            (Bi (..), encode)
-import           Pos.Util              (AsBinaryClass (..))
+import           Pos.Binary            (AsBinaryClass (..), Bi (..), encode)
 
 import           Test.Hspec            (Expectation, Selector, Spec, shouldThrow)
 import           Test.Hspec.QuickCheck (prop)

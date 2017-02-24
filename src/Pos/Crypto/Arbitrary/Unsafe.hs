@@ -4,12 +4,14 @@
 
 module Pos.Crypto.Arbitrary.Unsafe () where
 
-import           Test.QuickCheck           (Arbitrary (..))
+import           Test.QuickCheck           (Arbitrary (..), choose)
 import           Test.QuickCheck.Instances ()
 import           Universum
 
 import           Pos.Binary.Class          (Bi)
 import qualified Pos.Binary.Class          as Bi
+import           Pos.Crypto.Hashing        (AbstractHash, HashAlgorithm,
+                                            unsafeAbstractHash)
 import           Pos.Crypto.SecretSharing  (VssKeyPair, VssPublicKey,
                                             deterministicVssKeyGen, toVssPublicKey)
 import           Pos.Crypto.Signing        (PublicKey, SecretKey, Signature, Signed,
@@ -43,3 +45,8 @@ instance ArbitraryUnsafe VssKeyPair where
 -- keypair.
 instance ArbitraryUnsafe VssPublicKey where
     arbitraryUnsafe = toVssPublicKey <$> arbitraryUnsafe
+
+instance (HashAlgorithm algo, Bi a) =>
+         ArbitraryUnsafe (AbstractHash algo a) where
+    arbitraryUnsafe = unsafeAbstractHash <$>
+        choose (minBound, maxBound :: Word64)

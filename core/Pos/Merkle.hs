@@ -1,7 +1,6 @@
-{-# LANGUAGE DeriveFoldable  #-}
-{-# LANGUAGE NamedFieldPuns  #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+{-# LANGUAGE DeriveFoldable       #-}
+{-# LANGUAGE NamedFieldPuns       #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Merkle tree implementation.
 --
@@ -17,31 +16,31 @@ module Pos.Merkle
        , mkLeaf
        ) where
 
+import           Data.ByteArray       (ByteArrayAccess, convert)
 import qualified Data.ByteString.Lazy as BL (toStrict)
 import           Data.Coerce          (coerce)
 import qualified Data.Foldable        as Foldable
-import           Data.SafeCopy        (base, deriveSafeCopySimple)
+import           Data.SafeCopy        (SafeCopy (..))
 import           Prelude              (Show (..))
 import           Universum            hiding (show)
 
-import           Data.ByteArray       (ByteArrayAccess, convert)
-import           Pos.Binary.Class     (Bi, encode)
-import           Pos.Binary.Crypto    ()
+import           Pos.Binary.Class     (Bi, Raw, encode, getCopyBi, putCopyBi)
 import           Pos.Crypto           (Hash, hashRaw)
-import           Pos.Util.Binary      (Raw)
 
 -- | Data type for root of merkle tree.
 newtype MerkleRoot a = MerkleRoot
     { getMerkleRoot :: Hash Raw  -- ^ returns root 'Hash' of Merkle Tree
-    } deriving (Show, Eq, Ord, Generic, ByteArrayAccess, Typeable)
+    } deriving (Show, Eq, Ord, Generic, ByteArrayAccess, Typeable, NFData)
 
--- This gives a “redundant constraint” warning due to
--- https://github.com/acid-state/safecopy/issues/46.
-deriveSafeCopySimple 0 'base ''MerkleRoot
+instance Bi (MerkleRoot a) => SafeCopy (MerkleRoot a) where
+    getCopy = getCopyBi "MerkleRoot"
+    putCopy = putCopyBi
 
 -- | Straightforward merkle tree representation in Haskell.
 data MerkleTree a = MerkleEmpty | MerkleTree Word32 (MerkleNode a)
     deriving (Eq, Generic)
+
+instance NFData a => NFData (MerkleTree a)
 
 instance Foldable MerkleTree where
     foldMap _ MerkleEmpty      = mempty
@@ -64,14 +63,21 @@ data MerkleNode a
                  , mVal  :: a}
     deriving (Eq, Show, Generic)
 
+instance NFData a => NFData (MerkleNode a)
+
 instance Foldable MerkleNode where
     foldMap f x = case x of
         MerkleLeaf{mVal}            -> f mVal
         MerkleBranch{mLeft, mRight} ->
             foldMap f mLeft `mappend` foldMap f mRight
 
-deriveSafeCopySimple 0 'base ''MerkleNode
-deriveSafeCopySimple 0 'base ''MerkleTree
+instance Bi (MerkleNode a) => SafeCopy (MerkleNode a) where
+    getCopy = getCopyBi "MerkleNode"
+    putCopy = putCopyBi
+
+instance Bi (MerkleTree a) => SafeCopy (MerkleTree a) where
+    getCopy = getCopyBi "MerkleTree"
+    putCopy = putCopyBi
 
 mkLeaf :: Bi a => a -> MerkleNode a
 mkLeaf a =

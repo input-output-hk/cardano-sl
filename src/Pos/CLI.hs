@@ -1,3 +1,4 @@
+{-# LANGUAGE ApplicativeDo   #-}
 {-# LANGUAGE CPP             #-}
 {-# LANGUAGE OverloadedLists #-}
 
@@ -21,6 +22,7 @@ module Pos.CLI
        , portOption
        , timeLordOption
        , webPortOption
+       , walletPortOption
        , ipPortOption
 
        , readPeersFile
@@ -77,7 +79,7 @@ readPeersFile path = do
     xs <- lines <$> readFile path
     let parseLine x = case parse (dhtNodeParser <* eof) "" (toString x) of
             Left err -> fail $ formatToString
-                ("error when parsing peer "%build%
+                ("error when parsing peer "%shown%
                  " from peers file "%build%": "%shown) x path err
             Right a -> return a
     mapM parseLine xs
@@ -143,21 +145,29 @@ data CommonArgs = CommonArgs
     } deriving Show
 
 commonArgsParser :: String -> Opt.Parser CommonArgs
-commonArgsParser peerHelpMsg = CommonArgs
-    <$> explicitInitial
-    <*> many (peerOption peerHelpMsg)
-    <*> optionalPeersFile
-    <*> optionalLogConfig
-    <*> optionalLogPrefix
-    <*> sscAlgoOption
-    <*> disablePropagationOption
-    <*> reportServersOption
-    <*> updateServersOption
+commonArgsParser peerHelpMsg = do
+    dhtExplicitInitial <- explicitInitial
+    --
+    dhtPeers     <- many (peerOption peerHelpMsg)
+    dhtPeersFile <- optionalPeersFile
+    --
+    logConfig <- optionalLogConfig
+    logPrefix <- optionalLogPrefix
+    --
+    sscAlgo <- sscAlgoOption
+    --
+    disablePropagation <- disablePropagationOption
+    --
+    reportServers <- reportServersOption
+    updateServers <- updateServersOption
+    --
 #ifdef DEV_MODE
-    <*> flatDistrOptional
-    <*> btcDistrOptional
-    <*> expDistrOption
+    flatDistr    <- flatDistrOptional
+    bitcoinDistr <- btcDistrOptional
+    expDistr     <- expDistrOption
 #endif
+    --
+    pure CommonArgs{..}
 
 templateParser :: (HasName f, HasMetavar f) => String -> String -> String -> Opt.Mod f a
 templateParser long metavar help =
@@ -276,6 +286,13 @@ webPortOption :: Word16 -> String -> Opt.Parser Word16
 webPortOption portNum help =
     Opt.option Opt.auto $
         templateParser "web-port" "PORT" help -- "Port for web server"
+        <> Opt.value portNum
+        <> Opt.showDefault
+
+walletPortOption :: Word16 -> String -> Opt.Parser Word16
+walletPortOption portNum help =
+    Opt.option Opt.auto $
+        templateParser "wallet-port" "PORT" help -- "Port for wallet"
         <> Opt.value portNum
         <> Opt.showDefault
 

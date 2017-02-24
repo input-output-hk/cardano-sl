@@ -5,6 +5,7 @@
 
 module Pos.Block.Network.Retrieval
        ( retrievalWorker
+       , triggerRecovery
        , handleUnsolicitedHeaders
        , requestTip
        , requestHeaders
@@ -48,7 +49,8 @@ import           Pos.Context                (NodeContext (..), getNodeContext,
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB                     as DB
 import qualified Pos.DB.GState              as GState
-import           Pos.Reporting.Methods      (reportMisbehaviour)
+import           Pos.DHT.Model              (converseToNeighbors)
+import           Pos.Reporting.Methods      (reportMisbehaviourMasked, reportingFatal)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
                                              HeaderHash, blockHeader, difficultyL,
@@ -67,18 +69,24 @@ retrievalWorker
     => (WorkerSpec m, OutSpecs)
 retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
     NodeContext{..} <- getNodeContext
-    let loop queue recHeaderVar = ifNotShutdown $ do
+    let loop queue recHeaderVar = ifNotShutdown $ reportingFatal $ do
            ph <- atomically $ readTBQueue queue
-           handleAll (handleLE recHeaderVar ph) $ handle sendActions ph
-           needQueryMore <- atomically $ do
-               isEmpty <- isEmptyTBQueue queue
-               recHeader <- tryReadTMVar recHeaderVar
-               pure $ guard isEmpty *> recHeader
-           whenJust needQueryMore $ \(peerId, rHeader) -> do
+           handleAll (handleLE recHeaderVar ph) $ reportingFatal $
+               handle sendActions ph
+           let needQueryMore = atomically $ do
+                   isEmpty <- isEmptyTBQueue queue
+                   recHeader <- tryReadTMVar recHeaderVar
+                   pure $ guard isEmpty *> recHeader
+           let tryFillQueue (0 :: Int) _ =
+                   void $ atomically $ tryTakeTMVar recHeaderVar
+               tryFillQueue tries action =
+                   whenM (atomically $ isEmptyTBQueue queue) $
+                       action >> tryFillQueue (tries - 1) action
+           tryFillQueue 5 $ whenJustM needQueryMore $ \(peerId, rHeader) -> do
                logDebug "Queue is empty, we're in recovery mode -> querying more"
                whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
-                   handleAll (handleLE recHeaderVar ph) $
-                   withConnectionTo sendActions peerId $
+                   handleAll (handleLE recHeaderVar ph) $ reportingFatal $
+                   withConnectionTo sendActions peerId $ \_peerData ->
                        requestHeaders mghNext (Just rHeader) peerId
            loop queue recHeaderVar
 
@@ -92,20 +100,27 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
     handleWE e = do
         logError $ sformat ("retrievalWorker: error caught "%shown) e
         throw e
+    dropUpdateHeader = do
+        progressHeaderVar <- ncProgressHeader <$> getNodeContext
+        void $ atomically $ tryTakeTMVar progressHeaderVar
     dropRecoveryHeader recHeaderVar peerId = do
-        kicked <- atomically $ do
+        (kicked,realPeer) <- atomically $ do
             let processKick (peer,_) = do
                     let p = peer == peerId
                     when p $ void $ tryTakeTMVar recHeaderVar
-                    pure p
-            maybe (pure False) processKick =<< tryReadTMVar recHeaderVar
+                    pure (p, Just peer)
+            maybe (pure (True,Nothing)) processKick =<< tryReadTMVar recHeaderVar
         when kicked $ logWarning $
             sformat ("Recovery mode communication dropped with peer "%build) peerId
+        unless kicked $
+            logDebug $ "Recovery mode wasn't disabled: " <>
+                       maybe "noth" show realPeer <> " vs " <> show peerId
     handleLE recHeaderVar (peerId, headers) e = do
         logWarning $ sformat
             ("Error handling peerId="%build%", headers="%listJson%": "%shown)
             peerId (fmap headerHash headers) e
-        dropRecoveryHeader recHeaderVar peerId
+        dropUpdateHeader
+        void $ dropRecoveryHeader recHeaderVar peerId
     handle sendActions (peerId, headers) = do
         logDebug $ sformat
             ("retrievalWorker: handling peerId="%build%", headers="%listJson)
@@ -147,7 +162,7 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
         -- a parameter to the 'Bi' instance of 'MsgBlock'.
         reify maxBlockSize $ \(_ :: Proxy s0) ->
           withConnectionTo sendActions peerId $
-          \(conv :: ConversationActions MsgGetBlocks (MsgBlock s0 ssc) m) -> do
+          \_peerData (conv :: ConversationActions MsgGetBlocks (MsgBlock s0 ssc) m) -> do
             send conv $ mkBlocksRequest lcaChildHash newestHash
             chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
             recHeaderVar <- ncRecoveryHeader <$> getNodeContext
@@ -163,6 +178,7 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
                         ("retrievalWorker: retrieved blocks "%listJson)
                         (map (headerHash . view blockHeader) blocks)
                     handleBlocks peerId blocks sendActions
+                    dropUpdateHeader
                     -- If we've downloaded block that has header
                     -- ncRecoveryHeader, we're not in recovery mode
                     -- anymore.
@@ -185,23 +201,28 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
         -> HeaderHash          -- ^ We're expecting a child of this block
         -> HeaderHash          -- ^ Block at which to stop
         -> ExceptT Text m (OldestFirst NE (Block ssc))
-    retrieveBlocks' i conv prevH endH = do
-        mBlock <- lift $ recv conv
-        case mBlock of
-            Nothing -> throwError $ sformat ("Failed to receive block #"%int) i
-            Just (MsgBlock block) -> do
-                let prevH' = block ^. prevBlockL
-                    curH = headerHash block
-                when (prevH' /= prevH) $
-                    throwError $ sformat
-                        ("Received block #"%int%" with "%
-                         "prev hash "%shortHashF%" while "%
-                         shortHashF%" was expected: "%build)
-                        i prevH' prevH (block ^. blockHeader)
-                if curH == endH
-                  then return $ one block
-                  else over _Wrapped (block <|) <$>
-                       retrieveBlocks' (i+1) conv curH endH
+    retrieveBlocks' i conv prevH endH = lift (recv conv) >>= \case
+        Nothing -> throwError $ sformat ("Failed to receive block #"%int) i
+        Just (MsgBlock block) -> do
+            let prevH' = block ^. prevBlockL
+                curH = headerHash block
+            when (prevH' /= prevH) $ do
+                throwError $ sformat
+                    ("Received block #"%int%" with prev hash "%shortHashF%" while "%
+                     shortHashF%" was expected: "%build)
+                    i prevH' prevH (block ^. blockHeader)
+            progressHeaderVar <- ncProgressHeader <$> getNodeContext
+            atomically $ do void $ tryTakeTMVar progressHeaderVar
+                            putTMVar progressHeaderVar $ block ^. blockHeader
+            if curH == endH
+            then pure $ one block
+            else over _Wrapped (block <|) <$> retrieveBlocks' (i+1) conv curH endH
+
+-- | Triggers recovery based on established communication.
+triggerRecovery :: WorkMode ssc m => SendActions m -> m ()
+triggerRecovery sendActions = unlessM isRecoveryMode $ do
+    logDebug "Recovery triggered"
+    converseToNeighbors sendActions requestTip
 
 -- | Make 'GetHeaders' message using our main chain. This function
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'
@@ -554,7 +575,7 @@ applyWithRollback peerId sendActions toApply lca toRollback = do
     reportRollback =
         unlessM isRecoveryMode $ do
             logDebug "Reporting rollback happened"
-            reportMisbehaviour $
+            reportMisbehaviourMasked $
                 sformat reportF peerId toRollbackHashes toApplyHashes
     panicBrokenLca = panic "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =

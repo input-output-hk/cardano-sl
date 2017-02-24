@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Pos.Script.Type
+module Pos.Types.Script
        ( Script(..)
        , Script_v0
        , ScriptVersion
@@ -28,8 +28,7 @@ import qualified Utils.ABT                  as ABT
 import qualified Utils.Names                as Names
 import qualified Utils.Vars                 as Vars
 
-import           Pos.Binary.Class           (Bi)
-import           Pos.Util.Binary            (getCopyBinary, putCopyBinary)
+import           Pos.Binary.Class           (Bi, getCopyBi, putCopyBi)
 
 -- | Version of script
 type ScriptVersion = Word16
@@ -126,12 +125,12 @@ deriving instance Lift PLCore.PrimData
 deriving instance Lift PLCore.Program
 
 instance Bi PLCore.Term => SafeCopy PLCore.Term where
-    getCopy = getCopyBinary "Term"
-    putCopy = putCopyBinary
+    getCopy = getCopyBi "Term"
+    putCopy = putCopyBi
 
 instance Bi PLCore.Program => SafeCopy PLCore.Program where
-    getCopy = getCopyBinary "Program"
-    putCopy = putCopyBinary
+    getCopy = getCopyBi "Program"
+    putCopy = putCopyBi
 
 instance Hashable PLCore.Term where
     hashWithSalt s = hashWithSalt s . Binary.encode

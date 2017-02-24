@@ -55,11 +55,10 @@ import qualified Serokell.Util.Base64   as Base64 (decode, encode)
 import           Serokell.Util.Text     (pairF)
 import           Universum
 
-import           Pos.Binary.Class       (Bi)
+import           Pos.Binary.Class       (Bi, Raw)
 import qualified Pos.Binary.Class       as Bi
 import           Pos.Crypto.Hashing     (hash, shortHashF)
 import           Pos.Crypto.Random      (secureRandomBS)
-import           Pos.Util.Binary        (Raw)
 
 ----------------------------------------------------------------------------
 -- Some orphan instances

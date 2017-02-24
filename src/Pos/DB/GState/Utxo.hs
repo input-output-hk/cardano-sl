@@ -1,14 +1,14 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 -- | Part of GState DB which stores unspent transaction outputs.
 
 module Pos.DB.GState.Utxo
        (
          -- * Getters
-         getGenUtxo
-       , getTxOutFromDB
+         getTxOutFromDB
        , getTxOut
 
        -- * Operations
@@ -22,6 +22,7 @@ module Pos.DB.GState.Utxo
        , runUtxoIterator
        , runUtxoMapIterator
        , getFilteredUtxo
+       , getFilteredGenUtxo
 
        -- * Sanity checks
        , sanityCheckUtxo
@@ -39,24 +40,21 @@ import           Pos.Binary.Class     (encodeStrict)
 import           Pos.Binary.Types     ()
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.Error         (DBError (..))
-import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
-import           Pos.DB.GState.Common (getBi, putBi)
+import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi,
+                                       rocksGetBytes)
+import           Pos.DB.GState.Common (getBi, putBi, writeBatchGState)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
                                        IterType, runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
 import           Pos.Types            (Address, Coin, TxIn (..), TxOutAux, Utxo,
                                        belongsTo, coinF, mkCoin, sumCoins, txOutStake,
                                        unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Util             (Color (..), colorize, maybeThrow)
+import           Pos.Util             (Color (..), colorize)
 import           Pos.Util.Iterator    (nextItem)
 
 ----------------------------------------------------------------------------
 -- Getters
 ----------------------------------------------------------------------------
-
--- | Get genesis utxo
-getGenUtxo :: (MonadThrow m, MonadDB ssc m) => m Utxo
-getGenUtxo = maybeThrow (DBMalformed "no genesis utxo in Utxo DB") =<< getGenUtxoMaybe
 
 getTxOut :: MonadDB ssc m => TxIn -> m (Maybe TxOutAux)
 getTxOut = getBi . txInKey
@@ -70,8 +68,8 @@ getTxOutFromDB txIn = rocksGetBi (txInKey txIn)
 
 data UtxoOp
     = DelTxIn !TxIn
-    | AddTxOut !TxIn
-               !TxOutAux
+    | AddTxOut !TxIn !TxOutAux
+    | AddGenTxOut !TxIn !TxOutAux
 
 instance Buildable UtxoOp where
     build (DelTxIn txIn)           =
@@ -79,10 +77,15 @@ instance Buildable UtxoOp where
     build (AddTxOut txIn txOutAux) =
         bprint ("AddTxOut ("%build%", "%listJson%")")
         txIn (map (bprint pairF) $ txOutStake txOutAux)
+    build (AddGenTxOut txIn txOutAux) =
+        bprint ("AddGenTxOut ("%build%", "%listJson%")")
+        txIn (map (bprint pairF) $ txOutStake txOutAux)
 
 instance RocksBatchOp UtxoOp where
     toBatchOp (AddTxOut txIn txOut) =
         [Rocks.Put (txInKey txIn) (encodeStrict txOut)]
+    toBatchOp (AddGenTxOut txIn txOut) =
+        [Rocks.Put (genTxInKey txIn) (encodeStrict txOut)]
     toBatchOp (DelTxIn txIn) = [Rocks.Del $ txInKey txIn]
 
 ----------------------------------------------------------------------------
@@ -94,55 +97,91 @@ prepareGStateUtxo
        MonadDB ssc m
     => Utxo -> m ()
 prepareGStateUtxo genesisUtxo =
-    putIfEmpty getGenUtxoMaybe putGenesisUtxo
+    putIfEmpty genUtxoExists putGenesisUtxo
   where
-    putIfEmpty
-        :: forall a.
-           (m (Maybe a)) -> m () -> m ()
-    putIfEmpty getter putter = maybe putter (const pass) =<< getter
+    putIfEmpty :: m Bool -> m () -> m ()
+    putIfEmpty exists putter = whenM (not <$> exists) $ putter
     putGenesisUtxo = do
         let utxoList = M.toList genesisUtxo
-        mapM_ putTxOut' utxoList
-        putBi genUtxoKey utxoList
-    putTxOut' ((txid, id), txout) = putTxOut (TxIn txid id) txout
-
-putTxOut :: MonadDB ssc m => TxIn -> TxOutAux -> m ()
-putTxOut = putBi . txInKey
+        writeBatchGState $ concat $ map createBatchOp utxoList
+        putBi genUtxoFlagKey True
+    createBatchOp ((txid, id), txout) =
+        let txin = TxIn txid id
+        in [ AddTxOut txin txout
+           , AddGenTxOut txin txout
+           ]
 
 ----------------------------------------------------------------------------
 -- Iteration
 ----------------------------------------------------------------------------
 
 data UtxoIter
+data GenUtxoIter
 
 instance DBIteratorClass UtxoIter where
     type IterKey UtxoIter = TxIn
     type IterValue UtxoIter = TxOutAux
-    iterKeyPrefix _ = iterationPrefix
+    iterKeyPrefix _ = iterationUtxoPrefix
+
+instance DBIteratorClass GenUtxoIter where
+    type IterKey GenUtxoIter = TxIn
+    type IterValue GenUtxoIter = TxOutAux
+    iterKeyPrefix _ = iterationGenUtxoPrefix
 
 runUtxoIterator
-    :: forall m ssc a . MonadDB ssc m
-    => DBnIterator ssc UtxoIter a -> m a
-runUtxoIterator = runDBnIterator @UtxoIter _gStateDB
+    :: forall i m ssc a .
+       ( MonadDB ssc m
+       , DBIteratorClass i
+       , IterKey i ~ TxIn
+       , IterValue i ~ TxOutAux
+       )
+    => DBnIterator ssc i a
+    -> m a
+runUtxoIterator = runDBnIterator @i _gStateDB
 
 runUtxoMapIterator
-    :: forall v m ssc a . MonadDB ssc m
-    => DBnMapIterator ssc UtxoIter v a -> (IterType UtxoIter -> v) -> m a
-runUtxoMapIterator = runDBnMapIterator @UtxoIter _gStateDB
+    :: forall i v m ssc a .
+       ( MonadDB ssc m
+       , DBIteratorClass i
+       , IterKey i ~ TxIn
+       , IterValue i ~ TxOutAux
+       )
+    => DBnMapIterator ssc i v a
+    -> (IterType i -> v)
+    -> m a
+runUtxoMapIterator = runDBnMapIterator @i _gStateDB
 
 filterUtxo
-    :: forall ssc m . MonadDB ssc m
-    => (IterType UtxoIter -> Bool)
+    :: forall i ssc m .
+       ( MonadDB ssc m
+       , DBIteratorClass i
+       , IterKey i ~ TxIn
+       , IterValue i ~ TxOutAux
+       )
+    => (IterType i -> Bool)
     -> m Utxo
-filterUtxo p = runUtxoIterator (step mempty)
+filterUtxo p = runUtxoIterator @i (step mempty)
   where
     step res = nextItem >>= maybe (pure res) (\e@(k, v) ->
       if | p e       -> step (M.insert (txInHash k, txInIndex k) v res)
          | otherwise -> step res)
 
 -- | Get small sub-utxo containing only outputs of given address
+getFilteredUtxo'
+    :: forall i ssc m .
+       ( MonadDB ssc m
+       , DBIteratorClass i
+       , IterKey i ~ TxIn
+       , IterValue i ~ TxOutAux
+       )
+    => Address -> m Utxo
+getFilteredUtxo' addr = filterUtxo @i $ \(_, out) -> out `belongsTo` addr
+
 getFilteredUtxo :: MonadDB ssc m => Address -> m Utxo
-getFilteredUtxo addr = filterUtxo $ \(_, out) -> out `belongsTo` addr
+getFilteredUtxo = getFilteredUtxo' @UtxoIter
+
+getFilteredGenUtxo :: MonadDB ssc m => Address -> m Utxo
+getFilteredGenUtxo = getFilteredUtxo' @GenUtxoIter
 
 ----------------------------------------------------------------------------
 -- Sanity checks
@@ -153,7 +192,7 @@ sanityCheckUtxo
     => Coin -> m ()
 sanityCheckUtxo expectedTotalStake = do
     calculatedTotalStake <-
-        runUtxoMapIterator (step (mkCoin 0)) (map snd . txOutStake . snd)
+        runUtxoMapIterator @UtxoIter (step (mkCoin 0)) (map snd . txOutStake . snd)
     let fmt =
             ("Sum of stakes in Utxo differs from expected total stake (the former is "
              %coinF%", while the latter is "%coinF%")")
@@ -174,18 +213,24 @@ sanityCheckUtxo expectedTotalStake = do
 -- Keys
 ----------------------------------------------------------------------------
 
-genUtxoKey :: ByteString
-genUtxoKey = "ut/gutxo"
-
 txInKey :: TxIn -> ByteString
 txInKey = encodeWithKeyPrefix @UtxoIter
 
-iterationPrefix :: ByteString
-iterationPrefix = "ut/t/"
+iterationUtxoPrefix :: ByteString
+iterationUtxoPrefix = "ut/t/"
+
+genTxInKey :: TxIn -> ByteString
+genTxInKey = encodeWithKeyPrefix @GenUtxoIter
+
+iterationGenUtxoPrefix :: ByteString
+iterationGenUtxoPrefix = "ut/gt/"
+
+genUtxoFlagKey :: ByteString
+genUtxoFlagKey = "ut/gutxo"
 
 ----------------------------------------------------------------------------
 -- Details
 ----------------------------------------------------------------------------
 
-getGenUtxoMaybe :: MonadDB ssc m => m (Maybe Utxo)
-getGenUtxoMaybe = getUtxoDB >>= rocksGetBi genUtxoKey >>= traverse (return . M.fromList)
+genUtxoExists :: MonadDB ssc m => m Bool
+genUtxoExists = isJust <$> (getUtxoDB >>= rocksGetBytes genUtxoFlagKey)

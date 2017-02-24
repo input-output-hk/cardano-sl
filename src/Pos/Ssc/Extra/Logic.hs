@@ -37,13 +37,13 @@ import           Formatting              (build, int, sformat, (%))
 import           Serokell.Util           (listJson)
 import           System.Wlog             (LogEvent, LoggerName, LoggerNameBox, PureLogger,
                                           WithLogger, dispatchEvents, getLoggerName,
-                                          logDebug, logError, runPureLog, usingLoggerName)
+                                          logDebug, runPureLog, usingLoggerName)
 import           Universum
 
 import           Pos.Context             (WithNodeContext, lrcActionOnEpochReason)
 import           Pos.DB                  (MonadDB, getTipBlockHeader)
 import qualified Pos.DB.Lrc              as LrcDB
-import           Pos.Exception           (reportFatalError)
+import           Pos.Exception           (assertionFailed)
 import           Pos.Slotting.Class      (MonadSlots)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
@@ -254,7 +254,7 @@ onVerifyFailedInApply
     :: forall ssc m a.
        (Ssc ssc, WithLogger m, MonadThrow m)
     => OldestFirst NE HeaderHash -> SscVerifyError ssc -> m a
-onVerifyFailedInApply hashes e = reportFatalError msg
+onVerifyFailedInApply hashes e = assertionFailed msg
   where
     fmt =
         "sscApplyBlocks: verification of blocks "%listJson%" failed: "%build
@@ -264,7 +264,7 @@ onUnexpectedVerify
     :: forall m a.
        (WithLogger m, MonadThrow m)
     => OldestFirst NE HeaderHash -> m a
-onUnexpectedVerify hashes = reportFatalError msg
+onUnexpectedVerify hashes = assertionFailed msg
   where
     fmt =
         "sscApplyBlocks: verfication of blocks "%listJson%
@@ -295,9 +295,8 @@ sscVerifyBlocks blocks = do
                 ("sscVerifyBlocks: different epochs ("%int%", "%int%")")
                 epoch
                 lastEpoch
-    inAssertMode $ unless (epoch == lastEpoch) $ do
-        logError differentEpochsMsg
-        panic differentEpochsMsg
+    inAssertMode $ unless (epoch == lastEpoch) $
+        assertionFailed differentEpochsMsg
     richmenSet <-
         lrcActionOnEpochReason
             epoch

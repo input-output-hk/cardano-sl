@@ -58,17 +58,17 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Text         (listJson)
 import           Universum                  hiding (show)
 
-import           Pos.Binary.Class           (Bi)
+import           Pos.Binary.Class           (Bi, Raw)
+import           Pos.Binary.Crypto          ()
 import           Pos.Crypto                 (Hash, PublicKey, Signature, hash, shortHashF,
                                              unsafeHash)
 import           Pos.Data.Attributes        (Attributes)
-import           Pos.Script.Type            (ScriptVersion)
 import           Pos.Types.Address          (addressHash)
 import           Pos.Types.Coin             ()
 import           Pos.Types.Core             (BlockVersion, CoinPortion, FlatSlotId,
                                              SoftwareVersion)
+import           Pos.Types.Script           (ScriptVersion)
 import           Pos.Types.Version          ()
-import           Pos.Util.Binary            (Raw)
 
 ----------------------------------------------------------------------------
 -- UpdateProposal and related
@@ -106,6 +106,7 @@ data UpdateProposal = UpdateProposal
     -- ^ Attributes which are currently empty, but provide
     -- extensibility.
     } deriving (Eq, Show, Generic, Typeable)
+
 
 instance Bi UpdateProposal => Buildable UpdateProposal where
     build up@UpdateProposal {..} =
@@ -178,6 +179,7 @@ data UpdateData = UpdateData
     -- (maybe). Anyway, we can always use `unsafeHash`.
     } deriving (Eq, Show, Generic, Typeable)
 
+
 patakUpdateData :: HM.HashMap SystemTag UpdateData
 patakUpdateData =
     let b = "bardaq"
@@ -189,6 +191,23 @@ skovorodaUpdateData h =
     let b = "linux64"
     in  HM.fromList [(SystemTag b, UpdateData h h h h)]
 
+instance NFData SystemTag
+instance NFData UpdateProposal
+-- Proper NFData Millisecond instance should be defined in
+-- time-units. I'm sorry for this. volhovm.
+instance NFData BlockVersionData where
+    rnf BlockVersionData{..} =
+        deepseq bvdScriptVersion $
+        deepseq (toInteger bvdSlotDuration) $
+        deepseq bvdMaxBlockSize $
+        deepseq bvdMaxTxSize $
+        deepseq bvdMpcThd $
+        deepseq bvdHeavyDelThd $
+        deepseq bvdUpdateVoteThd $
+        deepseq bvdUpdateProposalThd $
+        deepseq bvdUpdateImplicit $
+        deepseq bvdUpdateSoftforkThd $ ()
+instance NFData UpdateData
 
 ----------------------------------------------------------------------------
 -- UpdateVote and related
@@ -208,6 +227,8 @@ data UpdateVote = UpdateVote
       --   by stakeholder
       uvSignature  :: !(Signature (UpId, Bool))
     } deriving (Eq, Show, Generic, Typeable)
+
+instance NFData UpdateVote
 
 instance Buildable UpdateVote where
     build UpdateVote {..} =
@@ -244,6 +265,8 @@ data UpdatePayload = UpdatePayload
     , upVotes    :: ![UpdateVote]
     } deriving (Eq, Show, Generic, Typeable)
 
+instance NFData UpdatePayload
+
 instance Bi UpdateProposal => Buildable UpdatePayload where
     build UpdatePayload {..}
         | null upVotes = formatMaybeProposal upProposal <> ", no votes"
@@ -278,6 +301,8 @@ data VoteState
     | PositiveRevote  -- ^ Stakeholder voted negatively, then positively.
     | NegativeRevote  -- ^ Stakeholder voted positively, then negatively.
     deriving (Show, Generic, Eq)
+
+instance NFData VoteState
 
 instance Buildable VoteState where
     --build x = bprint $ show x

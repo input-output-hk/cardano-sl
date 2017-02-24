@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Methods of reporting different unhealthy behaviour to server.
@@ -7,6 +8,7 @@ module Pos.Reporting.Methods
        , getNodeInfo
        , reportMisbehaviour
        , reportMisbehaviourMasked
+       , reportingFatal
        , sendReport
        , retrieveLogFiles
        , chooseLogFiles
@@ -17,6 +19,7 @@ import           Control.Lens             (to)
 import           Control.Monad.Catch      (try)
 import           Data.Aeson               (encode)
 import qualified Data.HashMap.Strict      as HM
+import qualified Data.List.NonEmpty       as NE
 import qualified Data.Text                as T
 import qualified Data.Text.IO             as TIO
 import           Data.Time.Clock          (getCurrentTime)
@@ -24,6 +27,7 @@ import           Data.Version             (Version (..))
 import           Formatting               (build, sformat, shown, stext, (%))
 import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Network.Wreq             (partFile, partLBS, post)
+import           Panic                    (FatalError (..))
 import           Paths_cardano_sl         (version)
 import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
 import           Serokell.Util.Text       (listBuilderJSON, listJson)
@@ -38,10 +42,13 @@ import           System.Wlog              (CanLog, HasLoggerName, LoggerConfig (
                                            ltFile, ltSubloggers, readMemoryLogs)
 import           Universum
 
+import           Pos.Constants            (protocolMagic)
 import           Pos.Context              (WithNodeContext, getNodeContext, ncNodeParams,
                                            npReportServers)
-import           Pos.DHT.Model            (MonadDHT, currentNodeKey, getKnownPeers)
+import           Pos.DHT.Model.Class      (MonadDHT, currentNodeKey, getKnownPeers)
+import           Pos.Exception            (CardanoFatalError)
 import           Pos.Reporting.Exceptions (ReportingError (..))
+import           Pos.Util                 ((<//>))
 
 ----------------------------------------------------------------------------
 -- Node-specific
@@ -56,9 +63,11 @@ sendReportNode
 sendReportNode reportType = do
     servers <- npReportServers . ncNodeParams <$> getNodeContext
     memLogs <- takeGlobalSize charsConst <$> readMemoryLogs
-    forM_ servers $
+    errors <- fmap lefts $ forM servers $ try .
         sendReport [] memLogs reportType "cardano-node" version . T.unpack
+    whenNotNull errors $ throwSE . NE.head
   where
+    throwSE (e :: SomeException) = throwM e
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int
     charsConst = 1024 * 1024 * 2
@@ -91,16 +100,20 @@ getNodeInfo = do
         not $ ipv4Local w || w == 0 || w == 16777343 -- the last is 127.0.0.1
     outputF = ("{ nodeParams: '"%stext%":"%build%"', otherNodes: "%listJson%" }")
 
--- | Reports misbehaviour given reason string. Effectively designed
--- for 'WorkMode' context.
-reportMisbehaviour
-    :: ( MonadIO m
+type ReportingContext ssc m =
+       ( MonadIO m
        , MonadMask m
        , MonadDHT m
-       , WithNodeContext її m
+       , WithNodeContext ssc m
        , HasLoggerName m
        , CanLog m
        )
+
+-- | Reports misbehaviour given reason string. Effectively designed
+-- for 'WorkMode' context.
+reportMisbehaviour
+    :: forall m її.
+       ReportingContext її m
     => Text -> m ()
 reportMisbehaviour reason = do
     logDebug $ "Reporting misbehaviour \"" <> reason <> "\""
@@ -112,13 +125,7 @@ reportMisbehaviour reason = do
 -- | Report misbehaveour, but catch all errors inside
 reportMisbehaviourMasked
     :: forall m її.
-       ( MonadIO m
-       , MonadMask m
-       , MonadDHT m
-       , WithNodeContext її m
-       , HasLoggerName m
-       , CanLog m
-       )
+       ReportingContext її m
     => Text -> m ()
 reportMisbehaviourMasked reason =
     reportMisbehaviour reason `catch` handler
@@ -128,6 +135,34 @@ reportMisbehaviourMasked reason =
         logError $
         sformat ("Didn't manage to report misbehaveour "%stext%
                  " because of exception "%shown) reason e
+
+-- | Execute action, report 'CardanoFatalError' and 'FatalError' if it
+-- happens and rethrow. Errors related to reporting itself are caught,
+-- logged and ignored.
+reportingFatal
+    :: forall m a ё.
+       ReportingContext ё m
+    => m a -> m a
+reportingFatal action =
+    action `catch` handler1 `catch` handler2
+  where
+    andThrow :: (Exception e, MonadThrow n) => (e -> n x) -> e -> n y
+    andThrow foo e = foo e >> throwM e
+    report reason = do
+        logDebug $ "Reporting error \"" <> reason <> "\""
+        let errorF = stext%", nodeInfo: "%stext
+        nodeInfo <- getNodeInfo
+        sendReportNode (RError $ sformat errorF reason nodeInfo) `catch`
+            handlerSend reason
+    handlerSend reason (e :: SomeException) =
+        logError $
+        sformat ("Didn't manage to report error "%stext%
+                 " because of exception '"%shown%"' raised while sending") reason e
+    handler1 = andThrow $ \(e :: CardanoFatalError) ->
+        report (pretty e)
+    handler2 = andThrow $ \(FatalError reason) ->
+        report ("FatalError/panic: " <> show reason)
+
 
 ----------------------------------------------------------------------------
 -- General purpose
@@ -160,7 +195,7 @@ sendReport logFiles rawLogs reportType appName appVersion reportServerUri = do
         let payloadPart =
                 partLBS "payload"
                 (encode $ reportInfo curTime $ existingFiles ++ memlogFiles)
-        e <- try $ liftIO $ post (reportServerUri </> "report") $
+        e <- try $ liftIO $ post (reportServerUri <//> "report") $
              payloadPart : (memlogPart ++ pathsPart)
         whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError (show e')
   where
@@ -173,6 +208,7 @@ sendReport logFiles rawLogs reportType appName appVersion reportServerUri = do
         , rBuild = 0 -- what should be put here?
         , rOS = T.pack (os <> "-" <> arch)
         , rLogs = map toFileName files
+        , rMagic = protocolMagic
         , rDate = curTime
         , rReportType = reportType
         }

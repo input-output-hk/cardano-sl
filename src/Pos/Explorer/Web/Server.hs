@@ -104,10 +104,9 @@ getLastBlocks lim off = do
     flip unfoldrM (lim, start) $ \(n, h) -> runMaybeT $ unfolder n h
 
 getLastTxs :: ExplorerMode m => Word -> Word -> m [CTxEntry]
-getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
-    txs <- allTxs
-    pure $ take lim $ drop off $
-        map (\txi -> toTxEntry (tiTimestamp txi) (tiTx txi)) txs
+getLastTxs (fromIntegral -> lim) (fromIntegral -> off) =
+    take lim . drop off .
+        map (\txi -> toTxEntry (tiTimestamp txi) (tiTx txi)) <$> allTxs
 
 getBlockSummary :: ExplorerMode m => CHash -> m CBlockSummary
 getBlockSummary (fromCHash' -> h) = do

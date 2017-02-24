@@ -153,6 +153,7 @@ library
                         Pos.Binary.Slotting
                         Pos.Binary.Ssc
                         Pos.Binary.Ssc.GodTossing.Core
+                        Pos.Binary.Txp
                         Pos.Binary.Types
                         Pos.Binary.Update
                         Pos.Binary.Version
@@ -325,6 +326,7 @@ library
                         Pos.Txp.Arbitrary
                         Pos.Txp.Core
                         Pos.Txp.Core.Tx
+                        Pos.Txp.Core.Types
                         Pos.Txp.Error
                         Pos.Txp.Logic
                         Pos.Txp.Logic.Global

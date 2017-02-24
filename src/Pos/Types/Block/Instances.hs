@@ -53,6 +53,7 @@ import           Pos.Crypto            (Hash, PublicKey, hash, hashHexF, unsafeH
 import           Pos.Merkle            (MerkleRoot, MerkleTree, mtRoot)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
+import           Pos.Txp.Core.Types    (Tx, TxAux, TxDistribution, TxWitness)
 import           Pos.Types.Block.Class (Blockchain (..), GenericBlock (..),
                                         GenericBlockHeader (..), HasPrevBlock (..),
                                         gbBody, gbHeader, gbhConsensus, gbhPrevBlock)
@@ -65,8 +66,7 @@ import           Pos.Types.Core        (ChainDifficulty, EpochIndex (..),
                                         HasDifficulty (..), HasEpochIndex (..),
                                         HasEpochOrSlot (..), HasHeaderHash (..),
                                         HeaderHash, SlotId (..), slotIdF)
-import           Pos.Types.Types       (ProxySKHeavy, SlotLeaders, Tx, TxAux,
-                                        TxDistribution, TxWitness)
+import           Pos.Types.Types       (ProxySKHeavy, SlotLeaders)
 import           Pos.Update.Core.Types (UpdatePayload, UpdateProof, UpdateProposal,
                                         mkUpdateProof)
 import           Pos.Util              (Color (Magenta), colorize)

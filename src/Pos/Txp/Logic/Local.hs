@@ -9,8 +9,6 @@ module Pos.Txp.Logic.Local
        ) where
 
 import           Control.Monad.Except (MonadError (..), runExcept)
-import           Control.Monad.State  (modify')
-import           Control.Monad.Trans  (MonadTrans)
 import           Data.Default         (def)
 import qualified Data.HashMap.Strict  as HM
 import qualified Data.Map             as M (fromList)
@@ -20,7 +18,7 @@ import           Universum
 
 import           Pos.DB.Class         (MonadDB)
 import qualified Pos.DB.GState        as GS
-import           Pos.Types            (Tx (..), TxAux, TxId, TxIn, TxOutAux)
+import           Pos.Txp.Core.Types   (Tx (..), TxAux, TxId)
 
 import           Pos.Txp.MemState     (MonadTxpMem (..), getTxpLocalData, getUtxoView,
                                        modifyTxpLocalData, setTxpLocalData)
@@ -46,12 +44,12 @@ txProcessTransaction
 txProcessTransaction itw@(txId, (Tx{..}, _, _)) = do
     tipBefore <- GS.getTip
     localUV <- getUtxoView
-    (resolvedOuts, _) <- runDBTxp $ runUV localUV $ mapM utxoGet txInputs
+    (resolvedOuts, _) <- runDBTxp $ runUV localUV $ mapM utxoGet _txInputs
     -- Resolved are transaction outputs which haven't been deleted from the utxo yet
     -- (from Utxo DB and from UtxoView also)
     let resolved = HM.fromList $
                    catMaybes $
-                   zipWith (liftM2 (,) . Just) txInputs resolvedOuts
+                   zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
     pRes <- modifyTxpLocalData $ processTxDo resolved tipBefore itw
     case pRes of
         Left er -> do

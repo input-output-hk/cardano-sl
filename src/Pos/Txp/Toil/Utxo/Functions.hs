@@ -24,15 +24,15 @@ import           Universum
 
 import           Pos.Binary.Types          ()
 import           Pos.Crypto                (WithHash (..), hash)
-import           Pos.Types                 (Address, Coin, StakeholderId, Tx (..), TxAux,
-                                            TxDistribution (..), TxId, TxIn (..),
-                                            TxOut (..), TxOutAux, TxUndo, Utxo,
-                                            txOutStake, unsafeAddCoin)
+import           Pos.Txp.Core.Types        (Tx (..), TxAux, TxDistribution (..), TxId,
+                                            TxIn (..), TxOut (..), TxOutAux, TxUndo, Utxo,
+                                            txOutStake)
+import           Pos.Types                 (Address, Coin, StakeholderId, unsafeAddCoin)
 
 import           Pos.Txp.Core.Tx           (VTxGlobalContext (..), VTxLocalContext (..),
                                             verifyTx)
-import           Pos.Txp.Toil.Class         (MonadUtxo (..), MonadUtxoRead (..))
-import           Pos.Txp.Toil.Failure       (TxpVerFailure (..))
+import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..))
+import           Pos.Txp.Toil.Failure      (TxpVerFailure (..))
 
 -- CHECK: @verifyTxUtxo
 -- | Verify single Tx using MonadUtxoRead as TxIn resolver.
@@ -54,9 +54,9 @@ verifyTxUtxo verifyAlone verifyVersions txaux = do
 -- outputs.
 applyTxToUtxo :: MonadUtxo m => WithHash Tx -> TxDistribution -> m ()
 applyTxToUtxo tx distr = do
-    mapM_ applyInput txInputs
+    mapM_ applyInput _txInputs
     mapM_ (uncurry applyOutput)
-      (zip [0..] (zip txOutputs (getTxDistribution distr)))
+        (zip [0..] (zip _txOutputs (getTxDistribution distr)))
   where
     Tx {..} = whData tx
     applyInput = utxoDel
@@ -66,11 +66,11 @@ rollbackTxUtxo
     :: (MonadError TxpVerFailure m, MonadUtxo m)
     => (TxAux, TxUndo) -> m ()
 rollbackTxUtxo ((tx@Tx{..}, _, _), undo) = do
-    unless (length txInputs == length undo) $
-        throwError $ TxpInvalidUndoLength (length txInputs) (length undo)
+    unless (length _txInputs == length undo) $
+        throwError $ TxpInvalidUndoLength (length _txInputs) (length undo)
     let txid = hash tx
-    mapM_ utxoDel $ take (length txOutputs) $ zipWith TxIn (repeat txid) [0..]
-    mapM_ (uncurry utxoPut) $ zip txInputs undo
+    mapM_ utxoDel $ take (length _txOutputs) $ zipWith TxIn (repeat txid) [0..]
+    mapM_ (uncurry utxoPut) $ zip _txInputs undo
 
 applyTxToUtxo' :: MonadUtxo m => (TxId, TxAux) -> m ()
 applyTxToUtxo' (i, (t, _, d)) = applyTxToUtxo (WithHash t i) d

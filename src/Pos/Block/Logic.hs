@@ -73,6 +73,7 @@ import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
                                              SscWorkersClass (..))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscVerifyBlocks)
 import           Pos.Txp.Core               (topsortTxs)
+import           Pos.Txp.Core.Types         (TxAux, TxId)
 import           Pos.Txp.Logic              (txVerifyBlocks)
 import           Pos.Txp.MemState           (getLocalTxsNUndo)
 import           Pos.Types                  (Block, BlockHeader, EpochIndex,
@@ -80,14 +81,13 @@ import           Pos.Types                  (Block, BlockHeader, EpochIndex,
                                              MainBlock, MainExtraBodyData (..),
                                              MainExtraHeaderData (..), ProxySKEither,
                                              ProxySKHeavy, SlotId (..), SlotLeaders,
-                                             TxAux, TxId, VerifyHeaderParams (..),
-                                             blockHeader, blockLeaders, difficultyL,
-                                             epochIndexL, epochOrSlot, flattenSlotId,
-                                             genesisHash, getEpochOrSlot, headerHash,
-                                             headerHashG, headerSlot, mkGenesisBlock,
-                                             mkMainBlock, mkMainBody, prevBlockL,
-                                             verifyHeader, verifyHeaders,
-                                             vhpVerifyConsensus)
+                                             VerifyHeaderParams (..), blockHeader,
+                                             blockLeaders, difficultyL, epochIndexL,
+                                             epochOrSlot, flattenSlotId, genesisHash,
+                                             getEpochOrSlot, headerHash, headerHashG,
+                                             headerSlot, mkGenesisBlock, mkMainBlock,
+                                             mkMainBody, prevBlockL, verifyHeader,
+                                             verifyHeaders, vhpVerifyConsensus)
 import qualified Pos.Types                  as Types
 import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Update.Logic           (usCanCreateBlock, usPreparePayload,

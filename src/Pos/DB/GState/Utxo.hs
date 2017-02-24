@@ -46,10 +46,10 @@ import           Pos.DB.GState.Common (getBi, putBi, writeBatchGState)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
                                        IterType, runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
-import           Pos.Txp.Toil.Utxo     (belongsTo)
-import           Pos.Types            (Address, Coin, TxIn (..), TxOutAux, Utxo, coinF,
-                                       mkCoin, sumCoins, txOutStake, unsafeAddCoin,
-                                       unsafeIntegerToCoin)
+import           Pos.Txp.Core.Types   (TxIn (..), TxOutAux, Utxo, txOutStake)
+import           Pos.Txp.Toil.Utxo    (belongsTo)
+import           Pos.Types            (Address, Coin, coinF, mkCoin, sumCoins,
+                                       unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Util             (Color (..), colorize)
 import           Pos.Util.Iterator    (nextItem)
 

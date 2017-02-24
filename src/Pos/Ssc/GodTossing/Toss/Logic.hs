@@ -10,10 +10,8 @@ module Pos.Ssc.GodTossing.Toss.Logic
        , normalizeToss
        ) where
 
-import           Control.Monad.Except            (MonadError (throwError), runExceptT)
+import           Control.Monad.Except            (MonadError, runExceptT)
 import qualified Data.HashMap.Strict             as HM
-import           Formatting                      (sformat, (%))
-import           Serokell.Util.Text              (listJson)
 import           System.Wlog                     (logError)
 import           Universum
 

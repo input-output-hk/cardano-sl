@@ -22,17 +22,17 @@ module Pos.Txp.Toil.Utxo.Pure
        , verifyTxUtxoPure
        ) where
 
-import           Control.Lens               (at, (.=))
-import           Control.Monad.Except       (MonadError, runExcept)
-import           Control.Monad.Reader       (runReaderT)
-import           Control.Monad.Trans        (MonadTrans (..))
-import           Serokell.Util.Verify       (VerificationRes (..))
+import           Control.Lens                (at, (.=))
+import           Control.Monad.Except        (MonadError, runExcept)
+import           Control.Monad.Reader        (runReaderT)
+import           Control.Monad.Trans         (MonadTrans (..))
+import           Serokell.Util.Verify        (VerificationRes (..))
 import           Universum
 
-import           Pos.Binary.Types           ()
-import           Pos.Crypto                 (WithHash (..))
-import           Pos.Types.Types            (Tx, TxAux, TxDistribution, TxId, TxIn (..),
-                                             Utxo)
+import           Pos.Binary.Types            ()
+import           Pos.Crypto                  (WithHash (..))
+import           Pos.Txp.Core.Types          (Tx, TxAux, TxDistribution, TxId, TxIn (..),
+                                              Utxo)
 
 import           Pos.Txp.Toil.Class          (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', verifyTxUtxo)

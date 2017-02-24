@@ -41,10 +41,10 @@ import           Pos.Script                (Script)
 import           Pos.Script.Examples       (multisigRedeemer, multisigValidator)
 import           Pos.Txp                   (MonadUtxoRead (utxoGet), UtxoStateT (..),
                                             applyTxToUtxo, filterUtxoByAddr, topsortTxs)
-import           Pos.Types                 (Address, Block, ChainDifficulty, Coin,
-                                            Tx (..), TxAux, TxDistribution (..), TxId,
+import           Pos.Txp.Core.Types        (Tx (..), TxAux, TxDistribution (..), TxId,
                                             TxIn (..), TxInWitness (..), TxOut (..),
-                                            TxOutAux, TxSigData, TxWitness, Utxo,
+                                            TxOutAux, TxSigData, TxWitness, Utxo)
+import           Pos.Types                 (Address, Block, ChainDifficulty, Coin,
                                             blockTxas, difficultyL, makePubKeyAddress,
                                             makeScriptAddress, mkCoin, sumCoins)
 import           Pos.Types.Coin            (unsafeIntegerToCoin, unsafeSubCoin)
@@ -60,7 +60,9 @@ type TxError = Text
 -- | Generic function to create a transaction, given desired inputs, outputs and a
 -- way to construct witness from signature data
 makeAbstractTx :: (TxSigData -> TxInWitness) -> TxInputs -> TxOutputs -> TxAux
-makeAbstractTx mkWit txInputs outputs = (Tx {..}, txWitness, txDist)
+makeAbstractTx mkWit txInputs outputs = ( Tx txInputs txOutputs txAttributes
+                                        , txWitness
+                                        , txDist)
   where
     txOutputs = map fst outputs
     txAttributes = mkAttributes ()
@@ -146,11 +148,11 @@ createMOfNTx utxo keys outputs = uncurry (makeMOfNTx validator sks) <$> inpOuts
 
 -- | Check if given 'Address' is one of the receivers of 'Tx'
 hasReceiver :: Tx -> Address -> Bool
-hasReceiver Tx {..} addr = any ((== addr) . txOutAddress) txOutputs
+hasReceiver Tx {..} addr = any ((== addr) . txOutAddress) _txOutputs
 
 -- | Given some 'Utxo', check if given 'Address' is one of the senders of 'Tx'
 hasSender :: MonadUtxoRead m => Tx -> Address -> m Bool
-hasSender Tx {..} addr = anyM hasCorrespondingOutput txInputs
+hasSender Tx {..} addr = anyM hasCorrespondingOutput _txInputs
   where hasCorrespondingOutput txIn =
             fmap toBool $ fmap ((== addr) . txOutAddress . fst) <$> utxoGet txIn
         toBool Nothing  = False
@@ -183,7 +185,7 @@ getRelatedTxs addr txs = fmap DL.toList $
     step ls (WithHash tx txId, _wit, dist) = do
         let isIncoming = tx `hasReceiver` addr
         isOutgoing <- tx `hasSender` addr
-        let allToAddr = all ((== addr) . txOutAddress) $ txOutputs tx
+        let allToAddr = all ((== addr) . txOutAddress) $ _txOutputs tx
             isToItself = isOutgoing && allToAddr
         if isOutgoing || isIncoming
             then do

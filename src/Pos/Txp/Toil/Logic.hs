@@ -21,16 +21,17 @@ import           Universum
 
 import           Pos.Constants        (maxLocalTxs)
 import           Pos.Crypto           (WithHash (..), hash)
-import           Pos.Types            (Coin, StakeholderId, Tx (..), TxAux, TxId, TxUndo,
-                                       TxsUndo, getTxDistribution, mkCoin, txOutStake)
+import           Pos.Types            (Coin, StakeholderId, mkCoin)
 import           Pos.Types.Coin       (coinToInteger, sumCoins, unsafeAddCoin,
                                        unsafeIntegerToCoin, unsafeSubCoin)
 
 import           Pos.Txp.Core         (topsortTxs)
-import           Pos.Txp.Toil.Class    (MonadBalances (..), MonadBalancesRead (..),
+import           Pos.Txp.Core.Types   (Tx (..), TxAux, TxId, TxUndo, TxsUndo,
+                                       getTxDistribution, txOutStake)
+import           Pos.Txp.Toil.Class   (MonadBalances (..), MonadBalancesRead (..),
                                        MonadTxPool (..), MonadUtxo (..))
-import           Pos.Txp.Toil.Failure  (TxpVerFailure (..))
-import qualified Pos.Txp.Toil.Utxo     as Utxo
+import           Pos.Txp.Toil.Failure (TxpVerFailure (..))
+import qualified Pos.Txp.Toil.Utxo    as Utxo
 
 type GlobalTxpMode m = ( MonadUtxo m
                        , MonadBalances m
@@ -137,7 +138,7 @@ concatStakes (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
     txasTxOutDistr = concatMap concatDistr txas
     undoTxInDistr = concatMap txOutStake (concat undo)
     concatDistr (Tx{..}, _, distr)
-        = concatMap txOutStake (zip txOutputs (getTxDistribution distr))
+        = concatMap txOutStake (zip _txOutputs (getTxDistribution distr))
 
 withTxId :: TxAux -> (TxId, TxAux)
 withTxId aux@(tx, _, _) = (hash tx, aux)

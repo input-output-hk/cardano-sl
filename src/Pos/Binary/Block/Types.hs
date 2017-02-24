@@ -11,9 +11,11 @@ import           Formatting                (int, sformat, (%))
 import           Universum
 
 import           Pos.Binary.Class          (Bi (..), UnsignedVarInt (..))
+import           Pos.Binary.Txp            ()
 import           Pos.Binary.Types          ()
 import           Pos.Constants             (protocolMagic)
 import           Pos.Ssc.Class.Types       (Ssc (..))
+import qualified Pos.Txp.Core.Types        as T
 import qualified Pos.Types.Block.Class     as T
 import qualified Pos.Types.Block.Instances as T
 import qualified Pos.Types.Block.Types     as T
@@ -73,7 +75,7 @@ instance ( Bi (T.BHeaderHash b)
             let gb = T.GenericBlock {..}
             case T.verifyBBlock gb of
                 Left err -> fail $ Text.unpack $ "get@GenericBlock failed: " <> err
-                Right _ -> pass
+                Right _  -> pass
             return gb
 
 ----------------------------------------------------------------------------
@@ -145,7 +147,7 @@ instance (Ssc ssc, Bi UpdatePayload) => Bi (T.Body (T.MainBlockchain ssc)) where
                     lenTxs lenDistrs
         for_ (zip3 [0 :: Int ..] (toList _mbTxs) _mbTxAddrDistributions) $
             \(i, tx, ds) -> do
-                let lenOut = length (T.txOutputs tx)
+                let lenOut = length (T._txOutputs tx)
                     lenDist = length (T.getTxDistribution ds)
                 when (lenOut /= lenDist) $ fail $ toString $
                     sformat ("get@(Body MainBlockchain): "%

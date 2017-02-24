@@ -25,13 +25,13 @@ import           Pos.Communication.Relay    (Relay (..), RelayProxy (..), relayL
                                              relayStubListeners)
 import           Pos.Crypto                 (hash)
 import           Pos.Statistics             (StatProcessTx (..), statlogCountEvent)
-import           Pos.Types                  (TxAux, TxId)
+import           Pos.Txp.Core.Types         (TxAux, TxId)
 import           Pos.WorkMode               (WorkMode)
 
 import           Pos.Txp.Logic              (txProcessTransaction)
 import           Pos.Txp.MemState           (getMemPool)
 import           Pos.Txp.Network.Types      (TxMsgContents (..), TxMsgTag (..))
-import           Pos.Txp.Toil.Types          (MemPool (..))
+import           Pos.Txp.Toil.Types         (MemPool (..))
 
 txProxy :: RelayProxy TxId TxMsgTag TxMsgContents
 txProxy = RelayProxy

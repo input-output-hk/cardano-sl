@@ -28,8 +28,8 @@ import qualified Data.HashMap.Strict as HM
 import           Data.HashSet        (HashSet)
 import           Universum
 
-import           Pos.Types           (Coin, StakeholderId, TxAux, TxId, TxIn, TxOutAux,
-                                      TxUndo, mkCoin)
+import           Pos.Txp.Core.Types  (TxAux, TxId, TxIn, TxOutAux, TxUndo)
+import           Pos.Types           (Coin, StakeholderId, mkCoin)
 
 ----------------------------------------------------------------------------
 -- UtxoView

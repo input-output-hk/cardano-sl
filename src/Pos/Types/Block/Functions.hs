@@ -53,6 +53,8 @@ import           Pos.Script                 (isKnownScriptVersion, scrVersion)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types        (Ssc (..))
 import           Pos.Txp.Core.Tx            (verifyTxAlone)
+import           Pos.Txp.Core.Types         (Tx (..), TxDistribution, TxInWitness (..),
+                                             TxOut (..), TxWitness)
 import           Pos.Types.Address          (Address (..), addressHash)
 import           Pos.Types.Block.Class      (Blockchain (..), GenericBlock (..),
                                              GenericBlockHeader (..), gbBody, gbBodyProof,
@@ -534,7 +536,7 @@ checkNoUnknownVersions blk = mconcat $ map toVerRes $ concat [
     toVerRes (Left e)  = VerFailure [sformat build e]
 
     -- Check a transaction
-    checkTx txI Tx{..} = imap (checkOutput txI) txOutputs
+    checkTx txI Tx{..} = imap (checkOutput txI) _txOutputs
     -- Check an output
     checkOutput txI outI TxOut{..} = case txOutAddress of
         UnknownAddressType t _ -> Left $

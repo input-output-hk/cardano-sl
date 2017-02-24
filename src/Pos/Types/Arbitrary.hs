@@ -24,6 +24,7 @@ import           Universum
 import           Pos.Binary.Class           (AsBinary, FixedSizeInt (..),
                                              SignedVarInt (..), UnsignedVarInt (..))
 import           Pos.Binary.Crypto          ()
+import           Pos.Binary.Txp             ()
 import           Pos.Binary.Types           ()
 import           Pos.Constants              (epochSlots, sharedSeedLength)
 import           Pos.Crypto                 (PublicKey, SecretKey, Share, hash, sign,
@@ -33,6 +34,8 @@ import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Script                 (Script)
 import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
+import           Pos.Txp.Core.Types         (Tx (..), TxDistribution (..), TxIn (..),
+                                             TxInWitness (..), TxOut (..), TxOutAux)
 import           Pos.Types.Address          (makePubKeyAddress, makeScriptAddress)
 import           Pos.Types.Arbitrary.Unsafe ()
 import           Pos.Types.Core             (Address (..), ChainDifficulty (..), Coin,
@@ -40,9 +43,7 @@ import           Pos.Types.Core             (Address (..), ChainDifficulty (..),
                                              EpochOrSlot (..), LocalSlotIndex (..),
                                              SlotId (..), Timestamp (..), mkCoin,
                                              unsafeCoinPortionFromDouble, unsafeGetCoin)
-import           Pos.Types.Types            (SharedSeed (..), Tx (..),
-                                             TxDistribution (..), TxIn (..),
-                                             TxInWitness (..), TxOut (..), TxOutAux)
+import           Pos.Types.Types            (SharedSeed (..))
 import           Pos.Types.Version          (ApplicationName (..), BlockVersion (..),
                                              SoftwareVersion (..),
                                              applicationNameMaxLength)
@@ -148,7 +149,7 @@ buildProperTx triplesList (inCoin, outCoin) = do
             txOutsHash = hash $ fmap (view _3) txList
             distrHash = hash (TxDistribution (replicate (length txList) []))
             makeNullDistribution tx =
-                TxDistribution (replicate (length (txOutputs tx)) [])
+                TxDistribution (replicate (length (_txOutputs tx)) [])
             newTx (tx, fromSk, txOutput) =
                 let txHash = hash tx
                     txIn = TxIn txHash 0

@@ -16,9 +16,8 @@ module Pos.Txp.Toil.Class
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Universum
 
-import           Pos.Types                 (Coin, StakeholderId, TxAux, TxId, TxIn,
-                                            TxOutAux, TxUndo)
-
+import           Pos.Txp.Core.Types        (TxAux, TxId, TxIn, TxOutAux, TxUndo)
+import           Pos.Types                 (Coin, StakeholderId)
 ----------------------------------------------------------------------------
 -- MonadUtxo
 ----------------------------------------------------------------------------

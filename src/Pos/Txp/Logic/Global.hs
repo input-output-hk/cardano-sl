@@ -22,13 +22,14 @@ import           Pos.DB              (MonadDB, SomeBatchOp (..))
 import qualified Pos.DB.GState       as GS
 import           Pos.Exception       (assertionFailed)
 import           Pos.Ssc.Class.Types (Ssc)
-import           Pos.Types           (Block, TxAux, TxUndo, TxsUndo, blockTxas)
+import           Pos.Txp.Core.Types  (TxAux, TxUndo, TxsUndo)
+import           Pos.Types           (Block, blockTxas)
 import           Pos.Util            (NE, NewestFirst (..), OldestFirst (..),
                                       inAssertMode)
 
 import           Pos.Txp.Error       (TxpError (..))
 import           Pos.Txp.MemState    (MonadTxpMem (..))
-import           Pos.Txp.Toil         (BalancesView (..), BalancesView (..), DBTxp,
+import           Pos.Txp.Toil        (BalancesView (..), BalancesView (..), DBTxp,
                                       TxpModifier (..), TxpT, TxpVerFailure,
                                       UtxoView (..), applyTxp, rollbackTxp, runDBTxp,
                                       runTxpTGlobal, verifyTxp)

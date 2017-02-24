@@ -24,9 +24,10 @@ import           Pos.Genesis                   (genesisAddresses, genesisPublicK
                                                 genesisSecretKeys)
 import           Pos.Script                    (Script)
 import           Pos.Script.Examples           (multisigValidator)
-import           Pos.Types                     (Tx (..), TxAux, TxId, TxOut (..),
-                                                makePubKeyAddress, makeScriptAddress,
-                                                mkCoin, TxIn (..))
+import           Pos.Txp                       (Tx (..), TxAux, TxId, TxIn (..),
+                                                TxOut (..))
+import           Pos.Types                     (makePubKeyAddress, makeScriptAddress,
+                                                mkCoin)
 import           Pos.Util.TimeWarp             (sec)
 import           Pos.Wallet                    (makeMOfNTx, makePubKeyTx)
 import           Pos.WorkMode                  (WorkMode)
@@ -85,7 +86,7 @@ data BambooPool = BambooPool
 
 createBambooPool :: Maybe (Int, Int) -> Int -> TxAux -> IO BambooPool
 createBambooPool mOfN i (tx, w, d) = atomically $ BambooPool <$> newListArray (0, outputsN - 1) bamboos <*> newTVar 0
-    where outputsN = length $ txOutputs tx
+    where outputsN = length $ _txOutputs tx
           sk = genesisSecretKeys !! i
           bamboos = map (((tx, w, d) :) . mkChain . fromIntegral) [0 .. outputsN - 1]
           txId = hash tx
@@ -123,7 +124,7 @@ peekTx :: BambooPool -> IO TxAux
 peekTx bp = curBambooTx bp 0
 
 isTxVerified :: (WorkMode ssc m) => Tx -> m Bool
-isTxVerified tx = allM (fmap isJust . getTxOut) (txInputs tx)
+isTxVerified tx = allM (fmap isJust . getTxOut) (_txInputs tx)
 
 nextValidTx
     :: WorkMode ssc m

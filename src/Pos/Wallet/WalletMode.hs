@@ -48,10 +48,10 @@ import           Pos.Txp                     (TxpHolder (..), UtxoView (..), bel
                                               evalUtxoStateT, filterUtxoByAddr,
                                               getMemPool, getUtxoView, runUtxoStateT,
                                               txProcessTransaction, _mpLocalTxs)
+import           Pos.Txp.Core.Types          (TxAux, TxId, Utxo, toPair, txOutValue)
 import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
-                                              TxAux, TxId, Utxo, difficultyL,
-                                              flattenEpochOrSlot, flattenSlotId,
-                                              prevBlockL, sumCoins, toPair, txOutValue)
+                                              difficultyL, flattenEpochOrSlot,
+                                              flattenSlotId, prevBlockL, sumCoins)
 import           Pos.Types.Coin              (unsafeIntegerToCoin)
 import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
 import           Pos.Util                    (maybeThrow)

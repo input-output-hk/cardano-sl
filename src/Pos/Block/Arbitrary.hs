@@ -340,37 +340,49 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
         consensus <- arbitrary :: Gen Bool
         -- This integer is used as a seed to randomly choose a slot down below
         seed <- arbitrary :: Gen Int
-        (headers, oldLeaders) <- first reverse . getHeaderList <$> arbitrary
+        (headers, leaders) <- first reverse . getHeaderList <$> arbitrary
         let num = length headers
+        -- 'skip' is the random number of headers that should be skipped in the header
+        -- chain. This ensures different parts of it are chosen each time.
         skip <- choose (0, num - 1)
-        let atMost3HeadersAndLeaders = take 3 headers
-            leaders = drop skip oldLeaders
+        let atMost3HeadersAndLeaders = take 3 $ drop skip headers
             (prev, header, next) =
                 case atMost3HeadersAndLeaders of
                     [h] -> (Nothing, h, Nothing)
                     [h1, h2] -> (Just h1, h2, Nothing)
                     (h1 : h2 : h3 : _) -> (Just h1, h2, Just h3)
                     _ -> panic "[BlockSpec] the headerchain doesn't have enough headers"
+            -- This binding captures the chosen header's epoch. It is used to drop all
+            -- all leaders of headers from previous epochs.
             thisEpochStartIndex = fromIntegral $ epochSlots * (header ^. T.epochIndexL)
             thisHeadersEpoch = drop thisEpochStartIndex leaders
-            betweenZeroAnd n = fst . randomR (0, n) . mkStdGen $ seed
+            -- A helper function. Given integers 'x' and 'y', it chooses a random integer
+            -- in the interval [x, y]
+            betweenXAndY x y = fst . randomR (x, y) . mkStdGen $ seed
+            betweenZeroAndN = betweenXAndY 0
+            -- One of the fields in the 'VerifyHeaderParams' type is 'Just SlotId'. The
+            -- following binding is where it is calculated.
             randomSlotBeforeThisHeader =
                 case header of
+                    -- If the header is of the genesis kind, this field is not needed.
                     Left _  -> Nothing
-{-                        let e = header ^. T.epochIndexL
-                            rndSlot = T.SlotId (betweenZeroAnd e)
-                                               (betweenZeroAnd . pred $ epochSlots)
-                        in Just rndSlot-}
-                    Right h ->
+                    -- If it's a main blockheader, then a valid "current" SlotId for
+                    -- testing is any with an epoch greater than the header's epoch and
+                    -- with any slot index, or any in the same epoch but with a greater or
+                    -- equal slot index than the header.
+                    Right h -> -- Nothing {-
                         let (T.SlotId e s) = view T.headerSlot h
-                            rndSlot = T.SlotId (betweenZeroAnd e)
-                                               (betweenZeroAnd s)
+                            rndEpoch = betweenXAndY e maxBound
+                            rndSlotIdx = if rndEpoch > e
+                                then betweenZeroAndN (epochSlots - 1)
+                                else betweenXAndY s (epochSlots - 1)
+                            rndSlot = T.SlotId rndEpoch rndSlotIdx
                         in Just rndSlot
             params = T.VerifyHeaderParams
                 { T.vhpVerifyConsensus = consensus
                 , T.vhpPrevHeader = prev
                 , T.vhpNextHeader = next
                 , T.vhpCurrentSlot = randomSlotBeforeThisHeader
-                , T.vhpLeaders = Nothing --Just $ fromList $ map T.addressHash thisHeadersEpoch
+                , T.vhpLeaders = Just $ fromList $ map T.addressHash thisHeadersEpoch
                 }
         return . HAndP $ (params, header)

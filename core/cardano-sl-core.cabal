@@ -31,6 +31,8 @@ library
                        Pos.Merkle
                        Pos.Data.Attributes
                        Pos.Exception
+                       Pos.Core.Constants
+                       Pos.Util.TimeWarp
 
   build-depends:       HsOpenSSL
                      , base
@@ -47,6 +49,7 @@ library
                      , cereal
                      , containers
                      , cryptonite
+                     , cryptonite-openssl
                      , data-default
                      , deepseq
                      , derive
@@ -57,6 +60,8 @@ library
                      , lens
                      , memory
                      , mtl
+                     , network-transport-tcp
+                     , node-sketch
                      , parsec
                      , plutus-prototype
                      , pvss

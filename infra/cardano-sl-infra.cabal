@@ -1,0 +1,123 @@
+name:                cardano-sl-infra
+version:             0.1.0.0
+synopsis:            Cardano SL - infrastructural
+description:         Cardano SL - infrastructural
+license:             MIT
+license-file:        LICENSE
+author:              Serokell
+maintainer:          hi@serokell.io
+copyright:           2016 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:      
+                        -- Reporting
+                        Pos.Reporting
+                        Pos.Reporting.Class
+                        Pos.Reporting.Exceptions
+                        Pos.Reporting.Methods
+
+                        -- Slotting
+                        Pos.Slotting
+                        Pos.Slotting.MemState
+                        Pos.Slotting.MemState.Class
+                        Pos.Slotting.MemState.Holder
+                        Pos.Slotting.MemState.Types
+                        Pos.Slotting.Class
+                        Pos.Slotting.Error
+                        Pos.Slotting.Ntp
+                        Pos.Slotting.Util
+
+                        -- Pos.DHT
+                        Pos.DHT
+                        Pos.DHT.MemState
+                        Pos.DHT.MemState.Class
+                        Pos.DHT.MemState.Types
+                        Pos.DHT.Model
+                        Pos.DHT.Model.Neighbors
+                        Pos.DHT.Model.Types
+                        Pos.DHT.Model.Util
+                        Pos.DHT.Model.Class
+                        Pos.DHT.Real
+                        Pos.DHT.Real.Real
+                        Pos.DHT.Real.Types
+                        Pos.DHT.Workers
+
+                        -- Pos.Binary
+                        Pos.Binary.Infra.DHTModel
+
+  other-modules:        Pos.Communication.Types.Protocol
+                        Pos.Communication.Types.State
+                        Pos.Communication.BiP
+                        Pos.Communication.PeerState
+                        Pos.Communication.Protocol
+                        Pos.Slotting.Constants
+                        Pos.DHT.Constants
+  build-depends:        base
+                     , aeson
+                      -- This constraint on 'binary' is so strict because
+                      -- we're relying on the internal representation of
+                      -- 'Get' in Pos.Binary.Class. So, if you need to bump
+                      -- this constraint, first check that all code in
+                      -- Pos.Binary.Class that has been ripped from 'binary'
+                      -- hasn't changed upstream.
+                      , binary == 0.8.3.*
+                      , bytestring
+                      , cardano-sl-core
+                      , cardano-report-server
+                      , data-default
+                      , directory
+                      , exceptions
+                      , filepath
+                      , formatting
+                      , hashable
+                      , kademlia
+                      , lens
+                      , list-t
+                      , log-warper >= 0.4.3
+                      , monad-control
+                      , mtl
+                      , network-info
+                      , node-sketch
+                      , serokell-util >= 0.1.3.4
+                      , stm
+                      , stm-containers
+                      , text
+                      , temporary
+                      , text-format
+                      , time
+                      , time-units
+                      , transformers
+                      , transformers-base
+                      , universum
+                      , unordered-containers
+                      , wreq
+
+  default-language:    Haskell2010
+
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

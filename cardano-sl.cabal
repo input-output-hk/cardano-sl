@@ -41,23 +41,11 @@ library
                         Pos.Block.Network
                         Pos.CLI
                         Pos.Context
-                        Pos.Communication
-                        Pos.Communication.Relay
                         Pos.CompileConfig
                         Pos.Constants
                         Pos.DB
                         Pos.DB.GState
                         Pos.Delegation
-                        -- Pos.DHT
-                        Pos.DHT.Model
-                        Pos.DHT.Model.Neighbors
-                        Pos.DHT.Model.Types
-                        Pos.DHT.Model.Util
-                        Pos.DHT.Model.Class
-                        Pos.DHT.Real
-                        Pos.DHT.Real.Real
-                        Pos.DHT.Real.Types
-                        Pos.DHT.Workers
 
                         -- Genesis data
                         Pos.Genesis
@@ -78,12 +66,6 @@ library
                         Pos.Security.CLI
                         Pos.Security.Util
                         Pos.Security.Workers
-                        Pos.Slotting
-
-                        -- Reporting
-                        Pos.Reporting
-                        Pos.Reporting.Methods
-                        Pos.Reporting.Exceptions
 
                         -- SSC
                         Pos.Ssc.Arbitrary
@@ -93,8 +75,9 @@ library
                         Pos.Ssc.SscAlgo
                         Pos.Ssc.Extra
 
-                        -- Something
                         Pos.Statistics
+
+                        -- Txp
                         Pos.Txp
                         Pos.Txp.Listeners
                         Pos.Types
@@ -119,7 +102,6 @@ library
                         Pos.Util.Shutdown
                         Pos.Util.UserSecret
                         Pos.Util.TimeLimit
-                        Pos.Util.TimeWarp
 
                         -- Worker, work mode
                         Pos.Worker
@@ -166,23 +148,6 @@ library
                         Pos.Block.Types
                         Pos.Block.Worker
 
-                        -- Network
-                        Pos.Communication.Arbitrary
-                        Pos.Communication.BiP
-                        Pos.Communication.Message
-                        Pos.Communication.Methods
-                        Pos.Communication.Protocol
-                        Pos.Communication.PeerState
-                        Pos.Communication.Types
-                        Pos.Communication.Types.Protocol
-                        Pos.Communication.Types.Relay
-                        Pos.Communication.Types.State
-                        Pos.Communication.Types.SysStart
-                        Pos.Communication.Server
-                        Pos.Communication.Server.SysStart
-                        Pos.Communication.Specs
-                        Pos.Communication.Util
-
                         -- Compile config
                         Pos.CompileConfig.Parser
                         Pos.CompileConfig.Type
@@ -207,12 +172,33 @@ library
                         Pos.Delegation.Types
                         Pos.Delegation.Worker
 
+                        Pos.Exception
+
                         -- Launcher
                         Pos.Launcher.Launcher
                         Pos.Launcher.Options
                         Pos.Launcher.Param
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
+
+                        -- Network
+                        Pos.Communication
+                        Pos.Communication.Arbitrary
+                        Pos.Communication.BiP
+                        Pos.Communication.Message
+                        Pos.Communication.Methods
+                        Pos.Communication.Protocol
+                        Pos.Communication.PeerState
+                        Pos.Communication.Types
+                        Pos.Communication.Types.Protocol
+                        Pos.Communication.Types.Relay
+                        Pos.Communication.Types.State
+                        Pos.Communication.Types.SysStart
+                        Pos.Communication.Relay
+                        Pos.Communication.Server
+                        Pos.Communication.Server.SysStart
+                        Pos.Communication.Specs
+                        Pos.Communication.Util
 
                         -- DB
                         Pos.DB.Block
@@ -260,14 +246,6 @@ library
                         Pos.SafeCopy.GodTossing.VssCertData
                         Pos.SafeCopy.Types
                         Pos.SafeCopy.Update
-
-                        -- Slotting
-                        Pos.Slotting.Class
-                        Pos.Slotting.Error
-                        Pos.Slotting.Holder
-                        Pos.Slotting.Ntp
-                        Pos.Slotting.Types
-                        Pos.Slotting.Util
 
                         -- SSC
                         Pos.Ssc.Class.Types
@@ -439,6 +417,7 @@ library
                       , cardano-report-server >= 0.1.0
                       , cardano-sl-core
                       , cardano-sl-update
+                      , cardano-sl-infra
                       , cereal
                       , concurrent-extra
                       , conduit >= 1.2.8
@@ -564,6 +543,7 @@ executable cardano-node
                      , binary
                      , bytestring
                      , cardano-sl-core
+                     , cardano-sl-infra
                      , cardano-sl
                      , data-default
                      , directory
@@ -675,6 +655,7 @@ executable cardano-wallet
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-update
+                     , cardano-sl-infra
                      , cardano-sl
                      , formatting
                      , lens

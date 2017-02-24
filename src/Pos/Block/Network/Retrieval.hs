@@ -70,26 +70,26 @@ retrievalWorker
 retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
     NodeContext{..} <- getNodeContext
     let loop queue recHeaderVar = ifNotShutdown $ reportingFatal $ do
-           ph <- atomically $ readTBQueue queue
-           handleAll (handleLE recHeaderVar ph) $ reportingFatal $
-               handle sendActions ph
-           let needQueryMore = atomically $ do
-                   isEmpty <- isEmptyTBQueue queue
-                   recHeader <- tryReadTMVar recHeaderVar
-                   pure $ guard isEmpty *> recHeader
-           let tryFillQueue (0 :: Int) _ =
-                   void $ atomically $ tryTakeTMVar recHeaderVar
-               tryFillQueue tries action =
-                   whenM (atomically $ isEmptyTBQueue queue) $
-                       action >> tryFillQueue (tries - 1) action
-           tryFillQueue 5 $ whenJustM needQueryMore $ \(peerId, rHeader) -> do
-               logDebug "Queue is empty, we're in recovery mode -> querying more"
-               whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
-                   handleAll (handleLE recHeaderVar ph) $ reportingFatal $
-                   withConnectionTo sendActions peerId $ \_peerData ->
-                       requestHeaders mghNext (Just rHeader) peerId
-           loop queue recHeaderVar
-
+            logDebug "Waiting on the queue"
+            ph <- atomically $ readTBQueue queue
+            handleAll (handleLE recHeaderVar ph) $ reportingFatal $
+                handle sendActions ph
+            let needQueryMore = atomically $ do
+                    isEmpty <- isEmptyTBQueue queue
+                    recHeader <- tryReadTMVar recHeaderVar
+                    pure $ guard isEmpty *> recHeader
+            let tryFillQueue (0 :: Int) _ =
+                    void $ atomically $ tryTakeTMVar recHeaderVar
+                tryFillQueue tries action =
+                    whenM (atomically $ isEmptyTBQueue queue) $
+                    action >> tryFillQueue (tries - 1) action
+            tryFillQueue 5 $ whenJustM needQueryMore $ \(peerId, rHeader) -> do
+                logDebug "Queue is empty, we're in recovery mode -> querying more"
+                whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
+                    handleAll (handleLE recHeaderVar ph) $ reportingFatal $
+                    withConnectionTo sendActions peerId $ \_peerData ->
+                        requestHeaders mghNext (Just rHeader) peerId
+            loop queue recHeaderVar
     logDebug "Starting retrievalWorker loop"
     loop ncBlockRetrievalQueue ncRecoveryHeader
   where
@@ -222,7 +222,10 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
 triggerRecovery :: WorkMode ssc m => SendActions m -> m ()
 triggerRecovery sendActions = unlessM isRecoveryMode $ do
     logDebug "Recovery triggered"
-    converseToNeighbors sendActions requestTip
+    converseToNeighbors sendActions requestTip `catch`
+        (\(e :: SomeException) ->
+           logDebug ("Error happened in triggerRecovery" <> show e) >> throwM e)
+    logDebug "Recovery triggered ended"
 
 -- | Make 'GetHeaders' message using our main chain. This function
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'

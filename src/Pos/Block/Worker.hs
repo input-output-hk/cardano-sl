@@ -183,8 +183,7 @@ recoveryWorkerImpl
     => SendActions m -> m ()
 recoveryWorkerImpl sendActions = action `catch` handler
   where
-    delayed a = forever $ a >> delay (sec 5)
-    action = reportingFatal $ delayed checkRecovery
+    action = reportingFatal $ forever $ checkRecovery >> delay (sec 5)
     checkRecovery = do
         recMode <- isRecoveryMode
         curSlotNothing <- isNothing <$> getCurrentSlot

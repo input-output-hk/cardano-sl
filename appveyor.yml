@@ -44,7 +44,7 @@ test_script:
   - cd daedalus
   - Echo %APPVEYOR_BUILD_VERSION% > build-id
   - ps: Install-Product node 7
-  - npm install
+  - scripts\appveyor-retry call npm install
   - npm run build:prod
 
 artifacts:

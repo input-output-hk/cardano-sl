@@ -29,7 +29,6 @@ import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
 
 import           Pos.Communication.PeerState (PeerStateHolder, WithPeerState)
-import           Pos.Constants               (blkSecurityParam)
 import qualified Pos.Context                 as PC
 import           Pos.Crypto                  (WithHash (..))
 import           Pos.DB                      (MonadDB)
@@ -40,7 +39,6 @@ import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
 import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Slotting                (NtpSlotting, SlottingHolder,
-                                              getCurrentSlotInaccurate,
                                               getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
@@ -50,8 +48,7 @@ import           Pos.Txp.Logic               (processTx)
 import           Pos.Txp.Types               (UtxoView (..), localTxs)
 import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
                                               TxAux, TxId, Utxo, difficultyL,
-                                              evalUtxoStateT, flattenEpochOrSlot,
-                                              flattenSlotId, prevBlockL, runUtxoStateT,
+                                              evalUtxoStateT, prevBlockL, runUtxoStateT,
                                               sumCoins, toPair, txOutValue)
 import           Pos.Types.Coin              (unsafeIntegerToCoin)
 import           Pos.Types.Utxo.Functions    (belongsTo, filterUtxoByAddr)

@@ -4,16 +4,15 @@ module Test.Pos.Types.CoinSpec
        ( spec
        ) where
 
-import           Test.Hspec              (Expectation, Selector, Spec, describe, it,
-                                          shouldBe, shouldThrow)
-import           Test.Hspec.QuickCheck   (prop)
+import           Test.Hspec            (Expectation, Selector, Spec, describe, it,
+                                        shouldBe)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck       (Property, (===))
 import           Universum
 
-import           Control.Exception       (AssertionFailed)
-import qualified Pos.Types               as C
+import qualified Pos.Types             as C
 
-import           Test.Pos.Util           ((.=.), (>=.), shouldThrowException)
-import           Test.QuickCheck         ((===), Property)
+import           Test.Pos.Util         (shouldThrowException, (.=.), (>=.))
 
 spec :: Spec
 spec = describe "Coin properties" $ do
@@ -82,9 +81,6 @@ spec = describe "Coin properties" $ do
 
 fatalException :: Selector FatalError
 fatalException = const True
-
-assertionException :: Selector AssertionFailed
-assertionException = const True
 
 ------------------------------------------------------------------------------------------
 -- Coin

@@ -36,6 +36,7 @@ data Args = Args
     , commonArgs       :: !CLI.CommonArgs
     , noSystemStart    :: !Int
     , monitorPort      :: !(Maybe Int)
+    , notifierPort     :: !Word16
     }
   deriving Show
 
@@ -77,6 +78,10 @@ argsParser =
                  auto
                  (long "monitor-port" <> metavar "INT" <>
                   help "Run web monitor on this port"))
+    <*> option auto
+         (long "notifier-port" <> metavar "PORT" <>
+          value 8110 <> showDefault <>
+          help "Port for update notifier")
   where
     peerHelpMsg =
         "Peer to connect to for initial peer discovery. Format\

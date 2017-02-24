@@ -27,13 +27,14 @@ import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
 import           Pos.Ssc.Class       (SscConstraint)
 import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
 import           Pos.Types           (Timestamp (Timestamp))
-import           Pos.Util            (inAssertMode)
+import           Pos.Util            (inAssertMode, mconcatPair)
 import           Pos.Util.TimeWarp   (sec)
 import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usKeys, usVss,
                                       writeUserSecret)
 import           Pos.WorkMode        (ProductionMode, WorkMode)
 
-import           Pos.Explorer.Web    (explorerPlugin)
+import           Pos.Explorer.Web    (NotifierSettings (..), explorerPlugin,
+                                      notifierPlugin)
 
 import           ExplorerOptions     (Args (..), getExplorerOptions)
 
@@ -83,7 +84,11 @@ action args@Args {..} res = do
         gtParams = gtSscParams args vssSK
 
     putText "Running using GodTossing"
-    runNodeProduction @SscGodTossing res (explorerPlugin webPort) currentParams gtParams
+    let plugins = mconcatPair
+            [ explorerPlugin webPort
+            , notifierPlugin NotifierSettings{ nsPort = notifierPort }
+            ]
+    runNodeProduction @SscGodTossing res plugins currentParams gtParams
 
 userSecretWithGenesisKey
     :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m (SecretKey, UserSecret)

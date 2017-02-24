@@ -26,6 +26,7 @@ library
   exposed-modules:      Pos.Explorer.Web
                         Pos.Explorer.Web.ClientTypes
                         Pos.Explorer.Web.Error
+                        Pos.Explorer.Web.Sockets
   other-modules:        Pos.Explorer.Aeson.ClientTypes
 
                         Pos.Explorer.Web.Sockets.App

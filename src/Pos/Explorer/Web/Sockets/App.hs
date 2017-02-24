@@ -3,14 +3,15 @@
 -- | Server launcher
 
 module Pos.Explorer.Web.Sockets.App
-       ( socketIOApp
+       ( NotifierSettings (..)
+       , notifierApp
        , test
        ) where
 
 import           Control.Lens                       ((<<.=))
-import           Data.ByteString                    (ByteString)
 import qualified Data.Set                           as S
 import           Data.Time.Units                    (Millisecond)
+import           Formatting                         (int, sformat, shown, stext, (%))
 import           Mockable                           (Fork, Mockable)
 import           Network.EngineIO                   (SocketId)
 import           Network.EngineIO.Snap              (snapAPI)
@@ -19,14 +20,15 @@ import           Network.SocketIO                   (RoutingTable, Socket,
                                                      socketId)
 import qualified Pos.DB                             as DB
 import           Pos.Ssc.Class                      (SscHelpersClass)
-import           Snap.Core                          (Response, route)
-import           Snap.Http.Server                   (quickHttpServe)
+import           Snap.Core                          (MonadSnap, Response)
+import           Snap.Http.Server                   (httpServe)
+import qualified Snap.Internal.Http.Server.Config   as Config
 import           System.Wlog                        (LoggerName, LoggerNameBox,
-                                                     WithLogger, getLoggerName,
+                                                     WithLogger, getLoggerName, logDebug,
+                                                     logInfo, modifyLoggerName,
                                                      usingLoggerName)
 import           Universum                          hiding (on)
 
-import           Data.Map                           as M
 import           Pos.Explorer.Web.Sockets.Holder    (ConnectionsState, ConnectionsVar,
                                                      mkConnectionsState,
                                                      modifyConnectionsStateDo,
@@ -43,7 +45,18 @@ import           Pos.Explorer.Web.Sockets.Methods   (ClientEvent (..), blockAddr
                                                      unsubscribeBlocks, unsubscribeFully)
 import           Pos.Explorer.Web.Sockets.Util      (forkAccompanion, on, on_,
                                                      runPeriodicallyUnless)
+
+import qualified Data.Map                           as M
 import qualified Snap.Test                          as T
+
+data NotifierSettings = NotifierSettings
+    { nsPort :: Word16
+    }
+
+toSnapConfig :: MonadSnap m => NotifierSettings -> Config.Config m ()
+toSnapConfig NotifierSettings{..} = Config.defaultConfig
+    { Config.port = Just $ fromIntegral nsPort
+    }
 
 notifierHandler
     :: (MonadState RoutingTable m)
@@ -73,19 +86,15 @@ notifierHandler connVar loggerName = do
         modifyConnectionsStateDo connVar $ usingLoggerName loggerName $
             f (socketId sock)
 
-notifierAddr :: ByteString
-notifierAddr = "/notifier"
-
 notifierServer
     :: (MonadIO m, WithLogger m, MonadCatch m, WithLogger m)
-    => ConnectionsVar -> m ()
-notifierServer connVar = do
+    => NotifierSettings -> ConnectionsVar -> m ()
+notifierServer settings connVar = do
     loggerName <- getLoggerName
-    -- TODO: decide, whether to use /snap/, /yesod/, or smth else
     liftIO $ do
         handler <- liftIO $ initialize snapAPI $
             notifierHandler connVar loggerName
-        quickHttpServe $ route [(notifierAddr, handler)]
+        httpServe (toSnapConfig settings) handler
 
 periodicPollChanges
     :: (MonadIO m, MonadMask m, DB.MonadDB ssc m, WithLogger m,
@@ -94,11 +103,11 @@ periodicPollChanges
 periodicPollChanges connVar closed =
     runPeriodicallyUnless (500 :: Millisecond) closed Nothing $ do
         curBlock  <- DB.getTip
-        mPrevBlock <- identity <<.= Just curBlock
+        mWasBlock <- identity <<.= Just curBlock
 
         -- notify about addrs
-        mBlocks <- fmap join $ forM mPrevBlock $ \prevBlock ->
-            getBlocksFromTo curBlock prevBlock 10
+        mBlocks <- fmap join $ forM mWasBlock $ \wasBlock ->
+            getBlocksFromTo curBlock wasBlock 10
         notifiedAddrs <- case mBlocks of
             Nothing     -> return False
             Just blocks -> do
@@ -106,28 +115,36 @@ periodicPollChanges connVar closed =
                     mapM blockAddresses blocks
                 forM_ addrs $ \addr ->
                     readConnectionsStateDo connVar $ notifyAddrSubscribers addr
+                unless (null addrs) $
+                    logDebug $ sformat ("Addresses updated: "%shown) addrs
                 return True
 
         -- notify about blocks
-        when (mPrevBlock /= Just curBlock) $
+        when (mWasBlock /= Just curBlock) $ do
             readConnectionsStateDo connVar $ do
                 notifyBlocksSubscribers
                 unless notifiedAddrs notifyAllAddrSubscribers
 
+            let blocksInfo = maybe "-" (sformat $ " ("%int%" blocks)") $
+                    length <$> mBlocks
+            logDebug $ sformat ("Blockchain updated"%stext) blocksInfo
+
         -- or just `hasSender` + `hasReceiver` + `getTxOut`
 
-socketIOApp
+-- | Starts notification server. Kill current thread to stop it.
+notifierApp
     :: (MonadIO m, MonadMask m, DB.MonadDB ssc m, Mockable Fork m,
         WithLogger m, SscHelpersClass ssc)
-    => m ()
-socketIOApp = do
+    => NotifierSettings -> m ()
+notifierApp settings = modifyLoggerName (<> "notifier") $ do
+    logInfo "Starting"
     connVar <- liftIO $ newMVar mkConnectionsState
     forkAccompanion (periodicPollChanges connVar)
-                    (notifierServer connVar)
+                    (notifierServer settings connVar)
 
 -- TODO: tmp
 test :: MonadIO m => m Response
 test = liftIO $ do
     connVar <- liftIO $ newMVar mkConnectionsState
     handler <- initialize snapAPI $ notifierHandler connVar "*test*"
-    T.runHandler (T.get "/notifier" M.empty) handler
+    T.runHandler (T.get "localhost:1234" M.empty) handler

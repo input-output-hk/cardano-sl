@@ -104,8 +104,6 @@ instance (SscHelpersClass ssc, Bi TxWitness, Bi UpdatePayload, Bi EpochIndex) =>
     -- and MPC messages.
     data Body (MainBlockchain ssc) = MainBody
         { -- | Transactions are the main payload.
-          -- TODO: currently we don't know for sure whether it should be
-          -- serialized as a MerkleTree or something list-like.
           _mbTxs :: !(MerkleTree Tx)
         , -- | Distributions for P2SH addresses in transaction outputs.
           --     * length mbTxAddrDistributions == length mbTxs
@@ -483,8 +481,6 @@ blockHeaderHash = headerHash
 getBlockHeader :: Block ssc -> BlockHeader ssc
 getBlockHeader = bimap _gbHeader _gbHeader
 
--- This gives a “redundant constraint” message warning which will be fixed in
--- lens-4.15 (not in LTS yet).
 blockHeader :: Getter (Block ssc) (BlockHeader ssc)
 blockHeader = to getBlockHeader
 

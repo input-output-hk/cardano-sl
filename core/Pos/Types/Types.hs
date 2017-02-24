@@ -4,7 +4,6 @@
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 -- | Definitions of the most fundamental types.
 

@@ -7,8 +7,10 @@ module Pos.Wallet.Tx.Pure
        -- * Tx creation
          makePubKeyTx
        , makeMOfNTx
+       , makeRedemptionTx
        , createTx
        , createMOfNTx
+       , createRedemptionTx
 
        -- * History derivation
        , getRelatedTxs
@@ -34,8 +36,10 @@ import qualified Data.Vector               as V
 import           Universum
 
 import           Pos.Binary                ()
-import           Pos.Crypto                (PublicKey, SafeSigner, WithHash (..), hash,
-                                            safeSign, safeToPublic, withHash)
+import           Pos.Crypto                (PublicKey, RedeemSecretKey, SafeSigner,
+                                            WithHash (..), hash, redeemSign,
+                                            redeemToPublic, safeSign, safeToPublic,
+                                            withHash)
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Script                (Script)
 import           Pos.Script.Examples       (multisigRedeemer, multisigValidator)
@@ -47,8 +51,8 @@ import           Pos.Types                 (Address, Block, ChainDifficulty, Coi
                                             TxSigData, TxWitness, Utxo, UtxoStateT (..),
                                             applyTxToUtxo, blockTxas, difficultyL,
                                             filterUtxoByAddr, makePubKeyAddress,
-                                            makeScriptAddress, mkCoin, sumCoins,
-                                            topsortTxs)
+                                            makeRedeemAddress, makeScriptAddress, mkCoin,
+                                            sumCoins, topsortTxs)
 import           Pos.Types.Coin            (unsafeIntegerToCoin, unsafeSubCoin)
 
 type TxOutIdx = (TxId, Word32)
@@ -88,6 +92,14 @@ makeMOfNTx validator sks = makeAbstractTx mkWit
   where mkWit sigData = ScriptWitness
             { twValidator = validator
             , twRedeemer = multisigRedeemer sigData sks
+            }
+
+makeRedemptionTx :: RedeemSecretKey -> TxInputs -> TxOutputs -> TxAux
+makeRedemptionTx rsk = makeAbstractTx mkWit
+  where rpk = redeemToPublic rsk
+        mkWit sigData = RedeemWitness
+            { twRedeemKey = rpk
+            , twRedeemSig = redeemSign rsk sigData
             }
 
 type FlatUtxo = [(TxOutIdx, TxOutAux)]
@@ -143,6 +155,11 @@ createMOfNTx utxo keys outputs = uncurry (makeMOfNTx validator sks) <$> inpOuts
         validator = multisigValidator m pks
         addr = makeScriptAddress validator
         inpOuts = prepareInpOuts utxo addr outputs
+
+createRedemptionTx :: Utxo -> RedeemSecretKey -> TxOutputs -> Either TxError TxAux
+createRedemptionTx utxo rsk outputs =
+    uncurry (makeRedemptionTx rsk) <$>
+    prepareInpOuts utxo (makeRedeemAddress $ redeemToPublic rsk) outputs
 
 ----------------------------------------------------------------------
 -- Deduction of history

@@ -12,6 +12,7 @@ module Pos.Types.Address
        , makePubKeyAddress
        , makePubKeyHdwAddress
        , makeScriptAddress
+       , makeRedeemAddress
        , decodeTextAddress
 
        , StakeholderId
@@ -88,6 +89,10 @@ makePubKeyHdwAddress key path =
 -- | A function for making an address from a validation script
 makeScriptAddress :: Bi Script => Script -> Address
 makeScriptAddress scr = ScriptAddress (addressHash scr)
+
+-- | A function for making an address from a redeem script
+makeRedeemAddress :: Bi RedeemPublicKey => RedeemPublicKey -> Address
+makeRedeemAddress key = RedeemAddress (addressHash key)
 
 -- CHECK: @checkPubKeyAddress
 -- | Check if given 'Address' is created from given 'PublicKey'

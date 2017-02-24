@@ -36,9 +36,9 @@ import           Pos.Aeson.ClientTypes         ()
 import           Pos.Communication.Protocol    (OutSpecs, SendActions, hoistSendActions)
 import           Pos.Constants                 (curSoftwareVersion)
 import           Pos.Crypto                    (SecretKey, emptyPassphrase, encToPublic,
-                                                fakeSigner, hash, safeDeterministicKeyGen,
-                                                toEncrypted, toPublic, withSafeSigner,
-                                                withSafeSigner)
+                                                fakeSigner, hash,
+                                                redeemDeterministicKeyGen, toEncrypted,
+                                                toPublic, withSafeSigner, withSafeSigner)
 import           Pos.DHT.Model                 (getKnownPeers)
 import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
                                                 TxOut (..), addressF, coinF,
@@ -49,7 +49,7 @@ import           Pos.Util.BackupPhrase         (BackupPhrase, safeKeysFromPhrase
 import           Pos.Util.UserSecret           (readUserSecret, usKeys, usPrimKey)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
-import           Pos.Wallet.Tx                 (sendTxOuts, submitTx)
+import           Pos.Wallet.Tx                 (sendTxOuts, submitRedemptionTx, submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
 import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
                                                 blockchainSlotDuration, connectedPeers,
@@ -408,24 +408,22 @@ redeemADA sendActions CWalletRedeem {..} = do
         (\e -> throwM $ Internal ("Seed is invalid base64 string: " <> toText e))
         pure $ B64.decode (encodeUtf8 crSeed)
     (redeemPK, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
-                            safeDeterministicKeyGen seedBs emptyPassphrase
+                            redeemDeterministicKeyGen seedBs
     -- new redemption wallet
     walletB <- getWallet crWalletId
 
     -- send from seedAddress to walletB
     let dstCAddr = cwAddress walletB
     dstAddr <- decodeCAddressOrFail dstCAddr
-    redeemBalance <- getBalance $ makePubKeyAddress redeemPK
     na <- getKnownPeers
-    withSafeSigner redeemSK (return emptyPassphrase) $ \ss -> do
-        etx <- submitTx sendActions ss na [(TxOut dstAddr redeemBalance, [])]
-        case etx of
-            Left err -> throwM . Internal $ "Cannot send redemption transaction: " <> err
-            Right (tx, _, _) -> do
-                -- add redemption transaction to the history of new wallet
-                () <$ addHistoryTx dstCAddr ADA "ADA redemption" ""
-                    (THEntry (hash tx) tx False Nothing)
-                pure walletB
+    etx <- submitRedemptionTx sendActions redeemSK na dstAddr
+    case etx of
+        Left err -> throwM . Internal $ "Cannot send redemption transaction: " <> err
+        Right (tx, _, _) -> do
+            -- add redemption transaction to the history of new wallet
+            () <$ addHistoryTx dstCAddr ADA "ADA redemption" ""
+                (THEntry (hash tx) tx False Nothing)
+            pure walletB
 
 importKey :: WalletWebMode ssc m => SendActions m -> Text -> m CWallet
 importKey sendActions (toString -> fp) = do

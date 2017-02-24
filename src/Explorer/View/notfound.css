@@ -5,17 +5,9 @@
     background-color: var(--color4);
   }
 
-
   &__container {
     @neat-outer-container;
-    padding: 46px 0px 38px 0px;
-  }
-  @media (--md) {
-    &__container {
-      @neat-outer-container;
-      max-width:var(--max-width-desktop);
-      padding: 56px 48px 48px 48px;
-    }
+    padding: 56px 48px 48px 48px;
   }
 
   .description {

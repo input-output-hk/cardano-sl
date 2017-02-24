@@ -45,7 +45,14 @@
     .nav__container {
       @neat-span-columns 8;
       text-align: center;
+      display: none;
     }
+    @media (--md) {
+      .nav__container  {
+        display: block;
+      }
+    }
+
 
     .nav__list {
 

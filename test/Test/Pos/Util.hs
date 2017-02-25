@@ -90,8 +90,7 @@ networkBinaryEncodeDecode a = stage1 $ runGetIncremental get
 
 msgLenLimitedCheck
     :: (Show a, Bi a) => Limit a -> a -> Property
-msgLenLimitedCheck NoLimit _ = property True
-msgLenLimitedCheck (Limit limit) msg =
+msgLenLimitedCheck limit msg =
     let size = LBS.length . encode $ msg
     in if size <= fromIntegral limit
         then property True

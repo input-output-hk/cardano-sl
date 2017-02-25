@@ -66,34 +66,15 @@ import           Pos.Update.Core.Types            (UpdateProposal (..), UpdateVo
                                                    SystemTag, UpdateData)
 
 -- | Specifies limit for given type @t@.
-data Limit t
-    = Limit Byte
-    | NoLimit
-    deriving (Eq, Ord, Show)
+newtype Limit t = Limit Byte
+    deriving (Eq, Ord, Show, Num, Enum, Real, Integral)
 
 instance Functor Limit where
     fmap _ (Limit x) = Limit x
-    fmap _ NoLimit = NoLimit
-
-instance Num (Limit a) where
-    Limit a + Limit b = Limit $ a + b
-    _       + _       = NoLimit
-
-    Limit a * Limit b = Limit $ a * b
-    _       * _       = NoLimit
-
-    _ - _ = panic "Don't substract limits!"
-
-    abs = identity
-
-    signum _ = 1
-
-    fromInteger = Limit . fromInteger
 
 infixl 4 <+>
 (<+>) :: Limit (a -> b) -> Limit a -> Limit b
 Limit x <+> Limit y = Limit $ x + y
-_       <+> _       = NoLimit
 
 -- | Upper bound on number of `PVSS.Commitment`s in single `Commitment`.
 commitmentsNumLimit :: Int
@@ -112,7 +93,6 @@ appNameLenLimit :: Int
 appNameLenLimit = 30
 
 vectorOf :: IsList l => Int -> Limit (Item l) -> Limit l
-vectorOf _  NoLimit  = NoLimit
 vectorOf k (Limit x) =
     Limit $ encodedListLength + x * (fromIntegral k)
   where
@@ -132,7 +112,6 @@ multiMap k =
 
 coerce :: Limit a -> Limit b
 coerce (Limit x) = Limit x
-coerce NoLimit   = NoLimit
 
 -- | Specifies type of limit on incoming message size.
 -- Useful when the type has several limits and choice depends on constructor.
@@ -141,7 +120,6 @@ class Limiter l where
     addLimit :: Byte -> l -> l
 
 instance Limiter (Limit t) where
-    limitGet NoLimit   = identity
     limitGet (Limit l) = Bi.limitGet $ fromIntegral l
     addLimit a = (Limit a +)
 
@@ -213,6 +191,9 @@ instance MessageLimited (DataMsg (UpdateProposal, [UpdateVote])) where
         Limit (DataMsg (UpdateProposal, [UpdateVote]))
     getMsgLenLimit _ = return msgLenLimit
 
+noLimit :: Limit a
+noLimit = 1000000
+
 mcCommitmentMsgLenLimit :: Limit GtMsgContents
 mcCommitmentMsgLenLimit = MCCommitment <$> msgLenLimit
 
@@ -230,9 +211,9 @@ instance MessageLimited (DataMsg GtMsgContents) where
     getMsgLenLimit _ =
         return $ each %~ fmap DataMsg $
             ( mcCommitmentMsgLenLimit
-            , NoLimit
+            , noLimit
             , mcSharesMsgLenLimit
-            , NoLimit
+            , noLimit
             )
 
 instance MessageLimited (DataMsg contents)

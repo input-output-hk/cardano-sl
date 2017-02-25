@@ -1,5 +1,4 @@
 {-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}

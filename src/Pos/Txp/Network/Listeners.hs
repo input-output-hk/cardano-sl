@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Server which handles transactions.

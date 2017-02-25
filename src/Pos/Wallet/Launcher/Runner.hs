@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Wallet.Launcher.Runner
        ( runRawRealWallet

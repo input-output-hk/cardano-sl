@@ -1,6 +1,5 @@
 {-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE Rank2Types           #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 

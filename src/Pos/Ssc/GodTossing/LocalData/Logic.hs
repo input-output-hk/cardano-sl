@@ -60,7 +60,7 @@ import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossM
                                                      verifyAndApplyGtPayload)
 import           Pos.Ssc.GodTossing.Type            (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types           (GtGlobalState)
-import           Pos.Types                          (EpochIndex, SlotId (..),
+import           Pos.Core.Types                          (EpochIndex, SlotId (..),
                                                      StakeholderId)
 
 ----------------------------------------------------------------------------

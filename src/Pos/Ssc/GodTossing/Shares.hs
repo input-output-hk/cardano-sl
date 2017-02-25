@@ -24,7 +24,7 @@ import           Pos.Ssc.GodTossing.Core  (Commitment (..), getCommitmentsMap)
 import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types (gsCommitments, gsOpenings)
 import           Pos.Core.Address        (addressHash)
-import           Pos.Types.Core           (StakeholderId)
+import           Pos.Core.Types           (StakeholderId)
 
 type GSQuery a = SscGlobalQuery SscGodTossing a
 

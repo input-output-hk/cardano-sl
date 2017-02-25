@@ -49,14 +49,14 @@ import           Text.Parsec                          (eof, parse, try)
 import qualified Text.Parsec.Char                     as P
 import qualified Text.Parsec.String                   as P
 
-import           Pos.Binary.Address                   ()
+import           Pos.Binary.Core                      ()
+import           Pos.Core.Address                     (decodeTextAddress)
+import           Pos.Core.Types                       (Address (..), AddressHash)
 import           Pos.Crypto                           (PublicKey)
 import           Pos.DHT.Model.Types                  (DHTKey, DHTNode (..),
                                                        bytesToDHTKey)
 import           Pos.Security.CLI                     (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
-import           Pos.Core.Types                    (Address (..), AddressHash,
-                                                       decodeTextAddress)
 import           Pos.Util                             ()
 import           Pos.Util.TimeWarp                    (NetworkAddress)
 

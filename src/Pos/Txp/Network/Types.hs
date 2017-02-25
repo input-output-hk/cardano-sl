@@ -8,12 +8,12 @@ module Pos.Txp.Network.Types
        , TxMsgContents (..)
        ) where
 
-import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, build, (%))
+import qualified Data.Text.Buildable     as Buildable
+import           Formatting              (bprint, build, (%))
 import           Universum
 
-import           Pos.Binary.Address  ()
-import           Pos.Txp.Core.Types  (Tx, TxDistribution, TxWitness)
+import           Pos.Binary.Core.Address ()
+import           Pos.Txp.Core.Types      (Tx, TxDistribution, TxWitness)
 
 data TxMsgTag = TxMsgTag deriving (Eq, Show)
 

@@ -21,7 +21,7 @@ import           Formatting             (sformat)
 import           Serokell.Aeson.Options (defaultOptions)
 import           Universum
 
-import           Pos.Binary.Types       ()
+import           Pos.Binary.Core       ()
 import           Pos.Crypto             (Hash, hash, hashHexF)
 import           Pos.Ssc.Class.Types    (Ssc)
 import           Pos.Types              (BiSsc, Block, SlotId (..), blockHeader, blockTxs,

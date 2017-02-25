@@ -95,7 +95,8 @@ data NodeContext ssc = NodeContext
     -- ^ A semaphore which is unlocked when update data is downloaded
     -- and ready to apply.
     , ncInvPropagationQueue :: !RelayInvQueue
-    -- @pva701 please add documentation when you see this comment
+    -- ^ Queue is used in Relay framework,
+    -- it stores inv messages for earlier received data.
     , ncLoggerConfig        :: !LoggerConfig
     -- ^ Logger config, as taken/read from CLI.
     , ncNodeParams          :: !NodeParams

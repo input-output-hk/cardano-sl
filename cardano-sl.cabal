@@ -42,6 +42,7 @@ library
                         Pos.CLI
                         Pos.Context
                         Pos.CompileConfig
+                        Pos.Communication
                         Pos.Constants
                         Pos.DB
                         Pos.DB.GState
@@ -169,18 +170,8 @@ library
                         Pos.Launcher.Scenario
 
                         -- Network
-                        Pos.Communication
-                        Pos.Communication.Arbitrary
-                        Pos.Communication.BiP
                         Pos.Communication.Message
                         Pos.Communication.Methods
-                        Pos.Communication.Protocol
-                        Pos.Communication.PeerState
-                        Pos.Communication.Types
-                        Pos.Communication.Types.Protocol
-                        Pos.Communication.Types.Relay
-                        Pos.Communication.Types.State
-                        Pos.Communication.Types.SysStart
                         Pos.Communication.Relay
                         Pos.Communication.Server
                         Pos.Communication.Server.SysStart
@@ -768,6 +759,7 @@ executable cardano-smart-generator
                      , bytestring
                      , data-default
                      , cardano-sl-core
+                     , cardano-sl-infra
                      , cardano-sl
                      , filepath
                      , formatting
@@ -1058,6 +1050,7 @@ executable cardano-launcher
                      , cardano-report-server >= 0.1.0
                      , log-warper >= 0.4.3
                      , cardano-sl
+                     , cardano-sl-infra
                      , directory
                      , process
                      , system-filepath

@@ -19,12 +19,12 @@ import           Universum
 
 import           Pos.Crypto                (hash)
 
+import           Pos.Core.Types            (SoftwareVersion (..))
 import           Pos.Update.Poll.Class     (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types     (PrevValue, USUndo (..), cpsSoftwareVersion,
                                             maybeToPrev, psProposal, unChangedBVL,
                                             unChangedConfPropsL, unChangedPropsL,
                                             unChangedSVL, unLastAdoptedBVL)
-import           Pos.Update.Version        (SoftwareVersion (..))
 
 newtype RollT m a = RollT
     { getRollT :: StateT USUndo m a

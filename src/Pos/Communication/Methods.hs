@@ -15,8 +15,8 @@ import           System.Wlog                (logInfo)
 import           Universum
 
 import           Pos.Binary.Communication   ()
+import           Pos.Binary.Core            ()
 import           Pos.Binary.Relay           ()
-import           Pos.Binary.Types           ()
 import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (SendActions)
 import           Pos.Communication.Relay    (invReqDataFlow)

@@ -29,7 +29,7 @@ import           Control.Monad.Trans         (MonadTrans (..))
 import           Serokell.Util.Verify        (VerificationRes (..))
 import           Universum
 
-import           Pos.Binary.Types            ()
+import           Pos.Binary.Core            ()
 import           Pos.Crypto                  (WithHash (..))
 import           Pos.Txp.Core.Types          (Tx, TxAux, TxDistribution, TxId, Utxo)
 

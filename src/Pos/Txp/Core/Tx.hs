@@ -24,17 +24,16 @@ import           Serokell.Util        (VerificationRes, allDistinct, verResToMon
                                        verifyGeneric)
 import           Universum
 
-import           Pos.Binary.Types     ()
+import           Pos.Binary.Core      ()
 import           Pos.Binary.Txp       ()
 import           Pos.Crypto           (Hash, WithHash (..), checkSig, hash)
 import           Pos.Script           (Script (..), isKnownScriptVersion, txScriptCheck)
-import           Pos.Types.Address    (addressDetailedF, checkPubKeyAddress,
+import           Pos.Core.Address     (addressDetailedF, checkPubKeyAddress,
                                        checkScriptAddress, checkUnknownAddressType)
-import           Pos.Types.Coin       (coinToInteger, sumCoins)
-import           Pos.Types.Core       (Address (..), StakeholderId, coinF, mkCoin)
+import           Pos.Core.Coin        (coinToInteger, sumCoins)
+import           Pos.Core.Types       (Address (..), StakeholderId, coinF, mkCoin)
 import           Pos.Txp.Core.Types   (Tx (..), TxAux, TxDistribution (..), TxIn (..),
                                        TxInWitness (..), TxOut (..), TxOutAux, TxUndo)
-import           Pos.Util             (allDistinct)
 
 ----------------------------------------------------------------------------
 -- Verification

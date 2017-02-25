@@ -84,9 +84,11 @@ import           Pos.Constants               (blockRetrievalQueueSize,
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               runContextHolder)
+import           Pos.Core.Timestamp          (timestampF)
 import           Pos.Crypto                  (createProxySecretKey, toPublic)
-import           Pos.DB                      (MonadDB (..), getTip, initNodeDBs,
-                                              openNodeDBs, runDBHolder)
+import           Pos.DB                      (MonadDB (..), getTip,
+                                              initNodeDBs, openNodeDBs, runDBHolder)
+import qualified Pos.DB.GState               as GState
 import qualified Pos.DB.Lrc                  as LrcDB
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Holder       (runDelegationT)
@@ -98,7 +100,7 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
                                               stopDHTInstance)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
-import           Pos.Slotting                (mkNtpSlottingVar, mkSlottingVar,
+import           Pos.Slotting                (SlottingVar, mkNtpSlottingVar,
                                               runNtpSlotting, runSlottingHolder)
 import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
                                               SscListenersClass, SscNodeContext,
@@ -106,7 +108,7 @@ import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
 import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp                     (runTxpHolder)
-import           Pos.Types                   (Timestamp (Timestamp), timestampF)
+import           Pos.Types                   (Timestamp (Timestamp))
 import           Pos.Update.MemState         (runUSHolder)
 import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
 import           Pos.Util.TimeWarp           (sec)
@@ -236,6 +238,12 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
               \vI sa -> nodeStartMsg npBaseParams >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
+
+-- | Create new 'SlottingVar' using data from DB.
+mkSlottingVar :: MonadDB ε m => m SlottingVar
+mkSlottingVar = do
+    sd <- GState.getSlottingData
+    liftIO $ newTVarIO sd
 
 -- | ServiceMode runner.
 runServiceMode

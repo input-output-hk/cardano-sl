@@ -58,11 +58,11 @@ import           Universum
 
 import           Pos.Core.Types             (ChainDifficulty, Coin, HeaderHash,
                                              ScriptVersion, SlotId, StakeholderId, mkCoin)
+import           Pos.Core.Types             (ApplicationName, BlockVersion,
+                                             NumSoftwareVersion, SoftwareVersion)
 import           Pos.Slotting.Types         (SlottingData)
 import           Pos.Update.Core            (BlockVersionData (..), StakeholderVotes,
                                              UpId, UpdateProposal (..))
-import           Pos.Update.Version         (ApplicationName, BlockVersion,
-                                             NumSoftwareVersion, SoftwareVersion)
 
 ----------------------------------------------------------------------------
 -- Proposal State

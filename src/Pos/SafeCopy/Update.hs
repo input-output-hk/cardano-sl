@@ -9,5 +9,5 @@ module Pos.SafeCopy.Update
 -- import           Data.SafeCopy         (base, deriveSafeCopySimple)
 
 -- FIXME
--- import           Pos.Types.Core
+-- import           Pos.Core.Types
 -- import           Pos.Update.Core.Types

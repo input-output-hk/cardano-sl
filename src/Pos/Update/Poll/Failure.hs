@@ -13,9 +13,9 @@ import           Universum
 import           Pos.Core.Coin              (coinF)
 import           Pos.Core.Types             (Coin, EpochIndex, HeaderHash, ScriptVersion,
                                              StakeholderId)
-import           Pos.Update.Core            (UpId)
-import           Pos.Update.Version         (ApplicationName, BlockVersion,
+import           Pos.Core.Types             (ApplicationName, BlockVersion,
                                              NumSoftwareVersion, SoftwareVersion)
+import           Pos.Update.Core            (UpId)
 
 -- | PollVerFailure represents all possible errors which can
 -- appear in Poll data verification.

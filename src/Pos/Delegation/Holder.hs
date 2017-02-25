@@ -26,10 +26,14 @@ import           Universum
 import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Delegation.Class        (DelegationWrap (..), MonadDelegation (..))
-import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
+import           Pos.DHT.MemState            (MonadDhtMem)
+import           Pos.Reporting.Class         (MonadReportingMem)
+import           Pos.Slotting.Class          (MonadSlots)
+import           Pos.Slotting.MemState       (MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem (..))
 import           Pos.Txp.MemState.Class      (MonadTxpMem (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
+
 
 
 type ReaderTCtx = TVar DelegationWrap
@@ -41,7 +45,7 @@ newtype DelegationT m a = DelegationT
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, WithNodeContext ssc, MonadJL,
                 CanLog, MonadMask, MonadSscMem kek, MonadSlotsData,
-                MonadTxpMem)
+                MonadTxpMem, MonadDhtMem, MonadReportingMem)
 
 deriving instance MonadDB ssc m => MonadDB ssc (DelegationT m)
 

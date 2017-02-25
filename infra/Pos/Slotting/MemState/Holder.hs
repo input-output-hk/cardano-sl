@@ -7,7 +7,6 @@ module Pos.Slotting.MemState.Holder
        ( SlottingHolder (..)
        , SlottingVar
        , runSlottingHolder
-       --, mkSlottingVar
        ) where
 
 import           Control.Concurrent.STM      (TVar, readTVar, writeTVar)
@@ -115,9 +114,3 @@ instance MonadIO m =>
 -- | Run USHolder using existing 'SlottingVar'.
 runSlottingHolder :: SlottingVar -> SlottingHolder m a -> m a
 runSlottingHolder v = usingReaderT v . getSlottingHolder
-
--- | Create new 'SlottingVar' using data from DB.
--- mkSlottingVar :: MonadDB ε m => m SlottingVar
--- mkSlottingVar = do
---     sd <- GState.getSlottingData
---     liftIO $ newTVarIO sd

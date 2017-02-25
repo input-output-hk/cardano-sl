@@ -17,6 +17,7 @@ import           Pos.Delegation.Class       (MonadDelegation)
 import           Pos.Delegation.Logic       (invalidateProxyCaches,
                                              runDelegationStateAction)
 import           Pos.DHT.Model.Class        (MonadDHT)
+import           Pos.Reporting.Class        (MonadReportingMem)
 import           Pos.Reporting.Methods      (reportingFatal)
 import           Pos.Util.Shutdown          (ifNotShutdown)
 import           Pos.Util.TimeWarp          (sec)
@@ -35,6 +36,7 @@ dlgInvalidateCaches
        , Mockable Delay m
        , MonadDHT m
        , WithNodeContext ssc m
+       , MonadReportingMem m
        )
     => m ()
 dlgInvalidateCaches = ifNotShutdown $ do

@@ -47,7 +47,7 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
 import           Pos.Binary.Class           (encodeStrict)
-import           Pos.Binary.Slotting        ()
+import           Pos.Binary.Infra.Slotting  ()
 import           Pos.Constants              (epochSlots, ourAppName)
 import           Pos.Crypto                 (hash)
 import           Pos.DB.Class               (MonadDB, getUtxoDB)

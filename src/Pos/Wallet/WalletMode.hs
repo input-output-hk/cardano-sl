@@ -30,6 +30,7 @@ import           Universum
 
 import           Pos.Communication.PeerState (PeerStateHolder, WithPeerState)
 import qualified Pos.Context                 as PC
+import           Pos.Core.Coin               (unsafeIntegerToCoin)
 import           Pos.Crypto                  (WithHash (..))
 import           Pos.DB                      (MonadDB)
 import qualified Pos.DB                      as DB
@@ -50,7 +51,6 @@ import           Pos.Txp.Core.Types          (TxAux, TxId, Utxo, txOutValue)
 import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
                                               difficultyL, prevBlockL, prevBlockL,
                                               sumCoins, sumCoins)
-import           Pos.Types.Coin              (unsafeIntegerToCoin)
 import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
 import           Pos.Util                    (maybeThrow)
 import           Pos.Util.Shutdown           (triggerShutdown)

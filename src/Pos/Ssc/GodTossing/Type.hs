@@ -12,7 +12,7 @@ import           Data.Tagged                        (Tagged (..))
 import           Universum
 
 import           Pos.Binary.Ssc                     ()
-import           Pos.Binary.Types                   ()
+import           Pos.Binary.Core                   ()
 import           Pos.Ssc.Class.Helpers              (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types                (Ssc (..))
 import           Pos.Ssc.GodTossing.Core            (GtPayload, GtProof, mkGtProof)

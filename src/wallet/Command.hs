@@ -16,14 +16,13 @@ import           Text.Parsec.Text           (Parser)
 import           Universum                  hiding (show)
 
 import           Pos.Binary                 ()
+import           Pos.Core.Types             (ScriptVersion)
+import           Pos.Core.Version           (parseBlockVersion, parseSoftwareVersion)
 import           Pos.Crypto                 (Hash, decodeHash)
 import           Pos.Txp                    (TxOut (..))
 import           Pos.Types                  (Address (..), BlockVersion, EpochIndex,
-                                             SoftwareVersion, decodeTextAddress, mkCoin,
-                                             parseBlockVersion, parseSoftwareVersion)
-import           Pos.Types.Script           (ScriptVersion)
+                                             SoftwareVersion, decodeTextAddress, mkCoin)
 import           Pos.Update                 (UpId)
-import           Pos.Update.Version         (parseBlockVersion, parseSoftwareVersion)
 
 data Command
     = Balance Address

@@ -5,6 +5,5 @@ module Pos.DHT.MemState.Types
 import           Universum
 
 data DhtContext = DhtContext
-    {
-      _dhtKademliadDump :: !FilePath
+    { _dhtKademliadDump :: !FilePath
     }

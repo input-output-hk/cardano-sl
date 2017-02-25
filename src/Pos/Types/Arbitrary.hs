@@ -35,10 +35,21 @@ import           Universum
 
 import           Pos.Binary.Class           (AsBinary, FixedSizeInt (..),
                                              SignedVarInt (..), UnsignedVarInt (..))
+import           Pos.Binary.Core            ()
 import           Pos.Binary.Crypto          ()
 import           Pos.Binary.Txp             ()
-import           Pos.Binary.Types           ()
 import           Pos.Constants              (epochSlots, sharedSeedLength)
+import           Pos.Core.Address           (makePubKeyAddress, makeScriptAddress)
+import           Pos.Core.Coin              (coinToInteger, divCoin, unsafeSubCoin)
+import           Pos.Core.Types             (Address (..), ChainDifficulty (..), Coin,
+                                             CoinPortion, EpochIndex (..),
+                                             EpochOrSlot (..), LocalSlotIndex (..),
+                                             SharedSeed (..), SlotId (..), Timestamp (..),
+                                             getCoinPortion, mkCoin,
+                                             unsafeCoinPortionFromDouble, unsafeGetCoin)
+import           Pos.Core.Types             (ApplicationName (..), BlockVersion (..),
+                                             SoftwareVersion (..))
+import           Pos.Core.Version           (applicationNameMaxLength)
 import           Pos.Crypto                 (PublicKey, SecretKey, Share, hash, sign,
                                              toPublic)
 import           Pos.Crypto.Arbitrary       ()
@@ -48,21 +59,7 @@ import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
 import           Pos.Txp.Core.Types         (Tx (..), TxDistribution (..), TxIn (..),
                                              TxInWitness (..), TxOut (..), TxOutAux)
-import           Pos.Core.Address          (makePubKeyAddress, makeScriptAddress)
 import           Pos.Types.Arbitrary.Unsafe ()
-import           Pos.Types.Coin             (coinToInteger, divCoin, unsafeSubCoin)
-import           Pos.Types.Core             (Address (..), ChainDifficulty (..), Coin,
-                                             CoinPortion, EpochIndex (..),
-                                             EpochOrSlot (..), LocalSlotIndex (..),
-                                             SlotId (..), Timestamp (..), getCoinPortion,
-                                             mkCoin, unsafeCoinPortionFromDouble,
-                                             unsafeGetCoin)
-import           Pos.Types.Types            (SharedSeed (..), Tx (..),
-                                             TxDistribution (..), TxIn (..),
-                                             TxInWitness (..), TxOut (..), TxOutAux)
-import           Pos.Update.Version         (ApplicationName (..), BlockVersion (..),
-                                             SoftwareVersion (..),
-                                             applicationNameMaxLength)
 import           Pos.Util                   (makeSmall)
 
 ----------------------------------------------------------------------------

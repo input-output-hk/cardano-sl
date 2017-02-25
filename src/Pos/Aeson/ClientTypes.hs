@@ -6,7 +6,7 @@ module Pos.Aeson.ClientTypes
        ) where
 
 import           Data.Aeson.TH              (defaultOptions, deriveJSON, deriveToJSON)
-import           Pos.Update.Version         (BlockVersion (..), SoftwareVersion (..))
+import           Pos.Core.Types             (BlockVersion (..), SoftwareVersion (..))
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile,
                                              CProfile, CTExMeta, CTType, CTx, CTxId,

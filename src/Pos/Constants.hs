@@ -85,12 +85,13 @@ import           System.IO.Unsafe           (unsafePerformIO)
 
 import           Pos.CLI                    (dhtNodeParser)
 import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
+import           Pos.Core.Types             (CoinPortion, Timestamp (..),
+                                             unsafeCoinPortionFromDouble)
+import           Pos.Core.Types             (ApplicationName, BlockVersion (..),
+                                             SoftwareVersion (..))
+import           Pos.Core.Version           (mkApplicationName)
 import           Pos.DHT.Model.Types        (DHTNode)
-import           Pos.Types.Core             (CoinPortion, unsafeCoinPortionFromDouble)
-import           Pos.Types.Timestamp        (Timestamp (..))
 import           Pos.Update.Core            (SystemTag, mkSystemTag)
-import           Pos.Update.Version         (ApplicationName, BlockVersion (..),
-                                             SoftwareVersion (..), mkApplicationName)
 import           Pos.Util                   ()
 import           Pos.Util.TimeWarp          (mcs)
 

@@ -49,24 +49,24 @@ import           Serokell.Util         (Color (Magenta), colorize, listJson)
 import           Universum
 
 import           Pos.Binary.Class      (Bi)
+import           Pos.Core.Block        (Blockchain (..), GenericBlock (..),
+                                        GenericBlockHeader (..), HasPrevBlock (..),
+                                        gbBody, gbHeader, gbhConsensus, gbhPrevBlock)
+import           Pos.Core.Types        (ChainDifficulty, EpochIndex (..),
+                                        HasDifficulty (..), HasEpochIndex (..),
+                                        HasEpochOrSlot (..), HasHeaderHash (..),
+                                        HeaderHash, ProxySKHeavy, SlotId (..),
+                                        SlotLeaders, slotIdF)
 import           Pos.Crypto            (Hash, PublicKey, hash, hashHexF, unsafeHash)
 import           Pos.Merkle            (MerkleRoot, MerkleTree, mtRoot)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
 import           Pos.Txp.Core.Types    (Tx, TxAux, TxDistribution, TxWitness)
-import           Pos.Types.Block.Class (Blockchain (..), GenericBlock (..),
-                                        GenericBlockHeader (..), HasPrevBlock (..),
-                                        gbBody, gbHeader, gbhConsensus, gbhPrevBlock)
 import           Pos.Types.Block.Types (BiHeader, BiSsc, Block, BlockHeader,
                                         BlockSignature, GenesisBlock, GenesisBlockHeader,
                                         GenesisBlockchain, MainBlock, MainBlockHeader,
                                         MainBlockchain, MainExtraBodyData,
                                         MainExtraHeaderData)
-import           Pos.Types.Core        (ChainDifficulty, EpochIndex (..),
-                                        HasDifficulty (..), HasEpochIndex (..),
-                                        HasEpochOrSlot (..), HasHeaderHash (..),
-                                        HeaderHash, SlotId (..), slotIdF)
-import           Pos.Types.Types       (ProxySKHeavy, SlotLeaders)
 import           Pos.Update.Core.Types (UpdatePayload, UpdateProof, UpdateProposal,
                                         mkUpdateProof)
 

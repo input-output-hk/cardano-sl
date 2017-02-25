@@ -47,7 +47,7 @@ import           Pos.Txp.Core.Types   (Utxo, txOutStake)
 import           Pos.Txp.Toil.Utxo    (utxoToStakes)
 import           Pos.Types            (Coin, StakeholderId, coinF, mkCoin, sumCoins,
                                        unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Util             (Color (Red), colorize, maybeThrow)
+import           Pos.Util             (maybeThrow)
 import           Pos.Util.Iterator    (MonadIterator (..))
 
 ----------------------------------------------------------------------------

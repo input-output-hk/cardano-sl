@@ -31,14 +31,17 @@ import           Universum
 import           Pos.Context.Class         (WithNodeContext)
 import           Pos.DB.Class              (MonadDB)
 import           Pos.DB.Holder             (DBHolder (..))
-import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
+import           Pos.DHT.MemState          (MonadDhtMem)
+import           Pos.Reporting.Class       (MonadReportingMem)
+import           Pos.Slotting.Class        (MonadSlots)
+import           Pos.Slotting.MemState     (MonadSlotsData)
 import           Pos.Ssc.Extra             (MonadSscMem)
 import           Pos.Types                 (HeaderHash, genesisHash)
 import           Pos.Util.JsonLog          (MonadJL (..))
 
 import           Pos.Txp.MemState.Class    (MonadTxpMem (..))
 import           Pos.Txp.MemState.Types    (TxpLocalData (..))
-import           Pos.Txp.Toil.Types         (UtxoView)
+import           Pos.Txp.Toil.Types        (UtxoView)
 
 ----------------------------------------------------------------------------
 -- Holder
@@ -49,7 +52,7 @@ newtype TxpHolder m a = TxpHolder
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadThrow,
                 MonadSlotsData, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, WithNodeContext ssc, MonadJL,
-                CanLog, MonadMask, MonadSscMem ssc, MonadFix)
+                CanLog, MonadMask, MonadSscMem ssc, MonadFix, MonadDhtMem, MonadReportingMem)
 
 type instance ThreadId (TxpHolder m) = ThreadId m
 type instance Promise (TxpHolder m) = Promise m

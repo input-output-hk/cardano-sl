@@ -12,7 +12,8 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Pos.Core.Address
+  exposed-modules:     Pos.Core
+                       Pos.Core.Address
                        Pos.Core.Block
                        Pos.Core.Coin
                        Pos.Core.Constants

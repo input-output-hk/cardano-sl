@@ -4,18 +4,18 @@
 
 module Pos.Binary.Update () where
 
-import           Data.Binary           (Binary)
-import           Data.Binary.Get       (getWord8, label)
-import           Data.Binary.Put       (putWord8)
-import qualified Data.HashMap.Strict   as HM
+import           Data.Binary             (Binary)
+import           Data.Binary.Get         (getWord8, label)
+import           Data.Binary.Put         (putWord8)
+import qualified Data.HashMap.Strict     as HM
 import           Universum
 
-import           Pos.Binary.Class      (Bi (..), getAsciiString1b, putAsciiString1b)
-import           Pos.Binary.Types      ()
-import           Pos.Binary.Version    ()
-import           Pos.Crypto            (checkSig)
-import qualified Pos.Update.Core.Types as U
-import qualified Pos.Update.Poll.Types as U
+import           Pos.Binary.Class        (Bi (..), getAsciiString1b, putAsciiString1b)
+import           Pos.Binary.Core         ()
+import           Pos.Binary.Core.Version ()
+import           Pos.Crypto              (checkSig)
+import qualified Pos.Update.Core.Types   as U
+import qualified Pos.Update.Poll.Types   as U
 
 instance Bi U.SystemTag where
     get =

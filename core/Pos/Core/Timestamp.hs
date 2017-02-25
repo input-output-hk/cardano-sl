@@ -22,9 +22,9 @@ instance Read Timestamp where
 instance Buildable Timestamp where
     build = Buildable.build @Integer . fromIntegral
 
+instance NFData Timestamp where
+    rnf Timestamp{..} = rnf (toInteger getTimestamp)
+
 -- | Specialized formatter for 'Timestamp' data type.
 timestampF :: Format r (Timestamp -> r)
 timestampF = build
-
-instance NFData Timestamp where
-    rnf Timestamp{..} = rnf (toInteger getTimestamp)

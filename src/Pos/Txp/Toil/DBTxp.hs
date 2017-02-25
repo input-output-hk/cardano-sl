@@ -27,12 +27,11 @@ import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import qualified Pos.DB.GState               as GS
 import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
-import           Pos.Txp.Toil.Class           (MonadBalancesRead (..), MonadUtxoRead (..))
+import           Pos.Txp.Toil.Class          (MonadBalancesRead (..), MonadUtxoRead (..))
 
 newtype DBTxp m a = DBTxp
     { runDBTxp :: m a
@@ -40,8 +39,6 @@ newtype DBTxp m a = DBTxp
                , Applicative
                , Monad
                , MonadThrow
-               , MonadSlotsData
-               , MonadSlots
                , MonadCatch
                , MonadIO
                , MonadFail

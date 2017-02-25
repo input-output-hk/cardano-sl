@@ -1,5 +1,4 @@
 {-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 
 -- | Instance of SscGStateClass.

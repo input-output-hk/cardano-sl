@@ -1,5 +1,4 @@
 {-# LANGUAGE RankNTypes           #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Logic of working with Shares.
 

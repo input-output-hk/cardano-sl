@@ -1,4 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | client types
 

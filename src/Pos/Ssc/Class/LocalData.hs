@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE RankNTypes           #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | This module defines type class for local data storage.
 

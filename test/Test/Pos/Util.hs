@@ -1,7 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Test.Pos.Util
        ( binaryEncodeDecode

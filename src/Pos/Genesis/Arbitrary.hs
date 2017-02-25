@@ -1,4 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Genesis.Arbitrary
        (

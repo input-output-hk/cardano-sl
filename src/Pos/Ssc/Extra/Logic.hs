@@ -2,7 +2,6 @@
 {-# LANGUAGE BangPatterns         #-}
 {-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Higher-level logic of SSC independent of concrete SSC.
 

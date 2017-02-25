@@ -1,4 +1,3 @@
-{-# LANGUAGE UndecidableInstances      #-}
 
 module Pos.DHT.Model.Neighbors
        ( sendToNeighbors

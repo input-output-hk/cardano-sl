@@ -97,6 +97,10 @@ deriveSafeCopySimple 0 'base ''SecretKey
 toPublic :: SecretKey -> PublicKey
 toPublic (SecretKey k) = PublicKey (CC.toXPub k)
 
+-- | Direct comparison of secret keys is a security issue (cc @vincent)
+instance Bi SecretKey => Eq SecretKey where
+    a == b = hash a == hash b
+
 instance Show SecretKey where
     show sk = "<secret of " ++ show (toPublic sk) ++ ">"
 

@@ -33,9 +33,10 @@ import           Pos.Crypto                       (PublicKey, toPublic)
 import           Pos.Genesis                      (genesisLeaders)
 import           Pos.Launcher.Param               (BaseParams (..), NodeParams (..))
 import           Pos.Ssc.Class.Types              (Ssc (SscNodeContext))
+import           Pos.Txp.Core.Types               (Utxo)
 import           Pos.Types                        (Address, BlockHeader, EpochIndex,
                                                    HeaderHash, SlotLeaders, Timestamp,
-                                                   Utxo, makePubKeyAddress)
+                                                   makePubKeyAddress)
 import           Pos.Update.Poll.Types            (ConfirmedProposalState)
 import           Pos.Util                         (NE, NewestFirst)
 import           Pos.Util.UserSecret              (UserSecret)
@@ -87,22 +88,26 @@ data NodeContext ssc = NodeContext
     -- that's more difficult than this one, we overwrite. Every time
     -- we process some blocks and fail or see that we've downloaded
     -- this header, we clean mvar.
+    , ncProgressHeader      :: !(STM.TMVar (BlockHeader ssc))
+    -- ^ Header of the last block that was downloaded in retrieving
+    -- queue. Is needed to show smooth prorgess on the frontend.
     , ncUpdateSemaphore     :: !(MVar ConfirmedProposalState)
     -- ^ A semaphore which is unlocked when update data is downloaded
-    -- and ready to apply
+    -- and ready to apply.
     , ncInvPropagationQueue :: !RelayInvQueue
+    -- @pva701 please add documentation when you see this comment
     , ncLoggerConfig        :: !LoggerConfig
-    -- ^ Logger config, as taken/read from CLI
+    -- ^ Logger config, as taken/read from CLI.
     , ncNodeParams          :: !NodeParams
     -- ^ Params node is launched with
     , ncShutdownFlag        :: !(STM.TVar Bool)
     -- ^ If this flag is `True`, then workers should stop.
     , ncShutdownNotifyQueue :: !(TBQueue ())
     -- ^ A queue which is used to count how many workers have successfully
-    -- terminated
+    -- terminated.
     , ncSendLock            :: !(Maybe (MVar ()))
     -- ^ Exclusive lock for sending messages to other nodes
-    -- (if Nothing, no lock used)
+    -- (if Nothing, no lock used).
     , ncStartTime           :: !UTCTime
     -- ^ Time when node was started ('NodeContext' initialized).
     }

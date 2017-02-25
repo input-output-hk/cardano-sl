@@ -24,6 +24,7 @@ import           System.Posix.Process      (exitImmediately)
 #endif
 import           Universum
 
+import           Pos.Binary                (Raw)
 import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
                                             worker)
@@ -35,18 +36,18 @@ import           Pos.Delegation            (sendProxySKHeavy, sendProxySKHeavyOu
                                             sendProxySKLight, sendProxySKLightOuts)
 import           Pos.DHT.Model             (DHTNode, discoverPeers, getKnownPeers)
 import           Pos.Genesis               (genesisBlockVersionData, genesisPublicKeys,
-                                            genesisSecretKeys)
+                                            genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
-                                            bracketResources, runTimeSlaveReal)
+                                            bracketResources, runTimeSlaveReal,
+                                            stakesDistr)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Ssc.NistBeacon        (SscNistBeacon)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
-import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress,
-                                            txaF)
+import           Pos.Txp                   (txaF)
+import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress)
 import           Pos.Update                (BlockVersionData (..), UpdateProposal (..),
                                             UpdateVote (..), patakUpdateData,
                                             skovorodaUpdateData)
-import           Pos.Util                  (Raw)
 import           Pos.Util.TimeWarp         (sec)
 import           Pos.Wallet                (WalletMode, WalletParams (..), WalletRealMode,
                                             getBalance, runWalletReal, sendProposalOuts,
@@ -130,7 +131,6 @@ runCmd _ Help = do
             , "   propose-update <N> <block ver> <script ver> <slot duration> <max block size> <software ver> <propose_file>?"
             , "                                  -- propose an update with given versions and other data"
             , "                                     with one positive vote for it, from own address #N"
-            , "   listaddr                       -- list own addresses"
             , "   listaddr                       -- list own addresses"
             , "   delegate-light <N> <M>         -- delegate secret key #N to #M (genesis) light version"
             , "   delegate-heavy <N> <M>         -- delegate secret key #N to #M (genesis) heavyweight "
@@ -255,6 +255,11 @@ main = do
                 , wpSystemStart = systemStart
                 , wpGenesisKeys = woDebug
                 , wpBaseParams  = baseParams
+                , wpGenesisUtxo =
+                    genesisUtxo $
+                    stakesDistr (CLI.flatDistr woCommonArgs)
+                                (CLI.bitcoinDistr woCommonArgs)
+                                (CLI.expDistr woCommonArgs)
                 }
 
             plugins :: ([ WorkerSpec WalletRealMode ], OutSpecs)

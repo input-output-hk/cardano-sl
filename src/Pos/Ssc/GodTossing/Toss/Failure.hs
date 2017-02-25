@@ -45,6 +45,7 @@ data TossVerFailure
     | CertificateInvalidTTL !(NonEmpty VssCertificate)
 
     | TossInternallError !Text
+    deriving Eq
 
 instance Buildable TossVerFailure where
     build (NotCommitmentPhase slotId) =

@@ -39,20 +39,17 @@ import           Pos.Crypto                (PublicKey, SecretKey, WithHash (..),
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Script                (Script)
 import           Pos.Script.Examples       (multisigRedeemer, multisigValidator)
--- import           Pos.Ssc.Class             (Ssc)
+import           Pos.Txp                   (MonadUtxoRead (utxoGet), UtxoStateT (..),
+                                            applyTxToUtxo, filterUtxoByAddr, topsortTxs)
+import           Pos.Txp.Core.Types        (Tx (..), TxAux, TxDistribution (..), TxId,
+                                            TxIn (..), TxInWitness (..), TxOut (..),
+                                            TxOutAux, TxSigData, TxWitness, Utxo)
 import           Pos.Types                 (Address, Block, ChainDifficulty, Coin,
-                                            MonadUtxoRead (..), Tx (..), TxAux,
-                                            TxDistribution (..), TxId, TxIn (..),
-                                            TxInWitness (..), TxOut (..), TxOutAux,
-                                            TxSigData, TxWitness, Utxo, UtxoStateT (..),
-                                            applyTxToUtxo, blockTxas, difficultyL,
-                                            filterUtxoByAddr, makePubKeyAddress,
-                                            makeScriptAddress, mkCoin, sumCoins,
-                                            topsortTxs)
+                                            blockTxas, difficultyL, makePubKeyAddress,
+                                            makeScriptAddress, mkCoin, sumCoins)
 import           Pos.Types.Coin            (unsafeIntegerToCoin, unsafeSubCoin)
 
-type TxOutIdx = (TxId, Word32)
-type TxInputs = [TxOutIdx]
+type TxInputs = [TxIn]
 type TxOutputs = [TxOutAux]
 type TxError = Text
 
@@ -63,16 +60,17 @@ type TxError = Text
 -- | Generic function to create a transaction, given desired inputs, outputs and a
 -- way to construct witness from signature data
 makeAbstractTx :: (TxSigData -> TxInWitness) -> TxInputs -> TxOutputs -> TxAux
-makeAbstractTx mkWit inputs outputs = (Tx {..}, txWitness, txDist)
-  where txInputs = map makeTxIn inputs
-        txOutputs = map fst outputs
-        txAttributes = mkAttributes ()
-        txOutHash = hash txOutputs
-        txDist = TxDistribution (map snd outputs)
-        txDistHash = hash txDist
-        txWitness = V.fromList $ map (mkWit . makeTxSigData) inputs
-        makeTxIn (txInHash, txInIndex) = TxIn {..}
-        makeTxSigData (txInHash, txInIndex) = (txInHash, txInIndex, txOutHash, txDistHash)
+makeAbstractTx mkWit txInputs outputs = ( Tx txInputs txOutputs txAttributes
+                                        , txWitness
+                                        , txDist)
+  where
+    txOutputs = map fst outputs
+    txAttributes = mkAttributes ()
+    txOutHash = hash txOutputs
+    txDist = TxDistribution (map snd outputs)
+    txDistHash = hash txDist
+    txWitness = V.fromList $ map (mkWit . makeTxSigData) txInputs
+    makeTxSigData TxIn{..} = (txInHash, txInIndex, txOutHash, txDistHash)
 
 -- | Makes a transaction which use P2PKH addresses as a source
 makePubKeyTx :: SecretKey -> TxInputs -> TxOutputs -> TxAux
@@ -90,7 +88,7 @@ makeMOfNTx validator sks = makeAbstractTx mkWit
             , twRedeemer = multisigRedeemer sigData sks
             }
 
-type FlatUtxo = [(TxOutIdx, TxOutAux)]
+type FlatUtxo = [(TxIn, TxOutAux)]
 type InputPicker = StateT (Coin, FlatUtxo) (Either TxError)
 
 -- | Given Utxo, desired source address and desired outputs, prepare lists
@@ -150,11 +148,11 @@ createMOfNTx utxo keys outputs = uncurry (makeMOfNTx validator sks) <$> inpOuts
 
 -- | Check if given 'Address' is one of the receivers of 'Tx'
 hasReceiver :: Tx -> Address -> Bool
-hasReceiver Tx {..} addr = any ((== addr) . txOutAddress) txOutputs
+hasReceiver Tx {..} addr = any ((== addr) . txOutAddress) _txOutputs
 
 -- | Given some 'Utxo', check if given 'Address' is one of the senders of 'Tx'
 hasSender :: MonadUtxoRead m => Tx -> Address -> m Bool
-hasSender Tx {..} addr = anyM hasCorrespondingOutput txInputs
+hasSender Tx {..} addr = anyM hasCorrespondingOutput _txInputs
   where hasCorrespondingOutput txIn =
             fmap toBool $ fmap ((== addr) . txOutAddress . fst) <$> utxoGet txIn
         toBool Nothing  = False
@@ -187,11 +185,20 @@ getRelatedTxs addr txs = fmap DL.toList $
     step ls (WithHash tx txId, _wit, dist) = do
         let isIncoming = tx `hasReceiver` addr
         isOutgoing <- tx `hasSender` addr
+        let allToAddr = all ((== addr) . txOutAddress) $ _txOutputs tx
+            isToItself = isOutgoing && allToAddr
         if isOutgoing || isIncoming
             then do
             applyTxToUtxo (WithHash tx txId) dist
             identity %= filterUtxoByAddr addr
-            return $ ls <> DL.singleton (THEntry txId tx isOutgoing Nothing)
+
+            -- Workaround to present A to A transactions as a pair of self-canceling
+            -- transactions in history
+            let resEntry = THEntry txId tx isOutgoing Nothing
+                resList = if isToItself
+                          then DL.fromList [resEntry & thIsOutput .~ False, resEntry]
+                          else DL.singleton resEntry
+            return $ ls <> resList
             else return ls
 
 -- | Given a full blockchain, derive address history and Utxo
@@ -205,7 +212,6 @@ deriveAddrHistory addr chain = identity %= filterUtxoByAddr addr >>
                                deriveAddrHistoryPartial [] addr chain
 
 deriveAddrHistoryPartial
-    -- :: (Monad m ssc)
     :: (Monad m)
     => [TxHistoryEntry]
     -> Address

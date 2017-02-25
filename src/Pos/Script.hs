@@ -30,8 +30,9 @@ import           Universum                  hiding (lift)
 
 import           Pos.Binary.Class           (Bi)
 import qualified Pos.Binary.Class           as Bi
-import           Pos.Script.Type            (Script (..), ScriptVersion, Script_v0)
-import           Pos.Types.Types            (TxSigData)
+import           Pos.Binary.Crypto          ()
+import           Pos.Txp.Core.Types         (TxSigData)
+import           Pos.Types.Script           (Script (..), ScriptVersion, Script_v0)
 
 {- NOTE
 

@@ -15,6 +15,7 @@ module Pos.Block.Logic.Internal
 import           Control.Arrow        ((&&&))
 import           Control.Lens         (each, _Wrapped)
 import           Control.Monad.Catch  (bracketOnError)
+import qualified Data.List.NonEmpty   as NE
 import           Universum
 
 import           Pos.Block.Types      (Blund, Undo (undoUS))
@@ -27,8 +28,9 @@ import           Pos.Exception        (assertionFailed)
 import           Pos.Reporting        (reportingFatal)
 import           Pos.Slotting         (putSlottingData)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
-import           Pos.Txp.Logic        (normalizeTxpLD, txApplyBlocks, txRollbackBlocks)
-import           Pos.Types            (HeaderHash, epochIndexL, headerHashG, prevBlockL)
+import           Pos.Txp.Logic        (txApplyBlocks, txNormalize, txRollbackBlocks)
+import           Pos.Types            (HeaderHash, epochIndexL, headerHash, headerHashG,
+                                       prevBlockL)
 import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll      (PollModifier)
 import           Pos.Util             (Color (Red), NE, NewestFirst (..),
@@ -83,11 +85,16 @@ applyBlocksUnsafeDo blunds pModifier = do
     mapM_ putToDB blunds
     usBatch <- SomeBatchOp <$> usApplyBlocks blocks pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
-    txBatch <- SomeBatchOp . getOldestFirst <$> txApplyBlocks blunds
+    txBatch <- txApplyBlocks blunds
     sscApplyBlocks blocks Nothing -- TODO: pass not only 'Nothing'
-    GS.writeBatchGState [delegateBatch, usBatch, txBatch, forwardLinksBatch, inMainBatch]
+    let putTip = SomeBatchOp $
+                 GS.PutTip $
+                 headerHash $
+                 NE.last $
+                 getOldestFirst blunds
+    GS.writeBatchGState [putTip, delegateBatch, usBatch, txBatch, forwardLinksBatch, inMainBatch]
     sscNormalize
-    normalizeTxpLD
+    txNormalize
     usNormalize
     DB.sanityCheckDB
     putSlottingData =<< GS.getSlottingData
@@ -109,9 +116,13 @@ rollbackBlocksUnsafe
 rollbackBlocksUnsafe toRollback = reportingFatal $ do
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks (toRollback & each._2 %~ undoUS)
-    txRoll <- SomeBatchOp <$> txRollbackBlocks toRollback
+    txRoll <- txRollbackBlocks toRollback
     sscRollbackBlocks $ fmap fst toRollback
-    GS.writeBatchGState [delRoll, usRoll, txRoll, forwardLinksBatch, inMainBatch]
+    let putTip = SomeBatchOp $
+                 GS.PutTip $
+                 headerHash $
+                 (NE.last $ getNewestFirst toRollback) ^. prevBlockL
+    GS.writeBatchGState [putTip, delRoll, usRoll, txRoll, forwardLinksBatch, inMainBatch]
     DB.sanityCheckDB
     inAssertMode $
         when (isGenesis0 (toRollback ^. _Wrapped . _neLast . _1)) $

@@ -18,18 +18,20 @@ import           Test.QuickCheck.Property (failed, succeeded)
 import           Universum
 import           Unsafe                   ()
 
-import           Pos.Crypto               (KeyPair (..), PublicKey, Share, Threshold,
-                                           VssKeyPair, decryptShare, sign, toVssPublicKey)
+import           Pos.Binary               (AsBinaryClass (..))
+import           Pos.Crypto               (PublicKey, SecretKey, Share, Threshold,
+                                           VssKeyPair, decryptShare, sign, toPublic,
+                                           toVssPublicKey)
 import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Opening (..),
                                            SeedError (..), calculateSeed,
                                            genCommitmentAndOpening, mkCommitmentsMap,
                                            secretToSharedSeed)
 import           Pos.Types                (SharedSeed (..))
 import           Pos.Types.Address        (AddressHash, addressHash)
-import           Pos.Util                 (AsBinaryClass (..), nonrepeating, sublistN)
+import           Pos.Util                 (nonrepeating, sublistN)
 
-getPubAddr :: KeyPair -> AddressHash PublicKey
-getPubAddr = addressHash . getPub
+getPubAddr :: SecretKey -> AddressHash PublicKey
+getPubAddr = addressHash . toPublic
 
 spec :: Spec
 spec = do
@@ -175,8 +177,8 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
                              "these keys have sent shares they got:\n"%
                              "  "%listJson)
                         n n_openings n_shares n_overlap
-                        (map getPub haveSentOpening)
-                        (map getPub haveSentShares)
+                        (map toPublic haveSentOpening)
+                        (map toPublic haveSentShares)
     return $ counterexample (toString debugInfo) $ case (shouldSucceed, result) of
         -- we were supposed to find the seed
         (True, Right sharedSeed) ->
@@ -210,7 +212,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
 generateKeysAndMpc
     :: Threshold
     -> Int
-    -> IO ([KeyPair], NonEmpty VssKeyPair, [Commitment], [Opening])
+    -> IO ([SecretKey], NonEmpty VssKeyPair, [Commitment], [Opening])
 -- genCommitmentAndOpening fails on 0
 generateKeysAndMpc _         0 = panic "generateKeysAndMpc: 0 is passed"
 generateKeysAndMpc threshold n = do
@@ -222,13 +224,13 @@ generateKeysAndMpc threshold n = do
             replicateM n (genCommitmentAndOpening threshold lvssPubKeys)
     return (keys, NE.fromList vssKeys, comms, opens)
 
-mkCommitmentsMap' :: [KeyPair] -> [Commitment] -> CommitmentsMap
+mkCommitmentsMap' :: [SecretKey] -> [Commitment] -> CommitmentsMap
 mkCommitmentsMap' keys comms =
     mkCommitmentsMap $ do
-        (KeyPair pk sk, comm) <- zip keys comms
+        (sk, comm) <- zip keys comms
         let epochIdx = 0  -- we don't care here
         let sig = sign sk (epochIdx, comm)
-        return (pk, comm, sig)
+        return (toPublic sk, comm, sig)
 
 getDecryptedShares
     :: MonadRandom m

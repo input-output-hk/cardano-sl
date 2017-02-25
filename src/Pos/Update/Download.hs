@@ -19,7 +19,6 @@ import           Network.HTTP.Simple     (getResponseBody, getResponseStatus,
 import qualified Serokell.Util.Base16    as B16
 import           Serokell.Util.Text      (listJsonIndent)
 import           System.Directory        (doesFileExist)
-import           System.FilePath         ((</>))
 import           System.Wlog             (logDebug, logInfo, logWarning)
 import           Universum
 
@@ -29,6 +28,7 @@ import           Pos.Context             (getNodeContext, ncNodeParams, ncUpdate
 import           Pos.Crypto              (Hash, castHash, hash)
 import           Pos.Update.Core.Types   (UpdateData (..), UpdateProposal (..))
 import           Pos.Update.Poll.Types   (ConfirmedProposalState (..))
+import           Pos.Util                ((<//>))
 import           Pos.WorkMode            (WorkMode)
 
 showHash :: Hash a -> FilePath
@@ -69,7 +69,7 @@ downloadHash updateServers h = do
 
     let -- try all servers in turn until there's a Right
         go errs (serv:rest) = do
-            let uri = T.unpack serv </> showHash h
+            let uri = T.unpack serv <//> showHash h
             downloadUri manager uri h >>= \case
                 Left e -> go (e:errs) rest
                 Right r -> return (Right r)

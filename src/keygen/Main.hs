@@ -1,3 +1,4 @@
+{-# LANGUAGE ApplicativeDo       #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
@@ -14,14 +15,13 @@ import           System.FilePath      (takeDirectory)
 import           System.Random        (randomRIO)
 import           Universum            hiding (show)
 
-import           Pos.Binary           (decodeFull, encode)
+import           Pos.Binary           (asBinary, decodeFull, encode)
 import           Pos.Constants        (vssMaxTTL, vssMinTTL)
 import           Pos.Crypto           (PublicKey, keyGen, toPublic, toVssPublicKey,
                                        vssKeyGen)
 import           Pos.Genesis          (GenesisData (..), StakeDistribution (..))
 import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
 import           Pos.Types            (addressHash, makePubKeyAddress, mkCoin)
-import           Pos.Util             (asBinary)
 import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usKeys,
                                        usVss, writeUserSecretRelease)
 
@@ -51,27 +51,33 @@ replace :: FilePath -> FilePath -> FilePath -> FilePath
 replace a b = T.unpack . (T.replace `on` T.pack) a b . T.pack
 
 optsParser :: Parser KeygenOptions
-optsParser = KO <$>
-    strOption (long "file-pattern" <>
-               short 'f' <>
-               metavar "PATTERN" <>
-               help "Filename pattern for generated keyfiles (`{}` is a place for number)") <*>
-    strOption (long "genesis-file" <>
-               metavar "FILE" <>
-               value "genesis.bin" <>
-               help "File to dump binary shared genesis data") <*>
-    option auto (long "total-stakeholders" <>
-                 short 'n' <>
-                 metavar "INT" <>
-                 help "Total number of keyfiles to generate") <*>
-    option auto (long "richmen" <>
-                 short 'm' <>
-                 metavar "INT" <>
-                 help "Number of richmen among stakeholders") <*>
-    option auto (long "total-stake" <>
-                 metavar "INT" <>
-                 help "Total coins in genesis")
-
+optsParser = do
+    koPattern <- strOption $
+        long    "file-pattern" <>
+        short   'f' <>
+        metavar "PATTERN" <>
+        help    "Filename pattern for generated keyfiles \
+                \(`{}` is a place for number)"
+    koGenesisFile <- strOption $
+        long    "genesis-file" <>
+        metavar "FILE" <>
+        value   "genesis.bin" <>
+        help    "File to dump binary shared genesis data"
+    koStakeholders <- option auto $
+        long    "total-stakeholders" <>
+        short   'n' <>
+        metavar "INT" <>
+        help    "Total number of keyfiles to generate"
+    koRichmen <- option auto $
+        long    "richmen" <>
+        short   'm' <>
+        metavar "INT" <>
+        help    "Number of richmen among stakeholders"
+    koTotalStake <- option auto $
+        long    "total-stake" <>
+        metavar "INT" <>
+        help    "Total coins in genesis"
+    pure KO{..}
 
 optsInfo :: ParserInfo KeygenOptions
 optsInfo = info (helper <*> optsParser) $

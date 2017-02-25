@@ -1,3 +1,5 @@
+{-# LANGUAGE ApplicativeDo #-}
+
 module GenOptions
        ( GenOptions (..)
        , optionsParser
@@ -33,61 +35,66 @@ data GenOptions = GenOptions
     }
 
 optionsParser :: Parser GenOptions
-optionsParser = GenOptions
-    <$> many (option auto
-            (short 'i'
-          <> long "index"
-          <> metavar "INT"
-          <> help "Index in list of genesis key pairs"))
-    -- <*> option (fromParsec addrParser)
-    --         (long "peer"
-    --       <> metavar "HOST:PORT"
-    --       <> help "Node address to ZERG RUSH")
-    <*> option auto
-            (short 'R'
-          <> long "round-period-rate"
-          <> value 2
-          <> help "R, where duration of one round is ((k + P) * (R + 1)) * slotDuration")
-    <*> option auto
-            (short 'N'
-          <> long "round-number"
-          <> help "Number of testing rounds")
-    <*> option auto
-            (short 'p'
-          <> long "round-pause"
-          <> value 0
-          <> help "Pause between rounds (in seconds)")
-    <*> option auto
-            (long "init-money"
-          <> help "How many coins node has in the beginning")
-    <*> option auto
-            (short 't'
-          <> long "tps"
-          <> metavar "DOUBLE"
-          <> help "TPS (transactions per second)")
-    <*> option auto
-            (short 'S'
-          <> long "tps-step"
-          <> value 10
-          <> metavar "DOUBLE"
-          <> help "TPS increase delta on stable system")
-    <*> option auto
-            (short 'P'
-          <> long "propagate-threshold"
-          <> value 1
-          <> help "Approximate number of slots needed to propagate transactions across the network")
-    <*> option auto
-            (long "recipients-share"
-          <> value 1
-          <> help "Which portion of neighbours to send on each round")
-    <*> optional
-            (option auto $
-             long "m-of-n"
-          <> metavar "(M, N)"
-          <> help "If enabled, send M-of-N txs instead of regular ones")
-    <*> CLI.optionalJSONPath
-    <*> CLI.commonArgsParser "Initial DHT peer (may be many)"
-    <*> CLI.ipPortOption ("0.0.0.0", 24962)
+optionsParser = do
+    goGenesisIdxs <- many $ option auto $
+        short   'i' <>
+        long    "index" <>
+        metavar "INT" <>
+        help    "Index in list of genesis key pairs"
+    -- goRemoteAddr <- option (fromParsec addrParser) $
+    --     long    "peer" <>
+    --     metavar "HOST:PORT" <>
+    --     help    "Node address to ZERG RUSH"
+    goRoundPeriodRate <- option auto $
+        short 'R' <>
+        long  "round-period-rate" <>
+        value 2 <>
+        help  "R, where duration of one round is \
+              \((k + P) * (R + 1)) * slotDuration"
+    goRoundNumber <- option auto $
+        short 'N' <>
+        long "round-number" <>
+        help "Number of testing rounds"
+    goRoundPause <- option auto $
+        short 'p' <>
+        long  "round-pause" <>
+        value 0 <>
+        help  "Pause between rounds (in seconds)"
+    goInitBalance <- option auto $
+        long "init-money" <>
+        help "How many coins node has in the beginning"
+    goInitTps <- option auto $
+        short   't' <>
+        long    "tps" <>
+        metavar "DOUBLE" <>
+        help    "TPS (transactions per second)"
+    goTpsIncreaseStep <- option auto $
+        short   'S' <>
+        long    "tps-step" <>
+        value   10 <>
+        metavar "DOUBLE" <>
+        help    "TPS increase delta on stable system"
+    goPropThreshold <- option auto $
+        short 'P' <>
+        long  "propagate-threshold" <>
+        value 1 <>
+        help  "Approximate number of slots needed to propagate \
+              \transactions across the network"
+    goRecipientShare <- option auto $
+        long  "recipients-share" <>
+        value 1 <>
+        help  "Which portion of neighbours to send on each round"
+    goMOfNParams <- optional $ option auto $
+        long "m-of-n" <>
+        metavar "(M, N)" <>
+        help "If enabled, send M-of-N txs instead of regular ones"
+    goJLFile <-
+        CLI.optionalJSONPath
+    goCommonArgs <-
+        CLI.commonArgsParser "Initial DHT peer (may be many)"
+    goIpPort <-
+        CLI.ipPortOption ("0.0.0.0", 24962)
+    return GenOptions{..}
 
 optsInfo :: ParserInfo GenOptions
 optsInfo = info (helper <*> optionsParser) $

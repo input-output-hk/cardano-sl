@@ -48,6 +48,7 @@ import           Pos.Context              (WithNodeContext, getNodeContext, ncNo
 import           Pos.DHT.Model.Class      (MonadDHT, currentNodeKey, getKnownPeers)
 import           Pos.Exception            (CardanoFatalError)
 import           Pos.Reporting.Exceptions (ReportingError (..))
+import           Pos.Util                 ((<//>))
 
 ----------------------------------------------------------------------------
 -- Node-specific
@@ -194,7 +195,7 @@ sendReport logFiles rawLogs reportType appName appVersion reportServerUri = do
         let payloadPart =
                 partLBS "payload"
                 (encode $ reportInfo curTime $ existingFiles ++ memlogFiles)
-        e <- try $ liftIO $ post (reportServerUri </> "report") $
+        e <- try $ liftIO $ post (reportServerUri <//> "report") $
              payloadPart : (memlogPart ++ pathsPart)
         whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError (show e')
   where

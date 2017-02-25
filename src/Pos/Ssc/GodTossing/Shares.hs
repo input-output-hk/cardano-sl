@@ -15,6 +15,7 @@ import           System.Wlog              (WithLogger, dispatchEvents, getLogger
                                            logWarning, runPureLog, usingLoggerName)
 import           Universum
 
+import           Pos.Binary.Class         (AsBinary, asBinary, fromBinaryM)
 import           Pos.Crypto               (EncShare, Share, VssKeyPair, VssPublicKey,
                                            decryptShare, toVssPublicKey)
 import           Pos.Ssc.Class.Storage    (SscGlobalQuery)
@@ -24,7 +25,6 @@ import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types (gsCommitments, gsOpenings)
 import           Pos.Types.Address        (addressHash)
 import           Pos.Types.Core           (StakeholderId)
-import           Pos.Util                 (AsBinary, asBinary, fromBinaryM)
 
 type GSQuery a = SscGlobalQuery SscGodTossing a
 

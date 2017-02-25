@@ -1,4 +1,3 @@
-{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Wallet.Launcher.Runner

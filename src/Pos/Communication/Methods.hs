@@ -1,4 +1,3 @@
-{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Wrappers on top of communication methods

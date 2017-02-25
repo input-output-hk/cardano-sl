@@ -59,13 +59,9 @@ import qualified Pos.DB.Limits                    as DB
 import           Pos.Ssc.GodTossing.Arbitrary     ()
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Ssc.GodTossing.Core.Types    (Commitment (..))
-import           Pos.Types                        (ApplicationName, BlockVersion,
-                                                   SoftwareVersion (..),
-                                                   coinPortionToDouble)
+import           Pos.Types                        (coinPortionToDouble)
 import           Pos.Txp.Types.Communication      (TxMsgContents)
-import           Pos.Update.Core.Types            (UpdateProposal (..), UpdateVote (..),
-                                                   BlockVersionData, UpAttributes,
-                                                   SystemTag, UpdateData)
+import           Pos.Update.Core.Types            (UpdateProposal (..), UpdateVote (..))
 
 -- | Specifies limit for given type @t@.
 newtype Limit t = Limit Byte
@@ -264,17 +260,12 @@ instance MessageLimitedPure SecretSharingExtra where
         SecretSharingExtra <$> msgLenLimit <+> vector commitmentsNumLimit
 
 instance MessageLimitedPure UpdateProposal where
-    msgLenLimit =
-        UpdateProposal <$> msgLenLimit <+> msgLenLimit <+> msgLenLimit
-                       <+> vector upDataNumLimit <+> msgLenLimit
+    msgLenLimit = fromIntegral Const.genesisUpdateProposalSize
 
 instance MessageLimitedPure UpdateVote where
     msgLenLimit =
         UpdateVote <$> msgLenLimit <+> msgLenLimit <+> msgLenLimit
                    <+> msgLenLimit
-
-instance MessageLimitedPure SoftwareVersion where
-    msgLenLimit = SoftwareVersion <$> msgLenLimit <+> msgLenLimit
 
 instance MessageLimitedPure (DataMsg UpdateVote) where
     msgLenLimit = DataMsg <$> msgLenLimit
@@ -347,30 +338,14 @@ instance MessageLimitedPure (AbstractHash Blake2s_224 a) where
 instance MessageLimitedPure (AbstractHash Blake2s_256 a) where
     msgLenLimit = 32
 
-instance MessageLimitedPure BlockVersion where
-    msgLenLimit = 5
+-- instance MessageLimitedPure Word32 where
+    -- msgLenLimit = 4
 
-instance MessageLimitedPure BlockVersionData where
-    msgLenLimit = 65
+-- instance MessageLimitedPure SystemTag where
+    -- msgLenLimit = 6
 
-instance MessageLimitedPure ApplicationName where
-    msgLenLimit = fromIntegral appNameLenLimit
-
-instance MessageLimitedPure Word32 where
-    msgLenLimit = 4
-
-instance MessageLimitedPure SystemTag where
-    msgLenLimit = 6
-
-instance MessageLimitedPure UpAttributes where
-#ifdef DEV_MODE
-    msgLenLimit = 0  -- real value
-#else
-    msgLenLimit = 10000  -- for backward compatibility
-#endif
-
-instance MessageLimitedPure UpdateData where
-    msgLenLimit = 128
+-- instance MessageLimitedPure UpdateData where
+    -- msgLenLimit = 128
 
 -- | Sets size limit to deserialization instances via @s@ parameter
 -- (using "Data.Reflection"). Grep for 'reify' and 'reflect' to see

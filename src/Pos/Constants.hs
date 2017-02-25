@@ -33,6 +33,7 @@ module Pos.Constants
        , genesisMpcThd
        , genesisHeavyDelThd
        , genesisUpdateVoteThd
+       , genesisUpdateProposalSize
        , genesisUpdateProposalThd
        , genesisUpdateImplicit
        , genesisUpdateSoftforkThd
@@ -193,6 +194,10 @@ genesisUpdateVoteThd = unsafeCoinPortionFromDouble $ ccGenesisUpdateVoteThd cc
 staticAssert
     (ccGenesisUpdateVoteThd compileConfig >= 0 && ccGenesisUpdateVoteThd compileConfig < 1)
     "genesisUpdateVoteThd is not in range [0, 1)"
+
+-- | See 'Pos.CompileConfig.ccGenesisUpdateProposalSize'.
+genesisUpdateProposalSize :: Byte
+genesisUpdateProposalSize = ccGenesisUpdateProposalSize cc
 
 -- | See 'Pos.CompileConfig.ccGenesisUpdateProposalThd'.
 genesisUpdateProposalThd :: CoinPortion

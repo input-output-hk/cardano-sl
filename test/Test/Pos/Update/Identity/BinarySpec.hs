@@ -12,8 +12,6 @@ import qualified Pos.Communication        as C
 import qualified Pos.Communication.Relay  as R
 import           Pos.Communication.Relay  ()
 import qualified Pos.Update               as U
-import qualified Pos.Types                as T
-
 
 import           Test.Pos.Util           (binaryTest, networkBinaryTest,
                                           msgLenLimitedTest)
@@ -44,12 +42,6 @@ spec =
         networkBinaryTest @(R.ReqMsg U.UpId U.ProposalMsgTag)
         networkBinaryTest @(R.DataMsg (U.UpdateProposal, [U.UpdateVote]))
     describe "Message length limit" $ do
-        msgLenLimitedTest @T.BlockVersion
-        msgLenLimitedTest @U.BlockVersionData
-        msgLenLimitedTest @T.SoftwareVersion
-        msgLenLimitedTest @U.SystemTag
-        msgLenLimitedTest @U.UpdateData
-
         msgLenLimitedTest @(R.InvMsg U.VoteId U.VoteMsgTag)
         msgLenLimitedTest @(R.ReqMsg U.VoteId U.VoteMsgTag)
         msgLenLimitedTest @(R.InvMsg U.UpId U.ProposalMsgTag)

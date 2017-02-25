@@ -55,7 +55,7 @@ import           Pos.Ssc.Class.Types        (Ssc (..))
 import           Pos.Txp.Core.Tx            (verifyTxAlone)
 import           Pos.Txp.Core.Types         (Tx (..), TxDistribution, TxInWitness (..),
                                              TxOut (..), TxWitness)
-import           Pos.Types.Address          (Address (..), addressHash)
+import           Pos.Core.Address          (Address (..), addressHash)
 import           Pos.Types.Block.Class      (Blockchain (..), GenericBlock (..),
                                              GenericBlockHeader (..), gbBody, gbBodyProof,
                                              gbHeader, gbhExtra, prevBlockL)

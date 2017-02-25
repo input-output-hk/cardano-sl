@@ -42,7 +42,7 @@ import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (
                                               Timestamp (Timestamp),
                                               VerifyBlockParams (..), gbHeader, slotIdF,
                                               verifyBlock)
-import           Pos.Types.Address           (addressHash)
+import           Pos.Core.Address           (addressHash)
 import           Pos.Util                    (inAssertMode, logWarningWaitLinear,
                                               mconcatPair)
 import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)

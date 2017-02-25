@@ -36,7 +36,7 @@ module Pos.Core.Types
        , ProxySKHeavy
        , ProxySKEither
 
-       , SharedSeed
+       , SharedSeed (..)
        , SlotLeaders
 
          -- * Coin
@@ -78,11 +78,12 @@ import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Time.Units      (Microsecond)
 import           Formatting           (Format, bprint, build, formatToString, int, ords,
-                                       (%))
+                                       shown, stext, (%))
 import qualified PlutusCore.Program   as PLCore
+import           Prelude              (show)
 import           Serokell.AcidState   ()
 import           Serokell.Util.Base16 (formatBase16)
-import           Universum
+import           Universum            hiding (show)
 
 import           Pos.Crypto           (AbstractHash, Hash, ProxySecretKey, ProxySignature,
                                        PublicKey)
@@ -162,6 +163,24 @@ data SoftwareVersion = SoftwareVersion
     { svAppName :: !ApplicationName
     , svNumber  :: !NumSoftwareVersion
     } deriving (Eq, Generic, Ord, Typeable)
+
+instance Buildable SoftwareVersion where
+    build SoftwareVersion {..} =
+      bprint (stext % ":" % int)
+         (getApplicationName svAppName) svNumber
+
+instance Show SoftwareVersion where
+    show = toString . pretty
+
+instance Show BlockVersion where
+    show BlockVersion {..} =
+        intercalate "." [show bvMajor, show bvMinor, show bvAlt]
+
+instance Buildable BlockVersion where
+    build = bprint shown
+
+instance Hashable SoftwareVersion
+instance Hashable BlockVersion
 
 instance NFData BlockVersion
 instance NFData SoftwareVersion
@@ -399,3 +418,7 @@ deriveSafeCopySimple 0 'base ''Script
 
 -- | Deserialized script (i.e. an AST), version 0.
 type Script_v0 = PLCore.Program
+
+deriveSafeCopySimple 0 'base ''ApplicationName
+deriveSafeCopySimple 0 'base ''BlockVersion
+deriveSafeCopySimple 0 'base ''SoftwareVersion

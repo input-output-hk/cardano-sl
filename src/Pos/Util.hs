@@ -94,18 +94,15 @@ import qualified Data.List.NonEmpty               as NE
 import           Data.SafeCopy                    (SafeCopy (..), base, contain,
                                                    deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text                        as T
-import           Formatting                       (sformat, stext, (%))
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Syntax       (Lift)
 import qualified Language.Haskell.TH.Syntax
 import           Mockable                         (Mockable, Throw, throw)
-import           Prelude                          (read)
 import           Serokell.Data.Memory.Units       (Byte, fromBytes, toBytes)
 import           Serokell.Util                    (VerificationRes (..))
 import           System.Wlog                      (LoggerNameBox (..))
 import           Test.QuickCheck                  (Arbitrary)
-import           Text.Parsec                      (ParsecT, digit)
-import           Text.Parsec.Text                 (Parser)
+import           Text.Parsec                      (ParsecT)
 import           Universum                        hiding (Async, async, bracket, cancel,
                                                    finally, waitAny)
 import           Unsafe                           (unsafeInit, unsafeLast)

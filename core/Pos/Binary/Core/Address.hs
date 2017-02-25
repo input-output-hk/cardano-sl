@@ -1,5 +1,5 @@
 -- | Binary serialization of Pos.Types.Address
-module Pos.Binary.Address () where
+module Pos.Binary.Core.Address () where
 
 import           Data.Binary.Get     (Get, getWord32be, getWord8, label)
 import           Data.Binary.Put     (Put, putByteString, putWord32be, putWord8, runPut)
@@ -10,8 +10,8 @@ import           Universum           hiding (putByteString)
 import           Pos.Binary.Class    (Bi (..), getRemainingByteString, getSmallWithLength,
                                       putSmallWithLength)
 import           Pos.Binary.Crypto   ()
+import           Pos.Core.Types      (AddrPkAttrs (..), Address (..))
 import           Pos.Data.Attributes (getAttributes, putAttributes)
-import           Pos.Types.Core      (AddrPkAttrs (..), Address (..))
 
 -- | Encode everything in an address except for CRC32
 putAddressIncomplete :: Address -> Put

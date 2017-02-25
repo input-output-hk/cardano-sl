@@ -9,7 +9,7 @@ import           Universum
 
 import           Pos.Communication.Relay as R
 import qualified Pos.Ssc.GodTossing      as GT
-import           Pos.Types.Address       (StakeholderId)
+import           Pos.Core.Types       (StakeholderId)
 
 import           Test.Pos.Util           (binaryTest)
 

@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ViewPatterns #-}
-module Pos.Binary.Coin
+module Pos.Binary.Core.Coin
     ( encode
     , decode
     ) where
@@ -11,7 +11,7 @@ import           Data.Bits
 import           Data.Word
 import           Universum
 
-import           Pos.Types.Core  (Coin, mkCoin, unsafeGetCoin)
+import           Pos.Core.Types  (Coin, mkCoin, unsafeGetCoin)
 
 -- number of total coins is 45*10^9 * 10^6
 --

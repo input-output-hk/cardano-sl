@@ -27,7 +27,7 @@ import           Pos.Genesis                   (compileGenData, gdVssCertificate
 #endif
 import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap, mkVssCertificate)
 import           Pos.Types                     (EpochIndex (..))
-import           Pos.Types.Address             (addressHash)
+import           Pos.Core.Address             (addressHash)
 
 #ifdef DEV_MODE
 -- | List of 'VssKeyPair' in genesis.

@@ -55,7 +55,7 @@ import           Pos.DHT.Model.Types                  (DHTKey, DHTNode (..),
                                                        bytesToDHTKey)
 import           Pos.Security.CLI                     (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
-import           Pos.Types.Address                    (Address (..), AddressHash,
+import           Pos.Core.Types                    (Address (..), AddressHash,
                                                        decodeTextAddress)
 import           Pos.Util                             ()
 import           Pos.Util.TimeWarp                    (NetworkAddress)

@@ -50,12 +50,6 @@ import           Pos.Communication.BiP (BiP)
 import           Pos.Core.Types        (BlockVersion)
 import           Pos.Util.TimeWarp     (nodeIdToAddress)
 
-instance Show BlockVersion where
-    show = undefined
-
-instance Buildable BlockVersion where
-    build = undefined
-
 type PeerData = (PeerId, VerInfo)
 
 type Listener = N.Listener BiP PeerData

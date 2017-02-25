@@ -27,7 +27,7 @@ import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Open
                                            genCommitmentAndOpening, mkCommitmentsMap,
                                            secretToSharedSeed)
 import           Pos.Types                (SharedSeed (..))
-import           Pos.Types.Address        (AddressHash, addressHash)
+import           Pos.Core.Address        (AddressHash, addressHash)
 import           Pos.Util                 (nonrepeating, sublistN)
 
 getPubAddr :: SecretKey -> AddressHash PublicKey

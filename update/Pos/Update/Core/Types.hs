@@ -64,11 +64,11 @@ import           Pos.Core.Coin              ()
 import           Pos.Core.Script            ()
 import           Pos.Core.Types             (BlockVersion, CoinPortion, FlatSlotId,
                                              ScriptVersion, SoftwareVersion)
+import           Pos.Core.Types             ()
 import           Pos.Core.Version           ()
 import           Pos.Crypto                 (Hash, PublicKey, Signature, hash, shortHashF,
                                              unsafeHash)
 import           Pos.Data.Attributes        (Attributes)
-import           Pos.Update.Version         ()
 
 ----------------------------------------------------------------------------
 -- UpdateProposal and related

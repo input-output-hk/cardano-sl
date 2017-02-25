@@ -15,7 +15,6 @@ library
   exposed-modules:     Pos.Update.Error
                        Pos.Update.Core
                        Pos.Update.Core.Types
-                       Pos.Update.Version
 
   build-depends:       base
                      , cardano-sl-core

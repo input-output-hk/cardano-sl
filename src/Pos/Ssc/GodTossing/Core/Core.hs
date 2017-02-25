@@ -61,7 +61,7 @@ import           Pos.Ssc.GodTossing.Core.Types  (Commitment (..),
                                                  VssCertificate (vcExpiryEpoch),
                                                  VssCertificatesMap,
                                                  mkCommitmentsMapUnsafe)
-import           Pos.Types.Address              (addressHash)
+import           Pos.Core.Address              (addressHash)
 import           Pos.Types.Core                 (EpochIndex (..), LocalSlotIndex,
                                                  SlotId (..), StakeholderId)
 import           Pos.Types.Types                (SharedSeed (..))

@@ -86,8 +86,6 @@ library
                         Pos.Types.Block.Types
                         Pos.Types.Block.Functions
                         Pos.Types.Block.Instances
-                        Pos.Types.Slotting
-                        Pos.Types.Version
 
                         -- Update system
                         Pos.Update
@@ -115,24 +113,18 @@ library
                         Pos.Aeson.CompileConfig
 
                         -- Binary serialization
-                        Pos.Binary.Address
                         Pos.Binary.Block
                         Pos.Binary.Block.Types
                         Pos.Binary.Block.Block
-                        Pos.Binary.Coin
-                        Pos.Binary.Crypto
                         Pos.Binary.Communication
                         Pos.Binary.DB
                         Pos.Binary.Genesis
                         Pos.Binary.Merkle
                         Pos.Binary.Relay
-                        Pos.Binary.Script
                         Pos.Binary.Ssc
                         Pos.Binary.Ssc.GodTossing.Core
                         Pos.Binary.Txp
-                        Pos.Binary.Types
                         Pos.Binary.Update
-                        Pos.Binary.Version
 
                         -- Block processing
                         Pos.Block.Error

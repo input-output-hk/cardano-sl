@@ -1,27 +1,29 @@
-{-# LANGUAGE UndecidableInstances #-}
+module Pos.Binary.Core.Types () where
 
--- | Binary serialization of Pos.Types.* modules
+import           Data.Binary.Get         (label)
+import           Data.Binary.Put         (putWord8)
+import           Data.Ix                 (inRange)
+import           Formatting              (formatToString, int, (%))
+import           Universum               hiding (putByteString)
 
-module Pos.Binary.Types () where
-
-import           Data.Binary.Get     (label)
-import           Data.Binary.Put     (putWord8)
-import           Data.Ix             (inRange)
-import           Formatting          (formatToString, int, (%))
-import           Universum           hiding (putByteString)
-
-import           Pos.Binary.Class    (Bi (..), UnsignedVarInt (..))
-import qualified Pos.Binary.Coin     as BinCoin
-import           Pos.Binary.Merkle   ()
-import           Pos.Binary.Script   ()
-import           Pos.Binary.Version  ()
-import           Pos.Constants       (epochSlots)
-import qualified Pos.Data.Attributes as A
-import qualified Pos.Types.Core      as T
-import qualified Pos.Types.Types     as T
+import           Pos.Binary.Class        (Bi (..), UnsignedVarInt (..))
+import qualified Pos.Binary.Core.Coin    as BinCoin
+import           Pos.Binary.Core.Script  ()
+import           Pos.Binary.Core.Version ()
+import           Pos.Core.Constants      (epochSlots)
+import qualified Pos.Core.Types          as T
+import qualified Pos.Data.Attributes     as A
 
 -- kind of boilerplate, but anyway that's what it was made for --
 -- verbosity and clarity
+
+instance Bi T.Timestamp where
+    get = label "Timestamp" $ fromInteger <$> get
+    put = put . toInteger
+
+instance Bi T.EpochIndex where
+    get = label "EpochIndex" $ T.EpochIndex . getUnsignedVarInt <$> get
+    put (T.EpochIndex c) = put (UnsignedVarInt c)
 
 instance Bi (A.Attributes ()) where
     get = label "Attributes" $

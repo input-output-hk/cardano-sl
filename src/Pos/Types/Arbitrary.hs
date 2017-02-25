@@ -48,7 +48,7 @@ import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
 import           Pos.Txp.Core.Types         (Tx (..), TxDistribution (..), TxIn (..),
                                              TxInWitness (..), TxOut (..), TxOutAux)
-import           Pos.Types.Address          (makePubKeyAddress, makeScriptAddress)
+import           Pos.Core.Address          (makePubKeyAddress, makeScriptAddress)
 import           Pos.Types.Arbitrary.Unsafe ()
 import           Pos.Types.Coin             (coinToInteger, divCoin, unsafeSubCoin)
 import           Pos.Types.Core             (Address (..), ChainDifficulty (..), Coin,

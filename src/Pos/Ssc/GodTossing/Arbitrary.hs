@@ -31,7 +31,7 @@ import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..),
                                                    GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
 import           Pos.Types                        (SlotId (..))
-import           Pos.Types.Address                (addressHash)
+import           Pos.Core.Address                (addressHash)
 import           Pos.Types.Arbitrary.Unsafe       ()
 import           Pos.Util.Arbitrary               (Nonrepeating (..), makeSmall, sublistN,
                                                    unsafeMakePool)

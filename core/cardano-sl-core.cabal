@@ -29,11 +29,19 @@ library
                        Pos.Crypto.Signing
                        Pos.Crypto.SecretSharing
 
-                       Pos.Binary.Class
                        Pos.Merkle
                        Pos.Data.Attributes
                        Pos.Exception
                        Pos.Util.TimeWarp
+
+                       Pos.Binary.Class
+                       Pos.Binary.Crypto
+                       Pos.Binary.Core
+                       Pos.Binary.Core.Address
+                       Pos.Binary.Core.Coin
+                       Pos.Binary.Core.Script
+                       Pos.Binary.Core.Types
+                       Pos.Binary.Core.Version
 
   build-depends:       base
                      , base58-bytestring
@@ -54,6 +62,7 @@ library
                      , deepseq
                      , derive
                      , deriving-compat
+                     , digest
                      , ed25519
                      , formatting
                      , hashable

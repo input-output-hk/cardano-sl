@@ -1,4 +1,4 @@
-module Pos.Binary.Script () where
+module Pos.Binary.Core.Script () where
 
 import           Data.Binary.Get    (label)
 import qualified PlutusCore.Program as PLCore
@@ -6,7 +6,8 @@ import qualified PlutusCore.Term    as PLCore
 import           Universum
 
 import           Pos.Binary.Class   (Bi (..), UnsignedVarInt (..))
-import           Pos.Types.Script   (Script (..))
+import           Pos.Core.Script    ()
+import           Pos.Core.Types     (Script (..))
 
 instance Bi PLCore.Term
 instance Bi PLCore.Program

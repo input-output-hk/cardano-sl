@@ -1,5 +1,4 @@
 {-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 {-| 'WorkMode' constraint. It is widely used in almost every our code.

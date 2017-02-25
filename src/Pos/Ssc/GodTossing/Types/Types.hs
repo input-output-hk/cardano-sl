@@ -1,5 +1,4 @@
 {-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE TypeFamilies        #-}
 
 -- | Some types related to GodTossing necessary for Ssc instance.
 

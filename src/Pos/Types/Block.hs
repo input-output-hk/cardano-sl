@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeFamilies        #-}
 
 -- | Functions related to blocks and headers.
 

@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE UndecidableInstances      #-}
 
 module Pos.DHT.Model.Neighbors

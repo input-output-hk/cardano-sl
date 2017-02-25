@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeFamilies        #-}
 
 -- | Instance of SscListenersClass
 

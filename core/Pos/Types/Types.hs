@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Definitions of the most fundamental types.

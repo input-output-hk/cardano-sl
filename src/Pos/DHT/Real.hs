@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 {-| Implementation of peer discovery using using Kademlia Distributed Hash Table.

@@ -1,4 +1,3 @@
-{-# LANGUAGE ViewPatterns        #-}
 module Pos.Types.Coin
        ( coinF
        , sumCoins

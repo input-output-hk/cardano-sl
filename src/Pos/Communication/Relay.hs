@@ -32,7 +32,7 @@ import           Universum
 import           Pos.Binary.Class              (Bi (..))
 import           Pos.Communication.Message     (MessagePart)
 import           Pos.Communication.Protocol    (ConversationActions (..), ListenerSpec,
-                                                NOP, NodeId, OutSpecs, SendActions (..),
+                                                NodeId, OutSpecs, SendActions (..),
                                                 WorkerSpec, listenerConv, mergeLs, worker)
 import           Pos.Communication.Specs       (allOutSpecs)
 import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), InvOrData,
@@ -284,7 +284,6 @@ addToRelayQueue inv = do
 relayWorkers :: forall ssc m .
              ( Mockable Throw m
              , WorkMode ssc m
-             , Bi NOP, Message NOP
              )
              => ([WorkerSpec m], OutSpecs)
 relayWorkers =

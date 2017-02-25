@@ -65,7 +65,7 @@ extra-deps:
 - serokell-util-0.1.3.5
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-0.5.0
+- log-warper-0.5.1
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.5.26                   # not yet in lts-8
 - haskell-src-exts-1.17.1         # derive has not moved to 1.18 yet

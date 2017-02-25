@@ -384,7 +384,8 @@ getRealLoggerConfig LoggingParams{..} = do
     let cfgBuilder = productionB <>
                      memoryB (1024 * 1024 * 5) <> -- ~5 mb
                      mapperB dhtMapper <>
-                     (mempty { _lcFilePrefix = lpHandlerPrefix })
+                     (mempty { _lcFilePrefix = lpHandlerPrefix
+                             , _lcRoundVal = Just 5 })
     cfg <- readLoggerConfig lpConfigPath
     pure $ cfg <> cfgBuilder
   where

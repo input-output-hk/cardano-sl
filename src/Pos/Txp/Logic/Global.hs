@@ -1,8 +1,5 @@
 {-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE TypeFamilies        #-}
 
 -- | Transaction processing logic.
 

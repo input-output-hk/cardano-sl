@@ -1,5 +1,3 @@
-{-# LANGUAGE CPP                  #-}
-{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}

@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 
 -- | Compile-time configuration support.
 

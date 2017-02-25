@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 {-| An implementation of VSS (wrapping over pvss).

@@ -1,6 +1,5 @@
 -- | Framework for Inv/Req/Dat message handling
 
-{-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Communication.Relay

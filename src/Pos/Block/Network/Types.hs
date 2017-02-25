@@ -1,4 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Types describing protocol messages related to Blocks.
 

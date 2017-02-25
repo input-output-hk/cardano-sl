@@ -1,4 +1,3 @@
-{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Internal block logic. Mostly needed for use in 'Pos.Lrc' -- using

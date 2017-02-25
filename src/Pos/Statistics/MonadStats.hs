@@ -1,7 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes  #-}
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE Rank2Types           #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -47,8 +43,7 @@ import           Pos.DHT.Real                (KademliaDHT, WithKademliaDHTInstan
 import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Statistics.StatEntry    (StatLabel (..))
-import           Pos.Txp.Class               (MonadTxpLD (..))
-import           Pos.Types                   (MonadUtxo, MonadUtxoRead)
+import           Pos.Txp.MemState            (MonadTxpMem (..))
 import           Pos.Update.MemState         (MonadUSMem)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
@@ -80,8 +75,7 @@ newtype NoStatsT m a = NoStatsT
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
-                MonadJL, CanLog, MonadUtxoRead, MonadUtxo,
-                MonadTxpLD ssc, MonadSscMem ssc, MonadDBLimits,
+                MonadJL, CanLog, MonadTxpMem, MonadSscMem ssc, MonadDBLimits,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem)
 
 deriving instance MonadDB ssc m => MonadDB ssc (NoStatsT m)
@@ -134,8 +128,8 @@ newtype StatsT m a = StatsT
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
-                MonadTrans, MonadJL, CanLog, MonadUtxoRead, MonadUtxo,
-                MonadTxpLD ssc, MonadSscMem ssc, MonadSlotsData, MonadDBLimits,
+                MonadTrans, MonadJL, CanLog, MonadTxpMem,
+                MonadSscMem ssc, MonadSlotsData, MonadDBLimits,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem)
 
 deriving instance MonadDB ssc m => MonadDB ssc (StatsT m)

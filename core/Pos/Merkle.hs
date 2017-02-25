@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveFoldable       #-}
 {-# LANGUAGE NamedFieldPuns       #-}
 {-# LANGUAGE UndecidableInstances #-}
 

@@ -1,5 +1,4 @@
 {-# LANGUAGE BangPatterns        #-}
-{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Logic of blocks processing.
@@ -72,21 +71,22 @@ import           Pos.Slotting.Class         (getCurrentSlot)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
                                              SscWorkersClass (..))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscVerifyBlocks)
-import           Pos.Txp.Class              (getLocalTxsNUndo)
+import           Pos.Txp.Core               (topsortTxs)
+import           Pos.Txp.Core.Types         (TxAux, TxId)
 import           Pos.Txp.Logic              (txVerifyBlocks)
+import           Pos.Txp.MemState           (getLocalTxsNUndo)
 import           Pos.Types                  (Block, BlockHeader, EpochIndex,
                                              EpochOrSlot (..), GenesisBlock, HeaderHash,
                                              MainBlock, MainExtraBodyData (..),
                                              MainExtraHeaderData (..), ProxySKEither,
                                              ProxySKHeavy, SlotId (..), SlotLeaders,
-                                             TxAux, TxId, VerifyHeaderParams (..),
-                                             blockHeader, blockLeaders, difficultyL,
-                                             epochIndexL, epochOrSlot, flattenSlotId,
-                                             genesisHash, getEpochOrSlot, headerHash,
-                                             headerHashG, headerSlot, mkGenesisBlock,
-                                             mkMainBlock, mkMainBody, prevBlockL,
-                                             topsortTxs, verifyHeader, verifyHeaders,
-                                             vhpVerifyConsensus)
+                                             VerifyHeaderParams (..), blockHeader,
+                                             blockLeaders, difficultyL, epochIndexL,
+                                             epochOrSlot, flattenSlotId, genesisHash,
+                                             getEpochOrSlot, headerHash, headerHashG,
+                                             headerSlot, mkGenesisBlock, mkMainBlock,
+                                             mkMainBody, prevBlockL, verifyHeader,
+                                             verifyHeaders, vhpVerifyConsensus)
 import qualified Pos.Types                  as Types
 import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Update.Logic           (usCanCreateBlock, usPreparePayload,
@@ -701,7 +701,7 @@ createMainBlockFinish
     -> BlockHeader ssc
     -> ExceptT Text m (MainBlock ssc)
 createMainBlockFinish slotId pSk prevHeader = do
-    (localTxs, txUndo) <- getLocalTxsNUndo @ssc
+    (localTxs, txUndo) <- getLocalTxsNUndo
     sscData <- sscGetLocalPayload @ssc slotId
     usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
     (localPSKs, pskUndo) <- lift getProxyMempool

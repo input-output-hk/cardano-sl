@@ -1,6 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
 
@@ -24,7 +22,7 @@ import           Universum
 import           Pos.Communication.Protocol    (SendActions)
 import           Pos.Context                   (NodeContext, getNodeContext,
                                                 runContextHolder)
-import qualified Pos.DB                        as Modern
+import           Pos.DB                        (NodeDBs, getNodeDBs, runDBHolder)
 import           Pos.Delegation.Class          (DelegationWrap, askDelegationState)
 import           Pos.Delegation.Holder         (runDelegationTFromTVar)
 #ifdef DEV_MODE
@@ -41,8 +39,8 @@ import           Pos.Slotting                  (NtpSlotting (..), NtpSlottingVar
                                                 runNtpSlotting, runSlottingHolder)
 import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolder)
-import           Pos.Txp.Class                 (getTxpLDWrap)
-import qualified Pos.Txp.Holder                as Modern
+import           Pos.Txp                       (TxpLocalData, askTxpMem,
+                                                runTxpHolderReader)
 import           Pos.Update.MemState.Holder    (runUSHolder)
 import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
 import           Pos.Wallet.Web.Api            (WalletApi)
@@ -83,12 +81,12 @@ nat :: WebHandler ssc (WebHandler ssc :~> Handler)
 nat = do
     ws         <- getWalletWebState
     kinst      <- lift . lift . lift $ getKademliaDHTInstance
-    tlw        <- getTxpLDWrap
+    tlw        <- askTxpMem
     ssc        <- lift . lift . lift . lift . lift . lift . lift $ SscHolder ask
     delWrap    <- askDelegationState
     psCtx      <- lift . lift $ getAllStates
     nc         <- getNodeContext
-    modernDB   <- Modern.getNodeDBs
+    modernDB   <- getNodeDBs
     conn       <- getWalletWebSockets
     slotVar    <- lift . lift . lift . lift . lift . lift . lift . lift . lift $ SlottingHolder ask
     ntpSlotVar <- lift . lift . lift . lift . lift . lift . lift . lift $ NtpSlotting ask
@@ -98,8 +96,8 @@ convertHandler
     :: forall ssc a .
        KademliaDHTInstance
     -> NodeContext ssc              -- (.. insert monad `m` here ..)
-    -> Modern.NodeDBs ssc
-    -> Modern.TxpLDWrap ssc
+    -> NodeDBs ssc
+    -> TxpLocalData
     -> SscState ssc
     -> WalletState
     -> (TVar DelegationWrap)
@@ -112,12 +110,12 @@ convertHandler
 convertHandler kinst nc modernDBs tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar handler = do
     liftIO ( runProduction
            . usingLoggerName "wallet-api"
-           . Modern.runDBHolder modernDBs
+           . runDBHolder modernDBs
            . runContextHolder nc
            . runSlottingHolder slotVar
            . runNtpSlotting ntpSlotVar
            . runSscHolder ssc
-           . Modern.runTxpLDHolderReader tlw
+           . runTxpHolderReader tlw
            . runDelegationTFromTVar delWrap
            . runUSHolder
            . runKademliaDHT kinst

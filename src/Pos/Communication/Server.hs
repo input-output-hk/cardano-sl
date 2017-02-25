@@ -1,5 +1,3 @@
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Server part.
 
@@ -23,7 +21,7 @@ import           Pos.Delegation.Listeners          (delegationListeners,
                                                     delegationStubListeners)
 import           Pos.Ssc.Class.Helpers             (SscHelpersClass (..))
 import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
-import           Pos.Txp.Listeners                 (txListeners, txStubListeners)
+import           Pos.Txp                           (txListeners, txStubListeners)
 import           Pos.Update                        (usListeners, usStubListeners)
 import           Pos.Util                          (mconcatPair)
 import           Pos.WorkMode                      (WorkMode)

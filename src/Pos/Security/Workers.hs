@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Security.Workers
        ( SecurityWorkersClass (..)

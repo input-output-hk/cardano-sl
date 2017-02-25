@@ -14,7 +14,7 @@ import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.Types.Relay    (DataMsg (..), InvMsg (..), ReqMsg (..))
 import           Pos.Crypto                       (hash)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
-import           Pos.Txp.Types.Communication      (TxMsgContents (..))
+import           Pos.Txp.Network.Types            (TxMsgContents (..))
 import           Pos.Update.Core                  (UpdateProposal, UpdateVote (..))
 
 instance (Bi tag, Bi key) => Bi (InvMsg key tag) where

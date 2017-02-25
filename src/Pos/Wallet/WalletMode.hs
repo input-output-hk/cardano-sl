@@ -1,6 +1,4 @@
-{-# LANGUAGE CPP                  #-}
 {-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -29,7 +27,6 @@ import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
 
 import           Pos.Communication.PeerState (PeerStateHolder, WithPeerState)
-import           Pos.Constants               (blkSecurityParam)
 import qualified Pos.Context                 as PC
 import           Pos.Crypto                  (WithHash (..))
 import           Pos.DB                      (MonadDB, MonadDBLimits)
@@ -40,21 +37,18 @@ import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
 import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Slotting                (NtpSlotting, SlottingHolder,
-                                              getCurrentSlotInaccurate,
                                               getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
-import           Pos.Txp.Class               (getMemPool, getUtxoView)
-import qualified Pos.Txp.Holder              as Modern
-import           Pos.Txp.Logic               (processTx)
-import           Pos.Txp.Types               (UtxoView (..), localTxs)
+import           Pos.Txp                     (TxpHolder (..), UtxoView (..), belongsTo,
+                                              evalUtxoStateT, filterUtxoByAddr,
+                                              getMemPool, getUtxoView, runUtxoStateT,
+                                              txProcessTransaction, _mpLocalTxs)
+import           Pos.Txp.Core.Types          (TxAux, TxId, Utxo, txOutValue)
 import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
-                                              TxAux, TxId, Utxo, difficultyL,
-                                              evalUtxoStateT, flattenEpochOrSlot,
-                                              flattenSlotId, prevBlockL, runUtxoStateT,
-                                              sumCoins, toPair, txOutValue)
+                                              difficultyL, prevBlockL, prevBlockL,
+                                              sumCoins, sumCoins)
 import           Pos.Types.Coin              (unsafeIntegerToCoin)
-import           Pos.Types.Utxo.Functions    (belongsTo, filterUtxoByAddr)
 import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
 import           Pos.Util                    (maybeThrow)
 import           Pos.Util.Shutdown           (triggerShutdown)
@@ -98,14 +92,14 @@ deriving instance MonadBalances m => MonadBalances (WalletWebDB m)
 instance MonadIO m => MonadBalances (WalletDB m) where
     getOwnUtxo addr = WS.getUtxo >>= return . filterUtxoByAddr addr
 
-instance (MonadDB ssc m, MonadMask m) => MonadBalances (Modern.TxpLDHolder ssc m) where
+instance (MonadDB ssc m, MonadMask m) => MonadBalances (TxpHolder m) where
     getOwnUtxo addr = do
         utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoView
-        let toDel = delUtxo updates
-            toAdd = HM.filter (`belongsTo` addr) $ addUtxo updates
-            utxo' = foldr (M.delete . toPair) utxo toDel
-        return $ HM.foldrWithKey (M.insert . toPair) utxo' toAdd
+        let toDel = _uvDelUtxo updates
+            toAdd = HM.filter (`belongsTo` addr) $ _uvAddUtxo updates
+            utxo' = foldr M.delete utxo toDel
+        return $ HM.foldrWithKey M.insert utxo' toAdd
 
 --deriving instance MonadBalances m => MonadBalances (Modern.TxpLDHolder m)
 
@@ -147,7 +141,7 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
     saveTx _ = pure ()
 
 instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
-         => MonadTxHistory (Modern.TxpLDHolder ssc m) where
+         => MonadTxHistory (TxpHolder m) where
     getTxHistory addr = do
         bot <- GS.getBot
         tip <- GS.getTip
@@ -169,7 +163,7 @@ instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
                 deriveAddrHistoryPartial txs addr [blk]
             localFetcher blkTxs = do
                 let mp (txid, (tx, txw, txd)) = (WithHash tx txid, txw, txd)
-                ltxs <- HM.toList . localTxs <$> lift (lift getMemPool)
+                ltxs <- HM.toList . _mpLocalTxs <$> lift (lift getMemPool)
                 txs <- getRelatedTxs addr $ map mp ltxs
                 return $ txs ++ blkTxs
 
@@ -177,18 +171,18 @@ instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
             evalUtxoStateT (foldrM blockFetcher [] hashList >>= localFetcher) genUtxo
         maybe (panic "deriveAddrHistory: Nothing") return result
 
-    saveTx txw = () <$ processTx txw
+    saveTx txw = () <$ runExceptT (txProcessTransaction txw)
 
 --deriving instance MonadTxHistory m => MonadTxHistory (Modern.TxpLDHolder m)
 
 class Monad m => MonadBlockchainInfo m where
-    networkChainDifficulty :: m ChainDifficulty
+    networkChainDifficulty :: m (Maybe ChainDifficulty)
     localChainDifficulty :: m ChainDifficulty
     blockchainSlotDuration :: m Millisecond
     connectedPeers :: m Word
 
     default networkChainDifficulty
-        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m ChainDifficulty
+        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m (Maybe ChainDifficulty)
     networkChainDifficulty = lift networkChainDifficulty
 
     default localChainDifficulty
@@ -241,14 +235,7 @@ downloadHeader = getContextTMVar PC.ncProgressHeader
 -- | Instance for full-node's ContextHolder
 instance SscHelpersClass ssc =>
          MonadBlockchainInfo (RawRealMode ssc) where
-    networkChainDifficulty = recoveryHeader >>= \case
-        Just hh -> return $ hh ^. difficultyL
-        Nothing -> do
-            th <- topHeader
-            cSlot <- fromIntegral . flattenSlotId <$> getCurrentSlotInaccurate
-            let hSlot = fromIntegral $ flattenEpochOrSlot th :: Int
-                blksLeft = fromIntegral $ max 0 $ cSlot - blkSecurityParam - hSlot
-            return $ blksLeft + th ^. difficultyL
+    networkChainDifficulty = fmap (^. difficultyL) <$> recoveryHeader
 
     localChainDifficulty = downloadHeader >>= \case
         Just dh -> return $ dh ^. difficultyL
@@ -278,7 +265,7 @@ instance MonadUpdates m => MonadUpdates (PeerStateHolder m)
 instance MonadUpdates m => MonadUpdates (NtpSlotting m)
 instance MonadUpdates m => MonadUpdates (SlottingHolder m)
 
-deriving instance MonadUpdates m => MonadUpdates (Modern.TxpLDHolder ssc m)
+deriving instance MonadUpdates m => MonadUpdates (TxpHolder m)
 deriving instance MonadUpdates m => MonadUpdates (SscHolder ssc m)
 deriving instance MonadUpdates m => MonadUpdates (DelegationT m)
 deriving instance MonadUpdates m => MonadUpdates (USHolder m)

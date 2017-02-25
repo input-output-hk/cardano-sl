@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes       #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TypeFamilies              #-}
 
@@ -50,8 +49,9 @@ import           Pos.DB.Lrc.Common     (getBi, putBi)
 import           Pos.Genesis           (genesisDelegation)
 import           Pos.Lrc.Logic         (RichmenType (..), findRichmenPure)
 import           Pos.Lrc.Types         (FullRichmenData, Richmen, RichmenStake, toRichmen)
-import           Pos.Types             (Coin, EpochIndex, StakeholderId, applyCoinPortion,
-                                        txOutStake)
+import           Pos.Types             (Coin, EpochIndex, StakeholderId, applyCoinPortion)
+
+import           Pos.Txp.Core.Types    (txOutStake)
 
 ----------------------------------------------------------------------------
 -- Class

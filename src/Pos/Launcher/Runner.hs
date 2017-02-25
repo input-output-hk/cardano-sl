@@ -1,10 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Runners in various modes.
 
@@ -86,7 +80,7 @@ import           Pos.Context                 (ContextHolder (..), NodeContext (.
                                               runContextHolder)
 import           Pos.Crypto                  (createProxySecretKey, toPublic)
 import           Pos.DB                      (MonadDB (..), getTip, initNodeDBs,
-                                              openNodeDBs, runDBHolder, _gStateDB)
+                                              openNodeDBs, runDBHolder)
 import qualified Pos.DB.Lrc                  as LrcDB
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Holder       (runDelegationT)
@@ -105,8 +99,7 @@ import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
                                               SscParams, sscCreateNodeContext)
 import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
-import           Pos.Txp.Holder              (runTxpLDHolder)
-import qualified Pos.Txp.Types.UtxoView      as UV
+import           Pos.Txp                     (runTxpHolder)
 import           Pos.Types                   (Timestamp (Timestamp), timestampF)
 import           Pos.Update.MemState         (runUSHolder)
 import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
@@ -209,7 +202,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
                        runSlottingHolder slottingVar .
                        runNtpSlotting ntpSlottingVar .
                        ignoreSscHolder .
-                       runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .
+                       runTxpHolder def initTip .
                        runDelegationT def .
                        runUSHolder .
                        runKademliaDHT (rmDHT res) .
@@ -228,7 +221,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
           runSlottingHolder slottingVar .
           runNtpSlotting ntpSlottingVar .
           (mkStateAndRunSscHolder @ssc) .
-          runTxpLDHolder (UV.createFromDB . _gStateDB $ modernDBs) initTip .
+          runTxpHolder def initTip .
           runDelegationT def .
           runUSHolder .
           runKademliaDHT (rmDHT res) .

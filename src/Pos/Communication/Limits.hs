@@ -60,7 +60,7 @@ import           Pos.Ssc.GodTossing.Arbitrary     ()
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Ssc.GodTossing.Core.Types    (Commitment (..))
 import           Pos.Types                        (coinPortionToDouble)
-import           Pos.Txp.Types.Communication      (TxMsgContents)
+import           Pos.Txp.Network.Types            (TxMsgContents)
 import           Pos.Update.Core.Types            (UpdateProposal (..), UpdateVote (..))
 
 -- | Specifies limit for given type @t@.

@@ -1,5 +1,4 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ViewPatterns    #-}
 
 -- | Messages used for communication in GodTossing SSC.
 

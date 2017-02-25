@@ -1,7 +1,5 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeOperators       #-}
 
@@ -15,7 +13,7 @@ module Pos.Wallet.Web.Server.Methods
        , walletServerOuts
        ) where
 
-import           Control.Lens                  (makeLenses, (.=))
+import           Control.Lens                  (makeLenses, (+=), (.=))
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
 import           Control.Monad.State           (runStateT)
@@ -39,10 +37,10 @@ import           Pos.Crypto                    (SecretKey, deterministicKeyGen, 
                                                 toPublic)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (getKnownPeers)
+import           Pos.Txp.Core.Types            (TxOut (..))
 import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
-                                                TxOut (..), addressF, coinF,
-                                                decodeTextAddress, makePubKeyAddress,
-                                                mkCoin)
+                                                addressF, coinF, decodeTextAddress,
+                                                makePubKeyAddress, mkCoin)
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, keysFromPhrase)
 import           Pos.Util.UserSecret           (readUserSecret, usKeys)
@@ -93,15 +91,16 @@ type WalletWebMode ssc m
 
 -- | Notifier state (moved here due to `makeLenses` and scoping issues)
 data SyncProgress =
-    SyncProgress { _spLocalCD   :: ChainDifficulty
-                 , _spNetworkCD :: ChainDifficulty
-                 , _spPeers     :: Word
+    SyncProgress { _spLocalCD       :: ChainDifficulty
+                 , _spNetworkCD     :: ChainDifficulty
+                 , _spNotifyCounter :: Int
+                 , _spPeers         :: Word
                  }
 
 makeLenses ''SyncProgress
 
 instance Default SyncProgress where
-    def = SyncProgress 0 0 0
+    def = SyncProgress 0 0 0 0
 
 walletServeImpl
     :: ( MonadIO m
@@ -170,6 +169,7 @@ launchNotifier nat = void . liftIO $ mapM startForking
   where
     cooldownPeriod = 5000000         -- 5 sec
     difficultyNotifyPeriod = 500000  -- 0.5 sec
+    networkResendPeriod = 10         -- in delay periods
     forkForever action = forkFinally action $ const $ do
         -- TODO: log error
         -- cooldown
@@ -182,11 +182,16 @@ launchNotifier nat = void . liftIO $ mapM startForking
         liftIO $ threadDelay period
         action
     dificultyNotifier = void . flip runStateT def $ notifier difficultyNotifyPeriod $ do
-        networkDifficulty <- networkChainDifficulty
-        oldNetworkDifficulty <- use spNetworkCD
-        when (networkDifficulty /= oldNetworkDifficulty) $ do
-            lift $ notify $ NetworkDifficultyChanged networkDifficulty
-            spNetworkCD .= networkDifficulty
+        networkChainDifficulty >>= \case
+            Nothing -> pure ()
+            Just networkDifficulty -> do
+                oldNetworkDifficulty <- use spNetworkCD
+                cc <- use spNotifyCounter
+                when (networkDifficulty /= oldNetworkDifficulty || cc >= networkResendPeriod) $ do
+                    lift $ notify $ NetworkDifficultyChanged networkDifficulty
+                    spNetworkCD .= networkDifficulty
+                    spNotifyCounter .= 0
+                spNotifyCounter += 1
 
         localDifficulty <- localChainDifficulty
         oldLocalDifficulty <- use spLocalCD
@@ -347,7 +352,8 @@ addHistoryTx
     -> m CTx
 addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
     -- TODO: this should be removed in production
-    diff <- networkChainDifficulty
+    diff <- maybe localChainDifficulty pure =<<
+            networkChainDifficulty
     addr <- decodeCAddressOrFail cAddr
     meta <- CTxMeta curr title desc <$> liftIO getPOSIXTime
     let cId = txIdToCTxId txId

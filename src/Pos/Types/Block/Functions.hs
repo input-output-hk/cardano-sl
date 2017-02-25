@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
@@ -52,6 +51,9 @@ import           Pos.Merkle                 (mkMerkleTree)
 import           Pos.Script                 (isKnownScriptVersion, scrVersion)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types        (Ssc (..))
+import           Pos.Txp.Core.Tx            (verifyTxAlone)
+import           Pos.Txp.Core.Types         (Tx (..), TxDistribution, TxInWitness (..),
+                                             TxOut (..), TxWitness)
 import           Pos.Types.Address          (Address (..), addressHash)
 import           Pos.Types.Block.Class      (Blockchain (..), GenericBlock (..),
                                              GenericBlockHeader (..), gbBody, gbBodyProof,
@@ -73,7 +75,6 @@ import           Pos.Types.Core             (BlockVersion, ChainDifficulty, Epoc
                                              HasEpochIndex (..), HasEpochOrSlot (..),
                                              HasHeaderHash (..), HeaderHash, SlotId (..),
                                              SlotId)
-import           Pos.Types.Tx               (verifyTxAlone)
 -- Unqualified import is used here because of GHC bug (trac 12127).
 -- See: https://ghc.haskell.org/trac/ghc/ticket/12127
 import           Pos.Types.Types
@@ -534,7 +535,7 @@ checkNoUnknownVersions blk = mconcat $ map toVerRes $ concat [
     toVerRes (Left e)  = VerFailure [sformat build e]
 
     -- Check a transaction
-    checkTx txI Tx{..} = imap (checkOutput txI) txOutputs
+    checkTx txI Tx{..} = imap (checkOutput txI) _txOutputs
     -- Check an output
     checkOutput txI outI TxOut{..} = case txOutAddress of
         UnknownAddressType t _ -> Left $

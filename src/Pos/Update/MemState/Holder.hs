@@ -32,8 +32,7 @@ import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
-import           Pos.Txp.Class               (MonadTxpLD (..))
-import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
+import           Pos.Txp.MemState            (MonadTxpMem (..))
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.MemState.Types   (MemVar, newMemVar)
 import           Pos.Util.JsonLog            (MonadJL (..))
@@ -61,9 +60,7 @@ newtype USHolder m a = USHolder
                , CanLog
                , MonadMask
                , MonadSscMem ssc
-               , MonadUtxoRead
-               , MonadUtxo
-               , MonadTxpLD ssc
+               , MonadTxpMem
                , MonadBase io
                , MonadDelegation
                , MonadFix

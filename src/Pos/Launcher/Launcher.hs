@@ -1,6 +1,4 @@
-{-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Applications of runners to scenarios.
 

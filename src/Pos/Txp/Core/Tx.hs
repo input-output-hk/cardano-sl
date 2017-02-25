@@ -3,7 +3,9 @@
 
 -- | Transaction related functions.
 
-module Pos.Types.Tx
+-- TODO Rewrite this module on MonadError.
+
+module Pos.Txp.Core.Tx
        ( verifyTxAlone
        , VTxGlobalContext (..)
        , VTxLocalContext (..)
@@ -22,14 +24,15 @@ import           Serokell.Util        (VerificationRes, verResToMonadError, veri
 import           Universum
 
 import           Pos.Binary.Types     ()
+import           Pos.Binary.Txp       ()
 import           Pos.Crypto           (Hash, WithHash (..), checkSig, hash)
 import           Pos.Script           (Script (..), isKnownScriptVersion, txScriptCheck)
 import           Pos.Types.Address    (addressDetailedF, checkPubKeyAddress,
                                        checkScriptAddress, checkUnknownAddressType)
 import           Pos.Types.Coin       (coinToInteger, sumCoins)
 import           Pos.Types.Core       (Address (..), StakeholderId, coinF, mkCoin)
-import           Pos.Types.Types      (Tx (..), TxAux, TxDistribution (..), TxIn (..),
-                                       TxInWitness (..), TxOut (..), TxOutAux)
+import           Pos.Txp.Core.Types   (Tx (..), TxAux, TxDistribution (..), TxIn (..),
+                                       TxInWitness (..), TxOut (..), TxOutAux, TxUndo)
 import           Pos.Util             (allDistinct)
 
 ----------------------------------------------------------------------------
@@ -43,14 +46,14 @@ verifyTxAlone :: Tx -> VerificationRes
 verifyTxAlone Tx {..} =
     mconcat
         [ verifyGeneric
-              [ (not (null txInputs), "transaction doesn't have inputs")
-              , (not (null txOutputs), "transaction doesn't have outputs")
+              [ (not (null _txInputs), "transaction doesn't have inputs")
+              , (not (null _txOutputs), "transaction doesn't have outputs")
               ]
         , verifyOutputs
         ]
   where
     verifyOutputs = verifyGeneric $ concat $
-                    zipWith outputPredicates [0..] txOutputs
+                    zipWith outputPredicates [0..] _txOutputs
     outputPredicates (i :: Word) TxOut{..} = [
       ( txOutValue > mkCoin 0
       , sformat ("output #"%int%" has non-positive value: "%coinF)
@@ -89,17 +92,17 @@ data VTxLocalContext = VTxLocalContext
 -- forks). However, we won't include such transactions into blocks when we're
 -- creating a block.
 verifyTx
-    :: (Monad m)
+    :: Monad m
     => Bool                             -- ^ Verify that tx itself is correct
     -> Bool                             -- ^ Verify that script & address
                                         --   versions in tx are known
     -> VTxGlobalContext
     -> (TxIn -> m (Maybe VTxLocalContext))
     -> TxAux
-    -> m (Either [Text] [TxOutAux])
+    -> m (Either [Text] TxUndo)
 verifyTx verifyAlone verifyVersions gContext inputResolver
          txs@(Tx {..}, _, _) = do
-    extendedInputs <- mapM extendInput txInputs
+    extendedInputs <- mapM extendInput _txInputs
     runExceptT $ do
         verResToMonadError identity $
             verifyTxDo verifyAlone verifyVersions gContext extendedInputs txs
@@ -123,27 +126,27 @@ verifyTxDo verifyAlone verifyVersions _gContext extendedInputs
     verifyAloneRes | verifyAlone = verifyTxAlone tx
                    | otherwise = mempty
     outSum :: Integer
-    outSum = sumCoins $ map txOutValue txOutputs
+    outSum = sumCoins $ map txOutValue _txOutputs
     resolvedInputs = catMaybes extendedInputs
     inpSum :: Integer
     inpSum = sumCoins $ map (txOutValue . fst . vtlTxOut . snd) resolvedInputs
-    txOutHash = hash txOutputs
+    txOutHash = hash _txOutputs
     distrsHash = hash distrs
     verifyCounts =
         verifyGeneric
-            [ ( length txInputs == length witnesses
+            [ ( length _txInputs == length witnesses
               , sformat ("length of inputs != length of witnesses "%
                          "("%int%" != "%int%")")
-                  (length txInputs) (length witnesses) )
+                  (length _txInputs) (length witnesses) )
             ]
     verifyOutputs =
         verifyGeneric $
-            [ ( length txOutputs == length (getTxDistribution distrs)
+            [ ( length _txOutputs == length (getTxDistribution distrs)
               , "length of outputs != length of tx distribution")
             ]
             ++
             do (i, (TxOut{..}, d)) <-
-                   zip [0 :: Int ..] (zip txOutputs (getTxDistribution distrs))
+                   zip [0 :: Int ..] (zip _txOutputs (getTxDistribution distrs))
                case txOutAddress of
                    PubKeyAddress{} ->
                        [ ( null d
@@ -252,7 +255,7 @@ verifyTxPure
     -> VTxGlobalContext
     -> (TxIn -> Maybe VTxLocalContext)
     -> TxAux
-    -> Either [Text] [TxOutAux]
+    -> Either [Text] TxUndo
 verifyTxPure verifyAlone verifyVersions gContext resolver =
     runIdentity .
     verifyTx verifyAlone verifyVersions gContext (Identity . resolver)
@@ -307,7 +310,7 @@ topsortTxs toTx input =
         tsVisited %= HS.insert txHash
         let visitedNew = HS.insert txHash visitedThis
             dependsUnfiltered =
-                mapMaybe (\x -> HM.lookup (txInHash x) txHashes) (txInputs tx)
+                mapMaybe (\x -> HM.lookup (txInHash x) txHashes) (_txInputs tx)
         depends <- filterM
             (\x -> not . HS.member (whHash (toTx x)) <$> use tsVisited)
             dependsUnfiltered

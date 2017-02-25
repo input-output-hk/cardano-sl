@@ -1,6 +1,4 @@
-{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
 
 -- | Block processing related workers.
 
@@ -183,14 +181,15 @@ recoveryWorkerImpl
     => SendActions m -> m ()
 recoveryWorkerImpl sendActions = action `catch` handler
   where
-    delayed a = forever $ a >> delay (sec 5)
-    action = reportingFatal $ delayed checkRecovery
+    action = reportingFatal $ forever $ checkRecovery >> delay (sec 5)
     checkRecovery = do
-        unlessM isRecoveryMode $ getCurrentSlot >>= \case
-            Nothing -> do
-                logDebug "Recovery worker: don't know current slot"
-                triggerRecovery sendActions
-            Just slotId -> pass
+        recMode <- isRecoveryMode
+        curSlotNothing <- isNothing <$> getCurrentSlot
+        if (curSlotNothing && not recMode) then do
+             logDebug "Recovery worker: don't know current slot"
+             triggerRecovery sendActions
+        else logDebug $ "Recovery worker skipped: " <> show curSlotNothing <>
+                        " " <> show recMode
     handler (e :: SomeException) = do
         logError $ "Error happened in recoveryWorker: " <> show e
         delay (sec 10)

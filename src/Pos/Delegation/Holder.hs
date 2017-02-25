@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -29,8 +28,7 @@ import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (DelegationWrap (..), MonadDelegation (..))
 import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem (..))
-import           Pos.Txp.Class               (MonadTxpLD (..))
-import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
+import           Pos.Txp.MemState.Class      (MonadTxpMem (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 
@@ -43,7 +41,7 @@ newtype DelegationT m a = DelegationT
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, WithNodeContext ssc, MonadJL,
                 CanLog, MonadMask, MonadSscMem kek, MonadSlotsData,
-                MonadUtxoRead, MonadUtxo, MonadTxpLD ssc, MonadDBLimits)
+                MonadTxpMem, MonadDBLimits)
 
 deriving instance MonadDB ssc m => MonadDB ssc (DelegationT m)
 

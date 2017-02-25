@@ -22,7 +22,7 @@ import           Pos.Delegation.Types             (ConfirmProxySK (..), SendProx
 import           Pos.DHT.Model.Types              (meaningPartLength)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Ssc.Class.Types              (Ssc (..))
-import           Pos.Txp.Types                    (TxMsgTag (..))
+import           Pos.Txp.Network.Types            (TxMsgTag (..))
 import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgTag (..))
 
 deriving instance Bi MessageName

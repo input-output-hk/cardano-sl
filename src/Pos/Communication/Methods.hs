@@ -1,6 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Wrappers on top of communication methods
 
@@ -10,24 +7,24 @@ module Pos.Communication.Methods
        , sendUpdateProposal
        ) where
 
-import           Formatting                  (build, sformat, (%))
-import           System.Wlog                 (logInfo)
+import           Formatting                 (build, sformat, (%))
+import           System.Wlog                (logInfo)
 import           Universum
 
-import           Pos.Binary.Communication    ()
-import           Pos.Binary.Relay            ()
-import           Pos.Binary.Types            ()
-import           Pos.Communication.Message   ()
-import           Pos.Communication.Protocol  (SendActions)
-import           Pos.Communication.Relay     (invReqDataFlow)
-import           Pos.Crypto                  (encodeHash, hash)
-import           Pos.DB                      (MonadDBLimits)
-import           Pos.DHT.Model               (DHTNode)
-import           Pos.Txp.Types.Communication (TxMsgContents (..), TxMsgTag (..))
-import           Pos.Types                   (TxAux)
-import           Pos.Update                  (ProposalMsgTag (..), UpId, UpdateProposal,
-                                              UpdateVote, VoteMsgTag (..), mkVoteId)
-import           Pos.WorkMode                (MinWorkMode)
+import           Pos.Binary.Communication   ()
+import           Pos.Binary.Relay           ()
+import           Pos.Binary.Types           ()
+import           Pos.Communication.Message  ()
+import           Pos.Communication.Protocol (SendActions)
+import           Pos.Communication.Relay    (invReqDataFlow)
+import           Pos.Crypto                 (encodeHash, hash)
+import           Pos.DB                     (MonadDBLimits)
+import           Pos.DHT.Model              (DHTNode)
+import           Pos.Txp.Core.Types         (TxAux)
+import           Pos.Txp.Network.Types      (TxMsgContents (..), TxMsgTag (..))
+import           Pos.Update                 (ProposalMsgTag (..), UpId, UpdateProposal,
+                                             UpdateVote, VoteMsgTag (..), mkVoteId)
+import           Pos.WorkMode               (MinWorkMode)
 
 
 -- | Send Tx to given address.

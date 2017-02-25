@@ -1,6 +1,3 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ViewPatterns        #-}
 module Pos.Types.Coin
        ( coinF
        , sumCoins
@@ -10,13 +7,13 @@ module Pos.Types.Coin
        , unsafeGetCoin
        , coinToInteger
        , unsafeIntegerToCoin
+       , coinPortionToDouble
 
        -- * Arithmetic operations
        , unsafeAddCoin
        , unsafeSubCoin
        , unsafeMulCoin
        , divCoin
-       , coinPortionToDouble
        , applyCoinPortion
        ) where
 

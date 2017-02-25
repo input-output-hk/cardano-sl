@@ -35,8 +35,7 @@ library
                        Pos.Exception
                        Pos.Util.TimeWarp
 
-  build-depends:       HsOpenSSL
-                     , base
+  build-depends:       base
                      , base58-bytestring
                      , log-warper
                       -- This constraint on 'binary' is so strict because
@@ -50,7 +49,7 @@ library
                      , cereal
                      , containers
                      , cryptonite
-                     , cryptonite-openssl
+                     , cryptonite-openssl >= 0.5
                      , data-default
                      , deepseq
                      , derive

@@ -38,10 +38,10 @@ import           Pos.Constants                 (curSoftwareVersion)
 import           Pos.Crypto                    (SecretKey, deterministicKeyGen, hash,
                                                 toPublic)
 import           Pos.DHT.Model                 (getKnownPeers)
+import           Pos.Txp.Core.Types            (TxOut (..))
 import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
-                                                TxOut (..), addressF, coinF,
-                                                decodeTextAddress, makePubKeyAddress,
-                                                mkCoin)
+                                                addressF, coinF, decodeTextAddress,
+                                                makePubKeyAddress, mkCoin)
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, keysFromPhrase)
 import           Pos.Util.UserSecret           (readUserSecret, usKeys)

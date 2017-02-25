@@ -32,9 +32,8 @@ import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Lrc.Types               (FullRichmenData)
 import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
-import           Pos.Txp.Class               (MonadTxpLD (..))
+import           Pos.Txp.MemState            (MonadTxpMem (..))
 import           Pos.Types                   (Coin)
-import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPollRead (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
@@ -62,9 +61,7 @@ newtype DBPoll m a = DBPoll
                , MonadMask
                , MonadUSMem
                , MonadSscMem peka
-               , MonadUtxoRead
-               , MonadUtxo
-               , MonadTxpLD ssc
+               , MonadTxpMem
                , MonadBase io
                , MonadDelegation
                , MonadFix

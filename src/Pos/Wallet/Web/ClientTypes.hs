@@ -47,9 +47,9 @@ import           Formatting            (build, sformat)
 
 import           Pos.Aeson.Types       ()
 import           Pos.Crypto            (hashHexF)
+import           Pos.Txp.Core.Types    (Tx (..), TxId, txOutAddress, txOutValue)
 import           Pos.Types             (Address (..), BlockVersion, ChainDifficulty, Coin,
-                                        SoftwareVersion, TxId, decodeTextAddress,
-                                        sumCoins, txOutAddress, txOutValue, txOutputs,
+                                        SoftwareVersion, decodeTextAddress, sumCoins,
                                         unsafeIntegerToCoin)
 import           Pos.Types.Script      (ScriptVersion)
 import           Pos.Update.Core       (BlockVersionData (..), StakeholderVotes,
@@ -114,7 +114,7 @@ mkCTx
 mkCTx addr diff THEntry {..} meta = CTx {..}
   where
     ctId = txIdToCTxId _thTxId
-    outputs = txOutputs _thTx
+    outputs = _txOutputs _thTx
     isToItself = all ((== addr) . txOutAddress) outputs
     ctAmount = unsafeIntegerToCoin . sumCoins . map txOutValue $
         filter ((|| isToItself) . xor _thIsOutput . (== addr) . txOutAddress) outputs

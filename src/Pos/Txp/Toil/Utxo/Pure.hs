@@ -1,6 +1,6 @@
 -- | Pure version of UTXO.
 
-module Pos.Types.Utxo.Pure
+module Pos.Txp.Toil.Utxo.Pure
        ( UtxoReaderT (..)
        , runUtxoReaderT
 
@@ -22,18 +22,19 @@ module Pos.Types.Utxo.Pure
        , verifyTxUtxoPure
        ) where
 
-import           Control.Lens             (at, (.=))
-import           Control.Monad.Reader     (runReaderT)
-import           Control.Monad.Trans      (MonadTrans (..))
-import           Serokell.Util.Verify     (VerificationRes (..))
+import           Control.Lens                (at, (.=))
+import           Control.Monad.Except        (MonadError, runExcept)
+import           Control.Monad.Reader        (runReaderT)
+import           Control.Monad.Trans         (MonadTrans (..))
+import           Serokell.Util.Verify        (VerificationRes (..))
 import           Universum
 
-import           Pos.Binary.Types         ()
-import           Pos.Crypto               (WithHash (..))
-import           Pos.Types.Types          (Tx, TxAux, TxDistribution, TxId, TxIn (..),
-                                           Utxo)
-import           Pos.Types.Utxo.Class     (MonadUtxo (..), MonadUtxoRead (..))
-import           Pos.Types.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', verifyTxUtxo)
+import           Pos.Binary.Types            ()
+import           Pos.Crypto                  (WithHash (..))
+import           Pos.Txp.Core.Types          (Tx, TxAux, TxDistribution, TxId, Utxo)
+
+import           Pos.Txp.Toil.Class          (MonadUtxo (..), MonadUtxoRead (..))
+import           Pos.Txp.Toil.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', verifyTxUtxo)
 
 ----------------------------------------------------------------------------
 -- Reader
@@ -41,10 +42,10 @@ import           Pos.Types.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', verify
 
 newtype UtxoReaderT m a = UtxoReaderT
     { getUtxoReaderT :: ReaderT Utxo m a
-    } deriving (Functor, Applicative, Monad, MonadReader Utxo)
+    } deriving (Functor, Applicative, Monad, MonadReader Utxo, MonadError e)
 
 instance Monad m => MonadUtxoRead (UtxoReaderT m) where
-    utxoGet TxIn {..} = UtxoReaderT $ view $ at (txInHash, txInIndex)
+    utxoGet id = UtxoReaderT $ view $ at id
 
 instance MonadTrans UtxoReaderT where
     lift = UtxoReaderT . lift
@@ -66,11 +67,11 @@ newtype UtxoStateT m a = UtxoStateT
     } deriving (Functor, Applicative, Monad, MonadState Utxo)
 
 instance Monad m => MonadUtxoRead (UtxoStateT m) where
-    utxoGet TxIn {..} = UtxoStateT $ use $ at (txInHash, txInIndex)
+    utxoGet id = UtxoStateT $ use $ at id
 
 instance Monad m => MonadUtxo (UtxoStateT m) where
-    utxoPut TxIn {..} v = UtxoStateT $ at (txInHash, txInIndex) .= Just v
-    utxoDel TxIn {..} = UtxoStateT $ at (txInHash, txInIndex) .= Nothing
+    utxoPut id v = UtxoStateT $ at id .= Just v
+    utxoDel id = UtxoStateT $ at id .= Nothing
 
 instance MonadTrans UtxoStateT where
     lift = UtxoStateT . lift
@@ -113,7 +114,6 @@ applyTxToUtxoPure' w = execUtxoState $ applyTxToUtxo' w
 -- | Pure version of verifyTxUtxo.
 verifyTxUtxoPure :: Bool -> Bool -> Utxo -> TxAux -> VerificationRes
 verifyTxUtxoPure verifyAlone verifyVersions utxo txw =
-    case runUtxoReader (verifyTxUtxo verifyAlone verifyVersions txw) utxo of
+    case runExcept $ runUtxoReaderT (verifyTxUtxo verifyAlone verifyVersions txw) utxo of
         Right _ -> VerSuccess
-        Left [] -> VerSuccess
-        Left es -> VerFailure es
+        Left es -> VerFailure [pretty es]

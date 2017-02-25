@@ -17,9 +17,10 @@ import           Universum                  hiding (show)
 
 import           Pos.Binary                 ()
 import           Pos.Crypto                 (Hash, decodeHash)
+import           Pos.Txp                    (TxOut (..))
 import           Pos.Types                  (Address (..), BlockVersion, EpochIndex,
-                                             SoftwareVersion, TxOut (..),
-                                             decodeTextAddress, mkCoin)
+                                             SoftwareVersion, decodeTextAddress, mkCoin,
+                                             parseBlockVersion, parseSoftwareVersion)
 import           Pos.Types.Script           (ScriptVersion)
 import           Pos.Update                 (UpId)
 import           Pos.Update.Version         (parseBlockVersion, parseSoftwareVersion)

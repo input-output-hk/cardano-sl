@@ -22,7 +22,7 @@ networkConnectionTimeout: 2000
 networkReceiveTimeout: 5000
 
 ## P2P Security
-mdNoBlocksSlotThreshold: 0 # should be less than 2 * k
+mdNoBlocksSlotThreshold: 45 # should be less than 2 * k
 mdNoCommitmentsEpochThreshold: 3
 
 # GodTossing
@@ -47,7 +47,7 @@ enhancedMessageBroadcast: 2
 messageCacheTimeout: 30
 propagationQueueSize: 100
 blockRetrievalQueueSize: 100
-recoveryHeadersMessage: 100 # should be greater than k, less than blockRetrievalQueueSize
+recoveryHeadersMessage: 100 # should be greater than k
 
 # Time slave/lord
 sysTimeBroadcastSlots: 6

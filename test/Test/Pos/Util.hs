@@ -11,7 +11,6 @@ module Test.Pos.Util
        , networkBinaryTest
        , msgLenLimitedTest
        , msgLenLimitedTest'
-       , essentialLimit
        , safeCopyEncodeDecode
        , safeCopyTest
        , serDeserId
@@ -161,13 +160,6 @@ msgLenLimitedTest
     :: forall a. (IdTestingRequiredClasses Bi a, MessageLimitedPure a)
     => Spec
 msgLenLimitedTest = msgLenLimitedTest' @a msgLenLimit "" (const True)
-
--- | Visionary upper bound on message length for essentially limited types,
--- i.e. types without lists.
--- Feel free to increase this value, however don't make it too large
--- to let `msgLenLimitedTest` do its job without hanging.
-essentialLimit :: Limit a
-essentialLimit = 100000
 
 safeCopyTest :: forall a. IdTestingRequiredClasses SafeCopy a => Spec
 safeCopyTest = identityTest @SafeCopy @a safeCopyEncodeDecode

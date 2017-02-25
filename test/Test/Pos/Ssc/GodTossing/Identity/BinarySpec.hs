@@ -19,7 +19,7 @@ import           Pos.Crypto              (Signature, PublicKey,
 import qualified Pos.Ssc.GodTossing      as GT
 import           Pos.Types.Address       (StakeholderId)
 import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
-                                          msgLenLimitedTest', essentialLimit)
+                                          msgLenLimitedTest')
 
 spec :: Spec
 spec = describe "GodTossing" $ do
@@ -53,11 +53,14 @@ spec = describe "GodTossing" $ do
             "MCCommitment"
             (has GT._MCCommitment . R.dmContents . C.getOfMaxSize)
         msgLenLimitedTest' @(R.DataMsg GT.GtMsgContents)
-            essentialLimit "MCCommitment" (has GT._MCOpening . R.dmContents)
+            (R.DataMsg <$> C.mcOpeningLenLimit)
+            "MCOpening"
+            (has GT._MCOpening . R.dmContents)
         msgLenLimitedTest' @(C.MaxSize (R.DataMsg GT.GtMsgContents))
             (C.MaxSize . R.DataMsg <$> C.mcSharesMsgLenLimit)
             "MCShares"
             (has GT._MCShares . R.dmContents . C.getOfMaxSize)
         msgLenLimitedTest' @(R.DataMsg GT.GtMsgContents)
-            essentialLimit "MCCommitment"
+            (R.DataMsg <$> C.mcVssCertificateLenLimit)
+            "MCVssCertificate"
             (has GT._MCVssCertificate . R.dmContents)

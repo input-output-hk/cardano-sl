@@ -26,7 +26,9 @@ module Pos.Communication.Limits
     , appNameLenLimit
 
     , mcCommitmentMsgLenLimit
+    , mcOpeningLenLimit
     , mcSharesMsgLenLimit
+    , mcVssCertificateLenLimit
     ) where
 
 import           Control.Lens                     (both, each, ix)
@@ -91,6 +93,19 @@ upDataNumLimit = 1
 -- | Upper bound on size of `ApplicationName`
 appNameLenLimit :: Int
 appNameLenLimit = 30
+
+mcCommitmentMsgLenLimit :: Limit GtMsgContents
+mcCommitmentMsgLenLimit = MCCommitment <$> msgLenLimit
+
+mcOpeningLenLimit :: Limit GtMsgContents
+mcOpeningLenLimit = 62
+
+mcSharesMsgLenLimit :: Limit GtMsgContents
+mcSharesMsgLenLimit =
+    MCShares <$> msgLenLimit <+> multiMap commitmentsNumLimit
+
+mcVssCertificateLenLimit :: Limit GtMsgContents
+mcVssCertificateLenLimit = 137
 
 vectorOf :: IsList l => Int -> Limit (Item l) -> Limit l
 vectorOf k (Limit x) =
@@ -191,16 +206,6 @@ instance MessageLimited (DataMsg (UpdateProposal, [UpdateVote])) where
         Limit (DataMsg (UpdateProposal, [UpdateVote]))
     getMsgLenLimit _ = return msgLenLimit
 
-noLimit :: Limit a
-noLimit = 1000000
-
-mcCommitmentMsgLenLimit :: Limit GtMsgContents
-mcCommitmentMsgLenLimit = MCCommitment <$> msgLenLimit
-
-mcSharesMsgLenLimit :: Limit GtMsgContents
-mcSharesMsgLenLimit =
-    MCShares <$> msgLenLimit <+> multiMap commitmentsNumLimit
-
 instance MessageLimited (DataMsg GtMsgContents) where
     type LimitType (DataMsg GtMsgContents) =
         ( Limit (DataMsg GtMsgContents)
@@ -211,9 +216,9 @@ instance MessageLimited (DataMsg GtMsgContents) where
     getMsgLenLimit _ =
         return $ each %~ fmap DataMsg $
             ( mcCommitmentMsgLenLimit
-            , noLimit
+            , mcOpeningLenLimit
             , mcSharesMsgLenLimit
-            , noLimit
+            , mcVssCertificateLenLimit
             )
 
 instance MessageLimited (DataMsg contents)

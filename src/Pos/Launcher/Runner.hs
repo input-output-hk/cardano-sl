@@ -72,10 +72,10 @@ import           Pos.Communication           (ActionSpec (..), BiP (..),
                                               SysStartResponse, VerInfo (..),
                                               allListeners, allStubListeners, convH,
                                               handleSysStartResp, hoistListenerSpec,
-                                              mergeLs, protocolListeners,
-                                              stubListenerConv, stubListenerOneMsg,
-                                              sysStartReqListener, sysStartRespListener,
-                                              toAction, toOutSpecs, unpackLSpecs)
+                                              mergeLs, stubListenerConv,
+                                              stubListenerOneMsg, sysStartReqListener,
+                                              sysStartRespListener, toAction, toOutSpecs,
+                                              unpackLSpecs)
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import           Pos.Constants               (lastKnownBlockVersion, protocolMagic)
 import           Pos.Constants               (blockRetrievalQueueSize,
@@ -267,7 +267,7 @@ runServer transport packedLS (OutSpecs wouts) withNode afterNode (ActionSpec act
     let (listeners', InSpecs ins, OutSpecs outs) = unpackLSpecs packedLS
         ourVerInfo =
             VerInfo protocolMagic lastKnownBlockVersion ins $ outs <> wouts
-        listeners = listeners' ourVerInfo ++ protocolListeners
+        listeners = listeners' ourVerInfo
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo "%build) ourVerInfo
     node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) $ \__node ->

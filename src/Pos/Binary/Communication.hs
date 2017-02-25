@@ -19,8 +19,8 @@ import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types          (SysStartRequest (..),
                                                    SysStartResponse (..))
-import           Pos.Communication.Types.Protocol (HandlerSpec (..), NOP (..),
-                                                   PeerId (..), VerInfo (..))
+import           Pos.Communication.Types.Protocol (HandlerSpec (..), PeerId (..),
+                                                   VerInfo (..))
 import           Pos.Delegation.Types             (ConfirmProxySK (..), SendProxySK (..))
 import           Pos.DHT.Model.Types              (meaningPartLength)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
@@ -29,13 +29,6 @@ import           Pos.Txp.Network.Types            (TxMsgTag (..))
 import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgTag (..))
 
 deriving instance Bi MessageName
-
-instance Bi NOP where
-    put _ = put (0 :: Word8)
-    get = NOP <$ do
-              (i :: Word8) <- get
-              when (i /= 0) $
-                 fail "NOP: 0 expected"
 
 ----------------------------------------------------------------------------
 -- System start

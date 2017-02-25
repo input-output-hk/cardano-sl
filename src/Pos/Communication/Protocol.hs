@@ -25,7 +25,6 @@ module Pos.Communication.Protocol
        , localOnNewSlotWorker
        , onNewSlotWithLoggingWorker
        , convertSendActions
-       , protocolListeners
        ) where
 
 import           Control.Arrow                    ((&&&))
@@ -43,21 +42,13 @@ import           Universum
 
 import           Pos.Binary.Class                 (Bi)
 import           Pos.Communication.BiP            (BiP)
-import           Pos.Communication.PeerState      (WithPeerState (..), peerVerInfo)
+import           Pos.Communication.PeerState      (WithPeerState (..))
 import           Pos.Communication.Types.Protocol
 import           Pos.Context.Class                (WithNodeContext)
 import           Pos.DHT.Model.Class              (MonadDHT)
 import           Pos.Slotting.Class               (MonadSlots)
 import           Pos.Slotting.Util                (onNewSlot, onNewSlotImpl)
 import           Pos.Types                        (SlotId)
-
-protocolListeners :: (Bi NOP, Message NOP, WithLogger m) => [Listener m]
-protocolListeners =
-    [N.ListenerActionConversation $
-        \(peerId, _) nodeId (conv :: N.ConversationActions NOP NOP m) -> do
-            void $ N.recv conv
-            logDebug $ sformat ("Received NOP from "%build) (NodeId (peerId, nodeId))
-    ]
 
 mapListener
     :: (forall t. m t -> m t) -> Listener m -> Listener m
@@ -118,8 +109,6 @@ convertSendActions
        , Mockable Throw m
        , WithPeerState m
        , Mockable SharedAtomic m
-       , Bi NOP
-       , Message NOP
        )
     => VerInfo -> N.SendActions BiP PeerData m -> SendActions m
 convertSendActions ourVerInfo sA = modifySend (vIOutHandlers ourVerInfo) $
@@ -137,8 +126,6 @@ listenerOneMsg
        , Mockable Throw m
        , WithPeerState m
        , Mockable SharedAtomic m
-       , Bi NOP
-       , Message NOP
        )
     => OutSpecs
     -> (VerInfo -> NodeId -> SendActions m -> msg -> m ())
@@ -148,7 +135,6 @@ listenerOneMsg outSpecs h = (lspec, outSpecs)
     lspec = flip ListenerSpec spec $
               \ourVerInfo -> N.ListenerActionOneMsg $
                   \(peerId, peerVerInfo') nNodeId sA msg -> do
-                      setPeerVerInfo peerId peerVerInfo'
                       checkingInSpecs ourVerInfo peerVerInfo' spec peerId $
                           h ourVerInfo
                             (NodeId (peerId, nNodeId))
@@ -176,7 +162,6 @@ listenerConv h = (lspec, mempty)
     lspec = flip ListenerSpec spec $
               \ourVerInfo -> N.ListenerActionConversation $
                 \(peerId, peerVerInfo') nNodeId conv -> do
-                    setPeerVerInfo peerId peerVerInfo'
                     checkingInSpecs ourVerInfo peerVerInfo' spec peerId $
                         h ourVerInfo
                           (NodeId (peerId, nNodeId))
@@ -186,11 +171,6 @@ listenerConv h = (lspec, mempty)
     convProxy' _ = Proxy
     sndMsgName = messageName $ sndProxy convProxy
     rcvMsgName = messageName $ rcvProxy convProxy
-
-setPeerVerInfo :: (WithPeerState m, Mockable SharedAtomic m) => PeerId -> VerInfo -> m ()
-setPeerVerInfo peerId verInfo = do
-    stV <- getPeerState peerId
-    modifySharedAtomic stV $ \st -> return (set peerVerInfo (Just verInfo) st, ())
 
 unpackLSpecs :: ([ListenerSpec m], OutSpecs) -> (VerInfo -> [Listener m], InSpecs, OutSpecs)
 unpackLSpecs =
@@ -211,8 +191,6 @@ type WorkerConstr m =
     , Mockable Throw m
     , WithPeerState m
     , Mockable SharedAtomic m
-    , Bi NOP
-    , Message NOP
     )
 
 toAction
@@ -247,8 +225,6 @@ type OnNewSlotComm ssc m =
     , Mockable Throw m
     , WithPeerState m
     , Mockable SharedAtomic m
-    , Bi NOP
-    , Message NOP
     , WithNodeContext ssc m
     , MonadDHT m
     )
@@ -319,46 +295,27 @@ instance Exception SpecError
 modifySend :: ( WithLogger m, Mockable Throw m
               , WithPeerState m
               , Mockable SharedAtomic m
-              , Bi NOP
-              , Message NOP
               )
            => HandlerSpecs -> SendActions m -> SendActions m
 modifySend ourOutSpecs sA = sA
     { sendTo = \nodeId msg -> do
           logDebug $ sformat ("Sending message "%stext%" to "%build%" ...")
                           (formatMessage msg) nodeId
-          pVI <- acquirePVI nodeId
           let sndMsgName = messageName' msg
           checkingOutSpecs (sndMsgName, OneMsgHandler)
-              nodeId (vIInHandlers pVI) $ do
+              nodeId Nothing $ do
                 sendTo sA nodeId msg
                 logDebug $ sformat ("Message "%stext%" to "%build%" sent")
                                 (formatMessage msg) nodeId
-    , withConnectionTo = \nodeId conv -> do
-          pVI <- acquirePVI nodeId
-          let sndMsgName = messageName . sndProxy $ sndArgProxy conv
-              rcvMsgName = messageName . rcvProxy $ sndArgProxy conv
-          checkingOutSpecs (sndMsgName, ConvHandler rcvMsgName)
-              nodeId (vIInHandlers pVI) $ withConnectionTo sA nodeId conv
+    , withConnectionTo = \nodeId convF -> do
+          let sndMsgName = messageName . sndProxy $ sndArgProxy convF
+              rcvMsgName = messageName . rcvProxy $ sndArgProxy convF
+          withConnectionTo sA nodeId $ \peerData conv -> do
+              pVI <- snd <$> peerData
+              checkingOutSpecs (sndMsgName, ConvHandler rcvMsgName)
+                  nodeId (Just $ vIInHandlers pVI) $ convF peerData conv
     }
   where
-    requestPVI nodeId = withConnectionTo sA nodeId $
-      \peerData (conv :: ConversationActions NOP NOP m) -> do
-          send conv NOP
-          logDebug $ sformat ("Sent NOP to "%build) nodeId
-          snd <$> peerData
-    acquirePVI nodeId@(NodeId (peerId, _)) = do
-        st <- getPeerState peerId
-        mVI <- view peerVerInfo <$> readSharedAtomic st
-        case mVI of
-            Just vi -> pure vi
-            _ -> do
-                logDebug $ sformat ("No verInfo in state for "%build%", requesting...") nodeId
-                vi <- requestPVI nodeId
-                logDebug $ sformat ("VerInfo: "%build%" (peer "%build%")")
-                                vi nodeId
-                modifySharedAtomic st $ \peerState ->
-                  return (set peerVerInfo (Just vi) peerState, vi)
     sndArgProxy :: (a -> b -> c) -> Proxy b
     sndArgProxy _ = Proxy
 
@@ -368,7 +325,7 @@ modifySend ourOutSpecs sA = sA
                      ("Sending "%build%": endpoint not reported")
                      spec
                   throw $ OutSpecNotReported spec
-           | spec `notInSpecs` peerInSpecs -> do
+           | maybe False (spec `notInSpecs`) peerInSpecs -> do
                   logDebug $ sformat
                      ("Attempting to send to "%build%": endpoint unsupported by peer "%shown)
                      spec peerId

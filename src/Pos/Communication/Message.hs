@@ -9,7 +9,6 @@ import           Universum
 import           Pos.Binary.Class                 (UnsignedVarInt (..), encodeStrict)
 import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                                                    MsgHeaders)
-import           Pos.Communication.Types.Protocol (NOP)
 import           Pos.Communication.Types.Relay    (DataMsg, InvOrData, ReqMsg)
 import           Pos.Communication.Types.SysStart (SysStartRequest, SysStartResponse)
 import           Pos.Delegation.Types             (ConfirmProxySK, SendProxySK)
@@ -20,10 +19,6 @@ import           Pos.Update.Network.Types         (ProposalMsgTag, VoteMsgTag)
 
 varIntMName :: Int -> MessageName
 varIntMName = MessageName . encodeStrict . UnsignedVarInt
-
-instance Message NOP where
-    messageName _ = varIntMName 0
-    formatMessage _ = "NOP"
 
 instance Message SendProxySK where
     messageName _ = varIntMName 2

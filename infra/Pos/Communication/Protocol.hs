@@ -47,8 +47,9 @@ import           Pos.Communication.PeerState      (WithPeerState (..), peerVerIn
 import           Pos.Communication.Types.Protocol
 import           Pos.Core.Types                   (SlotId)
 import           Pos.DHT.Model.Class              (MonadDHT)
-import           Pos.Reporting.Class              (MonadReportingMem)
-import           Pos.Slotting.Class               (MonadSlots)
+import           Pos.Reporting                    (MonadReportingMem)
+import           Pos.Shutdown                     (MonadShutdownMem)
+import           Pos.Slotting                     (MonadSlots)
 import           Pos.Slotting.Util                (onNewSlot, onNewSlotImpl)
 
 protocolListeners :: (Bi NOP, Message NOP, WithLogger m) => [Listener m]
@@ -251,6 +252,7 @@ type OnNewSlotComm m =
     , Message NOP
     , MonadDHT m
     , MonadReportingMem m
+    , MonadShutdownMem m
     )
 
 onNewSlot'
@@ -280,6 +282,7 @@ localOnNewSlotWorker
        , Mockable Delay m
        , MonadDHT m
        , MonadReportingMem m
+       , MonadShutdownMem m
        ) => Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
 localOnNewSlotWorker b h = (ActionSpec $ \__vI __sA -> onNewSlot b h, mempty)
 

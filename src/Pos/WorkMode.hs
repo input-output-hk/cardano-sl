@@ -37,7 +37,8 @@ import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.MemState            (MonadDhtMem)
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT (..), WithKademliaDHTInstance)
-import           Pos.Reporting.Class         (MonadReportingMem)
+import           Pos.Reporting               (MonadReportingMem)
+import           Pos.Shutdown                (MonadShutdownMem)
 import           Pos.Slotting.Class          (MonadSlots)
 import           Pos.Slotting.MemState       (MonadSlotsData, SlottingHolder (..))
 import           Pos.Slotting.Ntp            (NtpSlotting (..))
@@ -71,6 +72,7 @@ type WorkMode ssc m
       , WithKademliaDHTInstance m
       , WithPeerState m
       , MonadUSMem m
+      , MonadShutdownMem m
       )
 
 -- | More relaxed version of 'WorkMode'.
@@ -131,6 +133,11 @@ deriving instance MonadUSMem m => MonadUSMem (KademliaDHT m)
 deriving instance MonadUSMem m => MonadUSMem (PeerStateHolder m)
 deriving instance MonadSscMem ssc m => MonadSscMem ssc (PeerStateHolder m)
 deriving instance MonadTxpMem m => MonadTxpMem (PeerStateHolder m)
+
+deriving instance MonadShutdownMem m => MonadShutdownMem (PeerStateHolder m)
+deriving instance MonadShutdownMem m => MonadShutdownMem (KademliaDHT m)
+deriving instance MonadShutdownMem m => MonadShutdownMem (NtpSlotting m)
+deriving instance MonadShutdownMem m => MonadShutdownMem (SlottingHolder m)
 
 deriving instance MonadJL m => MonadJL (PeerStateHolder m)
 deriving instance MonadJL m => MonadJL (NtpSlotting m)

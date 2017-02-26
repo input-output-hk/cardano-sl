@@ -33,7 +33,8 @@ import           Pos.Communication.Relay   (MonadRelayMem)
 import           Pos.Context               (WithNodeContext)
 import           Pos.DB                    (MonadDB (..))
 import           Pos.DHT.MemState          (MonadDhtMem)
-import           Pos.Reporting.Class       (MonadReportingMem)
+import           Pos.Reporting             (MonadReportingMem)
+import           Pos.Shutdown              (MonadShutdownMem)
 import           Pos.Slotting.Class        (MonadSlots)
 import           Pos.Slotting.MemState     (MonadSlotsData)
 import           Pos.Ssc.Class.LocalData   (SscLocalDataClass (sscNewLocalData))
@@ -63,6 +64,7 @@ newtype SscHolder ssc m a = SscHolder
                , MonadDhtMem
                , MonadReportingMem
                , MonadRelayMem
+               , MonadShutdownMem
                )
 
 type instance ThreadId (SscHolder ssc m) = ThreadId m

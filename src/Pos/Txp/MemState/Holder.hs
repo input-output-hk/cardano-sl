@@ -33,7 +33,8 @@ import           Pos.Context.Class         (WithNodeContext)
 import           Pos.DB.Class              (MonadDB)
 import           Pos.DB.Holder             (DBHolder (..))
 import           Pos.DHT.MemState          (MonadDhtMem)
-import           Pos.Reporting.Class       (MonadReportingMem)
+import           Pos.Reporting             (MonadReportingMem)
+import           Pos.Shutdown              (MonadShutdownMem)
 import           Pos.Slotting.Class        (MonadSlots)
 import           Pos.Slotting.MemState     (MonadSlotsData)
 import           Pos.Ssc.Extra             (MonadSscMem)
@@ -69,7 +70,8 @@ newtype TxpHolder m a = TxpHolder
                , MonadFix
                , MonadDhtMem
                , MonadReportingMem
-               , MonadRelayMem)
+               , MonadRelayMem
+               , MonadShutdownMem)
 
 type instance ThreadId (TxpHolder m) = ThreadId m
 type instance Promise (TxpHolder m) = Promise m

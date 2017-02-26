@@ -8,6 +8,7 @@ import           Control.Monad.Catch        (catch)
 import           Data.Time.Clock            (getCurrentTime)
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (Delay, Mockable, delay)
+import           Paths_cardano_sl           (version)
 import           System.Wlog                (WithLogger, logError)
 import           Universum
 
@@ -17,9 +18,9 @@ import           Pos.Delegation.Class       (MonadDelegation)
 import           Pos.Delegation.Logic       (invalidateProxyCaches,
                                              runDelegationStateAction)
 import           Pos.DHT.Model.Class        (MonadDHT)
-import           Pos.Reporting.Class        (MonadReportingMem)
+import           Pos.Reporting              (MonadReportingMem)
 import           Pos.Reporting.Methods      (reportingFatal)
-import           Pos.Util.Shutdown          (ifNotShutdown)
+import           Pos.Shutdown               (MonadShutdownMem, runIfNotShutdown)
 import           Pos.Util.TimeWarp          (sec)
 import           Pos.WorkMode               (WorkMode)
 
@@ -37,10 +38,11 @@ dlgInvalidateCaches
        , MonadDHT m
        , WithNodeContext ssc m
        , MonadReportingMem m
+       , MonadShutdownMem m
        )
     => m ()
-dlgInvalidateCaches = ifNotShutdown $ do
-    reportingFatal invalidate `catch` handler
+dlgInvalidateCaches = runIfNotShutdown $ do
+    reportingFatal version invalidate `catch` handler
     delay (sec 1)
     dlgInvalidateCaches
   where

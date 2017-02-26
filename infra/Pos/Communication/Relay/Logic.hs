@@ -25,6 +25,7 @@ import           Formatting                    (build, sformat, shown, stext, (%
 import           Mockable                      (Mockable, MonadMockable, Throw, handleAll,
                                                 throw, throw)
 import           Node.Message                  (Message)
+import           Paths_cardano_sl_infra        (version)
 import           Serokell.Util.Text            (listJson)
 import           Serokell.Util.Verify          (VerificationRes (..))
 import           System.Wlog                   (WithLogger, logDebug, logError, logInfo,
@@ -116,7 +117,7 @@ handleReqL proxy = listenerConv $
 
 -- Returns True if we should propagate.
 handleDataL
-      :: forall tag key contents ssc m .
+      :: forall tag key contents m .
       ( Bi (InvMsg key tag)
       , Bi (ReqMsg key tag)
       , Bi (DataMsg contents)
@@ -235,7 +236,7 @@ invDataMsgProxy :: RelayProxy key tag contents
 invDataMsgProxy _ = Proxy
 
 
-addToRelayQueue :: forall tag key contents ssc m .
+addToRelayQueue :: forall tag key contents m .
                 ( Bi (InvOrData tag key contents)
                 , Bi (ReqMsg key tag)
                 , Message (InvOrData tag key contents)
@@ -252,7 +253,7 @@ addToRelayQueue inv = do
     else
         atomically $ writeTBQueue queue (SomeInvMsg inv)
 
-relayWorkers :: forall ssc m .
+relayWorkers :: forall m .
              ( Mockable Throw m
              , RelayWorkMode m
              , MonadMask m
@@ -262,7 +263,7 @@ relayWorkers :: forall ssc m .
              => OutSpecs -> ([WorkerSpec m], OutSpecs)
 relayWorkers allOutSpecs =
     first (:[]) $ worker allOutSpecs $ \sendActions ->
-        handleAll handleWE $ reportingFatal $ action sendActions
+        handleAll handleWE $ reportingFatal version $ action sendActions
   where
     action sendActions = do
         queue <- _rlyPropagationQueue <$> askRelayMem

@@ -22,7 +22,8 @@ import           Pos.DHT.MemState           (DhtContext (..), MonadDhtMem (..))
 import           Pos.DHT.Model.Class        (MonadDHT)
 import           Pos.DHT.Real.Types         (KademliaDHTInstance (..),
                                              WithKademliaDHTInstance (..))
-import           Pos.Reporting.Class        (MonadReportingMem)
+import           Pos.Reporting              (MonadReportingMem)
+import           Pos.Shutdown               (MonadShutdownMem)
 import           Pos.Slotting.Class         (MonadSlots)
 
 type DhtWorkMode m = ( WithLogger m
@@ -34,7 +35,8 @@ type DhtWorkMode m = ( WithLogger m
                      , Mockable Fork m
                      , Mockable Delay m
                      , MonadDHT m
-                     , MonadReportingMem m)
+                     , MonadReportingMem m
+                     , MonadShutdownMem m)
 
 dhtWorkers :: DhtWorkMode m => ([WorkerSpec m], OutSpecs)
 dhtWorkers = first pure dumpKademliaStateWorker

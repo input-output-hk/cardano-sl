@@ -53,7 +53,7 @@ import           Pos.Types                   (Address, BlockHeader, ChainDifficu
                                               sumCoins, sumCoins)
 import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
 import           Pos.Util                    (maybeThrow)
-import           Pos.Util.Shutdown           (triggerShutdown)
+import           Pos.Shutdown           (triggerShutdown)
 import           Pos.WorkMode                (MinWorkMode, RawRealMode)
 
 import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)

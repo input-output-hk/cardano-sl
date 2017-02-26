@@ -33,7 +33,8 @@ import           Pos.DB.Class              (MonadDB)
 import           Pos.DHT.MemState          (DhtContext (..), MonadDhtMem (..))
 import           Pos.Launcher.Param        (bpKademliaDump, npBaseParams, npPropagation,
                                             npReportServers)
-import           Pos.Reporting.Class       (MonadReportingMem (..))
+import           Pos.Reporting             (MonadReportingMem (..), ReportingContext (..))
+import           Pos.Shutdown              (MonadShutdownMem (..), ShutdownContext (..))
 import           Pos.Slotting.Class        (MonadSlots)
 import           Pos.Slotting.MemState     (MonadSlotsData)
 import           Pos.Txp.MemState.Class    (MonadTxpMem)
@@ -98,7 +99,9 @@ instance (MonadIO m, Mockable Catch m, WithLogger m) => MonadJL (ContextHolder s
             `catchAll` \e -> logWarning $ sformat ("Can't write to json log: " % shown) e
 
 instance Monad m => MonadReportingMem (ContextHolder ssc m) where
-    askReportingMem = ContextHolder $ asks (npReportServers . ncNodeParams)
+    askReportingMem =
+        ContextHolder $
+            asks (ReportingContext . npReportServers . ncNodeParams)
 
 instance Monad m => MonadDhtMem (ContextHolder ssc m) where
     askDhtMem =
@@ -112,4 +115,12 @@ instance Monad m => MonadRelayMem (ContextHolder ssc m) where
             (RelayContext
                 <$> asks (npPropagation . ncNodeParams)
                 <*> asks ncInvPropagationQueue
+            )
+
+instance Monad m => MonadShutdownMem (ContextHolder ssc m) where
+    askShutdownMem =
+        ContextHolder
+            (ShutdownContext
+                <$> asks ncShutdownFlag
+                <*> asks ncShutdownNotifyQueue
             )

@@ -40,6 +40,7 @@ import           Data.List.NonEmpty         ((<|))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text                  as T
 import           Formatting                 (build, int, ords, sformat, stext, (%))
+import           Paths_cardano_sl           (version)
 import           Serokell.Data.Memory.Units (toBytes)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (VerificationRes (..), formatAllErrors,
@@ -437,7 +438,7 @@ verifyAndApplyBlocks
     :: (WorkMode ssc m, SscWorkersClass ssc)
     => Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
 verifyAndApplyBlocks rollback =
-    reportingFatal . verifyAndApplyBlocksInternal True rollback
+    reportingFatal version . verifyAndApplyBlocksInternal True rollback
 
 -- See the description for verifyAndApplyBlocks. This method also
 -- parameterizes LRC calculation which can be turned on/off with the first
@@ -557,7 +558,7 @@ applyWithRollback
     => NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
     -> OldestFirst NE (Block ssc)  -- ^ Blocks to apply
     -> m (Either Text HeaderHash)
-applyWithRollback toRollback toApply = reportingFatal $ runExceptT $ do
+applyWithRollback toRollback toApply = reportingFatal version $ runExceptT $ do
     tip <- GS.getTip
     when (tip /= newestToRollback) $ do
         throwError (tipMismatchMsg "rollback in 'apply with rollback'" tip newestToRollback)
@@ -598,7 +599,7 @@ createGenesisBlock
     :: forall ssc m.
        WorkMode ssc m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
-createGenesisBlock epoch = reportingFatal $ do
+createGenesisBlock epoch = reportingFatal version $ do
     leadersOrErr <-
         try $
         lrcActionOnEpochReason epoch "there are no leaders" LrcDB.getLeaders
@@ -665,7 +666,7 @@ createMainBlock
     -> Maybe ProxySKEither
     -> m (Either Text (MainBlock ssc))
 createMainBlock sId pSk =
-    reportingFatal $ withBlkSemaphore createMainBlockDo
+    reportingFatal version $ withBlkSemaphore createMainBlockDo
   where
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockDo tip = do

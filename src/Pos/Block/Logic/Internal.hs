@@ -16,6 +16,7 @@ import           Control.Arrow        ((&&&))
 import           Control.Lens         (each, _Wrapped)
 import           Control.Monad.Catch  (bracketOnError)
 import qualified Data.List.NonEmpty   as NE
+import           Paths_cardano_sl     (version)
 import           Serokell.Util        (Color (Red), colorize)
 import           Universum
 
@@ -66,7 +67,7 @@ applyBlocksUnsafe
     :: forall ssc m . WorkMode ssc m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
 applyBlocksUnsafe blunds0 pModifier =
-    reportingFatal $
+    reportingFatal version $
     case blunds ^. _Wrapped of
         (b@(Left _,_):|[])     -> app' (b:|[])
         (b@(Left _,_):|(x:xs)) -> app' (b:|[]) >> app' (x:|xs)
@@ -113,7 +114,7 @@ applyBlocksUnsafeDo blunds pModifier = do
 rollbackBlocksUnsafe
     :: (WorkMode ssc m)
     => NewestFirst NE (Blund ssc) -> m ()
-rollbackBlocksUnsafe toRollback = reportingFatal $ do
+rollbackBlocksUnsafe toRollback = reportingFatal version $ do
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks (toRollback & each._2 %~ undoUS)
     txRoll <- txRollbackBlocks toRollback

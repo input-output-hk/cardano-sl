@@ -31,7 +31,8 @@ import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.MemState            (MonadDhtMem)
-import           Pos.Reporting.Class         (MonadReportingMem)
+import           Pos.Reporting               (MonadReportingMem)
+import           Pos.Shutdown                (MonadShutdownMem)
 import           Pos.Slotting.Class          (MonadSlots)
 import           Pos.Slotting.MemState       (MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
@@ -70,6 +71,7 @@ newtype USHolder m a = USHolder
                , MonadDhtMem
                , MonadReportingMem
                , MonadRelayMem
+               , MonadShutdownMem
                )
 
 ----------------------------------------------------------------------------

@@ -26,6 +26,7 @@ import           Data.Time.Units          (Millisecond)
 import           Data.Time.Units          (convertUnit)
 import           Formatting               (build, int, sformat, shown, (%))
 import           Mockable                 (Delay, Fork, Mockable, delay, fork)
+import           Paths_cardano_sl_infra   (version)
 import           Serokell.Util.Exceptions ()
 import           System.Wlog              (WithLogger, logDebug, logError, logInfo,
                                            logNotice, modifyLoggerName)
@@ -36,19 +37,18 @@ import           Pos.Core.Types           (FlatSlotId, SlotId (..), Timestamp (.
                                            slotIdF)
 import           Pos.DHT.Model.Class      (MonadDHT)
 import           Pos.Exception            (CardanoException)
-import           Pos.Reporting.Class      (MonadReportingMem)
+import           Pos.Reporting.MemState   (MonadReportingMem)
 import           Pos.Reporting.Methods    (reportMisbehaviourMasked, reportingFatal)
+import           Pos.Shutdown             (MonadShutdownMem, runIfNotShutdown)
 import           Pos.Slotting.Class       (MonadSlots (..))
 import           Pos.Slotting.Error       (SlottingError (..))
 import           Pos.Slotting.MemState    (MonadSlotsData (..))
 import           Pos.Slotting.Types       (EpochSlottingData (..), SlottingData (..))
---import           Pos.Util                    (maybeThrow)
---import           Pos.Util.Shutdown           (ifNotShutdown)
--- TODO uncomment it after refactoring
 import           Pos.Util.TimeWarp        (minute, sec)
 
-maybeThrow = undefined
-ifNotShutdown = undefined
+-- TODO eliminate this copy-paste when would refactor Pos.Util
+maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
+maybeThrow e = maybe (throwM e) pure
 
 -- | Get flat id of current slot based on MonadSlots.
 getCurrentSlotFlat :: MonadSlots m => m (Maybe FlatSlotId)
@@ -88,6 +88,7 @@ type OnNewSlot m =
     , Mockable Fork m
     , Mockable Delay m
     , MonadReportingMem m
+    , MonadShutdownMem m
     )
 
 -- | Run given action as soon as new slot starts, passing SlotId to
@@ -108,7 +109,7 @@ onNewSlotImpl
     :: forall m. OnNewSlot m
     => Bool -> Bool -> (SlotId -> m ()) -> m ()
 onNewSlotImpl withLogging startImmediately action =
-    reportingFatal impl `catch` workerHandler
+    reportingFatal version impl `catch` workerHandler
   where
     impl = onNewSlotDo withLogging Nothing startImmediately actionWithCatch
     actionWithCatch s = action s `catch` actionHandler
@@ -121,20 +122,20 @@ onNewSlotImpl withLogging startImmediately action =
     workerHandler e = do
         let msg = sformat ("Error occurred in 'onNewSlot' worker itself: " %build) e
         logError $ msg
-        reportMisbehaviourMasked msg
+        reportMisbehaviourMasked version msg
         delay $ minute 1
 
 onNewSlotDo
     :: OnNewSlot m
     => Bool -> Maybe SlotId -> Bool -> (SlotId -> m ()) -> m ()
-onNewSlotDo withLogging expectedSlotId startImmediately action = ifNotShutdown $ do
+onNewSlotDo withLogging expectedSlotId startImmediately action = runIfNotShutdown $ do
     curSlot <- waitUntilExpectedSlot
 
     -- Fork is necessary because action can take more time than duration of slot.
     when startImmediately $ void $ fork $ action curSlot
 
     -- check for shutdown flag again to not wait a whole slot
-    ifNotShutdown $ do
+    runIfNotShutdown $ do
         let nextSlot = succ curSlot
         Timestamp curTime <- currentTimeSlotting
         Timestamp nextSlotStart <- getSlotStartEmpatically nextSlot
@@ -167,7 +168,10 @@ logNewSlotWorker =
 -- | Wait until system starts. This function is useful if node is
 -- launched before 0-th epoch starts.
 waitSystemStart
-    :: (MonadSlotsData m, Mockable Delay m, WithLogger m, MonadSlots m)
+    :: ( MonadSlotsData m
+       , Mockable Delay m
+       , WithLogger m
+       , MonadSlots m)
     => m ()
 waitSystemStart = do
     start <- getSystemStart

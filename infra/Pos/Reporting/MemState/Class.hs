@@ -1,17 +1,18 @@
 {-# LANGUAGE TypeFamilies #-}
 
-module Pos.Reporting.Class
+module Pos.Reporting.MemState.Class
        ( MonadReportingMem (..)
        ) where
 
-import           Control.Monad.Trans (MonadTrans)
+import           Control.Monad.Trans          (MonadTrans)
+import           Pos.Reporting.MemState.Types (ReportingContext)
 import           Universum
 
 class Monad m => MonadReportingMem m where
-    askReportingMem :: m [Text]
+    askReportingMem :: m ReportingContext
 
     default askReportingMem :: (MonadTrans t, MonadReportingMem m', t m' ~ m) =>
-       m [Text]
+       m ReportingContext
     askReportingMem = lift askReportingMem
 
 instance MonadReportingMem m => MonadReportingMem (ReaderT s m) where

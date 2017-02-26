@@ -15,7 +15,9 @@ library
   exposed-modules:      
                         -- Reporting
                         Pos.Reporting
-                        Pos.Reporting.Class
+                        Pos.Reporting.MemState
+                        Pos.Reporting.MemState.Class
+                        Pos.Reporting.MemState.Types
                         Pos.Reporting.Exceptions
                         Pos.Reporting.Methods
 
@@ -60,6 +62,12 @@ library
                         Pos.Communication.Relay.Types
                         Pos.Communication.Util
 
+                        -- Pos.Communication
+                        Pos.Shutdown
+                        Pos.Shutdown.Class
+                        Pos.Shutdown.Logic
+                        Pos.Shutdown.Types
+
                         -- Pos.Binary
                         Pos.Binary.Infra
                         Pos.Binary.Infra.DHTModel
@@ -69,7 +77,8 @@ library
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
 
-  other-modules:        Pos.Slotting.Constants
+  other-modules:        Paths_cardano_sl_infra
+                        Pos.Slotting.Constants
                         Pos.DHT.Constants
                         Pos.Communication.Constants
                       

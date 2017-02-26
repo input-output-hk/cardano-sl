@@ -28,7 +28,6 @@ import           Formatting               (build, sformat, shown, stext, (%))
 import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Network.Wreq             (partFile, partLBS, post)
 import           Panic                    (FatalError (..))
---import           Paths_cardano_sl         (version)
 import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
 import           Serokell.Util.Text       (listBuilderJSON, listJson)
 import           System.Directory         (doesFileExist, listDirectory)
@@ -45,10 +44,8 @@ import           Universum
 import           Pos.Core.Constants       (protocolMagic)
 import           Pos.DHT.Model.Class      (MonadDHT, currentNodeKey, getKnownPeers)
 import           Pos.Exception            (CardanoFatalError)
-import           Pos.Reporting.Class      (MonadReportingMem (..))
 import           Pos.Reporting.Exceptions (ReportingError (..))
-
-version = undefined
+import           Pos.Reporting.MemState   (MonadReportingMem (..), _rprReportServers)
 
 -- TODO From Pos.Util, remove after refactoring.
 -- | Concatenates two url part using regular slash '/'.
@@ -69,10 +66,9 @@ version = undefined
 -- from node's configuration.
 sendReportNode
     :: (MonadIO m, MonadMask m, MonadReportingMem m)
-    => ReportType -> m ()
-sendReportNode reportType = do
---    servers <- npReportServers . ncNodeParams <$> getNodeContext
-    servers <- askReportingMem
+    => Version -> ReportType -> m ()
+sendReportNode version reportType = do
+    servers <- _rprReportServers <$> askReportingMem
     memLogs <- takeGlobalSize charsConst <$> readMemoryLogs
     errors <- fmap lefts $ forM servers $ try .
         sendReport [] memLogs reportType "cardano-node" version . T.unpack
@@ -111,7 +107,7 @@ getNodeInfo = do
         not $ ipv4Local w || w == 0 || w == 16777343 -- the last is 127.0.0.1
     outputF = ("{ nodeParams: '"%stext%":"%build%"', otherNodes: "%listJson%" }")
 
-type ReportingContext m =
+type ReportingWorkMode m =
        ( MonadIO m
        , MonadMask m
        , MonadDHT m
@@ -123,21 +119,21 @@ type ReportingContext m =
 -- | Reports misbehaviour given reason string. Effectively designed
 -- for 'WorkMode' context.
 reportMisbehaviour
-    :: forall m . ReportingContext m
-    => Text -> m ()
-reportMisbehaviour reason = do
+    :: forall m . ReportingWorkMode m
+    => Version -> Text -> m ()
+reportMisbehaviour version reason = do
     logDebug $ "Reporting misbehaviour \"" <> reason <> "\""
     nodeInfo <- getNodeInfo
-    sendReportNode $ RMisbehavior $ sformat misbehF reason nodeInfo
+    sendReportNode version $ RMisbehavior $ sformat misbehF reason nodeInfo
   where
     misbehF = stext%", nodeInfo: "%stext
 
 -- | Report misbehaveour, but catch all errors inside
 reportMisbehaviourMasked
-    :: forall m . ReportingContext m
-    => Text -> m ()
-reportMisbehaviourMasked reason =
-    reportMisbehaviour reason `catch` handler
+    :: forall m . ReportingWorkMode m
+    => Version -> Text -> m ()
+reportMisbehaviourMasked version reason =
+    reportMisbehaviour version reason `catch` handler
   where
     handler :: SomeException -> m ()
     handler e =
@@ -149,9 +145,9 @@ reportMisbehaviourMasked reason =
 -- happens and rethrow. Errors related to reporting itself are caught,
 -- logged and ignored.
 reportingFatal
-    :: forall m a . ReportingContext m
-    => m a -> m a
-reportingFatal action =
+    :: forall m a . ReportingWorkMode m
+    => Version -> m a -> m a
+reportingFatal version action =
     action `catch` handler1 `catch` handler2
   where
     andThrow :: (Exception e, MonadThrow n) => (e -> n x) -> e -> n y
@@ -160,7 +156,7 @@ reportingFatal action =
         logDebug $ "Reporting error \"" <> reason <> "\""
         let errorF = stext%", nodeInfo: "%stext
         nodeInfo <- getNodeInfo
-        sendReportNode (RError $ sformat errorF reason nodeInfo) `catch`
+        sendReportNode version (RError $ sformat errorF reason nodeInfo) `catch`
             handlerSend reason
     handlerSend reason (e :: SomeException) =
         logError $

@@ -40,6 +40,8 @@
 @custom-media --sm (width <= 576px);
 /*medium devices (tablets, >=768px)*/
 @custom-media --md (width >= 768px);
+
+@custom-media --mdd (width <= 768px);
 /*large devices (desktops, >=992px)*/
 @custom-media --lg (width >= 992px);
 /*extra large devices (large desktops, >=1200px)*/

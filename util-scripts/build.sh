@@ -63,8 +63,8 @@ if [[ $clean == true ]]; then
   exit
 fi
 
-stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun --dependencies-only $args core/
-stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun --fast $args 2>&1 core/ | perl -pe "$xperl" | { grep -E --color "$xgrep" || true; }
+stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun --dependencies-only $args cardano-sl-core
+stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun --fast $args 2>&1 cardano-sl-core | perl -pe "$xperl" | { grep -E --color "$xgrep" || true; }
 
 if [[ $core == false ]]; then
   stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun $webwallet --dependencies-only cardano-sl $args

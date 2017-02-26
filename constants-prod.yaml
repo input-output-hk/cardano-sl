@@ -12,7 +12,7 @@ maxInvSize: 100 # 100 bytes
 genesisMpcThd: 0.05 # 5% of stake
 genesisHeavyDelThd: 0.0003 # 0.03% of stake
 genesisUpdateVoteThd: 0.001 # 0.1% of total stake
-genesisUpdateProposalSize: 700 # 700 bytes
+genesisMaxUpdateProposalSize: 700 # 700 bytes
 genesisUpdateProposalThd: 0.1 # 10% of total stake
 genesisUpdateImplicit: 10000 # slots
 genesisUpdateSoftforkThd: 0.75 # 75% of total stake

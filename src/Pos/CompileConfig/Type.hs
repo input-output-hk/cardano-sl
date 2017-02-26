@@ -59,7 +59,7 @@ data CompileConfig = CompileConfig
 ----------------------------------------------------------------------------
     , ccGenesisUpdateVoteThd          :: !Double
       -- ^ Portion of total stake necessary to vote for or against update.
-    , ccGenesisUpdateProposalSize     :: !Byte
+    , ccGenesisMaxUpdateProposalSize  :: !Byte
       -- ^ Maximum update proposal size in bytes
     , ccGenesisUpdateProposalThd      :: !Double
       -- ^ Portion of total stake such that block containing

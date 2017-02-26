@@ -1,5 +1,5 @@
-{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE CPP                  #-}
+{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE DeriveFunctor        #-}
 {-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE Rank2Types           #-}
@@ -22,8 +22,6 @@ module Pos.Communication.Limits
 
     , updateVoteNumLimit
     , commitmentsNumLimit
-    , upDataNumLimit
-    , appNameLenLimit
 
     , mcCommitmentMsgLenLimit
     , mcOpeningLenLimit
@@ -32,10 +30,10 @@ module Pos.Communication.Limits
     ) where
 
 import           Control.Lens                     (both, each, ix)
-import qualified Crypto.PVSS                      as PVSS
 import           Crypto.Hash                      (Blake2s_224, Blake2s_256)
+import qualified Crypto.PVSS                      as PVSS
 import           Data.Binary                      (Get)
-import           Data.Binary.Get                  (lookAhead, getWord8)
+import           Data.Binary.Get                  (getWord8, lookAhead)
 import           Data.Proxy                       (Proxy (..))
 import           Data.Reflection                  (Reifies (..), reify)
 import           GHC.Exts                         (IsList (..))
@@ -45,22 +43,21 @@ import           Universum
 
 import           Pos.Binary.Class                 (AsBinary (..), Bi (..))
 import qualified Pos.Binary.Class                 as Bi
-import           Pos.Block.Network.Types          (MsgBlock, MsgHeaders (..),
-                                                   MsgGetHeaders (..))
-import qualified Pos.Constants                    as Const
+import           Pos.Block.Network.Types          (MsgBlock, MsgGetHeaders (..),
+                                                   MsgHeaders (..))
 import           Pos.Communication.Protocol       (ConversationActions (..))
-import           Pos.Communication.Types.Relay    (DataMsg (..), InvMsg, ReqMsg,
-                                                   InvOrData)
-import           Pos.Crypto                       (Signature, PublicKey,
-                                                   SecretSharingExtra (..), SecretProof,
-                                                   VssPublicKey, EncShare, AbstractHash,
-                                                   Share)
+import           Pos.Communication.Types.Relay    (DataMsg (..), InvMsg, InvOrData,
+                                                   ReqMsg)
+import qualified Pos.Constants                    as Const
+import           Pos.Crypto                       (AbstractHash, EncShare, PublicKey,
+                                                   SecretProof, SecretSharingExtra (..),
+                                                   Share, Signature, VssPublicKey)
 import qualified Pos.DB.Limits                    as DB
 import           Pos.Ssc.GodTossing.Arbitrary     ()
-import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Ssc.GodTossing.Core.Types    (Commitment (..))
-import           Pos.Types                        (coinPortionToDouble)
+import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Txp.Network.Types            (TxMsgContents)
+import           Pos.Types                        (coinPortionToDouble)
 import           Pos.Update.Core.Types            (UpdateProposal (..), UpdateVote (..))
 
 -- | Specifies limit for given type @t@.
@@ -82,19 +79,11 @@ commitmentsNumLimit = round $ 1 / coinPortionToDouble Const.genesisMpcThd
 updateVoteNumLimit :: Int
 updateVoteNumLimit = round $ 1 / coinPortionToDouble Const.genesisUpdateVoteThd
 
--- | Upper bound on size of `upData` in `UpdateProposal`.
-upDataNumLimit :: Int
-upDataNumLimit = 1
-
--- | Upper bound on size of `ApplicationName`
-appNameLenLimit :: Int
-appNameLenLimit = 30
-
 mcCommitmentMsgLenLimit :: Limit GtMsgContents
 mcCommitmentMsgLenLimit = MCCommitment <$> msgLenLimit
 
 mcOpeningLenLimit :: Limit GtMsgContents
-mcOpeningLenLimit = 62
+mcOpeningLenLimit = 1000
 
 mcSharesMsgLenLimit :: Limit GtMsgContents
 mcSharesMsgLenLimit =
@@ -150,7 +139,7 @@ instance Limiter (Limit t, Limit t, Limit t, Limit t) where
     limitGet limits parser = do
         tag <- fromIntegral <$> lookAhead getWord8
         case (limits ^.. each) ^? ix tag of
-            Nothing -> fail ("get@DataMsg: invalid tag: " ++ show tag)
+            Nothing    -> fail ("get@DataMsg: invalid tag: " ++ show tag)
             Just limit -> limitGet limit parser
 
     addLimit a = both %~ addLimit a
@@ -260,7 +249,8 @@ instance MessageLimitedPure SecretSharingExtra where
         SecretSharingExtra <$> msgLenLimit <+> vector commitmentsNumLimit
 
 instance MessageLimitedPure UpdateProposal where
-    msgLenLimit = fromIntegral Const.genesisUpdateProposalSize
+    -- TODO [CSL-804] put to update proposal consts
+    msgLenLimit = fromIntegral Const.genesisMaxUpdateProposalSize
 
 instance MessageLimitedPure UpdateVote where
     msgLenLimit =

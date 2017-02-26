@@ -6,8 +6,9 @@ module Pos.Ssc.GodTossing.SecretStorage
 
 import           Universum
 
+import           Pos.Binary.Ssc           ()
 import           Pos.DB                   (MonadDB)
-import           Pos.DB.Misc              (getSecretStorage, putSecretStorage)
+import           Pos.DB.Misc.Common       (miscGetBi, miscPutBi)
 import           Pos.Ssc.GodTossing.Core  (Opening, SignedCommitment)
 import           Pos.Ssc.GodTossing.Types (GtSecretStorage (..))
 import           Pos.Types                (EpochIndex)
@@ -43,3 +44,16 @@ putOurSecret
 putOurSecret comm open epoch =
     putSecretStorage $
     GtSecretStorage {gssCommitment = comm, gssOpening = open, gssEpoch = epoch}
+
+----------------------------------------------------------------------------
+-- DB
+----------------------------------------------------------------------------
+
+getSecretStorage :: MonadDB m => m (Maybe GtSecretStorage)
+getSecretStorage = miscGetBi secretStorageKey
+
+putSecretStorage :: MonadDB m => GtSecretStorage -> m ()
+putSecretStorage = miscPutBi secretStorageKey
+
+secretStorageKey :: ByteString
+secretStorageKey = "gtSecretStorageKey"

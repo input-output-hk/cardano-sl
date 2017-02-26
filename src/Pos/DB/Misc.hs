@@ -11,24 +11,18 @@ module Pos.DB.Misc
        , removeProxySecretKey
        , dropOldProxySecretKeys
 
-       -- * Secret storage
-       , getSecretStorage
-       , putSecretStorage
-
        , putSecretKeyHash
        , checkSecretKeyHash
        ) where
 
-import           Data.List                      (nub)
+import           Data.List          (nub)
 import           Universum
 
-import           Pos.Binary.Ssc                 ()
-import           Pos.Crypto                     (Hash, PublicKey, SecretKey, pskIssuerPk,
-                                                 pskOmega)
-import           Pos.DB.Class                   (MonadDB)
-import           Pos.DB.Misc.Common             (miscGetBi, miscPutBi)
-import           Pos.Ssc.GodTossing.Types.Types (GtSecretStorage)
-import           Pos.Types                      (EpochIndex, ProxySKLight)
+import           Pos.Binary.Ssc     ()
+import           Pos.Crypto         (Hash, PublicKey, SecretKey, pskIssuerPk, pskOmega)
+import           Pos.DB.Class       (MonadDB)
+import           Pos.DB.Misc.Common (miscGetBi, miscPutBi)
+import           Pos.Types          (EpochIndex, ProxySKLight)
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -96,19 +90,6 @@ checkSecretKeyHash :: MonadDB m => Hash SecretKey -> m Bool
 checkSecretKeyHash h = do
     curSkHash <- miscGetBi @(Hash SecretKey) skHashKey
     maybe (miscPutBi skHashKey h >> pure True) (pure . (== h)) curSkHash
-
-----------------------------------------------------------------------------
--- Ssc Secret Storage
-----------------------------------------------------------------------------
-
-getSecretStorage :: MonadDB m => m (Maybe GtSecretStorage)
-getSecretStorage = miscGetBi secretStorageKey
-
-putSecretStorage :: MonadDB m => GtSecretStorage -> m ()
-putSecretStorage = miscPutBi secretStorageKey
-
-secretStorageKey :: ByteString
-secretStorageKey = "gtSecretStorageKey"
 
 ----------------------------------------------------------------------------
 -- Helpers

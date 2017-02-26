@@ -148,7 +148,6 @@ library
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
                         Pos.Binary.DHTModel
-                        Pos.Binary.DB
                         Pos.Binary.Genesis
                         Pos.Binary.Merkle
                         Pos.Binary.Relay
@@ -234,7 +233,6 @@ library
                         Pos.DB.Lrc.Leaders
                         Pos.DB.Lrc.Lrc
                         Pos.DB.Lrc.Richmen
-                        Pos.DB.Lrc.Types
                         Pos.DB.Misc
 
                         -- Genesis

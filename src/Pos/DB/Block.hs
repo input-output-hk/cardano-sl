@@ -31,7 +31,6 @@ import           Universum
 
 import           Pos.Binary.Block          ()
 import           Pos.Binary.Class          (Bi)
-import           Pos.Binary.DB             ()
 import           Pos.Block.Types           (Blund, Undo (..))
 import           Pos.Crypto                (shortHashF)
 import           Pos.DB.Class              (MonadDB, getBlockDB)

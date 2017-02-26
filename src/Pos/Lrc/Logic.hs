@@ -10,20 +10,20 @@ module Pos.Lrc.Logic
        , RichmenType (..)
        ) where
 
-import qualified Data.HashMap.Strict      as HM
-import qualified Data.HashSet             as HS
+import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet        as HS
 import           Universum
 
-import           Pos.Crypto.Signing       (pskDelegatePk)
-import           Pos.DB.Class             (MonadDB)
-import           Pos.DB.GState.Balances   (getFtsStake)
-import           Pos.DB.GState.Delegation (isIssuerByAddressHash, runPskMapIterator)
-import           Pos.Lrc.Types            (FullRichmenData, RichmenStake)
-import           Pos.Types                (Coin, StakeholderId, addressHash, mkCoin,
-                                           sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Util                 (getKeys)
-import           Pos.Util.Iterator        (MonadIterator (nextItem), runListHolder,
-                                           runListHolderT)
+import           Pos.Crypto.Signing  (pskDelegatePk)
+import           Pos.DB.Class        (MonadDB)
+import           Pos.DB.GState       (getFtsStake, isIssuerByAddressHash,
+                                      runPskMapIterator)
+import           Pos.Lrc.Types       (FullRichmenData, RichmenStake)
+import           Pos.Types           (Coin, StakeholderId, addressHash, mkCoin, sumCoins,
+                                      unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Util            (getKeys)
+import           Pos.Util.Iterator   (MonadIterator (nextItem), runListHolder,
+                                      runListHolderT)
 
 type SetRichmen = HashSet StakeholderId
 

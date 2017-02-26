@@ -203,6 +203,7 @@ library
 
                         -- Heavy delegation
                         Pos.Delegation.Class
+                        Pos.Delegation.DB
                         Pos.Delegation.Holder
                         Pos.Delegation.Listeners
                         Pos.Delegation.Logic
@@ -222,7 +223,6 @@ library
                         Pos.DB.Block
                         Pos.DB.GState.Balances
                         Pos.DB.GState.BlockExtra
-                        Pos.DB.GState.Delegation
                         Pos.DB.GState.GState
                         Pos.DB.GState.Utxo
                         Pos.DB.Misc

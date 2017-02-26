@@ -256,7 +256,7 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
 -- | Triggers recovery based on established communication.
 triggerRecovery :: WorkMode ssc m => SendActions m -> m ()
 triggerRecovery sendActions = unlessM isRecoveryMode $ do
-    logDebug "Recovery triggered"
+    logDebug "Recovery triggered, requesting tips"
     converseToNeighbors sendActions requestTip `catch`
         (\(e :: SomeException) ->
            logDebug ("Error happened in triggerRecovery" <> show e) >> throwM e)
@@ -296,7 +296,8 @@ handleUnsolicitedHeader
     -> m ()
 handleUnsolicitedHeader header peerId conv = do
     logDebug $ sformat
-        ("handleUnsolicitedHeader: single header "%shortHashF%" was propagated, processing")
+        ("handleUnsolicitedHeader: single header "%shortHashF%
+         " was propagated, processing")
         hHash
     classificationRes <- classifyNewHeader header
     -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
@@ -311,7 +312,8 @@ handleUnsolicitedHeader header peerId conv = do
                 requestHeaders mgh (Just header) peerId conv
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> do
-            logDebug $ sformat ("handleUnsolicited: header "%shortHashF%" is invalid") hHash
+            logDebug $ sformat ("handleUnsolicited: header "%shortHashF%
+                                " is invalid") hHash
             pass -- TODO: ban node for sending invalid block.
   where
     hHash = headerHash header

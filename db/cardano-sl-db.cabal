@@ -21,6 +21,7 @@ library
                        Pos.DB.Iterator
                        Pos.DB.Iterator.Class
                        Pos.DB.Iterator.DBIterator
+                       Pos.DB.Misc.Common
                        Pos.DB.Types
 
   build-depends:       base

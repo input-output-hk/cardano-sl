@@ -22,12 +22,11 @@ module Pos.DB.Misc
 import           Data.List                      (nub)
 import           Universum
 
-import           Pos.Binary.Class               (Bi)
 import           Pos.Binary.Ssc                 ()
 import           Pos.Crypto                     (Hash, PublicKey, SecretKey, pskIssuerPk,
                                                  pskOmega)
-import           Pos.DB.Class                   (MonadDB, getMiscDB)
-import           Pos.DB.Functions               (rocksGetBi, rocksPutBi)
+import           Pos.DB.Class                   (MonadDB)
+import           Pos.DB.Misc.Common             (miscGetBi, miscPutBi)
 import           Pos.Ssc.GodTossing.Types.Types (GtSecretStorage)
 import           Pos.Types                      (EpochIndex, ProxySKLight)
 
@@ -47,24 +46,24 @@ prepareMiscDB = pass
 -- | Gets proxy secret keys stored by node
 getProxySecretKeys :: MonadDB m => m [ProxySKLight]
 getProxySecretKeys = do
-    curCerts <- getBi @([ProxySKLight]) proxySKKey
+    curCerts <- miscGetBi @([ProxySKLight]) proxySKKey
     maybe onNothing pure curCerts
   where
     onNothing = do
-        putBi proxySKKey ([] :: [ProxySKLight])
+        miscPutBi proxySKKey ([] :: [ProxySKLight])
         pure []
 
 -- | Adds proxy secret key if not present. Nothing if present.
 addProxySecretKey :: MonadDB m => ProxySKLight -> m ()
 addProxySecretKey psk = do
     keys <- getProxySecretKeys
-    putBi proxySKKey $ nub $ psk:keys
+    miscPutBi proxySKKey $ nub $ psk:keys
 
 -- | Removes proxy secret key if present by issuer pk.
 removeProxySecretKey :: MonadDB m => PublicKey -> m ()
 removeProxySecretKey pk = do
     keys <- getProxySecretKeys
-    putBi proxySKKey $ filter ((/= pk) . pskIssuerPk) keys
+    miscPutBi proxySKKey $ filter ((/= pk) . pskIssuerPk) keys
 
 -- | Given epochindex, throws away all outdated PSKs. Remark: it
 -- doesn't remove keys that can be used in future.
@@ -72,7 +71,7 @@ dropOldProxySecretKeys :: MonadDB m => EpochIndex -> m ()
 dropOldProxySecretKeys eId = do
     keys <- filter (\p -> eId <= snd (pskOmega p)) <$>
             getProxySecretKeys
-    putBi proxySKKey keys
+    miscPutBi proxySKKey keys
 
 ----------------------------------------------------------------------------
 -- Secret key storage & verification
@@ -86,8 +85,8 @@ dropOldProxySecretKeys eId = do
 -- overwritten.
 putSecretKeyHash :: MonadDB m => Hash SecretKey -> m Bool
 putSecretKeyHash h = do
-    curSkHash <- getBi @(Hash SecretKey) skHashKey
-    putBi skHashKey h
+    curSkHash <- miscGetBi @(Hash SecretKey) skHashKey
+    miscPutBi skHashKey h
     pure $ isJust curSkHash
 
 -- | Checks if given secret key hash matches the hash in the
@@ -95,18 +94,18 @@ putSecretKeyHash h = do
 -- stored there.
 checkSecretKeyHash :: MonadDB m => Hash SecretKey -> m Bool
 checkSecretKeyHash h = do
-    curSkHash <- getBi @(Hash SecretKey) skHashKey
-    maybe (putBi skHashKey h >> pure True) (pure . (== h)) curSkHash
+    curSkHash <- miscGetBi @(Hash SecretKey) skHashKey
+    maybe (miscPutBi skHashKey h >> pure True) (pure . (== h)) curSkHash
 
 ----------------------------------------------------------------------------
 -- Ssc Secret Storage
 ----------------------------------------------------------------------------
 
 getSecretStorage :: MonadDB m => m (Maybe GtSecretStorage)
-getSecretStorage = getBi secretStorageKey
+getSecretStorage = miscGetBi secretStorageKey
 
 putSecretStorage :: MonadDB m => GtSecretStorage -> m ()
-putSecretStorage = putBi secretStorageKey
+putSecretStorage = miscPutBi secretStorageKey
 
 secretStorageKey :: ByteString
 secretStorageKey = "gtSecretStorageKey"
@@ -114,16 +113,6 @@ secretStorageKey = "gtSecretStorageKey"
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
-
-getBi
-    :: forall v m . (MonadDB m, Bi v)
-    => ByteString -> m (Maybe v)
-getBi k = rocksGetBi k =<< getMiscDB
-
-putBi
-    :: forall v m . (MonadDB m, Bi v)
-    => ByteString -> v -> m ()
-putBi k v = rocksPutBi k v =<< getMiscDB
 
 proxySKKey :: ByteString
 proxySKKey = "psk/"

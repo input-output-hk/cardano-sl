@@ -82,7 +82,7 @@ import           Pos.Crypto                  (createProxySecretKey, toPublic)
 import           Pos.DB                      (MonadDB (..), runDBHolder)
 import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
 import           Pos.DB.GState               (getTip)
-import qualified Pos.DB.Lrc                  as LrcDB
+import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Holder       (runDelegationT)
 import           Pos.DHT.Model               (MonadDHT (..), converseToNeighbors,

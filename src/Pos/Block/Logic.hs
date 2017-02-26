@@ -63,7 +63,7 @@ import           Pos.DB                     (DBError (..), MonadDB)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
-import qualified Pos.DB.Lrc                 as LrcDB
+import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Delegation.Logic       (delegationVerifyBlocks, getProxyMempool)
 import           Pos.Exception              (assertionFailed, reportFatalError)
 import           Pos.Lrc.Error              (LrcError (..))

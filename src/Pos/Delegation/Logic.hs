@@ -63,7 +63,6 @@ import qualified Pos.DB                      as DB
 import qualified Pos.DB.Block                as DB
 import qualified Pos.DB.DB                   as DB
 import qualified Pos.DB.GState               as GS
-import qualified Pos.DB.Lrc                  as LrcDB
 import qualified Pos.DB.Misc                 as Misc
 import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (..),
                                               dwConfirmationCache, dwEpochId,
@@ -72,6 +71,7 @@ import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (.
 import           Pos.Delegation.Types        (SendProxySK (..))
 import           Pos.Exception               (cardanoExceptionFromException,
                                               cardanoExceptionToException)
+import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Types                   (Block, HeaderHash, ProxySKHeavy,
                                               ProxySKLight, ProxySigLight, addressHash,

@@ -26,7 +26,7 @@ import           Universum
 
 import           Pos.Context                 (WithNodeContext, lrcActionOnEpochReason)
 import           Pos.DB.Class                (MonadDB)
-import           Pos.DB.Lrc                  (getIssuersStakes, getRichmenUS)
+import           Pos.Lrc.DB                  (getIssuersStakes, getRichmenUS)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Lrc.Types               (FullRichmenData)
 import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)

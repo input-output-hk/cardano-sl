@@ -26,7 +26,7 @@ import           Pos.Context                    (WithNodeContext, lrcActionOnEpo
 import           Pos.DB                         (DBError (DBMalformed), MonadDB)
 import           Pos.DB.DB                      (getTipBlockHeader,
                                                  loadBlundsFromTipWhile)
-import qualified Pos.DB.Lrc                     as LrcDB
+import qualified Pos.Lrc.DB                     as LrcDB
 import           Pos.Lrc.Types                  (RichmenStake)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
 import           Pos.Ssc.Extra                  (MonadSscMem, sscRunGlobalQuery)

@@ -5,7 +5,7 @@
 
 -- | Richmen part of LRC DB.
 
-module Pos.DB.Lrc.Richmen
+module Pos.Lrc.DB.Richmen
        (
          -- * Generalization
          RichmenComponent (..)
@@ -45,8 +45,8 @@ import           Pos.Constants         (genesisHeavyDelThd, genesisMpcThd,
 import           Pos.Context.Class     (WithNodeContext)
 import           Pos.Context.Functions (genesisUtxoM)
 import           Pos.DB.Class          (MonadDB)
-import           Pos.DB.Lrc.Common     (getBi, putBi)
 import           Pos.Genesis           (genesisDelegation)
+import           Pos.Lrc.DB.Common     (getBi, putBi)
 import           Pos.Lrc.Logic         (RichmenType (..), findRichmenPure)
 import           Pos.Lrc.Types         (FullRichmenData, Richmen, RichmenStake, toRichmen)
 import           Pos.Types             (Coin, EpochIndex, StakeholderId, applyCoinPortion)

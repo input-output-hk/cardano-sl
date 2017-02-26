@@ -1,7 +1,7 @@
-{-# LANGUAGE AllowAmbiguousTypes  #-}
-{-# LANGUAGE BangPatterns         #-}
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Higher-level logic of SSC independent of concrete SSC.
 
@@ -40,8 +40,8 @@ import           Universum
 import           Pos.Context             (WithNodeContext, lrcActionOnEpochReason)
 import           Pos.DB                  (MonadDB)
 import           Pos.DB.DB               (getTipBlockHeader)
-import qualified Pos.DB.Lrc              as LrcDB
 import           Pos.Exception           (assertionFailed)
+import qualified Pos.Lrc.DB              as LrcDB
 import           Pos.Slotting.Class      (MonadSlots)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))

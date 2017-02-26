@@ -26,7 +26,7 @@ import           Pos.Constants               (slotSecurityParam)
 import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
 import qualified Pos.DB.DB                   as DB
 import qualified Pos.DB.GState               as GS
-import           Pos.DB.Lrc                  (IssuersStakes, getLeaders, putEpoch,
+import           Pos.Lrc.DB                  (IssuersStakes, getLeaders, putEpoch,
                                               putIssuersStakes, putLeaders)
 import           Pos.Lrc.Consumer            (LrcConsumer (..))
 import           Pos.Lrc.Consumers           (allLrcConsumers)

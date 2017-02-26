@@ -26,7 +26,7 @@ import           Pos.Communication           (ActionSpec (..), OutSpecs, WorkerS
 import           Pos.Context                 (NodeContext (..), getNodeContext,
                                               ncPubKeyAddress, ncPublicKey)
 import qualified Pos.DB.GState               as GS
-import qualified Pos.DB.Lrc                  as LrcDB
+import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.Delegation.Logic        (initDelegation)
 import           Pos.DHT.Model               (discoverPeers)
 import           Pos.Reporting               (reportMisbehaviourMasked)

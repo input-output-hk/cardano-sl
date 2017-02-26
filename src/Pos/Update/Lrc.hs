@@ -5,8 +5,8 @@ module Pos.Update.Lrc
        ) where
 
 import qualified Pos.DB           as DB
-import           Pos.DB.Lrc       (RCUs)
 import           Pos.Lrc.Consumer (LrcConsumer (..), lrcConsumerFromComponentSimple)
+import           Pos.Lrc.DB       (RCUs)
 
 -- | Consumer will be called on every Richmen computation.
 usLrcConsumer :: DB.MonadDB m => LrcConsumer m

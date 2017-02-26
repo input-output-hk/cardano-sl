@@ -2,7 +2,7 @@
 
 -- | Leaders part of LRC DB.
 
-module Pos.DB.Lrc.Leaders
+module Pos.Lrc.DB.Leaders
        (
          -- * Getters
          getLeaders
@@ -21,7 +21,7 @@ import           Pos.Binary.Types      ()
 import           Pos.Context.Class     (WithNodeContext)
 import           Pos.Context.Functions (genesisLeadersM)
 import           Pos.DB.Class          (MonadDB)
-import           Pos.DB.Lrc.Common     (getBi, putBi)
+import           Pos.Lrc.DB.Common     (getBi, putBi)
 import           Pos.Types             (EpochIndex, SlotLeaders)
 
 ----------------------------------------------------------------------------

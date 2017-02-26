@@ -7,8 +7,8 @@ module Pos.Delegation.Lrc
 -- import           Universum
 
 import qualified Pos.DB           as DB
-import           Pos.DB.Lrc       (RCDlg)
 import           Pos.Lrc.Consumer (LrcConsumer (..), lrcConsumerFromComponentSimple)
+import           Pos.Lrc.DB       (RCDlg)
 
 -- | Consumer will be called on every Richmen computation.
 delegationLrcConsumer :: DB.MonadDB m => LrcConsumer m

@@ -227,12 +227,6 @@ library
                         Pos.DB.GState.Delegation
                         Pos.DB.GState.GState
                         Pos.DB.GState.Utxo
-                        Pos.DB.Lrc
-                        Pos.DB.Lrc.Common
-                        Pos.DB.Lrc.Issuers
-                        Pos.DB.Lrc.Leaders
-                        Pos.DB.Lrc.Lrc
-                        Pos.DB.Lrc.Richmen
                         Pos.DB.Misc
 
                         -- Genesis
@@ -242,6 +236,12 @@ library
                         -- LRC
                         Pos.Lrc.Consumer
                         Pos.Lrc.Consumers
+                        Pos.Lrc.DB
+                        Pos.Lrc.DB.Common
+                        Pos.Lrc.DB.Issuers
+                        Pos.Lrc.DB.Leaders
+                        Pos.Lrc.DB.Lrc
+                        Pos.Lrc.DB.Richmen
                         Pos.Lrc.Error
                         Pos.Lrc.Logic
                         Pos.Lrc.Types

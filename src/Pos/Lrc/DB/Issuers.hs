@@ -1,6 +1,6 @@
 -- | Issuers part of LRC DB.
 
-module Pos.DB.Lrc.Issuers
+module Pos.Lrc.DB.Issuers
        ( IssuersStakes
          -- * Getters
        , getIssuersStakes
@@ -17,7 +17,7 @@ import           Universum
 import           Pos.Binary.Class  (encodeStrict)
 import           Pos.DB.Class      (MonadDB)
 import           Pos.DB.Error      (DBError (DBMalformed))
-import           Pos.DB.Lrc.Common (getBi, putBi)
+import           Pos.Lrc.DB.Common (getBi, putBi)
 import           Pos.Types         (Coin, EpochIndex, EpochIndex (..), StakeholderId)
 import           Pos.Util          (maybeThrow)
 

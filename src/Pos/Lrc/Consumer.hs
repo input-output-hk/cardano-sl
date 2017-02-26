@@ -12,7 +12,7 @@ module Pos.Lrc.Consumer
 import           Universum
 
 import           Pos.DB.Class       (MonadDB)
-import           Pos.DB.Lrc.Richmen (RichmenComponent (..), getRichmen, putRichmen)
+import           Pos.Lrc.DB.Richmen (RichmenComponent (..), getRichmen, putRichmen)
 import           Pos.Lrc.Types      (RichmenStake)
 import           Pos.Types          (Coin, EpochIndex)
 

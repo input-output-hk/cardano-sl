@@ -101,15 +101,13 @@ converseToNeighbors
     -> (NodeId -> ConversationActions snd rcv m -> m ())
     -> m ()
 converseToNeighbors sendActions convHandler = do
-    logDebug "converseToNeighbors: getting nodes with check"
     nodes <- getNodesWithCheck
-    logDebug "converseToNeighbors: sending to nodes"
+    logDebug $ "converseToNeighbors: sending to nodes: " <> show nodes
     void $ forConcurrently nodes $ \node -> do
-        logDebug $ "converseToNeighbors: conversing to node " <> show node
         handleAll (logErr node) $ converseToNode sendActions node convHandler
         logDebug $ "converseToNeighbors: DONE conversing to node " <> show node
     logDebug "converseToNeighbors: sending to nodes done"
   where
     logErr node e =
         logWarning $
-        sformat ("Error in conversation to " % shown % ": " % shown) node e
+        sformat ("Error in conversation to "%shown%": "%shown) node e

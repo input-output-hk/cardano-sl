@@ -31,6 +31,7 @@ import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollback
 import           Pos.Txp.Logic        (txApplyBlocks, txNormalize, txRollbackBlocks)
 import           Pos.Types            (HeaderHash, epochIndexL, headerHash, headerHashG,
                                        prevBlockL)
+import qualified Pos.Update.DB        as UDB
 import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll      (PollModifier)
 import           Pos.Util             (Color (Red), NE, NewestFirst (..),
@@ -97,7 +98,7 @@ applyBlocksUnsafeDo blunds pModifier = do
     txNormalize
     usNormalize
     DB.sanityCheckDB
-    putSlottingData =<< GS.getSlottingData
+    putSlottingData =<< UDB.getSlottingData
   where
     -- hehe it's not unsafe yet TODO
     blocks = fmap fst blunds

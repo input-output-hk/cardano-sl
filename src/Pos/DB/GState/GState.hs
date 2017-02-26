@@ -20,11 +20,11 @@ import           Pos.DB.Class           (MonadDB (getNodeDBs, usingReadOptions))
 import           Pos.DB.GState.Balances (getTotalFtsStake, prepareGStateBalances,
                                          sanityCheckBalances)
 import           Pos.DB.GState.Common   (prepareGStateCommon)
-import           Pos.DB.GState.Update   (prepareGStateUS)
 import           Pos.DB.GState.Utxo     (prepareGStateUtxo, sanityCheckUtxo)
 import           Pos.DB.Types           (DB (..), NodeDBs (..), Snapshot (..), gStateDB,
                                          usingSnapshot)
 import           Pos.Types              (HeaderHash)
+import           Pos.Update.DB          (prepareGStateUS)
 
 -- | Put missing initial data into GState DB.
 prepareGStateDB

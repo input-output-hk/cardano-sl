@@ -26,7 +26,6 @@ import           Universum
 
 import           Pos.Context                 (WithNodeContext, lrcActionOnEpochReason)
 import           Pos.DB.Class                (MonadDB)
-import qualified Pos.DB.GState               as GS
 import           Pos.DB.Lrc                  (getIssuersStakes, getRichmenUS)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Lrc.Types               (FullRichmenData)
@@ -34,6 +33,7 @@ import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Txp.MemState            (MonadTxpMem (..))
 import           Pos.Types                   (Coin)
+import qualified Pos.Update.DB               as GS
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPollRead (..))
 import           Pos.Util.JsonLog            (MonadJL (..))

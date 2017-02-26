@@ -7,7 +7,6 @@ module Pos.DB.GState
        , module Pos.DB.GState.Common
        , module Pos.DB.GState.Delegation
        , module Pos.DB.GState.GState
-       , module Pos.DB.GState.Update
        , module Pos.DB.GState.Utxo
        ) where
 
@@ -17,5 +16,4 @@ import           Pos.DB.GState.Common     (CommonOp (..), getBot, getTip,
                                            writeBatchGState)
 import           Pos.DB.GState.Delegation
 import           Pos.DB.GState.GState
-import           Pos.DB.GState.Update
 import           Pos.DB.GState.Utxo

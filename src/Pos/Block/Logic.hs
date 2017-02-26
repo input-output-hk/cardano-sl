@@ -91,6 +91,7 @@ import           Pos.Types                  (Block, BlockHeader, EpochIndex,
                                              verifyHeaders, vhpVerifyConsensus)
 import qualified Pos.Types                  as Types
 import           Pos.Update.Core            (UpdatePayload (..))
+import qualified Pos.Update.DB              as UDB
 import           Pos.Update.Logic           (usCanCreateBlock, usPreparePayload,
                                              usVerifyBlocks)
 import           Pos.Update.Poll            (PollModifier)
@@ -412,7 +413,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
             when (block ^. blockLeaders /= leaders) $
                 throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
-    bv <- GS.getAdoptedBV
+    bv <- UDB.getAdoptedBV
     verResToMonadError formatAllErrors $
         Types.verifyBlocks curSlot (Just leaders) (Just bv) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
@@ -715,7 +716,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     sk <- npSecretKey . ncNodeParams <$> getNodeContext
     -- for now let's be cautious and not generate blocks that are larger than
     -- maxBlockSize/4
-    sizeLimit <- fromIntegral . toBytes . (`div` 4) <$> GS.getMaxBlockSize
+    sizeLimit <- fromIntegral . toBytes . (`div` 4) <$> UDB.getMaxBlockSize
     let blk = createMainBlockPure
                   sizeLimit prevHeader sortedTxs pSk
                   slotId localPSKs sscData usPayload sk

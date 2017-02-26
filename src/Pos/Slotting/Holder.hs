@@ -29,9 +29,9 @@ import           Universum
 
 import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
-import qualified Pos.DB.GState               as GState
 import           Pos.Slotting.Class          (MonadSlotsData (..))
 import           Pos.Slotting.Types          (SlottingData (sdPenultEpoch))
+import qualified Pos.Update.DB               as UDB
 import           Pos.Util.JsonLog            (MonadJL)
 
 ----------------------------------------------------------------------------
@@ -126,5 +126,5 @@ runSlottingHolder v = usingReaderT v . getSlottingHolder
 -- | Create new 'SlottingVar' using data from DB.
 mkSlottingVar :: MonadDB m => m SlottingVar
 mkSlottingVar = do
-    sd <- GState.getSlottingData
+    sd <- UDB.getSlottingData
     liftIO $ newTVarIO sd

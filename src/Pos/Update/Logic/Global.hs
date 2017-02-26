@@ -19,7 +19,6 @@ import           Universum
 import           Pos.Constants        (lastKnownBlockVersion)
 import           Pos.Context          (WithNodeContext)
 import qualified Pos.DB               as DB
-import           Pos.DB.GState        (UpdateOp (..))
 import           Pos.Slotting         (SlottingData)
 import           Pos.Ssc.Class        (SscHelpersClass)
 import           Pos.Types            (ApplicationName, Block, BlockVersion,
@@ -29,6 +28,7 @@ import           Pos.Types            (ApplicationName, Block, BlockVersion,
                                        headerHash, mbUpdatePayload, mcdLeaderKey,
                                        mehBlockVersion)
 import           Pos.Update.Core      (BlockVersionData, UpId)
+import           Pos.Update.DB        (UpdateOp (..))
 import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState,
                                        MonadPoll, PollModifier (..), PollVerFailure,

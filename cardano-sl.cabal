@@ -223,11 +223,10 @@ library
                         -- DB
                         Pos.DB.Block
                         Pos.DB.GState.Balances
+                        Pos.DB.GState.BlockExtra
                         Pos.DB.GState.Common
                         Pos.DB.GState.Delegation
                         Pos.DB.GState.GState
-                        Pos.DB.GState.Update
-                        Pos.DB.GState.BlockExtra
                         Pos.DB.GState.Utxo
                         Pos.DB.Lrc
                         Pos.DB.Lrc.Common
@@ -356,6 +355,7 @@ library
                         Pos.Update.Arbitrary.Network
                         Pos.Update.Arbitrary.Poll
                         Pos.Update.Core.Types
+                        Pos.Update.DB
                         Pos.Update.Download
                         Pos.Update.Error
                         Pos.Update.Logic

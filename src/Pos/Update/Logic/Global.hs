@@ -19,7 +19,6 @@ import           Universum
 import           Pos.Constants        (lastKnownBlockVersion)
 import           Pos.Context          (WithNodeContext)
 import qualified Pos.DB               as DB
-import           Pos.DB.GState        (UpdateOp (..))
 import           Pos.Slotting         (SlottingData)
 import           Pos.Ssc.Class        (SscHelpersClass)
 import           Pos.Types            (ApplicationName, Block, BlockVersion,
@@ -29,6 +28,7 @@ import           Pos.Types            (ApplicationName, Block, BlockVersion,
                                        headerHash, mbUpdatePayload, mcdLeaderKey,
                                        mehBlockVersion)
 import           Pos.Update.Core      (BlockVersionData, UpId)
+import           Pos.Update.DB        (UpdateOp (..))
 import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState,
                                        MonadPoll, PollModifier (..), PollVerFailure,
@@ -40,10 +40,10 @@ import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst
                                        colorize, inAssertMode)
 
 type USGlobalApplyMode ssc m = ( WithLogger m
-                               , DB.MonadDB ssc m
+                               , DB.MonadDB m
                                , SscHelpersClass ssc
                                , WithNodeContext ssc m)
-type USGlobalVerifyMode ssc m = ( DB.MonadDB ssc m
+type USGlobalVerifyMode ssc m = ( DB.MonadDB m
                                 , MonadError PollVerFailure m
                                 , SscHelpersClass ssc
                                 , WithNodeContext ssc m
@@ -133,7 +133,7 @@ verifyBlock (Right blk) =
 -- | Checks whether our software can create block according to current
 -- global state.
 usCanCreateBlock
-    :: (WithLogger m, WithNodeContext ssc m, DB.MonadDB ssc m)
+    :: (WithLogger m, WithNodeContext ssc m, DB.MonadDB m)
     => m Bool
 usCanCreateBlock =
     withUSLogger $ runDBPoll $ canCreateBlockBV lastKnownBlockVersion

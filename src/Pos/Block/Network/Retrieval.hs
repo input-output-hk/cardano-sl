@@ -46,14 +46,14 @@ import           Pos.Constants              (blkSecurityParam)
 import           Pos.Context                (NodeContext (..), getNodeContext,
                                              isRecoveryMode)
 import           Pos.Crypto                 (shortHashF)
-import qualified Pos.DB                     as DB
-import qualified Pos.DB.GState              as GState
+import qualified Pos.DB.DB                  as DB
 import           Pos.DHT.Model              (converseToNeighbors)
 import           Pos.Reporting.Methods      (reportMisbehaviourMasked, reportingFatal)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
                                              HeaderHash, blockHeader, difficultyL,
                                              gbHeader, prevBlockL, verifyHeaders)
+import qualified Pos.Update.DB              as UDB
 import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
                                              inAssertMode, _neHead, _neLast)
 import           Pos.Util.Shutdown          (ifNotShutdown)
@@ -156,7 +156,7 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
     handleCHsValid sendActions peerId lcaChild newestHash = do
         let lcaChildHash = headerHash lcaChild
         logDebug $ sformat validFormat lcaChildHash newestHash
-        maxBlockSize <- GState.getMaxBlockSize
+        maxBlockSize <- UDB.getMaxBlockSize
         -- Yay, reflection magic! Here we indirectly pass 'maxBlockSize' as
         -- a parameter to the 'Bi' instance of 'MsgBlock'.
         reify maxBlockSize $ \(_ :: Proxy s0) ->
@@ -230,10 +230,11 @@ triggerRecovery sendActions = unlessM isRecoveryMode $ do
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'
 -- message.
 mkHeadersRequest
-    :: WorkMode ssc m
+    :: forall ssc m.
+       WorkMode ssc m
     => Maybe HeaderHash -> m (Maybe MsgGetHeaders)
 mkHeadersRequest upto = do
-    mbHeaders <- nonEmpty . toList <$> getHeadersOlderExp Nothing
+    mbHeaders <- nonEmpty . toList <$> getHeadersOlderExp @ssc Nothing
     pure $ (\h -> MsgGetHeaders (NE.toList h) upto) <$> mbHeaders
 
 -- Second case of 'handleBlockheaders'

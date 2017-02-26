@@ -12,9 +12,9 @@ module Pos.DB.GState.Common
        , prepareGStateCommon
 
          -- * Helpers
-       , getBi
-       , putBi
-       , delete
+       , gsGetBi
+       , gsPutBi
+       , gsDelete
        , writeBatchGState
 
          -- * Operations
@@ -27,44 +27,51 @@ import           Formatting          (bprint, (%))
 import           Universum
 
 import           Pos.Binary.Class    (Bi, encodeStrict)
+import           Pos.Binary.Crypto   ()
 import           Pos.Crypto          (shortHashF)
 import           Pos.DB.Class        (MonadDB, getUtxoDB)
 import           Pos.DB.Error        (DBError (DBMalformed))
 import           Pos.DB.Functions    (RocksBatchOp (..), rocksDelete, rocksGetBi,
                                       rocksPutBi, rocksWriteBatch)
-import           Pos.Types           (HeaderHash)
-import           Pos.Util            (maybeThrow)
+import           Pos.Types.Core      (HeaderHash)
 
 ----------------------------------------------------------------------------
 -- Common Helpers
 ----------------------------------------------------------------------------
 
-getBi
-    :: (MonadDB ssc m, Bi v)
+gsGetBi
+    :: (MonadDB m, Bi v)
     => ByteString -> m (Maybe v)
-getBi k = rocksGetBi k =<< getUtxoDB
+gsGetBi k = rocksGetBi k =<< getUtxoDB
 
-putBi
-    :: (MonadDB ssc m, Bi v)
+gsPutBi
+    :: (MonadDB m, Bi v)
     => ByteString -> v -> m ()
-putBi k v = rocksPutBi k v =<< getUtxoDB
+gsPutBi k v = rocksPutBi k v =<< getUtxoDB
 
-delete :: (MonadDB ssc m) => ByteString -> m ()
-delete k = rocksDelete k =<< getUtxoDB
+gsDelete :: (MonadDB m) => ByteString -> m ()
+gsDelete k = rocksDelete k =<< getUtxoDB
 
-writeBatchGState :: (RocksBatchOp a, MonadDB ssc m) => [a] -> m ()
+writeBatchGState :: (RocksBatchOp a, MonadDB m) => [a] -> m ()
 writeBatchGState batch = rocksWriteBatch batch =<< getUtxoDB
+
+----------------------------------------------------------------------------
+-- TODO: remove
+----------------------------------------------------------------------------
+
+maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
+maybeThrow e = maybe (throwM e) pure
 
 ----------------------------------------------------------------------------
 -- Common getters
 ----------------------------------------------------------------------------
 
 -- | Get current tip from GState DB.
-getTip :: (MonadDB ssc m) => m HeaderHash
+getTip :: (MonadDB m) => m HeaderHash
 getTip = maybeThrow (DBMalformed "no tip in GState DB") =<< getTipMaybe
 
 -- | Get the hash of the first genesis block from GState DB.
-getBot :: (MonadDB ssc m) => m HeaderHash
+getBot :: (MonadDB m) => m HeaderHash
 getBot = maybeThrow (DBMalformed "no bot in GState DB") =<< getBotMaybe
 
 ----------------------------------------------------------------------------
@@ -85,8 +92,8 @@ instance RocksBatchOp CommonOp where
 
 -- | Put missing initial common data into GState DB.
 prepareGStateCommon
-    :: forall ssc m.
-       MonadDB ssc m
+    :: forall m.
+       MonadDB m
     => HeaderHash -> m ()
 prepareGStateCommon initialTip = do
     putIfEmpty getTipMaybe putGenesisTip
@@ -113,14 +120,14 @@ botKey = "c/bot"
 -- Details
 ----------------------------------------------------------------------------
 
-getTipMaybe :: MonadDB ssc m => m (Maybe HeaderHash)
-getTipMaybe = getBi tipKey
+getTipMaybe :: MonadDB m => m (Maybe HeaderHash)
+getTipMaybe = gsGetBi tipKey
 
-getBotMaybe :: MonadDB ssc m => m (Maybe HeaderHash)
-getBotMaybe = getBi botKey
+getBotMaybe :: MonadDB m => m (Maybe HeaderHash)
+getBotMaybe = gsGetBi botKey
 
-putTip :: MonadDB ssc m => HeaderHash -> m ()
-putTip = putBi tipKey
+putTip :: MonadDB m => HeaderHash -> m ()
+putTip = gsPutBi tipKey
 
-putBot :: MonadDB ssc m => HeaderHash -> m ()
-putBot = putBi botKey
+putBot :: MonadDB m => HeaderHash -> m ()
+putBot = gsPutBi botKey

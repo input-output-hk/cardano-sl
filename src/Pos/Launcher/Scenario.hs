@@ -1,3 +1,5 @@
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
 -- | High-level scenarios which can be launched.
@@ -24,7 +26,7 @@ import           Pos.Communication           (ActionSpec (..), OutSpecs, WorkerS
 import           Pos.Context                 (NodeContext (..), getNodeContext,
                                               ncPubKeyAddress, ncPublicKey)
 import qualified Pos.DB.GState               as GS
-import qualified Pos.DB.Lrc                  as LrcDB
+import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.Delegation.Logic        (initDelegation)
 import           Pos.DHT.Model               (discoverPeers)
 import           Pos.Reporting               (reportMisbehaviourMasked)
@@ -40,9 +42,9 @@ import           Pos.WorkMode                (WorkMode)
 
 -- | Run full node in any WorkMode.
 runNode'
-    :: (SscConstraint ssc, WorkMode ssc m)
-    => [WorkerSpec m]
-    -> WorkerSpec m
+    :: forall ssc m.
+       (SscConstraint ssc, WorkMode ssc m)
+    => [WorkerSpec m] -> WorkerSpec m
 runNode' plugins' = ActionSpec $ \vI sendActions -> do
     logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     inAssertMode $ logInfo "Assert mode on"
@@ -53,7 +55,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
                        ", address: "%build%
                        ", pk hash: "%build) pk addr pkHash
     () <$ fork waitForPeers
-    initDelegation
+    initDelegation @ssc
     initLrc
     initUSMemState
     initSemaphore

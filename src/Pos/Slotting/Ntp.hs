@@ -94,7 +94,7 @@ newtype NtpSlotting m a = NtpSlotting
                , HasLoggerName
                , CanLog
 
-               , MonadDB σ
+               , MonadDB
                , WithNodeContext ssc
                , MonadJL
                , MonadSlotsData

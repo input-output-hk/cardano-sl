@@ -49,6 +49,7 @@ newtype ContextHolder ssc m a = ContextHolder
                , MonadSlots
                , MonadTxpMem
                , MonadFix
+               , MonadDB
                )
 
 -- | Run 'ContextHolder' action.
@@ -70,8 +71,6 @@ type instance Distribution (ContextHolder ssc m) = Distribution m
 type instance SharedExclusiveT (ContextHolder ssc m) = SharedExclusiveT m
 type instance Gauge (ContextHolder ssc m) = Gauge m
 type instance ChannelT (ContextHolder ssc m) = ChannelT m
-
-deriving instance MonadDB ssc m => MonadDB ssc (ContextHolder ssc m)
 
 instance ( Mockable d m
          , MFunctor' d (ReaderT (NodeContext ssc) m) m

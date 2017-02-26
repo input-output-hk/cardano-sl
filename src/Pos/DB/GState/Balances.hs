@@ -38,7 +38,7 @@ import           Pos.Crypto           (shortHashF)
 import           Pos.DB.Class         (MonadDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
-import           Pos.DB.GState.Common (getBi, putBi)
+import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
                                        IterType, runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
@@ -61,7 +61,7 @@ getTotalFtsStake =
 
 -- | Get stake owne by given stakeholder (according to rules used for FTS).
 getFtsStake :: MonadDB m => StakeholderId -> m (Maybe Coin)
-getFtsStake = getBi . ftsStakeKey
+getFtsStake = gsGetBi . ftsStakeKey
 
 getFtsStakeFromDB :: (MonadIO m, MonadThrow m)
                   => StakeholderId
@@ -112,7 +112,7 @@ prepareGStateBalances genesisUtxo = do
     putFtsStakes = mapM_ (uncurry putFtsStake) . HM.toList $ utxoToStakes genesisUtxo
 
 putTotalFtsStake :: MonadDB m => Coin -> m ()
-putTotalFtsStake = putBi ftsSumKey
+putTotalFtsStake = gsPutBi ftsSumKey
 
 ----------------------------------------------------------------------------
 -- Balance
@@ -173,7 +173,7 @@ iterationPrefix = "b/s/"
 ----------------------------------------------------------------------------
 
 putFtsStake :: MonadDB m => StakeholderId -> Coin -> m ()
-putFtsStake = putBi . ftsStakeKey
+putFtsStake = gsPutBi . ftsStakeKey
 
 getFtsSumMaybe :: MonadDB m => m (Maybe Coin)
-getFtsSumMaybe = getBi ftsSumKey
+getFtsSumMaybe = gsGetBi ftsSumKey

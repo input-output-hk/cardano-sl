@@ -53,7 +53,7 @@ import           Pos.DB.Class               (MonadDB, getUtxoDB)
 import           Pos.DB.Error               (DBError (DBMalformed))
 import           Pos.DB.Functions           (RocksBatchOp (..), encodeWithKeyPrefix,
                                              rocksWriteBatch)
-import           Pos.DB.GState.Common       (getBi)
+import           Pos.DB.GState.Common       (gsGetBi)
 import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
                                              DBnMapIterator, IterType, runDBnIterator,
                                              runDBnMapIterator)
@@ -100,15 +100,15 @@ getMaxBlockSize = bvdMaxBlockSize <$> getAdoptedBVData
 
 -- | Get 'BlockVersionState' associated with given BlockVersion.
 getBVState :: MonadDB m => BlockVersion -> m (Maybe BlockVersionState)
-getBVState = getBi . bvStateKey
+getBVState = gsGetBi . bvStateKey
 
 -- | Get state of UpdateProposal for given UpId
 getProposalState :: MonadDB m => UpId -> m (Maybe ProposalState)
-getProposalState = getBi . proposalKey
+getProposalState = gsGetBi . proposalKey
 
 -- | Get UpId of current proposal for given appName
 getAppProposal :: MonadDB m => ApplicationName -> m (Maybe UpId)
-getAppProposal = getBi . proposalAppKey
+getAppProposal = gsGetBi . proposalAppKey
 
 -- | Get state of Update Proposal for given AppName
 getProposalStateByApp :: MonadDB m => ApplicationName -> m (Maybe ProposalState)
@@ -119,11 +119,11 @@ getProposalStateByApp appName =
 getConfirmedSV
     :: MonadDB m
     => ApplicationName -> m (Maybe NumSoftwareVersion)
-getConfirmedSV = getBi . confirmedVersionKey
+getConfirmedSV = gsGetBi . confirmedVersionKey
 
 -- | Get most recent 'SlottingData'.
 getSlottingData :: MonadDB m => m SlottingData
-getSlottingData = maybeThrow (DBMalformed msg) =<< getBi slottingDataKey
+getSlottingData = maybeThrow (DBMalformed msg) =<< gsGetBi slottingDataKey
   where
     msg =
         "Update System part of GState DB is not initialized (slotting data is missing)"
@@ -352,4 +352,4 @@ slottingDataKey = "us/slotting/"
 ----------------------------------------------------------------------------
 
 getAdoptedBVFullMaybe :: MonadDB m => m (Maybe (BlockVersion, BlockVersionData))
-getAdoptedBVFullMaybe = getBi adoptedBVKey
+getAdoptedBVFullMaybe = gsGetBi adoptedBVKey

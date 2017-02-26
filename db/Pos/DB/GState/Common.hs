@@ -12,9 +12,9 @@ module Pos.DB.GState.Common
        , prepareGStateCommon
 
          -- * Helpers
-       , getBi
-       , putBi
-       , delete
+       , gsGetBi
+       , gsPutBi
+       , gsDelete
        , writeBatchGState
 
          -- * Operations
@@ -27,33 +27,40 @@ import           Formatting          (bprint, (%))
 import           Universum
 
 import           Pos.Binary.Class    (Bi, encodeStrict)
+import           Pos.Binary.Crypto   ()
 import           Pos.Crypto          (shortHashF)
 import           Pos.DB.Class        (MonadDB, getUtxoDB)
 import           Pos.DB.Error        (DBError (DBMalformed))
 import           Pos.DB.Functions    (RocksBatchOp (..), rocksDelete, rocksGetBi,
                                       rocksPutBi, rocksWriteBatch)
-import           Pos.Types           (HeaderHash)
-import           Pos.Util            (maybeThrow)
+import           Pos.Types.Core      (HeaderHash)
 
 ----------------------------------------------------------------------------
 -- Common Helpers
 ----------------------------------------------------------------------------
 
-getBi
+gsGetBi
     :: (MonadDB m, Bi v)
     => ByteString -> m (Maybe v)
-getBi k = rocksGetBi k =<< getUtxoDB
+gsGetBi k = rocksGetBi k =<< getUtxoDB
 
-putBi
+gsPutBi
     :: (MonadDB m, Bi v)
     => ByteString -> v -> m ()
-putBi k v = rocksPutBi k v =<< getUtxoDB
+gsPutBi k v = rocksPutBi k v =<< getUtxoDB
 
-delete :: (MonadDB m) => ByteString -> m ()
-delete k = rocksDelete k =<< getUtxoDB
+gsDelete :: (MonadDB m) => ByteString -> m ()
+gsDelete k = rocksDelete k =<< getUtxoDB
 
 writeBatchGState :: (RocksBatchOp a, MonadDB m) => [a] -> m ()
 writeBatchGState batch = rocksWriteBatch batch =<< getUtxoDB
+
+----------------------------------------------------------------------------
+-- TODO: remove
+----------------------------------------------------------------------------
+
+maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
+maybeThrow e = maybe (throwM e) pure
 
 ----------------------------------------------------------------------------
 -- Common getters
@@ -114,13 +121,13 @@ botKey = "c/bot"
 ----------------------------------------------------------------------------
 
 getTipMaybe :: MonadDB m => m (Maybe HeaderHash)
-getTipMaybe = getBi tipKey
+getTipMaybe = gsGetBi tipKey
 
 getBotMaybe :: MonadDB m => m (Maybe HeaderHash)
-getBotMaybe = getBi botKey
+getBotMaybe = gsGetBi botKey
 
 putTip :: MonadDB m => HeaderHash -> m ()
-putTip = putBi tipKey
+putTip = gsPutBi tipKey
 
 putBot :: MonadDB m => HeaderHash -> m ()
-putBot = putBi botKey
+putBot = gsPutBi botKey

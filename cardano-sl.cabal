@@ -145,7 +145,6 @@ library
                         Pos.Binary.Block.Types
                         Pos.Binary.Block.Block
                         Pos.Binary.Coin
-                        Pos.Binary.Crypto
                         Pos.Binary.Communication
                         Pos.Binary.DHTModel
                         Pos.Binary.Genesis
@@ -223,7 +222,6 @@ library
                         Pos.DB.Block
                         Pos.DB.GState.Balances
                         Pos.DB.GState.BlockExtra
-                        Pos.DB.GState.Common
                         Pos.DB.GState.Delegation
                         Pos.DB.GState.GState
                         Pos.DB.GState.Utxo

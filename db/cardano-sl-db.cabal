@@ -16,6 +16,7 @@ library
                        Pos.DB.Class
                        Pos.DB.Error
                        Pos.DB.Functions
+                       Pos.DB.GState.Common
                        Pos.DB.Holder
                        Pos.DB.Iterator
                        Pos.DB.Iterator.Class

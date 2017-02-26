@@ -41,7 +41,7 @@ import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi,
                                        rocksGetBytes)
-import           Pos.DB.GState.Common (getBi, putBi, writeBatchGState)
+import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
                                        IterType, runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
@@ -57,7 +57,7 @@ import           Pos.Util.Iterator    (nextItem)
 ----------------------------------------------------------------------------
 
 getTxOut :: MonadDB m => TxIn -> m (Maybe TxOutAux)
-getTxOut = getBi . txInKey
+getTxOut = gsGetBi . txInKey
 
 getTxOutFromDB :: (MonadIO m, MonadThrow m) => TxIn -> DB -> m (Maybe TxOutAux)
 getTxOutFromDB txIn = rocksGetBi (txInKey txIn)
@@ -104,7 +104,7 @@ prepareGStateUtxo genesisUtxo =
     putGenesisUtxo = do
         let utxoList = M.toList genesisUtxo
         writeBatchGState $ concat $ map createBatchOp utxoList
-        putBi genUtxoFlagKey True
+        gsPutBi genUtxoFlagKey True
     createBatchOp (txin, txout) =
         [AddTxOut txin txout , AddGenTxOut txin txout]
 

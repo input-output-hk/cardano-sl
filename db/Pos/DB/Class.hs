@@ -29,16 +29,16 @@ class (MonadIO m, MonadThrow m) => MonadDB m where
     usingReadOptions :: Rocks.ReadOptions -> ASetter' NodeDBs DB -> m a -> m a
     usingWriteOptions :: Rocks.WriteOptions -> ASetter' NodeDBs DB -> m a -> m a
 
-getBlockDB :: MonadDB m => m (DB)
+getBlockDB :: MonadDB m => m DB
 getBlockDB = view blockDB <$> getNodeDBs
 
-getUtxoDB :: MonadDB m => m (DB)
+getUtxoDB :: MonadDB m => m DB
 getUtxoDB = view gStateDB <$> getNodeDBs
 
-getLrcDB :: MonadDB m => m (DB)
+getLrcDB :: MonadDB m => m DB
 getLrcDB = view lrcDB <$> getNodeDBs
 
-getMiscDB :: MonadDB m => m (DB)
+getMiscDB :: MonadDB m => m DB
 getMiscDB = view miscDB <$> getNodeDBs
 
 instance (MonadDB m) => MonadDB (ReaderT a m) where

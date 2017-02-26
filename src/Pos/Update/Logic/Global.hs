@@ -1,5 +1,4 @@
 {-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Logic of local data processing in Update System.

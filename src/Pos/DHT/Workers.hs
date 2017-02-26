@@ -1,4 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
 module Pos.DHT.Workers
        ( dhtWorkers
        ) where

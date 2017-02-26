@@ -13,8 +13,7 @@ import qualified Data.HashMap.Strict     as HM (elems, keys)
 import           Pos.Types.Coin          (mkCoin)
 import           Pos.Lrc                 (RichmenStake)
 import qualified Pos.Ssc.GodTossing      as T
-import           Pos.Types               (sumCoins)
-import           Test.QuickCheck         (Property, (.&&.), (==>))
+import           Test.QuickCheck         (Property, (==>))
 
 spec :: Spec
 spec = describe "computeSharesDistr" $ do

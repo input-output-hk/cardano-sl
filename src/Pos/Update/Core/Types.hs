@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveLift           #-}
-{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | This module contains all basic types for @cardano-sl@ update system.

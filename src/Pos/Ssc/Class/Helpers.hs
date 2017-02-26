@@ -1,6 +1,3 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Pos.Ssc.Class.Helpers
        ( SscHelpersClass (..)
        ) where

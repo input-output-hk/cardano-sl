@@ -1,7 +1,6 @@
 #!/usr/bin/env stack
 -- stack --install-ghc runghc --package turtle
 
-{-# LANGUAGE OverloadedStrings #-}
 
 import qualified Control.Foldl   as F
 import           Data.Function   (on)

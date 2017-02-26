@@ -1,6 +1,4 @@
 {-# LANGUAGE RankNTypes           #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Logic of working with Shares.
 

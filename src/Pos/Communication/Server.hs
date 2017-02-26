@@ -1,5 +1,3 @@
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Server part.
 

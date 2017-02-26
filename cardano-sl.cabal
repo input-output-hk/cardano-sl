@@ -13,8 +13,8 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 flag asserts
-  default: True
-  manual: True
+  default:     True
+  manual:      True
 
 flag dev-mode
   default:     True

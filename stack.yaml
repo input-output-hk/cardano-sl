@@ -46,10 +46,6 @@ packages:
     git: https://github.com/avieth/network-transport
     commit: e7a5f44d0d98370d16df103c9dc61ef7bf15aee8
   extra-dep: true
-# todo replace it with hackage version
-#- location:
-#    git: https://github.com/serokell/serokell-util/
-#    commit: 3675d2e8484c4e1bab98c92a4c9b01ca721ff808
 
 nix:
   shell-file: shell.nix

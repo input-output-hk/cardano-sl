@@ -28,6 +28,7 @@ import           System.Wlog                 (LoggerNameBox (..), WithLogger)
 import           Universum
 
 import           Pos.Communication.PeerState (PeerStateHolder (..), WithPeerState)
+import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (ContextHolder, WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.DB.Holder               (DBHolder)
@@ -57,6 +58,7 @@ type WorkMode ssc m
       , MonadDB ssc m
       , MonadTxpMem m
       , MonadDhtMem m
+      , MonadRelayMem m
       , MonadDelegation m
       , MonadSscMem ssc m
       , MonadReportingMem m
@@ -119,6 +121,11 @@ deriving instance MonadDhtMem m => MonadDhtMem (PeerStateHolder m)
 deriving instance MonadDhtMem m => MonadDhtMem (KademliaDHT m)
 deriving instance MonadDhtMem m => MonadDhtMem (NtpSlotting m)
 deriving instance MonadDhtMem m => MonadDhtMem (SlottingHolder m)
+
+deriving instance MonadRelayMem m => MonadRelayMem (PeerStateHolder m)
+deriving instance MonadRelayMem m => MonadRelayMem (KademliaDHT m)
+deriving instance MonadRelayMem m => MonadRelayMem (NtpSlotting m)
+deriving instance MonadRelayMem m => MonadRelayMem (SlottingHolder m)
 
 deriving instance MonadUSMem m => MonadUSMem (KademliaDHT m)
 deriving instance MonadUSMem m => MonadUSMem (PeerStateHolder m)

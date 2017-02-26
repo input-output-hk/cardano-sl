@@ -23,6 +23,7 @@ import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
+import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Delegation.Class        (DelegationWrap (..), MonadDelegation (..))
@@ -45,7 +46,7 @@ newtype DelegationT m a = DelegationT
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, WithNodeContext ssc, MonadJL,
                 CanLog, MonadMask, MonadSscMem kek, MonadSlotsData,
-                MonadTxpMem, MonadDhtMem, MonadReportingMem)
+                MonadTxpMem, MonadDhtMem, MonadReportingMem, MonadRelayMem)
 
 deriving instance MonadDB ssc m => MonadDB ssc (DelegationT m)
 

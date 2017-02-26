@@ -40,8 +40,6 @@ library
                        Pos.Merkle
                        Pos.Data.Attributes
                        Pos.Exception
-                       Pos.Util.TimeWarp
-                       Pos.Util.Config
 
                        Pos.Binary.Class
                        Pos.Binary.Crypto
@@ -80,7 +78,6 @@ library
                      , lens
                      , memory
                      , mtl
-                     , network-transport-tcp
                      , node-sketch
                      , parsec
                      , plutus-prototype

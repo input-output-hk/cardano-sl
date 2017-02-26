@@ -8,27 +8,26 @@ module Pos.Communication.Util
        , wrapSendActions
        ) where
 
-import           Data.Proxy                 (Proxy (..), asProxyTypeOf)
-import           Data.Time.Units            (Microsecond)
-import           Formatting                 (build, sformat, shown, (%))
-import           Mockable                   (Async, Bracket, Delay, Mockable)
-import qualified Node                       as N
-import           System.Wlog                (LoggerName, WithLogger, logDebug, logWarning,
-                                             modifyLoggerName)
-import           Universum                  hiding (Async, async, bracket, cancel,
-                                             finally, withMVar)
+import           Data.Proxy                  (Proxy (..), asProxyTypeOf)
+import           Data.Time.Units             (Microsecond)
+import           Formatting                  (build, sformat, shown, (%))
+import           Mockable                    (Async, Bracket, Delay, Mockable)
+import qualified Node                        as N
+import           System.Wlog                 (LoggerName, WithLogger, logDebug,
+                                              logWarning, modifyLoggerName)
+import           Universum                   hiding (Async, async, bracket, cancel,
+                                              finally, withMVar)
 
-import           Pos.Binary.Class           (Bi)
-import           Pos.Communication.BiP      (BiP)
-import           Pos.Communication.Protocol (ActionSpec (..), HandlerSpec (..), Listener,
-                                             ListenerSpec (..), Message (..),
-                                             MessageName (..), OutSpecs, PeerData,
-                                             mapActionSpec, mapListener, mapListener',
-                                             messageName')
-import           Pos.Constants              (networkReceiveTimeout)
-import           Pos.Context                (WithNodeContext)
-import           Pos.Util.TimeLimit         (CanLogInParallel, execWithTimeLimit,
-                                             logWarningWaitLinear)
+import           Pos.Binary.Class            (Bi)
+import           Pos.Communication.BiP       (BiP)
+import           Pos.Communication.Constants (networkReceiveTimeout)
+import           Pos.Communication.Protocol  (ActionSpec (..), HandlerSpec (..), Listener,
+                                              ListenerSpec (..), Message (..),
+                                              MessageName (..), OutSpecs, PeerData,
+                                              mapActionSpec, mapListener, mapListener',
+                                              messageName')
+import           Pos.Util.TimeLimit          (CanLogInParallel, execWithTimeLimit,
+                                              logWarningWaitLinear)
 
 stubListenerOneMsg
     :: (WithLogger m, Message r, Bi r)
@@ -163,7 +162,7 @@ wrapListener
      , Mockable Delay m
      , MonadIO m
      , WithLogger m
-     , WithNodeContext ssc m
+--     , WithNodeContext ssc m
      )
   => LoggerName -> Listener m -> Listener m
 wrapListener lname =
@@ -183,7 +182,7 @@ wrapActionSpec
      , Mockable Delay m
      , MonadIO m
      , WithLogger m
-     , WithNodeContext ssc m
+--     , WithNodeContext ssc m
      )
   => LoggerName -> ActionSpec m a -> ActionSpec m a
 wrapActionSpec lname =
@@ -203,7 +202,7 @@ wrapSendActions
      , Mockable Delay m
      , MonadIO m
      , WithLogger m
-     , WithNodeContext ssc m
+--    , WithNodeContext ssc m
      )
   => N.SendActions BiP PeerData m
   -> N.SendActions BiP PeerData m

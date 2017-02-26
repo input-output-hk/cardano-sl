@@ -9,6 +9,7 @@ import           Universum
 import           Pos.Binary.Class                 (UnsignedVarInt (..), encodeStrict)
 import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                                                    MsgHeaders)
+import           Pos.Communication.MessagePart    (MessagePart (..))
 import           Pos.Communication.Types.Protocol (NOP)
 import           Pos.Communication.Types.Relay    (DataMsg, InvOrData, ReqMsg)
 import           Pos.Communication.Types.SysStart (SysStartRequest, SysStartResponse)
@@ -87,9 +88,6 @@ instance (MessagePart contents) =>
         contentsM :: Proxy (DataMsg contents) -> Proxy contents
         contentsM _ = Proxy
     formatMessage _ = "Data"
-
-class MessagePart a where
-    pMessageName :: Proxy a -> MessageName
 
 instance MessagePart TxMsgTag where
     pMessageName _ = varIntMName 0

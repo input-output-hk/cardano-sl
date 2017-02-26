@@ -94,7 +94,7 @@ instance MonadBaseControl IO m => MonadBaseControl IO (SlottingHolder m) where
 
 instance MonadIO m =>
          MonadSlotsData (SlottingHolder m) where
-    getSystemStart = notImplemented
+    getSystemStart = undefined
     getSlottingData = atomically . readTVar =<< SlottingHolder ask
     waitPenultEpochEquals target = do
         var <- SlottingHolder ask

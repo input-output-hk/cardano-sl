@@ -26,11 +26,13 @@ import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName, WithLogger, logWarning)
 import           Universum                 hiding (catchAll)
 
+import           Pos.Communication.Relay   (MonadRelayMem (..), RelayContext (..))
 import           Pos.Context.Class         (WithNodeContext (..))
 import           Pos.Context.Context       (NodeContext (..))
 import           Pos.DB.Class              (MonadDB)
 import           Pos.DHT.MemState          (DhtContext (..), MonadDhtMem (..))
-import           Pos.Launcher.Param        (bpKademliaDump, npBaseParams, npReportServers)
+import           Pos.Launcher.Param        (bpKademliaDump, npBaseParams, npPropagation,
+                                            npReportServers)
 import           Pos.Reporting.Class       (MonadReportingMem (..))
 import           Pos.Slotting.Class        (MonadSlots)
 import           Pos.Slotting.MemState     (MonadSlotsData)
@@ -104,3 +106,10 @@ instance Monad m => MonadDhtMem (ContextHolder ssc m) where
                               bpKademliaDump .
                               npBaseParams .
                               ncNodeParams)
+instance Monad m => MonadRelayMem (ContextHolder ssc m) where
+    askRelayMem =
+        ContextHolder
+            (RelayContext
+                <$> asks (npPropagation . ncNodeParams)
+                <*> asks ncInvPropagationQueue
+            )

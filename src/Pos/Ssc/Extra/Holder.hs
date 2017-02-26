@@ -29,6 +29,7 @@ import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName, WithLogger)
 import           Universum
 
+import           Pos.Communication.Relay   (MonadRelayMem)
 import           Pos.Context               (WithNodeContext)
 import           Pos.DB                    (MonadDB (..))
 import           Pos.DHT.MemState          (MonadDhtMem)
@@ -61,6 +62,7 @@ newtype SscHolder ssc m a = SscHolder
                , MonadFix
                , MonadDhtMem
                , MonadReportingMem
+               , MonadRelayMem
                )
 
 type instance ThreadId (SscHolder ssc m) = ThreadId m

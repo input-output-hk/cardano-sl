@@ -38,14 +38,8 @@ import           Pos.DHT.Model.Util        (joinNetworkNoThrow)
 import           Pos.DHT.Real.Types        (DHTHandle, KademliaDHT (..),
                                             KademliaDHTInstance (..),
                                             KademliaDHTInstanceConfig (..))
---import           Pos.Util                  (runWithRandomIntervals')
--- TODO uncomment after refactoring
+import           Pos.Util.TimeLimit        (runWithRandomIntervals')
 import           Pos.Util.TimeWarp         (NetworkAddress, ms, sec)
-
-runWithRandomIntervals'
-    :: (MonadIO m)
-    => a -> a -> m () -> m ()
-runWithRandomIntervals' = notImplemented
 
 kademliaConfig :: K.KademliaConfig
 kademliaConfig = K.defaultConfig { K.k = 16 }

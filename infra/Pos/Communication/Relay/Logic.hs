@@ -1,9 +1,10 @@
 -- | Framework for Inv/Req/Dat message handling
 
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Pos.Communication.Relay
+module Pos.Communication.Relay.Logic
        ( Relay (..)
        , InvMsg (..)
        , ReqMsg (..)
@@ -21,7 +22,8 @@ module Pos.Communication.Relay
 import           Control.Concurrent.STM        (isFullTBQueue, readTBQueue, writeTBQueue)
 import qualified Data.List.NonEmpty            as NE
 import           Formatting                    (build, sformat, shown, stext, (%))
-import           Mockable                      (Mockable, Throw, handleAll, throw, throw)
+import           Mockable                      (Mockable, MonadMockable, Throw, handleAll,
+                                                throw, throw)
 import           Node.Message                  (Message)
 import           Serokell.Util.Text            (listJson)
 import           Serokell.Util.Verify          (VerificationRes (..))
@@ -30,70 +32,38 @@ import           System.Wlog                   (WithLogger, logDebug, logError, 
 import           Universum
 
 import           Pos.Binary.Class              (Bi (..))
-import           Pos.Communication.Message     (MessagePart)
+import           Pos.Communication.MessagePart (MessagePart)
+import           Pos.Communication.PeerState   (WithPeerState)
 import           Pos.Communication.Protocol    (ConversationActions (..), ListenerSpec,
                                                 NOP, NodeId, OutSpecs, SendActions (..),
                                                 WorkerSpec, listenerConv, mergeLs, worker)
-import           Pos.Communication.Specs       (allOutSpecs)
+import           Pos.Communication.Relay.Class (MonadRelayMem (..), Relay (..))
+import           Pos.Communication.Relay.Types (RelayContext (..), RelayError (..),
+                                                RelayProxy (..), SomeInvMsg (..))
 import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), InvOrData,
                                                 ReqMsg (..))
 import           Pos.Communication.Util        (stubListenerConv)
-import           Pos.Context                   (NodeContext (..), SomeInvMsg (..),
-                                                WithNodeContext (getNodeContext),
-                                                ncNodeParams, npPropagation)
 import           Pos.DHT.Model                 (DHTNode, MonadDHT (..),
                                                 converseToNeighbors, converseToNode)
-import           Pos.Reporting                 (reportingFatal)
-import           Pos.WorkMode                  (MinWorkMode, WorkMode)
+import           Pos.Reporting                 (MonadReportingMem, reportingFatal)
 
--- | Typeclass for general Inv/Req/Dat framework. It describes monads,
--- that store data described by tag, where "key" stands for node
--- identifier.
-class ( Buildable tag
-      , Buildable contents
-      , Buildable key
-      , Typeable tag
-      , Typeable contents
-      , Typeable key
-      , Message (InvOrData tag key contents)
-      , Message (ReqMsg key tag)
-      ) => Relay m tag key contents
-      | tag -> contents, contents -> tag, contents -> key, tag -> key where
-    -- | Converts data to tag. Tag returned in monad `m`
-    -- for only type matching reason (multiparam type classes are tricky)
-    contentsToTag :: contents -> m tag
+type MinRelayWorkMode m
+    = ( WithLogger m
+      , MonadMockable m
+      , MonadDHT m
+      , MonadIO m
+      , WithPeerState m
+      )
 
-    -- | Same for key. Sometime contents has key inside already, so
-    -- it's redundant to double-pass it everywhere.
-    contentsToKey :: contents -> m key
-
-    verifyInvTag :: tag -> m VerificationRes
-    verifyReqTag :: tag -> m VerificationRes
-    verifyDataContents :: contents -> m VerificationRes
-
-    -- | Handle inv msg and return whether it's useful or not
-    handleInv :: tag -> key -> m Bool
-
-    -- | Handle req msg and return (Just data) in case requested data can be provided
-    handleReq :: tag -> key -> m (Maybe contents)
-
-    -- | Handle data msg and return True if message is to be propagated
-    handleData :: contents -> m Bool
-
-data RelayProxy key tag contents = RelayProxy
-
-data RelayError = UnexpectedInv
-                | UnexpectedData
-  deriving (Generic, Show)
-
-instance Exception RelayError
+type RelayWorkMode m = ( MinRelayWorkMode m
+                       , MonadRelayMem m)
 
 -- Returns useful keys.
 handleInvL
     :: ( Bi (InvMsg key tag)
        , Bi (ReqMsg key tag)
        , Relay m tag key contents
-       , MinWorkMode m
+       , MinRelayWorkMode m
        )
     => RelayProxy key tag contents
     -> InvMsg key tag
@@ -120,7 +90,7 @@ handleReqL
        ( Bi (ReqMsg key tag)
        , Bi (InvOrData tag key contents)
        , Relay m tag key contents
-       , MinWorkMode m
+       , MinRelayWorkMode m
        )
     => RelayProxy key tag contents
     -> (ListenerSpec m, OutSpecs)
@@ -154,7 +124,7 @@ handleDataL
       , MessagePart tag
       , MessagePart contents
       , Relay m tag key contents
-      , WorkMode ssc m
+      , RelayWorkMode m
       )
     => RelayProxy key tag contents
     -> DataMsg contents
@@ -169,7 +139,7 @@ handleDataL proxy msg@(DataMsg {..}) =
                     ("Ignoring data "%build%" for key "%build) dmContents dmKey
   where
     handleDataLDo dmKey = do
-        shouldPropagate <- npPropagation . ncNodeParams <$> getNodeContext
+        shouldPropagate <- _rlyIsPropagation <$> askRelayMem
         if shouldPropagate then do
             tag <- contentsToTag dmContents
             let inv :: InvOrData tag key contents
@@ -209,7 +179,7 @@ relayListeners
      , Relay m tag key contents
      , Mockable Throw m
      , WithLogger m
-     , WorkMode ssc m
+     , RelayWorkMode m
      )
   => RelayProxy key tag contents -> ([ListenerSpec m], OutSpecs)
 relayListeners proxy = mergeLs [handleReqL proxy, invDataListener]
@@ -271,10 +241,11 @@ addToRelayQueue :: forall tag key contents ssc m .
                 , Message (InvOrData tag key contents)
                 , Message (ReqMsg key tag)
                 , Buildable tag, Buildable key
-                , WorkMode ssc m)
+                , RelayWorkMode m
+                )
                 => InvOrData tag key contents -> m ()
 addToRelayQueue inv = do
-    queue <- ncInvPropagationQueue <$> getNodeContext
+    queue <- _rlyPropagationQueue <$> askRelayMem
     isFull <- atomically $ isFullTBQueue queue
     if isFull then
         logWarning $ "Propagation queue is full, no propagation"
@@ -283,16 +254,18 @@ addToRelayQueue inv = do
 
 relayWorkers :: forall ssc m .
              ( Mockable Throw m
-             , WorkMode ssc m
+             , RelayWorkMode m
+             , MonadMask m
+             , MonadReportingMem m
              , Bi NOP, Message NOP
              )
-             => ([WorkerSpec m], OutSpecs)
-relayWorkers =
+             => OutSpecs -> ([WorkerSpec m], OutSpecs)
+relayWorkers allOutSpecs =
     first (:[]) $ worker allOutSpecs $ \sendActions ->
         handleAll handleWE $ reportingFatal $ action sendActions
   where
     action sendActions = do
-        queue <- ncInvPropagationQueue <$> getNodeContext
+        queue <- _rlyPropagationQueue <$> askRelayMem
         forever $ atomically (readTBQueue queue) >>= \case
             SomeInvMsg (i@(Left (InvMsg{..}))) -> do
                 logDebug $
@@ -316,7 +289,7 @@ invReqDataFlowNeighbors ::
     ( Message (InvOrData tag id contents)
     , Message (ReqMsg id tag)
     , Buildable id
-    , MinWorkMode m
+    , MinRelayWorkMode m
     , Bi tag, Bi id
     , Bi (InvOrData tag id contents)
     , Bi (ReqMsg id tag))
@@ -331,7 +304,7 @@ invReqDataFlow ::
     ( Message (InvOrData tag id contents)
     , Message (ReqMsg id tag)
     , Buildable id
-    , MinWorkMode m
+    , MinRelayWorkMode m
     , Bi tag, Bi id
     , Bi (InvOrData tag id contents)
     , Bi (ReqMsg id tag))
@@ -346,7 +319,7 @@ invReqDataFlowDo ::
     ( Message (InvOrData tag id contents)
     , Message (ReqMsg id tag)
     , Buildable id
-    , MinWorkMode m
+    , MinRelayWorkMode m
     , Bi tag, Bi id
     , Bi (InvOrData tag id contents)
     , Bi (ReqMsg id tag))

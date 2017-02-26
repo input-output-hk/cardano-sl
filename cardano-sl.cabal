@@ -98,7 +98,6 @@ library
                         Pos.Util.JsonLog
                         Pos.Util.Shutdown
                         Pos.Util.UserSecret
-                        Pos.Util.TimeLimit
 
                         -- Worker, work mode
                         Pos.Worker
@@ -172,11 +171,9 @@ library
                         -- Network
                         Pos.Communication.Message
                         Pos.Communication.Methods
-                        Pos.Communication.Relay
                         Pos.Communication.Server
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Specs
-                        Pos.Communication.Util
 
                         -- DB
                         Pos.DB.Block

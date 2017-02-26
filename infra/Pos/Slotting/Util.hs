@@ -47,8 +47,8 @@ import           Pos.Slotting.Types       (EpochSlottingData (..), SlottingData 
 -- TODO uncomment it after refactoring
 import           Pos.Util.TimeWarp        (minute, sec)
 
-maybeThrow = notImplemented
-ifNotShutdown = notImplemented
+maybeThrow = undefined
+ifNotShutdown = undefined
 
 -- | Get flat id of current slot based on MonadSlots.
 getCurrentSlotFlat :: MonadSlots m => m (Maybe FlatSlotId)

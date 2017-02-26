@@ -38,6 +38,7 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Communication.PeerState (WithPeerState (..))
+import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DB                      (MonadDB (..))
 import           Pos.Delegation.Class        (MonadDelegation)
@@ -83,7 +84,7 @@ newtype NoStatsT m a = NoStatsT
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
                 MonadJL, CanLog, MonadTxpMem, MonadSscMem ssc,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem,
-                MonadDhtMem, MonadReportingMem)
+                MonadDhtMem, MonadReportingMem, MonadRelayMem)
 
 deriving instance MonadDB ssc m => MonadDB ssc (NoStatsT m)
 
@@ -138,7 +139,7 @@ newtype StatsT m a = StatsT
                 MonadTrans, MonadJL, CanLog, MonadTxpMem,
                 MonadSscMem ssc, MonadSlotsData,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem,
-                MonadDhtMem, MonadReportingMem)
+                MonadDhtMem, MonadReportingMem, MonadRelayMem)
 
 deriving instance MonadDB ssc m => MonadDB ssc (StatsT m)
 instance Monad m => WrappedM (StatsT m) where

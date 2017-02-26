@@ -39,3 +39,4 @@ type InvOrData tag key contents = Either (InvMsg key tag) (DataMsg contents)
 instance (Buildable contents) =>
          Buildable (DataMsg contents) where
     build (DataMsg contents) = bprint ("Data {" %build % "}") contents
+

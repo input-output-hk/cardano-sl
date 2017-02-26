@@ -51,18 +51,29 @@ library
                         Pos.Communication.Types.Relay
                         Pos.Communication.Types.SysStart
                         Pos.Communication.BiP
+                        Pos.Communication.MessagePart
                         Pos.Communication.PeerState
                         Pos.Communication.Protocol
+                        Pos.Communication.Relay
+                        Pos.Communication.Relay.Class
+                        Pos.Communication.Relay.Logic
+                        Pos.Communication.Relay.Types
+                        Pos.Communication.Util
 
                         -- Pos.Binary
                         Pos.Binary.Infra
                         Pos.Binary.Infra.DHTModel
                         Pos.Binary.Infra.Slotting
 
-  other-modules:
-                        Pos.Slotting.Constants
+                        -- Pos.Communication
+                        Pos.Util.TimeLimit
+                        Pos.Util.TimeWarp
+
+  other-modules:        Pos.Slotting.Constants
                         Pos.DHT.Constants
-  build-depends:        base
+                        Pos.Communication.Constants
+                      
+  build-depends:       base
                      , aeson
                       -- This constraint on 'binary' is so strict because
                       -- we're relying on the internal representation of
@@ -87,6 +98,7 @@ library
                       , monad-control
                       , mtl
                       , network-info
+                      , network-transport-tcp
                       , node-sketch
                       , serokell-util >= 0.1.3.4
                       , stm

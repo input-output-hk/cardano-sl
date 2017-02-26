@@ -83,7 +83,7 @@ mcCommitmentMsgLenLimit :: Limit GtMsgContents
 mcCommitmentMsgLenLimit = MCCommitment <$> msgLenLimit
 
 mcOpeningLenLimit :: Limit GtMsgContents
-mcOpeningLenLimit = 1000
+mcOpeningLenLimit = 62
 
 mcSharesMsgLenLimit :: Limit GtMsgContents
 mcSharesMsgLenLimit =
@@ -133,11 +133,12 @@ instance Limiter l => Limiter (Limit t, l) where
 
     addLimit a (l1, l2) = (a `addLimit` l1, a `addLimit` l2)
 
--- | Bounds `DataMsg`.
+-- | Bounds `DataMsg` in `InvData`.
 -- Limit depends on value of first byte, which should be in range @0..3@.
 instance Limiter (Limit t, Limit t, Limit t, Limit t) where
     limitGet limits parser = do
-        tag <- fromIntegral <$> lookAhead getWord8
+        -- skip first byte which belongs to `InvOrData`
+        tag <- fromIntegral <$> lookAhead (getWord8 *> getWord8)
         case (limits ^.. each) ^? ix tag of
             Nothing    -> fail ("get@DataMsg: invalid tag: " ++ show tag)
             Just limit -> limitGet limit parser

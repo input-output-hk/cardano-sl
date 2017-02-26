@@ -29,6 +29,7 @@ import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
 
 import           Pos.Communication.PeerState (PeerStateHolder, WithPeerState)
+import           Pos.Constants               (blkSecurityParam)
 import qualified Pos.Context                 as PC
 import           Pos.Crypto                  (WithHash (..))
 import           Pos.DB                      (MonadDB)
@@ -38,6 +39,7 @@ import qualified Pos.DB.GState               as GS
 import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
 import           Pos.DHT.Real                (KademliaDHT (..))
+import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Slotting                (NtpSlotting, SlottingHolder,
                                               getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
@@ -48,7 +50,8 @@ import           Pos.Txp.Logic               (processTx)
 import           Pos.Txp.Types               (UtxoView (..), localTxs)
 import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
                                               TxAux, TxId, Utxo, difficultyL,
-                                              evalUtxoStateT, prevBlockL, runUtxoStateT,
+                                              evalUtxoStateT, flattenEpochOrSlot,
+                                              flattenSlotId, prevBlockL, runUtxoStateT,
                                               sumCoins, toPair, txOutValue)
 import           Pos.Types.Coin              (unsafeIntegerToCoin)
 import           Pos.Types.Utxo.Functions    (belongsTo, filterUtxoByAddr)
@@ -238,7 +241,15 @@ downloadHeader = getContextTMVar PC.ncProgressHeader
 -- | Instance for full-node's ContextHolder
 instance SscHelpersClass ssc =>
          MonadBlockchainInfo (RawRealMode ssc) where
-    networkChainDifficulty = fmap (^. difficultyL) <$> recoveryHeader
+    networkChainDifficulty = recoveryHeader >>= \case
+        Just rh -> return . Just $ rh ^. difficultyL
+        Nothing -> runMaybeT $ do
+            cSlot <- flattenSlotId <$> MaybeT getCurrentSlot
+            th <- lift topHeader
+            let hSlot = flattenEpochOrSlot th
+            when (hSlot <= cSlot - blkSecurityParam) $
+                fail "Local tip is outdated"
+            return $ th ^. difficultyL
 
     localChainDifficulty = downloadHeader >>= \case
         Just dh -> return $ dh ^. difficultyL

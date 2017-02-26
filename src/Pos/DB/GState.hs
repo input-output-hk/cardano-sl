@@ -8,6 +8,7 @@ module Pos.DB.GState
        , module Pos.DB.GState.Delegation
        , module Pos.DB.GState.GState
        , module Pos.DB.GState.Utxo
+       , module Pos.Update.DB
        ) where
 
 import           Pos.DB.GState.Balances
@@ -17,3 +18,4 @@ import           Pos.DB.GState.Common     (CommonOp (..), getBot, getTip,
 import           Pos.DB.GState.Delegation
 import           Pos.DB.GState.GState
 import           Pos.DB.GState.Utxo
+import           Pos.Update.DB

@@ -50,8 +50,9 @@ packages:
   extra-dep: true
 # todo replace it with hackage version
 - location:
-   git: https://github.com/serokell/serokell-util/
-   commit: 7e926977a048cfabe759c2792518c5f0b9b552fe
+    git: https://github.com/serokell/serokell-util/
+    commit: 7e926977a048cfabe759c2792518c5f0b9b552fe
+  extra-dep: true
 
 nix:
   shell-file: shell.nix

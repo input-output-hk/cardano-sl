@@ -10,6 +10,12 @@ copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
+data-dir:
+  ../
+data-files:
+  constants-dev.yaml
+  constants-wallet-prod.yaml
+  constants-prod.yaml
 
 library
   exposed-modules:     Pos.Core
@@ -17,6 +23,7 @@ library
                        Pos.Core.Block
                        Pos.Core.Coin
                        Pos.Core.Constants
+                       Pos.Core.Constants.Type
                        Pos.Core.Script
                        Pos.Core.Slotting
                        Pos.Core.Timestamp
@@ -34,6 +41,7 @@ library
                        Pos.Data.Attributes
                        Pos.Exception
                        Pos.Util.TimeWarp
+                       Pos.Util.Config
 
                        Pos.Binary.Class
                        Pos.Binary.Crypto
@@ -43,6 +51,8 @@ library
                        Pos.Binary.Core.Script
                        Pos.Binary.Core.Types
                        Pos.Binary.Core.Version
+
+  other-modules:       Paths_cardano_sl_core
 
   build-depends:       base
                      , base58-bytestring

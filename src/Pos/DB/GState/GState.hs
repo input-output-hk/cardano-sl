@@ -8,23 +8,23 @@ module Pos.DB.GState.GState
        , usingGStateSnapshot
        ) where
 
-import           Control.Monad.Catch    (MonadMask)
-import qualified Database.RocksDB       as Rocks
-import           System.Wlog            (WithLogger)
+import           Control.Monad.Catch   (MonadMask)
+import qualified Database.RocksDB      as Rocks
+import           System.Wlog           (WithLogger)
 import           Universum
 
-import           Pos.Context.Class      (WithNodeContext (getNodeContext))
-import           Pos.Context.Context    (ncSystemStart)
-import           Pos.Context.Functions  (genesisUtxoM)
-import           Pos.DB.Class           (MonadDB (getNodeDBs, usingReadOptions))
-import           Pos.DB.GState.Balances (getTotalFtsStake, prepareGStateBalances,
-                                         sanityCheckBalances)
-import           Pos.DB.GState.Common   (prepareGStateCommon)
-import           Pos.DB.GState.Utxo     (prepareGStateUtxo, sanityCheckUtxo)
-import           Pos.DB.Types           (DB (..), NodeDBs (..), Snapshot (..), gStateDB,
-                                         usingSnapshot)
-import           Pos.Types              (HeaderHash)
-import           Pos.Update.DB          (prepareGStateUS)
+import           Pos.Context.Class     (WithNodeContext (getNodeContext))
+import           Pos.Context.Context   (ncSystemStart)
+import           Pos.Context.Functions (genesisUtxoM)
+import           Pos.DB.Class          (MonadDB (getNodeDBs, usingReadOptions))
+import           Pos.DB.GState.Common  (prepareGStateCommon)
+import           Pos.DB.Types          (DB (..), NodeDBs (..), Snapshot (..), gStateDB,
+                                        usingSnapshot)
+import           Pos.Txp.DB            (getTotalFtsStake, prepareGStateBalances,
+                                        prepareGStateUtxo, sanityCheckBalances,
+                                        sanityCheckUtxo)
+import           Pos.Types             (HeaderHash)
+import           Pos.Update.DB         (prepareGStateUS)
 
 -- | Put missing initial data into GState DB.
 prepareGStateDB

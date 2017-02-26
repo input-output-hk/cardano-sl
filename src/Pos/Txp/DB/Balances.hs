@@ -1,9 +1,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
--- | Part of GState DB which stores stakeholders' balances.
+-- | Part of GState DB which stores stakes.
 
-module Pos.DB.GState.Balances
+module Pos.Txp.DB.Balances
        (
          -- * Getters
          getTotalFtsStake

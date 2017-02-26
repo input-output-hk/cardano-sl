@@ -221,10 +221,8 @@ library
 
                         -- DB
                         Pos.DB.Block
-                        Pos.DB.GState.Balances
                         Pos.DB.GState.BlockExtra
                         Pos.DB.GState.GState
-                        Pos.DB.GState.Utxo
                         Pos.DB.Misc
 
                         -- Genesis
@@ -317,6 +315,9 @@ library
                         Pos.Txp.Core
                         Pos.Txp.Core.Tx
                         Pos.Txp.Core.Types
+                        Pos.Txp.DB
+                        Pos.Txp.DB.Balances
+                        Pos.Txp.DB.Utxo
                         Pos.Txp.Error
                         Pos.Txp.Logic
                         Pos.Txp.Logic.Global

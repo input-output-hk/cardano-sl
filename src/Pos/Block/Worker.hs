@@ -191,8 +191,9 @@ recoveryWorkerImpl sendActions = action `catch` handler
         if (curSlotNothing && not recMode) then do
              logDebug "Recovery worker: don't know current slot"
              triggerRecovery sendActions
-        else logDebug $ "Recovery worker skipped: " <> show curSlotNothing <>
-                        " " <> show recMode
+        else logDebug $ "Recovery worker skipped:" <>
+                        " slot is nothing: " <> show curSlotNothing <>
+                        ", recovery mode is on: " <> show recMode
     handler (e :: SomeException) = do
         logError $ "Error happened in recoveryWorker: " <> show e
         delay (sec 10)

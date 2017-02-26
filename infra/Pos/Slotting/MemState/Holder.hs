@@ -22,6 +22,7 @@ import           Mockable                    (ChannelT, Counter, Distribution, G
                                               MFunctor', Mockable (liftMockable), Promise,
                                               SharedAtomicT, SharedExclusiveT, ThreadId,
                                               liftMockableWrappedM)
+import           Pos.Core.Types              (Timestamp)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
@@ -33,7 +34,8 @@ import           Pos.Slotting.Types          (SlottingData (sdPenultEpoch))
 -- Transformer
 ----------------------------------------------------------------------------
 
-type SlottingVar = TVar SlottingData
+-- | System start and slotting data
+type SlottingVar = (Timestamp, TVar SlottingData)
 
 -- | Monad transformer which provides 'SlottingData' using DB.
 newtype SlottingHolder m a = SlottingHolder
@@ -94,15 +96,15 @@ instance MonadBaseControl IO m => MonadBaseControl IO (SlottingHolder m) where
 
 instance MonadIO m =>
          MonadSlotsData (SlottingHolder m) where
-    getSystemStart = undefined
-    getSlottingData = atomically . readTVar =<< SlottingHolder ask
+    getSystemStart = SlottingHolder (asks fst)
+    getSlottingData = atomically . readTVar =<< SlottingHolder (asks snd)
     waitPenultEpochEquals target = do
-        var <- SlottingHolder ask
+        var <- SlottingHolder (asks snd)
         atomically $ do
             penultEpoch <- sdPenultEpoch <$> readTVar var
             when (penultEpoch /= target) retry
     putSlottingData sd = do
-        var <- SlottingHolder ask
+        var <- SlottingHolder (asks snd)
         atomically $ do
             penultEpoch <- sdPenultEpoch <$> readTVar var
             when (penultEpoch < sdPenultEpoch sd) $ writeTVar var sd

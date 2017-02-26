@@ -198,7 +198,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
        initTip <- runDBHolder modernDBs getTip
        stateM <- liftIO SM.newIO
        stateM_ <- liftIO SM.newIO
-       slottingVar <- runDBHolder modernDBs mkSlottingVar
+       slottingVar <- runDBHolder  modernDBs $ mkSlottingVar npSystemStart
        ntpSlottingVar <- mkNtpSlottingVar
 
        -- TODO [CSL-775] need an effect-free way of running this into IO.
@@ -240,10 +240,10 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
     LoggingParams {..} = bpLoggingParams npBaseParams
 
 -- | Create new 'SlottingVar' using data from DB.
-mkSlottingVar :: MonadDB ε m => m SlottingVar
-mkSlottingVar = do
+mkSlottingVar :: MonadDB ε m => Timestamp -> m SlottingVar
+mkSlottingVar sysStart = do
     sd <- GState.getSlottingData
-    liftIO $ newTVarIO sd
+    (sysStart, ) <$> liftIO (newTVarIO sd)
 
 -- | ServiceMode runner.
 runServiceMode

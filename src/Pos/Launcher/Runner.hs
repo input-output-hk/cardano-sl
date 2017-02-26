@@ -41,7 +41,7 @@ import qualified Data.ByteString.Char8       as BS8
 import           Data.Default                (def)
 import           Data.List                   (nub)
 import           Data.Proxy                  (Proxy (..))
-import           Data.Tagged                 (proxy)
+import           Data.Tagged                 (proxy, untag)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (CurrentTime, Mockable, MonadMockable,
@@ -190,7 +190,7 @@ runRawRealMode
     -> Production a
 runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec action) =
     usingLoggerName lpRunnerTag $ do
-       initNC <- sscCreateNodeContext @ssc sscnp
+       initNC <- untag @ssc sscCreateNodeContext sscnp
        modernDBs <- openNodeDBs npRebuildDb npDbPathM
        -- TODO [CSL-775] ideally initialization logic should be in scenario.
        runDBHolder modernDBs . runCH @ssc np initNC $ initNodeDBs

@@ -1,6 +1,6 @@
-{-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE CPP                  #-}
 {-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE InstanceSigs         #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -24,6 +24,7 @@ import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.Map                    as M
+import           Data.Tagged                 (Tagged (..))
 import           Data.Time.Units             (Millisecond)
 import           Mockable                    (MonadMockable, Production)
 import           System.Wlog                 (LoggerNameBox, WithLogger)
@@ -108,11 +109,12 @@ instance (MonadDB m, MonadMask m) => MonadBalances (TxpHolder m) where
 
 -- | A class which have methods to get transaction history
 class Monad m => MonadTxHistory m where
-    getTxHistory :: Address -> m [TxHistoryEntry]
+    getTxHistory :: SscHelpersClass ssc
+                 => Tagged ssc (Address -> m [TxHistoryEntry])
     saveTx :: (TxId, TxAux) -> m ()
 
-    default getTxHistory :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => Address -> m [TxHistoryEntry]
-    getTxHistory = lift . getTxHistory
+    default getTxHistory :: (SscHelpersClass ssc, MonadTrans t, MonadTxHistory m', t m' ~ m) => Tagged ssc (Address -> m [TxHistoryEntry])
+    getTxHistory = fmap lift <$> getTxHistory
 
     default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()
     saveTx = lift . saveTx
@@ -135,7 +137,7 @@ deriving instance MonadTxHistory m => MonadTxHistory (WalletWebDB m)
 
 -- | Get tx history for Address
 instance MonadIO m => MonadTxHistory (WalletDB m) where
-    getTxHistory addr = do
+    getTxHistory = Tagged $ \addr -> do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
         fmap (fst . fromMaybe (panic "deriveAddrHistory: Nothing")) $
@@ -143,9 +145,11 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
             deriveAddrHistory addr chain
     saveTx _ = pure ()
 
-instance forall ssc m . (SscHelpersClass ssc, MonadDB m, MonadThrow m, WithLogger m)
+instance (MonadDB m, MonadThrow m, WithLogger m)
          => MonadTxHistory (TxpHolder m) where
-    getTxHistory addr = do
+    getTxHistory :: forall ssc. SscHelpersClass ssc
+                 => Tagged ssc (Address -> TxpHolder m [TxHistoryEntry])
+    getTxHistory = Tagged $ \addr -> do
         bot <- GS.getBot
         tip <- GS.getTip
         genUtxo <- GS.getFilteredGenUtxo addr

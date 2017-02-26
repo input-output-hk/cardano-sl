@@ -244,8 +244,8 @@ main = do
                 }
 
         systemStart <- case CLI.sscAlgo woCommonArgs of
-            GodTossingAlgo -> runTimeSlaveReal (Proxy :: Proxy SscGodTossing) res timeSlaveParams
-            NistBeaconAlgo -> runTimeSlaveReal (Proxy :: Proxy SscNistBeacon) res timeSlaveParams
+            GodTossingAlgo -> runTimeSlaveReal (Proxy @SscGodTossing) res timeSlaveParams
+            NistBeaconAlgo -> runTimeSlaveReal (Proxy @SscNistBeacon) res timeSlaveParams
 
         let params =
                 WalletParams
@@ -268,7 +268,11 @@ main = do
                 Cmd cmd                         -> worker runCmdOuts $ runWalletCmd opts cmd
 #ifdef WITH_WEB
                 Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
-                    walletServeWebLite sendActions webDaedalusDbPath False webPort
+                    case CLI.sscAlgo woCommonArgs of
+                        GodTossingAlgo -> walletServeWebLite (Proxy @SscGodTossing)
+                                              sendActions webDaedalusDbPath False webPort
+                        NistBeaconAlgo -> walletServeWebLite (Proxy @SscNistBeacon)
+                                              sendActions webDaedalusDbPath False webPort
 #endif
 
         case CLI.sscAlgo woCommonArgs of

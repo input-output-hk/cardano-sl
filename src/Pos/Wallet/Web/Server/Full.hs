@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -16,7 +15,7 @@ import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
 import           Mockable                      (runProduction)
 import           Network.Wai                   (Application)
-import           Servant.Server                (Handler, Server)
+import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import           System.Wlog                   (logInfo, usingLoggerName)
 import           Universum
@@ -45,7 +44,6 @@ import           Pos.Txp                       (TxpLocalData, askTxpMem,
                                                 runTxpHolderReader)
 import           Pos.Update.MemState.Holder    (runUSHolder)
 import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
-import           Pos.Wallet.Web.Api            (WalletApi)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
                                                 walletServeImpl, walletServer,
                                                 walletServerOuts)
@@ -65,7 +63,7 @@ walletServeWebFull
     -> Bool      -- Rebuild flag
     -> Word16
     -> RawRealMode ssc ()
-walletServeWebFull sendActions debug = undefined -- walletServeImpl @_ @ssc action
+walletServeWebFull sendActions debug = walletServeImpl action
   where
     action :: WalletWebHandler (RawRealMode ssc) Application
     action = do
@@ -73,8 +71,7 @@ walletServeWebFull sendActions debug = undefined -- walletServeImpl @_ @ssc acti
 #ifdef DEV_MODE
         when debug $ mapM_ addSecretKey genesisSecretKeys
 #endif
-        -- walletApplication @ssc $ walletServer sendActions nat
-        undefined
+        walletApplication $ walletServer @ssc sendActions nat
 
 type WebHandler ssc = WalletWebSockets (WalletWebDB (RawRealMode ssc))
 

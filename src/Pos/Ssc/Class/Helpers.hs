@@ -1,4 +1,3 @@
-
 module Pos.Ssc.Class.Helpers
        ( SscHelpersClass (..)
        ) where

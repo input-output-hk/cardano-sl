@@ -15,8 +15,8 @@ import           Control.Monad.Trans        (MonadTrans)
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import qualified Pos.DB.GState.Update       as DB
 import           Pos.DB.Holder              (DBHolder)
+import qualified Pos.Update.DB              as DB
 
 -- | Weekened `MonadDB` which keeps limits on messages size.
 class Monad m => MonadDBLimits m where
@@ -30,5 +30,5 @@ instance MonadDBLimits m => MonadDBLimits (ReaderT r m)
 instance MonadDBLimits m => MonadDBLimits (StateT r m)
 instance MonadDBLimits m => MonadDBLimits (ExceptT r m)
 
-instance (MonadIO m, MonadThrow m) => MonadDBLimits (DBHolder ssc m) where
+instance (MonadIO m, MonadThrow m) => MonadDBLimits (DBHolder m) where
     getMaxBlockSize = DB.getMaxBlockSize

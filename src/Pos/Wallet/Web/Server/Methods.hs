@@ -1,5 +1,8 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeOperators       #-}
 
@@ -20,6 +23,7 @@ import           Control.Monad.State           (runStateT)
 import qualified Data.ByteString.Base64        as B64
 import           Data.Default                  (Default, def)
 import           Data.List                     (elemIndex, (!!))
+import           Data.Tagged                   (untag)
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
 import           Formatting                    (build, ords, sformat, stext, (%))
 import           Network.Wai                   (Application)
@@ -37,6 +41,7 @@ import           Pos.Crypto                    (SecretKey, deterministicKeyGen, 
                                                 toPublic)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (getKnownPeers)
+import           Pos.Ssc.Class                 (SscHelpersClass)
 import           Pos.Txp.Core.Types            (TxOut (..))
 import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
                                                 addressF, coinF, decodeTextAddress,
@@ -131,7 +136,8 @@ walletApplication serv = do
     serv >>= return . upgradeApplicationWS wsConn . serve walletApi
 
 walletServer
-    :: (Monad m, WalletWebMode ssc (WalletWebHandler m))
+    :: forall ssc m.
+       (SscHelpersClass ssc, Monad m, WalletWebMode ssc (WalletWebHandler m))
     => SendActions m
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
@@ -146,7 +152,7 @@ walletServer sendActions nat = do
             sendActions
     nat >>= launchNotifier
     myCAddresses >>= mapM_ insertAddressMeta
-    (`enter` servantHandlers sendActions') <$> nat
+    (`enter` servantHandlers @ssc sendActions') <$> nat
   where
     insertAddressMeta cAddr =
         getWalletMeta cAddr >>= createWallet cAddr . fromMaybe def
@@ -227,7 +233,10 @@ walletServerOuts = sendTxOuts
 -- Handlers
 ----------------------------------------------------------------------------
 
-servantHandlers :: WalletWebMode ssc m =>  SendActions m -> ServerT WalletApi m
+servantHandlers
+    :: forall ssc m.
+       (SscHelpersClass ssc, WalletWebMode ssc m)
+    => SendActions m -> ServerT WalletApi m
 servantHandlers sendActions =
      (catchWalletError . getWallet)
     :<|>
@@ -237,9 +246,9 @@ servantHandlers sendActions =
     :<|>
      (\a b c d e -> catchWalletError . sendExtended sendActions a b c d e)
     :<|>
-     (\a b -> catchWalletError . getHistory a b )
+     (\a b -> catchWalletError . getHistory @ssc a b )
     :<|>
-     (\a b c -> catchWalletError . searchHistory a b c)
+     (\a b c -> catchWalletError . searchHistory @ssc a b c)
     :<|>
      (\a b -> catchWalletError . updateTransaction a b)
     :<|>
@@ -330,17 +339,23 @@ sendExtended sendActions srcCAddr dstCAddr c curr title desc = do
             () <$ addHistoryTx dstCAddr curr title desc (THEntry txHash tx False Nothing)
             addHistoryTx srcCAddr curr title desc (THEntry txHash tx True Nothing)
 
-getHistory :: WalletWebMode ssc m => CAddress -> Word -> Word -> m ([CTx], Word)
+getHistory
+    :: forall ssc m.
+       (SscHelpersClass ssc, WalletWebMode ssc m)
+    => CAddress -> Word -> Word -> m ([CTx], Word)
 getHistory cAddr skip limit = do
-    history <- getTxHistory =<< decodeCAddressOrFail cAddr
+    history <- untag @ssc getTxHistory =<< decodeCAddressOrFail cAddr
     cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) history
     pure (paginate cHistory, fromIntegral $ length cHistory)
   where
     paginate = take (fromIntegral limit) . drop (fromIntegral skip)
 
 -- FIXME: is Word enough for length here?
-searchHistory :: WalletWebMode ssc m => CAddress -> Text -> Word -> Word -> m ([CTx], Word)
-searchHistory cAddr search skip limit = first (filter $ txContainsTitle search) <$> getHistory cAddr skip limit
+searchHistory
+    :: forall ssc m.
+       (SscHelpersClass ssc, WalletWebMode ssc m)
+    => CAddress -> Text -> Word -> Word -> m ([CTx], Word)
+searchHistory cAddr search skip limit = first (filter $ txContainsTitle search) <$> getHistory @ssc cAddr skip limit
 
 addHistoryTx
     :: WalletWebMode ssc m

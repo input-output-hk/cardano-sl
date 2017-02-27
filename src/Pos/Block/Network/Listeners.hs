@@ -26,10 +26,10 @@ import           Pos.Block.Network.Types     (MsgBlock (..), MsgGetBlocks (..),
                                               MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Limits    (recvLimited, reifyMsgLimit)
 import           Pos.Communication.Protocol  (ConversationActions (..), HandlerSpec (..),
-                                              ListenerSpec (..), OutSpecs,
-                                              listenerConv, mergeLs, messageName)
+                                              ListenerSpec (..), OutSpecs, listenerConv,
+                                              mergeLs, messageName)
 import           Pos.Communication.Util      (stubListenerConv)
-import qualified Pos.DB                      as DB
+import qualified Pos.DB.Block                as DB
 import           Pos.DB.Error                (DBError (DBMalformed))
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Util                    (NewestFirst (..))
@@ -91,7 +91,7 @@ handleGetBlocks = return $ listenerConv $
     \_ __peerId (conv::ConversationActions (MsgBlock ssc) (MsgGetBlocks) m) ->
     whenJustM (recv conv) $ \mgb@MsgGetBlocks{..} -> do
         logDebug $ sformat ("Got request on handleGetBlocks: "%build) mgb
-        hashes <- getHeadersFromToIncl mgbFrom mgbTo
+        hashes <- getHeadersFromToIncl @ssc mgbFrom mgbTo
         maybe warn (sendBlocks conv) hashes
   where
     warn = logWarning $ "getBlocksByHeaders@retrieveHeaders returned Nothing"

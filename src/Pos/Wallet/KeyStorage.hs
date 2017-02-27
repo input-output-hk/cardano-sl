@@ -114,12 +114,10 @@ newtype KeyStorage m a = KeyStorage
     } deriving (Functor, Applicative, Monad, MonadSlotsData,
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, CanLog, MonadMask,
-                MonadReader KeyData,
+                MonadReader KeyData, MonadDB,
                 MonadWalletDB, WithWalletContext, WithNodeContext ssc,
                 MonadDelegation, MonadTrans, MonadBase io, MonadFix,
                 MonadDBLimits)
-
-deriving instance MonadDB ssc m => MonadDB ssc (KeyStorage m)
 
 instance Monad m => WrappedM (KeyStorage m) where
     type UnwrappedM (KeyStorage m) = ReaderT KeyData m

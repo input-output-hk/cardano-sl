@@ -48,8 +48,8 @@ newtype TxpHolder m a = TxpHolder
     { getTxpHolder :: ReaderT TxpLocalData m a
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadThrow,
                 MonadSlotsData, MonadSlots, MonadCatch, MonadIO, MonadFail,
-                HasLoggerName, WithNodeContext ssc, MonadJL, MonadDBLimits,
-                CanLog, MonadMask, MonadSscMem ssc, MonadFix)
+                HasLoggerName, WithNodeContext ssc, MonadJL, MonadDB,
+                CanLog, MonadMask, MonadSscMem ssc, MonadFix, MonadDBLimits)
 
 type instance ThreadId (TxpHolder m) = ThreadId m
 type instance Promise (TxpHolder m) = Promise m
@@ -66,9 +66,7 @@ instance ( Mockable d m
          ) => Mockable d (TxpHolder m) where
     liftMockable = liftMockableWrappedM
 
-deriving instance MonadDB ssc m => MonadDB ssc (TxpHolder m)
-
-deriving instance MonadTxpMem m => MonadTxpMem (DBHolder ssc m)
+deriving instance MonadTxpMem m => MonadTxpMem (DBHolder m)
 
 ----------------------------------------------------------------------------
 -- Useful instances

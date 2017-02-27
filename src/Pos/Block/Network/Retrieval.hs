@@ -38,8 +38,7 @@ import           Pos.Block.Network.Announce (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
                                              MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Block.Types            (Blund)
-import           Pos.Communication.Limits   (LimitedLength, reifyMsgLimit,
-                                             recvLimited)
+import           Pos.Communication.Limits   (LimitedLength, recvLimited, reifyMsgLimit)
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs,
                                              SendActions (..), WorkerSpec, convH,
                                              toOutSpecs, worker)
@@ -47,7 +46,7 @@ import           Pos.Constants              (blkSecurityParam)
 import           Pos.Context                (NodeContext (..), getNodeContext,
                                              isRecoveryMode)
 import           Pos.Crypto                 (shortHashF)
-import qualified Pos.DB                     as DB
+import qualified Pos.DB.DB                  as DB
 import           Pos.DHT.Model              (converseToNeighbors)
 import           Pos.Reporting.Methods      (reportMisbehaviourMasked, reportingFatal)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
@@ -231,10 +230,11 @@ triggerRecovery sendActions = unlessM isRecoveryMode $ do
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'
 -- message.
 mkHeadersRequest
-    :: WorkMode ssc m
+    :: forall ssc m.
+       WorkMode ssc m
     => Maybe HeaderHash -> m (Maybe MsgGetHeaders)
 mkHeadersRequest upto = do
-    mbHeaders <- nonEmpty . toList <$> getHeadersOlderExp Nothing
+    mbHeaders <- nonEmpty . toList <$> getHeadersOlderExp @ssc Nothing
     pure $ (\h -> MsgGetHeaders (NE.toList h) upto) <$> mbHeaders
 
 -- Second case of 'handleBlockheaders'

@@ -35,7 +35,7 @@ import qualified Data.ByteString.Char8       as BS8
 import           Data.Default                (def)
 import           Data.List                   (nub)
 import           Data.Proxy                  (Proxy (..))
-import           Data.Tagged                 (proxy)
+import           Data.Tagged                 (proxy, untag)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (CurrentTime, Mockable, MonadMockable,
@@ -79,9 +79,10 @@ import qualified Pos.Constants               as Const
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               runContextHolder)
 import           Pos.Crypto                  (createProxySecretKey, toPublic)
-import           Pos.DB                      (MonadDB (..), getTip, initNodeDBs,
-                                              openNodeDBs, runDBHolder)
-import qualified Pos.DB.Lrc                  as LrcDB
+import           Pos.DB                      (MonadDB (..), runDBHolder)
+import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
+import           Pos.DB.GState               (getTip)
+import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Holder       (runDelegationT)
 import           Pos.DHT.Model               (MonadDHT (..), converseToNeighbors,
@@ -183,10 +184,10 @@ runRawRealMode
     -> Production a
 runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec action) =
     usingLoggerName lpRunnerTag $ do
-       initNC <- sscCreateNodeContext @ssc sscnp
+       initNC <- untag @ssc sscCreateNodeContext sscnp
        modernDBs <- openNodeDBs npRebuildDb npDbPathM
        -- TODO [CSL-775] ideally initialization logic should be in scenario.
-       runDBHolder modernDBs . runCH np initNC $ initNodeDBs
+       runDBHolder modernDBs . runCH @ssc np initNC $ initNodeDBs
        initTip <- runDBHolder modernDBs getTip
        stateM <- liftIO SM.newIO
        stateM_ <- liftIO SM.newIO
@@ -198,7 +199,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
            runIO = runProduction .
                        usingLoggerName lpRunnerTag .
                        runDBHolder modernDBs .
-                       runCH np initNC .
+                       runCH @ssc np initNC .
                        runSlottingHolder slottingVar .
                        runNtpSlotting ntpSlottingVar .
                        ignoreSscHolder .
@@ -321,7 +322,7 @@ runStatsMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
 -- Lower level runners
 ----------------------------------------------------------------------------
 
-runCH :: forall ssc m a . (SscConstraint ssc, MonadDB ssc m, Mockable CurrentTime m)
+runCH :: forall ssc m a . (SscConstraint ssc, MonadDB m, Mockable CurrentTime m)
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH params@NodeParams {..} sscNodeContext act = do
     logCfg <- getRealLoggerConfig $ bpLoggingParams npBaseParams

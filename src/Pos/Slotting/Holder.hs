@@ -30,9 +30,9 @@ import           Universum
 import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.DB.Limits               (MonadDBLimits)
-import qualified Pos.DB.GState               as GState
 import           Pos.Slotting.Class          (MonadSlotsData (..))
 import           Pos.Slotting.Types          (SlottingData (sdPenultEpoch))
+import qualified Pos.Update.DB               as UDB
 import           Pos.Util.JsonLog            (MonadJL)
 
 ----------------------------------------------------------------------------
@@ -60,7 +60,7 @@ newtype SlottingHolder m a = SlottingHolder
                , HasLoggerName
                , CanLog
 
-               , MonadDB σ
+               , MonadDB
                , MonadDBLimits
                , WithNodeContext ssc
                , MonadJL
@@ -126,7 +126,7 @@ runSlottingHolder :: SlottingVar -> SlottingHolder m a -> m a
 runSlottingHolder v = usingReaderT v . getSlottingHolder
 
 -- | Create new 'SlottingVar' using data from DB.
-mkSlottingVar :: MonadDB ε m => m SlottingVar
+mkSlottingVar :: MonadDB m => m SlottingVar
 mkSlottingVar = do
-    sd <- GState.getSlottingData
+    sd <- UDB.getSlottingData
     liftIO $ newTVarIO sd

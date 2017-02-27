@@ -64,6 +64,7 @@ newtype USHolder m a = USHolder
                , MonadBase io
                , MonadDelegation
                , MonadFix
+               , MonadDB
                , MonadDBLimits
                )
 
@@ -71,7 +72,6 @@ newtype USHolder m a = USHolder
 -- Common instances used all over the code
 ----------------------------------------------------------------------------
 
-deriving instance MonadDB ssc m => MonadDB ssc (USHolder m)
 type instance ThreadId (USHolder m) = ThreadId m
 type instance Promise (USHolder m) = Promise m
 type instance SharedAtomicT (USHolder m) = SharedAtomicT m

@@ -32,7 +32,7 @@ import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
-import           Pos.Txp.Toil.Class           (MonadBalancesRead (..), MonadUtxoRead (..))
+import           Pos.Txp.Toil.Class          (MonadBalancesRead (..), MonadUtxoRead (..))
 
 newtype DBTxp m a = DBTxp
     { runDBTxp :: m a
@@ -56,13 +56,13 @@ newtype DBTxp m a = DBTxp
                , MonadBase io
                , MonadDelegation
                , MonadFix
+               , MonadDB
                )
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code
 ----------------------------------------------------------------------------
 
-deriving instance MonadDB ssc m => MonadDB ssc (DBTxp m)
 type instance ThreadId (DBTxp m) = ThreadId m
 type instance Promise (DBTxp m) = Promise m
 type instance SharedAtomicT (DBTxp m) = SharedAtomicT m
@@ -98,9 +98,9 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DBTxp m) where
 -- Useful instances
 ----------------------------------------------------------------------------
 
-instance (Monad m, MonadDB ssc m) => MonadUtxoRead (DBTxp m) where
+instance (Monad m, MonadDB m) => MonadUtxoRead (DBTxp m) where
     utxoGet = GS.getTxOut
 
-instance (Monad m, MonadDB ssc m) => MonadBalancesRead (DBTxp m) where
+instance (Monad m, MonadDB m) => MonadBalancesRead (DBTxp m) where
     getTotalStake = GS.getTotalFtsStake
     getStake = GS.getFtsStake

@@ -34,7 +34,7 @@ import           Pos.Context                          (ContextHolder, NodeContex
                                                        ncSscContext, runContextHolder)
 import qualified Pos.DB                               as DB
 import qualified Pos.DB.GState                        as GS
-import qualified Pos.DB.Lrc                           as LrcDB
+import qualified Pos.Lrc.DB                           as LrcDB
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc)
 import           Pos.Txp.MemState                     (TxpHolder, TxpLocalData, askTxpMem,
@@ -81,14 +81,14 @@ serveImpl application port =
 type WebHandler ssc =
     TxpHolder (
     ContextHolder ssc (
-    DB.DBHolder ssc
+    DB.DBHolder
     Production
     ))
 
 convertHandler
     :: forall ssc a.
        NodeContext ssc
-    -> DB.NodeDBs ssc
+    -> DB.NodeDBs
     -> TxpLocalData
     -> WebHandler ssc a
     -> Handler a

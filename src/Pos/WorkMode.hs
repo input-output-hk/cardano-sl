@@ -50,7 +50,7 @@ type WorkMode ssc m
     = ( MinWorkMode m
       , MonadMask m
       , MonadSlots m
-      , MonadDB ssc m
+      , MonadDB m
       , MonadDBLimits m
       , MonadTxpMem m
       , MonadDelegation m
@@ -88,13 +88,13 @@ instance MonadJL m => MonadJL (KademliaDHT m) where
 
 -- Maybe we should move to somewhere else
 deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (KademliaDHT m)
-deriving instance MonadDB ssc m => MonadDB ssc (KademliaDHT m)
+deriving instance MonadDB m => MonadDB (KademliaDHT m)
 deriving instance MonadDBLimits m => MonadDBLimits (KademliaDHT m)
 deriving instance MonadDelegation m => MonadDelegation (KademliaDHT m)
 deriving instance MonadUSMem m => MonadUSMem (KademliaDHT m)
 
 deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (PeerStateHolder m)
-deriving instance MonadDB ssc m => MonadDB ssc (PeerStateHolder m)
+deriving instance MonadDB m => MonadDB (PeerStateHolder m)
 deriving instance MonadDBLimits m => MonadDBLimits (PeerStateHolder m)
 deriving instance MonadDHT m => MonadDHT (PeerStateHolder m)
 deriving instance MonadSscMem ssc m => MonadSscMem ssc (PeerStateHolder m)
@@ -115,7 +115,7 @@ type RawRealMode ssc =
     NtpSlotting (
     SlottingHolder (
     ContextHolder ssc (
-    DBHolder ssc (
+    DBHolder (
     LoggerNameBox Production
     ))))))))))
 

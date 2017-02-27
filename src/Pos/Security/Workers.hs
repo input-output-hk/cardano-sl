@@ -22,9 +22,10 @@ import           Pos.Constants               (blkSecurityParam, mdNoBlocksSlotTh
 import           Pos.Context                 (getNodeContext, getUptime, isRecoveryMode,
                                               ncPublicKey)
 import           Pos.Crypto                  (PublicKey)
-import           Pos.DB                      (DBError (DBMalformed), getBlockHeader,
-                                              getTipBlockHeader, loadBlundsFromTipByDepth)
+import           Pos.DB                      (DBError (DBMalformed))
+import           Pos.DB.Block                (getBlockHeader)
 import           Pos.DB.Class                (MonadDB)
+import           Pos.DB.DB                   (getTipBlockHeader, loadBlundsFromTipByDepth)
 import           Pos.Reporting.Methods       (reportMisbehaviourMasked, reportingFatal)
 import           Pos.Security.Class          (SecurityWorkersClass (..))
 import           Pos.Slotting                (getCurrentSlot, getLastKnownSlotDuration,
@@ -59,7 +60,7 @@ checkForReceivedBlocksWorker =
     worker requestTipOuts checkForReceivedBlocksWorkerImpl
 
 checkEclipsed
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => PublicKey -> SlotId -> BlockHeader ssc -> m Bool
 checkEclipsed ourPk slotId = notEclipsed
   where
@@ -95,13 +96,14 @@ checkEclipsed ourPk slotId = notEclipsed
                      Nothing -> onBlockLoadFailure header $> True
 
 checkForReceivedBlocksWorkerImpl
-    :: WorkMode ssc m
+    :: forall ssc m.
+       WorkMode ssc m
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl sendActions =
     afterDelay . repeatOnInterval . reportingFatal $ do
         ourPk <- ncPublicKey <$> getNodeContext
         let onSlotDefault slotId = do
-                header <- getTipBlockHeader
+                header <- getTipBlockHeader @ssc
                 unlessM (checkEclipsed ourPk slotId header) onEclipsed
         maybe onSlotUnknown onSlotDefault =<< getCurrentSlot
   where

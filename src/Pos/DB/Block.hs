@@ -5,7 +5,6 @@
 module Pos.DB.Block
        ( getBlock
        , getBlockHeader
-       , getStoredBlock
        , getUndo
        , getBlockWithUndo
 
@@ -32,13 +31,11 @@ import           Universum
 
 import           Pos.Binary.Block          ()
 import           Pos.Binary.Class          (Bi)
-import           Pos.Binary.DB             ()
 import           Pos.Block.Types           (Blund, Undo (..))
 import           Pos.Crypto                (shortHashF)
 import           Pos.DB.Class              (MonadDB, getBlockDB)
 import           Pos.DB.Error              (DBError (..))
 import           Pos.DB.Functions          (rocksDelete, rocksGetBi, rocksPutBi)
-import           Pos.DB.Types              (StoredBlock (..))
 import           Pos.Ssc.Class.Helpers     (SscHelpersClass)
 import           Pos.Types                 (Block, BlockHeader, GenesisBlock,
                                             HasDifficulty (difficultyL), HasPrevBlock,
@@ -47,45 +44,39 @@ import           Pos.Types                 (Block, BlockHeader, GenesisBlock,
 import qualified Pos.Types                 as T
 import           Pos.Util                  (NewestFirst (..), maybeThrow)
 
--- | Get StoredBlock by hash from Block DB.
-getStoredBlock
-    :: (SscHelpersClass ssc, MonadDB ssc m)
-    => HeaderHash -> m (Maybe (StoredBlock ssc))
-getStoredBlock = getBi . blockKey
-
 -- | Get block with given hash from Block DB.
 getBlock
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Maybe (Block ssc))
-getBlock = fmap (fmap sbBlock) . getStoredBlock
+getBlock = getBi . blockKey
 
 -- | Returns header of block that was requested from Block DB.
 getBlockHeader
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Maybe (BlockHeader ssc))
 getBlockHeader h = fmap T.getBlockHeader <$> getBlock h
 
 -- | Get undo data for block with given hash from Block DB.
-getUndo :: MonadDB ssc m => HeaderHash -> m (Maybe Undo)
+getUndo :: MonadDB m => HeaderHash -> m (Maybe Undo)
 getUndo = getBi . undoKey
 
 -- | Retrieves block and undo together.
 getBlockWithUndo
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Maybe (Block ssc, Undo))
 getBlockWithUndo x =
     runMaybeT $ (,) <$> MaybeT (getBlock x) <*> MaybeT (getUndo x)
 
 -- | Put given block, its metadata and Undo data into Block DB.
 putBlock
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => Undo -> Block ssc -> m ()
 putBlock undo blk = do
     let h = headerHash blk
-    putBi (blockKey h) $ StoredBlock { sbBlock = blk }
+    putBi (blockKey h) blk
     putBi (undoKey h) undo
 
-deleteBlock :: (MonadDB ssc m) => HeaderHash -> m ()
+deleteBlock :: (MonadDB m) => HeaderHash -> m ()
 deleteBlock = delete . blockKey
 
 ----------------------------------------------------------------------------
@@ -147,27 +138,27 @@ loadDataByDepth getter extraPredicate depth h = do
 -- | Load blunds starting from block with header hash equal to given hash
 -- and while @predicate@ is true.
 loadBlundsWhile
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => (Block ssc -> Bool) -> HeaderHash -> m (NewestFirst [] (Blund ssc))
 loadBlundsWhile predicate = loadDataWhile getBlundThrow (predicate . fst)
 
 -- | Load blunds which have depth less than given.
 loadBlundsByDepth
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => Word -> HeaderHash -> m (NewestFirst [] (Blund ssc))
 loadBlundsByDepth = loadDataByDepth getBlundThrow (const True)
 
 -- | Load blocks starting from block with header hash equal to given hash
 -- and while @predicate@ is true.
 loadBlocksWhile
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => (Block ssc -> Bool) -> HeaderHash -> m (NewestFirst [] (Block ssc))
 loadBlocksWhile = loadDataWhile getBlockThrow
 
 -- | Load headers starting from block with header hash equal to given hash
 -- and while @predicate@ is true.
 loadHeadersWhile
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => (BlockHeader ssc -> Bool)
     -> HeaderHash
     -> m (NewestFirst [] (BlockHeader ssc))
@@ -175,13 +166,13 @@ loadHeadersWhile = loadDataWhile getHeaderThrow
 
 -- | Load headers which have depth less than given.
 loadHeadersByDepth
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => Word -> HeaderHash -> m (NewestFirst [] (BlockHeader ssc))
 loadHeadersByDepth = loadDataByDepth getHeaderThrow (const True)
 
 -- | Load headers which have depth less than given and match some criterion.
 loadHeadersByDepthWhile
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => (BlockHeader ssc -> Bool)
     -> Word
     -> HeaderHash
@@ -194,7 +185,7 @@ loadHeadersByDepthWhile = loadDataByDepth getHeaderThrow
 
 prepareBlockDB
     :: forall ssc m.
-       (SscHelpersClass ssc, MonadDB ssc m)
+       (SscHelpersClass ssc, MonadDB m)
     => GenesisBlock ssc -> m ()
 prepareBlockDB = putBlock def . Left
 
@@ -213,16 +204,16 @@ undoKey h = "u" <> convert h
 ----------------------------------------------------------------------------
 
 getBi
-    :: (MonadDB ssc m, Bi v)
+    :: (MonadDB m, Bi v)
     => ByteString -> m (Maybe v)
 getBi k = rocksGetBi k =<< getBlockDB
 
 putBi
-    :: (MonadDB ssc m, Bi v)
+    :: (MonadDB m, Bi v)
     => ByteString -> v -> m ()
 putBi k v = rocksPutBi k v =<< getBlockDB
 
-delete :: (MonadDB ssc m) => ByteString -> m ()
+delete :: (MonadDB m) => ByteString -> m ()
 delete k = rocksDelete k =<< getBlockDB
 
 ----------------------------------------------------------------------------
@@ -230,7 +221,7 @@ delete k = rocksDelete k =<< getBlockDB
 ----------------------------------------------------------------------------
 
 getBlundThrow
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Block ssc, Undo)
 getBlundThrow hash =
     maybeThrow (DBMalformed $ sformat errFmt hash) =<<
@@ -239,7 +230,7 @@ getBlundThrow hash =
     errFmt = ("getBlockThrow: no blund with HeaderHash: " %shortHashF)
 
 getBlockThrow
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Block ssc)
 getBlockThrow hash = maybeThrow (DBMalformed $ sformat errFmt hash) =<< getBlock hash
   where
@@ -247,7 +238,7 @@ getBlockThrow hash = maybeThrow (DBMalformed $ sformat errFmt hash) =<< getBlock
         ("getBlockThrow: no block with HeaderHash: "%shortHashF)
 
 getHeaderThrow
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (BlockHeader ssc)
 getHeaderThrow hash = maybeThrow (DBMalformed $ sformat errFmt hash) =<< getBlockHeader hash
   where

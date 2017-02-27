@@ -75,10 +75,9 @@ newtype NoStatsT m a = NoStatsT
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
-                MonadJL, CanLog, MonadTxpMem, MonadSscMem ssc, MonadDBLimits,
-                WithNodeContext ssc, MonadDelegation, MonadUSMem)
-
-deriving instance MonadDB ssc m => MonadDB ssc (NoStatsT m)
+                MonadJL, CanLog, MonadTxpMem, MonadSscMem ssc, MonadDB,
+                WithNodeContext ssc, MonadDelegation, MonadUSMem,
+                MonadDBLimits)
 
 instance Monad m => WrappedM (NoStatsT m) where
     type UnwrappedM (NoStatsT m) = m
@@ -129,10 +128,9 @@ newtype StatsT m a = StatsT
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
                 MonadTrans, MonadJL, CanLog, MonadTxpMem,
-                MonadSscMem ssc, MonadSlotsData, MonadDBLimits,
+                MonadSscMem ssc, MonadSlotsData, MonadDB, MonadDBLimits,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem)
 
-deriving instance MonadDB ssc m => MonadDB ssc (StatsT m)
 instance Monad m => WrappedM (StatsT m) where
     type UnwrappedM (StatsT m) = ReaderT StatsMap m
     _WrappedM = iso getStatsT StatsT

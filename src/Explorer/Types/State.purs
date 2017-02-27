@@ -13,6 +13,8 @@ type State =
     , socket :: SocketState
     , viewStates :: ViewStates
     , latestBlocks :: CBlockEntries
+    , initialBlocksRequested :: Boolean
+    , handleLatestBlocksSocketResult :: Boolean
     , latestTransactions :: CTxEntries
     , errors :: Errors
     , loading :: Boolean

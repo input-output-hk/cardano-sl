@@ -1,17 +1,17 @@
 module Main where
 
-import Prelude (($), (<<<), bind, pure)
 import Control.Bind ((=<<))
 import Control.Monad.Eff (Eff)
 import Control.SocketIO.Client (SocketIO, connect, on)
 import DOM (DOM)
-import Explorer.Routes (match)
 import Explorer.Api.Socket (socketHost, connectEvent, closeEvent, connectHandler, closeHandler, lastestBlocksEvent, latestBlocksHandler, lastestTransactionsEvent, latestTransactionsHandler) as Ex
+import Explorer.Routes (match)
 import Explorer.Types.Actions (Action(..)) as Ex
 import Explorer.Types.State (State) as Ex
 import Explorer.Update (update) as Ex
 import Explorer.View.Layout (view)
 import Network.HTTP.Affjax (AJAX)
+import Prelude (($), (<<<), bind, pure)
 import Pux (App, Config, CoreEffects, Update, renderToDOM, start)
 import Pux.Devtool (Action, start) as Pux.Devtool
 import Pux.Router (sampleUrl)

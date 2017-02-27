@@ -52,11 +52,6 @@ blocksView state =
             , P.div
                 [ P.className $ "blocks-footer" <> visibleBlockClazz ]
                 [ blocksFooterView ]
-            -- TODO (jk) For debugging only - has to be removed later on
-            , P.div
-                [ P.className $ "btn-debug"
-                , P.onClick $ const RequestLatestBlocks  ]
-                [ P.text "#Debug blocks" ]
             ]
         ]
       where

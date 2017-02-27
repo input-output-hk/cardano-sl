@@ -7,9 +7,9 @@ import DOM (DOM)
 import DOM.HTML.HTMLInputElement (select)
 import Data.Array ((:))
 import Data.Either (Either(..))
-import Data.Lens (over, set)
+import Data.Lens ((^.), over, set)
 import Explorer.Api.Http (fetchLatestBlocks, fetchLatestTransactions)
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, dashboard, dashboardBlockPagination, errors, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, dashboard, dashboardBlockPagination, handleLatestBlocksSocketResult, errors, initialBlocksRequested, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
@@ -31,8 +31,10 @@ update (SetLanguage lang) state = noEffects $ state { lang = lang }
 update (SocketConnected status) state = noEffects $
     set (socket <<< connected) status state
 update (SocketLatestBlocks (Right blocks)) state = noEffects $
+    if state ^. handleLatestBlocksSocketResult
     -- add incoming blocks ahead of previous blocks
-    over latestBlocks (\b -> blocks <> b) state
+    then over latestBlocks (\b -> blocks <> b) state
+    else state
 update (SocketLatestBlocks (Left error)) state = noEffects $
     -- add incoming errors ahead of previous errors
     over errors (\errors' -> (show error) : errors') state
@@ -70,29 +72,45 @@ update (BlockPaginateTransactions value) state = noEffects $
 
 -- DOM side effects
 
-update ScrollTop state = { state: state, effects: [
-    liftEff scrollTop >>= \_ -> pure NoOp
-  ]}
-update (SelectInputText input) state = { state: state, effects: [
-    liftEff $ select input >>= \_ -> pure NoOp
-  ]}
+update ScrollTop state =
+    { state
+    , effects:
+        [ liftEff scrollTop >>= \_ -> pure NoOp
+        ]
+    }
+update (SelectInputText input) state =
+    { state
+    , effects:
+        [ liftEff $ select input >>= \_ -> pure NoOp
+        ]
+    }
 
 
 -- NoOp
 
 update NoOp state = noEffects state
 
+-- http endpoints
+
+update RequestInitialBlocks state =
+    { state: set loading true $ state
+    , effects: [ attempt fetchLatestBlocks >>= pure <<< ReceiveInitialBlocks ]
+    }
+update (ReceiveInitialBlocks (Right blocks)) state = noEffects $
+    set loading false <<<
+    set initialBlocksRequested true <<<
+    set handleLatestBlocksSocketResult true $
+    set latestBlocks blocks $
+    state
+
+update (ReceiveInitialBlocks (Left error)) state = noEffects $
+    set loading false <<<
+    set initialBlocksRequested true <<<
+    set handleLatestBlocksSocketResult true $
+    over errors (\errors' -> (show error) : errors') state
 
 -- Debugging
 -- TODO (jk): all of following actions are for debugging only and have to be removed later on
-update RequestLatestBlocks state =
-    { state: set loading true state
-    , effects: [ attempt fetchLatestBlocks >>= pure <<< ReceiveLatestBlocks ]
-    }
-update (ReceiveLatestBlocks (Right blocks)) state = noEffects $
-    set loading false $ over latestBlocks (\b -> blocks <> b) state
-update (ReceiveLatestBlocks (Left error)) state = noEffects $
-    set loading false $ over errors (\errors' -> (show error) : errors') state
 update RequestLatestTransactions state =
     { state: set loading true state
     , effects: [ attempt fetchLatestTransactions >>= pure <<< ReceiveLatestTransactions ]
@@ -108,7 +126,15 @@ update (ReceiveLatestTransactions (Left error)) state = noEffects $
 update (UpdateView route) state = routeEffects route (state { route = route })
 
 routeEffects :: forall eff. Route -> State -> EffModel State Action (dom :: DOM, ajax :: AJAX | eff)
-routeEffects Dashboard state = { state, effects: [ pure ScrollTop ] }
+routeEffects Dashboard state =
+    { state
+    , effects:
+        [ pure ScrollTop
+        , if not $ state ^. initialBlocksRequested
+          then pure RequestInitialBlocks
+          else pure NoOp
+        ]
+    }
 routeEffects (Transaction hash) state = { state, effects: [ pure ScrollTop ] }
 routeEffects (Address hash) state = { state, effects: [ pure ScrollTop ] }
 routeEffects Calculator state = { state, effects: [ pure ScrollTop ] }

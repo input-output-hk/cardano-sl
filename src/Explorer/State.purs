@@ -28,6 +28,8 @@ initialState =
             }
         }
     , latestBlocks: []
+    , initialBlocksRequested: false
+    , handleLatestBlocksSocketResult: false
     , latestTransactions: []
     , errors: []
     , loading: false

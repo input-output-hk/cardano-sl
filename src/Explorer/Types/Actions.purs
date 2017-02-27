@@ -15,10 +15,13 @@ data Action
     -- DOM
     | ScrollTop
     | SelectInputText HTMLInputElement
-    -- sockets
+    -- socket endpoints
     | SocketConnected Boolean
     | SocketLatestBlocks (Either Error CBlockEntries)
     | SocketLatestTransactions (Either Error CTxEntries)
+    -- http endpoints
+    | RequestInitialBlocks
+    | ReceiveInitialBlocks (Either Error CBlockEntries)
     -- dashboard
     | DashboardExpandBlocks Boolean         -- toggle blocks
     | DashboardPaginateBlocks Int           -- current pagination of blocks
@@ -34,8 +37,6 @@ data Action
     | NoOp
     -- Debugging
     -- TODO (jk) remove all actions for debugging later
-    | RequestLatestBlocks
-    | ReceiveLatestBlocks (Either Error CBlockEntries)
     | RequestLatestTransactions
     | ReceiveLatestTransactions (Either Error CTxEntries)
 

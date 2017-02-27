@@ -248,7 +248,7 @@ instance forall ssc . SscHelpersClass ssc =>
         Just rh -> return . Just $ rh ^. difficultyL
         Nothing -> runMaybeT $ do
             cSlot <- flattenSlotId <$> MaybeT getCurrentSlot
-            th <- lift topHeader
+            th <- lift (topHeader @ssc)
             let hSlot = flattenEpochOrSlot th
             when (hSlot <= cSlot - blkSecurityParam) $
                 fail "Local tip is outdated"

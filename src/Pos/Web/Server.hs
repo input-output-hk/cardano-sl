@@ -1,8 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
 -- | Web server.
@@ -37,13 +34,11 @@ import           Pos.Context                          (ContextHolder, NodeContex
                                                        ncSscContext, runContextHolder)
 import qualified Pos.DB                               as DB
 import qualified Pos.DB.GState                        as GS
-import qualified Pos.DB.Lrc                           as LrcDB
+import qualified Pos.Lrc.DB                           as LrcDB
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc)
--- import           Pos.Ssc.GodTossing.SecretStorage     (getSecret)
-import           Pos.Txp.Class                        (getLocalTxs, getTxpLDWrap)
-import           Pos.Txp.Holder                       (TxpLDHolder, TxpLDWrap,
-                                                       runTxpLDHolderReader)
+import           Pos.Txp.MemState                     (TxpHolder, TxpLocalData, askTxpMem,
+                                                       getLocalTxs, runTxpHolderReader)
 import           Pos.Types                            (EpochIndex (..), SlotLeaders)
 import           Pos.WorkMode                         (WorkMode)
 
@@ -84,27 +79,25 @@ serveImpl application port =
 ----------------------------------------------------------------------------
 
 type WebHandler ssc =
-    TxpLDHolder ssc (
+    TxpHolder (
     ContextHolder ssc (
-    DB.DBHolder ssc
+    DB.DBHolder
     Production
     ))
 
 convertHandler
     :: forall ssc a.
        NodeContext ssc
-    -> DB.NodeDBs ssc
-    -> TxpLDWrap ssc
+    -> DB.NodeDBs
+    -> TxpLocalData
     -> WebHandler ssc a
     -> Handler a
 convertHandler nc nodeDBs wrap handler =
     liftIO (runProduction .
             DB.runDBHolder nodeDBs .
             runContextHolder nc .
-            runTxpLDHolderReader wrap $
+            runTxpHolderReader wrap $
             handler)
-            -- runTxLDImpl $
-            -- setTxLocalData tld >> handler)
     `Catch.catches`
     excHandlers
   where
@@ -116,9 +109,8 @@ nat :: forall ssc m . (MyWorkMode ssc m)
 nat = do
     nc <- getNodeContext
     nodeDBs <- DB.getNodeDBs
-    -- Is this legal at all???
-    (txpldwrap :: TxpLDWrap ssc) <- getTxpLDWrap
-    return $ Nat (convertHandler nc nodeDBs txpldwrap)
+    txpLocalData <- askTxpMem
+    return $ Nat (convertHandler nc nodeDBs txpLocalData)
 
 servantServerBase :: forall ssc m . MyWorkMode ssc m => m (Server (BaseNodeApi ssc))
 servantServerBase = flip enter baseServantHandlers <$> (nat @ssc @m)

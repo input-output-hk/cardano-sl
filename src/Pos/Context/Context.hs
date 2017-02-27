@@ -1,6 +1,4 @@
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE Rank2Types                #-}
-{-# LANGUAGE TemplateHaskell           #-}
 
 -- | Runtime context of node.
 
@@ -33,9 +31,10 @@ import           Pos.Crypto                       (PublicKey, toPublic)
 import           Pos.Genesis                      (genesisLeaders)
 import           Pos.Launcher.Param               (BaseParams (..), NodeParams (..))
 import           Pos.Ssc.Class.Types              (Ssc (SscNodeContext))
+import           Pos.Txp.Core.Types               (Utxo)
 import           Pos.Types                        (Address, BlockHeader, EpochIndex,
                                                    HeaderHash, SlotLeaders, Timestamp,
-                                                   Utxo, makePubKeyAddress)
+                                                   makePubKeyAddress)
 import           Pos.Update.Poll.Types            (ConfirmedProposalState)
 import           Pos.Util                         (NE, NewestFirst)
 import           Pos.Util.UserSecret              (UserSecret)

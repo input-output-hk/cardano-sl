@@ -1,9 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE Rank2Types           #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | This module defines methods which operate on GtLocalData.
 
@@ -33,7 +29,7 @@ import           Universum
 import           Pos.Binary.Ssc                     ()
 import           Pos.Context                        (WithNodeContext)
 import           Pos.DB                             (MonadDB)
-import qualified Pos.DB.Lrc                         as LrcDB
+import qualified Pos.Lrc.DB                         as LrcDB
 import           Pos.Lrc.Types                      (RichmenStake)
 import           Pos.Slotting                       (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate,
@@ -51,11 +47,11 @@ import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData (..), ldEpoch,
 import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossModifier,
                                                      TossT, TossVerFailure (..),
                                                      evalPureTossWithLogger, evalTossT,
-                                                     execTossT, hasCertificate,
-                                                     hasCommitment, hasOpening, hasShares,
-                                                     isGoodSlotForTag, normalizeToss,
-                                                     tmCertificates, tmCommitments,
-                                                     tmOpenings, tmShares,
+                                                     execTossT, hasCertificateToss,
+                                                     hasCommitmentToss, hasOpeningToss,
+                                                     hasSharesToss, isGoodSlotForTag,
+                                                     normalizeToss, tmCertificates,
+                                                     tmCommitments, tmOpenings, tmShares,
                                                      verifyAndApplyGtPayload)
 import           Pos.Ssc.GodTossing.Type            (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types           (GtGlobalState)
@@ -130,7 +126,7 @@ normalize epoch richmen gs = do
 -- to current local data.
 sscIsDataUseful
     :: ( WithLogger m
-       , MonadDB SscGodTossing m
+       , MonadDB m
        , WithNodeContext kek m
        , MonadSlots m
        , MonadSscMem SscGodTossing m
@@ -142,13 +138,13 @@ sscIsDataUseful tag id =
         (evalTossInMem $ sscIsDataUsefulDo tag)
         (pure False)
   where
-    sscIsDataUsefulDo CommitmentMsg     = not <$> hasCommitment id
-    sscIsDataUsefulDo OpeningMsg        = not <$> hasOpening id
-    sscIsDataUsefulDo SharesMsg         = not <$> hasShares id
-    sscIsDataUsefulDo VssCertificateMsg = not <$> hasCertificate id
+    sscIsDataUsefulDo CommitmentMsg     = not <$> hasCommitmentToss id
+    sscIsDataUsefulDo OpeningMsg        = not <$> hasOpeningToss id
+    sscIsDataUsefulDo SharesMsg         = not <$> hasSharesToss id
+    sscIsDataUsefulDo VssCertificateMsg = not <$> hasCertificateToss id
     evalTossInMem
         :: ( WithLogger m
-           , MonadDB SscGodTossing m
+           , MonadDB m
            , WithNodeContext kek m
            , MonadSscMem SscGodTossing m
            )
@@ -166,7 +162,7 @@ sscIsDataUseful tag id =
 
 type GtDataProcessingMode m =
     ( WithLogger m
-    , MonadDB SscGodTossing m  -- to get richmen
+    , MonadDB m  -- to get richmen
     , WithNodeContext SscGodTossing m  -- to get richmen
     , MonadSlots m
     , MonadSscMem SscGodTossing m

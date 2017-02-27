@@ -1,5 +1,4 @@
 {-# LANGUAGE BangPatterns        #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Specification of Pos.FollowTheSatoshi
 
@@ -19,9 +18,9 @@ import           Universum
 import           Pos.Constants         (epochSlots)
 import           Pos.Crypto            (unsafeHash)
 import           Pos.Lrc               (followTheSatoshi)
+import           Pos.Txp               (TxIn (..), TxOut (..), Utxo, txOutStake)
 import           Pos.Types             (Address (..), Coin, SharedSeed, StakeholderId,
-                                        TxId, TxOut (..), Utxo, mkCoin, sumCoins,
-                                        txOutStake)
+                                        mkCoin, sumCoins)
 import           Pos.Types.Coin        (unsafeAddCoin, unsafeIntegerToCoin)
 
 spec :: Spec
@@ -87,7 +86,7 @@ instance Arbitrary StakeAndHolder where
             nAdr = S.size setUtxo
             values = scanl1 unsafeAddCoin $ replicate nAdr coins
             utxoList =
-                (replicate nAdr txId `zip` [0 .. fromIntegral nAdr]) `zip`
+                (zipWith TxIn (replicate nAdr txId) [0 .. fromIntegral nAdr]) `zip`
                 (zipWith (\ah v -> (TxOut (PubKeyAddress ah def) v, [])) (toList setUtxo) values)
         return (myAddrHash, M.fromList utxoList)
 
@@ -108,7 +107,7 @@ ftsNoStake fts (getNoStake -> (addrHash, utxo)) =
 -- map has a single element.
 ftsAllStake
     :: SharedSeed
-    -> (TxId, Word32)
+    -> TxIn
     -> StakeholderId
     -> Coin
     -> Bool
@@ -162,7 +161,7 @@ ftsReasonableStake
     let result = go numberOfRuns (0, 0, 0) ftsList utxoList
     in threshold result
   where
-    key = (unsafeHash ("this is unsafe" :: Text), 0)
+    key = TxIn (unsafeHash ("this is unsafe" :: Text)) 0
 
     -- We count how many times someone was present in selection and how many
     -- times someone was chosen overall.

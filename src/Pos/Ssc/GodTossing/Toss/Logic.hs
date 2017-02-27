@@ -1,6 +1,5 @@
 -- | Main Toss logic.
 
-{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Ssc.GodTossing.Toss.Logic
@@ -10,11 +9,9 @@ module Pos.Ssc.GodTossing.Toss.Logic
        , normalizeToss
        ) where
 
-import           Control.Monad.Except            (MonadError (throwError), runExceptT)
+import           Control.Monad.Except            (MonadError, runExceptT)
 import qualified Data.HashMap.Strict             as HM
-import           Formatting                      (sformat, (%))
-import           Serokell.Util.Text              (listJson)
-import           System.Wlog                     (logDebug, logError)
+import           System.Wlog                     (logError)
 import           Universum
 
 import           Pos.Constants                   (slotSecurityParam)
@@ -23,7 +20,7 @@ import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (..), GtPayload
                                                   mkCommitmentsMapUnsafe, _gpCertificates)
 import           Pos.Ssc.GodTossing.Functions    (verifyGtPayload)
 import           Pos.Ssc.GodTossing.Toss.Base    (checkPayload)
-import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossRead (..))
+import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..))
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Toss.Types   (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type         ()
@@ -32,7 +29,7 @@ import           Pos.Types                       (EpochIndex, EpochOrSlot (..),
                                                   MainBlockHeader, SlotId (siSlot),
                                                   epochIndexL, epochOrSlot,
                                                   getEpochOrSlot)
-import           Pos.Util                        (NewestFirst (..), getKeys)
+import           Pos.Util                        (NewestFirst (..))
 
 -- | Verify 'GtPayload' with respect to data provided by
 -- MonadToss. If data is valid it is also applied.  Otherwise
@@ -44,8 +41,6 @@ verifyAndApplyGtPayload eoh payload = do
     verifyGtPayload eoh payload  -- not necessary for blocks, but just in case
     let blockCerts = _gpCertificates payload
     let curEpoch = either identity (^. epochIndexL) eoh
-    stableCerts <- getStableCertificates curEpoch
-    richmenMap <- maybe (throwError $ NoRichmen curEpoch) pure =<< getRichmen curEpoch
     checkPayload curEpoch payload
 
     -- Apply

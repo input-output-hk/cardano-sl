@@ -1,10 +1,10 @@
-{-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Server which deals with blocks processing.
 
 module Pos.Block.Network.Retrieval
        ( retrievalWorker
+       , triggerRecovery
        , handleUnsolicitedHeaders
        , requestTip
        , requestHeaders
@@ -46,13 +46,14 @@ import           Pos.Constants              (blkSecurityParam)
 import           Pos.Context                (NodeContext (..), getNodeContext,
                                              isRecoveryMode)
 import           Pos.Crypto                 (shortHashF)
-import qualified Pos.DB                     as DB
-import qualified Pos.DB.GState              as GState
+import qualified Pos.DB.DB                  as DB
+import           Pos.DHT.Model              (converseToNeighbors)
 import           Pos.Reporting.Methods      (reportMisbehaviourMasked, reportingFatal)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
                                              HeaderHash, blockHeader, difficultyL,
                                              gbHeader, prevBlockL, verifyHeaders)
+import qualified Pos.Update.DB              as UDB
 import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
                                              inAssertMode, _neHead, _neLast)
 import           Pos.Util.Shutdown          (ifNotShutdown)
@@ -68,21 +69,26 @@ retrievalWorker
 retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
     NodeContext{..} <- getNodeContext
     let loop queue recHeaderVar = ifNotShutdown $ reportingFatal $ do
-           ph <- atomically $ readTBQueue queue
-           handleAll (handleLE recHeaderVar ph) $ reportingFatal $
-               handle sendActions ph
-           needQueryMore <- atomically $ do
-               isEmpty <- isEmptyTBQueue queue
-               recHeader <- tryReadTMVar recHeaderVar
-               pure $ guard isEmpty *> recHeader
-           whenJust needQueryMore $ \(peerId, rHeader) -> do
-               logDebug "Queue is empty, we're in recovery mode -> querying more"
-               whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
-                   handleAll (handleLE recHeaderVar ph) $ reportingFatal $
-                   withConnectionTo sendActions peerId $ \_peerData ->
-                       requestHeaders mghNext (Just rHeader) peerId
-           loop queue recHeaderVar
-
+            logDebug "Waiting on the queue"
+            ph <- atomically $ readTBQueue queue
+            handleAll (handleLE recHeaderVar ph) $ reportingFatal $
+                handle sendActions ph
+            let needQueryMore = atomically $ do
+                    isEmpty <- isEmptyTBQueue queue
+                    recHeader <- tryReadTMVar recHeaderVar
+                    pure $ guard isEmpty *> recHeader
+            let tryFillQueue (0 :: Int) _ =
+                    void $ atomically $ tryTakeTMVar recHeaderVar
+                tryFillQueue tries action =
+                    whenM (atomically $ isEmptyTBQueue queue) $
+                    action >> tryFillQueue (tries - 1) action
+            tryFillQueue 5 $ whenJustM needQueryMore $ \(peerId, rHeader) -> do
+                logDebug "Queue is empty, we're in recovery mode -> querying more"
+                whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
+                    handleAll (handleLE recHeaderVar ph) $ reportingFatal $
+                    withConnectionTo sendActions peerId $ \_peerData ->
+                        requestHeaders mghNext (Just rHeader) peerId
+            loop queue recHeaderVar
     logDebug "Starting retrievalWorker loop"
     loop ncBlockRetrievalQueue ncRecoveryHeader
   where
@@ -97,20 +103,23 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
         progressHeaderVar <- ncProgressHeader <$> getNodeContext
         void $ atomically $ tryTakeTMVar progressHeaderVar
     dropRecoveryHeader recHeaderVar peerId = do
-        kicked <- atomically $ do
+        (kicked,realPeer) <- atomically $ do
             let processKick (peer,_) = do
                     let p = peer == peerId
                     when p $ void $ tryTakeTMVar recHeaderVar
-                    pure p
-            maybe (pure False) processKick =<< tryReadTMVar recHeaderVar
+                    pure (p, Just peer)
+            maybe (pure (True,Nothing)) processKick =<< tryReadTMVar recHeaderVar
         when kicked $ logWarning $
             sformat ("Recovery mode communication dropped with peer "%build) peerId
+        unless kicked $
+            logDebug $ "Recovery mode wasn't disabled: " <>
+                       maybe "noth" show realPeer <> " vs " <> show peerId
     handleLE recHeaderVar (peerId, headers) e = do
         logWarning $ sformat
             ("Error handling peerId="%build%", headers="%listJson%": "%shown)
             peerId (fmap headerHash headers) e
         dropUpdateHeader
-        dropRecoveryHeader recHeaderVar peerId
+        void $ dropRecoveryHeader recHeaderVar peerId
     handle sendActions (peerId, headers) = do
         logDebug $ sformat
             ("retrievalWorker: handling peerId="%build%", headers="%listJson)
@@ -147,7 +156,7 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
     handleCHsValid sendActions peerId lcaChild newestHash = do
         let lcaChildHash = headerHash lcaChild
         logDebug $ sformat validFormat lcaChildHash newestHash
-        maxBlockSize <- GState.getMaxBlockSize
+        maxBlockSize <- UDB.getMaxBlockSize
         -- Yay, reflection magic! Here we indirectly pass 'maxBlockSize' as
         -- a parameter to the 'Bi' instance of 'MsgBlock'.
         reify maxBlockSize $ \(_ :: Proxy s0) ->
@@ -208,14 +217,24 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
             then pure $ one block
             else over _Wrapped (block <|) <$> retrieveBlocks' (i+1) conv curH endH
 
+-- | Triggers recovery based on established communication.
+triggerRecovery :: WorkMode ssc m => SendActions m -> m ()
+triggerRecovery sendActions = unlessM isRecoveryMode $ do
+    logDebug "Recovery triggered"
+    converseToNeighbors sendActions requestTip `catch`
+        (\(e :: SomeException) ->
+           logDebug ("Error happened in triggerRecovery" <> show e) >> throwM e)
+    logDebug "Recovery triggered ended"
+
 -- | Make 'GetHeaders' message using our main chain. This function
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'
 -- message.
 mkHeadersRequest
-    :: WorkMode ssc m
+    :: forall ssc m.
+       WorkMode ssc m
     => Maybe HeaderHash -> m (Maybe MsgGetHeaders)
 mkHeadersRequest upto = do
-    mbHeaders <- nonEmpty . toList <$> getHeadersOlderExp Nothing
+    mbHeaders <- nonEmpty . toList <$> getHeadersOlderExp @ssc Nothing
     pure $ (\h -> MsgGetHeaders (NE.toList h) upto) <$> mbHeaders
 
 -- Second case of 'handleBlockheaders'

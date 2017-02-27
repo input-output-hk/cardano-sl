@@ -29,15 +29,15 @@ module Pos.Script.Examples
        , sigStressRedeemer
        ) where
 
-import           Formatting        (build, sformat, (%))
-import           NeatInterpolation (text)
+import           Formatting         (build, sformat, (%))
+import           NeatInterpolation  (text)
 import           Universum
 
-import           Pos.Binary.Script ()
-import           Pos.Crypto        (PublicKey, SecretKey, fullPublicKeyHexF,
-                                    fullSignatureHexF, sign)
-import           Pos.Script        (Script, parseRedeemer, parseValidator)
-import           Pos.Types.Types   (TxSigData)
+import           Pos.Binary.Script  ()
+import           Pos.Crypto         (PublicKey, SecretKey, fullPublicKeyHexF,
+                                     fullSignatureHexF, sign)
+import           Pos.Script         (Script, parseRedeemer, parseValidator)
+import           Pos.Txp.Core.Types (TxSigData)
 
 fromE :: Either String Script -> Script
 fromE = either (panic . toText) identity

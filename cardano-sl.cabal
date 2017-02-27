@@ -13,8 +13,8 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 flag asserts
-  default: True
-  manual: True
+  default:     True
+  manual:      True
 
 flag dev-mode
   default:     True
@@ -45,9 +45,12 @@ library
                         Pos.Communication.Relay
                         Pos.CompileConfig
                         Pos.Constants
-                        Pos.DB
+
+                        Pos.DB.DB
                         Pos.DB.GState
+
                         Pos.Delegation
+
                         -- Pos.DHT
                         Pos.DHT.Model
                         Pos.DHT.Model.Neighbors
@@ -99,7 +102,6 @@ library
                         -- Something
                         Pos.Statistics
                         Pos.Txp
-                        Pos.Txp.Listeners
                         Pos.Types
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
@@ -108,8 +110,6 @@ library
                         Pos.Types.Block.Functions
                         Pos.Types.Block.Instances
                         Pos.Types.Slotting
-                        Pos.Types.Tx
-                        Pos.Types.Utxo
                         Pos.Types.Version
 
                         -- Update system
@@ -145,10 +145,8 @@ library
                         Pos.Binary.Block.Types
                         Pos.Binary.Block.Block
                         Pos.Binary.Coin
-                        Pos.Binary.Crypto
                         Pos.Binary.Communication
                         Pos.Binary.DHTModel
-                        Pos.Binary.DB
                         Pos.Binary.Genesis
                         Pos.Binary.Merkle
                         Pos.Binary.Relay
@@ -156,6 +154,7 @@ library
                         Pos.Binary.Slotting
                         Pos.Binary.Ssc
                         Pos.Binary.Ssc.GodTossing.Core
+                        Pos.Binary.Txp
                         Pos.Binary.Types
                         Pos.Binary.Update
                         Pos.Binary.Version
@@ -204,6 +203,7 @@ library
 
                         -- Heavy delegation
                         Pos.Delegation.Class
+                        Pos.Delegation.DB
                         Pos.Delegation.Holder
                         Pos.Delegation.Listeners
                         Pos.Delegation.Logic
@@ -221,29 +221,9 @@ library
 
                         -- DB
                         Pos.DB.Block
-                        Pos.DB.Class
-                        Pos.DB.DB
-                        Pos.DB.Error
-                        Pos.DB.Functions
-                        Pos.DB.GState.Balances
-                        Pos.DB.GState.Common
-                        Pos.DB.GState.Delegation
-                        Pos.DB.GState.GState
-                        Pos.DB.GState.Update
                         Pos.DB.GState.BlockExtra
-                        Pos.DB.GState.Utxo
-                        Pos.DB.Holder
-                        Pos.DB.Iterator
-                        Pos.DB.Iterator.Class
-                        Pos.DB.Iterator.DBIterator
-                        Pos.DB.Lrc
-                        Pos.DB.Lrc.Common
-                        Pos.DB.Lrc.Issuers
-                        Pos.DB.Lrc.Leaders
-                        Pos.DB.Lrc.Lrc
-                        Pos.DB.Lrc.Richmen
+                        Pos.DB.GState.GState
                         Pos.DB.Misc
-                        Pos.DB.Types
 
                         -- Genesis
                         Pos.Genesis.Types
@@ -252,6 +232,12 @@ library
                         -- LRC
                         Pos.Lrc.Consumer
                         Pos.Lrc.Consumers
+                        Pos.Lrc.DB
+                        Pos.Lrc.DB.Common
+                        Pos.Lrc.DB.Issuers
+                        Pos.Lrc.DB.Leaders
+                        Pos.Lrc.DB.Lrc
+                        Pos.Lrc.DB.Richmen
                         Pos.Lrc.Error
                         Pos.Lrc.Logic
                         Pos.Lrc.Types
@@ -326,21 +312,36 @@ library
 
                         -- Txp
                         Pos.Txp.Arbitrary
-                        Pos.Txp.Class
+                        Pos.Txp.Core
+                        Pos.Txp.Core.Tx
+                        Pos.Txp.Core.Types
+                        Pos.Txp.DB
+                        Pos.Txp.DB.Balances
+                        Pos.Txp.DB.Utxo
                         Pos.Txp.Error
-                        Pos.Txp.Holder
                         Pos.Txp.Logic
-                        Pos.Txp.Types
-                        Pos.Txp.Types.Communication
-                        Pos.Txp.Types.Types
-                        Pos.Txp.Types.UtxoView
-                        Pos.Txp.Types.BalancesView
+                        Pos.Txp.Logic.Global
+                        Pos.Txp.Logic.Local
+                        Pos.Txp.MemState
+                        Pos.Txp.MemState.Class
+                        Pos.Txp.MemState.Holder
+                        Pos.Txp.MemState.Types
+                        Pos.Txp.Network
+                        Pos.Txp.Network.Listeners
+                        Pos.Txp.Network.Types
+                        Pos.Txp.Toil
+                        Pos.Txp.Toil.Class
+                        Pos.Txp.Toil.DBTxp
+                        Pos.Txp.Toil.Failure
+                        Pos.Txp.Toil.Logic
+                        Pos.Txp.Toil.Trans
+                        Pos.Txp.Toil.Types
+                        Pos.Txp.Toil.Utxo
+                        Pos.Txp.Toil.Utxo.Functions
+                        Pos.Txp.Toil.Utxo.Pure
 
                         -- Types
                         Pos.Types.SharedSeed
-                        Pos.Types.Utxo.Class
-                        Pos.Types.Utxo.Functions
-                        Pos.Types.Utxo.Pure
 
                         -- Workers
                         Pos.Worker.Stats
@@ -351,6 +352,7 @@ library
                         Pos.Update.Arbitrary.Network
                         Pos.Update.Arbitrary.Poll
                         Pos.Update.Core.Types
+                        Pos.Update.DB
                         Pos.Update.Download
                         Pos.Update.Error
                         Pos.Update.Logic
@@ -383,7 +385,6 @@ library
 
                         -- Utilities/helpers
                         Pos.Util.Arbitrary
-                        Pos.Util.Iterator
                         Pos.Util.NotImplemented
   if flag(with-web)
     other-modules:      Pos.Aeson.Crypto
@@ -445,6 +446,7 @@ library
                       , bytestring
                       , cardano-report-server >= 0.1.0
                       , cardano-sl-core
+                      , cardano-sl-db
                       , cereal
                       , concurrent-extra
                       , conduit >= 1.2.8
@@ -792,8 +794,8 @@ executable cardano-smart-generator
                      , array
                      , bytestring
                      , data-default
-                     , cardano-sl-core
                      , cardano-sl
+                     , cardano-sl-core
                      , filepath
                      , formatting
                      , lens
@@ -1114,6 +1116,7 @@ test-suite cardano-test
                        Test.Pos.Genesis.Identity.BinarySpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Script.Identity.BinarySpec
+                       Test.Pos.Ssc.GodTossing.ComputeSharesSpec
                        Test.Pos.Ssc.GodTossing.Identity.BinarySpec
                        Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
                        Test.Pos.Ssc.GodTossing.SeedSpec
@@ -1122,6 +1125,7 @@ test-suite cardano-test
                        Test.Pos.Txp.Identity.BinarySpec
                        Test.Pos.Types.AddressSpec
                        Test.Pos.Types.BlockSpec
+                       Test.Pos.Types.CoinSpec
                        Test.Pos.Types.Identity.BinarySpec
                        Test.Pos.Types.Identity.SafeCopySpec
                        Test.Pos.Types.Identity.TimestampSpec

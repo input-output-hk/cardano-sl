@@ -25,7 +25,7 @@ import           Pos.DB                      (MonadDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.Slotting                (MonadSlots, MonadSlotsData)
-import           Pos.Txp.Class               (MonadTxpLD)
+import           Pos.Txp                     (MonadTxpMem)
 import           Pos.Update                  (MonadPollRead, MonadUSMem)
 
 import           Pos.Wallet.Context          (WithWalletContext)
@@ -36,13 +36,12 @@ import           Pos.Wallet.Web.State.State  (MonadWalletWebDB (..), WalletState
 -- | Holder for web wallet data
 newtype WalletWebDB m a = WalletWebDB
     { getWalletWebDB :: ReaderT WalletState m a
-    } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData,
+    } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData, MonadDB,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName, WithPeerState,
                 MonadWalletDB, WithWalletContext, MonadDHT, MonadSlots, MonadTrans,
                 CanLog, MonadKeys, WithNodeContext ssc, MonadUSMem, MonadPollRead,
-                MonadTxpLD ssc, MonadDelegation)
+                MonadTxpMem, MonadDelegation)
 
-deriving instance MonadDB ssc m => MonadDB ssc (WalletWebDB m)
 instance Monad m => WrappedM (WalletWebDB m) where
     type UnwrappedM (WalletWebDB m) = ReaderT WalletState m
     _WrappedM = iso getWalletWebDB WalletWebDB

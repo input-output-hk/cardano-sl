@@ -1,7 +1,3 @@
-{-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
@@ -50,7 +46,7 @@ instance Ssc SscNistBeacon where
     type SscVerifyError SscNistBeacon = ()
 
     mkSscProof = Tagged $ const ()
-    sscCreateNodeContext _ = return ()
+    sscCreateNodeContext = Tagged $ const (return ())
 
 instance SscHelpersClass SscNistBeacon where
     sscVerifyPayload = Tagged $ const $ const $ Right ()

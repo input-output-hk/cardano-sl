@@ -1,4 +1,3 @@
-{-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Communication.Specs
@@ -16,8 +15,9 @@ import           Pos.Communication.Message     ()
 import           Pos.Communication.Protocol    (OutSpecs, convH, toOutSpecs)
 import           Pos.Communication.Types.Relay (InvOrData, ReqMsg)
 import           Pos.Ssc.GodTossing.Types      (GtMsgContents (..), GtTag (..))
-import           Pos.Txp.Types.Communication   (TxMsgContents (..), TxMsgTag (..))
-import           Pos.Types                     (StakeholderId, TxId)
+import           Pos.Txp.Core.Types            (TxId)
+import           Pos.Txp.Network.Types         (TxMsgContents (..), TxMsgTag (..))
+import           Pos.Types                     (StakeholderId)
 import           Pos.Update.Core.Types         (UpId, UpdateProposal, UpdateVote, VoteId)
 import           Pos.Update.Network.Types      (ProposalMsgTag (..), VoteMsgTag (..))
 

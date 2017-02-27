@@ -5,20 +5,35 @@ build: off
 
 cache:
   # TODO: https://github.com/commercialhaskell/stack/issues/1176#issuecomment-269520803
-  - "c:\\cache\\%APPVEYOR_REPO_BRANCH%"
-  # - '.stack-work'
+
+  # Appveyor's cache is shared across all branch/PR builds for this project, so
+  # dependency/version differences can corrupt the cache. To fix that, we store
+  # copies of %STACK_ROOT% and .stack-work in the cache namespaced by branch,
+  # but only from branch builds. PR builds, which could make arbitrary changes
+  # to the dependency closure, are not allowed to update the cache; however,
+  # they get read access to the cache.
+
+  # Another quirk of Appveyor's cache is any cache directory not listed here
+  # gets deleted at the end of the build. Consequently, without
+  # branch-namespacing a build on a branch different than the previous would
+  # clobber the previous branch's cache. Alternatively, we could maintain a
+  # hardcoded list of branch-namespaced cache directories.
+  - "c:\\cache"
 
 # Avoid long paths on Windows
 environment:
   global:
     # Avoid long paths on Windows
-    CACHED_STACK_ROOT: "c:\\cache\\%APPVEYOR_REPO_BRANCH%"
+    CACHED_STACK_ROOT: "c:\\cache\\%APPVEYOR_REPO_BRANCH%\\sr"
     STACK_ROOT: "c:\\sr"
+    CACHED_STACK_WORK: "c:\\cache\\%APPVEYOR_REPO_BRANCH%\\sw"
+    STACK_WORK: ".stack-work"
     CSL_SYSTEM_TAG: "win64"
 
 before_test:
 - Echo %APPVEYOR_BUILD_VERSION% > build-id
 - IF EXIST %CACHED_STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %CACHED_STACK_ROOT% %STACK_ROOT%
+- IF EXIST %CACHED_STACK_WORK% xcopy /q /s /e /r /k /i /v /h /y %CACHED_STACK_WORK% %STACK_WORK%
 # Install stack
 - curl -sSL -o stack.zip --insecure http://www.stackage.org/stack/windows-x86_64
 - 7z x stack.zip stack.exe
@@ -47,11 +62,12 @@ test_script:
   - cd daedalus
   - Echo %APPVEYOR_BUILD_VERSION% > build-id
   - ps: Install-Product node 7
-  - npm install
+  - ..\scripts\appveyor-retry call npm install
   - npm run build:prod
 
 after_test:
- - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER xcopy /q /s /e /r /k /i /v /h /y %STACK_ROOT% %CACHED_STACK_ROOT%
+ - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %STACK_ROOT% %CACHED_STACK_ROOT%
+ - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_WORK% xcopy /q /s /e /r /k /i /v /h /y %STACK_WORK% %CACHED_STACK_WORK%
 
 artifacts:
   - path: daedalus/

@@ -1,5 +1,4 @@
 {-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -95,7 +94,7 @@ newtype NtpSlotting m a = NtpSlotting
                , HasLoggerName
                , CanLog
 
-               , MonadDB σ
+               , MonadDB
                , WithNodeContext ssc
                , MonadJL
                , MonadSlotsData

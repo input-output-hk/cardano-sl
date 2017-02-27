@@ -5,6 +5,7 @@ module Pos.Wallet.Launcher.Param
 import           Universum
 
 import           Pos.Launcher (BaseParams)
+import           Pos.Txp      (Utxo)
 import           Pos.Types    (Timestamp)
 
 data WalletParams = WalletParams
@@ -14,4 +15,5 @@ data WalletParams = WalletParams
     , wpSystemStart :: !Timestamp
     , wpGenesisKeys :: !Bool
     , wpBaseParams  :: !BaseParams
+    , wpGenesisUtxo :: !Utxo -- ^ Genesis utxo
     } deriving (Show)

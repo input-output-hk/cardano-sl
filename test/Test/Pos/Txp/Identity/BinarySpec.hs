@@ -9,8 +9,8 @@ import           Universum
 
 import           Pos.Binary              ()
 import           Pos.Communication.Relay as R
+import           Pos.Txp                 (TxId)
 import qualified Pos.Txp                 as T
-import           Pos.Types               (TxId)
 
 import           Test.Pos.Util           (networkBinaryTest)
 

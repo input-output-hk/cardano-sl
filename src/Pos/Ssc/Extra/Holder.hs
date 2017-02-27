@@ -1,4 +1,3 @@
-{-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -56,6 +55,7 @@ newtype SscHolder ssc m a = SscHolder
                , CanLog
                , MonadMask
                , MonadFix
+               , MonadDB
                )
 
 type instance ThreadId (SscHolder ssc m) = ThreadId m
@@ -77,8 +77,6 @@ instance ( Mockable d m
          , MFunctor' d (SscHolder ssc m) (ReaderT (SscState ssc) m)
          ) => Mockable d (SscHolder ssc m) where
     liftMockable = liftMockableWrappedM
-
-deriving instance MonadDB ssc m => MonadDB ssc (SscHolder ssc m)
 
 instance Monad m => WrappedM (SscHolder ssc m) where
     type UnwrappedM (SscHolder ssc m) = ReaderT (SscState ssc) m
@@ -109,7 +107,7 @@ mkStateAndRunSscHolder
        , WithNodeContext ssc m
        , SscGStateClass ssc
        , SscLocalDataClass ssc
-       , MonadDB ssc m
+       , MonadDB m
        , MonadSlots m
        )
     => SscHolder ssc m a
@@ -124,7 +122,7 @@ mkSscHolderState
        , WithNodeContext ssc m
        , SscGStateClass ssc
        , SscLocalDataClass ssc
-       , MonadDB ssc m
+       , MonadDB m
        , MonadSlots m
        )
     => m (SscState ssc)

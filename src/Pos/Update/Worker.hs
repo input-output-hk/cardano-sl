@@ -9,8 +9,8 @@ import           Universum
 
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants              (curSoftwareVersion)
-import           Pos.DB.GState              (getConfirmedProposals)
 import           Pos.Types                  (SoftwareVersion (..))
+import           Pos.Update.DB              (getConfirmedProposals)
 import           Pos.Update.Download        (downloadUpdate)
 import           Pos.Update.Logic.Local     (processNewSlot)
 import           Pos.WorkMode               (WorkMode)

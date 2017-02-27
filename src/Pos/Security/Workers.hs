@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Security.Workers
        ( SecurityWorkersClass (..)
@@ -15,7 +14,7 @@ import           System.Wlog                 (logNotice, logWarning)
 import           Universum
 
 import           Pos.Binary.Ssc              ()
-import           Pos.Block.Network.Retrieval (requestTip, requestTipOuts)
+import           Pos.Block.Network.Retrieval (requestTipOuts, triggerRecovery)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions, WorkerSpec,
                                               localWorker, worker)
 import           Pos.Constants               (blkSecurityParam, mdNoBlocksSlotThreshold,
@@ -23,11 +22,11 @@ import           Pos.Constants               (blkSecurityParam, mdNoBlocksSlotTh
 import           Pos.Context                 (getNodeContext, getUptime, isRecoveryMode,
                                               ncPublicKey)
 import           Pos.Crypto                  (PublicKey)
-import           Pos.DB                      (DBError (DBMalformed), getBlockHeader,
-                                              getTipBlockHeader, loadBlundsFromTipByDepth)
+import           Pos.DB                      (DBError (DBMalformed))
+import           Pos.DB.Block                (getBlockHeader)
 import           Pos.DB.Class                (MonadDB)
-import           Pos.DHT.Model               (converseToNeighbors)
-import           Pos.Reporting.Methods       (reportMisbehaviourMasked)
+import           Pos.DB.DB                   (getTipBlockHeader, loadBlundsFromTipByDepth)
+import           Pos.Reporting.Methods       (reportMisbehaviourMasked, reportingFatal)
 import           Pos.Security.Class          (SecurityWorkersClass (..))
 import           Pos.Slotting                (getCurrentSlot, getLastKnownSlotDuration,
                                               onNewSlot)
@@ -61,7 +60,7 @@ checkForReceivedBlocksWorker =
     worker requestTipOuts checkForReceivedBlocksWorkerImpl
 
 checkEclipsed
-    :: (SscHelpersClass ssc, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => PublicKey -> SlotId -> BlockHeader ssc -> m Bool
 checkEclipsed ourPk slotId = notEclipsed
   where
@@ -97,30 +96,33 @@ checkEclipsed ourPk slotId = notEclipsed
                      Nothing -> onBlockLoadFailure header $> True
 
 checkForReceivedBlocksWorkerImpl
-    :: WorkMode ssc m
+    :: forall ssc m.
+       WorkMode ssc m
     => SendActions m -> m ()
-checkForReceivedBlocksWorkerImpl sendActions = afterDelay . repeatOnInterval $ do
-    ourPk <- ncPublicKey <$> getNodeContext
-    let onSlotDefault slotId = do
-            header <- getTipBlockHeader
-            unlessM (checkEclipsed ourPk slotId header) onEclipsed
-    maybe onSlotUnknown onSlotDefault =<< getCurrentSlot
+checkForReceivedBlocksWorkerImpl sendActions =
+    afterDelay . repeatOnInterval . reportingFatal $ do
+        ourPk <- ncPublicKey <$> getNodeContext
+        let onSlotDefault slotId = do
+                header <- getTipBlockHeader @ssc
+                unlessM (checkEclipsed ourPk slotId header) onEclipsed
+        maybe onSlotUnknown onSlotDefault =<< getCurrentSlot
   where
     afterDelay action = delay (sec 3) >> action
     onSlotUnknown = do
-        logNotice "Current slot not known. Requesting blocks."
-        converseToNeighbors sendActions requestTip
+        logNotice "Current slot not known. Will try to trigger recovery."
+        triggerRecovery sendActions
     onEclipsed = do
         logWarning $
             "Our neighbors are likely trying to carry out an eclipse attack! " <>
             "There are no blocks younger " <>
             "than 'mdNoBlocksSlotThreshold' that we didn't generate " <>
             "by ourselves"
-        converseToNeighbors sendActions requestTip
+        triggerRecovery sendActions
         reportEclipse
     repeatOnInterval action = ifNotShutdown $ do
         () <- action
-        delay =<< getLastKnownSlotDuration
+        slotDur <- getLastKnownSlotDuration
+        delay $ min slotDur $ convertUnit (sec 20)
         repeatOnInterval action
     reportEclipse = do
         bootstrapMin <- (+ sec 10) . convertUnit <$> getLastKnownSlotDuration

@@ -26,15 +26,14 @@ import           Universum
 
 import           Pos.Context                 (WithNodeContext, lrcActionOnEpochReason)
 import           Pos.DB.Class                (MonadDB)
-import qualified Pos.DB.GState               as GS
-import           Pos.DB.Lrc                  (getIssuersStakes, getRichmenUS)
+import           Pos.Lrc.DB                  (getIssuersStakes, getRichmenUS)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Lrc.Types               (FullRichmenData)
 import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
-import           Pos.Txp.Class               (MonadTxpLD (..))
+import           Pos.Txp.MemState            (MonadTxpMem (..))
 import           Pos.Types                   (Coin)
-import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
+import qualified Pos.Update.DB               as GS
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPollRead (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
@@ -62,19 +61,17 @@ newtype DBPoll m a = DBPoll
                , MonadMask
                , MonadUSMem
                , MonadSscMem peka
-               , MonadUtxoRead
-               , MonadUtxo
-               , MonadTxpLD ssc
+               , MonadTxpMem
                , MonadBase io
                , MonadDelegation
                , MonadFix
+               , MonadDB
                )
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code
 ----------------------------------------------------------------------------
 
-deriving instance MonadDB ssc m => MonadDB ssc (DBPoll m)
 type instance ThreadId (DBPoll m) = ThreadId m
 type instance Promise (DBPoll m) = Promise m
 type instance SharedAtomicT (DBPoll m) = SharedAtomicT m
@@ -110,7 +107,7 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DBPoll m) where
 -- MonadPoll
 ----------------------------------------------------------------------------
 
-instance (WithNodeContext ssc m, MonadDB ssc m, WithLogger m) =>
+instance (WithNodeContext ssc m, MonadDB m, WithLogger m) =>
          MonadPollRead (DBPoll m) where
     getBVState = GS.getBVState
     getProposedBVs = GS.getProposedBVs

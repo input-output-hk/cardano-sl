@@ -36,9 +36,8 @@ import           Pos.DB.Class                (MonadDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
-import           Pos.Txp.Class               (MonadTxpLD (..))
+import           Pos.Txp.MemState            (MonadTxpMem (..))
 import           Pos.Types                   (SoftwareVersion (..))
-import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
 import           Pos.Update.Core             (UpdateProposal (..))
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
@@ -69,8 +68,8 @@ newtype PollT m a = PollT
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData, MonadSlots,
                 MonadCatch, MonadIO, HasLoggerName, MonadTrans, MonadError e,
                 WithNodeContext ssc, MonadJL, CanLog, MonadMask, MonadUSMem,
-                MonadSscMem mem, MonadUtxoRead, MonadUtxo,
-                MonadTxpLD ssc, MonadBase io, MonadDelegation, MonadFix)
+                MonadSscMem mem, MonadDB,
+                MonadTxpMem, MonadBase io, MonadDelegation, MonadFix)
 
 ----------------------------------------------------------------------------
 -- Runners
@@ -93,8 +92,11 @@ instance MonadPollRead m =>
          MonadPollRead (PollT m) where
     getBVState pv =
         PollT $ do
-            new <- pmNewBVs <$> get
-            maybe (getBVState pv) (pure . Just) $ HM.lookup pv new
+            new <- use $ pmNewBVsL . at pv
+            del <- use $ pmDelBVsL . at pv
+            if | Just () <- del -> return Nothing
+               | Just res <- new -> purer res
+               | otherwise -> getBVState pv
     getProposedBVs =
         PollT $ do
             new <- use pmNewBVsL
@@ -111,25 +113,26 @@ instance MonadPollRead m =>
             let filteredN = filter (bvsIsConfirmed . snd) $ HM.toList new
             return $ filteredU <> filteredN
     getAdoptedBVFull =
+        PollT $ maybe getAdoptedBVFull pure =<< use pmAdoptedBVFullL
+    getLastConfirmedSV appName =
         PollT $ do
-            new <- pmAdoptedBVFull <$> get
-            maybe getAdoptedBVFull pure new
-    getLastConfirmedSV appName = do
-        new <- pmNewConfirmed <$> PollT get
-        maybe (PollT $ getLastConfirmedSV appName) (pure . Just) $
-            HM.lookup appName new
-    hasActiveProposal appName = do
-        new <- pmNewActivePropsIdx <$> PollT get
-        del <- pmDelActivePropsIdx <$> PollT get
+            new <- use $ pmNewConfirmedL . at appName
+            del <- use $ pmDelConfirmedL . at appName
+            if | Just () <- del -> return Nothing
+               | Just res <- new -> purer res
+               | otherwise -> getLastConfirmedSV appName
+    hasActiveProposal appName = PollT $ do
+        new <- pmNewActivePropsIdx <$> get
+        del <- pmDelActivePropsIdx <$> get
         if | appName `HM.member` del -> return False
            | appName `HM.member` new -> return True
-           | otherwise -> PollT $ hasActiveProposal appName
-    getProposal upId = do
-        new <- pmNewActiveProps <$> PollT get
-        del <- pmDelActiveProps <$> PollT get
+           | otherwise -> hasActiveProposal appName
+    getProposal upId = PollT $ do
+        new <- pmNewActiveProps <$> get
+        del <- pmDelActiveProps <$> get
         if | upId `HS.member` del -> return Nothing
            | Just res <- HM.lookup upId new -> return (Just res)
-           | otherwise -> PollT $ getProposal upId
+           | otherwise -> getProposal upId
     getConfirmedProposals =
         PollT $ do
             new <- use pmNewConfirmedPropsL
@@ -170,7 +173,8 @@ instance MonadPollRead m =>
             underlying <- getDeepProposals cd
             let filteredU =
                     filter
-                        (not . flip HS.member del . hash . upsProposal . dpsUndecided)
+                        (not .
+                         flip HS.member del . hash . upsProposal . dpsUndecided)
                         underlying
             return $ filteredN <> filteredU
     getBlockIssuerStake e = lift . getBlockIssuerStake e
@@ -238,7 +242,6 @@ instance MonadPollRead m =>
 -- Common instances used all over the code
 ----------------------------------------------------------------------------
 
-deriving instance MonadDB ssc m => MonadDB ssc (PollT m)
 type instance ThreadId (PollT m) = ThreadId m
 type instance Promise (PollT m) = Promise m
 type instance SharedAtomicT (PollT m) = SharedAtomicT m

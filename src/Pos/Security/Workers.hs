@@ -102,7 +102,6 @@ checkForReceivedBlocksWorkerImpl
 checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
     repeatOnInterval (const (sec' 4)) . reportingFatal $
         whenM needRecovery $ do
-            logWarning "Trying to trigger recovery..."
             triggerRecovery sendActions
     repeatOnInterval (min (sec' 20)) . reportingFatal $ do
         ourPk <- ncPublicKey <$> getNodeContext

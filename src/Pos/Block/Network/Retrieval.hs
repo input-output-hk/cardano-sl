@@ -119,7 +119,6 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
                 reportingFatal $
                 withConnectionTo sendActions peerId $ \_peerData ->
                     requestHeaders mghNext peerId rHeader
-            dropRecoveryHeaderAndRepeat recHeaderVar peerId
         handleBlockRetrievalE recHeaderVar (peerId, headers) e = do
             logWarning $ sformat
                 ("Error handling peerId="%build%", headers="%listJson%": "%shown)
@@ -132,6 +131,7 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
                  "for recovery from peerId="%build%", error: "%shown)
                 peerId e
             dropUpdateHeader
+            dropRecoveryHeaderAndRepeat recHeaderVar peerId
 
     dropUpdateHeader = do
         progressHeaderVar <- ncProgressHeader <$> getNodeContext
@@ -155,13 +155,13 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
 
     attemptRestartRecovery = do
         logDebug "Attempting to restart recovery"
-        handleAll handleRecoveryTrigger $ triggerRecovery sendActions
+        handleAll handleRecoveryTriggerE $ triggerRecovery sendActions
         logDebug "Attempting to restart recovery over"
 
     handleTop e = do
         logError $ sformat ("retrievalWorker: error caught "%shown) e
         throw e
-    handleRecoveryTrigger e =
+    handleRecoveryTriggerE e =
         logError $ "Exception happened while trying to trigger " <>
                    "recovery inside recoveryWorker: " <> show e
 
@@ -266,7 +266,7 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
 -- | Triggers recovery based on established communication.
 triggerRecovery :: WorkMode ssc m => SendActions m -> m ()
 triggerRecovery sendActions = unlessM isRecoveryMode $ do
-    logDebug "Recovery triggered, requesting tips"
+    logInfo "Recovery triggered, requesting tips"
     converseToNeighbors sendActions requestTip `catch`
         (\(e :: SomeException) ->
            logDebug ("Error happened in triggerRecovery" <> show e) >> throwM e)

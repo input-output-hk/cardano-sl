@@ -27,7 +27,7 @@ import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Time.Clock.POSIX  (POSIXTime)
-import           Formatting             (build, sformat)
+import           Formatting             (sformat)
 import           Servant.API            (FromHttpApiData (..))
 import           Universum
 
@@ -38,7 +38,7 @@ import qualified Pos.DB.GState          as GS
 import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
-import           Pos.Types              (Address, Coin, MainBlock (..), Timestamp,
+import           Pos.Types              (Address, Coin, MainBlock, Timestamp,
                                          Tx (..), TxId, TxOut (..), addressF, blockTxs,
                                          decodeTextAddress, difficultyL, gbHeader,
                                          gbhConsensus, headerHash, mcdSlot, mkCoin,

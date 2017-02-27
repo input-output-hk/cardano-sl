@@ -135,3 +135,6 @@ redeemADA = postRBody ["redeem_ada"]
 
 importKey :: forall eff. String -> Aff (ajax :: AJAX | eff) CWallet
 importKey = postRBody ["import_key"]
+
+testReset :: forall eff. Aff (ajax :: AJAX | eff) Unit
+testReset = postR ["test_reset"]

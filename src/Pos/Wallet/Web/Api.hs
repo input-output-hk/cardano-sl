@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP           #-}
 {-# LANGUAGE DataKinds     #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -21,6 +22,10 @@ import           Universum
 
 -- | Servant API which provides access to wallet.
 type WalletApi =
+#ifdef DEV_MODE
+     "api" :> "test_reset" :> Post '[JSON] (Either WalletError ())
+    :<|>
+#endif
      "api" :> "get_wallet" :> Capture "address" CAddress :> Get '[JSON] (Either WalletError CWallet)
     :<|>
      "api" :> "get_wallets" :> Get '[JSON] (Either WalletError [CWallet])

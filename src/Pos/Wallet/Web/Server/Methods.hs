@@ -119,7 +119,7 @@ walletServeImpl app daedalusDbPath dbRebuild port =
         ((,) <$> openDB <*> initWS)
         (\(db, conn) -> closeDB db >> closeWS conn)
         $ \(db, conn) ->
-            serveImpl (runWalletWebDB db $ runWalletWS conn app) port
+            serveImpl (runWalletWebDB db $ runWalletWS conn app) "127.0.0.1" port
   where openDB = openState dbRebuild daedalusDbPath
         closeDB = closeState
         initWS = initWSConnection

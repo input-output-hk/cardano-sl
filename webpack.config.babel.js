@@ -88,7 +88,9 @@ module.exports = {
           psc: 'psa',
           src: [
             path.join('src', '**', '*.purs'),
-            path.join('bower_components', 'purescript-*', 'src', '**', '*.purs')],
+            path.join('bower_components', 'purescript-*', 'src', '**', '*.purs')
+          ],
+          watch: !isProd
         }
       },
       {

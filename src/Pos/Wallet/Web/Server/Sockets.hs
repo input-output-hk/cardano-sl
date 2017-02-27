@@ -37,6 +37,7 @@ import           Pos.Aeson.ClientTypes          ()
 import           Pos.Communication.PeerState    (WithPeerState)
 import           Pos.Context                    (WithNodeContext)
 import           Pos.DB                         (MonadDB)
+import           Pos.DB.Limits                  (MonadDBLimits)
 import           Pos.Delegation.Class           (MonadDelegation)
 import           Pos.DHT.Model                  (MonadDHT)
 import           Pos.Slotting                   (MonadSlots, MonadSlotsData)
@@ -105,7 +106,7 @@ newtype WalletWebSockets m a = WalletWebSockets
     { getWalletWS :: ReaderT ConnectionsVar m a
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadWalletDB, WithWalletContext,
+                MonadWalletDB, MonadDBLimits, WithWalletContext,
                 MonadDHT, MonadSlots, MonadSlotsData,
                 CanLog, MonadKeys, MonadBalances, MonadUpdates,
                 MonadTxHistory, MonadBlockchainInfo, WithNodeContext ssc, WithPeerState,

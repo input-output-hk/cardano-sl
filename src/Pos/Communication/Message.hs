@@ -3,12 +3,15 @@ module Pos.Communication.Message
        ) where
 
 import           Data.Proxy                       (Proxy (..))
-import           Node.Message                     (Message (..), MessageName (..))
+import           Node.Message                     (Message (..),
+                                                   MessageName (..))
 import           Universum
 
-import           Pos.Binary.Class                 (UnsignedVarInt (..), encodeStrict)
-import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
-                                                   MsgHeaders)
+import           Pos.Binary.Class                 (UnsignedVarInt (..),
+                                                   encodeStrict)
+import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks,
+                                                   MsgGetHeaders, MsgHeaders)
+import           Pos.Communication.Limits         (LimitedLengthExt (..))
 import           Pos.Communication.Types.Protocol (NOP)
 import           Pos.Communication.Types.Relay    (DataMsg, InvOrData, ReqMsg)
 import           Pos.Communication.Types.SysStart (SysStartRequest, SysStartResponse)
@@ -20,6 +23,8 @@ import           Pos.Update.Network.Types         (ProposalMsgTag, VoteMsgTag)
 
 varIntMName :: Int -> MessageName
 varIntMName = MessageName . encodeStrict . UnsignedVarInt
+
+deriving instance Message a => Message (LimitedLengthExt s l a)
 
 instance Message NOP where
     messageName _ = varIntMName 0
@@ -53,7 +58,7 @@ instance Message MsgGetBlocks where
     messageName _ = varIntMName 6
     formatMessage _ = "GetBlocks"
 
-instance Message (MsgBlock s ssc) where
+instance Message (MsgBlock ssc) where
     messageName _ = varIntMName 7
     formatMessage _ = "Block"
 

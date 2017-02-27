@@ -29,6 +29,7 @@ import           Universum
 
 import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Slotting.Class          (MonadSlotsData (..))
 import           Pos.Slotting.Types          (SlottingData (sdPenultEpoch))
 import qualified Pos.Update.DB               as UDB
@@ -60,6 +61,7 @@ newtype SlottingHolder m a = SlottingHolder
                , CanLog
 
                , MonadDB
+               , MonadDBLimits
                , WithNodeContext ssc
                , MonadJL
                )

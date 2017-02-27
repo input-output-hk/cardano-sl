@@ -28,6 +28,7 @@ import           Pos.Communication.PeerState (PeerStateHolder (..), WithPeerStat
 import           Pos.Context                 (ContextHolder, WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.DB.Holder               (DBHolder)
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT)
@@ -50,6 +51,7 @@ type WorkMode ssc m
       , MonadMask m
       , MonadSlots m
       , MonadDB m
+      , MonadDBLimits m
       , MonadTxpMem m
       , MonadDelegation m
       , MonadSscMem ssc m
@@ -87,11 +89,13 @@ instance MonadJL m => MonadJL (KademliaDHT m) where
 -- Maybe we should move to somewhere else
 deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (KademliaDHT m)
 deriving instance MonadDB m => MonadDB (KademliaDHT m)
+deriving instance MonadDBLimits m => MonadDBLimits (KademliaDHT m)
 deriving instance MonadDelegation m => MonadDelegation (KademliaDHT m)
 deriving instance MonadUSMem m => MonadUSMem (KademliaDHT m)
 
 deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (PeerStateHolder m)
 deriving instance MonadDB m => MonadDB (PeerStateHolder m)
+deriving instance MonadDBLimits m => MonadDBLimits (PeerStateHolder m)
 deriving instance MonadDHT m => MonadDHT (PeerStateHolder m)
 deriving instance MonadSscMem ssc m => MonadSscMem ssc (PeerStateHolder m)
 deriving instance MonadDelegation m => MonadDelegation (PeerStateHolder m)

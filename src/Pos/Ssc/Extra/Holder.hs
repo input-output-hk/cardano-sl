@@ -29,7 +29,8 @@ import           System.Wlog               (CanLog, HasLoggerName, WithLogger)
 import           Universum
 
 import           Pos.Context               (WithNodeContext)
-import           Pos.DB                    (MonadDB (..))
+import           Pos.DB                    (MonadDB)
+import           Pos.DB.Limits             (MonadDBLimits)
 import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Class.LocalData   (SscLocalDataClass (sscNewLocalData))
 import           Pos.Ssc.Class.Storage     (SscGStateClass (sscLoadGlobalState))
@@ -56,6 +57,7 @@ newtype SscHolder ssc m a = SscHolder
                , MonadMask
                , MonadFix
                , MonadDB
+               , MonadDBLimits
                )
 
 type instance ThreadId (SscHolder ssc m) = ThreadId m

@@ -39,6 +39,7 @@ import           Pos.Communication.Protocol    (OutSpecs, SendActions, hoistSend
 import           Pos.Constants                 (curSoftwareVersion)
 import           Pos.Crypto                    (SecretKey, deterministicKeyGen, hash,
                                                 toPublic)
+import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (getKnownPeers)
 import           Pos.Ssc.Class                 (SscHelpersClass)
 import           Pos.Txp.Core.Types            (TxOut (..))
@@ -89,6 +90,7 @@ type WalletWebHandler m = WalletWebSockets (WalletWebDB m)
 type WalletWebMode ssc m
     = ( WalletMode ssc m
       , MonadWalletWebDB m
+      , MonadDBLimits m
       , MonadWalletWebSockets m
       )
 

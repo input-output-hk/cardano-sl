@@ -56,7 +56,7 @@ instance SscWorkersClass SscNistBeacon where
     sscLrcConsumers = Tagged []
 
 instance SscListenersClass SscNistBeacon where
-    sscListeners = Tagged ([], mempty)
+    sscListeners = return $ Tagged ([], mempty)
     sscStubListeners = Tagged ([], mempty)
 
 instance SscLocalDataClass SscNistBeacon where

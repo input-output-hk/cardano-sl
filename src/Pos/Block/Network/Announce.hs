@@ -7,6 +7,7 @@ module Pos.Block.Network.Announce
        , handleHeadersCommunication
        ) where
 
+import           Data.Reflection            (Reifies)
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (throw)
 import           System.Wlog                (logDebug)
@@ -15,6 +16,8 @@ import           Universum
 import           Pos.Binary.Communication   ()
 import           Pos.Block.Logic            (getHeadersFromManyTo)
 import           Pos.Block.Network.Types    (MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Communication.Limits   (Limit, LimitedLength, recvLimited,
+                                             reifyMsgLimit)
 import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId (..),
                                              OutSpecs, SendActions (..), convH,
@@ -59,24 +62,26 @@ announceBlock sendActions header = do
                                withConnectionTo sendActions nId handler
                      }
                 else sendActions
-    converseToNeighbors sendActions' announceBlockDo
+    reifyMsgLimit (Proxy @MsgGetHeaders) $ \limitProxy ->
+        converseToNeighbors sendActions' $ announceBlockDo limitProxy
   where
-    announceBlockDo nodeId conv = do
+    announceBlockDo limitProxy nodeId conv = do
         logDebug $
             sformat
                 ("Announcing block "%shortHashF%" to "%build)
                 (headerHash header)
                 nodeId
         send conv $ MsgHeaders (one (Right header))
-        handleHeadersCommunication conv
+        handleHeadersCommunication conv limitProxy
 
 handleHeadersCommunication
-    :: forall ssc m.
-       WorkMode ssc m
-    => ConversationActions (MsgHeaders ssc) MsgGetHeaders m -> m ()
-handleHeadersCommunication conv = do
-    (msg :: Maybe MsgGetHeaders) <- recv conv
-    whenJust msg $ \mgh@(MsgGetHeaders {..}) -> do
+    :: forall ssc m s.
+       (WorkMode ssc m, Reifies s (Limit MsgGetHeaders))
+    => ConversationActions (MsgHeaders ssc) (LimitedLength s MsgGetHeaders) m
+    -> Proxy s
+    -> m ()
+handleHeadersCommunication conv _ = do
+    whenJustM (recvLimited conv) $ \mgh@(MsgGetHeaders {..}) -> do
         logDebug $ sformat ("Got request on handleGetHeaders: "%build) mgh
         ifM isRecoveryMode onRecovery $ do
             headers <- case (mghFrom,mghTo) of
@@ -88,7 +93,7 @@ handleHeadersCommunication conv = do
     handleSuccess h = do
         onSuccess
         send conv (MsgHeaders h)
-        handleHeadersCommunication conv
+        handleHeadersCommunication conv Proxy
     onSuccess =
         logDebug "handleGetHeaders: responded successfully"
     onRecovery =

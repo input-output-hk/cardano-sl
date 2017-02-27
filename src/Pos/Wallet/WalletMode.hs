@@ -37,6 +37,7 @@ import           Pos.DB                      (MonadDB)
 import qualified Pos.DB.Block                as DB
 import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
 import           Pos.DHT.Real                (KademliaDHT (..))
@@ -309,6 +310,7 @@ type TxMode ssc m
       , MonadTxHistory m
       , MonadMockable m
       , MonadMask m
+      , MonadDBLimits m
       )
 
 type WalletMode ssc m

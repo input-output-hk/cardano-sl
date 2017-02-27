@@ -30,6 +30,7 @@ import           Universum
 import           Pos.Context.Class         (WithNodeContext)
 import           Pos.DB.Class              (MonadDB)
 import           Pos.DB.Holder             (DBHolder (..))
+import           Pos.DB.Limits             (MonadDBLimits)
 import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra             (MonadSscMem)
 import           Pos.Types                 (HeaderHash, genesisHash)
@@ -48,7 +49,7 @@ newtype TxpHolder m a = TxpHolder
     } deriving (Functor, Applicative, Monad, MonadTrans, MonadThrow,
                 MonadSlotsData, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, WithNodeContext ssc, MonadJL, MonadDB,
-                CanLog, MonadMask, MonadSscMem ssc, MonadFix)
+                CanLog, MonadMask, MonadSscMem ssc, MonadFix, MonadDBLimits)
 
 type instance ThreadId (TxpHolder m) = ThreadId m
 type instance Promise (TxpHolder m) = Promise m

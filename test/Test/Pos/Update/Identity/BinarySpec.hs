@@ -8,10 +8,13 @@ import           Test.Hspec              (Spec, describe)
 import           Universum
 
 import           Pos.Binary              ()
-import           Pos.Communication.Relay as R
+import qualified Pos.Communication       as C
+import           Pos.Communication.Relay ()
+import qualified Pos.Communication.Relay as R
 import qualified Pos.Update              as U
 
-import           Test.Pos.Util           (binaryTest, networkBinaryTest)
+import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
+                                          networkBinaryTest)
 
 spec :: Spec
 spec =
@@ -38,3 +41,11 @@ spec =
         networkBinaryTest @(R.InvMsg U.UpId U.ProposalMsgTag)
         networkBinaryTest @(R.ReqMsg U.UpId U.ProposalMsgTag)
         networkBinaryTest @(R.DataMsg (U.UpdateProposal, [U.UpdateVote]))
+    describe "Message length limit" $ do
+        msgLenLimitedTest @(R.InvMsg U.VoteId U.VoteMsgTag)
+        msgLenLimitedTest @(R.ReqMsg U.VoteId U.VoteMsgTag)
+        msgLenLimitedTest @(R.InvMsg U.UpId U.ProposalMsgTag)
+        msgLenLimitedTest @(R.ReqMsg U.UpId U.ProposalMsgTag)
+        msgLenLimitedTest @(C.MaxSize (R.DataMsg (U.UpdateProposal, [U.UpdateVote])))
+        msgLenLimitedTest @(R.DataMsg U.UpdateVote)
+        msgLenLimitedTest @U.UpdateProposal

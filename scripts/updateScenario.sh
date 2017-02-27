@@ -105,7 +105,7 @@ if $build; then
   # Updating version in csl sources to v0.1.0
   sed -i.backup "s/BlockVersion 0 0 0/BlockVersion 0 1 0/" src/Pos/Constants.hs
   echo "Building cardano-sl with version 0.1.0"
-  stack build --fast
+  stack build --fast cardano-sl
   rm -rf binaries_v010 && mkdir binaries_v010
   cp -v $csl_bin/* binaries_v010/
   afterBumpMd5=$(md5sum binaries_v010/cardano-node)

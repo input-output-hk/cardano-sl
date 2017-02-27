@@ -80,7 +80,7 @@ if $build; then
   echo "Building cardano-sl"
   stack clean cardano-sl
   grep "BlockVersion 0 0 0" src/Pos/Constants.hs  # fails if not found
-  stack build --fast 
+  stack build --fast cardano-sl
 
   csl_bin=$(stack path --local-install-root)/bin
   originalMd5=$(md5sum $csl_bin/cardano-node)

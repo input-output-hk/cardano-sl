@@ -119,7 +119,8 @@ onNewSlotImpl withLogging startImmediately action =
         let msg = sformat ("Error occurred in 'onNewSlot' worker itself: " %build) e
         logError $ msg
         reportMisbehaviourMasked msg
-        delay $ minute 1
+        delay =<< getLastKnownSlotDuration
+        onNewSlotImpl withLogging startImmediately action
 
 onNewSlotDo
     :: OnNewSlot ssc m

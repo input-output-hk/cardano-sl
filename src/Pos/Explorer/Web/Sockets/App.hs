@@ -125,7 +125,7 @@ periodicPollChanges connVar closed =
                 notifyBlocksSubscribers
                 unless notifiedAddrs notifyAllAddrSubscribers
 
-            let blocksInfo = maybe "-" (sformat $ " ("%int%" blocks)") $
+            let blocksInfo = maybe "" (sformat $ " ("%int%" blocks)") $
                     length <$> mBlocks
             logDebug $ sformat ("Blockchain updated"%stext) blocksInfo
 

@@ -30,7 +30,7 @@ import           Pos.Block.Network.Retrieval (requestTipOuts, retrievalWorker,
 import           Pos.Communication.Protocol  (OutSpecs, Worker', WorkerSpec,
                                               onNewSlotWorker, worker)
 import           Pos.Constants               (networkDiameter)
-import           Pos.Context                 (getNodeContext, isRecoveryMode, ncPublicKey)
+import           Pos.Context                 (getNodeContext, ncPublicKey)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Lrc                  (getLeaders)
@@ -58,7 +58,6 @@ blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => ([WorkerSpec m], OutSpecs
 blkWorkers =
     merge [ blkOnNewSlot
           , retrievalWorker
-          , recoveryWorker
 #if !defined(DEV_MODE) && defined(WITH_WALLET)
           , behindNatWorker
 #endif
@@ -183,32 +182,6 @@ verifyCreatedBlock blk =
         , vbpVerifyTxs = True
         , vbpVerifySsc = True
         }
-
--- | Trigger recovery if we're definitely late in the blockchain (for >epoch).
-recoveryWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
-recoveryWorker = worker requestTipOuts recoveryWorkerImpl
-
-recoveryWorkerImpl
-    :: WorkMode ssc m
-    => SendActions m -> m ()
-recoveryWorkerImpl sendActions = action `catch` handler
-  where
-    delayed a = forever $ a >> delay (sec 5)
-    action = reportingFatal $ delayed checkRecovery
-    checkRecovery = do
-        recMode <- isRecoveryMode
-        curSlotNothing <- isNothing <$> getCurrentSlot
-        if (curSlotNothing && not recMode) then do
-             logDebug "Recovery worker: don't know current slot"
-             triggerRecovery sendActions
-        else logDebug $ "Recovery worker skipped:" <>
-                        " slot is nothing: " <> show curSlotNothing <>
-                        ", recovery mode is on: " <> show recMode
-
-    handler (e :: SomeException) = do
-        logError $ "Error happened in recoveryWorker: " <> show e
-        delay (sec 10)
-        action `catch` handler
 
 #if !defined(DEV_MODE) && defined(WITH_WALLET)
 -- | This one just triggers every @max (slotDur / 4) 5@ seconds and

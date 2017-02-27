@@ -349,6 +349,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
     shutdownFlag <- liftIO $ newTVarIO False
     shutdownQueue <- liftIO $ newTBQueueIO allWorkersCount
     curTime <- liftIO Time.getCurrentTime
+    lastKnownHeader <- liftIO $ newTVarIO Nothing
     let ctx =
             NodeContext
             { ncJLFile = jlFile
@@ -367,6 +368,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
             , ncLoggerConfig = logCfg
             , ncSendLock = Nothing
             , ncStartTime = curTime
+            , ncLastKnownHeader = lastKnownHeader
             }
     runContextHolder ctx act
 

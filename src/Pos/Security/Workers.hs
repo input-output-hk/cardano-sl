@@ -8,14 +8,15 @@ module Pos.Security.Workers
 import           Control.Concurrent.STM      (TVar, newTVar, readTVar, writeTVar)
 import qualified Data.HashMap.Strict         as HM
 import           Data.Tagged                 (Tagged (..))
-import           Data.Time.Units             (convertUnit)
+import           Data.Time.Units             (Millisecond, convertUnit)
 import           Formatting                  (build, int, sformat, (%))
 import           Mockable                    (delay)
 import           System.Wlog                 (logWarning)
 import           Universum
 
 import           Pos.Binary.Ssc              ()
-import           Pos.Block.Network.Retrieval (requestTipOuts, triggerRecovery)
+import           Pos.Block.Network.Retrieval (needRecovery, requestTipOuts,
+                                              triggerRecovery)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions, WorkerSpec,
                                               localWorker, worker)
 import           Pos.Constants               (blkSecurityParam, mdNoBlocksSlotThreshold,
@@ -98,31 +99,32 @@ checkEclipsed ourPk slotId = notEclipsed
 checkForReceivedBlocksWorkerImpl
     :: WorkMode ssc m
     => SendActions m -> m ()
-checkForReceivedBlocksWorkerImpl sendActions =
-    afterDelay . repeatOnInterval . reportingFatal $ do
+checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
+    repeatOnInterval (const (sec' 4)) . reportingFatal $
+        whenM needRecovery $ do
+            logWarning "Trying to trigger recovery..."
+            triggerRecovery sendActions
+    repeatOnInterval (min (sec' 20)) . reportingFatal $ do
         ourPk <- ncPublicKey <$> getNodeContext
         let onSlotDefault slotId = do
                 header <- getTipBlockHeader
                 unlessM (checkEclipsed ourPk slotId header) onEclipsed
-        maybe onSlotUnknown onSlotDefault =<< getCurrentSlot
+        maybe (pure ()) onSlotDefault =<< getCurrentSlot
   where
+    sec' :: Int -> Millisecond
+    sec' = convertUnit . sec
     afterDelay action = delay (sec 3) >> action
-    onSlotUnknown = do
-        logWarning "Current slot not known. Will try to trigger recovery."
-        triggerRecovery sendActions
     onEclipsed = do
         logWarning $
             "Our neighbors are likely trying to carry out an eclipse attack! " <>
             "There are no blocks younger " <>
             "than 'mdNoBlocksSlotThreshold' that we didn't generate " <>
             "by ourselves"
-        triggerRecovery sendActions
         reportEclipse
-    repeatOnInterval action = ifNotShutdown $ do
+    repeatOnInterval delF action = ifNotShutdown $ do
         () <- action
-        slotDur <- getLastKnownSlotDuration
-        delay $ min slotDur $ convertUnit (sec 20)
-        repeatOnInterval action
+        getLastKnownSlotDuration >>= delay . delF
+        repeatOnInterval delF action
     reportEclipse = do
         bootstrapMin <- (+ sec 10) . convertUnit <$> getLastKnownSlotDuration
         nonTrivialUptime <- (> bootstrapMin) <$> getUptime

@@ -17,7 +17,7 @@ module Pos.Wallet.WalletMode
        ) where
 
 import           Control.Concurrent.MVar     (takeMVar)
-import           Control.Concurrent.STM      (TMVar, tryReadTMVar)
+import           Control.Concurrent.STM      (TMVar, TVar, readTVar, tryReadTMVar)
 import           Control.Monad.Loops         (unfoldrM)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
@@ -220,6 +220,14 @@ topHeader :: (SscHelpersClass ssc, MonadDB ssc m) => m (BlockHeader ssc)
 topHeader = maybeThrow (DBMalformed "No block with tip hash!") =<<
             DB.getBlockHeader =<< GS.getTip
 
+getContextTVar
+    :: (Ssc ssc, MonadIO m, PC.WithNodeContext ssc m)
+    => (PC.NodeContext ssc -> TVar a)
+    -> m a
+getContextTVar getter =
+    PC.getNodeContext >>=
+    atomically . readTVar . getter
+
 getContextTMVar
     :: (Ssc ssc, MonadIO m, PC.WithNodeContext ssc m)
     => (PC.NodeContext ssc -> TMVar a)
@@ -227,11 +235,6 @@ getContextTMVar
 getContextTMVar getter =
     PC.getNodeContext >>=
     atomically . tryReadTMVar . getter
-
-recoveryHeader
-    :: (Ssc ssc, MonadIO m, PC.WithNodeContext ssc m)
-    => m (Maybe (BlockHeader ssc))
-recoveryHeader = fmap snd <$> getContextTMVar PC.ncRecoveryHeader
 
 downloadHeader
     :: (Ssc ssc, MonadIO m, PC.WithNodeContext ssc m)
@@ -241,15 +244,8 @@ downloadHeader = getContextTMVar PC.ncProgressHeader
 -- | Instance for full-node's ContextHolder
 instance SscHelpersClass ssc =>
          MonadBlockchainInfo (RawRealMode ssc) where
-    networkChainDifficulty = recoveryHeader >>= \case
-        Just rh -> return . Just $ rh ^. difficultyL
-        Nothing -> runMaybeT $ do
-            cSlot <- flattenSlotId <$> MaybeT getCurrentSlot
-            th <- lift topHeader
-            let hSlot = flattenEpochOrSlot th
-            when (hSlot <= cSlot - blkSecurityParam) $
-                fail "Local tip is outdated"
-            return $ th ^. difficultyL
+    networkChainDifficulty = fmap (^. difficultyL)
+            <$> getContextTVar PC.ncLastKnownHeader
 
     localChainDifficulty = downloadHeader >>= \case
         Just dh -> return $ dh ^. difficultyL

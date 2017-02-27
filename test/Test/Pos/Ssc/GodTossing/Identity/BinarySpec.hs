@@ -4,14 +4,15 @@ module Test.Pos.Ssc.GodTossing.Identity.BinarySpec
        ( spec
        ) where
 
-import           Test.Hspec              (Spec, describe)
+import           Test.Hspec               (Spec, describe)
 import           Universum
 
-import           Pos.Communication.Relay as R
-import qualified Pos.Ssc.GodTossing      as GT
-import           Pos.Core.Types       (StakeholderId)
+import           Pos.Communication.Relay  as R
+import           Pos.Core.Types           (StakeholderId)
+import qualified Pos.Ssc.GodTossing       as GT
 
-import           Test.Pos.Util           (binaryTest)
+import           Test.Pos.Arbitrary.Infra ()
+import           Test.Pos.Util            (binaryTest)
 
 spec :: Spec
 spec = describe "GodTossing" $ do

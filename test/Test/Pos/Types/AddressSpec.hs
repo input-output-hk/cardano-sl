@@ -10,8 +10,9 @@ import           Test.Hspec.QuickCheck (prop)
 import           Universum
 
 import           Pos.Binary            ()
+import           Pos.Core.Address      (unsafeAddressHash)
+import           Pos.Core.Types        (AddrPkAttrs (..), Address (..))
 import           Pos.Data.Attributes   (mkAttributes)
-import           Pos.Types.Address     (AddrPkAttrs (..), Address (..), unsafeAddressHash)
 
 spec :: Spec
 spec = describe "Address" $ do

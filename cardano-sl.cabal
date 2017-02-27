@@ -168,6 +168,7 @@ library
                         Pos.Launcher.Scenario
 
                         -- Network
+                        Pos.Communication.Types
                         Pos.Communication.Message
                         Pos.Communication.Methods
                         Pos.Communication.Server
@@ -1068,6 +1069,9 @@ executable cardano-launcher
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec
+                       Test.Pos.Arbitrary.Infra
+                       Test.Pos.Arbitrary.Infra.Communication
+                       Test.Pos.Arbitrary.Infra.DHT
                        Test.Pos.BinarySpec
                        Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
@@ -1104,13 +1108,16 @@ test-suite cardano-test
                      , binary
                      , bytestring
                      , cardano-sl-core
+                     , cardano-sl-infra >= 0.1
                      , cardano-sl
                      , cereal
                      , containers
                      , cryptonite
                      , data-default
+                     , derive
                      , formatting
                      , hspec
+                     , kademlia
                      , lens
                      , log-warper >= 0.4.3
                      , memory

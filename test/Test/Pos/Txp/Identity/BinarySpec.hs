@@ -4,15 +4,16 @@ module Test.Pos.Txp.Identity.BinarySpec
        ( spec
        ) where
 
-import           Test.Hspec              (Spec, describe)
+import           Test.Hspec               (Spec, describe)
 import           Universum
 
-import           Pos.Binary              ()
-import           Pos.Communication.Relay as R
-import           Pos.Txp                 (TxId)
-import qualified Pos.Txp                 as T
+import           Pos.Binary               ()
+import           Pos.Communication.Relay  as R
+import           Pos.Txp                  (TxId)
+import qualified Pos.Txp                  as T
+import           Test.Pos.Arbitrary.Infra ()
 
-import           Test.Pos.Util           (networkBinaryTest)
+import           Test.Pos.Util            (networkBinaryTest)
 
 spec :: Spec
 spec =

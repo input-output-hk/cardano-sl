@@ -1,12 +1,18 @@
-import           Test.QuickCheck (Arbitrary (..))
+{-# LANGUAGE TemplateHaskell #-}
+
+module Test.Pos.Arbitrary.Infra.Communication () where
+
 import           Data.DeriveTH                    (derive, makeArbitrary)
 import           Node.Message                     (MessageName (..))
+import           Test.QuickCheck                  (Arbitrary (..))
 import           Test.QuickCheck                  (Arbitrary (..), choose, oneof)
 import           Universum
 
-import           Pos.Communication.Types          (HandlerSpec (..), VerInfo (..))
+import           Pos.Communication.Types.Protocol (HandlerSpec (..), VerInfo (..))
+import           Pos.Communication.Types.Relay    (InvMsg (..), ReqMsg (..))
 import           Pos.Communication.Types.SysStart (SysStartRequest (..),
                                                    SysStartResponse (..))
+import           Pos.Types.Arbitrary              ()
 
 instance (Arbitrary key, Arbitrary tag) => Arbitrary (ReqMsg key tag) where
     arbitrary = ReqMsg <$> arbitrary <*> arbitrary

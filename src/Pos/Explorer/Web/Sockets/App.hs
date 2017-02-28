@@ -62,8 +62,7 @@ notifierHandler
     :: (MonadState RoutingTable m)
     => ConnectionsVar -> LoggerName -> m ()
 notifierHandler connVar loggerName = do
-    on_ StartSession     $
-        modifyConnectionsStateDo connVar . startSession =<< ask
+    on_ StartSession     $ asHandler' startSession
     on  SubscribeAddr    $ asHandler subscribeAddr
     on_ SubscribeBlock   $ asHandler_ subscribeBlocks
     on_ UnsubscribeAddr  $ asHandler_ unsubscribeAddr
@@ -72,6 +71,7 @@ notifierHandler connVar loggerName = do
     on  SetClientBlock   $ asHandler setClientBlock
     appendDisconnectHandler $ asHandler_ unsubscribeFully
  where
+    -- handlers provide context for logging and `ConnectionsVar` changes
     asHandler
         :: (MonadIO m, MonadMask m, MonadReader Socket m, MonadCatch m)
         => (SocketId -> a -> LoggerNameBox (StateT ConnectionsState m) b)
@@ -85,6 +85,9 @@ notifierHandler connVar loggerName = do
         sock <- ask
         modifyConnectionsStateDo connVar $ usingLoggerName loggerName $
             f (socketId sock)
+    asHandler' f = do
+        modifyConnectionsStateDo connVar . usingLoggerName loggerName . f =<< ask
+
 
 notifierServer
     :: (MonadIO m, WithLogger m, MonadCatch m, WithLogger m)

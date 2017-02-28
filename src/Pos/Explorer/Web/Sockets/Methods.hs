@@ -38,7 +38,8 @@ import           Pos.Ssc.Class                   (SscHelpersClass)
 import           Pos.Types                       (Address, Block, ChainDifficulty,
                                                   HeaderHash, Tx (..), blockTxas,
                                                   prevBlockL, txOutAddress)
-import           System.Wlog                     (WithLogger, logError, logWarning)
+import           System.Wlog                     (WithLogger, logDebug, logError,
+                                                  logWarning)
 import           Universum                       hiding (toList)
 
 import           Pos.Explorer.Web.Sockets.Holder (ConnectionsState, ccAddress, ccBlock,
@@ -78,20 +79,24 @@ instance EventName ServerEvent where
 -- * Client requests provessing
 
 startSession
-    :: MonadState ConnectionsState m
+    :: (MonadState ConnectionsState m, WithLogger m)
     => Socket -> m ()
 startSession conn = do
     let cc = mkClientContext conn
         id = socketId conn
     csClients . at id .= Just cc
+    logDebug $ sformat ("New session has started (#"%shown%")") id
 
-finishSession :: MonadState ConnectionsState m => SocketId -> m ()
+finishSession
+    :: (MonadState ConnectionsState m, WithLogger m)
+    => SocketId -> m ()
 finishSession i = whenJustM (use $ csClients . at i) finishSessionDo
   where
     finishSessionDo _ = do
         csClients . at i .= Nothing
         unsubscribeBlocks i
         unsubscribeAddr i
+        logDebug $ sformat ("Session #"%shown%" has finished") i
 
 setClientAddress
     :: (MonadState ConnectionsState m, WithLogger m)
@@ -114,20 +119,27 @@ subscribeAddr
 subscribeAddr i addr = do
     session <- use $ csClients . at i
     case session of
-        Just _ -> csAddressSubscribers . at addr %=
-            Just . (maybe (S.singleton i) (S.insert i))
-        _      -> logWarning $
-            sformat ("Unregistered client tries to subscribe on address \
-            \updates"%build) addr
+        Just _ -> do
+            csAddressSubscribers . at addr %=
+                Just . (maybe (S.singleton i) (S.insert i))
+            logDebug $ sformat ("Client #"%shown%" subscribed to address "
+                       %shown) i addr
+        _      ->
+            logWarning $ sformat ("Unregistered client tries to subscribe \
+                         \on address updates"%build) addr
 
 unsubscribeAddr
-    :: MonadState ConnectionsState m
+    :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> m ()
 unsubscribeAddr i = do
     addr <- preuse $ csClients . at i . _Just . ccAddress
     whenJust (join addr) unsubscribeDo
   where
-    unsubscribeDo a = csAddressSubscribers . at a %= fmap (S.delete i)
+    unsubscribeDo a = do
+        csAddressSubscribers . at a %= fmap (S.delete i)
+        logDebug $ sformat ("Client #"%shown%" unsubscribed from address "
+                   %shown) i a
+
 
 subscribeBlocks
     :: (MonadState ConnectionsState m, WithLogger m)
@@ -135,17 +147,25 @@ subscribeBlocks
 subscribeBlocks i = do
     session <- use $ csClients . at i
     case session of
-        Just _  -> csBlocksSubscribers %= S.insert i
-        _       -> logWarning "Unregistered client tries to subscribe on block\
-                   \ updates"
+        Just _  -> do
+            csBlocksSubscribers %= S.insert i
+            logDebug $ sformat ("Client #"%shown%" subscribed to blockchain \
+                       \updates") i
+        _       ->
+            logWarning "Unregistered client tries to subscribe on blockchain \
+                      \updates"
 
 unsubscribeBlocks
-    :: MonadState ConnectionsState m
+    :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> m ()
-unsubscribeBlocks i = csBlocksSubscribers %= S.delete i
+unsubscribeBlocks i = do
+    csBlocksSubscribers %= S.delete i
+    logDebug $ sformat ("Client #"%shown%" unsubscribed from blockchain \
+               \updates") i
+
 
 unsubscribeFully
-    :: MonadState ConnectionsState m
+    :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> m ()
 unsubscribeFully i = unsubscribeBlocks i >> unsubscribeAddr i
 

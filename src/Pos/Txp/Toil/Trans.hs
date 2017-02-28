@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 -- | TxpT monad transformer. Single-threaded.
 
 module Pos.Txp.Toil.Trans
@@ -22,13 +24,16 @@ import           Pos.Context               (WithNodeContext)
 import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
 import           Pos.Util.JsonLog          (MonadJL (..))
 
-import           Pos.Txp.Toil.Types         (BalancesView, MemPool, TxpModifier (..),
+
+import           Pos.Txp.Toil.Types        (BalancesView, MemPool, TxpModifier (..),
                                             UndoMap, UtxoView, bvStakes, bvTotal,
                                             mpLocalTxs, mpLocalTxsSize, txmBalances,
                                             txmMemPool, txmUndos, txmUtxoView, uvAddUtxo,
                                             uvDelUtxo)
-
-import           Pos.Txp.Toil.Class         (MonadBalances (..), MonadBalancesRead (..),
+#ifdef DWITH_EXPLORER
+import           Pos.Txp.Toil.Types        (mpLocalTxsExtra)
+#endif
+import           Pos.Txp.Toil.Class        (MonadBalances (..), MonadBalancesRead (..),
                                             MonadTxPool (..), MonadUtxo (..),
                                             MonadUtxoRead (..))
 
@@ -104,6 +109,11 @@ instance Monad m => MonadTxPool (TxpT m) where
             txmUndos . at id .= Just undo
 
     poolSize = TxpT $ use $ txmMemPool . mpLocalTxsSize
+
+#ifdef DWITH_EXPLORER
+    putTxExtra id txExtra = TxpT $
+        txmMemPool . mpLocalTxsExtra . at id .= Just txExtra
+#endif
 
 ----------------------------------------------------------------------------
 -- Runners

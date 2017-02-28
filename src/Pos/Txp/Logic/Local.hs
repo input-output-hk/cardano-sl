@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE ConstraintKinds #-}
 
 -- | Logic for local processing of transactions.
@@ -26,7 +27,10 @@ import           Pos.Txp.Toil         (MemPool (..), MonadUtxoRead (..), TxpModi
                                        TxpVerFailure (..), execTxpTLocal, normalizeTxp,
                                        processTx, runDBTxp, runTxpTLocal, runUtxoReaderT,
                                        utxoGet)
-
+#ifdef DWITH_EXPLORER
+import           Pos.Txp.Toil         (putTxExtra)
+import           Pos.Types.Explorer   (TxExtra (..))
+#endif
 
 type TxpLocalWorkMode ssc m =
     ( MonadDB ssc m
@@ -46,7 +50,7 @@ txProcessTransaction itw@(txId, (Tx{..}, _, _)) = do
     (resolvedOuts, _) <- runDBTxp $ runUV localUV $ mapM utxoGet _txInputs
     -- Resolved are transaction outputs which haven't been deleted from the utxo yet
     -- (from Utxo DB and from UtxoView also)
-    let resolved = HM.fromList $
+    let resolved = M.fromList $
                    catMaybes $
                    zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
     pRes <- modifyTxpLocalData $ processTxDo resolved tipBefore itw
@@ -54,21 +58,29 @@ txProcessTransaction itw@(txId, (Tx{..}, _, _)) = do
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: "%build) txId
             throwError er
-        Right _   ->
+        Right _   -> do
             logDebug (sformat ("Transaction is processed successfully: "%build) txId)
   where
     processTxDo resolved tipBefore tx txld@(uv, mp, undo, tip)
         | tipBefore /= tip = (Left $ TxpInvalid "Tips aren't same", txld)
         | otherwise =
             let res = runExcept $
-                      flip runUtxoReaderT (M.fromList $ HM.toList resolved) $
+                      flip runUtxoReaderT resolved $
                       execTxpTLocal uv mp undo $
-                      processTx tx in
+                      processTx tx
+#ifdef DWITH_EXPLORER
+                      >> putTxExtra (fst tx) (makeExtra resolved)
+#endif
+            in
             case res of
                 Left er  -> (Left er, txld)
                 Right TxpModifier{..} ->
                     (Right (), (_txmUtxoView, _txmMemPool, _txmUndos, tip))
     runUV uv = runTxpTLocal uv def mempty
+#ifdef DWITH_EXPLORER
+    makeExtra resolved = TxExtra Nothing $ map fst $ toList resolved
+#endif
+
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Remove invalid transactions from MemPool

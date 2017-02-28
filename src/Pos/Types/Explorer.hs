@@ -6,9 +6,10 @@ module Pos.Types.Explorer
 
 import           Universum
 
-import           Pos.Types.Core (Address, HeaderHash)
+import           Pos.Txp.Core.Types (TxOut)
+import           Pos.Types.Core     (HeaderHash)
 
 data TxExtra = TxExtra
     { teBlockchainPlace :: Maybe (HeaderHash, Word32)
-    , teInputAddresses  :: [Address]
+    , teInputOutputs    :: [TxOut]
     } deriving (Show, Generic)

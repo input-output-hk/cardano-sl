@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP          #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- | Type classes for Txp abstraction.
@@ -18,6 +19,10 @@ import           Universum
 
 import           Pos.Txp.Core.Types        (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import           Pos.Types                 (Coin, StakeholderId)
+#ifdef DWITH_EXPLORER
+import           Pos.Types.Explorer        (TxExtra)
+#endif
+
 ----------------------------------------------------------------------------
 -- MonadUtxo
 ----------------------------------------------------------------------------
@@ -91,6 +96,9 @@ class Monad m => MonadTxPool m where
     hasTx :: TxId -> m Bool
     putTxWithUndo :: TxId -> TxAux -> TxUndo -> m ()
     poolSize :: m Int
+#ifdef DWITH_EXPLORER
+    putTxExtra :: TxId -> TxExtra -> m ()
+#endif
 
     default hasTx
         :: (MonadTrans t, MonadTxPool m', t m' ~ m) => TxId -> m Bool
@@ -103,6 +111,12 @@ class Monad m => MonadTxPool m where
     default poolSize
         :: (MonadTrans t, MonadTxPool m', t m' ~ m) => m Int
     poolSize = lift poolSize
+
+#ifdef DWITH_EXPLORER
+    default putTxExtra
+        :: (MonadTrans t, MonadTxPool m', t m' ~ m) => m Int
+    putTxExtra = lift putTxExtra
+#endif
 
 instance MonadTxPool m => MonadTxPool (ReaderT s m)
 instance MonadTxPool m => MonadTxPool (StateT s m)

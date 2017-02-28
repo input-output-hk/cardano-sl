@@ -51,7 +51,7 @@ packages:
 # todo replace it with hackage version
 - location:
     git: https://github.com/serokell/serokell-util/
-    commit: 7e926977a048cfabe759c2792518c5f0b9b552fe
+    commit: 9f5e818ef9e9f07434b6c2ca51d2db8ae56309db
   extra-dep: true
 
 nix:

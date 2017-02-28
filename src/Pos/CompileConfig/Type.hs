@@ -74,8 +74,6 @@ data CompileConfig = CompileConfig
 ----------------------------------------------------------------------------
     , ccNetworkDiameter               :: !Int
       -- ^ Estimated time for broadcasting messages
-    , ccNeighboursSendThreshold       :: !Int
-      -- ^ Broadcasting threshold
     , ccMaxLocalTxs                   :: !Word
       -- ^ Max number of transactions in Storage
     , ccDefaultPeers                  :: ![String]
@@ -103,20 +101,12 @@ data CompileConfig = CompileConfig
     , ccMessageCacheTimeout           :: !Int
       -- ^ Interval we ignore cached messages in components that
       -- support caching
-    , ccKademliaDumpInterval          :: !Int
-      -- ^ Interval for dumping Kademlia state in slots
-    , ccNtpResponseTimeout            :: !Int
-      -- ^ How often request to NTP server and response collection
-    , ccNtpPollDelay                  :: !Int
-      -- ^ How often send request to NTP server
     , ccNetworkConnectionTimeout      :: !Int
       -- ^ Network connection timeout in milliseconds
     , ccBlockRetrievalQueueSize       :: !Int
       -- ^ Block retrieval queue capacity
     , ccPropagationQueueSize          :: !Int
       -- ^ InvMsg propagation queue capacity
-    , ccNetworkReceiveTimeout         :: !Int
-      -- ^ Network timeout on `recv` in milliseconds
     , ccProductionNetworkStartTime    :: !Int
       -- ^ Start time of network (in `Prodution` running mode).
       -- If set to zero, then running time is 2 minutes after build.

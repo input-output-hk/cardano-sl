@@ -50,9 +50,12 @@ library
                        Pos.Binary.Core.Types
                        Pos.Binary.Core.Version
 
+                       Pos.Util.Config
+
   other-modules:       Paths_cardano_sl_core
 
   build-depends:       base
+                     , aeson
                      , base58-bytestring
                      , log-warper
                       -- This constraint on 'binary' is so strict because
@@ -72,7 +75,9 @@ library
                      , derive
                      , deriving-compat
                      , digest
+                     , directory
                      , ed25519
+                     , filepath
                      , formatting
                      , hashable
                      , lens
@@ -90,11 +95,13 @@ library
                      , template-haskell
                      , text
                      , text-format
+                     , time
                      , th-lift-instances
                      , time-units
                      , universum
                      , unordered-containers
                      , vector
+                     , yaml
 
   default-language:    Haskell2010
 

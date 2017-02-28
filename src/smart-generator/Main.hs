@@ -21,8 +21,9 @@ import qualified Pos.CLI                     as CLI
 import           Pos.Communication           (ActionSpec (..), SendActions,
                                               convertSendActions, wrapSendActions)
 import           Pos.Constants               (genesisN, genesisSlotDuration,
-                                              neighborsSendThreshold, slotSecurityParam)
+                                              slotSecurityParam)
 import           Pos.Crypto                  (hash)
+import           Pos.DHT.Constants           (neighborsSendThreshold)
 import           Pos.DHT.Model               (DHTNode, MonadDHT, discoverPeers,
                                               getKnownPeers)
 import           Pos.Genesis                 (genesisUtxo)

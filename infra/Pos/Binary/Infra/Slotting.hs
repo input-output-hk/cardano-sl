@@ -4,12 +4,10 @@ module Pos.Binary.Infra.Slotting
        (
        ) where
 
-import           Data.Binary.Get    (getWord8, label)
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), UnsignedVarInt (..))
+import           Pos.Binary.Class   (Bi (..))
 import           Pos.Binary.Core    ()
-import           Pos.Core.Types     (EpochIndex (..), Timestamp (..))
 import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData (..))
 
 instance Bi EpochSlottingData where

@@ -36,9 +36,7 @@ module Pos.Constants
 
        -- * Other constants
        , maxLocalTxs
-       , neighborsSendThreshold
        , networkConnectionTimeout
-       , networkReceiveTimeout
        , blockRetrievalQueueSize
        , propagationQueueSize
        , defaultPeers
@@ -46,9 +44,7 @@ module Pos.Constants
        , vssMaxTTL
        , vssMinTTL
        , protocolMagic
-       , enhancedMessageBroadcast
        , recoveryHeadersMessage
-       , kademliaDumpInterval
        , messageCacheTimeout
 
        -- * Delegation
@@ -63,18 +59,13 @@ module Pos.Constants
        , curSoftwareVersion
        , ourAppName
        , appSystemTag
-
-       -- * NTP
-       , ntpMaxError
-       , ntpResponseTimeout
-       , ntpPollDelay
        ) where
 
 import           Data.Time.Units            (Microsecond, Millisecond, convertUnit)
 import           Language.Haskell.TH.Syntax (lift, runIO)
-import           Pos.Util.TimeWarp          (ms, sec)
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util              (staticAssert)
+import           Serokell.Util.Time         (ms, sec)
 import           System.Environment         (lookupEnv)
 import qualified Text.Parsec                as P
 import           Universum                  hiding (lift)
@@ -93,7 +84,6 @@ import           Pos.Core.Version           (mkApplicationName)
 import           Pos.DHT.Model.Types        (DHTNode)
 import           Pos.Update.Core            (SystemTag, mkSystemTag)
 import           Pos.Util                   ()
-import           Pos.Util.TimeWarp          (mcs)
 
 ----------------------------------------------------------------------------
 -- Main constants mentioned in paper
@@ -224,16 +214,8 @@ maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
 sysTimeBroadcastSlots :: Integral i => i
 sysTimeBroadcastSlots = fromIntegral . ccSysTimeBroadcastSlots $ compileConfig
 
--- | See 'Pos.CompileConfig.ccNeighboursSendThreshold'.
-neighborsSendThreshold :: Integral a => a
-neighborsSendThreshold =
-    fromIntegral . ccNeighboursSendThreshold $ compileConfig
-
 networkConnectionTimeout :: Microsecond
 networkConnectionTimeout = ms . fromIntegral . ccNetworkConnectionTimeout $ compileConfig
-
-networkReceiveTimeout :: Microsecond
-networkReceiveTimeout = ms . fromIntegral . ccNetworkReceiveTimeout $ compileConfig
 
 blockRetrievalQueueSize :: Integral a => a
 blockRetrievalQueueSize =
@@ -288,19 +270,11 @@ vssMinTTL = fromIntegral . ccVssMinTTL $ compileConfig
 protocolMagic :: Int32
 protocolMagic = fromIntegral . ccProtocolMagic $ compileConfig
 
--- | Setting this to true enables enhanced message broadcast
-enhancedMessageBroadcast :: Integral a => a
-enhancedMessageBroadcast = fromIntegral $ ccEnhancedMessageBroadcast compileConfig
-
 -- | Maximum amount of headers node can put into headers message while
 -- in "after offline" or "recovery" mode. Should be more than
 -- 'blkSecurityParam'.
 recoveryHeadersMessage :: (Integral a) => a
 recoveryHeadersMessage = fromIntegral . ccRecoveryHeadersMessage $ compileConfig
-
--- | Interval for dumping state of Kademlia in slots
-kademliaDumpInterval :: (Integral a) => a
-kademliaDumpInterval = fromIntegral . ccKademliaDumpInterval $ compileConfig
 
 -- | Timeout for caching system. Components that use caching on
 -- messages can use this timeout to invalidate caches.
@@ -363,19 +337,3 @@ curSoftwareVersion = SoftwareVersion cardanoSlAppName 0
 -- | Name of our application.
 ourAppName :: ApplicationName
 ourAppName = cardanoSlAppName
-
-----------------------------------------------------------------------------
--- NTP
-----------------------------------------------------------------------------
-
--- | Inaccuracy in call threadDelay (actually it is error much less than 1 sec)
-ntpMaxError :: Microsecond
-ntpMaxError = sec 1
-
--- | After making request to NTP servers, how long to wait for their response
-ntpResponseTimeout :: Microsecond
-ntpResponseTimeout = mcs . ccNtpResponseTimeout $ compileConfig
-
--- | How often send request to NTP server
-ntpPollDelay :: Microsecond
-ntpPollDelay = mcs . ccNtpPollDelay $ compileConfig

@@ -73,13 +73,16 @@ library
                         Pos.Binary.Infra.DHTModel
                         Pos.Binary.Infra.Slotting
 
-                        -- Pos.Communication
+                        -- Pos.Util
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
 
-  other-modules:        Paths_cardano_sl_infra
-                        Pos.Slotting.Constants
                         Pos.DHT.Constants
+
+  other-modules:        Paths_cardano_sl_infra
+                        Pos.Infra.Constants.Type
+                        Pos.Infra.Constants.Parser
+                        Pos.Slotting.Constants
                         Pos.Communication.Constants
                       
   build-depends:       base
@@ -112,8 +115,10 @@ library
                       , serokell-util >= 0.1.3.4
                       , stm
                       , stm-containers
+                      , tagged
                       , text
                       , temporary
+                      , template-haskell
                       , text-format
                       , time
                       , time-units

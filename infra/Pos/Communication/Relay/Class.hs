@@ -1,8 +1,11 @@
+{-# LANGUAGE TypeFamilies #-}
+
 module Pos.Communication.Relay.Class
        ( Relay (..)
        , MonadRelayMem (..)
        ) where
 
+import           Control.Monad.Trans           (MonadTrans)
 import           Node.Message                  (Message)
 import           Serokell.Util.Verify          (VerificationRes)
 import           Universum
@@ -46,6 +49,10 @@ class ( Buildable tag
 
 class Monad m => MonadRelayMem m where
     askRelayMem :: m RelayContext
+
+    default askRelayMem :: (MonadTrans t, MonadRelayMem m', t m' ~ m) =>
+       m RelayContext
+    askRelayMem = lift askRelayMem
 
 instance MonadRelayMem m => MonadRelayMem (ReaderT s m) where
 instance MonadRelayMem m => MonadRelayMem (ExceptT s m) where

@@ -13,6 +13,9 @@ module Pos.Core.Constants
        , staticSysStart
        ) where
 
+import           Data.Time.Clock.POSIX      (getPOSIXTime)
+import           Serokell.Util.Time         (sec)
+import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum                  hiding (lift)
 
 #ifdef DEV_MODE

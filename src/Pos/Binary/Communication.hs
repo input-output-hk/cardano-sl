@@ -6,15 +6,12 @@ module Pos.Binary.Communication () where
 import           Data.Binary.Get                  (getByteString, getWord8, label)
 import           Data.Binary.Put                  (putByteString, putWord8)
 import qualified Data.ByteString                  as BS
-import           Data.Reflection                  (Reifies, reflect)
 import           Formatting                       (int, sformat, (%))
 import           Node.Message                     (MessageName (..))
-import           Serokell.Data.Memory.Units       (Byte)
 import           Universum                        hiding (putByteString)
 
 import           Pos.Binary.Class                 (Bi (..), getRemainingByteString,
-                                                   getWithLength, getWithLengthLimited,
-                                                   putWithLength)
+                                                   getWithLength, putWithLength)
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types          (SysStartRequest (..),
@@ -36,6 +33,7 @@ instance Bi NOP where
               (i :: Word8) <- get
               when (i /= 0) $
                  fail "NOP: 0 expected"
+
 
 ----------------------------------------------------------------------------
 -- System start
@@ -69,7 +67,7 @@ instance Ssc ssc => Bi (MsgHeaders ssc) where
     put (MsgHeaders b) = put b
     get = label "MsgHeaders" $ MsgHeaders <$> get
 
-instance (SscHelpersClass ssc, Reifies s Byte) => Bi (MsgBlock s ssc) where
+instance SscHelpersClass ssc => Bi (MsgBlock ssc) where
     -- We encode block size and then the block itself so that we'd be able to
     -- reject the block if it's of the wrong size without consuming the whole
     -- block.
@@ -79,9 +77,7 @@ instance (SscHelpersClass ssc, Reifies s Byte) => Bi (MsgBlock s ssc) where
         -- we *depend* on this behavior in e.g. 'handleGetBlocks' in
         -- "Pos.Block.Network.Listeners". Grep for #put_checkBlockSize.
         putWithLength (put b)
-    get = label "MsgBlock" $ do
-        let maxBlockSize = reflect (Proxy @s)
-        getWithLengthLimited (fromIntegral maxBlockSize) (MsgBlock <$> get)
+    get = label "MsgBlock" $ getWithLength $ MsgBlock <$> get
 
 ----------------------------------------------------------------------------
 -- Transaction processing

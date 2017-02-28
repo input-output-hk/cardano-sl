@@ -174,6 +174,7 @@ library
                         Pos.Communication.Arbitrary
                         Pos.Communication.BiP
                         Pos.Communication.Message
+                        Pos.Communication.Limits
                         Pos.Communication.Methods
                         Pos.Communication.Protocol
                         Pos.Communication.PeerState
@@ -223,6 +224,7 @@ library
                         Pos.DB.Block
                         Pos.DB.GState.BlockExtra
                         Pos.DB.GState.GState
+                        Pos.DB.Limits
                         Pos.DB.Misc
 
                         -- Genesis
@@ -404,6 +406,7 @@ library
                         Pos.Wallet.State
                         Pos.Wallet.State.Acidic
                         Pos.Wallet.State.Holder
+                        Pos.Wallet.State.Limits
                         Pos.Wallet.State.State
                         Pos.Wallet.State.Storage
                         Pos.Wallet.State.Storage.Block
@@ -427,6 +430,7 @@ library
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.Holder
+                        Pos.Wallet.Web.State.Limits
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
   build-depends:        IfElse
@@ -1154,6 +1158,7 @@ test-suite cardano-test
                      , memory
                      , mtl
                      , node-sketch
+                     , pvss
                      , quickcheck-instances
                      , random
                      , reflection

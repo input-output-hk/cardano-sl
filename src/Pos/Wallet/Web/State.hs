@@ -4,4 +4,5 @@ module Pos.Wallet.Web.State
        ) where
 
 import           Pos.Wallet.Web.State.Holder
+import           Pos.Wallet.Web.State.Limits ()
 import           Pos.Wallet.Web.State.State

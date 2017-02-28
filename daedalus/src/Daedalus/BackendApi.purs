@@ -138,3 +138,6 @@ importKey = postRBody ["import_key"]
 
 syncProgress :: forall eff. Aff (ajax :: AJAX | eff) SyncProgress
 syncProgress = getR ["sync_progress"]
+
+testReset :: forall eff. Aff (ajax :: AJAX | eff) Unit
+testReset = postR ["test_reset"]

@@ -27,6 +27,7 @@ import           Universum                 hiding (catchAll)
 import           Pos.Context.Class         (WithNodeContext (..))
 import           Pos.Context.Context       (NodeContext (..))
 import           Pos.DB.Class              (MonadDB)
+import           Pos.DB.Limits             (MonadDBLimits)
 import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
 import           Pos.Txp.MemState.Class    (MonadTxpMem)
 import           Pos.Util.JsonLog          (MonadJL (..), appendJL)
@@ -50,6 +51,7 @@ newtype ContextHolder ssc m a = ContextHolder
                , MonadTxpMem
                , MonadFix
                , MonadDB
+               , MonadDBLimits
                )
 
 -- | Run 'ContextHolder' action.

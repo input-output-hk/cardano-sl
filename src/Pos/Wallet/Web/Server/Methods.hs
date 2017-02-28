@@ -39,6 +39,7 @@ import           Pos.Communication.Protocol    (OutSpecs, SendActions, hoistSend
 import           Pos.Constants                 (curSoftwareVersion)
 import           Pos.Crypto                    (SecretKey, deterministicKeyGen, hash,
                                                 toPublic)
+import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (getKnownPeers)
 import           Pos.Ssc.Class                 (SscHelpersClass)
 import           Pos.Txp.Core.Types            (TxOut (..))
@@ -78,7 +79,7 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWeb
                                                 getTxMeta, getWalletMeta, getWalletState,
                                                 openState, removeNextUpdate, removeWallet,
                                                 runWalletWebDB, setProfile, setWalletMeta,
-                                                setWalletTransactionMeta)
+                                                setWalletTransactionMeta, testReset)
 import           Pos.Web.Server                (serveImpl)
 
 ----------------------------------------------------------------------------
@@ -90,6 +91,7 @@ type WalletWebHandler m = WalletWebSockets (WalletWebDB m)
 type WalletWebMode ssc m
     = ( WalletMode ssc m
       , MonadWalletWebDB m
+      , MonadDBLimits m
       , MonadWalletWebSockets m
       )
 
@@ -109,7 +111,7 @@ walletServeImpl app daedalusDbPath dbRebuild port =
         ((,) <$> openDB <*> initWS)
         (\(db, conn) -> closeDB db >> closeWS conn)
         $ \(db, conn) ->
-            serveImpl (runWalletWebDB db $ runWalletWS conn app) port
+            serveImpl (runWalletWebDB db $ runWalletWS conn app) "127.0.0.1" port
   where openDB = openState dbRebuild daedalusDbPath
         closeDB = closeState
         initWS = initWSConnection
@@ -222,6 +224,10 @@ servantHandlers
        (SscHelpersClass ssc, WalletWebMode ssc m)
     => SendActions m -> ServerT WalletApi m
 servantHandlers sendActions =
+#ifdef DEV_MODE
+     catchWalletError testResetAll
+    :<|>
+#endif
      (catchWalletError . getWallet)
     :<|>
      catchWalletError getWallets
@@ -464,6 +470,15 @@ syncProgress = do
     <$> localChainDifficulty
     <*> networkChainDifficulty
     <*> connectedPeers
+
+#ifdef DEV_MODE
+testResetAll :: WalletWebMode ssc m => m ()
+testResetAll = deleteAllKeys >> testReset
+  where
+    deleteAllKeys = do
+        keyNum <- fromIntegral . pred . length <$> getSecretKeys
+        sequence_ $ replicate keyNum $ deleteSecretKey 1
+#endif
 
 ---------------------------------------------------------------------------
 -- Helpers

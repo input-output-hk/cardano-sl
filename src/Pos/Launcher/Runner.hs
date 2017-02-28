@@ -178,7 +178,7 @@ runRawRealMode
     => RealModeResources
     -> NodeParams
     -> SscParams ssc
-    -> ListenersWithOut (RawRealMode ssc)
+    -> RawRealMode ssc (ListenersWithOut (RawRealMode ssc))
     -> OutSpecs
     -> ActionSpec (RawRealMode ssc) a
     -> Production a
@@ -251,14 +251,15 @@ runServiceMode res bp@BaseParams {..} listeners outSpecs (ActionSpec action) = d
 runServer
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
     => Transport
-    -> ListenersWithOut m
+    -> m (ListenersWithOut m)
     -> OutSpecs
     -> (Node m -> m t)
     -> (t -> m ())
     -> ActionSpec m b
     -> m b
-runServer transport packedLS (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
+runServer transport packedLS_M (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
     ourPeerId <- PeerId . getMeaningPart <$> currentNodeKey
+    packedLS  <- packedLS_M
     let (listeners', InSpecs ins, OutSpecs outs) = unpackLSpecs packedLS
         ourVerInfo =
             VerInfo protocolMagic lastKnownBlockVersion ins $ outs <> wouts
@@ -275,7 +276,7 @@ runServer_
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
     => Transport -> ListenersWithOut m -> OutSpecs -> ActionSpec m b -> m b
 runServer_ transport packedLS outSpecs =
-    runServer transport packedLS outSpecs acquire release
+    runServer transport (pure packedLS) outSpecs acquire release
   where
     acquire = const pass
     release = const pass
@@ -293,8 +294,9 @@ runProductionMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
     runRawRealMode res np sscnp listeners outSpecs . ActionSpec $
         \vI sendActions -> getNoStatsT . action vI $ hoistSendActions lift getNoStatsT sendActions
   where
-    listeners = addDevListeners npSystemStart commonListeners
-    commonListeners = first (hoistListenerSpec getNoStatsT lift <$>) allListeners
+    listeners = addDevListeners npSystemStart <$> commonListeners
+    commonListeners = getNoStatsT $
+        first (hoistListenerSpec getNoStatsT lift <$>) <$> allListeners
 
 -- | StatsMode runner.
 -- [CSL-169]: spawn here additional listener, which would accept stat queries
@@ -309,8 +311,9 @@ runStatsMode
     -> Production a
 runStatsMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
     statMap <- liftIO SM.newIO
-    let listeners = addDevListeners npSystemStart commonListeners
-        commonListeners = first (hoistListenerSpec (runStatsT' statMap) lift <$>) allListeners
+    let listeners = addDevListeners npSystemStart <$> commonListeners
+        commonListeners = runStatsT' statMap $
+            first (hoistListenerSpec (runStatsT' statMap) lift <$>) <$> allListeners
     runRawRealMode res np sscnp listeners outSpecs . ActionSpec $
         \vI sendActions -> do
             runStatsT' statMap . action vI $ hoistSendActions lift (runStatsT' statMap) sendActions

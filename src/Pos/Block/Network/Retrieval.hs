@@ -20,7 +20,6 @@ import           Control.Lens               (_Wrapped)
 import           Control.Monad.Except       (ExceptT, runExceptT, throwError)
 import           Data.List.NonEmpty         ((<|))
 import qualified Data.List.NonEmpty         as NE
-import           Data.Reflection            (reify)
 import           Formatting                 (build, int, sformat, shown, stext, (%))
 import           Mockable                   (fork, handleAll, throw)
 import           Serokell.Util.Text         (listJson)
@@ -39,6 +38,7 @@ import           Pos.Block.Network.Announce (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
                                              MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Block.Types            (Blund)
+import           Pos.Communication.Limits   (LimitedLength, recvLimited, reifyMsgLimit)
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs,
                                              SendActions (..), WorkerSpec, convH,
                                              toOutSpecs, worker)
@@ -53,7 +53,6 @@ import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
                                              HeaderHash, blockHeader, difficultyL,
                                              gbHeader, prevBlockL, verifyHeaders)
-import qualified Pos.Update.DB              as UDB
 import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
                                              inAssertMode, _neHead, _neLast)
 import           Pos.Util.Shutdown          (ifNotShutdown)
@@ -86,15 +85,16 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
                 logDebug "Queue is empty, we're in recovery mode -> querying more"
                 whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
                     handleAll (handleLE recHeaderVar ph) $ reportingFatal $
-                    withConnectionTo sendActions peerId $ \_peerData ->
-                        requestHeaders mghNext (Just rHeader) peerId
+                    reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
+                         withConnectionTo sendActions peerId $ \_peerData ->
+                             requestHeaders mghNext (Just rHeader) peerId limPx
             loop queue recHeaderVar
     logDebug "Starting retrievalWorker loop"
     loop ncBlockRetrievalQueue ncRecoveryHeader
   where
     outs = announceBlockOuts
               <> toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
-                                   (Proxy :: Proxy (MsgBlock s0 ssc))
+                                   (Proxy :: Proxy (MsgBlock ssc))
                             ]
     handleWE e = do
         logError $ sformat ("retrievalWorker: error caught "%shown) e
@@ -156,12 +156,10 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
     handleCHsValid sendActions peerId lcaChild newestHash = do
         let lcaChildHash = headerHash lcaChild
         logDebug $ sformat validFormat lcaChildHash newestHash
-        maxBlockSize <- UDB.getMaxBlockSize
-        -- Yay, reflection magic! Here we indirectly pass 'maxBlockSize' as
-        -- a parameter to the 'Bi' instance of 'MsgBlock'.
-        reify maxBlockSize $ \(_ :: Proxy s0) ->
+        reifyMsgLimit (Proxy @(MsgBlock ssc)) $ \(_ :: Proxy s0) ->
           withConnectionTo sendActions peerId $
-          \_peerData (conv :: ConversationActions MsgGetBlocks (MsgBlock s0 ssc) m) -> do
+          \_peerData (conv :: ConversationActions MsgGetBlocks
+                (LimitedLength s0 (MsgBlock ssc)) m) -> do
             send conv $ mkBlocksRequest lcaChildHash newestHash
             chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
             recHeaderVar <- ncRecoveryHeader <$> getNodeContext
@@ -196,11 +194,11 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
     retrieveBlocks'
         :: forall s.
            Int
-        -> ConversationActions MsgGetBlocks (MsgBlock s ssc) m
+        -> ConversationActions MsgGetBlocks (LimitedLength s (MsgBlock ssc)) m
         -> HeaderHash          -- ^ We're expecting a child of this block
         -> HeaderHash          -- ^ Block at which to stop
         -> ExceptT Text m (OldestFirst NE (Block ssc))
-    retrieveBlocks' i conv prevH endH = lift (recv conv) >>= \case
+    retrieveBlocks' i conv prevH endH = lift (recvLimited conv) >>= \case
         Nothing -> throwError $ sformat ("Failed to receive block #"%int) i
         Just (MsgBlock block) -> do
             let prevH' = block ^. prevBlockL
@@ -218,13 +216,15 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
             else over _Wrapped (block <|) <$> retrieveBlocks' (i+1) conv curH endH
 
 -- | Triggers recovery based on established communication.
-triggerRecovery :: WorkMode ssc m => SendActions m -> m ()
+triggerRecovery :: forall ssc m. WorkMode ssc m => SendActions m -> m ()
 triggerRecovery sendActions = unlessM isRecoveryMode $ do
     logDebug "Recovery triggered"
-    converseToNeighbors sendActions requestTip `catch`
-        (\(e :: SomeException) ->
-           logDebug ("Error happened in triggerRecovery" <> show e) >> throwM e)
-    logDebug "Recovery triggered ended"
+    reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limitProxy -> do
+        converseToNeighbors sendActions (requestTip limitProxy) `catch`
+            \(e :: SomeException) -> do
+               logDebug ("Error happened in triggerRecovery" <> show e)
+               throwM e
+        logDebug "Recovery triggered ended"
 
 -- | Make 'GetHeaders' message using our main chain. This function
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'
@@ -239,11 +239,11 @@ mkHeadersRequest upto = do
 
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
-    :: forall ssc m.
+    :: forall ssc s m.
        (WorkMode ssc m)
     => NonEmpty (BlockHeader ssc)
     -> NodeId
-    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
+    -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
     -> m ()
 handleUnsolicitedHeaders (header :| []) peerId conv =
     handleUnsolicitedHeader header peerId conv
@@ -253,11 +253,11 @@ handleUnsolicitedHeaders (h:|hs) _ _ = do
     logWarning $ sformat ("Here they are: "%listJson) (h:hs)
 
 handleUnsolicitedHeader
-    :: forall ssc m.
+    :: forall ssc s m.
        (WorkMode ssc m)
     => BlockHeader ssc
     -> NodeId
-    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
+    -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
     -> m ()
 handleUnsolicitedHeader header peerId conv = do
     logDebug $ sformat
@@ -273,7 +273,7 @@ handleUnsolicitedHeader header peerId conv = do
             logInfo $ sformat alternativeFormat hHash
             mghM <- mkHeadersRequest (Just hHash)
             whenJust mghM $ \mgh ->
-                requestHeaders mgh (Just header) peerId conv
+                requestHeaders mgh (Just header) peerId Proxy conv
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> do
             logDebug $ sformat ("handleUnsolicited: header "%shortHashF%" is invalid") hHash
@@ -334,13 +334,16 @@ requestTipOuts =
 -- Is used if we're recovering after offline and want to know what's
 -- current blockchain state.
 requestTip
-    :: forall ssc m.
+    :: forall ssc s m.
        (WorkMode ssc m)
-    => NodeId -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m -> m ()
-requestTip peerId conv = do
+    => Proxy s
+    -> NodeId
+    -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
+    -> m ()
+requestTip _ peerId conv = do
     logDebug "Requesting tip..."
     send conv (MsgGetHeaders [] Nothing)
-    whenJustM (recv conv) handleTip
+    whenJustM (recvLimited conv) handleTip
   where
     handleTip (MsgHeaders (NewestFirst (tip:|[]))) = do
         logDebug $ sformat ("Got tip "%shortHashF%", processing") (headerHash tip)
@@ -350,17 +353,18 @@ requestTip peerId conv = do
 -- Second argument is mghTo block header (not hash). Don't pass it
 -- only if you don't know it.
 requestHeaders
-    :: forall ssc m.
+    :: forall ssc s m.
        (WorkMode ssc m)
     => MsgGetHeaders
     -> Maybe (BlockHeader ssc)
     -> NodeId
-    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
+    -> Proxy s
+    -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
     -> m ()
-requestHeaders mgh recoveryHeader peerId conv = do
+requestHeaders mgh recoveryHeader peerId _ conv = do
     logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
     send conv mgh
-    mHeaders <- recv conv
+    mHeaders <- recvLimited conv
     flip (maybe onNothing) mHeaders $ \(MsgHeaders headers) -> do
         logDebug $ sformat
             ("requestHeaders: withConnection: received "%listJson)

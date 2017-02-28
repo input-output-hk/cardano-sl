@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+
 module Pos.Communication.Types.Relay
        ( InvMsg (..)
        , ReqMsg (..)
@@ -5,6 +7,7 @@ module Pos.Communication.Types.Relay
        , InvOrData
        ) where
 
+import           Control.Lens        (Wrapped (..), iso)
 import qualified Data.Text.Buildable as B
 import           Formatting          (bprint, build, (%))
 import           Test.QuickCheck     (Arbitrary (..))
@@ -20,7 +23,7 @@ data InvMsg key tag = InvMsg
 deriving instance (Show key, Show tag) => Show (InvMsg key tag)
 deriving instance (Eq key, Eq tag) => Eq (InvMsg key tag)
 instance (Arbitrary key, Arbitrary tag) => Arbitrary (InvMsg key tag) where
-    arbitrary = InvMsg <$> arbitrary <*> arbitrary
+    arbitrary = InvMsg <$> arbitrary <*> (pure <$> arbitrary)
 
 -- | Request message. Can be used to request data (ideally data which
 -- was previously announced by inventory message).
@@ -32,7 +35,7 @@ data ReqMsg key tag = ReqMsg
 deriving instance (Show key, Show tag) => Show (ReqMsg key tag)
 deriving instance (Eq key, Eq tag) => Eq (ReqMsg key tag)
 instance (Arbitrary key, Arbitrary tag) => Arbitrary (ReqMsg key tag) where
-    arbitrary = ReqMsg <$> arbitrary <*> arbitrary
+    arbitrary = ReqMsg <$> arbitrary <*> (pure <$> arbitrary)
 
 -- | Data message. Can be used to send actual data.
 data DataMsg contents = DataMsg
@@ -44,3 +47,7 @@ type InvOrData tag key contents = Either (InvMsg key tag) (DataMsg contents)
 instance (Buildable contents) =>
          Buildable (DataMsg contents) where
     build (DataMsg contents) = bprint ("Data {" %build % "}") contents
+
+instance Wrapped (DataMsg contents) where
+    type Unwrapped (DataMsg contents) = contents
+    _Wrapped' = iso dmContents DataMsg

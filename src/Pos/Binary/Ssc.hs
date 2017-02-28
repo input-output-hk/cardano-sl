@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 
 -- | GodTossing serialization instances
 

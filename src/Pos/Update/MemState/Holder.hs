@@ -28,6 +28,7 @@ import           Universum
 
 import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
@@ -64,6 +65,7 @@ newtype USHolder m a = USHolder
                , MonadDelegation
                , MonadFix
                , MonadDB
+               , MonadDBLimits
                )
 
 ----------------------------------------------------------------------------

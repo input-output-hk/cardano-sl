@@ -24,6 +24,7 @@ import           Universum
 
 import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (DelegationWrap (..), MonadDelegation (..))
 import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem (..))
@@ -54,6 +55,7 @@ newtype DelegationT m a = DelegationT
                , MonadSscMem kek
                , MonadSlotsData
                , MonadDB
+               , MonadDBLimits
                , MonadTxpMem
                )
 

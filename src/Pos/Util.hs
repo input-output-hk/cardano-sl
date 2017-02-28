@@ -107,6 +107,7 @@ import           Data.SafeCopy                    (SafeCopy (..), base, contain,
 import qualified Data.Text                        as T
 import           Data.Time.Units                  (Microsecond, Millisecond)
 import           Formatting                       (sformat, stext, (%))
+import qualified GHC.Exts                         as IL
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Syntax       (Lift)
 import qualified Language.Haskell.TH.Syntax
@@ -265,6 +266,16 @@ instance One (f a) => One (NewestFirst f a) where
 instance One (f a) => One (OldestFirst f a) where
     type OneItem (OldestFirst f a) = OneItem (f a)
     one = OldestFirst . one
+
+instance IL.IsList (f a) => IL.IsList (NewestFirst f a) where
+    type Item (NewestFirst f a) = IL.Item (f a)
+    toList = IL.toList . getNewestFirst
+    fromList = NewestFirst . IL.fromList
+
+instance IL.IsList (f a) => IL.IsList (OldestFirst f a) where
+    type Item (OldestFirst f a) = IL.Item (f a)
+    toList = IL.toList . getOldestFirst
+    fromList = OldestFirst . IL.fromList
 
 class Chrono f where
     toNewestFirst :: OldestFirst f a -> NewestFirst f a

@@ -134,6 +134,7 @@ checkForReceivedBlocksWorkerImpl sendActions =
         when (nonTrivialUptime && not isRecovery) $
             reportMisbehaviourMasked reason
 
+
 checkForIgnoredCommitmentsWorker
     :: forall m.
        WorkMode SscGodTossing m

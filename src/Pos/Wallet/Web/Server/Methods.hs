@@ -63,9 +63,10 @@ import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProf
                                                 CUpdateInfo (..), CWallet (..),
                                                 CWalletInit (..), CWalletMeta (..),
                                                 CWalletRedeem (..), NotifyEvent (..),
-                                                addressToCAddress, cAddressToAddress,
-                                                mkCTx, mkCTxId, toCUpdateInfo,
-                                                txContainsTitle, txIdToCTxId)
+                                                SyncProgress (..), addressToCAddress,
+                                                cAddressToAddress, mkCTx, mkCTxId,
+                                                toCUpdateInfo, txContainsTitle,
+                                                txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
@@ -92,18 +93,7 @@ type WalletWebMode ssc m
       , MonadWalletWebSockets m
       )
 
--- | Notifier state (moved here due to `makeLenses` and scoping issues)
-data SyncProgress =
-    SyncProgress { _spLocalCD       :: ChainDifficulty
-                 , _spNetworkCD     :: ChainDifficulty
-                 , _spNotifyCounter :: Int
-                 , _spPeers         :: Word
-                 }
-
 makeLenses ''SyncProgress
-
-instance Default SyncProgress where
-    def = SyncProgress 0 0 0 0
 
 walletServeImpl
     :: ( MonadIO m
@@ -186,16 +176,12 @@ launchNotifier nat = void . liftIO $ mapM startForking
         liftIO $ threadDelay period
         action
     dificultyNotifier = void . flip runStateT def $ notifier difficultyNotifyPeriod $ do
-        networkChainDifficulty >>= \case
-            Nothing -> pure ()
-            Just networkDifficulty -> do
+        whenJustM networkChainDifficulty $
+            \networkDifficulty -> do
                 oldNetworkDifficulty <- use spNetworkCD
-                cc <- use spNotifyCounter
-                when (networkDifficulty /= oldNetworkDifficulty || cc >= networkResendPeriod) $ do
+                when (Just networkDifficulty /= oldNetworkDifficulty) $ do
                     lift $ notify $ NetworkDifficultyChanged networkDifficulty
-                    spNetworkCD .= networkDifficulty
-                    spNotifyCounter .= 0
-                spNotifyCounter += 1
+                    spNetworkCD .= Just networkDifficulty
 
         localDifficulty <- localChainDifficulty
         oldLocalDifficulty <- use spLocalCD
@@ -275,6 +261,8 @@ servantHandlers sendActions =
      catchWalletError (pure curSoftwareVersion)
     :<|>
      catchWalletError . importKey sendActions
+    :<|>
+     catchWalletError syncProgress
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
@@ -470,6 +458,12 @@ importKey sendActions (toString -> fp) = do
 #endif
     getWallet importedCAddr
 
+syncProgress :: WalletWebMode ssc m => m SyncProgress
+syncProgress = do
+    SyncProgress
+    <$> localChainDifficulty
+    <*> networkChainDifficulty
+    <*> connectedPeers
 
 ---------------------------------------------------------------------------
 -- Helpers

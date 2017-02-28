@@ -5,7 +5,7 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Exception (error, Error)
 import Control.Monad.Error.Class (throwError)
 import Daedalus.Constants (backendPrefix)
-import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit, BackupPhrase, CUpdateInfo, SoftwareVersion, CWalletRedeem)
+import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit, BackupPhrase, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Bifunctor (bimap)
@@ -135,3 +135,6 @@ redeemADA = postRBody ["redeem_ada"]
 
 importKey :: forall eff. String -> Aff (ajax :: AJAX | eff) CWallet
 importKey = postRBody ["import_key"]
+
+syncProgress :: forall eff. Aff (ajax :: AJAX | eff) SyncProgress
+syncProgress = getR ["sync_progress"]

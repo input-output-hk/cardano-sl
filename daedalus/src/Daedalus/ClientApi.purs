@@ -156,3 +156,6 @@ redeemADA = mkEffFn2 \seed -> fromAff <<< map encodeJson <<< B.redeemADA <<< mkC
 
 importKey :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
 importKey = mkEffFn1 $ fromAff <<< map encodeJson <<< B.importKey
+
+syncProgress :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
+syncProgress = fromAff $ map encodeJson B.syncProgress

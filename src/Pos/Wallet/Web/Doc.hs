@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds     #-}
+{-# LANGUAGE DataKinds #-}
 {-# OPTIONS_GHC -fno-warn-deprecations #-}
 
 -- | Documentation of wallet web API.
@@ -23,6 +23,7 @@ import qualified Servant.Docs               as SD
 import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum
 
+import           Data.Default               (Default, def)
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Constants              (curSoftwareVersion)
 import           Pos.Crypto                 (keyGen)
@@ -33,7 +34,7 @@ import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTx,
                                              CTxId, CTxMeta, CUpdateInfo, CWallet,
                                              CWalletInit, CWalletMeta, CWalletRedeem (..),
-                                             addressToCAddress)
+                                             SyncProgress, addressToCAddress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 walletDocs :: API
@@ -243,6 +244,9 @@ instance ToSample BackupPhrase where
 
 instance ToSample SoftwareVersion where
     toSamples Proxy = singleSample curSoftwareVersion
+
+instance ToSample SyncProgress where
+    toSamples Proxy = singleSample def
 
 --
 --instance ToSample Tx where

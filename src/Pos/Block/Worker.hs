@@ -11,14 +11,13 @@ module Pos.Block.Worker
 
 import           Control.Lens                (ix)
 import           Data.Default                (def)
-import           Data.Time.Units             (convertUnit)
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
 import           Pos.Communication.Protocol  (SendActions)
 import           Serokell.Util               (VerificationRes (..), listJson, pairF)
 import           Serokell.Util.Exceptions    ()
 import           System.Wlog                 (WithLogger, logDebug, logError, logInfo,
-                                              logNotice, logWarning)
+                                              logWarning)
 import           Universum
 
 import           Pos.Binary.Communication    ()
@@ -37,7 +36,6 @@ import           Pos.Exception               (assertionFailed)
 import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Reporting.Methods       (reportingFatal)
 import           Pos.Slotting                (currentTimeSlotting, getCurrentSlot,
-                                              getLastKnownSlotDuration,
                                               getSlotStartEmpatically)
 import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
 import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (..),

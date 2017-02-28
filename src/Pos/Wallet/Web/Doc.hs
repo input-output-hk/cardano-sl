@@ -23,7 +23,7 @@ import qualified Servant.Docs               as SD
 import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum
 
-import           Data.Default               (Default, def)
+import           Data.Default               (Default (def))
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Constants              (curSoftwareVersion)
 import           Pos.Crypto                 (keyGen)

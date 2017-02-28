@@ -9,18 +9,19 @@ module Pos.Explorer.Web.Sockets.App
        ) where
 
 import           Control.Lens                       ((<<.=))
+import qualified Data.HashMap.Strict                as HM
 import qualified Data.Set                           as S
 import           Data.Time.Units                    (Millisecond)
 import           Formatting                         (int, sformat, shown, stext, (%))
 import           Mockable                           (Fork, Mockable)
-import           Network.EngineIO                   (SocketId)
+import           Network.EngineIO                   (SocketId, srvGetQueryParams)
 import           Network.EngineIO.Snap              (snapAPI)
 import           Network.SocketIO                   (RoutingTable, Socket,
                                                      appendDisconnectHandler, initialize,
                                                      socketId)
 import qualified Pos.DB                             as DB
 import           Pos.Ssc.Class                      (SscHelpersClass)
-import           Snap.Core                          (MonadSnap, Response)
+import           Snap.Core                          (MonadSnap, Response, route)
 import           Snap.Http.Server                   (httpServe)
 import qualified Snap.Internal.Http.Server.Config   as Config
 import           System.Wlog                        (LoggerName, LoggerNameBox,
@@ -95,9 +96,13 @@ notifierServer
 notifierServer settings connVar = do
     loggerName <- getLoggerName
     liftIO $ do
-        handler <- liftIO $ initialize snapAPI $
+        handler <- liftIO $ initialize api $
             notifierHandler connVar loggerName
-        httpServe (toSnapConfig settings) handler
+        httpServe (toSnapConfig settings) $
+            route [("/socket.io", handler)]
+  where
+    api = snapAPI { srvGetQueryParams =
+        HM.insert "transport" ["polling"] <$> srvGetQueryParams snapAPI }
 
 periodicPollChanges
     :: (MonadIO m, MonadMask m, DB.MonadDB ssc m, WithLogger m,

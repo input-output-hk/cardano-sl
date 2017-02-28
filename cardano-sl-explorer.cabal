@@ -67,6 +67,7 @@ library
                       , time-units
                       , transformers
                       , universum
+                      , unordered-containers
                       , wai
                       , containers
   hs-source-dirs:       src

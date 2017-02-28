@@ -13,7 +13,6 @@ import           Data.Proxy                   (Proxy (Proxy))
 import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry,
                                                CBlockSummary, CHash, CTxEntry)
 import           Pos.Explorer.Web.Error       (ExplorerError)
-import           Pos.Types                    (Coin, SoftwareVersion)
 import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
                                                QueryParam)
 import           Universum

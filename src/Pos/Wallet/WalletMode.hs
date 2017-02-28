@@ -244,8 +244,15 @@ downloadHeader = getContextTMVar PC.ncProgressHeader
 -- | Instance for full-node's ContextHolder
 instance SscHelpersClass ssc =>
          MonadBlockchainInfo (RawRealMode ssc) where
-    networkChainDifficulty = fmap (^. difficultyL)
-            <$> getContextTVar PC.ncLastKnownHeader
+    networkChainDifficulty = getContextTVar PC.ncLastKnownHeader >>= \case
+        Just lh -> return . Just $ lh ^. difficultyL
+        Nothing -> runMaybeT $ do
+            cSlot <- flattenSlotId <$> MaybeT getCurrentSlot
+            th <- lift (topHeader @ssc)
+            let hSlot = flattenEpochOrSlot th
+            when (hSlot <= cSlot - blkSecurityParam) $
+                fail "Local tip is outdated"
+            return $ th ^. difficultyL
 
     localChainDifficulty = downloadHeader >>= \case
         Just dh -> return $ dh ^. difficultyL

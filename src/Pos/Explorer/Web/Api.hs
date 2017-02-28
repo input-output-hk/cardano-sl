@@ -11,11 +11,11 @@ module Pos.Explorer.Web.Api
 import           Data.Proxy                   (Proxy (Proxy))
 
 import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry,
-                                               CBlockSummary, CHash, CTxEntry, CTxId)
+                                               CBlockSummary, CHash, CTxEntry)
 import           Pos.Explorer.Web.Error       (ExplorerError)
 import           Pos.Types                    (Coin, SoftwareVersion)
-import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON, Post,
-                                               QueryParam, ReqBody)
+import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
+                                               QueryParam)
 import           Universum
 
 -- | Servant API which provides access to explorer

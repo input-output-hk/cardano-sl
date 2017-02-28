@@ -61,14 +61,14 @@
   }
 
   .row__hashes {
-    .column__hash {
+    .column__hash--link {
       button: standard-button;
       button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
     }
   }
 
   .column {
-    @neat-span-columns 4;
+    @neat-span-columns 3;
     padding: 10px 0;
     font-family: var(--fontFamily0-Regular);
     color: var(--color8);
@@ -76,7 +76,7 @@
     font-weight: normal;
 
     &:last-child {
-      @neat-span-columns 8;
+      @neat-span-columns 9;
     }
   }
 

@@ -13,7 +13,7 @@ import Signal.Channel (CHANNEL, send)
 -- host
 
 socketHost :: Host
-socketHost = "http://localhost:9999"
+socketHost = "http://localhost:8110"
 
 -- events
 

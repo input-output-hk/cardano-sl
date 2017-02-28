@@ -45,6 +45,7 @@ type Common =
     , cUnknown :: String
     , cTotalOutput :: String
     , cOf :: String
+    , cNotAvailable :: String
     }
 
 -- translations of main navigation

@@ -1,8 +1,9 @@
 module Explorer.Types.State where
 
+import Data.Maybe (Maybe)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
-import Pos.Explorer.Web.ClientTypes (CBlockEntry, CTxEntry)
+import Pos.Explorer.Web.ClientTypes (CBlockEntry, CBlockSummary, CTxEntry)
 import Prelude (class Eq, class Ord)
 
 -- Add all State types here to generate lenses from it
@@ -15,6 +16,7 @@ type State =
     , latestBlocks :: CBlockEntries
     , initialBlocksRequested :: Boolean
     , handleLatestBlocksSocketResult :: Boolean
+    , latestBlock :: Maybe CBlockSummary
     , latestTransactions :: CTxEntries
     , errors :: Errors
     , loading :: Boolean

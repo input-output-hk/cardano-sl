@@ -1,5 +1,6 @@
 module Explorer.State where
 
+import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language(..))
 import Explorer.Routes (Route(..))
 import Explorer.Types.State (DashboardAPICode(..), State)
@@ -30,6 +31,7 @@ initialState =
     , latestBlocks: []
     , initialBlocksRequested: false
     , handleLatestBlocksSocketResult: false
+    , latestBlock: Nothing
     , latestTransactions: []
     , errors: []
     , loading: false

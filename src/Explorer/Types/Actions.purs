@@ -6,6 +6,7 @@ import Data.Either (Either)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Explorer.Types.State (DashboardAPICode, CBlockEntries, CTxEntries)
+import Pos.Explorer.Web.ClientTypes (CBlockSummary, CHash)
 import Signal.Channel (Channel)
 
 data Action
@@ -22,6 +23,8 @@ data Action
     -- http endpoints
     | RequestInitialBlocks
     | ReceiveInitialBlocks (Either Error CBlockEntries)
+    | RequestBlockSummary CHash
+    | ReceiveBlockSummary (Either Error CBlockSummary)
     -- dashboard
     | DashboardExpandBlocks Boolean         -- toggle blocks
     | DashboardPaginateBlocks Int           -- current pagination of blocks

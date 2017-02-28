@@ -8,8 +8,9 @@ import DOM.HTML.HTMLInputElement (select)
 import Data.Array ((:))
 import Data.Either (Either(..))
 import Data.Lens ((^.), over, set)
-import Explorer.Api.Http (fetchLatestBlocks, fetchLatestTransactions)
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, dashboard, dashboardBlockPagination, handleLatestBlocksSocketResult, errors, initialBlocksRequested, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
+import Data.Maybe (Maybe(..))
+import Explorer.Api.Http (fetchBlockSummary, fetchLatestBlocks, fetchLatestTransactions)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, initialBlocksRequested, latestBlock, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
@@ -109,6 +110,18 @@ update (ReceiveInitialBlocks (Left error)) state = noEffects $
     set handleLatestBlocksSocketResult true $
     over errors (\errors' -> (show error) : errors') state
 
+update (RequestBlockSummary hash) state =
+    { state: set loading true $ state
+    , effects: [ attempt (fetchBlockSummary hash) >>= pure <<< ReceiveBlockSummary ]
+    }
+update (ReceiveBlockSummary (Right block)) state = noEffects $
+    set loading false <<<
+    set latestBlock (Just block) $
+    state
+update (ReceiveBlockSummary (Left error)) state = noEffects $
+    set loading false $
+    over errors (\errors' -> (show error) : errors') state
+
 -- Debugging
 -- TODO (jk): all of following actions are for debugging only and have to be removed later on
 update RequestLatestTransactions state =
@@ -138,5 +151,11 @@ routeEffects Dashboard state =
 routeEffects (Transaction hash) state = { state, effects: [ pure ScrollTop ] }
 routeEffects (Address hash) state = { state, effects: [ pure ScrollTop ] }
 routeEffects Calculator state = { state, effects: [ pure ScrollTop ] }
-routeEffects (Block hash) state = { state, effects: [ pure ScrollTop ] }
+routeEffects (Block hash) state =
+    { state: set latestBlock Nothing state
+    , effects:
+        [ pure ScrollTop
+        , pure $ RequestBlockSummary hash
+        ]
+    }
 routeEffects NotFound state = { state, effects: [ pure ScrollTop ] }

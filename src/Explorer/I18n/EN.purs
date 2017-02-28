@@ -32,6 +32,7 @@ translation =
         , cUnknown: "Unknown"
         , cTotalOutput: "Total Output"
         , cOf: "of"
+        , cNotAvailable: "not available"
         }
     , navigation:
         { navHome: "Home"

@@ -31,7 +31,7 @@ view state =
                           (Transaction hash) -> transactionView state hash
                           (Address hash) -> addressView state hash
                           Calculator -> calculatorView state
-                          (Block hash) -> blockView state hash
+                          (Block hash) -> blockView state
                           NotFound -> notFoundView state
                     ]
                 , footerView state

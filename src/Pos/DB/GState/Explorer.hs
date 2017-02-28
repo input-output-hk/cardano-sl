@@ -13,7 +13,8 @@ import           Pos.Binary.Explorer  ()
 import           Pos.DB.Class         (MonadDB)
 import           Pos.DB.Functions     (RocksBatchOp (..))
 import           Pos.DB.GState.Common (getBi)
-import           Pos.Types            (Address, HeaderHash, Timestamp, TxId)
+import           Pos.Types            (Address, HeaderHash, Timestamp)
+import           Pos.Txp.Core.Types   (TxId)
 import           Pos.Types.Explorer   (TxExtra (..))
 
 ----------------------------------------------------------------------------

@@ -181,7 +181,7 @@ data UpdateData = UpdateData
 
 patakUpdateData :: HM.HashMap SystemTag UpdateData
 patakUpdateData =
-    let b = "bardaq"
+    let b = "linux64"
         h = unsafeHash b
     in  HM.fromList [(SystemTag b, UpdateData h h h h)]
 

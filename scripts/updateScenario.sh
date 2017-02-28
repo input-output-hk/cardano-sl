@@ -5,6 +5,7 @@ base=$(dirname "$0")
 
 build=false
 runNode=false
+CSL_SYSTEM_TAG=linux64 # don't worry, it's just for testing, should work on macOS as well
 wallet_cli=""
 
 echo "Parsing command line arguments..."

@@ -13,7 +13,7 @@ import Explorer.Util.DOM (targetToHTMLInputElement)
 import Explorer.View.Common (currencyCSSClass, transactionPaginationView, transactionHeaderView, transactionBodyView)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeHeight, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
-import Pos.Types.Lenses.Core (_Coin, getCoin)
+import Pos.Types.Lenses.Core (_ChainDifficulty, _Coin, getChainDifficulty, getCoin)
 import Pux.Html (Html, div, text, h3) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Router (link) as P
@@ -112,7 +112,7 @@ mkSummaryItems lang (CBlockEntry entry) =
       , currency: Just ADA
       }
     , { label: translate (I18nL.common <<< I18nL.cHeight) lang
-      , amount: show $ entry ^. cbeHeight
+      , amount: show $ entry ^. (cbeHeight <<< _ChainDifficulty <<< getChainDifficulty)
       , currency: Nothing
       }
     ]

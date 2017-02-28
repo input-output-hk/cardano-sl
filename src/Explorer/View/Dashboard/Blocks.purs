@@ -19,7 +19,7 @@ import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeHeight, cbeRelayedBy, cbeSize, cbeTimeIssued, cbeTotalSent, cbeTxNum)
-import Pos.Types.Lenses.Core (_Coin, getCoin)
+import Pos.Types.Lenses.Core (_ChainDifficulty, _Coin, getChainDifficulty, getCoin)
 import Pux.Html (Html, div, text) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Html.Events (onClick) as P
@@ -95,7 +95,7 @@ blockRow :: State -> CBlockEntry -> P.Html Action
 blockRow state (CBlockEntry entry) =
     P.link (toUrl <<< Block $ entry ^. cbeBlkHash)
         [ P.className "blocks-body__row" ]
-        [ blockColumn <<< show $ entry ^. cbeHeight
+        [ blockColumn <<< show $ entry ^. (cbeHeight <<< _ChainDifficulty <<< getChainDifficulty)
         , blockColumn <<< show <<< unwrap $ entry ^. (cbeTimeIssued <<< _NominalDiffTime)
         , blockColumn <<< show $ entry ^. cbeTxNum
         , blockColumn <<< show $ entry ^. (cbeTotalSent <<< _Coin <<< getCoin)

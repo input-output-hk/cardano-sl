@@ -14,7 +14,7 @@ module Pos.Block.Network.Retrieval
        ) where
 
 import           Control.Concurrent.STM     (isEmptyTBQueue, isFullTBQueue, putTMVar,
-                                             readTBQueue, tryReadTMVar, tryTakeTMVar,
+                                             tryReadTBQueue, tryReadTMVar, tryTakeTMVar,
                                              writeTBQueue)
 import           Control.Lens               (_Wrapped)
 import           Control.Monad.Except       (ExceptT, runExceptT, throwError)
@@ -65,40 +65,51 @@ retrievalWorker
     :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
     => (WorkerSpec m, OutSpecs)
-retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
+retrievalWorker = worker outs retrievalWorkerImpl
+  where
+    outs = announceBlockOuts <>
+           toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
+                             (Proxy :: Proxy (MsgBlock ssc))
+                      ]
+
+retrievalWorkerImpl
+    :: forall ssc m.
+       (SscWorkersClass ssc, WorkMode ssc m)
+    => SendActions m -> m ()
+retrievalWorkerImpl sendActions = handleAll handleTop $ do
+    logDebug "Starting retrievalWorker loop"
     NodeContext{..} <- getNodeContext
-    let loop queue recHeaderVar = ifNotShutdown $ reportingFatal $ do
-            logDebug "Waiting on the queue"
-            ph <- atomically $ readTBQueue queue
-            handleAll (handleLE recHeaderVar ph) $ reportingFatal $
-                handle sendActions ph
-            let needQueryMore = atomically $ do
-                    isEmpty <- isEmptyTBQueue queue
-                    recHeader <- tryReadTMVar recHeaderVar
-                    pure $ guard isEmpty *> recHeader
-            let tryFillQueue (0 :: Int) _ =
-                    void $ atomically $ tryTakeTMVar recHeaderVar
-                tryFillQueue tries action =
-                    whenM (atomically $ isEmptyTBQueue queue) $
-                    action >> tryFillQueue (tries - 1) action
-            tryFillQueue 5 $ whenJustM needQueryMore $ \(peerId, rHeader) -> do
+    mainLoop ncBlockRetrievalQueue ncRecoveryHeader
+  where
+    mainLoop queue recHeaderVar = ifNotShutdown $ reportingFatal $ do
+        logDebug "Waiting on the queue"
+        loopCont <- atomically $ do
+            qV <- tryReadTBQueue queue
+            rV <- tryReadTMVar recHeaderVar
+            case (qV, rV) of
+                (Nothing, Nothing) -> retry
+                (Just v, _)        -> pure $ Left v
+                (Nothing, Just r)  -> pure $ Right r
+        let onLeft ph =
+                handleAll (handleBlockRetrieval recHeaderVar ph) $
+                reportingFatal $ handle ph
+        let tryFillQueue peerId (0 :: Int) _ =
+                dropRecoveryHeaderAndRepeat recHeaderVar peerId
+            tryFillQueue peerId tries action = do
+                () <- action
+                whenM (atomically $ isEmptyTBQueue queue) $
+                    tryFillQueue peerId (tries - 1) action
+        let onRight (peerId, rHeader) = tryFillQueue peerId 5 $ do
                 logDebug "Queue is empty, we're in recovery mode -> querying more"
                 whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
-                    handleAll (handleLE recHeaderVar ph) $ reportingFatal $
+                    handleAll (handleHeadersRecovery recHeaderVar peerId) $
+                    reportingFatal $
                     reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
-                         withConnectionTo sendActions peerId $ \_peerData ->
-                             requestHeaders mghNext (Just rHeader) peerId limPx
-            loop queue recHeaderVar
-    logDebug "Starting retrievalWorker loop"
-    loop ncBlockRetrievalQueue ncRecoveryHeader
-  where
-    outs = announceBlockOuts
-              <> toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
-                                   (Proxy :: Proxy (MsgBlock ssc))
-                            ]
-    handleWE e = do
-        logError $ sformat ("retrievalWorker: error caught "%shown) e
-        throw e
+                    withConnectionTo sendActions peerId $ \_peerData ->
+                        requestHeaders mghNext (Just rHeader) peerId limPx
+        either onLeft onRight loopCont
+        mainLoop queue recHeaderVar
+
     dropUpdateHeader = do
         progressHeaderVar <- ncProgressHeader <$> getNodeContext
         void $ atomically $ tryTakeTMVar progressHeaderVar
@@ -114,13 +125,37 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
         unless kicked $
             logDebug $ "Recovery mode wasn't disabled: " <>
                        maybe "noth" show realPeer <> " vs " <> show peerId
-    handleLE recHeaderVar (peerId, headers) e = do
+        pure kicked
+    dropRecoveryHeaderAndRepeat recHeaderVar peerId = do
+        kicked <- dropRecoveryHeader recHeaderVar peerId
+        when kicked $ attemptRestartRecovery
+
+    attemptRestartRecovery = do
+        logDebug "Attempting to restart recovery"
+        handleAll handleRecoveryTrigger $ triggerRecovery sendActions
+        logDebug "Attempting to restart recovery over"
+
+    handleTop e = do
+        logError $ sformat ("retrievalWorker: error caught "%shown) e
+        throw e
+    handleBlockRetrieval recHeaderVar (peerId, headers) e = do
         logWarning $ sformat
             ("Error handling peerId="%build%", headers="%listJson%": "%shown)
             peerId (fmap headerHash headers) e
         dropUpdateHeader
-        void $ dropRecoveryHeader recHeaderVar peerId
-    handle sendActions (peerId, headers) = do
+        dropRecoveryHeaderAndRepeat recHeaderVar peerId
+    handleHeadersRecovery recHeaderVar peerId e = do
+        logWarning $ sformat
+            ("Failed while trying to get more headers "%
+             "for recovery from peerId="%build%", error: "%shown)
+            peerId e
+        dropUpdateHeader
+        dropRecoveryHeaderAndRepeat recHeaderVar peerId
+    handleRecoveryTrigger e =
+        logError $ "Exception happened while trying to trigger " <>
+                   "recovery inside recoveryWorker: " <> show e
+
+    handle (peerId, headers) = do
         logDebug $ sformat
             ("retrievalWorker: handling peerId="%build%", headers="%listJson)
             peerId (fmap headerHash headers)
@@ -130,7 +165,7 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
             oldestHash = headerHash $ headers ^. _Wrapped . _neLast
         case classificationRes of
             CHsValid lcaChild ->
-                void $ handleCHsValid sendActions peerId lcaChild newestHash
+                void $ handleCHsValid peerId lcaChild newestHash
             CHsUseless reason ->
                 logDebug $ sformat uselessFormat oldestHash newestHash reason
             CHsInvalid reason ->
@@ -153,7 +188,7 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
     uselessFormat =
         "Chain of headers from " %shortHashF % " to " %shortHashF %
         " is useless for the following reason: " %stext
-    handleCHsValid sendActions peerId lcaChild newestHash = do
+    handleCHsValid peerId lcaChild newestHash = do
         let lcaChildHash = headerHash lcaChild
         logDebug $ sformat validFormat lcaChildHash newestHash
         reifyMsgLimit (Proxy @(MsgBlock ssc)) $ \(_ :: Proxy s0) ->
@@ -169,18 +204,19 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
                         ("Error retrieving blocks from "%shortHashF%
                          " to "%shortHashF%" from peer "%build%": "%stext)
                         lcaChildHash newestHash peerId e
-                    dropRecoveryHeader recHeaderVar peerId
+                    dropRecoveryHeaderAndRepeat recHeaderVar peerId
                 Right blocks -> do
                     logDebug $ sformat
                         ("retrievalWorker: retrieved blocks "%listJson)
                         (map (headerHash . view blockHeader) blocks)
                     handleBlocks peerId blocks sendActions
                     dropUpdateHeader
-                    -- If we've downloaded block that has header
-                    -- ncRecoveryHeader, we're not in recovery mode
-                    -- anymore.
+                    -- If we've downloaded any block with bigger
+                    -- difficulty than ncrecoveryheader, we're
+                    -- gracefully exiting recovery mode.
+                    let isMoreDifficultThan b x = b ^. difficultyL >= x ^. difficultyL
                     atomically $ whenJustM (tryReadTMVar recHeaderVar) $ \(_,rHeader) ->
-                        when (headerHash rHeader `elem` map headerHash blocks)
+                        when (any (`isMoreDifficultThan` rHeader) blocks)
                              (void $ tryTakeTMVar recHeaderVar)
     retrieveBlocks conv lcaChild endH = do
         blocks <- retrieveBlocks' 0 conv (lcaChild ^. prevBlockL) endH
@@ -218,7 +254,7 @@ retrievalWorker = worker outs $ \sendActions -> handleAll handleWE $ do
 -- | Triggers recovery based on established communication.
 triggerRecovery :: forall ssc m. WorkMode ssc m => SendActions m -> m ()
 triggerRecovery sendActions = unlessM isRecoveryMode $ do
-    logDebug "Recovery triggered"
+    logDebug "Recovery triggered, requesting tips"
     reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limitProxy -> do
         converseToNeighbors sendActions (requestTip limitProxy) `catch`
             \(e :: SomeException) -> do
@@ -261,7 +297,8 @@ handleUnsolicitedHeader
     -> m ()
 handleUnsolicitedHeader header peerId conv = do
     logDebug $ sformat
-        ("handleUnsolicitedHeader: single header "%shortHashF%" was propagated, processing")
+        ("handleUnsolicitedHeader: single header "%shortHashF%
+         " was propagated, processing")
         hHash
     classificationRes <- classifyNewHeader header
     -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
@@ -276,7 +313,8 @@ handleUnsolicitedHeader header peerId conv = do
                 requestHeaders mgh (Just header) peerId Proxy conv
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> do
-            logDebug $ sformat ("handleUnsolicited: header "%shortHashF%" is invalid") hHash
+            logDebug $ sformat ("handleUnsolicited: header "%shortHashF%
+                                " is invalid") hHash
             pass -- TODO: ban node for sending invalid block.
   where
     hHash = headerHash header
@@ -442,8 +480,10 @@ addToBlockRequestQueue headers recoveryTip peerId = do
     queue <- ncBlockRetrievalQueue <$> getNodeContext
     recHeaderVar <- ncRecoveryHeader <$> getNodeContext
     let updateRecoveryHeader (Just recTip) = do
-            let replace = do void $ tryTakeTMVar recHeaderVar
-                             putTMVar recHeaderVar (peerId, recTip)
+            let replace = tryTakeTMVar recHeaderVar >>= \case
+                    Just (_, header')
+                        | recTip ^. difficultyL <= header' ^. difficultyL -> pass
+                    _ -> putTMVar recHeaderVar (peerId, recTip)
             tryReadTMVar recHeaderVar >>= \case
                 Nothing -> replace
                 Just (_,curRecHeader) ->

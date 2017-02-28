@@ -10,7 +10,7 @@ import           Data.Tagged                 (Tagged (..))
 import           Data.Time.Units             (convertUnit)
 import           Formatting                  (build, int, sformat, (%))
 import           Mockable                    (delay)
-import           System.Wlog                 (logNotice, logWarning)
+import           System.Wlog                 (logWarning)
 import           Universum
 
 import           Pos.Binary.Ssc              ()
@@ -109,7 +109,7 @@ checkForReceivedBlocksWorkerImpl sendActions =
   where
     afterDelay action = delay (sec 3) >> action
     onSlotUnknown = do
-        logNotice "Current slot not known. Will try to trigger recovery."
+        logWarning "Current slot not known. Will try to trigger recovery."
         triggerRecovery sendActions
     onEclipsed = do
         logWarning $

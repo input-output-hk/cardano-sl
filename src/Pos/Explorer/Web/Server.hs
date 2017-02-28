@@ -24,7 +24,6 @@ import           Pos.Crypto                      (WithHash (..), withHash)
 import qualified Pos.DB                          as DB
 import qualified Pos.DB.GState                   as GS
 import           Pos.Slotting                    (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.Class                   (SscHelpersClass)
 import           Pos.Ssc.GodTossing              (SscGodTossing)
 import           Pos.Txp                         (getLocalTxs)
 import           Pos.Types                       (Address (..), HeaderHash, MainBlock,
@@ -67,7 +66,7 @@ explorerApp serv = serve explorerApi <$> serv
 ----------------------------------------------------------------
 
 explorerHandlers :: ExplorerMode m => SendActions m -> ServerT ExplorerApi m
-explorerHandlers sendActions =
+explorerHandlers _sendActions =
     catchExplorerError ... defaultLimit 10 getLastBlocks
     :<|>
     catchExplorerError ... defaultLimit 10 getLastTxs

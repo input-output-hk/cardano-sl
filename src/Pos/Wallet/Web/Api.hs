@@ -14,7 +14,7 @@ import           Data.Proxy                 (Proxy (Proxy))
 import           Pos.Types                  (Coin, SoftwareVersion)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CProfile, CTx, CTxId,
                                              CTxMeta, CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem)
+                                             CWalletMeta, CWalletRedeem, SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
 import           Servant.API                ((:<|>), (:>), Capture, Get, JSON, Post,
                                              ReqBody)
@@ -68,6 +68,8 @@ type WalletApi =
      "api" :> "system_version" :> Get '[JSON] (Either WalletError SoftwareVersion)
     :<|>
      "api" :> "import_key" :> ReqBody '[JSON] Text :> Post '[JSON] (Either WalletError CWallet)
+    :<|>
+     "api" :> "sync_progress" :> Get '[JSON] (Either WalletError SyncProgress)
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

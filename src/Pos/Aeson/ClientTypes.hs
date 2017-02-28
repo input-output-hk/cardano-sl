@@ -1,5 +1,4 @@
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Pos.Aeson.ClientTypes
        (
@@ -12,7 +11,7 @@ import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfil
                                              CProfile, CTExMeta, CTType, CTx, CTxId,
                                              CTxMeta, CUpdateInfo, CWallet, CWalletInit,
                                              CWalletMeta, CWalletRedeem, CWalletType,
-                                             NotifyEvent)
+                                             NotifyEvent, SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 deriveJSON defaultOptions ''CCurrency
@@ -26,6 +25,7 @@ deriveJSON defaultOptions ''BackupPhrase
 deriveJSON defaultOptions ''CAddress
 deriveJSON defaultOptions ''CHash
 
+deriveToJSON defaultOptions ''SyncProgress
 deriveToJSON defaultOptions ''NotifyEvent
 deriveToJSON defaultOptions ''WalletError
 deriveToJSON defaultOptions ''CTxId

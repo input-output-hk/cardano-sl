@@ -79,6 +79,10 @@ extra-deps:
 - purescript-bridge-0.10.1.0
 - websockets-snap-0.10.2.0
 - engine-io-snap-1.0.4
+- heist-1.0.1.0
+- map-syntax-0.2.0.2
+- snap-1.0.0.1
+- snap-cors-1.2.11
 
 resolver: lts-7.16
 

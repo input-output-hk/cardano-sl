@@ -22,6 +22,7 @@ import           Network.SocketIO                   (RoutingTable, Socket,
 import qualified Pos.DB                             as DB
 import           Pos.Ssc.Class                      (SscHelpersClass)
 import           Snap.Core                          (MonadSnap, Response, route)
+import qualified Snap.CORS                          as CORS
 import           Snap.Http.Server                   (httpServe)
 import qualified Snap.Internal.Http.Server.Config   as Config
 import           System.Wlog                        (LoggerName, LoggerNameBox,
@@ -97,12 +98,13 @@ notifierServer settings connVar = do
     loggerName <- getLoggerName
     liftIO $ do
         handler <- liftIO $ initialize api $
-            notifierHandler connVar loggerName
+            withCORS $ notifierHandler connVar loggerName
         httpServe (toSnapConfig settings) $
             route [("/socket.io", handler)]
   where
     api = snapAPI { srvGetQueryParams =
         HM.insert "transport" ["polling"] <$> srvGetQueryParams snapAPI }
+    withCORS = CORS.applyCORS CORS.defaultOptions
 
 periodicPollChanges
     :: (MonadIO m, MonadMask m, DB.MonadDB ssc m, WithLogger m,

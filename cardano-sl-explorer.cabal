@@ -58,6 +58,7 @@ library
                       , servant-server
                       , socket-io
                       , snap-core
+                      , snap-cors
                       , snap-server
                       , engine-io-wai
                       , stm

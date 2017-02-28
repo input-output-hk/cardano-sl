@@ -10,13 +10,12 @@ import           Data.Binary.Put       (putWord8)
 import qualified Data.HashMap.Strict   as HM
 import           Universum
 
-import           Pos.Binary.Class      (Bi (..))
+import           Pos.Binary.Class      (Bi (..), getAsciiString1b, putAsciiString1b)
 import           Pos.Binary.Types      ()
 import           Pos.Binary.Version    ()
 import           Pos.Crypto            (checkSig)
 import qualified Pos.Update.Core.Types as U
 import qualified Pos.Update.Poll.Types as U
-import           Pos.Util.Binary       (getAsciiString1b, putAsciiString1b)
 
 instance Bi U.SystemTag where
     get =
@@ -103,7 +102,7 @@ instance Bi U.VoteState
 instance Bi a => Bi (U.PrevValue a) where
     put (U.PrevValue v) = putWord8 2 >> put v
     put U.NoExist       = putWord8 3
-    get = getWord8 >>= \case
+    get = label "PrevValue" $ getWord8 >>= \case
         2 -> U.PrevValue <$> get
         3 -> pure U.NoExist
         x -> fail $ "get@PrevValue: invalid tag: " <> show x
@@ -125,11 +124,11 @@ instance Bi U.USUndo where
 
 instance Bi U.UpsExtra where
     put U.UpsExtra {..} = put ueProposedBlk
-    get = U.UpsExtra <$> get
+    get = label "UpsExtra" $ U.UpsExtra <$> get
 
 instance Bi U.DpsExtra where
     put U.DpsExtra {..} = put deDecidedBlk *> put deImplicit
-    get = do
+    get = label "DpsExtra" $ do
         deDecidedBlk <- get
         deImplicit <- get
         return $ U.DpsExtra {..}
@@ -142,7 +141,7 @@ instance Bi U.UndecidedProposalState where
         put upsPositiveStake
         put upsNegativeStake
         put upsExtra
-    get = do
+    get = label "UndecidedProposalState" $ do
         upsVotes <- get
         upsProposal <- get
         upsSlot <- get
@@ -157,7 +156,7 @@ instance Bi U.DecidedProposalState where
         put dpsUndecided
         put dpsDifficulty
         put dpsExtra
-    get = do
+    get = label "DecidedProposalState" $ do
         dpsDecision <- get
         dpsUndecided <- get
         dpsDifficulty <- get
@@ -167,7 +166,7 @@ instance Bi U.DecidedProposalState where
 instance Bi U.ProposalState where
     put (U.PSUndecided us) = putWord8 0 >> put us
     put (U.PSDecided ds)   = putWord8 1 >> put ds
-    get = getWord8 >>= \case
+    get = label "ProposalState" $ getWord8 >>= \case
         0 -> U.PSUndecided <$> get
         1 -> U.PSDecided <$> get
         x -> fail $ "get@ProposalState: invalid tag: " <> show x
@@ -184,7 +183,7 @@ instance Bi U.ConfirmedProposalState where
         put cpsVotes
         put cpsPositiveStake
         put cpsNegativeStake
-    get = do
+    get = label "ConfirmedProposalState" $ do
         cpsUpdateProposal <- get
         cpsImplicit <- get
         cpsProposed <- get
@@ -204,7 +203,7 @@ instance Bi U.BlockVersionState where
         put bvsIssuersUnstable
         put bvsLastBlockStable
         put bvsLastBlockUnstable
-    get = do
+    get = label "BlockVersionState" $ do
         bvsData <- get
         bvsIsConfirmed <- get
         bvsIssuersStable <- get

@@ -13,7 +13,8 @@ import           Universum
 import           Pos.Crypto          (SecretKey)
 import           Pos.DHT.Model.Types (DHTKey, DHTNode)
 import           Pos.Security.CLI    (AttackTarget, AttackType)
-import           Pos.Types           (Timestamp, Utxo)
+import           Pos.Txp.Core.Types  (Utxo)
+import           Pos.Types           (Timestamp)
 import           Pos.Util.UserSecret (UserSecret)
 
 -- | Contains all parameters required for hierarchical logger initialization.
@@ -44,7 +45,7 @@ data NodeParams = NodeParams
     , npBaseParams    :: !BaseParams        -- ^ See 'BaseParams'
     , npCustomUtxo    :: !Utxo              -- ^ predefined custom utxo
     , npTimeLord      :: !Bool              -- ^ @True@ if node started as time-lord
-    , npJLFile        :: !(Maybe FilePath)
+    , npJLFile        :: !(Maybe FilePath)  -- @georgeee please write comment to this field when you see this sign, i made it very long on purpose so it won't fit even in your huge monitor
     , npAttackTypes   :: ![AttackType]      -- ^ List of attack types used by malicious emulation
     , npAttackTargets :: ![AttackTarget]    -- ^ List of targets to attack by malicious emulation
     , npPropagation   :: !Bool              -- ^ Whether to propagate txs, ssc data, blocks to neighbors

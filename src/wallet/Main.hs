@@ -17,12 +17,14 @@ import           Formatting                (build, int, sformat, stext, (%))
 import           Mockable                  (delay)
 import           Options.Applicative       (execParser)
 import           System.IO                 (hFlush, stdout)
-import           Universum
+import           System.Wlog               (logDebug, logError, logInfo, logWarning)
 #if !(defined(mingw32_HOST_OS) && defined(__MINGW32__))
 import           System.Exit               (ExitCode (ExitSuccess))
 import           System.Posix.Process      (exitImmediately)
 #endif
+import           Universum
 
+import           Pos.Binary                (Raw)
 import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
                                             worker)
@@ -30,23 +32,22 @@ import           Pos.Crypto                (Hash, SecretKey, createProxySecretKe
                                             encodeHash, hash, hashHexF, sign, toPublic,
                                             unsafeHash)
 import           Pos.Data.Attributes       (mkAttributes)
-import           Pos.Delegation            (sendProxySKEpoch, sendProxySKEpochOuts,
-                                            sendProxySKSimple, sendProxySKSimpleOuts)
-import           Pos.DHT.Model             (DHTNode, discoverPeers)
+import           Pos.Delegation            (sendProxySKHeavy, sendProxySKHeavyOuts,
+                                            sendProxySKLight, sendProxySKLightOuts)
+import           Pos.DHT.Model             (DHTNode, discoverPeers, getKnownPeers)
 import           Pos.Genesis               (genesisBlockVersionData, genesisPublicKeys,
-                                            genesisSecretKeys)
+                                            genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
-                                            bracketResources, runTimeSlaveReal)
-import           Pos.Slotting              (getSlotDuration)
+                                            bracketResources, runTimeSlaveReal,
+                                            stakesDistr)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Ssc.NistBeacon        (SscNistBeacon)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
-import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress,
-                                            txaF)
+import           Pos.Txp                   (txaF)
+import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress)
 import           Pos.Update                (BlockVersionData (..), UpdateProposal (..),
                                             UpdateVote (..), patakUpdateData,
                                             skovorodaUpdateData)
-import           Pos.Util                  (Raw)
 import           Pos.Util.TimeWarp         (sec)
 import           Pos.Wallet                (WalletMode, WalletParams (..), WalletRealMode,
                                             getBalance, runWalletReal, sendProposalOuts,
@@ -71,7 +72,8 @@ runCmd sendActions (Send idx outputs) = do
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
-runCmd sendActions (Vote idx decision upid) = do
+runCmd sendActions v@(Vote idx decision upid) = do
+    logDebug $ "Submitting a vote :" <> show v
     (skeys, na) <- ask
     let skey = skeys !! idx
     let voteUpd = UpdateVote
@@ -86,7 +88,7 @@ runCmd sendActions (Vote idx decision upid) = do
             lift $ submitVote sendActions na voteUpd
             putText "Submitted vote"
 runCmd sendActions ProposeUpdate{..} = do
-    putText "Proposing update..."
+    logDebug "Proposing update..."
     (skeys, na) <- ask
     (diffFile :: Maybe (Hash Raw)) <- runMaybeT $ do
         filePath <- MaybeT $ pure puFilePath
@@ -130,7 +132,6 @@ runCmd _ Help = do
             , "                                  -- propose an update with given versions and other data"
             , "                                     with one positive vote for it, from own address #N"
             , "   listaddr                       -- list own addresses"
-            , "   listaddr                       -- list own addresses"
             , "   delegate-light <N> <M>         -- delegate secret key #N to #M (genesis) light version"
             , "   delegate-heavy <N> <M>         -- delegate secret key #N to #M (genesis) heavyweight "
             , "   help                           -- show this message"
@@ -145,19 +146,20 @@ runCmd sendActions (DelegateLight i j) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
         psk = createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
-    lift $ sendProxySKEpoch psk sendActions
+    lift $ sendProxySKLight psk sendActions
     putText "Sent lightweight cert"
-runCmd sendActions (DelegateHeavy i j) = do
+runCmd sendActions (DelegateHeavy i j epochMaybe) = do
     let issuerSk = genesisSecretKeys !! i
         delegatePk = genesisPublicKeys !! j
-        psk = createProxySecretKey issuerSk delegatePk ()
-    lift $ sendProxySKSimple psk sendActions
+        epoch = fromMaybe 0 epochMaybe
+        psk = createProxySecretKey issuerSk delegatePk epoch
+    lift $ sendProxySKHeavy psk sendActions
     putText "Sent heavyweight cert"
 runCmd _ Quit = pure ()
 
 runCmdOuts :: OutSpecs
-runCmdOuts = mconcat [ sendProxySKEpochOuts
-                     , sendProxySKSimpleOuts
+runCmdOuts = mconcat [ sendProxySKLightOuts
+                     , sendProxySKHeavyOuts
                      , sendTxOuts
                      , sendVoteOuts
                      , sendProposalOuts
@@ -179,20 +181,15 @@ evalCommands sa = do
 
 initialize :: WalletMode ssc m => WalletOptions -> m [DHTNode]
 initialize WalletOptions{..} = do
-    -- Wait some time to ensure blockchain is fetched
-    unless (woInitialPause == 0) $ do
-        putText $ sformat ("Started node. Waiting for "%int%" slots...") woInitialPause
-        slotDuration <- getSlotDuration
-        delay (fromIntegral woInitialPause * slotDuration)
-    getPeersUntilSome
+    peers <- getKnownPeers
+    bool (pure peers) getPeersUntilSome (null peers)
   where
     getPeersUntilSome = do
-        putText "Discovering peers"
+        liftIO $ hFlush stdout
+        logWarning "Discovering peers, because current peer list is empty"
         peers <- discoverPeers
         if null peers
-        then do
-            putText "Discovering again, nothing found"
-            getPeersUntilSome
+        then getPeersUntilSome
         else pure peers
 
 runWalletRepl :: WalletMode ssc m => WalletOptions -> Worker' m
@@ -221,6 +218,9 @@ runWalletCmd wo str sa = do
 main :: IO ()
 main = do
     opts@WalletOptions {..} <- execParser optsInfo
+    filePeers <- maybe (return []) CLI.readPeersFile
+                     (CLI.dhtPeersFile woCommonArgs)
+    let allPeers = CLI.dhtPeers woCommonArgs ++ filePeers
     let logParams =
             LoggingParams
             { lpRunnerTag     = "smart-wallet"
@@ -232,7 +232,7 @@ main = do
             BaseParams
             { bpLoggingParams      = logParams
             , bpIpPort             = woIpPort
-            , bpDHTPeers           = CLI.dhtPeers woCommonArgs
+            , bpDHTPeers           = allPeers
             , bpDHTKey             = Nothing
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial woCommonArgs
             , bpKademliaDump       = "kademlia.dump"
@@ -255,12 +255,17 @@ main = do
                 , wpSystemStart = systemStart
                 , wpGenesisKeys = woDebug
                 , wpBaseParams  = baseParams
+                , wpGenesisUtxo =
+                    genesisUtxo $
+                    stakesDistr (CLI.flatDistr woCommonArgs)
+                                (CLI.bitcoinDistr woCommonArgs)
+                                (CLI.expDistr woCommonArgs)
                 }
 
             plugins :: ([ WorkerSpec WalletRealMode ], OutSpecs)
             plugins = first pure $ case woAction of
-                Repl          -> worker runCmdOuts $ runWalletRepl opts
-                Cmd cmd       -> worker runCmdOuts $ runWalletCmd opts cmd
+                Repl                            -> worker runCmdOuts $ runWalletRepl opts
+                Cmd cmd                         -> worker runCmdOuts $ runWalletCmd opts cmd
 #ifdef WITH_WEB
                 Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
                     walletServeWebLite sendActions webDaedalusDbPath False webPort
@@ -268,8 +273,8 @@ main = do
 
         case CLI.sscAlgo woCommonArgs of
             GodTossingAlgo -> do
-                putText "Using MPC coin tossing"
+                logInfo "Using MPC coin tossing"
                 liftIO $ hFlush stdout
                 runWalletReal res params plugins
             NistBeaconAlgo ->
-                putText "Wallet does not support NIST beacon!"
+                logError "Wallet does not support NIST beacon!"

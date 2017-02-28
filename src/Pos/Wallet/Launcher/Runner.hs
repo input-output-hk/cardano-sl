@@ -8,24 +8,20 @@ module Pos.Wallet.Launcher.Runner
        , runWallet
        ) where
 
-import           Control.Concurrent.STM.TVar (newTVarIO)
 import           Formatting                  (build, sformat, (%))
-import           Mockable                    (Production, bracket, currentTime, fork,
-                                              sleepForever)
+import           Mockable                    (Production, bracket, fork, sleepForever)
 import qualified STMContainers.Map           as SM
-import           System.Wlog                 (logInfo, usingLoggerName)
+import           System.Wlog                 (logDebug, logInfo, usingLoggerName)
 import           Universum                   hiding (bracket)
 
 import           Pos.Communication           (ActionSpec (..), ListenersWithOut, OutSpecs,
                                               WorkerSpec)
 import           Pos.Communication.PeerState (runPeerStateHolder)
-import           Pos.DHT.Model               (discoverPeers)
+import           Pos.DHT.Model               (getKnownPeers)
 import           Pos.DHT.Real                (runKademliaDHT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               RealModeResources (..), addDevListeners,
                                               runServer_)
-import           Pos.Slotting                (SlottingState (..))
-import           Pos.Types                   (unflattenSlotId)
 import           Pos.Wallet.Context          (WalletContext (..), runContextHolder)
 import           Pos.Wallet.KeyStorage       (runKeyStorage)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
@@ -67,10 +63,11 @@ runWalletReal res wp = runWalletRealMode res wp . runWallet
 runWallet :: WalletMode ssc m => ([WorkerSpec m], OutSpecs) -> (WorkerSpec m, OutSpecs)
 runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
     logInfo "Wallet is initialized!"
-    peers <- discoverPeers
+    peers <- getKnownPeers
     logInfo $ sformat ("Known peers: "%build) peers
     let unpackPlugin (ActionSpec action) = action vI sendActions
     mapM_ (fork . unpackPlugin) $ plugins' ++ workers'
+    logDebug "Forked all plugins successfully"
     sleepForever
   where
     (workers', wouts) = allWorkers
@@ -83,26 +80,21 @@ runRawRealWallet
     -> (ActionSpec WalletRealMode a, OutSpecs)
     -> Production a
 runRawRealWallet res WalletParams {..} listeners (ActionSpec action, outs) =
-    usingLoggerName lpRunnerTag .
-    bracket openDB closeDB $ \db -> do
-        slottingStateVar <- do
-            _ssNtpData <- (0,) <$> currentTime
-            let _ssNtpLastSlot = unflattenSlotId 0
-            liftIO $ newTVarIO SlottingState{..}
-        let walletContext
-              = WalletContext
-              { wcSystemStart = wpSystemStart
-              , wcSlottingState = slottingStateVar
-              }
+    usingLoggerName lpRunnerTag . bracket openDB closeDB $ \db -> do
+        let walletContext = WalletContext {wcUnit = mempty}
         stateM <- liftIO SM.newIO
         runContextHolder walletContext .
             runWalletDB db .
             runKeyStorage wpKeyFilePath .
             runKademliaDHT (rmDHT res) .
             runPeerStateHolder stateM .
-            runServer_ (rmTransport res) listeners outs . ActionSpec $
-                \vI sa -> logInfo "Started wallet, joining network" >> action vI sa
+            runServer_ (rmTransport res) listeners outs . ActionSpec $ \vI sa ->
+            logInfo "Started wallet, joining network" >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams wpBaseParams
-    openDB = maybe openMemState (openState wpRebuildDb) wpDbPath
+    openDB =
+        maybe
+            (openMemState wpGenesisUtxo)
+            (openState wpRebuildDb wpGenesisUtxo)
+            wpDbPath
     closeDB = closeState

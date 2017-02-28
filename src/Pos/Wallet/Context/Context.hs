@@ -5,24 +5,13 @@ module Pos.Wallet.Context.Context
        , fromNodeCtx
        ) where
 
-import qualified Control.Concurrent.STM as STM
-
-import           Pos.Context            (NodeContext (..), npSystemStart)
-import           Pos.Slotting           (SlottingState)
-import           Pos.Types              (Timestamp)
+import           Pos.Context (NodeContext)
 
 data WalletContext = WalletContext
-    { wcSystemStart   :: !Timestamp -- ^ Time when system started working
-    , wcSlottingState :: !(STM.TVar SlottingState)
+    { wcUnit   :: !() -- ^ There is exactly one value of this type.
     }
 
--- ctxFromParams :: WalletParams -> WalletContext
--- ctxFromParams WalletParams {..} = WalletContext
---     { wcSystemStart = wpSystemStart
---     }
-
 fromNodeCtx :: NodeContext ssc -> WalletContext
-fromNodeCtx NodeContext {..} = WalletContext
-    { wcSystemStart = npSystemStart ncNodeParams
-    , wcSlottingState = ncSlottingState
+fromNodeCtx _ = WalletContext
+    { wcUnit = ()
     }

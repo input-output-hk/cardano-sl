@@ -17,6 +17,9 @@ node:
             file: server-tx-{{file}}
         block:
             file: server-block-{{file}}
+time-slave:
+    severity: Debug
+    file: time-slave-{{file}}
 smart-gen:
     severity: Info
 dht:

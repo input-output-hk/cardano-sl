@@ -22,6 +22,7 @@ data TossVerFailure
     | NotOpeningPhase !SlotId
     | NotSharesPhase !SlotId
     | NotIntermediatePhase !SlotId
+    | CurrentSlotUnknown
 
     | DifferentEpoches !EpochIndex !EpochIndex
     | TossUnknownRichmen !EpochIndex
@@ -44,6 +45,7 @@ data TossVerFailure
     | CertificateInvalidTTL !(NonEmpty VssCertificate)
 
     | TossInternallError !Text
+    deriving Eq
 
 instance Buildable TossVerFailure where
     build (NotCommitmentPhase slotId) =
@@ -54,6 +56,7 @@ instance Buildable TossVerFailure where
         bprint (build%" doesn't belong share phase") slotId
     build (NotIntermediatePhase slotId) =
         bprint (build%" doesn't  belong intermidiate phase") slotId
+    build CurrentSlotUnknown = "we don't know current slot"
 
     build (DifferentEpoches e g) =
         bprint ("expected epoch: "%build%", but got: "%build) e g

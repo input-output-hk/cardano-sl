@@ -46,11 +46,12 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting            (build, sformat)
 
 import           Pos.Aeson.Types       ()
-import           Pos.Script.Type       (ScriptVersion)
+import           Pos.Crypto            (hashHexF)
+import           Pos.Txp.Core.Types    (Tx (..), TxId, txOutAddress, txOutValue)
 import           Pos.Types             (Address (..), BlockVersion, ChainDifficulty, Coin,
-                                        SoftwareVersion, TxId, decodeTextAddress,
-                                        sumCoins, txOutAddress, txOutValue, txOutputs,
+                                        SoftwareVersion, decodeTextAddress, sumCoins,
                                         unsafeIntegerToCoin)
+import           Pos.Types.Script      (ScriptVersion)
 import           Pos.Update.Core       (BlockVersionData (..), StakeholderVotes,
                                         UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll       (ConfirmedProposalState (..))
@@ -64,6 +65,7 @@ data NotifyEvent
     -- | NewTransaction
     | NetworkDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
     | LocalDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
+    | ConnectedPeersChanged Word
     | UpdateAvailable
     | ConnectionClosed
     deriving (Show, Generic)
@@ -101,7 +103,7 @@ mkCTxId = CTxId . CHash
 
 -- | transform TxId into CTxId
 txIdToCTxId :: TxId -> CTxId
-txIdToCTxId = mkCTxId . sformat build
+txIdToCTxId = mkCTxId . sformat hashHexF
 
 mkCTx
     :: Address            -- ^ An address for which transaction info is forming
@@ -112,8 +114,10 @@ mkCTx
 mkCTx addr diff THEntry {..} meta = CTx {..}
   where
     ctId = txIdToCTxId _thTxId
+    outputs = _txOutputs _thTx
+    isToItself = all ((== addr) . txOutAddress) outputs
     ctAmount = unsafeIntegerToCoin . sumCoins . map txOutValue $
-        filter (xor _thIsOutput . (== addr) . txOutAddress) $ txOutputs _thTx
+        filter ((|| isToItself) . xor _thIsOutput . (== addr) . txOutAddress) outputs
     ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
     ctType = if _thIsOutput
              then CTOut meta

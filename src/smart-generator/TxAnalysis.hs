@@ -18,12 +18,13 @@ import           System.FilePath.Posix ((</>))
 import           System.Wlog           (logWarning)
 import           Universum             hiding (catchAll)
 
-import           Pos.Constants         (blkSecurityParam)
+import           Pos.Constants         (blkSecurityParam, genesisSlotDuration)
 import           Pos.Crypto            (hash)
 import           Pos.DB                (loadBlundsFromTipByDepth)
-import           Pos.Slotting          (getCurrentSlot, getSlotDuration, getSlotStart)
+import           Pos.Slotting          (getCurrentSlotBlocking, getSlotStartEmpatically)
 import           Pos.Ssc.Class         (SscConstraint)
-import           Pos.Types             (SlotId (..), TxId, blockSlot, blockTxs)
+import           Pos.Txp               (TxId)
+import           Pos.Types             (SlotId (..), blockSlot, blockTxs)
 import           Pos.WorkMode          (ProductionMode)
 
 import           Util                  (verifyCsvFile, verifyCsvFormat)
@@ -80,7 +81,7 @@ checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
                 -- We don't know exact time when checked block has been created/adopted,
                 -- but we do know that it was not at `blkSecurityParam` depth a slot ago,
                 -- so we just take a beginning of current slot
-                slStart <- getSlotStart =<< getCurrentSlot
+                slStart <- getSlotStartEmpatically =<< getCurrentSlotBlocking
                 liftIO $ writeIORef lastSlot curSlot
 
                 let verifiedSentData = map (fromJust . flip M.lookup st) verified
@@ -96,9 +97,9 @@ checkWorker txts logsPrefix = loop `catchAll` onError
   where
     loop = do
         checkTxsInLastBlock txts logsPrefix
-        delay =<< getSlotDuration
+        delay genesisSlotDuration
         loop
     onError e = do
         logWarning (sformat ("Error occured in checkWorker: " %build) e)
-        delay =<< getSlotDuration
+        delay genesisSlotDuration
         loop

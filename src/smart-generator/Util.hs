@@ -4,7 +4,7 @@ import           Data.Text  (Text)
 import           Formatting (build, fixed, int, sformat, (%))
 import           Universum
 
-import           Pos.Types  (TxId)
+import           Pos.Txp    (TxId)
 
 tpsCsvFile :: FilePath
 tpsCsvFile = "smart-gen-tps.csv"

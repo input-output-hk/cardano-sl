@@ -1,17 +1,17 @@
 -- | Binary serialization of Pos.Types.Address
 module Pos.Binary.Address () where
 
-import           Data.Binary.Get     (Get, getWord32be, getWord8)
+import           Data.Binary.Get     (Get, getWord32be, getWord8, label)
 import           Data.Binary.Put     (Put, putByteString, putWord32be, putWord8, runPut)
 import           Data.Default        (def)
 import           Data.Digest.CRC32   (CRC32 (..), crc32)
 import           Universum           hiding (putByteString)
 
-import           Pos.Binary.Class    (Bi (..))
+import           Pos.Binary.Class    (Bi (..), getRemainingByteString, getSmallWithLength,
+                                      putSmallWithLength)
+import           Pos.Binary.Crypto   ()
 import           Pos.Data.Attributes (getAttributes, putAttributes)
 import           Pos.Types.Core      (AddrPkAttrs (..), Address (..))
-import           Pos.Util.Binary     (getRemainingByteString, getSmallWithLength,
-                                      putSmallWithLength)
 
 -- | Encode everything in an address except for CRC32
 putAddressIncomplete :: Address -> Put
@@ -50,7 +50,7 @@ instance CRC32 Address where
     crc32Update seed = crc32Update seed . runPut . putAddressIncomplete
 
 instance Bi Address where
-    get = do
+    get = label "Address" $ do
         addr <- getAddressIncomplete
         checksum <- getWord32be
         if checksum /= crc32 addr

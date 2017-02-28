@@ -6,10 +6,10 @@ module Pos.Ssc.GodTossing.Toss.Base
        (
          -- * Trivial functions
          getCommitment
-       , hasCommitment
-       , hasOpening
-       , hasShares
-       , hasCertificate
+       , hasCommitmentToss
+       , hasOpeningToss
+       , hasSharesToss
+       , hasCertificateToss
 
        -- * Basic logic
        , getParticipants
@@ -27,6 +27,7 @@ module Pos.Ssc.GodTossing.Toss.Base
        , verifyEntriesGuardM
        ) where
 
+import           Control.Monad.Except            (MonadError (throwError))
 import           Control.Monad.State             (get, put)
 import           Data.Containers                 (ContainerKey, SetContainer (notMember))
 import qualified Data.HashMap.Strict             as HM
@@ -37,7 +38,7 @@ import           System.Wlog                     (logWarning)
 
 import           Universum
 
-import           Control.Monad.Except            (MonadError (throwError))
+import           Pos.Binary.Class                (AsBinary, fromBinaryM)
 import           Pos.Constants                   (genesisMpcThd)
 import           Pos.Crypto                      (Share, verifyShare)
 import           Pos.Lrc.Types                   (RichmenSet, RichmenStake)
@@ -55,7 +56,7 @@ import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Types                       (EpochIndex, StakeholderId, addressHash,
                                                   unsafeGetCoin)
 import           Pos.Types.Core                  (coinPortionDenominator, getCoinPortion)
-import           Pos.Util                        (AsBinary, fromBinaryM, getKeys)
+import           Pos.Util                        (getKeys)
 
 ----------------------------------------------------------------------------
 -- Trivial getters (proper interface of MonadTossRead)
@@ -66,20 +67,20 @@ getCommitment :: MonadTossRead m => StakeholderId -> m (Maybe SignedCommitment)
 getCommitment id = HM.lookup id . getCommitmentsMap <$> getCommitments
 
 -- | Check whether there is a 'SignedCommitment' from given stakeholder.
-hasCommitment :: MonadTossRead m => StakeholderId -> m Bool
-hasCommitment id = HM.member id . getCommitmentsMap <$> getCommitments
+hasCommitmentToss :: MonadTossRead m => StakeholderId -> m Bool
+hasCommitmentToss id = HM.member id . getCommitmentsMap <$> getCommitments
 
 -- | Check whether there is an 'Opening' from given stakeholder.
-hasOpening :: MonadTossRead m => StakeholderId -> m Bool
-hasOpening id = HM.member id <$> getOpenings
+hasOpeningToss :: MonadTossRead m => StakeholderId -> m Bool
+hasOpeningToss id = HM.member id <$> getOpenings
 
 -- | Check whether there is 'InnerSharesMap' from given stakeholder.
-hasShares :: MonadTossRead m => StakeholderId -> m Bool
-hasShares id = HM.member id <$> getShares
+hasSharesToss :: MonadTossRead m => StakeholderId -> m Bool
+hasSharesToss id = HM.member id <$> getShares
 
 -- | Check whether there is 'VssCertificate' from given stakeholder.
-hasCertificate :: MonadTossRead m => StakeholderId -> m Bool
-hasCertificate id = HM.member id <$> getVssCertificates
+hasCertificateToss :: MonadTossRead m => StakeholderId -> m Bool
+hasCertificateToss id = HM.member id <$> getVssCertificates
 
 ----------------------------------------------------------------------------
 -- Non-trivial getters
@@ -179,24 +180,25 @@ computeSharesDistr richmen = do
 
     calcSumError:: [Rational] -> [Rational] -> Rational
     calcSumError pNew p = runIdentity $ do
-        let negDiff = zip p pNew
-        let sortedNeg = sortOn (\(a, b) -> b - a) negDiff
-
-        let posDiff = zip p pNew
-        let sortedPos = sortOn (\(a, b) -> a - b) posDiff
-        pure $ max (computeError1 0 0 sortedNeg) (computeError2 0 0 sortedPos)
+        let sorted1 = sortOn (\(a, b) -> b / a) $ zip p pNew
+        let sorted2 = sortOn (\(a, b) -> b - a) $ zip p pNew
+        let res1 = max (computeError1 0 0 sorted1) (computeError2 0 0 $ reverse sorted1)
+        let res2 = max (computeError1 0 0 sorted2) (computeError2 0 0 $ reverse sorted2)
+        pure $ max res1 res2
 
     half = 0.5::Rational
     -- Error when real stake more than 0.5 but our new stake less
-    computeError1 _ new [] = max 0 (half - new)
+    computeError1 _ _ [] = 0
     computeError1 real new (x:xs)
-        | real > half = max 0 (half - new)
+        | new < half && real >= half =
+            max (real - half) $ computeError1 (real + fst x) (new + snd x) xs
         | otherwise = computeError1 (real + fst x) (new + snd x) xs
 
     -- Error when real stake less than 0.5 but our new stake more
-    computeError2 _ new [] = max 0 (new - half)
+    computeError2 _ _ [] = 0
     computeError2 real new (x:xs)
-        | real + fst x > half = max 0 (new - half)
+        | new >= half && real < half =
+            max (half - real) $ computeError2 (real + fst x) (new + snd x) xs
         | otherwise = computeError2 (real + fst x) (new + snd x) xs
 
     multPortions :: [Rational] -> Word16 -> [Word16]
@@ -311,7 +313,7 @@ checkCommitmentsPayload epoch (getCommitmentsMap -> comms) = do
     exceptGuard CommitingNoParticipants
         (`HM.member` participants) (HM.keys comms)
     exceptGuardM CommitmentAlreadySent
-        (notM hasCommitment) (HM.keys comms)
+        (notM hasCommitmentToss) (HM.keys comms)
     exceptGuardSnd CommSharesOnWrongParticipants
         (checkCommitmentShares distr participants) (HM.toList comms)
 
@@ -326,9 +328,9 @@ checkOpeningsPayload
     -> m ()
 checkOpeningsPayload opens = do
     exceptGuardM OpeningAlreadySent
-        (notM hasOpening) (HM.keys opens)
+        (notM hasOpeningToss) (HM.keys opens)
     exceptGuardM OpeningWithoutCommitment
-        hasCommitment (HM.keys opens)
+        hasCommitmentToss (HM.keys opens)
     exceptGuardEntryM OpeningNotMatchCommitment
         matchCommitment (HM.toList opens)
 
@@ -351,9 +353,9 @@ checkSharesPayload epoch shares = do
     exceptGuard SharesNotRichmen
         (`HM.member` part) (HM.keys shares)
     exceptGuardM InternalShareWithoutCommitment
-        hasCommitment (concatMap HM.keys $ toList shares)
+        hasCommitmentToss (concatMap HM.keys $ toList shares)
     exceptGuardM SharesAlreadySent
-        (notM hasShares) (HM.keys shares)
+        (notM hasSharesToss) (HM.keys shares)
     exceptGuardEntryM DecrSharesNotMatchCommitment
         (checkShares epoch) (HM.toList shares)
 
@@ -368,7 +370,7 @@ checkCertificatesPayload
 checkCertificatesPayload epoch certs = do
     richmenSet <- getKeys <$> (note (NoRichmen epoch) =<< getRichmen epoch)
     exceptGuardM CertificateAlreadySent
-        (notM hasCertificate) (HM.keys certs)
+        (notM hasCertificateToss) (HM.keys certs)
     exceptGuardSnd CertificateNotRichmen
         ((`HS.member` richmenSet) . addressHash . vcSigningKey)
         (HM.toList certs)

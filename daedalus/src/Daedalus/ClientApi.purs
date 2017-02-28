@@ -6,7 +6,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkCWalletInitIgnoreChecksum, mkTime, NominalDiffTime)
+import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkCWalletInitIgnoreChecksum, mkBackupPhrase)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
@@ -63,6 +63,10 @@ sendExtended = mkEffFn6 \addrFrom addrTo amount curr title desc -> fromAff <<< m
 
 generateMnemonic :: forall eff. Eff (crypto :: Crypto.CRYPTO | eff) String
 generateMnemonic = Crypto.generateMnemonic
+
+-- | bip39.validateMnemonic and has at least 12 words
+isValidMnemonic :: forall eff. EffFn1 (crypto :: Crypto.CRYPTO | eff) String Boolean
+isValidMnemonic = mkEffFn1 $ pure <<< either (const false) (const true) <<< mkBackupPhrase
 
 newWallet :: forall eff . EffFn4 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String String String
   (Promise Json)
@@ -147,9 +151,8 @@ applyUpdate = fromAff B.applyUpdate
 systemVersion :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 systemVersion = fromAff $ map encodeJson B.systemVersion
 
-redeemADA :: forall eff . EffFn2 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String (Promise Json)
+redeemADA :: forall eff. EffFn2 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String (Promise Json)
 redeemADA = mkEffFn2 \seed -> fromAff <<< map encodeJson <<< B.redeemADA <<< mkCWalletRedeem seed
 
--- | Postpones updates until given date/time. Date/time is number of milliseconds until epoch time.
-postponeUpdatesUntil :: forall eff. EffFn1 (ajax :: AJAX | eff) Number (Promise Unit)
-postponeUpdatesUntil = mkEffFn1 $ fromAff <<< B.postponeUpdatesUntil <<< mkTime
+importKey :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
+importKey = mkEffFn1 $ fromAff <<< map encodeJson <<< B.importKey

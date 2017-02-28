@@ -113,6 +113,8 @@ data CompileConfig = CompileConfig
       -- ^ Network connection timeout in milliseconds
     , ccBlockRetrievalQueueSize       :: !Int
       -- ^ Block retrieval queue capacity
+    , ccPropagationQueueSize          :: !Int
+      -- ^ InvMsg propagation queue capacity
     , ccNetworkReceiveTimeout         :: !Int
       -- ^ Network timeout on `recv` in milliseconds
     , ccProductionNetworkStartTime    :: !Int

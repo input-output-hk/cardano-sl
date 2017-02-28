@@ -12,17 +12,20 @@ import           Formatting            (bprint, build, (%))
 import           Serokell.Util.Text    (listJson)
 import           Universum
 
+import           Pos.Txp.Core.Types    (TxsUndo)
 import           Pos.Types.Block       (BiSsc, Block)
 import           Pos.Types.Core        (HasDifficulty (..), HasHeaderHash (..))
-import           Pos.Types.Types       (ProxySKSimple, TxUndo)
+import           Pos.Types.Types       (ProxySKHeavy)
 import           Pos.Update.Poll.Types (USUndo)
 
 -- | Structure for undo block during rollback
 data Undo = Undo
-    { undoTx  :: !TxUndo
-    , undoPsk :: ![ProxySKSimple] -- ^ PSKs we've overwritten/deleted
+    { undoTx  :: !TxsUndo
+    , undoPsk :: ![ProxySKHeavy] -- ^ PSKs we've overwritten/deleted
     , undoUS  :: !USUndo
-    }
+    } deriving (Generic)
+
+instance NFData Undo
 
 instance Default Undo where
     def = Undo {undoTx = mempty, undoPsk = mempty, undoUS = def}

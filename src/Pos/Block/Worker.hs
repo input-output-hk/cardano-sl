@@ -1,5 +1,6 @@
-{-# LANGUAGE RankNTypes   #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Block processing related workers.
 
@@ -12,6 +13,7 @@ import           Control.Lens                (ix)
 import           Data.Default                (def)
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
+import           Pos.Communication.Protocol  (SendActions)
 import           Serokell.Util               (VerificationRes (..), listJson, pairF)
 import           Serokell.Util.Exceptions    ()
 import           System.Wlog                 (WithLogger, logDebug, logError, logInfo,
@@ -21,16 +23,20 @@ import           Universum
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
-import           Pos.Block.Network.Retrieval (retrievalWorker)
+import           Pos.Block.Network.Retrieval (requestTipOuts, retrievalWorker,
+                                              triggerRecovery)
 import           Pos.Communication.Protocol  (OutSpecs, Worker', WorkerSpec,
-                                              onNewSlotWorker)
+                                              onNewSlotWorker, worker)
 import           Pos.Constants               (networkDiameter)
-import           Pos.Context                 (getNodeContext, ncPublicKey)
+import           Pos.Context                 (getNodeContext, isRecoveryMode, ncPublicKey)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Lrc                  (getLeaders)
 import           Pos.DB.Misc                 (getProxySecretKeys)
-import           Pos.Slotting                (MonadSlots (getCurrentTime), getSlotStart)
+import           Pos.Exception               (assertionFailed)
+import           Pos.Reporting.Methods       (reportingFatal)
+import           Pos.Slotting                (currentTimeSlotting, getCurrentSlot,
+                                              getSlotStartEmpatically)
 import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
 import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (..),
                                               Timestamp (Timestamp),
@@ -40,46 +46,23 @@ import           Pos.Types.Address           (addressHash)
 import           Pos.Util                    (inAssertMode, logWarningWaitLinear,
                                               mconcatPair)
 import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
+import           Pos.Util.TimeWarp           (sec)
 import           Pos.WorkMode                (WorkMode)
+
 
 -- | All workers specific to block processing.
 blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => ([WorkerSpec m], OutSpecs)
-blkWorkers = merge [blkOnNewSlot, retrievalWorker]
+blkWorkers = merge [blkOnNewSlot, retrievalWorker, recoveryWorker]
   where
     merge = mconcatPair . map (first pure)
 
 -- Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
-blkOnNewSlot = onNewSlotWorker True announceBlockOuts $ \(slotId@SlotId {..}) sendActions -> do
-    let onNoLeader =
-            logWarning "Couldn't find a leader for current slot among known ones"
-        logLeadersF = if siSlot == 0 then logInfo else logDebug
-        onKnownLeader leaders leader = do
-            ourPk <- ncPublicKey <$> getNodeContext
-            let ourPkHash = addressHash ourPk
-            proxyCerts <- getProxySecretKeys
-            let validCerts =
-                    filter (\pSk -> let (w0,w1) = pskOmega pSk
-                                    in siEpoch >= w0 && siEpoch <= w1) proxyCerts
-                validCert = find (\pSk -> addressHash (pskIssuerPk pSk) == leader)
-                                 validCerts
-            logLeadersF $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
-            logLeadersF $ sformat ("Slot leaders: "%listJson) $
-                          map (bprint pairF) (zip [0 :: Int ..] $ toList leaders)
-            logLeadersF $ sformat ("Current slot leader: "%build) leader
-            logDebug $ sformat ("Available to use lightweight PSKs: "%listJson) validCerts
-            heavyPskM <- getPSKByIssuerAddressHash leader
-            logDebug $ "Does someone have cert for this slot: " <> show (isJust heavyPskM)
-            let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) heavyPskM
-            let heavyWeAreIssuer = maybe False ((== ourPk) . pskIssuerPk) heavyPskM
-            if | heavyWeAreIssuer ->
-                 logDebug $ sformat
-                 ("Not creating the block because it's delegated by psk: "%build)
-                 heavyPskM
-               | leader == ourPkHash -> onNewSlotWhenLeader slotId Nothing sendActions
-               | heavyWeAreDelegate -> onNewSlotWhenLeader slotId (Right <$> heavyPskM) sendActions
-               | isJust validCert -> onNewSlotWhenLeader slotId  (Left <$> validCert) sendActions
-               | otherwise -> pass
+blkOnNewSlot = onNewSlotWorker True announceBlockOuts blkOnNewSlotImpl
+
+blkOnNewSlotImpl :: WorkMode ssc m =>
+                    SlotId -> SendActions m -> m ()
+blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlock siEpoch
     whenJust mGenBlock $ \createdBlk -> do
@@ -102,6 +85,39 @@ blkOnNewSlot = onNewSlotWorker True announceBlockOuts $ \(slotId@SlotId {..}) se
             maybe onNoLeader
                   (onKnownLeader leaders)
                   (leaders ^? ix (fromIntegral siSlot))
+  where
+    onNoLeader =
+        logWarning "Couldn't find a leader for current slot among known ones"
+    logLeadersF = if siSlot == 0 then logInfo else logDebug
+    onKnownLeader leaders leader = do
+        ourPk <- ncPublicKey <$> getNodeContext
+        let ourPkHash = addressHash ourPk
+        proxyCerts <- getProxySecretKeys
+        let validCerts =
+                filter (\pSk -> let (w0,w1) = pskOmega pSk
+                                in siEpoch >= w0 && siEpoch <= w1) proxyCerts
+            validCert = find (\pSk -> addressHash (pskIssuerPk pSk) == leader)
+                             validCerts
+        logLeadersF $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
+        logLeadersF $ sformat ("Slot leaders: "%listJson) $
+                      map (bprint pairF) (zip [0 :: Int ..] $ toList leaders)
+        logLeadersF $ sformat ("Current slot leader: "%build) leader
+        logDebug $ sformat ("Available to use lightweight PSKs: "%listJson) validCerts
+        heavyPskM <- getPSKByIssuerAddressHash leader
+        logDebug $ "Does someone have cert for this slot: " <> show (isJust heavyPskM)
+        let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) heavyPskM
+        let heavyWeAreIssuer = maybe False ((== ourPk) . pskIssuerPk) heavyPskM
+        if | heavyWeAreIssuer ->
+                 logDebug $ sformat
+                 ("Not creating the block because it's delegated by psk: "%build)
+                 heavyPskM
+           | leader == ourPkHash ->
+                 onNewSlotWhenLeader slotId Nothing sendActions
+           | heavyWeAreDelegate ->
+                 onNewSlotWhenLeader slotId (Right <$> heavyPskM) sendActions
+           | isJust validCert ->
+                 onNewSlotWhenLeader slotId  (Left <$> validCert) sendActions
+           | otherwise -> pass
 
 onNewSlotWhenLeader
     :: WorkMode ssc m
@@ -118,8 +134,8 @@ onNewSlotWhenLeader slotId pSk sendActions = do
         logCert (Right psk) =
             sformat ("using heavyweight proxy signature key "%build%", will do it soon") psk
     logInfo $ logReason <> maybe logLeader logCert pSk
-    nextSlotStart <- getSlotStart (succ slotId)
-    currentTime <- getCurrentTime
+    nextSlotStart <- getSlotStartEmpatically (succ slotId)
+    currentTime <- currentTimeSlotting
     let timeToCreate =
             max currentTime (nextSlotStart - Timestamp networkDiameter)
         Timestamp timeToWait = timeToCreate - currentTime
@@ -140,13 +156,16 @@ onNewSlotWhenLeader slotId pSk sendActions = do
             logInfo "onNewSlotWhenLeader: done"
     logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 
-verifyCreatedBlock :: (WithLogger m, SscHelpersClass ssc) => MainBlock ssc -> m ()
+verifyCreatedBlock
+    :: (WithLogger m, SscHelpersClass ssc, MonadThrow m)
+    => MainBlock ssc -> m ()
 verifyCreatedBlock blk =
     inAssertMode $
     case verifyBlock vbp (Right blk) of
         VerSuccess -> pass
         VerFailure errors ->
-            logError $ sformat ("New block failed some checks: " %listJson) errors
+            assertionFailed $
+            sformat ("New block failed some checks: " %listJson) errors
   where
     vbp =
         def
@@ -154,3 +173,26 @@ verifyCreatedBlock blk =
         , vbpVerifyTxs = True
         , vbpVerifySsc = True
         }
+
+-- | Trigger recovery if we're definitely late in the blockchain (for >epoch).
+recoveryWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
+recoveryWorker = worker requestTipOuts recoveryWorkerImpl
+
+recoveryWorkerImpl
+    :: WorkMode ssc m
+    => SendActions m -> m ()
+recoveryWorkerImpl sendActions = action `catch` handler
+  where
+    action = reportingFatal $ forever $ checkRecovery >> delay (sec 5)
+    checkRecovery = do
+        recMode <- isRecoveryMode
+        curSlotNothing <- isNothing <$> getCurrentSlot
+        if (curSlotNothing && not recMode) then do
+             logDebug "Recovery worker: don't know current slot"
+             triggerRecovery sendActions
+        else logDebug $ "Recovery worker skipped: " <> show curSlotNothing <>
+                        " " <> show recMode
+    handler (e :: SomeException) = do
+        logError $ "Error happened in recoveryWorker: " <> show e
+        delay (sec 10)
+        action

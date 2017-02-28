@@ -40,7 +40,6 @@ import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
 import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usVss,
                                         writeUserSecret)
-
 #ifdef WITH_WEB
 import           Pos.Web               (serveWebBase, serveWebGT)
 import           Pos.WorkMode          (WorkMode)
@@ -65,10 +64,11 @@ getSystemStart sscProxy inst args
             Nothing ->
                 if timeLord args
                     then runTimeLordReal (loggingParams "time-lord" args)
-                    else runTimeSlaveReal
-                             sscProxy
-                             inst
-                             (baseParams "time-slave" args)
+                    else do params <- liftIO $ baseParams "time-slave" args
+                            runTimeSlaveReal
+                                sscProxy
+                                inst
+                                params
             Just systemStart -> return systemStart
 
 loggingParams :: LoggerName -> Args -> LoggingParams
@@ -80,16 +80,19 @@ loggingParams tag Args{..} =
     , lpEkgPort = monitorPort
     }
 
-baseParams :: LoggerName -> Args -> BaseParams
-baseParams loggingTag args@Args {..} =
-    BaseParams
-    { bpLoggingParams = loggingParams loggingTag args
-    , bpIpPort = ipPort
-    , bpDHTPeers = CLI.dhtPeers commonArgs
-    , bpDHTKey = dhtKey
-    , bpDHTExplicitInitial = CLI.dhtExplicitInitial commonArgs
-    , bpKademliaDump = kademliaDumpPath
-    }
+baseParams :: LoggerName -> Args -> IO BaseParams
+baseParams loggingTag args@Args {..} = do
+    filePeers <- maybe (return []) CLI.readPeersFile
+                     (CLI.dhtPeersFile commonArgs)
+    let allPeers = CLI.dhtPeers commonArgs ++ filePeers
+    return $ BaseParams
+        { bpLoggingParams = loggingParams loggingTag args
+        , bpIpPort = ipPort
+        , bpDHTPeers = allPeers
+        , bpDHTKey = dhtKey
+        , bpDHTExplicitInitial = CLI.dhtExplicitInitial commonArgs
+        , bpKademliaDump = kademliaDumpPath
+        }
 
 action :: Args -> RealModeResources -> Production ()
 action args@Args {..} res = do
@@ -114,13 +117,23 @@ action args@Args {..} res = do
     putText $ "If stats is on: " <> show enableStats
     case (enableStats, CLI.sscAlgo commonArgs) of
         (True, GodTossingAlgo) ->
-            runNodeStats @SscGodTossing res (convPlugins currentPluginsGT `mappendPair` walletStats args) currentParams gtParams
+            runNodeStats @SscGodTossing res
+                         (convPlugins currentPluginsGT `mappendPair` walletStats args)
+                         currentParams gtParams
         (True, NistBeaconAlgo) ->
-            runNodeStats @SscNistBeacon res (convPlugins currentPlugins `mappendPair`  walletStats args) currentParams ()
+            runNodeStats @SscNistBeacon res
+                         (convPlugins currentPlugins `mappendPair`  walletStats args)
+                         currentParams ()
         (False, GodTossingAlgo) ->
-            runNodeProduction @SscGodTossing res (convPlugins currentPluginsGT `mappendPair` walletProd args) currentParams gtParams
+            runNodeProduction @SscGodTossing res
+                              (convPlugins currentPluginsGT `mappendPair` walletProd args)
+                              currentParams
+                              gtParams
         (False, NistBeaconAlgo) ->
-            runNodeProduction @SscNistBeacon res (convPlugins currentPlugins `mappendPair` walletProd args) currentParams ()
+            runNodeProduction @SscNistBeacon res
+                              (convPlugins currentPlugins `mappendPair` walletProd args)
+                              currentParams
+                              ()
   where
     convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
 
@@ -194,14 +207,14 @@ getNodeParams args@Args {..} systemStart = do
         userSecretWithGenesisKey args =<<
         updateUserSecretVSS args =<<
         peekUserSecret (getKeyfilePath args)
-
+    params <- liftIO $ baseParams "node" args
     return NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB
         , npSecretKey = primarySK
         , npUserSecret = userSecret
         , npSystemStart = systemStart
-        , npBaseParams = baseParams "node" args
+        , npBaseParams = params
         , npCustomUtxo =
                 genesisUtxo $
 #ifdef DEV_MODE
@@ -292,4 +305,5 @@ main :: IO ()
 main = do
     printFlags
     args <- getNodeOptions
-    bracketResources (baseParams "node" args) (action args)
+    params <- baseParams "node" args
+    bracketResources params (action args)

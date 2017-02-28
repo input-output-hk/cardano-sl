@@ -46,12 +46,15 @@ import           Pos.Binary.Types           ()
 import           Pos.Binary.Update          ()
 import           Pos.Constants              (epochSlots, lastKnownBlockVersion)
 import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySign,
-                                             proxyVerify, pskIssuerPk, sign, toPublic,
-                                             unsafeHash)
+                                             proxyVerify, pskIssuerPk, pskOmega, sign,
+                                             toPublic, unsafeHash)
 import           Pos.Merkle                 (mkMerkleTree)
 import           Pos.Script                 (isKnownScriptVersion, scrVersion)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types        (Ssc (..))
+import           Pos.Txp.Core.Tx            (verifyTxAlone)
+import           Pos.Txp.Core.Types         (Tx (..), TxDistribution, TxInWitness (..),
+                                             TxOut (..), TxWitness)
 import           Pos.Types.Address          (Address (..), addressHash)
 import           Pos.Types.Block.Class      (Blockchain (..), GenericBlock (..),
                                              GenericBlockHeader (..), gbBody, gbBodyProof,
@@ -73,7 +76,6 @@ import           Pos.Types.Core             (BlockVersion, ChainDifficulty, Epoc
                                              HasEpochIndex (..), HasEpochOrSlot (..),
                                              HasHeaderHash (..), HeaderHash, SlotId (..),
                                              SlotId)
-import           Pos.Types.Tx               (verifyTxAlone)
 -- Unqualified import is used here because of GHC bug (trac 12127).
 -- See: https://ghc.haskell.org/trac/ghc/ticket/12127
 import           Pos.Types.Types
@@ -225,7 +227,7 @@ mkGenesisBlock prevHeader epoch leaders =
 mkMainBody
     :: [(Tx, TxWitness, TxDistribution)]
     -> SscPayload ssc
-    -> [ProxySKSimple]
+    -> [ProxySKHeavy]
     -> UpdatePayload
     -> Body (MainBlockchain ssc)
 mkMainBody txws mpc proxySKs updatePayload =
@@ -502,11 +504,15 @@ verifyBlock VerifyBlockParams {..} blk =
     verifyProxySKs
         | vbpVerifyProxySKs =
           (flip (either $ const mempty) blk) $ \mainBlk ->
-            let proxySKs = mainBlk ^. blockProxySKs
+            let bEpoch = mainBlk ^. epochIndexL
+                notMatchingEpochs = filter ((/= bEpoch) . pskOmega) proxySKs
+                proxySKs = mainBlk ^. blockProxySKs
                 duplicates = proxySKsDups proxySKs in
-            verifyGeneric
+                verifyGeneric
             [ ( null duplicates
-              , "Some of block's PSKs have the same issuer, which is prohibited")
+              , "Some of block's PSKs have the same issuer, which is prohibited"),
+              ( null notMatchingEpochs
+              , "Block contains psk(s) that have non-matching epoch index")
             ]
         | otherwise = mempty
     verifyVersions bv = case blk of
@@ -530,7 +536,7 @@ checkNoUnknownVersions blk = mconcat $ map toVerRes $ concat [
     toVerRes (Left e)  = VerFailure [sformat build e]
 
     -- Check a transaction
-    checkTx txI Tx{..} = imap (checkOutput txI) txOutputs
+    checkTx txI Tx{..} = imap (checkOutput txI) _txOutputs
     -- Check an output
     checkOutput txI outI TxOut{..} = case txOutAddress of
         UnknownAddressType t _ -> Left $

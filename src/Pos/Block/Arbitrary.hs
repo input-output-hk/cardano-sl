@@ -13,7 +13,7 @@ import           Test.QuickCheck      (Arbitrary (..), Gen, choose, listOf, oneo
                                        vectorOf)
 import           Universum
 
-import           Pos.Binary           (Bi)
+import           Pos.Binary           (Bi, Raw)
 import           Pos.Block.Network    as T
 import           Pos.Constants        (epochSlots)
 import           Pos.Crypto           (Hash, ProxySecretKey, PublicKey, SecretKey,
@@ -22,10 +22,10 @@ import           Pos.Data.Attributes  (Attributes (..), mkAttributes)
 import           Pos.Merkle           (MerkleRoot (..), MerkleTree, mkMerkleTree)
 import           Pos.Ssc.Arbitrary    (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.Class        (Ssc (..), SscHelpersClass)
+import qualified Pos.Txp.Core.Types   as T
 import qualified Pos.Types            as T
 import           Pos.Update.Arbitrary ()
 import           Pos.Util.Arbitrary   (makeSmall)
-import           Pos.Util.Binary      (Raw)
 import qualified Prelude
 
 newtype BodyDependsOnConsensus b = BodyDependsOnConsensus
@@ -238,48 +238,47 @@ maxEpochs = 0
 -- Beware that
 -- * genesis blocks have no leaders, and that
 -- * if an epoch is `n` slots long, every `n+1`-th block will be of the genesis kind.
-
-
 recursiveHeaderGen
     :: (Arbitrary (SscPayload ssc), SscHelpersClass ssc, Integral a)
     => [Either SecretKey (SecretKey, SecretKey, Bool)]
     -> [(a, a)]
     -> [T.BlockHeader ssc]
     -> Gen [T.BlockHeader ssc]
-recursiveHeaderGen
-    (eitherOfLeader : leaders)
-    ((epoch, slot) : rest)
-    blockchain@(prevHeader : _) = do
-        let epochCounter = fromIntegral epoch
-            slotCounter = fromIntegral slot
-        curHeader <- do
-            if slot == epochSlots
-                then do
-                    body <- arbitrary
-                    return $ Left $ T.mkGenesisHeader (Just prevHeader) (epochCounter + 1) body
-                else do
-                    body <- arbitrary
-                    extraHData <- arbitrary
-                    lowEpoch <- choose (0, epochCounter)
-                    highEpoch <- choose (epochCounter, maxEpochs + 1)
-                    -- These two values may not be used at all. If the slot in question
-                    -- will have a simple signature, laziness will prevent them from
-                    -- being calculated. Otherwise, they'll be the proxy secret key's ω.
-                    let slotId = T.SlotId epochCounter slotCounter
-                        (leader, proxySK) =
-                            case eitherOfLeader of
-                                Left sk -> (sk, Nothing)
-                                Right (issuerSK, delegateSK, isSigEpoch) ->
-                                    let w = (lowEpoch, highEpoch)
-                                        delegatePK = toPublic delegateSK
-                                        curried :: Bi w => w -> ProxySecretKey w
-                                        curried = createProxySecretKey issuerSK delegatePK
-                                        proxy = if isSigEpoch
-                                             then Right  $ curried ()
-                                             else Left $ curried w
-                                    in (delegateSK, Just $ proxy)
-                    return $ Right $ T.mkMainHeader (Just prevHeader) slotId leader proxySK body extraHData
-        recursiveHeaderGen leaders rest (curHeader : blockchain)
+recursiveHeaderGen (eitherOfLeader : leaders)
+                   ((epoch, slot) : rest)
+                   blockchain@(prevHeader : _) = do
+    curHeader <- genHeader
+    recursiveHeaderGen leaders rest (curHeader : blockchain)
+  where
+    epochCounter = fromIntegral epoch
+    slotCounter = fromIntegral slot
+    genHeader
+      | slot == epochSlots = do
+        body <- arbitrary
+        return $ Left $ T.mkGenesisHeader (Just prevHeader) (epochCounter + 1) body
+      | otherwise = do
+        body <- arbitrary
+        extraHData <- arbitrary
+        lowEpoch <- choose (0, epochCounter)
+        highEpoch <- choose (epochCounter, maxEpochs + 1)
+        -- These two values may not be used at all. If the slot in question
+        -- will have a simple signature, laziness will prevent them from
+        -- being calculated. Otherwise, they'll be the proxy secret key's ω.
+        let slotId = T.SlotId epochCounter slotCounter
+            (leader, proxySK) =
+                case eitherOfLeader of
+                    Left sk -> (sk, Nothing)
+                    Right (issuerSK, delegateSK, isSigEpoch) ->
+                        let w = (lowEpoch, highEpoch)
+                            delegatePK = toPublic delegateSK
+                            curried :: Bi w => w -> ProxySecretKey w
+                            curried = createProxySecretKey issuerSK delegatePK
+                            proxy = if isSigEpoch
+                                    then Right $ curried epochCounter
+                                    else Left $ curried w
+                        in (delegateSK, Just $ proxy)
+        pure $ Right $
+            T.mkMainHeader (Just prevHeader) slotId leader proxySK body extraHData
 recursiveHeaderGen [] _ b = return b
 recursiveHeaderGen _ [] b = return b
 recursiveHeaderGen _ _ _  = return []
@@ -301,8 +300,8 @@ recursiveHeaderGen _ _ _  = return []
 --
 -- Note that a leader is generated for each slot.
 -- (Not exactly a leader - see previous comment)
-
-instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) => Arbitrary (BlockHeaderList ssc) where
+instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
+         Arbitrary (BlockHeaderList ssc) where
     arbitrary = BHL <$> do
         fullEpochs <- choose (startingEpoch, maxEpochs)
         incompleteEpochSize <- T.LocalSlotIndex <$> choose (1, epochSlots - 1)

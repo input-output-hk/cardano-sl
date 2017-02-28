@@ -119,7 +119,7 @@ mainHeaderFormation prevHeader slotId signer body extra =
             curried :: Bi w => w -> ProxySecretKey w
             curried = createProxySecretKey issuerSK delegatePK
             proxy = if isSigEpoch
-                 then Right  $ curried ()
+                 then Right $ curried epoch
                  else Left $ curried w
         in (delegateSK, Just $ proxy)
     difficulty = maybe 0 (succ . view T.difficultyL) prevHeader

@@ -19,7 +19,10 @@ readonly RELEASE_ROOT=haddock/release
 
 readonly CURRENT_BRANCH="${TRAVIS_BRANCH}"
 
-echo "**** 2. Cloning cardano-docs.iohk.io repository ****"
+echo "**** 2. Change external Haskell-related links to the Hackage-based ones ****"
+sed -i 's/href="\.\.\/\([^/]*\)\//href="http:\/\/hackage.haskell.org\/package\/\1\/docs\//g' "${PROJECT_DOC_DIR}"/*.html
+
+echo "**** 3. Cloning cardano-docs.iohk.io repository ****"
 # Variable ${GITHUB_CARDANO_DOCS_ACCESS} already stored in Travis CI settings for 'cardano-sl' repository.
 # This token gives us an ability to push into docs repository.
 
@@ -31,13 +34,13 @@ git clone --quiet --branch=master \
     "${CARDANO_DOCS_REPO}"
 cd "${CARDANO_DOCS_REPO}"
 
-echo "**** 3. Update latest Haddock-version ****"
+echo "**** 4. Update latest Haddock-version ****"
 mkdir -p "${LATEST_ROOT}"
 cd "${LATEST_ROOT}"
 rm -rf ./*
 rsync -r "${PROJECT_DOC_DIR}"/ .
 
-echo "**** 4. Check release version ****"
+echo "**** 5. Check release version ****"
 if [ "${CURRENT_BRANCH}" = "${PROJECT_FULL_NAME}" ]; then
     echo "     it's a release branch ${CURRENT_BRANCH}, preparing release documentation..."
     # 1. Place just generated docs in corresponding haddock-release subdir,
@@ -52,17 +55,19 @@ if [ "${CURRENT_BRANCH}" = "${PROJECT_FULL_NAME}" ]; then
     # If this href already exists, skip this step.
     readonly HREF_TO_RELEASE_DOCS=/"${RELEASE_ROOT}"/"${PROJECT_VERSION}"/index.html
     readonly PATH_TO_HADDOCK_PAGE=_docs/for-contributors/haddock.md
-    readonly HADDOCK_PAGE=$(cat "${PATH_TO_HADDOCK_PAGE}")
+    readonly LINK_TO_RELEASE=$(cat "${PATH_TO_HADDOCK_PAGE}" | grep "${HREF_TO_RELEASE_DOCS}")
 
     cd "${CARDANO_DOCS_REPO}"
-    if [ "${HADDOCK_PAGE}" != *"${HREF_TO_RELEASE_DOCS}"* ]; then
-        # There's no href to release docs on Haddock-page, we should add it.
+    if [ -n "${LINK_TO_RELEASE}" ]; then
+        echo "Link to this release docs already here, skip."
+    else
+        echo "There's no link to this release docs, adding it..."
         readonly MARKDOWN_HREF_TO_RELEASE_DOCS="* [${PROJECT_VERSION}](${HREF_TO_RELEASE_DOCS})"
         echo "${MARKDOWN_HREF_TO_RELEASE_DOCS}" >> "${PATH_TO_HADDOCK_PAGE}"
     fi
 fi
 
-echo "**** 5. Push all changes ****"
+echo "**** 6. Push all changes ****"
 cd "${CARDANO_DOCS_REPO}"
 git add .
 if [ -n "$(git status --porcelain)" ]; then 

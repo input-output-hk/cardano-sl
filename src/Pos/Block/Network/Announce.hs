@@ -7,7 +7,6 @@ module Pos.Block.Network.Announce
        , handleHeadersCommunication
        ) where
 
-import           Control.Concurrent.STM     (tryReadTMVar)
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (throw)
 import           System.Wlog                (logDebug)
@@ -16,13 +15,12 @@ import           Universum
 import           Pos.Binary.Communication   ()
 import           Pos.Block.Logic            (getHeadersFromManyTo)
 import           Pos.Block.Network.Types    (MsgGetHeaders (..), MsgHeaders (..))
-
 import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId (..),
                                              OutSpecs, SendActions (..), convH,
                                              toOutSpecs)
-import           Pos.Context                (getNodeContext, ncNodeParams,
-                                             ncRecoveryHeader, npAttackTypes)
+import           Pos.Context                (getNodeContext, isRecoveryMode, ncNodeParams,
+                                             npAttackTypes)
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB                     as DB
 import           Pos.DHT.Model              (converseToNeighbors)
@@ -79,18 +77,17 @@ handleHeadersCommunication conv = do
     (msg :: Maybe MsgGetHeaders) <- recv conv
     whenJust msg $ \mgh@(MsgGetHeaders {..}) -> do
         logDebug $ sformat ("Got request on handleGetHeaders: "%build) mgh
-        isRecovery <- do
-            var <- ncRecoveryHeader <$> getNodeContext
-            isJust <$> atomically (tryReadTMVar var)
-        if isRecovery
-        then onRecovery
-        else do
+        ifM isRecoveryMode onRecovery $ do
             headers <- case (mghFrom,mghTo) of
                 ([], Nothing) -> Just . one <$> DB.getTipBlockHeader
                 ([], Just h)  -> fmap one <$> DB.getBlockHeader h
                 (c1:cxs, _)   -> getHeadersFromManyTo (c1:|cxs) mghTo
-            maybe onNoHeaders (\h -> onSuccess >> send conv (MsgHeaders h)) headers
+            maybe onNoHeaders handleSuccess headers
   where
+    handleSuccess h = do
+        onSuccess
+        send conv (MsgHeaders h)
+        handleHeadersCommunication conv
     onSuccess =
         logDebug "handleGetHeaders: responded successfully"
     onRecovery =

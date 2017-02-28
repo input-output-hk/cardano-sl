@@ -1,4 +1,5 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE CPP           #-}
 
 -- | Command line options of cardano-wallet
 
@@ -10,8 +11,8 @@ module WalletOptions
 
 import           Options.Applicative    (CommandFields, Mod, Parser, ParserInfo, auto,
                                          command, fullDesc, help, helper, info, long,
-                                         metavar, option, option, progDesc, short,
-                                         subparser, switch, value)
+                                         metavar, option, option, progDesc, subparser,
+                                         switch, value)
 import           Serokell.Util.OptParse (strOption)
 import           Universum
 
@@ -20,16 +21,14 @@ import qualified Pos.CLI                as CLI
 import           Pos.Util.TimeWarp      (NetworkAddress)
 
 data WalletOptions = WalletOptions
-    { woDbPath       :: !FilePath
-    , woRebuildDb    :: !Bool
-    , woIpPort       :: !NetworkAddress         -- ^ DHT/Blockchain port
-    , woInitialPause :: !Int            -- ^ Pause between connecting to network
-                                             -- and starting accepting commands (in slots)
-    , woKeyFilePath  :: !FilePath       -- ^ Path to file with secret keys
-    , woDebug        :: !Bool           -- ^ Run in debug mode (with genesis keys included)
-    , woJLFile       :: !(Maybe FilePath)
-    , woCommonArgs   :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
-    , woAction       :: !WalletAction
+    { woDbPath      :: !FilePath
+    , woRebuildDb   :: !Bool
+    , woIpPort      :: !NetworkAddress -- ^ DHT/Blockchain port
+    , woKeyFilePath :: !FilePath       -- ^ Path to file with secret keys
+    , woDebug       :: !Bool           -- ^ Run in debug mode (with genesis keys included)
+    , woJLFile      :: !(Maybe FilePath)
+    , woCommonArgs  :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
+    , woAction      :: !WalletAction
     }
 
 data WalletAction = Repl
@@ -70,30 +69,34 @@ serveParser = command "serve" $ info opts desc
 #endif
 
 optionsParser :: Parser WalletOptions
-optionsParser = WalletOptions
-    <$> strOption (long "db-path"
-                <> metavar "FILEPATH"
-                <> value "wallet-db"
-                <> help "Path to the wallet database")
-    <*> switch (long "rebuild-db"
-             <> help ("If we DB already exist, discard it's contents and " <>
-                      "create new one from scratch"))
-    <*> CLI.ipPortOption ("0.0.0.0", 24961)   -- truly random value
-    <*> option auto (long "initial-pause"
-                  <> short 'p'
-                  <> value 1
-                  <> metavar "SLOTS_NUM"
-                  <> help "Pause between connecting to network and starting accepting\
-                          \ commands")
-    <*> strOption (long "keys-path"
-            <> metavar "FILEPATH"
-            <> value "secret.key"
-            <> help "Path to file with secret keys")
-    <*> switch (long "debug"
-             <> help "Run in debug mode (with genesis keys included)")
-    <*> CLI.optionalJSONPath
-    <*> CLI.commonArgsParser "Initial DHT peer (may be many)"
-    <*> actionParser
+optionsParser = do
+    woDbPath <- strOption $
+        long    "db-path" <>
+        metavar "FILEPATH" <>
+        value   "wallet-db" <>
+        help    "Path to the wallet database"
+    woRebuildDb <- switch $
+        long "rebuild-db" <>
+        help "If the DB already exist, discard its contents and \
+             \create new one from scratch"
+    woIpPort <-
+        CLI.ipPortOption ("0.0.0.0", 24961)   -- truly random value
+    woKeyFilePath <- strOption $
+        long    "keys-path" <>
+        metavar "FILEPATH" <>
+        value   "secret.key" <>
+        help    "Path to file with secret keys"
+    woDebug <- switch $
+        long "debug" <>
+        help "Run in debug mode (with genesis keys included)"
+    woJLFile <-
+        CLI.optionalJSONPath
+    woCommonArgs <-
+        CLI.commonArgsParser "Initial DHT peer (may be many)"
+    woAction <-
+        actionParser
+
+    pure WalletOptions{..}
 
 optsInfo :: ParserInfo WalletOptions
 optsInfo = info (helper <*> optionsParser) $

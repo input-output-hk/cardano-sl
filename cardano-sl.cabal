@@ -1,5 +1,5 @@
 name:                cardano-sl
-version:             0.1.0.0
+version:             0.2.0
 synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             MIT
@@ -51,10 +51,8 @@ library
                         Pos.Communication.Relay
                         Pos.CompileConfig
                         Pos.Constants
-                        Pos.Crypto
                         Pos.DB
                         Pos.DB.GState
-                        Pos.Data.Attributes
                         Pos.Delegation
                         -- Pos.DHT
                         Pos.DHT.Model
@@ -72,6 +70,7 @@ library
 
                         -- Genesis data
                         Pos.Genesis
+                        Pos.Genesis.Arbitrary
 
                         -- LRC
                         Pos.Lrc
@@ -80,11 +79,9 @@ library
                         -- Scripting
                         Pos.Script
                         Pos.Script.Examples
-                        Pos.Script.Type
 
                         -- Something
                         Pos.Launcher
-                        Pos.Merkle
                         Pos.Security
                         Pos.Security.Class
                         Pos.Security.CLI
@@ -93,6 +90,7 @@ library
                         Pos.Slotting
 
                         -- Reporting
+                        Pos.Reporting
                         Pos.Reporting.Methods
                         Pos.Reporting.Exceptions
 
@@ -107,22 +105,14 @@ library
                         -- Something
                         Pos.Statistics
                         Pos.Txp
-                        Pos.Txp.Listeners
                         Pos.Types
-                        Pos.Types.Address
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block
-                        Pos.Types.Block.Class
                         Pos.Types.Block.Types
                         Pos.Types.Block.Functions
                         Pos.Types.Block.Instances
-                        Pos.Types.Coin
                         Pos.Types.Slotting
-                        Pos.Types.Timestamp
-                        Pos.Types.Tx
-                        Pos.Types.Types
-                        Pos.Types.Utxo
                         Pos.Types.Version
 
                         -- Update system
@@ -157,7 +147,6 @@ library
                         Pos.Binary.Block
                         Pos.Binary.Block.Types
                         Pos.Binary.Block.Block
-                        Pos.Binary.Class
                         Pos.Binary.Coin
                         Pos.Binary.Crypto
                         Pos.Binary.Communication
@@ -167,8 +156,10 @@ library
                         Pos.Binary.Merkle
                         Pos.Binary.Relay
                         Pos.Binary.Script
+                        Pos.Binary.Slotting
                         Pos.Binary.Ssc
                         Pos.Binary.Ssc.GodTossing.Core
+                        Pos.Binary.Txp
                         Pos.Binary.Types
                         Pos.Binary.Update
                         Pos.Binary.Version
@@ -198,6 +189,7 @@ library
                         Pos.Communication.Types.SysStart
                         Pos.Communication.Server
                         Pos.Communication.Server.SysStart
+                        Pos.Communication.Specs
                         Pos.Communication.Util
 
                         -- Compile config
@@ -212,13 +204,7 @@ library
 
                         -- Crypto
                         Pos.Crypto.Arbitrary
-                        Pos.Crypto.Arbitrary.Hash
                         Pos.Crypto.Arbitrary.Unsafe
-                        Pos.Crypto.AsBinary
-                        Pos.Crypto.Hashing
-                        Pos.Crypto.Random
-                        Pos.Crypto.SecretSharing
-                        Pos.Crypto.Signing
 
                         -- Heavy delegation
                         Pos.Delegation.Class
@@ -286,9 +272,11 @@ library
 
                         -- Slotting
                         Pos.Slotting.Class
-                        Pos.Slotting.Logic
+                        Pos.Slotting.Error
+                        Pos.Slotting.Holder
+                        Pos.Slotting.Ntp
                         Pos.Slotting.Types
-                        Pos.Slotting.Worker
+                        Pos.Slotting.Util
 
                         -- SSC
                         Pos.Ssc.Class.Types
@@ -342,25 +330,35 @@ library
 
                         -- Txp
                         Pos.Txp.Arbitrary
-                        Pos.Txp.Class
+                        Pos.Txp.Core
+                        Pos.Txp.Core.Tx
+                        Pos.Txp.Core.Types
                         Pos.Txp.Error
-                        Pos.Txp.Holder
                         Pos.Txp.Logic
-                        Pos.Txp.Types
-                        Pos.Txp.Types.Communication
-                        Pos.Txp.Types.Types
-                        Pos.Txp.Types.UtxoView
-                        Pos.Txp.Types.BalancesView
+                        Pos.Txp.Logic.Global
+                        Pos.Txp.Logic.Local
+                        Pos.Txp.MemState
+                        Pos.Txp.MemState.Class
+                        Pos.Txp.MemState.Holder
+                        Pos.Txp.MemState.Types
+                        Pos.Txp.Network
+                        Pos.Txp.Network.Listeners
+                        Pos.Txp.Network.Types
+                        Pos.Txp.Toil
+                        Pos.Txp.Toil.Class
+                        Pos.Txp.Toil.DBTxp
+                        Pos.Txp.Toil.Failure
+                        Pos.Txp.Toil.Logic
+                        Pos.Txp.Toil.Trans
+                        Pos.Txp.Toil.Types
+                        Pos.Txp.Toil.Utxo
+                        Pos.Txp.Toil.Utxo.Functions
+                        Pos.Txp.Toil.Utxo.Pure
 
                         -- Types
-                        Pos.Types.Core
                         Pos.Types.SharedSeed
-                        Pos.Types.Utxo.Class
-                        Pos.Types.Utxo.Functions
-                        Pos.Types.Utxo.Pure
 
                         -- Workers
-                        Pos.Worker.Ntp
                         Pos.Worker.Stats
                         Pos.Worker.SysStart
 
@@ -386,6 +384,7 @@ library
                         Pos.Update.Poll
                         Pos.Update.Poll.Class
                         Pos.Update.Poll.DBPoll
+                        Pos.Update.Poll.Failure
                         Pos.Update.Poll.Logic
                         Pos.Update.Poll.Logic.Apply
                         Pos.Update.Poll.Logic.Base
@@ -400,7 +399,6 @@ library
 
                         -- Utilities/helpers
                         Pos.Util.Arbitrary
-                        Pos.Util.Binary
                         Pos.Util.Iterator
                         Pos.Util.NotImplemented
   if flag(with-web)
@@ -452,8 +450,7 @@ library
                       , Pos.Types.Explorer
                       , Pos.Binary.Explorer
 
-  build-depends:        HsOpenSSL
-                      , IfElse
+  build-depends:        IfElse
                       , QuickCheck
                       , UtilityTM
                       , acid-state
@@ -463,22 +460,19 @@ library
                       , base
                       , base58-bytestring
                       , base64-bytestring
-                      -- This constraint on 'binary' is so strict because
-                      -- we're relying on the internal representation of
-                      -- 'Get' in Pos.Util.Binary. So, if you need to bump
-                      -- this constraint, first check that all code in
-                      -- Pos.Util.Binary that has been ripped from 'binary'
-                      -- hasn't changed upstream.
-                      , binary == 0.8.3.*
+                      , temporary >= 1.2.0.4
+                      , binary
                       , binary-conduit >= 1.2.4.1
                       , binary-orphans
                       , bytestring
-                      , cardano-report-server >= 0.0.1
+                      , cardano-report-server >= 0.1.0
+                      , cardano-sl-core
                       , cereal
                       , concurrent-extra
                       , conduit >= 1.2.8
                       , containers
                       , cryptonite >= 0.19 && < 0.22
+                      , cryptonite-openssl >= 0.5
                       , data-default
                       , deepseq
                       , derive
@@ -502,7 +496,7 @@ library
                       , lens
                       , lifted-async
                       , list-t
-                      , log-warper
+                      , log-warper >= 0.4.3
                       , lrucache
                       , memory
                       , mmorph
@@ -511,6 +505,7 @@ library
                       , mono-traversable
                       , mtl
                       , neat-interpolation
+                      , network-info >= 0.2.0.8
                       , network-transport
                       , network-transport-tcp
                       , node-sketch >= 0.1.1.0
@@ -525,7 +520,7 @@ library
                       , resourcet
                       , rocksdb >= 0.1.0.1
                       , safecopy
-                      , serokell-util
+                      , serokell-util >= 0.1.3.4
                       , stm
                       , stm-containers
                       , tagged
@@ -598,18 +593,19 @@ executable cardano-node
   build-depends:       base
                      , binary
                      , bytestring
+                     , cardano-sl-core
                      , cardano-sl
                      , data-default
                      , directory
                      , filepath
                      , formatting
                      , lens
-                     , log-warper
+                     , log-warper >= 0.4.3
                      , network-transport
                      , node-sketch
                      , optparse-simple
                      , parsec
-                     , serokell-util
+                     , serokell-util >= 0.1.3.4
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
@@ -653,11 +649,12 @@ executable cardano-analyzer
                      , aeson
                      , attoparsec
                      , bytestring
+                     , cardano-sl-core
                      , cardano-sl
                      , formatting
-                     , log-warper
+                     , log-warper >= 0.4.3
                      , optparse-simple
-                     , serokell-util
+                     , serokell-util >= 0.1.3.4
                      , text
                      , time
                      , time-units
@@ -706,17 +703,18 @@ executable cardano-wallet
                      , base58-bytestring
                      , binary
                      , bytestring
+                     , cardano-sl-core
                      , cardano-sl
                      , formatting
                      , lens
                      , lifted-async
-                     , log-warper
+                     , log-warper >= 0.4.3
                      , mtl
                      , network-transport
                      , node-sketch
                      , optparse-applicative
                      , parsec
-                     , serokell-util
+                     , serokell-util >= 0.1.3.4
                      , text
                      , time
                      , time-units
@@ -766,6 +764,7 @@ executable cardano-wallet-hs2purs
   main-is:             Main.hs
   other-modules:       PSTypes
   build-depends:       base
+                     , cardano-sl-core
                      , cardano-sl
                      , purescript-bridge
                      , universum >= 0.1.11
@@ -817,18 +816,19 @@ executable cardano-smart-generator
                      , array
                      , bytestring
                      , data-default
+                     , cardano-sl-core
                      , cardano-sl
                      , filepath
                      , formatting
                      , lens
                      , lifted-async
-                     , log-warper
+                     , log-warper >= 0.4.3
                      , node-sketch
                      , optparse-applicative
                      , parsec
                      , random
                      , random-shuffle
-                     , serokell-util
+                     , serokell-util >= 0.1.3.4
                      , stm
                      , text
                      , time
@@ -877,18 +877,19 @@ executable cardano-dht-keygen
                      , array
                      , bytestring
                      , data-default
+                     , cardano-sl-core
                      , cardano-sl
                      , filepath
                      , formatting
                      , kademlia
                      , lens
                      , lifted-async
-                     , log-warper
+                     , log-warper >= 0.4.3
                      , optparse-applicative
                      , parsec
                      , random
                      , random-shuffle
-                     , serokell-util
+                     , serokell-util >= 0.1.3.4
                      , stm
                      , text
                      , time
@@ -926,6 +927,7 @@ executable cardano-web-docs
   hs-source-dirs:      src/web-docs
   main-is:             Main.hs
   build-depends:       base
+                     , cardano-sl-core
                      , cardano-sl
                      , universum >= 0.1.11
   default-language:    Haskell2010
@@ -964,6 +966,7 @@ executable cardano-wallet-web-docs
   hs-source-dirs:      src/wallet-web-docs
   main-is:             Main.hs
   build-depends:       base
+                     , cardano-sl-core
                      , cardano-sl
                      , universum >= 0.1.11
                      , unordered-containers
@@ -1040,11 +1043,12 @@ executable cardano-avvmmigrate
                      , aeson
                      , base
                      , bytestring
+                     , cardano-sl-core
                      , cardano-sl
                      , directory
                      , ed25519
                      , filepath
-                     , serokell-util
+                     , serokell-util >= 0.1.3.4
                      , text
                      , universum
                      , unordered-containers
@@ -1059,6 +1063,7 @@ executable cardano-keygen
   hs-source-dirs:      src/keygen
   main-is:             Main.hs
   build-depends:       base
+                     , cardano-sl-core
                      , cardano-sl
                      , universum >= 0.1
                      , text
@@ -1099,11 +1104,12 @@ executable cardano-launcher
   build-depends:       async
                      , base
                      , optparse-applicative
-                     , cardano-report-server >= 0.0.1
-                     , log-warper
+                     , cardano-report-server >= 0.1.0
+                     , log-warper >= 0.4.3
                      , cardano-sl
                      , directory
                      , process
+                     , system-filepath
                      , text
                      , turtle
                      , universum
@@ -1115,6 +1121,9 @@ executable cardano-launcher
                        -O2
   default-extensions:  OverloadedStrings
                        RecordWildCards
+                       TupleSections
+  if os(windows)
+    LD-Options:     -mwindows
 
 test-suite cardano-test
   main-is:             Test.hs
@@ -1126,8 +1135,10 @@ test-suite cardano-test
                        Test.Pos.CryptoSpec
                        Test.Pos.DHT.Identity.BinarySpec
                        Test.Pos.FollowTheSatoshiSpec
+                       Test.Pos.Genesis.Identity.BinarySpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Script.Identity.BinarySpec
+                       Test.Pos.Ssc.GodTossing.ComputeSharesSpec
                        Test.Pos.Ssc.GodTossing.Identity.BinarySpec
                        Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
                        Test.Pos.Ssc.GodTossing.SeedSpec
@@ -1136,6 +1147,7 @@ test-suite cardano-test
                        Test.Pos.Txp.Identity.BinarySpec
                        Test.Pos.Types.AddressSpec
                        Test.Pos.Types.BlockSpec
+                       Test.Pos.Types.CoinSpec
                        Test.Pos.Types.Identity.BinarySpec
                        Test.Pos.Types.Identity.SafeCopySpec
                        Test.Pos.Types.Identity.TimestampSpec
@@ -1151,6 +1163,7 @@ test-suite cardano-test
                      , base
                      , binary
                      , bytestring
+                     , cardano-sl-core
                      , cardano-sl
                      , cereal
                      , containers
@@ -1159,7 +1172,7 @@ test-suite cardano-test
                      , formatting
                      , hspec
                      , lens
-                     , log-warper
+                     , log-warper >= 0.4.3
                      , memory
                      , mtl
                      , node-sketch
@@ -1169,7 +1182,7 @@ test-suite cardano-test
                      , regex-tdfa
                      , regex-tdfa-text
                      , safecopy
-                     , serokell-util
+                     , serokell-util >= 0.1.3.4
                      , time-units
                      , universum >= 0.1.11
                      , unordered-containers
@@ -1212,6 +1225,7 @@ benchmark cardano-bench-criterion
                      , base
                      , binary
                      , bytestring
+                     , cardano-sl-core
                      , cardano-sl
                      , containers
                      , criterion
@@ -1219,8 +1233,8 @@ benchmark cardano-bench-criterion
                      , formatting
                      , hashtables
                      , lens
-                     , log-warper
-                     , serokell-util
+                     , log-warper >= 0.4.3
+                     , serokell-util >= 0.1.3.4
                      , text-format
                      , universum >= 0.1.11
                      , vector

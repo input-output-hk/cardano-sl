@@ -3,6 +3,7 @@
 module Pos.Update.Poll
        ( module Pos.Update.Poll.Class
        , module Pos.Update.Poll.DBPoll
+       , module Pos.Update.Poll.Failure
        , module Pos.Update.Poll.Logic
        , module Pos.Update.Poll.Modifier
        , module Pos.Update.Poll.RollTrans
@@ -12,6 +13,7 @@ module Pos.Update.Poll
 
 import           Pos.Update.Poll.Class
 import           Pos.Update.Poll.DBPoll
+import           Pos.Update.Poll.Failure
 import           Pos.Update.Poll.Logic
 import           Pos.Update.Poll.Modifier
 import           Pos.Update.Poll.RollTrans

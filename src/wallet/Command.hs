@@ -16,10 +16,11 @@ import           Universum                  hiding (show)
 
 import           Pos.Binary                 ()
 import           Pos.Crypto                 (Hash, decodeHash)
-import           Pos.Script.Type            (ScriptVersion)
-import           Pos.Types                  (Address (..), BlockVersion, SoftwareVersion,
-                                             TxOut (..), decodeTextAddress, mkCoin,
+import           Pos.Txp                    (TxOut (..))
+import           Pos.Types                  (Address (..), BlockVersion, EpochIndex,
+                                             SoftwareVersion, decodeTextAddress, mkCoin,
                                              parseBlockVersion, parseSoftwareVersion)
+import           Pos.Types.Script           (ScriptVersion)
 import           Pos.Update                 (UpId)
 import           Pos.Util                   (parseIntegralSafe)
 
@@ -39,7 +40,7 @@ data Command
     | Help
     | ListAddresses
     | DelegateLight !Int !Int
-    | DelegateHeavy !Int !Int
+    | DelegateHeavy !Int !Int !(Maybe EpochIndex)
     | Quit
     deriving Show
 
@@ -84,7 +85,7 @@ balance = Balance <$> address
 
 delegateL, delegateH :: Parser Command
 delegateL = DelegateLight <$> num <*> num
-delegateH = DelegateHeavy <$> num <*> num
+delegateH = DelegateHeavy <$> num <*> num <*> optional num
 
 send :: Parser Command
 send = Send <$> num <*> many1 txout

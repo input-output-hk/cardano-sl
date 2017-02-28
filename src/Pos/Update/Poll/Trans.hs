@@ -27,29 +27,31 @@ import           Mockable                    (ChannelT, Counter, Distribution, G
                                               SharedExclusiveT, SharedExclusiveT,
                                               ThreadId)
 import           Serokell.Util.Lens          (WrappedM (..))
-import           System.Wlog                 (CanLog, HasLoggerName)
+import           System.Wlog                 (CanLog, HasLoggerName, logWarning)
 import           Universum
 
 import           Pos.Context                 (WithNodeContext)
 import           Pos.Crypto                  (hash)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.Slotting.Class          (MonadSlots)
+import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
-import           Pos.Txp.Class               (MonadTxpLD (..))
+import           Pos.Txp.MemState            (MonadTxpMem (..))
 import           Pos.Types                   (SoftwareVersion (..))
-import           Pos.Types.Utxo.Class        (MonadUtxo, MonadUtxoRead)
 import           Pos.Update.Core             (UpdateProposal (..))
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types       (BlockVersionState (..), PollModifier (..),
+import           Pos.Update.Poll.Types       (BlockVersionState (..),
+                                              DecidedProposalState (..),
+                                              PollModifier (..), ProposalState (..),
+                                              UndecidedProposalState (..),
                                               cpsSoftwareVersion, pmAdoptedBVFullL,
                                               pmDelActivePropsIdxL, pmDelActivePropsL,
                                               pmDelBVsL, pmDelConfirmedL,
                                               pmDelConfirmedPropsL, pmNewActivePropsIdxL,
                                               pmNewActivePropsL, pmNewBVsL,
                                               pmNewConfirmedL, pmNewConfirmedPropsL,
-                                              psProposal)
+                                              pmSlottingDataL, psProposal)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -63,11 +65,11 @@ import           Pos.Util.JsonLog            (MonadJL (..))
 -- single-threaded usage only.
 newtype PollT m a = PollT
     { getPollT :: StateT PollModifier m a
-    } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlots,
+    } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData, MonadSlots,
                 MonadCatch, MonadIO, HasLoggerName, MonadTrans, MonadError e,
                 WithNodeContext ssc, MonadJL, CanLog, MonadMask, MonadUSMem,
-                MonadSscMem mem, MonadUtxoRead, MonadUtxo,
-                MonadTxpLD ssc, MonadBase io, MonadDelegation, MonadFix)
+                MonadSscMem mem,
+                MonadTxpMem, MonadBase io, MonadDelegation, MonadFix)
 
 ----------------------------------------------------------------------------
 -- Runners
@@ -88,46 +90,131 @@ execPollT m = fmap snd . runPollT m
 
 instance MonadPollRead m =>
          MonadPollRead (PollT m) where
-    getBVState pv = do
-        new <- pmNewBVs <$> PollT get
-        maybe (PollT $ getBVState pv) (pure . Just) $ HM.lookup pv new
-    getProposedBVs = PollT getProposedBVs
-    getAdoptedBVFull = PollT $ do
-        new <- pmAdoptedBVFull <$> get
-        maybe getAdoptedBVFull pure new
-    getLastConfirmedSV appName = do
-        new <- pmNewConfirmed <$> PollT get
-        maybe (PollT $ getLastConfirmedSV appName) (pure . Just) $
-            HM.lookup appName new
-    hasActiveProposal appName = do
-        new <- pmNewActivePropsIdx <$> PollT get
-        del <- pmDelActivePropsIdx <$> PollT get
+    getBVState pv =
+        PollT $ do
+            new <- use $ pmNewBVsL . at pv
+            del <- use $ pmDelBVsL . at pv
+            if | Just () <- del -> return Nothing
+               | Just res <- new -> purer res
+               | otherwise -> getBVState pv
+    getProposedBVs =
+        PollT $ do
+            new <- use pmNewBVsL
+            del <- use pmDelBVsL
+            underlying <- getProposedBVs
+            let filteredU = filter (not . flip HS.member del) underlying
+            return $ HM.keys new <> filteredU
+    getConfirmedBVStates =
+        PollT $ do
+            new <- use pmNewBVsL
+            del <- use pmDelBVsL
+            underlying <- getConfirmedBVStates
+            let filteredU = filter (not . flip HS.member del . fst) $ underlying
+            let filteredN = filter (bvsIsConfirmed . snd) $ HM.toList new
+            return $ filteredU <> filteredN
+    getAdoptedBVFull =
+        PollT $ maybe getAdoptedBVFull pure =<< use pmAdoptedBVFullL
+    getLastConfirmedSV appName =
+        PollT $ do
+            new <- use $ pmNewConfirmedL . at appName
+            del <- use $ pmDelConfirmedL . at appName
+            if | Just () <- del -> return Nothing
+               | Just res <- new -> purer res
+               | otherwise -> getLastConfirmedSV appName
+    hasActiveProposal appName = PollT $ do
+        new <- pmNewActivePropsIdx <$> get
+        del <- pmDelActivePropsIdx <$> get
         if | appName `HM.member` del -> return False
            | appName `HM.member` new -> return True
-           | otherwise -> PollT $ hasActiveProposal appName
-    getProposal upId = do
-        new <- pmNewActiveProps <$> PollT get
-        del <- pmDelActiveProps <$> PollT get
+           | otherwise -> hasActiveProposal appName
+    getProposal upId = PollT $ do
+        new <- pmNewActiveProps <$> get
+        del <- pmDelActiveProps <$> get
         if | upId `HS.member` del -> return Nothing
            | Just res <- HM.lookup upId new -> return (Just res)
-           | otherwise -> PollT $ getProposal upId
-
+           | otherwise -> getProposal upId
+    getConfirmedProposals =
+        PollT $ do
+            new <- use pmNewConfirmedPropsL
+            del <- use pmDelConfirmedPropsL
+            underlying <- getConfirmedProposals
+            let filtered =
+                    filter
+                        (not . flip HS.member del . cpsSoftwareVersion)
+                        underlying
+            return $ toList new ++ filtered
+    getEpochTotalStake = lift . getEpochTotalStake
+    getRichmanStake e = lift . getRichmanStake e
+    getOldProposals sl =
+        PollT $ do
+            new <- use pmNewActivePropsL
+            del <- use pmDelActivePropsL
+            let extractOld (PSUndecided ups)
+                    | upsSlot ups <= sl = Just ups
+                    | otherwise = Nothing
+                extractOld (PSDecided _) = Nothing
+            let filteredN = mapMaybe extractOld $ toList new
+            underlying <- getOldProposals sl
+            let filteredU =
+                    filter
+                        (not . flip HS.member del . hash . upsProposal)
+                        underlying
+            return $ filteredN <> filteredU
+    getDeepProposals cd =
+        PollT $ do
+            new <- use pmNewActivePropsL
+            del <- use pmDelActivePropsL
+            let extractDeep (PSDecided dps)
+                    | Just propDifficulty <- dpsDifficulty dps
+                    , propDifficulty <= cd = Just dps
+                    | otherwise = Nothing
+                extractDeep (PSUndecided _) = Nothing
+            let filteredN = mapMaybe extractDeep $ toList new
+            underlying <- getDeepProposals cd
+            let filteredU =
+                    filter
+                        (not .
+                         flip HS.member del . hash . upsProposal . dpsUndecided)
+                        underlying
+            return $ filteredN <> filteredU
+    getBlockIssuerStake e = lift . getBlockIssuerStake e
+    getSlottingData =
+        PollT $ do
+            new <- pmSlottingData <$> get
+            maybe getSlottingData pure new
 
 instance MonadPollRead m =>
          MonadPoll (PollT m) where
-    putBVState bv st = PollT $ pmNewBVsL . at bv .= Just st
-    delBVState bv = PollT $ pmDelBVsL . at bv .= Nothing
+    putBVState bv st =
+        PollT $ do
+            pmNewBVsL . at bv .= Just st
+            pmDelBVsL . at bv .= Nothing
+    delBVState bv =
+        PollT $ do
+            pmNewBVsL . at bv .= Nothing
+            pmDelBVsL . at bv .= Just ()
     setAdoptedBV bv = do
         bvs <- getBVState bv
         case bvs of
-            Nothing               -> pass -- can't happen actually
+            Nothing ->
+                logWarning $ "setAdoptedBV: unknown version " <> pretty bv -- can't happen actually
             Just (bvsData -> bvd) -> PollT $ pmAdoptedBVFullL .= Just (bv, bvd)
     setLastConfirmedSV SoftwareVersion {..} =
-        PollT $ pmNewConfirmedL . at svAppName .= Just svNumber
-    delConfirmedSV appName = PollT $ pmDelConfirmedL . at appName .= Nothing
+        PollT $ do
+            pmNewConfirmedL . at svAppName .= Just svNumber
+            pmDelConfirmedL . at svAppName .= Nothing
+    delConfirmedSV appName =
+        PollT $ do
+            pmNewConfirmedL . at appName .= Nothing
+            pmDelConfirmedL . at appName .= Just ()
     addConfirmedProposal cps =
-        PollT $ pmNewConfirmedPropsL . at (cpsSoftwareVersion cps) .= Just cps
-    delConfirmedProposal sv = PollT $ pmDelConfirmedPropsL . at sv .= Nothing
+        PollT $ do
+            pmNewConfirmedPropsL . at (cpsSoftwareVersion cps) .= Just cps
+            pmDelConfirmedPropsL . at (cpsSoftwareVersion cps) .= Nothing
+    delConfirmedProposal sv =
+        PollT $ do
+            pmNewConfirmedPropsL . at sv .= Nothing
+            pmDelConfirmedPropsL . at sv .= Just ()
     addActiveProposal ps =
         PollT $ do
             let up = psProposal ps
@@ -149,6 +236,7 @@ instance MonadPollRead m =>
                 pmNewActivePropsIdxL . at appName .= Nothing
                 pmDelActivePropsL . at id .= Just ()
                 pmDelActivePropsIdxL . at appName .= Just id
+    setSlottingData sd = PollT $ pmSlottingDataL .= Just sd
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code
@@ -163,12 +251,6 @@ type instance Distribution (PollT m) = Distribution m
 type instance SharedExclusiveT (PollT m) = SharedExclusiveT m
 type instance Gauge (PollT m) = Gauge m
 type instance ChannelT (PollT m) = ChannelT m
-
--- instance ( Mockable d m
---          , MFunctor' d (PollT m) (StateT PollModifier m)
---          , MFunctor' d (StateT PollModifier m) m
---          ) => Mockable d (PollT m) where
---     liftMockable = liftMockableWrappedM
 
 instance Monad m => WrappedM (PollT m) where
     type UnwrappedM (PollT m) = StateT PollModifier m

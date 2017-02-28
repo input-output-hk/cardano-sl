@@ -1,11 +1,11 @@
 -- | Sending PSK-related datatypes to network.
 
 module Pos.Delegation.Methods
-       ( sendProxySKEpoch
-       , sendProxySKSimple
+       ( sendProxySKLight
+       , sendProxySKHeavy
        , sendProxyConfirmSK
-       , sendProxySKEpochOuts
-       , sendProxySKSimpleOuts
+       , sendProxySKLightOuts
+       , sendProxySKHeavyOuts
        , sendProxyConfirmSKOuts
        ) where
 
@@ -21,33 +21,33 @@ import           Pos.Context                (getNodeContext, ncNodeParams, npSec
 import           Pos.Crypto                 (proxySign)
 import           Pos.Delegation.Types       (ConfirmProxySK (..), SendProxySK (..))
 import           Pos.DHT.Model              (sendToNeighbors)
-import           Pos.Types                  (ProxySKEpoch, ProxySKSimple)
+import           Pos.Types                  (ProxySKHeavy, ProxySKLight)
 import           Pos.WorkMode               (MinWorkMode, WorkMode)
 
 -- | Sends epoch psk to neighbours
-sendProxySKEpoch :: (MinWorkMode m)
-                 => ProxySKEpoch -> Action' m ()
-sendProxySKEpoch = \psk sendActions -> do
+sendProxySKLight :: (MinWorkMode m)
+                 => ProxySKLight -> Action' m ()
+sendProxySKLight = \psk sendActions -> do
     logDebug $ sformat ("Sending lightweight psk to neigbours:\n"%build) psk
-    sendToNeighbors sendActions $ SendProxySKEpoch psk
+    sendToNeighbors sendActions $ SendProxySKLight psk
 
-sendProxySKEpochOuts :: OutSpecs
-sendProxySKEpochOuts = toOutSpecs [oneMsgH (Proxy :: Proxy SendProxySK)]
+sendProxySKLightOuts :: OutSpecs
+sendProxySKLightOuts = toOutSpecs [oneMsgH (Proxy :: Proxy SendProxySK)]
 
 -- | Sends simple psk to neighbours
-sendProxySKSimple :: (MinWorkMode m)
-                  => ProxySKSimple -> Action' m ()
-sendProxySKSimple = \psk sendActions -> do
+sendProxySKHeavy :: (MinWorkMode m)
+                  => ProxySKHeavy -> Action' m ()
+sendProxySKHeavy = \psk sendActions -> do
     logDebug $ sformat ("Sending heavyweight psk to neigbours:\n"%build) psk
-    sendToNeighbors sendActions $ SendProxySKSimple psk
+    sendToNeighbors sendActions $ SendProxySKHeavy psk
 
-sendProxySKSimpleOuts :: OutSpecs
-sendProxySKSimpleOuts = toOutSpecs [oneMsgH (Proxy :: Proxy SendProxySK)]
+sendProxySKHeavyOuts :: OutSpecs
+sendProxySKHeavyOuts = toOutSpecs [oneMsgH (Proxy :: Proxy SendProxySK)]
 
 -- | Generates a proof of being a delegate for psk and sends it to
 -- neighbors.
 sendProxyConfirmSK :: (WorkMode ssc m)
-                   => ProxySKEpoch -> Action' m ()
+                   => ProxySKLight -> Action' m ()
 sendProxyConfirmSK = \psk sendActions -> do
     logDebug $
         sformat ("Generating delivery proof and propagating it to neighbors: "%build) psk

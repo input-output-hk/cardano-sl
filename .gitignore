@@ -54,3 +54,5 @@ cardano-keys/
 bla/
 testnetStakes/
 *.key.lock
+node_modules/*
+.no-nix

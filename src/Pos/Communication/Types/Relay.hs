@@ -2,6 +2,7 @@ module Pos.Communication.Types.Relay
        ( InvMsg (..)
        , ReqMsg (..)
        , DataMsg (..)
+       , InvOrData
        ) where
 
 import qualified Data.Text.Buildable as B
@@ -37,6 +38,8 @@ instance (Arbitrary key, Arbitrary tag) => Arbitrary (ReqMsg key tag) where
 data DataMsg contents = DataMsg
     { dmContents :: !contents
     } deriving (Show, Eq)
+
+type InvOrData tag key contents = Either (InvMsg key tag) (DataMsg contents)
 
 instance (Buildable contents) =>
          Buildable (DataMsg contents) where

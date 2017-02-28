@@ -18,34 +18,40 @@ import           Control.Monad.Fix         (MonadFix)
 import           Control.Monad.Reader      (ReaderT (ReaderT), ask)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Formatting                (sformat, shown, (%))
-import           Mockable                  (Catch, ChannelT, Counter, CurrentTime,
-                                            Distribution, Gauge, MFunctor',
-                                            Mockable (liftMockable), Promise,
+import           Mockable                  (Catch, ChannelT, Counter, Distribution, Gauge,
+                                            MFunctor', Mockable (liftMockable), Promise,
                                             SharedAtomicT, SharedExclusiveT, ThreadId,
-                                            catchAll, currentTime, liftMockableWrappedM)
+                                            catchAll, liftMockableWrappedM)
 import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName, WithLogger, logWarning)
 import           Universum                 hiding (catchAll)
 
-import           Pos.Constants             (genesisSlotDuration)
 import           Pos.Context.Class         (WithNodeContext (..))
 import           Pos.Context.Context       (NodeContext (..))
-import           Pos.Context.Functions     (readNtpData, readNtpLastSlot, readNtpMargin)
 import           Pos.DB.Class              (MonadDB)
-import           Pos.Launcher.Param        (npSystemStart)
-import           Pos.Slotting.Class        (MonadSlots (..))
-import           Pos.Slotting.Logic        (getCurrentSlotUsingNtp)
-import           Pos.Txp.Class             (MonadTxpLD)
-import           Pos.Types                 (Timestamp (..))
+import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
+import           Pos.Txp.MemState.Class    (MonadTxpMem)
 import           Pos.Util.JsonLog          (MonadJL (..), appendJL)
 
 -- | Wrapper for monadic action which brings 'NodeContext'.
 newtype ContextHolder ssc m a = ContextHolder
     { getContextHolder :: ReaderT (NodeContext ssc) m a
-    } deriving (Functor, Applicative, Monad, MonadTrans,
-                MonadThrow, MonadCatch, MonadMask, MonadIO, MonadFail,
-                HasLoggerName, CanLog,
-                MonadTxpLD ssc, MonadFix)
+    } deriving ( Functor
+               , Applicative
+               , Monad
+               , MonadTrans
+               , MonadThrow
+               , MonadCatch
+               , MonadMask
+               , MonadIO
+               , MonadFail
+               , HasLoggerName
+               , CanLog
+               , MonadSlotsData
+               , MonadSlots
+               , MonadTxpMem
+               , MonadFix
+               )
 
 -- | Run 'ContextHolder' action.
 runContextHolder :: NodeContext ssc -> ContextHolder ssc m a -> m a
@@ -77,21 +83,6 @@ instance ( Mockable d m
 
 instance Monad m => WithNodeContext ssc (ContextHolder ssc m) where
     getNodeContext = ContextHolder ask
-
-instance (Mockable CurrentTime m, MonadIO m) =>
-         MonadSlots (ContextHolder ssc m) where
-    getSystemStartTime = ContextHolder $ asks $ npSystemStart . ncNodeParams
-
-    getCurrentTime = do
-        lastMargin <- readNtpMargin
-        Timestamp . (+ lastMargin) <$> currentTime
-
-    getCurrentSlot = do
-        lastSlot <- readNtpLastSlot
-        ntpData <- readNtpData
-        getCurrentSlotUsingNtp lastSlot ntpData
-
-    getSlotDuration = pure genesisSlotDuration
 
 instance (MonadIO m, Mockable Catch m, WithLogger m) => MonadJL (ContextHolder ssc m) where
     jlLog ev = ContextHolder (asks ncJLFile) >>= maybe (pure ()) doLog

@@ -34,9 +34,12 @@ module Pos.Types.Block.Types
 import           Control.Lens          (makeLenses)
 import           Data.Text.Buildable   (Buildable)
 import qualified Data.Text.Buildable   as Buildable
+import           Formatting            (bprint, build, (%))
 import           Universum
 
+import           Pos.Binary.Address    ()
 import           Pos.Binary.Class      (Bi)
+import           Pos.Binary.Crypto     ()
 import           Pos.Crypto            (Signature)
 import           Pos.Data.Attributes   (Attributes)
 import           Pos.Ssc.Class.Types   (Ssc (..))
@@ -45,10 +48,8 @@ import           Pos.Types.Block.Class (Blockchain (..), GenericBlock, GenericBl
                                         GenericBlockHeader (..))
 import           Pos.Types.Core        (BlockVersion, ChainDifficulty, HeaderHash,
                                         SlotId (..), SoftwareVersion)
-import           Pos.Types.Types       (ProxySigEpoch, ProxySigSimple)
+import           Pos.Types.Types       (ProxySigHeavy, ProxySigLight)
 import           Pos.Types.Version     ()
-
-import           Formatting            (bprint, build, (%))
 
 ----------------------------------------------------------------------------
 -- MainBlock
@@ -67,9 +68,11 @@ type MainToSign ssc = (HeaderHash, BodyProof (MainBlockchain ssc), SlotId, Chain
 -- inside the constrained interval).
 data BlockSignature ssc
     = BlockSignature (Signature (MainToSign ssc))
-    | BlockPSignatureEpoch (ProxySigEpoch (MainToSign ssc))
-    | BlockPSignatureSimple (ProxySigSimple (MainToSign ssc))
-    deriving (Show, Eq)
+    | BlockPSignatureEpoch (ProxySigLight (MainToSign ssc))
+    | BlockPSignatureSimple (ProxySigHeavy (MainToSign ssc))
+    deriving (Show, Eq, Generic)
+
+instance NFData (BodyProof (MainBlockchain ssc)) => NFData (BlockSignature ssc)
 
 instance Buildable (BlockSignature ssc) where
     build (BlockSignature s)        = bprint ("BlockSignature: "%build) s
@@ -97,6 +100,8 @@ data MainExtraHeaderData = MainExtraHeaderData
     }
     deriving (Eq, Show, Generic)
 
+instance NFData MainExtraHeaderData
+
 instance Buildable MainExtraHeaderData where
     build MainExtraHeaderData {..} =
       bprint ( "    block: v"%build%"\n"
@@ -108,7 +113,7 @@ instance Buildable MainExtraHeaderData where
 -- | Represents main block extra data
 newtype MainExtraBodyData = MainExtraBodyData
     { _mebAttributes  :: BlockBodyAttributes
-    } deriving (Eq, Show, Generic)
+    } deriving (Eq, Show, Generic, NFData)
 
 instance Buildable MainExtraBodyData where
     -- Currently there is no extra data in block body, attributes are empty.
@@ -159,5 +164,6 @@ type Block ssc = Either (GenesisBlock ssc) (MainBlock ssc)
 ----------------------------------------------------------------------------
 -- Lenses
 ----------------------------------------------------------------------------
+
 makeLenses ''MainExtraHeaderData
 makeLenses ''MainExtraBodyData

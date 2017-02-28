@@ -35,15 +35,15 @@ import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT (..), WithKademliaDHTInstance)
-import           Pos.Slotting.Class          (MonadSlots (..))
+import           Pos.Slotting.Class          (MonadSlots)
+import           Pos.Slotting.Holder         (SlottingHolder)
+import           Pos.Slotting.Ntp            (NtpSlotting)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage       (SscGStateClass)
 import           Pos.Ssc.Extra               (MonadSscMem, SscHolder)
 import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
-import           Pos.Txp.Class               (MonadTxpLD (..))
-import           Pos.Txp.Holder              (TxpLDHolder)
-import           Pos.Types                   (MonadUtxo, MonadUtxoRead)
+import           Pos.Txp.MemState            (MonadTxpMem (..), TxpHolder)
 import           Pos.Update.MemState         (MonadUSMem, USHolder)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
@@ -53,9 +53,8 @@ type WorkMode ssc m
       , MonadMask m
       , MonadSlots m
       , MonadDB ssc m
-      , MonadTxpLD ssc m
+      , MonadTxpMem m
       , MonadDelegation m
-      , MonadUtxo m
       , MonadSscMem ssc m
       , SscGStateClass ssc
       , SscLocalDataClass ssc
@@ -89,22 +88,17 @@ instance MonadJL m => MonadJL (KademliaDHT m) where
 ----------------------------------------------------------------------------
 
 -- Maybe we should move to somewhere else
-deriving instance MonadUtxoRead m => MonadUtxoRead (KademliaDHT m)
-deriving instance MonadUtxo m => MonadUtxo (KademliaDHT m)
 deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (KademliaDHT m)
 deriving instance MonadDB ssc m => MonadDB ssc (KademliaDHT m)
 deriving instance MonadDelegation m => MonadDelegation (KademliaDHT m)
 deriving instance MonadUSMem m => MonadUSMem (KademliaDHT m)
 
-deriving instance MonadUtxoRead m => MonadUtxoRead (PeerStateHolder m)
-deriving instance MonadUtxo m => MonadUtxo (PeerStateHolder m)
 deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (PeerStateHolder m)
 deriving instance MonadDB ssc m => MonadDB ssc (PeerStateHolder m)
-deriving instance MonadSlots m => MonadSlots (PeerStateHolder m)
 deriving instance MonadDHT m => MonadDHT (PeerStateHolder m)
 deriving instance MonadSscMem ssc m => MonadSscMem ssc (PeerStateHolder m)
 deriving instance MonadDelegation m => MonadDelegation (PeerStateHolder m)
-deriving instance MonadTxpLD ssc m => MonadTxpLD ssc (PeerStateHolder m)
+deriving instance MonadTxpMem m => MonadTxpMem (PeerStateHolder m)
 deriving instance MonadJL m => MonadJL (PeerStateHolder m)
 deriving instance MonadUSMem m => MonadUSMem (PeerStateHolder m)
 deriving instance (Monad m, WithKademliaDHTInstance m) => WithKademliaDHTInstance (PeerStateHolder m)
@@ -115,12 +109,14 @@ type RawRealMode ssc =
     KademliaDHT (
     USHolder (
     DelegationT (
-    TxpLDHolder ssc (
+    TxpHolder (
     SscHolder ssc (
+    NtpSlotting (
+    SlottingHolder (
     ContextHolder ssc (
     DBHolder ssc (
     LoggerNameBox Production
-    ))))))))
+    ))))))))))
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.

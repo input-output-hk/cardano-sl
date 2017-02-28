@@ -1,5 +1,4 @@
-resolver: lts-7.16
-compiler: ghc-8.0.2
+resolver: lts-8.2
 
 flags: {}
 
@@ -7,6 +6,7 @@ extra-package-dbs: []
 
 packages:
 - '.'
+- core
 
 - location:
     git: https://github.com/serokell/acid-state.git
@@ -31,11 +31,11 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 344f0e6e1b69b512cbfb04caf42bbe285cc7727a
+    commit: ede7a1a9eafd88e3449b38c7425f5529d6584014
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 9b4927f8115499db2fa3ba07df50d60d02190790
+    commit: b913bfc698fd2927ee5031826688eb7245906e6d
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -46,31 +46,27 @@ packages:
     git: https://github.com/avieth/network-transport
     commit: e7a5f44d0d98370d16df103c9dc61ef7bf15aee8
   extra-dep: true
+# todo replace it with hackage version
+#- location:
+#    git: https://github.com/serokell/serokell-util/
+#    commit: 3675d2e8484c4e1bab98c92a4c9b01ca721ff808
 
 nix:
   shell-file: shell.nix
 
 extra-deps:
 - universum-0.2.1
-- pqueue-1.3.2
-- data-msgpack-0.0.8
 - time-units-1.0.0
-- aeson-extra-0.4.0.0
-- recursion-schemes-5
-- QuickCheck-2.9.2
-- cryptonite-openssl-0.3
 - UtilityTM-0.0.4
-- serokell-util-0.1.3.2
+- serokell-util-0.1.3.5
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-0.4.2
-- turtle-1.3.1                    # earlier versions don't have 'stat'
-- optparse-applicative-0.13.0.0   # needed for turtle
-- criterion-1.1.4.0               # older criterion doesn't like optparse-0.13
-- code-page-0.1.1                 # needed for criterion
-
+- log-warper-0.4.4
+- concurrent-extra-0.7.0.10       # not yet in lts-8
+- derive-2.5.26                   # not yet in lts-8
+- haskell-src-exts-1.17.1         # derive has not moved to 1.18 yet
+- wreq-0.5.0.0                    # not yet in lts-8
+- purescript-bridge-0.8.0.1
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
-
-

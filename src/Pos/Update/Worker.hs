@@ -17,9 +17,10 @@ import           Pos.WorkMode               (WorkMode)
 
 -- | Update System related workers.
 usWorkers :: WorkMode ssc m => ([WorkerSpec m], OutSpecs)
-usWorkers = first pure $
-              localOnNewSlotWorker True
-                $ \s -> processNewSlot s >> void (fork checkForUpdate)
+usWorkers =
+    first pure $
+    localOnNewSlotWorker True $ \s ->
+        processNewSlot s >> void (fork checkForUpdate)
 
 checkForUpdate :: WorkMode ssc m => m ()
 checkForUpdate =

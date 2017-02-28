@@ -3,7 +3,6 @@ module Pos.Security.Class
        ) where
 
 import           Data.Tagged                (Tagged)
--- import           Universum
 
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec)
 import           Pos.Ssc.Class.Types        (Ssc)

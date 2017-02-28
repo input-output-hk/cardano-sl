@@ -13,30 +13,28 @@ module Pos.Context.Functions
        , readBlkSemaphore
        , takeBlkSemaphore
 
-       -- * LRC synchronization
+         -- * LRC synchronization
        , waitLrc
        , lrcActionOnEpoch
        , lrcActionOnEpochReason
 
-       -- * NTP
-       , setNtpLastSlot
-       , readNtpLastSlot
-       , readNtpMargin
-       , readNtpData
+         -- * Misc
+       , getUptime
+       , isRecoveryMode
        ) where
 
 import           Control.Concurrent.MVar (putMVar)
 import qualified Control.Concurrent.STM  as STM
-import           Data.Time.Units         (Microsecond)
+import           Data.Time               (diffUTCTime, getCurrentTime)
+import           Data.Time.Units         (Microsecond, fromMicroseconds)
 import           Universum
 
 import           Pos.Context.Class       (WithNodeContext (..))
 import           Pos.Context.Context     (NodeContext (..), ncGenesisLeaders,
-                                          ncGenesisUtxo)
+                                          ncGenesisUtxo, ncStartTime)
 import           Pos.Lrc.Error           (LrcError (..))
-import           Pos.Slotting.Types      (ssNtpData, ssNtpLastSlot)
-import           Pos.Types               (EpochIndex, HeaderHash, SlotId, SlotLeaders,
-                                          Utxo)
+import           Pos.Txp.Core.Types      (Utxo)
+import           Pos.Types               (EpochIndex, HeaderHash, SlotLeaders)
 import           Pos.Util                (maybeThrow, readTVarConditional)
 
 ----------------------------------------------------------------------------
@@ -101,28 +99,20 @@ lrcActionOnEpochReason epoch reason actionDependsOnLrc = do
     actionDependsOnLrc epoch >>= maybeThrow (LrcDataUnknown epoch reason)
 
 ----------------------------------------------------------------------------
--- NTP data
+-- Misc
 ----------------------------------------------------------------------------
 
-setNtpLastSlot :: (MonadIO m, WithNodeContext ssc m) => SlotId -> m ()
-setNtpLastSlot slotId = do
-    nc <- getNodeContext
-    atomically $ STM.modifyTVar (ncSlottingState nc)
-                                (ssNtpLastSlot %~ max slotId)
+-- | Returns node uptime based on current time and 'ncStartTime'.
+getUptime :: (MonadIO m, WithNodeContext ssc m) => m Microsecond
+getUptime = do
+    curTime <- liftIO getCurrentTime
+    startTime <- ncStartTime <$> getNodeContext
+    let seconds = toRational $ curTime `diffUTCTime` startTime
+    pure $ fromMicroseconds $ round $ seconds * 1000 * 1000
 
-readNtpLastSlot :: (MonadIO m, WithNodeContext ssc m) => m SlotId
-readNtpLastSlot = do
-    nc <- getNodeContext
-    atomically $ view ssNtpLastSlot <$> STM.readTVar (ncSlottingState nc)
-
-readNtpMargin :: (MonadIO m, WithNodeContext ssc m) => m Microsecond
-readNtpMargin = do
-    nc <- getNodeContext
-    atomically $ fst . view ssNtpData <$> STM.readTVar (ncSlottingState nc)
-
-readNtpData
-    :: (MonadIO m, WithNodeContext ssc m)
-    => m (Microsecond, Microsecond)
-readNtpData = do
-    nc <- getNodeContext
-    atomically $ view ssNtpData <$> STM.readTVar (ncSlottingState nc)
+-- | Returns if 'ncRecoveryHeader' is 'Just' which is equivalent to
+-- "we're in recovery mode".
+isRecoveryMode :: (MonadIO m, WithNodeContext ssc m) => m Bool
+isRecoveryMode = do
+    var <- ncRecoveryHeader <$> getNodeContext
+    isJust <$> atomically (STM.tryReadTMVar var)

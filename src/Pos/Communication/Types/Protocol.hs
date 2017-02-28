@@ -36,10 +36,11 @@ import           Control.Arrow         ((&&&))
 import           Data.Hashable         (Hashable)
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.Text.Buildable   as B
-import           Formatting            (bprint, build, hex, sformat, shown, (%))
+import           Formatting            (bprint, build, hex, int, sformat, stext, (%))
 import qualified Node                  as N
 import           Node.Message          (Message (..), MessageName (..))
 import           Serokell.Util.Base16  (base16F)
+import           Serokell.Util.Text    (listJson)
 import           Serokell.Util.Text    (mapJson)
 import           Universum
 
@@ -67,7 +68,10 @@ newtype NodeId = NodeId (PeerId, N.NodeId)
 -- TODO Implement Buildable N.NodeId and get rid of this ugly shit
 instance Buildable NodeId where
     build (NodeId (peerId, nNodeId)) =
-        bprint (shown%"/"%build) (nodeIdToAddress nNodeId) peerId
+        let addr = maybe "<unknown host:port>" (uncurry $ sformat (stext%":"%int)) $
+                   first decodeUtf8 <$>
+                   nodeIdToAddress nNodeId
+        in bprint (stext%"/"%build) addr peerId
 
 data SendActions m = SendActions {
        -- | Send a isolated (sessionless) message to a node
@@ -82,7 +86,7 @@ data SendActions m = SendActions {
            :: forall snd rcv t .
             ( Bi snd, Message snd, Bi rcv, Message rcv )
            => NodeId
-           -> (ConversationActions snd rcv m -> m t)
+           -> (m PeerData -> ConversationActions snd rcv m -> m t)
            -> m t
 }
 
@@ -93,11 +97,6 @@ data ConversationActions body rcv m = ConversationActions {
        -- | Receive a message within the context of this conversation.
        --   'Nothing' means end of input (peer ended conversation).
      , recv     :: m (Maybe rcv)
-
-     -- | The data associated with that peer (reported by the peer).
-     --        --   It's in m because trying to take it may block (it may not be
-     --               --   known yet!).
-     , peerData :: m PeerData
 }
 
 newtype PeerId = PeerId ByteString
@@ -130,6 +129,9 @@ instance Buildable (MessageName, HandlerSpec) where
     build (MessageName rcvType, h) = bprint (base16F % " -> " % build) rcvType h
 
 type HandlerSpecs = HashMap MessageName HandlerSpec
+
+instance Buildable HandlerSpecs where
+    build x = bprint ("HandlerSpecs: "%listJson) (HM.toList x)
 
 data VerInfo = VerInfo
     { vIMagic        :: Int32
@@ -196,4 +198,3 @@ toOutSpecs :: [(MessageName, HandlerSpec)] -> OutSpecs
 toOutSpecs = OutSpecs . HM.fromList
 
 type ListenersWithOut m = ([ListenerSpec m], OutSpecs)
-

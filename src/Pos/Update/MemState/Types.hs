@@ -24,7 +24,6 @@ import           Pos.Update.Poll.Types    (PollModifier)
 
 -- | MemPool is data maintained by node to be included into block and
 -- relayed to other nodes.
-
 data MemPool = MemPool
     { mpProposals  :: !UpdateProposals
     , mpLocalVotes :: !LocalVotes

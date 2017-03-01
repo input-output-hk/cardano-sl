@@ -6,7 +6,6 @@ module Pos.Update.Poll.Modifier
 
 import           Data.Default          (Default (def))
 import qualified Data.HashMap.Strict   as HM
-import qualified Data.HashSet          as HS
 import           Universum
 
 import           Pos.Update.Poll.Types (PollModifier (..))
@@ -14,15 +13,11 @@ import           Pos.Update.Poll.Types (PollModifier (..))
 instance Default PollModifier where
     def =
         PollModifier
-        { pmNewBVs = mempty
-        , pmDelBVs = mempty
+        { pmBVs = mempty
         , pmAdoptedBVFull = Nothing
-        , pmNewConfirmed = mempty
-        , pmDelConfirmed = mempty
-        , pmNewActiveProps = mempty
-        , pmNewConfirmedProps = mempty
-        , pmDelConfirmedProps = mempty
-        , pmDelActiveProps = mempty
+        , pmConfirmed = mempty
+        , pmConfirmedProps = mempty
+        , pmActiveProps = mempty
         , pmNewActivePropsIdx = mempty
         , pmDelActivePropsIdx = mempty
         , pmSlottingData = Nothing
@@ -32,25 +27,17 @@ instance Default PollModifier where
 -- there are two confliciting modifications, the second one wins.
 modifyPollModifier :: PollModifier -> PollModifier -> PollModifier
 modifyPollModifier pmOld pmNew = PollModifier
-    (unionHM pmNewBVs `diffMapSet` pmDelBVs pmNew)
-    (unionHS pmDelBVs)
+    (pmBVs pmOld <> pmBVs pmNew)
     (pmAdoptedBVFull pmNew <|> pmAdoptedBVFull pmOld)
-    (unionHM pmNewConfirmed `diffMapSet` pmDelConfirmed pmNew)
-    (unionHS pmDelConfirmed)
-    (unionHM pmNewConfirmedProps `diffMapSet` pmDelConfirmedProps pmNew)
-    (unionHS pmDelConfirmedProps)
-    (unionHM pmNewActiveProps `diffMapSet` pmDelActiveProps pmNew)
-    (unionHS pmDelActiveProps)
+    (pmConfirmed pmOld <> pmConfirmed pmNew)
+    (pmConfirmedProps pmOld <> pmConfirmedProps pmNew)
+    (pmActiveProps pmOld <> pmActiveProps pmNew)
     (unionHM pmNewActivePropsIdx `HM.difference` pmDelActivePropsIdx pmNew)
     (unionHM pmDelActivePropsIdx)
     (pmSlottingData pmNew <|> pmSlottingData pmOld)
   where
     unionHM :: (Hashable k, Eq k) => (PollModifier -> HashMap k v) -> HashMap k v
     unionHM getter = getter pmNew `HM.union` getter pmOld
-    unionHS :: (Hashable a, Eq a) => (PollModifier -> HashSet a) -> HashSet a
-    unionHS getter = getter pmNew `HS.union` getter pmOld
-    diffMapSet :: (Hashable k, Eq k) => HashMap k v -> HashSet k -> HashMap k v
-    diffMapSet a b = a `HM.difference` (HS.toMap b)
 
 instance Monoid PollModifier where
     mempty = def

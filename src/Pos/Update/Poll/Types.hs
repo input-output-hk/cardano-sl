@@ -25,15 +25,11 @@ module Pos.Update.Poll.Types
 
          -- * Poll modifier
        , PollModifier (..)
-       , pmNewBVsL
-       , pmDelBVsL
+       , pmBVsL
        , pmAdoptedBVFullL
-       , pmNewConfirmedL
-       , pmDelConfirmedL
-       , pmNewConfirmedPropsL
-       , pmDelConfirmedPropsL
-       , pmNewActivePropsL
-       , pmDelActivePropsL
+       , pmConfirmedL
+       , pmConfirmedPropsL
+       , pmActivePropsL
        , pmNewActivePropsIdxL
        , pmDelActivePropsIdxL
        , pmSlottingDataL
@@ -64,6 +60,7 @@ import           Pos.Types.Version          (ApplicationName, BlockVersion,
                                              NumSoftwareVersion, SoftwareVersion)
 import           Pos.Update.Core            (BlockVersionData (..), StakeholderVotes,
                                              UpId, UpdateProposal (..))
+import           Pos.Util.Modifier          (MapModifier)
 
 ----------------------------------------------------------------------------
 -- Proposal State
@@ -209,34 +206,26 @@ bvsMaxBlockSize = bvdMaxBlockSize . bvsData
 -- one should apply to global state to obtain result of application of
 -- MemPool or blocks which are verified.
 data PollModifier = PollModifier
-    { pmNewBVs            :: !(HashMap BlockVersion BlockVersionState)
-    , pmDelBVs            :: !(HashSet BlockVersion)
+    { pmBVs               :: !(MapModifier BlockVersion BlockVersionState)
     , pmAdoptedBVFull     :: !(Maybe (BlockVersion, BlockVersionData))
-    , pmNewConfirmed      :: !(HashMap ApplicationName NumSoftwareVersion)
-    , pmDelConfirmed      :: !(HashSet ApplicationName)
-    , pmNewConfirmedProps :: !(HashMap SoftwareVersion ConfirmedProposalState)
-    , pmDelConfirmedProps :: !(HashSet SoftwareVersion)
-    , pmNewActiveProps    :: !(HashMap UpId ProposalState)
-    , pmDelActiveProps    :: !(HashSet UpId)
+    , pmConfirmed         :: !(MapModifier ApplicationName NumSoftwareVersion)
+    , pmConfirmedProps    :: !(MapModifier SoftwareVersion ConfirmedProposalState)
+    , pmActiveProps       :: !(MapModifier UpId ProposalState)
     , pmNewActivePropsIdx :: !(HashMap ApplicationName UpId)
     , pmDelActivePropsIdx :: !(HashMap ApplicationName UpId)
     , pmSlottingData      :: !(Maybe SlottingData)
     } deriving (Show)
 
-makeLensesFor [ ("pmNewBVs", "pmNewBVsL")
-              , ("pmDelBVs", "pmDelBVsL")
-              , ("pmAdoptedBVFull", "pmAdoptedBVFullL")
-              , ("pmNewConfirmed", "pmNewConfirmedL")
-              , ("pmDelConfirmed", "pmDelConfirmedL")
-              , ("pmNewConfirmedProps", "pmNewConfirmedPropsL")
-              , ("pmDelConfirmedProps", "pmDelConfirmedPropsL")
-              , ("pmNewActiveProps", "pmNewActivePropsL")
-              , ("pmDelActiveProps", "pmDelActivePropsL")
-              , ("pmNewActivePropsIdx", "pmNewActivePropsIdxL")
-              , ("pmDelActivePropsIdx", "pmDelActivePropsIdxL")
-              , ("pmSlottingData", "pmSlottingDataL")
-              ]
-  ''PollModifier
+flip makeLensesFor ''PollModifier
+    [ ("pmBVs", "pmBVsL")
+    , ("pmAdoptedBVFull", "pmAdoptedBVFullL")
+    , ("pmConfirmed", "pmConfirmedL")
+    , ("pmConfirmedProps", "pmConfirmedPropsL")
+    , ("pmActiveProps", "pmActivePropsL")
+    , ("pmNewActivePropsIdx", "pmNewActivePropsIdxL")
+    , ("pmDelActivePropsIdx", "pmDelActivePropsIdxL")
+    , ("pmSlottingData", "pmSlottingDataL")
+    ]
 
 ----------------------------------------------------------------------------
 -- Undo

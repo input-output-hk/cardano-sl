@@ -7,16 +7,16 @@ packages:
       commit: 278171b8ab104c78aa95bcdd9b63c8ced4fb1ed2
     extra-dep: true
   - location:
-      git: https://github.com/avieth/network-transport-tcp
-      commit: 8fb61171a0f09e554c051ca112e3967cea6b7f69
-    extra-dep: true
-  - location:
       git: https://github.com/avieth/network-transport
       commit: f2321a103f53f51d36c99383132e3ffa3ef1c401
     extra-dep: true
   - location:
+      git: https://github.com/avieth/network-transport-tcp
+      commit: 1739cc6d5c73257201e5551088f4ba56d5ede15c
+    extra-dep: true
+  - location:
       git: https://github.com/avieth/network-transport-inmemory
-      commit: c6893b17531ed47838c8d8f0bf434cf0119b50df
+      commit: 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
     extra-dep: true
 
 nix:

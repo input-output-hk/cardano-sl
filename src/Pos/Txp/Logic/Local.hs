@@ -67,9 +67,10 @@ txProcessTransaction itw@(txId, (Tx{..}, _, _)) = do
             let res = runExcept $
                       flip runUtxoReaderT resolved $
                       execTxpTLocal uv mp undo $
-                      processTx tx
 #ifdef DWITH_EXPLORER
-                      >> putTxExtra (fst tx) (makeExtra resolved)
+                      processTx tx $ makeExtra resolved
+#else
+                      processTx tx
 #endif
             in
             case res of
@@ -93,7 +94,12 @@ txNormalize = do
     res <- runExceptT $
            runDBTxp $
            execTxpTLocal def def def $
-           normalizeTxp $ HM.toList _mpLocalTxs
+           normalizeTxp $
+#ifdef DWITH_EXPLORER
+           HM.toList $ HM.intersectionWith (,) _mpLocalTxs _mpLocalTxsExtra
+#else
+           HM.toList _mpLocalTxs
+#endif
     case res of
         Left _                -> setTxpLocalData (def, def, def, utxoTip)
         Right TxpModifier{..} -> setTxpLocalData (_txmUtxoView, _txmMemPool, _txmUndos, utxoTip)

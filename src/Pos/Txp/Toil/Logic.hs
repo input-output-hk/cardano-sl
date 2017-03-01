@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies    #-}
 
 -- | All logic of Txp,
@@ -32,6 +33,9 @@ import           Pos.Txp.Toil.Class   (MonadBalances (..), MonadBalancesRead (..
                                        MonadTxPool (..), MonadUtxo (..))
 import           Pos.Txp.Toil.Failure (TxpVerFailure (..))
 import qualified Pos.Txp.Toil.Utxo    as Utxo
+#ifdef DWITH_EXPLORER
+import Pos.Types.Explorer (TxExtra)
+#endif
 
 type GlobalTxpMode m = ( MonadUtxo m
                        , MonadBalances m
@@ -67,24 +71,48 @@ rollbackTxp txun = do
 
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.
-normalizeTxp :: LocalTxpMode m => [(TxId, TxAux)] -> m ()
+normalizeTxp
+    :: LocalTxpMode m
+#ifdef DWITH_EXPLORER
+    => [((TxId, (TxAux, TxExtra))]
+#else
+    => [(TxId, TxAux)]
+#endif
+    -> m ()
 normalizeTxp txs = do
     topsorted <- note TxpCantTopsort (topsortTxs wHash txs)
-    mapM_ (runExceptT . processTx) topsorted
+    mapM_ normalize topsorted
   where
+#ifdef DWITH_EXPLORER
+    wHash (i, ((t, _, _), _)) = WithHash t i
+    normalize = runExceptT . uncurry processTx . repair
+    repair (i, (txaux, extra)) = ((i, txaux), extra)
+#else
     wHash (i, (t, _, _)) = WithHash t i
+    normalize = runExceptT . processTx
+#endif
 
 -- CHECK: @processTx
 -- #processWithPureChecks
 -- Validate one transaction and also add it to mem pool and apply to utxo
 -- if transaction is valid.
+#ifdef DWITH_EXPLORER
+processTx
+    :: LocalTxpMode m => (TxId, TxAux) -> TxExtra -> m ()
+processTx tx@(id, aux) extra = do
+#else
 processTx
     :: LocalTxpMode m => (TxId, TxAux) -> m ()
 processTx tx@(id, aux) = do
+#endif
     whenM (hasTx id) $ throwError TxpKnown
     whenM ((>= maxLocalTxs) <$> poolSize) $ throwError TxpOverwhelmed
     undo <- processTxWithPureChecks True tx
+#ifdef DWITH_EXPLORER
+    putTxWithUndo id aux undo extra
+#else
     putTxWithUndo id aux undo
+#endif
 
 ----------------------------------------------------------------------------
 -- Helpers

@@ -101,19 +101,21 @@ instance MonadBalancesRead m => MonadBalances (TxpT m) where
 instance Monad m => MonadTxPool (TxpT m) where
     hasTx id = TxpT $ use $ txmMemPool . mpLocalTxs . to (HM.member id)
 
+#ifdef DWITH_EXPLORER
+    putTxWithUndo id tx undo extra = TxpT $ do
+#else
     putTxWithUndo id tx undo = TxpT $ do
+#endif
         has <- use $ txmMemPool . mpLocalTxs . to (HM.member id)
         unless has $ do
             txmMemPool . mpLocalTxs . at id .= Just tx
             txmMemPool . mpLocalTxsSize %= (+1)
+#ifdef DWITH_EXPLORER
+            txmMemPool . mpLocalTxsExtra . at id .= Just extra
+#endif
             txmUndos . at id .= Just undo
 
     poolSize = TxpT $ use $ txmMemPool . mpLocalTxsSize
-
-#ifdef DWITH_EXPLORER
-    putTxExtra id txExtra = TxpT $
-        txmMemPool . mpLocalTxsExtra . at id .= Just txExtra
-#endif
 
 ----------------------------------------------------------------------------
 -- Runners

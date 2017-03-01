@@ -94,28 +94,29 @@ instance MonadBalances m => MonadBalances (ExceptT s m)
 
 class Monad m => MonadTxPool m where
     hasTx :: TxId -> m Bool
-    putTxWithUndo :: TxId -> TxAux -> TxUndo -> m ()
     poolSize :: m Int
 #ifdef DWITH_EXPLORER
-    putTxExtra :: TxId -> TxExtra -> m ()
+    putTxWithUndo :: TxId -> TxAux -> TxUndo -> TxExtra -> m ()
+#else
+    putTxWithUndo :: TxId -> TxAux -> TxUndo -> m ()
 #endif
 
     default hasTx
         :: (MonadTrans t, MonadTxPool m', t m' ~ m) => TxId -> m Bool
     hasTx = lift . hasTx
 
-    default putTxWithUndo
-        :: (MonadTrans t, MonadTxPool m', t m' ~ m) => TxId -> TxAux -> TxUndo -> m ()
-    putTxWithUndo id tx = lift . putTxWithUndo id tx
-
     default poolSize
         :: (MonadTrans t, MonadTxPool m', t m' ~ m) => m Int
     poolSize = lift poolSize
 
 #ifdef DWITH_EXPLORER
-    default putTxExtra
-        :: (MonadTrans t, MonadTxPool m', t m' ~ m) => m Int
-    putTxExtra = lift putTxExtra
+    default putTxWithUndo
+        :: (MonadTrans t, MonadTxPool m', t m' ~ m) => TxId -> TxAux -> TxUndo -> TxExtra -> m ()
+    putTxWithUndo id tx undo = lift . putTxWithUndo id tx undo
+#else
+    default putTxWithUndo
+        :: (MonadTrans t, MonadTxPool m', t m' ~ m) => TxId -> TxAux -> TxUndo -> m ()
+    putTxWithUndo id tx = lift . putTxWithUndo id tx
 #endif
 
 instance MonadTxPool m => MonadTxPool (ReaderT s m)

@@ -25,6 +25,8 @@ data Action
     | ReceiveInitialBlocks (Either Error CBlockEntries)
     | RequestBlockSummary CHash
     | ReceiveBlockSummary (Either Error CBlockSummary)
+    | RequestInitialTxs
+    | ReceiveInitialTxs (Either Error CTxEntries)
     -- dashboard
     | DashboardExpandBlocks Boolean         -- toggle blocks
     | DashboardPaginateBlocks Int           -- current pagination of blocks
@@ -38,10 +40,6 @@ data Action
     | BlockPaginateTransactions Int       -- current pagination of transactions
     -- misc
     | NoOp
-    -- Debugging
-    -- TODO (jk) remove all actions for debugging later
-    | RequestLatestTransactions
-    | ReceiveLatestTransactions (Either Error CTxEntries)
 
 
 type ActionChannel = Channel Action

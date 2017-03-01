@@ -16,6 +16,8 @@ type State =
     , latestBlocks :: CBlockEntries
     , initialBlocksRequested :: Boolean
     , handleLatestBlocksSocketResult :: Boolean
+    , initialTxsRequested :: Boolean
+    , handleLatestTxsSocketResult :: Boolean
     , latestBlock :: Maybe CBlockSummary
     , latestTransactions :: CTxEntries
     , errors :: Errors

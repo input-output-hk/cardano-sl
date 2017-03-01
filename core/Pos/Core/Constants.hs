@@ -14,7 +14,7 @@ module Pos.Core.Constants
        ) where
 
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
-import           Serokell.Util.Time         (sec)
+import           Serokell.Util              (sec)
 import           Universum                  hiding (lift)
 
 #ifndef DEV_MODE

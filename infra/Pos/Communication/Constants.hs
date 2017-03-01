@@ -6,7 +6,7 @@ module Pos.Communication.Constants
 
 import           Data.Time.Units            (Microsecond)
 import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util.Time         (ms)
+import           Serokell.Util              (ms)
 import           Universum
 
 import           Pos.Infra.Constants.Parser (infraConstants)

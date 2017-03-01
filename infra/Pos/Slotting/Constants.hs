@@ -5,7 +5,7 @@ module Pos.Slotting.Constants
        ) where
 
 import           Data.Time.Units            (Microsecond)
-import           Serokell.Util.Time         (mcs, sec)
+import           Serokell.Util              (mcs, sec)
 import           Universum
 
 import           Pos.Infra.Constants.Parser (infraConstants)

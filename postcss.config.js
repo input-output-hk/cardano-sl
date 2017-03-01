@@ -11,7 +11,7 @@ module.exports = {
     require('postcss-svgo'),
     require('postcss-flexbox'),
     require('postcss-neat')({
-      neatMaxWidth: '960px'
+      neatMaxWidth: '1200px'
     }),
     require('postcss-extend'),
     require('postcss-custom-media'),

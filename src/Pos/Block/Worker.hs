@@ -37,6 +37,10 @@ import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Reporting.Methods       (reportingFatal)
 import           Pos.Slotting                (currentTimeSlotting, getCurrentSlot,
                                               getSlotStartEmpatically)
+#if !defined(DEV_MODE) && defined(WITH_WALLET)
+import           Data.Time.Units             (convertUnit)
+import           Pos.Slotting                (getLastKnownSlotDuration)
+#endif
 import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
 import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (..),
                                               Timestamp (Timestamp),

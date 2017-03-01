@@ -7,11 +7,12 @@
     "start": "npm run server:dev",
     "postinstall": "bower cache clean && bower install",
     "preinstall": "which psc || npm install purescript@0.10.7",
+    "clean:output": "./node_modules/.bin/rimraf output",
     "server:webpack": "./node_modules/.bin/webpack-dev-server --config webpack.config.babel.js --progress",
-    "server:dev": "./node_modules/.bin/rimraf output && NODE_ENV=development npm run server:webpack",
-    "server:prod": "./node_modules/.bin/rimraf output && NODE_ENV=production npm run server:webpack",
+    "server:dev": "npm run clean:output && NODE_ENV=development npm run server:webpack",
+    "server:prod": "npm run clean:output && NODE_ENV=production npm run server:webpack",
     "build:prod": "./node_modules/.bin/rimraf dist && mkdir dist && NODE_ENV=production ./node_modules/.bin/webpack --config webpack.config.babel.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "psc -o output 'bower_components/purescript-*/src/**/*.purs' 'src/**/*.purs' && NODE_PATH=./output node -e 'require(\"Main.Test\").main();'"
   },
   "repository": {
     "type": "git",

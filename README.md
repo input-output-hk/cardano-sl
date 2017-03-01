@@ -212,3 +212,14 @@ The entry point of all CSS is [`index.css`](src/index.css). This file includes a
 Global styles are defined in [`global.css`](src/global.css). There you will find all definitions of global `vars`, `fonts`, `inline SVGs`, `buttons` and `selectors`.
 
 All other CSS files are located side by side with its PureScript "UI" modules. For example: Styles of [`Dashboard.purs`](src/Explorer/View/Dashboard.purs) are defined in [`dashboard.css`](src/Explorer/View/dashboard.css). Both files are located in the same folder [`src/Explorer/View/`](src/Explorer/View/).
+
+## Tests
+
+All PureScript test files are suffixed with `*.Test.purs` and located side by side with its implementation files. For example: [`String.purs`](src/Explorer/Util/String.purs) (implementation file) and [`String.Test.purs`](src/Explorer/Util/String.Test.purs) (test file) are located in the same folder [`src/Explorer/Util/`](src/Explorer/Util/).
+
+
+To start test run:
+
+```bash
+npm test
+```

@@ -285,7 +285,7 @@ makeTCPTransport bind hostAddr port qdisc = do
             , TCP.tcpReuseClientAddr = True
             , TCP.tcpNewQDisc = qdisc
             }
-    choice <- TCP.createTransport bind hostAddr port tcpParams
+    choice <- TCP.createTransport bind port ((,) hostAddr) tcpParams
     case choice of
         Left err -> error (show err)
         Right transport -> return transport

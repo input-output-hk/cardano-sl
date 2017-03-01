@@ -245,7 +245,10 @@ downloadHeader = getContextTMVar PC.ncProgressHeader
 instance SscHelpersClass ssc =>
          MonadBlockchainInfo (RawRealMode ssc) where
     networkChainDifficulty = getContextTVar PC.ncLastKnownHeader >>= \case
-        Just lh -> return . Just $ lh ^. difficultyL
+        Just lh -> do
+            thDiff <- view difficultyL <$> topHeader @ssc
+            let lhDiff = lh ^. difficultyL
+            return . Just $ max thDiff lhDiff
         Nothing -> runMaybeT $ do
             cSlot <- flattenSlotId <$> MaybeT getCurrentSlot
             th <- lift (topHeader @ssc)

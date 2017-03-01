@@ -49,6 +49,7 @@ import qualified Network.Transport.TCP       as TCP
 import           Node                        (Node, NodeAction (..), hoistSendActions,
                                               node)
 import           Node.Util.Monitor           (setupMonitor, stopMonitor)
+import           Serokell.Util               (sec)
 import qualified STMContainers.Map           as SM
 import           System.Random               (newStdGen)
 import           System.Wlog                 (LoggerConfig (..), WithLogger, logError,
@@ -105,7 +106,6 @@ import           Pos.Txp                     (runTxpHolder)
 import           Pos.Types                   (Timestamp (Timestamp))
 import           Pos.Update.MemState         (runUSHolder)
 import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
-import           Pos.Util.TimeWarp           (sec)
 import           Pos.Util.UserSecret         (usKeys)
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (MinWorkMode, ProductionMode, RawRealMode,

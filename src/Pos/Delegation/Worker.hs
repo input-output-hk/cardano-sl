@@ -9,6 +9,7 @@ import           Data.Time.Clock            (getCurrentTime)
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (Delay, Mockable, delay)
 import           Paths_cardano_sl           (version)
+import           Serokell.Util              (sec)
 import           System.Wlog                (WithLogger, logError)
 import           Universum
 
@@ -21,7 +22,6 @@ import           Pos.DHT.Model.Class        (MonadDHT)
 import           Pos.Reporting              (MonadReportingMem)
 import           Pos.Reporting.Methods      (reportingFatal)
 import           Pos.Shutdown               (MonadShutdownMem, runIfNotShutdown)
-import           Pos.Util.TimeWarp          (sec)
 import           Pos.WorkMode               (WorkMode)
 
 -- | All workers specific to proxy sertificates processing.

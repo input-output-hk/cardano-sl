@@ -15,8 +15,7 @@ import           Formatting                  (bprint, build, sformat, shown, (%)
 import           Mockable                    (delay, fork)
 import           Paths_cardano_sl            (version)
 import           Pos.Communication.Protocol  (SendActions)
-import           Serokell.Util               (VerificationRes (..), listJson, pairF)
-import           Serokell.Util.Exceptions    ()
+import           Serokell.Util               (VerificationRes (..), listJson, pairF, sec)
 import           System.Wlog                 (WithLogger, logDebug, logError, logInfo,
                                               logWarning)
 import           Universum
@@ -47,7 +46,6 @@ import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (
 import           Pos.Util                    (inAssertMode, logWarningWaitLinear,
                                               mconcatPair)
 import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
-import           Pos.Util.TimeWarp           (sec)
 import           Pos.WorkMode                (WorkMode)
 
 

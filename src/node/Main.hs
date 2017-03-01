@@ -7,6 +7,7 @@ import           Data.List             ((!!))
 import           Data.Maybe            (fromJust)
 import           Data.Proxy            (Proxy (..))
 import           Mockable              (Production)
+import           Serokell.Util         (sec)
 import           System.Wlog           (LoggerName)
 import           Universum
 
@@ -15,7 +16,6 @@ import qualified Pos.CLI               as CLI
 import           Pos.Constants         (staticSysStart)
 import           Pos.Context           (getNodeContext, ncUpdateSemaphore)
 import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
-import           Pos.Util.TimeWarp     (sec)
 #ifdef DEV_MODE
 import           Pos.Genesis           (genesisSecretKeys)
 #else

@@ -22,29 +22,26 @@ module Pos.Slotting.Util
        , waitSystemStart
        ) where
 
-import           Data.Time.Units          (Millisecond)
-import           Data.Time.Units          (convertUnit)
-import           Formatting               (build, int, sformat, shown, (%))
-import           Mockable                 (Delay, Fork, Mockable, delay, fork)
-import           Paths_cardano_sl_infra   (version)
-import           Serokell.Util.Exceptions ()
-import           Serokell.Util.Time       (minute, sec)
-import           System.Wlog              (WithLogger, logDebug, logError, logInfo,
-                                           logNotice, modifyLoggerName)
+import           Data.Time.Units        (Millisecond, convertUnit)
+import           Formatting             (build, int, sformat, shown, (%))
+import           Mockable               (Delay, Fork, Mockable, delay, fork)
+import           Paths_cardano_sl_infra (version)
+import           Serokell.Util          (minute, sec)
+import           System.Wlog            (WithLogger, logDebug, logError, logInfo,
+                                         logNotice, modifyLoggerName)
 import           Universum
 
-import           Pos.Core.Slotting        (flattenSlotId)
-import           Pos.Core.Types           (FlatSlotId, SlotId (..), Timestamp (..),
-                                           slotIdF)
-import           Pos.DHT.Model.Class      (MonadDHT)
-import           Pos.Exception            (CardanoException)
-import           Pos.Reporting.MemState   (MonadReportingMem)
-import           Pos.Reporting.Methods    (reportMisbehaviourMasked, reportingFatal)
-import           Pos.Shutdown             (MonadShutdownMem, runIfNotShutdown)
-import           Pos.Slotting.Class       (MonadSlots (..))
-import           Pos.Slotting.Error       (SlottingError (..))
-import           Pos.Slotting.MemState    (MonadSlotsData (..))
-import           Pos.Slotting.Types       (EpochSlottingData (..), SlottingData (..))
+import           Pos.Core.Slotting      (flattenSlotId)
+import           Pos.Core.Types         (FlatSlotId, SlotId (..), Timestamp (..), slotIdF)
+import           Pos.DHT.Model.Class    (MonadDHT)
+import           Pos.Exception          (CardanoException)
+import           Pos.Reporting.MemState (MonadReportingMem)
+import           Pos.Reporting.Methods  (reportMisbehaviourMasked, reportingFatal)
+import           Pos.Shutdown           (MonadShutdownMem, runIfNotShutdown)
+import           Pos.Slotting.Class     (MonadSlots (..))
+import           Pos.Slotting.Error     (SlottingError (..))
+import           Pos.Slotting.MemState  (MonadSlotsData (..))
+import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData (..))
 
 -- TODO eliminate this copy-paste when would refactor Pos.Util
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a

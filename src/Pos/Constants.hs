@@ -67,8 +67,7 @@ module Pos.Constants
 import           Data.Time.Units            (Microsecond, Millisecond, convertUnit)
 import           Language.Haskell.TH.Syntax (lift, runIO)
 import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util              (staticAssert)
-import           Serokell.Util.Time         (ms, sec)
+import           Serokell.Util              (ms, sec, staticAssert)
 import           System.Environment         (lookupEnv)
 import qualified Text.Parsec                as P
 import           Universum                  hiding (lift)

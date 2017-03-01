@@ -19,7 +19,7 @@ import           Data.List                 (intersect, (\\))
 import           Formatting                (build, int, sformat, shown, (%))
 import qualified Network.Kademlia          as K
 import           Prelude                   (id)
-import           Serokell.Util.Time        (ms, sec)
+import           Serokell.Util             (ms, sec)
 import           System.Directory          (doesFileExist)
 import           System.Wlog               (WithLogger, logDebug, logError, logInfo,
                                             logWarning, usingLoggerName)

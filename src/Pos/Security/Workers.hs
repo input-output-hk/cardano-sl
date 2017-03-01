@@ -11,6 +11,7 @@ import           Data.Time.Units             (convertUnit)
 import           Formatting                  (build, int, sformat, (%))
 import           Mockable                    (delay)
 import           Paths_cardano_sl            (version)
+import           Serokell.Util               (sec)
 import           System.Wlog                 (logNotice, logWarning)
 import           Universum
 
@@ -42,7 +43,6 @@ import           Pos.Types                   (BlockHeader, EpochIndex, MainBlock
                                               genesisHash, headerHash, headerLeaderKey,
                                               prevBlockL)
 import           Pos.Util                    (mconcatPair)
-import           Pos.Util.TimeWarp           (sec)
 import           Pos.WorkMode                (WorkMode)
 
 

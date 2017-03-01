@@ -15,7 +15,7 @@ set -o pipefail
 #
 #   * Builds dependencies without --fast (because Stack might break otherwise)
 #   * Builds the project with --fast (to make compilation faster),
-#     tests, benchmarks, and also sets flags `with-wallet` and `with-web`
+#     tests and benchmarks
 #   * Highlights error messages in GHC output
 #   * Strips unneeded info from GHC output (such as file names)
 
@@ -54,7 +54,6 @@ fi
 # TODO: how can --ghc-options be moved into commonargs?
 commonargs='--test --no-haddock-deps --bench --jobs=4'
 norun='--no-run-tests --no-run-benchmarks'
-webwallet='--flag cardano-sl:with-web --flag cardano-sl:with-wallet'
 
 if [ -e .no-nix ]; then
   commonargs="$commonargs --no-nix"
@@ -89,13 +88,13 @@ for prj in $to_build; do
   echo "Building $prj"
   stack build                               \
       --ghc-options="+RTS -A256m -n2m -RTS" \
-      $commonargs $webwallet $norun         \
+      $commonargs $norun                    \
       --dependencies-only                   \
       $args                                 \
       $prj
   stack build                               \
       --ghc-options="+RTS -A256m -n2m -RTS" \
-      $commonargs $webwallet $norun         \
+      $commonargs $norun                    \
       --fast                                \
       $args                                 \
       $prj                                  \
@@ -107,7 +106,7 @@ done
 if [[ $test == true ]]; then
   stack build                               \
       --ghc-options="+RTS -A256m -n2m -RTS" \
-      $commonargs $webwallet                \
+      $commonargs                           \
       --no-run-benchmarks                   \
       --fast                                \
       $args                                 \

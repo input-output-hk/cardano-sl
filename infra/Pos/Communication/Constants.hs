@@ -20,6 +20,6 @@ networkReceiveTimeout = ms . fromIntegral . ccNetworkReceiveTimeout $ infraConst
 maxReqSize :: Byte
 maxReqSize = ccMaxReqSize infraConstants
 
--- | See 'Pos.CompileConfig.ccMaxReqSize'.
+-- | See 'Pos.CompileConfig.ccMaxInvSize'.
 maxInvSize :: Byte
-maxInvSize = ccMaxReqSize infraConstants
+maxInvSize = ccMaxInvSize infraConstants

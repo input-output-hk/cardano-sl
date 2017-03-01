@@ -21,7 +21,7 @@ import           Pos.Util.Config            (configFilePath, unsafeReadConfig)
 infraConstants :: InfraConstants
 #ifdef DEV_MODE
 infraConstants = unsafePerformIO (unsafeReadConfig =<< configFilePath)
-{-# NOINLINE coreConstants #-}
+{-# NOINLINE infraConstants #-}
 #else
 infraConstants = $(do
     x :: InfraConstants <- runIO (unsafeReadConfig =<< configFilePath)

@@ -29,7 +29,6 @@ module Pos.Communication.Types.Protocol
        , ListenersWithOut
        , WorkerSpec
        , ActionSpec (..)
-       , NOP (..)
        ) where
 
 import           Control.Arrow         ((&&&))
@@ -39,7 +38,6 @@ import qualified Data.Text.Buildable   as B
 import           Formatting            (bprint, build, hex, int, sformat, stext, (%))
 import qualified Node                  as N
 import           Node.Message          (Message (..), MessageName (..))
-import           Prelude               (show)
 import           Serokell.Util.Base16  (base16F)
 import           Serokell.Util.Text    (listJson)
 import           Serokell.Util.Text    (mapJson)
@@ -60,8 +58,6 @@ type Worker' m = Action' m ()
 type NSendActions = N.SendActions BiP PeerData
 newtype ActionSpec m a = ActionSpec (VerInfo -> Action m a)
 type WorkerSpec m = ActionSpec m ()
-
-data NOP = NOP
 
 newtype NodeId = NodeId (PeerId, N.NodeId)
   deriving (Show, Eq, Ord, Hashable)

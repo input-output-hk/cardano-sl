@@ -7,6 +7,7 @@ module Pos.Block.Network.Announce
        , handleHeadersCommunication
        ) where
 
+import           Data.Reflection            (Reifies)
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (throw)
 import           System.Wlog                (logDebug)
@@ -15,6 +16,8 @@ import           Universum
 import           Pos.Binary.Communication   ()
 import           Pos.Block.Logic            (getHeadersFromManyTo)
 import           Pos.Block.Network.Types    (MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Communication.Limits   (Limit, LimitedLength, recvLimited,
+                                             reifyMsgLimit)
 import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId (..),
                                              OutSpecs, SendActions (..), convH,
@@ -22,7 +25,8 @@ import           Pos.Communication.Protocol (ConversationActions (..), NodeId (.
 import           Pos.Context                (getNodeContext, isRecoveryMode, ncNodeParams,
                                              npAttackTypes)
 import           Pos.Crypto                 (shortHashF)
-import qualified Pos.DB                     as DB
+import qualified Pos.DB.Block               as DB
+import qualified Pos.DB.DB                  as DB
 import           Pos.DHT.Model              (converseToNeighbors)
 import           Pos.Security               (AttackType (..), NodeAttackedError (..),
                                              shouldIgnoreAddress)
@@ -58,36 +62,38 @@ announceBlock sendActions header = do
                                withConnectionTo sendActions nId handler
                      }
                 else sendActions
-    converseToNeighbors sendActions' announceBlockDo
+    reifyMsgLimit (Proxy @MsgGetHeaders) $ \limitProxy ->
+        converseToNeighbors sendActions' $ announceBlockDo limitProxy
   where
-    announceBlockDo nodeId conv = do
+    announceBlockDo limitProxy nodeId conv = do
         logDebug $
             sformat
                 ("Announcing block "%shortHashF%" to "%build)
                 (headerHash header)
                 nodeId
         send conv $ MsgHeaders (one (Right header))
-        handleHeadersCommunication conv
+        handleHeadersCommunication conv limitProxy
 
 handleHeadersCommunication
-    :: WorkMode ssc m
-    => ConversationActions (MsgHeaders ssc) MsgGetHeaders m
+    :: forall ssc m s.
+       (WorkMode ssc m, Reifies s (Limit MsgGetHeaders))
+    => ConversationActions (MsgHeaders ssc) (LimitedLength s MsgGetHeaders) m
+    -> Proxy s
     -> m ()
-handleHeadersCommunication conv = do
-    (msg :: Maybe MsgGetHeaders) <- recv conv
-    whenJust msg $ \mgh@(MsgGetHeaders {..}) -> do
+handleHeadersCommunication conv _ = do
+    whenJustM (recvLimited conv) $ \mgh@(MsgGetHeaders {..}) -> do
         logDebug $ sformat ("Got request on handleGetHeaders: "%build) mgh
         ifM isRecoveryMode onRecovery $ do
             headers <- case (mghFrom,mghTo) of
-                ([], Nothing) -> Just . one <$> DB.getTipBlockHeader
-                ([], Just h)  -> fmap one <$> DB.getBlockHeader h
+                ([], Nothing) -> Just . one <$> DB.getTipBlockHeader @ssc
+                ([], Just h)  -> fmap one <$> DB.getBlockHeader @ssc h
                 (c1:cxs, _)   -> getHeadersFromManyTo (c1:|cxs) mghTo
             maybe onNoHeaders handleSuccess headers
   where
     handleSuccess h = do
         onSuccess
         send conv (MsgHeaders h)
-        handleHeadersCommunication conv
+        handleHeadersCommunication conv Proxy
     onSuccess =
         logDebug "handleGetHeaders: responded successfully"
     onRecovery =

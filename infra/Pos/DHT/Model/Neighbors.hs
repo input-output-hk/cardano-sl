@@ -1,9 +1,3 @@
-{-# LANGUAGE ConstraintKinds           #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE OverloadedStrings         #-}
-{-# LANGUAGE ScopedTypeVariables       #-}
-{-# LANGUAGE TypeFamilies              #-}
-{-# LANGUAGE UndecidableInstances      #-}
 
 module Pos.DHT.Model.Neighbors
        ( sendToNeighbors
@@ -16,7 +10,7 @@ module Pos.DHT.Model.Neighbors
 import           Formatting                 (int, sformat, shown, (%))
 import           Mockable                   (MonadMockable, forConcurrently, handleAll,
                                              throw)
-import           System.Wlog                (WithLogger, logWarning)
+import           System.Wlog                (WithLogger, logDebug, logWarning)
 import           Universum                  hiding (catchAll)
 
 import           Pos.Binary.Class           (Bi)
@@ -32,10 +26,8 @@ import           Pos.Util.TimeWarp          (addressToNodeId')
 -- It's a broadcasting to the neighbours without sessions
 -- (i.e. we don't have to wait for reply from the listeners).
 sendToNeighbors
-    :: ( MonadDHT m, MonadMockable m, Bi body, WithLogger m, Message body )
-    => SendActions m
-    -> body
-    -> m ()
+    :: (MonadDHT m, MonadMockable m, Bi body, WithLogger m, Message body)
+    => SendActions m -> body -> m ()
 sendToNeighbors sendActions msg = do
     nodes <- getNodesWithCheck
     void $
@@ -59,11 +51,8 @@ getNodesWithCheck = do
     return nodes
 
 sendToNode
-    :: ( MonadMockable m, Bi body, Message body )
-    => SendActions m
-    -> DHTNode
-    -> body
-    -> m ()
+    :: (MonadMockable m, Bi body, Message body)
+    => SendActions m -> DHTNode -> body -> m ()
 sendToNode sendActions node msg =
     handleAll handleE $ trySend 0
       where
@@ -72,19 +61,19 @@ sendToNode sendActions node msg =
         trySend i = sendTo sendActions (toNodeId i node) msg
 
 converseToNode
-    :: ( MonadMockable m, Bi rcv, Bi snd, Message snd, Message rcv )
+    :: (MonadMockable m, Bi rcv, Bi snd, Message snd, Message rcv)
     => SendActions m
     -> DHTNode
     -> (NodeId -> ConversationActions snd rcv m -> m t)
     -> m t
 converseToNode sendActions node handler =
     handleAll handleE $ tryConnect 0
-      where
-        handleE e | isDevelopment = tryConnect 1
-                  | otherwise     = throw e
-        tryConnect i = withConnectionTo sendActions nodeId $ \_peerData -> handler nodeId
-          where
-            nodeId = toNodeId i node
+  where
+    handleE e | isDevelopment = tryConnect 1
+              | otherwise     = throw e
+    tryConnect i =
+        let nodeId = toNodeId i node
+        in withConnectionTo sendActions nodeId $ \_peerData -> handler nodeId
 
 
 toNodeId :: Word32 -> DHTNode -> NodeId
@@ -94,17 +83,25 @@ toNodeId i DHTNode {..} = NodeId $ (peerId, addressToNodeId' i dhtAddr)
 
 
 converseToNeighbors
-    :: ( MonadDHT m, MonadMockable m, WithLogger m, Bi rcv, Bi snd, Message snd, Message rcv )
+    :: ( MonadDHT m
+       , MonadMockable m
+       , WithLogger m
+       , Bi rcv
+       , Bi snd
+       , Message snd
+       , Message rcv
+       )
     => SendActions m
     -> (NodeId -> ConversationActions snd rcv m -> m ())
     -> m ()
 converseToNeighbors sendActions convHandler = do
     nodes <- getNodesWithCheck
-    void $
-        forConcurrently nodes $ \node ->
-            handleAll (logErr node) $
-            converseToNode sendActions node convHandler
+    logDebug $ "converseToNeighbors: sending to nodes: " <> show nodes
+    void $ forConcurrently nodes $ \node -> do
+        handleAll (logErr node) $ converseToNode sendActions node convHandler
+        logDebug $ "converseToNeighbors: DONE conversing to node " <> show node
+    logDebug "converseToNeighbors: sending to nodes done"
   where
     logErr node e =
         logWarning $
-        sformat ("Error in conversation to " % shown % ": " % shown) node e
+        sformat ("Error in conversation to "%shown%": "%shown) node e

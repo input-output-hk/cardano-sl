@@ -194,7 +194,7 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) => Arbitrary (T.MsgHeaders 
     arbitrary = T.MsgHeaders <$> arbitrary
 
 instance (Arbitrary (SscProof ssc), Arbitrary (SscPayloadDependsOnSlot ssc), SscHelpersClass ssc) =>
-    Arbitrary (T.MsgBlock s ssc) where
+    Arbitrary (T.MsgBlock ssc) where
     arbitrary = T.MsgBlock <$> arbitrary
 
 instance T.BiSsc ssc => Buildable (T.BlockHeader ssc, PublicKey) where

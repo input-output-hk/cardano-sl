@@ -1,9 +1,9 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ViewPatterns #-}
 module Pos.Binary.Core.Coin
-    ( encode
-    , decode
-    ) where
+       ( encode
+       , decode
+       ) where
 
 import           Control.Monad   (when)
 import           Data.Binary.Get (Get, getWord8)

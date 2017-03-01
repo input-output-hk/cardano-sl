@@ -33,6 +33,8 @@ data CompileConfig = CompileConfig
       -- ^ Length of slot in seconds
     , ccGenesisMaxBlockSize           :: !Byte
       -- ^ Maximum block size in bytes
+    , ccGenesisMaxHeaderSize          :: !Byte
+      -- ^ Maximum block header size in bytes
 
 ----------------------------------------------------------------------------
 -- -- Txp
@@ -57,6 +59,8 @@ data CompileConfig = CompileConfig
 ----------------------------------------------------------------------------
     , ccGenesisUpdateVoteThd          :: !Double
       -- ^ Portion of total stake necessary to vote for or against update.
+    , ccGenesisMaxUpdateProposalSize  :: !Byte
+      -- ^ Maximum update proposal size in bytes
     , ccGenesisUpdateProposalThd      :: !Double
       -- ^ Portion of total stake such that block containing
       -- UpdateProposal must contain positive votes for this proposal

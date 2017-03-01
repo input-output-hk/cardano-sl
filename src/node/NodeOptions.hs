@@ -1,6 +1,5 @@
 {-# LANGUAGE ApplicativeDo       #-}
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Command line options of pos-node.
 

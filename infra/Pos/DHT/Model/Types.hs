@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 
 -- | DHT types.
 

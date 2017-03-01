@@ -6,10 +6,8 @@ matrix:
     osx_image: xcode7.3
   - os: osx
     osx_image: xcode8
-  - os: osx
-    osx_image: xcode6.4
 env:
-- NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/addcb0dddf2b7db505dae5c38fceb691c7ed85f9.tar.gz
+- NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/6a8790429692280998801c96660dcc85e30fb759.tar.gz
 cache:
   directories:
   - "$HOME/.stack"
@@ -26,31 +24,29 @@ before_install:
 # TODO: https://github.com/NixOS/nixpkgs/issues/21200
 - travis_retry curl -L https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64 | tar
   xz --strip-components=1 -C ~/.local/bin
-- nix-shell --run ":"
 - mkdir s3
 script:
 - stack --nix --no-terminal --local-bin-path s3/ install --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
-  --test --no-haddock-deps --jobs=4
-  --flag cardano-sl:with-web
-  --flag cardano-sl:with-wallet
+  --no-haddock-deps --jobs=4
   --flag cardano-sl:-asserts
   --flag cardano-sl:-dev-mode
+  --test
 - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ./update_haddock.sh; fi
 - stack exec --nix -- cardano-wallet-hs2purs
 - cd daedalus
 - nix-shell -p nodejs --run "npm install && npm run build:prod"
 - cd ..
-- tar cJf s3/daedalus-bridge.tar.xz daedalus/
+- XZ_OPT=-1 tar Jcvf s3/daedalus-bridge.tar.xz daedalus/ 
 - echo $TRAVIS_BUILD_NUMBER > s3/build-id
-#deploy:
-#  provider: s3
-#  access_key_id: AKIAJETSFTAMXGNCGC6Q
-#  secret_access_key:
-#    secure: L3T5J71xUkozQ935MJIavcgM3Latp+Zy0Ga1wZovXDLp34kgWyJ7/zRSd/TaVM54Kv8Alm1YxbmYKpQAOzGEzAIG+2VUjXbH7aW8KsCnN2RRZahj8pJlq0qmqYrUC4yDFWvrAuO+bE8GRTHFkrX7eT1hoejAw5bPSPu4lkRbh74ys2d5/eOCmxyLSrle1une0i1AM6WRjBKqYyGWFZ0/zhTdISziw+8excfPuutUUIw13vG2ywhMI4M0oP8csYYPdwg3PMzRpmcucebNXWr3QjJSTNuX/nwIQHyoS1BiIciDHIosdUOPsxVkdQWDUCvk9YXMPgB+XpPFB3O7d5V36EiyrSnQMuYdN6YKZzXmLaLlz8tEMaclRIr+yWVXUL27veYD+IYhjFUWcKzuBnnBa+v+Edl/ewQBMTxznstrBtGAjHhsmPaocXdFjz7fvoSDsr5fafhMnr0O2mKo9+6MKIbGdK/OsBc/Lp1fQK1PuWAjY4+eJ9HSUpD1s120uuV5NkbHnvdB+/PGH0GMHkuf8D7NGhNtTUDjBz+Pvo9SqKGwKyBuCDIeUNLMaCMa3aDY7uRpCVxsZPyjUBUlx/hICy5Ig7d3nKxmZhDot8zooY9a5ANSzDBQsLDWugx1ukKDzJ65wxqjmzaTvALqyk8GIY7ShREuNjFJOrdM8WwZbwU=
-#  bucket: cardano-sl-testing
-#  region: eu-central-1
-#  local_dir: s3
-#  skip_cleanup: true
+deploy:
+  provider: s3
+  access_key_id: AKIAJETSFTAMXGNCGC6Q
+  secret_access_key:
+    secure: L3T5J71xUkozQ935MJIavcgM3Latp+Zy0Ga1wZovXDLp34kgWyJ7/zRSd/TaVM54Kv8Alm1YxbmYKpQAOzGEzAIG+2VUjXbH7aW8KsCnN2RRZahj8pJlq0qmqYrUC4yDFWvrAuO+bE8GRTHFkrX7eT1hoejAw5bPSPu4lkRbh74ys2d5/eOCmxyLSrle1une0i1AM6WRjBKqYyGWFZ0/zhTdISziw+8excfPuutUUIw13vG2ywhMI4M0oP8csYYPdwg3PMzRpmcucebNXWr3QjJSTNuX/nwIQHyoS1BiIciDHIosdUOPsxVkdQWDUCvk9YXMPgB+XpPFB3O7d5V36EiyrSnQMuYdN6YKZzXmLaLlz8tEMaclRIr+yWVXUL27veYD+IYhjFUWcKzuBnnBa+v+Edl/ewQBMTxznstrBtGAjHhsmPaocXdFjz7fvoSDsr5fafhMnr0O2mKo9+6MKIbGdK/OsBc/Lp1fQK1PuWAjY4+eJ9HSUpD1s120uuV5NkbHnvdB+/PGH0GMHkuf8D7NGhNtTUDjBz+Pvo9SqKGwKyBuCDIeUNLMaCMa3aDY7uRpCVxsZPyjUBUlx/hICy5Ig7d3nKxmZhDot8zooY9a5ANSzDBQsLDWugx1ukKDzJ65wxqjmzaTvALqyk8GIY7ShREuNjFJOrdM8WwZbwU=
+  bucket: cardano-sl-testing
+  region: eu-central-1
+  local_dir: s3
+  skip_cleanup: true
 notifications:
   email: false
   slack:

@@ -1,6 +1,5 @@
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.DHT.Real.Real
        ( runKademliaDHT
@@ -17,10 +16,10 @@ import           Data.Binary               (decode)
 import qualified Data.ByteString.Lazy      as BS
 import qualified Data.HashMap.Strict       as HM
 import           Data.List                 (intersect, (\\))
-
 import           Formatting                (build, int, sformat, shown, (%))
 import qualified Network.Kademlia          as K
 import           Prelude                   (id)
+import           Serokell.Util.Time        (ms, sec)
 import           System.Directory          (doesFileExist)
 import           System.Wlog               (WithLogger, logDebug, logError, logInfo,
                                             logWarning, usingLoggerName)
@@ -39,7 +38,7 @@ import           Pos.DHT.Real.Types        (DHTHandle, KademliaDHT (..),
                                             KademliaDHTInstance (..),
                                             KademliaDHTInstanceConfig (..))
 import           Pos.Util.TimeLimit        (runWithRandomIntervals')
-import           Pos.Util.TimeWarp         (NetworkAddress, ms, sec)
+import           Pos.Util.TimeWarp         (NetworkAddress)
 
 kademliaConfig :: K.KademliaConfig
 kademliaConfig = K.defaultConfig { K.k = 16 }

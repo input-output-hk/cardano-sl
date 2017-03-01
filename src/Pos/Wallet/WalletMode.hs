@@ -1,5 +1,5 @@
-{-# LANGUAGE CPP                  #-}
 {-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE InstanceSigs         #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -23,22 +23,26 @@ import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.Map                    as M
+import           Data.Tagged                 (Tagged (..))
 import           Data.Time.Units             (Millisecond)
 import           Mockable                    (MonadMockable, Production)
 import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
 
 import           Pos.Communication.PeerState (PeerStateHolder, WithPeerState)
+import           Pos.Constants               (blkSecurityParam)
 import qualified Pos.Context                 as PC
 import           Pos.Core.Coin               (unsafeIntegerToCoin)
 import           Pos.Crypto                  (WithHash (..))
 import           Pos.DB                      (MonadDB)
-import qualified Pos.DB                      as DB
+import qualified Pos.DB.Block                as DB
 import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
 import           Pos.DHT.Real                (KademliaDHT (..))
+import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Slotting                (NtpSlotting, SlottingHolder,
                                               getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
@@ -49,7 +53,8 @@ import           Pos.Txp                     (TxpHolder (..), UtxoView (..), bel
                                               txProcessTransaction, _mpLocalTxs)
 import           Pos.Txp.Core.Types          (TxAux, TxId, Utxo, txOutValue)
 import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
-                                              difficultyL, prevBlockL, prevBlockL,
+                                              difficultyL, flattenEpochOrSlot,
+                                              flattenSlotId, prevBlockL, prevBlockL,
                                               sumCoins, sumCoins)
 import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
 import           Pos.Util                    (maybeThrow)
@@ -94,7 +99,7 @@ deriving instance MonadBalances m => MonadBalances (WalletWebDB m)
 instance MonadIO m => MonadBalances (WalletDB m) where
     getOwnUtxo addr = WS.getUtxo >>= return . filterUtxoByAddr addr
 
-instance (MonadDB ssc m, MonadMask m) => MonadBalances (TxpHolder m) where
+instance (MonadDB m, MonadMask m) => MonadBalances (TxpHolder m) where
     getOwnUtxo addr = do
         utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoView
@@ -107,11 +112,12 @@ instance (MonadDB ssc m, MonadMask m) => MonadBalances (TxpHolder m) where
 
 -- | A class which have methods to get transaction history
 class Monad m => MonadTxHistory m where
-    getTxHistory :: Address -> m [TxHistoryEntry]
+    getTxHistory :: SscHelpersClass ssc
+                 => Tagged ssc (Address -> m [TxHistoryEntry])
     saveTx :: (TxId, TxAux) -> m ()
 
-    default getTxHistory :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => Address -> m [TxHistoryEntry]
-    getTxHistory = lift . getTxHistory
+    default getTxHistory :: (SscHelpersClass ssc, MonadTrans t, MonadTxHistory m', t m' ~ m) => Tagged ssc (Address -> m [TxHistoryEntry])
+    getTxHistory = fmap lift <$> getTxHistory
 
     default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()
     saveTx = lift . saveTx
@@ -134,7 +140,7 @@ deriving instance MonadTxHistory m => MonadTxHistory (WalletWebDB m)
 
 -- | Get tx history for Address
 instance MonadIO m => MonadTxHistory (WalletDB m) where
-    getTxHistory addr = do
+    getTxHistory = Tagged $ \addr -> do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
         fmap (fst . fromMaybe (panic "deriveAddrHistory: Nothing")) $
@@ -142,9 +148,11 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
             deriveAddrHistory addr chain
     saveTx _ = pure ()
 
-instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
+instance (MonadDB m, MonadThrow m, WithLogger m)
          => MonadTxHistory (TxpHolder m) where
-    getTxHistory addr = do
+    getTxHistory :: forall ssc. SscHelpersClass ssc
+                 => Tagged ssc (Address -> TxpHolder m [TxHistoryEntry])
+    getTxHistory = Tagged $ \addr -> do
         bot <- GS.getBot
         tip <- GS.getTip
         genUtxo <- GS.getFilteredGenUtxo addr
@@ -154,13 +162,13 @@ instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
             if h == bot
             then return Nothing
             else do
-                header <- DB.getBlockHeader h >>=
+                header <- DB.getBlockHeader @ssc h >>=
                     maybeThrow (DBMalformed "Best blockchain is non-continuous")
                 let prev = header ^. prevBlockL
                 return $ Just (h, prev)
 
         let blockFetcher h txs = do
-                blk <- lift . lift $ DB.getBlock h >>=
+                blk <- lift . lift $ DB.getBlock @ssc h >>=
                        maybeThrow (DBMalformed "A block mysteriously disappeared!")
                 deriveAddrHistoryPartial txs addr [blk]
             localFetcher blkTxs = do
@@ -212,7 +220,7 @@ instance MonadBlockchainInfo WalletRealMode where
     connectedPeers = panic "notImplemented"
 
 -- | Helpers for avoiding copy-paste
-topHeader :: (SscHelpersClass ssc, MonadDB ssc m) => m (BlockHeader ssc)
+topHeader :: (SscHelpersClass ssc, MonadDB m) => m (BlockHeader ssc)
 topHeader = maybeThrow (DBMalformed "No block with tip hash!") =<<
             DB.getBlockHeader =<< GS.getTip
 
@@ -235,13 +243,21 @@ downloadHeader
 downloadHeader = getContextTMVar PC.ncProgressHeader
 
 -- | Instance for full-node's ContextHolder
-instance SscHelpersClass ssc =>
+instance forall ssc . SscHelpersClass ssc =>
          MonadBlockchainInfo (RawRealMode ssc) where
-    networkChainDifficulty = fmap (^. difficultyL) <$> recoveryHeader
+    networkChainDifficulty = recoveryHeader >>= \case
+        Just rh -> return . Just $ rh ^. difficultyL
+        Nothing -> runMaybeT $ do
+            cSlot <- flattenSlotId <$> MaybeT getCurrentSlot
+            th <- lift (topHeader @ssc)
+            let hSlot = flattenEpochOrSlot th
+            when (hSlot <= cSlot - blkSecurityParam) $
+                fail "Local tip is outdated"
+            return $ th ^. difficultyL
 
     localChainDifficulty = downloadHeader >>= \case
         Just dh -> return $ dh ^. difficultyL
-        Nothing -> view difficultyL <$> topHeader
+        Nothing -> view difficultyL <$> topHeader @ssc
 
     connectedPeers = fromIntegral . length <$> getKnownPeers
     blockchainSlotDuration = getLastKnownSlotDuration
@@ -294,6 +310,7 @@ type TxMode ssc m
       , MonadTxHistory m
       , MonadMockable m
       , MonadMask m
+      , MonadDBLimits m
       )
 
 type WalletMode ssc m

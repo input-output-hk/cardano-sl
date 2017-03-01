@@ -36,6 +36,7 @@ import           Pos.Context                 (ContextHolder (..), NodeContext (.
                                               WithNodeContext (..))
 import           Pos.Crypto                  (SecretKey, keyGen)
 import           Pos.DB                      (MonadDB)
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.Real                (KademliaDHT)
@@ -113,11 +114,10 @@ newtype KeyStorage m a = KeyStorage
     } deriving (Functor, Applicative, Monad, MonadSlotsData,
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, CanLog, MonadMask,
-                MonadReader KeyData,
+                MonadReader KeyData, MonadDB,
                 MonadWalletDB, WithWalletContext, WithNodeContext ssc,
-                MonadDelegation, MonadTrans, MonadBase io, MonadFix)
-
-deriving instance MonadDB ssc m => MonadDB ssc (KeyStorage m)
+                MonadDelegation, MonadTrans, MonadBase io, MonadFix,
+                MonadDBLimits)
 
 instance Monad m => WrappedM (KeyStorage m) where
     type UnwrappedM (KeyStorage m) = ReaderT KeyData m

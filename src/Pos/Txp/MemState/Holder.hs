@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -32,6 +31,7 @@ import           Pos.Communication.Relay   (MonadRelayMem)
 import           Pos.Context.Class         (WithNodeContext)
 import           Pos.DB.Class              (MonadDB)
 import           Pos.DB.Holder             (DBHolder (..))
+import           Pos.DB.Limits             (MonadDBLimits)
 import           Pos.DHT.MemState          (MonadDhtMem)
 import           Pos.Reporting             (MonadReportingMem)
 import           Pos.Shutdown              (MonadShutdownMem)
@@ -88,9 +88,7 @@ instance ( Mockable d m
          ) => Mockable d (TxpHolder m) where
     liftMockable = liftMockableWrappedM
 
-deriving instance MonadDB ssc m => MonadDB ssc (TxpHolder m)
-
-deriving instance MonadTxpMem m => MonadTxpMem (DBHolder ssc m)
+deriving instance MonadTxpMem m => MonadTxpMem (DBHolder m)
 
 ----------------------------------------------------------------------------
 -- Useful instances

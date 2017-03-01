@@ -1,6 +1,4 @@
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE Rank2Types                #-}
-{-# LANGUAGE TemplateHaskell           #-}
 
 -- | Runtime context of node.
 

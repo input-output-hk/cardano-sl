@@ -8,9 +8,11 @@ import           Data.Aeson                 (FromJSON (..), genericParseJSON)
 import           Data.Tagged                (Tagged (..))
 import           Language.Haskell.TH.Syntax (Lift)
 import           Serokell.Aeson.Options     (defaultOptions)
+import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
 import           Pos.Util.Config            (IsConfig (..))
+import           Pos.Util.Util              ()
 
 data InfraConstants = InfraConstants
     { ccNtpResponseTimeout       :: !Int
@@ -27,6 +29,14 @@ data InfraConstants = InfraConstants
 
     , ccNetworkReceiveTimeout    :: !Int
       -- ^ Network timeout on `recv` in milliseconds
+
+    ----------------------------------------------------------------------------
+    -- -- Relay
+    ----------------------------------------------------------------------------
+    , ccMaxReqSize               :: !Byte
+      -- ^ Maximum `ReqMsg` size in bytes
+    , ccMaxInvSize               :: !Byte
+      -- ^ Maximum `InvMsg` size in bytes
     } deriving (Show, Lift, Generic)
 
 instance FromJSON InfraConstants where

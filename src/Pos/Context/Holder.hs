@@ -1,5 +1,3 @@
-{-# LANGUAGE RankNTypes           #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -30,6 +28,7 @@ import           Pos.Communication.Relay   (MonadRelayMem (..), RelayContext (..
 import           Pos.Context.Class         (WithNodeContext (..))
 import           Pos.Context.Context       (NodeContext (..))
 import           Pos.DB.Class              (MonadDB)
+import           Pos.DB.Limits             (MonadDBLimits)
 import           Pos.DHT.MemState          (DhtContext (..), MonadDhtMem (..))
 import           Pos.Launcher.Param        (bpKademliaDump, npBaseParams, npPropagation,
                                             npReportServers)
@@ -58,6 +57,8 @@ newtype ContextHolder ssc m a = ContextHolder
                , MonadSlots
                , MonadTxpMem
                , MonadFix
+               , MonadDB
+               , MonadDBLimits
                )
 
 -- | Run 'ContextHolder' action.
@@ -79,8 +80,6 @@ type instance Distribution (ContextHolder ssc m) = Distribution m
 type instance SharedExclusiveT (ContextHolder ssc m) = SharedExclusiveT m
 type instance Gauge (ContextHolder ssc m) = Gauge m
 type instance ChannelT (ContextHolder ssc m) = ChannelT m
-
-deriving instance MonadDB ssc m => MonadDB ssc (ContextHolder ssc m)
 
 instance ( Mockable d m
          , MFunctor' d (ReaderT (NodeContext ssc) m) m

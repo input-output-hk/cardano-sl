@@ -1,7 +1,11 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+base=$(dirname "$0")
+. "$base"/common.sh
 
 build=false
 runNode=false
+CSL_SYSTEM_TAG=linux64 # don't worry, it's just for testing, should work on macOS as well
 wallet_cli=""
 
 echo "Parsing command line arguments..."
@@ -57,7 +61,7 @@ cd cardano-updater
 echo "Searching for cardano-updater install path..."
 cardano_updater_local_bin=$(stack path --local-install-root)/bin
 echo "Searching for cardano-updater binary..."
-updater=$(find $cardano_updater_local_bin -name "cardano-updater" -exec readlink -f {} \; | head -n 1)
+updater=$(find_binary cardano-updater)
 cd $csldir
 
 echo "Launching 3 nodes in 5 secs"
@@ -77,7 +81,7 @@ if $build; then
   echo "Building cardano-sl"
   stack clean cardano-sl
   grep "BlockVersion 0 0 0" src/Pos/Constants.hs  # fails if not found
-  stack build --fast 
+  stack build --fast cardano-sl
 
   csl_bin=$(stack path --local-install-root)/bin
   originalMd5=$(md5sum $csl_bin/cardano-node)
@@ -102,7 +106,7 @@ if $build; then
   # Updating version in csl sources to v0.1.0
   sed -i.backup "s/BlockVersion 0 0 0/BlockVersion 0 1 0/" src/Pos/Constants.hs
   echo "Building cardano-sl with version 0.1.0"
-  stack build --fast
+  stack build --fast cardano-sl
   rm -rf binaries_v010 && mkdir binaries_v010
   cp -v $csl_bin/* binaries_v010/
   afterBumpMd5=$(md5sum binaries_v010/cardano-node)

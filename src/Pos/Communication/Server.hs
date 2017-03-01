@@ -1,5 +1,3 @@
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Server part.
 
@@ -31,13 +29,13 @@ import           Pos.WorkMode                      (WorkMode)
 -- | All listeners running on one node.
 allListeners
     :: (SscListenersClass ssc, WorkMode ssc m)
-    => ([ListenerSpec m], OutSpecs)
-allListeners = mconcatPair
-        [ modifier "block"      $ blockListeners
-        , modifier "ssc"        $ untag sscListeners
-        , modifier "tx"         $ txListeners
-        , modifier "delegation" $ delegationListeners
-        , modifier "update"     $ usListeners
+    => m ([ListenerSpec m], OutSpecs)
+allListeners = mconcatPair <$> sequence
+        [ modifier "block"      <$> blockListeners
+        , modifier "ssc"        <$> untag <$> sscListeners
+        , modifier "tx"         <$> txListeners
+        , modifier "delegation" <$> pure delegationListeners
+        , modifier "update"     <$> usListeners
         ]
   where
     modifier lname = over _1 (map pModifier)

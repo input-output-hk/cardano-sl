@@ -51,6 +51,8 @@ library
                        Pos.Binary.Core.Version
 
                        Pos.Util.Config
+                       Pos.Util.Iterator
+                       Pos.Util.Util
 
   other-modules:       Paths_cardano_sl_core
 

@@ -1,9 +1,5 @@
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE DeriveTraversable   #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
@@ -61,9 +57,6 @@ module Pos.Util
        , withWriteLifted
 
        -- * Instances
-       -- ** Lift Byte
-       -- ** FromJSON Byte
-       -- ** ToJSON Byte
        -- ** MonadFail (Either s), assuming IsString s
        -- ** MonadFail ParsecT
        -- ** MonadFail Dialog
@@ -94,6 +87,9 @@ import qualified Data.List.NonEmpty               as NE
 import           Data.SafeCopy                    (SafeCopy (..), base, contain,
                                                    deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text                        as T
+import           Data.Time.Units                  (Microsecond, Millisecond)
+import           Formatting                       (sformat, stext, (%))
+import qualified GHC.Exts                         as IL
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Syntax       (Lift)
 import qualified Language.Haskell.TH.Syntax
@@ -229,6 +225,16 @@ instance One (f a) => One (OldestFirst f a) where
     type OneItem (OldestFirst f a) = OneItem (f a)
     one = OldestFirst . one
 
+instance IL.IsList (f a) => IL.IsList (NewestFirst f a) where
+    type Item (NewestFirst f a) = IL.Item (f a)
+    toList = IL.toList . getNewestFirst
+    fromList = NewestFirst . IL.fromList
+
+instance IL.IsList (f a) => IL.IsList (OldestFirst f a) where
+    type Item (OldestFirst f a) = IL.Item (f a)
+    toList = IL.toList . getOldestFirst
+    fromList = OldestFirst . IL.fromList
+
 class Chrono f where
     toNewestFirst :: OldestFirst f a -> NewestFirst f a
     toOldestFirst :: NewestFirst f a -> OldestFirst f a
@@ -287,15 +293,6 @@ _neTail f (x :| xs) = (x :|) <$> f xs
 _neLast :: Lens' (NonEmpty a) a
 _neLast f (x :| []) = (:| []) <$> f x
 _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
-
-instance Lift Byte where
-    lift x = let b = toBytes x in [|fromBytes b :: Byte|]
-
-instance FromJSON Byte where
-    parseJSON = fmap fromBytes . parseJSON
-
-instance ToJSON Byte where
-    toJSON = toJSON . toBytes
 
 ----------------------------------------------------------------------------
 -- LRU cache

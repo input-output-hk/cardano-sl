@@ -1,7 +1,4 @@
 {-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE RankNTypes           #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 {-| 'WorkMode' constraint. It is widely used in almost every our code.
@@ -32,6 +29,7 @@ import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (ContextHolder, WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.DB.Holder               (DBHolder)
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.MemState            (MonadDhtMem)
@@ -56,7 +54,8 @@ type WorkMode ssc m
     = ( MinWorkMode m
       , MonadMask m
       , MonadSlots m
-      , MonadDB ssc m
+      , MonadDB m
+      , MonadDBLimits m
       , MonadTxpMem m
       , MonadDhtMem m
       , MonadRelayMem m
@@ -111,6 +110,11 @@ deriving instance MonadDB ssc m => MonadDB ssc (PeerStateHolder m)
 deriving instance MonadDB ssc m => MonadDB ssc (NtpSlotting m)
 deriving instance MonadDB ssc m => MonadDB ssc (SlottingHolder m)
 
+deriving instance MonadDB m => MonadDB (KademliaDHT m)
+deriving instance MonadDBLimits m => MonadDBLimits (KademliaDHT m)
+deriving instance MonadDB m => MonadDB (PeerStateHolder m)
+deriving instance MonadDBLimits m => MonadDBLimits (PeerStateHolder m)
+
 deriving instance MonadDelegation m => MonadDelegation (KademliaDHT m)
 deriving instance MonadDelegation m => MonadDelegation (PeerStateHolder m)
 
@@ -131,6 +135,9 @@ deriving instance MonadRelayMem m => MonadRelayMem (SlottingHolder m)
 
 deriving instance MonadUSMem m => MonadUSMem (KademliaDHT m)
 deriving instance MonadUSMem m => MonadUSMem (PeerStateHolder m)
+deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (PeerStateHolder m)
+deriving instance MonadDHT m => MonadDHT (PeerStateHolder m)
+
 deriving instance MonadSscMem ssc m => MonadSscMem ssc (PeerStateHolder m)
 deriving instance MonadTxpMem m => MonadTxpMem (PeerStateHolder m)
 
@@ -158,7 +165,7 @@ type RawRealMode ssc =
     NtpSlotting (
     SlottingHolder (
     ContextHolder ssc (
-    DBHolder ssc (
+    DBHolder (
     LoggerNameBox Production
     ))))))))))
 

@@ -1,5 +1,4 @@
 {-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -41,7 +40,6 @@ import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName, WithLogger, logDebug,
                                               logInfo)
 import           Universum
-
 
 import qualified Pos.Core.Constants          as C
 import           Pos.Core.Slotting           (flattenEpochIndex, unflattenSlotId)
@@ -94,7 +92,6 @@ newtype NtpSlotting m a = NtpSlotting
 
                , HasLoggerName
                , CanLog
-
                , MonadSlotsData
                )
 

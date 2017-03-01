@@ -1,4 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Common things used in `Pos.Crypto.Arbitrary` and `Pos.Util.Arbitrary`
 
@@ -7,11 +6,6 @@ module Pos.Util.TimeWarp
        , localhost
 
        , currentTime
-       , mcs
-       , ms
-       , sec
-       , minute
-       , hour
        , addressToNodeId
        , addressToNodeId'
        , nodeIdToAddress
@@ -20,7 +14,6 @@ module Pos.Util.TimeWarp
 import qualified Data.ByteString.Char8 as BS8
 import           Data.Char             (isNumber)
 import           Data.Time.Units       (Microsecond)
-import           Data.Time.Units       (fromMicroseconds)
 import           Mockable              (realTime)
 import qualified Network.Transport.TCP as TCP
 import           Node                  (NodeId (..))
@@ -37,14 +30,6 @@ type NetworkAddress = (ByteString, Word16)
 -- | Temporal solution
 currentTime :: MonadIO m => m Microsecond
 currentTime = realTime
-
--- | Converts a specified time to `Microsecond`.
-mcs, ms, sec, minute, hour :: Int -> Microsecond
-mcs    = fromMicroseconds . fromIntegral
-ms     = fromMicroseconds . fromIntegral . (*) 1000
-sec    = fromMicroseconds . fromIntegral . (*) 1000000
-minute = fromMicroseconds . fromIntegral . (*) 60000000
-hour   = fromMicroseconds . fromIntegral . (*) 3600000000
 
 -- TODO: What about node index, i.e. last number in '127.0.0.1:3000:0' ?
 addressToNodeId :: NetworkAddress -> NodeId

@@ -9,6 +9,7 @@ import           Universum
 import           Pos.Binary.Class                 (UnsignedVarInt (..), encodeStrict)
 import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                                                    MsgHeaders)
+import           Pos.Communication.Limits         (LimitedLengthExt (..))
 import           Pos.Communication.MessagePart    (MessagePart (..))
 import           Pos.Communication.Types.Protocol (NOP)
 import           Pos.Communication.Types.Relay    (DataMsg, InvOrData, ReqMsg)
@@ -21,10 +22,6 @@ import           Pos.Update.Network.Types         (ProposalMsgTag, VoteMsgTag)
 
 varIntMName :: Int -> MessageName
 varIntMName = MessageName . encodeStrict . UnsignedVarInt
-
-instance Message NOP where
-    messageName _ = varIntMName 0
-    formatMessage _ = "NOP"
 
 instance Message SendProxySK where
     messageName _ = varIntMName 2
@@ -54,40 +51,9 @@ instance Message MsgGetBlocks where
     messageName _ = varIntMName 6
     formatMessage _ = "GetBlocks"
 
-instance Message (MsgBlock s ssc) where
+instance Message (MsgBlock ssc) where
     messageName _ = varIntMName 7
     formatMessage _ = "Block"
-
-instance (MessagePart tag, MessagePart contents) =>
-         Message (InvOrData tag key contents) where
-    messageName p = varIntMName 8 <>
-                    pMessageName (tagM p) <>
-                    pMessageName (contentsM p)
-      where
-        tagM :: Proxy (InvOrData tag key contents)
-             -> Proxy tag
-        tagM _ = Proxy
-
-        contentsM :: Proxy (InvOrData tag keys contents)
-                  -> Proxy contents
-        contentsM _ = Proxy
-    formatMessage _ = "Inventory/Data"
-
-instance (MessagePart tag) =>
-         Message (ReqMsg key tag) where
-    messageName p = varIntMName 9 <> pMessageName (tagM p)
-      where
-        tagM :: Proxy (ReqMsg key tag) -> Proxy tag
-        tagM _ = Proxy
-    formatMessage _ = "Request"
-
-instance (MessagePart contents) =>
-         Message (DataMsg contents) where
-    messageName p = varIntMName 10 <> pMessageName (contentsM p)
-      where
-        contentsM :: Proxy (DataMsg contents) -> Proxy contents
-        contentsM _ = Proxy
-    formatMessage _ = "Data"
 
 instance MessagePart TxMsgTag where
     pMessageName _ = varIntMName 0
@@ -122,3 +88,64 @@ instance Message SysStartRequest where
 instance Message SysStartResponse where
     messageName _ = varIntMName 1002
     formatMessage _ = "SysStartResponse"
+instance (MessagePart tag, MessagePart contents) =>
+         Message (InvOrData tag key contents) where
+    messageName p = varIntMName 8 <>
+                    pMessageName (tagM p) <>
+                    pMessageName (contentsM p)
+      where
+        tagM :: Proxy (InvOrData tag key contents)
+             -> Proxy tag
+        tagM _ = Proxy
+
+        contentsM :: Proxy (InvOrData tag keys contents)
+                  -> Proxy contents
+        contentsM _ = Proxy
+    formatMessage _ = "Inventory/Data"
+
+instance (MessagePart tag) =>
+         Message (ReqMsg key tag) where
+    messageName p = varIntMName 9 <> pMessageName (tagM p)
+      where
+        tagM :: Proxy (ReqMsg key tag) -> Proxy tag
+        tagM _ = Proxy
+    formatMessage _ = "Request"
+
+instance (MessagePart contents) =>
+         Message (DataMsg contents) where
+    messageName p = varIntMName 10 <> pMessageName (contentsM p)
+      where
+        contentsM :: Proxy (DataMsg contents) -> Proxy contents
+        contentsM _ = Proxy
+    formatMessage _ = "Data"
+
+instance (MessagePart tag, MessagePart contents) =>
+         Message (InvOrData tag key contents) where
+    messageName p = varIntMName 8 <>
+                    pMessageName (tagM p) <>
+                    pMessageName (contentsM p)
+      where
+        tagM :: Proxy (InvOrData tag key contents)
+             -> Proxy tag
+        tagM _ = Proxy
+
+        contentsM :: Proxy (InvOrData tag keys contents)
+                  -> Proxy contents
+        contentsM _ = Proxy
+    formatMessage _ = "Inventory/Data"
+
+instance (MessagePart tag) =>
+         Message (ReqMsg key tag) where
+    messageName p = varIntMName 9 <> pMessageName (tagM p)
+      where
+        tagM :: Proxy (ReqMsg key tag) -> Proxy tag
+        tagM _ = Proxy
+    formatMessage _ = "Request"
+
+instance (MessagePart contents) =>
+         Message (DataMsg contents) where
+    messageName p = varIntMName 10 <> pMessageName (contentsM p)
+      where
+        contentsM :: Proxy (DataMsg contents) -> Proxy contents
+        contentsM _ = Proxy
+    formatMessage _ = "Data"

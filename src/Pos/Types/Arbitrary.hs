@@ -1,5 +1,4 @@
 {-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | `Arbitrary` instances for core types for using in tests and benchmarks
 

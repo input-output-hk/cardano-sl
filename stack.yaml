@@ -9,6 +9,7 @@ packages:
 - core
 - update
 - infra
+- db
 
 - location:
     git: https://github.com/serokell/acid-state.git

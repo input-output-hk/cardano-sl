@@ -1,9 +1,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
--- | Part of GState DB which stores stakeholders' balances.
+-- | Part of GState DB which stores stakes.
 
-module Pos.DB.GState.Balances
+module Pos.Txp.DB.Balances
        (
          -- * Getters
          getTotalFtsStake
@@ -39,7 +39,7 @@ import           Pos.Crypto           (shortHashF)
 import           Pos.DB.Class         (MonadDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
-import           Pos.DB.GState.Common (getBi, putBi)
+import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
                                        IterType, runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
@@ -56,17 +56,17 @@ import           Pos.Util.Iterator    (MonadIterator (..))
 
 -- | Get total amount of stake to be used for follow-the-satoshi. It's
 -- different from total amount of coins in the system.
-getTotalFtsStake :: MonadDB ssc m => m Coin
+getTotalFtsStake :: MonadDB m => m Coin
 getTotalFtsStake =
     maybeThrow (DBMalformed "no total FTS stake in GState DB") =<< getFtsSumMaybe
 
 -- | Get stake owne by given stakeholder (according to rules used for FTS).
-getFtsStake :: MonadDB ssc m => StakeholderId -> m (Maybe Coin)
-getFtsStake = getBi . ftsStakeKey
+getFtsStake :: MonadDB m => StakeholderId -> m (Maybe Coin)
+getFtsStake = gsGetBi . ftsStakeKey
 
 getFtsStakeFromDB :: (MonadIO m, MonadThrow m)
                   => StakeholderId
-                  -> DB ssc
+                  -> DB
                   -> m (Maybe Coin)
 getFtsStakeFromDB id = rocksGetBi (ftsStakeKey id)
 
@@ -95,8 +95,8 @@ instance RocksBatchOp BalancesOp where
 ----------------------------------------------------------------------------
 
 prepareGStateBalances
-    :: forall ssc m.
-       MonadDB ssc m
+    :: forall m.
+       MonadDB m
     => Utxo -> m ()
 prepareGStateBalances genesisUtxo = do
     putIfEmpty getFtsSumMaybe putFtsStakes
@@ -112,8 +112,8 @@ prepareGStateBalances genesisUtxo = do
     putGenesisTotalStake = putTotalFtsStake (unsafeIntegerToCoin totalCoins)
     putFtsStakes = mapM_ (uncurry putFtsStake) . HM.toList $ utxoToStakes genesisUtxo
 
-putTotalFtsStake :: MonadDB ssc m => Coin -> m ()
-putTotalFtsStake = putBi ftsSumKey
+putTotalFtsStake :: MonadDB m => Coin -> m ()
+putTotalFtsStake = gsPutBi ftsSumKey
 
 ----------------------------------------------------------------------------
 -- Balance
@@ -127,13 +127,13 @@ instance DBIteratorClass BalIter where
     iterKeyPrefix _ = iterationPrefix
 
 runBalanceIterator
-    :: forall m ssc a . MonadDB ssc m
-    => DBnIterator ssc BalIter a -> m a
+    :: forall m a . MonadDB m
+    => DBnIterator BalIter a -> m a
 runBalanceIterator = runDBnIterator @BalIter _gStateDB
 
 runBalanceMapIterator
-    :: forall v m ssc a . MonadDB ssc m
-    => DBnMapIterator ssc BalIter v a -> (IterType BalIter -> v) -> m a
+    :: forall v m a . MonadDB m
+    => DBnMapIterator BalIter v a -> (IterType BalIter -> v) -> m a
 runBalanceMapIterator = runDBnMapIterator @BalIter _gStateDB
 
 ----------------------------------------------------------------------------
@@ -141,7 +141,7 @@ runBalanceMapIterator = runDBnMapIterator @BalIter _gStateDB
 ----------------------------------------------------------------------------
 
 sanityCheckBalances
-    :: (MonadMask m, MonadDB ssc m, WithLogger m)
+    :: (MonadMask m, MonadDB m, WithLogger m)
     => m ()
 sanityCheckBalances = do
     let step sm = nextItem >>= maybe (pure sm) (\c -> step (unsafeAddCoin sm c))
@@ -173,8 +173,8 @@ iterationPrefix = "b/s/"
 -- Details
 ----------------------------------------------------------------------------
 
-putFtsStake :: MonadDB ssc m => StakeholderId -> Coin -> m ()
-putFtsStake = putBi . ftsStakeKey
+putFtsStake :: MonadDB m => StakeholderId -> Coin -> m ()
+putFtsStake = gsPutBi . ftsStakeKey
 
-getFtsSumMaybe :: (MonadDB ssc m) => m (Maybe Coin)
-getFtsSumMaybe = getBi ftsSumKey
+getFtsSumMaybe :: MonadDB m => m (Maybe Coin)
+getFtsSumMaybe = gsGetBi ftsSumKey

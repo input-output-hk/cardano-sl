@@ -1,4 +1,3 @@
-{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Internal block logic. Mostly needed for use in 'Pos.Lrc' -- using
@@ -23,7 +22,8 @@ import           Universum
 import           Pos.Block.Types      (Blund, Undo (undoUS))
 import           Pos.Context          (putBlkSemaphore, takeBlkSemaphore)
 import           Pos.DB               (SomeBatchOp (..))
-import qualified Pos.DB               as DB
+import qualified Pos.DB.Block         as DB
+import qualified Pos.DB.DB            as DB
 import qualified Pos.DB.GState        as GS
 import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollbackBlocks)
 import           Pos.Exception        (assertionFailed)
@@ -33,6 +33,7 @@ import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollback
 import           Pos.Txp.Logic        (txApplyBlocks, txNormalize, txRollbackBlocks)
 import           Pos.Types            (HeaderHash, epochIndexL, headerHash, headerHashG,
                                        prevBlockL)
+import qualified Pos.Update.DB        as UDB
 import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll      (PollModifier)
 import           Pos.Util             (NE, NewestFirst (..), OldestFirst (..),
@@ -98,7 +99,7 @@ applyBlocksUnsafeDo blunds pModifier = do
     txNormalize
     usNormalize
     DB.sanityCheckDB
-    putSlottingData =<< GS.getSlottingData
+    putSlottingData =<< UDB.getSlottingData
   where
     -- hehe it's not unsafe yet TODO
     blocks = fmap fst blunds

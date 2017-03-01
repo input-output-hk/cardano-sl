@@ -1,4 +1,3 @@
-{-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -31,12 +30,13 @@ import           Universum
 
 import           Pos.Communication.Relay   (MonadRelayMem)
 import           Pos.Context               (WithNodeContext)
-import           Pos.DB                    (MonadDB (..))
 import           Pos.DHT.MemState          (MonadDhtMem)
 import           Pos.Reporting             (MonadReportingMem)
 import           Pos.Shutdown              (MonadShutdownMem)
 import           Pos.Slotting.Class        (MonadSlots)
 import           Pos.Slotting.MemState     (MonadSlotsData)
+import           Pos.DB                    (MonadDB)
+import           Pos.DB.Limits             (MonadDBLimits)
 import           Pos.Ssc.Class.LocalData   (SscLocalDataClass (sscNewLocalData))
 import           Pos.Ssc.Class.Storage     (SscGStateClass (sscLoadGlobalState))
 import           Pos.Ssc.Extra.Class       (MonadSscMem (..))
@@ -65,6 +65,8 @@ newtype SscHolder ssc m a = SscHolder
                , MonadReportingMem
                , MonadRelayMem
                , MonadShutdownMem
+               , MonadDB
+               , MonadDBLimits
                )
 
 type instance ThreadId (SscHolder ssc m) = ThreadId m
@@ -86,8 +88,6 @@ instance ( Mockable d m
          , MFunctor' d (SscHolder ssc m) (ReaderT (SscState ssc) m)
          ) => Mockable d (SscHolder ssc m) where
     liftMockable = liftMockableWrappedM
-
-deriving instance MonadDB ssc m => MonadDB ssc (SscHolder ssc m)
 
 instance Monad m => WrappedM (SscHolder ssc m) where
     type UnwrappedM (SscHolder ssc m) = ReaderT (SscState ssc) m
@@ -118,7 +118,7 @@ mkStateAndRunSscHolder
        , WithNodeContext ssc m
        , SscGStateClass ssc
        , SscLocalDataClass ssc
-       , MonadDB ssc m
+       , MonadDB m
        , MonadSlots m
        )
     => SscHolder ssc m a
@@ -133,7 +133,7 @@ mkSscHolderState
        , WithNodeContext ssc m
        , SscGStateClass ssc
        , SscLocalDataClass ssc
-       , MonadDB ssc m
+       , MonadDB m
        , MonadSlots m
        )
     => m (SscState ssc)

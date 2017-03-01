@@ -1,6 +1,6 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
 
 -- | Block processing related workers.
 
@@ -33,9 +33,9 @@ import           Pos.Context                 (getNodeContext, isRecoveryMode, nc
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.GState               (getPSKByIssuerAddressHash)
-import           Pos.DB.Lrc                  (getLeaders)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Exception               (assertionFailed)
+import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Reporting.Methods       (reportingFatal)
 import           Pos.Slotting                (currentTimeSlotting, getCurrentSlot,
                                               getSlotStartEmpatically)
@@ -53,7 +53,14 @@ import           Pos.WorkMode                (WorkMode)
 
 -- | All workers specific to block processing.
 blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => ([WorkerSpec m], OutSpecs)
-blkWorkers = merge [blkOnNewSlot, retrievalWorker, recoveryWorker]
+blkWorkers =
+    merge [ blkOnNewSlot
+          , retrievalWorker
+          , recoveryWorker
+#if !defined(DEV_MODE) && defined(WITH_WALLET)
+          , behindNatWorker
+#endif
+          ]
   where
     merge = mconcatPair . map (first pure)
 
@@ -191,9 +198,28 @@ recoveryWorkerImpl sendActions = action `catch` handler
         if (curSlotNothing && not recMode) then do
              logDebug "Recovery worker: don't know current slot"
              triggerRecovery sendActions
-        else logDebug $ "Recovery worker skipped: " <> show curSlotNothing <>
-                        " " <> show recMode
+        else logDebug $ "Recovery worker skipped:" <>
+                        " slot is nothing: " <> show curSlotNothing <>
+                        ", recovery mode is on: " <> show recMode
+
     handler (e :: SomeException) = do
         logError $ "Error happened in recoveryWorker: " <> show e
         delay (sec 10)
-        action
+        action `catch` handler
+
+#if !defined(DEV_MODE) && defined(WITH_WALLET)
+-- | This one just triggers every @max (slotDur / 4) 5@ seconds and
+-- asks for current tip. Does nothing when recovery is enabled.
+behindNatWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
+behindNatWorker = worker requestTipOuts $ \sendActions -> do
+    slotDur <- getLastKnownSlotDuration
+    let delayInterval = max (slotDur `div` 4) (convertUnit $ sec 5)
+        action = forever $ do
+            triggerRecovery sendActions
+            delay $ delayInterval
+        handler (e :: SomeException) = do
+            logWarning $ "Exception arised in behindNatWorker: " <> show e
+            delay $ delayInterval * 2
+            action `catch` handler
+    action `catch` handler
+#endif

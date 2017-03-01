@@ -69,7 +69,7 @@ newtype PollT m a = PollT
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData, MonadSlots,
                 MonadCatch, MonadIO, HasLoggerName, MonadTrans, MonadError e,
                 WithNodeContext ssc, MonadJL, CanLog, MonadMask, MonadUSMem,
-                MonadSscMem mem,
+                MonadSscMem mem, MonadDB,
                 MonadTxpMem, MonadBase io, MonadDelegation, MonadFix)
 
 ----------------------------------------------------------------------------
@@ -243,7 +243,6 @@ instance MonadPollRead m =>
 -- Common instances used all over the code
 ----------------------------------------------------------------------------
 
-deriving instance MonadDB ssc m => MonadDB ssc (PollT m)
 type instance ThreadId (PollT m) = ThreadId m
 type instance Promise (PollT m) = Promise m
 type instance SharedAtomicT (PollT m) = SharedAtomicT m

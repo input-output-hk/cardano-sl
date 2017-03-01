@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -26,6 +25,7 @@ import           Universum
 import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (DelegationWrap (..), MonadDelegation (..))
 import           Pos.DHT.MemState            (MonadDhtMem)
 import           Pos.Reporting               (MonadReportingMem)
@@ -64,9 +64,10 @@ newtype DelegationT m a = DelegationT
                , MonadDhtMem
                , MonadReportingMem
                , MonadRelayMem
-               , MonadShutdownMem)
-
-deriving instance MonadDB ssc m => MonadDB ssc (DelegationT m)
+               , MonadShutdownMem
+               , MonadDB
+               , MonadDBLimits
+               )
 
 instance (Monad m) => MonadDelegation (DelegationT m) where
     askDelegationState = DelegationT ask

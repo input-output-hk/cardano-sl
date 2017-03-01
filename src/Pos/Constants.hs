@@ -26,10 +26,13 @@ module Pos.Constants
        , genesisN
        , genesisSlotDuration
        , genesisMaxBlockSize
+       , genesisMaxHeaderSize
        , genesisMaxTxSize
+       , maxReqSize
        , genesisMpcThd
        , genesisHeavyDelThd
        , genesisUpdateVoteThd
+       , genesisMaxUpdateProposalSize
        , genesisUpdateProposalThd
        , genesisUpdateImplicit
        , genesisUpdateSoftforkThd
@@ -142,6 +145,10 @@ genesisSlotDuration =
 genesisMaxBlockSize :: Byte
 genesisMaxBlockSize = ccGenesisMaxBlockSize $ compileConfig
 
+-- | Maximum size of a block header (in bytes)
+genesisMaxHeaderSize :: Byte
+genesisMaxHeaderSize = ccGenesisMaxHeaderSize $ compileConfig
+
 -- | See 'Pos.CompileConfig.ccGenesisMaxTxSize'.
 genesisMaxTxSize :: Byte
 genesisMaxTxSize = ccGenesisMaxTxSize cc
@@ -169,6 +176,10 @@ genesisUpdateVoteThd = unsafeCoinPortionFromDouble $ ccGenesisUpdateVoteThd cc
 staticAssert
     (ccGenesisUpdateVoteThd compileConfig >= 0 && ccGenesisUpdateVoteThd compileConfig < 1)
     "genesisUpdateVoteThd is not in range [0, 1)"
+
+-- | See 'Pos.CompileConfig.ccGenesisMaxUpdateProposalSize'.
+genesisMaxUpdateProposalSize :: Byte
+genesisMaxUpdateProposalSize = ccGenesisMaxUpdateProposalSize cc
 
 -- | See 'Pos.CompileConfig.ccGenesisUpdateProposalThd'.
 genesisUpdateProposalThd :: CoinPortion

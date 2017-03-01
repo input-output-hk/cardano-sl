@@ -29,6 +29,7 @@ import           Universum
 import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.MemState            (MonadDhtMem)
 import           Pos.Reporting               (MonadReportingMem)
@@ -72,13 +73,14 @@ newtype USHolder m a = USHolder
                , MonadReportingMem
                , MonadRelayMem
                , MonadShutdownMem
+               , MonadDB
+               , MonadDBLimits
                )
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code
 ----------------------------------------------------------------------------
 
-deriving instance MonadDB ssc m => MonadDB ssc (USHolder m)
 type instance ThreadId (USHolder m) = ThreadId m
 type instance Promise (USHolder m) = Promise m
 type instance SharedAtomicT (USHolder m) = SharedAtomicT m

@@ -1,7 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes  #-}
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE Rank2Types           #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -41,6 +37,7 @@ import           Pos.Communication.PeerState (WithPeerState (..))
 import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DB                      (MonadDB (..))
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.MemState            (MonadDhtMem)
 import           Pos.DHT.Model               (MonadDHT)
@@ -85,9 +82,8 @@ newtype NoStatsT m a = NoStatsT
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
                 MonadJL, CanLog, MonadTxpMem, MonadSscMem ssc,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem,
-                MonadDhtMem, MonadReportingMem, MonadRelayMem, MonadShutdownMem)
-
-deriving instance MonadDB ssc m => MonadDB ssc (NoStatsT m)
+                MonadDhtMem, MonadReportingMem, MonadRelayMem, MonadShutdownMem,
+                MonadDB, MonadDBLimits)
 
 instance Monad m => WrappedM (NoStatsT m) where
     type UnwrappedM (NoStatsT m) = m
@@ -140,9 +136,9 @@ newtype StatsT m a = StatsT
                 MonadTrans, MonadJL, CanLog, MonadTxpMem,
                 MonadSscMem ssc, MonadSlotsData,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem,
-                MonadDhtMem, MonadReportingMem, MonadRelayMem, MonadShutdownMem)
+                MonadDhtMem, MonadReportingMem, MonadRelayMem, MonadShutdownMem,
+                MonadDB, MonadDBLimits)
 
-deriving instance MonadDB ssc m => MonadDB ssc (StatsT m)
 instance Monad m => WrappedM (StatsT m) where
     type UnwrappedM (StatsT m) = ReaderT StatsMap m
     _WrappedM = iso getStatsT StatsT

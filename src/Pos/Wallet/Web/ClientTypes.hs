@@ -1,7 +1,4 @@
-{-# LANGUAGE RankNTypes           #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TypeOperators        #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | client types
 
@@ -9,7 +6,8 @@
 -- just to have a starting point)
 
 module Pos.Wallet.Web.ClientTypes
-      ( CAddress
+      ( SyncProgress (..)
+      , CAddress
       , CCurrency (..)
       , CHash
       , CTType (..)
@@ -57,6 +55,16 @@ import           Pos.Update.Core       (BlockVersionData (..), StakeholderVotes,
 import           Pos.Update.Poll       (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Wallet.Tx.Pure    (TxHistoryEntry (..))
+
+data SyncProgress =
+    SyncProgress { _spLocalCD   :: ChainDifficulty
+                 , _spNetworkCD :: Maybe ChainDifficulty
+                 , _spPeers     :: Word
+                 }
+    deriving (Show, Generic)
+
+instance Default SyncProgress where
+    def = SyncProgress 0 mzero 0
 
 -- Notifications
 data NotifyEvent

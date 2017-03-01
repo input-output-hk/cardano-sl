@@ -1,6 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes  #-}
-{-# LANGUAGE CPP                  #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Server which handles transactions.
@@ -38,7 +35,7 @@ txProxy = RelayProxy
 
 txListeners
     :: WorkMode ssc m
-    => ([ListenerSpec m], OutSpecs)
+    => m ([ListenerSpec m], OutSpecs)
 txListeners = relayListeners txProxy
 
 txStubListeners

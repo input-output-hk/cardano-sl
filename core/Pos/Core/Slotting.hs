@@ -1,3 +1,5 @@
+-- | Slotting functions.
+
 module Pos.Core.Slotting
        ( flattenSlotId
        , flattenEpochIndex

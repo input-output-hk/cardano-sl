@@ -53,6 +53,9 @@ library
                         Pos.Communication.Types.Relay
                         Pos.Communication.Types.SysStart
                         Pos.Communication.BiP
+                        Pos.Communication.Limits
+                        Pos.Communication.Limits.Types
+                        Pos.Communication.Limits.Instances
                         Pos.Communication.MessagePart
                         Pos.Communication.PeerState
                         Pos.Communication.Protocol
@@ -72,6 +75,7 @@ library
                         Pos.Binary.Infra
                         Pos.Binary.Infra.DHTModel
                         Pos.Binary.Infra.Slotting
+                        Pos.Binary.Infra.Communication
 
                         -- Pos.Util
                         Pos.Util.TimeLimit
@@ -96,6 +100,7 @@ library
                       , binary == 0.8.3.*
                       , bytestring
                       , cardano-sl-core
+                      , cardano-sl-db
                       , cardano-report-server
                       , data-default
                       , directory
@@ -112,6 +117,7 @@ library
                       , network-info
                       , network-transport-tcp
                       , node-sketch
+                      , reflection
                       , serokell-util >= 0.1.3.4
                       , stm
                       , stm-containers

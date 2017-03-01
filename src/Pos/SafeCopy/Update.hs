@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 
 -- | SafeCopy serialization of core Update System types.
 

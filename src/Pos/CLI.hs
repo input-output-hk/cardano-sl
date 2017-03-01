@@ -1,6 +1,5 @@
 {-# LANGUAGE ApplicativeDo   #-}
 {-# LANGUAGE CPP             #-}
-{-# LANGUAGE OverloadedLists #-}
 
 -- | Module for command-line utilites, parsers and convenient handlers.
 

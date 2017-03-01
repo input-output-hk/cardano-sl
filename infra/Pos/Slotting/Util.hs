@@ -28,6 +28,7 @@ import           Formatting               (build, int, sformat, shown, (%))
 import           Mockable                 (Delay, Fork, Mockable, delay, fork)
 import           Paths_cardano_sl_infra   (version)
 import           Serokell.Util.Exceptions ()
+import           Serokell.Util.Time       (minute, sec)
 import           System.Wlog              (WithLogger, logDebug, logError, logInfo,
                                            logNotice, modifyLoggerName)
 import           Universum
@@ -44,7 +45,6 @@ import           Pos.Slotting.Class       (MonadSlots (..))
 import           Pos.Slotting.Error       (SlottingError (..))
 import           Pos.Slotting.MemState    (MonadSlotsData (..))
 import           Pos.Slotting.Types       (EpochSlottingData (..), SlottingData (..))
-import           Pos.Util.TimeWarp        (minute, sec)
 
 -- TODO eliminate this copy-paste when would refactor Pos.Util
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
@@ -123,7 +123,8 @@ onNewSlotImpl withLogging startImmediately action =
         let msg = sformat ("Error occurred in 'onNewSlot' worker itself: " %build) e
         logError $ msg
         reportMisbehaviourMasked version msg
-        delay $ minute 1
+        delay =<< getLastKnownSlotDuration
+        onNewSlotImpl withLogging startImmediately action
 
 onNewSlotDo
     :: OnNewSlot m

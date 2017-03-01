@@ -1,7 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes       #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
-{-# LANGUAGE TypeFamilies              #-}
 
 -- | Basically wrappers over RocksDB library.
 
@@ -41,7 +40,7 @@ import           Pos.DB.Error          (DBError (DBMalformed))
 import           Pos.DB.Iterator.Class (DBIteratorClass (..))
 import           Pos.DB.Types          (DB (..))
 
-openDB :: MonadIO m => FilePath -> m (DB ssc)
+openDB :: MonadIO m => FilePath -> m (DB)
 openDB fp = DB def def def
                    <$> Rocks.open fp def
                         { Rocks.createIfMissing = True
@@ -54,14 +53,14 @@ encodeWithKeyPrefix
 encodeWithKeyPrefix = (iterKeyPrefix @i Proxy <>) . encodeStrict
 
 -- | Read ByteString from RocksDb using given key.
-rocksGetBytes :: (MonadIO m) => ByteString -> DB ssc -> m (Maybe ByteString)
+rocksGetBytes :: (MonadIO m) => ByteString -> DB -> m (Maybe ByteString)
 rocksGetBytes key DB {..} = Rocks.get rocksDB rocksReadOpts key
 
 -- | Read serialized value from RocksDB using given key.
 rocksGetBi
-    :: forall v m ssc.
+    :: forall v m.
        (Bi v, MonadIO m, MonadThrow m)
-    => ByteString -> DB ssc -> m (Maybe v)
+    => ByteString -> DB -> m (Maybe v)
 rocksGetBi key db = do
     bytes <- rocksGetBytes key db
     traverse (rocksDecode . (ToDecodeValue key)) bytes
@@ -122,14 +121,14 @@ rocksDecodeKeyValMaybe
 rocksDecodeKeyValMaybe (k, v) = (,) <$> rocksDecodeMaybe k <*> rocksDecodeMaybe v
 
 -- | Write ByteString to RocksDB for given key.
-rocksPutBytes :: (MonadIO m) => ByteString -> ByteString -> DB ssc -> m ()
+rocksPutBytes :: (MonadIO m) => ByteString -> ByteString -> DB -> m ()
 rocksPutBytes k v DB {..} = Rocks.put rocksDB rocksWriteOpts k v
 
 -- | Write serializable value to RocksDb for given key.
-rocksPutBi :: (Bi v, MonadIO m) => ByteString -> v -> DB ssc -> m ()
+rocksPutBi :: (Bi v, MonadIO m) => ByteString -> v -> DB -> m ()
 rocksPutBi k v = rocksPutBytes k (encodeStrict v)
 
-rocksDelete :: (MonadIO m) => ByteString -> DB ssc -> m ()
+rocksDelete :: (MonadIO m) => ByteString -> DB -> m ()
 rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k
 
 ----------------------------------------------------------------------------
@@ -188,6 +187,6 @@ instance Buildable [SomePrettyBatchOp] where
     build = bprint listJson
 
 -- | Write Batch encapsulation
-rocksWriteBatch :: (RocksBatchOp a, MonadIO m) => [a] -> DB ssc -> m ()
+rocksWriteBatch :: (RocksBatchOp a, MonadIO m) => [a] -> DB -> m ()
 rocksWriteBatch batch DB {..} =
     Rocks.write rocksDB rocksWriteOpts (concatMap toBatchOp batch)

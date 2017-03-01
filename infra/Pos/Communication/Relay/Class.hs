@@ -10,8 +10,9 @@ import           Node.Message                  (Message)
 import           Serokell.Util.Verify          (VerificationRes)
 import           Universum
 
+import           Pos.Communication.Limits      (MessageLimited)
 import           Pos.Communication.Relay.Types (RelayContext)
-import           Pos.Communication.Types.Relay (InvOrData, ReqMsg (..))
+import           Pos.Communication.Types.Relay (DataMsg, InvOrData, ReqMsg (..))
 
 -- | Typeclass for general Inv/Req/Dat framework. It describes monads,
 -- that store data described by tag, where "key" stands for node
@@ -22,8 +23,9 @@ class ( Buildable tag
       , Typeable tag
       , Typeable contents
       , Typeable key
-      , Message (InvOrData tag key contents)
       , Message (ReqMsg key tag)
+      , Message (InvOrData tag key contents)
+      , MessageLimited (DataMsg contents)
       ) => Relay m tag key contents
       | tag -> contents, contents -> tag, contents -> key, tag -> key where
     -- | Converts data to tag. Tag returned in monad `m`

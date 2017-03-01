@@ -1,7 +1,7 @@
 module Explorer.View.Dashboard.Transactions (transactionsView) where
 
 import Prelude
-import Data.Array (null, slice)
+import Data.Array (length, null, slice)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
@@ -21,7 +21,7 @@ import Pos.Explorer.Web.Lenses.ClientTypes (cteId, cteAmount, cteTimeIssued, _CT
 import Pos.Types.Lenses.Core (_Coin, getCoin)
 import Pux.Html (Html, div, text) as P
 import Pux.Html.Attributes (className) as P
-import Pux.Html.Events (onClick) as P
+import Pux.Html.Events (onClick, MouseEvent) as P
 import Pux.Router (link) as P
 
 maxTransactionRows :: Int
@@ -46,8 +46,9 @@ transactionsView state =
           , P.div
             [ P.className $ "transactions__footer" <> visibleTxClazz ]
             [ P.div
-                [ P.className "btn-expand"
-                , P.onClick <<< const <<< DashboardExpandTransactions $ not expanded ]
+                [ P.className $ "btn-expand" <> visibleBtnExpandClazz
+                , P.onClick clickHandler
+                ]
                 [ P.text expandLabel]
             ]
           ]
@@ -55,6 +56,7 @@ transactionsView state =
     where
       lang' = state ^. lang
       expanded = state ^. dashboardTransactionsExpanded
+      expandable = length transactions > minTransactionRows
       expandLabel = if expanded
           then translate (I18nL.common <<< I18nL.cCollapse) lang'
           else translate (I18nL.common <<< I18nL.cExpand) lang'
@@ -68,6 +70,14 @@ transactionsView state =
       noTransactions = null transactions
       visibleTxClazz = if noTransactions then " invisible" else ""
       visibleWaitingClazz = if not noTransactions then " invisible" else ""
+      visibleBtnExpandClazz = if expandable then "" else " disabled"
+
+      clickHandler :: P.MouseEvent -> Action
+      clickHandler _ =
+        if expandable
+        then DashboardExpandTransactions $ not expanded
+        else NoOp
+
       transactions' :: CTxEntries
       transactions' = if expanded
           then slice 0 maxTransactionRows transactions

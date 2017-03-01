@@ -60,14 +60,16 @@ blocksView state =
             , link: Just $ HeaderLink { label: translate (I18nL.dashboard <<< I18nL.dbExploreBlocks) lang'
                                       , action: NoOp }
             }
+        blocks = state ^. latestBlocks
         lang' = state ^. lang
         expanded = state ^. dashboardBlocksExpanded
-        blocks = state ^. latestBlocks
+        expandable = length blocks > minBlockRows
         noBlocks = null blocks
         visibleBlockClazz = if noBlocks then " invisible" else ""
         visibleWaitingClazz = if not noBlocks then " invisible" else ""
         currentBlockPage = state ^. (dashboardViewState <<< dashboardBlockPagination)
         minBlockIndex = (currentBlockPage - 1) * maxBlockRows
+
         latestBlocks' :: CBlockEntries
         latestBlocks' = if expanded
             then slice minBlockIndex (minBlockIndex + maxBlockRows) blocks
@@ -75,21 +77,30 @@ blocksView state =
 
 
         blocksFooterView :: P.Html Action
-        blocksFooterView = if expanded then
-            let paginationViewProps =
-                  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                  , currentPage: currentBlockPage
-                  , maxPage: flip (/) maxBlockRows <<< length $ state ^. latestBlocks
-                  , changePageAction: DashboardPaginateBlocks
-                  , onFocusAction: SelectInputText <<< targetToHTMLInputElement
-                  }
-            in
-            paginationView paginationViewProps
+        blocksFooterView =
+            if expanded then
+                let paginationViewProps =
+                      { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                      , currentPage: currentBlockPage
+                      , maxPage: flip (/) maxBlockRows <<< length $ state ^. latestBlocks
+                      , changePageAction: DashboardPaginateBlocks
+                      , onFocusAction: SelectInputText <<< targetToHTMLInputElement
+                      }
+                in
+                    paginationView paginationViewProps
             else
-            P.div
-              [ P.className "btn-expand"
-              , P.onClick <<< const $ DashboardExpandBlocks true ]
-              [ P.text $ translate (I18nL.common <<< I18nL.cExpand) lang']
+                let
+                    clickHandler _ =
+                        if expandable
+                        then DashboardExpandBlocks true
+                        else NoOp
+                    visibleBtnExpandClazz = if expandable then "" else " disabled"
+                in
+                    P.div
+                      [ P.className $ "btn-expand" <> visibleBtnExpandClazz
+                      , P.onClick clickHandler ]
+                      [ P.text $ translate (I18nL.common <<< I18nL.cExpand) lang']
+
 
 blockRow :: State -> CBlockEntry -> P.Html Action
 blockRow state (CBlockEntry entry) =

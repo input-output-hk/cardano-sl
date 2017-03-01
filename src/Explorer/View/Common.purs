@@ -16,8 +16,7 @@ import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.Factory (mkCHash)
 import Pux.Html (Html, text, div, a, p, span, input) as P
 import Pux.Html.Attributes (className, href, value, disabled, type_, min, max) as P
-import Pux.Html.Events (FormEvent, MouseEvent, Target, onClick)
-import Pux.Html.Events (onChange, onFocus) as P
+import Pux.Html.Events (onChange, onFocus, FormEvent, MouseEvent, Target, onClick) as P
 import Pux.Router (link) as P
 
 -- transactions
@@ -91,7 +90,7 @@ type PaginationViewProps =
     , currentPage :: Int
     , maxPage :: Int
     , changePageAction :: (Int -> Action)
-    , onFocusAction :: (Target -> Action)
+    , onFocusAction :: (P.Target -> Action)
     }
 
 transactionPaginationView :: PaginationViewProps -> P.Html Action
@@ -108,7 +107,7 @@ paginationView props =
             [ P.className "pagination__wrapper" ]
             [ P.div
                 [ P.className $ "btn-page" <> disablePrevBtnClazz
-                , onClick prevClickHandler ]
+                , P.onClick prevClickHandler ]
                 [ P.div
                     [ P.className "icon bg-triangle-left" ]
                     []
@@ -135,7 +134,7 @@ paginationView props =
                 []
             , P.div
                 [ P.className $ "btn-page" <> disableNextBtnClazz
-                  , onClick nextClickHandler ]
+                  , P.onClick nextClickHandler ]
                 [ P.div
                     [ P.className "icon bg-triangle-right" ]
                     []
@@ -146,21 +145,21 @@ paginationView props =
           minPage = 1
           disablePrevBtnClazz = if props.currentPage == minPage then " disabled" else ""
           disableNextBtnClazz = if props.currentPage == props.maxPage then " disabled" else ""
-          nextClickHandler :: MouseEvent -> Action
+          nextClickHandler :: P.MouseEvent -> Action
           nextClickHandler _ =
               if props.currentPage < props.maxPage then
               props.changePageAction $ props.currentPage + 1
               else
               NoOp
 
-          prevClickHandler :: MouseEvent -> Action
+          prevClickHandler :: P.MouseEvent -> Action
           prevClickHandler _ =
               if props.currentPage > minPage then
               props.changePageAction $ props.currentPage - 1
               else
               NoOp
 
-          changeHandler :: FormEvent -> Action
+          changeHandler :: P.FormEvent -> Action
           changeHandler ev =
               let value = fromMaybe props.currentPage <<< fromString <<< _.value $ _.target ev in
               if value >= minPage && value <= props.maxPage

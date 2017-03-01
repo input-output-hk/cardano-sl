@@ -56,3 +56,5 @@ testnetStakes/
 *.key.lock
 node_modules/*
 .no-nix
+db-abc/
+kademlia-abc.dump

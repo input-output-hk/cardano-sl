@@ -41,9 +41,10 @@ import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
                                                  CBlockEntry (..), CBlockSummary (..),
                                                  CHash, CTxEntry (..), TxInternal (..),
+                                                 CTxId (..), CTxSummary (..),
                                                  fromCAddress, fromCHash', toBlockEntry,
                                                  toBlockSummary, toTxEntry,
-                                                 toTxDetailed)
+                                                 toTxRelative)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 ----------------------------------------------------------------
@@ -73,6 +74,8 @@ explorerHandlers sendActions =
     (\h -> catchExplorerError ... defaultLimit 10 (getBlockTxs h))
     :<|>
     catchExplorerError . getAddressSummary
+    :<|>
+    catchExplorerError . getTxSummary
   where
     catchExplorerError = try
     f ... g = (f .) . g
@@ -127,12 +130,27 @@ getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
         balance <- fromMaybe (mkCoin 0) <$> GS.getFtsStake sid
         -- TODO: add number of coins when it's implemented
         txs <- allTxs
-        let transactions = map (toTxDetailed addr) $
+        let transactions = map (toTxRelative addr) $
                            filter (any (\txOut -> txOutAddress txOut == addr) .
                                txOutputs . tiTx) txs
         return $ CAddressSummary cAddr 0 balance transactions
     _ -> throwM $
          Internal "Non-P2PKH addresses are not supported in Explorer yet"
+
+getTxSummary :: ExplorerMode m => CTxId -> m CTxSummary
+getTxSummary cTxId = do
+    -- There are two places whence we can fetch a transaction: MemPool and GS.
+    let ctsId = cTxId
+        ctsTxTimeIssued = undefined
+        ctsBlockTimeIssued = undefined
+        ctsBlockHeight = undefined
+        ctsRelayedByIP = undefined
+        ctsTotalInput = undefined
+        ctsTotalOutput = undefined
+        ctsFees = undefined
+        ctsInputs = []
+        ctsOutputs = []
+    pure $ CTxSummary {..}
 
 --------------------------------------------------------------------------------
 -- Helpers

@@ -8,8 +8,10 @@ module Pos.Explorer.Web.ClientTypes
        , CTxEntry (..)
        , CBlockSummary (..)
        , CAddressSummary (..)
-       , CTxDetailed (..)
-       , CTxType (..)
+       , CTxRelative (..)
+       , CTxRelativeType (..)
+       , CNetworkAddress (..)
+       , CTxSummary (..)
        , TxInternal (..)
        , toCHash
        , fromCHash
@@ -20,7 +22,7 @@ module Pos.Explorer.Web.ClientTypes
        , toBlockEntry
        , toTxEntry
        , toBlockSummary
-       , toTxDetailed
+       , toTxRelative
        ) where
 
 import qualified Data.ByteString        as BS
@@ -44,19 +46,23 @@ import           Pos.Types              (Address, Coin, MainBlock (..), Timestam
                                          gbhConsensus, headerHash, mcdSlot, mkCoin,
                                          prevBlockL, sumCoins, unsafeAddCoin,
                                          unsafeIntegerToCoin)
+import           Pos.Util.TimeWarp      (NetworkAddress)
 
 -------------------------------------------------------------------------------------
 -- Hash types
 -------------------------------------------------------------------------------------
 
 -- | Client hash
-newtype CHash = CHash Text deriving (Show, Eq, Generic, Buildable, Hashable)
+newtype CHash = CHash Text
+    deriving (Show, Eq, Generic, Buildable, Hashable)
 
 -- | Client address
-newtype CAddress = CAddress Text deriving (Show, Eq, Generic, Hashable, Buildable)
+newtype CAddress = CAddress Text
+    deriving (Show, Eq, Generic, Buildable, Hashable)
 
 -- | Client transaction id
-newtype CTxId = CTxId CHash deriving (Show, Eq, Generic, Hashable)
+newtype CTxId = CTxId CHash
+    deriving (Show, Eq, Generic, Hashable)
 
 -- | Transformation of core hash-types to client representations and vice versa
 encodeHashHex :: Hash a -> Text
@@ -167,21 +173,37 @@ data CAddressSummary = CAddressSummary
     { caAddress :: !CAddress
     , caTxNum   :: !Word
     , caBalance :: !Coin
-    , caTxList  :: ![CTxDetailed]
+    , caTxList  :: ![CTxRelative]
     } deriving (Show, Generic)
 
-data CTxDetailed = CTxDetailed
-    { ctdId         :: !CTxId
-    , ctdTimeIssued :: !POSIXTime
-    , ctdType       :: !CTxType
+data CTxRelative = CTxRelative
+    { ctrId         :: !CTxId
+    , ctrTimeIssued :: !POSIXTime
+    , ctrType       :: !CTxRelativeType
     } deriving (Show, Generic)
 
-data CTxType =
+data CTxRelativeType =
       CTxIncoming ![CAddress] !Coin
     -- TODO: Add these constructors when we can provide relevant data
     -- | CTxOutgoing ![CAddress] !Coin
     -- | CTxBoth     ![CAddress] !Coin ![CAddress] !Coin
     deriving (Show, Generic)
+
+data CNetworkAddress = CNetworkAddress Text Word16
+    deriving (Show, Generic)
+
+data CTxSummary = CTxSummary
+    { ctsId              :: !CTxId
+    , ctsTxTimeIssued    :: !POSIXTime
+    , ctsBlockTimeIssued :: !POSIXTime
+    , ctsBlockHeight     :: !Word
+    , ctsRelayedByIP     :: !CNetworkAddress
+    , ctsTotalInput      :: !Coin
+    , ctsTotalOutput     :: !Coin
+    , ctsFees            :: !Coin
+    , ctsInputs          :: ![(CAddress, Coin)]
+    , ctsOutputs         :: ![(CAddress, Coin)]
+    } deriving (Show, Generic)
 
 --------------------------------------------------------------------------------
 -- FromHttpApiData instances
@@ -193,22 +215,25 @@ instance FromHttpApiData CHash where
 instance FromHttpApiData CAddress where
     parseUrlPiece = fmap toCAddress . decodeTextAddress
 
+instance FromHttpApiData CTxId where
+    parseUrlPiece = fmap toCTxId . decodeHashHex
+
 --------------------------------------------------------------------------------
 -- Helper types and conversions
 --------------------------------------------------------------------------------
 
 data TxInternal = TxInternal
     { tiTimestamp :: !Timestamp
-    , tiTx :: Tx
+    , tiTx        :: !Tx
     } deriving (Show)
 
-toTxDetailed :: Address -> TxInternal -> CTxDetailed
-toTxDetailed addr txi = CTxDetailed {..}
+toTxRelative :: Address -> TxInternal -> CTxRelative
+toTxRelative addr txi = CTxRelative {..}
   where
     tx = tiTx txi
     ts = tiTimestamp txi
-    ctdId = toCTxId $ hash tx
-    ctdTimeIssued = toPosixTime ts
+    ctrId = toCTxId $ hash tx
+    ctrTimeIssued = toPosixTime ts
     amount = unsafeIntegerToCoin . sumCoins . map txOutValue .
              filter (\txOut -> txOutAddress txOut == addr) . txOutputs $ tx
-    ctdType = CTxIncoming [] amount
+    ctrType = CTxIncoming [] amount

@@ -8,23 +8,20 @@ module Pos.DHT.Real.Real
        ) where
 
 import           Control.Concurrent.STM    (newTVar, readTVar, writeTVar)
-import           Mockable                  (Async, Catch, Mockable, MonadMockable,
-                                            Promise, Throw, bracket, catchAll, fork,
-                                            killThread, throw, waitAnyUnexceptional)
-
 import           Data.Binary               (decode)
 import qualified Data.ByteString.Lazy      as BS
 import qualified Data.HashMap.Strict       as HM
 import           Data.List                 (intersect, (\\))
 import           Formatting                (build, int, sformat, shown, (%))
+import           Mockable                  (Async, Catch, Mockable, MonadMockable,
+                                            Promise, Throw, bracket, catchAll, fork,
+                                            killThread, throw, waitAnyUnexceptional)
 import qualified Network.Kademlia          as K
-import           Prelude                   (id)
 import           Serokell.Util             (ms, sec)
 import           System.Directory          (doesFileExist)
 import           System.Wlog               (WithLogger, logDebug, logError, logInfo,
                                             logWarning, usingLoggerName)
-import           Universum                 hiding (Async, async, bracket, catchAll,
-                                            fromStrict, toStrict)
+import           Universum                 hiding (Async, async, bracket, catchAll)
 
 import           Pos.Binary.Class          (Bi (..))
 import           Pos.Binary.Infra.DHTModel ()
@@ -159,7 +156,7 @@ getKnownPeersImpl = do
                      (splitToBuckets (kdiHandle inst) myId l)
             else return l
     bucketIndex origin x =
-        length . takeWhile (not . id) <$> K.distance origin (K.nodeId x)
+        length . takeWhile (== False) <$> K.distance origin (K.nodeId x)
     insertId origin i hm = do
         bucket <- bucketIndex origin i
         return $ HM.insertWith (++) bucket [i] hm

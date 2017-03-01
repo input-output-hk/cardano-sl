@@ -26,7 +26,7 @@ import           Data.Time.Units        (Millisecond, convertUnit)
 import           Formatting             (build, int, sformat, shown, (%))
 import           Mockable               (Delay, Fork, Mockable, delay, fork)
 import           Paths_cardano_sl_infra (version)
-import           Serokell.Util          (minute, sec)
+import           Serokell.Util          (sec)
 import           System.Wlog            (WithLogger, logDebug, logError, logInfo,
                                          logNotice, modifyLoggerName)
 import           Universum

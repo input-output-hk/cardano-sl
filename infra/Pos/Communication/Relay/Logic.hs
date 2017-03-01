@@ -191,7 +191,7 @@ type InvOrDataLimitedLength s key tag contents =
         (InvOrData tag key contents)
 
 relayListeners
-  :: forall m key tag contents ssc.
+  :: forall m key tag contents.
      ( MonadDHT m
      , Bi key
      , Bi tag
@@ -296,16 +296,22 @@ relayWorkers allOutSpecs =
     action sendActions = do
         queue <- _rlyPropagationQueue <$> askRelayMem
         forever $ atomically (readTBQueue queue) >>= \case
-            SomeInvMsg (i@(Left (InvMsg{..}))) -> do
-                logDebug $
-                    sformat
-                    ("Propagation data with keys: "%listJson%" and tag: "%build) imKeys imTag
+            SomeInvMsg i@(Left (InvMsg{..})) -> do
+                logDebug $ sformat
+                    ("Propagation data with keys: "%listJson%
+                     " and tag: "%build) imKeys imTag
                 converseToNeighbors sendActions (convHandler i)
             SomeInvMsg (Right _) ->
                 logWarning $ "DataMsg is contains in inv propagation queue"
-    convHandler inv __peerId
-        (ConversationActions{..}::
-        (ConversationActions (InvOrData tag1 key1 contents1) (ReqMsg key1 tag1) m)) = send inv
+
+    convHandler
+        :: InvOrData tag1 key1 contents1
+        -> NodeId
+        -> ConversationActions
+             (InvOrData tag1 key1 contents1) (ReqMsg key1 tag1) m
+        -> m ()
+    convHandler inv __peerId ConversationActions{..} = send inv
+
     handleWE e = do
         logError $ sformat ("relayWorker: error caught "%shown) e
         throw e

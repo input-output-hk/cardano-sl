@@ -99,9 +99,9 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
 
     log' logF =  usingLoggerName ("kademlia" <> "messager") . logF . toText
     createKademlia port key cfg =
-        K.createL (fromInteger . toInteger $ port) key cfg (log' logDebug) (log' logError)
+        K.createL (fromIntegral port) key cfg (log' logDebug) (log' logError)
     createKademliaFromSnapshot port cfg snapshot =
-        K.createLFromSnapshot (fromInteger . toInteger $ port)
+        K.createLFromSnapshot (fromIntegral port)
             cfg snapshot (log' logDebug) (log' logError)
 
 rejoinNetwork

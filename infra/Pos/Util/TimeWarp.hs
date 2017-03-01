@@ -12,12 +12,10 @@ module Pos.Util.TimeWarp
        ) where
 
 import qualified Data.ByteString.Char8 as BS8
-import           Data.Char             (isNumber)
 import           Data.Time.Units       (Microsecond)
 import           Mockable              (realTime)
 import qualified Network.Transport.TCP as TCP
 import           Node                  (NodeId (..))
-import           Prelude               (read)
 import           Universum
 
 -- | @"127.0.0.1"@.
@@ -40,9 +38,7 @@ addressToNodeId' eId (host, port) =
     NodeId $ TCP.encodeEndPointAddress (BS8.unpack host) (show port) eId
 
 nodeIdToAddress :: NodeId -> Maybe NetworkAddress
-nodeIdToAddress (NodeId ep) = toNA =<< TCP.decodeEndPointAddress ep
-  where
-    toNA (hostName, port', _) = (BS8.pack hostName,) <$> toPort port'
-    toPort :: String -> Maybe Word16
-    toPort port' | all isNumber port' = pure $ read port'
-                 | otherwise          = Nothing
+nodeIdToAddress (NodeId ep) = do
+    (hostName, strPort, _) <- TCP.decodeEndPointAddress ep
+    port <- readMaybe strPort
+    return (BS8.pack hostName, port)

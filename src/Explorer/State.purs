@@ -31,6 +31,8 @@ initialState =
     , latestBlocks: []
     , initialBlocksRequested: false
     , handleLatestBlocksSocketResult: false
+    , initialTxsRequested: false
+    , handleLatestTxsSocketResult: false
     , latestBlock: Nothing
     , latestTransactions: []
     , errors: []

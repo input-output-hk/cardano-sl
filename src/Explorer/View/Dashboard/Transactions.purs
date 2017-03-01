@@ -50,11 +50,6 @@ transactionsView state =
                 , P.onClick <<< const <<< DashboardExpandTransactions $ not expanded ]
                 [ P.text expandLabel]
             ]
-          -- TODO (jk) For debugging only - has to be removed later
-          , P.div
-              [ P.className $ "btn-debug"
-              , P.onClick $ const RequestLatestTransactions  ]
-              [ P.text "#Debug txs" ]
           ]
         ]
     where

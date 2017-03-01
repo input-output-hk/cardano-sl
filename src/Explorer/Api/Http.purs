@@ -49,8 +49,8 @@ post = request $ defaultRequest { method = Left POST }
 fetchLatestBlocks :: forall eff. Aff (ajax::AJAX | eff) CBlockEntries
 fetchLatestBlocks = get "last_blocks"
 
-fetchLatestTransactions :: forall eff. Aff (ajax::AJAX | eff) CTxEntries
-fetchLatestTransactions = get "last_txs"
+fetchLatestTxs :: forall eff. Aff (ajax::AJAX | eff) CTxEntries
+fetchLatestTxs = get "last_txs"
 
 fetchBlockSummary :: forall eff. CHash -> Aff (ajax::AJAX | eff) CBlockSummary
 fetchBlockSummary hash = get $ "block_summary/" <> hash ^. _CHash

@@ -9,8 +9,8 @@ import Data.Array ((:))
 import Data.Either (Either(..))
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
-import Explorer.Api.Http (fetchBlockSummary, fetchLatestBlocks, fetchLatestTransactions)
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, initialBlocksRequested, latestBlock, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
+import Explorer.Api.Http (fetchBlockSummary, fetchLatestBlocks, fetchLatestTxs)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, initialBlocksRequested, initialTxsRequested, handleLatestTxsSocketResult, latestBlock, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
@@ -122,17 +122,20 @@ update (ReceiveBlockSummary (Left error)) state = noEffects $
     set loading false $
     over errors (\errors' -> (show error) : errors') state
 
--- Debugging
--- TODO (jk): all of following actions are for debugging only and have to be removed later on
-update RequestLatestTransactions state =
+update RequestInitialTxs state =
     { state: set loading true state
-    , effects: [ attempt fetchLatestTransactions >>= pure <<< ReceiveLatestTransactions ]
+    , effects: [ attempt fetchLatestTxs >>= pure <<< ReceiveInitialTxs ]
     }
-update (ReceiveLatestTransactions (Right blocks)) state = noEffects $
-    set loading false $ over latestTransactions (\b -> blocks <> b) state
-update (ReceiveLatestTransactions (Left error)) state = noEffects $
-    set loading false $ over errors (\errors' -> (show error) : errors') state
-
+update (ReceiveInitialTxs (Right blocks)) state = noEffects $
+    set loading false <<<
+    set initialTxsRequested true <<<
+    set handleLatestTxsSocketResult true $
+    over latestTransactions (\b -> blocks <> b) state
+update (ReceiveInitialTxs (Left error)) state = noEffects $
+    set loading false <<<
+    set initialTxsRequested true <<<
+    set handleLatestTxsSocketResult true $
+    over errors (\errors' -> (show error) : errors') state
 
 -- routing
 
@@ -145,6 +148,9 @@ routeEffects Dashboard state =
         [ pure ScrollTop
         , if not $ state ^. initialBlocksRequested
           then pure RequestInitialBlocks
+          else pure NoOp
+        , if not $ state ^. initialTxsRequested
+          then pure RequestInitialTxs
           else pure NoOp
         ]
     }

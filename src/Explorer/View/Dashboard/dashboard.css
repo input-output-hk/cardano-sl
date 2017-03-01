@@ -109,6 +109,11 @@
       button-color: color(var(--color9) a(0.5)) color(var(--color9) a(0.5)) var(--color9);
       button-border: 1px color(var(--color9) a(0.2)) color(var(--color9) a(0.2)) var(--color9);
       button-background: transparent var(--color7) var(--color7);
+
+    &.disabled,
+    &.disabled:hover {
+      opacity: .5;
+    }
   }
 
   @media (--sm) {

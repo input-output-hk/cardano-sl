@@ -118,7 +118,6 @@ library
                         Pos.Binary.Block.Types
                         Pos.Binary.Block.Block
                         Pos.Binary.Communication
-                        Pos.Binary.DB
                         Pos.Binary.Genesis
                         Pos.Binary.Merkle
                         Pos.Binary.Relay
@@ -182,7 +181,6 @@ library
                         Pos.DB.Block
                         Pos.DB.GState.BlockExtra
                         Pos.DB.GState.GState
-                        Pos.DB.Limits
                         Pos.DB.Misc
 
                         -- Genesis

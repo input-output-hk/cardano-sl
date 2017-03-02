@@ -1,4 +1,6 @@
-flags: {}
+flags:
+  cardano-sl:
+    with-explorer: true
 
 extra-package-dbs: []
 
@@ -6,8 +8,11 @@ packages:
 - '.'
 - location:
     git: https://github.com/input-output-hk/cardano-sl
-    commit: 328d2293732a887ab4f3ca0a8bce607f92dd3879
+    commit: 8d8bb647112d85511ad4a11062261fbbf8485bbe
   extra-dep: true
+  subdirs:
+      - '.'
+      - core
 - location:
     git: https://github.com/serokell/acid-state.git
     commit: 95fce1dbada62020a0b2d6aa2dd7e88eadd7214b
@@ -31,11 +36,11 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 344f0e6e1b69b512cbfb04caf42bbe285cc7727a
+    commit: ede7a1a9eafd88e3449b38c7425f5529d6584014
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 9b4927f8115499db2fa3ba07df50d60d02190790
+    commit: b913bfc698fd2927ee5031826688eb7245906e6d
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -58,9 +63,9 @@ extra-deps:
 - aeson-extra-0.4.0.0
 - recursion-schemes-5
 - QuickCheck-2.9.2
-- cryptonite-openssl-0.3
+- cryptonite-openssl-0.5
 - UtilityTM-0.0.4
-- serokell-util-0.1.3.2
+- serokell-util-0.1.3.5
 - pvss-0.1
 - base58-bytestring-0.1.0
 - log-warper-0.4.3

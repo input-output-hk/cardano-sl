@@ -35,6 +35,7 @@ library
                       , bytestring
                       , base16-bytestring
                       , cardano-sl
+                      , cardano-sl-core
                       , exceptions
                       , formatting
                       , lens

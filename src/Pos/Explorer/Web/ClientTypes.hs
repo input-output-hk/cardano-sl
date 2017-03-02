@@ -19,6 +19,7 @@ module Pos.Explorer.Web.ClientTypes
        , toCAddress
        , fromCAddress
        , toCTxId
+       , fromCTxId
        , toBlockEntry
        , toTxEntry
        , toBlockSummary
@@ -41,11 +42,12 @@ import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
 import           Pos.Types              (Address, Coin, MainBlock (..), Timestamp,
-                                         Tx (..), TxId, TxOut (..), addressF, blockTxs,
+                                         addressF, blockTxs,
                                          decodeTextAddress, difficultyL, gbHeader,
                                          gbhConsensus, headerHash, mcdSlot, mkCoin,
                                          prevBlockL, sumCoins, unsafeAddCoin,
                                          unsafeIntegerToCoin)
+import           Pos.Txp                (Tx (..), TxId, TxOut (..), _txOutputs)
 import           Pos.Util.TimeWarp      (NetworkAddress)
 
 -------------------------------------------------------------------------------------
@@ -96,6 +98,9 @@ fromCAddress (CAddress addr) = decodeTextAddress addr
 toCTxId :: TxId -> CTxId
 toCTxId = CTxId . toCHash
 
+fromCTxId :: CTxId -> Either Text TxId
+fromCTxId (CTxId (CHash txId)) = decodeHashHex txId
+
 -------------------------------------------------------------------------------------
 -- Composite types
 -------------------------------------------------------------------------------------
@@ -104,7 +109,7 @@ toCTxId = CTxId . toCHash
 data CBlockEntry = CBlockEntry
     { cbeBlkHash    :: !CHash
     , cbeHeight     :: !Word
-    , cbeTimeIssued :: !POSIXTime
+    , cbeTimeIssued :: !(Maybe POSIXTime)
     , cbeTxNum      :: !Word
     , cbeTotalSent  :: !Coin
     , cbeSize       :: !Word64
@@ -123,7 +128,7 @@ toBlockEntry blk = do
                     blk ^. gbHeader . gbhConsensus . mcdSlot
     let cbeBlkHash = toCHash $ headerHash blk
         cbeHeight = fromIntegral $ blk ^. difficultyL
-        cbeTimeIssued = toPosixTime blkSlotStart
+        cbeTimeIssued = blkSlotStart >>= (Just . toPosixTime)
         txs = blk ^. blockTxs
         cbeTxNum = fromIntegral $ length txs
         addCoins c = unsafeAddCoin c . totalTxMoney
@@ -142,7 +147,7 @@ data CTxEntry = CTxEntry
 
 totalTxMoney :: Tx -> Coin
 totalTxMoney = unsafeIntegerToCoin . sumCoins .
-               map txOutValue . txOutputs
+               map txOutValue . _txOutputs
 
 toTxEntry :: Timestamp -> Tx -> CTxEntry
 toTxEntry ts tx = CTxEntry {..}
@@ -235,5 +240,5 @@ toTxRelative addr txi = CTxRelative {..}
     ctrId = toCTxId $ hash tx
     ctrTimeIssued = toPosixTime ts
     amount = unsafeIntegerToCoin . sumCoins . map txOutValue .
-             filter (\txOut -> txOutAddress txOut == addr) . txOutputs $ tx
+             filter (\txOut -> txOutAddress txOut == addr) . _txOutputs $ tx
     ctrType = CTxIncoming [] amount

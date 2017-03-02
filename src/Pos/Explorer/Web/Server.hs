@@ -23,17 +23,18 @@ import           Pos.Communication              (SendActions)
 import           Pos.Crypto                     (WithHash (..), withHash)
 import qualified Pos.DB                         as DB
 import qualified Pos.DB.GState                  as GS
--- import           Pos.DB.GState.Explorer         (getTxExtra)
--- import           Pos.Types.Explorer             (TxExtra (..))
+import           Pos.DB.GState.Explorer         (getTxExtra)
+import           Pos.Types.Explorer             (TxExtra (..))
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (getLocalTxs)
 import           Pos.Types                      (Address (..), HeaderHash,
-                                                 MainBlock, Timestamp, Tx,
+                                                 MainBlock, Timestamp,
                                                  blockTxs, gbHeader,
                                                  gbhConsensus, mcdSlot, mkCoin,
-                                                 prevBlockL, topsortTxs,
-                                                 txOutAddress, txOutputs)
+                                                 prevBlockL)
+import           Pos.Txp                        (Tx (..), topsortTxs,
+                                                 txOutAddress, _txOutputs)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
@@ -49,7 +50,7 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
                                                  TxInternal (..), fromCAddress,
                                                  fromCHash', toBlockEntry,
                                                  toBlockSummary, toTxEntry,
-                                                 toTxRelative)
+                                                 toTxRelative, fromCTxId)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 ----------------------------------------------------------------
@@ -136,8 +137,8 @@ getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
         -- TODO: add number of coins when it's implemented
         txs <- allTxs
         let transactions = map (toTxRelative addr) $
-                           filter (any (\txOut -> txOutAddress txOut == addr) .
-                               txOutputs . tiTx) txs
+                           filter (any (\txOut -> _txOutAddress txOut == addr) .
+                               _txOutputs . tiTx) txs
         return $ CAddressSummary cAddr 0 balance transactions
     _ -> throwM $
          Internal "Non-P2PKH addresses are not supported in Explorer yet"
@@ -145,6 +146,12 @@ getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
 getTxSummary :: ExplorerMode m => CTxId -> m CTxSummary
 getTxSummary cTxId = do
     -- There are two places whence we can fetch a transaction: MemPool and GS.
+    let txId = cTxIdToTxId cTxId
+    txExtra <- getTxExtra txId
+
+    let blockchainPlace = teBlockchainPlace txExtra
+        inputOutputs = teInputOutputs txExtra
+
     let ctsId = cTxId
         ctsTxTimeIssued = undefined
         ctsBlockTimeIssued = undefined
@@ -205,6 +212,11 @@ cAddrToAddr :: MonadThrow m => CAddress -> m Address
 cAddrToAddr cAddr =
     fromCAddress cAddr &
     either (\_ -> throwM $ Internal "Invalid address!") pure
+
+cTxIdToTxId :: MonadThrow m => CTxId -> m TxId
+cTxIdToTxId cTxId =
+    fromCTxId cTxId &
+    either (\_ -> throwM $ Internal "Invalid transaction id!") pure
 
 getMainBlock :: ExplorerMode m => HeaderHash -> m (MainBlock SscGodTossing)
 getMainBlock h =

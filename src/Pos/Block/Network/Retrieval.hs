@@ -82,7 +82,7 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
     NodeContext{..} <- getNodeContext
     mainLoop ncBlockRetrievalQueue ncRecoveryHeader
   where
-    mainLoop queue recHeaderVar = ifNotShutdown $ reportingFatal $ do
+    mainLoop queue recHeaderVar = runIfNotShutdown $ reportingFatal version $ do
         logDebug "Waiting on the queue"
         loopCont <- atomically $ do
             qV <- tryReadTBQueue queue
@@ -93,7 +93,7 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
                 (Nothing, Just r)  -> pure $ Right r
         let onLeft ph =
                 handleAll (handleBlockRetrieval recHeaderVar ph) $
-                reportingFatal $ handle ph
+                reportingFatal version $ handle ph
         let tryFillQueue peerId (0 :: Int) _ =
                 dropRecoveryHeaderAndRepeat recHeaderVar peerId
             tryFillQueue peerId tries action = do
@@ -104,7 +104,7 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
                 logDebug "Queue is empty, we're in recovery mode -> querying more"
                 whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
                     handleAll (handleHeadersRecovery recHeaderVar peerId) $
-                    reportingFatal $
+                    reportingFatal version $
                     reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
                     withConnectionTo sendActions peerId $ \_peerData ->
                         requestHeaders mghNext (Just rHeader) peerId limPx

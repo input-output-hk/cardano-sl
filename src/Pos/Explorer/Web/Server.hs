@@ -28,22 +28,26 @@ import qualified Pos.DB.GState                  as GS
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (getLocalTxs)
-import           Pos.Types                      (Address (..), HeaderHash, MainBlock,
-                                                 Timestamp, Tx, blockTxs, gbHeader,
+import           Pos.Types                      (Address (..), HeaderHash,
+                                                 MainBlock, Timestamp, Tx,
+                                                 blockTxs, gbHeader,
                                                  gbhConsensus, mcdSlot, mkCoin,
-                                                 prevBlockL, topsortTxs, txOutAddress,
-                                                 txOutputs)
+                                                 prevBlockL, topsortTxs,
+                                                 txOutAddress, txOutputs)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
-                                                 CBlockEntry (..), CBlockSummary (..),
-                                                 CHash, CTxEntry (..), TxInternal (..),
-                                                 CTxId (..), CTxSummary (..),
-                                                 fromCAddress, fromCHash', toBlockEntry,
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
+                                                 CAddressSummary (..),
+                                                 CBlockEntry (..),
+                                                 CBlockSummary (..), CHash,
+                                                 CTxEntry (..), CTxId (..),
+                                                 CTxSummary (..),
+                                                 TxInternal (..), fromCAddress,
+                                                 fromCHash', toBlockEntry,
                                                  toBlockSummary, toTxEntry,
                                                  toTxRelative)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))

@@ -32,7 +32,8 @@ import           Pos.Types                      (Address (..), HeaderHash,
                                                  MainBlock, Timestamp,
                                                  blockTxs, gbHeader,
                                                  gbhConsensus, mcdSlot, mkCoin,
-                                                 prevBlockL)
+                                                 prevBlockL, sumCoins,
+                                                 unsafeIntegerToCoin)
 import           Pos.Txp                        (Tx (..), topsortTxs,
                                                  txOutAddress, _txOutputs)
 import           Pos.Util                       (maybeThrow)
@@ -150,17 +151,32 @@ getTxSummary cTxId = do
     txExtra <- getTxExtra txId
 
     let blockchainPlace = teBlockchainPlace txExtra
-        inputOutputs = teInputOutputs txExtra
+        TxOut inputOutputs = teInputOutputs txExtra
+
+    -- TODO: here and in mempoolTxs/blockchainTxs we do two things wrongly:
+    -- 1. If the transaction is found in the MemPool, we return *current
+    --    system time* as the time when it was issued.
+    -- 2. If the transaction comes from the blockchain, we return *block
+    --    slot starting time* as the time when it was issued.
+    -- This needs to be fixed.
+    (ctsTxTimeIssued, ctsBlockTimeIssued, ctsBlockHeight, txBlock) <-
+        case blockchainPlace of
+            Nothing -> do
+                ts <- getCurrentTime
+                pure (ts, Nothing, Nothing, Nothing)
+            Just (headerHash, txIndexInBlock) -> do
+                block <- DB.getBlock headerHash
+                blkSlotStart <- lift $ getSlotStart $
+                                block ^. gbHeader . gbhConsensus . mcdSlot
+                let blockHeight = fromIntegral $ block ^. difficultyL
+                pure (blkSlotStart, Just blkSlotStart, Just blockHeight, Just block)
 
     let ctsId = cTxId
-        ctsTxTimeIssued = undefined
-        ctsBlockTimeIssued = undefined
-        ctsBlockHeight = undefined
         ctsRelayedByIP = undefined
-        ctsTotalInput = undefined
+        ctsTotalInput = unsafeIntegerToCoin . sumCoins . map txOutValue inputOutputs
         ctsTotalOutput = undefined
         ctsFees = undefined
-        ctsInputs = []
+        ctsInputs = [(txOutAddress txOut, txOutValue txOut) | txOut <- inputOutputs]
         ctsOutputs = []
     pure $ CTxSummary {..}
 

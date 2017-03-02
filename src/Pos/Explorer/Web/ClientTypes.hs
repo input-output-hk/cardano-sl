@@ -41,7 +41,7 @@ import qualified Pos.DB.GState          as GS
 import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
-import           Pos.Types              (Address, Coin, MainBlock (..), Timestamp,
+import           Pos.Types              (Address, Coin, MainBlock, Timestamp,
                                          addressF, blockTxs,
                                          decodeTextAddress, difficultyL, gbHeader,
                                          gbhConsensus, headerHash, mcdSlot, mkCoin,
@@ -188,13 +188,18 @@ data CTxRelative = CTxRelative
     } deriving (Show, Generic)
 
 data CTxRelativeType =
-      CTxIncoming ![CAddress] !Coin
+      CTxIncoming { ctiIncomingAddresses :: ![CAddress]
+                  , ctiIncomingAmount    :: !Coin}
     -- TODO: Add these constructors when we can provide relevant data
-    -- | CTxOutgoing ![CAddress] !Coin
-    -- | CTxBoth     ![CAddress] !Coin ![CAddress] !Coin
+    -- | CTxOutgoing { ctiOutgoingAddresses :: ![CAddress]
+    --               , ctiOutgoingAmount    :: !Coin}
+    -- | CTxBoth     { ctiIncomingAddresses :: ![CAddress]
+    --               , ctiIncomingAmount    :: !Coin
+    --               , ctiOutgoingAddresses :: ![CAddress]
+    --               , ctiOutgoingAmount    :: !Coin}
     deriving (Show, Generic)
 
-data CNetworkAddress = CNetworkAddress Text Word16
+data CNetworkAddress = CNetworkAddress !Text
     deriving (Show, Generic)
 
 data CTxSummary = CTxSummary

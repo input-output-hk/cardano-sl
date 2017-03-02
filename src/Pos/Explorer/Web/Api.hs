@@ -14,7 +14,6 @@ import           Pos.Explorer.Web.ClientTypes (CHash, CAddress, CAddressSummary,
                                                CBlockEntry, CBlockSummary,
                                                CTxEntry, CTxId, CTxSummary)
 import           Pos.Explorer.Web.Error       (ExplorerError)
-import           Pos.Types                    (Coin, SoftwareVersion)
 import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
                                                QueryParam)
 import           Universum

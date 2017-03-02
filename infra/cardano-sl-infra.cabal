@@ -23,6 +23,7 @@ library
 
                         -- Slotting
                         Pos.Slotting
+                        Pos.Slotting.Constants
                         Pos.Slotting.MemState
                         Pos.Slotting.MemState.Class
                         Pos.Slotting.MemState.Holder
@@ -34,6 +35,7 @@ library
 
                         -- Pos.DHT
                         Pos.DHT
+                        Pos.DHT.Constants
                         Pos.DHT.MemState
                         Pos.DHT.MemState.Class
                         Pos.DHT.MemState.Types
@@ -48,6 +50,7 @@ library
                         Pos.DHT.Workers
 
                         -- Pos.Communication
+                        Pos.Communication.Constants
                         Pos.Communication.Types.Protocol
                         Pos.Communication.Types.State
                         Pos.Communication.Types.Relay
@@ -81,13 +84,9 @@ library
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
 
-                        Pos.DHT.Constants
-
   other-modules:        Paths_cardano_sl_infra
                         Pos.Infra.Constants.Type
                         Pos.Infra.Constants.Parser
-                        Pos.Slotting.Constants
-                        Pos.Communication.Constants
                       
   build-depends:       base
                      , aeson

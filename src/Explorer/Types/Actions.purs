@@ -25,6 +25,8 @@ data Action
     | ReceiveInitialBlocks (Either Error CBlockEntries)
     | RequestBlockSummary CHash
     | ReceiveBlockSummary (Either Error CBlockSummary)
+    | RequestBlockTxs CHash
+    | ReceiveBlockTxs (Either Error CTxEntries)
     | RequestInitialTxs
     | ReceiveInitialTxs (Either Error CTxEntries)
     -- dashboard

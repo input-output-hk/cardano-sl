@@ -10,7 +10,7 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
-import Explorer.Util.Factory (mkCHash)
+import Explorer.Util.Factory (mkCHash, mkCTxEntry)
 import Explorer.View.Common (currencyCSSClass, transactionBodyView, transactionHeaderView, transactionPaginationView)
 import Pos.Explorer.Web.ClientTypes (CHash)
 import Pux.Html (Html, div, text, h3, p, img) as P
@@ -61,9 +61,11 @@ addressView state hash =
                   [ P.h3
                           [ P.className "headline"]
                           [ P.text $ translate (I18nL.common <<< I18nL.cTransactions) lang' ]
-                    , transactionHeaderView state
+                    -- TODO (jk) use empty CTxEntry if we'll have real data
+                    , transactionHeaderView mkCTxEntry
                     , transactionBodyView state
-                    , transactionHeaderView state
+                    -- TODO (jk) use empty CTxEntry if we'll have real data
+                    , transactionHeaderView mkCTxEntry
                     , transactionBodyView state
                     , transactionPaginationView paginationViewProps
                   ]

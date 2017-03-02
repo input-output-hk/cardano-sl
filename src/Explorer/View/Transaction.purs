@@ -8,6 +8,7 @@ import Explorer.I18n.Lenses (common, cTransaction, cSummary, tx, cTotalOutput, t
 import Explorer.Lenses.State (lang)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
+import Explorer.Util.Factory (mkCTxEntry)
 import Explorer.View.Common (currencyCSSClass, transactionHeaderView, transactionBodyView)
 import Pos.Explorer.Web.ClientTypes (CHash)
 import Pux.Html (Html, div, text, h3, table, tr, td) as P
@@ -25,7 +26,8 @@ transactionView state hash =
                 [ P.h3
                     [ P.className "headline"]
                     [ P.text $ translate (I18nL.common <<< I18nL.cTransaction) lang' ]
-                , transactionHeaderView state
+                -- TODO (jk) use empty CTxEntry if we'll have real data
+                , transactionHeaderView mkCTxEntry
                 , transactionBodyView state
                 ]
             ]

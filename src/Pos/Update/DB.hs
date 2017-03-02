@@ -54,9 +54,11 @@ import           Pos.DB.Error               (DBError (DBMalformed))
 import           Pos.DB.Functions           (RocksBatchOp (..), encodeWithKeyPrefix,
                                              rocksWriteBatch)
 import           Pos.DB.GState.Common       (gsGetBi)
+import           Pos.DB.Holder              (DBHolder)
 import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
                                              DBnMapIterator, IterType, runDBnIterator,
                                              runDBnMapIterator)
+import qualified Pos.DB.Limits              as DBLimits
 import           Pos.DB.Types               (NodeDBs (..))
 import           Pos.Genesis                (genesisBlockVersion, genesisBlockVersionData,
                                              genesisSlotDuration, genesisSoftwareVersions)
@@ -353,3 +355,10 @@ slottingDataKey = "us/slotting/"
 
 getAdoptedBVFullMaybe :: MonadDB m => m (Maybe (BlockVersion, BlockVersionData))
 getAdoptedBVFullMaybe = gsGetBi adoptedBVKey
+
+----------------------------------------------------------------------------
+-- Some instance
+----------------------------------------------------------------------------
+
+instance (MonadIO m, MonadThrow m) => DBLimits.MonadDBLimits (DBHolder m) where
+    getMaxBlockSize = getMaxBlockSize

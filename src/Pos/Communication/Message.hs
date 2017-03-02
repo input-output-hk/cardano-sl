@@ -9,9 +9,7 @@ import           Universum
 import           Pos.Binary.Class                 (UnsignedVarInt (..), encodeStrict)
 import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                                                    MsgHeaders)
-import           Pos.Communication.Limits         (LimitedLengthExt (..))
 import           Pos.Communication.MessagePart    (MessagePart (..))
-import           Pos.Communication.Types.Protocol (NOP)
 import           Pos.Communication.Types.Relay    (DataMsg, InvOrData, ReqMsg)
 import           Pos.Communication.Types.SysStart (SysStartRequest, SysStartResponse)
 import           Pos.Delegation.Types             (ConfirmProxySK, SendProxySK)
@@ -88,20 +86,6 @@ instance Message SysStartRequest where
 instance Message SysStartResponse where
     messageName _ = varIntMName 1002
     formatMessage _ = "SysStartResponse"
-instance (MessagePart tag, MessagePart contents) =>
-         Message (InvOrData tag key contents) where
-    messageName p = varIntMName 8 <>
-                    pMessageName (tagM p) <>
-                    pMessageName (contentsM p)
-      where
-        tagM :: Proxy (InvOrData tag key contents)
-             -> Proxy tag
-        tagM _ = Proxy
-
-        contentsM :: Proxy (InvOrData tag keys contents)
-                  -> Proxy contents
-        contentsM _ = Proxy
-    formatMessage _ = "Inventory/Data"
 
 instance (MessagePart tag) =>
          Message (ReqMsg key tag) where
@@ -133,19 +117,3 @@ instance (MessagePart tag, MessagePart contents) =>
                   -> Proxy contents
         contentsM _ = Proxy
     formatMessage _ = "Inventory/Data"
-
-instance (MessagePart tag) =>
-         Message (ReqMsg key tag) where
-    messageName p = varIntMName 9 <> pMessageName (tagM p)
-      where
-        tagM :: Proxy (ReqMsg key tag) -> Proxy tag
-        tagM _ = Proxy
-    formatMessage _ = "Request"
-
-instance (MessagePart contents) =>
-         Message (DataMsg contents) where
-    messageName p = varIntMName 10 <> pMessageName (contentsM p)
-      where
-        contentsM :: Proxy (DataMsg contents) -> Proxy contents
-        contentsM _ = Proxy
-    formatMessage _ = "Data"

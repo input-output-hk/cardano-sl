@@ -10,7 +10,7 @@ import Data.Either (Either(..))
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
 import Explorer.Api.Http (fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs)
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, currentBlockTxs, connected, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, initialBlocksRequested, initialTxsRequested, handleLatestTxsSocketResult, currentBlock, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, currentAddressSummary, currentBlockTxs, connected, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, initialBlocksRequested, initialTxsRequested, handleLatestTxsSocketResult, currentBlock, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
@@ -97,14 +97,16 @@ update RequestInitialBlocks state =
     { state: set loading true $ state
     , effects: [ attempt fetchLatestBlocks >>= pure <<< ReceiveInitialBlocks ]
     }
-update (ReceiveInitialBlocks (Right blocks)) state = noEffects $
+update (ReceiveInitialBlocks (Right blocks)) state =
+    noEffects $
     set loading false <<<
     set initialBlocksRequested true <<<
     set handleLatestBlocksSocketResult true $
     set latestBlocks blocks $
     state
 
-update (ReceiveInitialBlocks (Left error)) state = noEffects $
+update (ReceiveInitialBlocks (Left error)) state =
+    noEffects $
     set loading false <<<
     set initialBlocksRequested true <<<
     set handleLatestBlocksSocketResult true $
@@ -114,11 +116,12 @@ update (RequestBlockSummary hash) state =
     { state: set loading true $ state
     , effects: [ attempt (fetchBlockSummary hash) >>= pure <<< ReceiveBlockSummary ]
     }
-update (ReceiveBlockSummary (Right block)) state = noEffects $
-    set loading false <<<
-    set currentBlock (Just block) $
-    state
-update (ReceiveBlockSummary (Left error)) state = noEffects $
+update (ReceiveBlockSummary (Right block)) state =
+    noEffects $
+    set loading false $
+    set currentBlock (Just block) state
+update (ReceiveBlockSummary (Left error)) state =
+    noEffects $
     set loading false $
     over errors (\errors' -> (show error) : errors') state
 
@@ -126,11 +129,13 @@ update (RequestBlockTxs hash) state =
     { state: set loading true $ state
     , effects: [ attempt (fetchBlockTxs hash) >>= pure <<< ReceiveBlockTxs ]
     }
-update (ReceiveBlockTxs (Right txs)) state = noEffects $
+update (ReceiveBlockTxs (Right txs)) state =
+    noEffects $
     set loading false <<<
     set currentBlockTxs txs $
     state
-update (ReceiveBlockTxs (Left error)) state = noEffects $
+update (ReceiveBlockTxs (Left error)) state =
+    noEffects $
     set loading false $
     over errors (\errors' -> (show error) : errors') state
 
@@ -138,7 +143,8 @@ update RequestInitialTxs state =
     { state: set loading true state
     , effects: [ attempt fetchLatestTxs >>= pure <<< ReceiveInitialTxs ]
     }
-update (ReceiveInitialTxs (Right blocks)) state = noEffects $
+update (ReceiveInitialTxs (Right blocks)) state =
+    noEffects $
     set loading false <<<
     set initialTxsRequested true <<<
     set handleLatestTxsSocketResult true $
@@ -147,6 +153,19 @@ update (ReceiveInitialTxs (Left error)) state = noEffects $
     set loading false <<<
     set initialTxsRequested true <<<
     set handleLatestTxsSocketResult true $
+    over errors (\errors' -> (show error) : errors') state
+
+update (RequestAddressSummary address) state =
+    { state: set loading true state
+    , effects: [ attempt fetchLatestTxs >>= pure <<< ReceiveInitialTxs ]
+    }
+update (ReceiveAddressSummary (Right address)) state =
+    noEffects $
+    set loading false $
+    set currentAddressSummary (Just address) state
+update (ReceiveAddressSummary (Left error)) state =
+    noEffects $
+    set loading false $
     over errors (\errors' -> (show error) : errors') state
 
 -- routing
@@ -167,7 +186,13 @@ routeEffects Dashboard state =
         ]
     }
 routeEffects (Transaction hash) state = { state, effects: [ pure ScrollTop ] }
-routeEffects (Address hash) state = { state, effects: [ pure ScrollTop ] }
+routeEffects (Address address) state =
+    { state: set currentAddressSummary Nothing state
+    , effects:
+        [ pure ScrollTop
+        , pure $ RequestAddressSummary address
+        ]
+    }
 routeEffects Calculator state = { state, effects: [ pure ScrollTop ] }
 routeEffects (Block hash) state =
     { state: set currentBlock Nothing state

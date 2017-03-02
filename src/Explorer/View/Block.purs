@@ -10,7 +10,7 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
-import Explorer.Util.Factory (mkCTxEntry)
+import Explorer.Util.Factory (mkEmptyCTxEntry)
 import Explorer.View.Common (currencyCSSClass, transactionPaginationView, transactionHeaderView, transactionBodyView)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeHeight, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
@@ -44,7 +44,7 @@ blockView state =
                     [ P.className "headline"]
                     [ P.text $ translate (I18nL.common <<< I18nL.cSummary) lang' ]
                 -- TODO (jk) use empty CTxEntry if we'll have real data
-                , transactionHeaderView mkCTxEntry
+                , transactionHeaderView mkEmptyCTxEntry
                 , transactionBodyView state
                 , transactionPaginationView paginationViewProps
                 ]

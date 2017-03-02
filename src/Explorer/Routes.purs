@@ -1,18 +1,18 @@
 module Explorer.Routes where
 
 import Prelude
-import Data.Maybe (fromMaybe)
-import Pux.Router (end, router, lit, str)
 import Control.Alt ((<|>))
-import Pos.Explorer.Web.ClientTypes (CHash)
-import Pos.Explorer.Web.Lenses.ClientTypes (_CHash)
 import Data.Lens ((^.))
-import Explorer.Util.Factory (mkCHash)
+import Data.Maybe (fromMaybe)
+import Explorer.Util.Factory (mkCAddress, mkCHash)
+import Pos.Explorer.Web.ClientTypes (CAddress, CHash, _CAddress)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CHash)
+import Pux.Router (end, router, lit, str)
 
 data Route =
     Dashboard
     | Transaction CHash
-    | Address CHash
+    | Address CAddress
     | Calculator
     | Block CHash
     | NotFound
@@ -23,7 +23,7 @@ match url = fromMaybe NotFound $ router url $
     <|>
     Transaction <<< mkCHash <$> (lit transactionLit *> str) <* end
     <|>
-    Address <<< mkCHash <$> (lit addressLit  *> str) <* end
+    Address <<< mkCAddress <$> (lit addressLit  *> str) <* end
     <|>
     Calculator <$ lit calculatorLit <* end
     <|>
@@ -32,7 +32,7 @@ match url = fromMaybe NotFound $ router url $
 toUrl :: Route -> String
 toUrl Dashboard = dashboardUrl
 toUrl (Transaction hash) = transactionUrl hash
-toUrl (Address hash) = addressUrl hash
+toUrl (Address address) = addressUrl address
 toUrl Calculator = calculatorUrl
 toUrl (Block hash) = blockUrl hash
 toUrl NotFound = dashboardUrl
@@ -52,8 +52,8 @@ transactionUrl hash = litUrl transactionLit <> hash ^. _CHash
 addressLit :: String
 addressLit = "address"
 
-addressUrl :: CHash -> String
-addressUrl hash = litUrl addressLit <> hash ^. _CHash
+addressUrl :: CAddress -> String
+addressUrl address = litUrl addressLit <> address ^. _CAddress
 
 calculatorLit :: String
 calculatorLit = "calculator"

@@ -29,7 +29,7 @@ view state =
                     [ case state.route of
                           Dashboard -> dashboardView state
                           (Transaction hash) -> transactionView state hash
-                          (Address hash) -> addressView state hash
+                          (Address address) -> addressView state
                           Calculator -> calculatorView state
                           (Block hash) -> blockView state
                           NotFound -> notFoundView state

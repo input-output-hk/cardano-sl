@@ -1,75 +1,30 @@
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE CPP                  #-}
+{-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE DeriveFunctor        #-}
+{-# LANGUAGE LambdaCase           #-}
+{-# LANGUAGE Rank2Types           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-module Pos.Communication.Limits.Instances () where
+module Pos.Communication.Limits.Instances
+       (
+       ) where
 
 import           Control.Lens                   (both, each, ix)
 import           Data.Binary.Get                (getWord8, lookAhead)
-import           Node.Message                   (Message (..))
+import           Data.Proxy                     (Proxy (..))
 import           Universum
 
-import           Pos.Binary.Class               (Bi (..))
-import qualified Pos.Binary.Class               as Bi
-import           Pos.Binary.Infra.Communication ()
 import qualified Pos.Communication.Constants    as Const
-import           Pos.Communication.Limits.Types (Limit (..), LimitedLengthExt (..),
-                                                 Limiter (..), MessageLimited (..),
-                                                 MessageLimitedPure (..), (<+>))
-import           Pos.Communication.Types.Relay  (DataMsg (..), InvMsg (..), InvOrData,
-                                                 ReqMsg (..))
+import           Pos.Communication.Limits.Types (Limit (..), Limiter (..),
+                                                 MessageLimited (..),
+                                                 MessageLimitedPure (..))
+import           Pos.Communication.Types.Relay  (DataMsg (..), InvMsg, InvOrData, ReqMsg)
 
-instance MessageLimited (InvMsg key tag) where
-    type LimitType (InvMsg key tag) = Limit (InvMsg key tag)
-    getMsgLenLimit _ = return msgLenLimit
-
-instance MessageLimited (ReqMsg key tag) where
-    type LimitType (ReqMsg key tag) = Limit (ReqMsg key tag)
-    getMsgLenLimit _ = return msgLenLimit
-
-instance MessageLimited (DataMsg contents)
-      => MessageLimited (InvOrData tag key contents) where
-    type LimitType (InvOrData tag key contents) =
-        ( LimitType (InvMsg key tag)
-        , LimitType (DataMsg contents)
-        )
-    getMsgLenLimit _ = do
-        invLim  <- getMsgLenLimit $ Proxy @(InvMsg key tag)
-        dataLim <- getMsgLenLimit $ Proxy @(DataMsg contents)
-        -- 1 byte is added because of `Either`
-        return (1 `addLimit` invLim, 1 `addLimit` dataLim)
-
-instance MessageLimitedPure (InvMsg key tag) where
-    msgLenLimit = Limit Const.maxReqSize
-
-instance MessageLimitedPure (ReqMsg key tag) where
-    msgLenLimit = Limit Const.maxReqSize
-
-instance MessageLimitedPure a => MessageLimitedPure (Maybe a) where
-    msgLenLimit = Just <$> msgLenLimit + 1
-
-instance ( MessageLimitedPure a
-         , MessageLimitedPure b
-         )
-         => MessageLimitedPure (Either a b) where
-    msgLenLimit = 1 + max (Left <$> msgLenLimit) (Right <$> msgLenLimit)
-
-instance ( MessageLimitedPure a
-         , MessageLimitedPure b
-         )
-         => MessageLimitedPure (a, b) where
-    msgLenLimit = (,) <$> msgLenLimit <+> msgLenLimit
-
-instance ( MessageLimitedPure a
-         , MessageLimitedPure b
-         , MessageLimitedPure c
-         )
-         => MessageLimitedPure (a, b, c) where
-    msgLenLimit = (,,) <$> msgLenLimit <+> msgLenLimit <+> msgLenLimit
-
-instance Limiter (Limit t) where
-    limitGet (Limit l) = Bi.limitGet $ fromIntegral l
-    addLimit a = (Limit a +)
+----------------------------------------------------------------------------
+-- Instances for Limiter
+----------------------------------------------------------------------------
 
 -- | Bounds `InvOrData`.
 instance Limiter l => Limiter (Limit t, l) where
@@ -93,4 +48,36 @@ instance Limiter (Limit t, Limit t, Limit t, Limit t) where
 
     addLimit a = both %~ addLimit a
 
-deriving instance Message a => Message (LimitedLengthExt s l a)
+----------------------------------------------------------------------------
+-- Instances for MessageLimited
+----------------------------------------------------------------------------
+
+instance MessageLimited (InvMsg key tag) where
+    type LimitType (InvMsg key tag) = Limit (InvMsg key tag)
+    getMsgLenLimit _ = return msgLenLimit
+
+instance MessageLimited (ReqMsg key tag) where
+    type LimitType (ReqMsg key tag) = Limit (ReqMsg key tag)
+    getMsgLenLimit _ = return msgLenLimit
+
+instance MessageLimited (DataMsg contents)
+      => MessageLimited (InvOrData tag key contents) where
+    type LimitType (InvOrData tag key contents) =
+        ( LimitType (InvMsg key tag)
+        , LimitType (DataMsg contents)
+        )
+    getMsgLenLimit _ = do
+        invLim  <- getMsgLenLimit $ Proxy @(InvMsg key tag)
+        dataLim <- getMsgLenLimit $ Proxy @(DataMsg contents)
+        -- 1 byte is added because of `Either`
+        return (1 `addLimit` invLim, 1 `addLimit` dataLim)
+
+----------------------------------------------------------------------------
+-- Instances for MessageLimitedPure
+----------------------------------------------------------------------------
+
+instance MessageLimitedPure (InvMsg key tag) where
+    msgLenLimit = Limit Const.maxInvSize
+
+instance MessageLimitedPure (ReqMsg key tag) where
+    msgLenLimit = Limit Const.maxReqSize

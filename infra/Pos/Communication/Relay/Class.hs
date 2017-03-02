@@ -5,14 +5,14 @@ module Pos.Communication.Relay.Class
        , MonadRelayMem (..)
        ) where
 
-import           Control.Monad.Trans           (MonadTrans)
-import           Node.Message                  (Message)
-import           Serokell.Util.Verify          (VerificationRes)
+import           Control.Monad.Trans            (MonadTrans)
+import           Node.Message                   (Message)
+import           Serokell.Util.Verify           (VerificationRes)
 import           Universum
 
-import           Pos.Communication.Limits      (MessageLimited)
-import           Pos.Communication.Relay.Types (RelayContext)
-import           Pos.Communication.Types.Relay (DataMsg, InvOrData, ReqMsg (..))
+import           Pos.Communication.Limits.Types (MessageLimited)
+import           Pos.Communication.Relay.Types  (RelayContext)
+import           Pos.Communication.Types.Relay  (DataMsg, InvOrData, ReqMsg (..))
 
 -- | Typeclass for general Inv/Req/Dat framework. It describes monads,
 -- that store data described by tag, where "key" stands for node

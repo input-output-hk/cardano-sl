@@ -1,7 +1,11 @@
-{-# LANGUAGE DeriveFunctor       #-}
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE CPP                  #-}
+{-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE DeriveFunctor        #-}
+{-# LANGUAGE LambdaCase           #-}
+{-# LANGUAGE Rank2Types           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Communication.Limits.Types
        ( Limit (..)
@@ -19,12 +23,14 @@ module Pos.Communication.Limits.Types
        ) where
 
 import           Data.Binary                (Get)
+import           Data.Proxy                 (Proxy (..))
 import           Data.Reflection            (Reifies (..), reify)
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
 import           Pos.Binary.Class           (Bi (..))
-import           Pos.Communication.Protocol (ConversationActions (..))
+import qualified Pos.Binary.Class           as Bi
+import           Pos.Communication.Protocol (ConversationActions (..), Message)
 import qualified Pos.DB.Limits              as DB
 
 -- | Specifies limit for given type @t@.
@@ -43,6 +49,10 @@ instance Functor Limit where
 class Limiter l where
     limitGet :: l -> Get a -> Get a
     addLimit :: Byte -> l -> l
+
+instance Limiter (Limit t) where
+    limitGet (Limit l) = Bi.limitGet $ fromIntegral l
+    addLimit a = (Limit a +)
 
 -- | Specifies limit on message length.
 -- Deserialization would fail if incoming data size exceeded this limit.
@@ -66,6 +76,33 @@ class Limiter (LimitType a) => MessageLimited a where
 class MessageLimitedPure a where
     msgLenLimit :: Limit a
 
+instance MessageLimitedPure a => MessageLimitedPure (Maybe a) where
+    msgLenLimit = Just <$> msgLenLimit + 1
+
+instance ( MessageLimitedPure a
+         , MessageLimitedPure b
+         )
+         => MessageLimitedPure (Either a b) where
+    msgLenLimit = 1 + max (Left <$> msgLenLimit) (Right <$> msgLenLimit)
+
+instance ( MessageLimitedPure a
+         , MessageLimitedPure b
+         )
+         => MessageLimitedPure (a, b) where
+    msgLenLimit = (,) <$> msgLenLimit <+> msgLenLimit
+
+instance ( MessageLimitedPure a
+         , MessageLimitedPure b
+         , MessageLimitedPure c
+         )
+         => MessageLimitedPure (a, b, c) where
+    msgLenLimit = (,,) <$> msgLenLimit <+> msgLenLimit <+> msgLenLimit
+
+instance MessageLimitedPure Bool where
+    msgLenLimit = 1
+
+-- instance MessageLimitedPure Word32 where
+    -- msgLenLimit = 4
 
 -- | Sets size limit to deserialization instances via @s@ parameter
 -- (using "Data.Reflection"). Grep for 'reify' and 'reflect' to see
@@ -74,6 +111,8 @@ class MessageLimitedPure a where
 newtype LimitedLengthExt s l a = LimitedLength
     { withLimitedLength :: a
     } deriving (Eq, Ord, Show)
+
+deriving instance Message a => Message (LimitedLengthExt s l a)
 
 type LimitedLength s a = LimitedLengthExt s (Limit a) a
 
@@ -95,7 +134,7 @@ recvLimited
 recvLimited conv = fmap withLimitedLength <$> recv conv
 
 -- | Wrapper for `Arbitrary` instances to indicate that
--- where an alternative exists, maximal available size is choosen.
+-- where an alternative exists, maximum available size is chosen.
 -- This is required at first place to generate lists of max available size.
 newtype MaxSize a = MaxSize
     { getOfMaxSize :: a

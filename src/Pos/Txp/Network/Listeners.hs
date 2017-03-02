@@ -15,7 +15,7 @@ import           Universum
 
 import           Pos.Binary.Communication   ()
 import           Pos.Binary.Relay           ()
-
+import           Pos.Communication.Limits   ()
 import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (ListenerSpec, OutSpecs)
 import           Pos.Communication.Relay    (Relay (..), RelayProxy (..), relayListeners,

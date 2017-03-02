@@ -44,9 +44,11 @@ instance MFunctor' Bracket m n where
     hoist' nat (BracketWithException acq rel act) =
       BracketWithException (nat acq) (\r e -> nat $ rel r e) (\r -> nat $ act r)
 
+{-# INLINE bracket #-}
 bracket :: ( Mockable Bracket m ) => m r -> (r -> m b) -> (r -> m c) -> m c
 bracket acquire release act = liftMockable $ Bracket acquire release act
 
+{-# INLINE bracketWithException #-}
 bracketWithException
     :: ( Mockable Bracket m, Exception e )
     => m r
@@ -55,9 +57,11 @@ bracketWithException
     -> m c
 bracketWithException acquire release act = liftMockable $ BracketWithException acquire release act
 
+{-# INLINE finally #-}
 finally :: ( Mockable Bracket m ) => m a -> m b -> m a
 finally act end = bracket (return ()) (const end) (const act)
 
+{-# INLINE onException #-}
 onException :: ( Mockable Catch m, Mockable Throw m ) => m a -> m b -> m a
 onException act ex = act `catch` (\(e :: SomeException) -> ex >> throw e)
 
@@ -67,6 +71,7 @@ data Throw (m :: * -> *) (t :: *) where
 instance MFunctor' Throw m n where
     hoist' _ (Throw e) = Throw e
 
+{-# INLINE throw #-}
 throw :: ( Mockable Throw m ) => Exception e => e -> m t
 throw e = liftMockable $ Throw e
 
@@ -76,17 +81,22 @@ data Catch (m :: * -> *) (t :: *) where
 instance MFunctor' Catch m n where
     hoist' nat (Catch act handleE) = Catch (nat act) (\e -> nat $ handleE e)
 
+{-# INLINE catch #-}
 catch :: ( Mockable Catch m, Exception e ) => m t -> (e -> m t) -> m t
 catch action handler = liftMockable $ Catch action handler
 
+{-# INLINE catchAll #-}
 catchAll :: ( Mockable Catch m ) => m t -> (SomeException -> m t) -> m t
 catchAll = catch
 
+{-# INLINE handle #-}
 handle :: ( Mockable Catch m, Exception e ) => (e -> m t) -> m t -> m t
 handle = flip catch
 
+{-# INLINE handleAll #-}
 handleAll :: ( Mockable Catch m ) => (SomeException -> m t) -> m t -> m t
 handleAll = handle
 
+{-# INLINE try #-}
 try :: ( Mockable Catch m, Exception e ) => m t -> m (Either e t)
 try = handle (return . Left) . fmap Right

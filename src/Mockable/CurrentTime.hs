@@ -28,11 +28,14 @@ data CurrentTime (m :: * -> *) (t :: *) where
 instance MFunctor' CurrentTime m n where
     hoist' _ CurrentTime = CurrentTime
 
+{-# INLINE currentTime #-}
 currentTime :: (Mockable CurrentTime m) => m Microsecond
 currentTime = liftMockable CurrentTime
 
+{-# INLINE currentTimeUnits #-}
 currentTimeUnits :: (TimeUnit t, Mockable CurrentTime m) => m t
 currentTimeUnits = convertUnit <$> currentTime
 
+{-# INLINE realTime #-}
 realTime :: MonadIO m => m Microsecond
 realTime = liftIO $ round . (* 1000000) <$> getPOSIXTime

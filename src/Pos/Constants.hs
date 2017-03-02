@@ -8,19 +8,17 @@
 
 module Pos.Constants
        (
+         module Pos.Core.Constants
+       , module Pos.DHT.Constants
+       , module Pos.Communication.Constants
+       , module Pos.Slotting.Constants
+
        -- * Constants mentioned in paper
-         blkSecurityParam
-       , slotSecurityParam
-       , epochSlots
        , networkDiameter
 
        -- * SSC constants
        , sharedSeedLength
        , mpcSendInterval
-
-       -- * Dev/production mode, system start
-       , isDevelopment
-       , staticSysStart
 
        -- * Genesis constants
        , genesisN
@@ -28,7 +26,6 @@ module Pos.Constants
        , genesisMaxBlockSize
        , genesisMaxHeaderSize
        , genesisMaxTxSize
-       , maxReqSize
        , genesisMpcThd
        , genesisHeavyDelThd
        , genesisUpdateVoteThd
@@ -46,7 +43,6 @@ module Pos.Constants
        , sysTimeBroadcastSlots
        , vssMaxTTL
        , vssMinTTL
-       , protocolMagic
        , recoveryHeadersMessage
        , messageCacheTimeout
 
@@ -64,46 +60,37 @@ module Pos.Constants
        , appSystemTag
        ) where
 
-import           Data.Time.Units            (Microsecond, Millisecond, convertUnit)
-import           Language.Haskell.TH.Syntax (lift, runIO)
-import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util              (ms, sec, staticAssert)
-import           System.Environment         (lookupEnv)
-import qualified Text.Parsec                as P
-import           Universum                  hiding (lift)
+import           Data.Time.Units             (Microsecond, Millisecond, convertUnit)
+import           Language.Haskell.TH.Syntax  (lift, runIO)
+import           Serokell.Data.Memory.Units  (Byte)
+import           Serokell.Util               (ms, sec, staticAssert)
+import           System.Environment          (lookupEnv)
+import qualified Text.Parsec                 as P
+import           Universum                   hiding (lift)
 #ifndef DEV_MODE
-import           Data.Time.Clock.POSIX      (getPOSIXTime)
-import           System.IO.Unsafe           (unsafePerformIO)
+import           Data.Time.Clock.POSIX       (getPOSIXTime)
+import           System.IO.Unsafe            (unsafePerformIO)
 #endif
 
-import           Pos.CLI                    (dhtNodeParser)
-import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
-import           Pos.Core.Types             (CoinPortion, Timestamp (..),
-                                             unsafeCoinPortionFromDouble)
-import           Pos.Core.Types             (ApplicationName, BlockVersion (..),
-                                             SoftwareVersion (..))
-import           Pos.Core.Version           (mkApplicationName)
-import           Pos.DHT.Model.Types        (DHTNode)
-import           Pos.Update.Core            (SystemTag, mkSystemTag)
-import           Pos.Util                   ()
+import           Pos.CLI                     (dhtNodeParser)
+import           Pos.CompileConfig           (CompileConfig (..), compileConfig)
+import           Pos.Core.Types              (ApplicationName, BlockVersion (..),
+                                              CoinPortion, SoftwareVersion (..),
+                                              unsafeCoinPortionFromDouble)
+import           Pos.Core.Version            (mkApplicationName)
+import           Pos.DHT.Model.Types         (DHTNode)
+import           Pos.Update.Core             (SystemTag, mkSystemTag)
+import           Pos.Util                    ()
+
+-- Reexports
+import           Pos.Communication.Constants
+import           Pos.Core.Constants
+import           Pos.DHT.Constants
+import           Pos.Slotting.Constants
 
 ----------------------------------------------------------------------------
 -- Main constants mentioned in paper
 ----------------------------------------------------------------------------
-
--- | Security parameter which is maximum number of blocks which can be
--- rolled back.
-blkSecurityParam :: Integral a => a
-blkSecurityParam = fromIntegral . ccK $ compileConfig
-
--- | Security parameter expressed in number of slots. It uses chain
--- quality property. It's basically 'blkSecurityParam / chain_quality'.
-slotSecurityParam :: Integral a => a
-slotSecurityParam = 2 * blkSecurityParam
-
--- | Number of slots inside one epoch.
-epochSlots :: Integral a => a
-epochSlots = 10 * blkSecurityParam
 
 -- | Estimated time needed to broadcast message from one node to all
 -- other nodes. Also see 'Pos.CompileConfig.ccNetworkDiameter'.
@@ -235,28 +222,6 @@ propagationQueueSize :: Integral a => a
 propagationQueueSize =
     fromIntegral $ ccPropagationQueueSize $ compileConfig
 
--- | @True@ if current mode is 'Development'.
-isDevelopment :: Bool
-isDevelopment = isNothing staticSysStart
-
--- | System start time embeded into binary.
-staticSysStart :: Maybe Timestamp
-#ifdef DEV_MODE
-staticSysStart = Nothing
-#else
-staticSysStart = Just $ Timestamp $ sec $
-    let st = ccProductionNetworkStartTime compileConfig
-    in if st > 0 then st
-       else let pause = 30
-                divider = 10
-                after3Mins = pause + unsafePerformIO (round <$> getPOSIXTime)
-                minuteMod = after3Mins `mod` divider
-                alignment = if minuteMod > (divider `div` 2) then 1 else 0
-            in (after3Mins `div` divider + alignment) * divider
-               -- ^ If several local nodes are started within 20 sec,
-               -- they'll have same start time
-#endif
-
 -- | See 'Pos.CompileConfig.ccDefaultPeers'.
 defaultPeers :: [DHTNode]
 defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
@@ -273,12 +238,6 @@ vssMaxTTL = fromIntegral . ccVssMaxTTL $ compileConfig
 -- | Min VSS certificate TTL (Ssc.GodTossing part)
 vssMinTTL :: Integral i => i
 vssMinTTL = fromIntegral . ccVssMinTTL $ compileConfig
-
--- | Protocol magic constant. Is put to block serialized version to
--- distinguish testnet and realnet (for example, possible usages are
--- wider).
-protocolMagic :: Int32
-protocolMagic = fromIntegral . ccProtocolMagic $ compileConfig
 
 -- | Maximum amount of headers node can put into headers message while
 -- in "after offline" or "recovery" mode. Should be more than

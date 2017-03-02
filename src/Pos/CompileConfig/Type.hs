@@ -18,16 +18,11 @@ import           Pos.Util                   ()
 -- | Compile time configuration. See example in /constants.yaml/ file.
 data CompileConfig = CompileConfig
     {
-----------------------------------------------------------------------------
--- Fundamental constants
-----------------------------------------------------------------------------
-      ccK                             :: !Int
-      -- ^ Security parameter from paper
 
 ----------------------------------------------------------------------------
 -- Genesis
 ----------------------------------------------------------------------------
-    , ccGenesisN                      :: !Int
+      ccGenesisN                      :: !Int
       -- ^ Number of pre-generated keys
     , ccGenesisSlotDurationSec        :: !Int
       -- ^ Length of slot in seconds
@@ -94,8 +89,6 @@ data CompileConfig = CompileConfig
       -- ^ VSS certificates max timeout to live (number of epochs)
     , ccVssMinTTL                     :: !Word64
       -- ^ VSS certificates min timeout to live (number of epochs)
-    , ccProtocolMagic                 :: !Int
-      -- ^ Magic constant for separating real/testnet
     , ccLightDlgConfirmationTimeout   :: !Int
       -- ^ Timeout for holding light psks confirmations
     , ccEnhancedMessageBroadcast      :: !Word
@@ -111,7 +104,4 @@ data CompileConfig = CompileConfig
       -- ^ Block retrieval queue capacity
     , ccPropagationQueueSize          :: !Int
       -- ^ InvMsg propagation queue capacity
-    , ccProductionNetworkStartTime    :: !Int
-      -- ^ Start time of network (in `Prodution` running mode).
-      -- If set to zero, then running time is 2 minutes after build.
     } deriving (Show, Lift)

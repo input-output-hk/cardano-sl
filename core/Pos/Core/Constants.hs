@@ -7,6 +7,7 @@
 -- from this module directly, instead of being passed as a config.
 module Pos.Core.Constants
        ( epochSlots
+       , blkSecurityParam
        , slotSecurityParam
        , isDevelopment
        , protocolMagic

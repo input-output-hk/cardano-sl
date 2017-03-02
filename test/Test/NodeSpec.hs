@@ -47,7 +47,7 @@ spec :: Spec
 spec = describe "Node" $ do
 
     let tcpTransportOnePlace = runIO $ makeTCPTransport "0.0.0.0" "127.0.0.1" "10342" simpleOnePlaceQDisc
-    let tcpTransportFair = runIO $ makeTCPTransport "0.0.0.0" "127.0.0.1" "10343" fairQDisc
+    let tcpTransportFair = runIO $ makeTCPTransport "0.0.0.0" "127.0.0.1" "10343" (fairQDisc (const (return Nothing)))
     let memoryTransport = runIO $ makeInMemoryTransport
     let transports = [
               ("In-memory", memoryTransport)

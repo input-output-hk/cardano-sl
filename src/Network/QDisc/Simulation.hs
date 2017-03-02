@@ -72,7 +72,7 @@ data QDiscChoice = Fair | OnePlace | Unbounded
 
 makeQDisc :: QDiscChoice -> IO (QDisc t)
 makeQDisc choice = case choice of
-    Fair -> fairQDisc
+    Fair -> fairQDisc (const (return Nothing))
     Unbounded -> simpleUnboundedQDisc
     OnePlace -> simpleOnePlaceQDisc
 

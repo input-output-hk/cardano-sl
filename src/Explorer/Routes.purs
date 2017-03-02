@@ -62,7 +62,7 @@ calculatorUrl :: String
 calculatorUrl = litUrl calculatorLit
 
 blockLit :: String
-blockLit = "block"
+blockLit = "slot"
 
 blockUrl :: CHash -> String
 blockUrl hash = litUrl blockLit <> hash ^. _CHash

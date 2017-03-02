@@ -17,11 +17,11 @@ translation =
         , cNetwork: "Netzwerk"
         , cVersion: "Version"
         , cSummary: "Zusammenfassung"
-        , cBlock: "Block"
+        , cBlock: "Slot"
         , cHash: "Hash"
         , cHashes: "Hashes"
-        , cHeight: "Höhe"
-        , cAge: "Alter"
+        , cHeight: "Slot Nr."
+        , cAge: "Seit"
         , cTotalSent: "Insgesamt gesendet"
         , cRelayedBy: "Weitergegeben durch"
         , cSizeKB: "Größe (kB)"
@@ -44,10 +44,10 @@ translation =
     , hero:
         { hrTitle: "Cardano Blockchain Explorer"
         , hrSubtitle: "Der effektivste Weg um das Netzwerk der Kryptowährung zu erforschen."
-        , hrSearch: "Suche Addresse, Block, Token"
+        , hrSearch: "Suche Addresse, Slot, Token"
         }
     , dashboard:
-        { dbLastBlocks: "Aktuelle Blöcke"
+        { dbLastBlocks: "Aktuelle Slots"
         , dbLastBlocksDescription: "Am {0} wurden {1} Transakationen generiert."
         , dbNetworkDifficulty: "Netzwerk difficulty"
         , dbNetworkDifficultyDescription: "Difficulty ist eine Maßeinheit die beschreibt, wieviel Aufwand es bedarf, um einen neuen Block unterhalb einer bestimmten Grenze zu finden"
@@ -60,8 +60,8 @@ translation =
         , dbExploreBlocks: "Blöcke erkunden"
         , dbExploreTransactions: "Transaktionen erkunden"
         , dbBlockchainOffer: "Was bieten wir mit unserem Block Explorer"
-        , dbBlockSearch: "Blockssuche"
-        , dbBlockSearchDescription: "Block ist eine Box in der Transaktionen gespeichert werden."
+        , dbBlockSearch: "Slotsuche"
+        , dbBlockSearchDescription: "Slot ist eine Box, in der Transaktionen gespeichert werden."
         , dbAddressSearch: "Adresssuche"
         , dbAddressSearchDescription: "Adresssuche"
         , dbTransactionSearch: "Transaktionssuche"
@@ -84,15 +84,15 @@ translation =
         }
     , tx:
         { txTime: "Eingangszeit"
-        , txIncluded: "Bestand im Block"
+        , txIncluded: "Bestand im Slot"
         , txRelayed: "Weitergabe per IP"
         }
     , block:
         { blFees: "Gebühren"
         , blEstVolume: "Geschätztes Volumen"
-        , blPrevBlock: "Vorheriger Block"
-        , blNextBlock: "Nächster Block"
-        , blRoot: "Oberer Block"
+        , blPrevBlock: "Vorheriger Slot"
+        , blNextBlock: "Nächster Slot"
+        , blRoot: "Oberer Slot"
         }
     , footer:
         { fooRessources: "Ressourcen"

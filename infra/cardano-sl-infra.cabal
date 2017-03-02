@@ -56,7 +56,6 @@ library
                         Pos.Communication.Types.Relay
                         Pos.Communication.Types.SysStart
                         Pos.Communication.BiP
-                        Pos.Communication.Limits
                         Pos.Communication.Limits.Types
                         Pos.Communication.Limits.Instances
                         Pos.Communication.MessagePart

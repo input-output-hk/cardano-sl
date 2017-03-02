@@ -176,6 +176,7 @@ library
                         Pos.Communication.Server
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Specs
+                        Pos.Communication.Limits
 
                         -- DB
                         Pos.DB.Block

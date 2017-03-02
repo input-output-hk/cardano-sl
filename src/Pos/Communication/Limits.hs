@@ -8,7 +8,10 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Communication.Limits
-    ( updateVoteNumLimit
+    (
+      module Pos.Communication.Limits.Types
+
+    , updateVoteNumLimit
     , commitmentsNumLimit
 
     , mcCommitmentMsgLenLimit
@@ -47,6 +50,10 @@ import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Txp.Network.Types            (TxMsgContents)
 import           Pos.Types                        (coinPortionToDouble)
 import           Pos.Update.Core.Types            (UpdateProposal (..), UpdateVote (..))
+
+-- Reexports
+import           Pos.Communication.Limits.Instances ()
+import           Pos.Communication.Limits.Types
 
 
 -- | Upper bound on number of `PVSS.Commitment`s in single `Commitment`.

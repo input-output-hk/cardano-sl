@@ -9,8 +9,8 @@ import Data.Array ((:))
 import Data.Either (Either(..))
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
-import Explorer.Api.Http (fetchBlockSummary, fetchLatestBlocks, fetchLatestTxs)
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, initialBlocksRequested, initialTxsRequested, handleLatestTxsSocketResult, latestBlock, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
+import Explorer.Api.Http (fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, currentBlockTxs, connected, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, initialBlocksRequested, initialTxsRequested, handleLatestTxsSocketResult, currentBlock, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
@@ -66,7 +66,7 @@ update (DashboardFocusSearchInput value) state = noEffects $
 update (AddressPaginateTransactions value) state = noEffects $
     set (viewStates <<< addressDetail <<< addressTxPagination) value state
 
--- Address
+-- Block
 
 update (BlockPaginateTransactions value) state = noEffects $
     set (viewStates <<< blockDetail <<< blockTxPagination) value state
@@ -116,9 +116,21 @@ update (RequestBlockSummary hash) state =
     }
 update (ReceiveBlockSummary (Right block)) state = noEffects $
     set loading false <<<
-    set latestBlock (Just block) $
+    set currentBlock (Just block) $
     state
 update (ReceiveBlockSummary (Left error)) state = noEffects $
+    set loading false $
+    over errors (\errors' -> (show error) : errors') state
+
+update (RequestBlockTxs hash) state =
+    { state: set loading true $ state
+    , effects: [ attempt (fetchBlockTxs hash) >>= pure <<< ReceiveBlockTxs ]
+    }
+update (ReceiveBlockTxs (Right txs)) state = noEffects $
+    set loading false <<<
+    set currentBlockTxs txs $
+    state
+update (ReceiveBlockTxs (Left error)) state = noEffects $
     set loading false $
     over errors (\errors' -> (show error) : errors') state
 
@@ -158,10 +170,11 @@ routeEffects (Transaction hash) state = { state, effects: [ pure ScrollTop ] }
 routeEffects (Address hash) state = { state, effects: [ pure ScrollTop ] }
 routeEffects Calculator state = { state, effects: [ pure ScrollTop ] }
 routeEffects (Block hash) state =
-    { state: set latestBlock Nothing state
+    { state: set currentBlock Nothing state
     , effects:
         [ pure ScrollTop
         , pure $ RequestBlockSummary hash
+        , pure $ RequestBlockTxs hash
         ]
     }
 routeEffects NotFound state = { state, effects: [ pure ScrollTop ] }

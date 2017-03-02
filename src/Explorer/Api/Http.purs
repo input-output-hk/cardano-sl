@@ -16,7 +16,7 @@ import Explorer.Types.State (CBlockEntries, CTxEntries)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
-import Pos.Explorer.Web.ClientTypes (CBlockSummary, CHash)
+import Pos.Explorer.Web.ClientTypes (CBlockSummary, CHash, CTxEntry)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash)
 
 endpointPrefix :: String
@@ -54,3 +54,6 @@ fetchLatestTxs = get "last_txs"
 
 fetchBlockSummary :: forall eff. CHash -> Aff (ajax::AJAX | eff) CBlockSummary
 fetchBlockSummary hash = get $ "block_summary/" <> hash ^. _CHash
+
+fetchBlockTxs :: forall eff. CHash -> Aff (ajax::AJAX | eff) CTxEntries
+fetchBlockTxs hash = get $ "block_summary/" <> hash ^. _CHash

@@ -5,11 +5,12 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cBlock, common, cOf, cNotAvailable, block, blFees, blRoot, blNextBlock, blPrevBlock, blEstVolume, cHash, cSummary, cTotalOutput, cHashes, cHeight, cTransactions) as I18nL
-import Explorer.Lenses.State (lang, latestBlock)
+import Explorer.Lenses.State (lang, currentBlock)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
+import Explorer.Util.Factory (mkCTxEntry)
 import Explorer.View.Common (currencyCSSClass, transactionPaginationView, transactionHeaderView, transactionBodyView)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeHeight, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
@@ -31,31 +32,7 @@ blockView state =
                   [ P.h3
                       [ P.className "headline"]
                       [ P.text $ translate (I18nL.common <<< I18nL.cBlock) lang' ]
-                    , case block of
-                      Nothing -> P.div [] [P.text "block not found" ]
-                      Just block' ->
-                          P.div
-                            [ P.className "blocks-wrapper" ]
-                            [ P.div
-                              -- summary
-                              [ P.className "summary-container" ]
-                              [ P.h3
-                                [ P.className "subheadline" ]
-                                [ P.text $ translate (I18nL.common <<< I18nL.cSummary) lang' ]
-                              , P.div
-                                  []
-                                  <<< map summaryRow <<< mkSummaryItems lang' $ block' ^. (_CBlockSummary <<< cbsEntry)
-                              ]-- hashes
-                            , P.div
-                              [ P.className "hashes-container" ]
-                              [ P.h3
-                                  [ P.className "subheadline" ]
-                                  [ P.text $ translate (I18nL.common <<< I18nL.cHashes) lang' ]
-                              , P.div
-                                  []
-                                  <<< map hashesRow $ mkHashItems lang' block'
-                              ]
-                        ]
+                    , blockSummaryView (state ^. currentBlock) lang'
                   ]
 
             ]
@@ -66,7 +43,8 @@ blockView state =
                 [ P.h3
                     [ P.className "headline"]
                     [ P.text $ translate (I18nL.common <<< I18nL.cSummary) lang' ]
-                , transactionHeaderView state
+                -- TODO (jk) use empty CTxEntry if we'll have real data
+                , transactionHeaderView mkCTxEntry
                 , transactionBodyView state
                 , transactionPaginationView paginationViewProps
                 ]
@@ -74,7 +52,6 @@ blockView state =
         ]
         where
             lang' = state ^. lang
-            block = state ^. latestBlock
             paginationViewProps =
                 { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                 , currentPage: 1
@@ -128,6 +105,33 @@ summaryRow item =
               [ P.className $ "column column__amount" <> currencyCSSClass item.currency ]
               [ P.text item.amount ]
         ]
+
+blockSummaryView :: Maybe CBlockSummary -> Language -> P.Html Action
+blockSummaryView Nothing _ =
+    P.div [] [P.text "" ]
+blockSummaryView (Just block) lang =
+    P.div
+      [ P.className "blocks-wrapper" ]
+      [ P.div
+        -- summary
+        [ P.className "summary-container" ]
+        [ P.h3
+          [ P.className "subheadline" ]
+          [ P.text $ translate (I18nL.common <<< I18nL.cSummary) lang ]
+        , P.div
+            []
+            <<< map summaryRow <<< mkSummaryItems lang $ block ^. (_CBlockSummary <<< cbsEntry)
+        ]-- hashes
+      , P.div
+        [ P.className "hashes-container" ]
+        [ P.h3
+            [ P.className "subheadline" ]
+            [ P.text $ translate (I18nL.common <<< I18nL.cHashes) lang ]
+        , P.div
+            []
+            <<< map hashesRow $ mkHashItems lang block
+        ]
+  ]
 
 -- hashes
 

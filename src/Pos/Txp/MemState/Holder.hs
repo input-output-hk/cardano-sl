@@ -71,7 +71,9 @@ newtype TxpHolder m a = TxpHolder
                , MonadDhtMem
                , MonadReportingMem
                , MonadRelayMem
-               , MonadShutdownMem)
+               , MonadShutdownMem
+               , MonadDB
+               , MonadDBLimits)
 
 type instance ThreadId (TxpHolder m) = ThreadId m
 type instance Promise (TxpHolder m) = Promise m

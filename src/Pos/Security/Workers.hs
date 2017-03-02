@@ -12,7 +12,7 @@ import           Formatting                  (build, int, sformat, (%))
 import           Mockable                    (delay)
 import           Paths_cardano_sl            (version)
 import           Serokell.Util               (sec)
-import           System.Wlog                 (logNotice, logWarning)
+import           System.Wlog                 (logWarning)
 import           Universum
 
 import           Pos.Binary.Ssc              ()

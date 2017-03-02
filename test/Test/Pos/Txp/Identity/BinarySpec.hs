@@ -11,7 +11,6 @@ import           Universum
 
 import           Pos.Binary               ()
 import           Pos.Communication.Relay  as R
-import           Pos.Txp                  (TxId)
 import qualified Pos.Txp                  as T
 import           Test.Pos.Arbitrary.Infra ()
 

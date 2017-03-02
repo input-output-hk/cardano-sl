@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE CPP #-}
 
 module Main where
 
@@ -30,6 +30,7 @@ import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
 import           Pos.Ssc.GodTossing    (genesisVssKeyPairs)
 #endif
 import           Pos.Communication     (ActionSpec (..))
+import           Pos.Shutdown          (triggerShutdown)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
@@ -39,7 +40,6 @@ import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
 import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usVss,
                                         writeUserSecret)
-import           Pos.Util.Shutdown     (triggerShutdown)
 #ifdef WITH_WEB
 import           Pos.Web               (serveWebBase, serveWebGT)
 import           Pos.WorkMode          (WorkMode)

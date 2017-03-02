@@ -104,6 +104,7 @@ import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscH
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp                     (runTxpHolder)
 import           Pos.Types                   (Timestamp (Timestamp))
+import qualified Pos.Update.DB               as GState
 import           Pos.Update.MemState         (runUSHolder)
 import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
 import           Pos.Util.UserSecret         (usKeys)

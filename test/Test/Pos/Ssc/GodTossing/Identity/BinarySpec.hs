@@ -4,21 +4,23 @@ module Test.Pos.Ssc.GodTossing.Identity.BinarySpec
        ( spec
        ) where
 
-import           Control.Lens            (has)
-import           Crypto.Hash             (Blake2s_224, Blake2s_256)
-import           Test.Hspec              (Spec, describe)
+import           Control.Lens                           (has)
+import           Crypto.Hash                            (Blake2s_224, Blake2s_256)
+import           Test.Hspec                             (Spec, describe)
 import           Universum
 
-import           Pos.Binary              ()
-import qualified Pos.Communication       as C
-import qualified Pos.Communication.Relay as R
-import           Pos.Crypto              (AbstractHash, EncShare, PublicKey, SecretProof,
-                                          SecretSharingExtra (..), Share, Signature,
-                                          VssPublicKey)
-import qualified Pos.Ssc.GodTossing      as GT
-import           Pos.Types.Address       (StakeholderId)
-import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
-                                          msgLenLimitedTest')
+import           Pos.Binary                             ()
+import qualified Pos.Communication                      as C
+import qualified Pos.Communication.Relay                as R
+import           Pos.Crypto                             (AbstractHash, EncShare,
+                                                         PublicKey, SecretProof,
+                                                         SecretSharingExtra (..), Share,
+                                                         Signature, VssPublicKey)
+import qualified Pos.Ssc.GodTossing                     as GT
+import           Pos.Types                              (StakeholderId)
+import           Test.Pos.Arbitrary.Infra.Communication ()
+import           Test.Pos.Util                          (binaryTest, msgLenLimitedTest,
+                                                         msgLenLimitedTest')
 
 spec :: Spec
 spec = describe "GodTossing" $ do

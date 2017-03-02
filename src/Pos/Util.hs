@@ -8,6 +8,8 @@
 
 module Pos.Util
        (
+--         export it when it actually reexports something apart from instances
+--         module Pos.Util.Util
        -- * Stuff for testing and benchmarking
          module Pos.Util.Arbitrary
        , module Pos.Util.TimeLimit
@@ -76,7 +78,6 @@ import           Control.Lens.Internal.FieldTH    (makeFieldOpticsForDec)
 import qualified Control.Monad                    as Monad (fail)
 import           Control.Monad.STM                (retry)
 import           Control.Monad.Trans.Resource     (ResourceT)
-import           Data.Aeson                       (FromJSON (..), ToJSON (..))
 import           Data.Binary                      (Binary)
 import qualified Data.Cache.LRU                   as LRU
 import           Data.Hashable                    (Hashable)
@@ -87,14 +88,9 @@ import qualified Data.List.NonEmpty               as NE
 import           Data.SafeCopy                    (SafeCopy (..), base, contain,
                                                    deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text                        as T
-import           Data.Time.Units                  (Microsecond, Millisecond)
-import           Formatting                       (sformat, stext, (%))
 import qualified GHC.Exts                         as IL
-import           Language.Haskell.TH
-import           Language.Haskell.TH.Syntax       (Lift)
-import qualified Language.Haskell.TH.Syntax
+import qualified Language.Haskell.TH              as TH
 import           Mockable                         (Mockable, Throw, throw)
-import           Serokell.Data.Memory.Units       (Byte, fromBytes, toBytes)
 import           Serokell.Util                    (VerificationRes (..))
 import           System.Wlog                      (LoggerNameBox (..))
 import           Test.QuickCheck                  (Arbitrary)
@@ -109,6 +105,7 @@ import           Pos.Binary.Class                 (Bi)
 import           Pos.Util.Arbitrary
 import           Pos.Util.NotImplemented          ()
 import           Pos.Util.TimeLimit
+import           Pos.Util.Util                    ()
 
 mappendPair :: (Monoid a, Monoid b) => (a, b) -> (a, b) -> (a, b)
 mappendPair = (uncurry (***)) . (mappend *** mappend)
@@ -252,29 +249,29 @@ instance Chrono NonEmpty where
 ----------------------------------------------------------------------------
 
 -- | Make lenses for a data family instance.
-makeLensesData :: Name -> Name -> DecsQ
+makeLensesData :: TH.Name -> TH.Name -> TH.DecsQ
 makeLensesData familyName typeParamName = do
-    info <- reify familyName
+    info <- TH.reify familyName
     ins <- case info of
-        FamilyI _ ins -> return ins
-        _             -> fail "makeLensesIndexed: expected data family name"
-    typeParamInfo <- reify typeParamName
+        TH.FamilyI _ ins -> return ins
+        _                -> fail "makeLensesIndexed: expected data family name"
+    typeParamInfo <- TH.reify typeParamName
     typeParam <- case typeParamInfo of
-        TyConI dec -> decToType dec
-        _          -> fail "makeLensesIndexed: expected a type"
+        TH.TyConI dec -> decToType dec
+        _             -> fail "makeLensesIndexed: expected a type"
     let mbInsDec = find ((== Just typeParam) . getTypeParam) ins
     case mbInsDec of
         Nothing -> fail ("makeLensesIndexed: an instance for " ++
-                         nameBase typeParamName ++ " not found")
+                         TH.nameBase typeParamName ++ " not found")
         Just insDec -> makeFieldOpticsForDec lensRules insDec
   where
-    getTypeParam (NewtypeInstD _ _ [t] _ _ _) = Just t
-    getTypeParam (DataInstD    _ _ [t] _ _ _) = Just t
-    getTypeParam _                            = Nothing
+    getTypeParam (TH.NewtypeInstD _ _ [t] _ _ _) = Just t
+    getTypeParam (TH.DataInstD    _ _ [t] _ _ _) = Just t
+    getTypeParam _                               = Nothing
 
-    decToType (DataD    _ n _ _ _ _) = return (ConT n)
-    decToType (NewtypeD _ n _ _ _ _) = return (ConT n)
-    decToType other                  =
+    decToType (TH.DataD    _ n _ _ _ _) = return (TH.ConT n)
+    decToType (TH.NewtypeD _ n _ _ _ _) = return (TH.ConT n)
+    decToType other                     =
         fail ("makeLensesIndexed: decToType failed on: " ++ show other)
 
 -- | Lens for the head of 'NonEmpty'.

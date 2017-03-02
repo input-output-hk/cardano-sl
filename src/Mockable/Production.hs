@@ -85,6 +85,8 @@ instance Mockable SharedAtomic Production where
         = Production $ Conc.newMVar t
     liftMockable (ModifySharedAtomic atomic f)
         = Production $ Conc.modifyMVar atomic (runProduction . f)
+    liftMockable (ReadSharedAtomic atomic)
+        = Production $ Conc.readMVar atomic
 
 type instance SharedExclusiveT Production = Conc.MVar
 

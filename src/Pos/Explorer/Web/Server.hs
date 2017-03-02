@@ -23,8 +23,9 @@ import           Pos.Communication              (SendActions)
 import           Pos.Crypto                     (WithHash (..), withHash)
 import qualified Pos.DB                         as DB
 import qualified Pos.DB.GState                  as GS
+-- import           Pos.DB.GState.Explorer         (getTxExtra)
+-- import           Pos.Types.Explorer             (TxExtra (..))
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.Class                  (SscHelpersClass)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (getLocalTxs)
 import           Pos.Types                      (Address (..), HeaderHash, MainBlock,
@@ -156,14 +157,16 @@ getTxSummary cTxId = do
 -- Helpers
 --------------------------------------------------------------------------------
 
-allTxs :: ExplorerMode m => m [TxInternal]
-allTxs = do
+mempoolTxs :: ExplorerMode m => m [TxInternal]
+mempoolTxs = do
     let mkWhTx (txid, (tx, _, _)) = WithHash tx txid
     localTxs <- fmap reverse $ topsortTxsOrFail mkWhTx =<< getLocalTxs
     ts <- getCurrentTime
 
-    let localTxEntries = map (\tx -> TxInternal ts (view (_2 . _1) tx)) localTxs
+    pure $ map (\tx -> TxInternal ts (view (_2 . _1) tx)) localTxs
 
+blockchainTxs :: ExplorerMode m => m [TxInternal]
+blockchainTxs = do
     tip <- GS.getTip
     let unfolder h = do
             MaybeT (DB.getBlock h) >>= \case
@@ -173,14 +176,18 @@ allTxs = do
                     txs <- topsortTxsOrFail identity $ map withHash $ toList mTxs
                     blkSlotStart <- lift $ getSlotStart $
                                     mb ^. gbHeader . gbhConsensus . mcdSlot
-                    let blkTxEntries = map (\tx -> TxInternal blkSlotStart (whData tx)) $
+                    let blkTxsWithTs = map (\tx -> TxInternal blkSlotStart (whData tx)) $
                                        reverse txs
-                    return (blkTxEntries, mb ^. prevBlockL)
+                    return (blkTxsWithTs, mb ^. prevBlockL)
 
-    blockTxEntries <- fmap concat $ flip unfoldrM tip $
-        \h -> runMaybeT $ unfolder h
+    fmap concat $ flip unfoldrM tip $ \h -> runMaybeT $ unfolder h
 
-    return $ localTxEntries <> blockTxEntries
+allTxs :: ExplorerMode m => m [TxInternal]
+allTxs = do
+    localTxsWithTs <- mempoolTxs
+    blockTxsWithTs <- blockchainTxs
+
+    pure $ localTxsWithTs <> blockTxsWithTs
 
 getBlkSlotStart :: MonadSlots m => MainBlock ssc -> m Timestamp
 getBlkSlotStart blk = getSlotStart $ blk ^. gbHeader . gbhConsensus . mcdSlot

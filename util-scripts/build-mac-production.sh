@@ -1,4 +1,4 @@
-./scripts/clean.sh
+./util-scripts/clean.sh
 CSL_SYSTEM_TAG=linux ./util-scripts/build-mac.sh --flag cardano-sl:-dev-mode
 rm -rf daedalus/src/Generated/
 stack --nix exec -- cardano-wallet-hs2purs

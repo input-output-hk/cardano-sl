@@ -32,7 +32,7 @@ module Node.Internal (
   ) where
 
 import           Control.Exception             hiding (bracket, catch, finally, throw)
-import           Control.Monad                 (forM_, forM, when, unless)
+import           Control.Monad                 (forM_, forM, when)
 import           Control.Monad.Fix             (MonadFix)
 import           Data.Int                      (Int64)
 import           Data.Binary                   as Bin
@@ -217,7 +217,7 @@ data Statistics m = Statistics {
       --   locally, i.e. corresponding to bidirectional connections.
     , stRunningHandlersLocal :: !(Metrics.Gauge m)
       -- | Statistics for each peer.
-    , stPeerStatistics :: !(Map NT.EndPointAddress PeerStatistics)
+    , stPeerStatistics :: !(Map NT.EndPointAddress (SharedAtomicT m PeerStatistics))
       -- | How many peers are connected.
     , stPeers :: !(Metrics.Gauge m)
       -- | Average number of remotely-initiated handlers per peer.
@@ -236,11 +236,13 @@ data Statistics m = Statistics {
     , stHandlersFinishedExceptionally :: !(Metrics.Distribution m)
     }
 
-stTotalLiveBytes :: Statistics m -> Int
-stTotalLiveBytes stats = sum allBytes
-    where
-    allPeers = Map.toList (stPeerStatistics stats)
-    allBytes = fmap (pstLiveBytes . snd) allPeers
+stTotalLiveBytes
+    :: (Mockable SharedAtomic m)
+    => Statistics m -> m Int
+stTotalLiveBytes stats = do
+    allPeers <- mapM readSharedAtomic $ Map.elems (stPeerStatistics stats)
+    let allBytes = fmap (pstLiveBytes) allPeers
+    return $ sum allBytes
 
 stRunningHandlersRemoteVariance :: Statistics m -> Double
 stRunningHandlersRemoteVariance statistics = avg2 - (avg ^ 2)
@@ -272,10 +274,15 @@ pstNull PeerStatistics{..} =
         loc = pstRunningHandlersLocal
     in  rem == 0 && loc == 0
 
-stIncrBytes :: NT.EndPointAddress -> Int -> Statistics m -> Statistics m
-stIncrBytes peer bytes stats = stats {
-      stPeerStatistics = Map.adjust (pstIncrBytes bytes) peer (stPeerStatistics stats)
-    }
+
+stIncrBytes
+    :: (Mockable SharedAtomic m)
+    => NT.EndPointAddress -> Int -> Statistics m -> m ()
+stIncrBytes peer bytes stats =
+    case Map.lookup peer (stPeerStatistics stats) of
+      Nothing -> return ()
+      Just peerStats -> modifySharedAtomic peerStats $ \ps ->
+          return (pstIncrBytes bytes ps, ())
 
 pstIncrBytes :: Int -> PeerStatistics -> PeerStatistics
 pstIncrBytes bytes peerStatistics = peerStatistics {
@@ -285,48 +292,56 @@ pstIncrBytes bytes peerStatistics = peerStatistics {
 -- | Record a new handler for a given peer. Second component is True if it's the
 --   only handler for that peer.
 pstAddHandler
-    :: HandlerProvenance peerData m t
-    -> Map NT.EndPointAddress PeerStatistics
-    -> (Map NT.EndPointAddress PeerStatistics, Bool)
+    :: (Mockable SharedAtomic m)
+    => HandlerProvenance peerData m t
+    -> Map NT.EndPointAddress (SharedAtomicT m PeerStatistics)
+    -> m (Map NT.EndPointAddress (SharedAtomicT m PeerStatistics), Bool)
 pstAddHandler provenance map = case provenance of
 
     Local peer _ -> case Map.lookup peer map of
-        Nothing -> (Map.insert peer (PeerStatistics 0 1 0) map, True)
-        Just !stats -> (Map.insert peer stats' map, False)
-            where
-            !stats' = stats { pstRunningHandlersLocal = pstRunningHandlersLocal stats + 1 }
+        Nothing ->
+            newSharedAtomic (PeerStatistics 0 1 0) >>= \peerStatistics ->
+            return (Map.insert peer peerStatistics map, True)
+        Just !statsVar -> modifySharedAtomic statsVar $ \stats ->
+            let !stats' = stats { pstRunningHandlersLocal = pstRunningHandlersLocal stats + 1 }
+            in return (stats', (map, False))
 
     Remote peer _ _ -> case Map.lookup peer map of
-        Nothing -> (Map.insert peer (PeerStatistics 1 0 0) map, True)
-        Just !stats -> (Map.insert peer stats' map, False)
-            where
-            !stats' = stats { pstRunningHandlersRemote = pstRunningHandlersRemote stats + 1 }
+        Nothing ->
+            newSharedAtomic (PeerStatistics 1 0 0) >>= \peerStatistics ->
+            return (Map.insert peer peerStatistics map, True)
+        Just !statsVar -> modifySharedAtomic statsVar $ \stats ->
+            let !stats' = stats { pstRunningHandlersLocal = pstRunningHandlersRemote stats + 1 }
+            in return (stats', (map, False))
 
 -- | Remove a handler for a given peer. Second component is True if there
 --   are no more handlers for that peer.
 pstRemoveHandler
-    :: HandlerProvenance peerData m t
-    -> Map NT.EndPointAddress PeerStatistics
-    -> (Map NT.EndPointAddress PeerStatistics, Bool)
+    :: (WithLogger m, Mockable SharedAtomic m)
+    => HandlerProvenance peerData m t
+    -> Map NT.EndPointAddress (SharedAtomicT m PeerStatistics)
+    -> m (Map NT.EndPointAddress (SharedAtomicT m PeerStatistics), Bool)
 pstRemoveHandler provenance map = case provenance of
 
-    Local peer _ -> case Map.updateLookupWithKey updater peer map of
-        (Just !stats, map') -> (map', pstNull stats)
-        -- First component is Nothing only if the peer is not in the map.
-        -- That should never happen.
-        _ -> (map, False)
-        where
-        updater _ !stats =
-            let !stats' = stats { pstRunningHandlersLocal = pstRunningHandlersLocal stats - 1 }
-            in  if pstNull stats' then Nothing else Just stats'
+    Local peer _ -> case Map.lookup peer map of
+        Nothing ->  do
+            logWarning $ sformat ("tried to remove handler for "%shown%", but it is not in the map") peer
+            return (map, False)
+        Just !statsVar -> modifySharedAtomic statsVar $ \stats ->
+            let stats' = stats { pstRunningHandlersLocal = pstRunningHandlersLocal stats - 1 }
+            in return $ if pstNull stats'
+                        then (stats', (Map.delete peer map, True))
+                        else (stats', (map, False))
 
-    Remote peer _ _ -> case Map.updateLookupWithKey updater peer map of
-        (Just !stats, map') -> (map', pstNull stats)
-        _ -> (map, False)
-        where
-        updater _ !stats =
-            let !stats' = stats { pstRunningHandlersRemote = pstRunningHandlersRemote stats - 1 }
-            in  if pstNull stats' then Nothing else Just stats'
+    Local peer _ -> case Map.lookup peer map of
+        Nothing ->  do
+            logWarning $ sformat ("tried to remove handler for "%shown%", but it is not in the map") peer
+            return (map, False)
+        Just !statsVar -> modifySharedAtomic statsVar $ \stats ->
+            let stats' = stats { pstRunningHandlersRemote = pstRunningHandlersRemote stats - 1 }
+            in return $ if pstNull stats'
+                        then (stats', (Map.delete peer map, True))
+                        else (stats', (map, False))
 
 -- | Statistics when a node is launched.
 initialStatistics :: ( Mockable Metrics.Metrics m ) => m (Statistics m)
@@ -371,7 +386,8 @@ handlerProvenancePeer provenance = case provenance of
 -- TODO: revise these computations to make them numerically stable (or maybe
 -- use Rational?).
 stAddHandler
-    :: ( Mockable Metrics.Metrics m )
+    :: ( Mockable Metrics.Metrics m
+       , Mockable SharedAtomic m )
     => HandlerProvenance peerData m t
     -> Statistics m
     -> m (Statistics m)
@@ -381,6 +397,7 @@ stAddHandler !provenance !statistics = case provenance of
     -- both local and remote. It's a copy/paste job right now swapping local
     -- for remote.
     Local !peer _ -> do
+        (!peerStatistics, !isNewPeer) <- pstAddHandler provenance (stPeerStatistics statistics)
         when isNewPeer $ Metrics.incGauge (stPeers statistics)
         Metrics.incGauge (stRunningHandlersLocal statistics)
         !npeers <- Metrics.readGauge (stPeers statistics)
@@ -396,6 +413,7 @@ stAddHandler !provenance !statistics = case provenance of
             }
 
     Remote !peer _ _ -> do
+        (!peerStatistics, !isNewPeer) <- pstAddHandler provenance (stPeerStatistics statistics)
         when isNewPeer $ Metrics.incGauge (stPeers statistics)
         Metrics.incGauge (stRunningHandlersRemote statistics)
         !npeers <- Metrics.readGauge (stPeers statistics)
@@ -410,9 +428,7 @@ stAddHandler !provenance !statistics = case provenance of
             , stRunningHandlersRemoteAverage = runningHandlersRemoteAverage
             }
 
-    where
-
-    (!peerStatistics, !isNewPeer) = pstAddHandler provenance (stPeerStatistics statistics)
+  where
 
     -- Adjust the means. The Bool is true if it's a new peer.
     -- The Double is the current number of peers (always > 0).
@@ -428,12 +444,12 @@ stAddHandler !provenance !statistics = case provenance of
         False -> (avg', avg2')
             where
             avg' = avg + (1 / npeers)
-            avg2' = avg + (fromIntegral (2 * nhandlers + 1) / npeers) 
+            avg2' = avg + (fromIntegral (2 * nhandlers + 1) / npeers)
 
 -- TODO: revise these computations to make them numerically stable (or maybe
 -- use Rational?).
 stRemoveHandler
-    :: ( Mockable Metrics.Metrics m )
+    :: ( Mockable Metrics.Metrics m, Mockable SharedAtomic m, WithLogger m )
     => HandlerProvenance peerData m t
     -> Microsecond
     -> Maybe SomeException
@@ -445,6 +461,7 @@ stRemoveHandler !provenance !elapsed !outcome !statistics = case provenance of
     -- both local and remote. It's a copy/paste job right now swapping local
     -- for remote.
     Local !peer _ -> do
+        (!peerStatistics, !isEndedPeer) <- pstRemoveHandler provenance (stPeerStatistics statistics)
         when isEndedPeer $ Metrics.decGauge (stPeers statistics)
         Metrics.decGauge (stRunningHandlersLocal statistics)
         !npeers <- Metrics.readGauge (stPeers statistics)
@@ -461,6 +478,7 @@ stRemoveHandler !provenance !elapsed !outcome !statistics = case provenance of
             }
 
     Remote !peer _ _ -> do
+        (!peerStatistics, !isEndedPeer) <- pstRemoveHandler provenance (stPeerStatistics statistics)
         when isEndedPeer $ Metrics.decGauge (stPeers statistics)
         Metrics.decGauge (stRunningHandlersRemote statistics)
         !npeers <- Metrics.readGauge (stPeers statistics)
@@ -477,8 +495,6 @@ stRemoveHandler !provenance !elapsed !outcome !statistics = case provenance of
             }
 
     where
-
-    (!peerStatistics, !isEndedPeer) = pstRemoveHandler provenance (stPeerStatistics statistics)
 
     -- Convert the elapsed time to a Double and then add it to the relevant
     -- distribution.
@@ -503,7 +519,7 @@ stRemoveHandler !provenance !elapsed !outcome !statistics = case provenance of
         False -> (avg', avg2')
             where
             avg' = avg - (1 / fromIntegral npeers)
-            avg2' = avg - (fromIntegral (2 * nhandlers + 1) / fromIntegral npeers) 
+            avg2' = avg - (fromIntegral (2 * nhandlers + 1) / fromIntegral npeers)
 
 -- | Bring up a 'Node' using a network transport.
 startNode
@@ -1118,7 +1134,7 @@ nodeDispatcher node handlerIn handlerInOut =
         channelsAndPeerDataVars <- modifySharedAtomic nstate $ \st -> do
             let nonces = Map.lookup peer (_nodeStateOutboundBidirectional st)
             case nonces of
-                -- Perfectly normal: lost the connection but we had no 
+                -- Perfectly normal: lost the connection but we had no
                 -- outbound bidirectional connections to it.
                 Nothing -> return (st, [])
                 Just map -> do
@@ -1182,10 +1198,10 @@ spawnHandler stateVar provenance action =
                       _nodeStateOutboundUnidirectional = Map.insert peer someHandler (_nodeStateOutboundUnidirectional nodeState)
                     }
 
-            incrBytes !n = modifySharedAtomic stateVar $ \nodeState -> do
-                let statistics' = stIncrBytes (handlerProvenancePeer provenance) n (_nodeStateStatistics nodeState)
+            incrBytes !n = do
+                nodeState <- readSharedAtomic stateVar
+                stIncrBytes (handlerProvenancePeer provenance) n (_nodeStateStatistics nodeState)
                 modifySharedAtomic totalBytes $ \(!m) -> return (m + n, ())
-                return (nodeState { _nodeStateStatistics = statistics' }, ())
 
         statistics' <- stAddHandler provenance (_nodeStateStatistics nodeState)
         return (nodeState' { _nodeStateStatistics = statistics' }, (promise, incrBytes))
@@ -1227,9 +1243,9 @@ spawnHandler stateVar provenance action =
                         }
             -- Decrement the live bytes by the total bytes received, and
             -- remove the handler.
+            stIncrBytes (handlerProvenancePeer provenance) (-totalBytes) $ _nodeStateStatistics nodeState
             statistics' <-
                 stRemoveHandler provenance elapsed outcome $
-                stIncrBytes (handlerProvenancePeer provenance) (-totalBytes) $
                 _nodeStateStatistics nodeState
             return (nodeState' { _nodeStateStatistics = statistics' }, ())
 
@@ -1592,7 +1608,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData} 
                     | Just _ <- merr
                     , n > 1 ->
                           return . Just $ AllComingUp (ComingUp (n - 1) excl)
-                          
+
 
                 Just (Stable comingUp established goingDown transmission)
                     | Just (ComingUp n excl) <- comingUp -> do

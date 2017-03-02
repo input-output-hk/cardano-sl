@@ -181,7 +181,6 @@ verifyCreatedBlock blk =
     vbp =
         def
         { vbpVerifyGeneric = True
-        , vbpVerifyTxs = True
         , vbpVerifySsc = True
         }
 

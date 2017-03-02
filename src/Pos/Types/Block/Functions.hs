@@ -51,7 +51,6 @@ import           Pos.Merkle                 (mkMerkleTree)
 import           Pos.Script                 (isKnownScriptVersion, scrVersion)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types        (Ssc (..))
-import           Pos.Txp.Core.Tx            (verifyTxAlone)
 import           Pos.Txp.Core.Types         (Tx (..), TxDistribution, TxInWitness (..),
                                              TxOut (..), TxWitness)
 import           Pos.Types.Address          (Address (..), addressHash)
@@ -430,8 +429,6 @@ data VerifyBlockParams ssc = VerifyBlockParams
       -- ^ Verifies header accordingly to params ('verifyHeader')
     , vbpVerifyGeneric  :: !Bool
       -- ^ Checks 'verifyGenesisBlock' property.
-    , vbpVerifyTxs      :: !Bool
-      -- ^ Checks that each transaction passes 'verifyTxAlone' check.
     , vbpVerifySsc      :: !Bool
       -- ^ Verifies ssc payload with 'sscVerifyPayload'.
     , vbpVerifyProxySKs :: !Bool
@@ -451,7 +448,6 @@ instance Default (VerifyBlockParams ssc) where
         VerifyBlockParams
         { vbpVerifyHeader = Nothing
         , vbpVerifyGeneric = False
-        , vbpVerifyTxs = False
         , vbpVerifySsc = False
         , vbpVerifyProxySKs = False
         , vbpVerifyVersions = Nothing
@@ -468,7 +464,6 @@ verifyBlock VerifyBlockParams {..} blk =
     mconcat
         [ verifyG
         , maybeEmpty (flip verifyHeader (getBlockHeader blk)) vbpVerifyHeader
-        , verifyTxs
         , verifySsc
         , verifyProxySKs
         , maybeEmpty verifyVersions vbpVerifyVersions
@@ -479,12 +474,6 @@ verifyBlock VerifyBlockParams {..} blk =
 
     verifyG
         | vbpVerifyGeneric = either verifyGenericBlock verifyGenericBlock blk
-        | otherwise = mempty
-    verifyTxs
-        | vbpVerifyTxs =
-            case blk of
-                Left _        -> mempty
-                Right mainBlk -> foldMap verifyTxAlone $ mainBlk ^. blockTxs
         | otherwise = mempty
     verifySsc
         | vbpVerifySsc =
@@ -609,7 +598,6 @@ verifyBlocks curSlotId initLeaders mbBV = view _3 . foldl' step start
                 VerifyBlockParams
                 { vbpVerifyHeader = Just vhp
                 , vbpVerifyGeneric = True
-                , vbpVerifyTxs = True
                 , vbpVerifySsc = True
                 , vbpVerifyProxySKs = True
                 , vbpVerifyVersions = mbBV

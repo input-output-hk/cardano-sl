@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | `Arbitrary` instances for core types for using in tests and benchmarks
 
@@ -277,15 +277,14 @@ derive makeArbitrary ''TxDistribution
 derive makeArbitrary ''TxIn
 
 -- | Arbitrary transactions generated from this instance will only be valid
--- with regards to 'verifyTxAlone'
-
+-- with regards to 'mxTx'
 instance Arbitrary Tx where
     arbitrary = do
         txIns <- getNonEmpty <$> arbitrary
         txOuts <- getNonEmpty <$> arbitrary
-        return $ Tx txIns txOuts (mkAttributes ())
+        pure $ Tx txIns txOuts (mkAttributes ())
 
--- | Type used to generate valid (w.r.t 'verifyTxAlone' and 'verifyTx')
+-- | Type used to generate valid ('verifyTx')
 -- transactions and accompanying input information.
 -- It's not entirely general because it only generates transactions whose
 -- outputs are in the same number as its inputs in a one-to-one correspondence.

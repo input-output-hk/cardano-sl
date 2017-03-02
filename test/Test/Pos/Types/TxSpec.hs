@@ -36,7 +36,7 @@ import           Pos.Script.Examples   (alwaysSuccessValidator, badIntRedeemer,
 import           Pos.Txp               (Tx (..), TxAux, TxDistribution (..), TxIn (..),
                                         TxInWitness (..), TxOut (..), TxOutAux, TxSigData,
                                         TxWitness, Utxo, VTxGlobalContext (..),
-                                        VTxLocalContext (..), topsortTxs, verifyTxAlone,
+                                        VTxLocalContext (..), mkTx, topsortTxs,
                                         verifyTxPure, verifyTxUtxoPure)
 import           Pos.Types             (BadSigsTx (..), GoodTx (..), SmallBadSigsTx (..),
                                         SmallGoodTx (..), checkPubKeyAddress,
@@ -47,7 +47,7 @@ import           Pos.Util              (nonrepeating, runGen, sublistN)
 
 spec :: Spec
 spec = describe "Types.Tx" $ do
-    describe "verifyTxAlone" $ do
+    describe "mkTx" $ do
         prop description_validateGoodTxAlone validateGoodTxAlone
         prop description_invalidateBadTxAlone invalidateBadTxAlone
     describe "verifyTx" $ do
@@ -311,12 +311,12 @@ errorsShouldMatch (VerFailure xs) ys = do
                  shown%"\n\n"%
                  build)
                 i y x
-
 validateGoodTxAlone :: Tx -> Bool
-validateGoodTxAlone tx = isVerSuccess $ verifyTxAlone tx
+validateGoodTxAlone Tx{..} = isJust $ mkTx _txInputs _txOutputs _txAttributes
 
 invalidateBadTxAlone :: Tx -> Bool
-invalidateBadTxAlone Tx {..} = all (isVerFailure . verifyTxAlone) badTxs
+invalidateBadTxAlone Tx {..} =
+    all (\Tx{..} -> isNothing $ mkTx _txInputs _txOutputs _txAttributes) badTxs
   where
     zeroOutputs = fmap (\(TxOut a _) -> TxOut a (mkCoin 0)) _txOutputs
     badTxs =
@@ -371,7 +371,7 @@ txChecksum extendedInputs txOuts =
 individualTxPropertyVerifier :: TxVerifyingTools -> Bool
 individualTxPropertyVerifier ((tx@Tx{..}, dist), _, extendedInputs, txWits) =
     let hasGoodSum = txChecksum extendedInputs _txOutputs
-        hasGoodStructure = isVerSuccess $ verifyTxAlone tx
+        hasGoodStructure = validateGoodTxAlone tx
         hasGoodInputs = all
             (signatureIsValid (zip _txOutputs (getTxDistribution dist)))
             (zip extendedInputs (toList txWits))

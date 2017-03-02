@@ -20,7 +20,11 @@ instance Bi T.TxOut where
 
 instance Bi T.Tx where
     put (T.Tx ins outs attrs) = put ins >> put outs >> put attrs
-    get = label "Tx" $ T.Tx <$> get <*> get <*> get
+    get = label "Tx" $ do
+        ins <- get
+        outs <- get
+        attrs <- get
+        T.mkTx ins outs attrs
 
 instance Bi T.TxInWitness where
     put (T.PkWitness key sig) = do

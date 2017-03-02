@@ -30,12 +30,15 @@ instance (SharedAtomicT n ~ SharedAtomicT m) => MFunctor' SharedAtomic m n where
     hoist' nat (ModifySharedAtomic var update) = ModifySharedAtomic var (\s -> nat $ update s)
     hoist' _ (ReadSharedAtomic sat)            = ReadSharedAtomic sat
 
+{-# INLINE newSharedAtomic #-}
 newSharedAtomic :: ( Mockable SharedAtomic m ) => t -> m (SharedAtomicT m t)
 newSharedAtomic t = liftMockable $ NewSharedAtomic t
 
+{-# INLINE readSharedAtomic #-}
 readSharedAtomic :: ( Mockable SharedAtomic m ) => SharedAtomicT m t -> m t
 readSharedAtomic sat = liftMockable $ ReadSharedAtomic sat
 
+{-# INLINE modifySharedAtomic #-}
 modifySharedAtomic
     :: ( Mockable SharedAtomic m )
     => SharedAtomicT m s
@@ -43,6 +46,7 @@ modifySharedAtomic
     -> m t
 modifySharedAtomic sat f = liftMockable $ ModifySharedAtomic sat f
 
+{-# INLINE withSharedAtomic #-}
 withSharedAtomic
     :: ( Mockable SharedAtomic m )
     => SharedAtomicT m s

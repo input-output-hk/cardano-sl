@@ -1,7 +1,9 @@
+{-# OPTIONS_GHC -O2 #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE FlexibleContexts           #-}
 
 module Mockable.Production
        ( Production (..)
@@ -49,24 +51,34 @@ deriving instance CanLog Production
 type instance ThreadId Production = Conc.ThreadId
 
 instance Mockable Fork Production where
+    {-# INLINABLE liftMockable #-}
+    {-# SPECIALIZE INLINE liftMockable :: Fork Production t -> Production t #-}
     liftMockable (Fork m)         = Production $ Conc.forkIO (runProduction m)
     liftMockable (MyThreadId)     = Production $ Conc.myThreadId
     liftMockable (KillThread tid) = Production $ Conc.killThread tid
 
 instance Mockable Delay Production where
+    {-# INLINABLE liftMockable #-}
+    {-# SPECIALIZE INLINE liftMockable :: Delay Production t -> Production t #-}
     liftMockable (Delay time) = Production $ Serokell.threadDelay time
     liftMockable SleepForever = Production $ forever $ Serokell.threadDelay (1 :: Hour)
 
 instance Mockable RunInUnboundThread Production where
+    {-# INLINABLE liftMockable #-}
+    {-# SPECIALIZE INLINE liftMockable :: RunInUnboundThread Production t -> Production t #-}
     liftMockable (RunInUnboundThread m) = Production $
         Conc.runInUnboundThread (runProduction m)
 
 instance Mockable CurrentTime Production where
+    {-# INLINABLE liftMockable #-}
+    {-# SPECIALIZE INLINE liftMockable :: CurrentTime Production t -> Production t #-}
     liftMockable CurrentTime = realTime
 
 type instance Promise Production = Conc.Async
 
 instance Mockable Async Production where
+    {-# INLINABLE liftMockable #-}
+    {-# SPECIALIZE INLINE liftMockable :: Async Production t -> Production t #-}
     liftMockable (Async m)          = Production $ Conc.async (runProduction m)
     liftMockable (WithAsync m k)    = Production $ Conc.withAsync (runProduction m) (runProduction . k)
     liftMockable (Wait promise)     = Production $ Conc.wait promise
@@ -75,12 +87,16 @@ instance Mockable Async Production where
     liftMockable (AsyncThreadId p)  = Production $ return (Conc.asyncThreadId p)
 
 instance Mockable Concurrently Production where
+    {-# INLINABLE liftMockable #-}
+    {-# SPECIALIZE INLINE liftMockable :: Concurrently Production t -> Production t #-}
     liftMockable (Concurrently a b) = Production $
         Conc.concurrently (runProduction a) (runProduction b)
 
 type instance SharedAtomicT Production = Conc.MVar
 
 instance Mockable SharedAtomic Production where
+    {-# INLINABLE liftMockable #-}
+    {-# SPECIALIZE INLINE liftMockable :: SharedAtomic Production t -> Production t #-}
     liftMockable (NewSharedAtomic t)
         = Production $ Conc.newMVar t
     liftMockable (ModifySharedAtomic atomic f)
@@ -91,6 +107,8 @@ instance Mockable SharedAtomic Production where
 type instance SharedExclusiveT Production = Conc.MVar
 
 instance Mockable SharedExclusive Production where
+    {-# INLINABLE liftMockable #-}
+    {-# SPECIALIZE INLINE liftMockable :: SharedExclusive Production t -> Production t #-}
     liftMockable (NewSharedExclusive)
         = Production $ Conc.newEmptyMVar
     liftMockable (PutSharedExclusive var t)
@@ -105,6 +123,8 @@ instance Mockable SharedExclusive Production where
 type instance ChannelT Production = Conc.TChan
 
 instance Mockable Channel Production where
+    {-# INLINABLE liftMockable #-}
+    {-# SPECIALIZE INLINE liftMockable :: Channel Production t -> Production t #-}
     liftMockable (NewChannel) = Production . Conc.atomically $ Conc.newTChan
     liftMockable (ReadChannel channel) = Production . Conc.atomically $ Conc.readTChan channel
     liftMockable (TryReadChannel channel) = Production . Conc.atomically $ Conc.tryReadTChan channel
@@ -112,6 +132,8 @@ instance Mockable Channel Production where
     liftMockable (WriteChannel channel t) = Production . Conc.atomically $ Conc.writeTChan channel t
 
 instance Mockable Bracket Production where
+    {-# INLINABLE liftMockable #-}
+    {-# SPECIALIZE INLINE liftMockable :: Bracket Production t -> Production t #-}
     liftMockable (Bracket acquire release act) = Production $
         Exception.bracket (runProduction acquire) (runProduction . release) (runProduction . act)
 
@@ -126,9 +148,11 @@ instance Mockable Bracket Production where
         return r
 
 instance Mockable Throw Production where
+    {-# INLINABLE liftMockable #-}
     liftMockable (Throw e) = Production $ Exception.throwIO e
 
 instance Mockable Catch Production where
+    {-# INLINABLE liftMockable #-}
     liftMockable (Catch action handler) = Production $
         runProduction action `Exception.catch` (runProduction . handler)
 
@@ -156,6 +180,8 @@ type instance Metrics.Distribution Production = EKG.Distribution.Distribution
 
 instance Mockable Metrics.Metrics Production where
 
+    {-# INLINABLE liftMockable #-}
+    {-# SPECIALIZE INLINE liftMockable :: Metrics.Metrics Production t -> Production t #-}
     liftMockable term = case term of
 
         Metrics.NewGauge -> Production $ EKG.Gauge.new

@@ -85,35 +85,46 @@ instance
         AddSample distr s -> AddSample distr s
         ReadDistribution distr -> ReadDistribution distr
 
+{-# INLINE newGauge #-}
 newGauge :: ( Mockable Metrics m ) => m (Gauge m)
 newGauge = liftMockable NewGauge
 
+{-# INLINE incGauge #-}
 incGauge :: ( Mockable Metrics m ) => Gauge m -> m ()
 incGauge = liftMockable . IncGauge
 
+{-# INLINE decGauge #-}
 decGauge :: ( Mockable Metrics m ) => Gauge m -> m ()
 decGauge = liftMockable . DecGauge
 
+{-# INLINE setGauge #-}
 setGauge :: ( Mockable Metrics m ) => Gauge m -> Int64 -> m ()
 setGauge gauge = liftMockable . SetGauge gauge
 
+{-# INLINE readGauge #-}
 readGauge :: ( Mockable Metrics m ) => Gauge m -> m Int64
 readGauge = liftMockable . ReadGauge
 
+{-# INLINE newCounter #-}
 newCounter :: ( Mockable Metrics m ) => m (Counter m)
 newCounter = liftMockable NewCounter
 
+{-# INLINE incCounter #-}
 incCounter :: ( Mockable Metrics m ) => Counter m -> m ()
 incCounter = liftMockable . IncCounter
 
+{-# INLINE readCounter #-}
 readCounter :: ( Mockable Metrics m ) => Counter m -> m Int64
 readCounter = liftMockable . ReadCounter
 
+{-# INLINE newDistribution #-}
 newDistribution :: ( Mockable Metrics m ) => m (Distribution m)
 newDistribution = liftMockable NewDistribution
 
+{-# INLINE addSample #-}
 addSample :: ( Mockable Metrics m ) => Distribution m -> Double -> m ()
 addSample distr = liftMockable . AddSample distr
 
+{-# INLINE readDistribution #-}
 readDistribution :: ( Mockable Metrics m ) => Distribution m -> m Stats
 readDistribution = liftMockable . ReadDistribution

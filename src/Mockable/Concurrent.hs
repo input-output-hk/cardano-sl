@@ -60,12 +60,15 @@ instance (ThreadId n ~ ThreadId m) => MFunctor' Fork m n where
 -- Fork mock helper functions
 ----------------------------------------------------------------------------
 
+{-# INLINE fork #-}
 fork :: ( Mockable Fork m ) => m () -> m (ThreadId m)
 fork term = liftMockable $ Fork term
 
+{-# INLINE myThreadId #-}
 myThreadId :: ( Mockable Fork m ) => m (ThreadId m)
 myThreadId = liftMockable MyThreadId
 
+{-# INLINE killThread #-}
 killThread :: ( Mockable Fork m ) => ThreadId m -> m ()
 killThread tid = liftMockable $ KillThread tid
 
@@ -77,9 +80,11 @@ instance MFunctor' Delay m n where
     hoist' _ (Delay i)    = Delay i
     hoist' _ SleepForever = SleepForever
 
+{-# INLINE delay #-}
 delay :: ( Mockable Delay m ) => TimeUnit t => t -> m ()
 delay time = liftMockable $ Delay time
 
+{-# INLINE sleepForever #-}
 sleepForever :: ( Mockable Delay m ) => m ()
 sleepForever = liftMockable SleepForever
 
@@ -89,6 +94,7 @@ data RunInUnboundThread m t where
 instance MFunctor' RunInUnboundThread m n where
     hoist' nat (RunInUnboundThread action) = RunInUnboundThread $ nat action
 
+{-# INLINE runInUnboundThread #-}
 runInUnboundThread :: ( Mockable RunInUnboundThread m ) => m t -> m t
 runInUnboundThread m = liftMockable $ RunInUnboundThread m
 
@@ -102,21 +108,27 @@ data Async m t where
     Cancel :: Promise m t -> Async m ()
     AsyncThreadId :: Promise m t -> Async m (ThreadId m)
 
+{-# INLINE async #-}
 async :: ( Mockable Async m ) => m t -> m (Promise m t)
 async m = liftMockable $ Async m
 
+{-# INLINE withAsync #-}
 withAsync :: ( Mockable Async m ) => m t -> (Promise m t -> m r) -> m r
 withAsync mterm k = liftMockable $ WithAsync mterm k
 
+{-# INLINE wait #-}
 wait :: ( Mockable Async m ) => Promise m t -> m t
 wait promise = liftMockable $ Wait promise
 
+{-# INLINE waitAny #-}
 waitAny :: ( Mockable Async m ) => [Promise m t] -> m (Promise m t, t)
 waitAny promises = liftMockable $ WaitAny promises
 
+{-# INLINE cancel #-}
 cancel :: ( Mockable Async m ) => Promise m t -> m ()
 cancel promise = liftMockable $ Cancel promise
 
+{-# INLINE asyncThreadId #-}
 asyncThreadId :: ( Mockable Async m ) => Promise m t -> m (ThreadId m)
 asyncThreadId promise = liftMockable $ AsyncThreadId promise
 
@@ -134,6 +146,7 @@ data Concurrently m t where
 instance MFunctor' Concurrently m n where
     hoist' nat (Concurrently a b) = Concurrently (nat a) (nat b)
 
+{-# INLINE concurrently #-}
 concurrently :: ( Mockable Concurrently m ) => m a -> m b -> m (a, b)
 concurrently a b = liftMockable $ Concurrently a b
 
@@ -150,6 +163,7 @@ instance ( Mockable Concurrently m ) => Applicative (ConcurrentlyA m) where
         (f, x) <- concurrently (runConcurrentlyA cf) (runConcurrentlyA cx)
         pure $ f x
 
+{-# INLINE mapConcurrently #-}
 mapConcurrently
     :: ( Traversable f, Mockable Concurrently m )
     => (s -> m t)
@@ -157,6 +171,7 @@ mapConcurrently
     -> m (f t)
 mapConcurrently g = runConcurrentlyA . traverse (ConcurrentlyA . g)
 
+{-# INLINE forConcurrently #-}
 forConcurrently
     :: ( Traversable f, Mockable Concurrently m )
     => f s
@@ -164,6 +179,7 @@ forConcurrently
     -> m (f t)
 forConcurrently = flip mapConcurrently
 
+{-# INLINE waitAnyNonFail #-}
 waitAnyNonFail
     :: ( Mockable Async m, Eq (Promise m (Maybe a)) )
     => [ Promise m (Maybe a) ] -> m (Maybe (Promise m (Maybe a), a))
@@ -172,6 +188,7 @@ waitAnyNonFail promises = waitAny promises >>= handleRes
     handleRes (p, Just res) = pure $ Just (p, res)
     handleRes (p, _)        = waitAnyNonFail (filter (/= p) promises)
 
+{-# INLINE waitAnyUnexceptional #-}
 waitAnyUnexceptional
     :: ( Mockable Async m, Mockable Catch m, Eq (Promise m (Maybe a)) )
     => [m a] -> m (Maybe a)

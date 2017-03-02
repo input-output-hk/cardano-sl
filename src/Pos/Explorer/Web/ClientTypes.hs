@@ -29,7 +29,7 @@ import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Time.Clock.POSIX  (POSIXTime)
-import           Formatting             (build, sformat)
+import           Formatting             (sformat)
 import           Servant.API            (FromHttpApiData (..))
 import           Universum
 
@@ -195,8 +195,8 @@ data CNetworkAddress = CNetworkAddress Text Word16
 data CTxSummary = CTxSummary
     { ctsId              :: !CTxId
     , ctsTxTimeIssued    :: !POSIXTime
-    , ctsBlockTimeIssued :: !POSIXTime
-    , ctsBlockHeight     :: !Word
+    , ctsBlockTimeIssued :: !(Maybe POSIXTime)
+    , ctsBlockHeight     :: !(Maybe Word)
     , ctsRelayedByIP     :: !CNetworkAddress
     , ctsTotalInput      :: !Coin
     , ctsTotalOutput     :: !Coin

@@ -234,7 +234,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
     LoggingParams {..} = bpLoggingParams npBaseParams
 
 -- | Create new 'SlottingVar' using data from DB.
-mkSlottingVar :: MonadDB ε m => Timestamp -> m SlottingVar
+mkSlottingVar :: MonadDB m => Timestamp -> m SlottingVar
 mkSlottingVar sysStart = do
     sd <- GState.getSlottingData
     (sysStart, ) <$> liftIO (newTVarIO sd)

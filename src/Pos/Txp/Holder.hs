@@ -30,8 +30,8 @@ import           Universum
 
 import           Pos.Context               (WithNodeContext)
 import           Pos.DB.Class              (MonadDB)
-import           Pos.DB.Limits             (MonadDBLimits)
 import           Pos.DB.Holder             (DBHolder (..))
+import           Pos.DB.Limits             (MonadDBLimits)
 import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra             (MonadSscMem)
 import           Pos.Txp.Class             (MonadTxpLD (..), TxpLDWrap (..))
@@ -67,7 +67,7 @@ instance ( Mockable d m
          ) => Mockable d (TxpLDHolder ssc m) where
     liftMockable = liftMockableWrappedM
 
-deriving instance MonadDB ssc m => MonadDB ssc (TxpLDHolder ssc m)
+deriving instance MonadDB m => MonadDB (TxpLDHolder ssc m)
 
 deriving instance MonadTxpLD ssc m => MonadTxpLD ssc (DBHolder ssc m)
 

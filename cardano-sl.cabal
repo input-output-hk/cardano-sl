@@ -232,6 +232,7 @@ library
                         Pos.Genesis.Parser
 
                         -- LRC
+                        Pos.Lrc.Arbitrary
                         Pos.Lrc.Consumer
                         Pos.Lrc.Consumers
                         Pos.Lrc.DB

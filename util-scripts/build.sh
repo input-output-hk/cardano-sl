@@ -5,7 +5,7 @@ set -o pipefail
 # Usage:
 #   build.sh                           build
 #   build.sh -t                        build and run tests
-#   build.sh core|update|infra         build only a specific project
+#   build.sh core|update|infra|sl      build only a specific project
 #   build.sh -c                        stack clean
 #
 # Do `touch .no-nix` if you want builds without Nix.
@@ -34,6 +34,9 @@ do
     spec_prj=$prj
   fi
 done
+if [[ "$@" == "sl" ]]; then
+  spec_prj="sl"
+fi
 
 if [[ $spec_prj == "" ]]; then
   for var in "$@"
@@ -78,6 +81,8 @@ if [[ $spec_prj == "" ]]; then
     to_build="$to_build cardano-sl-$prj"
   done
   to_build="$to_build cardano-sl"
+elif [[ $spec_prj == "sl" ]]; then
+  to_build="cardano-sl"
 else
   to_build="cardano-sl-$spec_prj"
 fi

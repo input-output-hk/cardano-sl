@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE RankNTypes #-}
 
 module Network.Transport.Concrete.TCP (

@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
+{-# OPTIONS_GHC -fno-warn-incomplete-patterns #-} -- TODO: get rid of this again!
 {-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE ExistentialQuantification  #-}
@@ -20,10 +22,14 @@ module Node.Internal (
     nodeId,
     nodeEndPointAddress,
     Statistics(..),
+    stTotalLiveBytes,
+    stRunningHandlersRemoteVariance,
+    stRunningHandlersLocalVariance,
     PeerStatistics(..),
     nodeStatistics,
     ChannelIn(..),
     ChannelOut(..),
+    closeChannel,
     startNode,
     stopNode,
     withOutChannel,
@@ -41,18 +47,14 @@ import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Builder       as BS
 import qualified Data.ByteString.Builder.Extra as BS
 import qualified Data.ByteString.Lazy          as LBS
-import           Data.Foldable                 (foldlM, foldl', toList)
+import           Data.Foldable                 (foldlM, foldl')
 import           Data.Hashable                 (Hashable)
-import           Data.List                     (intercalate)
-import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import           Data.Map.Strict               (Map)
 import qualified Data.Map.Strict               as Map
 import           Data.Set                      (Set)
 import qualified Data.Set                      as Set
 import           Data.NonEmptySet              (NonEmptySet)
 import qualified Data.NonEmptySet              as NESet
-import           Data.Sequence                 (Seq)
-import qualified Data.Sequence                 as Seq
 import           Data.Monoid
 import           Data.Typeable
 import           Data.Time.Units               (Microsecond)
@@ -123,7 +125,7 @@ initialNodeState prng = do
 
 data SomeHandler m = forall t . SomeHandler {
       someHandlerThreadId :: !(ThreadId m)
-    , someHandlerPromise :: !(Promise m t)
+    , _someHandlerPromise :: !(Promise m t)
     }
 
 -- | Correctness relies on the assumption that the ThreadId is that of the
@@ -241,16 +243,16 @@ stTotalLiveBytes
     => Statistics m -> m Int
 stTotalLiveBytes stats = do
     allPeers <- mapM readSharedAtomic $ Map.elems (stPeerStatistics stats)
-    let allBytes = fmap (pstLiveBytes) allPeers
+    let allBytes = fmap pstLiveBytes allPeers
     return $ sum allBytes
 
 stRunningHandlersRemoteVariance :: Statistics m -> Double
-stRunningHandlersRemoteVariance statistics = avg2 - (avg ^ 2)
+stRunningHandlersRemoteVariance statistics = avg2 - (avg*avg)
     where
     (avg, avg2) = stRunningHandlersRemoteAverage statistics
 
 stRunningHandlersLocalVariance :: Statistics m -> Double
-stRunningHandlersLocalVariance statistics = avg2 - (avg ^ 2)
+stRunningHandlersLocalVariance statistics = avg2 - (avg*avg)
     where
     (avg, avg2) = stRunningHandlersLocalAverage statistics
 
@@ -270,9 +272,9 @@ data PeerStatistics = PeerStatistics {
 
 pstNull :: PeerStatistics -> Bool
 pstNull PeerStatistics{..} =
-    let rem = pstRunningHandlersRemote
-        loc = pstRunningHandlersLocal
-    in  rem == 0 && loc == 0
+    let remote = pstRunningHandlersRemote
+        local = pstRunningHandlersLocal
+    in  remote == 0 && local == 0
 
 
 stIncrBytes
@@ -351,7 +353,7 @@ initialStatistics = do
     !peers <- Metrics.newGauge
     !handlersFinishedNormally <- Metrics.newDistribution
     !handlersFinishedExceptionally <- Metrics.newDistribution
-    return $ Statistics {
+    return Statistics {
           stRunningHandlersRemote = runningHandlersRemote
         , stRunningHandlersLocal = runningHandlersLocal
         , stPeerStatistics = Map.empty
@@ -396,7 +398,7 @@ stAddHandler !provenance !statistics = case provenance of
     -- TODO: generalize this computation so we can use the same thing for
     -- both local and remote. It's a copy/paste job right now swapping local
     -- for remote.
-    Local !peer _ -> do
+    Local _ _ -> do
         (!peerStatistics, !isNewPeer) <- pstAddHandler provenance (stPeerStatistics statistics)
         when isNewPeer $ Metrics.incGauge (stPeers statistics)
         Metrics.incGauge (stRunningHandlersLocal statistics)
@@ -412,7 +414,7 @@ stAddHandler !provenance !statistics = case provenance of
             , stRunningHandlersLocalAverage = runningHandlersLocalAverage
             }
 
-    Remote !peer _ _ -> do
+    Remote _ _ _ -> do
         (!peerStatistics, !isNewPeer) <- pstAddHandler provenance (stPeerStatistics statistics)
         when isNewPeer $ Metrics.incGauge (stPeers statistics)
         Metrics.incGauge (stRunningHandlersRemote statistics)
@@ -460,7 +462,7 @@ stRemoveHandler !provenance !elapsed !outcome !statistics = case provenance of
     -- TODO: generalize this computation so we can use the same thing for
     -- both local and remote. It's a copy/paste job right now swapping local
     -- for remote.
-    Local !peer _ -> do
+    Local _ _ -> do
         (!peerStatistics, !isEndedPeer) <- pstRemoveHandler provenance (stPeerStatistics statistics)
         when isEndedPeer $ Metrics.decGauge (stPeers statistics)
         Metrics.decGauge (stRunningHandlersLocal statistics)
@@ -477,7 +479,7 @@ stRemoveHandler !provenance !elapsed !outcome !statistics = case provenance of
             , stRunningHandlersLocalAverage = runningHandlersLocalAverage
             }
 
-    Remote !peer _ _ -> do
+    Remote _ _ _ -> do
         (!peerStatistics, !isEndedPeer) <- pstRemoveHandler provenance (stPeerStatistics statistics)
         when isEndedPeer $ Metrics.decGauge (stPeers statistics)
         Metrics.decGauge (stRunningHandlersRemote statistics)
@@ -720,7 +722,7 @@ nodeDispatcher node handlerIn handlerInOut =
 
           -- When a heavyweight connection is lost we must close up all of the
           -- lightweight connections which it carried.
-          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode (NT.EventConnectionLost peer bundle)) msg) ->
+          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode (NT.EventConnectionLost peer bundle)) _msg) ->
               connectionLost state peer bundle >>= loop
 
           -- Unsupported event is recoverable. Just log and carry on.
@@ -748,7 +750,7 @@ nodeDispatcher node handlerIn handlerInOut =
         -- This is a network-transport error (ConnectionClosed should have
         -- been posted for all open connections), but we're defensive and
         -- plug the channels.
-        when (length connections > 0) $ do
+        when (not (null connections)) $ do
             logError $ sformat ("end point closed with " % shown % " open connection(s)") (length connections)
             forM_ connections $ \(_, st) -> case st of
                 (_, FeedingApplicationHandler (ChannelIn channel) _) -> do
@@ -763,7 +765,7 @@ nodeDispatcher node handlerIn handlerInOut =
             let outbounds = nonceMaps >>= Map.elems
             forM_ outbounds $ \(_, ChannelIn chan, _, peerDataVar, _, acked) -> do
                 when (not acked) $ do
-                   tryPutSharedExclusive peerDataVar (error "no peer data because local node has gone down")
+                   _ <- tryPutSharedExclusive peerDataVar (error "no peer data because local node has gone down")
                    Channel.writeChannel chan Nothing
             return (st, ())
 
@@ -773,10 +775,10 @@ nodeDispatcher node handlerIn handlerInOut =
     connectionOpened
         :: DispatcherState peerData m
         -> NT.ConnectionId
-        -> NT.Reliability
+        -> NT.Reliability -- TODO: this is not actually used. If this is intentional, we should remove the parameter.
         -> NT.EndPointAddress
         -> m (DispatcherState peerData m)
-    connectionOpened state connid reliability peer = case Map.lookup connid (dsConnections state) of
+    connectionOpened state connid _reliability peer = case Map.lookup connid (dsConnections state) of
 
         Just (peer', _) -> do
             logWarning $ sformat ("ignoring duplicate connection " % shown % shown % shown) peer peer' connid
@@ -846,7 +848,7 @@ nodeDispatcher node handlerIn handlerInOut =
                         decoder = Message.unpackMsg (nodePackingType node)
                     case Bin.pushChunk decoder (BS.concat chunks) of
                         Bin.Fail _ _ err -> do
-                            logWarning $ sformat ("failed to decode peer data from " % shown) peer
+                            logWarning $ sformat ("failed to decode peer data from " % shown % ": got error " % shown) peer err
                             return $ state {
                                     dsConnections = Map.insert connid (peer, PeerDataParseFailure) (dsConnections state)
                                   }
@@ -871,7 +873,7 @@ nodeDispatcher node handlerIn handlerInOut =
                     True -> case decoderContinuation (Just (BS.concat chunks)) of
 
                         Bin.Fail _ _ err -> do
-                            logWarning $ sformat ("failed to decode peer data from " % shown) peer
+                            logWarning $ sformat ("failed to decode peer data from " % shown % ": got error " % shown) peer err
                             return $ state {
                                     dsConnections = Map.insert connid (peer, PeerDataParseFailure) (dsConnections state)
                                   }
@@ -1041,7 +1043,7 @@ nodeDispatcher node handlerIn handlerInOut =
         -- the data. How? Weak reference to the channel perhaps? Or
         -- explcitly close it down when the handler finishes by adding some
         -- mutable cell to FeedingApplicationHandler?
-        Just (peer, FeedingApplicationHandler (ChannelIn channel) incrBytes) -> do
+        Just (_peer, FeedingApplicationHandler (ChannelIn channel) incrBytes) -> do
             Channel.writeChannel channel (Just (BS.concat chunks))
             incrBytes $ sum (fmap BS.length chunks)
             return state
@@ -1072,7 +1074,7 @@ nodeDispatcher node handlerIn handlerInOut =
                         Nothing -> Nothing
                         Just neset' -> case mleader of
                             Nothing -> Just (ExpectingPeerData neset' mleader)
-                            Just (connid', partialDecoder) -> case connid == connid' of
+                            Just (connid', _partialDecoder) -> case connid == connid' of
                                 -- The connection which is giving the peer data
                                 -- has closed! That's ok, just forget about it
                                 -- and the partial decode of that data.
@@ -1151,7 +1153,7 @@ nodeDispatcher node handlerIn handlerInOut =
         logWarning $ sformat ("closing " % shown % " channels on bundle " % shown % " to " % shown) (length channelsAndPeerDataVars) bundle peer
 
         forM_ channelsAndPeerDataVars $ \(ChannelIn chan, peerDataVar) -> do
-            tryPutSharedExclusive peerDataVar (error "no peer data because the connection was lost")
+            _ <- tryPutSharedExclusive peerDataVar (error "no peer data because the connection was lost")
             Channel.writeChannel chan Nothing
 
         return state'
@@ -1379,7 +1381,7 @@ disconnectFromPeer
     -> NodeId
     -> NT.Connection m
     -> m ()
-disconnectFromPeer node@Node{nodeState} nodeid@(NodeId peer) conn =
+disconnectFromPeer Node{nodeState} (NodeId peer) conn =
     bracketWithException startClosing finishClosing (const (NT.close conn))
 
     where
@@ -1448,7 +1450,7 @@ disconnectFromPeer node@Node{nodeState} nodeid@(NodeId peer) conn =
                           return . Right $ AllGoingDown (GoingDown 1 excl)
 
                     | established == 1
-                    , Just (ComingUp !m excl) <- comingUp ->
+                    , Just (ComingUp !_m excl) <- comingUp ->
                           return . Left $ excl
 
                     | otherwise -> throw (InternalError "startClosing : impossible")
@@ -1490,7 +1492,7 @@ connectToPeer
     => Node packingType peerData m
     -> NodeId
     -> m (NT.Connection m)
-connectToPeer node@Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData} nodeid@(NodeId peer) = do
+connectToPeer Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData} (NodeId peer) = do
     conn <- establish
     sendPeerDataIfNecessary conn
     return conn
@@ -1540,7 +1542,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData} 
             return (nodeState', responsibility)
         case responsibility of
             Just (Left excl) -> do
-                readSharedExclusive excl
+                _ <- readSharedExclusive excl
                 getPeerDataResponsibility
             Just (Right _) -> do
                 return True

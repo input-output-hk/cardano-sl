@@ -24,7 +24,6 @@ import           Network.Discovery.Abstract
 import qualified Network.Discovery.Transport.Kademlia as K
 import           Network.Transport.Abstract           (Transport (..))
 import           Network.Transport.Concrete           (concrete)
-import           Network.Transport.Concrete.TCP       as TCP
 import qualified Network.Transport.TCP                as TCP
 import           Node
 import           Node.Message                         (BinaryP (..))
@@ -60,7 +59,7 @@ worker anId generator discovery = pingWorker generator
             peerSet <- knownPeers discovery
             liftIO . putStrLn $ show anId ++ " has peer set: " ++ show peerSet
             forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) $
-                \peerData (cactions :: ConversationActions Void Pong Production) -> do
+                \_peerData (cactions :: ConversationActions Void Pong Production) -> do
                     received <- recv cactions
                     case received of
                         Just Pong -> liftIO . putStrLn $ show anId ++ " heard PONG from " ++ show addr

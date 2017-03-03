@@ -22,7 +22,6 @@ module Node.Message
     , BinaryP (..)
     ) where
 
-import           Control.Monad                 (unless)
 import qualified Data.Binary                   as Bin
 import qualified Data.Binary.Get               as Bin
 import qualified Data.Binary.Put               as Bin
@@ -32,19 +31,13 @@ import qualified Data.ByteString.Lazy          as LBS
 import           Data.Data                     (Data, dataTypeName, dataTypeOf)
 import           Data.Hashable                 (Hashable)
 import           Data.Proxy                    (Proxy (..), asProxyTypeOf)
-import           Data.String                   (IsString)
-import           Data.String                   (fromString)
+import           Data.String                   (IsString, fromString)
 import qualified Data.Text                     as T
 import           Data.Text.Buildable           (Buildable)
 import qualified Data.Text.Buildable           as B
 import qualified Formatting                    as F
 import           GHC.Generics                  (Generic)
 import           Serokell.Util.Base16          (base16F)
-
-import           Mockable.Channel              (Channel, ChannelT, readChannel,
-                                                unGetChannel)
-import           Mockable.Class                (Mockable)
-
 
 -- * Message name
 

@@ -9,16 +9,11 @@ module Network.QDisc.Fair (
 
     ) where
 
-import Control.Applicative
 import Control.Concurrent.STM
-import Control.Concurrent.STM.TVar
-import Control.Concurrent.STM.TMVar
 import Control.Concurrent (threadDelay)
 import Network.Transport (EndPointAddress)
 import Network.Transport.TCP (QDisc(..))
 import Data.Time.Units (Microsecond)
-import Data.Map (Map)
-import qualified Data.Map as Map
 
 -- | Make a fair 'QDisc'. It's called fair, but it can also be unfair if you
 --   want it to be, by having some 'EndPointAddress's delay before writing.
@@ -28,7 +23,7 @@ fairQDisc
     -> IO (QDisc t)
 fairQDisc getDelay = do
     fqd <- newFairQDisc
-    return $ QDisc {
+    return QDisc {
           qdiscEnqueue = \addr _ t -> do
               getDelay addr >>= maybe (return ()) (threadDelay . fromIntegral)
               writeFairQDisc fqd t
@@ -37,10 +32,10 @@ fairQDisc getDelay = do
 
 newFairQDisc :: IO (FairQDisc a)
 newFairQDisc = atomically $ do
-    reads <- newTVar []
+    reading <- newTVar []
     wake <- newEmptyTMVar
-    writes <- newTVar ([], wake)
-    return $ FairQDisc reads writes
+    writing <- newTVar ([], wake)
+    return $ FairQDisc reading writing
 
 -- | Fair FIFO QDisc where each write blocks until its value enters the read
 --   queue.

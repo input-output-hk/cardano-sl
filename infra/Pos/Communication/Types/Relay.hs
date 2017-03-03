@@ -15,8 +15,8 @@ import           Universum
 -- | Inventory message. Can be used to announce the fact that you have
 -- some data.
 data InvMsg key tag = InvMsg
-    { imTag  :: !tag
-    , imKeys :: !(NonEmpty key)
+    { imTag :: !tag
+    , imKey :: !key
     }
 
 deriving instance (Show key, Show tag) => Show (InvMsg key tag)
@@ -25,8 +25,8 @@ deriving instance (Eq key, Eq tag) => Eq (InvMsg key tag)
 -- | Request message. Can be used to request data (ideally data which
 -- was previously announced by inventory message).
 data ReqMsg key tag = ReqMsg
-    { rmTag  :: !tag
-    , rmKeys :: !(NonEmpty key)
+    { rmTag :: !tag
+    , rmKey :: !key
     }
 
 deriving instance (Show key, Show tag) => Show (ReqMsg key tag)

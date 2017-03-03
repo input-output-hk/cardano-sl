@@ -7,7 +7,7 @@ module Pos.Communication.Methods
        , sendUpdateProposal
        ) where
 
-import           Formatting                 (build, sformat, (%))
+import           Formatting                 (sformat, (%))
 import           System.Wlog                (logInfo)
 import           Universum
 
@@ -17,7 +17,7 @@ import           Pos.Binary.Relay           ()
 import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (SendActions)
 import           Pos.Communication.Relay    (invReqDataFlow)
-import           Pos.Crypto                 (encodeHash, hash)
+import           Pos.Crypto                 (hash, hashHexF)
 import           Pos.DB.Limits              (MonadDBLimits)
 import           Pos.DHT.Model              (DHTNode)
 import           Pos.Txp.Core.Types         (TxAux)
@@ -51,7 +51,11 @@ sendUpdateProposal
     -> [UpdateVote]
     -> m ()
 sendUpdateProposal sendActions addr upid proposal votes = do
-    logInfo $ sformat ("Announcing proposal with id "%build%
-                        " (base64 is "%build%")")
-        upid (encodeHash upid)
-    invReqDataFlow "UpdateProposal" sendActions addr ProposalMsgTag upid (proposal, votes)
+    logInfo $ sformat ("Announcing proposal with id "%hashHexF) upid
+    invReqDataFlow
+        "UpdateProposal"
+        sendActions
+        addr
+        ProposalMsgTag
+        upid
+        (proposal, votes)

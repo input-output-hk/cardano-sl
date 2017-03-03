@@ -19,7 +19,7 @@ import           Universum
 
 import           Pos.Crypto                (hash)
 
-import           Pos.Types.Version         (SoftwareVersion (..))
+import           Pos.Core.Types            (SoftwareVersion (..))
 import           Pos.Update.Poll.Class     (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types     (PrevValue, USUndo (..), cpsSoftwareVersion,
                                             maybeToPrev, psProposal, unChangedBVL,

@@ -20,7 +20,7 @@ import qualified Data.Map.Strict           as M
 import qualified Data.Text                 as T
 import           Universum
 
-import           Pos.Binary.Types          ()
+import           Pos.Binary.Core          ()
 import           Pos.Crypto                (WithHash (..), hash)
 import           Pos.Txp.Core.Types        (Tx (..), TxAux, TxDistribution (..), TxId,
                                             TxIn (..), TxOut (..), TxOutAux, TxUndo, Utxo,

@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE CPP #-}
 
 module Main where
 
@@ -7,6 +7,7 @@ import           Data.List             ((!!))
 import           Data.Maybe            (fromJust)
 import           Data.Proxy            (Proxy (..))
 import           Mockable              (Production)
+import           Serokell.Util         (sec)
 import           System.Wlog           (LoggerName)
 import           Universum
 
@@ -15,7 +16,6 @@ import qualified Pos.CLI               as CLI
 import           Pos.Constants         (staticSysStart)
 import           Pos.Context           (getNodeContext, ncUpdateSemaphore)
 import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
-import           Pos.Util.TimeWarp     (sec)
 #ifdef DEV_MODE
 import           Pos.Genesis           (genesisSecretKeys)
 #else
@@ -30,6 +30,7 @@ import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
 import           Pos.Ssc.GodTossing    (genesisVssKeyPairs)
 #endif
 import           Pos.Communication     (ActionSpec (..))
+import           Pos.Shutdown          (triggerShutdown)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
@@ -39,7 +40,6 @@ import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
 import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usVss,
                                         writeUserSecret)
-import           Pos.Util.Shutdown     (triggerShutdown)
 #ifdef WITH_WEB
 import           Pos.Web               (serveWebBase, serveWebGT)
 import           Pos.WorkMode          (WorkMode)

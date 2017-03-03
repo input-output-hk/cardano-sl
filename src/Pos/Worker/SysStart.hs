@@ -7,6 +7,7 @@ module Pos.Worker.SysStart
 import           Data.Proxy              (Proxy (..))
 import           Data.Time.Units         (convertUnit)
 import           Mockable                (fork)
+import           Serokell.Util           (ms)
 import           System.Wlog             (logInfo)
 import           Universum
 
@@ -20,7 +21,6 @@ import           Pos.Context             (NodeContext (..), getNodeContext, npSy
 import           Pos.DHT.Model.Neighbors (sendToNeighbors)
 import           Pos.Types               (flattenSlotId)
 import           Pos.Util                (waitRandomInterval)
-import           Pos.Util.TimeWarp       (ms)
 import           Pos.WorkMode            (WorkMode)
 
 sysStartWorker

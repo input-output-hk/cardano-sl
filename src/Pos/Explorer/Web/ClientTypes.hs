@@ -32,6 +32,7 @@ import           Servant.API            (FromHttpApiData (..))
 import           Universum
 
 import qualified Pos.Binary             as Bi
+import           Pos.Txp.Core.Types     (Tx (..), TxId, TxOut (..))
 import           Pos.Crypto             (Hash, hash)
 import           Pos.DB                 (MonadDB (..))
 import qualified Pos.DB.GState          as GS
@@ -39,7 +40,7 @@ import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
 import           Pos.Types              (Address, Coin, MainBlock, Timestamp,
-                                         Tx (..), TxId, TxOut (..), addressF, blockTxs,
+                                         addressF, blockTxs,
                                          decodeTextAddress, difficultyL, gbHeader,
                                          gbhConsensus, headerHash, mcdSlot, mkCoin,
                                          prevBlockL, sumCoins, unsafeAddCoin,

@@ -8,6 +8,14 @@ packages:
     git: https://github.com/input-output-hk/cardano-sl
     commit: 6ffdfacfd21205e6fcf2db7fe14f077b3a3d672f
   extra-dep: true
+  subdirs:
+      - '.'
+      - core
+      - db
+- location:
+    git: https://github.com/input-output-hk/cardano-report-server.git
+    commit: ede7a1a9eafd88e3449b38c7425f5529d6584014
+  extra-dep: true
 - location:
     git: https://github.com/serokell/acid-state.git
     commit: 95fce1dbada62020a0b2d6aa2dd7e88eadd7214b
@@ -28,10 +36,6 @@ packages:
     git: https://github.com/thoughtpolice/hs-ed25519
     # We're waiting on next release
     commit: 57adb970e198a9b377769ab46e776ec29f19cff6
-  extra-dep: true
-- location:
-    git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 344f0e6e1b69b512cbfb04caf42bbe285cc7727a
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
@@ -58,9 +62,9 @@ extra-deps:
 - aeson-extra-0.4.0.0
 - recursion-schemes-5
 - QuickCheck-2.9.2
-- cryptonite-openssl-0.3
+- cryptonite-openssl-0.5
 - UtilityTM-0.0.4
-- serokell-util-0.1.3.2
+- serokell-util-0.1.3.5
 - pvss-0.1
 - base58-bytestring-0.1.0
 - log-warper-0.4.3

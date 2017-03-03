@@ -5,7 +5,7 @@ set -o pipefail
 # Usage:
 #   build.sh                           build
 #   build.sh -t                        build and run tests
-#   build.sh core|update|infra|sl      build only a specific project
+#   build.sh core|db|update|infra|sl   build only a specific project
 #   build.sh -c                        stack clean
 #
 # Do `touch .no-nix` if you want builds without Nix.
@@ -19,7 +19,7 @@ set -o pipefail
 #   * Highlights error messages in GHC output
 #   * Strips unneeded info from GHC output (such as file names)
 
-projects="core update infra"
+projects="core db infra update"
 
 args=''
 

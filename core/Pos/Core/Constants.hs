@@ -14,13 +14,14 @@ module Pos.Core.Constants
        , staticSysStart
        ) where
 
-import           Data.Time.Clock.POSIX      (getPOSIXTime)
-import           Serokell.Util              (sec)
-import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum                  hiding (lift)
 
-#ifndef DEV_MODE
+#ifdef DEV_MODE
+import           System.IO.Unsafe           (unsafePerformIO)
+#else
+import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Language.Haskell.TH.Syntax (lift, runIO)
+import           Serokell.Util              (sec)
 #endif
 
 import           Pos.Core.Constants.Type    (CoreConstants (..))

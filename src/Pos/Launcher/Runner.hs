@@ -441,7 +441,7 @@ createTransport ip port = do
              , TCP.tcpNewQDisc = fairQDisc
              })
     transportE <-
-        liftIO $ TCP.createTransport "0.0.0.0" ip (show port) tcpParams
+        liftIO $ TCP.createTransport "0.0.0.0" (show port) ((,) ip) tcpParams
     case transportE of
         Left e -> do
             logError $ sformat ("Error creating TCP transport: " % shown) e

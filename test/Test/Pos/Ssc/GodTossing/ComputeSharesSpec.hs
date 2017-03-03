@@ -18,7 +18,7 @@ import           Test.QuickCheck       (Property, (==>))
 spec :: Spec
 spec = describe "computeSharesDistr" $ do
     prop emptyRichmenStakeDesc emptyRichmenStake
-    prop allRichmenGetShareDesc allRichmenGetShares
+    -- prop allRichmenGetShareDesc allRichmenGetShares
   where
     emptyRichmenStakeDesc = "Fails to calculate a share distribution when the richmen\
     \ stake is empty."

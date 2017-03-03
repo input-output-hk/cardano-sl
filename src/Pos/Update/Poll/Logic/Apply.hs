@@ -14,8 +14,8 @@ import           Control.Monad.Except       (MonadError, throwError)
 import           Data.List                  (partition)
 import           Data.List.NonEmpty         (NonEmpty)
 import qualified Data.List.NonEmpty         as NE
-import           Formatting                 (build, builder, sformat, (%))
-import           System.Wlog                (logInfo, logNotice)
+import           Formatting                 (build, builder, int, sformat, (%))
+import           System.Wlog                (logDebug, logInfo, logNotice)
 import           Universum
 
 import           Pos.Constants              (blkSecurityParam, genesisUpdateImplicit,
@@ -283,13 +283,19 @@ verifyBlockVersion upId UpdateProposal {..} = do
 -- Here we check that proposal has at least 'genesisUpdateProposalThd'
 -- stake of total stake in all positive votes for it.
 verifyProposalStake
-    :: (MonadError PollVerFailure m)
+    :: (MonadPollRead m, MonadError PollVerFailure m)
     => Coin -> [(UpdateVote, Coin)] -> UpId -> m ()
 verifyProposalStake totalStake votesAndStakes upId = do
     let threshold = applyCoinPortion genesisUpdateProposalThd totalStake
+    let thresholdInt = coinToInteger threshold
     let votesSum =
             sumCoins . map snd . filter (uvDecision . fst) $ votesAndStakes
-    when (coinToInteger totalStake < votesSum) $
+    logDebug $
+        sformat
+            ("Verifying stake for proposal "%shortHashF%
+             ", threshold is "%int%", voted stake is "%int)
+            upId thresholdInt votesSum
+    when (votesSum < thresholdInt) $
         throwError
             PollSmallProposalStake
             { pspsThreshold = threshold

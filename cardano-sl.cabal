@@ -38,6 +38,7 @@ library
   exposed-modules:      Pos.Aeson
                         Pos.Binary
                         Pos.Block.Arbitrary
+                        Pos.Block.Logic
                         Pos.Block.Network
                         Pos.CLI
                         Pos.Context
@@ -46,6 +47,7 @@ library
                         Pos.Constants
 
                         Pos.DB.DB
+                        Pos.DB.Block
                         Pos.DB.GState
 
                         Pos.Delegation
@@ -128,7 +130,6 @@ library
 
                         -- Block processing
                         Pos.Block.Error
-                        Pos.Block.Logic
                         Pos.Block.Logic.Internal
                         Pos.Block.Network.Announce
                         Pos.Block.Network.Types
@@ -179,7 +180,6 @@ library
                         Pos.Communication.Limits
 
                         -- DB
-                        Pos.DB.Block
                         Pos.DB.GState.BlockExtra
                         Pos.DB.GState.GState
                         Pos.DB.Misc

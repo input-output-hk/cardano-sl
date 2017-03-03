@@ -1,5 +1,4 @@
-
--- | Binary serialization of Pos.Update.Version module
+-- | Binary serialization of Version types (software, block)
 
 module Pos.Binary.Core.Version () where
 

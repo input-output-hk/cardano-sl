@@ -138,6 +138,10 @@ library
     exposed-modules:    Pos.Wallet
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
+  if flag(with-explorer)
+    exposed-modules:
+                        Pos.DB.GState.Explorer
+                        Pos.Types.Explorer
   other-modules:        Paths_cardano_sl
 
                         Pos.Aeson.CompileConfig
@@ -446,9 +450,7 @@ library
                         Pos.Wallet.Web.State.Storage
 
   if flag(with-explorer)
-    other-modules:      Pos.DB.GState.Explorer
-                      , Pos.Types.Explorer
-                      , Pos.Binary.Explorer
+    other-modules:      Pos.Binary.Explorer
 
   build-depends:        IfElse
                       , QuickCheck

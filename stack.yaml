@@ -50,10 +50,10 @@ packages:
     commit: f2321a103f53f51d36c99383132e3ffa3ef1c401
   extra-dep: true
 # todo replace it with hackage version
-- location:
-    git: https://github.com/serokell/serokell-util/
-    commit: 9f5e818ef9e9f07434b6c2ca51d2db8ae56309db
-  extra-dep: true
+#- location:
+#    git: https://github.com/serokell/serokell-util/
+#    commit: 9f5e818ef9e9f07434b6c2ca51d2db8ae56309db
+#  extra-dep: true
 
 nix:
   shell-file: shell.nix
@@ -62,7 +62,7 @@ extra-deps:
 - universum-0.2.1
 - time-units-1.0.0
 - UtilityTM-0.0.4
-- serokell-util-0.1.3.5
+- serokell-util-0.1.4.0
 - pvss-0.1
 - base58-bytestring-0.1.0
 - log-warper-0.4.4

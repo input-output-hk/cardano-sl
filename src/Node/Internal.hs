@@ -397,7 +397,7 @@ stAddHandler !provenance !statistics = case provenance of
     -- TODO: generalize this computation so we can use the same thing for
     -- both local and remote. It's a copy/paste job right now swapping local
     -- for remote.
-    Local _ _ -> do
+    Local !_peer _ -> do
         (!peerStatistics, !isNewPeer) <- pstAddHandler provenance (stPeerStatistics statistics)
         when isNewPeer $ Metrics.incGauge (stPeers statistics)
         Metrics.incGauge (stRunningHandlersLocal statistics)
@@ -413,7 +413,7 @@ stAddHandler !provenance !statistics = case provenance of
             , stRunningHandlersLocalAverage = runningHandlersLocalAverage
             }
 
-    Remote _ _ _ -> do
+    Remote !_peer _ _ -> do
         (!peerStatistics, !isNewPeer) <- pstAddHandler provenance (stPeerStatistics statistics)
         when isNewPeer $ Metrics.incGauge (stPeers statistics)
         Metrics.incGauge (stRunningHandlersRemote statistics)
@@ -461,7 +461,7 @@ stRemoveHandler !provenance !elapsed !outcome !statistics = case provenance of
     -- TODO: generalize this computation so we can use the same thing for
     -- both local and remote. It's a copy/paste job right now swapping local
     -- for remote.
-    Local _ _ -> do
+    Local !_peer _ -> do
         (!peerStatistics, !isEndedPeer) <- pstRemoveHandler provenance (stPeerStatistics statistics)
         when isEndedPeer $ Metrics.decGauge (stPeers statistics)
         Metrics.decGauge (stRunningHandlersLocal statistics)
@@ -478,7 +478,7 @@ stRemoveHandler !provenance !elapsed !outcome !statistics = case provenance of
             , stRunningHandlersLocalAverage = runningHandlersLocalAverage
             }
 
-    Remote _ _ _ -> do
+    Remote !_peer _ _ -> do
         (!peerStatistics, !isEndedPeer) <- pstRemoveHandler provenance (stPeerStatistics statistics)
         when isEndedPeer $ Metrics.decGauge (stPeers statistics)
         Metrics.decGauge (stRunningHandlersRemote statistics)

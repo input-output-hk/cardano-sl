@@ -17,6 +17,7 @@ import           Pos.Binary.Communication         ()
 import           Pos.Binary.Crypto                ()
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
+import           Pos.Communication.Limits         ()
 import           Pos.Communication.Message        ()
 import           Pos.Communication.Relay          (Relay (..), RelayProxy (..),
                                                    relayListeners, relayStubListeners)

@@ -28,12 +28,12 @@ import           Universum
 
 import           Pos.Binary.Class    (Bi, encodeStrict)
 import           Pos.Binary.Crypto   ()
+import           Pos.Core.Types      (HeaderHash)
 import           Pos.Crypto          (shortHashF)
 import           Pos.DB.Class        (MonadDB, getUtxoDB)
 import           Pos.DB.Error        (DBError (DBMalformed))
 import           Pos.DB.Functions    (RocksBatchOp (..), rocksDelete, rocksGetBi,
                                       rocksPutBi, rocksWriteBatch)
-import           Pos.Types.Core      (HeaderHash)
 
 ----------------------------------------------------------------------------
 -- Common Helpers

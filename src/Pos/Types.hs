@@ -1,27 +1,24 @@
 -- | Re-export of Pos.Types.* + binary instances
 
 module Pos.Types
-       ( module Pos.Types.Arbitrary
-       , module Pos.Types.Address
+       ( module Pos.Core.Address
+       , module Pos.Core.Block
+       , module Pos.Core.Coin
+       , module Pos.Core.Slotting
+       , module Pos.Core.Types
+       , module Pos.Core.Version
+       , module Pos.Types.Arbitrary
        , module Pos.Types.Block
-       , module Pos.Types.Coin
-       , module Pos.Types.Core
-       , module Pos.Types.Slotting
-       , module Pos.Types.Timestamp
-       , module Pos.Types.Types
-       , module Pos.Types.Version
        ) where
 
-import           Pos.Binary.Address   ()
-import           Pos.Binary.Types     ()
+import           Pos.Binary.Core      ()
+import           Pos.Core.Address
+import           Pos.Core.Block
+import           Pos.Core.Coin
+import           Pos.Core.Slotting
+import           Pos.Core.Types
+import           Pos.Core.Version
 import           Pos.SafeCopy.Types   ()
-import           Pos.Types.Address
 import           Pos.Types.Arbitrary
 import           Pos.Types.Block
-import           Pos.Types.Coin
-import           Pos.Types.Core
 import           Pos.Types.SharedSeed ()
-import           Pos.Types.Slotting
-import           Pos.Types.Timestamp
-import           Pos.Types.Types
-import           Pos.Types.Version

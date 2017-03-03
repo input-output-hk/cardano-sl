@@ -10,10 +10,10 @@ import           Formatting                 (bprint, build, int, sformat, stext,
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Types.Coin             (coinF)
-import           Pos.Types.Core             (Coin, EpochIndex, HeaderHash, StakeholderId)
-import           Pos.Types.Script           (ScriptVersion)
-import           Pos.Types.Version          (ApplicationName, BlockVersion,
+import           Pos.Core.Coin              (coinF)
+import           Pos.Core.Types             (Coin, EpochIndex, HeaderHash, ScriptVersion,
+                                             StakeholderId)
+import           Pos.Core.Types             (ApplicationName, BlockVersion,
                                              NumSoftwareVersion, SoftwareVersion)
 import           Pos.Update.Core            (UpId)
 

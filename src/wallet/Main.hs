@@ -21,6 +21,7 @@ import           System.Wlog               (logDebug, logError, logInfo, logWarn
 import           System.Exit               (ExitCode (ExitSuccess))
 import           System.Posix.Process      (exitImmediately)
 #endif
+import           Serokell.Util             (sec)
 import           Universum
 
 import           Pos.Binary                (Raw)
@@ -47,7 +48,6 @@ import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAd
 import           Pos.Update                (BlockVersionData (..), UpdateProposal (..),
                                             UpdateVote (..), patakUpdateData,
                                             skovorodaUpdateData)
-import           Pos.Util.TimeWarp         (sec)
 import           Pos.Wallet                (WalletMode, WalletParams (..), WalletRealMode,
                                             getBalance, runWalletReal, sendProposalOuts,
                                             sendTxOuts, sendVoteOuts, submitTx,

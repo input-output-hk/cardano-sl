@@ -13,9 +13,9 @@ import           Control.Lens                (ix)
 import           Data.Default                (def)
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
+import           Paths_cardano_sl            (version)
 import           Pos.Communication.Protocol  (SendActions)
-import           Serokell.Util               (VerificationRes (..), listJson, pairF)
-import           Serokell.Util.Exceptions    ()
+import           Serokell.Util               (VerificationRes (..), listJson, pairF, sec)
 import           System.Wlog                 (WithLogger, logDebug, logError, logInfo,
                                               logWarning)
 import           Universum
@@ -29,6 +29,7 @@ import           Pos.Communication.Protocol  (OutSpecs, Worker', WorkerSpec,
                                               onNewSlotWorker, worker)
 import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (getNodeContext, isRecoveryMode, ncPublicKey)
+import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Misc                 (getProxySecretKeys)
@@ -46,11 +47,9 @@ import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (
                                               Timestamp (Timestamp),
                                               VerifyBlockParams (..), gbHeader, slotIdF,
                                               verifyBlock)
-import           Pos.Types.Address           (addressHash)
 import           Pos.Util                    (inAssertMode, logWarningWaitLinear,
                                               mconcatPair)
 import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
-import           Pos.Util.TimeWarp           (sec)
 import           Pos.WorkMode                (WorkMode)
 
 
@@ -193,7 +192,7 @@ recoveryWorkerImpl
     => SendActions m -> m ()
 recoveryWorkerImpl sendActions = action `catch` handler
   where
-    action = reportingFatal $ forever $ checkRecovery >> delay (sec 5)
+    action = reportingFatal version $ forever $ checkRecovery >> delay (sec 5)
     checkRecovery = do
         recMode <- isRecoveryMode
         curSlotNothing <- isNothing <$> getCurrentSlot

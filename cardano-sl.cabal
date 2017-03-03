@@ -42,29 +42,15 @@ library
                         Pos.Block.Network
                         Pos.CLI
                         Pos.Context
-                        Pos.Communication
-                        Pos.Communication.Relay
                         Pos.CompileConfig
+                        Pos.Communication
                         Pos.Constants
 
                         Pos.DB.DB
+                        Pos.DB.Block
                         Pos.DB.GState
 
                         Pos.Delegation
-
-                        -- Pos.DHT
-                        Pos.DHT.Model
-                        Pos.DHT.Model.Neighbors
-                        Pos.DHT.Model.Types
-                        Pos.DHT.Model.Util
-                        Pos.DHT.Model.Class
-                        Pos.DHT.Real
-                        Pos.DHT.Real.Real
-                        Pos.DHT.Real.Types
-                        Pos.DHT.Workers
-
-                        -- Exceptions
-                        Pos.Exception
 
                         -- Genesis data
                         Pos.Genesis
@@ -85,12 +71,6 @@ library
                         Pos.Security.CLI
                         Pos.Security.Util
                         Pos.Security.Workers
-                        Pos.Slotting
-
-                        -- Reporting
-                        Pos.Reporting
-                        Pos.Reporting.Methods
-                        Pos.Reporting.Exceptions
 
                         -- SSC
                         Pos.Ssc.Arbitrary
@@ -100,8 +80,9 @@ library
                         Pos.Ssc.SscAlgo
                         Pos.Ssc.Extra
 
-                        -- Something
                         Pos.Statistics
+
+                        -- Txp
                         Pos.Txp
                         Pos.Types
                         Pos.Types.Arbitrary
@@ -110,22 +91,16 @@ library
                         Pos.Types.Block.Types
                         Pos.Types.Block.Functions
                         Pos.Types.Block.Instances
-                        Pos.Types.Slotting
-                        Pos.Types.Version
 
                         -- Update system
                         Pos.Update
                         Pos.Update.Arbitrary
-                        Pos.Update.Core
 
                         -- Utilities/helpers
                         Pos.Util
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
-                        Pos.Util.Shutdown
                         Pos.Util.UserSecret
-                        Pos.Util.TimeLimit
-                        Pos.Util.TimeWarp
 
                         -- Worker, work mode
                         Pos.Worker
@@ -141,24 +116,17 @@ library
                         Pos.Aeson.CompileConfig
 
                         -- Binary serialization
-                        Pos.Binary.Address
                         Pos.Binary.Block
                         Pos.Binary.Block.Types
                         Pos.Binary.Block.Block
-                        Pos.Binary.Coin
                         Pos.Binary.Communication
-                        Pos.Binary.DHTModel
                         Pos.Binary.Genesis
                         Pos.Binary.Merkle
                         Pos.Binary.Relay
-                        Pos.Binary.Script
-                        Pos.Binary.Slotting
                         Pos.Binary.Ssc
                         Pos.Binary.Ssc.GodTossing.Core
                         Pos.Binary.Txp
-                        Pos.Binary.Types
                         Pos.Binary.Update
-                        Pos.Binary.Version
 
                         -- Block processing
                         Pos.Block.Error
@@ -169,24 +137,6 @@ library
                         Pos.Block.Network.Retrieval
                         Pos.Block.Types
                         Pos.Block.Worker
-
-                        -- Network
-                        Pos.Communication.Arbitrary
-                        Pos.Communication.BiP
-                        Pos.Communication.Message
-                        Pos.Communication.Limits
-                        Pos.Communication.Methods
-                        Pos.Communication.Protocol
-                        Pos.Communication.PeerState
-                        Pos.Communication.Types
-                        Pos.Communication.Types.Protocol
-                        Pos.Communication.Types.Relay
-                        Pos.Communication.Types.State
-                        Pos.Communication.Types.SysStart
-                        Pos.Communication.Server
-                        Pos.Communication.Server.SysStart
-                        Pos.Communication.Specs
-                        Pos.Communication.Util
 
                         -- Compile config
                         Pos.CompileConfig.Parser
@@ -220,11 +170,18 @@ library
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
 
+                        -- Network
+                        Pos.Communication.Types
+                        Pos.Communication.Message
+                        Pos.Communication.Methods
+                        Pos.Communication.Server
+                        Pos.Communication.Server.SysStart
+                        Pos.Communication.Specs
+                        Pos.Communication.Limits
+
                         -- DB
-                        Pos.DB.Block
                         Pos.DB.GState.BlockExtra
                         Pos.DB.GState.GState
-                        Pos.DB.Limits
                         Pos.DB.Misc
 
                         -- Genesis
@@ -253,14 +210,6 @@ library
                         Pos.SafeCopy.GodTossing.VssCertData
                         Pos.SafeCopy.Types
                         Pos.SafeCopy.Update
-
-                        -- Slotting
-                        Pos.Slotting.Class
-                        Pos.Slotting.Error
-                        Pos.Slotting.Holder
-                        Pos.Slotting.Ntp
-                        Pos.Slotting.Types
-                        Pos.Slotting.Util
 
                         -- SSC
                         Pos.Ssc.Class.Types
@@ -353,10 +302,8 @@ library
                         Pos.Update.Arbitrary.Core
                         Pos.Update.Arbitrary.Network
                         Pos.Update.Arbitrary.Poll
-                        Pos.Update.Core.Types
                         Pos.Update.DB
                         Pos.Update.Download
-                        Pos.Update.Error
                         Pos.Update.Logic
                         Pos.Update.Logic.Global
                         Pos.Update.Logic.Local
@@ -450,6 +397,8 @@ library
                       , bytestring
                       , cardano-report-server >= 0.1.0
                       , cardano-sl-core
+                      , cardano-sl-update
+                      , cardano-sl-infra
                       , cardano-sl-db
                       , cereal
                       , concurrent-extra
@@ -576,6 +525,7 @@ executable cardano-node
                      , binary
                      , bytestring
                      , cardano-sl-core
+                     , cardano-sl-infra
                      , cardano-sl
                      , data-default
                      , directory
@@ -686,6 +636,8 @@ executable cardano-wallet
                      , binary
                      , bytestring
                      , cardano-sl-core
+                     , cardano-sl-update
+                     , cardano-sl-infra
                      , cardano-sl
                      , formatting
                      , lens
@@ -798,6 +750,8 @@ executable cardano-smart-generator
                      , array
                      , bytestring
                      , data-default
+                     , cardano-sl-core
+                     , cardano-sl-infra
                      , cardano-sl
                      , cardano-sl-core
                      , filepath
@@ -1089,6 +1043,7 @@ executable cardano-launcher
                      , cardano-report-server >= 0.1.0
                      , log-warper >= 0.4.3
                      , cardano-sl
+                     , cardano-sl-infra
                      , directory
                      , process
                      , system-filepath
@@ -1110,6 +1065,9 @@ executable cardano-launcher
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:       Spec
+                       Test.Pos.Arbitrary.Infra
+                       Test.Pos.Arbitrary.Infra.Communication
+                       Test.Pos.Arbitrary.Infra.DHT
                        Test.Pos.BinarySpec
                        Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
@@ -1146,13 +1104,16 @@ test-suite cardano-test
                      , binary
                      , bytestring
                      , cardano-sl-core
+                     , cardano-sl-infra >= 0.1
                      , cardano-sl
                      , cereal
                      , containers
                      , cryptonite
                      , data-default
+                     , derive
                      , formatting
                      , hspec
+                     , kademlia
                      , lens
                      , log-warper >= 0.4.3
                      , memory

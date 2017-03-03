@@ -49,11 +49,11 @@ import           Serokell.Util.Verify   (VerificationRes (..), verifyGeneric)
 import           Universum
 
 import           Pos.Binary.Class       (Bi)
+import           Pos.Core.Address       ()
+import           Pos.Core.Types         (Address (..), Coin, Script, StakeholderId, coinF,
+                                         mkCoin)
 import           Pos.Crypto             (Hash, PublicKey, Signature, hash, shortHashF)
 import           Pos.Data.Attributes    (Attributes)
-import           Pos.Types.Address      ()
-import           Pos.Types.Core         (Address (..), Coin, StakeholderId, coinF, mkCoin)
-import           Pos.Types.Script       (Script)
 
 ----------------------------------------------------------------------------
 -- Transaction

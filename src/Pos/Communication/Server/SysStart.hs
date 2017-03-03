@@ -15,7 +15,7 @@ import           System.Wlog                (logInfo)
 import           Universum
 
 import           Pos.Binary.Communication   ()
-import           Pos.Binary.DHTModel        ()
+import           Pos.Binary.Infra.DHTModel  ()
 import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec,
                                              NodeId, OutSpecs, SendActions, listenerConv,

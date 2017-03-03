@@ -22,6 +22,9 @@ import           Universum
 
 import           Pos.Binary.Crypto               ()
 import           Pos.Binary.Ssc.GodTossing.Core  ()
+import           Pos.Core.Slotting               (crucialSlot)
+import           Pos.Core.Types                  (EpochIndex (..), SlotId (..),
+                                                  StakeholderId)
 import           Pos.Crypto                      (Threshold)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitmentsMap),
                                                   GtPayload (..), VssCertificatesMap,
@@ -34,9 +37,6 @@ import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Types.Types  (GtGlobalState (..))
 import qualified Pos.Ssc.GodTossing.VssCertData  as VCD
 import           Pos.Types.Block                 (MainBlockHeader, headerSlot)
-import           Pos.Types.Core                  (EpochIndex (..), SlotId (..),
-                                                  StakeholderId)
-import           Pos.Types.Slotting              (crucialSlot)
 
 ----------------------------------------------------------------------------
 -- Simple predicates for GodTossing.Types.Base

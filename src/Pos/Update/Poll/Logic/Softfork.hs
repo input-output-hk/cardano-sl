@@ -151,7 +151,7 @@ moveUnstable (bv, bvs@BlockVersionState {..}) =
 -- multiple options.
 chooseToAdopt :: NonEmpty (BlockVersion, BlockVersionState)
               -> (BlockVersion, BlockVersionState)
-chooseToAdopt = NE.head
+chooseToAdopt = NE.last . NE.sortWith fst
 
 -- This function removes 'BlockVersion's which can't be adopted anymore.
 filterBVAfterAdopt :: MonadPoll m => [(BlockVersion)] -> m ()

@@ -41,9 +41,18 @@ import           Universum
 
 import           Pos.Binary.Block.Types     ()
 import qualified Pos.Binary.Class           as Bi
-import           Pos.Binary.Types           ()
+import           Pos.Binary.Core            ()
 import           Pos.Binary.Update          ()
 import           Pos.Constants              (epochSlots, lastKnownBlockVersion)
+import           Pos.Core.Address           (Address (..), addressHash)
+import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
+                                             GenericBlockHeader (..), gbBody, gbBodyProof,
+                                             gbHeader, gbhExtra, prevBlockL)
+import           Pos.Core.Types             (BlockVersion, ChainDifficulty, EpochIndex,
+                                             EpochOrSlot, HasDifficulty (..),
+                                             HasEpochIndex (..), HasEpochOrSlot (..),
+                                             HasHeaderHash (..), HeaderHash, SlotId (..),
+                                             SlotId)
 import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySign,
                                              proxyVerify, pskIssuerPk, pskOmega, sign,
                                              toPublic, unsafeHash)
@@ -53,10 +62,6 @@ import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types        (Ssc (..))
 import           Pos.Txp.Core.Types         (Tx (..), TxDistribution, TxInWitness (..),
                                              TxOut (..), TxWitness)
-import           Pos.Types.Address          (Address (..), addressHash)
-import           Pos.Types.Block.Class      (Blockchain (..), GenericBlock (..),
-                                             GenericBlockHeader (..), gbBody, gbBodyProof,
-                                             gbHeader, gbhExtra, prevBlockL)
 import           Pos.Types.Block.Instances  (Body (..), ConsensusData (..), blockLeaders,
                                              blockMpc, blockProxySKs, blockTxs,
                                              getBlockHeader, getBlockHeader,
@@ -69,14 +74,9 @@ import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
                                              MainBlock, MainBlockHeader, MainBlockchain,
                                              MainExtraBodyData (..), MainExtraHeaderData,
                                              mehBlockVersion)
-import           Pos.Types.Core             (BlockVersion, ChainDifficulty, EpochIndex,
-                                             EpochOrSlot, HasDifficulty (..),
-                                             HasEpochIndex (..), HasEpochOrSlot (..),
-                                             HasHeaderHash (..), HeaderHash, SlotId (..),
-                                             SlotId)
 -- Unqualified import is used here because of GHC bug (trac 12127).
 -- See: https://ghc.haskell.org/trac/ghc/ticket/12127
-import           Pos.Types.Types
+import           Pos.Core.Types
 import           Pos.Update.Core            (UpdatePayload)
 import           Pos.Util                   (NewestFirst (..), OldestFirst)
 

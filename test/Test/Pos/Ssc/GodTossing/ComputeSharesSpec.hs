@@ -4,16 +4,16 @@ module Test.Pos.Ssc.GodTossing.ComputeSharesSpec
        ( spec
        ) where
 
-import           Test.Hspec              (Spec, describe)
-import           Test.Hspec.QuickCheck   (prop)
+import           Test.Hspec            (Spec, describe)
+import           Test.Hspec.QuickCheck (prop)
 import           Universum
 
-import           Control.Monad.Except    (runExcept)
-import qualified Data.HashMap.Strict     as HM (elems, keys)
-import           Pos.Types.Coin          (mkCoin)
-import           Pos.Lrc                 (RichmenStake)
-import qualified Pos.Ssc.GodTossing      as T
-import           Test.QuickCheck         (Property, (==>))
+import           Control.Monad.Except  (runExcept)
+import qualified Data.HashMap.Strict   as HM (elems, keys)
+import           Pos.Core.Types        (mkCoin)
+import           Pos.Lrc               (RichmenStake)
+import qualified Pos.Ssc.GodTossing    as T
+import           Test.QuickCheck       (Property, (==>))
 
 spec :: Spec
 spec = describe "computeSharesDistr" $ do

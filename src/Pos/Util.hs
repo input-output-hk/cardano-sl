@@ -8,6 +8,8 @@
 
 module Pos.Util
        (
+--         export it when it actually reexports something apart from instances
+--         module Pos.Util.Util
        -- * Stuff for testing and benchmarking
          module Pos.Util.Arbitrary
        , module Pos.Util.TimeLimit
@@ -23,10 +25,6 @@ module Pos.Util
        , getKeys
        , maybeThrow
        , maybeThrow'
-       , parseIntegralSafe
-
-       -- * Lists
-       , allDistinct
 
        -- * NonEmpty
        , NE
@@ -40,16 +38,9 @@ module Pos.Util
 
        -- * Lenses
        , makeLensesData
-       , magnify'
        , _neHead
        , _neTail
        , _neLast
-       , zoom'
-
-       -- * Prettification
-       , Color (..)
-       , colorize
-       , withColoredMessages
 
        -- * LRU
        , clearLRU
@@ -68,12 +59,6 @@ module Pos.Util
        , withWriteLifted
 
        -- * Instances
-       -- ** Lift Byte
-       -- ** FromJSON Byte
-       -- ** ToJSON Byte
-       -- ** SafeCopy (NonEmpty a)
-       -- ** SafeCopy Microsecond
-       -- ** SafeCopy Millisecond
        -- ** MonadFail (Either s), assuming IsString s
        -- ** MonadFail ParsecT
        -- ** MonadFail Dialog
@@ -87,14 +72,12 @@ import           Control.Arrow                    ((***))
 import           Control.Concurrent.ReadWriteLock (RWLock, acquireRead, acquireWrite,
                                                    releaseRead, releaseWrite)
 import           Control.Concurrent.STM.TVar      (TVar, readTVar)
-import           Control.Lens                     (Each (..), LensLike', Magnified,
-                                                   Zoomed, lensRules, magnify,
-                                                   makeWrapped, zoom, _Wrapped)
+import           Control.Lens                     (Each (..), lensRules, makeWrapped,
+                                                   _Wrapped)
 import           Control.Lens.Internal.FieldTH    (makeFieldOpticsForDec)
 import qualified Control.Monad                    as Monad (fail)
 import           Control.Monad.STM                (retry)
 import           Control.Monad.Trans.Resource     (ResourceT)
-import           Data.Aeson                       (FromJSON (..), ToJSON (..))
 import           Data.Binary                      (Binary)
 import qualified Data.Cache.LRU                   as LRU
 import           Data.Hashable                    (Hashable)
@@ -105,33 +88,24 @@ import qualified Data.List.NonEmpty               as NE
 import           Data.SafeCopy                    (SafeCopy (..), base, contain,
                                                    deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text                        as T
-import           Data.Time.Units                  (Microsecond, Millisecond)
-import           Formatting                       (sformat, stext, (%))
 import qualified GHC.Exts                         as IL
-import           Language.Haskell.TH
-import           Language.Haskell.TH.Syntax       (Lift)
-import qualified Language.Haskell.TH.Syntax
+import qualified Language.Haskell.TH              as TH
 import           Mockable                         (Mockable, Throw, throw)
-import           Prelude                          (read)
-import           Serokell.Data.Memory.Units       (Byte, fromBytes, toBytes)
 import           Serokell.Util                    (VerificationRes (..))
-import           System.Console.ANSI              (Color (..), ColorIntensity (Vivid),
-                                                   ConsoleLayer (Foreground),
-                                                   SGR (Reset, SetColor), setSGRCode)
 import           System.Wlog                      (LoggerNameBox (..))
 import           Test.QuickCheck                  (Arbitrary)
-import           Text.Parsec                      (ParsecT, digit)
-import           Text.Parsec.Text                 (Parser)
+import           Text.Parsec                      (ParsecT)
 import           Universum                        hiding (Async, async, bracket, cancel,
                                                    finally, waitAny)
 import           Unsafe                           (unsafeInit, unsafeLast)
 -- SafeCopy instance for HashMap
-import           Serokell.AcidState.Instances     ()
+import           Serokell.AcidState               ()
 
 import           Pos.Binary.Class                 (Bi)
 import           Pos.Util.Arbitrary
 import           Pos.Util.NotImplemented          ()
 import           Pos.Util.TimeLimit
+import           Pos.Util.Util                    ()
 
 mappendPair :: (Monoid a, Monoid b) => (a, b) -> (a, b) -> (a, b)
 mappendPair = (uncurry (***)) . (mappend *** mappend)
@@ -155,16 +129,6 @@ readerToState
 readerToState = gets . runReader
 
 deriveSafeCopySimple 0 'base ''VerificationRes
-
-parseIntegralSafe :: Integral a => Parser a
-parseIntegralSafe = fromIntegerSafe . read =<< some digit
-  where
-    fromIntegerSafe :: Integral a => Integer -> Parser a
-    fromIntegerSafe x =
-        let res = fromInteger x
-        in  if fromIntegral res == x
-            then return res
-            else fail ("Number is too large: " ++ show x)
 
 -- | A helper for simple error handling in executables
 eitherPanic :: Show a => Text -> Either a b -> b
@@ -208,15 +172,6 @@ maybeThrow e = maybe (throwM e) pure
 
 maybeThrow' :: (Mockable Throw m, Exception e) => e -> Maybe a -> m a
 maybeThrow' e = maybe (throw e) pure
-
-----------------------------------------------------------------------------
--- List utils
-----------------------------------------------------------------------------
-
-allDistinct :: Ord a => [a] -> Bool
-allDistinct xs = and $ zipWith (/=) sorted (drop 1 sorted)
-  where
-    sorted = sort xs
 
 ----------------------------------------------------------------------------
 -- NonEmpty
@@ -294,29 +249,29 @@ instance Chrono NonEmpty where
 ----------------------------------------------------------------------------
 
 -- | Make lenses for a data family instance.
-makeLensesData :: Name -> Name -> DecsQ
+makeLensesData :: TH.Name -> TH.Name -> TH.DecsQ
 makeLensesData familyName typeParamName = do
-    info <- reify familyName
+    info <- TH.reify familyName
     ins <- case info of
-        FamilyI _ ins -> return ins
-        _             -> fail "makeLensesIndexed: expected data family name"
-    typeParamInfo <- reify typeParamName
+        TH.FamilyI _ ins -> return ins
+        _                -> fail "makeLensesIndexed: expected data family name"
+    typeParamInfo <- TH.reify typeParamName
     typeParam <- case typeParamInfo of
-        TyConI dec -> decToType dec
-        _          -> fail "makeLensesIndexed: expected a type"
+        TH.TyConI dec -> decToType dec
+        _             -> fail "makeLensesIndexed: expected a type"
     let mbInsDec = find ((== Just typeParam) . getTypeParam) ins
     case mbInsDec of
         Nothing -> fail ("makeLensesIndexed: an instance for " ++
-                         nameBase typeParamName ++ " not found")
+                         TH.nameBase typeParamName ++ " not found")
         Just insDec -> makeFieldOpticsForDec lensRules insDec
   where
-    getTypeParam (NewtypeInstD _ _ [t] _ _ _) = Just t
-    getTypeParam (DataInstD    _ _ [t] _ _ _) = Just t
-    getTypeParam _                            = Nothing
+    getTypeParam (TH.NewtypeInstD _ _ [t] _ _ _) = Just t
+    getTypeParam (TH.DataInstD    _ _ [t] _ _ _) = Just t
+    getTypeParam _                               = Nothing
 
-    decToType (DataD    _ n _ _ _ _) = return (ConT n)
-    decToType (NewtypeD _ n _ _ _ _) = return (ConT n)
-    decToType other                  =
+    decToType (TH.DataD    _ n _ _ _ _) = return (TH.ConT n)
+    decToType (TH.NewtypeD _ n _ _ _ _) = return (TH.ConT n)
+    decToType other                     =
         fail ("makeLensesIndexed: decToType failed on: " ++ show other)
 
 -- | Lens for the head of 'NonEmpty'.
@@ -335,80 +290,6 @@ _neTail f (x :| xs) = (x :|) <$> f xs
 _neLast :: Lens' (NonEmpty a) a
 _neLast f (x :| []) = (:| []) <$> f x
 _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
-
-instance Lift Byte where
-    lift x = let b = toBytes x in [|fromBytes b :: Byte|]
-
-instance FromJSON Byte where
-    parseJSON = fmap fromBytes . parseJSON
-
-instance ToJSON Byte where
-    toJSON = toJSON . toBytes
-
--- [SRK-51]: we should try to get this one into safecopy itself though it's
--- unlikely that they will choose a different implementation (if they do
--- choose a different implementation we'll have to write a migration)
---
--- update: made a PR <https://github.com/acid-state/safecopy/pull/47>;
--- remove this instance when the pull request is merged
-instance SafeCopy a => SafeCopy (NonEmpty a) where
-    getCopy = contain $ do
-        xs <- safeGet
-        case nonEmpty xs of
-            Nothing -> fail "getCopy@NonEmpty: list can't be empty"
-            Just xx -> return xx
-    putCopy = contain . safePut . toList
-    errorTypeName _ = "NonEmpty"
-
-instance SafeCopy Millisecond where
-    getCopy = contain (fromInteger <$> safeGet)
-    putCopy = contain . safePut . toInteger
-    errorTypeName _ = "Millisecond"
-
-instance SafeCopy Microsecond where
-    getCopy = contain (fromInteger <$> safeGet)
-    putCopy = contain . safePut . toInteger
-    errorTypeName _ = "Microsecond"
-
--- | A 'zoom' which works in 'MonadState'.
---
--- See <https://github.com/ekmett/lens/issues/580>. You might be surprised
--- but actual 'zoom' doesn't work in any 'MonadState', it only works in a
--- handful of state monads and their combinations defined by 'Zoom'.
-zoom'
-    :: MonadState s m
-    => LensLike' (Zoomed (State s) a) s t -> StateT t Identity a -> m a
-zoom' l = state . runState . zoom l
-
--- | A 'magnify' which in 'MonadReader'.
-magnify'
-    :: MonadReader s m
-    => LensLike' (Magnified (Reader s) a) s t -> ReaderT t Identity a -> m a
-magnify' l = reader . runReader . magnify l
-
--- Monad z => Zoom (StateT s z) (StateT t z) s t
--- Monad z => Zoom (StateT s z) (StateT t z) s t
-
-----------------------------------------------------------------------------
--- Prettification.
-----------------------------------------------------------------------------
-
--- | Prettify 'Text' message with 'Vivid' color.
-colorize :: Color -> Text -> Text
-colorize color msg =
-    mconcat
-        [ toText (setSGRCode [SetColor Foreground Vivid color])
-        , msg
-        , toText (setSGRCode [Reset])
-        ]
-
--- | Write colored message, do some action, write colored message.
--- Intended for debug only.
-withColoredMessages :: MonadIO m => Color -> Text -> m a -> m a
-withColoredMessages color activity action = do
-    putText (colorize color $ sformat ("Entered "%stext%"\n") activity)
-    res <- action
-    res <$ putText (colorize color $ sformat ("Finished "%stext%"\n") activity)
 
 ----------------------------------------------------------------------------
 -- LRU cache

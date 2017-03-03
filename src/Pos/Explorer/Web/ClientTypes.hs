@@ -24,6 +24,7 @@ module Pos.Explorer.Web.ClientTypes
        , toTxEntry
        , toBlockSummary
        , toTxRelative
+       , toPosixTime
        ) where
 
 import qualified Data.ByteString        as BS
@@ -141,7 +142,7 @@ toBlockEntry blk = do
 -- | List of tx entries is returned from "get latest N transactions" endpoint
 data CTxEntry = CTxEntry
     { cteId         :: !CTxId
-    , cteTimeIssued :: !POSIXTime
+    , cteTimeIssued :: !(Maybe POSIXTime)
     , cteAmount     :: !Coin
     } deriving (Show, Generic)
 
@@ -149,10 +150,10 @@ totalTxMoney :: Tx -> Coin
 totalTxMoney = unsafeIntegerToCoin . sumCoins .
                map txOutValue . _txOutputs
 
-toTxEntry :: Timestamp -> Tx -> CTxEntry
+toTxEntry :: Maybe Timestamp -> Tx -> CTxEntry
 toTxEntry ts tx = CTxEntry {..}
   where cteId = toCTxId $ hash tx
-        cteTimeIssued = toPosixTime ts
+        cteTimeIssued = ts >>= (Just . toPosixTime)
         cteAmount = totalTxMoney tx
 
 -- | Data displayed on block summary page
@@ -183,7 +184,7 @@ data CAddressSummary = CAddressSummary
 
 data CTxRelative = CTxRelative
     { ctrId         :: !CTxId
-    , ctrTimeIssued :: !POSIXTime
+    , ctrTimeIssued :: !(Maybe POSIXTime)
     , ctrType       :: !CTxRelativeType
     } deriving (Show, Generic)
 
@@ -204,10 +205,10 @@ data CNetworkAddress = CNetworkAddress !Text
 
 data CTxSummary = CTxSummary
     { ctsId              :: !CTxId
-    , ctsTxTimeIssued    :: !POSIXTime
+    , ctsTxTimeIssued    :: !(Maybe POSIXTime)
     , ctsBlockTimeIssued :: !(Maybe POSIXTime)
     , ctsBlockHeight     :: !(Maybe Word)
-    , ctsRelayedByIP     :: !CNetworkAddress
+    , ctsRelayedBy       :: !(Maybe CNetworkAddress)
     , ctsTotalInput      :: !Coin
     , ctsTotalOutput     :: !Coin
     , ctsFees            :: !Coin
@@ -233,7 +234,7 @@ instance FromHttpApiData CTxId where
 --------------------------------------------------------------------------------
 
 data TxInternal = TxInternal
-    { tiTimestamp :: !Timestamp
+    { tiTimestamp :: !(Maybe Timestamp)
     , tiTx        :: !Tx
     } deriving (Show)
 
@@ -243,7 +244,7 @@ toTxRelative addr txi = CTxRelative {..}
     tx = tiTx txi
     ts = tiTimestamp txi
     ctrId = toCTxId $ hash tx
-    ctrTimeIssued = toPosixTime ts
+    ctrTimeIssued = ts >>= (Just . toPosixTime)
     amount = unsafeIntegerToCoin . sumCoins . map txOutValue .
              filter (\txOut -> txOutAddress txOut == addr) . _txOutputs $ tx
     ctrType = CTxIncoming [] amount

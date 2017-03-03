@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -25,6 +24,7 @@ import           Universum
 
 import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (DelegationWrap (..), MonadDelegation (..))
 import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem (..))
@@ -37,13 +37,27 @@ type ReaderTCtx = TVar DelegationWrap
 -- | Wrapper of @ReaderT (TVar DelegationWrap)@, nothing smart.
 newtype DelegationT m a = DelegationT
     { getDelegationT :: ReaderT ReaderTCtx m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadFix,
-                MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
-                HasLoggerName, WithNodeContext ssc, MonadJL,
-                CanLog, MonadMask, MonadSscMem kek, MonadSlotsData,
-                MonadTxpMem)
-
-deriving instance MonadDB ssc m => MonadDB ssc (DelegationT m)
+    } deriving ( Functor
+               , Applicative
+               , Monad
+               , MonadTrans
+               , MonadFix
+               , MonadThrow
+               , MonadSlots
+               , MonadCatch
+               , MonadIO
+               , MonadFail
+               , HasLoggerName
+               , WithNodeContext ssc
+               , MonadJL
+               , CanLog
+               , MonadMask
+               , MonadSscMem kek
+               , MonadSlotsData
+               , MonadDB
+               , MonadDBLimits
+               , MonadTxpMem
+               )
 
 instance (Monad m) => MonadDelegation (DelegationT m) where
     askDelegationState = DelegationT ask

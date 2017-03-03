@@ -44,7 +44,7 @@ import           Pos.Types                (FlatSlotId, SlotId (..), Timestamp (.
                                            flattenSlotId, slotIdF)
 import           Pos.Util                 (maybeThrow)
 import           Pos.Util.Shutdown        (ifNotShutdown)
-import           Pos.Util.TimeWarp        (minute, sec)
+import           Pos.Util.TimeWarp        (sec)
 
 -- | Get flat id of current slot based on MonadSlots.
 getCurrentSlotFlat :: MonadSlots m => m (Maybe FlatSlotId)
@@ -119,7 +119,8 @@ onNewSlotImpl withLogging startImmediately action =
         let msg = sformat ("Error occurred in 'onNewSlot' worker itself: " %build) e
         logError $ msg
         reportMisbehaviourMasked msg
-        delay $ minute 1
+        delay =<< getLastKnownSlotDuration
+        onNewSlotImpl withLogging startImmediately action
 
 onNewSlotDo
     :: OnNewSlot ssc m

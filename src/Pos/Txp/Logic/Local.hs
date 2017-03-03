@@ -32,8 +32,8 @@ import           Pos.Txp.Toil         (putTxExtra)
 import           Pos.Types.Explorer   (TxExtra (..))
 #endif
 
-type TxpLocalWorkMode ssc m =
-    ( MonadDB ssc m
+type TxpLocalWorkMode m =
+    ( MonadDB m
     , MonadTxpMem m
     , WithLogger m
     , MonadError TxpVerFailure m
@@ -42,7 +42,7 @@ type TxpLocalWorkMode ssc m =
 -- CHECK: @processTx
 -- #processTxDo
 txProcessTransaction
-    :: TxpLocalWorkMode ssc m
+    :: TxpLocalWorkMode m
     => (TxId, TxAux) -> m ()
 txProcessTransaction itw@(txId, (Tx{..}, _, _)) = do
     tipBefore <- GS.getTip
@@ -87,7 +87,7 @@ txProcessTransaction itw@(txId, (Tx{..}, _, _)) = do
 -- | 2. Remove invalid transactions from MemPool
 -- | 3. Set new tip to txp local data
 txNormalize
-    :: (MonadDB ssc m, MonadTxpMem m) => m ()
+    :: (MonadDB m, MonadTxpMem m) => m ()
 txNormalize = do
     utxoTip <- GS.getTip
     (_, MemPool{..}, _, _) <- getTxpLocalData

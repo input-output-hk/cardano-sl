@@ -13,8 +13,8 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 flag asserts
-  default: True
-  manual: True
+  default:     True
+  manual:      True
 
 flag dev-mode
   default:     True
@@ -44,6 +44,7 @@ library
   exposed-modules:      Pos.Aeson
                         Pos.Binary
                         Pos.Block.Arbitrary
+                        Pos.Block.Logic
                         Pos.Block.Network
                         Pos.CLI
                         Pos.Context
@@ -51,9 +52,12 @@ library
                         Pos.Communication.Relay
                         Pos.CompileConfig
                         Pos.Constants
-                        Pos.DB
+
+                        Pos.DB.DB
                         Pos.DB.GState
+
                         Pos.Delegation
+
                         -- Pos.DHT
                         Pos.DHT.Model
                         Pos.DHT.Model.Neighbors
@@ -152,10 +156,8 @@ library
                         Pos.Binary.Block.Types
                         Pos.Binary.Block.Block
                         Pos.Binary.Coin
-                        Pos.Binary.Crypto
                         Pos.Binary.Communication
                         Pos.Binary.DHTModel
-                        Pos.Binary.DB
                         Pos.Binary.Genesis
                         Pos.Binary.Merkle
                         Pos.Binary.Relay
@@ -170,7 +172,6 @@ library
 
                         -- Block processing
                         Pos.Block.Error
-                        Pos.Block.Logic
                         Pos.Block.Logic.Internal
                         Pos.Block.Network.Announce
                         Pos.Block.Network.Types
@@ -183,6 +184,7 @@ library
                         Pos.Communication.Arbitrary
                         Pos.Communication.BiP
                         Pos.Communication.Message
+                        Pos.Communication.Limits
                         Pos.Communication.Methods
                         Pos.Communication.Protocol
                         Pos.Communication.PeerState
@@ -212,6 +214,7 @@ library
 
                         -- Heavy delegation
                         Pos.Delegation.Class
+                        Pos.Delegation.DB
                         Pos.Delegation.Holder
                         Pos.Delegation.Listeners
                         Pos.Delegation.Logic
@@ -229,29 +232,10 @@ library
 
                         -- DB
                         Pos.DB.Block
-                        Pos.DB.Class
-                        Pos.DB.DB
-                        Pos.DB.Error
-                        Pos.DB.Functions
-                        Pos.DB.GState.Balances
-                        Pos.DB.GState.Common
-                        Pos.DB.GState.Delegation
-                        Pos.DB.GState.GState
-                        Pos.DB.GState.Update
                         Pos.DB.GState.BlockExtra
-                        Pos.DB.GState.Utxo
-                        Pos.DB.Holder
-                        Pos.DB.Iterator
-                        Pos.DB.Iterator.Class
-                        Pos.DB.Iterator.DBIterator
-                        Pos.DB.Lrc
-                        Pos.DB.Lrc.Common
-                        Pos.DB.Lrc.Issuers
-                        Pos.DB.Lrc.Leaders
-                        Pos.DB.Lrc.Lrc
-                        Pos.DB.Lrc.Richmen
+                        Pos.DB.GState.GState
+                        Pos.DB.Limits
                         Pos.DB.Misc
-                        Pos.DB.Types
 
                         -- Genesis
                         Pos.Genesis.Types
@@ -260,6 +244,12 @@ library
                         -- LRC
                         Pos.Lrc.Consumer
                         Pos.Lrc.Consumers
+                        Pos.Lrc.DB
+                        Pos.Lrc.DB.Common
+                        Pos.Lrc.DB.Issuers
+                        Pos.Lrc.DB.Leaders
+                        Pos.Lrc.DB.Lrc
+                        Pos.Lrc.DB.Richmen
                         Pos.Lrc.Error
                         Pos.Lrc.Logic
                         Pos.Lrc.Types
@@ -337,6 +327,9 @@ library
                         Pos.Txp.Core
                         Pos.Txp.Core.Tx
                         Pos.Txp.Core.Types
+                        Pos.Txp.DB
+                        Pos.Txp.DB.Balances
+                        Pos.Txp.DB.Utxo
                         Pos.Txp.Error
                         Pos.Txp.Logic
                         Pos.Txp.Logic.Global
@@ -371,6 +364,7 @@ library
                         Pos.Update.Arbitrary.Network
                         Pos.Update.Arbitrary.Poll
                         Pos.Update.Core.Types
+                        Pos.Update.DB
                         Pos.Update.Download
                         Pos.Update.Error
                         Pos.Update.Logic
@@ -403,7 +397,6 @@ library
 
                         -- Utilities/helpers
                         Pos.Util.Arbitrary
-                        Pos.Util.Iterator
                         Pos.Util.NotImplemented
   if flag(with-web)
     other-modules:      Pos.Aeson.Crypto
@@ -423,6 +416,7 @@ library
                         Pos.Wallet.State
                         Pos.Wallet.State.Acidic
                         Pos.Wallet.State.Holder
+                        Pos.Wallet.State.Limits
                         Pos.Wallet.State.State
                         Pos.Wallet.State.Storage
                         Pos.Wallet.State.Storage.Block
@@ -446,6 +440,7 @@ library
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.Holder
+                        Pos.Wallet.Web.State.Limits
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
 
@@ -469,6 +464,7 @@ library
                       , bytestring
                       , cardano-report-server >= 0.1.0
                       , cardano-sl-core
+                      , cardano-sl-db
                       , cereal
                       , concurrent-extra
                       , conduit >= 1.2.8
@@ -818,8 +814,8 @@ executable cardano-smart-generator
                      , array
                      , bytestring
                      , data-default
-                     , cardano-sl-core
                      , cardano-sl
+                     , cardano-sl-core
                      , filepath
                      , formatting
                      , lens
@@ -1178,6 +1174,7 @@ test-suite cardano-test
                      , memory
                      , mtl
                      , node-sketch
+                     , pvss
                      , quickcheck-instances
                      , random
                      , reflection

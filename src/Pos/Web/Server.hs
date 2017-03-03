@@ -1,8 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
 -- | Web server.
@@ -23,7 +20,7 @@ import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
 import           Mockable                             (Production (runProduction))
 import           Network.Wai                          (Application)
-import           Network.Wai.Handler.Warp             (run)
+import           Network.Wai.Handler.Warp             (runSettings, defaultSettings, setHost, setPort)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import           Servant.API                          ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server                       (Handler, ServantErr (errBody),
@@ -37,7 +34,7 @@ import           Pos.Context                          (ContextHolder, NodeContex
                                                        ncSscContext, runContextHolder)
 import qualified Pos.DB                               as DB
 import qualified Pos.DB.GState                        as GS
-import qualified Pos.DB.Lrc                           as LrcDB
+import qualified Pos.Lrc.DB                           as LrcDB
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc)
 import           Pos.Txp.MemState                     (TxpHolder, TxpLocalData, askTxpMem,
@@ -57,7 +54,7 @@ import           Pos.Web.Api                          (BaseNodeApi, GodTossingAp
 type MyWorkMode ssc m = (WorkMode ssc m, SscConstraint ssc)
 
 serveWebBase :: MyWorkMode ssc m => Word16 -> m ()
-serveWebBase = serveImpl applicationBase
+serveWebBase = serveImpl applicationBase "127.0.0.1"
 
 applicationBase :: MyWorkMode ssc m => m Application
 applicationBase = do
@@ -65,7 +62,7 @@ applicationBase = do
     return $ serve baseNodeApi server
 
 serveWebGT :: MyWorkMode SscGodTossing m => Word16 -> m ()
-serveWebGT = serveImpl applicationGT
+serveWebGT = serveImpl applicationGT "127.0.0.1"
 
 applicationGT :: MyWorkMode SscGodTossing m => m Application
 applicationGT = do
@@ -73,9 +70,11 @@ applicationGT = do
     return $ serve gtNodeApi server
 
 -- [CSL-217]: do not hardcode logStdoutDev.
-serveImpl :: MonadIO m => m Application -> Word16 -> m ()
-serveImpl application port =
-    liftIO . run (fromIntegral port) . logStdoutDev =<< application
+serveImpl :: MonadIO m => m Application -> String -> Word16 -> m ()
+serveImpl application host port =
+    liftIO . runSettings mySettings . logStdoutDev =<< application
+  where mySettings = setHost (fromString host) $
+                     setPort (fromIntegral port) defaultSettings
 
 ----------------------------------------------------------------------------
 -- Servant infrastructure
@@ -84,14 +83,14 @@ serveImpl application port =
 type WebHandler ssc =
     TxpHolder (
     ContextHolder ssc (
-    DB.DBHolder ssc
+    DB.DBHolder
     Production
     ))
 
 convertHandler
     :: forall ssc a.
        NodeContext ssc
-    -> DB.NodeDBs ssc
+    -> DB.NodeDBs
     -> TxpLocalData
     -> WebHandler ssc a
     -> Handler a

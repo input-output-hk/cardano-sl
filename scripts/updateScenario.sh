@@ -1,7 +1,11 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+base=$(dirname "$0")
+. "$base"/common.sh
 
 build=false
 runNode=false
+CSL_SYSTEM_TAG=linux64 # don't worry, it's just for testing, should work on macOS as well
 wallet_cli=""
 
 echo "Parsing command line arguments..."
@@ -57,15 +61,8 @@ cd cardano-updater
 echo "Searching for cardano-updater install path..."
 cardano_updater_local_bin=$(stack path --local-install-root)/bin
 echo "Searching for cardano-updater binary..."
-updater=$(find $cardano_updater_local_bin -name "cardano-updater" -exec readlink -f {} \; | head -n 1)
+updater=$(find_binary cardano-updater)
 cd $csldir
-
-echo "Launching 3 nodes in 5 secs"
-pkill cardano-node || true
-sleep 5
-./scripts/launch.sh 3
-sleep 20
-tmux select-window -t 0
 
 
 if $build; then
@@ -77,7 +74,7 @@ if $build; then
   echo "Building cardano-sl"
   stack clean cardano-sl
   grep "BlockVersion 0 0 0" src/Pos/Constants.hs  # fails if not found
-  stack build --fast 
+  stack build --fast cardano-sl
 
   csl_bin=$(stack path --local-install-root)/bin
   originalMd5=$(md5sum $csl_bin/cardano-node)
@@ -88,21 +85,12 @@ if $build; then
   beforeBumpMd5=$(md5sum binaries_v000/cardano-node)
   echo "$beforeBumpMd5"
 
-  if $runNode; then
-    # Launcher launching
-    echo "Launching launcher"
-    sleep 1
-    rm -rf update-node-tmp.log
-    stack exec cardano-launcher -- --node binaries_v000/cardano-node --node-log-config scripts/update-log-config.yaml -n "--update-server"  -n "http://localhost:$serverPort" -n "--update-latest-path" -n "updateDownloaded.tar" -n "--listen" -n "127.0.0.1:3004" -n "--peer" -n "127.0.0.1:3000/a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA=" -n "--flat-distr" -n "(3,100000)" -n "--rebuild-db" -n "--wallet" -n "--web-port" -n 8090 --updater $updater -u "dir" -u "binaries_v000" --node-timeout 5 --report-server http://localhost:8555/ --update-archive updateDownloaded.tar $wallet_cli &
-    echo "Luncher started"
-  fi
-
   echo "Waiting 10 secs before updating to new version"
   
   # Updating version in csl sources to v0.1.0
   sed -i.backup "s/BlockVersion 0 0 0/BlockVersion 0 1 0/" src/Pos/Constants.hs
   echo "Building cardano-sl with version 0.1.0"
-  stack build --fast
+  stack build --fast cardano-sl
   rm -rf binaries_v010 && mkdir binaries_v010
   cp -v $csl_bin/* binaries_v010/
   afterBumpMd5=$(md5sum binaries_v010/cardano-node)
@@ -125,6 +113,18 @@ if $build; then
   echo "Creating diff tar $updatetar (might take a while)"
   stack exec cardano-genupdate -- binaries_v000 binaries_v010 $updatetar
 fi
+
+if [ ! -f $updatetar ]; then echo "Update tar file at path $updateTar not found, run with --build/-b first" && exit; fi
+if [ ! -f binaries_v000/cardano-node ]; then echo "binaries_v000/cardano-node not found run with --build/-b first" && exit; fi
+
+
+echo "Launching 3 nodes in 5 secs"
+pkill cardano-node || true
+sleep 5
+./scripts/launch.sh 3
+sleep 20
+tmux select-window -t 0
+
 
 echo "Launching wallet"
 set +e
@@ -178,5 +178,16 @@ cp -v $updatetar webfsfolder/$updateVersion
 pkill webfsd || true
 webfsd -p $serverPort -r webfsfolder 
 echo "Launched webfs server"
+
+if $runNode; then
+  # Launcher launching
+  echo "Launching launcher"
+  sleep 1
+  rm -rf update-node-tmp.log
+  stack exec cardano-launcher -- --node binaries_v000/cardano-node --node-log-config scripts/update-log-config.yaml -n "--update-server"  -n "http://localhost:$serverPort" -n "--update-latest-path" -n "updateDownloaded.tar" -n "--listen" -n "127.0.0.1:3004" -n "--peer" -n "127.0.0.1:3000/a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA=" -n "--flat-distr" -n "(3,100000)" -n "--rebuild-db" -n "--wallet" -n "--web-port" -n 8090 --updater $updater -u "dir" -u "binaries_v000" --node-timeout 5 --update-archive updateDownloaded.tar $wallet_cli 
+  echo "Launcher started"
+else
+  echo "--node is not set => not executing launcher"
+fi
 
 notify-send "updater scenario: ready"

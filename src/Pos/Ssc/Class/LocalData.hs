@@ -1,8 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE RankNTypes           #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | This module defines type class for local data storage.
 
@@ -44,4 +41,4 @@ class Ssc ssc => SscLocalDataClass ssc where
     -- | Create new (empty) local data. We are using this function instead of
     -- 'Default' class, because it gives more flexibility. For instance, one
     -- can read something from DB or get current slot.
-    sscNewLocalData :: (MonadSlots m, MonadDB ssc m) => m (SscLocalData ssc)
+    sscNewLocalData :: (MonadSlots m, MonadDB m) => m (SscLocalData ssc)

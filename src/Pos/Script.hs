@@ -1,6 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | A wrapper over Plutus (the scripting language used in transactions).
 module Pos.Script

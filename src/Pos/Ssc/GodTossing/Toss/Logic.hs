@@ -1,6 +1,5 @@
 -- | Main Toss logic.
 
-{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Ssc.GodTossing.Toss.Logic

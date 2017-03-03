@@ -1,7 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes  #-}
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE Rank2Types           #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -40,6 +36,7 @@ import           Universum
 import           Pos.Communication.PeerState (WithPeerState (..))
 import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DB                      (MonadDB (..))
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT, WithKademliaDHTInstance)
@@ -78,10 +75,9 @@ newtype NoStatsT m a = NoStatsT
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
-                MonadJL, CanLog, MonadTxpMem, MonadSscMem ssc,
-                WithNodeContext ssc, MonadDelegation, MonadUSMem)
-
-deriving instance MonadDB ssc m => MonadDB ssc (NoStatsT m)
+                MonadJL, CanLog, MonadTxpMem, MonadSscMem ssc, MonadDB,
+                WithNodeContext ssc, MonadDelegation, MonadUSMem,
+                MonadDBLimits)
 
 instance Monad m => WrappedM (NoStatsT m) where
     type UnwrappedM (NoStatsT m) = m
@@ -132,10 +128,9 @@ newtype StatsT m a = StatsT
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
                 MonadTrans, MonadJL, CanLog, MonadTxpMem,
-                MonadSscMem ssc, MonadSlotsData,
+                MonadSscMem ssc, MonadSlotsData, MonadDB, MonadDBLimits,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem)
 
-deriving instance MonadDB ssc m => MonadDB ssc (StatsT m)
 instance Monad m => WrappedM (StatsT m) where
     type UnwrappedM (StatsT m) = ReaderT StatsMap m
     _WrappedM = iso getStatsT StatsT

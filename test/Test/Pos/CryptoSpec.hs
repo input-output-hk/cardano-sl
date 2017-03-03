@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 -- | Pos.Crypto specification
 
 module Test.Pos.CryptoSpec

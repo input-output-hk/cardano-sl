@@ -16,7 +16,7 @@ import           Pos.WorkMode               (WorkMode)
 class Ssc ssc => SscListenersClass ssc where
     sscListeners
         :: WorkMode ssc m
-        => Tagged ssc ([ListenerSpec m], OutSpecs)
+        => m (Tagged ssc ([ListenerSpec m], OutSpecs))
 
     sscStubListeners
         :: WithLogger m

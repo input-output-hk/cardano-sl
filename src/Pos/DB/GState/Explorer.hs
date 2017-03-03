@@ -12,17 +12,17 @@ import           Pos.Binary.Class     (encodeStrict)
 import           Pos.Binary.Explorer  ()
 import           Pos.DB.Class         (MonadDB)
 import           Pos.DB.Functions     (RocksBatchOp (..))
-import           Pos.DB.GState.Common (getBi)
-import           Pos.Types            (Address, HeaderHash, Timestamp)
+import           Pos.DB.GState.Common (gsGetBi)
 import           Pos.Txp.Core.Types   (TxId)
+import           Pos.Types            (Address, HeaderHash, Timestamp)
 import           Pos.Types.Explorer   (TxExtra (..))
 
 ----------------------------------------------------------------------------
 -- Getters
 ----------------------------------------------------------------------------
 
-getTxExtra :: MonadDB ssc m => TxId -> m (Maybe TxExtra)
-getTxExtra = getBi . txExtraPrefix
+getTxExtra :: MonadDB m => TxId -> m (Maybe TxExtra)
+getTxExtra = gsGetBi . txExtraPrefix
 
 ----------------------------------------------------------------------------
 -- Batch operations

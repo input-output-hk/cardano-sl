@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeFamilies #-}
 
 -- | BiP datatype and related instance for time-warp abstracted
 -- serialization.

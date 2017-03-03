@@ -23,9 +23,11 @@ module Pos.Wallet.Web.State.Storage
        , removeWallet
        , addUpdate
        , removeNextUpdate
+       , testReset
        ) where
 
 import           Control.Lens               (at, ix, makeClassy, (%=), (.=), _Just, _head)
+import           Control.Monad.State.Class  (put)
 import           Data.Default               (Default, def)
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTxId,
@@ -110,6 +112,9 @@ removeNextUpdate :: Update ()
 removeNextUpdate = wsReadyUpdates %= \case
     [] -> []
     (_:as) -> as
+
+testReset :: Update ()
+testReset = put def
 
 deriveSafeCopySimple 0 'base ''CProfile
 deriveSafeCopySimple 0 'base ''CHash

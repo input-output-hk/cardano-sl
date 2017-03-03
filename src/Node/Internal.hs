@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
-{-# OPTIONS_GHC -fno-warn-incomplete-patterns #-} -- TODO: get rid of this again!
 {-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE ExistentialQuantification  #-}
@@ -916,6 +915,10 @@ nodeDispatcher node handlerIn handlerInOut =
                 logWarning $ sformat ("inconsistent dispatcher state")
                 return state
 
+            unexpected -> do
+                logError (sformat ("received: unexpected peer state " % shown) unexpected)
+                throw $ InternalError "nodeDispatcher: received: impossible"
+
         -- Waiting for a handshake. Try to get a control header and then
         -- move on.
         Just (peer, WaitingForHandshake peerData partial) -> do
@@ -1117,6 +1120,9 @@ nodeDispatcher node handlerIn handlerInOut =
                         (Nothing, channels') -> do
                             logWarning $ sformat "inconsistent peer and connection identifier state"
                             return channels'
+                        (Just cState, _channels') -> do
+                            logError $ sformat ("unexpected ConnectionState in connectionLost: " % shown) cState
+                            throw $ InternalError "nodeDispatcher: connectionLost: impossible"
                 channels' <- foldlM folder (dsConnections state) connids
                 return $ state {
                       dsConnections = channels'
@@ -1535,6 +1541,9 @@ connectToPeer Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData} (Node
                           return (it, Nothing)
 
                     | otherwise -> throw (InternalError "impossible")
+                _ -> do
+                    logError "getPeerDataResponsibility: unexpected peer state"
+                    throw $ InternalError "connectToPeer: getPeerDataResponsibility: impossible"
 
             let nodeState' = nodeState {
                       _nodeStateConnectedTo = Map.insert peer ocs map
@@ -1567,6 +1576,10 @@ connectToPeer Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData} (Node
                           return $ Stable comingUp established goingDown PeerDataToBeTransmitted
 
                     | False <- responsibility -> return it
+                _ -> do
+                    logError "dischargePeerDataResponsibility: unexpected peer state"
+                    throw $ InternalError "connectToPeer: dischargePeerDataResponsibility: impossible"
+
             let nodeState' = nodeState {
                       _nodeStateConnectedTo = Map.insert peer ocs map
                     }

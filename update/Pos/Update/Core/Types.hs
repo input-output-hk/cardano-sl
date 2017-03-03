@@ -58,6 +58,7 @@ import           Serokell.Util.Text         (listJson)
 import           Universum                  hiding (show)
 
 import           Pos.Binary.Class           (Bi, Raw)
+import           Pos.Binary.Crypto          ()
 import           Pos.Core.Address           (addressHash)
 import           Pos.Core.Coin              ()
 import           Pos.Core.Script            ()
@@ -122,7 +123,7 @@ instance Bi UpdateProposal => Buildable UpdateProposal where
         upBlockVersionData
         (HM.keys upData)
 
-instance (Bi UpdateProposal, Bi PublicKey) =>
+instance (Bi UpdateProposal) =>
          Buildable (UpdateProposal, [UpdateVote]) where
     build (up, votes) =
         bprint
@@ -232,13 +233,13 @@ data UpdateVote = UpdateVote
 
 instance NFData UpdateVote
 
-instance Bi PublicKey => Buildable UpdateVote where
+instance Buildable UpdateVote where
     build UpdateVote {..} =
       bprint ("Update Vote { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
              (addressHash uvKey) uvProposalId uvDecision
 
 -- | Format 'UpdateVote' compactly.
-formatVoteShort :: Bi PublicKey => UpdateVote -> Builder
+formatVoteShort :: UpdateVote -> Builder
 formatVoteShort UpdateVote {..} =
     bprint ("("%shortHashF%" "%builder%" "%shortHashF%")")
         (addressHash uvKey)
@@ -246,10 +247,10 @@ formatVoteShort UpdateVote {..} =
         uvProposalId
 
 -- | Formatter for 'UpdateVote' which displays it compactly.
-shortVoteF :: Bi PublicKey => Format r (UpdateVote -> r)
+shortVoteF :: Format r (UpdateVote -> r)
 shortVoteF = later formatVoteShort
 
-instance Bi PublicKey => Buildable VoteId where
+instance Buildable VoteId where
     build (upId, pk, dec) =
       bprint ("Vote Id { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
              pk upId dec
@@ -269,7 +270,7 @@ data UpdatePayload = UpdatePayload
 
 instance NFData UpdatePayload
 
-instance (Bi UpdateProposal, Bi PublicKey) => Buildable UpdatePayload where
+instance (Bi UpdateProposal) => Buildable UpdatePayload where
     build UpdatePayload {..}
         | null upVotes = formatMaybeProposal upProposal <> ", no votes"
         | otherwise =

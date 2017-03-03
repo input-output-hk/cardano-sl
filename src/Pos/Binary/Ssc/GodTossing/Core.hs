@@ -16,7 +16,7 @@ import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), Commitment (..)
                                                 GtProof (..), Opening (..),
                                                 VssCertificate (..), mkCommitmentsMap,
                                                 recreateVssCertificate)
-import           Pos.Types.Address             (addressHash)
+import           Pos.Core.Address             (addressHash)
 
 instance Bi Commitment where
     put Commitment {..} = do

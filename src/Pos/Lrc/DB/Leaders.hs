@@ -17,7 +17,7 @@ module Pos.Lrc.DB.Leaders
 import           Universum
 
 import           Pos.Binary.Class      (encodeStrict)
-import           Pos.Binary.Types      ()
+import           Pos.Binary.Core      ()
 import           Pos.Context.Class     (WithNodeContext)
 import           Pos.Context.Functions (genesisLeadersM)
 import           Pos.DB.Class          (MonadDB)

@@ -33,7 +33,7 @@ import           Formatting         (build, sformat, (%))
 import           NeatInterpolation  (text)
 import           Universum
 
-import           Pos.Binary.Script  ()
+import           Pos.Binary.Core    ()
 import           Pos.Crypto         (PublicKey, SecretKey, fullPublicKeyHexF,
                                      fullSignatureHexF, sign)
 import           Pos.Script         (Script, parseRedeemer, parseValidator)

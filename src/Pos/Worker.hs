@@ -5,24 +5,25 @@ module Pos.Worker
        , allWorkersCount
        ) where
 
-import           Data.Tagged           (untag)
+import           Data.Tagged             (untag)
 import           Universum
 
-import           Pos.Block.Worker      (blkWorkers)
-import           Pos.Communication     (OutSpecs, WorkerSpec, localWorker, relayWorkers,
-                                        wrapActionSpec)
-import           Pos.Delegation.Worker (dlgWorkers)
-import           Pos.DHT.Workers       (dhtWorkers)
-import           Pos.Lrc.Worker        (lrcOnNewSlotWorker)
-import           Pos.Security.Workers  (SecurityWorkersClass, securityWorkers)
-import           Pos.Slotting.Class    (MonadSlots (slottingWorkers))
-import           Pos.Slotting.Util     (logNewSlotWorker)
-import           Pos.Ssc.Class.Workers (SscWorkersClass, sscWorkers)
-import           Pos.Ssc.GodTossing    (SscGodTossing)
-import           Pos.Update            (usWorkers)
-import           Pos.Util              (mconcatPair)
-import           Pos.Worker.SysStart   (sysStartWorker)
-import           Pos.WorkMode          (ProductionMode, WorkMode)
+import           Pos.Block.Worker        (blkWorkers)
+import           Pos.Communication       (OutSpecs, WorkerSpec, localWorker, relayWorkers,
+                                          wrapActionSpec)
+import           Pos.Communication.Specs (allOutSpecs)
+import           Pos.Delegation.Worker   (dlgWorkers)
+import           Pos.DHT.Workers         (dhtWorkers)
+import           Pos.Lrc.Worker          (lrcOnNewSlotWorker)
+import           Pos.Security.Workers    (SecurityWorkersClass, securityWorkers)
+import           Pos.Slotting.Class      (MonadSlots (slottingWorkers))
+import           Pos.Slotting.Util       (logNewSlotWorker)
+import           Pos.Ssc.Class.Workers   (SscWorkersClass, sscWorkers)
+import           Pos.Ssc.GodTossing      (SscGodTossing)
+import           Pos.Update              (usWorkers)
+import           Pos.Util                (mconcatPair)
+import           Pos.Worker.SysStart     (sysStartWorker)
+import           Pos.WorkMode            (ProductionMode, WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers
@@ -42,7 +43,7 @@ allWorkers = mconcatPair
     , wrap' "block"      $ blkWorkers
     , wrap' "delegation" $ dlgWorkers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
-    , wrap' "relay"      $ relayWorkers
+    , wrap' "relay"      $ relayWorkers allOutSpecs
 
     -- I don't know, guys, I don't know :(
     -- , const ([], mempty) statsWorkers

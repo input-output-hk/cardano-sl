@@ -10,7 +10,7 @@ import qualified Data.Semigroup        (Semigroup (..))
 import           Universum
 
 import           Pos.Constants         (sharedSeedLength)
-import           Pos.Types.Types       (SharedSeed (..))
+import           Pos.Core.Types        (SharedSeed (..))
 
 instance Semigroup SharedSeed where
     (<>) (SharedSeed a) (SharedSeed b) =

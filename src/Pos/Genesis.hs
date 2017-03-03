@@ -46,6 +46,8 @@ import           Serokell.Util              (enumerate)
 import           Universum
 
 import qualified Pos.Constants              as Const
+import           Pos.Core.Types             (SoftwareVersion (..))
+import           Pos.Core.Types             (ScriptVersion)
 import           Pos.Crypto                 (PublicKey, SecretKey, deterministicKeyGen,
                                              unsafeHash)
 import           Pos.Genesis.Parser         (compileGenData)
@@ -57,8 +59,6 @@ import           Pos.Types                  (Address (..), BlockVersion (..), Co
                                              StakeholderId, applyCoinPortion,
                                              coinToInteger, divCoin, makePubKeyAddress,
                                              mkCoin, unsafeAddCoin, unsafeMulCoin)
-import           Pos.Types.Script           (ScriptVersion)
-import           Pos.Types.Version          (SoftwareVersion (..))
 import           Pos.Update.Core.Types      (BlockVersionData (..))
 
 ----------------------------------------------------------------------------

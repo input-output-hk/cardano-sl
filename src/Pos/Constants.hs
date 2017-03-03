@@ -8,19 +8,17 @@
 
 module Pos.Constants
        (
+         module Pos.Core.Constants
+       , module Pos.DHT.Constants
+       , module Pos.Communication.Constants
+       , module Pos.Slotting.Constants
+
        -- * Constants mentioned in paper
-         blkSecurityParam
-       , slotSecurityParam
-       , epochSlots
        , networkDiameter
 
        -- * SSC constants
        , sharedSeedLength
        , mpcSendInterval
-
-       -- * Dev/production mode, system start
-       , isDevelopment
-       , staticSysStart
 
        -- * Genesis constants
        , genesisN
@@ -28,8 +26,6 @@ module Pos.Constants
        , genesisMaxBlockSize
        , genesisMaxHeaderSize
        , genesisMaxTxSize
-       , maxReqSize
-       , maxInvSize
        , genesisMpcThd
        , genesisHeavyDelThd
        , genesisUpdateVoteThd
@@ -40,19 +36,14 @@ module Pos.Constants
 
        -- * Other constants
        , maxLocalTxs
-       , neighborsSendThreshold
        , networkConnectionTimeout
-       , networkReceiveTimeout
        , blockRetrievalQueueSize
        , propagationQueueSize
        , defaultPeers
        , sysTimeBroadcastSlots
        , vssMaxTTL
        , vssMinTTL
-       , protocolMagic
-       , enhancedMessageBroadcast
        , recoveryHeadersMessage
-       , kademliaDumpInterval
        , messageCacheTimeout
 
        -- * Delegation
@@ -67,54 +58,39 @@ module Pos.Constants
        , curSoftwareVersion
        , ourAppName
        , appSystemTag
-
-       -- * NTP
-       , ntpMaxError
-       , ntpResponseTimeout
-       , ntpPollDelay
        ) where
 
-import           Data.Time.Units            (Microsecond, Millisecond, convertUnit)
-import           Language.Haskell.TH.Syntax (lift, runIO)
-import           Pos.Util.TimeWarp          (ms, sec)
-import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util              (staticAssert)
-import           System.Environment         (lookupEnv)
-import qualified Text.Parsec                as P
-import           Universum                  hiding (lift)
+import           Data.Time.Units             (Microsecond, Millisecond, convertUnit)
+import           Language.Haskell.TH.Syntax  (lift, runIO)
+import           Serokell.Data.Memory.Units  (Byte)
+import           Serokell.Util               (ms, sec, staticAssert)
+import           System.Environment          (lookupEnv)
+import qualified Text.Parsec                 as P
+import           Universum                   hiding (lift)
 #ifndef DEV_MODE
-import           Data.Time.Clock.POSIX      (getPOSIXTime)
-import           System.IO.Unsafe           (unsafePerformIO)
+import           Data.Time.Clock.POSIX       (getPOSIXTime)
+import           System.IO.Unsafe            (unsafePerformIO)
 #endif
 
-import           Pos.CLI                    (dhtNodeParser)
-import           Pos.CompileConfig          (CompileConfig (..), compileConfig)
-import           Pos.DHT.Model.Types        (DHTNode)
-import           Pos.Types.Core             (CoinPortion, unsafeCoinPortionFromDouble)
-import           Pos.Types.Timestamp        (Timestamp (..))
-import           Pos.Types.Version          (ApplicationName, BlockVersion (..),
-                                             SoftwareVersion (..), mkApplicationName)
-import           Pos.Update.Core            (SystemTag, mkSystemTag)
-import           Pos.Util                   ()
-import           Pos.Util.TimeWarp          (mcs)
+import           Pos.CLI                     (dhtNodeParser)
+import           Pos.CompileConfig           (CompileConfig (..), compileConfig)
+import           Pos.Core.Types              (ApplicationName, BlockVersion (..),
+                                              CoinPortion, SoftwareVersion (..),
+                                              unsafeCoinPortionFromDouble)
+import           Pos.Core.Version            (mkApplicationName)
+import           Pos.DHT.Model.Types         (DHTNode)
+import           Pos.Update.Core             (SystemTag, mkSystemTag)
+import           Pos.Util                    ()
+
+-- Reexports
+import           Pos.Communication.Constants
+import           Pos.Core.Constants
+import           Pos.DHT.Constants
+import           Pos.Slotting.Constants
 
 ----------------------------------------------------------------------------
 -- Main constants mentioned in paper
 ----------------------------------------------------------------------------
-
--- | Security parameter which is maximum number of blocks which can be
--- rolled back.
-blkSecurityParam :: Integral a => a
-blkSecurityParam = fromIntegral . ccK $ compileConfig
-
--- | Security parameter expressed in number of slots. It uses chain
--- quality property. It's basically 'blkSecurityParam / chain_quality'.
-slotSecurityParam :: Integral a => a
-slotSecurityParam = 2 * blkSecurityParam
-
--- | Number of slots inside one epoch.
-epochSlots :: Integral a => a
-epochSlots = 10 * blkSecurityParam
 
 -- | Estimated time needed to broadcast message from one node to all
 -- other nodes. Also see 'Pos.CompileConfig.ccNetworkDiameter'.
@@ -162,14 +138,6 @@ genesisMaxHeaderSize = ccGenesisMaxHeaderSize $ compileConfig
 -- | See 'Pos.CompileConfig.ccGenesisMaxTxSize'.
 genesisMaxTxSize :: Byte
 genesisMaxTxSize = ccGenesisMaxTxSize cc
-
--- | See 'Pos.CompileConfig.ccMaxReqSize'.
-maxReqSize :: Byte
-maxReqSize = ccMaxReqSize cc
-
--- | See 'Pos.CompileConfig.ccMaxInvSize'.
-maxInvSize :: Byte
-maxInvSize = ccMaxInvSize cc
 
 -- | See 'Pos.CompileConfig.ccGenesisMpcThd'.
 genesisMpcThd :: CoinPortion
@@ -243,16 +211,8 @@ maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
 sysTimeBroadcastSlots :: Integral i => i
 sysTimeBroadcastSlots = fromIntegral . ccSysTimeBroadcastSlots $ compileConfig
 
--- | See 'Pos.CompileConfig.ccNeighboursSendThreshold'.
-neighborsSendThreshold :: Integral a => a
-neighborsSendThreshold =
-    fromIntegral . ccNeighboursSendThreshold $ compileConfig
-
 networkConnectionTimeout :: Microsecond
 networkConnectionTimeout = ms . fromIntegral . ccNetworkConnectionTimeout $ compileConfig
-
-networkReceiveTimeout :: Microsecond
-networkReceiveTimeout = ms . fromIntegral . ccNetworkReceiveTimeout $ compileConfig
 
 blockRetrievalQueueSize :: Integral a => a
 blockRetrievalQueueSize =
@@ -261,28 +221,6 @@ blockRetrievalQueueSize =
 propagationQueueSize :: Integral a => a
 propagationQueueSize =
     fromIntegral $ ccPropagationQueueSize $ compileConfig
-
--- | @True@ if current mode is 'Development'.
-isDevelopment :: Bool
-isDevelopment = isNothing staticSysStart
-
--- | System start time embeded into binary.
-staticSysStart :: Maybe Timestamp
-#ifdef DEV_MODE
-staticSysStart = Nothing
-#else
-staticSysStart = Just $ Timestamp $ sec $
-    let st = ccProductionNetworkStartTime compileConfig
-    in if st > 0 then st
-       else let pause = 30
-                divider = 10
-                after3Mins = pause + unsafePerformIO (round <$> getPOSIXTime)
-                minuteMod = after3Mins `mod` divider
-                alignment = if minuteMod > (divider `div` 2) then 1 else 0
-            in (after3Mins `div` divider + alignment) * divider
-               -- ^ If several local nodes are started within 20 sec,
-               -- they'll have same start time
-#endif
 
 -- | See 'Pos.CompileConfig.ccDefaultPeers'.
 defaultPeers :: [DHTNode]
@@ -301,25 +239,11 @@ vssMaxTTL = fromIntegral . ccVssMaxTTL $ compileConfig
 vssMinTTL :: Integral i => i
 vssMinTTL = fromIntegral . ccVssMinTTL $ compileConfig
 
--- | Protocol magic constant. Is put to block serialized version to
--- distinguish testnet and realnet (for example, possible usages are
--- wider).
-protocolMagic :: Int32
-protocolMagic = fromIntegral . ccProtocolMagic $ compileConfig
-
--- | Setting this to true enables enhanced message broadcast
-enhancedMessageBroadcast :: Integral a => a
-enhancedMessageBroadcast = fromIntegral $ ccEnhancedMessageBroadcast compileConfig
-
 -- | Maximum amount of headers node can put into headers message while
 -- in "after offline" or "recovery" mode. Should be more than
 -- 'blkSecurityParam'.
 recoveryHeadersMessage :: (Integral a) => a
 recoveryHeadersMessage = fromIntegral . ccRecoveryHeadersMessage $ compileConfig
-
--- | Interval for dumping state of Kademlia in slots
-kademliaDumpInterval :: (Integral a) => a
-kademliaDumpInterval = fromIntegral . ccKademliaDumpInterval $ compileConfig
 
 -- | Timeout for caching system. Components that use caching on
 -- messages can use this timeout to invalidate caches.
@@ -382,19 +306,3 @@ curSoftwareVersion = SoftwareVersion cardanoSlAppName 0
 -- | Name of our application.
 ourAppName :: ApplicationName
 ourAppName = cardanoSlAppName
-
-----------------------------------------------------------------------------
--- NTP
-----------------------------------------------------------------------------
-
--- | Inaccuracy in call threadDelay (actually it is error much less than 1 sec)
-ntpMaxError :: Microsecond
-ntpMaxError = sec 1
-
--- | After making request to NTP servers, how long to wait for their response
-ntpResponseTimeout :: Microsecond
-ntpResponseTimeout = mcs . ccNtpResponseTimeout $ compileConfig
-
--- | How often send request to NTP server
-ntpPollDelay :: Microsecond
-ntpPollDelay = mcs . ccNtpPollDelay $ compileConfig

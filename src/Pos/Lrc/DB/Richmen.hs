@@ -39,7 +39,7 @@ module Pos.Lrc.DB.Richmen
 import           Universum
 
 import           Pos.Binary.Class      (Bi, encodeStrict)
-import           Pos.Binary.Types      ()
+import           Pos.Binary.Core      ()
 import           Pos.Constants         (genesisHeavyDelThd, genesisMpcThd,
                                         genesisUpdateVoteThd)
 import           Pos.Context.Class     (WithNodeContext)

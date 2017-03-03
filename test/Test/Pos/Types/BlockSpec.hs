@@ -20,7 +20,7 @@ import           Pos.Ssc.Class         (Ssc (..), SscHelpersClass)
 import           Pos.Ssc.GodTossing    (SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import qualified Pos.Types             as T
-import           Pos.Types.Address     (addressHash)
+import           Pos.Core.Address     (addressHash)
 import           Pos.Util              (NewestFirst (..))
 import           Serokell.Util         (isVerSuccess)
 import           System.Random         (mkStdGen, randomR)

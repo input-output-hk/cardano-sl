@@ -28,25 +28,25 @@ module Pos.Types.Block.Types
        , mebAttributes
        ) where
 
-import           Control.Lens          (makeLenses)
-import           Data.Text.Buildable   (Buildable)
-import qualified Data.Text.Buildable   as Buildable
-import           Formatting            (bprint, build, (%))
+import           Control.Lens        (makeLenses)
+import           Data.Text.Buildable (Buildable)
+import qualified Data.Text.Buildable as Buildable
+import           Formatting          (bprint, build, (%))
 import           Universum
 
-import           Pos.Binary.Address    ()
-import           Pos.Binary.Class      (Bi)
-import           Pos.Binary.Crypto     ()
-import           Pos.Crypto            (Signature)
-import           Pos.Data.Attributes   (Attributes)
-import           Pos.Ssc.Class.Types   (Ssc (..))
-import           Pos.Types.Block.Class (Blockchain (..), GenericBlock, GenericBlock,
-                                        GenericBlock (..), GenericBlockHeader,
-                                        GenericBlockHeader (..))
-import           Pos.Types.Core        (BlockVersion, ChainDifficulty, HeaderHash,
-                                        SlotId (..), SoftwareVersion)
-import           Pos.Types.Types       (ProxySigHeavy, ProxySigLight)
-import           Pos.Types.Version     ()
+import           Pos.Binary.Class    (Bi)
+import           Pos.Binary.Core     ()
+import           Pos.Binary.Crypto   ()
+import           Pos.Core.Block      (Blockchain (..), GenericBlock (..),
+                                      GenericBlockHeader (..))
+import           Pos.Core.Types      (BlockVersion, ChainDifficulty, HeaderHash,
+                                      SlotId (..), SoftwareVersion)
+import           Pos.Core.Types      (ProxySigHeavy, ProxySigLight)
+import           Pos.Crypto          (Signature)
+import           Pos.Data.Attributes (Attributes)
+import           Pos.Ssc.Class.Types (Ssc (..))
+--import           Pos.Update.Version    ()
+import           Pos.Core.Types      ()
 
 ----------------------------------------------------------------------------
 -- MainBlock

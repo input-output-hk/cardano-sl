@@ -7,6 +7,7 @@ module Command
 
 import           Prelude                    (read, show)
 import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util.Parse        (parseIntegralSafe)
 import           Text.Parsec                (many1, parse, try, (<?>))
 import           Text.Parsec.Char           (alphaNum, anyChar, digit, space, spaces,
                                              string)
@@ -15,14 +16,13 @@ import           Text.Parsec.Text           (Parser)
 import           Universum                  hiding (show)
 
 import           Pos.Binary                 ()
+import           Pos.Core.Types             (ScriptVersion)
+import           Pos.Core.Version           (parseBlockVersion, parseSoftwareVersion)
 import           Pos.Crypto                 (Hash, decodeHash)
 import           Pos.Txp                    (TxOut (..))
 import           Pos.Types                  (Address (..), BlockVersion, EpochIndex,
-                                             SoftwareVersion, decodeTextAddress, mkCoin,
-                                             parseBlockVersion, parseSoftwareVersion)
-import           Pos.Types.Script           (ScriptVersion)
+                                             SoftwareVersion, decodeTextAddress, mkCoin)
 import           Pos.Update                 (UpId)
-import           Pos.Util                   (parseIntegralSafe)
 
 data Command
     = Balance Address

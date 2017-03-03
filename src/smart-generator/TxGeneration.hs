@@ -15,6 +15,7 @@ import           Control.Concurrent.STM.TVar   (TVar, modifyTVar', newTVar, read
 import           Data.Array.MArray             (newListArray, readArray, writeArray)
 import           Data.List                     (tail, (!!))
 import           Data.Time.Units               (convertUnit)
+import           Serokell.Util                 (sec)
 import           Universum                     hiding (head)
 
 import           Pos.Constants                 (genesisSlotDuration, slotSecurityParam)
@@ -28,7 +29,6 @@ import           Pos.Txp                       (Tx (..), TxAux, TxId, TxIn (..),
                                                 TxOut (..))
 import           Pos.Types                     (makePubKeyAddress, makeScriptAddress,
                                                 mkCoin)
-import           Pos.Util.TimeWarp             (sec)
 import           Pos.Wallet                    (makeMOfNTx, makePubKeyTx)
 import           Pos.WorkMode                  (WorkMode)
 

@@ -44,6 +44,8 @@ library
                       , bytestring
                       , base16-bytestring
                       , cardano-sl
+                      , cardano-sl-core
+                      , cardano-sl-db
                       , engine-io
                       , engine-io-snap
                       , exceptions
@@ -108,6 +110,7 @@ executable cardano-explorer
   other-modules:       ExplorerOptions
   build-depends:       base
                      , cardano-sl
+                     , cardano-sl-core
                      , cardano-sl-explorer
                      , optparse-simple
                      , universum

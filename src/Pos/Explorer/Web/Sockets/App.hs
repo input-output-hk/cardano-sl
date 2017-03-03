@@ -1,4 +1,7 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Server launcher
 
@@ -18,7 +21,8 @@ import           Network.EngineIO.Snap              (snapAPI)
 import           Network.SocketIO                   (RoutingTable, Socket,
                                                      appendDisconnectHandler, initialize,
                                                      socketId)
-import qualified Pos.DB                             as DB
+import           Pos.DB.Class                       (MonadDB)
+import qualified Pos.DB.GState                      as DB
 import           Pos.Ssc.Class                      (SscHelpersClass)
 import           Snap.Core                          (MonadSnap, Response, route)
 import qualified Snap.CORS                          as CORS
@@ -104,8 +108,8 @@ notifierServer settings connVar = do
     withCORS = CORS.applyCORS CORS.defaultOptions
 
 periodicPollChanges
-    :: (MonadIO m, MonadMask m, DB.MonadDB ssc m, WithLogger m,
-        SscHelpersClass ssc)
+    :: forall ssc m.
+       (MonadIO m, MonadMask m, MonadDB m, WithLogger m, SscHelpersClass ssc)
     => ConnectionsVar -> m Bool -> m ()
 periodicPollChanges connVar closed =
     runPeriodicallyUnless (500 :: Millisecond) closed Nothing $ do
@@ -114,7 +118,7 @@ periodicPollChanges connVar closed =
 
         -- notify about addrs
         mBlocks <- fmap join $ forM mWasBlock $ \wasBlock ->
-            getBlocksFromTo curBlock wasBlock 10
+            getBlocksFromTo @ssc curBlock wasBlock 10
         notifiedAddrs <- case mBlocks of
             Nothing     -> return False
             Just blocks -> do
@@ -136,17 +140,16 @@ periodicPollChanges connVar closed =
                     length <$> mBlocks
             logDebug $ sformat ("Blockchain updated"%stext) blocksInfo
 
-        -- or just `hasSender` + `hasReceiver` + `getTxOut`
-
 -- | Starts notification server. Kill current thread to stop it.
 notifierApp
-    :: (MonadIO m, MonadMask m, DB.MonadDB ssc m, Mockable Fork m,
+    :: forall ssc m.
+       (MonadIO m, MonadMask m, MonadDB m, Mockable Fork m,
         WithLogger m, SscHelpersClass ssc)
     => NotifierSettings -> m ()
 notifierApp settings = modifyLoggerName (<> "notifier") $ do
     logInfo "Starting"
     connVar <- liftIO $ newMVar mkConnectionsState
-    forkAccompanion (periodicPollChanges connVar)
+    forkAccompanion (periodicPollChanges @ssc connVar)
                     (notifierServer settings connVar)
 
 -- TODO: tmp

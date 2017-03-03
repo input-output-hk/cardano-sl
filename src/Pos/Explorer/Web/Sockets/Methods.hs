@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes      #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | Logic of Explorer socket-io Server.
@@ -32,12 +33,12 @@ import           GHC.Exts                        (toList)
 import           Network.EngineIO                (SocketId)
 import           Network.SocketIO                (Socket, socketId)
 import           Pos.DB                          (MonadDB)
-import qualified Pos.DB                          as DB
+import qualified Pos.DB.Block                    as DB
 import qualified Pos.DB.GState                   as DB
 import           Pos.Ssc.Class                   (SscHelpersClass)
+import           Pos.Txp                         (Tx (..), txOutAddress)
 import           Pos.Types                       (Address, Block, ChainDifficulty,
-                                                  HeaderHash, Tx (..), blockTxas,
-                                                  prevBlockL, txOutAddress)
+                                                  HeaderHash, blockTxas, prevBlockL)
 import           System.Wlog                     (WithLogger, logDebug, logError,
                                                   logWarning)
 import           Universum                       hiding (toList)
@@ -207,7 +208,8 @@ notifyBlocksSubscribers =
     view csBlocksSubscribers >>= broadcastTo
 
 getBlocksFromTo
-    :: (MonadDB ssc m, SscHelpersClass ssc)
+    :: forall ssc m.
+       (MonadDB m, SscHelpersClass ssc)
     => HeaderHash -> HeaderHash -> Int -> m (Maybe [Block ssc])
 getBlocksFromTo recentBlock oldBlock limit
     | recentBlock == oldBlock = return $ Just []
@@ -221,7 +223,7 @@ getBlocksFromTo recentBlock oldBlock limit
                     (block ^. prevBlockL) oldBlock (limit - 1)
 
 blockAddresses
-    :: (MonadDB ssc m, WithLogger m)
+    :: (MonadDB m, WithLogger m)
     => Block ssc -> m [Address]
 blockAddresses block = do
     relatedTxs <- case block of
@@ -230,10 +232,10 @@ blockAddresses block = do
             forM (mainBlock ^. blockTxas) $ \(tx, _, _) -> do
                 -- for each transaction, get its OutTx
                 -- and transactions from InTx
-                inTxs <- forM (txInputs tx) $ DB.getTxOut >=> \case
+                inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
                     Nothing       -> S.empty <$ logError "DB is malformed!"
                     Just (tx', _) -> return $ one tx'
 
-                return $ S.fromList (txOutputs tx) <> mconcat inTxs
+                return $ S.fromList (_txOutputs tx) <> mconcat inTxs
 
     return $ txOutAddress <$> S.toList relatedTxs

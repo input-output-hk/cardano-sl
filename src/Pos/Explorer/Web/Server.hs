@@ -14,6 +14,7 @@ import           Control.Monad.Catch             (try)
 import           Control.Monad.Loops             (unfoldrM)
 import           Control.Monad.Trans.Maybe       (MaybeT (..))
 import           Data.Maybe                      (fromMaybe)
+import           Data.Time.Clock.POSIX           (getPOSIXTime)
 import           Network.Wai                     (Application)
 import           Servant.API                     ((:<|>) ((:<|>)))
 import           Servant.Server                  (Server, ServerT, serve)
@@ -21,17 +22,18 @@ import           Universum
 
 import           Pos.Communication               (SendActions)
 import           Pos.Crypto                      (WithHash (..), withHash)
-import qualified Pos.DB                          as DB
+import qualified Pos.DB.Block                    as DB
 import qualified Pos.DB.GState                   as GS
 import           Pos.Slotting                    (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing              (SscGodTossing)
-import           Pos.Txp                         (getLocalTxs)
+import           Pos.Txp                         (Tx (..), getLocalTxs, topsortTxs,
+                                                  txOutAddress)
 import           Pos.Types                       (Address (..), HeaderHash, MainBlock,
-                                                  Timestamp, Tx, blockTxs, gbHeader,
-                                                  gbhConsensus, mcdSlot, mkCoin,
-                                                  prevBlockL, topsortTxs, txOutAddress,
-                                                  txOutputs)
+                                                  SlotId, Timestamp (..), Timestamp,
+                                                  blockTxs, gbHeader, gbhConsensus,
+                                                  mcdSlot, mkCoin, prevBlockL)
 import           Pos.Util                        (maybeThrow)
+import           Pos.Util.TimeWarp               (mcs)
 import           Pos.Web                         (serveImpl)
 import           Pos.WorkMode                    (WorkMode)
 
@@ -56,7 +58,7 @@ type SocketsExplorerMode m
       )
 
 explorerServeImpl :: ExplorerMode m => m Application -> Word16 -> m ()
-explorerServeImpl = serveImpl
+explorerServeImpl = flip serveImpl "*"
 
 explorerApp :: ExplorerMode m => m (Server ExplorerApi) -> m Application
 explorerApp serv = serve explorerApi <$> serv
@@ -93,14 +95,14 @@ getLastBlocks :: ExplorerMode m => Word -> Word -> m [CBlockEntry]
 getLastBlocks lim off = do
     tip <- GS.getTip
     let getNextBlk h _ = fmap (view prevBlockL) $
-            DB.getBlockHeader h >>=
+            DB.getBlockHeader @SscGodTossing h >>=
             maybeThrow (Internal "Block database is malformed!")
     start <- foldlM getNextBlk tip [0..off]
 
     let unfolder n h = do
             when (n == 0) $
                 fail "limit!"
-            MaybeT (DB.getBlock h) >>= \case
+            MaybeT (DB.getBlock @SscGodTossing h) >>= \case
                 Left gb -> unfolder n (gb ^. prevBlockL)
                 Right mb -> (,) <$> lift (toBlockEntry mb) <*>
                             pure (n - 1, mb ^. prevBlockL)
@@ -132,7 +134,7 @@ getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
         txs <- allTxs
         let transactions = map (toTxDetailed addr) $
                            filter (any (\txOut -> txOutAddress txOut == addr) .
-                               txOutputs . tiTx) txs
+                               _txOutputs . tiTx) txs
         return $ CAddressSummary cAddr 0 balance transactions
     _ -> throwM $
          Internal "Non-P2PKH addresses are not supported in Explorer yet"
@@ -140,6 +142,20 @@ getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
+
+getCurrentTime
+    :: (MonadIO m, MonadThrow m)
+    => m Timestamp
+getCurrentTime =
+    Timestamp . mcs . round . (* 1e6) <$>
+    liftIO getPOSIXTime
+
+getSlotStartOrFail
+    :: (MonadSlots m, MonadThrow m)
+    => SlotId -> m Timestamp
+getSlotStartOrFail sid =
+    getSlotStart sid >>=
+    maybeThrow (Internal "Slotting isn't initialized")
 
 allTxs :: ExplorerMode m => m [TxInternal]
 allTxs = do
@@ -151,12 +167,12 @@ allTxs = do
 
     tip <- GS.getTip
     let unfolder h = do
-            MaybeT (DB.getBlock h) >>= \case
+            MaybeT (DB.getBlock @SscGodTossing h) >>= \case
                 Left gb -> unfolder (gb ^. prevBlockL)
                 Right mb -> do
                     let mTxs = mb ^. blockTxs
                     txs <- topsortTxsOrFail identity $ map withHash $ toList mTxs
-                    blkSlotStart <- lift $ getSlotStart $
+                    blkSlotStart <- lift $ getSlotStartOrFail $
                                     mb ^. gbHeader . gbhConsensus . mcdSlot
                     let blkTxEntries = map (\tx -> TxInternal blkSlotStart (whData tx)) $
                                        reverse txs
@@ -167,8 +183,10 @@ allTxs = do
 
     return $ localTxEntries <> blockTxEntries
 
-getBlkSlotStart :: MonadSlots m => MainBlock ssc -> m Timestamp
-getBlkSlotStart blk = getSlotStart $ blk ^. gbHeader . gbhConsensus . mcdSlot
+getBlkSlotStart
+    :: (MonadSlots m, MonadThrow m)
+    => MainBlock ssc -> m Timestamp
+getBlkSlotStart blk = getSlotStartOrFail $ blk ^. gbHeader . gbhConsensus . mcdSlot
 
 topsortTxsOrFail :: MonadThrow m => (a -> WithHash Tx) -> [a] -> m [a]
 topsortTxsOrFail f =

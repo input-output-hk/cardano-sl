@@ -17,6 +17,12 @@ data-files:
   constants-wallet-prod.yaml
   constants-prod.yaml
 
+flag dev-mode
+  default:     True
+  manual:      True
+
+  description: Switch between Development and Production mode
+
 library
   exposed-modules:     Pos.Core
                        Pos.Core.Address
@@ -131,3 +137,5 @@ library
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+  if flag(dev-mode)
+    cpp-options: -DDEV_MODE

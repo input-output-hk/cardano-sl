@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE ExistentialQuantification  #-}
@@ -35,7 +36,6 @@ module Node (
     , hoistConversationActions
     , LL.NodeId(..)
 
-    , nodeStatistics
     , LL.Statistics(..)
     , LL.PeerStatistics(..)
 
@@ -66,7 +66,7 @@ import           Node.Message
 import           System.Random              (StdGen)
 import           System.Wlog                (WithLogger, logDebug, logError, logInfo)
 
-data Node m = forall event . Node {
+data Node m = Node {
       nodeId         :: LL.NodeId
     , nodeEndPoint   :: NT.EndPoint m
     , nodeStatistics :: m (LL.Statistics m)
@@ -316,11 +316,11 @@ node transport prng packing peerData k = do
     logNormalShutdown :: m ()
     logNormalShutdown =
         logInfo $ sformat ("node stopping normally")
-    logException :: forall t . SomeException -> m t
+    logException :: forall s . SomeException -> m s
     logException e = do
         logError $ sformat ("node stopped with exception " % shown) e
         throw e
-    logNodeException :: forall t . SomeException -> m t
+    logNodeException :: forall s . SomeException -> m s
     logNodeException e = do
         logError $ sformat ("exception while stopping node " % shown) e
         throw e
@@ -379,7 +379,9 @@ node transport prng packing peerData k = do
                     Nothing -> error ("handlerInOut : no listener for " ++ show msgName)
 
 recvNext
-    :: ( Mockable Channel.Channel m, Unpackable packing thing )
+    :: ( Mockable Channel.Channel m
+       , Unpackable packing thing
+       , WithLogger m)
     => ChannelIn m
     -> packing
     -> m (Input thing)
@@ -393,7 +395,9 @@ recvNext (LL.ChannelIn channel) packing = do
             return outcome
     where
     go decoder = case decoder of
-        Bin.Fail trailing _ err -> return (trailing, NoParse)
+        Bin.Fail trailing _ err ->
+            logError (sformat ("recvNext: Decoding failed " % shown) err)
+            >> return (trailing, NoParse)
         Bin.Done trailing _ thing -> return (trailing, Input thing)
         Bin.Partial next -> do
             mbs <- Channel.readChannel channel

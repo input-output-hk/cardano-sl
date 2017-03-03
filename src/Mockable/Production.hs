@@ -36,7 +36,6 @@ import qualified System.Metrics.Gauge     as EKG.Gauge
 import qualified System.Metrics.Counter   as EKG.Counter
 import           Serokell.Util.Concurrent as Serokell
 import           Universum                (MonadFail (..))
-import qualified Data.Sequence            as Seq
 
 newtype Production t = Production
     { runProduction :: IO t
@@ -142,7 +141,7 @@ instance Mockable Bracket Production where
     liftMockable (BracketWithException acquire release act) = Production $ mask $ \restore -> do
         a <- runProduction acquire
         r <- restore (runProduction (act a)) `catch` \e -> do
-                 runProduction (release a (Just e))
+                 _ <- runProduction (release a (Just e))
                  Exception.throwIO e
         _ <- runProduction (release a Nothing)
         return r

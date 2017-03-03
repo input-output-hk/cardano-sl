@@ -55,6 +55,7 @@ library
 
                         Pos.DB.DB
                         Pos.DB.GState
+                        Pos.DB.Block
 
                         Pos.Delegation
 
@@ -231,7 +232,6 @@ library
                         Pos.Launcher.Scenario
 
                         -- DB
-                        Pos.DB.Block
                         Pos.DB.GState.BlockExtra
                         Pos.DB.GState.GState
                         Pos.DB.Limits

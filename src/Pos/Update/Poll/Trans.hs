@@ -99,13 +99,6 @@ instance MonadPollRead m =>
         PollT $ maybe getAdoptedBVFull pure =<< use pmAdoptedBVFullL
     getLastConfirmedSV appName =
         PollT $ MM.lookupM getLastConfirmedSV appName =<< use pmConfirmedL
-    hasActiveProposal appName =
-        PollT $ do
-            new <- pmNewActivePropsIdx <$> get
-            del <- pmDelActivePropsIdx <$> get
-            if | appName `HM.member` del -> return False
-               | appName `HM.member` new -> return True
-               | otherwise -> hasActiveProposal appName
     getProposal upId =
         PollT $ MM.lookupM getProposal upId =<< use pmActivePropsL
     getConfirmedProposals =

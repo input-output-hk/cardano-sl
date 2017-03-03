@@ -48,7 +48,6 @@ data PollVerFailure
     | PollUnknownProposal { pupStakeholder :: !StakeholderId
                          ,  pupProposal    :: !UpId}
     | PollUnknownStakes !EpochIndex
-    | Poll2ndActiveProposal !SoftwareVersion
     | PollWrongSoftwareVersion { pwsvStored :: !(Maybe NumSoftwareVersion)
                               ,  pwsvApp    :: !ApplicationName
                               ,  pwsvGiven  :: !NumSoftwareVersion
@@ -103,10 +102,6 @@ instance Buildable PollVerFailure where
         stakeholder proposal
     build (PollUnknownStakes epoch) =
         bprint ("stake distribution for epoch "%build%" is unknown") epoch
-    build (Poll2ndActiveProposal sv) =
-        bprint ("there is already active proposal for given application, "%
-                "software version is: "%build)
-        sv
     build (PollWrongSoftwareVersion {..}) =
         bprint ("proposal "%build%" has wrong software version for app "%
                 build%" (last known is "%stext%", proposal contains "%int%")")

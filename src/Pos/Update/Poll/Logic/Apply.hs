@@ -149,10 +149,6 @@ verifyAndApplyProposal
 verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {..} = do
     let epoch = slotOrHeader ^. epochIndexL
     let !upId = hash up
-    -- If there is an active proposal for given application name in
-    -- blockchain, new proposal can't be added.
-    whenM (hasActiveProposal (svAppName upSoftwareVersion)) $
-        throwError $ Poll2ndActiveProposal upSoftwareVersion
     -- Here we verify consistency with regards to data from 'BlockVersionState'
     -- and update relevant state if necessary.
     verifyAndApplyProposalBVS upId up

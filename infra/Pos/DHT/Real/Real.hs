@@ -194,7 +194,7 @@ instance ( MonadIO m
         handleRes _        = throw AllPeersUnavailable
     discoverPeers = do
         inst <- KademliaDHT $ asks kdiHandle
-        _ <- liftIO $ K.lookup inst =<< randomDHTKey
+        _ <- liftIO $ K.lookupNode inst =<< randomDHTKey
         getKnownPeers
     getKnownPeers = getKnownPeersImpl
     currentNodeKey = KademliaDHT $ asks kdiKey

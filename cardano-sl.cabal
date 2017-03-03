@@ -38,6 +38,7 @@ library
   exposed-modules:      Pos.Aeson
                         Pos.Binary
                         Pos.Block.Arbitrary
+                        Pos.Block.Logic
                         Pos.Block.Network
                         Pos.CLI
                         Pos.Context
@@ -128,7 +129,6 @@ library
 
                         -- Block processing
                         Pos.Block.Error
-                        Pos.Block.Logic
                         Pos.Block.Logic.Internal
                         Pos.Block.Network.Announce
                         Pos.Block.Network.Types

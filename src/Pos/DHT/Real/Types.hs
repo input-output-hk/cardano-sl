@@ -1,7 +1,3 @@
-{-# LANGUAGE CPP                   #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 

@@ -28,6 +28,7 @@ import           Universum
 
 import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
@@ -63,13 +64,14 @@ newtype USHolder m a = USHolder
                , MonadBase io
                , MonadDelegation
                , MonadFix
+               , MonadDB
+               , MonadDBLimits
                )
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code
 ----------------------------------------------------------------------------
 
-deriving instance MonadDB ssc m => MonadDB ssc (USHolder m)
 type instance ThreadId (USHolder m) = ThreadId m
 type instance Promise (USHolder m) = Promise m
 type instance SharedAtomicT (USHolder m) = SharedAtomicT m

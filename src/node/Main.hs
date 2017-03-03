@@ -1,6 +1,4 @@
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections       #-}
 
 module Main where
 
@@ -15,6 +13,7 @@ import           Universum
 import           Pos.Binary            ()
 import qualified Pos.CLI               as CLI
 import           Pos.Constants         (staticSysStart)
+import           Pos.Context           (getNodeContext, ncUpdateSemaphore)
 import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.Util.TimeWarp     (sec)
 #ifdef DEV_MODE
@@ -40,6 +39,7 @@ import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
 import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usVss,
                                         writeUserSecret)
+import           Pos.Util.Shutdown     (triggerShutdown)
 #ifdef WITH_WEB
 import           Pos.Web               (serveWebBase, serveWebGT)
 import           Pos.WorkMode          (WorkMode)
@@ -256,17 +256,27 @@ pluginsGT Args {..}
     | otherwise = []
 #endif
 
-#if defined WITH_WEB && defined WITH_WALLET
+updateTriggerWorker
+    :: SscConstraint ssc
+    => ([WorkerSpec (RawRealMode ssc)], OutSpecs)
+updateTriggerWorker = first pure $ worker mempty $ \_ -> do
+    void $ liftIO . takeMVar . ncUpdateSemaphore =<< getNodeContext
+    triggerShutdown
+
 walletServe
     :: SscConstraint ssc
     => Args
     -> ([WorkerSpec (RawRealMode ssc)], OutSpecs)
+#if defined WITH_WEB && defined WITH_WALLET
 walletServe Args {..} =
     if enableWallet
     then first pure $ worker walletServerOuts $ \sendActions ->
             walletServeWebFull sendActions walletDebug walletDbPath
                                            walletRebuildDb walletPort
-    else ([], mempty)
+    else updateTriggerWorker
+#else
+walletServe _ = updateTriggerWorker
+#endif
 
 walletProd
     :: SscConstraint ssc
@@ -286,11 +296,6 @@ walletStats = first (map liftPlugin) . walletServe
     liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
         s <- getStatsMap
         lift . p vI $ hoistSendActions (runStatsT' s) lift sa
-#else
-walletProd, walletStats :: Monoid b => Args -> ([a], b)
-walletProd _ = ([], mempty)
-walletStats _ = ([], mempty)
-#endif
 
 printFlags :: IO ()
 printFlags = do

@@ -59,12 +59,15 @@ xperl='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'
 xgrep="(^.*warning.*$|^.*error.*$|^    .*$|^.*can't find source.*$|^Module imports form a cycle.*$|^  which imports.*$)|"
 
 if [[ $clean == true ]]; then
-  stack clean cardano-sl cardano-sl-core
+  stack clean cardano-sl cardano-sl-core cardano-sl-db
   exit
 fi
 
-stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun --dependencies-only $args core/
-stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun --fast $args 2>&1 core/ | perl -pe "$xperl" | { grep -E --color "$xgrep" || true; }
+stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun --dependencies-only $args cardano-sl-core
+stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun --fast $args 2>&1 cardano-sl-core | perl -pe "$xperl" | { grep -E --color "$xgrep" || true; }
+
+stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun --dependencies-only $args cardano-sl-db
+stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun --fast $args 2>&1 cardano-sl-db | perl -pe "$xperl" | { grep -E --color "$xgrep" || true; }
 
 if [[ $core == false ]]; then
   stack build --ghc-options="+RTS -A256m -n2m -RTS" $commonargs $norun $webwallet --dependencies-only cardano-sl $args

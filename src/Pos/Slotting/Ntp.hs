@@ -1,5 +1,4 @@
 {-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -46,6 +45,7 @@ import           Universum
 import qualified Pos.Constants               as C
 import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Slotting.Class          (MonadSlots (..), MonadSlotsData (..))
 import           Pos.Slotting.Types          (EpochSlottingData (..), SlottingData (..))
 import           Pos.Types                   (EpochIndex, SlotId (..), Timestamp (..),
@@ -95,7 +95,8 @@ newtype NtpSlotting m a = NtpSlotting
                , HasLoggerName
                , CanLog
 
-               , MonadDB σ
+               , MonadDB
+               , MonadDBLimits
                , WithNodeContext ssc
                , MonadJL
                , MonadSlotsData

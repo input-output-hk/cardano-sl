@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP                   #-}
-{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
 -- | Serializable instances for Pos.Crypto.*

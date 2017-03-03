@@ -1,14 +1,14 @@
 {-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Test.Pos.Util
        ( binaryEncodeDecode
        , networkBinaryEncodeDecode
        , binaryTest
        , networkBinaryTest
+       , msgLenLimitedTest
+       , msgLenLimitedTest'
        , safeCopyEncodeDecode
        , safeCopyTest
        , serDeserId
@@ -27,13 +27,17 @@ import qualified Data.ByteString.Lazy  as LBS
 import           Data.SafeCopy         (SafeCopy, safeGet, safePut)
 import           Data.Serialize        (runGet, runPut)
 import           Data.Typeable         (typeRep)
+import           Formatting            (formatToString, (%), int)
 import           Prelude               (read)
-import           Test.QuickCheck       (counterexample)
+import           Test.QuickCheck       (counterexample, property, (.&&.),
+                                        arbitrary, suchThat, forAll, resize,
+                                        vectorOf, conjoin)
 
 import           Pos.Binary            (AsBinaryClass (..), Bi (..), encode)
+import           Pos.Communication     (MessageLimitedPure (..), Limit (..))
 
 import           Test.Hspec            (Expectation, Selector, Spec, shouldThrow)
-import           Test.Hspec.QuickCheck (prop)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Arbitrary, Property, (===))
 import           Universum
 
@@ -84,6 +88,16 @@ networkBinaryEncodeDecode a = stage1 $ runGetIncremental get
     stage3 (Partial _) =
         failText "Parser required extra input"
 
+msgLenLimitedCheck
+    :: (Show a, Bi a) => Limit a -> a -> Property
+msgLenLimitedCheck limit msg =
+    let size = LBS.length . encode $ msg
+    in if size <= fromIntegral limit
+        then property True
+        else flip counterexample False $
+            formatToString ("Message size (max found "%int%") exceedes \
+            \limit ("%int%")") size limit
+
 safeCopyEncodeDecode :: (Show a, Eq a, SafeCopy a) => a -> Property
 safeCopyEncodeDecode a =
     either (panic . toText) identity
@@ -110,6 +124,43 @@ binaryTest = identityTest @Bi @a binaryEncodeDecode
 
 networkBinaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
 networkBinaryTest = identityTest @Bi @a networkBinaryEncodeDecode
+
+msgLenLimitedTest'
+    :: forall a. IdTestingRequiredClasses Bi a
+    => Limit a -> String -> (a -> Bool) -> Spec
+msgLenLimitedTest' limit desc whetherTest =
+    -- instead of checking for `arbitrary` values, we'd better generate
+    -- many values and find maximal message size - it allows user to get
+    -- correct limit on the spot, if needed.
+    modifyMaxSuccess (const 1) $
+        identityTest @Bi @a $ \_ -> findLargestCheck .&&. listsCheck
+  where
+    genNice = arbitrary `suchThat` whetherTest
+
+    findLargestCheck =
+        forAll (resize 1 $ vectorOf 50 genNice) $
+            \samples -> counterexample desc $ msgLenLimitedCheck limit $
+                maximumBy (comparing $ LBS.length . encode) samples
+
+    -- In this test we increase length of lists, maps, etc. generated
+    -- by `arbitrary` (by default lists sizes are bounded by 100).
+    --
+    -- Motivation: if your structure contains lists, you should ensure
+    -- their lengths are limited in practise. If you did, use `MaxSize`
+    -- wrapper to generate `arbitrary` objects of that type with lists of
+    -- exactly maximal possible size.
+    listsCheck =
+        let doCheck power = forAll (resize (2 ^ power) genNice) $
+                \a -> counterexample desc $
+                    counterexample "When generating data with large lists" $
+                        msgLenLimitedCheck limit a
+        -- Increase lists length gradually to avoid hanging.
+        in  conjoin $ doCheck <$> [1..20 :: Int]
+
+msgLenLimitedTest
+    :: forall a. (IdTestingRequiredClasses Bi a, MessageLimitedPure a)
+    => Spec
+msgLenLimitedTest = msgLenLimitedTest' @a msgLenLimit "" (const True)
 
 safeCopyTest :: forall a. IdTestingRequiredClasses SafeCopy a => Spec
 safeCopyTest = identityTest @SafeCopy @a safeCopyEncodeDecode

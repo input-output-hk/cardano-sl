@@ -1,7 +1,4 @@
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 
 -- | Instance of SscGStateClass.
@@ -26,10 +23,10 @@ import           Universum
 import           Pos.Binary.Ssc                 ()
 import           Pos.Constants                  (vssMaxTTL)
 import           Pos.Context                    (WithNodeContext, lrcActionOnEpoch)
-import           Pos.DB                         (DBError (DBMalformed), MonadDB,
-                                                 getTipBlockHeader,
+import           Pos.DB                         (DBError (DBMalformed), MonadDB)
+import           Pos.DB.DB                      (getTipBlockHeader,
                                                  loadBlundsFromTipWhile)
-import qualified Pos.DB.Lrc                     as LrcDB
+import qualified Pos.Lrc.DB                     as LrcDB
 import           Pos.Lrc.Types                  (RichmenStake)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
 import           Pos.Ssc.Extra                  (MonadSscMem, sscRunGlobalQuery)
@@ -91,10 +88,13 @@ instance SscGStateClass SscGodTossing where
         view gsShares
 
 loadGlobalState
-    :: (WithNodeContext kek m, WithLogger m, MonadDB SscGodTossing m)
+    :: ( WithNodeContext SscGodTossing m
+       , WithLogger m
+       , MonadDB m
+       )
     => m GtGlobalState
 loadGlobalState = do
-    endEpoch <- view epochIndexL <$> getTipBlockHeader
+    endEpoch <- view epochIndexL <$> getTipBlockHeader @SscGodTossing
     let startEpoch = safeSub endEpoch -- load blocks while >= endEpoch
         whileEpoch b = b ^. epochIndexL >= startEpoch
     logDebug $ sformat ("mpcLoadGlobalState: start epoch is " %build) startEpoch

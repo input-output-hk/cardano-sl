@@ -1,4 +1,4 @@
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | Messages used for communication in GodTossing SSC.
 
@@ -6,8 +6,14 @@ module Pos.Ssc.GodTossing.Types.Message
        ( GtTag (..)
        , GtMsgContents (..)
        , msgContentsTag
+
+       , _MCCommitment
+       , _MCOpening
+       , _MCShares
+       , _MCVssCertificate
        ) where
 
+import           Control.Lens                  (makePrisms)
 import qualified Data.Text.Buildable           as Buildable
 import           Universum
 
@@ -23,6 +29,8 @@ data GtMsgContents
     | MCShares !StakeholderId !InnerSharesMap
     | MCVssCertificate !VssCertificate
     deriving (Show, Eq, Generic)
+
+makePrisms ''GtMsgContents
 
 instance Buildable GtMsgContents where
     build (msgContentsTag -> tag) = Buildable.build tag <> " contents"

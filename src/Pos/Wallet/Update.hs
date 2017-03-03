@@ -15,6 +15,7 @@ import           Pos.Binary                 ()
 import           Pos.Communication.Methods  (sendUpdateProposal, sendVote)
 import           Pos.Communication.Protocol (SendActions)
 import           Pos.Communication.Specs    (sendProposalOuts, sendVoteOuts)
+import           Pos.DB.Limits              (MonadDBLimits)
 import           Pos.DHT.Model              (DHTNode)
 
 import           Pos.Crypto                 (SecretKey, hash, sign, toPublic)
@@ -23,7 +24,7 @@ import           Pos.WorkMode               (MinWorkMode)
 
 -- | Send UpdateVote to given addresses
 submitVote
-    :: MinWorkMode m
+    :: (MinWorkMode m, MonadDBLimits m)
     => SendActions m
     -> [DHTNode]
     -> UpdateVote
@@ -34,7 +35,7 @@ submitVote sendActions na voteUpd = do
 
 -- | Send UpdateProposal with one positive vote to given addresses
 submitUpdateProposal
-    :: MinWorkMode m
+    :: (MinWorkMode m, MonadDBLimits m)
     => SendActions m
     -> SecretKey
     -> [DHTNode]

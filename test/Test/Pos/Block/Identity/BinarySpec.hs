@@ -6,20 +6,17 @@ module Test.Pos.Block.Identity.BinarySpec
        ( spec
        ) where
 
-import           Data.Reflection            (reify)
-import           Serokell.Data.Memory.Units (Byte)
 import           Test.Hspec                 (Spec, describe)
-import           Test.Hspec.QuickCheck      (prop)
 import           Universum
 
 import           Pos.Block.Arbitrary        ()
 import qualified Pos.Block.Network          as BT
+import qualified Pos.Communication          ()
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Ssc.NistBeacon         (SscNistBeacon)
 import qualified Pos.Types                  as BT
 
-import           Test.Pos.Util              (binaryTest, networkBinaryEncodeDecode,
-                                             networkBinaryTest)
+import           Test.Pos.Util              (binaryTest, networkBinaryTest)
 
 spec :: Spec
 spec = describe "Block types" $ do
@@ -33,13 +30,8 @@ spec = describe "Block types" $ do
                 networkBinaryTest @(BT.MsgHeaders SscNistBeacon)
                 networkBinaryTest @(BT.MsgHeaders SscGodTossing)
             describe "MsgBlock" $ do
-              reify (1000000 :: Byte) $ \(_ :: Proxy s0) -> do
-                -- We can't use 'networkBinaryTest' here because 's0'
-                -- isn't guaranteed to be Typeable.
-                prop "MsgBlock SscNistBeacon" $
-                    networkBinaryEncodeDecode @(BT.MsgBlock s0 SscNistBeacon)
-                prop "MsgBlock SscGodTossing" $
-                    networkBinaryEncodeDecode @(BT.MsgBlock s0 SscGodTossing)
+                networkBinaryTest @(BT.MsgBlock SscNistBeacon)
+                networkBinaryTest @(BT.MsgBlock SscGodTossing)
         describe "Blockchains and blockheaders" $ do
             describe "GenericBlockHeader" $ do
                 describe "GenesisBlockHeader" $ do

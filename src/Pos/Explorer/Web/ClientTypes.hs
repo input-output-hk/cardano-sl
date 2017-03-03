@@ -153,7 +153,7 @@ data CBlockSummary = CBlockSummary
     } deriving (Show, Generic)
 
 toBlockSummary
-    :: (SscHelpersClass ssc, MonadSlots m, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadSlots m, MonadDB m)
     => MainBlock ssc
     -> m CBlockSummary
 toBlockSummary blk = do

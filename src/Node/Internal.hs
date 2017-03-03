@@ -333,7 +333,7 @@ pstRemoveHandler provenance map = case provenance of
                         then (stats', (Map.delete peer map, True))
                         else (stats', (map, False))
 
-    Local peer _ -> case Map.lookup peer map of
+    Remote peer _ _ -> case Map.lookup peer map of
         Nothing ->  do
             logWarning $ sformat ("tried to remove handler for "%shown%", but it is not in the map") peer
             return (map, False)

@@ -15,10 +15,9 @@ module Pos.Core.Constants
        ) where
 
 import           Universum                  hiding (lift)
-
-#ifdef DEV_MODE
 import           System.IO.Unsafe           (unsafePerformIO)
-#else
+
+#ifndef DEV_MODE
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Language.Haskell.TH.Syntax (lift, runIO)
 import           Serokell.Util              (sec)

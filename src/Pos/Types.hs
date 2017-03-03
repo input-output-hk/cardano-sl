@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- | Re-export of Pos.Types.* + binary instances
 
 module Pos.Types
@@ -6,6 +7,9 @@ module Pos.Types
        , module Pos.Types.Block
        , module Pos.Types.Coin
        , module Pos.Types.Core
+#ifdef DWITH_EXPLORER
+       , module Pos.Types.Explorer
+#endif
        , module Pos.Types.Slotting
        , module Pos.Types.Timestamp
        , module Pos.Types.Types
@@ -20,6 +24,9 @@ import           Pos.Types.Arbitrary
 import           Pos.Types.Block
 import           Pos.Types.Coin
 import           Pos.Types.Core
+#ifdef DWITH_EXPLORER
+import           Pos.Types.Explorer
+#endif
 import           Pos.Types.SharedSeed ()
 import           Pos.Types.Slotting
 import           Pos.Types.Timestamp

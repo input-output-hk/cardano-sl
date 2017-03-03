@@ -267,7 +267,7 @@ scriptTxSpec = describe "script transactions" $ do
     -- Try to apply a transaction (with given utxo as context) and say
     -- whether it applied successfully
     tryApplyTx :: Utxo -> TxAux -> VerificationRes
-    tryApplyTx utxo txa = verifyTxUtxoPure True False utxo txa
+    tryApplyTx utxo txa = verifyTxUtxoPure False utxo txa
 
     -- Test tx1 against tx0. Tx0 will be a script transaction with given
     -- validator. Tx1 will be a P2PK transaction spending tx0 (with given
@@ -382,7 +382,7 @@ validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
     let quadruple@((tx, dist), inpResolver, _, txWits) =
             getTxFromGoodTx ls
         transactionIsVerified = isRight $
-            verifyTxPure True False
+            verifyTxPure False
                 VTxGlobalContext
                 (fmap VTxLocalContext <$> inpResolver)
                 (tx, txWits, dist)
@@ -404,7 +404,7 @@ badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
     let ((tx@Tx{..}, dist), inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
         transactionIsNotVerified = isLeft $
-            verifyTxPure True False
+            verifyTxPure False
                 VTxGlobalContext
                 (fmap VTxLocalContext <$> inpResolver)
                 (tx, txWits, dist)

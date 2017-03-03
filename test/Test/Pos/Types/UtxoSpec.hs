@@ -68,7 +68,7 @@ verifyTxInUtxo (SmallGoodTx (GoodTx ls)) =
         newDistr = TxDistribution (map snd outs)
         utxo = foldr (\(tx, d) -> applyTxToUtxoPure (withHash tx) d) mempty txs
     in isVerSuccess $
-       verifyTxUtxoPure True False utxo (newTx, witness, newDistr)
+       verifyTxUtxoPure False utxo (newTx, witness, newDistr)
 
 applyTxToUtxoGood :: M.Map TxIn TxOutAux -> [TxOutAux] -> Bool
 applyTxToUtxoGood txMap txOuts =

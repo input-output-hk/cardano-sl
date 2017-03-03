@@ -709,8 +709,8 @@ nodeDispatcher node handlerIn handlerInOut =
       event <- NT.receive endpoint
       case event of
 
-          NT.ConnectionOpened connid reliability peer ->
-              connectionOpened state connid reliability peer >>= loop
+          NT.ConnectionOpened connid _reliability peer ->
+              connectionOpened state connid peer >>= loop
 
           NT.Received connid bytes -> received state connid bytes >>= loop
 
@@ -774,10 +774,9 @@ nodeDispatcher node handlerIn handlerInOut =
     connectionOpened
         :: DispatcherState peerData m
         -> NT.ConnectionId
-        -> NT.Reliability -- TODO: this is not actually used. If this is intentional, we should remove the parameter.
         -> NT.EndPointAddress
         -> m (DispatcherState peerData m)
-    connectionOpened state connid _reliability peer = case Map.lookup connid (dsConnections state) of
+    connectionOpened state connid peer = case Map.lookup connid (dsConnections state) of
 
         Just (peer', _) -> do
             logWarning $ sformat ("ignoring duplicate connection " % shown % shown % shown) peer peer' connid

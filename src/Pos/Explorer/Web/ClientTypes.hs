@@ -44,6 +44,9 @@ import           Pos.Types              (Address, Coin, MainBlock, Timestamp, ad
                                          gbHeader, gbhConsensus, headerHash, mcdSlot,
                                          mkCoin, prevBlockL, sumCoins, unsafeAddCoin,
                                          unsafeIntegerToCoin)
+import           Pos.Util               (maybeThrow)
+
+import           Pos.Explorer.Web.Error (ExplorerError (..))
 
 -------------------------------------------------------------------------------------
 -- Hash types
@@ -109,12 +112,12 @@ toPosixTime :: Timestamp -> POSIXTime
 toPosixTime = (/ 1e6) . fromIntegral
 
 toBlockEntry
-    :: (SscHelpersClass ssc, MonadSlots m)
+    :: (SscHelpersClass ssc, MonadSlots m, MonadThrow m)
     => MainBlock ssc
     -> m CBlockEntry
 toBlockEntry blk = do
-    blkSlotStart <- getSlotStart $
-                    blk ^. gbHeader . gbhConsensus . mcdSlot
+    blkSlotStart <- maybeThrow (Internal "Slotting isn't initialized") =<<
+        getSlotStart (blk ^. gbHeader . gbhConsensus . mcdSlot)
     let cbeBlkHash = toCHash $ headerHash blk
         cbeHeight = fromIntegral $ blk ^. difficultyL
         cbeTimeIssued = toPosixTime blkSlotStart
@@ -136,7 +139,7 @@ data CTxEntry = CTxEntry
 
 totalTxMoney :: Tx -> Coin
 totalTxMoney = unsafeIntegerToCoin . sumCoins .
-               map txOutValue . txOutputs
+               map txOutValue . _txOutputs
 
 toTxEntry :: Timestamp -> Tx -> CTxEntry
 toTxEntry ts tx = CTxEntry {..}
@@ -210,5 +213,5 @@ toTxDetailed addr txi = CTxDetailed {..}
     ctdId = toCTxId $ hash tx
     ctdTimeIssued = toPosixTime ts
     amount = unsafeIntegerToCoin . sumCoins . map txOutValue .
-             filter (\txOut -> txOutAddress txOut == addr) . txOutputs $ tx
+             filter (\txOut -> txOutAddress txOut == addr) . _txOutputs $ tx
     ctdType = CTxIncoming [] amount

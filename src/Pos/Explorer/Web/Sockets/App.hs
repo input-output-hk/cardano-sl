@@ -9,12 +9,11 @@ module Pos.Explorer.Web.Sockets.App
        ) where
 
 import           Control.Lens                       ((<<.=))
-import qualified Data.HashMap.Strict                as HM
 import qualified Data.Set                           as S
 import           Data.Time.Units                    (Millisecond)
 import           Formatting                         (int, sformat, shown, stext, (%))
 import           Mockable                           (Fork, Mockable)
-import           Network.EngineIO                   (SocketId, srvGetQueryParams)
+import           Network.EngineIO                   (SocketId)
 import           Network.EngineIO.Snap              (snapAPI)
 import           Network.SocketIO                   (RoutingTable, Socket,
                                                      appendDisconnectHandler, initialize,
@@ -97,13 +96,11 @@ notifierServer
 notifierServer settings connVar = do
     loggerName <- getLoggerName
     liftIO $ do
-        handler <- liftIO $ initialize api $
+        handler <- liftIO $ initialize snapAPI $
             withCORS $ notifierHandler connVar loggerName
         httpServe (toSnapConfig settings) $
             route [("/socket.io", handler)]
   where
-    api = snapAPI { srvGetQueryParams =
-        HM.insert "transport" ["polling"] <$> srvGetQueryParams snapAPI }
     withCORS = CORS.applyCORS CORS.defaultOptions
 
 periodicPollChanges

@@ -14,10 +14,10 @@ import           Pos.Communication.Types.SysStart (SysStartRequest (..),
 import           Pos.Types.Arbitrary              ()
 
 instance (Arbitrary key, Arbitrary tag) => Arbitrary (ReqMsg key tag) where
-    arbitrary = ReqMsg <$> arbitrary <*> arbitrary
+    arbitrary = ReqMsg <$> arbitrary <*> (pure <$> arbitrary)
 
 instance (Arbitrary key, Arbitrary tag) => Arbitrary (InvMsg key tag) where
-    arbitrary = InvMsg <$> arbitrary <*> arbitrary
+    arbitrary = InvMsg <$> arbitrary <*> (pure <$> arbitrary)
 
 derive makeArbitrary ''SysStartRequest
 derive makeArbitrary ''SysStartResponse

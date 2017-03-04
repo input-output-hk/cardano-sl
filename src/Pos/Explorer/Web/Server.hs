@@ -14,7 +14,6 @@ import           Control.Monad.Catch            (try)
 import           Control.Monad.Loops            (unfoldrM)
 import           Control.Monad.Trans.Maybe      (MaybeT (..))
 import           Data.Maybe                     (fromMaybe, fromJust)
-import           Data.Time.Clock                (getCurrentTime)
 import           Network.Wai                    (Application)
 import           Servant.API                    ((:<|>) ((:<|>)))
 import           Servant.Server                 (Server, ServerT, serve)
@@ -34,7 +33,8 @@ import           Pos.Types                      (Address (..), HeaderHash,
                                                  blockTxs, gbHeader,
                                                  gbhConsensus, mcdSlot, mkCoin,
                                                  prevBlockL, sumCoins,
-                                                 unsafeIntegerToCoin, difficultyL)
+                                                 unsafeIntegerToCoin, difficultyL,
+                                                 unsafeSubCoin)
 import           Pos.Txp                        (Tx (..), TxId (..), TxOut (..),
                                                  topsortTxs, txOutAddress,
                                                  _txOutputs)
@@ -54,7 +54,7 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
                                                  fromCHash', toBlockEntry,
                                                  toBlockSummary, toTxEntry,
                                                  toTxRelative, fromCTxId,
-                                                 toPosixTime)
+                                                 toPosixTime, toCAddress)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 ----------------------------------------------------------------
@@ -157,16 +157,18 @@ getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
 
 getTxSummary :: ExplorerMode m => CTxId -> m CTxSummary
 getTxSummary cTxId = do
-    -- There are two places whence we can fetch a transaction: MemPool and GS.
-    let txId = cTxIdToTxId cTxId
+    -- There are two places whence we can fetch a transaction: MemPool and DB.
+    txId <- cTxIdToTxId cTxId
     txExtraMaybe <- GS.getTxExtra txId
 
-    when (txExtraMaybe == Nothing) $
-        throwM "Transaction not found"
+    when (isNothing txExtraMaybe) $
+        throwM $ Internal "Transaction not found"
 
     let txExtra = fromJust txExtraMaybe
         blockchainPlace = teBlockchainPlace txExtra
         inputOutputs = teInputOutputs txExtra
+
+    let convertTxOutputs outputs = [(toCAddress $ txOutAddress txOut, txOutValue txOut) | txOut <- outputs]
 
     -- TODO: here and in mempoolTxs/blockchainTxs we do two things wrongly:
     -- 1. If the transaction is found in the MemPool, we return *current
@@ -174,46 +176,66 @@ getTxSummary cTxId = do
     -- 2. If the transaction comes from the blockchain, we return *block
     --    slot starting time* as the time when it was issued.
     -- This needs to be fixed.
-    (ctsTxTimeIssued, ctsBlockTimeIssued, ctsBlockHeight, txBlock) <-
+    (ctsTxTimeIssued, ctsBlockTimeIssued, ctsBlockHeight, ctsOutputs) <-
         case blockchainPlace of
             Nothing -> do
-                ts <- getCurrentTime
-                pure (Just (toPosixTime ts), Nothing, Nothing, Nothing)
+                -- Fetching transaction from MemPool.
+                ts <- currentTimeSlotting
+                tx <- fetchTxFromMempoolOrFail txId
+                let txOutputs = convertTxOutputs $ _txOutputs tx
+                pure (Just (toPosixTime ts), Nothing, Nothing, txOutputs)
             Just (headerHash, txIndexInBlock) -> do
-                MaybeT (DB.getBlock headerHash) >>= \case
-                    Left gb -> throwM "TxExtra says tx is in genesis block"
+                -- Fetching transaction from DB.
+                maybeBlock <- DB.getBlock headerHash
+                when (isNothing maybeBlock) $
+                    throwM $ Internal "TxExtra says tx is in nonexistent block"
+                let block = fromJust maybeBlock
+                case block of
+                    Left gb -> throwM $ Internal "TxExtra says tx is in genesis block"
                     Right mb -> do
-                        blkSlotStart <- lift $ getBlkSlotStart mb
+                        blkSlotStart <- getBlkSlotStart mb
                         let blockHeight = fromIntegral $ mb ^. difficultyL
+                            txMaybe = atMay (toList $ mb ^. blockTxs) (fromIntegral txIndexInBlock)
+                        when (isNothing txMaybe) $
+                            throwM $ Internal "TxExtra return tx index that is out of bounds"
+                        let txOutputs = convertTxOutputs $ _txOutputs $ fromJust txMaybe
                         case blkSlotStart of
-                            Nothing -> pure (Nothing, Nothing, Just blockHeight, Just mb)
-                            Just ts -> pure (Just (toPosixTime ts), Just (toPosixTime ts), Just blockHeight, Just mb)
-
-    -- ctsTotalOutput <-
-    --     case txBlock of
-    --         Nothing -> -- fetch from MemPool
-    --         Just block -> 
+                            Nothing -> pure (Nothing, Nothing, Just blockHeight, txOutputs)
+                            Just ts -> pure (Just (toPosixTime ts), Just (toPosixTime ts), Just blockHeight, txOutputs)
 
     let ctsId = cTxId
         ctsRelayedBy = Nothing
-        ctsTotalInput = (unsafeIntegerToCoin . sumCoins . map txOutValue) inputOutputs
-        ctsTotalOutput = undefined
-        ctsFees = undefined
-        ctsInputs = [(txOutAddress txOut, txOutValue txOut) | txOut <- inputOutputs]
-        ctsOutputs = []
+        ctsTotalInput = unsafeIntegerToCoin $ sumCoins $ map txOutValue inputOutputs
+        ctsInputs = convertTxOutputs inputOutputs
+        ctsTotalOutput = unsafeIntegerToCoin $ sumCoins $ map snd ctsOutputs
+
+    when (ctsTotalOutput >= ctsTotalInput) $
+        throwM $ Internal "Detected tx with output greater than input"
+
+    let ctsFees = unsafeSubCoin ctsTotalInput ctsTotalOutput
     pure $ CTxSummary {..}
 
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
 
+fetchTxFromMempoolOrFail :: ExplorerMode m => TxId -> m Tx
+fetchTxFromMempoolOrFail txId = do
+    localTxs <- getLocalTxs
+    let filtered = [snd tx | tx <- localTxs, fst tx == txId]
+
+    case filtered of
+        []        -> throwM $ Internal "transaction not found in the mempool"
+        [tx]      -> pure $ view _1 tx
+        otherwise -> throwM $ Internal "multiple transactions with the same id found in the mempool"
+
 mempoolTxs :: ExplorerMode m => m [TxInternal]
 mempoolTxs = do
     let mkWhTx (txid, (tx, _, _)) = WithHash tx txid
     localTxs <- fmap reverse $ topsortTxsOrFail mkWhTx =<< getLocalTxs
-    ts <- getCurrentTime
+    ts <- currentTimeSlotting
 
-    pure $ map (\tx -> TxInternal ts (view (_2 . _1) tx)) localTxs
+    pure $ map (\tx -> TxInternal (Just ts) (view (_2 . _1) tx)) localTxs
 
 blockchainTxs :: ExplorerMode m => Int -> Int -> m [TxInternal]
 blockchainTxs off lim = do

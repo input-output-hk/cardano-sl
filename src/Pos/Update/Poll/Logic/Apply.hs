@@ -74,9 +74,8 @@ verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = 
     let (curPropVotes, otherVotes) = partition votePredicate upVotes
     let otherGroups = NE.groupWith uvProposalId otherVotes
     -- When there is proposal in payload, it's verified and applied.
-    whenJust
-        upProposal
-        (verifyAndApplyProposal considerPropThreshold slotOrHeader curPropVotes)
+    whenJust upProposal $
+        verifyAndApplyProposal considerPropThreshold slotOrHeader curPropVotes
     -- Then we also apply votes from other groups.
     -- ChainDifficulty is needed, because proposal may become approved
     -- and then we'll need to track whether it becomes confirmed.
@@ -227,6 +226,21 @@ verifyAndApplyProposalBVS upId up =
                 | bv == proposedBV -> Just bvd
                 | otherwise -> Nothing
 
+-- Here we verify that proposed protocol version could be proposed.
+-- See documentation of 'Logic.Base.canBeProposedBV' for details.
+verifyBlockVersion
+    :: (MonadError PollVerFailure m, MonadPollRead m)
+    => UpId -> UpdateProposal -> m ()
+verifyBlockVersion upId UpdateProposal {..} = do
+    lastAdopted <- getAdoptedBV
+    unlessM (canBeProposedBV upBlockVersion) $
+        throwError
+            PollBadBlockVersion
+            { pbpvUpId = upId
+            , pbpvGiven = upBlockVersion
+            , pbpvAdopted = lastAdopted
+            }
+
 -- Here we check that software version is 1 more than last confirmed
 -- version of given application. Or 0 if it's new application.
 verifySoftwareVersion
@@ -260,21 +274,6 @@ verifySoftwareVersion upId UpdateProposal {..} =
   where
     sv = upSoftwareVersion
     app = svAppName sv
-
--- Here we verify that proposed protocol version could be proposed.
--- See documentation of 'Logic.Base.canBeProposedBV' for details.
-verifyBlockVersion
-    :: (MonadError PollVerFailure m, MonadPollRead m)
-    => UpId -> UpdateProposal -> m ()
-verifyBlockVersion upId UpdateProposal {..} = do
-    lastAdopted <- getAdoptedBV
-    unlessM (canBeProposedBV upBlockVersion) $
-        throwError
-            PollBadBlockVersion
-            { pbpvUpId = upId
-            , pbpvGiven = upBlockVersion
-            , pbpvAdopted = lastAdopted
-            }
 
 -- Here we check that proposal has at least 'genesisUpdateProposalThd'
 -- stake of total stake in all positive votes for it.
@@ -391,8 +390,34 @@ applyDepthCheck hh cd
     | cd <= blkSecurityParam = pass
     | otherwise = do
         deepProposals <- getDeepProposals (cd - blkSecurityParam)
-        mapM_ applyDepthCheckDo deepProposals
+        let winners =
+                concatMap toList $
+                map resetAllDecions $
+                map (NE.sortBy proposalCmp) $
+                NE.groupWith groupCriterion deepProposals
+        mapM_ applyDepthCheckDo winners
   where
+    resetAllDecions (a:|xs) = a :| map (\x->x {dpsDecision = False}) xs
+    groupCriterion a =
+        ( svAppName $ upSoftwareVersion $ upsProposal $ dpsUndecided a
+        , dpsDifficulty a)
+    mkTuple a extra =
+        ( dpsDecision a
+        , not $ deImplicit extra
+        , upsPositiveStake $ dpsUndecided a
+        , upsSlot $ dpsUndecided a)
+    -- This comparator chooses the most appropriate proposal among
+    -- proposals of one app and with same chain difficulty.
+    proposalCmp a b
+      | Just extraA <- dpsExtra a
+      , Just extraB <- dpsExtra b =
+          compare (mkTuple b extraB) (mkTuple a extraA)
+      -- The following checks just in case,
+      -- if there are proposals without dpsExtra
+      | Just _ <- dpsExtra a = LT
+      | Just _ <- dpsExtra b = GT
+      | otherwise =
+          compare  (upsSlot $ dpsUndecided b) (upsSlot $ dpsUndecided a)
     applyDepthCheckDo DecidedProposalState {..} = do
         let UndecidedProposalState {..} = dpsUndecided
         let sv = upSoftwareVersion upsProposal
@@ -427,5 +452,5 @@ applyDepthCheck hh cd
            | otherwise -> do
                delBVState bv
                logInfo $ sformat ("State of "%build%" is deleted") bv
-        deactivateProposal (hash upsProposal)
+        deactivateProposal upId
         logNotice $ sformat ("Proposal "%shortHashF%" is "%builder) upId status

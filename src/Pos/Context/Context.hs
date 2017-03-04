@@ -12,32 +12,26 @@ module Pos.Context.Context
        , ncSystemStart
        , NodeParams(..)
        , BaseParams(..)
-       , RelayInvQueue
-       , SomeInvMsg (..)
        ) where
 
-import           Control.Concurrent.STM           (TBQueue)
-import qualified Control.Concurrent.STM           as STM
-import           Data.Text.Buildable              (Buildable)
-import           Data.Time.Clock                  (UTCTime)
-import           Node.Message                     (Message)
-import           Pos.Binary.Class                 (Bi)
-import           System.Wlog                      (LoggerConfig)
+import           Control.Concurrent.STM  (TBQueue)
+import qualified Control.Concurrent.STM  as STM
+import           Data.Time.Clock         (UTCTime)
+import           System.Wlog             (LoggerConfig)
 import           Universum
 
-import           Pos.Communication.Types.Protocol (NodeId)
-import           Pos.Communication.Types.Relay    (InvOrData, ReqMsg)
-import           Pos.Crypto                       (PublicKey, toPublic)
-import           Pos.Genesis                      (genesisLeaders)
-import           Pos.Launcher.Param               (BaseParams (..), NodeParams (..))
-import           Pos.Ssc.Class.Types              (Ssc (SscNodeContext))
-import           Pos.Txp.Core.Types               (Utxo)
-import           Pos.Types                        (Address, BlockHeader, EpochIndex,
-                                                   HeaderHash, SlotLeaders, Timestamp,
-                                                   makePubKeyAddress)
-import           Pos.Update.Poll.Types            (ConfirmedProposalState)
-import           Pos.Util                         (NE, NewestFirst)
-import           Pos.Util.UserSecret              (UserSecret)
+import           Pos.Communication.Relay (RelayInvQueue)
+import           Pos.Communication.Types (NodeId)
+import           Pos.Crypto              (PublicKey, toPublic)
+import           Pos.Genesis             (genesisLeaders)
+import           Pos.Launcher.Param      (BaseParams (..), NodeParams (..))
+import           Pos.Ssc.Class.Types     (Ssc (SscNodeContext))
+import           Pos.Txp.Core.Types      (Utxo)
+import           Pos.Types               (Address, BlockHeader, EpochIndex, HeaderHash,
+                                          SlotLeaders, Timestamp, makePubKeyAddress)
+import           Pos.Update.Poll.Types   (ConfirmedProposalState)
+import           Pos.Util                (NE, NewestFirst)
+import           Pos.Util.UserSecret     (UserSecret)
 
 ----------------------------------------------------------------------------
 -- NodeContext
@@ -47,19 +41,6 @@ import           Pos.Util.UserSecret              (UserSecret)
 -- LRC is running now. Second value is last epoch for which we have
 -- already computed LRC.
 type LrcSyncData = (Bool, EpochIndex)
-
-data SomeInvMsg =
-    forall tag key contents .
-        ( Message (InvOrData tag key contents)
-        , Bi (InvOrData tag key contents)
-        , Buildable tag,
-          Buildable key
-        , Message (ReqMsg key tag)
-        , Bi (ReqMsg key tag))
-        => SomeInvMsg !(InvOrData tag key contents)
-
--- | Queue of InvMsges which should be propagated.
-type RelayInvQueue = TBQueue SomeInvMsg
 
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext
@@ -93,7 +74,8 @@ data NodeContext ssc = NodeContext
     -- ^ A semaphore which is unlocked when update data is downloaded
     -- and ready to apply.
     , ncInvPropagationQueue :: !RelayInvQueue
-    -- @pva701 please add documentation when you see this comment
+    -- ^ Queue is used in Relay framework,
+    -- it stores inv messages for earlier received data.
     , ncLoggerConfig        :: !LoggerConfig
     -- ^ Logger config, as taken/read from CLI.
     , ncNodeParams          :: !NodeParams

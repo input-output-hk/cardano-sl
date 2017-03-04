@@ -18,11 +18,11 @@ import           Pos.Txp.Network.Types            (TxMsgContents (..))
 import           Pos.Update.Core                  (UpdateProposal, UpdateVote (..))
 
 instance (Bi tag, Bi key) => Bi (InvMsg key tag) where
-    put InvMsg {..} = put imTag >> put imKeys
+    put InvMsg {..} = put imTag >> put imKey
     get = label "InvMsg" $ liftM2 InvMsg get get
 
 instance (Bi tag, Bi key) => Bi (ReqMsg key tag) where
-    put ReqMsg {..} = put rmTag >> put rmKeys
+    put ReqMsg {..} = put rmTag >> put rmKey
     get = label "ReqMsg" $ liftM2 ReqMsg get get
 
 instance Bi (DataMsg GtMsgContents) where

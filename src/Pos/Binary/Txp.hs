@@ -7,7 +7,7 @@ import           Universum          hiding (putByteString)
 
 import           Pos.Binary.Class   (Bi (..), UnsignedVarInt (..), getRemainingByteString,
                                      getWithLength, putWithLength)
-import           Pos.Binary.Types   ()
+import           Pos.Binary.Core   ()
 import qualified Pos.Txp.Core.Types as T
 
 instance Bi T.TxIn where

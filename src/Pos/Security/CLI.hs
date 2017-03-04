@@ -6,7 +6,7 @@ module Pos.Security.CLI
 
 import           Universum
 
-import           Pos.Types.Address (StakeholderId)
+import           Pos.Core.Types (StakeholderId)
 import           Pos.Util.TimeWarp (NetworkAddress)
 
 data AttackType

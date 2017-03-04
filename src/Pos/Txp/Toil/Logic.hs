@@ -20,10 +20,10 @@ import           System.Wlog          (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Constants        (maxLocalTxs)
+import           Pos.Core.Coin        (coinToInteger, sumCoins, unsafeAddCoin,
+                                       unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto           (WithHash (..), hash)
 import           Pos.Types            (Coin, StakeholderId, mkCoin)
-import           Pos.Types.Coin       (coinToInteger, sumCoins, unsafeAddCoin,
-                                       unsafeIntegerToCoin, unsafeSubCoin)
 
 import           Pos.Txp.Core         (topsortTxs)
 import           Pos.Txp.Core.Types   (Tx (..), TxAux, TxId, TxUndo, TxsUndo,

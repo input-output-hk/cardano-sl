@@ -17,6 +17,8 @@ import           Data.Default                (def)
 import           Development.GitRev          (gitBranch, gitHash)
 import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (fork)
+import           Paths_cardano_sl            (version)
+import           Serokell.Util               (sec)
 import           System.Exit                 (ExitCode (..))
 import           System.Wlog                 (getLoggerName, logError, logInfo)
 import           Universum
@@ -30,13 +32,12 @@ import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.Delegation.Logic        (initDelegation)
 import           Pos.DHT.Model               (discoverPeers)
 import           Pos.Reporting               (reportMisbehaviourMasked)
+import           Pos.Shutdown                (waitForWorkers)
 import           Pos.Slotting                (getCurrentSlot, waitSystemStart)
 import           Pos.Ssc.Class               (SscConstraint)
 import           Pos.Types                   (SlotId (..), addressHash)
 import           Pos.Update                  (MemState (..), askUSMemVar, mvState)
 import           Pos.Util                    (inAssertMode, waitRandomInterval)
-import           Pos.Util.Shutdown           (waitForWorkers)
-import           Pos.Util.TimeWarp           (sec)
 import           Pos.Worker                  (allWorkers, allWorkersCount)
 import           Pos.WorkMode                (WorkMode)
 
@@ -70,7 +71,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
   where
     reportHandler (SomeException e) = do
         loggerName <- getLoggerName
-        reportMisbehaviourMasked $
+        reportMisbehaviourMasked version $
             sformat ("Worker/plugin with logger name "%shown%
                     " failed with exception: "%shown)
             loggerName e

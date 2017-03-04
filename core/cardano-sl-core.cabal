@@ -10,31 +10,62 @@ copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
+data-dir:
+  ../
+data-files:
+  constants-dev.yaml
+  constants-wallet-prod.yaml
+  constants-prod.yaml
+
+flag dev-mode
+  default:     True
+  manual:      True
+
+  description: Switch between Development and Production mode
 
 library
-  exposed-modules:     Pos.Types.Block.Class
-                       Pos.Types.Coin
-                       Pos.Types.Script
-                       Pos.Types.Types
-                       Pos.Types.Timestamp
-                       Pos.Types.Address
-                       Pos.Types.Core
+  exposed-modules:     Pos.Core
+                       Pos.Core.Address
+                       Pos.Core.Block
+                       Pos.Core.Coin
+                       Pos.Core.Constants
+                       Pos.Core.Constants.Type
+                       Pos.Core.Script
+                       Pos.Core.Slotting
+                       Pos.Core.Timestamp
+                       Pos.Core.Types
+                       Pos.Core.Version
 
                        Pos.Crypto
+                       Pos.Crypto.AsBinary
+                       Pos.Crypto.Random
                        Pos.Crypto.Hashing
                        Pos.Crypto.Signing
                        Pos.Crypto.SecretSharing
-                       Pos.Crypto.Random
-                       Pos.Crypto.AsBinary
+
+                       Pos.Merkle
+                       Pos.Data.Attributes
+                       Pos.Exception
 
                        Pos.Binary.Class
                        Pos.Binary.Crypto
-                       Pos.Data.Attributes
-                       Pos.Merkle
+                       Pos.Binary.Core
+                       Pos.Binary.Core.Address
+                       Pos.Binary.Core.Coin
+                       Pos.Binary.Core.Script
+                       Pos.Binary.Core.Types
+                       Pos.Binary.Core.Version
+
+                       Pos.Util.Config
                        Pos.Util.Iterator
+                       Pos.Util.Util
+
+  other-modules:       Paths_cardano_sl_core
 
   build-depends:       base
+                     , aeson
                      , base58-bytestring
+                     , log-warper
                       -- This constraint on 'binary' is so strict because
                       -- we're relying on the internal representation of
                       -- 'Get' in Pos.Binary.Class. So, if you need to bump
@@ -51,12 +82,16 @@ library
                      , deepseq
                      , derive
                      , deriving-compat
+                     , digest
+                     , directory
                      , ed25519
+                     , filepath
                      , formatting
                      , hashable
                      , lens
                      , memory
                      , mtl
+                     , node-sketch
                      , parsec
                      , plutus-prototype
                      , pvss
@@ -68,11 +103,13 @@ library
                      , template-haskell
                      , text
                      , text-format
+                     , time
                      , th-lift-instances
                      , time-units
                      , universum
                      , unordered-containers
                      , vector
+                     , yaml
 
   default-language:    Haskell2010
 
@@ -100,3 +137,5 @@ library
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+  if flag(dev-mode)
+    cpp-options: -DDEV_MODE

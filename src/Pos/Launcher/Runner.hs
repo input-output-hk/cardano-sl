@@ -49,6 +49,7 @@ import qualified Network.Transport.TCP       as TCP
 import           Node                        (Node, NodeAction (..), hoistSendActions,
                                               node)
 import           Node.Util.Monitor           (setupMonitor, stopMonitor)
+import           Serokell.Util               (sec)
 import qualified STMContainers.Map           as SM
 import           System.Random               (newStdGen)
 import           System.Wlog                 (LoggerConfig (..), WithLogger, logError,
@@ -78,11 +79,11 @@ import           Pos.Constants               (blockRetrievalQueueSize,
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               runContextHolder)
+import           Pos.Core.Timestamp          (timestampF)
 import           Pos.Crypto                  (createProxySecretKey, toPublic)
 import           Pos.DB                      (MonadDB (..), runDBHolder)
 import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
 import           Pos.DB.GState               (getTip)
-import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Holder       (runDelegationT)
 import           Pos.DHT.Model               (MonadDHT (..), converseToNeighbors,
@@ -93,7 +94,8 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
                                               stopDHTInstance)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
-import           Pos.Slotting                (mkNtpSlottingVar, mkSlottingVar,
+import qualified Pos.Lrc.DB                  as LrcDB
+import           Pos.Slotting                (SlottingVar, mkNtpSlottingVar,
                                               runNtpSlotting, runSlottingHolder)
 import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
                                               SscListenersClass, SscNodeContext,
@@ -101,10 +103,10 @@ import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
 import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp                     (runTxpHolder)
-import           Pos.Types                   (Timestamp (Timestamp), timestampF)
+import           Pos.Types                   (Timestamp (Timestamp))
+import qualified Pos.Update.DB               as GState
 import           Pos.Update.MemState         (runUSHolder)
 import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
-import           Pos.Util.TimeWarp           (sec)
 import           Pos.Util.UserSecret         (usKeys)
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (MinWorkMode, ProductionMode, RawRealMode,
@@ -191,7 +193,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
        initTip <- runDBHolder modernDBs getTip
        stateM <- liftIO SM.newIO
        stateM_ <- liftIO SM.newIO
-       slottingVar <- runDBHolder modernDBs mkSlottingVar
+       slottingVar <- runDBHolder  modernDBs $ mkSlottingVar npSystemStart
        ntpSlottingVar <- mkNtpSlottingVar
 
        -- TODO [CSL-775] need an effect-free way of running this into IO.
@@ -231,6 +233,12 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
               \vI sa -> nodeStartMsg npBaseParams >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
+
+-- | Create new 'SlottingVar' using data from DB.
+mkSlottingVar :: MonadDB m => Timestamp -> m SlottingVar
+mkSlottingVar sysStart = do
+    sd <- GState.getSlottingData
+    (sysStart, ) <$> liftIO (newTVarIO sd)
 
 -- | ServiceMode runner.
 runServiceMode

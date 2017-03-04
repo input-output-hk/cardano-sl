@@ -27,12 +27,13 @@ import           Pos.DB.GState.Explorer         as GS (getTxExtra)
 import           Pos.Types.Explorer             (TxExtra (..))
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Types                      (Address (..), HeaderHash, MainBlock,
-                                                 Timestamp, SlotId, blockTxs, gbHeader,
+import           Pos.Types                      (Address (..), HeaderHash,
+                                                 MainBlock, Timestamp, SlotId,
+                                                 blockTxs, gbHeader,
                                                  gbhConsensus, mcdSlot, mkCoin,
                                                  prevBlockL, sumCoins,
-                                                 unsafeIntegerToCoin, difficultyL,
-                                                 unsafeSubCoin)
+                                                 unsafeIntegerToCoin,
+                                                 difficultyL, unsafeSubCoin)
 import           Pos.Txp                        (Tx (..), TxId, TxOut (..),
                                                  topsortTxs, txOutAddress,
                                                  _txOutputs, getLocalTxs)
@@ -144,11 +145,8 @@ getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
     PubKeyAddress sid _ -> do
         balance <- fromMaybe (mkCoin 0) <$> GS.getFtsStake sid
         -- TODO: add number of coins when it's implemented
-        -- txs <- allTxs
+        -- TODO: retrieve transactions from something like an index
         let transactions = []
-                           -- map (toTxRelative addr) $
-                           -- filter (any (\txOut -> _txOutAddress txOut == addr) .
-                           --     _txOutputs . tiTx) txs
         return $ CAddressSummary cAddr 0 balance transactions
     _ -> throwM $
          Internal "Non-P2PKH addresses are not supported in Explorer yet"

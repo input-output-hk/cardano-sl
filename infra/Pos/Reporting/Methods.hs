@@ -38,7 +38,7 @@ import           System.IO                (hClose)
 import           System.IO.Temp           (withSystemTempFile)
 import           System.Wlog              (CanLog, HasLoggerName, LoggerConfig (..),
                                            lcFilePrefix, lcTree, logDebug, logError,
-                                           ltFile, ltSubloggers, readMemoryLogs)
+                                           ltFiles, ltSubloggers, readMemoryLogs)
 import           Universum
 
 import           Pos.Core.Constants       (protocolMagic)
@@ -225,12 +225,9 @@ retrieveLogFiles lconfig =
   where
     prefix = lconfig ^. lcFilePrefix . to (fromMaybe ".")
     fromLogTree lt =
-        let curElem =
-                case lt ^. ltFile of
-                    Just filepath -> [([], filepath)]
-                    Nothing       -> []
+        let curElems = map ([],) (lt ^. ltFiles)
             addFoo (part, node) = map (first (part :)) $ fromLogTree node
-        in curElem ++ concatMap addFoo (lt ^. ltSubloggers . to HM.toList)
+        in curElems ++ concatMap addFoo (lt ^. ltSubloggers . to HM.toList)
 
 -- | Retrieves real filepathes of logs given filepathes from log
 -- description. Example: there's @component.log@ in config, but this

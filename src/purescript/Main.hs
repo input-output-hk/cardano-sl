@@ -24,9 +24,13 @@ main = do
       (buildBridge customBridge)
       [ mkSumType (Proxy @CT.CHash)
       , mkSumType (Proxy @CT.CAddress)
+      , mkSumType (Proxy @CT.CAddressSummary)
       , mkSumType (Proxy @CT.CTxId)
       , mkSumType (Proxy @CT.CBlockEntry)
+      , mkSumType (Proxy @CT.CBlockSummary)
       , mkSumType (Proxy @CT.CTxEntry)
+      , mkSumType (Proxy @CT.CTxRelative)
+      , mkSumType (Proxy @CT.CTxRelativeType)
       , mkSumType (Proxy @CE.ExplorerError)
       , mkSumType (Proxy @PT.Coin)
       ]

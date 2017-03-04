@@ -21,23 +21,21 @@ import           Universum
 
 import           Pos.Communication              (SendActions)
 import           Pos.Crypto                     (WithHash (..), withHash)
-import qualified Pos.DB                         as DB
+import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.GState                  as GS
 import           Pos.DB.GState.Explorer         as GS (getTxExtra)
 import           Pos.Types.Explorer             (TxExtra (..))
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (getLocalTxs)
-import           Pos.Types                      (Address (..), HeaderHash,
-                                                 MainBlock, Timestamp,
-                                                 blockTxs, gbHeader,
+import           Pos.Types                      (Address (..), HeaderHash, MainBlock,
+                                                 Timestamp, SlotId, blockTxs, gbHeader,
                                                  gbhConsensus, mcdSlot, mkCoin,
                                                  prevBlockL, sumCoins,
                                                  unsafeIntegerToCoin, difficultyL,
                                                  unsafeSubCoin)
-import           Pos.Txp                        (Tx (..), TxId (..), TxOut (..),
+import           Pos.Txp                        (Tx (..), TxId, TxOut (..),
                                                  topsortTxs, txOutAddress,
-                                                 _txOutputs)
+                                                 _txOutputs, getLocalTxs)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
@@ -53,7 +51,7 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
                                                  TxInternal (..), fromCAddress,
                                                  fromCHash', toBlockEntry,
                                                  toBlockSummary, toTxEntry,
-                                                 toTxRelative, fromCTxId,
+                                                 fromCTxId,
                                                  toPosixTime, toCAddress)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
@@ -64,7 +62,7 @@ import           Pos.Explorer.Web.Error         (ExplorerError (..))
 type ExplorerMode m = WorkMode SscGodTossing m
 
 explorerServeImpl :: ExplorerMode m => m Application -> Word16 -> m ()
-explorerServeImpl = serveImpl
+explorerServeImpl = flip serveImpl "*"
 
 explorerApp :: ExplorerMode m => m (Server ExplorerApi) -> m Application
 explorerApp serv = serve explorerApi <$> serv
@@ -74,7 +72,7 @@ explorerApp serv = serve explorerApi <$> serv
 ----------------------------------------------------------------
 
 explorerHandlers :: ExplorerMode m => SendActions m -> ServerT ExplorerApi m
-explorerHandlers sendActions =
+explorerHandlers _sendActions =
     catchExplorerError ... defaultLimit 10 getLastBlocks
     :<|>
     catchExplorerError ... defaultLimit 10 getLastTxs
@@ -103,14 +101,14 @@ getLastBlocks :: ExplorerMode m => Word -> Word -> m [CBlockEntry]
 getLastBlocks lim off = do
     tip <- GS.getTip
     let getNextBlk h _ = fmap (view prevBlockL) $
-            DB.getBlockHeader h >>=
+            DB.getBlockHeader @SscGodTossing h >>=
             maybeThrow (Internal "Block database is malformed!")
     start <- foldlM getNextBlk tip [0..off]
 
     let unfolder n h = do
             when (n == 0) $
                 fail "limit!"
-            MaybeT (DB.getBlock h) >>= \case
+            MaybeT (DB.getBlock @SscGodTossing h) >>= \case
                 Left gb -> unfolder n (gb ^. prevBlockL)
                 Right mb -> (,) <$> lift (toBlockEntry mb) <*>
                             pure (n - 1, mb ^. prevBlockL)
@@ -186,12 +184,12 @@ getTxSummary cTxId = do
                 pure (Just (toPosixTime ts), Nothing, Nothing, txOutputs)
             Just (headerHash, txIndexInBlock) -> do
                 -- Fetching transaction from DB.
-                maybeBlock <- DB.getBlock headerHash
+                maybeBlock <- DB.getBlock @SscGodTossing headerHash
                 when (isNothing maybeBlock) $
                     throwM $ Internal "TxExtra says tx is in nonexistent block"
                 let block = fromJust maybeBlock
                 case block of
-                    Left gb -> throwM $ Internal "TxExtra says tx is in genesis block"
+                    Left _ -> throwM $ Internal "TxExtra says tx is in genesis block"
                     Right mb -> do
                         blkSlotStart <- getBlkSlotStart mb
                         let blockHeight = fromIntegral $ mb ^. difficultyL
@@ -219,15 +217,22 @@ getTxSummary cTxId = do
 -- Helpers
 --------------------------------------------------------------------------------
 
+getSlotStartOrFail
+    :: (MonadSlots m, MonadThrow m)
+    => SlotId -> m Timestamp
+getSlotStartOrFail sid =
+    getSlotStart sid >>=
+    maybeThrow (Internal "Slotting isn't initialized")
+
 fetchTxFromMempoolOrFail :: ExplorerMode m => TxId -> m Tx
 fetchTxFromMempoolOrFail txId = do
     localTxs <- getLocalTxs
     let filtered = [snd tx | tx <- localTxs, fst tx == txId]
 
     case filtered of
-        []        -> throwM $ Internal "transaction not found in the mempool"
-        [tx]      -> pure $ view _1 tx
-        otherwise -> throwM $ Internal "multiple transactions with the same id found in the mempool"
+        []   -> throwM $ Internal "transaction not found in the mempool"
+        [tx] -> pure $ view _1 tx
+        _    -> throwM $ Internal "multiple transactions with the same id found in the mempool"
 
 mempoolTxs :: ExplorerMode m => m [TxInternal]
 mempoolTxs = do
@@ -242,7 +247,7 @@ blockchainTxs off lim = do
     let unfolder off lim h = do
             when (lim <= 0) $
                 fail "Finished"
-            MaybeT (DB.getBlock h) >>= \case
+            MaybeT (DB.getBlock @SscGodTossing h) >>= \case
                 Left gb -> unfolder off lim (gb ^. prevBlockL)
                 Right mb -> do
                     let mTxs = mb ^. blockTxs

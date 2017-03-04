@@ -13,7 +13,6 @@ import           Universum
 
 import           Pos.Binary          ()
 import qualified Pos.CLI             as CLI
-import           Pos.Communication   (ActionSpec (..))
 import           Pos.Constants       (staticSysStart)
 import           Pos.Crypto          (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 #ifndef DEV_MODE
@@ -31,7 +30,6 @@ import           Pos.Util            (inAssertMode)
 import           Pos.Util.TimeWarp   (sec)
 import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usKeys, usVss,
                                       writeUserSecret)
-import           Pos.WorkMode        (ProductionMode, WorkMode)
 
 import           Pos.Explorer.Web    (explorerPlugin)
 

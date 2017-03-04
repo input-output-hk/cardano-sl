@@ -49,7 +49,9 @@ import           Pos.Types              (Address, Coin, MainBlock, Timestamp,
                                          prevBlockL, sumCoins, unsafeAddCoin,
                                          unsafeIntegerToCoin)
 import           Pos.Txp                (Tx (..), TxId, TxOut (..), _txOutputs)
-import           Pos.Util.TimeWarp      (NetworkAddress)
+import           Pos.Util               (maybeThrow)
+
+import           Pos.Explorer.Web.Error (ExplorerError (..))
 
 -------------------------------------------------------------------------------------
 -- Hash types
@@ -110,7 +112,7 @@ fromCTxId (CTxId (CHash txId)) = decodeHashHex txId
 data CBlockEntry = CBlockEntry
     { cbeBlkHash    :: !CHash
     , cbeHeight     :: !Word
-    , cbeTimeIssued :: !(Maybe POSIXTime)
+    , cbeTimeIssued :: POSIXTime
     , cbeTxNum      :: !Word
     , cbeTotalSent  :: !Coin
     , cbeSize       :: !Word64
@@ -121,15 +123,15 @@ toPosixTime :: Timestamp -> POSIXTime
 toPosixTime = (/ 1e6) . fromIntegral
 
 toBlockEntry
-    :: (SscHelpersClass ssc, MonadSlots m)
+    :: (SscHelpersClass ssc, MonadSlots m, MonadThrow m)
     => MainBlock ssc
     -> m CBlockEntry
 toBlockEntry blk = do
-    blkSlotStart <- getSlotStart $
-                    blk ^. gbHeader . gbhConsensus . mcdSlot
+    blkSlotStart <- maybeThrow (Internal "Slotting isn't initialized") =<<
+        getSlotStart (blk ^. gbHeader . gbhConsensus . mcdSlot)
     let cbeBlkHash = toCHash $ headerHash blk
         cbeHeight = fromIntegral $ blk ^. difficultyL
-        cbeTimeIssued = blkSlotStart >>= (Just . toPosixTime)
+        cbeTimeIssued = toPosixTime blkSlotStart
         txs = blk ^. blockTxs
         cbeTxNum = fromIntegral $ length txs
         addCoins c = unsafeAddCoin c . totalTxMoney
@@ -165,7 +167,7 @@ data CBlockSummary = CBlockSummary
     } deriving (Show, Generic)
 
 toBlockSummary
-    :: (SscHelpersClass ssc, MonadSlots m, MonadDB ssc m)
+    :: (SscHelpersClass ssc, MonadSlots m, MonadDB m)
     => MainBlock ssc
     -> m CBlockSummary
 toBlockSummary blk = do

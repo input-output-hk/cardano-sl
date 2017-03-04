@@ -8,7 +8,7 @@ import           Data.Maybe            (fromJust)
 import           Data.Proxy            (Proxy (..))
 import           Mockable              (Production)
 import           Serokell.Util         (sec)
-import           System.Wlog           (LoggerName)
+import           System.Wlog           (LoggerName, logInfo)
 import           Universum
 
 import           Pos.Binary            ()
@@ -260,6 +260,7 @@ updateTriggerWorker
     :: SscConstraint ssc
     => ([WorkerSpec (RawRealMode ssc)], OutSpecs)
 updateTriggerWorker = first pure $ worker mempty $ \_ -> do
+    logInfo "Update trigger worker is locked"
     void $ liftIO . takeMVar . ncUpdateSemaphore =<< getNodeContext
     triggerShutdown
 
@@ -303,6 +304,12 @@ printFlags = do
     putText "[Attention] We are in DEV mode"
 #else
     putText "[Attention] We are in PRODUCTION mode"
+#endif
+#ifdef WITH_WEB
+    putText "[Attention] Web-mode is on"
+#endif
+#ifdef WITH_WALLET
+    putText "[Attention] Wallet-mode is on"
 #endif
     inAssertMode $ putText "Asserts are ON"
 

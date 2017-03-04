@@ -37,7 +37,7 @@ showHash = toString . B16.encode . BA.convert
 -- | Download and save archive update by given `ConfirmedProposalState`
 downloadUpdate :: WorkMode ssc m => ConfirmedProposalState -> m ()
 downloadUpdate cst@ConfirmedProposalState {..} = do
-    logDebug "Downloading update"
+    logDebug "Update downloading triggered"
     useInstaller <- npUpdateWithPkg . ncNodeParams <$> getNodeContext
     updateServers <- npUpdateServers . ncNodeParams <$> getNodeContext
     let dataHash = if useInstaller then udPkgHash else udAppDiffHash
@@ -50,6 +50,7 @@ downloadUpdate cst@ConfirmedProposalState {..} = do
             -- let updAppName = svAppName . upSoftwareVersion $
             --                  cpsUpdateProposal
             unlessM (liftIO $ doesFileExist updPath) $ do
+                logInfo "Downloading update..."
                 efile <- liftIO $ downloadHash updateServers updHash
                 case efile of
                     Left err -> logWarning $
@@ -57,8 +58,10 @@ downloadUpdate cst@ConfirmedProposalState {..} = do
                         updHash err
                     Right file -> do
                         liftIO $ BSL.writeFile updPath file
+                        logInfo "Update was downloaded"
                         sm <- ncUpdateSemaphore <$> getNodeContext
                         liftIO $ putMVar sm cst
+                        logInfo "Update MVar filled, wallet is notified"
 
 -- | Download a file by its hash.
 --

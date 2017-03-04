@@ -192,12 +192,14 @@ confirmedPropModifierToBatch (map snd -> confAdded) confDeleted =
     confDelOps = map (DB.SomeBatchOp . DelConfirmedProposal) confDeleted
 
 upModifierToBatch :: [(UpId, ProposalState)]
-                  -> HashMap ApplicationName UpId
+                  -> HashMap ApplicationName (HashSet UpId)
                   -> [DB.SomeBatchOp]
-upModifierToBatch (map snd -> added) (HM.toList -> deleted) = addOps ++ delOps
+upModifierToBatch (map snd -> added) (HM.toList -> deleted)
+      = addOps ++ delOps
   where
+    deepToList = concatMap (\(x, y) -> zip (repeat x) (toList y))
     addOps = map (DB.SomeBatchOp . PutProposal) added
-    delOps = map (DB.SomeBatchOp . uncurry (flip DeleteProposal)) deleted
+    delOps = map (DB.SomeBatchOp . uncurry (flip DeleteProposal)) (deepToList deleted)
 
 sdModifierToBatch :: Maybe SlottingData -> [DB.SomeBatchOp]
 sdModifierToBatch Nothing   = []

@@ -11,6 +11,8 @@ import           Data.List.NonEmpty   (nonEmpty)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Formatting           (bprint, build, formatToString, (%))
+import           Prelude              (Show (..))
+import           System.Random        (mkStdGen, randomR)
 import           Test.QuickCheck      (Arbitrary (..), Gen, choose, listOf, oneof,
                                        vectorOf)
 import           Universum

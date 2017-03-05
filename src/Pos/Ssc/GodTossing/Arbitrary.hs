@@ -51,14 +51,6 @@ instance Arbitrary BadCommitment where
     arbitrary = BadComm <$> do
       Commitment <$> arbitrary <*> arbitrary <*> (arbitrary `suchThat` (not . null))
 
--- | Wrapper over 'Opening'. Creates an invalid Opening w.r.t. 'verifyOpening'.
-newtype BadOpening = BadOpening
-    { getBadOpening :: Opening
-    } deriving (Show, Eq)
-
-instance Arbitrary BadOpening where
-    arbitrary = BadOpening . Opening <$> arbitrary
-
 -- | Wrapper over 'SignedCommitment'. Creates an invalid SignedCommitment w.r.t.
 -- 'verifyCommitmentSignature'.
 newtype BadSignedCommitment = BadSignedComm
@@ -87,8 +79,8 @@ data BadCommAndOpening = BadCommAndOpening
 instance Arbitrary BadCommAndOpening where
     arbitrary = do
         badComm <- getBadComm <$> arbitrary
-        badOpening <- getBadOpening <$> arbitrary
-        return $ BadCommAndOpening (badComm, badOpening)
+        opening <- arbitrary
+        return $ BadCommAndOpening (badComm, opening)
 
 -- | Generate 50 commitment/opening pairs in advance
 -- (see `Pos.Crypto.Arbitrary` for explanations)

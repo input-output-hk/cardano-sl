@@ -31,7 +31,6 @@ import           Servant.API                   ((:<|>) ((:<|>)),
                                                 FromHttpApiData (parseUrlPiece))
 import           Servant.Server                (Handler, Server, ServerT, serve)
 import           Servant.Utils.Enter           ((:~>) (..), enter)
-import           System.IO                     (hFlush, stdout)
 import           System.Wlog                   (logDebug)
 import           System.Wlog                   (logInfo)
 import           Universum

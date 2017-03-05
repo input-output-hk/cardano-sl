@@ -31,6 +31,7 @@ import           Servant.API                   ((:<|>) ((:<|>)),
                                                 FromHttpApiData (parseUrlPiece))
 import           Servant.Server                (Handler, Server, ServerT, serve)
 import           Servant.Utils.Enter           ((:~>) (..), enter)
+import           System.Wlog                   (logDebug)
 import           System.Wlog                   (logInfo)
 import           Universum
 
@@ -102,20 +103,20 @@ walletServeImpl
        , MonadMask m
        , WalletWebMode ssc (WalletWebHandler m))
     => WalletWebHandler m Application     -- ^ Application getter
-    -> FilePath                        -- ^ Path to wallet acid-state
-    -> Bool                            -- ^ Rebuild flag for acid-state
-    -> Word16                          -- ^ Port to listen
+    -> FilePath                           -- ^ Path to wallet acid-state
+    -> Bool                               -- ^ Rebuild flag for acid-state
+    -> Word16                             -- ^ Port to listen
     -> m ()
 walletServeImpl app daedalusDbPath dbRebuild port =
-    bracket
-        ((,) <$> openDB <*> initWS)
-        (\(db, conn) -> closeDB db >> closeWS conn)
-        $ \(db, conn) ->
-            serveImpl (runWalletWebDB db $ runWalletWS conn app) "127.0.0.1" port
-  where openDB = openState dbRebuild daedalusDbPath
-        closeDB = closeState
-        initWS = initWSConnection
-        closeWS = closeWSConnection
+    bracket pre post $ \(db, conn) ->
+        serveImpl (runWalletWebDB db $ runWalletWS conn app) "127.0.0.1" port
+  where
+    pre = (,) <$> openDB <*> initWS
+    post (db, conn) = closeDB db >> closeWS conn
+    openDB = openState dbRebuild daedalusDbPath
+    closeDB = closeState
+    initWS = putText "walletServeImpl initWsConnection" >> initWSConnection
+    closeWS = closeWSConnection
 
 walletApplication
     :: WalletWebMode ssc m
@@ -150,18 +151,17 @@ walletServer sendActions nat = do
         time <- liftIO getPOSIXTime
         pure $ CProfile mempty mempty mempty mempty time mempty mempty
 
-------------------------
+----------------------------------------------------------------------------
 -- Notifier
-------------------------
-
--- type SyncState = StateT SyncProgress
+----------------------------------------------------------------------------
 
 -- FIXME: this is really inaficient. Temporary solution
 launchNotifier :: WalletWebMode ssc m => (m :~> Handler) -> m ()
-launchNotifier nat = void . liftIO $ mapM startForking
-    [ dificultyNotifier
-    , updateNotifier
-    ]
+launchNotifier nat =
+    void . liftIO $ mapM startForking
+        [ dificultyNotifier
+        , updateNotifier
+        ]
   where
     cooldownPeriod = 5000000         -- 5 sec
     difficultyNotifyPeriod = 500000  -- 0.5 sec
@@ -200,6 +200,7 @@ launchNotifier nat = void . liftIO $ mapM startForking
     updateNotifier = do
         cps <- waitForUpdate
         addUpdate $ toCUpdateInfo cps
+        logDebug "Added update to wallet storage"
         notify UpdateAvailable
 
     -- historyNotifier :: WalletWebMode ssc m => m ()

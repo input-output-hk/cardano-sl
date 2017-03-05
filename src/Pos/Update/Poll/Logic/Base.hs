@@ -37,6 +37,7 @@ import           System.Wlog                (WithLogger, logDebug, logNotice)
 import           Universum
 
 import           Pos.Constants              (epochSlots)
+import           Pos.Core.Types             (ScriptVersion)
 import           Pos.Crypto                 (PublicKey, hash, shortHashF)
 import           Pos.Slotting               (EpochSlottingData (..), SlottingData (..))
 import           Pos.Ssc.Class              (Ssc)
@@ -46,7 +47,6 @@ import           Pos.Types                  (BlockVersion (..), Coin, EpochIndex
                                              difficultyL, headerHashG, headerSlot,
                                              sumCoins, unsafeAddCoin, unsafeIntegerToCoin,
                                              unsafeSubCoin)
-import           Pos.Types.Script           (ScriptVersion)
 import           Pos.Update.Core            (BlockVersionData (..), UpId,
                                              UpdateProposal (..), UpdateVote (..),
                                              combineVotes, isPositiveVote, newVoteState)

@@ -24,11 +24,18 @@ import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName, WithLogger, logWarning)
 import           Universum                 hiding (catchAll)
 
+import           Pos.Communication.Relay   (MonadRelayMem (..), RelayContext (..))
 import           Pos.Context.Class         (WithNodeContext (..))
 import           Pos.Context.Context       (NodeContext (..))
 import           Pos.DB.Class              (MonadDB)
 import           Pos.DB.Limits             (MonadDBLimits)
-import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
+import           Pos.DHT.MemState          (DhtContext (..), MonadDhtMem (..))
+import           Pos.Launcher.Param        (bpKademliaDump, npBaseParams, npPropagation,
+                                            npReportServers)
+import           Pos.Reporting             (MonadReportingMem (..), ReportingContext (..))
+import           Pos.Shutdown              (MonadShutdownMem (..), ShutdownContext (..))
+import           Pos.Slotting.Class        (MonadSlots)
+import           Pos.Slotting.MemState     (MonadSlotsData)
 import           Pos.Txp.MemState.Class    (MonadTxpMem)
 import           Pos.Util.JsonLog          (MonadJL (..), appendJL)
 
@@ -89,3 +96,30 @@ instance (MonadIO m, Mockable Catch m, WithLogger m) => MonadJL (ContextHolder s
         doLog logFileMV =
           (liftIO . withMVar logFileMV $ flip appendJL ev)
             `catchAll` \e -> logWarning $ sformat ("Can't write to json log: " % shown) e
+
+instance Monad m => MonadReportingMem (ContextHolder ssc m) where
+    askReportingMem =
+        ContextHolder $
+            asks (ReportingContext . npReportServers . ncNodeParams)
+
+instance Monad m => MonadDhtMem (ContextHolder ssc m) where
+    askDhtMem =
+        ContextHolder $ asks (DhtContext .
+                              bpKademliaDump .
+                              npBaseParams .
+                              ncNodeParams)
+instance Monad m => MonadRelayMem (ContextHolder ssc m) where
+    askRelayMem =
+        ContextHolder
+            (RelayContext
+                <$> asks (npPropagation . ncNodeParams)
+                <*> asks ncInvPropagationQueue
+            )
+
+instance Monad m => MonadShutdownMem (ContextHolder ssc m) where
+    askShutdownMem =
+        ContextHolder
+            (ShutdownContext
+                <$> asks ncShutdownFlag
+                <*> asks ncShutdownNotifyQueue
+            )

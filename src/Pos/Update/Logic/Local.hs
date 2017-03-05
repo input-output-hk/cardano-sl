@@ -39,8 +39,8 @@ import           Pos.Types              (HeaderHash, SlotId (..), slotIdF)
 import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposal,
                                          UpdateVote (..), canCombineVotes)
 import           Pos.Update.MemState    (LocalVotes, MemPool (..), MemState (..),
-                                         MonadUSMem, UpdateProposals, askUSMemState,
-                                         modifyMemPool, withUSLock)
+                                         MonadUSMem, UpdateProposals, addToMemPool,
+                                         askUSMemState, withUSLock)
 import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
                                          MonadPollRead (getProposal), PollModifier,
                                          PollVerFailure, evalPollT, execPollT,
@@ -163,7 +163,7 @@ processSkeleton payload = withUSLock $ runExceptT $ withCurrentTip $ \ms@MemStat
         runDBPoll . evalPollT msModifier . execPollT def $
         verifyAndApplyUSPayload @ssc False (Left msSlot) payload
     let newModifier = modifyPollModifier msModifier modifier
-    let newPool = modifyMemPool payload modifier msPool
+    let newPool = addToMemPool payload msPool
     pure $ ms {msModifier = newModifier, msPool = newPool}
 
 ----------------------------------------------------------------------------

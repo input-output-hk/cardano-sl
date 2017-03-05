@@ -1,7 +1,7 @@
 severity: Info
 node:
     severity: Debug
-    file: node.log
+    files: [node.log, node.log.pub]
     comm:
         severity: Info
     dht:

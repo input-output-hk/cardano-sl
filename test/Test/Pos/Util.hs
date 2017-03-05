@@ -152,7 +152,7 @@ msgLenLimitedTest' limit desc whetherTest =
     listsCheck =
         let doCheck power = forAll (resize (2 ^ power) genNice) $
                 \a -> counterexample desc $
-                    counterexample "When generating data with large lists" $
+                    counterexample "Potentially unlimited size!" $
                         msgLenLimitedCheck limit a
         -- Increase lists length gradually to avoid hanging.
         in  conjoin $ doCheck <$> [1..20 :: Int]

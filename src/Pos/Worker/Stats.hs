@@ -8,8 +8,7 @@ import           Data.Time.Units            (Microsecond)
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (delay)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localWorker)
-import           Pos.Util.TimeWarp          (sec)
-import           Serokell.Util.Exceptions   ()
+import           Serokell.Util              (sec)
 import           System.Wlog                (logWarning)
 import           Universum
 

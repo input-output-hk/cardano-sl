@@ -28,10 +28,15 @@ import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName, WithLogger)
 import           Universum
 
+import           Pos.Communication.Relay   (MonadRelayMem)
 import           Pos.Context               (WithNodeContext)
 import           Pos.DB                    (MonadDB)
 import           Pos.DB.Limits             (MonadDBLimits)
-import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
+import           Pos.DHT.MemState          (MonadDhtMem)
+import           Pos.Reporting             (MonadReportingMem)
+import           Pos.Shutdown              (MonadShutdownMem)
+import           Pos.Slotting.Class        (MonadSlots)
+import           Pos.Slotting.MemState     (MonadSlotsData)
 import           Pos.Ssc.Class.LocalData   (SscLocalDataClass (sscNewLocalData))
 import           Pos.Ssc.Class.Storage     (SscGStateClass (sscLoadGlobalState))
 import           Pos.Ssc.Extra.Class       (MonadSscMem (..))
@@ -56,6 +61,10 @@ newtype SscHolder ssc m a = SscHolder
                , CanLog
                , MonadMask
                , MonadFix
+               , MonadDhtMem
+               , MonadReportingMem
+               , MonadRelayMem
+               , MonadShutdownMem
                , MonadDB
                , MonadDBLimits
                )
@@ -95,7 +104,7 @@ runSscHolder
        --, WithNodeContext ssc m
        --, SscGStateClass ssc
        --, SscLocalDataClass ssc
-       --, MonadDB ssc m
+       --, MonadDB m
        --, MonadSlots m
        )
     => SscState ssc

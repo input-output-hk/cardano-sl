@@ -14,6 +14,7 @@ import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (fork)
+import           Paths_cardano_sl            (version)
 import           Serokell.Util.Exceptions    ()
 import           System.Wlog                 (logInfo, logWarning)
 import           Universum
@@ -55,7 +56,7 @@ lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     (lrcSingleShot siEpoch `catch` reportError) `catch` onLrcError
   where
     reportError (SomeException e) = do
-        reportMisbehaviourMasked $ "Lrc worker failed with error: " <> show e
+        reportMisbehaviourMasked version $ "Lrc worker failed with error: " <> show e
         throwM e
     onLrcError UnknownBlocksForLrc =
         logInfo

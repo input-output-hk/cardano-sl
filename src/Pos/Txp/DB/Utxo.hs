@@ -31,12 +31,13 @@ import qualified Data.Map             as M
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB     as Rocks
 import           Formatting           (bprint, build, sformat, (%))
+import           Serokell.Util        (Color (Red), colorize)
 import           Serokell.Util.Text   (listJson, pairF)
 import           System.Wlog          (WithLogger, logError)
 import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
-import           Pos.Binary.Types     ()
+import           Pos.Binary.Core     ()
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi,
@@ -49,7 +50,6 @@ import           Pos.Txp.Core.Types   (TxIn (..), TxOutAux, Utxo, txOutStake)
 import           Pos.Txp.Toil.Utxo    (belongsTo)
 import           Pos.Types            (Address, Coin, coinF, mkCoin, sumCoins,
                                        unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Util             (Color (..), colorize)
 import           Pos.Util.Iterator    (nextItem)
 
 ----------------------------------------------------------------------------

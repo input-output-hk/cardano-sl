@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Security.Workers
        ( SecurityWorkersClass (..)
@@ -10,6 +10,8 @@ import           Data.Tagged                 (Tagged (..))
 import           Data.Time.Units             (convertUnit)
 import           Formatting                  (build, int, sformat, (%))
 import           Mockable                    (delay)
+import           Paths_cardano_sl            (version)
+import           Serokell.Util               (sec)
 import           System.Wlog                 (logWarning)
 import           Universum
 
@@ -28,6 +30,7 @@ import           Pos.DB.Class                (MonadDB)
 import           Pos.DB.DB                   (getTipBlockHeader, loadBlundsFromTipByDepth)
 import           Pos.Reporting.Methods       (reportMisbehaviourMasked, reportingFatal)
 import           Pos.Security.Class          (SecurityWorkersClass (..))
+import           Pos.Shutdown                (runIfNotShutdown)
 import           Pos.Slotting                (getCurrentSlot, getLastKnownSlotDuration,
                                               onNewSlot)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
@@ -40,8 +43,6 @@ import           Pos.Types                   (BlockHeader, EpochIndex, MainBlock
                                               genesisHash, headerHash, headerLeaderKey,
                                               prevBlockL)
 import           Pos.Util                    (mconcatPair)
-import           Pos.Util.Shutdown           (ifNotShutdown)
-import           Pos.Util.TimeWarp           (sec)
 import           Pos.WorkMode                (WorkMode)
 
 
@@ -100,7 +101,7 @@ checkForReceivedBlocksWorkerImpl
        WorkMode ssc m
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl sendActions =
-    afterDelay . repeatOnInterval . reportingFatal $ do
+    afterDelay . repeatOnInterval . reportingFatal version $ do
         ourPk <- ncPublicKey <$> getNodeContext
         let onSlotDefault slotId = do
                 header <- getTipBlockHeader @ssc
@@ -119,7 +120,7 @@ checkForReceivedBlocksWorkerImpl sendActions =
             "by ourselves"
         triggerRecovery sendActions
         reportEclipse
-    repeatOnInterval action = ifNotShutdown $ do
+    repeatOnInterval action = runIfNotShutdown $ do
         () <- action
         slotDur <- getLastKnownSlotDuration
         delay $ min slotDur $ convertUnit (sec 20)
@@ -132,7 +133,7 @@ checkForReceivedBlocksWorkerImpl sendActions =
                 "Eclipse attack was discovered, mdNoBlocksSlotThreshold: " <>
                 show (mdNoBlocksSlotThreshold :: Int)
         when (nonTrivialUptime && not isRecovery) $
-            reportMisbehaviourMasked reason
+            reportMisbehaviourMasked version reason
 
 
 checkForIgnoredCommitmentsWorker

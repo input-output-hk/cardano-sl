@@ -10,7 +10,7 @@ import qualified Data.Map              as M (singleton)
 import qualified Data.Vector           as V (fromList, singleton, toList)
 import           Formatting            (build, int, sformat, shown, (%))
 import           Serokell.Util.Text    (listJsonIndent)
-import           Serokell.Util.Verify  (VerificationRes (..), isVerFailure, isVerSuccess)
+import           Serokell.Util.Verify  (VerificationRes (..), isVerSuccess)
 import           Test.Hspec            (Expectation, Spec, describe, expectationFailure,
                                         it, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)

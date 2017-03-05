@@ -5,12 +5,14 @@ module Pos.Explorer.Aeson.ClientTypes
        (
        ) where
 
-import           Data.Aeson.TH                (defaultOptions, deriveJSON, deriveToJSON)
+import           Data.Aeson.TH                (defaultOptions, deriveJSON,
+                                               deriveToJSON)
 import           Pos.Aeson                    ()
-import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry,
-                                               CBlockSummary, CHash, CTxEntry, CTxId,
-                                               CTxRelative, CTxRelativeType,
-                                               CNetworkAddress, CTxSummary)
+import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary,
+                                               CBlockEntry, CBlockSummary,
+                                               CHash, CNetworkAddress, CTxEntry,
+                                               CTxId, CTxRelative,
+                                               CTxRelativeType, CTxSummary)
 import           Pos.Explorer.Web.Error       (ExplorerError)
 
 deriveJSON defaultOptions ''CHash

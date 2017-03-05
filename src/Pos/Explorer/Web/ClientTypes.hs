@@ -42,13 +42,13 @@ import qualified Pos.DB.GState          as GS
 import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
+import           Pos.Txp                (Tx (..), TxId, TxOut (..), _txOutputs)
 import           Pos.Types              (Address, Coin, MainBlock, Timestamp,
-                                         addressF, blockTxs,
-                                         decodeTextAddress, difficultyL, gbHeader,
-                                         gbhConsensus, headerHash, mcdSlot, mkCoin,
+                                         addressF, blockTxs, decodeTextAddress,
+                                         difficultyL, gbHeader, gbhConsensus,
+                                         headerHash, mcdSlot, mkCoin,
                                          prevBlockL, sumCoins, unsafeAddCoin,
                                          unsafeIntegerToCoin)
-import           Pos.Txp                (Tx (..), TxId, TxOut (..), _txOutputs)
 import           Pos.Util               (maybeThrow)
 
 import           Pos.Explorer.Web.Error (ExplorerError (..))

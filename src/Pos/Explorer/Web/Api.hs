@@ -10,9 +10,10 @@ module Pos.Explorer.Web.Api
 
 import           Data.Proxy                   (Proxy (Proxy))
 
-import           Pos.Explorer.Web.ClientTypes (CHash, CAddress, CAddressSummary,
+import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary,
                                                CBlockEntry, CBlockSummary,
-                                               CTxEntry, CTxId, CTxSummary)
+                                               CHash, CTxEntry, CTxId,
+                                               CTxSummary)
 import           Pos.Explorer.Web.Error       (ExplorerError)
 import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
                                                QueryParam)

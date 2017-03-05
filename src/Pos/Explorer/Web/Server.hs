@@ -13,8 +13,8 @@ module Pos.Explorer.Web.Server
 import           Control.Monad.Catch            (try)
 import           Control.Monad.Loops            (unfoldrM)
 import           Control.Monad.Trans.Maybe      (MaybeT (..))
-import           Data.Maybe                     (fromMaybe, fromJust)
 import qualified Data.HashMap.Strict            as HM
+import           Data.Maybe                     (fromJust, fromMaybe)
 import           Network.Wai                    (Application)
 import           Servant.API                    ((:<|>) ((:<|>)))
 import           Servant.Server                 (Server, ServerT, serve)
@@ -25,20 +25,20 @@ import           Pos.Crypto                     (WithHash (..), withHash)
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.GState                  as GS
 import           Pos.DB.GState.Explorer         as GS (getTxExtra)
-import           Pos.Types.Explorer             (TxExtra (..))
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Types                      (Address (..), HeaderHash,
-                                                 MainBlock, Timestamp, SlotId,
-                                                 blockTxs, gbHeader,
-                                                 gbhConsensus, mcdSlot, mkCoin,
-                                                 prevBlockL, sumCoins,
-                                                 unsafeIntegerToCoin,
-                                                 difficultyL, unsafeSubCoin)
 import           Pos.Txp                        (Tx (..), TxId, TxOut (..),
+                                                 getLocalTxs, getMemPool,
                                                  topsortTxs, txOutAddress,
-                                                 _txOutputs, getLocalTxs,
-                                                 getMemPool, _mpLocalTxs)
+                                                 _mpLocalTxs, _txOutputs)
+import           Pos.Types                      (Address (..), HeaderHash,
+                                                 MainBlock, SlotId, Timestamp,
+                                                 blockTxs, difficultyL,
+                                                 gbHeader, gbhConsensus,
+                                                 mcdSlot, mkCoin, prevBlockL,
+                                                 sumCoins, unsafeIntegerToCoin,
+                                                 unsafeSubCoin)
+import           Pos.Types.Explorer             (TxExtra (..))
 import           Pos.Util                       (maybeThrow)
 import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
@@ -52,10 +52,10 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
                                                  CTxEntry (..), CTxId (..),
                                                  CTxSummary (..),
                                                  TxInternal (..), fromCAddress,
-                                                 fromCHash', toBlockEntry,
-                                                 toBlockSummary, toTxEntry,
-                                                 fromCTxId,
-                                                 toPosixTime, toCAddress)
+                                                 fromCHash', fromCTxId,
+                                                 toBlockEntry, toBlockSummary,
+                                                 toCAddress, toPosixTime,
+                                                 toTxEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 ----------------------------------------------------------------

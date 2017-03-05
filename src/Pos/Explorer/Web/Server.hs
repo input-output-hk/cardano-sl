@@ -14,6 +14,7 @@ import           Control.Monad.Catch            (try)
 import           Control.Monad.Loops            (unfoldrM)
 import           Control.Monad.Trans.Maybe      (MaybeT (..))
 import           Data.Maybe                     (fromMaybe, fromJust)
+import qualified Data.HashMap.Strict            as HM
 import           Network.Wai                    (Application)
 import           Servant.API                    ((:<|>) ((:<|>)))
 import           Servant.Server                 (Server, ServerT, serve)
@@ -36,7 +37,8 @@ import           Pos.Types                      (Address (..), HeaderHash,
                                                  difficultyL, unsafeSubCoin)
 import           Pos.Txp                        (Tx (..), TxId, TxOut (..),
                                                  topsortTxs, txOutAddress,
-                                                 _txOutputs, getLocalTxs)
+                                                 _txOutputs, getLocalTxs,
+                                                 getMemPool, _mpLocalTxs)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
@@ -224,13 +226,10 @@ getSlotStartOrFail sid =
 
 fetchTxFromMempoolOrFail :: ExplorerMode m => TxId -> m Tx
 fetchTxFromMempoolOrFail txId = do
-    localTxs <- getLocalTxs
-    let filtered = [snd tx | tx <- localTxs, fst tx == txId]
-
-    case filtered of
-        []   -> throwM $ Internal "transaction not found in the mempool"
-        [tx] -> pure $ view _1 tx
-        _    -> throwM $ Internal "multiple transactions with the same id found in the mempool"
+    maybeTx <- HM.lookup txId . _mpLocalTxs <$> getMemPool
+    case maybeTx of
+        Nothing -> throwM $ Internal "transaction not found in the mempool"
+        Just tx -> pure $ view _1 tx
 
 mempoolTxs :: ExplorerMode m => m [TxInternal]
 mempoolTxs = do

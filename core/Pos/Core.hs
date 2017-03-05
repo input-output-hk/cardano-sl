@@ -4,6 +4,7 @@ module Pos.Core
 
 import           Pos.Core.Address   as X
 import           Pos.Core.Block     as X
+import           Pos.Core.Coin      as X
 import           Pos.Core.Constants as X
 import           Pos.Core.Script    as X ()
 import           Pos.Core.Slotting  as X

@@ -79,21 +79,17 @@ handleInvL
        )
     => RelayProxy key tag contents
     -> InvMsg key tag
-    -> m [key]
+    -> m (Maybe key)
 handleInvL proxy msg@(InvMsg{..}) =
-    processMessage [] "Inventory" imTag verifyInvTag $ do
+    processMessage Nothing "Inventory" imTag verifyInvTag $ do
         let _ = invCatchType proxy msg
-         -- TODO remove this msg when InvMsg datatype will contain only one key
-        when (NE.length imKeys /= 1) $
-            logWarning $ "InvMsg constains more than one key, we'll handle only first"
-        let imKey = imKeys NE.!! 0
         invRes <- handleInv imTag imKey
         if invRes then
-            [imKey] <$ logDebug (sformat
+            Just imKey <$ logDebug (sformat
               ("We'll request data "%build%" for key "%build%", because it's useful")
               imTag imKey)
         else
-            [] <$ logDebug (sformat
+            Nothing <$ logDebug (sformat
               ("Ignoring inv "%build%" for key "%build%", because it's useless")
               imTag imKey)
 
@@ -114,10 +110,6 @@ handleReqL proxy = reifyMsgLimit (Proxy @(ReqMsg key tag)) $
     whenJustM recv $ \(withLimitedLength @s -> msg@ReqMsg {..}) -> do
       let _ = reqCatchType proxy msg
       processMessage () "Request" rmTag verifyReqTag $ do
-          -- TODO remove this msg when InvMsg datatype will contain only one key
-          when (NE.length rmKeys /= 1) $
-              logWarning $ "ReqMsg constains more than one key, we'll handle only first"
-          let rmKey = rmKeys NE.!! 0
           dtMB <- handleReq rmTag rmKey
           case dtMB of
               Nothing ->
@@ -160,7 +152,7 @@ handleDataL proxy msg@(DataMsg {..}) =
         if shouldPropagate then do
             tag <- contentsToTag dmContents
             let inv :: InvOrData tag key contents
-                inv = Left $ InvMsg tag (one dmKey)
+                inv = Left $ InvMsg tag dmKey
             addToRelayQueue inv
             logInfo $ sformat
                 ("Adopted data "%build%" "%
@@ -222,7 +214,7 @@ relayListeners proxy = mergeLs <$> sequence [handleReqL proxy, invDataListener]
             whenJust (withLimitedLength <$> inv') $ expectLeft $
                 \inv@InvMsg{..} -> do
                     useful <- handleInvL proxy inv
-                    whenJust (NE.nonEmpty useful) $ \ne -> do
+                    whenJust useful $ \ne -> do
                         send $ ReqMsg imTag ne
                         dt' <- recv
                         whenJust (withLimitedLength <$> dt') $ expectRight $
@@ -299,8 +291,8 @@ relayWorkers allOutSpecs =
         forever $ atomically (readTBQueue queue) >>= \case
             SomeInvMsg i@(Left (InvMsg{..})) -> do
                 logDebug $ sformat
-                    ("Propagation data with keys: "%listJson%
-                     " and tag: "%build) imKeys imTag
+                    ("Propagation data with key: "%build%
+                     " and tag: "%build) imKey imTag
                 converseToNeighbors sendActions (convHandler i)
             SomeInvMsg (Right _) ->
                 logWarning $ "DataMsg is contains in inv propagation queue"
@@ -371,7 +363,7 @@ invReqDataFlowDo ::
         (LimitedLength s (ReqMsg id tag)) m
     -> m ()
 invReqDataFlowDo what tag id dt _ nodeId conv = do
-    send conv $ Left $ InvMsg tag (one id)
+    send conv $ Left $ InvMsg tag id
     recvLimited conv >>= maybe handleD replyWithData
   where
     replyWithData (ReqMsg _ _) = send conv $ Right $ DataMsg dt

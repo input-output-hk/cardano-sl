@@ -28,31 +28,24 @@ clean=false
 
 spec_prj=''
 
-for prj in $projects
+for var in "$@"
 do
-  if [[ "$@" == "$prj" ]]; then
-    spec_prj=$prj
+  # -t = run tests
+  if [[ $var == "-t" ]]; then
+    test=true
+  # -c = clean
+  elif [[ $var == "-c" ]]; then
+    clean=true
+  # project name = build only the project
+  elif [[ $var == "sl" ]]; then
+    spec_prj="sl"
+  elif [[ " $projects " =~ " $var " ]]; then
+    spec_prj=$var
+  # otherwise pass the arg to stack
+  else
+    args="$args $var"
   fi
 done
-if [[ "$@" == "sl" ]]; then
-  spec_prj="sl"
-fi
-
-if [[ $spec_prj == "" ]]; then
-  for var in "$@"
-  do
-    # -t = run tests
-    if [[ $var == "-t" ]]; then
-      test=true
-    # -c = clean
-    elif [[ $var == "-c" ]]; then
-      clean=true
-    # otherwise pass the arg to stack
-    else
-      args="$args $var"
-    fi
-  done
-fi
 
 # TODO: how can --ghc-options be moved into commonargs?
 commonargs='--test --no-haddock-deps --bench --jobs=4'

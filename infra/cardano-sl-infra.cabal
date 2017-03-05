@@ -10,9 +10,14 @@ copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
+flag dev-mode
+  default:     True
+  manual:      True
+
+  description: Switch between Development and Production mode
 
 library
-  exposed-modules:      
+  exposed-modules:
                         -- Reporting
                         Pos.Reporting
                         Pos.Reporting.MemState
@@ -158,3 +163,5 @@ library
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+  if flag(dev-mode)
+    cpp-options: -DDEV_MODE

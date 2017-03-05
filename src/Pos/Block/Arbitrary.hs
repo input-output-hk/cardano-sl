@@ -7,7 +7,7 @@ module Pos.Block.Arbitrary
        ) where
 
 import           Data.Ix              (range)
-import           Data.List.NonEmpty   (fromList)
+import           Data.List.NonEmpty   (nonEmpty)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Formatting           (bprint, build, formatToString, (%))
@@ -27,12 +27,11 @@ import           Pos.Ssc.Class        (Ssc (..), SscHelpersClass)
 import qualified Pos.Types            as T
 import           Pos.Update.Arbitrary ()
 import           Pos.Util.Arbitrary   (makeSmall)
-import qualified Prelude
-import           System.Random        (mkStdGen, randomR)
 
 newtype BodyDependsOnConsensus b = BodyDependsOnConsensus
     { genBodyDepsOnConsensus :: T.ConsensusData b -> Gen (T.Body b)
     }
+
 ------------------------------------------------------------------------------------------
 -- Arbitrary instances for Blockchain related types
 ------------------------------------------------------------------------------------------
@@ -383,6 +382,6 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                 , T.vhpPrevHeader = prev
                 , T.vhpNextHeader = next
                 , T.vhpCurrentSlot = randomSlotBeforeThisHeader
-                , T.vhpLeaders = Just $ fromList $ map T.addressHash thisHeadersEpoch
+                , T.vhpLeaders = nonEmpty $ map T.addressHash thisHeadersEpoch
                 }
         return . HAndP $ (params, header)

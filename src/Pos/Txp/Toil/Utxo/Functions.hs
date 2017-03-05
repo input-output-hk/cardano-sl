@@ -49,7 +49,7 @@ verifyTxUtxo verifyVersions txaux = do
 -- | Remove unspent outputs used in given transaction, add new unspent
 -- outputs.
 applyTxToUtxo :: MonadUtxo m => WithHash Tx -> TxDistribution -> m ()
-applyTxToUtxo (WithHash Tx{..} txid) distr = do
+applyTxToUtxo (WithHash UnsafeTx{..} txid) distr = do
     mapM_ utxoDel _txInputs
     mapM_ applyOutput . zip [0..] . zip _txOutputs $ getTxDistribution distr
   where
@@ -58,7 +58,7 @@ applyTxToUtxo (WithHash Tx{..} txid) distr = do
 rollbackTxUtxo
     :: (MonadError TxpVerFailure m, MonadUtxo m)
     => (TxAux, TxUndo) -> m ()
-rollbackTxUtxo ((tx@Tx{..}, _, _), undo) = do
+rollbackTxUtxo ((tx@UnsafeTx{..}, _, _), undo) = do
     unless (length _txInputs == length undo) $
         throwError $ TxpInvalidUndoLength (length _txInputs) (length undo)
     let txid = hash tx

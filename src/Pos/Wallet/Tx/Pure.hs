@@ -60,7 +60,7 @@ type TxError = Text
 -- | Generic function to create a transaction, given desired inputs, outputs and a
 -- way to construct witness from signature data
 makeAbstractTx :: (TxSigData -> TxInWitness) -> TxInputs -> TxOutputs -> TxAux
-makeAbstractTx mkWit txInputs outputs = ( Tx txInputs txOutputs txAttributes
+makeAbstractTx mkWit txInputs outputs = ( UnsafeTx txInputs txOutputs txAttributes
                                         , txWitness
                                         , txDist)
   where
@@ -148,11 +148,11 @@ createMOfNTx utxo keys outputs = uncurry (makeMOfNTx validator sks) <$> inpOuts
 
 -- | Check if given 'Address' is one of the receivers of 'Tx'
 hasReceiver :: Tx -> Address -> Bool
-hasReceiver Tx {..} addr = any ((== addr) . txOutAddress) _txOutputs
+hasReceiver UnsafeTx {..} addr = any ((== addr) . txOutAddress) _txOutputs
 
 -- | Given some 'Utxo', check if given 'Address' is one of the senders of 'Tx'
 hasSender :: MonadUtxoRead m => Tx -> Address -> m Bool
-hasSender Tx {..} addr = anyM hasCorrespondingOutput _txInputs
+hasSender UnsafeTx {..} addr = anyM hasCorrespondingOutput _txInputs
   where hasCorrespondingOutput txIn =
             fmap toBool $ fmap ((== addr) . txOutAddress . fst) <$> utxoGet txIn
         toBool Nothing  = False

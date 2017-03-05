@@ -155,7 +155,7 @@ txOutStake (TxOut{..}, mb) = case txOutAddress of
 -- | Transaction.
 --
 -- NB: transaction witnesses are stored separately.
-data Tx = Tx
+data Tx = UnsafeTx
     { _txInputs     :: ![TxIn]   -- ^ Inputs of transaction.
     , _txOutputs    :: ![TxOut]  -- ^ Outputs of transaction.
     , _txAttributes :: !TxAttributes -- ^ Attributes of transaction
@@ -169,7 +169,7 @@ type TxAux = (Tx, TxWitness, TxDistribution)
 instance Bi Address => Hashable Tx
 
 instance Bi Address => Buildable Tx where
-    build Tx {..} =
+    build UnsafeTx {..} =
         bprint
             ("Transaction with inputs "%listJson%", outputs: "%listJson)
             _txInputs _txOutputs
@@ -193,7 +193,7 @@ mkTx inputs outputs attrs
     | null outputs = fail "transaction doesn't have outputs"
     | VerFailure ers <- verifyOutputs =
         fail $ T.unpack $ T.intercalate "; " ers
-    | otherwise = pure $ Tx inputs outputs attrs
+    | otherwise = pure $ UnsafeTx inputs outputs attrs
   where
     verifyOutputs = verifyGeneric $ concat $
                     zipWith outputPredicates [0..] outputs

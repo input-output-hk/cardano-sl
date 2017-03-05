@@ -137,7 +137,7 @@ concatStakes (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
   where
     txasTxOutDistr = concatMap concatDistr txas
     undoTxInDistr = concatMap txOutStake (concat undo)
-    concatDistr (Tx{..}, _, distr)
+    concatDistr (UnsafeTx{..}, _, distr)
         = concatMap txOutStake (zip _txOutputs (getTxDistribution distr))
 
 processTxWithPureChecks

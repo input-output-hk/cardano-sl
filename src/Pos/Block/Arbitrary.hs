@@ -153,7 +153,7 @@ txOutDistGen = listOf $ do
     txInW <- arbitrary
     txIns <- getNonEmpty <$> arbitrary
     (txOuts, txDist) <- second T.TxDistribution . unzip . getNonEmpty <$> arbitrary
-    return $ (T.Tx txIns txOuts $ mkAttributes (), txDist, txInW)
+    return $ (T.UnsafeTx txIns txOuts $ mkAttributes (), txDist, txInW)
 
 instance Arbitrary (SscPayloadDependsOnSlot ssc) =>
          Arbitrary (BodyDependsOnConsensus (T.MainBlockchain ssc)) where

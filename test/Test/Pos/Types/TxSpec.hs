@@ -276,7 +276,7 @@ scriptTxSpec = describe "script transactions" $ do
     checkScriptTx val mkWit =
         let (inp, _, utxo) = mkUtxo $
                 TxOut (makeScriptAddress val) (mkCoin 1)
-            tx = Tx [inp] [randomPkOutput] (mkAttributes ())
+            tx = UnsafeTx [inp] [randomPkOutput] $ mkAttributes ()
             txDistr = TxDistribution [[]]
             txSigData = (txInHash inp, 0, hash [randomPkOutput], hash txDistr)
         in tryApplyTx utxo (tx, V.singleton (mkWit txSigData), txDistr)
@@ -312,15 +312,15 @@ errorsShouldMatch (VerFailure xs) ys = do
                  build)
                 i y x
 validateGoodTxAlone :: Tx -> Bool
-validateGoodTxAlone Tx{..} = isJust $ mkTx _txInputs _txOutputs _txAttributes
+validateGoodTxAlone UnsafeTx{..} = isJust $ mkTx _txInputs _txOutputs _txAttributes
 
 invalidateBadTxAlone :: Tx -> Bool
-invalidateBadTxAlone Tx {..} =
-    all (\Tx{..} -> isNothing $ mkTx _txInputs _txOutputs _txAttributes) badTxs
+invalidateBadTxAlone UnsafeTx {..} =
+    all (\UnsafeTx{..} -> isNothing $ mkTx _txInputs _txOutputs _txAttributes) badTxs
   where
     zeroOutputs = fmap (\(TxOut a _) -> TxOut a (mkCoin 0)) _txOutputs
     badTxs =
-        map (\(is, os) -> Tx is os (mkAttributes ())) $
+        map (\(is, os) -> UnsafeTx is os (mkAttributes ())) $
         [([], _txOutputs), (_txInputs, []), (_txInputs, zeroOutputs)]
 
 type TxVerifyingTools =
@@ -344,12 +344,12 @@ getTxFromGoodTx ls =
         inpResolver inp = lookup inp
             [ (i, (unsafeHead o, unsafeHead d))  -- here we rely on
                                                  -- txs having only one output
-            | ((Tx _ o _, TxDistribution d), i, _, _) <- ls ]
+            | ((UnsafeTx _ o _, TxDistribution d), i, _, _) <- ls ]
         extendInput txIn = (txIn,) <$> inpResolver txIn
         extendedInputs :: [Maybe (TxIn, TxOutAux)]
         extendedInputs = map extendInput _txInputs
         _txAttributes = mkAttributes ()
-    in ((Tx {..}, txDist), inpResolver, extendedInputs, txWitness)
+    in ((UnsafeTx {..}, txDist), inpResolver, extendedInputs, txWitness)
 
 -- | This function takes a list of resolved inputs from a transaction, that
 -- same transaction's outputs, and verifies that the input sum is greater than
@@ -369,7 +369,7 @@ txChecksum extendedInputs txOuts =
 -- * every input is a known unspent output.
 -- It also checks that it has good structure w.r.t. 'verifyTxAlone'.
 individualTxPropertyVerifier :: TxVerifyingTools -> Bool
-individualTxPropertyVerifier ((tx@Tx{..}, dist), _, extendedInputs, txWits) =
+individualTxPropertyVerifier ((tx@UnsafeTx{..}, dist), _, extendedInputs, txWits) =
     let hasGoodSum = txChecksum extendedInputs _txOutputs
         hasGoodStructure = validateGoodTxAlone tx
         hasGoodInputs = all
@@ -401,7 +401,7 @@ signatureIsNotValid txOutputs = not . signatureIsValid txOutputs
 
 badSigsTx :: SmallBadSigsTx -> Bool
 badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
-    let ((tx@Tx{..}, dist), inpResolver, extendedInputs, txWits) =
+    let ((tx@UnsafeTx{..}, dist), inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
         transactionIsNotVerified = isLeft $
             verifyTxPure False
@@ -422,7 +422,7 @@ txGen size = do
     inputs <- replicateM inputsN $ (\h -> TxIn h 0) <$> arbitrary
     outputs <- replicateM outputsN $
         TxOut <$> arbitrary <*> arbitrary
-    pure $ Tx inputs outputs (mkAttributes ())
+    pure $ UnsafeTx inputs outputs $ mkAttributes ()
 
 testTopsort :: Bool -> Property
 testTopsort isBamboo =
@@ -474,7 +474,7 @@ txAcyclicGen isBamboo size = do
         -- gen some outputs
         outputs <- replicateM outputsN (TxOut <$> arbitrary <*> arbitrary)
         -- calculate new utxo & add vertex
-        let tx = Tx inputs outputs (mkAttributes ())
+        let tx = UnsafeTx inputs outputs $ mkAttributes ()
             producedUtxo = map (tx,) $ [0..(length outputs) - 1]
             newVertices = tx : vertices
             newUtxo = (unusedUtxo \\ chosenUtxo) ++ producedUtxo

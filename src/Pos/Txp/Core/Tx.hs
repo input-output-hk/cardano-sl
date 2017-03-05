@@ -79,7 +79,7 @@ verifyTx
     -> TxAux
     -> m (Either [Text] TxUndo)
 verifyTx verifyVersions gContext inputResolver
-         txs@(Tx {..}, _, _) = do
+         txs@(UnsafeTx {..}, _, _) = do
     extendedInputs <- mapM extendInput _txInputs
     runExceptT $ do
         verResToMonadError identity $
@@ -96,7 +96,7 @@ verifyTxDo
     -> TxAux
     -> VerificationRes
 verifyTxDo verifyVersions _gContext extendedInputs
-           (Tx{..}, witnesses, distrs)
+           (UnsafeTx{..}, witnesses, distrs)
   = mconcat [verifyCounts, verifySum, verifyInputs, verifyOutputs]
   where
     outSum :: Integer

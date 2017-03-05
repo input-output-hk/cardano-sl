@@ -12,14 +12,15 @@ import           Formatting            (bprint, build, (%))
 import           Serokell.Util.Text    (listJson)
 import           Universum
 
+import           Pos.Core.Types        (HasDifficulty (..), HasHeaderHash (..),
+                                        ProxySKHeavy)
+import           Pos.Txp.Core.Types    (TxsUndo)
 import           Pos.Types.Block       (BiSsc, Block)
-import           Pos.Types.Core        (HasDifficulty (..), HasHeaderHash (..))
-import           Pos.Types.Types       (ProxySKHeavy, TxUndo)
 import           Pos.Update.Poll.Types (USUndo)
 
 -- | Structure for undo block during rollback
 data Undo = Undo
-    { undoTx  :: !TxUndo
+    { undoTx  :: !TxsUndo
     , undoPsk :: ![ProxySKHeavy] -- ^ PSKs we've overwritten/deleted
     , undoUS  :: !USUndo
     } deriving (Generic)

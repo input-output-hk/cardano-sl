@@ -1,5 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Types for Shared Seed calculation.
 
@@ -56,4 +55,4 @@ class ( Typeable ssc
     mkSscProof :: Tagged ssc (SscPayload ssc -> SscProof ssc)
 
     -- | Create SscNodeContext
-    sscCreateNodeContext :: MonadIO m => SscParams ssc -> m (SscNodeContext ssc)
+    sscCreateNodeContext :: MonadIO m => Tagged ssc (SscParams ssc -> m (SscNodeContext ssc))

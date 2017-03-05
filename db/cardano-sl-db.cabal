@@ -1,0 +1,70 @@
+name:                cardano-sl-db
+version:             0.1.0.0
+synopsis:            Cardano SL - basic DB interfaces
+description:         Cardano SL - basic DB interfaces
+license:             MIT
+license-file:        LICENSE
+author:              Serokell
+maintainer:          hi@serokell.io
+copyright:           2016 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     Pos.DB
+                       Pos.DB.Class
+                       Pos.DB.Error
+                       Pos.DB.Functions
+                       Pos.DB.GState.Common
+                       Pos.DB.Holder
+                       Pos.DB.Iterator
+                       Pos.DB.Iterator.Class
+                       Pos.DB.Iterator.DBIterator
+                       Pos.DB.Limits
+                       Pos.DB.Misc.Common
+                       Pos.DB.Types
+
+  build-depends:       base
+                     , bytestring
+                     , cardano-sl-core
+                     , concurrent-extra
+                     , data-default
+                     , formatting
+                     , lens
+                     , log-warper
+                     , mtl
+                     , node-sketch
+                     , resourcet
+                     , rocksdb
+                     , serokell-util
+                     , transformers-base
+                     , text-format
+                     , universum
+
+  default-language:    Haskell2010
+
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

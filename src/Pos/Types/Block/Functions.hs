@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
@@ -42,9 +41,19 @@ import           Universum
 
 import           Pos.Binary.Block.Types     ()
 import qualified Pos.Binary.Class           as Bi
-import           Pos.Binary.Types           ()
+import           Pos.Binary.Core            ()
 import           Pos.Binary.Update          ()
 import           Pos.Constants              (epochSlots, lastKnownBlockVersion)
+import           Pos.Core                   (BlockVersion, ChainDifficulty, EpochIndex,
+                                             EpochOrSlot, HasDifficulty (..),
+                                             HasEpochIndex (..), HasEpochOrSlot (..),
+                                             HasHeaderHash (..), HeaderHash,
+                                             ProxySKEither, ProxySKHeavy, SlotId (..),
+                                             SlotId, SlotLeaders)
+import           Pos.Core.Address           (Address (..), addressHash)
+import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
+                                             GenericBlockHeader (..), gbBody, gbBodyProof,
+                                             gbHeader, gbhExtra, prevBlockL)
 import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySign,
                                              proxyVerify, pskIssuerPk, pskOmega, sign,
                                              toPublic, unsafeHash)
@@ -52,10 +61,9 @@ import           Pos.Merkle                 (mkMerkleTree)
 import           Pos.Script                 (isKnownScriptVersion, scrVersion)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types        (Ssc (..))
-import           Pos.Types.Address          (Address (..), addressHash)
-import           Pos.Types.Block.Class      (Blockchain (..), GenericBlock (..),
-                                             GenericBlockHeader (..), gbBody, gbBodyProof,
-                                             gbHeader, gbhExtra, prevBlockL)
+import           Pos.Txp.Core.Tx            (verifyTxAlone)
+import           Pos.Txp.Core.Types         (Tx (..), TxDistribution, TxInWitness (..),
+                                             TxOut (..), TxWitness)
 import           Pos.Types.Block.Instances  (Body (..), ConsensusData (..), blockLeaders,
                                              blockMpc, blockProxySKs, blockTxs,
                                              getBlockHeader, getBlockHeader,
@@ -68,15 +76,6 @@ import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
                                              MainBlock, MainBlockHeader, MainBlockchain,
                                              MainExtraBodyData (..), MainExtraHeaderData,
                                              mehBlockVersion)
-import           Pos.Types.Core             (BlockVersion, ChainDifficulty, EpochIndex,
-                                             EpochOrSlot, HasDifficulty (..),
-                                             HasEpochIndex (..), HasEpochOrSlot (..),
-                                             HasHeaderHash (..), HeaderHash, SlotId (..),
-                                             SlotId)
-import           Pos.Types.Tx               (verifyTxAlone)
--- Unqualified import is used here because of GHC bug (trac 12127).
--- See: https://ghc.haskell.org/trac/ghc/ticket/12127
-import           Pos.Types.Types
 import           Pos.Update.Core            (UpdatePayload)
 import           Pos.Util                   (NewestFirst (..), OldestFirst)
 
@@ -534,7 +533,7 @@ checkNoUnknownVersions blk = mconcat $ map toVerRes $ concat [
     toVerRes (Left e)  = VerFailure [sformat build e]
 
     -- Check a transaction
-    checkTx txI Tx{..} = imap (checkOutput txI) txOutputs
+    checkTx txI Tx{..} = imap (checkOutput txI) _txOutputs
     -- Check an output
     checkOutput txI outI TxOut{..} = case txOutAddress of
         UnknownAddressType t _ -> Left $

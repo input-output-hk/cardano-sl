@@ -27,7 +27,8 @@ import           Pos.Communication.PeerState (PeerStateHolder)
 import           Serokell.Data.Memory.Units  (Byte)
 import           Universum
 
-import           Pos.Types                   (HeaderHash, Tx, Utxo)
+import           Pos.Txp.Core.Types          (Tx, Utxo)
+import           Pos.Types                   (HeaderHash)
 import           Pos.Wallet.State.Acidic     (WalletState, closeState, openMemState,
                                               openState)
 import           Pos.Wallet.State.Acidic     as A

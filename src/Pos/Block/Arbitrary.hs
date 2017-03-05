@@ -24,6 +24,7 @@ import           Pos.Data.Attributes  (Attributes (..), mkAttributes)
 import           Pos.Merkle           (MerkleRoot (..), MerkleTree, mkMerkleTree)
 import           Pos.Ssc.Arbitrary    (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.Class        (Ssc (..), SscHelpersClass)
+import qualified Pos.Txp.Core.Types   as T
 import qualified Pos.Types            as T
 import           Pos.Update.Arbitrary ()
 import           Pos.Util.Arbitrary   (makeSmall)
@@ -195,7 +196,7 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) => Arbitrary (T.MsgHeaders 
     arbitrary = T.MsgHeaders <$> arbitrary
 
 instance (Arbitrary (SscProof ssc), Arbitrary (SscPayloadDependsOnSlot ssc), SscHelpersClass ssc) =>
-    Arbitrary (T.MsgBlock s ssc) where
+    Arbitrary (T.MsgBlock ssc) where
     arbitrary = T.MsgBlock <$> arbitrary
 
 instance T.BiSsc ssc => Buildable (T.BlockHeader ssc, PublicKey) where

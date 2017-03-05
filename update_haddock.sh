@@ -4,7 +4,7 @@ set -euo pipefail
 echo "Haddock updating"
 
 echo "**** 1. Rebuild documentation ****"
-stack --nix --no-terminal haddock --no-haddock-deps
+stack --nix --no-terminal haddock --fast
 
 readonly PROJECT_NAME=$(cat ./*.cabal | grep "name:" | awk '{ print $2 }')
 readonly PROJECT_VERSION=$(cat ./*.cabal | grep "version:" | grep -v "cabal" | awk '{ print $2 }')

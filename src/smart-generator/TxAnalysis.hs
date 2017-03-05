@@ -1,4 +1,5 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module TxAnalysis
        ( createTxTimestamps
@@ -20,10 +21,11 @@ import           Universum             hiding (catchAll)
 
 import           Pos.Constants         (blkSecurityParam, genesisSlotDuration)
 import           Pos.Crypto            (hash)
-import           Pos.DB                (loadBlundsFromTipByDepth)
+import           Pos.DB.DB             (loadBlundsFromTipByDepth)
 import           Pos.Slotting          (getCurrentSlotBlocking, getSlotStartEmpatically)
 import           Pos.Ssc.Class         (SscConstraint)
-import           Pos.Types             (SlotId (..), TxId, blockSlot, blockTxs)
+import           Pos.Txp               (TxId)
+import           Pos.Types             (SlotId (..), blockSlot, blockTxs)
 import           Pos.WorkMode          (ProductionMode)
 
 import           Util                  (verifyCsvFile, verifyCsvFormat)
@@ -55,11 +57,13 @@ appendVerified ts roundNum df logsPrefix = do
         dfText = mconcat $ map verifyCsvFormat df'
     appendFile (logsPrefix </> verifyCsvFile roundNum) dfText
 
-checkTxsInLastBlock :: forall ssc . SscConstraint ssc
-                    => TxTimestamps -> FilePath -> ProductionMode ssc ()
+checkTxsInLastBlock
+    :: forall ssc.
+       SscConstraint ssc
+    => TxTimestamps -> FilePath -> ProductionMode ssc ()
 checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
     mBlock <- preview (_Wrapped . _last . _1) <$>
-              loadBlundsFromTipByDepth blkSecurityParam
+              loadBlundsFromTipByDepth @ssc blkSecurityParam
     case mBlock of
         Nothing -> pure ()
         Just (Left _) -> pure ()

@@ -1,6 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | A wrapper over Plutus (the scripting language used in transactions).
 module Pos.Script
@@ -31,8 +30,9 @@ import           Universum                  hiding (lift)
 import           Pos.Binary.Class           (Bi)
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Binary.Crypto          ()
-import           Pos.Types.Script           (Script (..), ScriptVersion, Script_v0)
-import           Pos.Types.Types            (TxSigData)
+import           Pos.Core.Script            ()
+import           Pos.Core.Types             (Script (..), ScriptVersion, Script_v0)
+import           Pos.Txp.Core.Types         (TxSigData)
 
 {- NOTE
 

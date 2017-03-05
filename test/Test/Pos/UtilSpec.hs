@@ -1,4 +1,3 @@
-{-# LANGUAGE RankNTypes #-}
 -- | Pos.Util specification
 
 module Test.Pos.UtilSpec

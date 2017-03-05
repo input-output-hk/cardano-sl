@@ -1,6 +1,4 @@
-{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Ssc.GodTossing.Type
        ( SscGodTossing
@@ -12,7 +10,7 @@ import           Data.Tagged                        (Tagged (..))
 import           Universum
 
 import           Pos.Binary.Ssc                     ()
-import           Pos.Binary.Types                   ()
+import           Pos.Binary.Core                   ()
 import           Pos.Ssc.Class.Helpers              (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types                (Ssc (..))
 import           Pos.Ssc.GodTossing.Core            (GtPayload, GtProof, mkGtProof)
@@ -41,7 +39,7 @@ instance Ssc SscGodTossing where
     type SscParams      SscGodTossing = GtParams
     type SscVerifyError SscGodTossing = TossVerFailure
     mkSscProof = Tagged mkGtProof
-    sscCreateNodeContext = createGtContext
+    sscCreateNodeContext = Tagged createGtContext
 
 instance SscHelpersClass SscGodTossing where
     sscVerifyPayload = Tagged verifyGtPayload

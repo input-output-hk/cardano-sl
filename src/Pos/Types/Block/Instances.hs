@@ -1,6 +1,5 @@
 {-# LANGUAGE CPP                  #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -45,31 +44,30 @@ import           Data.Tagged           (untag)
 import           Data.Text.Buildable   (Buildable)
 import qualified Data.Text.Buildable   as Buildable
 import           Formatting            (bprint, build, int, sformat, stext, (%))
-import           Serokell.Util.Text    (listJson)
+import           Serokell.Util         (Color (Magenta), colorize, listJson)
 import           Universum
 
 import           Pos.Binary.Class      (Bi)
+import           Pos.Core.Block        (Blockchain (..), GenericBlock (..),
+                                        GenericBlockHeader (..), HasPrevBlock (..),
+                                        gbBody, gbHeader, gbhConsensus, gbhPrevBlock)
+import           Pos.Core.Types        (ChainDifficulty, EpochIndex (..),
+                                        HasDifficulty (..), HasEpochIndex (..),
+                                        HasEpochOrSlot (..), HasHeaderHash (..),
+                                        HeaderHash, ProxySKHeavy, SlotId (..),
+                                        SlotLeaders, slotIdF)
 import           Pos.Crypto            (Hash, PublicKey, hash, hashHexF, unsafeHash)
 import           Pos.Merkle            (MerkleRoot, MerkleTree, mtRoot)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
-import           Pos.Types.Block.Class (Blockchain (..), GenericBlock (..),
-                                        GenericBlockHeader (..), HasPrevBlock (..),
-                                        gbBody, gbHeader, gbhConsensus, gbhPrevBlock)
+import           Pos.Txp.Core.Types    (Tx, TxAux, TxDistribution, TxWitness)
 import           Pos.Types.Block.Types (BiHeader, BiSsc, Block, BlockHeader,
                                         BlockSignature, GenesisBlock, GenesisBlockHeader,
                                         GenesisBlockchain, MainBlock, MainBlockHeader,
                                         MainBlockchain, MainExtraBodyData,
                                         MainExtraHeaderData)
-import           Pos.Types.Core        (ChainDifficulty, EpochIndex (..),
-                                        HasDifficulty (..), HasEpochIndex (..),
-                                        HasEpochOrSlot (..), HasHeaderHash (..),
-                                        HeaderHash, SlotId (..), slotIdF)
-import           Pos.Types.Types       (ProxySKHeavy, SlotLeaders, Tx, TxAux,
-                                        TxDistribution, TxWitness)
 import           Pos.Update.Core.Types (UpdatePayload, UpdateProof, UpdateProposal,
                                         mkUpdateProof)
-import           Pos.Util              (Color (Magenta), colorize)
 
 
 ----------------------------------------------------------------------------
@@ -104,8 +102,6 @@ instance (SscHelpersClass ssc, Bi TxWitness, Bi UpdatePayload, Bi EpochIndex) =>
     -- and MPC messages.
     data Body (MainBlockchain ssc) = MainBody
         { -- | Transactions are the main payload.
-          -- TODO: currently we don't know for sure whether it should be
-          -- serialized as a MerkleTree or something list-like.
           _mbTxs :: !(MerkleTree Tx)
         , -- | Distributions for P2SH addresses in transaction outputs.
           --     * length mbTxAddrDistributions == length mbTxs
@@ -483,8 +479,6 @@ blockHeaderHash = headerHash
 getBlockHeader :: Block ssc -> BlockHeader ssc
 getBlockHeader = bimap _gbHeader _gbHeader
 
--- This gives a “redundant constraint” message warning which will be fixed in
--- lens-4.15 (not in LTS yet).
 blockHeader :: Getter (Block ssc) (BlockHeader ssc)
 blockHeader = to getBlockHeader
 

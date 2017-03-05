@@ -5,10 +5,14 @@ k: 60
 genesisN: 12014
 genesisSlotDurationSec: 120
 genesisMaxBlockSize: 2000000
+genesisMaxHeaderSize: 200000
 genesisMaxTxSize: 4096 # 4 Kb
+maxReqSize: 100 # 100 bytes
+maxInvSize: 100 # 100 bytes
 genesisMpcThd: 0.05 # 5% of stake
 genesisHeavyDelThd: 0.0003 # 0.03% of stake
 genesisUpdateVoteThd: 0.001 # 0.1% of total stake
+genesisMaxUpdateProposalSize: 700 # 700 bytes
 genesisUpdateProposalThd: 0.1 # 10% of total stake
 genesisUpdateImplicit: 10000 # slots
 genesisUpdateSoftforkThd: 0.75 # 75% of total stake
@@ -22,7 +26,7 @@ networkConnectionTimeout: 2000
 networkReceiveTimeout: 5000
 
 ## P2P Security
-mdNoBlocksSlotThreshold: 0 # should be less than 2 * k
+mdNoBlocksSlotThreshold: 45 # should be less than 2 * k
 mdNoCommitmentsEpochThreshold: 3
 
 # GodTossing
@@ -47,7 +51,7 @@ enhancedMessageBroadcast: 2
 messageCacheTimeout: 30
 propagationQueueSize: 100
 blockRetrievalQueueSize: 100
-recoveryHeadersMessage: 100 # should be greater than k, less than blockRetrievalQueueSize
+recoveryHeadersMessage: 100 # should be greater than k
 
 # Time slave/lord
 sysTimeBroadcastSlots: 6

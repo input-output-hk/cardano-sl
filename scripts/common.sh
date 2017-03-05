@@ -3,12 +3,16 @@
 base_common="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 function find_binary {
-  binpath=`find $base_common/../.stack-work/install -type d -name bin | sort | tail -n1`
+  pushd $base_common/.. > /dev/null
+  binpath=$(stack path --local-install-root)/bin
+  popd > /dev/null
   echo "$binpath"/$1
 }
 
 function find_build_binary {
-  binpath=`find $base_common/../.stack-work/dist -type d -name build | sort | tail -n1`
+  pushd $base_common/.. > /dev/null
+  binpath=$(stack path --dist-dir)/build
+  popd > /dev/null
   echo "$binpath"/$1/$1
 }
 
@@ -67,7 +71,7 @@ function dht_key {
     i2="0$i"
   fi
 
-  $(find_binary "cardano-dht-keygen") 000000000000$i2 | tr -d '\n'
+  $(find_binary cardano-dht-keygen) 000000000000$i2 | tr -d '\n'
 }
 
 function peer_config {

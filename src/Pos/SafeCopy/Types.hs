@@ -14,9 +14,9 @@ import           Universum
 
 import           Pos.Ssc.Class.Types   (Ssc (..))
 -- FIXME
+import           Pos.Txp.Core.Types
 import           Pos.Types.Block
-import           Pos.Types.Core
-import           Pos.Types.Types
+import           Pos.Core.Types
 import           Pos.Update.Core.Types
 
 deriveSafeCopySimple 0 'base ''CoinPortion

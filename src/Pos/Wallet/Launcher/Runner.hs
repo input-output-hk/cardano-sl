@@ -1,5 +1,3 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Wallet.Launcher.Runner
        ( runRawRealWallet
@@ -80,21 +78,21 @@ runRawRealWallet
     -> (ActionSpec WalletRealMode a, OutSpecs)
     -> Production a
 runRawRealWallet res WalletParams {..} listeners (ActionSpec action, outs) =
-    usingLoggerName lpRunnerTag .
-    bracket openDB closeDB $ \db -> do
-        let walletContext
-              = WalletContext
-              { wcUnit = mempty
-              }
+    usingLoggerName lpRunnerTag . bracket openDB closeDB $ \db -> do
+        let walletContext = WalletContext {wcUnit = mempty}
         stateM <- liftIO SM.newIO
         runContextHolder walletContext .
             runWalletDB db .
             runKeyStorage wpKeyFilePath .
             runKademliaDHT (rmDHT res) .
             runPeerStateHolder stateM .
-            runServer_ (rmTransport res) listeners outs . ActionSpec $
-                \vI sa -> logInfo "Started wallet, joining network" >> action vI sa
+            runServer_ (rmTransport res) listeners outs . ActionSpec $ \vI sa ->
+            logInfo "Started wallet, joining network" >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams wpBaseParams
-    openDB = maybe openMemState (openState wpRebuildDb) wpDbPath
+    openDB =
+        maybe
+            (openMemState wpGenesisUtxo)
+            (openState wpRebuildDb wpGenesisUtxo)
+            wpDbPath
     closeDB = closeState

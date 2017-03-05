@@ -33,14 +33,15 @@ import           Pos.Script.Examples   (alwaysSuccessValidator, badIntRedeemer,
                                         intValidatorWithBlah, multisigRedeemer,
                                         multisigValidator, shaStressRedeemer,
                                         sigStressRedeemer, stdlibValidator)
+import           Pos.Txp               (Tx (..), TxAux, TxDistribution (..), TxIn (..),
+                                        TxInWitness (..), TxOut (..), TxOutAux, TxSigData,
+                                        TxWitness, Utxo, VTxGlobalContext (..),
+                                        VTxLocalContext (..), topsortTxs, verifyTxAlone,
+                                        verifyTxPure, verifyTxUtxoPure)
 import           Pos.Types             (BadSigsTx (..), GoodTx (..), SmallBadSigsTx (..),
-                                        SmallGoodTx (..), Tx (..), TxAux,
-                                        TxDistribution (..), TxIn (..), TxInWitness (..),
-                                        TxOut (..), TxOutAux, TxSigData, TxWitness, Utxo,
-                                        VTxGlobalContext (..), VTxLocalContext (..),
-                                        checkPubKeyAddress, makePubKeyAddress,
-                                        makeScriptAddress, mkCoin, sumCoins, topsortTxs,
-                                        verifyTxAlone, verifyTxPure, verifyTxUtxoPure)
+                                        SmallGoodTx (..), checkPubKeyAddress,
+                                        makePubKeyAddress, makeScriptAddress, mkCoin,
+                                        sumCoins)
 import           Pos.Util              (nonrepeating, runGen, sublistN)
 
 
@@ -95,10 +96,11 @@ scriptTxSpec = describe "script transactions" $ do
                     alwaysSuccessValidator
                     (\_ -> randomPkWitness)
             res `errorsShouldMatch` [
+                -- There are two errors
                 "input #0's witness doesn't match address.*\
                     \address details: ScriptAddress.*\
-                    \witness: PkWitness.*",
-                "input #0 isn't validated by its witness.*\
+                    \witness: PkWitness.*\
+                \input #0 isn't validated by its witness.*\
                     \signature check failed.*" ]
 
         it "validator script provided in witness doesn't match \
@@ -261,7 +263,7 @@ scriptTxSpec = describe "script transactions" $ do
     mkUtxo :: TxOut -> (TxIn, TxOut, Utxo)
     mkUtxo outp =
         let txid = unsafeHash ("nonexistent tx" :: Text)
-        in  (TxIn txid 0, outp, M.singleton (txid, 0) (outp, []))
+        in  (TxIn txid 0, outp, M.singleton (TxIn txid 0) (outp, []))
     -- Try to apply a transaction (with given utxo as context) and say
     -- whether it applied successfully
     tryApplyTx :: Utxo -> TxAux -> VerificationRes
@@ -316,10 +318,10 @@ validateGoodTxAlone tx = isVerSuccess $ verifyTxAlone tx
 invalidateBadTxAlone :: Tx -> Bool
 invalidateBadTxAlone Tx {..} = all (isVerFailure . verifyTxAlone) badTxs
   where
-    zeroOutputs = fmap (\(TxOut a _) -> TxOut a (mkCoin 0)) txOutputs
+    zeroOutputs = fmap (\(TxOut a _) -> TxOut a (mkCoin 0)) _txOutputs
     badTxs =
         map (\(is, os) -> Tx is os (mkAttributes ())) $
-        [([], txOutputs), (txInputs, []), (txInputs, zeroOutputs)]
+        [([], _txOutputs), (_txInputs, []), (_txInputs, zeroOutputs)]
 
 type TxVerifyingTools =
     ((Tx, TxDistribution), TxIn -> Maybe TxOutAux,
@@ -336,8 +338,8 @@ getTxFromGoodTx
     -> TxVerifyingTools
 getTxFromGoodTx ls =
     let txWitness = V.fromList $ fmap (view _4) ls
-        (txOutputs, TxDistribution -> txDist) = unzip $ map (view _3) ls
-        txInputs = map (view _2) ls
+        (_txOutputs, TxDistribution -> txDist) = unzip $ map (view _3) ls
+        _txInputs = map (view _2) ls
         inpResolver :: TxIn -> Maybe TxOutAux
         inpResolver inp = lookup inp
             [ (i, (unsafeHead o, unsafeHead d))  -- here we rely on
@@ -345,8 +347,8 @@ getTxFromGoodTx ls =
             | ((Tx _ o _, TxDistribution d), i, _, _) <- ls ]
         extendInput txIn = (txIn,) <$> inpResolver txIn
         extendedInputs :: [Maybe (TxIn, TxOutAux)]
-        extendedInputs = map extendInput txInputs
-        txAttributes = mkAttributes ()
+        extendedInputs = map extendInput _txInputs
+        _txAttributes = mkAttributes ()
     in ((Tx {..}, txDist), inpResolver, extendedInputs, txWitness)
 
 -- | This function takes a list of resolved inputs from a transaction, that
@@ -368,10 +370,10 @@ txChecksum extendedInputs txOuts =
 -- It also checks that it has good structure w.r.t. 'verifyTxAlone'.
 individualTxPropertyVerifier :: TxVerifyingTools -> Bool
 individualTxPropertyVerifier ((tx@Tx{..}, dist), _, extendedInputs, txWits) =
-    let hasGoodSum = txChecksum extendedInputs txOutputs
+    let hasGoodSum = txChecksum extendedInputs _txOutputs
         hasGoodStructure = isVerSuccess $ verifyTxAlone tx
         hasGoodInputs = all
-            (signatureIsValid (zip txOutputs (getTxDistribution dist)))
+            (signatureIsValid (zip _txOutputs (getTxDistribution dist)))
             (zip extendedInputs (toList txWits))
     in hasGoodSum && hasGoodStructure && hasGoodInputs
 
@@ -407,7 +409,7 @@ badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
                 (fmap VTxLocalContext <$> inpResolver)
                 (tx, txWits, dist)
         notAllSignaturesAreValid =
-            any (signatureIsNotValid (zip txOutputs (getTxDistribution dist)))
+            any (signatureIsNotValid (zip _txOutputs (getTxDistribution dist)))
                 (zip extendedInputs (V.toList txWits))
     in notAllSignaturesAreValid == transactionIsNotVerified
 
@@ -448,7 +450,7 @@ txAcyclicGen isBamboo size = do
     initVertices <-
         replicateM (bool (max 1 $ size `div` 4) 1 isBamboo) $ txGen some'
     let outputs =
-            concatMap (\tx -> map (tx,) [0..length (txOutputs tx) - 1])
+            concatMap (\tx -> map (tx,) [0..length (_txOutputs tx) - 1])
                       initVertices
         reachable = HM.fromList $ map (\v -> (v, [v])) initVertices
     continueGraph initVertices outputs reachable $ size - length initVertices

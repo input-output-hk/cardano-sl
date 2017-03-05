@@ -1,4 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | `Arbitrary` instances for using in tests and benchmarks
 

@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Instance of SscWorkersClass.
 
@@ -43,7 +42,7 @@ import           Pos.Crypto                       (SecretKey, VssKeyPair, VssPub
                                                    randomNumber, runSecureRandom)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
 import           Pos.Crypto.Signing               (PublicKey)
-import           Pos.DB.Lrc                       (getRichmenSsc)
+import           Pos.Lrc.DB                       (getRichmenSsc)
 import           Pos.Lrc.Types                    (RichmenStake)
 import           Pos.Slotting                     (getCurrentSlot,
                                                    getSlotStartEmpatically)

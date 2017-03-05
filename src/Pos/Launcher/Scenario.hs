@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
@@ -16,6 +17,8 @@ import           Data.Default                (def)
 import           Development.GitRev          (gitBranch, gitHash)
 import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (fork)
+import           Paths_cardano_sl            (version)
+import           Serokell.Util               (sec)
 import           System.Exit                 (ExitCode (..))
 import           System.Wlog                 (getLoggerName, logError, logInfo)
 import           Universum
@@ -25,25 +28,24 @@ import           Pos.Communication           (ActionSpec (..), OutSpecs, WorkerS
 import           Pos.Context                 (NodeContext (..), getNodeContext,
                                               ncPubKeyAddress, ncPublicKey)
 import qualified Pos.DB.GState               as GS
-import qualified Pos.DB.Lrc                  as LrcDB
+import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.Delegation.Logic        (initDelegation)
 import           Pos.DHT.Model               (discoverPeers)
 import           Pos.Reporting               (reportMisbehaviourMasked)
+import           Pos.Shutdown                (waitForWorkers)
 import           Pos.Slotting                (getCurrentSlot, waitSystemStart)
 import           Pos.Ssc.Class               (SscConstraint)
 import           Pos.Types                   (SlotId (..), addressHash)
 import           Pos.Update                  (MemState (..), askUSMemVar, mvState)
 import           Pos.Util                    (inAssertMode, waitRandomInterval)
-import           Pos.Util.Shutdown           (waitForWorkers)
-import           Pos.Util.TimeWarp           (sec)
 import           Pos.Worker                  (allWorkers, allWorkersCount)
 import           Pos.WorkMode                (WorkMode)
 
 -- | Run full node in any WorkMode.
 runNode'
-    :: (SscConstraint ssc, WorkMode ssc m)
-    => [WorkerSpec m]
-    -> WorkerSpec m
+    :: forall ssc m.
+       (SscConstraint ssc, WorkMode ssc m)
+    => [WorkerSpec m] -> WorkerSpec m
 runNode' plugins' = ActionSpec $ \vI sendActions -> do
     logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     inAssertMode $ logInfo "Assert mode on"
@@ -54,7 +56,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
                        ", address: "%build%
                        ", pk hash: "%build) pk addr pkHash
     () <$ fork waitForPeers
-    initDelegation
+    initDelegation @ssc
     initLrc
     initUSMemState
     initSemaphore
@@ -69,7 +71,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
   where
     reportHandler (SomeException e) = do
         loggerName <- getLoggerName
-        reportMisbehaviourMasked $
+        reportMisbehaviourMasked version $
             sformat ("Worker/plugin with logger name "%shown%
                     " failed with exception: "%shown)
             loggerName e

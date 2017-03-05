@@ -7,6 +7,7 @@ module Test.Pos.Types.Identity.SafeCopySpec
 import           Test.Hspec    (Spec, describe)
 import           Universum
 
+import qualified Pos.Txp       as T
 import qualified Pos.Types     as T
 
 import           Test.Pos.Util (safeCopyTest)

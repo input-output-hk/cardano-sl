@@ -6,11 +6,12 @@ import           Data.Default                (def)
 import           Universum
 
 import           Pos.Binary.Crypto           ()
+import           Pos.Core.Types              (Address (..), Coin, EpochIndex (..),
+                                              LocalSlotIndex (..), SharedSeed (..),
+                                              SlotId (..), mkCoin)
 import           Pos.Crypto.Arbitrary.Unsafe ()
 import           Pos.Data.Attributes         (mkAttributes)
-import           Pos.Types.Core              (Address (..), Coin, EpochIndex (..),
-                                              LocalSlotIndex (..), SlotId (..), mkCoin)
-import           Pos.Types.Types             (SharedSeed (..), TxOut (..))
+import           Pos.Txp.Core.Types          (TxOut (..))
 import           Pos.Util.Arbitrary          (ArbitraryUnsafe (..))
 
 deriving instance ArbitraryUnsafe SharedSeed

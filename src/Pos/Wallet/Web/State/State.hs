@@ -19,6 +19,7 @@ module Pos.Wallet.Web.State.State
        , getNextUpdate
 
        -- * Setters
+       , testReset
        , createWallet
        , setProfile
        , setWalletMeta
@@ -117,3 +118,6 @@ addUpdate = updateDisk . A.AddUpdate
 
 removeNextUpdate :: WebWalletModeDB m => m ()
 removeNextUpdate = updateDisk A.RemoveNextUpdate
+
+testReset :: WebWalletModeDB m => m ()
+testReset = updateDisk A.TestReset

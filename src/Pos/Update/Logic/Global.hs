@@ -1,5 +1,4 @@
 {-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Logic of local data processing in Update System.
@@ -14,13 +13,13 @@ module Pos.Update.Logic.Global
 import           Control.Monad.Except (MonadError, runExceptT)
 import           Data.Default         (Default (def))
 import qualified Data.HashMap.Strict  as HM
+import           Serokell.Util        (Color (Red), colorize)
 import           System.Wlog          (WithLogger, logError, modifyLoggerName)
 import           Universum
 
 import           Pos.Constants        (lastKnownBlockVersion)
 import           Pos.Context          (WithNodeContext)
 import qualified Pos.DB               as DB
-import           Pos.DB.GState        (UpdateOp (..))
 import           Pos.Slotting         (SlottingData)
 import           Pos.Ssc.Class        (SscHelpersClass)
 import           Pos.Types            (ApplicationName, Block, BlockVersion,
@@ -30,6 +29,7 @@ import           Pos.Types            (ApplicationName, Block, BlockVersion,
                                        headerHash, mbUpdatePayload, mcdLeaderKey,
                                        mehBlockVersion)
 import           Pos.Update.Core      (BlockVersionData, UpId)
+import           Pos.Update.DB        (UpdateOp (..))
 import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState,
                                        MonadPoll, PollModifier (..), PollVerFailure,
@@ -37,14 +37,14 @@ import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState
                                        execRollT, processGenesisBlock,
                                        recordBlockIssuance, rollbackUS, runDBPoll,
                                        runPollT, verifyAndApplyUSPayload, verifyBlockSize)
-import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst,
-                                       colorize, inAssertMode)
+import           Pos.Util             (NE, NewestFirst, OldestFirst, inAssertMode)
+import qualified Pos.Util.Modifier    as MM
 
 type USGlobalApplyMode ssc m = ( WithLogger m
-                               , DB.MonadDB ssc m
+                               , DB.MonadDB m
                                , SscHelpersClass ssc
                                , WithNodeContext ssc m)
-type USGlobalVerifyMode ssc m = ( DB.MonadDB ssc m
+type USGlobalVerifyMode ssc m = ( DB.MonadDB m
                                 , MonadError PollVerFailure m
                                 , SscHelpersClass ssc
                                 , WithNodeContext ssc m
@@ -134,7 +134,7 @@ verifyBlock (Right blk) =
 -- | Checks whether our software can create block according to current
 -- global state.
 usCanCreateBlock
-    :: (WithLogger m, WithNodeContext ssc m, DB.MonadDB ssc m)
+    :: (WithLogger m, WithNodeContext ssc m, DB.MonadDB m)
     => m Bool
 usCanCreateBlock =
     withUSLogger $ runDBPoll $ canCreateBlockBV lastKnownBlockVersion
@@ -146,19 +146,23 @@ usCanCreateBlock =
 modifierToBatch :: PollModifier -> [DB.SomeBatchOp]
 modifierToBatch PollModifier {..} =
     concat $
-    [ bvsModifierToBatch pmNewBVs pmDelBVs
+    [ bvsModifierToBatch (MM.insertions pmBVs) (MM.deletions pmBVs)
     , lastAdoptedModifierToBatch pmAdoptedBVFull
-    , confirmedVerModifierToBatch  pmNewConfirmed pmDelConfirmed
-    , confirmedPropModifierToBatch pmNewConfirmedProps pmDelConfirmedProps
-    , upModifierToBatch pmNewActiveProps pmDelActivePropsIdx
+    , confirmedVerModifierToBatch
+          (MM.insertions pmConfirmed)
+          (MM.deletions pmConfirmed)
+    , confirmedPropModifierToBatch
+          (MM.insertions pmConfirmedProps)
+          (MM.deletions pmConfirmedProps)
+    , upModifierToBatch (MM.insertions pmActiveProps) pmDelActivePropsIdx
     , sdModifierToBatch pmSlottingData
     ]
 
 bvsModifierToBatch
-    :: HashMap BlockVersion BlockVersionState
-    -> HashSet BlockVersion
+    :: [(BlockVersion, BlockVersionState)]
+    -> [BlockVersion]
     -> [DB.SomeBatchOp]
-bvsModifierToBatch (HM.toList -> added) (toList -> deleted) = addOps ++ delOps
+bvsModifierToBatch added deleted = addOps ++ delOps
   where
     addOps = map (DB.SomeBatchOp . uncurry SetBVState) added
     delOps = map (DB.SomeBatchOp . DelBV) deleted
@@ -168,29 +172,29 @@ lastAdoptedModifierToBatch Nothing          = []
 lastAdoptedModifierToBatch (Just (bv, bvd)) = [DB.SomeBatchOp $ SetAdopted bv bvd]
 
 confirmedVerModifierToBatch
-    :: HashMap ApplicationName NumSoftwareVersion
-    -> HashSet ApplicationName
+    :: [(ApplicationName, NumSoftwareVersion)]
+    -> [ApplicationName]
     -> [DB.SomeBatchOp]
-confirmedVerModifierToBatch (HM.toList -> added) (toList -> deleted) =
+confirmedVerModifierToBatch added deleted =
     addOps ++ delOps
   where
     addOps = map (DB.SomeBatchOp . ConfirmVersion . uncurry SoftwareVersion) added
     delOps = map (DB.SomeBatchOp . DelConfirmedVersion) deleted
 
 confirmedPropModifierToBatch
-    :: HashMap SoftwareVersion ConfirmedProposalState
-    -> HashSet SoftwareVersion
+    :: [(SoftwareVersion, ConfirmedProposalState)]
+    -> [SoftwareVersion]
     -> [DB.SomeBatchOp]
-confirmedPropModifierToBatch (toList -> confAdded) (toList -> confDeleted) =
+confirmedPropModifierToBatch (map snd -> confAdded) confDeleted =
     confAddOps ++ confDelOps
   where
     confAddOps = map (DB.SomeBatchOp . AddConfirmedProposal) confAdded
     confDelOps = map (DB.SomeBatchOp . DelConfirmedProposal) confDeleted
 
-upModifierToBatch :: HashMap UpId ProposalState
+upModifierToBatch :: [(UpId, ProposalState)]
                   -> HashMap ApplicationName UpId
                   -> [DB.SomeBatchOp]
-upModifierToBatch (toList -> added) (HM.toList -> deleted) = addOps ++ delOps
+upModifierToBatch (map snd -> added) (HM.toList -> deleted) = addOps ++ delOps
   where
     addOps = map (DB.SomeBatchOp . PutProposal) added
     delOps = map (DB.SomeBatchOp . uncurry (flip DeleteProposal)) deleted

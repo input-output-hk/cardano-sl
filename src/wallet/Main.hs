@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -22,32 +21,32 @@ import           System.Wlog               (logDebug, logError, logInfo, logWarn
 import           System.Exit               (ExitCode (ExitSuccess))
 import           System.Posix.Process      (exitImmediately)
 #endif
+import           Serokell.Util             (sec)
 import           Universum
 
 import           Pos.Binary                (Raw)
 import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
                                             worker)
-import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey,
-                                            encodeHash, hash, hashHexF, sign, toPublic,
-                                            unsafeHash)
+import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey, hash,
+                                            hashHexF, sign, toPublic, unsafeHash)
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Delegation            (sendProxySKHeavy, sendProxySKHeavyOuts,
                                             sendProxySKLight, sendProxySKLightOuts)
 import           Pos.DHT.Model             (DHTNode, discoverPeers, getKnownPeers)
 import           Pos.Genesis               (genesisBlockVersionData, genesisPublicKeys,
-                                            genesisSecretKeys)
+                                            genesisSecretKeys, genesisUtxo)
 import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
-                                            bracketResources, runTimeSlaveReal)
+                                            bracketResources, runTimeSlaveReal,
+                                            stakesDistr)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Ssc.NistBeacon        (SscNistBeacon)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
-import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress,
-                                            txaF)
+import           Pos.Txp                   (txaF)
+import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress)
 import           Pos.Update                (BlockVersionData (..), UpdateProposal (..),
                                             UpdateVote (..), patakUpdateData,
                                             skovorodaUpdateData)
-import           Pos.Util.TimeWarp         (sec)
 import           Pos.Wallet                (WalletMode, WalletParams (..), WalletRealMode,
                                             getBalance, runWalletReal, sendProposalOuts,
                                             sendTxOuts, sendVoteOuts, submitTx,
@@ -117,7 +116,7 @@ runCmd sendActions ProposeUpdate{..} = do
             lift $ submitUpdateProposal sendActions skey na updateProposal
             let id = hash updateProposal
             putText $
-              sformat ("Update proposal submitted, upId: "%build%" (base64)") (encodeHash id)
+              sformat ("Update proposal submitted, upId: "%hashHexF) id
 runCmd _ Help = do
     putText $
         unlines
@@ -130,7 +129,6 @@ runCmd _ Help = do
             , "   propose-update <N> <block ver> <script ver> <slot duration> <max block size> <software ver> <propose_file>?"
             , "                                  -- propose an update with given versions and other data"
             , "                                     with one positive vote for it, from own address #N"
-            , "   listaddr                       -- list own addresses"
             , "   listaddr                       -- list own addresses"
             , "   delegate-light <N> <M>         -- delegate secret key #N to #M (genesis) light version"
             , "   delegate-heavy <N> <M>         -- delegate secret key #N to #M (genesis) heavyweight "
@@ -244,8 +242,8 @@ main = do
                 }
 
         systemStart <- case CLI.sscAlgo woCommonArgs of
-            GodTossingAlgo -> runTimeSlaveReal (Proxy :: Proxy SscGodTossing) res timeSlaveParams
-            NistBeaconAlgo -> runTimeSlaveReal (Proxy :: Proxy SscNistBeacon) res timeSlaveParams
+            GodTossingAlgo -> runTimeSlaveReal (Proxy @SscGodTossing) res timeSlaveParams
+            NistBeaconAlgo -> runTimeSlaveReal (Proxy @SscNistBeacon) res timeSlaveParams
 
         let params =
                 WalletParams
@@ -255,6 +253,11 @@ main = do
                 , wpSystemStart = systemStart
                 , wpGenesisKeys = woDebug
                 , wpBaseParams  = baseParams
+                , wpGenesisUtxo =
+                    genesisUtxo $
+                    stakesDistr (CLI.flatDistr woCommonArgs)
+                                (CLI.bitcoinDistr woCommonArgs)
+                                (CLI.expDistr woCommonArgs)
                 }
 
             plugins :: ([ WorkerSpec WalletRealMode ], OutSpecs)
@@ -263,7 +266,11 @@ main = do
                 Cmd cmd                         -> worker runCmdOuts $ runWalletCmd opts cmd
 #ifdef WITH_WEB
                 Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
-                    walletServeWebLite sendActions webDaedalusDbPath False webPort
+                    case CLI.sscAlgo woCommonArgs of
+                        GodTossingAlgo -> walletServeWebLite (Proxy @SscGodTossing)
+                                              sendActions webDaedalusDbPath False webPort
+                        NistBeaconAlgo -> walletServeWebLite (Proxy @SscNistBeacon)
+                                              sendActions webDaedalusDbPath False webPort
 #endif
 
         case CLI.sscAlgo woCommonArgs of

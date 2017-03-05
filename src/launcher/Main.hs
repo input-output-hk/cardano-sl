@@ -1,12 +1,12 @@
 {-# LANGUAGE ApplicativeDo     #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 import           Control.Concurrent.Async hiding (wait)
+import           Data.List                (isSuffixOf)
 import qualified Filesystem.Path          as FP
 import           Options.Applicative      (Mod, OptionFields, Parser, ParserInfo, auto,
                                            execParser, fullDesc, help, helper, info, long,
@@ -159,7 +159,6 @@ serverScenario logConf node updater report = do
 -- * Update (if we are already up-to-date, nothing will happen).
 -- * Launch the node and the wallet.
 -- * If the wallet exits with code 20, then update and restart, else quit.
---
 clientScenario
     :: Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
@@ -286,7 +285,7 @@ reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
     -- see Pos.Reporting.Methods.sendReportNode
     logFiles <-
         (toString logPath :) <$>
-        concatMapM chooseLogFiles (filter (const True) logFileNames)
+        concatMapM chooseLogFiles (filter (".pub" `isSuffixOf`) logFileNames)
     let ec = case exitCode of
             ExitSuccess   -> 0
             ExitFailure n -> n

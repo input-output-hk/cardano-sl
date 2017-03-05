@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 
 module Pos.Ssc.GodTossing.VssCertData
        ( VssCertData (..)

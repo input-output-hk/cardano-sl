@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 
 -- | SafeCopy serialization of types from GodTossing.Types.Types.
 

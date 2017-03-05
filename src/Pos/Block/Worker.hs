@@ -1,5 +1,6 @@
-{-# LANGUAGE RankNTypes   #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Block processing related workers.
 
@@ -12,42 +13,57 @@ import           Control.Lens                (ix)
 import           Data.Default                (def)
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
+import           Paths_cardano_sl            (version)
 import           Pos.Communication.Protocol  (SendActions)
-import           Serokell.Util               (VerificationRes (..), listJson, pairF)
-import           Serokell.Util.Exceptions    ()
-import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
+import           Serokell.Util               (VerificationRes (..), listJson, pairF, sec)
+import           System.Wlog                 (WithLogger, logDebug, logError, logInfo,
+                                              logWarning)
 import           Universum
 
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
-import           Pos.Block.Network.Retrieval (retrievalWorker)
+import           Pos.Block.Network.Retrieval (requestTipOuts, retrievalWorker,
+                                              triggerRecovery)
 import           Pos.Communication.Protocol  (OutSpecs, Worker', WorkerSpec,
-                                              onNewSlotWorker)
+                                              onNewSlotWorker, worker)
 import           Pos.Constants               (networkDiameter)
-import           Pos.Context                 (getNodeContext, ncPublicKey)
+import           Pos.Context                 (getNodeContext, isRecoveryMode, ncPublicKey)
+import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.GState               (getPSKByIssuerAddressHash)
-import           Pos.DB.Lrc                  (getLeaders)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Exception               (assertionFailed)
-import           Pos.Slotting                (currentTimeSlotting,
+import           Pos.Lrc.DB                  (getLeaders)
+import           Pos.Reporting.Methods       (reportingFatal)
+import           Pos.Slotting                (currentTimeSlotting, getCurrentSlot,
                                               getSlotStartEmpatically)
+#if !defined(DEV_MODE) && defined(WITH_WALLET)
+import           Data.Time.Units             (convertUnit)
+import           Pos.Slotting                (getLastKnownSlotDuration)
+#endif
 import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
 import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (..),
                                               Timestamp (Timestamp),
                                               VerifyBlockParams (..), gbHeader, slotIdF,
                                               verifyBlock)
-import           Pos.Types.Address           (addressHash)
 import           Pos.Util                    (inAssertMode, logWarningWaitLinear,
                                               mconcatPair)
 import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
+import           Pos.Util.LogSafe            (logNoticeS)
 import           Pos.WorkMode                (WorkMode)
 
 
 -- | All workers specific to block processing.
 blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => ([WorkerSpec m], OutSpecs)
-blkWorkers = merge [blkOnNewSlot, retrievalWorker]
+blkWorkers =
+    merge [ blkOnNewSlot
+          , retrievalWorker
+          , recoveryWorker
+#if !defined(DEV_MODE) && defined(WITH_WALLET)
+          , behindNatWorker
+#endif
+          ]
   where
     merge = mconcatPair . map (first pure)
 
@@ -58,6 +74,10 @@ blkOnNewSlot = onNewSlotWorker True announceBlockOuts blkOnNewSlotImpl
 blkOnNewSlotImpl :: WorkMode ssc m =>
                     SlotId -> SendActions m -> m ()
 blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
+    -- Just ignore this line. It will be deleted after fake messages
+    -- policy (CSL-837) is introduced.
+    logDebug "CSL-700 this message is top secret"
+
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlock siEpoch
     whenJust mGenBlock $ \createdBlk -> do
@@ -93,6 +113,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
                                 in siEpoch >= w0 && siEpoch <= w1) proxyCerts
             validCert = find (\pSk -> addressHash (pskIssuerPk pSk) == leader)
                              validCerts
+        logNoticeS "THIS IS A SECRET MESSAGE SHOULDN'T GET TO PUBLIC LOGGER"
         logLeadersF $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
         logLeadersF $ sformat ("Slot leaders: "%listJson) $
                       map (bprint pairF) (zip [0 :: Int ..] $ toList leaders)
@@ -168,3 +189,45 @@ verifyCreatedBlock blk =
         , vbpVerifyTxs = True
         , vbpVerifySsc = True
         }
+
+-- | Trigger recovery if we're definitely late in the blockchain (for >epoch).
+recoveryWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
+recoveryWorker = worker requestTipOuts recoveryWorkerImpl
+
+recoveryWorkerImpl
+    :: WorkMode ssc m
+    => SendActions m -> m ()
+recoveryWorkerImpl sendActions = action `catch` handler
+  where
+    action = reportingFatal version $ forever $ checkRecovery >> delay (sec 5)
+    checkRecovery = do
+        recMode <- isRecoveryMode
+        curSlotNothing <- isNothing <$> getCurrentSlot
+        if (curSlotNothing && not recMode) then do
+             logDebug "Recovery worker: don't know current slot"
+             triggerRecovery sendActions
+        else logDebug $ "Recovery worker skipped:" <>
+                        " slot is nothing: " <> show curSlotNothing <>
+                        ", recovery mode is on: " <> show recMode
+
+    handler (e :: SomeException) = do
+        logError $ "Error happened in recoveryWorker: " <> show e
+        delay (sec 10)
+        action `catch` handler
+
+#if !defined(DEV_MODE) && defined(WITH_WALLET)
+-- | This one just triggers every @max (slotDur / 4) 5@ seconds and
+-- asks for current tip. Does nothing when recovery is enabled.
+behindNatWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
+behindNatWorker = worker requestTipOuts $ \sendActions -> do
+    slotDur <- getLastKnownSlotDuration
+    let delayInterval = max (slotDur `div` 4) (convertUnit $ sec 5)
+        action = forever $ do
+            triggerRecovery sendActions
+            delay $ delayInterval
+        handler (e :: SomeException) = do
+            logWarning $ "Exception arised in behindNatWorker: " <> show e
+            delay $ delayInterval * 2
+            action `catch` handler
+    action `catch` handler
+#endif

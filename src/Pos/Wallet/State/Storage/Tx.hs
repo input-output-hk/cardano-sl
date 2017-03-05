@@ -5,20 +5,20 @@ module Pos.Wallet.State.Storage.Tx
        ( TxStorage
        , HasTxStorage (txStorage)
 
+       , mkTxStorage
+
        , getUtxo
        , getOldestUtxo
        , getTxHistory
        ) where
 
-import           Control.Lens  (makeClassy, to)
-import           Data.Default  (Default, def)
-import           Data.List     (last)
-import qualified Data.Map      as M
-import           Data.SafeCopy (base, deriveSafeCopySimple)
+import           Control.Lens       (makeClassy, to)
+import           Data.List          (last)
+import           Data.SafeCopy      (base, deriveSafeCopySimple)
 import           Universum
 
-import           Pos.SafeCopy  ()
-import           Pos.Types     (Tx, Utxo)
+import           Pos.SafeCopy       ()
+import           Pos.Txp.Core.Types (Tx, Utxo)
 
 data TxStorage = TxStorage
     { -- | History of utxo. Necessary for rollbacking transaction
@@ -37,8 +37,8 @@ data TxStorage = TxStorage
 makeClassy ''TxStorage
 deriveSafeCopySimple 0 'base ''TxStorage
 
-instance Default TxStorage where
-    def = TxStorage [] M.empty []
+mkTxStorage :: Utxo -> TxStorage
+mkTxStorage = flip (TxStorage mempty) mempty
 
 type Query a = forall m x. (HasTxStorage x, MonadReader x m) => m a
 --type Update a = forall m x. (HasTxStorage x, MonadState x m) => m a

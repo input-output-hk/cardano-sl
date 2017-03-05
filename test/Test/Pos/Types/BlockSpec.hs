@@ -1,5 +1,4 @@
 {-# LANGUAGE RankNTypes           #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Specification of Pos.Types.Block.
 

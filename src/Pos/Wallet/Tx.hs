@@ -21,8 +21,10 @@ import           Pos.Communication.Methods  (sendTx)
 import           Pos.Communication.Protocol (SendActions)
 import           Pos.Communication.Specs    (sendTxOuts)
 import           Pos.Crypto                 (SecretKey, hash, toPublic)
+import           Pos.DB.Limits              (MonadDBLimits)
 import           Pos.DHT.Model              (DHTNode)
-import           Pos.Types                  (TxAux, TxOutAux, makePubKeyAddress, txaF)
+import           Pos.Txp.Core.Types         (TxAux, TxOutAux, txaF)
+import           Pos.Types                  (makePubKeyAddress)
 import           Pos.Wallet.Tx.Pure         (TxError, createMOfNTx, createTx, makeMOfNTx,
                                              makePubKeyTx)
 import           Pos.Wallet.WalletMode      (TxMode, getOwnUtxo, saveTx)
@@ -46,7 +48,9 @@ submitTx sendActions sk na outputs = do
         return txw
 
 -- | Send the ready-to-use transaction
-submitTxRaw :: MinWorkMode m => SendActions m -> [DHTNode] -> TxAux -> m ()
+submitTxRaw
+    :: (MinWorkMode m, MonadDBLimits m)
+    => SendActions m -> [DHTNode] -> TxAux -> m ()
 submitTxRaw sa na tx = do
     let txId = hash (tx ^. _1)
     logInfo $ sformat ("Submitting transaction: "%txaF) tx

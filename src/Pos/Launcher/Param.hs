@@ -13,7 +13,8 @@ import           Universum
 import           Pos.Crypto          (SecretKey)
 import           Pos.DHT.Model.Types (DHTKey, DHTNode)
 import           Pos.Security.CLI    (AttackTarget, AttackType)
-import           Pos.Types           (Timestamp, Utxo)
+import           Pos.Txp.Core.Types  (Utxo)
+import           Pos.Types           (Timestamp)
 import           Pos.Util.UserSecret (UserSecret)
 
 -- | Contains all parameters required for hierarchical logger initialization.

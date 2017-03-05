@@ -9,10 +9,10 @@ import           Data.Maybe            (isJust, isNothing)
 import qualified Data.Vector           as V (fromList)
 import           Pos.Crypto            (hash, unsafeHash, withHash)
 import           Pos.Data.Attributes   (mkAttributes)
-import           Pos.Types             (GoodTx (..), SmallGoodTx (..), Tx (..),
-                                        TxDistribution (..), TxIn (..), TxOutAux, Utxo,
-                                        applyTxToUtxoPure, deleteTxIn, findTxIn,
+import           Pos.Txp               (Tx (..), TxDistribution (..), TxIn (..), TxOutAux,
+                                        Utxo, applyTxToUtxoPure, deleteTxIn, findTxIn,
                                         verifyTxUtxoPure)
+import           Pos.Types             (GoodTx (..), SmallGoodTx (..))
 import           Serokell.Util.Verify  (isVerSuccess)
 
 import           Test.Hspec            (Spec, describe, it)
@@ -48,18 +48,16 @@ spec = describe "Types.Utxo" $ do
         \ map"
 
 findTxInUtxo :: TxIn -> TxOutAux -> Utxo -> Bool
-findTxInUtxo t@TxIn{..} txO utxo =
-    let key = (txInHash, txInIndex)
-        utxo' = M.delete key utxo
+findTxInUtxo key txO utxo =
+    let utxo' = M.delete key utxo
         newUtxo = M.insert key txO utxo
-    in (isJust $ findTxIn t newUtxo) && (isNothing $ findTxIn t utxo')
+    in (isJust $ findTxIn key newUtxo) && (isNothing $ findTxIn key utxo')
 
 deleteTxInUtxo :: TxIn -> TxOutAux -> Utxo -> Bool
-deleteTxInUtxo t@TxIn{..} txO utxo =
-    let key = (txInHash, txInIndex)
-        utxo' = M.delete key utxo
+deleteTxInUtxo key txO utxo =
+    let utxo' = M.delete key utxo
         newUtxo = M.insert key txO utxo
-    in (utxo' == deleteTxIn t newUtxo) && (utxo' == deleteTxIn t utxo')
+    in (utxo' == deleteTxIn key newUtxo) && (utxo' == deleteTxIn key utxo')
 
 verifyTxInUtxo :: SmallGoodTx -> Bool
 verifyTxInUtxo (SmallGoodTx (GoodTx ls)) =
@@ -74,14 +72,12 @@ verifyTxInUtxo (SmallGoodTx (GoodTx ls)) =
 
 applyTxToUtxoGood :: M.Map TxIn TxOutAux -> [TxOutAux] -> Bool
 applyTxToUtxoGood txMap txOuts =
-    let txInps = M.keys txMap
-        tx = Tx txInps (map fst txOuts) (mkAttributes ())
+    let inpList = M.keys txMap
+        tx = Tx inpList (map fst txOuts) (mkAttributes ())
         txDistr = TxDistribution (map snd txOuts)
-        inpFun = (\(TxIn h i) -> (h,i))
-        inpList = map inpFun txInps
         utxoMap = M.fromList $ zip inpList (M.elems txMap)
         newUtxoMap = applyTxToUtxoPure (withHash tx) txDistr utxoMap
-        newUtxos = ((repeat (hash tx)) `zip` [0 ..]) `zip` txOuts
+        newUtxos = (zipWith TxIn (repeat (hash tx)) [0 ..]) `zip` txOuts
         rmvUtxo = foldr M.delete utxoMap inpList
         insNewUtxo = foldr (uncurry M.insert) rmvUtxo newUtxos
     in insNewUtxo == newUtxoMap

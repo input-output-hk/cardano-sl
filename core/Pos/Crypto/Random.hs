@@ -14,7 +14,7 @@ import           Crypto.Random           (ChaChaDRG, MonadPseudoRandom, MonadRan
                                           drgNewSeed, getRandomBytes, seedFromInteger,
                                           withDRG)
 import qualified Data.ByteArray          as ByteArray (convert)
-import           OpenSSL.Random          (randBytes)
+import           Crypto.OpenSSL.Random   (randBytes)
 import           Universum
 
 -- | Generate a cryptographically random 'ByteString' of specific length.

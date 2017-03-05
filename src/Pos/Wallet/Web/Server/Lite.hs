@@ -17,12 +17,11 @@ import           Servant.Utils.Enter           ((:~>) (..))
 import qualified STMContainers.Map             as SM
 import           Universum
 
-
-
 import           Pos.Communication.PeerState   (runPeerStateHolder)
 import           Pos.DHT.Real.Real             (runKademliaDHT)
 import           Pos.DHT.Real.Types            (KademliaDHTInstance (..),
                                                 getKademliaDHTInstance)
+import           Pos.Ssc.Class                 (SscHelpersClass)
 import           Pos.Wallet.Context            (WalletContext, getWalletContext,
                                                 runContextHolder)
 import           Pos.Wallet.KeyStorage         (KeyData, runKeyStorageRaw)
@@ -45,13 +44,16 @@ type WebHandler = WalletWebSockets (WalletWebDB WalletRealMode)
 type MainWalletState = WS.WalletState
 
 walletServeWebLite
-    :: SendActions WalletRealMode
+    :: forall ssc.
+       SscHelpersClass ssc
+    => Proxy ssc
+    -> SendActions WalletRealMode
     -> FilePath
     -> Bool
     -> Word16
     -> WalletRealMode ()
-walletServeWebLite sendActions =
-    walletServeImpl $ walletApplication $ walletServer sendActions nat
+walletServeWebLite _ sendActions =
+    walletServeImpl $ walletApplication $ walletServer @ssc sendActions nat
 
 nat :: WebHandler (WebHandler :~> Handler)
 nat = do

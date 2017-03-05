@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Server which handles update system.
@@ -15,6 +14,7 @@ import           Universum
 
 import           Pos.Binary.Communication   ()
 import           Pos.Binary.Relay           ()
+import           Pos.Communication.Limits   ()
 import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (ListenerSpec, OutSpecs)
 import           Pos.Communication.Relay    (Relay (..), RelayProxy (..), relayListeners,
@@ -38,8 +38,8 @@ voteProxy = RelayProxy
 -- | Listeners for requests related to update system
 usListeners
     :: (WorkMode ssc m)
-    => ([ListenerSpec m], OutSpecs)
-usListeners = mappendPair
+    => m ([ListenerSpec m], OutSpecs)
+usListeners = liftM2 mappendPair
                 (relayListeners proposalProxy)
                 (relayListeners voteProxy)
 

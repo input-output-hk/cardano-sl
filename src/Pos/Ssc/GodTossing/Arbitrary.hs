@@ -8,8 +8,7 @@ module Pos.Ssc.GodTossing.Arbitrary
        ) where
 
 import qualified Data.HashMap.Strict              as HM
-import           Test.QuickCheck                  (Arbitrary (..), Gen, elements, oneof,
-                                                   suchThat)
+import           Test.QuickCheck                  (Arbitrary (..), Gen, elements, oneof)
 import           Universum
 
 import           Pos.Binary.Class                 (asBinary)
@@ -33,7 +32,7 @@ import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..),
                                                    GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
 import           Pos.Types                        (SlotId (..))
-import           Pos.Core.Address                (addressHash)
+import           Pos.Core.Address                 (addressHash)
 import           Pos.Types.Arbitrary.Unsafe       ()
 import           Pos.Util.Arbitrary               (Nonrepeating (..), makeSmall, sublistN,
                                                    unsafeMakePool)
@@ -49,7 +48,7 @@ newtype BadCommitment = BadComm
 
 instance Arbitrary BadCommitment where
     arbitrary = BadComm <$> do
-      Commitment <$> arbitrary <*> arbitrary <*> (arbitrary `suchThat` (not . null))
+      Commitment <$> arbitrary <*> arbitrary <*> arbitrary
 
 -- | Wrapper over 'SignedCommitment'. Creates an invalid SignedCommitment w.r.t.
 -- 'verifyCommitmentSignature'.

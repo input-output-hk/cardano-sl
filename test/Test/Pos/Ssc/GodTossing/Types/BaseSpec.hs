@@ -8,9 +8,8 @@ import           Pos.Binary            ()
 import           Pos.Crypto            (SecretKey, sign, toPublic)
 import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadCommitment (..),
                                         BadSignedCommitment (..), Commitment,
-                                        CommitmentOpening (..), SignedCommitment,
-                                        verifyCommitment, verifyCommitmentSignature,
-                                        verifyOpening)
+                                        CommitmentOpening (..), verifyCommitment,
+                                        verifyCommitmentSignature, verifyOpening)
 import           Pos.Types             (EpochIndex)
 
 import           Test.Hspec            (Spec, describe)

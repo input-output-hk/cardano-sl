@@ -147,6 +147,8 @@ verifyAndApplyProposal
 verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {..} = do
     let epoch = slotOrHeader ^. epochIndexL
     let !upId = hash up
+    whenJustM (getProposal upId) $
+        const $ throwError $ PollProposalAlreadyActive upId
     -- Here we verify consistency with regards to data from 'BlockVersionState'
     -- and update relevant state if necessary.
     verifyAndApplyProposalBVS upId up

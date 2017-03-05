@@ -14,7 +14,7 @@ import           Pos.Core.Coin              (coinF)
 import           Pos.Core.Types             (Coin, EpochIndex, HeaderHash, ScriptVersion,
                                              StakeholderId)
 import           Pos.Core.Types             (ApplicationName, BlockVersion,
-                                             NumSoftwareVersion, SoftwareVersion)
+                                             NumSoftwareVersion)
 import           Pos.Update.Core            (UpId)
 
 -- | PollVerFailure represents all possible errors which can
@@ -39,6 +39,7 @@ data PollVerFailure
                             , plmbsFound       :: !Byte
                             , plmbsUpId        :: !UpId}
     | PollNotFoundScriptVersion !BlockVersion
+    | PollProposalAlreadyActive !UpId
     | PollSmallProposalStake { pspsThreshold :: !Coin
                             ,  pspsActual    :: !Coin
                             ,  pspsUpId      :: !UpId}
@@ -86,6 +87,8 @@ instance Buildable PollVerFailure where
                 " beyond what is allowed"%
                 " (expected max. "%int%", found "%int%")")
         upId maxPossible found
+    build (PollProposalAlreadyActive upId) =
+        bprint ("proposal "%build%" was already proposed") upId
     build (PollNotFoundScriptVersion pv) =
         bprint ("not found script version for protocol version "%build) pv
     build (PollSmallProposalStake threshold actual upId) =

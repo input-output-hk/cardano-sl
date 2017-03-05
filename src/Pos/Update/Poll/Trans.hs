@@ -39,7 +39,7 @@ import           Pos.Slotting.MemState       (MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Txp.MemState            (MonadTxpMem (..))
 import           Pos.Types                   (SoftwareVersion (..))
-import           Pos.Update.Core             (UpId, UpdateProposal (..))
+import           Pos.Update.Core             (UpdateProposal (..))
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types       (BlockVersionState (..),
@@ -161,7 +161,7 @@ instance MonadPollRead m =>
                 sv = upSoftwareVersion up
                 appName = svAppName sv
 
-                alterDel val Nothing   = Nothing
+                alterDel _ Nothing     = Nothing
                 alterDel val (Just hs) = Just $ HS.delete val hs
             pmActivePropsL %= MM.insert upId ps
             pmDelActivePropsIdxL %= HM.alter (alterDel upId) appName

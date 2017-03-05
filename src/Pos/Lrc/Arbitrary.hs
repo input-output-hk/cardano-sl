@@ -53,27 +53,19 @@ genRichmenStake thd = do
     totalCoins <- mkCoin <$> choose (1, unsafeGetCoin maxBound)
     let -- Minimum percentage of stake required to be a richmen.
         threshold = coinPortionToDouble thd
-        -- Since each participant must have 'mpcThreshold' percent of stake to
-        -- participate, this number designates the maximum allowed number of stakeholders
-        -- with which 'computeSharesDistr' can be successfully called.
-        maxRichmen :: Word64
-        maxRichmen = floor $ 1 / threshold
         -- Given the total number of coins in a 'RichmenStake' hashmap, 'threshold'
         -- dictates that there is a minimum percentage of stake each holder must have so
         -- that 'computeSharesDistr' can be successful. 'minStake' is that minimum value,
         -- but expressed as a 'Word64'.
         minStake :: Word64
         minStake = ceiling $ threshold * (fromIntegral $ unsafeGetCoin totalCoins)
-        -- Stops either when 'maxRichmen' richmen have been reached, or when presently
-        -- available stake is below mpc threshold, in which case it is discarded
-        -- and the stakeholder list is returned as is.
-        fun :: Word64 -> Word64 -> [(StakeholderId, Coin)] -> Gen RichmenStake
-        fun coinAccum richmenNum participants
+        -- Stops when presently available stake is below mpc threshold, in which case it
+        -- is discarded and the stakeholder list is returned as is.
+        fun :: Word64 -> [(StakeholderId, Coin)] -> Gen RichmenStake
+        fun coinAccum participants
             | coinAccum < minStake = return $ HM.fromList participants
             | otherwise = do
                 richman <- arbitrary
                 word <- choose (minStake, coinAccum)
-                fun (coinAccum - word)
-                    (richmenNum - 1)
-                    ((richman, mkCoin word) : participants)
-    fun (unsafeGetCoin totalCoins) maxRichmen []
+                fun (coinAccum - word) ((richman, mkCoin word) : participants)
+    fun (unsafeGetCoin totalCoins) []

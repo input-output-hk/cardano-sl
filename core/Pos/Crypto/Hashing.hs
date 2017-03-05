@@ -15,9 +15,7 @@ module Pos.Crypto.Hashing
 
          -- * AbstractHash
        , AbstractHash (..)
-       , encodeAbstractHash
        , decodeAbstractHash
-       , encodeHash
        , decodeHash
        , abstractHash
        , unsafeAbstractHash
@@ -45,7 +43,7 @@ import           Data.Hashable        (Hashable (hashWithSalt), hashPtrWithSalt)
 import           Data.SafeCopy        (SafeCopy (..))
 import qualified Data.Text.Buildable  as Buildable
 import           Formatting           (Format, bprint, fitLeft, later, (%.))
-import qualified Serokell.Util.Base64 as B64
+import qualified Serokell.Util.Base16 as B16
 import           System.IO.Unsafe     (unsafeDupablePerformIO)
 import           Universum
 
@@ -98,22 +96,17 @@ instance Bi (AbstractHash algo a) =>
 instance Buildable.Buildable (AbstractHash algo a) where
     build = bprint shortHashF
 
--- | Encode hash from base64 form.
-encodeAbstractHash :: forall algo a . Bi (AbstractHash algo a) => AbstractHash algo a -> Text
-encodeAbstractHash = B64.encode . Bi.encodeStrict
-
--- | Parses given hash in base64 form.
-decodeAbstractHash :: forall algo a . Bi (AbstractHash algo a) => Text -> AbstractHash algo a
-decodeAbstractHash = Bi.decode . processRes . B64.decode
+-- | Parses given hash in base16 form.
+decodeAbstractHash
+    :: forall algo a.
+       Bi (AbstractHash algo a)
+    => Text -> AbstractHash algo a
+decodeAbstractHash = Bi.decode . processRes . B16.decode
   where
     processRes (Right x) = BSL.fromStrict x
     processRes (Left e)  = panic $ "decode hash error: " <> e
 
--- | Encode hash from base64 form.
-encodeHash :: Bi (Hash a) => Hash a -> Text
-encodeHash = encodeAbstractHash @Blake2s_256
-
--- | Parses given hash in base64 form.
+-- | Parses given hash in base16 form.
 decodeHash :: Bi (Hash a) => Text -> Hash a
 decodeHash = decodeAbstractHash @Blake2s_256
 

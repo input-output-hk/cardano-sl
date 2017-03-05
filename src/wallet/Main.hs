@@ -28,9 +28,8 @@ import           Pos.Binary                (Raw)
 import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
                                             worker)
-import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey,
-                                            encodeHash, hash, hashHexF, sign, toPublic,
-                                            unsafeHash)
+import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey, hash,
+                                            hashHexF, sign, toPublic, unsafeHash)
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Delegation            (sendProxySKHeavy, sendProxySKHeavyOuts,
                                             sendProxySKLight, sendProxySKLightOuts)
@@ -117,7 +116,7 @@ runCmd sendActions ProposeUpdate{..} = do
             lift $ submitUpdateProposal sendActions skey na updateProposal
             let id = hash updateProposal
             putText $
-              sformat ("Update proposal submitted, upId: "%build%" (base64)") (encodeHash id)
+              sformat ("Update proposal submitted, upId: "%hashHexF) id
 runCmd _ Help = do
     putText $
         unlines

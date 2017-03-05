@@ -20,7 +20,8 @@ import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
 import           Mockable                             (Production (runProduction))
 import           Network.Wai                          (Application)
-import           Network.Wai.Handler.Warp             (runSettings, defaultSettings, setHost, setPort)
+import           Network.Wai.Handler.Warp             (defaultSettings, runSettings,
+                                                       setHost, setPort)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import           Servant.API                          ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server                       (Handler, ServantErr (errBody),
@@ -73,8 +74,9 @@ applicationGT = do
 serveImpl :: MonadIO m => m Application -> String -> Word16 -> m ()
 serveImpl application host port =
     liftIO . runSettings mySettings . logStdoutDev =<< application
-  where mySettings = setHost (fromString host) $
-                     setPort (fromIntegral port) defaultSettings
+  where
+    mySettings = setHost (fromString host) $
+                 setPort (fromIntegral port) defaultSettings
 
 ----------------------------------------------------------------------------
 -- Servant infrastructure

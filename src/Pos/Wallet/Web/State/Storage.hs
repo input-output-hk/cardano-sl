@@ -109,9 +109,7 @@ addUpdate :: CUpdateInfo -> Update ()
 addUpdate ui = wsReadyUpdates %= (++ [ui])
 
 removeNextUpdate :: Update ()
-removeNextUpdate = wsReadyUpdates %= \case
-    [] -> []
-    (_:as) -> as
+removeNextUpdate = wsReadyUpdates %= drop 1
 
 testReset :: Update ()
 testReset = put def

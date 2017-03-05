@@ -1,12 +1,15 @@
-
 -- | Arbitrary instances for GodTossing types.
 
 module Pos.Ssc.GodTossing.Arbitrary
-       ( CommitmentOpening (..)
+       ( BadCommAndOpening (..)
+       , BadCommitment (..)
+       , BadSignedCommitment (..)
+       , CommitmentOpening (..)
        ) where
 
 import qualified Data.HashMap.Strict              as HM
-import           Test.QuickCheck                  (Arbitrary (..), elements, oneof)
+import           Test.QuickCheck                  (Arbitrary (..), Gen, elements, oneof,
+                                                   suchThat)
 import           Universum
 
 import           Pos.Binary.Class                 (asBinary)
@@ -15,10 +18,10 @@ import           Pos.Communication.Types.Relay    (DataMsg (..))
 import           Pos.Crypto                       (deterministicVssKeyGen, toPublic,
                                                    toVssPublicKey)
 import           Pos.Ssc.Arbitrary                (SscPayloadDependsOnSlot (..))
-import           Pos.Ssc.GodTossing.Core          (Commitment, Commitment (..),
-                                                   CommitmentsMap, GtPayload (..),
-                                                   GtProof (..), Opening (..), Opening,
-                                                   VssCertificate (..),
+import           Pos.Ssc.GodTossing.Core          (Commitment (..), CommitmentsMap,
+                                                   GtPayload (..), GtProof (..),
+                                                   Opening (..), Opening (..),
+                                                   SignedCommitment, VssCertificate (..),
                                                    genCommitmentAndOpening,
                                                    isCommitmentId, isOpeningId,
                                                    isSharesId, mkCommitmentsMap,
@@ -39,11 +42,45 @@ import           Pos.Util.Arbitrary               (Nonrepeating (..), makeSmall,
 -- Core
 ----------------------------------------------------------------------------
 
+-- | Wrapper over 'Commitment'. Creates an invalid Commitment w.r.t. 'verifyCommitment'.
+newtype BadCommitment = BadComm
+    { getBadComm :: Commitment
+    } deriving (Show, Eq)
+
+instance Arbitrary BadCommitment where
+    arbitrary = BadComm <$> do
+      Commitment <$> arbitrary <*> arbitrary <*> (arbitrary `suchThat` (not . null))
+
+-- | Wrapper over 'SignedCommitment'. Creates an invalid SignedCommitment w.r.t.
+-- 'verifyCommitmentSignature'.
+newtype BadSignedCommitment = BadSignedComm
+    { getBadSignedC :: SignedCommitment
+    } deriving (Show, Eq)
+
+instance Arbitrary BadSignedCommitment where
+    arbitrary = BadSignedComm <$> do
+        pk <- arbitrary
+        sig <- arbitrary
+        badComm <- getBadComm <$> (arbitrary :: Gen BadCommitment)
+        return (pk, badComm, sig)
+
 -- | Pair of 'Commitment' and 'Opening'.
 data CommitmentOpening = CommitmentOpening
     { coCommitment :: !Commitment
     , coOpening    :: !Opening
     } deriving Show
+
+-- | Wrapper over '(Commitment, Opening)'. Creates an invalid pair of a Commitment and an
+-- Opening w.r.t. 'verifyOpening'.
+data BadCommAndOpening = BadCommAndOpening
+    { getBadCAndO :: (Commitment, Opening)
+    } deriving (Show, Eq)
+
+instance Arbitrary BadCommAndOpening where
+    arbitrary = do
+        badComm <- getBadComm <$> arbitrary
+        opening <- arbitrary
+        return $ BadCommAndOpening (badComm, opening)
 
 -- | Generate 50 commitment/opening pairs in advance
 -- (see `Pos.Crypto.Arbitrary` for explanations)

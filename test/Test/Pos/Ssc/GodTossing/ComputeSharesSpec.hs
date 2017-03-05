@@ -14,8 +14,7 @@ import           Universum
 import           Pos.Constants         (genesisMpcThd)
 import           Pos.Core              (CoinPortion, mkCoin)
 import           Pos.Core.Coin         (coinPortionToDouble, sumCoins)
-import           Pos.Lrc               (InvalidRichmenStake (..), RichmenStake,
-                                        ValidRichmenStake (..))
+import           Pos.Lrc               (InvalidRichmenStake (..), ValidRichmenStake (..))
 import qualified Pos.Ssc.GodTossing    as T
 
 spec :: Spec

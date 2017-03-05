@@ -9,7 +9,7 @@ import           Formatting          (bprint, stext)
 import           Serokell.Util       (listBuilderJSON)
 import           Universum
 
-import           Pos.Types.Address   (StakeholderId)
+import           Pos.Core.Types      (StakeholderId)
 
 -- | Data type for error during seed calculation.
 data SeedError

@@ -22,6 +22,7 @@ import           Data.List.NonEmpty         ((<|))
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, int, sformat, shown, stext, (%))
 import           Mockable                   (fork, handleAll, throw)
+import           Paths_cardano_sl           (version)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (isVerSuccess)
 import           System.Wlog                (logDebug, logError, logInfo, logWarning)
@@ -49,13 +50,13 @@ import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB.DB                  as DB
 import           Pos.DHT.Model              (converseToNeighbors)
 import           Pos.Reporting.Methods      (reportMisbehaviourMasked, reportingFatal)
+import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
                                              HeaderHash, blockHeader, difficultyL,
                                              gbHeader, prevBlockL, verifyHeaders)
 import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
                                              inAssertMode, _neHead, _neLast)
-import           Pos.Util.Shutdown          (ifNotShutdown)
 import           Pos.WorkMode               (WorkMode)
 
 data VerifyBlocksException = VerifyBlocksException Text deriving Show
@@ -81,7 +82,7 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
     NodeContext{..} <- getNodeContext
     mainLoop ncBlockRetrievalQueue ncRecoveryHeader
   where
-    mainLoop queue recHeaderVar = ifNotShutdown $ reportingFatal $ do
+    mainLoop queue recHeaderVar = runIfNotShutdown $ reportingFatal version $ do
         logDebug "Waiting on the queue"
         loopCont <- atomically $ do
             qV <- tryReadTBQueue queue
@@ -92,7 +93,7 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
                 (Nothing, Just r)  -> pure $ Right r
         let onLeft ph =
                 handleAll (handleBlockRetrieval recHeaderVar ph) $
-                reportingFatal $ handle ph
+                reportingFatal version $ handle ph
         let tryFillQueue peerId (0 :: Int) _ =
                 dropRecoveryHeaderAndRepeat recHeaderVar peerId
             tryFillQueue peerId tries action = do
@@ -103,7 +104,7 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
                 logDebug "Queue is empty, we're in recovery mode -> querying more"
                 whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
                     handleAll (handleHeadersRecovery recHeaderVar peerId) $
-                    reportingFatal $
+                    reportingFatal version $
                     reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
                     withConnectionTo sendActions peerId $ \_peerData ->
                         requestHeaders mghNext (Just rHeader) peerId limPx
@@ -622,7 +623,7 @@ applyWithRollback peerId sendActions toApply lca toRollback = do
     reportRollback =
         unlessM isRecoveryMode $ do
             logDebug "Reporting rollback happened"
-            reportMisbehaviourMasked $
+            reportMisbehaviourMasked version $
                 sformat reportF peerId toRollbackHashes toApplyHashes
     panicBrokenLca = panic "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =

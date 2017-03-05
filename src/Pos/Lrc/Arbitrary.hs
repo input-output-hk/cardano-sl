@@ -12,11 +12,12 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import           Data.Reflection     (Reifies (..))
-import           Pos.Lrc.Types       (RichmenStake)
-import           Pos.Types.Address   (StakeholderId)
-import           Pos.Types.Coin      (coinPortionToDouble)
-import           Pos.Types.Core      (Coin, CoinPortion, mkCoin, unsafeGetCoin)
 import           Test.QuickCheck     (Arbitrary (..), Gen, choose)
+
+import           Pos.Core            (Coin, CoinPortion, StakeholderId, mkCoin,
+                                      unsafeGetCoin)
+import           Pos.Core.Coin       (coinPortionToDouble)
+import           Pos.Lrc.Types       (RichmenStake)
 
 -- | Wrapper over 'RichmenStake'. Its 'Arbitrary' instance enforces that the stake
 -- distribution inside must be valid with respect to the threshold 'thd', i.e. all of the

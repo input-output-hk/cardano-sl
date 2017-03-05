@@ -7,7 +7,7 @@ smart-wallet:
     severity: Error
 node:
     severity: Debug
-    file: update-node-tmp.log
+    file: [update-node-tmp.log, update-node-tmp.log.pub]
     comm:
         severity: Info
     dht:

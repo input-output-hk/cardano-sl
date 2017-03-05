@@ -4,21 +4,19 @@ module Test.Pos.Ssc.GodTossing.ComputeSharesSpec
        ( spec
        ) where
 
-import           Test.Hspec              (Expectation, Spec, describe, shouldBe)
-import           Test.Hspec.QuickCheck   (prop)
+import           Control.Monad.Except  (runExcept)
+import qualified Data.HashMap.Strict   as HM
+import           Data.Reflection       (Reifies (..))
+import           Test.Hspec            (Expectation, Spec, describe, shouldBe)
+import           Test.Hspec.QuickCheck (prop)
 import           Universum
 
-import           Control.Monad.Except    (runExcept)
-import qualified Data.HashMap.Strict     as HM
-import           Data.Reflection         (Reifies (..))
-import           Pos.Constants           (genesisMpcThd)
-import           Pos.Types.Address       (StakeholderId)
-import           Pos.Types.Coin          (coinPortionToDouble, mkCoin, sumCoins)
-import           Pos.Types.Core          (CoinPortion, coinPortionDenominator,
-                                          getCoinPortion)
-import           Pos.Lrc                 (InvalidRichmenStake (..), RichmenStake,
-                                          ValidRichmenStake (..))
-import qualified Pos.Ssc.GodTossing      as T
+import           Pos.Constants         (genesisMpcThd)
+import           Pos.Core              (CoinPortion, mkCoin)
+import           Pos.Core.Coin         (coinPortionToDouble, sumCoins)
+import           Pos.Lrc               (InvalidRichmenStake (..), RichmenStake,
+                                        ValidRichmenStake (..))
+import qualified Pos.Ssc.GodTossing    as T
 
 spec :: Spec
 spec = describe "computeSharesDistr" $ do
@@ -65,7 +63,7 @@ validRichmenStakeWorks (getValid -> richmen) =
         mpcThreshold = coinPortionToDouble genesisMpcThd
         minStake = mkCoin . ceiling $ (fromIntegral totalCoins) * mpcThreshold
     in case outputStakeholder of
-        Left _ -> False
+        Left _  -> False
         Right _ -> all (\x -> x >= minStake && x > (mkCoin 0)) richmen
 
 totalStakeIsZero :: ValidRichmenStake GenesisMpcThd -> Bool

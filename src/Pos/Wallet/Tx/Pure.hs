@@ -34,6 +34,7 @@ import qualified Data.Vector               as V
 import           Universum
 
 import           Pos.Binary                ()
+import           Pos.Core.Coin             (unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto                (PublicKey, SecretKey, WithHash (..), hash,
                                             sign, toPublic, withHash)
 import           Pos.Data.Attributes       (mkAttributes)
@@ -47,7 +48,6 @@ import           Pos.Txp.Core.Types        (Tx (..), TxAux, TxDistribution (..),
 import           Pos.Types                 (Address, Block, ChainDifficulty, Coin,
                                             blockTxas, difficultyL, makePubKeyAddress,
                                             makeScriptAddress, mkCoin, sumCoins)
-import           Pos.Types.Coin            (unsafeIntegerToCoin, unsafeSubCoin)
 
 type TxInputs = [TxIn]
 type TxOutputs = [TxOutAux]

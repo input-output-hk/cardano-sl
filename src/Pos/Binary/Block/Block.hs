@@ -8,7 +8,7 @@ import           Data.Binary.Get   (label)
 import           Universum
 
 import           Pos.Binary.Class  (Bi (..))
-import           Pos.Binary.Types  ()
+import           Pos.Binary.Core  ()
 import           Pos.Binary.Update ()
 import           Pos.Block.Types   (Undo (..))
 

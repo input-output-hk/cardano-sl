@@ -12,6 +12,10 @@ module Pos.Txp.Toil.Class
        , MonadBalancesRead (..)
        , MonadBalances (..)
        , MonadTxPool (..)
+#ifdef WITH_EXPLORER
+       , MonadTxExtra (..)
+       , MonadTxExtraRead (..)
+#endif
        ) where
 
 import           Control.Monad.Trans.Class (MonadTrans)
@@ -19,7 +23,7 @@ import           Universum
 
 import           Pos.Txp.Core.Types        (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import           Pos.Types                 (Coin, StakeholderId)
-#ifdef DWITH_EXPLORER
+#ifdef WITH_EXPLORER
 import           Pos.Types.Explorer        (TxExtra)
 #endif
 
@@ -95,7 +99,7 @@ instance MonadBalances m => MonadBalances (ExceptT s m)
 class Monad m => MonadTxPool m where
     hasTx :: TxId -> m Bool
     poolSize :: m Int
-#ifdef DWITH_EXPLORER
+#ifdef WITH_EXPLORER
     putTxWithUndo :: TxId -> TxAux -> TxUndo -> TxExtra -> m ()
 #else
     putTxWithUndo :: TxId -> TxAux -> TxUndo -> m ()
@@ -109,7 +113,7 @@ class Monad m => MonadTxPool m where
         :: (MonadTrans t, MonadTxPool m', t m' ~ m) => m Int
     poolSize = lift poolSize
 
-#ifdef DWITH_EXPLORER
+#ifdef WITH_EXPLORER
     default putTxWithUndo
         :: (MonadTrans t, MonadTxPool m', t m' ~ m) => TxId -> TxAux -> TxUndo -> TxExtra -> m ()
     putTxWithUndo id tx undo = lift . putTxWithUndo id tx undo
@@ -122,3 +126,31 @@ class Monad m => MonadTxPool m where
 instance MonadTxPool m => MonadTxPool (ReaderT s m)
 instance MonadTxPool m => MonadTxPool (StateT s m)
 instance MonadTxPool m => MonadTxPool (ExceptT s m)
+
+#ifdef WITH_EXPLORER
+----------------------------------------------------------------------------
+-- MonadTxExtra
+----------------------------------------------------------------------------
+
+class Monad m => MonadTxExtraRead m where
+    getTxExtra :: TxId -> m (Maybe TxExtra)
+
+    default getTxExtra
+        :: (MonadTrans t, MonadTxExtraRead m', t m' ~ m) => TxId -> m (Maybe TxExtra)
+    getTxExtra = lift . getTxExtra
+
+instance MonadTxExtraRead m => MonadTxExtraRead (ReaderT s m)
+instance MonadTxExtraRead m => MonadTxExtraRead (StateT s m)
+instance MonadTxExtraRead m => MonadTxExtraRead (ExceptT s m)
+
+class MonadTxExtraRead m => MonadTxExtra m where
+    putTxExtra :: TxId -> TxExtra -> m ()
+
+    default putTxExtra
+        :: (MonadTrans t, MonadTxExtra m', t m' ~ m) => TxId -> TxExtra -> m ()
+    putTxExtra id = lift . putTxExtra id
+
+instance MonadTxExtra m => MonadTxExtra (ReaderT s m)
+instance MonadTxExtra m => MonadTxExtra (StateT s m)
+instance MonadTxExtra m => MonadTxExtra (ExceptT s m)
+#endif

@@ -7,7 +7,7 @@ module Pos.Types
        , module Pos.Types.Block
        , module Pos.Types.Coin
        , module Pos.Types.Core
-#ifdef DWITH_EXPLORER
+#ifdef WITH_EXPLORER
        , module Pos.Types.Explorer
 #endif
        , module Pos.Types.Slotting
@@ -24,7 +24,7 @@ import           Pos.Types.Arbitrary
 import           Pos.Types.Block
 import           Pos.Types.Coin
 import           Pos.Types.Core
-#ifdef DWITH_EXPLORER
+#ifdef WITH_EXPLORER
 import           Pos.Types.Explorer
 #endif
 import           Pos.Types.SharedSeed ()

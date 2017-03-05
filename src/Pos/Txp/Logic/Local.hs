@@ -27,8 +27,8 @@ import           Pos.Txp.Toil         (MemPool (..), MonadUtxoRead (..), TxpModi
                                        TxpVerFailure (..), execTxpTLocal, normalizeTxp,
                                        processTx, runDBTxp, runTxpTLocal, runUtxoReaderT,
                                        utxoGet)
-#ifdef DWITH_EXPLORER
-import           Pos.Txp.Toil         (putTxExtra)
+#ifdef WITH_EXPLORER
+import           Pos.Txp.Core.Types   (Utxo)
 import           Pos.Types.Explorer   (TxExtra (..))
 #endif
 
@@ -67,7 +67,7 @@ txProcessTransaction itw@(txId, (Tx{..}, _, _)) = do
             let res = runExcept $
                       flip runUtxoReaderT resolved $
                       execTxpTLocal uv mp undo $
-#ifdef DWITH_EXPLORER
+#ifdef WITH_EXPLORER
                       processTx tx $ makeExtra resolved
 #else
                       processTx tx
@@ -78,7 +78,8 @@ txProcessTransaction itw@(txId, (Tx{..}, _, _)) = do
                 Right TxpModifier{..} ->
                     (Right (), (_txmUtxoView, _txmMemPool, _txmUndos, tip))
     runUV uv = runTxpTLocal uv def mempty
-#ifdef DWITH_EXPLORER
+#ifdef WITH_EXPLORER
+    makeExtra :: Utxo -> TxExtra
     makeExtra resolved = TxExtra Nothing $ map fst $ toList resolved
 #endif
 
@@ -95,7 +96,7 @@ txNormalize = do
            runDBTxp $
            execTxpTLocal def def def $
            normalizeTxp $
-#ifdef DWITH_EXPLORER
+#ifdef WITH_EXPLORER
            HM.toList $ HM.intersectionWith (,) _mpLocalTxs _mpLocalTxsExtra
 #else
            HM.toList _mpLocalTxs

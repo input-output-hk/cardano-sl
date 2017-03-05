@@ -33,13 +33,17 @@ import           Pos.Txp.Toil.Class   (MonadBalances (..), MonadBalancesRead (..
                                        MonadTxPool (..), MonadUtxo (..))
 import           Pos.Txp.Toil.Failure (TxpVerFailure (..))
 import qualified Pos.Txp.Toil.Utxo    as Utxo
-#ifdef DWITH_EXPLORER
-import Pos.Types.Explorer (TxExtra)
+#ifdef WITH_EXPLORER
+import           Pos.Txp.Toil.Class   (MonadTxExtra (..))
+import           Pos.Types            (TxExtra (..), HeaderHash)
 #endif
 
 type GlobalTxpMode m = ( MonadUtxo m
                        , MonadBalances m
                        , MonadError TxpVerFailure m
+#ifdef WITH_EXPLORER
+                       , MonadTxExtra m
+#endif
                        , WithLogger m)
 
 type LocalTxpMode m = ( MonadUtxo m
@@ -56,11 +60,31 @@ verifyTxp :: GlobalTxpMode m => [TxAux] -> m TxsUndo
 verifyTxp = mapM (processTxWithPureChecks True . withTxId)
 
 -- | Apply transactions from one block.
-applyTxp :: GlobalTxpMode m => [(TxAux, TxUndo)] -> m ()
+applyTxp
+    :: GlobalTxpMode m
+    => [(TxAux, TxUndo)]
+#ifdef WITH_EXPLORER
+    -> HeaderHash
+#endif
+    -> m ()
+#ifdef WITH_EXPLORER
+applyTxp txun hh = do
+#else
 applyTxp txun = do
+#endif
     let (txOutPlus, txInMinus) = concatStakes txun
     recomputeStakes txOutPlus txInMinus
+#ifdef WITH_EXPLORER
+    mapM_ applier $ zip [0..] txun
+  where
+    applier (i, (txaux@(tx, _, _), txundo)) = do
+        let id = hash tx
+            extra = TxExtra (Just (hh, i)) $ map fst txundo
+        Utxo.applyTxToUtxo' (id, txaux)
+        putTxExtra id extra
+#else
     mapM_ (Utxo.applyTxToUtxo' . withTxId . fst) txun
+#endif
 
 -- | Rollback transactions from one block.
 rollbackTxp :: GlobalTxpMode m => [(TxAux, TxUndo)] -> m ()
@@ -73,8 +97,8 @@ rollbackTxp txun = do
 -- All valid transactions will be added to mem pool and applied to utxo.
 normalizeTxp
     :: LocalTxpMode m
-#ifdef DWITH_EXPLORER
-    => [((TxId, (TxAux, TxExtra))]
+#ifdef WITH_EXPLORER
+    => [(TxId, (TxAux, TxExtra))]
 #else
     => [(TxId, TxAux)]
 #endif
@@ -83,7 +107,7 @@ normalizeTxp txs = do
     topsorted <- note TxpCantTopsort (topsortTxs wHash txs)
     mapM_ normalize topsorted
   where
-#ifdef DWITH_EXPLORER
+#ifdef WITH_EXPLORER
     wHash (i, ((t, _, _), _)) = WithHash t i
     normalize = runExceptT . uncurry processTx . repair
     repair (i, (txaux, extra)) = ((i, txaux), extra)
@@ -96,7 +120,7 @@ normalizeTxp txs = do
 -- #processWithPureChecks
 -- Validate one transaction and also add it to mem pool and apply to utxo
 -- if transaction is valid.
-#ifdef DWITH_EXPLORER
+#ifdef WITH_EXPLORER
 processTx
     :: LocalTxpMode m => (TxId, TxAux) -> TxExtra -> m ()
 processTx tx@(id, aux) extra = do
@@ -108,7 +132,7 @@ processTx tx@(id, aux) = do
     whenM (hasTx id) $ throwError TxpKnown
     whenM ((>= maxLocalTxs) <$> poolSize) $ throwError TxpOverwhelmed
     undo <- processTxWithPureChecks True tx
-#ifdef DWITH_EXPLORER
+#ifdef WITH_EXPLORER
     putTxWithUndo id aux undo extra
 #else
     putTxWithUndo id aux undo

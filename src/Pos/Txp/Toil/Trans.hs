@@ -30,12 +30,13 @@ import           Pos.Txp.Toil.Types        (BalancesView, MemPool, TxpModifier (
                                             mpLocalTxs, mpLocalTxsSize, txmBalances,
                                             txmMemPool, txmUndos, txmUtxoView, uvAddUtxo,
                                             uvDelUtxo)
-#ifdef DWITH_EXPLORER
-import           Pos.Txp.Toil.Types        (mpLocalTxsExtra)
-#endif
 import           Pos.Txp.Toil.Class        (MonadBalances (..), MonadBalancesRead (..),
                                             MonadTxPool (..), MonadUtxo (..),
                                             MonadUtxoRead (..))
+#ifdef WITH_EXPLORER
+import           Pos.Txp.Toil.Class        (MonadTxExtra (..), MonadTxExtraRead (..))
+import           Pos.Txp.Toil.Types        (mpLocalTxsExtra)
+#endif
 
 ----------------------------------------------------------------------------
 -- Tranformer
@@ -101,7 +102,7 @@ instance MonadBalancesRead m => MonadBalances (TxpT m) where
 instance Monad m => MonadTxPool (TxpT m) where
     hasTx id = TxpT $ use $ txmMemPool . mpLocalTxs . to (HM.member id)
 
-#ifdef DWITH_EXPLORER
+#ifdef WITH_EXPLORER
     putTxWithUndo id tx undo extra = TxpT $ do
 #else
     putTxWithUndo id tx undo = TxpT $ do
@@ -110,12 +111,23 @@ instance Monad m => MonadTxPool (TxpT m) where
         unless has $ do
             txmMemPool . mpLocalTxs . at id .= Just tx
             txmMemPool . mpLocalTxsSize %= (+1)
-#ifdef DWITH_EXPLORER
+#ifdef WITH_EXPLORER
             txmMemPool . mpLocalTxsExtra . at id .= Just extra
 #endif
             txmUndos . at id .= Just undo
 
     poolSize = TxpT $ use $ txmMemPool . mpLocalTxsSize
+
+#ifdef WITH_EXPLORER
+instance MonadTxExtraRead m => MonadTxExtraRead (TxpT m) where
+    getTxExtra id = TxpT $
+        (<|>) <$> use (txmMemPool . mpLocalTxsExtra . at id)
+              <*> getTxExtra id
+
+instance MonadTxExtraRead m => MonadTxExtra (TxpT m) where
+    putTxExtra id extra = TxpT $
+        txmMemPool . mpLocalTxsExtra . at id .= Just extra
+#endif
 
 ----------------------------------------------------------------------------
 -- Runners

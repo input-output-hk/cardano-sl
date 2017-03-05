@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP                 #-}
 
 -- | Transaction processing logic.
 
@@ -29,6 +30,10 @@ import           Pos.Txp.Toil        (BalancesView (..), BalancesView (..), DBTx
                                       TxpModifier (..), TxpT, TxpVerFailure,
                                       UtxoView (..), applyTxp, rollbackTxp, runDBTxp,
                                       runTxpTGlobal, verifyTxp)
+#ifdef WITH_EXPLORER
+import           Pos.Types           (BiSsc, HeaderHash, headerHash)
+import           Pos.Txp.Toil        (MemPool (..))
+#endif
 
 type TxpWorkMode m = (WithLogger m, MonadDB m, MonadTxpMem m, MonadThrow m)
 
@@ -47,7 +52,11 @@ txVerifyBlocks newChain = do
 -- | Apply chain of /definitely/ valid blocks to state on transactions
 -- processing.
 txApplyBlocks
+#ifdef WITH_EXPLORER
+    :: (TxpWorkMode m, BiSsc ssc)
+#else
     :: TxpWorkMode m
+#endif
     => OldestFirst NE (Blund ssc)
     -> m SomeBatchOp
 txApplyBlocks blunds = do
@@ -60,7 +69,11 @@ txApplyBlocks blunds = do
                    assertionFailed $
                    "txVerifyBlocks failed in txApplyBlocks call: " <> errors
     verdict <- runTxpAction $
-                   mapM (applyTxp . blundToAuxNUndo) $ blunds
+#ifdef WITH_EXPLORER
+                   mapM (uncurry applyTxp . blundToAuxNUndoWHash) blunds
+#else
+                   mapM (applyTxp . blundToAuxNUndo) blunds
+#endif
     case verdict of
         Left er           -> throwEx $ pretty er
         Right (_, txpMod) ->
@@ -89,10 +102,18 @@ txRollbackBlocks blunds = do
 txpModifierToBatch :: TxpModifier -> SomeBatchOp
 txpModifierToBatch (TxpModifier
                       (UtxoView (HM.toList -> addS) (HS.toList -> delS))
-                      (BalancesView (HM.toList -> stakes) total) _ _) =
+                      (BalancesView (HM.toList -> stakes) total)
+#ifdef WITH_EXPLORER
+                      (MemPool _ _ (HM.toList -> extras)) _) =
+#else
+                      _ _) =
+#endif
     SomeBatchOp [
           SomeBatchOp $ map GS.DelTxIn delS ++ map (uncurry GS.AddTxOut) addS
         , SomeBatchOp $ map (uncurry GS.PutFtsStake) stakes ++ [GS.PutFtsSum total]
+#ifdef WITH_EXPLORER
+        , SomeBatchOp $ map (uncurry GS.AddTxExtra) extras
+#endif
                 ]
 
 -- Run action which requires MonadUtxo and MonadTxPool interfaces.
@@ -108,6 +129,12 @@ runTxpAction action = do
 -- Zip block's TxAuxes and corresponding TxUndos.
 blundToAuxNUndo :: Blund ssc -> [(TxAux, TxUndo)]
 blundToAuxNUndo = uncurry zip . bimap getTxas undoTx
+
+#ifdef WITH_EXPLORER
+-- Zip block's TxAuxes and also add block hash
+blundToAuxNUndoWHash :: BiSsc ssc => Blund ssc -> ([(TxAux, TxUndo)], HeaderHash)
+blundToAuxNUndoWHash blund = (blundToAuxNUndo blund, headerHash blund)
+#endif
 
 -- Get block's TxAuxes.
 getTxas :: Block ssc -> [TxAux]

@@ -7,7 +7,7 @@ module Pos.DB.GState
        ( module Pos.DB.GState.BlockExtra
        , module Pos.DB.GState.Common
        , module Pos.DB.GState.GState
-#ifdef DWITH_EXPLORER
+#ifdef WITH_EXPLORER
        , module Pos.DB.GState.Explorer
 #endif
        , module Pos.Delegation.DB
@@ -19,7 +19,7 @@ import           Pos.DB.GState.BlockExtra
 import           Pos.DB.GState.Common     (CommonOp (..), getBot, getTip,
                                            writeBatchGState)
 import           Pos.DB.GState.GState
-#ifdef DWITH_EXPLORER
+#ifdef WITH_EXPLORER
 import           Pos.DB.GState.Explorer
 #endif
 import           Pos.Delegation.DB

@@ -11,6 +11,9 @@ module Pos.Txp.Toil.Types
        , MemPool (..)
        , mpLocalTxs
        , mpLocalTxsSize
+#ifdef WITH_EXPLORER
+       , mpLocalTxsExtra
+#endif
        , TxMap
        , BalancesView (..)
        , bvStakes
@@ -31,6 +34,9 @@ import           Universum
 
 import           Pos.Txp.Core.Types  (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import           Pos.Types           (Coin, StakeholderId, mkCoin)
+#ifdef WITH_EXPLORER
+import           Pos.Types.Explorer  (TxExtra)
+#endif
 
 ----------------------------------------------------------------------------
 -- UtxoView
@@ -69,7 +75,7 @@ type TxMap = HashMap TxId TxAux
 instance Default TxMap where
     def = mempty
 
-#ifdef DWITH_EXPLORER
+#ifdef WITH_EXPLORER
 type TxMapExtra = HashMap TxId TxExtra
 
 instance Default TxMapExtra where
@@ -80,7 +86,7 @@ data MemPool = MemPool
     { _mpLocalTxs      :: !TxMap
       -- | @length@ is @O(n)@ for 'HM.HashMap' so we store it explicitly.
     , _mpLocalTxsSize  :: !Int
-#ifdef DWITH_EXPLORER
+#ifdef WITH_EXPLORER
     , _mpLocalTxsExtra :: !TxMapExtra
 #endif
     }
@@ -92,7 +98,7 @@ instance Default MemPool where
         MemPool
         { _mpLocalTxs      = HM.empty
         , _mpLocalTxsSize  = 0
-#ifdef DWITH_EXPLORER
+#ifdef WITH_EXPLORER
         , _mpLocalTxsExtra = HM.empty
 #endif
         }

@@ -112,7 +112,7 @@ fromCTxId (CTxId (CHash txId)) = decodeHashHex txId
 data CBlockEntry = CBlockEntry
     { cbeBlkHash    :: !CHash
     , cbeHeight     :: !Word
-    , cbeTimeIssued :: POSIXTime
+    , cbeTimeIssued :: !POSIXTime
     , cbeTxNum      :: !Word
     , cbeTotalSent  :: !Coin
     , cbeSize       :: !Word64

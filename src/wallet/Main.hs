@@ -27,8 +27,9 @@ import           Pos.Binary                (Raw)
 import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
                                             worker)
-import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey, hash,
-                                            hashHexF, sign, toPublic, unsafeHash)
+import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey, fakeSigner,
+                                            hash, hashHexF, sign, toPublic,
+                                            unsafeHash)
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Delegation            (sendProxySKHeavy, sendProxySKHeavyOuts,
                                             sendProxySKLight, sendProxySKLightOuts)
@@ -65,7 +66,7 @@ runCmd _ (Balance addr) = lift (getBalance addr) >>=
                          putText . sformat ("Current balance: "%coinF)
 runCmd sendActions (Send idx outputs) = do
     (skeys, na) <- ask
-    etx <- lift $ submitTx sendActions (skeys !! idx) na (map (,[]) outputs)
+    etx <- lift $ submitTx sendActions (fakeSigner $ skeys !! idx) na (map (,[]) outputs)
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx

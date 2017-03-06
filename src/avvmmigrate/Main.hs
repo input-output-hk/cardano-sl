@@ -1,5 +1,5 @@
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Main where
 
@@ -16,10 +16,10 @@ import           Test.QuickCheck      (arbitrary)
 import           Universum
 
 import qualified Pos.Binary           as Bi
-import           Pos.Crypto           (PublicKey (..))
+import           Pos.Crypto           (RedeemPublicKey (..))
 import           Pos.Genesis          (GenesisData (..), StakeDistribution (..))
 import           Pos.Ssc.GodTossing   (vcSigningKey)
-import           Pos.Types            (Address, Coin, addressHash, makePubKeyAddress,
+import           Pos.Types            (Address, Coin, addressHash, makeRedeemAddress,
                                        unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Util             (runGen)
 
@@ -85,7 +85,7 @@ genGenesis avvm genCerts = GenesisData
     balances = HM.fromListWith unsafeAddCoin $ do
         AvvmEntry{..} <- utxo avvm
         let pk = case decodeUrl address of
-                Right x -> PublicKey (Ed.PublicKey x)
+                Right x -> RedeemPublicKey (Ed.PublicKey x)
                 Left _  -> panic ("couldn't decode address " <> address)
-        let addr = makePubKeyAddress pk
+        let addr = makeRedeemAddress pk
         return (addr, unsafeIntegerToCoin (coinAmount coin))

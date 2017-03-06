@@ -7,8 +7,10 @@ module Pos.Wallet.Tx.Pure
        -- * Tx creation
          makePubKeyTx
        , makeMOfNTx
+       , makeRedemptionTx
        , createTx
        , createMOfNTx
+       , createRedemptionTx
 
        -- * History derivation
        , getRelatedTxs
@@ -35,8 +37,10 @@ import           Universum
 
 import           Pos.Binary                ()
 import           Pos.Core.Coin             (unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Crypto                (PublicKey, SecretKey, WithHash (..), hash,
-                                            sign, toPublic, withHash)
+import           Pos.Crypto                (PublicKey, RedeemSecretKey, SafeSigner,
+                                            WithHash (..), hash, redeemSign,
+                                            redeemToPublic, safeSign, safeToPublic,
+                                            withHash)
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Script                (Script)
 import           Pos.Script.Examples       (multisigRedeemer, multisigValidator)
@@ -47,7 +51,8 @@ import           Pos.Txp.Core.Types        (Tx (..), TxAux, TxDistribution (..),
                                             TxOutAux, TxSigData, TxWitness, Utxo)
 import           Pos.Types                 (Address, Block, ChainDifficulty, Coin,
                                             blockTxas, difficultyL, makePubKeyAddress,
-                                            makeScriptAddress, mkCoin, sumCoins)
+                                            makeRedeemAddress, makeScriptAddress, mkCoin,
+                                            sumCoins)
 
 type TxInputs = [TxIn]
 type TxOutputs = [TxOutAux]
@@ -73,19 +78,27 @@ makeAbstractTx mkWit txInputs outputs = ( UnsafeTx txInputs txOutputs txAttribut
     makeTxSigData TxIn{..} = (txInHash, txInIndex, txOutHash, txDistHash)
 
 -- | Makes a transaction which use P2PKH addresses as a source
-makePubKeyTx :: SecretKey -> TxInputs -> TxOutputs -> TxAux
-makePubKeyTx sk = makeAbstractTx mkWit
-  where pk = toPublic sk
+makePubKeyTx :: SafeSigner -> TxInputs -> TxOutputs -> TxAux
+makePubKeyTx ss = makeAbstractTx mkWit
+  where pk = safeToPublic ss
         mkWit sigData = PkWitness
             { twKey = pk
-            , twSig = sign sk sigData
+            , twSig = safeSign ss sigData
             }
 
-makeMOfNTx :: Script -> [Maybe SecretKey] -> TxInputs -> TxOutputs -> TxAux
+makeMOfNTx :: Script -> [Maybe SafeSigner] -> TxInputs -> TxOutputs -> TxAux
 makeMOfNTx validator sks = makeAbstractTx mkWit
   where mkWit sigData = ScriptWitness
             { twValidator = validator
             , twRedeemer = multisigRedeemer sigData sks
+            }
+
+makeRedemptionTx :: RedeemSecretKey -> TxInputs -> TxOutputs -> TxAux
+makeRedemptionTx rsk = makeAbstractTx mkWit
+  where rpk = redeemToPublic rsk
+        mkWit sigData = RedeemWitness
+            { twRedeemKey = rpk
+            , twRedeemSig = redeemSign rsk sigData
             }
 
 type FlatUtxo = [(TxIn, TxOutAux)]
@@ -127,13 +140,13 @@ prepareInpOuts utxo addr outputs = do
 
 
 -- | Make a multi-transaction using given secret key and info for outputs
-createTx :: Utxo -> SecretKey -> TxOutputs -> Either TxError TxAux
-createTx utxo sk outputs =
-    uncurry (makePubKeyTx sk) <$>
-    prepareInpOuts utxo (makePubKeyAddress $ toPublic sk) outputs
+createTx :: Utxo -> SafeSigner -> TxOutputs -> Either TxError TxAux
+createTx utxo ss outputs =
+    uncurry (makePubKeyTx ss) <$>
+    prepareInpOuts utxo (makePubKeyAddress $ safeToPublic ss) outputs
 
 -- | Make a transaction, using M-of-N script as a source
-createMOfNTx :: Utxo -> [(PublicKey, Maybe SecretKey)] -> TxOutputs -> Either TxError TxAux
+createMOfNTx :: Utxo -> [(PublicKey, Maybe SafeSigner)] -> TxOutputs -> Either TxError TxAux
 createMOfNTx utxo keys outputs = uncurry (makeMOfNTx validator sks) <$> inpOuts
   where pks = map fst keys
         sks = map snd keys
@@ -141,6 +154,11 @@ createMOfNTx utxo keys outputs = uncurry (makeMOfNTx validator sks) <$> inpOuts
         validator = multisigValidator m pks
         addr = makeScriptAddress validator
         inpOuts = prepareInpOuts utxo addr outputs
+
+createRedemptionTx :: Utxo -> RedeemSecretKey -> TxOutputs -> Either TxError TxAux
+createRedemptionTx utxo rsk outputs =
+    uncurry (makeRedemptionTx rsk) <$>
+    prepareInpOuts utxo (makeRedeemAddress $ redeemToPublic rsk) outputs
 
 ----------------------------------------------------------------------
 -- Deduction of history

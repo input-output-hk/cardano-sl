@@ -398,6 +398,7 @@ library
                       , binary-conduit >= 1.2.4.1
                       , binary-orphans
                       , bytestring
+                      , cardano-crypto
                       , cardano-report-server >= 0.1.0
                       , cardano-sl-core
                       , cardano-sl-update

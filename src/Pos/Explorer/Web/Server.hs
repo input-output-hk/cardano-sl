@@ -156,6 +156,9 @@ getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
 getTxSummary :: ExplorerMode m => CTxId -> m CTxSummary
 getTxSummary cTxId = do
     -- There are two places whence we can fetch a transaction: MemPool and DB.
+    -- However, TxExtra should be added in the DB when a transaction is added
+    -- to MemPool. So we start with TxExtra and then figure out whence to fetch
+    -- the rest.
     txId <- cTxIdToTxId cTxId
     txExtraMaybe <- GS.getTxExtra txId
 
@@ -166,11 +169,11 @@ getTxSummary cTxId = do
         blockchainPlace = teBlockchainPlace txExtra
         inputOutputs = teInputOutputs txExtra
 
-    let convertTxOutputs outputs = [(toCAddress $ txOutAddress txOut, txOutValue txOut) | txOut <- outputs]
+    let convertTxOutputs = map (\txOut ->(toCAddress $ txOutAddress txOut, txOutValue txOut))
 
     -- TODO: here and in mempoolTxs/blockchainTxs we do two things wrongly:
-    -- 1. If the transaction is found in the MemPool, we return *current
-    --    system time* as the time when it was issued.
+    -- 1. If the transaction is found in the MemPool, we return *starting
+    --    time of the current block* as the time when it was issued.
     -- 2. If the transaction comes from the blockchain, we return *block
     --    slot starting time* as the time when it was issued.
     -- This needs to be fixed.

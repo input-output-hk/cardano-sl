@@ -48,8 +48,8 @@ instance Bi U.BlockVersionData where
         bvdScriptVersion     <- get
         bvdSlotDuration      <- get
         bvdMaxBlockSize      <- get
-        bvdMaxTxSize         <- get
         bvdMaxHeaderSize     <- get
+        bvdMaxTxSize         <- get
         bvdMaxProposalSize   <- get
         bvdMpcThd            <- get
         bvdHeavyDelThd       <- get

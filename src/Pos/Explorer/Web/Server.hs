@@ -10,6 +10,7 @@ module Pos.Explorer.Web.Server
        , explorerHandlers
        ) where
 
+import           Control.Arrow                  ( (&&&) )
 import           Control.Monad.Catch            (try)
 import           Control.Monad.Loops            (unfoldrM)
 import           Control.Monad.Trans.Maybe      (MaybeT (..))
@@ -76,18 +77,25 @@ explorerApp serv = serve explorerApi <$> serv
 
 explorerHandlers :: ExplorerMode m => SendActions m -> ServerT ExplorerApi m
 explorerHandlers _sendActions =
-    catchExplorerError ... defaultLimit 10 getLastBlocks
+      apiBlocksLast
     :<|>
-    catchExplorerError ... defaultLimit 10 getLastTxs
+      apiBlocksSummary
     :<|>
-    catchExplorerError . getBlockSummary
+      apiBlocksTxs
     :<|>
-    (\h -> catchExplorerError ... defaultLimit 10 (getBlockTxs h))
+      apiTxsLast
     :<|>
-    catchExplorerError . getAddressSummary
+      apiTxsSummary
     :<|>
-    catchExplorerError . getTxSummary
+      apiAddressSummary
   where
+    apiBlocksLast     = catchExplorerError ... defaultLimit 10 getLastBlocks
+    apiBlocksSummary  = catchExplorerError . getBlockSummary
+    apiBlocksTxs      = (\h -> catchExplorerError ... defaultLimit 10 (getBlockTxs h))
+    apiTxsLast        = catchExplorerError ... defaultLimit 10 getLastTxs
+    apiTxsSummary     = catchExplorerError . getTxSummary
+    apiAddressSummary = catchExplorerError . getAddressSummary
+
     catchExplorerError = try
     f ... g = (f .) . g
 
@@ -166,7 +174,7 @@ getTxSummary cTxId = do
     let blockchainPlace = teBlockchainPlace txExtra
         inputOutputs = teInputOutputs txExtra
 
-    let convertTxOutputs = map (\txOut ->(toCAddress $ txOutAddress txOut, txOutValue txOut))
+    let convertTxOutputs = map (toCAddress . txOutAddress &&& txOutValue)
 
     -- TODO: here and in getMempoolTxs/getBlockchainTxs we do two things wrongly:
     -- 1. If the transaction is found in the MemPool, we return *starting
@@ -203,7 +211,7 @@ getTxSummary cTxId = do
         ctsInputs = convertTxOutputs inputOutputs
         ctsTotalOutput = unsafeIntegerToCoin $ sumCoins $ map snd ctsOutputs
 
-    when (ctsTotalOutput >= ctsTotalInput) $
+    when (ctsTotalOutput > ctsTotalInput) $
         throwM $ Internal "Detected tx with output greater than input"
 
     let ctsFees = unsafeSubCoin ctsTotalInput ctsTotalOutput

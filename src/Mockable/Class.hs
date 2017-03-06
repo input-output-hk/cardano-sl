@@ -1,12 +1,17 @@
-{-# OPTIONS_GHC -O2 #-}
+{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
 
 module Mockable.Class
   ( Mockable (..)
+  , Mockables
   , MFunctor' (..)
   ) where
+
+import           Data.Kind (Constraint)
 
 class MFunctor' f m n where
     hoist' :: (forall a . m a -> n a) -> f m t -> f n t
@@ -23,3 +28,7 @@ class MFunctor' f m n where
 --   its text.
 class ( Monad m ) => Mockable (d :: (* -> *) -> * -> *) (m :: * -> *) where
     liftMockable :: d m t -> m t
+
+type family Mockables (m :: * -> *) (ds :: [(* -> *) -> * -> *]) where
+    Mockables m '[]    = (() :: Constraint)
+    Mockables m (d:ds) = (Mockable d m, Mockables m ds)

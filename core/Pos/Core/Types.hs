@@ -114,8 +114,6 @@ data Address
     | UnknownAddressType !Word8 !ByteString
     deriving (Eq, Ord, Generic, Typeable, Show)
 
-instance NFData Address
-
 newtype AddrPkAttrs = AddrPkAttrs
     { addrPkDerivationPath :: Maybe [Word32]
     } deriving (Eq, Ord, Show, Generic, Typeable, NFData)

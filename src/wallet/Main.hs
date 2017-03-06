@@ -28,7 +28,7 @@ import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
                                             worker)
 import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey, fakeSigner,
-                                            encodeHash, hash, hashHexF, sign, toPublic,
+                                            hash, hashHexF, sign, toPublic,
                                             unsafeHash)
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Delegation            (sendProxySKHeavy, sendProxySKHeavyOuts,

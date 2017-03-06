@@ -438,7 +438,7 @@ createTransport ip port = do
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =
                    Just $ fromIntegral networkConnectionTimeout
-             , TCP.tcpNewQDisc = fairQDisc
+             , TCP.tcpNewQDisc = fairQDisc $ \_ -> return Nothing
              })
     transportE <-
         liftIO $ TCP.createTransport "0.0.0.0" (show port) ((,) ip) tcpParams

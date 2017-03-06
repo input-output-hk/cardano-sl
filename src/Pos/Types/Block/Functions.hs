@@ -29,7 +29,6 @@ module Pos.Types.Block.Functions
        ) where
 
 import           Control.Lens               (folded, iconcatMap, imap, ix)
-import qualified Data.ByteString.Lazy       as BSL
 import           Data.Default               (Default (def))
 import           Data.List                  (groupBy)
 import           Data.Tagged                (untag)
@@ -604,4 +603,4 @@ verifyBlocks curSlotId initLeaders mbBV = view _3 . foldl' step start
 
 -- | Compute size of 'MainBlock' in bytes.
 blockSize :: SscHelpersClass ssc => MainBlock ssc -> Byte
-blockSize = fromIntegral . BSL.length . Bi.encode
+blockSize = Bi.biSize

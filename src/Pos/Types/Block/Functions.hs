@@ -4,8 +4,8 @@
 -- | Functions related to blocks and headers.
 
 module Pos.Types.Block.Functions
-       ( blockDifficulty
-       , headerDifficulty
+       ( blockDifficultyIncrement
+       , headerDifficultyIncrement
        , mkGenericBlock
        , mkGenericHeader
        , mkMainBlock
@@ -78,13 +78,13 @@ import           Pos.Update.Core            (UpdatePayload)
 import           Pos.Util                   (NewestFirst (..), OldestFirst)
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
-headerDifficulty :: BlockHeader ssc -> ChainDifficulty
-headerDifficulty (Left _)  = 0
-headerDifficulty (Right _) = 1
+headerDifficultyIncrement :: BlockHeader ssc -> ChainDifficulty
+headerDifficultyIncrement (Left _)  = 0
+headerDifficultyIncrement (Right _) = 1
 
 -- | Difficulty of the Block, which is determined from header.
-blockDifficulty :: Block ssc -> ChainDifficulty
-blockDifficulty = headerDifficulty . getBlockHeader
+blockDifficultyIncrement :: Block ssc -> ChainDifficulty
+blockDifficultyIncrement = headerDifficultyIncrement . getBlockHeader
 
 -- | Predefined 'Hash' of 'GenesisBlock'.
 genesisHash :: Hash a
@@ -350,7 +350,7 @@ verifyHeader VerifyHeaderParams {..} h =
     --   * Epoch/slot are consistent.
     relatedToPrevHeader prevHeader =
         [ checkDifficulty
-              (prevHeader ^. difficultyL + headerDifficulty h)
+              (prevHeader ^. difficultyL + headerDifficultyIncrement h)
               (h ^. difficultyL)
         , checkHash
               (headerHash prevHeader)
@@ -368,7 +368,7 @@ verifyHeader VerifyHeaderParams {..} h =
     --  * Epoch/slot are consistent.
     relatedToNextHeader nextHeader =
         [ checkDifficulty
-              (nextHeader ^. difficultyL - headerDifficulty nextHeader)
+              (nextHeader ^. difficultyL - headerDifficultyIncrement nextHeader)
               (h ^. difficultyL)
         , checkHash (headerHash h) (nextHeader ^. prevBlockL)
         , checkSlot (getEpochOrSlot h) (getEpochOrSlot nextHeader)

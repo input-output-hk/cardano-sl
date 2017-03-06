@@ -16,14 +16,14 @@ import           Language.Haskell.TH.Syntax (lift, runIO)
 #endif
 
 import           Pos.Infra.Constants.Type   (InfraConstants)
-import           Pos.Util.Config            (configFilePath, unsafeReadConfig)
+import           Pos.Util.Config            (cslConfigFilePath, unsafeReadConfig)
 
 infraConstants :: InfraConstants
 #ifdef DEV_MODE
-infraConstants = unsafePerformIO (unsafeReadConfig =<< configFilePath)
+infraConstants = unsafePerformIO (unsafeReadConfig =<< cslConfigFilePath)
 {-# NOINLINE infraConstants #-}
 #else
 infraConstants = $(do
-    x :: InfraConstants <- runIO (unsafeReadConfig =<< configFilePath)
+    x :: InfraConstants <- runIO (unsafeReadConfig =<< cslConfigFilePath)
     lift x)
 #endif

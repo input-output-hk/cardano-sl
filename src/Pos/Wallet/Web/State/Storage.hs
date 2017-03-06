@@ -87,7 +87,7 @@ getNextUpdate :: Query (Maybe CUpdateInfo)
 getNextUpdate = preview (wsReadyUpdates . _head)
 
 getHistoryCache :: CAddress -> Query (Maybe (HeaderHash, Utxo, [CTx]))
-getHistoryCache cAddr = preview $ wsHistoryCache . ix cAddr
+getHistoryCache cAddr = view $ wsHistoryCache . at cAddr
 
 createWallet :: CAddress -> CWalletMeta -> Update ()
 createWallet cAddr wMeta = wsWalletMetas . at cAddr .= Just (wMeta, mempty)
@@ -120,10 +120,8 @@ removeNextUpdate = wsReadyUpdates %= drop 1
 
 updateHistoryCache :: CAddress -> HeaderHash -> Utxo -> [CTx] -> Update ()
 updateHistoryCache cAddr cHash utxo cTxs = do
-    let entry = wsHistoryCache . at cAddr . _Just
-    entry . _1 .= cHash
-    entry . _2 .= utxo
-    entry . _3 %= (cTxs <>)
+    oldTxs <- use $ wsHistoryCache . at cAddr . _Just . _3
+    wsHistoryCache . at cAddr .= Just (cHash, utxo, cTxs <> oldTxs)
 
 deriveSafeCopySimple 0 'base ''CProfile
 deriveSafeCopySimple 0 'base ''CHash

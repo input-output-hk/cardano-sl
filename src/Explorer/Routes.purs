@@ -5,8 +5,8 @@ import Control.Alt ((<|>))
 import Data.Lens ((^.))
 import Data.Maybe (fromMaybe)
 import Explorer.Util.Factory (mkCAddress, mkCHash)
-import Pos.Explorer.Web.ClientTypes (CAddress, CHash, _CAddress)
-import Pos.Explorer.Web.Lenses.ClientTypes (_CHash)
+import Pos.Explorer.Web.ClientTypes (CAddress, CHash)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CAddress)
 import Pux.Router (end, router, lit, str)
 
 data Route =

@@ -16,8 +16,8 @@ import Explorer.Types.State (CBlockEntries, CTxEntries)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
-import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, _CAddress)
-import Pos.Explorer.Web.Lenses.ClientTypes (_CHash)
+import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CAddress)
 
 endpointPrefix :: String
 -- endpointPrefix = "http://localhost:8100/api/"

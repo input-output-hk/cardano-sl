@@ -8,9 +8,15 @@ module Pos.Core.Block
        , GenericBlockHeader (..)
        , GenericBlock (..)
 
-       -- * Lenses
+       -- * Classes for overloaded accessors
        , HasPrevBlock (..)
 
+       -- * Classes for headers
+       , IsHeader (..)
+       , IsGenesisHeader (..)
+       , IsMainHeader (..)
+
+       -- * Lenses
        , gbBody
        , gbHeader
        , gbExtra
@@ -133,6 +139,38 @@ makeLenses ''GenericBlock
 
 class HasPrevBlock s where
     prevBlockL :: Lens' s HeaderHash
+
+{- | A class that lets subpackages use some fields from headers without
+depending on cardano-sl:
+
+  * 'difficultyL'
+  * 'epochIndexL'
+  * 'prevBlockL'
+-}
+class (HasDifficulty header, HasEpochIndex header, HasPrevBlock header) =>
+      IsHeader header
+
+{- | A class for genesis headers. Currently provides the same data:
+
+  * 'difficultyL'
+  * 'epochIndexL'
+  * 'prevBlockL'
+-}
+class IsHeader header => IsGenesisHeader header
+
+{- | A class for main headers. Provides:
+
+  * 'difficultyL'
+  * 'epochIndexL'
+  * 'prevBlockL'
+  * 'headerSlot'
+  * 'headerLeaderKey'
+-}
+class IsHeader header => IsMainHeader header where
+    -- | Id of the slot for which this block was generated.
+    headerSlot :: Lens' header SlotId
+    -- | Public key of slot leader.
+    headerLeaderKey :: Lens' header PublicKey
 
 -- | Lens from 'GenericBlock' to 'BodyProof'.
 gbBodyProof :: Lens' (GenericBlock b) (BodyProof b)

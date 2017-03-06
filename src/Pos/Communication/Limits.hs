@@ -90,14 +90,16 @@ instance MessageLimited MsgGetHeaders where
 
 instance MessageLimited (MsgHeaders ssc) where
     type LimitType (MsgHeaders ssc) = Limit (MsgHeaders ssc)
-    getMsgLenLimit _ = return $
-        MsgHeaders <$> vectorOf Const.recoveryHeadersMessage
-            -- TODO [CSL-804] put to update proposal consts
-            (Limit Const.genesisMaxHeaderSize)
+    getMsgLenLimit _ = do
+        headerLimit <- Limit <$> DB.getMaxHeaderSize
+        return $
+            MsgHeaders <$> vectorOf Const.recoveryHeadersMessage headerLimit
 
 instance MessageLimited (DataMsg TxMsgContents) where
     type LimitType (DataMsg TxMsgContents) = Limit (DataMsg TxMsgContents)
-    getMsgLenLimit _ = return msgLenLimit
+    getMsgLenLimit _ = do
+        txLimit <- Limit <$> DB.getMaxTxSize
+        return $ DataMsg <$> txLimit
 
 instance MessageLimited (DataMsg UpdateVote) where
     type LimitType (DataMsg UpdateVote) = Limit (DataMsg UpdateVote)
@@ -106,7 +108,10 @@ instance MessageLimited (DataMsg UpdateVote) where
 instance MessageLimited (DataMsg (UpdateProposal, [UpdateVote])) where
     type LimitType (DataMsg (UpdateProposal, [UpdateVote])) =
         Limit (DataMsg (UpdateProposal, [UpdateVote]))
-    getMsgLenLimit _ = return msgLenLimit
+    getMsgLenLimit _ = do
+        proposalLimit <- Limit <$> DB.getMaxProposalSize
+        return $
+            DataMsg <$> ((,) <$> proposalLimit <+> vector updateVoteNumLimit)
 
 instance MessageLimited (DataMsg GtMsgContents) where
     type LimitType (DataMsg GtMsgContents) =
@@ -132,26 +137,12 @@ instance MessageLimitedPure SecretSharingExtra where
     msgLenLimit =
         SecretSharingExtra <$> msgLenLimit <+> vector commitmentsNumLimit
 
-instance MessageLimitedPure UpdateProposal where
-    -- TODO [CSL-804] put to update proposal consts
-    msgLenLimit = fromIntegral Const.genesisMaxUpdateProposalSize
-
 instance MessageLimitedPure UpdateVote where
     msgLenLimit =
         UpdateVote <$> msgLenLimit <+> msgLenLimit <+> msgLenLimit
                    <+> msgLenLimit
 
 instance MessageLimitedPure (DataMsg UpdateVote) where
-    msgLenLimit = DataMsg <$> msgLenLimit
-
-instance MessageLimitedPure (DataMsg (UpdateProposal, [UpdateVote])) where
-    msgLenLimit = DataMsg <$>
-        ((,) <$> msgLenLimit <+> vector updateVoteNumLimit)
-
-instance MessageLimitedPure TxMsgContents where
-    msgLenLimit = Limit Const.genesisMaxTxSize
-
-instance MessageLimitedPure (DataMsg TxMsgContents) where
     msgLenLimit = DataMsg <$> msgLenLimit
 
 instance MessageLimitedPure (Signature a) where

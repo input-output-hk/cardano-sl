@@ -30,6 +30,7 @@ module Pos.Wallet.Web.State.Storage
 import           Control.Lens               (at, ix, makeClassy, (%=), (.=), _Just, _head)
 import           Data.Default               (Default, def)
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
+import           Pos.Txp                    (Utxo)
 import           Pos.Types                  (HeaderHash)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTType,
                                              CTx, CTxId, CTxMeta, CUpdateInfo,
@@ -43,7 +44,7 @@ data WalletStorage = WalletStorage
       _wsWalletMetas  :: !(HashMap CAddress (CWalletMeta, TransactionHistory))
     , _wsProfile      :: !(Maybe CProfile)
     , _wsReadyUpdates :: [CUpdateInfo]
-    , _wsHistoryCache :: !(HashMap CAddress (HeaderHash, [CTx]))
+    , _wsHistoryCache :: !(HashMap CAddress (HeaderHash, Utxo, [CTx]))
     }
 
 makeClassy ''WalletStorage
@@ -85,7 +86,7 @@ getUpdates = view wsReadyUpdates
 getNextUpdate :: Query (Maybe CUpdateInfo)
 getNextUpdate = preview (wsReadyUpdates . _head)
 
-getHistoryCache :: CAddress -> Query (Maybe (HeaderHash, [CTx]))
+getHistoryCache :: CAddress -> Query (Maybe (HeaderHash, Utxo, [CTx]))
 getHistoryCache cAddr = preview $ wsHistoryCache . ix cAddr
 
 createWallet :: CAddress -> CWalletMeta -> Update ()
@@ -117,11 +118,12 @@ addUpdate ui = wsReadyUpdates %= (++ [ui])
 removeNextUpdate :: Update ()
 removeNextUpdate = wsReadyUpdates %= drop 1
 
-updateHistoryCache :: CAddress -> HeaderHash -> [CTx] -> Update ()
-updateHistoryCache cAddr cHash cTxs = do
+updateHistoryCache :: CAddress -> HeaderHash -> Utxo -> [CTx] -> Update ()
+updateHistoryCache cAddr cHash utxo cTxs = do
     let entry = wsHistoryCache . at cAddr . _Just
     entry . _1 .= cHash
-    entry . _2 %= (cTxs <>)
+    entry . _2 .= utxo
+    entry . _3 %= (cTxs <>)
 
 deriveSafeCopySimple 0 'base ''CProfile
 deriveSafeCopySimple 0 'base ''CHash

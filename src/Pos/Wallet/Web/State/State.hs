@@ -38,6 +38,7 @@ import           Mockable                     (MonadMockable)
 import           Universum
 
 import           Pos.Slotting                 (NtpSlotting)
+import           Pos.Txp                      (Utxo)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Wallet.Web.ClientTypes   (CAddress, CHash, CProfile, CTx, CTxId,
                                                CTxMeta, CUpdateInfo, CWalletMeta)
@@ -94,7 +95,7 @@ getUpdates = queryDisk A.GetUpdates
 getNextUpdate :: WebWalletModeDB m => m (Maybe CUpdateInfo)
 getNextUpdate = queryDisk A.GetNextUpdate
 
-getHistoryCache :: WebWalletModeDB m => CAddress -> m (Maybe (HeaderHash, [CTx]))
+getHistoryCache :: WebWalletModeDB m => CAddress -> m (Maybe (HeaderHash, Utxo, [CTx]))
 getHistoryCache = queryDisk . A.GetHistoryCache
 
 createWallet :: WebWalletModeDB m => CAddress -> CWalletMeta -> m ()
@@ -124,5 +125,5 @@ addUpdate = updateDisk . A.AddUpdate
 removeNextUpdate :: WebWalletModeDB m => m ()
 removeNextUpdate = updateDisk A.RemoveNextUpdate
 
-updateHistoryCache :: WebWalletModeDB m => CAddress -> HeaderHash -> [CTx] -> m ()
-updateHistoryCache cAddr h = updateDisk . A.UpdateHistoryCache cAddr h
+updateHistoryCache :: WebWalletModeDB m => CAddress -> HeaderHash -> Utxo -> [CTx] -> m ()
+updateHistoryCache cAddr h utxo = updateDisk . A.UpdateHistoryCache cAddr h utxo

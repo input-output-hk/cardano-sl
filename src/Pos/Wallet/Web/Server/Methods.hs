@@ -49,9 +49,9 @@ import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
 import           Pos.Wallet.Tx                 (sendTxOuts, submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
-import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
-                                                blockchainSlotDuration, connectedPeers,
-                                                getBalance, getTxHistory,
+import           Pos.Wallet.WalletMode         (TxHistoryAnswer (..), WalletMode,
+                                                applyLastUpdate, blockchainSlotDuration,
+                                                connectedPeers, getBalance, getTxHistory,
                                                 localChainDifficulty,
                                                 networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
@@ -322,21 +322,23 @@ sendExtended sendActions srcCAddr dstCAddr c curr title desc = do
 
 getHistory :: WalletWebMode ssc m => CAddress -> Word -> Word -> m ([CTx], Word)
 getHistory cAddr skip limit = do
-    (mbot, cachedTxs) <- transCache <$> getHistoryCache cAddr
-    (bot, cachedNum, history) <- flip getTxHistory mbot =<< decodeCAddressOrFail cAddr
-    cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) history
+    (minit, cachedTxs) <- transCache <$> getHistoryCache cAddr
+
+    TxHistoryAnswer {..} <- flip getTxHistory minit
+        =<< decodeCAddressOrFail cAddr
+    cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) taHistory
 
     -- Add allowed portion of result to cache
     let fullHistory = cHistory <> cachedTxs
         lenHistory = length cHistory
-        cached = drop (lenHistory - cachedNum) cHistory
-    updateHistoryCache cAddr bot cached
+        cached = drop (lenHistory - taCachedNum) cHistory
+    updateHistoryCache cAddr taLastCachedHash taCachedUtxo cached
 
     pure (paginate fullHistory, fromIntegral $ length fullHistory)
   where
     paginate = take (fromIntegral limit) . drop (fromIntegral skip)
-    transCache Nothing      = (Nothing, [])
-    transCache (Just cache) = cache & _1 %~ Just
+    transCache Nothing                = (Nothing, [])
+    transCache (Just (hh, utxo, txs)) = (Just (hh, utxo), txs)
 
 -- FIXME: is Word enough for length here?
 searchHistory :: WalletWebMode ssc m => CAddress -> Text -> Word -> Word -> m ([CTx], Word)

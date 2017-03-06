@@ -48,11 +48,11 @@ import           Pos.Slotting                (NtpSlotting, SlottingHolder,
                                               getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
-import           Pos.Txp                     (TxpHolder (..), belongsTo, evalUtxoStateT,
-                                              filterUtxoByAddr, getMemPool,
-                                              getUtxoModifier, runUtxoStateT,
-                                              txProcessTransaction, _mpLocalTxs)
-import           Pos.Txp.Core.Types          (TxAux, TxId, Utxo, txOutValue)
+import           Pos.Txp                     (TxAux, TxId, TxpHolder (..), Utxo,
+                                              belongsTo, evalUtxoStateT, filterUtxoByAddr,
+                                              getMemPool, getUtxoModifier, runUtxoStateT,
+                                              txOutValue, txProcessTransaction,
+                                              _mpLocalTxs)
 import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
                                               difficultyL, flattenEpochOrSlot,
                                               flattenSlotId, prevBlockL, prevBlockL,

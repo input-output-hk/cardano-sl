@@ -46,14 +46,14 @@ import           Serokell.Util              (enumerate)
 import           Universum
 
 import qualified Pos.Constants              as Const
-import           Pos.Core.Types             (SoftwareVersion (..))
-import           Pos.Core.Types             (ScriptVersion)
+import           Pos.Core.Types             (ScriptVersion, SoftwareVersion (..))
 import           Pos.Crypto                 (PublicKey, SecretKey, deterministicKeyGen,
                                              unsafeHash)
 import           Pos.Genesis.Parser         (compileGenData)
 import           Pos.Genesis.Types          (GenesisData (..), StakeDistribution (..))
 import           Pos.Lrc.FollowTheSatoshi   (followTheSatoshi)
-import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..), Utxo)
+import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..))
+import           Pos.Txp.Toil.Types         (Utxo)
 import           Pos.Types                  (Address (..), BlockVersion (..), Coin,
                                              SharedSeed (SharedSeed), SlotLeaders,
                                              StakeholderId, applyCoinPortion,

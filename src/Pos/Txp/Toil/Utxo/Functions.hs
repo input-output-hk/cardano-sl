@@ -20,16 +20,16 @@ import qualified Data.Text                 as T
 import           Universum
 
 import           Pos.Binary.Core           ()
+import           Pos.Core                  (Address, Coin, StakeholderId, unsafeAddCoin)
 import           Pos.Crypto                (WithHash (..), hash)
-import           Pos.Txp.Core.Types        (Tx (..), TxAux, TxDistribution (..),
-                                            TxIn (..), TxOut (..), TxOutAux, TxUndo, Utxo,
+import           Pos.Txp.Core              (Tx (..), TxAux, TxDistribution (..),
+                                            TxIn (..), TxOut (..), TxOutAux, TxUndo,
                                             txOutStake)
-import           Pos.Types                 (Address, Coin, StakeholderId, unsafeAddCoin)
-
 import           Pos.Txp.Core.Tx           (VTxGlobalContext (..), VTxLocalContext (..),
                                             verifyTx)
 import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure      (TxpVerFailure (..))
+import           Pos.Txp.Toil.Types        (Utxo)
 
 -- CHECK: @verifyTxUtxo
 -- | Verify single Tx using MonadUtxoRead as TxIn resolver.

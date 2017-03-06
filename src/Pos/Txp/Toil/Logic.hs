@@ -25,9 +25,8 @@ import           Pos.Core.Coin        (coinToInteger, sumCoins, unsafeAddCoin,
 import           Pos.Crypto           (WithHash (..), hash)
 import           Pos.Types            (Coin, StakeholderId, mkCoin)
 
-import           Pos.Txp.Core         (topsortTxs)
-import           Pos.Txp.Core.Types   (Tx (..), TxAux, TxId, TxUndo, TxsUndo,
-                                       getTxDistribution, txOutStake)
+import           Pos.Txp.Core         (Tx (..), TxAux, TxId, TxUndo, TxpUndo,
+                                       getTxDistribution, topsortTxs, txOutStake)
 import           Pos.Txp.Toil.Class   (MonadBalances (..), MonadBalancesRead (..),
                                        MonadTxPool (..), MonadUtxo (..))
 import           Pos.Txp.Toil.Failure (TxpVerFailure (..))
@@ -48,7 +47,7 @@ type LocalTxpMode m = ( MonadUtxo m
 -- Note: transactions must be topsorted to pass check.
 -- Warning: this function may apply some transactions and fail
 -- eventually. Use it only on temporary data.
-verifyTxp :: GlobalTxpMode m => [TxAux] -> m TxsUndo
+verifyTxp :: GlobalTxpMode m => [TxAux] -> m TxpUndo
 verifyTxp = mapM (processTxWithPureChecks True . withTxId)
 
 -- | Apply transactions from one block.

@@ -17,7 +17,7 @@ import           Pos.Block.Types     (Blund, Undo (undoTx))
 import           Pos.DB              (MonadDB, SomeBatchOp (..))
 import qualified Pos.DB.GState       as GS
 import           Pos.Exception       (assertionFailed)
-import           Pos.Txp.Core.Types  (TxAux, TxUndo, TxsUndo)
+import           Pos.Txp.Core.Types  (TxAux, TxUndo, TxpUndo)
 import           Pos.Types           (Block, blockTxas)
 import           Pos.Util            (NE, NewestFirst (..), OldestFirst (..),
                                       inAssertMode)
@@ -35,7 +35,7 @@ type TxpWorkMode m = (WithLogger m, MonadDB m, MonadTxpMem m, MonadThrow m)
 txVerifyBlocks
     :: forall ssc m . TxpWorkMode m
     => OldestFirst NE (Block ssc)
-    -> m (Either Text (OldestFirst NE TxsUndo))
+    -> m (Either Text (OldestFirst NE TxpUndo))
 txVerifyBlocks newChain = do
     verdict <- runTxpAction $
                    mapM (verifyTxp . getTxas) newChain

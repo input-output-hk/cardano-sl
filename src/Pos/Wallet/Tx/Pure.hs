@@ -42,7 +42,7 @@ import           Pos.Script                (Script)
 import           Pos.Script.Examples       (multisigRedeemer, multisigValidator)
 import           Pos.Txp                   (MonadUtxoRead (utxoGet), UtxoStateT (..),
                                             applyTxToUtxo, filterUtxoByAddr, topsortTxs)
-import           Pos.Txp.Core.Types        (Tx (..), TxAux, TxDistribution (..), TxId,
+import           Pos.Txp                   (Tx (..), TxAux, TxDistribution (..), TxId,
                                             TxIn (..), TxInWitness (..), TxOut (..),
                                             TxOutAux, TxSigData, TxWitness, Utxo)
 import           Pos.Types                 (Address, Block, ChainDifficulty, Coin,

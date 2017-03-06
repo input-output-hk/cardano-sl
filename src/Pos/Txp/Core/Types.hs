@@ -2,70 +2,70 @@
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+-- | Core types of Txp component, i. e. types which actually form
+-- block or are used by other components.
+
 module Pos.Txp.Core.Types
-       ( TxAttributes
+       ( TxId
+
+       -- * Witness
        , TxInWitness (..)
        , TxWitness
        , TxDistribution (..)
        , TxSigData
        , TxSig
-       , TxId
+
+       -- * Tx parts
        , TxIn (..)
        , toPair
        , TxOut (..)
+       , TxOutAux
        , txOutStake
+       , TxAttributes
+
+       -- * Tx
        , Tx (..)
+       , TxAux
        , mkTx
        , txInputs
        , txOutputs
        , txAttributes
        , txF
        , txaF
-       , TxAux
-       , TxOutAux
 
-       , Utxo
-       , formatUtxo
-       , utxoF
-
+       -- * Undo
        , TxUndo
-       , TxsUndo
+       , TxpUndo
        ) where
 
-import           Control.Lens           (makeLenses)
-import           Data.DeriveTH          (derive, makeNFData)
-import           Data.Hashable          (Hashable)
-import qualified Data.Map               as M (toList)
-import qualified Data.Text              as T
-import           Data.Text.Buildable    (Buildable)
-import qualified Data.Text.Buildable    as Buildable
-import           Data.Text.Lazy.Builder (Builder)
-import           Data.Vector            (Vector)
-import           Formatting             (Format, bprint, build, int, later, sformat, (%))
-import           Serokell.Util.Base16   (base16F)
-import           Serokell.Util.Text     (listBuilderJSON, listJson, listJsonIndent,
-                                         mapBuilderJson, pairBuilder)
-import           Serokell.Util.Verify   (VerificationRes (..), verifyGeneric)
+import           Control.Lens         (makeLenses)
+import           Data.DeriveTH        (derive, makeNFData)
+import           Data.Hashable        (Hashable)
+import qualified Data.Text            as T
+import           Data.Text.Buildable  (Buildable)
+import qualified Data.Text.Buildable  as Buildable
+import           Data.Vector          (Vector)
+import           Formatting           (Format, bprint, build, int, later, sformat, (%))
+import           Serokell.Util.Base16 (base16F)
+import           Serokell.Util.Text   (listBuilderJSON, listJson, listJsonIndent,
+                                       pairBuilder)
+import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
 import           Universum
 
-import           Pos.Binary.Class       (Bi)
-import           Pos.Core.Address       ()
-import           Pos.Core.Types         (Address (..), Coin, Script, StakeholderId, coinF,
-                                         mkCoin)
-import           Pos.Crypto             (Hash, PublicKey, Signature, hash, shortHashF)
-import           Pos.Data.Attributes    (Attributes)
-
-----------------------------------------------------------------------------
--- Transaction
-----------------------------------------------------------------------------
-
--- | Represents transaction attributes: map from 1-byte integer to
--- arbitrary-type value. To be used for extending transaction with new
--- fields via softfork.
-type TxAttributes = Attributes ()
+import           Pos.Binary.Core      ()
+import           Pos.Binary.Crypto    ()
+import           Pos.Core.Address     ()
+import           Pos.Core.Types       (Address (..), Coin, Script, StakeholderId, coinF,
+                                       mkCoin)
+import           Pos.Crypto           (Hash, PublicKey, Signature, hash, shortHashF)
+import           Pos.Data.Attributes  (Attributes)
 
 -- | Represents transaction identifier as 'Hash' of 'Tx'.
 type TxId = Hash Tx
+
+----------------------------------------------------------------------------
+-- Witness
+----------------------------------------------------------------------------
 
 -- | Data that is being signed when creating a TxSig.
 type TxSigData = (TxId, Word32, Hash [TxOut], Hash TxDistribution)
@@ -84,7 +84,7 @@ data TxInWitness
 
 instance Hashable TxInWitness
 
-instance (Bi Script, Bi PublicKey) => Buildable TxInWitness where
+instance Buildable TxInWitness where
     build (PkWitness key sig) =
         bprint ("PkWitness: key = "%build%", sig = "%build) key sig
     build (ScriptWitness val red) =
@@ -109,6 +109,10 @@ instance Buildable TxDistribution where
     build (TxDistribution x) =
         listBuilderJSON . map (listBuilderJSON . map pairBuilder) $ x
 
+----------------------------------------------------------------------------
+-- Tx parts
+----------------------------------------------------------------------------
+
 -- | Transaction input.
 data TxIn = TxIn
     { -- | Which transaction's output is used
@@ -132,15 +136,15 @@ data TxOut = TxOut
     , txOutValue   :: !Coin
     } deriving (Eq, Ord, Generic, Show, Typeable)
 
-instance Bi Address => Hashable TxOut
+instance Hashable TxOut
 
-instance Bi Address => Buildable TxOut where
+instance Buildable TxOut where
     build TxOut {..} =
         bprint ("TxOut "%coinF%" -> "%build) txOutValue txOutAddress
 
 type TxOutAux = (TxOut, [(StakeholderId, Coin)])
 
-instance Bi Address => Buildable TxOutAux where
+instance Buildable TxOutAux where
     build (out, distr) =
         bprint ("{txout = "%build%", distr = "%listJson%"}")
                out (map pairBuilder distr)
@@ -151,6 +155,15 @@ txOutStake :: TxOutAux -> [(StakeholderId, Coin)]
 txOutStake (TxOut{..}, mb) = case txOutAddress of
     PubKeyAddress x _ -> [(x, txOutValue)]
     _                 -> mb
+
+-- | Represents transaction attributes: map from 1-byte integer to
+-- arbitrary-type value. To be used for extending transaction with new
+-- fields via softfork.
+type TxAttributes = Attributes ()
+
+----------------------------------------------------------------------------
+-- Tx
+----------------------------------------------------------------------------
 
 -- | Transaction.
 --
@@ -166,20 +179,20 @@ makeLenses ''Tx
 -- | Transaction + auxiliary data
 type TxAux = (Tx, TxWitness, TxDistribution)
 
-instance Bi Address => Hashable Tx
+instance Hashable Tx
 
-instance Bi Address => Buildable Tx where
+instance Buildable Tx where
     build UnsafeTx {..} =
         bprint
             ("Transaction with inputs "%listJson%", outputs: "%listJson)
             _txInputs _txOutputs
 
 -- | Specialized formatter for 'Tx'.
-txF :: Bi Address => Format r (Tx -> r)
+txF :: Format r (Tx -> r)
 txF = build
 
 -- | Specialized formatter for 'Tx' with auxiliary data
-txaF :: (Bi PublicKey, Bi Script, Bi Address) => Format r (TxAux -> r)
+txaF :: Format r (TxAux -> r)
 txaF = later $ \(tx, w, d) ->
     bprint (build%"\n"%
             "witnesses: "%listJsonIndent 4%"\n"%
@@ -203,31 +216,17 @@ mkTx inputs outputs attrs
                 i txOutValue) ]
 
 ----------------------------------------------------------------------------
--- UTXO
-----------------------------------------------------------------------------
-
--- | Unspent transaction outputs.
---
--- Transaction inputs are identified by (transaction ID, index in list of
--- output) pairs.
-type Utxo = Map TxIn TxOutAux
-
--- | Format 'Utxo' map as json.
-formatUtxo :: Bi Address => Utxo -> Builder
-formatUtxo = mapBuilderJson . M.toList
-
--- | Specialized formatter for 'Utxo'.
-utxoF :: Bi Address => Format r (Utxo -> r)
-utxoF = later formatUtxo
-
-----------------------------------------------------------------------------
--- UNDO
+-- Undo
 ----------------------------------------------------------------------------
 
 -- | Particular undo needed for transactions
 type TxUndo = [TxOutAux]
 
-type TxsUndo = [TxUndo]
+type TxpUndo = [TxUndo]
+
+----------------------------------------------------------------------------
+-- TH instances
+----------------------------------------------------------------------------
 
 derive makeNFData ''TxIn
 derive makeNFData ''TxInWitness

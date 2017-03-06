@@ -23,6 +23,7 @@ spec =
     describe "Bi instances" $ do
       describe "Core" $ do
         binaryTest @U.UpId
+        binaryTest @U.BlockVersionData
         binaryTest @U.UpdateProposal
         binaryTest @U.UpdateVote
         binaryTest @U.UpdateData

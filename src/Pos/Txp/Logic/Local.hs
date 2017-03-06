@@ -20,7 +20,7 @@ import           Pos.DB.Class         (MonadDB)
 import qualified Pos.DB.GState        as GS
 import           Pos.Txp.Core.Types   (Tx (..), TxAux, TxId)
 
-import           Pos.Txp.MemState     (MonadTxpMem (..), getTxpLocalData, getUtxoView,
+import           Pos.Txp.MemState     (MonadTxpMem (..), getMemPool, getUtxoModifier,
                                        modifyTxpLocalData, setTxpLocalData)
 import           Pos.Txp.Toil         (MemPool (..), MonadUtxoRead (..), TxpModifier (..),
                                        TxpVerFailure (..), execTxpTLocal, normalizeTxp,
@@ -42,8 +42,8 @@ txProcessTransaction
     => (TxId, TxAux) -> m ()
 txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
     tipBefore <- GS.getTip
-    localUV <- getUtxoView
-    (resolvedOuts, _) <- runDBTxp $ runUV localUV $ mapM utxoGet _txInputs
+    localUM <- getUtxoModifier
+    (resolvedOuts, _) <- runDBTxp $ runUM localUM $ mapM utxoGet _txInputs
     -- Resolved are transaction outputs which haven't been deleted from the utxo yet
     -- (from Utxo DB and from UtxoView also)
     let resolved = HM.fromList $
@@ -67,8 +67,8 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
             case res of
                 Left er  -> (Left er, txld)
                 Right TxpModifier{..} ->
-                    (Right (), (_txmUtxoView, _txmMemPool, _txmUndos, tip))
-    runUV uv = runTxpTLocal uv def mempty
+                    (Right (), (_txmUtxoModifier, _txmMemPool, _txmUndos, tip))
+    runUM um = runTxpTLocal um def mempty
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Remove invalid transactions from MemPool
@@ -77,11 +77,11 @@ txNormalize
     :: (MonadDB m, MonadTxpMem m) => m ()
 txNormalize = do
     utxoTip <- GS.getTip
-    (_, MemPool{..}, _, _) <- getTxpLocalData
+    MemPool {..} <- getMemPool
     res <- runExceptT $
            runDBTxp $
-           execTxpTLocal def def def $
+           execTxpTLocal mempty def mempty $
            normalizeTxp $ HM.toList _mpLocalTxs
     case res of
-        Left _                -> setTxpLocalData (def, def, def, utxoTip)
-        Right TxpModifier{..} -> setTxpLocalData (_txmUtxoView, _txmMemPool, _txmUndos, utxoTip)
+        Left _                -> setTxpLocalData (mempty, def, mempty, utxoTip)
+        Right TxpModifier{..} -> setTxpLocalData (_txmUtxoModifier, _txmMemPool, _txmUndos, utxoTip)

@@ -10,7 +10,6 @@ module Pos.Txp.Logic.Global
        ) where
 
 import qualified Data.HashMap.Strict as HM
-import qualified Data.HashSet        as HS
 import           System.Wlog         (WithLogger)
 import           Universum
 
@@ -26,9 +25,9 @@ import           Pos.Util            (NE, NewestFirst (..), OldestFirst (..),
 import           Pos.Txp.Error       (TxpError (..))
 import           Pos.Txp.MemState    (MonadTxpMem (..))
 import           Pos.Txp.Toil        (BalancesView (..), BalancesView (..), DBTxp,
-                                      TxpModifier (..), TxpT, TxpVerFailure,
-                                      UtxoView (..), applyTxp, rollbackTxp, runDBTxp,
-                                      runTxpTGlobal, verifyTxp)
+                                      TxpModifier (..), TxpT, TxpVerFailure, applyTxp,
+                                      rollbackTxp, runDBTxp, runTxpTGlobal, verifyTxp)
+import qualified Pos.Util.Modifier   as MM
 
 type TxpWorkMode m = (WithLogger m, MonadDB m, MonadTxpMem m, MonadThrow m)
 
@@ -87,13 +86,14 @@ txRollbackBlocks blunds = do
 
 -- Convert TxpModifier to batch of database operations.
 txpModifierToBatch :: TxpModifier -> SomeBatchOp
-txpModifierToBatch (TxpModifier
-                      (UtxoView (HM.toList -> addS) (HS.toList -> delS))
-                      (BalancesView (HM.toList -> stakes) total) _ _) =
-    SomeBatchOp [
-          SomeBatchOp $ map GS.DelTxIn delS ++ map (uncurry GS.AddTxOut) addS
-        , SomeBatchOp $ map (uncurry GS.PutFtsStake) stakes ++ [GS.PutFtsSum total]
-                ]
+txpModifierToBatch (TxpModifier um (BalancesView (HM.toList -> stakes) total) _ _) =
+    SomeBatchOp
+        [ SomeBatchOp $
+          map GS.DelTxIn (MM.deletions um) ++
+          map (uncurry GS.AddTxOut) (MM.insertions um)
+        , SomeBatchOp $
+          map (uncurry GS.PutFtsStake) stakes ++ [GS.PutFtsSum total]
+        ]
 
 -- Run action which requires MonadUtxo and MonadTxPool interfaces.
 runTxpAction

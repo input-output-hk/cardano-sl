@@ -4,10 +4,7 @@
 -- and synchronization with database.
 
 module Pos.Txp.Toil.Types
-       ( UtxoView (..)
-       , uvAddUtxo
-       , uvDelUtxo
-       , MemPool (..)
+       ( MemPool (..)
        , mpLocalTxs
        , mpLocalTxsSize
        , TxMap
@@ -15,8 +12,9 @@ module Pos.Txp.Toil.Types
        , bvStakes
        , bvTotal
        , UndoMap
+       , UtxoModifier
        , TxpModifier (..)
-       , txmUtxoView
+       , txmUtxoModifier
        , txmBalances
        , txmMemPool
        , txmUndos
@@ -25,25 +23,11 @@ module Pos.Txp.Toil.Types
 import           Control.Lens        (makeLenses)
 import           Data.Default        (Default, def)
 import qualified Data.HashMap.Strict as HM
-import           Data.HashSet        (HashSet)
 import           Universum
 
 import           Pos.Txp.Core.Types  (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import           Pos.Types           (Coin, StakeholderId, mkCoin)
-
-----------------------------------------------------------------------------
--- UtxoView
-----------------------------------------------------------------------------
-
-data UtxoView = UtxoView
-    { _uvAddUtxo :: !(HashMap TxIn TxOutAux)
-    , _uvDelUtxo :: !(HashSet TxIn)
-    }
-
-makeLenses ''UtxoView
-
-instance Default UtxoView where
-    def = UtxoView mempty mempty
+import qualified Pos.Util.Modifier   as MM
 
 ----------------------------------------------------------------------------
 -- BalancesView
@@ -87,16 +71,17 @@ instance Default MemPool where
 -- TxpModifier
 ----------------------------------------------------------------------------
 
+type UtxoModifier = MM.MapModifier TxIn TxOutAux
 type UndoMap = HashMap TxId TxUndo
 
 instance Default UndoMap where
     def = mempty
 
 data TxpModifier = TxpModifier
-    { _txmUtxoView :: !UtxoView
-    , _txmBalances :: !BalancesView
-    , _txmMemPool  :: !MemPool
-    , _txmUndos    :: !UndoMap
+    { _txmUtxoModifier :: !UtxoModifier
+    , _txmBalances     :: !BalancesView
+    , _txmMemPool      :: !MemPool
+    , _txmUndos        :: !UndoMap
     }
 
 makeLenses ''TxpModifier

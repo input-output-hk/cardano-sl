@@ -55,7 +55,7 @@ import           Data.Text.Lazy.Builder          (Builder)
 import           Formatting                      (Format, bprint, build, later, (%))
 import           Prelude                         (show)
 import qualified Serokell.Util.Base16            as B16
-import qualified Serokell.Util.Base64            as Base64 (decode, encode)
+import qualified Serokell.Util.Base64            as Base64 (decode, encode, formatBase64)
 import           Serokell.Util.Text              (pairF)
 import           Universum                       hiding (show)
 
@@ -115,7 +115,7 @@ instance Bi PublicKey => B.Buildable SecretKey where
 -- | 'Builder' for 'PublicKey' to show it in base64 encoded form.
 formatFullPublicKey :: PublicKey -> Builder
 formatFullPublicKey (PublicKey pk) =
-    B.build . Base64.encode . CC.unXPub $ pk
+    Base64.formatBase64 . CC.unXPub $ pk
 
 -- | Formatter for 'PublicKey' to show it in base64.
 fullPublicKeyF :: Format r (PublicKey -> r)

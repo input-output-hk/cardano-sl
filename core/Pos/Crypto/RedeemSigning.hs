@@ -12,25 +12,19 @@ module Pos.Crypto.RedeemSigning
        , redeemCheckSig
        ) where
 
-import qualified Crypto.Sign.Ed25519    as Ed25519
-import qualified Data.ByteString        as BS
-import qualified Data.ByteString.Lazy   as BSL
-import           Data.Coerce            (coerce)
-import           Data.Hashable          (Hashable)
-import           Data.SafeCopy          (SafeCopy (..), base, contain,
-                                         deriveSafeCopySimple, safeGet, safePut)
-import qualified Data.Text.Buildable    as B
-import           Data.Text.Lazy.Builder (Builder)
-import           Formatting             (Format, bprint, build, later, (%))
-import qualified Serokell.Util.Base16   as B16
-import qualified Serokell.Util.Base64   as Base64 (decode, encode)
-import           Serokell.Util.Text     (pairF)
+import qualified Crypto.Sign.Ed25519  as Ed25519
+import qualified Data.ByteString      as BS
+import qualified Data.ByteString.Lazy as BSL
+import           Data.Coerce          (coerce)
+import           Data.Hashable        (Hashable)
+import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeCopySimple,
+                                       safeGet, safePut)
+import qualified Data.Text.Buildable  as B
 import           Universum
 
-import           Pos.Binary.Class       (Bi, Raw)
-import qualified Pos.Binary.Class       as Bi
-import           Pos.Crypto.Hashing     (hash, shortHashF)
-import           Pos.Crypto.Random      (secureRandomBS)
+import           Pos.Binary.Class     (Bi, Raw)
+import qualified Pos.Binary.Class     as Bi
+import           Pos.Crypto.Random    (secureRandomBS)
 
 instance Hashable Ed25519.PublicKey
 instance Hashable Ed25519.SecretKey
@@ -81,11 +75,11 @@ instance SafeCopy (RedeemSignature a) where
     getCopy = contain $ RedeemSignature <$> safeGet
 
 instance B.Buildable (RedeemSignature a) where
-    build _ = "<signature>"
+    build _ = "<redeem signature>"
 
 -- | Encode something with 'Binary' and sign it.
 redeemSign :: Bi a => RedeemSecretKey -> a -> RedeemSignature a
-redeemSign k = coerce . redeemSignRaw k . BSL.toStrict . Bi.encode
+redeemSign k = coerce . redeemSignRaw k . Bi.encodeStrict
 
 -- | Alias for constructor.
 redeemSignRaw :: RedeemSecretKey -> ByteString -> RedeemSignature Raw

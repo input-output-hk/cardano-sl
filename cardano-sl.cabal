@@ -999,7 +999,6 @@ executable cardano-avvmmigrate
                        -O2
   default-extensions:  OverloadedStrings
                        NoImplicitPrelude
-  buildable:           False
 
 executable cardano-keygen
   hs-source-dirs:      src/keygen

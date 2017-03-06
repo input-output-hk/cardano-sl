@@ -139,7 +139,7 @@ multisigRedeemer txSigData sks = fromE $ parseRedeemer Nothing [text|
     mkCons Nothing s = sformat ("(Cons Nothing "%build%")") s
     mkCons (Just sig) s = sformat
         ("(Cons (Just #"%fullSignatureHexF%") "%build%")") sig s
-    shownSigs = foldr mkCons "Nil" (map (fmap (`safeSign` txSigData)) sks)
+    shownSigs = foldr mkCons "Nil" $ (`safeSign` txSigData) <<$>> sks
 
 ----------------------------------------------------------------------------
 -- A pair with extra names

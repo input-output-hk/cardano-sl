@@ -41,10 +41,8 @@ instance Show EncryptedSecretKey where
     show _ = "<encrypted key>"
 
 instance B.Buildable EncryptedSecretKey where
-    build _ = build ("<encrypted key>" :: Text)
+    build _ = "<encrypted key>"
 
--- | TODO This newtype should be eventually changed to wrapper
--- over `ScrubbedBytes`, after `cardano-crypto` support it.
 newtype PassPhrase = PassPhrase ScrubbedBytes
     deriving (Eq, NFData)
 

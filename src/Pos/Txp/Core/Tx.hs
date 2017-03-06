@@ -219,10 +219,11 @@ verifyTxDo verifyVersions _gContext extendedInputs
         | otherwise =
               let txSigData = (txInHash, txInIndex, txOutHash, distrsHash)
               in txScriptCheck txSigData twValidator twRedeemer
-    validateTxIn _i TxIn{..} _ RedeemWitness{..} =
-        if redeemCheckSig twRedeemKey (txInHash, txInIndex, txOutHash, distrsHash) twRedeemSig
-            then Right ()
-            else Left "signature check failed"
+    validateTxIn _i TxIn{..} _ RedeemWitness{..}
+        | redeemCheckSig twRedeemKey (txInHash, txInIndex, txOutHash, distrsHash) twRedeemSig =
+            Right ()
+        | otherwise =
+            Left "signature check failed"
     validateTxIn _ _ _ (UnknownWitnessType t _)
         | verifyVersions = Left ("unknown witness type: " <> show t)
         | otherwise      = Right ()

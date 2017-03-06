@@ -51,13 +51,13 @@ Use latest executable of `cardano-sl-explorer`:
 git clone https://github.com/input-output-hk/cardano-sl-explorer
 cd cardano-sl-explorer
 stack build
-stack exec -- cardano-explorer-hs2purs —bridge-path {path/to}/cardano-sl-explorer-frontend/src/Generated
+stack exec -- cardano-explorer-hs2purs --bridge-path {path/to}/cardano-sl-explorer-frontend/src/Generated
 ```
 
 #### 1.2. Generate types
 
 ```bash
-stack exec -- cardano-explorer-hs2purs —bridge-path {path/to}/cardano-sl-explorer-frontend/src/Generated
+stack exec -- cardano-explorer-hs2purs --bridge-path {path/to}/cardano-sl-explorer-frontend/src/Generated
 ```
 
 #### 2. Generate lenses
@@ -72,9 +72,10 @@ Install executable of `purescript-derive-lenses`:
 git clone git@github.com:paf31/purescript-derive-lenses.git
 cd {/path/to/}purescript-derive-lenses
 stack build
-stack install install purescript-derive-lenses
+stack install purescript-derive-lenses
 ```
 
+You need to have `/Users/{your-user-name}/.local/bin/` on your path.
 Check if `purescript-derive-lenses` has been properly installed:
 
 ```bash

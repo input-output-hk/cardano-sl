@@ -46,17 +46,20 @@ post = request $ defaultRequest { method = Left POST }
 
 -- api
 
+-- blocks
 fetchLatestBlocks :: forall eff. Aff (ajax::AJAX | eff) CBlockEntries
-fetchLatestBlocks = get "last_blocks"
-
-fetchLatestTxs :: forall eff. Aff (ajax::AJAX | eff) CTxEntries
-fetchLatestTxs = get "last_txs"
+fetchLatestBlocks = get "blocks/last"
 
 fetchBlockSummary :: forall eff. CHash -> Aff (ajax::AJAX | eff) CBlockSummary
-fetchBlockSummary hash = get $ "block_summary/" <> hash ^. _CHash
+fetchBlockSummary hash = get $ "blocks/summary/" <> hash ^. _CHash
 
 fetchBlockTxs :: forall eff. CHash -> Aff (ajax::AJAX | eff) CTxEntries
-fetchBlockTxs hash = get $ "block_summary/" <> hash ^. _CHash
+fetchBlockTxs hash = get $ "blocks/txs/" <> hash ^. _CHash
 
+-- txs
+fetchLatestTxs :: forall eff. Aff (ajax::AJAX | eff) CTxEntries
+fetchLatestTxs = get "txs/last"
+
+-- addresses
 fetchAddressSummary :: forall eff. CAddress -> Aff (ajax::AJAX | eff) CAddressSummary
-fetchAddressSummary address = get $ "address_summary/" <> address ^. _CAddress
+fetchAddressSummary address = get $ "addresses/summary/" <> address ^. _CAddress

@@ -32,7 +32,7 @@ import           Pos.Txp                        (Tx (..), TxId, TxOut (..),
                                                  topsortTxs, txOutAddress,
                                                  _mpLocalTxs, _txOutputs)
 import           Pos.Types                      (Address (..), HeaderHash,
-                                                 MainBlock, SlotId, Timestamp,
+                                                 MainBlock, Timestamp,
                                                  blockTxs, difficultyL,
                                                  gbHeader, gbhConsensus,
                                                  mcdSlot, mkCoin, prevBlockL,
@@ -119,13 +119,13 @@ getLastBlocks lim off = do
 
 getLastTxs :: ExplorerMode m => Word -> Word -> m [CTxEntry]
 getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
-    localTxsWithTs <- fmap (take lim . drop off) mempoolTxs
+    mempoolTxs <- getMempoolTxs
 
-    let lenTxs = length localTxsWithTs
-        offLeft = off - lenTxs
-        nLeft = offLeft + lim
+    let lenTxs = length mempoolTxs
+        (newOff, newLim) = recalculateOffLim off lim lenTxs
+        localTxsWithTs = take lim $ drop off mempoolTxs
 
-    blockTxsWithTs <- blockchainTxs offLeft nLeft
+    blockTxsWithTs <- getBlockchainTxs newOff newLim
 
     pure $ [toTxEntry (tiTimestamp txi) (tiTx txi) | txi <- localTxsWithTs <> blockTxsWithTs]
 
@@ -171,7 +171,7 @@ getTxSummary cTxId = do
 
     let convertTxOutputs = map (\txOut ->(toCAddress $ txOutAddress txOut, txOutValue txOut))
 
-    -- TODO: here and in mempoolTxs/blockchainTxs we do two things wrongly:
+    -- TODO: here and in getMempoolTxs/getBlockchainTxs we do two things wrongly:
     -- 1. If the transaction is found in the MemPool, we return *starting
     --    time of the current block* as the time when it was issued.
     -- 2. If the transaction comes from the blockchain, we return *block
@@ -220,13 +220,6 @@ getTxSummary cTxId = do
 -- Helpers
 --------------------------------------------------------------------------------
 
-getSlotStartOrFail
-    :: (MonadSlots m, MonadThrow m)
-    => SlotId -> m Timestamp
-getSlotStartOrFail sid =
-    getSlotStart sid >>=
-    maybeThrow (Internal "Slotting isn't initialized")
-
 fetchTxFromMempoolOrFail :: ExplorerMode m => TxId -> m Tx
 fetchTxFromMempoolOrFail txId = do
     maybeTx <- HM.lookup txId . _mpLocalTxs <$> getMemPool
@@ -234,16 +227,22 @@ fetchTxFromMempoolOrFail txId = do
         Nothing -> throwM $ Internal "transaction not found in the mempool"
         Just tx -> pure $ view _1 tx
 
-mempoolTxs :: ExplorerMode m => m [TxInternal]
-mempoolTxs = do
+getMempoolTxs :: ExplorerMode m => m [TxInternal]
+getMempoolTxs = do
     let mkWhTx (txid, (tx, _, _)) = WithHash tx txid
     localTxs <- fmap reverse $ topsortTxsOrFail mkWhTx =<< getLocalTxs
     ts <- currentTimeSlotting
 
     pure $ map (\tx -> TxInternal (Just ts) (view (_2 . _1) tx)) localTxs
 
-blockchainTxs :: ExplorerMode m => Int -> Int -> m [TxInternal]
-blockchainTxs off lim = do
+recalculateOffLim :: Int -> Int -> Int -> (Int, Int)
+recalculateOffLim off lim lenTxs =
+    if lenTxs <= off
+    then (off - lenTxs, lim)
+    else (0, lim - (lenTxs - off))
+
+getBlockchainTxs :: ExplorerMode m => Int -> Int -> m [TxInternal]
+getBlockchainTxs origOff origLim = do
     let unfolder off lim h = do
             when (lim <= 0) $
                 fail "Finished"
@@ -251,19 +250,19 @@ blockchainTxs off lim = do
                 Left gb -> unfolder off lim (gb ^. prevBlockL)
                 Right mb -> do
                     let mTxs = mb ^. blockTxs
-                    if off >= length mTxs
-                        then return ([], (off - length mTxs, lim, mb ^. prevBlockL))
+                        lenTxs = length mTxs
+                    if off >= lenTxs
+                        then return ([], (off - lenTxs, lim, mb ^. prevBlockL))
                         else do
                         txs <- topsortTxsOrFail identity $ map withHash $ toList mTxs
                         blkSlotStart <- lift $ getBlkSlotStart mb
                         let neededTxs = take lim $ drop off $ reverse txs
                             blkTxEntries = [TxInternal blkSlotStart (whData tx) | tx <- neededTxs]
-                            offLeft = off - length mTxs
-                            nLeft = offLeft + lim
-                        return (blkTxEntries, (offLeft, nLeft, mb ^. prevBlockL))
+                            (newOff, newLim) = recalculateOffLim off lim lenTxs
+                        return (blkTxEntries, (newOff, newLim, mb ^. prevBlockL))
 
     tip <- GS.getTip
-    fmap concat $ flip unfoldrM (off, lim, tip) $
+    fmap concat $ flip unfoldrM (origOff, origLim, tip) $
         \(o, l, h) -> runMaybeT $ unfolder o l h
 
 getBlkSlotStart :: MonadSlots m => MainBlock ssc -> m (Maybe Timestamp)

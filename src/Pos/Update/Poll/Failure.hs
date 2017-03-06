@@ -11,10 +11,10 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
 import           Pos.Core.Coin              (coinF)
-import           Pos.Core.Types             (Coin, EpochIndex, HeaderHash, ScriptVersion,
-                                             StakeholderId)
-import           Pos.Core.Types             (ApplicationName, BlockVersion,
-                                             NumSoftwareVersion)
+import           Pos.Core.Types             (ApplicationName, BlockVersion, Coin,
+                                             EpochIndex, HeaderHash, NumSoftwareVersion,
+                                             ScriptVersion, StakeholderId)
+import           Pos.Crypto                 (shortHashF)
 import           Pos.Update.Core            (UpId)
 
 -- | PollVerFailure represents all possible errors which can
@@ -63,6 +63,10 @@ data PollVerFailure
     | PollBadBlockVersion { pbpvUpId       :: !UpId
                             ,  pbpvGiven   :: !BlockVersion
                             ,  pbpvAdopted :: !BlockVersion}
+    | PollTooLargeProposal { ptlpUpId  :: !UpId
+                           , ptlpSize  :: !Byte
+                           , ptlpLimit :: !Byte
+                           }
     | PollTooBigBlock { ptbbHash  :: !HeaderHash
                       , ptbbSize  :: !Byte
                       , ptbbLimit :: !Byte
@@ -127,6 +131,10 @@ instance Buildable PollVerFailure where
         bprint ("proposal "%build%" has bad protocol version: "%
                 build%" (current adopted is "%build%")")
         pbpvUpId pbpvGiven pbpvAdopted
+    build (PollTooLargeProposal {..}) =
+        bprint ("update proposal "%shortHashF%" exceeds maximal size ("%
+                int%" > "%int%")")
+        ptlpUpId ptlpSize ptlpLimit
     build (PollTooBigBlock {..}) =
         bprint ("block "%build%" is bigger than max block size ("%
                 int%" > "%int%")")

@@ -18,6 +18,7 @@ import           Formatting                    (build, builder, int, sformat, (%
 import           System.Wlog                   (logDebug, logInfo, logNotice)
 import           Universum
 
+import           Pos.Binary.Class              (biSize)
 import           Pos.Constants                 (blkSecurityParam, genesisUpdateImplicit,
                                                 genesisUpdateProposalThd,
                                                 genesisUpdateVoteThd)
@@ -31,8 +32,9 @@ import           Pos.Types                     (ChainDifficulty, Coin, EpochInde
                                                 flattenSlotId, gbhExtra, headerHash,
                                                 headerSlot, mehBlockVersion, sumCoins,
                                                 unflattenSlotId, unsafeIntegerToCoin)
-import           Pos.Update.Core               (UpId, UpdatePayload (..),
-                                                UpdateProposal (..), UpdateVote (..))
+import           Pos.Update.Core               (BlockVersionData (..), UpId,
+                                                UpdatePayload (..), UpdateProposal (..),
+                                                UpdateVote (..))
 import           Pos.Update.Poll.Class         (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure       (PollVerFailure (..))
 import           Pos.Update.Poll.Logic.Base    (canBeAdoptedBV, canCreateBlockBV,
@@ -126,12 +128,13 @@ resolveVoteStake epoch totalStake UpdateVote {..} = do
 -- Do all necessary checks of new proposal and votes for it.
 -- If it's valid, apply. Specifically, these checks are done:
 --
--- 1. Check that there is no active proposal for given application.
--- 2. Check script version, it should be consistent with existing
+-- 1. Proposal must not exceed maximal proposal size.
+-- 2. Check that there is no active proposal with the same id.
+-- 3. Check script version, it should be consistent with existing
 --    script version dependencies. New dependency can be added.
--- 3. Check that numeric software version of application is 1 more than
+-- 4. Check that numeric software version of application is 1 more than
 --    of last confirmed proposal for this application.
--- 4. If 'considerThreshold' is true, also check that sum of positive votes
+-- 5. If 'considerThreshold' is true, also check that sum of positive votes
 --    for this proposal is enough (at least 'genesisUpdateProposalThd').
 --
 -- If all checks pass, proposal is added. It can be in undecided or decided
@@ -147,6 +150,15 @@ verifyAndApplyProposal
 verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {..} = do
     let epoch = slotOrHeader ^. epochIndexL
     let !upId = hash up
+    let proposalSize = biSize up
+    proposalSizeLimit <- bvdMaxProposalSize <$> getAdoptedBVData
+    when (proposalSize > proposalSizeLimit) $
+        throwError $
+        PollTooLargeProposal
+        { ptlpUpId = upId
+        , ptlpSize = proposalSize
+        , ptlpLimit = proposalSizeLimit
+        }
     whenJustM (getProposal upId) $
         const $ throwError $ PollProposalAlreadyActive upId
     -- Here we verify consistency with regards to data from 'BlockVersionState'

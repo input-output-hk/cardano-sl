@@ -43,7 +43,7 @@ import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
                                        IterType, runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
-import           Pos.Txp.Core.Types   (txOutStake)
+import           Pos.Txp.Core         (txOutStake)
 import           Pos.Txp.Toil.Types   (Utxo)
 import           Pos.Txp.Toil.Utxo    (utxoToStakes)
 import           Pos.Types            (Coin, StakeholderId, coinF, mkCoin, sumCoins,

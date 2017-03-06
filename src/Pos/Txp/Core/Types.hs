@@ -17,10 +17,8 @@ module Pos.Txp.Core.Types
 
        -- * Tx parts
        , TxIn (..)
-       , toPair
        , TxOut (..)
        , TxOutAux
-       , txOutStake
        , TxAttributes
 
        -- * Tx
@@ -32,6 +30,13 @@ module Pos.Txp.Core.Types
        , txAttributes
        , txF
        , txaF
+
+       -- * Payload and proof
+       , TxProof (..)
+       , TxPayload (..)
+       , txpTxs
+       , txpWitnesses
+       , txpDistributions
 
        -- * Undo
        , TxUndo
@@ -59,6 +64,7 @@ import           Pos.Core.Types       (Address (..), Coin, Script, StakeholderId
                                        mkCoin)
 import           Pos.Crypto           (Hash, PublicKey, Signature, hash, shortHashF)
 import           Pos.Data.Attributes  (Attributes)
+import           Pos.Merkle           (MerkleRoot, MerkleTree)
 
 -- | Represents transaction identifier as 'Hash' of 'Tx'.
 type TxId = Hash Tx
@@ -126,10 +132,6 @@ instance Hashable TxIn
 instance Buildable TxIn where
     build TxIn {..} = bprint ("TxIn "%shortHashF%" #"%int) txInHash txInIndex
 
--- | Make pair from TxIn
-toPair :: TxIn -> (TxId, Word32)
-toPair (TxIn h i) = (h, i)
-
 -- | Transaction output.
 data TxOut = TxOut
     { txOutAddress :: !Address
@@ -148,13 +150,6 @@ instance Buildable TxOutAux where
     build (out, distr) =
         bprint ("{txout = "%build%", distr = "%listJson%"}")
                out (map pairBuilder distr)
-
--- | Use this function if you need to know how a 'TxOut' distributes stake
--- (e.g. for the purpose of running follow-the-satoshi).
-txOutStake :: TxOutAux -> [(StakeholderId, Coin)]
-txOutStake (TxOut{..}, mb) = case txOutAddress of
-    PubKeyAddress x _ -> [(x, txOutValue)]
-    _                 -> mb
 
 -- | Represents transaction attributes: map from 1-byte integer to
 -- arbitrary-type value. To be used for extending transaction with new
@@ -216,6 +211,42 @@ mkTx inputs outputs attrs
                 i txOutValue) ]
 
 ----------------------------------------------------------------------------
+-- Payload and proof
+----------------------------------------------------------------------------
+
+data TxProof = TxProof
+    { txpNumber        :: !Word32
+    , txpRoot          :: !(MerkleRoot Tx)
+    , txpWitnessesHash :: !(Hash [TxWitness])
+    } deriving (Show, Eq, Generic)
+
+data TxPayload = TxPayload
+    { -- | Transactions are the main payload.
+      _txpTxs           :: !(MerkleTree Tx)
+    , -- | Distributions for P2SH addresses in transaction outputs.
+      --     * length mbTxAddrDistributions == length mbTxs
+      --     * i-th element is 'Just' if at least one output of i-th
+      --         transaction is P2SH
+      --     * n-th element of i-th element is 'Just' if n-th output
+      --         of i-th transaction is P2SH
+      -- Ask @neongreen if you don't understand wtf is going on.
+      -- Basically, address distributions are needed so that (potential)
+      -- receivers of P2SH funds would count as stakeholders.
+      _txpDistributions :: ![TxDistribution]
+    , -- | Transaction witnesses. Invariant: there are as many witnesses
+      -- as there are transactions in the block. This is checked during
+      -- deserialisation. We can't put them into the same Merkle tree
+      -- with transactions, as the whole point of segwit is to separate
+      -- transactions and witnesses.
+      --
+      -- TODO: should they be put into a separate Merkle tree or left as
+      -- a list?
+      _txpWitnesses     :: ![TxWitness]
+    } deriving (Show, Eq, Generic)
+
+makeLenses ''TxPayload
+
+----------------------------------------------------------------------------
 -- Undo
 ----------------------------------------------------------------------------
 
@@ -233,3 +264,5 @@ derive makeNFData ''TxInWitness
 derive makeNFData ''TxOut
 derive makeNFData ''TxDistribution
 derive makeNFData ''Tx
+derive makeNFData ''TxProof
+derive makeNFData ''TxPayload

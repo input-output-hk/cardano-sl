@@ -1,13 +1,16 @@
+-- | Binary serialization of Txp types
+
 module Pos.Binary.Txp () where
 
 import           Data.Binary.Get    (getWord8, label)
 import           Data.Binary.Put    (putByteString, putWord8)
+import           Formatting         (int, sformat, (%))
 import           Universum          hiding (putByteString)
-
 
 import           Pos.Binary.Class   (Bi (..), UnsignedVarInt (..), getRemainingByteString,
                                      getWithLength, putWithLength)
-import           Pos.Binary.Core   ()
+import           Pos.Binary.Core    ()
+import           Pos.Binary.Merkle  ()
 import qualified Pos.Txp.Core.Types as T
 
 instance Bi T.TxIn where
@@ -53,3 +56,44 @@ instance Bi T.TxDistribution where
         T.TxDistribution .
         either (\(UnsignedVarInt n) -> replicate n []) identity
             <$> get
+
+instance Bi T.TxProof where
+    put (T.TxProof {..}) = do
+        put (UnsignedVarInt txpNumber)
+        put txpRoot
+        put txpWitnessesHash
+    get = T.TxProof <$> (getUnsignedVarInt <$> get) <*> get <*> get
+
+instance Bi T.TxPayload where
+    put (T.TxPayload {..}) = do
+        put _txpTxs
+        put _txpWitnesses
+        put _txpDistributions
+    get = do
+        _txpTxs <- get
+        _txpWitnesses <- get
+        _txpDistributions <- get
+        let lenTxs    = length _txpTxs
+            lenWit    = length _txpWitnesses
+            lenDistrs = length _txpDistributions
+        when (lenTxs /= lenWit) $ fail $ toString $
+            sformat ("get@(Body MainBlockchain): "%
+                     "size of txs tree ("%int%") /= "%
+                     "length of witness list ("%int%")")
+                    lenTxs lenWit
+        when (lenTxs /= lenDistrs) $ fail $ toString $
+            sformat ("get@(Body MainBlockchain): "%
+                     "size of txs tree ("%int%") /= "%
+                     "length of address distrs list ("%int%")")
+                    lenTxs lenDistrs
+        for_ (zip3 [0 :: Int ..] (toList _txpTxs) _txpDistributions) $
+            \(i, tx, ds) -> do
+                let lenOut = length (T._txOutputs tx)
+                    lenDist = length (T.getTxDistribution ds)
+                when (lenOut /= lenDist) $ fail $ toString $
+                    sformat ("get@(Body MainBlockchain): "%
+                             "amount of outputs ("%int%") of tx "%
+                             "#"%int%" /= amount of distributions "%
+                             "for this tx ("%int%")")
+                            lenOut i lenDist
+        return T.TxPayload {..}

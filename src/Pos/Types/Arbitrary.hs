@@ -32,7 +32,7 @@ import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (
 import           Test.QuickCheck.Instances  ()
 import           Universum
 
-import           Pos.Binary.Class           (AsBinary, FixedSizeInt (..),
+import           Pos.Binary.Class           (AsBinary, FixedSizeInt (..), Raw,
                                              SignedVarInt (..), UnsignedVarInt (..))
 import           Pos.Binary.Core            ()
 import           Pos.Binary.Crypto          ()
@@ -49,15 +49,17 @@ import           Pos.Core.Types             (Address (..), ChainDifficulty (..),
 import           Pos.Core.Types             (ApplicationName (..), BlockVersion (..),
                                              SoftwareVersion (..))
 import           Pos.Core.Version           (applicationNameMaxLength)
-import           Pos.Crypto                 (PublicKey, SecretKey, Share, hash, sign,
-                                             toPublic)
+import           Pos.Crypto                 (Hash, PublicKey, SecretKey, Share, hash,
+                                             sign, toPublic)
 import           Pos.Crypto.Arbitrary       ()
 import           Pos.Data.Attributes        (mkAttributes)
+import           Pos.Merkle                 (MerkleRoot (..), MerkleTree, mkMerkleTree)
 import           Pos.Script                 (Script)
 import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
 import           Pos.Txp.Core.Types         (Tx (..), TxDistribution (..), TxIn (..),
-                                             TxInWitness (..), TxOut (..), TxOutAux)
+                                             TxInWitness (..), TxOut (..), TxOutAux,
+                                             TxProof (..))
 import           Pos.Types.Arbitrary.Unsafe ()
 import           Pos.Util                   (makeSmall)
 
@@ -363,6 +365,15 @@ instance Arbitrary BadSigsTx where
 
 instance Arbitrary SmallBadSigsTx where
     arbitrary = SmallBadSigsTx <$> makeSmall arbitrary
+
+instance Arbitrary (MerkleRoot Tx) where
+    arbitrary = MerkleRoot <$> (arbitrary @(Hash Raw))
+
+instance Arbitrary (MerkleTree Tx) where
+    arbitrary = mkMerkleTree <$> arbitrary
+
+instance Arbitrary TxProof where
+    arbitrary = TxProof <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance Arbitrary SharedSeed where
     arbitrary = do

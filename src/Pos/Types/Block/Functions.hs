@@ -10,7 +10,6 @@ module Pos.Types.Block.Functions
        , mkGenericHeader
        , mkMainBlock
        , recreateMainBlock
-       , mkMainBody
        , mkMainHeader
        , mkGenesisHeader
        , mkGenesisBlock
@@ -47,8 +46,8 @@ import           Pos.Core                   (BlockVersion, ChainDifficulty, Epoc
                                              EpochOrSlot, HasDifficulty (..),
                                              HasEpochIndex (..), HasEpochOrSlot (..),
                                              HasHeaderHash (..), HeaderHash,
-                                             ProxySKEither, ProxySKHeavy, SlotId (..),
-                                             SlotId, SlotLeaders)
+                                             ProxySKEither, SlotId (..), SlotId,
+                                             SlotLeaders)
 import           Pos.Core.Address           (Address (..), addressHash)
 import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
                                              GenericBlockHeader (..), gbBody, gbBodyProof,
@@ -56,12 +55,9 @@ import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
 import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySign,
                                              proxyVerify, pskIssuerPk, pskOmega, sign,
                                              toPublic, unsafeHash)
-import           Pos.Merkle                 (mkMerkleTree)
 import           Pos.Script                 (isKnownScriptVersion, scrVersion)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
-import           Pos.Ssc.Class.Types        (Ssc (..))
-import           Pos.Txp.Core.Types         (Tx (..), TxDistribution, TxInWitness (..),
-                                             TxOut (..), TxWitness)
+import           Pos.Txp.Core.Types         (Tx (..), TxInWitness (..), TxOut (..))
 import           Pos.Types.Block.Instances  (Body (..), ConsensusData (..), blockLeaders,
                                              blockMpc, blockProxySKs, blockTxs,
                                              getBlockHeader, getBlockHeader,
@@ -74,7 +70,6 @@ import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
                                              MainBlock, MainBlockHeader, MainBlockchain,
                                              MainExtraBodyData (..), MainExtraHeaderData,
                                              mehBlockVersion)
-import           Pos.Update.Core            (UpdatePayload)
 import           Pos.Util                   (NewestFirst (..), OldestFirst)
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
@@ -217,23 +212,6 @@ mkGenesisBlock prevHeader epoch leaders =
     }
   where
     body = GenesisBody leaders
-
--- | Smart constructor for 'Body' of 'MainBlockchain'.
-mkMainBody
-    :: [(Tx, TxWitness, TxDistribution)]
-    -> SscPayload ssc
-    -> [ProxySKHeavy]
-    -> UpdatePayload
-    -> Body (MainBlockchain ssc)
-mkMainBody txws mpc proxySKs updatePayload =
-    MainBody
-    { _mbTxs                 = mkMerkleTree (map (^. _1) txws)
-    , _mbWitnesses           = map (^. _2) txws
-    , _mbTxAddrDistributions = map (^. _3) txws
-    , _mbMpc                 = mpc
-    , _mbProxySKs            = proxySKs
-    , _mbUpdatePayload       = updatePayload
-    }
 
 -- CHECK: @verifyConsensusLocal
 -- Verifies block signature (also proxy) and that slot id is in the correct range.

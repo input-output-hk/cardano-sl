@@ -22,7 +22,6 @@ module Pos.Communication.Relay.Logic
 
 import           Control.Concurrent.STM             (isFullTBQueue, readTBQueue,
                                                      writeTBQueue)
-import qualified Data.List.NonEmpty                 as NE
 import           Formatting                         (build, sformat, shown, stext, (%))
 import           Mockable                           (Mockable, MonadMockable, Throw,
                                                      handleAll, throw, throw)

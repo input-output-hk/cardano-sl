@@ -158,7 +158,8 @@ verifyCommitment Commitment {..} = fromMaybe False $ do
     extra <- fromBinaryM commExtra
     comms <- traverse tupleFromBinaryM (HM.toList commShares)
     let encShares = concatMap (map encShareId . toList . snd) comms
-    return $ all (verifyCommitmentDo extra) comms &&
+    return $ (not . null) commShares &&
+        all (verifyCommitmentDo extra) comms &&
         (length encShares) == (HS.size $ HS.fromList encShares)
   where
     verifyCommitmentDo extra (pk, ne) = all (verifyEncShare extra pk) ne

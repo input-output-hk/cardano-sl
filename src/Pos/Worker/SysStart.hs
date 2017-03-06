@@ -4,7 +4,6 @@ module Pos.Worker.SysStart
        ( sysStartWorker
        ) where
 
-import           Data.Proxy              (Proxy (..))
 import           Data.Time.Units         (convertUnit)
 import           Mockable                (fork)
 import           Serokell.Util           (ms)

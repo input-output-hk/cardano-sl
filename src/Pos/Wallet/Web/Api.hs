@@ -9,16 +9,15 @@ module Pos.Wallet.Web.Api
        , walletApi
        ) where
 
-import           Data.Proxy                 (Proxy (Proxy))
+import           Servant.API                ((:<|>), (:>), Capture, Get, JSON, Post,
+                                             ReqBody)
+import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CProfile, CTx, CTxId,
                                              CTxMeta, CUpdateInfo, CWallet, CWalletInit,
                                              CWalletMeta, CWalletRedeem, SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
-import           Servant.API                ((:<|>), (:>), Capture, Get, JSON, Post,
-                                             ReqBody)
-import           Universum
 
 -- | Servant API which provides access to wallet.
 type WalletApi =

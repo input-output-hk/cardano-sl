@@ -9,7 +9,6 @@ import           Control.Monad.Reader      (MonadReader (..), ReaderT, ask, asks
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Data.ByteString           as BS
 import           Data.List                 ((!!))
-import           Data.Proxy                (Proxy (..))
 import qualified Data.Text                 as T
 import           Data.Time.Units           (convertUnit)
 import           Formatting                (build, int, sformat, stext, (%))

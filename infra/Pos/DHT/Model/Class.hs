@@ -6,11 +6,10 @@ module Pos.DHT.Model.Class
        , withDhtLogger
        ) where
 
-import           Data.Proxy          (Proxy (Proxy))
 import           System.Wlog         (HasLoggerName (modifyLoggerName), LoggerName)
 import           Universum
 
-import           Pos.DHT.Model.Types    (DHTKey, DHTNode (..))
+import           Pos.DHT.Model.Types (DHTKey, DHTNode (..))
 
 -- | Monad for Distributed Hash Table operations.
 class Monad m => MonadDHT m where

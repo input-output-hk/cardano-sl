@@ -23,7 +23,6 @@ module Pos.Communication.Limits.Types
        ) where
 
 import           Data.Binary                (Get)
-import           Data.Proxy                 (Proxy (..))
 import           Data.Reflection            (Reifies (..), reify)
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum

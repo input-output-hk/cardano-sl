@@ -7,7 +7,6 @@ module Pos.Block.Network.Listeners
        , blockStubListeners
        ) where
 
-import           Data.Proxy                  (Proxy (..))
 import           Data.Reflection             (reify)
 import           Data.Tagged                 (Tagged, proxy, unproxy)
 import           Formatting                  (build, sformat, (%))

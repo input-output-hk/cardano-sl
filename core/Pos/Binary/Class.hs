@@ -55,6 +55,7 @@ module Pos.Binary.Class
        , getRemainingByteString
        , getAsciiString1b
        , putAsciiString1b
+       , biSize
        ) where
 
 import           Formatting                  (formatToString, int, (%))
@@ -863,3 +864,7 @@ getAsciiString1b typeName limit = getWord8 >>= \sz -> do
 putAsciiString1b :: String -> Put
 putAsciiString1b str =  putWord8 (fromIntegral $ length str)
                      >> putByteString (BS.pack $ map (fromIntegral . ord) str)
+
+-- | Compute size of something serializable in bytes.
+biSize :: Bi a => a -> Byte
+biSize = fromIntegral . length . encode

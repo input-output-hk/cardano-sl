@@ -12,7 +12,7 @@ import           Universum
 
 import           Pos.Core.Coin              (coinF)
 import           Pos.Core.Types             (ApplicationName, BlockVersion, Coin,
-                                             EpochIndex, HeaderHash, NumSoftwareVersion,
+                                             EpochIndex, NumSoftwareVersion,
                                              ScriptVersion, StakeholderId)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.Update.Core            (UpId)
@@ -67,10 +67,6 @@ data PollVerFailure
                            , ptlpSize  :: !Byte
                            , ptlpLimit :: !Byte
                            }
-    | PollTooBigBlock { ptbbHash  :: !HeaderHash
-                      , ptbbSize  :: !Byte
-                      , ptbbLimit :: !Byte
-                      }
     | PollInternalError !Text
 
 instance Buildable PollVerFailure where
@@ -135,9 +131,5 @@ instance Buildable PollVerFailure where
         bprint ("update proposal "%shortHashF%" exceeds maximal size ("%
                 int%" > "%int%")")
         ptlpUpId ptlpSize ptlpLimit
-    build (PollTooBigBlock {..}) =
-        bprint ("block "%build%" is bigger than max block size ("%
-                int%" > "%int%")")
-        ptbbHash ptbbSize ptbbLimit
     build (PollInternalError msg) =
         bprint ("internal error: "%stext) msg

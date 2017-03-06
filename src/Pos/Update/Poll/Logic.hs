@@ -10,7 +10,6 @@ module Pos.Update.Poll.Logic
 
        -- * Base
        , canCreateBlockBV
-       , verifyBlockSize
 
        -- * Softfork resolution
        , processGenesisBlock

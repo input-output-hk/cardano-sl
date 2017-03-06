@@ -24,10 +24,9 @@ import           Pos.Slotting         (SlottingData)
 import           Pos.Ssc.Class        (SscHelpersClass)
 import           Pos.Types            (ApplicationName, Block, BlockVersion,
                                        NumSoftwareVersion, SoftwareVersion (..),
-                                       addressHash, blockSize, blockSlot, epochIndexL,
-                                       gbBody, gbHeader, gbhConsensus, gbhExtra,
-                                       headerHash, mbUpdatePayload, mcdLeaderKey,
-                                       mehBlockVersion)
+                                       addressHash, blockSlot, epochIndexL, gbBody,
+                                       gbHeader, gbhConsensus, gbhExtra, headerHash,
+                                       mbUpdatePayload, mcdLeaderKey, mehBlockVersion)
 import           Pos.Update.Core      (BlockVersionData, UpId)
 import           Pos.Update.DB        (UpdateOp (..))
 import           Pos.Update.Error     (USError (USInternalError))
@@ -36,7 +35,7 @@ import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState
                                        ProposalState, USUndo, canCreateBlockBV, execPollT,
                                        execRollT, processGenesisBlock,
                                        recordBlockIssuance, rollbackUS, runDBPoll,
-                                       runPollT, verifyAndApplyUSPayload, verifyBlockSize)
+                                       runPollT, verifyAndApplyUSPayload)
 import           Pos.Util             (NE, NewestFirst, OldestFirst, inAssertMode)
 import qualified Pos.Util.Modifier    as MM
 
@@ -127,9 +126,6 @@ verifyBlock (Right blk) =
             (blk ^. gbHeader . gbhExtra . mehBlockVersion)
             (blk ^. blockSlot)
             (headerHash blk)
-        -- Block size check doesn't interfere with other checks too, so
-        -- it's separated.
-        verifyBlockSize (headerHash blk) (blockSize blk)
 
 -- | Checks whether our software can create block according to current
 -- global state.

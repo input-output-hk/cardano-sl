@@ -38,8 +38,7 @@ import           Mockable                     (MonadMockable)
 import           Universum
 
 import           Pos.Slotting                 (NtpSlotting)
-import           Pos.Txp                      (Utxo)
-import           Pos.Types                    (HeaderHash)
+import           Pos.Types                    (HeaderHash, Utxo)
 import           Pos.Wallet.Web.ClientTypes   (CAddress, CHash, CProfile, CTx, CTxId,
                                                CTxMeta, CUpdateInfo, CWalletMeta)
 import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,

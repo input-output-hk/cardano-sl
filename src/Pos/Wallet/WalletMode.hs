@@ -49,7 +49,7 @@ import           Pos.Txp.Class               (getMemPool, getUtxoView)
 import qualified Pos.Txp.Holder              as Modern
 import           Pos.Txp.Logic               (processTx)
 import           Pos.Txp.Types               (UtxoView (..), localTxs)
-import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
+import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin, HeaderHash,
                                               TxAux, TxId, Utxo, difficultyL,
                                               evalUtxoStateT, flattenEpochOrSlot,
                                               flattenSlotId, prevBlockL, runUtxoStateT,
@@ -126,7 +126,7 @@ class Monad m => MonadTxHistory m where
     default getTxHistory
         :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
         => Address -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer
-    getTxHistory = fmap (fmap lift) <$> getTxHistory
+    getTxHistory addr = lift . getTxHistory addr
 
     default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()
     saveTx = lift . saveTx
@@ -149,7 +149,7 @@ deriving instance MonadTxHistory m => MonadTxHistory (WalletWebDB m)
 
 -- | Get tx history for Address
 instance MonadIO m => MonadTxHistory (WalletDB m) where
-    getTxHistory addr = do
+    getTxHistory addr _ = do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
         res <- fmap (fst . fromMaybe (panic "deriveAddrHistory: Nothing")) $
@@ -158,10 +158,9 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
         pure undefined
     saveTx _ = pure ()
 
-instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
+instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m, PC.WithNodeContext ssc m)
          => MonadTxHistory (Modern.TxpLDHolder ssc m) where
     getTxHistory addr mInit = do
-        bot <- maybe GS.getBot pure mbot
         tip <- GS.getTip
 
         let getGenUtxo = filterUtxoByAddr addr . PC.ncGenesisUtxo <$> PC.getNodeContext

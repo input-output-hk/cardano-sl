@@ -30,8 +30,7 @@ module Pos.Wallet.Web.State.Storage
 import           Control.Lens               (at, ix, makeClassy, (%=), (.=), _Just, _head)
 import           Data.Default               (Default, def)
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
-import           Pos.Txp                    (Utxo)
-import           Pos.Types                  (HeaderHash)
+import           Pos.Types                  (HeaderHash, Utxo)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTType,
                                              CTx, CTxId, CTxMeta, CUpdateInfo,
                                              CWalletMeta, CWalletType)

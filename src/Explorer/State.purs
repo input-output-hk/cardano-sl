@@ -36,6 +36,7 @@ initialState =
     , currentBlock: Nothing
     , currentBlockTxs: []
     , latestTransactions: []
+    , currentAddressSummary: Nothing
     , errors: []
     , loading: false
     }

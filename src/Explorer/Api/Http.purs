@@ -16,8 +16,8 @@ import Explorer.Types.State (CBlockEntries, CTxEntries)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
-import Pos.Explorer.Web.ClientTypes (CBlockSummary, CHash, CTxEntry)
-import Pos.Explorer.Web.Lenses.ClientTypes (_CHash)
+import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CAddress)
 
 endpointPrefix :: String
 -- endpointPrefix = "http://localhost:8100/api/"
@@ -46,14 +46,20 @@ post = request $ defaultRequest { method = Left POST }
 
 -- api
 
+-- blocks
 fetchLatestBlocks :: forall eff. Aff (ajax::AJAX | eff) CBlockEntries
-fetchLatestBlocks = get "last_blocks"
-
-fetchLatestTxs :: forall eff. Aff (ajax::AJAX | eff) CTxEntries
-fetchLatestTxs = get "last_txs"
+fetchLatestBlocks = get "blocks/last"
 
 fetchBlockSummary :: forall eff. CHash -> Aff (ajax::AJAX | eff) CBlockSummary
-fetchBlockSummary hash = get $ "block_summary/" <> hash ^. _CHash
+fetchBlockSummary hash = get $ "blocks/summary/" <> hash ^. _CHash
 
 fetchBlockTxs :: forall eff. CHash -> Aff (ajax::AJAX | eff) CTxEntries
-fetchBlockTxs hash = get $ "block_summary/" <> hash ^. _CHash
+fetchBlockTxs hash = get $ "blocks/txs/" <> hash ^. _CHash
+
+-- txs
+fetchLatestTxs :: forall eff. Aff (ajax::AJAX | eff) CTxEntries
+fetchLatestTxs = get "txs/last"
+
+-- addresses
+fetchAddressSummary :: forall eff. CAddress -> Aff (ajax::AJAX | eff) CAddressSummary
+fetchAddressSummary address = get $ "addresses/summary/" <> address ^. _CAddress

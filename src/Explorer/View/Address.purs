@@ -10,15 +10,17 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
-import Explorer.Util.Factory (mkCHash, mkCTxEntry)
+import Explorer.Util.Factory (mkEmptyCTxEntry, mkEmptyCAddressSummary)
 import Explorer.View.Common (currencyCSSClass, transactionBodyView, transactionHeaderView, transactionPaginationView)
-import Pos.Explorer.Web.ClientTypes (CHash)
+import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, caAddress, caBalance, caTxNum)
+import Pos.Types.Lenses.Core (_Coin, getCoin)
 import Pux.Html (Html, div, text, h3, p, img) as P
 import Pux.Html.Attributes (className, src) as P
 import Pux.Router (link) as P
 
-addressView :: State -> CHash -> P.Html Action
-addressView state hash =
+addressView :: State -> P.Html Action
+addressView state =
     P.div
         [ P.className "explorer-address" ]
         [ P.div
@@ -28,96 +30,106 @@ addressView state hash =
                   [ P.h3
                           [ P.className "headline"]
                           [ P.text $ translate (I18nL.common <<< I18nL.cAddress) lang' ]
-                  , P.div
-                      [ P.className "address-wrapper" ]
-                      [ P.div
-                      -- address
-                          [ P.className "address-detail" ]
-                          $ map addressDetailRow $ addressItems state.lang
-                      -- qr
-                      , P.div
-                          [ P.className "qr" ]
-                          [ P.p
-                                [ P.className "tab" ]
-                                [ P.text $ translate (I18nL.address <<< I18nL.addQrCode) lang'  ]
-                            , P.div
-                                [ P.className "qr__wrapper" ]
-                                [ P.img
-                                    [ P.className "qr__image"
-                                    , P.src "" ]
-                                    []
-                                  , P.p
-                                      [ P.className "qr__description" ]
-                                      [ P.text $ translate (I18nL.address <<< I18nL.addScan) lang' ]
-                                ]
-                            ]
+                  -- FIXME (jk)
+                  -- As long we dont have any live data
+                  -- use following mock data.
+                  -- Otherwise compare w/ currentAddressSummary as follow:
+                  -- , case state ^. currentAddressSummary of
+                  , case Just mkEmptyCAddressSummary of
+                      Nothing ->
+                          P.div
+                              [ P.className "address-wrapper" ]
+                              [ P.text "" ]
+                      Just address ->
+                          P.div
+                              [ P.className "address-wrapper" ]
+                              [ addressDetail address lang'
+                              , addressQr address lang'
+                              ]
+
                       ]
                   ]
+            , P.div
+                [ P.className "explorer-address__wrapper" ]
+                [ P.div
+                      [ P.className "explorer-address__container" ]
+                      [ P.h3
+                              [ P.className "headline"]
+                              [ P.text $ translate (I18nL.common <<< I18nL.cTransactions) lang' ]
+                        -- TODO (jk) use empty CTxEntry if we'll have real data
+                        , transactionHeaderView mkEmptyCTxEntry
+                        , transactionBodyView state
+                        -- TODO (jk) use empty CTxEntry if we'll have real data
+                        , transactionHeaderView mkEmptyCTxEntry
+                        , transactionBodyView state
+                        , transactionPaginationView paginationViewProps
+                      ]
+                ]
             ]
-        , P.div
-            [ P.className "explorer-address__wrapper" ]
-            [ P.div
-                  [ P.className "explorer-address__container" ]
-                  [ P.h3
-                          [ P.className "headline"]
-                          [ P.text $ translate (I18nL.common <<< I18nL.cTransactions) lang' ]
-                    -- TODO (jk) use empty CTxEntry if we'll have real data
-                    , transactionHeaderView mkCTxEntry
-                    , transactionBodyView state
-                    -- TODO (jk) use empty CTxEntry if we'll have real data
-                    , transactionHeaderView mkCTxEntry
-                    , transactionBodyView state
-                    , transactionPaginationView paginationViewProps
-                  ]
-            ]
-        ]
-        where
-            lang' = state ^. lang
-            paginationViewProps =
-                { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                , currentPage: 1
-                , maxPage: 1
-                , changePageAction: AddressPaginateTransactions
-                , onFocusAction: SelectInputText <<< targetToHTMLInputElement
-                }
+            where
+                lang' = state ^. lang
+                paginationViewProps =
+                    { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                    , currentPage: 1
+                    , maxPage: 1
+                    , changePageAction: AddressPaginateTransactions
+                    , onFocusAction: SelectInputText <<< targetToHTMLInputElement
+                    }
 
+addressDetail :: CAddressSummary -> Language -> P.Html Action
+addressDetail address lang =
+    P.div
+        [ P.className "address-detail" ]
+        $ map addressDetailRow $ addressDetailRowItems address lang
 
--- FIXME (jk): just for now, will use later `real` ADTs
-type AddressRowItem =
-    { id :: CHash
-    , label :: String
-    , amount :: String
+addressQr :: CAddressSummary -> Language -> P.Html Action
+addressQr _ lang =
+    P.div
+      [ P.className "qr" ]
+      [ P.p
+          [ P.className "tab" ]
+          [ P.text $ translate (I18nL.address <<< I18nL.addQrCode) lang  ]
+      , P.div
+          [ P.className "qr__wrapper" ]
+          [ P.img
+              [ P.className "qr__image"
+              , P.src "" ]
+              []
+            , P.p
+                [ P.className "qr__description" ]
+                [ P.text $ translate (I18nL.address <<< I18nL.addScan) lang ]
+          ]
+      ]
+
+type SummaryRowItem =
+    { label :: String
+    , value :: String
     , currency :: Maybe CCurrency
-    , link :: Boolean
+    , link :: Maybe String
     }
 
--- FIXME (jk): just for now, will use later `real` ADTs
-type AddressItems = Array AddressRowItem
+type SummaryItems = Array SummaryRowItem
 
--- FIXME (jk): just for now, will use later `real` ADTs
-addressItems :: Language -> AddressItems
-addressItems lang =
-    [ { id: mkCHash "0"
-      , label: translate (I18nL.common <<< I18nL.cAddress) lang
-      , amount: "1NPj2Y8yswHLuw8Yr1FDdobKAW6WVkUZy9"
+addressDetailRowItems :: CAddressSummary -> Language -> SummaryItems
+addressDetailRowItems (CAddressSummary address) lang =
+    [ { label: translate (I18nL.common <<< I18nL.cAddress) lang
+      , value: address ^. (caAddress <<< _CAddress)
       , currency: Nothing
-      , link: true
+      , link: Just <<< toUrl <<< Address $ address ^. caAddress
     }
-    , { id: mkCHash "1"
-      , label: translate (I18nL.common <<< I18nL.cTransactions) lang
-      , amount: "177"
+    , { label: translate (I18nL.common <<< I18nL.cTransactions) lang
+      , value: show $ address ^. caTxNum
       , currency: Nothing
-      , link: false
+      , link: Nothing
     }
-    , { id: mkCHash "2"
-      , label: translate (I18nL.address <<< I18nL.addFinalBalance) lang
-      , amount: "243,583"
+    , { label: translate (I18nL.address <<< I18nL.addFinalBalance) lang
+      , value: show $ address ^. (caBalance <<< _Coin <<< getCoin)
       , currency: Just ADA
-      , link: false
-  }
+      , link: Nothing
+      }
     ]
 
-addressDetailRow :: AddressRowItem -> P.Html Action
+addressDetailRow :: SummaryRowItem -> P.Html Action
 addressDetailRow item =
     P.div
         [ P.className "address-detail__row" ]
@@ -126,14 +138,12 @@ addressDetailRow item =
             [ P.text item.label ]
         , P.div
               [ P.className $ "address-detail__column amount" <> currencyCSSClass item.currency ]
-              [ renderValue item ]
+              [ case item.link of
+                    Nothing ->
+                        P.text item.value
+                    Just link ->
+                        P.link link
+                            [ P.className "link" ]
+                            [ P.text item.value ]
+              ]
         ]
-    where
-      renderValue :: AddressRowItem -> P.Html Action
-      renderValue item' = if item'.link == true
-          then
-            P.link (toUrl $ Address item'.id)
-                [ P.className "link" ]
-                [ P.text item'.amount ]
-          else
-              P.text item.amount

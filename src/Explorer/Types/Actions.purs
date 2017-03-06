@@ -6,7 +6,7 @@ import Data.Either (Either)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Explorer.Types.State (DashboardAPICode, CBlockEntries, CTxEntries)
-import Pos.Explorer.Web.ClientTypes (CBlockSummary, CHash)
+import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash)
 import Signal.Channel (Channel)
 
 data Action
@@ -29,6 +29,8 @@ data Action
     | ReceiveBlockTxs (Either Error CTxEntries)
     | RequestInitialTxs
     | ReceiveInitialTxs (Either Error CTxEntries)
+    | RequestAddressSummary CAddress
+    | ReceiveAddressSummary (Either Error CAddressSummary)
     -- dashboard
     | DashboardExpandBlocks Boolean         -- toggle blocks
     | DashboardPaginateBlocks Int           -- current pagination of blocks

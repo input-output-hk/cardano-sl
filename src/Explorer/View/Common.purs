@@ -16,7 +16,7 @@ import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
-import Explorer.Util.Factory (mkCHash)
+import Explorer.Util.Factory (mkCAddress)
 import Pos.Explorer.Web.ClientTypes (CTxEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, cteAmount, cteId, cteTimeIssued)
 import Pos.Types.Lenses.Core (_Coin, getCoin)
@@ -60,13 +60,13 @@ transactionBodyView state =
           ]
         , P.div
               [ P.className "to-hash-container bg-transaction-arrow" ]
-              [ P.link (toUrl <<< Address $ mkCHash "1NPj2Y8yswHLuw8Yr1FDdobKAW6WVkUZy9")
+              [ P.link (toUrl <<< Address $ mkCAddress "1NPj2Y8yswHLuw8Yr1FDdobKAW6WVkUZy9")
                     [ P.className "to-hash"]
                     [ P.text "1NPj2Y8yswHLuw8Yr1FDdobKAW6WVkUZy9" ]
-              , P.link (toUrl <<< Address $ mkCHash "1NPj2Y8yswHLuw8Yr1FDdobKasdfadsfaf")
+              , P.link (toUrl <<< Address $ mkCAddress "1NPj2Y8yswHLuw8Yr1FDdobKasdfadsfaf")
                     [ P.className "to-hash"]
                     [ P.text "1NPj2Y8yswHLuw8Yr1FDdobKasdfadsfaf" ]
-              , P.link (toUrl <<< Address $ mkCHash "1NPj2Y8yswHLuw8Yr1FDdobKasdfadsfaf")
+              , P.link (toUrl <<< Address $ mkCAddress "1NPj2Y8yswHLuw8Yr1FDdobKasdfadsfaf")
                     [ P.className "to-hash"]
                     [ P.text "1NPj2Y8yswHLuw8Yr1FDdobKasdfadsfaf" ]
               ]

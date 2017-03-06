@@ -111,7 +111,7 @@ getProposalState = gsGetBi . proposalKey
 getAppProposal :: MonadDB m => ApplicationName -> m (Maybe UpId)
 getAppProposal = gsGetBi . proposalAppKey
 
--- | Get state of Update Proposal for given AppName
+-- | Get states of all active 'UpdateProposal's for given 'ApplicationName'.
 getProposalsByApp :: MonadDB m => ApplicationName -> m [ProposalState]
 getProposalsByApp appName = runProposalMapIterator (step []) snd
   where

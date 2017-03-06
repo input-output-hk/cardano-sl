@@ -9,7 +9,6 @@ module Pos.Wallet.Web.Doc
 
 import           Control.Lens               ((<>~))
 import qualified Data.HashMap.Strict        as HM
-import           Data.Proxy                 (Proxy (..))
 import           Data.Time.Clock.POSIX      (POSIXTime)
 import           Network.HTTP.Types.Method  (methodPost)
 import           Servant.API                (Capture)

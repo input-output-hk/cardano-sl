@@ -9,7 +9,6 @@ module Pos.Communication.Server.SysStart
        ) where
 
 import           Control.Concurrent.MVar    (MVar, tryPutMVar)
-import           Data.Proxy                 (Proxy (..))
 import           Formatting                 (build, sformat, shown, (%))
 import           System.Wlog                (logInfo)
 import           Universum

@@ -11,7 +11,6 @@ module Pos.Delegation.Listeners
        --, handleCheckProxySKConfirmed
        ) where
 
-import           Data.Proxy                 (Proxy (..))
 import           Formatting                 (build, sformat, shown, (%))
 import           Pos.Communication.Util     (stubListenerOneMsg)
 import           System.Wlog                (WithLogger, logDebug, logInfo)

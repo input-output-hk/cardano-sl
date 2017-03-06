@@ -8,7 +8,7 @@ module Pos.Communication.Util
        , wrapSendActions
        ) where
 
-import           Data.Proxy                  (Proxy (..), asProxyTypeOf)
+import           Data.Proxy                  (asProxyTypeOf)
 import           Data.Time.Units             (Microsecond)
 import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (Async, Bracket, Delay, Mockable)

@@ -2,7 +2,6 @@ module Pos.Communication.Message
        ( MessagePart (..)
        ) where
 
-import           Data.Proxy                       (Proxy (..))
 import           Node.Message                     (Message (..), MessageName (..))
 import           Universum
 

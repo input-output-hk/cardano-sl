@@ -13,7 +13,6 @@ module Pos.Communication.Limits.Instances
 
 import           Control.Lens                   (both, each, ix)
 import           Data.Binary.Get                (getWord8, lookAhead)
-import           Data.Proxy                     (Proxy (..))
 import           Universum
 
 import qualified Pos.Communication.Constants    as Const

@@ -29,7 +29,6 @@ module Pos.Communication.Protocol
 
 import           Control.Arrow                    ((&&&))
 import qualified Data.HashMap.Strict              as HM
-import           Data.Proxy                       (Proxy)
 import           Formatting                       (build, sformat, shown, stext, (%))
 import           Mockable                         (Delay, Fork, Mockable, SharedAtomic,
                                                    Throw, throw)

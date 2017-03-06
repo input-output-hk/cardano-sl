@@ -49,6 +49,8 @@ instance Bi U.BlockVersionData where
         bvdSlotDuration      <- get
         bvdMaxBlockSize      <- get
         bvdMaxTxSize         <- get
+        bvdMaxHeaderSize     <- get
+        bvdMaxProposalSize   <- get
         bvdMpcThd            <- get
         bvdHeavyDelThd       <- get
         bvdUpdateVoteThd     <- get
@@ -60,7 +62,9 @@ instance Bi U.BlockVersionData where
         put bvdScriptVersion
         put bvdSlotDuration
         put bvdMaxBlockSize
+        put bvdMaxHeaderSize
         put bvdMaxTxSize
+        put bvdMaxProposalSize
         put bvdMpcThd
         put bvdHeavyDelThd
         put bvdUpdateVoteThd

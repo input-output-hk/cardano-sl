@@ -136,7 +136,9 @@ data BlockVersionData = BlockVersionData
     { bvdScriptVersion     :: !ScriptVersion
     , bvdSlotDuration      :: !Millisecond
     , bvdMaxBlockSize      :: !Byte
+    , bvdMaxHeaderSize     :: !Byte
     , bvdMaxTxSize         :: !Byte
+    , bvdMaxProposalSize   :: !Byte
     , bvdMpcThd            :: !CoinPortion
     , bvdHeavyDelThd       :: !CoinPortion
     , bvdUpdateVoteThd     :: !CoinPortion

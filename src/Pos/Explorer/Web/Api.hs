@@ -43,7 +43,7 @@ type ExplorerApi =
       "api"
       :> "txs"
       :> "last"
-      :>QueryParam "limit" Word
+      :> QueryParam "limit" Word
       :> QueryParam "offset" Word
       :> Get '[JSON] (Either ExplorerError [CTxEntry])
     :<|>

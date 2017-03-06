@@ -18,21 +18,18 @@ import           Pos.Util                   ()
 -- | Compile time configuration. See example in /constants.yaml/ file.
 data CompileConfig = CompileConfig
     {
-----------------------------------------------------------------------------
--- Fundamental constants
-----------------------------------------------------------------------------
-      ccK                             :: !Int
-      -- ^ Security parameter from paper
 
 ----------------------------------------------------------------------------
 -- Genesis
 ----------------------------------------------------------------------------
-    , ccGenesisN                      :: !Int
+      ccGenesisN                      :: !Int
       -- ^ Number of pre-generated keys
     , ccGenesisSlotDurationSec        :: !Int
       -- ^ Length of slot in seconds
     , ccGenesisMaxBlockSize           :: !Byte
       -- ^ Maximum block size in bytes
+    , ccGenesisMaxHeaderSize          :: !Byte
+      -- ^ Maximum block header size in bytes
 
 ----------------------------------------------------------------------------
 -- -- Txp
@@ -57,6 +54,8 @@ data CompileConfig = CompileConfig
 ----------------------------------------------------------------------------
     , ccGenesisUpdateVoteThd          :: !Double
       -- ^ Portion of total stake necessary to vote for or against update.
+    , ccGenesisMaxUpdateProposalSize  :: !Byte
+      -- ^ Maximum update proposal size in bytes
     , ccGenesisUpdateProposalThd      :: !Double
       -- ^ Portion of total stake such that block containing
       -- UpdateProposal must contain positive votes for this proposal
@@ -74,8 +73,6 @@ data CompileConfig = CompileConfig
 ----------------------------------------------------------------------------
     , ccNetworkDiameter               :: !Int
       -- ^ Estimated time for broadcasting messages
-    , ccNeighboursSendThreshold       :: !Int
-      -- ^ Broadcasting threshold
     , ccMaxLocalTxs                   :: !Word
       -- ^ Max number of transactions in Storage
     , ccDefaultPeers                  :: ![String]
@@ -92,8 +89,6 @@ data CompileConfig = CompileConfig
       -- ^ VSS certificates max timeout to live (number of epochs)
     , ccVssMinTTL                     :: !Word64
       -- ^ VSS certificates min timeout to live (number of epochs)
-    , ccProtocolMagic                 :: !Int
-      -- ^ Magic constant for separating real/testnet
     , ccLightDlgConfirmationTimeout   :: !Int
       -- ^ Timeout for holding light psks confirmations
     , ccEnhancedMessageBroadcast      :: !Word
@@ -103,21 +98,10 @@ data CompileConfig = CompileConfig
     , ccMessageCacheTimeout           :: !Int
       -- ^ Interval we ignore cached messages in components that
       -- support caching
-    , ccKademliaDumpInterval          :: !Int
-      -- ^ Interval for dumping Kademlia state in slots
-    , ccNtpResponseTimeout            :: !Int
-      -- ^ How often request to NTP server and response collection
-    , ccNtpPollDelay                  :: !Int
-      -- ^ How often send request to NTP server
     , ccNetworkConnectionTimeout      :: !Int
       -- ^ Network connection timeout in milliseconds
     , ccBlockRetrievalQueueSize       :: !Int
       -- ^ Block retrieval queue capacity
     , ccPropagationQueueSize          :: !Int
       -- ^ InvMsg propagation queue capacity
-    , ccNetworkReceiveTimeout         :: !Int
-      -- ^ Network timeout on `recv` in milliseconds
-    , ccProductionNetworkStartTime    :: !Int
-      -- ^ Start time of network (in `Prodution` running mode).
-      -- If set to zero, then running time is 2 minutes after build.
     } deriving (Show, Lift)

@@ -2,7 +2,6 @@ module Main
        ( main
        ) where
 
-import           Data.Proxy                         (Proxy (..))
 import           Language.PureScript.Bridge         (BridgePart, buildBridge,
                                                      defaultBridge, mkSumType, typeName,
                                                      writePSTypes, (<|>), (^==))
@@ -35,6 +34,7 @@ main =
       , mkSumType (Proxy @CT.CTxId)
       , mkSumType (Proxy @CT.CTx)
       , mkSumType (Proxy @CT.NotifyEvent)
+      , mkSumType (Proxy @CT.SyncProgress)
       , mkSumType (Proxy @CT.CUpdateInfo)
       , mkSumType (Proxy @CT.CWalletRedeem)
       , mkSumType (Proxy @PT.Coin)

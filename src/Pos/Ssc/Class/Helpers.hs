@@ -1,4 +1,3 @@
-
 module Pos.Ssc.Class.Helpers
        ( SscHelpersClass (..)
        ) where
@@ -8,7 +7,7 @@ import           Universum
 
 import           Pos.Ssc.Class.Types   (Ssc (..))
 import           Pos.Types.Block.Types (MainBlockHeader)
-import           Pos.Types.Core        (EpochIndex)
+import           Pos.Core.Types        (EpochIndex)
 
 class Ssc ssc => SscHelpersClass ssc where
     sscVerifyPayload ::

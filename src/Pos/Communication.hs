@@ -4,8 +4,8 @@ module Pos.Communication
        ( module M
        ) where
 
-import           Pos.Communication.Arbitrary ()
 import           Pos.Communication.BiP       as M
+import           Pos.Communication.Limits    as M
 import           Pos.Communication.Methods   as M
 import           Pos.Communication.PeerState as M
 import           Pos.Communication.Protocol  as M

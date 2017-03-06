@@ -7,7 +7,7 @@ import           Universum          hiding (putByteString)
 
 import           Pos.Binary.Class   (Bi (..), UnsignedVarInt (..), getRemainingByteString,
                                      getWithLength, putWithLength)
-import           Pos.Binary.Types   ()
+import           Pos.Binary.Core   ()
 import qualified Pos.Txp.Core.Types as T
 
 instance Bi T.TxIn where
@@ -19,8 +19,12 @@ instance Bi T.TxOut where
     get = label "TxOut" $ T.TxOut <$> get <*> get
 
 instance Bi T.Tx where
-    put (T.Tx ins outs attrs) = put ins >> put outs >> put attrs
-    get = label "Tx" $ T.Tx <$> get <*> get <*> get
+    put (T.UnsafeTx ins outs attrs) = put ins >> put outs >> put attrs
+    get = label "Tx" $ do
+        ins <- get
+        outs <- get
+        attrs <- get
+        T.mkTx ins outs attrs
 
 instance Bi T.TxInWitness where
     put (T.PkWitness key sig) = do

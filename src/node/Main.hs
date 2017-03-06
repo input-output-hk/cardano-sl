@@ -1,20 +1,20 @@
-{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE CPP #-}
 
 module Main where
 
 import           Control.Lens          (_head)
 import           Data.List             ((!!))
 import           Data.Maybe            (fromJust)
-import           Data.Proxy            (Proxy (..))
 import           Mockable              (Production)
-import           System.Wlog           (LoggerName)
+import           Serokell.Util         (sec)
+import           System.Wlog           (LoggerName, logInfo)
 import           Universum
 
 import           Pos.Binary            ()
 import qualified Pos.CLI               as CLI
 import           Pos.Constants         (staticSysStart)
+import           Pos.Context           (getNodeContext, ncUpdateSemaphore)
 import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
-import           Pos.Util.TimeWarp     (sec)
 #ifdef DEV_MODE
 import           Pos.Genesis           (genesisSecretKeys)
 #else
@@ -29,6 +29,7 @@ import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
 import           Pos.Ssc.GodTossing    (genesisVssKeyPairs)
 #endif
 import           Pos.Communication     (ActionSpec (..))
+import           Pos.Shutdown          (triggerShutdown)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
@@ -254,17 +255,28 @@ pluginsGT Args {..}
     | otherwise = []
 #endif
 
-#if defined WITH_WEB && defined WITH_WALLET
+updateTriggerWorker
+    :: SscConstraint ssc
+    => ([WorkerSpec (RawRealMode ssc)], OutSpecs)
+updateTriggerWorker = first pure $ worker mempty $ \_ -> do
+    logInfo "Update trigger worker is locked"
+    void $ liftIO . takeMVar . ncUpdateSemaphore =<< getNodeContext
+    triggerShutdown
+
 walletServe
     :: SscConstraint ssc
     => Args
     -> ([WorkerSpec (RawRealMode ssc)], OutSpecs)
+#if defined WITH_WEB && defined WITH_WALLET
 walletServe Args {..} =
     if enableWallet
     then first pure $ worker walletServerOuts $ \sendActions ->
             walletServeWebFull sendActions walletDebug walletDbPath
                                            walletRebuildDb walletPort
-    else ([], mempty)
+    else updateTriggerWorker
+#else
+walletServe _ = updateTriggerWorker
+#endif
 
 walletProd
     :: SscConstraint ssc
@@ -284,11 +296,6 @@ walletStats = first (map liftPlugin) . walletServe
     liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
         s <- getStatsMap
         lift . p vI $ hoistSendActions (runStatsT' s) lift sa
-#else
-walletProd, walletStats :: Monoid b => Args -> ([a], b)
-walletProd _ = ([], mempty)
-walletStats _ = ([], mempty)
-#endif
 
 printFlags :: IO ()
 printFlags = do
@@ -296,6 +303,12 @@ printFlags = do
     putText "[Attention] We are in DEV mode"
 #else
     putText "[Attention] We are in PRODUCTION mode"
+#endif
+#ifdef WITH_WEB
+    putText "[Attention] Web-mode is on"
+#endif
+#ifdef WITH_WALLET
+    putText "[Attention] Wallet-mode is on"
 #endif
     inAssertMode $ putText "Asserts are ON"
 

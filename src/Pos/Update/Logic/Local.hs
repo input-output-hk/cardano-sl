@@ -39,8 +39,8 @@ import           Pos.Types              (HeaderHash, SlotId (..), slotIdF)
 import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposal,
                                          UpdateVote (..), canCombineVotes)
 import           Pos.Update.MemState    (LocalVotes, MemPool (..), MemState (..),
-                                         MonadUSMem, UpdateProposals, askUSMemState,
-                                         modifyMemPool, withUSLock)
+                                         MonadUSMem, UpdateProposals, addToMemPool,
+                                         askUSMemState, withUSLock)
 import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
                                          MonadPollRead (getProposal), PollModifier,
                                          PollVerFailure, evalPollT, execPollT,
@@ -49,7 +49,7 @@ import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
                                          verifyAndApplyUSPayload)
 
 -- MonadMask is needed because are using Lock. It can be improved later.
-type USLocalLogicMode σ m = (MonadDB σ m, MonadUSMem m, MonadMask m
+type USLocalLogicMode σ m = ( MonadDB m, MonadUSMem m, MonadMask m
                             , WithLogger m, Ssc σ, WithNodeContext σ m)
 
 getMemPool :: (MonadUSMem m, MonadIO m) => m MemPool
@@ -145,7 +145,7 @@ processVote
     => UpdateVote -> m (Either PollVerFailure ())
 processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 
-withCurrentTip :: (MonadDB ssc m, MonadUSMem m) => (MemState -> m MemState) -> m ()
+withCurrentTip :: (MonadDB m, MonadUSMem m) => (MemState -> m MemState) -> m ()
 withCurrentTip action = do
     tipBefore <- DB.getTip
     stateVar <- askUSMemState
@@ -163,7 +163,7 @@ processSkeleton payload = withUSLock $ runExceptT $ withCurrentTip $ \ms@MemStat
         runDBPoll . evalPollT msModifier . execPollT def $
         verifyAndApplyUSPayload @ssc False (Left msSlot) payload
     let newModifier = modifyPollModifier msModifier modifier
-    let newPool = modifyMemPool payload modifier msPool
+    let newPool = addToMemPool payload msPool
     pure $ ms {msModifier = newModifier, msPool = newPool}
 
 ----------------------------------------------------------------------------

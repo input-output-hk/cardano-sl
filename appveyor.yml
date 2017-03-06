@@ -3,6 +3,19 @@ image: Visual Studio 2015
 
 build: off
 
+environment:
+  global:
+    # Avoid long paths on Windows
+    STACK_ROOT: "c:\\sr"
+    STACK_WORK: ".stack-work"
+    CSL_SYSTEM_TAG: "win64"
+    CACHE_DIR: "c:\\cache"
+
+init:
+  - SET BRANCH_CACHE_DIR=%CACHE_DIR%\%APPVEYOR_REPO_BRANCH:/=_%
+  - SET CACHED_STACK_ROOT=%BRANCH_CACHE_DIR%\sr
+  - SET CACHED_STACK_WORK=%BRANCH_CACHE_DIR%\sw
+
 cache:
   # TODO: https://github.com/commercialhaskell/stack/issues/1176#issuecomment-269520803
 
@@ -14,24 +27,22 @@ cache:
   # they get read access to the cache.
 
   # Another quirk of Appveyor's cache is any cache directory not listed here
-  # gets deleted at the end of the build. Consequently, without
-  # branch-namespacing a build on a branch different than the previous would
-  # clobber the previous branch's cache. Alternatively, we could maintain a
-  # hardcoded list of branch-namespaced cache directories.
-  - "c:\\cache"
-
-# Avoid long paths on Windows
-environment:
-  global:
-    # Avoid long paths on Windows
-    CACHED_STACK_ROOT: "c:\\cache\\%APPVEYOR_REPO_BRANCH%\\sr"
-    STACK_ROOT: "c:\\sr"
-    CACHED_STACK_WORK: "c:\\cache\\%APPVEYOR_REPO_BRANCH%\\sw"
-    STACK_WORK: ".stack-work"
-    CSL_SYSTEM_TAG: "win64"
+  # gets deleted at the end of the build. The hardcoded branch directories will
+  # be preserved, even when building a branch which isn't listed. Managing
+  # hardcoded branches is necessary because there's an upper limit on supported
+  # cache size of any single cache directory. Branches which don't appear
+  # explicitly here are optimistically cached for consecutive builds on the same
+  # branch; however, their cache directories will be deleted whenever a
+  # different branch is built.
+  - "%BRANCH_CACHE_DIR%"        # e.g. C:\cache\feature_abc123
+  - "%CACHE_DIR%\\master"
+  - "%CACHE_DIR%\\cardano-sl-0.2"
+  # Add more "%CACHE_DIR%\\<branch_name>" directories as needed
 
 before_test:
 - Echo %APPVEYOR_BUILD_VERSION% > build-id
+- Echo BRANCH_CACHE_DIR = %BRANCH_CACHE_DIR%
+- IF EXIST %CACHE_DIR% dir %CACHE_DIR%
 - IF EXIST %CACHED_STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %CACHED_STACK_ROOT% %STACK_ROOT%
 - IF EXIST %CACHED_STACK_WORK% xcopy /q /s /e /r /k /i /v /h /y %CACHED_STACK_WORK% %STACK_WORK%
 # Install stack

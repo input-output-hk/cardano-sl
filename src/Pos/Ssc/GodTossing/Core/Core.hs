@@ -48,6 +48,10 @@ import           Pos.Binary.Class               (AsBinary, Bi, asBinary, fromBin
 import           Pos.Binary.Crypto              ()
 import           Pos.Binary.Ssc.GodTossing.Core ()
 import           Pos.Constants                  (blkSecurityParam, vssMaxTTL, vssMinTTL)
+import           Pos.Core.Address               (addressHash)
+import           Pos.Core.Types                 (EpochIndex (..), LocalSlotIndex,
+                                                 SharedSeed (..), SlotId (..),
+                                                 StakeholderId)
 import           Pos.Crypto                     (EncShare, Secret, SecretKey,
                                                  SecureRandom (..), Threshold,
                                                  VssPublicKey, checkSig, encShareId,
@@ -61,10 +65,6 @@ import           Pos.Ssc.GodTossing.Core.Types  (Commitment (..),
                                                  VssCertificate (vcExpiryEpoch),
                                                  VssCertificatesMap,
                                                  mkCommitmentsMapUnsafe)
-import           Pos.Types.Address              (addressHash)
-import           Pos.Types.Core                 (EpochIndex (..), LocalSlotIndex,
-                                                 SlotId (..), StakeholderId)
-import           Pos.Types.Types                (SharedSeed (..))
 
 -- | Convert Secret to SharedSeed.
 secretToSharedSeed :: Secret -> SharedSeed
@@ -158,7 +158,8 @@ verifyCommitment Commitment {..} = fromMaybe False $ do
     extra <- fromBinaryM commExtra
     comms <- traverse tupleFromBinaryM (HM.toList commShares)
     let encShares = concatMap (map encShareId . toList . snd) comms
-    return $ all (verifyCommitmentDo extra) comms &&
+    return $ (not . null) commShares &&
+        all (verifyCommitmentDo extra) comms &&
         (length encShares) == (HS.size $ HS.fromList encShares)
   where
     verifyCommitmentDo extra (pk, ne) = all (verifyEncShare extra pk) ne

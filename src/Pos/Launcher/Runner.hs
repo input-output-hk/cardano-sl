@@ -34,8 +34,7 @@ import           Control.Monad.Fix           (MonadFix)
 import qualified Data.ByteString.Char8       as BS8
 import           Data.Default                (def)
 import           Data.List                   (nub)
-import           Data.Proxy                  (Proxy (..))
-import           Data.Tagged                 (proxy)
+import           Data.Tagged                 (proxy, untag)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (CurrentTime, Mockable, MonadMockable,
@@ -49,6 +48,7 @@ import qualified Network.Transport.TCP       as TCP
 import           Node                        (Node, NodeAction (..), hoistSendActions,
                                               node)
 import           Node.Util.Monitor           (setupMonitor, stopMonitor)
+import           Serokell.Util               (sec)
 import qualified STMContainers.Map           as SM
 import           System.Random               (newStdGen)
 import           System.Wlog                 (LoggerConfig (..), WithLogger, logError,
@@ -66,10 +66,10 @@ import           Pos.Communication           (ActionSpec (..), BiP (..),
                                               SysStartResponse, VerInfo (..),
                                               allListeners, allStubListeners, convH,
                                               handleSysStartResp, hoistListenerSpec,
-                                              mergeLs, protocolListeners,
-                                              stubListenerConv, stubListenerOneMsg,
-                                              sysStartReqListener, sysStartRespListener,
-                                              toAction, toOutSpecs, unpackLSpecs)
+                                              mergeLs, stubListenerConv,
+                                              stubListenerOneMsg, sysStartReqListener,
+                                              sysStartRespListener, toAction, toOutSpecs,
+                                              unpackLSpecs)
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import           Pos.Constants               (lastKnownBlockVersion, protocolMagic)
 import           Pos.Constants               (blockRetrievalQueueSize,
@@ -79,9 +79,10 @@ import qualified Pos.Constants               as Const
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               runContextHolder)
 import           Pos.Crypto                  (createProxySecretKey, encToPublic)
-import           Pos.DB                      (MonadDB (..), getTip, initNodeDBs,
-                                              openNodeDBs, runDBHolder)
-import qualified Pos.DB.Lrc                  as LrcDB
+import           Pos.Core.Timestamp          (timestampF)
+import           Pos.DB                      (MonadDB (..), runDBHolder)
+import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
+import           Pos.DB.GState               (getTip)
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Holder       (runDelegationT)
 import           Pos.DHT.Model               (MonadDHT (..), converseToNeighbors,
@@ -92,7 +93,8 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
                                               stopDHTInstance)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
-import           Pos.Slotting                (mkNtpSlottingVar, mkSlottingVar,
+import qualified Pos.Lrc.DB                  as LrcDB
+import           Pos.Slotting                (SlottingVar, mkNtpSlottingVar,
                                               runNtpSlotting, runSlottingHolder)
 import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
                                               SscListenersClass, SscNodeContext,
@@ -100,10 +102,10 @@ import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
 import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp                     (runTxpHolder)
-import           Pos.Types                   (Timestamp (Timestamp), timestampF)
+import           Pos.Types                   (Timestamp (Timestamp))
+import qualified Pos.Update.DB               as GState
 import           Pos.Update.MemState         (runUSHolder)
 import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
-import           Pos.Util.TimeWarp           (sec)
 import           Pos.Util.UserSecret         (usKeys)
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (MinWorkMode, ProductionMode, RawRealMode,
@@ -177,20 +179,20 @@ runRawRealMode
     => RealModeResources
     -> NodeParams
     -> SscParams ssc
-    -> ListenersWithOut (RawRealMode ssc)
+    -> RawRealMode ssc (ListenersWithOut (RawRealMode ssc))
     -> OutSpecs
     -> ActionSpec (RawRealMode ssc) a
     -> Production a
 runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec action) =
     usingLoggerName lpRunnerTag $ do
-       initNC <- sscCreateNodeContext @ssc sscnp
+       initNC <- untag @ssc sscCreateNodeContext sscnp
        modernDBs <- openNodeDBs npRebuildDb npDbPathM
        -- TODO [CSL-775] ideally initialization logic should be in scenario.
-       runDBHolder modernDBs . runCH np initNC $ initNodeDBs
+       runDBHolder modernDBs . runCH @ssc np initNC $ initNodeDBs
        initTip <- runDBHolder modernDBs getTip
        stateM <- liftIO SM.newIO
        stateM_ <- liftIO SM.newIO
-       slottingVar <- runDBHolder modernDBs mkSlottingVar
+       slottingVar <- runDBHolder  modernDBs $ mkSlottingVar npSystemStart
        ntpSlottingVar <- mkNtpSlottingVar
 
        -- TODO [CSL-775] need an effect-free way of running this into IO.
@@ -198,7 +200,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
            runIO = runProduction .
                        usingLoggerName lpRunnerTag .
                        runDBHolder modernDBs .
-                       runCH np initNC .
+                       runCH @ssc np initNC .
                        runSlottingHolder slottingVar .
                        runNtpSlotting ntpSlottingVar .
                        ignoreSscHolder .
@@ -231,6 +233,12 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
 
+-- | Create new 'SlottingVar' using data from DB.
+mkSlottingVar :: MonadDB m => Timestamp -> m SlottingVar
+mkSlottingVar sysStart = do
+    sd <- GState.getSlottingData
+    (sysStart, ) <$> liftIO (newTVarIO sd)
+
 -- | ServiceMode runner.
 runServiceMode
     :: RealModeResources
@@ -250,18 +258,19 @@ runServiceMode res bp@BaseParams {..} listeners outSpecs (ActionSpec action) = d
 runServer
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
     => Transport
-    -> ListenersWithOut m
+    -> m (ListenersWithOut m)
     -> OutSpecs
     -> (Node m -> m t)
     -> (t -> m ())
     -> ActionSpec m b
     -> m b
-runServer transport packedLS (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
+runServer transport packedLS_M (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
     ourPeerId <- PeerId . getMeaningPart <$> currentNodeKey
+    packedLS  <- packedLS_M
     let (listeners', InSpecs ins, OutSpecs outs) = unpackLSpecs packedLS
         ourVerInfo =
             VerInfo protocolMagic lastKnownBlockVersion ins $ outs <> wouts
-        listeners = listeners' ourVerInfo ++ protocolListeners
+        listeners = listeners' ourVerInfo
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo "%build) ourVerInfo
     node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) $ \__node ->
@@ -274,7 +283,7 @@ runServer_
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
     => Transport -> ListenersWithOut m -> OutSpecs -> ActionSpec m b -> m b
 runServer_ transport packedLS outSpecs =
-    runServer transport packedLS outSpecs acquire release
+    runServer transport (pure packedLS) outSpecs acquire release
   where
     acquire = const pass
     release = const pass
@@ -292,8 +301,9 @@ runProductionMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
     runRawRealMode res np sscnp listeners outSpecs . ActionSpec $
         \vI sendActions -> getNoStatsT . action vI $ hoistSendActions lift getNoStatsT sendActions
   where
-    listeners = addDevListeners npSystemStart commonListeners
-    commonListeners = first (hoistListenerSpec getNoStatsT lift <$>) allListeners
+    listeners = addDevListeners npSystemStart <$> commonListeners
+    commonListeners = getNoStatsT $
+        first (hoistListenerSpec getNoStatsT lift <$>) <$> allListeners
 
 -- | StatsMode runner.
 -- [CSL-169]: spawn here additional listener, which would accept stat queries
@@ -308,8 +318,9 @@ runStatsMode
     -> Production a
 runStatsMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
     statMap <- liftIO SM.newIO
-    let listeners = addDevListeners npSystemStart commonListeners
-        commonListeners = first (hoistListenerSpec (runStatsT' statMap) lift <$>) allListeners
+    let listeners = addDevListeners npSystemStart <$> commonListeners
+        commonListeners = runStatsT' statMap $
+            first (hoistListenerSpec (runStatsT' statMap) lift <$>) <$> allListeners
     runRawRealMode res np sscnp listeners outSpecs . ActionSpec $
         \vI sendActions -> do
             runStatsT' statMap . action vI $ hoistSendActions lift (runStatsT' statMap) sendActions
@@ -318,7 +329,7 @@ runStatsMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
 -- Lower level runners
 ----------------------------------------------------------------------------
 
-runCH :: forall ssc m a . (SscConstraint ssc, MonadDB ssc m, Mockable CurrentTime m)
+runCH :: forall ssc m a . (SscConstraint ssc, MonadDB m, Mockable CurrentTime m)
       => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH params@NodeParams {..} sscNodeContext act = do
     logCfg <- getRealLoggerConfig $ bpLoggingParams npBaseParams
@@ -378,7 +389,8 @@ getRealLoggerConfig LoggingParams{..} = do
     let cfgBuilder = productionB <>
                      memoryB (1024 * 1024 * 5) <> -- ~5 mb
                      mapperB dhtMapper <>
-                     (mempty { _lcFilePrefix = lpHandlerPrefix })
+                     (mempty { _lcFilePrefix = lpHandlerPrefix
+                             , _lcRoundVal = Just 5 })
     cfg <- readLoggerConfig lpConfigPath
     pure $ cfg <> cfgBuilder
   where
@@ -429,7 +441,7 @@ createTransport ip port = do
              , TCP.tcpNewQDisc = fairQDisc
              })
     transportE <-
-        liftIO $ TCP.createTransport "0.0.0.0" ip (show port) tcpParams
+        liftIO $ TCP.createTransport "0.0.0.0" (show port) ((,) ip) tcpParams
     case transportE of
         Left e -> do
             logError $ sformat ("Error creating TCP transport: " % shown) e

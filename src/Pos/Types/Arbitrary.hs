@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | `Arbitrary` instances for core types for using in tests and benchmarks
 
@@ -34,10 +34,21 @@ import           Universum
 
 import           Pos.Binary.Class           (AsBinary, FixedSizeInt (..),
                                              SignedVarInt (..), UnsignedVarInt (..))
+import           Pos.Binary.Core            ()
 import           Pos.Binary.Crypto          ()
 import           Pos.Binary.Txp             ()
-import           Pos.Binary.Types           ()
 import           Pos.Constants              (epochSlots, sharedSeedLength)
+import           Pos.Core.Address           (makePubKeyAddress, makeScriptAddress)
+import           Pos.Core.Coin              (coinToInteger, divCoin, unsafeSubCoin)
+import           Pos.Core.Types             (Address (..), ChainDifficulty (..), Coin,
+                                             CoinPortion, EpochIndex (..),
+                                             EpochOrSlot (..), LocalSlotIndex (..),
+                                             SharedSeed (..), SlotId (..), Timestamp (..),
+                                             getCoinPortion, mkCoin,
+                                             unsafeCoinPortionFromDouble, unsafeGetCoin)
+import           Pos.Core.Types             (ApplicationName (..), BlockVersion (..),
+                                             SoftwareVersion (..))
+import           Pos.Core.Version           (applicationNameMaxLength)
 import           Pos.Crypto                 (PublicKey, SecretKey, Share, hash, sign,
                                              toPublic)
 import           Pos.Crypto.Arbitrary       ()
@@ -47,19 +58,7 @@ import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
 import           Pos.Txp.Core.Types         (Tx (..), TxDistribution (..), TxIn (..),
                                              TxInWitness (..), TxOut (..), TxOutAux)
-import           Pos.Types.Address          (makePubKeyAddress, makeScriptAddress)
 import           Pos.Types.Arbitrary.Unsafe ()
-import           Pos.Types.Coin             (coinToInteger, divCoin, unsafeSubCoin)
-import           Pos.Types.Core             (Address (..), ChainDifficulty (..), Coin,
-                                             CoinPortion, EpochIndex (..),
-                                             EpochOrSlot (..), LocalSlotIndex (..),
-                                             SlotId (..), SlotId (..), Timestamp (..),
-                                             Timestamp (..), getCoinPortion, mkCoin,
-                                             unsafeCoinPortionFromDouble, unsafeGetCoin)
-import           Pos.Types.Types            (SharedSeed (..))
-import           Pos.Types.Version          (ApplicationName (..), BlockVersion (..),
-                                             SoftwareVersion (..),
-                                             applicationNameMaxLength)
 import           Pos.Util                   (makeSmall)
 
 ----------------------------------------------------------------------------
@@ -277,15 +276,14 @@ derive makeArbitrary ''TxDistribution
 derive makeArbitrary ''TxIn
 
 -- | Arbitrary transactions generated from this instance will only be valid
--- with regards to 'verifyTxAlone'
-
+-- with regards to 'mxTx'
 instance Arbitrary Tx where
     arbitrary = do
         txIns <- getNonEmpty <$> arbitrary
         txOuts <- getNonEmpty <$> arbitrary
-        return $ Tx txIns txOuts (mkAttributes ())
+        pure $ UnsafeTx txIns txOuts (mkAttributes ())
 
--- | Type used to generate valid (w.r.t 'verifyTxAlone' and 'verifyTx')
+-- | Type used to generate valid ('verifyTx')
 -- transactions and accompanying input information.
 -- It's not entirely general because it only generates transactions whose
 -- outputs are in the same number as its inputs in a one-to-one correspondence.
@@ -306,10 +304,10 @@ buildProperTx
     -> (Coin -> Coin, Coin -> Coin)
     -> Gen [((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)]
 buildProperTx triplesList (inCoin, outCoin) = do
-        let fun (Tx txIn txOut _, fromSk, toSk, c) =
+        let fun (UnsafeTx txIn txOut _, fromSk, toSk, c) =
                 let inC = inCoin c
                     outC = outCoin c
-                    txToBeSpent = Tx txIn ((makeTxOutput fromSk inC) : txOut) (mkAttributes ())
+                    txToBeSpent = UnsafeTx txIn ((makeTxOutput fromSk inC) : txOut) (mkAttributes ())
                 in (txToBeSpent, fromSk, makeTxOutput toSk outC)
             -- why is it called txList? I've no idea what's going on here
             txList = fmap fun triplesList

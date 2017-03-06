@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | client types
 
@@ -5,7 +6,8 @@
 -- just to have a starting point)
 
 module Pos.Wallet.Web.ClientTypes
-      ( CAddress
+      ( SyncProgress (..)
+      , CAddress
       , CCurrency (..)
       , CHash
       , CTType (..)
@@ -42,17 +44,27 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting            (build, sformat)
 
 import           Pos.Aeson.Types       ()
+import           Pos.Core.Types        (ScriptVersion)
 import           Pos.Crypto            (hashHexF)
 import           Pos.Txp.Core.Types    (Tx (..), TxId, txOutAddress, txOutValue)
 import           Pos.Types             (Address (..), BlockVersion, ChainDifficulty, Coin,
                                         SoftwareVersion, decodeTextAddress, sumCoins,
                                         unsafeIntegerToCoin)
-import           Pos.Types.Script      (ScriptVersion)
 import           Pos.Update.Core       (BlockVersionData (..), StakeholderVotes,
                                         UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll       (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Wallet.Tx.Pure    (TxHistoryEntry (..))
+
+data SyncProgress =
+    SyncProgress { _spLocalCD   :: ChainDifficulty
+                 , _spNetworkCD :: Maybe ChainDifficulty
+                 , _spPeers     :: Word
+                 }
+    deriving (Show, Generic)
+
+instance Default SyncProgress where
+    def = SyncProgress 0 mzero 0
 
 -- Notifications
 data NotifyEvent

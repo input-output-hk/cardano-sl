@@ -11,15 +11,16 @@ import           Formatting                (int, sformat, (%))
 import           Universum
 
 import           Pos.Binary.Class          (Bi (..), UnsignedVarInt (..))
+import           Pos.Binary.Core           ()
+import           Pos.Binary.Merkle         ()
 import           Pos.Binary.Txp            ()
-import           Pos.Binary.Types          ()
 import           Pos.Constants             (protocolMagic)
+import qualified Pos.Core.Block            as T
+import qualified Pos.Core.Types            as T
 import           Pos.Ssc.Class.Types       (Ssc (..))
 import qualified Pos.Txp.Core.Types        as T
-import qualified Pos.Types.Block.Class     as T
 import qualified Pos.Types.Block.Instances as T
 import qualified Pos.Types.Block.Types     as T
-import qualified Pos.Types.Core            as T
 import           Pos.Update.Core.Types     (UpdatePayload)
 
 ----------------------------------------------------------------------------

@@ -64,16 +64,16 @@ verifyTxInUtxo (SmallGoodTx (GoodTx ls)) =
     let txs = fmap (view _1) ls
         witness = V.fromList $ fmap (view _4) ls
         (ins, outs) = unzip $ map (\(_, tIs, tOs, _) -> (tIs, tOs)) ls
-        newTx = Tx ins (map fst outs) (mkAttributes ())
+        newTx = UnsafeTx ins (map fst outs) (mkAttributes ())
         newDistr = TxDistribution (map snd outs)
         utxo = foldr (\(tx, d) -> applyTxToUtxoPure (withHash tx) d) mempty txs
     in isVerSuccess $
-       verifyTxUtxoPure True False utxo (newTx, witness, newDistr)
+       verifyTxUtxoPure False utxo (newTx, witness, newDistr)
 
 applyTxToUtxoGood :: M.Map TxIn TxOutAux -> [TxOutAux] -> Bool
 applyTxToUtxoGood txMap txOuts =
     let inpList = M.keys txMap
-        tx = Tx inpList (map fst txOuts) (mkAttributes ())
+        tx = UnsafeTx inpList (map fst txOuts) (mkAttributes ())
         txDistr = TxDistribution (map snd txOuts)
         utxoMap = M.fromList $ zip inpList (M.elems txMap)
         newUtxoMap = applyTxToUtxoPure (withHash tx) txDistr utxoMap

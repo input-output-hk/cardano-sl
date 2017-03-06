@@ -9,7 +9,6 @@ module Pos.Delegation.Methods
        , sendProxyConfirmSKOuts
        ) where
 
-import           Data.Proxy                 (Proxy (..))
 import           Formatting                 (build, sformat, (%))
 import           System.Wlog                (logDebug)
 import           Universum

@@ -46,7 +46,7 @@ instance Ssc SscNistBeacon where
     type SscVerifyError SscNistBeacon = ()
 
     mkSscProof = Tagged $ const ()
-    sscCreateNodeContext _ = return ()
+    sscCreateNodeContext = Tagged $ const (return ())
 
 instance SscHelpersClass SscNistBeacon where
     sscVerifyPayload = Tagged $ const $ const $ Right ()
@@ -56,7 +56,7 @@ instance SscWorkersClass SscNistBeacon where
     sscLrcConsumers = Tagged []
 
 instance SscListenersClass SscNistBeacon where
-    sscListeners = Tagged ([], mempty)
+    sscListeners = return $ Tagged ([], mempty)
     sscStubListeners = Tagged ([], mempty)
 
 instance SscLocalDataClass SscNistBeacon where

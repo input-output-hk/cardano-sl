@@ -26,10 +26,16 @@ import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
+import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
+import           Pos.DHT.MemState            (MonadDhtMem)
+import           Pos.Reporting               (MonadReportingMem)
+import           Pos.Shutdown                (MonadShutdownMem)
+import           Pos.Slotting.Class          (MonadSlots)
+import           Pos.Slotting.MemState       (MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Txp.MemState            (MonadTxpMem (..))
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
@@ -63,13 +69,18 @@ newtype USHolder m a = USHolder
                , MonadBase io
                , MonadDelegation
                , MonadFix
+               , MonadDhtMem
+               , MonadReportingMem
+               , MonadRelayMem
+               , MonadShutdownMem
+               , MonadDB
+               , MonadDBLimits
                )
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code
 ----------------------------------------------------------------------------
 
-deriving instance MonadDB ssc m => MonadDB ssc (USHolder m)
 type instance ThreadId (USHolder m) = ThreadId m
 type instance Promise (USHolder m) = Promise m
 type instance SharedAtomicT (USHolder m) = SharedAtomicT m

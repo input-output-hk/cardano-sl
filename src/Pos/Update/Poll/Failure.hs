@@ -10,11 +10,11 @@ import           Formatting                 (bprint, build, int, sformat, stext,
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Types.Coin             (coinF)
-import           Pos.Types.Core             (Coin, EpochIndex, HeaderHash, StakeholderId)
-import           Pos.Types.Script           (ScriptVersion)
-import           Pos.Types.Version          (ApplicationName, BlockVersion,
-                                             NumSoftwareVersion, SoftwareVersion)
+import           Pos.Core.Coin              (coinF)
+import           Pos.Core.Types             (Coin, EpochIndex, HeaderHash, ScriptVersion,
+                                             StakeholderId)
+import           Pos.Core.Types             (ApplicationName, BlockVersion,
+                                             NumSoftwareVersion)
 import           Pos.Update.Core            (UpId)
 
 -- | PollVerFailure represents all possible errors which can
@@ -39,6 +39,7 @@ data PollVerFailure
                             , plmbsFound       :: !Byte
                             , plmbsUpId        :: !UpId}
     | PollNotFoundScriptVersion !BlockVersion
+    | PollProposalAlreadyActive !UpId
     | PollSmallProposalStake { pspsThreshold :: !Coin
                             ,  pspsActual    :: !Coin
                             ,  pspsUpId      :: !UpId}
@@ -48,7 +49,6 @@ data PollVerFailure
     | PollUnknownProposal { pupStakeholder :: !StakeholderId
                          ,  pupProposal    :: !UpId}
     | PollUnknownStakes !EpochIndex
-    | Poll2ndActiveProposal !SoftwareVersion
     | PollWrongSoftwareVersion { pwsvStored :: !(Maybe NumSoftwareVersion)
                               ,  pwsvApp    :: !ApplicationName
                               ,  pwsvGiven  :: !NumSoftwareVersion
@@ -87,6 +87,8 @@ instance Buildable PollVerFailure where
                 " beyond what is allowed"%
                 " (expected max. "%int%", found "%int%")")
         upId maxPossible found
+    build (PollProposalAlreadyActive upId) =
+        bprint ("proposal "%build%" was already proposed") upId
     build (PollNotFoundScriptVersion pv) =
         bprint ("not found script version for protocol version "%build) pv
     build (PollSmallProposalStake threshold actual upId) =
@@ -103,10 +105,6 @@ instance Buildable PollVerFailure where
         stakeholder proposal
     build (PollUnknownStakes epoch) =
         bprint ("stake distribution for epoch "%build%" is unknown") epoch
-    build (Poll2ndActiveProposal sv) =
-        bprint ("there is already active proposal for given application, "%
-                "software version is: "%build)
-        sv
     build (PollWrongSoftwareVersion {..}) =
         bprint ("proposal "%build%" has wrong software version for app "%
                 build%" (last known is "%stext%", proposal contains "%int%")")

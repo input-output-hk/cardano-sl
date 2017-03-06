@@ -36,6 +36,7 @@ import qualified Data.Vector               as V
 import           Universum
 
 import           Pos.Binary                ()
+import           Pos.Core.Coin             (unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto                (PublicKey, RedeemSecretKey, SafeSigner,
                                             WithHash (..), hash, redeemSign,
                                             redeemToPublic, safeSign, safeToPublic,
@@ -52,7 +53,6 @@ import           Pos.Types                 (Address, Block, ChainDifficulty, Coi
                                             blockTxas, difficultyL, makePubKeyAddress,
                                             makeRedeemAddress, makeScriptAddress, mkCoin,
                                             sumCoins)
-import           Pos.Types.Coin            (unsafeIntegerToCoin, unsafeSubCoin)
 
 type TxInputs = [TxIn]
 type TxOutputs = [TxOutAux]
@@ -65,7 +65,7 @@ type TxError = Text
 -- | Generic function to create a transaction, given desired inputs, outputs and a
 -- way to construct witness from signature data
 makeAbstractTx :: (TxSigData -> TxInWitness) -> TxInputs -> TxOutputs -> TxAux
-makeAbstractTx mkWit txInputs outputs = ( Tx txInputs txOutputs txAttributes
+makeAbstractTx mkWit txInputs outputs = ( UnsafeTx txInputs txOutputs txAttributes
                                         , txWitness
                                         , txDist)
   where
@@ -166,11 +166,11 @@ createRedemptionTx utxo rsk outputs =
 
 -- | Check if given 'Address' is one of the receivers of 'Tx'
 hasReceiver :: Tx -> Address -> Bool
-hasReceiver Tx {..} addr = any ((== addr) . txOutAddress) _txOutputs
+hasReceiver UnsafeTx {..} addr = any ((== addr) . txOutAddress) _txOutputs
 
 -- | Given some 'Utxo', check if given 'Address' is one of the senders of 'Tx'
 hasSender :: MonadUtxoRead m => Tx -> Address -> m Bool
-hasSender Tx {..} addr = anyM hasCorrespondingOutput _txInputs
+hasSender UnsafeTx {..} addr = anyM hasCorrespondingOutput _txInputs
   where hasCorrespondingOutput txIn =
             fmap toBool $ fmap ((== addr) . txOutAddress . fst) <$> utxoGet txIn
         toBool Nothing  = False

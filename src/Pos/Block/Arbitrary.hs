@@ -2,15 +2,19 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Block.Arbitrary
-       ( BlockHeaderList (..)
+       ( HeaderAndParams (..)
+       , BlockHeaderList (..)
        ) where
 
 import           Data.Ix              (range)
+import           Data.List.NonEmpty   (nonEmpty)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Formatting           (bprint, build, formatToString, (%))
-import           Test.QuickCheck      (Arbitrary (..), Gen, choose, listOf, oneof,
-                                       vectorOf)
+import           Prelude              (Show (..))
+import           System.Random        (mkStdGen, randomR)
+import           Test.QuickCheck      (Arbitrary (..), Gen, NonEmptyList (..), choose,
+                                       listOf, listOf, oneof, oneof, vectorOf)
 import           Universum
 
 import           Pos.Binary           (Bi, Raw)
@@ -26,11 +30,11 @@ import qualified Pos.Txp.Core.Types   as T
 import qualified Pos.Types            as T
 import           Pos.Update.Arbitrary ()
 import           Pos.Util.Arbitrary   (makeSmall)
-import qualified Prelude
 
 newtype BodyDependsOnConsensus b = BodyDependsOnConsensus
     { genBodyDepsOnConsensus :: T.ConsensusData b -> Gen (T.Body b)
     }
+
 ------------------------------------------------------------------------------------------
 -- Arbitrary instances for Blockchain related types
 ------------------------------------------------------------------------------------------
@@ -150,9 +154,9 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
 txOutDistGen :: Gen [(T.Tx, T.TxDistribution, T.TxWitness)]
 txOutDistGen = listOf $ do
     txInW <- arbitrary
-    txIns <- arbitrary
-    (txOuts, txDist) <- second T.TxDistribution . unzip <$> arbitrary
-    return $ (T.Tx txIns txOuts $ mkAttributes (), txDist, txInW)
+    txIns <- getNonEmpty <$> arbitrary
+    (txOuts, txDist) <- second T.TxDistribution . unzip . getNonEmpty <$> arbitrary
+    return $ (T.UnsafeTx txIns txOuts $ mkAttributes (), txDist, txInW)
 
 instance Arbitrary (SscPayloadDependsOnSlot ssc) =>
          Arbitrary (BodyDependsOnConsensus (T.MainBlockchain ssc)) where
@@ -194,7 +198,7 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) => Arbitrary (T.MsgHeaders 
     arbitrary = T.MsgHeaders <$> arbitrary
 
 instance (Arbitrary (SscProof ssc), Arbitrary (SscPayloadDependsOnSlot ssc), SscHelpersClass ssc) =>
-    Arbitrary (T.MsgBlock s ssc) where
+    Arbitrary (T.MsgBlock ssc) where
     arbitrary = T.MsgBlock <$> arbitrary
 
 instance T.BiSsc ssc => Buildable (T.BlockHeader ssc, PublicKey) where
@@ -319,3 +323,68 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                 -- This `range` will give us pairs with all complete epochs and for each,
                 -- every slot therein.
                 [firstHeader]
+
+-- | This type is used to generate a valid blockheader and associated header
+-- verification params. With regards to the block header function
+-- 'Pos.Types.Blocks.Functions.verifyHeader', the blockheaders that may be part of the
+-- verification parameters are guaranteed to be valid, as are the slot leaders and the
+-- current slot.
+newtype HeaderAndParams ssc = HAndP
+    { getHAndP :: (T.VerifyHeaderParams ssc, T.BlockHeader ssc)
+    } deriving (Eq, Show)
+
+-- | A lot of the work to generate a valid sequence of blockheaders has already been done
+-- in the 'Arbitrary' instance of the 'BlockHeaderList' type, so it is used here and at
+-- most 3 blocks are taken from the generated list.
+instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
+    Arbitrary (HeaderAndParams ssc) where
+    arbitrary = do
+        consensus <- arbitrary :: Gen Bool
+        -- This integer is used as a seed to randomly choose a slot down below
+        seed <- arbitrary :: Gen Int
+        (headers, leaders) <- first reverse . getHeaderList <$> arbitrary
+        let num = length headers
+        -- 'skip' is the random number of headers that should be skipped in the header
+        -- chain. This ensures different parts of it are chosen each time.
+        skip <- choose (0, num - 1)
+        let atMost3HeadersAndLeaders = take 3 $ drop skip headers
+            (prev, header, next) =
+                case atMost3HeadersAndLeaders of
+                    [h] -> (Nothing, h, Nothing)
+                    [h1, h2] -> (Just h1, h2, Nothing)
+                    (h1 : h2 : h3 : _) -> (Just h1, h2, Just h3)
+                    _ -> panic "[BlockSpec] the headerchain doesn't have enough headers"
+            -- This binding captures the chosen header's epoch. It is used to drop all
+            -- all leaders of headers from previous epochs.
+            thisEpochStartIndex = fromIntegral $ epochSlots * (header ^. T.epochIndexL)
+            thisHeadersEpoch = drop thisEpochStartIndex leaders
+            -- A helper function. Given integers 'x' and 'y', it chooses a random integer
+            -- in the interval [x, y]
+            betweenXAndY x y = fst . randomR (x, y) . mkStdGen $ seed
+            betweenZeroAndN = betweenXAndY 0
+            -- One of the fields in the 'VerifyHeaderParams' type is 'Just SlotId'. The
+            -- following binding is where it is calculated.
+            randomSlotBeforeThisHeader =
+                case header of
+                    -- If the header is of the genesis kind, this field is not needed.
+                    Left _  -> Nothing
+                    -- If it's a main blockheader, then a valid "current" SlotId for
+                    -- testing is any with an epoch greater than the header's epoch and
+                    -- with any slot index, or any in the same epoch but with a greater or
+                    -- equal slot index than the header.
+                    Right h -> -- Nothing {-
+                        let (T.SlotId e s) = view T.headerSlot h
+                            rndEpoch = betweenXAndY e maxBound
+                            rndSlotIdx = if rndEpoch > e
+                                then betweenZeroAndN (epochSlots - 1)
+                                else betweenXAndY s (epochSlots - 1)
+                            rndSlot = T.SlotId rndEpoch rndSlotIdx
+                        in Just rndSlot
+            params = T.VerifyHeaderParams
+                { T.vhpVerifyConsensus = consensus
+                , T.vhpPrevHeader = prev
+                , T.vhpNextHeader = next
+                , T.vhpCurrentSlot = randomSlotBeforeThisHeader
+                , T.vhpLeaders = nonEmpty $ map T.addressHash thisHeadersEpoch
+                }
+        return . HAndP $ (params, header)

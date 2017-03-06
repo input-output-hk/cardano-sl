@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds     #-}
+{-# LANGUAGE DataKinds #-}
 
 -- | API documentation.
 
@@ -10,7 +10,6 @@ module Pos.Web.Doc
 import           Control.Lens        ((<>~))
 import           Data.Default        (Default (def))
 import qualified Data.HashMap.Strict as HM
-import           Data.Proxy          (Proxy (..))
 import           Servant.API         (Capture, QueryParam)
 import           Servant.Docs        (API, DocCapture (..), DocIntro (..), DocNote (..),
                                       DocQueryParam (..), ExtraInfo (..),

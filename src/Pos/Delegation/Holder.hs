@@ -22,13 +22,20 @@ import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
+import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
+import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (DelegationWrap (..), MonadDelegation (..))
-import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
+import           Pos.DHT.MemState            (MonadDhtMem)
+import           Pos.Reporting               (MonadReportingMem)
+import           Pos.Shutdown                (MonadShutdownMem)
+import           Pos.Slotting.Class          (MonadSlots)
+import           Pos.Slotting.MemState       (MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem (..))
 import           Pos.Txp.MemState.Class      (MonadTxpMem (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
+
 
 
 type ReaderTCtx = TVar DelegationWrap
@@ -36,13 +43,31 @@ type ReaderTCtx = TVar DelegationWrap
 -- | Wrapper of @ReaderT (TVar DelegationWrap)@, nothing smart.
 newtype DelegationT m a = DelegationT
     { getDelegationT :: ReaderT ReaderTCtx m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadFix,
-                MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
-                HasLoggerName, WithNodeContext ssc, MonadJL,
-                CanLog, MonadMask, MonadSscMem kek, MonadSlotsData,
-                MonadTxpMem)
-
-deriving instance MonadDB ssc m => MonadDB ssc (DelegationT m)
+    } deriving ( Functor
+               , Applicative
+               , Monad
+               , MonadTrans
+               , MonadFix
+               , MonadThrow
+               , MonadSlots
+               , MonadCatch
+               , MonadIO
+               , MonadFail
+               , HasLoggerName
+               , WithNodeContext ssc
+               , MonadJL
+               , CanLog
+               , MonadMask
+               , MonadSscMem kek
+               , MonadSlotsData
+               , MonadTxpMem
+               , MonadDhtMem
+               , MonadReportingMem
+               , MonadRelayMem
+               , MonadShutdownMem
+               , MonadDB
+               , MonadDBLimits
+               )
 
 instance (Monad m) => MonadDelegation (DelegationT m) where
     askDelegationState = DelegationT ask

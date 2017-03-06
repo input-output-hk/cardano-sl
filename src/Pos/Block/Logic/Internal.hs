@@ -15,12 +15,15 @@ import           Control.Arrow        ((&&&))
 import           Control.Lens         (each, _Wrapped)
 import           Control.Monad.Catch  (bracketOnError)
 import qualified Data.List.NonEmpty   as NE
+import           Paths_cardano_sl     (version)
+import           Serokell.Util        (Color (Red), colorize)
 import           Universum
 
 import           Pos.Block.Types      (Blund, Undo (undoUS))
 import           Pos.Context          (putBlkSemaphore, takeBlkSemaphore)
 import           Pos.DB               (SomeBatchOp (..))
-import qualified Pos.DB               as DB
+import qualified Pos.DB.Block         as DB
+import qualified Pos.DB.DB            as DB
 import qualified Pos.DB.GState        as GS
 import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollbackBlocks)
 import           Pos.Exception        (assertionFailed)
@@ -30,11 +33,11 @@ import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollback
 import           Pos.Txp.Logic        (txApplyBlocks, txNormalize, txRollbackBlocks)
 import           Pos.Types            (HeaderHash, epochIndexL, headerHash, headerHashG,
                                        prevBlockL)
+import qualified Pos.Update.DB        as UDB
 import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll      (PollModifier)
-import           Pos.Util             (Color (Red), NE, NewestFirst (..),
-                                       OldestFirst (..), colorize, inAssertMode, spanSafe,
-                                       _neLast)
+import           Pos.Util             (NE, NewestFirst (..), OldestFirst (..),
+                                       inAssertMode, spanSafe, _neLast)
 import           Pos.WorkMode         (WorkMode)
 
 
@@ -65,7 +68,7 @@ applyBlocksUnsafe
     :: forall ssc m . WorkMode ssc m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
 applyBlocksUnsafe blunds0 pModifier =
-    reportingFatal $
+    reportingFatal version $
     case blunds ^. _Wrapped of
         (b@(Left _,_):|[])     -> app' (b:|[])
         (b@(Left _,_):|(x:xs)) -> app' (b:|[]) >> app' (x:|xs)
@@ -96,7 +99,7 @@ applyBlocksUnsafeDo blunds pModifier = do
     txNormalize
     usNormalize
     DB.sanityCheckDB
-    putSlottingData =<< GS.getSlottingData
+    putSlottingData =<< UDB.getSlottingData
   where
     -- hehe it's not unsafe yet TODO
     blocks = fmap fst blunds
@@ -112,7 +115,7 @@ applyBlocksUnsafeDo blunds pModifier = do
 rollbackBlocksUnsafe
     :: (WorkMode ssc m)
     => NewestFirst NE (Blund ssc) -> m ()
-rollbackBlocksUnsafe toRollback = reportingFatal $ do
+rollbackBlocksUnsafe toRollback = reportingFatal version $ do
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks (toRollback & each._2 %~ undoUS)
     txRoll <- txRollbackBlocks toRollback

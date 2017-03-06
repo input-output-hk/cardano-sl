@@ -14,7 +14,7 @@ import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
 import           Mockable                      (runProduction)
 import           Network.Wai                   (Application)
-import           Servant.Server                (Handler, Server)
+import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import           System.Wlog                   (logInfo, usingLoggerName)
 import           Universum
@@ -44,7 +44,6 @@ import           Pos.Txp                       (TxpLocalData, askTxpMem,
                                                 runTxpHolderReader)
 import           Pos.Update.MemState.Holder    (runUSHolder)
 import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
-import           Pos.Wallet.Web.Api            (WalletApi)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
                                                 walletServeImpl, walletServer,
                                                 walletServerOuts)
@@ -72,9 +71,7 @@ walletServeWebFull sendActions debug = walletServeImpl action
 #ifdef DEV_MODE
         when debug $ mapM_ (addSecretKey . toEncrypted) genesisSecretKeys
 #endif
-        let server :: WebHandler ssc (Server WalletApi)
-            server = walletServer sendActions nat
-        walletApplication server
+        walletApplication $ walletServer @ssc sendActions nat
 
 type WebHandler ssc = WalletWebSockets (WalletWebDB (RawRealMode ssc))
 
@@ -97,7 +94,7 @@ convertHandler
     :: forall ssc a .
        KademliaDHTInstance
     -> NodeContext ssc              -- (.. insert monad `m` here ..)
-    -> NodeDBs ssc
+    -> NodeDBs
     -> TxpLocalData
     -> SscState ssc
     -> WalletState

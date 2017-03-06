@@ -29,7 +29,6 @@ module Pos.Types.Block.Functions
        ) where
 
 import           Control.Lens               (folded, iconcatMap, imap, ix)
-import qualified Data.ByteString.Lazy       as BSL
 import           Data.Default               (Default (def))
 import           Data.List                  (groupBy)
 import           Data.Tagged                (untag)
@@ -41,9 +40,19 @@ import           Universum
 
 import           Pos.Binary.Block.Types     ()
 import qualified Pos.Binary.Class           as Bi
-import           Pos.Binary.Types           ()
+import           Pos.Binary.Core            ()
 import           Pos.Binary.Update          ()
 import           Pos.Constants              (epochSlots, lastKnownBlockVersion)
+import           Pos.Core                   (BlockVersion, ChainDifficulty, EpochIndex,
+                                             EpochOrSlot, HasDifficulty (..),
+                                             HasEpochIndex (..), HasEpochOrSlot (..),
+                                             HasHeaderHash (..), HeaderHash,
+                                             ProxySKEither, ProxySKHeavy, SlotId (..),
+                                             SlotId, SlotLeaders)
+import           Pos.Core.Address           (Address (..), addressHash)
+import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
+                                             GenericBlockHeader (..), gbBody, gbBodyProof,
+                                             gbHeader, gbhExtra, prevBlockL)
 import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySign,
                                              proxyVerify, pskIssuerPk, pskOmega, sign,
                                              toPublic, unsafeHash)
@@ -51,13 +60,8 @@ import           Pos.Merkle                 (mkMerkleTree)
 import           Pos.Script                 (isKnownScriptVersion, scrVersion)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types        (Ssc (..))
-import           Pos.Txp.Core.Tx            (verifyTxAlone)
 import           Pos.Txp.Core.Types         (Tx (..), TxDistribution, TxInWitness (..),
                                              TxOut (..), TxWitness)
-import           Pos.Types.Address          (Address (..), addressHash)
-import           Pos.Types.Block.Class      (Blockchain (..), GenericBlock (..),
-                                             GenericBlockHeader (..), gbBody, gbBodyProof,
-                                             gbHeader, gbhExtra, prevBlockL)
 import           Pos.Types.Block.Instances  (Body (..), ConsensusData (..), blockLeaders,
                                              blockMpc, blockProxySKs, blockTxs,
                                              getBlockHeader, getBlockHeader,
@@ -70,14 +74,6 @@ import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
                                              MainBlock, MainBlockHeader, MainBlockchain,
                                              MainExtraBodyData (..), MainExtraHeaderData,
                                              mehBlockVersion)
-import           Pos.Types.Core             (BlockVersion, ChainDifficulty, EpochIndex,
-                                             EpochOrSlot, HasDifficulty (..),
-                                             HasEpochIndex (..), HasEpochOrSlot (..),
-                                             HasHeaderHash (..), HeaderHash, SlotId (..),
-                                             SlotId)
--- Unqualified import is used here because of GHC bug (trac 12127).
--- See: https://ghc.haskell.org/trac/ghc/ticket/12127
-import           Pos.Types.Types
 import           Pos.Update.Core            (UpdatePayload)
 import           Pos.Util                   (NewestFirst (..), OldestFirst)
 
@@ -430,8 +426,6 @@ data VerifyBlockParams ssc = VerifyBlockParams
       -- ^ Verifies header accordingly to params ('verifyHeader')
     , vbpVerifyGeneric  :: !Bool
       -- ^ Checks 'verifyGenesisBlock' property.
-    , vbpVerifyTxs      :: !Bool
-      -- ^ Checks that each transaction passes 'verifyTxAlone' check.
     , vbpVerifySsc      :: !Bool
       -- ^ Verifies ssc payload with 'sscVerifyPayload'.
     , vbpVerifyProxySKs :: !Bool
@@ -451,7 +445,6 @@ instance Default (VerifyBlockParams ssc) where
         VerifyBlockParams
         { vbpVerifyHeader = Nothing
         , vbpVerifyGeneric = False
-        , vbpVerifyTxs = False
         , vbpVerifySsc = False
         , vbpVerifyProxySKs = False
         , vbpVerifyVersions = Nothing
@@ -468,7 +461,6 @@ verifyBlock VerifyBlockParams {..} blk =
     mconcat
         [ verifyG
         , maybeEmpty (flip verifyHeader (getBlockHeader blk)) vbpVerifyHeader
-        , verifyTxs
         , verifySsc
         , verifyProxySKs
         , maybeEmpty verifyVersions vbpVerifyVersions
@@ -479,12 +471,6 @@ verifyBlock VerifyBlockParams {..} blk =
 
     verifyG
         | vbpVerifyGeneric = either verifyGenericBlock verifyGenericBlock blk
-        | otherwise = mempty
-    verifyTxs
-        | vbpVerifyTxs =
-            case blk of
-                Left _        -> mempty
-                Right mainBlk -> foldMap verifyTxAlone $ mainBlk ^. blockTxs
         | otherwise = mempty
     verifySsc
         | vbpVerifySsc =
@@ -535,7 +521,7 @@ checkNoUnknownVersions blk = mconcat $ map toVerRes $ concat [
     toVerRes (Left e)  = VerFailure [sformat build e]
 
     -- Check a transaction
-    checkTx txI Tx{..} = imap (checkOutput txI) _txOutputs
+    checkTx txI UnsafeTx{..} = imap (checkOutput txI) _txOutputs
     -- Check an output
     checkOutput txI outI TxOut{..} = case txOutAddress of
         UnknownAddressType t _ -> Left $
@@ -609,7 +595,6 @@ verifyBlocks curSlotId initLeaders mbBV = view _3 . foldl' step start
                 VerifyBlockParams
                 { vbpVerifyHeader = Just vhp
                 , vbpVerifyGeneric = True
-                , vbpVerifyTxs = True
                 , vbpVerifySsc = True
                 , vbpVerifyProxySKs = True
                 , vbpVerifyVersions = mbBV
@@ -618,4 +603,4 @@ verifyBlocks curSlotId initLeaders mbBV = view _3 . foldl' step start
 
 -- | Compute size of 'MainBlock' in bytes.
 blockSize :: SscHelpersClass ssc => MainBlock ssc -> Byte
-blockSize = fromIntegral . BSL.length . Bi.encode
+blockSize = Bi.biSize

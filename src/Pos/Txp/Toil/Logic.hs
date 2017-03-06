@@ -20,10 +20,10 @@ import           System.Wlog          (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Constants        (maxLocalTxs)
+import           Pos.Core.Coin        (coinToInteger, sumCoins, unsafeAddCoin,
+                                       unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto           (WithHash (..), hash)
 import           Pos.Types            (Coin, StakeholderId, mkCoin)
-import           Pos.Types.Coin       (coinToInteger, sumCoins, unsafeAddCoin,
-                                       unsafeIntegerToCoin, unsafeSubCoin)
 
 import           Pos.Txp.Core         (topsortTxs)
 import           Pos.Txp.Core.Types   (Tx (..), TxAux, TxId, TxUndo, TxsUndo,
@@ -56,7 +56,7 @@ applyTxp :: GlobalTxpMode m => [(TxAux, TxUndo)] -> m ()
 applyTxp txun = do
     let (txOutPlus, txInMinus) = concatStakes txun
     recomputeStakes txOutPlus txInMinus
-    mapM_ (Utxo.applyTxToUtxo' . withTxId . fst) txun
+    mapM_ (applyTxToUtxo' . withTxId . fst) txun
 
 -- | Rollback transactions from one block.
 rollbackTxp :: GlobalTxpMode m => [(TxAux, TxUndo)] -> m ()
@@ -137,16 +137,19 @@ concatStakes (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
   where
     txasTxOutDistr = concatMap concatDistr txas
     undoTxInDistr = concatMap txOutStake (concat undo)
-    concatDistr (Tx{..}, _, distr)
+    concatDistr (UnsafeTx{..}, _, distr)
         = concatMap txOutStake (zip _txOutputs (getTxDistribution distr))
-
-withTxId :: TxAux -> (TxId, TxAux)
-withTxId aux@(tx, _, _) = (hash tx, aux)
 
 processTxWithPureChecks
     :: (MonadUtxo m, MonadError TxpVerFailure m)
     => Bool -> (TxId, TxAux) -> m TxUndo
-processTxWithPureChecks pureChecks tx@(_, aux) = do
-    undo <- Utxo.verifyTxUtxo pureChecks pureChecks aux
-    Utxo.applyTxToUtxo' tx
+processTxWithPureChecks verifyVersions tx@(_, aux) = do
+    undo <- Utxo.verifyTxUtxo verifyVersions aux
+    applyTxToUtxo' tx
     pure undo
+
+withTxId :: TxAux -> (TxId, TxAux)
+withTxId aux@(tx, _, _) = (hash tx, aux)
+
+applyTxToUtxo' :: MonadUtxo m => (TxId, TxAux) -> m ()
+applyTxToUtxo' (i, (t, _, d)) = Utxo.applyTxToUtxo (WithHash t i) d

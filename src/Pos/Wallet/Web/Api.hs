@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP           #-}
 {-# LANGUAGE DataKinds     #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -8,19 +9,22 @@ module Pos.Wallet.Web.Api
        , walletApi
        ) where
 
-import           Data.Proxy                 (Proxy (Proxy))
-
-import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CProfile, CTx, CTxId,
-                                             CTxMeta, CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem)
-import           Pos.Wallet.Web.Error       (WalletError)
 import           Servant.API                ((:<|>), (:>), Capture, Get, JSON, Post,
                                              ReqBody)
 import           Universum
 
+import           Pos.Types                  (Coin, SoftwareVersion)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CProfile, CTx, CTxId,
+                                             CTxMeta, CUpdateInfo, CWallet, CWalletInit,
+                                             CWalletMeta, CWalletRedeem, SyncProgress)
+import           Pos.Wallet.Web.Error       (WalletError)
+
 -- | Servant API which provides access to wallet.
 type WalletApi =
+#ifdef DEV_MODE
+     "api" :> "test_reset" :> Post '[JSON] (Either WalletError ())
+    :<|>
+#endif
      "api" :> "get_wallet" :> Capture "address" CAddress :> Get '[JSON] (Either WalletError CWallet)
     :<|>
      "api" :> "get_wallets" :> Get '[JSON] (Either WalletError [CWallet])
@@ -63,6 +67,8 @@ type WalletApi =
      "api" :> "system_version" :> Get '[JSON] (Either WalletError SoftwareVersion)
     :<|>
      "api" :> "import_key" :> ReqBody '[JSON] Text :> Post '[JSON] (Either WalletError CWallet)
+    :<|>
+     "api" :> "sync_progress" :> Get '[JSON] (Either WalletError SyncProgress)
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

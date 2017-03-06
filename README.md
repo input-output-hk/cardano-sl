@@ -44,7 +44,7 @@ Platform support
 ----------------
 
 At the moment, the only supported platform is Linux. Mac OS X isn't
-officially supported, but `pos-haskell-prototype` on Mac OS X has thus far
+officially supported, but `cardano-sl` on Mac OS X has thus far
 been ran and partially tested on Mac OS X.
 
 Windows support is a milestone actively being worked on, and planned for the
@@ -57,7 +57,7 @@ To build from source, clone this repository, navigate to the directory
 into which the project was cloned and run `stack build`.
 
 The [`stack` system](https://docs.haskellstack.org/en/stable/README/) is
-required before `pos-haskell-prototype` can be built.
+required before `cardano-sl` can be built.
 
 Benchmarking
 ------------

@@ -61,6 +61,7 @@ newtype TossT m a = TossT
                , WithNodeContext ssc
                , MonadJL
                , CanLog
+               , MonadDB
                , MonadMask
                , MonadSscMem mem
                , MonadBase io
@@ -123,7 +124,6 @@ instance MonadToss m =>
 -- Common instances used all over the code
 ----------------------------------------------------------------------------
 
-deriving instance MonadDB ssc m => MonadDB ssc (TossT m)
 type instance ThreadId (TossT m) = ThreadId m
 type instance Promise (TossT m) = Promise m
 type instance SharedAtomicT (TossT m) = SharedAtomicT m

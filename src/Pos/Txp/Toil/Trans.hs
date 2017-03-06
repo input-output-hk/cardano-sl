@@ -19,16 +19,17 @@ import           System.Wlog               (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context               (WithNodeContext)
-import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
+import           Pos.Slotting.Class        (MonadSlots)
+import           Pos.Slotting.MemState     (MonadSlotsData)
 import           Pos.Util.JsonLog          (MonadJL (..))
 
-import           Pos.Txp.Toil.Types         (BalancesView, MemPool, TxpModifier (..),
+import           Pos.Txp.Toil.Types        (BalancesView, MemPool, TxpModifier (..),
                                             UndoMap, UtxoView, bvStakes, bvTotal,
                                             mpLocalTxs, mpLocalTxsSize, txmBalances,
                                             txmMemPool, txmUndos, txmUtxoView, uvAddUtxo,
                                             uvDelUtxo)
 
-import           Pos.Txp.Toil.Class         (MonadBalances (..), MonadBalancesRead (..),
+import           Pos.Txp.Toil.Class        (MonadBalances (..), MonadBalancesRead (..),
                                             MonadTxPool (..), MonadUtxo (..),
                                             MonadUtxoRead (..))
 

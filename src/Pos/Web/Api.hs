@@ -14,7 +14,6 @@ module Pos.Web.Api
        , gtNodeApi
        ) where
 
-import           Data.Proxy         (Proxy (Proxy))
 import           Servant.API        ((:<|>), (:>), Capture, Get, JSON, Post, QueryParam)
 import           Universum
 

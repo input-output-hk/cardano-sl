@@ -23,6 +23,7 @@ import           Pos.Communication.Protocol (SendActions)
 import           Pos.Communication.Specs    (sendTxOuts)
 import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
                                              redeemToPublic, safeToPublic)
+import           Pos.DB.Limits              (MonadDBLimits)
 import           Pos.DHT.Model              (DHTNode)
 import           Pos.Txp.Core.Types         (TxAux, TxOut (..), TxOutAux, txaF)
 import           Pos.Types                  (Address, makePubKeyAddress,
@@ -70,7 +71,9 @@ submitRedemptionTx sendActions rsk na output = do
         return txw
 
 -- | Send the ready-to-use transaction
-submitTxRaw :: MinWorkMode m => SendActions m -> [DHTNode] -> TxAux -> m ()
+submitTxRaw
+    :: (MinWorkMode m, MonadDBLimits m)
+    => SendActions m -> [DHTNode] -> TxAux -> m ()
 submitTxRaw sa na tx = do
     let txId = hash (tx ^. _1)
     logInfo $ sformat ("Submitting transaction: "%txaF) tx

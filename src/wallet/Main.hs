@@ -9,7 +9,6 @@ import           Control.Monad.Reader      (MonadReader (..), ReaderT, ask, asks
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Data.ByteString           as BS
 import           Data.List                 ((!!))
-import           Data.Proxy                (Proxy (..))
 import qualified Data.Text                 as T
 import           Data.Time.Units           (convertUnit)
 import           Formatting                (build, int, sformat, stext, (%))
@@ -21,6 +20,7 @@ import           System.Wlog               (logDebug, logError, logInfo, logWarn
 import           System.Exit               (ExitCode (ExitSuccess))
 import           System.Posix.Process      (exitImmediately)
 #endif
+import           Serokell.Util             (sec)
 import           Universum
 
 import           Pos.Binary                (Raw)
@@ -47,7 +47,6 @@ import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAd
 import           Pos.Update                (BlockVersionData (..), UpdateProposal (..),
                                             UpdateVote (..), patakUpdateData,
                                             skovorodaUpdateData)
-import           Pos.Util.TimeWarp         (sec)
 import           Pos.Wallet                (WalletMode, WalletParams (..), WalletRealMode,
                                             getBalance, runWalletReal, sendProposalOuts,
                                             sendTxOuts, sendVoteOuts, submitTx,
@@ -117,7 +116,7 @@ runCmd sendActions ProposeUpdate{..} = do
             lift $ submitUpdateProposal sendActions skey na updateProposal
             let id = hash updateProposal
             putText $
-              sformat ("Update proposal submitted, upId: "%build%" (base64)") (encodeHash id)
+              sformat ("Update proposal submitted, upId: "%hashHexF) id
 runCmd _ Help = do
     putText $
         unlines
@@ -243,8 +242,8 @@ main = do
                 }
 
         systemStart <- case CLI.sscAlgo woCommonArgs of
-            GodTossingAlgo -> runTimeSlaveReal (Proxy :: Proxy SscGodTossing) res timeSlaveParams
-            NistBeaconAlgo -> runTimeSlaveReal (Proxy :: Proxy SscNistBeacon) res timeSlaveParams
+            GodTossingAlgo -> runTimeSlaveReal (Proxy @SscGodTossing) res timeSlaveParams
+            NistBeaconAlgo -> runTimeSlaveReal (Proxy @SscNistBeacon) res timeSlaveParams
 
         let params =
                 WalletParams
@@ -267,7 +266,11 @@ main = do
                 Cmd cmd                         -> worker runCmdOuts $ runWalletCmd opts cmd
 #ifdef WITH_WEB
                 Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
-                    walletServeWebLite sendActions webDaedalusDbPath False webPort
+                    case CLI.sscAlgo woCommonArgs of
+                        GodTossingAlgo -> walletServeWebLite (Proxy @SscGodTossing)
+                                              sendActions webDaedalusDbPath False webPort
+                        NistBeaconAlgo -> walletServeWebLite (Proxy @SscNistBeacon)
+                                              sendActions webDaedalusDbPath False webPort
 #endif
 
         case CLI.sscAlgo woCommonArgs of

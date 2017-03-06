@@ -27,17 +27,23 @@ import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName)
 import           Universum
 
+import           Pos.Communication.Relay   (MonadRelayMem)
 import           Pos.Context.Class         (WithNodeContext)
 import           Pos.DB.Class              (MonadDB)
 import           Pos.DB.Holder             (DBHolder (..))
-import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
+import           Pos.DB.Limits             (MonadDBLimits)
+import           Pos.DHT.MemState          (MonadDhtMem)
+import           Pos.Reporting             (MonadReportingMem)
+import           Pos.Shutdown              (MonadShutdownMem)
+import           Pos.Slotting.Class        (MonadSlots)
+import           Pos.Slotting.MemState     (MonadSlotsData)
 import           Pos.Ssc.Extra             (MonadSscMem)
 import           Pos.Types                 (HeaderHash, genesisHash)
 import           Pos.Util.JsonLog          (MonadJL (..))
 
 import           Pos.Txp.MemState.Class    (MonadTxpMem (..))
 import           Pos.Txp.MemState.Types    (TxpLocalData (..))
-import           Pos.Txp.Toil.Types         (UtxoView)
+import           Pos.Txp.Toil.Types        (UtxoView)
 
 ----------------------------------------------------------------------------
 -- Holder
@@ -45,10 +51,29 @@ import           Pos.Txp.Toil.Types         (UtxoView)
 
 newtype TxpHolder m a = TxpHolder
     { getTxpHolder :: ReaderT TxpLocalData m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadThrow,
-                MonadSlotsData, MonadSlots, MonadCatch, MonadIO, MonadFail,
-                HasLoggerName, WithNodeContext ssc, MonadJL,
-                CanLog, MonadMask, MonadSscMem ssc, MonadFix)
+    } deriving ( Functor
+               , Applicative
+               , Monad
+               , MonadTrans
+               , MonadThrow
+               , MonadSlotsData
+               , MonadSlots
+               , MonadCatch
+               , MonadIO
+               , MonadFail
+               , HasLoggerName
+               , WithNodeContext ssc
+               , MonadJL
+               , CanLog
+               , MonadMask
+               , MonadSscMem ssc
+               , MonadFix
+               , MonadDhtMem
+               , MonadReportingMem
+               , MonadRelayMem
+               , MonadShutdownMem
+               , MonadDB
+               , MonadDBLimits)
 
 type instance ThreadId (TxpHolder m) = ThreadId m
 type instance Promise (TxpHolder m) = Promise m
@@ -65,9 +90,7 @@ instance ( Mockable d m
          ) => Mockable d (TxpHolder m) where
     liftMockable = liftMockableWrappedM
 
-deriving instance MonadDB ssc m => MonadDB ssc (TxpHolder m)
-
-deriving instance MonadTxpMem m => MonadTxpMem (DBHolder ssc m)
+deriving instance MonadTxpMem m => MonadTxpMem (DBHolder m)
 
 ----------------------------------------------------------------------------
 -- Useful instances

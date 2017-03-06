@@ -111,10 +111,12 @@ instance (MonadDB ssc m, MonadMask m) => MonadBalances (Modern.TxpLDHolder ssc m
 
 -- | A class which have methods to get transaction history
 class Monad m => MonadTxHistory m where
-    getTxHistory :: Address -> m [TxHistoryEntry]
+    getTxHistory :: Address -> Maybe HeaderHash -> m (HeaderHash, Int, [TxHistoryEntry])
     saveTx :: (TxId, TxAux) -> m ()
 
-    default getTxHistory :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => Address -> m [TxHistoryEntry]
+    default getTxHistory
+        :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
+        => Address -> Maybe HeaderHash -> m (HeaderHash, Int, [TxHistoryEntry])
     getTxHistory = lift . getTxHistory
 
     default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()
@@ -141,17 +143,19 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
     getTxHistory addr = do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
-        fmap (fst . fromMaybe (panic "deriveAddrHistory: Nothing")) $
+        res <- fmap (fst . fromMaybe (panic "deriveAddrHistory: Nothing")) $
             runMaybeT $ flip runUtxoStateT utxo $
             deriveAddrHistory addr chain
+        pure (undefined, 0, res)
     saveTx _ = pure ()
 
 instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
          => MonadTxHistory (Modern.TxpLDHolder ssc m) where
-    getTxHistory addr = do
-        bot <- GS.getBot
+    getTxHistory addr mbot = do
+        bot <- maybe GS.getBot pure mbot
         tip <- GS.getTip
-        genUtxo <- GS.getFilteredGenUtxo addr
+
+        genUtxo <- filterUtxoByAddr addr . PC.ncGenesisUtxo <$> PC.getNodeContext
 
         -- Getting list of all hashes in main blockchain (excluding bottom block - it's genesis anyway)
         hashList <- flip unfoldrM tip $ \h ->
@@ -162,6 +166,10 @@ instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
                     maybeThrow (DBMalformed "Best blockchain is non-continuous")
                 let prev = header ^. prevBlockL
                 return $ Just (h, prev)
+
+        -- Determine last block which txs should be cached
+        let cachedHashes = drop blkSecurityParam hashList
+            lastCachedBlk = head cachedHashes <|> pure bot
 
         let blockFetcher h txs = do
                 blk <- lift . lift $ DB.getBlock h >>=
@@ -175,7 +183,10 @@ instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
 
         result <- runMaybeT $
             evalUtxoStateT (foldrM blockFetcher [] hashList >>= localFetcher) genUtxo
-        maybe (panic "deriveAddrHistory: Nothing") return result
+        maybe (panic "deriveAddrHistory: Nothing") return $ do
+            blk <- lastCachedBlk
+            r <- result
+            return (blk, 100500, r)
 
     saveTx txw = () <$ processTx txw
 

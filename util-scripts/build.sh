@@ -47,7 +47,7 @@ do
 done
 
 # TODO: how can --ghc-options be moved into commonargs?
-commonargs='--test --no-haddock-deps --bench --jobs=4'
+commonargs='--no-haddock-deps --bench --jobs=4'
 norun='--no-run-tests --no-run-benchmarks'
 webwallet='--flag cardano-sl:with-web --flag cardano-sl:with-wallet'
 

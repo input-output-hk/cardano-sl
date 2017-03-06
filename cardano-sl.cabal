@@ -100,7 +100,6 @@ library
                         Pos.Util
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
-                        Pos.Util.Modifier
                         Pos.Util.UserSecret
 
                         -- Worker, work mode

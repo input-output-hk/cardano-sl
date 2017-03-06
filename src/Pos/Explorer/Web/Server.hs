@@ -10,6 +10,7 @@ module Pos.Explorer.Web.Server
        , explorerHandlers
        ) where
 
+import           Control.Arrow                  ( (&&&) )
 import           Control.Monad.Catch            (try)
 import           Control.Monad.Loops            (unfoldrM)
 import           Control.Monad.Trans.Maybe      (MaybeT (..))
@@ -166,7 +167,7 @@ getTxSummary cTxId = do
     let blockchainPlace = teBlockchainPlace txExtra
         inputOutputs = teInputOutputs txExtra
 
-    let convertTxOutputs = map (\txOut ->(toCAddress $ txOutAddress txOut, txOutValue txOut))
+    let convertTxOutputs = map (toCAddress . txOutAddress &&& txOutValue)
 
     -- TODO: here and in getMempoolTxs/getBlockchainTxs we do two things wrongly:
     -- 1. If the transaction is found in the MemPool, we return *starting

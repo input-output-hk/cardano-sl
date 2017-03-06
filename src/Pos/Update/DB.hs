@@ -12,7 +12,7 @@ module Pos.Update.DB
        , getBVState
        , getProposalState
        , getAppProposal
-       , getProposalStateByApp
+       , getProposalsByApp
        , getConfirmedSV
        , getMaxBlockSize
        , getSlottingData
@@ -39,7 +39,6 @@ module Pos.Update.DB
        , getProposedBVStates
        ) where
 
-import           Control.Monad.Trans.Maybe  (MaybeT (..), runMaybeT)
 import           Data.Time.Units            (convertUnit)
 import qualified Database.RocksDB           as Rocks
 import           Serokell.Data.Memory.Units (Byte)
@@ -113,9 +112,13 @@ getAppProposal :: MonadDB m => ApplicationName -> m (Maybe UpId)
 getAppProposal = gsGetBi . proposalAppKey
 
 -- | Get state of Update Proposal for given AppName
-getProposalStateByApp :: MonadDB m => ApplicationName -> m (Maybe ProposalState)
-getProposalStateByApp appName =
-    runMaybeT $ MaybeT (getAppProposal appName) >>= MaybeT . getProposalState
+getProposalsByApp :: MonadDB m => ApplicationName -> m [ProposalState]
+getProposalsByApp appName = runProposalMapIterator (step []) snd
+  where
+    step res = nextItem >>= maybe (pure res) (onItem res)
+    onItem res e
+        | appName == (svAppName $ upSoftwareVersion $ psProposal e) = step (e:res)
+        | otherwise = step res
 
 -- | Get last confirmed SoftwareVersion of given application.
 getConfirmedSV

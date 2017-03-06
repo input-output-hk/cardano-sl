@@ -10,7 +10,7 @@ module Pos.Update.Poll.Trans
        , execPollT
        ) where
 
-import           Control.Lens                (iso, (%=), (.=))
+import           Control.Lens                (iso, (%=), (.=), uses)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Except        (MonadError)
 import           Control.Monad.Fix           (MonadFix)
@@ -101,6 +101,11 @@ instance MonadPollRead m =>
         PollT $ MM.lookupM getLastConfirmedSV appName =<< use pmConfirmedL
     getProposal upId =
         PollT $ MM.lookupM getProposal upId =<< use pmActivePropsL
+    getProposalsByApp app = PollT $ do
+        let eqApp = (== app) . svAppName . upSoftwareVersion . psProposal . snd
+        props <- uses pmActivePropsL (filter eqApp . MM.insertions)
+        dbProps <- map (first (hash . psProposal) . join (,)) <$> getProposalsByApp app
+        pure . toList . HM.fromList $ dbProps ++ props -- squash props with same upId
     getConfirmedProposals =
         PollT $
         MM.valuesM

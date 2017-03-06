@@ -45,7 +45,7 @@ import           Pos.Update.Poll.Types         (ConfirmedProposalState (..),
                                                 DecidedProposalState (..), DpsExtra (..),
                                                 ProposalState (..),
                                                 UndecidedProposalState (..),
-                                                UpsExtra (..))
+                                                UpsExtra (..), psProposal)
 
 type ApplyMode m = (MonadError PollVerFailure m, MonadPoll m)
 
@@ -288,9 +288,10 @@ applyDepthCheck hh cd
                 NE.groupWith groupCriterion deepProposals
         mapM_ applyDepthCheckDo winners
   where
+    upsAppName = svAppName . upSoftwareVersion . upsProposal
     resetAllDecisions (a:|xs) = a :| map (\x->x {dpsDecision = False}) xs
     groupCriterion a =
-        ( svAppName $ upSoftwareVersion $ upsProposal $ dpsUndecided a
+        ( upsAppName $ dpsUndecided a
         , dpsDifficulty a)
     mkTuple a extra =
         ( dpsDecision a
@@ -336,6 +337,8 @@ applyDepthCheck hh cd
                     , cpsAdopted = Nothing
                     }
             addConfirmedProposal cps
+            proposals <- getProposalsByApp $ upsAppName dpsUndecided
+            mapM_ (deactivateProposal . hash . psProposal) proposals
         needConfirmBV <- (dpsDecision &&) <$> canBeAdoptedBV bv
         if | needConfirmBV -> do
                confirmBlockVersion bv

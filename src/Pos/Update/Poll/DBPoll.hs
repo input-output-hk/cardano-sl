@@ -112,6 +112,7 @@ instance (WithNodeContext ssc m, MonadDB m, WithLogger m) =>
     getAdoptedBVFull = GS.getAdoptedBVFull
     getLastConfirmedSV = GS.getConfirmedSV
     getProposal = GS.getProposalState
+    getProposalsByApp = GS.getProposalsByApp
     getConfirmedProposals = GS.getConfirmedProposals Nothing
     getEpochTotalStake e = fmap fst <$> getRichmenUS e
     getRichmanStake e id = (findStake =<<) <$> getRichmenUS e

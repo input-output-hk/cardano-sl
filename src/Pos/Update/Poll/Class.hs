@@ -40,6 +40,8 @@ class (Monad m, WithLogger m) => MonadPollRead m where
     -- ^ Get numeric component of last confirmed version of application
     getProposal :: UpId -> m (Maybe ProposalState)
     -- ^ Get active proposal
+    getProposalsByApp :: ApplicationName -> m [ProposalState]
+    -- ^ Get active proposals for the specified application.
     getConfirmedProposals :: m [ConfirmedProposalState]
     -- ^ Get all known confirmed proposals.
     getEpochTotalStake :: EpochIndex -> m (Maybe Coin)
@@ -95,6 +97,11 @@ class (Monad m, WithLogger m) => MonadPollRead m where
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
         UpId -> m (Maybe ProposalState)
     getProposal = lift . getProposal
+
+    default getProposalsByApp
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
+        ApplicationName -> m [ProposalState]
+    getProposalsByApp = lift . getProposalsByApp
 
     default getConfirmedProposals
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>

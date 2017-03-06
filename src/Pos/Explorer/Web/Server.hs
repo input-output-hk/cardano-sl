@@ -14,7 +14,7 @@ import           Control.Monad.Catch            (try)
 import           Control.Monad.Loops            (unfoldrM)
 import           Control.Monad.Trans.Maybe      (MaybeT (..))
 import qualified Data.HashMap.Strict            as HM
-import           Data.Maybe                     (fromJust, fromMaybe)
+import           Data.Maybe                     (fromMaybe)
 import           Network.Wai                    (Application)
 import           Servant.API                    ((:<|>) ((:<|>)))
 import           Servant.Server                 (Server, ServerT, serve)
@@ -161,12 +161,9 @@ getTxSummary cTxId = do
     -- the rest.
     txId <- cTxIdToTxId cTxId
     txExtraMaybe <- GS.getTxExtra txId
+    txExtra <- maybe (throwM $ Internal "Transaction not found") pure txExtraMaybe
 
-    when (isNothing txExtraMaybe) $
-        throwM $ Internal "Transaction not found"
-
-    let txExtra = fromJust txExtraMaybe
-        blockchainPlace = teBlockchainPlace txExtra
+    let blockchainPlace = teBlockchainPlace txExtra
         inputOutputs = teInputOutputs txExtra
 
     let convertTxOutputs = map (\txOut ->(toCAddress $ txOutAddress txOut, txOutValue txOut))
@@ -181,28 +178,24 @@ getTxSummary cTxId = do
         case blockchainPlace of
             Nothing -> do
                 -- Fetching transaction from MemPool.
-                ts <- currentTimeSlotting
+                ts <- toPosixTime <$> currentTimeSlotting
                 tx <- fetchTxFromMempoolOrFail txId
                 let txOutputs = convertTxOutputs $ _txOutputs tx
-                pure (Just (toPosixTime ts), Nothing, Nothing, txOutputs)
+                pure (Just ts, Nothing, Nothing, txOutputs)
             Just (headerHash, txIndexInBlock) -> do
                 -- Fetching transaction from DB.
                 maybeBlock <- DB.getBlock @SscGodTossing headerHash
-                when (isNothing maybeBlock) $
-                    throwM $ Internal "TxExtra says tx is in nonexistent block"
-                let block = fromJust maybeBlock
+                block <- maybe (throwM $ Internal "TxExtra says tx is in nonexistent block") pure maybeBlock
                 case block of
                     Left _ -> throwM $ Internal "TxExtra says tx is in genesis block"
                     Right mb -> do
                         blkSlotStart <- getBlkSlotStart mb
                         let blockHeight = fromIntegral $ mb ^. difficultyL
-                            txMaybe = atMay (toList $ mb ^. blockTxs) (fromIntegral txIndexInBlock)
-                        when (isNothing txMaybe) $
-                            throwM $ Internal "TxExtra return tx index that is out of bounds"
-                        let txOutputs = convertTxOutputs $ _txOutputs $ fromJust txMaybe
-                        case blkSlotStart of
-                            Nothing -> pure (Nothing, Nothing, Just blockHeight, txOutputs)
-                            Just ts -> pure (Just (toPosixTime ts), Just (toPosixTime ts), Just blockHeight, txOutputs)
+                        tx <- maybe (throwM $ Internal "TxExtra return tx index that is out of bounds") pure $
+                              atMay (toList $ mb ^. blockTxs) (fromIntegral txIndexInBlock)
+                        let txOutputs = convertTxOutputs $ _txOutputs tx
+                            ts = toPosixTime <$> blkSlotStart
+                        pure (ts, ts, Just blockHeight, txOutputs)
 
     let ctsId = cTxId
         ctsRelayedBy = Nothing
@@ -276,12 +269,12 @@ topsortTxsOrFail f =
 cAddrToAddr :: MonadThrow m => CAddress -> m Address
 cAddrToAddr cAddr =
     fromCAddress cAddr &
-    either (\_ -> throwM $ Internal "Invalid address!") pure
+    either (const $ throwM $ Internal "Invalid address!") pure
 
 cTxIdToTxId :: MonadThrow m => CTxId -> m TxId
 cTxIdToTxId cTxId =
     fromCTxId cTxId &
-    either (\_ -> throwM $ Internal "Invalid transaction id!") pure
+    either (const $ throwM $ Internal "Invalid transaction id!") pure
 
 getMainBlock :: ExplorerMode m => HeaderHash -> m (MainBlock SscGodTossing)
 getMainBlock h =

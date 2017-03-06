@@ -151,7 +151,7 @@ totalTxMoney = unsafeIntegerToCoin . sumCoins .
 toTxEntry :: Maybe Timestamp -> Tx -> CTxEntry
 toTxEntry ts tx = CTxEntry {..}
   where cteId = toCTxId $ hash tx
-        cteTimeIssued = fmap toPosixTime ts
+        cteTimeIssued = toPosixTime <$> ts
         cteAmount = totalTxMoney tx
 
 -- | Data displayed on block summary page
@@ -242,7 +242,7 @@ toTxRelative addr txi = CTxRelative {..}
     tx = tiTx txi
     ts = tiTimestamp txi
     ctrId = toCTxId $ hash tx
-    ctrTimeIssued = fmap toPosixTime ts
+    ctrTimeIssued = toPosixTime <$> ts
     amount = unsafeIntegerToCoin . sumCoins . map txOutValue .
              filter (\txOut -> txOutAddress txOut == addr) . _txOutputs $ tx
     ctrType = CTxIncoming [] amount

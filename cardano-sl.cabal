@@ -100,7 +100,6 @@ library
                         Pos.Util
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
-                        Pos.Util.Modifier
                         Pos.Util.UserSecret
 
                         -- Worker, work mode
@@ -328,6 +327,7 @@ library
                         Pos.Update.Poll.Logic.Normalize
                         Pos.Update.Poll.Logic.Rollback
                         Pos.Update.Poll.Logic.Softfork
+                        Pos.Update.Poll.Logic.Version
                         Pos.Update.Poll.Modifier
                         Pos.Update.Poll.RollTrans
                         Pos.Update.Poll.Trans

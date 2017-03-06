@@ -14,8 +14,8 @@ module Pos.Core.Constants
        , staticSysStart
        ) where
 
-import           Universum                  hiding (lift)
 import           System.IO.Unsafe           (unsafePerformIO)
+import           Universum                  hiding (lift)
 
 #ifndef DEV_MODE
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
@@ -25,7 +25,7 @@ import           Serokell.Util              (sec)
 
 import           Pos.Core.Constants.Type    (CoreConstants (..))
 import           Pos.Core.Timestamp         (Timestamp (..))
-import           Pos.Util.Config            (configFilePath, unsafeReadConfig)
+import           Pos.Util.Config            (cslConfigFilePath, unsafeReadConfig)
 
 ----------------------------------------------------------------------------
 -- Config itself
@@ -33,11 +33,11 @@ import           Pos.Util.Config            (configFilePath, unsafeReadConfig)
 
 coreConstants :: CoreConstants
 #ifdef DEV_MODE
-coreConstants = unsafePerformIO (unsafeReadConfig =<< configFilePath)
+coreConstants = unsafePerformIO (unsafeReadConfig =<< cslConfigFilePath)
 {-# NOINLINE coreConstants #-}
 #else
 coreConstants = $(do
-    x :: CoreConstants <- runIO (unsafeReadConfig =<< configFilePath)
+    x :: CoreConstants <- runIO (unsafeReadConfig =<< cslConfigFilePath)
     lift x)
 #endif
 

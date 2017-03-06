@@ -58,6 +58,7 @@ library
 
                        Pos.Util.Config
                        Pos.Util.Iterator
+                       Pos.Util.Modifier
                        Pos.Util.Util
 
   other-modules:       Paths_cardano_sl_core

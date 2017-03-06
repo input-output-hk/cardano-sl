@@ -77,18 +77,25 @@ explorerApp serv = serve explorerApi <$> serv
 
 explorerHandlers :: ExplorerMode m => SendActions m -> ServerT ExplorerApi m
 explorerHandlers _sendActions =
-    catchExplorerError ... defaultLimit 10 getLastBlocks
+      apiBlocksLast
     :<|>
-    catchExplorerError ... defaultLimit 10 getLastTxs
+      apiBlocksSummary
     :<|>
-    catchExplorerError . getBlockSummary
+      apiBlocksTxs
     :<|>
-    (\h -> catchExplorerError ... defaultLimit 10 (getBlockTxs h))
+      apiTxsLast
     :<|>
-    catchExplorerError . getAddressSummary
+      apiTxsSummary
     :<|>
-    catchExplorerError . getTxSummary
+      apiAddressSummary
   where
+    apiBlocksLast     = catchExplorerError ... defaultLimit 10 getLastBlocks
+    apiBlocksSummary  = catchExplorerError . getBlockSummary
+    apiBlocksTxs      = (\h -> catchExplorerError ... defaultLimit 10 (getBlockTxs h))
+    apiTxsLast        = catchExplorerError ... defaultLimit 10 getLastTxs
+    apiTxsSummary     = catchExplorerError . getTxSummary
+    apiAddressSummary = catchExplorerError . getAddressSummary
+
     catchExplorerError = try
     f ... g = (f .) . g
 

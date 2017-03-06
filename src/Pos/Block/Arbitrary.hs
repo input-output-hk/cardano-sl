@@ -13,8 +13,8 @@ import qualified Data.Text.Buildable  as Buildable
 import           Formatting           (bprint, build, formatToString, (%))
 import           Prelude              (Show (..))
 import           System.Random        (mkStdGen, randomR)
-import           Test.QuickCheck      (Arbitrary (..), Gen, choose, listOf, oneof,
-                                       vectorOf)
+import           Test.QuickCheck      (Arbitrary (..), Gen, NonEmptyList (..), choose,
+                                       listOf, listOf, oneof, oneof, vectorOf)
 import           Universum
 
 import           Pos.Binary           (Bi, Raw)
@@ -154,9 +154,9 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
 txOutDistGen :: Gen [(T.Tx, T.TxDistribution, T.TxWitness)]
 txOutDistGen = listOf $ do
     txInW <- arbitrary
-    txIns <- arbitrary
-    (txOuts, txDist) <- second T.TxDistribution . unzip <$> arbitrary
-    return $ (T.Tx txIns txOuts $ mkAttributes (), txDist, txInW)
+    txIns <- getNonEmpty <$> arbitrary
+    (txOuts, txDist) <- second T.TxDistribution . unzip . getNonEmpty <$> arbitrary
+    return $ (T.UnsafeTx txIns txOuts $ mkAttributes (), txDist, txInW)
 
 instance Arbitrary (SscPayloadDependsOnSlot ssc) =>
          Arbitrary (BodyDependsOnConsensus (T.MainBlockchain ssc)) where

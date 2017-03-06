@@ -18,7 +18,6 @@ module Pos.Txp.Toil.Utxo.Pure
        , execUtxoState
 
        , applyTxToUtxoPure
-       , applyTxToUtxoPure'
        , verifyTxUtxoPure
        ) where
 
@@ -29,12 +28,11 @@ import           Control.Monad.Trans         (MonadTrans (..))
 import           Serokell.Util.Verify        (VerificationRes (..))
 import           Universum
 
-import           Pos.Binary.Core            ()
+import           Pos.Binary.Core             ()
 import           Pos.Crypto                  (WithHash (..))
-import           Pos.Txp.Core.Types          (Tx, TxAux, TxDistribution, TxId, Utxo)
-
+import           Pos.Txp.Core.Types          (Tx, TxAux, TxDistribution, Utxo)
 import           Pos.Txp.Toil.Class          (MonadUtxo (..), MonadUtxoRead (..))
-import           Pos.Txp.Toil.Utxo.Functions (applyTxToUtxo, applyTxToUtxo', verifyTxUtxo)
+import           Pos.Txp.Toil.Utxo.Functions (applyTxToUtxo, verifyTxUtxo)
 
 ----------------------------------------------------------------------------
 -- Reader
@@ -104,16 +102,12 @@ execUtxoState r = runIdentity . execUtxoStateT r
 applyTxToUtxoPure :: WithHash Tx -> TxDistribution -> Utxo -> Utxo
 applyTxToUtxoPure tx d = execUtxoState $ applyTxToUtxo tx d
 
--- | Pure version of applyTxToUtxo'.
-applyTxToUtxoPure' :: (TxId, TxAux) -> Utxo -> Utxo
-applyTxToUtxoPure' w = execUtxoState $ applyTxToUtxo' w
-
 -- CHECK: @TxUtxoPure
 -- #verifyTxUtxo
 
 -- | Pure version of verifyTxUtxo.
-verifyTxUtxoPure :: Bool -> Bool -> Utxo -> TxAux -> VerificationRes
-verifyTxUtxoPure verifyAlone verifyVersions utxo txw =
-    case runExcept $ runUtxoReaderT (verifyTxUtxo verifyAlone verifyVersions txw) utxo of
+verifyTxUtxoPure :: Bool -> Utxo -> TxAux -> VerificationRes
+verifyTxUtxoPure verifyVersions utxo txw =
+    case runExcept $ runUtxoReaderT (verifyTxUtxo verifyVersions txw) utxo of
         Right _ -> VerSuccess
         Left es -> VerFailure [pretty es]

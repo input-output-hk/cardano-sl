@@ -40,7 +40,7 @@ type TxpLocalWorkMode m =
 txProcessTransaction
     :: TxpLocalWorkMode m
     => (TxId, TxAux) -> m ()
-txProcessTransaction itw@(txId, (Tx{..}, _, _)) = do
+txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
     tipBefore <- GS.getTip
     localUV <- getUtxoView
     (resolvedOuts, _) <- runDBTxp $ runUV localUV $ mapM utxoGet _txInputs

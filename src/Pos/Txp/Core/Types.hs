@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -14,6 +15,7 @@ module Pos.Txp.Core.Types
        , TxOut (..)
        , txOutStake
        , Tx (..)
+       , mkTx
        , txInputs
        , txOutputs
        , txAttributes
@@ -34,19 +36,22 @@ import           Control.Lens           (makeLenses)
 import           Data.DeriveTH          (derive, makeNFData)
 import           Data.Hashable          (Hashable)
 import qualified Data.Map               as M (toList)
+import qualified Data.Text              as T
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
 import           Data.Text.Lazy.Builder (Builder)
 import           Data.Vector            (Vector)
-import           Formatting             (Format, bprint, build, int, later, (%))
+import           Formatting             (Format, bprint, build, int, later, sformat, (%))
 import           Serokell.Util.Base16   (base16F)
 import           Serokell.Util.Text     (listBuilderJSON, listJson, listJsonIndent,
                                          mapBuilderJson, pairBuilder)
+import           Serokell.Util.Verify   (VerificationRes (..), verifyGeneric)
 import           Universum
 
 import           Pos.Binary.Class       (Bi)
 import           Pos.Core.Address       ()
-import           Pos.Core.Types         (Address (..), Coin, Script, StakeholderId, coinF)
+import           Pos.Core.Types         (Address (..), Coin, Script, StakeholderId, coinF,
+                                         mkCoin)
 import           Pos.Crypto             (Hash, PublicKey, Signature, hash, shortHashF)
 import           Pos.Data.Attributes    (Attributes)
 
@@ -150,7 +155,7 @@ txOutStake (TxOut{..}, mb) = case txOutAddress of
 -- | Transaction.
 --
 -- NB: transaction witnesses are stored separately.
-data Tx = Tx
+data Tx = UnsafeTx
     { _txInputs     :: ![TxIn]   -- ^ Inputs of transaction.
     , _txOutputs    :: ![TxOut]  -- ^ Outputs of transaction.
     , _txAttributes :: !TxAttributes -- ^ Attributes of transaction
@@ -164,7 +169,7 @@ type TxAux = (Tx, TxWitness, TxDistribution)
 instance Bi Address => Hashable Tx
 
 instance Bi Address => Buildable Tx where
-    build Tx {..} =
+    build UnsafeTx {..} =
         bprint
             ("Transaction with inputs "%listJson%", outputs: "%listJson)
             _txInputs _txOutputs
@@ -179,6 +184,23 @@ txaF = later $ \(tx, w, d) ->
     bprint (build%"\n"%
             "witnesses: "%listJsonIndent 4%"\n"%
             "distribution: "%build) tx w d
+
+-- | Create valid Tx or fail.
+-- Verify inputs and outputs are non empty; have enough coins.
+mkTx :: MonadFail m => [TxIn] -> [TxOut] -> TxAttributes -> m Tx
+mkTx inputs outputs attrs
+    | null inputs = fail "transaction doesn't have inputs"
+    | null outputs = fail "transaction doesn't have outputs"
+    | VerFailure ers <- verifyOutputs =
+        fail $ T.unpack $ T.intercalate "; " ers
+    | otherwise = pure $ UnsafeTx inputs outputs attrs
+  where
+    verifyOutputs = verifyGeneric $ concat $
+                    zipWith outputPredicates [0..] outputs
+    outputPredicates (i :: Word) TxOut{..} = [
+      ( txOutValue > mkCoin 0
+      , sformat ("output #"%int%" has non-positive value: "%coinF)
+                i txOutValue) ]
 
 ----------------------------------------------------------------------------
 -- UTXO

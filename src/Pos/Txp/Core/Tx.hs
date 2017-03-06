@@ -6,8 +6,7 @@
 -- TODO Rewrite this module on MonadError.
 
 module Pos.Txp.Core.Tx
-       ( verifyTxAlone
-       , VTxGlobalContext (..)
+       ( VTxGlobalContext (..)
        , VTxLocalContext (..)
        , verifyTx
        , verifyTxPure
@@ -39,26 +38,6 @@ import           Pos.Txp.Core.Types   (Tx (..), TxAux, TxDistribution (..), TxIn
 -- Verification
 ----------------------------------------------------------------------------
 
--- | Verify that Tx itself is correct. Most likely you will also want
--- to verify that inputs are legal, signed properly and have enough coins;
--- 'verifyTxAlone' doesn't do that.
-verifyTxAlone :: Tx -> VerificationRes
-verifyTxAlone Tx {..} =
-    mconcat
-        [ verifyGeneric
-              [ (not (null _txInputs), "transaction doesn't have inputs")
-              , (not (null _txOutputs), "transaction doesn't have outputs")
-              ]
-        , verifyOutputs
-        ]
-  where
-    verifyOutputs = verifyGeneric $ concat $
-                    zipWith outputPredicates [0..] _txOutputs
-    outputPredicates (i :: Word) TxOut{..} = [
-      ( txOutValue > mkCoin 0
-      , sformat ("output #"%int%" has non-positive value: "%coinF)
-                i txOutValue) ]
-
 -- CSL-366 Add context-dependent variables to scripts
 -- Postponed for now, should be done in near future.
 -- Maybe these datatypes should be moved to Types.
@@ -78,8 +57,8 @@ data VTxLocalContext = VTxLocalContext
     } deriving (Show)
 
 -- | CHECK: Verify Tx correctness using magic function which resolves
--- input into Address and Coin. It optionally does checks from
--- 'verifyTxAlone' and also the following checks:
+-- input into Address and Coin.
+-- And also the following checks:
 --
 -- * sum of inputs >= sum of outputs;
 -- * every input has a proper witness verifying that input;
@@ -93,38 +72,33 @@ data VTxLocalContext = VTxLocalContext
 -- creating a block.
 verifyTx
     :: Monad m
-    => Bool                             -- ^ Verify that tx itself is correct
-    -> Bool                             -- ^ Verify that script & address
+    => Bool                             -- ^ Verify that script & address
                                         --   versions in tx are known
     -> VTxGlobalContext
     -> (TxIn -> m (Maybe VTxLocalContext))
     -> TxAux
     -> m (Either [Text] TxUndo)
-verifyTx verifyAlone verifyVersions gContext inputResolver
-         txs@(Tx {..}, _, _) = do
+verifyTx verifyVersions gContext inputResolver
+         txs@(UnsafeTx {..}, _, _) = do
     extendedInputs <- mapM extendInput _txInputs
     runExceptT $ do
         verResToMonadError identity $
-            verifyTxDo verifyAlone verifyVersions gContext extendedInputs txs
+            verifyTxDo verifyVersions gContext extendedInputs txs
         return $ map (vtlTxOut . snd) . catMaybes $ extendedInputs
   where
     extendInput txIn = fmap (txIn, ) <$> inputResolver txIn
 
 verifyTxDo
-    :: Bool                             -- ^ Verify that tx itself is correct
-    -> Bool                             -- ^ Verify that script & address
+    :: Bool                             -- ^ Verify that script & address
                                         --   versions in tx are known
     -> VTxGlobalContext
     -> [Maybe (TxIn, VTxLocalContext)]
     -> TxAux
     -> VerificationRes
-verifyTxDo verifyAlone verifyVersions _gContext extendedInputs
-           (tx@Tx{..}, witnesses, distrs)
-  = mconcat [verifyAloneRes, verifyCounts, verifySum,
-             verifyInputs, verifyOutputs]
+verifyTxDo verifyVersions _gContext extendedInputs
+           (UnsafeTx{..}, witnesses, distrs)
+  = mconcat [verifyCounts, verifySum, verifyInputs, verifyOutputs]
   where
-    verifyAloneRes | verifyAlone = verifyTxAlone tx
-                   | otherwise = mempty
     outSum :: Integer
     outSum = sumCoins $ map txOutValue _txOutputs
     resolvedInputs = catMaybes extendedInputs
@@ -249,16 +223,15 @@ verifyTxDo verifyAlone verifyVersions _gContext extendedInputs
         | otherwise      = Right ()
 
 verifyTxPure
-    :: Bool                 -- ^ Verify that tx itself is correct
-    -> Bool                 -- ^ Verify that script & address
+    :: Bool                 -- ^ Verify that script & address
                             --   versions in tx are known
     -> VTxGlobalContext
     -> (TxIn -> Maybe VTxLocalContext)
     -> TxAux
     -> Either [Text] TxUndo
-verifyTxPure verifyAlone verifyVersions gContext resolver =
+verifyTxPure verifyVersions gContext resolver =
     runIdentity .
-    verifyTx verifyAlone verifyVersions gContext (Identity . resolver)
+    verifyTx verifyVersions gContext (Identity . resolver)
 
 
 ----------------------------------------------------------------------------

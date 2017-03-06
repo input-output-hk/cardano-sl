@@ -10,7 +10,7 @@ import qualified Data.Map              as M (singleton)
 import qualified Data.Vector           as V (fromList, singleton, toList)
 import           Formatting            (build, int, sformat, shown, (%))
 import           Serokell.Util.Text    (listJsonIndent)
-import           Serokell.Util.Verify  (VerificationRes (..), isVerFailure, isVerSuccess)
+import           Serokell.Util.Verify  (VerificationRes (..), isVerSuccess)
 import           Test.Hspec            (Expectation, Spec, describe, expectationFailure,
                                         it, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
@@ -36,7 +36,7 @@ import           Pos.Script.Examples   (alwaysSuccessValidator, badIntRedeemer,
 import           Pos.Txp               (Tx (..), TxAux, TxDistribution (..), TxIn (..),
                                         TxInWitness (..), TxOut (..), TxOutAux, TxSigData,
                                         TxWitness, Utxo, VTxGlobalContext (..),
-                                        VTxLocalContext (..), topsortTxs, verifyTxAlone,
+                                        VTxLocalContext (..), mkTx, topsortTxs,
                                         verifyTxPure, verifyTxUtxoPure)
 import           Pos.Types             (BadSigsTx (..), GoodTx (..), SmallBadSigsTx (..),
                                         SmallGoodTx (..), checkPubKeyAddress,
@@ -47,7 +47,7 @@ import           Pos.Util              (nonrepeating, runGen, sublistN)
 
 spec :: Spec
 spec = describe "Types.Tx" $ do
-    describe "verifyTxAlone" $ do
+    describe "mkTx" $ do
         prop description_validateGoodTxAlone validateGoodTxAlone
         prop description_invalidateBadTxAlone invalidateBadTxAlone
     describe "verifyTx" $ do
@@ -267,7 +267,7 @@ scriptTxSpec = describe "script transactions" $ do
     -- Try to apply a transaction (with given utxo as context) and say
     -- whether it applied successfully
     tryApplyTx :: Utxo -> TxAux -> VerificationRes
-    tryApplyTx utxo txa = verifyTxUtxoPure True False utxo txa
+    tryApplyTx utxo txa = verifyTxUtxoPure False utxo txa
 
     -- Test tx1 against tx0. Tx0 will be a script transaction with given
     -- validator. Tx1 will be a P2PK transaction spending tx0 (with given
@@ -276,7 +276,7 @@ scriptTxSpec = describe "script transactions" $ do
     checkScriptTx val mkWit =
         let (inp, _, utxo) = mkUtxo $
                 TxOut (makeScriptAddress val) (mkCoin 1)
-            tx = Tx [inp] [randomPkOutput] (mkAttributes ())
+            tx = UnsafeTx [inp] [randomPkOutput] $ mkAttributes ()
             txDistr = TxDistribution [[]]
             txSigData = (txInHash inp, 0, hash [randomPkOutput], hash txDistr)
         in tryApplyTx utxo (tx, V.singleton (mkWit txSigData), txDistr)
@@ -311,16 +311,16 @@ errorsShouldMatch (VerFailure xs) ys = do
                  shown%"\n\n"%
                  build)
                 i y x
-
 validateGoodTxAlone :: Tx -> Bool
-validateGoodTxAlone tx = isVerSuccess $ verifyTxAlone tx
+validateGoodTxAlone UnsafeTx{..} = isJust $ mkTx _txInputs _txOutputs _txAttributes
 
 invalidateBadTxAlone :: Tx -> Bool
-invalidateBadTxAlone Tx {..} = all (isVerFailure . verifyTxAlone) badTxs
+invalidateBadTxAlone UnsafeTx {..} =
+    all (\UnsafeTx{..} -> isNothing $ mkTx _txInputs _txOutputs _txAttributes) badTxs
   where
     zeroOutputs = fmap (\(TxOut a _) -> TxOut a (mkCoin 0)) _txOutputs
     badTxs =
-        map (\(is, os) -> Tx is os (mkAttributes ())) $
+        map (\(is, os) -> UnsafeTx is os (mkAttributes ())) $
         [([], _txOutputs), (_txInputs, []), (_txInputs, zeroOutputs)]
 
 type TxVerifyingTools =
@@ -344,12 +344,12 @@ getTxFromGoodTx ls =
         inpResolver inp = lookup inp
             [ (i, (unsafeHead o, unsafeHead d))  -- here we rely on
                                                  -- txs having only one output
-            | ((Tx _ o _, TxDistribution d), i, _, _) <- ls ]
+            | ((UnsafeTx _ o _, TxDistribution d), i, _, _) <- ls ]
         extendInput txIn = (txIn,) <$> inpResolver txIn
         extendedInputs :: [Maybe (TxIn, TxOutAux)]
         extendedInputs = map extendInput _txInputs
         _txAttributes = mkAttributes ()
-    in ((Tx {..}, txDist), inpResolver, extendedInputs, txWitness)
+    in ((UnsafeTx {..}, txDist), inpResolver, extendedInputs, txWitness)
 
 -- | This function takes a list of resolved inputs from a transaction, that
 -- same transaction's outputs, and verifies that the input sum is greater than
@@ -369,9 +369,9 @@ txChecksum extendedInputs txOuts =
 -- * every input is a known unspent output.
 -- It also checks that it has good structure w.r.t. 'verifyTxAlone'.
 individualTxPropertyVerifier :: TxVerifyingTools -> Bool
-individualTxPropertyVerifier ((tx@Tx{..}, dist), _, extendedInputs, txWits) =
+individualTxPropertyVerifier ((tx@UnsafeTx{..}, dist), _, extendedInputs, txWits) =
     let hasGoodSum = txChecksum extendedInputs _txOutputs
-        hasGoodStructure = isVerSuccess $ verifyTxAlone tx
+        hasGoodStructure = validateGoodTxAlone tx
         hasGoodInputs = all
             (signatureIsValid (zip _txOutputs (getTxDistribution dist)))
             (zip extendedInputs (toList txWits))
@@ -382,7 +382,7 @@ validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
     let quadruple@((tx, dist), inpResolver, _, txWits) =
             getTxFromGoodTx ls
         transactionIsVerified = isRight $
-            verifyTxPure True False
+            verifyTxPure False
                 VTxGlobalContext
                 (fmap VTxLocalContext <$> inpResolver)
                 (tx, txWits, dist)
@@ -401,10 +401,10 @@ signatureIsNotValid txOutputs = not . signatureIsValid txOutputs
 
 badSigsTx :: SmallBadSigsTx -> Bool
 badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
-    let ((tx@Tx{..}, dist), inpResolver, extendedInputs, txWits) =
+    let ((tx@UnsafeTx{..}, dist), inpResolver, extendedInputs, txWits) =
             getTxFromGoodTx ls
         transactionIsNotVerified = isLeft $
-            verifyTxPure True False
+            verifyTxPure False
                 VTxGlobalContext
                 (fmap VTxLocalContext <$> inpResolver)
                 (tx, txWits, dist)
@@ -422,7 +422,7 @@ txGen size = do
     inputs <- replicateM inputsN $ (\h -> TxIn h 0) <$> arbitrary
     outputs <- replicateM outputsN $
         TxOut <$> arbitrary <*> arbitrary
-    pure $ Tx inputs outputs (mkAttributes ())
+    pure $ UnsafeTx inputs outputs $ mkAttributes ()
 
 testTopsort :: Bool -> Property
 testTopsort isBamboo =
@@ -474,7 +474,7 @@ txAcyclicGen isBamboo size = do
         -- gen some outputs
         outputs <- replicateM outputsN (TxOut <$> arbitrary <*> arbitrary)
         -- calculate new utxo & add vertex
-        let tx = Tx inputs outputs (mkAttributes ())
+        let tx = UnsafeTx inputs outputs $ mkAttributes ()
             producedUtxo = map (tx,) $ [0..(length outputs) - 1]
             newVertices = tx : vertices
             newUtxo = (unusedUtxo \\ chosenUtxo) ++ producedUtxo

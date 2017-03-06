@@ -30,7 +30,6 @@ module Pos.Update.Poll.Types
        , pmConfirmedL
        , pmConfirmedPropsL
        , pmActivePropsL
-       , pmNewActivePropsIdxL
        , pmDelActivePropsIdxL
        , pmSlottingDataL
 
@@ -210,8 +209,7 @@ data PollModifier = PollModifier
     , pmConfirmed         :: !(MapModifier ApplicationName NumSoftwareVersion)
     , pmConfirmedProps    :: !(MapModifier SoftwareVersion ConfirmedProposalState)
     , pmActiveProps       :: !(MapModifier UpId ProposalState)
-    , pmNewActivePropsIdx :: !(HashMap ApplicationName UpId)
-    , pmDelActivePropsIdx :: !(HashMap ApplicationName UpId)
+    , pmDelActivePropsIdx :: !(HashMap ApplicationName (HashSet UpId))
     , pmSlottingData      :: !(Maybe SlottingData)
     } deriving (Show)
 
@@ -221,7 +219,6 @@ flip makeLensesFor ''PollModifier
     , ("pmConfirmed", "pmConfirmedL")
     , ("pmConfirmedProps", "pmConfirmedPropsL")
     , ("pmActiveProps", "pmActivePropsL")
-    , ("pmNewActivePropsIdx", "pmNewActivePropsIdxL")
     , ("pmDelActivePropsIdx", "pmDelActivePropsIdxL")
     , ("pmSlottingData", "pmSlottingDataL")
     ]

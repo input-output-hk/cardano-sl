@@ -38,10 +38,10 @@ class (Monad m, WithLogger m) => MonadPollRead m where
     -- ^ Retrieve last adopted block version and its state.
     getLastConfirmedSV :: ApplicationName -> m (Maybe NumSoftwareVersion)
     -- ^ Get numeric component of last confirmed version of application
-    hasActiveProposal :: ApplicationName -> m Bool
-    -- ^ Check if given application has an active (non-confirmed) proposal
     getProposal :: UpId -> m (Maybe ProposalState)
     -- ^ Get active proposal
+    getProposalsByApp :: ApplicationName -> m [ProposalState]
+    -- ^ Get active proposals for the specified application.
     getConfirmedProposals :: m [ConfirmedProposalState]
     -- ^ Get all known confirmed proposals.
     getEpochTotalStake :: EpochIndex -> m (Maybe Coin)
@@ -93,15 +93,15 @@ class (Monad m, WithLogger m) => MonadPollRead m where
         ApplicationName -> m (Maybe Word32)
     getLastConfirmedSV = lift . getLastConfirmedSV
 
-    default hasActiveProposal
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
-        ApplicationName -> m Bool
-    hasActiveProposal = lift . hasActiveProposal
-
     default getProposal
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
         UpId -> m (Maybe ProposalState)
     getProposal = lift . getProposal
+
+    default getProposalsByApp
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
+        ApplicationName -> m [ProposalState]
+    getProposalsByApp = lift . getProposalsByApp
 
     default getConfirmedProposals
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>

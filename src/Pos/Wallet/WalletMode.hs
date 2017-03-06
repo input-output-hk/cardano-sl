@@ -9,6 +9,7 @@
 module Pos.Wallet.WalletMode
        ( MonadBalances (..)
        , MonadTxHistory (..)
+       , TxHistoryAnswer (..)
        , MonadBlockchainInfo (..)
        , MonadUpdates (..)
        , TxMode
@@ -48,7 +49,7 @@ import           Pos.Txp.Class               (getMemPool, getUtxoView)
 import qualified Pos.Txp.Holder              as Modern
 import           Pos.Txp.Logic               (processTx)
 import           Pos.Txp.Types               (UtxoView (..), localTxs)
-import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
+import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin, HeaderHash,
                                               TxAux, TxId, Utxo, difficultyL,
                                               evalUtxoStateT, flattenEpochOrSlot,
                                               flattenSlotId, prevBlockL, runUtxoStateT,
@@ -64,7 +65,7 @@ import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)
 import qualified Pos.Wallet.State            as WS
-import           Pos.Wallet.Tx.Pure          (TxHistoryEntry, deriveAddrHistory,
+import           Pos.Wallet.Tx.Pure          (TxHistoryEntry, deriveAddrHistory, thDifficulty,
                                               deriveAddrHistoryPartial, getRelatedTxs)
 import           Pos.Wallet.Web.State        (WalletWebDB (..))
 
@@ -109,13 +110,23 @@ instance (MonadDB ssc m, MonadMask m) => MonadBalances (Modern.TxpLDHolder ssc m
 
 --deriving instance MonadBalances m => MonadBalances (Modern.TxpLDHolder m)
 
+data TxHistoryAnswer = TxHistoryAnswer
+    { taLastCachedHash :: HeaderHash
+    , taCachedNum      :: Int
+    , taCachedUtxo     :: Utxo
+    , taHistory        :: [TxHistoryEntry]
+    } deriving (Show)
+
 -- | A class which have methods to get transaction history
 class Monad m => MonadTxHistory m where
-    getTxHistory :: Address -> m [TxHistoryEntry]
+    getTxHistory
+        :: Address -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer
     saveTx :: (TxId, TxAux) -> m ()
 
-    default getTxHistory :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => Address -> m [TxHistoryEntry]
-    getTxHistory = lift . getTxHistory
+    default getTxHistory
+        :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
+        => Address -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer
+    getTxHistory addr = lift . getTxHistory addr
 
     default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()
     saveTx = lift . saveTx
@@ -138,20 +149,22 @@ deriving instance MonadTxHistory m => MonadTxHistory (WalletWebDB m)
 
 -- | Get tx history for Address
 instance MonadIO m => MonadTxHistory (WalletDB m) where
-    getTxHistory addr = do
+    getTxHistory addr _ = do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
-        fmap (fst . fromMaybe (panic "deriveAddrHistory: Nothing")) $
+        res <- fmap (fst . fromMaybe (panic "deriveAddrHistory: Nothing")) $
             runMaybeT $ flip runUtxoStateT utxo $
             deriveAddrHistory addr chain
+        pure undefined
     saveTx _ = pure ()
 
-instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
+instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m, PC.WithNodeContext ssc m)
          => MonadTxHistory (Modern.TxpLDHolder ssc m) where
-    getTxHistory addr = do
-        bot <- GS.getBot
+    getTxHistory addr mInit = do
         tip <- GS.getTip
-        genUtxo <- GS.getFilteredGenUtxo addr
+
+        let getGenUtxo = filterUtxoByAddr addr . PC.ncGenesisUtxo <$> PC.getNodeContext
+        (bot, genUtxo) <- maybe ((,) <$> GS.getBot <*> getGenUtxo) pure mInit
 
         -- Getting list of all hashes in main blockchain (excluding bottom block - it's genesis anyway)
         hashList <- flip unfoldrM tip $ \h ->
@@ -163,6 +176,10 @@ instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
                 let prev = header ^. prevBlockL
                 return $ Just (h, prev)
 
+        -- Determine last block which txs should be cached
+        let cachedHashes = drop blkSecurityParam hashList
+            nonCachedHashes = take blkSecurityParam hashList
+
         let blockFetcher h txs = do
                 blk <- lift . lift $ DB.getBlock h >>=
                        maybeThrow (DBMalformed "A block mysteriously disappeared!")
@@ -173,9 +190,18 @@ instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m)
                 txs <- getRelatedTxs addr $ map mp ltxs
                 return $ txs ++ blkTxs
 
-        result <- runMaybeT $
-            evalUtxoStateT (foldrM blockFetcher [] hashList >>= localFetcher) genUtxo
-        maybe (panic "deriveAddrHistory: Nothing") return result
+        mres <- runMaybeT $ do
+            (cachedTxs, cachedUtxo) <- runUtxoStateT
+                (foldrM blockFetcher [] cachedHashes) genUtxo
+    
+            result <- evalUtxoStateT
+                (foldrM blockFetcher cachedTxs nonCachedHashes >>= localFetcher)
+                cachedUtxo
+
+            let lastCachedHash = maybe bot identity $ head cachedHashes
+            return $ TxHistoryAnswer lastCachedHash (length cachedTxs) cachedUtxo result
+
+        maybe (panic "deriveAddrHistory: Nothing") pure mres
 
     saveTx txw = () <$ processTx txw
 

@@ -225,8 +225,8 @@ instance T.Arbitrary (MaxSize (DataMsg GtMsgContents)) where
 -- Utils
 ----------------------------------------------------------------------------
 
--- | Generates multimap which has given number of keys, each assisiated
--- with single value
+-- | Generates multimap which has given number of keys, each associated
+-- with a single value
 aMultimap
     :: (Eq k, Hashable k, T.Arbitrary k, T.Arbitrary v)
     => Int -> T.Gen (HashMap k (NonEmpty v))
@@ -234,6 +234,7 @@ aMultimap k =
     let pairs = (,) <$> T.arbitrary <*> ((:|) <$> T.arbitrary <*> pure [])
     in  fromList <$> T.vectorOf k pairs
 
+-- | Given a limit for a list item, generate limit for a list with N elements
 vectorOf :: IsList l => Int -> Limit (Item l) -> Limit l
 vectorOf k (Limit x) =
     Limit $ encodedListLength + x * (fromIntegral k)
@@ -241,6 +242,7 @@ vectorOf k (Limit x) =
     -- should be enough for most reasonable cases
     encodedListLength = 20
 
+-- | Generate limit for a list of messages with N elements
 vector :: (IsList l, MessageLimitedPure (Item l)) => Int -> Limit l
 vector k = vectorOf k msgLenLimit
 

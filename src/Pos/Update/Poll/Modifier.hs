@@ -18,7 +18,6 @@ instance Default PollModifier where
         , pmConfirmed = mempty
         , pmConfirmedProps = mempty
         , pmActiveProps = mempty
-        , pmNewActivePropsIdx = mempty
         , pmDelActivePropsIdx = mempty
         , pmSlottingData = Nothing
         }
@@ -32,7 +31,6 @@ modifyPollModifier pmOld pmNew = PollModifier
     (pmConfirmed pmOld <> pmConfirmed pmNew)
     (pmConfirmedProps pmOld <> pmConfirmedProps pmNew)
     (pmActiveProps pmOld <> pmActiveProps pmNew)
-    (unionHM pmNewActivePropsIdx `HM.difference` pmDelActivePropsIdx pmNew)
     (unionHM pmDelActivePropsIdx)
     (pmSlottingData pmNew <|> pmSlottingData pmOld)
   where

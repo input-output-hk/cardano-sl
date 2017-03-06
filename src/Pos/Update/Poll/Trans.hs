@@ -10,7 +10,7 @@ module Pos.Update.Poll.Trans
        , execPollT
        ) where
 
-import           Control.Lens                (at, iso, (%=), (.=))
+import           Control.Lens                (iso, (%=), (.=), uses)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Except        (MonadError)
 import           Control.Monad.Fix           (MonadFix)
@@ -21,6 +21,7 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               defaultLiftBaseWith, defaultLiftWith,
                                               defaultRestoreM, defaultRestoreT)
 import qualified Data.HashMap.Strict         as HM
+import qualified Data.HashSet                as HS
 import           Mockable                    (ChannelT, Counter, Distribution, Gauge,
                                               Gauge, Promise, SharedAtomicT,
                                               SharedExclusiveT, SharedExclusiveT,
@@ -48,8 +49,7 @@ import           Pos.Update.Poll.Types       (BlockVersionState (..),
                                               cpsSoftwareVersion, pmActivePropsL,
                                               pmAdoptedBVFullL, pmBVsL, pmConfirmedL,
                                               pmConfirmedPropsL, pmDelActivePropsIdxL,
-                                              pmNewActivePropsIdxL, pmSlottingDataL,
-                                              psProposal)
+                                              pmSlottingDataL, psProposal)
 import           Pos.Util.JsonLog            (MonadJL (..))
 import qualified Pos.Util.Modifier           as MM
 
@@ -99,15 +99,13 @@ instance MonadPollRead m =>
         PollT $ maybe getAdoptedBVFull pure =<< use pmAdoptedBVFullL
     getLastConfirmedSV appName =
         PollT $ MM.lookupM getLastConfirmedSV appName =<< use pmConfirmedL
-    hasActiveProposal appName =
-        PollT $ do
-            new <- pmNewActivePropsIdx <$> get
-            del <- pmDelActivePropsIdx <$> get
-            if | appName `HM.member` del -> return False
-               | appName `HM.member` new -> return True
-               | otherwise -> hasActiveProposal appName
     getProposal upId =
         PollT $ MM.lookupM getProposal upId =<< use pmActivePropsL
+    getProposalsByApp app = PollT $ do
+        let eqApp = (== app) . svAppName . upSoftwareVersion . psProposal . snd
+        props <- uses pmActivePropsL (filter eqApp . MM.insertions)
+        dbProps <- map (first (hash . psProposal) . join (,)) <$> getProposalsByApp app
+        pure . toList . HM.fromList $ dbProps ++ props -- squash props with same upId
     getConfirmedProposals =
         PollT $
         MM.valuesM
@@ -167,9 +165,11 @@ instance MonadPollRead m =>
                 upId = hash up
                 sv = upSoftwareVersion up
                 appName = svAppName sv
+
+                alterDel _ Nothing     = Nothing
+                alterDel val (Just hs) = Just $ HS.delete val hs
             pmActivePropsL %= MM.insert upId ps
-            pmNewActivePropsIdxL . at appName .= Just upId
-            pmDelActivePropsIdxL . at appName .= Nothing
+            pmDelActivePropsIdxL %= HM.alter (alterDel upId) appName
     deactivateProposal id = do
         prop <- getProposal id
         whenJust prop $ \ps ->
@@ -178,9 +178,11 @@ instance MonadPollRead m =>
                     upId = hash up
                     sv = upSoftwareVersion up
                     appName = svAppName sv
+
+                    alterIns val Nothing   = Just $ HS.singleton val
+                    alterIns val (Just hs) = Just $ HS.insert val hs
                 pmActivePropsL %= MM.delete upId
-                pmNewActivePropsIdxL . at appName .= Nothing
-                pmDelActivePropsIdxL . at appName .= Just id
+                pmDelActivePropsIdxL %= HM.alter (alterIns upId) appName
     setSlottingData sd = PollT $ pmSlottingDataL .= Just sd
 
 ----------------------------------------------------------------------------

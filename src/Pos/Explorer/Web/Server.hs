@@ -211,7 +211,7 @@ getTxSummary cTxId = do
         ctsInputs = convertTxOutputs inputOutputs
         ctsTotalOutput = unsafeIntegerToCoin $ sumCoins $ map snd ctsOutputs
 
-    when (ctsTotalOutput >= ctsTotalInput) $
+    when (ctsTotalOutput > ctsTotalInput) $
         throwM $ Internal "Detected tx with output greater than input"
 
     let ctsFees = unsafeSubCoin ctsTotalInput ctsTotalOutput

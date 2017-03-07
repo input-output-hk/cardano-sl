@@ -1,7 +1,7 @@
 -- | Helper for core types.
 
 module Pos.Txp.Core.Core
-       ( toPair
+       ( txInToPair
        , txOutStake
        , mkTxProof
        , mkTxPayload
@@ -19,9 +19,9 @@ import           Pos.Merkle         (mkMerkleTree, mtRoot)
 import           Pos.Txp.Core.Types (Tx, TxDistribution, TxId, TxIn (..), TxOut (..),
                                      TxOutAux, TxPayload (..), TxProof (..), TxWitness)
 
--- | Make pair from TxIn
-toPair :: TxIn -> (TxId, Word32)
-toPair (TxIn h i) = (h, i)
+-- | Make a pair from 'TxIn'.
+txInToPair :: TxIn -> (TxId, Word32)
+txInToPair (TxIn h i) = (h, i)
 
 -- | Use this function if you need to know how a 'TxOut' distributes stake
 -- (e.g. for the purpose of running follow-the-satoshi).

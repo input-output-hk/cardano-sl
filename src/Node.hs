@@ -17,6 +17,8 @@
 module Node (
 
       Node(..)
+    , LL.NodeEnvironment(..)
+    , LL.defaultNodeEnvironment
     , nodeEndPointAddress
     , NodeAction(..)
     , node
@@ -38,6 +40,8 @@ module Node (
 
     , LL.Statistics(..)
     , LL.PeerStatistics(..)
+
+    , LL.Timeout(..)
 
     ) where
 
@@ -185,6 +189,7 @@ nodeSendActions
        , Mockable Bracket m, Mockable SharedAtomic m, Mockable SharedExclusive m
        , Mockable Async m, Ord (ThreadId m)
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
+       , Mockable Delay m
        , WithLogger m, MonadFix m
        , Serializable packing peerData
        , Packable packing MessageName )
@@ -275,6 +280,7 @@ node
        , Mockable Async m, Mockable Concurrently m
        , Ord (ThreadId m), Show (ThreadId m)
        , Mockable SharedExclusive m
+       , Mockable Delay m
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
        , MonadFix m, Serializable packing MessageName, WithLogger m
        , Serializable packing peerData
@@ -283,9 +289,10 @@ node
     -> StdGen
     -> packing
     -> peerData
+    -> LL.NodeEnvironment m
     -> (Node m -> NodeAction packing peerData m t)
     -> m t
-node transport prng packing peerData k = do
+node transport prng packing peerData nodeEnv k = do
     rec { let nId = LL.nodeId llnode
         ; let endPoint = LL.nodeEndPoint llnode
         ; let nodeUnit = Node nId endPoint (LL.nodeStatistics llnode)
@@ -300,6 +307,7 @@ node transport prng packing peerData k = do
               peerData
               transport
               prng
+              nodeEnv
               (handlerIn listenerIndex sendActions)
               (handlerInOut llnode listenerIndex)
         ; let sendActions = nodeSendActions llnode packing

@@ -18,6 +18,8 @@
 module Node.Internal (
     NodeId(..),
     Node(..),
+    NodeEnvironment(..),
+    defaultNodeEnvironment,
     nodeId,
     nodeEndPointAddress,
     Statistics(..),
@@ -33,7 +35,8 @@ module Node.Internal (
     stopNode,
     withOutChannel,
     withInOutChannel,
-    writeChannel
+    writeChannel,
+    Timeout(..)
   ) where
 
 import           Control.Exception             hiding (bracket, catch, finally, throw)
@@ -83,7 +86,7 @@ data NodeState peerData m = NodeState {
       -- ^ To generate nonces.
     , _nodeStateOutboundUnidirectional :: !(Map NT.EndPointAddress (SomeHandler m))
       -- ^ Handlers for each locally-initiated unidirectional connection.
-    , _nodeStateOutboundBidirectional  :: !(Map NT.EndPointAddress (Map Nonce (SomeHandler m, ChannelIn m, Int -> m (), SharedExclusiveT m peerData, NT.ConnectionBundle, Bool)))
+    , _nodeStateOutboundBidirectional  :: !(Map NT.EndPointAddress (Map Nonce (SomeHandler m, ChannelIn m, Int -> m (), SharedExclusiveT m peerData, NT.ConnectionBundle, Promise m (), Bool)))
       -- ^ Handlers for each nonce which we generated (locally-initiated
       --   bidirectional connections).
       --   The bool indicates whether we have received an ACK for this.
@@ -103,6 +106,13 @@ data NodeState peerData m = NodeState {
       -- ^ Indicates whether the Node has been closed and is no longer capable
       --   of establishing or accepting connections (its EndPoint is closed).
     }
+
+
+-- | An exception which is thrown when something times out.
+data Timeout = Timeout
+  deriving (Show, Typeable)
+
+instance Exception Timeout
 
 -- | The initial state of a node, wrapped up in a shared atomic.
 initialNodeState
@@ -144,11 +154,22 @@ makeSomeHandler promise = do
     tid <- asyncThreadId promise
     return $ SomeHandler tid promise
 
+data NodeEnvironment (m :: * -> *) = NodeEnvironment {
+      nodeAckTimeout :: Microsecond
+    }
+
+defaultNodeEnvironment :: NodeEnvironment m
+defaultNodeEnvironment = NodeEnvironment {
+      -- 30 second timeout waiting for an ACK.
+      nodeAckTimeout = 30000000
+    }
+
 -- | A 'Node' is a network-transport 'EndPoint' with bidirectional connection
 --   state and a thread to dispatch network-transport events.
 data Node packingType peerData (m :: * -> *) = Node {
        nodeEndPoint         :: NT.EndPoint m
      , nodeDispatcherThread :: Promise m ()
+     , nodeEnvironment      :: NodeEnvironment m
      , nodeState            :: SharedAtomicT m (NodeState peerData m)
      , nodePackingType      :: packingType
      , nodePeerData         :: peerData
@@ -275,7 +296,6 @@ pstNull PeerStatistics{..} =
         local = pstRunningHandlersLocal
     in  remote == 0 && local == 0
 
-
 stIncrBytes
     :: (Mockable SharedAtomic m)
     => NT.EndPointAddress -> Int -> Statistics m -> m ()
@@ -366,7 +386,7 @@ initialStatistics = do
 data HandlerProvenance peerData m t =
       -- | Initiated locally, _to_ this peer. The Nonce is present if and only
       --   if it's a bidirectional connection.
-      Local !NT.EndPointAddress (Maybe (Nonce, SharedExclusiveT m peerData, NT.ConnectionBundle, t))
+      Local !NT.EndPointAddress (Maybe (Nonce, SharedExclusiveT m peerData, NT.ConnectionBundle, Promise m (), t))
       -- | Initiated remotely, _by_ or _from_ this peer.
     | Remote !NT.EndPointAddress !NT.ConnectionId t
 
@@ -375,7 +395,7 @@ instance Show (HandlerProvenance peerData m t) where
         Local addr mdata -> concat [
               "Local "
             , show addr
-            , show (fmap (\(x,_,_,_) -> x) mdata)
+            , show (fmap (\(x,_,_,_,_) -> x) mdata)
             ]
         Remote addr connid _ -> concat ["Remote ", show addr, show connid]
 
@@ -540,12 +560,13 @@ startNode
     --   up.
     -> StdGen
     -- ^ A source of randomness, for generating nonces.
+    -> NodeEnvironment m
     -> (peerData -> NodeId -> ChannelIn m -> m ())
     -- ^ Handle incoming unidirectional connections.
     -> (peerData -> NodeId -> ChannelIn m -> ChannelOut m -> m ())
     -- ^ Handle incoming bidirectional connections.
     -> m (Node packingType peerData m)
-startNode packingType peerData transport prng handlerIn handlerOut = do
+startNode packingType peerData transport prng nodeEnv handlerIn handlerOut = do
     mEndPoint <- NT.newEndPoint transport
     case mEndPoint of
         Left err -> throw err
@@ -555,6 +576,7 @@ startNode packingType peerData transport prng handlerIn handlerOut = do
             rec { let node = Node {
                             nodeEndPoint         = endPoint
                           , nodeDispatcherThread = dispatcherThread
+                          , nodeEnvironment      = nodeEnv
                           , nodeState            = sharedState
                           , nodePackingType      = packingType
                           , nodePeerData         = peerData
@@ -667,7 +689,7 @@ waitForRunningHandlers node = do
             -- nonce keys) and then return the promise.
             outbound_bi = do
                 map <- Map.elems (_nodeStateOutboundBidirectional st)
-                (x, _, _, _, _, _) <- Map.elems map
+                (x, _, _, _, _, _, _) <- Map.elems map
                 return x
             inbound = Set.toList (_nodeStateInbound st)
             all = outbound_uni ++ outbound_bi ++ inbound
@@ -746,11 +768,10 @@ nodeDispatcher node handlerIn handlerInOut =
         -> m ()
     endPointClosed state = do
         let connections = Map.toList (dsConnections state)
-        -- This is a network-transport error (ConnectionClosed should have
-        -- been posted for all open connections), but we're defensive and
-        -- plug the channels.
+        -- This is *not* a network-transport error; EndPointClosed can be
+        -- posted without ConnectionClosed for all open connections, as an
+        -- optimization.
         when (not (null connections)) $ do
-            logError $ sformat ("end point closed with " % shown % " open connection(s)") (length connections)
             forM_ connections $ \(_, st) -> case st of
                 (_, FeedingApplicationHandler (ChannelIn channel) _) -> do
                     Channel.writeChannel channel Nothing
@@ -762,7 +783,7 @@ nodeDispatcher node handlerIn handlerInOut =
         _ <- modifySharedAtomic nstate $ \st -> do
             let nonceMaps = Map.elems (_nodeStateOutboundBidirectional st)
             let outbounds = nonceMaps >>= Map.elems
-            forM_ outbounds $ \(_, ChannelIn chan, _, peerDataVar, _, acked) -> do
+            forM_ outbounds $ \(_, ChannelIn chan, _, peerDataVar, _, _, acked) -> do
                 when (not acked) $ do
                    _ <- tryPutSharedExclusive peerDataVar (error "no peer data because local node has gone down")
                    Channel.writeChannel chan Nothing
@@ -995,14 +1016,16 @@ nodeDispatcher node handlerIn handlerInOut =
                               let thisNonce = nonces >>= Map.lookup nonce
                               case thisNonce of
                                   Nothing -> return (st, Nothing)
-                                  Just (_, _, _, _, _, True) -> return (st, Just Nothing)
-                                  Just (promise, channel, incrBytes, peerDataVar, connBundle, False) -> return
-                                      ( st { _nodeStateOutboundBidirectional = Map.update updater peer (_nodeStateOutboundBidirectional st)
-                                           }
-                                      , Just (Just (channel, incrBytes, peerDataVar))
-                                      )
+                                  Just (_, _, _, _, _, _, True) -> return (st, Just Nothing)
+                                  Just (promise, channel, incrBytes, peerDataVar, connBundle, timeoutPromise, False) -> do
+                                      cancel timeoutPromise
+                                      return
+                                          ( st { _nodeStateOutboundBidirectional = Map.update updater peer (_nodeStateOutboundBidirectional st)
+                                               }
+                                          , Just (Just (channel, incrBytes, peerDataVar))
+                                          )
                                       where
-                                      updater map = Just $ Map.insert nonce (promise, channel, incrBytes, peerDataVar, connBundle, True) map
+                                      updater map = Just $ Map.insert nonce (promise, channel, incrBytes, peerDataVar, connBundle, timeoutPromise, True) map
                           case outcome of
                               -- We don't know about the nonce. Could be that
                               -- we never sent the SYN for it (protocol error)
@@ -1100,12 +1123,12 @@ nodeDispatcher node handlerIn handlerInOut =
         logWarning $ sformat ("lost connection bundle " % shown % " to " % shown) bundle peer
         state' <- case Map.lookup peer (dsPeers state) of
             Just it -> do
-                -- This is a network-transport bug, but we're defensive: will
-                -- clean up the state and plug the input channels anyway.
+                -- This is *not* a network-transport bug; a connection lost
+                -- event can be posted without ConnectionClosed, as an
+                -- optimization.
                 let connids = case it of
                         GotPeerData _ neset -> NESet.toList neset
                         ExpectingPeerData neset _ -> NESet.toList neset
-                logError $ sformat ("still have " % shown % " connections") (length connids)
                 -- For every connection to that peer we'll plug the channel with
                 -- Nothing and remove it from the map.
                 let folder :: Map NT.ConnectionId (NT.EndPointAddress, ConnectionState peerData m)
@@ -1148,7 +1171,7 @@ nodeDispatcher node handlerIn handlerInOut =
                     -- Remove every element from the map which is carried by
                     -- this bundle, and then remove the map itself if it's
                     -- empty.
-                    let folder (_, channelIn, _, peerDataVar, bundle', acked) channels
+                    let folder (_, channelIn, _, peerDataVar, bundle', _, acked) channels
                             | bundle' == bundle && not acked = (channelIn, peerDataVar) : channels
                             | otherwise = channels
 
@@ -1195,12 +1218,12 @@ spawnHandler stateVar provenance action =
                 Remote _ _ _ -> nodeState {
                       _nodeStateInbound = Set.insert someHandler (_nodeStateInbound nodeState)
                     }
-                Local peer (Just (nonce, peerDataVar, connBundle, channelIn)) -> nodeState {
+                Local peer (Just (nonce, peerDataVar, connBundle, timeoutPromise, channelIn)) -> nodeState {
                       _nodeStateOutboundBidirectional = Map.alter alteration peer (_nodeStateOutboundBidirectional nodeState)
                     }
                     where
-                    alteration Nothing = Just $ Map.singleton nonce (someHandler, channelIn, incrBytes, peerDataVar, connBundle, False)
-                    alteration (Just map) = Just $ Map.insert nonce (someHandler, channelIn, incrBytes, peerDataVar, connBundle, False) map
+                    alteration Nothing = Just $ Map.singleton nonce (someHandler, channelIn, incrBytes, peerDataVar, connBundle, timeoutPromise, False)
+                    alteration (Just map) = Just $ Map.insert nonce (someHandler, channelIn, incrBytes, peerDataVar, connBundle, timeoutPromise, False) map
                 Local peer Nothing -> nodeState {
                       _nodeStateOutboundUnidirectional = Map.insert peer someHandler (_nodeStateOutboundUnidirectional nodeState)
                     }
@@ -1238,7 +1261,7 @@ spawnHandler stateVar provenance action =
                         }
                     -- Remove the nonce for this peer, and remove the whole map
                     -- if this was the only nonce for that peer.
-                    Local peer (Just (nonce, _, _, _)) -> nodeState {
+                    Local peer (Just (nonce, _, _, _, _)) -> nodeState {
                           _nodeStateOutboundBidirectional = Map.update updater peer (_nodeStateOutboundBidirectional nodeState)
                         }
                         where
@@ -1287,6 +1310,8 @@ fixedSizeBuilder n =
 
 -- | Create, use, and tear down a conversation channel with a given peer
 --   (NodeId).
+--   This may be killed with a 'Timeout' exception in case the peer does not
+--   give an ACK before the specified timeout ('nodeAckTimeout').
 withInOutChannel
     :: forall packingType peerData m a .
        ( Mockable Bracket m, Mockable Async m, Ord (ThreadId m)
@@ -1294,13 +1319,14 @@ withInOutChannel
        , Mockable SharedExclusive m
        , Mockable Catch m, Mockable Channel.Channel m
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
+       , Mockable Delay m
        , MonadFix m, WithLogger m
        , Message.Packable packingType peerData )
     => Node packingType peerData m
     -> NodeId
     -> (SharedExclusiveT m peerData -> ChannelIn m -> ChannelOut m -> m a)
     -> m a
-withInOutChannel node@Node{nodeState} nodeid@(NodeId peer) action = do
+withInOutChannel node@Node{nodeEnvironment, nodeState} nodeid@(NodeId peer) action = do
     nonce <- modifySharedAtomic nodeState $ \nodeState -> do
                let (nonce, !prng') = random (_nodeStateGen nodeState)
                pure (nodeState { _nodeStateGen = prng' }, nonce)
@@ -1316,18 +1342,27 @@ withInOutChannel node@Node{nodeState} nodeid@(NodeId peer) action = do
     -- before we register, but that's OK, as disconnectFromPeer is forgiving
     -- about this.
     let action' conn = do
-            let provenance = Local peer (Just (nonce, peerDataVar, NT.bundle conn, channel))
-            (promise, _) <- spawnHandler nodeState provenance $ do
-                -- It's essential that we only send the handshake SYN inside
-                -- the handler, because at this point the nonce is guaranteed
-                -- to be known in the node state. If we sent the handhsake
-                -- before 'spawnHandler' we risk (although it's highly unlikely)
-                -- receiving the ACK before the nonce is put into the state.
-                -- This isn't so unlikely in the case of self-connections.
-                outcome <- NT.send conn [controlHeaderBidirectionalSyn nonce]
-                case outcome of
-                    Left err -> throw err
-                    Right _ -> action peerDataVar channel (ChannelOut conn)
+            rec { let provenance = Local peer (Just (nonce, peerDataVar, NT.bundle conn, timeoutPromise, channel))
+                ; (promise, _) <- spawnHandler nodeState provenance $ do
+                      -- It's essential that we only send the handshake SYN inside
+                      -- the handler, because at this point the nonce is guaranteed
+                      -- to be known in the node state. If we sent the handhsake
+                      -- before 'spawnHandler' we risk (although it's highly unlikely)
+                      -- receiving the ACK before the nonce is put into the state.
+                      -- This isn't so unlikely in the case of self-connections.
+                      outcome <- NT.send conn [controlHeaderBidirectionalSyn nonce]
+                      case outcome of
+                          Left err -> throw err
+                          Right _ -> action peerDataVar channel (ChannelOut conn)
+                  -- Here we spawn the timeout thread... Killing the 'promise'
+                  -- is enough to clean everything up.
+                  -- This timeout promise is included in the provenance, so
+                  -- that when an ACK is received, the timeout thread can
+                  -- be killed.
+                ; timeoutPromise <- async $ do
+                      delay (nodeAckTimeout nodeEnvironment)
+                      cancelWith promise Timeout
+                }
             wait promise
     bracket (connectToPeer node nodeid)
             (\conn -> disconnectFromPeer node nodeid conn)

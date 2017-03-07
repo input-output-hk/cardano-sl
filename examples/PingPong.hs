@@ -88,10 +88,10 @@ main = runProduction $ do
     let prng4 = mkStdGen 3
 
     liftIO . putStrLn $ "Starting nodes"
-    node transport prng1 BinaryP (B8.pack "I am node 1") $ \node1 ->
+    node transport prng1 BinaryP (B8.pack "I am node 1") defaultNodeEnvironment $ \node1 ->
         NodeAction (listeners . nodeId $ node1) $ \sactions1 -> do
             _ <- setupMonitor 8000 runProduction node1
-            node transport prng2 BinaryP (B8.pack "I am node 2") $ \node2 ->
+            node transport prng2 BinaryP (B8.pack "I am node 2") defaultNodeEnvironment $ \node2 ->
                 NodeAction (listeners . nodeId $ node2) $ \sactions2 -> do
                     _ <- setupMonitor 8001 runProduction node2
                     tid1 <- fork $ worker (nodeId node1) prng3 [nodeId node2] sactions1

@@ -77,7 +77,7 @@ import           Test.QuickCheck.Property    (Testable (..), failed, reason, suc
 import           Node                        (ConversationActions (..), Listener,
                                               ListenerAction (..), Message (..),
                                               NodeAction (..), NodeId, SendActions (..),
-                                              Worker, node, nodeId)
+                                              Worker, node, nodeId, defaultNodeEnvironment)
 import           Node.Message                (BinaryP (..))
 
 -- | Run a computation, but kill it if it takes more than a given number of
@@ -308,7 +308,7 @@ deliveryTest transport_ testState workers listeners = runProduction $ do
     clientFinished <- newSharedExclusive
     serverFinished <- newSharedExclusive
 
-    let server = node transport prng1 BinaryP () $ \serverNode -> do
+    let server = node transport prng1 BinaryP () defaultNodeEnvironment $ \serverNode -> do
             NodeAction listeners $ \_ -> do
                 -- Give our address to the client.
                 putSharedExclusive serverAddressVar (nodeId serverNode)
@@ -319,7 +319,7 @@ deliveryTest transport_ testState workers listeners = runProduction $ do
                 -- Allow the client to stop.
                 putSharedExclusive serverFinished ()
 
-    let client = node transport prng2 BinaryP () $ \clientNode ->
+    let client = node transport prng2 BinaryP () defaultNodeEnvironment $ \clientNode ->
             NodeAction [] $ \sendActions -> do
                 serverAddress <- takeSharedExclusive serverAddressVar
                 void . forConcurrently workers $ \worker ->

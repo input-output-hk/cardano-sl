@@ -51,13 +51,12 @@ Use latest executable of `cardano-sl-explorer`:
 git clone https://github.com/input-output-hk/cardano-sl-explorer
 cd {path/to/}cardano-sl-explorer
 stack build
-stack exec -- cardano-explorer-hs2purs --bridge-path {path/to}/cardano-sl-explorer-frontend/src/Generated
 ```
 
 #### 1.2. Generate types
 
 ```bash
-stack exec -- cardano-explorer-hs2purs --bridge-path {path/to}/cardano-sl-explorer-frontend/src/Generated
+stack exec -- cardano-explorer-hs2purs --bridge-path ./frontend/src/Generated
 ```
 
 #### 2. Generate lenses
@@ -88,14 +87,14 @@ which purescript-derive-lenses
 #### 2.2. Generate backend lenses
 
 ```bash
-cd {/path/to/}cardano-sl-explorer-frontend
+cd ./frontend
 ./scripts/generate-backend-lenses.sh
 ```
 
 #### 2.3. Generate front end lenses
 
 ```bash
-cd {/path/to/}cardano-sl-explorer-frontend
+cd ./frontend
 ./scripts/generate-frontend-lenses.sh
 ```
 
@@ -130,7 +129,7 @@ Open http://localhost:3100/
 ## Mocking socket data
 
 ```bash
-cd cardano-sl-explorer-frontenddebug/socket
+cd ./frontend/debug/socket
 npm install
 npm start
 ```
@@ -150,7 +149,7 @@ export WALLET_TEST=1; ./scripts/launch.sh
 - Add key as follow:
 
   ```bash
-  cd {path/to/}cardano-sl/
+  cd {path/to/}cardano-sl
   # build backend types
   stack exec -- cardano-wallet-hs2purs
   # build daedalus bridge
@@ -169,8 +168,8 @@ export WALLET_TEST=1; ./scripts/launch.sh
 *2. Run `cardano-sl-explorer` (in another terminal window)*
 
 ```bash
-cd cardano-sl-explorer
-./test-launch.sh ../cardano-sl/scripts/common.sh
+cd {path/to/}cardano-sl-explorer
+./test-launch.sh {path/to/}cardano-sl/scripts/common.sh
 ```
 
 *3. Send a transaction (using a valid address listed in `http://localhost:8090/api/get_wallets`)*

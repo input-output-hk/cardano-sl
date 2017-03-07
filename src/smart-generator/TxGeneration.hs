@@ -19,7 +19,8 @@ import           Serokell.Util                 (sec)
 import           Universum                     hiding (head)
 
 import           Pos.Constants                 (genesisSlotDuration, slotSecurityParam)
-import           Pos.Crypto                    (SecretKey, hash, toPublic, unsafeHash)
+import           Pos.Crypto                    (SecretKey, fakeSigner, hash, toPublic,
+                                                unsafeHash)
 import           Pos.DB.GState                 (getTxOut)
 import           Pos.Genesis                   (genesisAddresses, genesisPublicKeys,
                                                 genesisSecretKeys)
@@ -48,14 +49,14 @@ tpsTxBound tps propThreshold =
 genChain :: SecretKey -> TxId -> Word32 -> [TxAux]
 genChain sk txInHash txInIndex =
     let addr = makePubKeyAddress $ toPublic sk
-        (tx, w, d) = makePubKeyTx sk [TxIn txInHash txInIndex]
+        (tx, w, d) = makePubKeyTx (fakeSigner sk) [TxIn txInHash txInIndex]
                                      [(TxOut addr (mkCoin 1), [])]
     in (tx, w, d) : genChain sk (hash tx) 0
 
 genMOfNChain :: Script -> [Maybe SecretKey] -> TxId -> Word32 -> [TxAux]
 genMOfNChain val sks txInHash txInIndex =
     let addr = makeScriptAddress val
-        (tx, w, d) = makeMOfNTx val sks [TxIn txInHash txInIndex]
+        (tx, w, d) = makeMOfNTx val (fmap fakeSigner <$> sks) [TxIn txInHash txInIndex]
                      [(TxOut addr (mkCoin 1), [])]
     in (tx, w, d) : genMOfNChain val sks (hash tx) 0
 
@@ -73,7 +74,7 @@ initTransaction GenOptions{..} i =
                                val = multisigValidator m pks
                            in makeScriptAddress val
         outputs = replicate outputsNum (TxOut outAddr (mkCoin 1), [])
-    in makePubKeyTx sk [input] outputs
+    in makePubKeyTx (fakeSigner sk) [input] outputs
 
 selectSks :: Int -> Int -> [SecretKey] -> [Maybe SecretKey]
 selectSks m i sks = permutations msks !! i

@@ -7,6 +7,7 @@ module Pos.Util.BackupPhrase
        , bpToList
        , toSeed
        , keysFromPhrase
+       , safeKeysFromPhrase
        ) where
 
 import           Crypto.Hash         (SHA3_256)
@@ -19,8 +20,9 @@ import           Prelude             (readsPrec, show)
 import           Universum           hiding (show)
 
 import           Pos.Binary          (Bi, encodeStrict)
-import           Pos.Crypto          (AbstractHash, SecretKey, VssKeyPair,
-                                      deterministicKeyGen, deterministicVssKeyGen,
+import           Pos.Crypto          (AbstractHash, EncryptedSecretKey, PassPhrase,
+                                      SecretKey, VssKeyPair, deterministicKeyGen,
+                                      deterministicVssKeyGen, safeDeterministicKeyGen,
                                       unsafeAbstractHash)
 
 -- | Datatype to contain a valid backup phrase
@@ -70,4 +72,14 @@ keysFromPhrase ph = (sk, vss)
   where seed = toSeed ph
         panicMsg = "Pos.Util.BackupPhrase: impossible: seed is always 32-bit"
         sk = snd $ maybe (panic panicMsg) identity $ deterministicKeyGen seed
+        vss = deterministicVssKeyGen seed
+
+safeKeysFromPhrase
+    :: PassPhrase
+    -> BackupPhrase
+    -> (EncryptedSecretKey, VssKeyPair)
+safeKeysFromPhrase pp ph = (esk, vss)
+  where seed = toSeed ph
+        panicMsg = "Pos.Util.BackupPhrase: impossible: seed is always 32-bit"
+        esk = snd $ maybe (panic panicMsg) identity $ safeDeterministicKeyGen seed pp
         vss = deterministicVssKeyGen seed

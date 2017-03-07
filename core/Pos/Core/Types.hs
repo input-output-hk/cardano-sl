@@ -86,7 +86,7 @@ import           Serokell.Util.Base16 (formatBase16)
 import           Universum            hiding (show)
 
 import           Pos.Crypto           (AbstractHash, Hash, ProxySecretKey, ProxySignature,
-                                       PublicKey)
+                                       PublicKey, RedeemPublicKey)
 import           Pos.Data.Attributes  (Attributes)
 
 
@@ -109,10 +109,10 @@ data Address
           , addrPkAttributes :: !(Attributes AddrPkAttrs) }
     | ScriptAddress
           { addrScriptHash :: !(AddressHash Script) }
+    | RedeemAddress
+          { addrRedeemKeyHash :: !(AddressHash RedeemPublicKey) }
     | UnknownAddressType !Word8 !ByteString
     deriving (Eq, Ord, Generic, Typeable, Show)
-
-instance NFData Address
 
 newtype AddrPkAttrs = AddrPkAttrs
     { addrPkDerivationPath :: Maybe [Word32]
@@ -125,6 +125,8 @@ instance Default AddrPkAttrs where
 type StakeholderId = AddressHash PublicKey
 
 type AddressHash = AbstractHash Blake2s_224
+
+instance NFData Address
 
 ----------------------------------------------------------------------------
 -- ChainDifficulty

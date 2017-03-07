@@ -22,6 +22,7 @@ import           Universum
 import           Pos.Communication.Protocol    (SendActions)
 import           Pos.Context                   (NodeContext, getNodeContext,
                                                 runContextHolder)
+import           Pos.Crypto                    (toEncrypted)
 import           Pos.DB                        (NodeDBs, getNodeDBs, runDBHolder)
 import           Pos.Delegation.Class          (DelegationWrap, askDelegationState)
 import           Pos.Delegation.Holder         (runDelegationTFromTVar)
@@ -68,7 +69,7 @@ walletServeWebFull sendActions debug = walletServeImpl action
     action = do
         logInfo "DAEDALUS has STARTED!"
 #ifdef DEV_MODE
-        when debug $ mapM_ addSecretKey genesisSecretKeys
+        when debug $ mapM_ (addSecretKey . toEncrypted) genesisSecretKeys
 #endif
         walletApplication $ walletServer @ssc sendActions nat
 

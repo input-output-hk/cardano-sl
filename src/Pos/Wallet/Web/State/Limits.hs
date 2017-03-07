@@ -12,4 +12,7 @@ import           Pos.Wallet.Web.State.Holder (WalletWebDB)
 
 -- TODO [CSL-803]: don't rely on constants
 instance MonadIO m => MonadDBLimits (WalletWebDB m) where
-    getMaxBlockSize = return $ fromIntegral Const.genesisMaxBlockSize
+    getMaxBlockSize = return Const.genesisMaxBlockSize
+    getMaxHeaderSize = return Const.genesisMaxHeaderSize
+    getMaxTxSize = return Const.genesisMaxTxSize
+    getMaxProposalSize = return Const.genesisMaxUpdateProposalSize

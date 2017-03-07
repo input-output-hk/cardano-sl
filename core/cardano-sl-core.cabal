@@ -40,8 +40,10 @@ library
                        Pos.Crypto.AsBinary
                        Pos.Crypto.Random
                        Pos.Crypto.Hashing
+                       Pos.Crypto.SafeSigning
                        Pos.Crypto.Signing
                        Pos.Crypto.SecretSharing
+                       Pos.Crypto.RedeemSigning
 
                        Pos.Merkle
                        Pos.Data.Attributes
@@ -58,6 +60,7 @@ library
 
                        Pos.Util.Config
                        Pos.Util.Iterator
+                       Pos.Util.Modifier
                        Pos.Util.Util
 
   other-modules:       Paths_cardano_sl_core
@@ -74,6 +77,7 @@ library
                       -- hasn't changed upstream.
                      , binary == 0.8.3.*
                      , bytestring
+                     , cardano-crypto
                      , cereal
                      , containers
                      , cryptonite

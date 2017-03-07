@@ -13,6 +13,7 @@ module Pos.Util.Modifier
        , toListM
        , toList
        , insertions
+       , insertionsMap
        , deletions
 
        , insert
@@ -105,9 +106,13 @@ toList
     => [(k, v)] -> MapModifier k v -> [(k, v)]
 toList getter = runIdentity . toListM (Identity getter)
 
--- | Get all insertions into 'MapModifier'.
+-- | Get all insertions into 'MapModifier' as a 'HashMap'.
+insertionsMap :: MapModifier k v -> HashMap k v
+insertionsMap = HM.mapMaybe identity . getMapModifier
+
+-- | Get all insertions into 'MapModifier' as a list.
 insertions :: MapModifier k v -> [(k, v)]
-insertions = HM.toList . HM.mapMaybe identity . getMapModifier
+insertions = HM.toList . insertionsMap
 
 -- | Get all deletions from 'MapModifier'.
 deletions :: MapModifier k v -> [k]

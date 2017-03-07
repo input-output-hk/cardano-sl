@@ -64,9 +64,9 @@ import           Pos.DB                     (DBError (..), MonadDB)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
-import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Delegation.Logic       (delegationVerifyBlocks, getProxyMempool)
 import           Pos.Exception              (assertionFailed, reportFatalError)
+import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Worker             (lrcSingleShotNoLock)
 import           Pos.Reporting              (reportingFatal)
@@ -414,9 +414,9 @@ verifyBlocksPrefix blocks = runExceptT $ do
             when (block ^. blockLeaders /= leaders) $
                 throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
-    bv <- UDB.getAdoptedBV
+    (bv, bvd) <- UDB.getAdoptedBVFull
     verResToMonadError formatAllErrors $
-        Types.verifyBlocks curSlot (Just leaders) (Just bv) blocks
+        Types.verifyBlocks curSlot bvd (Just leaders) (Just bv) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
     txUndo <- ExceptT $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks

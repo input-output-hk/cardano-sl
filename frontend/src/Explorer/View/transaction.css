@@ -1,0 +1,52 @@
+
+.explorer-transaction {
+
+  &__wrapper {
+    background-color: var(--color4);
+
+    &:nth-child(even) {
+      background-color: var(--color6);
+    }
+  }
+
+  &__container {
+    @neat-outer-container;
+    padding: 56px 48px 48px 48px;
+  }
+
+  .table-summary {
+
+    font-family: var(--fontFamily0-Regular);
+    font-size: 10px;
+    color: var(--color8);
+    width: 100%;
+
+    tr {
+
+      &:nth-child(odd) {
+        background-color: transparent;
+      }
+
+      &:nth-child(even) {
+        background-color: var(--color7);
+      }
+    }
+
+    td {
+      padding: 10px 10px 10px 0;
+
+      &:first-child {
+        padding-left: 24px;
+        width: 164px;
+      }
+
+      &.ada {
+        padding-left: 10px;
+        background-repeat: no-repeat;
+        background-position: left center;
+        background-size: 8px 7px;
+      }
+    }
+
+  }
+}

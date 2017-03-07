@@ -1,0 +1,179 @@
+
+:root {
+  --transaction-header-height: 46px;
+}
+
+.transaction-header {
+  @neat-outer-container;
+  height: var(--transaction-header-height);
+  background-color: var(--color6);
+  padding-left: 24px;
+
+  font-family: var(--fontFamily0-Regular);
+  font-size: 10px;
+
+  .hash {
+    @neat-span-columns 8;
+    color: var(--color8);
+    line-height: var(--transaction-header-height);
+
+    button: standard-button;
+    button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
+  }
+
+  .date {
+    @neat-span-columns 2;
+    line-height: var(--transaction-header-height);
+    color: var(--color9);
+  }
+
+  .amount-container {
+    @neat-span-columns 2;
+    height: 100%;
+    box: horizontal right;
+    padding-right: 12px;
+  }
+
+  .amount {
+    box-item: center;
+
+    color: var(--color0);
+
+    padding: 5px 10px 5px 20px;
+
+    button: primary-button;
+    border-radius: 4px;
+
+
+    background-repeat: no-repeat;
+    background-position: 7px center;
+    background-size: 8px 7px;
+  }
+}
+
+.transaction-body {
+  @neat-outer-container;
+  font-family: var(--fontFamily0-Regular);
+  font-size: 10px;
+  color: var(--color8);
+  padding: 0 24px 24px 24px;
+  box: horizontal;
+
+  .from-hash-container {
+    @neat-span-columns 4;
+    box-item: center;
+  }
+
+  .from-hash {
+    button: standard-button;
+    button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
+    padding: 18px 0 12px 0;
+  }
+
+  .to-hash-container {
+    @neat-span-columns 4;
+
+    background-repeat: no-repeat;
+    background-position: left center;
+
+    background-size: 15px 15px;
+    padding: 18px 0 0 30px;
+
+    box-item: center;
+  }
+
+  .to-hash {
+    button: standard-button;
+    button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
+    display: block;
+    padding-bottom: 12px;
+  }
+
+  .to-alias-container {
+    @neat-span-columns 2;
+    padding: 18px 0 0 0;
+    box-item: center;
+  }
+
+  .to-alias {
+    padding-bottom: 12px;
+    padding-left: 15px;
+  }
+
+  .amount-container {
+    @neat-span-columns 2;
+    text-align: right;
+    box-item: center;
+  }
+
+  .amount {
+    padding: 18px 0;
+    padding-left: 10px;
+    background-repeat: no-repeat;
+    background-position: left center;
+    background-size: 8px 7px;
+  }
+}
+
+.transaction-pagination {
+    text-align: center;
+}
+
+.pagination {
+
+  padding: 8px 6px;
+  border-radius: 4px;
+  border: solid 1px var(--color11);
+  display: inline-block;
+
+  &__wrapper {
+    box: horizontal center;
+  }
+
+  .btn-page {
+    width: 16px;
+    height: 16px;
+    button: primary-button;
+    button-background: var(--color12) color(var(--color12) a(0.8)) color(var(--color8) a(0.2));
+    box-item: center;
+    box: horizontal center;
+
+    .icon {
+      width: 4px;
+      height: 8px;
+      box-item: center;
+    }
+
+  }
+
+  .label {
+    font-family: var(--fontFamily0-Light);
+    font-size: 8px;
+    font-style: normal;
+    color: color(var(--color8) a(0.4));
+    display: inline-block;
+    box-item: center;
+  }
+
+  .page-number {
+    font-family: var(--fontFamily0-Light);
+    font-size: 8px;
+    font-style: normal;
+    color: var(--color8);
+    box-item: center;
+
+    margin: 0 6px;
+    padding: 4px 6px;
+    width: 35px;
+    background-color: transparent;
+    border: none;
+    border-bottom: solid 1px var(--color11);
+    display: inline-block;
+    text-align: center;
+
+    &:disabled {
+      border-bottom: none;
+    }
+
+  }
+}

@@ -1,0 +1,109 @@
+
+:root {
+  --height-footer-bottom: 70px;
+  --logo-footer-width: 49px;
+  --logo-footer-height: 45px;
+}
+
+.explorer-footer {
+  background-color: var(--color2);
+
+  &__container {
+    @neat-outer-container;
+    padding: 0 10px;
+  }
+  @media (--md) {
+    &__container {
+      @neat-outer-container;
+      max-width:var(--max-width-desktop);
+      padding: 0 96px;
+    }
+  }
+
+  &__top {
+    border-bottom: 1px solid color(var(--color3) a(0.5));
+    padding: 50px 0;
+
+    .logo__container {
+      @neat-span-columns 2;
+    }
+
+    .logo__img {
+      width: var(--logo-footer-width);
+      height: var(--logo-footer-height);
+    }
+
+    .nav__container {
+      @neat-shift 1;
+      @neat-span-columns 8;
+    }
+
+    .nav-item {
+
+      &__container {
+        @neat-span-columns 3;
+      }
+
+      &__header {
+        padding-bottom: 12px;
+        color: var(--color0);
+        font-family: var(--fontFamily0-Light);
+        font-size: 12px;
+      }
+
+      &__item {
+        font-family: var(--fontFamily0-Light);
+        font-size: 12px;
+        line-height: 30px;
+        display: block;
+
+        button: standard-button;
+        button-color: color(var(--color3) a(0.5)) color(var(--color3) a(0.3)) color(var(--color3) a(0.3));
+      }
+    }
+  }
+
+
+  &__bottom {
+    color: color(var(--color0) a(0.5));
+
+    .content {
+      @neat-span-columns 6;
+      height: var(--height-footer-bottom);
+
+      &__right {
+        box: horizontal right;
+      }
+
+      &__left {
+        box: horizontal;
+      }
+    }
+
+    .copy {
+      font-family: var(--fontFamily0-Light);
+      font-size: 10px;
+      box-item: center;
+    }
+
+    .lang__select {
+      height: var(--height-footer-bottom);
+      font-family: var(--fontFamily0-Light);
+      font-size: 10px;
+      color: color(var(--color0) a(0.5));
+      border: none;
+      width: auto;
+      appearance: none;
+      background-color: transparent;
+      background-repeat: no-repeat;
+      background-position: right center;
+      background-size: 8px 8px;
+      padding-right: 10px;
+      box-item: center;
+
+      &:hover{
+        cursor: pointer;
+      }
+    }
+  }
+}

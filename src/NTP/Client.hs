@@ -32,13 +32,14 @@ import           Data.Text                   (Text)
 import           Data.Time.Units             (Microsecond, Second, toMicroseconds)
 import           Data.Typeable               (Typeable)
 import           Formatting                  (sformat, shown, (%))
-import           Network.Socket              (AddrInfoFlag (AI_PASSIVE), Family (AF_INET),
-                                              SockAddr (..), Socket,
-                                              SocketOption (ReuseAddr),
+import           Network.Socket              (AddrInfoFlag (AI_PASSIVE),
+                                              Family (AF_INET, AF_INET6), SockAddr (..),
+                                              Socket, SocketOption (IPv6Only, ReuseAddr),
                                               SocketType (Datagram), aNY_PORT,
-                                              addrAddress, addrFamily, addrFlags, bind,
-                                              close, defaultHints, defaultProtocol,
-                                              getAddrInfo, setSocketOption, socket)
+                                              addrAddress, addrFamily, addrFlags,
+                                              addrSocketType, bind, close, defaultHints,
+                                              defaultProtocol, getAddrInfo,
+                                              setSocketOption, socket)
 import           Network.Socket.ByteString   (recvFrom, sendTo)
 import           Prelude                     hiding (log)
 import           Serokell.Util.Concurrent    (modifyTVarS, threadDelay)
@@ -180,15 +181,21 @@ mkSocket :: NtpMonad m => NtpClientSettings m -> m Socket
 mkSocket settings = doMkSocket `catchAll` handlerE
   where
     doMkSocket = liftIO $ do
-        -- Copied from Kademlia library
-        serveraddrs <- getAddrInfo
-                     (Just (defaultHints {addrFlags = [AI_PASSIVE]}))
-                     Nothing (Just $ show aNY_PORT)
+        let hints = defaultHints { addrFlags = [AI_PASSIVE], addrSocketType = Datagram }
+        --                          Hints        Host         Service
+        serveraddrs <- getAddrInfo (Just hints) Nothing (Just $ show aNY_PORT)
 
-        let serveraddr = head $ filter (\a -> addrFamily a == AF_INET) serveraddrs
-
+        -- Couldn't be empty. Throws exception if empty.
+        -- IPv6 addresses are more preffered.
+        let (serveraddr:_) =
+                reverse $
+                sortOn addrFamily $
+                filter (\a -> addrFamily a == AF_INET6 || addrFamily a == AF_INET) serveraddrs
+        --log' settings Info $ "Selected Address Family: " <> pack (show $ addrFamily serveraddr)
         sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
         setSocketOption sock ReuseAddr 1
+        -- See here https://hackage.haskell.org/package/network-2.6.3.1/docs/Network-Socket.html#v:socket
+        setSocketOption sock IPv6Only 0
         bind sock (addrAddress serveraddr)
         return sock
     handlerE e = do

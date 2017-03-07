@@ -101,7 +101,7 @@ BiMacro(SecretProof, 64)
 -- Signing
 ----------------------------------------------------------------------------
 
-secretKeyLength, publicKeyLength, signatureLength, chainCodeLength :: Int
+secretKeyLength, publicKeyLength, signatureLength, chainCodeLength, encryptedKeyLength :: Int
 secretKeyLength = 32
 publicKeyLength = 32
 encryptedKeyLength = 96

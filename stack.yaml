@@ -51,7 +51,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/flyingleafe/cardano-crypto
-    commit: 46a30c230ffe95f7802d0ebdb30e300d15d26935
+    commit: b0f261c88a0c6b38d3227cec139690f2ec67fe1a
   extra-dep: true
 - location:
     git: https://github.com/haskell-crypto/cryptonite.git

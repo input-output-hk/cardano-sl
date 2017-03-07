@@ -11,7 +11,6 @@ module Pos.Util.LogSafe
 
 import           Control.Monad.Trans (MonadTrans)
 import           Data.List           (isSuffixOf)
-import qualified Data.Text           as T
 import           System.Wlog         (CanLog (..), HasLoggerName (..), Severity (..),
                                       loggerName)
 import           System.Wlog.Logger  (logMCond)

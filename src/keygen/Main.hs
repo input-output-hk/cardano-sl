@@ -22,8 +22,8 @@ import           Pos.Crypto           (PublicKey, keyGen, toPublic, toVssPublicK
 import           Pos.Genesis          (GenesisData (..), StakeDistribution (..))
 import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
 import           Pos.Types            (addressHash, makePubKeyAddress, mkCoin)
-import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usKeys,
-                                       usPrimKey, usVss, writeUserSecretRelease)
+import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usPrimKey,
+                                       usVss, writeUserSecretRelease)
 
 data KeygenOptions = KO
     { koPattern      :: FilePath

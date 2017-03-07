@@ -2,7 +2,6 @@
 
 module Main where
 
-import           Control.Lens          (_head)
 import           Data.List             ((!!))
 import           Data.Maybe            (fromJust)
 import           Mockable              (Production)
@@ -37,7 +36,7 @@ import           Pos.Ssc.SscAlgo       (SscAlgo (..))
 import           Pos.Types             (Timestamp (Timestamp))
 import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
-import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usVss, usPrimKey,
+import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usVss, usPrimKey,
                                         writeUserSecret)
 #ifdef WITH_WEB
 import           Pos.Web               (serveWebBase, serveWebGT)

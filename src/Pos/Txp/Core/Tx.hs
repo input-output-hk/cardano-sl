@@ -128,6 +128,11 @@ verifyTxDo verifyVersions _gContext extendedInputs
                                     "has non-empty distribution") i)
                        ]
                    ScriptAddress{} -> checkDist i d txOutValue
+                   RedeemAddress{} ->
+                       [ ( null d
+                         , sformat ("output #"%int%" with redeem address "%
+                                    "has non-empty distribution") i)
+                       ]
                    UnknownAddressType t _
                        | verifyVersions ->
                              [ (False, sformat ("output #"%int%" has "%

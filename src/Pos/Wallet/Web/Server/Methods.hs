@@ -38,12 +38,10 @@ import           Universum
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Communication.Protocol    (OutSpecs, SendActions, hoistSendActions)
 import           Pos.Constants                 (curSoftwareVersion)
-import           Pos.Crypto                    (SecretKey, emptyPassphrase, encToPublic,
+import           Pos.Crypto                    (emptyPassphrase, encToPublic,
                                                 fakeSigner, hash,
                                                 redeemDeterministicKeyGen, toEncrypted,
                                                 toPublic, withSafeSigner, withSafeSigner)
-import           Pos.Crypto                    (SecretKey, deterministicKeyGen, hash,
-                                                toPublic)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (getKnownPeers)
 import           Pos.Ssc.Class                 (SscHelpersClass)
@@ -425,8 +423,8 @@ redeemADA sendActions CWalletRedeem {..} = do
     seedBs <- either
         (\e -> throwM $ Internal ("Seed is invalid base64 string: " <> toText e))
         pure $ B64.decode (encodeUtf8 crSeed)
-    (redeemPK, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
-                            redeemDeterministicKeyGen seedBs
+    (_, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
+                     redeemDeterministicKeyGen seedBs
     -- new redemption wallet
     walletB <- getWallet crWalletId
 
@@ -449,7 +447,7 @@ importKey sendActions (toString -> fp) = do
     let keys = case secret ^. usPrimKey of
             Nothing -> secret ^. usKeys
             Just k  -> toEncrypted k : secret ^. usKeys
-    forM_ (secret ^. usKeys) $ \key -> do
+    forM_ keys $ \key -> do
         addSecretKey key
         let addr = makePubKeyAddress $ encToPublic key
             cAddr = addressToCAddress addr

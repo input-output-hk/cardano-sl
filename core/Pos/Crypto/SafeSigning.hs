@@ -17,23 +17,22 @@ module Pos.Crypto.SafeSigning
        , fakeSigner
        ) where
 
-import qualified Cardano.Crypto.Wallet   as CC
-import qualified Crypto.ECC.Edwards25519 as Ed25519
-import           Data.ByteArray          (ScrubbedBytes)
-import qualified Data.ByteString         as BS
-import qualified Data.ByteString.Lazy    as BSL
-import           Data.Coerce             (coerce)
-import           Data.SafeCopy           (base, deriveSafeCopySimple)
-import           Data.Text.Buildable     (build)
-import qualified Data.Text.Buildable     as B
-import           Prelude                 (show)
-import           Universum               hiding (show)
+import qualified Cardano.Crypto.Wallet as CC
+import           Data.ByteArray        (ScrubbedBytes)
+import qualified Data.ByteString       as BS
+import qualified Data.ByteString.Lazy  as BSL
+import           Data.Coerce           (coerce)
+import           Data.SafeCopy         (base, deriveSafeCopySimple)
+import           Data.Text.Buildable   (build)
+import qualified Data.Text.Buildable   as B
+import           Prelude               (show)
+import           Universum             hiding (show)
 
-import           Pos.Binary.Class        (Bi, Raw)
-import qualified Pos.Binary.Class        as Bi
-import           Pos.Crypto.Random       (secureRandomBS)
-import           Pos.Crypto.Signing      (PublicKey (..), SecretKey (..), Signature (..),
-                                          sign, toPublic)
+import           Pos.Binary.Class      (Bi, Raw)
+import qualified Pos.Binary.Class      as Bi
+import           Pos.Crypto.Random     (secureRandomBS)
+import           Pos.Crypto.Signing    (PublicKey (..), SecretKey (..), Signature (..),
+                                        sign, toPublic)
 
 newtype EncryptedSecretKey = EncryptedSecretKey CC.XPrv
 

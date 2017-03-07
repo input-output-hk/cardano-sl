@@ -55,7 +55,7 @@ import           Data.Text.Lazy.Builder          (Builder)
 import           Formatting                      (Format, bprint, build, later, (%))
 import           Prelude                         (show)
 import qualified Serokell.Util.Base16            as B16
-import qualified Serokell.Util.Base64            as Base64 (decode, encode, formatBase64)
+import qualified Serokell.Util.Base64            as Base64 (decode, formatBase64)
 import           Serokell.Util.Text              (pairF)
 import           Universum                       hiding (show)
 
@@ -88,6 +88,7 @@ newtype PublicKey = PublicKey CC.XPub
 
 -- | Wrapper around 'CC.XPrv'.
 newtype SecretKey = SecretKey CC.XPrv
+    deriving (NFData)
 
 deriveSafeCopySimple 0 'base ''PublicKey
 deriveSafeCopySimple 0 'base ''SecretKey

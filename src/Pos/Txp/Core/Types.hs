@@ -87,13 +87,16 @@ data TxInWitness
 
 instance Hashable TxInWitness
 
-instance (Bi Script, Bi PublicKey) => Buildable TxInWitness where
+instance (Bi Script, Bi PublicKey, Bi RedeemPublicKey) =>
+         Buildable TxInWitness where
     build (PkWitness key sig) =
         bprint ("PkWitness: key = "%build%", sig = "%build) key sig
     build (ScriptWitness val red) =
         bprint ("ScriptWitness: "%
                 "validator hash = "%shortHashF%", "%
                 "redeemer hash = "%shortHashF) (hash val) (hash red)
+    build (RedeemWitness key sig) =
+        bprint ("PkWitness: key = "%build%", sig = "%build) key sig
     build (UnknownWitnessType t bs) =
         bprint ("UnknownWitnessType "%build%" "%base16F) t bs
 
@@ -182,7 +185,8 @@ txF :: Bi Address => Format r (Tx -> r)
 txF = build
 
 -- | Specialized formatter for 'Tx' with auxiliary data
-txaF :: (Bi PublicKey, Bi Script, Bi Address) => Format r (TxAux -> r)
+txaF :: (Bi PublicKey, Bi Script, Bi Address, Bi RedeemPublicKey)
+     => Format r (TxAux -> r)
 txaF = later $ \(tx, w, d) ->
     bprint (build%"\n"%
             "witnesses: "%listJsonIndent 4%"\n"%

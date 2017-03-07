@@ -49,7 +49,7 @@ Use latest executable of `cardano-sl-explorer`:
 
 ```bash
 git clone https://github.com/input-output-hk/cardano-sl-explorer
-cd cardano-sl-explorer
+cd {path/to/}cardano-sl-explorer
 stack build
 stack exec -- cardano-explorer-hs2purs --bridge-path {path/to}/cardano-sl-explorer-frontend/src/Generated
 ```
@@ -64,7 +64,7 @@ stack exec -- cardano-explorer-hs2purs --bridge-path {path/to}/cardano-sl-explor
 
 #### 2.1. Requirements
 
-All of the following steps are required only once.
+All of the following steps are required **only once**.
 
 Install executable of `purescript-derive-lenses`:
 
@@ -130,51 +130,65 @@ Open http://localhost:3100/
 ## Mocking socket data
 
 ```bash
-cd debug/socket
+cd cardano-sl-explorer-frontenddebug/socket
 npm install
 npm start
 ```
 
 ## How to provide live data locally?
 
-1. Run `cardano-sl`
+*1. Run `cardano-sl`*
 
 ```bash
-cd cardano-sl
+cd {path/to/}cardano-sl
 tmux
 export WALLET_TEST=1; ./scripts/launch.sh
 ```
+*1.1 Add wallet (**only once**)*
 
-2. Run `cardano-sl-explorer` (in another terminal, but right after 1.)
+- Download key from https://tada.iohk.io/
+- Add key as follow:
+  ```bash
+  cd {path/to/}cardano-sl/daedalus
+  # build daedalus bridge
+  npm run build:prod
+  # run node console to import key
+  node
+  > var api = require('../output/Daedalus.ClientApi')
+  > api.importKey('{path/to/}ada_secret.key').then(console.log).catch(console.log)
+  # check wallet
+  > api.getWallets().then(console.log)
+  ```
+
+
+*2. Run `cardano-sl-explorer` (in another terminal window)*
 
 ```bash
 cd cardano-sl-explorer
 ./test-launch.sh ../cardano-sl/scripts/common.sh
 ```
 
-3. Send a transaction (using a valid address listed in `http://localhost:8090/api/get_wallets`)
+*3. Send a transaction (using a valid address listed in `http://localhost:8090/api/get_wallets`)*
 
-Hint: A value can be sent by using the same address.
+Hint: A value can be sent by to the same address.
 
 ```bash
 http POST http://localhost:8090/api/send/{address}/{address}/{value}
 # eg. http POST http://localhost:8090/api/send/1gLFDJAKutVJCYioMANx4gthHru5K12Tk9YpEmXKQfggKZu/1gLFDJAKutVJCYioMANx4gthHru5K12Tk9YpEmXKQfggKZu/888
 ```
 
-4. Check data
+*4. Check data*
 
 Note: It might take some times to get a non empty result.
 
-`last blocks`
-
+- `last blocks`
 ```bash
-http http://localhost:8100/api/last_blocks
+http http://localhost:8100/api/blocks/last
 ```
 
-`last tx`
-
+- `last transactions`
 ```bash
-http http://localhost:8100/api/last_txs
+http http://localhost:8100/api/txs/last
 ```
 
 

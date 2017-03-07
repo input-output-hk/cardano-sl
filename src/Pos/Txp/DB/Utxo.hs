@@ -37,7 +37,7 @@ import           System.Wlog          (WithLogger, logError)
 import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
-import           Pos.Binary.Core     ()
+import           Pos.Binary.Core      ()
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi,
@@ -198,13 +198,13 @@ sanityCheckUtxo expectedTotalStake = do
         logError $ colorize Red msg
         throwM $ DBMalformed msg
   where
-    step sm = do
-        n <- nextItem
-        maybe
-            (pure sm)
-            (\stakes ->
-                 step (sm `unsafeAddCoin` unsafeIntegerToCoin (sumCoins stakes)))
-            n
+    step sm =
+        nextItem >>= \case
+            Nothing -> pure sm
+            Just stakes ->
+                step
+                    (sm `unsafeAddCoin`
+                     unsafeIntegerToCoin (sumCoins @[Coin] stakes))
 
 ----------------------------------------------------------------------------
 -- Keys

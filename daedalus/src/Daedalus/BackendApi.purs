@@ -88,7 +88,7 @@ deleteR = makeRequest $ defaultRequest { method = Left DELETE }
 --------------------------------------------------------------------------------
 -- TEST ------------------------------------------------------------------------
 testReset :: forall eff. Aff (ajax :: AJAX | eff) Unit
-testReset = postR ["test/reset"]
+testReset = postR ["test", "reset"]
 --------------------------------------------------------------------------------
 -- WALLETS ---------------------------------------------------------------------
 getWallets :: forall eff. Aff (ajax :: AJAX | eff) (Array CWallet)
@@ -107,10 +107,10 @@ deleteWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) Unit
 deleteWallet addr = deleteR ["wallets", _address addr]
 
 importKey :: forall eff. String -> Aff (ajax :: AJAX | eff) CWallet
-importKey = postRBody ["wallets/keys"]
+importKey = postRBody ["wallets", "keys"]
 
 restoreWallet :: forall eff. CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
-restoreWallet = postRBody ["wallets/restore"]
+restoreWallet = postRBody ["wallets", "restore"]
 --------------------------------------------------------------------------------
 -- ADDRESSSES ------------------------------------------------------------------
 isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
@@ -125,19 +125,19 @@ updateProfile = postRBody ["profile"]
 --------------------------------------------------------------------------------
 -- TRANSACTIONS ----------------------------------------------------------------
 send :: forall eff. CAddress -> CAddress -> Coin -> Aff (ajax :: AJAX | eff) CTx
-send addrFrom addrTo amount = postR ["txs/payments", _address addrFrom, _address addrTo, show $ _coin amount]
+send addrFrom addrTo amount = postR ["txs", "payments", _address addrFrom, _address addrTo, show $ _coin amount]
 
 sendExtended :: forall eff. CAddress -> CAddress -> Coin -> CCurrency -> String -> String -> Aff (ajax :: AJAX | eff) CTx
-sendExtended addrFrom addrTo amount curr title desc = postR ["txs/payments", _address addrFrom, _address addrTo, show $ _coin amount, showCCurrency curr, title, desc]
+sendExtended addrFrom addrTo amount curr title desc = postR ["txs", "payments", _address addrFrom, _address addrTo, show $ _coin amount, showCCurrency curr, title, desc]
 
 updateTransaction :: forall eff. CAddress -> CTxId -> CTxMeta -> Aff (ajax :: AJAX | eff) Unit
-updateTransaction addr ctxId = postRBody ["txs/payments", _address addr, _ctxIdValue ctxId]
+updateTransaction addr ctxId = postRBody ["txs", "payments", _address addr, _ctxIdValue ctxId]
 
 getHistory :: forall eff. CAddress -> Int -> Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
-getHistory addr skip limit = getR ["txs/histories", _address addr, show skip, show limit]
+getHistory addr skip limit = getR ["txs", "histories", _address addr, show skip, show limit]
 
 searchHistory :: forall eff. CAddress -> String -> Int -> Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
-searchHistory addr search skip limit = getR ["txs/histories", _address addr, search, show skip, show limit]
+searchHistory addr search skip limit = getR ["txs", "histories", _address addr, search, show skip, show limit]
 --------------------------------------------------------------------------------
 -- UPDATES ---------------------------------------------------------------------
 nextUpdate :: forall eff. Aff (ajax :: AJAX | eff) CUpdateInfo
@@ -148,15 +148,15 @@ applyUpdate = postR ["update"]
 --------------------------------------------------------------------------------
 -- REDEMPTIONS -----------------------------------------------------------------
 redeemADA :: forall eff. CWalletRedeem -> Aff (ajax :: AJAX | eff) CWallet
-redeemADA = postRBody ["redemptions/ada"]
+redeemADA = postRBody ["redemptions", "ada"]
 --------------------------------------------------------------------------------
 -- UPDATES ---------------------------------------------------------------------
 blockchainSlotDuration :: forall eff. Aff (ajax :: AJAX | eff) Int
-blockchainSlotDuration = getR ["settings/slots/duration"]
+blockchainSlotDuration = getR ["settings", "slots", "duration"]
 
 systemVersion :: forall eff. Aff (ajax :: AJAX | eff) SoftwareVersion
-systemVersion = getR ["settings/version"]
+systemVersion = getR ["settings", "version"]
 
 syncProgress :: forall eff. Aff (ajax :: AJAX | eff) SyncProgress
-syncProgress = getR ["settings/sync/progress"]
+syncProgress = getR ["settings", "sync", "progress"]
 --------------------------------------------------------------------------------

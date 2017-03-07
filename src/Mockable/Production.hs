@@ -52,9 +52,9 @@ type instance ThreadId Production = Conc.ThreadId
 instance Mockable Fork Production where
     {-# INLINABLE liftMockable #-}
     {-# SPECIALIZE INLINE liftMockable :: Fork Production t -> Production t #-}
-    liftMockable (Fork m)         = Production $ Conc.forkIO (runProduction m)
-    liftMockable (MyThreadId)     = Production $ Conc.myThreadId
-    liftMockable (KillThread tid) = Production $ Conc.killThread tid
+    liftMockable (Fork m)        = Production $ Conc.forkIO (runProduction m)
+    liftMockable (MyThreadId)    = Production $ Conc.myThreadId
+    liftMockable (ThrowTo tid e) = Production $ Conc.throwTo tid e
 
 instance Mockable Delay Production where
     {-# INLINABLE liftMockable #-}
@@ -78,12 +78,12 @@ type instance Promise Production = Conc.Async
 instance Mockable Async Production where
     {-# INLINABLE liftMockable #-}
     {-# SPECIALIZE INLINE liftMockable :: Async Production t -> Production t #-}
-    liftMockable (Async m)          = Production $ Conc.async (runProduction m)
-    liftMockable (WithAsync m k)    = Production $ Conc.withAsync (runProduction m) (runProduction . k)
-    liftMockable (Wait promise)     = Production $ Conc.wait promise
-    liftMockable (WaitAny promises) = Production $ Conc.waitAny promises
-    liftMockable (Cancel promise)   = Production $ Conc.cancel promise
-    liftMockable (AsyncThreadId p)  = Production $ return (Conc.asyncThreadId p)
+    liftMockable (Async m)              = Production $ Conc.async (runProduction m)
+    liftMockable (WithAsync m k)        = Production $ Conc.withAsync (runProduction m) (runProduction . k)
+    liftMockable (Wait promise)         = Production $ Conc.wait promise
+    liftMockable (WaitAny promises)     = Production $ Conc.waitAny promises
+    liftMockable (CancelWith promise e) = Production $ Conc.cancelWith promise e
+    liftMockable (AsyncThreadId p)      = Production $ return (Conc.asyncThreadId p)
 
 instance Mockable Concurrently Production where
     {-# INLINABLE liftMockable #-}

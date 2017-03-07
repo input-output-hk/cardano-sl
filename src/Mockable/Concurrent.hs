@@ -12,6 +12,7 @@ module Mockable.Concurrent (
   , Fork(..)
   , fork
   , myThreadId
+  , throwTo
   , killThread
 
   , Delay(..)
@@ -26,6 +27,7 @@ module Mockable.Concurrent (
   , async
   , withAsync
   , wait
+  , cancelWith
   , cancel
   , asyncThreadId
   , waitAny
@@ -42,6 +44,7 @@ module Mockable.Concurrent (
 import           Data.Time.Units    (TimeUnit)
 import           Mockable.Class
 import           Mockable.Exception (Catch, catchAll)
+import           Control.Exception (Exception, AsyncException(ThreadKilled))
 
 type family ThreadId (m :: * -> *) :: *
 
@@ -49,12 +52,12 @@ type family ThreadId (m :: * -> *) :: *
 data Fork m t where
     Fork       :: m () -> Fork m (ThreadId m)
     MyThreadId :: Fork m (ThreadId m)
-    KillThread :: ThreadId m -> Fork m ()
+    ThrowTo    :: Exception e => ThreadId m -> e -> Fork m ()
 
 instance (ThreadId n ~ ThreadId m) => MFunctor' Fork m n where
-    hoist' nat (Fork action)  = Fork $ nat action
-    hoist' _ MyThreadId       = MyThreadId
-    hoist' _ (KillThread tid) = KillThread tid
+    hoist' nat (Fork action) = Fork $ nat action
+    hoist' _ MyThreadId      = MyThreadId
+    hoist' _ (ThrowTo tid e) = ThrowTo tid e
 
 ----------------------------------------------------------------------------
 -- Fork mock helper functions
@@ -68,9 +71,13 @@ fork term = liftMockable $ Fork term
 myThreadId :: ( Mockable Fork m ) => m (ThreadId m)
 myThreadId = liftMockable MyThreadId
 
+{-# INLINE throwTo #-}
+throwTo :: ( Mockable Fork m, Exception e ) => ThreadId m -> e -> m ()
+throwTo tid e = liftMockable $ ThrowTo tid e
+
 {-# INLINE killThread #-}
 killThread :: ( Mockable Fork m ) => ThreadId m -> m ()
-killThread tid = liftMockable $ KillThread tid
+killThread tid = throwTo tid ThreadKilled
 
 data Delay (m :: * -> *) (t :: *) where
     Delay :: TimeUnit t => t -> Delay m ()    -- Finite delay.
@@ -105,7 +112,7 @@ data Async m t where
     WithAsync :: m t -> (Promise m t -> m r) -> Async m r
     Wait :: Promise m t -> Async m t
     WaitAny :: [Promise m t] -> Async m (Promise m t, t)
-    Cancel :: Promise m t -> Async m ()
+    CancelWith :: Exception e => Promise m t -> e -> Async m ()
     AsyncThreadId :: Promise m t -> Async m (ThreadId m)
 
 {-# INLINE async #-}
@@ -126,7 +133,11 @@ waitAny promises = liftMockable $ WaitAny promises
 
 {-# INLINE cancel #-}
 cancel :: ( Mockable Async m ) => Promise m t -> m ()
-cancel promise = liftMockable $ Cancel promise
+cancel promise = cancelWith promise ThreadKilled
+
+{-# INLINE cancelWith #-}
+cancelWith :: ( Mockable Async m, Exception e ) => Promise m t -> e -> m ()
+cancelWith promise e = liftMockable $ CancelWith promise e
 
 {-# INLINE asyncThreadId #-}
 asyncThreadId :: ( Mockable Async m ) => Promise m t -> m (ThreadId m)
@@ -137,7 +148,7 @@ instance (Promise n ~ Promise m, ThreadId n ~ ThreadId m) => MFunctor' Async m n
     hoist' nat (WithAsync m k) = WithAsync (nat m) (nat . k)
     hoist' _ (Wait p)          = Wait p
     hoist' _ (WaitAny p)       = WaitAny p
-    hoist' _ (Cancel p)        = Cancel p
+    hoist' _ (CancelWith p e)  = CancelWith p e
     hoist' _ (AsyncThreadId p) = AsyncThreadId p
 
 data Concurrently m t where

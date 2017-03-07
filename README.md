@@ -150,10 +150,14 @@ export WALLET_TEST=1; ./scripts/launch.sh
 - Add key as follow:
 
   ```bash
-  cd {path/to/}cardano-sl/daedalus
+  cd {path/to/}cardano-sl/
+  # build backend types
+  stack exec -- cardano-wallet-hs2purs
   # build daedalus bridge
+  cd daedalus
+  npm install
   npm run build:prod
-  # run node console to import key
+  # use node repl to import key
   node
   > var api = require('../output/Daedalus.ClientApi')
   > api.importKey('{path/to/}ada_secret.key').then(console.log).catch(console.log)

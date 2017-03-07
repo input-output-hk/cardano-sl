@@ -148,6 +148,7 @@ export WALLET_TEST=1; ./scripts/launch.sh
 
 - Download key from https://tada.iohk.io/
 - Add key as follow:
+
   ```bash
   cd {path/to/}cardano-sl/daedalus
   # build daedalus bridge

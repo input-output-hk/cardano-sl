@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE ViewPatterns        #-}
 
 module Pos.Core.Coin
@@ -28,8 +29,13 @@ import           Universum
 import           Pos.Core.Types      (Coin, CoinPortion (getCoinPortion), coinF,
                                       coinPortionDenominator, mkCoin, unsafeGetCoin)
 
-sumCoins :: [Coin] -> Integer
-sumCoins = sum . map coinToInteger
+-- | Compute sum of all coins in container. Result is 'Integer' as a
+-- protection against possible overflow. If you are sure overflow is
+-- impossible, you can use 'unsafeIntegerToCoin'.
+sumCoins
+    :: (NontrivialContainer coins, Element coins ~ Coin)
+    => coins -> Integer
+sumCoins = sum . map coinToInteger . toList
 
 coinToInteger :: Coin -> Integer
 coinToInteger = toInteger . unsafeGetCoin

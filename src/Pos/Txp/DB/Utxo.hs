@@ -199,13 +199,13 @@ sanityCheckUtxo expectedTotalStake = do
         logError $ colorize Red msg
         throwM $ DBMalformed msg
   where
-    step sm = do
-        n <- nextItem
-        maybe
-            (pure sm)
-            (\stakes ->
-                 step (sm `unsafeAddCoin` unsafeIntegerToCoin (sumCoins stakes)))
-            n
+    step sm =
+        nextItem >>= \case
+            Nothing -> pure sm
+            Just stakes ->
+                step
+                    (sm `unsafeAddCoin`
+                     unsafeIntegerToCoin (sumCoins @[Coin] stakes))
 
 ----------------------------------------------------------------------------
 -- Keys

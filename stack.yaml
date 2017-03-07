@@ -50,10 +50,6 @@ packages:
     commit: f2321a103f53f51d36c99383132e3ffa3ef1c401
   extra-dep: true
 - location:
-    git: https://github.com/serokell/hslogger
-    commit: cf5c742a07ef12e8eb2506775c77f22befa23d8f
-  extra-dep: true
-- location:
     git: https://github.com/flyingleafe/cardano-crypto
     commit: 46a30c230ffe95f7802d0ebdb30e300d15d26935
   extra-dep: true
@@ -61,11 +57,6 @@ packages:
     git: https://github.com/haskell-crypto/cryptonite.git
     commit: 2932df9e243aa7ae7eb2b25d7c60fa77a30c6fb5
   extra-dep: true
-# todo replace it with hackage version
-#- location:
-#    git: https://github.com/serokell/serokell-util/
-#    commit: 9f5e818ef9e9f07434b6c2ca51d2db8ae56309db
-#  extra-dep: true
 
 nix:
   shell-file: shell.nix
@@ -77,7 +68,7 @@ extra-deps:
 - serokell-util-0.1.4.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-0.5.1
+- log-warper-1.0.0
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.5.26                   # not yet in lts-8
 - haskell-src-exts-1.17.1         # derive has not moved to 1.18 yet

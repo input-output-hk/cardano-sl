@@ -12,9 +12,9 @@ module Pos.Util.LogSafe
 import           Control.Monad.Trans (MonadTrans)
 import           Data.List           (isSuffixOf)
 import qualified Data.Text           as T
-import qualified System.Log.Logger   as L
 import           System.Wlog         (CanLog (..), HasLoggerName (..), Severity (..),
-                                      convertSeverity, loggerName)
+                                      loggerName)
+import           System.Wlog.Logger  (logMCond)
 import           Universum
 
 
@@ -28,14 +28,14 @@ instance MonadTrans SecureLogWrapped where
 instance (MonadIO m) => CanLog (SecureLogWrapped m) where
     dispatchMessage
         (loggerName      -> name)
-        (convertSeverity -> prior)
+        severity
         msg =
       let acceptable p
               | "fileHandler" `isPrefixOf` p ||
                 "rollerHandler" `isPrefixOf` p
               = not $ ".pub" `isSuffixOf` p
               | otherwise = True
-      in liftIO $ L.logMCond name prior (T.unpack msg) acceptable
+      in liftIO $ logMCond name severity msg acceptable
 
 instance (Monad m, HasLoggerName m) => HasLoggerName (SecureLogWrapped m) where
     getLoggerName = SecureLogWrapped getLoggerName

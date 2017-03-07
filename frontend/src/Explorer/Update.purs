@@ -11,6 +11,7 @@ import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
 import Explorer.Api.Http (fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs)
 import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, currentAddressSummary, currentBlockTxs, connected, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, initialBlocksRequested, initialTxsRequested, handleLatestTxsSocketResult, currentBlock, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
+
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
@@ -138,7 +139,6 @@ update (ReceiveBlockTxs (Left error)) state =
     noEffects $
     set loading false $
     over errors (\errors' -> (show error) : errors') state
-
 update RequestInitialTxs state =
     { state: set loading true state
     , effects: [ attempt fetchLatestTxs >>= pure <<< ReceiveInitialTxs ]

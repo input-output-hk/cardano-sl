@@ -8,13 +8,14 @@ module Pos.Block.Arbitrary
 
 import           Data.Ix              (range)
 import           Data.List.NonEmpty   (nonEmpty)
+import qualified Data.List.NonEmpty   as NE
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Formatting           (bprint, build, formatToString, (%))
 import           Prelude              (Show (..))
 import           System.Random        (mkStdGen, randomR)
-import           Test.QuickCheck      (Arbitrary (..), Gen, NonEmptyList (..), choose,
-                                       listOf, listOf, oneof, oneof, vectorOf)
+import           Test.QuickCheck      (Arbitrary (..), Gen, choose, listOf, listOf, oneof,
+                                       oneof, vectorOf)
 import           Universum
 
 import           Pos.Binary.Class     (Bi, Raw, biSize)
@@ -146,8 +147,8 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
 txOutDistGen :: Gen [(Tx, TxWitness, TxDistribution)]
 txOutDistGen = listOf $ do
     txInW <- arbitrary
-    txIns <- getNonEmpty <$> arbitrary
-    (txOuts, txDist) <- second TxDistribution . unzip . getNonEmpty <$> arbitrary
+    txIns <- arbitrary
+    (txOuts, txDist) <- second TxDistribution . NE.unzip <$> arbitrary
     return (UnsafeTx txIns txOuts $ mkAttributes (), txInW, txDist)
 
 instance Arbitrary (SscPayloadDependsOnSlot ssc) =>

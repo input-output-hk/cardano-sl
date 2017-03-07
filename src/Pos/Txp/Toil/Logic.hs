@@ -15,6 +15,7 @@ module Pos.Txp.Toil.Logic
 import           Control.Monad.Except (MonadError (..))
 import qualified Data.HashMap.Strict  as HM
 import qualified Data.HashSet         as HS
+import qualified Data.List.NonEmpty   as NE
 import           Formatting           (build, sformat, (%))
 import           System.Wlog          (WithLogger, logInfo)
 import           Universum
@@ -136,8 +137,9 @@ concatStakes (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
   where
     txasTxOutDistr = concatMap concatDistr txas
     undoTxInDistr = concatMap txOutStake (concat undo)
-    concatDistr (UnsafeTx{..}, _, distr)
-        = concatMap txOutStake (zip _txOutputs (getTxDistribution distr))
+    concatDistr (UnsafeTx {..}, _, distr) =
+        concatMap txOutStake $
+        toList (NE.zip _txOutputs (getTxDistribution distr))
 
 processTxWithPureChecks
     :: (MonadUtxo m, MonadError TxpVerFailure m)

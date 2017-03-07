@@ -31,6 +31,7 @@ import           Control.Monad.State       (StateT (..), evalStateT)
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Data.DList                as DL
 import           Data.List                 (tail)
+import           Data.List.NonEmpty        (nonEmpty, (<|))
 import qualified Data.Map                  as M
 import qualified Data.Vector               as V
 import           Universum
@@ -54,8 +55,8 @@ import           Pos.Types                 (Address, Block, ChainDifficulty, Coi
                                             makeRedeemAddress, makeScriptAddress, mkCoin,
                                             sumCoins)
 
-type TxInputs = [TxIn]
-type TxOutputs = [TxOutAux]
+type TxInputs = NonEmpty TxIn
+type TxOutputs = NonEmpty TxOutAux
 type TxError = Text
 
 -----------------------------------------------------------------------------
@@ -74,7 +75,7 @@ makeAbstractTx mkWit txInputs outputs = ( UnsafeTx txInputs txOutputs txAttribut
     txOutHash = hash txOutputs
     txDist = TxDistribution (map snd outputs)
     txDistHash = hash txDist
-    txWitness = V.fromList $ map (mkWit . makeTxSigData) txInputs
+    txWitness = V.fromList $ toList $ map (mkWit . makeTxSigData) txInputs
     makeTxSigData TxIn{..} = (txInHash, txInIndex, txOutHash, txDistHash)
 
 -- | Makes a transaction which use P2PKH addresses as a source
@@ -109,21 +110,21 @@ type InputPicker = StateT (Coin, FlatUtxo) (Either TxError)
 prepareInpOuts :: Utxo -> Address -> TxOutputs -> Either TxError (TxInputs, TxOutputs)
 prepareInpOuts utxo addr outputs = do
     futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
-    let inputs = map fst futxo
-        inputSum = unsafeIntegerToCoin $
-                   sumCoins $ map (txOutValue . fst . snd) futxo
+    let inputSum =
+            unsafeIntegerToCoin $ sumCoins $ map (txOutValue . fst . snd) futxo
         newOuts
             | inputSum > totalMoney =
-                  (TxOut addr (inputSum `unsafeSubCoin` totalMoney), [])
-                  : outputs
+                (TxOut addr (inputSum `unsafeSubCoin` totalMoney), []) <|
+                outputs
             | otherwise = outputs
-    pure (inputs, newOuts)
+    case nonEmpty futxo of
+        Nothing       -> fail "Failed to prepare inputs!"
+        Just inputsNE -> pure (map fst inputsNE, newOuts)
   where
-    totalMoney = unsafeIntegerToCoin $
-                 sumCoins $ map (txOutValue . fst) outputs
+    totalMoney = unsafeIntegerToCoin $ sumCoins $ map (txOutValue . fst) outputs
     allUnspent = M.toList $ filterUtxoByAddr addr utxo
-    sortedUnspent = sortBy (comparing $ Down . txOutValue . fst . snd) allUnspent
-
+    sortedUnspent =
+        sortBy (comparing $ Down . txOutValue . fst . snd) allUnspent
     pickInputs :: FlatUtxo -> InputPicker FlatUtxo
     pickInputs inps = do
         moneyLeft <- use _1
@@ -133,7 +134,7 @@ prepareInpOuts utxo addr outputs = do
                 mNextOut <- head <$> use _2
                 case mNextOut of
                     Nothing -> fail "Not enough money to send!"
-                    Just inp@(_, (TxOut{..}, _)) -> do
+                    Just inp@(_, (TxOut {..}, _)) -> do
                         _1 %= unsafeSubCoin (min txOutValue moneyLeft)
                         _2 %= tail
                         pickInputs (inp : inps)
@@ -170,7 +171,7 @@ hasReceiver UnsafeTx {..} addr = any ((== addr) . txOutAddress) _txOutputs
 
 -- | Given some 'Utxo', check if given 'Address' is one of the senders of 'Tx'
 hasSender :: MonadUtxoRead m => Tx -> Address -> m Bool
-hasSender UnsafeTx {..} addr = anyM hasCorrespondingOutput _txInputs
+hasSender UnsafeTx {..} addr = anyM hasCorrespondingOutput $ toList _txInputs
   where hasCorrespondingOutput txIn =
             fmap toBool $ fmap ((== addr) . txOutAddress . fst) <$> utxoGet txIn
         toBool Nothing  = False

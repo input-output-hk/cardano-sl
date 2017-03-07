@@ -15,6 +15,7 @@ module Pos.Txp.Toil.Utxo.Functions
 
 import           Control.Monad.Error.Class (MonadError (..))
 import qualified Data.HashMap.Strict       as HM
+import qualified Data.List.NonEmpty        as NE
 import qualified Data.Map.Strict           as M
 import qualified Data.Text                 as T
 import           Universum
@@ -49,9 +50,10 @@ verifyTxUtxo verifyVersions txaux = do
 -- | Remove unspent outputs used in given transaction, add new unspent
 -- outputs.
 applyTxToUtxo :: MonadUtxo m => WithHash Tx -> TxDistribution -> m ()
-applyTxToUtxo (WithHash UnsafeTx{..} txid) distr = do
+applyTxToUtxo (WithHash UnsafeTx {..} txid) distr = do
     mapM_ utxoDel _txInputs
-    mapM_ applyOutput . zip [0..] . zip _txOutputs $ getTxDistribution distr
+    mapM_ applyOutput . zip [0 ..] . toList . NE.zip _txOutputs $
+        getTxDistribution distr
   where
     applyOutput (idx, (out, ds)) = utxoPut (TxIn txid idx) (out, ds)
 
@@ -63,7 +65,7 @@ rollbackTxUtxo ((tx@UnsafeTx{..}, _, _), undo) = do
         throwError $ TxpInvalidUndoLength (length _txInputs) (length undo)
     let txid = hash tx
     mapM_ utxoDel $ take (length _txOutputs) $ zipWith TxIn (repeat txid) [0..]
-    mapM_ (uncurry utxoPut) $ zip _txInputs undo
+    mapM_ (uncurry utxoPut) $ zip (toList _txInputs) undo
 
 ----------------------------------------------------------------------------
 -- Pure

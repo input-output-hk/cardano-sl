@@ -13,11 +13,12 @@ module Pos.Txp.Core.Tx
        , topsortTxs
        ) where
 
-import           Control.Lens         (makeLenses, (%=), (.=))
+import           Control.Lens         (makeLenses, to, (%=), (.=))
 import           Control.Monad.Except (runExceptT)
 import qualified Data.HashMap.Strict  as HM
 import qualified Data.HashSet         as HS
 import           Data.List            (tail, zipWith3)
+import qualified Data.List.NonEmpty   as NE
 import           Formatting           (build, int, sformat, (%))
 import           Serokell.Util        (VerificationRes, allDistinct, verResToMonadError,
                                        verifyGeneric)
@@ -34,7 +35,8 @@ import           Pos.Crypto           (Hash, WithHash (..), checkSig, hash,
                                        redeemCheckSig)
 import           Pos.Script           (Script (..), isKnownScriptVersion, txScriptCheck)
 import           Pos.Txp.Core.Types   (Tx (..), TxAux, TxDistribution (..), TxIn (..),
-                                       TxInWitness (..), TxOut (..), TxOutAux, TxUndo)
+                                       TxInWitness (..), TxOut (..), TxOutAux, TxUndo,
+                                       txInputs)
 
 ----------------------------------------------------------------------------
 -- Verification
@@ -82,7 +84,7 @@ verifyTx
     -> m (Either [Text] TxUndo)
 verifyTx verifyVersions gContext inputResolver
          txs@(UnsafeTx {..}, _, _) = do
-    extendedInputs <- mapM extendInput _txInputs
+    extendedInputs <- toList <$> mapM extendInput _txInputs
     runExceptT $ do
         verResToMonadError identity $
             verifyTxDo verifyVersions gContext extendedInputs txs
@@ -122,7 +124,7 @@ verifyTxDo verifyVersions _gContext extendedInputs
             ]
             ++
             do (i, (TxOut{..}, d)) <-
-                   zip [0 :: Int ..] (zip _txOutputs (getTxDistribution distrs))
+                   zip [0 :: Int ..] $ toList (NE.zip _txOutputs (getTxDistribution distrs))
                case txOutAddress of
                    PubKeyAddress{} ->
                        [ ( null d
@@ -291,7 +293,7 @@ topsortTxs toTx input =
         tsVisited %= HS.insert txHash
         let visitedNew = HS.insert txHash visitedThis
             dependsUnfiltered =
-                mapMaybe (\x -> HM.lookup (txInHash x) txHashes) (_txInputs tx)
+                mapMaybe (\x -> HM.lookup (txInHash x) txHashes) (tx ^. txInputs . to toList)
         depends <- filterM
             (\x -> not . HS.member (whHash (toTx x)) <$> use tsVisited)
             dependsUnfiltered

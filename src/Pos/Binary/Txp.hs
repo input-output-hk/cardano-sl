@@ -4,6 +4,7 @@ module Pos.Binary.Txp () where
 
 import           Data.Binary.Get    (getWord8, label)
 import           Data.Binary.Put    (putByteString, putWord8)
+import           Data.List.NonEmpty (nonEmpty)
 import           Formatting         (int, sformat, (%))
 import           Universum          hiding (putByteString)
 
@@ -49,13 +50,18 @@ instance Bi T.TxInWitness where
 
 instance Bi T.TxDistribution where
     put (T.TxDistribution ds) =
-        put $ if all null ds
-                  then Left (UnsignedVarInt (length ds))
-                  else Right ds
-    get = label "TxDistribution" $
-        T.TxDistribution .
-        either (\(UnsignedVarInt n) -> replicate n []) identity
-            <$> get
+        put $
+        if all null ds
+            then Left (UnsignedVarInt (length ds))
+            else Right ds
+    get = label "TxDistribution" $ T.TxDistribution <$> parseDistribution
+      where
+        parseDistribution =
+            get >>= \case
+                Left (UnsignedVarInt n) ->
+                    maybe (fail "get@TxDistribution: empty distribution") pure $
+                    nonEmpty $ replicate n []
+                Right ds -> pure ds
 
 instance Bi T.TxProof where
     put (T.TxProof {..}) = do

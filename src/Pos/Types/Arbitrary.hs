@@ -24,11 +24,12 @@ module Pos.Types.Arbitrary
 import qualified Data.ByteString            as BS (pack)
 import           Data.Char                  (chr)
 import           Data.DeriveTH              (derive, makeArbitrary)
+import           Data.List.NonEmpty         ((<|))
+import qualified Data.List.NonEmpty         as NE
 import           Data.Time.Units            (Microsecond, Millisecond, fromMicroseconds)
 import           System.Random              (Random)
-import           Test.QuickCheck            (Arbitrary (..), Gen, NonEmptyList (..),
-                                             choose, choose, elements, oneof, scale,
-                                             suchThat)
+import           Test.QuickCheck            (Arbitrary (..), Gen, choose, choose,
+                                             elements, oneof, scale, suchThat)
 import           Test.QuickCheck.Instances  ()
 import           Universum
 
@@ -59,7 +60,7 @@ import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
 import           Pos.Txp.Core.Types         (Tx (..), TxDistribution (..), TxIn (..),
                                              TxInWitness (..), TxOut (..), TxOutAux,
-                                             TxProof (..))
+                                             TxProof (..), mkTx)
 import           Pos.Types.Arbitrary.Unsafe ()
 import           Pos.Util                   (makeSmall)
 
@@ -280,10 +281,11 @@ derive makeArbitrary ''TxIn
 -- | Arbitrary transactions generated from this instance will only be valid
 -- with regards to 'mxTx'
 instance Arbitrary Tx where
-    arbitrary = do
-        txIns <- getNonEmpty <$> arbitrary
-        txOuts <- getNonEmpty <$> arbitrary
-        pure $ UnsafeTx txIns txOuts (mkAttributes ())
+    arbitrary =
+        mkTx <$> arbitrary <*> arbitrary <*>
+        pure (mkAttributes ()) <&> \case
+            Left err -> panic $ "Arbitrary Tx: " <> err
+            Right res -> res
 
 -- | Type used to generate valid ('verifyTx')
 -- transactions and accompanying input information.
@@ -302,36 +304,40 @@ instance Arbitrary Tx where
 -- signatures in the transaction's inputs have been replaced with a bogus one.
 
 buildProperTx
-    :: [(Tx, SecretKey, SecretKey, Coin)]
+    :: NonEmpty (Tx, SecretKey, SecretKey, Coin)
     -> (Coin -> Coin, Coin -> Coin)
-    -> Gen [((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)]
-buildProperTx triplesList (inCoin, outCoin) = do
-        let fun (UnsafeTx txIn txOut _, fromSk, toSk, c) =
-                let inC = inCoin c
-                    outC = outCoin c
-                    txToBeSpent = UnsafeTx txIn ((makeTxOutput fromSk inC) : txOut) (mkAttributes ())
-                in (txToBeSpent, fromSk, makeTxOutput toSk outC)
-            -- why is it called txList? I've no idea what's going on here
-            txList = fmap fun triplesList
-            txOutsHash = hash $ fmap (view _3) txList
-            distrHash = hash (TxDistribution (replicate (length txList) []))
-            makeNullDistribution tx =
-                TxDistribution (replicate (length (_txOutputs tx)) [])
-            newTx (tx, fromSk, txOutput) =
-                let txHash = hash tx
-                    txIn = TxIn txHash 0
-                    witness = PkWitness {
-                        twKey = toPublic fromSk,
-                        twSig = sign fromSk (txHash, 0, txOutsHash, distrHash) }
-                in ((tx, makeNullDistribution tx),
-                    txIn, (txOutput, []), witness)
-            makeTxOutput s c = TxOut (makePubKeyAddress $ toPublic s) c
-            goodTx = fmap newTx txList
-        return goodTx
+    -> NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
+buildProperTx triplesList (inCoin, outCoin) = fmap newTx txList
+  where
+    fun (UnsafeTx txIn txOut _, fromSk, toSk, c) =
+        let inC = inCoin c
+            outC = outCoin c
+            txToBeSpent =
+                UnsafeTx
+                    txIn
+                    ((makeTxOutput fromSk inC) <| txOut)
+                    (mkAttributes ())
+        in (txToBeSpent, fromSk, makeTxOutput toSk outC)
+    -- why is it called txList? I've no idea what's going on here (@neongreen)
+    txList = fmap fun triplesList
+    txOutsHash = hash $ fmap (view _3) txList
+    distrHash = hash (TxDistribution (NE.fromList $ replicate (length txList) []))
+    makeNullDistribution tx =
+        TxDistribution (NE.fromList $ replicate (length (_txOutputs tx)) [])
+    newTx (tx, fromSk, txOutput) =
+        let txHash = hash tx
+            txIn = TxIn txHash 0
+            witness =
+                PkWitness
+                { twKey = toPublic fromSk
+                , twSig = sign fromSk (txHash, 0, txOutsHash, distrHash)
+                }
+        in ((tx, makeNullDistribution tx), txIn, (txOutput, []), witness)
+    makeTxOutput s c = TxOut (makePubKeyAddress $ toPublic s) c
 
 -- | Well-formed transaction 'Tx'.
 newtype GoodTx = GoodTx
-    { getGoodTx :: [((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)]
+    { getGoodTx :: NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
     } deriving (Show)
 
 newtype SmallGoodTx =
@@ -339,18 +345,15 @@ newtype SmallGoodTx =
     deriving Show
 
 instance Arbitrary GoodTx where
-    arbitrary = GoodTx <$> do
-        txsList <- getNonEmpty <$>
-            (arbitrary :: Gen (NonEmptyList (Tx, SecretKey, SecretKey, Coin)))
-        buildProperTx txsList (identity, identity)
+    arbitrary =
+        GoodTx <$> (buildProperTx <$> arbitrary <*> pure (identity, identity))
 
 instance Arbitrary SmallGoodTx where
     arbitrary = SmallGoodTx <$> makeSmall arbitrary
 
-
 -- | Ill-formed 'Tx' with bad signatures.
 newtype BadSigsTx = BadSigsTx
-    { getBadSigsTx :: [((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)]
+    { getBadSigsTx :: NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
     } deriving (Show)
 
 newtype SmallBadSigsTx =

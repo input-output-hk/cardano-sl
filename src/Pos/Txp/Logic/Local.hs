@@ -11,6 +11,7 @@ module Pos.Txp.Logic.Local
 import           Control.Monad.Except (MonadError (..), runExcept)
 import           Data.Default         (def)
 import qualified Data.HashMap.Strict  as HM
+import qualified Data.List.NonEmpty   as NE
 import qualified Data.Map             as M (fromList)
 import           Formatting           (build, sformat, (%))
 import           System.Wlog          (WithLogger, logDebug)
@@ -48,7 +49,8 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
     -- (from Utxo DB and from UtxoView also)
     let resolved = HM.fromList $
                    catMaybes $
-                   zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
+                   toList $
+                   NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
     pRes <- modifyTxpLocalData $ processTxDo resolved tipBefore itw
     case pRes of
         Left er -> do

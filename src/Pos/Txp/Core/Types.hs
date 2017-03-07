@@ -46,15 +46,15 @@ module Pos.Txp.Core.Types
 import           Control.Lens         (makeLenses)
 import           Data.DeriveTH        (derive, makeNFData)
 import           Data.Hashable        (Hashable)
-import qualified Data.Text            as T
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
-import           Formatting           (Format, bprint, build, int, later, sformat, (%))
+import           Formatting           (Format, bprint, build, formatToString, int, later,
+                                       sformat, (%))
 import           Serokell.Util.Base16 (base16F)
 import           Serokell.Util.Text   (listBuilderJSON, listJson, listJsonIndent,
                                        pairBuilder)
-import           Serokell.Util.Verify (VerificationRes (..), verifyGeneric)
+import           Serokell.Util.Verify (VerificationRes (..), verResSingleF, verifyGeneric)
 import           Universum
 
 import           Pos.Binary.Core      ()
@@ -75,7 +75,7 @@ type TxId = Hash Tx
 ----------------------------------------------------------------------------
 
 -- | Data that is being signed when creating a TxSig.
-type TxSigData = (TxId, Word32, Hash [TxOut], Hash TxDistribution)
+type TxSigData = (TxId, Word32, Hash (NonEmpty TxOut), Hash TxDistribution)
 
 -- | 'Signature' of addrId.
 type TxSig = Signature TxSigData
@@ -108,11 +108,12 @@ instance Buildable TxInWitness where
 -- is provided for each input.
 type TxWitness = Vector TxInWitness
 
--- | Distribution of “fake” stake that follow-the-satoshi would use for a
--- particular transaction.
-newtype TxDistribution = TxDistribution {
-    getTxDistribution :: [[(StakeholderId, Coin)]] }
-    deriving (Eq, Show, Generic, Typeable)
+-- | Distribution of “fake” stake that follow-the-satoshi would use
+-- for a particular transaction.  Length of stored list must be same
+-- as length of '_txOutputs' of corresponding transaction.
+newtype TxDistribution = TxDistribution
+    { getTxDistribution :: NonEmpty [(StakeholderId, Coin)]
+    } deriving (Eq, Show, Generic, Typeable)
 
 instance Buildable TxDistribution where
     build (TxDistribution x) =
@@ -167,9 +168,9 @@ type TxAttributes = Attributes ()
 --
 -- NB: transaction witnesses are stored separately.
 data Tx = UnsafeTx
-    { _txInputs     :: ![TxIn]   -- ^ Inputs of transaction.
-    , _txOutputs    :: ![TxOut]  -- ^ Outputs of transaction.
-    , _txAttributes :: !TxAttributes -- ^ Attributes of transaction
+    { _txInputs     :: !(NonEmpty TxIn)  -- ^ Inputs of transaction.
+    , _txOutputs    :: !(NonEmpty TxOut) -- ^ Outputs of transaction.
+    , _txAttributes :: !TxAttributes     -- ^ Attributes of transaction
     } deriving (Eq, Ord, Generic, Show, Typeable)
 
 makeLenses ''Tx
@@ -198,20 +199,23 @@ txaF = later $ \(tx, w, d) ->
 
 -- | Create valid Tx or fail.
 -- Verify inputs and outputs are non empty; have enough coins.
-mkTx :: MonadFail m => [TxIn] -> [TxOut] -> TxAttributes -> m Tx
-mkTx inputs outputs attrs
-    | null inputs = fail "transaction doesn't have inputs"
-    | null outputs = fail "transaction doesn't have outputs"
-    | VerFailure ers <- verifyOutputs =
-        fail $ T.unpack $ T.intercalate "; " ers
-    | otherwise = pure $ UnsafeTx inputs outputs attrs
+mkTx
+    :: MonadFail m
+    => NonEmpty TxIn -> NonEmpty TxOut -> TxAttributes -> m Tx
+mkTx inputs outputs attrs =
+    case verRes of
+        VerSuccess -> pure $ UnsafeTx inputs outputs attrs
+        failure    -> fail $ formatToString verResSingleF failure
   where
-    verifyOutputs = verifyGeneric $ concat $
-                    zipWith outputPredicates [0..] outputs
-    outputPredicates (i :: Word) TxOut{..} = [
-      ( txOutValue > mkCoin 0
-      , sformat ("output #"%int%" has non-positive value: "%coinF)
-                i txOutValue) ]
+    verRes =
+        verifyGeneric $
+        concat $ zipWith outputPredicates [0 ..] $ toList outputs
+    outputPredicates (i :: Word) TxOut {..} =
+        [ ( txOutValue > mkCoin 0
+          , sformat
+                ("output #"%int%" has non-positive value: "%coinF)
+                i txOutValue)
+        ]
 
 ----------------------------------------------------------------------------
 -- Payload and proof

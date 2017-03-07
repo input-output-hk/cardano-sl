@@ -513,7 +513,7 @@ checkNoUnknownVersions blk = mconcat $ map toVerRes $ concat [
     toVerRes (Left e)  = VerFailure [sformat build e]
 
     -- Check a transaction
-    checkTx txI UnsafeTx{..} = imap (checkOutput txI) _txOutputs
+    checkTx txI UnsafeTx{..} = imap (checkOutput txI) $ toList _txOutputs
     -- Check an output
     checkOutput txI outI TxOut{..} = case txOutAddress of
         UnknownAddressType t _ -> Left $

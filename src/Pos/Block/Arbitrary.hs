@@ -17,7 +17,7 @@ import           Test.QuickCheck      (Arbitrary (..), Gen, NonEmptyList (..), c
                                        listOf, listOf, oneof, oneof, vectorOf)
 import           Universum
 
-import           Pos.Binary.Class     (Bi, Raw)
+import           Pos.Binary.Class     (Bi, Raw, biSize)
 import           Pos.Block.Network    as T
 import           Pos.Constants        (epochSlots)
 import           Pos.Crypto           (ProxySecretKey, PublicKey, SecretKey,
@@ -378,5 +378,6 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                 , T.vhpNextHeader = next
                 , T.vhpCurrentSlot = randomSlotBeforeThisHeader
                 , T.vhpLeaders = nonEmpty $ map T.addressHash thisHeadersEpoch
+                , T.vhpMaxSize = biSize header
                 }
         return . HAndP $ (params, header)

@@ -23,8 +23,8 @@ import qualified Text.Regex.TDFA.Text  as TDFA
 import           Universum             hiding ((.&.))
 import           Unsafe                (unsafeHead)
 
-import           Pos.Crypto            (checkSig, hash, toPublic, unsafeHash, whData,
-                                        withHash)
+import           Pos.Crypto            (checkSig, fakeSigner, hash, toPublic, unsafeHash,
+                                        whData, withHash)
 import           Pos.Data.Attributes   (mkAttributes)
 import           Pos.Script            (Script)
 import           Pos.Script.Examples   (alwaysSuccessValidator, badIntRedeemer,
@@ -162,7 +162,7 @@ scriptTxSpec = describe "script transactions" $ do
             it "good (1 provided)" $ do
                 let res = checkScriptTx val
                         (\sd -> ScriptWitness val
-                            (multisigRedeemer sd [Just sk1]))
+                            (multisigRedeemer sd [Just $ fakeSigner sk1]))
                 res `shouldSatisfy` isVerSuccess
             it "bad (0 provided)" $ do
                 let res = checkScriptTx val
@@ -172,7 +172,7 @@ scriptTxSpec = describe "script transactions" $ do
             it "bad (1 provided, wrong sig)" $ do
                 let res = checkScriptTx val
                         (\sd -> ScriptWitness val
-                            (multisigRedeemer sd [Just sk2]))
+                            (multisigRedeemer sd [Just $ fakeSigner sk2]))
                 shouldBeFailure res
         describe "2-of-3" $ do
             let val = multisigValidator 2 [pk1, pk2, pk3]
@@ -180,37 +180,37 @@ scriptTxSpec = describe "script transactions" $ do
                 let res = checkScriptTx val
                         (\sd -> ScriptWitness val
                             (multisigRedeemer sd
-                             [Just sk1, Nothing, Just sk3]))
+                             [Just $ fakeSigner sk1, Nothing, Just $ fakeSigner sk3]))
                 res `shouldSatisfy` isVerSuccess
             it "good (3 provided)" $ do
                 let res = checkScriptTx val
                         (\sd -> ScriptWitness val
                             (multisigRedeemer sd
-                             [Just sk1, Just sk2, Just sk3]))
+                             [Just $ fakeSigner sk1, Just $ fakeSigner sk2, Just $ fakeSigner sk3]))
                 res `shouldSatisfy` isVerSuccess
             it "good (3 provided, 1 wrong)" $ do
                 let res = checkScriptTx val
                         (\sd -> ScriptWitness val
                             (multisigRedeemer sd
-                             [Just sk1, Just sk4, Just sk3]))
+                             [Just $ fakeSigner sk1, Just $ fakeSigner sk4, Just $ fakeSigner sk3]))
                 res `shouldSatisfy` isVerSuccess
             it "bad (1 provided)" $ do
                 let res = checkScriptTx val
                         (\sd -> ScriptWitness val
                             (multisigRedeemer sd
-                             [Just sk1, Nothing, Nothing]))
+                             [Just $ fakeSigner sk1, Nothing, Nothing]))
                 shouldBeFailure res
             it "bad (2 provided, length doesn't match)" $ do
                 let res = checkScriptTx val
                         (\sd -> ScriptWitness val
                             (multisigRedeemer sd
-                             [Just sk1, Just sk2]))
+                             [Just $ fakeSigner sk1, Just $ fakeSigner sk2]))
                 shouldBeFailure res
             it "bad (3 provided, 2 wrong)" $ do
                 let res = checkScriptTx val
                         (\sd -> ScriptWitness val
                             (multisigRedeemer sd
-                             [Just sk1, Just sk3, Just sk2]))
+                             [Just $ fakeSigner sk1, Just $ fakeSigner sk3, Just $ fakeSigner sk2]))
                 shouldBeFailure res
 
     describe "execution limits" $ do
@@ -219,14 +219,14 @@ scriptTxSpec = describe "script transactions" $ do
             let res = checkScriptTx val
                     (\sd -> ScriptWitness val
                         (multisigRedeemer sd
-                         (replicate 10 (Just sk1))))
+                         (replicate 10 (Just $ fakeSigner sk1))))
             res `shouldSatisfy` isVerSuccess
         it "20-of-20 multisig is bad" $ do
             let val = multisigValidator 20 (replicate 20 pk1)
             let res = checkScriptTx val
                     (\sd -> ScriptWitness val
                         (multisigRedeemer sd
-                         (replicate 20 (Just sk1))))
+                         (replicate 20 (Just $ fakeSigner sk1))))
             res `errorsShouldMatch` [
                 "input #0 isn't validated by its witness.*\
                         \reason: Out of petrol.*"]

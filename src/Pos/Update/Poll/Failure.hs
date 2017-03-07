@@ -11,10 +11,10 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
 import           Pos.Core.Coin              (coinF)
-import           Pos.Core.Types             (Coin, EpochIndex, HeaderHash, ScriptVersion,
-                                             StakeholderId)
-import           Pos.Core.Types             (ApplicationName, BlockVersion,
-                                             NumSoftwareVersion)
+import           Pos.Core.Types             (ApplicationName, BlockVersion, Coin,
+                                             EpochIndex, NumSoftwareVersion,
+                                             ScriptVersion, StakeholderId)
+import           Pos.Crypto                 (shortHashF)
 import           Pos.Update.Core            (UpId)
 
 -- | PollVerFailure represents all possible errors which can
@@ -63,10 +63,10 @@ data PollVerFailure
     | PollBadBlockVersion { pbpvUpId       :: !UpId
                             ,  pbpvGiven   :: !BlockVersion
                             ,  pbpvAdopted :: !BlockVersion}
-    | PollTooBigBlock { ptbbHash  :: !HeaderHash
-                      , ptbbSize  :: !Byte
-                      , ptbbLimit :: !Byte
-                      }
+    | PollTooLargeProposal { ptlpUpId  :: !UpId
+                           , ptlpSize  :: !Byte
+                           , ptlpLimit :: !Byte
+                           }
     | PollInternalError !Text
 
 instance Buildable PollVerFailure where
@@ -127,9 +127,9 @@ instance Buildable PollVerFailure where
         bprint ("proposal "%build%" has bad protocol version: "%
                 build%" (current adopted is "%build%")")
         pbpvUpId pbpvGiven pbpvAdopted
-    build (PollTooBigBlock {..}) =
-        bprint ("block "%build%" is bigger than max block size ("%
+    build (PollTooLargeProposal {..}) =
+        bprint ("update proposal "%shortHashF%" exceeds maximal size ("%
                 int%" > "%int%")")
-        ptbbHash ptbbSize ptbbLimit
+        ptlpUpId ptlpSize ptlpLimit
     build (PollInternalError msg) =
         bprint ("internal error: "%stext) msg

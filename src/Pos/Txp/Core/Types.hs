@@ -62,7 +62,8 @@ import           Pos.Binary.Crypto    ()
 import           Pos.Core.Address     ()
 import           Pos.Core.Types       (Address (..), Coin, Script, StakeholderId, coinF,
                                        mkCoin)
-import           Pos.Crypto           (Hash, PublicKey, Signature, hash, shortHashF)
+import           Pos.Crypto           (Hash, PublicKey, RedeemPublicKey, RedeemSignature,
+                                       Signature, hash, shortHashF)
 import           Pos.Data.Attributes  (Attributes)
 import           Pos.Merkle           (MerkleRoot, MerkleTree)
 
@@ -85,6 +86,8 @@ data TxInWitness
                 , twSig :: !TxSig }
     | ScriptWitness { twValidator :: !Script
                     , twRedeemer  :: !Script }
+    | RedeemWitness { twRedeemKey :: !RedeemPublicKey
+                    , twRedeemSig :: !(RedeemSignature TxSigData) }
     | UnknownWitnessType !Word8 !ByteString
     deriving (Eq, Show, Generic, Typeable)
 

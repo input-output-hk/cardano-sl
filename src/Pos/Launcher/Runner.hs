@@ -78,8 +78,8 @@ import           Pos.Constants               (blockRetrievalQueueSize,
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               runContextHolder)
+import           Pos.Crypto                  (createProxySecretKey, encToPublic)
 import           Pos.Core.Timestamp          (timestampF)
-import           Pos.Crypto                  (createProxySecretKey, toPublic)
 import           Pos.DB                      (MonadDB (..), runDBHolder)
 import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
 import           Pos.DB.GState               (getTip)
@@ -341,7 +341,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
     lrcSync <- liftIO . newTVarIO . (True,) =<< LrcDB.getEpochDefault
 
     let eternity = (minBound, maxBound)
-        makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . toPublic
+        makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . encToPublic
         ownPSKs = npUserSecret ^.. usKeys._tail.each.to makeOwnPSK
     forM_ ownPSKs addProxySecretKey
 
@@ -438,7 +438,7 @@ createTransport ip port = do
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =
                    Just $ fromIntegral networkConnectionTimeout
-             , TCP.tcpNewQDisc = fairQDisc
+             , TCP.tcpNewQDisc = fairQDisc $ \_ -> return Nothing
              })
     transportE <-
         liftIO $ TCP.createTransport "0.0.0.0" (show port) ((,) ip) tcpParams

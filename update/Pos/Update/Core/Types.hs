@@ -53,7 +53,7 @@ import           Data.Time.Units            (Millisecond)
 import           Formatting                 (Format, bprint, build, builder, int, later,
                                              (%))
 import           Language.Haskell.TH.Syntax (Lift)
-import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Text         (listJson)
 import           Universum                  hiding (show)
 
@@ -136,7 +136,9 @@ data BlockVersionData = BlockVersionData
     { bvdScriptVersion     :: !ScriptVersion
     , bvdSlotDuration      :: !Millisecond
     , bvdMaxBlockSize      :: !Byte
+    , bvdMaxHeaderSize     :: !Byte
     , bvdMaxTxSize         :: !Byte
+    , bvdMaxProposalSize   :: !Byte
     , bvdMpcThd            :: !CoinPortion
     , bvdHeavyDelThd       :: !CoinPortion
     , bvdUpdateVoteThd     :: !CoinPortion
@@ -149,11 +151,29 @@ instance Buildable BlockVersionData where
     build BlockVersionData {..} =
       bprint ("{ scripts v"%build%
               ", slot duration: "%int%" mcs"%
-              ", block size limit: "%int%" bytes"%
+              ", block size limit: "%memory%
+              ", header size limit: "%memory%
+              ", tx size limit: "%memory%
+              ", proposal size limit: "%memory%
+              ", mpc threshold: "%build%
+              ", heavyweight delegation threshold: "%build%
+              ", update vote threshold: "%build%
+              ", update proposal threshold: "%build%
+              ", update implicit period: "%int%" slots"%
+              ", update softfork threshold: "%build%
               " }")
         bvdScriptVersion
         bvdSlotDuration
         bvdMaxBlockSize
+        bvdMaxHeaderSize
+        bvdMaxTxSize
+        bvdMaxProposalSize
+        bvdMpcThd
+        bvdHeavyDelThd
+        bvdUpdateVoteThd
+        bvdUpdateProposalThd
+        bvdUpdateImplicit
+        bvdUpdateSoftforkThd
 
 upScriptVersion :: UpdateProposal -> ScriptVersion
 upScriptVersion = bvdScriptVersion . upBlockVersionData

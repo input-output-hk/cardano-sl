@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -29,7 +30,7 @@ import           Data.Time.Units             (Microsecond, convertUnit)
 import           Formatting                  (int, sformat, (%))
 import           Mockable                    (Catch, ChannelT, Counter, CurrentTime,
                                               Delay, Distribution, Fork, Gauge, MFunctor',
-                                              Mockable (liftMockable), Promise,
+                                              Mockable (liftMockable), Mockables, Promise,
                                               SharedAtomicT, SharedExclusiveT, ThreadId,
                                               Throw, currentTime, delay,
                                               liftMockableWrappedM)
@@ -136,12 +137,14 @@ type SlottingConstraint m =
     ( MonadIO m
     , WithLogger m
     , MonadSlotsData m
-    , Mockable Fork m
-    , Mockable Throw m
-    , Mockable Catch m
     , MonadCatch m
-    , Mockable Delay m
-    , Mockable CurrentTime m
+    , Mockables m
+        [ Fork
+        , Throw
+        , Catch
+        , Delay
+        , CurrentTime
+        ]
     )
 
 instance SlottingConstraint m =>
@@ -273,12 +276,14 @@ ntpCurrentTime = do
 
 mkNtpSlottingVar
     :: ( MonadIO m
-       , Mockable CurrentTime m
        , WithLogger m
-       , Mockable Delay m
-       , Mockable Fork m
-       , Mockable Throw m
-       , Mockable Catch m
+       , Mockables m
+        [ CurrentTime
+        , Delay
+        , Fork
+        , Throw
+        , Catch
+        ]
        )
     => m NtpSlottingVar
 mkNtpSlottingVar = do
@@ -317,7 +322,9 @@ ntpHandlerDo var (newMargin, transmitTime) = do
     atomically $ STM.modifyTVar var ( set nssLastMargin newMargin
                                     . set nssLastLocalTime realTime)
 
-ntpSettings :: NtpSlottingVar -> NtpClientSettings
+ntpSettings
+    :: (MonadIO m, WithLogger m)
+    => NtpSlottingVar -> NtpClientSettings m
 ntpSettings var = NtpClientSettings
         { -- list of servers addresses
           ntpServers         = [ "pool.ntp.org"

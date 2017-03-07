@@ -38,7 +38,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: d051eb3256662c4e542a42d43dea5637bce443f8
+    commit: 093576cc313c05e94b49a7ed730df64e2f8eab68
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -49,9 +49,17 @@ packages:
     git: https://github.com/avieth/network-transport
     commit: f2321a103f53f51d36c99383132e3ffa3ef1c401
   extra-dep: true
-- location: 
+- location:
     git: https://github.com/serokell/hslogger
     commit: cf5c742a07ef12e8eb2506775c77f22befa23d8f
+  extra-dep: true
+- location:
+    git: https://github.com/flyingleafe/cardano-crypto
+    commit: 46a30c230ffe95f7802d0ebdb30e300d15d26935
+  extra-dep: true
+- location:
+    git: https://github.com/haskell-crypto/cryptonite.git
+    commit: 2932df9e243aa7ae7eb2b25d7c60fa77a30c6fb5
   extra-dep: true
 # todo replace it with hackage version
 #- location:

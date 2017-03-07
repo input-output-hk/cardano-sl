@@ -23,8 +23,6 @@ module Pos.Types.Block.Functions
        , verifyGenericBlock
        , verifyHeader
        , verifyHeaders
-
-       , blockSize
        ) where
 
 import           Control.Lens               (folded, iconcatMap, imap, ix)
@@ -33,7 +31,7 @@ import           Data.List                  (groupBy)
 import           Data.Tagged                (untag)
 import qualified Data.Text                  as Text
 import           Formatting                 (build, int, sformat, (%))
-import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Verify       (VerificationRes (..), verifyGeneric)
 import           Universum
 
@@ -70,6 +68,7 @@ import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
                                              MainBlock, MainBlockHeader, MainBlockchain,
                                              MainExtraBodyData (..), MainExtraHeaderData,
                                              mehBlockVersion)
+import           Pos.Update.Core            (BlockVersionData (..))
 import           Pos.Util                   (NewestFirst (..), OldestFirst)
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
@@ -256,6 +255,7 @@ data VerifyHeaderParams ssc = VerifyHeaderParams
     , vhpNextHeader      :: !(Maybe (BlockHeader ssc))
     , vhpCurrentSlot     :: !(Maybe SlotId)
     , vhpLeaders         :: !(Maybe SlotLeaders)
+    , vhpMaxSize         :: !Byte
     } deriving (Show, Eq)
 
 -- | By default nothing is checked.
@@ -267,6 +267,7 @@ instance Default (VerifyHeaderParams ssc) where
         , vhpNextHeader = Nothing
         , vhpCurrentSlot = Nothing
         , vhpLeaders = Nothing
+        , vhpMaxSize = 1000000000 -- TODO: get rid of this module
         }
 
 maybeEmpty :: Monoid m => (a -> m) -> Maybe a -> m
@@ -291,6 +292,7 @@ verifyHeader VerifyHeaderParams {..} h =
             , maybeEmpty relatedToNextHeader vhpNextHeader
             , maybeEmpty relatedToCurrentSlot vhpCurrentSlot
             , maybeEmpty relatedToLeaders vhpLeaders
+            , [checkSize]
             ]
     checkHash :: HeaderHash -> HeaderHash -> (Bool, Text)
     checkHash expectedHash actualHash =
@@ -320,6 +322,9 @@ verifyHeader VerifyHeaderParams {..} h =
               ("two adjacent blocks are from different epochs ("%build%" != "%build%")")
               oldEpoch newEpoch
         )
+    checkSize = (Bi.biSize h <= vhpMaxSize,
+                 sformat ("header's size exceeds limit ("%memory%" > "%memory%")")
+                 (Bi.biSize h) vhpMaxSize)
 
     -- CHECK: Performs checks related to the previous header:
     --
@@ -415,6 +420,8 @@ data VerifyBlockParams ssc = VerifyBlockParams
       -- (passed in the 'Just') is higher (or equal) than the version of the
       -- block we're checking, because in this case there really shouldn't be
       -- anything unparseable in the block.
+    , vbpMaxSize        :: !Byte
+    -- ^ Maximal block size.
     }
 
 -- | By default nothing is checked.
@@ -426,6 +433,7 @@ instance Default (VerifyBlockParams ssc) where
         , vbpVerifySsc = False
         , vbpVerifyProxySKs = False
         , vbpVerifyVersions = Nothing
+        , vbpMaxSize = 1000000000 -- TODO: get rid of this module
         }
 
 -- CHECK: @verifyBlock
@@ -442,6 +450,7 @@ verifyBlock VerifyBlockParams {..} blk =
         , verifySsc
         , verifyProxySKs
         , maybeEmpty verifyVersions vbpVerifyVersions
+        , checkSize
         ]
   where
     toVerRes (Right _) = VerSuccess
@@ -487,6 +496,11 @@ verifyBlock VerifyBlockParams {..} blk =
             in if lastKnownBlockVersion >= effectiveBlockVersion
                    then checkNoUnknownVersions mainBlk
                    else mempty
+    checkSize = verifyGeneric [
+      (Bi.biSize blk <= vbpMaxSize,
+       sformat ("block's size exceeds limit ("%memory%" > "%memory%")")
+       (Bi.biSize blk) vbpMaxSize)
+      ]
 
 -- | Check that the block contains no 'UnknownAddressType' and
 -- 'UnknownWitnessType' and that all script versions are known.
@@ -542,13 +556,14 @@ verifyBlocks
        , NontrivialContainer t
        )
     => Maybe SlotId
+    -> BlockVersionData
     -> Maybe SlotLeaders
     -> Maybe BlockVersion           -- ^ @Just <$> getAdoptedBV@ if it's
                                     --   an incoming sequence of blocks
                                     --   (see issue #25 on Github)
     -> OldestFirst f (Block ssc)
     -> VerificationRes
-verifyBlocks curSlotId initLeaders mbBV = view _3 . foldl' step start
+verifyBlocks curSlotId bvd initLeaders mbBV = view _3 . foldl' step start
   where
     start :: (Maybe SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)
     start = (initLeaders, Nothing, mempty)
@@ -568,6 +583,7 @@ verifyBlocks curSlotId initLeaders mbBV = view _3 . foldl' step start
                 , vhpNextHeader = Nothing
                 , vhpLeaders = newLeaders
                 , vhpCurrentSlot = curSlotId
+                , vhpMaxSize = bvdMaxHeaderSize bvd
                 }
             vbp =
                 VerifyBlockParams
@@ -576,9 +592,6 @@ verifyBlocks curSlotId initLeaders mbBV = view _3 . foldl' step start
                 , vbpVerifySsc = True
                 , vbpVerifyProxySKs = True
                 , vbpVerifyVersions = mbBV
+                , vbpMaxSize = bvdMaxBlockSize bvd
                 }
         in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)
-
--- | Compute size of 'MainBlock' in bytes.
-blockSize :: SscHelpersClass ssc => MainBlock ssc -> Byte
-blockSize = Bi.biSize

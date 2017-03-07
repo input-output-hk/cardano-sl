@@ -19,45 +19,43 @@ module Pos.Update.Poll.Logic.Base
        , confirmBlockVersion
        , updateSlottingData
        , verifyNextBVData
-       , verifyBlockSize
 
        , isDecided
        , voteToUProposalState
        , putNewProposal
        ) where
 
-import           Control.Lens               (at)
-import           Control.Monad.Except       (MonadError (throwError))
-import qualified Data.HashMap.Strict        as HM
-import qualified Data.Set                   as S
-import           Data.Time.Units            (convertUnit)
-import           Formatting                 (build, int, sformat, (%))
-import           Serokell.Data.Memory.Units (Byte)
-import           System.Wlog                (WithLogger, logDebug, logNotice)
+import           Control.Lens            (at)
+import           Control.Monad.Except    (MonadError (throwError))
+import qualified Data.HashMap.Strict     as HM
+import qualified Data.Set                as S
+import           Data.Time.Units         (convertUnit)
+import           Formatting              (build, int, sformat, (%))
+import           System.Wlog             (WithLogger, logDebug, logNotice)
 import           Universum
 
-import           Pos.Constants              (epochSlots)
-import           Pos.Core.Types             (ScriptVersion)
-import           Pos.Crypto                 (PublicKey, hash, shortHashF)
-import           Pos.Slotting               (EpochSlottingData (..), SlottingData (..))
-import           Pos.Ssc.Class              (Ssc)
-import           Pos.Types                  (BlockVersion (..), Coin, EpochIndex,
-                                             HeaderHash, MainBlockHeader, SlotId,
-                                             Timestamp (..), addressHash, coinToInteger,
-                                             difficultyL, headerHashG, headerSlot,
-                                             sumCoins, unsafeAddCoin, unsafeIntegerToCoin,
-                                             unsafeSubCoin)
-import           Pos.Update.Core            (BlockVersionData (..), UpId,
-                                             UpdateProposal (..), UpdateVote (..),
-                                             combineVotes, isPositiveVote, newVoteState)
-import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Failure    (PollVerFailure (..))
-import           Pos.Update.Poll.Types      (BlockVersionState (..),
-                                             ConfirmedProposalState (..),
-                                             DecidedProposalState (..), DpsExtra (..),
-                                             ProposalState (..),
-                                             UndecidedProposalState (..), UpsExtra (..),
-                                             bvsScriptVersion, cpsBlockVersion)
+import           Pos.Constants           (epochSlots)
+import           Pos.Core.Types          (ScriptVersion)
+import           Pos.Crypto              (PublicKey, hash, shortHashF)
+import           Pos.Slotting            (EpochSlottingData (..), SlottingData (..))
+import           Pos.Ssc.Class           (Ssc)
+import           Pos.Types               (BlockVersion (..), Coin, EpochIndex, HeaderHash,
+                                          MainBlockHeader, SlotId, Timestamp (..),
+                                          addressHash, coinToInteger, difficultyL,
+                                          headerHashG, headerSlot, sumCoins,
+                                          unsafeAddCoin, unsafeIntegerToCoin,
+                                          unsafeSubCoin)
+import           Pos.Update.Core         (BlockVersionData (..), UpId,
+                                          UpdateProposal (..), UpdateVote (..),
+                                          combineVotes, isPositiveVote, newVoteState)
+import           Pos.Update.Poll.Class   (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Failure (PollVerFailure (..))
+import           Pos.Update.Poll.Types   (BlockVersionState (..),
+                                          ConfirmedProposalState (..),
+                                          DecidedProposalState (..), DpsExtra (..),
+                                          ProposalState (..), UndecidedProposalState (..),
+                                          UpsExtra (..), bvsScriptVersion,
+                                          cpsBlockVersion)
 
 ----------------------------------------------------------------------------
 -- BlockVersion-related simple functions/operations
@@ -257,16 +255,6 @@ verifyNextBVData upId
             , plmbsUpId = upId
             }
     | otherwise = pass
-
--- | Verify that size of block doesn't exceed currently adopted limit.
-verifyBlockSize
-    :: (MonadError PollVerFailure m, MonadPollRead m)
-    => HeaderHash -> Byte -> m ()
-verifyBlockSize h size = do
-    limit <- bvdMaxBlockSize <$> getAdoptedBVData
-    when (size > limit) $
-        throwError
-            PollTooBigBlock {ptbbHash = h, ptbbLimit = limit, ptbbSize = size}
 
 ----------------------------------------------------------------------------
 -- Wrappers for type-safety

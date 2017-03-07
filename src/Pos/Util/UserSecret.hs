@@ -7,6 +7,7 @@ module Pos.Util.UserSecret
        ( UserSecret
        , usKeys
        , usVss
+       , usPrimKey
        , getUSPath
        , simpleUserSecret
        , initializeUserSecret
@@ -29,15 +30,16 @@ import           Universum            hiding (show)
 
 import           Pos.Binary.Class     (Bi (..), decodeFull, encode)
 import           Pos.Binary.Crypto    ()
-import           Pos.Crypto           (SecretKey, VssKeyPair)
+import           Pos.Crypto           (EncryptedSecretKey, SecretKey, VssKeyPair)
 
 -- | User secret data. Includes secret keys only for now (not
 -- including auxiliary @_usPath@).
 data UserSecret = UserSecret
-    { _usKeys :: [SecretKey]
-    , _usVss  :: Maybe VssKeyPair
-    , _usPath :: FilePath
-    , _usLock :: Maybe FileLock
+    { _usKeys    :: [EncryptedSecretKey]
+    , _usPrimKey :: Maybe SecretKey
+    , _usVss     :: Maybe VssKeyPair
+    , _usPath    :: FilePath
+    , _usLock    :: Maybe FileLock
     }
 
 makeLenses ''UserSecret
@@ -64,19 +66,20 @@ getUSPath = flip (^.) usPath
 
 -- | Create a simple UserSecret from secret key and file path
 simpleUserSecret :: SecretKey -> FilePath -> UserSecret
-simpleUserSecret sk fp = def & usKeys .~ [sk] & usPath .~ fp
+simpleUserSecret sk fp = def & usPrimKey .~ Just sk & usPath .~ fp
 
 instance Default UserSecret where
-    def = UserSecret [] Nothing "" Nothing
+    def = UserSecret [] Nothing Nothing "" Nothing
 
 -- | It's not network/system-related, so instance shouldn't be under
 -- @Pos.Binary.*@.
 instance Bi UserSecret where
-    put UserSecret{..} = put _usVss >> put _usKeys
+    put UserSecret{..} = put _usVss >> put _usPrimKey >> put _usKeys
     get = label "UserSecret" $ do
         vss <- get
+        pkey <- get
         keys <- get
-        return $ def & usVss .~ vss & usKeys .~ keys
+        return $ def & usVss .~ vss & usPrimKey .~ pkey & usKeys .~ keys
 
 -- | Create user secret file at the given path, but only when one doesn't
 -- already exist.

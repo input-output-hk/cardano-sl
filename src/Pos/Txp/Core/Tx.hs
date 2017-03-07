@@ -26,10 +26,12 @@ import           Universum
 import           Pos.Binary.Core      ()
 import           Pos.Binary.Txp       ()
 import           Pos.Core.Address     (addressDetailedF, checkPubKeyAddress,
-                                       checkScriptAddress, checkUnknownAddressType)
+                                       checkRedeemAddress, checkScriptAddress,
+                                       checkUnknownAddressType)
 import           Pos.Core.Coin        (coinToInteger, sumCoins)
 import           Pos.Core.Types       (Address (..), StakeholderId, coinF, mkCoin)
-import           Pos.Crypto           (Hash, WithHash (..), checkSig, hash)
+import           Pos.Crypto           (Hash, WithHash (..), checkSig, hash,
+                                       redeemCheckSig)
 import           Pos.Script           (Script (..), isKnownScriptVersion, txScriptCheck)
 import           Pos.Txp.Core.Types   (Tx (..), TxAux, TxDistribution (..), TxIn (..),
                                        TxInWitness (..), TxOut (..), TxOutAux, TxUndo)
@@ -203,6 +205,7 @@ verifyTxDo verifyVersions _gContext extendedInputs
     checkAddrHash addr wit = case wit of
         PkWitness{..}          -> checkPubKeyAddress twKey addr
         ScriptWitness{..}      -> checkScriptAddress twValidator addr
+        RedeemWitness{..}      -> checkRedeemAddress twRedeemKey addr
         UnknownWitnessType t _ -> checkUnknownAddressType t addr
 
     validateTxIn _i TxIn{..} _ PkWitness{..} =
@@ -218,6 +221,11 @@ verifyTxDo verifyVersions _gContext extendedInputs
         | otherwise =
               let txSigData = (txInHash, txInIndex, txOutHash, distrsHash)
               in txScriptCheck txSigData twValidator twRedeemer
+    validateTxIn _i TxIn{..} _ RedeemWitness{..}
+        | redeemCheckSig twRedeemKey (txInHash, txInIndex, txOutHash, distrsHash) twRedeemSig =
+            Right ()
+        | otherwise =
+            Left "signature check failed"
     validateTxIn _ _ _ (UnknownWitnessType t _)
         | verifyVersions = Left ("unknown witness type: " <> show t)
         | otherwise      = Right ()

@@ -1,5 +1,7 @@
 {-# LANGUAGE CPP                  #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
+-- It's needed for stylish-haskell for some reason :(
+{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -57,11 +59,12 @@ import           Pos.Core.Types        (ChainDifficulty, EpochIndex (..),
                                         HeaderHash, ProxySKHeavy, SlotId (..),
                                         SlotLeaders, slotIdF)
 import           Pos.Crypto            (Hash, PublicKey, hash, hashHexF, unsafeHash)
+import           Pos.Merkle            (MerkleTree)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
-import           Pos.Txp.Core          (Tx, TxAux, TxDistribution, TxWitness,
-                                        TxPayload, txpTxs, TxProof, mkTxProof,
-                                        txpWitnesses, txpDistributions)
+import           Pos.Txp.Core          (Tx, TxAux, TxDistribution, TxPayload, TxProof,
+                                        TxWitness, mkTxProof, txpDistributions, txpTxs,
+                                        txpWitnesses)
 import           Pos.Types.Block.Types (BiHeader, BiSsc, Block, BlockHeader,
                                         BlockSignature, GenesisBlock, GenesisBlockHeader,
                                         GenesisBlockchain, MainBlock, MainBlockHeader,
@@ -69,7 +72,6 @@ import           Pos.Types.Block.Types (BiHeader, BiSsc, Block, BlockHeader,
                                         MainExtraHeaderData)
 import           Pos.Update.Core.Types (UpdatePayload, UpdateProof, UpdateProposal,
                                         mkUpdateProof)
-import Pos.Merkle (MerkleTree)
 
 ----------------------------------------------------------------------------
 -- MainBlock

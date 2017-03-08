@@ -159,7 +159,10 @@ instance Arbitrary (SscPayloadDependsOnSlot ssc) =>
         mpcData <- generator _mcdSlot
         mpcProxySKs <- arbitrary
         mpcUpload   <- arbitrary
-        return $ T.MainBody (mkTxPayload txws) mpcData mpcProxySKs mpcUpload
+        let txPayload = fromMaybe
+                (panic "arbitrary@BodyDependsOnConsensus: mkTxPayload failed") $
+                mkTxPayload txws
+        return $ T.MainBody txPayload mpcData mpcProxySKs mpcUpload
 
 instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc)) where
     arbitrary = makeSmall $ do
@@ -167,7 +170,10 @@ instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc))
         mpcData     <- arbitrary
         mpcProxySKs <- arbitrary
         mpcUpload   <- arbitrary
-        return $ T.MainBody (mkTxPayload txws) mpcData mpcProxySKs mpcUpload
+        let txPayload = fromMaybe
+                (panic "arbitrary@Body: mkTxPayload failed") $
+                mkTxPayload txws
+        return $ T.MainBody txPayload mpcData mpcProxySKs mpcUpload
 
 instance (Arbitrary (SscProof ssc), Arbitrary (SscPayloadDependsOnSlot ssc), SscHelpersClass ssc) =>
     Arbitrary (T.GenericBlock (T.MainBlockchain ssc)) where

@@ -5,7 +5,6 @@ module Pos.Binary.Txp () where
 import           Data.Binary.Get    (getWord8, label)
 import           Data.Binary.Put    (putByteString, putWord8)
 import           Data.List.NonEmpty (nonEmpty)
-import           Formatting         (int, sformat, (%))
 import           Universum          hiding (putByteString)
 
 import           Pos.Binary.Class   (Bi (..), UnsignedVarInt (..), getRemainingByteString,
@@ -75,35 +74,6 @@ instance Bi T.TxProof where
     get = T.TxProof <$> (getUnsignedVarInt <$> get) <*> get <*> get
 
 instance Bi T.TxPayload where
-    put (T.TxPayload {..}) = do
-        put _txpTxs
-        put _txpWitnesses
-        put _txpDistributions
-    get = do
-        _txpTxs <- get
-        _txpWitnesses <- get
-        _txpDistributions <- get
-        let lenTxs    = length _txpTxs
-            lenWit    = length _txpWitnesses
-            lenDistrs = length _txpDistributions
-        when (lenTxs /= lenWit) $ fail $ toString $
-            sformat ("get@(Body MainBlockchain): "%
-                     "size of txs tree ("%int%") /= "%
-                     "length of witness list ("%int%")")
-                    lenTxs lenWit
-        when (lenTxs /= lenDistrs) $ fail $ toString $
-            sformat ("get@(Body MainBlockchain): "%
-                     "size of txs tree ("%int%") /= "%
-                     "length of address distrs list ("%int%")")
-                    lenTxs lenDistrs
-        for_ (zip3 [0 :: Int ..] (toList _txpTxs) _txpDistributions) $
-            \(i, tx, ds) -> do
-                let lenOut = length (T._txOutputs tx)
-                    lenDist = length (T.getTxDistribution ds)
-                when (lenOut /= lenDist) $ fail $ toString $
-                    sformat ("get@(Body MainBlockchain): "%
-                             "amount of outputs ("%int%") of tx "%
-                             "#"%int%" /= amount of distributions "%
-                             "for this tx ("%int%")")
-                            lenOut i lenDist
-        return T.TxPayload {..}
+    put (T.UnsafeTxPayload {..}) =
+        put $ zip3 (toList _txpTxs) _txpWitnesses _txpDistributions
+    get = T.mkTxPayload =<< get

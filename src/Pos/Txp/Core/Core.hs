@@ -4,7 +4,6 @@ module Pos.Txp.Core.Core
        ( txInToPair
        , txOutStake
        , mkTxProof
-       , mkTxPayload
        ) where
 
 import           Universum
@@ -15,9 +14,9 @@ import           Pos.Binary.Txp     ()
 import           Pos.Core.Address   ()
 import           Pos.Core.Types     (Address (..), Coin, StakeholderId)
 import           Pos.Crypto         (hash)
-import           Pos.Merkle         (mkMerkleTree, mtRoot)
-import           Pos.Txp.Core.Types (Tx, TxDistribution, TxId, TxIn (..), TxOut (..),
-                                     TxOutAux, TxPayload (..), TxProof (..), TxWitness)
+import           Pos.Merkle         (mtRoot)
+import           Pos.Txp.Core.Types (TxId, TxIn (..), TxOut (..), TxOutAux,
+                                     TxPayload (..), TxProof (..))
 
 -- | Make a pair from 'TxIn'.
 txInToPair :: TxIn -> (TxId, Word32)
@@ -32,19 +31,9 @@ txOutStake (TxOut{..}, mb) = case txOutAddress of
 
 -- | Construct 'TxProof' which proves given 'TxPayload'.
 mkTxProof :: TxPayload -> TxProof
-mkTxProof TxPayload {..} =
+mkTxProof UnsafeTxPayload {..} =
     TxProof
     { txpNumber = fromIntegral (length _txpTxs)
     , txpRoot = mtRoot _txpTxs
     , txpWitnessesHash = hash _txpWitnesses
-    }
-
--- | Construct 'TxPayload' from transactions and their witnesses and
--- distributions.
-mkTxPayload :: [(Tx, TxWitness, TxDistribution)] -> TxPayload
-mkTxPayload txws =
-    TxPayload
-    { _txpTxs = mkMerkleTree (map (^. _1) txws)
-    , _txpWitnesses = map (^. _2) txws
-    , _txpDistributions = map (^. _3) txws
     }

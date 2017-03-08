@@ -477,7 +477,7 @@ importKey sendActions (toString -> fp) = do
             cAddr = addressToCAddress addr
         createWallet cAddr def
 
-    let importedAddr = makePubKeyAddress $ encToPublic $ (secret ^. usKeys) !! 0
+    let importedAddr = makePubKeyAddress $ encToPublic $ keys !! 0
         importedCAddr = addressToCAddress importedAddr
 #ifdef DEV_MODE
     psk <- maybeThrow (Internal "No primary key is present!")

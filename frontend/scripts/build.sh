@@ -10,5 +10,5 @@ stack --nix exec -- cardano-explorer-hs2purs --bridge-path frontend/src/Generate
 popd
 nix-shell --run ./scripts/generate-backend-lenses.sh
 nix-shell --run ./scripts/generate-frontend-lenses.sh
-nix-shell --run "npm install && npm run build:prod"
-echo "Done. Generated ./dist/"
+nix-shell --run "npm install && npm run ${1:-build:prod}"
+echo "Done."

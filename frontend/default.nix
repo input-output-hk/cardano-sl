@@ -10,7 +10,7 @@ let
     };
   };
 in stdenv.mkDerivation {
-  name = "daedalus-bridge";
+  name = "explorer-bridge";
 
   buildInputs = with hspkgs; [ nodejs nodePackages.bower purescript purescript-derive-lenses ];
 

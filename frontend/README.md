@@ -23,7 +23,9 @@ nix:
 
 #### Build in `development` mode
 
-_coming soon..._
+```bash
+./scripts/build.sh server:dev
+```
 
 
 #### Build in `production` mode

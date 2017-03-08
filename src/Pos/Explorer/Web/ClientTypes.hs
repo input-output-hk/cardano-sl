@@ -8,8 +8,7 @@ module Pos.Explorer.Web.ClientTypes
        , CTxEntry (..)
        , CBlockSummary (..)
        , CAddressSummary (..)
-       , CTxRelative (..)
-       , CTxRelativeType (..)
+       , CTxBrief (..)
        , CNetworkAddress (..)
        , CTxSummary (..)
        , TxInternal (..)
@@ -23,10 +22,12 @@ module Pos.Explorer.Web.ClientTypes
        , toBlockEntry
        , toTxEntry
        , toBlockSummary
-       , toTxRelative
+       , toTxBrief
        , toPosixTime
+       , convertTxOutputs
        ) where
 
+import           Control.Arrow          ((&&&))
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Lazy   as BSL
@@ -49,6 +50,7 @@ import           Pos.Types              (Address, Coin, MainBlock, Timestamp,
                                          headerHash, mcdSlot, mkCoin,
                                          prevBlockL, sumCoins, unsafeAddCoin,
                                          unsafeIntegerToCoin)
+import           Pos.Types.Explorer     (TxExtra (..))
 
 -------------------------------------------------------------------------------------
 -- Hash types
@@ -177,26 +179,15 @@ data CAddressSummary = CAddressSummary
     { caAddress :: !CAddress
     , caTxNum   :: !Word
     , caBalance :: !Coin
-    , caTxList  :: ![CTxRelative]
+    , caTxList  :: ![CTxBrief]
     } deriving (Show, Generic)
 
-data CTxRelative = CTxRelative
-    { ctrId         :: !CTxId
-    , ctrTimeIssued :: !(Maybe POSIXTime)
-    , ctrType       :: !CTxRelativeType
+data CTxBrief = CTxBrief
+    { ctbId         :: !CTxId
+    , ctbTimeIssued :: !(Maybe POSIXTime)
+    , ctbInputs     :: ![(CAddress, Coin)]
+    , ctbOutputs    :: ![(CAddress, Coin)]
     } deriving (Show, Generic)
-
-data CTxRelativeType =
-      CTxIncoming { ctiIncomingAddresses :: ![CAddress]
-                  , ctiIncomingAmount    :: !Coin}
-    -- TODO: Add these constructors when we can provide relevant data
-    -- | CTxOutgoing { ctiOutgoingAddresses :: ![CAddress]
-    --               , ctiOutgoingAmount    :: !Coin}
-    -- | CTxBoth     { ctiIncomingAddresses :: ![CAddress]
-    --               , ctiIncomingAmount    :: !Coin
-    --               , ctiOutgoingAddresses :: ![CAddress]
-    --               , ctiOutgoingAmount    :: !Coin}
-    deriving (Show, Generic)
 
 data CNetworkAddress = CNetworkAddress !Text
     deriving (Show, Generic)
@@ -236,13 +227,15 @@ data TxInternal = TxInternal
     , tiTx        :: !Tx
     } deriving (Show)
 
-toTxRelative :: Address -> TxInternal -> CTxRelative
-toTxRelative addr txi = CTxRelative {..}
+convertTxOutputs :: [TxOut] -> [(CAddress, Coin)]
+convertTxOutputs = map (toCAddress . txOutAddress &&& txOutValue)
+
+toTxBrief :: TxInternal -> TxExtra -> CTxBrief
+toTxBrief txi txe = CTxBrief {..}
   where
     tx = tiTx txi
     ts = tiTimestamp txi
-    ctrId = toCTxId $ hash tx
-    ctrTimeIssued = toPosixTime <$> ts
-    amount = unsafeIntegerToCoin . sumCoins . map txOutValue .
-             filter (\txOut -> txOutAddress txOut == addr) . _txOutputs $ tx
-    ctrType = CTxIncoming [] amount
+    ctbId = toCTxId $ hash tx
+    ctbTimeIssued = toPosixTime <$> ts
+    ctbInputs = convertTxOutputs $ teInputOutputs txe
+    ctbOutputs = convertTxOutputs $ _txOutputs tx

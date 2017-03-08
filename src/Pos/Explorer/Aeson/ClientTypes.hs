@@ -10,9 +10,8 @@ import           Data.Aeson.TH                (defaultOptions, deriveJSON,
 import           Pos.Aeson                    ()
 import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary,
                                                CBlockEntry, CBlockSummary,
-                                               CHash, CNetworkAddress, CTxEntry,
-                                               CTxId, CTxRelative,
-                                               CTxRelativeType, CTxSummary)
+                                               CHash, CNetworkAddress, CTxBrief,
+                                               CTxEntry, CTxId, CTxSummary)
 import           Pos.Explorer.Web.Error       (ExplorerError)
 
 deriveJSON defaultOptions ''CHash
@@ -22,8 +21,7 @@ deriveJSON defaultOptions ''CTxId
 deriveToJSON defaultOptions ''ExplorerError
 deriveToJSON defaultOptions ''CBlockEntry
 deriveToJSON defaultOptions ''CTxEntry
-deriveToJSON defaultOptions ''CTxRelative
-deriveToJSON defaultOptions ''CTxRelativeType
+deriveToJSON defaultOptions ''CTxBrief
 deriveToJSON defaultOptions ''CAddressSummary
 deriveToJSON defaultOptions ''CBlockSummary
 deriveToJSON defaultOptions ''CNetworkAddress

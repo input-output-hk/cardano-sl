@@ -228,55 +228,78 @@ servantHandlers
     => SendActions m -> ServerT WalletApi m
 servantHandlers sendActions =
 #ifdef DEV_MODE
-     catchWalletError testResetAll
+     apiTestReset
     :<|>
 #endif
-     (catchWalletError . getWallet)
+     apiGetWallet
     :<|>
-     catchWalletError getWallets
+     apiGetWallets
     :<|>
-     (\a b -> catchWalletError . send sendActions a b)
+     apiUpdateWallet
     :<|>
-     (\a b c d e -> catchWalletError . sendExtended sendActions a b c d e)
+     apiNewWallet
     :<|>
-     (\a b -> catchWalletError . getHistory @ssc a b )
+     apiDeleteWallet
     :<|>
-     (\a b c -> catchWalletError . searchHistory @ssc a b c)
+     apiImportKey
     :<|>
-     (\a b -> catchWalletError . updateTransaction a b)
+     apiRestoreWallet
     :<|>
-     catchWalletError . newWallet
+     apiIsValidAddress
     :<|>
-     catchWalletError . restoreWallet
+     apiGetUserProfile
     :<|>
-     (\a -> catchWalletError . updateWallet a)
+     apiUpdateUserProfile
     :<|>
-     catchWalletError . deleteWallet
+     apiTxsPayments
     :<|>
-     (\a -> catchWalletError . isValidAddress a)
+     apiTxsPaymentsExt
     :<|>
-     catchWalletError getUserProfile
+     apiUpdateTransaction
     :<|>
-     catchWalletError . updateUserProfile
+     apiGetHistory
     :<|>
-     catchWalletError . redeemADA sendActions
+     apiSearchHistory
     :<|>
-     catchWalletError nextUpdate
+     apiNextUpdate
     :<|>
-     catchWalletError applyUpdate
+     apiApplyUpdate
     :<|>
-     catchWalletError (fromIntegral <$> blockchainSlotDuration)
+     apiRedeemAda
     :<|>
-     catchWalletError (pure curSoftwareVersion)
+     apiSettingsSlotDuration
     :<|>
-     catchWalletError . importKey sendActions
+     apiSettingsSoftwareVersion
     :<|>
-     catchWalletError syncProgress
+     apiSettingsSyncProgress
+
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
-    catchWalletError = try
+    apiTestReset            	  = catchWalletError testResetAll
+    apiGetWallet            	  = (catchWalletError . getWallet)
+    apiGetWallets           	  = catchWalletError getWallets
+    apiUpdateWallet         	  = (\a -> catchWalletError . updateWallet a)
+    apiNewWallet            	  = catchWalletError . newWallet
+    apiDeleteWallet         	  = catchWalletError . deleteWallet
+    apiImportKey            	  = catchWalletError . importKey sendActions
+    apiRestoreWallet        	  = catchWalletError . restoreWallet
+    apiIsValidAddress       	  = (\a -> catchWalletError . isValidAddress a)
+    apiGetUserProfile       	  = catchWalletError getUserProfile
+    apiUpdateUserProfile    	  = catchWalletError . updateUserProfile
+    apiTxsPayments          	  = (\a b -> catchWalletError . send sendActions a b)
+    apiTxsPaymentsExt       	  = (\a b c d e -> catchWalletError . sendExtended sendActions a b c d e)
+    apiUpdateTransaction    	  = (\a b -> catchWalletError . updateTransaction a b)
+    apiGetHistory           	  = (\a b -> catchWalletError . getHistory @ssc a b )
+    apiSearchHistory        	  = (\a b c -> catchWalletError . searchHistory @ssc a b c)
+    apiNextUpdate           	  = catchWalletError nextUpdate
+    apiApplyUpdate          	  = catchWalletError applyUpdate
+    apiRedeemAda            	  = catchWalletError . redeemADA sendActions
+    apiSettingsSlotDuration     = catchWalletError (fromIntegral <$> blockchainSlotDuration)
+    apiSettingsSoftwareVersion  = catchWalletError (pure curSoftwareVersion)
+    apiSettingsSyncProgress     = catchWalletError syncProgress
 
+    catchWalletError            = try
 -- getAddresses :: WalletWebMode ssc m => m [CAddress]
 -- getAddresses = map addressToCAddress <$> myAddresses
 
@@ -338,19 +361,21 @@ sendExtended sendActions srcCAddr dstCAddr c curr title desc = do
 getHistory
     :: forall ssc m.
        (SscHelpersClass ssc, WalletWebMode ssc m)
-    => CAddress -> Word -> Word -> m ([CTx], Word)
+    => CAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
 getHistory cAddr skip limit = do
     history <- untag @ssc getTxHistory =<< decodeCAddressOrFail cAddr
     cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) history
     pure (paginate cHistory, fromIntegral $ length cHistory)
   where
-    paginate = take (fromIntegral limit) . drop (fromIntegral skip)
+    paginate     = take defaultLimit . drop defaultSkip
+    defaultLimit = (fromIntegral $ fromMaybe 100 limit) 
+    defaultSkip  = (fromIntegral $ fromMaybe 0 skip)
 
 -- FIXME: is Word enough for length here?
 searchHistory
     :: forall ssc m.
        (SscHelpersClass ssc, WalletWebMode ssc m)
-    => CAddress -> Text -> Word -> Word -> m ([CTx], Word)
+    => CAddress -> Text -> Maybe Word -> Maybe Word -> m ([CTx], Word)
 searchHistory cAddr search skip limit = first (filter $ txContainsTitle search) <$> getHistory @ssc cAddr skip limit
 
 addHistoryTx
@@ -406,8 +431,8 @@ deleteWallet cAddr = do
         sformat ("Error while deleting wallet: "%stext) err
 
 -- NOTE: later we will have `isValidAddress :: CCurrency -> CAddress -> m Bool` which should work for arbitrary crypto
-isValidAddress :: WalletWebMode ssc m => CCurrency -> Text -> m Bool
-isValidAddress ADA sAddr = pure . either (const False) (const True) $ decodeTextAddress sAddr
+isValidAddress :: WalletWebMode ssc m => Text -> CCurrency -> m Bool
+isValidAddress sAddr ADA = pure . either (const False) (const True) $ decodeTextAddress sAddr
 isValidAddress _ _       = pure False
 
 -- | Get last update info

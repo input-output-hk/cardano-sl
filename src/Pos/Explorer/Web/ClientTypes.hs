@@ -8,8 +8,9 @@ module Pos.Explorer.Web.ClientTypes
        , CTxEntry (..)
        , CBlockSummary (..)
        , CAddressSummary (..)
-       , CTxDetailed (..)
-       , CTxType (..)
+       , CTxBrief (..)
+       , CNetworkAddress (..)
+       , CTxSummary (..)
        , TxInternal (..)
        , toCHash
        , fromCHash
@@ -17,12 +18,16 @@ module Pos.Explorer.Web.ClientTypes
        , toCAddress
        , fromCAddress
        , toCTxId
+       , fromCTxId
        , toBlockEntry
        , toTxEntry
        , toBlockSummary
-       , toTxDetailed
+       , toTxBrief
+       , toPosixTime
+       , convertTxOutputs
        ) where
 
+import           Control.Arrow          ((&&&))
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Lazy   as BSL
@@ -38,12 +43,14 @@ import qualified Pos.DB.GState          as GS
 import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
-import           Pos.Txp                (Tx (..), TxId, TxOut (..))
-import           Pos.Types              (Address, Coin, MainBlock, Timestamp, addressF,
-                                         blockTxs, decodeTextAddress, difficultyL,
-                                         gbHeader, gbhConsensus, headerHash, mcdSlot,
-                                         mkCoin, prevBlockL, sumCoins, unsafeAddCoin,
+import           Pos.Txp                (Tx (..), TxId, TxOut (..), _txOutputs)
+import           Pos.Types              (Address, Coin, MainBlock, Timestamp,
+                                         addressF, blockTxs, decodeTextAddress,
+                                         difficultyL, gbHeader, gbhConsensus,
+                                         headerHash, mcdSlot, mkCoin,
+                                         prevBlockL, sumCoins, unsafeAddCoin,
                                          unsafeIntegerToCoin)
+import           Pos.Types.Explorer     (TxExtra (..))
 import           Pos.Util               (maybeThrow)
 
 import           Pos.Explorer.Web.Error (ExplorerError (..))
@@ -53,13 +60,16 @@ import           Pos.Explorer.Web.Error (ExplorerError (..))
 -------------------------------------------------------------------------------------
 
 -- | Client hash
-newtype CHash = CHash Text deriving (Show, Eq, Generic, Buildable, Hashable)
+newtype CHash = CHash Text
+    deriving (Show, Eq, Generic, Buildable, Hashable)
 
 -- | Client address
-newtype CAddress = CAddress Text deriving (Show, Eq, Generic, Hashable, Buildable)
+newtype CAddress = CAddress Text
+    deriving (Show, Eq, Generic, Buildable, Hashable)
 
 -- | Client transaction id
-newtype CTxId = CTxId CHash deriving (Show, Eq, Generic, Hashable)
+newtype CTxId = CTxId CHash
+    deriving (Show, Eq, Generic, Hashable)
 
 -- | Transformation of core hash-types to client representations and vice versa
 encodeHashHex :: Hash a -> Text
@@ -92,6 +102,9 @@ fromCAddress (CAddress addr) = decodeTextAddress addr
 
 toCTxId :: TxId -> CTxId
 toCTxId = CTxId . toCHash
+
+fromCTxId :: CTxId -> Either Text TxId
+fromCTxId (CTxId (CHash txId)) = decodeHashHex txId
 
 -------------------------------------------------------------------------------------
 -- Composite types
@@ -133,7 +146,7 @@ toBlockEntry blk = do
 -- | List of tx entries is returned from "get latest N transactions" endpoint
 data CTxEntry = CTxEntry
     { cteId         :: !CTxId
-    , cteTimeIssued :: !POSIXTime
+    , cteTimeIssued :: !(Maybe POSIXTime)
     , cteAmount     :: !Coin
     } deriving (Show, Generic)
 
@@ -141,10 +154,10 @@ totalTxMoney :: Tx -> Coin
 totalTxMoney = unsafeIntegerToCoin . sumCoins .
                map txOutValue . _txOutputs
 
-toTxEntry :: Timestamp -> Tx -> CTxEntry
+toTxEntry :: Maybe Timestamp -> Tx -> CTxEntry
 toTxEntry ts tx = CTxEntry {..}
   where cteId = toCTxId $ hash tx
-        cteTimeIssued = toPosixTime ts
+        cteTimeIssued = toPosixTime <$> ts
         cteAmount = totalTxMoney tx
 
 -- | Data displayed on block summary page
@@ -170,21 +183,31 @@ data CAddressSummary = CAddressSummary
     { caAddress :: !CAddress
     , caTxNum   :: !Word
     , caBalance :: !Coin
-    , caTxList  :: ![CTxDetailed]
+    , caTxList  :: ![CTxBrief]
     } deriving (Show, Generic)
 
-data CTxDetailed = CTxDetailed
-    { ctdId         :: !CTxId
-    , ctdTimeIssued :: !POSIXTime
-    , ctdType       :: !CTxType
+data CTxBrief = CTxBrief
+    { ctbId         :: !CTxId
+    , ctbTimeIssued :: !(Maybe POSIXTime)
+    , ctbInputs     :: ![(CAddress, Coin)]
+    , ctbOutputs    :: ![(CAddress, Coin)]
     } deriving (Show, Generic)
 
-data CTxType =
-      CTxIncoming ![CAddress] !Coin
-    -- TODO: Add these constructors when we can provide relevant data
-    -- | CTxOutgoing ![CAddress] !Coin
-    -- | CTxBoth     ![CAddress] !Coin ![CAddress] !Coin
+data CNetworkAddress = CNetworkAddress !Text
     deriving (Show, Generic)
+
+data CTxSummary = CTxSummary
+    { ctsId              :: !CTxId
+    , ctsTxTimeIssued    :: !(Maybe POSIXTime)
+    , ctsBlockTimeIssued :: !(Maybe POSIXTime)
+    , ctsBlockHeight     :: !(Maybe Word)
+    , ctsRelayedBy       :: !(Maybe CNetworkAddress)
+    , ctsTotalInput      :: !Coin
+    , ctsTotalOutput     :: !Coin
+    , ctsFees            :: !Coin
+    , ctsInputs          :: ![(CAddress, Coin)]
+    , ctsOutputs         :: ![(CAddress, Coin)]
+    } deriving (Show, Generic)
 
 --------------------------------------------------------------------------------
 -- FromHttpApiData instances
@@ -196,22 +219,27 @@ instance FromHttpApiData CHash where
 instance FromHttpApiData CAddress where
     parseUrlPiece = fmap toCAddress . decodeTextAddress
 
+instance FromHttpApiData CTxId where
+    parseUrlPiece = fmap toCTxId . decodeHashHex
+
 --------------------------------------------------------------------------------
 -- Helper types and conversions
 --------------------------------------------------------------------------------
 
 data TxInternal = TxInternal
-    { tiTimestamp :: !Timestamp
-    , tiTx        :: Tx
+    { tiTimestamp :: !(Maybe Timestamp)
+    , tiTx        :: !Tx
     } deriving (Show)
 
-toTxDetailed :: Address -> TxInternal -> CTxDetailed
-toTxDetailed addr txi = CTxDetailed {..}
+convertTxOutputs :: [TxOut] -> [(CAddress, Coin)]
+convertTxOutputs = map (toCAddress . txOutAddress &&& txOutValue)
+
+toTxBrief :: TxInternal -> TxExtra -> CTxBrief
+toTxBrief txi txe = CTxBrief {..}
   where
     tx = tiTx txi
     ts = tiTimestamp txi
-    ctdId = toCTxId $ hash tx
-    ctdTimeIssued = toPosixTime ts
-    amount = unsafeIntegerToCoin . sumCoins . map txOutValue .
-             filter (\txOut -> txOutAddress txOut == addr) . _txOutputs $ tx
-    ctdType = CTxIncoming [] amount
+    ctbId = toCTxId $ hash tx
+    ctbTimeIssued = toPosixTime <$> ts
+    ctbInputs = convertTxOutputs $ teInputOutputs txe
+    ctbOutputs = convertTxOutputs $ _txOutputs tx

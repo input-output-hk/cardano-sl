@@ -10,8 +10,10 @@ module Pos.Explorer.Web.Api
 
 import           Data.Proxy                   (Proxy (Proxy))
 
-import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry,
-                                               CBlockSummary, CHash, CTxEntry)
+import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary,
+                                               CBlockEntry, CBlockSummary,
+                                               CHash, CTxEntry, CTxId,
+                                               CTxSummary)
 import           Pos.Explorer.Web.Error       (ExplorerError)
 import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
                                                QueryParam)
@@ -46,6 +48,12 @@ type ExplorerApi =
       :> QueryParam "limit" Word
       :> QueryParam "offset" Word
       :> Get '[JSON] (Either ExplorerError [CTxEntry])
+    :<|>
+      "api"
+      :> "txs"
+      :> "summary"
+      :> Capture "txid" CTxId
+      :> Get '[JSON] (Either ExplorerError CTxSummary)
     :<|>
       "api"
       :> "addresses"

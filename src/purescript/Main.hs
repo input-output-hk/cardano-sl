@@ -29,8 +29,7 @@ main = do
       , mkSumType (Proxy @CT.CBlockEntry)
       , mkSumType (Proxy @CT.CBlockSummary)
       , mkSumType (Proxy @CT.CTxEntry)
-      , mkSumType (Proxy @CT.CTxDetailed)
-      , mkSumType (Proxy @CT.CTxType)
+      , mkSumType (Proxy @CT.CTxBrief)
       , mkSumType (Proxy @CE.ExplorerError)
       , mkSumType (Proxy @PT.Coin)
       ]

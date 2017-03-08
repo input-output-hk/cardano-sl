@@ -70,7 +70,7 @@ mcSharesMsgLenLimit =
     MCShares <$> msgLenLimit <+> multiMap commitmentsNumLimit
 
 mcVssCertificateLenLimit :: Limit GtMsgContents
-mcVssCertificateLenLimit = 137
+mcVssCertificateLenLimit = 169
 
 ----------------------------------------------------------------------------
 -- Instances
@@ -149,7 +149,7 @@ instance MessageLimitedPure (Signature a) where
     msgLenLimit = 64
 
 instance MessageLimitedPure PublicKey where
-    msgLenLimit = 32
+    msgLenLimit = 64
 
 instance MessageLimitedPure a => MessageLimitedPure (AsBinary a) where
     msgLenLimit = coerce (msgLenLimit :: Limit a) + 20

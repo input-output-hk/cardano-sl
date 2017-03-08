@@ -20,10 +20,12 @@ import           Data.Hashable        (Hashable)
 import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeCopySimple,
                                        safeGet, safePut)
 import qualified Data.Text.Buildable  as B
+import           Formatting           (bprint, (%))
 import           Universum
 
 import           Pos.Binary.Class     (Bi, Raw)
 import qualified Pos.Binary.Class     as Bi
+import           Pos.Crypto.Hashing   (hash, shortHashF)
 import           Pos.Crypto.Random    (secureRandomBS)
 
 instance Hashable Ed25519.PublicKey
@@ -51,6 +53,12 @@ deriveSafeCopySimple 0 'base ''RedeemSecretKey
 
 redeemToPublic :: RedeemSecretKey -> RedeemPublicKey
 redeemToPublic (RedeemSecretKey k) = RedeemPublicKey (Ed25519.secretToPublicKey k)
+
+instance Bi.Bi RedeemPublicKey => B.Buildable RedeemPublicKey where
+    build = bprint ("redeem_pub:"%shortHashF) . hash
+
+instance Bi.Bi RedeemPublicKey => B.Buildable RedeemSecretKey where
+    build = bprint ("redeem_sec:"%shortHashF) . hash . redeemToPublic
 
 -- | Generate a key pair.
 redeemKeyGen :: MonadIO m => m (RedeemPublicKey, RedeemSecretKey)

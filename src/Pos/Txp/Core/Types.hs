@@ -100,6 +100,8 @@ instance Buildable TxInWitness where
         bprint ("ScriptWitness: "%
                 "validator hash = "%shortHashF%", "%
                 "redeemer hash = "%shortHashF) (hash val) (hash red)
+    build (RedeemWitness key sig) =
+        bprint ("PkWitness: key = "%build%", sig = "%build) key sig
     build (UnknownWitnessType t bs) =
         bprint ("UnknownWitnessType "%build%" "%base16F) t bs
 

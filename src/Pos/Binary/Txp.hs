@@ -37,6 +37,9 @@ instance Bi T.TxInWitness where
     put (T.ScriptWitness val red) = do
         putWord8 1
         putWithLength (put val >> put red)
+    put (T.RedeemWitness key sig) = do
+        putWord8 2
+        putWithLength (put key >> put sig)
     put (T.UnknownWitnessType t bs) = do
         putWord8 t
         putWithLength (putByteString bs)
@@ -45,6 +48,7 @@ instance Bi T.TxInWitness where
         case tag of
             0 -> getWithLength (T.PkWitness <$> get <*> get)
             1 -> getWithLength (T.ScriptWitness <$> get <*> get)
+            2 -> getWithLength (T.RedeemWitness <$> get <*> get)
             t -> getWithLength (T.UnknownWitnessType t <$>
                                 getRemainingByteString)
 

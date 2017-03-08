@@ -39,7 +39,7 @@ import           Pos.Binary.Core            ()
 import           Pos.Binary.Crypto          ()
 import           Pos.Binary.Txp             ()
 import           Pos.Constants              (epochSlots, sharedSeedLength)
-import           Pos.Core.Address           (makePubKeyAddress, makeScriptAddress)
+import           Pos.Core.Address           (makePubKeyAddress, makeScriptAddress, makeRedeemAddress)
 import           Pos.Core.Coin              (coinToInteger, divCoin, unsafeSubCoin)
 import           Pos.Core.Types             (Address (..), ChainDifficulty (..), Coin,
                                              CoinPortion, EpochIndex (..),
@@ -76,7 +76,8 @@ instance Arbitrary Address where
     arbitrary = oneof [
         makePubKeyAddress <$> arbitrary,
         makeScriptAddress <$> arbitrary,
-        UnknownAddressType <$> choose (2, 255) <*> scale (min 150) arbitrary
+        makeRedeemAddress <$> arbitrary,
+        UnknownAddressType <$> choose (3, 255) <*> scale (min 150) arbitrary
         ]
 
 deriving instance Arbitrary ChainDifficulty
@@ -273,7 +274,8 @@ instance Arbitrary TxInWitness where
         -- this can generate a redeemer script where a validator script is
         -- needed and vice-versa, but it doesn't matter
         ScriptWitness <$> arbitrary <*> arbitrary,
-        UnknownWitnessType <$> choose (2, 255) <*> scale (min 150) arbitrary ]
+        RedeemWitness <$> arbitrary <*> arbitrary,
+        UnknownWitnessType <$> choose (3, 255) <*> scale (min 150) arbitrary ]
 
 derive makeArbitrary ''TxDistribution
 derive makeArbitrary ''TxIn

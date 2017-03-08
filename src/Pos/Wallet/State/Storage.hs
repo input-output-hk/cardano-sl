@@ -31,7 +31,7 @@ import           Universum
 
 import qualified Pos.Constants                  as Const
 import           Pos.Crypto                     (ProxyCert)
-import           Pos.Txp.Core                   (Utxo)
+import           Pos.Txp                        (Utxo)
 import           Pos.Types                      (Address, EpochIndex)
 
 import           Pos.Wallet.State.Storage.Block (Block', BlockStorage,

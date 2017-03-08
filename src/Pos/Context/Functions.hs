@@ -32,7 +32,7 @@ import           Pos.Context.Class       (WithNodeContext (..))
 import           Pos.Context.Context     (NodeContext (..), ncGenesisLeaders,
                                           ncGenesisUtxo, ncStartTime)
 import           Pos.Lrc.Error           (LrcError (..))
-import           Pos.Txp.Core.Types      (Utxo)
+import           Pos.Txp.Toil.Types      (Utxo)
 import           Pos.Types               (EpochIndex, HeaderHash, SlotLeaders)
 import           Pos.Util                (maybeThrow, readTVarConditional)
 

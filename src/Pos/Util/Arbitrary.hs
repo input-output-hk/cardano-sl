@@ -16,6 +16,7 @@ module Pos.Util.Arbitrary
 
 import           Data.ByteString        (pack)
 import qualified Data.ByteString.Lazy   as BL (ByteString, pack)
+import           Data.List.NonEmpty     (NonEmpty ((:|)))
 import           System.IO.Unsafe       (unsafePerformIO)
 import           Test.QuickCheck        (Arbitrary (..), Gen, listOf, scale, shuffle,
                                          vector)
@@ -103,6 +104,9 @@ instance (Arbitrary ByteString) => ArbitraryUnsafe ByteString
 
 instance ArbitraryUnsafe a => ArbitraryUnsafe [a] where
     arbitraryUnsafe = listOf arbitraryUnsafe
+
+instance ArbitraryUnsafe a => ArbitraryUnsafe (NonEmpty a) where
+    arbitraryUnsafe = (:|) <$> arbitraryUnsafe <*> listOf arbitraryUnsafe
 
 instance (ArbitraryUnsafe a, ArbitraryUnsafe b) => ArbitraryUnsafe (a, b) where
     arbitraryUnsafe = (,) <$> arbitraryUnsafe <*> arbitraryUnsafe

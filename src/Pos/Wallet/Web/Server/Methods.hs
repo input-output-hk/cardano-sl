@@ -345,7 +345,7 @@ sendExtended sendActions srcCAddr dstCAddr c curr title desc = do
     let sk = sks !! idx
     na <- getKnownPeers
     withSafeSigner sk (return emptyPassphrase) $ \ss -> do
-        etx <- submitTx sendActions ss na [(TxOut dstAddr c, [])]
+        etx <- submitTx sendActions ss na (one (TxOut dstAddr c, []))
         case etx of
             Left err -> throwM . Internal $ sformat ("Cannot send transaction: "%stext) err
             Right (tx, _, _) -> do
@@ -486,7 +486,7 @@ importKey sendActions (toString -> fp) = do
     primaryBalance <- getBalance pAddr
     when (primaryBalance > mkCoin 0) $ do
         na <- getKnownPeers
-        etx <- submitTx sendActions (fakeSigner psk) na [(TxOut importedAddr primaryBalance, [])]
+        etx <- submitTx sendActions (fakeSigner psk) na (one (TxOut importedAddr primaryBalance, []))
         case etx of
             Left err -> throwM . Internal $ "Cannot transfer funds from genesis key" <> err
             Right (tx, _, _) ->  do

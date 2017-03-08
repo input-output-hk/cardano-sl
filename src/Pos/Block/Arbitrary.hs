@@ -8,25 +8,26 @@ module Pos.Block.Arbitrary
 
 import           Data.Ix              (range)
 import           Data.List.NonEmpty   (nonEmpty)
+import qualified Data.List.NonEmpty   as NE
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Formatting           (bprint, build, formatToString, (%))
 import           Prelude              (Show (..))
 import           System.Random        (mkStdGen, randomR)
-import           Test.QuickCheck      (Arbitrary (..), Gen, NonEmptyList (..), choose,
-                                       listOf, listOf, oneof, oneof, vectorOf)
+import           Test.QuickCheck      (Arbitrary (..), Gen, choose, listOf, listOf, oneof,
+                                       oneof, vectorOf)
 import           Universum
 
-import           Pos.Binary           (Bi, Raw, biSize)
+import           Pos.Binary.Class     (Bi, Raw, biSize)
 import           Pos.Block.Network    as T
 import           Pos.Constants        (epochSlots)
-import           Pos.Crypto           (Hash, ProxySecretKey, PublicKey, SecretKey,
+import           Pos.Crypto           (ProxySecretKey, PublicKey, SecretKey,
                                        createProxySecretKey, toPublic)
 import           Pos.Data.Attributes  (Attributes (..), mkAttributes)
-import           Pos.Merkle           (MerkleRoot (..), MerkleTree, mkMerkleTree)
 import           Pos.Ssc.Arbitrary    (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.Class        (Ssc (..), SscHelpersClass)
-import qualified Pos.Txp.Core.Types   as T
+import           Pos.Txp.Core         (Tx (..), TxDistribution (..), TxWitness,
+                                       mkTxPayload)
 import qualified Pos.Types            as T
 import           Pos.Update.Arbitrary ()
 import           Pos.Util.Arbitrary   (makeSmall)
@@ -94,12 +95,6 @@ instance Arbitrary (T.GenericBlock (T.GenesisBlockchain ssc)) where
 -- MainBlockchain
 ------------------------------------------------------------------------------------------
 
-instance Bi Raw => Arbitrary (MerkleRoot T.Tx) where
-    arbitrary = MerkleRoot <$> (arbitrary :: Gen (Hash Raw))
-
-instance Arbitrary (MerkleTree T.Tx) where
-    arbitrary = mkMerkleTree <$> arbitrary
-
 instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
     Arbitrary (T.MainBlockHeader ssc) where
     arbitrary = T.GenericBlockHeader
@@ -129,8 +124,6 @@ instance (Arbitrary (SscProof ssc), Bi Raw) =>
         <*> arbitrary
         <*> arbitrary
         <*> arbitrary
-        <*> arbitrary
-        <*> arbitrary
 
 instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
     Arbitrary (T.ConsensusData (T.MainBlockchain ssc)) where
@@ -151,30 +144,30 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
 -- well, and the lengths of its list of outputs must also be the same as the length of its
 -- corresponding TxDistribution item.
 
-txOutDistGen :: Gen [(T.Tx, T.TxDistribution, T.TxWitness)]
+txOutDistGen :: Gen [(Tx, TxWitness, TxDistribution)]
 txOutDistGen = listOf $ do
     txInW <- arbitrary
-    txIns <- getNonEmpty <$> arbitrary
-    (txOuts, txDist) <- second T.TxDistribution . unzip . getNonEmpty <$> arbitrary
-    return $ (T.UnsafeTx txIns txOuts $ mkAttributes (), txDist, txInW)
+    txIns <- arbitrary
+    (txOuts, txDist) <- second TxDistribution . NE.unzip <$> arbitrary
+    return (UnsafeTx txIns txOuts $ mkAttributes (), txInW, txDist)
 
 instance Arbitrary (SscPayloadDependsOnSlot ssc) =>
          Arbitrary (BodyDependsOnConsensus (T.MainBlockchain ssc)) where
     arbitrary = pure $ BodyDependsOnConsensus $ \T.MainConsensusData{..} -> makeSmall $ do
-        (txList, txDists, txInW) <- unzip3 <$> txOutDistGen
+        txws <- txOutDistGen
         generator <- genPayloadDependsOnSlot @ssc <$> arbitrary
         mpcData <- generator _mcdSlot
         mpcProxySKs <- arbitrary
         mpcUpload   <- arbitrary
-        return $ T.MainBody (mkMerkleTree txList) txDists txInW mpcData mpcProxySKs mpcUpload
+        return $ T.MainBody (mkTxPayload txws) mpcData mpcProxySKs mpcUpload
 
 instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc)) where
     arbitrary = makeSmall $ do
-        (txList, txDists, txInW) <- unzip3 <$> txOutDistGen
+        txws <- txOutDistGen
         mpcData     <- arbitrary
         mpcProxySKs <- arbitrary
         mpcUpload   <- arbitrary
-        return $ T.MainBody (mkMerkleTree txList) txDists txInW mpcData mpcProxySKs mpcUpload
+        return $ T.MainBody (mkTxPayload txws) mpcData mpcProxySKs mpcUpload
 
 instance (Arbitrary (SscProof ssc), Arbitrary (SscPayloadDependsOnSlot ssc), SscHelpersClass ssc) =>
     Arbitrary (T.GenericBlock (T.MainBlockchain ssc)) where

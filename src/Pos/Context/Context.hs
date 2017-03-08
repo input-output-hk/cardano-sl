@@ -26,7 +26,7 @@ import           Pos.Crypto              (PublicKey, toPublic)
 import           Pos.Genesis             (genesisLeaders)
 import           Pos.Launcher.Param      (BaseParams (..), NodeParams (..))
 import           Pos.Ssc.Class.Types     (Ssc (SscNodeContext))
-import           Pos.Txp.Core.Types      (Utxo)
+import           Pos.Txp.Toil.Types      (Utxo)
 import           Pos.Types               (Address, BlockHeader, EpochIndex, HeaderHash,
                                           SlotLeaders, Timestamp, makePubKeyAddress)
 import           Pos.Update.Poll.Types   (ConfirmedProposalState)

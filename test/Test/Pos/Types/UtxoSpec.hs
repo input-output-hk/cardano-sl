@@ -4,6 +4,8 @@ module Test.Pos.Types.UtxoSpec
        ( spec
        ) where
 
+import           Data.List.NonEmpty    (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty    as NE
 import qualified Data.Map              as M (Map, delete, elems, fromList, insert, keys)
 import           Data.Maybe            (isJust, isNothing)
 import qualified Data.Vector           as V (fromList)
@@ -62,22 +64,24 @@ deleteTxInUtxo key txO utxo =
 verifyTxInUtxo :: SmallGoodTx -> Bool
 verifyTxInUtxo (SmallGoodTx (GoodTx ls)) =
     let txs = fmap (view _1) ls
-        witness = V.fromList $ fmap (view _4) ls
-        (ins, outs) = unzip $ map (\(_, tIs, tOs, _) -> (tIs, tOs)) ls
+        witness = V.fromList $ toList $ fmap (view _4) ls
+        (ins, outs) = NE.unzip $ map (\(_, tIs, tOs, _) -> (tIs, tOs)) ls
         newTx = UnsafeTx ins (map fst outs) (mkAttributes ())
         newDistr = TxDistribution (map snd outs)
         utxo = foldr (\(tx, d) -> applyTxToUtxoPure (withHash tx) d) mempty txs
     in isVerSuccess $
        verifyTxUtxoPure False utxo (newTx, witness, newDistr)
 
-applyTxToUtxoGood :: M.Map TxIn TxOutAux -> [TxOutAux] -> Bool
-applyTxToUtxoGood txMap txOuts =
-    let inpList = M.keys txMap
+applyTxToUtxoGood :: (TxIn, TxOutAux) -> M.Map TxIn TxOutAux -> NonEmpty TxOutAux -> Bool
+applyTxToUtxoGood (txIn0, txOut0) txMap txOuts =
+    let inpList = txIn0 :| M.keys txMap
         tx = UnsafeTx inpList (map fst txOuts) (mkAttributes ())
         txDistr = TxDistribution (map snd txOuts)
-        utxoMap = M.fromList $ zip inpList (M.elems txMap)
+        utxoMap = M.fromList $ toList $ NE.zip inpList (txOut0 :| M.elems txMap)
         newUtxoMap = applyTxToUtxoPure (withHash tx) txDistr utxoMap
-        newUtxos = (zipWith TxIn (repeat (hash tx)) [0 ..]) `zip` txOuts
+        newUtxos =
+            NE.fromList $
+            (zipWith TxIn (repeat (hash tx)) [0 ..]) `zip` toList txOuts
         rmvUtxo = foldr M.delete utxoMap inpList
         insNewUtxo = foldr (uncurry M.insert) rmvUtxo newUtxos
     in insNewUtxo == newUtxoMap

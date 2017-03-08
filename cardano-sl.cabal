@@ -265,6 +265,7 @@ library
                         -- Txp
                         Pos.Txp.Arbitrary
                         Pos.Txp.Core
+                        Pos.Txp.Core.Core
                         Pos.Txp.Core.Tx
                         Pos.Txp.Core.Types
                         Pos.Txp.DB

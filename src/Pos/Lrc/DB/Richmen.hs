@@ -39,7 +39,7 @@ module Pos.Lrc.DB.Richmen
 import           Universum
 
 import           Pos.Binary.Class      (Bi, encodeStrict)
-import           Pos.Binary.Core      ()
+import           Pos.Binary.Core       ()
 import           Pos.Constants         (genesisHeavyDelThd, genesisMpcThd,
                                         genesisUpdateVoteThd)
 import           Pos.Context.Class     (WithNodeContext)
@@ -49,9 +49,8 @@ import           Pos.Genesis           (genesisDelegation)
 import           Pos.Lrc.DB.Common     (getBi, putBi)
 import           Pos.Lrc.Logic         (RichmenType (..), findRichmenPure)
 import           Pos.Lrc.Types         (FullRichmenData, Richmen, RichmenStake, toRichmen)
+import           Pos.Txp.Core          (txOutStake)
 import           Pos.Types             (Coin, EpochIndex, StakeholderId, applyCoinPortion)
-
-import           Pos.Txp.Core.Types    (txOutStake)
 
 ----------------------------------------------------------------------------
 -- Class

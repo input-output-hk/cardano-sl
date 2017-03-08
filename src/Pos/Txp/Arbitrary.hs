@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
--- | Arbitrary instances for 'Txp' networking types.
+-- | Arbitrary instances for 'Txp' types.
 
 module Pos.Txp.Arbitrary () where
 
@@ -14,7 +14,6 @@ import           Pos.Types.Arbitrary           ()
 import           Pos.Update.Arbitrary.Core     ()
 
 import           Pos.Txp.Network.Types         (TxMsgContents (..), TxMsgTag (..))
-
 
 derive makeArbitrary ''TxMsgTag
 derive makeArbitrary ''TxMsgContents

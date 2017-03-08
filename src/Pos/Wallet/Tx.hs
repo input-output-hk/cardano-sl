@@ -39,7 +39,7 @@ submitTx
     => SendActions m
     -> SafeSigner
     -> [DHTNode]
-    -> [TxOutAux]
+    -> NonEmpty TxOutAux
     -> m (Either TxError TxAux)
 submitTx sendActions ss na outputs = do
     utxo <- getOwnUtxo $ makePubKeyAddress $ safeToPublic ss
@@ -63,7 +63,7 @@ submitRedemptionTx sendActions rsk na output = do
     runExceptT $ do
         let addCoin c (TxOut {..}, _) = unsafeAddCoin c txOutValue
             redeemBalance = foldl' addCoin (mkCoin 0) utxo
-            txouts = [(TxOut output redeemBalance, [])]
+            txouts = one (TxOut output redeemBalance, [])
         txw <- ExceptT $ return $ createRedemptionTx utxo rsk txouts
         let txId = hash (txw ^. _1)
         lift $ submitTxRaw sendActions na txw

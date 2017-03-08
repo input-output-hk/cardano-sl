@@ -2,35 +2,40 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Block.Arbitrary
-       ( BlockHeaderList (..)
+       ( HeaderAndParams (..)
+       , BlockHeaderList (..)
        ) where
 
 import           Data.Ix              (range)
+import           Data.List.NonEmpty   (nonEmpty)
+import qualified Data.List.NonEmpty   as NE
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Formatting           (bprint, build, formatToString, (%))
-import           Test.QuickCheck      (Arbitrary (..), Gen, choose, listOf, oneof,
-                                       vectorOf)
+import           Prelude              (Show (..))
+import           System.Random        (mkStdGen, randomR)
+import           Test.QuickCheck      (Arbitrary (..), Gen, choose, listOf, listOf, oneof,
+                                       oneof, vectorOf)
 import           Universum
 
-import           Pos.Binary           (Bi, Raw)
+import           Pos.Binary.Class     (Bi, Raw, biSize)
 import           Pos.Block.Network    as T
 import           Pos.Constants        (epochSlots)
-import           Pos.Crypto           (Hash, ProxySecretKey, PublicKey, SecretKey,
+import           Pos.Crypto           (ProxySecretKey, PublicKey, SecretKey,
                                        createProxySecretKey, toPublic)
 import           Pos.Data.Attributes  (Attributes (..), mkAttributes)
-import           Pos.Merkle           (MerkleRoot (..), MerkleTree, mkMerkleTree)
 import           Pos.Ssc.Arbitrary    (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.Class        (Ssc (..), SscHelpersClass)
-import qualified Pos.Txp.Core.Types   as T
+import           Pos.Txp.Core         (Tx (..), TxDistribution (..), TxWitness,
+                                       mkTxPayload)
 import qualified Pos.Types            as T
 import           Pos.Update.Arbitrary ()
 import           Pos.Util.Arbitrary   (makeSmall)
-import qualified Prelude
 
 newtype BodyDependsOnConsensus b = BodyDependsOnConsensus
     { genBodyDepsOnConsensus :: T.ConsensusData b -> Gen (T.Body b)
     }
+
 ------------------------------------------------------------------------------------------
 -- Arbitrary instances for Blockchain related types
 ------------------------------------------------------------------------------------------
@@ -90,12 +95,6 @@ instance Arbitrary (T.GenericBlock (T.GenesisBlockchain ssc)) where
 -- MainBlockchain
 ------------------------------------------------------------------------------------------
 
-instance Bi Raw => Arbitrary (MerkleRoot T.Tx) where
-    arbitrary = MerkleRoot <$> (arbitrary :: Gen (Hash Raw))
-
-instance Arbitrary (MerkleTree T.Tx) where
-    arbitrary = mkMerkleTree <$> arbitrary
-
 instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
     Arbitrary (T.MainBlockHeader ssc) where
     arbitrary = T.GenericBlockHeader
@@ -125,8 +124,6 @@ instance (Arbitrary (SscProof ssc), Bi Raw) =>
         <*> arbitrary
         <*> arbitrary
         <*> arbitrary
-        <*> arbitrary
-        <*> arbitrary
 
 instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
     Arbitrary (T.ConsensusData (T.MainBlockchain ssc)) where
@@ -147,30 +144,30 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
 -- well, and the lengths of its list of outputs must also be the same as the length of its
 -- corresponding TxDistribution item.
 
-txOutDistGen :: Gen [(T.Tx, T.TxDistribution, T.TxWitness)]
+txOutDistGen :: Gen [(Tx, TxWitness, TxDistribution)]
 txOutDistGen = listOf $ do
     txInW <- arbitrary
     txIns <- arbitrary
-    (txOuts, txDist) <- second T.TxDistribution . unzip <$> arbitrary
-    return $ (T.Tx txIns txOuts $ mkAttributes (), txDist, txInW)
+    (txOuts, txDist) <- second TxDistribution . NE.unzip <$> arbitrary
+    return (UnsafeTx txIns txOuts $ mkAttributes (), txInW, txDist)
 
 instance Arbitrary (SscPayloadDependsOnSlot ssc) =>
          Arbitrary (BodyDependsOnConsensus (T.MainBlockchain ssc)) where
     arbitrary = pure $ BodyDependsOnConsensus $ \T.MainConsensusData{..} -> makeSmall $ do
-        (txList, txDists, txInW) <- unzip3 <$> txOutDistGen
+        txws <- txOutDistGen
         generator <- genPayloadDependsOnSlot @ssc <$> arbitrary
         mpcData <- generator _mcdSlot
         mpcProxySKs <- arbitrary
         mpcUpload   <- arbitrary
-        return $ T.MainBody (mkMerkleTree txList) txDists txInW mpcData mpcProxySKs mpcUpload
+        return $ T.MainBody (mkTxPayload txws) mpcData mpcProxySKs mpcUpload
 
 instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc)) where
     arbitrary = makeSmall $ do
-        (txList, txDists, txInW) <- unzip3 <$> txOutDistGen
+        txws <- txOutDistGen
         mpcData     <- arbitrary
         mpcProxySKs <- arbitrary
         mpcUpload   <- arbitrary
-        return $ T.MainBody (mkMerkleTree txList) txDists txInW mpcData mpcProxySKs mpcUpload
+        return $ T.MainBody (mkTxPayload txws) mpcData mpcProxySKs mpcUpload
 
 instance (Arbitrary (SscProof ssc), Arbitrary (SscPayloadDependsOnSlot ssc), SscHelpersClass ssc) =>
     Arbitrary (T.GenericBlock (T.MainBlockchain ssc)) where
@@ -319,3 +316,69 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                 -- This `range` will give us pairs with all complete epochs and for each,
                 -- every slot therein.
                 [firstHeader]
+
+-- | This type is used to generate a valid blockheader and associated header
+-- verification params. With regards to the block header function
+-- 'Pos.Types.Blocks.Functions.verifyHeader', the blockheaders that may be part of the
+-- verification parameters are guaranteed to be valid, as are the slot leaders and the
+-- current slot.
+newtype HeaderAndParams ssc = HAndP
+    { getHAndP :: (T.VerifyHeaderParams ssc, T.BlockHeader ssc)
+    } deriving (Eq, Show)
+
+-- | A lot of the work to generate a valid sequence of blockheaders has already been done
+-- in the 'Arbitrary' instance of the 'BlockHeaderList' type, so it is used here and at
+-- most 3 blocks are taken from the generated list.
+instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
+    Arbitrary (HeaderAndParams ssc) where
+    arbitrary = do
+        consensus <- arbitrary :: Gen Bool
+        -- This integer is used as a seed to randomly choose a slot down below
+        seed <- arbitrary :: Gen Int
+        (headers, leaders) <- first reverse . getHeaderList <$> arbitrary
+        let num = length headers
+        -- 'skip' is the random number of headers that should be skipped in the header
+        -- chain. This ensures different parts of it are chosen each time.
+        skip <- choose (0, num - 1)
+        let atMost3HeadersAndLeaders = take 3 $ drop skip headers
+            (prev, header, next) =
+                case atMost3HeadersAndLeaders of
+                    [h] -> (Nothing, h, Nothing)
+                    [h1, h2] -> (Just h1, h2, Nothing)
+                    (h1 : h2 : h3 : _) -> (Just h1, h2, Just h3)
+                    _ -> panic "[BlockSpec] the headerchain doesn't have enough headers"
+            -- This binding captures the chosen header's epoch. It is used to drop all
+            -- all leaders of headers from previous epochs.
+            thisEpochStartIndex = fromIntegral $ epochSlots * (header ^. T.epochIndexL)
+            thisHeadersEpoch = drop thisEpochStartIndex leaders
+            -- A helper function. Given integers 'x' and 'y', it chooses a random integer
+            -- in the interval [x, y]
+            betweenXAndY x y = fst . randomR (x, y) . mkStdGen $ seed
+            betweenZeroAndN = betweenXAndY 0
+            -- One of the fields in the 'VerifyHeaderParams' type is 'Just SlotId'. The
+            -- following binding is where it is calculated.
+            randomSlotBeforeThisHeader =
+                case header of
+                    -- If the header is of the genesis kind, this field is not needed.
+                    Left _  -> Nothing
+                    -- If it's a main blockheader, then a valid "current" SlotId for
+                    -- testing is any with an epoch greater than the header's epoch and
+                    -- with any slot index, or any in the same epoch but with a greater or
+                    -- equal slot index than the header.
+                    Right h -> -- Nothing {-
+                        let (T.SlotId e s) = view T.headerSlot h
+                            rndEpoch = betweenXAndY e maxBound
+                            rndSlotIdx = if rndEpoch > e
+                                then betweenZeroAndN (epochSlots - 1)
+                                else betweenXAndY s (epochSlots - 1)
+                            rndSlot = T.SlotId rndEpoch rndSlotIdx
+                        in Just rndSlot
+            params = T.VerifyHeaderParams
+                { T.vhpVerifyConsensus = consensus
+                , T.vhpPrevHeader = prev
+                , T.vhpNextHeader = next
+                , T.vhpCurrentSlot = randomSlotBeforeThisHeader
+                , T.vhpLeaders = nonEmpty $ map T.addressHash thisHeadersEpoch
+                , T.vhpMaxSize = biSize header
+                }
+        return . HAndP $ (params, header)

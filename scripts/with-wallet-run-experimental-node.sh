@@ -1,6 +1,6 @@
 mkdir -p logs/rc0
 
-stack --nix exec -- cardano-node \
+stack exec -- cardano-node \
   --peer 35.157.26.73:3000/dYGuDj0BrJxCsTC9ntJE7ePT7wUoVdQMH3sKLzQD8bo= \
   --flat-distr '(20,60000000)' \
   --spending-genesis 5 \

@@ -34,13 +34,18 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Communication.PeerState (WithPeerState (..))
+import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DB                      (MonadDB (..))
 import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
+import           Pos.DHT.MemState            (MonadDhtMem)
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT, WithKademliaDHTInstance)
-import           Pos.Slotting.Class          (MonadSlots, MonadSlotsData)
+import           Pos.Reporting               (MonadReportingMem)
+import           Pos.Shutdown                (MonadShutdownMem)
+import           Pos.Slotting.Class          (MonadSlots)
+import           Pos.Slotting.MemState       (MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Statistics.StatEntry    (StatLabel (..))
 import           Pos.Txp.MemState            (MonadTxpMem (..))
@@ -75,9 +80,10 @@ newtype NoStatsT m a = NoStatsT
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
-                MonadJL, CanLog, MonadTxpMem, MonadSscMem ssc, MonadDB,
+                MonadJL, CanLog, MonadTxpMem, MonadSscMem ssc,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem,
-                MonadDBLimits)
+                MonadDhtMem, MonadReportingMem, MonadRelayMem, MonadShutdownMem,
+                MonadDB, MonadDBLimits)
 
 instance Monad m => WrappedM (NoStatsT m) where
     type UnwrappedM (NoStatsT m) = m
@@ -128,8 +134,10 @@ newtype StatsT m a = StatsT
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
                 MonadTrans, MonadJL, CanLog, MonadTxpMem,
-                MonadSscMem ssc, MonadSlotsData, MonadDB, MonadDBLimits,
-                WithNodeContext ssc, MonadDelegation, MonadUSMem)
+                MonadSscMem ssc, MonadSlotsData,
+                WithNodeContext ssc, MonadDelegation, MonadUSMem,
+                MonadDhtMem, MonadReportingMem, MonadRelayMem, MonadShutdownMem,
+                MonadDB, MonadDBLimits)
 
 instance Monad m => WrappedM (StatsT m) where
     type UnwrappedM (StatsT m) = ReaderT StatsMap m

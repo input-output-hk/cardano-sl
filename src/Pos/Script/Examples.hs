@@ -29,13 +29,15 @@ module Pos.Script.Examples
        , sigStressRedeemer
        ) where
 
+import qualified Data.ByteString    as BS
 import           Formatting         (build, sformat, (%))
 import           NeatInterpolation  (text)
 import           Universum
 
-import           Pos.Binary.Script  ()
-import           Pos.Crypto         (PublicKey, SecretKey, fullPublicKeyHexF,
-                                     fullSignatureHexF, sign)
+import           Pos.Binary.Core    ()
+import           Pos.Crypto         (PublicKey, SafeSigner, deterministicKeyGen,
+                                     fullPublicKeyHexF, fullSignatureHexF, safeSign,
+                                     signRaw)
 import           Pos.Script         (Script, parseRedeemer, parseValidator)
 import           Pos.Txp.Core.Types (TxSigData)
 
@@ -130,7 +132,7 @@ multisigValidator n pks = fromE $ parseValidator [text|
     mkCons k s = sformat ("(Cons #"%fullPublicKeyHexF%" "%build%")") k s
     shownPks = foldr mkCons "Nil" pks
 
-multisigRedeemer :: TxSigData -> [Maybe SecretKey] -> Script
+multisigRedeemer :: TxSigData -> [Maybe SafeSigner] -> Script
 multisigRedeemer txSigData sks = fromE $ parseRedeemer Nothing [text|
     redeemer : Comp (List (Maybe ByteString)) {
         redeemer = success ${shownSigs} }
@@ -139,7 +141,7 @@ multisigRedeemer txSigData sks = fromE $ parseRedeemer Nothing [text|
     mkCons Nothing s = sformat ("(Cons Nothing "%build%")") s
     mkCons (Just sig) s = sformat
         ("(Cons (Just #"%fullSignatureHexF%") "%build%")") sig s
-    shownSigs = foldr mkCons "Nil" (map (fmap (`sign` txSigData)) sks)
+    shownSigs = foldr mkCons "Nil" $ (`safeSign` txSigData) <<$>> sks
 
 ----------------------------------------------------------------------------
 -- A pair with extra names
@@ -197,7 +199,7 @@ sigStressRedeemer :: Int -> Script
 sigStressRedeemer n = fromE $ parseRedeemer Nothing [text|
     sigLoop : Int -> Bool {
       sigLoop 0 = True ;
-      sigLoop i = case !verifySignature ${key} #00 ${sig} of {
+      sigLoop i = case !verifySignature #${keyS} #00 #${sigS} of {
         True  -> sigLoop (!subtractInt i 1) ;
         False -> False } }
 
@@ -208,6 +210,8 @@ sigStressRedeemer n = fromE $ parseRedeemer Nothing [text|
     |]
   where
     ns = show n
-    key = "#85a52422d9fcd57a4a866a51897f13826b749f220028c8254da1e73d9a92860e"
-    sig = "#a535e9af40daa552d978a2db4b2f4c7c2950a07dd60149ca3caf2794fb1a5a87\
-           \3f02e1c22dcf2b9fc6c671e6f66080ccc56a2f238cf4733cd818d8b21a0b420e"
+    Just (pk, sk) = deterministicKeyGen (BS.replicate 32 0)
+    sig = signRaw sk (BS.pack [0])
+
+    keyS = sformat fullPublicKeyHexF pk
+    sigS = sformat fullSignatureHexF sig

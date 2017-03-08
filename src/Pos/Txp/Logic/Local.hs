@@ -12,6 +12,7 @@ module Pos.Txp.Logic.Local
 import           Control.Monad.Except (MonadError (..), runExcept)
 import           Data.Default         (def)
 import qualified Data.HashMap.Strict  as HM
+import qualified Data.List.NonEmpty   as NE
 import qualified Data.Map             as M (fromList)
 import           Formatting           (build, sformat, (%))
 import           System.Wlog          (WithLogger, logDebug)
@@ -21,7 +22,7 @@ import           Pos.DB.Class         (MonadDB)
 import qualified Pos.DB.GState        as GS
 import           Pos.Txp.Core.Types   (Tx (..), TxAux, TxId)
 
-import           Pos.Txp.MemState     (MonadTxpMem (..), getTxpLocalData, getUtxoView,
+import           Pos.Txp.MemState     (MonadTxpMem (..), getMemPool, getUtxoModifier,
                                        modifyTxpLocalData, setTxpLocalData)
 import           Pos.Txp.Toil         (MemPool (..), MonadUtxoRead (..), TxpModifier (..),
                                        TxpVerFailure (..), execTxpTLocal, normalizeTxp,
@@ -44,15 +45,16 @@ type TxpLocalWorkMode m =
 txProcessTransaction
     :: TxpLocalWorkMode m
     => (TxId, TxAux) -> m ()
-txProcessTransaction itw@(txId, (Tx{..}, _, _)) = do
+txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
     tipBefore <- GS.getTip
-    localUV <- getUtxoView
-    (resolvedOuts, _) <- runDBTxp $ runUV localUV $ mapM utxoGet _txInputs
+    localUM <- getUtxoModifier
+    (resolvedOuts, _) <- runDBTxp $ runUM localUM $ mapM utxoGet _txInputs
     -- Resolved are transaction outputs which haven't been deleted from the utxo yet
     -- (from Utxo DB and from UtxoView also)
     let resolved = M.fromList $
                    catMaybes $
-                   zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
+                   toList $
+                   NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
     pRes <- modifyTxpLocalData $ processTxDo resolved tipBefore itw
     case pRes of
         Left er -> do
@@ -76,13 +78,12 @@ txProcessTransaction itw@(txId, (Tx{..}, _, _)) = do
             case res of
                 Left er  -> (Left er, txld)
                 Right TxpModifier{..} ->
-                    (Right (), (_txmUtxoView, _txmMemPool, _txmUndos, tip))
-    runUV uv = runTxpTLocal uv def mempty
+                    (Right (), (_txmUtxoModifier, _txmMemPool, _txmUndos, tip))
+    runUM um = runTxpTLocal um def mempty
 #ifdef WITH_EXPLORER
     makeExtra :: Utxo -> TxExtra
     makeExtra resolved = TxExtra Nothing $ map fst $ toList resolved
 #endif
-
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Remove invalid transactions from MemPool
@@ -91,10 +92,10 @@ txNormalize
     :: (MonadDB m, MonadTxpMem m) => m ()
 txNormalize = do
     utxoTip <- GS.getTip
-    (_, MemPool{..}, _, _) <- getTxpLocalData
+    MemPool {..} <- getMemPool
     res <- runExceptT $
            runDBTxp $
-           execTxpTLocal def def def $
+           execTxpTLocal mempty def mempty $
            normalizeTxp $
 #ifdef WITH_EXPLORER
            HM.toList $ HM.intersectionWith (,) _mpLocalTxs _mpLocalTxsExtra
@@ -102,5 +103,5 @@ txNormalize = do
            HM.toList _mpLocalTxs
 #endif
     case res of
-        Left _                -> setTxpLocalData (def, def, def, utxoTip)
-        Right TxpModifier{..} -> setTxpLocalData (_txmUtxoView, _txmMemPool, _txmUndos, utxoTip)
+        Left _                -> setTxpLocalData (mempty, def, mempty, utxoTip)
+        Right TxpModifier{..} -> setTxpLocalData (_txmUtxoModifier, _txmMemPool, _txmUndos, utxoTip)

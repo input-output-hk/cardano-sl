@@ -4,7 +4,6 @@
 module Pos.Txp.Toil.Utxo.Functions
        ( verifyTxUtxo
        , applyTxToUtxo
-       , applyTxToUtxo'
        , rollbackTxUtxo
        -- * Pure
        , deleteTxIn
@@ -16,32 +15,32 @@ module Pos.Txp.Toil.Utxo.Functions
 
 import           Control.Monad.Error.Class (MonadError (..))
 import qualified Data.HashMap.Strict       as HM
+import qualified Data.List.NonEmpty        as NE
 import qualified Data.Map.Strict           as M
 import qualified Data.Text                 as T
 import           Universum
 
-import           Pos.Binary.Types          ()
+import           Pos.Binary.Core           ()
+import           Pos.Core                  (Address, Coin, StakeholderId, unsafeAddCoin)
 import           Pos.Crypto                (WithHash (..), hash)
-import           Pos.Txp.Core.Types        (Tx (..), TxAux, TxDistribution (..), TxId,
-                                            TxIn (..), TxOut (..), TxOutAux, TxUndo, Utxo,
+import           Pos.Txp.Core              (Tx (..), TxAux, TxDistribution (..),
+                                            TxIn (..), TxOut (..), TxOutAux, TxUndo,
                                             txOutStake)
-import           Pos.Types                 (Address, Coin, StakeholderId, unsafeAddCoin)
-
 import           Pos.Txp.Core.Tx           (VTxGlobalContext (..), VTxLocalContext (..),
                                             verifyTx)
 import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure      (TxpVerFailure (..))
+import           Pos.Txp.Toil.Types        (Utxo)
 
 -- CHECK: @verifyTxUtxo
 -- | Verify single Tx using MonadUtxoRead as TxIn resolver.
 verifyTxUtxo
     :: (MonadUtxoRead m, MonadError TxpVerFailure m)
     => Bool
-    -> Bool
     -> TxAux
     -> m TxUndo
-verifyTxUtxo verifyAlone verifyVersions txaux = do
-    res <- verifyTx verifyAlone verifyVersions VTxGlobalContext utxoGet' txaux
+verifyTxUtxo verifyVersions txaux = do
+    res <- verifyTx verifyVersions VTxGlobalContext utxoGet' txaux
     case res of
         Left errors -> throwError $ TxpInvalid $ T.intercalate ";\n" errors
         Right undo  -> pure undo
@@ -51,29 +50,22 @@ verifyTxUtxo verifyAlone verifyVersions txaux = do
 -- | Remove unspent outputs used in given transaction, add new unspent
 -- outputs.
 applyTxToUtxo :: MonadUtxo m => WithHash Tx -> TxDistribution -> m ()
-applyTxToUtxo tx distr = do
-    mapM_ applyInput _txInputs
-    mapM_ (uncurry applyOutput)
-        (zip [0..] (zip _txOutputs (getTxDistribution distr)))
+applyTxToUtxo (WithHash UnsafeTx {..} txid) distr = do
+    mapM_ utxoDel _txInputs
+    mapM_ applyOutput . zip [0 ..] . toList . NE.zip _txOutputs $
+        getTxDistribution distr
   where
-    Tx {..} = whData tx
-    applyInput = utxoDel
-    applyOutput idx (out, ds) = utxoPut (TxIn (whHash tx) idx) (out, ds)
+    applyOutput (idx, (out, ds)) = utxoPut (TxIn txid idx) (out, ds)
 
 rollbackTxUtxo
     :: (MonadError TxpVerFailure m, MonadUtxo m)
     => (TxAux, TxUndo) -> m ()
-rollbackTxUtxo ((tx@Tx{..}, _, _), undo) = do
+rollbackTxUtxo ((tx@UnsafeTx{..}, _, _), undo) = do
     unless (length _txInputs == length undo) $
         throwError $ TxpInvalidUndoLength (length _txInputs) (length undo)
     let txid = hash tx
     mapM_ utxoDel $ take (length _txOutputs) $ zipWith TxIn (repeat txid) [0..]
-    mapM_ (uncurry utxoPut) $ zip _txInputs undo
-
-applyTxToUtxo' :: MonadUtxo m => (TxId, TxAux) -> m ()
-applyTxToUtxo' (i, (t, _, d)) = applyTxToUtxo (WithHash t i) d
-
--- TODO change types of normalizeTxs and related
+    mapM_ (uncurry utxoPut) $ zip (toList _txInputs) undo
 
 ----------------------------------------------------------------------------
 -- Pure

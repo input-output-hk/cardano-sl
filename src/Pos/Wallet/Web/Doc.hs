@@ -9,12 +9,11 @@ module Pos.Wallet.Web.Doc
 
 import           Control.Lens               ((<>~))
 import qualified Data.HashMap.Strict        as HM
-import           Data.Proxy                 (Proxy (..))
 import           Data.Time.Clock.POSIX      (POSIXTime)
 import           Network.HTTP.Types.Method  (methodPost)
-import           Servant.API                (Capture)
+import           Servant.API                (Capture, QueryParam)
 import           Servant.Docs               (API, DocCapture (..), DocIntro (..),
-                                             DocNote (..), ExtraInfo (..),
+                                             DocNote (..), DocQueryParam (..), ExtraInfo (..), ToParam,
                                              ToCapture (toCapture), ToSample (toSamples),
                                              defAction, defEndpoint, defaultDocOptions,
                                              docsWith, markdown, method, notes, path,
@@ -77,6 +76,13 @@ extras =
 ----------------------------------------------------------------------------
 -- Orphan instances
 ----------------------------------------------------------------------------
+
+instance ToCapture (Capture "walletId" CAddress) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "walletId"
+        , _capDesc = "WalletId, walletId = address, future versions should have HD wallets, and then it should have multiple addresses"
+        }
 
 instance ToCapture (Capture "from" CAddress) where
     toCapture Proxy =
@@ -148,18 +154,22 @@ instance ToCapture (Capture "search" Text) where
         , _capDesc = "Wallet title search pattern"
         }
 
-instance ToCapture (Capture "skip" Word) where
-    toCapture Proxy =
-        DocCapture
-        { _capSymbol = "skip"
-        , _capDesc = "Skip this many transactions"
+instance ToParam (QueryParam "skip" Word) where
+    toParam Proxy =
+        DocQueryParam
+        { _paramName    = "skip"
+        , _paramValues  = ["0", "100"]
+        , _paramDesc    = "Skip this many transactions"
+        , _paramKind    = SD.Normal
         }
 
-instance ToCapture (Capture "limit" Word) where
-    toCapture Proxy =
-        DocCapture
-        { _capSymbol = "limit"
-        , _capDesc = "Max numbers of transactions to return"
+instance ToParam (QueryParam "limit" Word) where
+    toParam Proxy =
+        DocQueryParam
+        { _paramName    = "limit"
+        , _paramValues  = ["0", "100"]
+        , _paramDesc    = "Max numbers of transactions to return"
+        , _paramKind    = SD.Normal
         }
 
 instance ToCapture (Capture "currency" CCurrency) where

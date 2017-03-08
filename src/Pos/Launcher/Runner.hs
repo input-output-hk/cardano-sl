@@ -34,7 +34,6 @@ import           Control.Monad.Fix           (MonadFix)
 import qualified Data.ByteString.Char8       as BS8
 import           Data.Default                (def)
 import           Data.List                   (nub)
-import           Data.Proxy                  (Proxy (..))
 import           Data.Tagged                 (proxy, untag)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
@@ -49,6 +48,7 @@ import qualified Network.Transport.TCP       as TCP
 import           Node                        (Node, NodeAction (..), hoistSendActions,
                                               node)
 import           Node.Util.Monitor           (setupMonitor, stopMonitor)
+import           Serokell.Util               (sec)
 import qualified STMContainers.Map           as SM
 import           System.Random               (newStdGen)
 import           System.Wlog                 (LoggerConfig (..), WithLogger, logError,
@@ -78,11 +78,11 @@ import           Pos.Constants               (blockRetrievalQueueSize,
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               runContextHolder)
-import           Pos.Crypto                  (createProxySecretKey, toPublic)
+import           Pos.Crypto                  (createProxySecretKey, encToPublic)
+import           Pos.Core.Timestamp          (timestampF)
 import           Pos.DB                      (MonadDB (..), runDBHolder)
 import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
 import           Pos.DB.GState               (getTip)
-import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Holder       (runDelegationT)
 import           Pos.DHT.Model               (MonadDHT (..), converseToNeighbors,
@@ -93,7 +93,8 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
                                               stopDHTInstance)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
-import           Pos.Slotting                (mkNtpSlottingVar, mkSlottingVar,
+import qualified Pos.Lrc.DB                  as LrcDB
+import           Pos.Slotting                (SlottingVar, mkNtpSlottingVar,
                                               runNtpSlotting, runSlottingHolder)
 import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
                                               SscListenersClass, SscNodeContext,
@@ -101,10 +102,10 @@ import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
 import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp                     (runTxpHolder)
-import           Pos.Types                   (Timestamp (Timestamp), timestampF)
+import           Pos.Types                   (Timestamp (Timestamp))
+import qualified Pos.Update.DB               as GState
 import           Pos.Update.MemState         (runUSHolder)
 import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
-import           Pos.Util.TimeWarp           (sec)
 import           Pos.Util.UserSecret         (usKeys)
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (MinWorkMode, ProductionMode, RawRealMode,
@@ -191,7 +192,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
        initTip <- runDBHolder modernDBs getTip
        stateM <- liftIO SM.newIO
        stateM_ <- liftIO SM.newIO
-       slottingVar <- runDBHolder modernDBs mkSlottingVar
+       slottingVar <- runDBHolder  modernDBs $ mkSlottingVar npSystemStart
        ntpSlottingVar <- mkNtpSlottingVar
 
        -- TODO [CSL-775] need an effect-free way of running this into IO.
@@ -203,7 +204,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
                        runSlottingHolder slottingVar .
                        runNtpSlotting ntpSlottingVar .
                        ignoreSscHolder .
-                       runTxpHolder def initTip .
+                       runTxpHolder mempty initTip .
                        runDelegationT def .
                        runUSHolder .
                        runKademliaDHT (rmDHT res) .
@@ -222,7 +223,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
           runSlottingHolder slottingVar .
           runNtpSlotting ntpSlottingVar .
           (mkStateAndRunSscHolder @ssc) .
-          runTxpHolder def initTip .
+          runTxpHolder mempty initTip .
           runDelegationT def .
           runUSHolder .
           runKademliaDHT (rmDHT res) .
@@ -231,6 +232,12 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
               \vI sa -> nodeStartMsg npBaseParams >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
+
+-- | Create new 'SlottingVar' using data from DB.
+mkSlottingVar :: MonadDB m => Timestamp -> m SlottingVar
+mkSlottingVar sysStart = do
+    sd <- GState.getSlottingData
+    (sysStart, ) <$> liftIO (newTVarIO sd)
 
 -- | ServiceMode runner.
 runServiceMode
@@ -334,7 +341,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
     lrcSync <- liftIO . newTVarIO . (True,) =<< LrcDB.getEpochDefault
 
     let eternity = (minBound, maxBound)
-        makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . toPublic
+        makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . encToPublic
         ownPSKs = npUserSecret ^.. usKeys._tail.each.to makeOwnPSK
     forM_ ownPSKs addProxySecretKey
 
@@ -382,7 +389,8 @@ getRealLoggerConfig LoggingParams{..} = do
     let cfgBuilder = productionB <>
                      memoryB (1024 * 1024 * 5) <> -- ~5 mb
                      mapperB dhtMapper <>
-                     (mempty { _lcFilePrefix = lpHandlerPrefix })
+                     (mempty { _lcFilePrefix = lpHandlerPrefix
+                             , _lcRoundVal = Just 5 })
     cfg <- readLoggerConfig lpConfigPath
     pure $ cfg <> cfgBuilder
   where
@@ -430,7 +438,7 @@ createTransport ip port = do
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =
                    Just $ fromIntegral networkConnectionTimeout
-             , TCP.tcpNewQDisc = fairQDisc
+             , TCP.tcpNewQDisc = fairQDisc $ \_ -> return Nothing
              })
     transportE <-
         liftIO $ TCP.createTransport "0.0.0.0" (show port) ((,) ip) tcpParams

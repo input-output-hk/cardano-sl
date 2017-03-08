@@ -22,7 +22,7 @@ import           Pos.Crypto           (PublicKey, keyGen, toPublic, toVssPublicK
 import           Pos.Genesis          (GenesisData (..), StakeDistribution (..))
 import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
 import           Pos.Types            (addressHash, makePubKeyAddress, mkCoin)
-import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usKeys,
+import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usPrimKey,
                                        usVss, writeUserSecretRelease)
 
 data KeygenOptions = KO
@@ -40,7 +40,7 @@ generateKeyfile fp = do
     vss <- vssKeyGen
     us <- takeUserSecret fp
     writeUserSecretRelease $
-        us & usKeys .~ [sk]
+        us & usPrimKey .~ Just sk
            & usVss .~ Just vss
     expiry <- fromIntegral <$> randomRIO (vssMinTTL :: Int, vssMaxTTL)
     let vssPk = asBinary $ toVssPublicKey vss

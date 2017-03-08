@@ -55,7 +55,7 @@ import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossRead 
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Types                       (EpochIndex, StakeholderId, addressHash,
                                                   unsafeGetCoin)
-import           Pos.Types.Core                  (coinPortionDenominator, getCoinPortion)
+import           Pos.Core.Types                  (coinPortionDenominator, getCoinPortion)
 import           Pos.Util                        (getKeys)
 
 ----------------------------------------------------------------------------

@@ -51,7 +51,7 @@ instance Buildable MsgGetHeaders where
         bprint ("MsgGetHeaders {from = "%listJson%", to = "%build%"}")
                mghFrom (maybe "<Nothing>" (bprint build) mghTo)
 
--- | 'GetHeaders' message (see protocol specification).
+-- | 'GetBlocks' message (see protocol specification).
 data MsgGetBlocks = MsgGetBlocks
     { mgbFrom :: !HeaderHash
     , mgbTo   :: !HeaderHash

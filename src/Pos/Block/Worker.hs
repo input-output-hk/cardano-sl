@@ -13,9 +13,9 @@ import           Control.Lens                (ix)
 import           Data.Default                (def)
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
+import           Paths_cardano_sl            (version)
 import           Pos.Communication.Protocol  (SendActions)
-import           Serokell.Util               (VerificationRes (..), listJson, pairF)
-import           Serokell.Util.Exceptions    ()
+import           Serokell.Util               (VerificationRes (..), listJson, pairF, sec)
 import           System.Wlog                 (WithLogger, logDebug, logError, logInfo,
                                               logWarning)
 import           Universum
@@ -29,6 +29,7 @@ import           Pos.Communication.Protocol  (OutSpecs, Worker', WorkerSpec,
                                               onNewSlotWorker, worker)
 import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (getNodeContext, isRecoveryMode, ncPublicKey)
+import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Misc                 (getProxySecretKeys)
@@ -46,11 +47,10 @@ import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (
                                               Timestamp (Timestamp),
                                               VerifyBlockParams (..), gbHeader, slotIdF,
                                               verifyBlock)
-import           Pos.Types.Address           (addressHash)
 import           Pos.Util                    (inAssertMode, logWarningWaitLinear,
                                               mconcatPair)
 import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
-import           Pos.Util.TimeWarp           (sec)
+import           Pos.Util.LogSafe            (logNoticeS)
 import           Pos.WorkMode                (WorkMode)
 
 
@@ -74,6 +74,10 @@ blkOnNewSlot = onNewSlotWorker True announceBlockOuts blkOnNewSlotImpl
 blkOnNewSlotImpl :: WorkMode ssc m =>
                     SlotId -> SendActions m -> m ()
 blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
+    -- Just ignore this line. It will be deleted after fake messages
+    -- policy (CSL-837) is introduced.
+    logDebug "CSL-700 this message is top secret"
+
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlock siEpoch
     whenJust mGenBlock $ \createdBlk -> do
@@ -109,6 +113,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
                                 in siEpoch >= w0 && siEpoch <= w1) proxyCerts
             validCert = find (\pSk -> addressHash (pskIssuerPk pSk) == leader)
                              validCerts
+        logNoticeS "THIS IS A SECRET MESSAGE SHOULDN'T GET TO PUBLIC LOGGER"
         logLeadersF $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
         logLeadersF $ sformat ("Slot leaders: "%listJson) $
                       map (bprint pairF) (zip [0 :: Int ..] $ toList leaders)
@@ -181,7 +186,6 @@ verifyCreatedBlock blk =
     vbp =
         def
         { vbpVerifyGeneric = True
-        , vbpVerifyTxs = True
         , vbpVerifySsc = True
         }
 
@@ -194,7 +198,7 @@ recoveryWorkerImpl
     => SendActions m -> m ()
 recoveryWorkerImpl sendActions = action `catch` handler
   where
-    action = reportingFatal $ forever $ checkRecovery >> delay (sec 5)
+    action = reportingFatal version $ forever $ checkRecovery >> delay (sec 5)
     checkRecovery = do
         recMode <- isRecoveryMode
         curSlotNothing <- isNothing <$> getCurrentSlot

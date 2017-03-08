@@ -46,19 +46,19 @@ import           Serokell.Util              (enumerate)
 import           Universum
 
 import qualified Pos.Constants              as Const
+import           Pos.Core.Types             (ScriptVersion, SoftwareVersion (..))
 import           Pos.Crypto                 (PublicKey, SecretKey, deterministicKeyGen,
                                              unsafeHash)
 import           Pos.Genesis.Parser         (compileGenData)
 import           Pos.Genesis.Types          (GenesisData (..), StakeDistribution (..))
 import           Pos.Lrc.FollowTheSatoshi   (followTheSatoshi)
-import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..), Utxo)
+import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..))
+import           Pos.Txp.Toil.Types         (Utxo)
 import           Pos.Types                  (Address (..), BlockVersion (..), Coin,
                                              SharedSeed (SharedSeed), SlotLeaders,
                                              StakeholderId, applyCoinPortion,
                                              coinToInteger, divCoin, makePubKeyAddress,
                                              mkCoin, unsafeAddCoin, unsafeMulCoin)
-import           Pos.Types.Script           (ScriptVersion)
-import           Pos.Types.Version          (SoftwareVersion (..))
 import           Pos.Update.Core.Types      (BlockVersionData (..))
 
 ----------------------------------------------------------------------------
@@ -225,7 +225,9 @@ genesisBlockVersionData =
     { bvdScriptVersion = genesisScriptVersion
     , bvdSlotDuration = Const.genesisSlotDuration
     , bvdMaxBlockSize = Const.genesisMaxBlockSize
+    , bvdMaxHeaderSize = Const.genesisMaxHeaderSize
     , bvdMaxTxSize = Const.genesisMaxTxSize
+    , bvdMaxProposalSize = Const.genesisMaxUpdateProposalSize
     , bvdMpcThd = Const.genesisMpcThd
     , bvdHeavyDelThd = Const.genesisHeavyDelThd
     , bvdUpdateVoteThd = Const.genesisUpdateVoteThd

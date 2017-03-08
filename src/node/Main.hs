@@ -1,13 +1,12 @@
-{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE CPP #-}
 
 module Main where
 
-import           Control.Lens          (_head)
 import           Data.List             ((!!))
 import           Data.Maybe            (fromJust)
-import           Data.Proxy            (Proxy (..))
 import           Mockable              (Production)
-import           System.Wlog           (LoggerName)
+import           Serokell.Util         (sec)
+import           System.Wlog           (LoggerName, logInfo)
 import           Universum
 
 import           Pos.Binary            ()
@@ -15,7 +14,6 @@ import qualified Pos.CLI               as CLI
 import           Pos.Constants         (staticSysStart)
 import           Pos.Context           (getNodeContext, ncUpdateSemaphore)
 import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
-import           Pos.Util.TimeWarp     (sec)
 #ifdef DEV_MODE
 import           Pos.Genesis           (genesisSecretKeys)
 #else
@@ -30,6 +28,7 @@ import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
 import           Pos.Ssc.GodTossing    (genesisVssKeyPairs)
 #endif
 import           Pos.Communication     (ActionSpec (..))
+import           Pos.Shutdown          (triggerShutdown)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
@@ -37,9 +36,8 @@ import           Pos.Ssc.SscAlgo       (SscAlgo (..))
 import           Pos.Types             (Timestamp (Timestamp))
 import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
-import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usVss,
+import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usVss, usPrimKey,
                                         writeUserSecret)
-import           Pos.Util.Shutdown     (triggerShutdown)
 #ifdef WITH_WEB
 import           Pos.Web               (serveWebBase, serveWebGT)
 import           Pos.WorkMode          (WorkMode)
@@ -144,7 +142,7 @@ userSecretWithGenesisKey Args {..} userSecret = case spendingGenesisI of
     Nothing -> fetchPrimaryKey userSecret
     Just i -> do
         let sk = genesisSecretKeys !! i
-            us = userSecret & usKeys %~ (sk :) . filter (/= sk)
+            us = userSecret & usPrimKey .~ Just sk
         writeUserSecret us
         return (sk, us)
 
@@ -171,12 +169,12 @@ updateUserSecretVSS _ = fillUserSecretVSS
 #endif
 
 fetchPrimaryKey :: (MonadIO m, MonadFail m) => UserSecret -> m (SecretKey, UserSecret)
-fetchPrimaryKey userSecret = case userSecret ^? usKeys . _head of
+fetchPrimaryKey userSecret = case userSecret ^. usPrimKey of
     Just sk -> return (sk, userSecret)
     Nothing -> do
         putText "Found no signing keys in keyfile, generating random one..."
         sk <- snd <$> keyGen
-        let us = userSecret & usKeys .~ [sk]
+        let us = userSecret & usPrimKey .~ Just sk
         writeUserSecret us
         return (sk, us)
 
@@ -197,7 +195,7 @@ processUserSecret args@Args {..} userSecret = case backupPhrase of
     Nothing -> updateUserSecretVSS args userSecret >>= userSecretWithGenesisKey args
     Just ph -> do
         let (sk, vss) = keysFromPhrase ph
-            us = userSecret & usKeys .~ [sk] & usVss .~ Just vss
+            us = userSecret & usPrimKey .~ Just sk & usVss .~ Just vss
         writeUserSecret us
         return (sk, us)
 
@@ -260,6 +258,7 @@ updateTriggerWorker
     :: SscConstraint ssc
     => ([WorkerSpec (RawRealMode ssc)], OutSpecs)
 updateTriggerWorker = first pure $ worker mempty $ \_ -> do
+    logInfo "Update trigger worker is locked"
     void $ liftIO . takeMVar . ncUpdateSemaphore =<< getNodeContext
     triggerShutdown
 
@@ -303,6 +302,12 @@ printFlags = do
     putText "[Attention] We are in DEV mode"
 #else
     putText "[Attention] We are in PRODUCTION mode"
+#endif
+#ifdef WITH_WEB
+    putText "[Attention] Web-mode is on"
+#endif
+#ifdef WITH_WALLET
+    putText "[Attention] Wallet-mode is on"
 #endif
     inAssertMode $ putText "Asserts are ON"
 

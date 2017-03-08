@@ -23,6 +23,8 @@ import           Pos.Crypto.Signing          (ProxyCert, ProxySecretKey, ProxySi
                                               PublicKey, SecretKey, Signature, Signed,
                                               createProxyCert, createProxySecretKey,
                                               keyGen, mkSigned, proxySign, sign, toPublic)
+import           Pos.Crypto.RedeemSigning    (RedeemPublicKey, RedeemSecretKey,
+                                              RedeemSignature, redeemKeyGen, redeemSign)
 import           Pos.Util.Arbitrary          (Nonrepeating (..), arbitraryUnsafe,
                                               sublistN, unsafeMakePool)
 
@@ -59,6 +61,20 @@ instance Nonrepeating PublicKey where
 instance Nonrepeating SecretKey where
     nonrepeating n = map snd <$> sublistN n keys
 
+-- Repeat the same for ADA redemption keys
+redemptionKeys :: [(RedeemPublicKey, RedeemSecretKey)]
+redemptionKeys = unsafeMakePool "[generating redemption keys for tests..]" 50 redeemKeyGen
+
+instance Arbitrary RedeemPublicKey where
+    arbitrary = fst <$> elements redemptionKeys
+instance Arbitrary RedeemSecretKey where
+    arbitrary = snd <$> elements redemptionKeys
+
+instance Nonrepeating RedeemPublicKey where
+    nonrepeating n = map fst <$> sublistN n redemptionKeys
+instance Nonrepeating RedeemSecretKey where
+    nonrepeating n = map snd <$> sublistN n redemptionKeys
+
 ----------------------------------------------------------------------------
 -- Arbitrary VSS keys
 ----------------------------------------------------------------------------
@@ -88,6 +104,9 @@ instance Nonrepeating VssPublicKey where
 
 instance (Bi a, Arbitrary a) => Arbitrary (Signature a) where
     arbitrary = sign <$> arbitrary <*> arbitrary
+
+instance (Bi a, Arbitrary a) => Arbitrary (RedeemSignature a) where
+    arbitrary = redeemSign <$> arbitrary <*> arbitrary
 
 instance (Bi a, Arbitrary a) => Arbitrary (Signed a) where
     arbitrary = mkSigned <$> arbitrary <*> arbitrary

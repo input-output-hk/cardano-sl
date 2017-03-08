@@ -27,18 +27,23 @@ import           Serokell.Util.Lens        (WrappedM (..))
 import           System.Wlog               (CanLog, HasLoggerName)
 import           Universum
 
+import           Pos.Communication.Relay   (MonadRelayMem)
 import           Pos.Context.Class         (WithNodeContext)
 import           Pos.DB.Class              (MonadDB)
 import           Pos.DB.Holder             (DBHolder (..))
 import           Pos.DB.Limits             (MonadDBLimits)
-import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
+import           Pos.DHT.MemState          (MonadDhtMem)
+import           Pos.Reporting             (MonadReportingMem)
+import           Pos.Shutdown              (MonadShutdownMem)
+import           Pos.Slotting.Class        (MonadSlots)
+import           Pos.Slotting.MemState     (MonadSlotsData)
 import           Pos.Ssc.Extra             (MonadSscMem)
 import           Pos.Types                 (HeaderHash, genesisHash)
 import           Pos.Util.JsonLog          (MonadJL (..))
 
 import           Pos.Txp.MemState.Class    (MonadTxpMem (..))
 import           Pos.Txp.MemState.Types    (TxpLocalData (..))
-import           Pos.Txp.Toil.Types        (UtxoView)
+import           Pos.Txp.Toil.Types        (UtxoModifier)
 
 ----------------------------------------------------------------------------
 -- Holder
@@ -46,10 +51,29 @@ import           Pos.Txp.Toil.Types        (UtxoView)
 
 newtype TxpHolder m a = TxpHolder
     { getTxpHolder :: ReaderT TxpLocalData m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadThrow,
-                MonadSlotsData, MonadSlots, MonadCatch, MonadIO, MonadFail,
-                HasLoggerName, WithNodeContext ssc, MonadJL, MonadDB,
-                CanLog, MonadMask, MonadSscMem ssc, MonadFix, MonadDBLimits)
+    } deriving ( Functor
+               , Applicative
+               , Monad
+               , MonadTrans
+               , MonadThrow
+               , MonadSlotsData
+               , MonadSlots
+               , MonadCatch
+               , MonadIO
+               , MonadFail
+               , HasLoggerName
+               , WithNodeContext ssc
+               , MonadJL
+               , CanLog
+               , MonadMask
+               , MonadSscMem ssc
+               , MonadFix
+               , MonadDhtMem
+               , MonadReportingMem
+               , MonadRelayMem
+               , MonadShutdownMem
+               , MonadDB
+               , MonadDBLimits)
 
 type instance ThreadId (TxpHolder m) = ThreadId m
 type instance Promise (TxpHolder m) = Promise m
@@ -81,7 +105,7 @@ instance Monad m => WrappedM (TxpHolder m) where
 
 runTxpHolder
     :: MonadIO m
-    => UtxoView -> HeaderHash -> TxpHolder m a -> m a
+    => UtxoModifier -> HeaderHash -> TxpHolder m a -> m a
 runTxpHolder uv initTip holder = TxpLocalData
     <$> liftIO (STM.newTVarIO uv)
     <*> liftIO (STM.newTVarIO def)
@@ -89,10 +113,10 @@ runTxpHolder uv initTip holder = TxpLocalData
     <*> liftIO (STM.newTVarIO initTip)
     >>= runReaderT (getTxpHolder holder)
 
--- | Local run needed for validation txs. For validation need only UtxoView.
+-- | Local run needed for validation txs. For validation need only UtxoModifier.
 runLocalTxpHolder
     :: MonadIO m
-    => TxpHolder m a -> UtxoView -> m a
+    => TxpHolder m a -> UtxoModifier -> m a
 runLocalTxpHolder holder uv = TxpLocalData
     <$> liftIO (STM.newTVarIO uv)
     <*> liftIO (STM.newTVarIO def)

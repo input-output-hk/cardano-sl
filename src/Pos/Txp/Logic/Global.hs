@@ -11,7 +11,6 @@ module Pos.Txp.Logic.Global
        ) where
 
 import qualified Data.HashMap.Strict as HM
-import qualified Data.HashSet        as HS
 import           System.Wlog         (WithLogger)
 import           Universum
 
@@ -19,7 +18,7 @@ import           Pos.Block.Types     (Blund, Undo (undoTx))
 import           Pos.DB              (MonadDB, SomeBatchOp (..))
 import qualified Pos.DB.GState       as GS
 import           Pos.Exception       (assertionFailed)
-import           Pos.Txp.Core.Types  (TxAux, TxUndo, TxsUndo)
+import           Pos.Txp.Core.Types  (TxAux, TxUndo, TxpUndo)
 import           Pos.Types           (Block, blockTxas)
 import           Pos.Util            (NE, NewestFirst (..), OldestFirst (..),
                                       inAssertMode)
@@ -27,9 +26,9 @@ import           Pos.Util            (NE, NewestFirst (..), OldestFirst (..),
 import           Pos.Txp.Error       (TxpError (..))
 import           Pos.Txp.MemState    (MonadTxpMem (..))
 import           Pos.Txp.Toil        (BalancesView (..), BalancesView (..), DBTxp,
-                                      TxpModifier (..), TxpT, TxpVerFailure,
-                                      UtxoView (..), applyTxp, rollbackTxp, runDBTxp,
-                                      runTxpTGlobal, verifyTxp)
+                                      TxpModifier (..), TxpT, TxpVerFailure, applyTxp,
+                                      rollbackTxp, runDBTxp, runTxpTGlobal, verifyTxp)
+import qualified Pos.Util.Modifier   as MM
 #ifdef WITH_EXPLORER
 import           Pos.Types           (BiSsc, HeaderHash, headerHash)
 import           Pos.Txp.Toil        (MemPool (..))
@@ -41,7 +40,7 @@ type TxpWorkMode m = (WithLogger m, MonadDB m, MonadTxpMem m, MonadThrow m)
 txVerifyBlocks
     :: forall ssc m . TxpWorkMode m
     => OldestFirst NE (Block ssc)
-    -> m (Either Text (OldestFirst NE TxsUndo))
+    -> m (Either Text (OldestFirst NE TxpUndo))
 txVerifyBlocks newChain = do
     verdict <- runTxpAction $
                    mapM (verifyTxp . getTxas) newChain
@@ -100,21 +99,24 @@ txRollbackBlocks blunds = do
 
 -- Convert TxpModifier to batch of database operations.
 txpModifierToBatch :: TxpModifier -> SomeBatchOp
-txpModifierToBatch (TxpModifier
-                      (UtxoView (HM.toList -> addS) (HS.toList -> delS))
-                      (BalancesView (HM.toList -> stakes) total)
+txpModifierToBatch (TxpModifier um
+                       (BalancesView (HM.toList -> stakes) total)
 #ifdef WITH_EXPLORER
-                      (MemPool _ _ (HM.toList -> extras)) _) =
+                       (MemPool _ _ (HM.toList -> extras)) _) =
 #else
-                      _ _) =
+                       _ _) =
 #endif
-    SomeBatchOp [
-          SomeBatchOp $ map GS.DelTxIn delS ++ map (uncurry GS.AddTxOut) addS
-        , SomeBatchOp $ map (uncurry GS.PutFtsStake) stakes ++ [GS.PutFtsSum total]
+    SomeBatchOp
+        [ SomeBatchOp $
+          map GS.DelTxIn (MM.deletions um) ++
+          map (uncurry GS.AddTxOut) (MM.insertions um)
+        , SomeBatchOp $
+          map (uncurry GS.PutFtsStake) stakes ++ [GS.PutFtsSum total]
 #ifdef WITH_EXPLORER
-        , SomeBatchOp $ map (uncurry GS.AddTxExtra) extras
+        , SomeBatchOp $
+          map (uncurry GS.AddTxExtra) extras
 #endif
-                ]
+        ]
 
 -- Run action which requires MonadUtxo and MonadTxPool interfaces.
 runTxpAction

@@ -4,6 +4,7 @@ module Pos.Wallet.Tx
        ( makePubKeyTx
        , makeMOfNTx
        , submitTx
+       , submitRedemptionTx
        , submitTxRaw
        , createTx
        , createMOfNTx
@@ -20,13 +21,15 @@ import           Pos.Binary                 ()
 import           Pos.Communication.Methods  (sendTx)
 import           Pos.Communication.Protocol (SendActions)
 import           Pos.Communication.Specs    (sendTxOuts)
-import           Pos.Crypto                 (SecretKey, hash, toPublic)
+import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
+                                             redeemToPublic, safeToPublic)
 import           Pos.DB.Limits              (MonadDBLimits)
 import           Pos.DHT.Model              (DHTNode)
-import           Pos.Txp.Core.Types         (TxAux, TxOutAux, txaF)
-import           Pos.Types                  (makePubKeyAddress)
-import           Pos.Wallet.Tx.Pure         (TxError, createMOfNTx, createTx, makeMOfNTx,
-                                             makePubKeyTx)
+import           Pos.Txp.Core.Types         (TxAux, TxOut (..), TxOutAux, txaF)
+import           Pos.Types                  (Address, makePubKeyAddress,
+                                             makeRedeemAddress, mkCoin, unsafeAddCoin)
+import           Pos.Wallet.Tx.Pure         (TxError, createMOfNTx, createRedemptionTx,
+                                             createTx, makeMOfNTx, makePubKeyTx)
 import           Pos.Wallet.WalletMode      (TxMode, getOwnUtxo, saveTx)
 import           Pos.WorkMode               (MinWorkMode)
 
@@ -34,14 +37,34 @@ import           Pos.WorkMode               (MinWorkMode)
 submitTx
     :: TxMode ssc m
     => SendActions m
-    -> SecretKey
+    -> SafeSigner
     -> [DHTNode]
-    -> [TxOutAux]
+    -> NonEmpty TxOutAux
     -> m (Either TxError TxAux)
-submitTx sendActions sk na outputs = do
-    utxo <- getOwnUtxo $ makePubKeyAddress $ toPublic sk
+submitTx sendActions ss na outputs = do
+    utxo <- getOwnUtxo $ makePubKeyAddress $ safeToPublic ss
     runExceptT $ do
-        txw <- ExceptT $ return $ createTx utxo sk outputs
+        txw <- ExceptT $ return $ createTx utxo ss outputs
+        let txId = hash (txw ^. _1)
+        lift $ submitTxRaw sendActions na txw
+        lift $ saveTx (txId, txw)
+        return txw
+
+-- | Construct redemption Tx using redemption secret key and a output address
+submitRedemptionTx
+    :: TxMode ssc m
+    => SendActions m
+    -> RedeemSecretKey
+    -> [DHTNode]
+    -> Address
+    -> m (Either TxError TxAux)
+submitRedemptionTx sendActions rsk na output = do
+    utxo <- getOwnUtxo $ makeRedeemAddress $ redeemToPublic rsk
+    runExceptT $ do
+        let addCoin c (TxOut {..}, _) = unsafeAddCoin c txOutValue
+            redeemBalance = foldl' addCoin (mkCoin 0) utxo
+            txouts = one (TxOut output redeemBalance, [])
+        txw <- ExceptT $ return $ createRedemptionTx utxo rsk txouts
         let txId = hash (txw ^. _1)
         lift $ submitTxRaw sendActions na txw
         lift $ saveTx (txId, txw)

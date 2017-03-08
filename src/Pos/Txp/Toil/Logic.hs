@@ -16,19 +16,19 @@ module Pos.Txp.Toil.Logic
 import           Control.Monad.Except (MonadError (..))
 import qualified Data.HashMap.Strict  as HM
 import qualified Data.HashSet         as HS
+import qualified Data.List.NonEmpty   as NE
 import           Formatting           (build, sformat, (%))
 import           System.Wlog          (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Constants        (maxLocalTxs)
+import           Pos.Core.Coin        (coinToInteger, sumCoins, unsafeAddCoin,
+                                       unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto           (WithHash (..), hash)
 import           Pos.Types            (Coin, StakeholderId, mkCoin)
-import           Pos.Types.Coin       (coinToInteger, sumCoins, unsafeAddCoin,
-                                       unsafeIntegerToCoin, unsafeSubCoin)
 
-import           Pos.Txp.Core         (topsortTxs)
-import           Pos.Txp.Core.Types   (Tx (..), TxAux, TxId, TxUndo, TxsUndo,
-                                       getTxDistribution, txOutStake)
+import           Pos.Txp.Core         (Tx (..), TxAux, TxId, TxUndo, TxpUndo,
+                                       getTxDistribution, topsortTxs, txOutStake)
 import           Pos.Txp.Toil.Class   (MonadBalances (..), MonadBalancesRead (..),
                                        MonadTxPool (..), MonadUtxo (..))
 import           Pos.Txp.Toil.Failure (TxpVerFailure (..))
@@ -56,7 +56,7 @@ type LocalTxpMode m = ( MonadUtxo m
 -- Note: transactions must be topsorted to pass check.
 -- Warning: this function may apply some transactions and fail
 -- eventually. Use it only on temporary data.
-verifyTxp :: GlobalTxpMode m => [TxAux] -> m TxsUndo
+verifyTxp :: GlobalTxpMode m => [TxAux] -> m TxpUndo
 verifyTxp = mapM (processTxWithPureChecks True . withTxId)
 
 -- | Apply transactions from one block.
@@ -80,10 +80,10 @@ applyTxp txun = do
     applier (i, (txaux@(tx, _, _), txundo)) = do
         let id = hash tx
             extra = TxExtra (Just (hh, i)) $ map fst txundo
-        Utxo.applyTxToUtxo' (id, txaux)
+        applyTxToUtxo' (id, txaux)
         putTxExtra id extra
 #else
-    mapM_ (Utxo.applyTxToUtxo' . withTxId . fst) txun
+    mapM_ (applyTxToUtxo' . withTxId . fst) txun
 #endif
 
 -- | Rollback transactions from one block.
@@ -189,16 +189,20 @@ concatStakes (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
   where
     txasTxOutDistr = concatMap concatDistr txas
     undoTxInDistr = concatMap txOutStake (concat undo)
-    concatDistr (Tx{..}, _, distr)
-        = concatMap txOutStake (zip _txOutputs (getTxDistribution distr))
-
-withTxId :: TxAux -> (TxId, TxAux)
-withTxId aux@(tx, _, _) = (hash tx, aux)
+    concatDistr (UnsafeTx {..}, _, distr) =
+        concatMap txOutStake $
+        toList (NE.zip _txOutputs (getTxDistribution distr))
 
 processTxWithPureChecks
     :: (MonadUtxo m, MonadError TxpVerFailure m)
     => Bool -> (TxId, TxAux) -> m TxUndo
-processTxWithPureChecks pureChecks tx@(_, aux) = do
-    undo <- Utxo.verifyTxUtxo pureChecks pureChecks aux
-    Utxo.applyTxToUtxo' tx
+processTxWithPureChecks verifyVersions tx@(_, aux) = do
+    undo <- Utxo.verifyTxUtxo verifyVersions aux
+    applyTxToUtxo' tx
     pure undo
+
+withTxId :: TxAux -> (TxId, TxAux)
+withTxId aux@(tx, _, _) = (hash tx, aux)
+
+applyTxToUtxo' :: MonadUtxo m => (TxId, TxAux) -> m ()
+applyTxToUtxo' (i, (t, _, d)) = Utxo.applyTxToUtxo (WithHash t i) d

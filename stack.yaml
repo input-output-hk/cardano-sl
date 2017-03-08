@@ -7,6 +7,8 @@ extra-package-dbs: []
 packages:
 - '.'
 - core
+- update
+- infra
 - db
 
 - location:
@@ -19,7 +21,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
-    commit: 4e3f6a268c3b13af78516f78ac71cd6215f5b0bf
+    commit: 87d0f5f7a6e401ab30b2ebcdfd6a7705ec6b8b4c
   extra-dep: true
 - location:
     git: https://github.com/serokell/rocksdb-haskell.git
@@ -36,7 +38,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: d051eb3256662c4e542a42d43dea5637bce443f8
+    commit: 18a17e2f86341c272a5cabd9b767b8f5277dc793
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -47,10 +49,14 @@ packages:
     git: https://github.com/avieth/network-transport
     commit: f2321a103f53f51d36c99383132e3ffa3ef1c401
   extra-dep: true
-# todo replace it with hackage version
-#- location:
-#    git: https://github.com/serokell/serokell-util/
-#    commit: 3675d2e8484c4e1bab98c92a4c9b01ca721ff808
+- location:
+    git: https://github.com/flyingleafe/cardano-crypto
+    commit: b0f261c88a0c6b38d3227cec139690f2ec67fe1a
+  extra-dep: true
+- location:
+    git: https://github.com/haskell-crypto/cryptonite.git
+    commit: 2932df9e243aa7ae7eb2b25d7c60fa77a30c6fb5
+  extra-dep: true
 
 nix:
   shell-file: shell.nix
@@ -59,10 +65,10 @@ extra-deps:
 - universum-0.2.1
 - time-units-1.0.0
 - UtilityTM-0.0.4
-- serokell-util-0.1.3.5
+- serokell-util-0.1.4.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-0.4.4
+- log-warper-1.0.0
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.5.26                   # not yet in lts-8
 - haskell-src-exts-1.17.1         # derive has not moved to 1.18 yet

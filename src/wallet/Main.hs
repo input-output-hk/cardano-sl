@@ -9,7 +9,6 @@ import           Control.Monad.Reader      (MonadReader (..), ReaderT, ask, asks
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Data.ByteString           as BS
 import           Data.List                 ((!!))
-import           Data.Proxy                (Proxy (..))
 import qualified Data.Text                 as T
 import           Data.Time.Units           (convertUnit)
 import           Formatting                (build, int, sformat, stext, (%))
@@ -21,14 +20,15 @@ import           System.Wlog               (logDebug, logError, logInfo, logWarn
 import           System.Exit               (ExitCode (ExitSuccess))
 import           System.Posix.Process      (exitImmediately)
 #endif
+import           Serokell.Util             (sec)
 import           Universum
 
 import           Pos.Binary                (Raw)
 import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
                                             worker)
-import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey,
-                                            encodeHash, hash, hashHexF, sign, toPublic,
+import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey, fakeSigner,
+                                            hash, hashHexF, sign, toPublic,
                                             unsafeHash)
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Delegation            (sendProxySKHeavy, sendProxySKHeavyOuts,
@@ -47,7 +47,6 @@ import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAd
 import           Pos.Update                (BlockVersionData (..), UpdateProposal (..),
                                             UpdateVote (..), patakUpdateData,
                                             skovorodaUpdateData)
-import           Pos.Util.TimeWarp         (sec)
 import           Pos.Wallet                (WalletMode, WalletParams (..), WalletRealMode,
                                             getBalance, runWalletReal, sendProposalOuts,
                                             sendTxOuts, sendVoteOuts, submitTx,
@@ -67,7 +66,7 @@ runCmd _ (Balance addr) = lift (getBalance addr) >>=
                          putText . sformat ("Current balance: "%coinF)
 runCmd sendActions (Send idx outputs) = do
     (skeys, na) <- ask
-    etx <- lift $ submitTx sendActions (skeys !! idx) na (map (,[]) outputs)
+    etx <- lift $ submitTx sendActions (fakeSigner $ skeys !! idx) na (map (,[]) outputs)
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
@@ -117,7 +116,7 @@ runCmd sendActions ProposeUpdate{..} = do
             lift $ submitUpdateProposal sendActions skey na updateProposal
             let id = hash updateProposal
             putText $
-              sformat ("Update proposal submitted, upId: "%build%" (base64)") (encodeHash id)
+              sformat ("Update proposal submitted, upId: "%hashHexF) id
 runCmd _ Help = do
     putText $
         unlines

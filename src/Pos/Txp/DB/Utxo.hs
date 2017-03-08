@@ -31,12 +31,13 @@ import qualified Data.Map             as M
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB     as Rocks
 import           Formatting           (bprint, build, sformat, (%))
+import           Serokell.Util        (Color (Red), colorize)
 import           Serokell.Util.Text   (listJson, pairF)
 import           System.Wlog          (WithLogger, logError)
 import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
-import           Pos.Binary.Types     ()
+import           Pos.Binary.Core      ()
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi,
@@ -45,11 +46,11 @@ import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
                                        IterType, runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
-import           Pos.Txp.Core.Types   (TxIn (..), TxOutAux, Utxo, txOutStake)
+import           Pos.Txp.Core         (TxIn (..), TxOutAux, txOutStake)
+import           Pos.Txp.Toil.Types   (Utxo)
 import           Pos.Txp.Toil.Utxo    (belongsTo)
 import           Pos.Types            (Address, Coin, coinF, mkCoin, sumCoins,
                                        unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Util             (Color (..), colorize)
 import           Pos.Util.Iterator    (nextItem)
 
 ----------------------------------------------------------------------------
@@ -198,13 +199,13 @@ sanityCheckUtxo expectedTotalStake = do
         logError $ colorize Red msg
         throwM $ DBMalformed msg
   where
-    step sm = do
-        n <- nextItem
-        maybe
-            (pure sm)
-            (\stakes ->
-                 step (sm `unsafeAddCoin` unsafeIntegerToCoin (sumCoins stakes)))
-            n
+    step sm =
+        nextItem >>= \case
+            Nothing -> pure sm
+            Just stakes ->
+                step
+                    (sm `unsafeAddCoin`
+                     unsafeIntegerToCoin (sumCoins @[Coin] stakes))
 
 ----------------------------------------------------------------------------
 -- Keys

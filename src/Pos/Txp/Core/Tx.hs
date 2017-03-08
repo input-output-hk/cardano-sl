@@ -6,58 +6,41 @@
 -- TODO Rewrite this module on MonadError.
 
 module Pos.Txp.Core.Tx
-       ( verifyTxAlone
-       , VTxGlobalContext (..)
+       ( VTxGlobalContext (..)
        , VTxLocalContext (..)
        , verifyTx
        , verifyTxPure
        , topsortTxs
        ) where
 
-import           Control.Lens         (makeLenses, (%=), (.=))
+import           Control.Lens         (makeLenses, to, (%=), (.=))
 import           Control.Monad.Except (runExceptT)
 import qualified Data.HashMap.Strict  as HM
 import qualified Data.HashSet         as HS
 import           Data.List            (tail, zipWith3)
+import qualified Data.List.NonEmpty   as NE
 import           Formatting           (build, int, sformat, (%))
-import           Serokell.Util        (VerificationRes, verResToMonadError, verifyGeneric)
+import           Serokell.Util        (VerificationRes, allDistinct, verResToMonadError,
+                                       verifyGeneric)
 import           Universum
 
-import           Pos.Binary.Types     ()
+import           Pos.Binary.Core      ()
 import           Pos.Binary.Txp       ()
-import           Pos.Crypto           (Hash, WithHash (..), checkSig, hash)
+import           Pos.Core.Address     (addressDetailedF, checkPubKeyAddress,
+                                       checkRedeemAddress, checkScriptAddress,
+                                       checkUnknownAddressType)
+import           Pos.Core.Coin        (coinToInteger, sumCoins)
+import           Pos.Core.Types       (Address (..), StakeholderId, coinF, mkCoin)
+import           Pos.Crypto           (Hash, WithHash (..), checkSig, hash,
+                                       redeemCheckSig)
 import           Pos.Script           (Script (..), isKnownScriptVersion, txScriptCheck)
-import           Pos.Types.Address    (addressDetailedF, checkPubKeyAddress,
-                                       checkScriptAddress, checkUnknownAddressType)
-import           Pos.Types.Coin       (coinToInteger, sumCoins)
-import           Pos.Types.Core       (Address (..), StakeholderId, coinF, mkCoin)
 import           Pos.Txp.Core.Types   (Tx (..), TxAux, TxDistribution (..), TxIn (..),
-                                       TxInWitness (..), TxOut (..), TxOutAux, TxUndo)
-import           Pos.Util             (allDistinct)
+                                       TxInWitness (..), TxOut (..), TxOutAux, TxUndo,
+                                       txInputs)
 
 ----------------------------------------------------------------------------
 -- Verification
 ----------------------------------------------------------------------------
-
--- | Verify that Tx itself is correct. Most likely you will also want
--- to verify that inputs are legal, signed properly and have enough coins;
--- 'verifyTxAlone' doesn't do that.
-verifyTxAlone :: Tx -> VerificationRes
-verifyTxAlone Tx {..} =
-    mconcat
-        [ verifyGeneric
-              [ (not (null _txInputs), "transaction doesn't have inputs")
-              , (not (null _txOutputs), "transaction doesn't have outputs")
-              ]
-        , verifyOutputs
-        ]
-  where
-    verifyOutputs = verifyGeneric $ concat $
-                    zipWith outputPredicates [0..] _txOutputs
-    outputPredicates (i :: Word) TxOut{..} = [
-      ( txOutValue > mkCoin 0
-      , sformat ("output #"%int%" has non-positive value: "%coinF)
-                i txOutValue) ]
 
 -- CSL-366 Add context-dependent variables to scripts
 -- Postponed for now, should be done in near future.
@@ -78,8 +61,8 @@ data VTxLocalContext = VTxLocalContext
     } deriving (Show)
 
 -- | CHECK: Verify Tx correctness using magic function which resolves
--- input into Address and Coin. It optionally does checks from
--- 'verifyTxAlone' and also the following checks:
+-- input into Address and Coin.
+-- And also the following checks:
 --
 -- * sum of inputs >= sum of outputs;
 -- * every input has a proper witness verifying that input;
@@ -93,38 +76,33 @@ data VTxLocalContext = VTxLocalContext
 -- creating a block.
 verifyTx
     :: Monad m
-    => Bool                             -- ^ Verify that tx itself is correct
-    -> Bool                             -- ^ Verify that script & address
+    => Bool                             -- ^ Verify that script & address
                                         --   versions in tx are known
     -> VTxGlobalContext
     -> (TxIn -> m (Maybe VTxLocalContext))
     -> TxAux
     -> m (Either [Text] TxUndo)
-verifyTx verifyAlone verifyVersions gContext inputResolver
-         txs@(Tx {..}, _, _) = do
-    extendedInputs <- mapM extendInput _txInputs
+verifyTx verifyVersions gContext inputResolver
+         txs@(UnsafeTx {..}, _, _) = do
+    extendedInputs <- toList <$> mapM extendInput _txInputs
     runExceptT $ do
         verResToMonadError identity $
-            verifyTxDo verifyAlone verifyVersions gContext extendedInputs txs
+            verifyTxDo verifyVersions gContext extendedInputs txs
         return $ map (vtlTxOut . snd) . catMaybes $ extendedInputs
   where
     extendInput txIn = fmap (txIn, ) <$> inputResolver txIn
 
 verifyTxDo
-    :: Bool                             -- ^ Verify that tx itself is correct
-    -> Bool                             -- ^ Verify that script & address
+    :: Bool                             -- ^ Verify that script & address
                                         --   versions in tx are known
     -> VTxGlobalContext
     -> [Maybe (TxIn, VTxLocalContext)]
     -> TxAux
     -> VerificationRes
-verifyTxDo verifyAlone verifyVersions _gContext extendedInputs
-           (tx@Tx{..}, witnesses, distrs)
-  = mconcat [verifyAloneRes, verifyCounts, verifySum,
-             verifyInputs, verifyOutputs]
+verifyTxDo verifyVersions _gContext extendedInputs
+           (UnsafeTx{..}, witnesses, distrs)
+  = mconcat [verifyCounts, verifySum, verifyInputs, verifyOutputs]
   where
-    verifyAloneRes | verifyAlone = verifyTxAlone tx
-                   | otherwise = mempty
     outSum :: Integer
     outSum = sumCoins $ map txOutValue _txOutputs
     resolvedInputs = catMaybes extendedInputs
@@ -146,7 +124,7 @@ verifyTxDo verifyAlone verifyVersions _gContext extendedInputs
             ]
             ++
             do (i, (TxOut{..}, d)) <-
-                   zip [0 :: Int ..] (zip _txOutputs (getTxDistribution distrs))
+                   zip [0 :: Int ..] $ toList (NE.zip _txOutputs (getTxDistribution distrs))
                case txOutAddress of
                    PubKeyAddress{} ->
                        [ ( null d
@@ -154,6 +132,11 @@ verifyTxDo verifyAlone verifyVersions _gContext extendedInputs
                                     "has non-empty distribution") i)
                        ]
                    ScriptAddress{} -> checkDist i d txOutValue
+                   RedeemAddress{} ->
+                       [ ( null d
+                         , sformat ("output #"%int%" with redeem address "%
+                                    "has non-empty distribution") i)
+                       ]
                    UnknownAddressType t _
                        | verifyVersions ->
                              [ (False, sformat ("output #"%int%" has "%
@@ -229,6 +212,7 @@ verifyTxDo verifyAlone verifyVersions _gContext extendedInputs
     checkAddrHash addr wit = case wit of
         PkWitness{..}          -> checkPubKeyAddress twKey addr
         ScriptWitness{..}      -> checkScriptAddress twValidator addr
+        RedeemWitness{..}      -> checkRedeemAddress twRedeemKey addr
         UnknownWitnessType t _ -> checkUnknownAddressType t addr
 
     validateTxIn _i TxIn{..} _ PkWitness{..} =
@@ -244,21 +228,25 @@ verifyTxDo verifyAlone verifyVersions _gContext extendedInputs
         | otherwise =
               let txSigData = (txInHash, txInIndex, txOutHash, distrsHash)
               in txScriptCheck txSigData twValidator twRedeemer
+    validateTxIn _i TxIn{..} _ RedeemWitness{..}
+        | redeemCheckSig twRedeemKey (txInHash, txInIndex, txOutHash, distrsHash) twRedeemSig =
+            Right ()
+        | otherwise =
+            Left "signature check failed"
     validateTxIn _ _ _ (UnknownWitnessType t _)
         | verifyVersions = Left ("unknown witness type: " <> show t)
         | otherwise      = Right ()
 
 verifyTxPure
-    :: Bool                 -- ^ Verify that tx itself is correct
-    -> Bool                 -- ^ Verify that script & address
+    :: Bool                 -- ^ Verify that script & address
                             --   versions in tx are known
     -> VTxGlobalContext
     -> (TxIn -> Maybe VTxLocalContext)
     -> TxAux
     -> Either [Text] TxUndo
-verifyTxPure verifyAlone verifyVersions gContext resolver =
+verifyTxPure verifyVersions gContext resolver =
     runIdentity .
-    verifyTx verifyAlone verifyVersions gContext (Identity . resolver)
+    verifyTx verifyVersions gContext (Identity . resolver)
 
 
 ----------------------------------------------------------------------------
@@ -310,7 +298,7 @@ topsortTxs toTx input =
         tsVisited %= HS.insert txHash
         let visitedNew = HS.insert txHash visitedThis
             dependsUnfiltered =
-                mapMaybe (\x -> HM.lookup (txInHash x) txHashes) (_txInputs tx)
+                mapMaybe (\x -> HM.lookup (txInHash x) txHashes) (tx ^. txInputs . to toList)
         depends <- filterM
             (\x -> not . HS.member (whHash (toTx x)) <$> use tsVisited)
             dependsUnfiltered

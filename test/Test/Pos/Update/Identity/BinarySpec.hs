@@ -4,17 +4,18 @@ module Test.Pos.Update.Identity.BinarySpec
        ( spec
        ) where
 
-import           Test.Hspec              (Spec, describe)
+import           Test.Hspec               (Spec, describe)
 import           Universum
 
-import           Pos.Binary              ()
-import qualified Pos.Communication       as C
-import           Pos.Communication.Relay ()
-import qualified Pos.Communication.Relay as R
-import qualified Pos.Update              as U
+import           Pos.Binary               ()
+-- import qualified Pos.Communication        as C
+import           Pos.Communication.Relay  ()
+import qualified Pos.Communication.Relay  as R
+import qualified Pos.Update               as U
+import           Test.Pos.Arbitrary.Infra ()
 
-import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
-                                          networkBinaryTest)
+import           Test.Pos.Util            (binaryTest, msgLenLimitedTest,
+                                           networkBinaryTest)
 
 spec :: Spec
 spec =
@@ -22,6 +23,7 @@ spec =
     describe "Bi instances" $ do
       describe "Core" $ do
         binaryTest @U.UpId
+        binaryTest @U.BlockVersionData
         binaryTest @U.UpdateProposal
         binaryTest @U.UpdateVote
         binaryTest @U.UpdateData
@@ -46,6 +48,7 @@ spec =
         msgLenLimitedTest @(R.ReqMsg U.VoteId U.VoteMsgTag)
         msgLenLimitedTest @(R.InvMsg U.UpId U.ProposalMsgTag)
         msgLenLimitedTest @(R.ReqMsg U.UpId U.ProposalMsgTag)
-        msgLenLimitedTest @(C.MaxSize (R.DataMsg (U.UpdateProposal, [U.UpdateVote])))
+        -- TODO [CSL-859]
+        -- msgLenLimitedTest @(C.MaxSize (R.DataMsg (U.UpdateProposal, [U.UpdateVote])))
         msgLenLimitedTest @(R.DataMsg U.UpdateVote)
-        msgLenLimitedTest @U.UpdateProposal
+        -- msgLenLimitedTest @U.UpdateProposal

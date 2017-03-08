@@ -44,12 +44,12 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting            (build, sformat)
 
 import           Pos.Aeson.Types       ()
+import           Pos.Core.Types        (ScriptVersion)
 import           Pos.Crypto            (hashHexF)
 import           Pos.Txp.Core.Types    (Tx (..), TxId, txOutAddress, txOutValue)
 import           Pos.Types             (Address (..), BlockVersion, ChainDifficulty, Coin,
                                         SoftwareVersion, decodeTextAddress, sumCoins,
                                         unsafeIntegerToCoin)
-import           Pos.Types.Script      (ScriptVersion)
 import           Pos.Update.Core       (BlockVersionData (..), StakeholderVotes,
                                         UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll       (ConfirmedProposalState (..))
@@ -122,7 +122,7 @@ mkCTx
 mkCTx addr diff THEntry {..} meta = CTx {..}
   where
     ctId = txIdToCTxId _thTxId
-    outputs = _txOutputs _thTx
+    outputs = toList $ _txOutputs _thTx
     isToItself = all ((== addr) . txOutAddress) outputs
     ctAmount = unsafeIntegerToCoin . sumCoins . map txOutValue $
         filter ((|| isToItself) . xor _thIsOutput . (== addr) . txOutAddress) outputs

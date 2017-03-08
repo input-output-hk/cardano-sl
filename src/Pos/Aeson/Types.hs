@@ -30,6 +30,9 @@ instance ToJSON Address where
     toJSON ScriptAddress{..} = object [
         "tag" .= ("ScriptAddress" :: Text),
         "addrScriptHash" .= addrScriptHash ]
+    toJSON RedeemAddress{..} = object [
+        "tag" .= ("RedeemAddress" :: Text),
+        "addrRedeemKeyHash" .= addrRedeemKeyHash ]
     toJSON (UnknownAddressType t bs) = object [
         "tag" .= ("UnknownAddressType" :: Text),
         "type" .= t,

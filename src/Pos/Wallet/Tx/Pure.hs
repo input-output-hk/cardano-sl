@@ -7,8 +7,10 @@ module Pos.Wallet.Tx.Pure
        -- * Tx creation
          makePubKeyTx
        , makeMOfNTx
+       , makeRedemptionTx
        , createTx
        , createMOfNTx
+       , createRedemptionTx
 
        -- * History derivation
        , getRelatedTxs
@@ -29,28 +31,32 @@ import           Control.Monad.State       (StateT (..), evalStateT)
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Data.DList                as DL
 import           Data.List                 (tail)
+import           Data.List.NonEmpty        (nonEmpty, (<|))
 import qualified Data.Map                  as M
 import qualified Data.Vector               as V
 import           Universum
 
 import           Pos.Binary                ()
-import           Pos.Crypto                (PublicKey, SecretKey, WithHash (..), hash,
-                                            sign, toPublic, withHash)
+import           Pos.Core.Coin             (unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Crypto                (PublicKey, RedeemSecretKey, SafeSigner,
+                                            WithHash (..), hash, redeemSign,
+                                            redeemToPublic, safeSign, safeToPublic,
+                                            withHash)
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Script                (Script)
 import           Pos.Script.Examples       (multisigRedeemer, multisigValidator)
 import           Pos.Txp                   (MonadUtxoRead (utxoGet), UtxoStateT (..),
                                             applyTxToUtxo, filterUtxoByAddr, topsortTxs)
-import           Pos.Txp.Core.Types        (Tx (..), TxAux, TxDistribution (..), TxId,
+import           Pos.Txp                   (Tx (..), TxAux, TxDistribution (..), TxId,
                                             TxIn (..), TxInWitness (..), TxOut (..),
                                             TxOutAux, TxSigData, TxWitness, Utxo)
 import           Pos.Types                 (Address, Block, ChainDifficulty, Coin,
                                             blockTxas, difficultyL, makePubKeyAddress,
-                                            makeScriptAddress, mkCoin, sumCoins)
-import           Pos.Types.Coin            (unsafeIntegerToCoin, unsafeSubCoin)
+                                            makeRedeemAddress, makeScriptAddress, mkCoin,
+                                            sumCoins)
 
-type TxInputs = [TxIn]
-type TxOutputs = [TxOutAux]
+type TxInputs = NonEmpty TxIn
+type TxOutputs = NonEmpty TxOutAux
 type TxError = Text
 
 -----------------------------------------------------------------------------
@@ -60,7 +66,7 @@ type TxError = Text
 -- | Generic function to create a transaction, given desired inputs, outputs and a
 -- way to construct witness from signature data
 makeAbstractTx :: (TxSigData -> TxInWitness) -> TxInputs -> TxOutputs -> TxAux
-makeAbstractTx mkWit txInputs outputs = ( Tx txInputs txOutputs txAttributes
+makeAbstractTx mkWit txInputs outputs = ( UnsafeTx txInputs txOutputs txAttributes
                                         , txWitness
                                         , txDist)
   where
@@ -69,23 +75,31 @@ makeAbstractTx mkWit txInputs outputs = ( Tx txInputs txOutputs txAttributes
     txOutHash = hash txOutputs
     txDist = TxDistribution (map snd outputs)
     txDistHash = hash txDist
-    txWitness = V.fromList $ map (mkWit . makeTxSigData) txInputs
+    txWitness = V.fromList $ toList $ map (mkWit . makeTxSigData) txInputs
     makeTxSigData TxIn{..} = (txInHash, txInIndex, txOutHash, txDistHash)
 
 -- | Makes a transaction which use P2PKH addresses as a source
-makePubKeyTx :: SecretKey -> TxInputs -> TxOutputs -> TxAux
-makePubKeyTx sk = makeAbstractTx mkWit
-  where pk = toPublic sk
+makePubKeyTx :: SafeSigner -> TxInputs -> TxOutputs -> TxAux
+makePubKeyTx ss = makeAbstractTx mkWit
+  where pk = safeToPublic ss
         mkWit sigData = PkWitness
             { twKey = pk
-            , twSig = sign sk sigData
+            , twSig = safeSign ss sigData
             }
 
-makeMOfNTx :: Script -> [Maybe SecretKey] -> TxInputs -> TxOutputs -> TxAux
+makeMOfNTx :: Script -> [Maybe SafeSigner] -> TxInputs -> TxOutputs -> TxAux
 makeMOfNTx validator sks = makeAbstractTx mkWit
   where mkWit sigData = ScriptWitness
             { twValidator = validator
             , twRedeemer = multisigRedeemer sigData sks
+            }
+
+makeRedemptionTx :: RedeemSecretKey -> TxInputs -> TxOutputs -> TxAux
+makeRedemptionTx rsk = makeAbstractTx mkWit
+  where rpk = redeemToPublic rsk
+        mkWit sigData = RedeemWitness
+            { twRedeemKey = rpk
+            , twRedeemSig = redeemSign rsk sigData
             }
 
 type FlatUtxo = [(TxIn, TxOutAux)]
@@ -96,21 +110,21 @@ type InputPicker = StateT (Coin, FlatUtxo) (Either TxError)
 prepareInpOuts :: Utxo -> Address -> TxOutputs -> Either TxError (TxInputs, TxOutputs)
 prepareInpOuts utxo addr outputs = do
     futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
-    let inputs = map fst futxo
-        inputSum = unsafeIntegerToCoin $
-                   sumCoins $ map (txOutValue . fst . snd) futxo
+    let inputSum =
+            unsafeIntegerToCoin $ sumCoins $ map (txOutValue . fst . snd) futxo
         newOuts
             | inputSum > totalMoney =
-                  (TxOut addr (inputSum `unsafeSubCoin` totalMoney), [])
-                  : outputs
+                (TxOut addr (inputSum `unsafeSubCoin` totalMoney), []) <|
+                outputs
             | otherwise = outputs
-    pure (inputs, newOuts)
+    case nonEmpty futxo of
+        Nothing       -> fail "Failed to prepare inputs!"
+        Just inputsNE -> pure (map fst inputsNE, newOuts)
   where
-    totalMoney = unsafeIntegerToCoin $
-                 sumCoins $ map (txOutValue . fst) outputs
+    totalMoney = unsafeIntegerToCoin $ sumCoins $ map (txOutValue . fst) outputs
     allUnspent = M.toList $ filterUtxoByAddr addr utxo
-    sortedUnspent = sortBy (comparing $ Down . txOutValue . fst . snd) allUnspent
-
+    sortedUnspent =
+        sortBy (comparing $ Down . txOutValue . fst . snd) allUnspent
     pickInputs :: FlatUtxo -> InputPicker FlatUtxo
     pickInputs inps = do
         moneyLeft <- use _1
@@ -120,20 +134,20 @@ prepareInpOuts utxo addr outputs = do
                 mNextOut <- head <$> use _2
                 case mNextOut of
                     Nothing -> fail "Not enough money to send!"
-                    Just inp@(_, (TxOut{..}, _)) -> do
+                    Just inp@(_, (TxOut {..}, _)) -> do
                         _1 %= unsafeSubCoin (min txOutValue moneyLeft)
                         _2 %= tail
                         pickInputs (inp : inps)
 
 
 -- | Make a multi-transaction using given secret key and info for outputs
-createTx :: Utxo -> SecretKey -> TxOutputs -> Either TxError TxAux
-createTx utxo sk outputs =
-    uncurry (makePubKeyTx sk) <$>
-    prepareInpOuts utxo (makePubKeyAddress $ toPublic sk) outputs
+createTx :: Utxo -> SafeSigner -> TxOutputs -> Either TxError TxAux
+createTx utxo ss outputs =
+    uncurry (makePubKeyTx ss) <$>
+    prepareInpOuts utxo (makePubKeyAddress $ safeToPublic ss) outputs
 
 -- | Make a transaction, using M-of-N script as a source
-createMOfNTx :: Utxo -> [(PublicKey, Maybe SecretKey)] -> TxOutputs -> Either TxError TxAux
+createMOfNTx :: Utxo -> [(PublicKey, Maybe SafeSigner)] -> TxOutputs -> Either TxError TxAux
 createMOfNTx utxo keys outputs = uncurry (makeMOfNTx validator sks) <$> inpOuts
   where pks = map fst keys
         sks = map snd keys
@@ -142,17 +156,22 @@ createMOfNTx utxo keys outputs = uncurry (makeMOfNTx validator sks) <$> inpOuts
         addr = makeScriptAddress validator
         inpOuts = prepareInpOuts utxo addr outputs
 
+createRedemptionTx :: Utxo -> RedeemSecretKey -> TxOutputs -> Either TxError TxAux
+createRedemptionTx utxo rsk outputs =
+    uncurry (makeRedemptionTx rsk) <$>
+    prepareInpOuts utxo (makeRedeemAddress $ redeemToPublic rsk) outputs
+
 ----------------------------------------------------------------------
 -- Deduction of history
 ----------------------------------------------------------------------
 
 -- | Check if given 'Address' is one of the receivers of 'Tx'
 hasReceiver :: Tx -> Address -> Bool
-hasReceiver Tx {..} addr = any ((== addr) . txOutAddress) _txOutputs
+hasReceiver UnsafeTx {..} addr = any ((== addr) . txOutAddress) _txOutputs
 
 -- | Given some 'Utxo', check if given 'Address' is one of the senders of 'Tx'
 hasSender :: MonadUtxoRead m => Tx -> Address -> m Bool
-hasSender Tx {..} addr = anyM hasCorrespondingOutput _txInputs
+hasSender UnsafeTx {..} addr = anyM hasCorrespondingOutput $ toList _txInputs
   where hasCorrespondingOutput txIn =
             fmap toBool $ fmap ((== addr) . txOutAddress . fst) <$> utxoGet txIn
         toBool Nothing  = False

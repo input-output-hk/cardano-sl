@@ -12,7 +12,7 @@ module Pos.Update.DB
        , getBVState
        , getProposalState
        , getAppProposal
-       , getProposalStateByApp
+       , getProposalsByApp
        , getConfirmedSV
        , getMaxBlockSize
        , getSlottingData
@@ -39,14 +39,13 @@ module Pos.Update.DB
        , getProposedBVStates
        ) where
 
-import           Control.Monad.Trans.Maybe  (MaybeT (..), runMaybeT)
 import           Data.Time.Units            (convertUnit)
 import qualified Database.RocksDB           as Rocks
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
 import           Pos.Binary.Class           (encodeStrict)
-import           Pos.Binary.Slotting        ()
+import           Pos.Binary.Infra.Slotting  ()
 import           Pos.Constants              (epochSlots, ourAppName)
 import           Pos.Crypto                 (hash)
 import           Pos.DB.Class               (MonadDB, getUtxoDB)
@@ -54,9 +53,11 @@ import           Pos.DB.Error               (DBError (DBMalformed))
 import           Pos.DB.Functions           (RocksBatchOp (..), encodeWithKeyPrefix,
                                              rocksWriteBatch)
 import           Pos.DB.GState.Common       (gsGetBi)
+import           Pos.DB.Holder              (DBHolder)
 import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
                                              DBnMapIterator, IterType, runDBnIterator,
                                              runDBnMapIterator)
+import qualified Pos.DB.Limits              as DBLimits
 import           Pos.DB.Types               (NodeDBs (..))
 import           Pos.Genesis                (genesisBlockVersion, genesisBlockVersionData,
                                              genesisSlotDuration, genesisSoftwareVersions)
@@ -110,10 +111,14 @@ getProposalState = gsGetBi . proposalKey
 getAppProposal :: MonadDB m => ApplicationName -> m (Maybe UpId)
 getAppProposal = gsGetBi . proposalAppKey
 
--- | Get state of Update Proposal for given AppName
-getProposalStateByApp :: MonadDB m => ApplicationName -> m (Maybe ProposalState)
-getProposalStateByApp appName =
-    runMaybeT $ MaybeT (getAppProposal appName) >>= MaybeT . getProposalState
+-- | Get states of all active 'UpdateProposal's for given 'ApplicationName'.
+getProposalsByApp :: MonadDB m => ApplicationName -> m [ProposalState]
+getProposalsByApp appName = runProposalMapIterator (step []) snd
+  where
+    step res = nextItem >>= maybe (pure res) (onItem res)
+    onItem res e
+        | appName == (svAppName $ upSoftwareVersion $ psProposal e) = step (e:res)
+        | otherwise = step res
 
 -- | Get last confirmed SoftwareVersion of given application.
 getConfirmedSV
@@ -353,3 +358,13 @@ slottingDataKey = "us/slotting/"
 
 getAdoptedBVFullMaybe :: MonadDB m => m (Maybe (BlockVersion, BlockVersionData))
 getAdoptedBVFullMaybe = gsGetBi adoptedBVKey
+
+----------------------------------------------------------------------------
+-- Some instance
+----------------------------------------------------------------------------
+
+instance (MonadIO m, MonadThrow m) => DBLimits.MonadDBLimits (DBHolder m) where
+    getMaxBlockSize = getMaxBlockSize
+    getMaxHeaderSize = bvdMaxHeaderSize <$> getAdoptedBVData
+    getMaxTxSize = bvdMaxTxSize <$> getAdoptedBVData
+    getMaxProposalSize = bvdMaxProposalSize <$> getAdoptedBVData

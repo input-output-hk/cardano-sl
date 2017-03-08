@@ -2,7 +2,6 @@ module Main
        ( main
        ) where
 
-import           Data.Proxy                         (Proxy (..))
 import           Language.PureScript.Bridge         (BridgePart, buildBridge,
                                                      defaultBridge, mkSumType, typeName,
                                                      writePSTypes, (<|>), (^==))

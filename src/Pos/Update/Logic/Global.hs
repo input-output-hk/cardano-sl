@@ -13,6 +13,7 @@ module Pos.Update.Logic.Global
 import           Control.Monad.Except (MonadError, runExceptT)
 import           Data.Default         (Default (def))
 import qualified Data.HashMap.Strict  as HM
+import           Serokell.Util        (Color (Red), colorize)
 import           System.Wlog          (WithLogger, logError, modifyLoggerName)
 import           Universum
 
@@ -23,10 +24,9 @@ import           Pos.Slotting         (SlottingData)
 import           Pos.Ssc.Class        (SscHelpersClass)
 import           Pos.Types            (ApplicationName, Block, BlockVersion,
                                        NumSoftwareVersion, SoftwareVersion (..),
-                                       addressHash, blockSize, blockSlot, epochIndexL,
-                                       gbBody, gbHeader, gbhConsensus, gbhExtra,
-                                       headerHash, mbUpdatePayload, mcdLeaderKey,
-                                       mehBlockVersion)
+                                       addressHash, blockSlot, epochIndexL, gbBody,
+                                       gbHeader, gbhConsensus, gbhExtra, headerHash,
+                                       mbUpdatePayload, mcdLeaderKey, mehBlockVersion)
 import           Pos.Update.Core      (BlockVersionData, UpId)
 import           Pos.Update.DB        (UpdateOp (..))
 import           Pos.Update.Error     (USError (USInternalError))
@@ -35,9 +35,10 @@ import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState
                                        ProposalState, USUndo, canCreateBlockBV, execPollT,
                                        execRollT, processGenesisBlock,
                                        recordBlockIssuance, rollbackUS, runDBPoll,
-                                       runPollT, verifyAndApplyUSPayload, verifyBlockSize)
-import           Pos.Util             (Color (Red), NE, NewestFirst, OldestFirst,
-                                       colorize, inAssertMode)
+                                       runPollT, verifyAndApplyUSPayload)
+import           Pos.Util             (NE, NewestFirst, OldestFirst, Some (..),
+                                       inAssertMode)
+import qualified Pos.Util.Modifier    as MM
 
 type USGlobalApplyMode ssc m = ( WithLogger m
                                , DB.MonadDB m
@@ -113,22 +114,18 @@ verifyBlock (Right blk) =
     execRollT $ do
         verifyAndApplyUSPayload
             True
-            (Right $ blk ^. gbHeader)
+            (Right $ Some (blk ^. gbHeader))
             (blk ^. gbBody . mbUpdatePayload)
-        -- Block issuance can't affect verification and application of US payload,
-        -- so it's fine to separate it.
-        -- Note, however, that it's important to do it after
-        -- 'verifyAndApplyUSPayload', because there we assume that block
-        -- version is confirmed.
+        -- Block issuance can't affect verification and application of US
+        -- payload, so it's fine to separate it. Note, however, that it's
+        -- important to do it after 'verifyAndApplyUSPayload', because there
+        -- we assume that block version is confirmed.
         let leaderPk = blk ^. gbHeader . gbhConsensus . mcdLeaderKey
         recordBlockIssuance
             (addressHash leaderPk)
             (blk ^. gbHeader . gbhExtra . mehBlockVersion)
             (blk ^. blockSlot)
             (headerHash blk)
-        -- Block size check doesn't interfere with other checks too, so
-        -- it's separated.
-        verifyBlockSize (headerHash blk) (blockSize blk)
 
 -- | Checks whether our software can create block according to current
 -- global state.
@@ -145,19 +142,23 @@ usCanCreateBlock =
 modifierToBatch :: PollModifier -> [DB.SomeBatchOp]
 modifierToBatch PollModifier {..} =
     concat $
-    [ bvsModifierToBatch pmNewBVs pmDelBVs
+    [ bvsModifierToBatch (MM.insertions pmBVs) (MM.deletions pmBVs)
     , lastAdoptedModifierToBatch pmAdoptedBVFull
-    , confirmedVerModifierToBatch  pmNewConfirmed pmDelConfirmed
-    , confirmedPropModifierToBatch pmNewConfirmedProps pmDelConfirmedProps
-    , upModifierToBatch pmNewActiveProps pmDelActivePropsIdx
+    , confirmedVerModifierToBatch
+          (MM.insertions pmConfirmed)
+          (MM.deletions pmConfirmed)
+    , confirmedPropModifierToBatch
+          (MM.insertions pmConfirmedProps)
+          (MM.deletions pmConfirmedProps)
+    , upModifierToBatch (MM.insertions pmActiveProps) pmDelActivePropsIdx
     , sdModifierToBatch pmSlottingData
     ]
 
 bvsModifierToBatch
-    :: HashMap BlockVersion BlockVersionState
-    -> HashSet BlockVersion
+    :: [(BlockVersion, BlockVersionState)]
+    -> [BlockVersion]
     -> [DB.SomeBatchOp]
-bvsModifierToBatch (HM.toList -> added) (toList -> deleted) = addOps ++ delOps
+bvsModifierToBatch added deleted = addOps ++ delOps
   where
     addOps = map (DB.SomeBatchOp . uncurry SetBVState) added
     delOps = map (DB.SomeBatchOp . DelBV) deleted
@@ -167,32 +168,34 @@ lastAdoptedModifierToBatch Nothing          = []
 lastAdoptedModifierToBatch (Just (bv, bvd)) = [DB.SomeBatchOp $ SetAdopted bv bvd]
 
 confirmedVerModifierToBatch
-    :: HashMap ApplicationName NumSoftwareVersion
-    -> HashSet ApplicationName
+    :: [(ApplicationName, NumSoftwareVersion)]
+    -> [ApplicationName]
     -> [DB.SomeBatchOp]
-confirmedVerModifierToBatch (HM.toList -> added) (toList -> deleted) =
+confirmedVerModifierToBatch added deleted =
     addOps ++ delOps
   where
     addOps = map (DB.SomeBatchOp . ConfirmVersion . uncurry SoftwareVersion) added
     delOps = map (DB.SomeBatchOp . DelConfirmedVersion) deleted
 
 confirmedPropModifierToBatch
-    :: HashMap SoftwareVersion ConfirmedProposalState
-    -> HashSet SoftwareVersion
+    :: [(SoftwareVersion, ConfirmedProposalState)]
+    -> [SoftwareVersion]
     -> [DB.SomeBatchOp]
-confirmedPropModifierToBatch (toList -> confAdded) (toList -> confDeleted) =
+confirmedPropModifierToBatch (map snd -> confAdded) confDeleted =
     confAddOps ++ confDelOps
   where
     confAddOps = map (DB.SomeBatchOp . AddConfirmedProposal) confAdded
     confDelOps = map (DB.SomeBatchOp . DelConfirmedProposal) confDeleted
 
-upModifierToBatch :: HashMap UpId ProposalState
-                  -> HashMap ApplicationName UpId
+upModifierToBatch :: [(UpId, ProposalState)]
+                  -> HashMap ApplicationName (HashSet UpId)
                   -> [DB.SomeBatchOp]
-upModifierToBatch (toList -> added) (HM.toList -> deleted) = addOps ++ delOps
+upModifierToBatch (map snd -> added) (HM.toList -> deleted)
+      = addOps ++ delOps
   where
+    deepToList = concatMap (\(x, y) -> zip (repeat x) (toList y))
     addOps = map (DB.SomeBatchOp . PutProposal) added
-    delOps = map (DB.SomeBatchOp . uncurry (flip DeleteProposal)) deleted
+    delOps = map (DB.SomeBatchOp . uncurry (flip DeleteProposal)) (deepToList deleted)
 
 sdModifierToBatch :: Maybe SlottingData -> [DB.SomeBatchOp]
 sdModifierToBatch Nothing   = []

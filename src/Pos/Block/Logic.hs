@@ -40,6 +40,7 @@ import           Data.List.NonEmpty         ((<|))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text                  as T
 import           Formatting                 (build, int, ords, sformat, stext, (%))
+import           Paths_cardano_sl           (version)
 import           Serokell.Data.Memory.Units (toBytes)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (VerificationRes (..), formatAllErrors,
@@ -63,9 +64,9 @@ import           Pos.DB                     (DBError (..), MonadDB)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
-import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Delegation.Logic       (delegationVerifyBlocks, getProxyMempool)
 import           Pos.Exception              (assertionFailed, reportFatalError)
+import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Worker             (lrcSingleShotNoLock)
 import           Pos.Reporting              (reportingFatal)
@@ -73,8 +74,7 @@ import           Pos.Slotting.Class         (getCurrentSlot)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
                                              SscWorkersClass (..))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscVerifyBlocks)
-import           Pos.Txp.Core               (topsortTxs)
-import           Pos.Txp.Core.Types         (TxAux, TxId)
+import           Pos.Txp.Core               (TxAux, TxId, mkTxPayload, topsortTxs)
 import           Pos.Txp.Logic              (txVerifyBlocks)
 import           Pos.Txp.MemState           (getLocalTxsNUndo)
 import           Pos.Types                  (Block, BlockHeader, EpochIndex,
@@ -87,8 +87,8 @@ import           Pos.Types                  (Block, BlockHeader, EpochIndex,
                                              epochOrSlot, flattenSlotId, genesisHash,
                                              getEpochOrSlot, headerHash, headerHashG,
                                              headerSlot, mkGenesisBlock, mkMainBlock,
-                                             mkMainBody, prevBlockL, verifyHeader,
-                                             verifyHeaders, vhpVerifyConsensus)
+                                             prevBlockL, verifyHeader, verifyHeaders,
+                                             vhpVerifyConsensus)
 import qualified Pos.Types                  as Types
 import           Pos.Update.Core            (UpdatePayload (..))
 import qualified Pos.Update.DB              as UDB
@@ -413,9 +413,9 @@ verifyBlocksPrefix blocks = runExceptT $ do
             when (block ^. blockLeaders /= leaders) $
                 throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
-    bv <- UDB.getAdoptedBV
+    (bv, bvd) <- UDB.getAdoptedBVFull
     verResToMonadError formatAllErrors $
-        Types.verifyBlocks curSlot (Just leaders) (Just bv) blocks
+        Types.verifyBlocks curSlot bvd (Just leaders) (Just bv) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
     txUndo <- ExceptT $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
@@ -442,7 +442,7 @@ verifyAndApplyBlocks
     :: (WorkMode ssc m, SscWorkersClass ssc)
     => Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
 verifyAndApplyBlocks rollback =
-    reportingFatal . verifyAndApplyBlocksInternal True rollback
+    reportingFatal version . verifyAndApplyBlocksInternal True rollback
 
 -- See the description for verifyAndApplyBlocks. This method also
 -- parameterizes LRC calculation which can be turned on/off with the first
@@ -562,7 +562,7 @@ applyWithRollback
     => NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
     -> OldestFirst NE (Block ssc)  -- ^ Blocks to apply
     -> m (Either Text HeaderHash)
-applyWithRollback toRollback toApply = reportingFatal $ runExceptT $ do
+applyWithRollback toRollback toApply = reportingFatal version $ runExceptT $ do
     tip <- GS.getTip
     when (tip /= newestToRollback) $ do
         throwError (tipMismatchMsg "rollback in 'apply with rollback'" tip newestToRollback)
@@ -603,7 +603,7 @@ createGenesisBlock
     :: forall ssc m.
        WorkMode ssc m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
-createGenesisBlock epoch = reportingFatal $ do
+createGenesisBlock epoch = reportingFatal version $ do
     leadersOrErr <-
         try $
         lrcActionOnEpochReason epoch "there are no leaders" LrcDB.getLeaders
@@ -670,7 +670,7 @@ createMainBlock
     -> Maybe ProxySKEither
     -> m (Either Text (MainBlock ssc))
 createMainBlock sId pSk =
-    reportingFatal $ withBlkSemaphore createMainBlockDo
+    reportingFatal version $ withBlkSemaphore createMainBlockDo
   where
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockDo tip = do
@@ -757,7 +757,7 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         -- account for block header and serialization overhead, etc; also
         -- include all SSC data because a) deciding is hard and b) we don't
         -- yet have a way to strip generic SSC data
-        let musthaveBody = mkMainBody [] sscData [] def
+        let musthaveBody = Types.MainBody (mkTxPayload mempty) sscData [] def
             musthaveBlock = maybe (panic "Couldn't create block") identity $
                               mkMainBlock (Just prevHeader) sId sk
                                           pSk musthaveBody extraH extraB
@@ -776,7 +776,8 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         -- include transactions
         txs' <- takeSome (map snd txs)
         -- return the resulting block
-        let body = mkMainBody txs' sscData psks' usPayload'
+        let txPayload = mkTxPayload txs'
+        let body = Types.MainBody txPayload sscData psks' usPayload'
         maybe (panic "Coudln't create block") return $
               mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where

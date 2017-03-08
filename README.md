@@ -59,6 +59,16 @@ into which the project was cloned and run `stack build`.
 The [`stack` system](https://docs.haskellstack.org/en/stable/README/) is
 required before `cardano-sl` can be built.
 
+Running the wallet
+------------------
+
+After the project is built, run it:
+
+- open *new terminal window*, run `tmux` in it (`sudo apt-get install tmux` or else according to your distro)
+- open *new terminal window*, run `export WALLET_TEST=1; ./scripts/launch.sh` in it
+
+After a while, the first terminal windows should be populated with 4 tabs, 3 out of which will have a node running in them.
+
 Benchmarking
 ------------
 

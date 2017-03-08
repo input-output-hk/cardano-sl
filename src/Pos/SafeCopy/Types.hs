@@ -14,10 +14,9 @@ import           Universum
 
 import           Pos.Ssc.Class.Types   (Ssc (..))
 -- FIXME
+import           Pos.Core.Types
 import           Pos.Txp.Core.Types
 import           Pos.Types.Block
-import           Pos.Types.Core
-import           Pos.Types.Types
 import           Pos.Update.Core.Types
 
 deriveSafeCopySimple 0 'base ''CoinPortion
@@ -35,6 +34,8 @@ deriveSafeCopySimple 0 'base ''TxDistribution
 deriveSafeCopySimple 0 'base ''TxIn
 deriveSafeCopySimple 0 'base ''TxOut
 deriveSafeCopySimple 0 'base ''Tx
+deriveSafeCopySimple 0 'base ''TxProof
+deriveSafeCopySimple 0 'base ''TxPayload
 deriveSafeCopySimple 0 'base ''SharedSeed
 
 deriveSafeCopySimple 0 'base ''MainExtraBodyData
@@ -95,17 +96,13 @@ deriveSafeCopySimple 0 'base ''ChainDifficulty
 instance (Ssc ssc, SafeCopy (SscProof ssc)) =>
          SafeCopy (BodyProof (MainBlockchain ssc)) where
     getCopy = contain $ do
-        mpNumber        <- safeGet
-        mpRoot          <- safeGet
-        mpWitnessesHash <- safeGet
+        mpTxProof <- safeGet
         mpMpcProof      <- safeGet
         mpProxySKsProof <- safeGet
         mpUpdateProof   <- safeGet
         return $! MainProof{..}
     putCopy MainProof {..} = contain $ do
-        safePut mpNumber
-        safePut mpRoot
-        safePut mpWitnessesHash
+        safePut mpTxProof
         safePut mpMpcProof
         safePut mpProxySKsProof
         safePut mpUpdateProof
@@ -158,17 +155,13 @@ instance SafeCopy (ConsensusData (GenesisBlockchain ssc)) where
 instance (Ssc ssc, SafeCopy (SscPayload ssc)) =>
          SafeCopy (Body (MainBlockchain ssc)) where
     getCopy = contain $ do
-        _mbTxs                 <- safeGet
-        _mbWitnesses           <- safeGet
-        _mbTxAddrDistributions <- safeGet
-        _mbMpc                 <- safeGet
-        _mbProxySKs            <- safeGet
-        _mbUpdatePayload       <- safeGet
+        _mbTxPayload     <- safeGet
+        _mbMpc           <- safeGet
+        _mbProxySKs      <- safeGet
+        _mbUpdatePayload <- safeGet
         return $! MainBody{..}
     putCopy MainBody {..} = contain $ do
-        safePut _mbTxs
-        safePut _mbWitnesses
-        safePut _mbTxAddrDistributions
+        safePut _mbTxPayload
         safePut _mbMpc
         safePut _mbProxySKs
         safePut _mbUpdatePayload

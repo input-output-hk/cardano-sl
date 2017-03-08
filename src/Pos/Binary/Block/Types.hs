@@ -7,19 +7,17 @@ module Pos.Binary.Block.Types
 import           Data.Binary.Get           (getInt32be, getWord8, label)
 import           Data.Binary.Put           (putInt32be, putWord8)
 import qualified Data.Text                 as Text
-import           Formatting                (int, sformat, (%))
 import           Universum
 
-import           Pos.Binary.Class          (Bi (..), UnsignedVarInt (..))
+import           Pos.Binary.Class          (Bi (..))
+import           Pos.Binary.Core           ()
 import           Pos.Binary.Txp            ()
-import           Pos.Binary.Types          ()
 import           Pos.Constants             (protocolMagic)
+import qualified Pos.Core.Block            as T
+import qualified Pos.Core.Types            as T
 import           Pos.Ssc.Class.Types       (Ssc (..))
-import qualified Pos.Txp.Core.Types        as T
-import qualified Pos.Types.Block.Class     as T
 import qualified Pos.Types.Block.Instances as T
 import qualified Pos.Types.Block.Types     as T
-import qualified Pos.Types.Core            as T
 import           Pos.Update.Core.Types     (UpdatePayload)
 
 ----------------------------------------------------------------------------
@@ -81,22 +79,14 @@ instance ( Bi (T.BHeaderHash b)
 -- MainBlock
 ----------------------------------------------------------------------------
 
-instance Ssc ssc => Bi (T.BodyProof (T.MainBlockchain ssc)) where
-    put T.MainProof{..} = do
-        put (UnsignedVarInt mpNumber)
-        put mpRoot
-        put mpWitnessesHash
+instance Ssc ssc =>
+         Bi (T.BodyProof (T.MainBlockchain ssc)) where
+    put T.MainProof {..} = do
+        put mpTxProof
         put mpMpcProof
         put mpProxySKsProof
         put mpUpdateProof
-    get = label "MainProof" $
-        T.MainProof
-            <$> (getUnsignedVarInt <$> get)
-            <*> get
-            <*> get
-            <*> get
-            <*> get
-            <*> get
+    get = label "MainProof" $ T.MainProof <$> get <*> get <*> get <*> get
 
 instance Bi (T.BlockSignature ssc) where
     put (T.BlockSignature sig)             = putWord8 0 >> put sig
@@ -118,42 +108,15 @@ instance Bi (T.ConsensusData (T.MainBlockchain ssc)) where
 
 instance (Ssc ssc, Bi UpdatePayload) => Bi (T.Body (T.MainBlockchain ssc)) where
     put T.MainBody{..} = do
-        put _mbTxs
-        put _mbWitnesses
-        put _mbTxAddrDistributions
+        put _mbTxPayload
         put _mbMpc
         put _mbProxySKs
         put _mbUpdatePayload
     get = label "MainBody" $ do
-        _mbTxs                 <- get
-        _mbWitnesses           <- get
-        _mbTxAddrDistributions <- get
+        _mbTxPayload           <- get
         _mbMpc                 <- get
         _mbProxySKs            <- get
         _mbUpdatePayload       <- get
-        let lenTxs    = length _mbTxs
-            lenWit    = length _mbWitnesses
-            lenDistrs = length _mbTxAddrDistributions
-        when (lenTxs /= lenWit) $ fail $ toString $
-            sformat ("get@(Body MainBlockchain): "%
-                     "size of txs tree ("%int%") /= "%
-                     "length of witness list ("%int%")")
-                    lenTxs lenWit
-        when (lenTxs /= lenDistrs) $ fail $ toString $
-            sformat ("get@(Body MainBlockchain): "%
-                     "size of txs tree ("%int%") /= "%
-                     "length of address distrs list ("%int%")")
-                    lenTxs lenDistrs
-        for_ (zip3 [0 :: Int ..] (toList _mbTxs) _mbTxAddrDistributions) $
-            \(i, tx, ds) -> do
-                let lenOut = length (T._txOutputs tx)
-                    lenDist = length (T.getTxDistribution ds)
-                when (lenOut /= lenDist) $ fail $ toString $
-                    sformat ("get@(Body MainBlockchain): "%
-                             "amount of outputs ("%int%") of tx "%
-                             "#"%int%" /= amount of distributions "%
-                             "for this tx ("%int%")")
-                            lenOut i lenDist
         return T.MainBody{..}
 
 instance Bi T.MainExtraHeaderData where

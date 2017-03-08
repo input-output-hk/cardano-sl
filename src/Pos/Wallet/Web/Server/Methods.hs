@@ -276,25 +276,25 @@ servantHandlers sendActions =
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
-    apiTestReset            	  = catchWalletError testResetAll
-    apiGetWallet            	  = (catchWalletError . getWallet)
-    apiGetWallets           	  = catchWalletError getWallets
-    apiUpdateWallet         	  = (\a -> catchWalletError . updateWallet a)
-    apiNewWallet            	  = catchWalletError . newWallet
-    apiDeleteWallet         	  = catchWalletError . deleteWallet
-    apiImportKey            	  = catchWalletError . importKey sendActions
-    apiRestoreWallet        	  = catchWalletError . restoreWallet
-    apiIsValidAddress       	  = (\a -> catchWalletError . isValidAddress a)
-    apiGetUserProfile       	  = catchWalletError getUserProfile
-    apiUpdateUserProfile    	  = catchWalletError . updateUserProfile
-    apiTxsPayments          	  = (\a b -> catchWalletError . send sendActions a b)
-    apiTxsPaymentsExt       	  = (\a b c d e -> catchWalletError . sendExtended sendActions a b c d e)
-    apiUpdateTransaction    	  = (\a b -> catchWalletError . updateTransaction a b)
-    apiGetHistory           	  = (\a b -> catchWalletError . getHistory @ssc a b )
-    apiSearchHistory        	  = (\a b c -> catchWalletError . searchHistory @ssc a b c)
-    apiNextUpdate           	  = catchWalletError nextUpdate
-    apiApplyUpdate          	  = catchWalletError applyUpdate
-    apiRedeemAda            	  = catchWalletError . redeemADA sendActions
+    apiTestReset                = catchWalletError testResetAll
+    apiGetWallet                = (catchWalletError . getWallet)
+    apiGetWallets               = catchWalletError getWallets
+    apiUpdateWallet             = (\a -> catchWalletError . updateWallet a)
+    apiNewWallet                = catchWalletError . newWallet
+    apiDeleteWallet             = catchWalletError . deleteWallet
+    apiImportKey                = catchWalletError . importKey sendActions
+    apiRestoreWallet            = catchWalletError . restoreWallet
+    apiIsValidAddress           = (\a -> catchWalletError . isValidAddress a)
+    apiGetUserProfile           = catchWalletError getUserProfile
+    apiUpdateUserProfile        = catchWalletError . updateUserProfile
+    apiTxsPayments              = (\a b -> catchWalletError . send sendActions a b)
+    apiTxsPaymentsExt           = (\a b c d e -> catchWalletError . sendExtended sendActions a b c d e)
+    apiUpdateTransaction        = (\a b -> catchWalletError . updateTransaction a b)
+    apiGetHistory               = (\a b -> catchWalletError . getHistory @ssc a b )
+    apiSearchHistory            = (\a b c -> catchWalletError . searchHistory @ssc a b c)
+    apiNextUpdate               = catchWalletError nextUpdate
+    apiApplyUpdate              = catchWalletError applyUpdate
+    apiRedeemAda                = catchWalletError . redeemADA sendActions
     apiSettingsSlotDuration     = catchWalletError (fromIntegral <$> blockchainSlotDuration)
     apiSettingsSoftwareVersion  = catchWalletError (pure curSoftwareVersion)
     apiSettingsSyncProgress     = catchWalletError syncProgress
@@ -368,7 +368,7 @@ getHistory cAddr skip limit = do
     pure (paginate cHistory, fromIntegral $ length cHistory)
   where
     paginate     = take defaultLimit . drop defaultSkip
-    defaultLimit = (fromIntegral $ fromMaybe 100 limit) 
+    defaultLimit = (fromIntegral $ fromMaybe 100 limit)
     defaultSkip  = (fromIntegral $ fromMaybe 0 skip)
 
 -- FIXME: is Word enough for length here?

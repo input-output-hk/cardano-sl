@@ -1,0 +1,17 @@
+{
+  "name": "",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "author": "",
+  "private": true,
+  "license": "",
+  "scripts": {
+    "start": "PORT=9999 node index.js"
+  },
+  "dependencies": {
+    "express": "^4.14.1",
+    "randomstring": "^1.1.5",
+    "socket.io": "^1.7.2"
+  }
+}

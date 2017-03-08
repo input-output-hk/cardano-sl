@@ -1,0 +1,81 @@
+{
+  "name": "cardano-sl-explorer",
+  "version": "0.0.1",
+  "description": "Frontend of 'cardano-sl' explorer",
+  "main": "index.js",
+  "scripts": {
+    "start": "npm run server:dev",
+    "postinstall": "bower cache clean && bower install",
+    "preinstall": "which psc || npm install purescript@0.10.7",
+    "clean:output": "./node_modules/.bin/rimraf output",
+    "server:webpack": "./node_modules/.bin/webpack-dev-server --config webpack.config.babel.js --progress",
+    "server:dev": "npm run clean:output && NODE_ENV=development npm run server:webpack",
+    "server:prod": "npm run clean:output && NODE_ENV=production npm run server:webpack",
+    "build:prod": "./node_modules/.bin/rimraf dist && mkdir dist && NODE_ENV=production ./node_modules/.bin/webpack --config webpack.config.babel.js",
+    "test": "psc -o output 'bower_components/purescript-*/src/**/*.purs' 'src/**/*.purs' && NODE_PATH=./output node -e 'require(\"Main.Test\").main();'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/input-output-hk/cardano-sl-explorer-frontend.git"
+  },
+  "keywords": [],
+  "author": {},
+  "contributors": [],
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/input-output-hk/cardano-sl-explorer-frontend/issues"
+  },
+  "homepage": "https://github.com/input-output-hk/cardano-sl-explorer-frontend#readme",
+  "dependencies": {
+    "react": "^15.4.2",
+    "react-dom": "^15.4.2",
+    "socket.io-client": "^1.7.3"
+  },
+  "devDependencies": {
+    "autoprefixer": "^6.7.5",
+    "babel-core": "^6.23.1",
+    "babel-loader": "^6.3.2",
+    "babel-plugin-transform-es2015-destructuring": "^6.23.0",
+    "babel-preset-es2015": "^6.22.0",
+    "babel-preset-react": "^6.23.0",
+    "babel-preset-stage-2": "^6.22.0",
+    "bower": "^1.8.0",
+    "copy-webpack-plugin": "^4.0.1",
+    "css-loader": "^0.26.2",
+    "cssnano": "^3.10.0",
+    "extract-text-webpack-plugin": "^2.0.0",
+    "file-loader": "^0.10.1",
+    "git-revision-webpack-plugin": "^2.4.1",
+    "html-webpack-plugin": "^2.28.0",
+    "postcss-button": "^0.1.16",
+    "postcss-color-function": "^3.0.0",
+    "postcss-css-reset": "^1.0.2",
+    "postcss-cssnext": "^2.9.0",
+    "postcss-custom-media": "^5.0.1",
+    "postcss-custom-properties": "^5.0.2",
+    "postcss-extend": "^1.0.5",
+    "postcss-flexbox": "^1.0.2",
+    "postcss-import": "^9.1.0",
+    "postcss-inline-svg": "^2.3.0",
+    "postcss-loader": "^1.3.2",
+    "postcss-media-minmax": "^2.1.2",
+    "postcss-neat": "^2.5.2",
+    "postcss-nested": "^1.0.0",
+    "postcss-svgo": "^2.1.6",
+    "purescript-psa": "^0.4.0",
+    "purs-loader": "^2.4.0",
+    "rimraf": "^2.6.1",
+    "source-map-loader": "^0.1.6",
+    "style-loader": "^0.13.2",
+    "url-loader": "^0.5.8",
+    "webpack": "^2.2.1",
+    "webpack-dev-server": "^2.4.1"
+  },
+  "babel": {
+    "presets": [
+      "es2015",
+      "stage-2",
+      "react"
+    ]
+  }
+}

@@ -1,3 +1,11 @@
+if builtins.compareVersions "1.11.7" builtins.nixVersion == 1 then
+  abort ''
+    This project requires Nix >= 1.11.7, please upgrade:
+
+       curl https://nixos.org/nix/install | sh
+  ''
+else
+
 with (import (fetchTarball https://github.com/NixOS/nixpkgs/archive/722b12965290a55a758cbf7aee587682edd5e5af.tar.gz) {});
 
 # https://github.com/paf31/purescript-derive-lenses/issues/12

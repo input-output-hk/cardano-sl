@@ -156,12 +156,12 @@ withCurrentTip action = do
          | otherwise -> cur
 
 processSkeleton
-    :: forall ssc m . (USLocalLogicMode ssc m)
+    :: (USLocalLogicMode ssc m)
     => UpdatePayload -> m (Either PollVerFailure ())
 processSkeleton payload = withUSLock $ runExceptT $ withCurrentTip $ \ms@MemState{..} -> do
     modifier <-
         runDBPoll . evalPollT msModifier . execPollT def $
-        verifyAndApplyUSPayload @ssc False (Left msSlot) payload
+        verifyAndApplyUSPayload False (Left msSlot) payload
     let newModifier = modifyPollModifier msModifier modifier
     let newPool = addToMemPool payload msPool
     pure $ ms {msModifier = newModifier, msPool = newPool}
@@ -183,7 +183,7 @@ usNormalize =
 
 -- Normalization under lock.
 usNormalizeDo
-    :: forall ssc m . (USLocalLogicMode ssc m)
+    :: (USLocalLogicMode ssc m)
     => Maybe HeaderHash -> Maybe SlotId -> m MemState
 usNormalizeDo tip slot = do
     stateVar <- askUSMemState
@@ -191,7 +191,7 @@ usNormalizeDo tip slot = do
     let mp@MemPool {..} = msPool
     ((newProposals, newVotes), newModifier) <-
         runDBPoll . runPollT def $
-        normalizePoll @ssc msSlot mpProposals mpLocalVotes
+        normalizePoll msSlot mpProposals mpLocalVotes
     let newTip = fromMaybe msTip tip
     let newSlot = fromMaybe msSlot slot
     let newPool = mp {mpProposals = newProposals, mpLocalVotes = newVotes}

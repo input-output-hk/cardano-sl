@@ -12,7 +12,7 @@ import           Formatting            (bprint, build, (%))
 import           Serokell.Util.Text    (listJson)
 import           Universum
 
-import           Pos.Core.Types        (HasDifficulty (..), HasHeaderHash (..),
+import           Pos.Core              (HasDifficulty (..), HasHeaderHash (..),
                                         ProxySKHeavy)
 import           Pos.Txp.Core          (TxpUndo)
 import           Pos.Types.Block       (BiSsc, Block)

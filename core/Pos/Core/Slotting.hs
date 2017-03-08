@@ -10,9 +10,10 @@ module Pos.Core.Slotting
 
 import           Universum
 
+import           Pos.Core.Class     (HasEpochOrSlot (..), getEpochOrSlot)
 import           Pos.Core.Constants (epochSlots, slotSecurityParam)
 import           Pos.Core.Types     (EpochIndex (..), EpochOrSlot (..), FlatSlotId,
-                                     HasEpochOrSlot (..), SlotId (..))
+                                     SlotId (..), epochOrSlot)
 
 -- | Flatten 'SlotId' (which is basically pair of integers) into a single number.
 flattenSlotId :: SlotId -> FlatSlotId
@@ -25,7 +26,7 @@ flattenEpochIndex EpochIndex {..} = getEpochIndex * epochSlots
 -- | Transforms some 'HasEpochOrSlot' to a single number.
 flattenEpochOrSlot :: (HasEpochOrSlot a) => a -> FlatSlotId
 flattenEpochOrSlot =
-    either flattenEpochIndex flattenSlotId . _getEpochOrSlot
+    epochOrSlot flattenEpochIndex flattenSlotId . getEpochOrSlot
 
 -- | Construct 'SlotId' from a flattened variant.
 unflattenSlotId :: FlatSlotId -> SlotId

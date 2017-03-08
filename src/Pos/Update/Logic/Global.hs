@@ -36,7 +36,8 @@ import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState
                                        execRollT, processGenesisBlock,
                                        recordBlockIssuance, rollbackUS, runDBPoll,
                                        runPollT, verifyAndApplyUSPayload)
-import           Pos.Util             (NE, NewestFirst, OldestFirst, inAssertMode)
+import           Pos.Util             (NE, NewestFirst, OldestFirst, Some (..),
+                                       inAssertMode)
 import qualified Pos.Util.Modifier    as MM
 
 type USGlobalApplyMode ssc m = ( WithLogger m
@@ -113,13 +114,12 @@ verifyBlock (Right blk) =
     execRollT $ do
         verifyAndApplyUSPayload
             True
-            (Right $ blk ^. gbHeader)
+            (Right $ Some (blk ^. gbHeader))
             (blk ^. gbBody . mbUpdatePayload)
-        -- Block issuance can't affect verification and application of US payload,
-        -- so it's fine to separate it.
-        -- Note, however, that it's important to do it after
-        -- 'verifyAndApplyUSPayload', because there we assume that block
-        -- version is confirmed.
+        -- Block issuance can't affect verification and application of US
+        -- payload, so it's fine to separate it. Note, however, that it's
+        -- important to do it after 'verifyAndApplyUSPayload', because there
+        -- we assume that block version is confirmed.
         let leaderPk = blk ^. gbHeader . gbhConsensus . mcdLeaderKey
         recordBlockIssuance
             (addressHash leaderPk)

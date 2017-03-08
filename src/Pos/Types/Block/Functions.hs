@@ -4,8 +4,8 @@
 -- | Functions related to blocks and headers.
 
 module Pos.Types.Block.Functions
-       ( blockDifficulty
-       , headerDifficulty
+       ( blockDifficultyIncrement
+       , headerDifficultyIncrement
        , mkGenericBlock
        , mkGenericHeader
        , mkMainBlock
@@ -44,12 +44,12 @@ import           Pos.Core                   (BlockVersion, ChainDifficulty, Epoc
                                              EpochOrSlot, HasDifficulty (..),
                                              HasEpochIndex (..), HasEpochOrSlot (..),
                                              HasHeaderHash (..), HeaderHash,
-                                             ProxySKEither, SlotId (..), SlotId,
-                                             SlotLeaders)
+                                             ProxySKEither, SlotId (..), SlotLeaders,
+                                             prevBlockL)
 import           Pos.Core.Address           (Address (..), addressHash)
 import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
                                              GenericBlockHeader (..), gbBody, gbBodyProof,
-                                             gbHeader, gbhExtra, prevBlockL)
+                                             gbHeader, gbhExtra)
 import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySign,
                                              proxyVerify, pskIssuerPk, pskOmega, sign,
                                              toPublic, unsafeHash)
@@ -72,13 +72,13 @@ import           Pos.Update.Core            (BlockVersionData (..))
 import           Pos.Util                   (NewestFirst (..), OldestFirst)
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
-headerDifficulty :: BlockHeader ssc -> ChainDifficulty
-headerDifficulty (Left _)  = 0
-headerDifficulty (Right _) = 1
+headerDifficultyIncrement :: BlockHeader ssc -> ChainDifficulty
+headerDifficultyIncrement (Left _)  = 0
+headerDifficultyIncrement (Right _) = 1
 
 -- | Difficulty of the Block, which is determined from header.
-blockDifficulty :: Block ssc -> ChainDifficulty
-blockDifficulty = headerDifficulty . getBlockHeader
+blockDifficultyIncrement :: Block ssc -> ChainDifficulty
+blockDifficultyIncrement = headerDifficultyIncrement . getBlockHeader
 
 -- | Predefined 'Hash' of 'GenesisBlock'.
 genesisHash :: Hash a
@@ -333,7 +333,7 @@ verifyHeader VerifyHeaderParams {..} h =
     --   * Epoch/slot are consistent.
     relatedToPrevHeader prevHeader =
         [ checkDifficulty
-              (prevHeader ^. difficultyL + headerDifficulty h)
+              (prevHeader ^. difficultyL + headerDifficultyIncrement h)
               (h ^. difficultyL)
         , checkHash
               (headerHash prevHeader)
@@ -351,7 +351,7 @@ verifyHeader VerifyHeaderParams {..} h =
     --  * Epoch/slot are consistent.
     relatedToNextHeader nextHeader =
         [ checkDifficulty
-              (nextHeader ^. difficultyL - headerDifficulty nextHeader)
+              (nextHeader ^. difficultyL - headerDifficultyIncrement nextHeader)
               (h ^. difficultyL)
         , checkHash (headerHash h) (nextHeader ^. prevBlockL)
         , checkSlot (getEpochOrSlot h) (getEpochOrSlot nextHeader)

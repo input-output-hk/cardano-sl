@@ -8,8 +8,6 @@ module Pos.Txp.DB.Balances
          -- * Getters
          getTotalFtsStake
        , getFtsStake
-       -- kostil for BalancesView
-       , getFtsStakeFromDB
 
          -- * Operations
        , BalancesOp (..)
@@ -64,12 +62,6 @@ getTotalFtsStake =
 -- | Get stake owne by given stakeholder (according to rules used for FTS).
 getFtsStake :: MonadDB m => StakeholderId -> m (Maybe Coin)
 getFtsStake = gsGetBi . ftsStakeKey
-
-getFtsStakeFromDB :: (MonadIO m, MonadThrow m)
-                  => StakeholderId
-                  -> DB
-                  -> m (Maybe Coin)
-getFtsStakeFromDB id = rocksGetBi (ftsStakeKey id)
 
 ----------------------------------------------------------------------------
 -- Operations

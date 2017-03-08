@@ -12,8 +12,8 @@ module Pos.Core.Block
        , HasPrevBlock (..)
 
        -- * Classes for headers
-       , IsHeader (..)
-       , IsGenesisHeader (..)
+       , IsHeader
+       , IsGenesisHeader
        , IsMainHeader (..)
 
        -- * Lenses
@@ -143,6 +143,9 @@ class HasPrevBlock s where
 instance HasPrevBlock (Some HasPrevBlock) where
     prevBlockL = liftLensSome prevBlockL
 
+-- | Lens from 'GenericBlock' to 'BodyProof'.
+gbBodyProof :: Lens' (GenericBlock b) (BodyProof b)
+gbBodyProof = gbHeader . gbhBodyProof
 {- | A class that lets subpackages use some fields from headers without
 depending on cardano-sl:
 
@@ -175,10 +178,6 @@ class IsHeader header => IsGenesisHeader header
 -}
 class IsHeader header => IsMainHeader header where
     -- | Id of the slot for which this block was generated.
-    headerSlot :: Lens' header SlotId
+    headerSlotL :: Lens' header SlotId
     -- | Public key of slot leader.
-    headerLeaderKey :: Lens' header PublicKey
-
--- | Lens from 'GenericBlock' to 'BodyProof'.
-gbBodyProof :: Lens' (GenericBlock b) (BodyProof b)
-gbBodyProof = gbHeader . gbhBodyProof
+    headerLeaderKeyL :: Lens' header PublicKey

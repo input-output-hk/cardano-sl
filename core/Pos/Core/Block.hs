@@ -149,8 +149,12 @@ depending on cardano-sl:
   * 'difficultyL'
   * 'epochIndexL'
   * 'prevBlockL'
+  * 'headerHashG'
 -}
-class (HasDifficulty header, HasEpochIndex header, HasPrevBlock header) =>
+class (HasDifficulty header
+      ,HasEpochIndex header
+      ,HasPrevBlock header
+      ,HasHeaderHash header) =>
       IsHeader header
 
 {- | A class for genesis headers. Currently provides the same data:

@@ -140,6 +140,9 @@ makeLenses ''GenericBlock
 class HasPrevBlock s where
     prevBlockL :: Lens' s HeaderHash
 
+instance HasPrevBlock (Some HasPrevBlock) where
+    prevBlockL = liftLensSome prevBlockL
+
 {- | A class that lets subpackages use some fields from headers without
 depending on cardano-sl:
 

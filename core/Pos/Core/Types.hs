@@ -90,6 +90,7 @@ import           Universum            hiding (show)
 import           Pos.Crypto           (AbstractHash, Hash, ProxySecretKey, ProxySignature,
                                        PublicKey)
 import           Pos.Data.Attributes  (Attributes)
+import           Pos.Util.Util        (Some (..), applySome, liftLensSome)
 
 
 -- | Timestamp is a number which represents some point in time. It is
@@ -142,6 +143,9 @@ newtype ChainDifficulty = ChainDifficulty
 class HasDifficulty a where
     difficultyL :: Lens' a ChainDifficulty
 
+instance HasDifficulty (Some HasDifficulty) where
+    difficultyL = liftLensSome difficultyL
+
 ----------------------------------------------------------------------------
 -- Version
 ----------------------------------------------------------------------------
@@ -190,8 +194,14 @@ instance NFData SoftwareVersion
 class HasBlockVersion a where
     blockVersionL :: Lens' a BlockVersion
 
+instance HasBlockVersion (Some HasBlockVersion) where
+    blockVersionL = liftLensSome blockVersionL
+
 class HasSoftwareVersion a where
     softwareVersionL :: Lens' a SoftwareVersion
+
+instance HasSoftwareVersion (Some HasSoftwareVersion) where
+    softwareVersionL = liftLensSome softwareVersionL
 
 ----------------------------------------------------------------------------
 -- HeaderHash
@@ -211,6 +221,9 @@ class HasHeaderHash a where
     headerHash :: a -> HeaderHash
     headerHashG :: Getter a HeaderHash
     headerHashG = to headerHash
+
+instance HasHeaderHash (Some HasHeaderHash) where
+    headerHash = applySome headerHash
 
 ----------------------------------------------------------------------------
 -- Proxy signatures and delegation
@@ -341,6 +354,9 @@ instance Buildable EpochIndex where
 class HasEpochIndex a where
     epochIndexL :: Lens' a EpochIndex
 
+instance HasEpochIndex (Some HasEpochIndex) where
+    epochIndexL = liftLensSome epochIndexL
+
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = LocalSlotIndex
     { getSlotIndex :: Word16
@@ -394,6 +410,9 @@ class HasEpochOrSlot a where
     getEpochOrSlot = EpochOrSlot . _getEpochOrSlot
     epochOrSlotG :: Getter a EpochOrSlot
     epochOrSlotG = to getEpochOrSlot
+
+instance HasEpochOrSlot (Some HasEpochOrSlot) where
+    _getEpochOrSlot = applySome _getEpochOrSlot
 
 instance HasEpochOrSlot EpochIndex where
     _getEpochOrSlot = Left

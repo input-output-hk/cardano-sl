@@ -54,7 +54,8 @@ import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
                                              HeaderHash, blockHeader, difficultyL,
-                                             gbHeader, prevBlockL, verifyHeaders)
+                                             gbHeader, headerHashG, prevBlockL,
+                                             verifyHeaders)
 import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
                                              inAssertMode, _neHead, _neLast)
 import           Pos.WorkMode               (WorkMode)

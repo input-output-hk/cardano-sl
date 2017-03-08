@@ -27,6 +27,7 @@ library
   exposed-modules:     Pos.Core
                        Pos.Core.Address
                        Pos.Core.Block
+                       Pos.Core.Class
                        Pos.Core.Coin
                        Pos.Core.Constants
                        Pos.Core.Constants.Type

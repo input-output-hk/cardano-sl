@@ -3,6 +3,7 @@
 module Pos.Types
        ( module Pos.Core.Address
        , module Pos.Core.Block
+       , module Pos.Core.Class
        , module Pos.Core.Coin
        , module Pos.Core.Slotting
        , module Pos.Core.Types
@@ -14,6 +15,7 @@ module Pos.Types
 import           Pos.Binary.Core      ()
 import           Pos.Core.Address
 import           Pos.Core.Block
+import           Pos.Core.Class
 import           Pos.Core.Coin
 import           Pos.Core.Slotting
 import           Pos.Core.Types

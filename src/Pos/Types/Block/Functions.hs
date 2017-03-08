@@ -48,11 +48,11 @@ import           Pos.Core                   (BlockVersion, ChainDifficulty, Epoc
                                              HasEpochIndex (..), HasEpochOrSlot (..),
                                              HasHeaderHash (..), HeaderHash,
                                              ProxySKEither, ProxySKHeavy, SlotId (..),
-                                             SlotId, SlotLeaders)
+                                             SlotId, SlotLeaders, prevBlockL)
 import           Pos.Core.Address           (Address (..), addressHash)
 import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
                                              GenericBlockHeader (..), gbBody, gbBodyProof,
-                                             gbHeader, gbhExtra, prevBlockL)
+                                             gbHeader, gbhExtra)
 import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySign,
                                              proxyVerify, pskIssuerPk, pskOmega, sign,
                                              toPublic, unsafeHash)

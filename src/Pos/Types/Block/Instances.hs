@@ -1,5 +1,7 @@
 {-# LANGUAGE CPP                  #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
+-- needed for stylish-haskell :(
+{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -48,17 +50,16 @@ import           Serokell.Util         (Color (Magenta), colorize, listJson)
 import           Universum
 
 import           Pos.Binary.Class      (Bi)
-import           Pos.Core.Block        (IsHeader, IsGenesisHeader, IsMainHeader(..),
-                                        Blockchain (..), GenericBlock (..),
-                                        GenericBlockHeader (..), HasPrevBlock (..),
-                                        gbBody, gbHeader, gbhConsensus, gbhPrevBlock,
-                                        gbhExtra)
-import           Pos.Core.Types        (HasBlockVersion(..), HasSoftwareVersion(..),
-                                        ChainDifficulty, EpochIndex (..),
+import           Pos.Core              (Blockchain (..), ChainDifficulty, EpochIndex (..),
+                                        EpochOrSlot (..), GenericBlock (..),
+                                        GenericBlockHeader (..), HasBlockVersion (..),
                                         HasDifficulty (..), HasEpochIndex (..),
                                         HasEpochOrSlot (..), HasHeaderHash (..),
-                                        HeaderHash, ProxySKHeavy, SlotId (..),
-                                        SlotLeaders, slotIdF)
+                                        HasPrevBlock (..), HasSoftwareVersion (..),
+                                        HeaderHash, IsGenesisHeader, IsHeader,
+                                        IsMainHeader (..), ProxySKHeavy, SlotId (..),
+                                        SlotLeaders, gbBody, gbHeader, gbhConsensus,
+                                        gbhExtra, gbhPrevBlock, slotIdF)
 import           Pos.Crypto            (Hash, PublicKey, hash, hashHexF, unsafeHash)
 import           Pos.Merkle            (MerkleRoot, MerkleTree, mtRoot)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass (..))
@@ -428,20 +429,20 @@ instance (HasEpochIndex a, HasEpochIndex b) =>
 ----------------------------------------------------------------------------
 
 instance HasEpochOrSlot (MainBlockHeader ssc) where
-    _getEpochOrSlot = Right . _mcdSlot . _gbhConsensus
+    getEpochOrSlot = EpochOrSlot . Right . _mcdSlot . _gbhConsensus
 
 instance HasEpochOrSlot (GenesisBlockHeader ssc) where
-    _getEpochOrSlot = Left . _gcdEpoch . _gbhConsensus
+    getEpochOrSlot = EpochOrSlot . Left . _gcdEpoch . _gbhConsensus
 
 instance HasEpochOrSlot (MainBlock ssc) where
-    _getEpochOrSlot = _getEpochOrSlot . _gbHeader
+    getEpochOrSlot = getEpochOrSlot . _gbHeader
 
 instance HasEpochOrSlot (GenesisBlock ssc) where
-    _getEpochOrSlot = _getEpochOrSlot . _gbHeader
+    getEpochOrSlot = getEpochOrSlot . _gbHeader
 
 instance (HasEpochOrSlot a, HasEpochOrSlot b) =>
          HasEpochOrSlot (Either a b) where
-    _getEpochOrSlot = either _getEpochOrSlot _getEpochOrSlot
+    getEpochOrSlot = either getEpochOrSlot getEpochOrSlot
 
 ----------------------------------------------------------------------------
 -- HasHeaderHash

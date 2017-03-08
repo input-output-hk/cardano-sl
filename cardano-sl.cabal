@@ -393,16 +393,15 @@ library
                       , base
                       , base58-bytestring
                       , base64-bytestring
-                      , temporary >= 1.2.0.4
                       , binary
                       , binary-conduit >= 1.2.4.1
                       , binary-orphans
                       , bytestring
                       , cardano-report-server >= 0.1.0
                       , cardano-sl-core
-                      , cardano-sl-update
-                      , cardano-sl-infra
                       , cardano-sl-db
+                      , cardano-sl-infra
+                      , cardano-sl-update
                       , cereal
                       , concurrent-extra
                       , conduit >= 1.2.8
@@ -462,6 +461,7 @@ library
                       , stm-containers
                       , tagged
                       , template-haskell
+                      , temporary >= 1.2.0.4
                       , text
                       , text-format
                       , th-lift-instances

@@ -116,11 +116,10 @@ verifyBlock (Right blk) =
             True
             (Right $ blk ^. gbHeader)
             (blk ^. gbBody . mbUpdatePayload)
-        -- Block issuance can't affect verification and application of US payload,
-        -- so it's fine to separate it.
-        -- Note, however, that it's important to do it after
-        -- 'verifyAndApplyUSPayload', because there we assume that block
-        -- version is confirmed.
+        -- Block issuance can't affect verification and application of US
+        -- payload, so it's fine to separate it. Note, however, that it's
+        -- important to do it after 'verifyAndApplyUSPayload', because there
+        -- we assume that block version is confirmed.
         let leaderPk = blk ^. gbHeader . gbhConsensus . mcdLeaderKey
         recordBlockIssuance
             (addressHash leaderPk)

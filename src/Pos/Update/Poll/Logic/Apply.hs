@@ -152,7 +152,8 @@ verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {.
     -- Here we verify consistency with regards to data from 'BlockVersionState'
     -- and update relevant state if necessary.
     verifyAndApplyProposalBVS upId up
-    -- Then we verify that protocol version from proposal can follow last adopted software version.
+    -- Then we verify that protocol version from proposal can follow last
+    -- adopted software version.
     verifyBlockVersion upId up
     -- We also verify that software version is expected one.
     verifySoftwareVersion upId up

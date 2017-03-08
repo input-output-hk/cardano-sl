@@ -5,7 +5,7 @@
 set -xe
 export SSL_CERT_FILE=$NIX_SSL_CERT_FILE
 pushd ..
-stack --nix build
+stack --nix build --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
 stack --nix exec -- cardano-explorer-hs2purs --bridge-path frontend/src/Generated/
 popd
 nix-shell --run ./scripts/generate-backend-lenses.sh

@@ -38,10 +38,10 @@ import           Universum
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Communication.Protocol    (OutSpecs, SendActions, hoistSendActions)
 import           Pos.Constants                 (curSoftwareVersion)
-import           Pos.Crypto                    (emptyPassphrase, encToPublic,
-                                                fakeSigner, hash,
-                                                redeemDeterministicKeyGen, toEncrypted,
-                                                toPublic, withSafeSigner, withSafeSigner)
+import           Pos.Crypto                    (emptyPassphrase, encToPublic, fakeSigner,
+                                                hash, redeemDeterministicKeyGen,
+                                                toEncrypted, toPublic, withSafeSigner,
+                                                withSafeSigner)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (getKnownPeers)
 import           Pos.Ssc.Class                 (SscHelpersClass)
@@ -228,7 +228,7 @@ servantHandlers
     => SendActions m -> ServerT WalletApi m
 servantHandlers sendActions =
 #ifdef DEV_MODE
-     apiTestReset
+     catchWalletError testResetAll
     :<|>
 #endif
      apiGetWallet
@@ -276,7 +276,6 @@ servantHandlers sendActions =
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
-    apiTestReset                = catchWalletError testResetAll
     apiGetWallet                = (catchWalletError . getWallet)
     apiGetWallets               = catchWalletError getWallets
     apiUpdateWallet             = (\a -> catchWalletError . updateWallet a)

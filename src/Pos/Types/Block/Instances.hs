@@ -48,7 +48,8 @@ import           Serokell.Util         (Color (Magenta), colorize, listJson)
 import           Universum
 
 import           Pos.Binary.Class      (Bi)
-import           Pos.Core.Block        (Blockchain (..), GenericBlock (..),
+import           Pos.Core.Block        (IsHeader, IsGenesisHeader, IsMainHeader(..),
+                                        Blockchain (..), GenericBlock (..),
                                         GenericBlockHeader (..), HasPrevBlock (..),
                                         gbBody, gbHeader, gbhConsensus, gbhPrevBlock,
                                         gbhExtra)
@@ -449,6 +450,21 @@ instance (HasEpochOrSlot a, HasEpochOrSlot b) =>
 instance HasHeaderHash HeaderHash where
     headerHash = identity
 
+{- The story of unnecessary constraints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+All of the instances below have a BiHeader constraint. BiHeader is defined as
+“Bi BlockHeader”, which in its turn expands into:
+
+    Bi (Either GenesisBlockHeader MainBlockHeader)
+
+Thus, effectively we require “Bi MainBlockHeader” for the HasHeaderHash
+instance of *Genesis*BlockHeader, and vice-versa. This is because hashing of
+all headers (MainBlockHeader and GenesisBlockHeader) is done by converting
+them to BlockHeader first, so that a header would have the same hash
+regardless of whether it's inside a BlockHeader or not.
+-}
+
 instance BiHeader ssc =>
          HasHeaderHash (MainBlockHeader ssc) where
     headerHash = blockHeaderHash . Right
@@ -552,3 +568,19 @@ instance HasBlockVersion (MainBlock ssc) where
 instance HasSoftwareVersion (MainBlock ssc) where
     softwareVersionL = gbHeader . softwareVersionL
 
+----------------------------------------------------------------------------
+-- IsHeader, IsGenesisHeader, IsMainHeader
+----------------------------------------------------------------------------
+
+-- If these constraints seem wrong to you, read “The story of unnecessary
+-- constraints” in this file
+
+instance BiHeader ssc => IsHeader (GenesisBlockHeader ssc)
+instance BiHeader ssc => IsGenesisHeader (GenesisBlockHeader ssc)
+
+instance BiHeader ssc => IsHeader (MainBlockHeader ssc)
+instance BiHeader ssc => IsMainHeader (MainBlockHeader ssc) where
+    headerSlotL = headerSlot
+    headerLeaderKeyL = headerLeaderKey
+
+instance BiHeader ssc => IsHeader (BlockHeader ssc)

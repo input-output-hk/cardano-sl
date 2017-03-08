@@ -65,13 +65,13 @@ getMemPool = getTxpLocalData (STM.readTVar . txpMemPool)
 modifyTxpLocalData :: (MonadIO m, MonadTxpMem m) => (TxpLocalDataPure -> (a, TxpLocalDataPure)) -> m a
 modifyTxpLocalData f =
     askTxpMem >>= \TxpLocalData{..} -> atomically $ do
-        curUV  <- STM.readTVar txpUtxoModifier
+        curUM  <- STM.readTVar txpUtxoModifier
         curMP  <- STM.readTVar txpMemPool
         curUndos <- STM.readTVar txpUndos
         curTip <- STM.readTVar txpTip
-        let (res, (newUV, newMP, newUndos, newTip))
-              = f (curUV, curMP, curUndos, curTip)
-        STM.writeTVar txpUtxoModifier newUV
+        let (res, (newUM, newMP, newUndos, newTip))
+              = f (curUM, curMP, curUndos, curTip)
+        STM.writeTVar txpUtxoModifier newUM
         STM.writeTVar txpMemPool newMP
         STM.writeTVar txpUndos newUndos
         STM.writeTVar txpTip newTip

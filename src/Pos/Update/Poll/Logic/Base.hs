@@ -37,16 +37,14 @@ import           System.Wlog                (WithLogger, logDebug, logNotice)
 import           Universum
 
 import           Pos.Constants              (epochSlots)
-import           Pos.Core.Types             (ScriptVersion)
+import           Pos.Core                   (BlockVersion (..), Coin, EpochIndex,
+                                             HeaderHash, IsMainHeader (..), ScriptVersion,
+                                             SlotId, Timestamp (..), addressHash,
+                                             coinToInteger, difficultyL, headerHashG,
+                                             headerSlotL, sumCoins, unsafeAddCoin,
+                                             unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto                 (PublicKey, hash, shortHashF)
 import           Pos.Slotting               (EpochSlottingData (..), SlottingData (..))
-import           Pos.Ssc.Class              (Ssc)
-import           Pos.Types                  (BlockVersion (..), Coin, EpochIndex,
-                                             HeaderHash, MainBlockHeader, SlotId,
-                                             Timestamp (..), addressHash, coinToInteger,
-                                             difficultyL, headerHashG, headerSlot,
-                                             sumCoins, unsafeAddCoin, unsafeIntegerToCoin,
-                                             unsafeSubCoin)
 import           Pos.Update.Core            (BlockVersionData (..), UpId,
                                              UpdateProposal (..), UpdateVote (..),
                                              combineVotes, isPositiveVote, newVoteState)
@@ -364,16 +362,15 @@ voteToUProposalState voter stake decision ups@UndecidedProposalState {..} = do
 -- from mempool. State of proposal is calculated from votes for it and
 -- their stakes.
 putNewProposal
-    :: forall ssc m.
-       (MonadPoll m, Ssc ssc)
-    => Either SlotId (MainBlockHeader ssc)
+    :: (MonadPoll m, IsMainHeader mainHeader)
+    => Either SlotId mainHeader
     -> Coin
     -> [(UpdateVote, Coin)]
     -> UpdateProposal
     -> m ()
 putNewProposal slotOrHeader totalStake votesAndStakes up = addActiveProposal ps
   where
-    slotId = either identity (view headerSlot) slotOrHeader
+    slotId = either identity (view headerSlotL) slotOrHeader
     cd = either (const Nothing) (Just . view difficultyL) slotOrHeader
     totalPositive = sumCoins . map snd . filter (uvDecision . fst) $ votesAndStakes
     totalNegative = sumCoins . map snd . filter (not . uvDecision . fst) $ votesAndStakes

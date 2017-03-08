@@ -129,7 +129,7 @@ toBlockEntry blk = do
     blkSlotStart <- getSlotStart (blk ^. gbHeader . gbhConsensus . mcdSlot)
     let cbeBlkHash = toCHash $ headerHash blk
         cbeHeight = fromIntegral $ blk ^. difficultyL
-        cbeTimeIssued = fmap toPosixTime blkSlotStart
+        cbeTimeIssued = toPosixTime <$> blkSlotStart
         txs = blk ^. blockTxs
         cbeTxNum = fromIntegral $ length txs
         addCoins c = unsafeAddCoin c . totalTxMoney

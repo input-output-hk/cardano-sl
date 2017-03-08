@@ -42,7 +42,8 @@ import           Pos.Types                 (Block, BlockHeader, GenesisBlock,
                                             HeaderHash, genesisHash, headerHash,
                                             prevBlockL)
 import qualified Pos.Types                 as T
-import           Pos.Util                  (NewestFirst (..), maybeThrow)
+import           Pos.Util                  (NewestFirst (..))
+import           Pos.Util             (maybeThrow)
 
 -- | Get block with given hash from Block DB.
 getBlock

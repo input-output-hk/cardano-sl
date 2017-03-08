@@ -5,12 +5,8 @@
 
 module Pos.Txp.DB.Balances
        (
-         -- * Getters
-         getTotalFtsStake
-       , getFtsStake
-
          -- * Operations
-       , BalancesOp (..)
+         BalancesOp (..)
 
          -- * Initialization
        , prepareGStateBalances
@@ -24,44 +20,32 @@ module Pos.Txp.DB.Balances
        , sanityCheckBalances
        ) where
 
-import qualified Data.HashMap.Strict  as HM
+import qualified Data.HashMap.Strict    as HM
 import qualified Data.Text.Buildable
-import qualified Database.RocksDB     as Rocks
-import           Formatting           (bprint, bprint, sformat, (%))
-import           Serokell.Util        (Color (Red), colorize)
-import           System.Wlog          (WithLogger, logError)
+import qualified Database.RocksDB       as Rocks
+import           Formatting             (bprint, bprint, sformat, (%))
+import           Serokell.Util          (Color (Red), colorize)
+import           System.Wlog            (WithLogger, logError)
 import           Universum
 
-import           Pos.Binary.Class     (encodeStrict)
-import           Pos.Crypto           (shortHashF)
-import           Pos.DB.Class         (MonadDB)
-import           Pos.DB.Error         (DBError (..))
-import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
-import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
-import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
-                                       IterType, runDBnIterator, runDBnMapIterator)
-import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
-import           Pos.Txp.Core         (txOutStake)
-import           Pos.Txp.Toil.Types   (Utxo)
-import           Pos.Txp.Toil.Utxo    (utxoToStakes)
-import           Pos.Types            (Coin, StakeholderId, coinF, mkCoin, sumCoins,
-                                       unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Util             (maybeThrow)
-import           Pos.Util.Iterator    (MonadIterator (..))
-
-----------------------------------------------------------------------------
--- Getters
-----------------------------------------------------------------------------
-
--- | Get total amount of stake to be used for follow-the-satoshi. It's
--- different from total amount of coins in the system.
-getTotalFtsStake :: MonadDB m => m Coin
-getTotalFtsStake =
-    maybeThrow (DBMalformed "no total FTS stake in GState DB") =<< getFtsSumMaybe
-
--- | Get stake owne by given stakeholder (according to rules used for FTS).
-getFtsStake :: MonadDB m => StakeholderId -> m (Maybe Coin)
-getFtsStake = gsGetBi . ftsStakeKey
+import           Pos.Binary.Class       (encodeStrict)
+import           Pos.Crypto             (shortHashF)
+import           Pos.DB.Class           (MonadDB)
+import           Pos.DB.Error           (DBError (..))
+import           Pos.DB.Functions       (RocksBatchOp (..))
+import           Pos.DB.GState.Balances (BalIter, ftsStakeKey, ftsSumKey, getFtsSumMaybe,
+                                         getTotalFtsStake)
+import           Pos.DB.GState.Common   (gsPutBi)
+import           Pos.DB.Iterator        (DBnIterator, DBnMapIterator, IterType,
+                                         runDBnIterator, runDBnMapIterator)
+import           Pos.DB.Types           (NodeDBs (_gStateDB))
+import           Pos.Txp.Core           (txOutStake)
+import           Pos.Txp.Toil.Types     (Utxo)
+import           Pos.Txp.Toil.Utxo      (utxoToStakes)
+import           Pos.Types              (Coin, StakeholderId, coinF, mkCoin, sumCoins,
+                                         unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Util.Iterator      (MonadIterator (..))
+import           Pos.Util          (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Operations
@@ -112,13 +96,6 @@ putTotalFtsStake = gsPutBi ftsSumKey
 -- Balance
 ----------------------------------------------------------------------------
 
-data BalIter
-
-instance DBIteratorClass BalIter where
-    type IterKey BalIter = StakeholderId
-    type IterValue BalIter = Coin
-    iterKeyPrefix _ = iterationPrefix
-
 runBalanceIterator
     :: forall m a . MonadDB m
     => DBnIterator BalIter a -> m a
@@ -150,24 +127,8 @@ sanityCheckBalances = do
         throwM $ DBMalformed msg
 
 ----------------------------------------------------------------------------
--- Keys
-----------------------------------------------------------------------------
-
-ftsStakeKey :: StakeholderId -> ByteString
-ftsStakeKey = encodeWithKeyPrefix @BalIter
-
-ftsSumKey :: ByteString
-ftsSumKey = "b/ftssum"
-
-iterationPrefix :: ByteString
-iterationPrefix = "b/s/"
-
-----------------------------------------------------------------------------
 -- Details
 ----------------------------------------------------------------------------
 
 putFtsStake :: MonadDB m => StakeholderId -> Coin -> m ()
 putFtsStake = gsPutBi . ftsStakeKey
-
-getFtsSumMaybe :: MonadDB m => m (Maybe Coin)
-getFtsSumMaybe = gsGetBi ftsSumKey

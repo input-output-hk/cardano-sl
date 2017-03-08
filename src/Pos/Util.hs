@@ -22,7 +22,6 @@ module Pos.Util
        , inAssertMode
        , diffDoubleMap
        , getKeys
-       , maybeThrow
        , maybeThrow'
 
        -- * NonEmpty
@@ -165,9 +164,6 @@ diffDoubleMap a b = HM.foldlWithKey' go mempty a
                 in if null diff
                        then res
                        else HM.insert extKey diff res
-
-maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
-maybeThrow e = maybe (throwM e) pure
 
 maybeThrow' :: (Mockable Throw m, Exception e) => e -> Maybe a -> m a
 maybeThrow' e = maybe (throw e) pure

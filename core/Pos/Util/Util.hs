@@ -12,6 +12,8 @@ module Pos.Util.Util
        , liftLensSome
        , liftGetterSome
 
+       , maybeThrow
+
        -- * Instances
        -- ** Lift Byte
        -- ** FromJSON Byte
@@ -75,3 +77,6 @@ instance FromJSON Byte where
 
 instance ToJSON Byte where
     toJSON = toJSON . toBytes
+
+maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
+maybeThrow e = maybe (throwM e) pure

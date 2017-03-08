@@ -27,7 +27,7 @@ import           Pos.DB.Class     (MonadDB, getLrcDB)
 import           Pos.DB.Error     (DBError (DBMalformed))
 import           Pos.DB.Functions (rocksDelete, rocksGetBi, rocksPutBi)
 import           Pos.Types        (EpochIndex)
-import           Pos.Util         (maybeThrow)
+import           Pos.Util    (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Common Helpers

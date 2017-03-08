@@ -73,8 +73,8 @@ import           Pos.Update.Poll.Types      (BlockVersionState (..),
                                              ProposalState (..),
                                              UndecidedProposalState (upsSlot),
                                              cpsSoftwareVersion, psProposal)
-import           Pos.Util                   (maybeThrow)
 import           Pos.Util.Iterator          (MonadIterator (..))
+import           Pos.Util              (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Getters

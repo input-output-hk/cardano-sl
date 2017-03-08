@@ -100,12 +100,9 @@ notifierServer
 notifierServer settings connVar = do
     loggerName <- getLoggerName
     liftIO $ do
-        handler <- liftIO $ initialize snapAPI $
-            withCORS $ notifierHandler connVar loggerName
-        httpServe (toSnapConfig settings) $
+        handler <- liftIO $ initialize snapAPI $ notifierHandler connVar loggerName
+        httpServe (toSnapConfig settings) $ CORS.applyCORS CORS.defaultOptions $
             route [("/socket.io", handler)]
-  where
-    withCORS = CORS.applyCORS CORS.defaultOptions
 
 periodicPollChanges
     :: forall ssc m.

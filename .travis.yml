@@ -1,20 +1,16 @@
 language: nix
 sudo: true
-
 env:
 - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/09c7601c204016c8ecdefd474f721fb841e834df.tar.gz
-
 install:
 - sudo mount -o remount,exec,size=4G,mode=755 /run/user || true
-
-script:   
+script:
 - cd frontend
-- ./scripts/build.sh
+- "./scripts/build.sh"
 - nix-shell --run "npm test"
-
 notifications:
   email: false
   slack:
-    secure: HRcMUU+/MNGP3TS3Ta61y8ouDh865zJm/iS6tnDWjajsJC1cvQmUKzBJGSfAl7fCCznDJowsX3p33TyQq1Ulb+SKD88Umb5QaTDyINepUhrirUVdkHTn3o61wauib6lpyuSi7c1CjfGe2Oh4nD+z7AidRSBhxUeeJvROMVPNDRMWfz8hxgII/qWdxucpJ2LphqbOlq3KefUdq8Z3VGm5Nu1QhkIZvrzEzPgCbNz+L+reVIGLPlPYEEkxY/zOZeerIgbfHVyxgxXAxx81r5dQbnNH628gmDOHRq98Bgsp1lqCKuf0A8iAWpxE9ru9VTV4AdydR4IMeKnxlXSEuusGDJ9l2VXSA9tN8yoxiLFwedNly6kQOUgQLPjzzXAbafKTjMvyCdFrUmQPmebBdv+l27HCuyLvVqKrydnNFQjhLX8Nfxf1uOCoYrAk67dU+9HKHYvVavuHD1BVwNfi1V5StfiIWNZTOdSmE5fpCfNYlSDiDD+pxMmI/smeFbrzsiZCE4wBW7CFrZ3ENZ2C07Lz88ip7nCrrPzc7RUmVQg5fELquadKMQ5R013S0/pIuSbgc4aQmsxMhabQ8JgOUYTKVX+cx3JTVTVHZ67JE/WA/3y2Hjune3D8rCIbdJ5sj63lts7aQLMUyBMSdahYKjSHgHuaULg2k1UAc90sLyDe3HM=
+    secure: OdwiFeu7kwochdkIbVz5ZIlTa1AdItO9EFYPVHKoqGOy8s/6kkmMlb0XH4w8ZvKMSDVE2tuXBKz2cVqu0k1A3Nml/q8LF0a2zYagkpAUe4uEHBD7jTO8RCLzABw06unlIyOuNRApTUH97Dq/GftNwunkCyeY7DgzNoxm9mHB53BHaF2A/eHw6oHX3MQwGZvjuqZAT2wx7UbxEISWVWx18ZPTjCJsrDR7dwwB07IhA8oYUNk9nqE94OplLofUafBDRneDs5kEQoVmxomt6U44BIQs7acUGDvSjnmxhgEbq8rge7N5I3i0REtNQCOBeWThGkNY9H3fZfqSTeVQa7/xig8Vxu7+6G+QfOxvCp8PZP3sDACSXJvy/6gUN/sU6q8lZweuAm9BddULof6jjMhPcohRf/hu5/NmSFqYo33wZWvZaBrijBrpPOooU/16W+SbK6kKVuv8YxhnQ64wwKAlnGUcFCEcZwb4EZsMDho1VMO002yC5WmnB3+N/n3i9ncTaT1aVnXZYvkH971AOQ3uMLdICJpMPmZ5ykl8KmfL27fUwxngQzkARdioCt/WEsCLPUJP0YBfjK5GLCZdeLobAeHoE7aKp2XCIwwvoaLwo2z96HSq6OoWBZC8z60Y6ttbEwSFBe/kYU55UYCbZi4bDrtZbpiVp66QxCL9k/xv65o=
     on_success: change
     on_failure: change

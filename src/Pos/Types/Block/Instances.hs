@@ -50,8 +50,10 @@ import           Universum
 import           Pos.Binary.Class      (Bi)
 import           Pos.Core.Block        (Blockchain (..), GenericBlock (..),
                                         GenericBlockHeader (..), HasPrevBlock (..),
-                                        gbBody, gbHeader, gbhConsensus, gbhPrevBlock)
-import           Pos.Core.Types        (ChainDifficulty, EpochIndex (..),
+                                        gbBody, gbHeader, gbhConsensus, gbhPrevBlock,
+                                        gbhExtra)
+import           Pos.Core.Types        (HasBlockVersion(..), HasSoftwareVersion(..),
+                                        ChainDifficulty, EpochIndex (..),
                                         HasDifficulty (..), HasEpochIndex (..),
                                         HasEpochOrSlot (..), HasHeaderHash (..),
                                         HeaderHash, ProxySKHeavy, SlotId (..),
@@ -65,7 +67,8 @@ import           Pos.Types.Block.Types (BiHeader, BiSsc, Block, BlockHeader,
                                         BlockSignature, GenesisBlock, GenesisBlockHeader,
                                         GenesisBlockchain, MainBlock, MainBlockHeader,
                                         MainBlockchain, MainExtraBodyData,
-                                        MainExtraHeaderData)
+                                        MainExtraHeaderData, mehBlockVersion,
+                                        mehSoftwareVersion)
 import           Pos.Update.Core.Types (UpdatePayload, UpdateProof, UpdateProposal,
                                         mkUpdateProof)
 
@@ -529,3 +532,23 @@ instance (BHeaderHash b ~ HeaderHash) =>
 instance (HasPrevBlock s, HasPrevBlock s') =>
          HasPrevBlock (Either s s') where
     prevBlockL = choosing prevBlockL prevBlockL
+
+----------------------------------------------------------------------------
+-- Has*Version
+----------------------------------------------------------------------------
+
+instance HasBlockVersion MainExtraHeaderData where
+    blockVersionL = mehBlockVersion
+instance HasSoftwareVersion MainExtraHeaderData where
+    softwareVersionL = mehSoftwareVersion
+
+instance HasBlockVersion (MainBlockHeader ssc) where
+    blockVersionL = gbhExtra . blockVersionL
+instance HasSoftwareVersion (MainBlockHeader ssc) where
+    softwareVersionL = gbhExtra . softwareVersionL
+
+instance HasBlockVersion (MainBlock ssc) where
+    blockVersionL = gbHeader . blockVersionL
+instance HasSoftwareVersion (MainBlock ssc) where
+    softwareVersionL = gbHeader . softwareVersionL
+

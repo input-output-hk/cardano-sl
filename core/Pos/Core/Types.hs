@@ -21,8 +21,10 @@ module Pos.Core.Types
         -- * Version
        , ApplicationName (..)
        , BlockVersion (..)
+       , HasBlockVersion (..)
        , NumSoftwareVersion
        , SoftwareVersion (..)
+       , HasSoftwareVersion (..)
 
        -- * HeaderHash related types and functions
        , BlockHeaderStub
@@ -184,6 +186,12 @@ instance Hashable BlockVersion
 
 instance NFData BlockVersion
 instance NFData SoftwareVersion
+
+class HasBlockVersion a where
+    blockVersionL :: Lens' a BlockVersion
+
+class HasSoftwareVersion a where
+    softwareVersionL :: Lens' a SoftwareVersion
 
 ----------------------------------------------------------------------------
 -- HeaderHash

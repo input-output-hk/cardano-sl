@@ -10,7 +10,6 @@ module Pos.Explorer.Web.Server
        , explorerHandlers
        ) where
 
-import           Control.Arrow                  ( (&&&) )
 import           Control.Monad.Catch            (try)
 import           Control.Monad.Loops            (unfoldrM)
 import           Control.Monad.Trans.Maybe      (MaybeT (..))
@@ -28,16 +27,16 @@ import qualified Pos.DB.GState                  as GS
 import           Pos.DB.GState.Explorer         as GS (getTxExtra)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (Tx (..), TxId, TxOut (..),
-                                                 getLocalTxs, getMemPool,
-                                                 topsortTxs, txOutAddress,
-                                                 _mpLocalTxs, _txOutputs)
+import           Pos.Txp                        (Tx (..), TxId, getLocalTxs,
+                                                 getMemPool, topsortTxs,
+                                                 txOutValue, _mpLocalTxs,
+                                                 _txOutputs)
 import           Pos.Types                      (Address (..), HeaderHash,
-                                                 MainBlock, Timestamp,
-                                                 blockTxs, difficultyL,
-                                                 gbHeader, gbhConsensus,
-                                                 mcdSlot, mkCoin, prevBlockL,
-                                                 sumCoins, unsafeIntegerToCoin,
+                                                 MainBlock, Timestamp, blockTxs,
+                                                 difficultyL, gbHeader,
+                                                 gbhConsensus, mcdSlot, mkCoin,
+                                                 prevBlockL, sumCoins,
+                                                 unsafeIntegerToCoin,
                                                  unsafeSubCoin)
 import           Pos.Types.Explorer             (TxExtra (..))
 import           Pos.Util                       (maybeThrow)
@@ -52,11 +51,11 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
                                                  CBlockSummary (..), CHash,
                                                  CTxEntry (..), CTxId (..),
                                                  CTxSummary (..),
-                                                 TxInternal (..), fromCAddress,
+                                                 TxInternal (..),
+                                                 convertTxOutputs, fromCAddress,
                                                  fromCHash', fromCTxId,
                                                  toBlockEntry, toBlockSummary,
-                                                 toCAddress, toPosixTime,
-                                                 toTxEntry)
+                                                 toPosixTime, toTxEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 ----------------------------------------------------------------
@@ -173,8 +172,6 @@ getTxSummary cTxId = do
 
     let blockchainPlace = teBlockchainPlace txExtra
         inputOutputs = teInputOutputs txExtra
-
-    let convertTxOutputs = map (toCAddress . txOutAddress &&& txOutValue)
 
     -- TODO: here and in getMempoolTxs/getBlockchainTxs we do two things wrongly:
     -- 1. If the transaction is found in the MemPool, we return *starting

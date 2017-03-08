@@ -16,7 +16,7 @@ import Daedalus.Constants (wsUri)
 import Data.Maybe (Maybe(Just, Nothing))
 import WebSocket (runMessage, runMessageEvent)
 import Data.Function.Eff (EffFn1, runEffFn1)
-import Control.Monad.Eff.Unsafe (unsafeInterleaveEff)
+import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 
 type NotifyCb eff = EffFn1 eff String Unit
 type ErrorCb eff = EffFn1 eff Event Unit
@@ -94,7 +94,7 @@ onClose st@(WSState state) = do
                 void $ launchAff $ later' 5000 $ liftEff' $ mkConn st
 
             -- FIXME: don't hardcode the message. Create new event!
-            unsafeInterleaveEff $ runEffFn1 cb "{\"tag\":\"ConnectionClosedReconnecting\",\"contents\":[]}"
+            unsafeCoerceEff $ runEffFn1 cb "{\"tag\":\"ConnectionClosedReconnecting\",\"contents\":[]}"
         Nothing -> pure unit
 
 onMessage :: forall eff. WSState eff -> MessageEvent -> Eff eff Unit

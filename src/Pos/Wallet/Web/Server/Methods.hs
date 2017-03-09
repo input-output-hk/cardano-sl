@@ -28,7 +28,7 @@ import           Data.Default                  (Default (def))
 import           Data.List                     (elemIndex, (!!))
 import           Data.Tagged                   (untag)
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
-import           Data.Time.Units               (Microsecond)
+import           Data.Time.Units               (Microsecond, Second)
 import           Formatting                    (build, ords, sformat, stext, (%))
 import           Network.Wai                   (Application)
 import           Serokell.Util                 (threadDelay)
@@ -169,8 +169,8 @@ launchNotifier nat =
         , updateNotifier
         ]
   where
-    cooldownPeriod :: Microsecond
-    cooldownPeriod = 5000000
+    cooldownPeriod :: Second
+    cooldownPeriod = 5
 
     difficultyNotifyPeriod :: Microsecond
     difficultyNotifyPeriod = 500000  -- 0.5 sec

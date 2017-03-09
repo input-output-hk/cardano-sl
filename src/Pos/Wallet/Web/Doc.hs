@@ -13,11 +13,11 @@ import           Data.Time.Clock.POSIX      (POSIXTime)
 import           Network.HTTP.Types.Method  (methodPost)
 import           Servant.API                (Capture, QueryParam)
 import           Servant.Docs               (API, DocCapture (..), DocIntro (..),
-                                             DocNote (..), DocQueryParam (..), ExtraInfo (..), ToParam,
-                                             ToCapture (toCapture), ToSample (toSamples),
-                                             defAction, defEndpoint, defaultDocOptions,
-                                             docsWith, markdown, method, notes, path,
-                                             singleSample)
+                                             DocNote (..), DocQueryParam (..),
+                                             ExtraInfo (..), ToCapture (toCapture),
+                                             ToParam, ToSample (toSamples), defAction,
+                                             defEndpoint, defaultDocOptions, docsWith,
+                                             markdown, method, notes, path, singleSample)
 import qualified Servant.Docs               as SD
 import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum
@@ -194,10 +194,10 @@ instance ToCapture (Capture "key" FilePath) where
         }
 
 instance ToSample WalletError where
-    toSamples Proxy = notImplemented
+    toSamples Proxy = undefined
 
 instance ToSample CWalletRedeem where
-    toSamples Proxy = notImplemented
+    toSamples Proxy = undefined
 
 instance ToSample Coin where
     toSamples Proxy = singleSample (mkCoin 100500)
@@ -207,23 +207,23 @@ instance ToSample Coin where
 --
 -- FIXME!
 instance ToSample CHash where
-    toSamples Proxy = notImplemented
+    toSamples Proxy = undefined
 
 -- FIXME!
 instance ToSample CWallet where
-    toSamples Proxy = notImplemented
+    toSamples Proxy = undefined
 
 -- FIXME!
 instance ToSample CWalletMeta where
-    toSamples Proxy = notImplemented
+    toSamples Proxy = undefined
 
 -- FIXME!
 instance ToSample CWalletInit where
-    toSamples Proxy = notImplemented
+    toSamples Proxy = undefined
 
 -- FIXME!
 instance ToSample CUpdateInfo where
-    toSamples Proxy = notImplemented
+    toSamples Proxy = undefined
 
 instance ToSample CAddress where
     toSamples Proxy = singleSample . addressToCAddress . makePubKeyAddress . fst $
@@ -232,25 +232,25 @@ instance ToSample CAddress where
 -- FIXME: this is required because of Wallet.Web.Api `type Cors...`
 -- I don't really what should be sample for Cors ?
 instance ToSample Text where
-    toSamples Proxy = notImplemented
+    toSamples Proxy = undefined
 
 instance ToSample () where
     toSamples Proxy = singleSample ()
 
 instance ToSample CTx where
-    toSamples Proxy = notImplemented
+    toSamples Proxy = undefined
 
 instance ToSample CTxMeta where
-    toSamples Proxy = notImplemented
+    toSamples Proxy = undefined
 
 instance ToSample CProfile where
-    toSamples Proxy = notImplemented
+    toSamples Proxy = undefined
 
 instance ToSample Word where
-    toSamples Proxy = notImplemented
+    toSamples Proxy = undefined
 
 instance ToSample BackupPhrase where
-    toSamples Proxy = notImplemented
+    toSamples Proxy = undefined
 
 instance ToSample SoftwareVersion where
     toSamples Proxy = singleSample curSoftwareVersion

@@ -27,8 +27,8 @@ import           Pos.Update.Core.Types     (UpdatePayload)
 -- | This instance required only for Arbitrary instance of HeaderHash
 -- due to @instance Bi a => Hash a@.
 instance Bi T.BlockHeaderStub where
-    put _ = panic "somebody tried to binary put BlockHeaderStub"
-    get   = panic "somebody tried to binary get BlockHeaderStub"
+    put _ = error "somebody tried to binary put BlockHeaderStub"
+    get   = error "somebody tried to binary get BlockHeaderStub"
 
 instance ( Bi (T.BHeaderHash b)
          , Bi (T.BodyProof b)

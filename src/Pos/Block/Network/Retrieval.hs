@@ -18,6 +18,7 @@ import           Control.Concurrent.STM     (isEmptyTBQueue, isFullTBQueue, putT
                                              writeTBQueue)
 import           Control.Lens               (_Wrapped)
 import           Control.Monad.Except       (ExceptT, runExceptT, throwError)
+import           Control.Monad.STM          (retry)
 import           Data.List.NonEmpty         ((<|))
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, int, sformat, shown, stext, (%))
@@ -570,7 +571,7 @@ applyWithoutRollback sendActions blocks = do
                      "newer were considered invalid")
                     newTip
             let toRelay =
-                    fromMaybe (panic "Listeners#applyWithoutRollback is broken") $
+                    fromMaybe (error "Listeners#applyWithoutRollback is broken") $
                     find (\b -> headerHash b == newTip) blocks
                 prefix = blocks
                     & _Wrapped %~ NE.takeWhile ((/= newTip) . headerHash)
@@ -626,7 +627,7 @@ applyWithRollback peerId sendActions toApply lca toRollback = do
             logDebug "Reporting rollback happened"
             reportMisbehaviourMasked version $
                 sformat reportF peerId toRollbackHashes toApplyHashes
-    panicBrokenLca = panic "applyWithRollback: nothing after LCA :<"
+    panicBrokenLca = error "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =
         OldestFirst $
         fromMaybe panicBrokenLca $ nonEmpty $

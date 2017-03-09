@@ -18,7 +18,7 @@ module Pos.Wallet.Web.Server.Sockets
        , runWalletWS
        ) where
 
-import           Control.Concurrent.STM.TVar    (TVar, newTVarIO, readTVarIO, writeTVar)
+import           Control.Concurrent.STM.TVar    (readTVarIO)
 import           Control.Lens                   (iso)
 import           Control.Monad.Trans            (MonadTrans (..))
 import           Data.Aeson                     (encode)
@@ -94,7 +94,7 @@ send :: MonadIO m => (WS.Connection -> NotifyEvent -> IO ()) -> ConnectionsVar -
 send f connVar msg = liftIO $ maybe mempty (flip f msg) =<< readTVarIO connVar
 
 instance WS.WebSocketsData NotifyEvent where
-    fromLazyByteString _ = panic "Attempt to deserialize NotifyEvent is illegal"
+    fromLazyByteString _ = error "Attempt to deserialize NotifyEvent is illegal"
     toLazyByteString = encode
 
 --------

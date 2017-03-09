@@ -338,7 +338,7 @@ library
                         -- Utilities/helpers
                         Pos.Util.Arbitrary
                         Pos.Util.LogSafe
-                        Pos.Util.NotImplemented
+                        Pos.Util.Undefined
   if flag(with-web)
     other-modules:      Pos.Aeson.Crypto
                         Pos.Aeson.Types
@@ -386,7 +386,6 @@ library
                         Pos.Wallet.Web.State.Storage
   build-depends:        IfElse
                       , QuickCheck
-                      , UtilityTM
                       , acid-state
                       , aeson >= 0.11.2.1
                       , ansi-terminal

@@ -125,7 +125,7 @@ txScriptCheck sigData validator redeemer = case spoon result of
 stdlib :: PLCore.Program
 stdlib = case PL.runElabInContexts [] (PL.loadProgram prelude) of
     Right x  -> x
-    Left err -> panic $ toText
+    Left err -> error $ toText
                   ("stdlib: error while parsing Plutus prelude: " ++ err)
   where
     prelude = $(lift . toString =<< runIO PL.preludeString)

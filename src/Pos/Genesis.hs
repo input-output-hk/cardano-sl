@@ -72,7 +72,7 @@ genesisKeyPairs = map gen [0 .. Const.genesisN - 1]
   where
     gen :: Int -> (PublicKey, SecretKey)
     gen =
-        fromMaybe (panic "deterministicKeyGen failed in Genesis") .
+        fromMaybe (error "deterministicKeyGen failed in Genesis") .
         deterministicKeyGen .
         encodeUtf8 .
         T.take 32 . sformat ("My awesome 32-byte seed #" %int % "             ")

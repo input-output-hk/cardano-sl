@@ -67,12 +67,13 @@ module Pos.Util
        -- ** MonadFail LoggerNameBox
        ) where
 
+import           Universum                        hiding (bracket, finally)
+
 import           Control.Arrow                    ((***))
 import           Control.Concurrent.ReadWriteLock (RWLock, acquireRead, acquireWrite,
                                                    releaseRead, releaseWrite)
-import           Control.Concurrent.STM.TVar      (TVar, readTVar)
-import           Control.Lens                     (Each (..), lensRules, makeWrapped,
-                                                   _Wrapped)
+import           Control.Lens                     (lensRules, makeWrapped, _Wrapped)
+import qualified Control.Lens                     as Lens (Each (..))
 import           Control.Lens.Internal.FieldTH    (makeFieldOpticsForDec)
 import qualified Control.Monad                    as Monad (fail)
 import           Control.Monad.STM                (retry)
@@ -94,16 +95,14 @@ import           Serokell.Util                    (VerificationRes (..))
 import           System.Wlog                      (LoggerNameBox (..))
 import           Test.QuickCheck                  (Arbitrary)
 import           Text.Parsec                      (ParsecT)
-import           Universum                        hiding (Async, async, bracket, cancel,
-                                                   finally, waitAny)
 import           Unsafe                           (unsafeInit, unsafeLast)
 -- SafeCopy instance for HashMap
 import           Serokell.AcidState               ()
 
 import           Pos.Binary.Class                 (Bi)
 import           Pos.Util.Arbitrary
-import           Pos.Util.NotImplemented          ()
 import           Pos.Util.TimeLimit
+import           Pos.Util.Undefined               ()
 import           Pos.Util.Util
 
 mappendPair :: (Monoid a, Monoid b) => (a, b) -> (a, b) -> (a, b)
@@ -131,7 +130,7 @@ deriveSafeCopySimple 0 'base ''VerificationRes
 
 -- | A helper for simple error handling in executables
 eitherPanic :: Show a => Text -> Either a b -> b
-eitherPanic msgPrefix = either (panic . (msgPrefix <>) . show) identity
+eitherPanic msgPrefix = either (error . (msgPrefix <>) . show) identity
 
 -- | This function performs checks at compile-time for different actions.
 -- May slowdown implementation. To disable such checks (especially in benchmarks)
@@ -207,12 +206,12 @@ newtype OldestFirst f a = OldestFirst {getOldestFirst :: f a}
 makeWrapped ''NewestFirst
 makeWrapped ''OldestFirst
 
-instance Each (f a) (f b) a b =>
-         Each (NewestFirst f a) (NewestFirst f b) a b where
-    each = _Wrapped . each
-instance Each (f a) (f b) a b =>
-         Each (OldestFirst f a) (OldestFirst f b) a b where
-    each = _Wrapped . each
+instance Lens.Each (f a) (f b) a b =>
+         Lens.Each (NewestFirst f a) (NewestFirst f b) a b where
+    each = _Wrapped . Lens.each
+instance Lens.Each (f a) (f b) a b =>
+         Lens.Each (OldestFirst f a) (OldestFirst f b) a b where
+    each = _Wrapped . Lens.each
 
 instance One (f a) => One (NewestFirst f a) where
     type OneItem (NewestFirst f a) = OneItem (f a)

@@ -16,7 +16,6 @@ module Pos.Wallet.WalletMode
        , WalletRealMode
        ) where
 
-import           Control.Concurrent.MVar     (takeMVar)
 import           Control.Concurrent.STM      (TMVar, tryReadTMVar)
 import           Control.Monad.Loops         (unfoldrM)
 import           Control.Monad.Trans         (MonadTrans)
@@ -142,7 +141,7 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
     getTxHistory = Tagged $ \addr -> do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
-        fmap (fst . fromMaybe (panic "deriveAddrHistory: Nothing")) $
+        fmap (fst . fromMaybe (error "deriveAddrHistory: Nothing")) $
             runMaybeT $ flip runUtxoStateT utxo $
             deriveAddrHistory addr chain
     saveTx _ = pure ()
@@ -178,7 +177,7 @@ instance (MonadDB m, MonadThrow m, WithLogger m)
 
         result <- runMaybeT $
             evalUtxoStateT (foldrM blockFetcher [] hashList >>= localFetcher) genUtxo
-        maybe (panic "deriveAddrHistory: Nothing") return result
+        maybe (error "deriveAddrHistory: Nothing") return result
 
     saveTx txw = () <$ runExceptT (txProcessTransaction txw)
 
@@ -213,10 +212,10 @@ deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (WalletWebDB m)
 
 -- | Stub instance for lite-wallet
 instance MonadBlockchainInfo WalletRealMode where
-    networkChainDifficulty = panic "notImplemented"
-    localChainDifficulty = panic "notImplemented"
-    blockchainSlotDuration = panic "notImplemented"
-    connectedPeers = panic "notImplemented"
+    networkChainDifficulty = error "notImplemented"
+    localChainDifficulty = error "notImplemented"
+    blockchainSlotDuration = error "notImplemented"
+    connectedPeers = error "notImplemented"
 
 -- | Helpers for avoiding copy-paste
 topHeader :: (SscHelpersClass ssc, MonadDB m) => m (BlockHeader ssc)
@@ -290,7 +289,7 @@ deriving instance MonadUpdates m => MonadUpdates (WalletWebDB m)
 
 -- | Dummy instance for lite-wallet
 instance MonadIO m => MonadUpdates (WalletDB m) where
-    waitForUpdate = panic "notImplemented"
+    waitForUpdate = error "notImplemented"
     applyLastUpdate = pure ()
 
 -- | Instance for full node

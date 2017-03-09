@@ -26,7 +26,7 @@ toRichmen :: RichmenStake -> Richmen
 toRichmen =
     fromMaybe onNoRichmen . nonEmpty . HM.keys
   where
-    onNoRichmen = panic "There are no richmen!"
+    onNoRichmen = error "There are no richmen!"
 
 -- | Full richmen data consists of total stake at some point and stake
 -- distribution among richmen.

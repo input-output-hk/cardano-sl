@@ -39,7 +39,8 @@ import           Pos.Binary.Core            ()
 import           Pos.Binary.Crypto          ()
 import           Pos.Binary.Txp             ()
 import           Pos.Constants              (epochSlots, sharedSeedLength)
-import           Pos.Core.Address           (makePubKeyAddress, makeScriptAddress, makeRedeemAddress)
+import           Pos.Core.Address           (makePubKeyAddress, makeRedeemAddress,
+                                             makeScriptAddress)
 import           Pos.Core.Coin              (coinToInteger, divCoin, unsafeSubCoin)
 import           Pos.Core.Types             (Address (..), ChainDifficulty (..), Coin,
                                              CoinPortion, EpochIndex (..),
@@ -286,7 +287,7 @@ instance Arbitrary Tx where
     arbitrary =
         mkTx <$> arbitrary <*> arbitrary <*>
         pure (mkAttributes ()) <&> \case
-            Left err -> panic $ "Arbitrary Tx: " <> err
+            Left err -> error $ "Arbitrary Tx: " <> err
             Right res -> res
 
 -- | Type used to generate valid ('verifyTx')

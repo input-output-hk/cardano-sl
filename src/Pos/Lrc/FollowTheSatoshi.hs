@@ -25,7 +25,7 @@ followTheSatoshiM
     :: forall m . MonadIterator (StakeholderId, Coin) m
     => SharedSeed -> Coin -> m (NonEmpty StakeholderId)
 followTheSatoshiM _ totalCoins
-    | totalCoins == mkCoin 0 = panic "followTheSatoshiM: nobody has any stake"
+    | totalCoins == mkCoin 0 = error "followTheSatoshiM: nobody has any stake"
 followTheSatoshiM (SharedSeed seed) totalCoins = do
     res <- findLeaders (sortOn fst $ zip coinIndices [1..]) (mkCoin 0)
     pure . fromList . map fst . sortOn snd $ res
@@ -45,7 +45,7 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
     -- We ran out of items in the buffer so we take a new output
     -- and refill the buffer
     findLeaders coins sm = nextItem @(StakeholderId, Coin) >>=
-        maybe (panic "followTheSatoshiM: indices out of range") (onItem coins)
+        maybe (error "followTheSatoshiM: indices out of range") (onItem coins)
       where
         -- We check whether `c` is covered by current item in the buffer
         onItem [] _ = pure []
@@ -76,9 +76,9 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
 followTheSatoshi :: SharedSeed -> Utxo -> NonEmpty StakeholderId
 followTheSatoshi seed utxo
     | null stakes =
-          panic "followTheSatoshi: utxo is empty"
+          error "followTheSatoshi: utxo is empty"
     | totalCoins > coinToInteger (maxBound @Coin) =
-          panic "followTheSatoshi: totalCoins exceeds Word64"
+          error "followTheSatoshi: totalCoins exceeds Word64"
     | otherwise =
           runListHolder
               (followTheSatoshiM seed

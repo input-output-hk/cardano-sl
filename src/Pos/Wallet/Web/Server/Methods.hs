@@ -16,6 +16,9 @@ module Pos.Wallet.Web.Server.Methods
        , walletServerOuts
        ) where
 
+import           Universum
+
+import           Control.Concurrent            (forkFinally)
 import           Control.Lens                  (makeLenses, (.=))
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
@@ -25,15 +28,16 @@ import           Data.Default                  (Default (def))
 import           Data.List                     (elemIndex, (!!))
 import           Data.Tagged                   (untag)
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
+import           Data.Time.Units               (Microsecond)
 import           Formatting                    (build, ords, sformat, stext, (%))
 import           Network.Wai                   (Application)
+import           Serokell.Util                 (threadDelay)
 import           Servant.API                   ((:<|>) ((:<|>)),
                                                 FromHttpApiData (parseUrlPiece))
 import           Servant.Server                (Handler, Server, ServerT, serve)
 import           Servant.Utils.Enter           ((:~>) (..), enter)
 import           System.Wlog                   (logDebug)
 import           System.Wlog                   (logInfo)
-import           Universum
 
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Communication.Protocol    (OutSpecs, SendActions, hoistSendActions)
@@ -165,8 +169,12 @@ launchNotifier nat =
         , updateNotifier
         ]
   where
-    cooldownPeriod = 5000000         -- 5 sec
+    cooldownPeriod :: Microsecond
+    cooldownPeriod = 5000000
+
+    difficultyNotifyPeriod :: Microsecond
     difficultyNotifyPeriod = 500000  -- 0.5 sec
+
     -- networkResendPeriod = 10         -- in delay periods
     forkForever action = forkFinally action $ const $ do
         -- TODO: log error

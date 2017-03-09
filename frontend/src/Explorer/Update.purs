@@ -11,7 +11,7 @@ import Data.Either (Either(..))
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
 import Explorer.Api.Http (fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs)
-import Explorer.Api.Socket (callMeEvent, callMeStringEvent)
+import Explorer.Api.Socket (callMeCTxIdEvent, callMeEvent, callMeStringEvent)
 import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, connection, currentAddressSummary, currentBlock, currentBlockTxs, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
@@ -64,6 +64,15 @@ update (SocketCallMeString str) state =
               Nothing -> pure unit
           pure NoOp
     ]}
+update (SocketCallMeCTxId id) state =
+    { state
+    , effects : [ do
+          _ <- case state ^. (socket <<< connection) of
+              Just socket' -> liftEff $ emit socket' callMeCTxIdEvent id
+              Nothing -> pure unit
+          pure NoOp
+    ]}
+
 
 -- Dashboard
 

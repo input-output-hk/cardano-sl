@@ -6,7 +6,7 @@ import Data.Either (Either)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Explorer.Types.State (DashboardAPICode, CBlockEntries, CTxEntries)
-import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash)
+import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId)
 import Signal.Channel (Channel)
 
 data Action
@@ -20,8 +20,10 @@ data Action
     | SocketConnected Boolean
     | SocketLatestBlocks (Either Error CBlockEntries)
     | SocketLatestTransactions (Either Error CTxEntries)
+    -- socket endpoints for debugging only
     | SocketCallMe
     | SocketCallMeString String
+    | SocketCallMeCTxId CTxId
     -- http endpoints
     | RequestInitialBlocks
     | ReceiveInitialBlocks (Either Error CBlockEntries)

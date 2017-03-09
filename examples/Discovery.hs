@@ -8,6 +8,8 @@
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 
+module Main where
+
 import           Control.Monad                        (forM, forM_, when)
 import           Control.Monad.IO.Class               (liftIO)
 import           Data.Binary

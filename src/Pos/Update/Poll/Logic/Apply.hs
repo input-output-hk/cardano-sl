@@ -12,7 +12,6 @@ module Pos.Update.Poll.Logic.Apply
 
 import           Control.Monad.Except          (MonadError, throwError)
 import           Data.List                     (partition)
-import           Data.List.NonEmpty            (NonEmpty)
 import qualified Data.List.NonEmpty            as NE
 import           Formatting                    (build, builder, int, sformat, (%))
 import           System.Wlog                   (logDebug, logInfo, logNotice)
@@ -22,16 +21,15 @@ import           Pos.Binary.Class              (biSize)
 import           Pos.Constants                 (blkSecurityParam, genesisUpdateImplicit,
                                                 genesisUpdateProposalThd,
                                                 genesisUpdateVoteThd)
-import           Pos.Crypto                    (hash, shortHashF)
-import           Pos.Ssc.Class                 (Ssc)
-import           Pos.Types                     (ChainDifficulty, Coin, EpochIndex,
-                                                HeaderHash, MainBlockHeader,
+import           Pos.Core                      (ChainDifficulty, Coin, EpochIndex,
+                                                HeaderHash, IsMainHeader (..),
                                                 SlotId (siEpoch), SoftwareVersion (..),
                                                 addressHash, applyCoinPortion,
-                                                coinToInteger, difficultyL, epochIndexL,
-                                                flattenSlotId, gbhExtra, headerHash,
-                                                headerSlot, mehBlockVersion, sumCoins,
-                                                unflattenSlotId, unsafeIntegerToCoin)
+                                                blockVersionL, coinToInteger, difficultyL,
+                                                epochIndexL, flattenSlotId, headerHashG,
+                                                headerSlotL, sumCoins, unflattenSlotId,
+                                                unsafeIntegerToCoin)
+import           Pos.Crypto                    (hash, shortHashF)
 import           Pos.Update.Core               (BlockVersionData (..), UpId,
                                                 UpdatePayload (..), UpdateProposal (..),
                                                 UpdateVote (..))
@@ -48,6 +46,7 @@ import           Pos.Update.Poll.Types         (ConfirmedProposalState (..),
                                                 ProposalState (..),
                                                 UndecidedProposalState (..),
                                                 UpsExtra (..), psProposal)
+import           Pos.Util.Util                 (Some (..))
 
 type ApplyMode m = (MonadError PollVerFailure m, MonadPoll m)
 
@@ -62,8 +61,8 @@ type ApplyMode m = (MonadError PollVerFailure m, MonadPoll m)
 -- When it is 'Right header', it means that payload from block with
 -- given header is applied.
 verifyAndApplyUSPayload
-    :: forall ssc m . (ApplyMode m, Ssc ssc)
-    => Bool -> Either SlotId (MainBlockHeader ssc) -> UpdatePayload -> m ()
+    :: ApplyMode m
+    => Bool -> Either SlotId (Some IsMainHeader) -> UpdatePayload -> m ()
 verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = do
     -- First of all, we verify data from header.
     either (const pass) verifyHeader slotOrHeader
@@ -80,8 +79,9 @@ verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = 
     -- Then we also apply votes from other groups.
     -- ChainDifficulty is needed, because proposal may become approved
     -- and then we'll need to track whether it becomes confirmed.
-    let cd = (,) <$> either (const Nothing) (Just . view difficultyL) slotOrHeader
-                 <*> either (const Nothing) (Just . headerHash) slotOrHeader
+    let cd = case slotOrHeader of
+            Left  _ -> Nothing
+            Right h -> Just (h ^. difficultyL, h ^. headerHashG)
     mapM_ (verifyAndApplyVotesGroup cd) otherGroups
     -- If we are applying payload from block, we also check implicit
     -- agreement rule and depth of decided proposals (they can become
@@ -90,20 +90,20 @@ verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = 
         Left _ -> pass
         Right mainBlk -> do
             applyImplicitAgreement
-                (mainBlk ^. headerSlot)
+                (mainBlk ^. headerSlotL)
                 (mainBlk ^. difficultyL)
-                (headerHash mainBlk)
+                (mainBlk ^. headerHashG)
             applyDepthCheck
-                (headerHash mainBlk)
+                (mainBlk ^. headerHashG)
                 (mainBlk ^. difficultyL)
 
 -- Here we verify all US-related data from header.
 verifyHeader
-    :: (MonadError PollVerFailure m, MonadPoll m)
-    => MainBlockHeader __ -> m ()
+    :: (MonadError PollVerFailure m, MonadPoll m, IsMainHeader mainHeader)
+    => mainHeader -> m ()
 verifyHeader header = do
     lastAdopted <- getAdoptedBV
-    let versionInHeader = header ^. gbhExtra ^. mehBlockVersion
+    let versionInHeader = header ^. blockVersionL
     unlessM (canCreateBlockBV versionInHeader) $
         throwError
             PollWrongHeaderBlockVersion
@@ -140,10 +140,9 @@ resolveVoteStake epoch totalStake UpdateVote {..} = do
 -- If all checks pass, proposal is added. It can be in undecided or decided
 -- state (if it has enough voted stake at once).
 verifyAndApplyProposal
-    :: forall ssc m.
-       (MonadError PollVerFailure m, MonadPoll m, Ssc ssc)
+    :: (MonadError PollVerFailure m, MonadPoll m)
     => Bool
-    -> Either SlotId (MainBlockHeader ssc)
+    -> Either SlotId (Some IsMainHeader)
     -> [UpdateVote]
     -> UpdateProposal
     -> m ()
@@ -164,7 +163,8 @@ verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {.
     -- Here we verify consistency with regards to data from 'BlockVersionState'
     -- and update relevant state if necessary.
     verifyAndApplyProposalBVS upId up
-    -- Then we verify that protocol version from proposal can follow last adopted software version.
+    -- Then we verify that protocol version from proposal can follow last
+    -- adopted software version.
     verifyBlockVersion upId up
     -- We also verify that software version is expected one.
     verifySoftwareVersion upId up

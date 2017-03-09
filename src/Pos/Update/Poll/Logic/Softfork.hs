@@ -7,7 +7,6 @@ module Pos.Update.Poll.Logic.Softfork
 
 import           Control.Monad.Except       (MonadError, throwError)
 import qualified Data.HashSet               as HS
-import           Data.List.NonEmpty         (NonEmpty, nonEmpty)
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, (%))
 import           Serokell.Util.Text         (listJson)

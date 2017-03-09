@@ -16,7 +16,6 @@ module Pos.Core.Types
 
         -- * ChainDifficulty
        , ChainDifficulty (..)
-       , HasDifficulty (..)
 
         -- * Version
        , ApplicationName (..)
@@ -27,7 +26,6 @@ module Pos.Core.Types
        -- * HeaderHash related types and functions
        , BlockHeaderStub
        , HeaderHash
-       , HasHeaderHash (..)
        , headerHashF
 
        , ProxySigLight
@@ -52,12 +50,10 @@ module Pos.Core.Types
 
         -- * Slotting
        , EpochIndex (..)
-       , HasEpochIndex (..)
        , FlatSlotId
        , LocalSlotIndex (..)
        , SlotId (..)
        , EpochOrSlot (..)
-       , HasEpochOrSlot (..)
        , slotIdF
        , epochOrSlot
 
@@ -67,7 +63,6 @@ module Pos.Core.Types
        , ScriptVersion
        ) where
 
-import           Control.Lens         (Getter, to)
 import           Crypto.Hash          (Blake2s_224)
 import           Data.Data            (Data)
 import           Data.Default         (Default (..))
@@ -80,15 +75,14 @@ import           Data.Time.Units      (Microsecond)
 import           Formatting           (Format, bprint, build, formatToString, int, ords,
                                        shown, stext, (%))
 import qualified PlutusCore.Program   as PLCore
-import           Prelude              (show)
+import qualified Prelude
 import           Serokell.AcidState   ()
 import           Serokell.Util.Base16 (formatBase16)
-import           Universum            hiding (show)
+import           Universum
 
 import           Pos.Crypto           (AbstractHash, Hash, ProxySecretKey, ProxySignature,
                                        PublicKey, RedeemPublicKey)
 import           Pos.Data.Attributes  (Attributes)
-
 
 -- | Timestamp is a number which represents some point in time. It is
 -- used in MonadSlots and its meaning is up to implementation of this
@@ -137,10 +131,6 @@ instance NFData Address
 newtype ChainDifficulty = ChainDifficulty
     { getChainDifficulty :: Word64
     } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Buildable, Typeable, NFData)
-
--- | Type class for something that has 'ChainDifficulty'.
-class HasDifficulty a where
-    difficultyL :: Lens' a ChainDifficulty
 
 ----------------------------------------------------------------------------
 -- Version
@@ -199,12 +189,6 @@ data BlockHeaderStub
 -- | Specialized formatter for 'HeaderHash'.
 headerHashF :: Format r (HeaderHash -> r)
 headerHashF = build
-
--- | Class for something that has 'HeaderHash'.
-class HasHeaderHash a where
-    headerHash :: a -> HeaderHash
-    headerHashG :: Getter a HeaderHash
-    headerHashG = to headerHash
 
 ----------------------------------------------------------------------------
 -- Proxy signatures and delegation
@@ -331,10 +315,6 @@ instance Buildable EpochIndex where
 -- instance Buildable (EpochIndex,EpochIndex) where
 --     build = bprint ("epochIndices: "%pairF)
 
--- | Class for something that has 'EpochIndex'.
-class HasEpochIndex a where
-    epochIndexL :: Lens' a EpochIndex
-
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = LocalSlotIndex
     { getSlotIndex :: Word16
@@ -381,19 +361,6 @@ instance Ord EpochOrSlot where
 
 instance Buildable EpochOrSlot where
     build = either Buildable.build Buildable.build . unEpochOrSlot
-
-class HasEpochOrSlot a where
-    _getEpochOrSlot :: a -> Either EpochIndex SlotId
-    getEpochOrSlot :: a -> EpochOrSlot
-    getEpochOrSlot = EpochOrSlot . _getEpochOrSlot
-    epochOrSlotG :: Getter a EpochOrSlot
-    epochOrSlotG = to getEpochOrSlot
-
-instance HasEpochOrSlot EpochIndex where
-    _getEpochOrSlot = Left
-
-instance HasEpochOrSlot SlotId where
-    _getEpochOrSlot = Right
 
 instance NFData SlotId
 

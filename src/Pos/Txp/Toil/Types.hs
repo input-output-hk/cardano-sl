@@ -4,9 +4,10 @@
 -- and synchronization with database.
 
 module Pos.Txp.Toil.Types
-       ( UtxoView (..)
-       , uvAddUtxo
-       , uvDelUtxo
+       ( Utxo
+       , formatUtxo
+       , utxoF
+
        , MemPool (..)
        , mpLocalTxs
        , mpLocalTxsSize
@@ -15,35 +16,45 @@ module Pos.Txp.Toil.Types
        , bvStakes
        , bvTotal
        , UndoMap
+       , UtxoModifier
        , TxpModifier (..)
-       , txmUtxoView
+       , txmUtxoModifier
        , txmBalances
        , txmMemPool
        , txmUndos
        ) where
 
-import           Control.Lens        (makeLenses)
-import           Data.Default        (Default, def)
-import qualified Data.HashMap.Strict as HM
-import           Data.HashSet        (HashSet)
+import           Control.Lens           (makeLenses)
+import           Data.Default           (Default, def)
+import qualified Data.HashMap.Strict    as HM
+import qualified Data.Map               as M (toList)
+import           Data.Text.Lazy.Builder (Builder)
+import           Formatting             (Format, later)
+import           Serokell.Util.Text     (mapBuilderJson)
 import           Universum
 
-import           Pos.Txp.Core.Types  (TxAux, TxId, TxIn, TxOutAux, TxUndo)
-import           Pos.Types           (Coin, StakeholderId, mkCoin)
+import           Pos.Txp.Core.Types     (TxAux, TxId, TxIn, TxOutAux, TxUndo)
+-- import Pos.Binary.
+import           Pos.Types              (Coin, StakeholderId, mkCoin)
+import qualified Pos.Util.Modifier      as MM
 
 ----------------------------------------------------------------------------
--- UtxoView
+-- UTXO
 ----------------------------------------------------------------------------
 
-data UtxoView = UtxoView
-    { _uvAddUtxo :: !(HashMap TxIn TxOutAux)
-    , _uvDelUtxo :: !(HashSet TxIn)
-    }
+-- | Unspent transaction outputs.
+--
+-- Transaction inputs are identified by (transaction ID, index in list of
+-- output) pairs.
+type Utxo = Map TxIn TxOutAux
 
-makeLenses ''UtxoView
+-- | Format 'Utxo' map as json.
+formatUtxo :: Utxo -> Builder
+formatUtxo = mapBuilderJson . M.toList
 
-instance Default UtxoView where
-    def = UtxoView mempty mempty
+-- | Specialized formatter for 'Utxo'.
+utxoF :: Format r (Utxo -> r)
+utxoF = later formatUtxo
 
 ----------------------------------------------------------------------------
 -- BalancesView
@@ -87,16 +98,17 @@ instance Default MemPool where
 -- TxpModifier
 ----------------------------------------------------------------------------
 
+type UtxoModifier = MM.MapModifier TxIn TxOutAux
 type UndoMap = HashMap TxId TxUndo
 
 instance Default UndoMap where
     def = mempty
 
 data TxpModifier = TxpModifier
-    { _txmUtxoView :: !UtxoView
-    , _txmBalances :: !BalancesView
-    , _txmMemPool  :: !MemPool
-    , _txmUndos    :: !UndoMap
+    { _txmUtxoModifier :: !UtxoModifier
+    , _txmBalances     :: !BalancesView
+    , _txmMemPool      :: !MemPool
+    , _txmUndos        :: !UndoMap
     }
 
 makeLenses ''TxpModifier

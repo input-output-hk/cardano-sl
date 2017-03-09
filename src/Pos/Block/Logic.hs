@@ -74,8 +74,7 @@ import           Pos.Slotting.Class         (getCurrentSlot)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
                                              SscWorkersClass (..))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscVerifyBlocks)
-import           Pos.Txp.Core               (topsortTxs)
-import           Pos.Txp.Core.Types         (TxAux, TxId)
+import           Pos.Txp.Core               (TxAux, TxId, mkTxPayload, topsortTxs)
 import           Pos.Txp.Logic              (txVerifyBlocks)
 import           Pos.Txp.MemState           (getLocalTxsNUndo)
 import           Pos.Types                  (Block, BlockHeader, EpochIndex,
@@ -88,8 +87,8 @@ import           Pos.Types                  (Block, BlockHeader, EpochIndex,
                                              epochOrSlot, flattenSlotId, genesisHash,
                                              getEpochOrSlot, headerHash, headerHashG,
                                              headerSlot, mkGenesisBlock, mkMainBlock,
-                                             mkMainBody, prevBlockL, verifyHeader,
-                                             verifyHeaders, vhpVerifyConsensus)
+                                             prevBlockL, verifyHeader, verifyHeaders,
+                                             vhpVerifyConsensus)
 import qualified Pos.Types                  as Types
 import           Pos.Update.Core            (UpdatePayload (..))
 import qualified Pos.Update.DB              as UDB
@@ -302,7 +301,7 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
         inMainCheckpoints <-
             MaybeT $ nonEmpty <$>
             filterM (GS.isBlockInMainChain . headerHash)
-                    (NE.toList validCheckpoints)
+                    (toList validCheckpoints)
         lift $ logDebug $ "getHeadersFromManyTo: got checkpoints in main chain"
         let lowestCheckpoint =
                 maximumBy (comparing getEpochOrSlot) inMainCheckpoints
@@ -758,7 +757,7 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         -- account for block header and serialization overhead, etc; also
         -- include all SSC data because a) deciding is hard and b) we don't
         -- yet have a way to strip generic SSC data
-        let musthaveBody = mkMainBody [] sscData [] def
+        let musthaveBody = Types.MainBody (mkTxPayload mempty) sscData [] def
             musthaveBlock = maybe (panic "Couldn't create block") identity $
                               mkMainBlock (Just prevHeader) sId sk
                                           pSk musthaveBody extraH extraB
@@ -777,7 +776,8 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         -- include transactions
         txs' <- takeSome (map snd txs)
         -- return the resulting block
-        let body = mkMainBody txs' sscData psks' usPayload'
+        let txPayload = mkTxPayload txs'
+        let body = Types.MainBody txPayload sscData psks' usPayload'
         maybe (panic "Coudln't create block") return $
               mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where

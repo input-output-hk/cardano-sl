@@ -43,7 +43,7 @@ import           Pos.Util.JsonLog          (MonadJL (..))
 
 import           Pos.Txp.MemState.Class    (MonadTxpMem (..))
 import           Pos.Txp.MemState.Types    (TxpLocalData (..))
-import           Pos.Txp.Toil.Types        (UtxoView)
+import           Pos.Txp.Toil.Types        (UtxoModifier)
 
 ----------------------------------------------------------------------------
 -- Holder
@@ -105,7 +105,7 @@ instance Monad m => WrappedM (TxpHolder m) where
 
 runTxpHolder
     :: MonadIO m
-    => UtxoView -> HeaderHash -> TxpHolder m a -> m a
+    => UtxoModifier -> HeaderHash -> TxpHolder m a -> m a
 runTxpHolder uv initTip holder = TxpLocalData
     <$> liftIO (STM.newTVarIO uv)
     <*> liftIO (STM.newTVarIO def)
@@ -113,10 +113,10 @@ runTxpHolder uv initTip holder = TxpLocalData
     <*> liftIO (STM.newTVarIO initTip)
     >>= runReaderT (getTxpHolder holder)
 
--- | Local run needed for validation txs. For validation need only UtxoView.
+-- | Local run needed for validation txs. For validation need only UtxoModifier.
 runLocalTxpHolder
     :: MonadIO m
-    => TxpHolder m a -> UtxoView -> m a
+    => TxpHolder m a -> UtxoModifier -> m a
 runLocalTxpHolder holder uv = TxpLocalData
     <$> liftIO (STM.newTVarIO uv)
     <*> liftIO (STM.newTVarIO def)

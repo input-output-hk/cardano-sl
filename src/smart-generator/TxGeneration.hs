@@ -14,6 +14,7 @@ import           Control.Concurrent.STM.TVar   (TVar, modifyTVar', newTVar, read
                                                 writeTVar)
 import           Data.Array.MArray             (newListArray, readArray, writeArray)
 import           Data.List                     (tail, (!!))
+import qualified Data.List.NonEmpty            as NE
 import           Data.Time.Units               (convertUnit)
 import           Serokell.Util                 (sec)
 import           Universum                     hiding (head)
@@ -49,15 +50,22 @@ tpsTxBound tps propThreshold =
 genChain :: SecretKey -> TxId -> Word32 -> [TxAux]
 genChain sk txInHash txInIndex =
     let addr = makePubKeyAddress $ toPublic sk
-        (tx, w, d) = makePubKeyTx (fakeSigner sk) [TxIn txInHash txInIndex]
-                                     [(TxOut addr (mkCoin 1), [])]
+        (tx, w, d) =
+            makePubKeyTx
+                (fakeSigner sk)
+                (one $ TxIn txInHash txInIndex)
+                (one (TxOut addr (mkCoin 1), []))
     in (tx, w, d) : genChain sk (hash tx) 0
 
 genMOfNChain :: Script -> [Maybe SecretKey] -> TxId -> Word32 -> [TxAux]
 genMOfNChain val sks txInHash txInIndex =
     let addr = makeScriptAddress val
-        (tx, w, d) = makeMOfNTx val (fmap fakeSigner <$> sks) [TxIn txInHash txInIndex]
-                     [(TxOut addr (mkCoin 1), [])]
+        (tx, w, d) =
+            makeMOfNTx
+                val
+                (fmap fakeSigner <$> sks)
+                (one $ TxIn txInHash txInIndex)
+                (one (TxOut addr (mkCoin 1), []))
     in (tx, w, d) : genMOfNChain val sks (hash tx) 0
 
 initTransaction :: GenOptions -> Int -> TxAux
@@ -74,7 +82,7 @@ initTransaction GenOptions{..} i =
                                val = multisigValidator m pks
                            in makeScriptAddress val
         outputs = replicate outputsNum (TxOut outAddr (mkCoin 1), [])
-    in makePubKeyTx (fakeSigner sk) [input] outputs
+    in makePubKeyTx (fakeSigner sk) (one input) (NE.fromList outputs)
 
 selectSks :: Int -> Int -> [SecretKey] -> [Maybe SecretKey]
 selectSks m i sks = permutations msks !! i
@@ -125,7 +133,7 @@ peekTx :: BambooPool -> IO TxAux
 peekTx bp = curBambooTx bp 0
 
 isTxVerified :: (WorkMode ssc m) => Tx -> m Bool
-isTxVerified tx = allM (fmap isJust . getTxOut) (_txInputs tx)
+isTxVerified tx = allM (fmap isJust . getTxOut) $ toList (_txInputs tx)
 
 nextValidTx
     :: WorkMode ssc m

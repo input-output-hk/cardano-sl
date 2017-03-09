@@ -1,5 +1,7 @@
 {-# LANGUAGE CPP                  #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
+-- needed for stylish-haskell :(
+{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -48,27 +50,31 @@ import           Serokell.Util         (Color (Magenta), colorize, listJson)
 import           Universum
 
 import           Pos.Binary.Class      (Bi)
-import           Pos.Core.Block        (Blockchain (..), GenericBlock (..),
-                                        GenericBlockHeader (..), HasPrevBlock (..),
-                                        gbBody, gbHeader, gbhConsensus, gbhPrevBlock)
-import           Pos.Core.Types        (ChainDifficulty, EpochIndex (..),
+import           Pos.Core              (Blockchain (..), ChainDifficulty, EpochIndex (..),
+                                        EpochOrSlot (..), GenericBlock (..),
+                                        GenericBlockHeader (..), HasBlockVersion (..),
                                         HasDifficulty (..), HasEpochIndex (..),
                                         HasEpochOrSlot (..), HasHeaderHash (..),
-                                        HeaderHash, ProxySKHeavy, SlotId (..),
-                                        SlotLeaders, slotIdF)
+                                        HasPrevBlock (..), HasSoftwareVersion (..),
+                                        HeaderHash, IsGenesisHeader, IsHeader,
+                                        IsMainHeader (..), ProxySKHeavy, SlotId (..),
+                                        SlotLeaders, gbBody, gbHeader, gbhConsensus,
+                                        gbhExtra, gbhPrevBlock, slotIdF)
 import           Pos.Crypto            (Hash, PublicKey, hash, hashHexF, unsafeHash)
-import           Pos.Merkle            (MerkleRoot, MerkleTree, mtRoot)
+import           Pos.Merkle            (MerkleTree)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
-import           Pos.Txp.Core.Types    (Tx, TxAux, TxDistribution, TxWitness)
+import           Pos.Txp.Core          (Tx, TxAux, TxDistribution, TxPayload, TxProof,
+                                        TxWitness, mkTxProof, txpDistributions, txpTxs,
+                                        txpWitnesses)
 import           Pos.Types.Block.Types (BiHeader, BiSsc, Block, BlockHeader,
                                         BlockSignature, GenesisBlock, GenesisBlockHeader,
                                         GenesisBlockchain, MainBlock, MainBlockHeader,
                                         MainBlockchain, MainExtraBodyData,
-                                        MainExtraHeaderData)
+                                        MainExtraHeaderData, mehBlockVersion,
+                                        mehSoftwareVersion)
 import           Pos.Update.Core.Types (UpdatePayload, UpdateProof, UpdateProposal,
                                         mkUpdateProof)
-
 
 ----------------------------------------------------------------------------
 -- MainBlock
@@ -78,9 +84,7 @@ instance (SscHelpersClass ssc, Bi TxWitness, Bi UpdatePayload, Bi EpochIndex) =>
          Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
     data BodyProof (MainBlockchain ssc) = MainProof
-        { mpNumber        :: !Word32
-        , mpRoot          :: !(MerkleRoot Tx)
-        , mpWitnessesHash :: !(Hash [TxWitness])
+        { mpTxProof        :: !TxProof
         , mpMpcProof      :: !(SscProof ssc)
         , mpProxySKsProof :: !(Hash [ProxySKHeavy])
         , mpUpdateProof   :: !UpdateProof
@@ -101,30 +105,11 @@ instance (SscHelpersClass ssc, Bi TxWitness, Bi UpdatePayload, Bi EpochIndex) =>
     -- | In our cryptocurrency, body consists of a list of transactions
     -- and MPC messages.
     data Body (MainBlockchain ssc) = MainBody
-        { -- | Transactions are the main payload.
-          _mbTxs :: !(MerkleTree Tx)
-        , -- | Distributions for P2SH addresses in transaction outputs.
-          --     * length mbTxAddrDistributions == length mbTxs
-          --     * i-th element is 'Just' if at least one output of i-th
-          --         transaction is P2SH
-          --     * n-th element of i-th element is 'Just' if n-th output
-          --         of i-th transaction is P2SH
-          -- Ask @neongreen if you don't understand wtf is going on.
-          -- Basically, address distributions are needed so that (potential)
-          -- receivers of P2SH funds would count as stakeholders.
-          _mbTxAddrDistributions :: ![TxDistribution]
-        , -- | Transaction witnesses. Invariant: there are as many witnesses
-          -- as there are transactions in the block. This is checked during
-          -- deserialisation. We can't put them into the same Merkle tree
-          -- with transactions, as the whole point of segwit is to separate
-          -- transactions and witnesses.
-          --
-          -- TODO: should they be put into a separate Merkle tree or left as
-          -- a list?
-          _mbWitnesses :: ![TxWitness]
+        { -- | Txp payload.
+          _mbTxPayload :: !TxPayload
         , -- | Data necessary for MPC.
           _mbMpc :: !(SscPayload ssc)
-        , -- | No-ttl heavyweight delegation certificates
+        , -- | No-ttl heavyweight delegation certificates.
           _mbProxySKs :: ![ProxySKHeavy]
           -- | Additional update information for update system.
         , _mbUpdatePayload :: !UpdatePayload
@@ -135,9 +120,7 @@ instance (SscHelpersClass ssc, Bi TxWitness, Bi UpdatePayload, Bi EpochIndex) =>
 
     mkBodyProof MainBody{..} =
         MainProof
-        { mpNumber = fromIntegral (length _mbTxs)
-        , mpRoot = mtRoot _mbTxs
-        , mpWitnessesHash = hash _mbWitnesses
+        { mpTxProof = mkTxProof _mbTxPayload
         , mpMpcProof = untag @ssc mkSscProof _mbMpc
         , mpProxySKsProof = hash _mbProxySKs
         , mpUpdateProof = mkUpdateProof _mbUpdatePayload
@@ -231,17 +214,21 @@ MAKE_LENS(gcdDifficulty, _gcdDifficulty)
 
 -- makeLensesData ''Body ''(MainBlockchain ssc)
 
+-- | Lens for transaction payload in main block body.
+mbTxPayload :: Lens' (Body (MainBlockchain ssc)) TxPayload
+MAKE_LENS(mbTxPayload, _mbTxPayload)
+
 -- | Lens for transaction tree in main block body.
 mbTxs :: Lens' (Body (MainBlockchain ssc)) (MerkleTree Tx)
-MAKE_LENS(mbTxs, _mbTxs)
+mbTxs = mbTxPayload . txpTxs
 
 -- | Lens for witness list in main block body.
 mbWitnesses :: Lens' (Body (MainBlockchain ssc)) [TxWitness]
-MAKE_LENS(mbWitnesses, _mbWitnesses)
+mbWitnesses = mbTxPayload . txpWitnesses
 
 -- | Lens for distributions list in main block body.
 mbTxAddrDistributions :: Lens' (Body (MainBlockchain ssc)) [TxDistribution]
-MAKE_LENS(mbTxAddrDistributions, _mbTxAddrDistributions)
+mbTxAddrDistributions = mbTxPayload . txpDistributions
 
 -- | Lens for 'SscPayload' in main block body.
 mbMpc :: Lens' (Body (MainBlockchain ssc)) (SscPayload ssc)
@@ -349,8 +336,8 @@ instance (Bi UpdateProposal, BiSsc ssc) => Buildable (MainBlock ssc) where
             )
             (colorize Magenta "MainBlock")
             _gbHeader
-            (length _mbTxs)
-            _mbTxs
+            (length txs)
+            txs
             (length _mbProxySKs)
             _mbProxySKs
             _mbMpc
@@ -358,6 +345,7 @@ instance (Bi UpdateProposal, BiSsc ssc) => Buildable (MainBlock ssc) where
             _gbExtra
       where
         MainBody {..} = _gbBody
+        txs = _gbBody ^. mbTxs
 
 instance BiSsc ssc => Buildable (GenesisBlockHeader ssc) where
     build gbh@GenericBlockHeader {..} =
@@ -424,20 +412,20 @@ instance (HasEpochIndex a, HasEpochIndex b) =>
 ----------------------------------------------------------------------------
 
 instance HasEpochOrSlot (MainBlockHeader ssc) where
-    _getEpochOrSlot = Right . _mcdSlot . _gbhConsensus
+    getEpochOrSlot = EpochOrSlot . Right . _mcdSlot . _gbhConsensus
 
 instance HasEpochOrSlot (GenesisBlockHeader ssc) where
-    _getEpochOrSlot = Left . _gcdEpoch . _gbhConsensus
+    getEpochOrSlot = EpochOrSlot . Left . _gcdEpoch . _gbhConsensus
 
 instance HasEpochOrSlot (MainBlock ssc) where
-    _getEpochOrSlot = _getEpochOrSlot . _gbHeader
+    getEpochOrSlot = getEpochOrSlot . _gbHeader
 
 instance HasEpochOrSlot (GenesisBlock ssc) where
-    _getEpochOrSlot = _getEpochOrSlot . _gbHeader
+    getEpochOrSlot = getEpochOrSlot . _gbHeader
 
 instance (HasEpochOrSlot a, HasEpochOrSlot b) =>
          HasEpochOrSlot (Either a b) where
-    _getEpochOrSlot = either _getEpochOrSlot _getEpochOrSlot
+    getEpochOrSlot = either getEpochOrSlot getEpochOrSlot
 
 ----------------------------------------------------------------------------
 -- HasHeaderHash
@@ -445,6 +433,21 @@ instance (HasEpochOrSlot a, HasEpochOrSlot b) =>
 
 instance HasHeaderHash HeaderHash where
     headerHash = identity
+
+{- The story of unnecessary constraints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+All of the instances below have a BiHeader constraint. BiHeader is defined as
+“Bi BlockHeader”, which in its turn expands into:
+
+    Bi (Either GenesisBlockHeader MainBlockHeader)
+
+Thus, effectively we require “Bi MainBlockHeader” for the HasHeaderHash
+instance of *Genesis*BlockHeader, and vice-versa. This is because hashing of
+all headers (MainBlockHeader and GenesisBlockHeader) is done by converting
+them to BlockHeader first, so that a header would have the same hash
+regardless of whether it's inside a BlockHeader or not.
+-}
 
 instance BiHeader ssc =>
          HasHeaderHash (MainBlockHeader ssc) where
@@ -529,3 +532,39 @@ instance (BHeaderHash b ~ HeaderHash) =>
 instance (HasPrevBlock s, HasPrevBlock s') =>
          HasPrevBlock (Either s s') where
     prevBlockL = choosing prevBlockL prevBlockL
+
+----------------------------------------------------------------------------
+-- Has*Version
+----------------------------------------------------------------------------
+
+instance HasBlockVersion MainExtraHeaderData where
+    blockVersionL = mehBlockVersion
+instance HasSoftwareVersion MainExtraHeaderData where
+    softwareVersionL = mehSoftwareVersion
+
+instance HasBlockVersion (MainBlockHeader ssc) where
+    blockVersionL = gbhExtra . blockVersionL
+instance HasSoftwareVersion (MainBlockHeader ssc) where
+    softwareVersionL = gbhExtra . softwareVersionL
+
+instance HasBlockVersion (MainBlock ssc) where
+    blockVersionL = gbHeader . blockVersionL
+instance HasSoftwareVersion (MainBlock ssc) where
+    softwareVersionL = gbHeader . softwareVersionL
+
+----------------------------------------------------------------------------
+-- IsHeader, IsGenesisHeader, IsMainHeader
+----------------------------------------------------------------------------
+
+-- If these constraints seem wrong to you, read “The story of unnecessary
+-- constraints” in this file
+
+instance BiHeader ssc => IsHeader (GenesisBlockHeader ssc)
+instance BiHeader ssc => IsGenesisHeader (GenesisBlockHeader ssc)
+
+instance BiHeader ssc => IsHeader (MainBlockHeader ssc)
+instance BiHeader ssc => IsMainHeader (MainBlockHeader ssc) where
+    headerSlotL = headerSlot
+    headerLeaderKeyL = headerLeaderKey
+
+instance BiHeader ssc => IsHeader (BlockHeader ssc)

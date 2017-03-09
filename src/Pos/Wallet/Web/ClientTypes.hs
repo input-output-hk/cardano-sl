@@ -122,7 +122,7 @@ mkCTx
 mkCTx addr diff THEntry {..} meta = CTx {..}
   where
     ctId = txIdToCTxId _thTxId
-    outputs = _txOutputs _thTx
+    outputs = toList $ _txOutputs _thTx
     isToItself = all ((== addr) . txOutAddress) outputs
     ctAmount = unsafeIntegerToCoin . sumCoins . map txOutValue $
         filter ((|| isToItself) . xor _thIsOutput . (== addr) . txOutAddress) outputs

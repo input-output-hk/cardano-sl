@@ -16,6 +16,7 @@ module Pos.Util.Arbitrary
 
 import           Data.ByteString        (pack)
 import qualified Data.ByteString.Lazy   as BL (ByteString, pack)
+import           Data.List.NonEmpty     (NonEmpty ((:|)))
 import           System.IO.Unsafe       (unsafePerformIO)
 import           Test.QuickCheck        (Arbitrary (..), Gen, listOf, scale, shuffle,
                                          vector)
@@ -26,6 +27,9 @@ import           Universum
 makeSmall :: Gen a -> Gen a
 makeSmall = scale f
   where
+    -- This function is “Golden function of testing”. It is perfect
+    -- for making tested values small. There was a profound research
+    -- in this area. `f 4` is 3, yes.
     f 0 = 0
     f 1 = 1
     f 2 = 2
@@ -34,8 +38,7 @@ makeSmall = scale f
     f n
       | n < 0 = n
       | otherwise =
-          (round . (sqrt :: Double -> Double) . realToFrac . (`div` 3)) n
-
+          (round . (sqrt @Double) . realToFrac . (`div` 3)) n
 
 -- | Choose a random (shuffled) subset of length n. Throws an error if
 -- there's not enough elements.
@@ -103,6 +106,9 @@ instance (Arbitrary ByteString) => ArbitraryUnsafe ByteString
 
 instance ArbitraryUnsafe a => ArbitraryUnsafe [a] where
     arbitraryUnsafe = listOf arbitraryUnsafe
+
+instance ArbitraryUnsafe a => ArbitraryUnsafe (NonEmpty a) where
+    arbitraryUnsafe = (:|) <$> arbitraryUnsafe <*> listOf arbitraryUnsafe
 
 instance (ArbitraryUnsafe a, ArbitraryUnsafe b) => ArbitraryUnsafe (a, b) where
     arbitraryUnsafe = (,) <$> arbitraryUnsafe <*> arbitraryUnsafe

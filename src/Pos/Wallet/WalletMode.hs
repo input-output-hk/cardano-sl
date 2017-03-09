@@ -42,23 +42,24 @@ import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
 import           Pos.DHT.Real                (KademliaDHT (..))
+import           Pos.Shutdown                (triggerShutdown)
 import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Slotting                (NtpSlotting, SlottingHolder,
                                               getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
-import           Pos.Txp                     (TxpHolder (..), UtxoView (..), belongsTo,
-                                              evalUtxoStateT, filterUtxoByAddr,
-                                              getMemPool, getUtxoView, runUtxoStateT,
-                                              txProcessTransaction, _mpLocalTxs)
-import           Pos.Txp.Core.Types          (TxAux, TxId, Utxo, txOutValue)
+import           Pos.Txp                     (TxAux, TxId, TxpHolder (..), Utxo,
+                                              belongsTo, evalUtxoStateT, filterUtxoByAddr,
+                                              getMemPool, getUtxoModifier, runUtxoStateT,
+                                              txOutValue, txProcessTransaction,
+                                              _mpLocalTxs)
 import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
                                               difficultyL, flattenEpochOrSlot,
                                               flattenSlotId, prevBlockL, prevBlockL,
                                               sumCoins, sumCoins)
 import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
 import           Pos.Util                    (maybeThrow)
-import           Pos.Shutdown           (triggerShutdown)
+import qualified Pos.Util.Modifier           as MM
 import           Pos.WorkMode                (MinWorkMode, RawRealMode)
 
 import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
@@ -102,13 +103,11 @@ instance MonadIO m => MonadBalances (WalletDB m) where
 instance (MonadDB m, MonadMask m) => MonadBalances (TxpHolder m) where
     getOwnUtxo addr = do
         utxo <- GS.getFilteredUtxo addr
-        updates <- getUtxoView
-        let toDel = _uvDelUtxo updates
-            toAdd = HM.filter (`belongsTo` addr) $ _uvAddUtxo updates
+        updates <- getUtxoModifier
+        let toDel = MM.deletions updates
+            toAdd = HM.filter (`belongsTo` addr) $ MM.insertionsMap updates
             utxo' = foldr M.delete utxo toDel
         return $ HM.foldrWithKey M.insert utxo' toAdd
-
---deriving instance MonadBalances m => MonadBalances (Modern.TxpLDHolder m)
 
 -- | A class which have methods to get transaction history
 class Monad m => MonadTxHistory m where

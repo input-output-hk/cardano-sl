@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Core types of GodTossing SSC.
 
@@ -45,10 +45,10 @@ import           Universum
 import           Pos.Binary.Class    (AsBinary (..))
 import           Pos.Binary.Core     ()
 import           Pos.Core.Address    (addressHash)
+import           Pos.Core.Types      (EpochIndex, StakeholderId)
 import           Pos.Crypto          (EncShare, Hash, PublicKey, Secret, SecretKey,
                                       SecretProof, SecretSharingExtra, Share, Signature,
                                       VssPublicKey, checkSig, sign, toPublic)
-import           Pos.Core.Types      (EpochIndex, StakeholderId)
 
 type NodeSet = HashSet StakeholderId
 
@@ -164,7 +164,8 @@ instance Buildable VssCertificate where
     build VssCertificate {..} = bprint
         ("vssCert:"%build%":"%int) vcSigningKey vcExpiryEpoch
 
--- | Make VssCertificate valid up to given epoch using 'SecretKey' to sign data.
+-- | Make VssCertificate valid up to given epoch using 'SecretKey' to sign
+-- data.
 mkVssCertificate :: SecretKey -> AsBinary VssPublicKey -> EpochIndex -> VssCertificate
 mkVssCertificate sk vk expiry =
     VssCertificate vk expiry (sign sk (vk, expiry)) $ toPublic sk

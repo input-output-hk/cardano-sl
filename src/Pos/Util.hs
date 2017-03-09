@@ -8,10 +8,9 @@
 
 module Pos.Util
        (
---         export it when it actually reexports something apart from instances
---         module Pos.Util.Util
+         module Pos.Util.Util
        -- * Stuff for testing and benchmarking
-         module Pos.Util.Arbitrary
+       , module Pos.Util.Arbitrary
        , module Pos.Util.TimeLimit
 
        -- * Various
@@ -105,7 +104,7 @@ import           Pos.Binary.Class                 (Bi)
 import           Pos.Util.Arbitrary
 import           Pos.Util.NotImplemented          ()
 import           Pos.Util.TimeLimit
-import           Pos.Util.Util                    ()
+import           Pos.Util.Util
 
 mappendPair :: (Monoid a, Monoid b) => (a, b) -> (a, b) -> (a, b)
 mappendPair = (uncurry (***)) . (mappend *** mappend)

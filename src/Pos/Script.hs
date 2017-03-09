@@ -1,5 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | A wrapper over Plutus (the scripting language used in transactions).
 module Pos.Script
@@ -123,9 +123,12 @@ txScriptCheck sigData validator redeemer = case spoon result of
         PL.checkValidationResult (Bi.encode sigData) (script, env)
 
 stdlib :: PLCore.Program
-stdlib = $(do
-    pr <- runIO PL.prelude
-    lift pr)
+stdlib = case PL.runElabInContexts [] (PL.loadProgram prelude) of
+    Right x  -> x
+    Left err -> panic $ toText
+                  ("stdlib: error while parsing Plutus prelude: " ++ err)
+  where
+    prelude = $(lift . toString =<< runIO PL.preludeString)
 
 ----------------------------------------------------------------------------
 -- Error catching

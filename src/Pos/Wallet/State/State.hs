@@ -27,14 +27,14 @@ import           Pos.Communication.PeerState (PeerStateHolder)
 import           Serokell.Data.Memory.Units  (Byte)
 import           Universum
 
-import           Pos.Txp.Core.Types          (Tx, Utxo)
+import           Pos.DHT.Real.Types          (KademliaDHT (..))
+import           Pos.Txp                     (Tx, Utxo)
 import           Pos.Types                   (HeaderHash)
+
 import           Pos.Wallet.State.Acidic     (WalletState, closeState, openMemState,
                                               openState)
 import           Pos.Wallet.State.Acidic     as A
 import           Pos.Wallet.State.Storage    (Block', Storage)
-
-import           Pos.DHT.Real.Types          (KademliaDHT (..))
 
 -- | MonadWalletDB stands for monad which is able to get web wallet state
 class Monad m => MonadWalletDB m where

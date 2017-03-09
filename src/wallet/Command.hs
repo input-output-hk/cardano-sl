@@ -5,6 +5,7 @@ module Command
        , parseCommand
        ) where
 
+import qualified Data.List.NonEmpty         as NE
 import           Prelude                    (read, show)
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Parse        (parseIntegralSafe)
@@ -26,7 +27,7 @@ import           Pos.Update                 (UpId)
 
 data Command
     = Balance Address
-    | Send Int [TxOut]
+    | Send Int (NonEmpty TxOut)
     | Vote Int Bool UpId
     | ProposeUpdate
           { puIdx             :: Int           -- TODO: what is this? rename
@@ -88,7 +89,7 @@ delegateL = DelegateLight <$> num <*> num
 delegateH = DelegateHeavy <$> num <*> num <*> optional num
 
 send :: Parser Command
-send = Send <$> num <*> many1 txout
+send = Send <$> num <*> (NE.fromList <$> many1 txout)
 
 vote :: Parser Command
 vote = Vote <$> num <*> switch <*> hash

@@ -15,9 +15,8 @@ import           System.Wlog                 (logWarning)
 import           Universum
 
 import           Pos.Constants               (genesisUpdateProposalThd)
+import           Pos.Core                    (Coin, EpochIndex, SlotId, applyCoinPortion)
 import           Pos.Crypto                  (PublicKey, hash)
-import           Pos.Ssc.Class               (Ssc)
-import           Pos.Types                   (Coin, EpochIndex, SlotId, applyCoinPortion)
 import           Pos.Update.Core             (LocalVotes, UpId, UpdateProposals,
                                               UpdateVote (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
@@ -33,23 +32,23 @@ import           Pos.Util                    (getKeys)
 -- state, i. e. remove everything that is invalid. Valid data is
 -- applied.  This function doesn't consider 'genesisUpdateProposalThd'.
 normalizePoll
-    :: forall ssc m . (MonadPoll m, Ssc ssc)
+    :: MonadPoll m
     => SlotId
     -> UpdateProposals
     -> LocalVotes
     -> m (UpdateProposals, LocalVotes)
 normalizePoll slot proposals votes =
-    (,) <$> normalizeProposals @ssc slot proposals <*> normalizeVotes votes
+    (,) <$> normalizeProposals slot proposals <*> normalizeVotes votes
 
 -- Apply proposals which can be applied and put them in result.
 -- Disregard other proposals.
 normalizeProposals
-    :: forall ssc m . (MonadPoll m, Ssc ssc)
+    :: MonadPoll m
     => SlotId -> UpdateProposals -> m UpdateProposals
 normalizeProposals slotId (toList -> proposals) =
     HM.fromList . map (\x->(hash x, x)) . map fst . catRights proposals <$>
     forM proposals
-        (runExceptT . verifyAndApplyProposal @ssc False (Left slotId) [])
+        (runExceptT . verifyAndApplyProposal False (Left slotId) [])
 
 -- Apply votes which can be applied and put them in result.
 -- Disregard other votes.

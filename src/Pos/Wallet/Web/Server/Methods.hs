@@ -228,7 +228,7 @@ servantHandlers
     => SendActions m -> ServerT WalletApi m
 servantHandlers sendActions =
 #ifdef DEV_MODE
-     apiTestReset
+     catchWalletError testResetAll
     :<|>
 #endif
      apiGetWallet
@@ -276,25 +276,24 @@ servantHandlers sendActions =
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
-    apiTestReset            	  = catchWalletError testResetAll
-    apiGetWallet            	  = (catchWalletError . getWallet)
-    apiGetWallets           	  = catchWalletError getWallets
-    apiUpdateWallet         	  = (\a -> catchWalletError . updateWallet a)
-    apiNewWallet            	  = catchWalletError . newWallet
-    apiDeleteWallet         	  = catchWalletError . deleteWallet
-    apiImportKey            	  = catchWalletError . importKey sendActions
-    apiRestoreWallet        	  = catchWalletError . restoreWallet
-    apiIsValidAddress       	  = (\a -> catchWalletError . isValidAddress a)
-    apiGetUserProfile       	  = catchWalletError getUserProfile
-    apiUpdateUserProfile    	  = catchWalletError . updateUserProfile
-    apiTxsPayments          	  = (\a b -> catchWalletError . send sendActions a b)
-    apiTxsPaymentsExt       	  = (\a b c d e -> catchWalletError . sendExtended sendActions a b c d e)
-    apiUpdateTransaction    	  = (\a b -> catchWalletError . updateTransaction a b)
-    apiGetHistory           	  = (\a b -> catchWalletError . getHistory @ssc a b )
-    apiSearchHistory        	  = (\a b c -> catchWalletError . searchHistory @ssc a b c)
-    apiNextUpdate           	  = catchWalletError nextUpdate
-    apiApplyUpdate          	  = catchWalletError applyUpdate
-    apiRedeemAda            	  = catchWalletError . redeemADA sendActions
+    apiGetWallet                = (catchWalletError . getWallet)
+    apiGetWallets               = catchWalletError getWallets
+    apiUpdateWallet             = (\a -> catchWalletError . updateWallet a)
+    apiNewWallet                = catchWalletError . newWallet
+    apiDeleteWallet             = catchWalletError . deleteWallet
+    apiImportKey                = catchWalletError . importKey sendActions
+    apiRestoreWallet            = catchWalletError . restoreWallet
+    apiIsValidAddress           = (\a -> catchWalletError . isValidAddress a)
+    apiGetUserProfile           = catchWalletError getUserProfile
+    apiUpdateUserProfile        = catchWalletError . updateUserProfile
+    apiTxsPayments              = (\a b -> catchWalletError . send sendActions a b)
+    apiTxsPaymentsExt           = (\a b c d e -> catchWalletError . sendExtended sendActions a b c d e)
+    apiUpdateTransaction        = (\a b -> catchWalletError . updateTransaction a b)
+    apiGetHistory               = (\a b -> catchWalletError . getHistory @ssc a b )
+    apiSearchHistory            = (\a b c -> catchWalletError . searchHistory @ssc a b c)
+    apiNextUpdate               = catchWalletError nextUpdate
+    apiApplyUpdate              = catchWalletError applyUpdate
+    apiRedeemAda                = catchWalletError . redeemADA sendActions
     apiSettingsSlotDuration     = catchWalletError (fromIntegral <$> blockchainSlotDuration)
     apiSettingsSoftwareVersion  = catchWalletError (pure curSoftwareVersion)
     apiSettingsSyncProgress     = catchWalletError syncProgress
@@ -346,7 +345,7 @@ sendExtended sendActions srcCAddr dstCAddr c curr title desc = do
     let sk = sks !! idx
     na <- getKnownPeers
     withSafeSigner sk (return emptyPassphrase) $ \ss -> do
-        etx <- submitTx sendActions ss na [(TxOut dstAddr c, [])]
+        etx <- submitTx sendActions ss na (one (TxOut dstAddr c, []))
         case etx of
             Left err -> throwM . Internal $ sformat ("Cannot send transaction: "%stext) err
             Right (tx, _, _) -> do
@@ -477,7 +476,7 @@ importKey sendActions (toString -> fp) = do
             cAddr = addressToCAddress addr
         createWallet cAddr def
 
-    let importedAddr = makePubKeyAddress $ encToPublic $ (secret ^. usKeys) !! 0
+    let importedAddr = makePubKeyAddress $ encToPublic $ keys !! 0
         importedCAddr = addressToCAddress importedAddr
 #ifdef DEV_MODE
     psk <- maybeThrow (Internal "No primary key is present!")
@@ -486,7 +485,7 @@ importKey sendActions (toString -> fp) = do
     primaryBalance <- getBalance pAddr
     when (primaryBalance > mkCoin 0) $ do
         na <- getKnownPeers
-        etx <- submitTx sendActions (fakeSigner psk) na [(TxOut importedAddr primaryBalance, [])]
+        etx <- submitTx sendActions (fakeSigner psk) na (one (TxOut importedAddr primaryBalance, []))
         case etx of
             Left err -> throwM . Internal $ "Cannot transfer funds from genesis key" <> err
             Right (tx, _, _) ->  do

@@ -40,6 +40,7 @@ import           Universum
 
 import           Pos.Binary.Class                (AsBinary, fromBinaryM)
 import           Pos.Constants                   (genesisMpcThd)
+import           Pos.Core.Types                  (coinPortionDenominator, getCoinPortion)
 import           Pos.Crypto                      (Share, verifyShare)
 import           Pos.Lrc.Types                   (RichmenSet, RichmenStake)
 import           Pos.Ssc.GodTossing.Core         (Commitment (..),
@@ -55,7 +56,6 @@ import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossRead 
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Types                       (EpochIndex, StakeholderId, addressHash,
                                                   unsafeGetCoin)
-import           Pos.Core.Types                  (coinPortionDenominator, getCoinPortion)
 import           Pos.Util                        (getKeys)
 
 ----------------------------------------------------------------------------
@@ -247,7 +247,7 @@ checkSharePure globalCommitments globalOpeningsPK globalCertificates (idTo, idFr
         vssKey <- vcVssKey <$> HM.lookup idTo globalCertificates
         idToCommShares <- HM.lookup vssKey commShares
         -- CHECK: Check that commitment's shares and multishare have same length
-        guard $ NE.length multiShare == NE.length idToCommShares
+        guard $ length multiShare == length idToCommShares
         -- CHECK: Check that idFrom really didn't send its opening
         guard $ notMember idFrom globalOpeningsPK
         -- Get encrypted share, which was sent from idFrom to idTo in
@@ -288,7 +288,7 @@ checkCommitmentShares distr participants  (_, Commitment{..}, _) =
     checkPK (id, pk) = case HM.lookup pk commShares of
         Nothing -> False
         Just ne ->
-            NE.length ne == fromIntegral (HM.lookupDefault 0 id distr)
+            length ne == fromIntegral (HM.lookupDefault 0 id distr)
 
 ----------------------------------------------------------------------------
 -- Payload processing
@@ -413,7 +413,7 @@ verifyEntriesGuardM
     -> m ()
 verifyEntriesGuardM fKey fVal exception cond lst =
     maybeThrowError exception =<<
-    NE.nonEmpty <$>
+    nonEmpty <$>
     map fKey <$>
     filterM f lst
   where

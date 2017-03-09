@@ -9,8 +9,6 @@ module Pos.Core.Block
        , GenericBlock (..)
 
        -- * Lenses
-       , HasPrevBlock (..)
-
        , gbBody
        , gbHeader
        , gbExtra
@@ -130,9 +128,6 @@ deriving instance
 
 makeLenses ''GenericBlockHeader
 makeLenses ''GenericBlock
-
-class HasPrevBlock s where
-    prevBlockL :: Lens' s HeaderHash
 
 -- | Lens from 'GenericBlock' to 'BodyProof'.
 gbBodyProof :: Lens' (GenericBlock b) (BodyProof b)

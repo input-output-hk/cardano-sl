@@ -35,7 +35,8 @@ import           Test.QuickCheck       (arbitrary, conjoin, counterexample, forA
 import           Pos.Binary            (AsBinaryClass (..), Bi (..), encode)
 import           Pos.Communication     (Limit (..), MessageLimitedPure (..))
 
-import           Test.Hspec            (Expectation, Selector, Spec, shouldThrow)
+import           Test.Hspec            (Expectation, Selector, Spec, describe,
+                                        shouldThrow)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Arbitrary, Property, (===))
 import           Universum
@@ -131,9 +132,12 @@ msgLenLimitedTest' limit desc whetherTest =
     -- instead of checking for `arbitrary` values, we'd better generate
     -- many values and find maximal message size - it allows user to get
     -- correct limit on the spot, if needed.
-    modifyMaxSuccess (const 1) $
-        identityTest @Bi @a $ \_ -> findLargestCheck .&&. listsCheck
+    addDesc $
+        modifyMaxSuccess (const 1) $
+            identityTest @Bi @a $ \_ -> findLargestCheck .&&. listsCheck
   where
+    addDesc act = if null desc then act else describe desc act
+
     genNice = arbitrary `suchThat` whetherTest
 
     findLargestCheck =

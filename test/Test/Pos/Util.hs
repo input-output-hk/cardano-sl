@@ -158,7 +158,7 @@ msgLenLimitedTest' limit desc whetherTest =
                     counterexample "Potentially unlimited size!" $
                         msgLenLimitedCheck limit a
         -- Increase lists length gradually to avoid hanging.
-        in  conjoin $ doCheck <$> [1..20 :: Int]
+        in  conjoin $ doCheck <$> [1..13 :: Int]
 
 msgLenLimitedTest
     :: forall a. (IdTestingRequiredClasses Bi a, MessageLimitedPure a)

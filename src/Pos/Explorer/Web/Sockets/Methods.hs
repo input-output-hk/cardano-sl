@@ -1,5 +1,6 @@
-{-# LANGUAGE RankNTypes      #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Logic of Explorer socket-io Server.
 
@@ -32,13 +33,14 @@ import           Formatting                      (build, sformat, shown, (%))
 import           GHC.Exts                        (toList)
 import           Network.EngineIO                (SocketId)
 import           Network.SocketIO                (Socket, socketId)
+import qualified Pos.Block.Logic                 as DB
 import           Pos.DB                          (MonadDB)
 import qualified Pos.DB.Block                    as DB
 import qualified Pos.DB.GState                   as DB
 import           Pos.Ssc.Class                   (SscHelpersClass)
 import           Pos.Txp                         (Tx (..), txOutAddress)
 import           Pos.Types                       (Address, Block, ChainDifficulty,
-                                                  HeaderHash, blockTxas, prevBlockL)
+                                                  HeaderHash, blockTxas)
 import           System.Wlog                     (WithLogger, logDebug, logError,
                                                   logWarning)
 import           Universum                       hiding (toList)
@@ -220,17 +222,10 @@ notifyBlocksSubscribers =
 getBlocksFromTo
     :: forall ssc m.
        (MonadDB m, SscHelpersClass ssc)
-    => HeaderHash -> HeaderHash -> Int -> m (Maybe [Block ssc])
-getBlocksFromTo recentBlock oldBlock limit
-    | recentBlock == oldBlock = return $ Just []
-    | limit == 0              = return Nothing
-    | otherwise               = do
-        mBlock <- DB.getBlock recentBlock
-        case mBlock of
-            Nothing    -> return $ Just []
-            Just block ->
-                fmap (block :) <$> getBlocksFromTo
-                    (block ^. prevBlockL) oldBlock (limit - 1)
+    => HeaderHash -> HeaderHash -> m (Maybe [Block ssc])
+getBlocksFromTo recentBlock oldBlock = do
+    mheaders <- DB.getHeadersFromToIncl @ssc oldBlock recentBlock
+    forM mheaders $ fmap catMaybes . mapM DB.getBlock . toList
 
 blockAddresses
     :: (MonadDB m, WithLogger m)

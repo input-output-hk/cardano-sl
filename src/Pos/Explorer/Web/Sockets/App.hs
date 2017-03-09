@@ -116,7 +116,7 @@ periodicPollChanges connVar closed =
 
         -- notify about addrs
         mBlocks <- fmap join $ forM mWasBlock $ \wasBlock ->
-            getBlocksFromTo @ssc curBlock wasBlock 10
+            getBlocksFromTo @ssc curBlock wasBlock
         notifiedAddrs <- case mBlocks of
             Nothing     -> return False
             Just blocks -> do

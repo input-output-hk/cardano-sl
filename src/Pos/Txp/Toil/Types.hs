@@ -17,11 +17,11 @@ module Pos.Txp.Toil.Types
        , bvTotal
        , UndoMap
        , UtxoModifier
-       , TxpModifier (..)
-       , txmUtxoModifier
-       , txmBalances
-       , txmMemPool
-       , txmUndos
+       , ToilModifier (..)
+       , tmUtxo
+       , tmBalances
+       , tmMemPool
+       , tmUndos
        ) where
 
 import           Control.Lens           (makeLenses)
@@ -33,9 +33,8 @@ import           Formatting             (Format, later)
 import           Serokell.Util.Text     (mapBuilderJson)
 import           Universum
 
-import           Pos.Txp.Core.Types     (TxAux, TxId, TxIn, TxOutAux, TxUndo)
--- import Pos.Binary.
-import           Pos.Types              (Coin, StakeholderId, mkCoin)
+import           Pos.Core               (Coin, StakeholderId, mkCoin)
+import           Pos.Txp.Core           (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import qualified Pos.Util.Modifier      as MM
 
 ----------------------------------------------------------------------------
@@ -95,7 +94,7 @@ instance Default MemPool where
         }
 
 ----------------------------------------------------------------------------
--- TxpModifier
+-- ToilModifier
 ----------------------------------------------------------------------------
 
 type UtxoModifier = MM.MapModifier TxIn TxOutAux
@@ -104,11 +103,11 @@ type UndoMap = HashMap TxId TxUndo
 instance Default UndoMap where
     def = mempty
 
-data TxpModifier = TxpModifier
-    { _txmUtxoModifier :: !UtxoModifier
-    , _txmBalances     :: !BalancesView
-    , _txmMemPool      :: !MemPool
-    , _txmUndos        :: !UndoMap
+data ToilModifier = ToilModifier
+    { _tmUtxo     :: !UtxoModifier
+    , _tmBalances :: !BalancesView
+    , _tmMemPool  :: !MemPool
+    , _tmUndos    :: !UndoMap
     }
 
-makeLenses ''TxpModifier
+makeLenses ''ToilModifier

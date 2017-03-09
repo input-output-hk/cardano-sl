@@ -1,8 +1,8 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Type classes for Txp abstraction.
--- * MonadUtxoRead and MonadUtxo for incapsulation of Utxo storage.
--- * MonadBalancesRead and MonadBalances for incapsulation of Balances storage.
+-- | Type classes for Toil abstraction.
+-- * MonadUtxoRead and MonadUtxo for encapsulation of Utxo storage.
+-- * MonadBalancesRead and MonadBalances for encapsulation of Balances storage.
 -- * MonadTxPoll for encapsulation of mem pool of local transactions.
 
 module Pos.Txp.Toil.Class
@@ -16,8 +16,9 @@ module Pos.Txp.Toil.Class
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Universum
 
+import           Pos.Core                  (Coin, StakeholderId)
 import           Pos.Txp.Core.Types        (TxAux, TxId, TxIn, TxOutAux, TxUndo)
-import           Pos.Types                 (Coin, StakeholderId)
+
 ----------------------------------------------------------------------------
 -- MonadUtxo
 ----------------------------------------------------------------------------
@@ -31,8 +32,8 @@ instance MonadUtxoRead m => MonadUtxoRead (ReaderT a m) where
 instance MonadUtxoRead m => MonadUtxoRead (ExceptT e m) where
 instance MonadUtxoRead m => MonadUtxoRead (StateT e m) where
 -- For pure runs
-instance MonadUtxoRead Identity where
-    utxoGet _ = pure Nothing
+-- instance MonadUtxoRead Identity where
+--     utxoGet _ = pure Nothing
 
 class MonadUtxoRead m => MonadUtxo m where
     utxoPut :: TxIn -> TxOutAux -> m ()
@@ -84,7 +85,7 @@ instance MonadBalances m => MonadBalances (StateT s m)
 instance MonadBalances m => MonadBalances (ExceptT s m)
 
 ----------------------------------------------------------------------------
--- MonadTx
+-- MonadTxPool
 ----------------------------------------------------------------------------
 
 class Monad m => MonadTxPool m where

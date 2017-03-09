@@ -19,15 +19,13 @@ import           Universum
 
 import           Pos.DB.Class         (MonadDB)
 import qualified Pos.DB.GState        as GS
-import           Pos.Txp.Core.Types   (Tx (..), TxAux, TxId)
-
+import           Pos.Txp.Core         (Tx (..), TxAux, TxId)
 import           Pos.Txp.MemState     (MonadTxpMem (..), getMemPool, getUtxoModifier,
                                        modifyTxpLocalData, setTxpLocalData)
-import           Pos.Txp.Toil         (MemPool (..), MonadUtxoRead (..), TxpModifier (..),
-                                       TxpVerFailure (..), execTxpTLocal, normalizeTxp,
-                                       processTx, runDBTxp, runTxpTLocal, runUtxoReaderT,
-                                       utxoGet)
-
+import           Pos.Txp.Toil         (MemPool (..), MonadUtxoRead (..),
+                                       ToilModifier (..), TxpVerFailure (..),
+                                       execToilTLocal, normalizeTxp, processTx, runDBTxp,
+                                       runToilTLocal, runUtxoReaderT, utxoGet)
 
 type TxpLocalWorkMode m =
     ( MonadDB m
@@ -64,13 +62,13 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
         | otherwise =
             let res = runExcept $
                       flip runUtxoReaderT (M.fromList $ HM.toList resolved) $
-                      execTxpTLocal uv mp undo $
+                      execToilTLocal uv mp undo $
                       processTx tx in
             case res of
                 Left er  -> (Left er, txld)
-                Right TxpModifier{..} ->
-                    (Right (), (_txmUtxoModifier, _txmMemPool, _txmUndos, tip))
-    runUM um = runTxpTLocal um def mempty
+                Right ToilModifier{..} ->
+                    (Right (), (_tmUtxo, _tmMemPool, _tmUndos, tip))
+    runUM um = runToilTLocal um def mempty
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Remove invalid transactions from MemPool
@@ -82,8 +80,8 @@ txNormalize = do
     MemPool {..} <- getMemPool
     res <- runExceptT $
            runDBTxp $
-           execTxpTLocal mempty def mempty $
+           execToilTLocal mempty def mempty $
            normalizeTxp $ HM.toList _mpLocalTxs
     case res of
         Left _                -> setTxpLocalData (mempty, def, mempty, utxoTip)
-        Right TxpModifier{..} -> setTxpLocalData (_txmUtxoModifier, _txmMemPool, _txmUndos, utxoTip)
+        Right ToilModifier{..} -> setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip)

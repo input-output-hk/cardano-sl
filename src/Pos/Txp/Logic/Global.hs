@@ -25,8 +25,8 @@ import           Pos.Util            (NE, NewestFirst (..), OldestFirst (..),
 import           Pos.Txp.Error       (TxpError (..))
 import           Pos.Txp.MemState    (MonadTxpMem (..))
 import           Pos.Txp.Toil        (BalancesView (..), BalancesView (..), DBTxp,
-                                      TxpModifier (..), TxpT, TxpVerFailure, applyTxp,
-                                      rollbackTxp, runDBTxp, runTxpTGlobal, verifyTxp)
+                                      ToilModifier (..), ToilT, TxpVerFailure, applyTxp,
+                                      rollbackTxp, runDBTxp, runToilTGlobal, verifyTxp)
 import qualified Pos.Util.Modifier   as MM
 
 type TxpWorkMode m = (WithLogger m, MonadDB m, MonadTxpMem m, MonadThrow m)
@@ -84,9 +84,9 @@ txRollbackBlocks blunds = do
 -- Helpers
 ----------------------------------------------------------------------------
 
--- Convert TxpModifier to batch of database operations.
-txpModifierToBatch :: TxpModifier -> SomeBatchOp
-txpModifierToBatch (TxpModifier um (BalancesView (HM.toList -> stakes) total) _ _) =
+-- Convert ToilModifier to batch of database operations.
+txpModifierToBatch :: ToilModifier -> SomeBatchOp
+txpModifierToBatch (ToilModifier um (BalancesView (HM.toList -> stakes) total) _ _) =
     SomeBatchOp
         [ SomeBatchOp $
           map GS.DelTxIn (MM.deletions um) ++
@@ -98,12 +98,12 @@ txpModifierToBatch (TxpModifier um (BalancesView (HM.toList -> stakes) total) _ 
 -- Run action which requires MonadUtxo and MonadTxPool interfaces.
 runTxpAction
     :: MonadDB m
-    => TxpT (DBTxp (ExceptT TxpVerFailure m)) a
-    -> m (Either TxpVerFailure (a, TxpModifier))
+    => ToilT (DBTxp (ExceptT TxpVerFailure m)) a
+    -> m (Either TxpVerFailure (a, ToilModifier))
 runTxpAction action = do
     total <- GS.getTotalFtsStake
     let balView = BalancesView mempty total
-    runExceptT . runDBTxp . runTxpTGlobal balView $ action
+    runExceptT . runDBTxp . runToilTGlobal balView $ action
 
 -- Zip block's TxAuxes and corresponding TxUndos.
 blundToAuxNUndo :: Blund ssc -> [(TxAux, TxUndo)]

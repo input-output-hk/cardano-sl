@@ -4,8 +4,8 @@
 -- | Instances of MoandUtxoRead and MonadBalancesRead which use DB.
 
 module Pos.Txp.Toil.DBTxp
-    ( DBTxp (..)
-    ) where
+       ( DBTxp (..)
+       ) where
 
 import           Control.Lens                (iso)
 import           Control.Monad.Base          (MonadBase (..))

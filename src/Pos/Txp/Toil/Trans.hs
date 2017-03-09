@@ -1,11 +1,11 @@
--- | TxpT monad transformer. Single-threaded.
+-- | ToilT monad transformer. Single-threaded.
 
 module Pos.Txp.Toil.Trans
-       ( TxpT (..)
-       , runTxpT
-       , runTxpTGlobal
-       , runTxpTLocal
-       , execTxpTLocal
+       ( ToilT (..)
+       , runToilT
+       , runToilTGlobal
+       , runToilTLocal
+       , execToilTLocal
        ) where
 
 import           Control.Lens              (at, to, (%=), (.=))
@@ -23,10 +23,10 @@ import           Pos.Slotting.MemState     (MonadSlotsData)
 import           Pos.Txp.Toil.Class        (MonadBalances (..), MonadBalancesRead (..),
                                             MonadTxPool (..), MonadUtxo (..),
                                             MonadUtxoRead (..))
-import           Pos.Txp.Toil.Types        (BalancesView, MemPool, TxpModifier (..),
+import           Pos.Txp.Toil.Types        (BalancesView, MemPool, ToilModifier (..),
                                             UndoMap, UtxoModifier, bvStakes, bvTotal,
-                                            mpLocalTxs, mpLocalTxsSize, txmBalances,
-                                            txmMemPool, txmUndos, txmUtxoModifier)
+                                            mpLocalTxs, mpLocalTxsSize, tmBalances,
+                                            tmMemPool, tmUndos, tmUtxo)
 import           Pos.Util.JsonLog          (MonadJL (..))
 import qualified Pos.Util.Modifier         as MM
 
@@ -34,15 +34,15 @@ import qualified Pos.Util.Modifier         as MM
 -- Tranformer
 ----------------------------------------------------------------------------
 
--- | Monad transformer which stores TxpModifier and implements
--- writable MonadTxp.
+-- | Monad transformer which stores ToilModifier and implements
+-- writable Toil type classes.
 --
 -- [WARNING] This transformer uses StateT and is intended for
 -- single-threaded usage only.
 -- Used for block application now.
 
-newtype TxpT m a = TxpT
-    { getTxpT :: StateT TxpModifier m a
+newtype ToilT m a = ToilT
+    { getToilT :: StateT ToilModifier m a
     } deriving ( Functor
                , Applicative
                , Monad
@@ -61,54 +61,54 @@ newtype TxpT m a = TxpT
                , MonadError e
                , MonadFix)
 
-instance MonadUtxoRead m => MonadUtxoRead (TxpT m) where
-    utxoGet id = TxpT $ MM.lookupM utxoGet id =<< use txmUtxoModifier
+instance MonadUtxoRead m => MonadUtxoRead (ToilT m) where
+    utxoGet id = ToilT $ MM.lookupM utxoGet id =<< use tmUtxo
 
 instance MonadUtxoRead m =>
-         MonadUtxo (TxpT m) where
-    utxoPut id aux = TxpT $ txmUtxoModifier %= MM.insert id aux
-    utxoDel id = TxpT $ txmUtxoModifier %= MM.delete id
+         MonadUtxo (ToilT m) where
+    utxoPut id aux = ToilT $ tmUtxo %= MM.insert id aux
+    utxoDel id = ToilT $ tmUtxo %= MM.delete id
 
-instance MonadBalancesRead m => MonadBalancesRead (TxpT m) where
-    getStake id = TxpT $
-        (<|>) <$> use (txmBalances . bvStakes . at id)
+instance MonadBalancesRead m => MonadBalancesRead (ToilT m) where
+    getStake id = ToilT $
+        (<|>) <$> use (tmBalances . bvStakes . at id)
               <*> getStake id
 
-    getTotalStake = TxpT $ use $ txmBalances . bvTotal
+    getTotalStake = ToilT $ use $ tmBalances . bvTotal
 
-instance MonadBalancesRead m => MonadBalances (TxpT m) where
-    setStake id c = TxpT $ txmBalances . bvStakes . at id .= Just c
+instance MonadBalancesRead m => MonadBalances (ToilT m) where
+    setStake id c = ToilT $ tmBalances . bvStakes . at id .= Just c
 
-    setTotalStake c = TxpT $ txmBalances . bvTotal .= c
+    setTotalStake c = ToilT $ tmBalances . bvTotal .= c
 
-instance Monad m => MonadTxPool (TxpT m) where
-    hasTx id = TxpT $ use $ txmMemPool . mpLocalTxs . to (HM.member id)
+instance Monad m => MonadTxPool (ToilT m) where
+    hasTx id = ToilT $ use $ tmMemPool . mpLocalTxs . to (HM.member id)
 
-    putTxWithUndo id tx undo = TxpT $ do
-        has <- use $ txmMemPool . mpLocalTxs . to (HM.member id)
+    putTxWithUndo id tx undo = ToilT $ do
+        has <- use $ tmMemPool . mpLocalTxs . to (HM.member id)
         unless has $ do
-            txmMemPool . mpLocalTxs . at id .= Just tx
-            txmMemPool . mpLocalTxsSize %= (+1)
-            txmUndos . at id .= Just undo
+            tmMemPool . mpLocalTxs . at id .= Just tx
+            tmMemPool . mpLocalTxsSize %= (+1)
+            tmUndos . at id .= Just undo
 
-    poolSize = TxpT $ use $ txmMemPool . mpLocalTxsSize
+    poolSize = ToilT $ use $ tmMemPool . mpLocalTxsSize
 
 ----------------------------------------------------------------------------
 -- Runners
 ----------------------------------------------------------------------------
 
-runTxpT :: TxpModifier -> TxpT m a -> m (a, TxpModifier)
-runTxpT txm (TxpT st) = runStateT st txm
+runToilT :: ToilModifier -> ToilT m a -> m (a, ToilModifier)
+runToilT txm (ToilT st) = runStateT st txm
 
-runTxpTGlobal :: Functor m => BalancesView -> TxpT m a -> m (a, TxpModifier)
-runTxpTGlobal bv txpt = runTxpT (TxpModifier mempty bv def mempty) txpt
+runToilTGlobal :: Functor m => BalancesView -> ToilT m a -> m (a, ToilModifier)
+runToilTGlobal bv txpt = runToilT (ToilModifier mempty bv def mempty) txpt
 
-runTxpTLocal
+runToilTLocal
     :: Functor m
-    => UtxoModifier -> MemPool -> UndoMap -> TxpT m a -> m (a, TxpModifier)
-runTxpTLocal um mp undo txpt = runTxpT (TxpModifier um def mp undo) txpt
+    => UtxoModifier -> MemPool -> UndoMap -> ToilT m a -> m (a, ToilModifier)
+runToilTLocal um mp undo txpt = runToilT (ToilModifier um def mp undo) txpt
 
-execTxpTLocal
+execToilTLocal
     :: Functor m
-    => UtxoModifier -> MemPool -> UndoMap -> TxpT m a -> m TxpModifier
-execTxpTLocal um mp undo txpt = snd <$> runTxpT (TxpModifier um def mp undo) txpt
+    => UtxoModifier -> MemPool -> UndoMap -> ToilT m a -> m ToilModifier
+execToilTLocal um mp undo txpt = snd <$> runToilT (ToilModifier um def mp undo) txpt

@@ -12,9 +12,8 @@ module Pos.Explorer.Web.Sockets.Holder
        , ConnectionsVar
        , mkClientContext
        , mkConnectionsState
-       , modifyConnectionsStateDo
-       , readConnectionsStateDo
-       , withConnectionsState
+       , withConnState
+       , askingConnState
 
        , csAddressSubscribers
        , csBlocksSubscribers
@@ -24,18 +23,21 @@ module Pos.Explorer.Web.Sockets.Holder
        , ccConnection
        ) where
 
-import           Control.Concurrent.MVar (MVar, newMVar, readMVar)
-import           Control.Lens            (makeClassy)
-import           Control.Monad.Catch     (MonadCatch, MonadMask, MonadThrow, onException)
-import           Control.Monad.Reader    (MonadReader)
-import           Control.Monad.State     (runStateT)
-import           Control.Monad.Trans     (MonadIO (liftIO))
-import qualified Data.Map.Strict         as M
-import qualified Data.Set                as S
-import           Network.EngineIO        (SocketId)
-import           Network.SocketIO        (Socket)
+import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVarIO)
+import           Control.Lens                (makeClassy)
+import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Reader        (MonadReader)
+import           Control.Monad.Trans         (MonadIO (liftIO))
+import qualified Data.Map.Strict             as M
+import qualified Data.Set                    as S
+import           Network.EngineIO            (SocketId)
+import           Network.SocketIO            (Socket)
+import           Serokell.Util.Concurrent    (modifyTVarS)
+import           System.Wlog                 (LoggerNameBox, PureLogger, WithLogger,
+                                              dispatchEvents, getLoggerName, runPureLog,
+                                              usingLoggerName)
 
-import           Pos.Types               (Address, ChainDifficulty)
+import           Pos.Types                   (Address, ChainDifficulty)
 import           Universum
 
 data ClientContext = ClientContext
@@ -60,8 +62,7 @@ data ConnectionsState = ConnectionsState
 
 makeClassy ''ConnectionsState
 
--- TODO: use TVar?
-type ConnectionsVar = MVar ConnectionsState
+type ConnectionsVar = TVar ConnectionsState
 
 mkConnectionsState :: ConnectionsState
 mkConnectionsState =
@@ -71,22 +72,26 @@ mkConnectionsState =
     , _csBlocksSubscribers = mempty
     }
 
-modifyConnectionsStateDo
-    :: (MonadIO m, MonadMask m)
-    => ConnectionsVar -> StateT ConnectionsState m a -> m a
-modifyConnectionsStateDo var action =
-    mask $ \restore -> do
-        a      <- liftIO $ takeMVar var
-        (b, a') <- restore (runStateT action a)
-            `onException` liftIO (putMVar var a)
-        liftIO $ putMVar var a'
-        return b
+withConnState
+    :: (MonadIO m, WithLogger m)
+    => ConnectionsVar
+    -> LoggerNameBox (PureLogger (StateT ConnectionsState STM)) a
+    -> m a
+withConnState var action = do
+    loggerName <- getLoggerName
+    (res, logs) <- atomically $ modifyTVarS var $
+        runPureLog $ usingLoggerName loggerName action
+    dispatchEvents logs
+    return res
 
-readConnectionsStateDo
-    :: (MonadIO m, MonadMask m)
-    => ConnectionsVar -> ReaderT ConnectionsState m a -> m a
-readConnectionsStateDo var action =
-    liftIO (readMVar var) >>= runReaderT action
+askingConnState
+    :: MonadIO m
+    => ConnectionsVar
+    -> ReaderT ConnectionsState m a
+    -> m a
+askingConnState var action = do
+    v <- liftIO $ readTVarIO var
+    runReaderT action v
 
 newtype ExplorerSockets m a = ExplorerSockets
     { getExplorerSockets :: ReaderT ConnectionsVar m a
@@ -104,12 +109,5 @@ runExplorerSockets conn = flip runReaderT conn . getExplorerSockets
 
 runNewExplorerSockets :: MonadIO m => ExplorerSockets m a -> m a
 runNewExplorerSockets es = do
-    conn <- liftIO $ newMVar mkConnectionsState
+    conn <- liftIO $ newTVarIO mkConnectionsState
     runExplorerSockets conn es
-
-withConnectionsState
-    :: (MonadIO m, MonadMask m, MonadExplorerSockets m)
-    => StateT ConnectionsState m a -> m a
-withConnectionsState modifier = do
-    connState <- getSockets
-    modifyConnectionsStateDo connState modifier

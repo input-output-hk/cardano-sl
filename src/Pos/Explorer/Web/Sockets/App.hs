@@ -10,6 +10,7 @@ module Pos.Explorer.Web.Sockets.App
        , notifierApp
        ) where
 
+import           Control.Concurrent.STM.TVar        (newTVarIO)
 import           Control.Lens                       ((<<.=))
 import qualified Data.Set                           as S
 import           Data.Time.Units                    (Millisecond)
@@ -28,15 +29,14 @@ import qualified Snap.CORS                          as CORS
 import           Snap.Http.Server                   (httpServe)
 import qualified Snap.Internal.Http.Server.Config   as Config
 import           System.Wlog                        (LoggerName, LoggerNameBox,
-                                                     WithLogger, getLoggerName, logDebug,
-                                                     logInfo, modifyLoggerName,
-                                                     usingLoggerName)
+                                                     PureLogger, WithLogger,
+                                                     getLoggerName, logDebug, logInfo,
+                                                     modifyLoggerName, usingLoggerName)
 import           Universum                          hiding (on)
 
 import           Pos.Explorer.Web.Sockets.Holder    (ConnectionsState, ConnectionsVar,
-                                                     mkConnectionsState,
-                                                     modifyConnectionsStateDo,
-                                                     readConnectionsStateDo)
+                                                     askingConnState, mkConnectionsState,
+                                                     withConnState)
 import           Pos.Explorer.Web.Sockets.Instances ()
 import           Pos.Explorer.Web.Sockets.Methods   (ClientEvent (..),
                                                      ServerEvent (ServerTestMsg),
@@ -76,20 +76,19 @@ notifierHandler connVar loggerName = do
  where
     -- handlers provide context for logging and `ConnectionsVar` changes
     asHandler
-        :: (MonadIO m, MonadMask m, MonadReader Socket m, MonadCatch m)
-        => (SocketId -> a -> LoggerNameBox (StateT ConnectionsState m) b)
+        :: (SocketId -> a -> LoggerNameBox (PureLogger (StateT ConnectionsState STM)) b)
         -> a
-        -> m b
+        -> ReaderT Socket IO b
     asHandler f arg = do
         sock <- ask
-        modifyConnectionsStateDo connVar $ usingLoggerName loggerName $
+        usingLoggerName loggerName $ withConnState connVar $
             f (socketId sock) arg
     asHandler_ f = do
         sock <- ask
-        modifyConnectionsStateDo connVar $ usingLoggerName loggerName $
+        usingLoggerName loggerName $ withConnState connVar $
             f (socketId sock)
     asHandler' f = do
-        modifyConnectionsStateDo connVar . usingLoggerName loggerName . f =<< ask
+        usingLoggerName loggerName . withConnState connVar . f =<< ask
 
 
 notifierServer
@@ -120,14 +119,14 @@ periodicPollChanges connVar closed =
                 addrs <- S.toList . mconcat . fmap S.fromList <$>
                     mapM blockAddresses blocks
                 forM_ addrs $ \addr ->
-                    readConnectionsStateDo connVar $ notifyAddrSubscribers addr
+                    askingConnState connVar $ notifyAddrSubscribers addr
                 unless (null addrs) $
                     logDebug $ sformat ("Addresses updated: "%shown) addrs
                 return True
 
         -- notify about blocks
         when (mWasBlock /= Just curBlock) $ do
-            readConnectionsStateDo connVar $ do
+            askingConnState connVar $ do
                 notifyBlocksSubscribers
                 unless notifiedAddrs notifyAllAddrSubscribers
 
@@ -143,6 +142,6 @@ notifierApp
     => NotifierSettings -> m ()
 notifierApp settings = modifyLoggerName (<> "notifier") $ do
     logInfo "Starting"
-    connVar <- liftIO $ newMVar mkConnectionsState
+    connVar <- liftIO $ newTVarIO mkConnectionsState
     forkAccompanion (periodicPollChanges @ssc connVar)
                     (notifierServer settings connVar)

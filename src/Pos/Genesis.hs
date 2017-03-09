@@ -52,7 +52,7 @@ import           Pos.Crypto                 (PublicKey, SecretKey, deterministic
 import           Pos.Genesis.Parser         (compileGenData)
 import           Pos.Genesis.Types          (GenesisData (..), StakeDistribution (..))
 import           Pos.Lrc.FollowTheSatoshi   (followTheSatoshi)
-import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..))
+import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil.Types         (Utxo)
 import           Pos.Types                  (Address (..), BlockVersion (..), Coin,
                                              SharedSeed (SharedSeed), SlotLeaders,
@@ -185,7 +185,9 @@ genesisUtxo :: StakeDistribution -> Utxo
 genesisUtxo sd =
     M.fromList . zipWith zipF (stakeDistribution sd) $ genesisAddresses
   where
-    zipF coin addr = (TxIn (unsafeHash addr) 0, (TxOut addr coin, []))
+    zipF coin addr =
+        ( TxIn (unsafeHash addr) 0
+        , (TxOutAux {toaOut = TxOut addr coin, toaDistr = []}))
 
 genesisDelegation :: HashMap StakeholderId [StakeholderId]
 genesisDelegation = mempty

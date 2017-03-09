@@ -39,7 +39,8 @@ import           Pos.Binary.Core            ()
 import           Pos.Binary.Crypto          ()
 import           Pos.Binary.Txp             ()
 import           Pos.Constants              (epochSlots, sharedSeedLength)
-import           Pos.Core.Address           (makePubKeyAddress, makeScriptAddress, makeRedeemAddress)
+import           Pos.Core.Address           (makePubKeyAddress, makeRedeemAddress,
+                                             makeScriptAddress)
 import           Pos.Core.Coin              (coinToInteger, divCoin, unsafeSubCoin)
 import           Pos.Core.Types             (Address (..), ChainDifficulty (..), Coin,
                                              CoinPortion, EpochIndex (..),
@@ -59,7 +60,7 @@ import           Pos.Script                 (Script)
 import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
 import           Pos.Txp.Core.Types         (Tx (..), TxDistribution (..), TxIn (..),
-                                             TxInWitness (..), TxOut (..), TxOutAux,
+                                             TxInWitness (..), TxOut (..), TxOutAux (..),
                                              TxProof (..), mkTx)
 import           Pos.Types.Arbitrary.Unsafe ()
 import           Pos.Util                   (makeSmall)
@@ -83,6 +84,7 @@ instance Arbitrary Address where
 deriving instance Arbitrary ChainDifficulty
 
 derive makeArbitrary ''TxOut
+derive makeArbitrary ''TxOutAux
 
 instance Arbitrary Coin where
     arbitrary = mkCoin <$> choose (1, unsafeGetCoin maxBound)
@@ -334,7 +336,7 @@ buildProperTx triplesList (inCoin, outCoin) = fmap newTx txList
                 { twKey = toPublic fromSk
                 , twSig = sign fromSk (txHash, 0, txOutsHash, distrHash)
                 }
-        in ((tx, makeNullDistribution tx), txIn, (txOutput, []), witness)
+        in ((tx, makeNullDistribution tx), txIn, (TxOutAux txOutput []), witness)
     makeTxOutput s c = TxOut (makePubKeyAddress $ toPublic s) c
 
 -- | Well-formed transaction 'Tx'.

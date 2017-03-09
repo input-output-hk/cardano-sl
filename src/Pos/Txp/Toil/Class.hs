@@ -31,9 +31,6 @@ class Monad m => MonadUtxoRead m where
 instance MonadUtxoRead m => MonadUtxoRead (ReaderT a m) where
 instance MonadUtxoRead m => MonadUtxoRead (ExceptT e m) where
 instance MonadUtxoRead m => MonadUtxoRead (StateT e m) where
--- For pure runs
--- instance MonadUtxoRead Identity where
---     utxoGet _ = pure Nothing
 
 class MonadUtxoRead m => MonadUtxo m where
     utxoPut :: TxIn -> TxOutAux -> m ()

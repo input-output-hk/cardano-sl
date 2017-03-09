@@ -25,7 +25,7 @@ import           Pos.Util            (NE, NewestFirst (..), OldestFirst (..),
 import           Pos.Txp.Error       (TxpError (..))
 import           Pos.Txp.MemState    (MonadTxpMem (..))
 import           Pos.Txp.Toil        (BalancesView (..), BalancesView (..), DBTxp,
-                                      ToilModifier (..), ToilT, TxpVerFailure, applyTxp,
+                                      ToilModifier (..), ToilT, ToilVerFailure, applyTxp,
                                       rollbackTxp, runDBTxp, runToilTGlobal, verifyTxp)
 import qualified Pos.Util.Modifier   as MM
 
@@ -98,8 +98,8 @@ txpModifierToBatch (ToilModifier um (BalancesView (HM.toList -> stakes) total) _
 -- Run action which requires MonadUtxo and MonadTxPool interfaces.
 runTxpAction
     :: MonadDB m
-    => ToilT (DBTxp (ExceptT TxpVerFailure m)) a
-    -> m (Either TxpVerFailure (a, ToilModifier))
+    => ToilT (DBTxp (ExceptT ToilVerFailure m)) a
+    -> m (Either ToilVerFailure (a, ToilModifier))
 runTxpAction action = do
     total <- GS.getTotalFtsStake
     let balView = BalancesView mempty total

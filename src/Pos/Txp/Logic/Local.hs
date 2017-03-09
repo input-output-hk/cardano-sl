@@ -23,7 +23,7 @@ import           Pos.Txp.Core         (Tx (..), TxAux, TxId)
 import           Pos.Txp.MemState     (MonadTxpMem (..), getMemPool, getUtxoModifier,
                                        modifyTxpLocalData, setTxpLocalData)
 import           Pos.Txp.Toil         (MemPool (..), MonadUtxoRead (..),
-                                       ToilModifier (..), TxpVerFailure (..),
+                                       ToilModifier (..), ToilVerFailure (..),
                                        execToilTLocal, normalizeTxp, processTx, runDBTxp,
                                        runToilTLocal, runUtxoReaderT, utxoGet)
 
@@ -31,7 +31,7 @@ type TxpLocalWorkMode m =
     ( MonadDB m
     , MonadTxpMem m
     , WithLogger m
-    , MonadError TxpVerFailure m
+    , MonadError ToilVerFailure m
     )
 
 -- CHECK: @processTx
@@ -58,7 +58,7 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
             logDebug (sformat ("Transaction is processed successfully: "%build) txId)
   where
     processTxDo resolved tipBefore tx txld@(uv, mp, undo, tip)
-        | tipBefore /= tip = (Left $ TxpInvalid "Tips aren't same", txld)
+        | tipBefore /= tip = (Left $ ToilInvalid "Tips aren't same", txld)
         | otherwise =
             let res = runExcept $
                       flip runUtxoReaderT (M.fromList $ HM.toList resolved) $

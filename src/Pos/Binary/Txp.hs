@@ -21,6 +21,10 @@ instance Bi T.TxOut where
     put (T.TxOut addr coin) = put addr >> put coin
     get = label "TxOut" $ T.TxOut <$> get <*> get
 
+instance Bi T.TxOutAux where
+    put (T.TxOutAux out distr) = put out >> put distr
+    get = label "TxOutAux" $ T.TxOutAux <$> get <*> get
+
 instance Bi T.Tx where
     put (T.UnsafeTx ins outs attrs) = put ins >> put outs >> put attrs
     get = label "Tx" $ do

@@ -43,13 +43,12 @@ import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
 import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Shutdown                (triggerShutdown)
-import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Slotting                (NtpSlotting, SlottingHolder,
-                                              getLastKnownSlotDuration)
+import           Pos.Slotting                (MonadSlots (..), NtpSlotting,
+                                              SlottingHolder, getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
-import           Pos.Txp                     (TxAux, TxId, TxpHolder (..), Utxo,
-                                              addrBelongsTo, evalUtxoStateT,
+import           Pos.Txp                     (TxAux, TxId, TxOutAux (..), TxpHolder (..),
+                                              Utxo, addrBelongsTo, evalUtxoStateT,
                                               filterUtxoByAddr, getMemPool,
                                               getUtxoModifier, runUtxoStateT, txOutValue,
                                               txProcessTransaction, _mpLocalTxs)
@@ -75,7 +74,7 @@ class Monad m => MonadBalances m where
     getOwnUtxo :: Address -> m Utxo
     getBalance :: Address -> m Coin
     getBalance addr = unsafeIntegerToCoin . sumCoins .
-                      map (txOutValue . fst) . toList <$> getOwnUtxo addr
+                      map (txOutValue . toaOut) . toList <$> getOwnUtxo addr
     -- TODO: add a function to get amount of stake (it's different from
     -- balance because of distributions)
 

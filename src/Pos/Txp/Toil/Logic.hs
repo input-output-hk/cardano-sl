@@ -26,21 +26,21 @@ import           Pos.Core.Coin        (coinToInteger, sumCoins, unsafeAddCoin,
 import           Pos.Crypto           (WithHash (..), hash)
 import           Pos.Types            (Coin, StakeholderId, mkCoin)
 
-import           Pos.Txp.Core         (Tx (..), TxAux, TxId, TxUndo, TxpUndo,
-                                       getTxDistribution, topsortTxs, txOutStake)
+import           Pos.Txp.Core         (Tx (..), TxAux, TxId, TxOutAux (..), TxUndo,
+                                       TxpUndo, getTxDistribution, topsortTxs, txOutStake)
 import           Pos.Txp.Toil.Class   (MonadBalances (..), MonadBalancesRead (..),
                                        MonadTxPool (..), MonadUtxo (..))
-import           Pos.Txp.Toil.Failure (TxpVerFailure (..))
+import           Pos.Txp.Toil.Failure (ToilVerFailure (..))
 import qualified Pos.Txp.Toil.Utxo    as Utxo
 
 type GlobalTxpMode m = ( MonadUtxo m
                        , MonadBalances m
-                       , MonadError TxpVerFailure m
+                       , MonadError ToilVerFailure m
                        , WithLogger m)
 
 type LocalTxpMode m = ( MonadUtxo m
                       , MonadTxPool m
-                      , MonadError TxpVerFailure m)
+                      , MonadError ToilVerFailure m)
 
 -- CHECK: @verifyTxp
 -- | Verify transactions correctness with respect to Utxo applying
@@ -69,7 +69,7 @@ rollbackTxp txun = do
 -- All valid transactions will be added to mem pool and applied to utxo.
 normalizeTxp :: LocalTxpMode m => [(TxId, TxAux)] -> m ()
 normalizeTxp txs = do
-    topsorted <- note TxpCantTopsort (topsortTxs wHash txs)
+    topsorted <- note ToilCantTopsort (topsortTxs wHash txs)
     mapM_ (runExceptT . processTx) topsorted
   where
     wHash (i, (t, _, _)) = WithHash t i
@@ -81,8 +81,8 @@ normalizeTxp txs = do
 processTx
     :: LocalTxpMode m => (TxId, TxAux) -> m ()
 processTx tx@(id, aux) = do
-    whenM (hasTx id) $ throwError TxpKnown
-    whenM ((>= maxLocalTxs) <$> poolSize) $ throwError TxpOverwhelmed
+    whenM (hasTx id) $ throwError ToilKnown
+    whenM ((>= maxLocalTxs) <$> poolSize) $ throwError ToilOverwhelmed
     undo <- processTxWithPureChecks True tx
     putTxWithUndo id aux undo
 
@@ -136,18 +136,18 @@ concatStakes
 concatStakes (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
   where
     txasTxOutDistr = concatMap concatDistr txas
-    undoTxInDistr = concatMap txOutStake (concat undo)
+    undoTxInDistr = concatMap txOutStake (fold $ map toList undo)
     concatDistr (UnsafeTx {..}, _, distr) =
         concatMap txOutStake $
-        toList (NE.zip _txOutputs (getTxDistribution distr))
+        toList (NE.zipWith TxOutAux _txOutputs (getTxDistribution distr))
 
 processTxWithPureChecks
-    :: (MonadUtxo m, MonadError TxpVerFailure m)
+    :: (MonadUtxo m, MonadError ToilVerFailure m)
     => Bool -> (TxId, TxAux) -> m TxUndo
-processTxWithPureChecks verifyVersions tx@(_, aux) = do
-    undo <- Utxo.verifyTxUtxo verifyVersions aux
-    applyTxToUtxo' tx
-    pure undo
+processTxWithPureChecks verifyVersions tx@(_, aux) =
+    Utxo.verifyTxUtxo ctx aux <* applyTxToUtxo' tx
+  where
+    ctx = Utxo.VTxContext verifyVersions
 
 withTxId :: TxAux -> (TxId, TxAux)
 withTxId aux@(tx, _, _) = (hash tx, aux)

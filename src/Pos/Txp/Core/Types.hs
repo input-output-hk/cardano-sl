@@ -18,7 +18,7 @@ module Pos.Txp.Core.Types
        -- * Tx parts
        , TxIn (..)
        , TxOut (..)
-       , TxOutAux
+       , TxOutAux (..)
        , TxAttributes
 
        -- * Tx
@@ -152,10 +152,16 @@ instance Buildable TxOut where
     build TxOut {..} =
         bprint ("TxOut "%coinF%" -> "%build) txOutValue txOutAddress
 
-type TxOutAux = (TxOut, [(StakeholderId, Coin)])
+-- | Transaction output and auxilary data corresponding to it.
+-- [CSL-366] Add more data.
+data TxOutAux = TxOutAux
+    { toaOut   :: !TxOut                   -- ^ Tx output
+    , toaDistr :: ![(StakeholderId, Coin)] -- ^ Stake distribution
+                                           -- associated with output
+    } deriving (Show, Eq)
 
 instance Buildable TxOutAux where
-    build (out, distr) =
+    build (TxOutAux out distr) =
         bprint ("{txout = "%build%", distr = "%listJson%"}")
                out (map pairBuilder distr)
 
@@ -289,7 +295,7 @@ mkTxPayload txws = do
 ----------------------------------------------------------------------------
 
 -- | Particular undo needed for transactions
-type TxUndo = [TxOutAux]
+type TxUndo = NonEmpty TxOutAux
 
 type TxpUndo = [TxUndo]
 
@@ -300,6 +306,7 @@ type TxpUndo = [TxUndo]
 derive makeNFData ''TxIn
 derive makeNFData ''TxInWitness
 derive makeNFData ''TxOut
+derive makeNFData ''TxOutAux
 derive makeNFData ''TxDistribution
 derive makeNFData ''Tx
 derive makeNFData ''TxProof

@@ -35,6 +35,8 @@ import           System.Wlog                        (CanLog, LoggerName, LoggerN
                                                      modifyLoggerName, usingLoggerName)
 import           Universum                          hiding (on)
 
+import           Pos.Explorer.Aeson.ClientTypes     ()
+import           Pos.Explorer.Web.ClientTypes       (CTxId)
 import           Pos.Explorer.Web.Sockets.Holder    (ConnectionsState, ConnectionsVar,
                                                      askingConnState, mkConnectionsState,
                                                      withConnState)
@@ -73,6 +75,7 @@ notifierHandler connVar loggerName = do
     on  SetClientBlock   $ asHandler setClientBlock
     on_ CallMe           $ emitJSON CallYou empty
     on CallMeString      $ \(s :: Value) -> emit CallYouString s
+    on CallMeTxId        $ \(txid :: CTxId) -> emit CallYouTxId txid
     appendDisconnectHandler $ asHandler_ unsubscribeFully
  where
     -- handlers provide context for logging and `ConnectionsVar` changes

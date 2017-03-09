@@ -60,6 +60,7 @@ data ClientEvent
     | SetClientBlock
     | CallMe
     | CallMeString
+    | CallMeTxId
 
 instance EventName ClientEvent where
     toName SubscribeAddr    = "SA"
@@ -70,18 +71,21 @@ instance EventName ClientEvent where
     toName SetClientBlock   = "CB"
     toName CallMe           = "callme"
     toName CallMeString     = "callme-string"
+    toName CallMeTxId       = "callme-txid"
 
 data ServerEvent
     = AddrUpdated
     | BlocksUpdated
     | CallYou
     | CallYouString
+    | CallYouTxId
 
 instance EventName ServerEvent where
     toName AddrUpdated   = "A"
     toName BlocksUpdated = "B"
     toName CallYou       = "callyou"
     toName CallYouString = "callyou-string"
+    toName CallYouTxId   = "callyou-txid"
 
 -- * Client requests provessing
 

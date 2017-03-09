@@ -8,7 +8,6 @@
 module Pos.Explorer.Web.Sockets.App
        ( NotifierSettings (..)
        , notifierApp
-       , test
        ) where
 
 import           Control.Lens                       ((<<.=))
@@ -24,7 +23,7 @@ import           Network.SocketIO                   (RoutingTable, Socket,
 import           Pos.DB.Class                       (MonadDB)
 import qualified Pos.DB.GState                      as DB
 import           Pos.Ssc.Class                      (SscHelpersClass)
-import           Snap.Core                          (MonadSnap, Response, route)
+import           Snap.Core                          (MonadSnap, route)
 import qualified Snap.CORS                          as CORS
 import           Snap.Http.Server                   (httpServe)
 import qualified Snap.Internal.Http.Server.Config   as Config
@@ -51,9 +50,6 @@ import           Pos.Explorer.Web.Sockets.Methods   (ClientEvent (..),
                                                      unsubscribeBlocks, unsubscribeFully)
 import           Pos.Explorer.Web.Sockets.Util      (emitJSON, forkAccompanion, on, on_,
                                                      runPeriodicallyUnless)
-
-import qualified Data.Map                           as M
-import qualified Snap.Test                          as T
 
 data NotifierSettings = NotifierSettings
     { nsPort :: Word16
@@ -150,10 +146,3 @@ notifierApp settings = modifyLoggerName (<> "notifier") $ do
     connVar <- liftIO $ newMVar mkConnectionsState
     forkAccompanion (periodicPollChanges @ssc connVar)
                     (notifierServer settings connVar)
-
--- TODO: tmp
-test :: MonadIO m => m Response
-test = liftIO $ do
-    connVar <- liftIO $ newMVar mkConnectionsState
-    handler <- initialize snapAPI $ notifierHandler connVar "*test*"
-    T.runHandler (T.get "localhost:1234" M.empty) handler

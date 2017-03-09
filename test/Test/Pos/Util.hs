@@ -1,6 +1,6 @@
-{-# LANGUAGE AllowAmbiguousTypes  #-}
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.Pos.Util
        ( binaryEncodeDecode
@@ -27,16 +27,16 @@ import qualified Data.ByteString.Lazy  as LBS
 import           Data.SafeCopy         (SafeCopy, safeGet, safePut)
 import           Data.Serialize        (runGet, runPut)
 import           Data.Typeable         (typeRep)
-import           Formatting            (formatToString, (%), int)
+import           Formatting            (formatToString, int, (%))
 import           Prelude               (read)
-import           Test.QuickCheck       (counterexample, property, (.&&.),
-                                        arbitrary, suchThat, forAll, resize,
-                                        vectorOf, conjoin)
+import           Test.QuickCheck       (arbitrary, conjoin, counterexample, forAll,
+                                        property, resize, suchThat, vectorOf, (.&&.))
 
 import           Pos.Binary            (AsBinaryClass (..), Bi (..), encode)
-import           Pos.Communication     (MessageLimitedPure (..), Limit (..))
+import           Pos.Communication     (Limit (..), MessageLimitedPure (..))
 
-import           Test.Hspec            (Expectation, Selector, Spec, shouldThrow)
+import           Test.Hspec            (Expectation, Selector, Spec, describe,
+                                        shouldThrow)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Arbitrary, Property, (===))
 import           Universum
@@ -132,9 +132,12 @@ msgLenLimitedTest' limit desc whetherTest =
     -- instead of checking for `arbitrary` values, we'd better generate
     -- many values and find maximal message size - it allows user to get
     -- correct limit on the spot, if needed.
-    modifyMaxSuccess (const 1) $
-        identityTest @Bi @a $ \_ -> findLargestCheck .&&. listsCheck
+    addDesc $
+        modifyMaxSuccess (const 1) $
+            identityTest @Bi @a $ \_ -> findLargestCheck .&&. listsCheck
   where
+    addDesc act = if null desc then act else describe desc act
+
     genNice = arbitrary `suchThat` whetherTest
 
     findLargestCheck =
@@ -155,7 +158,7 @@ msgLenLimitedTest' limit desc whetherTest =
                     counterexample "Potentially unlimited size!" $
                         msgLenLimitedCheck limit a
         -- Increase lists length gradually to avoid hanging.
-        in  conjoin $ doCheck <$> [1..20 :: Int]
+        in  conjoin $ doCheck <$> [1..13 :: Int]
 
 msgLenLimitedTest
     :: forall a. (IdTestingRequiredClasses Bi a, MessageLimitedPure a)

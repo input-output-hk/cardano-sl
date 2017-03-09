@@ -1,7 +1,6 @@
-{-# LANGUAGE AllowAmbiguousTypes       #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE ScopedTypeVariables       #-}
-{-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Richmen part of LRC DB.
 
@@ -38,7 +37,7 @@ module Pos.Lrc.DB.Richmen
 
 import           Universum
 
-import           Pos.Binary.Class      (Bi, encodeStrict)
+import           Pos.Binary.Class      (encodeStrict)
 import           Pos.Binary.Core       ()
 import           Pos.Constants         (genesisHeavyDelThd, genesisMpcThd,
                                         genesisUpdateVoteThd)
@@ -46,29 +45,13 @@ import           Pos.Context.Class     (WithNodeContext)
 import           Pos.Context.Functions (genesisUtxoM)
 import           Pos.DB.Class          (MonadDB)
 import           Pos.Genesis           (genesisDelegation)
+import           Pos.Lrc.Class         (RichmenComponent (..), SomeRichmenComponent (..),
+                                        someRichmenComponent)
 import           Pos.Lrc.DB.Common     (getBi, putBi)
 import           Pos.Lrc.Logic         (RichmenType (..), findRichmenPure)
 import           Pos.Lrc.Types         (FullRichmenData, Richmen, RichmenStake, toRichmen)
 import           Pos.Txp.Core          (txOutStake)
 import           Pos.Types             (Coin, EpochIndex, StakeholderId, applyCoinPortion)
-
-----------------------------------------------------------------------------
--- Class
-----------------------------------------------------------------------------
-
--- | Class for components that store info about richmen.
-class Bi (RichmenData a) => RichmenComponent a where
-    -- | Datatype that stored. Consider using 'Richmen' or
-    -- 'RichmenStake' or 'FullRichmenData'.
-    type RichmenData a :: *
-    -- | Converts 'FullRichmenData' to what's need to be saved.
-    rcToData :: FullRichmenData -> RichmenData a
-    -- | Tag to identify component (short bytestring).
-    rcTag :: Proxy a -> ByteString
-    -- | Threshold for the richman. Argument is total system stake.
-    rcThreshold :: Proxy a -> Coin -> Coin
-    -- | Whether to consider delegated stake.
-    rcConsiderDelegated :: Proxy a -> Bool
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -105,16 +88,6 @@ putRichmenP Proxy = putRichmen @c
 ----------------------------------------------------------------------------
 -- Initialization
 ----------------------------------------------------------------------------
-
-data SomeRichmenComponent =
-    forall c. (RichmenComponent c) =>
-              SomeRichmenComponent (Proxy c)
-
-someRichmenComponent
-    :: forall c.
-       RichmenComponent c
-    => SomeRichmenComponent
-someRichmenComponent = SomeRichmenComponent (Proxy :: Proxy c)
 
 prepareLrcRichmen
     :: (WithNodeContext ssc m, MonadDB m)

@@ -12,10 +12,12 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Pos.Lrc.FollowTheSatoshiM
+  exposed-modules:     Pos.Lrc.FollowTheSatoshiB
                        Pos.Lrc.Types
                        Pos.Lrc.Error
                        Pos.Lrc.Core
+                       Pos.Lrc.ConsumerB
+                       Pos.Lrc.Class
 
   build-depends:       base
                      , bytestring

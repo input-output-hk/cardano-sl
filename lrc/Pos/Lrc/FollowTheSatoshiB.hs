@@ -1,8 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- | Everything related to /follow-the-satoshi/ procedure.
+-- | Base part of  /follow-the-satoshi/ procedure.
 
-module Pos.Lrc.FollowTheSatoshiM
+module Pos.Lrc.FollowTheSatoshiB
        ( followTheSatoshiM
        ) where
 

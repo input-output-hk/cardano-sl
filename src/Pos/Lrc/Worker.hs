@@ -28,7 +28,7 @@ import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrc
 import qualified Pos.DB.DB                   as DB
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.GState.Balances      as GS
-import           Pos.Lrc.Consumer            (LrcConsumer (..))
+import           Pos.Lrc.ConsumerB           (LrcConsumer (..))
 import           Pos.Lrc.Consumers           (allLrcConsumers)
 import           Pos.Lrc.DB                  (IssuersStakes, getLeaders, putEpoch,
                                               putIssuersStakes, putLeaders)

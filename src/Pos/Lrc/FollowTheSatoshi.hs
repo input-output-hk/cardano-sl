@@ -8,18 +8,14 @@ module Pos.Lrc.FollowTheSatoshi
        ) where
 
 import qualified Data.HashMap.Strict       as HM
-import           Data.List.NonEmpty        (fromList)
 import           Universum
 
-import           Pos.Constants             (epochSlots)
-import           Pos.Crypto                (deterministic, randomNumber)
-import           Pos.Lrc.FollowTheSatoshiM (followTheSatoshiM)
+import           Pos.Lrc.FollowTheSatoshiB (followTheSatoshiM)
 import           Pos.Txp.Toil.Types        (Utxo)
 import           Pos.Txp.Toil.Utxo         (utxoToStakes)
 import           Pos.Types                 (Coin, SharedSeed (..), StakeholderId,
-                                            coinToInteger, mkCoin, sumCoins,
-                                            unsafeAddCoin)
-import           Pos.Util.Iterator         (MonadIterator (..), runListHolder)
+                                            coinToInteger, mkCoin, sumCoins)
+import           Pos.Util.Iterator         (runListHolder)
 
 -- | Choose several random stakeholders (specifically, their amount is
 -- currently hardcoded in 'Pos.Constants.epochSlots').

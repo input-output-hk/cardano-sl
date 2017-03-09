@@ -270,5 +270,6 @@ executable qdisc-simulation
                   , statistics
                   , vector
                   , time
+  default-language: Haskell2010
   ghc-options:    -O3
                   -threaded

@@ -7,53 +7,19 @@ module Pos.Lrc.FollowTheSatoshi
        , followTheSatoshiM
        ) where
 
-import qualified Data.HashMap.Strict as HM
-import           Data.List.NonEmpty  (fromList)
+import qualified Data.HashMap.Strict       as HM
+import           Data.List.NonEmpty        (fromList)
 import           Universum
 
-import           Pos.Constants       (epochSlots)
-import           Pos.Crypto          (deterministic, randomNumber)
-import           Pos.Txp.Toil.Types  (Utxo)
-import           Pos.Txp.Toil.Utxo   (utxoToStakes)
-import           Pos.Types           (Coin, SharedSeed (..), StakeholderId, coinToInteger,
-                                      mkCoin, sumCoins, unsafeAddCoin)
-import           Pos.Util.Iterator   (MonadIterator (..), runListHolder)
-
--- | A version of 'followTheSatoshi' that uses an iterator over 'TxOut's
--- instead of 'Utxo'.
-followTheSatoshiM
-    :: forall m . MonadIterator (StakeholderId, Coin) m
-    => SharedSeed -> Coin -> m (NonEmpty StakeholderId)
-followTheSatoshiM _ totalCoins
-    | totalCoins == mkCoin 0 = panic "followTheSatoshiM: nobody has any stake"
-followTheSatoshiM (SharedSeed seed) totalCoins = do
-    res <- findLeaders (sortOn fst $ zip coinIndices [1..]) (mkCoin 0)
-    pure . fromList . map fst . sortOn snd $ res
-  where
-    coinIndices :: [Coin]
-    -- There won't be overflow because totalCoins fits in 64 bits
-    coinIndices = map (mkCoin . fromInteger . (+1)) $
-              deterministic seed $
-              replicateM epochSlots (randomNumber (coinToInteger totalCoins))
-
-    findLeaders
-        :: [(Coin, Int)]
-        -> Coin
-        -> m [(StakeholderId, Int)]
-    -- We found all coins we wanted to find
-    findLeaders [] _ = pure []
-    -- We ran out of items in the buffer so we take a new output
-    -- and refill the buffer
-    findLeaders coins sm = nextItem @(StakeholderId, Coin) >>=
-        maybe (panic "followTheSatoshiM: indices out of range") (onItem coins)
-      where
-        -- We check whether `c` is covered by current item in the buffer
-        onItem [] _ = pure []
-        onItem (c:cs) it@(adr, val)
-            | sm' >= fst c = ((adr, snd c):) <$> onItem cs it
-            | otherwise = findLeaders (c:cs) sm'
-          where
-            sm' = unsafeAddCoin sm val
+import           Pos.Constants             (epochSlots)
+import           Pos.Crypto                (deterministic, randomNumber)
+import           Pos.Lrc.FollowTheSatoshiM (followTheSatoshiM)
+import           Pos.Txp.Toil.Types        (Utxo)
+import           Pos.Txp.Toil.Utxo         (utxoToStakes)
+import           Pos.Types                 (Coin, SharedSeed (..), StakeholderId,
+                                            coinToInteger, mkCoin, sumCoins,
+                                            unsafeAddCoin)
+import           Pos.Util.Iterator         (MonadIterator (..), runListHolder)
 
 -- | Choose several random stakeholders (specifically, their amount is
 -- currently hardcoded in 'Pos.Constants.epochSlots').

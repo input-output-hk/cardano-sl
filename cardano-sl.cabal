@@ -403,6 +403,7 @@ library
                       , cardano-sl-core
                       , cardano-sl-db
                       , cardano-sl-infra
+                      , cardano-sl-lrc
                       , cardano-sl-update
                       , cereal
                       , concurrent-extra

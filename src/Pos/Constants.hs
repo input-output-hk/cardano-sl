@@ -72,13 +72,12 @@ import           Data.Time.Clock.POSIX       (getPOSIXTime)
 import           System.IO.Unsafe            (unsafePerformIO)
 #endif
 
-import           Pos.CLI                     (dhtNodeParser)
 import           Pos.CompileConfig           (CompileConfig (..), compileConfig)
 import           Pos.Core.Types              (ApplicationName, BlockVersion (..),
                                               CoinPortion, SoftwareVersion (..),
                                               unsafeCoinPortionFromDouble)
 import           Pos.Core.Version            (mkApplicationName)
-import           Pos.DHT.Model.Types         (DHTNode)
+import           Pos.DHT.Model.Types         (DHTNode, dhtNodeParser)
 import           Pos.Update.Core             (SystemTag, mkSystemTag)
 import           Pos.Util                    ()
 

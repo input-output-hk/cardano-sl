@@ -27,19 +27,12 @@ module Pos.CLI
        , readPeersFile
        ) where
 
-import           Formatting                           (build, formatToString, shown, (%))
-import           Universum
-
 import           Control.Lens                         (zoom, (?=))
-import           Data.Either                          (either)
 import qualified Data.Text                            as T
+import           Formatting                           (build, formatToString, shown, (%))
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
-import qualified Options.Applicative.Simple           as Opt (Mod, Parser, auto, help,
-                                                              long, metavar, option,
-                                                              optional, showDefault,
-                                                              strOption, switch, value)
+import qualified Options.Applicative.Simple           as Opt
 import           Serokell.Util.OptParse               (fromParsec)
-import qualified Serokell.Util.Parse                  as P
 import           System.Wlog                          (LoggerConfig (..),
                                                        Severity (Info, Warning),
                                                        fromScratch, lcTree, ltSeverity,
@@ -47,31 +40,18 @@ import           System.Wlog                          (LoggerConfig (..),
 import           Text.Parsec                          (eof, parse, try)
 import qualified Text.Parsec.Char                     as P
 import qualified Text.Parsec.String                   as P
+import           Universum
 
 import           Pos.Binary.Core                      ()
 import           Pos.Core.Address                     (decodeTextAddress)
 import           Pos.Core.Types                       (Address (..), AddressHash)
 import           Pos.Crypto                           (PublicKey)
-import           Pos.DHT.Model.Types                  (DHTKey, DHTNode (..),
-                                                       bytesToDHTKey)
+import           Pos.DHT.Model.Types                  (DHTNode (..), dhtKeyParser,
+                                                       dhtNodeParser)
 import           Pos.Security.CLI                     (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Util                             ()
-import           Pos.Util.TimeWarp                    (NetworkAddress)
-
--- | Parser for DHT key.
-dhtKeyParser :: P.Parser DHTKey
-dhtKeyParser = P.base64Url >>= toDHTKey
-  where
-    toDHTKey = either fail return . bytesToDHTKey
-
--- | Parsed for network address in format @host:port@.
-addrParser :: P.Parser NetworkAddress
-addrParser = (,) <$> (encodeUtf8 <$> P.host) <*> (P.char ':' *> P.port)
-
--- | Parser for 'DHTNode'.
-dhtNodeParser :: P.Parser DHTNode
-dhtNodeParser = DHTNode <$> addrParser <*> (P.char '/' *> dhtKeyParser)
+import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser)
 
 -- | Parse 'DHTNode's from a file (nodes should be separated by newlines).
 readPeersFile :: FilePath -> IO [DHTNode]

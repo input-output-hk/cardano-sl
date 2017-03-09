@@ -58,7 +58,8 @@ data ClientEvent
     | UnsubscribeBlock
     | SetClientAddress
     | SetClientBlock
-    | CliTestMsg
+    | CallMe
+    | CallMeString
 
 instance EventName ClientEvent where
     toName SubscribeAddr    = "SA"
@@ -67,17 +68,20 @@ instance EventName ClientEvent where
     toName UnsubscribeBlock = "UB"
     toName SetClientAddress = "CA"
     toName SetClientBlock   = "CB"
-    toName CliTestMsg       = "callme"
+    toName CallMe           = "callme"
+    toName CallMeString     = "callme-string"
 
 data ServerEvent
     = AddrUpdated
     | BlocksUpdated
-    | ServerTestMsg
+    | CallYou
+    | CallYouString
 
 instance EventName ServerEvent where
     toName AddrUpdated   = "A"
     toName BlocksUpdated = "B"
-    toName ServerTestMsg = "callyou"
+    toName CallYou       = "callyou"
+    toName CallYouString = "callyou-string"
 
 -- * Client requests provessing
 

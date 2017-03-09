@@ -12,6 +12,7 @@ module Pos.Explorer.Web.Sockets.App
 
 import           Control.Concurrent.STM.TVar        (newTVarIO)
 import           Control.Lens                       ((<<.=))
+import           Data.Aeson                         (Value)
 import qualified Data.Set                           as S
 import           Data.Time.Units                    (Millisecond)
 import           Formatting                         (int, sformat, shown, stext, (%))
@@ -38,8 +39,7 @@ import           Pos.Explorer.Web.Sockets.Holder    (ConnectionsState, Connectio
                                                      askingConnState, mkConnectionsState,
                                                      withConnState)
 import           Pos.Explorer.Web.Sockets.Instances ()
-import           Pos.Explorer.Web.Sockets.Methods   (ClientEvent (..),
-                                                     ServerEvent (ServerTestMsg),
+import           Pos.Explorer.Web.Sockets.Methods   (ClientEvent (..), ServerEvent (..),
                                                      blockAddresses, getBlocksFromTo,
                                                      notifyAddrSubscribers,
                                                      notifyAllAddrSubscribers,
@@ -48,8 +48,8 @@ import           Pos.Explorer.Web.Sockets.Methods   (ClientEvent (..),
                                                      startSession, subscribeAddr,
                                                      subscribeBlocks, unsubscribeAddr,
                                                      unsubscribeBlocks, unsubscribeFully)
-import           Pos.Explorer.Web.Sockets.Util      (emitJSON, forkAccompanion, on, on_,
-                                                     runPeriodicallyUnless)
+import           Pos.Explorer.Web.Sockets.Util      (emit, emitJSON, forkAccompanion, on,
+                                                     on_, runPeriodicallyUnless)
 
 data NotifierSettings = NotifierSettings
     { nsPort :: Word16
@@ -71,7 +71,8 @@ notifierHandler connVar loggerName = do
     on_ UnsubscribeBlock $ asHandler_ unsubscribeBlocks
     on  SetClientAddress $ asHandler setClientAddress
     on  SetClientBlock   $ asHandler setClientBlock
-    on_ CliTestMsg       $ emitJSON ServerTestMsg empty
+    on_ CallMe           $ emitJSON CallYou empty
+    on CallMeString      $ \(s :: Value) -> emit CallYouString s
     appendDisconnectHandler $ asHandler_ unsubscribeFully
  where
     -- handlers provide context for logging and `ConnectionsVar` changes

@@ -6,12 +6,14 @@ packages:
 - '.'
 - location:
     git: https://github.com/input-output-hk/cardano-sl
-    commit: 6cdcb561786eb9a16551ec639edb3dd68e541e2e
+    commit: 718389dcc12fb611117e97508db2190bfa536a5e
   extra-dep: true
   subdirs:
       - '.'
       - core
+      - infra
       - db
+      - update
 - location:
     git: https://github.com/serokell/acid-state.git
     commit: 95fce1dbada62020a0b2d6aa2dd7e88eadd7214b
@@ -39,7 +41,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: d051eb3256662c4e542a42d43dea5637bce443f8
+    commit: 18a17e2f86341c272a5cabd9b767b8f5277dc793
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -58,6 +60,14 @@ packages:
     - socket-io
     - engine-io
     - engine-io-wai
+- location:
+    git: https://github.com/flyingleafe/cardano-crypto
+    commit: b0f261c88a0c6b38d3227cec139690f2ec67fe1a
+  extra-dep: true
+- location:
+    git: https://github.com/haskell-crypto/cryptonite.git
+    commit: 2932df9e243aa7ae7eb2b25d7c60fa77a30c6fb5
+  extra-dep: true
 
 nix:
   shell-file: shell.nix
@@ -66,10 +76,10 @@ extra-deps:
 - universum-0.2.1
 - time-units-1.0.0
 - UtilityTM-0.0.4
-- serokell-util-0.1.3.5
+- serokell-util-0.1.4.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-0.4.4
+- log-warper-1.0.0
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.5.26                   # not yet in lts-8
 - haskell-src-exts-1.17.1         # derive has not moved to 1.18 yet

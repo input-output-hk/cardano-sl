@@ -37,6 +37,7 @@ import           Pos.Txp                      (TxpLocalData, askTxpMem,
                                                runTxpHolderReader)
 import           Pos.Update                   (runUSHolder)
 import           Pos.WorkMode                 (ProductionMode)
+
 import           Pos.Explorer.Web.Server      (explorerApp, explorerHandlers,
                                                explorerServeImpl)
 import           Pos.Explorer.Web.Sockets.App (NotifierSettings, notifierApp)

@@ -4,10 +4,10 @@
 
 module Main where
 
-import           Control.Lens        (_head)
 import           Data.Maybe          (fromJust)
 import           Data.Proxy          (Proxy (..))
 import           Mockable            (Production)
+import           Serokell.Util       (sec)
 import           System.Wlog         (LoggerName)
 import           Universum
 
@@ -27,8 +27,7 @@ import           Pos.Ssc.Class       (SscConstraint)
 import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
 import           Pos.Types           (Timestamp (Timestamp))
 import           Pos.Util            (inAssertMode, mconcatPair)
-import           Pos.Util.TimeWarp   (sec)
-import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usKeys, usVss,
+import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usPrimKey, usVss,
                                       writeUserSecret)
 
 import           Pos.Explorer.Web    (NotifierSettings (..), explorerPlugin,
@@ -100,12 +99,12 @@ updateUserSecretVSS
 updateUserSecretVSS _ = fillUserSecretVSS
 
 fetchPrimaryKey :: (MonadIO m, MonadFail m) => UserSecret -> m (SecretKey, UserSecret)
-fetchPrimaryKey userSecret = case userSecret ^? usKeys . _head of
+fetchPrimaryKey userSecret = case userSecret ^. usPrimKey of
     Just sk -> return (sk, userSecret)
     Nothing -> do
         putText "Found no signing keys in keyfile, generating random one..."
         sk <- snd <$> keyGen
-        let us = userSecret & usKeys .~ [sk]
+        let us = userSecret & usPrimKey .~ Just sk
         writeUserSecret us
         return (sk, us)
 

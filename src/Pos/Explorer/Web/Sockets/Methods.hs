@@ -242,6 +242,7 @@ blockAddresses block = do
                     Nothing       -> S.empty <$ logError "DB is malformed!"
                     Just (tx', _) -> return $ one tx'
 
-                return $ S.fromList (_txOutputs tx) <> mconcat inTxs
+                return $ S.fromList (toList $ _txOutputs tx)
+                      <> (mconcat $ toList inTxs)
 
     return $ txOutAddress <$> S.toList relatedTxs

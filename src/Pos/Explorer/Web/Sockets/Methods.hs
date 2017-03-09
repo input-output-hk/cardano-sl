@@ -113,23 +113,23 @@ finishSession i = whenJustM (use $ csClients . at i) finishSessionDo
 
 setClientAddress
     :: (MonadState ConnectionsState m, WithLogger m)
-    => SocketId -> Maybe Address -> m ()
-setClientAddress sessId addr = do
+    => Maybe Address -> SocketId -> m ()
+setClientAddress addr sessId = do
     unsubscribeAddr sessId
     csClients . at sessId . _Just . ccAddress .= addr
-    whenJust addr $ subscribeAddr sessId
+    whenJust addr $ flip subscribeAddr sessId
 
 setClientBlock
     :: (MonadState ConnectionsState m, WithLogger m)
-    => SocketId -> Maybe ChainDifficulty -> m ()
-setClientBlock sessId pId = do
+    => Maybe ChainDifficulty -> SocketId -> m ()
+setClientBlock pId sessId = do
     csClients . at sessId . _Just . ccBlock .= pId
     subscribeBlocks sessId
 
 subscribeAddr
     :: (MonadState ConnectionsState m, WithLogger m)
-    => SocketId -> Address -> m ()
-subscribeAddr i addr = do
+    => Address -> SocketId -> m ()
+subscribeAddr addr i = do
     session <- use $ csClients . at i
     case session of
         Just _ -> do

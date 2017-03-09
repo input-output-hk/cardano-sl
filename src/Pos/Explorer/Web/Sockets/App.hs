@@ -80,20 +80,19 @@ notifierHandler connVar loggerName = do
  where
     -- handlers provide context for logging and `ConnectionsVar` changes
     asHandler
-        :: (SocketId -> a -> LoggerNameBox (PureLogger (StateT ConnectionsState STM)) b)
+        :: (a -> SocketId -> LoggerNameBox (PureLogger (StateT ConnectionsState STM)) b)
         -> a
         -> ReaderT Socket IO b
-    asHandler f arg = do
-        sock <- ask
-        usingLoggerName loggerName $ withConnState connVar $
-            f (socketId sock) arg
-    asHandler_ f = do
-        sock <- ask
-        usingLoggerName loggerName $ withConnState connVar $
-            f (socketId sock)
-    asHandler' f = do
-        usingLoggerName loggerName . withConnState connVar . f =<< ask
+    asHandler f arg = inHandlerCtx . f arg . socketId =<< ask
+    asHandler_ f    = inHandlerCtx . f     . socketId =<< ask
+    asHandler' f    = inHandlerCtx . f                =<< ask
 
+    inHandlerCtx
+        :: (MonadIO m, CanLog m)
+        => LoggerNameBox (PureLogger (StateT ConnectionsState STM)) a
+        -> m a
+    inHandlerCtx =
+        usingLoggerName loggerName . withConnState connVar
 
 notifierServer
     :: (MonadIO m, WithLogger m, MonadCatch m, WithLogger m)

@@ -2,17 +2,22 @@ module Explorer.View.Dashboard.Blocks (blocksView) where
 
 import Prelude
 import Data.Array (length, null, slice)
+import Data.DateTime (Millisecond)
+import Data.Int (floor, toNumber)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
+import Data.String (joinWith, trim)
 import Data.Newtype (unwrap)
 import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
-import Explorer.I18n.Lang (Language, translate)
+import Data.Time.Duration (class Duration, Milliseconds(..))
+import Explorer.I18n.Lang (Language, languageNativeName, translate)
 import Explorer.I18n.Lenses (dashboard, dbLastBlocks, cOf, common, dbExploreBlocks, cUnknown, cHeight, cExpand, cNoData, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB) as I18nL
 import Explorer.Lenses.State (dashboardBlockPagination, lang, latestBlocks)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State, CBlockEntries)
 import Explorer.Util.DOM (targetToHTMLInputElement)
+import Explorer.Util.Time (prettyDuration)
 import Explorer.View.Common (paginationView)
 import Explorer.View.Dashboard.Lenses (dashboardBlocksExpanded, dashboardViewState)
 import Explorer.View.Dashboard.Shared (headerView)
@@ -107,12 +112,14 @@ blockRow state (CBlockEntry entry) =
     P.link (toUrl <<< Block $ entry ^. cbeBlkHash)
         [ P.className "blocks-body__row" ]
         [ blockColumn <<< show $ entry ^. cbeHeight
-        , blockColumn <<< show <<< unwrap $ entry ^. (cbeTimeIssued <<< _NominalDiffTime)
+        , blockColumn (prettyDuration language (Milliseconds $ unwrap $ entry ^. (cbeTimeIssued <<< _NominalDiffTime)))
         , blockColumn <<< show $ entry ^. cbeTxNum
         , blockColumn <<< show $ entry ^. (cbeTotalSent <<< _Coin <<< getCoin)
-        , blockColumn <<< fromMaybe (translate (I18nL.common <<< I18nL.cUnknown) $ state ^. lang) $ entry ^. cbeRelayedBy
+        , blockColumn <<< fromMaybe (translate (I18nL.common <<< I18nL.cUnknown) language) $ entry ^. cbeRelayedBy
         , blockColumn <<< show $ entry ^. cbeSize
         ]
+    where
+      language      = state ^. lang
 
 blockColumn :: String -> P.Html Action
 blockColumn value =

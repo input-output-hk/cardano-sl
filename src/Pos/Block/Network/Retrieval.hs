@@ -7,15 +7,20 @@ module Pos.Block.Network.Retrieval
        , triggerRecovery
        , handleUnsolicitedHeaders
        , requestTip
-       , requestHeaders
        , addToBlockRequestQueue
        , mkHeadersRequest
        , requestTipOuts
+       , needRecovery
        ) where
 
 import           Control.Concurrent.STM     (isEmptyTBQueue, isFullTBQueue, putTMVar,
+<<<<<<< HEAD
                                              tryReadTBQueue, tryReadTMVar, tryTakeTMVar,
                                              writeTBQueue)
+=======
+                                             readTVar, tryReadTBQueue, tryReadTMVar,
+                                             tryTakeTMVar, writeTBQueue, writeTVar)
+>>>>>>> cardano-sl-0.2
 import           Control.Lens               (_Wrapped)
 import           Control.Monad.Except       (ExceptT, runExceptT, throwError)
 import           Data.List.NonEmpty         ((<|))
@@ -50,11 +55,19 @@ import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB.DB                  as DB
 import           Pos.DHT.Model              (converseToNeighbors)
 import           Pos.Reporting.Methods      (reportMisbehaviourMasked, reportingFatal)
+<<<<<<< HEAD
 import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
                                              HeaderHash, blockHeader, difficultyL,
                                              gbHeader, headerHashG, prevBlockL,
+=======
+import           Pos.Slotting               (getCurrentSlot)
+import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
+import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
+                                             HeaderHash, blockHeader, difficultyL,
+                                             gbHeader, getEpochOrSlot, prevBlockL,
+>>>>>>> cardano-sl-0.2
                                              verifyHeaders)
 import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
                                              inAssertMode, _neHead, _neLast)
@@ -71,9 +84,21 @@ retrievalWorker = worker outs retrievalWorkerImpl
   where
     outs = announceBlockOuts <>
            toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
+<<<<<<< HEAD
                              (Proxy :: Proxy (MsgBlock ssc))
                       ]
 
+=======
+                             (Proxy :: Proxy (MsgBlock s0 ssc))]
+
+needRecovery :: WorkMode ssc m => m Bool
+needRecovery = maybe (pure True) onSlotKnown =<< getCurrentSlot
+  where
+    onSlotKnown slot = do
+        header <- DB.getTipBlockHeader
+        return $ toEnum (fromEnum (getEpochOrSlot header) + blkSecurityParam) < getEpochOrSlot slot
+
+>>>>>>> cardano-sl-0.2
 retrievalWorkerImpl
     :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
@@ -83,15 +108,30 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
     NodeContext{..} <- getNodeContext
     mainLoop ncBlockRetrievalQueue ncRecoveryHeader
   where
+<<<<<<< HEAD
     mainLoop queue recHeaderVar = runIfNotShutdown $ reportingFatal version $ do
         logDebug "Waiting on the queue"
         loopCont <- atomically $ do
             qV <- tryReadTBQueue queue
             rV <- tryReadTMVar recHeaderVar
+=======
+    mainLoop queue recHeaderVar = ifNotShutdown $ reportingFatal $ do
+        inRecovery <- needRecovery
+        when (not inRecovery) $
+            whenJustM (atomically $ tryTakeTMVar recHeaderVar) $
+                const (triggerRecovery sendActions)
+        logDebug "Waiting on the queue"
+        loopCont <- atomically $ do
+            qV <- tryReadTBQueue queue
+            rV <- if inRecovery
+                     then tryReadTMVar recHeaderVar
+                     else pure Nothing
+>>>>>>> cardano-sl-0.2
             case (qV, rV) of
                 (Nothing, Nothing) -> retry
                 (Just v, _)        -> pure $ Left v
                 (Nothing, Just r)  -> pure $ Right r
+<<<<<<< HEAD
         let onLeft ph =
                 handleAll (handleBlockRetrieval recHeaderVar ph) $
                 reportingFatal version $ handle ph
@@ -111,6 +151,34 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
                         requestHeaders mghNext (Just rHeader) peerId limPx
         either onLeft onRight loopCont
         mainLoop queue recHeaderVar
+=======
+        either onLeft onRight loopCont
+        mainLoop queue recHeaderVar
+      where
+        onLeft ph =
+            handleAll (handleBlockRetrievalE recHeaderVar ph) $
+            reportingFatal $ handle ph
+        onRight (peerId, rHeader) = do
+            logDebug "Queue is empty, we're in recovery mode -> querying more"
+            whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
+                handleAll (handleHeadersRecoveryE recHeaderVar peerId) $
+                reportingFatal $
+                withConnectionTo sendActions peerId $ \_peerData ->
+                    requestHeaders mghNext peerId rHeader
+        handleBlockRetrievalE recHeaderVar (peerId, headers) e = do
+            logWarning $ sformat
+                ("Error handling peerId="%build%", headers="%listJson%": "%shown)
+                peerId (fmap headerHash headers) e
+            dropUpdateHeader
+            dropRecoveryHeaderAndRepeat recHeaderVar peerId
+        handleHeadersRecoveryE recHeaderVar peerId e = do
+            logWarning $ sformat
+                ("Failed while trying to get more headers "%
+                 "for recovery from peerId="%build%", error: "%shown)
+                peerId e
+            dropUpdateHeader
+            dropRecoveryHeaderAndRepeat recHeaderVar peerId
+>>>>>>> cardano-sl-0.2
 
     dropUpdateHeader = do
         progressHeaderVar <- ncProgressHeader <$> getNodeContext
@@ -134,12 +202,17 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
 
     attemptRestartRecovery = do
         logDebug "Attempting to restart recovery"
+<<<<<<< HEAD
         handleAll handleRecoveryTrigger $ triggerRecovery sendActions
+=======
+        handleAll handleRecoveryTriggerE $ triggerRecovery sendActions
+>>>>>>> cardano-sl-0.2
         logDebug "Attempting to restart recovery over"
 
     handleTop e = do
         logError $ sformat ("retrievalWorker: error caught "%shown) e
         throw e
+<<<<<<< HEAD
     handleBlockRetrieval recHeaderVar (peerId, headers) e = do
         logWarning $ sformat
             ("Error handling peerId="%build%", headers="%listJson%": "%shown)
@@ -154,6 +227,9 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
         dropUpdateHeader
         dropRecoveryHeaderAndRepeat recHeaderVar peerId
     handleRecoveryTrigger e =
+=======
+    handleRecoveryTriggerE e =
+>>>>>>> cardano-sl-0.2
         logError $ "Exception happened while trying to trigger " <>
                    "recovery inside recoveryWorker: " <> show e
 
@@ -256,6 +332,7 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
 -- | Triggers recovery based on established communication.
 triggerRecovery :: forall ssc m. WorkMode ssc m => SendActions m -> m ()
 triggerRecovery sendActions = unlessM isRecoveryMode $ do
+<<<<<<< HEAD
     logDebug "Recovery triggered, requesting tips"
     reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limitProxy -> do
         converseToNeighbors sendActions (requestTip limitProxy) `catch`
@@ -263,6 +340,13 @@ triggerRecovery sendActions = unlessM isRecoveryMode $ do
                logDebug ("Error happened in triggerRecovery" <> show e)
                throwM e
         logDebug "Recovery triggered ended"
+=======
+    logInfo "Recovery triggered, requesting tips"
+    converseToNeighbors sendActions requestTip `catch`
+        (\(e :: SomeException) ->
+           logDebug ("Error happened in triggerRecovery" <> show e) >> throwM e)
+    logDebug "Recovery triggered ended"
+>>>>>>> cardano-sl-0.2
 
 -- | Make 'GetHeaders' message using our main chain. This function
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'
@@ -307,12 +391,16 @@ handleUnsolicitedHeader header peerId conv = do
     case classificationRes of
         CHContinues -> do
             logDebug $ sformat continuesFormat hHash
-            addToBlockRequestQueue (one header) Nothing peerId
+            addToBlockRequestQueue (one header) peerId header
         CHAlternative -> do
             logInfo $ sformat alternativeFormat hHash
             mghM <- mkHeadersRequest (Just hHash)
             whenJust mghM $ \mgh ->
+<<<<<<< HEAD
                 requestHeaders mgh (Just header) peerId Proxy conv
+=======
+                requestHeaders mgh peerId header conv
+>>>>>>> cardano-sl-0.2
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> do
             logDebug $ sformat ("handleUnsolicited: header "%shortHashF%
@@ -337,31 +425,25 @@ data MatchReqHeadersRes
       -- request
     | MRUnexpected
       -- ^ Headers don't represent valid response to our request.
-    | MRRecovery
-      -- ^ Headers are valid, but chain length is too big and last
-      -- element doesn't match expected 'mghTo', so we're in "after
-      -- offline ~ recovery" mode.
     deriving (Show)
 
 matchRequestedHeaders
     :: (Ssc ssc)
-    => NewestFirst NE (BlockHeader ssc) -> MsgGetHeaders -> MatchReqHeadersRes
-matchRequestedHeaders headers MsgGetHeaders{..} =
+    => NewestFirst NE (BlockHeader ssc) -> MsgGetHeaders -> Bool -> MatchReqHeadersRes
+matchRequestedHeaders headers MsgGetHeaders{..} inRecovery =
     let newTip      = headers ^. _Wrapped . _neHead
         startHeader = headers ^. _Wrapped . _neLast
         startMatches =
             or [ (startHeader ^. headerHashG) `elem` mghFrom
                , (startHeader ^. prevBlockL) `elem` mghFrom]
-        recoveryMode = length headers > blkSecurityParam
         mghToMatches
-            | recoveryMode = True
+            | inRecovery = True
             | isNothing mghTo = True
-            | otherwise =  Just (headerHash newTip) == mghTo
+            | otherwise = Just (headerHash newTip) == mghTo
         boolMatch = and [startMatches, mghToMatches, formChain]
-     in case (boolMatch, recoveryMode) of
-        (True, False) -> MRGood
-        (True, True)  -> MRRecovery
-        (False, _)    -> MRUnexpected
+     in if boolMatch
+           then MRGood
+           else MRUnexpected
   where
     formChain = isVerSuccess $
         verifyHeaders True (headers & _Wrapped %~ toList)
@@ -396,8 +478,8 @@ requestHeaders
     :: forall ssc s m.
        (WorkMode ssc m)
     => MsgGetHeaders
-    -> Maybe (BlockHeader ssc)
     -> NodeId
+<<<<<<< HEAD
     -> Proxy s
     -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
     -> m ()
@@ -405,17 +487,25 @@ requestHeaders mgh recoveryHeader peerId _ conv = do
     logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
     send conv mgh
     mHeaders <- recvLimited conv
+=======
+    -> BlockHeader ssc
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
+    -> m ()
+requestHeaders mgh peerId origTip conv = do
+    logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
+    send conv mgh
+    mHeaders <- recv conv
+    inRecovery <- needRecovery
+    logDebug $ sformat ("requestHeaders: inRecovery = "%shown) inRecovery
+>>>>>>> cardano-sl-0.2
     flip (maybe onNothing) mHeaders $ \(MsgHeaders headers) -> do
         logDebug $ sformat
             ("requestHeaders: withConnection: received "%listJson)
             (map headerHash headers)
-        case matchRequestedHeaders headers mgh of
+        case matchRequestedHeaders headers mgh inRecovery of
             MRGood       -> do
-                handleRequestedHeaders headers Nothing peerId
+                handleRequestedHeaders headers peerId origTip
             MRUnexpected -> handleUnexpected headers peerId
-            MRRecovery   -> do
-                logDebug "Handling header requests in recovery mode"
-                handleRequestedHeaders headers recoveryHeader peerId
   where
     onNothing = logWarning "requestHeaders: received Nothing, waiting for MsgHeaders"
     handleUnexpected hs _ = do
@@ -431,10 +521,10 @@ handleRequestedHeaders
     :: forall ssc m.
        (WorkMode ssc m)
     => NewestFirst NE (BlockHeader ssc)
-    -> Maybe (BlockHeader ssc)
     -> NodeId
+    -> BlockHeader ssc
     -> m ()
-handleRequestedHeaders headers recoveryTip peerId = do
+handleRequestedHeaders headers peerId origTip = do
     logDebug "handleRequestedHeaders: headers were requested, will process"
     classificationRes <- classifyHeaders headers
     let newestHeader = headers ^. _Wrapped . _neHead
@@ -451,7 +541,7 @@ handleRequestedHeaders headers recoveryTip peerId = do
                     "handleRequestedHeaders: couldn't find LCA child " <>
                     "within headers returned, most probably classifyHeaders is broken"
                 Just headersPostfix ->
-                    addToBlockRequestQueue (NewestFirst headersPostfix) recoveryTip peerId
+                    addToBlockRequestQueue (NewestFirst headersPostfix) peerId origTip
         CHsUseless reason ->
             logDebug $ sformat uselessFormat oldestHash newestHash reason
         CHsInvalid reason ->
@@ -475,12 +565,13 @@ addToBlockRequestQueue
     :: forall ssc m.
        (WorkMode ssc m)
     => NewestFirst NE (BlockHeader ssc)
-    -> Maybe (BlockHeader ssc)
     -> NodeId
+    -> BlockHeader ssc
     -> m ()
-addToBlockRequestQueue headers recoveryTip peerId = do
+addToBlockRequestQueue headers peerId origTip = do
     queue <- ncBlockRetrievalQueue <$> getNodeContext
     recHeaderVar <- ncRecoveryHeader <$> getNodeContext
+<<<<<<< HEAD
     let updateRecoveryHeader (Just recTip) = do
             let replace = tryTakeTMVar recHeaderVar >>= \case
                     Just (_, header')
@@ -491,8 +582,23 @@ addToBlockRequestQueue headers recoveryTip peerId = do
                 Just (_,curRecHeader) ->
                     when (((>) `on` view difficultyL) recTip curRecHeader) replace
         updateRecoveryHeader _ = pass
+=======
+    lastKnownH <- ncLastKnownHeader <$> getNodeContext
+    atomically $ do
+        oldV <- readTVar lastKnownH
+        when (maybe True (origTip `isMoreDifficult`) oldV) $
+            writeTVar lastKnownH (Just origTip)
+    atomically $ do
+        let replace = tryTakeTMVar recHeaderVar >>= \case
+                Just (_, header')
+                    | not (origTip `isMoreDifficult` header') -> pass
+                _ -> putTMVar recHeaderVar (peerId, origTip)
+        tryReadTMVar recHeaderVar >>= \case
+            Nothing -> replace
+            Just (_,curRecHeader) ->
+                when (origTip `isMoreDifficult` curRecHeader) replace
+>>>>>>> cardano-sl-0.2
     added <- atomically $ do
-        updateRecoveryHeader recoveryTip
         ifM (isFullTBQueue queue)
             (pure False)
             (True <$ writeTBQueue queue (peerId, headers))
@@ -503,6 +609,8 @@ addToBlockRequestQueue headers recoveryTip peerId = do
     else logWarning $ sformat ("Failed to add headers from "%build%
                                " to block retrieval queue: queue is full")
                               peerId
+  where
+    a `isMoreDifficult` b = a ^. difficultyL > b ^. difficultyL
 
 -- | Make message which requests chain of blocks which is based on our
 -- tip. LcaChild is the first block after LCA we don't

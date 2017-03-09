@@ -56,9 +56,9 @@ import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
 import           Pos.Wallet.Tx                 (sendTxOuts, submitRedemptionTx, submitTx)
 import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
-import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
-                                                blockchainSlotDuration, connectedPeers,
-                                                getBalance, getTxHistory,
+import           Pos.Wallet.WalletMode         (TxHistoryAnswer (..), WalletMode,
+                                                applyLastUpdate, blockchainSlotDuration,
+                                                connectedPeers, getBalance, getTxHistory,
                                                 localChainDifficulty,
                                                 networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
@@ -78,11 +78,12 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 notify, runWalletWS, upgradeApplicationWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, addUpdate, closeState,
-                                                createWallet, getNextUpdate, getProfile,
-                                                getTxMeta, getWalletMeta, getWalletState,
-                                                openState, removeNextUpdate, removeWallet,
+                                                createWallet, getHistoryCache,
+                                                getNextUpdate, getProfile, getTxMeta,
+                                                getWalletMeta, getWalletState, openState,
+                                                removeNextUpdate, removeWallet,
                                                 runWalletWebDB, setProfile, setWalletMeta,
-                                                setWalletTransactionMeta, testReset)
+                                                setWalletTransactionMeta, testReset, updateHistoryCache)
 import           Pos.Web.Server                (serveImpl)
 
 ----------------------------------------------------------------------------
@@ -272,7 +273,6 @@ servantHandlers sendActions =
      apiSettingsSoftwareVersion
     :<|>
      apiSettingsSyncProgress
-
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
@@ -332,7 +332,7 @@ decodeCAddressOrFail = either wrongAddress pure . cAddressToAddress
 getWallets :: WalletWebMode ssc m => m [CWallet]
 getWallets = join $ mapM getWallet <$> myCAddresses
 
-send :: WalletWebMode ssc m =>  SendActions m -> CAddress -> CAddress -> Coin -> m CTx
+send :: WalletWebMode ssc m => SendActions m -> CAddress -> CAddress -> Coin -> m CTx
 send sendActions srcCAddr dstCAddr c =
     sendExtended sendActions srcCAddr dstCAddr c ADA mempty mempty
 
@@ -362,13 +362,25 @@ getHistory
        (SscHelpersClass ssc, WalletWebMode ssc m)
     => CAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
 getHistory cAddr skip limit = do
-    history <- untag @ssc getTxHistory =<< decodeCAddressOrFail cAddr
-    cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) history
-    pure (paginate cHistory, fromIntegral $ length cHistory)
+    (minit, cachedTxs) <- transCache <$> getHistoryCache cAddr
+
+    TxHistoryAnswer {..} <- flip (untag @ssc getTxHistory) minit
+        =<< decodeCAddressOrFail cAddr
+    cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) taHistory
+
+    -- Add allowed portion of result to cache
+    let fullHistory = cHistory <> cachedTxs
+        lenHistory = length cHistory
+        cached = drop (lenHistory - taCachedNum) cHistory
+
+    updateHistoryCache cAddr taLastCachedHash taCachedUtxo cached
+    pure (paginate fullHistory, fromIntegral $ length fullHistory)
   where
     paginate     = take defaultLimit . drop defaultSkip
     defaultLimit = (fromIntegral $ fromMaybe 100 limit)
     defaultSkip  = (fromIntegral $ fromMaybe 0 skip)
+    transCache Nothing                = (Nothing, [])
+    transCache (Just (hh, utxo, txs)) = (Just (hh, utxo), txs)
 
 -- FIXME: is Word enough for length here?
 searchHistory

@@ -6,8 +6,6 @@ module Pos.Txp.Toil.Utxo.Functions
        , applyTxToUtxo
        , rollbackTxUtxo
        -- * Pure
-       , deleteTxIn
-       , findTxIn
        , belongsTo
        , filterUtxoByAddr
        , utxoToStakes
@@ -70,14 +68,6 @@ rollbackTxUtxo ((tx@UnsafeTx{..}, _, _), undo) = do
 ----------------------------------------------------------------------------
 -- Pure
 ----------------------------------------------------------------------------
-
--- | Find transaction input in Utxo assuming it is valid.
-findTxIn :: TxIn -> Utxo -> Maybe TxOutAux
-findTxIn = M.lookup
-
--- | Delete given TxIn from Utxo if any.
-deleteTxIn :: TxIn -> Utxo -> Utxo
-deleteTxIn = M.delete
 
 -- | A predicate for `TxOut` which selects outputs for given address
 belongsTo :: TxOutAux -> Address -> Bool

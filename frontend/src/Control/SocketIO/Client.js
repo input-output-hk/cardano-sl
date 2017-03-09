@@ -8,7 +8,6 @@ exports.connectImpl = function (url) {
 
 exports.emitImpl = function(socket, eventName, data) {
   return function() {
-    console.log("emitImpl -> data", data);
     if (data !== undefined) {
       socket.emit(eventName, data);
     } else {

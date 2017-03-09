@@ -15,6 +15,7 @@ data Route =
     | Address CAddress
     | Calculator
     | Block CHash
+    | Playground
     | NotFound
 
 match :: String -> Route
@@ -28,6 +29,10 @@ match url = fromMaybe NotFound $ router url $
     Calculator <$ lit calculatorLit <* end
     <|>
     Block <<< mkCHash <$> (lit blockLit *> str) <* end
+    <|>
+    -- TODO (jk) Disable Playground route in production mode
+    -- It is just for debugging
+    Playground <$ lit playgroundLit <* end
 
 toUrl :: Route -> String
 toUrl Dashboard = dashboardUrl
@@ -35,6 +40,7 @@ toUrl (Transaction hash) = transactionUrl hash
 toUrl (Address address) = addressUrl address
 toUrl Calculator = calculatorUrl
 toUrl (Block hash) = blockUrl hash
+toUrl Playground = playgroundUrl
 toUrl NotFound = dashboardUrl
 
 litUrl :: String -> String
@@ -66,3 +72,9 @@ blockLit = "slot"
 
 blockUrl :: CHash -> String
 blockUrl hash = litUrl blockLit <> hash ^. _CHash
+
+playgroundLit :: String
+playgroundLit = "playground"
+
+playgroundUrl :: String
+playgroundUrl = litUrl playgroundLit

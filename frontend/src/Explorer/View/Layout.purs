@@ -10,6 +10,7 @@ import Explorer.View.Dashboard.Dashboard (dashboardView)
 import Explorer.View.Footer (footerView)
 import Explorer.View.Header (headerView)
 import Explorer.View.NotFound (notFoundView)
+import Explorer.View.Playground (playgroundView)
 import Explorer.View.Transaction (transactionView)
 import Pux.Html (Html, div, main) as P
 import Pux.Html.Attributes (className) as P
@@ -32,6 +33,7 @@ view state =
                           (Address address) -> addressView state
                           Calculator -> calculatorView state
                           (Block hash) -> blockView state
+                          Playground -> playgroundView state
                           NotFound -> notFoundView state
                     ]
                 , footerView state

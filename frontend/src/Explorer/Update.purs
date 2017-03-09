@@ -3,7 +3,7 @@ module Explorer.Update where
 import Prelude
 import Control.Monad.Aff (attempt)
 import Control.Monad.Eff.Class (liftEff)
-import Control.SocketIO.Client (SocketIO, emit')
+import Control.SocketIO.Client (SocketIO, emit, emit')
 import DOM (DOM)
 import DOM.HTML.HTMLInputElement (select)
 import Data.Array ((:))
@@ -11,7 +11,7 @@ import Data.Either (Either(..))
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
 import Explorer.Api.Http (fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs)
-import Explorer.Api.Socket (callMeEvent)
+import Explorer.Api.Socket (callMeEvent, callMeStringEvent)
 import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, connection, currentAddressSummary, currentBlock, currentBlockTxs, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
@@ -53,6 +53,14 @@ update SocketCallMe state =
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
               Just socket' -> liftEff $ emit' socket' callMeEvent
+              Nothing -> pure unit
+          pure NoOp
+    ]}
+update (SocketCallMeString str) state =
+    { state
+    , effects : [ do
+          _ <- case state ^. (socket <<< connection) of
+              Just socket' -> liftEff $ emit socket' callMeStringEvent str
               Nothing -> pure unit
           pure NoOp
     ]}
@@ -211,4 +219,5 @@ routeEffects (Block hash) state =
         , pure $ RequestBlockTxs hash
         ]
     }
+routeEffects Playground state = { state, effects: [ pure ScrollTop ] }
 routeEffects NotFound state = { state, effects: [ pure ScrollTop ] }

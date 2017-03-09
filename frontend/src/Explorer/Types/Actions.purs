@@ -21,6 +21,7 @@ data Action
     | SocketLatestBlocks (Either Error CBlockEntries)
     | SocketLatestTransactions (Either Error CTxEntries)
     | SocketCallMe
+    | SocketCallMeString String
     -- http endpoints
     | RequestInitialBlocks
     | ReceiveInitialBlocks (Either Error CBlockEntries)

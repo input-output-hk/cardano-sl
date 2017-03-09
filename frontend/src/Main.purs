@@ -6,7 +6,7 @@ import Control.SocketIO.Client (SocketIO, connect, on)
 import DOM (DOM)
 import Data.Lens (set)
 import Data.Maybe (Maybe(..))
-import Explorer.Api.Socket (callYouEvent, callYouEventHandler, socketHost, connectEvent, closeEvent, connectHandler, closeHandler, lastestBlocksEvent, latestBlocksHandler, lastestTransactionsEvent, latestTransactionsHandler) as Ex
+import Explorer.Api.Socket (callYouEvent, callYouEventHandler, callYouStringEvent, callYouStringEventHandler, socketHost, connectEvent, closeEvent, connectHandler, closeHandler, lastestBlocksEvent, latestBlocksHandler, lastestTransactionsEvent, latestTransactionsHandler) as Ex
 import Explorer.Lenses.State (connection, socket)
 import Explorer.Routes (match)
 import Explorer.Types.Actions (Action(..)) as Ex
@@ -37,6 +37,7 @@ config state = do
   on socket' Ex.lastestBlocksEvent $ Ex.latestBlocksHandler actionChannel
   on socket' Ex.lastestTransactionsEvent $ Ex.latestTransactionsHandler actionChannel
   on socket' Ex.callYouEvent $ Ex.callYouEventHandler actionChannel
+  on socket' Ex.callYouStringEvent $ Ex.callYouStringEventHandler actionChannel
 
   pure
     { initialState: set (socket <<< connection) (Just socket') state

@@ -5,6 +5,7 @@ import Control.Monad.Eff (Eff)
 import Control.SocketIO.Client (Event, Host)
 import Data.Argonaut.Core (Json)
 import Data.Foreign (Foreign)
+import Debug.Trace (traceAnyM, traceShowM)
 import Explorer.Api.Helper (decodeResult)
 import Explorer.Types.Actions (Action(..), ActionChannel)
 import Signal.Channel (CHANNEL, send)
@@ -35,6 +36,12 @@ callMeEvent = "callme"
 callYouEvent :: Event
 callYouEvent = "callyou"
 
+callMeStringEvent :: Event
+callMeStringEvent = "callme-string"
+
+callYouStringEvent :: Event
+callYouStringEvent = "callyou-string"
+
 -- event handler
 
 connectHandler :: forall eff. ActionChannel -> Foreign
@@ -60,5 +67,12 @@ latestTransactionsHandler channel json =
     send channel $ SocketLatestTransactions result
 
 callYouEventHandler :: forall eff. ActionChannel -> Foreign -> Eff (channel :: CHANNEL | eff) Unit
-callYouEventHandler channel _ =
-    send channel $ SocketConnected false
+callYouEventHandler channel _ = do
+    traceShowM "callYouEventHandler"
+    send channel NoOp
+
+callYouStringEventHandler :: forall eff. ActionChannel -> String -> Eff (channel :: CHANNEL | eff) Unit
+callYouStringEventHandler channel str = do
+    traceAnyM "callYouStringEventHandler"
+    traceShowM str
+    send channel NoOp

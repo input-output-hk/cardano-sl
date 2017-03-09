@@ -11,15 +11,11 @@ import           Universum
 
 import           Pos.Binary            ()
 import qualified Pos.CLI               as CLI
-import           Pos.Constants         (staticSysStart)
+import           Pos.Constants         (isDevelopment, staticSysStart)
 import           Pos.Context           (getNodeContext, ncUpdateSemaphore)
 import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
-#ifdef DEV_MODE
-import           Pos.Genesis           (genesisSecretKeys)
-#else
-import           Pos.Genesis           (genesisStakeDistribution)
-#endif
-import           Pos.Genesis           (genesisUtxo)
+import           Pos.Genesis           (genesisSecretKeys, genesisStakeDistribution,
+                                        genesisUtxo)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
                                         NodeParams (..), RealModeResources,
                                         bracketResources, runNodeProduction, runNodeStats,
@@ -36,7 +32,7 @@ import           Pos.Ssc.SscAlgo       (SscAlgo (..))
 import           Pos.Types             (Timestamp (Timestamp))
 import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
-import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usVss, usPrimKey,
+import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usPrimKey, usVss,
                                         writeUserSecret)
 #ifdef WITH_WEB
 import           Pos.Web               (serveWebBase, serveWebGT)
@@ -213,15 +209,12 @@ getNodeParams args@Args {..} systemStart = do
         , npUserSecret = userSecret
         , npSystemStart = systemStart
         , npBaseParams = params
-        , npCustomUtxo =
-                genesisUtxo $
-#ifdef DEV_MODE
-                stakesDistr (CLI.flatDistr commonArgs)
-                            (CLI.bitcoinDistr commonArgs)
-                            (CLI.expDistr commonArgs)
-#else
-                genesisStakeDistribution
-#endif
+        , npCustomUtxo = genesisUtxo $
+              if isDevelopment
+                  then stakesDistr (CLI.flatDistr commonArgs)
+                                   (CLI.bitcoinDistr commonArgs)
+                                   (CLI.expDistr commonArgs)
+                  else genesisStakeDistribution
         , npTimeLord = timeLord
         , npJLFile = jlPath
         , npAttackTypes = maliciousEmulationAttacks
@@ -298,11 +291,9 @@ walletStats = first (map liftPlugin) . walletServe
 
 printFlags :: IO ()
 printFlags = do
-#ifdef DEV_MODE
-    putText "[Attention] We are in DEV mode"
-#else
-    putText "[Attention] We are in PRODUCTION mode"
-#endif
+    if isDevelopment
+        then putText "[Attention] We are in DEV mode"
+        else putText "[Attention] We are in PRODUCTION mode"
 #ifdef WITH_WEB
     putText "[Attention] Web-mode is on"
 #endif

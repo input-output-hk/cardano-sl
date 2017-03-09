@@ -13,6 +13,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Pos.Lrc.FollowTheSatoshiM
+                       Pos.Lrc.Types
 
   build-depends:       base
                      , bytestring

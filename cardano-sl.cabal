@@ -292,6 +292,7 @@ library
                         Pos.Txp.Toil.Utxo
                         Pos.Txp.Toil.Utxo.Functions
                         Pos.Txp.Toil.Utxo.Pure
+                        Pos.Txp.Toil.Utxo.Util
 
                         -- Types
                         Pos.Types.SharedSeed

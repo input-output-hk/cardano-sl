@@ -1,9 +1,10 @@
 -- | Helper for core types.
 
 module Pos.Txp.Core.Core
-       ( txInToPair
-       , txOutStake
+       ( addrBelongsTo
        , mkTxProof
+       , txInToPair
+       , txOutStake
        ) where
 
 import           Universum
@@ -17,6 +18,11 @@ import           Pos.Crypto         (hash)
 import           Pos.Merkle         (mtRoot)
 import           Pos.Txp.Core.Types (TxId, TxIn (..), TxOut (..), TxOutAux,
                                      TxPayload (..), TxProof (..))
+
+-- | A predicate for `TxOutAux` which checks whether given address
+-- belongs to it.
+addrBelongsTo :: TxOutAux -> Address -> Bool
+(out, _) `addrBelongsTo` addr = addr == txOutAddress out
 
 -- | Make a pair from 'TxIn'.
 txInToPair :: TxIn -> (TxId, Word32)

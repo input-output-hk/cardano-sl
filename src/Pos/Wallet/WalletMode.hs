@@ -49,10 +49,10 @@ import           Pos.Slotting                (NtpSlotting, SlottingHolder,
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp                     (TxAux, TxId, TxpHolder (..), Utxo,
-                                              belongsTo, evalUtxoStateT, filterUtxoByAddr,
-                                              getMemPool, getUtxoModifier, runUtxoStateT,
-                                              txOutValue, txProcessTransaction,
-                                              _mpLocalTxs)
+                                              addrBelongsTo, evalUtxoStateT,
+                                              filterUtxoByAddr, getMemPool,
+                                              getUtxoModifier, runUtxoStateT, txOutValue,
+                                              txProcessTransaction, _mpLocalTxs)
 import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
                                               difficultyL, flattenEpochOrSlot,
                                               flattenSlotId, prevBlockL, prevBlockL,
@@ -105,7 +105,7 @@ instance (MonadDB m, MonadMask m) => MonadBalances (TxpHolder m) where
         utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoModifier
         let toDel = MM.deletions updates
-            toAdd = HM.filter (`belongsTo` addr) $ MM.insertionsMap updates
+            toAdd = HM.filter (`addrBelongsTo` addr) $ MM.insertionsMap updates
             utxo' = foldr M.delete utxo toDel
         return $ HM.foldrWithKey M.insert utxo' toAdd
 

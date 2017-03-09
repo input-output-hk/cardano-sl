@@ -5,10 +5,6 @@ module Pos.Txp.Toil.Utxo.Functions
        ( verifyTxUtxo
        , applyTxToUtxo
        , rollbackTxUtxo
-       -- * Pure
-       , belongsTo
-       , filterUtxoByAddr
-       , utxoToStakes
        ) where
 
 import           Control.Monad.Error.Class (MonadError (..))
@@ -64,21 +60,3 @@ rollbackTxUtxo ((tx@UnsafeTx{..}, _, _), undo) = do
     let txid = hash tx
     mapM_ utxoDel $ take (length _txOutputs) $ zipWith TxIn (repeat txid) [0..]
     mapM_ (uncurry utxoPut) $ zip (toList _txInputs) undo
-
-----------------------------------------------------------------------------
--- Pure
-----------------------------------------------------------------------------
-
--- | A predicate for `TxOut` which selects outputs for given address
-belongsTo :: TxOutAux -> Address -> Bool
-(out, _) `belongsTo` addr = addr == txOutAddress out
-
--- | Select only TxOuts for given addresses
-filterUtxoByAddr :: Address -> Utxo -> Utxo
-filterUtxoByAddr addr = M.filter (`belongsTo` addr)
-
-utxoToStakes :: Utxo -> HashMap StakeholderId Coin
-utxoToStakes = foldl' putDistr mempty . M.toList
-  where
-    plusAt hm (key, val) = HM.insertWith unsafeAddCoin key val hm
-    putDistr hm (_, toaux) = foldl' plusAt hm (txOutStake toaux)

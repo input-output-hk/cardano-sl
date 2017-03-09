@@ -1,5 +1,3 @@
-{-# LANGUAGE CPP #-}
-
 {-| Blockchain genesis. Not to be confused with genesis block in epoch.
     Blockchain genesis means genesis values which are hardcoded in advance
     (before system starts doing anything). Genesis block in epoch exists
@@ -12,15 +10,14 @@ module Pos.Genesis
          StakeDistribution (..)
        , GenesisData (..)
        , compileGenData
-#ifdef DEV_MODE
+       , genesisStakeDistribution
+       , genesisUtxo
+       , genesisDelegation
+       -- ** Genesis data used in development mode
        , genesisAddresses
        , genesisKeyPairs
        , genesisPublicKeys
        , genesisSecretKeys
-#endif
-       , genesisStakeDistribution
-       , genesisUtxo
-       , genesisDelegation
 
        -- * Ssc
        , genesisLeaders
@@ -65,7 +62,6 @@ import           Pos.Update.Core.Types      (BlockVersionData (..))
 -- Static state
 ----------------------------------------------------------------------------
 
-#ifdef DEV_MODE
 -- | List of pairs from 'SecretKey' with corresponding 'PublicKey'.
 genesisKeyPairs :: [(PublicKey, SecretKey)]
 genesisKeyPairs = map gen [0 .. Const.genesisN - 1]
@@ -77,27 +73,24 @@ genesisKeyPairs = map gen [0 .. Const.genesisN - 1]
         encodeUtf8 .
         T.take 32 . sformat ("My awesome 32-byte seed #" %int % "             ")
 
--- | List of 'SecrekKey'`s in genesis.
-genesisSecretKeys :: [SecretKey]
-genesisSecretKeys = map snd genesisKeyPairs
-
--- | List of 'PublicKey'`s in genesis.
+-- | List of 'PublicKey's in genesis.
 genesisPublicKeys :: [PublicKey]
 genesisPublicKeys = map fst genesisKeyPairs
 
--- | List of 'Address'`es in genesis. See 'genesisPublicKeys'.
+-- | List of 'SecretKey's in genesis.
+genesisSecretKeys :: [SecretKey]
+genesisSecretKeys = map snd genesisKeyPairs
+
+-- | List of addresses in genesis. See 'genesisPublicKeys'.
 genesisAddresses :: [Address]
-genesisAddresses = map makePubKeyAddress genesisPublicKeys
+genesisAddresses
+    | Const.isDevelopment = map makePubKeyAddress genesisPublicKeys
+    | otherwise           = gdAddresses compileGenData
 
 genesisStakeDistribution :: StakeDistribution
-genesisStakeDistribution = def
-#else
-genesisAddresses :: [Address]
-genesisAddresses = gdAddresses compileGenData
-
-genesisStakeDistribution :: StakeDistribution
-genesisStakeDistribution = gdDistribution compileGenData
-#endif
+genesisStakeDistribution
+    | Const.isDevelopment = def
+    | otherwise           = gdDistribution compileGenData
 
 instance Default StakeDistribution where
     def = FlatStakes Const.genesisN

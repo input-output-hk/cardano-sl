@@ -29,7 +29,7 @@ import           Pos.Txp.Toil         (MemPool (..), MonadUtxoRead (..), TxpModi
                                        processTx, runDBTxp, runTxpTLocal, runUtxoReaderT,
                                        utxoGet)
 #ifdef WITH_EXPLORER
-import           Pos.Txp.Core.Types   (Utxo)
+import           Pos.Txp.Toil.Types   (Utxo)
 import           Pos.Types.Explorer   (TxExtra (..))
 #endif
 

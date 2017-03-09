@@ -6,8 +6,8 @@ module Pos.Types.Explorer
 
 import           Universum
 
+import           Pos.Core.Types     (HeaderHash)
 import           Pos.Txp.Core.Types (TxOut)
-import           Pos.Types.Core     (HeaderHash)
 
 data TxExtra = TxExtra
     { teBlockchainPlace :: Maybe (HeaderHash, Word32)

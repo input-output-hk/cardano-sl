@@ -55,7 +55,6 @@ library
                         Pos.DB.DB
                         Pos.DB.Block
                         Pos.DB.GState
-                        Pos.DB.Block
 
                         Pos.Delegation
 

@@ -18,53 +18,13 @@ import           Pos.Crypto.Signing     (pskDelegatePk)
 import           Pos.DB.Class           (MonadDB)
 import           Pos.DB.GState          (isIssuerByAddressHash, runPskMapIterator)
 import           Pos.DB.GState.Balances (getFtsStake)
+import           Pos.Lrc.Core           (findDelegationStakes, findRichmenStake)
 import           Pos.Lrc.Types          (FullRichmenData, RichmenStake)
 import           Pos.Types              (Coin, StakeholderId, addressHash, mkCoin,
                                          sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Util               (getKeys)
 import           Pos.Util.Iterator      (MonadIterator (nextItem), runListHolder,
                                          runListHolderT)
-
-type SetRichmen = HashSet StakeholderId
-
--- | Function helper for delegated richmen.
--- Iterate by Delegate -> [Issuer] map and compute two set:
--- 1. Old richmen who delegated own stake and isn't richman more.
--- 2. Delegates who became richmen.
-findDelegationStakes
-    :: forall m . MonadIterator (StakeholderId, [StakeholderId]) m
-    => (StakeholderId -> m Bool) -- helper
-    -> (StakeholderId -> m (Maybe Coin)) -- helper
-    -> Coin
-    -> m (SetRichmen, RichmenStake) -- old richmen, new richmen
-findDelegationStakes isIssuer stakeResolver t = do
-    (old, new) <- step (mempty, mempty)
-    pure (getKeys ((HS.toMap old) `HM.difference` new), new)
-  where
-    step :: (SetRichmen, RichmenStake)
-         -> m (SetRichmen, RichmenStake)
-    step richmen = nextItem @(StakeholderId, [StakeholderId]) >>=
-        maybe (pure richmen) (onItem richmen >=> step)
-    onItem (old, new) (delegate, issuers) = do
-        sumIssuers <-
-          foldM (\cr id -> (unsafeAddCoin cr) <$> safeBalance id)
-                (mkCoin 0)
-                issuers
-        isIss <- isIssuer delegate
-        curStake <- if isIss then pure sumIssuers
-                    else (unsafeAddCoin sumIssuers) <$> safeBalance delegate
-        let newRichmen =
-              if curStake >= t then HM.insert delegate curStake new
-              else new
-
-        oldRichmen <-
-          foldM (\hs is ->
-                    ifM ((>= t) <$> safeBalance is)
-                        (pure $ HS.insert is hs) (pure hs))
-                old
-                issuers
-        pure (oldRichmen, newRichmen)
-    safeBalance id = fromMaybe (mkCoin 0) <$> stakeResolver id
 
 -- | Find delegated richmen using precomputed usual richmen.
 -- Do it using one pass by delegation DB.
@@ -95,28 +55,6 @@ findDelegatedRichmen
     => Coin -> m RichmenStake
 findDelegatedRichmen t =
     findRichmenStake t >>= flip findDelRichUsingPrecomp t
-
--- | Find nodes which have at least 'eligibility threshold' coins.
-findRichmenStake
-    :: forall m . MonadIterator (StakeholderId, Coin) m
-    => Coin  -- ^ Eligibility threshold
-    -> m RichmenStake
-findRichmenStake t = step mempty
-  where
-    step :: RichmenStake -> m RichmenStake
-    step hm = nextItem >>=
-        maybe (pure hm)
-              (\stake -> step (tryAdd stake hm))
-    tryAdd
-        :: (StakeholderId, Coin)
-        -> HashMap StakeholderId Coin
-        -> HashMap StakeholderId Coin
-    -- Adding coins here should be safe because in utxo we're not supposed to
-    -- ever have more coins than the total possible number of coins, and the
-    -- total possible number of coins is less than Word64
-    tryAdd (a, c) hm =
-        if c >= t then HM.insert a c hm
-        else hm
 
 -- | Function considers all variants of computation
 -- and compute using one pass by stake DB and one pass by delegation DB.

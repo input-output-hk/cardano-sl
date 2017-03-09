@@ -13,6 +13,7 @@ module Pos.Util.Util
        , liftGetterSome
 
        , maybeThrow
+       , getKeys
 
        -- * Instances
        -- ** Lift Byte
@@ -22,6 +23,7 @@ module Pos.Util.Util
 
 import           Control.Lens               (ALens', Getter, Getting, cloneLens, to)
 import           Data.Aeson                 (FromJSON (..), ToJSON (..))
+import           Data.HashSet               (fromMap)
 import           Language.Haskell.TH.Syntax (Lift (..))
 import qualified Prelude
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
@@ -80,3 +82,7 @@ instance ToJSON Byte where
 
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
 maybeThrow e = maybe (throwM e) pure
+
+-- | Create HashSet from HashMap's keys
+getKeys :: HashMap k v -> HashSet k
+getKeys = fromMap . void

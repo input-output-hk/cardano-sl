@@ -21,7 +21,6 @@ module Pos.Util
        , eitherPanic
        , inAssertMode
        , diffDoubleMap
-       , getKeys
        , maybeThrow'
 
        -- * NonEmpty
@@ -80,7 +79,6 @@ import           Data.Binary                      (Binary)
 import qualified Data.Cache.LRU                   as LRU
 import           Data.Hashable                    (Hashable)
 import qualified Data.HashMap.Strict              as HM
-import           Data.HashSet                     (fromMap)
 import           Data.List                        (span, zipWith3)
 import qualified Data.List.NonEmpty               as NE
 import           Data.SafeCopy                    (SafeCopy (..), base, contain,
@@ -303,10 +301,6 @@ instance (Ord k, SafeCopy k, SafeCopy v) =>
         do safePut $ LRU.maxSize lru
            safePut $ LRU.toList lru
     errorTypeName _ = "LRU"
-
--- | Create HashSet from HashMap's keys
-getKeys :: HashMap k v -> HashSet k
-getKeys = fromMap . void
 
 ----------------------------------------------------------------------------
 -- Deserialized wrapper

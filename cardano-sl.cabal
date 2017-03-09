@@ -198,7 +198,6 @@ library
                         Pos.Lrc.DB.Leaders
                         Pos.Lrc.DB.Lrc
                         Pos.Lrc.DB.Richmen
-                        Pos.Lrc.Error
                         Pos.Lrc.Logic
                         Pos.Lrc.Worker
 

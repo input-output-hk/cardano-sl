@@ -14,11 +14,15 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Pos.Lrc.FollowTheSatoshiM
                        Pos.Lrc.Types
+                       Pos.Lrc.Error
+                       Pos.Lrc.Core
 
   build-depends:       base
                      , bytestring
                      , unordered-containers
                      , cardano-sl-core
+                     , formatting
+                     , text-format
                      , universum
 
   default-extensions:  DeriveDataTypeable

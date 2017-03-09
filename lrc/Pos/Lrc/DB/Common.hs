@@ -23,11 +23,12 @@ module Pos.Lrc.DB.Common
 import           Universum
 
 import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Core  ()
+import           Pos.Core.Types   (EpochIndex)
 import           Pos.DB.Class     (MonadDB, getLrcDB)
 import           Pos.DB.Error     (DBError (DBMalformed))
 import           Pos.DB.Functions (rocksDelete, rocksGetBi, rocksPutBi)
-import           Pos.Types        (EpochIndex)
-import           Pos.Util    (maybeThrow)
+import           Pos.Util.Util    (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Common Helpers

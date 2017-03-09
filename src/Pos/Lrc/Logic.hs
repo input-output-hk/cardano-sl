@@ -20,9 +20,8 @@ import           Pos.DB.GState          (isIssuerByAddressHash, runPskMapIterato
 import           Pos.DB.GState.Balances (getFtsStake)
 import           Pos.Lrc.Core           (findDelegationStakes, findRichmenStake)
 import           Pos.Lrc.Types          (FullRichmenData, RichmenStake)
-import           Pos.Types              (Coin, StakeholderId, addressHash, mkCoin,
-                                         sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Util               (getKeys)
+import           Pos.Types              (Coin, StakeholderId, addressHash, sumCoins,
+                                         unsafeIntegerToCoin)
 import           Pos.Util.Iterator      (MonadIterator (nextItem), runListHolder,
                                          runListHolderT)
 

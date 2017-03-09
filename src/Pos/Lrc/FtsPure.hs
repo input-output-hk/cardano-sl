@@ -2,20 +2,20 @@
 
 -- | Everything related to /follow-the-satoshi/ procedure.
 
-module Pos.Lrc.FollowTheSatoshi
+module Pos.Lrc.FtsPure
        ( followTheSatoshi
        , followTheSatoshiM
        ) where
 
-import qualified Data.HashMap.Strict       as HM
+import qualified Data.HashMap.Strict as HM
 import           Universum
 
-import           Pos.Lrc.FollowTheSatoshiB (followTheSatoshiM)
-import           Pos.Txp.Toil.Types        (Utxo)
-import           Pos.Txp.Toil.Utxo         (utxoToStakes)
-import           Pos.Types                 (Coin, SharedSeed (..), StakeholderId,
-                                            coinToInteger, mkCoin, sumCoins)
-import           Pos.Util.Iterator         (runListHolder)
+import           Pos.Lrc.Fts         (followTheSatoshiM)
+import           Pos.Txp.Toil.Types  (Utxo)
+import           Pos.Txp.Toil.Utxo   (utxoToStakes)
+import           Pos.Types           (Coin, SharedSeed (..), StakeholderId, coinToInteger,
+                                      mkCoin, sumCoins)
+import           Pos.Util.Iterator   (runListHolder)
 
 -- | Choose several random stakeholders (specifically, their amount is
 -- currently hardcoded in 'Pos.Constants.epochSlots').

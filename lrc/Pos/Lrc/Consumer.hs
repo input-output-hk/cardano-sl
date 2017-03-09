@@ -1,19 +1,21 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- | Base part of LRC consumers.
+-- | Consumer of data computed by LRC.
 
-module Pos.Lrc.ConsumerB
-       ( LrcConsumer (..),
-         lrcConsumerFromComponent
+module Pos.Lrc.Consumer
+       ( LrcConsumer (..)
+       , lrcConsumerFromComponent
+       , lrcConsumerFromComponentSimple
        ) where
 
 import           Universum
 
-import           Pos.Core.Types (Coin, EpochIndex)
-import           Pos.Lrc.Class  (RichmenComponent, rcConsiderDelegated, rcThreshold)
-import           Pos.Lrc.Types  (RichmenStake)
+import           Pos.Core.Types         (Coin, EpochIndex)
+import           Pos.DB.Class           (MonadDB)
+import           Pos.Lrc.Class          (RichmenComponent (..))
+import           Pos.Lrc.DB.RichmenBase (getRichmen, putRichmen)
+import           Pos.Lrc.Types          (RichmenStake)
 
 -- | Datatype for LRC computation client.
 -- If you want to compute richmen, you should add such client to LRC framework
@@ -48,4 +50,15 @@ lrcConsumerFromComponent ifNeedCompute callback =
     proxy :: Proxy c
     proxy = Proxy
 
-
+-- | Create simple LrcConsumer using constants from RichmenComponent
+-- which uses only LRC DB.
+lrcConsumerFromComponentSimple
+    :: forall c m.
+       (RichmenComponent c, MonadDB m)
+    => LrcConsumer m
+lrcConsumerFromComponentSimple =
+    lrcConsumerFromComponent @c ifNeedCompute onComputed
+  where
+    ifNeedCompute epoch = isNothing <$> getRichmen @c epoch
+    onComputed epoch totalStake stakes =
+        putRichmen @c epoch (totalStake, stakes)

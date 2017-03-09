@@ -58,7 +58,7 @@ library
 
                         -- LRC
                         Pos.Lrc
-                        Pos.Lrc.FollowTheSatoshi
+                        Pos.Lrc.FtsPure
 
                         -- Scripting
                         Pos.Script
@@ -190,10 +190,8 @@ library
 
                         -- LRC
                         Pos.Lrc.Arbitrary
-                        Pos.Lrc.Consumer
                         Pos.Lrc.Consumers
                         Pos.Lrc.DB
-                        Pos.Lrc.DB.Common
                         Pos.Lrc.DB.Issuers
                         Pos.Lrc.DB.Leaders
                         Pos.Lrc.DB.Lrc

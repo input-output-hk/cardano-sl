@@ -273,7 +273,7 @@ mkHeadersRequest
     => Maybe HeaderHash -> m (Maybe MsgGetHeaders)
 mkHeadersRequest upto = do
     mbHeaders <- nonEmpty . toList <$> getHeadersOlderExp @ssc Nothing
-    pure $ (\h -> MsgGetHeaders (NE.toList h) upto) <$> mbHeaders
+    pure $ (\h -> MsgGetHeaders (toList h) upto) <$> mbHeaders
 
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
@@ -446,7 +446,7 @@ handleRequestedHeaders headers recoveryTip peerId = do
             let headers' = NE.takeWhile ((/= lcaHash) . headerHash)
                                         (getNewestFirst headers)
             logDebug $ sformat validFormat (headerHash lcaChild)newestHash
-            case NE.nonEmpty headers' of
+            case nonEmpty headers' of
                 Nothing -> logWarning $
                     "handleRequestedHeaders: couldn't find LCA child " <>
                     "within headers returned, most probably classifyHeaders is broken"

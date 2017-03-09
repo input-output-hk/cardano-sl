@@ -301,7 +301,7 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
         inMainCheckpoints <-
             MaybeT $ nonEmpty <$>
             filterM (GS.isBlockInMainChain . headerHash)
-                    (NE.toList validCheckpoints)
+                    (toList validCheckpoints)
         lift $ logDebug $ "getHeadersFromManyTo: got checkpoints in main chain"
         let lowestCheckpoint =
                 maximumBy (comparing getEpochOrSlot) inMainCheckpoints

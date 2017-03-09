@@ -4,7 +4,6 @@ module Pos.Binary.Txp () where
 
 import           Data.Binary.Get    (getWord8, label)
 import           Data.Binary.Put    (putByteString, putWord8)
-import           Data.List.NonEmpty (nonEmpty)
 import           Formatting         (int, sformat, (%))
 import           Universum          hiding (putByteString)
 

@@ -40,7 +40,6 @@ import           Control.Monad.Trans.Except  (runExceptT, throwE)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
 import           Data.List                   (partition)
-import qualified Data.List.NonEmpty          as NE
 import qualified Data.Text.Buildable         as B
 import           Data.Time.Clock             (UTCTime, addUTCTime, getCurrentTime)
 import           Formatting                  (bprint, build, sformat, stext, (%))
@@ -206,7 +205,7 @@ processProxySKHeavy psk = do
     curTime <- liftIO getCurrentTime
     headEpoch <- view epochIndexL <$> DB.getTipBlockHeader @ssc
     richmen <-
-        NE.toList <$>
+        toList <$>
         lrcActionOnEpochReason
         headEpoch
         "Delegation.Logic#processProxySKHeavy: there are no richmen for current epoch"
@@ -266,7 +265,7 @@ delegationVerifyBlocks blocks = do
     let _dvCurEpoch = HS.fromList $ map pskIssuerPk fromGenesisPsks
         initState = DelVerState _dvCurEpoch HM.empty HS.empty
     richmen <-
-        HS.fromList . NE.toList <$>
+        HS.fromList . toList <$>
         lrcActionOnEpochReason
         headEpoch
         "Delegation.Logic#delegationVerifyBlocks: there are no richmen for current epoch"
@@ -372,7 +371,7 @@ delegationRollbackBlocks blunds = do
         DB.getBlock @ssc (blunds ^. _Wrapped . _neLast . _1 . prevBlockL)
     let epochAfterRollback = tipBlockAfterRollback ^. epochIndexL
     richmen <-
-        HS.fromList . NE.toList <$>
+        HS.fromList . toList <$>
         lrcActionOnEpochReason
         (tipBlockAfterRollback ^. epochIndexL)
         "delegationRollbackBlocks: there are no richmen for last rollbacked block epoch"

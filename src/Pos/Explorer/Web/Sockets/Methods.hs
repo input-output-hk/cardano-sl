@@ -59,6 +59,7 @@ data ClientEvent
     | UnsubscribeBlock
     | SetClientAddress
     | SetClientBlock
+    | CliTestMsg
 
 instance EventName ClientEvent where
     toName StartSession     = "S"
@@ -68,14 +69,17 @@ instance EventName ClientEvent where
     toName UnsubscribeBlock = "UB"
     toName SetClientAddress = "CA"
     toName SetClientBlock   = "CB"
+    toName CliTestMsg       = "callme"
 
 data ServerEvent
     = AddrUpdated
     | BlocksUpdated
+    | ServerTestMsg
 
 instance EventName ServerEvent where
     toName AddrUpdated   = "A"
     toName BlocksUpdated = "B"
+    toName ServerTestMsg = "callyou"
 
 -- * Client requests provessing
 

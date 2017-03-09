@@ -39,8 +39,9 @@ import           Pos.Explorer.Web.Sockets.Holder    (ConnectionsState, Connectio
                                                      modifyConnectionsStateDo,
                                                      readConnectionsStateDo)
 import           Pos.Explorer.Web.Sockets.Instances ()
-import           Pos.Explorer.Web.Sockets.Methods   (ClientEvent (..), blockAddresses,
-                                                     getBlocksFromTo,
+import           Pos.Explorer.Web.Sockets.Methods   (ClientEvent (..),
+                                                     ServerEvent (ServerTestMsg),
+                                                     blockAddresses, getBlocksFromTo,
                                                      notifyAddrSubscribers,
                                                      notifyAllAddrSubscribers,
                                                      notifyBlocksSubscribers,
@@ -48,7 +49,7 @@ import           Pos.Explorer.Web.Sockets.Methods   (ClientEvent (..), blockAddr
                                                      startSession, subscribeAddr,
                                                      subscribeBlocks, unsubscribeAddr,
                                                      unsubscribeBlocks, unsubscribeFully)
-import           Pos.Explorer.Web.Sockets.Util      (forkAccompanion, on, on_,
+import           Pos.Explorer.Web.Sockets.Util      (emitJSON, forkAccompanion, on, on_,
                                                      runPeriodicallyUnless)
 
 import qualified Data.Map                           as M
@@ -67,6 +68,7 @@ notifierHandler
     :: (MonadState RoutingTable m)
     => ConnectionsVar -> LoggerName -> m ()
 notifierHandler connVar loggerName = do
+    on_ CliTestMsg       $ emitJSON ServerTestMsg empty
     on_ StartSession     $ asHandler' startSession
     on  SubscribeAddr    $ asHandler subscribeAddr
     on_ SubscribeBlock   $ asHandler_ subscribeBlocks

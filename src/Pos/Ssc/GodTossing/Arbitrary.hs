@@ -14,6 +14,7 @@ import           Universum
 import           Pos.Binary.Class                 (asBinary)
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.Types.Relay    (DataMsg (..))
+import           Pos.Core.Address                 (addressHash)
 import           Pos.Crypto                       (deterministicVssKeyGen, toPublic,
                                                    toVssPublicKey)
 import           Pos.Ssc.Arbitrary                (SscPayloadDependsOnSlot (..))
@@ -32,7 +33,6 @@ import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..),
                                                    GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
 import           Pos.Types                        (SlotId (..))
-import           Pos.Core.Address                 (addressHash)
 import           Pos.Types.Arbitrary.Unsafe       ()
 import           Pos.Util.Arbitrary               (Nonrepeating (..), makeSmall, sublistN,
                                                    unsafeMakePool)
@@ -110,9 +110,9 @@ instance Arbitrary Opening where
 instance Arbitrary VssCertificate where
     arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
 
-------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------
 -- Gt (God Tossing) types
-------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------
 
 instance Arbitrary GtProof where
     arbitrary = oneof [

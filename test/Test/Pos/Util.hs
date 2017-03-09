@@ -1,6 +1,6 @@
-{-# LANGUAGE AllowAmbiguousTypes  #-}
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.Pos.Util
        ( binaryEncodeDecode
@@ -27,14 +27,13 @@ import qualified Data.ByteString.Lazy  as LBS
 import           Data.SafeCopy         (SafeCopy, safeGet, safePut)
 import           Data.Serialize        (runGet, runPut)
 import           Data.Typeable         (typeRep)
-import           Formatting            (formatToString, (%), int)
+import           Formatting            (formatToString, int, (%))
 import           Prelude               (read)
-import           Test.QuickCheck       (counterexample, property, (.&&.),
-                                        arbitrary, suchThat, forAll, resize,
-                                        vectorOf, conjoin)
+import           Test.QuickCheck       (arbitrary, conjoin, counterexample, forAll,
+                                        property, resize, suchThat, vectorOf, (.&&.))
 
 import           Pos.Binary            (AsBinaryClass (..), Bi (..), encode)
-import           Pos.Communication     (MessageLimitedPure (..), Limit (..))
+import           Pos.Communication     (Limit (..), MessageLimitedPure (..))
 
 import           Test.Hspec            (Expectation, Selector, Spec, shouldThrow)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)

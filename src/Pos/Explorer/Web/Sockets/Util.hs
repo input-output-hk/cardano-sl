@@ -11,20 +11,22 @@ module Pos.Explorer.Web.Sockets.Util
     , forkAccompanion
     ) where
 
-import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
-import           Control.Monad.Catch         (MonadCatch)
-import           Control.Monad.Reader        (MonadReader)
-import           Control.Monad.State         (MonadState)
-import           Control.Monad.Trans         (MonadIO)
-import           Data.Aeson.Types            (Array, FromJSON, ToJSON)
-import           Data.Text                   (Text)
-import           Data.Time.Units             (TimeUnit (..))
-import           Formatting                  (sformat, shown, (%))
-import           Mockable                    (Fork, Mockable, fork)
-import qualified Network.SocketIO            as S
-import           Serokell.Util.Concurrent    (threadDelay)
-import           System.Wlog                 (WithLogger, logWarning)
-import           Universum                   hiding (on, threadDelay)
+import           Control.Concurrent.STM.TVar      (newTVarIO, readTVarIO, writeTVar)
+import           Control.Monad.Catch              (MonadCatch)
+import           Control.Monad.Reader             (MonadReader)
+import           Control.Monad.State              (MonadState)
+import           Control.Monad.Trans              (MonadIO)
+import qualified Control.Monad.Trans.State.Strict as St
+import           Data.Aeson.Types                 (Array, FromJSON, ToJSON)
+import           Data.Text                        (Text)
+import           Data.Time.Units                  (TimeUnit (..))
+import           Formatting                       (sformat, shown, (%))
+import           Mockable                         (Fork, Mockable, fork)
+import qualified Network.SocketIO                 as S
+import           Serokell.Util.Concurrent         (threadDelay)
+import           Snap.Core                        (Snap)
+import           System.Wlog                      (CanLog (..), WithLogger, logWarning)
+import           Universum                        hiding (on, threadDelay)
 
 -- * Provides type-safity for event names in some socket-io functions.
 
@@ -61,6 +63,13 @@ on_ eventName handler = S.on (toName eventName) handler
 on :: (MonadState S.RoutingTable m, FromJSON event, EventName name)
    => name -> (event -> S.EventHandler a) -> m ()
 on eventName handler = S.on (toName eventName) handler
+
+-- * Instances
+
+instance CanLog Snap where
+    dispatchMessage logName sev msg = liftIO $ dispatchMessage logName sev msg
+
+instance CanLog m => CanLog (St.StateT s m)
 
 -- * Misc
 

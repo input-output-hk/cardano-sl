@@ -28,7 +28,7 @@ import           Snap.Core                          (MonadSnap, route)
 import qualified Snap.CORS                          as CORS
 import           Snap.Http.Server                   (httpServe)
 import qualified Snap.Internal.Http.Server.Config   as Config
-import           System.Wlog                        (LoggerName, LoggerNameBox,
+import           System.Wlog                        (CanLog, LoggerName, LoggerNameBox,
                                                      PureLogger, WithLogger,
                                                      getLoggerName, logDebug, logInfo,
                                                      modifyLoggerName, usingLoggerName)
@@ -61,17 +61,17 @@ toSnapConfig NotifierSettings{..} = Config.defaultConfig
     }
 
 notifierHandler
-    :: (MonadState RoutingTable m)
+    :: (MonadState RoutingTable m, MonadReader Socket m, CanLog m, MonadIO m)
     => ConnectionsVar -> LoggerName -> m ()
 notifierHandler connVar loggerName = do
-    on_ CliTestMsg       $ emitJSON ServerTestMsg empty
-    on_ StartSession     $ asHandler' startSession
+    asHandler' startSession
     on  SubscribeAddr    $ asHandler subscribeAddr
     on_ SubscribeBlock   $ asHandler_ subscribeBlocks
     on_ UnsubscribeAddr  $ asHandler_ unsubscribeAddr
     on_ UnsubscribeBlock $ asHandler_ unsubscribeBlocks
     on  SetClientAddress $ asHandler setClientAddress
     on  SetClientBlock   $ asHandler setClientBlock
+    on_ CliTestMsg       $ emitJSON ServerTestMsg empty
     appendDisconnectHandler $ asHandler_ unsubscribeFully
  where
     -- handlers provide context for logging and `ConnectionsVar` changes

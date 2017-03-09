@@ -52,8 +52,7 @@ import           Pos.Explorer.Web.Sockets.Util   (EventName (..), emitJSONTo)
 -- * Event names
 
 data ClientEvent
-    = StartSession
-    | SubscribeAddr
+    = SubscribeAddr
     | SubscribeBlock
     | UnsubscribeAddr
     | UnsubscribeBlock
@@ -62,7 +61,6 @@ data ClientEvent
     | CliTestMsg
 
 instance EventName ClientEvent where
-    toName StartSession     = "S"
     toName SubscribeAddr    = "SA"
     toName SubscribeBlock   = "SB"
     toName UnsubscribeAddr  = "UA"

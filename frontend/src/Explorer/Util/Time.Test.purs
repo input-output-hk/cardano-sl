@@ -1,7 +1,7 @@
-module Explorer.View.Dashboard.Test where
+module Explorer.Util.Time.Test where
 
 import Prelude
-import Explorer.View.Dashboard.Blocks (blocksView, prettyDuration)
+import Explorer.Util.Time (prettyDuration)
 import Explorer.I18n.Lang (Language(..))
 import Data.Time.Duration (class Duration, Milliseconds(..), Seconds(..), Minutes(..), Hours(..), Days(..), convertDuration, toDuration, fromDuration)
 import Data.Int (floor, toNumber)
@@ -9,7 +9,7 @@ import Test.Spec (describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
 testPrettyDuration =
-  describe "Explorer.View.Dashboard.Blocks.prettyDuration" do
+  describe "Explorer.Util.Time.Test.prettyDuration" do
     describe "short durations" do
       it "a milisecond should return less than a minute" do
         let result = prettyDuration English (Milliseconds 1.0)

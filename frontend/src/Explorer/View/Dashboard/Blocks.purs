@@ -1,4 +1,4 @@
-module Explorer.View.Dashboard.Blocks (blocksView, prettyDuration) where
+module Explorer.View.Dashboard.Blocks (blocksView) where
 
 import Prelude
 import Data.Array (length, null, slice)
@@ -6,18 +6,18 @@ import Data.DateTime (Millisecond)
 import Data.Int (floor, toNumber)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
-import Data.Newtype (unwrap)
 import Data.String (joinWith, trim)
-import Data.Time.Duration (class Duration, Milliseconds(..), Minutes(..), Hours(..), Days(..), convertDuration, toDuration, fromDuration)
+import Data.Newtype (unwrap)
 import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
-import Data.Tuple (uncurry, Tuple(..))
+import Data.Time.Duration (class Duration, Milliseconds(..))
 import Explorer.I18n.Lang (Language, languageNativeName, translate)
-import Explorer.I18n.Lenses (dashboard, dbLastBlocks, cOf, common, dbExploreBlocks, cUnknown, cHeight, cExpand, cNoData, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB, cDays, cHours, cMinutes, cSeconds) as I18nL
+import Explorer.I18n.Lenses (dashboard, dbLastBlocks, cOf, common, dbExploreBlocks, cUnknown, cHeight, cExpand, cNoData, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB) as I18nL
 import Explorer.Lenses.State (dashboardBlockPagination, lang, latestBlocks)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State, CBlockEntries)
 import Explorer.Util.DOM (targetToHTMLInputElement)
+import Explorer.Util.Time (prettyDuration)
 import Explorer.View.Common (paginationView)
 import Explorer.View.Dashboard.Lenses (dashboardBlocksExpanded, dashboardViewState)
 import Explorer.View.Dashboard.Shared (headerView)
@@ -113,7 +113,6 @@ blockRow state (CBlockEntry entry) =
         [ P.className "blocks-body__row" ]
         [ blockColumn <<< show $ entry ^. cbeHeight
         , blockColumn (prettyDuration language (Milliseconds $ unwrap $ entry ^. (cbeTimeIssued <<< _NominalDiffTime)))
-        -- , blockColumn <<< show <<<  $ unwrap $ entry ^. (cbeTimeIssued <<< _NominalDiffTime)
         , blockColumn <<< show $ entry ^. cbeTxNum
         , blockColumn <<< show $ entry ^. (cbeTotalSent <<< _Coin <<< getCoin)
         , blockColumn <<< fromMaybe (translate (I18nL.common <<< I18nL.cUnknown) language) $ entry ^. cbeRelayedBy
@@ -121,29 +120,6 @@ blockRow state (CBlockEntry entry) =
         ]
     where
       language      = state ^. lang
-
--- cDays cHours cMinutes cSeconds
-prettyDuration :: forall a. Duration a => Language -> a -> String
-prettyDuration lang dur | convertDuration dur < Minutes 1.0 = "< 1 " <> translate (I18nL.common <<< I18nL.cMinutes) lang
-                        | otherwise = trim $ joinWith " " $ map (uncurry showIfNonZero)
-                             [ Tuple d translationDays
-                             , Tuple h translationHours
-                             , Tuple m translationMinutes
-                             ]
-  where
-    translationMinutes  = translate (I18nL.common <<< I18nL.cMinutes) lang
-    translationHours    = translate (I18nL.common <<< I18nL.cHours) lang
-    translationDays     = translate (I18nL.common <<< I18nL.cDays) lang
-    m = floor <<< unMinutes $ convertDuration dur `sub` convertDuration (Days $ toNumber d) `sub` convertDuration (Hours $ toNumber h)
-    h = floor <<< unHours $ convertDuration dur `sub` convertDuration (Days $ toNumber d)
-    d = floor <<< unDays $ convertDuration dur
-    unHours     (Hours m) = m
-    unMinutes (Minutes m) = m
-    unDays       (Days m) = m
-    showIfNonZero nu st =
-        if nu == 0
-            then ""
-            else show nu <> " " <> st
 
 blockColumn :: String -> P.Html Action
 blockColumn value =

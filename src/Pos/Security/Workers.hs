@@ -34,7 +34,7 @@ import           Pos.Security.Class          (SecurityWorkersClass (..))
 import           Pos.Shutdown                (runIfNotShutdown)
 import           Pos.Slotting                (getCurrentSlot, getLastKnownSlotDuration,
                                               onNewSlot)
-import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
+import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
 import           Pos.Ssc.GodTossing          (GtPayload (..), SscGodTossing,
                                               getCommitmentsMap)
 import           Pos.Ssc.NistBeacon          (SscNistBeacon)
@@ -57,7 +57,9 @@ instance SecurityWorkersClass SscGodTossing where
 instance SecurityWorkersClass SscNistBeacon where
     securityWorkers = Tagged $ first pure checkForReceivedBlocksWorker
 
-checkForReceivedBlocksWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
+checkForReceivedBlocksWorker ::
+    (SscWorkersClass ssc, WorkMode ssc m)
+    => (WorkerSpec m, OutSpecs)
 checkForReceivedBlocksWorker =
     worker requestTipOuts checkForReceivedBlocksWorkerImpl
 
@@ -99,13 +101,13 @@ checkEclipsed ourPk slotId = notEclipsed
 
 checkForReceivedBlocksWorkerImpl
     :: forall ssc m.
-       WorkMode ssc m
+       (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
-    repeatOnInterval (const (sec' 4)) . reportingFatal $
-        whenM needRecovery $ do
+    repeatOnInterval (const (sec' 4)) . reportingFatal version $
+        whenM (needRecovery $ Proxy @ssc) $ do
             triggerRecovery sendActions
-    repeatOnInterval (min (sec' 20)) . reportingFatal $ do
+    repeatOnInterval (min (sec' 20)) . reportingFatal version $ do
         ourPk <- ncPublicKey <$> getNodeContext
         let onSlotDefault slotId = do
                 header <- getTipBlockHeader @ssc
@@ -122,6 +124,7 @@ checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
             "than 'mdNoBlocksSlotThreshold' that we didn't generate " <>
             "by ourselves"
         reportEclipse
+    repeatOnInterval delF action = runIfNotShutdown $ do
         () <- action
         getLastKnownSlotDuration >>= delay . delF
         repeatOnInterval delF action

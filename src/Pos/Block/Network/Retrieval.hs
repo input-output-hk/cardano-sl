@@ -13,14 +13,9 @@ module Pos.Block.Network.Retrieval
        , needRecovery
        ) where
 
-import           Control.Concurrent.STM     (isEmptyTBQueue, isFullTBQueue, putTMVar,
-<<<<<<< HEAD
+import           Control.Concurrent.STM     (isFullTBQueue, putTMVar, readTVar,
                                              tryReadTBQueue, tryReadTMVar, tryTakeTMVar,
-                                             writeTBQueue)
-=======
-                                             readTVar, tryReadTBQueue, tryReadTMVar,
-                                             tryTakeTMVar, writeTBQueue, writeTVar)
->>>>>>> cardano-sl-0.2
+                                             writeTBQueue, writeTVar)
 import           Control.Lens               (_Wrapped)
 import           Control.Monad.Except       (ExceptT, runExceptT, throwError)
 import           Data.List.NonEmpty         ((<|))
@@ -55,20 +50,13 @@ import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB.DB                  as DB
 import           Pos.DHT.Model              (converseToNeighbors)
 import           Pos.Reporting.Methods      (reportMisbehaviourMasked, reportingFatal)
-<<<<<<< HEAD
 import           Pos.Shutdown               (runIfNotShutdown)
-import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
-import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
-                                             HeaderHash, blockHeader, difficultyL,
-                                             gbHeader, headerHashG, prevBlockL,
-=======
 import           Pos.Slotting               (getCurrentSlot)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
                                              HeaderHash, blockHeader, difficultyL,
-                                             gbHeader, getEpochOrSlot, prevBlockL,
->>>>>>> cardano-sl-0.2
-                                             verifyHeaders)
+                                             gbHeader, getEpochOrSlot, headerHashG,
+                                             prevBlockL, verifyHeaders)
 import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
                                              inAssertMode, _neHead, _neLast)
 import           Pos.WorkMode               (WorkMode)
@@ -84,21 +72,18 @@ retrievalWorker = worker outs retrievalWorkerImpl
   where
     outs = announceBlockOuts <>
            toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
-<<<<<<< HEAD
                              (Proxy :: Proxy (MsgBlock ssc))
                       ]
 
-=======
-                             (Proxy :: Proxy (MsgBlock s0 ssc))]
-
-needRecovery :: WorkMode ssc m => m Bool
-needRecovery = maybe (pure True) onSlotKnown =<< getCurrentSlot
+needRecovery :: forall ssc m.
+       (SscWorkersClass ssc, WorkMode ssc m)
+       => Proxy ssc -> m Bool
+needRecovery _ = getCurrentSlot >>= maybe (pure True) needRecoveryCheck
   where
-    onSlotKnown slot = do
-        header <- DB.getTipBlockHeader
+    needRecoveryCheck slot = do
+        header <- DB.getTipBlockHeader @ssc
         return $ toEnum (fromEnum (getEpochOrSlot header) + blkSecurityParam) < getEpochOrSlot slot
 
->>>>>>> cardano-sl-0.2
 retrievalWorkerImpl
     :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
@@ -108,15 +93,8 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
     NodeContext{..} <- getNodeContext
     mainLoop ncBlockRetrievalQueue ncRecoveryHeader
   where
-<<<<<<< HEAD
     mainLoop queue recHeaderVar = runIfNotShutdown $ reportingFatal version $ do
-        logDebug "Waiting on the queue"
-        loopCont <- atomically $ do
-            qV <- tryReadTBQueue queue
-            rV <- tryReadTMVar recHeaderVar
-=======
-    mainLoop queue recHeaderVar = ifNotShutdown $ reportingFatal $ do
-        inRecovery <- needRecovery
+        inRecovery <- needRecovery (Proxy @ssc)
         when (not inRecovery) $
             whenJustM (atomically $ tryTakeTMVar recHeaderVar) $
                 const (triggerRecovery sendActions)
@@ -126,59 +104,37 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
             rV <- if inRecovery
                      then tryReadTMVar recHeaderVar
                      else pure Nothing
->>>>>>> cardano-sl-0.2
             case (qV, rV) of
                 (Nothing, Nothing) -> retry
                 (Just v, _)        -> pure $ Left v
                 (Nothing, Just r)  -> pure $ Right r
-<<<<<<< HEAD
-        let onLeft ph =
-                handleAll (handleBlockRetrieval recHeaderVar ph) $
-                reportingFatal version $ handle ph
-        let tryFillQueue peerId (0 :: Int) _ =
-                dropRecoveryHeaderAndRepeat recHeaderVar peerId
-            tryFillQueue peerId tries action = do
-                () <- action
-                whenM (atomically $ isEmptyTBQueue queue) $
-                    tryFillQueue peerId (tries - 1) action
-        let onRight (peerId, rHeader) = tryFillQueue peerId 5 $ do
-                logDebug "Queue is empty, we're in recovery mode -> querying more"
-                whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
-                    handleAll (handleHeadersRecovery recHeaderVar peerId) $
-                    reportingFatal version $
-                    reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
-                    withConnectionTo sendActions peerId $ \_peerData ->
-                        requestHeaders mghNext (Just rHeader) peerId limPx
-        either onLeft onRight loopCont
-        mainLoop queue recHeaderVar
-=======
         either onLeft onRight loopCont
         mainLoop queue recHeaderVar
       where
         onLeft ph =
-            handleAll (handleBlockRetrievalE recHeaderVar ph) $
-            reportingFatal $ handle ph
+            handleAll (handleBlockRetrievalE ph) $
+            reportingFatal version $ handle ph
         onRight (peerId, rHeader) = do
             logDebug "Queue is empty, we're in recovery mode -> querying more"
             whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
-                handleAll (handleHeadersRecoveryE recHeaderVar peerId) $
-                reportingFatal $
+                handleAll (handleHeadersRecoveryE peerId) $
+                reportingFatal version $
+                reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
                 withConnectionTo sendActions peerId $ \_peerData ->
-                    requestHeaders mghNext peerId rHeader
-        handleBlockRetrievalE recHeaderVar (peerId, headers) e = do
+                    requestHeaders mghNext peerId rHeader limPx
+        handleBlockRetrievalE (peerId, headers) e = do
             logWarning $ sformat
                 ("Error handling peerId="%build%", headers="%listJson%": "%shown)
                 peerId (fmap headerHash headers) e
             dropUpdateHeader
             dropRecoveryHeaderAndRepeat recHeaderVar peerId
-        handleHeadersRecoveryE recHeaderVar peerId e = do
+        handleHeadersRecoveryE peerId e = do
             logWarning $ sformat
                 ("Failed while trying to get more headers "%
                  "for recovery from peerId="%build%", error: "%shown)
                 peerId e
             dropUpdateHeader
             dropRecoveryHeaderAndRepeat recHeaderVar peerId
->>>>>>> cardano-sl-0.2
 
     dropUpdateHeader = do
         progressHeaderVar <- ncProgressHeader <$> getNodeContext
@@ -202,34 +158,13 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
 
     attemptRestartRecovery = do
         logDebug "Attempting to restart recovery"
-<<<<<<< HEAD
-        handleAll handleRecoveryTrigger $ triggerRecovery sendActions
-=======
         handleAll handleRecoveryTriggerE $ triggerRecovery sendActions
->>>>>>> cardano-sl-0.2
         logDebug "Attempting to restart recovery over"
 
     handleTop e = do
         logError $ sformat ("retrievalWorker: error caught "%shown) e
         throw e
-<<<<<<< HEAD
-    handleBlockRetrieval recHeaderVar (peerId, headers) e = do
-        logWarning $ sformat
-            ("Error handling peerId="%build%", headers="%listJson%": "%shown)
-            peerId (fmap headerHash headers) e
-        dropUpdateHeader
-        dropRecoveryHeaderAndRepeat recHeaderVar peerId
-    handleHeadersRecovery recHeaderVar peerId e = do
-        logWarning $ sformat
-            ("Failed while trying to get more headers "%
-             "for recovery from peerId="%build%", error: "%shown)
-            peerId e
-        dropUpdateHeader
-        dropRecoveryHeaderAndRepeat recHeaderVar peerId
-    handleRecoveryTrigger e =
-=======
     handleRecoveryTriggerE e =
->>>>>>> cardano-sl-0.2
         logError $ "Exception happened while trying to trigger " <>
                    "recovery inside recoveryWorker: " <> show e
 
@@ -330,9 +265,10 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
             else over _Wrapped (block <|) <$> retrieveBlocks' (i+1) conv curH endH
 
 -- | Triggers recovery based on established communication.
-triggerRecovery :: forall ssc m. WorkMode ssc m => SendActions m -> m ()
+triggerRecovery :: forall ssc m.
+    (SscWorkersClass ssc, WorkMode ssc m)
+    => SendActions m -> m ()
 triggerRecovery sendActions = unlessM isRecoveryMode $ do
-<<<<<<< HEAD
     logDebug "Recovery triggered, requesting tips"
     reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limitProxy -> do
         converseToNeighbors sendActions (requestTip limitProxy) `catch`
@@ -340,13 +276,6 @@ triggerRecovery sendActions = unlessM isRecoveryMode $ do
                logDebug ("Error happened in triggerRecovery" <> show e)
                throwM e
         logDebug "Recovery triggered ended"
-=======
-    logInfo "Recovery triggered, requesting tips"
-    converseToNeighbors sendActions requestTip `catch`
-        (\(e :: SomeException) ->
-           logDebug ("Error happened in triggerRecovery" <> show e) >> throwM e)
-    logDebug "Recovery triggered ended"
->>>>>>> cardano-sl-0.2
 
 -- | Make 'GetHeaders' message using our main chain. This function
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'
@@ -362,7 +291,7 @@ mkHeadersRequest upto = do
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
     :: forall ssc s m.
-       (WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => NonEmpty (BlockHeader ssc)
     -> NodeId
     -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
@@ -376,7 +305,7 @@ handleUnsolicitedHeaders (h:|hs) _ _ = do
 
 handleUnsolicitedHeader
     :: forall ssc s m.
-       (WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => BlockHeader ssc
     -> NodeId
     -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
@@ -396,11 +325,7 @@ handleUnsolicitedHeader header peerId conv = do
             logInfo $ sformat alternativeFormat hHash
             mghM <- mkHeadersRequest (Just hHash)
             whenJust mghM $ \mgh ->
-<<<<<<< HEAD
-                requestHeaders mgh (Just header) peerId Proxy conv
-=======
-                requestHeaders mgh peerId header conv
->>>>>>> cardano-sl-0.2
+                requestHeaders mgh peerId header Proxy conv
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> do
             logDebug $ sformat ("handleUnsolicited: header "%shortHashF%
@@ -457,7 +382,7 @@ requestTipOuts =
 -- current blockchain state.
 requestTip
     :: forall ssc s m.
-       (WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => Proxy s
     -> NodeId
     -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
@@ -476,28 +401,19 @@ requestTip _ peerId conv = do
 -- only if you don't know it.
 requestHeaders
     :: forall ssc s m.
-       (WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => MsgGetHeaders
     -> NodeId
-<<<<<<< HEAD
+    -> BlockHeader ssc
     -> Proxy s
     -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
     -> m ()
-requestHeaders mgh recoveryHeader peerId _ conv = do
+requestHeaders mgh peerId origTip _ conv = do
     logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
     send conv mgh
     mHeaders <- recvLimited conv
-=======
-    -> BlockHeader ssc
-    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
-    -> m ()
-requestHeaders mgh peerId origTip conv = do
-    logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
-    send conv mgh
-    mHeaders <- recv conv
-    inRecovery <- needRecovery
+    inRecovery <- needRecovery (Proxy @ssc)
     logDebug $ sformat ("requestHeaders: inRecovery = "%shown) inRecovery
->>>>>>> cardano-sl-0.2
     flip (maybe onNothing) mHeaders $ \(MsgHeaders headers) -> do
         logDebug $ sformat
             ("requestHeaders: withConnection: received "%listJson)
@@ -571,18 +487,6 @@ addToBlockRequestQueue
 addToBlockRequestQueue headers peerId origTip = do
     queue <- ncBlockRetrievalQueue <$> getNodeContext
     recHeaderVar <- ncRecoveryHeader <$> getNodeContext
-<<<<<<< HEAD
-    let updateRecoveryHeader (Just recTip) = do
-            let replace = tryTakeTMVar recHeaderVar >>= \case
-                    Just (_, header')
-                        | recTip ^. difficultyL <= header' ^. difficultyL -> pass
-                    _ -> putTMVar recHeaderVar (peerId, recTip)
-            tryReadTMVar recHeaderVar >>= \case
-                Nothing -> replace
-                Just (_,curRecHeader) ->
-                    when (((>) `on` view difficultyL) recTip curRecHeader) replace
-        updateRecoveryHeader _ = pass
-=======
     lastKnownH <- ncLastKnownHeader <$> getNodeContext
     atomically $ do
         oldV <- readTVar lastKnownH
@@ -597,7 +501,6 @@ addToBlockRequestQueue headers peerId origTip = do
             Nothing -> replace
             Just (_,curRecHeader) ->
                 when (origTip `isMoreDifficult` curRecHeader) replace
->>>>>>> cardano-sl-0.2
     added <- atomically $ do
         ifM (isFullTBQueue queue)
             (pure False)

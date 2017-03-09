@@ -14,14 +14,14 @@ module Pos.Core.Constants
        , staticSysStart
        ) where
 
+#ifndef DEV_MODE
+import           Language.Haskell.TH.Syntax (lift, runIO)
+#endif
+
+import           Data.Time.Clock.POSIX      (getPOSIXTime)
+import           Serokell.Util              (sec)
 import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum                  hiding (lift)
-
-#ifndef DEV_MODE
-import           Data.Time.Clock.POSIX      (getPOSIXTime)
-import           Language.Haskell.TH.Syntax (lift, runIO)
-import           Serokell.Util              (sec)
-#endif
 
 import           Pos.Core.Constants.Type    (CoreConstants (..))
 import           Pos.Core.Timestamp         (Timestamp (..))
@@ -61,28 +61,29 @@ epochSlots = 10 * blkSecurityParam
 
 -- | @True@ if current mode is 'Development'.
 isDevelopment :: Bool
-isDevelopment = isNothing staticSysStart
+#ifdef DEV_MODE
+isDevelopment = True
+#else
+isDevelopment = False
+#endif
 
 -- | System start time embeded into binary.
 staticSysStart :: Maybe Timestamp
-#ifdef DEV_MODE
-staticSysStart = Nothing
+staticSysStart
+    | isDevelopment = Nothing
+    | st > 0        = Just $ Timestamp $ sec st
+    -- If several local nodes are started within 20 sec,
+    -- they'll have same start time
+    | otherwise     = Just $ Timestamp $ sec $
+          (after3Mins `div` divider + alignment) * divider
   where
-    -- to avoid the “defined but not used” warning
-    _ = ccProductionNetworkStartTime
-#else
-staticSysStart = Just $ Timestamp $ sec $
-    let st = ccProductionNetworkStartTime coreConstants
-    in if st > 0 then st
-       else let pause = 30
-                divider = 10
-                after3Mins = pause + unsafePerformIO (round <$> getPOSIXTime)
-                minuteMod = after3Mins `mod` divider
-                alignment = if minuteMod > (divider `div` 2) then 1 else 0
-            in (after3Mins `div` divider + alignment) * divider
-               -- ^ If several local nodes are started within 20 sec,
-               -- they'll have same start time
-#endif
+    st = ccProductionNetworkStartTime coreConstants
+    pause = 30
+    divider = 20
+    after3Mins :: Int
+    after3Mins = pause + unsafePerformIO (round <$> getPOSIXTime)
+    minuteMod = after3Mins `mod` divider
+    alignment = if minuteMod > (divider `div` 2) then 1 else 0
 
 -- | Protocol magic constant. Is put to block serialized version to
 -- distinguish testnet and realnet (for example, possible usages are

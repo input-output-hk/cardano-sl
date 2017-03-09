@@ -4,7 +4,10 @@ import Control.Bind ((=<<))
 import Control.Monad.Eff (Eff)
 import Control.SocketIO.Client (SocketIO, connect, on)
 import DOM (DOM)
-import Explorer.Api.Socket (socketHost, connectEvent, closeEvent, connectHandler, closeHandler, lastestBlocksEvent, latestBlocksHandler, lastestTransactionsEvent, latestTransactionsHandler) as Ex
+import Data.Lens (set)
+import Data.Maybe (Maybe(..))
+import Explorer.Api.Socket (callYouEvent, callYouEventHandler, socketHost, connectEvent, closeEvent, connectHandler, closeHandler, lastestBlocksEvent, latestBlocksHandler, lastestTransactionsEvent, latestTransactionsHandler) as Ex
+import Explorer.Lenses.State (connection, socket)
 import Explorer.Routes (match)
 import Explorer.Types.Actions (Action(..)) as Ex
 import Explorer.Types.State (State) as Ex
@@ -28,14 +31,15 @@ config state = do
   -- socket
   actionChannel <- channel $ Ex.SocketConnected false
   let socketSignal = subscribe actionChannel :: Signal Ex.Action
-  socket <- connect Ex.socketHost
-  on socket Ex.connectEvent $ Ex.connectHandler actionChannel
-  on socket Ex.closeEvent $ Ex.closeHandler actionChannel
-  on socket Ex.lastestBlocksEvent $ Ex.latestBlocksHandler actionChannel
-  on socket Ex.lastestTransactionsEvent $ Ex.latestTransactionsHandler actionChannel
+  socket' <- connect Ex.socketHost
+  on socket' Ex.connectEvent $ Ex.connectHandler actionChannel
+  on socket' Ex.closeEvent $ Ex.closeHandler actionChannel
+  on socket' Ex.lastestBlocksEvent $ Ex.latestBlocksHandler actionChannel
+  on socket' Ex.lastestTransactionsEvent $ Ex.latestTransactionsHandler actionChannel
+  on socket' Ex.callYouEvent $ Ex.callYouEventHandler actionChannel
 
   pure
-    { initialState: state
+    { initialState: set (socket <<< connection) (Just socket') state
     , update: Ex.update :: Update Ex.State Ex.Action AppEffects
     , view: view
     , inputs: [socketSignal, routeSignal]

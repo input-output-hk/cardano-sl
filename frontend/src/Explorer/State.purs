@@ -12,6 +12,7 @@ initialState =
     , route: Dashboard
     , socket:
         { connected: false
+        , connection: Nothing
         }
     , viewStates:
         { dashboard:

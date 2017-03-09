@@ -1,5 +1,6 @@
 module Explorer.Types.State where
 
+import Control.SocketIO.Client (Socket)
 import Data.Maybe (Maybe)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
@@ -28,6 +29,7 @@ type State =
 
 type SocketState =
     { connected :: Boolean
+    , connection :: Maybe Socket
     }
 
 data DashboardAPICode = Curl | Node | JQuery

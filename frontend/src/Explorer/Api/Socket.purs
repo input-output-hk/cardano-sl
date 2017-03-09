@@ -29,6 +29,12 @@ lastestBlocksEvent = "latestBlocks"
 lastestTransactionsEvent :: Event
 lastestTransactionsEvent = "latestTransactions"
 
+callMeEvent :: Event
+callMeEvent = "callme"
+
+callYouEvent :: Event
+callYouEvent = "callyou"
+
 -- event handler
 
 connectHandler :: forall eff. ActionChannel -> Foreign
@@ -52,3 +58,7 @@ latestTransactionsHandler :: forall eff. ActionChannel -> Json
 latestTransactionsHandler channel json =
     let result = decodeResult json in
     send channel $ SocketLatestTransactions result
+
+callYouEventHandler :: forall eff. ActionChannel -> Foreign -> Eff (channel :: CHANNEL | eff) Unit
+callYouEventHandler channel _ =
+    send channel $ SocketConnected false

@@ -20,6 +20,7 @@ data Action
     | SocketConnected Boolean
     | SocketLatestBlocks (Either Error CBlockEntries)
     | SocketLatestTransactions (Either Error CTxEntries)
+    | SocketCallMe
     -- http endpoints
     | RequestInitialBlocks
     | ReceiveInitialBlocks (Either Error CBlockEntries)

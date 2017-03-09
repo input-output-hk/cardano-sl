@@ -5,11 +5,12 @@ import Data.Lens ((^.))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cADA, dbTotalAmountOfTransactions, cTransactions, dbTotalAmountOf, dbTotalSupply, dbPriceSince, dbPriceForOne, dbPriceAverage, cNetwork, common, dashboard, dbNetworkDifficulty, dbNetworkDifficultyDescription, dbLastBlocks, dbLastBlocksDescription) as I18nL
 import Explorer.Lenses.State (lang)
-import Explorer.Types.Actions (Action)
+import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
 import Explorer.Util.String (substitute)
 import Pux.Html (Html, div, h3, text, h4, p) as P
 import Pux.Html.Attributes (className) as P
+import Pux.Html.Events (onClick) as P
 
 
 -- FIXME (jk): just for now, will use later `real` ADTs
@@ -59,7 +60,9 @@ networkView state =
         [ P.div
           [ P.className "explorer-dashboard__container" ]
           [ P.h3
-                [ P.className "headline"]
+                [ P.className "headline"
+                , P.onClick $ const SocketCallMe
+                ]
                 [ P.text $ translate (I18nL.common <<< I18nL.cNetwork) lang' ]
           , P.div
                 [ P.className "explorer-dashboard__teaser" ]

@@ -3,6 +3,7 @@ module Explorer.Update where
 import Prelude
 import Control.Monad.Aff (attempt)
 import Control.Monad.Eff.Class (liftEff)
+import Control.SocketIO.Client (SocketIO, emit')
 import DOM (DOM)
 import DOM.HTML.HTMLInputElement (select)
 import Data.Array ((:))
@@ -10,8 +11,8 @@ import Data.Either (Either(..))
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
 import Explorer.Api.Http (fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs)
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, currentAddressSummary, currentBlockTxs, connected, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, initialBlocksRequested, initialTxsRequested, handleLatestTxsSocketResult, currentBlock, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
-
+import Explorer.Api.Socket (callMeEvent)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, connection, currentAddressSummary, currentBlock, currentBlockTxs, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
@@ -21,7 +22,8 @@ import Pux (EffModel, noEffects)
 
 
 
-update :: forall eff. Action -> State -> EffModel State Action (dom :: DOM, ajax :: AJAX | eff)
+update :: forall eff. Action -> State -> EffModel State Action (dom :: DOM
+    , ajax :: AJAX, socket :: SocketIO | eff)
 
 -- Language
 
@@ -46,7 +48,14 @@ update (SocketLatestTransactions (Right transactions)) state = noEffects $
 update (SocketLatestTransactions (Left error)) state = noEffects $
     -- add incoming errors ahead of previous errors
     over errors (\errors' -> (show error) : errors') state
-
+update SocketCallMe state =
+    { state
+    , effects : [ do
+          _ <- case state ^. (socket <<< connection) of
+              Just socket' -> liftEff $ emit' socket' callMeEvent
+              Nothing -> pure unit
+          pure NoOp
+    ]}
 
 -- Dashboard
 

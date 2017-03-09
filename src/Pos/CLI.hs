@@ -1,5 +1,4 @@
-{-# LANGUAGE ApplicativeDo   #-}
-{-# LANGUAGE CPP             #-}
+{-# LANGUAGE ApplicativeDo #-}
 
 -- | Module for command-line utilites, parsers and convenient handlers.
 
@@ -43,8 +42,9 @@ import qualified Text.Parsec.String                   as P
 import           Universum
 
 import           Pos.Binary.Core                      ()
-import           Pos.Core.Address                     (decodeTextAddress)
-import           Pos.Core.Types                       (Address (..), AddressHash)
+import           Pos.Constants                        (isDevelopment)
+import           Pos.Core                             (Address (..), AddressHash,
+                                                       decodeTextAddress)
 import           Pos.Crypto                           (PublicKey)
 import           Pos.DHT.Model.Types                  (DHTNode (..), dhtKeyParser,
                                                        dhtNodeParser)
@@ -117,11 +117,10 @@ data CommonArgs = CommonArgs
     , disablePropagation :: !Bool
     , reportServers      :: ![Text]
     , updateServers      :: ![Text]
-#ifdef DEV_MODE
+    -- distributions, only used in dev mode
     , flatDistr          :: !(Maybe (Int, Int))
     , bitcoinDistr       :: !(Maybe (Int, Int))
     , expDistr           :: !Bool
-#endif
     } deriving Show
 
 commonArgsParser :: String -> Opt.Parser CommonArgs
@@ -140,12 +139,10 @@ commonArgsParser peerHelpMsg = do
     --
     reportServers <- reportServersOption
     updateServers <- updateServersOption
-    --
-#ifdef DEV_MODE
-    flatDistr    <- flatDistrOptional
-    bitcoinDistr <- btcDistrOptional
-    expDistr     <- expDistrOption
-#endif
+    -- distributions
+    flatDistr    <- if isDevelopment then flatDistrOptional else pure Nothing
+    bitcoinDistr <- if isDevelopment then btcDistrOptional  else pure Nothing
+    expDistr     <- if isDevelopment then expDistrOption    else pure False
     --
     pure CommonArgs{..}
 
@@ -228,7 +225,6 @@ updateServersOption =
     Opt.strOption
         (templateParser "update-server" "URI" "Server to download updates from")
 
-#ifdef DEV_MODE
 flatDistrOptional :: Opt.Parser (Maybe (Int, Int))
 flatDistrOptional =
     Opt.optional $
@@ -252,8 +248,6 @@ expDistrOption :: Opt.Parser Bool
 expDistrOption =
     Opt.switch
         (Opt.long "exp-distr" <> Opt.help "Enable exponential distribution")
-
-#endif
 
 timeLordOption :: Opt.Parser Bool
 timeLordOption =

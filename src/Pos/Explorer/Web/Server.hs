@@ -10,10 +10,11 @@ module Pos.Explorer.Web.Server
        , explorerHandlers
        ) where
 
-import           Control.Monad.Catch            (try)
 import           Control.Monad.Loops            (unfoldrM)
 import           Control.Monad.Trans.Maybe      (MaybeT (..))
+import           Control.Monad.Catch            (try)
 import qualified Data.HashMap.Strict            as HM
+import qualified Data.List.NonEmpty             as NE
 import           Data.Maybe                     (fromMaybe)
 import           Network.Wai                    (Application)
 import           Servant.API                    ((:<|>) ((:<|>)))
@@ -185,7 +186,7 @@ getTxSummary cTxId = do
                 -- Fetching transaction from MemPool.
                 ts <- toPosixTime <$> currentTimeSlotting
                 tx <- fetchTxFromMempoolOrFail txId
-                let txOutputs = convertTxOutputs $ _txOutputs tx
+                let txOutputs = convertTxOutputs . NE.toList $ _txOutputs tx
                 pure (Just ts, Nothing, Nothing, txOutputs)
             Just (headerHash, txIndexInBlock) -> do
                 -- Fetching transaction from DB.
@@ -198,7 +199,7 @@ getTxSummary cTxId = do
                         let blockHeight = fromIntegral $ mb ^. difficultyL
                         tx <- maybe (throwM $ Internal "TxExtra return tx index that is out of bounds") pure $
                               atMay (toList $ mb ^. blockTxs) (fromIntegral txIndexInBlock)
-                        let txOutputs = convertTxOutputs $ _txOutputs tx
+                        let txOutputs = convertTxOutputs . NE.toList $ _txOutputs tx
                             ts = toPosixTime <$> blkSlotStart
                         pure (ts, ts, Just blockHeight, txOutputs)
 

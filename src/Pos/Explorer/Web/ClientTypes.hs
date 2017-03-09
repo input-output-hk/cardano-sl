@@ -31,6 +31,7 @@ import           Control.Arrow          ((&&&))
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Lazy   as BSL
+import qualified Data.List.NonEmpty     as NE
 import           Data.Time.Clock.POSIX  (POSIXTime)
 import           Formatting             (sformat)
 import           Servant.API            (FromHttpApiData (..))
@@ -44,11 +45,10 @@ import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
 import           Pos.Txp                (Tx (..), TxId, TxOut (..), _txOutputs)
-import           Pos.Types              (Address, Coin, MainBlock, Timestamp,
-                                         addressF, blockTxs, decodeTextAddress,
-                                         difficultyL, gbHeader, gbhConsensus,
-                                         headerHash, mcdSlot, mkCoin,
-                                         prevBlockL, sumCoins, unsafeAddCoin,
+import           Pos.Types              (Address, Coin, MainBlock, Timestamp, addressF,
+                                         blockTxs, decodeTextAddress, difficultyL,
+                                         gbHeader, gbhConsensus, headerHash, mcdSlot,
+                                         mkCoin, prevBlockL, sumCoins, unsafeAddCoin,
                                          unsafeIntegerToCoin)
 import           Pos.Types.Explorer     (TxExtra (..))
 import           Pos.Util               (maybeThrow)
@@ -242,4 +242,4 @@ toTxBrief txi txe = CTxBrief {..}
     ctbId = toCTxId $ hash tx
     ctbTimeIssued = toPosixTime <$> ts
     ctbInputs = convertTxOutputs $ teInputOutputs txe
-    ctbOutputs = convertTxOutputs $ _txOutputs tx
+    ctbOutputs = convertTxOutputs . NE.toList $ _txOutputs tx

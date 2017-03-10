@@ -110,22 +110,20 @@ action args@Args {..} res = do
     case (enableStats, CLI.sscAlgo commonArgs) of
         (True, GodTossingAlgo) ->
             runNodeStats @SscGodTossing res
-                         (convPlugins currentPluginsGT `mappendPair` walletStats args)
-                         currentParams gtParams
+                (convPlugins currentPluginsGT `mappendPair` walletStats args)
+                currentParams gtParams
         (True, NistBeaconAlgo) ->
             runNodeStats @SscNistBeacon res
-                         (convPlugins currentPlugins `mappendPair`  walletStats args)
-                         currentParams ()
+                (convPlugins currentPlugins `mappendPair`  walletStats args)
+                currentParams ()
         (False, GodTossingAlgo) ->
             runNodeProduction @SscGodTossing res
-                              (convPlugins currentPluginsGT `mappendPair` walletProd args)
-                              currentParams
-                              gtParams
+                (convPlugins currentPluginsGT `mappendPair` walletProd args)
+                currentParams gtParams
         (False, NistBeaconAlgo) ->
             runNodeProduction @SscNistBeacon res
-                              (convPlugins currentPlugins `mappendPair` walletProd args)
-                              currentParams
-                              ()
+                (convPlugins currentPlugins `mappendPair` walletProd args)
+                currentParams ()
   where
     convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
 

@@ -25,10 +25,10 @@ import           Pos.Lrc.Types    (FullRichmenData)
 
 -- | Class for components that store info about richmen.
 class Bi (RichmenData a) => RichmenComponent a where
-    -- | Datatype that stored. Consider using 'Richmen' or
+    -- | Datatype that is stored. Consider using 'Richmen' or
     -- 'RichmenStake' or 'FullRichmenData'.
     type RichmenData a :: *
-    -- | Converts 'FullRichmenData' to what's need to be saved.
+    -- | Converts 'FullRichmenData' to what is needs to be saved.
     rcToData :: FullRichmenData -> RichmenData a
     -- | Tag to identify component (short bytestring).
     rcTag :: Proxy a -> ByteString

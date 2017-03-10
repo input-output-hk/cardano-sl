@@ -46,8 +46,8 @@ import           Pos.Types                      (Block, EpochIndex (..), SlotId 
                                                  blockMpc, epochIndexL, epochOrSlotG,
                                                  gbHeader)
 import           Pos.Util                       (NE, NewestFirst (..), OldestFirst (..),
-                                                 toOldestFirst, _neHead, _neLast)
-import           Pos.Util                  (maybeThrow)
+                                                 maybeThrow, toOldestFirst, _neHead,
+                                                 _neLast)
 ----------------------------------------------------------------------------
 -- Utilities
 ----------------------------------------------------------------------------

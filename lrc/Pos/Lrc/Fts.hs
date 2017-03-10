@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- | Base part of  /follow-the-satoshi/ procedure.
+-- | Base part of /follow-the-satoshi/ procedure.
 
 module Pos.Lrc.Fts
        ( followTheSatoshiM

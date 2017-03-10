@@ -34,8 +34,7 @@ import           Pos.Context.Context     (NodeContext (..), ncGenesisLeaders,
 import           Pos.Lrc.Error           (LrcError (..))
 import           Pos.Txp.Toil.Types      (Utxo)
 import           Pos.Types               (EpochIndex, HeaderHash, SlotLeaders)
-import           Pos.Util                (readTVarConditional)
-import           Pos.Util           (maybeThrow)
+import           Pos.Util                (maybeThrow, readTVarConditional)
 
 ----------------------------------------------------------------------------
 -- Genesis

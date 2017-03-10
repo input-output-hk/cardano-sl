@@ -47,7 +47,7 @@ import           Pos.Update.Poll.Types         (ConfirmedProposalState (..),
                                                 ProposalState (..),
                                                 UndecidedProposalState (..),
                                                 UpsExtra (..), psProposal)
-import           Pos.Util                 (Some (..))
+import           Pos.Util                      (Some (..))
 
 type ApplyMode m = (MonadError PollVerFailure m, MonadPoll m)
 

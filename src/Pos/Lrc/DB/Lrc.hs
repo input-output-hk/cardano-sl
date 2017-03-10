@@ -13,7 +13,7 @@ import           Pos.Lrc.DB.Common  (prepareLrcCommon)
 import           Pos.Lrc.DB.Issuers (prepareLrcIssuers)
 import           Pos.Lrc.DB.Leaders (prepareLrcLeaders)
 import           Pos.Lrc.DB.Richmen (getRichmenUS, prepareLrcRichmen)
-import           Pos.Util      (maybeThrow)
+import           Pos.Util           (maybeThrow)
 
 -- | Put missing initial data into LRC DB.
 prepareLrcDB

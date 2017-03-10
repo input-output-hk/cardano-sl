@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- |
+-- | Base database Balances operations.
 
 module Pos.DB.GState.Balances
        ( BalIter
@@ -17,16 +17,16 @@ import           Universum
 
 import           Pos.Binary.Core      ()
 import           Pos.Core.Types       (Coin, StakeholderId)
+import           Pos.Util.Util        (maybeThrow)
+
 import           Pos.DB.Class         (MonadDB)
 import           Pos.DB.Error         (DBError (DBMalformed))
 import           Pos.DB.Functions     (encodeWithKeyPrefix)
-import           Pos.DB.Iterator      (DBIteratorClass (..))
-import           Pos.Util.Util        (maybeThrow)
-
 import           Pos.DB.GState.Common (gsGetBi)
-
+import           Pos.DB.Iterator      (DBIteratorClass (..))
 
 data BalIter
+
 instance DBIteratorClass BalIter where
     type IterKey BalIter = StakeholderId
     type IterValue BalIter = Coin
@@ -35,6 +35,7 @@ instance DBIteratorClass BalIter where
 ----------------------------------------------------------------------------
 -- Keys
 ----------------------------------------------------------------------------
+
 iterationPrefix :: ByteString
 iterationPrefix = "b/s/"
 

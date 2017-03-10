@@ -1,7 +1,7 @@
 name:                cardano-sl-lrc
 version:             0.1.0.0
-synopsis:            Cardano SL - Leaders and Rich men computation
-description:         Cardano SL - Leaders and Rich men computation
+synopsis:            Cardano SL - Leaders and Richmen computation
+description:         Cardano SL - Leaders and Richmen computation
 license:             MIT
 license-file:        LICENSE
 author:              Serokell

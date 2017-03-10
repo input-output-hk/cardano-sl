@@ -1,4 +1,3 @@
-
 -- | Server part.
 
 module Pos.Communication.Server
@@ -19,8 +18,9 @@ import           Pos.Communication.Server.SysStart
 import           Pos.Communication.Util            (wrapListener)
 import           Pos.Delegation.Listeners          (delegationListeners,
                                                     delegationStubListeners)
-import           Pos.Ssc.Class.Helpers             (SscHelpersClass (..))
-import           Pos.Ssc.Class.Listeners           (SscListenersClass (..))
+import           Pos.Ssc.Class                     (SscHelpersClass (..),
+                                                    SscListenersClass (..),
+                                                    SscWorkersClass)
 import           Pos.Txp                           (txListeners, txStubListeners)
 import           Pos.Update                        (usListeners, usStubListeners)
 import           Pos.Util                          (mconcatPair)
@@ -28,7 +28,7 @@ import           Pos.WorkMode                      (WorkMode)
 
 -- | All listeners running on one node.
 allListeners
-    :: (SscListenersClass ssc, WorkMode ssc m)
+    :: (SscListenersClass ssc, SscWorkersClass ssc, WorkMode ssc m)
     => m ([ListenerSpec m], OutSpecs)
 allListeners = mconcatPair <$> sequence
         [ modifier "block"      <$> blockListeners

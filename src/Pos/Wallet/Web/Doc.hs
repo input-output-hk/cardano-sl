@@ -13,11 +13,11 @@ import           Data.Time.Clock.POSIX      (POSIXTime)
 import           Network.HTTP.Types.Method  (methodPost)
 import           Servant.API                (Capture, QueryParam)
 import           Servant.Docs               (API, DocCapture (..), DocIntro (..),
-                                             DocNote (..), DocQueryParam (..), ExtraInfo (..), ToParam,
-                                             ToCapture (toCapture), ToSample (toSamples),
-                                             defAction, defEndpoint, defaultDocOptions,
-                                             docsWith, markdown, method, notes, path,
-                                             singleSample)
+                                             DocNote (..), DocQueryParam (..),
+                                             ExtraInfo (..), ToCapture (toCapture),
+                                             ToParam, ToSample (toSamples), defAction,
+                                             defEndpoint, defaultDocOptions, docsWith,
+                                             markdown, method, notes, path, singleSample)
 import qualified Servant.Docs               as SD
 import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum

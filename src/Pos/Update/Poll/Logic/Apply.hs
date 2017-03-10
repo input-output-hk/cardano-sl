@@ -12,7 +12,6 @@ module Pos.Update.Poll.Logic.Apply
 
 import           Control.Monad.Except          (MonadError, throwError)
 import           Data.List                     (partition)
-import           Data.List.NonEmpty            (NonEmpty)
 import qualified Data.List.NonEmpty            as NE
 import           Formatting                    (build, builder, int, sformat, (%))
 import           System.Wlog                   (logDebug, logInfo, logNotice)

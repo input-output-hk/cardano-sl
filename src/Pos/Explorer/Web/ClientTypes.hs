@@ -51,9 +51,6 @@ import           Pos.Types              (Address, Coin, MainBlock, Timestamp, ad
                                          mkCoin, prevBlockL, sumCoins, unsafeAddCoin,
                                          unsafeIntegerToCoin)
 import           Pos.Types.Explorer     (TxExtra (..))
-import           Pos.Util               (maybeThrow)
-
-import           Pos.Explorer.Web.Error (ExplorerError (..))
 
 -------------------------------------------------------------------------------------
 -- Hash types
@@ -114,7 +111,7 @@ fromCTxId (CTxId (CHash txId)) = decodeHashHex txId
 data CBlockEntry = CBlockEntry
     { cbeBlkHash    :: !CHash
     , cbeHeight     :: !Word
-    , cbeTimeIssued :: !POSIXTime
+    , cbeTimeIssued :: !(Maybe POSIXTime)
     , cbeTxNum      :: !Word
     , cbeTotalSent  :: !Coin
     , cbeSize       :: !Word64
@@ -129,11 +126,10 @@ toBlockEntry
     => MainBlock ssc
     -> m CBlockEntry
 toBlockEntry blk = do
-    blkSlotStart <- maybeThrow (Internal "Slotting isn't initialized") =<<
-        getSlotStart (blk ^. gbHeader . gbhConsensus . mcdSlot)
+    blkSlotStart <- getSlotStart (blk ^. gbHeader . gbhConsensus . mcdSlot)
     let cbeBlkHash = toCHash $ headerHash blk
         cbeHeight = fromIntegral $ blk ^. difficultyL
-        cbeTimeIssued = toPosixTime blkSlotStart
+        cbeTimeIssued = toPosixTime <$> blkSlotStart
         txs = blk ^. blockTxs
         cbeTxNum = fromIntegral $ length txs
         addCoins c = unsafeAddCoin c . totalTxMoney

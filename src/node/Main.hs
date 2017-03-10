@@ -11,22 +11,20 @@ import           Universum
 
 import           Pos.Binary            ()
 import qualified Pos.CLI               as CLI
+import           Pos.Communication     (ActionSpec (..))
 import           Pos.Constants         (isDevelopment, staticSysStart)
 import           Pos.Context           (getNodeContext, ncUpdateSemaphore)
 import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
-import           Pos.Genesis           (genesisSecretKeys, genesisStakeDistribution,
+import           Pos.Genesis           (genesisDevSecretKeys, genesisStakeDistribution,
                                         genesisUtxo)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
                                         NodeParams (..), RealModeResources,
                                         bracketResources, runNodeProduction, runNodeStats,
                                         runTimeLordReal, runTimeSlaveReal, stakesDistr)
-#ifdef DEV_MODE
-import           Pos.Ssc.GodTossing    (genesisVssKeyPairs)
-#endif
-import           Pos.Communication     (ActionSpec (..))
 import           Pos.Shutdown          (triggerShutdown)
 import           Pos.Ssc.Class         (SscConstraint)
-import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
+import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing,
+                                        genesisDevVssKeyPairs)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import           Pos.Ssc.SscAlgo       (SscAlgo (..))
 import           Pos.Types             (Timestamp (Timestamp))
@@ -137,7 +135,7 @@ userSecretWithGenesisKey
 userSecretWithGenesisKey Args {..} userSecret = case spendingGenesisI of
     Nothing -> fetchPrimaryKey userSecret
     Just i -> do
-        let sk = genesisSecretKeys !! i
+        let sk = genesisDevSecretKeys !! i
             us = userSecret & usPrimKey .~ Just sk
         writeUserSecret us
         return (sk, us)
@@ -149,7 +147,7 @@ getKeyfilePath Args {..} =
 updateUserSecretVSS
     :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m UserSecret
 updateUserSecretVSS Args {..} us = case vssGenesisI of
-    Just i  -> return $ us & usVss .~ Just (genesisVssKeyPairs !! i)
+    Just i  -> return $ us & usVss .~ Just (genesisDevVssKeyPairs !! i)
     Nothing -> fillUserSecretVSS us
 #else
 userSecretWithGenesisKey

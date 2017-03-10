@@ -27,15 +27,15 @@ import           Pos.Binary                (Raw)
 import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
                                             worker)
-import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey, fakeSigner,
-                                            hash, hashHexF, sign, toPublic,
+import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey,
+                                            fakeSigner, hash, hashHexF, sign, toPublic,
                                             unsafeHash)
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Delegation            (sendProxySKHeavy, sendProxySKHeavyOuts,
                                             sendProxySKLight, sendProxySKLightOuts)
 import           Pos.DHT.Model             (DHTNode, discoverPeers, getKnownPeers)
-import           Pos.Genesis               (genesisBlockVersionData, genesisPublicKeys,
-                                            genesisSecretKeys, genesisUtxo)
+import           Pos.Genesis               (genesisBlockVersionData, genesisDevPublicKeys,
+                                            genesisDevSecretKeys, genesisUtxo)
 import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
                                             bracketResources, runTimeSlaveReal,
                                             stakesDistr)
@@ -138,17 +138,17 @@ runCmd _ Help = do
 runCmd _ ListAddresses = do
     addrs <- map (makePubKeyAddress . toPublic) <$> asks fst
     putText "Available addresses:"
-    forM_ (zip [0 :: Int ..] addrs) $
+    for_ (zip [0 :: Int ..] addrs) $
         putText . uncurry (sformat $ "    #"%int%":   "%build)
 runCmd sendActions (DelegateLight i j) = do
-    let issuerSk = genesisSecretKeys !! i
-        delegatePk = genesisPublicKeys !! j
+    let issuerSk = genesisDevSecretKeys !! i
+        delegatePk = genesisDevPublicKeys !! j
         psk = createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
     lift $ sendProxySKLight psk sendActions
     putText "Sent lightweight cert"
 runCmd sendActions (DelegateHeavy i j epochMaybe) = do
-    let issuerSk = genesisSecretKeys !! i
-        delegatePk = genesisPublicKeys !! j
+    let issuerSk = genesisDevSecretKeys !! i
+        delegatePk = genesisDevPublicKeys !! j
         epoch = fromMaybe 0 epochMaybe
         psk = createProxySecretKey issuerSk delegatePk epoch
     lift $ sendProxySKHeavy psk sendActions
@@ -194,13 +194,13 @@ runWalletRepl :: WalletMode ssc m => WalletOptions -> Worker' m
 runWalletRepl wo sa = do
     na <- initialize wo
     putText "Welcome to Wallet CLI Node"
-    runReaderT (evalCmd sa Help) (genesisSecretKeys, na)
+    runReaderT (evalCmd sa Help) (genesisDevSecretKeys, na)
 
 runWalletCmd :: WalletMode ssc m => WalletOptions -> Text -> Worker' m
 runWalletCmd wo str sa = do
     na <- initialize wo
     let strs = T.splitOn "," str
-    flip runReaderT (genesisSecretKeys, na) $ forM_ strs $ \scmd -> do
+    flip runReaderT (genesisDevSecretKeys, na) $ for_ strs $ \scmd -> do
         let mcmd = parseCommand scmd
         case mcmd of
             Left err   -> putStrLn err

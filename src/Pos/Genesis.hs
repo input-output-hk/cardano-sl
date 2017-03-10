@@ -13,11 +13,11 @@ module Pos.Genesis
        , genesisStakeDistribution
        , genesisUtxo
        , genesisDelegation
-       -- ** Genesis data used in development mode
        , genesisAddresses
-       , genesisKeyPairs
-       , genesisPublicKeys
-       , genesisSecretKeys
+       -- ** Genesis data used in development mode
+       , genesisDevKeyPairs
+       , genesisDevPublicKeys
+       , genesisDevSecretKeys
 
        -- * Ssc
        , genesisLeaders
@@ -63,8 +63,8 @@ import           Pos.Update.Core.Types      (BlockVersionData (..))
 ----------------------------------------------------------------------------
 
 -- | List of pairs from 'SecretKey' with corresponding 'PublicKey'.
-genesisKeyPairs :: [(PublicKey, SecretKey)]
-genesisKeyPairs = map gen [0 .. Const.genesisN - 1]
+genesisDevKeyPairs :: [(PublicKey, SecretKey)]
+genesisDevKeyPairs = map gen [0 .. Const.genesisN - 1]
   where
     gen :: Int -> (PublicKey, SecretKey)
     gen =
@@ -74,17 +74,17 @@ genesisKeyPairs = map gen [0 .. Const.genesisN - 1]
         T.take 32 . sformat ("My awesome 32-byte seed #" %int % "             ")
 
 -- | List of 'PublicKey's in genesis.
-genesisPublicKeys :: [PublicKey]
-genesisPublicKeys = map fst genesisKeyPairs
+genesisDevPublicKeys :: [PublicKey]
+genesisDevPublicKeys = map fst genesisDevKeyPairs
 
 -- | List of 'SecretKey's in genesis.
-genesisSecretKeys :: [SecretKey]
-genesisSecretKeys = map snd genesisKeyPairs
+genesisDevSecretKeys :: [SecretKey]
+genesisDevSecretKeys = map snd genesisDevKeyPairs
 
 -- | List of addresses in genesis. See 'genesisPublicKeys'.
 genesisAddresses :: [Address]
 genesisAddresses
-    | Const.isDevelopment = map makePubKeyAddress genesisPublicKeys
+    | Const.isDevelopment = map makePubKeyAddress genesisDevPublicKeys
     | otherwise           = gdAddresses compileGenData
 
 genesisStakeDistribution :: StakeDistribution

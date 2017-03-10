@@ -47,7 +47,6 @@ import           Pos.Types                      (Block, EpochIndex (..), SlotId 
 import           Pos.Util                       (NE, NewestFirst (..), OldestFirst (..),
                                                  maybeThrow, toOldestFirst, _neHead,
                                                  _neLast)
-
 ----------------------------------------------------------------------------
 -- Utilities
 ----------------------------------------------------------------------------

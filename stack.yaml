@@ -10,6 +10,7 @@ packages:
 - update
 - infra
 - db
+- lrc
 
 - location:
     git: https://github.com/serokell/acid-state.git

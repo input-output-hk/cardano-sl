@@ -18,6 +18,7 @@ import           Pos.Core            (Coin, CoinPortion, StakeholderId, mkCoin,
                                       unsafeGetCoin)
 import           Pos.Core.Coin       (coinPortionToDouble)
 import           Pos.Lrc.Types       (RichmenStake)
+import           Pos.Types           ()
 
 -- | Wrapper over 'RichmenStake'. Its 'Arbitrary' instance enforces that the stake
 -- distribution inside must be valid with respect to the threshold 'thd', i.e. all of the

@@ -27,12 +27,13 @@ import           Pos.Constants               (slotSecurityParam)
 import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
 import qualified Pos.DB.DB                   as DB
 import qualified Pos.DB.GState               as GS
-import           Pos.Lrc.DB                  (IssuersStakes, getLeaders, putEpoch,
-                                              putIssuersStakes, putLeaders)
+import qualified Pos.DB.GState.Balances      as GS
 import           Pos.Lrc.Consumer            (LrcConsumer (..))
 import           Pos.Lrc.Consumers           (allLrcConsumers)
+import           Pos.Lrc.DB                  (IssuersStakes, getLeaders, putEpoch,
+                                              putIssuersStakes, putLeaders)
 import           Pos.Lrc.Error               (LrcError (..))
-import           Pos.Lrc.FollowTheSatoshi    (followTheSatoshiM)
+import           Pos.Lrc.Fts                 (followTheSatoshiM)
 import           Pos.Lrc.Logic               (findAllRichmenMaybe)
 import           Pos.Reporting               (reportMisbehaviourMasked)
 import           Pos.Ssc.Class               (SscWorkersClass)

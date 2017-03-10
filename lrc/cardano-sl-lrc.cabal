@@ -1,7 +1,7 @@
-name:                cardano-sl-db
+name:                cardano-sl-lrc
 version:             0.1.0.0
-synopsis:            Cardano SL - basic DB interfaces
-description:         Cardano SL - basic DB interfaces
+synopsis:            Cardano SL - Leaders and Richmen computation
+description:         Cardano SL - Leaders and Richmen computation
 license:             MIT
 license-file:        LICENSE
 author:              Serokell
@@ -12,38 +12,25 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Pos.DB
-                       Pos.DB.Class
-                       Pos.DB.Error
-                       Pos.DB.Functions
-                       Pos.DB.GState.Common
-                       Pos.DB.GState.Balances
-                       Pos.DB.Holder
-                       Pos.DB.Iterator
-                       Pos.DB.Iterator.Class
-                       Pos.DB.Iterator.DBIterator
-                       Pos.DB.Limits
-                       Pos.DB.Misc.Common
-                       Pos.DB.Types
+  exposed-modules:     Pos.Lrc.Fts
+                       Pos.Lrc.Types
+                       Pos.Lrc.Error
+                       Pos.Lrc.Core
+                       Pos.Lrc.Consumer
+                       Pos.Lrc.Class
+
+                       Pos.Lrc.DB.Common
+                       Pos.Lrc.DB.Issuers
+                       Pos.Lrc.DB.RichmenBase
 
   build-depends:       base
                      , bytestring
+                     , unordered-containers
                      , cardano-sl-core
-                     , concurrent-extra
-                     , data-default
+                     , cardano-sl-db
                      , formatting
-                     , lens
-                     , log-warper
-                     , mtl
-                     , node-sketch
-                     , resourcet
-                     , rocksdb
-                     , serokell-util
-                     , transformers-base
                      , text-format
                      , universum
-
-  default-language:    Haskell2010
 
   default-extensions:  DeriveDataTypeable
                        DeriveGeneric
@@ -62,6 +49,8 @@ library
                        ViewPatterns
                        LambdaCase
                        MultiWayIf
+
+  default-language:    Haskell2010
 
   ghc-options:         -Wall
                        -fno-warn-orphans

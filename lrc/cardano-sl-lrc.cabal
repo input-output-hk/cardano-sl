@@ -20,6 +20,7 @@ library
                        Pos.Lrc.Class
 
                        Pos.Lrc.DB.Common
+                       Pos.Lrc.DB.Issuers
                        Pos.Lrc.DB.RichmenBase
 
   build-depends:       base

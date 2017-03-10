@@ -192,7 +192,6 @@ library
                         Pos.Lrc.Arbitrary
                         Pos.Lrc.Consumers
                         Pos.Lrc.DB
-                        Pos.Lrc.DB.Issuers
                         Pos.Lrc.DB.Leaders
                         Pos.Lrc.DB.Lrc
                         Pos.Lrc.DB.Richmen

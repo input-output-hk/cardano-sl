@@ -193,10 +193,10 @@ instance ToCapture (Capture "key" FilePath) where
         }
 
 instance ToSample WalletError where
-    toSamples Proxy = undefined
+    toSamples Proxy = error "unmaintained stub for [ToSample:WalletError]"
 
 instance ToSample CWalletRedeem where
-    toSamples Proxy = undefined
+    toSamples Proxy = error "unmaintained stub for [ToSample:CWalletRedeem]"
 
 instance ToSample Coin where
     toSamples Proxy = singleSample (mkCoin 100500)
@@ -206,23 +206,23 @@ instance ToSample Coin where
 --
 -- FIXME!
 instance ToSample CHash where
-    toSamples Proxy = undefined
+    toSamples Proxy = error "unmaintained stub for [ToSample:CHash]"
 
 -- FIXME!
 instance ToSample CWallet where
-    toSamples Proxy = undefined
+    toSamples Proxy = error "unmaintained stub for [ToSample:CWallet]"
 
 -- FIXME!
 instance ToSample CWalletMeta where
-    toSamples Proxy = undefined
+    toSamples Proxy = error "unmaintained stub for [ToSample:CWalletMeta]"
 
 -- FIXME!
 instance ToSample CWalletInit where
-    toSamples Proxy = undefined
+    toSamples Proxy = error "unmaintained stub for [ToSample:CWalletInit]"
 
 -- FIXME!
 instance ToSample CUpdateInfo where
-    toSamples Proxy = undefined
+    toSamples Proxy = error "unmaintained stub for [ToSample:CUpdateInfo]"
 
 instance ToSample CAddress where
     toSamples Proxy = singleSample . addressToCAddress . makePubKeyAddress . fst $
@@ -231,25 +231,25 @@ instance ToSample CAddress where
 -- FIXME: this is required because of Wallet.Web.Api `type Cors...`
 -- I don't really what should be sample for Cors ?
 instance ToSample Text where
-    toSamples Proxy = undefined
+    toSamples Proxy = error "unmaintained stub for [ToSample:Text]"
 
 instance ToSample () where
     toSamples Proxy = singleSample ()
 
 instance ToSample CTx where
-    toSamples Proxy = undefined
+    toSamples Proxy = error "unmaintained stub for [ToSample:CTx]"
 
 instance ToSample CTxMeta where
-    toSamples Proxy = undefined
+    toSamples Proxy = error "unmaintained stub for [ToSample:CTxMeta]"
 
 instance ToSample CProfile where
-    toSamples Proxy = undefined
+    toSamples Proxy = error "unmaintained stub for [ToSample:CProfile]"
 
 instance ToSample Word where
-    toSamples Proxy = undefined
+    toSamples Proxy = error "unmaintained stub for [ToSample:Word]"
 
 instance ToSample BackupPhrase where
-    toSamples Proxy = undefined
+    toSamples Proxy = error "unmaintained stub for [ToSample:BackupPhrase]"
 
 instance ToSample SoftwareVersion where
     toSamples Proxy = singleSample curSoftwareVersion

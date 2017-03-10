@@ -6,7 +6,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/input-output-hk/cardano-sl
-    commit: 718389dcc12fb611117e97508db2190bfa536a5e
+    commit: dd290f0462e4b378f2b2275e6c9ed1bf600a9281
   extra-dep: true
   subdirs:
       - '.'
@@ -24,7 +24,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
-    commit: 4e3f6a268c3b13af78516f78ac71cd6215f5b0bf
+    commit: e2e2711e6978002279b4d7c49cab1aff47a2fd43
   extra-dep: true
 - location:
     git: https://github.com/serokell/rocksdb-haskell.git

@@ -31,13 +31,12 @@ import           Servant.API                   ((:<|>) ((:<|>)),
                                                 FromHttpApiData (parseUrlPiece))
 import           Servant.Server                (Handler, Server, ServerT, serve)
 import           Servant.Utils.Enter           ((:~>) (..), enter)
-import           System.Wlog                   (logDebug)
-import           System.Wlog                   (logInfo)
+import           System.Wlog                   (logDebug, logInfo)
 import           Universum
 
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Communication.Protocol    (OutSpecs, SendActions, hoistSendActions)
-import           Pos.Constants                 (curSoftwareVersion)
+import           Pos.Constants                 (curSoftwareVersion, isDevelopment)
 import           Pos.Crypto                    (emptyPassphrase, encToPublic, fakeSigner,
                                                 hash, redeemDeterministicKeyGen,
                                                 toEncrypted, toPublic, withSafeSigner,
@@ -477,22 +476,25 @@ importKey sendActions (toString -> fp) = do
             cAddr = addressToCAddress addr
         createWallet cAddr def
 
-    let importedAddr = makePubKeyAddress $ encToPublic $ keys !! 0
+    let importedAddr = makePubKeyAddress $ encToPublic (keys !! 0)
         importedCAddr = addressToCAddress importedAddr
-#ifdef DEV_MODE
-    psk <- maybeThrow (Internal "No primary key is present!")
-           =<< getPrimaryKey
-    let pAddr = makePubKeyAddress $ toPublic psk
-    primaryBalance <- getBalance pAddr
-    when (primaryBalance > mkCoin 0) $ do
-        na <- getKnownPeers
-        etx <- submitTx sendActions (fakeSigner psk) na (one (TxOut importedAddr primaryBalance, []))
-        case etx of
-            Left err -> throwM . Internal $ "Cannot transfer funds from genesis key" <> err
-            Right (tx, _, _) ->  do
-                () <$ addHistoryTx importedCAddr ADA "Transfer money from genesis key" ""
-                    (THEntry (hash tx) tx False Nothing)
-#endif
+    when isDevelopment $ do
+        psk <- maybeThrow (Internal "No primary key is present!")
+               =<< getPrimaryKey
+        let pAddr = makePubKeyAddress (toPublic psk)
+        primaryBalance <- getBalance pAddr
+        when (primaryBalance > mkCoin 0) $ do
+            na  <- getKnownPeers
+            etx <- submitTx sendActions
+                       (fakeSigner psk) na
+                       (one (TxOut importedAddr primaryBalance, []))
+            case etx of
+                Left err -> throwM . Internal $
+                    "Cannot transfer funds from genesis key" <> err
+                Right (tx, _, _) -> void $
+                    addHistoryTx importedCAddr ADA
+                        "Transfer money from genesis key" ""
+                        (THEntry (hash tx) tx False Nothing)
     getWallet importedCAddr
 
 syncProgress :: WalletWebMode ssc m => m SyncProgress

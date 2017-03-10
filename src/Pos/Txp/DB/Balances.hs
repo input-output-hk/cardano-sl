@@ -12,7 +12,7 @@ module Pos.Txp.DB.Balances
        , prepareGStateBalances
 
                 -- * Iteration
-       , BalIter
+       , BalanceIter
        , runBalanceIterator
        , runBalanceMapIterator
 
@@ -33,7 +33,7 @@ import           Pos.Crypto             (shortHashF)
 import           Pos.DB.Class           (MonadDB)
 import           Pos.DB.Error           (DBError (..))
 import           Pos.DB.Functions       (RocksBatchOp (..))
-import           Pos.DB.GState.Balances (BalIter, ftsStakeKey, ftsSumKey, getFtsSumMaybe,
+import           Pos.DB.GState.Balances (BalanceIter, ftsStakeKey, ftsSumKey, getFtsSumMaybe,
                                          getTotalFtsStake)
 import           Pos.DB.GState.Common   (gsPutBi)
 import           Pos.DB.Iterator        (DBnIterator, DBnMapIterator, IterType,
@@ -97,13 +97,13 @@ putTotalFtsStake = gsPutBi ftsSumKey
 
 runBalanceIterator
     :: forall m a . MonadDB m
-    => DBnIterator BalIter a -> m a
-runBalanceIterator = runDBnIterator @BalIter _gStateDB
+    => DBnIterator BalanceIter a -> m a
+runBalanceIterator = runDBnIterator @BalanceIter _gStateDB
 
 runBalanceMapIterator
     :: forall v m a . MonadDB m
-    => DBnMapIterator BalIter v a -> (IterType BalIter -> v) -> m a
-runBalanceMapIterator = runDBnMapIterator @BalIter _gStateDB
+    => DBnMapIterator BalanceIter v a -> (IterType BalanceIter -> v) -> m a
+runBalanceMapIterator = runDBnMapIterator @BalanceIter _gStateDB
 
 ----------------------------------------------------------------------------
 -- Sanity checks

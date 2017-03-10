@@ -3,7 +3,7 @@
 -- | Base database Balances operations.
 
 module Pos.DB.GState.Balances
-       ( BalIter
+       ( BalanceIter
          -- * Getters
        , getTotalFtsStake
        , getFtsStake
@@ -25,11 +25,11 @@ import           Pos.DB.Functions     (encodeWithKeyPrefix)
 import           Pos.DB.GState.Common (gsGetBi)
 import           Pos.DB.Iterator      (DBIteratorClass (..))
 
-data BalIter
+data BalanceIter
 
-instance DBIteratorClass BalIter where
-    type IterKey BalIter = StakeholderId
-    type IterValue BalIter = Coin
+instance DBIteratorClass BalanceIter where
+    type IterKey BalanceIter = StakeholderId
+    type IterValue BalanceIter = Coin
     iterKeyPrefix _ = iterationPrefix
 
 ----------------------------------------------------------------------------
@@ -40,7 +40,7 @@ iterationPrefix :: ByteString
 iterationPrefix = "b/s/"
 
 ftsStakeKey :: StakeholderId -> ByteString
-ftsStakeKey = encodeWithKeyPrefix @BalIter
+ftsStakeKey = encodeWithKeyPrefix @BalanceIter
 
 ftsSumKey :: ByteString
 ftsSumKey = "b/ftssum"

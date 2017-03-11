@@ -66,8 +66,7 @@ import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)
 import qualified Pos.Wallet.State            as WS
 import           Pos.Wallet.Tx.Pure          (TxHistoryEntry, deriveAddrHistory,
-                                              deriveAddrHistoryPartial, getRelatedTxs,
-                                              thDifficulty)
+                                              deriveAddrHistoryPartial, getRelatedTxs)
 import           Pos.Wallet.Web.State        (WalletWebDB (..))
 
 -- | A class which have the methods to get state of address' balance
@@ -152,13 +151,13 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
     getTxHistory = Tagged $ \addr _ -> do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
-        res <- fmap (fst . fromMaybe (error "deriveAddrHistory: Nothing")) $
+        _ <- fmap (fst . fromMaybe (error "deriveAddrHistory: Nothing")) $
             runMaybeT $ flip runUtxoStateT utxo $
             deriveAddrHistory addr chain
-        pure undefined
+        pure $ error "getTxHistory is not implemented for light wallet"
     saveTx _ = pure ()
 
-instance (MonadDB m, MonadThrow m, WithLogger m, PC.WithNodeContext ssc m) =>
+instance (MonadDB m, MonadThrow m, WithLogger m, PC.WithNodeContext s m) =>
          MonadTxHistory (TxpHolder m) where
     getTxHistory :: forall ssc. SscHelpersClass ssc
                  => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> TxpHolder m TxHistoryAnswer)

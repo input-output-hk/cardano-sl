@@ -1,3 +1,5 @@
+{-# LANGUAGE RankNTypes #-}
+
 -- | Pos.Util specification
 
 module Test.Pos.UtilSpec
@@ -7,11 +9,16 @@ module Test.Pos.UtilSpec
 import qualified Data.HashMap.Strict   as HM (difference, filter, intersection,
                                               intersectionWith, keys, mapWithKey, member,
                                               (!))
+import qualified Data.List.NonEmpty    as NE
+import qualified GHC.Exts              as IL (IsList (..))
 import           Pos.Types.Arbitrary   (SmallHashMap (..))
-import           Pos.Util              (diffDoubleMap)
+import           Pos.Util              (Chrono (..), NewestFirst (..), OldestFirst (..),
+                                        diffDoubleMap)
 
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
+import           Test.Pos.Util         ((.=.))
+import           Test.QuickCheck       (Arbitrary, Property)
 import           Universum
 
 spec :: Spec
@@ -22,7 +29,20 @@ spec = describe "Util" $ do
         prop description_verifyMapsAreSubtracted verifyMapsAreSubtracted
         prop description_verifyKeyIsPresent verifyKeyIsPresent
         prop description_verifyDiffMapIsSmaller verifyDiffMapIsSmaller
-  where
+    describe "IsList" $ do
+        describe "toList . fromList = id" $ do
+            prop (description_toFromListNew "[]") (toFromList @[] @NewestFirst)
+            prop (description_toFromListNew "NonEmpty")
+                (toFromList @NE.NonEmpty @NewestFirst)
+            prop (description_toFromListOld "[]") (toFromList @[] @OldestFirst)
+            prop (description_toFromListOld "NonEmpty")
+                (toFromList @NE.NonEmpty @OldestFirst)
+    describe "Chrono" $ do
+        prop (description_fromOldestToNewest "[]") (fromOldestToNewest @[])
+        prop (description_fromOldestToNewest "NonEmpty") (fromOldestToNewest @NE.NonEmpty)
+        prop (description_fromNewestToOldest "[]") (fromNewestToOldest @[])
+        prop (description_fromNewestToOldest "NonEmpty") (fromNewestToOldest @NE.NonEmpty)
+          where
     description_ddmEmptyHashMap =
         "Removing an empty double hashmap from another does nothing, and removing a\
         \ double hashmap from itself results in an empty hashmap"
@@ -41,6 +61,19 @@ spec = describe "Util" $ do
         \ corresponding to these keys have a non-empty intersection, the difference\
         \ map's inner maps corresponding to those keys will be smaller in size than the\
         \ inner maps in the minuend hashmap"
+    description_toFromListNew functor =
+        "Converting 'NewestFirst " ++ functor ++ " a' to '[Item a]' and back changes\
+        \ nothing"
+    description_toFromListOld functor =
+        "Converting 'OldestFirst " ++ functor ++ " a' to '[Item a]' and back changes\
+        \ nothing"
+    description_fromOldestToNewest functor =
+        "Converting 'NewestFirst " ++ functor ++ " a' to 'OldestFirst " ++ functor ++
+        " a' and back again changes nothing"
+    description_fromNewestToOldest functor =
+        "Converting 'OldestFirst " ++ functor ++ " a' to 'NewestFirst " ++ functor ++
+        " a' and back again changes nothing"
+
 
 ddmEmptyHashMap
     :: SmallHashMap
@@ -112,3 +145,25 @@ verifyDiffMapIsSmaller (SmallHashMap hm1) (SmallHashMap hm2) =
         sumValSizes = sum . fmap length
     -- (p || q) <=> ((not p) => q)
     in (null commonKey) || (sumValSizes hm1 > sumValSizes diffMap)
+
+toFromList
+    :: forall f t. (Arbitrary (t f String),
+                Show (t f String),
+                Eq (t f String),
+                IL.IsList (f String),
+                IL.IsList (t f String))
+    => t f String
+    -> Property
+toFromList = IL.fromList . IL.toList .=. identity
+
+fromOldestToNewest
+    :: (Arbitrary (f String), Show (f String), Eq (f String), Chrono f)
+    => OldestFirst f String
+    -> Property
+fromOldestToNewest = toOldestFirst . toNewestFirst .=. identity
+
+fromNewestToOldest
+    :: (Arbitrary (f String), Show (f String), Eq (f String), Chrono f)
+    => NewestFirst f String
+    -> Property
+fromNewestToOldest = toNewestFirst . toOldestFirst .=. identity

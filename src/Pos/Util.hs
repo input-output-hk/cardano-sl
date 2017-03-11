@@ -28,6 +28,7 @@ module Pos.Util
        , neZipWith3
 
        -- * Chronological sequences
+       , Chrono (..)
        , NewestFirst(..)
        , OldestFirst(..)
        , toNewestFirst

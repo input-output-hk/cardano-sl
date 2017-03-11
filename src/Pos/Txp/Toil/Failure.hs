@@ -9,26 +9,29 @@ import           Formatting           (bprint, build, int, stext, (%))
 import           Serokell.Util.Verify (formatAllErrors)
 import           Universum
 
+import           Pos.Core             (HeaderHash)
 import           Pos.Txp.Core         (TxIn)
 
 -- | Result of transaction processing
 data ToilVerFailure
     = ToilKnown -- ^ Transaction is already in the storage (cache)
-    | ToilInvalid !Text
+    | ToilTipsMismatch { ttmOldTip :: !HeaderHash
+                       , ttmNewTip :: !HeaderHash}
     | ToilOverwhelmed -- ^ Local transaction storage is full -- can't accept more txs
-    | ToilNotUnspent !TxIn  -- ^ Tx input is not a known unspent input.
+    | ToilNotUnspent !TxIn -- ^ Tx input is not a known unspent input.
     | ToilOutGTIn { tInputSum  :: !Integer
                  ,  tOutputSum :: !Integer}
     | ToilInconsistentTxAux !Text
-    | ToilInvalidOutputs !Text
-    | ToilInvalidInputs ![Text]
+    | ToilInvalidOutputs !Text  -- [CSL-814] TODO: make it more informative
+    | ToilInvalidInputs ![Text] -- [CSL-814] TODO: make it more informative
     deriving (Show, Eq)
 
 instance Buildable ToilVerFailure where
     build ToilKnown =
         "transaction already is in the mem pool"
-    build (ToilInvalid txt) =
-        bprint stext txt
+    build (ToilTipsMismatch oldTip newTip) =
+        bprint ("tips mismatch, old tip is "%build%", new one is"%build)
+        oldTip newTip
     build ToilOverwhelmed =
         "max size of the mem pool is reached"
     build (ToilNotUnspent txId) =

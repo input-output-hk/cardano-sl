@@ -97,18 +97,25 @@ instance Monad m => MonadTxPool (ToilT m) where
 -- Runners
 ----------------------------------------------------------------------------
 
+-- | Run ToilT using specified modifier.
 runToilT :: ToilModifier -> ToilT m a -> m (a, ToilModifier)
 runToilT txm (ToilT st) = runStateT st txm
 
+-- | Run ToilT using empty modifier. Should be used for global
+-- transaction processing.
 runToilTGlobal :: Functor m => ToilT m a -> m (a, ToilModifier)
 runToilTGlobal txpt = runToilT def txpt
 
+-- | Run ToilT using empty balances modifier. Should be used for local
+-- transaction processing.
 runToilTLocal
     :: Functor m
     => UtxoModifier -> MemPool -> UndoMap -> ToilT m a -> m (a, ToilModifier)
 runToilTLocal um mp undo txpt = runToilT (ToilModifier um def mp undo) txpt
 
+-- | Execute ToilT using empty balances modifier. Should be used for
+-- local transaction processing.
 execToilTLocal
     :: Functor m
     => UtxoModifier -> MemPool -> UndoMap -> ToilT m a -> m ToilModifier
-execToilTLocal um mp undo txpt = snd <$> runToilT (ToilModifier um def mp undo) txpt
+execToilTLocal um mp undo = fmap snd . runToilTLocal um mp undo

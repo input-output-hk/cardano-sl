@@ -10,7 +10,6 @@ module Pos.Txp.Logic.Local
 
 import           Control.Monad.Except (MonadError (..), runExcept)
 import           Data.Default         (def)
-import qualified Data.HashMap.Strict  as HM
 import qualified Data.List.NonEmpty   as NE
 import qualified Data.Map             as M (fromList)
 import           Formatting           (build, sformat, (%))
@@ -20,12 +19,12 @@ import           Universum
 import           Pos.DB.Class         (MonadDB)
 import qualified Pos.DB.GState        as GS
 import           Pos.Txp.Core         (Tx (..), TxAux, TxId)
-import           Pos.Txp.MemState     (MonadTxpMem (..), getMemPool, getUtxoModifier,
+import           Pos.Txp.MemState     (MonadTxpMem (..), getLocalTxs, getUtxoModifier,
                                        modifyTxpLocalData, setTxpLocalData)
-import           Pos.Txp.Toil         (MemPool (..), MonadUtxoRead (..),
-                                       ToilModifier (..), ToilVerFailure (..),
-                                       execToilTLocal, normalizeTxp, processTx, runDBTxp,
-                                       runToilTLocal, runUtxoReaderT, utxoGet)
+import           Pos.Txp.Toil         (MonadUtxoRead (..), ToilModifier (..),
+                                       ToilVerFailure (..), execToilTLocal, normalizeTxp,
+                                       processTx, runDBTxp, runToilTLocal, runUtxoReaderT,
+                                       utxoGet)
 
 type TxpLocalWorkMode m =
     ( MonadDB m
@@ -42,10 +41,15 @@ txProcessTransaction
 txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
     tipBefore <- GS.getTip
     localUM <- getUtxoModifier
+    -- Note: snapshot isn't used here, because it's not necessary.  If
+    -- tip changes after 'getTip' and before resolving all inputs, it's
+    -- possible that invalid transaction will appear in
+    -- mempool. However, in this case it will be removed by
+    -- normalization before releasing lock on block application.
     (resolvedOuts, _) <- runDBTxp $ runUM localUM $ mapM utxoGet _txInputs
-    -- Resolved are transaction outputs which haven't been deleted from the utxo yet
-    -- (from Utxo DB and from UtxoView also)
-    let resolved = HM.fromList $
+    -- Resolved are unspent transaction outputs corresponding to input
+    -- of given transaction.
+    let resolved = M.fromList $
                    catMaybes $
                    toList $
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
@@ -58,10 +62,10 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
             logDebug (sformat ("Transaction is processed successfully: "%build) txId)
   where
     processTxDo resolved tipBefore tx txld@(uv, mp, undo, tip)
-        | tipBefore /= tip = (Left $ ToilInvalid "Tips aren't same", txld)
+        | tipBefore /= tip = (Left $ ToilTipsMismatch tipBefore tip, txld)
         | otherwise =
             let res = runExcept $
-                      flip runUtxoReaderT (M.fromList $ HM.toList resolved) $
+                      flip runUtxoReaderT resolved $
                       execToilTLocal uv mp undo $
                       processTx tx in
             case res of
@@ -77,8 +81,7 @@ txNormalize
     :: (MonadDB m, MonadTxpMem m) => m ()
 txNormalize = do
     utxoTip <- GS.getTip
-    MemPool {..} <- getMemPool
+    localTxs <- getLocalTxs
     ToilModifier {..} <-
-        runDBTxp $
-        execToilTLocal mempty def mempty $ normalizeTxp $ HM.toList _mpLocalTxs
+        runDBTxp $ execToilTLocal mempty def mempty $ normalizeTxp localTxs
     setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip)

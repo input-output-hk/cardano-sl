@@ -58,11 +58,12 @@ rollbackTxp txun = do
 
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.
-normalizeTxp :: LocalTxpMode m => [(TxId, TxAux)] -> m ()
-normalizeTxp txs = do
-    topsorted <- note ToilCantTopsort (topsortTxs wHash txs)
-    mapM_ (runExceptT . processTx) topsorted
+normalizeTxp
+    :: (MonadUtxo m, MonadTxPool m)
+    => [(TxId, TxAux)] -> m ()
+normalizeTxp txs = mapM_ (runExceptT . processTx) ordered
   where
+    ordered = fromMaybe txs $ topsortTxs wHash txs
     wHash (i, (t, _, _)) = WithHash t i
 
 -- CHECK: @processTx

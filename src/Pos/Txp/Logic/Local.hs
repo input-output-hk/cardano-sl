@@ -78,10 +78,7 @@ txNormalize
 txNormalize = do
     utxoTip <- GS.getTip
     MemPool {..} <- getMemPool
-    res <- runExceptT $
-           runDBTxp $
-           execToilTLocal mempty def mempty $
-           normalizeTxp $ HM.toList _mpLocalTxs
-    case res of
-        Left _                -> setTxpLocalData (mempty, def, mempty, utxoTip)
-        Right ToilModifier{..} -> setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip)
+    ToilModifier {..} <-
+        runDBTxp $
+        execToilTLocal mempty def mempty $ normalizeTxp $ HM.toList _mpLocalTxs
+    setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip)

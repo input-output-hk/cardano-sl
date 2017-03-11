@@ -28,7 +28,6 @@ import qualified Pos.Txp.Toil.Utxo     as Utxo
 
 type GlobalTxpMode m = ( MonadUtxo m
                        , MonadBalances m
-                       , MonadError ToilVerFailure m
                        , WithLogger m)
 
 type LocalTxpMode m = ( MonadUtxo m
@@ -41,7 +40,7 @@ type LocalTxpMode m = ( MonadUtxo m
 -- Note: transactions must be topsorted to pass check.
 -- Warning: this function may apply some transactions and fail
 -- eventually. Use it only on temporary data.
-verifyTxp :: GlobalTxpMode m => [TxAux] -> m TxpUndo
+verifyTxp :: (GlobalTxpMode m, MonadError ToilVerFailure m) => [TxAux] -> m TxpUndo
 verifyTxp = mapM (processTxWithPureChecks True . withTxId)
 
 -- | Apply transactions from one block.

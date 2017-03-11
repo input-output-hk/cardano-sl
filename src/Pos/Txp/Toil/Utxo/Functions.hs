@@ -220,13 +220,13 @@ applyTxToUtxo (WithHash UnsafeTx {..} txid) distr = do
   where
     applyOutput (idx, toa) = utxoPut (TxIn txid idx) toa
 
--- | Rollback application of given transaction to Utxo using Undo data.
+-- | Rollback application of given transaction to Utxo using Undo
+-- data.  This function assumes that transaction has been really
+-- applied and doesn't check anything.
 rollbackTxUtxo
-    :: (MonadError ToilVerFailure m, MonadUtxo m)
+    :: (MonadUtxo m)
     => (TxAux, TxUndo) -> m ()
 rollbackTxUtxo ((tx@UnsafeTx{..}, _, _), undo) = do
-    unless (length _txInputs == length undo) $
-        throwError $ ToilInvalidUndoLength (length _txInputs) (length undo)
     let txid = hash tx
     mapM_ utxoDel $ take (length _txOutputs) $ zipWith TxIn (repeat txid) [0..]
     mapM_ (uncurry utxoPut) $ NE.zip _txInputs undo

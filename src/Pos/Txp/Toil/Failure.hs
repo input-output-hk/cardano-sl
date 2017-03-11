@@ -16,8 +16,6 @@ data ToilVerFailure
     = ToilKnown -- ^ Transaction is already in the storage (cache)
     | ToilInvalid !Text
     | ToilOverwhelmed -- ^ Local transaction storage is full -- can't accept more txs
-    | ToilInvalidUndoLength !Int
-                            !Int
     | ToilNotUnspent !TxIn  -- ^ Tx input is not a known unspent input.
     | ToilOutGTIn { tInputSum  :: !Integer
                  ,  tOutputSum :: !Integer}
@@ -33,9 +31,6 @@ instance Buildable ToilVerFailure where
         bprint stext txt
     build ToilOverwhelmed =
         "max size of the mem pool is reached"
-    build (ToilInvalidUndoLength ex rcv) =
-        bprint ("length of transaction's inputs = "%int%
-               " doesn't equal length of transaction's undo = "%int) ex rcv
     build (ToilNotUnspent txId) =
         bprint ("input is not a known unspent input: "%build) txId
     build (ToilOutGTIn {..}) =

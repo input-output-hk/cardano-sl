@@ -417,7 +417,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
     verResToMonadError formatAllErrors $
         Types.verifyBlocks curSlot bvd (Just leaders) (Just bv) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
-    txUndo <- ExceptT $ txVerifyBlocks blocks
+    txUndo <- withExceptT pretty $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $ usVerifyBlocks blocks
     when (length txUndo /= length pskUndo) $

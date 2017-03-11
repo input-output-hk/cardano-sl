@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE CPP                  #-}
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE KindSignatures       #-}
@@ -12,7 +13,7 @@ module Pos.Util.Config
        (
        -- * Small configs
          IsConfig(..)
-       , parseConfig
+       , configParser
        , readConfig
        , unsafeReadConfig
 
@@ -38,11 +39,11 @@ module Pos.Util.Config
 
        -- * Cardano SL config
        , cslConfigFilePath
+       , cslConfig
+       , parseFromCslConfig
        ) where
 
 import           Control.Lens     (Getter, _Left)
-import           System.Directory (doesFileExist)
-import           System.FilePath  ((</>))
 import           Data.Yaml        (FromJSON)
 import qualified Data.Yaml        as Y
 import qualified Data.Aeson       as Y (withObject)
@@ -53,7 +54,13 @@ import           GHC.TypeLits     (type (+))
 import           Universum
 import           Unsafe.Coerce    (unsafeCoerce)
 
-import           Paths_cardano_sl_core (getDataFileName)
+#ifdef DEV_MODE
+import           System.IO.Unsafe (unsafePerformIO)
+#else
+import           Language.Haskell.TH.Syntax (runIO, qAddDependentFile)
+#endif
+
+import           Pos.Util.Config.Path (cslConfigFilePath)
 
 ----------------------------------------------------------------------------
 -- Small configs
@@ -87,8 +94,8 @@ class FromJSON config => IsConfig config where
     configPrefix :: Tagged config (Maybe Text)
 
 -- | Parse a config from a bigger JSON\/YAML value using the scheme above.
-parseConfig :: forall c. IsConfig c => Y.Value -> Y.Parser c
-parseConfig = Y.withObject "config" $ \obj ->
+configParser :: forall c. IsConfig c => Y.Value -> Y.Parser c
+configParser = Y.withObject "config" $ \obj ->
     case untag @c configPrefix of
         Nothing  -> Y.parseJSON (Y.Object obj)
         Just key -> Y.parseJSON =<< obj Y..: key
@@ -97,7 +104,7 @@ parseConfig = Y.withObject "config" $ \obj ->
 readConfig :: IsConfig c => FilePath -> IO (Either String c)
 readConfig fp =
     Y.decodeFileEither fp <&> \case
-        Right y -> Y.parseEither parseConfig y
+        Right y -> Y.parseEither configParser y
         Left x -> Left (Y.prettyPrintParseException x)
 
 -- | Like 'readConfig', but throws an exception at runtime instead of
@@ -253,7 +260,7 @@ instance KnownNat (Index x xs) => ExtractConfig x (ConfigSet xs) where
 instance (IsConfig x, FromJSON (ConfigSet xs)) =>
          FromJSON (ConfigSet (x ': xs)) where
     parseJSON val = do
-        x <- parseConfig val
+        x <- configParser val
         xs <- Y.parseJSON @(ConfigSet xs) val
         return (consConfigSet x xs)
 
@@ -264,19 +271,33 @@ instance FromJSON (ConfigSet '[]) where
 -- Cardano SL config
 ----------------------------------------------------------------------------
 
--- | Path to config that should be used by all parts of Cardano SL (depend on
--- whether we're in DEV_MODE or not).
-cslConfigFilePath :: IO FilePath
-cslConfigFilePath = do
-#if defined(DEV_MODE)
-    let name = "constants-dev.yaml"
-#elif defined(WITH_WALLET)
-    let name = "constants-wallet-prod.yaml"
+-- | The config as a YAML value. In development mode it's read at the start
+-- of the program, in production mode it's embedded into the file.
+--
+-- TODO: add a flag DO_NOT_EMBED_CONFIG which would be used on deployment
+--
+-- TODO: allow overriding config values via an env var?
+cslConfig :: Y.Value
+#ifdef DEV_MODE
+cslConfig = unsafePerformIO $
+    Y.decodeFileEither cslConfigFilePath >>= \case
+        Left err -> fail $ "Couldn't parse " ++ cslConfigFilePath ++
+                           ": " ++ Y.prettyPrintParseException err
+        Right x  -> return x
+{-# NOINLINE cslConfig #-}
 #else
-    let name = "constants-prod.yaml"
+cslConfig = $(do
+    qAddDependentFile cslConfigFilePath
+    runIO (Y.decodeFileEither @Y.Value cslConfigFilePath) >>= \case
+        Left err -> fail $ "Couldn't parse " ++ cslConfigFilePath ++
+                           ": " ++ Y.prettyPrintParseException err
+        Right x  -> return x)
 #endif
-    existsA <- doesFileExist (".." </> name)
-    existsB <- doesFileExist name
-    if | existsA   -> return (".." </> name)
-       | existsB   -> return name
-       | otherwise -> getDataFileName name
+
+-- | Read a value from 'cslConfig'.
+--
+-- Usually you would pass 'configParser' here if you need to extract a single
+-- config from a hierarchical config, or 'parseJSON' if you need to read a
+-- 'ConfigSet'.
+parseFromCslConfig :: (Y.Value -> Y.Parser a) -> Either String a
+parseFromCslConfig p = Y.parseEither p cslConfig

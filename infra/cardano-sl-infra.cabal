@@ -89,8 +89,7 @@ library
                         Pos.Util.TimeWarp
 
   other-modules:        Paths_cardano_sl_infra
-                        Pos.Infra.Constants.Type
-                        Pos.Infra.Constants.Parser
+                        Pos.Infra.Constants
                       
   build-depends:       aeson
                      , base

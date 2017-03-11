@@ -12,26 +12,19 @@ module Pos.Txp.Toil.Logic
        , processTx
        ) where
 
-import           Control.Monad.Except (MonadError (..))
-import qualified Data.HashMap.Strict  as HM
-import qualified Data.HashSet         as HS
-import qualified Data.List.NonEmpty   as NE
-import           Formatting           (build, sformat, (%))
-import           System.Wlog          (WithLogger, logInfo)
+import           Control.Monad.Except  (MonadError (..))
+import           System.Wlog           (WithLogger)
 import           Universum
 
-import           Pos.Constants        (maxLocalTxs)
-import           Pos.Core.Coin        (coinToInteger, sumCoins, unsafeAddCoin,
-                                       unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Crypto           (WithHash (..), hash)
-import           Pos.Types            (Coin, StakeholderId, mkCoin)
+import           Pos.Constants         (maxLocalTxs)
+import           Pos.Crypto            (WithHash (..), hash)
 
-import           Pos.Txp.Core         (Tx (..), TxAux, TxId, TxOutAux (..), TxUndo,
-                                       TxpUndo, getTxDistribution, topsortTxs, txOutStake)
-import           Pos.Txp.Toil.Class   (MonadBalances (..), MonadBalancesRead (..),
-                                       MonadTxPool (..), MonadUtxo (..))
-import           Pos.Txp.Toil.Failure (ToilVerFailure (..))
-import qualified Pos.Txp.Toil.Utxo    as Utxo
+import           Pos.Txp.Core          (TxAux, TxId, TxUndo, TxpUndo, topsortTxs)
+import           Pos.Txp.Toil.Balances (applyTxsToBalances, rollbackTxsBalances)
+import           Pos.Txp.Toil.Class    (MonadBalances (..), MonadTxPool (..),
+                                        MonadUtxo (..))
+import           Pos.Txp.Toil.Failure  (ToilVerFailure (..))
+import qualified Pos.Txp.Toil.Utxo     as Utxo
 
 type GlobalTxpMode m = ( MonadUtxo m
                        , MonadBalances m
@@ -54,15 +47,13 @@ verifyTxp = mapM (processTxWithPureChecks True . withTxId)
 -- | Apply transactions from one block.
 applyTxp :: GlobalTxpMode m => [(TxAux, TxUndo)] -> m ()
 applyTxp txun = do
-    let (txOutPlus, txInMinus) = concatStakes txun
-    recomputeStakes txOutPlus txInMinus
+    applyTxsToBalances txun
     mapM_ (applyTxToUtxo' . withTxId . fst) txun
 
 -- | Rollback transactions from one block.
 rollbackTxp :: GlobalTxpMode m => [(TxAux, TxUndo)] -> m ()
 rollbackTxp txun = do
-    let (txOutMinus, txInPlus) = concatStakes txun
-    recomputeStakes txInPlus txOutMinus
+    rollbackTxsBalances txun
     mapM_ Utxo.rollbackTxUtxo $ reverse txun
 
 -- | Get rid of invalid transactions.
@@ -89,57 +80,6 @@ processTx tx@(id, aux) = do
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
-
--- Compute new stakeholder's stakes by lists of spent and received coins.
-recomputeStakes
-    :: (MonadBalances m, WithLogger m)
-    => [(StakeholderId, Coin)]
-    -> [(StakeholderId, Coin)]
-    -> m ()
-recomputeStakes plusDistr minusDistr = do
-    let needResolve =
-            HS.toList $
-            HS.fromList (map fst plusDistr) `HS.union`
-            HS.fromList (map fst minusDistr)
-    resolvedStakes <- mapM resolve needResolve
-    totalStake <- getTotalStake
-    let positiveDelta = sumCoins (map snd plusDistr)
-    let negativeDelta = sumCoins (map snd minusDistr)
-    let newTotalStake = unsafeIntegerToCoin $
-                        coinToInteger totalStake + positiveDelta - negativeDelta
-
-    let newStakes
-          = HM.toList $
-              calcNegStakes minusDistr
-                  (calcPosStakes $ zip needResolve resolvedStakes ++ plusDistr)
-    setTotalStake newTotalStake
-    mapM_ (uncurry setStake) newStakes
-  where
-    createInfo = sformat ("Stake for " %build%" will be created in UtxoDB")
-    resolve ad = maybe (mkCoin 0 <$ logInfo (createInfo ad)) pure =<< getStake ad
-    calcPosStakes distr = foldl' plusAt HM.empty distr
-    calcNegStakes distr hm = foldl' minusAt hm distr
-    -- @pva701 says it's not possible to get negative coin here. We *can* in
-    -- theory get overflow because we're adding and only then subtracting,
-    -- but in practice it won't happen unless someone has 2^63 coins or
-    -- something.
-    plusAt hm (key, val) = HM.insertWith unsafeAddCoin key val hm
-    minusAt hm (key, val) =
-        HM.alter (maybe err (\v -> Just (unsafeSubCoin v val))) key hm
-      where
-        err = error ("recomputeStakes: no stake for " <> show key)
-
--- Concatenate stakes of the all passed transactions and undos.
-concatStakes
-    :: [(TxAux, TxUndo)]
-    -> ([(StakeholderId, Coin)], [(StakeholderId, Coin)])
-concatStakes (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
-  where
-    txasTxOutDistr = concatMap concatDistr txas
-    undoTxInDistr = concatMap txOutStake (fold $ map toList undo)
-    concatDistr (UnsafeTx {..}, _, distr) =
-        concatMap txOutStake $
-        toList (NE.zipWith TxOutAux _txOutputs (getTxDistribution distr))
 
 processTxWithPureChecks
     :: (MonadUtxo m, MonadError ToilVerFailure m)

@@ -279,6 +279,9 @@ library
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
                         Pos.Txp.Toil
+                        Pos.Txp.Toil.Balances
+                        Pos.Txp.Toil.Balances.Functions
+                        Pos.Txp.Toil.Balances.Pure
                         Pos.Txp.Toil.Class
                         Pos.Txp.Toil.DBTxp
                         Pos.Txp.Toil.Failure

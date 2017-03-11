@@ -31,17 +31,19 @@ spec = describe "Util" $ do
         prop description_verifyDiffMapIsSmaller verifyDiffMapIsSmaller
     describe "IsList" $ do
         describe "toList . fromList = id" $ do
-            prop (description_toFromListNew "[]") (toFromList @[] @NewestFirst)
+            prop (description_toFromListNew "[]") (toFromList @[] @NewestFirst @String)
             prop (description_toFromListNew "NonEmpty")
-                (toFromList @NE.NonEmpty @NewestFirst)
-            prop (description_toFromListOld "[]") (toFromList @[] @OldestFirst)
+                (toFromList @NE.NonEmpty @NewestFirst @String)
+            prop (description_toFromListOld "[]") (toFromList @[] @OldestFirst @String)
             prop (description_toFromListOld "NonEmpty")
-                (toFromList @NE.NonEmpty @OldestFirst)
+                (toFromList @NE.NonEmpty @OldestFirst @String)
     describe "Chrono" $ do
-        prop (description_fromOldestToNewest "[]") (fromOldestToNewest @[])
-        prop (description_fromOldestToNewest "NonEmpty") (fromOldestToNewest @NE.NonEmpty)
-        prop (description_fromNewestToOldest "[]") (fromNewestToOldest @[])
-        prop (description_fromNewestToOldest "NonEmpty") (fromNewestToOldest @NE.NonEmpty)
+        prop (description_fromOldestToNewest "[]") (fromOldestToNewest @[] @String)
+        prop (description_fromOldestToNewest "NonEmpty")
+            (fromOldestToNewest @NE.NonEmpty @String)
+        prop (description_fromNewestToOldest "[]") (fromNewestToOldest @[] @String)
+        prop (description_fromNewestToOldest "NonEmpty")
+            (fromNewestToOldest @NE.NonEmpty @String)
           where
     description_ddmEmptyHashMap =
         "Removing an empty double hashmap from another does nothing, and removing a\
@@ -147,23 +149,23 @@ verifyDiffMapIsSmaller (SmallHashMap hm1) (SmallHashMap hm2) =
     in (null commonKey) || (sumValSizes hm1 > sumValSizes diffMap)
 
 toFromList
-    :: forall f t. (Arbitrary (t f String),
-                Show (t f String),
-                Eq (t f String),
-                IL.IsList (f String),
-                IL.IsList (t f String))
-    => t f String
+    :: forall f t a. (Arbitrary (t f a),
+                  Show (t f a),
+                  Eq (t f a),
+                  IL.IsList (f a),
+                  IL.IsList (t f a))
+    => t f a
     -> Property
 toFromList = IL.fromList . IL.toList .=. identity
 
 fromOldestToNewest
-    :: (Arbitrary (f String), Show (f String), Eq (f String), Chrono f)
-    => OldestFirst f String
+    :: (Arbitrary (f a), Show (f a), Eq (f a), Chrono f)
+    => OldestFirst f a
     -> Property
 fromOldestToNewest = toOldestFirst . toNewestFirst .=. identity
 
 fromNewestToOldest
-    :: (Arbitrary (f String), Show (f String), Eq (f String), Chrono f)
-    => NewestFirst f String
+    :: (Arbitrary (f a), Show (f a), Eq (f a), Chrono f)
+    => NewestFirst f a
     -> Property
 fromNewestToOldest = toNewestFirst . toOldestFirst .=. identity

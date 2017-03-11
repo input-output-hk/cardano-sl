@@ -22,7 +22,7 @@ compileGenData :: GenesisData
 compileGenData =
     let file = BSL.fromStrict $ $(embedFile =<< makeRelativeToProject "genesis.bin")
     in case decodeFull file of
-        Left a  -> panic $ toText a
+        Left a  -> error $ toText a
         Right d -> if null (gdAddresses d) || HM.null (gdVssCertificates d)
-                   then panic "No addresses or VSS certificates in genesis data"
+                   then error "No addresses or VSS certificates in genesis data"
                    else d

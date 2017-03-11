@@ -127,7 +127,7 @@ recomputeStakes plusDistr minusDistr = do
     minusAt hm (key, val) =
         HM.alter (maybe err (\v -> Just (unsafeSubCoin v val))) key hm
       where
-        err = panic ("recomputeStakes: no stake for " <> show key)
+        err = error ("recomputeStakes: no stake for " <> show key)
 
 -- Concatenate stakes of the all passed transactions and undos.
 concatStakes

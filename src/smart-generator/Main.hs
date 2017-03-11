@@ -3,7 +3,7 @@
 
 module Main where
 
-import           Control.Concurrent.STM.TVar (modifyTVar', newTVarIO, readTVarIO)
+import           Control.Concurrent.STM.TVar (readTVarIO)
 import           Data.Maybe                  (fromMaybe)
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
 import           Data.Time.Units             (Microsecond, convertUnit)
@@ -227,7 +227,7 @@ main = do
     case goMOfNParams of
         Nothing -> return ()
         Just (m, n) -> if m > n || n > genesisN
-                       then panic "Invalid `--m-of-n` value"
+                       then error "Invalid `--m-of-n` value"
                        else return ()
 
     sk <- generate arbitrary

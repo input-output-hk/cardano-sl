@@ -3,17 +3,20 @@
 
 module Pos.Binary.Communication () where
 
+import           Universum
+
 import           Data.Binary.Get                  (getByteString, getWord8, label)
 import           Data.Binary.Put                  (putByteString, putWord8)
+import           Data.Bits                        (Bits (..))
 import qualified Data.ByteString                  as BS
 import qualified Data.ByteString.Lazy             as BSL
 import           Formatting                       (int, sformat, (%))
 import           Node.Message                     (MessageName (..))
-import           Universum                        hiding (putByteString)
 
-import           Pos.Binary.Class                 (Bi (..), getRemainingByteString,
-                                                   getWithLength, putWithLength,
-                                                   encodeStrict, decodeOrFail, UnsignedVarInt(..))
+import           Pos.Binary.Class                 (Bi (..), UnsignedVarInt (..),
+                                                   decodeOrFail, encodeStrict,
+                                                   getRemainingByteString, getWithLength,
+                                                   putWithLength)
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types          (SysStartRequest (..),
@@ -153,6 +156,6 @@ peerIdLength = meaningPartLength
 
 instance Bi PeerId where
     put (PeerId b) = if BS.length b /= peerIdLength
-                        then panic $ sformat ("Wrong PeerId length "%int) (BS.length b)
+                        then error $ sformat ("Wrong PeerId length "%int) (BS.length b)
                         else putByteString b
     get = label "PeerId" $ PeerId <$> getByteString peerIdLength

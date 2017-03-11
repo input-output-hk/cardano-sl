@@ -42,7 +42,7 @@ import           Pos.Script         (Script, parseRedeemer, parseValidator)
 import           Pos.Txp.Core.Types (TxSigData)
 
 fromE :: Either String Script -> Script
-fromE = either (panic . toText) identity
+fromE = either (error . toText) identity
 
 ----------------------------------------------------------------------------
 -- Trivial validators/redeemers

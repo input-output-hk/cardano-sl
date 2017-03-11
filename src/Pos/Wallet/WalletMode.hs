@@ -17,8 +17,7 @@ module Pos.Wallet.WalletMode
        , WalletRealMode
        ) where
 
-import           Control.Concurrent.MVar     (takeMVar)
-import           Control.Concurrent.STM      (TMVar, TVar, readTVar, tryReadTMVar)
+import           Control.Concurrent.STM      (TMVar, tryReadTMVar)
 import           Control.Monad.Loops         (unfoldrM)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
@@ -54,8 +53,8 @@ import           Pos.Txp                     (TxAux, TxId, TxpHolder (..), Utxo,
                                               getMemPool, getUtxoModifier, runUtxoStateT,
                                               txOutValue, txProcessTransaction,
                                               _mpLocalTxs)
-import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin, HeaderHash,
-                                              difficultyL, flattenEpochOrSlot,
+import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
+                                              HeaderHash, difficultyL, flattenEpochOrSlot,
                                               flattenSlotId, prevBlockL, prevBlockL,
                                               sumCoins, sumCoins)
 import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
@@ -67,8 +66,9 @@ import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)
 import qualified Pos.Wallet.State            as WS
-import           Pos.Wallet.Tx.Pure          (TxHistoryEntry, deriveAddrHistory, thDifficulty,
-                                              deriveAddrHistoryPartial, getRelatedTxs)
+import           Pos.Wallet.Tx.Pure          (TxHistoryEntry, deriveAddrHistory,
+                                              deriveAddrHistoryPartial, getRelatedTxs,
+                                              thDifficulty)
 import           Pos.Wallet.Web.State        (WalletWebDB (..))
 
 -- | A class which have the methods to get state of address' balance
@@ -153,7 +153,7 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
     getTxHistory = Tagged $ \addr _ -> do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
-        res <- fmap (fst . fromMaybe (panic "deriveAddrHistory: Nothing")) $
+        res <- fmap (fst . fromMaybe (error "deriveAddrHistory: Nothing")) $
             runMaybeT $ flip runUtxoStateT utxo $
             deriveAddrHistory addr chain
         pure undefined
@@ -204,7 +204,7 @@ instance (MonadDB m, MonadThrow m, WithLogger m, PC.WithNodeContext ssc m) =>
             let lastCachedHash = maybe bot identity $ head cachedHashes
             return $ TxHistoryAnswer lastCachedHash (length cachedTxs) cachedUtxo result
 
-        maybe (panic "deriveAddrHistory: Nothing") pure mres
+        maybe (error "deriveAddrHistory: Nothing") pure mres
 
     saveTx txw = () <$ runExceptT (txProcessTransaction txw)
 
@@ -239,10 +239,10 @@ deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (WalletWebDB m)
 
 -- | Stub instance for lite-wallet
 instance MonadBlockchainInfo WalletRealMode where
-    networkChainDifficulty = panic "notImplemented"
-    localChainDifficulty = panic "notImplemented"
-    blockchainSlotDuration = panic "notImplemented"
-    connectedPeers = panic "notImplemented"
+    networkChainDifficulty = error "notImplemented"
+    localChainDifficulty = error "notImplemented"
+    blockchainSlotDuration = error "notImplemented"
+    connectedPeers = error "notImplemented"
 
 -- | Helpers for avoiding copy-paste
 topHeader :: (SscHelpersClass ssc, MonadDB m) => m (BlockHeader ssc)
@@ -322,7 +322,7 @@ deriving instance MonadUpdates m => MonadUpdates (WalletWebDB m)
 
 -- | Dummy instance for lite-wallet
 instance MonadIO m => MonadUpdates (WalletDB m) where
-    waitForUpdate = panic "notImplemented"
+    waitForUpdate = error "notImplemented"
     applyLastUpdate = pure ()
 
 -- | Instance for full node

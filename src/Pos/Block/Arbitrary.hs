@@ -346,7 +346,7 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                     [h] -> (Nothing, h, Nothing)
                     [h1, h2] -> (Just h1, h2, Nothing)
                     (h1 : h2 : h3 : _) -> (Just h1, h2, Just h3)
-                    _ -> panic "[BlockSpec] the headerchain doesn't have enough headers"
+                    _ -> error "[BlockSpec] the headerchain doesn't have enough headers"
             -- This binding captures the chosen header's epoch. It is used to drop all
             -- all leaders of headers from previous epochs.
             thisEpochStartIndex = fromIntegral $ epochSlots * (header ^. T.epochIndexL)

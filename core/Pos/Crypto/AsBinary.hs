@@ -5,12 +5,13 @@
 
 module Pos.Crypto.AsBinary () where
 
+import           Universum
+
 import qualified Data.ByteString          as BS
 import qualified Data.ByteString.Lazy     as LBS
 import           Data.Text.Buildable      (Buildable)
 import qualified Data.Text.Buildable      as Buildable
 import           Formatting               (bprint, int, sformat, stext, (%))
-import           Universum                hiding (putByteString)
 
 import           Pos.Binary.Class         (Bi, AsBinary (..), AsBinaryClass (..),
                                            decodeFull, encode, encodeStrict)
@@ -28,11 +29,11 @@ import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretPro
 
 checkLen :: Text -> Text -> Int -> ByteString -> ByteString
 checkLen action name len bs =
-    maybe bs panic $ checkLenImpl action name len $ BS.length bs
+    maybe bs error $ checkLenImpl action name len $ BS.length bs
 
 checkLenL :: Text -> Text -> Int64 -> LByteString -> LByteString
 checkLenL action name len bs =
-    maybe bs panic $ checkLenImpl action name len $ LBS.length bs
+    maybe bs error $ checkLenImpl action name len $ LBS.length bs
 
 checkLenImpl :: Integral a => Text -> Text -> a -> a -> Maybe Text
 checkLenImpl action name expectedLen len

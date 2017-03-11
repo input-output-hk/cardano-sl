@@ -14,10 +14,13 @@ module Pos.Reporting.Methods
        , chooseLogFiles
        ) where
 
-import           Control.Exception        (SomeException)
+import           Universum
+
+import           Control.Exception        (ErrorCall (..), SomeException)
 import           Control.Lens             (to)
 import           Control.Monad.Catch      (try)
 import           Data.Aeson               (encode)
+import           Data.Bits                (Bits (..))
 import qualified Data.HashMap.Strict      as HM
 import qualified Data.List.NonEmpty       as NE
 import qualified Data.Text                as T
@@ -27,7 +30,6 @@ import           Data.Version             (Version (..))
 import           Formatting               (build, sformat, shown, stext, (%))
 import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Network.Wreq             (partFile, partLBS, post)
-import           Panic                    (FatalError (..))
 import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
 import           Serokell.Util.Text       (listBuilderJSON, listJson)
 import           System.Directory         (doesFileExist, listDirectory)
@@ -39,7 +41,6 @@ import           System.IO.Temp           (withSystemTempFile)
 import           System.Wlog              (CanLog, HasLoggerName, LoggerConfig (..),
                                            lcFilePrefix, lcTree, logDebug, logError,
                                            ltFiles, ltSubloggers, readMemoryLogs)
-import           Universum
 
 import           Pos.Core.Constants       (protocolMagic)
 import           Pos.DHT.Model.Class      (MonadDHT, currentNodeKey, getKnownPeers)
@@ -164,8 +165,8 @@ reportingFatal version action =
                  " because of exception '"%shown%"' raised while sending") reason e
     handler1 = andThrow $ \(e :: CardanoFatalError) ->
         report (pretty e)
-    handler2 = andThrow $ \(FatalError reason) ->
-        report ("FatalError/panic: " <> show reason)
+    handler2 = andThrow $ \(ErrorCall reason) ->
+        report ("FatalError/error: " <> show reason)
 
 
 ----------------------------------------------------------------------------

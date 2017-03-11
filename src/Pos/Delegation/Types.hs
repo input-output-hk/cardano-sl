@@ -1,5 +1,4 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# OPTIONS_GHC -Wno-warnings-deprecations #-} -- makeArbitrary uses error, we use panic
 
 -- | Delegation-related network and local types.
 

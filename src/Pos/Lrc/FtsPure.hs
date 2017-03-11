@@ -38,9 +38,9 @@ import           Pos.Util.Iterator   (runListHolder)
 followTheSatoshi :: SharedSeed -> Utxo -> NonEmpty StakeholderId
 followTheSatoshi seed utxo
     | null stakes =
-          panic "followTheSatoshi: utxo is empty"
+          error "followTheSatoshi: utxo is empty"
     | totalCoins > coinToInteger (maxBound @Coin) =
-          panic "followTheSatoshi: totalCoins exceeds Word64"
+          error "followTheSatoshi: totalCoins exceeds Word64"
     | otherwise =
           runListHolder
               (followTheSatoshiM seed

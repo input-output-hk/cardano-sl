@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | Some types related to GodTossing necessary for Ssc instance.
 
@@ -19,7 +19,6 @@ module Pos.Ssc.GodTossing.Types.Types
        , createGtContext
        ) where
 
-import           Control.Concurrent.STM         (newTVarIO)
 import qualified Control.Concurrent.STM         as STM
 import           Control.Lens                   (makeLenses)
 import           Data.Default                   (Default, def)

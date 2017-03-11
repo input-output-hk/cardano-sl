@@ -35,11 +35,11 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: ede7a1a9eafd88e3449b38c7425f5529d6584014
+    commit: 7cb2dc70c5f28194fd13fe6daa4e64eeb65e1e4c
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 18a17e2f86341c272a5cabd9b767b8f5277dc793
+    commit: 8631647810b950a21735d1466fa72348626213ed
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -63,13 +63,12 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
-- universum-0.2.1
+- universum-0.3
 - time-units-1.0.0
-- UtilityTM-0.0.4
 - serokell-util-0.1.4.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-1.0.0
+- log-warper-1.0.2
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.5.26                   # not yet in lts-8
 - haskell-src-exts-1.17.1         # derive has not moved to 1.18 yet

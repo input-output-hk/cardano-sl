@@ -14,7 +14,7 @@ type DistrOption = Maybe (Int, Int)
 
 panicConflicting :: panic
 panicConflicting =
-    panic $ "Conflicting distribution options were enabled. " <>
+    error $ "Conflicting distribution options were enabled. " <>
             "Choose one at most or nothing."
 
 stakesDistr :: DistrOption -> DistrOption -> Bool -> StakeDistribution

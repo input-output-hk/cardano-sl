@@ -6,6 +6,8 @@
 
 module Pos.Binary.Crypto () where
 
+import           Universum
+
 import           Crypto.Hash              (digestFromByteString, hashDigestSize)
 import qualified Crypto.PVSS              as Pvss
 import qualified Crypto.ECC.Edwards25519  as Ed25519
@@ -18,7 +20,6 @@ import qualified Data.ByteArray           as ByteArray
 import qualified Data.ByteString          as BS
 import           Data.SafeCopy            (SafeCopy (..))
 import           Formatting               (int, sformat, stext, (%))
-import           Universum                hiding (putByteString)
 
 import           Pos.Binary.Class         (AsBinary (..), getCopyBi, putCopyBi, Bi (..))
 import           Pos.Crypto.Hashing       (AbstractHash (..), Hash, HashAlgorithm,
@@ -49,7 +50,7 @@ instance HashAlgorithm algo => Bi (AbstractHash algo a) where
     {-# SPECIALIZE instance Bi (Hash a) #-}
     get = label "AbstractHash" $ do
         bs <- getByteString $ hashDigestSize @algo $
-              panic "Pos.Crypto.Hashing.get: HashAlgorithm value is evaluated!"
+              error "Pos.Crypto.Hashing.get: HashAlgorithm value is evaluated!"
         case digestFromByteString bs of
             -- It's impossible because getByteString will already fail if
             -- there weren't enough bytes available
@@ -110,7 +111,7 @@ chainCodeLength = 32
 
 putAssertLength :: Monad m => Text -> Int -> ByteString -> m ()
 putAssertLength typeName expectedLength bs =
-    when (BS.length bs /= expectedLength) $ panic $
+    when (BS.length bs /= expectedLength) $ error $
         sformat ("put@"%stext%": expected length "%int%", not "%int)
                 typeName expectedLength (BS.length bs)
 

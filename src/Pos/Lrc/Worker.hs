@@ -8,46 +8,46 @@ module Pos.Lrc.Worker
        , lrcSingleShotNoLock
        ) where
 
-import           Control.Concurrent.STM.TVar (TVar, readTVar, writeTVar)
-import           Control.Monad.Catch         (bracketOnError)
-import qualified Data.HashMap.Strict         as HM
-import qualified Data.HashSet                as HS
-import           Formatting                  (build, sformat, (%))
-import           Mockable                    (fork)
-import           Paths_cardano_sl            (version)
-import           Serokell.Util.Exceptions    ()
-import           System.Wlog                 (logInfo, logWarning)
+import           Control.Monad.Catch        (bracketOnError)
+import           Control.Monad.STM          (retry)
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.HashSet               as HS
+import           Formatting                 (build, sformat, (%))
+import           Mockable                   (fork)
+import           Paths_cardano_sl           (version)
+import           Serokell.Util.Exceptions   ()
+import           System.Wlog                (logInfo, logWarning)
 import           Universum
 
-import           Pos.Binary.Communication    ()
-import           Pos.Block.Logic.Internal    (applyBlocksUnsafe, rollbackBlocksUnsafe,
-                                              withBlkSemaphore_)
-import           Pos.Communication.Protocol  (OutSpecs, WorkerSpec, localOnNewSlotWorker)
-import           Pos.Constants               (slotSecurityParam)
-import           Pos.Context                 (LrcSyncData, getNodeContext, ncLrcSync)
-import qualified Pos.DB.DB                   as DB
-import qualified Pos.DB.GState               as GS
-import qualified Pos.DB.GState.Balances      as GS
-import           Pos.Lrc.Consumer            (LrcConsumer (..))
-import           Pos.Lrc.Consumers           (allLrcConsumers)
-import           Pos.Lrc.DB                  (IssuersStakes, getLeaders, putEpoch,
-                                              putIssuersStakes, putLeaders)
-import           Pos.Lrc.Error               (LrcError (..))
-import           Pos.Lrc.Fts                 (followTheSatoshiM)
-import           Pos.Lrc.Logic               (findAllRichmenMaybe)
-import           Pos.Reporting               (reportMisbehaviourMasked)
-import           Pos.Ssc.Class               (SscWorkersClass)
-import           Pos.Ssc.Extra               (sscCalculateSeed)
-import           Pos.Types                   (EpochIndex, EpochOrSlot (..),
-                                              EpochOrSlot (..), HeaderHash, HeaderHash,
-                                              SharedSeed, SlotId (..), StakeholderId,
-                                              crucialSlot, epochIndexL, getEpochOrSlot,
-                                              getEpochOrSlot)
-import           Pos.Update.DB               (getConfirmedBVStates)
-import           Pos.Update.Poll.Types       (BlockVersionState (..))
-import           Pos.Util                    (NewestFirst (..), logWarningWaitLinear,
-                                              toOldestFirst)
-import           Pos.WorkMode                (WorkMode)
+import           Pos.Binary.Communication   ()
+import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe,
+                                             withBlkSemaphore_)
+import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
+import           Pos.Constants              (slotSecurityParam)
+import           Pos.Context                (LrcSyncData, getNodeContext, ncLrcSync)
+import qualified Pos.DB.DB                  as DB
+import qualified Pos.DB.GState              as GS
+import qualified Pos.DB.GState.Balances     as GS
+import           Pos.Lrc.Consumer           (LrcConsumer (..))
+import           Pos.Lrc.Consumers          (allLrcConsumers)
+import           Pos.Lrc.DB                 (IssuersStakes, getLeaders, putEpoch,
+                                             putIssuersStakes, putLeaders)
+import           Pos.Lrc.Error              (LrcError (..))
+import           Pos.Lrc.Fts                (followTheSatoshiM)
+import           Pos.Lrc.Logic              (findAllRichmenMaybe)
+import           Pos.Reporting              (reportMisbehaviourMasked)
+import           Pos.Ssc.Class              (SscWorkersClass)
+import           Pos.Ssc.Extra              (sscCalculateSeed)
+import           Pos.Types                  (EpochIndex, EpochOrSlot (..),
+                                             EpochOrSlot (..), HeaderHash, HeaderHash,
+                                             SharedSeed, SlotId (..), StakeholderId,
+                                             crucialSlot, epochIndexL, getEpochOrSlot,
+                                             getEpochOrSlot)
+import           Pos.Update.DB              (getConfirmedBVStates)
+import           Pos.Update.Poll.Types      (BlockVersionState (..))
+import           Pos.Util                   (NewestFirst (..), logWarningWaitLinear,
+                                             toOldestFirst)
+import           Pos.WorkMode               (WorkMode)
 
 lrcOnNewSlotWorker
     :: (SscWorkersClass ssc, WorkMode ssc m)
@@ -141,8 +141,8 @@ lrcDo epoch consumers tip = tip <$ do
             mbSeed <- sscCalculateSeed epoch
             case mbSeed of
                 Left e ->
-                    -- FIXME: don't panic, use previous seed!
-                    panic $ sformat ("SSC couldn't compute seed: " %build) e
+                    -- FIXME: don't error, use previous seed!
+                    error $ sformat ("SSC couldn't compute seed: " %build) e
                 Right seed -> do
                     rollbackBlocksUnsafe blunds
                     compute seed `finally` applyBack (toOldestFirst blunds)

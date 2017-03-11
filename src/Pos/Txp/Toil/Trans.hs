@@ -8,7 +8,7 @@ module Pos.Txp.Toil.Trans
        , execToilTLocal
        ) where
 
-import           Control.Lens              (at, to, (%=), (.=))
+import           Control.Lens              (at, to, (%=), (+=), (.=))
 import           Control.Monad.Except      (MonadError)
 import           Control.Monad.Fix         (MonadFix)
 import           Control.Monad.Trans.Class (MonadTrans)
@@ -88,7 +88,7 @@ instance Monad m => MonadTxPool (ToilT m) where
         has <- use $ tmMemPool . mpLocalTxs . to (HM.member id)
         unless has $ do
             tmMemPool . mpLocalTxs . at id .= Just tx
-            tmMemPool . mpLocalTxsSize %= (+1)
+            tmMemPool . mpLocalTxsSize += 1
             tmUndos . at id .= Just undo
 
     poolSize = ToilT $ use $ tmMemPool . mpLocalTxsSize

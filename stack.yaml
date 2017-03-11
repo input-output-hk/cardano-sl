@@ -51,8 +51,8 @@ packages:
     commit: f2321a103f53f51d36c99383132e3ffa3ef1c401
   extra-dep: true
 - location:
-    git: https://github.com/serokell/cardano-crypto
-    commit: b945336929929520d7b29139574e39c2322a77a3
+    git: https://github.com/input-output-hk/cardano-crypto
+    commit: 838b064d8a59286142aa2fe14434fe7601896ddb
   extra-dep: true
 #- location:
 #    git: https://github.com/haskell-crypto/cryptonite.git

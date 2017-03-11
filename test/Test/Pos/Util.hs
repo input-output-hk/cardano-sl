@@ -100,7 +100,7 @@ msgLenLimitedCheck limit msg =
 
 safeCopyEncodeDecode :: (Show a, Eq a, SafeCopy a) => a -> Property
 safeCopyEncodeDecode a =
-    either (panic . toText) identity
+    either (error . toText) identity
         (runGet safeGet $ runPut $ safePut a) === a
 
 showRead :: (Show a, Eq a, Read a) => a -> Property
@@ -108,7 +108,7 @@ showRead a = read (show a) === a
 
 serDeserId :: forall t . (Show t, Eq t, AsBinaryClass t) => t -> Property
 serDeserId a =
-    either (panic . toText) identity
+    either (error . toText) identity
         (fromBinary $ asBinary @t a) ===  a
 
 typeName :: forall a. Typeable a => String

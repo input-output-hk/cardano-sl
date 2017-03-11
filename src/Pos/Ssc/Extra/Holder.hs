@@ -144,4 +144,4 @@ mkSscHolderState = do
 
 ignoreSscHolder :: SscHolder ssc m a -> m a
 ignoreSscHolder holder =
-    runReaderT (getSscHolder holder) (panic "SSC var: don't force me")
+    runReaderT (getSscHolder holder) (error "SSC var: don't force me")

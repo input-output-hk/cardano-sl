@@ -199,7 +199,7 @@ verifyTxDo verifyVersions _gContext extendedInputs
                 i txIn txOut txOutAddress witness
           )
         , case validateTxIn i txIn lContext witness of
-              Right _ -> (True, panic "can't happen")
+              Right _ -> (True, error "can't happen")
               Left err -> (False, sformat
                   ("input #"%int%" isn't validated by its witness:\n"%
                    "  reason: "%build%"\n"%

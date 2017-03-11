@@ -115,7 +115,7 @@ instance ToSample PublicKey where
     toSamples Proxy =
         singleSample $
         fst $
-        fromMaybe (panic "Pos.Web.Doc: deterministicKeyGen failed") $
+        fromMaybe (error "Pos.Web.Doc: deterministicKeyGen failed") $
         deterministicKeyGen "I have to sleep on it, because. "
 
 instance ToSample (Hash skovoroda) where

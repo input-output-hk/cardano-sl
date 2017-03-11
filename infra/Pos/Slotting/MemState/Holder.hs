@@ -9,10 +9,12 @@ module Pos.Slotting.MemState.Holder
        , runSlottingHolder
        ) where
 
-import           Control.Concurrent.STM      (TVar, readTVar, writeTVar)
+import           Universum
+
 import           Control.Lens                (iso)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Fix           (MonadFix)
+import           Control.Monad.STM           (retry)
 import           Control.Monad.Trans.Class   (MonadTrans)
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
@@ -25,7 +27,6 @@ import           Mockable                    (ChannelT, Counter, Distribution, G
 import           Pos.Core.Types              (Timestamp)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
-import           Universum
 
 import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
 import           Pos.Slotting.Types          (SlottingData (sdPenultEpoch))

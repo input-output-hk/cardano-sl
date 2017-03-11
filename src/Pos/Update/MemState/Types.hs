@@ -11,10 +11,10 @@ module Pos.Update.MemState.Types
        , newMemVar
        ) where
 
-import           Control.Concurrent.Lock  (Lock, new)
-import           Control.Concurrent.STM   (TVar, newTVarIO)
-import           Data.Default             (Default (def))
 import           Universum
+
+import           Control.Concurrent.Lock  (Lock, new)
+import           Data.Default             (Default (def))
 
 import           Pos.Crypto               (unsafeHash)
 import           Pos.Types                (HeaderHash, SlotId (..))

@@ -64,7 +64,7 @@ library
 
                         -- LRC
                         Pos.Lrc
-                        Pos.Lrc.FollowTheSatoshi
+                        Pos.Lrc.FtsPure
 
                         -- Scripting
                         Pos.Script
@@ -200,17 +200,12 @@ library
 
                         -- LRC
                         Pos.Lrc.Arbitrary
-                        Pos.Lrc.Consumer
                         Pos.Lrc.Consumers
                         Pos.Lrc.DB
-                        Pos.Lrc.DB.Common
-                        Pos.Lrc.DB.Issuers
                         Pos.Lrc.DB.Leaders
                         Pos.Lrc.DB.Lrc
                         Pos.Lrc.DB.Richmen
-                        Pos.Lrc.Error
                         Pos.Lrc.Logic
-                        Pos.Lrc.Types
                         Pos.Lrc.Worker
 
                         -- SafeCopy serialization (obsolete, but still needed)
@@ -348,7 +343,7 @@ library
                         -- Utilities/helpers
                         Pos.Util.Arbitrary
                         Pos.Util.LogSafe
-                        Pos.Util.NotImplemented
+                        Pos.Util.Undefined
   if flag(with-web)
     other-modules:      Pos.Aeson.Crypto
                         Pos.Aeson.Types
@@ -400,7 +395,6 @@ library
 
   build-depends:        IfElse
                       , QuickCheck
-                      , UtilityTM
                       , acid-state
                       , aeson >= 0.11.2.1
                       , ansi-terminal
@@ -417,6 +411,7 @@ library
                       , cardano-sl-core
                       , cardano-sl-db
                       , cardano-sl-infra
+                      , cardano-sl-lrc
                       , cardano-sl-update
                       , cereal
                       , concurrent-extra
@@ -547,6 +542,7 @@ executable cardano-node
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-infra
+                     , cardano-sl-lrc
                      , cardano-sl
                      , data-default
                      , directory

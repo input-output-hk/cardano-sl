@@ -5,7 +5,6 @@ module Pos.Update.Download
        , downloadHash
        ) where
 
-import           Control.Concurrent.MVar (putMVar)
 import qualified Data.ByteArray          as BA
 import qualified Data.ByteString.Lazy    as BSL
 import qualified Data.HashMap.Strict     as HM
@@ -78,7 +77,7 @@ downloadHash updateServers h = do
                 Right r -> return (Right r)
 
         -- if there were no servers, that's really weird
-        go [] [] = panic "no update servers are known"
+        go [] [] = error "no update servers are known"
 
         -- if we've tried all servers already, fail
         go errs [] = return . Left $

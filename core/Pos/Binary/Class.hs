@@ -58,7 +58,10 @@ module Pos.Binary.Class
        , biSize
        ) where
 
+import           Universum
+
 import           Formatting                  (formatToString, int, (%))
+import           Data.Bits                   (Bits (..))
 import           Data.Binary                 (Get, Put)
 import qualified Data.Binary                 as Binary
 import           Data.Binary.Get             (ByteOffset, getByteString,
@@ -84,7 +87,6 @@ import           Data.Word                   (Word32)
 import           GHC.TypeLits                (ErrorMessage (..), TypeError)
 import           Serokell.Data.Memory.Units  (Byte, fromBytes, toBytes)
 import           System.IO.Unsafe            (unsafePerformIO)
-import           Universum                   hiding (putByteString)
 import           Unsafe.Coerce               (unsafeCoerce)
 import           Data.SafeCopy               (Contained, SafeCopy (..), contain,
                                               safeGet, safePut)
@@ -194,7 +196,7 @@ putTinyVarInt n
           putWord8 (setBit (fromIntegral n) 7) <>
           putWord8 (fromIntegral (shiftR n 7))
     | otherwise =
-          panic "putTinyVarInt: the number is bigger than 2^14-1"
+          error "putTinyVarInt: the number is bigger than 2^14-1"
 
 getTinyVarInt' :: Get Word16
 getTinyVarInt' = do
@@ -293,8 +295,8 @@ instance TypeError
      'Text "                    but takes 10 bytes for negative numbers")
   => Bi Int
   where
-    get = panic "get@Int"
-    put = panic "put@Int"
+    get = error "get@Int"
+    put = error "put@Int"
 
 instance TypeError
     ('Text "Do not encode 'Word' directly. Instead, use one of newtype wrappers:" ':$$:
@@ -302,8 +304,8 @@ instance TypeError
      'Text "  'UnsignedVarInt': uses 1–10 bytes (1 byte for 0..127)")
   => Bi Word
   where
-    get = panic "get@Word"
-    put = panic "put@Word"
+    get = error "get@Word"
+    put = error "put@Word"
 
 -- Int
 
@@ -830,7 +832,7 @@ putSmallWithLength act = do
     let (res, serialized) = runPutM act
     let len :: Int64 = BSL.length serialized
     if len >= 2^(14::Int)
-        then panic ("putSmallWithLength: length is " <> show len <>
+        then error ("putSmallWithLength: length is " <> show len <>
                     ", but maximum allowed is 16383 (2^14-1)")
         else do put (TinyVarInt (fromIntegral len))
                 putLazyByteString serialized

@@ -4,6 +4,8 @@ module Test.Pos.Types.TxSpec
        ( spec
        ) where
 
+import           Universum
+
 import           Control.Lens          (each)
 import qualified Data.HashMap.Strict   as HM
 import           Data.List             (elemIndex, lookup, zipWith3, (\\))
@@ -22,7 +24,6 @@ import           Test.QuickCheck       (NonNegative (..), Positive (..), Propert
 import           Test.QuickCheck.Gen   (Gen)
 import qualified Text.Regex.TDFA       as TDFA
 import qualified Text.Regex.TDFA.Text  as TDFA
-import           Universum             hiding ((.&.))
 
 import           Pos.Crypto            (checkSig, fakeSigner, hash, toPublic, unsafeHash,
                                         whData, withHash)
@@ -305,7 +306,7 @@ errorsShouldMatch (VerFailure xs) ys = do
             Left e -> do expectationFailure $ toString $ sformat
                              ("couldn't compile regex for #"%int%": "%build)
                              i e
-                         return (panic "fail")
+                         return (error "fail")
         unless (TDFA.matchTest regexp x) $
             expectationFailure $ toString $ sformat
                 ("error #"%int%" doesn't match the regexp:\n"%
@@ -426,7 +427,7 @@ txGen size = do
     outputs <-
         NE.fromList <$> (replicateM outputsN $ TxOut <$> arbitrary <*> arbitrary)
     case mkTx inputs outputs (mkAttributes ()) of
-        Left e   -> panic $ "txGen: something went wrong: " <> e
+        Left e   -> error $ "txGen: something went wrong: " <> e
         Right tx -> pure tx
 
 testTopsort :: Bool -> Property

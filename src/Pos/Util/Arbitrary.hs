@@ -44,7 +44,7 @@ makeSmall = scale f
 -- there's not enough elements.
 sublistN :: Int -> [a] -> Gen [a]
 sublistN n xs
-    | length xs < n = panic "sublistN: not enough elements"
+    | length xs < n = error "sublistN: not enough elements"
     | otherwise     = take n <$> shuffle xs
 
 -- | Type for generating list of unique (nonrepeating) elemets.

@@ -11,37 +11,33 @@ module Pos.Block.Worker
 
 import           Control.Lens                (ix)
 import           Data.Default                (def)
-import           Data.Time.Units             (convertUnit)
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
-import           Paths_cardano_sl            (version)
 import           Pos.Communication.Protocol  (SendActions)
-import           Serokell.Util               (VerificationRes (..), listJson, pairF, sec)
-import           System.Wlog                 (WithLogger, logDebug, logError, logInfo,
-                                              logNotice, logWarning)
+import           Serokell.Util               (VerificationRes (..), listJson, pairF)
+import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
-import           Pos.Block.Network.Retrieval (requestTipOuts, retrievalWorker,
-                                              triggerRecovery)
+import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Communication.Protocol  (OutSpecs, Worker', WorkerSpec,
-                                              onNewSlotWorker, worker)
+                                              onNewSlotWorker)
 import           Pos.Constants               (networkDiameter)
-import           Pos.Context                 (getNodeContext, isRecoveryMode, ncPublicKey)
+import           Pos.Context                 (getNodeContext, ncPublicKey)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Exception               (assertionFailed)
 import           Pos.Lrc.DB                  (getLeaders)
-import           Pos.Reporting.Methods       (reportingFatal)
-import           Pos.Slotting                (currentTimeSlotting, getCurrentSlot,
-                                              getLastKnownSlotDuration,
+import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
 #if !defined(DEV_MODE) && defined(WITH_WALLET)
-import           Data.Time.Units             (convertUnit)
+import           Data.Time.Units             (Second, convertUnit)
+import           Pos.Block.Network.Retrieval (requestTipOuts, triggerRecovery)
+import           Pos.Communication           (worker)
 import           Pos.Slotting                (getLastKnownSlotDuration)
 #endif
 import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
@@ -193,10 +189,10 @@ verifyCreatedBlock blk =
 #if !defined(DEV_MODE) && defined(WITH_WALLET)
 -- | This one just triggers every @max (slotDur / 4) 5@ seconds and
 -- asks for current tip. Does nothing when recovery is enabled.
-behindNatWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
+behindNatWorker :: (WorkMode ssc m, SscWorkersClass ssc) => (WorkerSpec m, OutSpecs)
 behindNatWorker = worker requestTipOuts $ \sendActions -> do
     slotDur <- getLastKnownSlotDuration
-    let delayInterval = max (slotDur `div` 4) (convertUnit $ sec 5)
+    let delayInterval = max (slotDur `div` 4) (convertUnit $ (5 :: Second))
         action = forever $ do
             triggerRecovery sendActions
             delay $ delayInterval

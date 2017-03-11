@@ -51,11 +51,11 @@ instance Enum EpochOrSlot where
         EpochOrSlot (Right SlotId {siEpoch = e, siSlot = 0})
     succ (EpochOrSlot (Right si@SlotId {..}))
         | siSlot == epochSlots - 1 && siEpoch == maxBound =
-            panic "succ@EpochOrSlot: maxBound"
+            error "succ@EpochOrSlot: maxBound"
         | siSlot == epochSlots - 1 = EpochOrSlot (Left (siEpoch + 1))
         | otherwise = EpochOrSlot $ Right si {siSlot = siSlot + 1}
     pred (EpochOrSlot (Left e))
-        | e == 0 = panic "pred@EpochOrSlot: minBound"
+        | e == 0 = error "pred@EpochOrSlot: minBound"
         | otherwise =
             EpochOrSlot
                 (Right SlotId {siEpoch = e - 1, siSlot = epochSlots - 1})

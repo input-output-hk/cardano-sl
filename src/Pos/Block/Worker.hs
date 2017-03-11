@@ -32,9 +32,12 @@ import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Exception               (assertionFailed)
 import           Pos.Lrc.DB                  (getLeaders)
-import           Pos.Slotting                (currentTimeSlotting, getSlotStartEmpatically)
+import           Pos.Slotting                (currentTimeSlotting,
+                                              getSlotStartEmpatically)
 #if !defined(DEV_MODE) && defined(WITH_WALLET)
-import           Data.Time.Units             (convertUnit)
+import           Data.Time.Units             (Second, convertUnit)
+import           Pos.Block.Network.Retrieval (requestTipOuts, triggerRecovery)
+import           Pos.Communication           (worker)
 import           Pos.Slotting                (getLastKnownSlotDuration)
 #endif
 import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
@@ -186,10 +189,10 @@ verifyCreatedBlock blk =
 #if !defined(DEV_MODE) && defined(WITH_WALLET)
 -- | This one just triggers every @max (slotDur / 4) 5@ seconds and
 -- asks for current tip. Does nothing when recovery is enabled.
-behindNatWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
+behindNatWorker :: (WorkMode ssc m, SscWorkersClass ssc) => (WorkerSpec m, OutSpecs)
 behindNatWorker = worker requestTipOuts $ \sendActions -> do
     slotDur <- getLastKnownSlotDuration
-    let delayInterval = max (slotDur `div` 4) (convertUnit $ sec 5)
+    let delayInterval = max (slotDur `div` 4) (convertUnit $ (5 :: Second))
         action = forever $ do
             triggerRecovery sendActions
             delay $ delayInterval

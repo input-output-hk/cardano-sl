@@ -39,7 +39,7 @@ import           Universum
 
 import           Pos.Slotting                 (NtpSlotting)
 import           Pos.Types                    (HeaderHash, Utxo)
-import           Pos.Wallet.Web.ClientTypes   (CAddress, CHash, CProfile, CTx, CTxId,
+import           Pos.Wallet.Web.ClientTypes   (CAddress, CProfile, CTx, CTxId,
                                                CTxMeta, CUpdateInfo, CWalletMeta)
 import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
                                                openState)

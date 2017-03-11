@@ -12,23 +12,20 @@ module Pos.Block.Worker
 
 import           Control.Lens                (ix)
 import           Data.Default                (def)
-import           Data.Time.Units             (convertUnit)
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
 import           Pos.Communication.Protocol  (SendActions)
 import           Serokell.Util               (VerificationRes (..), listJson, pairF)
 import           Serokell.Util.Exceptions    ()
-import           System.Wlog                 (WithLogger, logDebug, logError, logInfo,
-                                              logNotice, logWarning)
+import           System.Wlog                 (WithLogger, logDebug, logInfo,logWarning)
 import           Universum
 
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
-import           Pos.Block.Network.Retrieval (requestTipOuts, retrievalWorker,
-                                              triggerRecovery)
+import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Communication.Protocol  (OutSpecs, Worker', WorkerSpec,
-                                              onNewSlotWorker, worker)
+                                              onNewSlotWorker)
 import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (getNodeContext, ncPublicKey)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
@@ -36,9 +33,7 @@ import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Lrc                  (getLeaders)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Exception               (assertionFailed)
-import           Pos.Reporting.Methods       (reportingFatal)
-import           Pos.Slotting                (currentTimeSlotting, getCurrentSlot,
-                                              getLastKnownSlotDuration,
+import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
 import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
 import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (..),
@@ -49,7 +44,6 @@ import           Pos.Types.Address           (addressHash)
 import           Pos.Util                    (inAssertMode, logWarningWaitLinear,
                                               mconcatPair)
 import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
-import           Pos.Util.TimeWarp           (sec)
 import           Pos.WorkMode                (WorkMode)
 
 

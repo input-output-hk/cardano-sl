@@ -5,6 +5,7 @@ module Pos.Update.Download
        , downloadHash
        ) where
 
+import           Control.Monad.Except    (ExceptT (..), throwError)
 import qualified Data.ByteArray          as BA
 import qualified Data.ByteString.Lazy    as BSL
 import qualified Data.HashMap.Strict     as HM
@@ -21,9 +22,10 @@ import           System.Directory        (doesFileExist)
 import           System.Wlog             (logDebug, logInfo, logWarning)
 import           Universum
 
-import           Pos.Constants           (appSystemTag)
+import           Pos.Constants           (appSystemTag, curSoftwareVersion)
 import           Pos.Context             (getNodeContext, ncNodeParams, ncUpdateSemaphore,
                                           npUpdatePath, npUpdateServers, npUpdateWithPkg)
+import           Pos.Core.Types          (SoftwareVersion (..))
 import           Pos.Crypto              (Hash, castHash, hash)
 import           Pos.Update.Core.Types   (UpdateData (..), UpdateProposal (..))
 import           Pos.Update.Poll.Types   (ConfirmedProposalState (..))
@@ -33,34 +35,50 @@ import           Pos.WorkMode            (WorkMode)
 showHash :: Hash a -> FilePath
 showHash = toString . B16.encode . BA.convert
 
+-- TODO: if we're downloading update not for `cardano-sl`,
+-- but e. g. for `daedalus`, how do we check that version is new?
+versionIsNew :: SoftwareVersion -> Bool
+versionIsNew ver = svAppName ver /= svAppName curSoftwareVersion
+    || svNumber ver > svNumber curSoftwareVersion
+
 -- | Download and save archive update by given `ConfirmedProposalState`
 downloadUpdate :: WorkMode ssc m => ConfirmedProposalState -> m ()
 downloadUpdate cst@ConfirmedProposalState {..} = do
     logDebug "Update downloading triggered"
     useInstaller <- npUpdateWithPkg . ncNodeParams <$> getNodeContext
     updateServers <- npUpdateServers . ncNodeParams <$> getNodeContext
+
     let dataHash = if useInstaller then udPkgHash else udAppDiffHash
         mupdHash = castHash . dataHash <$>
                    HM.lookup appSystemTag (upData cpsUpdateProposal)
-    case mupdHash of
-        Nothing -> logInfo "This update is not for our system"
-        Just updHash -> do
-            updPath <- npUpdatePath . ncNodeParams <$> getNodeContext
-            -- let updAppName = svAppName . upSoftwareVersion $
-            --                  cpsUpdateProposal
-            unlessM (liftIO $ doesFileExist updPath) $ do
-                logInfo "Downloading update..."
-                efile <- liftIO $ downloadHash updateServers updHash
-                case efile of
-                    Left err -> logWarning $
-                        sformat ("Update download (hash "%build%") has failed: "%stext)
-                        updHash err
-                    Right file -> do
-                        liftIO $ BSL.writeFile updPath file
-                        logInfo "Update was downloaded"
-                        sm <- ncUpdateSemaphore <$> getNodeContext
-                        liftIO $ putMVar sm cst
-                        logInfo "Update MVar filled, wallet is notified"
+
+    res <- runExceptT $ do
+        updHash <- maybe (throwError "This update is not for our system")
+                   pure mupdHash
+        let updateVersion = upSoftwareVersion cpsUpdateProposal
+        unless (versionIsNew updateVersion) $
+            throwError $ sformat ("Update #"%build%" hasn't been downloaded: \
+                                  \current software version is newer than \
+                                  \update version") updHash
+
+        updPath <- npUpdatePath . ncNodeParams <$> getNodeContext
+        -- let updAppName = svAppName . upSoftwareVersion $
+        --                  cpsUpdateProposal
+        whenM (liftIO $ doesFileExist updPath) $
+            throwError "There's unapplied update already downloaded"
+
+        logInfo "Downloading update..."
+        file <- ExceptT $ liftIO (downloadHash updateServers updHash) <&>
+                first (sformat ("Update download (hash "%build%
+                                ") has failed: "%stext) updHash)
+
+        liftIO $ BSL.writeFile updPath file
+        logInfo "Update was downloaded"
+        sm <- ncUpdateSemaphore <$> getNodeContext
+        liftIO $ putMVar sm cst
+        logInfo "Update MVar filled, wallet is notified"
+
+    whenLeft res logWarning
 
 -- | Download a file by its hash.
 --
@@ -77,7 +95,7 @@ downloadHash updateServers h = do
                 Right r -> return (Right r)
 
         -- if there were no servers, that's really weird
-        go [] [] = error "no update servers are known"
+        go [] [] = return . Left $ "no update servers are known"
 
         -- if we've tried all servers already, fail
         go errs [] = return . Left $

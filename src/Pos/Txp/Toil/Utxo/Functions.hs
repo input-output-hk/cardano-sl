@@ -172,7 +172,7 @@ verifyInputs VTxContext {..} resolvedInputs (view txOutputs -> outs, witnesses, 
                 i txIn txOut txOutAddress witness
           )
         , case validateTxIn txIn toa witness of
-              Right _ -> (True, panic "can't happen")
+              Right _ -> (True, error "can't happen")
               Left err -> (False, sformat
                   ("input #"%int%" isn't validated by its witness:\n"%
                    "  reason: "%build%"\n"%

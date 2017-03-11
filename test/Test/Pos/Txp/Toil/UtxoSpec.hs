@@ -450,7 +450,7 @@ errorsShouldMatch (Left (ToilInvalidInputs xs)) ys = do
             Left e -> do expectationFailure $ toString $ sformat
                              ("couldn't compile regex for #"%int%": "%build)
                              i e
-                         return (panic "fail")
+                         return (error "fail")
         unless (TDFA.matchTest regexp x) $
             expectationFailure $ toString $ sformat
                 ("error #"%int%" doesn't match the regexp:\n"%

@@ -8,10 +8,10 @@ module Pos.Communication.Server.SysStart
        , handleSysStartResp
        ) where
 
-import           Control.Concurrent.MVar    (MVar, tryPutMVar)
+import           Universum
+
 import           Formatting                 (build, sformat, shown, (%))
 import           System.Wlog                (logInfo)
-import           Universum
 
 import           Pos.Binary.Communication   ()
 import           Pos.Binary.Infra.DHTModel  ()

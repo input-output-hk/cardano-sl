@@ -1,5 +1,5 @@
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE Rank2Types   #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Instance of SscGStateClass.
 
@@ -15,7 +15,6 @@ import           Control.Lens                   (at, (.=), _Wrapped)
 import           Control.Monad.Except           (MonadError (throwError), runExceptT)
 import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
-import qualified Data.List.NonEmpty             as NE
 import           Formatting                     (build, sformat, (%))
 import           System.Wlog                    (WithLogger, logDebug, logInfo)
 import           Universum
@@ -48,7 +47,6 @@ import           Pos.Types                      (Block, EpochIndex (..), SlotId 
 import           Pos.Util                       (NE, NewestFirst (..), OldestFirst (..),
                                                  maybeThrow, toOldestFirst, _neHead,
                                                  _neLast)
-
 ----------------------------------------------------------------------------
 -- Utilities
 ----------------------------------------------------------------------------
@@ -103,7 +101,7 @@ loadGlobalState = do
         toOldestFirst <$>
         maybeThrow
             (DBMalformed "No blocks during mpc load global state")
-            (_Wrapped NE.nonEmpty nfBlocks)
+            (_Wrapped nonEmpty nfBlocks)
     let (beforeEndEpoch, forEndEpoch) =
             break ((== endEpoch) . view epochIndexL) $ toList blocks
     let initGState
@@ -135,7 +133,7 @@ rollbackBlocks blocks = tossToUpdate mempty $ rollbackGT oldestEOS payloads
   where
     oldestEOS = blocks ^. _Wrapped . _neLast . epochOrSlotG
     payloads =
-        NewestFirst . map (view blockMpc) . catMaybes . map hush . toList $
+        NewestFirst . map (view blockMpc) . catMaybes . map rightToMaybe . toList $
         blocks
 
 verifyAndApply

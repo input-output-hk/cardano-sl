@@ -1,4 +1,3 @@
-
 -- | Functions operating on NodeContext.
 
 module Pos.Context.Functions
@@ -22,19 +21,18 @@ module Pos.Context.Functions
        , isRecoveryMode
        ) where
 
-import           Control.Concurrent.MVar (putMVar)
-import qualified Control.Concurrent.STM  as STM
-import           Data.Time               (diffUTCTime, getCurrentTime)
-import           Data.Time.Units         (Microsecond, fromMicroseconds)
+import qualified Control.Concurrent.STM as STM
+import           Data.Time              (diffUTCTime, getCurrentTime)
+import           Data.Time.Units        (Microsecond, fromMicroseconds)
 import           Universum
 
-import           Pos.Context.Class       (WithNodeContext (..))
-import           Pos.Context.Context     (NodeContext (..), ncGenesisLeaders,
-                                          ncGenesisUtxo, ncStartTime)
-import           Pos.Lrc.Error           (LrcError (..))
-import           Pos.Txp.Toil.Types      (Utxo)
-import           Pos.Types               (EpochIndex, HeaderHash, SlotLeaders)
-import           Pos.Util                (maybeThrow, readTVarConditional)
+import           Pos.Context.Class      (WithNodeContext (..))
+import           Pos.Context.Context    (NodeContext (..), ncGenesisLeaders,
+                                         ncGenesisUtxo, ncStartTime)
+import           Pos.Lrc.Error          (LrcError (..))
+import           Pos.Txp.Toil.Types     (Utxo)
+import           Pos.Types              (EpochIndex, HeaderHash, SlotLeaders)
+import           Pos.Util               (maybeThrow, readTVarConditional)
 
 ----------------------------------------------------------------------------
 -- Genesis

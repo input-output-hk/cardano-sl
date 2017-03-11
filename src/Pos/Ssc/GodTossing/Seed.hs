@@ -7,7 +7,6 @@ module Pos.Ssc.GodTossing.Seed
 import qualified Data.HashMap.Strict          as HM (fromList, lookup, map, mapMaybe,
                                                      traverseWithKey, (!))
 import qualified Data.HashSet                 as HS (difference)
-import qualified Data.List.NonEmpty           as NE
 import           Universum
 
 import           Pos.Binary.Class             (fromBinaryM)
@@ -77,7 +76,7 @@ calculateSeed (getCommitmentsMap -> commitments) openings lShares = do
             let decryptedShares :: [Share]
                 decryptedShares = concatMap toList $ mapMaybe (HM.lookup id) (toList shares)
             let t = fromIntegral . vssThreshold . sum .
-                    (HM.map NE.length) . commShares $ (commitments HM.! id) ^. _2
+                    (HM.map length) . commShares $ (commitments HM.! id) ^. _2
             -- Then we recover the secret.
             --   * All encrypted shares in commitments are valid, because we
             --     have checked them with 'verifyEncShare'. (I'm not sure how
@@ -113,7 +112,7 @@ calculateSeed (getCommitmentsMap -> commitments) openings lShares = do
 
     -- Finally we just XOR all secrets together
     if | null secrets && not (null participants) ->
-             panic "calculateSeed: there were some participants \
+             error "calculateSeed: there were some participants \
                    \but they produced no secrets somehow"
        -- [CSL-481] We don't want to completely fail in case of SSC failures.
        --- | null secrets -> Left NoParticipants

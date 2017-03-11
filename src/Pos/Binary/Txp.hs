@@ -2,10 +2,11 @@
 
 module Pos.Binary.Txp () where
 
+import           Universum
+
 import           Data.Binary.Get    (getWord8, label)
 import           Data.Binary.Put    (putByteString, putWord8)
 import           Data.List.NonEmpty (nonEmpty)
-import           Universum          hiding (putByteString)
 
 import           Pos.Binary.Class   (Bi (..), UnsignedVarInt (..), getRemainingByteString,
                                      getWithLength, putWithLength)

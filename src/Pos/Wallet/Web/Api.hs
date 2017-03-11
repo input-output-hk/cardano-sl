@@ -16,7 +16,8 @@ import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CProfile, CTx,
                                              CTxMeta, CUpdateInfo, CWallet, CWalletInit,
                                              CWalletMeta, CWalletRedeem, SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
-import           Servant.API                ((:<|>), (:>), Capture, JSON, Get, Post, Put, Delete, ReqBody, QueryParam)
+import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
+                                             Post, Put, QueryParam, ReqBody)
 import           Universum
 
 -- | Servant API which provides access to wallet.

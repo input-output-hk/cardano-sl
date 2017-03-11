@@ -288,7 +288,7 @@ instance Arbitrary Tx where
     arbitrary =
         mkTx <$> arbitrary <*> arbitrary <*>
         pure (mkAttributes ()) <&> \case
-            Left err -> panic $ "Arbitrary Tx: " <> err
+            Left err -> error $ "Arbitrary Tx: " <> err
             Right res -> res
 
 -- | Type used to generate valid ('verifyTx')

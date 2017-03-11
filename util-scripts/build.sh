@@ -19,7 +19,7 @@ set -o pipefail
 #   * Highlights error messages in GHC output
 #   * Strips unneeded info from GHC output (such as file names)
 
-projects="core db infra update"
+projects="core db lrc infra update"
 
 args=''
 
@@ -48,7 +48,7 @@ do
 done
 
 # TODO: how can --ghc-options be moved into commonargs?
-commonargs='--test --no-haddock-deps --bench --jobs=4'
+commonargs='--no-haddock-deps --bench --jobs=4'
 norun='--no-run-tests --no-run-benchmarks'
 
 if [ -e .no-nix ]; then

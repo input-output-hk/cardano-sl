@@ -258,7 +258,7 @@ classifyHeaders headers = do
             find (\bh -> bh ^. prevBlockL == headerHash lca) headers
         pure $ if
             | hash lca == hash tipHeader -> CHsValid lcaChild
-            | depthDiff < 0 -> panic "classifyHeaders@depthDiff is negative"
+            | depthDiff < 0 -> error "classifyHeaders@depthDiff is negative"
             | depthDiff > blkSecurityParam ->
                   CHsUseless $
                   sformat ("Difficulty difference of (tip,lca) is "%int%
@@ -301,7 +301,7 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
         inMainCheckpoints <-
             MaybeT $ nonEmpty <$>
             filterM (GS.isBlockInMainChain . headerHash)
-                    (NE.toList validCheckpoints)
+                    (toList validCheckpoints)
         lift $ logDebug $ "getHeadersFromManyTo: got checkpoints in main chain"
         let lowestCheckpoint =
                 maximumBy (comparing getEpochOrSlot) inMainCheckpoints
@@ -331,7 +331,7 @@ getHeadersOlderExp upto = do
   where
     -- Powers of 2
     twoPowers n
-        | n < 0 = panic $ "getHeadersOlderExp#twoPowers called w/" <> show n
+        | n < 0 = error $ "getHeadersOlderExp#twoPowers called w/" <> show n
     twoPowers 0 = []
     twoPowers 1 = [0]
     twoPowers n = (takeWhile (< (n - 1)) $ 0 : 1 : iterate (* 2) 2) ++ [n - 1]
@@ -473,7 +473,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
             Right (OldestFirst (undo :| []), pModifier) -> do
                 lift $ applyBlocksUnsafe (one (block, undo)) (Just pModifier)
                 applyAMAP e (OldestFirst xs) False
-            Right _ -> panic "verifyAndApplyBlocksInternal: applyAMAP: \
+            Right _ -> error "verifyAndApplyBlocksInternal: applyAMAP: \
                              \verification of one block produced more than one undo"
     -- Rollbacks and returns an error
     failWithRollback
@@ -720,7 +720,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     blk <- createMainBlockPure sizeLimit prevHeader sortedTxs pSk
                   slotId localPSKs sscData usPayload sk
     let prependToUndo undos tx =
-            fromMaybe (panic "Undo for tx not found")
+            fromMaybe (error "Undo for tx not found")
                       (HM.lookup (fst tx) txUndo) : undos
     lift $ inAssertMode $ verifyBlocksPrefix (one (Right blk)) >>= \case
         Left err ->
@@ -757,7 +757,7 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         -- include all SSC data because a) deciding is hard and b) we don't
         -- yet have a way to strip generic SSC data
         let musthaveBody = Types.MainBody
-                (fromMaybe (panic "createMainBlockPure: impossible") $ mkTxPayload mempty)
+                (fromMaybe (error "createMainBlockPure: impossible") $ mkTxPayload mempty)
                 sscData [] def
         musthaveBlock <-
             either throwError pure $
@@ -779,7 +779,7 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         -- return the resulting block
         txPayload <- either throwError pure $ mkTxPayload txs'
         let body = Types.MainBody txPayload sscData psks' usPayload'
-        maybe (panic "Coudln't create block") return $
+        maybe (error "Coudln't create block") return $
               mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where
     count x = identity -= fromIntegral (length (Bi.encode x))

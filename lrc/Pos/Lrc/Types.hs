@@ -11,7 +11,7 @@ module Pos.Lrc.Types
 import qualified Data.HashMap.Strict as HM
 import           Universum
 
-import           Pos.Types           (Coin, StakeholderId)
+import           Pos.Core.Types      (Coin, StakeholderId)
 
 -- | Addresses which have enough stake for participation in SSC.
 type Richmen = NonEmpty StakeholderId
@@ -26,7 +26,7 @@ toRichmen :: RichmenStake -> Richmen
 toRichmen =
     fromMaybe onNoRichmen . nonEmpty . HM.keys
   where
-    onNoRichmen = panic "There are no richmen!"
+    onNoRichmen = error "There are no richmen!"
 
 -- | Full richmen data consists of total stake at some point and stake
 -- distribution among richmen.

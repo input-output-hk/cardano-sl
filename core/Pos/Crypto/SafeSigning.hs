@@ -78,7 +78,7 @@ safeKeyGen :: MonadIO m => PassPhrase -> m (PublicKey, EncryptedSecretKey)
 safeKeyGen pp = liftIO $ do
     seed <- secureRandomBS 32
     case safeCreateKeypairFromSeed seed pp of
-        Nothing -> panic "Pos.Crypto.SafeSigning.safeKeyGen:\
+        Nothing -> error "Pos.Crypto.SafeSigning.safeKeyGen:\
                          \ creating keypair from seed failed"
         Just (pk, sk) -> return (PublicKey pk, EncryptedSecretKey sk)
 

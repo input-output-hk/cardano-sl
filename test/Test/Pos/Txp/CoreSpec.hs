@@ -5,6 +5,8 @@ module Test.Pos.Txp.CoreSpec
        ( spec
        ) where
 
+import           Universum
+
 import           Control.Lens          (each)
 import qualified Data.HashMap.Strict   as HM
 import           Data.List             (elemIndex, (\\))
@@ -15,7 +17,6 @@ import           Test.QuickCheck       (NonNegative (..), Positive (..), Propert
                                         arbitrary, forAll, resize, shuffle, vectorOf,
                                         (.&.), (===))
 import           Test.QuickCheck.Gen   (Gen)
-import           Universum             hiding ((.&.))
 
 import           Pos.Crypto            (hash, whData, withHash)
 import           Pos.Data.Attributes   (mkAttributes)
@@ -130,5 +131,5 @@ txGen size = do
     outputs <-
         NE.fromList <$> (replicateM outputsN $ TxOut <$> arbitrary <*> arbitrary)
     case mkTx inputs outputs (mkAttributes ()) of
-        Left e   -> panic $ "txGen: something went wrong: " <> e
+        Left e   -> error $ "txGen: something went wrong: " <> e
         Right tx -> pure tx

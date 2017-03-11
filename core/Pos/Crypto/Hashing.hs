@@ -104,7 +104,7 @@ decodeAbstractHash
 decodeAbstractHash = Bi.decode . processRes . B16.decode
   where
     processRes (Right x) = BSL.fromStrict x
-    processRes (Left e)  = panic $ "decode hash error: " <> e
+    processRes (Left e)  = error $ "decode hash error: " <> e
 
 -- | Parses given hash in base16 form.
 decodeHash :: Bi (Hash a) => Text -> Hash a

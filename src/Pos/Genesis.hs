@@ -51,7 +51,7 @@ import           Pos.Crypto                 (PublicKey, SecretKey, deterministic
                                              unsafeHash)
 import           Pos.Genesis.Parser         (compileGenData)
 import           Pos.Genesis.Types          (GenesisData (..), StakeDistribution (..))
-import           Pos.Lrc.FollowTheSatoshi   (followTheSatoshi)
+import           Pos.Lrc.FtsPure            (followTheSatoshi)
 import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil.Types         (Utxo)
 import           Pos.Types                  (Address (..), BlockVersion (..), Coin,
@@ -72,7 +72,7 @@ genesisKeyPairs = map gen [0 .. Const.genesisN - 1]
   where
     gen :: Int -> (PublicKey, SecretKey)
     gen =
-        fromMaybe (panic "deterministicKeyGen failed in Genesis") .
+        fromMaybe (error "deterministicKeyGen failed in Genesis") .
         deterministicKeyGen .
         encodeUtf8 .
         T.take 32 . sformat ("My awesome 32-byte seed #" %int % "             ")

@@ -9,25 +9,27 @@ module Pos.Txp.Logic.Global
        , txRollbackBlocks
        ) where
 
-import qualified Data.HashMap.Strict as HM
-import           System.Wlog         (WithLogger)
+import qualified Data.HashMap.Strict    as HM
+import           System.Wlog            (WithLogger)
 import           Universum
 
-import           Pos.Block.Types     (Blund, Undo (undoTx))
-import           Pos.DB              (MonadDB, SomeBatchOp (..))
-import qualified Pos.DB.GState       as GS
-import           Pos.Exception       (assertionFailed)
-import           Pos.Txp.Core.Types  (TxAux, TxUndo, TxpUndo)
-import           Pos.Types           (Block, blockTxas)
-import           Pos.Util            (NE, NewestFirst (..), OldestFirst (..),
-                                      inAssertMode)
+import           Pos.Block.Types        (Blund, Undo (undoTx))
+import           Pos.DB                 (MonadDB, SomeBatchOp (..))
+import qualified Pos.DB.GState          as GS
+import qualified Pos.DB.GState.Balances as GS
+import           Pos.Exception          (assertionFailed)
+import           Pos.Txp.Core.Types     (TxAux, TxUndo, TxpUndo)
+import           Pos.Types              (Block, blockTxas)
+import           Pos.Util               (NE, NewestFirst (..), OldestFirst (..),
+                                         inAssertMode)
 
-import           Pos.Txp.Error       (TxpError (..))
-import           Pos.Txp.MemState    (MonadTxpMem (..))
-import           Pos.Txp.Toil        (BalancesView (..), BalancesView (..), DBTxp,
-                                      ToilModifier (..), ToilT, ToilVerFailure, applyTxp,
-                                      rollbackTxp, runDBTxp, runToilTGlobal, verifyTxp)
-import qualified Pos.Util.Modifier   as MM
+import           Pos.Txp.Error          (TxpError (..))
+import           Pos.Txp.MemState       (MonadTxpMem (..))
+import           Pos.Txp.Toil           (BalancesView (..), BalancesView (..), DBTxp,
+                                         ToilModifier (..), ToilT, ToilVerFailure,
+                                         applyTxp, rollbackTxp, runDBTxp, runToilTGlobal,
+                                         verifyTxp)
+import qualified Pos.Util.Modifier      as MM
 
 type TxpWorkMode m = (WithLogger m, MonadDB m, MonadTxpMem m, MonadThrow m)
 

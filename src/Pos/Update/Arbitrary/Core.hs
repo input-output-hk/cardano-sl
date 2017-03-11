@@ -25,7 +25,7 @@ instance Arbitrary SystemTag where
         oneof $
         map (pure . fromMaybe onFail) [mkSystemTag "win64", mkSystemTag "mac32"]
       where
-        onFail = panic "instance Arbitrary SystemTag: disaster"
+        onFail = error "instance Arbitrary SystemTag: disaster"
 
 instance Arbitrary UpdateVote where
     arbitrary = do

@@ -51,7 +51,7 @@ import           Pos.Crypto                 (PublicKey, SecretKey, deterministic
                                              unsafeHash)
 import           Pos.Genesis.Parser         (compileGenData)
 import           Pos.Genesis.Types          (GenesisData (..), StakeDistribution (..))
-import           Pos.Lrc.FollowTheSatoshi   (followTheSatoshi)
+import           Pos.Lrc.FtsPure            (followTheSatoshi)
 import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..))
 import           Pos.Txp.Toil.Types         (Utxo)
 import           Pos.Types                  (Address (..), BlockVersion (..), Coin,

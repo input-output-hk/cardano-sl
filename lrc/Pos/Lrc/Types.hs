@@ -11,7 +11,7 @@ module Pos.Lrc.Types
 import qualified Data.HashMap.Strict as HM
 import           Universum
 
-import           Pos.Types           (Coin, StakeholderId)
+import           Pos.Core.Types      (Coin, StakeholderId)
 
 -- | Addresses which have enough stake for participation in SSC.
 type Richmen = NonEmpty StakeholderId

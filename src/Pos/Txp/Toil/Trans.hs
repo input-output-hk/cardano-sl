@@ -23,10 +23,10 @@ import           Pos.Slotting.MemState     (MonadSlotsData)
 import           Pos.Txp.Toil.Class        (MonadBalances (..), MonadBalancesRead (..),
                                             MonadTxPool (..), MonadUtxo (..),
                                             MonadUtxoRead (..))
-import           Pos.Txp.Toil.Types        (BalancesView, MemPool, ToilModifier (..),
-                                            UndoMap, UtxoModifier, bvStakes, bvTotal,
-                                            mpLocalTxs, mpLocalTxsSize, tmBalances,
-                                            tmMemPool, tmUndos, tmUtxo)
+import           Pos.Txp.Toil.Types        (MemPool, ToilModifier (..), UndoMap,
+                                            UtxoModifier, bvStakes, bvTotal, mpLocalTxs,
+                                            mpLocalTxsSize, tmBalances, tmMemPool,
+                                            tmUndos, tmUtxo)
 import           Pos.Util.JsonLog          (MonadJL (..))
 import qualified Pos.Util.Modifier         as MM
 
@@ -69,17 +69,17 @@ instance MonadUtxoRead m =>
     utxoPut id aux = ToilT $ tmUtxo %= MM.insert id aux
     utxoDel id = ToilT $ tmUtxo %= MM.delete id
 
-instance MonadBalancesRead m => MonadBalancesRead (ToilT m) where
-    getStake id = ToilT $
-        (<|>) <$> use (tmBalances . bvStakes . at id)
-              <*> getStake id
-
-    getTotalStake = ToilT $ use $ tmBalances . bvTotal
+instance MonadBalancesRead m =>
+         MonadBalancesRead (ToilT m) where
+    getStake id =
+        ToilT $ (<|>) <$> use (tmBalances . bvStakes . at id) <*> getStake id
+    getTotalStake =
+        ToilT $ maybe getTotalStake pure =<< use (tmBalances . bvTotal)
 
 instance MonadBalancesRead m => MonadBalances (ToilT m) where
     setStake id c = ToilT $ tmBalances . bvStakes . at id .= Just c
 
-    setTotalStake c = ToilT $ tmBalances . bvTotal .= c
+    setTotalStake c = ToilT $ tmBalances . bvTotal .= Just c
 
 instance Monad m => MonadTxPool (ToilT m) where
     hasTx id = ToilT $ use $ tmMemPool . mpLocalTxs . to (HM.member id)
@@ -100,8 +100,8 @@ instance Monad m => MonadTxPool (ToilT m) where
 runToilT :: ToilModifier -> ToilT m a -> m (a, ToilModifier)
 runToilT txm (ToilT st) = runStateT st txm
 
-runToilTGlobal :: Functor m => BalancesView -> ToilT m a -> m (a, ToilModifier)
-runToilTGlobal bv txpt = runToilT (ToilModifier mempty bv def mempty) txpt
+runToilTGlobal :: Functor m => ToilT m a -> m (a, ToilModifier)
+runToilTGlobal txpt = runToilT def txpt
 
 runToilTLocal
     :: Functor m

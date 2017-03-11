@@ -33,7 +33,7 @@ import           Formatting             (Format, later)
 import           Serokell.Util.Text     (mapBuilderJson)
 import           Universum
 
-import           Pos.Core               (Coin, StakeholderId, mkCoin)
+import           Pos.Core               (Coin, StakeholderId)
 import           Pos.Txp.Core           (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import qualified Pos.Util.Modifier      as MM
 
@@ -61,13 +61,13 @@ utxoF = later formatUtxo
 
 data BalancesView = BalancesView
     { _bvStakes :: !(HashMap StakeholderId Coin)
-    , _bvTotal  :: !Coin
+    , _bvTotal  :: !(Maybe Coin)
     }
 
 makeLenses ''BalancesView
 
 instance Default BalancesView where
-    def = BalancesView mempty $ mkCoin 0
+    def = BalancesView mempty Nothing
 
 ----------------------------------------------------------------------------
 -- MemPool
@@ -109,5 +109,8 @@ data ToilModifier = ToilModifier
     , _tmMemPool  :: !MemPool
     , _tmUndos    :: !UndoMap
     }
+
+instance Default ToilModifier where
+    def = ToilModifier mempty def def mempty
 
 makeLenses ''ToilModifier

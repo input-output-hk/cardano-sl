@@ -9,27 +9,25 @@ module Pos.Txp.Logic.Global
        , txRollbackBlocks
        ) where
 
-import qualified Data.HashMap.Strict    as HM
-import           System.Wlog            (WithLogger)
+import qualified Data.HashMap.Strict as HM
+import           System.Wlog         (WithLogger)
 import           Universum
 
-import           Pos.Block.Types        (Blund, Undo (undoTx))
-import           Pos.DB                 (MonadDB, SomeBatchOp (..))
-import qualified Pos.DB.GState          as GS
-import qualified Pos.DB.GState.Balances as GS
-import           Pos.Exception          (assertionFailed)
-import           Pos.Txp.Core.Types     (TxAux, TxUndo, TxpUndo)
-import           Pos.Types              (Block, blockTxas)
-import           Pos.Util               (NE, NewestFirst (..), OldestFirst (..),
-                                         inAssertMode)
+import           Pos.Block.Types     (Blund, Undo (undoTx))
+import           Pos.DB              (MonadDB, SomeBatchOp (..))
+import qualified Pos.DB.GState       as GS
+import           Pos.Exception       (assertionFailed)
+import           Pos.Txp.Core.Types  (TxAux, TxUndo, TxpUndo)
+import           Pos.Types           (Block, blockTxas)
+import           Pos.Util            (NE, NewestFirst (..), OldestFirst (..),
+                                      inAssertMode)
 
-import           Pos.Txp.Error          (TxpError (..))
-import           Pos.Txp.MemState       (MonadTxpMem (..))
-import           Pos.Txp.Toil           (BalancesView (..), BalancesView (..), DBTxp,
-                                         ToilModifier (..), ToilT, ToilVerFailure,
-                                         applyTxp, rollbackTxp, runDBTxp, runToilTGlobal,
-                                         verifyTxp)
-import qualified Pos.Util.Modifier      as MM
+import           Pos.Txp.Error       (TxpError (..))
+import           Pos.Txp.MemState    (MonadTxpMem (..))
+import           Pos.Txp.Toil        (BalancesView (..), BalancesView (..), DBTxp,
+                                      ToilModifier (..), ToilT, ToilVerFailure, applyTxp,
+                                      rollbackTxp, runDBTxp, runToilTGlobal, verifyTxp)
+import qualified Pos.Util.Modifier   as MM
 
 type TxpWorkMode m = (WithLogger m, MonadDB m, MonadTxpMem m, MonadThrow m)
 
@@ -89,23 +87,21 @@ txRollbackBlocks blunds = do
 -- Convert ToilModifier to batch of database operations.
 txpModifierToBatch :: ToilModifier -> SomeBatchOp
 txpModifierToBatch (ToilModifier um (BalancesView (HM.toList -> stakes) total) _ _) =
-    SomeBatchOp
-        [ SomeBatchOp $
-          map GS.DelTxIn (MM.deletions um) ++
-          map (uncurry GS.AddTxOut) (MM.insertions um)
-        , SomeBatchOp $
-          map (uncurry GS.PutFtsStake) stakes ++ [GS.PutFtsSum total]
-        ]
+    SomeBatchOp [SomeBatchOp utxoOps, SomeBatchOp balancesOps]
+  where
+    utxoOps =
+        map GS.DelTxIn (MM.deletions um) ++
+        map (uncurry GS.AddTxOut) (MM.insertions um)
+    balancesOps =
+        maybe identity (\x l -> (GS.PutFtsSum x : l)) total $
+        map (uncurry GS.PutFtsStake) stakes
 
 -- Run action which requires MonadUtxo and MonadTxPool interfaces.
 runTxpAction
     :: MonadDB m
     => ToilT (DBTxp (ExceptT ToilVerFailure m)) a
     -> m (Either ToilVerFailure (a, ToilModifier))
-runTxpAction action = do
-    total <- GS.getTotalFtsStake
-    let balView = BalancesView mempty total
-    runExceptT . runDBTxp . runToilTGlobal balView $ action
+runTxpAction action = runExceptT . runDBTxp . runToilTGlobal $ action
 
 -- Zip block's TxAuxes and corresponding TxUndos.
 blundToAuxNUndo :: Blund ssc -> [(TxAux, TxUndo)]

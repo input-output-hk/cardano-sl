@@ -155,7 +155,7 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
         _ <- fmap (fst . fromMaybe (error "deriveAddrHistory: Nothing")) $
             runMaybeT $ flip runUtxoStateT utxo $
             deriveAddrHistory addr chain
-        pure $ error "undefined"
+        pure $ error "getTxHistory is not implemented for light wallet"
     saveTx _ = pure ()
 
 instance (MonadDB m, MonadThrow m, WithLogger m, PC.WithNodeContext s m) =>

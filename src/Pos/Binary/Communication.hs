@@ -6,12 +6,14 @@ module Pos.Binary.Communication () where
 import           Data.Binary.Get                  (getByteString, getWord8, label)
 import           Data.Binary.Put                  (putByteString, putWord8)
 import qualified Data.ByteString                  as BS
+import qualified Data.ByteString.Lazy             as BSL
 import           Formatting                       (int, sformat, (%))
 import           Node.Message                     (MessageName (..))
 import           Universum                        hiding (putByteString)
 
 import           Pos.Binary.Class                 (Bi (..), getRemainingByteString,
-                                                   getWithLength, putWithLength)
+                                                   getWithLength, putWithLength,
+                                                   encodeStrict, decodeOrFail, UnsignedVarInt(..))
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types          (SysStartRequest (..),
@@ -116,20 +118,28 @@ instance Bi VoteMsgTag where
     put VoteMsgTag = pure ()
     get = pure VoteMsgTag
 
+-- Encoding of HandlerSpec is as follow:
+--
+-- | Type                                        | Size     | Value     | Following data |
+-- |---------------------------------------------|----------|-----------|----------------|
+-- | OneMessageHandler                           | Fixed    | 0000 0000 | none           |
+-- | ConvHandler m where m : UnsignedVarInt < 64 | Fixed    | 01xx xxxx | none           |
+-- | ConvHandler m where m : Unknown             | Variable | 0000 0001 | EncodeString   |
+-- | UnknownHandler w8 bs                        | Variable | w8        | bs             |
 instance Bi HandlerSpec where
-    put OneMsgHandler =
-        putWord8 0 <>
-        putWithLength (return ())
-    put (ConvHandler m) =
-        putWord8 1 <>
-        putWithLength (put m)
+    put OneMsgHandler = putWord8 0
+    put (ConvHandler (MessageName m)) =
+        case decodeOrFail $ BSL.fromStrict m of
+            Right (_, _, UnsignedVarInt a) | a < 64 -> putWord8 (0x40 .|. (fromIntegral (a :: Word) .&. 0x3f))
+            _ -> putWord8 0x01 <> putWithLength (put m)
     put (UnknownHandler t b) =
         putWord8 t <>
         putWithLength (putByteString b)
     get = label "HandlerSpec" $ getWord8 >>= \case
-        0 -> getWithLength (pure OneMsgHandler)
-        1 -> getWithLength (ConvHandler <$> get)
-        t -> getWithLength (UnknownHandler t <$> getRemainingByteString)
+        0                        -> pure OneMsgHandler
+        0x1                      -> getWithLength (ConvHandler <$> get)
+        t | (t .&. 0xc0) == 0x40 -> pure $ ConvHandler $ MessageName $ encodeStrict $ UnsignedVarInt (fromIntegral (t .&. 0x3f) :: Word)
+          | otherwise            -> getWithLength (UnknownHandler t <$> getRemainingByteString)
 
 instance Bi VerInfo where
     put VerInfo {..} = put vIMagic

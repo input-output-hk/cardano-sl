@@ -347,7 +347,7 @@ instance ToSample BackupPhrase where
         sample = backupPhrase
 
 instance ToSample SoftwareVersion where
-      toSamples Proxy = singleSample curSoftwareVersion
+    toSamples Proxy = singleSample curSoftwareVersion
 
 instance ToSample SyncProgress where
     toSamples Proxy = singleSample def

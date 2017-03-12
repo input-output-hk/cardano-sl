@@ -29,6 +29,7 @@ import           Pos.Txp.Toil         (MemPool (..), MonadUtxoRead (..), TxpModi
                                        processTx, runDBTxp, runTxpTLocal, runUtxoReaderT,
                                        utxoGet)
 #ifdef WITH_EXPLORER
+import qualified Pos.Util.Modifier    as MM
 import           Pos.Slotting         (MonadSlots (currentTimeSlotting))
 import           Pos.Txp.Toil         (Utxo)
 import           Pos.Types            (TxExtra (..), Timestamp)
@@ -115,7 +116,8 @@ txNormalize = do
            execTxpTLocal mempty def mempty $
            normalizeTxp $
 #ifdef WITH_EXPLORER
-           HM.toList $ HM.intersectionWith (,) _mpLocalTxs _mpLocalTxsExtra
+           HM.toList $ HM.intersectionWith (,) _mpLocalTxs $
+           MM.insertionsMap _mpLocalTxsExtra
 #else
            HM.toList _mpLocalTxs
 #endif

@@ -87,7 +87,7 @@ instance Default TxMap where
     def = mempty
 
 #ifdef WITH_EXPLORER
-type TxMapExtra = HashMap TxId TxExtra
+type TxMapExtra = MM.MapModifier TxId TxExtra
 
 instance Default TxMapExtra where
     def = mempty
@@ -110,7 +110,7 @@ instance Default MemPool where
         { _mpLocalTxs      = HM.empty
         , _mpLocalTxsSize  = 0
 #ifdef WITH_EXPLORER
-        , _mpLocalTxsExtra = HM.empty
+        , _mpLocalTxsExtra = def
 #endif
         }
 

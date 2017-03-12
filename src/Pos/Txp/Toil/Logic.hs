@@ -97,6 +97,9 @@ rollbackTxp txun = do
     let (txOutMinus, txInPlus) = concatStakes txun
     recomputeStakes txInPlus txOutMinus
     mapM_ Utxo.rollbackTxUtxo $ reverse txun
+#ifdef WITH_EXPLORER
+    mapM_ (delTxExtra . hash . view _1 . fst) txun
+#endif
 
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.

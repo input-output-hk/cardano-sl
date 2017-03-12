@@ -135,10 +135,15 @@ instance MonadTxExtraRead m => MonadTxExtraRead (ExceptT s m)
 
 class MonadTxExtraRead m => MonadTxExtra m where
     putTxExtra :: TxId -> TxExtra -> m ()
+    delTxExtra :: TxId -> m ()
 
     default putTxExtra
         :: (MonadTrans t, MonadTxExtra m', t m' ~ m) => TxId -> TxExtra -> m ()
     putTxExtra id = lift . putTxExtra id
+
+    default delTxExtra
+        :: (MonadTrans t, MonadTxExtra m', t m' ~ m) => TxId -> m ()
+    delTxExtra = lift . delTxExtra
 
 instance MonadTxExtra m => MonadTxExtra (ReaderT s m)
 instance MonadTxExtra m => MonadTxExtra (StateT s m)

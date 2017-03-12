@@ -29,10 +29,13 @@ getTxExtra = gsGetBi . txExtraPrefix
 
 data ExplorerOp
     = AddTxExtra !TxId !TxExtra
+    | DelTxExtra !TxId
 
 instance RocksBatchOp ExplorerOp where
     toBatchOp (AddTxExtra id extra) =
         [Rocks.Put (txExtraPrefix id) (encodeStrict extra)]
+    toBatchOp (DelTxExtra id) =
+        [Rocks.Del $ txExtraPrefix id]
 
 ----------------------------------------------------------------------------
 -- Keys

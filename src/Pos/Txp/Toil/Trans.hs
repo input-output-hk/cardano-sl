@@ -103,12 +103,13 @@ instance Monad m => MonadTxPool (TxpT m) where
 #ifdef WITH_EXPLORER
 instance MonadTxExtraRead m => MonadTxExtraRead (TxpT m) where
     getTxExtra id = TxpT $
-        (<|>) <$> use (txmMemPool . mpLocalTxsExtra . at id)
-              <*> getTxExtra id
+        MM.lookupM getTxExtra id =<< use (txmMemPool . mpLocalTxsExtra)
 
 instance MonadTxExtraRead m => MonadTxExtra (TxpT m) where
     putTxExtra id extra = TxpT $
-        txmMemPool . mpLocalTxsExtra . at id .= Just extra
+        txmMemPool . mpLocalTxsExtra %= MM.insert id extra
+    delTxExtra id = TxpT $
+        txmMemPool . mpLocalTxsExtra %= MM.delete id
 #endif
 
 ----------------------------------------------------------------------------

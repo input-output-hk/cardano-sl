@@ -108,7 +108,7 @@ txpModifierToBatch :: TxpModifier -> SomeBatchOp
 txpModifierToBatch (TxpModifier um
                        (BalancesView (HM.toList -> stakes) total)
 #ifdef WITH_EXPLORER
-                       (MemPool _ _ (HM.toList -> extras)) _) =
+                       (MemPool _ _ em) _) =
 #else
                        _ _) =
 #endif
@@ -120,7 +120,8 @@ txpModifierToBatch (TxpModifier um
           map (uncurry GS.PutFtsStake) stakes ++ [GS.PutFtsSum total]
 #ifdef WITH_EXPLORER
         , SomeBatchOp $
-          map (uncurry GS.AddTxExtra) extras
+          map GS.DelTxExtra (MM.deletions em) ++
+          map (uncurry GS.AddTxExtra) (MM.insertions em)
 #endif
         ]
 

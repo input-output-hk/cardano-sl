@@ -1,4 +1,6 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fno-warn-deprecations #-}
 
 -- | Documentation of wallet web API.
 
@@ -8,16 +10,20 @@ module Pos.Wallet.Web.Doc
 
 import           Control.Lens               ((<>~))
 import qualified Data.HashMap.Strict        as HM
-import           Data.Time.Clock.POSIX      (POSIXTime)
+import           Data.Time                  (defaultTimeLocale, readTime)
+import           Data.Time.Clock.POSIX      (POSIXTime, utcTimeToPOSIXSeconds)
 import           Network.HTTP.Types.Method  (methodPost)
 import           Servant.API                (Capture, QueryParam)
-import           Servant.Docs               (API, DocCapture (..), DocIntro (..),
-                                             DocNote (..), DocQueryParam (..),
-                                             ExtraInfo (..), ToCapture (toCapture),
-                                             ToParam, ToSample (toSamples), defAction,
-                                             defEndpoint, defaultDocOptions, docsWith,
-                                             markdown, method, notes, path, singleSample)
-import qualified Servant.Docs               as SD
+import           Servant.Docs               (API, DocCapture (..),
+                                             DocIntro (..), DocNote (..),
+                                             DocQueryParam (..), ExtraInfo (..),
+                                             ParamKind (Normal),
+                                             ToCapture (toCapture),
+                                             ToParam (toParam),
+                                             ToSample (toSamples), defAction,
+                                             defEndpoint, defaultDocOptions,
+                                             docsWith, markdown, method, notes,
+                                             path, pretty, singleSample)
 import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum
 
@@ -25,18 +31,26 @@ import           Data.Default               (Default (def))
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Constants              (curSoftwareVersion)
 import           Pos.Crypto                 (keyGen)
-import           Pos.Types                  (Coin, SoftwareVersion, makePubKeyAddress,
+import           Pos.Types                  (BlockVersion (..), Coin,
+                                             SoftwareVersion, makePubKeyAddress,
                                              mkCoin)
-import           Pos.Util.BackupPhrase      (BackupPhrase)
+import           Pos.Util.BackupPhrase      (BackupPhrase, mkBackupPhrase)
 import           Pos.Wallet.Web.Api         (walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTx,
-                                             CTxId, CTxMeta, CUpdateInfo, CWallet,
-                                             CWalletInit, CWalletMeta, CWalletRedeem (..),
-                                             SyncProgress, addressToCAddress)
-import           Pos.Wallet.Web.Error       (WalletError)
+import           Pos.Wallet.Web.ClientTypes (CAddress (..), CCurrency (..),
+                                             CHash (..), CProfile (..),
+                                             CTType (..), CTx (..), CTxId,
+                                             CTxMeta (..), CUpdateInfo (..),
+                                             CWallet (..), CWalletInit (..),
+                                             CWalletMeta (..),
+                                             CWalletRedeem (..),
+                                             CWalletType (..), SyncProgress,
+                                             addressToCAddress, mkCTxId)
+import           Pos.Wallet.Web.Error       (WalletError (..))
+
+
 
 walletDocs :: API
-walletDocs = docsWith defaultDocOptions intros extras (SD.pretty walletApi)
+walletDocs = docsWith defaultDocOptions intros extras (Servant.Docs.pretty walletApi)
 
 walletDocsText :: Text
 walletDocsText = toText $ markdown walletDocs
@@ -159,7 +173,7 @@ instance ToParam (QueryParam "skip" Word) where
         { _paramName    = "skip"
         , _paramValues  = ["0", "100"]
         , _paramDesc    = "Skip this many transactions"
-        , _paramKind    = SD.Normal
+        , _paramKind    = Normal
         }
 
 instance ToParam (QueryParam "limit" Word) where
@@ -168,7 +182,7 @@ instance ToParam (QueryParam "limit" Word) where
         { _paramName    = "limit"
         , _paramValues  = ["0", "100"]
         , _paramDesc    = "Max numbers of transactions to return"
-        , _paramKind    = SD.Normal
+        , _paramKind    = Normal
         }
 
 instance ToCapture (Capture "currency" CCurrency) where
@@ -192,11 +206,33 @@ instance ToCapture (Capture "key" FilePath) where
         , _capDesc = "File path to the secret key"
         }
 
+-- sample data --
+--------------------------------------------------------------------------------
+posixTime :: POSIXTime
+posixTime = utcTimeToPOSIXSeconds (readTime defaultTimeLocale "%F" "2017-12-03")
+
+ctxMeta :: CTxMeta
+ctxMeta = CTxMeta
+      { ctmCurrency    = ADA
+      , ctmTitle       = "Transaction"
+      , ctmDescription = "Transaction from A to B"
+      , ctmDate        = posixTime
+      }
+
+backupPhrase :: BackupPhrase
+backupPhrase = mkBackupPhrase $ replicate 12 "me"
+--------------------------------------------------------------------------------
+
 instance ToSample WalletError where
-    toSamples Proxy = error "unmaintained stub for [ToSample:WalletError]"
+    toSamples Proxy = singleSample (Internal "Sample error")
 
 instance ToSample CWalletRedeem where
-    toSamples Proxy = error "unmaintained stub for [ToSample:CWalletRedeem]"
+    toSamples Proxy = singleSample sample
+      where
+        sample = CWalletRedeem
+            { crWalletId = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
+            , crSeed     = "1354644684681"
+            }
 
 instance ToSample Coin where
     toSamples Proxy = singleSample (mkCoin 100500)
@@ -206,23 +242,61 @@ instance ToSample Coin where
 --
 -- FIXME!
 instance ToSample CHash where
-    toSamples Proxy = error "unmaintained stub for [ToSample:CHash]"
+    toSamples Proxy = singleSample $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
 
--- FIXME!
 instance ToSample CWallet where
-    toSamples Proxy = error "unmaintained stub for [ToSample:CWallet]"
+    toSamples Proxy = singleSample sample
+      where
+        sample = CWallet
+            { cwAddress = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
+            , cwAmount  = mkCoin 0
+            , cwMeta    = CWalletMeta
+                            { cwType     = CWTPersonal
+                            , cwCurrency = ADA
+                            , cwName     = "Personal Wallet"
+                            }
+            }
 
--- FIXME!
+
 instance ToSample CWalletMeta where
-    toSamples Proxy = error "unmaintained stub for [ToSample:CWalletMeta]"
+    toSamples Proxy = singleSample sample
+      where
+        sample = CWalletMeta
+            { cwType     = CWTPersonal
+            , cwCurrency = ADA
+            , cwName     = "Personal Wallet"
+            }
 
--- FIXME!
 instance ToSample CWalletInit where
-    toSamples Proxy = error "unmaintained stub for [ToSample:CWalletInit]"
+    toSamples Proxy = singleSample sample
+      where
+        sample = CWalletInit
+            { cwBackupPhrase = backupPhrase
+            , cwInitMeta     = CWalletMeta
+                                  { cwType     = CWTPersonal
+                                  , cwCurrency = ADA
+                                  , cwName     = "Personal Wallet"
+                                  }
+            }
 
--- FIXME!
 instance ToSample CUpdateInfo where
-    toSamples Proxy = error "unmaintained stub for [ToSample:CUpdateInfo]"
+    toSamples Proxy = singleSample sample
+      where
+        sample = CUpdateInfo
+            { cuiSoftwareVersion = curSoftwareVersion
+            , cuiBlockVesion     = BlockVersion
+                                    { bvMajor = 25
+                                    , bvMinor = 12
+                                    , bvAlt   = 3
+                                    }
+            , cuiScriptVersion   = 15
+            , cuiImplicit        = False
+            , cuiVotesFor        = 2
+            , cuiVotesAgainst    = 3
+            , cuiPositiveStake   = mkCoin 10
+            , cuiNegativeStake   = mkCoin 3
+            }
+
 
 instance ToSample CAddress where
     toSamples Proxy = singleSample . addressToCAddress . makePubKeyAddress . fst $
@@ -231,28 +305,49 @@ instance ToSample CAddress where
 -- FIXME: this is required because of Wallet.Web.Api `type Cors...`
 -- I don't really what should be sample for Cors ?
 instance ToSample Text where
-    toSamples Proxy = error "unmaintained stub for [ToSample:Text]"
+    toSamples Proxy = singleSample "Sample CORS"
 
 instance ToSample () where
     toSamples Proxy = singleSample ()
 
 instance ToSample CTx where
-    toSamples Proxy = error "unmaintained stub for [ToSample:CTx]"
+    toSamples Proxy = singleSample sample
+      where
+        sample = CTx
+            { ctId            = mkCTxId "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
+            , ctAmount        = mkCoin 0
+            , ctConfirmations = 10
+            , ctType          = CTOut ctxMeta
+            }
 
 instance ToSample CTxMeta where
-    toSamples Proxy = error "unmaintained stub for [ToSample:CTxMeta]"
+    toSamples Proxy = singleSample sample
+      where
+        sample = ctxMeta
 
 instance ToSample CProfile where
-    toSamples Proxy = error "unmaintained stub for [ToSample:CProfile]"
+    toSamples Proxy = singleSample sample
+      where
+        sample = CProfile
+            { cpName        = ""
+            , cpEmail       = ""
+            , cpPhoneNumber = ""
+            , cpPwHash      = ""
+            , cpPwCreated   = posixTime
+            , cpLocale      = ""
+            , cpPicture     = ""
+            }
 
 instance ToSample Word where
-    toSamples Proxy = error "unmaintained stub for [ToSample:Word]"
+    toSamples Proxy = singleSample (101 :: Word)
 
 instance ToSample BackupPhrase where
-    toSamples Proxy = error "unmaintained stub for [ToSample:BackupPhrase]"
+    toSamples Proxy = singleSample sample
+      where
+        sample = backupPhrase
 
 instance ToSample SoftwareVersion where
-    toSamples Proxy = singleSample curSoftwareVersion
+      toSamples Proxy = singleSample curSoftwareVersion
 
 instance ToSample SyncProgress where
     toSamples Proxy = singleSample def

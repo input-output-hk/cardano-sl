@@ -7,9 +7,9 @@
 
 module Pos.Wallet.Web.ClientTypes
       ( SyncProgress (..)
-      , CAddress
+      , CAddress (..)
       , CCurrency (..)
-      , CHash
+      , CHash (..)
       , CTType (..)
       , CProfile (..)
       , CPwHash

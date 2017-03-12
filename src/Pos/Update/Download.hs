@@ -35,7 +35,7 @@ import           Pos.WorkMode            (WorkMode)
 showHash :: Hash a -> FilePath
 showHash = toString . B16.encode . BA.convert
 
--- TODO: if we're downloading update not for `cardano-sl`,
+-- CSL-887: if we're downloading update not for `cardano-sl`,
 -- but e. g. for `daedalus`, how do we check that version is new?
 versionIsNew :: SoftwareVersion -> Bool
 versionIsNew ver = svAppName ver /= svAppName curSoftwareVersion
@@ -62,8 +62,6 @@ downloadUpdate cst@ConfirmedProposalState {..} = do
                                   \update version") updHash
 
         updPath <- npUpdatePath . ncNodeParams <$> getNodeContext
-        -- let updAppName = svAppName . upSoftwareVersion $
-        --                  cpsUpdateProposal
         whenM (liftIO $ doesFileExist updPath) $
             throwError "There's unapplied update already downloaded"
 

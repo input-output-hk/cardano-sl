@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Logic of working with Shares.
 
@@ -14,6 +14,8 @@ import           System.Wlog              (WithLogger, dispatchEvents, getLogger
 import           Universum
 
 import           Pos.Binary.Class         (AsBinary, asBinary, fromBinaryM)
+import           Pos.Core.Address         (addressHash)
+import           Pos.Core.Types           (StakeholderId)
 import           Pos.Crypto               (EncShare, Share, VssKeyPair, VssPublicKey,
                                            decryptShare, toVssPublicKey)
 import           Pos.Ssc.Class.Storage    (SscGlobalQuery)
@@ -21,8 +23,6 @@ import           Pos.Ssc.Extra            (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Core  (Commitment (..), getCommitmentsMap)
 import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types (gsCommitments, gsOpenings)
-import           Pos.Core.Address        (addressHash)
-import           Pos.Core.Types           (StakeholderId)
 
 type GSQuery a = SscGlobalQuery SscGodTossing a
 
@@ -35,9 +35,10 @@ getOurShares ourKey = do
     randSeed <- liftIO seedNew
     let ourPK = asBinary $ toVssPublicKey ourKey
     encSharesM <- sscRunGlobalQuery (decryptOurShares ourPK)
+    loggerName <- getLoggerName
     let drg = drgNewSeed randSeed
         (res, pLog) =
-          fst . withDRG drg . runPureLog . usingLoggerName mempty <$>
+          fst . withDRG drg . runPureLog . usingLoggerName loggerName <$>
           flip traverse (HM.toList encSharesM) $ \(id, lEncSh) -> do
               let mEncSh = traverse fromBinaryM lEncSh
               case mEncSh of
@@ -47,8 +48,7 @@ getOurShares ourKey = do
                     logWarning $ sformat ("Failed to deserialize share for " % build) id
                     return Nothing
         resHM = HM.fromList . catMaybes $ res
-    loggerName <- getLoggerName
-    liftIO $ usingLoggerName loggerName $ dispatchEvents pLog
+    liftIO $ dispatchEvents pLog
     return resHM
 
 -- | Decrypt shares (in commitments) that we can decrypt.

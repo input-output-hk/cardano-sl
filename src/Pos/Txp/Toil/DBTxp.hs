@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -33,6 +34,9 @@ import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 import           Pos.Txp.Toil.Class          (MonadBalancesRead (..), MonadUtxoRead (..))
+#ifdef WITH_EXPLORER
+import           Pos.Txp.Toil.Class          (MonadTxExtraRead (..))
+#endif
 
 newtype DBTxp m a = DBTxp
     { runDBTxp :: m a
@@ -102,3 +106,8 @@ instance (Monad m, MonadDB m) => MonadUtxoRead (DBTxp m) where
 instance (Monad m, MonadDB m) => MonadBalancesRead (DBTxp m) where
     getTotalStake = GS.getTotalFtsStake
     getStake = GS.getFtsStake
+
+#ifdef WITH_EXPLORER
+instance (Monad m, MonadDB m) => MonadTxExtraRead (DBTxp m) where
+    getTxExtra = GS.getTxExtra
+#endif

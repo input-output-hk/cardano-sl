@@ -374,15 +374,16 @@ getHistory cAddr skip limit = do
 
     TxHistoryAnswer {..} <- flip (untag @ssc getTxHistory) minit
         =<< decodeCAddressOrFail cAddr
-    cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) taHistory
 
     -- Add allowed portion of result to cache
-    let fullHistory = cHistory <> cachedTxs
-        lenHistory = length cHistory
-        cached = drop (lenHistory - taCachedNum) cHistory
+    let fullHistory = cachedTxs <> taHistory
+        cached = take taCachedNum taHistory
 
-    updateHistoryCache cAddr taLastCachedHash taCachedUtxo cached
-    pure (paginate fullHistory, fromIntegral $ length fullHistory)
+    unless (null cached) $
+        updateHistoryCache cAddr taLastCachedHash taCachedUtxo (cachedTxs <> cached)
+
+    cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) fullHistory
+    pure (paginate cHistory, fromIntegral $ length cHistory)
   where
     paginate     = take defaultLimit . drop defaultSkip
     defaultLimit = (fromIntegral $ fromMaybe 100 limit)

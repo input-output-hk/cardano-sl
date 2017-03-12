@@ -29,8 +29,9 @@ import           Pos.Txp.Toil         (MemPool (..), MonadUtxoRead (..), TxpModi
                                        processTx, runDBTxp, runTxpTLocal, runUtxoReaderT,
                                        utxoGet)
 #ifdef WITH_EXPLORER
+import           Pos.Slotting         (MonadSlots (currentTimeSlotting))
 import           Pos.Txp.Toil         (Utxo)
-import           Pos.Types.Explorer   (TxExtra (..))
+import           Pos.Types            (TxExtra (..), Timestamp)
 #endif
 
 type TxpLocalWorkMode m =
@@ -38,6 +39,9 @@ type TxpLocalWorkMode m =
     , MonadTxpMem m
     , WithLogger m
     , MonadError TxpVerFailure m
+#ifdef WITH_EXPLORER
+    , MonadSlots m
+#endif
     )
 
 -- CHECK: @processTx
@@ -55,7 +59,14 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
                    catMaybes $
                    toList $
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
-    pRes <- modifyTxpLocalData $ processTxDo resolved tipBefore itw
+#ifdef WITH_EXPLORER
+    curTime <- currentTimeSlotting
+#endif
+    pRes <- modifyTxpLocalData $
+            processTxDo resolved tipBefore itw
+#ifdef WITH_EXPLORER
+            curTime
+#endif
     case pRes of
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: "%build) txId
@@ -63,14 +74,18 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
         Right _   ->
             logDebug (sformat ("Transaction is processed successfully: "%build) txId)
   where
+#ifdef WITH_EXPLORER
+    processTxDo resolved tipBefore tx curTime txld@(uv, mp, undo, tip)
+#else
     processTxDo resolved tipBefore tx txld@(uv, mp, undo, tip)
+#endif
         | tipBefore /= tip = (Left $ TxpInvalid "Tips aren't same", txld)
         | otherwise =
             let res = runExcept $
                       flip runUtxoReaderT resolved $
                       execTxpTLocal uv mp undo $
 #ifdef WITH_EXPLORER
-                      processTx tx $ makeExtra resolved
+                      processTx tx $ makeExtra resolved curTime
 #else
                       processTx tx
 #endif
@@ -81,8 +96,10 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
                     (Right (), (_txmUtxoModifier, _txmMemPool, _txmUndos, tip))
     runUM um = runTxpTLocal um def mempty
 #ifdef WITH_EXPLORER
-    makeExtra :: Utxo -> TxExtra
-    makeExtra resolved = TxExtra Nothing $ NE.fromList $ toList resolved
+    makeExtra :: Utxo -> Timestamp -> TxExtra
+    -- NE.fromList is safe here, because if `resolved` is empty, `processTx`
+    -- wouldn't save extra value, thus wouldn't reduce it to NF
+    makeExtra resolved curTime = TxExtra Nothing curTime $ NE.fromList $ toList resolved
 #endif
 
 -- | 1. Recompute UtxoView by current MemPool

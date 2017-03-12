@@ -31,7 +31,7 @@ import           Pos.Txp.Toil           (BalancesView (..), BalancesView (..), D
                                          rollbackTxp, runDBTxp, runTxpTGlobal, verifyTxp)
 import qualified Pos.Util.Modifier      as MM
 #ifdef WITH_EXPLORER
-import           Pos.Types              (BiSsc, HeaderHash, headerHash)
+import           Pos.Types              (BiSsc, HeaderHash, Timestamp, headerHash)
 import           Pos.Txp.Toil           (MemPool (..))
 #endif
 
@@ -51,15 +51,20 @@ txVerifyBlocks newChain = do
 
 -- | Apply chain of /definitely/ valid blocks to state on transactions
 -- processing.
-txApplyBlocks
 #ifdef WITH_EXPLORER
+txApplyBlocks
     :: (TxpWorkMode m, BiSsc ssc)
+    => OldestFirst NE (Blund ssc)
+    -> Timestamp
+    -> m SomeBatchOp
+txApplyBlocks blunds curTime = do
 #else
+txApplyBlocks
     :: TxpWorkMode m
-#endif
     => OldestFirst NE (Blund ssc)
     -> m SomeBatchOp
 txApplyBlocks blunds = do
+#endif
     let blocks = map fst blunds
     inAssertMode $
         do verdict <- txVerifyBlocks blocks
@@ -70,7 +75,7 @@ txApplyBlocks blunds = do
                    "txVerifyBlocks failed in txApplyBlocks call: " <> errors
     verdict <- runTxpAction $
 #ifdef WITH_EXPLORER
-                   mapM (uncurry applyTxp . blundToAuxNUndoWHash) blunds
+                   mapM (uncurry (applyTxp curTime) . blundToAuxNUndoWHash) blunds
 #else
                    mapM (applyTxp . blundToAuxNUndo) blunds
 #endif

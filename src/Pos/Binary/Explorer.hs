@@ -11,5 +11,7 @@ import           Pos.Types.Explorer (TxExtra (..))
 
 instance Bi TxExtra where
     get = label "TxExtra" $
-          TxExtra <$> get <*> get
-    put TxExtra {..} = put teBlockchainPlace >> put teInputOutputs
+          TxExtra <$> get <*> get <*> get
+    put TxExtra {..} = put teBlockchainPlace >>
+                       put teReceivedTime >>
+                       put teInputOutputs

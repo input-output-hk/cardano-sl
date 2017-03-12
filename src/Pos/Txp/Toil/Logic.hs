@@ -34,8 +34,8 @@ import           Pos.Txp.Toil.Class   (MonadBalances (..), MonadBalancesRead (..
 import           Pos.Txp.Toil.Failure (TxpVerFailure (..))
 import qualified Pos.Txp.Toil.Utxo    as Utxo
 #ifdef WITH_EXPLORER
-import           Pos.Txp.Toil.Class   (MonadTxExtra (..))
-import           Pos.Types            (TxExtra (..), HeaderHash)
+import           Pos.Txp.Toil.Class   (MonadTxExtra (..), MonadTxExtraRead (..))
+import           Pos.Types            (TxExtra (..), HeaderHash, Timestamp)
 #endif
 
 type GlobalTxpMode m = ( MonadUtxo m
@@ -65,14 +65,15 @@ verifyTxp = mapM (processTxWithPureChecks True . withTxId)
 -- | Apply transactions from one block.
 applyTxp
     :: GlobalTxpMode m
-    => [(TxAux, TxUndo)]
 #ifdef WITH_EXPLORER
+    => Timestamp
+    -> [(TxAux, TxUndo)]
     -> HeaderHash
-#endif
     -> m ()
-#ifdef WITH_EXPLORER
-applyTxp txun hh = do
+applyTxp curTime txun hh = do
 #else
+    => [(TxAux, TxUndo)]
+    -> m ()
 applyTxp txun = do
 #endif
     let (txOutPlus, txInMinus) = concatStakes txun
@@ -82,7 +83,8 @@ applyTxp txun = do
   where
     applier (i, (txaux@(tx, _, _), txundo)) = do
         let id = hash tx
-            extra = TxExtra (Just (hh, i)) $ NE.fromList txundo
+            newExtra = TxExtra (Just (hh, i)) curTime $ NE.fromList txundo
+        extra <- maybe newExtra identity <$> getTxExtra id
         applyTxToUtxo' (id, txaux)
         putTxExtra id extra
 #else

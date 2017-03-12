@@ -4,14 +4,16 @@
 -- nodes. Also see "Pos.Block.Network.Retrieval" for retrieval worker
 -- loop logic.
 module Pos.Block.Network.Logic
-       ( triggerRecovery
-       , handleUnsolicitedHeaders
-       , requestTip
-       , addToBlockRequestQueue
-       , mkHeadersRequest
+       (
+         needRecovery
+       , triggerRecovery
        , requestTipOuts
-       , needRecovery
+       , requestTip
+
+       , handleUnsolicitedHeaders
+       , mkHeadersRequest
        , requestHeaders
+
        , mkBlocksRequest
        , handleBlocks
        ) where
@@ -62,8 +64,9 @@ import           Pos.WorkMode               (WorkMode)
 
 
 
-data VerifyBlocksException = VerifyBlocksException Text deriving Show
-instance Exception VerifyBlocksException
+----------------------------------------------------------------------------
+-- Recovery
+----------------------------------------------------------------------------
 
 needRecovery :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
@@ -88,6 +91,36 @@ triggerRecovery sendActions = unlessM isRecoveryMode $ do
                logDebug ("Error happened in triggerRecovery" <> show e)
                throwM e
         logDebug "Recovery triggered ended"
+
+
+requestTipOuts :: OutSpecs
+requestTipOuts =
+    toOutSpecs [ convH (Proxy :: Proxy MsgGetHeaders)
+                       (Proxy :: Proxy (MsgHeaders ssc)) ]
+
+-- | Is used if we're recovering after offline and want to know what's
+-- current blockchain state. Sends "what's your current tip" request
+-- to everybody we know.
+requestTip
+    :: forall ssc s m.
+       (SscWorkersClass ssc, WorkMode ssc m)
+    => Proxy s
+    -> NodeId
+    -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
+    -> m ()
+requestTip _ peerId conv = do
+    logDebug "Requesting tip..."
+    send conv (MsgGetHeaders [] Nothing)
+    whenJustM (recvLimited conv) handleTip
+  where
+    handleTip (MsgHeaders (NewestFirst (tip:|[]))) = do
+        logDebug $ sformat ("Got tip "%shortHashF%", processing") (headerHash tip)
+        handleUnsolicitedHeader tip peerId conv
+    handleTip _ = pass
+
+----------------------------------------------------------------------------
+-- Headers processing
+----------------------------------------------------------------------------
 
 -- | Make 'GetHeaders' message using our main chain. This function
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'
@@ -154,7 +187,6 @@ handleUnsolicitedHeader header peerId conv = do
     uselessFormat =
         "Header " %shortHashF % " is useless for the following reason: " %stext
 
-
 -- | Result of 'matchHeadersRequest'
 data MatchReqHeadersRes
     = MRGood
@@ -184,30 +216,6 @@ matchRequestedHeaders headers MsgGetHeaders{..} inRecovery =
   where
     formChain = isVerSuccess $
         verifyHeaders True (headers & _Wrapped %~ toList)
-
-requestTipOuts :: OutSpecs
-requestTipOuts =
-    toOutSpecs [ convH (Proxy :: Proxy MsgGetHeaders)
-                       (Proxy :: Proxy (MsgHeaders ssc)) ]
-
--- Is used if we're recovering after offline and want to know what's
--- current blockchain state.
-requestTip
-    :: forall ssc s m.
-       (SscWorkersClass ssc, WorkMode ssc m)
-    => Proxy s
-    -> NodeId
-    -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
-    -> m ()
-requestTip _ peerId conv = do
-    logDebug "Requesting tip..."
-    send conv (MsgGetHeaders [] Nothing)
-    whenJustM (recvLimited conv) handleTip
-  where
-    handleTip (MsgHeaders (NewestFirst (tip:|[]))) = do
-        logDebug $ sformat ("Got tip "%shortHashF%", processing") (headerHash tip)
-        handleUnsolicitedHeader tip peerId conv
-    handleTip _ = pass
 
 -- Second argument is mghTo block header (not hash). Don't pass it
 -- only if you don't know it.
@@ -242,7 +250,6 @@ requestHeaders mgh peerId origTip _ conv = do
             ("requestHeaders: headers received were not requested, address: " % build)
             peerId
         logWarning $ sformat ("requestHeaders: unexpected headers: "%listJson) hs
-
 
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders
@@ -326,6 +333,11 @@ addToBlockRequestQueue headers peerId origTip = do
                               peerId
   where
     a `isMoreDifficult` b = a ^. difficultyL > b ^. difficultyL
+
+
+----------------------------------------------------------------------------
+-- Handling blocks
+----------------------------------------------------------------------------
 
 -- | Make message which requests chain of blocks which is based on our
 -- tip. LcaChild is the first block after LCA we don't
@@ -467,8 +479,11 @@ relayBlock sendActions (Right mainBlk) = do
         void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------
--- Logging formats
+-- Common logging / logic sink points
 ----------------------------------------------------------------------------
+
+data VerifyBlocksException = VerifyBlocksException Text deriving Show
+instance Exception VerifyBlocksException
 
 -- TODO: ban node for it!
 onFailedVerifyBlocks

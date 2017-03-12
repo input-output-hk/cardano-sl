@@ -12,7 +12,7 @@ module Pos.Explorer.Web.Sockets.Util
     ) where
 
 import           Control.Concurrent.STM.TVar      (newTVarIO, readTVarIO, writeTVar)
-import           Control.Monad.Catch              (MonadCatch)
+import           Control.Monad.Catch              (MonadCatch, MonadThrow)
 import           Control.Monad.Reader             (MonadReader)
 import           Control.Monad.State              (MonadState)
 import           Control.Monad.Trans              (MonadIO)
@@ -25,7 +25,8 @@ import           Mockable                         (Fork, Mockable, fork)
 import qualified Network.SocketIO                 as S
 import           Serokell.Util.Concurrent         (threadDelay)
 import           Snap.Core                        (Snap)
-import           System.Wlog                      (CanLog (..), WithLogger, logWarning)
+import           System.Wlog                      (CanLog (..), PureLogger (..),
+                                                   WithLogger, logWarning)
 import           Universum                        hiding (on, threadDelay)
 
 -- * Provides type-safity for event names in some socket-io functions.
@@ -100,3 +101,5 @@ forkAccompanion accompanion main = do
     bracket_ (fork $ accompanion whetherStopped)
              (atomically $ writeTVar stopped True)
              main
+
+deriving instance MonadThrow m => MonadThrow (PureLogger m)

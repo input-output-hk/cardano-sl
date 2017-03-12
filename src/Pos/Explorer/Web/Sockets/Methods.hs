@@ -45,6 +45,8 @@ import           System.Wlog                     (WithLogger, logDebug, logError
                                                   logWarning)
 import           Universum                       hiding (toList)
 
+import           Pos.Explorer.Web.ClientTypes    (CAddress, fromCAddress)
+import           Pos.Explorer.Web.Sockets.Error  (NotifierError (..))
 import           Pos.Explorer.Web.Sockets.Holder (ConnectionsState, ccAddress, ccBlock,
                                                   ccConnection, csAddressSubscribers,
                                                   csBlocksSubscribers, csClients,
@@ -89,6 +91,13 @@ instance EventName ServerEvent where
     toName CallYouString = "callyou-string"
     toName CallYouTxId   = "callyou-txid"
 
+-- * Util
+
+fromCAddressOrThrow :: MonadThrow m => CAddress -> m Address
+fromCAddressOrThrow =
+    either (\_ -> throwM $ InternalError "Malformed address") return .
+    fromCAddress
+
 -- * Client requests provessing
 
 startSession
@@ -112,12 +121,13 @@ finishSession i = whenJustM (use $ csClients . at i) finishSessionDo
         logDebug $ sformat ("Session #"%shown%" has finished") i
 
 setClientAddress
-    :: (MonadState ConnectionsState m, WithLogger m)
-    => Maybe Address -> SocketId -> m ()
-setClientAddress addr sessId = do
+    :: (MonadState ConnectionsState m, WithLogger m, MonadThrow m)
+    => Maybe CAddress -> SocketId -> m ()
+setClientAddress caddr sessId = do
+    addr <- mapM fromCAddressOrThrow caddr
     unsubscribeAddr sessId
     csClients . at sessId . _Just . ccAddress .= addr
-    whenJust addr $ flip subscribeAddr sessId
+    whenJust caddr $ flip subscribeAddr sessId
 
 setClientBlock
     :: (MonadState ConnectionsState m, WithLogger m)
@@ -127,9 +137,10 @@ setClientBlock pId sessId = do
     subscribeBlocks sessId
 
 subscribeAddr
-    :: (MonadState ConnectionsState m, WithLogger m)
-    => Address -> SocketId -> m ()
-subscribeAddr addr i = do
+    :: (MonadState ConnectionsState m, WithLogger m, MonadThrow m)
+    => CAddress -> SocketId -> m ()
+subscribeAddr caddr i = do
+    addr <- fromCAddressOrThrow caddr
     session <- use $ csClients . at i
     case session of
         Just _ -> do

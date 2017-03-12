@@ -68,7 +68,7 @@ recomputeStakes plusDistr minusDistr = do
     mapM_ (uncurry setStake) newStakes
   where
     createInfo = sformat ("Stake for " %build%" will be created in UtxoDB")
-    resolve ad = maybe (mkCoin 0 <$ logInfo (createInfo ad)) pure =<< getStake ad
+    resolve ad = whenNothingM (getStake ad) (mkCoin 0 <$ logInfo (createInfo ad))
     calcPosStakes distr = foldl' plusAt HM.empty distr
     calcNegStakes distr hm = foldl' minusAt hm distr
     -- @pva701 says it's not possible to get negative coin here. We *can* in
@@ -88,7 +88,7 @@ concatStakes
 concatStakes (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
   where
     txasTxOutDistr = concatMap concatDistr txas
-    undoTxInDistr = concatMap txOutStake (fold $ map toList undo)
+    undoTxInDistr = concatMap txOutStake (foldMap toList undo)
     concatDistr (UnsafeTx {..}, _, distr) =
         concatMap txOutStake $
         toList (NE.zipWith TxOutAux _txOutputs (getTxDistribution distr))

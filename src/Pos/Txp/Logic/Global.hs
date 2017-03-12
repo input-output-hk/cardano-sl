@@ -11,6 +11,7 @@ module Pos.Txp.Logic.Global
 
 import           Control.Monad.Except (MonadError, runExceptT)
 import qualified Data.HashMap.Strict  as HM
+import           Formatting           (build, sformat, (%))
 import           System.Wlog          (WithLogger)
 import           Universum
 
@@ -55,11 +56,8 @@ txApplyBlocks blunds = do
     let blocks = map fst blunds
     inAssertMode $ do
         verdict <- runExceptT $ txVerifyBlocks blocks
-        case verdict of
-            Right _ -> pass
-            Left errors ->
-                assertionFailed $
-                "txVerifyBlocks failed in txApplyBlocks call: " <> pretty errors
+        whenLeft verdict $ assertionFailed .
+            sformat ("txVerifyBlocks failed in txApplyBlocks call: "%build)
     txpModifierToBatch . snd <$>
         runToilAction (mapM (applyTxp . blundToAuxNUndo) blunds)
 

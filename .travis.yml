@@ -8,6 +8,7 @@ script:
 - cd frontend
 - "./scripts/build.sh"
 - nix-shell --run "npm test"
+- stack exec --nix -- cardano-explorer-docs
 notifications:
   email: false
   slack:

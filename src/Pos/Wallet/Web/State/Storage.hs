@@ -31,9 +31,10 @@ import           Control.Lens               (at, ix, makeClassy, (%=), (.=), _Ju
 import           Data.Default               (Default, def)
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import           Pos.Types                  (HeaderHash, Utxo)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTType,
-                                             CTx, CTxId, CTxMeta, CUpdateInfo,
-                                             CWalletMeta, CWalletType)
+import           Pos.Wallet.Tx.Pure         (TxHistoryEntry)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTxId,
+                                             CTxMeta, CUpdateInfo, CWalletMeta,
+                                             CWalletType)
 import           Universum
 
 type TransactionHistory = HashMap CTxId CTxMeta
@@ -43,7 +44,7 @@ data WalletStorage = WalletStorage
       _wsWalletMetas  :: !(HashMap CAddress (CWalletMeta, TransactionHistory))
     , _wsProfile      :: !(Maybe CProfile)
     , _wsReadyUpdates :: [CUpdateInfo]
-    , _wsHistoryCache :: !(HashMap CAddress (HeaderHash, Utxo, [CTx]))
+    , _wsHistoryCache :: !(HashMap CAddress (HeaderHash, Utxo, [TxHistoryEntry]))
     }
 
 makeClassy ''WalletStorage
@@ -85,7 +86,7 @@ getUpdates = view wsReadyUpdates
 getNextUpdate :: Query (Maybe CUpdateInfo)
 getNextUpdate = preview (wsReadyUpdates . _head)
 
-getHistoryCache :: CAddress -> Query (Maybe (HeaderHash, Utxo, [CTx]))
+getHistoryCache :: CAddress -> Query (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
 getHistoryCache cAddr = view $ wsHistoryCache . at cAddr
 
 createWallet :: CAddress -> CWalletMeta -> Update ()
@@ -117,10 +118,8 @@ addUpdate ui = wsReadyUpdates %= (++ [ui])
 removeNextUpdate :: Update ()
 removeNextUpdate = wsReadyUpdates %= drop 1
 
-updateHistoryCache :: CAddress -> HeaderHash -> Utxo -> [CTx] -> Update ()
-updateHistoryCache cAddr cHash utxo cTxs = do
-    oldTxs <- use $ wsHistoryCache . at cAddr . _Just . _3
-    wsHistoryCache . at cAddr .= Just (cHash, utxo, cTxs <> oldTxs)
+updateHistoryCache :: CAddress -> HeaderHash -> Utxo -> [TxHistoryEntry] -> Update ()
+updateHistoryCache cAddr cHash utxo cTxs = wsHistoryCache . at cAddr .= Just (cHash, utxo, cTxs)
 
 deriveSafeCopySimple 0 'base ''CProfile
 deriveSafeCopySimple 0 'base ''CHash
@@ -129,8 +128,7 @@ deriveSafeCopySimple 0 'base ''CCurrency
 deriveSafeCopySimple 0 'base ''CWalletType
 deriveSafeCopySimple 0 'base ''CWalletMeta
 deriveSafeCopySimple 0 'base ''CTxId
-deriveSafeCopySimple 0 'base ''CTType
-deriveSafeCopySimple 0 'base ''CTx
+deriveSafeCopySimple 0 'base ''TxHistoryEntry
 deriveSafeCopySimple 0 'base ''CTxMeta
 deriveSafeCopySimple 0 'base ''CUpdateInfo
 deriveSafeCopySimple 0 'base ''WalletStorage

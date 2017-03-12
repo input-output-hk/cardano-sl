@@ -213,9 +213,9 @@ data CTType
     | CTOut CTxMeta
     deriving (Show, Generic)
 
-ctTypeMeta :: CTType -> CTxMeta
-ctTypeMeta (CTIn meta)  = meta
-ctTypeMeta (CTOut meta) = meta
+ctTypeMeta :: Lens' CTType CTxMeta
+ctTypeMeta f (CTIn meta)  = CTIn <$> f meta
+ctTypeMeta f (CTOut meta) = CTOut <$> f meta
 
 -- | Client transaction (CTx)
 -- Provides all Data about a transaction needed by client.
@@ -228,8 +228,11 @@ data CTx = CTx
     , ctType          :: CTType -- it includes all "meta data"
     } deriving (Show, Generic)
 
+ctType' :: Lens' CTx CTType
+ctType' f (CTx id amount cf tp) = CTx id amount cf <$> f tp
+
 txContainsTitle :: Text -> CTx -> Bool
-txContainsTitle search = isInfixOf (toLower search) . toLower . ctmTitle . ctTypeMeta . ctType
+txContainsTitle search = isInfixOf (toLower search) . toLower . ctmTitle . view (ctType' . ctTypeMeta)
 
 -- | meta data of exchanges
 data CTExMeta = CTExMeta

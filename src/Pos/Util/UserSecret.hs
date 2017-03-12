@@ -1,7 +1,12 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | Secret key file storage and management functions based on file
 -- locking.
+
+#if !defined(mingw32_HOST_OS) && !defined(__MINGW32__)
+#define POSIX
+#endif
 
 module Pos.Util.UserSecret
        ( UserSecret
@@ -31,6 +36,11 @@ import           Universum            hiding (show)
 import           Pos.Binary.Class     (Bi (..), decodeFull, encode)
 import           Pos.Binary.Crypto    ()
 import           Pos.Crypto           (EncryptedSecretKey, SecretKey, VssKeyPair)
+
+#ifdef POSIX
+import           System.Posix.Files   as PSX
+import           System.Posix.Types   as PSX (FileMode)
+#endif
 
 -- | User secret data. Includes secret keys only for now (not
 -- including auxiliary @_usPath@).
@@ -81,19 +91,52 @@ instance Bi UserSecret where
         keys <- get
         return $ def & usVss .~ vss & usPrimKey .~ pkey & usKeys .~ keys
 
+#ifdef POSIX
+-- | Constant that defines file mode 600.
+mode600 :: PSX.FileMode
+mode600 = PSX.unionFileModes PSX.ownerReadMode PSX.ownerWriteMode
+
+-- | Check whether a given file has mode 600.
+checkMode600 :: (MonadIO m) => FilePath -> m Bool
+checkMode600 path = do
+    mode <- liftIO $ PSX.fileMode <$> PSX.getFileStatus path
+    pure (mode == mode600)
+
+-- | Set mode 600 on a given file, regardless of its current mode.
+setMode600 :: (MonadIO m) => FilePath -> m ()
+setMode600 path = liftIO $ PSX.setFileMode path mode600
+#endif
+
 -- | Create user secret file at the given path, but only when one doesn't
 -- already exist.
 initializeUserSecret :: (MonadIO m) => FilePath -> m ()
 initializeUserSecret path = do
     exists <- T.testfile (fromString path)
-    liftIO (if exists
-            then return ()
-            else T.output (fromString path) empty)
+    liftIO $
+        if exists
+        then do
+#ifdef POSIX
+            modeOk <- checkMode600 path
+            when (not modeOk) $
+                fail "Secret file mode incorrect. Set it to 600 and try again."
+#else
+            return ()
+#endif
+        else do
+            T.output (fromString path) empty
+#ifdef POSIX
+            setMode600 path
+#endif
 
 -- | Reads user secret from file, assuming that file exists,
--- throws exception in other case
+-- and has mode 600, throws exception in other case
 readUserSecret :: MonadIO m => FilePath -> m UserSecret
 readUserSecret path = takeReadLock path $ do
+#ifdef POSIX
+    modeOk <- checkMode600 path
+    when (not modeOk) $
+        fail "Secret file mode incorrect. Set it to 600 and try again."
+#endif
     content <- either fail pure . decodeFull =<< BSL.readFile path
     pure $ content & usPath .~ path
 
@@ -109,6 +152,7 @@ peekUserSecret path = takeReadLock path $ do
 -- 'writeUserSecretRelease'.
 takeUserSecret :: (MonadIO m) => FilePath -> m UserSecret
 takeUserSecret path = liftIO $ do
+    initializeUserSecret path
     l <- lockFile (lockFilePath path) Exclusive
     econtent <- decodeFull <$> BSL.readFile path
     pure $ either (const def) identity econtent

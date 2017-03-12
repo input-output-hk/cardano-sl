@@ -472,6 +472,9 @@ library
                       , wreq
                       , yaml
 
+  if !os(windows)
+    build-depends:      unix
+
   if flag(with-web)
     build-depends:      http-types
                       , servant >= 0.8.1

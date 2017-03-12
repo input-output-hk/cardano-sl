@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 -- | Pure version of UTXO.
 
 module Pos.Txp.Toil.Utxo.Pure
@@ -34,6 +36,9 @@ import           Pos.Txp.Core.Types          (Tx, TxAux, TxDistribution)
 import           Pos.Txp.Toil.Class          (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Types          (Utxo)
 import           Pos.Txp.Toil.Utxo.Functions (applyTxToUtxo, verifyTxUtxo)
+#ifdef WITH_EXPLORER
+import           Pos.Txp.Toil.Class          (MonadTxExtraRead (..))
+#endif
 
 ----------------------------------------------------------------------------
 -- Reader
@@ -45,6 +50,11 @@ newtype UtxoReaderT m a = UtxoReaderT
 
 instance Monad m => MonadUtxoRead (UtxoReaderT m) where
     utxoGet id = UtxoReaderT $ view $ at id
+
+#ifdef WITH_EXPLORER
+instance Monad m => MonadTxExtraRead (UtxoReaderT m) where
+    getTxExtra _ = pure Nothing
+#endif
 
 instance MonadTrans UtxoReaderT where
     lift = UtxoReaderT . lift
@@ -71,6 +81,11 @@ instance Monad m => MonadUtxoRead (UtxoStateT m) where
 instance Monad m => MonadUtxo (UtxoStateT m) where
     utxoPut id v = UtxoStateT $ at id .= Just v
     utxoDel id = UtxoStateT $ at id .= Nothing
+
+#ifdef WITH_EXPLORER
+instance Monad m => MonadTxExtraRead (UtxoStateT m) where
+    getTxExtra _ = pure Nothing
+#endif
 
 instance MonadTrans UtxoStateT where
     lift = UtxoStateT . lift

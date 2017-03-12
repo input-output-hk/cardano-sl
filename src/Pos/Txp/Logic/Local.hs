@@ -29,7 +29,7 @@ import           Pos.Txp.Toil         (MemPool (..), MonadUtxoRead (..), TxpModi
                                        processTx, runDBTxp, runTxpTLocal, runUtxoReaderT,
                                        utxoGet)
 #ifdef WITH_EXPLORER
-import           Pos.Txp.Toil.Types   (Utxo)
+import           Pos.Txp.Toil         (Utxo)
 import           Pos.Types.Explorer   (TxExtra (..))
 #endif
 
@@ -60,7 +60,7 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: "%build) txId
             throwError er
-        Right _   -> do
+        Right _   ->
             logDebug (sformat ("Transaction is processed successfully: "%build) txId)
   where
     processTxDo resolved tipBefore tx txld@(uv, mp, undo, tip)
@@ -82,7 +82,7 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
     runUM um = runTxpTLocal um def mempty
 #ifdef WITH_EXPLORER
     makeExtra :: Utxo -> TxExtra
-    makeExtra resolved = TxExtra Nothing $ map fst $ toList resolved
+    makeExtra resolved = TxExtra Nothing $ NE.fromList $ toList resolved
 #endif
 
 -- | 1. Recompute UtxoView by current MemPool

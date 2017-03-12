@@ -99,11 +99,7 @@ instance MonadBalances m => MonadBalances (ExceptT s m)
 class Monad m => MonadTxPool m where
     hasTx :: TxId -> m Bool
     poolSize :: m Int
-#ifdef WITH_EXPLORER
-    putTxWithUndo :: TxId -> TxAux -> TxUndo -> TxExtra -> m ()
-#else
     putTxWithUndo :: TxId -> TxAux -> TxUndo -> m ()
-#endif
 
     default hasTx
         :: (MonadTrans t, MonadTxPool m', t m' ~ m) => TxId -> m Bool
@@ -113,15 +109,9 @@ class Monad m => MonadTxPool m where
         :: (MonadTrans t, MonadTxPool m', t m' ~ m) => m Int
     poolSize = lift poolSize
 
-#ifdef WITH_EXPLORER
-    default putTxWithUndo
-        :: (MonadTrans t, MonadTxPool m', t m' ~ m) => TxId -> TxAux -> TxUndo -> TxExtra -> m ()
-    putTxWithUndo id tx undo = lift . putTxWithUndo id tx undo
-#else
     default putTxWithUndo
         :: (MonadTrans t, MonadTxPool m', t m' ~ m) => TxId -> TxAux -> TxUndo -> m ()
     putTxWithUndo id tx = lift . putTxWithUndo id tx
-#endif
 
 instance MonadTxPool m => MonadTxPool (ReaderT s m)
 instance MonadTxPool m => MonadTxPool (StateT s m)

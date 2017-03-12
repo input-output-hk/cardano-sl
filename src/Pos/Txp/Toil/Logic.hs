@@ -48,6 +48,9 @@ type GlobalTxpMode m = ( MonadUtxo m
 
 type LocalTxpMode m = ( MonadUtxo m
                       , MonadTxPool m
+#ifdef WITH_EXPLORER
+                      , MonadTxExtra m
+#endif
                       , MonadError TxpVerFailure m)
 
 -- CHECK: @verifyTxp
@@ -79,7 +82,7 @@ applyTxp txun = do
   where
     applier (i, (txaux@(tx, _, _), txundo)) = do
         let id = hash tx
-            extra = TxExtra (Just (hh, i)) $ map fst txundo
+            extra = TxExtra (Just (hh, i)) $ NE.fromList txundo
         applyTxToUtxo' (id, txaux)
         putTxExtra id extra
 #else
@@ -132,10 +135,9 @@ processTx tx@(id, aux) = do
     whenM (hasTx id) $ throwError TxpKnown
     whenM ((>= maxLocalTxs) <$> poolSize) $ throwError TxpOverwhelmed
     undo <- processTxWithPureChecks True tx
-#ifdef WITH_EXPLORER
-    putTxWithUndo id aux undo extra
-#else
     putTxWithUndo id aux undo
+#ifdef WITH_EXPLORER
+    putTxExtra id extra
 #endif
 
 ----------------------------------------------------------------------------

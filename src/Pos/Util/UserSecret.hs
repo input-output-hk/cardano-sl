@@ -97,10 +97,11 @@ mode600 :: PSX.FileMode
 mode600 = PSX.unionFileModes PSX.ownerReadMode PSX.ownerWriteMode
 
 -- | Check whether a given file has mode 600.
-checkMode600 :: (MonadIO m) => FilePath -> m Bool
-checkMode600 path = do
+failIfModeNot600 :: (MonadIO m, MonadFail m) => FilePath -> m ()
+failIfModeNot600 path = do
     mode <- liftIO $ PSX.fileMode <$> PSX.getFileStatus path
-    pure (mode == mode600)
+    when (mode /= mode600) $
+        fail "Secret file mode incorrect. Set it to 600 and try again."
 
 -- | Set mode 600 on a given file, regardless of its current mode.
 setMode600 :: (MonadIO m) => FilePath -> m ()
@@ -113,29 +114,26 @@ initializeUserSecret :: (MonadIO m) => FilePath -> m ()
 initializeUserSecret path = do
     exists <- T.testfile (fromString path)
     liftIO $
-        if exists
-        then do
 #ifdef POSIX
-            modeOk <- checkMode600 path
-            when (not modeOk) $
-                fail "Secret file mode incorrect. Set it to 600 and try again."
+        if exists
+        then failIfModeNot600 path
         else do
-            T.output (fromString path) empty
+            createEmptyFile path
             setMode600 path
 #else
-        if exists
-        then return ()
-        else T.output (fromString path) empty
+        when (not exists) $
+            createEmptyFile path
 #endif
+  where
+    createEmptyFile :: (MonadIO m) => FilePath -> m ()
+    createEmptyFile path = T.output (fromString path) empty
 
 -- | Reads user secret from file, assuming that file exists,
 -- and has mode 600, throws exception in other case
 readUserSecret :: MonadIO m => FilePath -> m UserSecret
 readUserSecret path = takeReadLock path $ do
 #ifdef POSIX
-    modeOk <- checkMode600 path
-    when (not modeOk) $
-        fail "Secret file mode incorrect. Set it to 600 and try again."
+    failIfModeNot600 path
 #endif
     content <- either fail pure . decodeFull =<< BSL.readFile path
     pure $ content & usPath .~ path

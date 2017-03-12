@@ -119,13 +119,13 @@ initializeUserSecret path = do
             modeOk <- checkMode600 path
             when (not modeOk) $
                 fail "Secret file mode incorrect. Set it to 600 and try again."
-#else
-            return ()
-#endif
         else do
             T.output (fromString path) empty
-#ifdef POSIX
             setMode600 path
+#else
+        if exists
+        then return ()
+        else T.output (fromString path) empty
 #endif
 
 -- | Reads user secret from file, assuming that file exists,

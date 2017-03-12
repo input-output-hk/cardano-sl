@@ -29,9 +29,10 @@ import           Pos.Types                  (Coin, SoftwareVersion, makePubKeyAd
                                              mkCoin)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.Api         (walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTx,
-                                             CTxId, CTxMeta, CUpdateInfo, CWallet,
-                                             CWalletInit, CWalletMeta, CWalletRedeem (..),
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash,
+                                             CInitialized (..), CProfile, CTx, CTxId,
+                                             CTxMeta, CUpdateInfo, CWallet, CWalletInit,
+                                             CWalletMeta, CWalletRedeem (..),
                                              SyncProgress, addressToCAddress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
@@ -256,6 +257,10 @@ instance ToSample SoftwareVersion where
 
 instance ToSample SyncProgress where
     toSamples Proxy = singleSample def
+
+instance ToSample CInitialized where
+    toSamples Proxy = singleSample $ CInitialized 123 456
+
 
 --
 --instance ToSample Tx where

@@ -5,6 +5,7 @@
 
 module Pos.Reporting.Methods
        ( sendReportNode
+       , sendReportNodeNologs
        , getNodeInfo
        , reportMisbehaviour
        , reportMisbehaviourMasked
@@ -69,13 +70,9 @@ sendReportNode
     :: (MonadIO m, MonadMask m, MonadReportingMem m)
     => Version -> ReportType -> m ()
 sendReportNode version reportType = do
-    servers <- _rprReportServers <$> askReportingMem
     memLogs <- takeGlobalSize charsConst <$> readMemoryLogs
-    errors <- fmap lefts $ forM servers $ try .
-        sendReport [] memLogs reportType "cardano-node" version . T.unpack
-    whenNotNull errors $ throwSE . NE.head
+    sendReportNodeImpl memLogs version reportType
   where
-    throwSE (e :: SomeException) = throwM e
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int
     charsConst = 1024 * 1024 * 2
@@ -84,6 +81,24 @@ sendReportNode version reportType = do
     takeGlobalSize curLimit (t:xs) =
         let delta = curLimit - length t
         in bool [] (t:(takeGlobalSize delta xs)) (delta > 0)
+
+-- | Same as 'sendReportNode', but doesn't attach any logs.
+sendReportNodeNologs
+    :: (MonadIO m, MonadMask m, MonadReportingMem m)
+    => Version -> ReportType -> m ()
+sendReportNodeNologs = sendReportNodeImpl []
+
+sendReportNodeImpl
+    :: (MonadIO m, MonadMask m, MonadReportingMem m)
+    => [Text] -> Version -> ReportType -> m ()
+sendReportNodeImpl memLogs version reportType = do
+    servers <- _rprReportServers <$> askReportingMem
+    errors <- fmap lefts $ forM servers $ try .
+        sendReport [] memLogs reportType "cardano-node" version . T.unpack
+    whenNotNull errors $ throwSE . NE.head
+  where
+    throwSE (e :: SomeException) = throwM e
+
 
 -- checks if ipv4 is from local range
 ipv4Local :: Word32 -> Bool

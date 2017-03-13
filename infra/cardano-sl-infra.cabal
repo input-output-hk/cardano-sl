@@ -111,7 +111,7 @@ library
                       , kademlia
                       , lens
                       , list-t
-                      , log-warper >= 0.4.3
+                      , log-warper >= 1.0.3
                       , monad-control
                       , mtl
                       , network-info

@@ -10,6 +10,10 @@ copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
+data-files:
+  constants-dev.yaml
+  constants-prod.yaml
+  constants-wallet-prod.yaml
 
 flag dev-mode
   default:     True

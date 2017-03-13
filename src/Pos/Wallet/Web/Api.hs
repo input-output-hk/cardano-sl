@@ -162,7 +162,7 @@ type WalletApi =
      :> "redemptions"
      :> "ada"
      :> ReqBody '[JSON] CWalletRedeem
-     :> Post '[JSON] (Either WalletError CWallet)
+     :> Post '[JSON] (Either WalletError CTx)
     :<|>
      ----------------------------------------------------------------------------
      -- Reporting

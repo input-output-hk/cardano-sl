@@ -382,15 +382,17 @@ getHistory cAddr skip limit = do
 
     TxHistoryAnswer {..} <- flip (untag @ssc getTxHistory) minit
         =<< decodeCAddressOrFail cAddr
-    cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) taHistory
 
     -- Add allowed portion of result to cache
-    let fullHistory = cHistory <> cachedTxs
-        lenHistory = length cHistory
-        cached = drop (lenHistory - taCachedNum) cHistory
+    let fullHistory = taHistory <> cachedTxs
+        lenHistory = length taHistory
+        cached = drop (lenHistory - taCachedNum) taHistory
 
-    updateHistoryCache cAddr taLastCachedHash taCachedUtxo cached
-    pure (paginate fullHistory, fromIntegral $ length fullHistory)
+    unless (null cached) $
+        updateHistoryCache cAddr taLastCachedHash taCachedUtxo (cached <> cachedTxs)
+
+    cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) fullHistory
+    pure (paginate cHistory, fromIntegral $ length cHistory)
   where
     paginate     = take defaultLimit . drop defaultSkip
     defaultLimit = (fromIntegral $ fromMaybe 100 limit)
@@ -470,7 +472,7 @@ nextUpdate = getNextUpdate >>=
 applyUpdate :: WalletWebMode ssc m => m ()
 applyUpdate = removeNextUpdate >> applyLastUpdate
 
-redeemADA :: WalletWebMode ssc m => SendActions m -> CWalletRedeem -> m CWallet
+redeemADA :: WalletWebMode ssc m => SendActions m -> CWalletRedeem -> m CTx
 redeemADA sendActions CWalletRedeem {..} = do
     seedBs <- either
         (\e -> throwM $ Internal ("Seed is invalid base64 string: " <> toText e))
@@ -489,9 +491,8 @@ redeemADA sendActions CWalletRedeem {..} = do
         Left err -> throwM . Internal $ "Cannot send redemption transaction: " <> err
         Right (tx, _, _) -> do
             -- add redemption transaction to the history of new wallet
-            () <$ addHistoryTx dstCAddr ADA "ADA redemption" ""
-                (THEntry (hash tx) tx False Nothing)
-            pure walletB
+            addHistoryTx dstCAddr ADA "ADA redemption" ""
+              (THEntry (hash tx) tx False Nothing)
 
 reportingInitialized :: forall ssc m. WalletWebMode ssc m => CInitialized -> m ()
 reportingInitialized cinit = do

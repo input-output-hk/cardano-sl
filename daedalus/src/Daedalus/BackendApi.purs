@@ -147,7 +147,7 @@ applyUpdate :: forall eff. Aff (ajax :: AJAX | eff) Unit
 applyUpdate = postR ["update"]
 --------------------------------------------------------------------------------
 -- REDEMPTIONS -----------------------------------------------------------------
-redeemADA :: forall eff. CWalletRedeem -> Aff (ajax :: AJAX | eff) CWallet
+redeemADA :: forall eff. CWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
 redeemADA = postRBody ["redemptions", "ada"]
 --------------------------------------------------------------------------------
 -- REPORTING ---------------------------------------------------------------------

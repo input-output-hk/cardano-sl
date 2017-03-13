@@ -5,34 +5,34 @@
 
 -- | Types representing client (wallet) requests on wallet API.
 module Pos.Wallet.Web.ClientTypes
-       ( SyncProgress (..)
-       , CAddress
-       , CCurrency (..)
-       , CHash
-       , CTType (..)
-       , CProfile (..)
-       , CPwHash
-       , CTx (..)
-       , CTxId
-       , CTxMeta (..)
-       , CTExMeta (..)
-       , CWallet (..)
-       , CWalletType (..)
-       , CWalletMeta (..)
-       , CWalletInit (..)
-       , CUpdateInfo (..)
-       , CWalletRedeem (..)
-       , CInitialized (..)
-       , NotifyEvent (..)
-       , addressToCAddress
-       , cAddressToAddress
-       , mkCTx
-       , mkCTxId
-       , txIdToCTxId
-       , ctTypeMeta
-       , txContainsTitle
-       , toCUpdateInfo
-       ) where
+      ( SyncProgress (..)
+      , CAddress (..)
+      , CCurrency (..)
+      , CHash (..)
+      , CTType (..)
+      , CProfile (..)
+      , CPwHash
+      , CTx (..)
+      , CTxId
+      , CTxMeta (..)
+      , CTExMeta (..)
+      , CInitialized (..)
+      , CWallet (..)
+      , CWalletType (..)
+      , CWalletMeta (..)
+      , CWalletInit (..)
+      , CUpdateInfo (..)
+      , CWalletRedeem (..)
+      , NotifyEvent (..)
+      , addressToCAddress
+      , cAddressToAddress
+      , mkCTx
+      , mkCTxId
+      , txIdToCTxId
+      , ctTypeMeta
+      , txContainsTitle
+      , toCUpdateInfo
+      ) where
 
 import           Data.Text             (Text, isInfixOf, toLower)
 import           GHC.Generics          (Generic)
@@ -216,9 +216,9 @@ data CTType
     | CTOut CTxMeta
     deriving (Show, Generic)
 
-ctTypeMeta :: CTType -> CTxMeta
-ctTypeMeta (CTIn meta)  = meta
-ctTypeMeta (CTOut meta) = meta
+ctTypeMeta :: Lens' CTType CTxMeta
+ctTypeMeta f (CTIn meta)  = CTIn <$> f meta
+ctTypeMeta f (CTOut meta) = CTOut <$> f meta
 
 -- | Client transaction (CTx)
 -- Provides all Data about a transaction needed by client.
@@ -231,8 +231,11 @@ data CTx = CTx
     , ctType          :: CTType -- it includes all "meta data"
     } deriving (Show, Generic)
 
+ctType' :: Lens' CTx CTType
+ctType' f (CTx id amount cf tp) = CTx id amount cf <$> f tp
+
 txContainsTitle :: Text -> CTx -> Bool
-txContainsTitle search = isInfixOf (toLower search) . toLower . ctmTitle . ctTypeMeta . ctType
+txContainsTitle search = isInfixOf (toLower search) . toLower . ctmTitle . view (ctType' . ctTypeMeta)
 
 -- | meta data of exchanges
 data CTExMeta = CTExMeta

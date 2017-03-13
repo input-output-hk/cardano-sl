@@ -10,12 +10,10 @@ copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
-data-dir:
-  ../
 data-files:
   constants-dev.yaml
-  constants-wallet-prod.yaml
   constants-prod.yaml
+  constants-wallet-prod.yaml
 
 flag dev-mode
   default:     True
@@ -30,7 +28,6 @@ library
                        Pos.Core.Class
                        Pos.Core.Coin
                        Pos.Core.Constants
-                       Pos.Core.Constants.Type
                        Pos.Core.Script
                        Pos.Core.Slotting
                        Pos.Core.Timestamp
@@ -64,10 +61,10 @@ library
                        Pos.Util.Modifier
                        Pos.Util.Util
 
-  other-modules:       Paths_cardano_sl_core
+  other-modules:       Pos.Util.Config.Path
 
-  build-depends:       base
-                     , aeson
+  build-depends:       aeson
+                     , base
                      , base58-bytestring
                      , log-warper
                       -- This constraint on 'binary' is so strict because

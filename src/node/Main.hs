@@ -127,38 +127,32 @@ action args@Args {..} res = do
   where
     convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
 
-#ifdef DEV_MODE
 userSecretWithGenesisKey
     :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m (SecretKey, UserSecret)
-userSecretWithGenesisKey Args {..} userSecret = case spendingGenesisI of
-    Nothing -> fetchPrimaryKey userSecret
-    Just i -> do
-        let sk = genesisDevSecretKeys !! i
-            us = userSecret & usPrimKey .~ Just sk
-        writeUserSecret us
-        return (sk, us)
+userSecretWithGenesisKey Args{..} userSecret
+    | isDevelopment = case devSpendingGenesisI of
+          Nothing -> fetchPrimaryKey userSecret
+          Just i -> do
+              let sk = genesisDevSecretKeys !! i
+                  us = userSecret & usPrimKey .~ Just sk
+              writeUserSecret us
+              return (sk, us)
+    | otherwise = fetchPrimaryKey userSecret
 
 getKeyfilePath :: Args -> FilePath
-getKeyfilePath Args {..} =
-    maybe keyfilePath (\i -> "node-" ++ show i ++ "." ++ keyfilePath) spendingGenesisI
+getKeyfilePath Args {..}
+    | isDevelopment = case devSpendingGenesisI of
+          Nothing -> keyfilePath
+          Just i  -> "node-" ++ show i ++ "." ++ keyfilePath
+    | otherwise = keyfilePath
 
 updateUserSecretVSS
     :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m UserSecret
-updateUserSecretVSS Args {..} us = case vssGenesisI of
-    Just i  -> return $ us & usVss .~ Just (genesisDevVssKeyPairs !! i)
-    Nothing -> fillUserSecretVSS us
-#else
-userSecretWithGenesisKey
-    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m (SecretKey, UserSecret)
-userSecretWithGenesisKey _ = fetchPrimaryKey
-
-getKeyfilePath :: Args -> FilePath
-getKeyfilePath = keyfilePath
-
-updateUserSecretVSS
-    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m UserSecret
-updateUserSecretVSS _ = fillUserSecretVSS
-#endif
+updateUserSecretVSS Args{..} us
+    | isDevelopment = case devVssGenesisI of
+          Nothing -> fillUserSecretVSS us
+          Just i  -> return $ us & usVss .~ Just (genesisDevVssKeyPairs !! i)
+    | otherwise = fillUserSecretVSS us
 
 fetchPrimaryKey :: (MonadIO m, MonadFail m) => UserSecret -> m (SecretKey, UserSecret)
 fetchPrimaryKey userSecret = case userSecret ^. usPrimKey of

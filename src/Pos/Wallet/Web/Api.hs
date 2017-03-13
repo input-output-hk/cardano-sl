@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP           #-}
 {-# LANGUAGE DataKinds     #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -16,19 +15,19 @@ import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CProfile, CTx,
                                              CTxMeta, CUpdateInfo, CWallet, CWalletInit,
                                              CWalletMeta, CWalletRedeem, SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
-import           Servant.API                ((:<|>), (:>), Capture, JSON, Get, Post, Put, Delete, ReqBody, QueryParam)
+import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
+                                             Post, Put, QueryParam, ReqBody)
 import           Universum
 
 -- | Servant API which provides access to wallet.
 -- TODO: Should be composed depending on the resource - wallets, txs, ... http://haskell-servant.github.io/tutorial/0.4/server.html#nested-apis
 type WalletApi =
-#ifdef DEV_MODE
+     -- only works in development mode, gives 403 otherwise
      "api"
      :> "test"
      :> "reset"
      :> Post '[JSON] (Either WalletError ())
     :<|>
-#endif
      ----------------------------WALLETS----------------------------
      "api"
      :> "wallets"

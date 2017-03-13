@@ -27,7 +27,7 @@ import           Pos.Block.Network.Retrieval (requestTipOuts, retrievalWorker,
                                               triggerRecovery)
 import           Pos.Communication.Protocol  (OutSpecs, Worker', WorkerSpec,
                                               onNewSlotWorker, worker)
-import           Pos.Constants               (networkDiameter)
+import           Pos.Constants               (isDevelopment, networkDiameter)
 import           Pos.Context                 (getNodeContext, isRecoveryMode, ncPublicKey)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
@@ -38,7 +38,7 @@ import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Reporting.Methods       (reportingFatal)
 import           Pos.Slotting                (currentTimeSlotting, getCurrentSlot,
                                               getSlotStartEmpatically)
-#if !defined(DEV_MODE) && defined(WITH_WALLET)
+#if defined(WITH_WALLET)
 import           Data.Time.Units             (convertUnit)
 import           Pos.Slotting                (getLastKnownSlotDuration)
 #endif
@@ -57,13 +57,12 @@ import           Pos.WorkMode                (WorkMode)
 -- | All workers specific to block processing.
 blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => ([WorkerSpec m], OutSpecs)
 blkWorkers =
-    merge [ blkOnNewSlot
-          , retrievalWorker
-          , recoveryWorker
-#if !defined(DEV_MODE) && defined(WITH_WALLET)
-          , behindNatWorker
+    merge $ [ blkOnNewSlot
+            , retrievalWorker
+            , recoveryWorker ]
+#if defined(WITH_WALLET)
+            ++ [ behindNatWorker | not isDevelopment ]
 #endif
-          ]
   where
     merge = mconcatPair . map (first pure)
 
@@ -214,7 +213,7 @@ recoveryWorkerImpl sendActions = action `catch` handler
         delay (sec 10)
         action `catch` handler
 
-#if !defined(DEV_MODE) && defined(WITH_WALLET)
+#if defined(WITH_WALLET)
 -- | This one just triggers every @max (slotDur / 4) 5@ seconds and
 -- asks for current tip. Does nothing when recovery is enabled.
 behindNatWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)

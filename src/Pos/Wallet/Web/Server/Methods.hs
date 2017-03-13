@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -29,7 +28,7 @@ import           Formatting                    (build, ords, sformat, stext, (%)
 import           Network.Wai                   (Application)
 import           Servant.API                   ((:<|>) ((:<|>)),
                                                 FromHttpApiData (parseUrlPiece))
-import           Servant.Server                (Handler, Server, ServerT, serve)
+import           Servant.Server                (Handler, Server, ServerT, err403, serve)
 import           Servant.Utils.Enter           ((:~>) (..), enter)
 import           System.Wlog                   (logDebug, logInfo)
 import           Universum
@@ -226,10 +225,8 @@ servantHandlers
        (SscHelpersClass ssc, WalletWebMode ssc m)
     => SendActions m -> ServerT WalletApi m
 servantHandlers sendActions =
-#ifdef DEV_MODE
      catchWalletError testResetAll
     :<|>
-#endif
      apiGetWallet
     :<|>
      apiGetWallets
@@ -504,14 +501,13 @@ syncProgress = do
     <*> networkChainDifficulty
     <*> connectedPeers
 
-#ifdef DEV_MODE
 testResetAll :: WalletWebMode ssc m => m ()
-testResetAll = deleteAllKeys >> testReset
+testResetAll | isDevelopment = deleteAllKeys >> testReset
+             | otherwise     = throwM err403
   where
     deleteAllKeys = do
         keyNum <- fromIntegral . pred . length <$> getSecretKeys
         sequence_ $ replicate keyNum $ deleteSecretKey 1
-#endif
 
 ---------------------------------------------------------------------------
 -- Helpers

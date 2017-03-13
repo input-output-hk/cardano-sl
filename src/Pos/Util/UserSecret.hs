@@ -185,14 +185,15 @@ writeRaw u = do
     let path = u ^. usPath
     -- On POSIX platforms, openTempFile guarantees that the file
     -- will be created with mode 600.
-    tempPath <- bracket
+    bracket
         (openTempFile (takeDirectory path) (takeFileName path))
-        (\(tempPath, tempHandle) -> hClose tempHandle)
+        (\(tempPath, tempHandle) -> do
+            hClose tempHandle
+            renameFile tempPath path
+        )
         (\(tempPath, tempHandle) -> do
             BSL.hPut tempHandle $ encode u
-            pure tempPath
         )
-    renameFile tempPath path
 
 -- | Helper for taking shared lock on file
 takeReadLock :: MonadIO m => FilePath -> IO a -> m a

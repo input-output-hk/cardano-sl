@@ -6,10 +6,8 @@ module Pos.DHT.Constants
 
 import           Universum
 
-import           Pos.Infra.Constants.Parser (infraConstants)
-import           Pos.Infra.Constants.Type   (ccEnhancedMessageBroadcast,
-                                             ccKademliaDumpInterval,
-                                             ccNeighboursSendThreshold)
+import           Pos.Infra.Constants (ccEnhancedMessageBroadcast, ccKademliaDumpInterval,
+                                      ccNeighboursSendThreshold, infraConstants)
 
 -- | See 'Pos.CompileConfig.ccNeighboursSendThreshold'.
 neighborsSendThreshold :: Integral a => a

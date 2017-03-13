@@ -8,7 +8,7 @@ module Pos.Wallet.Web.Doc
 
 import           Control.Lens               ((<>~))
 import qualified Data.HashMap.Strict        as HM
-import           Data.Time                  (defaultTimeLocale, readTime)
+import           Data.Time                  (defaultTimeLocale, parseTimeOrError)
 import           Data.Time.Clock.POSIX      (POSIXTime, utcTimeToPOSIXSeconds)
 import           Network.HTTP.Types.Method  (methodPost)
 import           Servant.API                (Capture, QueryParam)
@@ -201,7 +201,7 @@ instance ToCapture (Capture "key" FilePath) where
 -- sample data --
 --------------------------------------------------------------------------------
 posixTime :: POSIXTime
-posixTime = utcTimeToPOSIXSeconds (readTime defaultTimeLocale "%F" "2017-12-03")
+posixTime = utcTimeToPOSIXSeconds (parseTimeOrError True defaultTimeLocale "%F" "2017-12-03")
 
 ctxMeta :: CTxMeta
 ctxMeta = CTxMeta

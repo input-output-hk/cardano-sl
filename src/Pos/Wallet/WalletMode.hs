@@ -3,6 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE CPP #-}
 
 -- | 'WalletMode' constraint. Like `WorkMode`, but for wallet.
 
@@ -157,7 +158,13 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
         pure $ error "getTxHistory is not implemented for light wallet"
     saveTx _ = pure ()
 
-instance (MonadDB m, MonadThrow m, WithLogger m, PC.WithNodeContext s m) =>
+instance ( MonadDB m
+         , MonadThrow m
+         , WithLogger m
+#ifdef WITH_EXPLORER
+         , MonadSlots m
+#endif
+         , PC.WithNodeContext s m) =>
          MonadTxHistory (TxpHolder m) where
     getTxHistory :: forall ssc. SscHelpersClass ssc
                  => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> TxpHolder m TxHistoryAnswer)

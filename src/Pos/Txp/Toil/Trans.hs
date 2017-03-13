@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 -- | ToilT monad transformer. Single-threaded.
 
 module Pos.Txp.Toil.Trans
@@ -29,6 +31,11 @@ import           Pos.Txp.Toil.Types        (MemPool, ToilModifier (..), UndoMap,
                                             tmUndos, tmUtxo)
 import           Pos.Util.JsonLog          (MonadJL (..))
 import qualified Pos.Util.Modifier         as MM
+
+#ifdef WITH_EXPLORER
+import           Pos.Txp.Toil.Class        (MonadTxExtra (..), MonadTxExtraRead (..))
+import           Pos.Txp.Toil.Types        (mpLocalTxsExtra)
+#endif
 
 ----------------------------------------------------------------------------
 -- Tranformer
@@ -92,6 +99,18 @@ instance Monad m => MonadTxPool (ToilT m) where
             tmUndos . at id .= Just undo
 
     poolSize = ToilT $ use $ tmMemPool . mpLocalTxsSize
+
+#ifdef WITH_EXPLORER
+instance MonadTxExtraRead m => MonadTxExtraRead (ToilT m) where
+    getTxExtra id = ToilT $
+        MM.lookupM getTxExtra id =<< use (tmMemPool . mpLocalTxsExtra)
+
+instance MonadTxExtraRead m => MonadTxExtra (ToilT m) where
+    putTxExtra id extra = ToilT $
+        tmMemPool . mpLocalTxsExtra %= MM.insert id extra
+    delTxExtra id = ToilT $
+        tmMemPool . mpLocalTxsExtra %= MM.delete id
+#endif
 
 ----------------------------------------------------------------------------
 -- Runners

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE ConstraintKinds #-}
 
 -- | Logic for local processing of transactions.
@@ -19,18 +20,33 @@ import           Universum
 import           Pos.DB.Class         (MonadDB)
 import qualified Pos.DB.GState        as GS
 import           Pos.Txp.Core         (Tx (..), TxAux, TxId)
-import           Pos.Txp.MemState     (MonadTxpMem (..), getLocalTxs, getUtxoModifier,
+#ifndef WITH_EXPLORER
+import           Pos.Txp.MemState     (getLocalTxs)
+#endif
+import           Pos.Txp.MemState     (MonadTxpMem (..), getUtxoModifier,
                                        modifyTxpLocalData, setTxpLocalData)
 import           Pos.Txp.Toil         (MonadUtxoRead (..), ToilModifier (..),
                                        ToilVerFailure (..), execToilTLocal, normalizeTxp,
                                        processTx, runDBTxp, runToilTLocal, runUtxoReaderT,
                                        utxoGet)
+#ifdef WITH_EXPLORER
+import qualified Data.HashMap.Strict  as HM
+
+import           Pos.Txp.MemState     (getMemPool)
+import qualified Pos.Util.Modifier    as MM
+import           Pos.Slotting         (MonadSlots (currentTimeSlotting))
+import           Pos.Txp.Toil         (Utxo, MemPool (..))
+import           Pos.Types            (TxExtra (..), Timestamp)
+#endif
 
 type TxpLocalWorkMode m =
     ( MonadDB m
     , MonadTxpMem m
     , WithLogger m
     , MonadError ToilVerFailure m
+#ifdef WITH_EXPLORER
+    , MonadSlots m
+#endif
     )
 
 -- CHECK: @processTx
@@ -53,7 +69,14 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
                    catMaybes $
                    toList $
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
-    pRes <- modifyTxpLocalData $ processTxDo resolved tipBefore itw
+#ifdef WITH_EXPLORER
+    curTime <- currentTimeSlotting
+#endif
+    pRes <- modifyTxpLocalData $
+            processTxDo resolved tipBefore itw
+#ifdef WITH_EXPLORER
+            curTime
+#endif
     case pRes of
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: "%build) txId
@@ -61,18 +84,33 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
         Right _   ->
             logDebug (sformat ("Transaction is processed successfully: "%build) txId)
   where
+#ifdef WITH_EXPLORER
+    processTxDo resolved tipBefore tx curTime txld@(uv, mp, undo, tip)
+#else
     processTxDo resolved tipBefore tx txld@(uv, mp, undo, tip)
+#endif
         | tipBefore /= tip = (Left $ ToilTipsMismatch tipBefore tip, txld)
         | otherwise =
             let res = runExcept $
                       flip runUtxoReaderT resolved $
                       execToilTLocal uv mp undo $
-                      processTx tx in
+#ifdef WITH_EXPLORER
+                      processTx tx $ makeExtra resolved curTime
+#else
+                      processTx tx
+#endif
+            in
             case res of
                 Left er  -> (Left er, txld)
                 Right ToilModifier{..} ->
                     (Right (), (_tmUtxo, _tmMemPool, _tmUndos, tip))
     runUM um = runToilTLocal um def mempty
+#ifdef WITH_EXPLORER
+    makeExtra :: Utxo -> Timestamp -> TxExtra
+    -- NE.fromList is safe here, because if `resolved` is empty, `processTx`
+    -- wouldn't save extra value, thus wouldn't reduce it to NF
+    makeExtra resolved curTime = TxExtra Nothing curTime $ NE.fromList $ toList resolved
+#endif
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Remove invalid transactions from MemPool
@@ -81,7 +119,13 @@ txNormalize
     :: (MonadDB m, MonadTxpMem m) => m ()
 txNormalize = do
     utxoTip <- GS.getTip
+#ifdef WITH_EXPLORER
+    MemPool {..} <- getMemPool
+    let localTxs = HM.toList $ HM.intersectionWith (,) _mpLocalTxs $
+          MM.insertionsMap _mpLocalTxsExtra
+#else
     localTxs <- getLocalTxs
+#endif
     ToilModifier {..} <-
         runDBTxp $ execToilTLocal mempty def mempty $ normalizeTxp localTxs
     setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip)

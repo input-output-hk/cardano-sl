@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP                 #-}
 
 -- | Transaction processing logic.
 
@@ -28,6 +29,10 @@ import qualified Pos.Util.Modifier    as MM
 import           Pos.Txp.Toil         (BalancesView (..), BalancesView (..), DBTxp,
                                        ToilModifier (..), ToilT, ToilVerFailure, applyTxp,
                                        rollbackTxp, runDBTxp, runToilTGlobal, verifyTxp)
+#ifdef WITH_EXPLORER
+import           Pos.Types              (BiSsc, HeaderHash, Timestamp, headerHash)
+import           Pos.Txp.Toil           (MemPool (..))
+#endif
 
 type TxpGlobalApplyMode m = ( WithLogger m
                             , MonadDB m
@@ -48,18 +53,31 @@ txVerifyBlocks newChain =
 
 -- | Apply chain of /definitely/ valid blocks to state on transactions
 -- processing.
+#ifdef WITH_EXPLORER
+txApplyBlocks
+    :: (MonadThrow m, TxpGlobalApplyMode m, BiSsc ssc)
+    => OldestFirst NE (Blund ssc)
+    -> Timestamp
+    -> m SomeBatchOp
+txApplyBlocks blunds curTime = do
+#else
 txApplyBlocks
     :: (MonadThrow m, TxpGlobalApplyMode m)
     => OldestFirst NE (Blund ssc)
     -> m SomeBatchOp
 txApplyBlocks blunds = do
+#endif
     let blocks = map fst blunds
     inAssertMode $ do
         verdict <- runExceptT $ txVerifyBlocks blocks
         whenLeft verdict $ assertionFailed .
             sformat ("txVerifyBlocks failed in txApplyBlocks call: "%build)
-    txpModifierToBatch . snd <$>
-        runToilAction (mapM (applyTxp . blundToAuxNUndo) blunds)
+    txpModifierToBatch . snd <$> runToilAction
+#ifdef WITH_EXPLORER
+        (mapM (uncurry (applyTxp curTime) . blundToAuxNUndoWHash) blunds)
+#else
+        (mapM (applyTxp . blundToAuxNUndo) blunds)
+#endif
 
 -- | Rollback chain of blocks.
 txRollbackBlocks
@@ -75,8 +93,18 @@ txRollbackBlocks blunds =
 
 -- Convert ToilModifier to batch of database operations.
 txpModifierToBatch :: ToilModifier -> SomeBatchOp
-txpModifierToBatch (ToilModifier um (BalancesView (HM.toList -> stakes) total) _ _) =
+txpModifierToBatch (ToilModifier um (BalancesView (HM.toList -> stakes) total)
+#ifdef WITH_EXPLORER
+                       (MemPool _ _ em)
+#else
+                       _
+#endif
+                    _) =
+#ifdef WITH_EXPLORER
+    SomeBatchOp [SomeBatchOp utxoOps, SomeBatchOp balancesOps, SomeBatchOp explorerOps]
+#else
     SomeBatchOp [SomeBatchOp utxoOps, SomeBatchOp balancesOps]
+#endif
   where
     utxoOps =
         map GS.DelTxIn (MM.deletions um) ++
@@ -84,6 +112,11 @@ txpModifierToBatch (ToilModifier um (BalancesView (HM.toList -> stakes) total) _
     balancesOps =
         maybe identity (\x l -> (GS.PutFtsSum x : l)) total $
         map (uncurry GS.PutFtsStake) stakes
+#ifdef WITH_EXPLORER
+    explorerOps =
+          map GS.DelTxExtra (MM.deletions em) ++
+          map (uncurry GS.AddTxExtra) (MM.insertions em)
+#endif
 
 -- Run action which requires toil interfaces.
 runToilAction
@@ -94,6 +127,12 @@ runToilAction action = runDBTxp . runToilTGlobal $ action
 -- Zip block's TxAuxes and corresponding TxUndos.
 blundToAuxNUndo :: Blund ssc -> [(TxAux, TxUndo)]
 blundToAuxNUndo = uncurry zip . bimap getTxas undoTx
+
+#ifdef WITH_EXPLORER
+-- Zip block's TxAuxes and also add block hash
+blundToAuxNUndoWHash :: BiSsc ssc => Blund ssc -> ([(TxAux, TxUndo)], HeaderHash)
+blundToAuxNUndoWHash blund = (blundToAuxNUndo blund, headerHash blund)
+#endif
 
 -- Get block's TxAuxes.
 getTxas :: Block ssc -> [TxAux]

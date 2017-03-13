@@ -5,11 +5,12 @@ env:
 install:
 - sudo mount -o remount,exec,size=4G,mode=755 /run/user || true
 script:
-- mkdir docs
-- nix-shell --run "stack exec --nix -- cardano-explorer-docs"
-- cd frontend
+- pushd frontend
 - "./scripts/build.sh"
 - nix-shell --run "npm test"
+- popd
+- mkdir docs
+- nix-shell --run "stack exec --nix -- cardano-explorer-docs"
 notifications:
   email: false
   slack:

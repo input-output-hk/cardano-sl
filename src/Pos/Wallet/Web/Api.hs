@@ -12,9 +12,10 @@ module Pos.Wallet.Web.Api
 import           Data.Proxy                 (Proxy (Proxy))
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CProfile, CTx, CTxId,
-                                             CTxMeta, CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, SyncProgress)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CInitialized, CProfile,
+                                             CTx, CTxId, CTxMeta, CUpdateInfo, CWallet,
+                                             CWalletInit, CWalletMeta, CWalletRedeem,
+                                             SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
                                              Post, Put, QueryParam, ReqBody)
@@ -30,7 +31,9 @@ type WalletApi =
      :> Post '[JSON] (Either WalletError ())
     :<|>
 #endif
-     ----------------------------WALLETS----------------------------
+     ----------------------------------------------------------------------------
+     -- Wallets
+     ----------------------------------------------------------------------------
      "api"
      :> "wallets"
      :> Capture "walletId" CAddress
@@ -68,7 +71,9 @@ type WalletApi =
      :> ReqBody '[JSON] CWalletInit
      :> Post '[JSON] (Either WalletError CWallet)
     :<|>
-     ----------------------------ADDRESSSES----------------------------
+     ----------------------------------------------------------------------------
+     -- Addresses
+     ----------------------------------------------------------------------------
      "api"
      :> "addresses"
      :> Capture "address" Text
@@ -76,7 +81,9 @@ type WalletApi =
      :> Capture "currency" CCurrency
      :> Get '[JSON] (Either WalletError Bool)
     :<|>
-     ----------------------------PROFILE(S)----------------------------
+     ----------------------------------------------------------------------------
+     -- Profile(s)
+     ----------------------------------------------------------------------------
      -- TODO: A single profile? Should be possible in the future to have multiple profiles?
      "api"
      :> "profile"
@@ -87,7 +94,9 @@ type WalletApi =
      :> ReqBody '[JSON] CProfile
      :> Post '[JSON] (Either WalletError CProfile)
     :<|>
-    ----------------------------TRANSACTIONS----------------------------
+     ----------------------------------------------------------------------------
+     -- Transactons
+     ----------------------------------------------------------------------------
     -- TODO: for now we only support one2one sending. We should extend this to support many2many
      "api"
      :> "txs"
@@ -135,7 +144,9 @@ type WalletApi =
      :> QueryParam "limit" Word
      :> Get '[JSON] (Either WalletError ([CTx], Word))
     :<|>
-    ----------------------------UPDATES----------------------------
+     ----------------------------------------------------------------------------
+     -- Updates
+     ----------------------------------------------------------------------------
      "api"
      :> "update"
      :> Get '[JSON] (Either WalletError CUpdateInfo)
@@ -144,14 +155,27 @@ type WalletApi =
      :> "update"
      :> Post '[JSON] (Either WalletError ())
     :<|>
-    ----------------------------REDEMPTIONS----------------------------
+     ----------------------------------------------------------------------------
+     -- Redemptions
+     ----------------------------------------------------------------------------
      "api"
      :> "redemptions"
      :> "ada"
      :> ReqBody '[JSON] CWalletRedeem
-     :> Post '[JSON] (Either WalletError CWallet)
+     :> Post '[JSON] (Either WalletError CTx)
     :<|>
-    ----------------------------SETTINGS----------------------------
+     ----------------------------------------------------------------------------
+     -- Reporting
+     ----------------------------------------------------------------------------
+     "api"
+     :> "reporting"
+     :> "initialized"
+     :> ReqBody '[JSON] CInitialized
+     :> Post '[JSON] (Either WalletError ())
+    :<|>
+     ----------------------------------------------------------------------------
+     -- Settings
+     ----------------------------------------------------------------------------
      "api"
      :> "settings"
      :> "slots"
@@ -168,6 +192,8 @@ type WalletApi =
      :> "sync"
      :> "progress"
      :> Get '[JSON] (Either WalletError SyncProgress)
+
+
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

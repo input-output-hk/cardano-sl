@@ -105,8 +105,11 @@ mode600 = PSX.unionFileModes PSX.ownerReadMode PSX.ownerWriteMode
 failIfModeNot600 :: (MonadIO m, MonadFail m) => FilePath -> m ()
 failIfModeNot600 path = do
     mode <- liftIO $ PSX.fileMode <$> PSX.getFileStatus path
-    when (mode /= mode600) $
-        fail "Secret file mode incorrect. Set it to 600 and try again."
+    let accessMode = PSX.intersectFileModes mode PSX.accessModes
+    when (accessMode /= mode600) $
+        fail $ "Key file access mode is incorrect. Set it to 600 and try again." <>
+            "\nKey file path: " <> show path <>
+            "\nCurrent mode: " <> show mode
 
 -- | Set mode 600 on a given file, regardless of its current mode.
 setMode600 :: (MonadIO m) => FilePath -> m ()

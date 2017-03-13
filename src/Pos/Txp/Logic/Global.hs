@@ -109,9 +109,9 @@ txpModifierToBatch (ToilModifier um (BalancesView (HM.toList -> stakes) total)
     utxoOps =
         map GS.DelTxIn (MM.deletions um) ++
         map (uncurry GS.AddTxOut) (MM.insertions um)
-    balancesOps =
-        maybe identity (\x l -> (GS.PutFtsSum x : l)) total $
-        map (uncurry GS.PutFtsStake) stakes
+    balancesOpsAlmost = map (uncurry GS.PutFtsStake) stakes
+    balancesOps = case total of Nothing -> balancesOpsAlmost
+                                Just x -> GS.PutFtsSum x : balancesOpsAlmost
 #ifdef WITH_EXPLORER
     explorerOps =
           map GS.DelTxExtra (MM.deletions em) ++

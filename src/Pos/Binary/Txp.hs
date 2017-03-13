@@ -6,7 +6,6 @@ import           Universum
 
 import           Data.Binary.Get    (getWord8, label)
 import           Data.Binary.Put    (putByteString, putWord8)
-import           Data.List.NonEmpty (nonEmpty)
 
 import           Pos.Binary.Class   (Bi (..), UnsignedVarInt (..), getRemainingByteString,
                                      getWithLength, putWithLength)

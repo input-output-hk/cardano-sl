@@ -266,8 +266,14 @@ data TxPayload = UnsafeTxPayload
 
 makeLenses ''TxPayload
 
--- | Smart constructor of 'TxPayload' which can fail if invariant is
--- violated.
+-- | Smart constructor of 'TxPayload' which can fail if some
+-- invariants are violated.
+--
+-- Currently there are two invariants:
+-- • number of txs must be same as number of witnesses and
+--   number of distributions;
+-- • each distribution must have the same number of elements as
+--   number of outputs in corresponding transaction.
 mkTxPayload
     :: (Bi Tx, MonadFail m)
     => [(Tx, TxWitness, TxDistribution)] -> m TxPayload

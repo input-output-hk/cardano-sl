@@ -173,7 +173,7 @@ getTxSummary cTxId = do
     txExtra <- maybe (throwM $ Internal "Transaction not found") pure txExtraMaybe
 
     let blockchainPlace = teBlockchainPlace txExtra
-        inputOutputs = teInputOutputs txExtra
+        inputOutputs = map fst $ NE.toList $ teInputOutputs txExtra
 
     -- TODO: here and in getMempoolTxs/getBlockchainTxs we do two things wrongly:
     -- 1. If the transaction is found in the MemPool, we return *starting

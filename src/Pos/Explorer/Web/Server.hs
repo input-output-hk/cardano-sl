@@ -174,21 +174,15 @@ getTxSummary cTxId = do
 
     let blockchainPlace = teBlockchainPlace txExtra
         inputOutputs = map fst $ NE.toList $ teInputOutputs txExtra
+        receivedTime = teReceivedTime txExtra
 
-    -- TODO: here and in getMempoolTxs/getBlockchainTxs we do two things wrongly:
-    -- 1. If the transaction is found in the MemPool, we return *starting
-    --    time of the current block* as the time when it was issued.
-    -- 2. If the transaction comes from the blockchain, we return *block
-    --    slot starting time* as the time when it was issued.
-    -- This needs to be fixed.
-    (ctsTxTimeIssued, ctsBlockTimeIssued, ctsBlockHeight, ctsOutputs) <-
+    (ctsBlockTimeIssued, ctsBlockHeight, ctsOutputs) <-
         case blockchainPlace of
             Nothing -> do
                 -- Fetching transaction from MemPool.
-                ts <- toPosixTime <$> currentTimeSlotting
                 tx <- fetchTxFromMempoolOrFail txId
                 let txOutputs = convertTxOutputs . NE.toList $ _txOutputs tx
-                pure (Just ts, Nothing, Nothing, txOutputs)
+                pure (Nothing, Nothing, txOutputs)
             Just (headerHash, txIndexInBlock) -> do
                 -- Fetching transaction from DB.
                 maybeBlock <- DB.getBlock @SscGodTossing headerHash
@@ -202,9 +196,10 @@ getTxSummary cTxId = do
                               atMay (toList $ mb ^. blockTxs) (fromIntegral txIndexInBlock)
                         let txOutputs = convertTxOutputs . NE.toList $ _txOutputs tx
                             ts = toPosixTime <$> blkSlotStart
-                        pure (ts, ts, Just blockHeight, txOutputs)
+                        pure (ts, Just blockHeight, txOutputs)
 
     let ctsId = cTxId
+        ctsTxTimeIssued = toPosixTime receivedTime
         ctsRelayedBy = Nothing
         ctsTotalInput = unsafeIntegerToCoin $ sumCoins $ map txOutValue inputOutputs
         ctsInputs = convertTxOutputs inputOutputs

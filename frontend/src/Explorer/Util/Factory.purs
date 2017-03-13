@@ -1,9 +1,10 @@
 module Explorer.Util.Factory where
 
 import Prelude
+import Data.Maybe (Maybe(..))
 import Data.Time.NominalDiffTime (mkTime)
-import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary(..), CHash(..), CTxDetailed(..), CTxEntry(..), CTxId(..), CTxType(..))
 import Pos.Core.Types (Coin(..))
+import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary(..), CHash(..), CTxEntry(..), CTxId(..))
 
 
 mkCHash :: String -> CHash
@@ -27,7 +28,7 @@ mkCAddress = CAddress
 mkEmptyCTxEntry :: CTxEntry
 mkEmptyCTxEntry = CTxEntry
     { cteId: mkCTxId "--"
-    , cteTimeIssued: mkTime 0.0
+    , cteTimeIssued: Just $ mkTime 0.0
     , cteAmount: mkCoin 0
     }
 
@@ -36,16 +37,5 @@ mkEmptyCAddressSummary = CAddressSummary
     { caAddress: mkCAddress "--"
     , caTxNum: 0
     , caBalance: mkCoin 0
-    , caTxList: [mkEmptyCTxDetailed]
+    , caTxList: []
     }
-
-mkEmptyCTxDetailed :: CTxDetailed
-mkEmptyCTxDetailed = CTxDetailed
-    { ctdId: mkCTxId "-"
-    , ctdTimeIssued: mkTime 0.0
-    , ctdType: mkEmptyCTxType
-    }
-
-mkEmptyCTxType :: CTxType
-mkEmptyCTxType =
-    CTxIncoming [mkCAddress "--"] $ mkCoin 0

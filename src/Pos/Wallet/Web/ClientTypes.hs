@@ -292,8 +292,8 @@ toCUpdateInfo ConfirmedProposalState {..} =
 -- | Represents a knowledge about how much time did it take for client
 -- (wallet) to initialize. All numbers are milliseconds.
 data CInitialized = CInitialized
-    { cTotalTime :: Integer -- ^ Total time from very start to main
+    { cTotalTime :: Word -- ^ Total time from very start to main
                             -- post-sync screen.
-    , cPreInit   :: Integer -- ^ Time passed from beginning to network
+    , cPreInit   :: Word -- ^ Time passed from beginning to network
                             -- connection with peers established.
     } deriving (Show, Generic)

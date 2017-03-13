@@ -9,6 +9,7 @@ module Pos.Ssc.GodTossing.Genesis
 #endif
        ) where
 
+#ifdef DEV_MODE
 import qualified Data.HashMap.Strict           as HM
 import           Data.List                     (zipWith3)
 import qualified Data.Text                     as T
@@ -17,16 +18,16 @@ import           Universum
 
 import           Pos.Binary.Class              (asBinary)
 import           Pos.Constants                 (genesisN, vssMaxTTL, vssMinTTL)
+import           Pos.Core.Address              (addressHash)
 import           Pos.Crypto                    (VssKeyPair, VssPublicKey,
                                                 deterministicVssKeyGen, toVssPublicKey)
-#ifdef DEV_MODE
 import           Pos.Genesis                   (genesisKeyPairs)
-#else
-import           Pos.Genesis                   (compileGenData, gdVssCertificates)
-#endif
-import           Pos.Core.Address              (addressHash)
 import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap, mkVssCertificate)
 import           Pos.Types                     (EpochIndex (..))
+#else
+import           Pos.Genesis                   (compileGenData, gdVssCertificates)
+import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap)
+#endif
 
 #ifdef DEV_MODE
 -- | List of 'VssKeyPair' in genesis.

@@ -21,8 +21,6 @@ library
                         -- Reporting
                         Pos.Reporting
                         Pos.Reporting.MemState
-                        Pos.Reporting.MemState.Class
-                        Pos.Reporting.MemState.Types
                         Pos.Reporting.Exceptions
                         Pos.Reporting.Methods
 
@@ -90,7 +88,7 @@ library
 
   other-modules:        Paths_cardano_sl_infra
                         Pos.Infra.Constants
-                      
+
   build-depends:       base
                      , aeson
                       -- This constraint on 'binary' is so strict because

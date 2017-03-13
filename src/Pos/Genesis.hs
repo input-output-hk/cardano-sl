@@ -34,21 +34,26 @@ module Pos.Genesis
        , genesisMaxBlockSize
        ) where
 
+#ifdef DEV_MODE
+import qualified Data.Text                  as T
+import           Formatting                 (int, sformat, (%))
+#endif
 import           Control.Lens               (_head)
 import           Data.Default               (Default (..))
 import           Data.List                  (genericLength, genericReplicate)
 import qualified Data.Map.Strict            as M
-import qualified Data.Text                  as T
 import           Data.Time.Units            (Millisecond)
-import           Formatting                 (int, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util              (enumerate)
 import           Universum
 
+#ifdef DEV_MODE
+import           Pos.Crypto                 (PublicKey, SecretKey, deterministicKeyGen)
+import           Pos.Types                  (makePubKeyAddress)
+#endif
 import qualified Pos.Constants              as Const
 import           Pos.Core.Types             (ScriptVersion, SoftwareVersion (..))
-import           Pos.Crypto                 (PublicKey, SecretKey, deterministicKeyGen,
-                                             unsafeHash)
+import           Pos.Crypto                 (unsafeHash)
 import           Pos.Genesis.Parser         (compileGenData)
 import           Pos.Genesis.Types          (GenesisData (..), StakeDistribution (..))
 import           Pos.Lrc.FtsPure            (followTheSatoshi)
@@ -57,8 +62,8 @@ import           Pos.Txp.Toil.Types         (Utxo)
 import           Pos.Types                  (Address (..), BlockVersion (..), Coin,
                                              SharedSeed (SharedSeed), SlotLeaders,
                                              StakeholderId, applyCoinPortion,
-                                             coinToInteger, divCoin, makePubKeyAddress,
-                                             mkCoin, unsafeAddCoin, unsafeMulCoin)
+                                             coinToInteger, divCoin, mkCoin,
+                                             unsafeAddCoin, unsafeMulCoin)
 import           Pos.Update.Core.Types      (BlockVersionData (..))
 
 ----------------------------------------------------------------------------

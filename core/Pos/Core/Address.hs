@@ -33,14 +33,15 @@ import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
 import           Formatting             (Format, bprint, build, later, (%))
 import           Serokell.Util.Base16   (base16F)
-import           Serokell.Util.Text     (listJson)
 import           Universum
 
 import           Pos.Binary.Class       (Bi)
 import qualified Pos.Binary.Class       as Bi
-import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey, RedeemPublicKey)
 import           Pos.Core.Types         (AddrPkAttrs (..), Address (..), AddressHash,
                                          Script, StakeholderId)
+import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey,
+                                         RedeemPublicKey)
+import           Pos.Crypto.HD          (HDAddressPayload)
 import           Pos.Data.Attributes    (mkAttributes)
 
 instance Bi Address => Hashable Address where
@@ -79,7 +80,7 @@ makePubKeyAddress key =
 makePubKeyHdwAddress
     :: Bi PublicKey
     => PublicKey
-    -> [Word32]         -- ^ Derivation path
+    -> HDAddressPayload         -- ^ Derivation path
     -> Address
 makePubKeyHdwAddress key path =
     PubKeyAddress (addressHash key)
@@ -123,8 +124,8 @@ addressF = build
 
 instance Buildable AddrPkAttrs where
     build (AddrPkAttrs p) = case p of
-        Nothing   -> "{}"
-        Just path -> bprint ("{path: "%listJson%"}") path
+        Nothing -> "{}"
+        Just _  -> bprint ("{path is encrypted}")
 
 -- | A formatter showing guts of an 'Address'.
 addressDetailedF :: Format r (Address -> r)

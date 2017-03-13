@@ -25,6 +25,7 @@ import           Pos.Binary.Class         (AsBinary (..), getCopyBi, putCopyBi, 
 import           Pos.Crypto.Hashing       (AbstractHash (..), Hash, HashAlgorithm,
                                            WithHash (..), withHash)
 import           Pos.Crypto.SafeSigning   (EncryptedSecretKey (..))
+import Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),
                                            SecretSharingExtra (..), Share (..),
                                            VssKeyPair (..), VssPublicKey (..))
@@ -189,6 +190,14 @@ instance (Bi w) => Bi (ProxySignature w a) where
         put pdCert
         put pdSig
     get = label "ProxySignature" $ liftM4 ProxySignature get get get get
+
+-------------------------------------------------------------------------------
+-- Hierarchical derivation
+-------------------------------------------------------------------------------
+instance Binary.Binary HDAddressPayload where
+instance Bi HDAddressPayload where
+    put = Binary.put
+    get = Binary.get
 
 -------------------------------------------------------------------------------
 -- Standard Ed25519 instances for ADA redeem keys

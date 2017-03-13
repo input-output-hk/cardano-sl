@@ -12,7 +12,9 @@ import           Data.SafeCopy         (SafeCopy (..), base, contain,
 import qualified Data.Serialize        as Cereal (getWord8, putWord8)
 import           Universum
 
+import           Pos.Crypto.HD         (HDAddressPayload (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
+
 -- FIXME
 import           Pos.Core.Types
 import           Pos.Txp.Core.Types
@@ -25,6 +27,7 @@ deriveSafeCopySimple 0 'base ''LocalSlotIndex
 deriveSafeCopySimple 0 'base ''SlotId
 deriveSafeCopySimple 0 'base ''EpochOrSlot
 deriveSafeCopySimple 0 'base ''Coin
+deriveSafeCopySimple 0 'base ''HDAddressPayload
 deriveSafeCopySimple 0 'base ''AddrPkAttrs
 deriveSafeCopySimple 0 'base ''Address
 deriveSafeCopySimple 0 'base ''TxInWitness

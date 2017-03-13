@@ -37,9 +37,14 @@ import           Pos.Binary.Class     (Bi (..), decodeFull, encode)
 import           Pos.Binary.Crypto    ()
 import           Pos.Crypto           (EncryptedSecretKey, SecretKey, VssKeyPair)
 
+import           System.FilePath      (takeDirectory, takeFileName)
+import           System.Directory     (renameFile)
+import           System.IO            (hClose)
+import           System.IO.Temp       (openTempFile)
+
 #ifdef POSIX
-import           System.Posix.Files   as PSX
-import           System.Posix.Types   as PSX (FileMode)
+import qualified System.Posix.Files   as PSX
+import qualified System.Posix.Types   as PSX (FileMode)
 #endif
 
 -- | User secret data. Includes secret keys only for now (not
@@ -176,7 +181,18 @@ writeUserSecretRelease u
 
 -- | Helper for writing secret to file
 writeRaw :: UserSecret -> IO ()
-writeRaw u = BSL.writeFile (u ^. usPath) $ encode u
+writeRaw u = do
+    let path = u ^. usPath
+    -- On POSIX platforms, openTempFile guarantees that the file
+    -- will be created with mode 600.
+    tempPath <- bracket
+        (openTempFile (takeDirectory path) (takeFileName path))
+        (\(tempPath, tempHandle) -> hClose tempHandle)
+        (\(tempPath, tempHandle) -> do
+            BSL.hPut tempHandle $ encode u
+            pure tempPath
+        )
+    renameFile tempPath path
 
 -- | Helper for taking shared lock on file
 takeReadLock :: MonadIO m => FilePath -> IO a -> m a

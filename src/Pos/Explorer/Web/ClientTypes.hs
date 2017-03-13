@@ -80,7 +80,7 @@ decodeHashHex = fmap Bi.decode . processRes . B16.decode . encodeUtf8
             else Left $ "decodeHashHex: couldn't decode rest of hash: " <> decodeUtf8 rest
 
 decodeHashHex' :: Text -> Hash a
-decodeHashHex' = either (panic "decodeHashHex: invalid hash") identity . decodeHashHex
+decodeHashHex' = either (error "decodeHashHex: invalid hash") identity . decodeHashHex
 
 toCHash :: Hash a -> CHash
 toCHash = CHash . encodeHashHex
@@ -237,5 +237,5 @@ toTxBrief txi txe = CTxBrief {..}
     ts = tiTimestamp txi
     ctbId = toCTxId $ hash tx
     ctbTimeIssued = toPosixTime <$> ts
-    ctbInputs = convertTxOutputs $ teInputOutputs txe
+    ctbInputs = convertTxOutputs $ map fst $ NE.toList $ teInputOutputs txe
     ctbOutputs = convertTxOutputs . NE.toList $ _txOutputs tx

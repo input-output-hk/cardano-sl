@@ -26,7 +26,7 @@ import           Pos.Txp.MemState     (getLocalTxs)
 import           Pos.Txp.MemState     (MonadTxpMem (..), getUtxoModifier,
                                        modifyTxpLocalData, setTxpLocalData)
 import           Pos.Txp.Toil         (MonadUtxoRead (..), ToilModifier (..),
-                                       ToilVerFailure (..), execToilTLocal, normalizeTxp,
+                                       ToilVerFailure (..), execToilTLocal, normalizeToil,
                                        processTx, runDBTxp, runToilTLocal, runUtxoReaderT,
                                        utxoGet)
 #ifdef WITH_EXPLORER
@@ -127,5 +127,5 @@ txNormalize = do
     localTxs <- getLocalTxs
 #endif
     ToilModifier {..} <-
-        runDBTxp $ execToilTLocal mempty def mempty $ normalizeTxp localTxs
+        runDBTxp $ execToilTLocal mempty def mempty $ normalizeToil localTxs
     setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip)

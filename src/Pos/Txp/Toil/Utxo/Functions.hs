@@ -58,7 +58,7 @@ data VTxContext = VTxContext
 -- * if 'vtcVerifyVersions' is 'True', addresses' versions are verified
 --   to be known.
 --
--- Note that 'verifyTx' doesn't attempt to verify scripts with versions
+-- Note that 'verifyTxUtxo' doesn't attempt to verify scripts with versions
 -- higher than maximum script version we can handle. That's because we want
 -- blocks with such transactions to be accepted (to avoid hard
 -- forks). However, we won't include such transactions into blocks when we're

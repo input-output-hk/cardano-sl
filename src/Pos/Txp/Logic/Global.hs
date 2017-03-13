@@ -27,8 +27,8 @@ import           Pos.Util             (NE, NewestFirst (..), OldestFirst (..),
 import qualified Pos.Util.Modifier    as MM
 
 import           Pos.Txp.Toil         (BalancesView (..), BalancesView (..), DBTxp,
-                                       ToilModifier (..), ToilT, ToilVerFailure, applyTxp,
-                                       rollbackTxp, runDBTxp, runToilTGlobal, verifyTxp)
+                                       ToilModifier (..), ToilT, ToilVerFailure, applyToil,
+                                       rollbackToil, runDBTxp, runToilTGlobal, verifyToil)
 #ifdef WITH_EXPLORER
 import           Pos.Types              (BiSsc, HeaderHash, Timestamp, headerHash)
 import           Pos.Txp.Toil           (MemPool (..))
@@ -49,7 +49,7 @@ txVerifyBlocks
     => OldestFirst NE (Block ssc)
     -> m (OldestFirst NE TxpUndo)
 txVerifyBlocks newChain =
-    fst <$> runToilAction (mapM (verifyTxp . getTxas) newChain)
+    fst <$> runToilAction (mapM (verifyToil . getTxas) newChain)
 
 -- | Apply chain of /definitely/ valid blocks to state on transactions
 -- processing.
@@ -74,9 +74,9 @@ txApplyBlocks blunds = do
             sformat ("txVerifyBlocks failed in txApplyBlocks call: "%build)
     txpModifierToBatch . snd <$> runToilAction
 #ifdef WITH_EXPLORER
-        (mapM (uncurry (applyTxp curTime) . blundToAuxNUndoWHash) blunds)
+        (mapM (uncurry (applyToil curTime) . blundToAuxNUndoWHash) blunds)
 #else
-        (mapM (applyTxp . blundToAuxNUndo) blunds)
+        (mapM (applyToil . blundToAuxNUndo) blunds)
 #endif
 
 -- | Rollback chain of blocks.
@@ -85,7 +85,7 @@ txRollbackBlocks
     => NewestFirst NE (Blund ssc) -> m SomeBatchOp
 txRollbackBlocks blunds =
     txpModifierToBatch . snd <$>
-    runToilAction (mapM (rollbackTxp . blundToAuxNUndo) blunds)
+    runToilAction (mapM (rollbackToil . blundToAuxNUndo) blunds)
 
 ----------------------------------------------------------------------------
 -- Helpers

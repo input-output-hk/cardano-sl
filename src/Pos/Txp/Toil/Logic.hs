@@ -6,10 +6,10 @@
 -- it operates in terms of MonadUtxo, MonadBalances and MonadTxPool.
 
 module Pos.Txp.Toil.Logic
-       ( verifyTxp
-       , applyTxp
-       , rollbackTxp
-       , normalizeTxp
+       ( verifyToil
+       , applyToil
+       , rollbackToil
+       , normalizeToil
        , processTx
        ) where
 
@@ -42,31 +42,31 @@ type GlobalTxpMode m = ( MonadUtxo m
 #endif
                        , WithLogger m)
 
--- CHECK: @verifyTxp
+-- CHECK: @verifyToil
 -- | Verify transactions correctness with respect to Utxo applying
 -- them one-by-one.
 -- Note: transactions must be topsorted to pass check.
 -- Warning: this function may apply some transactions and fail
 -- eventually. Use it only on temporary data.
-verifyTxp
+verifyToil
     :: (GlobalTxpMode m, MonadError ToilVerFailure m)
     => [TxAux] -> m TxpUndo
-verifyTxp = mapM (verifyAndApplyTx False . withTxId)
+verifyToil = mapM (verifyAndApplyTx False . withTxId)
 
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
-applyTxp
+applyToil
     :: GlobalTxpMode m
 #ifdef WITH_EXPLORER
     => Timestamp
     -> [(TxAux, TxUndo)]
     -> HeaderHash
     -> m ()
-applyTxp curTime txun hh = do
+applyToil curTime txun hh = do
 #else
     => [(TxAux, TxUndo)]
     -> m ()
-applyTxp txun = do
+applyToil txun = do
 #endif
     applyTxsToBalances txun
 #ifdef WITH_EXPLORER
@@ -83,8 +83,8 @@ applyTxp txun = do
 #endif
 
 -- | Rollback transactions from one block.
-rollbackTxp :: GlobalTxpMode m => [(TxAux, TxUndo)] -> m ()
-rollbackTxp txun = do
+rollbackToil :: GlobalTxpMode m => [(TxAux, TxUndo)] -> m ()
+rollbackToil txun = do
     rollbackTxsBalances txun
     mapM_ Utxo.rollbackTxUtxo $ reverse txun
 #ifdef WITH_EXPLORER
@@ -127,7 +127,7 @@ processTx tx@(id, aux) = do
 
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.
-normalizeTxp
+normalizeToil
     :: (LocalTxpMode m)
 #ifdef WITH_EXPLORER
     => [(TxId, (TxAux, TxExtra))]
@@ -135,7 +135,7 @@ normalizeTxp
     => [(TxId, TxAux)]
 #endif
     -> m ()
-normalizeTxp txs = mapM_ normalize ordered
+normalizeToil txs = mapM_ normalize ordered
   where
     ordered = fromMaybe txs $ topsortTxs wHash txs
 #ifdef WITH_EXPLORER

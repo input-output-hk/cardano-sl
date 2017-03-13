@@ -25,6 +25,7 @@ import           Pos.Communication              (SendActions)
 import           Pos.Crypto                     (WithHash (..), withHash)
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.GState                  as GS
+import           Pos.DB.GState.Balances         as GS (getFtsStake)
 import           Pos.DB.GState.Explorer         as GS (getTxExtra)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)

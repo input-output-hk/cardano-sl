@@ -376,11 +376,12 @@ getHistory cAddr skip limit = do
         =<< decodeCAddressOrFail cAddr
 
     -- Add allowed portion of result to cache
-    let fullHistory = cachedTxs <> taHistory
-        cached = take taCachedNum taHistory
+    let fullHistory = taHistory <> cachedTxs
+        lenHistory = length taHistory
+        cached = drop (lenHistory - taCachedNum) taHistory
 
     unless (null cached) $
-        updateHistoryCache cAddr taLastCachedHash taCachedUtxo (cachedTxs <> cached)
+        updateHistoryCache cAddr taLastCachedHash taCachedUtxo (cached <> cachedTxs)
 
     cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) fullHistory
     pure (paginate cHistory, fromIntegral $ length cHistory)

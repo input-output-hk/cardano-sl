@@ -12,6 +12,7 @@ module Pos.Core.Address
        , makePubKeyAddress
        , makePubKeyHdwAddress
        , createHDAddressNH
+       , createHDAddressH
        , makeScriptAddress
        , makeRedeemAddress
        , decodeTextAddress
@@ -42,9 +43,10 @@ import           Pos.Binary.Crypto      ()
 import           Pos.Core.Types         (AddrPkAttrs (..), Address (..), AddressHash,
                                          Script, StakeholderId)
 import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey,
-                                         RedeemPublicKey)
+                                         RedeemPublicKey, SecretKey, toPublic)
 import           Pos.Crypto.HD          (HDAddressPayload, HDPassphrase,
-                                         deriveHDPublicKey, packHDAddressAttr)
+                                         deriveHDPublicKey, deriveHDSecretKey,
+                                         packHDAddressAttr)
 import           Pos.Data.Attributes    (mkAttributes)
 
 instance Bi Address => Hashable Address where
@@ -88,6 +90,13 @@ makePubKeyHdwAddress
 makePubKeyHdwAddress key path =
     PubKeyAddress (addressHash key)
                   (mkAttributes (AddrPkAttrs (Just path)))
+
+createHDAddressH :: HDPassphrase -> SecretKey -> [Word32] -> Word32 -> (Address, SecretKey)
+createHDAddressH passphrase parent parentPath childIndex = runIdentity $ do
+    let derivedSK = deriveHDSecretKey parent parentPath childIndex
+    let addressPayload = packHDAddressAttr passphrase $ parentPath ++ [childIndex]
+    let pk = toPublic derivedSK
+    pure (makePubKeyHdwAddress pk addressPayload, derivedSK)
 
 -- | A function for making an HDW address
 createHDAddressNH :: HDPassphrase -> PublicKey -> [Word32] -> Word32 -> (Address, PublicKey)

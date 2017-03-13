@@ -5,6 +5,7 @@ module Pos.Crypto.HD
        , HDAddressPayload (..)
        , packHDAddressAttr
        , deriveHDPublicKey
+       , deriveHDSecretKey
        ) where
 
 import           Universum
@@ -20,6 +21,9 @@ deriveHDPublicKey :: PublicKey -> [Word32] -> Word32 -> PublicKey
 deriveHDPublicKey parent parentPath childIndex
     | childIndex <= 2^31 - 1 = undefined --panic "Wrong index for non-hardened derivation"
     | otherwise = undefined -- TODO implement
+
+deriveHDSecretKey :: SecretKey -> [Word32] -> Word32 -> SecretKey
+deriveHDSecretKey parent parentPath childIndex = undefined -- TODO implement
 
 packHDAddressAttr :: HDPassphrase -> [Word32] -> HDAddressPayload
 packHDAddressAttr = undefined -- TODO implement

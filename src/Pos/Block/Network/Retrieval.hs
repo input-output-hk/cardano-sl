@@ -62,7 +62,9 @@ retrievalWorkerImpl
     => SendActions m -> m ()
 retrievalWorkerImpl sendActions = handleAll handleTop $ do
     logDebug "Starting retrievalWorker loop"
-    forever $ runIfNotShutdown $ reportingFatal version $ do
+    mainLoop
+  where
+    mainLoop = runIfNotShutdown $ reportingFatal version $ do
         queue <- ncBlockRetrievalQueue <$> getNodeContext
         recHeaderVar <- ncRecoveryHeader <$> getNodeContext
         inRecovery <- needRecovery (Proxy @ssc)
@@ -80,7 +82,7 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
                 (Just v, _)        -> pure $ Left v
                 (Nothing, Just r)  -> pure $ Right r
         either onLeft onRight loopCont
-  where
+        mainLoop
     onLeft ph =
         handleAll (handleBlockRetrievalE ph) $
         reportingFatal version $ workerHandle sendActions ph

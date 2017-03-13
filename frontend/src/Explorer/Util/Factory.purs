@@ -3,7 +3,7 @@ module Explorer.Util.Factory where
 import Prelude
 import Data.Time.NominalDiffTime (mkTime)
 import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary(..), CHash(..), CTxDetailed(..), CTxEntry(..), CTxId(..), CTxType(..))
-import Pos.Types.Core (Coin(..))
+import Pos.Core.Types (Coin(..))
 
 
 mkCHash :: String -> CHash

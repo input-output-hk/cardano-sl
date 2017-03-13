@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Internal block logic. Mostly needed for use in 'Pos.Lrc' -- using
@@ -29,6 +30,9 @@ import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollback
 import           Pos.Exception        (assertionFailed)
 import           Pos.Reporting        (reportingFatal)
 import           Pos.Slotting         (putSlottingData)
+#ifdef WITH_EXPLORER
+import           Pos.Slotting         (currentTimeSlotting)
+#endif
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.Txp.Logic        (txApplyBlocks, txNormalize, txRollbackBlocks)
 import           Pos.Types            (HeaderHash, epochIndexL, headerHash, headerHashG,
@@ -87,7 +91,12 @@ applyBlocksUnsafeDo blunds pModifier = do
     mapM_ putToDB blunds
     usBatch <- SomeBatchOp <$> usApplyBlocks blocks pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
+#ifdef WITH_EXPLORER
+    curTime <- currentTimeSlotting
+    txBatch <- txApplyBlocks blunds curTime
+#else
     txBatch <- txApplyBlocks blunds
+#endif
     sscApplyBlocks blocks Nothing -- TODO: pass not only 'Nothing'
     let putTip = SomeBatchOp $
                  GS.PutTip $

@@ -1,10 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 
--- | client types
+-- This module is to be moved later anywhere else, just to have a
+-- starting point
 
--- (this module will be moved later to anywhere else,
--- just to have a starting point)
-
+-- | Types representing client (wallet) requests on wallet API.
 module Pos.Wallet.Web.ClientTypes
       ( SyncProgress (..)
       , CAddress (..)
@@ -17,6 +16,7 @@ module Pos.Wallet.Web.ClientTypes
       , CTxId
       , CTxMeta (..)
       , CTExMeta (..)
+      , CInitialized (..)
       , CWallet (..)
       , CWalletType (..)
       , CWalletMeta (..)
@@ -56,12 +56,11 @@ import           Pos.Update.Poll       (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Wallet.Tx.Pure    (TxHistoryEntry (..))
 
-data SyncProgress =
-    SyncProgress { _spLocalCD   :: ChainDifficulty
-                 , _spNetworkCD :: Maybe ChainDifficulty
-                 , _spPeers     :: Word
-                 }
-    deriving (Show, Generic)
+data SyncProgress = SyncProgress
+    { _spLocalCD   :: ChainDifficulty
+    , _spNetworkCD :: Maybe ChainDifficulty
+    , _spPeers     :: Word
+    } deriving (Show, Generic)
 
 instance Default SyncProgress where
     def = SyncProgress 0 mzero 0
@@ -69,8 +68,8 @@ instance Default SyncProgress where
 -- Notifications
 data NotifyEvent
     = ConnectionOpened
-    -- | NewWalletTransaction CAddress
-    -- | NewTransaction
+    -- _ | NewWalletTransaction CAddress
+    -- _ | NewTransaction
     | NetworkDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
     | LocalDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
     | ConnectedPeersChanged Word
@@ -78,8 +77,8 @@ data NotifyEvent
     | ConnectionClosed
     deriving (Show, Generic)
 
--- | currencies handled by client
--- Note: Cardano does not deal with other currency than ADA yet
+-- | Currencies handled by client.
+-- Note: Cardano does not deal with other currency than ADA yet.
 data CCurrency
     = ADA
     | BTC
@@ -95,8 +94,12 @@ instance Hashable CHash where
 -- | Client address
 newtype CAddress = CAddress CHash deriving (Show, Eq, Generic, Hashable, Buildable)
 
--- | transform Address into CAddress
--- TODO: this is not complitely safe. If someone changes implementation of Buildable Address. It should be probably more safe to introduce `class PSSimplified` that would have the same implementation has it is with Buildable Address but then person will know it will probably change something for purescript.
+-- TODO: this is not complitely safe. If someone changes
+-- implementation of Buildable Address. It should be probably more
+-- safe to introduce `class PSSimplified` that would have the same
+-- implementation has it is with Buildable Address but then person
+-- will know it will probably change something for purescript.
+-- | Transform Address into CAddress
 addressToCAddress :: Address -> CAddress
 addressToCAddress = CAddress . CHash . sformat build
 
@@ -132,7 +135,7 @@ mkCTx addr diff THEntry {..} meta = CTx {..}
              else CTIn meta
 
 ----------------------------------------------------------------------------
--- wallet
+-- Wallet
 ----------------------------------------------------------------------------
 
 -- | A wallet can be used as personal or shared wallet
@@ -174,7 +177,7 @@ data CWalletRedeem = CWalletRedeem
     } deriving (Show, Generic)
 
 ----------------------------------------------------------------------------
--- profile
+-- Profile
 ----------------------------------------------------------------------------
 
 -- | Password hash of client profile
@@ -194,7 +197,7 @@ data CProfile = CProfile
     } deriving (Show, Generic)
 
 ----------------------------------------------------------------------------
--- transactions
+-- Transactions
 ----------------------------------------------------------------------------
 
 -- | meta data of transactions
@@ -284,3 +287,16 @@ toCUpdateInfo ConfirmedProposalState {..} =
         cuiPositiveStake    = cpsPositiveStake
         cuiNegativeStake    = cpsNegativeStake
     in CUpdateInfo {..}
+
+----------------------------------------------------------------------------
+-- Reporting
+----------------------------------------------------------------------------
+
+-- | Represents a knowledge about how much time did it take for client
+-- (wallet) to initialize. All numbers are milliseconds.
+data CInitialized = CInitialized
+    { cTotalTime :: Word -- ^ Total time from very start to main
+                            -- post-sync screen.
+    , cPreInit   :: Word -- ^ Time passed from beginning to network
+                            -- connection with peers established.
+    } deriving (Show, Generic)

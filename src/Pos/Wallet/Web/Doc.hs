@@ -12,16 +12,13 @@ import           Data.Time                  (defaultTimeLocale, readTime)
 import           Data.Time.Clock.POSIX      (POSIXTime, utcTimeToPOSIXSeconds)
 import           Network.HTTP.Types.Method  (methodPost)
 import           Servant.API                (Capture, QueryParam)
-import           Servant.Docs               (API, DocCapture (..),
-                                             DocIntro (..), DocNote (..),
-                                             DocQueryParam (..), ExtraInfo (..),
-                                             ParamKind (Normal),
-                                             ToCapture (toCapture),
-                                             ToParam (toParam),
-                                             ToSample (toSamples), defAction,
-                                             defEndpoint, defaultDocOptions,
-                                             docsWith, markdown, method, notes,
-                                             path, pretty, singleSample)
+import           Servant.Docs               (API, DocCapture (..), DocIntro (..),
+                                             DocNote (..), DocQueryParam (..),
+                                             ExtraInfo (..), ParamKind (Normal),
+                                             ToCapture (toCapture), ToParam (toParam),
+                                             ToSample (toSamples), defAction, defEndpoint,
+                                             defaultDocOptions, docsWith, markdown,
+                                             method, notes, path, pretty, singleSample)
 import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum
 
@@ -29,20 +26,17 @@ import           Data.Default               (Default (def))
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Constants              (curSoftwareVersion)
 import           Pos.Crypto                 (keyGen)
-import           Pos.Types                  (BlockVersion (..), Coin,
-                                             SoftwareVersion, makePubKeyAddress,
-                                             mkCoin)
+import           Pos.Types                  (BlockVersion (..), Coin, SoftwareVersion,
+                                             makePubKeyAddress, mkCoin)
 import           Pos.Util.BackupPhrase      (BackupPhrase, mkBackupPhrase)
 import           Pos.Wallet.Web.Api         (walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress (..), CCurrency (..),
-                                             CHash (..), CProfile (..),
-                                             CTType (..), CTx (..), CTxId,
-                                             CTxMeta (..), CUpdateInfo (..),
-                                             CWallet (..), CWalletInit (..),
-                                             CWalletMeta (..),
-                                             CWalletRedeem (..),
-                                             CWalletType (..), SyncProgress,
-                                             addressToCAddress, mkCTxId)
+import           Pos.Wallet.Web.ClientTypes (CAddress (..), CCurrency (..), CHash (..),
+                                             CInitialized (..), CProfile (..),
+                                             CTType (..), CTx (..), CTxId, CTxMeta (..),
+                                             CUpdateInfo (..), CWallet (..),
+                                             CWalletInit (..), CWalletMeta (..),
+                                             CWalletRedeem (..), CWalletType (..),
+                                             SyncProgress, addressToCAddress, mkCTxId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 
 
@@ -361,6 +355,10 @@ instance ToSample SoftwareVersion where
 
 instance ToSample SyncProgress where
     toSamples Proxy = singleSample def
+
+instance ToSample CInitialized where
+    toSamples Proxy = singleSample $ CInitialized 123 456
+
 
 --
 --instance ToSample Tx where

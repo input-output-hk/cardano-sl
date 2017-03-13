@@ -71,7 +71,7 @@ sendReportNode
     => Version -> ReportType -> m ()
 sendReportNode version reportType = do
     memLogs <- takeGlobalSize charsConst <$> readMemoryLogs
-    sendReportNodeImpl memLogs version reportType
+    sendReportNodeImpl (reverse memLogs) version reportType
   where
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int

@@ -49,15 +49,16 @@ recomputeStakes
     -> [(StakeholderId, Coin)]
     -> m ()
 recomputeStakes plusDistr minusDistr = do
-    let needResolve =
+    let (plusStakeHolders, plusCoins) = unzip plusDistr
+        (minusStakeHolders, minusCoins) = unzip minusDistr
+        needResolve =
             HS.toList $
-            HS.fromList (map fst plusDistr) `HS.union`
-            HS.fromList (map fst minusDistr)
+            HS.fromList plusStakeHolders `HS.union`
+            HS.fromList minusStakeHolders
     resolvedStakes <- mapM resolve needResolve
     totalStake <- getTotalStake
-    let positiveDelta = sumCoins (map snd plusDistr)
-    let negativeDelta = sumCoins (map snd minusDistr)
-    let newTotalStake = unsafeIntegerToCoin $
+    let (positiveDelta, negativeDelta) = (sumCoins plusCoins, sumCoins minusCoins)
+        newTotalStake = unsafeIntegerToCoin $
                         coinToInteger totalStake + positiveDelta - negativeDelta
 
     let newStakes

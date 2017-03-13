@@ -11,15 +11,14 @@ import Prelude
 import Data.Int (binary, fromString, toStringAs)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
-import Data.Newtype (unwrap)
 import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.Factory (mkCAddress)
+import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CTxEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, cteAmount, cteId, cteTimeIssued)
-import Pos.Types.Lenses.Core (_Coin, getCoin)
 import Pux.Html (Html, text, div, a, p, span, input) as P
 import Pux.Html.Attributes (className, href, value, disabled, type_, min, max) as P
 import Pux.Html.Events (onChange, onFocus, FormEvent, MouseEvent, Target, onClick) as P
@@ -38,7 +37,10 @@ transactionHeaderView (CTxEntry entry) =
               [ P.text $ entry ^. (cteId <<< _CTxId <<< _CHash) ]
           , P.div
               [ P.className "date"]
-              [ P.text <<< show <<< unwrap $ entry ^. (cteTimeIssued <<< _NominalDiffTime) ]
+              [ P.text $ case entry ^. cteTimeIssued of
+                            Just t -> show $ t ^. _NominalDiffTime
+                            Nothing -> "-"
+              ]
           , P.div
               [ P.className "amount-container" ]
               [ P.a

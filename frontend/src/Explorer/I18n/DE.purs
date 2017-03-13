@@ -31,6 +31,10 @@ translation =
         , cTotalOutput: "Gesamtausgabe"
         , cOf: "von"
         , cNotAvailable: "nicht verfügbar"
+        , cDays: "Tage"
+        , cHours: "Stunden"
+        , cMinutes: "Minuten"
+        , cSeconds: "Sekunden"
         }
     , navigation:
         { navHome: "Home"

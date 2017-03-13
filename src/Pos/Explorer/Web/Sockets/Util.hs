@@ -11,7 +11,8 @@ module Pos.Explorer.Web.Sockets.Util
     , forkAccompanion
     ) where
 
-import           Control.Concurrent.STM.TVar      (newTVarIO, readTVarIO, writeTVar)
+import qualified Control.Concurrent.STM           as STM
+import           Control.Concurrent.STM.TVar      (readTVarIO, writeTVar)
 import           Control.Monad.Catch              (MonadCatch, MonadThrow)
 import           Control.Monad.Reader             (MonadReader)
 import           Control.Monad.State              (MonadState)
@@ -70,7 +71,7 @@ on eventName handler = S.on (toName eventName) handler
 instance CanLog Snap where
     dispatchMessage logName sev msg = liftIO $ dispatchMessage logName sev msg
 
-instance CanLog m => CanLog (St.StateT s m)
+-- instance CanLog m => CanLog (St.StateT s m)
 
 -- * Misc
 
@@ -96,7 +97,7 @@ forkAccompanion
     :: (MonadIO m, MonadMask m, Mockable Fork m)
     => (m Bool -> m ()) -> m a -> m a
 forkAccompanion accompanion main = do
-    stopped <- liftIO $ newTVarIO False
+    stopped <- liftIO $ STM.newTVarIO False
     let whetherStopped = liftIO $ readTVarIO stopped
     bracket_ (fork $ accompanion whetherStopped)
              (atomically $ writeTVar stopped True)

@@ -46,6 +46,10 @@ type Common =
     , cTotalOutput :: String
     , cOf :: String
     , cNotAvailable :: String
+    , cDays :: String
+    , cHours :: String
+    , cMinutes :: String
+    , cSeconds :: String
     }
 
 -- translations of main navigation

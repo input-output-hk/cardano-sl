@@ -21,36 +21,45 @@ import           Servant.API                     ((:<|>) ((:<|>)))
 import           Servant.Server                  (Server, ServerT, serve)
 import           Universum
 
-import           Pos.Communication               (SendActions)
-import           Pos.Crypto                      (WithHash (..), withHash)
-import qualified Pos.DB.Block                    as DB
-import qualified Pos.DB.GState                   as GS
-import           Pos.DB.GState.Explorer          as GS (getTxExtra)
-import           Pos.Slotting                    (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.GodTossing              (SscGodTossing)
-import           Pos.Txp                         (Tx (..), TxId, getLocalTxs, getMemPool,
-                                                  topsortTxs, txOutValue, _mpLocalTxs,
-                                                  _txOutputs)
-import           Pos.Types                       (Address (..), HeaderHash, MainBlock,
-                                                  Timestamp, blockTxs, difficultyL,
-                                                  gbHeader, gbhConsensus, mcdSlot, mkCoin,
-                                                  prevBlockL, sumCoins,
-                                                  unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Types.Explorer              (TxExtra (..))
-import           Pos.Util                        (maybeThrow)
-import           Pos.Web                         (serveImpl)
-import           Pos.WorkMode                    (WorkMode)
+import           Pos.Communication              (SendActions)
+import           Pos.Crypto                     (WithHash (..), withHash)
+import qualified Pos.DB.Block                   as DB
+import qualified Pos.DB.GState                  as GS
+import           Pos.DB.GState.Balances         as GS (getFtsStake)
+import           Pos.DB.GState.Explorer         as GS (getTxExtra)
+import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
+import           Pos.Ssc.GodTossing             (SscGodTossing)
+import           Pos.Txp                        (Tx (..), TxId, getLocalTxs,
+                                                 getMemPool, topsortTxs,
+                                                 txOutValue, _mpLocalTxs,
+                                                 _txOutputs)
+import           Pos.Types                      (Address (..), HeaderHash,
+                                                 MainBlock, Timestamp, blockTxs,
+                                                 difficultyL, gbHeader,
+                                                 gbhConsensus, mcdSlot, mkCoin,
+                                                 prevBlockL, sumCoins,
+                                                 unsafeIntegerToCoin,
+                                                 unsafeSubCoin)
 
-import           Pos.Explorer.Aeson.ClientTypes  ()
-import           Pos.Explorer.Web.Api            (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes    (CAddress (..), CAddressSummary (..),
-                                                  CBlockEntry (..), CBlockSummary (..),
-                                                  CHash, CTxEntry (..), CTxId (..),
-                                                  CTxSummary (..), TxInternal (..),
-                                                  convertTxOutputs, fromCAddress,
-                                                  fromCHash', fromCTxId, toBlockEntry,
-                                                  toBlockSummary, toPosixTime, toTxEntry)
-import           Pos.Explorer.Web.Error          (ExplorerError (..))
+import           Pos.Types.Explorer             (TxExtra (..))
+import           Pos.Util                       (maybeThrow)
+import           Pos.Web                        (serveImpl)
+import           Pos.WorkMode                   (WorkMode)
+
+import           Pos.Explorer.Aeson.ClientTypes ()
+import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
+                                                 CAddressSummary (..),
+                                                 CBlockEntry (..),
+                                                 CBlockSummary (..), CHash,
+                                                 CTxEntry (..), CTxId (..),
+                                                 CTxSummary (..),
+                                                 TxInternal (..),
+                                                 convertTxOutputs, fromCAddress,
+                                                 fromCHash', fromCTxId,
+                                                 toBlockEntry, toBlockSummary,
+                                                 toPosixTime, toTxEntry)
+import           Pos.Explorer.Web.Error         (ExplorerError (..))
 import           Pos.Explorer.Web.Sockets.Holder (MonadExplorerSockets)
 
 ----------------------------------------------------------------
@@ -170,7 +179,7 @@ getTxSummary cTxId = do
     txExtra <- maybe (throwM $ Internal "Transaction not found") pure txExtraMaybe
 
     let blockchainPlace = teBlockchainPlace txExtra
-        inputOutputs = teInputOutputs txExtra
+        inputOutputs = map fst $ NE.toList $ teInputOutputs txExtra
 
     -- TODO: here and in getMempoolTxs/getBlockchainTxs we do two things wrongly:
     -- 1. If the transaction is found in the MemPool, we return *starting

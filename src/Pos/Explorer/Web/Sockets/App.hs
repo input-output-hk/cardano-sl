@@ -10,7 +10,7 @@ module Pos.Explorer.Web.Sockets.App
        , notifierApp
        ) where
 
-import           Control.Concurrent.STM.TVar      (newTVarIO)
+import qualified Control.Concurrent.STM           as STM
 import           Control.Exception.Lifted         (try)
 import           Control.Lens                     ((<<.=))
 import           Control.Monad.Trans.Control      (MonadBaseControl)
@@ -148,6 +148,6 @@ notifierApp
     => NotifierSettings -> m ()
 notifierApp settings = modifyLoggerName (<> "notifier") $ do
     logInfo "Starting"
-    connVar <- liftIO $ newTVarIO mkConnectionsState
+    connVar <- liftIO $ STM.newTVarIO mkConnectionsState
     forkAccompanion (periodicPollChanges @ssc connVar)
                     (notifierServer settings connVar)

@@ -51,9 +51,6 @@ import           Pos.Types              (Address, ChainDifficulty, Coin, MainBlo
                                          mcdSlot, mkCoin, prevBlockL, sumCoins,
                                          unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Types.Explorer     (TxExtra (..))
-import           Pos.Util               (maybeThrow)
-
-import           Pos.Explorer.Web.Error (ExplorerError (..))
 
 -------------------------------------------------------------------------------------
 -- Hash types
@@ -83,7 +80,7 @@ decodeHashHex = fmap Bi.decode . processRes . B16.decode . encodeUtf8
             else Left $ "decodeHashHex: couldn't decode rest of hash: " <> decodeUtf8 rest
 
 decodeHashHex' :: Text -> Hash a
-decodeHashHex' = either (panic "decodeHashHex: invalid hash") identity . decodeHashHex
+decodeHashHex' = either (error "decodeHashHex: invalid hash") identity . decodeHashHex
 
 toCHash :: Hash a -> CHash
 toCHash = CHash . encodeHashHex
@@ -113,8 +110,8 @@ fromCTxId (CTxId (CHash txId)) = decodeHashHex txId
 -- | List of block entries is returned from "get latest N blocks" endpoint
 data CBlockEntry = CBlockEntry
     { cbeBlkHash    :: !CHash
-    , cbeHeight     :: !ChainDifficulty
-    , cbeTimeIssued :: !POSIXTime
+    , cbeHeight     :: !Word
+    , cbeTimeIssued :: !(Maybe POSIXTime)
     , cbeTxNum      :: !Word
     , cbeTotalSent  :: !Coin
     , cbeSize       :: !Word64
@@ -129,11 +126,10 @@ toBlockEntry
     => MainBlock ssc
     -> m CBlockEntry
 toBlockEntry blk = do
-    blkSlotStart <- maybeThrow (Internal "Slotting isn't initialized") =<<
-        getSlotStart (blk ^. gbHeader . gbhConsensus . mcdSlot)
+    blkSlotStart <- getSlotStart (blk ^. gbHeader . gbhConsensus . mcdSlot)
     let cbeBlkHash = toCHash $ headerHash blk
-        cbeHeight = blk ^. difficultyL
-        cbeTimeIssued = toPosixTime blkSlotStart
+        cbeHeight = fromIntegral $ blk ^. difficultyL
+        cbeTimeIssued = toPosixTime <$> blkSlotStart
         txs = blk ^. blockTxs
         cbeTxNum = fromIntegral $ length txs
         addCoins c = unsafeAddCoin c . totalTxMoney
@@ -241,5 +237,5 @@ toTxBrief txi txe = CTxBrief {..}
     ts = tiTimestamp txi
     ctbId = toCTxId $ hash tx
     ctbTimeIssued = toPosixTime <$> ts
-    ctbInputs = convertTxOutputs $ teInputOutputs txe
+    ctbInputs = convertTxOutputs $ map fst $ NE.toList $ teInputOutputs txe
     ctbOutputs = convertTxOutputs . NE.toList $ _txOutputs tx

@@ -23,7 +23,8 @@ module Pos.Explorer.Web.Sockets.Holder
        , ccConnection
        ) where
 
-import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVarIO)
+import qualified Control.Concurrent.STM      as STM
+import           Control.Concurrent.STM.TVar (TVar, readTVarIO)
 import           Control.Lens                (makeClassy)
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Reader        (MonadReader)
@@ -109,5 +110,5 @@ runExplorerSockets conn = flip runReaderT conn . getExplorerSockets
 
 runNewExplorerSockets :: MonadIO m => ExplorerSockets m a -> m a
 runNewExplorerSockets es = do
-    conn <- liftIO $ newTVarIO mkConnectionsState
+    conn <- liftIO $ STM.newTVarIO mkConnectionsState
     runExplorerSockets conn es

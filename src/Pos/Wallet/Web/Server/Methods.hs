@@ -29,15 +29,16 @@ import           Data.List                     (elemIndex, (!!))
 import           Data.Tagged                   (untag)
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
 import           Data.Time.Units               (Microsecond, Second)
-import           Formatting                    (build, ords, sformat, stext, (%))
+import           Formatting                    (build, ords, sformat, shown, stext, (%))
 import           Network.Wai                   (Application)
+import           Paths_cardano_sl              (version)
+import           Pos.ReportServer.Report       (ReportType (RInfo))
 import           Serokell.Util                 (threadDelay)
 import           Servant.API                   ((:<|>) ((:<|>)),
                                                 FromHttpApiData (parseUrlPiece))
 import           Servant.Server                (Handler, Server, ServerT, serve)
 import           Servant.Utils.Enter           ((:~>) (..), enter)
-import           System.Wlog                   (logDebug)
-import           System.Wlog                   (logInfo)
+import           System.Wlog                   (logDebug, logError, logInfo)
 
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Communication.Protocol    (OutSpecs, SendActions, hoistSendActions)
@@ -51,6 +52,8 @@ import           Pos.Crypto                    (emptyPassphrase, encToPublic, fa
                                                 withSafeSigner)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (getKnownPeers)
+import           Pos.Reporting.MemState        (MonadReportingMem (..))
+import           Pos.Reporting.Methods         (sendReportNodeNologs)
 import           Pos.Ssc.Class                 (SscHelpersClass)
 import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
 import           Pos.Util                      (maybeThrow)
@@ -66,15 +69,15 @@ import           Pos.Wallet.WalletMode         (TxHistoryAnswer (..), WalletMode
                                                 localChainDifficulty,
                                                 networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
-import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
-                                                CProfile (..), CTx, CTxId, CTxMeta (..),
-                                                CUpdateInfo (..), CWallet (..),
-                                                CWalletInit (..), CWalletMeta (..),
-                                                CWalletRedeem (..), NotifyEvent (..),
-                                                SyncProgress (..), addressToCAddress,
-                                                cAddressToAddress, mkCTx, mkCTxId,
-                                                toCUpdateInfo, txContainsTitle,
-                                                txIdToCTxId)
+import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CInitialized,
+                                                CProfile, CProfile (..), CTx, CTxId,
+                                                CTxMeta (..), CUpdateInfo (..),
+                                                CWallet (..), CWalletInit (..),
+                                                CWalletMeta (..), CWalletRedeem (..),
+                                                NotifyEvent (..), SyncProgress (..),
+                                                addressToCAddress, cAddressToAddress,
+                                                mkCTx, mkCTxId, toCUpdateInfo,
+                                                txContainsTitle, txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
@@ -87,7 +90,8 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWeb
                                                 getWalletMeta, getWalletState, openState,
                                                 removeNextUpdate, removeWallet,
                                                 runWalletWebDB, setProfile, setWalletMeta,
-                                                setWalletTransactionMeta, testReset, updateHistoryCache)
+                                                setWalletTransactionMeta, testReset,
+                                                updateHistoryCache)
 import           Pos.Web.Server                (serveImpl)
 
 ----------------------------------------------------------------------------
@@ -101,6 +105,7 @@ type WalletWebMode ssc m
       , MonadWalletWebDB m
       , MonadDBLimits m
       , MonadWalletWebSockets m
+      , MonadReportingMem m
       )
 
 makeLenses ''SyncProgress
@@ -135,7 +140,7 @@ walletApplication serv = do
 
 walletServer
     :: forall ssc m.
-       (SscHelpersClass ssc, Monad m, WalletWebMode ssc (WalletWebHandler m))
+       (SscHelpersClass ssc, Monad m, MonadIO m, WalletWebMode ssc (WalletWebHandler m))
     => SendActions m
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
@@ -276,6 +281,8 @@ servantHandlers sendActions =
     :<|>
      apiRedeemAda
     :<|>
+     apiReportingInitialized
+    :<|>
      apiSettingsSlotDuration
     :<|>
      apiSettingsSoftwareVersion
@@ -302,6 +309,7 @@ servantHandlers sendActions =
     apiNextUpdate               = catchWalletError nextUpdate
     apiApplyUpdate              = catchWalletError applyUpdate
     apiRedeemAda                = catchWalletError . redeemADA sendActions
+    apiReportingInitialized     = catchWalletError . reportingInitialized
     apiSettingsSlotDuration     = catchWalletError (fromIntegral <$> blockchainSlotDuration)
     apiSettingsSoftwareVersion  = catchWalletError (pure curSoftwareVersion)
     apiSettingsSyncProgress     = catchWalletError syncProgress
@@ -376,11 +384,12 @@ getHistory cAddr skip limit = do
         =<< decodeCAddressOrFail cAddr
 
     -- Add allowed portion of result to cache
-    let fullHistory = cachedTxs <> taHistory
-        cached = take taCachedNum taHistory
+    let fullHistory = taHistory <> cachedTxs
+        lenHistory = length taHistory
+        cached = drop (lenHistory - taCachedNum) taHistory
 
     unless (null cached) $
-        updateHistoryCache cAddr taLastCachedHash taCachedUtxo (cachedTxs <> cached)
+        updateHistoryCache cAddr taLastCachedHash taCachedUtxo (cached <> cachedTxs)
 
     cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) fullHistory
     pure (paginate cHistory, fromIntegral $ length cHistory)
@@ -484,6 +493,16 @@ redeemADA sendActions CWalletRedeem {..} = do
             -- add redemption transaction to the history of new wallet
             addHistoryTx dstCAddr ADA "ADA redemption" ""
               (THEntry (hash tx) tx False Nothing)
+
+reportingInitialized :: forall ssc m. WalletWebMode ssc m => CInitialized -> m ()
+reportingInitialized cinit = do
+    sendReportNodeNologs version (RInfo $ show cinit) `catch` handler
+  where
+    handler :: SomeException -> m ()
+    handler e =
+        logError $
+        sformat ("Didn't manage to report initialization time "%shown%
+                 " because of exception "%shown) cinit e
 
 importKey :: WalletWebMode ssc m => SendActions m -> Text -> m CWallet
 importKey sendActions (toString -> fp) = do

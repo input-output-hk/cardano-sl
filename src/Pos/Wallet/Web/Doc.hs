@@ -1,6 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -fno-warn-deprecations #-}
 
 -- | Documentation of wallet web API.
 
@@ -220,7 +218,19 @@ ctxMeta = CTxMeta
       }
 
 backupPhrase :: BackupPhrase
-backupPhrase = mkBackupPhrase $ replicate 12 "me"
+backupPhrase = mkBackupPhrase [ "transfer"
+                              , "uniform"
+                              , "grunt"
+                              , "excess"
+                              , "six"
+                              , "veteran"
+                              , "vintage"
+                              , "warm"
+                              , "confirm"
+                              , "vote"
+                              , "nephew"
+                              , "allow"
+                              ]
 --------------------------------------------------------------------------------
 
 instance ToSample WalletError where

@@ -1155,18 +1155,18 @@ Clients must supply the following data
 {
     "cwBackupPhrase": {
         "bpToList": [
-            "me",
-            "me",
-            "me",
-            "me",
-            "me",
-            "me",
-            "me",
-            "me",
-            "me",
-            "me",
-            "me",
-            "me"
+            "transfer",
+            "uniform",
+            "grunt",
+            "excess",
+            "six",
+            "veteran",
+            "vintage",
+            "warm",
+            "confirm",
+            "vote",
+            "nephew",
+            "allow"
         ]
     },
     "cwInitMeta": {
@@ -1439,18 +1439,18 @@ Clients must supply the following data
 {
     "cwBackupPhrase": {
         "bpToList": [
-            "me",
-            "me",
-            "me",
-            "me",
-            "me",
-            "me",
-            "me",
-            "me",
-            "me",
-            "me",
-            "me",
-            "me"
+            "transfer",
+            "uniform",
+            "grunt",
+            "excess",
+            "six",
+            "veteran",
+            "vintage",
+            "warm",
+            "confirm",
+            "vote",
+            "nephew",
+            "allow"
         ]
     },
     "cwInitMeta": {

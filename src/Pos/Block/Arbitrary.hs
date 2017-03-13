@@ -159,7 +159,10 @@ instance Arbitrary (SscPayloadDependsOnSlot ssc) =>
         mpcData <- generator _mcdSlot
         mpcProxySKs <- arbitrary
         mpcUpload   <- arbitrary
-        return $ T.MainBody (mkTxPayload txws) mpcData mpcProxySKs mpcUpload
+        let txPayload = fromMaybe
+                (error "arbitrary@BodyDependsOnConsensus: mkTxPayload failed") $
+                mkTxPayload txws
+        return $ T.MainBody txPayload mpcData mpcProxySKs mpcUpload
 
 instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc)) where
     arbitrary = makeSmall $ do
@@ -167,7 +170,10 @@ instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc))
         mpcData     <- arbitrary
         mpcProxySKs <- arbitrary
         mpcUpload   <- arbitrary
-        return $ T.MainBody (mkTxPayload txws) mpcData mpcProxySKs mpcUpload
+        let txPayload = fromMaybe
+                (error "arbitrary@Body: mkTxPayload failed") $
+                mkTxPayload txws
+        return $ T.MainBody txPayload mpcData mpcProxySKs mpcUpload
 
 instance (Arbitrary (SscProof ssc), Arbitrary (SscPayloadDependsOnSlot ssc), SscHelpersClass ssc) =>
     Arbitrary (T.GenericBlock (T.MainBlockchain ssc)) where
@@ -346,7 +352,7 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                     [h] -> (Nothing, h, Nothing)
                     [h1, h2] -> (Just h1, h2, Nothing)
                     (h1 : h2 : h3 : _) -> (Just h1, h2, Just h3)
-                    _ -> panic "[BlockSpec] the headerchain doesn't have enough headers"
+                    _ -> error "[BlockSpec] the headerchain doesn't have enough headers"
             -- This binding captures the chosen header's epoch. It is used to drop all
             -- all leaders of headers from previous epochs.
             thisEpochStartIndex = fromIntegral $ epochSlots * (header ^. T.epochIndexL)

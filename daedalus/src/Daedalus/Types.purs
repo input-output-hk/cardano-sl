@@ -19,6 +19,7 @@ module Daedalus.Types
        , showCCurrency
        , mkBackupPhrase
        , mkCWalletRedeem
+       , mkCInitialized
        ) where
 
 import Prelude
@@ -110,6 +111,12 @@ mkCWalletMeta wType wCurrency wName =
                    , cwCurrency: mkCCurrency wCurrency
                    , cwName: wName
                    }
+
+mkCInitialized :: Int -> Int -> CT.CInitialized
+mkCInitialized total preInit =
+    CT.CInitialized { cTotalTime: total
+                    , cPreInit: preInit
+                    }
 
 mkCWalletInit :: String -> String -> String -> String -> Either Error CT.CWalletInit
 mkCWalletInit wType wCurrency wName mnemonic =

@@ -30,12 +30,12 @@ import           Pos.Communication.Protocol  (ConversationActions (..), HandlerS
 import           Pos.Communication.Util      (stubListenerConv)
 import qualified Pos.DB.Block                as DB
 import           Pos.DB.Error                (DBError (DBMalformed))
-import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
+import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
 import           Pos.Util                    (NewestFirst (..))
 import           Pos.WorkMode                (WorkMode)
 
 blockListeners
-    :: (WorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc m)
     => m ([ListenerSpec m], OutSpecs)
 blockListeners = mergeLs <$> sequence
     [ handleGetHeaders
@@ -109,7 +109,7 @@ handleGetBlocks = return $ listenerConv $
 -- | Handles MsgHeaders request, unsolicited usecase
 handleBlockHeaders
     :: forall ssc m.
-       (WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => m (ListenerSpec m, OutSpecs)
 handleBlockHeaders = reifyMsgLimit (Proxy @(MsgHeaders ssc)) $
     \(_ :: Proxy s) -> return $ listenerConv $

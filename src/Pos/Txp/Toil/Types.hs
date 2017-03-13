@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | Types used for managing of transactions
@@ -11,17 +12,20 @@ module Pos.Txp.Toil.Types
        , MemPool (..)
        , mpLocalTxs
        , mpLocalTxsSize
+#ifdef WITH_EXPLORER
+       , mpLocalTxsExtra
+#endif
        , TxMap
        , BalancesView (..)
        , bvStakes
        , bvTotal
        , UndoMap
        , UtxoModifier
-       , TxpModifier (..)
-       , txmUtxoModifier
-       , txmBalances
-       , txmMemPool
-       , txmUndos
+       , ToilModifier (..)
+       , tmUtxo
+       , tmBalances
+       , tmMemPool
+       , tmUndos
        ) where
 
 import           Control.Lens           (makeLenses)
@@ -33,10 +37,12 @@ import           Formatting             (Format, later)
 import           Serokell.Util.Text     (mapBuilderJson)
 import           Universum
 
-import           Pos.Txp.Core.Types     (TxAux, TxId, TxIn, TxOutAux, TxUndo)
--- import Pos.Binary.
-import           Pos.Types              (Coin, StakeholderId, mkCoin)
+import           Pos.Core               (Coin, StakeholderId)
+import           Pos.Txp.Core           (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import qualified Pos.Util.Modifier      as MM
+#ifdef WITH_EXPLORER
+import           Pos.Types.Explorer     (TxExtra)
+#endif
 
 ----------------------------------------------------------------------------
 -- UTXO
@@ -62,13 +68,13 @@ utxoF = later formatUtxo
 
 data BalancesView = BalancesView
     { _bvStakes :: !(HashMap StakeholderId Coin)
-    , _bvTotal  :: !Coin
+    , _bvTotal  :: !(Maybe Coin)
     }
 
 makeLenses ''BalancesView
 
 instance Default BalancesView where
-    def = BalancesView mempty $ mkCoin 0
+    def = BalancesView mempty Nothing
 
 ----------------------------------------------------------------------------
 -- MemPool
@@ -79,10 +85,20 @@ type TxMap = HashMap TxId TxAux
 instance Default TxMap where
     def = mempty
 
+#ifdef WITH_EXPLORER
+type TxMapExtra = MM.MapModifier TxId TxExtra
+
+instance Default TxMapExtra where
+    def = mempty
+#endif
+
 data MemPool = MemPool
-    { _mpLocalTxs     :: !TxMap
+    { _mpLocalTxs      :: !TxMap
       -- | @length@ is @O(n)@ for 'HM.HashMap' so we store it explicitly.
-    , _mpLocalTxsSize :: !Int
+    , _mpLocalTxsSize  :: !Int
+#ifdef WITH_EXPLORER
+    , _mpLocalTxsExtra :: !TxMapExtra
+#endif
     }
 
 makeLenses ''MemPool
@@ -90,12 +106,15 @@ makeLenses ''MemPool
 instance Default MemPool where
     def =
         MemPool
-        { _mpLocalTxs = HM.empty
-        , _mpLocalTxsSize = 0
+        { _mpLocalTxs      = HM.empty
+        , _mpLocalTxsSize  = 0
+#ifdef WITH_EXPLORER
+        , _mpLocalTxsExtra = def
+#endif
         }
 
 ----------------------------------------------------------------------------
--- TxpModifier
+-- ToilModifier
 ----------------------------------------------------------------------------
 
 type UtxoModifier = MM.MapModifier TxIn TxOutAux
@@ -104,11 +123,14 @@ type UndoMap = HashMap TxId TxUndo
 instance Default UndoMap where
     def = mempty
 
-data TxpModifier = TxpModifier
-    { _txmUtxoModifier :: !UtxoModifier
-    , _txmBalances     :: !BalancesView
-    , _txmMemPool      :: !MemPool
-    , _txmUndos        :: !UndoMap
+data ToilModifier = ToilModifier
+    { _tmUtxo     :: !UtxoModifier
+    , _tmBalances :: !BalancesView
+    , _tmMemPool  :: !MemPool
+    , _tmUndos    :: !UndoMap
     }
 
-makeLenses ''TxpModifier
+instance Default ToilModifier where
+    def = ToilModifier mempty def def mempty
+
+makeLenses ''ToilModifier

@@ -10,11 +10,11 @@ module Pos.Crypto.Random
 
 import           Crypto.Number.Basic     (numBytes)
 import           Crypto.Number.Serialize (os2ip)
+import           Crypto.OpenSSL.Random   (randBytes)
 import           Crypto.Random           (ChaChaDRG, MonadPseudoRandom, MonadRandom,
                                           drgNewSeed, getRandomBytes, seedFromInteger,
                                           withDRG)
 import qualified Data.ByteArray          as ByteArray (convert)
-import           Crypto.OpenSSL.Random   (randBytes)
 import           Universum
 
 -- | Generate a cryptographically random 'ByteString' of specific length.
@@ -47,7 +47,7 @@ deterministic seed gen = fst $ withDRG chachaSeed gen
 -- be divisible by n, and thus applying 'mod' to it will be safe.
 randomNumber :: MonadRandom m => Integer -> m Integer
 randomNumber n
-    | n <= 0 = panic "randomNumber: n <= 0"
+    | n <= 0 = error "randomNumber: n <= 0"
     | otherwise = gen
   where
     size = max 4 (numBytes n)             -- size of integers, in bytes

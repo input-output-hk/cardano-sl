@@ -1,4 +1,3 @@
-
 -- | BiP datatype and related instance for time-warp abstracted
 -- serialization.
 
@@ -6,12 +5,13 @@ module Pos.Communication.BiP
        ( BiP(..)
        ) where
 
+import           Universum
+
 import           Data.Binary.Get               (runGetIncremental)
 import           Data.Binary.Put               (execPut)
 import qualified Data.ByteString.Builder.Extra as BS
 import qualified Data.ByteString.Lazy          as LBS
 import           Node.Message                  (Packable (..), Unpackable (..))
-import           Universum                     hiding (yield)
 
 import           Pos.Binary.Class              (Bi (..))
 

@@ -42,7 +42,7 @@ hashingRoundsNum = 10000
 mkBackupPhrase :: [Text] -> BackupPhrase
 mkBackupPhrase ls
     | length ls == backupPhraseWordsNum = BackupPhrase ls
-    | otherwise = panic "Invalid number of words in backup phrase!"
+    | otherwise = error "Invalid number of words in backup phrase!"
 
 instance Show BackupPhrase where
     show = T.unpack . T.unwords . bpToList
@@ -70,8 +70,8 @@ toSeed bp = encodeStrict $ iterate hash256 (hash256 ph) !! (hashingRoundsNum - 1
 keysFromPhrase :: BackupPhrase -> (SecretKey, VssKeyPair)
 keysFromPhrase ph = (sk, vss)
   where seed = toSeed ph
-        panicMsg = "Pos.Util.BackupPhrase: impossible: seed is always 32-bit"
-        sk = snd $ maybe (panic panicMsg) identity $ deterministicKeyGen seed
+        errorMsg = "Pos.Util.BackupPhrase: impossible: seed is always 32-bit"
+        sk = snd $ maybe (error errorMsg) identity $ deterministicKeyGen seed
         vss = deterministicVssKeyGen seed
 
 safeKeysFromPhrase
@@ -80,6 +80,6 @@ safeKeysFromPhrase
     -> (EncryptedSecretKey, VssKeyPair)
 safeKeysFromPhrase pp ph = (esk, vss)
   where seed = toSeed ph
-        panicMsg = "Pos.Util.BackupPhrase: impossible: seed is always 32-bit"
-        esk = snd $ maybe (panic panicMsg) identity $ safeDeterministicKeyGen seed pp
+        errorMsg = "Pos.Util.BackupPhrase: impossible: seed is always 32-bit"
+        esk = snd $ maybe (error errorMsg) identity $ safeDeterministicKeyGen seed pp
         vss = deterministicVssKeyGen seed

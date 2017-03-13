@@ -1,18 +1,24 @@
-{-# LANGUAGE DeriveLift #-}
+{-# LANGUAGE TemplateHaskell #-}
 
-module Pos.Infra.Constants.Type
+module Pos.Infra.Constants
        ( InfraConstants (..)
+       , infraConstants
        ) where
 
 import           Data.Aeson                 (FromJSON (..), genericParseJSON)
 import           Data.Tagged                (Tagged (..))
-import           Language.Haskell.TH.Syntax (Lift)
 import           Serokell.Aeson.Options     (defaultOptions)
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Util.Config            (IsConfig (..))
+import           Pos.Util.Config            (IsConfig (..), configParser,
+                                             parseFromCslConfig)
 import           Pos.Util.Util              ()
+
+infraConstants :: InfraConstants
+infraConstants = case parseFromCslConfig configParser of
+    Left err -> error (toText ("Couldn't parse infra config: " ++ err))
+    Right x  -> x
 
 data InfraConstants = InfraConstants
     { ccNtpResponseTimeout       :: !Int
@@ -30,14 +36,14 @@ data InfraConstants = InfraConstants
     , ccNetworkReceiveTimeout    :: !Int
       -- ^ Network timeout on `recv` in milliseconds
 
-    ----------------------------------------------------------------------------
+    --------------------------------------------------------------------------
     -- -- Relay
-    ----------------------------------------------------------------------------
+    --------------------------------------------------------------------------
     , ccMaxReqSize               :: !Byte
       -- ^ Maximum `ReqMsg` size in bytes
     , ccMaxInvSize               :: !Byte
       -- ^ Maximum `InvMsg` size in bytes
-    } deriving (Show, Lift, Generic)
+    } deriving (Show, Generic)
 
 instance FromJSON InfraConstants where
     parseJSON = genericParseJSON defaultOptions

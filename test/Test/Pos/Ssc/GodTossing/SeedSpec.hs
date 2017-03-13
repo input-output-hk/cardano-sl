@@ -19,6 +19,7 @@ import           Universum
 import           Unsafe                   ()
 
 import           Pos.Binary               (AsBinaryClass (..))
+import           Pos.Core.Address         (AddressHash, addressHash)
 import           Pos.Crypto               (PublicKey, SecretKey, Share, Threshold,
                                            VssKeyPair, decryptShare, sign, toPublic,
                                            toVssPublicKey)
@@ -27,7 +28,6 @@ import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Open
                                            genCommitmentAndOpening, mkCommitmentsMap,
                                            secretToSharedSeed)
 import           Pos.Types                (SharedSeed (..))
-import           Pos.Core.Address        (AddressHash, addressHash)
 import           Pos.Util                 (nonrepeating, sublistN)
 
 getPubAddr :: SecretKey -> AddressHash PublicKey
@@ -116,15 +116,15 @@ recoverSecretsProp
     -> Int         -- ^ How many have sent both (the “overlap” parameter)
     -> Property
 recoverSecretsProp n n_openings n_shares n_overlap
-    | any (< 0) [n, n_openings, n_shares, n_overlap] = panic "negative"
-    | n == 0                 = panic "n == 0"
-    | n_overlap > n_openings = panic "n_overlap > n_openings"
-    | n_overlap > n_shares   = panic "n_overlap > n_shares"
-    | n_openings > n         = panic "n_openings > n"
-    | n_shares > n           = panic "n_shares > n"
+    | any (< 0) [n, n_openings, n_shares, n_overlap] = error "negative"
+    | n == 0                 = error "n == 0"
+    | n_overlap > n_openings = error "n_overlap > n_openings"
+    | n_overlap > n_shares   = error "n_overlap > n_shares"
+    | n_openings > n         = error "n_openings > n"
+    | n_shares > n           = error "n_shares > n"
     -- there's a lower bound for the overlap, too (e.g. n=3,
     -- openings=2, shares=2, then overlap must be at least 1)
-    | n - n_openings - n_shares + n_overlap < 0 = panic "overlap condition"
+    | n - n_openings - n_shares + n_overlap < 0 = error "overlap condition"
 
 recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
     let threshold = pickThreshold n
@@ -214,7 +214,7 @@ generateKeysAndMpc
     -> Int
     -> IO ([SecretKey], NonEmpty VssKeyPair, [Commitment], [Opening])
 -- genCommitmentAndOpening fails on 0
-generateKeysAndMpc _         0 = panic "generateKeysAndMpc: 0 is passed"
+generateKeysAndMpc _         0 = error "generateKeysAndMpc: 0 is passed"
 generateKeysAndMpc threshold n = do
     keys           <- generate $ nonrepeating n
     vssKeys        <- generate $ nonrepeating n
@@ -240,12 +240,12 @@ getDecryptedShares vssKeys comm =
         \(pubKey, encShare) -> do
             let secKey = case find ((== pubKey) . asBinary . toVssPublicKey) vssKeys of
                     Just k  -> k
-                    Nothing -> panic $
+                    Nothing -> error $
                         sformat ("getDecryptedShares: counldn't \
                                  \find key "%build) pubKey
                 encShare' = case encShare of
                     Right encS -> encS
-                    _          -> panic $
+                    _          -> error $
                         "@getDecryptedShares: could not deserialize LEncShare"
             toList <$> mapM (decryptShare secKey) encShare'
 

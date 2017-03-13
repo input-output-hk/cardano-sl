@@ -295,7 +295,7 @@ mkCoinPortion x
 unsafeCoinPortionFromDouble :: Double -> CoinPortion
 unsafeCoinPortionFromDouble x
     | 0 <= x && x <= 1 = CoinPortion v
-    | otherwise = panic "unsafeCoinPortionFromDouble: double not in [0, 1]"
+    | otherwise = error "unsafeCoinPortionFromDouble: double not in [0, 1]"
   where
     v = round $ realToFrac coinPortionDenominator * x
 {-# INLINE unsafeCoinPortionFromDouble #-}

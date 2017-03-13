@@ -4,11 +4,13 @@ module Test.Pos.Types.CoinSpec
        ( spec
        ) where
 
+import           Universum
+
+import           Control.Exception     (ErrorCall)
 import           Test.Hspec            (Expectation, Selector, Spec, describe, it,
                                         shouldBe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (===))
-import           Universum
 
 import qualified Pos.Types             as C
 
@@ -79,7 +81,7 @@ spec = describe "Coin properties" $ do
     portionToWordToPortionDesc = "Converting a coin portion into a 64-bit word and this\
     \ word into a portion changes nothing"
 
-fatalException :: Selector FatalError
+fatalException :: Selector ErrorCall
 fatalException = const True
 
 ------------------------------------------------------------------------------------------

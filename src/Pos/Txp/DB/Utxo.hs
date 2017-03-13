@@ -46,9 +46,8 @@ import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
                                        IterType, runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
-import           Pos.Txp.Core         (TxIn (..), TxOutAux, txOutStake)
+import           Pos.Txp.Core         (TxIn (..), TxOutAux, addrBelongsTo, txOutStake)
 import           Pos.Txp.Toil.Types   (Utxo)
-import           Pos.Txp.Toil.Utxo    (belongsTo)
 import           Pos.Types            (Address, Coin, coinF, mkCoin, sumCoins,
                                        unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Util.Iterator    (nextItem)
@@ -173,7 +172,7 @@ getFilteredUtxo'
        , IterValue i ~ TxOutAux
        )
     => Address -> m Utxo
-getFilteredUtxo' addr = filterUtxo @i $ \(_, out) -> out `belongsTo` addr
+getFilteredUtxo' addr = filterUtxo @i $ \(_, out) -> out `addrBelongsTo` addr
 
 getFilteredUtxo :: MonadDB m => Address -> m Utxo
 getFilteredUtxo = getFilteredUtxo' @UtxoIter

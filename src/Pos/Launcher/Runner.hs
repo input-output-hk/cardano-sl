@@ -26,9 +26,7 @@ module Pos.Launcher.Runner
        , RealModeResources(..)
        ) where
 
-import           Control.Concurrent.MVar     (newEmptyMVar, newMVar, takeMVar,
-                                              tryReadMVar)
-import           Control.Concurrent.STM      (newEmptyTMVarIO, newTBQueueIO, newTVarIO)
+import           Control.Concurrent.STM      (newEmptyTMVarIO, newTBQueueIO)
 import           Control.Lens                (each, to, _tail)
 import           Control.Monad.Fix           (MonadFix)
 import qualified Data.ByteString.Char8       as BS8
@@ -78,8 +76,8 @@ import           Pos.Constants               (blockRetrievalQueueSize,
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               runContextHolder)
-import           Pos.Crypto                  (createProxySecretKey, encToPublic)
 import           Pos.Core.Timestamp          (timestampF)
+import           Pos.Crypto                  (createProxySecretKey, encToPublic)
 import           Pos.DB                      (MonadDB (..), runDBHolder)
 import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
 import           Pos.DB.GState               (getTip)
@@ -143,7 +141,7 @@ runTimeSlaveReal sscProxy res bp = do
            killThread tId
            t <$ logInfo (sformat ("[Time slave] adopted system start " % timestampF) t)
          False -> logWarning "Time slave launched in Production" $>
-           panic "Time slave in production, rly?"
+           error "Time slave in production, rly?"
   where
     outs = sysStartOuts
               <> toOutSpecs [ convH (Proxy :: Proxy SysStartRequest)
@@ -353,6 +351,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
     shutdownFlag <- liftIO $ newTVarIO False
     shutdownQueue <- liftIO $ newTBQueueIO allWorkersCount
     curTime <- liftIO Time.getCurrentTime
+    lastKnownHeader <- liftIO $ newTVarIO Nothing
     let ctx =
             NodeContext
             { ncJLFile = jlFile
@@ -371,6 +370,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
             , ncLoggerConfig = logCfg
             , ncSendLock = Nothing
             , ncStartTime = curTime
+            , ncLastKnownHeader = lastKnownHeader
             }
     runContextHolder ctx act
 

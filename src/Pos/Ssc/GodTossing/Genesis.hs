@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE CPP #-}
 
 -- | Genesis values related to GodTossing SSC.
 
@@ -9,6 +9,7 @@ module Pos.Ssc.GodTossing.Genesis
 #endif
        ) where
 
+#ifdef DEV_MODE
 import qualified Data.HashMap.Strict           as HM
 import           Data.List                     (zipWith3)
 import qualified Data.Text                     as T
@@ -17,16 +18,16 @@ import           Universum
 
 import           Pos.Binary.Class              (asBinary)
 import           Pos.Constants                 (genesisN, vssMaxTTL, vssMinTTL)
+import           Pos.Core.Address              (addressHash)
 import           Pos.Crypto                    (VssKeyPair, VssPublicKey,
                                                 deterministicVssKeyGen, toVssPublicKey)
-#ifdef DEV_MODE
 import           Pos.Genesis                   (genesisKeyPairs)
-#else
-import           Pos.Genesis                   (compileGenData, gdVssCertificates)
-#endif
 import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap, mkVssCertificate)
 import           Pos.Types                     (EpochIndex (..))
-import           Pos.Core.Address             (addressHash)
+#else
+import           Pos.Genesis                   (compileGenData, gdVssCertificates)
+import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap)
+#endif
 
 #ifdef DEV_MODE
 -- | List of 'VssKeyPair' in genesis.
@@ -49,7 +50,7 @@ genesisCertificates :: VssCertificatesMap
 genesisCertificates =
     case l of
         c0:c1:_:cs -> HM.fromList $ c0 : c1 : cs
-        _          -> panic "genesisCertificates: can't happen"
+        _          -> error "genesisCertificates: can't happen"
   where
     l =
         zipWith3

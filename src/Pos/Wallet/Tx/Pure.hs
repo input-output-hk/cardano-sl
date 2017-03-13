@@ -45,11 +45,11 @@ import           Pos.Crypto                (PublicKey, RedeemSecretKey, SafeSign
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Script                (Script)
 import           Pos.Script.Examples       (multisigRedeemer, multisigValidator)
-import           Pos.Txp                   (MonadUtxoRead (utxoGet), UtxoStateT (..),
+import           Pos.Txp                   (MonadUtxoRead (utxoGet), Tx (..), TxAux,
+                                            TxDistribution (..), TxId, TxIn (..),
+                                            TxInWitness (..), TxOut (..), TxOutAux (..),
+                                            TxSigData, TxWitness, Utxo, UtxoStateT (..),
                                             applyTxToUtxo, filterUtxoByAddr, topsortTxs)
-import           Pos.Txp                   (Tx (..), TxAux, TxDistribution (..), TxId,
-                                            TxIn (..), TxInWitness (..), TxOut (..),
-                                            TxOutAux, TxSigData, TxWitness, Utxo)
 import           Pos.Types                 (Address, Block, ChainDifficulty, Coin,
                                             blockTxas, difficultyL, makePubKeyAddress,
                                             makeRedeemAddress, makeScriptAddress, mkCoin,
@@ -70,10 +70,10 @@ makeAbstractTx mkWit txInputs outputs = ( UnsafeTx txInputs txOutputs txAttribut
                                         , txWitness
                                         , txDist)
   where
-    txOutputs = map fst outputs
+    txOutputs = map toaOut outputs
     txAttributes = mkAttributes ()
     txOutHash = hash txOutputs
-    txDist = TxDistribution (map snd outputs)
+    txDist = TxDistribution (map toaDistr outputs)
     txDistHash = hash txDist
     txWitness = V.fromList $ toList $ map (mkWit . makeTxSigData) txInputs
     makeTxSigData TxIn{..} = (txInHash, txInIndex, txOutHash, txDistHash)
@@ -111,20 +111,20 @@ prepareInpOuts :: Utxo -> Address -> TxOutputs -> Either TxError (TxInputs, TxOu
 prepareInpOuts utxo addr outputs = do
     futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
     let inputSum =
-            unsafeIntegerToCoin $ sumCoins $ map (txOutValue . fst . snd) futxo
+            unsafeIntegerToCoin $ sumCoins $ map (txOutValue . toaOut . snd) futxo
         newOuts
             | inputSum > totalMoney =
-                (TxOut addr (inputSum `unsafeSubCoin` totalMoney), []) <|
+                TxOutAux (TxOut addr (inputSum `unsafeSubCoin` totalMoney)) [] <|
                 outputs
             | otherwise = outputs
     case nonEmpty futxo of
         Nothing       -> fail "Failed to prepare inputs!"
         Just inputsNE -> pure (map fst inputsNE, newOuts)
   where
-    totalMoney = unsafeIntegerToCoin $ sumCoins $ map (txOutValue . fst) outputs
+    totalMoney = unsafeIntegerToCoin $ sumCoins $ map (txOutValue . toaOut) outputs
     allUnspent = M.toList $ filterUtxoByAddr addr utxo
     sortedUnspent =
-        sortBy (comparing $ Down . txOutValue . fst . snd) allUnspent
+        sortBy (comparing $ Down . txOutValue . toaOut . snd) allUnspent
     pickInputs :: FlatUtxo -> InputPicker FlatUtxo
     pickInputs inps = do
         moneyLeft <- use _1
@@ -134,7 +134,7 @@ prepareInpOuts utxo addr outputs = do
                 mNextOut <- head <$> use _2
                 case mNextOut of
                     Nothing -> fail "Not enough money to send!"
-                    Just inp@(_, (TxOut {..}, _)) -> do
+                    Just inp@(_, (TxOutAux (TxOut {..}) _)) -> do
                         _1 %= unsafeSubCoin (min txOutValue moneyLeft)
                         _2 %= tail
                         pickInputs (inp : inps)
@@ -173,7 +173,7 @@ hasReceiver UnsafeTx {..} addr = any ((== addr) . txOutAddress) _txOutputs
 hasSender :: MonadUtxoRead m => Tx -> Address -> m Bool
 hasSender UnsafeTx {..} addr = anyM hasCorrespondingOutput $ toList _txInputs
   where hasCorrespondingOutput txIn =
-            fmap toBool $ fmap ((== addr) . txOutAddress . fst) <$> utxoGet txIn
+            fmap toBool $ fmap ((== addr) . txOutAddress . toaOut) <$> utxoGet txIn
         toBool Nothing  = False
         toBool (Just b) = b
 

@@ -5,6 +5,7 @@
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
+import           Control.Concurrent       (modifyMVar_)
 import           Control.Concurrent.Async hiding (wait)
 import           Data.List                (isSuffixOf)
 import qualified Filesystem.Path          as FP
@@ -251,7 +252,7 @@ spawnNode (path, args, mbLogPath) = do
     asc <- fork (system' phvar cr mempty)
     mbPh <- liftIO $ timeout 5000000 (takeMVar phvar)
     case mbPh of
-        Nothing -> panic "couldn't run the node (it didn't start after 5s)"
+        Nothing -> error "couldn't run the node (it didn't start after 5s)"
         Just ph -> return (ph, asc, logPath)
 
 runWallet :: (FilePath, [Text]) -> IO ExitCode

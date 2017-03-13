@@ -2,7 +2,9 @@
 
 module Main where
 
+#ifdef DEV_MODE
 import           Data.List             ((!!))
+#endif
 import           Data.Maybe            (fromJust)
 import           Mockable              (Production)
 import           Serokell.Util         (sec)
@@ -36,7 +38,7 @@ import           Pos.Ssc.SscAlgo       (SscAlgo (..))
 import           Pos.Types             (Timestamp (Timestamp))
 import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
-import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usVss, usPrimKey,
+import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usPrimKey, usVss,
                                         writeUserSecret)
 #ifdef WITH_WEB
 import           Pos.Web               (serveWebBase, serveWebGT)

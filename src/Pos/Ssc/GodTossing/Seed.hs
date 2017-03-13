@@ -112,7 +112,7 @@ calculateSeed (getCommitmentsMap -> commitments) openings lShares = do
 
     -- Finally we just XOR all secrets together
     if | null secrets && not (null participants) ->
-             panic "calculateSeed: there were some participants \
+             error "calculateSeed: there were some participants \
                    \but they produced no secrets somehow"
        -- [CSL-481] We don't want to completely fail in case of SSC failures.
        --- | null secrets -> Left NoParticipants

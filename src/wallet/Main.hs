@@ -27,8 +27,8 @@ import           Pos.Binary                (Raw)
 import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
                                             worker)
-import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey, fakeSigner,
-                                            hash, hashHexF, sign, toPublic,
+import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey,
+                                            fakeSigner, hash, hashHexF, sign, toPublic,
                                             unsafeHash)
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Delegation            (sendProxySKHeavy, sendProxySKHeavyOuts,
@@ -42,7 +42,7 @@ import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Ssc.NistBeacon        (SscNistBeacon)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
-import           Pos.Txp                   (txaF)
+import           Pos.Txp                   (TxOutAux (..), txaF)
 import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress)
 import           Pos.Update                (BlockVersionData (..), UpdateProposal (..),
                                             UpdateVote (..), patakUpdateData,
@@ -66,7 +66,13 @@ runCmd _ (Balance addr) = lift (getBalance addr) >>=
                          putText . sformat ("Current balance: "%coinF)
 runCmd sendActions (Send idx outputs) = do
     (skeys, na) <- ask
-    etx <- lift $ submitTx sendActions (fakeSigner $ skeys !! idx) na (map (,[]) outputs)
+    etx <-
+        lift $
+        submitTx
+            sendActions
+            (fakeSigner $ skeys !! idx)
+            na
+            (map (flip TxOutAux []) outputs)
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx

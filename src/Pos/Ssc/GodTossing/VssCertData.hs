@@ -1,4 +1,3 @@
-
 module Pos.Ssc.GodTossing.VssCertData
        ( VssCertData (..)
        , empty
@@ -24,7 +23,8 @@ import qualified Data.Set                as S
 import           Formatting              (build, sformat, (%))
 import           Universum               hiding (empty, filter)
 
-import           Pos.Ssc.GodTossing.Core (VssCertificate (..), VssCertificatesMap, getCertId)
+import           Pos.Ssc.GodTossing.Core (VssCertificate (..), VssCertificatesMap,
+                                          getCertId)
 import           Pos.Types               (EpochIndex (..), EpochOrSlot (..), SlotId (..),
                                           StakeholderId)
 
@@ -157,7 +157,7 @@ expireById contains id wExp vcd@VssCertData{..}
         (S.delete (expiry, id) whenExpire)
         (S.insert (wExp, (id, ins, cert)) expiredCerts)
      | contains =
-        panic $ sformat ("Not found cert with id = "%build%" but expected") id
+        error $ sformat ("Not found cert with id = "%build%" but expected") id
      | otherwise = vcd
 
 -- | Remove elements from beginning of the set @expirySlot@
@@ -180,7 +180,7 @@ setSmallerLKS lks vcd@VssCertData{..}
           (HM.delete id whenInsMap)
           rest
           (S.delete
-             (fromMaybe (panic "No such id in VCD")
+             (fromMaybe (error "No such id in VCD")
                         (expiryEoS <$> HM.lookup id certs), id)
              whenExpire)
           expiredCerts

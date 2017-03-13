@@ -27,6 +27,7 @@ module Pos.Core.Address
 
 import           Crypto.Hash            (Blake2s_224, Digest, SHA3_256, hashlazy)
 import qualified Crypto.Hash            as CryptoHash
+import           Data.ByteArray         (ByteArrayAccess)
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58,
                                          encodeBase58)
 import qualified Data.ByteString.Lazy   as BSL (fromStrict, toStrict)
@@ -91,12 +92,18 @@ makePubKeyHdwAddress key path =
     PubKeyAddress (addressHash key)
                   (mkAttributes (AddrPkAttrs (Just path)))
 
-createHDAddressH :: HDPassphrase -> SecretKey -> [Word32] -> Word32 -> (Address, SecretKey)
-createHDAddressH passphrase parent parentPath childIndex = runIdentity $ do
-    let derivedSK = deriveHDSecretKey parent parentPath childIndex
-    let addressPayload = packHDAddressAttr passphrase $ parentPath ++ [childIndex]
+createHDAddressH :: ByteArrayAccess passPhrase
+                 => passPhrase
+                 -> HDPassphrase
+                 -> SecretKey
+                 -> [Word32]
+                 -> Word32
+                 -> (Address, SecretKey)
+createHDAddressH passphrase walletPassphrase parent parentPath childIndex = do
+    let derivedSK = deriveHDSecretKey passphrase parent childIndex
+    let addressPayload = packHDAddressAttr walletPassphrase $ parentPath ++ [childIndex]
     let pk = toPublic derivedSK
-    pure (makePubKeyHdwAddress pk addressPayload, derivedSK)
+    (makePubKeyHdwAddress pk addressPayload, derivedSK)
 
 -- | A function for making an HDW address
 createHDAddressNH :: HDPassphrase -> PublicKey -> [Word32] -> Word32 -> (Address, PublicKey)

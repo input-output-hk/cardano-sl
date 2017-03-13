@@ -237,5 +237,5 @@ toTxBrief txi txe = CTxBrief {..}
     ts = tiTimestamp txi
     ctbId = toCTxId $ hash tx
     ctbTimeIssued = toPosixTime <$> ts
-    ctbInputs = convertTxOutputs $ teInputOutputs txe
+    ctbInputs = convertTxOutputs $ map fst $ NE.toList $ teInputOutputs txe
     ctbOutputs = convertTxOutputs . NE.toList $ _txOutputs tx

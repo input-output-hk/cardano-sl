@@ -80,7 +80,7 @@ decodeHashHex = fmap Bi.decode . processRes . B16.decode . encodeUtf8
             else Left $ "decodeHashHex: couldn't decode rest of hash: " <> decodeUtf8 rest
 
 decodeHashHex' :: Text -> Hash a
-decodeHashHex' = either (panic "decodeHashHex: invalid hash") identity . decodeHashHex
+decodeHashHex' = either (error "decodeHashHex: invalid hash") identity . decodeHashHex
 
 toCHash :: Hash a -> CHash
 toCHash = CHash . encodeHashHex

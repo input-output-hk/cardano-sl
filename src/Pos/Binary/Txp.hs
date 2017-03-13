@@ -75,7 +75,13 @@ instance Bi T.TxProof where
         put (UnsignedVarInt txpNumber)
         put txpRoot
         put txpWitnessesHash
-    get = T.TxProof <$> (getUnsignedVarInt <$> get) <*> get <*> get
+        put txpDistributionsHash
+    get = do
+      txpNumber <- getUnsignedVarInt <$> get
+      txpRoot <- get
+      txpWitnessesHash <- get
+      txpDistributionsHash <- get
+      return T.TxProof {..}
 
 instance Bi T.TxPayload where
     put (T.UnsafeTxPayload {..}) =

@@ -11,6 +11,7 @@ module Pos.Core.Address
        , checkUnknownAddressType
        , makePubKeyAddress
        , makePubKeyHdwAddress
+       , createHDAddressNH
        , makeScriptAddress
        , makeRedeemAddress
        , decodeTextAddress
@@ -37,11 +38,13 @@ import           Universum
 
 import           Pos.Binary.Class       (Bi)
 import qualified Pos.Binary.Class       as Bi
+import           Pos.Binary.Crypto      ()
 import           Pos.Core.Types         (AddrPkAttrs (..), Address (..), AddressHash,
                                          Script, StakeholderId)
 import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey,
                                          RedeemPublicKey)
-import           Pos.Crypto.HD          (HDAddressPayload)
+import           Pos.Crypto.HD          (HDAddressPayload, HDPassphrase,
+                                         deriveHDPublicKey, packHDAddressAttr)
 import           Pos.Data.Attributes    (mkAttributes)
 
 instance Bi Address => Hashable Address where
@@ -85,6 +88,13 @@ makePubKeyHdwAddress
 makePubKeyHdwAddress key path =
     PubKeyAddress (addressHash key)
                   (mkAttributes (AddrPkAttrs (Just path)))
+
+-- | A function for making an HDW address
+createHDAddressNH :: HDPassphrase -> PublicKey -> [Word32] -> Word32 -> (Address, PublicKey)
+createHDAddressNH passphrase parent parentPath childIndex = runIdentity $ do
+    let derivedPK = deriveHDPublicKey parent parentPath childIndex
+    let addressPayload = packHDAddressAttr passphrase $ parentPath ++ [childIndex]
+    pure (makePubKeyHdwAddress derivedPK addressPayload, derivedPK)
 
 -- | A function for making an address from a validation script
 makeScriptAddress :: Bi Script => Script -> Address

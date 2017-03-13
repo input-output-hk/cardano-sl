@@ -40,13 +40,16 @@ import           Servant.Server                (Handler, Server, ServerT, serve)
 import           Servant.Utils.Enter           ((:~>) (..), enter)
 import           System.Wlog                   (logDebug, logError, logInfo)
 
+#ifdef DEV_MODE
+import           Pos.Crypto                    (fakeSigner, toPublic)
+import           Pos.Wallet.Web.State          (testReset)
+#endif
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Communication.Protocol    (OutSpecs, SendActions, hoistSendActions)
 import           Pos.Constants                 (curSoftwareVersion)
-import           Pos.Crypto                    (emptyPassphrase, encToPublic, fakeSigner,
-                                                hash, redeemDeterministicKeyGen,
-                                                toEncrypted, toPublic, withSafeSigner,
-                                                withSafeSigner)
+import           Pos.Crypto                    (emptyPassphrase, encToPublic, hash,
+                                                redeemDeterministicKeyGen, toEncrypted,
+                                                withSafeSigner, withSafeSigner)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (getKnownPeers)
 import           Pos.Reporting.MemState        (MonadReportingMem (..))
@@ -90,7 +93,7 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWeb
                                                 getWalletMeta, getWalletState, openState,
                                                 removeNextUpdate, removeWallet,
                                                 runWalletWebDB, setProfile, setWalletMeta,
-                                                setWalletTransactionMeta, testReset,
+                                                setWalletTransactionMeta,
                                                 updateHistoryCache)
 import           Pos.Web.Server                (serveImpl)
 

@@ -1,32 +1,29 @@
--- | Specification for transaction-related functions
--- (Pos.Types.Tx)
-module Test.Pos.Types.TxSpec
+-- | Specification of Pos.Txp.Toil.Utxo
+
+module Test.Pos.Txp.Toil.UtxoSpec
        ( spec
        ) where
 
 import           Universum
 
-import           Control.Lens          (each)
-import qualified Data.HashMap.Strict   as HM
-import           Data.List             (elemIndex, lookup, zipWith3, (\\))
+import           Control.Monad.Except  (runExceptT)
+import           Data.List             (zipWith3)
+import           Data.List.NonEmpty    (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty    as NE
-import qualified Data.Map              as M (singleton)
+import qualified Data.Map              as M
+import           Data.Maybe            (isJust, isNothing)
 import qualified Data.Vector           as V (fromList, singleton, toList)
 import           Formatting            (build, int, sformat, shown, (%))
 import           Serokell.Util.Text    (listJsonIndent)
-import           Serokell.Util.Verify  (VerificationRes (..), isVerSuccess)
 import           Test.Hspec            (Expectation, Spec, describe, expectationFailure,
                                         it, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (NonNegative (..), Positive (..), Property,
-                                        arbitrary, forAll, resize, shuffle, vectorOf,
-                                        (.&.), (===))
-import           Test.QuickCheck.Gen   (Gen)
+import           Test.QuickCheck       (arbitrary)
 import qualified Text.Regex.TDFA       as TDFA
 import qualified Text.Regex.TDFA.Text  as TDFA
 
 import           Pos.Crypto            (checkSig, fakeSigner, hash, toPublic, unsafeHash,
-                                        whData, withHash)
+                                        withHash)
 import           Pos.Data.Attributes   (mkAttributes)
 import           Pos.Script            (Script)
 import           Pos.Script.Examples   (alwaysSuccessValidator, badIntRedeemer,
@@ -35,47 +32,189 @@ import           Pos.Script.Examples   (alwaysSuccessValidator, badIntRedeemer,
                                         intValidatorWithBlah, multisigRedeemer,
                                         multisigValidator, shaStressRedeemer,
                                         sigStressRedeemer, stdlibValidator)
-import           Pos.Txp               (Tx (..), TxAux, TxDistribution (..), TxIn (..),
-                                        TxInWitness (..), TxOut (..), TxOutAux, TxSigData,
-                                        TxWitness, Utxo, VTxGlobalContext (..),
-                                        VTxLocalContext (..), mkTx, topsortTxs,
-                                        verifyTxPure, verifyTxUtxoPure)
+import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure (..),
+                                        Tx (..), TxAux, TxDistribution (..), TxIn (..),
+                                        TxInWitness (..), TxOut (..), TxOutAux (..),
+                                        TxSigData, TxWitness, Utxo, VTxContext (..),
+                                        applyTxToUtxoPure, verifyTxUtxo, verifyTxUtxoPure)
 import           Pos.Types             (BadSigsTx (..), GoodTx (..), SmallBadSigsTx (..),
                                         SmallGoodTx (..), checkPubKeyAddress,
                                         makePubKeyAddress, makeScriptAddress, mkCoin,
                                         sumCoins)
-import           Pos.Util              (nonrepeating, runGen, sublistN, _neHead)
+import           Pos.Util              (nonrepeating, runGen)
 
+----------------------------------------------------------------------------
+-- Spec
+----------------------------------------------------------------------------
 
 spec :: Spec
-spec = describe "Types.Tx" $ do
-    describe "mkTx" $ do
-        prop description_mkTxGood mkTxGood
-        prop description_mkTxBad mkTxBad
-    describe "verifyTx" $ do
+spec = describe "Txp.Toil.Utxo" $ do
+    describe "utxoGet @((->) Utxo)" $ do
+        it "returns Nothing when given empty Utxo" $
+            utxoGet myTx (mempty @Utxo) == Nothing
+        prop description_findTxInUtxo findTxInUtxo
+    describe "verifyTxUtxo" $ do
+        prop description_verifyTxInUtxo verifyTxInUtxo
         prop description_validateGoodTx validateGoodTx
         prop description_badSigsTx badSigsTx
-    describe "topsortTxs" $ do
-        prop "doesn't change the random set of transactions" $
-            forAll (resize 10 $ arbitrary) $ \(NonNegative l) ->
-            forAll (vectorOf l (txGen 10)) $ \txs ->
-            (sort <$> topsortTxs identity (map withHash txs)) === Just (sort $ map withHash txs)
-        prop "graph generator does not produce loops" $
-            forAll (txAcyclicGen False 20) $ \(txs,_) ->
-            forAll (shuffle $ map withHash txs) $ \shuffled ->
-            isJust $ topsortTxs identity shuffled
-        prop "does correct topsort on bamboo" $ testTopsort True
-        prop "does correct topsort on arbitrary acyclic graph" $ testTopsort False
+    describe "applyTxToUtxoPure" $ do
+        prop description_applyTxToUtxoGood applyTxToUtxoGood
     scriptTxSpec
   where
-    description_mkTxGood =
-        "creates Tx if arguments are taken from valid Tx"
-    description_mkTxBad =
-        "doesn't create Tx with non-positive coins in outputs"
+    myTx = TxIn myHash 0
+    myHash = unsafeHash @Int64 0
+    description_findTxInUtxo =
+        "correctly finds the TxOut corresponding to (txHash, txIndex) when the key is in\
+        \ the Utxo map, and doesn't find it otherwise"
+    description_verifyTxInUtxo =
+        "successfully verifies a transaction whose inputs are all present in the utxo\
+        \ map"
     description_validateGoodTx =
         "validates a transaction whose inputs and well-formed transaction outputs"
     description_badSigsTx =
         "a transaction with inputs improperly signed is never validated"
+    description_applyTxToUtxoGood =
+        "correctly removes spent outputs used as inputs in given transaction and\
+        \ successfully adds this transaction's outputs to the utxo map"
+
+----------------------------------------------------------------------------
+-- Properties
+----------------------------------------------------------------------------
+
+findTxInUtxo :: TxIn -> TxOutAux -> Utxo -> Bool
+findTxInUtxo key txO utxo =
+    let utxo' = M.delete key utxo
+        newUtxo = M.insert key txO utxo
+    in (isJust $ utxoGet key newUtxo) && (isNothing $ utxoGet key utxo')
+
+verifyTxInUtxo :: SmallGoodTx -> Bool
+verifyTxInUtxo (SmallGoodTx (GoodTx ls)) =
+    let txs = fmap (view _1) ls
+        witness = V.fromList $ toList $ fmap (view _4) ls
+        (ins, outs) = NE.unzip $ map (\(_, tIs, tOs, _) -> (tIs, tOs)) ls
+        newTx = UnsafeTx ins (map toaOut outs) (mkAttributes ())
+        newDistr = TxDistribution (map toaDistr outs)
+        utxo = foldr (\(tx, d) -> applyTxToUtxoPure (withHash tx) d) mempty txs
+        vtxContext = VTxContext False
+    in isRight $
+       verifyTxUtxoPure vtxContext utxo (newTx, witness, newDistr)
+
+badSigsTx :: SmallBadSigsTx -> Bool
+badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
+    let ((tx@UnsafeTx {..}, dist), utxo, extendedInputs, txWits) =
+            getTxFromGoodTx ls
+        ctx = VTxContext False
+        transactionIsNotVerified =
+            isLeft $ verifyTxUtxoPure ctx utxo (tx, txWits, dist)
+        notAllSignaturesAreValid =
+            any
+                (signatureIsNotValid
+                     (NE.zipWith TxOutAux _txOutputs (getTxDistribution dist)))
+                (NE.zip extendedInputs (NE.fromList $ V.toList txWits))
+    in notAllSignaturesAreValid == transactionIsNotVerified
+
+validateGoodTx :: SmallGoodTx -> Bool
+validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
+    let quadruple@((tx, dist), utxo, _, txWits) = getTxFromGoodTx ls
+        ctx = VTxContext False
+        transactionIsVerified =
+            isRight $ verifyTxUtxoPure ctx utxo (tx, txWits, dist)
+        transactionReallyIsGood = individualTxPropertyVerifier quadruple
+    in transactionIsVerified == transactionReallyIsGood
+
+----------------------------------------------------------------------------
+-- Helpers
+----------------------------------------------------------------------------
+
+type TxVerifyingTools =
+    ((Tx, TxDistribution), Utxo,
+     NonEmpty (Maybe (TxIn, TxOutAux)), TxWitness)
+
+-- | This function takes the list inside a 'GoodTx' and related types, and
+-- turns it into something 'verifyTx' can use:
+--
+-- * the transaction that the list holds
+-- * the input resolver associated with that transaction
+-- * the list of resolved inputs with all inputs in the transaction
+getTxFromGoodTx
+    :: NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
+    -> TxVerifyingTools
+getTxFromGoodTx ls =
+    let txWitness = V.fromList $ toList $ fmap (view _4) ls
+        unwrapTxOutAux TxOutAux {..} = (toaOut, toaDistr)
+        (_txOutputs, TxDistribution -> txDist) =
+            NE.unzip $ map (unwrapTxOutAux . view _3) ls
+        _txInputs = map (view _2) ls
+        utxo :: Utxo
+        utxo =
+            M.fromList
+                [ (i, (TxOutAux (NE.head o) (NE.head d)))
+                | ((UnsafeTx _ o _, TxDistribution d), i, _, _) <- toList ls
+                ]
+        extendInput txIn = (txIn, ) <$> M.lookup txIn utxo
+        extendedInputs :: NonEmpty (Maybe (TxIn, TxOutAux))
+        extendedInputs = map extendInput _txInputs
+        _txAttributes = mkAttributes ()
+    in ((UnsafeTx {..}, txDist), utxo, extendedInputs, txWitness)
+
+-- | This function, used in 'verifyGoodTx', takes a 'GoodTx' and checks that
+-- each property verified by 'verifyTx' holds, meaning:
+--
+-- * sum of inputs ≥ sum of outputs;
+-- * every input is signed properly;
+-- * every input is a known unspent output.
+-- It also checks that it has good structure w.r.t. 'verifyTxAlone'.
+individualTxPropertyVerifier :: TxVerifyingTools -> Bool
+individualTxPropertyVerifier ((UnsafeTx {..}, dist), _, extendedInputs, txWits) =
+    let hasGoodSum = txChecksum extendedInputs _txOutputs
+        hasGoodInputs =
+            all
+                (signatureIsValid
+                     (NE.zipWith TxOutAux _txOutputs (getTxDistribution dist)))
+                (NE.zip extendedInputs (NE.fromList $ toList txWits))
+    in hasGoodSum && hasGoodInputs
+
+signatureIsValid :: NonEmpty TxOutAux -> (Maybe (TxIn, TxOutAux), TxInWitness) -> Bool
+signatureIsValid outs (Just (TxIn {..}, (TxOutAux TxOut {..} _)), PkWitness {..}) =
+    let unwrapedOuts = map (\TxOutAux {..} -> (toaOut, toaDistr)) outs
+        (txOutputs, TxDistribution -> txDist) = NE.unzip unwrapedOuts
+    in checkPubKeyAddress twKey txOutAddress &&
+       checkSig twKey (txInHash, txInIndex, hash txOutputs, hash txDist) twSig
+signatureIsValid _ _ = False
+
+signatureIsNotValid :: NonEmpty TxOutAux -> (Maybe (TxIn, TxOutAux), TxInWitness) -> Bool
+signatureIsNotValid txOutputs = not . signatureIsValid txOutputs
+
+-- | This function takes a list of resolved inputs from a transaction, that
+-- same transaction's outputs, and verifies that the input sum is greater than
+-- the output sum.
+txChecksum :: NonEmpty (Maybe (TxIn, TxOutAux)) -> NonEmpty TxOut -> Bool
+txChecksum extendedInputs txOuts =
+    let inpSum = sumCoins . map (txOutValue . toaOut . snd) $
+                 catMaybes $ toList extendedInputs
+        outSum = sumCoins $ map txOutValue txOuts
+    in inpSum >= outSum
+
+applyTxToUtxoGood :: (TxIn, TxOutAux)
+                  -> M.Map TxIn TxOutAux
+                  -> NonEmpty TxOutAux
+                  -> Bool
+applyTxToUtxoGood (txIn0, txOut0) txMap txOuts =
+    let inpList = txIn0 :| M.keys txMap
+        tx = UnsafeTx inpList (map toaOut txOuts) (mkAttributes ())
+        txDistr = TxDistribution (map toaDistr txOuts)
+        utxoMap = M.fromList $ toList $ NE.zip inpList (txOut0 :| M.elems txMap)
+        newUtxoMap = applyTxToUtxoPure (withHash tx) txDistr utxoMap
+        newUtxos =
+            NE.fromList $
+            (zipWith TxIn (repeat (hash tx)) [0 ..]) `zip` toList txOuts
+        rmvUtxo = foldr M.delete utxoMap inpList
+        insNewUtxo = foldr (uncurry M.insert) rmvUtxo newUtxos
+    in insNewUtxo == newUtxoMap
+
+----------------------------------------------------------------------------
+-- Script Txs spec
+----------------------------------------------------------------------------
 
 scriptTxSpec :: Spec
 scriptTxSpec = describe "script transactions" $ do
@@ -84,13 +223,13 @@ scriptTxSpec = describe "script transactions" $ do
             let res = checkScriptTx
                     intValidator
                     (\_ -> ScriptWitness intValidator goodIntRedeemer)
-            res `shouldSatisfy` isVerSuccess
+            res `shouldSatisfy` isSuccess
 
         it "goodStdlibRedeemer + stdlibValidator" $ do
             let res = checkScriptTx
                     stdlibValidator
                     (\_ -> ScriptWitness stdlibValidator goodStdlibRedeemer)
-            res `shouldSatisfy` isVerSuccess
+            res `shouldSatisfy` isSuccess
 
     describe "bad cases" $ do
         it "a P2PK tx spending a P2SH tx" $ do
@@ -101,8 +240,8 @@ scriptTxSpec = describe "script transactions" $ do
                 -- There are two errors
                 "input #0's witness doesn't match address.*\
                     \address details: ScriptAddress.*\
-                    \witness: PkWitness.*\
-                \input #0 isn't validated by its witness.*\
+                    \witness: PkWitness.*",
+                "input #0 isn't validated by its witness.*\
                     \signature check failed.*" ]
 
         it "validator script provided in witness doesn't match \
@@ -165,7 +304,7 @@ scriptTxSpec = describe "script transactions" $ do
                 let res = checkScriptTx val
                         (\sd -> ScriptWitness val
                             (multisigRedeemer sd [Just $ fakeSigner sk1]))
-                res `shouldSatisfy` isVerSuccess
+                res `shouldSatisfy` isSuccess
             it "bad (0 provided)" $ do
                 let res = checkScriptTx val
                         (\sd -> ScriptWitness val
@@ -183,19 +322,19 @@ scriptTxSpec = describe "script transactions" $ do
                         (\sd -> ScriptWitness val
                             (multisigRedeemer sd
                              [Just $ fakeSigner sk1, Nothing, Just $ fakeSigner sk3]))
-                res `shouldSatisfy` isVerSuccess
+                res `shouldSatisfy` isSuccess
             it "good (3 provided)" $ do
                 let res = checkScriptTx val
                         (\sd -> ScriptWitness val
                             (multisigRedeemer sd
                              [Just $ fakeSigner sk1, Just $ fakeSigner sk2, Just $ fakeSigner sk3]))
-                res `shouldSatisfy` isVerSuccess
+                res `shouldSatisfy` isSuccess
             it "good (3 provided, 1 wrong)" $ do
                 let res = checkScriptTx val
                         (\sd -> ScriptWitness val
                             (multisigRedeemer sd
                              [Just $ fakeSigner sk1, Just $ fakeSigner sk4, Just $ fakeSigner sk3]))
-                res `shouldSatisfy` isVerSuccess
+                res `shouldSatisfy` isSuccess
             it "bad (1 provided)" $ do
                 let res = checkScriptTx val
                         (\sd -> ScriptWitness val
@@ -222,7 +361,7 @@ scriptTxSpec = describe "script transactions" $ do
                     (\sd -> ScriptWitness val
                         (multisigRedeemer sd
                          (replicate 10 (Just $ fakeSigner sk1))))
-            res `shouldSatisfy` isVerSuccess
+            res `shouldSatisfy` isSuccess
         it "20-of-20 multisig is bad" $ do
             let val = multisigValidator 20 (replicate 20 pk1)
             let res = checkScriptTx val
@@ -235,7 +374,7 @@ scriptTxSpec = describe "script transactions" $ do
         it "1000 rounds of SHA3 is okay" $ do
             let res = checkScriptTx idValidator
                       (\_ -> ScriptWitness idValidator (shaStressRedeemer 1000))
-            res `shouldSatisfy` isVerSuccess
+            res `shouldSatisfy` isSuccess
         it "3000 rounds of SHA3 is bad" $ do
             let res = checkScriptTx idValidator
                       (\_ -> ScriptWitness idValidator (shaStressRedeemer 3000))
@@ -245,7 +384,7 @@ scriptTxSpec = describe "script transactions" $ do
         it "200 rounds of sigverify is okay" $ do
             let res = checkScriptTx idValidator
                       (\_ -> ScriptWitness idValidator (sigStressRedeemer 200))
-            res `shouldSatisfy` isVerSuccess
+            res `shouldSatisfy` isSuccess
         it "500 rounds of sigverify is bad" $ do
             let res = checkScriptTx idValidator
                       (\_ -> ScriptWitness idValidator (sigStressRedeemer 500))
@@ -254,6 +393,7 @@ scriptTxSpec = describe "script transactions" $ do
                         \reason: Out of petrol.*"]
 
   where
+    isSuccess = isRight
     -- Some random stuff we're going to use when building transactions
     randomPkOutput = runGen $ do
         key <- arbitrary
@@ -265,16 +405,20 @@ scriptTxSpec = describe "script transactions" $ do
     mkUtxo :: TxOut -> (TxIn, TxOut, Utxo)
     mkUtxo outp =
         let txid = unsafeHash ("nonexistent tx" :: Text)
-        in  (TxIn txid 0, outp, M.singleton (TxIn txid 0) (outp, []))
+        in  (TxIn txid 0, outp, one ((TxIn txid 0), (TxOutAux outp [])))
+
+    -- Do not verify versions
+    vtxContext = VTxContext False
+
     -- Try to apply a transaction (with given utxo as context) and say
     -- whether it applied successfully
-    tryApplyTx :: Utxo -> TxAux -> VerificationRes
-    tryApplyTx utxo txa = verifyTxUtxoPure False utxo txa
+    tryApplyTx :: Utxo -> TxAux -> Either ToilVerFailure ()
+    tryApplyTx utxo txa = runExceptT (() <$ verifyTxUtxo vtxContext txa) utxo
 
     -- Test tx1 against tx0. Tx0 will be a script transaction with given
     -- validator. Tx1 will be a P2PK transaction spending tx0 (with given
     -- input witness).
-    checkScriptTx :: Script -> (TxSigData -> TxInWitness) -> VerificationRes
+    checkScriptTx :: Script -> (TxSigData -> TxInWitness) -> Either ToilVerFailure ()
     checkScriptTx val mkWit =
         let (inp, _, utxo) = mkUtxo $
                 TxOut (makeScriptAddress val) (mkCoin 1)
@@ -284,10 +428,10 @@ scriptTxSpec = describe "script transactions" $ do
         in tryApplyTx utxo (tx, V.singleton (mkWit txSigData), txDistr)
 
 -- | Test that errors in a 'VerFailure' match given regexes.
-errorsShouldMatch :: VerificationRes -> [Text] -> Expectation
-errorsShouldMatch VerSuccess _ =
+errorsShouldMatch :: Either ToilVerFailure a -> [Text] -> Expectation
+errorsShouldMatch (Right _) _ =
     expectationFailure "expected to have errors, but there were none"
-errorsShouldMatch (VerFailure xs) ys = do
+errorsShouldMatch (Left (ToilInvalidInputs xs)) ys = do
     let lx = length xs
         ly = length ys
     when (lx /= ly) $ expectationFailure $ toString $ sformat
@@ -313,180 +457,5 @@ errorsShouldMatch (VerFailure xs) ys = do
                  shown%"\n\n"%
                  build)
                 i y x
-
-mkTxGood :: Tx -> Bool
-mkTxGood UnsafeTx{..} = isJust $ mkTx _txInputs _txOutputs _txAttributes
-
-mkTxBad :: Tx -> Bool
-mkTxBad UnsafeTx {..} =
-    all (\outs -> isNothing $ mkTx _txInputs outs _txAttributes) badOutputs
-  where
-    invalidateOut :: TxOut -> TxOut
-    invalidateOut out = out {txOutValue = mkCoin 0}
-    badOutputs :: [NonEmpty TxOut]
-    badOutputs = [ _txOutputs & _neHead %~ invalidateOut
-                 , _txOutputs & each %~ invalidateOut
-                 ]
-
-type TxVerifyingTools =
-    ((Tx, TxDistribution), TxIn -> Maybe TxOutAux,
-     NonEmpty (Maybe (TxIn, TxOutAux)), TxWitness)
-
--- | This function takes the list inside a 'GoodTx' and related types, and
--- turns it into something 'verifyTx' can use:
---
--- * the transaction that the list holds
--- * the input resolver associated with that transaction
--- * the list of resolved inputs with all inputs in the transaction
-getTxFromGoodTx
-    :: NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
-    -> TxVerifyingTools
-getTxFromGoodTx ls =
-    let txWitness = V.fromList $ toList $ fmap (view _4) ls
-        (_txOutputs, TxDistribution -> txDist) = NE.unzip $ map (view _3) ls
-        _txInputs = map (view _2) ls
-        inpResolver :: TxIn -> Maybe TxOutAux
-        inpResolver inp = lookup inp
-            [ (i, (NE.head o, NE.head d))
-            | ((UnsafeTx _ o _, TxDistribution d), i, _, _) <- toList ls ]
-        extendInput txIn = (txIn,) <$> inpResolver txIn
-        extendedInputs :: NonEmpty (Maybe (TxIn, TxOutAux))
-        extendedInputs = map extendInput _txInputs
-        _txAttributes = mkAttributes ()
-    in ((UnsafeTx {..}, txDist), inpResolver, extendedInputs, txWitness)
-
--- | This function takes a list of resolved inputs from a transaction, that
--- same transaction's outputs, and verifies that the input sum is greater than
--- the output sum.
-txChecksum :: NonEmpty (Maybe (TxIn, TxOutAux)) -> NonEmpty TxOut -> Bool
-txChecksum extendedInputs txOuts =
-    let inpSum = sumCoins . map (txOutValue . fst . snd) $
-                 catMaybes $ toList extendedInputs
-        outSum = sumCoins $ map txOutValue txOuts
-    in inpSum >= outSum
-
--- | This function, used in 'verifyGoodTx', takes a 'GoodTx' and checks that
--- each property verified by 'verifyTx' holds, meaning:
---
--- * sum of inputs ≥ sum of outputs;
--- * every input is signed properly;
--- * every input is a known unspent output.
--- It also checks that it has good structure w.r.t. 'verifyTxAlone'.
-individualTxPropertyVerifier :: TxVerifyingTools -> Bool
-individualTxPropertyVerifier ((tx@UnsafeTx{..}, dist), _, extendedInputs, txWits) =
-    let hasGoodSum = txChecksum extendedInputs _txOutputs
-        hasGoodStructure = mkTxGood tx
-        hasGoodInputs = all
-            (signatureIsValid (NE.zip _txOutputs (getTxDistribution dist)))
-            (NE.zip extendedInputs (NE.fromList $ toList txWits))
-    in hasGoodSum && hasGoodStructure && hasGoodInputs
-
-validateGoodTx :: SmallGoodTx -> Bool
-validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
-    let quadruple@((tx, dist), inpResolver, _, txWits) =
-            getTxFromGoodTx ls
-        transactionIsVerified = isRight $
-            verifyTxPure False
-                VTxGlobalContext
-                (fmap VTxLocalContext <$> inpResolver)
-                (tx, txWits, dist)
-        transactionReallyIsGood = individualTxPropertyVerifier quadruple
-    in  transactionIsVerified == transactionReallyIsGood
-
-signatureIsValid :: NonEmpty TxOutAux -> (Maybe (TxIn, TxOutAux), TxInWitness) -> Bool
-signatureIsValid outs (Just (TxIn{..}, (TxOut{..}, _)), PkWitness{..}) =
-    let (txOutputs, TxDistribution -> txDist) = NE.unzip outs in
-    checkPubKeyAddress twKey txOutAddress &&
-    checkSig twKey (txInHash, txInIndex, hash txOutputs, hash txDist) twSig
-signatureIsValid _ _ = False
-
-signatureIsNotValid :: NonEmpty TxOutAux -> (Maybe (TxIn, TxOutAux), TxInWitness) -> Bool
-signatureIsNotValid txOutputs = not . signatureIsValid txOutputs
-
-badSigsTx :: SmallBadSigsTx -> Bool
-badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
-    let ((tx@UnsafeTx{..}, dist), inpResolver, extendedInputs, txWits) =
-            getTxFromGoodTx ls
-        transactionIsNotVerified = isLeft $
-            verifyTxPure False
-                VTxGlobalContext
-                (fmap VTxLocalContext <$> inpResolver)
-                (tx, txWits, dist)
-        notAllSignaturesAreValid =
-            any (signatureIsNotValid (NE.zip _txOutputs (getTxDistribution dist)))
-                (NE.zip extendedInputs (NE.fromList $ V.toList txWits))
-    in notAllSignaturesAreValid == transactionIsNotVerified
-
--- | Primitive transaction generator with restriction on
--- inputs/outputs size
-txGen :: Int -> Gen Tx
-txGen size = do
-    (Positive inputsN) <- resize size arbitrary
-    (Positive outputsN) <- resize size arbitrary
-    inputs <- NE.fromList <$> (replicateM inputsN $ (\h -> TxIn h 0) <$> arbitrary)
-    outputs <-
-        NE.fromList <$> (replicateM outputsN $ TxOut <$> arbitrary <*> arbitrary)
-    case mkTx inputs outputs (mkAttributes ()) of
-        Left e   -> error $ "txGen: something went wrong: " <> e
-        Right tx -> pure tx
-
-testTopsort :: Bool -> Property
-testTopsort isBamboo =
-    forAll (txAcyclicGen isBamboo 40) $ \(txs,reach) ->
-    forAll (shuffle txs) $ \shuffled ->
-    let reachables :: [(Tx,Tx)]
-        reachables = [(from,to) | (to,froms) <- HM.toList reach, from <- froms]
-        topsorted = map whData <$> topsortTxs identity (map withHash shuffled)
-        reaches :: (Tx,Tx) -> Bool
-        reaches (from,to) =
-            let fromI = elemIndex from =<< topsorted
-                toI = elemIndex to =<< topsorted
-            in Just True == ((<=) <$> fromI <*> toI)
-    in isJust topsorted .&. all reaches reachables
-
--- | Produces acyclic oriented graph of transactions. It's
--- connected. Signatures are faked and thus fail to
--- verify. Transaction balance is bad too (input can be less than
--- output). These properties are not needed for topsort test. It also
--- returns reachability map as the second argument (for every key
--- elems from which we can reach key).
-txAcyclicGen :: Bool -> Int -> Gen ([Tx], HM.HashMap Tx [Tx])
-txAcyclicGen _ 0 = pure ([], HM.empty)
-txAcyclicGen isBamboo size = do
-    initVertices <-
-        replicateM (bool (max 1 $ size `div` 4) 1 isBamboo) $ txGen some'
-    let outputs =
-            concatMap (\tx -> map (tx,) [0..length (_txOutputs tx) - 1])
-                      initVertices
-        reachable = HM.fromList $ map (\v -> (v, [v])) initVertices
-    continueGraph initVertices outputs reachable $ size - length initVertices
-  where
-    some' = bool 4 1 isBamboo
-    continueGraph
-        :: [Tx]
-        -> [(Tx, Int)]
-        -> HM.HashMap Tx [Tx]
-        -> Int
-        -> Gen ([Tx], HM.HashMap Tx [Tx])
-    continueGraph vertices _ reachable 0 = pure (vertices, reachable)
-    continueGraph vertices unusedUtxo reachable k
-      | null unusedUtxo = pure (vertices, reachable)
-      | otherwise =  do
-        -- how many nodes to connect to (how many utxo to use)
-        depsN <-
-            max 1 . min (bool (min 3 $ length unusedUtxo) 1 isBamboo) <$> arbitrary
-        chosenUtxo <- NE.fromList <$> sublistN depsN unusedUtxo
-        -- grab some inputs
-        let inputs = map (\(h,i) -> TxIn (hash h) (fromIntegral i)) chosenUtxo
-        (Positive outputsN) <- resize some' arbitrary
-        -- gen some outputs
-        outputs <- NE.fromList <$> replicateM outputsN (TxOut <$> arbitrary <*> arbitrary)
-        -- calculate new utxo & add vertex
-        let tx = UnsafeTx inputs outputs $ mkAttributes ()
-            producedUtxo = map (tx,) $ [0..(length outputs) - 1]
-            newVertices = tx : vertices
-            newUtxo = (unusedUtxo \\ toList chosenUtxo) ++ producedUtxo
-            newReachableV = tx : concat (mapMaybe (\(x,_) -> HM.lookup x reachable)
-                                         $ toList chosenUtxo)
-            newReachable = HM.insert tx newReachableV reachable
-        continueGraph newVertices newUtxo newReachable (k - 1)
+errorsShouldMatch (Left e) _ =
+    expectationFailure $ "unexpected error: " <> toString (pretty e)

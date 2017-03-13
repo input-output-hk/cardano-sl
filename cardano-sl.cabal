@@ -90,6 +90,8 @@ library
 
                         -- Txp
                         Pos.Txp
+                        Pos.Txp.Core
+
                         Pos.Types
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
@@ -269,7 +271,6 @@ library
 
                         -- Txp
                         Pos.Txp.Arbitrary
-                        Pos.Txp.Core
                         Pos.Txp.Core.Core
                         Pos.Txp.Core.Tx
                         Pos.Txp.Core.Types
@@ -288,6 +289,9 @@ library
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
                         Pos.Txp.Toil
+                        Pos.Txp.Toil.Balances
+                        Pos.Txp.Toil.Balances.Functions
+                        Pos.Txp.Toil.Balances.Pure
                         Pos.Txp.Toil.Class
                         Pos.Txp.Toil.DBTxp
                         Pos.Txp.Toil.Failure
@@ -297,6 +301,7 @@ library
                         Pos.Txp.Toil.Utxo
                         Pos.Txp.Toil.Utxo.Functions
                         Pos.Txp.Toil.Utxo.Pure
+                        Pos.Txp.Toil.Utxo.Util
 
                         -- Types
                         Pos.Types.SharedSeed
@@ -1101,7 +1106,9 @@ test-suite cardano-test
                        Test.Pos.Ssc.GodTossing.SeedSpec
                        Test.Pos.Ssc.GodTossing.Types.BaseSpec
                        Test.Pos.Ssc.GodTossing.VssCertDataSpec
+                       Test.Pos.Txp.CoreSpec
                        Test.Pos.Txp.Identity.BinarySpec
+                       Test.Pos.Txp.Toil.UtxoSpec
                        Test.Pos.Types.AddressSpec
                        Test.Pos.Types.BlockSpec
                        Test.Pos.Types.CoinSpec
@@ -1109,8 +1116,6 @@ test-suite cardano-test
                        Test.Pos.Types.Identity.SafeCopySpec
                        Test.Pos.Types.Identity.TimestampSpec
                        Test.Pos.Types.SlottingSpec
-                       Test.Pos.Types.TxSpec
-                       Test.Pos.Types.UtxoSpec
                        Test.Pos.Update.Identity.BinarySpec
                        Test.Pos.Update.Identity.SafeCopySpec
                        Test.Pos.Util

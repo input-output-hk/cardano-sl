@@ -107,10 +107,10 @@ createHDAddressH passphrase walletPassphrase parent parentPath childIndex = do
 
 -- | A function for making an HDW address
 createHDAddressNH :: HDPassphrase -> PublicKey -> [Word32] -> Word32 -> (Address, PublicKey)
-createHDAddressNH passphrase parent parentPath childIndex = runIdentity $ do
-    let derivedPK = deriveHDPublicKey parent parentPath childIndex
+createHDAddressNH passphrase parent parentPath childIndex = do
+    let derivedPK = deriveHDPublicKey parent childIndex
     let addressPayload = packHDAddressAttr passphrase $ parentPath ++ [childIndex]
-    pure (makePubKeyHdwAddress derivedPK addressPayload, derivedPK)
+    (makePubKeyHdwAddress derivedPK addressPayload, derivedPK)
 
 -- | A function for making an address from a validation script
 makeScriptAddress :: Bi Script => Script -> Address

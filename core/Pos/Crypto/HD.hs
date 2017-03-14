@@ -8,11 +8,17 @@ module Pos.Crypto.HD
        , deriveHDSecretKey
        ) where
 
-import           Data.ByteArray        (ByteArrayAccess)
+import           Cardano.Crypto.Wallet        (deriveXPrv, deriveXPrvHardened, deriveXPub)
+import           Crypto.Cipher.ChaChaPoly1305 as C
+import           Crypto.Error
+import           Data.Binary.Put              (runPut)
+import           Data.ByteArray               as BA (ByteArrayAccess, convert)
+import           Data.ByteString.Char8        as B
+import qualified Data.ByteString.Lazy         as BSL
 import           Universum
 
-import           Cardano.Crypto.Wallet (deriveXPrv, deriveXPrvHardened, deriveXPub)
-import           Pos.Crypto.Signing    (PublicKey (..), SecretKey (..))
+import           Pos.Binary.Class             (Bi (..))
+import           Pos.Crypto.Signing           (PublicKey (..), SecretKey (..))
 
 newtype HDPassphrase = HDPassphrase ByteString
 
@@ -40,4 +46,28 @@ deriveHDSecretKey passPhrase (SecretKey xprv) childIndex
       SecretKey $ deriveXPrv passPhrase xprv (childIndex - maxHardened - 1)
 
 packHDAddressAttr :: HDPassphrase -> [Word32] -> HDAddressPayload
-packHDAddressAttr = undefined -- TODO implement
+packHDAddressAttr (HDPassphrase simkey) path = do
+    let pathSer = BSL.toStrict $ runPut (put path)
+    let packCF =
+          encryptChaChaPoly
+              "serokellfore"
+              simkey
+              "addressattr" -- I don't know what does mean this parameter.
+                            -- Seems value isn't important...
+              pathSer
+    case packCF of
+        CryptoFailed er -> error $ "Error during packHDAddressAttr: " <> show er
+        CryptoPassed p  -> HDAddressPayload p
+
+encryptChaChaPoly
+    :: ByteString -- nonce (12 random bytes)
+    -> ByteString -- symmetric key
+    -> ByteString -- optional associated data (won't be encrypted)
+    -> ByteString -- input plaintext to be encrypted
+    -> CryptoFailable ByteString -- ciphertext with a 128-bit tag attached
+encryptChaChaPoly nonce key header plaintext = do
+    st1 <- C.nonce12 nonce >>= C.initialize key
+    let st2 = C.finalizeAAD $ C.appendAAD header st1
+    let (out, st3) = C.encrypt plaintext st2
+    let auth = C.finalize st3
+    pure $ out `B.append` BA.convert auth

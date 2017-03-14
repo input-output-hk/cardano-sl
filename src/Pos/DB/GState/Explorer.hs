@@ -16,7 +16,8 @@ import           Pos.DB.Class         (MonadDB)
 import           Pos.DB.Functions     (RocksBatchOp (..))
 import           Pos.DB.GState.Common (gsGetBi)
 import           Pos.Txp.Core.Types   (TxId)
-import           Pos.Types.Explorer   (TxExtra (..))
+import           Pos.Types.Explorer   (AddrHistory, TxExtra (..))
+import           Pos.Util             (NewestFirst (..))
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -25,8 +26,9 @@ import           Pos.Types.Explorer   (TxExtra (..))
 getTxExtra :: MonadDB m => TxId -> m (Maybe TxExtra)
 getTxExtra = gsGetBi . txExtraPrefix
 
-getAddrHistory :: MonadDB m => Address -> m [TxId]
-getAddrHistory = fmap (concat . maybeToList) . gsGetBi . addrHistoryPrefix
+getAddrHistory :: MonadDB m => Address -> m AddrHistory
+getAddrHistory = fmap (NewestFirst . concat . maybeToList) .
+                 gsGetBi . addrHistoryPrefix
 
 ----------------------------------------------------------------------------
 -- Batch operations
@@ -35,7 +37,7 @@ getAddrHistory = fmap (concat . maybeToList) . gsGetBi . addrHistoryPrefix
 data ExplorerOp
     = AddTxExtra !TxId !TxExtra
     | DelTxExtra !TxId
-    | UpdateAddrHistory !Address ![TxId]
+    | UpdateAddrHistory !Address !AddrHistory
 
 instance RocksBatchOp ExplorerOp where
     toBatchOp (AddTxExtra id extra) =

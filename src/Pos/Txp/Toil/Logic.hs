@@ -19,16 +19,18 @@ import           Universum
 
 import           Pos.Constants         (maxLocalTxs)
 import           Pos.Crypto            (WithHash (..), hash)
+import           Pos.Binary.Class      (biSize)
 
 import           Pos.Txp.Core          (TxAux, TxId, TxUndo, TxpUndo, topsortTxs)
 import           Pos.Txp.Toil.Balances (applyTxsToBalances, rollbackTxsBalances)
 import           Pos.Txp.Toil.Class    (MonadBalances (..), MonadTxPool (..),
-                                        MonadUtxo (..))
+                                        MonadToilEnv (..), MonadUtxo (..))
 import           Pos.Txp.Toil.Failure  (ToilVerFailure (..))
+import           Pos.Txp.Toil.Types    (ToilEnv (teMaxTxSize))
 import qualified Pos.Txp.Toil.Utxo     as Utxo
 #ifdef WITH_EXPLORER
-import           Pos.Txp.Toil.Class   (MonadTxExtra (..), MonadTxExtraRead (..))
-import           Pos.Types            (TxExtra (..), HeaderHash, Timestamp)
+import           Pos.Txp.Toil.Class    (MonadTxExtra (..), MonadTxExtraRead (..))
+import           Pos.Types             (TxExtra (..), HeaderHash, Timestamp)
 #endif
 
 ----------------------------------------------------------------------------
@@ -37,6 +39,7 @@ import           Pos.Types            (TxExtra (..), HeaderHash, Timestamp)
 
 type GlobalTxpMode m = ( MonadUtxo m
                        , MonadBalances m
+                       , MonadToilEnv m
 #ifdef WITH_EXPLORER
                        , MonadTxExtra m
 #endif
@@ -96,6 +99,7 @@ rollbackToil txun = do
 ----------------------------------------------------------------------------
 
 type LocalTxpMode m = ( MonadUtxo m
+                      , MonadToilEnv m
                       , MonadTxPool m
 #ifdef WITH_EXPLORER
                       , MonadTxExtra m
@@ -148,13 +152,27 @@ normalizeToil txs = mapM_ normalize ordered
 #endif
 
 ----------------------------------------------------------------------------
+-- ToilEnv logic
+----------------------------------------------------------------------------
+
+verifyToilEnv
+    :: (MonadToilEnv m, MonadError ToilVerFailure m)
+    => TxAux -> m ()
+verifyToilEnv txAux = do
+    limit <- teMaxTxSize <$> getToilEnv
+    let txSize = biSize txAux
+    when (txSize > limit) $
+        throwError ToilTooLargeTx {ttltSize = txSize, ttltLimit = limit}
+
+----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
 verifyAndApplyTx
-    :: (MonadUtxo m, MonadError ToilVerFailure m)
+    :: (MonadUtxo m, MonadToilEnv m, MonadError ToilVerFailure m)
     => Bool -> (TxId, TxAux) -> m TxUndo
-verifyAndApplyTx verifyVersions tx@(_, txAux) =
+verifyAndApplyTx verifyVersions tx@(_, txAux) = do
+    verifyToilEnv txAux
     Utxo.verifyTxUtxo ctx txAux <* applyTxToUtxo' tx
   where
     ctx = Utxo.VTxContext verifyVersions

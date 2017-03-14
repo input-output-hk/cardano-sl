@@ -9,7 +9,6 @@ script:
 - "./scripts/build.sh"
 - nix-shell --run "npm test"
 - popd
-- mkdir docs
 - nix-shell --run "stack exec --nix -- cardano-explorer-docs"
 notifications:
   email: false

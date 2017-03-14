@@ -87,7 +87,6 @@ transactionRow state (CTxEntry entry) =
     let time entry' = case entry' ^. cteTimeIssued of
                         Just t -> show $ t ^. _NominalDiffTime
                         Nothing -> "-"
-
     in
     P.div
         [ P.className "transactions__row" ]

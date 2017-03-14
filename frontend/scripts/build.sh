@@ -8,7 +8,8 @@ pushd ..
 stack --nix build --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
 stack --nix exec -- cardano-explorer-hs2purs --bridge-path frontend/src/Generated/
 popd
+nix-shell --run "npm install"
 nix-shell --run ./scripts/generate-backend-lenses.sh
 nix-shell --run ./scripts/generate-frontend-lenses.sh
-nix-shell --run "npm install && npm run ${1:-build:prod}"
+nix-shell --run "npm run ${1:-build:prod}"
 echo "Done."

@@ -39,14 +39,3 @@ mkEmptyCAddressSummary = CAddressSummary
     , caBalance: mkCoin 0
     , caTxList: []
     }
---
--- mkEmptyCTxDetailed :: CTxDetailed
--- mkEmptyCTxDetailed = CTxDetailed
---     { ctdId: mkCTxId "-"
---     , ctdTimeIssued: mkTime 0.0
---     , ctdType: mkEmptyCTxType
---     }
-
--- mkEmptyCTxType :: CTxType
--- mkEmptyCTxType =
---     CTxIncoming [mkCAddress "--"] $ mkCoin 0

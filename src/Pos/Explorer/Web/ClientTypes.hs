@@ -194,7 +194,7 @@ data CNetworkAddress = CNetworkAddress !Text
 
 data CTxSummary = CTxSummary
     { ctsId              :: !CTxId
-    , ctsTxTimeIssued    :: !(Maybe POSIXTime)
+    , ctsTxTimeIssued    :: !POSIXTime
     , ctsBlockTimeIssued :: !(Maybe POSIXTime)
     , ctsBlockHeight     :: !(Maybe Word)
     , ctsRelayedBy       :: !(Maybe CNetworkAddress)

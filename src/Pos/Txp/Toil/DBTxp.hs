@@ -110,4 +110,5 @@ instance (Monad m, MonadDB m) => MonadBalancesRead (DBTxp m) where
 #ifdef WITH_EXPLORER
 instance (Monad m, MonadDB m) => MonadTxExtraRead (DBTxp m) where
     getTxExtra = GS.getTxExtra
+    getAddrHistory = GS.getAddrHistory
 #endif

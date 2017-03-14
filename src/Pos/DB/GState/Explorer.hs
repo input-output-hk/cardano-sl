@@ -3,6 +3,7 @@
 module Pos.DB.GState.Explorer
        ( ExplorerOp (..)
        , getTxExtra
+       , getAddrHistory
        ) where
 
 import qualified Data.List.NonEmpty   as NE

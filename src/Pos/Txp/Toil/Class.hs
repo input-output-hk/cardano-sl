@@ -21,10 +21,10 @@ module Pos.Txp.Toil.Class
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Universum
 
-import           Pos.Core                  (Coin, StakeholderId)
+import           Pos.Core                  (Address, Coin, StakeholderId)
 import           Pos.Txp.Core.Types        (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 #ifdef WITH_EXPLORER
-import           Pos.Types.Explorer        (TxExtra)
+import           Pos.Types.Explorer        (AddrHistory, TxExtra)
 #endif
 
 ----------------------------------------------------------------------------
@@ -121,10 +121,15 @@ instance MonadTxPool m => MonadTxPool (ExceptT s m)
 
 class Monad m => MonadTxExtraRead m where
     getTxExtra :: TxId -> m (Maybe TxExtra)
+    getAddrHistory :: Address -> m AddrHistory
 
     default getTxExtra
         :: (MonadTrans t, MonadTxExtraRead m', t m' ~ m) => TxId -> m (Maybe TxExtra)
     getTxExtra = lift . getTxExtra
+
+    default getAddrHistory
+        :: (MonadTrans t, MonadTxExtraRead m', t m' ~ m) => Address -> m AddrHistory
+    getAddrHistory = lift . getAddrHistory
 
 instance MonadTxExtraRead m => MonadTxExtraRead (ReaderT s m)
 instance MonadTxExtraRead m => MonadTxExtraRead (StateT s m)
@@ -133,6 +138,7 @@ instance MonadTxExtraRead m => MonadTxExtraRead (ExceptT s m)
 class MonadTxExtraRead m => MonadTxExtra m where
     putTxExtra :: TxId -> TxExtra -> m ()
     delTxExtra :: TxId -> m ()
+    updateAddrHistory :: Address -> AddrHistory -> m ()
 
     default putTxExtra
         :: (MonadTrans t, MonadTxExtra m', t m' ~ m) => TxId -> TxExtra -> m ()
@@ -141,6 +147,10 @@ class MonadTxExtraRead m => MonadTxExtra m where
     default delTxExtra
         :: (MonadTrans t, MonadTxExtra m', t m' ~ m) => TxId -> m ()
     delTxExtra = lift . delTxExtra
+
+    default updateAddrHistory
+        :: (MonadTrans t, MonadTxExtra m', t m' ~ m) => Address -> AddrHistory -> m ()
+    updateAddrHistory addr = lift . updateAddrHistory addr
 
 instance MonadTxExtra m => MonadTxExtra (ReaderT s m)
 instance MonadTxExtra m => MonadTxExtra (StateT s m)

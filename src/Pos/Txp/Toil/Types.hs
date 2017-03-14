@@ -14,6 +14,7 @@ module Pos.Txp.Toil.Types
        , mpLocalTxsSize
 #ifdef WITH_EXPLORER
        , mpLocalTxsExtra
+       , mpAddrHistories
 #endif
        , TxMap
        , BalancesView (..)
@@ -37,11 +38,11 @@ import           Formatting             (Format, later)
 import           Serokell.Util.Text     (mapBuilderJson)
 import           Universum
 
-import           Pos.Core               (Coin, StakeholderId)
+import           Pos.Core               (Address, Coin, StakeholderId)
 import           Pos.Txp.Core           (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import qualified Pos.Util.Modifier      as MM
 #ifdef WITH_EXPLORER
-import           Pos.Types.Explorer     (TxExtra)
+import           Pos.Types.Explorer     (AddrHistory, TxExtra)
 #endif
 
 ----------------------------------------------------------------------------
@@ -87,8 +88,12 @@ instance Default TxMap where
 
 #ifdef WITH_EXPLORER
 type TxMapExtra = MM.MapModifier TxId TxExtra
+type UpdatedAddrHistories = HashMap Address AddrHistory
 
 instance Default TxMapExtra where
+    def = mempty
+
+instance Default UpdatedAddrHistories where
     def = mempty
 #endif
 
@@ -98,6 +103,7 @@ data MemPool = MemPool
     , _mpLocalTxsSize  :: !Int
 #ifdef WITH_EXPLORER
     , _mpLocalTxsExtra :: !TxMapExtra
+    , _mpAddrHistories :: !UpdatedAddrHistories
 #endif
     }
 
@@ -110,6 +116,7 @@ instance Default MemPool where
         , _mpLocalTxsSize  = 0
 #ifdef WITH_EXPLORER
         , _mpLocalTxsExtra = def
+        , _mpAddrHistories = def
 #endif
         }
 

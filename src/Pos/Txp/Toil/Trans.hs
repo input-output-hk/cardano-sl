@@ -34,7 +34,7 @@ import qualified Pos.Util.Modifier         as MM
 
 #ifdef WITH_EXPLORER
 import           Pos.Txp.Toil.Class        (MonadTxExtra (..), MonadTxExtraRead (..))
-import           Pos.Txp.Toil.Types        (mpLocalTxsExtra)
+import           Pos.Txp.Toil.Types        (mpAddrHistories, mpLocalTxsExtra)
 #endif
 
 ----------------------------------------------------------------------------
@@ -104,12 +104,16 @@ instance Monad m => MonadTxPool (ToilT m) where
 instance MonadTxExtraRead m => MonadTxExtraRead (ToilT m) where
     getTxExtra id = ToilT $
         MM.lookupM getTxExtra id =<< use (tmMemPool . mpLocalTxsExtra)
+    getAddrHistory addr = ToilT $
+        maybe (getAddrHistory addr) pure =<< use (tmMemPool . mpAddrHistories . at addr)
 
 instance MonadTxExtraRead m => MonadTxExtra (ToilT m) where
     putTxExtra id extra = ToilT $
         tmMemPool . mpLocalTxsExtra %= MM.insert id extra
     delTxExtra id = ToilT $
         tmMemPool . mpLocalTxsExtra %= MM.delete id
+    updateAddrHistory addr hist = ToilT $
+        tmMemPool . mpAddrHistories . at addr .= Just hist
 #endif
 
 ----------------------------------------------------------------------------

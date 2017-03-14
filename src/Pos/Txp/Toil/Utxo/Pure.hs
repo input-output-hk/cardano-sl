@@ -38,6 +38,7 @@ import           Pos.Txp.Toil.Types          (Utxo)
 import           Pos.Txp.Toil.Utxo.Functions (VTxContext, applyTxToUtxo, verifyTxUtxo)
 #ifdef WITH_EXPLORER
 import           Pos.Txp.Toil.Class          (MonadTxExtraRead (..))
+import           Pos.Util                    (NewestFirst (..))
 #endif
 
 ----------------------------------------------------------------------------
@@ -54,6 +55,7 @@ instance Monad m => MonadUtxoRead (UtxoReaderT m) where
 #ifdef WITH_EXPLORER
 instance Monad m => MonadTxExtraRead (UtxoReaderT m) where
     getTxExtra _ = pure Nothing
+    getAddrHistory _ = pure $ NewestFirst []
 #endif
 
 instance MonadTrans UtxoReaderT where
@@ -88,6 +90,7 @@ instance Monad m => MonadUtxo (UtxoStateT m) where
 #ifdef WITH_EXPLORER
 instance Monad m => MonadTxExtraRead (UtxoStateT m) where
     getTxExtra _ = pure Nothing
+    getAddrHistory _ = pure $ NewestFirst []
 #endif
 
 instance MonadTrans UtxoStateT where

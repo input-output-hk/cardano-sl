@@ -95,7 +95,7 @@ txRollbackBlocks blunds =
 txpModifierToBatch :: ToilModifier -> SomeBatchOp
 txpModifierToBatch (ToilModifier um (BalancesView (HM.toList -> stakes) total)
 #ifdef WITH_EXPLORER
-                       (MemPool _ _ em)
+                       (MemPool _ _ em _)
 #else
                        _
 #endif

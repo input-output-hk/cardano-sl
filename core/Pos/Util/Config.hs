@@ -202,14 +202,12 @@ usingConfigT cfg act = runReaderT (getConfigT act) cfg
 -- ConfigSet
 ----------------------------------------------------------------------------
 
-{- |
-@ConfigSet '[A, B, C]@ is a collection of configs from which you can extract
-@A@, @B@ or @C@. In other words, it's a heterogenous list (but fast). You're
-expected to use it instead of creating your own @Config@ type with
-subconfigs.
+{- | @ConfigSet '[A, B, C]@ is a collection of configs from which you can
+extract @A@, @B@ or @C@. You're expected to use it instead of creating your
+own @Config@ type with subconfigs.
 
-A 'ConfigSet' is intended to have only one config of each given type, but this
-condition is not checked.
+A 'ConfigSet' is intended to have only one config of each given type, but
+this condition is not checked.
 -}
 newtype ConfigSet (xs :: [*]) = ConfigSet (HVect xs)
 
@@ -237,8 +235,6 @@ unsafeReadConfigSet fp =
 -- ConfigSet magic
 ----------------------------------------------------------------------------
 
--- If we know index of a type in a list of types stored in a 'ConfigSet', we
--- can extract it from the underlying vector.
 instance HVect.Contains x xs => ExtractConfig x (ConfigSet xs) where
     extractConfig (ConfigSet v) = HVect.extract v
 

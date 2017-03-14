@@ -33,10 +33,11 @@ script:
   --test
 - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ./update_haddock.sh; fi
 - stack exec --nix -- cardano-wallet-hs2purs
+- stack exec --nix -- cardano-wallet-web-docs
 - cd daedalus
 - nix-shell -p nodejs --run "npm install && npm run build:prod"
 - cd ..
-- XZ_OPT=-1 tar Jcvf s3/daedalus-bridge.tar.xz daedalus/ 
+- XZ_OPT=-1 tar Jcvf s3/daedalus-bridge.tar.xz daedalus/ > /dev/null
 - echo $TRAVIS_BUILD_NUMBER > s3/build-id
 deploy:
   provider: s3

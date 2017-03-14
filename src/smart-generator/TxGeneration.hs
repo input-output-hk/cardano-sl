@@ -28,7 +28,7 @@ import           Pos.Genesis                   (genesisAddresses, genesisDevPubl
 import           Pos.Script                    (Script)
 import           Pos.Script.Examples           (multisigValidator)
 import           Pos.Txp                       (Tx (..), TxAux, TxId, TxIn (..),
-                                                TxOut (..))
+                                                TxOut (..), TxOutAux (..))
 import           Pos.Types                     (makePubKeyAddress, makeScriptAddress,
                                                 mkCoin)
 import           Pos.Wallet                    (makeMOfNTx, makePubKeyTx)
@@ -54,7 +54,7 @@ genChain sk txInHash txInIndex =
             makePubKeyTx
                 (fakeSigner sk)
                 (one $ TxIn txInHash txInIndex)
-                (one (TxOut addr (mkCoin 1), []))
+                (one $ TxOutAux (TxOut addr (mkCoin 1)) [])
     in (tx, w, d) : genChain sk (hash tx) 0
 
 genMOfNChain :: Script -> [Maybe SecretKey] -> TxId -> Word32 -> [TxAux]
@@ -65,7 +65,7 @@ genMOfNChain val sks txInHash txInIndex =
                 val
                 (fmap fakeSigner <$> sks)
                 (one $ TxIn txInHash txInIndex)
-                (one (TxOut addr (mkCoin 1), []))
+                (one $ TxOutAux (TxOut addr (mkCoin 1)) [])
     in (tx, w, d) : genMOfNChain val sks (hash tx) 0
 
 initTransaction :: GenOptions -> Int -> TxAux
@@ -81,7 +81,7 @@ initTransaction GenOptions{..} i =
             Just (m, n) -> let pks = take n genesisDevPublicKeys
                                val = multisigValidator m pks
                            in makeScriptAddress val
-        outputs = replicate outputsNum (TxOut outAddr (mkCoin 1), [])
+        outputs = replicate outputsNum (TxOutAux (TxOut outAddr (mkCoin 1)) [])
     in makePubKeyTx (fakeSigner sk) (one input) (NE.fromList outputs)
 
 selectSks :: Int -> Int -> [SecretKey] -> [Maybe SecretKey]

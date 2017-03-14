@@ -1,10 +1,11 @@
 module Pos.Binary.Core.Types () where
 
+import           Universum
+
 import           Data.Binary.Get         (label)
 import           Data.Binary.Put         (putWord8)
 import           Data.Ix                 (inRange)
 import           Formatting              (formatToString, int, (%))
-import           Universum               hiding (putByteString)
 
 import           Pos.Binary.Class        (Bi (..), UnsignedVarInt (..))
 import qualified Pos.Binary.Core.Coin    as BinCoin

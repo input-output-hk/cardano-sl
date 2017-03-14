@@ -48,9 +48,9 @@ lookupM
     => (k -> m (Maybe v)) -> k -> MapModifier k v -> m (Maybe v)
 lookupM getter k (MapModifier m) =
     case HM.lookup k m of
-        Nothing       -> getter k
-        Just Nothing  -> pure Nothing
-        Just (Just x) -> purer x
+        Nothing      -> getter k
+        Just Nothing -> pure Nothing
+        Just justX   -> pure justX
 
 -- | Perform lookup taking 'MapModifier' into account.
 lookup

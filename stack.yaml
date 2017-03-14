@@ -10,6 +10,7 @@ packages:
 - update
 - infra
 - db
+- lrc
 
 - location:
     git: https://github.com/serokell/acid-state.git
@@ -34,11 +35,11 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: ede7a1a9eafd88e3449b38c7425f5529d6584014
+    commit: 424e4ecacdf038a01542025dd1296bd272ce770d
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 18a17e2f86341c272a5cabd9b767b8f5277dc793
+    commit: 8631647810b950a21735d1466fa72348626213ed
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -50,30 +51,30 @@ packages:
     commit: f2321a103f53f51d36c99383132e3ffa3ef1c401
   extra-dep: true
 - location:
-    git: https://github.com/flyingleafe/cardano-crypto
-    commit: b0f261c88a0c6b38d3227cec139690f2ec67fe1a
+    git: https://github.com/input-output-hk/cardano-crypto
+    commit: 838b064d8a59286142aa2fe14434fe7601896ddb
   extra-dep: true
-- location:
-    git: https://github.com/haskell-crypto/cryptonite.git
-    commit: 2932df9e243aa7ae7eb2b25d7c60fa77a30c6fb5
-  extra-dep: true
+#- location:
+#    git: https://github.com/haskell-crypto/cryptonite.git
+#    commit: 2932df9e243aa7ae7eb2b25d7c60fa77a30c6fb5
+#  extra-dep: true
 
 nix:
   shell-file: shell.nix
 
 extra-deps:
-- universum-0.2.1
+- universum-0.3
 - time-units-1.0.0
-- UtilityTM-0.0.4
 - serokell-util-0.1.4.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-1.0.0
+- log-warper-1.0.3
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.5.26                   # not yet in lts-8
 - haskell-src-exts-1.17.1         # derive has not moved to 1.18 yet
 - wreq-0.5.0.0                    # not yet in lts-8
 - purescript-bridge-0.8.0.1
+- cryptonite-0.22
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

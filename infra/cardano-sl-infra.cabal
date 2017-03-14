@@ -21,8 +21,6 @@ library
                         -- Reporting
                         Pos.Reporting
                         Pos.Reporting.MemState
-                        Pos.Reporting.MemState.Class
-                        Pos.Reporting.MemState.Types
                         Pos.Reporting.Exceptions
                         Pos.Reporting.Methods
 
@@ -90,7 +88,7 @@ library
 
   other-modules:        Paths_cardano_sl_infra
                         Pos.Infra.Constants
-                      
+
   build-depends:       aeson
                      , base
                      , parsec
@@ -114,7 +112,7 @@ library
                       , kademlia
                       , lens
                       , list-t
-                      , log-warper >= 0.4.3
+                      , log-warper >= 1.0.3
                       , monad-control
                       , mtl
                       , network-info

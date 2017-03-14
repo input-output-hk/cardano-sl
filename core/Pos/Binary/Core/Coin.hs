@@ -1,15 +1,17 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ViewPatterns #-}
+
 module Pos.Binary.Core.Coin
        ( encode
        , decode
        ) where
 
+import           Universum
+
 import           Control.Monad   (when)
 import           Data.Binary.Get (Get, getWord8)
-import           Data.Bits
-import           Data.Word
-import           Universum
+import           Data.Bits       (Bits (..))
+import           Data.Word       ()
 
 import           Pos.Core.Types  (Coin, mkCoin, unsafeGetCoin)
 
@@ -81,7 +83,7 @@ encodeVarint w
     | w <= 0x1FFFFF     = [0xc0 .|. (w .>>. 16), w .>>. 8, fromIntegral w]
     | w <= 0x0FFFFFFF   = [0xe0 .|. (w .>>. 24), w .>>. 16, w .>>. 8, fromIntegral w]
     | w <= 0x0FFFFFFFFF = [0xf0 .|. (w .>>. 32), w .>>. 24, w .>>. 16, w .>>. 8, fromIntegral w]
-    | otherwise         = panic "invalid encoding for integral part"
+    | otherwise         = error "invalid encoding for integral part"
 
 expectedContBytes :: Word64 -> Int
 expectedContBytes w
@@ -90,7 +92,7 @@ expectedContBytes w
     | w <= 0x1FFFFF     = 2
     | w <= 0x0FFFFFFF   = 3
     | w <= 0x0FFFFFFFFF = 4
-    | otherwise         = panic "invalid encoding"
+    | otherwise         = error "invalid encoding"
 
 -- given the header byte, return the number of following byte,
 -- and the initial accumulator

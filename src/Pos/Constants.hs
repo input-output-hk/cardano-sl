@@ -223,7 +223,7 @@ defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
   where
     parsePeer :: String -> DHTNode
     parsePeer =
-        either (panic . show) identity .
+        either (error . show) identity .
         P.parse dhtNodeParser "Compile time config"
 
 -- | Max VSS certificate TTL (Ssc.GodTossing part)
@@ -272,7 +272,7 @@ mdNoCommitmentsEpochThreshold = fromIntegral . ccMdNoCommitmentsEpochThreshold $
 ----------------------------------------------------------------------------
 
 cardanoSlAppName :: ApplicationName
-cardanoSlAppName = either (panic . (<>) "Failed to init cardanoSlAppName: ")
+cardanoSlAppName = either (error . (<>) "Failed to init cardanoSlAppName: ")
                       identity $ mkApplicationName "cardano"
 
 appSystemTag :: SystemTag
@@ -282,7 +282,7 @@ appSystemTag = $(do
         Just tag -> lift =<< mkSystemTag (toText tag)
         Nothing
             | isDevelopment ->
-                  [|panic "'appSystemTag' can't be used if \
+                  [|error "'appSystemTag' can't be used if \
                           \env var \"CSL_SYSTEM_TAG\" wasn't set \
                           \during compilation" |]
             | otherwise ->

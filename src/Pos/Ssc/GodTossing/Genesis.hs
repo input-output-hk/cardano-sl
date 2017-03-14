@@ -42,7 +42,7 @@ genesisCertificates :: VssCertificatesMap
 genesisCertificates
     | isDevelopment = case certEntries of
           c0:c1:_:cs -> HM.fromList $ c0 : c1 : cs
-          _          -> panic "genesisCertificates: can't happen"
+          _          -> error "genesisCertificates: can't happen"
     | otherwise     = gdVssCertificates compileGenData
   where
     ttlExp :: Int -> EpochIndex

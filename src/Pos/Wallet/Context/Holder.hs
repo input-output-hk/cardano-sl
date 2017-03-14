@@ -26,6 +26,8 @@ import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
+import           Pos.Reporting.MemState      (MonadReportingMem (..),
+                                              ReportingContext (..))
 import           Pos.Wallet.Context.Class    (WithWalletContext (..))
 import           Pos.Wallet.Context.Context  (WalletContext (..))
 
@@ -74,3 +76,6 @@ instance ( Mockable d m
 
 instance Monad m => WithWalletContext (ContextHolder m) where
     getWalletContext = ContextHolder ask
+
+instance Monad m => MonadReportingMem (ContextHolder m) where
+    askReportingContext = pure $ ReportingContext []

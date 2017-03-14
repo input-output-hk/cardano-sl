@@ -17,7 +17,7 @@ import           Pos.Util.Util              ()
 
 infraConstants :: InfraConstants
 infraConstants = case parseFromCslConfig configParser of
-    Left err -> panic (toText ("Couldn't parse infra config: " ++ err))
+    Left err -> error (toText ("Couldn't parse infra config: " ++ err))
     Right x  -> x
 
 data InfraConstants = InfraConstants

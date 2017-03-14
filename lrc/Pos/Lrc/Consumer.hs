@@ -11,10 +11,11 @@ module Pos.Lrc.Consumer
 
 import           Universum
 
-import           Pos.DB.Class       (MonadDB)
-import           Pos.Lrc.DB.Richmen (RichmenComponent (..), getRichmen, putRichmen)
-import           Pos.Lrc.Types      (RichmenStake)
-import           Pos.Types          (Coin, EpochIndex)
+import           Pos.Core.Types         (Coin, EpochIndex)
+import           Pos.DB.Class           (MonadDB)
+import           Pos.Lrc.Class          (RichmenComponent (..))
+import           Pos.Lrc.DB.RichmenBase (getRichmen, putRichmen)
+import           Pos.Lrc.Types          (RichmenStake)
 
 -- | Datatype for LRC computation client.
 -- If you want to compute richmen, you should add such client to LRC framework

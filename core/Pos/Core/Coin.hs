@@ -45,7 +45,7 @@ coinToInteger = toInteger . unsafeGetCoin
 unsafeAddCoin :: Coin -> Coin -> Coin
 unsafeAddCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
     | res >= a && res >= b && res <= unsafeGetCoin (maxBound @Coin) = mkCoin res
-    | otherwise = panic "unsafeAddCoin: overflow"
+    | otherwise = error "unsafeAddCoin: overflow"
   where
     res = a+b
 {-# INLINE unsafeAddCoin #-}
@@ -54,14 +54,14 @@ unsafeAddCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
 unsafeSubCoin :: Coin -> Coin -> Coin
 unsafeSubCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
     | a >= b = mkCoin (a-b)
-    | otherwise = panic "unsafeSubCoin: underflow"
+    | otherwise = error "unsafeSubCoin: underflow"
 {-# INLINE unsafeSubCoin #-}
 
 -- | Only use if you're sure there'll be no overflow.
 unsafeMulCoin :: Integral a => Coin -> a -> Coin
 unsafeMulCoin (unsafeGetCoin -> a) b
     | res <= coinToInteger (maxBound @Coin) = mkCoin (fromInteger res)
-    | otherwise = panic "unsafeMulCoin: overflow"
+    | otherwise = error "unsafeMulCoin: overflow"
   where
     res = toInteger a * toInteger b
 
@@ -72,7 +72,7 @@ divCoin (unsafeGetCoin -> a) b =
 unsafeIntegerToCoin :: Integer -> Coin
 unsafeIntegerToCoin n
   | n <= coinToInteger (maxBound :: Coin) = mkCoin (fromInteger n)
-  | otherwise = panic "unsafeIntegerToCoin: overflow"
+  | otherwise = error "unsafeIntegerToCoin: overflow"
 {-# INLINE unsafeIntegerToCoin #-}
 
 ----------------------------------------------------------------------------

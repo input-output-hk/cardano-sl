@@ -172,7 +172,7 @@ instance Monoid InSpecs where
           InSpecs $ HM.unionWithKey merger a b
       where
         merger name h1 h2 =
-          panic $ sformat
+          error $ sformat
               ("Conflicting key in input spec: "%build%" "%build)
               (name, h1) (name, h2)
 
@@ -184,7 +184,7 @@ instance Monoid OutSpecs where
         merger name h1 h2 =
           if h1 == h2
              then h1
-             else panic $ sformat
+             else error $ sformat
                     ("Conflicting key output spec: "%build%" "%build)
                     (name, h1) (name, h2)
 

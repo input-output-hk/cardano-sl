@@ -11,7 +11,7 @@ module Pos.Crypto.HD
 import           Data.ByteArray        (ByteArrayAccess)
 import           Universum
 
-import           Cardano.Crypto.Wallet (deriveXPrv, deriveXPrvHardened)
+import           Cardano.Crypto.Wallet (deriveXPrv, deriveXPrvHardened, deriveXPub)
 import           Pos.Crypto.Signing    (PublicKey (..), SecretKey (..))
 
 newtype HDPassphrase = HDPassphrase ByteString
@@ -22,10 +22,11 @@ newtype HDAddressPayload = HDAddressPayload ByteString
 maxHardened :: Word32
 maxHardened = fromIntegral $ (2::Word32)^(31::Word32)-1
 
-deriveHDPublicKey :: PublicKey -> [Word32] -> Word32 -> PublicKey
-deriveHDPublicKey parent parentPath childIndex
-    | childIndex <= maxHardened = undefined --panic "Wrong index for non-hardened derivation"
-    | otherwise = undefined -- TODO implement
+deriveHDPublicKey :: PublicKey -> Word32 -> PublicKey
+deriveHDPublicKey (PublicKey xpub) childIndex
+    -- Is it the best solution?
+    | childIndex <= maxHardened = error "Wrong index for non-hardened derivation"
+    | otherwise = PublicKey $ deriveXPub xpub (childIndex - maxHardened - 1)
 
 deriveHDSecretKey :: ByteArrayAccess passPhrase
                   => passPhrase

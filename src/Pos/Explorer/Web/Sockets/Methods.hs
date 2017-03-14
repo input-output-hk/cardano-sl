@@ -68,15 +68,7 @@ data ClientEvent
     deriving (Show, Generic)
 
 instance EventName ClientEvent where
-    toName SubscribeAddr    = "SA"
-    toName SubscribeBlock   = "SB"
-    toName UnsubscribeAddr  = "UA"
-    toName UnsubscribeBlock = "UB"
-    toName SetClientAddress = "CA"
-    toName SetClientBlock   = "CB"
-    toName CallMe           = "callme"
-    toName CallMeString     = "callme-string"
-    toName CallMeTxId       = "callme-txid"
+    toName = show
 
 data ServerEvent
     = AddrUpdated
@@ -84,13 +76,10 @@ data ServerEvent
     | CallYou
     | CallYouString
     | CallYouTxId
+    deriving (Show, Generic)
 
 instance EventName ServerEvent where
-    toName AddrUpdated   = "A"
-    toName BlocksUpdated = "B"
-    toName CallYou       = "callyou"
-    toName CallYouString = "callyou-string"
-    toName CallYouTxId   = "callyou-txid"
+    toName = show
 
 -- * Util
 

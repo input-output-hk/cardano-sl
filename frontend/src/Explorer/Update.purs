@@ -11,13 +11,14 @@ import Data.Either (Either(..))
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
 import Explorer.Api.Http (fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs)
-import Explorer.Api.Socket (callMeCTxIdEvent, callMeEvent, callMeStringEvent)
+import Explorer.Api.Socket (toEvent)
 import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, connection, currentAddressSummary, currentBlock, currentBlockTxs, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
 import Explorer.Util.DOM (scrollTop)
 import Network.HTTP.Affjax (AJAX)
+import Pos.Explorer.Web.Sockets.Methods (ClientEvent(..))
 import Pux (EffModel, noEffects)
 
 
@@ -52,7 +53,7 @@ update SocketCallMe state =
     { state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff $ emit' socket' callMeEvent
+              Just socket' -> liftEff $ emit' socket' (toEvent CallMe)
               Nothing -> pure unit
           pure NoOp
     ]}
@@ -60,7 +61,7 @@ update (SocketCallMeString str) state =
     { state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff $ emit socket' callMeStringEvent str
+              Just socket' -> liftEff $ emit socket' (toEvent CallMeString) str
               Nothing -> pure unit
           pure NoOp
     ]}
@@ -68,7 +69,7 @@ update (SocketCallMeCTxId id) state =
     { state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff $ emit socket' callMeCTxIdEvent id
+              Just socket' -> liftEff $ emit socket' (toEvent CallMeTxId) id
               Nothing -> pure unit
           pure NoOp
     ]}

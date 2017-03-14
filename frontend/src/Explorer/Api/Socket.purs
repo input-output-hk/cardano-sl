@@ -8,9 +8,10 @@ import Data.Argonaut.Core (Json)
 import Data.Either (Either)
 import Data.Foreign (Foreign)
 import Debug.Trace (traceAnyM, traceShowM)
-import Explorer.Api.Helper (decodeResult')
+import Explorer.Api.Helper (decodeResult', encodeJson)
 import Explorer.Types.Actions (Action(..), ActionChannel)
 import Pos.Explorer.Web.ClientTypes (CTxId)
+import Pos.Explorer.Web.Sockets.Methods (ClientEvent, ServerEvent)
 import Signal.Channel (CHANNEL, send)
 
 
@@ -20,6 +21,15 @@ socketHost :: Host
 socketHost = "http://localhost:8110"
 
 -- events
+
+class SocketEvent a where
+    toEvent :: a -> Event
+
+instance socketEventServerEvent :: SocketEvent ClientEvent where
+    toEvent = show <<< encodeJson
+
+instance socketEventClientEvent :: SocketEvent ServerEvent where
+    toEvent = show <<< encodeJson
 
 connectEvent :: Event
 connectEvent = "connect"
@@ -32,28 +42,6 @@ lastestBlocksEvent = "latestBlocks"
 
 lastestTransactionsEvent :: Event
 lastestTransactionsEvent = "latestTransactions"
-
--- all following events are for debugging only
-
-callMeEvent :: Event
-callMeEvent = "callme"
-
-callYouEvent :: Event
-callYouEvent = "callyou"
-
-callMeStringEvent :: Event
-callMeStringEvent = "callme-string"
-
-callYouStringEvent :: Event
-callYouStringEvent = "callyou-string"
-
-callMeCTxIdEvent :: Event
-callMeCTxIdEvent = "callme-txid"
-
-callYouCTxIdEvent :: Event
-callYouCTxIdEvent = "callyou-txid"
-
-
 
 -- event handler
 

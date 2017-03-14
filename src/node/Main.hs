@@ -2,7 +2,9 @@
 
 module Main where
 
+#ifdef DEV_MODE
 import           Data.List             ((!!))
+#endif
 import           Data.Maybe            (fromJust)
 import           Mockable              (Production)
 import           Serokell.Util         (sec)

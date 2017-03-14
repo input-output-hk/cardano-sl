@@ -7,35 +7,35 @@ module Pos.Block.Network.Listeners
        , blockStubListeners
        ) where
 
-import           Data.Reflection             (reify)
-import           Data.Tagged                 (Tagged, proxy, unproxy)
-import           Formatting                  (build, sformat, (%))
-import qualified Node                        as N
-import           Serokell.Data.Memory.Units  (Byte)
-import           Serokell.Util.Text          (listJson)
-import           System.Wlog                 (WithLogger, logDebug, logWarning,
-                                              modifyLoggerName)
+import           Data.Reflection            (reify)
+import           Data.Tagged                (Tagged, proxy, unproxy)
+import           Formatting                 (build, sformat, (%))
+import qualified Node                       as N
+import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util.Text         (listJson)
+import           System.Wlog                (WithLogger, logDebug, logWarning,
+                                             modifyLoggerName)
 import           Universum
 
-import           Pos.Binary.Communication    ()
-import           Pos.Block.Logic             (getHeadersFromToIncl)
-import           Pos.Block.Network.Announce  (handleHeadersCommunication)
-import           Pos.Block.Network.Retrieval (handleUnsolicitedHeaders)
-import           Pos.Block.Network.Types     (MsgBlock (..), MsgGetBlocks (..),
-                                              MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Limits    (recvLimited, reifyMsgLimit)
-import           Pos.Communication.Protocol  (ConversationActions (..), HandlerSpec (..),
-                                              ListenerSpec (..), OutSpecs, listenerConv,
-                                              mergeLs, messageName)
-import           Pos.Communication.Util      (stubListenerConv)
-import qualified Pos.DB.Block                as DB
-import           Pos.DB.Error                (DBError (DBMalformed))
-import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
-import           Pos.Util                    (NewestFirst (..))
-import           Pos.WorkMode                (WorkMode)
+import           Pos.Binary.Communication   ()
+import           Pos.Block.Logic            (getHeadersFromToIncl)
+import           Pos.Block.Network.Announce (handleHeadersCommunication)
+import           Pos.Block.Network.Logic    (handleUnsolicitedHeaders)
+import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
+                                             MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Communication.Limits   (recvLimited, reifyMsgLimit)
+import           Pos.Communication.Protocol (ConversationActions (..), HandlerSpec (..),
+                                             ListenerSpec (..), OutSpecs, listenerConv,
+                                             mergeLs, messageName)
+import           Pos.Communication.Util     (stubListenerConv)
+import qualified Pos.DB.Block               as DB
+import           Pos.DB.Error               (DBError (DBMalformed))
+import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
+import           Pos.Util                   (NewestFirst (..))
+import           Pos.WorkMode               (WorkMode)
 
 blockListeners
-    :: (WorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc m)
     => m ([ListenerSpec m], OutSpecs)
 blockListeners = mergeLs <$> sequence
     [ handleGetHeaders
@@ -109,7 +109,7 @@ handleGetBlocks = return $ listenerConv $
 -- | Handles MsgHeaders request, unsolicited usecase
 handleBlockHeaders
     :: forall ssc m.
-       (WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => m (ListenerSpec m, OutSpecs)
 handleBlockHeaders = reifyMsgLimit (Proxy @(MsgHeaders ssc)) $
     \(_ :: Proxy s) -> return $ listenerConv $

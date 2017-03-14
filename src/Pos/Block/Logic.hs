@@ -31,8 +31,8 @@ module Pos.Block.Logic
 
 import           Control.Lens               ((-=), (.=), _Wrapped)
 import           Control.Monad.Catch        (try)
-import           Control.Monad.Except       (ExceptT (ExceptT), runExceptT, throwError,
-                                             withExceptT)
+import           Control.Monad.Except       (ExceptT (ExceptT), MonadError (throwError),
+                                             runExceptT, withExceptT)
 import           Control.Monad.Trans.Maybe  (MaybeT (MaybeT), runMaybeT)
 import           Data.Default               (Default (def))
 import qualified Data.HashMap.Strict        as HM
@@ -258,7 +258,7 @@ classifyHeaders headers = do
             find (\bh -> bh ^. prevBlockL == headerHash lca) headers
         pure $ if
             | hash lca == hash tipHeader -> CHsValid lcaChild
-            | depthDiff < 0 -> panic "classifyHeaders@depthDiff is negative"
+            | depthDiff < 0 -> error "classifyHeaders@depthDiff is negative"
             | depthDiff > blkSecurityParam ->
                   CHsUseless $
                   sformat ("Difficulty difference of (tip,lca) is "%int%
@@ -331,7 +331,7 @@ getHeadersOlderExp upto = do
   where
     -- Powers of 2
     twoPowers n
-        | n < 0 = panic $ "getHeadersOlderExp#twoPowers called w/" <> show n
+        | n < 0 = error $ "getHeadersOlderExp#twoPowers called w/" <> show n
     twoPowers 0 = []
     twoPowers 1 = [0]
     twoPowers n = (takeWhile (< (n - 1)) $ 0 : 1 : iterate (* 2) 2) ++ [n - 1]
@@ -417,7 +417,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
     verResToMonadError formatAllErrors $
         Types.verifyBlocks curSlot bvd (Just leaders) (Just bv) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
-    txUndo <- ExceptT $ txVerifyBlocks blocks
+    txUndo <- withExceptT pretty $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $ usVerifyBlocks blocks
     when (length txUndo /= length pskUndo) $
@@ -473,7 +473,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
             Right (OldestFirst (undo :| []), pModifier) -> do
                 lift $ applyBlocksUnsafe (one (block, undo)) (Just pModifier)
                 applyAMAP e (OldestFirst xs) False
-            Right _ -> panic "verifyAndApplyBlocksInternal: applyAMAP: \
+            Right _ -> error "verifyAndApplyBlocksInternal: applyAMAP: \
                              \verification of one block produced more than one undo"
     -- Rollbacks and returns an error
     failWithRollback
@@ -717,11 +717,10 @@ createMainBlockFinish slotId pSk prevHeader = do
     -- for now let's be cautious and not generate blocks that are larger than
     -- maxBlockSize/4
     sizeLimit <- fromIntegral . toBytes . (`div` 4) <$> UDB.getMaxBlockSize
-    let blk = createMainBlockPure
-                  sizeLimit prevHeader sortedTxs pSk
+    blk <- createMainBlockPure sizeLimit prevHeader sortedTxs pSk
                   slotId localPSKs sscData usPayload sk
     let prependToUndo undos tx =
-            fromMaybe (panic "Undo for tx not found")
+            fromMaybe (error "Undo for tx not found")
                       (HM.lookup (fst tx) txUndo) : undos
     lift $ inAssertMode $ verifyBlocksPrefix (one (Right blk)) >>= \case
         Left err ->
@@ -741,7 +740,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     onNoUS = "can't obtain US payload to create block"
 
 createMainBlockPure
-    :: SscHelpersClass ssc
+    :: (MonadError Text m, SscHelpersClass ssc)
     => Word64                   -- ^ Block size limit (TODO: imprecise)
     -> BlockHeader ssc
     -> [(TxId, TxAux)]
@@ -751,16 +750,18 @@ createMainBlockPure
     -> SscPayload ssc
     -> UpdatePayload
     -> SecretKey
-    -> MainBlock ssc
+    -> m (MainBlock ssc)
 createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
-    flip evalState limit $ do
+    flip evalStateT limit $ do
         -- account for block header and serialization overhead, etc; also
         -- include all SSC data because a) deciding is hard and b) we don't
         -- yet have a way to strip generic SSC data
-        let musthaveBody = Types.MainBody (mkTxPayload mempty) sscData [] def
-            musthaveBlock = maybe (panic "Couldn't create block") identity $
-                              mkMainBlock (Just prevHeader) sId sk
-                                          pSk musthaveBody extraH extraB
+        let musthaveBody = Types.MainBody
+                (fromMaybe (error "createMainBlockPure: impossible") $ mkTxPayload mempty)
+                sscData [] def
+        musthaveBlock <-
+            either throwError pure $
+            mkMainBlock (Just prevHeader) sId sk pSk musthaveBody extraH extraB
         count musthaveBlock
         -- include delegation certificates and US payload
         let prioritizeUS = even (flattenSlotId sId)
@@ -776,9 +777,9 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         -- include transactions
         txs' <- takeSome (map snd txs)
         -- return the resulting block
-        let txPayload = mkTxPayload txs'
+        txPayload <- either throwError pure $ mkTxPayload txs'
         let body = Types.MainBody txPayload sscData psks' usPayload'
-        maybe (panic "Coudln't create block") return $
+        maybe (error "Coudln't create block") return $
               mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where
     count x = identity -= fromIntegral (length (Bi.encode x))

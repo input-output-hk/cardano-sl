@@ -33,7 +33,7 @@ import           Pos.Util.Config        (IsConfig (..), configParser, parseFromC
 coreConstants :: CoreConstants
 coreConstants =
     case parseFromCslConfig configParser of
-        Left err -> panic (toText ("Couldn't parse core config: " ++ err))
+        Left err -> error (toText ("Couldn't parse core config: " ++ err))
         Right x  -> x
 
 data CoreConstants = CoreConstants

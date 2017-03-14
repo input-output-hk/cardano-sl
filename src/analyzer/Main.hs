@@ -51,7 +51,7 @@ main = do
 analyzeVerifyTimes :: FilePath -> Word64 -> HM.HashMap FilePath [JLTimedEvent] -> IO ()
 analyzeVerifyTimes txFile cParam logs = do
     (txSenderMap :: HashMap TxId Integer) <-
-        HM.fromList . fromMaybe (panic "failed to read txSenderMap") . decode <$>
+        HM.fromList . fromMaybe (error "failed to read txSenderMap") . decode <$>
         LBS.readFile txFile
     let txConfTimes :: HM.HashMap TxId Integer
         txConfTimes = getTxAcceptTimeAvgs cParam logs
@@ -138,7 +138,7 @@ getTpsLog = map toTimedCount . filter isTpsEvent
             ( posixSecondsToUTCTime $ fromIntegral $ time `div` 1000000
             , fromIntegral count
             )
-        toTimedCount _ = panic "getTpsLog: not TPS stat is given!"
+        toTimedCount _ = error "getTpsLog: not TPS stat is given!"
 
 tpsToCsv :: [(UTCTime, Double)] -> Text
 tpsToCsv entries =

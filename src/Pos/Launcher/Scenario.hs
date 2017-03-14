@@ -11,35 +11,33 @@ module Pos.Launcher.Scenario
        , runNode'
        ) where
 
-import           Control.Concurrent.MVar     (putMVar)
-import           Control.Concurrent.STM.TVar (writeTVar)
-import           Data.Default                (def)
-import           Development.GitRev          (gitBranch, gitHash)
-import           Formatting                  (build, sformat, shown, (%))
-import           Mockable                    (fork)
-import           Paths_cardano_sl            (version)
-import           Serokell.Util               (sec)
-import           System.Exit                 (ExitCode (..))
-import           System.Wlog                 (getLoggerName, logError, logInfo)
+import           Data.Default         (def)
+import           Development.GitRev   (gitBranch, gitHash)
+import           Formatting           (build, sformat, shown, (%))
+import           Mockable             (fork)
+import           Paths_cardano_sl     (version)
+import           Serokell.Util        (sec)
+import           System.Exit          (ExitCode (..))
+import           System.Wlog          (getLoggerName, logError, logInfo)
 import           Universum
 
-import           Pos.Communication           (ActionSpec (..), OutSpecs, WorkerSpec,
-                                              wrapActionSpec)
-import           Pos.Context                 (NodeContext (..), getNodeContext,
-                                              ncPubKeyAddress, ncPublicKey)
-import qualified Pos.DB.GState               as GS
-import qualified Pos.Lrc.DB                  as LrcDB
-import           Pos.Delegation.Logic        (initDelegation)
-import           Pos.DHT.Model               (discoverPeers)
-import           Pos.Reporting               (reportMisbehaviourMasked)
-import           Pos.Shutdown                (waitForWorkers)
-import           Pos.Slotting                (getCurrentSlot, waitSystemStart)
-import           Pos.Ssc.Class               (SscConstraint)
-import           Pos.Types                   (SlotId (..), addressHash)
-import           Pos.Update                  (MemState (..), askUSMemVar, mvState)
-import           Pos.Util                    (inAssertMode, waitRandomInterval)
-import           Pos.Worker                  (allWorkers, allWorkersCount)
-import           Pos.WorkMode                (WorkMode)
+import           Pos.Communication    (ActionSpec (..), OutSpecs, WorkerSpec,
+                                       wrapActionSpec)
+import           Pos.Context          (NodeContext (..), getNodeContext, ncPubKeyAddress,
+                                       ncPublicKey)
+import qualified Pos.DB.GState        as GS
+import           Pos.Delegation.Logic (initDelegation)
+import           Pos.DHT.Model        (discoverPeers)
+import qualified Pos.Lrc.DB           as LrcDB
+import           Pos.Reporting        (reportMisbehaviourMasked)
+import           Pos.Shutdown         (waitForWorkers)
+import           Pos.Slotting         (getCurrentSlot, waitSystemStart)
+import           Pos.Ssc.Class        (SscConstraint)
+import           Pos.Types            (SlotId (..), addressHash)
+import           Pos.Update           (MemState (..), askUSMemVar, mvState)
+import           Pos.Util             (inAssertMode, waitRandomInterval)
+import           Pos.Worker           (allWorkers, allWorkersCount)
+import           Pos.WorkMode         (WorkMode)
 
 -- | Run full node in any WorkMode.
 runNode'
@@ -97,11 +95,10 @@ waitForPeers = discoverPeers >>= \case
 initSemaphore :: (WorkMode ssc m) => m ()
 initSemaphore = do
     semaphore <- ncBlkSemaphore <$> getNodeContext
-    unlessM
-        (liftIO $ isEmptyMVar semaphore)
-        (logError "ncBlkSemaphore is not empty at the very beginning")
+    whenNothingM_ (tryReadMVar semaphore) $
+        logError "ncBlkSemaphore is not empty at the very beginning"
     tip <- GS.getTip
-    liftIO $ putMVar semaphore tip
+    putMVar semaphore tip
 
 initLrc :: WorkMode ssc m => m ()
 initLrc = do

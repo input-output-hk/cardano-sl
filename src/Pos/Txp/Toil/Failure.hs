@@ -1,31 +1,47 @@
 -- | Txp failures.
 
 module Pos.Txp.Toil.Failure
-       ( TxpVerFailure (..)
+       ( ToilVerFailure (..)
        ) where
 
-import           Data.Text.Buildable (Buildable (..))
-import           Formatting          (stext, bprint, int, (%))
+import qualified Data.Text.Buildable
+import           Formatting           (bprint, build, int, stext, (%))
+import           Serokell.Util.Verify (formatAllErrors)
 import           Universum
 
+import           Pos.Core             (HeaderHash)
+import           Pos.Txp.Core         (TxIn)
+
 -- | Result of transaction processing
-data TxpVerFailure
-    = TxpKnown -- ^ Transaction is already in the storage (cache)
-    | TxpInvalid !Text
-    | TxpOverwhelmed -- ^ Local transaction storage is full -- can't accept more txs
-    | TxpCantTopsort
-    | TxpInvalidUndoLength !Int !Int
+data ToilVerFailure
+    = ToilKnown -- ^ Transaction is already in the storage (cache)
+    | ToilTipsMismatch { ttmOldTip :: !HeaderHash
+                       , ttmNewTip :: !HeaderHash}
+    | ToilOverwhelmed -- ^ Local transaction storage is full -- can't accept more txs
+    | ToilNotUnspent !TxIn -- ^ Tx input is not a known unspent input.
+    | ToilOutGTIn { tInputSum  :: !Integer
+                 ,  tOutputSum :: !Integer}
+    | ToilInconsistentTxAux !Text
+    | ToilInvalidOutputs !Text  -- [CSL-814] TODO: make it more informative
+    | ToilInvalidInputs ![Text] -- [CSL-814] TODO: make it more informative
     deriving (Show, Eq)
 
-instance Buildable TxpVerFailure where
-    build TxpKnown =
+instance Buildable ToilVerFailure where
+    build ToilKnown =
         "transaction already is in the mem pool"
-    build (TxpInvalid txt) =
-        bprint ("txp internal error: "%stext) txt
-    build TxpOverwhelmed =
+    build (ToilTipsMismatch oldTip newTip) =
+        bprint ("tips mismatch, old tip is "%build%", new one is"%build)
+        oldTip newTip
+    build ToilOverwhelmed =
         "max size of the mem pool is reached"
-    build TxpCantTopsort =
-        "transactions can't be topsored"
-    build (TxpInvalidUndoLength ex rcv) =
-        bprint ("length of transaction's inputs = "%int%
-               " doesn't equal length of transaction's undo = "%int) ex rcv
+    build (ToilNotUnspent txId) =
+        bprint ("input is not a known unspent input: "%build) txId
+    build (ToilOutGTIn {..}) =
+        bprint ("sum of outputs is greater than sum of inputs ("%int%" < "%int%")")
+        tInputSum tOutputSum
+    build (ToilInconsistentTxAux msg) =
+        bprint ("TxAux is inconsistent: "%stext) msg
+    build (ToilInvalidOutputs msg) =
+        bprint ("outputs are invalid: "%stext) msg
+    build (ToilInvalidInputs msg) =
+        bprint ("inputs are invalid: "%stext) $ formatAllErrors msg

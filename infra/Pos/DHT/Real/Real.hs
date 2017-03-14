@@ -7,6 +7,8 @@ module Pos.DHT.Real.Real
        , stopDHTInstance
        ) where
 
+import           Universum                 hiding (bracket, catchAll)
+
 import           Control.Concurrent.STM    (newTVar, readTVar, writeTVar)
 import           Data.Binary               (decode)
 import qualified Data.ByteString.Lazy      as BS
@@ -21,7 +23,6 @@ import           Serokell.Util             (ms, sec)
 import           System.Directory          (doesFileExist)
 import           System.Wlog               (WithLogger, logDebug, logError, logInfo,
                                             logWarning, usingLoggerName)
-import           Universum                 hiding (Async, async, bracket, catchAll)
 
 import           Pos.Binary.Class          (Bi (..))
 import           Pos.Binary.Infra.DHTModel ()

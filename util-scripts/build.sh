@@ -19,7 +19,7 @@ set -o pipefail
 #   * Highlights error messages in GHC output
 #   * Strips unneeded info from GHC output (such as file names)
 
-projects="core db infra update"
+projects="core db lrc infra update"
 
 args=''
 

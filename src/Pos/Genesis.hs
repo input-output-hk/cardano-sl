@@ -44,18 +44,19 @@ import           Universum
 
 import qualified Pos.Constants              as Const
 import           Pos.Core.Types             (ScriptVersion, SoftwareVersion (..))
-import           Pos.Crypto                 (PublicKey, SecretKey, deterministicKeyGen,
-                                             unsafeHash)
+import           Pos.Crypto                 (PublicKey, SecretKey, deterministicKeyGen)
+import           Pos.Crypto                 (unsafeHash)
 import           Pos.Genesis.Parser         (compileGenData)
 import           Pos.Genesis.Types          (GenesisData (..), StakeDistribution (..))
-import           Pos.Lrc.FollowTheSatoshi   (followTheSatoshi)
-import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..))
+import           Pos.Lrc.FtsPure            (followTheSatoshi)
+import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil.Types         (Utxo)
+import           Pos.Types                  (makePubKeyAddress)
 import           Pos.Types                  (Address (..), BlockVersion (..), Coin,
                                              SharedSeed (SharedSeed), SlotLeaders,
                                              StakeholderId, applyCoinPortion,
-                                             coinToInteger, divCoin, makePubKeyAddress,
-                                             mkCoin, unsafeAddCoin, unsafeMulCoin)
+                                             coinToInteger, divCoin, mkCoin,
+                                             unsafeAddCoin, unsafeMulCoin)
 import           Pos.Update.Core.Types      (BlockVersionData (..))
 
 ----------------------------------------------------------------------------
@@ -68,7 +69,7 @@ genesisDevKeyPairs = map gen [0 .. Const.genesisN - 1]
   where
     gen :: Int -> (PublicKey, SecretKey)
     gen =
-        fromMaybe (panic "deterministicKeyGen failed in Genesis") .
+        fromMaybe (error "deterministicKeyGen failed in Genesis") .
         deterministicKeyGen .
         encodeUtf8 .
         T.take 32 . sformat ("My awesome 32-byte seed #" %int % "             ")
@@ -178,7 +179,9 @@ genesisUtxo :: StakeDistribution -> Utxo
 genesisUtxo sd =
     M.fromList . zipWith zipF (stakeDistribution sd) $ genesisAddresses
   where
-    zipF coin addr = (TxIn (unsafeHash addr) 0, (TxOut addr coin, []))
+    zipF coin addr =
+        ( TxIn (unsafeHash addr) 0
+        , (TxOutAux {toaOut = TxOut addr coin, toaDistr = []}))
 
 genesisDelegation :: HashMap StakeholderId [StakeholderId]
 genesisDelegation = mempty

@@ -14,6 +14,7 @@ module Pos.Wallet.Web.State.Storage
        , getTxMeta
        , getUpdates
        , getNextUpdate
+       , getHistoryCache
        , createWallet
        , setWalletMeta
        , setWalletHistory
@@ -24,12 +25,16 @@ module Pos.Wallet.Web.State.Storage
        , addUpdate
        , removeNextUpdate
        , testReset
+       , updateHistoryCache
        ) where
 
 import           Control.Lens               (at, ix, makeClassy, (%=), (.=), _Just, _head)
 import           Control.Monad.State.Class  (put)
 import           Data.Default               (Default, def)
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
+import           Pos.Txp                    (Utxo)
+import           Pos.Types                  (HeaderHash)
+import           Pos.Wallet.Tx.Pure         (TxHistoryEntry)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTxId,
                                              CTxMeta, CUpdateInfo, CWalletMeta,
                                              CWalletType)
@@ -42,6 +47,7 @@ data WalletStorage = WalletStorage
       _wsWalletMetas  :: !(HashMap CAddress (CWalletMeta, TransactionHistory))
     , _wsProfile      :: !(Maybe CProfile)
     , _wsReadyUpdates :: [CUpdateInfo]
+    , _wsHistoryCache :: !(HashMap CAddress (HeaderHash, Utxo, [TxHistoryEntry]))
     }
 
 makeClassy ''WalletStorage
@@ -53,6 +59,7 @@ instance Default WalletStorage where
           _wsWalletMetas = mempty
         , _wsProfile = mzero
         , _wsReadyUpdates = mempty
+        , _wsHistoryCache = mempty
         }
 
 type Query a = forall m. (MonadReader WalletStorage m) => m a
@@ -81,6 +88,9 @@ getUpdates = view wsReadyUpdates
 
 getNextUpdate :: Query (Maybe CUpdateInfo)
 getNextUpdate = preview (wsReadyUpdates . _head)
+
+getHistoryCache :: CAddress -> Query (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
+getHistoryCache cAddr = view $ wsHistoryCache . at cAddr
 
 createWallet :: CAddress -> CWalletMeta -> Update ()
 createWallet cAddr wMeta = wsWalletMetas . at cAddr .= Just (wMeta, mempty)
@@ -114,6 +124,9 @@ removeNextUpdate = wsReadyUpdates %= drop 1
 testReset :: Update ()
 testReset = put def
 
+updateHistoryCache :: CAddress -> HeaderHash -> Utxo -> [TxHistoryEntry] -> Update ()
+updateHistoryCache cAddr cHash utxo cTxs = wsHistoryCache . at cAddr .= Just (cHash, utxo, cTxs)
+
 deriveSafeCopySimple 0 'base ''CProfile
 deriveSafeCopySimple 0 'base ''CHash
 deriveSafeCopySimple 0 'base ''CAddress
@@ -121,6 +134,7 @@ deriveSafeCopySimple 0 'base ''CCurrency
 deriveSafeCopySimple 0 'base ''CWalletType
 deriveSafeCopySimple 0 'base ''CWalletMeta
 deriveSafeCopySimple 0 'base ''CTxId
+deriveSafeCopySimple 0 'base ''TxHistoryEntry
 deriveSafeCopySimple 0 'base ''CTxMeta
 deriveSafeCopySimple 0 'base ''CUpdateInfo
 deriveSafeCopySimple 0 'base ''WalletStorage

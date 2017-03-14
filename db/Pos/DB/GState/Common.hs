@@ -34,6 +34,7 @@ import           Pos.DB.Class        (MonadDB, getUtxoDB)
 import           Pos.DB.Error        (DBError (DBMalformed))
 import           Pos.DB.Functions    (RocksBatchOp (..), rocksDelete, rocksGetBi,
                                       rocksPutBi, rocksWriteBatch)
+import           Pos.Util.Util       (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Common Helpers
@@ -54,13 +55,6 @@ gsDelete k = rocksDelete k =<< getUtxoDB
 
 writeBatchGState :: (RocksBatchOp a, MonadDB m) => [a] -> m ()
 writeBatchGState batch = rocksWriteBatch batch =<< getUtxoDB
-
-----------------------------------------------------------------------------
--- TODO: remove
-----------------------------------------------------------------------------
-
-maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
-maybeThrow e = maybe (throwM e) pure
 
 ----------------------------------------------------------------------------
 -- Common getters

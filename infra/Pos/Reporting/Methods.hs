@@ -5,6 +5,7 @@
 
 module Pos.Reporting.Methods
        ( sendReportNode
+       , sendReportNodeNologs
        , getNodeInfo
        , reportMisbehaviour
        , reportMisbehaviourMasked
@@ -14,10 +15,13 @@ module Pos.Reporting.Methods
        , chooseLogFiles
        ) where
 
-import           Control.Exception        (SomeException)
+import           Universum
+
+import           Control.Exception        (ErrorCall (..), SomeException)
 import           Control.Lens             (to)
 import           Control.Monad.Catch      (try)
 import           Data.Aeson               (encode)
+import           Data.Bits                (Bits (..))
 import qualified Data.HashMap.Strict      as HM
 import qualified Data.List.NonEmpty       as NE
 import qualified Data.Text                as T
@@ -27,7 +31,6 @@ import           Data.Version             (Version (..))
 import           Formatting               (build, sformat, shown, stext, (%))
 import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Network.Wreq             (partFile, partLBS, post)
-import           Panic                    (FatalError (..))
 import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
 import           Serokell.Util.Text       (listBuilderJSON, listJson)
 import           System.Directory         (doesFileExist, listDirectory)
@@ -39,13 +42,12 @@ import           System.IO.Temp           (withSystemTempFile)
 import           System.Wlog              (CanLog, HasLoggerName, LoggerConfig (..),
                                            lcFilePrefix, lcTree, logDebug, logError,
                                            ltFiles, ltSubloggers, readMemoryLogs)
-import           Universum
 
 import           Pos.Core.Constants       (protocolMagic)
 import           Pos.DHT.Model.Class      (MonadDHT, currentNodeKey, getKnownPeers)
 import           Pos.Exception            (CardanoFatalError)
 import           Pos.Reporting.Exceptions (ReportingError (..))
-import           Pos.Reporting.MemState   (MonadReportingMem (..), _rprReportServers)
+import           Pos.Reporting.MemState   (MonadReportingMem (..), rcReportServers)
 
 -- TODO From Pos.Util, remove after refactoring.
 -- | Concatenates two url part using regular slash '/'.
@@ -68,13 +70,9 @@ sendReportNode
     :: (MonadIO m, MonadMask m, MonadReportingMem m)
     => Version -> ReportType -> m ()
 sendReportNode version reportType = do
-    servers <- _rprReportServers <$> askReportingMem
     memLogs <- takeGlobalSize charsConst <$> readMemoryLogs
-    errors <- fmap lefts $ forM servers $ try .
-        sendReport [] memLogs reportType "cardano-node" version . T.unpack
-    whenNotNull errors $ throwSE . NE.head
+    sendReportNodeImpl (reverse memLogs) version reportType
   where
-    throwSE (e :: SomeException) = throwM e
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int
     charsConst = 1024 * 1024 * 2
@@ -83,6 +81,24 @@ sendReportNode version reportType = do
     takeGlobalSize curLimit (t:xs) =
         let delta = curLimit - length t
         in bool [] (t:(takeGlobalSize delta xs)) (delta > 0)
+
+-- | Same as 'sendReportNode', but doesn't attach any logs.
+sendReportNodeNologs
+    :: (MonadIO m, MonadMask m, MonadReportingMem m)
+    => Version -> ReportType -> m ()
+sendReportNodeNologs = sendReportNodeImpl []
+
+sendReportNodeImpl
+    :: (MonadIO m, MonadMask m, MonadReportingMem m)
+    => [Text] -> Version -> ReportType -> m ()
+sendReportNodeImpl memLogs version reportType = do
+    servers <- view rcReportServers <$> askReportingContext
+    errors <- fmap lefts $ forM servers $ try .
+        sendReport [] memLogs reportType "cardano-node" version . T.unpack
+    whenNotNull errors $ throwSE . NE.head
+  where
+    throwSE (e :: SomeException) = throwM e
+
 
 -- checks if ipv4 is from local range
 ipv4Local :: Word32 -> Bool
@@ -164,8 +180,8 @@ reportingFatal version action =
                  " because of exception '"%shown%"' raised while sending") reason e
     handler1 = andThrow $ \(e :: CardanoFatalError) ->
         report (pretty e)
-    handler2 = andThrow $ \(FatalError reason) ->
-        report ("FatalError/panic: " <> show reason)
+    handler2 = andThrow $ \(ErrorCall reason) ->
+        report ("FatalError/error: " <> show reason)
 
 
 ----------------------------------------------------------------------------

@@ -43,15 +43,12 @@ hosted herein. We recommend starting with the following source files:
 Platform support
 ----------------
 
-At the moment, the only supported platform is Linux. Mac OS X isn't
-officially supported, but `cardano-sl` on Mac OS X has thus far
-been ran and partially tested on Mac OS X.
+At the moment, supported platforms are Windows, macOS and Linux. There are [installers
+for Windows and macOS](https://daedaluswallet.io/#download), which include a node and
+a [wallet](https://github.com/input-output-hk/daedalus).
 
-Windows support is a milestone actively being worked on, and planned for the
-near future.
-
-Installation
-------------
+Build from source
+-----------------
 
 To build from source, clone this repository, navigate to the directory
 into which the project was cloned and run `stack build`.
@@ -59,8 +56,8 @@ into which the project was cloned and run `stack build`.
 The [`stack` system](https://docs.haskellstack.org/en/stable/README/) is
 required before `cardano-sl` can be built.
 
-Running the wallet
-------------------
+Running the nodes
+-----------------
 
 After the project is built, run it:
 
@@ -68,6 +65,11 @@ After the project is built, run it:
 - open *new terminal window*, run `export WALLET_TEST=1; ./scripts/launch.sh` in it
 
 After a while, the first terminal windows should be populated with 4 tabs, 3 out of which will have a node running in them.
+
+Generating the wallet documentation
+-----------------------------------
+
+Build the project and run `stack exec --nix -- cardano-wallet-web-docs`. Look at the generated `./docs/wallet-web-api.md`.
 
 Benchmarking
 ------------

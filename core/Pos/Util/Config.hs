@@ -54,10 +54,10 @@ import           GHC.TypeLits     (type (+))
 import           Universum
 import           Unsafe.Coerce    (unsafeCoerce)
 
-#ifdef DEV_MODE
-import           System.IO.Unsafe (unsafePerformIO)
+#if EMBED_CONFIG
+import qualified Language.Haskell.TH.Syntax as TH
 #else
-import           Language.Haskell.TH.Syntax (runIO, qAddDependentFile)
+import           System.IO.Unsafe (unsafePerformIO)
 #endif
 
 import           Pos.Util.Config.Path (cslConfigFilePath)
@@ -278,20 +278,20 @@ instance FromJSON (ConfigSet '[]) where
 --
 -- TODO: allow overriding config values via an env var?
 cslConfig :: Y.Value
-#ifdef DEV_MODE
+#ifdef EMBED_CONFIG
+cslConfig = $(do
+    TH.qAddDependentFile cslConfigFilePath
+    TH.runIO (Y.decodeFileEither @Y.Value cslConfigFilePath) >>= \case
+        Left err -> fail $ "Couldn't parse " ++ cslConfigFilePath ++
+                           ": " ++ Y.prettyPrintParseException err
+        Right x  -> TH.lift x)
+#else
 cslConfig = unsafePerformIO $
     Y.decodeFileEither cslConfigFilePath >>= \case
         Left err -> fail $ "Couldn't parse " ++ cslConfigFilePath ++
                            ": " ++ Y.prettyPrintParseException err
         Right x  -> return x
 {-# NOINLINE cslConfig #-}
-#else
-cslConfig = $(do
-    qAddDependentFile cslConfigFilePath
-    runIO (Y.decodeFileEither @Y.Value cslConfigFilePath) >>= \case
-        Left err -> fail $ "Couldn't parse " ++ cslConfigFilePath ++
-                           ": " ++ Y.prettyPrintParseException err
-        Right x  -> return x)
 #endif
 
 -- | Read a value from 'cslConfig'.

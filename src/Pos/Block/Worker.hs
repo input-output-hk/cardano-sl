@@ -13,33 +13,31 @@ import           Control.Lens                (ix)
 import           Data.Default                (def)
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
-import           Paths_cardano_sl            (version)
 import           Pos.Communication.Protocol  (SendActions)
-import           Serokell.Util               (VerificationRes (..), listJson, pairF, sec)
-import           System.Wlog                 (WithLogger, logDebug, logError, logInfo,
-                                              logWarning)
+import           Serokell.Util               (VerificationRes (..), listJson, pairF)
+import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
-import           Pos.Block.Network.Retrieval (requestTipOuts, retrievalWorker,
-                                              triggerRecovery)
+import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Communication.Protocol  (OutSpecs, Worker', WorkerSpec,
-                                              onNewSlotWorker, worker)
+                                              onNewSlotWorker)
 import           Pos.Constants               (isDevelopment, networkDiameter)
-import           Pos.Context                 (getNodeContext, isRecoveryMode, ncPublicKey)
+import           Pos.Context                 (getNodeContext, ncPublicKey)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Exception               (assertionFailed)
 import           Pos.Lrc.DB                  (getLeaders)
-import           Pos.Reporting.Methods       (reportingFatal)
-import           Pos.Slotting                (currentTimeSlotting, getCurrentSlot,
+import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
 #if defined(WITH_WALLET)
-import           Data.Time.Units             (convertUnit)
+import           Data.Time.Units             (Second, convertUnit)
+import           Pos.Block.Network.Logic     (requestTipOuts, triggerRecovery)
+import           Pos.Communication           (worker)
 import           Pos.Slotting                (getLastKnownSlotDuration)
 #endif
 import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
@@ -58,8 +56,7 @@ import           Pos.WorkMode                (WorkMode)
 blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => ([WorkerSpec m], OutSpecs)
 blkWorkers =
     merge $ [ blkOnNewSlot
-            , retrievalWorker
-            , recoveryWorker ]
+            , retrievalWorker ]
 #if defined(WITH_WALLET)
             ++ [ behindNatWorker | not isDevelopment ]
 #endif
@@ -188,38 +185,13 @@ verifyCreatedBlock blk =
         , vbpVerifySsc = True
         }
 
--- | Trigger recovery if we're definitely late in the blockchain (for >epoch).
-recoveryWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
-recoveryWorker = worker requestTipOuts recoveryWorkerImpl
-
-recoveryWorkerImpl
-    :: WorkMode ssc m
-    => SendActions m -> m ()
-recoveryWorkerImpl sendActions = action `catch` handler
-  where
-    action = reportingFatal version $ forever $ checkRecovery >> delay (sec 5)
-    checkRecovery = do
-        recMode <- isRecoveryMode
-        curSlotNothing <- isNothing <$> getCurrentSlot
-        if (curSlotNothing && not recMode) then do
-             logDebug "Recovery worker: don't know current slot"
-             triggerRecovery sendActions
-        else logDebug $ "Recovery worker skipped:" <>
-                        " slot is nothing: " <> show curSlotNothing <>
-                        ", recovery mode is on: " <> show recMode
-
-    handler (e :: SomeException) = do
-        logError $ "Error happened in recoveryWorker: " <> show e
-        delay (sec 10)
-        action `catch` handler
-
 #if defined(WITH_WALLET)
 -- | This one just triggers every @max (slotDur / 4) 5@ seconds and
 -- asks for current tip. Does nothing when recovery is enabled.
-behindNatWorker :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
+behindNatWorker :: (WorkMode ssc m, SscWorkersClass ssc) => (WorkerSpec m, OutSpecs)
 behindNatWorker = worker requestTipOuts $ \sendActions -> do
     slotDur <- getLastKnownSlotDuration
-    let delayInterval = max (slotDur `div` 4) (convertUnit $ sec 5)
+    let delayInterval = max (slotDur `div` 4) (convertUnit $ (5 :: Second))
         action = forever $ do
             triggerRecovery sendActions
             delay $ delayInterval

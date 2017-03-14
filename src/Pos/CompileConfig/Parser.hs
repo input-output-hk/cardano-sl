@@ -12,5 +12,5 @@ import           Pos.Util.Config         (parseFromCslConfig)
 
 compileConfig :: CompileConfig
 compileConfig = case parseFromCslConfig parseJSON of
-    Left err -> panic (toText ("Couldn't parse compileConfig: " ++ err))
+    Left err -> error (toText ("Couldn't parse compileConfig: " ++ err))
     Right x  -> x

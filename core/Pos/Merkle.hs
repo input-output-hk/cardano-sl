@@ -15,6 +15,7 @@ module Pos.Merkle
        , mkLeaf
        ) where
 
+import           Data.Bits            (Bits (..))
 import           Data.ByteArray       (ByteArrayAccess, convert)
 import qualified Data.ByteString.Lazy as BL (toStrict)
 import           Data.Coerce          (coerce)

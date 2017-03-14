@@ -42,6 +42,7 @@ import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.Real                (KademliaDHT)
+import           Pos.Reporting.MemState      (MonadReportingMem)
 import           Pos.Slotting                (MonadSlots, MonadSlotsData, NtpSlotting,
                                               SlottingHolder)
 import           Pos.Ssc.Extra               (SscHolder (..))
@@ -126,7 +127,7 @@ newtype KeyStorage m a = KeyStorage
                 MonadReader KeyData, MonadDB,
                 MonadWalletDB, WithWalletContext, WithNodeContext ssc,
                 MonadDelegation, MonadTrans, MonadBase io, MonadFix,
-                MonadDBLimits)
+                MonadDBLimits, MonadReportingMem)
 
 instance Monad m => WrappedM (KeyStorage m) where
     type UnwrappedM (KeyStorage m) = ReaderT KeyData m

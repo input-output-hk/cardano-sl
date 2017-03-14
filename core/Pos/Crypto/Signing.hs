@@ -153,7 +153,7 @@ keyGen :: MonadIO m => m (PublicKey, SecretKey)
 keyGen = liftIO $ do
     seed <- secureRandomBS 32
     case createKeypairFromSeed seed of
-        Nothing -> panic "Pos.Crypto.Signing.keyGen:\
+        Nothing -> error "Pos.Crypto.Signing.keyGen:\
                          \ createKeypairFromSeed_ failed"
         Just (pk, sk) -> return (PublicKey pk, SecretKey sk)
 
@@ -330,7 +330,7 @@ proxySign
     => SecretKey -> ProxySecretKey w -> a -> ProxySignature w a
 proxySign sk@(SecretKey delegateSk) ProxySecretKey{..} m
     | toPublic sk /= pskDelegatePk =
-        panic "proxySign called with irrelevant certificate"
+        error "proxySign called with irrelevant certificate"
     | otherwise =
         ProxySignature
         { pdOmega = pskOmega

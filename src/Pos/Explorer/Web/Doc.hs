@@ -187,7 +187,7 @@ instance ToSample CTxEntry where
 
 data CTxSummary = CTxSummary
     { ctsId              :: !CTxId
-    , ctsTxTimeIssued    :: !(Maybe POSIXTime)
+    , ctsTxTimeIssued    :: !(POSIXTime)
     , ctsBlockTimeIssued :: !(Maybe POSIXTime)
     , ctsBlockHeight     :: !(Maybe Word)
     , ctsRelayedBy       :: !(Maybe CNetworkAddress)
@@ -205,7 +205,7 @@ instance ToSample CTxSummary where
       where
         sample = CTxSummary
             { ctsId              = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
-            , ctsTxTimeIssued    = Just posixTime
+            , ctsTxTimeIssued    = posixTime
             , ctsBlockTimeIssued = Nothing
             , ctsBlockHeight     = Just 11
             , ctsRelayedBy       = Nothing

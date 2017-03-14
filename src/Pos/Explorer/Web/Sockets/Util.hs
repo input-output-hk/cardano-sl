@@ -41,30 +41,30 @@ class EventName a where
 emit
     :: (ToJSON event, EventName name, MonadReader S.Socket m, MonadIO m)
     => name -> event -> m ()
-emit eventName event = S.emit (toName eventName) event
+emit eventName = S.emit (toName eventName)
 
 emitTo
     :: (ToJSON event, EventName name, MonadIO m)
     => S.Socket -> name -> event -> m ()
-emitTo sock eventName event = S.emitTo sock (toName eventName) event
+emitTo sock eventName = S.emitTo sock (toName eventName)
 
 emitJSON
     :: (EventName name, MonadReader S.Socket m, MonadIO m)
     => name -> Array -> m ()
-emitJSON eventName event = S.emitJSON (toName eventName) event
+emitJSON eventName = S.emitJSON (toName eventName)
 
 emitJSONTo
     :: (EventName name, MonadIO m)
     => S.Socket -> name -> Array -> m ()
-emitJSONTo sock eventName event = S.emitJSONTo sock (toName eventName) event
+emitJSONTo sock eventName = S.emitJSONTo sock (toName eventName)
 
 on_ :: (MonadState S.RoutingTable m, EventName name)
     => name -> S.EventHandler a -> m ()
-on_ eventName handler = S.on (toName eventName) handler
+on_ eventName = S.on (toName eventName)
 
 on :: (MonadState S.RoutingTable m, FromJSON event, EventName name)
    => name -> (event -> S.EventHandler a) -> m ()
-on eventName handler = S.on (toName eventName) handler
+on eventName = S.on (toName eventName)
 
 -- * Instances
 

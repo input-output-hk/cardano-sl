@@ -12,6 +12,7 @@ import           Universum
 import qualified Pos.Explorer.Web.ClientTypes       as CT
 import qualified Pos.Explorer.Web.Error             as CE
 import qualified Pos.Types                          as PT
+import qualified Pos.Explorer.Web.Sockets           as PS
 
 import           PSOptions                          (Args (..), getPSOptions)
 import           PSTypes                            (psPosixTime)
@@ -32,7 +33,7 @@ main = do
       , mkSumType (Proxy @CT.CTxBrief)
       , mkSumType (Proxy @CE.ExplorerError)
       , mkSumType (Proxy @PT.Coin)
-      , mkSumType (Proxy @PT.ChainDifficulty)
+      , mkSumType (Proxy @PS.ClientEvent)
       ]
   where
       customBridge =

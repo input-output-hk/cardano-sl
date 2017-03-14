@@ -1,5 +1,5 @@
-{-# LANGUAGE ApplicativeDo       #-}
-{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE CPP           #-}
 
 -- | Command line options of pos-node.
 
@@ -18,6 +18,7 @@ import           Universum                  hiding (show)
 
 import           Paths_cardano_sl           (version)
 import qualified Pos.CLI                    as CLI
+import           Pos.Constants              (isDevelopment)
 import           Pos.DHT.Model              (DHTKey)
 import           Pos.Security.CLI           (AttackTarget, AttackType)
 import           Pos.Util.BackupPhrase      (BackupPhrase, backupPhraseWordsNum)
@@ -26,10 +27,9 @@ import           Pos.Util.TimeWarp          (NetworkAddress)
 data Args = Args
     { dbPath                    :: !FilePath
     , rebuildDB                 :: !Bool
-#ifdef DEV_MODE
-    , spendingGenesisI          :: !(Maybe Int)
-    , vssGenesisI               :: !(Maybe Int)
-#endif
+    -- these two arguments are only used in development mode
+    , devSpendingGenesisI       :: !(Maybe Int)
+    , devVssGenesisI            :: !(Maybe Int)
     , keyfilePath               :: !FilePath
     , backupPhrase              :: !(Maybe BackupPhrase)
     , ipPort                    :: !NetworkAddress
@@ -71,16 +71,18 @@ argsParser = do
         long "rebuild-db" <>
         help "If we DB already exist, discard its contents \
              \and create a new one from scratch"
-#ifdef DEV_MODE
-    spendingGenesisI <- optional $ option auto $
-        long    "spending-genesis" <>
-        metavar "INT" <>
-        help    "Use genesis spending #i"
-    vssGenesisI <- optional $ option auto $
-        long    "vss-genesis" <>
-        metavar "INT" <>
-        help    "Use genesis vss #i"
-#endif
+    devSpendingGenesisI <- if isDevelopment
+        then (optional $ option auto $
+                  long    "spending-genesis" <>
+                  metavar "INT" <>
+                  help    "Use genesis spending #i")
+        else pure Nothing
+    devVssGenesisI <- if isDevelopment
+        then (optional $ option auto $
+                  long    "vss-genesis" <>
+                  metavar "INT" <>
+                  help    "Use genesis vss #i")
+        else pure Nothing
     keyfilePath <- strOption $
         long    "keyfile" <>
         metavar "FILEPATH" <>

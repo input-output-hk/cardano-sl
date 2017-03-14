@@ -1,12 +1,8 @@
-{-# LANGUAGE CPP #-}
-
 -- | Genesis values related to GodTossing SSC.
 
 module Pos.Ssc.GodTossing.Genesis
        ( genesisCertificates
-#ifdef DEV_MODE
-       , genesisVssKeyPairs
-#endif
+       , genesisDevVssKeyPairs
        ) where
 
 import qualified Data.HashMap.Strict           as HM
@@ -16,22 +12,19 @@ import           Formatting                    (int, sformat, (%))
 import           Universum
 
 import           Pos.Binary.Class              (asBinary)
-import           Pos.Constants                 (genesisN, vssMaxTTL, vssMinTTL)
+import           Pos.Constants                 (genesisN, isDevelopment, vssMaxTTL,
+                                                vssMinTTL)
+import           Pos.Core.Address              (addressHash)
 import           Pos.Crypto                    (VssKeyPair, VssPublicKey,
                                                 deterministicVssKeyGen, toVssPublicKey)
-#ifdef DEV_MODE
-import           Pos.Genesis                   (genesisKeyPairs)
-#else
-import           Pos.Genesis                   (compileGenData, gdVssCertificates)
-#endif
-import           Pos.Core.Address              (addressHash)
+import           Pos.Genesis                   (compileGenData, gdVssCertificates,
+                                                genesisDevKeyPairs)
 import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap, mkVssCertificate)
 import           Pos.Types                     (EpochIndex (..))
 
-#ifdef DEV_MODE
--- | List of 'VssKeyPair' in genesis.
-genesisVssKeyPairs :: [VssKeyPair]
-genesisVssKeyPairs = map gen [0 .. genesisN - 1]
+-- | List of 'VssKeyPair's in genesis.
+genesisDevVssKeyPairs :: [VssKeyPair]
+genesisDevVssKeyPairs = map gen [0 .. genesisN - 1]
   where
     gen :: Int -> VssKeyPair
     gen =
@@ -41,27 +34,25 @@ genesisVssKeyPairs = map gen [0 .. genesisN - 1]
         sformat ("My awesome 32-byte seed :) #" %int % "             ")
 
 -- | List of 'VssPublicKey' in genesis.
-genesisVssPublicKeys :: [VssPublicKey]
-genesisVssPublicKeys = map toVssPublicKey genesisVssKeyPairs
+genesisDevVssPublicKeys :: [VssPublicKey]
+genesisDevVssPublicKeys = map toVssPublicKey genesisDevVssKeyPairs
 
 -- | Certificates in genesis represented as 'VssCertificatesMap'.
 genesisCertificates :: VssCertificatesMap
-genesisCertificates =
-    case l of
-        c0:c1:_:cs -> HM.fromList $ c0 : c1 : cs
-        _          -> error "genesisCertificates: can't happen"
+genesisCertificates
+    | isDevelopment = case certEntries of
+          c0:c1:_:cs -> HM.fromList $ c0 : c1 : cs
+          _          -> error "genesisCertificates: can't happen"
+    | otherwise     = gdVssCertificates compileGenData
   where
-    l =
-        zipWith3
-            (\i (pk, sk) vssPk ->
-                 ( addressHash pk
-                 , mkVssCertificate sk (asBinary vssPk) $ ttlExp i))
-            [0 :: Int ..]
-            genesisKeyPairs
-            genesisVssPublicKeys
+    ttlExp :: Int -> EpochIndex
     ttlExp 1 = EpochIndex vssMinTTL - 1
     ttlExp _ = vssMaxTTL - 1
-#else
-genesisCertificates :: VssCertificatesMap
-genesisCertificates = gdVssCertificates compileGenData
-#endif
+
+    mkCertEntry i (pk, sk) vssPk =
+        (addressHash pk, mkVssCertificate sk (asBinary vssPk) (ttlExp i))
+
+    certEntries = zipWith3 mkCertEntry
+                    [0..]
+                    genesisDevKeyPairs
+                    genesisDevVssPublicKeys

@@ -12,7 +12,7 @@ data WalletParams = WalletParams
     { wpDbPath      :: !(Maybe FilePath)
     , wpRebuildDb   :: !Bool
     , wpKeyFilePath :: !FilePath
-    , wpSystemStart :: !Timestamp
+    , wpSystemStart :: Timestamp  -- System start is not defined now
     , wpGenesisKeys :: !Bool
     , wpBaseParams  :: !BaseParams
     , wpGenesisUtxo :: !Utxo -- ^ Genesis utxo

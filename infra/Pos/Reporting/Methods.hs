@@ -47,7 +47,7 @@ import           Pos.Core.Constants       (protocolMagic)
 import           Pos.DHT.Model.Class      (MonadDHT, currentNodeKey, getKnownPeers)
 import           Pos.Exception            (CardanoFatalError)
 import           Pos.Reporting.Exceptions (ReportingError (..))
-import           Pos.Reporting.MemState   (MonadReportingMem (..), _rprReportServers)
+import           Pos.Reporting.MemState   (MonadReportingMem (..), rcReportServers)
 
 -- TODO From Pos.Util, remove after refactoring.
 -- | Concatenates two url part using regular slash '/'.
@@ -71,7 +71,7 @@ sendReportNode
     => Version -> ReportType -> m ()
 sendReportNode version reportType = do
     memLogs <- takeGlobalSize charsConst <$> readMemoryLogs
-    sendReportNodeImpl memLogs version reportType
+    sendReportNodeImpl (reverse memLogs) version reportType
   where
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int
@@ -92,7 +92,7 @@ sendReportNodeImpl
     :: (MonadIO m, MonadMask m, MonadReportingMem m)
     => [Text] -> Version -> ReportType -> m ()
 sendReportNodeImpl memLogs version reportType = do
-    servers <- _rprReportServers <$> askReportingMem
+    servers <- view rcReportServers <$> askReportingContext
     errors <- fmap lefts $ forM servers $ try .
         sendReport [] memLogs reportType "cardano-node" version . T.unpack
     whenNotNull errors $ throwSE . NE.head

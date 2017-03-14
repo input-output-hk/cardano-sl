@@ -25,7 +25,7 @@ import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
                                              redeemToPublic, safeToPublic)
 import           Pos.DB.Limits              (MonadDBLimits)
 import           Pos.DHT.Model              (DHTNode)
-import           Pos.Txp.Core.Types         (TxAux, TxOut (..), TxOutAux, txaF)
+import           Pos.Txp.Core               (TxAux, TxOut (..), TxOutAux (..), txaF)
 import           Pos.Types                  (Address, makePubKeyAddress,
                                              makeRedeemAddress, mkCoin, unsafeAddCoin)
 import           Pos.Wallet.Tx.Pure         (TxError, createMOfNTx, createRedemptionTx,
@@ -61,9 +61,11 @@ submitRedemptionTx
 submitRedemptionTx sendActions rsk na output = do
     utxo <- getOwnUtxo $ makeRedeemAddress $ redeemToPublic rsk
     runExceptT $ do
-        let addCoin c (TxOut {..}, _) = unsafeAddCoin c txOutValue
+        let addCoin c = unsafeAddCoin c . txOutValue . toaOut
             redeemBalance = foldl' addCoin (mkCoin 0) utxo
-            txouts = one (TxOut output redeemBalance, [])
+            txouts =
+                one $
+                TxOutAux {toaOut = TxOut output redeemBalance, toaDistr = []}
         txw <- ExceptT $ return $ createRedemptionTx utxo rsk txouts
         let txId = hash (txw ^. _1)
         lift $ submitTxRaw sendActions na txw

@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP           #-}
 {-# LANGUAGE DataKinds     #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -24,16 +23,15 @@ import           Universum
 -- | Servant API which provides access to wallet.
 -- TODO: Should be composed depending on the resource - wallets, txs, ... http://haskell-servant.github.io/tutorial/0.4/server.html#nested-apis
 type WalletApi =
-#ifdef DEV_MODE
+     -- only works in development mode, gives 403 otherwise
      "api"
      :> "test"
      :> "reset"
      :> Post '[JSON] (Either WalletError ())
     :<|>
-#endif
-     ----------------------------------------------------------------------------
+     -------------------------------------------------------------------------
      -- Wallets
-     ----------------------------------------------------------------------------
+     -------------------------------------------------------------------------
      "api"
      :> "wallets"
      :> Capture "walletId" CAddress

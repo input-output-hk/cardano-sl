@@ -31,8 +31,8 @@ module Pos.Block.Logic
 
 import           Control.Lens               ((-=), (.=), _Wrapped)
 import           Control.Monad.Catch        (try)
-import           Control.Monad.Except       (ExceptT (ExceptT), runExceptT, throwError,
-                                             withExceptT)
+import           Control.Monad.Except       (ExceptT (ExceptT), MonadError (throwError),
+                                             runExceptT, withExceptT)
 import           Control.Monad.Trans.Maybe  (MaybeT (MaybeT), runMaybeT)
 import           Data.Default               (Default (def))
 import qualified Data.HashMap.Strict        as HM
@@ -417,7 +417,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
     verResToMonadError formatAllErrors $
         Types.verifyBlocks curSlot bvd (Just leaders) (Just bv) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
-    txUndo <- ExceptT $ txVerifyBlocks blocks
+    txUndo <- withExceptT pretty $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $ usVerifyBlocks blocks
     when (length txUndo /= length pskUndo) $
@@ -717,8 +717,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     -- for now let's be cautious and not generate blocks that are larger than
     -- maxBlockSize/4
     sizeLimit <- fromIntegral . toBytes . (`div` 4) <$> UDB.getMaxBlockSize
-    let blk = createMainBlockPure
-                  sizeLimit prevHeader sortedTxs pSk
+    blk <- createMainBlockPure sizeLimit prevHeader sortedTxs pSk
                   slotId localPSKs sscData usPayload sk
     let prependToUndo undos tx =
             fromMaybe (error "Undo for tx not found")
@@ -741,7 +740,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     onNoUS = "can't obtain US payload to create block"
 
 createMainBlockPure
-    :: SscHelpersClass ssc
+    :: (MonadError Text m, SscHelpersClass ssc)
     => Word64                   -- ^ Block size limit (TODO: imprecise)
     -> BlockHeader ssc
     -> [(TxId, TxAux)]
@@ -751,16 +750,18 @@ createMainBlockPure
     -> SscPayload ssc
     -> UpdatePayload
     -> SecretKey
-    -> MainBlock ssc
+    -> m (MainBlock ssc)
 createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
-    flip evalState limit $ do
+    flip evalStateT limit $ do
         -- account for block header and serialization overhead, etc; also
         -- include all SSC data because a) deciding is hard and b) we don't
         -- yet have a way to strip generic SSC data
-        let musthaveBody = Types.MainBody (mkTxPayload mempty) sscData [] def
-            musthaveBlock = maybe (error "Couldn't create block") identity $
-                              mkMainBlock (Just prevHeader) sId sk
-                                          pSk musthaveBody extraH extraB
+        let musthaveBody = Types.MainBody
+                (fromMaybe (error "createMainBlockPure: impossible") $ mkTxPayload mempty)
+                sscData [] def
+        musthaveBlock <-
+            either throwError pure $
+            mkMainBlock (Just prevHeader) sId sk pSk musthaveBody extraH extraB
         count musthaveBlock
         -- include delegation certificates and US payload
         let prioritizeUS = even (flattenSlotId sId)
@@ -776,7 +777,7 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         -- include transactions
         txs' <- takeSome (map snd txs)
         -- return the resulting block
-        let txPayload = mkTxPayload txs'
+        txPayload <- either throwError pure $ mkTxPayload txs'
         let body = Types.MainBody txPayload sscData psks' usPayload'
         maybe (error "Coudln't create block") return $
               mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB

@@ -27,6 +27,7 @@ library
                      , template-haskell
                      , text
                      , text-format
+                     , th-lift-instances
                      , time-units
                      , universum
                      , unordered-containers

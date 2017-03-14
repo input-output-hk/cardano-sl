@@ -1,5 +1,3 @@
-{-# LANGUAGE CPP #-}
-
 {-| Blockchain genesis. Not to be confused with genesis block in epoch.
     Blockchain genesis means genesis values which are hardcoded in advance
     (before system starts doing anything). Genesis block in epoch exists
@@ -12,15 +10,14 @@ module Pos.Genesis
          StakeDistribution (..)
        , GenesisData (..)
        , compileGenData
-#ifdef DEV_MODE
-       , genesisAddresses
-       , genesisKeyPairs
-       , genesisPublicKeys
-       , genesisSecretKeys
-#endif
        , genesisStakeDistribution
        , genesisUtxo
        , genesisDelegation
+       , genesisAddresses
+       -- ** Genesis data used in development mode
+       , genesisDevKeyPairs
+       , genesisDevPublicKeys
+       , genesisDevSecretKeys
 
        -- * Ssc
        , genesisLeaders
@@ -47,28 +44,28 @@ import           Universum
 
 import qualified Pos.Constants              as Const
 import           Pos.Core.Types             (ScriptVersion, SoftwareVersion (..))
-import           Pos.Crypto                 (PublicKey, SecretKey, deterministicKeyGen,
-                                             unsafeHash)
+import           Pos.Crypto                 (PublicKey, SecretKey, deterministicKeyGen)
+import           Pos.Crypto                 (unsafeHash)
 import           Pos.Genesis.Parser         (compileGenData)
 import           Pos.Genesis.Types          (GenesisData (..), StakeDistribution (..))
 import           Pos.Lrc.FtsPure            (followTheSatoshi)
-import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..))
+import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil.Types         (Utxo)
+import           Pos.Types                  (makePubKeyAddress)
 import           Pos.Types                  (Address (..), BlockVersion (..), Coin,
                                              SharedSeed (SharedSeed), SlotLeaders,
                                              StakeholderId, applyCoinPortion,
-                                             coinToInteger, divCoin, makePubKeyAddress,
-                                             mkCoin, unsafeAddCoin, unsafeMulCoin)
+                                             coinToInteger, divCoin, mkCoin,
+                                             unsafeAddCoin, unsafeMulCoin)
 import           Pos.Update.Core.Types      (BlockVersionData (..))
 
 ----------------------------------------------------------------------------
 -- Static state
 ----------------------------------------------------------------------------
 
-#ifdef DEV_MODE
 -- | List of pairs from 'SecretKey' with corresponding 'PublicKey'.
-genesisKeyPairs :: [(PublicKey, SecretKey)]
-genesisKeyPairs = map gen [0 .. Const.genesisN - 1]
+genesisDevKeyPairs :: [(PublicKey, SecretKey)]
+genesisDevKeyPairs = map gen [0 .. Const.genesisN - 1]
   where
     gen :: Int -> (PublicKey, SecretKey)
     gen =
@@ -77,27 +74,24 @@ genesisKeyPairs = map gen [0 .. Const.genesisN - 1]
         encodeUtf8 .
         T.take 32 . sformat ("My awesome 32-byte seed #" %int % "             ")
 
--- | List of 'SecrekKey'`s in genesis.
-genesisSecretKeys :: [SecretKey]
-genesisSecretKeys = map snd genesisKeyPairs
+-- | List of 'PublicKey's in genesis.
+genesisDevPublicKeys :: [PublicKey]
+genesisDevPublicKeys = map fst genesisDevKeyPairs
 
--- | List of 'PublicKey'`s in genesis.
-genesisPublicKeys :: [PublicKey]
-genesisPublicKeys = map fst genesisKeyPairs
+-- | List of 'SecretKey's in genesis.
+genesisDevSecretKeys :: [SecretKey]
+genesisDevSecretKeys = map snd genesisDevKeyPairs
 
--- | List of 'Address'`es in genesis. See 'genesisPublicKeys'.
+-- | List of addresses in genesis. See 'genesisPublicKeys'.
 genesisAddresses :: [Address]
-genesisAddresses = map makePubKeyAddress genesisPublicKeys
+genesisAddresses
+    | Const.isDevelopment = map makePubKeyAddress genesisDevPublicKeys
+    | otherwise           = gdAddresses compileGenData
 
 genesisStakeDistribution :: StakeDistribution
-genesisStakeDistribution = def
-#else
-genesisAddresses :: [Address]
-genesisAddresses = gdAddresses compileGenData
-
-genesisStakeDistribution :: StakeDistribution
-genesisStakeDistribution = gdDistribution compileGenData
-#endif
+genesisStakeDistribution
+    | Const.isDevelopment = def
+    | otherwise           = gdDistribution compileGenData
 
 instance Default StakeDistribution where
     def = FlatStakes Const.genesisN
@@ -185,7 +179,9 @@ genesisUtxo :: StakeDistribution -> Utxo
 genesisUtxo sd =
     M.fromList . zipWith zipF (stakeDistribution sd) $ genesisAddresses
   where
-    zipF coin addr = (TxIn (unsafeHash addr) 0, (TxOut addr coin, []))
+    zipF coin addr =
+        ( TxIn (unsafeHash addr) 0
+        , (TxOutAux {toaOut = TxOut addr coin, toaDistr = []}))
 
 genesisDelegation :: HashMap StakeholderId [StakeholderId]
 genesisDelegation = mempty

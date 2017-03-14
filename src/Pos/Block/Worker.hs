@@ -24,7 +24,7 @@ import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Communication.Protocol  (OutSpecs, Worker', WorkerSpec,
                                               onNewSlotWorker)
-import           Pos.Constants               (networkDiameter)
+import           Pos.Constants               (isDevelopment, networkDiameter)
 import           Pos.Context                 (getNodeContext, ncPublicKey)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
@@ -34,9 +34,9 @@ import           Pos.Exception               (assertionFailed)
 import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
-#if !defined(DEV_MODE) && defined(WITH_WALLET)
+#if defined(WITH_WALLET)
 import           Data.Time.Units             (Second, convertUnit)
-import           Pos.Block.Network.Retrieval (requestTipOuts, triggerRecovery)
+import           Pos.Block.Network.Logic     (requestTipOuts, triggerRecovery)
 import           Pos.Communication           (worker)
 import           Pos.Slotting                (getLastKnownSlotDuration)
 #endif
@@ -55,12 +55,11 @@ import           Pos.WorkMode                (WorkMode)
 -- | All workers specific to block processing.
 blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => ([WorkerSpec m], OutSpecs)
 blkWorkers =
-    merge [ blkOnNewSlot
-          , retrievalWorker
-#if !defined(DEV_MODE) && defined(WITH_WALLET)
-          , behindNatWorker
+    merge $ [ blkOnNewSlot
+            , retrievalWorker ]
+#if defined(WITH_WALLET)
+            ++ [ behindNatWorker | not isDevelopment ]
 #endif
-          ]
   where
     merge = mconcatPair . map (first pure)
 
@@ -186,7 +185,7 @@ verifyCreatedBlock blk =
         , vbpVerifySsc = True
         }
 
-#if !defined(DEV_MODE) && defined(WITH_WALLET)
+#if defined(WITH_WALLET)
 -- | This one just triggers every @max (slotDur / 4) 5@ seconds and
 -- asks for current tip. Does nothing when recovery is enabled.
 behindNatWorker :: (WorkMode ssc m, SscWorkersClass ssc) => (WorkerSpec m, OutSpecs)

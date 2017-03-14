@@ -72,7 +72,7 @@ library
   build-depends:       aeson
                      , base
                      , base58-bytestring
-                     , log-warper
+                     , log-warper >= 1.0.3
                       -- This constraint on 'binary' is so strict because
                       -- we're relying on the internal representation of
                       -- 'Get' in Pos.Binary.Class. So, if you need to bump
@@ -112,7 +112,6 @@ library
                      , text
                      , text-format
                      , time
-                     , th-lift-instances
                      , time-units
                      , universum
                      , unordered-containers

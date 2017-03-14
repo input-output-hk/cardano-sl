@@ -52,6 +52,7 @@ import           Data.Text.Lazy.Builder     (Builder)
 import           Data.Time.Units            (Millisecond)
 import           Formatting                 (Format, bprint, build, builder, int, later,
                                              (%))
+import           Instances.TH.Lift          ()
 import           Language.Haskell.TH.Syntax (Lift)
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Text         (listJson)

@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -36,13 +35,16 @@ import           Pos.ReportServer.Report       (ReportType (RInfo))
 import           Serokell.Util                 (threadDelay)
 import           Servant.API                   ((:<|>) ((:<|>)),
                                                 FromHttpApiData (parseUrlPiece))
-import           Servant.Server                (Handler, Server, ServerT, serve)
+import           Servant.Server                (Handler, Server, ServerT, err403, serve)
 import           Servant.Utils.Enter           ((:~>) (..), enter)
 import           System.Wlog                   (logDebug, logError, logInfo)
 
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Communication.Protocol    (OutSpecs, SendActions, hoistSendActions)
-import           Pos.Constants                 (curSoftwareVersion)
+import           Pos.Constants                 (curSoftwareVersion, isDevelopment)
+import           Pos.Core                      (Address, Coin, addressF, coinF,
+                                                decodeTextAddress, makePubKeyAddress,
+                                                mkCoin)
 import           Pos.Crypto                    (emptyPassphrase, encToPublic, fakeSigner,
                                                 hash, redeemDeterministicKeyGen,
                                                 toEncrypted, toPublic, withSafeSigner,
@@ -52,10 +54,7 @@ import           Pos.DHT.Model                 (getKnownPeers)
 import           Pos.Reporting.MemState        (MonadReportingMem (..))
 import           Pos.Reporting.Methods         (sendReportNodeNologs)
 import           Pos.Ssc.Class                 (SscHelpersClass)
-import           Pos.Txp.Core.Types            (TxOut (..))
-import           Pos.Types                     (Address, Coin, addressF, coinF,
-                                                decodeTextAddress, makePubKeyAddress,
-                                                mkCoin)
+import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Util.UserSecret           (readUserSecret, usKeys, usPrimKey)
@@ -83,6 +82,7 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
                                                 getWalletWebSockets, initWSConnection,
                                                 notify, runWalletWS, upgradeApplicationWS)
+import           Pos.Wallet.Web.State          (testReset)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, addUpdate, closeState,
                                                 createWallet, getHistoryCache,
@@ -90,7 +90,7 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWeb
                                                 getWalletMeta, getWalletState, openState,
                                                 removeNextUpdate, removeWallet,
                                                 runWalletWebDB, setProfile, setWalletMeta,
-                                                setWalletTransactionMeta, testReset,
+                                                setWalletTransactionMeta,
                                                 updateHistoryCache)
 import           Pos.Web.Server                (serveImpl)
 
@@ -241,10 +241,8 @@ servantHandlers
        (SscHelpersClass ssc, WalletWebMode ssc m)
     => SendActions m -> ServerT WalletApi m
 servantHandlers sendActions =
-#ifdef DEV_MODE
      catchWalletError testResetAll
     :<|>
-#endif
      apiGetWallet
     :<|>
      apiGetWallets
@@ -361,7 +359,7 @@ sendExtended sendActions srcCAddr dstCAddr c curr title desc = do
     let sk = sks !! idx
     na <- getKnownPeers
     withSafeSigner sk (return emptyPassphrase) $ \ss -> do
-        etx <- submitTx sendActions ss na (one (TxOut dstAddr c, []))
+        etx <- submitTx sendActions ss na (one $ TxOutAux (TxOut dstAddr c) [])
         case etx of
             Left err -> throwM . Internal $ sformat ("Cannot send transaction: "%stext) err
             Right (tx, _, _) -> do
@@ -516,22 +514,22 @@ importKey sendActions (toString -> fp) = do
             cAddr = addressToCAddress addr
         createWallet cAddr def
 
-    let importedAddr = makePubKeyAddress $ encToPublic $ keys !! 0
+    let importedAddr = makePubKeyAddress $ encToPublic (keys !! 0)
         importedCAddr = addressToCAddress importedAddr
-#ifdef DEV_MODE
-    psk <- maybeThrow (Internal "No primary key is present!")
-           =<< getPrimaryKey
-    let pAddr = makePubKeyAddress $ toPublic psk
-    primaryBalance <- getBalance pAddr
-    when (primaryBalance > mkCoin 0) $ do
-        na <- getKnownPeers
-        etx <- submitTx sendActions (fakeSigner psk) na (one (TxOut importedAddr primaryBalance, []))
-        case etx of
-            Left err -> throwM . Internal $ "Cannot transfer funds from genesis key" <> err
-            Right (tx, _, _) ->  do
-                () <$ addHistoryTx importedCAddr ADA "Transfer money from genesis key" ""
-                    (THEntry (hash tx) tx False Nothing)
-#endif
+    when isDevelopment $ do
+        psk <- maybeThrow (Internal "No primary key is present!")
+               =<< getPrimaryKey
+        let pAddr = makePubKeyAddress $ toPublic psk
+        primaryBalance <- getBalance pAddr
+        when (primaryBalance > mkCoin 0) $ do
+            na <- getKnownPeers
+            etx <- submitTx sendActions (fakeSigner psk) na
+                       (one $ TxOutAux (TxOut importedAddr primaryBalance) [])
+            case etx of
+                Left err -> throwM . Internal $ "Cannot transfer funds from genesis key" <> err
+                Right (tx, _, _) -> void $
+                    addHistoryTx importedCAddr ADA "Transfer money from genesis key" ""
+                        (THEntry (hash tx) tx False Nothing)
     getWallet importedCAddr
 
 syncProgress :: WalletWebMode ssc m => m SyncProgress
@@ -541,14 +539,13 @@ syncProgress = do
     <*> networkChainDifficulty
     <*> connectedPeers
 
-#ifdef DEV_MODE
 testResetAll :: WalletWebMode ssc m => m ()
-testResetAll = deleteAllKeys >> testReset
+testResetAll | isDevelopment = deleteAllKeys >> testReset
+             | otherwise     = throwM err403
   where
     deleteAllKeys = do
         keyNum <- fromIntegral . pred . length <$> getSecretKeys
         sequence_ $ replicate keyNum $ deleteSecretKey 1
-#endif
 
 ---------------------------------------------------------------------------
 -- Helpers

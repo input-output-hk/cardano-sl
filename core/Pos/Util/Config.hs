@@ -43,7 +43,7 @@ module Pos.Util.Config
        , parseFromCslConfig
        ) where
 
-import           Control.Lens               (Getter, _Left)
+import           Control.Lens               (Getting, _Left)
 import qualified Data.Aeson                 as Y (withObject)
 import           Data.Tagged                (Tagged, untag)
 import           Data.Yaml                  (FromJSON)
@@ -166,18 +166,18 @@ type family HasConfigs (xs :: [*]) m :: Constraint where
     HasConfigs    '[]    _ = ()
     HasConfigs (x ': xs) m = (HasConfig x m, HasConfigs xs m)
 
--- | Get the config.
+-- | Get a config.
 getConfig :: HasConfig a m => m a
 getConfig = extractConfig <$> getFullConfig
 {-# INLINE getConfig #-}
 
--- | Get some field from the config.
+-- | Get some field from a config.
 askConfig :: HasConfig a m => (a -> x) -> m x
 askConfig f = f <$> getConfig
 {-# INLINE askConfig #-}
 
--- | Get some lens from the config.
-viewConfig :: HasConfig a m => Getter a x -> m x
+-- | Get some lens from a config.
+viewConfig :: HasConfig a m => Getting x a x -> m x
 viewConfig f = view f <$> getConfig
 {-# INLINE viewConfig #-}
 

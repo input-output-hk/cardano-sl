@@ -15,6 +15,7 @@ import           Control.Monad               (forM_, when)
 import           Control.Monad.IO.Class      (liftIO)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
 import           Control.Lens                (sans, (%=), (&~), (.=))
+import           Control.Exception           (AsyncException(..))
 import           Data.Foldable               (for_)
 import qualified Data.Set                    as S
 import           Data.Time.Units             (Microsecond)
@@ -30,7 +31,9 @@ import           Test.Util                   (HeavyParcel (..), Parcel (..),
                                               Payload(..), timeout)
 import           System.Random               (newStdGen)
 import qualified Network.Transport           as NT (Transport)
-import qualified Network.Transport.Abstract  as NT (closeTransport)
+import qualified Network.Transport.Abstract  as NT
+                                             (closeTransport, newEndPoint,
+                                              closeEndPoint, address, receive)
 import           Network.Transport.TCP       (simpleOnePlaceQDisc)
 import           Network.QDisc.Fair          (fairQDisc)
 import           Network.Transport.Concrete  (concrete)
@@ -39,7 +42,8 @@ import           Mockable.SharedExclusive    (newSharedExclusive, readSharedExcl
                                               putSharedExclusive, takeSharedExclusive,
                                               tryPutSharedExclusive, SharedExclusive)
 import           Mockable.Concurrent         (withAsync, wait, Async, Delay, delay)
-import           Mockable.Production         (runProduction)
+import           Mockable.Exception          (catch, throw)
+import           Mockable.Production         (Production, runProduction)
 import           Node.Message                (BinaryP(..))
 import           Node
 
@@ -79,13 +83,13 @@ spec = describe "Node" $ do
                                 _ <- timeout "server sending response" 30000000 (send cactions (Parcel i (Payload 32)))
                                 return ()
 
-                let server = node transport serverGen BinaryP ("server" :: String, 42 :: Int) $ \_node ->
+                let server = node transport serverGen BinaryP ("server" :: String, 42 :: Int) defaultNodeEnvironment $ \_node ->
                         NodeAction [listener] $ \sendActions -> do
                             putSharedExclusive serverAddressVar (nodeId _node)
                             takeSharedExclusive clientFinished
                             putSharedExclusive serverFinished ()
 
-                let client = node transport clientGen BinaryP ("client" :: String, 24 :: Int) $ \_node ->
+                let client = node transport clientGen BinaryP ("client" :: String, 24 :: Int) defaultNodeEnvironment $ \_node ->
                         NodeAction [listener] $ \sendActions -> do
                             serverAddress <- readSharedExclusive serverAddressVar
                             forM_ [1..attempts] $ \i -> withConnectionTo sendActions serverAddress $ \peerData cactions -> do
@@ -125,7 +129,7 @@ spec = describe "Node" $ do
                                 _ <- send cactions (Parcel i (Payload 32))
                                 return ()
 
-                node transport gen BinaryP ("some string" :: String, 42 :: Int) $ \_node ->
+                node transport gen BinaryP ("some string" :: String, 42 :: Int) defaultNodeEnvironment $ \_node ->
                     NodeAction [listener] $ \sendActions -> do
                         forM_ [1..attempts] $ \i -> withConnectionTo sendActions (nodeId _node) $ \peerData cactions -> do
                             pd <- timeout "client waiting for peer data" 30000000 peerData
@@ -137,6 +141,39 @@ spec = describe "Node" $ do
                                 Just (Parcel j (Payload _)) -> do
                                     when (j /= i) (error "parcel number mismatch")
                                     return ()
+                return True
+
+            prop "ack timeout" $ ioProperty . runProduction $ do
+                gen <- liftIO newStdGen
+                let env = defaultNodeEnvironment {
+                          -- 1/10 second.
+                          nodeAckTimeout = 100000
+                        }
+                -- An endpoint to which the node will connect. It will never
+                -- respond to the node's SYN.
+                Right ep <- NT.newEndPoint transport
+                let peerAddr = NodeId (NT.address ep)
+                -- Must clear the endpoint's receive queue so that it's
+                -- never blocked on enqueue.
+                withAsync (let loop = NT.receive ep >> loop in loop) $ \clearQueue -> do
+                    -- We want withConnectionTo to get a Timeout exception, as
+                    -- delivered by withConnectionTo in case of an ACK timeout.
+                    -- A ThreadKilled would come from the outer 'timeout', the
+                    -- testing utility.
+                    let handleThreadKilled :: Timeout -> Production ()
+                        handleThreadKilled Timeout = do
+                            --liftIO . putStrLn $ "Thread killed successfully!"
+                            return ()
+                    node transport gen BinaryP () env $ \_node ->
+                        NodeAction [] $ \sendActions -> do
+                            timeout "client waiting for ACK" 5000000 $
+                                flip catch handleThreadKilled $ withConnectionTo sendActions peerAddr $ \peerData cactions -> do
+                                    _ :: Maybe Parcel <- recv cactions
+                                    send cactions (Parcel 0 (Payload 32))
+                                    return ()
+                    --liftIO . putStrLn $ "Closing end point"
+                    NT.closeEndPoint ep
+                --liftIO . putStrLn $ "Closed end point"
                 return True
 
             -- one sender, one receiver

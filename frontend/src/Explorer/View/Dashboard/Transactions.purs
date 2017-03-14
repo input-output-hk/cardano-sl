@@ -4,7 +4,6 @@ import Prelude
 import Data.Array (length, null, slice)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
-import Data.Newtype (unwrap)
 import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (dbExploreTransactions, cCollapse, cNoData, cExpand, common, dashboard, cTransactionFeed) as I18nL
@@ -18,7 +17,7 @@ import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
 import Pos.Explorer.Web.ClientTypes (CTxEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (cteId, cteAmount, cteTimeIssued, _CTxId, _CHash)
-import Pos.Types.Lenses.Core (_Coin, getCoin)
+import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pux.Html (Html, div, text) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Html.Events (onClick, MouseEvent) as P
@@ -85,13 +84,16 @@ transactionsView state =
 
 transactionRow :: State -> CTxEntry -> P.Html Action
 transactionRow state (CTxEntry entry) =
-    let txId = entry ^. (cteId <<< _CTxId <<< _CHash) in
+    let time entry' = case entry' ^. cteTimeIssued of
+                        Just t -> show $ t ^. _NominalDiffTime
+                        Nothing -> "-"
+    in
     P.div
         [ P.className "transactions__row" ]
         [ P.link (toUrl <<< Transaction $ entry ^. cteId <<< _CTxId)
               [ P.className "transactions__column hash" ]
               [ P.text $ entry ^. (cteId <<< _CTxId <<< _CHash) ]
-        , transactionColumn (show <<< unwrap $ entry ^. (cteTimeIssued <<< _NominalDiffTime)) ""
+        , transactionColumn (time entry) ""
         , transactionColumn (show $ entry ^. (cteAmount <<< _Coin <<< getCoin)) <<< currencyCSSClass $ Just ADA
         ]
 

@@ -43,6 +43,8 @@ import           System.IO            (hClose)
 import           System.IO.Temp       (openTempFile)
 
 #ifdef POSIX
+import           Numeric              (showIntAtBase)
+import           Data.Char            (intToDigit)
 import qualified System.Posix.Files   as PSX
 import qualified System.Posix.Types   as PSX (FileMode)
 #endif
@@ -109,7 +111,7 @@ failIfModeNot600 path = do
     when (accessMode /= mode600) $
         fail $ "Key file access mode is incorrect. Set it to 600 and try again." <>
             "\nKey file path: " <> show path <>
-            "\nCurrent mode: " <> show mode
+            "\nCurrent mode: " <> showIntAtBase 8 intToDigit accessMode ""
 
 -- | Set mode 600 on a given file, regardless of its current mode.
 setMode600 :: (MonadIO m) => FilePath -> m ()

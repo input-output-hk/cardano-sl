@@ -1,6 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeOperators   #-}
-{-# LANGUAGE ViewPatterns    #-}
 
 -- API server logic
 
@@ -10,9 +9,10 @@ module Pos.Explorer.Web.Server
        , explorerHandlers
        ) where
 
+import           Control.Lens                   (at)
+import           Control.Monad.Catch            (try)
 import           Control.Monad.Loops            (unfoldrM)
 import           Control.Monad.Trans.Maybe      (MaybeT (..))
-import           Control.Monad.Catch            (try)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.List.NonEmpty             as NE
 import           Data.Maybe                     (fromMaybe)
@@ -25,39 +25,34 @@ import           Pos.Communication              (SendActions)
 import           Pos.Crypto                     (WithHash (..), withHash)
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.GState                  as GS
-import           Pos.DB.GState.Balances         as GS (getFtsStake)
-import           Pos.DB.GState.Explorer         as GS (getTxExtra)
+import qualified Pos.DB.GState.Balances         as GS (getFtsStake)
+import qualified Pos.DB.GState.Explorer         as GS (getTxExtra)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (Tx (..), TxId, getLocalTxs,
-                                                 getMemPool, topsortTxs,
-                                                 txOutValue, _mpLocalTxs,
-                                                 _txOutputs)
-import           Pos.Types                      (Address (..), HeaderHash,
-                                                 MainBlock, Timestamp, blockTxs,
-                                                 difficultyL, gbHeader,
-                                                 gbhConsensus, mcdSlot, mkCoin,
+import           Pos.Txp                        (Tx (..), TxId, TxOutAux (..),
+                                                 getLocalTxs, getMemPool, mpAddrHistories,
+                                                 mpLocalTxs, mpLocalTxsExtra, topsortTxs,
+                                                 txOutValue, _txOutputs)
+import           Pos.Types                      (Address (..), HeaderHash, MainBlock,
+                                                 Timestamp, blockTxs, difficultyL,
+                                                 gbHeader, gbhConsensus, mcdSlot, mkCoin,
                                                  prevBlockL, sumCoins,
-                                                 unsafeIntegerToCoin,
-                                                 unsafeSubCoin)
+                                                 unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Types.Explorer             (TxExtra (..))
 import           Pos.Util                       (maybeThrow)
+import qualified Pos.Util.Modifier              as MM
 import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
-                                                 CAddressSummary (..),
-                                                 CBlockEntry (..),
-                                                 CBlockSummary (..), CHash,
-                                                 CTxEntry (..), CTxId (..),
-                                                 CTxSummary (..),
-                                                 TxInternal (..),
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
+                                                 CBlockEntry (..), CBlockSummary (..),
+                                                 CHash, CTxEntry (..), CTxId (..),
+                                                 CTxSummary (..), TxInternal (..),
                                                  convertTxOutputs, fromCAddress,
-                                                 fromCHash', fromCTxId,
-                                                 toBlockEntry, toBlockSummary,
-                                                 toPosixTime, toTxEntry)
+                                                 fromCHash', fromCTxId, toBlockEntry,
+                                                 toBlockSummary, toPosixTime, toTxEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 ----------------------------------------------------------------
@@ -169,11 +164,11 @@ getTxSummary cTxId = do
     -- to MemPool. So we start with TxExtra and then figure out whence to fetch
     -- the rest.
     txId <- cTxIdToTxId cTxId
-    txExtraMaybe <- GS.getTxExtra txId
-    txExtra <- maybe (throwM $ Internal "Transaction not found") pure txExtraMaybe
+    txExtra <- maybeThrow (Internal "Transaction not found") =<<
+               getTxExtra txId
 
     let blockchainPlace = teBlockchainPlace txExtra
-        inputOutputs = map fst $ NE.toList $ teInputOutputs txExtra
+        inputOutputs = map toaOut $ NE.toList $ teInputOutputs txExtra
         receivedTime = teReceivedTime txExtra
 
     (ctsBlockTimeIssued, ctsBlockHeight, ctsOutputs) <-
@@ -217,7 +212,7 @@ getTxSummary cTxId = do
 
 fetchTxFromMempoolOrFail :: ExplorerMode m => TxId -> m Tx
 fetchTxFromMempoolOrFail txId = do
-    maybeTx <- HM.lookup txId . _mpLocalTxs <$> getMemPool
+    maybeTx <- view (mpLocalTxs . at txId) <$> getMemPool
     case maybeTx of
         Nothing -> throwM $ Internal "transaction not found in the mempool"
         Just tx -> pure $ view _1 tx
@@ -283,3 +278,8 @@ getMainBlock h =
     DB.getBlock h >>=
     maybeThrow (Internal "No block found") >>=
     either (const $ throwM $ Internal "Block is genesis block") pure
+
+getTxExtra :: ExplorerMode m => TxId -> m (Maybe TxExtra)
+getTxExtra id =
+    MM.lookupM GS.getTxExtra id =<<
+    view mpLocalTxsExtra <$> getMemPool

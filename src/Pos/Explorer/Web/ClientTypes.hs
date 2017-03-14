@@ -44,7 +44,8 @@ import qualified Pos.DB.GState          as GS
 import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
-import           Pos.Txp                (Tx (..), TxId, TxOut (..), _txOutputs)
+import           Pos.Txp                (Tx (..), TxId, TxOut (..), TxOutAux (..),
+                                         _txOutputs)
 import           Pos.Types              (Address, Coin, MainBlock, Timestamp, addressF,
                                          blockTxs, decodeTextAddress, difficultyL,
                                          gbHeader, gbhConsensus, headerHash, mcdSlot,
@@ -237,5 +238,5 @@ toTxBrief txi txe = CTxBrief {..}
     ts = tiTimestamp txi
     ctbId = toCTxId $ hash tx
     ctbTimeIssued = toPosixTime <$> ts
-    ctbInputs = convertTxOutputs $ map fst $ NE.toList $ teInputOutputs txe
+    ctbInputs = convertTxOutputs $ map toaOut $ NE.toList $ teInputOutputs txe
     ctbOutputs = convertTxOutputs . NE.toList $ _txOutputs tx

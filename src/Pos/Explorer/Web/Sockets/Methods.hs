@@ -65,6 +65,7 @@ data ClientEvent
     | CallMe
     | CallMeString
     | CallMeTxId
+    deriving (Show, Generic)
 
 instance EventName ClientEvent where
     toName SubscribeAddr    = "SA"

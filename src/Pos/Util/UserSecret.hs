@@ -40,7 +40,7 @@ import           Pos.Crypto           (EncryptedSecretKey, SecretKey, VssKeyPair
 import           System.FilePath      (takeDirectory, takeFileName)
 import           System.Directory     (renameFile)
 import           System.IO            (hClose)
-import           System.IO.Temp       (openTempFile)
+import           System.IO.Temp       (openBinaryTempFile)
 
 #ifdef POSIX
 import           Numeric              (showIntAtBase)
@@ -191,7 +191,7 @@ writeRaw u = do
     -- On POSIX platforms, openTempFile guarantees that the file
     -- will be created with mode 600.
     bracket
-        (openTempFile (takeDirectory path) (takeFileName path))
+        (openBinaryTempFile (takeDirectory path) (takeFileName path))
         (\(tempPath, tempHandle) -> do
             hClose tempHandle
             renameFile tempPath path

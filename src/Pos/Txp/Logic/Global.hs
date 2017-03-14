@@ -95,7 +95,7 @@ txRollbackBlocks blunds =
 txpModifierToBatch :: ToilModifier -> SomeBatchOp
 txpModifierToBatch (ToilModifier um (BalancesView (HM.toList -> stakes) total)
 #ifdef WITH_EXPLORER
-                       (MemPool _ _ em)
+                       (MemPool _ _ em (HM.toList -> histories))
 #else
                        _
 #endif
@@ -115,7 +115,8 @@ txpModifierToBatch (ToilModifier um (BalancesView (HM.toList -> stakes) total)
 #ifdef WITH_EXPLORER
     explorerOps =
           map GS.DelTxExtra (MM.deletions em) ++
-          map (uncurry GS.AddTxExtra) (MM.insertions em)
+          map (uncurry GS.AddTxExtra) (MM.insertions em) ++
+          map (uncurry GS.UpdateAddrHistory) histories
 #endif
 
 -- Run action which requires toil interfaces.

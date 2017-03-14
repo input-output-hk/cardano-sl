@@ -1,5 +1,5 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies    #-}
 
 -- | All logic of Txp,
@@ -29,8 +29,13 @@ import           Pos.Txp.Toil.Failure  (ToilVerFailure (..))
 import           Pos.Txp.Toil.Types    (ToilEnv (teMaxTxSize))
 import qualified Pos.Txp.Toil.Utxo     as Utxo
 #ifdef WITH_EXPLORER
+import           Data.List             (delete, union)
+import qualified Data.List.NonEmpty    as NE
+import           Pos.Txp.Core          (Tx (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil.Class    (MonadTxExtra (..), MonadTxExtraRead (..))
-import           Pos.Types             (TxExtra (..), HeaderHash, Timestamp)
+import           Pos.Types             (AddrHistory, Address, HeaderHash, Timestamp,
+                                        TxExtra (..))
+import           Pos.Util              (NewestFirst (..))
 #endif
 
 ----------------------------------------------------------------------------
@@ -80,7 +85,7 @@ applyToil txun = do
             newExtra = TxExtra (Just (hh, i)) curTime txundo
         extra <- maybe newExtra identity <$> getTxExtra id
         applyTxToUtxo' (id, txaux)
-        putTxExtra id extra
+        putTxExtraWithHistory id extra $ getTxRelatedAddrs txaux txundo
 #else
     mapM_ (applyTxToUtxo' . withTxId . fst) txun
 #endif
@@ -91,7 +96,10 @@ rollbackToil txun = do
     rollbackTxsBalances txun
     mapM_ Utxo.rollbackTxUtxo $ reverse txun
 #ifdef WITH_EXPLORER
-    mapM_ (delTxExtra . hash . view _1 . fst) txun
+    mapM_ extraRollback txun
+  where
+    extraRollback (txaux@(tx, _, _), txundo) =
+        delTxExtraWithHistory (hash tx) $ getTxRelatedAddrs txaux txundo
 #endif
 
 ----------------------------------------------------------------------------
@@ -126,7 +134,7 @@ processTx tx@(id, aux) = do
     undo <- verifyAndApplyTx True tx
     putTxWithUndo id aux undo
 #ifdef WITH_EXPLORER
-    putTxExtra id extra
+    putTxExtraWithHistory id extra $ getTxRelatedAddrs aux undo
 #endif
 
 -- | Get rid of invalid transactions.
@@ -182,3 +190,39 @@ withTxId aux@(tx, _, _) = (hash tx, aux)
 
 applyTxToUtxo' :: MonadUtxo m => (TxId, TxAux) -> m ()
 applyTxToUtxo' (i, (t, _, d)) = Utxo.applyTxToUtxo (WithHash t i) d
+
+#ifdef WITH_EXPLORER
+modifyAddrHistory
+    :: MonadTxExtra m
+    => (AddrHistory -> AddrHistory)
+    -> Address
+    -> m ()
+modifyAddrHistory f addr =
+    updateAddrHistory addr . f =<< getAddrHistory addr
+
+putTxExtraWithHistory
+    :: MonadTxExtra m
+    => TxId
+    -> TxExtra
+    -> NonEmpty Address
+    -> m ()
+putTxExtraWithHistory id extra addrs = do
+    putTxExtra id extra
+    forM_ addrs $ modifyAddrHistory $
+        NewestFirst . (id :) . getNewestFirst
+
+delTxExtraWithHistory
+    :: MonadTxExtra m
+    => TxId
+    -> NonEmpty Address
+    -> m ()
+delTxExtraWithHistory id addrs = do
+    delTxExtra id
+    forM_ addrs $ modifyAddrHistory $
+        NewestFirst . delete id . getNewestFirst
+
+getTxRelatedAddrs :: TxAux -> TxUndo -> NonEmpty Address
+getTxRelatedAddrs (UnsafeTx {..}, _, _) undo = NE.fromList $
+    map txOutAddress (NE.toList _txOutputs) `union`
+    map (txOutAddress . toaOut) (NE.toList undo)
+#endif

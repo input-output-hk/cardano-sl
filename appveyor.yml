@@ -63,7 +63,7 @@ test_script:
       --flag cardano-sl:with-web
       --flag cardano-sl:with-wallet
       --flag cardano-sl:-asserts
-      --flag cardano-sl:-dev-mode
+      --flag cardano-sl-core:-dev-mode
       --extra-include-dirs="C:\OpenSSL-Win64\include"
       --extra-lib-dirs="C:\OpenSSL-Win64"
       --extra-include-dirs="C:\projects\pos-haskell-prototype\rocksdb\include"

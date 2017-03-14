@@ -14,7 +14,7 @@ import Explorer.Util.Factory (mkEmptyCTxEntry)
 import Explorer.View.Common (currencyCSSClass, transactionPaginationView, transactionHeaderView, transactionBodyView)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeHeight, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
-import Pos.Types.Lenses.Core (_Coin, getCoin)
+import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pux.Html (Html, div, text, h3) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Router (link) as P

@@ -14,7 +14,7 @@ import Explorer.Util.Factory (mkEmptyCTxEntry, mkEmptyCAddressSummary)
 import Explorer.View.Common (currencyCSSClass, transactionBodyView, transactionHeaderView, transactionPaginationView)
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, caAddress, caBalance, caTxNum)
-import Pos.Types.Lenses.Core (_Coin, getCoin)
+import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pux.Html (Html, div, text, h3, p, img) as P
 import Pux.Html.Attributes (className, src) as P
 import Pux.Router (link) as P

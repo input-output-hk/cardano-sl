@@ -2,15 +2,12 @@ module Explorer.View.Dashboard.Blocks (blocksView) where
 
 import Prelude
 import Data.Array (length, null, slice)
-import Data.DateTime (Millisecond)
-import Data.Int (floor, toNumber)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
-import Data.String (joinWith, trim)
 import Data.Newtype (unwrap)
 import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
-import Data.Time.Duration (class Duration, Milliseconds(..))
-import Explorer.I18n.Lang (Language, languageNativeName, translate)
+import Data.Time.Duration (Milliseconds(..))
+import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (dashboard, dbLastBlocks, cOf, common, dbExploreBlocks, cUnknown, cHeight, cExpand, cNoData, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB) as I18nL
 import Explorer.Lenses.State (dashboardBlockPagination, lang, latestBlocks)
 import Explorer.Routes (Route(..), toUrl)
@@ -24,7 +21,7 @@ import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeHeight, cbeRelayedBy, cbeSize, cbeTimeIssued, cbeTotalSent, cbeTxNum)
-import Pos.Types.Lenses.Core (_Coin, getCoin)
+import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pux.Html (Html, div, text) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Html.Events (onClick) as P
@@ -112,7 +109,10 @@ blockRow state (CBlockEntry entry) =
     P.link (toUrl <<< Block $ entry ^. cbeBlkHash)
         [ P.className "blocks-body__row" ]
         [ blockColumn <<< show $ entry ^. cbeHeight
-        , blockColumn (prettyDuration language (Milliseconds $ unwrap $ entry ^. (cbeTimeIssued <<< _NominalDiffTime)))
+        , blockColumn $ case entry ^. cbeTimeIssued of
+                            Just time -> prettyDuration language (Milliseconds
+                                $ unwrap $ time ^. _NominalDiffTime)
+                            Nothing -> "-"
         , blockColumn <<< show $ entry ^. cbeTxNum
         , blockColumn <<< show $ entry ^. (cbeTotalSent <<< _Coin <<< getCoin)
         , blockColumn <<< fromMaybe (translate (I18nL.common <<< I18nL.cUnknown) language) $ entry ^. cbeRelayedBy

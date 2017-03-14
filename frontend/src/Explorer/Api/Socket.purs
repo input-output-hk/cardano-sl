@@ -7,6 +7,7 @@ import Control.SocketIO.Client (Event, Host)
 import Data.Argonaut.Core (Json)
 import Data.Either (Either)
 import Data.Foreign (Foreign)
+import Data.String (Pattern(..), Replacement(..), replaceAll)
 import Debug.Trace (traceAnyM, traceShowM)
 import Explorer.Api.Helper (decodeResult', encodeJson)
 import Explorer.Types.Actions (Action(..), ActionChannel)
@@ -26,10 +27,14 @@ class SocketEvent a where
     toEvent :: a -> Event
 
 instance socketEventServerEvent :: SocketEvent ClientEvent where
-    toEvent = show <<< encodeJson
+    toEvent = cleanEventName <<< show <<< encodeJson
 
 instance socketEventClientEvent :: SocketEvent ServerEvent where
-    toEvent = show <<< encodeJson
+    toEvent = cleanEventName <<< show <<< encodeJson
+
+-- | Helper function to remove """ from event names 
+cleanEventName :: Event -> Event
+cleanEventName = replaceAll (Pattern "\"") (Replacement "")
 
 connectEvent :: Event
 connectEvent = "connect"

@@ -5,12 +5,13 @@ module Pos.Txp.Toil.Failure
        ) where
 
 import qualified Data.Text.Buildable
-import           Formatting           (bprint, build, int, stext, (%))
-import           Serokell.Util.Verify (formatAllErrors)
+import           Formatting                 (bprint, build, int, stext, (%))
+import           Serokell.Data.Memory.Units (Byte, memory)
+import           Serokell.Util.Verify       (formatAllErrors)
 import           Universum
 
-import           Pos.Core             (HeaderHash)
-import           Pos.Txp.Core         (TxIn)
+import           Pos.Core                   (HeaderHash)
+import           Pos.Txp.Core               (TxIn)
 
 -- | Result of transaction processing
 data ToilVerFailure
@@ -24,6 +25,8 @@ data ToilVerFailure
     | ToilInconsistentTxAux !Text
     | ToilInvalidOutputs !Text  -- [CSL-814] TODO: make it more informative
     | ToilInvalidInputs ![Text] -- [CSL-814] TODO: make it more informative
+    | ToilTooLargeTx { ttltSize  :: !Byte
+                     , ttltLimit :: !Byte}
     deriving (Show, Eq)
 
 instance Buildable ToilVerFailure where
@@ -45,3 +48,6 @@ instance Buildable ToilVerFailure where
         bprint ("outputs are invalid: "%stext) msg
     build (ToilInvalidInputs msg) =
         bprint ("inputs are invalid: "%stext) $ formatAllErrors msg
+    build (ToilTooLargeTx {..}) =
+        bprint ("transaction's size exceeds limit "%
+                "("%memory%" > "%memory%")") ttltSize ttltLimit

@@ -27,23 +27,27 @@ module Pos.Txp.Toil.Types
        , tmBalances
        , tmMemPool
        , tmUndos
+
+       -- * Env
+       , ToilEnv (..)
        ) where
 
-import           Control.Lens           (makeLenses)
-import           Data.Default           (Default, def)
-import qualified Data.HashMap.Strict    as HM
-import qualified Data.Map               as M (toList)
-import           Data.Text.Lazy.Builder (Builder)
-import           Formatting             (Format, later)
-import           Serokell.Util.Text     (mapBuilderJson)
+import           Control.Lens               (makeLenses)
+import           Data.Default               (Default, def)
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.Map                   as M (toList)
+import           Data.Text.Lazy.Builder     (Builder)
+import           Formatting                 (Format, later)
+import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util.Text         (mapBuilderJson)
 import           Universum
 
-import           Pos.Core               (Coin, StakeholderId)
-import           Pos.Txp.Core           (TxAux, TxId, TxIn, TxOutAux, TxUndo)
-import qualified Pos.Util.Modifier      as MM
+import           Pos.Core                   (Coin, StakeholderId)
+import           Pos.Txp.Core               (TxAux, TxId, TxIn, TxOutAux, TxUndo)
+import qualified Pos.Util.Modifier          as MM
 #ifdef WITH_EXPLORER
-import           Pos.Core               (Address)
-import           Pos.Types.Explorer     (AddrHistory, TxExtra)
+import           Pos.Core                   (Address)
+import           Pos.Types.Explorer         (AddrHistory, TxExtra)
 #endif
 
 ----------------------------------------------------------------------------
@@ -142,3 +146,12 @@ instance Default ToilModifier where
     def = ToilModifier mempty def def mempty
 
 makeLenses ''ToilModifier
+
+----------------------------------------------------------------------------
+-- Toil environment
+----------------------------------------------------------------------------
+
+-- | Environment used by Toil.
+data ToilEnv = ToilEnv
+    { teMaxTxSize :: !Byte
+    }

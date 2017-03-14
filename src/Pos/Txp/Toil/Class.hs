@@ -11,6 +11,7 @@ module Pos.Txp.Toil.Class
        , MonadUtxo (..)
        , MonadBalancesRead (..)
        , MonadBalances (..)
+       , MonadToilEnv (..)
        , MonadTxPool (..)
 #ifdef WITH_EXPLORER
        , MonadTxExtra (..)
@@ -23,6 +24,7 @@ import           Universum
 
 import           Pos.Core                  (Coin, StakeholderId)
 import           Pos.Txp.Core.Types        (TxAux, TxId, TxIn, TxOutAux, TxUndo)
+import           Pos.Txp.Toil.Types        (ToilEnv)
 #ifdef WITH_EXPLORER
 import           Pos.Types.Explorer        (TxExtra)
 #endif
@@ -88,6 +90,26 @@ class MonadBalancesRead m => MonadBalances m where
 instance MonadBalances m => MonadBalances (ReaderT s m)
 instance MonadBalances m => MonadBalances (StateT s m)
 instance MonadBalances m => MonadBalances (ExceptT s m)
+
+----------------------------------------------------------------------------
+-- MonadToilEnv
+----------------------------------------------------------------------------
+
+-- | Type class which lets get some environmental data needed for
+-- transactions processing.
+class Monad m => MonadToilEnv m where
+    getToilEnv :: m ToilEnv
+
+    default getToilEnv
+        :: (MonadTrans t, MonadToilEnv m', t m' ~ m) => m ToilEnv
+    getToilEnv = lift getToilEnv
+
+instance MonadToilEnv m => MonadToilEnv (ReaderT s m)
+instance MonadToilEnv m => MonadToilEnv (StateT s m)
+instance MonadToilEnv m => MonadToilEnv (ExceptT s m)
+
+instance MonadToilEnv ((->) ToilEnv) where
+    getToilEnv = identity
 
 ----------------------------------------------------------------------------
 -- MonadTxPool

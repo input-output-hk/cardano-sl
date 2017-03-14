@@ -32,7 +32,8 @@ import           Universum
 import           Pos.Binary.Core             ()
 import           Pos.Crypto                  (WithHash (..))
 import           Pos.Txp.Core                (Tx, TxAux, TxDistribution, TxUndo)
-import           Pos.Txp.Toil.Class          (MonadUtxo (..), MonadUtxoRead (..))
+import           Pos.Txp.Toil.Class          (MonadToilEnv, MonadUtxo (..),
+                                              MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure        (ToilVerFailure)
 import           Pos.Txp.Toil.Types          (Utxo)
 import           Pos.Txp.Toil.Utxo.Functions (VTxContext, applyTxToUtxo, verifyTxUtxo)
@@ -46,7 +47,7 @@ import           Pos.Txp.Toil.Class          (MonadTxExtraRead (..))
 
 newtype UtxoReaderT m a = UtxoReaderT
     { getUtxoReaderT :: ReaderT Utxo m a
-    } deriving (Functor, Applicative, Monad, MonadReader Utxo, MonadError e)
+    } deriving (Functor, Applicative, Monad, MonadReader Utxo, MonadError e, MonadToilEnv)
 
 instance Monad m => MonadUtxoRead (UtxoReaderT m) where
     utxoGet id = UtxoReaderT $ view $ at id

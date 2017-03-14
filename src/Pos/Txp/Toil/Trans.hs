@@ -23,8 +23,8 @@ import           Pos.Context               (WithNodeContext)
 import           Pos.Slotting.Class        (MonadSlots)
 import           Pos.Slotting.MemState     (MonadSlotsData)
 import           Pos.Txp.Toil.Class        (MonadBalances (..), MonadBalancesRead (..),
-                                            MonadTxPool (..), MonadUtxo (..),
-                                            MonadUtxoRead (..))
+                                            MonadToilEnv, MonadTxPool (..),
+                                            MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Types        (MemPool, ToilModifier (..), UndoMap,
                                             UtxoModifier, bvStakes, bvTotal, mpLocalTxs,
                                             mpLocalTxsSize, tmBalances, tmMemPool,
@@ -53,20 +53,24 @@ newtype ToilT m a = ToilT
     } deriving ( Functor
                , Applicative
                , Monad
-               , MonadTrans
-               , MonadThrow
-               , MonadSlotsData
-               , MonadSlots
-               , MonadCatch
-               , MonadIO
                , MonadFail
+               , MonadTrans
+               , MonadIO
+               , MonadError e
+               , MonadFix
+               , MonadThrow
+               , MonadCatch
+               , MonadMask
+
                , HasLoggerName
+               , CanLog
+
                , WithNodeContext ssc
                , MonadJL
-               , CanLog
-               , MonadMask
-               , MonadError e
-               , MonadFix)
+               , MonadSlotsData
+               , MonadSlots
+               , MonadToilEnv
+               )
 
 instance MonadUtxoRead m => MonadUtxoRead (ToilT m) where
     utxoGet id = ToilT $ MM.lookupM utxoGet id =<< use tmUtxo

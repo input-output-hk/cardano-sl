@@ -380,7 +380,7 @@ instance Arbitrary (MerkleTree Tx) where
     arbitrary = mkMerkleTree <$> arbitrary
 
 instance Arbitrary TxProof where
-    arbitrary = TxProof <$> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = TxProof <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 instance Arbitrary SharedSeed where
     arbitrary = do

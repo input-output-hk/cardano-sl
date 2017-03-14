@@ -112,7 +112,6 @@ library
                      , text
                      , text-format
                      , time
-                     , th-lift-instances
                      , time-units
                      , universum
                      , unordered-containers

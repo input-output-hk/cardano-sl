@@ -42,37 +42,43 @@ import Data.Generic (gShow)
 import Data.Array.Partial (last)
 import Data.Array (length, filter)
 import Partial.Unsafe (unsafePartial)
-import Data.String (split, null, trim, joinWith)
+import Data.String (split, null, trim, joinWith, Pattern (..))
 
 import Daedalus.Crypto (isValidMnemonic)
 import Data.Types (mkTime)
 import Data.Types as DT
 
+space :: Pattern
+space = Pattern " "
+
+dot :: Pattern
+dot = Pattern "."
+
 mkBackupPhrase :: String -> Either Error BackupPhrase
 mkBackupPhrase mnemonic = mkBackupPhraseIgnoreChecksum mnemonic >>= const do
     if not $ isValidMnemonic mnemonicCleaned
         then Left $ error "Invalid mnemonic: checksum missmatch"
-        else Right $ BackupPhrase { bpToList: split " " mnemonicCleaned }
+        else Right $ BackupPhrase { bpToList: split space mnemonicCleaned }
   where
     mnemonicCleaned = cleanMnemonic mnemonic
 
 cleanMnemonic :: String -> String
-cleanMnemonic = joinWith " " <<< filter (not <<< null) <<< split " " <<< trim
+cleanMnemonic = joinWith " " <<< filter (not <<< null) <<< split space <<< trim
 
 mkBackupPhraseIgnoreChecksum :: String -> Either Error BackupPhrase
 mkBackupPhraseIgnoreChecksum mnemonic =
     if not $ hasAtLeast12words mnemonicCleaned
         then Left $ error "Invalid mnemonic: mnemonic should have at least 12 words"
-        else Right $ BackupPhrase { bpToList: split " " mnemonicCleaned }
+        else Right $ BackupPhrase { bpToList: split space mnemonicCleaned }
   where
-    hasAtLeast12words = (<=) 12 <<< length <<< split " "
+    hasAtLeast12words = (<=) 12 <<< length <<< split space
     mnemonicCleaned = cleanMnemonic mnemonic
 
 showCCurrency :: CT.CCurrency -> String
 showCCurrency = dropModuleName <<< gShow
   where
     -- TODO: this is again stupid. We should derive Show for this type instead of doing this
-    dropModuleName = unsafePartial last <<< split "."
+    dropModuleName = unsafePartial last <<< split dot
 
 -- TODO: it would be useful to extend purescript-bridge
 -- and generate lenses

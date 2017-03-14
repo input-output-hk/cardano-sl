@@ -22,23 +22,24 @@
     "tests"
   ],
   "devDependencies": {
-    "purescript-psci-support": "^1.0.0",
-    "purescript-debug": "1.0.0"
+    "purescript-psci-support": "^2.0.0",
+    "purescript-debug": "2.0.0"
   },
   "dependencies": {
-    "purescript-console": "^1.0.0",
-    "purescript-affjax": "https://github.com/serokell/purescript-affjax.git#fix-empty-response-2.0.1",
-    "purescript-eff-functions": "^1.0.0",
-    "purescript-eff": "^1.0.0",
-    "purescript-argonaut": "^1.0.0",
-    "purescript-argonaut-generic-codecs": "^3.0.1",
-    "purescript-aff": "^1.1.0",
-    "purescript-now": "^1.0.0",
-    "purescript-datetime": "^1.0.0",
-    "purescript-aff-promise": "0.2.1",
-    "purescript-media-types": "1.0.0",
-    "purescript-functions": "1.0.0",
-    "purescript-websocket-simple": "0.5.0",
-    "purescript-refs": "1.0.0"
+    "purescript-console": "^2.0.0",
+    "purescript-affjax": "https://github.com/serokell/purescript-affjax.git#fix-empty-response-3.0.2",
+    "purescript-eff-functions": "^2.0.0",
+    "purescript-eff": "^2.0.0",
+    "purescript-argonaut": "^2.0.0",
+    "purescript-argonaut-generic-codecs": "^5.0.0",
+    "purescript-aff": "^2.0.3",
+    "purescript-now": "^2.0.0",
+    "purescript-datetime": "^2.1.0",
+    "purescript-aff-promise": "0.4.0",
+    "purescript-media-types": "2.0.0",
+    "purescript-functions": "2.0.0",
+    "purescript-websocket-simple": "1.0.1",
+    "purescript-refs": "2.0.0",
+    "purescript-b64": "^0.0.2"
   }
 }

@@ -89,8 +89,9 @@ library
   other-modules:        Paths_cardano_sl_infra
                         Pos.Infra.Constants
 
-  build-depends:       base
-                     , aeson
+  build-depends:       aeson
+                     , base
+                     , parsec
                       -- This constraint on 'binary' is so strict because
                       -- we're relying on the internal representation of
                       -- 'Get' in Pos.Binary.Class. So, if you need to bump

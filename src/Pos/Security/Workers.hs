@@ -4,47 +4,47 @@ module Pos.Security.Workers
        ( SecurityWorkersClass (..)
        ) where
 
-import           Control.Concurrent.STM      (TVar, newTVar, readTVar, writeTVar)
-import qualified Data.HashMap.Strict         as HM
-import           Data.Tagged                 (Tagged (..))
-import           Data.Time.Units             (Millisecond, convertUnit)
-import           Formatting                  (build, int, sformat, (%))
-import           Mockable                    (delay)
-import           Paths_cardano_sl            (version)
-import           Serokell.Util               (sec)
-import           System.Wlog                 (logWarning)
+import           Control.Concurrent.STM     (TVar, newTVar, readTVar, writeTVar)
+import qualified Data.HashMap.Strict        as HM
+import           Data.Tagged                (Tagged (..))
+import           Data.Time.Units            (Millisecond, convertUnit)
+import           Formatting                 (build, int, sformat, (%))
+import           Mockable                   (delay)
+import           Paths_cardano_sl           (version)
+import           Serokell.Util              (sec)
+import           System.Wlog                (logWarning)
 import           Universum
 
-import           Pos.Binary.Ssc              ()
-import           Pos.Block.Network.Retrieval (needRecovery, requestTipOuts,
-                                              triggerRecovery)
-import           Pos.Communication.Protocol  (OutSpecs, SendActions, WorkerSpec,
-                                              localWorker, worker)
-import           Pos.Constants               (blkSecurityParam, mdNoBlocksSlotThreshold,
-                                              mdNoCommitmentsEpochThreshold)
-import           Pos.Context                 (getNodeContext, getUptime, isRecoveryMode,
-                                              ncPublicKey)
-import           Pos.Crypto                  (PublicKey)
-import           Pos.DB                      (DBError (DBMalformed))
-import           Pos.DB.Block                (getBlockHeader)
-import           Pos.DB.Class                (MonadDB)
-import           Pos.DB.DB                   (getTipBlockHeader, loadBlundsFromTipByDepth)
-import           Pos.Reporting.Methods       (reportMisbehaviourMasked, reportingFatal)
-import           Pos.Security.Class          (SecurityWorkersClass (..))
-import           Pos.Shutdown                (runIfNotShutdown)
-import           Pos.Slotting                (getCurrentSlot, getLastKnownSlotDuration,
-                                              onNewSlot)
-import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
-import           Pos.Ssc.GodTossing          (GtPayload (..), SscGodTossing,
-                                              getCommitmentsMap)
-import           Pos.Ssc.NistBeacon          (SscNistBeacon)
-import           Pos.Types                   (BlockHeader, EpochIndex, MainBlock,
-                                              SlotId (..), addressHash, blockMpc,
-                                              flattenEpochOrSlot, flattenSlotId,
-                                              genesisHash, headerHash, headerLeaderKey,
-                                              prevBlockL)
-import           Pos.Util                    (mconcatPair)
-import           Pos.WorkMode                (WorkMode)
+import           Pos.Binary.Ssc             ()
+import           Pos.Block.Network.Logic    (needRecovery, requestTipOuts,
+                                             triggerRecovery)
+import           Pos.Communication.Protocol (OutSpecs, SendActions, WorkerSpec,
+                                             localWorker, worker)
+import           Pos.Constants              (blkSecurityParam, mdNoBlocksSlotThreshold,
+                                             mdNoCommitmentsEpochThreshold)
+import           Pos.Context                (getNodeContext, getUptime, isRecoveryMode,
+                                             ncPublicKey)
+import           Pos.Crypto                 (PublicKey)
+import           Pos.DB                     (DBError (DBMalformed))
+import           Pos.DB.Block               (getBlockHeader)
+import           Pos.DB.Class               (MonadDB)
+import           Pos.DB.DB                  (getTipBlockHeader, loadBlundsFromTipByDepth)
+import           Pos.Reporting.Methods      (reportMisbehaviourMasked, reportingFatal)
+import           Pos.Security.Class         (SecurityWorkersClass (..))
+import           Pos.Shutdown               (runIfNotShutdown)
+import           Pos.Slotting               (getCurrentSlot, getLastKnownSlotDuration,
+                                             onNewSlot)
+import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
+import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
+                                             getCommitmentsMap)
+import           Pos.Ssc.NistBeacon         (SscNistBeacon)
+import           Pos.Types                  (BlockHeader, EpochIndex, MainBlock,
+                                             SlotId (..), addressHash, blockMpc,
+                                             flattenEpochOrSlot, flattenSlotId,
+                                             genesisHash, headerHash, headerLeaderKey,
+                                             prevBlockL)
+import           Pos.Util                   (mconcatPair)
+import           Pos.WorkMode               (WorkMode)
 
 
 instance SecurityWorkersClass SscGodTossing where

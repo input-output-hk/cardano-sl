@@ -146,6 +146,7 @@ library
                         Pos.Block.Network.Announce
                         Pos.Block.Network.Types
                         Pos.Block.Network.Listeners
+                        Pos.Block.Network.Logic
                         Pos.Block.Network.Retrieval
                         Pos.Block.Types
                         Pos.Block.Worker

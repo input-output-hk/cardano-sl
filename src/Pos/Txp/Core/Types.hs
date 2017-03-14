@@ -232,9 +232,10 @@ mkTx inputs outputs attrs =
 ----------------------------------------------------------------------------
 
 data TxProof = TxProof
-    { txpNumber        :: !Word32
-    , txpRoot          :: !(MerkleRoot Tx)
-    , txpWitnessesHash :: !(Hash [TxWitness])
+    { txpNumber            :: !Word32
+    , txpRoot              :: !(MerkleRoot Tx)
+    , txpWitnessesHash     :: !(Hash [TxWitness])
+    , txpDistributionsHash :: !(Hash [TxDistribution])
     } deriving (Show, Eq, Generic)
 
 -- | Payload of Txp component which is part of main block. Constructor

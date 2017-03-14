@@ -42,4 +42,5 @@ mkTxProof UnsafeTxPayload {..} =
     { txpNumber = fromIntegral (length _txpTxs)
     , txpRoot = mtRoot _txpTxs
     , txpWitnessesHash = hash _txpWitnesses
+    , txpDistributionsHash = hash _txpDistributions
     }

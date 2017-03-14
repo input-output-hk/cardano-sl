@@ -8,7 +8,7 @@ import Data.Argonaut.Core (Json)
 import Data.Either (Either)
 import Data.Foreign (Foreign)
 import Debug.Trace (traceAnyM, traceShowM)
-import Explorer.Api.Helper (decodeResult)
+import Explorer.Api.Helper (decodeResult')
 import Explorer.Types.Actions (Action(..), ActionChannel)
 import Pos.Explorer.Web.ClientTypes (CTxId)
 import Signal.Channel (CHANNEL, send)
@@ -70,13 +70,13 @@ closeHandler channel _ =
 latestBlocksHandler :: forall eff. ActionChannel -> Json
     -> Eff (channel :: CHANNEL | eff) Unit
 latestBlocksHandler channel json =
-    let result = decodeResult json in
+    let result = decodeResult' json in
     send channel $ SocketLatestBlocks result
 
 latestTransactionsHandler :: forall eff. ActionChannel -> Json
     -> Eff (channel :: CHANNEL | eff) Unit
 latestTransactionsHandler channel json =
-    let result = decodeResult json in
+    let result = decodeResult' json in
     send channel $ SocketLatestTransactions result
 
 -- all following event handler are for debugging only
@@ -97,6 +97,6 @@ callYouCTxIdEventHandler :: forall eff. ActionChannel -> Json
 callYouCTxIdEventHandler channel json = do
     traceAnyM "callYouCTxIdEventHandler"
     traceAnyM json
-    let result = decodeResult json
+    let result = decodeResult' json
     traceAnyM (result :: Either Error CTxId)
     send channel NoOp

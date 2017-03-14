@@ -50,3 +50,8 @@ decodeResult = either (Left <<< mkJSONError) (bimap mkServerError id) <<< decode
   where
     mkJSONError = error <<< show <<< JSONDecodingError
     mkServerError = error <<< show <<< ServerError
+
+decodeResult' :: forall a. Generic a => Json -> Either Error a
+decodeResult' = either (Left <<< mkJSONError) pure <<< decodeJson
+  where
+    mkJSONError = error <<< show <<< JSONDecodingError

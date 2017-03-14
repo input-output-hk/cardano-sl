@@ -205,7 +205,7 @@ instance ToSample CTxSummary where
       where
         sample = CTxSummary
             { ctsId              = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
-            , ctsTxTimeIssued    = Just posixTime
+            , ctsTxTimeIssued    = posixTime
             , ctsBlockTimeIssued = Nothing
             , ctsBlockHeight     = Just 11
             , ctsRelayedBy       = Nothing

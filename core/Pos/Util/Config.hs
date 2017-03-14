@@ -1,10 +1,10 @@
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE CPP                  #-}
+{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE KindSignatures       #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -43,24 +43,22 @@ module Pos.Util.Config
        , parseFromCslConfig
        ) where
 
-import           Control.Lens     (Getter, _Left)
-import           Data.Yaml        (FromJSON)
-import qualified Data.Yaml        as Y
-import qualified Data.Aeson       as Y (withObject)
-import           Data.Tagged      (untag, Tagged)
-import           Data.Vector      (Vector)
-import qualified Data.Vector      as V
-import           GHC.TypeLits     (type (+))
+import           Control.Lens               (Getter, _Left)
+import qualified Data.Aeson                 as Y (withObject)
+import           Data.Tagged                (Tagged, untag)
+import           Data.Yaml                  (FromJSON)
+import qualified Data.Yaml                  as Y
 import           Universum
-import           Unsafe.Coerce    (unsafeCoerce)
 
 #if EMBED_CONFIG
 import qualified Language.Haskell.TH.Syntax as TH
 #else
-import           System.IO.Unsafe (unsafePerformIO)
+import           System.IO.Unsafe           (unsafePerformIO)
 #endif
 
-import           Pos.Util.Config.Path (cslConfigFilePath)
+import           Pos.Util.Config.Path       (cslConfigFilePath)
+import           Pos.Util.HVect             (HVect)
+import qualified Pos.Util.HVect             as HVect
 
 ----------------------------------------------------------------------------
 -- Small configs
@@ -213,13 +211,11 @@ subconfigs.
 A 'ConfigSet' is intended to have only one config of each given type, but this
 condition is not checked.
 -}
-newtype ConfigSet (xs :: [*]) =
-    -- the underlying type is a vector of untyped values
-    ConfigSet (Vector Any)
+newtype ConfigSet (xs :: [*]) = ConfigSet (HVect xs)
 
 -- | Add a config to a 'ConfigSet'.
 consConfigSet :: x -> ConfigSet xs -> ConfigSet (x ': xs)
-consConfigSet x (ConfigSet xs) = ConfigSet (V.cons (unsafeCoerce x) xs)
+consConfigSet x (ConfigSet v) = ConfigSet (HVect.cons x v)
 
 -- | Parse a 'ConfigSet' from a YAML file.
 readConfigSet
@@ -241,19 +237,10 @@ unsafeReadConfigSet fp =
 -- ConfigSet magic
 ----------------------------------------------------------------------------
 
--- We can use 'Index' to find the position of a type in a list of types. The
--- result is a 'Nat', i.e. a type-level number.
-type family Index (x :: *) (xs :: [*]) :: Nat where
-    Index x (x ': _)  = 0
-    Index x (_ ': xs) = 1 + Index x xs
-
 -- If we know index of a type in a list of types stored in a 'ConfigSet', we
--- can extract it from the underlying vector and convert it to the right type
--- with 'unsafeCoerce'.
-instance KnownNat (Index x xs) => ExtractConfig x (ConfigSet xs) where
-    extractConfig (ConfigSet v) =
-        let i = natVal (Proxy @(Index x xs))
-        in  unsafeCoerce (v V.! fromIntegral i)
+-- can extract it from the underlying vector.
+instance HVect.Contains x xs => ExtractConfig x (ConfigSet xs) where
+    extractConfig (ConfigSet v) = HVect.extract v
 
 -- If all types in a 'ConfigSet' are configs, we can parse a whole JSON\/YAML
 -- config into a 'ConfigSet' by parsing each config separately.
@@ -265,7 +252,7 @@ instance (IsConfig x, FromJSON (ConfigSet xs)) =>
         return (consConfigSet x xs)
 
 instance FromJSON (ConfigSet '[]) where
-    parseJSON = \_ -> return (ConfigSet mempty)
+    parseJSON = \_ -> return (ConfigSet HVect.empty)
 
 ----------------------------------------------------------------------------
 -- Cardano SL config

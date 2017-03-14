@@ -37,8 +37,7 @@ import           Pos.DHT.Model             (DHTNode, discoverPeers, getKnownPeer
 import           Pos.Genesis               (genesisBlockVersionData, genesisDevPublicKeys,
                                             genesisDevSecretKeys, genesisUtxo)
 import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
-                                            bracketResources, runTimeSlaveReal,
-                                            stakesDistr)
+                                            bracketResources, stakesDistr)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Ssc.NistBeacon        (SscNistBeacon)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
@@ -242,21 +241,21 @@ main = do
             , bpKademliaDump       = "kademlia.dump"
             }
     bracketResources baseParams $ \res -> do
-        let timeSlaveParams =
-                baseParams
-                { bpLoggingParams = logParams { lpRunnerTag = "time-slave" }
-                }
+        -- let timeSlaveParams =
+        --         baseParams
+        --         { bpLoggingParams = logParams { lpRunnerTag = "time-slave" }
+        --         }
 
-        systemStart <- case CLI.sscAlgo woCommonArgs of
-            GodTossingAlgo -> runTimeSlaveReal (Proxy @SscGodTossing) res timeSlaveParams
-            NistBeaconAlgo -> runTimeSlaveReal (Proxy @SscNistBeacon) res timeSlaveParams
+        -- systemStart <- case CLI.sscAlgo woCommonArgs of
+        --     GodTossingAlgo -> runTimeSlaveReal (Proxy @SscGodTossing) res timeSlaveParams
+        --     NistBeaconAlgo -> runTimeSlaveReal (Proxy @SscNistBeacon) res timeSlaveParams
 
         let params =
                 WalletParams
                 { wpDbPath      = Just woDbPath
                 , wpRebuildDb   = woRebuildDb
                 , wpKeyFilePath = woKeyFilePath
-                , wpSystemStart = systemStart
+                , wpSystemStart = error "light wallet doesn't know system start"
                 , wpGenesisKeys = woDebug
                 , wpBaseParams  = baseParams
                 , wpGenesisUtxo =

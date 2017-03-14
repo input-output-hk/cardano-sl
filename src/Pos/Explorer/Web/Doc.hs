@@ -7,7 +7,10 @@
 
 -- | Documentation of cardano explorer web API.
 
-module           Pos.Explorer.Web.Doc (walletDocsText) where
+module           Pos.Explorer.Web.Doc           (walletDocsText) where
+
+import           Data.Time                      (defaultTimeLocale, parseTimeOrError)
+import           Data.Time.Clock.POSIX          (POSIXTime, utcTimeToPOSIXSeconds)
 
 import           Servant.API                    (Capture, QueryParam)
 import           Servant.Docs                   (API, DocCapture (..),
@@ -85,6 +88,12 @@ instance ToCapture (Capture "address" CAddress) where
         { _capSymbol = "address"
         , _capDesc = "Address"
         }
+
+-- sample data --
+--------------------------------------------------------------------------------
+posixTime :: POSIXTime
+posixTime = utcTimeToPOSIXSeconds (parseTimeOrError True defaultTimeLocale "%F" "2017-12-03")
+--------------------------------------------------------------------------------
 
 {-
 
@@ -196,7 +205,7 @@ instance ToSample CTxSummary where
       where
         sample = CTxSummary
             { ctsId              = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
-            , ctsTxTimeIssued    = Nothing
+            , ctsTxTimeIssued    = Just posixTime
             , ctsBlockTimeIssued = Nothing
             , ctsBlockHeight     = Just 11
             , ctsRelayedBy       = Nothing

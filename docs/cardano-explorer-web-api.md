@@ -84,7 +84,7 @@ Clients must supply the following data
 }
 ```
 
--
+- 
 
 ```javascript
 {
@@ -279,7 +279,7 @@ Clients must supply the following data
 }
 ```
 
--
+- 
 
 ```javascript
 {
@@ -393,7 +393,7 @@ Clients must supply the following data
 }
 ```
 
--
+- 
 
 ```javascript
 {
@@ -514,7 +514,7 @@ Clients must supply the following data
                 }
             ]
         ],
-        "ctsTxTimeIssued": null,
+        "ctsTxTimeIssued": 1512259200,
         "ctsId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
         "ctsBlockHeight": 11,
         "ctsRelayedBy": null,
@@ -538,3 +538,4 @@ Clients must supply the following data
     }
 }
 ```
+

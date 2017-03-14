@@ -6,7 +6,6 @@ module Pos.DB.GState.Explorer
        , getAddrHistory
        ) where
 
-import qualified Data.List.NonEmpty   as NE
 import qualified Database.RocksDB     as Rocks
 import           Universum
 

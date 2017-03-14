@@ -21,9 +21,10 @@ module Pos.Txp.Toil.Class
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Universum
 
-import           Pos.Core                  (Address, Coin, StakeholderId)
+import           Pos.Core                  (Coin, StakeholderId)
 import           Pos.Txp.Core.Types        (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 #ifdef WITH_EXPLORER
+import           Pos.Core                  (Address)
 import           Pos.Types.Explorer        (AddrHistory, TxExtra)
 #endif
 

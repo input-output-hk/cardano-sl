@@ -38,10 +38,11 @@ import           Formatting             (Format, later)
 import           Serokell.Util.Text     (mapBuilderJson)
 import           Universum
 
-import           Pos.Core               (Address, Coin, StakeholderId)
+import           Pos.Core               (Coin, StakeholderId)
 import           Pos.Txp.Core           (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import qualified Pos.Util.Modifier      as MM
 #ifdef WITH_EXPLORER
+import           Pos.Core               (Address)
 import           Pos.Types.Explorer     (AddrHistory, TxExtra)
 #endif
 

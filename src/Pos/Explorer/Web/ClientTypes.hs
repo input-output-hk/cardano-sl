@@ -143,7 +143,7 @@ toBlockEntry blk = do
 -- | List of tx entries is returned from "get latest N transactions" endpoint
 data CTxEntry = CTxEntry
     { cteId         :: !CTxId
-    , cteTimeIssued :: !(Maybe POSIXTime)
+    , cteTimeIssued :: !POSIXTime
     , cteAmount     :: !Coin
     } deriving (Show, Generic)
 
@@ -151,10 +151,10 @@ totalTxMoney :: Tx -> Coin
 totalTxMoney = unsafeIntegerToCoin . sumCoins .
                map txOutValue . _txOutputs
 
-toTxEntry :: Maybe Timestamp -> Tx -> CTxEntry
+toTxEntry :: Timestamp -> Tx -> CTxEntry
 toTxEntry ts tx = CTxEntry {..}
   where cteId = toCTxId $ hash tx
-        cteTimeIssued = toPosixTime <$> ts
+        cteTimeIssued = toPosixTime ts
         cteAmount = totalTxMoney tx
 
 -- | Data displayed on block summary page
@@ -185,7 +185,7 @@ data CAddressSummary = CAddressSummary
 
 data CTxBrief = CTxBrief
     { ctbId         :: !CTxId
-    , ctbTimeIssued :: !(Maybe POSIXTime)
+    , ctbTimeIssued :: !POSIXTime
     , ctbInputs     :: ![(CAddress, Coin)]
     , ctbOutputs    :: ![(CAddress, Coin)]
     } deriving (Show, Generic)
@@ -224,7 +224,7 @@ instance FromHttpApiData CTxId where
 --------------------------------------------------------------------------------
 
 data TxInternal = TxInternal
-    { tiTimestamp :: !(Maybe Timestamp)
+    { tiTimestamp :: !Timestamp
     , tiTx        :: !Tx
     } deriving (Show)
 
@@ -237,6 +237,6 @@ toTxBrief txi txe = CTxBrief {..}
     tx = tiTx txi
     ts = tiTimestamp txi
     ctbId = toCTxId $ hash tx
-    ctbTimeIssued = toPosixTime <$> ts
+    ctbTimeIssued = toPosixTime ts
     ctbInputs = convertTxOutputs $ map toaOut $ NE.toList $ teInputOutputs txe
     ctbOutputs = convertTxOutputs . NE.toList $ _txOutputs tx

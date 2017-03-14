@@ -32,13 +32,9 @@ in the [IOHK website](https://iohk.io/research/papers/a-provably-secure-proof-of
 
 ### Where to start
 
-Aside from reading the paper[1], a good starting point is the source code
-hosted herein. We recommend starting with the following source files:
-
-- [Node entry point](src/node/Main.hs)
-- [Core node logic](src/Pos/Launcher.hs), and the exported modules.
-- [Listeners](src/Pos/Communication/)
-- [Workers](src/Pos/Worker/)
+It is recommended to start by reading the documentation, which is available [here](https://cardano-docs.iohk.io/introduction/).
+Its repository is [here](https://github.com/input-output-hk/cardano-docs.iohk.io). 
+Developers are encouraged to contribute.
 
 Platform support
 ----------------
@@ -56,15 +52,14 @@ into which the project was cloned and run `stack build`.
 The [`stack` system](https://docs.haskellstack.org/en/stable/README/) is
 required before `cardano-sl` can be built.
 
-Running the nodes
------------------
+For developer convenience, also note that in the `scripts` and `util-scripts` folders
+there are a variety of utility scripts to build various components of the system,
+such as the general `util-scripts/build.sh`, or the `util-scripts/clean.sh` to remove
+byproducts of compilation.
 
-After the project is built, run it:
-
-- open *new terminal window*, run `tmux` in it (`sudo apt-get install tmux` or else according to your distro)
-- open *new terminal window*, run `export WALLET_TEST=1; ./scripts/launch.sh` in it
-
-After a while, the first terminal windows should be populated with 4 tabs, 3 out of which will have a node running in them.
+Note also that as of March 2017, it is not possible to use the `cardano-sl:with-web` and
+`cardano-sl:with-wallet` `stack` compilation flags, as they rely on a module that imports
+some functionality from the `unix` package, which is not in any way supported in Windows.
 
 Generating the wallet documentation
 -----------------------------------

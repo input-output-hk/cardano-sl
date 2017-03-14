@@ -12,7 +12,7 @@ purescript-derive-lenses \
     --moduleImports "import Data.Maybe" \
     --moduleImports "import Data.Tuple" \
     --moduleImports "import Data.Time.NominalDiffTime (NominalDiffTime(..))" \
-    --moduleImports "import Pos.Types.Core (Coin, ChainDifficulty)" \
+    --moduleImports "import Pos.Core.Types (Coin, ChainDifficulty)" \
     > $DIR_GENERATED_WEB/Lenses/ClientTypes.purs
 
 

@@ -11,6 +11,8 @@ import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, 
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.Function.Eff (EffFn1, mkEffFn1, EffFn2, mkEffFn2, EffFn4, mkEffFn4, EffFn3, mkEffFn3, EffFn6, mkEffFn6, EffFn7, mkEffFn7)
+import Data.String.Base64 (decode)
+import Data.String (length)
 import Network.HTTP.Affjax (AJAX)
 import WebSocket (WEBSOCKET)
 import Control.Monad.Error.Class (throwError)
@@ -165,3 +167,6 @@ syncProgress = fromAff $ map encodeJson B.syncProgress
 
 testReset :: forall eff. Eff (ajax :: AJAX | eff) (Promise Unit)
 testReset = fromAff B.testReset
+
+isValidRedeemCode :: String -> Boolean
+isValidRedeemCode = either (const false) ((==) 32 <<< length) <<< decode

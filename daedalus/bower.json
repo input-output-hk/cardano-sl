@@ -39,6 +39,7 @@
     "purescript-media-types": "2.0.0",
     "purescript-functions": "2.0.0",
     "purescript-websocket-simple": "1.0.1",
-    "purescript-refs": "2.0.0"
+    "purescript-refs": "2.0.0",
+    "purescript-b64": "^0.0.2"
   }
 }

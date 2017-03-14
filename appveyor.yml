@@ -45,6 +45,7 @@ before_test:
 - IF EXIST %CACHE_DIR% dir %CACHE_DIR%
 - IF EXIST %CACHED_STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %CACHED_STACK_ROOT% %STACK_ROOT%
 - IF EXIST %CACHED_STACK_WORK% xcopy /q /s /e /r /k /i /v /h /y %CACHED_STACK_WORK% %STACK_WORK%
+- ps: Install-Product node 7
 # Install stack
 - curl -sSL -o stack.zip --insecure http://www.stackage.org/stack/windows-x86_64
 - 7z x stack.zip stack.exe

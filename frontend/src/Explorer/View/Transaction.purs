@@ -10,12 +10,11 @@ import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.Factory (mkEmptyCTxEntry)
 import Explorer.View.Common (currencyCSSClass, transactionHeaderView, transactionBodyView)
-import Pos.Explorer.Web.ClientTypes (CHash)
 import Pux.Html (Html, div, text, h3, table, tr, td) as P
 import Pux.Html.Attributes (className) as P
 
-transactionView :: State -> CHash -> P.Html Action
-transactionView state hash =
+transactionView :: State -> P.Html Action
+transactionView state =
     let lang' = state ^. lang in
     P.div
         [ P.className "explorer-transaction" ]

@@ -37,9 +37,7 @@ transactionHeaderView (CTxEntry entry) =
               [ P.text $ entry ^. (cteId <<< _CTxId <<< _CHash) ]
           , P.div
               [ P.className "date"]
-              [ P.text $ case entry ^. cteTimeIssued of
-                            Just t -> show $ t ^. _NominalDiffTime
-                            Nothing -> "-"
+              [ P.text <<< show $ entry ^. (cteTimeIssued <<< _NominalDiffTime)
               ]
           , P.div
               [ P.className "amount-container" ]

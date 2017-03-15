@@ -29,7 +29,7 @@ script:
 - stack --nix --no-terminal --local-bin-path s3/ install --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
   --no-haddock-deps --jobs=4
   --flag cardano-sl:-asserts
-  --flag cardano-sl:-dev-mode
+  --flag cardano-sl-core:-dev-mode
   --test
 - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ./update_haddock.sh; fi
 - stack exec --nix -- cardano-wallet-hs2purs

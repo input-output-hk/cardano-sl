@@ -23,8 +23,8 @@ import           Pos.Context               (WithNodeContext)
 import           Pos.Slotting.Class        (MonadSlots)
 import           Pos.Slotting.MemState     (MonadSlotsData)
 import           Pos.Txp.Toil.Class        (MonadBalances (..), MonadBalancesRead (..),
-                                            MonadTxPool (..), MonadUtxo (..),
-                                            MonadUtxoRead (..))
+                                            MonadToilEnv, MonadTxPool (..),
+                                            MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Types        (MemPool, ToilModifier (..), UndoMap,
                                             UtxoModifier, bvStakes, bvTotal, mpLocalTxs,
                                             mpLocalTxsSize, tmBalances, tmMemPool,
@@ -34,7 +34,7 @@ import qualified Pos.Util.Modifier         as MM
 
 #ifdef WITH_EXPLORER
 import           Pos.Txp.Toil.Class        (MonadTxExtra (..), MonadTxExtraRead (..))
-import           Pos.Txp.Toil.Types        (mpLocalTxsExtra)
+import           Pos.Txp.Toil.Types        (mpAddrHistories, mpLocalTxsExtra)
 #endif
 
 ----------------------------------------------------------------------------
@@ -53,20 +53,24 @@ newtype ToilT m a = ToilT
     } deriving ( Functor
                , Applicative
                , Monad
-               , MonadTrans
-               , MonadThrow
-               , MonadSlotsData
-               , MonadSlots
-               , MonadCatch
-               , MonadIO
                , MonadFail
+               , MonadTrans
+               , MonadIO
+               , MonadError e
+               , MonadFix
+               , MonadThrow
+               , MonadCatch
+               , MonadMask
+
                , HasLoggerName
+               , CanLog
+
                , WithNodeContext ssc
                , MonadJL
-               , CanLog
-               , MonadMask
-               , MonadError e
-               , MonadFix)
+               , MonadSlotsData
+               , MonadSlots
+               , MonadToilEnv
+               )
 
 instance MonadUtxoRead m => MonadUtxoRead (ToilT m) where
     utxoGet id = ToilT $ MM.lookupM utxoGet id =<< use tmUtxo
@@ -104,12 +108,16 @@ instance Monad m => MonadTxPool (ToilT m) where
 instance MonadTxExtraRead m => MonadTxExtraRead (ToilT m) where
     getTxExtra id = ToilT $
         MM.lookupM getTxExtra id =<< use (tmMemPool . mpLocalTxsExtra)
+    getAddrHistory addr = ToilT $
+        maybe (getAddrHistory addr) pure =<< use (tmMemPool . mpAddrHistories . at addr)
 
 instance MonadTxExtraRead m => MonadTxExtra (ToilT m) where
     putTxExtra id extra = ToilT $
         tmMemPool . mpLocalTxsExtra %= MM.insert id extra
     delTxExtra id = ToilT $
         tmMemPool . mpLocalTxsExtra %= MM.delete id
+    updateAddrHistory addr hist = ToilT $
+        tmMemPool . mpAddrHistories . at addr .= Just hist
 #endif
 
 ----------------------------------------------------------------------------

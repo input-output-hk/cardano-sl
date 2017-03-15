@@ -30,10 +30,14 @@ import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.GState.Balances      as GS
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Ssc.Extra               (MonadSscMem)
+import           Pos.Update.Core             (BlockVersionData (..))
+import           Pos.Update.DB               (getAdoptedBVData)
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
-import           Pos.Txp.Toil.Class          (MonadBalancesRead (..), MonadUtxoRead (..))
+import           Pos.Txp.Toil.Class          (MonadBalancesRead (..), MonadToilEnv (..),
+                                              MonadUtxoRead (..))
+import           Pos.Txp.Toil.Types          (ToilEnv (..))
 #ifdef WITH_EXPLORER
 import           Pos.Txp.Toil.Class          (MonadTxExtraRead (..))
 #endif
@@ -107,7 +111,11 @@ instance (Monad m, MonadDB m) => MonadBalancesRead (DBTxp m) where
     getTotalStake = GS.getTotalFtsStake
     getStake = GS.getFtsStake
 
+instance (Monad m, MonadDB m) => MonadToilEnv (DBTxp m) where
+    getToilEnv = ToilEnv . bvdMaxTxSize <$> getAdoptedBVData
+
 #ifdef WITH_EXPLORER
 instance (Monad m, MonadDB m) => MonadTxExtraRead (DBTxp m) where
     getTxExtra = GS.getTxExtra
+    getAddrHistory = GS.getAddrHistory
 #endif

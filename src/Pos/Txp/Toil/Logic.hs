@@ -1,5 +1,5 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies    #-}
 
 -- | All logic of Txp,
@@ -19,16 +19,23 @@ import           Universum
 
 import           Pos.Constants         (maxLocalTxs)
 import           Pos.Crypto            (WithHash (..), hash)
+import           Pos.Binary.Class      (biSize)
 
 import           Pos.Txp.Core          (TxAux, TxId, TxUndo, TxpUndo, topsortTxs)
 import           Pos.Txp.Toil.Balances (applyTxsToBalances, rollbackTxsBalances)
 import           Pos.Txp.Toil.Class    (MonadBalances (..), MonadTxPool (..),
-                                        MonadUtxo (..))
+                                        MonadToilEnv (..), MonadUtxo (..))
 import           Pos.Txp.Toil.Failure  (ToilVerFailure (..))
+import           Pos.Txp.Toil.Types    (ToilEnv (teMaxTxSize))
 import qualified Pos.Txp.Toil.Utxo     as Utxo
 #ifdef WITH_EXPLORER
-import           Pos.Txp.Toil.Class   (MonadTxExtra (..), MonadTxExtraRead (..))
-import           Pos.Types            (TxExtra (..), HeaderHash, Timestamp)
+import           Data.List             (delete, union)
+import qualified Data.List.NonEmpty    as NE
+import           Pos.Txp.Core          (Tx (..), TxOut (..), TxOutAux (..))
+import           Pos.Txp.Toil.Class    (MonadTxExtra (..), MonadTxExtraRead (..))
+import           Pos.Types             (AddrHistory, Address, HeaderHash, Timestamp,
+                                        TxExtra (..))
+import           Pos.Util              (NewestFirst (..))
 #endif
 
 ----------------------------------------------------------------------------
@@ -37,6 +44,7 @@ import           Pos.Types            (TxExtra (..), HeaderHash, Timestamp)
 
 type GlobalTxpMode m = ( MonadUtxo m
                        , MonadBalances m
+                       , MonadToilEnv m
 #ifdef WITH_EXPLORER
                        , MonadTxExtra m
 #endif
@@ -77,7 +85,7 @@ applyToil txun = do
             newExtra = TxExtra (Just (hh, i)) curTime txundo
         extra <- maybe newExtra identity <$> getTxExtra id
         applyTxToUtxo' (id, txaux)
-        putTxExtra id extra
+        putTxExtraWithHistory id extra $ getTxRelatedAddrs txaux txundo
 #else
     mapM_ (applyTxToUtxo' . withTxId . fst) txun
 #endif
@@ -88,7 +96,10 @@ rollbackToil txun = do
     rollbackTxsBalances txun
     mapM_ Utxo.rollbackTxUtxo $ reverse txun
 #ifdef WITH_EXPLORER
-    mapM_ (delTxExtra . hash . view _1 . fst) txun
+    mapM_ extraRollback txun
+  where
+    extraRollback (txaux@(tx, _, _), txundo) =
+        delTxExtraWithHistory (hash tx) $ getTxRelatedAddrs txaux txundo
 #endif
 
 ----------------------------------------------------------------------------
@@ -96,6 +107,7 @@ rollbackToil txun = do
 ----------------------------------------------------------------------------
 
 type LocalTxpMode m = ( MonadUtxo m
+                      , MonadToilEnv m
                       , MonadTxPool m
 #ifdef WITH_EXPLORER
                       , MonadTxExtra m
@@ -122,7 +134,7 @@ processTx tx@(id, aux) = do
     undo <- verifyAndApplyTx True tx
     putTxWithUndo id aux undo
 #ifdef WITH_EXPLORER
-    putTxExtra id extra
+    putTxExtraWithHistory id extra $ getTxRelatedAddrs aux undo
 #endif
 
 -- | Get rid of invalid transactions.
@@ -148,13 +160,27 @@ normalizeToil txs = mapM_ normalize ordered
 #endif
 
 ----------------------------------------------------------------------------
+-- ToilEnv logic
+----------------------------------------------------------------------------
+
+verifyToilEnv
+    :: (MonadToilEnv m, MonadError ToilVerFailure m)
+    => TxAux -> m ()
+verifyToilEnv txAux = do
+    limit <- teMaxTxSize <$> getToilEnv
+    let txSize = biSize txAux
+    when (txSize > limit) $
+        throwError ToilTooLargeTx {ttltSize = txSize, ttltLimit = limit}
+
+----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
 verifyAndApplyTx
-    :: (MonadUtxo m, MonadError ToilVerFailure m)
+    :: (MonadUtxo m, MonadToilEnv m, MonadError ToilVerFailure m)
     => Bool -> (TxId, TxAux) -> m TxUndo
-verifyAndApplyTx verifyVersions tx@(_, txAux) =
+verifyAndApplyTx verifyVersions tx@(_, txAux) = do
+    verifyToilEnv txAux
     Utxo.verifyTxUtxo ctx txAux <* applyTxToUtxo' tx
   where
     ctx = Utxo.VTxContext verifyVersions
@@ -164,3 +190,39 @@ withTxId aux@(tx, _, _) = (hash tx, aux)
 
 applyTxToUtxo' :: MonadUtxo m => (TxId, TxAux) -> m ()
 applyTxToUtxo' (i, (t, _, d)) = Utxo.applyTxToUtxo (WithHash t i) d
+
+#ifdef WITH_EXPLORER
+modifyAddrHistory
+    :: MonadTxExtra m
+    => (AddrHistory -> AddrHistory)
+    -> Address
+    -> m ()
+modifyAddrHistory f addr =
+    updateAddrHistory addr . f =<< getAddrHistory addr
+
+putTxExtraWithHistory
+    :: MonadTxExtra m
+    => TxId
+    -> TxExtra
+    -> NonEmpty Address
+    -> m ()
+putTxExtraWithHistory id extra addrs = do
+    putTxExtra id extra
+    forM_ addrs $ modifyAddrHistory $
+        NewestFirst . (id :) . getNewestFirst
+
+delTxExtraWithHistory
+    :: MonadTxExtra m
+    => TxId
+    -> NonEmpty Address
+    -> m ()
+delTxExtraWithHistory id addrs = do
+    delTxExtra id
+    forM_ addrs $ modifyAddrHistory $
+        NewestFirst . delete id . getNewestFirst
+
+getTxRelatedAddrs :: TxAux -> TxUndo -> NonEmpty Address
+getTxRelatedAddrs (UnsafeTx {..}, _, _) undo = NE.fromList $
+    map txOutAddress (NE.toList _txOutputs) `union`
+    map (txOutAddress . toaOut) (NE.toList undo)
+#endif

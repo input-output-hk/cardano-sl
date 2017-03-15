@@ -14,6 +14,7 @@ module Pos.Txp.Toil.Types
        , mpLocalTxsSize
 #ifdef WITH_EXPLORER
        , mpLocalTxsExtra
+       , mpAddrHistories
 #endif
        , TxMap
        , BalancesView (..)
@@ -26,22 +27,27 @@ module Pos.Txp.Toil.Types
        , tmBalances
        , tmMemPool
        , tmUndos
+
+       -- * Env
+       , ToilEnv (..)
        ) where
 
-import           Control.Lens           (makeLenses)
-import           Data.Default           (Default, def)
-import qualified Data.HashMap.Strict    as HM
-import qualified Data.Map               as M (toList)
-import           Data.Text.Lazy.Builder (Builder)
-import           Formatting             (Format, later)
-import           Serokell.Util.Text     (mapBuilderJson)
+import           Control.Lens               (makeLenses)
+import           Data.Default               (Default, def)
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.Map                   as M (toList)
+import           Data.Text.Lazy.Builder     (Builder)
+import           Formatting                 (Format, later)
+import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util.Text         (mapBuilderJson)
 import           Universum
 
-import           Pos.Core               (Coin, StakeholderId)
-import           Pos.Txp.Core           (TxAux, TxId, TxIn, TxOutAux, TxUndo)
-import qualified Pos.Util.Modifier      as MM
+import           Pos.Core                   (Coin, StakeholderId)
+import           Pos.Txp.Core               (TxAux, TxId, TxIn, TxOutAux, TxUndo)
+import qualified Pos.Util.Modifier          as MM
 #ifdef WITH_EXPLORER
-import           Pos.Types.Explorer     (TxExtra)
+import           Pos.Core                   (Address)
+import           Pos.Types.Explorer         (AddrHistory, TxExtra)
 #endif
 
 ----------------------------------------------------------------------------
@@ -87,8 +93,12 @@ instance Default TxMap where
 
 #ifdef WITH_EXPLORER
 type TxMapExtra = MM.MapModifier TxId TxExtra
+type UpdatedAddrHistories = HashMap Address AddrHistory
 
 instance Default TxMapExtra where
+    def = mempty
+
+instance Default UpdatedAddrHistories where
     def = mempty
 #endif
 
@@ -98,6 +108,7 @@ data MemPool = MemPool
     , _mpLocalTxsSize  :: !Int
 #ifdef WITH_EXPLORER
     , _mpLocalTxsExtra :: !TxMapExtra
+    , _mpAddrHistories :: !UpdatedAddrHistories
 #endif
     }
 
@@ -110,6 +121,7 @@ instance Default MemPool where
         , _mpLocalTxsSize  = 0
 #ifdef WITH_EXPLORER
         , _mpLocalTxsExtra = def
+        , _mpAddrHistories = def
 #endif
         }
 
@@ -134,3 +146,12 @@ instance Default ToilModifier where
     def = ToilModifier mempty def def mempty
 
 makeLenses ''ToilModifier
+
+----------------------------------------------------------------------------
+-- Toil environment
+----------------------------------------------------------------------------
+
+-- | Environment used by Toil.
+data ToilEnv = ToilEnv
+    { teMaxTxSize :: !Byte
+    }

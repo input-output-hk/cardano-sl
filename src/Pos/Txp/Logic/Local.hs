@@ -9,7 +9,7 @@ module Pos.Txp.Logic.Local
        , txNormalize
        ) where
 
-import           Control.Monad.Except (MonadError (..), runExcept)
+import           Control.Monad.Except (MonadError (..))
 import           Data.Default         (def)
 import qualified Data.List.NonEmpty   as NE
 import qualified Data.Map             as M (fromList)
@@ -25,7 +25,7 @@ import           Pos.Txp.MemState     (getLocalTxs)
 #endif
 import           Pos.Txp.MemState     (MonadTxpMem (..), getUtxoModifier,
                                        modifyTxpLocalData, setTxpLocalData)
-import           Pos.Txp.Toil         (MonadUtxoRead (..), ToilModifier (..),
+import           Pos.Txp.Toil         (MonadUtxoRead (..), ToilModifier (..), getToilEnv,
                                        ToilVerFailure (..), execToilTLocal, normalizeToil,
                                        processTx, runDBTxp, runToilTLocal, runUtxoReaderT,
                                        utxoGet)
@@ -63,6 +63,7 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
     -- mempool. However, in this case it will be removed by
     -- normalization before releasing lock on block application.
     (resolvedOuts, _) <- runDBTxp $ runUM localUM $ mapM utxoGet _txInputs
+    toilEnv <- runDBTxp getToilEnv
     -- Resolved are unspent transaction outputs corresponding to input
     -- of given transaction.
     let resolved = M.fromList $
@@ -73,7 +74,7 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
     curTime <- currentTimeSlotting
 #endif
     pRes <- modifyTxpLocalData $
-            processTxDo resolved tipBefore itw
+            processTxDo resolved toilEnv tipBefore itw
 #ifdef WITH_EXPLORER
             curTime
 #endif
@@ -85,20 +86,21 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
             logDebug (sformat ("Transaction is processed successfully: "%build) txId)
   where
 #ifdef WITH_EXPLORER
-    processTxDo resolved tipBefore tx curTime txld@(uv, mp, undo, tip)
+    processTxDo resolved toilEnv tipBefore tx curTime txld@(uv, mp, undo, tip)
 #else
-    processTxDo resolved tipBefore tx txld@(uv, mp, undo, tip)
+    processTxDo resolved toilEnv tipBefore tx txld@(uv, mp, undo, tip)
 #endif
         | tipBefore /= tip = (Left $ ToilTipsMismatch tipBefore tip, txld)
         | otherwise =
-            let res = runExcept $
+            let res = (runExceptT $
                       flip runUtxoReaderT resolved $
                       execToilTLocal uv mp undo $
 #ifdef WITH_EXPLORER
-                      processTx tx $ makeExtra resolved curTime
+                      processTx tx (makeExtra resolved curTime)
 #else
                       processTx tx
 #endif
+                      ) toilEnv
             in
             case res of
                 Left er  -> (Left er, txld)

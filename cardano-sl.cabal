@@ -1,5 +1,5 @@
 name:                cardano-sl
-version:             0.2.0
+version:             0.3.0
 synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             MIT
@@ -15,12 +15,6 @@ cabal-version:       >=1.10
 flag asserts
   default:     True
   manual:      True
-
-flag dev-mode
-  default:     True
-  manual:      True
-
-  description: Switch between Development and Production mode
 
 Flag with-web
   default:     True
@@ -533,8 +527,6 @@ library
 
   if flag(asserts)
     cpp-options: -DASSERTS_ON
-  if flag(dev-mode)
-    cpp-options: -DDEV_MODE
   if flag(with-web)
     cpp-options: -DWITH_WEB
   if flag(with-wallet)
@@ -596,8 +588,6 @@ executable cardano-node
     cpp-options: -DWITH_WEB
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
-  if flag(dev-mode)
-    cpp-options: -DDEV_MODE
 
 executable cardano-analyzer
   hs-source-dirs:      src/analyzer
@@ -644,12 +634,6 @@ executable cardano-analyzer
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-
-  if flag(dev-mode)
-    buildable:          True
-  else
-    buildable:          False
-
 
 executable cardano-wallet
   hs-source-dirs:      src/wallet
@@ -708,7 +692,7 @@ executable cardano-wallet
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-wallet) && flag(dev-mode)
+  if flag(with-wallet)
     buildable:         True
   else
     buildable:         False
@@ -825,7 +809,7 @@ executable cardano-smart-generator
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-wallet) && flag(dev-mode)
+  if flag(with-wallet)
     buildable:         True
   else
     buildable:         False
@@ -960,7 +944,7 @@ executable cardano-wallet-web-docs
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-web) && flag(with-wallet) && flag(dev-mode)
+  if flag(with-web) && flag(with-wallet)
     buildable:         True
   else
     buildable:         False

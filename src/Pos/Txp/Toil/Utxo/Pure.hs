@@ -32,12 +32,14 @@ import           Universum
 import           Pos.Binary.Core             ()
 import           Pos.Crypto                  (WithHash (..))
 import           Pos.Txp.Core                (Tx, TxAux, TxDistribution, TxUndo)
-import           Pos.Txp.Toil.Class          (MonadUtxo (..), MonadUtxoRead (..))
+import           Pos.Txp.Toil.Class          (MonadToilEnv, MonadUtxo (..),
+                                              MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure        (ToilVerFailure)
 import           Pos.Txp.Toil.Types          (Utxo)
 import           Pos.Txp.Toil.Utxo.Functions (VTxContext, applyTxToUtxo, verifyTxUtxo)
 #ifdef WITH_EXPLORER
 import           Pos.Txp.Toil.Class          (MonadTxExtraRead (..))
+import           Pos.Util                    (NewestFirst (..))
 #endif
 
 ----------------------------------------------------------------------------
@@ -46,7 +48,7 @@ import           Pos.Txp.Toil.Class          (MonadTxExtraRead (..))
 
 newtype UtxoReaderT m a = UtxoReaderT
     { getUtxoReaderT :: ReaderT Utxo m a
-    } deriving (Functor, Applicative, Monad, MonadReader Utxo, MonadError e)
+    } deriving (Functor, Applicative, Monad, MonadReader Utxo, MonadError e, MonadToilEnv)
 
 instance Monad m => MonadUtxoRead (UtxoReaderT m) where
     utxoGet id = UtxoReaderT $ view $ at id
@@ -54,6 +56,7 @@ instance Monad m => MonadUtxoRead (UtxoReaderT m) where
 #ifdef WITH_EXPLORER
 instance Monad m => MonadTxExtraRead (UtxoReaderT m) where
     getTxExtra _ = pure Nothing
+    getAddrHistory _ = pure $ NewestFirst []
 #endif
 
 instance MonadTrans UtxoReaderT where
@@ -88,6 +91,7 @@ instance Monad m => MonadUtxo (UtxoStateT m) where
 #ifdef WITH_EXPLORER
 instance Monad m => MonadTxExtraRead (UtxoStateT m) where
     getTxExtra _ = pure Nothing
+    getAddrHistory _ = pure $ NewestFirst []
 #endif
 
 instance MonadTrans UtxoStateT where

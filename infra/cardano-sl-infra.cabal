@@ -1,5 +1,5 @@
 name:                cardano-sl-infra
-version:             0.1.0.0
+version:             0.3.0.0
 synopsis:            Cardano SL - infrastructural
 description:         Cardano SL - infrastructural
 license:             MIT
@@ -10,11 +10,6 @@ copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
-flag dev-mode
-  default:     True
-  manual:      True
-
-  description: Switch between Development and Production mode
 
 library
   exposed-modules:
@@ -161,5 +156,3 @@ library
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-  if flag(dev-mode)
-    cpp-options: -DDEV_MODE

@@ -92,6 +92,7 @@ makePubKeyHdwAddress key path =
     PubKeyAddress (addressHash key)
                   (mkAttributes (AddrPkAttrs (Just path)))
 
+-- | Create address from private key via hardened way.
 createHDAddressH :: ByteArrayAccess passPhrase
                  => passPhrase
                  -> HDPassphrase
@@ -105,7 +106,7 @@ createHDAddressH passphrase walletPassphrase parent parentPath childIndex = do
     let pk = toPublic derivedSK
     (makePubKeyHdwAddress pk addressPayload, derivedSK)
 
--- | A function for making an HDW address
+-- | Create address from public key via non-hardened way.
 createHDAddressNH :: HDPassphrase -> PublicKey -> [Word32] -> Word32 -> (Address, PublicKey)
 createHDAddressNH passphrase parent parentPath childIndex = do
     let derivedPK = deriveHDPublicKey parent childIndex

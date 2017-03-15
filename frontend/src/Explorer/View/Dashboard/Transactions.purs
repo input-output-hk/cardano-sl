@@ -84,16 +84,12 @@ transactionsView state =
 
 transactionRow :: State -> CTxEntry -> P.Html Action
 transactionRow state (CTxEntry entry) =
-    let time entry' = case entry' ^. cteTimeIssued of
-                        Just t -> show $ t ^. _NominalDiffTime
-                        Nothing -> "-"
-    in
     P.div
         [ P.className "transactions__row" ]
         [ P.link (toUrl <<< Transaction $ entry ^. cteId <<< _CTxId)
               [ P.className "transactions__column hash" ]
               [ P.text $ entry ^. (cteId <<< _CTxId <<< _CHash) ]
-        , transactionColumn (time entry) ""
+        , transactionColumn (show $ entry ^. (cteTimeIssued <<< _NominalDiffTime)) ""
         , transactionColumn (show $ entry ^. (cteAmount <<< _Coin <<< getCoin)) <<< currencyCSSClass $ Just ADA
         ]
 

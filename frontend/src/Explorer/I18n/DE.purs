@@ -1,7 +1,5 @@
 module Explorer.I18n.DE where
 
-import Explorer.I18n.Lenses (cCalculator)
-
 translation =
     { common:
         { cBack: "Zurück"

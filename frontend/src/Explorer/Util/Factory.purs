@@ -1,7 +1,6 @@
 module Explorer.Util.Factory where
 
 import Prelude
-import Data.Maybe (Maybe(..))
 import Data.Time.NominalDiffTime (mkTime)
 import Pos.Core.Types (Coin(..))
 import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary(..), CHash(..), CTxEntry(..), CTxId(..))
@@ -28,7 +27,7 @@ mkCAddress = CAddress
 mkEmptyCTxEntry :: CTxEntry
 mkEmptyCTxEntry = CTxEntry
     { cteId: mkCTxId "--"
-    , cteTimeIssued: Just $ mkTime 0.0
+    , cteTimeIssued: mkTime 0.0
     , cteAmount: mkCoin 0
     }
 

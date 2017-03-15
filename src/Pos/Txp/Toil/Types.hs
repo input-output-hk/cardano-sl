@@ -14,6 +14,7 @@ module Pos.Txp.Toil.Types
        , mpLocalTxsSize
 #ifdef WITH_EXPLORER
        , mpLocalTxsExtra
+       , mpAddrHistories
 #endif
        , TxMap
        , BalancesView (..)
@@ -21,28 +22,32 @@ module Pos.Txp.Toil.Types
        , bvTotal
        , UndoMap
        , UtxoModifier
-       , TxpModifier (..)
-       , txmUtxoModifier
-       , txmBalances
-       , txmMemPool
-       , txmUndos
+       , ToilModifier (..)
+       , tmUtxo
+       , tmBalances
+       , tmMemPool
+       , tmUndos
+
+       -- * Env
+       , ToilEnv (..)
        ) where
 
-import           Control.Lens           (makeLenses)
-import           Data.Default           (Default, def)
-import qualified Data.HashMap.Strict    as HM
-import qualified Data.Map               as M (toList)
-import           Data.Text.Lazy.Builder (Builder)
-import           Formatting             (Format, later)
-import           Serokell.Util.Text     (mapBuilderJson)
+import           Control.Lens               (makeLenses)
+import           Data.Default               (Default, def)
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.Map                   as M (toList)
+import           Data.Text.Lazy.Builder     (Builder)
+import           Formatting                 (Format, later)
+import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util.Text         (mapBuilderJson)
 import           Universum
 
-import           Pos.Txp.Core.Types     (TxAux, TxId, TxIn, TxOutAux, TxUndo)
--- import Pos.Binary.
-import           Pos.Types              (Coin, StakeholderId, mkCoin)
-import qualified Pos.Util.Modifier      as MM
+import           Pos.Core                   (Coin, StakeholderId)
+import           Pos.Txp.Core               (TxAux, TxId, TxIn, TxOutAux, TxUndo)
+import qualified Pos.Util.Modifier          as MM
 #ifdef WITH_EXPLORER
-import           Pos.Types.Explorer     (TxExtra)
+import           Pos.Core                   (Address)
+import           Pos.Types.Explorer         (AddrHistory, TxExtra)
 #endif
 
 ----------------------------------------------------------------------------
@@ -69,13 +74,13 @@ utxoF = later formatUtxo
 
 data BalancesView = BalancesView
     { _bvStakes :: !(HashMap StakeholderId Coin)
-    , _bvTotal  :: !Coin
+    , _bvTotal  :: !(Maybe Coin)
     }
 
 makeLenses ''BalancesView
 
 instance Default BalancesView where
-    def = BalancesView mempty $ mkCoin 0
+    def = BalancesView mempty Nothing
 
 ----------------------------------------------------------------------------
 -- MemPool
@@ -88,8 +93,12 @@ instance Default TxMap where
 
 #ifdef WITH_EXPLORER
 type TxMapExtra = MM.MapModifier TxId TxExtra
+type UpdatedAddrHistories = HashMap Address AddrHistory
 
 instance Default TxMapExtra where
+    def = mempty
+
+instance Default UpdatedAddrHistories where
     def = mempty
 #endif
 
@@ -99,6 +108,7 @@ data MemPool = MemPool
     , _mpLocalTxsSize  :: !Int
 #ifdef WITH_EXPLORER
     , _mpLocalTxsExtra :: !TxMapExtra
+    , _mpAddrHistories :: !UpdatedAddrHistories
 #endif
     }
 
@@ -111,11 +121,12 @@ instance Default MemPool where
         , _mpLocalTxsSize  = 0
 #ifdef WITH_EXPLORER
         , _mpLocalTxsExtra = def
+        , _mpAddrHistories = def
 #endif
         }
 
 ----------------------------------------------------------------------------
--- TxpModifier
+-- ToilModifier
 ----------------------------------------------------------------------------
 
 type UtxoModifier = MM.MapModifier TxIn TxOutAux
@@ -124,11 +135,23 @@ type UndoMap = HashMap TxId TxUndo
 instance Default UndoMap where
     def = mempty
 
-data TxpModifier = TxpModifier
-    { _txmUtxoModifier :: !UtxoModifier
-    , _txmBalances     :: !BalancesView
-    , _txmMemPool      :: !MemPool
-    , _txmUndos        :: !UndoMap
+data ToilModifier = ToilModifier
+    { _tmUtxo     :: !UtxoModifier
+    , _tmBalances :: !BalancesView
+    , _tmMemPool  :: !MemPool
+    , _tmUndos    :: !UndoMap
     }
 
-makeLenses ''TxpModifier
+instance Default ToilModifier where
+    def = ToilModifier mempty def def mempty
+
+makeLenses ''ToilModifier
+
+----------------------------------------------------------------------------
+-- Toil environment
+----------------------------------------------------------------------------
+
+-- | Environment used by Toil.
+data ToilEnv = ToilEnv
+    { teMaxTxSize :: !Byte
+    }

@@ -1,26 +1,23 @@
-{-# LANGUAGE DeriveLift           #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Core.Script () where
 
-import           Data.Binary                (Binary)
-import qualified Data.Binary                as Binary
-import           Data.Eq.Deriving           (deriveEq1)
-import           Data.Hashable              (Hashable, hashWithSalt)
-import           Data.SafeCopy              (SafeCopy (..))
-import           Instances.TH.Lift          ()
-import           Language.Haskell.TH.Syntax (Lift (..))
-import qualified PlutusCore.Program         as PLCore
-import qualified PlutusCore.Term            as PLCore
-import qualified PlutusTypes.ConSig         as PLTypes
-import qualified PlutusTypes.Type           as PLTypes
-import           Universum                  hiding (lift)
-import qualified Utils.ABT                  as ABT
-import qualified Utils.Names                as Names
-import qualified Utils.Vars                 as Vars
+import           Data.Binary        (Binary)
+import qualified Data.Binary        as Binary
+import           Data.Eq.Deriving   (deriveEq1)
+import           Data.Hashable      (Hashable, hashWithSalt)
+import           Data.SafeCopy      (SafeCopy (..))
+import qualified PlutusCore.Program as PLCore
+import qualified PlutusCore.Term    as PLCore
+import qualified PlutusTypes.ConSig as PLTypes
+import qualified PlutusTypes.Type   as PLTypes
+import           Universum          hiding (lift)
+import qualified Utils.ABT          as ABT
+import qualified Utils.Names        as Names
+import qualified Utils.Vars         as Vars
 
-import           Pos.Binary.Class           (Bi, getCopyBi, putCopyBi)
+import           Pos.Binary.Class   (Bi, getCopyBi, putCopyBi)
 
 
 ----------------------------------------------------------------------------
@@ -79,23 +76,6 @@ instance NFData a => NFData (PLCore.PatternF a)
 instance NFData a => NFData (PLTypes.TypeF a)
 instance NFData PLCore.PrimData
 instance NFData PLCore.Program
-
-deriving instance Lift Vars.FreeVar
-deriving instance Lift Vars.MetaVar
-deriving instance Lift Vars.BoundVar
-deriving instance Lift PLTypes.TyConSig
-deriving instance Lift PLTypes.ConSig
-deriving instance Lift PLTypes.PolymorphicType
-deriving instance Lift a => Lift (Names.Sourced a)
-deriving instance Lift ABT.Variable
-deriving instance Lift (f (ABT.Scope f)) => Lift (ABT.ABT f)
-deriving instance Lift (f (ABT.Scope f)) => Lift (ABT.Scope f)
-deriving instance Lift r => Lift (PLCore.ClauseF r)
-deriving instance Lift a => Lift (PLCore.TermF a)
-deriving instance Lift a => Lift (PLCore.PatternF a)
-deriving instance Lift a => Lift (PLTypes.TypeF a)
-deriving instance Lift PLCore.PrimData
-deriving instance Lift PLCore.Program
 
 instance Bi PLCore.Term => SafeCopy PLCore.Term where
     getCopy = getCopyBi "Term"

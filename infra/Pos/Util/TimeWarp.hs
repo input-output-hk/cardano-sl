@@ -9,6 +9,7 @@ module Pos.Util.TimeWarp
        , addressToNodeId
        , addressToNodeId'
        , nodeIdToAddress
+       , addrParser
        ) where
 
 import qualified Data.ByteString.Char8 as BS8
@@ -16,6 +17,9 @@ import           Data.Time.Units       (Microsecond)
 import           Mockable              (realTime)
 import qualified Network.Transport.TCP as TCP
 import           Node                  (NodeId (..))
+import qualified Serokell.Util.Parse   as P
+import qualified Text.Parsec.Char      as P
+import qualified Text.Parsec.String    as P
 import           Universum
 
 -- | @"127.0.0.1"@.
@@ -42,3 +46,7 @@ nodeIdToAddress (NodeId ep) = do
     (hostName, strPort, _) <- TCP.decodeEndPointAddress ep
     port <- readMaybe strPort
     return (BS8.pack hostName, port)
+
+-- | Parsed for network address in format @host:port@.
+addrParser :: P.Parser NetworkAddress
+addrParser = (,) <$> (encodeUtf8 <$> P.host) <*> (P.char ':' *> P.port)

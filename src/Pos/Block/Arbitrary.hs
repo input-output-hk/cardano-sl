@@ -4,6 +4,7 @@
 module Pos.Block.Arbitrary
        ( HeaderAndParams (..)
        , BlockHeaderList (..)
+       , SmallTxPayload (..)
        ) where
 
 import           Data.Ix              (range)
@@ -26,7 +27,7 @@ import           Pos.Crypto           (ProxySecretKey, PublicKey, SecretKey,
 import           Pos.Data.Attributes  (Attributes (..), mkAttributes)
 import           Pos.Ssc.Arbitrary    (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.Class        (Ssc (..), SscHelpersClass)
-import           Pos.Txp.Core         (Tx (..), TxDistribution (..), TxWitness,
+import           Pos.Txp.Core         (Tx (..), TxDistribution (..), TxPayload, TxWitness,
                                        mkTxPayload)
 import qualified Pos.Types            as T
 import           Pos.Update.Arbitrary ()
@@ -151,23 +152,36 @@ txOutDistGen = listOf $ do
     (txOuts, txDist) <- second TxDistribution . NE.unzip <$> arbitrary
     return (UnsafeTx txIns txOuts $ mkAttributes (), txInW, txDist)
 
+instance Arbitrary TxPayload where
+    arbitrary =
+        fromMaybe (error "arbitrary@TxPayload: mkTxPayload failed") .
+        mkTxPayload <$>
+        txOutDistGen
+
+newtype SmallTxPayload =
+    SmallTxPayload TxPayload
+    deriving (Show, Eq, Bi)
+
+instance Arbitrary SmallTxPayload where
+    arbitrary = SmallTxPayload <$> makeSmall arbitrary
+
 instance Arbitrary (SscPayloadDependsOnSlot ssc) =>
          Arbitrary (BodyDependsOnConsensus (T.MainBlockchain ssc)) where
     arbitrary = pure $ BodyDependsOnConsensus $ \T.MainConsensusData{..} -> makeSmall $ do
-        txws <- txOutDistGen
-        generator <- genPayloadDependsOnSlot @ssc <$> arbitrary
-        mpcData <- generator _mcdSlot
+        txPayload   <- arbitrary
+        generator   <- genPayloadDependsOnSlot @ssc <$> arbitrary
+        mpcData     <- generator _mcdSlot
         mpcProxySKs <- arbitrary
         mpcUpload   <- arbitrary
-        return $ T.MainBody (mkTxPayload txws) mpcData mpcProxySKs mpcUpload
+        return $ T.MainBody txPayload mpcData mpcProxySKs mpcUpload
 
 instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc)) where
     arbitrary = makeSmall $ do
-        txws <- txOutDistGen
+        txPayload   <- arbitrary
         mpcData     <- arbitrary
         mpcProxySKs <- arbitrary
         mpcUpload   <- arbitrary
-        return $ T.MainBody (mkTxPayload txws) mpcData mpcProxySKs mpcUpload
+        return $ T.MainBody txPayload mpcData mpcProxySKs mpcUpload
 
 instance (Arbitrary (SscProof ssc), Arbitrary (SscPayloadDependsOnSlot ssc), SscHelpersClass ssc) =>
     Arbitrary (T.GenericBlock (T.MainBlockchain ssc)) where

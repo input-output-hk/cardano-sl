@@ -18,7 +18,7 @@ module Pos.Txp.Core.Types
        -- * Tx parts
        , TxIn (..)
        , TxOut (..)
-       , TxOutAux
+       , TxOutAux (..)
        , TxAttributes
 
        -- * Tx
@@ -34,6 +34,7 @@ module Pos.Txp.Core.Types
        -- * Payload and proof
        , TxProof (..)
        , TxPayload (..)
+       , mkTxPayload
        , txpTxs
        , txpWitnesses
        , txpDistributions
@@ -57,6 +58,7 @@ import           Serokell.Util.Text   (listBuilderJSON, listJson, listJsonIndent
 import           Serokell.Util.Verify (VerificationRes (..), verResSingleF, verifyGeneric)
 import           Universum
 
+import           Pos.Binary.Class     (Bi)
 import           Pos.Binary.Core      ()
 import           Pos.Binary.Crypto    ()
 import           Pos.Core.Address     ()
@@ -65,7 +67,7 @@ import           Pos.Core.Types       (Address (..), Coin, Script, StakeholderId
 import           Pos.Crypto           (Hash, PublicKey, RedeemPublicKey, RedeemSignature,
                                        Signature, hash, shortHashF)
 import           Pos.Data.Attributes  (Attributes)
-import           Pos.Merkle           (MerkleRoot, MerkleTree)
+import           Pos.Merkle           (MerkleRoot, MerkleTree, mkMerkleTree)
 
 -- | Represents transaction identifier as 'Hash' of 'Tx'.
 type TxId = Hash Tx
@@ -150,10 +152,16 @@ instance Buildable TxOut where
     build TxOut {..} =
         bprint ("TxOut "%coinF%" -> "%build) txOutValue txOutAddress
 
-type TxOutAux = (TxOut, [(StakeholderId, Coin)])
+-- | Transaction output and auxilary data corresponding to it.
+-- [CSL-366] Add more data.
+data TxOutAux = TxOutAux
+    { toaOut   :: !TxOut                   -- ^ Tx output
+    , toaDistr :: ![(StakeholderId, Coin)] -- ^ Stake distribution
+                                           -- associated with output
+    } deriving (Show, Eq)
 
 instance Buildable TxOutAux where
-    build (out, distr) =
+    build (TxOutAux out distr) =
         bprint ("{txout = "%build%", distr = "%listJson%"}")
                out (map pairBuilder distr)
 
@@ -224,14 +232,27 @@ mkTx inputs outputs attrs =
 ----------------------------------------------------------------------------
 
 data TxProof = TxProof
-    { txpNumber        :: !Word32
-    , txpRoot          :: !(MerkleRoot Tx)
-    , txpWitnessesHash :: !(Hash [TxWitness])
+    { txpNumber            :: !Word32
+    , txpRoot              :: !(MerkleRoot Tx)
+    , txpWitnessesHash     :: !(Hash [TxWitness])
+    , txpDistributionsHash :: !(Hash [TxDistribution])
     } deriving (Show, Eq, Generic)
 
-data TxPayload = TxPayload
+-- | Payload of Txp component which is part of main block. Constructor
+-- is unsafe, because it lets one create invalid payload, for example
+-- with different number of transactions and witnesses.
+data TxPayload = UnsafeTxPayload
     { -- | Transactions are the main payload.
       _txpTxs           :: !(MerkleTree Tx)
+    , -- | Transaction witnesses. Invariant: there are as many witnesses
+      -- as there are transactions in the block. This is checked during
+      -- deserialisation. We can't put them into the same Merkle tree
+      -- with transactions, as the whole point of segwit is to separate
+      -- transactions and witnesses.
+      --
+      -- TODO: should they be put into a separate Merkle tree or left as
+      -- a list?
+      _txpWitnesses     :: ![TxWitness]
     , -- | Distributions for P2SH addresses in transaction outputs.
       --     * length mbTxAddrDistributions == length mbTxs
       --     * i-th element is 'Just' if at least one output of i-th
@@ -242,25 +263,46 @@ data TxPayload = TxPayload
       -- Basically, address distributions are needed so that (potential)
       -- receivers of P2SH funds would count as stakeholders.
       _txpDistributions :: ![TxDistribution]
-    , -- | Transaction witnesses. Invariant: there are as many witnesses
-      -- as there are transactions in the block. This is checked during
-      -- deserialisation. We can't put them into the same Merkle tree
-      -- with transactions, as the whole point of segwit is to separate
-      -- transactions and witnesses.
-      --
-      -- TODO: should they be put into a separate Merkle tree or left as
-      -- a list?
-      _txpWitnesses     :: ![TxWitness]
     } deriving (Show, Eq, Generic)
 
 makeLenses ''TxPayload
+
+-- | Smart constructor of 'TxPayload' which can fail if some
+-- invariants are violated.
+--
+-- Currently there are two invariants:
+-- • number of txs must be same as number of witnesses and
+--   number of distributions;
+-- • each distribution must have the same number of elements as
+--   number of outputs in corresponding transaction.
+mkTxPayload
+    :: (Bi Tx, MonadFail m)
+    => [(Tx, TxWitness, TxDistribution)] -> m TxPayload
+mkTxPayload txws = do
+    let (txs, _txpWitnesses, _txpDistributions) = unzip3 txws
+    let _txpTxs = mkMerkleTree txs
+    let payload = UnsafeTxPayload {..}
+    mapM_ checkLen (zip3 [0 ..] txs _txpDistributions) $> payload
+  where
+    checkLen
+        :: MonadFail m
+        => (Int, Tx, TxDistribution) -> m ()
+    checkLen (i, tx, ds) = do
+        let lenOut = length (_txOutputs tx)
+            lenDist = length (getTxDistribution ds)
+        when (lenOut /= lenDist) $ fail $
+            formatToString
+                ("mkTxPayload: "%"amount of outputs ("%int%") of tx "%
+                 "#"%int%" /= amount of distributions " %
+                 "for this tx ("%int%")")
+                lenOut i lenDist
 
 ----------------------------------------------------------------------------
 -- Undo
 ----------------------------------------------------------------------------
 
 -- | Particular undo needed for transactions
-type TxUndo = [TxOutAux]
+type TxUndo = NonEmpty TxOutAux
 
 type TxpUndo = [TxUndo]
 
@@ -271,6 +313,7 @@ type TxpUndo = [TxUndo]
 derive makeNFData ''TxIn
 derive makeNFData ''TxInWitness
 derive makeNFData ''TxOut
+derive makeNFData ''TxOutAux
 derive makeNFData ''TxDistribution
 derive makeNFData ''Tx
 derive makeNFData ''TxProof

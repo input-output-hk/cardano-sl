@@ -9,9 +9,8 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util              (ms)
 import           Universum
 
-import           Pos.Infra.Constants.Parser (infraConstants)
-import           Pos.Infra.Constants.Type   (ccMaxInvSize, ccMaxReqSize,
-                                             ccNetworkReceiveTimeout)
+import           Pos.Infra.Constants        (ccMaxInvSize, ccMaxReqSize,
+                                             ccNetworkReceiveTimeout, infraConstants)
 
 networkReceiveTimeout :: Microsecond
 networkReceiveTimeout = ms . fromIntegral . ccNetworkReceiveTimeout $ infraConstants

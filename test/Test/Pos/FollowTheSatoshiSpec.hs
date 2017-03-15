@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE BangPatterns #-}
 
 -- | Specification of Pos.FollowTheSatoshi
 
@@ -16,12 +16,13 @@ import           Test.QuickCheck       (Arbitrary (..), choose, infiniteListOf, 
 import           Universum
 
 import           Pos.Constants         (epochSlots)
-import           Pos.Core.Coin         (unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Core              (Address (..), Coin, SharedSeed, StakeholderId,
+                                        mkCoin, sumCoins, unsafeAddCoin,
+                                        unsafeIntegerToCoin)
 import           Pos.Crypto            (unsafeHash)
 import           Pos.Lrc               (followTheSatoshi)
-import           Pos.Txp               (TxIn (..), TxOut (..), Utxo, txOutStake)
-import           Pos.Types             (Address (..), Coin, SharedSeed, StakeholderId,
-                                        mkCoin, sumCoins)
+import           Pos.Txp               (TxIn (..), TxOut (..), TxOutAux (..), Utxo,
+                                        txOutStake)
 
 spec :: Spec
 spec = do
@@ -85,9 +86,10 @@ instance Arbitrary StakeAndHolder where
             (myAddrHash, setUtxo) = S.deleteFindMin setAdr
             nAdr = S.size setUtxo
             values = scanl1 unsafeAddCoin $ replicate nAdr coins
+            toTxOutAux ah v = TxOutAux (TxOut (PubKeyAddress ah def) v) []
             utxoList =
                 (zipWith TxIn (replicate nAdr txId) [0 .. fromIntegral nAdr]) `zip`
-                (zipWith (\ah v -> (TxOut (PubKeyAddress ah def) v, [])) (toList setUtxo) values)
+                (zipWith toTxOutAux (toList setUtxo) values)
         return (myAddrHash, M.fromList utxoList)
 
 ftsListLength :: SharedSeed -> StakeAndHolder -> Bool
@@ -112,7 +114,7 @@ ftsAllStake
     -> Coin
     -> Bool
 ftsAllStake fts key ah v =
-    let utxo = M.singleton key (TxOut (PubKeyAddress ah def) v, [])
+    let utxo = M.singleton key (TxOutAux (TxOut (PubKeyAddress ah def) v) [])
     in all (== ah) $ followTheSatoshi fts utxo
 
 -- | Constant specifying the number of times 'ftsReasonableStake' will be
@@ -183,7 +185,7 @@ ftsReasonableStake
                            (stakeProbability * totalStake) /
                            (1 - stakeProbability)
         txOut        = TxOut (PubKeyAddress adrH def) newStake
-        newUtxo      = M.insert key (txOut, []) utxo
+        newUtxo      = M.insert key (TxOutAux txOut []) utxo
         picks        = followTheSatoshi fts newUtxo
         pLen         = length picks
         newPresent   = present +

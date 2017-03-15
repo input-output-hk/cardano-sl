@@ -53,7 +53,7 @@ getLocalTxs = HM.toList . _mpLocalTxs <$> getMemPool
 
 getLocalTxsNUndo
     :: (MonadIO m, MonadTxpMem m)
-    => m ([(TxId, TxAux)], HashMap TxId [TxOutAux])
+    => m ([(TxId, TxAux)], HashMap TxId (NonEmpty TxOutAux))
 getLocalTxsNUndo =
     getTxpLocalData $ \TxpLocalData {..} ->
         (,) <$> (HM.toList . _mpLocalTxs <$> STM.readTVar txpMemPool) <*>

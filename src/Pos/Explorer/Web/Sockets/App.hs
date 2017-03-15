@@ -26,6 +26,7 @@ import           Network.SocketIO                 (RoutingTable, Socket,
                                                    socketId)
 import           Pos.DB.Class                     (MonadDB)
 import qualified Pos.DB.GState                    as DB
+import           Pos.Slotting.Class               (MonadSlots)
 import           Pos.Ssc.Class                    (SscHelpersClass)
 import           Snap.Core                        (MonadSnap, route)
 import qualified Snap.CORS                        as CORS
@@ -109,42 +110,42 @@ notifierServer settings connVar = do
 
 periodicPollChanges
     :: forall ssc m.
-       (MonadIO m, MonadMask m, MonadDB m, WithLogger m, SscHelpersClass ssc)
+       (MonadIO m, MonadMask m, MonadDB m, WithLogger m, SscHelpersClass ssc,
+        MonadSlots m)
     => ConnectionsVar -> m Bool -> m ()
 periodicPollChanges connVar closed =
     runPeriodicallyUnless (500 :: Millisecond) closed Nothing $ do
         curBlock  <- DB.getTip
         mWasBlock <- identity <<.= Just curBlock
 
-        -- notify about addrs
-        mBlocks <- fmap join $ forM mWasBlock $ \wasBlock ->
-            getBlocksFromTo @ssc curBlock wasBlock
-        notifiedAddrs <- case mBlocks of
-            Nothing     -> return False
-            Just blocks -> do
-                addrs <- S.toList . mconcat . fmap S.fromList <$>
-                    mapM blockAddresses blocks
-                forM_ addrs $ \addr ->
-                    askingConnState connVar $ notifyAddrSubscribers addr
-                unless (null addrs) $
-                    logDebug $ sformat ("Addresses updated: "%shown) addrs
-                return True
-
-        -- notify about blocks
         when (mWasBlock /= Just curBlock) $ do
-            askingConnState connVar $ do
-                notifyBlocksSubscribers
-                unless notifiedAddrs notifyAllAddrSubscribers
+            mBlocks <- fmap join $ forM mWasBlock $ \wasBlock ->
+                getBlocksFromTo @ssc curBlock wasBlock
+            case mBlocks of
+                Nothing     -> do
+                    logDebug "Failed to fetch blocks from db"
+                    askingConnState connVar notifyAllAddrSubscribers
+                Just blocks -> do
+                    -- notify about addrs
+                    addrs <- S.toList . mconcat . fmap S.fromList <$>
+                        mapM blockAddresses blocks
+                    forM_ addrs $ \addr ->
+                        askingConnState connVar $ notifyAddrSubscribers addr
+                    unless (null addrs) $
+                        logDebug $ sformat ("Addresses updated: "%shown) addrs
 
-            let blocksInfo = maybe "" (sformat $ " ("%int%" blocks)") $
-                    length <$> mBlocks
-            logDebug $ sformat ("Blockchain updated"%stext) blocksInfo
+                    -- notify about blocks
+                    askingConnState connVar $ notifyBlocksSubscribers blocks
+
+                    let blocksInfo = maybe "" (sformat $ " ("%int%" blocks)") $
+                            length <$> mBlocks
+                    logDebug $ sformat ("Blockchain updated"%stext) blocksInfo
 
 -- | Starts notification server. Kill current thread to stop it.
 notifierApp
     :: forall ssc m.
        (MonadIO m, MonadMask m, MonadDB m, Mockable Fork m,
-        WithLogger m, SscHelpersClass ssc)
+        WithLogger m, MonadSlots m, SscHelpersClass ssc)
     => NotifierSettings -> m ()
 notifierApp settings = modifyLoggerName (<> "notifier") $ do
     logInfo "Starting"

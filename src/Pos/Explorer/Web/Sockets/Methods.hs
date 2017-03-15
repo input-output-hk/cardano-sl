@@ -28,6 +28,7 @@ module Pos.Explorer.Web.Sockets.Methods
 import           Control.Lens                    (at, (%=), (.=), _Just)
 import           Control.Monad                   (join)
 import           Control.Monad.State             (MonadState)
+import           Data.Aeson                      (ToJSON)
 import qualified Data.Set                        as S
 import           Formatting                      (build, sformat, shown, (%))
 import           GHC.Exts                        (toList)
@@ -37,6 +38,7 @@ import qualified Pos.Block.Logic                 as DB
 import           Pos.DB                          (MonadDB)
 import qualified Pos.DB.Block                    as DB
 import qualified Pos.DB.GState                   as DB
+import           Pos.Slotting.Class              (MonadSlots)
 import           Pos.Ssc.Class                   (SscHelpersClass)
 import           Pos.Txp                         (Tx (..), TxOutAux (..), txOutAddress)
 import           Pos.Types                       (Address, Block, ChainDifficulty,
@@ -45,13 +47,14 @@ import           System.Wlog                     (WithLogger, logDebug, logError
                                                   logWarning)
 import           Universum                       hiding (toList)
 
-import           Pos.Explorer.Web.ClientTypes    (CAddress, fromCAddress)
+import           Pos.Explorer.Aeson.ClientTypes  ()
+import           Pos.Explorer.Web.ClientTypes    (CAddress, fromCAddress, toBlockEntry)
 import           Pos.Explorer.Web.Sockets.Error  (NotifierError (..))
 import           Pos.Explorer.Web.Sockets.Holder (ConnectionsState, ccAddress, ccBlock,
                                                   ccConnection, csAddressSubscribers,
                                                   csBlocksSubscribers, csClients,
                                                   mkClientContext)
-import           Pos.Explorer.Web.Sockets.Util   (EventName (..), emitJSONTo)
+import           Pos.Explorer.Web.Sockets.Util   (EventName (..), emitTo)
 
 -- * Event names
 
@@ -185,16 +188,17 @@ unsubscribeFully i = unsubscribeBlocks i >> unsubscribeAddr i
 
 -- * Notifications
 
-broadcastTo
-    :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m)
-    => Set SocketId -> m ()
-broadcastTo recipients = do
+broadcast
+    :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m,
+        EventName event, ToJSON args)
+    => event -> args -> Set SocketId -> m ()
+broadcast event args recipients = do
     forM_ recipients $ \sockid -> do
         mSock <- preview $ csClients . at sockid . _Just . ccConnection
         case mSock of
             Nothing   -> logError $
                 sformat ("No socket with SocketId="%shown%" registered") sockid
-            Just sock -> emitJSONTo sock BlocksUpdated empty
+            Just sock -> emitTo sock event args
                 `catchAll` handler sockid
   where
     handler sockid = logWarning .
@@ -205,7 +209,7 @@ notifyAddrSubscribers
     => Address -> m ()
 notifyAddrSubscribers addr = do
     mRecipients <- view $ csAddressSubscribers . at addr
-    whenJust mRecipients broadcastTo
+    whenJust mRecipients $ broadcast AddrUpdated ()
 
 notifyAllAddrSubscribers
     :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m)
@@ -215,10 +219,16 @@ notifyAllAddrSubscribers = do
     mapM_ notifyAddrSubscribers $ map fst $ toList addrSubscribers
 
 notifyBlocksSubscribers
-    :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m)
-    => m ()
-notifyBlocksSubscribers =
-    view csBlocksSubscribers >>= broadcastTo
+    :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m,
+        MonadSlots m, SscHelpersClass ssc)
+    => [Block ssc] -> m ()
+notifyBlocksSubscribers blocks = do
+    recipients <- view csBlocksSubscribers
+    cblocks    <- catMaybes <$> forM blocks toClientType
+    broadcast BlocksUpdated cblocks recipients
+  where
+    toClientType (Left _)          = return Nothing
+    toClientType (Right mainBlock) = Just <$> toBlockEntry mainBlock
 
 getBlocksFromTo
     :: forall ssc m.

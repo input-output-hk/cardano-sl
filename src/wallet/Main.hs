@@ -16,7 +16,7 @@ import           Mockable                  (delay)
 import           Options.Applicative       (execParser)
 import           System.IO                 (hFlush, stdout)
 import           System.Wlog               (logDebug, logError, logInfo, logWarning)
-#if !(defined(mingw32_HOST_OS) && defined(__MINGW32__))
+#if !(defined(mingw32_HOST_OS))
 import           System.Exit               (ExitCode (ExitSuccess))
 import           System.Posix.Process      (exitImmediately)
 #endif
@@ -213,7 +213,7 @@ runWalletCmd wo str sa = do
     putText "Command execution finished"
     putText " " -- for exit by SIGPIPE
     liftIO $ hFlush stdout
-#if !(defined(mingw32_HOST_OS) && defined(__MINGW32__))
+#if !(defined(mingw32_HOST_OS))
     delay $ sec 3
     liftIO $ exitImmediately ExitSuccess
 #endif

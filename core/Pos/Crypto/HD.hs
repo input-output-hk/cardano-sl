@@ -4,6 +4,7 @@ module Pos.Crypto.HD
        ( HDPassphrase
        , HDAddressPayload (..)
        , packHDAddressAttr
+       , unpackHDAddressAttr
        , deriveHDPublicKey
        , deriveHDSecretKey
        , deriveHDPassphrase
@@ -15,13 +16,12 @@ import           Crypto.Cipher.ChaChaPoly1305 as C
 import           Crypto.Error
 import           Crypto.Hash                  (SHA512 (..))
 import qualified Crypto.KDF.PBKDF2            as PBKDF2
-import           Data.Binary.Put              (runPut)
 import           Data.ByteArray               as BA (ByteArrayAccess, convert)
 import           Data.ByteString.Char8        as B
 import qualified Data.ByteString.Lazy         as BSL
 import           Universum
 
-import           Pos.Binary.Class             (Bi (..))
+import           Pos.Binary.Class             (decodeFull, encodeStrict)
 import           Pos.Crypto.Signing           (PublicKey (..), SecretKey (..))
 
 -- | Passphrase is a hash of root public key.
@@ -73,20 +73,55 @@ deriveHDSecretKey passPhrase (SecretKey xprv) childIndex
   | otherwise =
       SecretKey $ deriveXPrv passPhrase xprv (childIndex - maxHardened - 1)
 
+addrAttrNonce :: ByteString
+addrAttrNonce = "serokellfore"
+
+addrAttrHeader :: ByteString
+addrAttrHeader = "addressattr"
+
 -- | Serialize tree path and encrypt it using passphrase via ChaChaPoly1305.
 packHDAddressAttr :: HDPassphrase -> [Word32] -> HDAddressPayload
-packHDAddressAttr (HDPassphrase simkey) path = do
-    let pathSer = BSL.toStrict $ runPut (put path)
+packHDAddressAttr (HDPassphrase passphrase) path = do
+    let pathSer = encodeStrict path
     let packCF =
           encryptChaChaPoly
-              "serokellfore"
-              simkey
-              "addressattr" -- I don't know what does mean this parameter.
-                            -- Seems value isn't important...
+              addrAttrNonce
+              passphrase
+              addrAttrHeader -- I don't know what does mean this parameter. Seems value isn't important...
               pathSer
     case packCF of
-        CryptoFailed er -> error $ "Error during packHDAddressAttr: " <> show er
+        CryptoFailed er -> error $ "Error in packHDAddressAttr: " <> show er
         CryptoPassed p  -> HDAddressPayload p
+
+unpackHDAddressAttr :: MonadFail m => HDPassphrase -> HDAddressPayload -> m [Word32]
+unpackHDAddressAttr (HDPassphrase passphrase) (HDAddressPayload payload) = do
+    let unpackCF =
+          decryptChaChaPoly
+              addrAttrNonce
+              passphrase
+              addrAttrHeader
+              payload
+    case unpackCF of
+        CryptoFailed er ->
+            fail $ "Error in unpackHDAddressAttr, during decryption: " <> show er
+        CryptoPassed p -> case decodeFull . BSL.fromStrict $ p of
+            Left er ->
+                fail $ "Error in unpackHDAddressAttr, during deserialization: " <> show er
+            Right path -> pure path
+
+-- Wrapper around ChaChaPoly1305 module.
+decryptChaChaPoly
+    :: ByteString -- nonce (12 random bytes)
+    -> ByteString -- symmetric key
+    -> ByteString -- optional associated data (won't be encrypted)
+    -> ByteString -- input plaintext to be decrypted
+    -> CryptoFailable ByteString -- decrypted text
+decryptChaChaPoly nonce key header encTextWithTag = do
+    st1 <- C.nonce12 nonce >>= C.initialize key
+    let st2 = C.finalizeAAD $ C.appendAAD header st1
+    let (out, _) = C.decrypt encTextWithTag st2
+    -- is it free from mem leaks?
+    pure out
 
 -- Wrapper around ChaChaPoly1305 module.
 encryptChaChaPoly

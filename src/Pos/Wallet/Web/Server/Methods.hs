@@ -477,8 +477,8 @@ testResetAll :: WalletWebMode ssc m => m ()
 testResetAll = deleteAllKeys >> testReset
   where
     deleteAllKeys = do
-        keyNum <- fromIntegral . pred . length <$> getSecretKeys
-        sequence_ $ replicate keyNum $ deleteSecretKey 1
+        keyNum <- length <$> getSecretKeys
+        sequence_ $ replicate keyNum $ deleteSecretKey 0
 #endif
 
 ---------------------------------------------------------------------------

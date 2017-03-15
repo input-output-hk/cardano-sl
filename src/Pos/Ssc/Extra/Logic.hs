@@ -30,11 +30,14 @@ import           Control.Concurrent.STM  (readTVar, writeTVar)
 import           Control.Lens            (_Wrapped)
 import           Control.Monad.Except    (MonadError, runExceptT)
 import           Control.Monad.State     (put)
+import           Control.Monad.State     (get)
 import           Formatting              (build, int, sformat, (%))
 import           Serokell.Util           (listJson)
-import           System.Wlog             (LogEvent, LoggerName, LoggerNameBox, PureLogger,
-                                          WithLogger, dispatchEvents, getLoggerName,
-                                          logDebug, runPureLog, usingLoggerName)
+import           System.Wlog             (LogEvent, LoggerName, LoggerNameBox,
+                                          NamedPureLogger, PureLogger, WithLogger,
+                                          dispatchEvents, getLoggerName,
+                                          launchNamedPureLog, logDebug, runPureLog,
+                                          usingLoggerName)
 import           Universum
 
 import           Pos.Context             (WithNodeContext, lrcActionOnEpochReason)
@@ -73,18 +76,14 @@ sscRunLocalQuery action = do
 sscRunLocalSTM
     :: forall ssc m a.
        (MonadSscMem ssc m, MonadIO m, WithLogger m)
-    => (LoggerNameBox (PureLogger (StateT (SscLocalData ssc) STM)) a) -> m a
+    => NamedPureLogger (StateT (SscLocalData ssc) STM) a -> m a
 sscRunLocalSTM action = do
-    loggerName <- getLoggerName
     localVar <- sscLocal <$> askSscMem
-    (res, events) <-
-        atomically $ do
-            oldLD <- readTVar localVar
-            ((res, events), !newLD) <-
-                flip runStateT oldLD . runPureLog . usingLoggerName loggerName $
-                action
-            (res, events) <$ writeTVar localVar newLD
-    res <$ dispatchEvents events
+    launchNamedPureLog (atomically . (`evalStateT` error "Don't touch")) $ do
+        put =<< (lift $ lift $ readTVar localVar)
+        res <- action
+        get >>= (lift . lift . writeTVar localVar)
+        return res
 
 -- | Run something that reads 'SscGlobalState' in 'MonadSscMem'.
 -- 'MonadIO' is also needed to use stm.

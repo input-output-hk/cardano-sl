@@ -15,8 +15,8 @@ import Explorer.View.Common (currencyCSSClass, transactionBodyView, transactionH
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, caAddress, caBalance, caTxNum)
 import Pos.Core.Lenses.Types (_Coin, getCoin)
-import Pux.Html (Html, div, text, h3, p, img) as P
-import Pux.Html.Attributes (className, src) as P
+import Pux.Html (Html, div, text, h3, p) as P
+import Pux.Html.Attributes (className, id_) as P
 import Pux.Router (link) as P
 
 addressView :: State -> P.Html Action
@@ -91,9 +91,10 @@ addressQr _ lang =
           [ P.text $ translate (I18nL.address <<< I18nL.addQrCode) lang  ]
       , P.div
           [ P.className "qr__wrapper" ]
-          [ P.img
+          [ P.div
               [ P.className "qr__image"
-              , P.src "" ]
+              , P.id_ "qr_image_id"
+              ]
               []
             , P.p
                 [ P.className "qr__description" ]

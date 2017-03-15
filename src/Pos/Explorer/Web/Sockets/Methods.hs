@@ -38,7 +38,7 @@ import           Pos.DB                          (MonadDB)
 import qualified Pos.DB.Block                    as DB
 import qualified Pos.DB.GState                   as DB
 import           Pos.Ssc.Class                   (SscHelpersClass)
-import           Pos.Txp                         (Tx (..), txOutAddress)
+import           Pos.Txp                         (Tx (..), TxOutAux (..), txOutAddress)
 import           Pos.Types                       (Address, Block, ChainDifficulty,
                                                   HeaderHash, blockTxas)
 import           System.Wlog                     (WithLogger, logDebug, logError,
@@ -240,7 +240,7 @@ blockAddresses block = do
                 -- and transactions from InTx
                 inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
                     Nothing       -> S.empty <$ logError "DB is malformed!"
-                    Just (tx', _) -> return $ one tx'
+                    Just txOut -> return . one $ toaOut txOut
 
                 return $ S.fromList (toList $ _txOutputs tx)
                       <> (mconcat $ toList inTxs)

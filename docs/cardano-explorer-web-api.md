@@ -294,7 +294,7 @@ Clients must supply the following data
     "Right": [
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
@@ -310,14 +310,14 @@ Clients must supply the following data
     "Right": [
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         },
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
@@ -333,21 +333,21 @@ Clients must supply the following data
     "Right": [
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         },
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         },
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
@@ -408,7 +408,7 @@ Clients must supply the following data
     "Right": [
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
@@ -424,14 +424,14 @@ Clients must supply the following data
     "Right": [
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         },
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
@@ -447,21 +447,21 @@ Clients must supply the following data
     "Right": [
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         },
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         },
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }

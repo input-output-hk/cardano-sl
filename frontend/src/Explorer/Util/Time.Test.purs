@@ -1,13 +1,16 @@
 module Explorer.Util.Time.Test where
 
 import Prelude
-import Explorer.Util.Time (prettyDuration)
+import Control.Monad.Aff (Aff)
+import Control.Monad.State (StateT)
+import Data.Identity (Identity)
+import Data.Time.Duration (Days(Days), Milliseconds(Milliseconds), Minutes(Minutes), Seconds(Seconds))
 import Explorer.I18n.Lang (Language(..))
-import Data.Time.Duration (class Duration, Milliseconds(..), Seconds(..), Minutes(..), Hours(..), Days(..), convertDuration, toDuration, fromDuration)
-import Data.Int (floor, toNumber)
-import Test.Spec (describe, it)
+import Explorer.Util.Time (prettyDuration)
+import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
+testPrettyDuration :: forall eff. StateT (Array (Group (Aff eff Unit))) Identity Unit
 testPrettyDuration =
   describe "Explorer.Util.Time.Test.prettyDuration" do
     describe "short durations" do

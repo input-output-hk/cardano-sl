@@ -44,12 +44,13 @@ import qualified Pos.DB.GState          as GS
 import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
-import           Pos.Txp                (Tx (..), TxId, TxOut (..), _txOutputs)
-import           Pos.Types              (Address, ChainDifficulty, Coin, MainBlock,
-                                         Timestamp, addressF, blockTxs, decodeTextAddress,
-                                         difficultyL, gbHeader, gbhConsensus, headerHash,
-                                         mcdSlot, mkCoin, prevBlockL, sumCoins,
-                                         unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Txp                (Tx (..), TxId, TxOut (..), TxOutAux (..),
+                                         _txOutputs)
+import           Pos.Types              (Address, Coin, MainBlock, Timestamp, addressF,
+                                         blockTxs, decodeTextAddress, difficultyL,
+                                         gbHeader, gbhConsensus, headerHash, mcdSlot,
+                                         mkCoin, prevBlockL, sumCoins, unsafeAddCoin,
+                                         unsafeIntegerToCoin)
 import           Pos.Types.Explorer     (TxExtra (..))
 
 -------------------------------------------------------------------------------------
@@ -142,7 +143,7 @@ toBlockEntry blk = do
 -- | List of tx entries is returned from "get latest N transactions" endpoint
 data CTxEntry = CTxEntry
     { cteId         :: !CTxId
-    , cteTimeIssued :: !(Maybe POSIXTime)
+    , cteTimeIssued :: !POSIXTime
     , cteAmount     :: !Coin
     } deriving (Show, Generic)
 
@@ -150,10 +151,10 @@ totalTxMoney :: Tx -> Coin
 totalTxMoney = unsafeIntegerToCoin . sumCoins .
                map txOutValue . _txOutputs
 
-toTxEntry :: Maybe Timestamp -> Tx -> CTxEntry
+toTxEntry :: Timestamp -> Tx -> CTxEntry
 toTxEntry ts tx = CTxEntry {..}
   where cteId = toCTxId $ hash tx
-        cteTimeIssued = toPosixTime <$> ts
+        cteTimeIssued = toPosixTime ts
         cteAmount = totalTxMoney tx
 
 -- | Data displayed on block summary page
@@ -184,7 +185,7 @@ data CAddressSummary = CAddressSummary
 
 data CTxBrief = CTxBrief
     { ctbId         :: !CTxId
-    , ctbTimeIssued :: !(Maybe POSIXTime)
+    , ctbTimeIssued :: !POSIXTime
     , ctbInputs     :: ![(CAddress, Coin)]
     , ctbOutputs    :: ![(CAddress, Coin)]
     } deriving (Show, Generic)
@@ -223,7 +224,7 @@ instance FromHttpApiData CTxId where
 --------------------------------------------------------------------------------
 
 data TxInternal = TxInternal
-    { tiTimestamp :: !(Maybe Timestamp)
+    { tiTimestamp :: !Timestamp
     , tiTx        :: !Tx
     } deriving (Show)
 
@@ -236,6 +237,6 @@ toTxBrief txi txe = CTxBrief {..}
     tx = tiTx txi
     ts = tiTimestamp txi
     ctbId = toCTxId $ hash tx
-    ctbTimeIssued = toPosixTime <$> ts
-    ctbInputs = convertTxOutputs $ map fst $ NE.toList $ teInputOutputs txe
+    ctbTimeIssued = toPosixTime ts
+    ctbInputs = convertTxOutputs $ map toaOut $ NE.toList $ teInputOutputs txe
     ctbOutputs = convertTxOutputs . NE.toList $ _txOutputs tx

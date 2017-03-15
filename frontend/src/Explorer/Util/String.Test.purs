@@ -1,10 +1,14 @@
 module Explorer.Util.String.Test where
 
 import Prelude
+import Control.Monad.Aff (Aff)
+import Control.Monad.State (StateT)
+import Data.Identity (Identity)
 import Explorer.Util.String (substitute)
-import Test.Spec (describe, it)
+import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
+testStringUtil :: forall eff. StateT (Array (Group (Aff eff Unit))) Identity Unit
 testStringUtil =
   describe "Explorer.Util.String" do
     describe "substitute" do

@@ -5,10 +5,10 @@ import Prelude
 import Data.Int (floor, toNumber)
 import Data.String (trim, joinWith)
 import Data.Tuple (uncurry, Tuple(..))
-import Data.Newtype (unwrap, un)
-import Data.Time.Duration (class Duration, Milliseconds(..), Minutes(..), Hours(..), Days(..), convertDuration, toDuration, fromDuration)
-import Explorer.I18n.Lenses (common, cDays, cHours, cMinutes, cSeconds) as I18nL
-import Explorer.I18n.Lang (Language, languageNativeName, translate)
+import Data.Newtype (un)
+import Data.Time.Duration (class Duration, Minutes(..), Hours(..), Days(..), convertDuration)
+import Explorer.I18n.Lenses (common, cDays, cHours, cMinutes) as I18nL
+import Explorer.I18n.Lang (Language, translate)
 
 -- show readable duration
 prettyDuration :: forall a. Duration a => Language -> a -> String

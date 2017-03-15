@@ -1,9 +1,9 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PolyKinds         #-}
+{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE TypeOperators     #-}
 
 -- | Documentation of cardano explorer web API.
 
@@ -13,24 +13,18 @@ import           Data.Time                      (defaultTimeLocale, parseTimeOrE
 import           Data.Time.Clock.POSIX          (POSIXTime, utcTimeToPOSIXSeconds)
 
 import           Servant.API                    (Capture, QueryParam)
-import           Servant.Docs                   (API, DocCapture (..),
-                                                 DocIntro (..),
-                                                 DocQueryParam (..),
-                                                 ParamKind (Normal),
-                                                 ToCapture (toCapture),
-                                                 ToParam (toParam),
-                                                 ToSample (toSamples),
-                                                 docsWithIntros, markdown,
-                                                 pretty)
+import           Servant.Docs                   (API, DocCapture (..), DocIntro (..),
+                                                 DocQueryParam (..), ParamKind (Normal),
+                                                 ToCapture (toCapture), ToParam (toParam),
+                                                 ToSample (toSamples), docsWithIntros,
+                                                 markdown, pretty)
 import           Universum
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
-                                                 CAddressSummary (..),
-                                                 CBlockEntry (..),
-                                                 CBlockSummary (..), CHash (..),
-                                                 CTxEntry (..), CTxId (..),
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
+                                                 CBlockEntry (..), CBlockSummary (..),
+                                                 CHash (..), CTxEntry (..), CTxId (..),
                                                  CTxSummary (..))
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 import           Pos.Types                      (mkCoin)
@@ -179,7 +173,7 @@ instance ToSample CTxEntry where
       where
         sample = CTxEntry
             { cteId         = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
-            , cteTimeIssued = Nothing
+            , cteTimeIssued = posixTime
             , cteAmount     = mkCoin 33333
             }
 

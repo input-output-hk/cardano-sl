@@ -6,11 +6,15 @@ module Pos.Crypto.HD
        , packHDAddressAttr
        , deriveHDPublicKey
        , deriveHDSecretKey
+       , deriveHDPassphrase
        ) where
 
-import           Cardano.Crypto.Wallet        (deriveXPrv, deriveXPrvHardened, deriveXPub)
+import           Cardano.Crypto.Wallet        (deriveXPrv, deriveXPrvHardened, deriveXPub,
+                                               unXPub)
 import           Crypto.Cipher.ChaChaPoly1305 as C
 import           Crypto.Error
+import           Crypto.Hash                  (SHA512 (..))
+import qualified Crypto.KDF.PBKDF2            as PBKDF2
 import           Data.Binary.Put              (runPut)
 import           Data.ByteArray               as BA (ByteArrayAccess, convert)
 import           Data.ByteString.Char8        as B
@@ -24,6 +28,17 @@ newtype HDPassphrase = HDPassphrase ByteString
 
 newtype HDAddressPayload = HDAddressPayload ByteString
     deriving (Eq, Ord, Show, NFData, Generic)
+
+deriveHDPassphrase :: PublicKey -> HDPassphrase
+deriveHDPassphrase (PublicKey pk) = HDPassphrase $
+    PBKDF2.generate
+        (PBKDF2.prfHMAC SHA512)
+        (PBKDF2.Parameters 500 passLen)
+        (unXPub pk)
+        ("address-hashing"::ByteString)
+  where
+    -- Password length in bytes
+    passLen = 32
 
 maxHardened :: Word32
 maxHardened = fromIntegral $ (2::Word32)^(31::Word32)-1

@@ -194,9 +194,7 @@ instance (MonadIO m, MonadThrow m) =>
     addSecretKey sk =
         whenM (not . elem sk <$> use usKeys) $
             usKeys <>= [sk]
-    deleteSecretKey (fromIntegral -> i)
-        | i == 0 = throwM $ PrimaryKey "Cannot delete a primary secret key"
-        | otherwise = usKeys %= deleteAt i
+    deleteSecretKey (fromIntegral -> i) = usKeys %= deleteAt i
 
 -- | Derived instances for ancestors in monad stack
 deriving instance MonadKeys m => MonadKeys (SscHolder ssc m)

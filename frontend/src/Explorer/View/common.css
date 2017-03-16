@@ -16,9 +16,6 @@
     @neat-span-columns 8;
     color: var(--color8);
     line-height: var(--transaction-header-height);
-
-    button: standard-button;
-    button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
   }
 
   .date {
@@ -102,12 +99,17 @@
 
   .amount-container {
     @neat-span-columns 2;
+    padding: 18px 0 0 0;
     text-align: right;
     box-item: center;
   }
 
+  .amount-wrapper {
+    padding-bottom: 12px;
+    display: block;
+  }
+
   .amount {
-    padding: 18px 0;
     padding-left: 10px;
     background-repeat: no-repeat;
     background-position: left center;

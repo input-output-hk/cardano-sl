@@ -86,7 +86,7 @@ transactionRow :: State -> CTxEntry -> P.Html Action
 transactionRow state (CTxEntry entry) =
     P.div
         [ P.className "transactions__row" ]
-        [ P.link (toUrl <<< Transaction $ entry ^. cteId <<< _CTxId)
+        [ P.link (toUrl <<< Tx $ entry ^. cteId)
               [ P.className "transactions__column hash" ]
               [ P.text $ entry ^. (cteId <<< _CTxId <<< _CHash) ]
         , transactionColumn (show $ entry ^. (cteTimeIssued <<< _NominalDiffTime)) ""

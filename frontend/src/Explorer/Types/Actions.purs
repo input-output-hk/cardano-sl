@@ -6,7 +6,7 @@ import Data.Either (Either)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Explorer.Types.State (DashboardAPICode, CBlockEntries, CTxEntries)
-import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash)
+import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
 import Signal.Channel (Channel)
 
 data Action
@@ -31,6 +31,8 @@ data Action
     | ReceiveBlockTxs (Either Error CTxEntries)
     | RequestInitialTxs
     | ReceiveInitialTxs (Either Error CTxEntries)
+    | RequestTxSummary CTxId
+    | ReceiveTxSummary (Either Error CTxSummary)
     | RequestAddressSummary CAddress
     | ReceiveAddressSummary (Either Error CAddressSummary)
     -- dashboard

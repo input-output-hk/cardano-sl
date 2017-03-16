@@ -1,26 +1,28 @@
 module Explorer.View.Address where
 
 import Prelude
+import Data.Array (length, (!!))
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cAddress, common, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance) as I18nL
-import Explorer.Lenses.State (lang)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, currentAddressSummary, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
-import Explorer.Util.Factory (mkEmptyCTxEntry, mkEmptyCAddressSummary)
+import Explorer.Util.Factory (mkCTxEntryFrom, mkEmptyCTxEntry)
 import Explorer.View.Common (currencyCSSClass, transactionBodyView, transactionHeaderView, transactionPaginationView)
-import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, caAddress, caBalance, caTxNum)
 import Pos.Core.Lenses.Types (_Coin, getCoin)
+import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, caAddress, caBalance, caTxList, caTxNum)
 import Pux.Html (Html, div, text, h3, p) as P
 import Pux.Html.Attributes (className, id_) as P
 import Pux.Router (link) as P
 
 addressView :: State -> P.Html Action
 addressView state =
+    let lang' = state ^. lang in
     P.div
         [ P.className "explorer-address" ]
         [ P.div
@@ -30,21 +32,16 @@ addressView state =
                   [ P.h3
                           [ P.className "headline"]
                           [ P.text $ translate (I18nL.common <<< I18nL.cAddress) lang' ]
-                  -- FIXME (jk)
-                  -- As long we dont have any live data
-                  -- use following mock data.
-                  -- Otherwise compare w/ currentAddressSummary as follow:
-                  -- , case state ^. currentAddressSummary of
-                  , case Just mkEmptyCAddressSummary of
+                  , case state ^. currentAddressSummary of
                       Nothing ->
                           P.div
                               [ P.className "address-wrapper" ]
                               [ P.text "" ]
-                      Just address ->
+                      Just addressSummary ->
                           P.div
                               [ P.className "address-wrapper" ]
-                              [ addressDetail address lang'
-                              , addressQr address lang'
+                              [ addressDetailView addressSummary lang'
+                              , addressQr addressSummary lang'
                               ]
 
                       ]
@@ -54,33 +51,43 @@ addressView state =
                 [ P.div
                       [ P.className "explorer-address__container" ]
                       [ P.h3
-                              [ P.className "headline"]
-                              [ P.text $ translate (I18nL.common <<< I18nL.cTransactions) lang' ]
-                        -- TODO (jk) use empty CTxEntry if we'll have real data
-                        , transactionHeaderView mkEmptyCTxEntry
-                        , transactionBodyView state
-                        -- TODO (jk) use empty CTxEntry if we'll have real data
-                        , transactionHeaderView mkEmptyCTxEntry
-                        , transactionBodyView state
-                        , transactionPaginationView paginationViewProps
+                          [ P.className "headline"]
+                          [ P.text $ translate (I18nL.common <<< I18nL.cTransactions) lang' ]
+                        , case state ^. currentAddressSummary of
+                              Nothing ->
+                                  -- TODO (jk) Use `emptyTxHeaderView` if #15 has been merged
+                                  P.div
+                                      [ P.className "transaction-header"]
+                                      [ ]
+                              Just (CAddressSummary addressSummary) ->
+                                  let txList = addressSummary ^. caTxList
+                                      txPagination = state ^. (viewStates <<< addressDetail <<< addressTxPagination)
+                                  in
+                                  P.div
+                                      []
+                                      [ transactionHeaderView $ case txList !! (txPagination - 1) of
+                                                                Nothing -> mkEmptyCTxEntry
+                                                                Just txBrief -> mkCTxEntryFrom txBrief
+                                      , transactionBodyView state
+                                      , transactionPaginationView
+                                            { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                                            , currentPage: 1
+                                            , maxPage: (length txList) + 1
+                                            , changePageAction: AddressPaginateTxs
+                                            , onFocusAction: SelectInputText <<< targetToHTMLInputElement
+                                            }
+                                      ]
+
                       ]
                 ]
             ]
-            where
-                lang' = state ^. lang
-                paginationViewProps =
-                    { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                    , currentPage: 1
-                    , maxPage: 1
-                    , changePageAction: AddressPaginateTransactions
-                    , onFocusAction: SelectInputText <<< targetToHTMLInputElement
-                    }
 
-addressDetail :: CAddressSummary -> Language -> P.Html Action
-addressDetail address lang =
+
+addressDetailView :: CAddressSummary -> Language -> P.Html Action
+addressDetailView addressSummary lang =
     P.div
         [ P.className "address-detail" ]
-        $ map addressDetailRow $ addressDetailRowItems address lang
+        $ map addressDetailRow $ addressDetailRowItems addressSummary lang
 
 addressQr :: CAddressSummary -> Language -> P.Html Action
 addressQr _ lang =

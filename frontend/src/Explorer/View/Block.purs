@@ -5,16 +5,16 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cBlock, common, cOf, cNotAvailable, block, blFees, blRoot, blNextBlock, blPrevBlock, blEstVolume, cHash, cSummary, cTotalOutput, cHashes, cHeight, cTransactions) as I18nL
-import Explorer.Lenses.State (lang, currentBlock)
+import Explorer.Lenses.State (currentBlockSummary, lang)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
 import Explorer.Util.Factory (mkEmptyCTxEntry)
 import Explorer.View.Common (currencyCSSClass, transactionPaginationView, transactionHeaderView, transactionBodyView)
+import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeHeight, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
-import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pux.Html (Html, div, text, h3) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Router (link) as P
@@ -32,7 +32,7 @@ blockView state =
                   [ P.h3
                       [ P.className "headline"]
                       [ P.text $ translate (I18nL.common <<< I18nL.cBlock) lang' ]
-                    , blockSummaryView (state ^. currentBlock) lang'
+                    , blockSummaryView (state ^. currentBlockSummary) lang'
                   ]
 
             ]

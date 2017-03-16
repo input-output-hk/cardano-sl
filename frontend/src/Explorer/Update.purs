@@ -9,15 +9,15 @@ import Data.Array ((:))
 import Data.Either (Either(..))
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
-import Explorer.Api.Http (fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs)
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, currentAddressSummary, currentBlockTxs, connected, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, initialBlocksRequested, initialTxsRequested, handleLatestTxsSocketResult, currentBlock, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
+import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, currentAddressSummary, currentBlockSummary, currentBlockTxs, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
 import Explorer.Util.DOM (scrollTop)
 import Explorer.Util.QrCode (generateQrCode)
 import Network.HTTP.Affjax (AJAX)
-import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects)
 
 
@@ -64,7 +64,7 @@ update (DashboardFocusSearchInput value) state = noEffects $
 
 -- Address
 
-update (AddressPaginateTransactions value) state = noEffects $
+update (AddressPaginateTxs value) state = noEffects $
     set (viewStates <<< addressDetail <<< addressTxPagination) value state
 
 -- Block
@@ -125,10 +125,10 @@ update (RequestBlockSummary hash) state =
     { state: set loading true $ state
     , effects: [ attempt (fetchBlockSummary hash) >>= pure <<< ReceiveBlockSummary ]
     }
-update (ReceiveBlockSummary (Right block)) state =
+update (ReceiveBlockSummary (Right blockSummary)) state =
     noEffects $
     set loading false $
-    set currentBlock (Just block) state
+    set currentBlockSummary (Just blockSummary) state
 update (ReceiveBlockSummary (Left error)) state =
     noEffects $
     set loading false $
@@ -166,12 +166,15 @@ update (ReceiveInitialTxs (Left error)) state = noEffects $
 
 update (RequestAddressSummary address) state =
     { state: set loading true state
-    , effects: [ attempt fetchLatestTxs >>= pure <<< ReceiveInitialTxs ]
+    , effects: [ attempt (fetchAddressSummary address) >>= pure <<< ReceiveAddressSummary ]
     }
 update (ReceiveAddressSummary (Right address)) state =
-    noEffects $
-    set loading false $
-    set currentAddressSummary (Just address) state
+    { state:
+        set loading false $
+        set currentAddressSummary (Just address) state
+    , effects:
+        [ pure $ GenerateQrCode $ address ^. (_CAddressSummary <<< caAddress) ]
+    }
 update (ReceiveAddressSummary (Left error)) state =
     noEffects $
     set loading false $
@@ -196,16 +199,17 @@ routeEffects Dashboard state =
     }
 routeEffects (Transaction hash) state = { state, effects: [ pure ScrollTop ] }
 routeEffects (Address address) state =
-    { state: set currentAddressSummary Nothing state
+    { state:
+        set currentAddressSummary Nothing
+        $ set (viewStates <<< addressDetail <<< addressTxPagination) 1 state
     , effects:
         [ pure ScrollTop
         , pure $ RequestAddressSummary address
-        , pure $ GenerateQrCode address
         ]
     }
 routeEffects Calculator state = { state, effects: [ pure ScrollTop ] }
 routeEffects (Block hash) state =
-    { state: set currentBlock Nothing state
+    { state: set currentBlockSummary Nothing state
     , effects:
         [ pure ScrollTop
         , pure $ RequestBlockSummary hash

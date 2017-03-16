@@ -33,7 +33,7 @@ initialState =
     , handleLatestBlocksSocketResult: false
     , initialTxsRequested: false
     , handleLatestTxsSocketResult: false
-    , currentBlock: Nothing
+    , currentBlockSummary: Nothing
     , currentBlockTxs: []
     , latestTransactions: []
     , currentAddressSummary: Nothing

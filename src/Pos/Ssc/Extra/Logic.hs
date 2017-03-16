@@ -28,8 +28,8 @@ module Pos.Ssc.Extra.Logic
 import           Control.Concurrent.STM  (readTVar, writeTVar)
 import           Control.Lens            (_Wrapped)
 import           Control.Monad.Except    (MonadError, runExceptT)
-import           Control.Monad.Morph     (hoist)
-import           Control.Monad.State     (get, put)
+import           Control.Monad.Morph     (generalize, hoist)
+import           Control.Monad.State     (put)
 import           Formatting              (build, int, sformat, (%))
 import           Serokell.Util           (listJson)
 import           System.Wlog             (NamedPureLogger, WithLogger, launchNamedPureLog,
@@ -57,20 +57,15 @@ import           Pos.Util                (NE, NewestFirst, OldestFirst, inAssert
 -- Utilities
 ----------------------------------------------------------------------------
 
--- | Like 'evalStateT', but expects state to be assigned at the beginning.
-evalStateTUninitialized :: Monad m => StateT s m a -> m a
-evalStateTUninitialized =
-    evaluatingStateT $ error "State wasn't initialized, suddenly!"
-
 -- | Applies state changes to given var.
 syncingStateWith
     :: TVar s
-    -> NamedPureLogger (StateT s STM) a
-    -> NamedPureLogger (StateT s STM) a
+    -> StateT s (NamedPureLogger STM) a
+    -> NamedPureLogger STM a
 syncingStateWith var action = do
-    put =<< (lift $ lift $ readTVar var)
-    res <- action
-    get >>= (lift . lift . writeTVar var)
+    oldV <- lift $ readTVar var
+    (res, newV) <- runStateT action oldV
+    lift $ writeTVar var newV
     return res
 
 -- | Run something that reads 'SscLocalData' in 'MonadSscMem'.
@@ -88,11 +83,10 @@ sscRunLocalQuery action = do
 sscRunLocalSTM
     :: forall ssc m a.
        (MonadSscMem ssc m, MonadIO m, WithLogger m)
-    => NamedPureLogger (StateT (SscLocalData ssc) STM) a -> m a
+    => StateT (SscLocalData ssc) (NamedPureLogger STM) a -> m a
 sscRunLocalSTM action = do
     localVar <- sscLocal <$> askSscMem
-    launchNamedPureLog (atomically . evalStateTUninitialized) $
-        syncingStateWith localVar action
+    launchNamedPureLog atomically $ syncingStateWith localVar action
 
 -- | Run something that reads 'SscGlobalState' in 'MonadSscMem'.
 -- 'MonadIO' is also needed to use stm.
@@ -153,7 +147,7 @@ sscNormalize = do
     localVar <- sscLocal <$> askSscMem
     gs <- atomically $ readTVar globalVar
 
-    launchNamedPureLog (atomically . evalStateTUninitialized) $
+    launchNamedPureLog atomically $
         syncingStateWith localVar $
         sscNormalizeU @ssc tipEpoch richmenData gs
 
@@ -186,13 +180,14 @@ type SscGlobalVerifyMode ssc m =
 sscRunGlobalUpdate
     :: forall ssc m a.
        SscGlobalApplyMode ssc m
-    => NamedPureLogger (State (SscGlobalState ssc)) a -> m a
+    => StateT (SscGlobalState ssc) (NamedPureLogger Identity) a -> m a
 sscRunGlobalUpdate action = do
     globalVar <- sscGlobal <$> askSscMem
-    launchNamedPureLog (atomically . evalStateTUninitialized) $
-        syncingStateWith globalVar $ switchMonadBaseIdentityToSTM action
+    launchNamedPureLog atomically $
+        syncingStateWith globalVar $
+        switchMonadBaseIdentityToSTM action
   where
-    switchMonadBaseIdentityToSTM = hoist $ hoist $ return . runIdentity
+    switchMonadBaseIdentityToSTM = hoist $ hoist generalize
 
 -- | Apply sequence of definitely valid blocks. Global state which is
 -- result of application of these blocks can be optionally passed as

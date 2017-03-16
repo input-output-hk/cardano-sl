@@ -5,5 +5,4 @@ module Pos.Explorer.Web
        ) where
 
 import           Pos.Explorer.Web.Server    as Web
-import           Pos.Explorer.Web.Sockets   as Web
 import           Pos.Explorer.Web.Transform as Web

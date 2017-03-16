@@ -6,41 +6,39 @@ module Pos.Explorer.Web.Transform
        , notifierPlugin
        ) where
 
-import           Control.Concurrent.STM       (TVar)
-import qualified Control.Monad.Catch          as Catch (Handler (..), catches)
-import           Control.Monad.Except         (MonadError (throwError))
-import           Mockable                     (runProduction)
-import           Servant.Server               (Handler)
-import           Servant.Utils.Enter          ((:~>) (..), enter)
-import           System.Wlog                  (usingLoggerName)
+import           Control.Concurrent.STM  (TVar)
+import qualified Control.Monad.Catch     as Catch (Handler (..), catches)
+import           Control.Monad.Except    (MonadError (throwError))
+import           Mockable                (runProduction)
+import           Servant.Server          (Handler)
+import           Servant.Utils.Enter     ((:~>) (..), enter)
+import           System.Wlog             (usingLoggerName)
 import           Universum
 
-import           Pos.Communication            (OutSpecs, PeerStateSnapshot, SendActions,
-                                               WithPeerState (..), WorkerSpec,
-                                               getAllStates, peerStateFromSnapshot,
-                                               runPeerStateHolder, worker)
-import           Pos.Context                  (NodeContext, getNodeContext,
-                                               runContextHolder)
-import           Pos.DB                       (NodeDBs, getNodeDBs, runDBHolder)
-import           Pos.Delegation               (DelegationWrap, askDelegationState,
-                                               runDelegationTFromTVar)
-import           Pos.DHT.Real.Real            (runKademliaDHT)
-import           Pos.DHT.Real.Types           (KademliaDHTInstance (..),
-                                               getKademliaDHTInstance)
-import           Pos.Slotting                 (NtpSlotting (..), NtpSlottingVar,
-                                               SlottingHolder (..), SlottingVar,
-                                               runNtpSlotting, runSlottingHolder)
-import           Pos.Ssc.Extra                (SscHolder (..), SscState, runSscHolder)
-import           Pos.Ssc.GodTossing           (SscGodTossing)
-import           Pos.Statistics               (getNoStatsT)
-import           Pos.Txp                      (TxpLocalData, askTxpMem,
-                                               runTxpHolderReader)
-import           Pos.Update                   (runUSHolder)
-import           Pos.WorkMode                 (ProductionMode)
+import           Pos.Communication       (OutSpecs, PeerStateSnapshot, SendActions,
+                                          WithPeerState (..), WorkerSpec, getAllStates,
+                                          peerStateFromSnapshot, runPeerStateHolder,
+                                          worker)
+import           Pos.Context             (NodeContext, getNodeContext, runContextHolder)
+import           Pos.DB                  (NodeDBs, getNodeDBs, runDBHolder)
+import           Pos.Delegation          (DelegationWrap, askDelegationState,
+                                          runDelegationTFromTVar)
+import           Pos.DHT.Real.Real       (runKademliaDHT)
+import           Pos.DHT.Real.Types      (KademliaDHTInstance (..),
+                                          getKademliaDHTInstance)
+import           Pos.Slotting            (NtpSlotting (..), NtpSlottingVar,
+                                          SlottingHolder (..), SlottingVar,
+                                          runNtpSlotting, runSlottingHolder)
+import           Pos.Ssc.Extra           (SscHolder (..), SscState, runSscHolder)
+import           Pos.Ssc.GodTossing      (SscGodTossing)
+import           Pos.Statistics          (getNoStatsT)
+import           Pos.Txp                 (TxpLocalData, askTxpMem, runTxpHolderReader)
+import           Pos.Update              (runUSHolder)
+import           Pos.WorkMode            (ProductionMode)
 
-import           Pos.Explorer.Web.Server      (explorerApp, explorerHandlers,
-                                               explorerServeImpl)
-import           Pos.Explorer.Web.Sockets.App (NotifierSettings, notifierApp)
+import           Pos.Explorer.Socket.App (NotifierSettings, notifierApp)
+import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers,
+                                          explorerServeImpl)
 
 -----------------------------------------------------------------
 -- Transformation to `Handler`

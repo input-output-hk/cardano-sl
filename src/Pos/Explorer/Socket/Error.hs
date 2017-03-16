@@ -1,6 +1,6 @@
 -- | Types describing runtime errors related to Explorer
 
-module Pos.Explorer.Web.Sockets.Error
+module Pos.Explorer.Socket.Error
        ( NotifierError (..)
        ) where
 

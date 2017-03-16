@@ -2,7 +2,7 @@
 
 -- | `ExplorerSockets` monad.
 
-module Pos.Explorer.Web.Sockets.Holder
+module Pos.Explorer.Socket.Holder
        ( ExplorerSockets
        , MonadExplorerSockets (..)
        , runExplorerSockets

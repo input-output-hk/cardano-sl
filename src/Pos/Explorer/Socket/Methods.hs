@@ -4,7 +4,7 @@
 
 -- | Logic of Explorer socket-io Server.
 
-module Pos.Explorer.Web.Sockets.Methods
+module Pos.Explorer.Socket.Methods
        ( Subscription (..)
        , ClientEvent (..)
        , ServerEvent (..)
@@ -26,36 +26,36 @@ module Pos.Explorer.Web.Sockets.Methods
        , blockAddresses
        ) where
 
-import           Control.Lens                    (at, (%=), (.=), _Just)
-import           Control.Monad                   (join)
-import           Control.Monad.State             (MonadState)
-import           Data.Aeson                      (ToJSON)
-import qualified Data.Set                        as S
-import           Formatting                      (build, sformat, shown, (%))
-import           GHC.Exts                        (toList)
-import           Network.EngineIO                (SocketId)
-import           Network.SocketIO                (Socket, socketId)
-import qualified Pos.Block.Logic                 as DB
-import           Pos.DB                          (MonadDB)
-import qualified Pos.DB.Block                    as DB
-import qualified Pos.DB.GState                   as DB
-import           Pos.Slotting.Class              (MonadSlots)
-import           Pos.Ssc.Class                   (SscHelpersClass)
-import           Pos.Txp                         (Tx (..), TxOutAux (..), txOutAddress)
-import           Pos.Types                       (Address, Block, ChainDifficulty,
-                                                  HeaderHash, blockTxas)
-import           System.Wlog                     (WithLogger, logDebug, logError,
-                                                  logWarning)
-import           Universum                       hiding (toList)
+import           Control.Lens                   (at, (%=), (.=), _Just)
+import           Control.Monad                  (join)
+import           Control.Monad.State            (MonadState)
+import           Data.Aeson                     (ToJSON)
+import qualified Data.Set                       as S
+import           Formatting                     (build, sformat, shown, (%))
+import           GHC.Exts                       (toList)
+import           Network.EngineIO               (SocketId)
+import           Network.SocketIO               (Socket, socketId)
+import qualified Pos.Block.Logic                as DB
+import           Pos.DB                         (MonadDB)
+import qualified Pos.DB.Block                   as DB
+import qualified Pos.DB.GState                  as DB
+import           Pos.Slotting.Class             (MonadSlots)
+import           Pos.Ssc.Class                  (SscHelpersClass)
+import           Pos.Txp                        (Tx (..), TxOutAux (..), txOutAddress)
+import           Pos.Types                      (Address, Block, ChainDifficulty,
+                                                 HeaderHash, blockTxas)
+import           System.Wlog                    (WithLogger, logDebug, logError,
+                                                 logWarning)
+import           Universum                      hiding (toList)
 
-import           Pos.Explorer.Aeson.ClientTypes  ()
-import           Pos.Explorer.Web.ClientTypes    (CAddress, fromCAddress, toBlockEntry)
-import           Pos.Explorer.Web.Sockets.Error  (NotifierError (..))
-import           Pos.Explorer.Web.Sockets.Holder (ConnectionsState, ccAddress, ccBlock,
-                                                  ccConnection, csAddressSubscribers,
-                                                  csBlocksSubscribers, csClients,
-                                                  mkClientContext)
-import           Pos.Explorer.Web.Sockets.Util   (EventName (..), emitTo)
+import           Pos.Explorer.Aeson.ClientTypes ()
+import           Pos.Explorer.Socket.Error      (NotifierError (..))
+import           Pos.Explorer.Socket.Holder     (ConnectionsState, ccAddress, ccBlock,
+                                                 ccConnection, csAddressSubscribers,
+                                                 csBlocksSubscribers, csClients,
+                                                 mkClientContext)
+import           Pos.Explorer.Socket.Util       (EventName (..), emitTo)
+import           Pos.Explorer.Web.ClientTypes   (CAddress, fromCAddress, toBlockEntry)
 
 -- * Event names
 

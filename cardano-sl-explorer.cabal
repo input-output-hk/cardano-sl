@@ -23,18 +23,18 @@ flag dev-mode
   description: Switch between Development and Production mode
 
 library
-  exposed-modules:      Pos.Explorer.Web
+  exposed-modules:      Pos.Explorer.Socket
+                        Pos.Explorer.Web
                         Pos.Explorer.Web.ClientTypes
                         Pos.Explorer.Web.Error
-                        Pos.Explorer.Web.Sockets
                         Pos.Explorer.Web.Doc
   other-modules:        Pos.Explorer.Aeson.ClientTypes
 
-                        Pos.Explorer.Web.Sockets.App
-                        Pos.Explorer.Web.Sockets.Error
-                        Pos.Explorer.Web.Sockets.Holder
-                        Pos.Explorer.Web.Sockets.Methods
-                        Pos.Explorer.Web.Sockets.Util
+                        Pos.Explorer.Socket.App
+                        Pos.Explorer.Socket.Error
+                        Pos.Explorer.Socket.Holder
+                        Pos.Explorer.Socket.Methods
+                        Pos.Explorer.Socket.Util
 
                         Pos.Explorer.Web.Server
                         Pos.Explorer.Web.Transform

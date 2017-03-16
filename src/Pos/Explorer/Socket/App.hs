@@ -5,7 +5,7 @@
 
 -- | Server launcher
 
-module Pos.Explorer.Web.Sockets.App
+module Pos.Explorer.Socket.App
        ( NotifierSettings (..)
        , notifierApp
        ) where
@@ -39,12 +39,11 @@ import           System.Wlog                      (CanLog, LoggerName, LoggerNam
 import           Universum                        hiding (on)
 
 import           Pos.Explorer.Aeson.ClientTypes   ()
-import           Pos.Explorer.Web.ClientTypes     (CTxId)
-import           Pos.Explorer.Web.Sockets.Error   (NotifierError)
-import           Pos.Explorer.Web.Sockets.Holder  (ConnectionsState, ConnectionsVar,
+import           Pos.Explorer.Socket.Error        (NotifierError)
+import           Pos.Explorer.Socket.Holder       (ConnectionsState, ConnectionsVar,
                                                    askingConnState, mkConnectionsState,
                                                    withConnState)
-import           Pos.Explorer.Web.Sockets.Methods (ClientEvent (..), ServerEvent (..),
+import           Pos.Explorer.Socket.Methods      (ClientEvent (..), ServerEvent (..),
                                                    Subscription (..), blockAddresses,
                                                    getBlocksFromTo, notifyAddrSubscribers,
                                                    notifyAllAddrSubscribers,
@@ -53,8 +52,9 @@ import           Pos.Explorer.Web.Sockets.Methods (ClientEvent (..), ServerEvent
                                                    startSession, subscribeAddr,
                                                    subscribeBlocks, unsubscribeAddr,
                                                    unsubscribeBlocks, unsubscribeFully)
-import           Pos.Explorer.Web.Sockets.Util    (emit, emitJSON, forkAccompanion, on,
+import           Pos.Explorer.Socket.Util         (emit, emitJSON, forkAccompanion, on,
                                                    on_, runPeriodicallyUnless)
+import           Pos.Explorer.Web.ClientTypes     (CTxId)
 
 data NotifierSettings = NotifierSettings
     { nsPort :: Word16

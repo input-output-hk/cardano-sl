@@ -1,4 +1,4 @@
-module Pos.Explorer.Web.Sockets.Util
+module Pos.Explorer.Socket.Util
     ( EventName (..)
     , emit
     , emitJSON
@@ -21,13 +21,13 @@ import qualified Control.Monad.Trans.State.Strict as St
 import           Data.Aeson.Types                 (Array, FromJSON, ToJSON)
 import           Data.Text                        (Text)
 import           Data.Time.Units                  (TimeUnit (..))
-import           Formatting                       (sformat, shown, (%), stext)
+import           Formatting                       (sformat, shown, stext, (%))
 import           Mockable                         (Fork, Mockable, fork)
 import qualified Network.SocketIO                 as S
 import           Serokell.Util.Concurrent         (threadDelay)
 import           Snap.Core                        (Snap)
 import           System.Wlog                      (CanLog (..), PureLogger (..),
-                                                   WithLogger, logWarning, logDebug)
+                                                   WithLogger, logDebug, logWarning)
 import           Universum                        hiding (on, threadDelay)
 
 -- * Provides type-safity for event names in some socket-io functions.

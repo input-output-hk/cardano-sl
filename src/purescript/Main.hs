@@ -9,10 +9,10 @@ import           Language.PureScript.Bridge         (BridgePart, buildBridge,
 import           Language.PureScript.Bridge.PSTypes (psInt)
 import           Universum
 
+import qualified Pos.Explorer.Socket                as PS
 import qualified Pos.Explorer.Web.ClientTypes       as CT
 import qualified Pos.Explorer.Web.Error             as CE
 import qualified Pos.Types                          as PT
-import qualified Pos.Explorer.Web.Sockets           as PS
 
 import           PSOptions                          (Args (..), getPSOptions)
 import           PSTypes                            (psPosixTime)

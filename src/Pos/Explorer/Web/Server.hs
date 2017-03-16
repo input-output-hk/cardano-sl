@@ -1,6 +1,6 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE TupleSections   #-}
 {-# LANGUAGE TypeOperators   #-}
-{-# LANGUAGE TupleSections  #-}
 -- API server logic
 
 module Pos.Explorer.Web.Server
@@ -23,14 +23,14 @@ import           Servant.Server                 (Server, ServerT, serve)
 import           Universum
 
 import           Pos.Communication              (SendActions)
-import           Pos.Crypto                     (WithHash (..), withHash, hash)
+import           Pos.Crypto                     (WithHash (..), hash, withHash)
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.GState                  as GS
 import qualified Pos.DB.GState.Balances         as GS (getFtsStake)
-import qualified Pos.DB.GState.Explorer         as GS (getTxExtra, getAddrHistory)
+import qualified Pos.DB.GState.Explorer         as GS (getAddrHistory, getTxExtra)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (Tx (..), TxId, TxOutAux (..), TxAux,
+import           Pos.Txp                        (Tx (..), TxAux, TxId, TxOutAux (..),
                                                  getLocalTxs, getMemPool, mpAddrHistories,
                                                  mpLocalTxs, mpLocalTxsExtra, topsortTxs,
                                                  txOutValue, _txOutputs)
@@ -39,23 +39,24 @@ import           Pos.Types                      (Address (..), HeaderHash, MainB
                                                  gbHeader, gbhConsensus, mcdSlot, mkCoin,
                                                  prevBlockL, sumCoins,
                                                  unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Types.Explorer             (TxExtra (..), AddrHistory)
-import           Pos.Util                       (maybeThrow, NewestFirst (..))
+import           Pos.Types.Explorer             (AddrHistory, TxExtra (..))
+import           Pos.Util                       (NewestFirst (..), maybeThrow)
 import qualified Pos.Util.Modifier              as MM
 import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
+import           Pos.Explorer.Socket.Holder     (MonadExplorerSockets)
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
                                                  CBlockEntry (..), CBlockSummary (..),
                                                  CHash, CTxEntry (..), CTxId (..),
                                                  CTxSummary (..), TxInternal (..),
-                                                 convertTxOutputs, fromCAddress, toTxBrief,
+                                                 convertTxOutputs, fromCAddress,
                                                  fromCHash', fromCTxId, toBlockEntry,
-                                                 toBlockSummary, toPosixTime, toTxEntry)
+                                                 toBlockSummary, toPosixTime, toTxBrief,
+                                                 toTxEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
-import           Pos.Explorer.Web.Sockets.Holder (MonadExplorerSockets)
 
 ----------------------------------------------------------------
 -- Top level functionality

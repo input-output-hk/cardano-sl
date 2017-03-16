@@ -30,8 +30,8 @@ import           Pos.Util            (inAssertMode, mconcatPair)
 import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usPrimKey, usVss,
                                       writeUserSecret)
 
-import           Pos.Explorer.Web    (NotifierSettings (..), explorerPlugin,
-                                      notifierPlugin)
+import           Pos.Explorer.Socket (NotifierSettings (..))
+import           Pos.Explorer.Web    (explorerPlugin, notifierPlugin)
 
 import           ExplorerOptions     (Args (..), getExplorerOptions)
 

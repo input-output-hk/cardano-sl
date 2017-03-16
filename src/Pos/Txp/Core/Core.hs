@@ -5,6 +5,7 @@ module Pos.Txp.Core.Core
        , mkTxProof
        , txInToPair
        , txOutStake
+       , flattenTxPayload
        ) where
 
 import           Universum
@@ -16,7 +17,7 @@ import           Pos.Core.Address   ()
 import           Pos.Core.Types     (Address (..), Coin, StakeholderId)
 import           Pos.Crypto         (hash)
 import           Pos.Merkle         (mtRoot)
-import           Pos.Txp.Core.Types (TxId, TxIn (..), TxOut (..), TxOutAux (..),
+import           Pos.Txp.Core.Types (TxAux, TxId, TxIn (..), TxOut (..), TxOutAux (..),
                                      TxPayload (..), TxProof (..))
 
 -- | A predicate for `TxOutAux` which checks whether given address
@@ -44,3 +45,8 @@ mkTxProof UnsafeTxPayload {..} =
     , txpWitnessesHash = hash _txpWitnesses
     , txpDistributionsHash = hash _txpDistributions
     }
+
+-- | Convert 'TxPayload' into a flat list of `TxAux`s.
+flattenTxPayload :: TxPayload -> [TxAux]
+flattenTxPayload UnsafeTxPayload {..} =
+    zip3 (toList _txpTxs) _txpWitnesses _txpDistributions

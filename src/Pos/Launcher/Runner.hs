@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Runners in various modes.
@@ -77,7 +78,7 @@ import           Pos.Constants               (blockRetrievalQueueSize,
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               runContextHolder)
-import           Pos.Core.Timestamp          (timestampF)
+import           Pos.Core                    (Timestamp (Timestamp), timestampF)
 import           Pos.Crypto                  (createProxySecretKey, encToPublic)
 import           Pos.DB                      (MonadDB (..), runDBHolder)
 import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
@@ -100,8 +101,12 @@ import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
                                               SscParams, sscCreateNodeContext)
 import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
-import           Pos.Txp                     (runTxpHolder)
-import           Pos.Types                   (Timestamp (Timestamp))
+import           Pos.Txp                     (mkTxpLocalData, runTxpHolder)
+#ifdef WITH_EXPLORER
+import           Pos.Explorer                (explorerTxpGlobalSettings)
+#else
+import           Pos.Txp                     (txpGlobalSettings)
+#endif
 import qualified Pos.Update.DB               as GState
 import           Pos.Update.MemState         (runUSHolder)
 import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
@@ -192,6 +197,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
        stateM <- liftIO SM.newIO
        stateM_ <- liftIO SM.newIO
        slottingVar <- runDBHolder  modernDBs $ mkSlottingVar npSystemStart
+       txpVar <- mkTxpLocalData mempty initTip
        ntpSlottingVar <- mkNtpSlottingVar
 
        -- TODO [CSL-775] need an effect-free way of running this into IO.
@@ -203,7 +209,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
                        runSlottingHolder slottingVar .
                        runNtpSlotting ntpSlottingVar .
                        ignoreSscHolder .
-                       runTxpHolder mempty initTip .
+                       runTxpHolder txpVar .
                        runDelegationT def .
                        runUSHolder .
                        runKademliaDHT (rmDHT res) .
@@ -222,7 +228,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
           runSlottingHolder slottingVar .
           runNtpSlotting ntpSlottingVar .
           (mkStateAndRunSscHolder @ssc) .
-          runTxpHolder mempty initTip .
+          runTxpHolder txpVar .
           runDelegationT def .
           runUSHolder .
           runKademliaDHT (rmDHT res) .
@@ -372,6 +378,11 @@ runCH params@NodeParams {..} sscNodeContext act = do
             , ncSendLock = Nothing
             , ncStartTime = curTime
             , ncLastKnownHeader = lastKnownHeader
+#ifdef WITH_EXPLORER
+            , ncTxpGlobalSetttings = explorerTxpGlobalSettings
+#else
+            , ncTxpGlobalSetttings = txpGlobalSettings
+#endif
             }
     runContextHolder ctx act
 

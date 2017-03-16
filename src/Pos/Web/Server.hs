@@ -39,7 +39,7 @@ import qualified Pos.Lrc.DB                           as LrcDB
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc)
 import           Pos.Txp.MemState                     (TxpHolder, TxpLocalData, askTxpMem,
-                                                       getLocalTxs, runTxpHolderReader)
+                                                       getLocalTxs, runTxpHolder)
 import           Pos.Types                            (EpochIndex (..), SlotLeaders)
 import           Pos.WorkMode                         (WorkMode)
 
@@ -83,7 +83,7 @@ serveImpl application host port =
 ----------------------------------------------------------------------------
 
 type WebHandler ssc =
-    TxpHolder (
+    TxpHolder () (
     ContextHolder ssc (
     DB.DBHolder
     Production
@@ -100,7 +100,7 @@ convertHandler nc nodeDBs wrap handler =
     liftIO (runProduction .
             DB.runDBHolder nodeDBs .
             runContextHolder nc .
-            runTxpHolderReader wrap $
+            runTxpHolder wrap $
             handler)
     `Catch.catches`
     excHandlers

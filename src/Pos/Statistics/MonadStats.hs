@@ -80,7 +80,7 @@ newtype NoStatsT m a = NoStatsT
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
-                MonadJL, CanLog, MonadTxpMem, MonadSscMem ssc,
+                MonadJL, CanLog, MonadTxpMem x, MonadSscMem ssc,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem,
                 MonadDhtMem, MonadReportingMem, MonadRelayMem, MonadShutdownMem,
                 MonadDB, MonadDBLimits)
@@ -133,7 +133,7 @@ newtype StatsT m a = StatsT
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
-                MonadTrans, MonadJL, CanLog, MonadTxpMem,
+                MonadTrans, MonadJL, CanLog, MonadTxpMem x,
                 MonadSscMem ssc, MonadSlotsData,
                 WithNodeContext ssc, MonadDelegation, MonadUSMem,
                 MonadDhtMem, MonadReportingMem, MonadRelayMem, MonadShutdownMem,

@@ -1,9 +1,9 @@
+{-# LANGUAGE CPP                  #-}
 {-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE InstanceSigs         #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE CPP #-}
 
 -- | 'WalletMode' constraint. Like `WorkMode`, but for wallet.
 
@@ -50,9 +50,13 @@ import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp                     (TxAux, TxId, TxOutAux (..), TxpHolder (..),
                                               Utxo, addrBelongsTo, evalUtxoStateT,
-                                              filterUtxoByAddr, getMemPool,
-                                              getUtxoModifier, runUtxoStateT, txOutValue,
-                                              txProcessTransaction, _mpLocalTxs)
+                                              filterUtxoByAddr, getLocalTxs,
+                                              getUtxoModifier, runUtxoStateT, txOutValue)
+#ifdef WITH_EXPLORER
+import           Pos.Explorer                (ExplorerExtra, eTxProcessTransaction)
+#else
+import           Pos.Txp                     (txProcessTransaction)
+#endif
 import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
                                               HeaderHash, difficultyL, flattenEpochOrSlot,
                                               flattenSlotId, prevBlockL, prevBlockL,
@@ -60,7 +64,7 @@ import           Pos.Types                   (Address, BlockHeader, ChainDifficu
 import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
 import           Pos.Util                    (maybeThrow)
 import qualified Pos.Util.Modifier           as MM
-import           Pos.WorkMode                (MinWorkMode, RawRealMode)
+import           Pos.WorkMode                (MinWorkMode, VileRealMode)
 
 import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
@@ -100,7 +104,7 @@ deriving instance MonadBalances m => MonadBalances (WalletWebDB m)
 instance MonadIO m => MonadBalances (WalletDB m) where
     getOwnUtxo addr = WS.getUtxo >>= return . filterUtxoByAddr addr
 
-instance (MonadDB m, MonadMask m) => MonadBalances (TxpHolder m) where
+instance (MonadDB m, MonadMask m) => MonadBalances (TxpHolder __ m) where
     getOwnUtxo addr = do
         utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoModifier
@@ -158,16 +162,20 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
         pure $ error "getTxHistory is not implemented for light wallet"
     saveTx _ = pure ()
 
+#ifdef WITH_EXPLORER
+type TMP = ExplorerExtra
+#else
+type TMP = ()
+#endif
+
 instance ( MonadDB m
          , MonadThrow m
          , WithLogger m
-#ifdef WITH_EXPLORER
          , MonadSlots m
-#endif
          , PC.WithNodeContext s m) =>
-         MonadTxHistory (TxpHolder m) where
+         MonadTxHistory (TxpHolder TMP m) where
     getTxHistory :: forall ssc. SscHelpersClass ssc
-                 => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> TxpHolder m TxHistoryAnswer)
+                 => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> TxpHolder TMP m TxHistoryAnswer)
     getTxHistory = Tagged $ \addr mInit -> do
         tip <- GS.getTip
 
@@ -194,7 +202,7 @@ instance ( MonadDB m
                 deriveAddrHistoryPartial txs addr [blk]
             localFetcher blkTxs = do
                 let mp (txid, (tx, txw, txd)) = (WithHash tx txid, txw, txd)
-                ltxs <- HM.toList . _mpLocalTxs <$> lift (lift getMemPool)
+                ltxs <- lift . lift $ getLocalTxs
                 txs <- getRelatedTxs addr $ map mp ltxs
                 return $ txs ++ blkTxs
 
@@ -211,9 +219,11 @@ instance ( MonadDB m
 
         maybe (error "deriveAddrHistory: Nothing") pure mres
 
+#ifdef WITH_EXPLORER
+    saveTx txw = () <$ runExceptT (eTxProcessTransaction txw)
+#else
     saveTx txw = () <$ runExceptT (txProcessTransaction txw)
-
---deriving instance MonadTxHistory m => MonadTxHistory (Modern.TxpLDHolder m)
+#endif
 
 class Monad m => MonadBlockchainInfo m where
     networkChainDifficulty :: m (Maybe ChainDifficulty)
@@ -276,8 +286,8 @@ downloadHeader
 downloadHeader = getContextTMVar PC.ncProgressHeader
 
 -- | Instance for full-node's ContextHolder
-instance forall ssc . SscHelpersClass ssc =>
-         MonadBlockchainInfo (RawRealMode ssc) where
+instance forall txp ssc . SscHelpersClass ssc =>
+         MonadBlockchainInfo (VileRealMode txp ssc) where
     networkChainDifficulty = getContextTVar PC.ncLastKnownHeader >>= \case
         Just lh -> do
             thDiff <- view difficultyL <$> topHeader @ssc
@@ -319,7 +329,7 @@ instance MonadUpdates m => MonadUpdates (PeerStateHolder m)
 instance MonadUpdates m => MonadUpdates (NtpSlotting m)
 instance MonadUpdates m => MonadUpdates (SlottingHolder m)
 
-deriving instance MonadUpdates m => MonadUpdates (TxpHolder m)
+deriving instance MonadUpdates m => MonadUpdates (TxpHolder __ m)
 deriving instance MonadUpdates m => MonadUpdates (SscHolder ssc m)
 deriving instance MonadUpdates m => MonadUpdates (DelegationT m)
 deriving instance MonadUpdates m => MonadUpdates (USHolder m)

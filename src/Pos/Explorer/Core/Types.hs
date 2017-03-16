@@ -1,16 +1,15 @@
 -- | Module containing explorer-specific datatypes
 
-module Pos.Types.Explorer
+module Pos.Explorer.Core.Types
        ( TxExtra (..)
        , AddrHistory
        ) where
 
 import           Universum
 
-import           Data.List.NonEmpty (NonEmpty)
-import           Pos.Core.Types     (HeaderHash, Timestamp)
-import           Pos.Txp.Core.Types (TxId, TxOutAux)
-import           Pos.Util           (NewestFirst)
+import           Pos.Core.Types (HeaderHash, Timestamp)
+import           Pos.Txp.Core   (TxId, TxOutAux)
+import           Pos.Util       (NewestFirst)
 
 type AddrHistory = NewestFirst [] TxId
 

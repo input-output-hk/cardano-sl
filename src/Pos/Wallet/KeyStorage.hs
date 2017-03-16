@@ -210,6 +210,6 @@ instance (MonadIO m, MonadThrow m) =>
 
 -- | Derived instances for ancestors in monad stack
 deriving instance MonadKeys m => MonadKeys (SscHolder ssc m)
-deriving instance MonadKeys m => MonadKeys (TxpHolder m)
+deriving instance MonadKeys m => MonadKeys (TxpHolder __ m)
 deriving instance MonadKeys m => MonadKeys (DelegationT m)
 deriving instance MonadKeys m => MonadKeys (USHolder m)

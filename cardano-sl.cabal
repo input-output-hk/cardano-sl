@@ -85,6 +85,7 @@ library
                         -- Txp
                         Pos.Txp
                         Pos.Txp.Core
+                        Pos.Txp.Settings
 
                         Pos.Types
                         Pos.Types.Arbitrary
@@ -113,10 +114,11 @@ library
     exposed-modules:    Pos.Wallet
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
+  -- Explorer (TODO: move into cardano-explorer)
   if flag(with-explorer)
     exposed-modules:
-                        Pos.DB.GState.Explorer
-                        Pos.Types.Explorer
+                        Pos.Explorer
+                        Pos.Explorer.Core
   other-modules:        Paths_cardano_sl
 
                         Pos.Aeson.CompileConfig
@@ -283,6 +285,7 @@ library
                         Pos.Txp.Network
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
+                        Pos.Txp.Settings.Global
                         Pos.Txp.Toil
                         Pos.Txp.Toil.Balances
                         Pos.Txp.Toil.Balances.Functions
@@ -390,8 +393,18 @@ library
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
 
+  -- Explorer (TODO: move into cardano-explorer)
   if flag(with-explorer)
     other-modules:      Pos.Binary.Explorer
+                        Pos.Explorer.Core.Types
+                        Pos.Explorer.DB
+                        Pos.Explorer.Txp
+                        Pos.Explorer.Txp.Global
+                        Pos.Explorer.Txp.Local
+                        Pos.Explorer.Txp.Toil
+                        Pos.Explorer.Txp.Toil.Class
+                        Pos.Explorer.Txp.Toil.Logic
+                        Pos.Explorer.Txp.Toil.Types
 
   build-depends:        IfElse
                       , QuickCheck
@@ -585,6 +598,8 @@ executable cardano-node
     cpp-options: -DWITH_WEB
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
+  if flag(with-explorer)
+     buildable: False
 
 executable cardano-analyzer
   hs-source-dirs:      src/analyzer

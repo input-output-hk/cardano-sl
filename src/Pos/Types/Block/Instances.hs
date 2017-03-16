@@ -27,6 +27,7 @@ module Pos.Types.Block.Instances
        , headerSignature
        , headerSlot
        , mbMpc
+       , mbTxPayload
        , mbTxs
        , mbWitnesses
        , mbProxySKs

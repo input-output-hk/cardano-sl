@@ -38,10 +38,11 @@ import           Pos.Slotting                  (NtpSlotting (..), NtpSlottingVar
                                                 runNtpSlotting, runSlottingHolder)
 import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolder)
-import           Pos.Txp                       (TxpLocalData, askTxpMem,
-                                                runTxpHolderReader)
+import           Pos.Txp                       (GenericTxpLocalData, askTxpMem,
+                                                runTxpHolder)
 import           Pos.Update.MemState.Holder    (runUSHolder)
 import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
+import           Pos.Wallet.WalletMode         (MonadTxHistory)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
                                                 walletServeImpl, walletServer,
                                                 walletServerOuts)
@@ -50,29 +51,29 @@ import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar,
                                                 WalletWebSockets, runWalletWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletState,
                                                 WalletWebDB, runWalletWebDB)
-import           Pos.WorkMode                  (RawRealMode)
+import           Pos.WorkMode                  (VileRealMode)
 
 walletServeWebFull
-    :: forall ssc.
-       SscConstraint ssc
-    => SendActions (RawRealMode ssc)
+    :: forall txp ssc.
+       (SscConstraint ssc, MonadTxHistory (VileRealMode txp ssc))
+    => SendActions (VileRealMode txp ssc)
     -> Bool      -- whether to include genesis keys
     -> FilePath  -- to Daedalus acid-state
     -> Bool      -- Rebuild flag
     -> Word16
-    -> RawRealMode ssc ()
+    -> VileRealMode txp ssc ()
 walletServeWebFull sendActions debug = walletServeImpl action
   where
-    action :: WalletWebHandler (RawRealMode ssc) Application
+    action :: WalletWebHandler (VileRealMode txp ssc) Application
     action = do
         logInfo "DAEDALUS has STARTED!"
         when (isDevelopment && debug) $
             mapM_ (addSecretKey . toEncrypted) genesisDevSecretKeys
         walletApplication $ walletServer @ssc sendActions nat
 
-type WebHandler ssc = WalletWebSockets (WalletWebDB (RawRealMode ssc))
+type WebHandler txp ssc = WalletWebSockets (WalletWebDB (VileRealMode txp ssc))
 
-nat :: WebHandler ssc (WebHandler ssc :~> Handler)
+nat :: WebHandler txp ssc (WebHandler txp ssc :~> Handler)
 nat = do
     ws         <- getWalletWebState
     kinst      <- lift . lift . lift $ getKademliaDHTInstance
@@ -88,11 +89,11 @@ nat = do
     pure $ Nat (convertHandler kinst nc modernDB tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar)
 
 convertHandler
-    :: forall ssc a .
+    :: forall txp ssc a .
        KademliaDHTInstance
     -> NodeContext ssc              -- (.. insert monad `m` here ..)
     -> NodeDBs
-    -> TxpLocalData
+    -> GenericTxpLocalData txp
     -> SscState ssc
     -> WalletState
     -> (TVar DelegationWrap)
@@ -100,7 +101,7 @@ convertHandler
     -> ConnectionsVar
     -> SlottingVar
     -> NtpSlottingVar
-    -> WebHandler ssc a
+    -> WebHandler txp ssc a
     -> Handler a
 convertHandler kinst nc modernDBs tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar handler = do
     liftIO ( runProduction
@@ -110,7 +111,7 @@ convertHandler kinst nc modernDBs tlw ssc ws delWrap psCtx conn slotVar ntpSlotV
            . runSlottingHolder slotVar
            . runNtpSlotting ntpSlotVar
            . runSscHolder ssc
-           . runTxpHolderReader tlw
+           . runTxpHolder tlw
            . runDelegationTFromTVar delWrap
            . runUSHolder
            . runKademliaDHT kinst

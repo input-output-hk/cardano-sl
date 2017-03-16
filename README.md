@@ -29,4 +29,6 @@ Then check out ./cardano-explorer-web-api.md
 ## Run it
 
 - start `cardano-sl`
+- run `./scripts/build.sh`
+- run `./frontend/scripts/build.sh`
 - run `./test-launch.sh {path/to/}cardano-sl/scripts/common.sh`

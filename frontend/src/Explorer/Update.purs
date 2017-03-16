@@ -15,9 +15,10 @@ import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
 import Explorer.Util.DOM (scrollTop)
+import Explorer.Util.QrCode (generateQrCode)
 import Network.HTTP.Affjax (AJAX)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress)
 import Pux (EffModel, noEffects)
-
 
 
 update :: forall eff. Action -> State -> EffModel State Action (dom :: DOM, ajax :: AJAX | eff)
@@ -86,6 +87,14 @@ update (SelectInputText input) state =
         ]
     }
 
+-- QR side effects
+
+update (GenerateQrCode address) state =
+    { state
+    , effects:
+        [ liftEff $ generateQrCode (address ^. _CAddress) "qr_image_id" >>= \_ -> pure NoOp
+        ]
+    }
 
 -- NoOp
 
@@ -212,6 +221,7 @@ routeEffects (Address address) state =
     , effects:
         [ pure ScrollTop
         , pure $ RequestAddressSummary address
+        , pure $ GenerateQrCode address
         ]
     }
 

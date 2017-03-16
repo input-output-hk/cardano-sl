@@ -16,6 +16,8 @@ data Action
     -- DOM
     | ScrollTop
     | SelectInputText HTMLInputElement
+    -- QR code
+    | GenerateQrCode CAddress
     -- socket endpoints
     | SocketConnected Boolean
     | SocketLatestBlocks (Either Error CBlockEntries)

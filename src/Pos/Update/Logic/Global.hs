@@ -36,8 +36,8 @@ import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState
                                        execRollT, processGenesisBlock,
                                        recordBlockIssuance, rollbackUS, runDBPoll,
                                        runPollT, verifyAndApplyUSPayload)
-import           Pos.Util             (NE, NewestFirst, OldestFirst, Some (..),
-                                       inAssertMode)
+import           Pos.Util             (Some (..), inAssertMode)
+import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 import qualified Pos.Util.Modifier    as MM
 
 type USGlobalApplyMode ssc m = ( WithLogger m

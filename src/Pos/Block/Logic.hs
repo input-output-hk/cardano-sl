@@ -95,10 +95,10 @@ import qualified Pos.Update.DB              as UDB
 import           Pos.Update.Logic           (usCanCreateBlock, usPreparePayload,
                                              usVerifyBlocks)
 import           Pos.Update.Poll            (PollModifier)
-import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
-                                             inAssertMode, maybeThrow, neZipWith3,
-                                             spanSafe, toNewestFirst, toOldestFirst,
-                                             _neHead, _neLast)
+import           Pos.Util                   (inAssertMode, maybeThrow, neZipWith3,
+                                             spanSafe, _neHead, _neLast)
+import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
+                                             toNewestFirst, toOldestFirst)
 import           Pos.WorkMode               (WorkMode)
 
 ----------------------------------------------------------------------------

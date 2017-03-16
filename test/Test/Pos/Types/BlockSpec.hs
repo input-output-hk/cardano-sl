@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Specification of Pos.Types.Block.
 
@@ -18,7 +18,7 @@ import           Pos.Ssc.Class         (Ssc (..), SscHelpersClass)
 import           Pos.Ssc.GodTossing    (SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import qualified Pos.Types             as T
-import           Pos.Util              (NewestFirst (..))
+import           Pos.Util.Chrono       (NewestFirst (..))
 import           Serokell.Util         (isVerSuccess)
 
 import           Test.QuickCheck       (Property, (===))

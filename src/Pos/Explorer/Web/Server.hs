@@ -46,7 +46,6 @@ import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
-import           Pos.Explorer.Socket.Holder     (MonadExplorerSockets)
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
                                                  CBlockEntry (..), CBlockSummary (..),
@@ -63,10 +62,6 @@ import           Pos.Explorer.Web.Error         (ExplorerError (..))
 ----------------------------------------------------------------
 
 type ExplorerMode m = WorkMode SscGodTossing m
-type SocketsExplorerMode m
-    = ( WorkMode SscGodTossing m
-      , MonadExplorerSockets m
-      )
 
 explorerServeImpl :: ExplorerMode m => m Application -> Word16 -> m ()
 explorerServeImpl = flip serveImpl "*"

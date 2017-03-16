@@ -11,24 +11,24 @@ module Pos.Explorer.Socket.Util
     , forkAccompanion
     ) where
 
-import qualified Control.Concurrent.STM           as STM
-import           Control.Concurrent.STM.TVar      (readTVarIO, writeTVar)
-import           Control.Monad.Catch              (MonadCatch, MonadThrow)
-import           Control.Monad.Reader             (MonadReader)
-import           Control.Monad.State              (MonadState)
-import           Control.Monad.Trans              (MonadIO)
-import qualified Control.Monad.Trans.State.Strict as St
-import           Data.Aeson.Types                 (Array, FromJSON, ToJSON)
-import           Data.Text                        (Text)
-import           Data.Time.Units                  (TimeUnit (..))
-import           Formatting                       (sformat, shown, stext, (%))
-import           Mockable                         (Fork, Mockable, fork)
-import qualified Network.SocketIO                 as S
-import           Serokell.Util.Concurrent         (threadDelay)
-import           Snap.Core                        (Snap)
-import           System.Wlog                      (CanLog (..), PureLogger (..),
-                                                   WithLogger, logDebug, logWarning)
-import           Universum                        hiding (on, threadDelay)
+import qualified Control.Concurrent.STM      as STM
+import           Control.Concurrent.STM.TVar (readTVarIO, writeTVar)
+import           Control.Monad.Catch         (MonadCatch, MonadThrow)
+import           Control.Monad.Reader        (MonadReader)
+import           Control.Monad.State         (MonadState)
+import           Control.Monad.Trans         (MonadIO)
+import           Data.Aeson.Types            (Array, FromJSON, ToJSON)
+import           Data.Text                   (Text)
+import           Data.Time.Units             (TimeUnit (..))
+import           Formatting                  (sformat, shown, (%))
+
+import           Mockable                    (Fork, Mockable, fork)
+import qualified Network.SocketIO            as S
+import           Serokell.Util.Concurrent    (threadDelay)
+import           Snap.Core                   (Snap)
+import           System.Wlog                 (CanLog (..), PureLogger (..), WithLogger,
+                                              logWarning)
+import           Universum                   hiding (on)
 
 -- * Provides type-safity for event names in some socket-io functions.
 
@@ -72,8 +72,6 @@ on eventName = S.on (toName eventName)
 
 instance CanLog Snap where
     dispatchMessage logName sev msg = liftIO $ dispatchMessage logName sev msg
-
--- instance CanLog m => CanLog (St.StateT s m)
 
 -- * Misc
 

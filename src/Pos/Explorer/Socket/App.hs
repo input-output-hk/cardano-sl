@@ -11,7 +11,6 @@ module Pos.Explorer.Socket.App
        ) where
 
 import qualified Control.Concurrent.STM           as STM
-import           Control.Exception.Lifted         (try)
 import           Control.Lens                     ((<<.=))
 import           Control.Monad.Trans.Control      (MonadBaseControl)
 import           Data.Aeson                       (Value)
@@ -39,7 +38,6 @@ import           System.Wlog                      (CanLog, LoggerName, LoggerNam
 import           Universum                        hiding (on)
 
 import           Pos.Explorer.Aeson.ClientTypes   ()
-import           Pos.Explorer.Socket.Error        (NotifierError)
 import           Pos.Explorer.Socket.Holder       (ConnectionsState, ConnectionsVar,
                                                    askingConnState, mkConnectionsState,
                                                    withConnState)
@@ -84,9 +82,9 @@ notifierHandler connVar loggerName = do
  where
     -- handlers provide context for logging and `ConnectionsVar` changes
     asHandler
-        :: (a -> SocketId -> LoggerNameBox (PureLogger (StateT ConnectionsState STM)) b)
+        :: (a -> SocketId -> LoggerNameBox (PureLogger (StateT ConnectionsState STM)) ())
         -> a
-        -> ReaderT Socket IO (Either NotifierError b)
+        -> ReaderT Socket IO ()
     asHandler f arg = inHandlerCtx . f arg . socketId =<< ask
     asHandler_ f    = inHandlerCtx . f     . socketId =<< ask
     asHandler' f    = inHandlerCtx . f                =<< ask
@@ -94,9 +92,10 @@ notifierHandler connVar loggerName = do
     inHandlerCtx
         :: (MonadIO m, CanLog m, MonadBaseControl IO m)
         => LoggerNameBox (PureLogger (StateT ConnectionsState STM)) a
-        -> m (Either NotifierError a)
+        -> m ()
     inHandlerCtx =
-        try . usingLoggerName loggerName . withConnState connVar
+        -- currently @NotifierError@s aren't caught
+        void . usingLoggerName loggerName . withConnState connVar
 
 notifierServer
     :: (MonadIO m, WithLogger m, MonadCatch m, WithLogger m)

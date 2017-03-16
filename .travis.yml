@@ -26,12 +26,11 @@ before_install:
   xz --strip-components=1 -C ~/.local/bin
 - mkdir s3
 script:
-- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export EXTRA_STACK="--haddock"; else export EXTRA_STACK="--no-haddock-deps"; fi
+- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export EXTRA_STACK="--test --haddock"; else export EXTRA_STACK="--no-haddock-deps"; fi
 - stack --nix --no-terminal --local-bin-path s3/ install --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
   $EXTRA_STACK --jobs=4
   --flag cardano-sl:-asserts
   --flag cardano-sl-core:-dev-mode
-  --test
 - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ./update_haddock.sh; fi
 - stack exec --nix -- cardano-wallet-hs2purs
 - stack exec --nix -- cardano-wallet-web-docs

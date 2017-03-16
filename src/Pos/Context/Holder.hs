@@ -98,7 +98,7 @@ instance (MonadIO m, Mockable Catch m, WithLogger m) => MonadJL (ContextHolder s
             `catchAll` \e -> logWarning $ sformat ("Can't write to json log: " % shown) e
 
 instance Monad m => MonadReportingMem (ContextHolder ssc m) where
-    askReportingMem =
+    askReportingContext =
         ContextHolder $
             asks (ReportingContext . npReportServers . ncNodeParams)
 

@@ -7,7 +7,6 @@ module Test.Pos.Types.Identity.BinarySpec
 import           Test.Hspec    (Spec, describe)
 import           Universum
 
-import qualified Pos.Txp       as T
 import qualified Pos.Types     as T
 
 import           Test.Pos.Util (binaryTest)
@@ -20,10 +19,5 @@ spec = describe "Types" $ do
         binaryTest @T.SlotId
         binaryTest @T.Coin
         binaryTest @T.Address
-        binaryTest @T.TxInWitness
-        binaryTest @T.TxDistribution
-        binaryTest @T.TxIn
-        binaryTest @T.TxOut
-        binaryTest @T.Tx
         binaryTest @T.SharedSeed
         binaryTest @T.ChainDifficulty

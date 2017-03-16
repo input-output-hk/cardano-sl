@@ -103,9 +103,9 @@ instance Buildable PeerId where
     build (PeerId bs) = bprint base16F bs
 
 data HandlerSpec
-  = ConvHandler { hsReplyType :: MessageName }
-  | OneMsgHandler
-  | UnknownHandler Word8 ByteString
+    = ConvHandler { hsReplyType :: MessageName}
+    | OneMsgHandler
+    | UnknownHandler Word8 ByteString
     deriving (Show, Generic, Eq)
 
 convH :: (Message snd, Message rcv) => Proxy snd -> Proxy rcv -> (MessageName, HandlerSpec)
@@ -135,8 +135,7 @@ data VerInfo = VerInfo
     , vIBlockVersion :: BlockVersion
     , vIInHandlers   :: HandlerSpecs
     , vIOutHandlers  :: HandlerSpecs
-    }
-  deriving (Eq, Generic, Show)
+    } deriving (Eq, Generic, Show)
 
 instance Buildable VerInfo where
     build VerInfo {..} = bprint ("VerInfo { magic="%hex%", blockVersion="

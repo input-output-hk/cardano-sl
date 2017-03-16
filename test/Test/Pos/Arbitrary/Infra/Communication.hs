@@ -27,7 +27,7 @@ instance Arbitrary HandlerSpec where
     arbitrary = oneof
         [ ConvHandler <$> arbitrary
         , pure OneMsgHandler
-        , UnknownHandler <$> choose (2, 255) <*> arbitrary
+        , UnknownHandler <$> choose (128, 255) <*> arbitrary
         ]
 
 derive makeArbitrary ''VerInfo

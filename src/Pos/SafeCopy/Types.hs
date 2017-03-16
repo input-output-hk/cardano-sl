@@ -33,6 +33,7 @@ deriveSafeCopySimple 0 'base ''TxInWitness
 deriveSafeCopySimple 0 'base ''TxDistribution
 deriveSafeCopySimple 0 'base ''TxIn
 deriveSafeCopySimple 0 'base ''TxOut
+deriveSafeCopySimple 0 'base ''TxOutAux
 deriveSafeCopySimple 0 'base ''Tx
 deriveSafeCopySimple 0 'base ''TxProof
 deriveSafeCopySimple 0 'base ''TxPayload

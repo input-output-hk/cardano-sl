@@ -3,13 +3,16 @@ module Explorer.View.Transaction (transactionView) where
 import Prelude
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
+import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (common, cTransaction, cSummary, tx, cTotalOutput, txRelayed, txIncluded, txTime) as I18nL
-import Explorer.Lenses.State (lang)
+import Explorer.I18n.Lenses (common, cTransaction, cTransactionFeed, cSummary, tx, cTotalOutput, txRelayed, txIncluded, txTime) as I18nL
+import Explorer.Lenses.State (currentTxSummary, lang)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
-import Explorer.Util.Factory (mkEmptyCTxEntry)
-import Explorer.View.Common (currencyCSSClass, transactionHeaderView, transactionBodyView)
+import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, transactionBodyView', transactionHeaderView')
+import Pos.Core.Lenses.Types (_Coin, getCoin)
+import Pos.Explorer.Web.ClientTypes (CTxSummary(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (_CNetworkAddress, ctsBlockHeight, ctsFees, ctsRelayedBy, ctsTotalOutput, ctsTxTimeIssued)
 import Pux.Html (Html, div, text, h3, table, tr, td) as P
 import Pux.Html.Attributes (className) as P
 
@@ -25,9 +28,15 @@ transactionView state =
                 [ P.h3
                     [ P.className "headline"]
                     [ P.text $ translate (I18nL.common <<< I18nL.cTransaction) lang' ]
-                -- TODO (jk) use empty CTxEntry if we'll have real data
-                , transactionHeaderView mkEmptyCTxEntry
-                , transactionBodyView state
+                  , case state ^. currentTxSummary of
+                        Nothing ->
+                            emptyTxHeaderView state
+                        Just txSummary ->
+                            P.div
+                                []
+                                [ transactionHeaderView' txSummary
+                                , transactionBodyView' txSummary
+                                ]
                 ]
             ]
         , P.div
@@ -39,13 +48,17 @@ transactionView state =
                     [ P.text $ translate (I18nL.common <<< I18nL.cSummary) lang' ]
                   , P.table
                       [ P.className "table-summary" ]
-                      <<< map summaryRow $ summaryItems lang'
+                      case state ^. currentTxSummary of
+                          Nothing ->
+                              [ emptySummaryRow ]
+                          Just txSummary ->
+                              map summaryRow $ summaryItems txSummary lang'
                 ]
             ]
         ]
 
-
--- currency
+noData :: String
+noData = "--"
 
 type SummaryItems = Array SummaryItem
 
@@ -55,25 +68,40 @@ type SummaryItem =
     , currency :: Maybe CCurrency
     }
 
-summaryItems :: Language -> SummaryItems
-summaryItems lang =
+summaryItems :: CTxSummary -> Language -> SummaryItems
+summaryItems (CTxSummary txSummary) lang =
     [ { label: translate (I18nL.tx <<< I18nL.txTime) lang
-      , value: "2016-07-08 11:56:48"
+      , value: show $ txSummary ^. (ctsTxTimeIssued <<< _NominalDiffTime)
       , currency: Nothing
       }
     , { label: translate (I18nL.tx <<< I18nL.txIncluded) lang
-      , value: "419827 (2016-07-08 12:02:52 + 6 minutes)"
+      , value: let  bHeight = case txSummary ^. ctsBlockHeight of
+                                Nothing -> noData
+                                Just bHeight' -> show bHeight'
+                    bTime = case txSummary ^. ctsRelayedBy of
+                                Nothing -> noData
+                                Just bTime' -> show $ bTime' ^. _CNetworkAddress
+                in bHeight <> " (" <> bTime <> ")"
       , currency: Nothing
       }
     , { label: translate (I18nL.tx <<< I18nL.txRelayed) lang
-      , value: "78.129.167.5 (whois)"
+      , value:  case txSummary ^. ctsRelayedBy of
+                    Nothing -> noData
+                    Just relayedBy -> show $ relayedBy ^. _CNetworkAddress
       , currency: Nothing
       }
     , { label: translate (I18nL.common <<< I18nL.cTotalOutput) lang
-      , value: "3,027,500"
+      , value: show $ txSummary ^. (ctsTotalOutput <<< _Coin <<< getCoin)
+      , currency: Just ADA
+      }
+    , { label: translate (I18nL.common <<< I18nL.cTransactionFeed) lang
+      , value: show $ txSummary ^. (ctsFees <<< _Coin <<< getCoin)
       , currency: Just ADA
       }
     ]
+
+emptySummaryRow :: P.Html Action
+emptySummaryRow = P.tr [] []
 
 summaryRow :: SummaryItem -> P.Html Action
 summaryRow item =

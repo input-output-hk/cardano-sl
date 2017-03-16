@@ -1,7 +1,10 @@
 module Explorer.View.Common (
     placeholderView
     , transactionHeaderView
+    , transactionHeaderView'
     , transactionBodyView
+    , transactionBodyView'
+    , emptyTxHeaderView
     , currencyCSSClass
     , paginationView
     , transactionPaginationView
@@ -12,13 +15,15 @@ import Data.Int (binary, fromString, toStringAs)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
+import Data.Tuple (Tuple(..))
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.Factory (mkCAddress)
 import Pos.Core.Lenses.Types (_Coin, getCoin)
-import Pos.Explorer.Web.ClientTypes (CTxEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, cteAmount, cteId, cteTimeIssued)
+import Pos.Core.Types (Coin(..))
+import Pos.Explorer.Web.ClientTypes (CAddress(..), CTxEntry(..), CTxSummary(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CHash, _CTxId, cteAmount, cteId, cteTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalInput, ctsTxTimeIssued)
 import Pux.Html (Html, text, div, a, p, span, input) as P
 import Pux.Html.Attributes (className, href, value, disabled, type_, min, max) as P
 import Pux.Html.Events (onChange, onFocus, FormEvent, MouseEvent, Target, onClick) as P
@@ -26,6 +31,12 @@ import Pux.Router (link) as P
 
 -- transactions
 
+
+emptyTxHeaderView :: State -> P.Html Action
+emptyTxHeaderView _ =
+    P.div
+        [ P.className "transaction-header"]
+        [ ]
 
 transactionHeaderView :: CTxEntry -> P.Html Action
 transactionHeaderView (CTxEntry entry) =
@@ -45,6 +56,26 @@ transactionHeaderView (CTxEntry entry) =
                   [ P.className "amount bg-ada"
                   , P.href "#" ]
                   [ P.text <<< show $ entry ^. (cteAmount <<< _Coin <<< getCoin) ]
+              ]
+          ]
+
+transactionHeaderView' :: CTxSummary -> P.Html Action
+transactionHeaderView' (CTxSummary txSummary) =
+    P.div
+          [ P.className "transaction-header"]
+          [ P.div
+              [ P.className "hash" ]
+              [ P.text $ txSummary ^. (ctsId <<< _CTxId <<< _CHash) ]
+          , P.div
+              [ P.className "date"]
+              [ P.text <<< show $ txSummary ^. (ctsTxTimeIssued <<< _NominalDiffTime)
+              ]
+          , P.div
+              [ P.className "amount-container" ]
+              [ P.a
+                  [ P.className "amount bg-ada"
+                  , P.href "#" ]
+                  [ P.text <<< show $ txSummary ^. (ctsTotalInput <<< _Coin <<< getCoin) ]
               ]
           ]
 
@@ -88,6 +119,52 @@ transactionBodyView state =
                   [ P.className "amount bg-ada-dark" ]
                   [ P.text "131,100"]
               ]
+        ]
+
+transactionBodyView' :: CTxSummary -> P.Html Action
+transactionBodyView' (CTxSummary txSummary) =
+    P.div
+        [ P.className "transaction-body" ]
+        [ P.div
+            [ P.className "from-hash-container" ]
+            <<< map transactionFromView $ txSummary ^. ctsInputs
+        , P.div
+            [ P.className "to-hash-container bg-transaction-arrow" ]
+            <<< map transactionToView $ txSummary ^. ctsOutputs
+        , P.div
+            [ P.className "to-alias-container" ]
+            <<< map transactionAliasView $ txSummary ^. ctsOutputs
+        , P.div
+              [ P.className "amount-container" ]
+              <<< map transactionCoinView $ txSummary ^. ctsOutputs
+        ]
+
+
+transactionFromView :: Tuple CAddress Coin -> P.Html Action
+transactionFromView (Tuple (CAddress cAddress) _) =
+    P.link (toUrl <<< Address $ mkCAddress cAddress)
+        [ P.className "from-hash" ]
+        [ P.text cAddress ]
+
+transactionToView :: Tuple CAddress Coin -> P.Html Action
+transactionToView (Tuple (CAddress cAddress) _) =
+    P.link (toUrl <<< Address $ mkCAddress cAddress)
+          [ P.className "to-hash"]
+          [ P.text cAddress ]
+
+transactionAliasView :: Tuple CAddress Coin -> P.Html Action
+transactionAliasView (Tuple (CAddress cAddress) (Coin coin)) =
+    P.p
+        [ P.className "to-alias" ]
+        [ P.text "to red" ]
+
+transactionCoinView :: Tuple CAddress Coin -> P.Html Action
+transactionCoinView (Tuple _ (Coin coin)) =
+    P.div
+        [ P.className "amount-wrapper" ]
+        [ P.span
+            [ P.className "amount bg-ada-dark" ]
+            [ P.text <<< show $ coin ^. getCoin ]
         ]
 
 -- pagination

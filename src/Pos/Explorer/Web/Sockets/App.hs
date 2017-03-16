@@ -45,8 +45,8 @@ import           Pos.Explorer.Web.Sockets.Holder  (ConnectionsState, Connections
                                                    askingConnState, mkConnectionsState,
                                                    withConnState)
 import           Pos.Explorer.Web.Sockets.Methods (ClientEvent (..), ServerEvent (..),
-                                                   blockAddresses, getBlocksFromTo,
-                                                   notifyAddrSubscribers,
+                                                   Subscription (..), blockAddresses,
+                                                   getBlocksFromTo, notifyAddrSubscribers,
                                                    notifyAllAddrSubscribers,
                                                    notifyBlocksSubscribers,
                                                    setClientAddress, setClientBlock,
@@ -70,16 +70,16 @@ notifierHandler
         MonadBaseControl IO m)
     => ConnectionsVar -> LoggerName -> m ()
 notifierHandler connVar loggerName = do
-    _                   <- asHandler' startSession
-    on  SubscribeAddr    $ asHandler subscribeAddr
-    on_ SubscribeBlock   $ asHandler_ subscribeBlocks
-    on_ UnsubscribeAddr  $ asHandler_ unsubscribeAddr
-    on_ UnsubscribeBlock $ asHandler_ unsubscribeBlocks
-    on  SetClientAddress $ asHandler setClientAddress
-    on  SetClientBlock   $ asHandler setClientBlock
-    on_ CallMe           $ emitJSON CallYou empty
-    on CallMeString      $ \(s :: Value) -> emit CallYouString s
-    on CallMeTxId        $ \(txid :: CTxId) -> emit CallYouTxId txid
+    _ <- asHandler' startSession
+    on  (Subscribe SubAddr)    $ asHandler subscribeAddr
+    on_ (Subscribe SubBlock)   $ asHandler_ subscribeBlocks
+    on_ (Unsubscribe SubAddr)  $ asHandler_ unsubscribeAddr
+    on_ (Unsubscribe SubBlock) $ asHandler_ unsubscribeBlocks
+    on  SetClientAddress       $ asHandler setClientAddress
+    on  SetClientBlock         $ asHandler setClientBlock
+    on_ CallMe                 $ emitJSON CallYou empty
+    on CallMeString            $ \(s :: Value) -> emit CallYouString s
+    on CallMeTxId              $ \(txid :: CTxId) -> emit CallYouTxId txid
     appendDisconnectHandler . void $ asHandler_ unsubscribeFully
  where
     -- handlers provide context for logging and `ConnectionsVar` changes

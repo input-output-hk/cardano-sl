@@ -5,7 +5,8 @@
 -- | Logic of Explorer socket-io Server.
 
 module Pos.Explorer.Web.Sockets.Methods
-       ( ClientEvent (..)
+       ( Subscription (..)
+       , ClientEvent (..)
        , ServerEvent (..)
 
        , startSession
@@ -58,11 +59,17 @@ import           Pos.Explorer.Web.Sockets.Util   (EventName (..), emitTo)
 
 -- * Event names
 
+data Subscription
+    = SubAddr
+    | SubBlock
+
+instance EventName Subscription where
+    toName SubAddr  = "A"
+    toName SubBlock = "B"
+
 data ClientEvent
-    = SubscribeAddr
-    | SubscribeBlock
-    | UnsubscribeAddr
-    | UnsubscribeBlock
+    = Subscribe Subscription
+    | Unsubscribe Subscription
     | SetClientAddress
     | SetClientBlock
     | CallMe
@@ -76,6 +83,7 @@ instance EventName ClientEvent where
 data ServerEvent
     = AddrUpdated
     | BlocksUpdated
+    -- TODO: test events
     | CallYou
     | CallYouString
     | CallYouTxId

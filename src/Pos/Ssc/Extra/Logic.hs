@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -29,15 +28,12 @@ module Pos.Ssc.Extra.Logic
 import           Control.Concurrent.STM  (readTVar, writeTVar)
 import           Control.Lens            (_Wrapped)
 import           Control.Monad.Except    (MonadError, runExceptT)
-import           Control.Monad.State     (put)
-import           Control.Monad.State     (get)
+import           Control.Monad.Morph     (hoist)
+import           Control.Monad.State     (get, put)
 import           Formatting              (build, int, sformat, (%))
 import           Serokell.Util           (listJson)
-import           System.Wlog             (LogEvent, LoggerName, LoggerNameBox,
-                                          NamedPureLogger, PureLogger, WithLogger,
-                                          dispatchEvents, getLoggerName,
-                                          launchNamedPureLog, logDebug, runPureLog,
-                                          usingLoggerName)
+import           System.Wlog             (NamedPureLogger, WithLogger, launchNamedPureLog,
+                                          logDebug)
 import           Universum
 
 import           Pos.Context             (WithNodeContext, lrcActionOnEpochReason)
@@ -61,6 +57,22 @@ import           Pos.Util                (NE, NewestFirst, OldestFirst, inAssert
 -- Utilities
 ----------------------------------------------------------------------------
 
+-- | Like 'evalStateT', but expects state to be assigned at the beginning.
+evalStateTUninitialized :: Monad m => StateT s m a -> m a
+evalStateTUninitialized =
+    evaluatingStateT $ error "State wasn't initialized, suddenly!"
+
+-- | Applies state changes to given var.
+syncingStateWith
+    :: TVar s
+    -> NamedPureLogger (StateT s STM) a
+    -> NamedPureLogger (StateT s STM) a
+syncingStateWith var action = do
+    put =<< (lift $ lift $ readTVar var)
+    res <- action
+    get >>= (lift . lift . writeTVar var)
+    return res
+
 -- | Run something that reads 'SscLocalData' in 'MonadSscMem'.
 -- 'MonadIO' is also needed to use stm.
 sscRunLocalQuery
@@ -79,11 +91,8 @@ sscRunLocalSTM
     => NamedPureLogger (StateT (SscLocalData ssc) STM) a -> m a
 sscRunLocalSTM action = do
     localVar <- sscLocal <$> askSscMem
-    launchNamedPureLog (atomically . (`evalStateT` error "Don't touch")) $ do
-        put =<< (lift $ lift $ readTVar localVar)
-        res <- action
-        get >>= (lift . lift . writeTVar localVar)
-        return res
+    launchNamedPureLog (atomically . evalStateTUninitialized) $
+        syncingStateWith localVar action
 
 -- | Run something that reads 'SscGlobalState' in 'MonadSscMem'.
 -- 'MonadIO' is also needed to use stm.
@@ -143,17 +152,10 @@ sscNormalize = do
     globalVar <- sscGlobal <$> askSscMem
     localVar <- sscLocal <$> askSscMem
     gs <- atomically $ readTVar globalVar
-    loggerName <- getLoggerName
-    let sscNormalizeDo :: STM [LogEvent]
-        sscNormalizeDo = do
-            oldLD <- readTVar localVar
-            let (((), logEvents), !newLD) =
-                    flip runState oldLD .
-                    runPureLog . usingLoggerName loggerName $
-                    sscNormalizeU @ssc tipEpoch richmenData gs
-            logEvents <$ writeTVar localVar newLD
-    logEvents <- atomically sscNormalizeDo
-    dispatchEvents logEvents
+
+    launchNamedPureLog (atomically . evalStateTUninitialized) $
+        syncingStateWith localVar $
+        sscNormalizeU @ssc tipEpoch richmenData gs
 
 -- | Reset local data to empty state.  This function can be used when
 -- we detect that something is really bad. In this case it makes sense
@@ -181,34 +183,16 @@ type SscGlobalVerifyMode ssc m =
     (MonadSscMem ssc m, SscGStateClass ssc, WithLogger m,
      MonadDB m, MonadError (SscVerifyError ssc) m, WithNodeContext ssc m)
 
-sscRunGlobalUpdatePure
-    :: forall ssc a.
-       LoggerName
-    -> SscGlobalState ssc
-    -> LoggerNameBox (PureLogger (State (SscGlobalState ssc))) a
-    -> (a, SscGlobalState ssc, [LogEvent])
-sscRunGlobalUpdatePure loggerName st =
-    convertRes . flip runState st . runPureLog . usingLoggerName loggerName
-  where
-    convertRes :: ((a, [LogEvent]), SscGlobalState ssc)
-               -> (a, SscGlobalState ssc, [LogEvent])
-    convertRes ((res, events), newSt) = (res, newSt, events)
-
 sscRunGlobalUpdate
     :: forall ssc m a.
        SscGlobalApplyMode ssc m
-    => LoggerNameBox (PureLogger (State (SscGlobalState ssc))) a -> m a
+    => NamedPureLogger (State (SscGlobalState ssc)) a -> m a
 sscRunGlobalUpdate action = do
-    loggerName <- getLoggerName
     globalVar <- sscGlobal <$> askSscMem
-    (res, events) <- atomically $ sscRunGlobalUpdateDo loggerName globalVar
-    res <$ dispatchEvents events
+    launchNamedPureLog (atomically . evalStateTUninitialized) $
+        syncingStateWith globalVar $ switchMonadBaseIdentityToSTM action
   where
-    sscRunGlobalUpdateDo loggerName globalVar = do
-        oldState <- readTVar globalVar
-        let (res, !newState, events) =
-                sscRunGlobalUpdatePure @ssc loggerName oldState action
-        (res, events) <$ writeTVar globalVar newState
+    switchMonadBaseIdentityToSTM = hoist $ hoist $ return . runIdentity
 
 -- | Apply sequence of definitely valid blocks. Global state which is
 -- result of application of these blocks can be optionally passed as

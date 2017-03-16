@@ -31,7 +31,6 @@ library
   other-modules:        Pos.Explorer.Aeson.ClientTypes
 
                         Pos.Explorer.Socket.App
-                        Pos.Explorer.Socket.Error
                         Pos.Explorer.Socket.Holder
                         Pos.Explorer.Socket.Methods
                         Pos.Explorer.Socket.Util

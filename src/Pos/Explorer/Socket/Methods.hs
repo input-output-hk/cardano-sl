@@ -15,53 +15,64 @@ module Pos.Explorer.Socket.Methods
        , setClientBlock
        , subscribeAddr
        , subscribeBlocks
+       , subscribeTxs
        , unsubscribeAddr
        , unsubscribeBlocks
+       , unsubscribeTxs
        , unsubscribeFully
 
        , notifyAddrSubscribers
        , notifyAllAddrSubscribers
        , notifyBlocksSubscribers
+       , notifyTxsSubscribers
        , getBlocksFromTo
        , blockAddresses
+       , getBlockTxs
        ) where
 
-import           Control.Lens                   (at, (%=), (.=), _Just)
-import           Control.Monad                  (join)
+import           Control.Lens                   (at, non, (.=), _Just)
 import           Control.Monad.State            (MonadState)
 import           Data.Aeson                     (ToJSON)
 import qualified Data.Set                       as S
-import           Formatting                     (build, sformat, shown, (%))
-import           GHC.Exts                       (toList)
+import           Formatting                     (sformat, shown, stext, (%))
+import qualified GHC.Exts                       as Exts
 import           Network.EngineIO               (SocketId)
 import           Network.SocketIO               (Socket, socketId)
 import qualified Pos.Block.Logic                as DB
+import           Pos.Crypto                     (withHash)
+import           Pos.Crypto                     (hash)
 import           Pos.DB                         (MonadDB)
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.GState                  as DB
 import           Pos.Slotting.Class             (MonadSlots)
 import           Pos.Ssc.Class                  (SscHelpersClass)
-import           Pos.Txp                        (Tx (..), TxOutAux (..), txOutAddress)
+import           Pos.Txp                        (Tx (..), TxOut (..), TxOutAux (..),
+                                                 txOutAddress)
 import           Pos.Types                      (Address, Block, ChainDifficulty,
-                                                 HeaderHash, blockTxas)
+                                                 HeaderHash, TxExtra (..), blockTxas,
+                                                 blockTxs)
+import           Pos.Util                       (maybeThrow)
 import           System.Wlog                    (WithLogger, logDebug, logError,
                                                  logWarning)
-import           Universum                      hiding (toList)
+import           Universum
 
 import           Pos.Explorer.Aeson.ClientTypes ()
-import           Pos.Explorer.Socket.Error      (NotifierError (..))
 import           Pos.Explorer.Socket.Holder     (ConnectionsState, ccAddress, ccBlock,
                                                  ccConnection, csAddressSubscribers,
                                                  csBlocksSubscribers, csClients,
-                                                 mkClientContext)
+                                                 csTxsSubscribers, mkClientContext)
 import           Pos.Explorer.Socket.Util       (EventName (..), emitTo)
-import           Pos.Explorer.Web.ClientTypes   (CAddress, fromCAddress, toBlockEntry)
+import           Pos.Explorer.Web.ClientTypes   (CAddress, CTxEntry, fromCAddress,
+                                                 toBlockEntry, toTxEntry)
+import           Pos.Explorer.Web.Error         (ExplorerError (..))
+import           Pos.Explorer.Web.Server        (topsortTxsOrFail)
 
 -- * Event names
 
 data Subscription
     = SubAddr
     | SubBlock
+    | SubTx
     deriving (Show, Generic)
 
 data ClientEvent
@@ -80,6 +91,7 @@ instance EventName ClientEvent where
 data ServerEvent
     = AddrUpdated
     | BlocksUpdated
+    | TxsUpdated
     -- TODO: test events
     | CallYou
     | CallYouString
@@ -93,7 +105,7 @@ instance EventName ServerEvent where
 
 fromCAddressOrThrow :: MonadThrow m => CAddress -> m Address
 fromCAddressOrThrow =
-    either (\_ -> throwM $ InternalError "Malformed address") return .
+    either (\_ -> throwM $ Internal "Malformed address") return .
     fromCAddress
 
 -- * Client requests provessing
@@ -134,57 +146,68 @@ setClientBlock pId sessId = do
     csClients . at sessId . _Just . ccBlock .= pId
     subscribeBlocks sessId
 
+subscribe
+    :: (MonadState ConnectionsState m, WithLogger m)
+    => SocketId -> Text -> Lens' ConnectionsState (Maybe ()) -> m ()
+subscribe i desc stateZoom = do
+    session <- use $ csClients . at i
+    case session of
+        Just _  -> do
+            stateZoom .= Just ()
+            logDebug $ sformat ("Client #"%shown%" subscribed to "%stext%" \
+                       \updates") i desc
+        _       ->
+            logWarning $ sformat ("Unregistered client tries to subscribe on "%
+                         stext%" updates") desc
+
+unsubscribe
+    :: (MonadState ConnectionsState m, WithLogger m)
+    => SocketId -> Text -> Lens' ConnectionsState (Maybe ()) -> m ()
+unsubscribe i desc stateZoom = do
+    stateZoom .= Nothing
+    logDebug $ sformat ("Client #"%shown%" unsubscribed from "%stext%" \
+               \updates") i desc
+
 subscribeAddr
     :: (MonadState ConnectionsState m, WithLogger m, MonadThrow m)
     => CAddress -> SocketId -> m ()
 subscribeAddr caddr i = do
     addr <- fromCAddressOrThrow caddr
-    session <- use $ csClients . at i
-    case session of
-        Just _ -> do
-            csAddressSubscribers . at addr %=
-                Just . (maybe (S.singleton i) (S.insert i))
-            logDebug $ sformat ("Client #"%shown%" subscribed to address "
-                       %shown) i addr
-        _      ->
-            logWarning $ sformat ("Unregistered client tries to subscribe \
-                         \on address updates"%build) addr
+    subscribe
+        i
+        (sformat ("address "%shown) addr)
+        (csAddressSubscribers . at addr . non S.empty . at i)
 
 unsubscribeAddr
     :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> m ()
 unsubscribeAddr i = do
-    addr <- preuse $ csClients . at i . _Just . ccAddress
-    whenJust (join addr) unsubscribeDo
-  where
-    unsubscribeDo a = do
-        csAddressSubscribers . at a %= fmap (S.delete i)
-        logDebug $ sformat ("Client #"%shown%" unsubscribed from address "
-                   %shown) i a
-
+    maddr <- preuse $ csClients . at i . _Just . ccAddress . _Just
+    whenJust maddr $ \addr ->
+        unsubscribe
+            i
+            (sformat ("address "%shown) addr)
+            (csAddressSubscribers . at addr . non S.empty . at i)
 
 subscribeBlocks
     :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> m ()
-subscribeBlocks i = do
-    session <- use $ csClients . at i
-    case session of
-        Just _  -> do
-            csBlocksSubscribers %= S.insert i
-            logDebug $ sformat ("Client #"%shown%" subscribed to blockchain \
-                       \updates") i
-        _       ->
-            logWarning "Unregistered client tries to subscribe on blockchain \
-                      \updates"
+subscribeBlocks i = subscribe i "blockchain" (csBlocksSubscribers . at i)
 
 unsubscribeBlocks
     :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> m ()
-unsubscribeBlocks i = do
-    csBlocksSubscribers %= S.delete i
-    logDebug $ sformat ("Client #"%shown%" unsubscribed from blockchain \
-               \updates") i
+unsubscribeBlocks i = unsubscribe i "blockchain" (csBlocksSubscribers . at i)
 
+subscribeTxs
+    :: (MonadState ConnectionsState m, WithLogger m)
+    => SocketId -> m ()
+subscribeTxs i = subscribe i "txs" (csTxsSubscribers . at i)
+
+unsubscribeTxs
+    :: (MonadState ConnectionsState m, WithLogger m)
+    => SocketId -> m ()
+unsubscribeTxs i = unsubscribe i "txs" (csTxsSubscribers . at i)
 
 unsubscribeFully
     :: (MonadState ConnectionsState m, WithLogger m)
@@ -221,7 +244,7 @@ notifyAllAddrSubscribers
     => m ()
 notifyAllAddrSubscribers = do
     addrSubscribers <- view csAddressSubscribers
-    mapM_ notifyAddrSubscribers $ map fst $ toList addrSubscribers
+    mapM_ notifyAddrSubscribers $ map fst $ Exts.toList addrSubscribers
 
 notifyBlocksSubscribers
     :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m,
@@ -234,6 +257,15 @@ notifyBlocksSubscribers blocks = do
   where
     toClientType (Left _)          = return Nothing
     toClientType (Right mainBlock) = Just <$> toBlockEntry mainBlock
+
+notifyTxsSubscribers
+    :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m,
+        MonadDB m)
+    => [Block ssc] -> m ()
+notifyTxsSubscribers blocks = do
+    recipients <- view csTxsSubscribers
+    cTxEntries <- forM blocks getBlockTxs
+    broadcast TxsUpdated cTxEntries recipients
 
 getBlocksFromTo
     :: forall ssc m.
@@ -261,3 +293,15 @@ blockAddresses block = do
                       <> (mconcat $ toList inTxs)
 
     return $ txOutAddress <$> S.toList relatedTxs
+
+getBlockTxs
+    :: (MonadDB m, WithLogger m)
+    => Block ssc -> m [CTxEntry]
+getBlockTxs (Left  _  ) = return []
+getBlockTxs (Right blk) = do
+    txs <- topsortTxsOrFail withHash $ toList $ blk ^. blockTxs
+    forM txs $ \tx -> do
+        TxExtra {..} <- DB.getTxExtra (hash tx) >>=
+            maybeThrow (Internal "In-block transaction doesn't \
+                                 \have extra info in DB")
+        pure $ toTxEntry teReceivedTime tx

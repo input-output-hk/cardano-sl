@@ -17,6 +17,7 @@ module Pos.Explorer.Socket.Holder
 
        , csAddressSubscribers
        , csBlocksSubscribers
+       , csTxsSubscribers
        , csClients
        , ccAddress
        , ccBlock
@@ -57,8 +58,10 @@ data ConnectionsState = ConnectionsState
       _csClients            :: !(M.Map SocketId ClientContext)
       -- | Sessions subscribed to given address.
     , _csAddressSubscribers :: !(M.Map Address (S.Set SocketId))
-      -- | Sessions subscribed to notifications about new BLocks.
+      -- | Sessions subscribed to notifications about new blocks.
     , _csBlocksSubscribers  :: !(S.Set SocketId)
+      -- | Sessions subscribed to notifications about new transactions.
+    , _csTxsSubscribers     :: !(S.Set SocketId)
     }
 
 makeClassy ''ConnectionsState
@@ -71,6 +74,7 @@ mkConnectionsState =
     { _csClients = mempty
     , _csAddressSubscribers = mempty
     , _csBlocksSubscribers = mempty
+    , _csTxsSubscribers = mempty
     }
 
 withConnState

@@ -7,6 +7,7 @@ module Pos.Explorer.Web.Server
        ( explorerServeImpl
        , explorerApp
        , explorerHandlers
+       , topsortTxsOrFail
        ) where
 
 import           Control.Lens                   (at)

@@ -14,7 +14,6 @@ import qualified Control.Concurrent.STM           as STM
 import           Control.Lens                     ((<<.=))
 import           Control.Monad.Trans.Control      (MonadBaseControl)
 import           Data.Aeson                       (Value)
-import qualified Data.Set                         as S
 import           Data.Time.Units                  (Millisecond)
 import           Formatting                       (int, sformat, shown, stext, (%))
 import           Mockable                         (Fork, Mockable)
@@ -46,10 +45,12 @@ import           Pos.Explorer.Socket.Methods      (ClientEvent (..), ServerEvent
                                                    getBlocksFromTo, notifyAddrSubscribers,
                                                    notifyAllAddrSubscribers,
                                                    notifyBlocksSubscribers,
-                                                   setClientAddress, setClientBlock,
-                                                   startSession, subscribeAddr,
-                                                   subscribeBlocks, unsubscribeAddr,
-                                                   unsubscribeBlocks, unsubscribeFully)
+                                                   notifyTxsSubscribers, setClientAddress,
+                                                   setClientBlock, startSession,
+                                                   subscribeAddr, subscribeBlocks,
+                                                   subscribeTxs, unsubscribeAddr,
+                                                   unsubscribeBlocks, unsubscribeFully,
+                                                   unsubscribeTxs)
 import           Pos.Explorer.Socket.Util         (emit, emitJSON, forkAccompanion, on,
                                                    on_, runPeriodicallyUnless)
 import           Pos.Explorer.Web.ClientTypes     (CTxId)
@@ -71,8 +72,10 @@ notifierHandler connVar loggerName = do
     _ <- asHandler' startSession
     on  (Subscribe SubAddr)    $ asHandler subscribeAddr
     on_ (Subscribe SubBlock)   $ asHandler_ subscribeBlocks
+    on_ (Subscribe SubTx   )   $ asHandler_ subscribeTxs
     on_ (Unsubscribe SubAddr)  $ asHandler_ unsubscribeAddr
     on_ (Unsubscribe SubBlock) $ asHandler_ unsubscribeBlocks
+    on_ (Unsubscribe SubTx)    $ asHandler_ unsubscribeTxs
     on  SetClientAddress       $ asHandler setClientAddress
     on  SetClientBlock         $ asHandler setClientBlock
     on_ CallMe                 $ emitJSON CallYou empty
@@ -124,21 +127,23 @@ periodicPollChanges connVar closed =
                 Nothing     -> do
                     logDebug "Failed to fetch blocks from db"
                     askingConnState connVar notifyAllAddrSubscribers
-                Just blocks -> do
+                Just blocks -> askingConnState connVar $ do
                     -- notify about addrs
-                    addrs <- S.toList . mconcat . fmap S.fromList <$>
-                        mapM blockAddresses blocks
-                    forM_ addrs $ \addr ->
-                        askingConnState connVar $ notifyAddrSubscribers addr
+                    addrs <- ordNub . mconcat <$> mapM blockAddresses blocks
+                    forM_ addrs notifyAddrSubscribers
                     unless (null addrs) $
                         logDebug $ sformat ("Addresses updated: "%shown) addrs
 
                     -- notify about blocks
-                    askingConnState connVar $ notifyBlocksSubscribers blocks
+                    notifyBlocksSubscribers blocks
 
-                    let blocksInfo = maybe "" (sformat $ " ("%int%" blocks)") $
+                    let blocksInfo =
+                            maybe "" (sformat $ " ("%int%" blocks)") $
                             length <$> mBlocks
                     logDebug $ sformat ("Blockchain updated"%stext) blocksInfo
+
+                    -- notify about transactions
+                    notifyTxsSubscribers blocks
 
 -- | Starts notification server. Kill current thread to stop it.
 notifierApp

@@ -62,6 +62,7 @@ import           Pos.Explorer.Web.Sockets.Util   (EventName (..), emitTo)
 data Subscription
     = SubAddr
     | SubBlock
+    deriving (Show, Generic)
 
 instance EventName Subscription where
     toName SubAddr  = "A"

@@ -64,10 +64,6 @@ data Subscription
     | SubBlock
     deriving (Show, Generic)
 
-instance EventName Subscription where
-    toName SubAddr  = "A"
-    toName SubBlock = "B"
-
 data ClientEvent
     = Subscribe Subscription
     | Unsubscribe Subscription

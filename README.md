@@ -43,8 +43,8 @@ hosted herein. We recommend starting with the following source files:
 Platform support
 ----------------
 
-At the moment, supported platforms are Windows, macOS and Linux. There are [installers 
-for Windows and macOS](https://daedaluswallet.io/#download), which include a node and 
+At the moment, supported platforms are Windows, macOS and Linux. There are [installers
+for Windows and macOS](https://daedaluswallet.io/#download), which include a node and
 a [wallet](https://github.com/input-output-hk/daedalus).
 
 Build from source
@@ -65,6 +65,11 @@ After the project is built, run it:
 - open *new terminal window*, run `export WALLET_TEST=1; ./scripts/launch.sh` in it
 
 After a while, the first terminal windows should be populated with 4 tabs, 3 out of which will have a node running in them.
+
+Generating the wallet documentation
+-----------------------------------
+
+Build the project and run `stack exec --nix -- cardano-wallet-web-docs`. Look at the generated `./docs/wallet-web-api.md`.
 
 Benchmarking
 ------------

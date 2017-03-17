@@ -31,7 +31,7 @@ main = do
         [fpath, outpath, mbcerts] -> do
             jsonfile <- BSL.readFile fpath
             case A.eitherDecode jsonfile of
-                Left err       -> panic (toText err)
+                Left err       -> error (toText err)
                 Right avvmData -> do
                     let genesis = genGenesis avvmData (mbcerts == "randcerts")
                     createDirectoryIfMissing True (takeDirectory outpath)
@@ -86,6 +86,6 @@ genGenesis avvm genCerts = GenesisData
         AvvmEntry{..} <- utxo avvm
         let pk = case decodeUrl address of
                 Right x -> RedeemPublicKey (Ed.PublicKey x)
-                Left _  -> panic ("couldn't decode address " <> address)
+                Left _  -> error ("couldn't decode address " <> address)
         let addr = makeRedeemAddress pk
         return (addr, unsafeIntegerToCoin (coinAmount coin))

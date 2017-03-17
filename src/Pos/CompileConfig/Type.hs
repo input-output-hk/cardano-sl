@@ -1,15 +1,12 @@
-{-# LANGUAGE DeriveLift #-}
-
 {-| Compile-time configuration is represented by 'CompileConfig' data type.
-    This configuration is parsed at compile-time using /file-embed/ library
-    and stores constants from paper and also some network-specific.
+    This configuration stores constants from paper and also some
+    network-specific constants.
 -}
 
 module Pos.CompileConfig.Type
        ( CompileConfig (..)
        ) where
 
-import           Language.Haskell.TH.Syntax (Lift)
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
@@ -104,4 +101,4 @@ data CompileConfig = CompileConfig
       -- ^ Block retrieval queue capacity
     , ccPropagationQueueSize          :: !Int
       -- ^ InvMsg propagation queue capacity
-    } deriving (Show, Lift)
+    } deriving (Show)

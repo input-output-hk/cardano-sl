@@ -23,6 +23,7 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context                 (WithNodeContext)
+import           Pos.Reporting.MemState      (MonadReportingMem)
 import           Pos.Slotting                (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Statistics              (MonadStats)
@@ -41,7 +42,7 @@ newtype WalletDB m a = WalletDB
                 WithNodeContext ssc, MonadSlotsData,
                 MonadSlots, MonadSscMem ssc, MonadFix,
                 MonadJL, CanLog, MonadStats,
-                MonadKeys, WithWalletContext, MonadTrans)
+                MonadKeys, WithWalletContext, MonadTrans, MonadReportingMem)
 
 instance Monad m => WrappedM (WalletDB m) where
     type UnwrappedM (WalletDB m) = ReaderT WalletState m

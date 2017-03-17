@@ -129,7 +129,7 @@ writeUserSecretRelease u
     | otherwise = liftIO $ do
           writeRaw u
           unlockFile
-            (fromMaybe (panic "writeUserSecretRelease: incorrect UserSecret") $
+            (fromMaybe (error "writeUserSecretRelease: incorrect UserSecret") $
             u ^. usLock)
 
 -- | Helper for writing secret to file

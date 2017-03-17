@@ -15,7 +15,6 @@ module Pos.Slotting.Ntp
        , runNtpSlotting
        ) where
 
-import           Control.Concurrent.STM      (TVar, newTVarIO)
 import qualified Control.Concurrent.STM      as STM
 import           Control.Lens                (iso, makeLenses)
 import           Control.Monad.Base          (MonadBase (..))

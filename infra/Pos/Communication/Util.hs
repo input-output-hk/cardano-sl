@@ -8,6 +8,8 @@ module Pos.Communication.Util
        , wrapSendActions
        ) where
 
+import           Universum                   hiding (bracket, finally)
+
 import           Data.Proxy                  (asProxyTypeOf)
 import           Data.Time.Units             (Microsecond)
 import           Formatting                  (build, sformat, shown, (%))
@@ -15,8 +17,6 @@ import           Mockable                    (Async, Bracket, Delay, Mockable)
 import qualified Node                        as N
 import           System.Wlog                 (LoggerName, WithLogger, logDebug,
                                               logWarning, modifyLoggerName)
-import           Universum                   hiding (Async, async, bracket, cancel,
-                                              finally, withMVar)
 
 import           Pos.Binary.Class            (Bi)
 import           Pos.Communication.BiP       (BiP)

@@ -1,4 +1,4 @@
-resolver: lts-8.2
+resolver: lts-8.5
 
 flags: {}
 
@@ -35,11 +35,11 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: ede7a1a9eafd88e3449b38c7425f5529d6584014
+    commit: 424e4ecacdf038a01542025dd1296bd272ce770d
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 18a17e2f86341c272a5cabd9b767b8f5277dc793
+    commit: 2943e7814b9f78b9ef68c9bdc96820ed32a0fdf3
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -51,8 +51,8 @@ packages:
     commit: f2321a103f53f51d36c99383132e3ffa3ef1c401
   extra-dep: true
 - location:
-    git: https://github.com/flyingleafe/cardano-crypto
-    commit: 6a7a2119f5e7a9722b086c7e1fbd77872d267690
+    git: https://github.com/input-output-hk/cardano-crypto
+    commit: 838b064d8a59286142aa2fe14434fe7601896ddb
   extra-dep: true
 #- location:
 #    git: https://github.com/haskell-crypto/cryptonite.git
@@ -63,19 +63,20 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
-- universum-0.2.1
+- universum-0.3
 - time-units-1.0.0
-- UtilityTM-0.0.4
 - serokell-util-0.1.4.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-1.0.0
+- log-warper-1.0.4
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.5.26                   # not yet in lts-8
 - haskell-src-exts-1.17.1         # derive has not moved to 1.18 yet
 - wreq-0.5.0.0                    # not yet in lts-8
 - purescript-bridge-0.8.0.1
 - cryptonite-0.22
+- directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
+- safecopy-0.9.2                  # https://github.com/serokell/serokell-util/issues/5
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

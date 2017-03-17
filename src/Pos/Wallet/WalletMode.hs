@@ -3,6 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE CPP #-}
 
 -- | 'WalletMode' constraint. Like `WorkMode`, but for wallet.
 
@@ -17,8 +18,7 @@ module Pos.Wallet.WalletMode
        , WalletRealMode
        ) where
 
-import           Control.Concurrent.MVar     (takeMVar)
-import           Control.Concurrent.STM      (TMVar, TVar, readTVar, tryReadTMVar)
+import           Control.Concurrent.STM      (TMVar, tryReadTMVar)
 import           Control.Monad.Loops         (unfoldrM)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
@@ -44,18 +44,17 @@ import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
 import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Shutdown                (triggerShutdown)
-import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Slotting                (NtpSlotting, SlottingHolder,
-                                              getLastKnownSlotDuration)
+import           Pos.Slotting                (MonadSlots (..), NtpSlotting,
+                                              SlottingHolder, getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
-import           Pos.Txp                     (TxAux, TxId, TxpHolder (..), Utxo,
-                                              belongsTo, evalUtxoStateT, filterUtxoByAddr,
-                                              getMemPool, getUtxoModifier, runUtxoStateT,
-                                              txOutValue, txProcessTransaction,
-                                              _mpLocalTxs)
-import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin, HeaderHash,
-                                              difficultyL, flattenEpochOrSlot,
+import           Pos.Txp                     (TxAux, TxId, TxOutAux (..), TxpHolder (..),
+                                              Utxo, addrBelongsTo, evalUtxoStateT,
+                                              filterUtxoByAddr, getMemPool,
+                                              getUtxoModifier, runUtxoStateT, txOutValue,
+                                              txProcessTransaction, _mpLocalTxs)
+import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
+                                              HeaderHash, difficultyL, flattenEpochOrSlot,
                                               flattenSlotId, prevBlockL, prevBlockL,
                                               sumCoins, sumCoins)
 import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
@@ -67,7 +66,7 @@ import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)
 import qualified Pos.Wallet.State            as WS
-import           Pos.Wallet.Tx.Pure          (TxHistoryEntry, deriveAddrHistory, thDifficulty,
+import           Pos.Wallet.Tx.Pure          (TxHistoryEntry, deriveAddrHistory,
                                               deriveAddrHistoryPartial, getRelatedTxs)
 import           Pos.Wallet.Web.State        (WalletWebDB (..))
 
@@ -76,7 +75,7 @@ class Monad m => MonadBalances m where
     getOwnUtxo :: Address -> m Utxo
     getBalance :: Address -> m Coin
     getBalance addr = unsafeIntegerToCoin . sumCoins .
-                      map (txOutValue . fst) . toList <$> getOwnUtxo addr
+                      map (txOutValue . toaOut) . toList <$> getOwnUtxo addr
     -- TODO: add a function to get amount of stake (it's different from
     -- balance because of distributions)
 
@@ -106,7 +105,7 @@ instance (MonadDB m, MonadMask m) => MonadBalances (TxpHolder m) where
         utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoModifier
         let toDel = MM.deletions updates
-            toAdd = HM.filter (`belongsTo` addr) $ MM.insertionsMap updates
+            toAdd = HM.filter (`addrBelongsTo` addr) $ MM.insertionsMap updates
             utxo' = foldr M.delete utxo toDel
         return $ HM.foldrWithKey M.insert utxo' toAdd
 
@@ -153,13 +152,19 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
     getTxHistory = Tagged $ \addr _ -> do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
-        res <- fmap (fst . fromMaybe (panic "deriveAddrHistory: Nothing")) $
+        _ <- fmap (fst . fromMaybe (error "deriveAddrHistory: Nothing")) $
             runMaybeT $ flip runUtxoStateT utxo $
             deriveAddrHistory addr chain
-        pure undefined
+        pure $ error "getTxHistory is not implemented for light wallet"
     saveTx _ = pure ()
 
-instance (MonadDB m, MonadThrow m, WithLogger m, PC.WithNodeContext ssc m) =>
+instance ( MonadDB m
+         , MonadThrow m
+         , WithLogger m
+#ifdef WITH_EXPLORER
+         , MonadSlots m
+#endif
+         , PC.WithNodeContext s m) =>
          MonadTxHistory (TxpHolder m) where
     getTxHistory :: forall ssc. SscHelpersClass ssc
                  => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> TxpHolder m TxHistoryAnswer)
@@ -204,7 +209,7 @@ instance (MonadDB m, MonadThrow m, WithLogger m, PC.WithNodeContext ssc m) =>
             let lastCachedHash = maybe bot identity $ head cachedHashes
             return $ TxHistoryAnswer lastCachedHash (length cachedTxs) cachedUtxo result
 
-        maybe (panic "deriveAddrHistory: Nothing") pure mres
+        maybe (error "deriveAddrHistory: Nothing") pure mres
 
     saveTx txw = () <$ runExceptT (txProcessTransaction txw)
 
@@ -239,10 +244,10 @@ deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (WalletWebDB m)
 
 -- | Stub instance for lite-wallet
 instance MonadBlockchainInfo WalletRealMode where
-    networkChainDifficulty = panic "notImplemented"
-    localChainDifficulty = panic "notImplemented"
-    blockchainSlotDuration = panic "notImplemented"
-    connectedPeers = panic "notImplemented"
+    networkChainDifficulty = error "notImplemented"
+    localChainDifficulty = error "notImplemented"
+    blockchainSlotDuration = error "notImplemented"
+    connectedPeers = error "notImplemented"
 
 -- | Helpers for avoiding copy-paste
 topHeader :: (SscHelpersClass ssc, MonadDB m) => m (BlockHeader ssc)
@@ -322,7 +327,7 @@ deriving instance MonadUpdates m => MonadUpdates (WalletWebDB m)
 
 -- | Dummy instance for lite-wallet
 instance MonadIO m => MonadUpdates (WalletDB m) where
-    waitForUpdate = panic "notImplemented"
+    waitForUpdate = error "notImplemented"
     applyLastUpdate = pure ()
 
 -- | Instance for full node

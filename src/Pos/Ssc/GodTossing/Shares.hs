@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Logic of working with Shares.
 
@@ -9,11 +9,12 @@ module Pos.Ssc.GodTossing.Shares
 import           Crypto.Random            (drgNewSeed, seedNew, withDRG)
 import qualified Data.HashMap.Strict      as HM
 import           Formatting               (build, sformat, (%))
-import           System.Wlog              (WithLogger, dispatchEvents, getLoggerName,
-                                           logWarning, runPureLog, usingLoggerName)
+import           System.Wlog              (WithLogger, launchNamedPureLog, logWarning)
 import           Universum
 
 import           Pos.Binary.Class         (AsBinary, asBinary, fromBinaryM)
+import           Pos.Core.Address         (addressHash)
+import           Pos.Core.Types           (StakeholderId)
 import           Pos.Crypto               (EncShare, Share, VssKeyPair, VssPublicKey,
                                            decryptShare, toVssPublicKey)
 import           Pos.Ssc.Class.Storage    (SscGlobalQuery)
@@ -21,8 +22,6 @@ import           Pos.Ssc.Extra            (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Core  (Commitment (..), getCommitmentsMap)
 import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types (gsCommitments, gsOpenings)
-import           Pos.Core.Address        (addressHash)
-import           Pos.Core.Types           (StakeholderId)
 
 type GSQuery a = SscGlobalQuery SscGodTossing a
 
@@ -36,20 +35,16 @@ getOurShares ourKey = do
     let ourPK = asBinary $ toVssPublicKey ourKey
     encSharesM <- sscRunGlobalQuery (decryptOurShares ourPK)
     let drg = drgNewSeed randSeed
-        (res, pLog) =
-          fst . withDRG drg . runPureLog . usingLoggerName mempty <$>
-          flip traverse (HM.toList encSharesM) $ \(id, lEncSh) -> do
+    res <- launchNamedPureLog (return . fst . withDRG drg) $
+           forM (HM.toList encSharesM) $ \(id, lEncSh) -> do
               let mEncSh = traverse fromBinaryM lEncSh
               case mEncSh of
                 Just encShares ->
-                    lift . lift $ Just . (id,) <$> mapM (decryptShare ourKey) encShares
+                    lift $ Just . (id,) <$> mapM (decryptShare ourKey) encShares
                 _             -> do
                     logWarning $ sformat ("Failed to deserialize share for " % build) id
                     return Nothing
-        resHM = HM.fromList . catMaybes $ res
-    loggerName <- getLoggerName
-    liftIO $ usingLoggerName loggerName $ dispatchEvents pLog
-    return resHM
+    return $ HM.fromList . catMaybes $ res
 
 -- | Decrypt shares (in commitments) that we can decrypt.
 decryptOurShares

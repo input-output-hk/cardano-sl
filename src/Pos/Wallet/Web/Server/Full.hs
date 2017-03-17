@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
 
@@ -19,22 +18,21 @@ import           Servant.Utils.Enter           ((:~>) (..))
 import           System.Wlog                   (logInfo, usingLoggerName)
 import           Universum
 
+import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState (..),
+                                                getAllStates, peerStateFromSnapshot,
+                                                runPeerStateHolder)
 import           Pos.Communication.Protocol    (SendActions)
+import           Pos.Constants                 (isDevelopment)
 import           Pos.Context                   (NodeContext, getNodeContext,
                                                 runContextHolder)
 import           Pos.Crypto                    (toEncrypted)
 import           Pos.DB                        (NodeDBs, getNodeDBs, runDBHolder)
 import           Pos.Delegation.Class          (DelegationWrap, askDelegationState)
 import           Pos.Delegation.Holder         (runDelegationTFromTVar)
-#ifdef DEV_MODE
-import           Pos.Genesis                   (genesisSecretKeys)
-#endif
-import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState (..),
-                                                getAllStates, peerStateFromSnapshot,
-                                                runPeerStateHolder)
 import           Pos.DHT.Real.Real             (runKademliaDHT)
 import           Pos.DHT.Real.Types            (KademliaDHTInstance (..),
                                                 getKademliaDHTInstance)
+import           Pos.Genesis                   (genesisDevSecretKeys)
 import           Pos.Slotting                  (NtpSlotting (..), NtpSlottingVar,
                                                 SlottingHolder (..), SlottingVar,
                                                 runNtpSlotting, runSlottingHolder)
@@ -68,9 +66,8 @@ walletServeWebFull sendActions debug = walletServeImpl action
     action :: WalletWebHandler (RawRealMode ssc) Application
     action = do
         logInfo "DAEDALUS has STARTED!"
-#ifdef DEV_MODE
-        when debug $ mapM_ (addSecretKey . toEncrypted) genesisSecretKeys
-#endif
+        when (isDevelopment && debug) $
+            mapM_ (addSecretKey . toEncrypted) genesisDevSecretKeys
         walletApplication $ walletServer @ssc sendActions nat
 
 type WebHandler ssc = WalletWebSockets (WalletWebDB (RawRealMode ssc))

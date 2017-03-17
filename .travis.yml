@@ -14,7 +14,7 @@ cache:
   - "$HOME/build/input-output-hk/pos-haskell-prototype/.stack-work"
   # TODO: https://github.com/npm/fs-write-stream-atomic/pull/14
   #- daedalus/node_modules
-  - daedalus/bower_components
+  #- daedalus/bower_components
 
 before_install:
 - export CSL_SYSTEM_TAG=$TRAVIS_OS_NAME
@@ -26,17 +26,18 @@ before_install:
   xz --strip-components=1 -C ~/.local/bin
 - mkdir s3
 script:
+- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export EXTRA_STACK="--test --haddock"; else export EXTRA_STACK="--no-haddock-deps"; fi
 - stack --nix --no-terminal --local-bin-path s3/ install --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
-  --no-haddock-deps --jobs=4
+  $EXTRA_STACK --jobs=4
   --flag cardano-sl:-asserts
-  --flag cardano-sl:-dev-mode
-  --test
+  --flag cardano-sl-core:-dev-mode
 - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ./update_haddock.sh; fi
 - stack exec --nix -- cardano-wallet-hs2purs
+- stack exec --nix -- cardano-wallet-web-docs
 - cd daedalus
 - nix-shell -p nodejs --run "npm install && npm run build:prod"
 - cd ..
-- XZ_OPT=-1 tar Jcvf s3/daedalus-bridge.tar.xz daedalus/ 
+- XZ_OPT=-1 tar Jcvf s3/daedalus-bridge.tar.xz daedalus/ 2> /dev/null
 - echo $TRAVIS_BUILD_NUMBER > s3/build-id
 deploy:
   provider: s3

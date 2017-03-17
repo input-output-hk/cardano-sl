@@ -13,6 +13,8 @@ module Pos.Data.Attributes
        , mkAttributes
        ) where
 
+import           Universum
+
 import qualified Base                as Base
 import           Data.Binary.Get     (Get, getWord8)
 import qualified Data.Binary.Get     as G
@@ -25,7 +27,6 @@ import           Data.SafeCopy       (SafeCopy (..), contain, safeGet, safePut)
 import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, int, (%))
-import           Universum           hiding (putByteString)
 
 import           Pos.Binary.Class    (getRemainingByteString, getWithLength,
                                       getWithLengthLimited, putWithLength)

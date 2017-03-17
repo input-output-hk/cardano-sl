@@ -1,5 +1,5 @@
 name:                cardano-sl-infra
-version:             0.1.0.0
+version:             0.3.0.0
 synopsis:            Cardano SL - infrastructural
 description:         Cardano SL - infrastructural
 license:             MIT
@@ -10,19 +10,12 @@ copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
-flag dev-mode
-  default:     True
-  manual:      True
-
-  description: Switch between Development and Production mode
 
 library
   exposed-modules:
                         -- Reporting
                         Pos.Reporting
                         Pos.Reporting.MemState
-                        Pos.Reporting.MemState.Class
-                        Pos.Reporting.MemState.Types
                         Pos.Reporting.Exceptions
                         Pos.Reporting.Methods
 
@@ -89,11 +82,11 @@ library
                         Pos.Util.TimeWarp
 
   other-modules:        Paths_cardano_sl_infra
-                        Pos.Infra.Constants.Type
-                        Pos.Infra.Constants.Parser
-                      
-  build-depends:       base
-                     , aeson
+                        Pos.Infra.Constants
+
+  build-depends:       aeson
+                     , base
+                     , parsec
                       -- This constraint on 'binary' is so strict because
                       -- we're relying on the internal representation of
                       -- 'Get' in Pos.Binary.Class. So, if you need to bump
@@ -114,7 +107,7 @@ library
                       , kademlia
                       , lens
                       , list-t
-                      , log-warper >= 0.4.3
+                      , log-warper >= 1.0.3
                       , monad-control
                       , mtl
                       , network-info
@@ -163,5 +156,3 @@ library
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-  if flag(dev-mode)
-    cpp-options: -DDEV_MODE

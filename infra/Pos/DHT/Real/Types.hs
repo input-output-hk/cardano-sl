@@ -1,5 +1,5 @@
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.DHT.Real.Types
        ( KademliaDHT (..)
@@ -9,7 +9,7 @@ module Pos.DHT.Real.Types
        , WithKademliaDHTInstance (..)
        ) where
 
-import           Universum                 hiding (async, fromStrict, toStrict)
+import           Universum                 hiding (fromStrict, toStrict)
 
 import           Control.Concurrent.STM    (TVar)
 import           Control.Lens              (iso)

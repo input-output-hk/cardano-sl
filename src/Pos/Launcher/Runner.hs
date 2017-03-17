@@ -26,9 +26,7 @@ module Pos.Launcher.Runner
        , RealModeResources(..)
        ) where
 
-import           Control.Concurrent.MVar     (newEmptyMVar, newMVar, takeMVar,
-                                              tryReadMVar)
-import           Control.Concurrent.STM      (newEmptyTMVarIO, newTBQueueIO, newTVarIO)
+import           Control.Concurrent.STM      (newEmptyTMVarIO, newTBQueueIO)
 import           Control.Lens                (each, to, _tail)
 import           Control.Monad.Fix           (MonadFix)
 import qualified Data.ByteString.Char8       as BS8
@@ -45,7 +43,8 @@ import           Network.QDisc.Fair          (fairQDisc)
 import           Network.Transport           (Transport, closeTransport)
 import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
-import           Node                        (Node, NodeAction (..), hoistSendActions,
+import           Node                        (Node, NodeAction (..),
+                                              defaultNodeEnvironment, hoistSendActions,
                                               node)
 import           Node.Util.Monitor           (setupMonitor, stopMonitor)
 import           Serokell.Util               (sec)
@@ -78,8 +77,8 @@ import           Pos.Constants               (blockRetrievalQueueSize,
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               runContextHolder)
-import           Pos.Crypto                  (createProxySecretKey, encToPublic)
 import           Pos.Core.Timestamp          (timestampF)
+import           Pos.Crypto                  (createProxySecretKey, encToPublic)
 import           Pos.DB                      (MonadDB (..), runDBHolder)
 import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
 import           Pos.DB.GState               (getTip)
@@ -143,7 +142,7 @@ runTimeSlaveReal sscProxy res bp = do
            killThread tId
            t <$ logInfo (sformat ("[Time slave] adopted system start " % timestampF) t)
          False -> logWarning "Time slave launched in Production" $>
-           panic "Time slave in production, rly?"
+           error "Time slave in production, rly?"
   where
     outs = sysStartOuts
               <> toOutSpecs [ convH (Proxy :: Proxy SysStartRequest)
@@ -273,7 +272,7 @@ runServer transport packedLS_M (OutSpecs wouts) withNode afterNode (ActionSpec a
         listeners = listeners' ourVerInfo
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo "%build) ourVerInfo
-    node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) $ \__node ->
+    node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) defaultNodeEnvironment $ \__node ->
         NodeAction listeners $ \sendActions -> do
             t <- withNode __node
             a <- action ourVerInfo sendActions `finally` afterNode t

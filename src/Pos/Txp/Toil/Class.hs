@@ -1,8 +1,9 @@
+{-# LANGUAGE CPP          #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- | Type classes for Txp abstraction.
--- * MonadUtxoRead and MonadUtxo for incapsulation of Utxo storage.
--- * MonadBalancesRead and MonadBalances for incapsulation of Balances storage.
+-- | Type classes for Toil abstraction.
+-- * MonadUtxoRead and MonadUtxo for encapsulation of Utxo storage.
+-- * MonadBalancesRead and MonadBalances for encapsulation of Balances storage.
 -- * MonadTxPoll for encapsulation of mem pool of local transactions.
 
 module Pos.Txp.Toil.Class
@@ -10,14 +11,25 @@ module Pos.Txp.Toil.Class
        , MonadUtxo (..)
        , MonadBalancesRead (..)
        , MonadBalances (..)
+       , MonadToilEnv (..)
        , MonadTxPool (..)
+#ifdef WITH_EXPLORER
+       , MonadTxExtra (..)
+       , MonadTxExtraRead (..)
+#endif
        ) where
 
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Universum
 
+import           Pos.Core                  (Coin, StakeholderId)
 import           Pos.Txp.Core.Types        (TxAux, TxId, TxIn, TxOutAux, TxUndo)
-import           Pos.Types                 (Coin, StakeholderId)
+import           Pos.Txp.Toil.Types        (ToilEnv)
+#ifdef WITH_EXPLORER
+import           Pos.Core                  (Address)
+import           Pos.Types.Explorer        (AddrHistory, TxExtra)
+#endif
+
 ----------------------------------------------------------------------------
 -- MonadUtxo
 ----------------------------------------------------------------------------
@@ -30,9 +42,6 @@ class Monad m => MonadUtxoRead m where
 instance MonadUtxoRead m => MonadUtxoRead (ReaderT a m) where
 instance MonadUtxoRead m => MonadUtxoRead (ExceptT e m) where
 instance MonadUtxoRead m => MonadUtxoRead (StateT e m) where
--- For pure runs
-instance MonadUtxoRead Identity where
-    utxoGet _ = pure Nothing
 
 class MonadUtxoRead m => MonadUtxo m where
     utxoPut :: TxIn -> TxOutAux -> m ()
@@ -84,26 +93,89 @@ instance MonadBalances m => MonadBalances (StateT s m)
 instance MonadBalances m => MonadBalances (ExceptT s m)
 
 ----------------------------------------------------------------------------
--- MonadTx
+-- MonadToilEnv
+----------------------------------------------------------------------------
+
+-- | Type class which lets get some environmental data needed for
+-- transactions processing.
+class Monad m => MonadToilEnv m where
+    getToilEnv :: m ToilEnv
+
+    default getToilEnv
+        :: (MonadTrans t, MonadToilEnv m', t m' ~ m) => m ToilEnv
+    getToilEnv = lift getToilEnv
+
+instance MonadToilEnv m => MonadToilEnv (ReaderT s m)
+instance MonadToilEnv m => MonadToilEnv (StateT s m)
+instance MonadToilEnv m => MonadToilEnv (ExceptT s m)
+
+instance MonadToilEnv ((->) ToilEnv) where
+    getToilEnv = identity
+
+----------------------------------------------------------------------------
+-- MonadTxPool
 ----------------------------------------------------------------------------
 
 class Monad m => MonadTxPool m where
     hasTx :: TxId -> m Bool
-    putTxWithUndo :: TxId -> TxAux -> TxUndo -> m ()
     poolSize :: m Int
+    putTxWithUndo :: TxId -> TxAux -> TxUndo -> m ()
 
     default hasTx
         :: (MonadTrans t, MonadTxPool m', t m' ~ m) => TxId -> m Bool
     hasTx = lift . hasTx
 
-    default putTxWithUndo
-        :: (MonadTrans t, MonadTxPool m', t m' ~ m) => TxId -> TxAux -> TxUndo -> m ()
-    putTxWithUndo id tx = lift . putTxWithUndo id tx
-
     default poolSize
         :: (MonadTrans t, MonadTxPool m', t m' ~ m) => m Int
     poolSize = lift poolSize
 
+    default putTxWithUndo
+        :: (MonadTrans t, MonadTxPool m', t m' ~ m) => TxId -> TxAux -> TxUndo -> m ()
+    putTxWithUndo id tx = lift . putTxWithUndo id tx
+
 instance MonadTxPool m => MonadTxPool (ReaderT s m)
 instance MonadTxPool m => MonadTxPool (StateT s m)
 instance MonadTxPool m => MonadTxPool (ExceptT s m)
+
+#ifdef WITH_EXPLORER
+----------------------------------------------------------------------------
+-- MonadTxExtra
+----------------------------------------------------------------------------
+
+class Monad m => MonadTxExtraRead m where
+    getTxExtra :: TxId -> m (Maybe TxExtra)
+    getAddrHistory :: Address -> m AddrHistory
+
+    default getTxExtra
+        :: (MonadTrans t, MonadTxExtraRead m', t m' ~ m) => TxId -> m (Maybe TxExtra)
+    getTxExtra = lift . getTxExtra
+
+    default getAddrHistory
+        :: (MonadTrans t, MonadTxExtraRead m', t m' ~ m) => Address -> m AddrHistory
+    getAddrHistory = lift . getAddrHistory
+
+instance MonadTxExtraRead m => MonadTxExtraRead (ReaderT s m)
+instance MonadTxExtraRead m => MonadTxExtraRead (StateT s m)
+instance MonadTxExtraRead m => MonadTxExtraRead (ExceptT s m)
+
+class MonadTxExtraRead m => MonadTxExtra m where
+    putTxExtra :: TxId -> TxExtra -> m ()
+    delTxExtra :: TxId -> m ()
+    updateAddrHistory :: Address -> AddrHistory -> m ()
+
+    default putTxExtra
+        :: (MonadTrans t, MonadTxExtra m', t m' ~ m) => TxId -> TxExtra -> m ()
+    putTxExtra id = lift . putTxExtra id
+
+    default delTxExtra
+        :: (MonadTrans t, MonadTxExtra m', t m' ~ m) => TxId -> m ()
+    delTxExtra = lift . delTxExtra
+
+    default updateAddrHistory
+        :: (MonadTrans t, MonadTxExtra m', t m' ~ m) => Address -> AddrHistory -> m ()
+    updateAddrHistory addr = lift . updateAddrHistory addr
+
+instance MonadTxExtra m => MonadTxExtra (ReaderT s m)
+instance MonadTxExtra m => MonadTxExtra (StateT s m)
+instance MonadTxExtra m => MonadTxExtra (ExceptT s m)
+#endif

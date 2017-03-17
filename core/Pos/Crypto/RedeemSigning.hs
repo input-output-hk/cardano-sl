@@ -64,7 +64,7 @@ instance Bi.Bi RedeemPublicKey => B.Buildable RedeemSecretKey where
 redeemKeyGen :: MonadIO m => m (RedeemPublicKey, RedeemSecretKey)
 redeemKeyGen = liftIO $ secureRandomBS 32 >>=
     maybe err pure . redeemDeterministicKeyGen
-  where err = panic "Pos.Crypto.RedeemSigning.redeemKeyGen:\
+  where err = error "Pos.Crypto.RedeemSigning.redeemKeyGen:\
                     \ createKeypairFromSeed_ failed"
 
 -- | Create key pair deterministically from 32 bytes.

@@ -1,5 +1,5 @@
 name:                cardano-sl-core
-version:             0.1.0.0
+version:             0.3.0.0
 synopsis:            Cardano SL - core
 description:         Cardano SL - core
 license:             MIT
@@ -10,18 +10,22 @@ copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
-data-dir:
-  ../
 data-files:
   constants-dev.yaml
-  constants-wallet-prod.yaml
   constants-prod.yaml
+  constants-wallet-prod.yaml
 
 flag dev-mode
   default:     True
   manual:      True
 
   description: Switch between Development and Production mode
+
+flag embed-config
+  default:     False
+  manual:      True
+
+  description: Embed the config even if Development mode is enabled
 
 library
   exposed-modules:     Pos.Core
@@ -30,7 +34,6 @@ library
                        Pos.Core.Class
                        Pos.Core.Coin
                        Pos.Core.Constants
-                       Pos.Core.Constants.Type
                        Pos.Core.Script
                        Pos.Core.Slotting
                        Pos.Core.Timestamp
@@ -64,12 +67,12 @@ library
                        Pos.Util.Modifier
                        Pos.Util.Util
 
-  other-modules:       Paths_cardano_sl_core
+  other-modules:       Pos.Util.Config.Path
 
-  build-depends:       base
-                     , aeson
+  build-depends:       aeson
+                     , base
                      , base58-bytestring
-                     , log-warper
+                     , log-warper >= 1.0.3
                       -- This constraint on 'binary' is so strict because
                       -- we're relying on the internal representation of
                       -- 'Get' in Pos.Binary.Class. So, if you need to bump
@@ -109,7 +112,6 @@ library
                      , text
                      , text-format
                      , time
-                     , th-lift-instances
                      , time-units
                      , universum
                      , unordered-containers
@@ -144,3 +146,5 @@ library
   ghc-options: -pgmP cpphs -optP --cpp
   if flag(dev-mode)
     cpp-options: -DDEV_MODE
+  if flag(embed-config) || !flag(dev-mode)
+    cpp-options: -DEMBED_CONFIG

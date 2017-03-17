@@ -9,23 +9,30 @@ module Pos.DHT.Model.Types
        , randomDHTKey
        , getMeaningPart
        , meaningPartLength
+
+       -- * Parsers
+       , dhtKeyParser
+       , dhtNodeParser
        ) where
 
+import qualified Control.Monad               as Monad (fail)
 import qualified Data.ByteString             as BS
-import           Data.Hashable               (Hashable)
 import           Data.Hashable               (Hashable (..))
 import           Data.Text.Buildable         (Buildable (..))
 import           Formatting                  (bprint, (%))
 import qualified Formatting                  as F
 import           Network.Kademlia            (fromBS)
 import           Network.Kademlia.HashNodeId (HashId (..), genNonce, hashAddress)
-import qualified Prelude                     as Prelude
+import qualified Prelude
 import qualified Serokell.Util.Base64        as B64
+import qualified Serokell.Util.Parse         as P
 import           Serokell.Util.Text          (listBuilderJSON)
+import qualified Text.Parsec.Char            as P
+import qualified Text.Parsec.String          as P
 import           Universum
 
 import           Pos.Crypto.Random           (runSecureRandom)
-import           Pos.Util.TimeWarp           (NetworkAddress)
+import           Pos.Util.TimeWarp           (NetworkAddress, addrParser)
 
 -- TODO export lengths from HashNodeId module
 meaningPartLength :: Int
@@ -77,3 +84,17 @@ bytesToDHTKey bs = either (Left . fromString) (Right . DHTKey . fst) $ fromBS bs
 -- | Generate random 'DHTKey'.
 randomDHTKey :: MonadIO m => m DHTKey
 randomDHTKey = DHTKey . hashAddress <$> liftIO (runSecureRandom genNonce)
+
+----------------------------------------------------------------------------
+-- Parsers
+----------------------------------------------------------------------------
+
+-- | Parser for DHT key.
+dhtKeyParser :: P.Parser DHTKey
+dhtKeyParser = P.base64Url >>= toDHTKey
+  where
+    toDHTKey = either Monad.fail return . bytesToDHTKey
+
+-- | Parser for 'DHTNode'.
+dhtNodeParser :: P.Parser DHTNode
+dhtNodeParser = DHTNode <$> addrParser <*> (P.char '/' *> dhtKeyParser)

@@ -18,8 +18,7 @@ import           Pos.Communication.PeerState (runPeerStateHolder)
 import           Pos.DHT.Model               (getKnownPeers)
 import           Pos.DHT.Real                (runKademliaDHT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
-                                              RealModeResources (..), addDevListeners,
-                                              runServer_)
+                                              RealModeResources (..), runServer_)
 import           Pos.Wallet.Context          (WalletContext (..), runContextHolder)
 import           Pos.Wallet.KeyStorage       (runKeyStorage)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
@@ -47,9 +46,9 @@ runWalletRealMode
     -> WalletParams
     -> (ActionSpec WalletRealMode a, OutSpecs)
     -> Production a
-runWalletRealMode res wp@WalletParams {..} = runRawRealWallet res wp listeners
-  where
-    listeners = addDevListeners wpSystemStart allListeners
+runWalletRealMode res wp@WalletParams {..} = runRawRealWallet res wp allListeners
+  -- where
+  --   listeners = addDevListeners wpSystemStart allListeners
 
 runWalletReal
     :: RealModeResources

@@ -6,11 +6,13 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkCWalletInitIgnoreChecksum, mkBackupPhrase)
+import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkCWalletInitIgnoreChecksum, mkBackupPhrase, mkCInitialized)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.Function.Eff (EffFn1, mkEffFn1, EffFn2, mkEffFn2, EffFn4, mkEffFn4, EffFn3, mkEffFn3, EffFn6, mkEffFn6, EffFn7, mkEffFn7)
+import Data.String.Base64 (decode)
+import Data.String (length)
 import Network.HTTP.Affjax (AJAX)
 import WebSocket (WEBSOCKET)
 import Control.Monad.Error.Class (throwError)
@@ -154,6 +156,9 @@ systemVersion = fromAff $ map encodeJson B.systemVersion
 redeemADA :: forall eff. EffFn2 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String (Promise Json)
 redeemADA = mkEffFn2 \seed -> fromAff <<< map encodeJson <<< B.redeemADA <<< mkCWalletRedeem seed
 
+reportInit :: forall eff. EffFn2 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) Int Int (Promise Unit)
+reportInit = mkEffFn2 \total -> fromAff <<< B.reportInit <<< mkCInitialized total
+
 importKey :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
 importKey = mkEffFn1 $ fromAff <<< map encodeJson <<< B.importKey
 
@@ -162,3 +167,6 @@ syncProgress = fromAff $ map encodeJson B.syncProgress
 
 testReset :: forall eff. Eff (ajax :: AJAX | eff) (Promise Unit)
 testReset = fromAff B.testReset
+
+isValidRedeemCode :: String -> Boolean
+isValidRedeemCode = either (const false) ((==) 32 <<< length) <<< decode

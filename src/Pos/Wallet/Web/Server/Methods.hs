@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -16,6 +15,9 @@ module Pos.Wallet.Web.Server.Methods
        , walletServerOuts
        ) where
 
+import           Universum
+
+import           Control.Concurrent            (forkFinally)
 import           Control.Lens                  (makeLenses, (.=))
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
@@ -25,30 +27,34 @@ import           Data.Default                  (Default (def))
 import           Data.List                     (elemIndex, (!!))
 import           Data.Tagged                   (untag)
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
-import           Formatting                    (build, ords, sformat, stext, (%))
+import           Data.Time.Units               (Microsecond, Second)
+import           Formatting                    (build, ords, sformat, shown, stext, (%))
 import           Network.Wai                   (Application)
+import           Paths_cardano_sl              (version)
+import           Pos.ReportServer.Report       (ReportType (RInfo))
+import           Serokell.Util                 (threadDelay)
 import           Servant.API                   ((:<|>) ((:<|>)),
                                                 FromHttpApiData (parseUrlPiece))
-import           Servant.Server                (Handler, Server, ServerT, serve)
+import           Servant.Server                (Handler, Server, ServerT, err403, serve)
 import           Servant.Utils.Enter           ((:~>) (..), enter)
-import           System.Wlog                   (logDebug)
-import           System.Wlog                   (logInfo)
-import           Universum
+import           System.Wlog                   (logDebug, logError, logInfo)
 
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Communication.Protocol    (OutSpecs, SendActions, hoistSendActions)
-import           Pos.Constants                 (curSoftwareVersion)
+import           Pos.Constants                 (curSoftwareVersion, isDevelopment)
+import           Pos.Core                      (Address, Coin, addressF, coinF,
+                                                decodeTextAddress, makePubKeyAddress,
+                                                mkCoin)
 import           Pos.Crypto                    (emptyPassphrase, encToPublic, fakeSigner,
                                                 hash, redeemDeterministicKeyGen,
                                                 toEncrypted, toPublic, withSafeSigner,
                                                 withSafeSigner)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (getKnownPeers)
+import           Pos.Reporting.MemState        (MonadReportingMem (..))
+import           Pos.Reporting.Methods         (sendReportNodeNologs)
 import           Pos.Ssc.Class                 (SscHelpersClass)
-import           Pos.Txp.Core.Types            (TxOut (..))
-import           Pos.Types                     (Address, Coin, addressF, coinF,
-                                                decodeTextAddress, makePubKeyAddress,
-                                                mkCoin)
+import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Util.UserSecret           (readUserSecret, usKeys, usPrimKey)
@@ -62,20 +68,21 @@ import           Pos.Wallet.WalletMode         (TxHistoryAnswer (..), WalletMode
                                                 localChainDifficulty,
                                                 networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
-import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CProfile,
-                                                CProfile (..), CTx, CTxId, CTxMeta (..),
-                                                CUpdateInfo (..), CWallet (..),
-                                                CWalletInit (..), CWalletMeta (..),
-                                                CWalletRedeem (..), NotifyEvent (..),
-                                                SyncProgress (..), addressToCAddress,
-                                                cAddressToAddress, mkCTx, mkCTxId,
-                                                toCUpdateInfo, txContainsTitle,
-                                                txIdToCTxId)
+import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CInitialized,
+                                                CProfile, CProfile (..), CTx, CTxId,
+                                                CTxMeta (..), CUpdateInfo (..),
+                                                CWallet (..), CWalletInit (..),
+                                                CWalletMeta (..), CWalletRedeem (..),
+                                                NotifyEvent (..), SyncProgress (..),
+                                                addressToCAddress, cAddressToAddress,
+                                                mkCTx, mkCTxId, toCUpdateInfo,
+                                                txContainsTitle, txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
                                                 getWalletWebSockets, initWSConnection,
                                                 notify, runWalletWS, upgradeApplicationWS)
+import           Pos.Wallet.Web.State          (testReset)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, addUpdate, closeState,
                                                 createWallet, getHistoryCache,
@@ -83,7 +90,8 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWeb
                                                 getWalletMeta, getWalletState, openState,
                                                 removeNextUpdate, removeWallet,
                                                 runWalletWebDB, setProfile, setWalletMeta,
-                                                setWalletTransactionMeta, testReset, updateHistoryCache)
+                                                setWalletTransactionMeta,
+                                                updateHistoryCache)
 import           Pos.Web.Server                (serveImpl)
 
 ----------------------------------------------------------------------------
@@ -97,6 +105,7 @@ type WalletWebMode ssc m
       , MonadWalletWebDB m
       , MonadDBLimits m
       , MonadWalletWebSockets m
+      , MonadReportingMem m
       )
 
 makeLenses ''SyncProgress
@@ -131,7 +140,7 @@ walletApplication serv = do
 
 walletServer
     :: forall ssc m.
-       (SscHelpersClass ssc, Monad m, WalletWebMode ssc (WalletWebHandler m))
+       (SscHelpersClass ssc, Monad m, MonadIO m, WalletWebMode ssc (WalletWebHandler m))
     => SendActions m
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
@@ -166,8 +175,12 @@ launchNotifier nat =
         , updateNotifier
         ]
   where
-    cooldownPeriod = 5000000         -- 5 sec
+    cooldownPeriod :: Second
+    cooldownPeriod = 5
+
+    difficultyNotifyPeriod :: Microsecond
     difficultyNotifyPeriod = 500000  -- 0.5 sec
+
     -- networkResendPeriod = 10         -- in delay periods
     forkForever action = forkFinally action $ const $ do
         -- TODO: log error
@@ -228,10 +241,8 @@ servantHandlers
        (SscHelpersClass ssc, WalletWebMode ssc m)
     => SendActions m -> ServerT WalletApi m
 servantHandlers sendActions =
-#ifdef DEV_MODE
      catchWalletError testResetAll
     :<|>
-#endif
      apiGetWallet
     :<|>
      apiGetWallets
@@ -268,6 +279,8 @@ servantHandlers sendActions =
     :<|>
      apiRedeemAda
     :<|>
+     apiReportingInitialized
+    :<|>
      apiSettingsSlotDuration
     :<|>
      apiSettingsSoftwareVersion
@@ -294,6 +307,7 @@ servantHandlers sendActions =
     apiNextUpdate               = catchWalletError nextUpdate
     apiApplyUpdate              = catchWalletError applyUpdate
     apiRedeemAda                = catchWalletError . redeemADA sendActions
+    apiReportingInitialized     = catchWalletError . reportingInitialized
     apiSettingsSlotDuration     = catchWalletError (fromIntegral <$> blockchainSlotDuration)
     apiSettingsSoftwareVersion  = catchWalletError (pure curSoftwareVersion)
     apiSettingsSyncProgress     = catchWalletError syncProgress
@@ -345,7 +359,7 @@ sendExtended sendActions srcCAddr dstCAddr c curr title desc = do
     let sk = sks !! idx
     na <- getKnownPeers
     withSafeSigner sk (return emptyPassphrase) $ \ss -> do
-        etx <- submitTx sendActions ss na (one (TxOut dstAddr c, []))
+        etx <- submitTx sendActions ss na (one $ TxOutAux (TxOut dstAddr c) [])
         case etx of
             Left err -> throwM . Internal $ sformat ("Cannot send transaction: "%stext) err
             Right (tx, _, _) -> do
@@ -366,15 +380,17 @@ getHistory cAddr skip limit = do
 
     TxHistoryAnswer {..} <- flip (untag @ssc getTxHistory) minit
         =<< decodeCAddressOrFail cAddr
-    cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) taHistory
 
     -- Add allowed portion of result to cache
-    let fullHistory = cHistory <> cachedTxs
-        lenHistory = length cHistory
-        cached = drop (lenHistory - taCachedNum) cHistory
+    let fullHistory = taHistory <> cachedTxs
+        lenHistory = length taHistory
+        cached = drop (lenHistory - taCachedNum) taHistory
 
-    updateHistoryCache cAddr taLastCachedHash taCachedUtxo cached
-    pure (paginate fullHistory, fromIntegral $ length fullHistory)
+    unless (null cached) $
+        updateHistoryCache cAddr taLastCachedHash taCachedUtxo (cached <> cachedTxs)
+
+    cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) fullHistory
+    pure (paginate cHistory, fromIntegral $ length cHistory)
   where
     paginate     = take defaultLimit . drop defaultSkip
     defaultLimit = (fromIntegral $ fromMaybe 100 limit)
@@ -454,7 +470,7 @@ nextUpdate = getNextUpdate >>=
 applyUpdate :: WalletWebMode ssc m => m ()
 applyUpdate = removeNextUpdate >> applyLastUpdate
 
-redeemADA :: WalletWebMode ssc m => SendActions m -> CWalletRedeem -> m CWallet
+redeemADA :: WalletWebMode ssc m => SendActions m -> CWalletRedeem -> m CTx
 redeemADA sendActions CWalletRedeem {..} = do
     seedBs <- either
         (\e -> throwM $ Internal ("Seed is invalid base64 string: " <> toText e))
@@ -473,9 +489,18 @@ redeemADA sendActions CWalletRedeem {..} = do
         Left err -> throwM . Internal $ "Cannot send redemption transaction: " <> err
         Right (tx, _, _) -> do
             -- add redemption transaction to the history of new wallet
-            () <$ addHistoryTx dstCAddr ADA "ADA redemption" ""
-                (THEntry (hash tx) tx False Nothing)
-            pure walletB
+            addHistoryTx dstCAddr ADA "ADA redemption" ""
+              (THEntry (hash tx) tx False Nothing)
+
+reportingInitialized :: forall ssc m. WalletWebMode ssc m => CInitialized -> m ()
+reportingInitialized cinit = do
+    sendReportNodeNologs version (RInfo $ show cinit) `catch` handler
+  where
+    handler :: SomeException -> m ()
+    handler e =
+        logError $
+        sformat ("Didn't manage to report initialization time "%shown%
+                 " because of exception "%shown) cinit e
 
 importKey :: WalletWebMode ssc m => SendActions m -> Text -> m CWallet
 importKey sendActions (toString -> fp) = do
@@ -489,22 +514,22 @@ importKey sendActions (toString -> fp) = do
             cAddr = addressToCAddress addr
         createWallet cAddr def
 
-    let importedAddr = makePubKeyAddress $ encToPublic $ keys !! 0
+    let importedAddr = makePubKeyAddress $ encToPublic (keys !! 0)
         importedCAddr = addressToCAddress importedAddr
-#ifdef DEV_MODE
-    psk <- maybeThrow (Internal "No primary key is present!")
-           =<< getPrimaryKey
-    let pAddr = makePubKeyAddress $ toPublic psk
-    primaryBalance <- getBalance pAddr
-    when (primaryBalance > mkCoin 0) $ do
-        na <- getKnownPeers
-        etx <- submitTx sendActions (fakeSigner psk) na (one (TxOut importedAddr primaryBalance, []))
-        case etx of
-            Left err -> throwM . Internal $ "Cannot transfer funds from genesis key" <> err
-            Right (tx, _, _) ->  do
-                () <$ addHistoryTx importedCAddr ADA "Transfer money from genesis key" ""
-                    (THEntry (hash tx) tx False Nothing)
-#endif
+    when isDevelopment $ do
+        psk <- maybeThrow (Internal "No primary key is present!")
+               =<< getPrimaryKey
+        let pAddr = makePubKeyAddress $ toPublic psk
+        primaryBalance <- getBalance pAddr
+        when (primaryBalance > mkCoin 0) $ do
+            na <- getKnownPeers
+            etx <- submitTx sendActions (fakeSigner psk) na
+                       (one $ TxOutAux (TxOut importedAddr primaryBalance) [])
+            case etx of
+                Left err -> throwM . Internal $ "Cannot transfer funds from genesis key" <> err
+                Right (tx, _, _) -> void $
+                    addHistoryTx importedCAddr ADA "Transfer money from genesis key" ""
+                        (THEntry (hash tx) tx False Nothing)
     getWallet importedCAddr
 
 syncProgress :: WalletWebMode ssc m => m SyncProgress
@@ -514,14 +539,13 @@ syncProgress = do
     <*> networkChainDifficulty
     <*> connectedPeers
 
-#ifdef DEV_MODE
 testResetAll :: WalletWebMode ssc m => m ()
-testResetAll = deleteAllKeys >> testReset
+testResetAll | isDevelopment = deleteAllKeys >> testReset
+             | otherwise     = throwM err403
   where
     deleteAllKeys = do
-        keyNum <- fromIntegral . pred . length <$> getSecretKeys
-        sequence_ $ replicate keyNum $ deleteSecretKey 1
-#endif
+        keyNum <- length <$> getSecretKeys
+        sequence_ $ replicate keyNum $ deleteSecretKey 0
 
 ---------------------------------------------------------------------------
 -- Helpers

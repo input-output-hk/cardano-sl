@@ -67,18 +67,13 @@ import           Serokell.Util               (ms, sec, staticAssert)
 import           System.Environment          (lookupEnv)
 import qualified Text.Parsec                 as P
 import           Universum                   hiding (lift)
-#ifndef DEV_MODE
-import           Data.Time.Clock.POSIX       (getPOSIXTime)
-import           System.IO.Unsafe            (unsafePerformIO)
-#endif
 
-import           Pos.CLI                     (dhtNodeParser)
 import           Pos.CompileConfig           (CompileConfig (..), compileConfig)
 import           Pos.Core.Types              (ApplicationName, BlockVersion (..),
                                               CoinPortion, SoftwareVersion (..),
                                               unsafeCoinPortionFromDouble)
 import           Pos.Core.Version            (mkApplicationName)
-import           Pos.DHT.Model.Types         (DHTNode)
+import           Pos.DHT.Model.Types         (DHTNode, dhtNodeParser)
 import           Pos.Update.Core             (SystemTag, mkSystemTag)
 import           Pos.Util                    ()
 
@@ -228,7 +223,7 @@ defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
   where
     parsePeer :: String -> DHTNode
     parsePeer =
-        either (panic . show) identity .
+        either (error . show) identity .
         P.parse dhtNodeParser "Compile time config"
 
 -- | Max VSS certificate TTL (Ssc.GodTossing part)
@@ -277,23 +272,22 @@ mdNoCommitmentsEpochThreshold = fromIntegral . ccMdNoCommitmentsEpochThreshold $
 ----------------------------------------------------------------------------
 
 cardanoSlAppName :: ApplicationName
-cardanoSlAppName = either (panic . (<>) "Failed to init cardanoSlAppName: ")
+cardanoSlAppName = either (error . (<>) "Failed to init cardanoSlAppName: ")
                       identity $ mkApplicationName "cardano"
 
 appSystemTag :: SystemTag
 appSystemTag = $(do
     mbTag <- runIO (lookupEnv "CSL_SYSTEM_TAG")
     case mbTag of
-        Nothing ->
-#ifdef DEV_MODE
-            [|panic "'appSystemTag' can't be used if \
-                    \env var \"CSL_SYSTEM_TAG\" wasn't set \
-                    \during compilation" |]
-#else
-            fail "Failed to init appSystemTag: \
-                 \couldn't find env var \"CSL_SYSTEM_TAG\""
-#endif
-        Just tag -> lift =<< mkSystemTag (toText tag))
+        Just tag -> lift =<< mkSystemTag (toText tag)
+        Nothing
+            | isDevelopment ->
+                  [|error "'appSystemTag' can't be used if \
+                          \env var \"CSL_SYSTEM_TAG\" wasn't set \
+                          \during compilation" |]
+            | otherwise ->
+                  fail "Failed to init appSystemTag: \
+                       \couldn't find env var \"CSL_SYSTEM_TAG\"")
 
 -- | Last block version application is aware of.
 lastKnownBlockVersion :: BlockVersion

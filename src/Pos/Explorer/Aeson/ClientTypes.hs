@@ -12,12 +12,15 @@ import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary,
                                                CBlockEntry, CBlockSummary,
                                                CHash, CHashSearchResult,
                                                CHashSearchResult,
-                                               CNetworkAddress, CTxBrief,
-                                               CTxEntry, CTxId, CTxSummary)
+                                               CNetworkAddress, CSearchId,
+                                               CTxBrief, CTxEntry, CTxId,
+                                               CTxSummary)
 import           Pos.Explorer.Web.Error       (ExplorerError)
 
 
 
+
+deriveJSON defaultOptions ''CSearchId
 deriveJSON defaultOptions ''CHash
 deriveJSON defaultOptions ''CAddress
 deriveJSON defaultOptions ''CTxId

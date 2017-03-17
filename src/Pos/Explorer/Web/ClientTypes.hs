@@ -92,6 +92,12 @@ decodeHashHex = fmap Bi.decode . processRes . B16.decode . encodeUtf8
 decodeHashHex' :: Text -> Hash a
 decodeHashHex' = either (error "decodeHashHex: invalid hash") identity . decodeHashHex
 
+toCSearchId :: Hash a -> CSearchId
+toCSearchId = CSearchId . encodeHashHex
+
+-- fromCSearchId :: CSearchId -> Either Text (Hash a)
+-- fromCSearchId (CSearchId hashId) = decodeHashHex hashId
+
 --TODO: Iso?
 fromCSearchIdHash :: CSearchId -> CHash
 fromCSearchIdHash (CSearchId hashId) = CHash hashId
@@ -132,6 +138,7 @@ data CHashSearchResult
     = AddressFound CAddressSummary
     | BlockFound CBlockSummary
     | TransactionFound CTxSummary
+    | NoResultFound CSearchId
     deriving (Show, Generic)
 
 -- | List of block entries is returned from "get latest N blocks" endpoint
@@ -245,6 +252,9 @@ instance FromHttpApiData CAddress where
 
 instance FromHttpApiData CTxId where
     parseUrlPiece = fmap toCTxId . decodeHashHex
+
+instance FromHttpApiData CSearchId where
+    parseUrlPiece = fmap toCSearchId . decodeHashHex
 
 --------------------------------------------------------------------------------
 -- Helper types and conversions

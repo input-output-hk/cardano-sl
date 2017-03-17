@@ -14,8 +14,8 @@ import qualified Data.HashMap.Strict   as HM (difference, filter, intersection,
 import qualified Data.List.NonEmpty    as NE
 import qualified GHC.Exts              as IL (IsList (..))
 import           Pos.Types.Arbitrary   (SmallHashMap (..))
-import           Pos.Util              (Chrono (..), NewestFirst (..), OldestFirst (..),
-                                        diffDoubleMap)
+import           Pos.Util              (diffDoubleMap)
+import           Pos.Util.Chrono       (Chrono (..), NewestFirst (..), OldestFirst (..))
 
 import           Test.Hspec            (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (prop)

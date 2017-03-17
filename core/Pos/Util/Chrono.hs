@@ -5,7 +5,8 @@
 -- | Chronological sequences.
 
 module Pos.Util.Chrono
-       ( NewestFirst(..)
+       ( Chrono
+       , NewestFirst(..)
        , OldestFirst(..)
        , toNewestFirst
        , toOldestFirst

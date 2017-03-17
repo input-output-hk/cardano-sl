@@ -22,38 +22,54 @@ import           Servant.Server                 (Server, ServerT, serve)
 import           Universum
 
 import           Pos.Communication              (SendActions)
-import           Pos.Crypto                     (WithHash (..), withHash, hash)
+import           Pos.Crypto                     (WithHash (..), hash, withHash)
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.GState                  as GS
 import qualified Pos.DB.GState.Balances         as GS (getFtsStake)
-import qualified Pos.DB.GState.Explorer         as GS (getTxExtra, getAddrHistory)
+import qualified Pos.DB.GState.Explorer         as GS (getAddrHistory,
+                                                       getTxExtra)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (Tx (..), TxId, TxOutAux (..), TxAux,
-                                                 getLocalTxs, getMemPool, mpAddrHistories,
-                                                 mpLocalTxs, mpLocalTxsExtra, topsortTxs,
-                                                 txOutValue, _txOutputs)
-import           Pos.Types                      (Address (..), HeaderHash, MainBlock,
-                                                 Timestamp, blockTxs, difficultyL,
-                                                 gbHeader, gbhConsensus, mcdSlot, mkCoin,
+import           Pos.Txp                        (Tx (..), TxAux, TxId,
+                                                 TxOutAux (..), getLocalTxs,
+                                                 getMemPool, mpAddrHistories,
+                                                 mpLocalTxs, mpLocalTxsExtra,
+                                                 topsortTxs, txOutValue,
+                                                 _txOutputs)
+import           Pos.Types                      (Address (..), HeaderHash,
+                                                 MainBlock, Timestamp, blockTxs,
+                                                 difficultyL, gbHeader,
+                                                 gbhConsensus, mcdSlot, mkCoin,
                                                  prevBlockL, sumCoins,
-                                                 unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Types.Explorer             (TxExtra (..), AddrHistory)
-import           Pos.Util                       (maybeThrow, NewestFirst (..))
+                                                 unsafeIntegerToCoin,
+                                                 unsafeSubCoin)
+import           Pos.Types.Explorer             (AddrHistory, TxExtra (..))
+import           Pos.Util                       (NewestFirst (..), maybeThrow)
 import qualified Pos.Util.Modifier              as MM
 import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
-                                                 CBlockEntry (..), CBlockSummary (..),
-                                                 CHash, CTxEntry (..), CTxId (..),
-                                                 CTxSummary (..), TxInternal (..),
-                                                 convertTxOutputs, fromCAddress, toTxBrief,
-                                                 fromCHash', fromCTxId, toBlockEntry,
-                                                 toBlockSummary, toPosixTime, toTxEntry)
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
+                                                 CAddressSummary (..),
+                                                 CBlockEntry (..),
+                                                 CBlockSummary (..),
+                                                 CSearchId, CHash,
+                                                 CHashSearchResult (..),
+                                                 CTxEntry (..), CTxId (..),
+                                                 CTxSummary (..),
+                                                 TxInternal (..),
+                                                 convertTxOutputs, fromCAddress,
+                                                 fromCHash', fromCTxId,
+                                                 toBlockEntry, toBlockSummary,
+                                                 toPosixTime, toTxBrief,
+                                                 toTxEntry
+                                                 , fromCSearchIdHash
+                                                        , fromCSearchIdAddress
+                                                        , fromCSearchIdTx)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
+
 
 ----------------------------------------------------------------
 -- Top level functionality
@@ -84,6 +100,8 @@ explorerHandlers _sendActions =
       apiTxsSummary
     :<|>
       apiAddressSummary
+    :<|>
+      apiSearch
   where
     apiBlocksLast     = catchExplorerError ... defaultLimit 10 getLastBlocks
     apiBlocksSummary  = catchExplorerError . getBlockSummary
@@ -91,9 +109,13 @@ explorerHandlers _sendActions =
     apiTxsLast        = catchExplorerError ... defaultLimit 10 getLastTxs
     apiTxsSummary     = catchExplorerError . getTxSummary
     apiAddressSummary = catchExplorerError . getAddressSummary
+    apiSearch         = catchExplorerError . searchHash
 
     catchExplorerError = try
     f ... g = (f .) . g
+
+    -- defaultLimit = (fromIntegral $ fromMaybe 100 limit)
+    -- defaultSkip  = (fromIntegral $ fromMaybe 0 skip)
 
 defaultLimit
     :: Word                 -- default limit (default offset is always 0)
@@ -103,6 +125,17 @@ defaultLimit
     -> a
 defaultLimit lim action mlim moff =
     action (fromMaybe lim mlim) (fromMaybe 0 moff)
+
+searchHash :: ExplorerMode m => CSearchId -> m CHashSearchResult
+searchHash hash
+    | isRight findTx      = findTx      >>= return . TransactionFound
+    | isRight findBlock   = findBlock   >>= return . BlockFound
+    | isRight findAddress = findAddress >>= return . AddressFound
+    | otherwise           = throwM $ Internal "Could not find any hash matching address, block or transaction."
+  where
+    findTx      = getTxSummary $ fromCSearchIdTx hash
+    findBlock   = getBlockSummary $ fromCSearchIdHash hash
+    findAddress = getAddressSummary $ fromCSearchIdAddress hash
 
 getLastBlocks :: ExplorerMode m => Word -> Word -> m [CBlockEntry]
 getLastBlocks lim off = do

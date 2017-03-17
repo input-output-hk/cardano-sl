@@ -185,7 +185,7 @@ processUserSecret args@Args {..} userSecret = case backupPhrase of
         writeUserSecret us
         return (sk, us)
 
-getNodeParams :: (MonadIO m, MonadFail m) => Args -> Timestamp -> m NodeParams
+getNodeParams :: (MonadIO m, MonadFail m, MonadThrow m) => Args -> Timestamp -> m NodeParams
 getNodeParams args@Args {..} systemStart = do
     (primarySK, userSecret) <-
         userSecretWithGenesisKey args =<<

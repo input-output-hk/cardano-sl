@@ -8,7 +8,6 @@ module Test.Pos.UtilSpec
        ( spec
        ) where
 
-import           Control.Lens          (Each)
 import qualified Data.HashMap.Strict   as HM (difference, filter, intersection,
                                               intersectionWith, keys, mapWithKey, member,
                                               (!))
@@ -161,41 +160,26 @@ verifyDiffMapIsSmaller (SmallHashMap hm1) (SmallHashMap hm2) =
 
 toSingleton
     :: forall f a t. (Arbitrary a,
-                  Show (t f a),
-                  Eq (t f a),
                   One (f a),
-                  One (t f a),
+                  Each [Show, Eq, One] '[t f a],
                   OneItem (f a) ~ OneItem (t f a))
     => (f a -> t f a) -> OneItem (t f a) -> Expectation
 toSingleton constructor x = (one x) `shouldBe` (constructor . one $ x)
 
-toSingletonN :: (Arbitrary a, Show a, Eq a) => a -> Expectation
-toSingletonN x = one x `shouldBe` (NewestFirst @[] . one $ x)
-
-toSingletonO
-    :: (Arbitrary a, Show a, Eq a)
-    => a
-    -> Expectation
-toSingletonO x = one x `shouldBe` (OldestFirst @[] . one $ x)
-
 toFromList
-    :: forall f t a. (Arbitrary (t f a),
-                  Show (t f a),
-                  Eq (t f a),
-                  IL.IsList (f a),
-                  IL.IsList (t f a))
+    :: forall f t a. (Each [Arbitrary, Show, Eq, IL.IsList] '[t f a], IL.IsList (f a))
     => t f a
     -> Property
 toFromList = IL.fromList . IL.toList .=. identity
 
 fromOldestToNewest
-    :: (Arbitrary (f a), Show (f a), Eq (f a), Chrono f)
+    :: (Each [Arbitrary, Show, Eq] '[f a], Chrono f)
     => OldestFirst f a
     -> Property
 fromOldestToNewest = toOldestFirst . toNewestFirst .=. identity
 
 fromNewestToOldest
-    :: (Arbitrary (f a), Show (f a), Eq (f a), Chrono f)
+    :: (Each [Arbitrary, Show, Eq] '[f a], Chrono f)
     => NewestFirst f a
     -> Property
 fromNewestToOldest = toNewestFirst . toOldestFirst .=. identity

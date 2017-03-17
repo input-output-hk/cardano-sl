@@ -15,7 +15,7 @@ import           Pos.Types.Arbitrary   (SmallHashMap (..))
 import           Pos.Util              (Chrono (..), NewestFirst (..), OldestFirst (..),
                                         diffDoubleMap)
 
-import           Test.Hspec            (Spec, describe)
+import           Test.Hspec            (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.Pos.Util         ((.=.))
 import           Test.QuickCheck       (Arbitrary, Property)
@@ -29,6 +29,9 @@ spec = describe "Util" $ do
         prop description_verifyMapsAreSubtracted verifyMapsAreSubtracted
         prop description_verifyKeyIsPresent verifyKeyIsPresent
         prop description_verifyDiffMapIsSmaller verifyDiffMapIsSmaller
+    describe "One" $ do
+        prop description_One (toSingletonN @String)
+        prop description_One (toSingletonO @String)
     describe "IsList" $ do
         describe "toList . fromList = id" $ do
             prop (description_toFromListNew "[]") (toFromList @[] @NewestFirst @String)
@@ -63,6 +66,9 @@ spec = describe "Util" $ do
         \ corresponding to these keys have a non-empty intersection, the difference\
         \ map's inner maps corresponding to those keys will be smaller in size than the\
         \ inner maps in the minuend hashmap"
+    description_One =
+        "Turning a single element into a chronological is the same as turning into the\
+        \ structure within and applying the outer data constructor."
     description_toFromListNew functor =
         "Converting 'NewestFirst " ++ functor ++ " a' to '[Item a]' and back changes\
         \ nothing"
@@ -147,6 +153,19 @@ verifyDiffMapIsSmaller (SmallHashMap hm1) (SmallHashMap hm2) =
         sumValSizes = sum . fmap length
     -- (p || q) <=> ((not p) => q)
     in (null commonKey) || (sumValSizes hm1 > sumValSizes diffMap)
+
+toSingletonN
+    :: (Arbitrary a, Show a, Eq a)
+    => a
+    -> Expectation
+toSingletonN x = one x `shouldBe` (NewestFirst @[] . one $ x)
+
+toSingletonO
+    :: (Arbitrary a, Show a, Eq a)
+    => a
+    -> Expectation
+toSingletonO x = one x `shouldBe` (OldestFirst @[] . one $ x)
+
 
 toFromList
     :: forall f t a. (Arbitrary (t f a),

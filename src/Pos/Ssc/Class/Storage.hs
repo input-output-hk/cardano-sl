@@ -1,6 +1,6 @@
-{-# LANGUAGE AllowAmbiguousTypes  #-}
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE RankNTypes          #-}
 
 -- | Global state of generic Shared Seed Calculation implementation.
 
@@ -22,7 +22,7 @@ import           Pos.DB.Class         (MonadDB)
 import           Pos.Lrc.Types        (RichmenStake)
 import           Pos.Ssc.Class.Types  (Ssc (..))
 import           Pos.Types            (Block, EpochIndex, SharedSeed)
-import           Pos.Util             (NE, NewestFirst, OldestFirst)
+import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 
 ----------------------------------------------------------------------------
 -- Modern

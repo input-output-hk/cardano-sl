@@ -45,8 +45,8 @@ import           Pos.Types                  (EpochIndex, EpochOrSlot (..),
                                              getEpochOrSlot)
 import           Pos.Update.DB              (getConfirmedBVStates)
 import           Pos.Update.Poll.Types      (BlockVersionState (..))
-import           Pos.Util                   (NewestFirst (..), logWarningWaitLinear,
-                                             toOldestFirst)
+import           Pos.Util                   (logWarningWaitLinear)
+import           Pos.Util.Chrono            (NewestFirst (..), toOldestFirst)
 import           Pos.WorkMode               (WorkMode)
 
 lrcOnNewSlotWorker

@@ -69,7 +69,7 @@ import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
                                              MainExtraBodyData (..), MainExtraHeaderData,
                                              mehBlockVersion)
 import           Pos.Update.Core            (BlockVersionData (..))
-import           Pos.Util                   (NewestFirst (..), OldestFirst)
+import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficultyIncrement :: BlockHeader ssc -> ChainDifficulty

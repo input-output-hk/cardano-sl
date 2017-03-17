@@ -24,15 +24,8 @@ module Pos.Util
        , maybeThrow'
 
        -- * NonEmpty
-       , NE
        , neZipWith3
-
-       -- * Chronological sequences
-       , Chrono (..)
-       , NewestFirst(..)
-       , OldestFirst(..)
-       , toNewestFirst
-       , toOldestFirst
+       , spanSafe
 
        -- * Lenses
        , makeLensesData
@@ -43,7 +36,6 @@ module Pos.Util
        -- * LRU
        , clearLRU
 
-       , spanSafe
        , eitherToVerRes
 
        -- * Concurrency
@@ -71,33 +63,27 @@ import           Universum                        hiding (bracket, finally)
 import           Control.Arrow                    ((***))
 import           Control.Concurrent.ReadWriteLock (RWLock, acquireRead, acquireWrite,
                                                    releaseRead, releaseWrite)
-import           Control.Lens                     (lensRules, makeWrapped, _Wrapped)
-import qualified Control.Lens                     as Lens (Each (..))
+import           Control.Lens                     (lensRules)
 import           Control.Lens.Internal.FieldTH    (makeFieldOpticsForDec)
 import qualified Control.Monad                    as Monad (fail)
 import           Control.Monad.STM                (retry)
 import           Control.Monad.Trans.Resource     (ResourceT)
-import           Data.Binary                      (Binary)
 import qualified Data.Cache.LRU                   as LRU
 import           Data.Hashable                    (Hashable)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (span, zipWith3)
-import qualified Data.List.NonEmpty               as NE
 import           Data.SafeCopy                    (SafeCopy (..), base, contain,
                                                    deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text                        as T
-import qualified GHC.Exts                         as IL
 import qualified Language.Haskell.TH              as TH
 import           Mockable                         (Mockable, Throw, throw)
 import           Serokell.Util                    (VerificationRes (..))
 import           System.Wlog                      (LoggerNameBox (..))
-import           Test.QuickCheck                  (Arbitrary)
 import           Text.Parsec                      (ParsecT)
 import           Unsafe                           (unsafeInit, unsafeLast)
 -- SafeCopy instance for HashMap
 import           Serokell.AcidState               ()
 
-import           Pos.Binary.Class                 (Bi)
 import           Pos.Util.Arbitrary
 import           Pos.Util.TimeLimit
 import           Pos.Util.Undefined               ()
@@ -170,8 +156,6 @@ maybeThrow' e = maybe (throw e) pure
 -- NonEmpty
 ----------------------------------------------------------------------------
 
-type NE = NonEmpty
-
 neZipWith3 :: (x -> y -> z -> q) -> NonEmpty x -> NonEmpty y -> NonEmpty z -> NonEmpty q
 neZipWith3 f (x :| xs) (y :| ys) (z :| zs) = f x y z :| zipWith3 f xs ys zs
 
@@ -180,62 +164,6 @@ neZipWith3 f (x :| xs) (y :| ys) (z :| zs) = f x y z :| zipWith3 f xs ys zs
 -- depends on the first element.
 spanSafe :: (a -> a -> Bool) -> NonEmpty a -> (NonEmpty a, [a])
 spanSafe p (x:|xs) = let (a,b) = span (p x) xs in (x:|a,b)
-
-----------------------------------------------------------------------------
--- Chronological sequences
-----------------------------------------------------------------------------
-
-newtype NewestFirst f a = NewestFirst {getNewestFirst :: f a}
-  deriving (Eq, Ord, Show,
-            Functor, Foldable, Traversable,
-            Container, NontrivialContainer,
-            Binary, Bi,
-            Arbitrary)
-newtype OldestFirst f a = OldestFirst {getOldestFirst :: f a}
-  deriving (Eq, Ord, Show,
-            Functor, Foldable, Traversable,
-            Container, NontrivialContainer,
-            Binary, Bi,
-            Arbitrary)
-
-makeWrapped ''NewestFirst
-makeWrapped ''OldestFirst
-
-instance Lens.Each (f a) (f b) a b =>
-         Lens.Each (NewestFirst f a) (NewestFirst f b) a b where
-    each = _Wrapped . Lens.each
-instance Lens.Each (f a) (f b) a b =>
-         Lens.Each (OldestFirst f a) (OldestFirst f b) a b where
-    each = _Wrapped . Lens.each
-
-instance One (f a) => One (NewestFirst f a) where
-    type OneItem (NewestFirst f a) = OneItem (f a)
-    one = NewestFirst . one
-instance One (f a) => One (OldestFirst f a) where
-    type OneItem (OldestFirst f a) = OneItem (f a)
-    one = OldestFirst . one
-
-instance IL.IsList (f a) => IL.IsList (NewestFirst f a) where
-    type Item (NewestFirst f a) = IL.Item (f a)
-    toList = IL.toList . getNewestFirst
-    fromList = NewestFirst . IL.fromList
-
-instance IL.IsList (f a) => IL.IsList (OldestFirst f a) where
-    type Item (OldestFirst f a) = IL.Item (f a)
-    toList = IL.toList . getOldestFirst
-    fromList = OldestFirst . IL.fromList
-
-class Chrono f where
-    toNewestFirst :: OldestFirst f a -> NewestFirst f a
-    toOldestFirst :: NewestFirst f a -> OldestFirst f a
-
-instance Chrono [] where
-    toNewestFirst = NewestFirst . reverse . getOldestFirst
-    toOldestFirst = OldestFirst . reverse . getNewestFirst
-
-instance Chrono NonEmpty where
-    toNewestFirst = NewestFirst . NE.reverse . getOldestFirst
-    toOldestFirst = OldestFirst . NE.reverse . getNewestFirst
 
 ----------------------------------------------------------------------------
 -- Lens utils

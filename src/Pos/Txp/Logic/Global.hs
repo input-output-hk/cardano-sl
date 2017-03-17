@@ -22,8 +22,8 @@ import qualified Pos.DB.GState        as GS
 import           Pos.Exception        (assertionFailed)
 import           Pos.Txp.Core.Types   (TxAux, TxUndo, TxpUndo)
 import           Pos.Types            (Block, blockTxas)
-import           Pos.Util             (NE, NewestFirst (..), OldestFirst (..),
-                                       inAssertMode)
+import           Pos.Util             (inAssertMode)
+import           Pos.Util.Chrono      (NE, NewestFirst (..), OldestFirst (..))
 import qualified Pos.Util.Modifier    as MM
 
 import           Pos.Txp.Toil         (BalancesView (..), BalancesView (..), DBTxp,

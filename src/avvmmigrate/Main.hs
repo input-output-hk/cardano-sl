@@ -1,5 +1,7 @@
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections   #-}
+{-# LANGUAGE ViewPatterns    #-}
 
 module Main where
 
@@ -16,24 +18,43 @@ import           Test.QuickCheck      (arbitrary)
 import           Universum
 
 import qualified Pos.Binary           as Bi
-import           Pos.Crypto           (RedeemPublicKey (..))
+import           Pos.Crypto           (RedeemPublicKey (..), keyGen, toPublic)
 import           Pos.Genesis          (GenesisData (..), StakeDistribution (..))
 import           Pos.Ssc.GodTossing   (vcSigningKey)
-import           Pos.Types            (Address, Coin, addressHash, makeRedeemAddress,
-                                       unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Txp.Core         (TxOutDistribution)
+import           Pos.Types            (Address, Coin, StakeholderId, addressHash,
+                                       makeRedeemAddress, unsafeAddCoin,
+                                       unsafeIntegerToCoin)
 import           Pos.Util             (runGen)
+import           Pos.Util.UserSecret  (readUserSecret, usPrimKey)
+
+getHolderId :: String -> [String] -> IO (Maybe StakeholderId)
+getHolderId holder args
+    | holder == "fileholder" = do
+          fileName <- maybe
+              (fail "No secret key filename is provided")
+              pure $ head args
+          sk <- maybe
+              (fail "No secret key is found in file")
+              pure =<< view usPrimKey <$> readUserSecret fileName
+          pure $ Just . addressHash $ toPublic sk
+    | holder == "randholder" =
+          Just . addressHash . fst <$> keyGen
+    | otherwise =
+          pure Nothing
 
 main :: IO ()
 main = do
     args <- getArgs
     -- TODO: use optparse-applicative (or not if it's a throwaway tool)
     case args of
-        [fpath, outpath, mbcerts] -> do
+        (fpath:outpath:mbcerts:holder:restArgs) -> do
             jsonfile <- BSL.readFile fpath
             case A.eitherDecode jsonfile of
                 Left err       -> error (toText err)
                 Right avvmData -> do
-                    let genesis = genGenesis avvmData (mbcerts == "randcerts")
+                    holderId <- getHolderId holder restArgs
+                    let genesis = genGenesis avvmData (mbcerts == "randcerts") holderId
                     createDirectoryIfMissing True (takeDirectory outpath)
                     BSL.writeFile outpath (Bi.encode genesis)
         _ -> do
@@ -41,20 +62,20 @@ main = do
                 "cardano-avvmmigrate",
                 "",
                 "Usage: ",
-                "  cardano-avvmmigrate <path to JSON> <.bin output file> (nocerts|randcerts)"
+                "  cardano-avvmmigrate <path to JSON> <.bin output file> (nocerts|randcerts) (noholder|randholder)"
                 ]
             exitFailure
 
-data AvvmData = AvvmData {
-    utxo :: [AvvmEntry] }
-    deriving (Show, Generic)
+data AvvmData = AvvmData
+    { utxo :: [AvvmEntry]
+    } deriving (Show, Generic)
 
 instance FromJSON AvvmData
 
-data AvvmCoin = AvvmCoin {
-    coinAmount :: Integer,
-    coinColor  :: Integer }
-    deriving (Show, Generic)
+data AvvmCoin = AvvmCoin
+    { coinAmount :: Integer
+    , coinColor  :: Integer
+    } deriving (Show, Generic)
 
 instance FromJSON AvvmCoin where
     parseJSON = withObject "coin" $ \o -> do
@@ -62,30 +83,44 @@ instance FromJSON AvvmCoin where
         coinColor <- o .: "coinColor" >>= (.: "getColor")
         return AvvmCoin{..}
 
-data AvvmEntry = AvvmEntry {
-    coin    :: AvvmCoin,
-    address :: Text }
-    deriving (Show, Generic)
+data AvvmEntry = AvvmEntry
+    { coin    :: AvvmCoin
+    , address :: Text
+    } deriving (Show, Generic)
 
 instance FromJSON AvvmEntry
 
 genGenesis
     :: AvvmData
-    -> Bool              -- ^ Whether to generate random certificates
+    -> Bool                 -- ^ Whether to generate random certificates
+    -> Maybe StakeholderId  -- ^ A stakeholder to which to delegate the distribution
     -> GenesisData
-genGenesis avvm genCerts = GenesisData
+genGenesis avvm genCerts holder = GenesisData
     { gdAddresses = HM.keys balances
     , gdDistribution = ExplicitStakes balances
     , gdVssCertificates = if genCerts then randCerts else mempty
     }
   where
+    distr = maybe (const []) (\id -> pure . (id, )) holder
     randCerts = HM.fromList [(addressHash (vcSigningKey c), c)
                             | c <- runGen (replicateM 10 arbitrary)]
-    balances :: HashMap Address Coin
-    balances = HM.fromListWith unsafeAddCoin $ do
+
+    sumDistrs :: TxOutDistribution -> TxOutDistribution -> TxOutDistribution
+    sumDistrs (HM.fromList -> h1) (HM.fromList -> h2) =
+        HM.toList $ HM.unionWith unsafeAddCoin h1 h2
+
+    sumOutcomes
+        :: (Coin, TxOutDistribution)
+        -> (Coin, TxOutDistribution)
+        -> (Coin, TxOutDistribution)
+    sumOutcomes = uncurry bimap . bimap unsafeAddCoin sumDistrs
+
+    balances :: HashMap Address (Coin, TxOutDistribution)
+    balances = HM.fromListWith sumOutcomes $ do
         AvvmEntry{..} <- utxo avvm
         let pk = case decodeUrl address of
                 Right x -> RedeemPublicKey (Ed.PublicKey x)
                 Left _  -> error ("couldn't decode address " <> address)
         let addr = makeRedeemAddress pk
-        return (addr, unsafeIntegerToCoin (coinAmount coin))
+            adaCoin = unsafeIntegerToCoin $ coinAmount coin
+        return (addr, (adaCoin, distr adaCoin))

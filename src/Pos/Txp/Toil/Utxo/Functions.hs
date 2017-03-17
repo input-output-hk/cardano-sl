@@ -117,11 +117,7 @@ verifyOutputs VTxContext {..} (UnsafeTx {..}, _, distrs)=
                                 "has non-empty distribution") i)
                    ]
                ScriptAddress{} -> checkDist i d txOutValue
-               RedeemAddress{} ->
-                   [ ( null d
-                     , sformat ("output #"%int%" with redeem address "%
-                                "has non-empty distribution") i)
-                   ]
+               RedeemAddress{} -> checkDist i d txOutValue
                UnknownAddressType t _
                    | vtcVerifyVersions ->
                          [ (False, sformat ("output #"%int%" has "%

@@ -41,9 +41,8 @@ import           Pos.Lrc.DB.RichmenBase (getRichmen, getRichmenP, putRichmen, pu
 import           Pos.Lrc.Logic          (RichmenType (..), findRichmenPure)
 import           Pos.Lrc.Types          (FullRichmenData, Richmen, RichmenStake,
                                          toRichmen)
-import           Pos.Txp.Core           (txOutStake)
-import           Pos.Types              (Coin, EpochIndex, StakeholderId,
-                                         applyCoinPortion)
+import           Pos.Txp.Core           (TxOutDistribution, txOutStake)
+import           Pos.Types              (EpochIndex, applyCoinPortion)
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -63,7 +62,7 @@ prepareLrcRichmen = do
 
 computeInitial
     :: RichmenComponent c
-    => [(StakeholderId, Coin)] -> Proxy c -> FullRichmenData
+    => TxOutDistribution -> Proxy c -> FullRichmenData
 computeInitial initialDistr proxy =
     findRichmenPure initialDistr (rcThreshold proxy) richmenType
   where

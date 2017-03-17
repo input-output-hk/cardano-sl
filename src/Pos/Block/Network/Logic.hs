@@ -58,11 +58,9 @@ import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (
                                              HeaderHash, blockHeader, difficultyL,
                                              gbHeader, getEpochOrSlot, headerHashG,
                                              prevBlockL, verifyHeaders)
-import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
-                                             inAssertMode, _neHead, _neLast)
+import           Pos.Util                   (inAssertMode, _neHead, _neLast)
+import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode               (WorkMode)
-
-
 
 ----------------------------------------------------------------------------
 -- Recovery

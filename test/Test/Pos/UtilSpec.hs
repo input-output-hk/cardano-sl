@@ -1,4 +1,6 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Pos.Util specification
 
@@ -6,6 +8,7 @@ module Test.Pos.UtilSpec
        ( spec
        ) where
 
+import           Control.Lens          (Each)
 import qualified Data.HashMap.Strict   as HM (difference, filter, intersection,
                                               intersectionWith, keys, mapWithKey, member,
                                               (!))
@@ -30,8 +33,10 @@ spec = describe "Util" $ do
         prop description_verifyKeyIsPresent verifyKeyIsPresent
         prop description_verifyDiffMapIsSmaller verifyDiffMapIsSmaller
     describe "One" $ do
-        prop description_One (toSingletonN @String)
-        prop description_One (toSingletonO @String)
+        prop description_One (toSingleton @[] @String NewestFirst)
+        prop description_One (toSingleton @NE.NonEmpty @String OldestFirst)
+        prop description_One (toSingleton @[] @String OldestFirst)
+        prop description_One (toSingleton @NE.NonEmpty @String OldestFirst)
     describe "IsList" $ do
         describe "toList . fromList = id" $ do
             prop (description_toFromListNew "[]") (toFromList @[] @NewestFirst @String)
@@ -154,10 +159,17 @@ verifyDiffMapIsSmaller (SmallHashMap hm1) (SmallHashMap hm2) =
     -- (p || q) <=> ((not p) => q)
     in (null commonKey) || (sumValSizes hm1 > sumValSizes diffMap)
 
-toSingletonN
-    :: (Arbitrary a, Show a, Eq a)
-    => a
-    -> Expectation
+toSingleton
+    :: forall f a t. (Arbitrary a,
+                  Show (t f a),
+                  Eq (t f a),
+                  One (f a),
+                  One (t f a),
+                  OneItem (f a) ~ OneItem (t f a))
+    => (f a -> t f a) -> OneItem (t f a) -> Expectation
+toSingleton constructor x = (one x) `shouldBe` (constructor . one $ x)
+
+toSingletonN :: (Arbitrary a, Show a, Eq a) => a -> Expectation
 toSingletonN x = one x `shouldBe` (NewestFirst @[] . one $ x)
 
 toSingletonO
@@ -165,7 +177,6 @@ toSingletonO
     => a
     -> Expectation
 toSingletonO x = one x `shouldBe` (OldestFirst @[] . one $ x)
-
 
 toFromList
     :: forall f t a. (Arbitrary (t f a),

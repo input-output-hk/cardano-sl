@@ -30,7 +30,7 @@ import           Pos.Txp.Toil.Types      (Utxo)
 import           Pos.Types               (Address, BlockHeader, EpochIndex, HeaderHash,
                                           SlotLeaders, Timestamp, makePubKeyAddress)
 import           Pos.Update.Poll.Types   (ConfirmedProposalState)
-import           Pos.Util                (NE, NewestFirst)
+import           Pos.Util.Chrono         (NE, NewestFirst)
 import           Pos.Util.UserSecret     (UserSecret)
 
 ----------------------------------------------------------------------------

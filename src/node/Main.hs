@@ -5,13 +5,14 @@ module Main where
 import           Data.List             ((!!))
 import           Data.Maybe            (fromJust)
 import           Mockable              (Production)
+import           Node                  (hoistSendActions)
 import           Serokell.Util         (sec)
 import           System.Wlog           (LoggerName, logInfo)
 import           Universum
 
 import           Pos.Binary            ()
 import qualified Pos.CLI               as CLI
-import           Pos.Communication     (ActionSpec (..))
+import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Constants         (isDevelopment, staticSysStart)
 import           Pos.Context           (getNodeContext, ncUpdateSemaphore)
 import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
@@ -27,20 +28,18 @@ import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing,
                                         genesisDevVssKeyPairs)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import           Pos.Ssc.SscAlgo       (SscAlgo (..))
+import           Pos.Statistics        (getNoStatsT, getStatsMap, runStatsT')
 import           Pos.Types             (Timestamp (Timestamp))
 import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
 import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usPrimKey, usVss,
                                         writeUserSecret)
+import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
 #ifdef WITH_WEB
 import           Pos.Web               (serveWebBase, serveWebGT)
 import           Pos.WorkMode          (WorkMode)
 #ifdef WITH_WALLET
-import           Node                  (hoistSendActions)
-import           Pos.Communication     (OutSpecs, WorkerSpec, worker)
-import           Pos.Statistics        (getNoStatsT, getStatsMap, runStatsT')
 import           Pos.Wallet.Web        (walletServeWebFull, walletServerOuts)
-import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
 #endif
 #endif
 

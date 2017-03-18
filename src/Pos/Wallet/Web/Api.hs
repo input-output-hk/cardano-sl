@@ -11,26 +11,27 @@ module Pos.Wallet.Web.Api
        , swaggerSpecForWalletApi
        ) where
 
-import           Data.Version               (showVersion)
 import           Control.Lens               ((?~))
+import           Data.Swagger               (Swagger, ToParamSchema, ToSchema,
+                                             description, host, info, title, version)
+import           Data.Version               (showVersion)
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
                                              Post, Put, QueryParam, ReqBody)
-import           Servant.Swagger.UI         (SwaggerSchemaUI)
 import           Servant.Swagger            (toSwagger)
-import           Data.Swagger               (Swagger, ToSchema, ToParamSchema,
-                                             info, description, version, title, host)
+import           Servant.Swagger.UI         (SwaggerSchemaUI)
 
 import           Universum
 
-import           Pos.Types                  (Coin, SoftwareVersion, ApplicationName,
-                                             ChainDifficulty, BlockVersion)
-import           Pos.Util.BackupPhrase      (BackupPhrase)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CInitialized, 
-                                             CProfile, CTType, CTx, CTxId, CTxMeta, CUpdateInfo,
-                                             CWallet, CWalletInit, CWalletMeta, CWalletRedeem,
-                                             CWalletType, SyncProgress)
-import           Pos.Wallet.Web.Error       (WalletError)
 import qualified Paths_cardano_sl           as CSL
+import           Pos.Types                  (ApplicationName, BlockVersion,
+                                             ChainDifficulty, Coin, SoftwareVersion)
+import           Pos.Util.BackupPhrase      (BackupPhrase)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CInitialized,
+                                             CPassPhrase, CProfile, CTType, CTx, CTxId,
+                                             CTxMeta, CUpdateInfo, CWallet, CWalletInit,
+                                             CWalletMeta, CWalletRedeem, CWalletType,
+                                             SyncProgress)
+import           Pos.Wallet.Web.Error       (WalletError)
 
 
 -- | Servant API which provides access to wallet.
@@ -62,6 +63,7 @@ type WalletApi =
     :<|>
      "api"
      :> "wallets"
+     :> Capture "passphrase" CPassPhrase
      :> ReqBody '[JSON] CWalletInit
      :> Post '[JSON] (Either WalletError CWallet)
     :<|>
@@ -73,12 +75,14 @@ type WalletApi =
      "api"
      :> "wallets"
      :> "keys"
+     :> Capture "passphrase" CPassPhrase
      :> ReqBody '[JSON] Text
      :> Post '[JSON] (Either WalletError CWallet)
     :<|>
      "api"
      :> "wallets"
      :> "restore"
+     :> Capture "passphrase" CPassPhrase
      :> ReqBody '[JSON] CWalletInit
      :> Post '[JSON] (Either WalletError CWallet)
     :<|>
@@ -112,6 +116,7 @@ type WalletApi =
      "api"
      :> "txs"
      :> "payments"
+     :> Capture "passphrase" CPassPhrase
      :> Capture "from" CAddress
      :> Capture "to" CAddress
      :> Capture "amount" Coin
@@ -121,6 +126,7 @@ type WalletApi =
      "api"
      :> "txs"
      :> "payments"
+     :> Capture "passphrase" CPassPhrase
      :> Capture "from" CAddress
      :> Capture "to" CAddress
      :> Capture "amount" Coin
@@ -250,6 +256,7 @@ instance ToSchema      SyncProgress
 instance ToSchema      ChainDifficulty
 instance ToSchema      BlockVersion
 instance ToSchema      BackupPhrase
+instance ToParamSchema CPassPhrase
 
 -- | Build Swagger-specification from 'walletApi'.
 swaggerSpecForWalletApi :: Swagger

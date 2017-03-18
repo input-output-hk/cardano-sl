@@ -7,6 +7,8 @@ module Pos.Crypto.SafeSigning
        , PassPhrase
        , SafeSigner
        , emptyPassphrase
+       , mkPassPhrase
+       , passPhraseToByteString
        , toEncrypted
        , encToPublic
        , safeSign
@@ -19,12 +21,14 @@ module Pos.Crypto.SafeSigning
 
 import qualified Cardano.Crypto.Wallet as CC
 import           Data.ByteArray        (ScrubbedBytes)
+import qualified Data.ByteArray        as BA
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Lazy  as BSL
 import           Data.Coerce           (coerce)
 import           Data.SafeCopy         (base, deriveSafeCopySimple)
 import           Data.Text.Buildable   (build)
 import qualified Data.Text.Buildable   as B
+import           Foreign.Storable      (peekElemOff, pokeElemOff)
 import           Prelude               (show)
 import           Universum             hiding (show)
 
@@ -47,17 +51,34 @@ newtype PassPhrase = PassPhrase ScrubbedBytes
 
 deriveSafeCopySimple 0 'base ''EncryptedSecretKey
 
--- | Empty passphrase used as a placeholder
+-- | Empty passphrase used in development.
 emptyPassphrase :: PassPhrase
 emptyPassphrase = PassPhrase mempty
+
+-- | For serialisation purposes.
+-- TODO: care about memory cleanup
+passPhraseToByteString :: MonadIO m => PassPhrase -> m BS.ByteString
+passPhraseToByteString (PassPhrase bytes) = liftIO $ do
+    let len = BA.length bytes
+    res <- BA.withByteArray bytes $ forM [0 .. len - 1] . peekElemOff
+    return $ BS.pack res
+
+mkPassPhrase :: MonadIO m => BS.ByteString -> m PassPhrase
+mkPassPhrase bs = liftIO $ do
+    let len = BS.length bs
+    (_, ba) <- BA.allocRet len $ \ptr ->
+        let indexedBytes = zip [0..] (BS.unpack bs)
+        in  forM_ indexedBytes $ uncurry (pokeElemOff ptr)
+    return $ PassPhrase ba
 
 -- | Generate a public key using an encrypted secret key and passphrase
 encToPublic :: EncryptedSecretKey -> PublicKey
 encToPublic (EncryptedSecretKey sk) = PublicKey (CC.toXPub sk)
 
--- | Re-wrap unencrypted secret key as an encrypted one (with empty passphrase)
-toEncrypted :: SecretKey -> EncryptedSecretKey
-toEncrypted (SecretKey k) = EncryptedSecretKey k
+-- | Re-wrap unencrypted secret key as an encrypted one
+-- TODO: encrypt
+toEncrypted :: PassPhrase -> SecretKey -> EncryptedSecretKey
+toEncrypted _ (SecretKey k) = EncryptedSecretKey k
 
 signRaw' :: PassPhrase -> EncryptedSecretKey -> ByteString -> Signature Raw
 signRaw' (PassPhrase pp) (EncryptedSecretKey sk) x =
@@ -103,7 +124,7 @@ safeToPublic (FakeSigner sk)   = toPublic sk
 
 -- | We can make SafeSigner only inside IO bracket, so
 -- we can manually cleanup all IO buffers we use to store passphrase
--- (when we'll actually use them)
+-- (when we'll actually use them - TODO [CSL-124])
 withSafeSigner
     :: MonadIO m
     => EncryptedSecretKey

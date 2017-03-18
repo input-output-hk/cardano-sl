@@ -10,6 +10,7 @@ module Pos.Wallet.Web.ClientTypes
       , CCurrency (..)
       , CHash (..)
       , CTType (..)
+      , CPassPhrase (..)
       , CProfile (..)
       , CPwHash
       , CTx (..)
@@ -26,6 +27,8 @@ module Pos.Wallet.Web.ClientTypes
       , NotifyEvent (..)
       , addressToCAddress
       , cAddressToAddress
+      , passPhraseToCPassPhrase
+      , cPassPhraseToPassPhrase
       , mkCTx
       , mkCTxId
       , txIdToCTxId
@@ -36,16 +39,19 @@ module Pos.Wallet.Web.ClientTypes
 
 import           Data.Text             (Text, isInfixOf, toLower)
 import           GHC.Generics          (Generic)
+import qualified Prelude
 import           Universum
 
 import           Data.Default          (Default, def)
 import           Data.Hashable         (Hashable (..))
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting            (build, sformat)
+import qualified Serokell.Util.Base64  as Base64
 
 import           Pos.Aeson.Types       ()
 import           Pos.Core.Types        (ScriptVersion)
-import           Pos.Crypto            (hashHexF)
+import           Pos.Crypto            (PassPhrase, hashHexF, mkPassPhrase,
+                                        passPhraseToByteString)
 import           Pos.Txp.Core.Types    (Tx (..), TxId, txOutAddress, txOutValue)
 import           Pos.Types             (Address (..), BlockVersion, ChainDifficulty, Coin,
                                         SoftwareVersion, decodeTextAddress, sumCoins,
@@ -133,6 +139,20 @@ mkCTx addr diff THEntry {..} meta = CTx {..}
     ctType = if _thIsOutput
              then CTOut meta
              else CTIn meta
+
+newtype CPassPhrase = CPassPhrase Text deriving (Eq, Generic)
+
+instance Show CPassPhrase where
+    show _ = "<pass phrase>"
+
+passPhraseToCPassPhrase :: MonadIO m => PassPhrase -> m CPassPhrase
+passPhraseToCPassPhrase passphrase =
+    CPassPhrase . Base64.encode <$> passPhraseToByteString passphrase
+
+cPassPhraseToPassPhrase
+    :: MonadIO m => CPassPhrase -> m (Either Text PassPhrase)
+cPassPhraseToPassPhrase (CPassPhrase text) =
+    mapM mkPassPhrase (Base64.decode text)
 
 ----------------------------------------------------------------------------
 -- Wallet

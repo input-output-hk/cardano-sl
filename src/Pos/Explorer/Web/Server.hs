@@ -1,6 +1,8 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TypeOperators   #-}
-{-# LANGUAGE TupleSections  #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE TypeOperators       #-}
+
 -- API server logic
 
 module Pos.Explorer.Web.Server
@@ -128,22 +130,13 @@ defaultLimit lim action mlim moff =
 
 searchHash :: ExplorerMode m => CSearchId -> m CHashSearchResult
 searchHash shash = do
-    tx <- try findTx :: ExplorerMode m => m (Either ExplorerError CTxSummary)
-    block <- try findBlock :: ExplorerMode m => m (Either ExplorerError CBlockSummary)
-    address <- try findAddress :: ExplorerMode m => m (Either ExplorerError CAddressSummary)
-    return $ decide tx block address
+    either errorR pure $ TransactionFound <$> findTx <|> BlockFound <$> findBlock <|> AddressFound <$> findAddress
   where
-    findTx      :: ExplorerMode m => m CTxSummary
-    findTx      =  getTxSummary $ fromCSearchIdTx shash
-    findBlock   :: ExplorerMode m => m CBlockSummary
-    findBlock   =  getBlockSummary $ fromCSearchIdHash shash
-    findAddress :: ExplorerMode m => m CAddressSummary
-    findAddress =  getAddressSummary $ fromCSearchIdAddress shash
+    errorR = const $ throwM $ Internal "Search failed. No transactions, blocks or adresses found."
 
-    decide (Right tx) _ _   = TransactionFound tx
-    decide _ (Right blk) _  = BlockFound blk
-    decide _ _ (Right addr) = AddressFound addr
-    decide _ _ _            = NoResultFound shash
+    findTx      =  getTxSummary $ fromCSearchIdTx shash
+    findBlock   =  getBlockSummary $ fromCSearchIdHash shash
+    findAddress =  getAddressSummary $ fromCSearchIdAddress shash
 
 getLastBlocks :: ExplorerMode m => Word -> Word -> m [CBlockEntry]
 getLastBlocks lim off = do

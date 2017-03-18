@@ -138,7 +138,6 @@ data CHashSearchResult
     = AddressFound CAddressSummary
     | BlockFound CBlockSummary
     | TransactionFound CTxSummary
-    | NoResultFound CSearchId
     deriving (Show, Generic)
 
 -- | List of block entries is returned from "get latest N blocks" endpoint

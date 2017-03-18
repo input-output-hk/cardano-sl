@@ -36,8 +36,8 @@ import           Serokell.Util                 (threadDelay)
 import           Servant.API                   ((:<|>) ((:<|>)),
                                                 FromHttpApiData (parseUrlPiece))
 import           Servant.Server                (Handler, Server, ServerT, err403, serve)
-import           Servant.Utils.Enter           ((:~>) (..), enter)
 import           Servant.Swagger.UI            (swaggerSchemaUIServer)
+import           Servant.Utils.Enter           ((:~>) (..), enter)
 import           System.Wlog                   (logDebug, logError, logInfo)
 
 import           Pos.Aeson.ClientTypes         ()
@@ -68,9 +68,8 @@ import           Pos.Wallet.WalletMode         (TxHistoryAnswer (..), WalletMode
                                                 connectedPeers, getBalance, getTxHistory,
                                                 localChainDifficulty,
                                                 networkChainDifficulty, waitForUpdate)
-import           Pos.Wallet.Web.Api            (WalletApi, walletApi,
-                                                WalletApiWithDocs, walletApiWithDocs,
-                                                swaggerSpecForWalletApi)
+import           Pos.Wallet.Web.Api            (WalletApi, swaggerSpecForWalletApi,
+                                                walletApiWithDocs)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CInitialized,
                                                 CProfile, CProfile (..), CTx, CTxId,
                                                 CTxMeta (..), CUpdateInfo (..),

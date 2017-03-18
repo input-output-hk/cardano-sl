@@ -132,9 +132,9 @@ defaultLimit lim action mlim moff =
 
 searchHash :: forall m. ExplorerMode m => CSearchId -> m CHashSearchResult
 searchHash shash = getResult $ do
-    _ <-  grab $ TransactionFound <$> findTx
-    _ <-  grab $ BlockFound       <$> findBlock
-          grab $ AddressFound     <$> findAddress
+    grab $ TransactionFound <$> findTx
+    grab $ BlockFound       <$> findBlock
+    grab $ AddressFound     <$> findAddress
   where
     grab :: MonadCatch m => m CHashSearchResult -> EitherT CHashSearchResult m ExplorerError
     grab = EitherT . fmap swapEither . try

@@ -40,7 +40,8 @@ import           Servant.Utils.Enter           ((:~>) (..), enter)
 import           System.Wlog                   (logDebug, logError, logInfo)
 
 import           Pos.Aeson.ClientTypes         ()
-import           Pos.Communication.Protocol    (OutSpecs, SendActions, hoistSendActions)
+import           Pos.Communication             (OutSpecs, SendActions, hoistSendActions,
+                                                sendTxOuts, submitRedemptionTx, submitTx)
 import           Pos.Constants                 (curSoftwareVersion, isDevelopment)
 import           Pos.Core                      (Address, Coin, addressF, coinF,
                                                 decodeTextAddress, makePubKeyAddress,
@@ -54,17 +55,16 @@ import           Pos.DHT.Model                 (getKnownPeers)
 import           Pos.Reporting.MemState        (MonadReportingMem (..))
 import           Pos.Reporting.Methods         (sendReportNodeNologs)
 import           Pos.Ssc.Class                 (SscHelpersClass)
+import           Pos.TxHistory                 (TxHistoryAnswer (..), TxHistoryEntry (..))
 import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Util.UserSecret           (readUserSecret, usKeys, usPrimKey)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
-import           Pos.Wallet.Tx                 (sendTxOuts, submitRedemptionTx, submitTx)
-import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
-import           Pos.Wallet.WalletMode         (TxHistoryAnswer (..), WalletMode,
-                                                applyLastUpdate, blockchainSlotDuration,
-                                                connectedPeers, getBalance, getTxHistory,
+import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
+                                                blockchainSlotDuration, connectedPeers,
+                                                getBalance, getTxHistory,
                                                 localChainDifficulty,
                                                 networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)

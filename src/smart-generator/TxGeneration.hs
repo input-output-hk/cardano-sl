@@ -31,7 +31,7 @@ import           Pos.Txp                       (Tx (..), TxAux, TxId, TxIn (..),
                                                 TxOut (..), TxOutAux (..))
 import           Pos.Types                     (makePubKeyAddress, makeScriptAddress,
                                                 mkCoin)
-import           Pos.Wallet                    (makeMOfNTx, makePubKeyTx)
+import           Pos.Util.Tx                   (makeMOfNTx, makePubKeyTx)
 import           Pos.WorkMode                  (WorkMode)
 
 import           GenOptions                    (GenOptions (..))

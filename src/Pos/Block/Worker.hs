@@ -24,7 +24,7 @@ import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Communication.Protocol  (OutSpecs, Worker', WorkerSpec,
                                               onNewSlotWorker)
-import           Pos.Constants               (isDevelopment, networkDiameter)
+import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (getNodeContext, ncPublicKey)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
@@ -38,6 +38,7 @@ import           Pos.Slotting                (currentTimeSlotting,
 import           Data.Time.Units             (Second, convertUnit)
 import           Pos.Block.Network.Logic     (requestTipOuts, triggerRecovery)
 import           Pos.Communication           (worker)
+import           Pos.Constants               (isDevelopment)
 import           Pos.Slotting                (getLastKnownSlotDuration)
 #endif
 import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)

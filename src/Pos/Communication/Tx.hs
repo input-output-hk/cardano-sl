@@ -1,22 +1,22 @@
+{-# LANGUAGE ConstraintKinds #-}
+
 -- | Functions for operating with transactions
 
-module Pos.Wallet.Tx
-       ( makePubKeyTx
-       , makeMOfNTx
+module Pos.Communication.Tx
+       ( TxMode
        , submitTx
        , submitRedemptionTx
        , submitTxRaw
-       , createTx
-       , createMOfNTx
        , sendTxOuts
        ) where
 
 import           Control.Monad.Except       (ExceptT (..), runExceptT)
 import           Formatting                 (build, sformat, (%))
-import           Mockable                   (mapConcurrently)
+import           Mockable                   (MonadMockable, mapConcurrently)
 import           System.Wlog                (logInfo)
 import           Universum
 
+import           Pos.Balances               (MonadBalances (..))
 import           Pos.Binary                 ()
 import           Pos.Communication.Methods  (sendTx)
 import           Pos.Communication.Protocol (SendActions)
@@ -25,13 +25,21 @@ import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
                                              redeemToPublic, safeToPublic)
 import           Pos.DB.Limits              (MonadDBLimits)
 import           Pos.DHT.Model              (DHTNode)
+import           Pos.TxHistory              (MonadTxHistory (..))
 import           Pos.Txp.Core               (TxAux, TxOut (..), TxOutAux (..), txaF)
 import           Pos.Types                  (Address, makePubKeyAddress,
                                              makeRedeemAddress, mkCoin, unsafeAddCoin)
-import           Pos.Wallet.Tx.Pure         (TxError, createMOfNTx, createRedemptionTx,
-                                             createTx, makeMOfNTx, makePubKeyTx)
-import           Pos.Wallet.WalletMode      (TxMode, getOwnUtxo, saveTx)
+import           Pos.Util.Tx                (TxError, createRedemptionTx, createTx)
 import           Pos.WorkMode               (MinWorkMode)
+
+type TxMode ssc m
+    = ( MinWorkMode m
+      , MonadBalances m
+      , MonadTxHistory m
+      , MonadMockable m
+      , MonadMask m
+      , MonadDBLimits m
+      )
 
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx

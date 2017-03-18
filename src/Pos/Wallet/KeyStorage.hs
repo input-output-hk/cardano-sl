@@ -31,6 +31,7 @@ import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
+import           Pos.Balances                (MonadBalances)
 import           Pos.Binary.Crypto           ()
 import           Pos.Communication.PeerState (PeerStateHolder)
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
@@ -46,6 +47,7 @@ import           Pos.Reporting.MemState      (MonadReportingMem)
 import           Pos.Slotting                (MonadSlots, MonadSlotsData, NtpSlotting,
                                               SlottingHolder)
 import           Pos.Ssc.Extra               (SscHolder (..))
+import           Pos.TxHistory               (MonadTxHistory)
 import           Pos.Txp                     (TxpHolder (..))
 import           Pos.Update                  (USHolder (..))
 import           Pos.Util                    ()
@@ -127,7 +129,8 @@ newtype KeyStorage m a = KeyStorage
                 MonadReader KeyData, MonadDB,
                 MonadWalletDB, WithWalletContext, WithNodeContext ssc,
                 MonadDelegation, MonadTrans, MonadBase io, MonadFix,
-                MonadDBLimits, MonadReportingMem)
+                MonadDBLimits, MonadReportingMem,
+                MonadTxHistory, MonadBalances)
 
 instance Monad m => WrappedM (KeyStorage m) where
     type UnwrappedM (KeyStorage m) = ReaderT KeyData m

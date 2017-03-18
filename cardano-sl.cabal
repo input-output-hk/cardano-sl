@@ -71,8 +71,6 @@ library
                         Pos.Security.CLI
                         Pos.Security.Util
                         Pos.Security.Workers
-                        Pos.TxHistory
-                        Pos.Balances
 
                         -- SSC
                         Pos.Ssc.Arbitrary
@@ -287,6 +285,8 @@ library
                         Pos.Txp.Network
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
+                        Pos.Txp.TxHistory
+                        Pos.Txp.MonadBalances
                         Pos.Txp.Toil
                         Pos.Txp.Toil.Balances
                         Pos.Txp.Toil.Balances.Functions

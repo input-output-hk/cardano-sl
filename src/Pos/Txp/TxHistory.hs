@@ -6,7 +6,7 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Pos.TxHistory
+module Pos.Txp.TxHistory
        ( TxHistoryEntry(..)
        , thTxId
        , thTx
@@ -78,7 +78,7 @@ hasReceiver UnsafeTx {..} addr = any ((== addr) . txOutAddress) _txOutputs
 hasSender :: MonadUtxoRead m => Tx -> Address -> m Bool
 hasSender UnsafeTx {..} addr = anyM hasCorrespondingOutput $ toList _txInputs
   where hasCorrespondingOutput txIn =
-            fmap toBool $ fmap ((== addr) . txOutAddress . toaOut) <$> utxoGet txIn
+            fmap toBool $ ((== addr) . txOutAddress . toaOut) <<$>> utxoGet txIn
         toBool Nothing  = False
         toBool (Just b) = b
 
@@ -111,19 +111,21 @@ getRelatedTxs addr txs = fmap DL.toList $
         isOutgoing <- tx `hasSender` addr
         let allToAddr = all ((== addr) . txOutAddress) $ _txOutputs tx
             isToItself = isOutgoing && allToAddr
-        if isOutgoing || isIncoming
-            then do
-            applyTxToUtxo (WithHash tx txId) dist
-            identity %= filterUtxoByAddr addr
+        lsAdd <- if isOutgoing || isIncoming
+            then handleRelatedTx (isOutgoing, isToItself) (tx, txId, dist)
+            else return mempty
+        return (ls <> lsAdd)
 
-            -- Workaround to present A to A transactions as a pair of self-canceling
-            -- transactions in history
-            let resEntry = THEntry txId tx isOutgoing Nothing
-                resList = if isToItself
-                          then DL.fromList [resEntry & thIsOutput .~ False, resEntry]
-                          else DL.singleton resEntry
-            return $ ls <> resList
-            else return ls
+    handleRelatedTx (isOutgoing, isToItself) (tx, txId, dist) = do
+        applyTxToUtxo (WithHash tx txId) dist
+        identity %= filterUtxoByAddr addr
+
+        -- Workaround to present A to A transactions as a pair of
+        -- self-cancelling transactions in history
+        let resEntry = THEntry txId tx isOutgoing Nothing
+        return $ if isToItself
+            then DL.fromList [resEntry & thIsOutput .~ False, resEntry]
+            else DL.singleton resEntry
 
 -- | Given a full blockchain, derive address history and Utxo
 -- TODO: Such functionality will still be useful for merging
@@ -166,7 +168,7 @@ class Monad m => MonadTxHistory m where
     default getTxHistory
         :: (SscHelpersClass ssc, MonadTrans t, MonadTxHistory m', t m' ~ m)
         => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
-    getTxHistory = fmap (fmap lift) <$> getTxHistory
+    getTxHistory = fmap lift <<$>> getTxHistory
 
     default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()
     saveTx = lift . saveTx

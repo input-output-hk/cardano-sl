@@ -16,7 +16,6 @@ import           Mockable                   (MonadMockable, mapConcurrently)
 import           System.Wlog                (logInfo)
 import           Universum
 
-import           Pos.Balances               (MonadBalances (..))
 import           Pos.Binary                 ()
 import           Pos.Communication.Methods  (sendTx)
 import           Pos.Communication.Protocol (SendActions)
@@ -25,8 +24,9 @@ import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
                                              redeemToPublic, safeToPublic)
 import           Pos.DB.Limits              (MonadDBLimits)
 import           Pos.DHT.Model              (DHTNode)
-import           Pos.TxHistory              (MonadTxHistory (..))
 import           Pos.Txp.Core               (TxAux, TxOut (..), TxOutAux (..), txaF)
+import           Pos.Txp.MonadBalances      (MonadBalances (..))
+import           Pos.Txp.TxHistory          (MonadTxHistory (..))
 import           Pos.Types                  (Address, makePubKeyAddress,
                                              makeRedeemAddress, mkCoin, unsafeAddCoin)
 import           Pos.Util.Tx                (TxError, createRedemptionTx, createTx)

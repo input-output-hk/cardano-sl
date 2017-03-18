@@ -34,8 +34,8 @@ import           Control.Lens               (at, ix, makeClassy, (%=), (.=), _Ju
 import           Control.Monad.State.Class  (put)
 import           Data.Default               (Default, def)
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
-import           Pos.TxHistory              (TxHistoryEntry)
 import           Pos.Txp                    (Utxo)
+import           Pos.Txp.TxHistory          (TxHistoryEntry)
 import           Pos.Types                  (HeaderHash)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTxId,
                                              CTxMeta, CUpdateInfo, CWalletMeta,

@@ -31,7 +31,6 @@ import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Balances                (MonadBalances)
 import           Pos.Binary.Crypto           ()
 import           Pos.Communication.PeerState (PeerStateHolder)
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
@@ -47,8 +46,9 @@ import           Pos.Reporting.MemState      (MonadReportingMem)
 import           Pos.Slotting                (MonadSlots, MonadSlotsData, NtpSlotting,
                                               SlottingHolder)
 import           Pos.Ssc.Extra               (SscHolder (..))
-import           Pos.TxHistory               (MonadTxHistory)
 import           Pos.Txp                     (TxpHolder (..))
+import           Pos.Txp.MonadBalances       (MonadBalances)
+import           Pos.Txp.TxHistory           (MonadTxHistory)
 import           Pos.Update                  (USHolder (..))
 import           Pos.Util                    ()
 import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys,

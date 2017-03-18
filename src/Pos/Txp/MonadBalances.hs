@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 
-module Pos.Balances
+module Pos.Txp.MonadBalances
        ( MonadBalances(..)
        ) where
 

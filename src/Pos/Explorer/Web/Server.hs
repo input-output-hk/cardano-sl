@@ -14,7 +14,9 @@ module Pos.Explorer.Web.Server
 import           Control.Lens                   (at)
 import           Control.Monad.Catch            (try)
 import           Control.Monad.Loops            (unfoldrM)
+import           Control.Monad.Trans.Either     (EitherT (..))
 import           Control.Monad.Trans.Maybe      (MaybeT (..))
+import           Data.Either.Combinators        (swapEither)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.List.NonEmpty             as NE
 import           Data.Maybe                     (fromMaybe)
@@ -128,11 +130,21 @@ defaultLimit
 defaultLimit lim action mlim moff =
     action (fromMaybe lim mlim) (fromMaybe 0 moff)
 
-searchHash :: ExplorerMode m => CSearchId -> m CHashSearchResult
-searchHash shash = do
-    either errorR pure $ TransactionFound <$> findTx <|> BlockFound <$> findBlock <|> AddressFound <$> findAddress
+searchHash :: forall m. ExplorerMode m => CSearchId -> m CHashSearchResult
+searchHash shash = getResult $ do
+    _ <-  grab $ TransactionFound <$> findTx
+    _ <-  grab $ BlockFound       <$> findBlock
+          grab $ AddressFound     <$> findAddress
   where
-    errorR = const $ throwM $ Internal "Search failed. No transactions, blocks or adresses found."
+    grab :: MonadCatch m => m CHashSearchResult -> EitherT CHashSearchResult m ExplorerError
+    grab = EitherT . fmap swapEither . try
+
+    getResult :: EitherT CHashSearchResult m a -> m CHashSearchResult
+    getResult action = do
+      result <- runEitherT action
+      case result of
+        Left found -> return found
+        Right _    -> throwM $ Internal "Search failed. No transactions, blocks or adresses found."
 
     findTx      =  getTxSummary $ fromCSearchIdTx shash
     findBlock   =  getBlockSummary $ fromCSearchIdHash shash

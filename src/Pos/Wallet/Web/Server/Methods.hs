@@ -46,7 +46,7 @@ import           Pos.Constants                 (curSoftwareVersion, isDevelopmen
 import           Pos.Core                      (Address, Coin, addressF, coinF,
                                                 decodeTextAddress, makePubKeyAddress,
                                                 mkCoin)
-import           Pos.Crypto                    (PassPhrase, encToPublic, fakeSigner, hash,
+import           Pos.Crypto                    (PassPhrase, encToPublic, hash,
                                                 redeemDeterministicKeyGen, toEncrypted,
                                                 toPublic, withSafeSigner, withSafeSigner)
 import           Pos.DB.Limits                 (MonadDBLimits)
@@ -538,7 +538,10 @@ importKey sendActions cPassphrase (toString -> fp) = do
         primaryBalance <- getBalance pAddr
         when (primaryBalance > mkCoin 0) $ do
             na <- getKnownPeers
-            etx <- submitTx sendActions (fakeSigner psk) na
+            let withSigner = withSafeSigner
+                    (toEncrypted passphrase psk)
+                    (return passphrase)
+            etx <- withSigner $ \signer -> submitTx sendActions signer na
                        (one $ TxOutAux (TxOut importedAddr primaryBalance) [])
             case etx of
                 Left err -> throwM . Internal $ "Cannot transfer funds from genesis key" <> err

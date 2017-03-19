@@ -67,14 +67,14 @@ eRollbackToil txun = do
 -- Local
 ----------------------------------------------------------------------------
 
-type ELocalTxpMode m = ( Txp.LocalTxpMode m
-                       , MonadTxExtra m
-                       )
+type ELocalToilMode m = ( Txp.LocalToilMode m
+                        , MonadTxExtra m
+                        )
 
 -- | Verify one transaction and also add it to mem pool and apply to utxo
 -- if transaction is valid.
 eProcessTx
-    :: (ELocalTxpMode m, MonadError ToilVerFailure m)
+    :: (ELocalToilMode m, MonadError ToilVerFailure m)
     => (TxId, TxAux) -> TxExtra -> m ()
 eProcessTx tx@(id, aux) extra = do
     undo <- Txp.processTx tx
@@ -83,7 +83,7 @@ eProcessTx tx@(id, aux) extra = do
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.
 eNormalizeToil
-    :: (ELocalTxpMode m)
+    :: (ELocalToilMode m)
     => [(TxId, (TxAux, TxExtra))]
     -> m ()
 eNormalizeToil txs = mapM_ normalize ordered

@@ -10,7 +10,7 @@ module Pos.Txp.Toil.Logic
        , applyToil
        , rollbackToil
 
-       , LocalTxpMode
+       , LocalToilMode
        , normalizeToil
        , processTx
 
@@ -73,7 +73,7 @@ rollbackToil txun = do
 -- Local
 ----------------------------------------------------------------------------
 
-type LocalTxpMode m = ( MonadUtxo m
+type LocalToilMode m = ( MonadUtxo m
                       , MonadToilEnv m
                       , MonadTxPool m
                       )
@@ -83,7 +83,7 @@ type LocalTxpMode m = ( MonadUtxo m
 -- | Verify one transaction and also add it to mem pool and apply to utxo
 -- if transaction is valid.
 processTx
-    :: (LocalTxpMode m, MonadError ToilVerFailure m)
+    :: (LocalToilMode m, MonadError ToilVerFailure m)
     => (TxId, TxAux) -> m TxUndo
 processTx tx@(id, aux) = do
     whenM (hasTx id) $ throwError ToilKnown
@@ -94,7 +94,7 @@ processTx tx@(id, aux) = do
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.
 normalizeToil
-    :: (LocalTxpMode m)
+    :: (LocalToilMode m)
     => [(TxId, TxAux)]
     -> m ()
 normalizeToil txs = mapM_ normalize ordered

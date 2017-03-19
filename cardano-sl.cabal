@@ -108,17 +108,16 @@ library
                         -- Worker, work mode
                         Pos.Worker
                         Pos.WorkMode
+  -- Explorer (TODO: move into cardano-explorer)
+  exposed-modules:
+                        Pos.Explorer
+                        Pos.Explorer.Core
   if flag(with-web)
     exposed-modules:    Pos.Web
   if flag(with-wallet)
     exposed-modules:    Pos.Wallet
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
-  -- Explorer (TODO: move into cardano-explorer)
-  if flag(with-explorer)
-    exposed-modules:
-                        Pos.Explorer
-                        Pos.Explorer.Core
   other-modules:        Paths_cardano_sl
 
                         Pos.Aeson.CompileConfig
@@ -347,6 +346,19 @@ library
                         Pos.Util.Arbitrary
                         Pos.Util.LogSafe
                         Pos.Util.Undefined
+
+  -- Explorer (TODO: move into cardano-explorer)
+  other-modules:        Pos.Binary.Explorer
+                        Pos.Explorer.Core.Types
+                        Pos.Explorer.DB
+                        Pos.Explorer.Txp
+                        Pos.Explorer.Txp.Global
+                        Pos.Explorer.Txp.Local
+                        Pos.Explorer.Txp.Toil
+                        Pos.Explorer.Txp.Toil.Class
+                        Pos.Explorer.Txp.Toil.Logic
+                        Pos.Explorer.Txp.Toil.Types
+
   if flag(with-web)
     other-modules:      Pos.Aeson.Crypto
                         Pos.Aeson.Types
@@ -392,19 +404,6 @@ library
                         Pos.Wallet.Web.State.Limits
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
-
-  -- Explorer (TODO: move into cardano-explorer)
-  if flag(with-explorer)
-    other-modules:      Pos.Binary.Explorer
-                        Pos.Explorer.Core.Types
-                        Pos.Explorer.DB
-                        Pos.Explorer.Txp
-                        Pos.Explorer.Txp.Global
-                        Pos.Explorer.Txp.Local
-                        Pos.Explorer.Txp.Toil
-                        Pos.Explorer.Txp.Toil.Class
-                        Pos.Explorer.Txp.Toil.Logic
-                        Pos.Explorer.Txp.Toil.Types
 
   build-depends:        IfElse
                       , QuickCheck

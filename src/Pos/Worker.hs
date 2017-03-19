@@ -12,7 +12,7 @@ import           Pos.Block.Worker        (blkWorkers)
 import           Pos.Communication       (OutSpecs, WorkerSpec, localWorker, relayWorkers,
                                           wrapActionSpec)
 import           Pos.Communication.Specs (allOutSpecs)
-import           Pos.Delegation.Worker   (dlgWorkers)
+import           Pos.Delegation          (dlgWorkers)
 import           Pos.DHT.Workers         (dhtWorkers)
 import           Pos.Lrc.Worker          (lrcOnNewSlotWorker)
 import           Pos.Security.Workers    (SecurityWorkersClass, securityWorkers)

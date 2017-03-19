@@ -1,9 +1,11 @@
 -- | Types for using in purescript-bridge
 
 module Pos.Explorer.Web.ClientTypes
-       ( CHash (..)
+       ( CSearchId (..)
+       , CHash (..)
        , CAddress (..)
        , CTxId (..)
+       , CHashSearchResult (..)
        , CBlockEntry (..)
        , CTxEntry (..)
        , CBlockSummary (..)
@@ -24,6 +26,9 @@ module Pos.Explorer.Web.ClientTypes
        , toBlockSummary
        , toTxBrief
        , toPosixTime
+       , fromCSearchIdHash
+       , fromCSearchIdAddress
+       , fromCSearchIdTx
        , convertTxOutputs
        ) where
 
@@ -58,6 +63,10 @@ import           Pos.Types.Explorer     (TxExtra (..))
 -------------------------------------------------------------------------------------
 
 -- | Client hash
+newtype CSearchId = CSearchId Text
+    deriving (Show, Eq, Generic, Buildable, Hashable)
+
+-- | Client hash
 newtype CHash = CHash Text
     deriving (Show, Eq, Generic, Buildable, Hashable)
 
@@ -83,6 +92,22 @@ decodeHashHex = fmap Bi.decode . processRes . B16.decode . encodeUtf8
 decodeHashHex' :: Text -> Hash a
 decodeHashHex' = either (error "decodeHashHex: invalid hash") identity . decodeHashHex
 
+toCSearchId :: Hash a -> CSearchId
+toCSearchId = CSearchId . encodeHashHex
+
+-- fromCSearchId :: CSearchId -> Either Text (Hash a)
+-- fromCSearchId (CSearchId hashId) = decodeHashHex hashId
+
+--TODO: Iso?
+fromCSearchIdHash :: CSearchId -> CHash
+fromCSearchIdHash (CSearchId hashId) = CHash hashId
+
+fromCSearchIdAddress :: CSearchId -> CAddress
+fromCSearchIdAddress (CSearchId hashId) = CAddress hashId
+
+fromCSearchIdTx :: CSearchId -> CTxId
+fromCSearchIdTx sid = CTxId $ fromCSearchIdHash sid
+
 toCHash :: Hash a -> CHash
 toCHash = CHash . encodeHashHex
 
@@ -107,6 +132,13 @@ fromCTxId (CTxId (CHash txId)) = decodeHashHex txId
 -------------------------------------------------------------------------------------
 -- Composite types
 -------------------------------------------------------------------------------------
+
+-- | Client search result when the client searches by hash.
+data CHashSearchResult
+    = AddressFound CAddressSummary
+    | BlockFound CBlockSummary
+    | TransactionFound CTxSummary
+    deriving (Show, Generic)
 
 -- | List of block entries is returned from "get latest N blocks" endpoint
 data CBlockEntry = CBlockEntry
@@ -190,6 +222,7 @@ data CTxBrief = CTxBrief
     , ctbOutputs    :: ![(CAddress, Coin)]
     } deriving (Show, Generic)
 
+-- FIXME: newtype?
 data CNetworkAddress = CNetworkAddress !Text
     deriving (Show, Generic)
 
@@ -218,6 +251,9 @@ instance FromHttpApiData CAddress where
 
 instance FromHttpApiData CTxId where
     parseUrlPiece = fmap toCTxId . decodeHashHex
+
+instance FromHttpApiData CSearchId where
+    parseUrlPiece = fmap toCSearchId . decodeHashHex
 
 --------------------------------------------------------------------------------
 -- Helper types and conversions

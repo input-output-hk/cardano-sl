@@ -46,7 +46,7 @@ getHolderId holder args = case holder of
                 \INSTEAD OF `randholder`. THIS IS SERIOUS."
         Just . addressHash . fst <$> keyGen
     "noholder" -> pure Nothing
-    _ -> error $ "unknown 'holder' parameter" <> toText holder
+    _ -> error $ "unknown 'holder' parameter " <> toText holder
 
 main :: IO ()
 main = do

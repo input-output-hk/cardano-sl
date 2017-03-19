@@ -1,4 +1,3 @@
-
 -- | Functions which operate on MonadPoll[Read]. Business logic of
 -- Update System.
 

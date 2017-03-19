@@ -82,6 +82,11 @@ library
 
                         Pos.Statistics
 
+                        -- Client
+                        Pos.Client.Txp.Balances
+                        Pos.Client.Txp.History
+                        Pos.Client.Txp.Util
+
                         -- Txp
                         Pos.Txp
                         Pos.Txp.Core
@@ -181,6 +186,7 @@ library
                         Pos.Communication.Types
                         Pos.Communication.Message
                         Pos.Communication.Methods
+                        Pos.Communication.Tx
                         Pos.Communication.Server
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Specs
@@ -352,9 +358,7 @@ library
                         Pos.Web.Server
                         Pos.Web.Types
   if flag(with-wallet)
-    other-modules:      Pos.Wallet.Tx
-                        Pos.Wallet.Tx.Pure
-                        Pos.Wallet.WalletMode
+    other-modules:      Pos.Wallet.WalletMode
                         Pos.Wallet.Launcher
                         Pos.Wallet.Launcher.Runner
                         Pos.Wallet.Launcher.Param

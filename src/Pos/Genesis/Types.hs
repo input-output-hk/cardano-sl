@@ -5,7 +5,7 @@ module Pos.Genesis.Types
 
 import           Universum
 
-import           Pos.Core.Types                (Address, Coin, StakeholderId)
+import           Pos.Core.Types                (Address, Coin)
 import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap)
 import           Pos.Txp.Core.Types            (TxOutDistribution)
 

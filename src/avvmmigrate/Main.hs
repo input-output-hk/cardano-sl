@@ -29,19 +29,24 @@ import           Pos.Util             (runGen)
 import           Pos.Util.UserSecret  (readUserSecret, usPrimKey)
 
 getHolderId :: String -> [String] -> IO (Maybe StakeholderId)
-getHolderId holder args
-    | holder == "fileholder" = do
-          fileName <- maybe
-              (fail "No secret key filename is provided")
-              pure $ head args
-          sk <- maybe
-              (fail "No secret key is found in file")
-              pure =<< view usPrimKey <$> readUserSecret fileName
-          pure $ Just . addressHash $ toPublic sk
-    | holder == "randholder" =
-          Just . addressHash . fst <$> keyGen
-    | otherwise =
-          pure Nothing
+getHolderId holder args = case holder of
+    "fileholder" -> do
+        fileName <- maybe
+            (fail "No secret key filename is provided")
+            pure $ head args
+        sk <- maybe
+            (fail "No secret key is found in file")
+            pure =<< view usPrimKey <$> readUserSecret fileName
+        pure $ Just . addressHash $ toPublic sk
+    "randholder" -> do
+        putText "USING RANDOM STAKEHOLDER ID."
+        putText "NOT FOR PRODUCTION USAGE, ONLY FOR TESTING"
+        putText "IF YOU INTEND TO GENERATE GENESIS.BIN FOR PRODUCTION, \
+                \STOP RIGHT HERE AND USE `fileholder <path to secret>` OPTION \
+                \INSTEAD OF `randholder`. THIS IS SERIOUS."
+        Just . addressHash . fst <$> keyGen
+    "noholder" -> pure Nothing
+    _ -> error $ "unknown 'holder' parameter" <> toText holder
 
 main :: IO ()
 main = do
@@ -62,7 +67,8 @@ main = do
                 "cardano-avvmmigrate",
                 "",
                 "Usage: ",
-                "  cardano-avvmmigrate <path to JSON> <.bin output file> (nocerts|randcerts) (noholder|randholder)"
+                "  cardano-avvmmigrate <path to JSON> <.bin output file> \
+                \(nocerts|randcerts) (noholder|randholder|fileholder <path to secret file>)"
                 ]
             exitFailure
 

@@ -13,11 +13,11 @@ import           Pos.Binary.Core    ()
 import           Pos.Binary.Crypto  ()
 import           Pos.Binary.Txp     ()
 import           Pos.Core.Address   ()
-import           Pos.Core.Types     (Address (..), Coin, StakeholderId)
+import           Pos.Core.Types     (Address (..))
 import           Pos.Crypto         (hash)
 import           Pos.Merkle         (mtRoot)
 import           Pos.Txp.Core.Types (TxId, TxIn (..), TxOut (..), TxOutAux (..),
-                                     TxPayload (..), TxProof (..))
+                                     TxOutDistribution, TxPayload (..), TxProof (..))
 
 -- | A predicate for `TxOutAux` which checks whether given address
 -- belongs to it.
@@ -30,7 +30,7 @@ txInToPair (TxIn h i) = (h, i)
 
 -- | Use this function if you need to know how a 'TxOut' distributes stake
 -- (e.g. for the purpose of running follow-the-satoshi).
-txOutStake :: TxOutAux -> [(StakeholderId, Coin)]
+txOutStake :: TxOutAux -> TxOutDistribution
 txOutStake TxOutAux {..} = case txOutAddress toaOut of
     PubKeyAddress x _ -> [(x, txOutValue toaOut)]
     _                 -> toaDistr

@@ -31,7 +31,7 @@ module Pos.Genesis
        , genesisMaxBlockSize
        ) where
 
-import           Control.Lens               (_head)
+import           Control.Lens               ((+~), _head)
 import           Data.Default               (Default (..))
 import           Data.List                  (genericLength, genericReplicate)
 import qualified Data.Map.Strict            as M
@@ -43,20 +43,21 @@ import           Serokell.Util              (enumerate)
 import           Universum
 
 import qualified Pos.Constants              as Const
-import           Pos.Core.Types             (ScriptVersion, SoftwareVersion (..))
+import           Pos.Core.Types             (ScriptVersion, SoftwareVersion (..),
+                                             StakeholderId)
 import           Pos.Crypto                 (PublicKey, SecretKey, deterministicKeyGen)
 import           Pos.Crypto                 (unsafeHash)
 import           Pos.Genesis.Parser         (compileGenData)
 import           Pos.Genesis.Types          (GenesisData (..), StakeDistribution (..))
 import           Pos.Lrc.FtsPure            (followTheSatoshi)
-import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..), TxOutAux (..))
+import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..), TxOutAux (..),
+                                             TxOutDistribution)
 import           Pos.Txp.Toil.Types         (Utxo)
 import           Pos.Types                  (makePubKeyAddress)
 import           Pos.Types                  (Address (..), BlockVersion (..), Coin,
                                              SharedSeed (SharedSeed), SlotLeaders,
-                                             StakeholderId, applyCoinPortion,
-                                             coinToInteger, divCoin, mkCoin,
-                                             unsafeAddCoin, unsafeMulCoin)
+                                             applyCoinPortion, coinToInteger, divCoin,
+                                             mkCoin, unsafeAddCoin, unsafeMulCoin)
 import           Pos.Update.Core.Types      (BlockVersionData (..))
 
 ----------------------------------------------------------------------------
@@ -107,19 +108,19 @@ bitcoinDistribution20 :: [Coin]
 bitcoinDistribution20 = map mkCoin
     [200,163,120,105,78,76,57,50,46,31,26,13,11,11,7,4,2,0,0,0]
 
-stakeDistribution :: StakeDistribution -> [Coin]
+stakeDistribution :: StakeDistribution -> [(Coin, TxOutDistribution)]
 stakeDistribution (FlatStakes stakeholders coins) =
     genericReplicate stakeholders val
   where
-    val = coins `divCoin` stakeholders
+    val = (coins `divCoin` stakeholders, [])
 stakeDistribution (BitcoinStakes stakeholders coins) =
-    map normalize $ bitcoinDistribution1000Coins stakeholders
+    map ((, []) . normalize) $ bitcoinDistribution1000Coins stakeholders
   where
     normalize x = x `unsafeMulCoin`
                   coinToInteger (coins `divCoin` (1000 :: Int))
-stakeDistribution ExponentialStakes = expTwoDistribution
+stakeDistribution ExponentialStakes = map (, []) expTwoDistribution
 stakeDistribution TestnetStakes {..} =
-    map (mkCoin . fromIntegral) $ basicDist & _head %~ (+ rmd)
+    map ((, []) . mkCoin . fromIntegral) $ basicDist & _head +~ rmd
   where
     -- Total number of richmen
     richs = fromIntegral sdRichmen
@@ -149,7 +150,7 @@ stakeDistribution (ExplicitStakes balances) =
 
 bitcoinDistribution1000Coins :: Word -> [Coin]
 bitcoinDistribution1000Coins stakeholders
-    | stakeholders < 20 = stakeDistribution
+    | stakeholders < 20 = map fst $ stakeDistribution
           (FlatStakes stakeholders (mkCoin 1000))
     | stakeholders == 20 = bitcoinDistribution20
     | otherwise =
@@ -179,9 +180,10 @@ genesisUtxo :: StakeDistribution -> Utxo
 genesisUtxo sd =
     M.fromList . zipWith zipF (stakeDistribution sd) $ genesisAddresses
   where
-    zipF coin addr =
+    zipF (coin, distr) addr =
         ( TxIn (unsafeHash addr) 0
-        , (TxOutAux {toaOut = TxOut addr coin, toaDistr = []}))
+        , TxOutAux (TxOut addr coin) distr
+        )
 
 genesisDelegation :: HashMap StakeholderId [StakeholderId]
 genesisDelegation = mempty

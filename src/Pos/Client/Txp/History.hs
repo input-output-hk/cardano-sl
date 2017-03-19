@@ -46,8 +46,9 @@ import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Slotting                (MonadSlots, NtpSlotting, SlottingHolder)
 import           Pos.Ssc.Class               (SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
+import           Pos.WorkMode                (TxpExtra_TMP)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer                (ExplorerExtra, eTxProcessTransaction)
+import           Pos.Explorer                (eTxProcessTransaction)
 #else
 import           Pos.Txp                     (txProcessTransaction)
 #endif
@@ -189,20 +190,14 @@ deriving instance MonadTxHistory m => MonadTxHistory (SscHolder ssc m)
 deriving instance MonadTxHistory m => MonadTxHistory (DelegationT m)
 deriving instance MonadTxHistory m => MonadTxHistory (USHolder m)
 
-#ifdef WITH_EXPLORER
-type TMP = ExplorerExtra
-#else
-type TMP = ()
-#endif
-
 instance ( MonadDB m
          , MonadThrow m
          , WithLogger m
          , MonadSlots m
          , PC.WithNodeContext s m) =>
-         MonadTxHistory (TxpHolder TMP m) where
+         MonadTxHistory (TxpHolder TxpExtra_TMP m) where
     getTxHistory :: forall ssc. SscHelpersClass ssc
-                 => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> TxpHolder TMP m TxHistoryAnswer)
+                 => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> TxpHolder TxpExtra_TMP m TxHistoryAnswer)
     getTxHistory = Tagged $ \addr mInit -> do
         tip <- GS.getTip
 

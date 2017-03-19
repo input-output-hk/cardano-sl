@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                  #-}
 {-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -9,12 +10,12 @@
 module Pos.WorkMode
        ( WorkMode
        , MinWorkMode
-       , VileMode
+
+       , TxpExtra_TMP
 
        -- * Actual modes
        , ProductionMode
        , RawRealMode
-       , VileRealMode
        , ServiceMode
        , StatsMode
        ) where
@@ -37,6 +38,9 @@ import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.MemState            (MonadDhtMem)
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT (..), WithKademliaDHTInstance)
+#ifdef WITH_EXPLORER
+import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
+#endif
 import           Pos.Reporting               (MonadReportingMem)
 import           Pos.Shutdown                (MonadShutdownMem)
 import           Pos.Slotting.Class          (MonadSlots)
@@ -51,15 +55,22 @@ import           Pos.Txp.MemState            (MonadTxpMem, TxpHolder)
 import           Pos.Update.MemState         (MonadUSMem, USHolder)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
--- | Something extremely unpleasant.
+-- Something extremely unpleasant.
 -- TODO: get rid of it after CSL-777 is done.
-type VileMode txp ssc m
+#ifdef WITH_EXPLORER
+type TxpExtra_TMP = ExplorerExtra
+#else
+type TxpExtra_TMP = ()
+#endif
+
+-- | Bunch of constraints to perform work for real world distributed system.
+type WorkMode ssc m
     = ( MinWorkMode m
       , MonadMask m
       , MonadSlots m
       , MonadDB m
       , MonadDBLimits m
-      , MonadTxpMem txp m
+      , MonadTxpMem TxpExtra_TMP m
       , MonadDhtMem m
       , MonadRelayMem m
       , MonadDelegation m
@@ -76,9 +87,6 @@ type VileMode txp ssc m
       , MonadUSMem m
       , MonadShutdownMem m
       )
-
--- | Bunch of constraints to perform work for real world distributed system.
-type WorkMode ssc m = VileMode () ssc m
 
 -- | More relaxed version of 'WorkMode'.
 type MinWorkMode m
@@ -157,13 +165,13 @@ deriving instance MonadDHT m => MonadDHT (PeerStateHolder m)
 deriving instance (Monad m, WithKademliaDHTInstance m)
                   => WithKademliaDHTInstance (PeerStateHolder m)
 
--- | VileRealMode is a basis for `VileMode`s used to really run system.
-type VileRealMode txp ssc =
+-- | RawRealMode is a basis for `WorkMode`s used to really run system.
+type RawRealMode ssc =
     PeerStateHolder (
     KademliaDHT (
     USHolder (
     DelegationT (
-    TxpHolder txp (
+    TxpHolder TxpExtra_TMP (
     SscHolder ssc (
     NtpSlotting (
     SlottingHolder (
@@ -171,9 +179,6 @@ type VileRealMode txp ssc =
     DBHolder (
     LoggerNameBox Production
     ))))))))))
-
--- | RawRealMode is a basis for `WorkMode`s used to really run system.
-type RawRealMode ssc = VileRealMode () ssc
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.

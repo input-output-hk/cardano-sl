@@ -54,7 +54,7 @@ import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)
 import qualified Pos.Wallet.State            as WS
 import           Pos.Wallet.Web.State        (WalletWebDB (..))
-import           Pos.WorkMode                (VileRealMode)
+import           Pos.WorkMode                (RawRealMode)
 
 deriving instance MonadBalances m => MonadBalances (WalletWebDB m)
 
@@ -135,8 +135,8 @@ downloadHeader
 downloadHeader = getContextTMVar PC.ncProgressHeader
 
 -- | Instance for full-node's ContextHolder
-instance forall txp ssc . SscHelpersClass ssc =>
-         MonadBlockchainInfo (VileRealMode txp ssc) where
+instance forall ssc . SscHelpersClass ssc =>
+         MonadBlockchainInfo (RawRealMode ssc) where
     networkChainDifficulty = getContextTVar PC.ncLastKnownHeader >>= \case
         Just lh -> do
             thDiff <- view difficultyL <$> topHeader @ssc

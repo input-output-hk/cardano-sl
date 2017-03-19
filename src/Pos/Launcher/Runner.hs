@@ -191,8 +191,9 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
     usingLoggerName lpRunnerTag $ do
        initNC <- untag @ssc sscCreateNodeContext sscnp
        modernDBs <- openNodeDBs npRebuildDb npDbPathM
+       let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc)
        -- TODO [CSL-775] ideally initialization logic should be in scenario.
-       runDBHolder modernDBs . runCH @ssc np initNC $ initNodeDBs
+       runDBHolder modernDBs . runCH @ssc allWorkersNum np initNC $ initNodeDBs
        initTip <- runDBHolder modernDBs getTip
        stateM <- liftIO SM.newIO
        stateM_ <- liftIO SM.newIO
@@ -205,7 +206,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
            runIO = runProduction .
                        usingLoggerName lpRunnerTag .
                        runDBHolder modernDBs .
-                       runCH @ssc np initNC .
+                       runCH @ssc allWorkersNum np initNC .
                        runSlottingHolder slottingVar .
                        runNtpSlotting ntpSlottingVar .
                        ignoreSscHolder .
@@ -224,7 +225,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
                Just ekgServer -> stopMonitor ekgServer
 
        runDBHolder modernDBs .
-          runCH np initNC .
+          runCH allWorkersNum np initNC .
           runSlottingHolder slottingVar .
           runNtpSlotting ntpSlottingVar .
           (mkStateAndRunSscHolder @ssc) .
@@ -335,8 +336,8 @@ runStatsMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
 ----------------------------------------------------------------------------
 
 runCH :: forall ssc m a . (SscConstraint ssc, MonadDB m, Mockable CurrentTime m)
-      => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
-runCH params@NodeParams {..} sscNodeContext act = do
+      => Int -> NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
+runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
     logCfg <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     semaphore <- liftIO newEmptyMVar
@@ -356,7 +357,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
     recoveryHeaderVar <- liftIO newEmptyTMVarIO
     progressHeader <- liftIO newEmptyTMVarIO
     shutdownFlag <- liftIO $ newTVarIO False
-    shutdownQueue <- liftIO $ newTBQueueIO allWorkersCount
+    shutdownQueue <- liftIO $ newTBQueueIO allWorkersNum
     curTime <- liftIO Time.getCurrentTime
     lastKnownHeader <- liftIO $ newTVarIO Nothing
     let ctx =

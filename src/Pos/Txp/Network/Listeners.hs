@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                  #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Server which handles transactions.
@@ -23,7 +24,11 @@ import           Pos.Communication.Relay    (Relay (..), RelayProxy (..), relayL
 import           Pos.Crypto                 (hash)
 import           Pos.Statistics             (StatProcessTx (..), statlogCountEvent)
 import           Pos.Txp.Core.Types         (TxAux, TxId)
+#ifdef WITH_EXPLORER
+import           Pos.Explorer.Txp.Local     (eTxProcessTransaction)
+#else
 import           Pos.Txp.Logic              (txProcessTransaction)
+#endif
 import           Pos.Txp.MemState           (getMemPool)
 import           Pos.Txp.Network.Types      (TxMsgContents (..), TxMsgTag (..))
 import           Pos.Txp.Toil.Types         (MemPool (..))
@@ -66,7 +71,11 @@ handleTxDo
     :: WorkMode ssc m
     => (TxId, TxAux) -> m Bool
 handleTxDo tx = do
+#ifdef WITH_EXPLORER
+    res <- runExceptT $ eTxProcessTransaction tx
+#else
     res <- runExceptT $ txProcessTransaction tx
+#endif
     let txId = fst tx
     case res of
         Right _ -> do

@@ -15,7 +15,7 @@ import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Fix         (MonadFix)
 import           Control.Monad.Reader      (ReaderT (ReaderT))
 import           Control.Monad.Trans.Class (MonadTrans)
-import           Data.Default              (def)
+import           Data.Default              (Default (def))
 import           Mockable                  (ChannelT, Counter, Distribution, Gauge, Gauge,
                                             MFunctor', Mockable (liftMockable), Promise,
                                             SharedAtomicT, SharedExclusiveT,
@@ -39,7 +39,7 @@ import           Pos.Types                 (HeaderHash)
 import           Pos.Util.JsonLog          (MonadJL (..))
 
 import           Pos.Txp.MemState.Class    (MonadTxpMem (..))
-import           Pos.Txp.MemState.Types    (GenericTxpLocalData (..), TxpLocalData)
+import           Pos.Txp.MemState.Types    (GenericTxpLocalData (..))
 import           Pos.Txp.Toil.Types        (UtxoModifier)
 
 ----------------------------------------------------------------------------
@@ -100,14 +100,14 @@ instance Monad m => WrappedM (TxpHolder ext m) where
     _WrappedM = iso getTxpHolder TxpHolder
 
 mkTxpLocalData
-    :: MonadIO m
-    => UtxoModifier -> HeaderHash -> m TxpLocalData
+    :: (Default e, MonadIO m)
+    => UtxoModifier -> HeaderHash -> m (GenericTxpLocalData e)
 mkTxpLocalData uv initTip = TxpLocalData
     <$> liftIO (STM.newTVarIO uv)
     <*> liftIO (STM.newTVarIO def)
     <*> liftIO (STM.newTVarIO mempty)
     <*> liftIO (STM.newTVarIO initTip)
-    <*> liftIO (STM.newTVarIO ())
+    <*> liftIO (STM.newTVarIO def)
 
 runTxpHolder :: GenericTxpLocalData ext -> TxpHolder ext m a -> m a
 runTxpHolder ld holder = runReaderT (getTxpHolder holder) ld

@@ -18,8 +18,8 @@ import           Pos.Explorer.Core           (AddrHistory, TxExtra)
 import qualified Pos.Explorer.DB             as DB
 import           Pos.Explorer.Txp.Toil.Types (ExplorerExtra, eeAddrHistories,
                                               eeLocalTxsExtra)
-import           Pos.Txp                     (DBTxp, ToilT (..), TxId, UtxoReaderT,
-                                              tmExtra)
+import           Pos.Txp.Core                (TxId)
+import           Pos.Txp.Toil                (DBTxp, ToilT (..), UtxoReaderT, tmExtra)
 import qualified Pos.Util.Modifier           as MM
 
 class Monad m => MonadTxExtraRead m where

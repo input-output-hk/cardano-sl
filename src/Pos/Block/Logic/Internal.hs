@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Internal block logic. Mostly needed for use in 'Pos.Lrc' -- using
@@ -34,7 +35,11 @@ import           Pos.Slotting         (putSlottingData)
 import           Pos.Ssc.Class        (Ssc)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.Txp.Core         (TxPayload)
+#ifdef WITH_EXPLORER
+import           Pos.Explorer.Txp     (eTxNormalize)
+#else
 import           Pos.Txp.Logic        (txNormalize)
+#endif
 import           Pos.Txp.Settings     (TxpBlund, TxpGlobalSettings (..))
 import           Pos.Types            (GenesisBlock, HeaderHash, MainBlock, epochIndexL,
                                        gbBody, gbHeader, headerHash, headerHashG,
@@ -102,7 +107,11 @@ applyBlocksUnsafeDo blunds pModifier = do
                  getOldestFirst blunds
     GS.writeBatchGState [putTip, delegateBatch, usBatch, txpBatch, forwardLinksBatch, inMainBatch]
     sscNormalize
+#ifdef WITH_EXPLORER
+    eTxNormalize
+#else
     txNormalize
+#endif
     usNormalize
     DB.sanityCheckDB
     putSlottingData =<< UDB.getSlottingData

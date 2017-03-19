@@ -604,8 +604,6 @@ executable cardano-node
     cpp-options: -DWITH_WEB
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
-  if flag(with-explorer)
-     buildable: False
 
 executable cardano-analyzer
   hs-source-dirs:      src/analyzer

@@ -22,10 +22,10 @@ import qualified Data.List.NonEmpty          as NE
 import           Pos.Core                    (Address, HeaderHash, Timestamp)
 import           Pos.Explorer.Core           (AddrHistory, TxExtra (..))
 import           Pos.Explorer.Txp.Toil.Class (MonadTxExtra (..), MonadTxExtraRead (..))
-import           Pos.Txp                     (ToilVerFailure (..))
-import qualified Pos.Txp                     as Txp
 import           Pos.Txp.Core                (Tx (..), TxAux, TxId, TxOut (..),
                                               TxOutAux (..), TxUndo, topsortTxs)
+import           Pos.Txp.Toil                (ToilVerFailure (..))
+import qualified Pos.Txp.Toil                as Txp
 import           Pos.Util.Chrono             (NewestFirst (..))
 
 ----------------------------------------------------------------------------

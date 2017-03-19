@@ -34,27 +34,26 @@ module Pos.Wallet.Web.ClientTypes
       , toCUpdateInfo
       ) where
 
-import           Data.Text             (Text, isInfixOf, toLower)
-import           GHC.Generics          (Generic)
 import           Universum
 
-import           Data.Default          (Default, def)
-import           Data.Hashable         (Hashable (..))
-import           Data.Time.Clock.POSIX (POSIXTime)
-import           Formatting            (build, sformat)
+import           Data.Default           (Default, def)
+import           Data.Hashable          (Hashable (..))
+import           Data.Text              (Text, isInfixOf, toLower)
+import           Data.Time.Clock.POSIX  (POSIXTime)
+import           Formatting             (build, sformat)
 
-import           Pos.Aeson.Types       ()
-import           Pos.Core.Types        (ScriptVersion)
-import           Pos.Crypto            (hashHexF)
-import           Pos.Txp.Core.Types    (Tx (..), TxId, txOutAddress, txOutValue)
-import           Pos.Types             (Address (..), BlockVersion, ChainDifficulty, Coin,
-                                        SoftwareVersion, decodeTextAddress, sumCoins,
-                                        unsafeIntegerToCoin)
-import           Pos.Update.Core       (BlockVersionData (..), StakeholderVotes,
-                                        UpdateProposal (..), isPositiveVote)
-import           Pos.Update.Poll       (ConfirmedProposalState (..))
-import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Wallet.Tx.Pure    (TxHistoryEntry (..))
+import           Pos.Aeson.Types        ()
+import           Pos.Client.Txp.History (TxHistoryEntry (..))
+import           Pos.Core.Types         (ScriptVersion)
+import           Pos.Crypto             (hashHexF)
+import           Pos.Txp.Core.Types     (Tx (..), TxId, txOutAddress, txOutValue)
+import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
+                                         Coin, SoftwareVersion, decodeTextAddress,
+                                         sumCoins, unsafeIntegerToCoin)
+import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes,
+                                         UpdateProposal (..), isPositiveVote)
+import           Pos.Update.Poll        (ConfirmedProposalState (..))
+import           Pos.Util.BackupPhrase  (BackupPhrase)
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty

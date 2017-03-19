@@ -19,7 +19,8 @@ import           Universum
 
 import qualified Pos.CLI                     as CLI
 import           Pos.Communication           (ActionSpec (..), SendActions,
-                                              convertSendActions, wrapSendActions)
+                                              convertSendActions, sendTxOuts, submitTxRaw,
+                                              wrapSendActions)
 import           Pos.Constants               (genesisN, genesisSlotDuration,
                                               neighborsSendThreshold, slotSecurityParam)
 import           Pos.Crypto                  (hash)
@@ -38,7 +39,6 @@ import           Pos.Ssc.SscAlgo             (SscAlgo (..))
 import           Pos.Txp                     (TxAux)
 import           Pos.Util.JsonLog            ()
 import           Pos.Util.UserSecret         (simpleUserSecret)
-import           Pos.Wallet                  (sendTxOuts, submitTxRaw)
 import           Pos.Worker                  (allWorkers)
 import           Pos.WorkMode                (ProductionMode)
 

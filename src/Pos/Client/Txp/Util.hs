@@ -1,6 +1,6 @@
 -- | Pure functions for operations with transactions
 
-module Pos.Util.Tx
+module Pos.Client.Txp.Util
        (
        -- * Tx creation
          makePubKeyTx

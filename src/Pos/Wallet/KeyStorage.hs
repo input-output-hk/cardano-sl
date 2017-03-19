@@ -32,6 +32,8 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Binary.Crypto           ()
+import           Pos.Client.Txp.Balances     (MonadBalances)
+import           Pos.Client.Txp.History      (MonadTxHistory)
 import           Pos.Communication.PeerState (PeerStateHolder)
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               WithNodeContext (..))
@@ -47,8 +49,6 @@ import           Pos.Slotting                (MonadSlots, MonadSlotsData, NtpSlo
                                               SlottingHolder)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp                     (TxpHolder (..))
-import           Pos.Txp.MonadBalances       (MonadBalances)
-import           Pos.Txp.TxHistory           (MonadTxHistory)
 import           Pos.Update                  (USHolder (..))
 import           Pos.Util                    ()
 import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys,

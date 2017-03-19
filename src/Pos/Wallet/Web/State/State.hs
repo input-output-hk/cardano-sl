@@ -38,9 +38,9 @@ import           Data.Acid                    (EventResult, EventState, QueryEve
 import           Mockable                     (MonadMockable)
 import           Universum
 
+import           Pos.Client.Txp.History       (TxHistoryEntry)
 import           Pos.Slotting                 (NtpSlotting)
 import           Pos.Txp                      (Utxo)
-import           Pos.Txp.TxHistory            (TxHistoryEntry)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Wallet.Web.ClientTypes   (CAddress, CProfile, CTxId, CTxMeta,
                                                CUpdateInfo, CWalletMeta)

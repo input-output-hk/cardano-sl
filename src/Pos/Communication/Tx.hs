@@ -17,6 +17,9 @@ import           System.Wlog                (logInfo)
 import           Universum
 
 import           Pos.Binary                 ()
+import           Pos.Client.Txp.Balances    (MonadBalances (..))
+import           Pos.Client.Txp.History     (MonadTxHistory (..))
+import           Pos.Client.Txp.Util        (TxError, createRedemptionTx, createTx)
 import           Pos.Communication.Methods  (sendTx)
 import           Pos.Communication.Protocol (SendActions)
 import           Pos.Communication.Specs    (sendTxOuts)
@@ -25,11 +28,8 @@ import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
 import           Pos.DB.Limits              (MonadDBLimits)
 import           Pos.DHT.Model              (DHTNode)
 import           Pos.Txp.Core               (TxAux, TxOut (..), TxOutAux (..), txaF)
-import           Pos.Txp.MonadBalances      (MonadBalances (..))
-import           Pos.Txp.TxHistory          (MonadTxHistory (..))
 import           Pos.Types                  (Address, makePubKeyAddress,
                                              makeRedeemAddress, mkCoin, unsafeAddCoin)
-import           Pos.Util.Tx                (TxError, createRedemptionTx, createTx)
 import           Pos.WorkMode               (MinWorkMode)
 
 type TxMode ssc m

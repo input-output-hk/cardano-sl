@@ -6,7 +6,7 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Pos.Txp.TxHistory
+module Pos.Client.Txp.History
        ( TxHistoryEntry(..)
        , thTxId
        , thTx

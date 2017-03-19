@@ -82,6 +82,11 @@ library
 
                         Pos.Statistics
 
+                        -- Client
+                        Pos.Client.Txp.Balances
+                        Pos.Client.Txp.History
+                        Pos.Client.Txp.Util
+
                         -- Txp
                         Pos.Txp
                         Pos.Txp.Core
@@ -103,7 +108,6 @@ library
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
                         Pos.Util.UserSecret
-                        Pos.Util.Tx
 
                         -- Worker, work mode
                         Pos.Worker
@@ -285,8 +289,6 @@ library
                         Pos.Txp.Network
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
-                        Pos.Txp.TxHistory
-                        Pos.Txp.MonadBalances
                         Pos.Txp.Toil
                         Pos.Txp.Toil.Balances
                         Pos.Txp.Toil.Balances.Functions

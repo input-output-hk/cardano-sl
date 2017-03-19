@@ -25,6 +25,8 @@ import           Mockable                    (Production)
 import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
 
+import           Pos.Client.Txp.Balances     (MonadBalances (..))
+import           Pos.Client.Txp.History      (MonadTxHistory (..), deriveAddrHistory)
 import           Pos.Communication           (TxMode)
 import           Pos.Communication.PeerState (PeerStateHolder, WithPeerState)
 import           Pos.Constants               (blkSecurityParam)
@@ -43,8 +45,6 @@ import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp                     (TxpHolder (..), filterUtxoByAddr,
                                               runUtxoStateT)
-import           Pos.Txp.MonadBalances       (MonadBalances (..))
-import           Pos.Txp.TxHistory           (MonadTxHistory (..), deriveAddrHistory)
 import           Pos.Types                   (BlockHeader, ChainDifficulty, difficultyL,
                                               flattenEpochOrSlot, flattenSlotId)
 import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))

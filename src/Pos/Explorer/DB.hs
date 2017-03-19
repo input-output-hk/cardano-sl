@@ -16,7 +16,7 @@ import           Pos.DB.Functions     (RocksBatchOp (..))
 import           Pos.DB.GState.Common (gsGetBi)
 import           Pos.Explorer.Core    (AddrHistory, TxExtra (..))
 import           Pos.Txp.Core         (TxId)
-import           Pos.Util             (NewestFirst (..))
+import           Pos.Util.Chrono      (NewestFirst (..))
 
 ----------------------------------------------------------------------------
 -- Getters

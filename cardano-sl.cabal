@@ -504,6 +504,9 @@ library
                       , servant >= 0.8.1
                       , servant-docs >= 0.8.1
                       , servant-server >= 0.8.1
+                      , swagger2
+                      , servant-swagger
+                      , servant-swagger-ui
                       , wai
                       , wai-extra
                       , warp

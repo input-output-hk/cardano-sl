@@ -16,7 +16,7 @@ import           Universum
 
 import           Pos.Ssc.Class.Types (Ssc (SscPayload))
 import           Pos.Types           (Block, BlockHeader, HeaderHash)
-import           Pos.Util            (NE, NewestFirst)
+import           Pos.Util.Chrono     (NE, NewestFirst)
 
 -- | 'GetHeaders' message. Behaviour of the response depends on
 -- particular combination of 'mghFrom' and 'mghTo'.

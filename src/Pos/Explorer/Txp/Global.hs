@@ -19,7 +19,7 @@ import           Pos.Txp               (ApplyBlocksSettings (..), TxpBlund,
                                         genericToilModifierToBatch, runToilAction,
                                         txpGlobalSettings)
 import           Pos.Txp.Core          (TxAux, TxUndo)
-import           Pos.Util              (NE, NewestFirst (..))
+import           Pos.Util.Chrono       (NE, NewestFirst (..))
 import qualified Pos.Util.Modifier     as MM
 
 import qualified Pos.Explorer.DB       as GS

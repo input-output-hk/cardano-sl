@@ -42,10 +42,9 @@ import           Pos.Types            (GenesisBlock, HeaderHash, MainBlock, epoc
 import qualified Pos.Update.DB        as UDB
 import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll      (PollModifier)
-import           Pos.Util             (NE, NewestFirst (..), OldestFirst (..), Some (..),
-                                       inAssertMode, spanSafe, _neLast)
+import           Pos.Util             (Some (..), inAssertMode, spanSafe, _neLast)
+import           Pos.Util.Chrono      (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode         (WorkMode)
-
 
 -- | Run action acquiring lock on block application. Argument of
 -- action is an old tip, result is put as a new tip.

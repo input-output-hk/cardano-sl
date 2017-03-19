@@ -22,8 +22,8 @@ import           Universum
 import           Pos.DB                  (MonadDB, SomeBatchOp (..))
 import qualified Pos.DB.GState           as GS
 import           Pos.Exception           (assertionFailed)
-import           Pos.Util                (NE, NewestFirst (..), OldestFirst (..),
-                                          inAssertMode)
+import           Pos.Util                (inAssertMode)
+import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..))
 import qualified Pos.Util.Modifier       as MM
 
 import           Pos.Txp.Core            (TxAux, TxUndo, TxpUndo, flattenTxPayload)

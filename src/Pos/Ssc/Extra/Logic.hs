@@ -50,8 +50,8 @@ import           Pos.Ssc.Extra.Class     (MonadSscMem (askSscMem))
 import           Pos.Ssc.Extra.Types     (SscState (sscGlobal, sscLocal))
 import           Pos.Types               (Block, EpochIndex, HeaderHash, SharedSeed,
                                           SlotId, epochIndexL, headerHash)
-import           Pos.Util                (NE, NewestFirst, OldestFirst, inAssertMode,
-                                          _neHead, _neLast)
+import           Pos.Util                (inAssertMode, _neHead, _neLast)
+import           Pos.Util.Chrono         (NE, NewestFirst, OldestFirst)
 
 ----------------------------------------------------------------------------
 -- Utilities

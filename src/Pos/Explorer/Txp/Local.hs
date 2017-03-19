@@ -29,7 +29,7 @@ import           Pos.Txp.Toil          (GenericToilModifier (..), MonadToilEnv,
                                         MonadUtxoRead (..), ToilEnv, ToilVerFailure (..),
                                         Utxo, getToilEnv, runDBTxp, runToilTLocalExtra,
                                         runUtxoReaderT, utxoGet)
-import           Pos.Util              (NewestFirst (..))
+import           Pos.Util.Chrono       (NewestFirst (..))
 import qualified Pos.Util.Modifier     as MM
 
 import           Pos.Explorer.Core     (TxExtra (..))

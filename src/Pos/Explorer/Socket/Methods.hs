@@ -11,15 +11,12 @@ module Pos.Explorer.Socket.Methods
 
        , startSession
        , finishSession
-       , setClientAddress
-       , setClientBlock
        , subscribeAddr
        , subscribeBlocks
        , subscribeTxs
        , unsubscribeAddr
        , unsubscribeBlocks
        , unsubscribeTxs
-       , unsubscribeFully
 
        , notifyAddrSubscribers
        , notifyAllAddrSubscribers
@@ -48,9 +45,8 @@ import           Pos.Slotting.Class             (MonadSlots)
 import           Pos.Ssc.Class                  (SscHelpersClass)
 import           Pos.Txp                        (Tx (..), TxOut (..), TxOutAux (..),
                                                  txOutAddress)
-import           Pos.Types                      (Address, Block, ChainDifficulty,
-                                                 HeaderHash, TxExtra (..), blockTxas,
-                                                 blockTxs)
+import           Pos.Types                      (Address, Block, HeaderHash, TxExtra (..),
+                                                 blockTxas, blockTxs)
 import           Pos.Util                       (maybeThrow)
 import           System.Wlog                    (WithLogger, logDebug, logError,
                                                  logWarning)
@@ -78,8 +74,6 @@ data Subscription
 data ClientEvent
     = Subscribe Subscription
     | Unsubscribe Subscription
-    | SetClientAddress
-    | SetClientBlock
     | CallMe
     | CallMeString
     | CallMeTxId
@@ -122,40 +116,22 @@ startSession conn = do
 finishSession
     :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> m ()
-finishSession i = whenJustM (use $ csClients . at i) finishSessionDo
-  where
-    finishSessionDo _ = do
-        csClients . at i .= Nothing
-        unsubscribeBlocks i
-        unsubscribeAddr i
-        logDebug $ sformat ("Session #"%shown%" has finished") i
-
-setClientAddress
-    :: (MonadState ConnectionsState m, WithLogger m, MonadThrow m)
-    => Maybe CAddress -> SocketId -> m ()
-setClientAddress caddr sessId = do
-    addr <- mapM fromCAddressOrThrow caddr
-    unsubscribeAddr sessId
-    csClients . at sessId . _Just . ccAddress .= addr
-    whenJust caddr $ flip subscribeAddr sessId
-
-setClientBlock
-    :: (MonadState ConnectionsState m, WithLogger m)
-    => Maybe ChainDifficulty -> SocketId -> m ()
-setClientBlock pId sessId = do
-    csClients . at sessId . _Just . ccBlock .= pId
-    subscribeBlocks sessId
+finishSession sessId =
+    whenJustM (use $ csClients . at sessId) $ \_ -> do
+        csClients . at sessId .= Nothing
+        unsubscribeFully sessId
+        logDebug $ sformat ("Session #"%shown%" has finished") sessId
 
 subscribe
     :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> Text -> Lens' ConnectionsState (Maybe ()) -> m ()
-subscribe i desc stateZoom = do
-    session <- use $ csClients . at i
+subscribe sessId desc stateZoom = do
+    session <- use $ csClients . at sessId
     case session of
         Just _  -> do
             stateZoom .= Just ()
             logDebug $ sformat ("Client #"%shown%" subscribed to "%stext%" \
-                       \updates") i desc
+                       \updates") sessId desc
         _       ->
             logWarning $ sformat ("Unregistered client tries to subscribe on "%
                          stext%" updates") desc
@@ -163,56 +139,68 @@ subscribe i desc stateZoom = do
 unsubscribe
     :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> Text -> Lens' ConnectionsState (Maybe ()) -> m ()
-unsubscribe i desc stateZoom = do
+unsubscribe sessId desc stateZoom = do
     stateZoom .= Nothing
     logDebug $ sformat ("Client #"%shown%" unsubscribed from "%stext%" \
-               \updates") i desc
+               \updates") sessId desc
 
+-- | Unsubscribes on any previous address and subscribes on given one.
 subscribeAddr
     :: (MonadState ConnectionsState m, WithLogger m, MonadThrow m)
     => CAddress -> SocketId -> m ()
-subscribeAddr caddr i = do
+subscribeAddr caddr sessId = do
     addr <- fromCAddressOrThrow caddr
+    unsubscribeAddr sessId
+    csClients . at sessId . _Just . ccAddress .= Just addr
     subscribe
-        i
+        sessId
         (sformat ("address "%shown) addr)
-        (csAddressSubscribers . at addr . non S.empty . at i)
+        (csAddressSubscribers . at addr . non S.empty . at sessId)
 
 unsubscribeAddr
     :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> m ()
-unsubscribeAddr i = do
-    maddr <- preuse $ csClients . at i . _Just . ccAddress . _Just
+unsubscribeAddr sessId = do
+    maddr <- preuse $ csClients . at sessId . _Just . ccAddress . _Just
+    csClients . at sessId . _Just . ccAddress .= Nothing
     whenJust maddr $ \addr ->
         unsubscribe
-            i
+            sessId
             (sformat ("address "%shown) addr)
-            (csAddressSubscribers . at addr . non S.empty . at i)
+            (csAddressSubscribers . at addr . non S.empty . at sessId)
 
 subscribeBlocks
     :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> m ()
-subscribeBlocks i = subscribe i "blockchain" (csBlocksSubscribers . at i)
+subscribeBlocks sessId = do
+    -- TODO: set ChainDifficulty:
+    -- csClients . at sessId . _Just . ccBlock .= Just pId
+    subscribe sessId "blockchain" (csBlocksSubscribers . at sessId)
 
 unsubscribeBlocks
     :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> m ()
-unsubscribeBlocks i = unsubscribe i "blockchain" (csBlocksSubscribers . at i)
+unsubscribeBlocks sessId = do
+    csClients . at sessId . _Just . ccBlock .= Nothing
+    unsubscribe sessId "blockchain" (csBlocksSubscribers . at sessId)
 
 subscribeTxs
     :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> m ()
-subscribeTxs i = subscribe i "txs" (csTxsSubscribers . at i)
+subscribeTxs sessId = subscribe sessId "txs" (csTxsSubscribers . at sessId)
 
 unsubscribeTxs
     :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> m ()
-unsubscribeTxs i = unsubscribe i "txs" (csTxsSubscribers . at i)
+unsubscribeTxs sessId = unsubscribe sessId "txs" (csTxsSubscribers . at sessId)
 
 unsubscribeFully
     :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> m ()
-unsubscribeFully i = unsubscribeBlocks i >> unsubscribeAddr i
+unsubscribeFully sessId = do
+    unsubscribeAddr sessId
+    unsubscribeBlocks sessId
+    unsubscribeTxs sessId
 
 -- * Notifications
 

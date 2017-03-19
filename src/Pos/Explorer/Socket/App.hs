@@ -42,15 +42,14 @@ import           Pos.Explorer.Socket.Holder       (ConnectionsState, Connections
                                                    withConnState)
 import           Pos.Explorer.Socket.Methods      (ClientEvent (..), ServerEvent (..),
                                                    Subscription (..), blockAddresses,
-                                                   getBlocksFromTo, notifyAddrSubscribers,
+                                                   finishSession, getBlocksFromTo,
+                                                   notifyAddrSubscribers,
                                                    notifyAllAddrSubscribers,
                                                    notifyBlocksSubscribers,
-                                                   notifyTxsSubscribers, setClientAddress,
-                                                   setClientBlock, startSession,
+                                                   notifyTxsSubscribers, startSession,
                                                    subscribeAddr, subscribeBlocks,
                                                    subscribeTxs, unsubscribeAddr,
-                                                   unsubscribeBlocks, unsubscribeFully,
-                                                   unsubscribeTxs)
+                                                   unsubscribeBlocks, unsubscribeTxs)
 import           Pos.Explorer.Socket.Util         (emit, emitJSON, forkAccompanion, on,
                                                    on_, runPeriodicallyUnless)
 import           Pos.Explorer.Web.ClientTypes     (CTxId)
@@ -76,12 +75,10 @@ notifierHandler connVar loggerName = do
     on_ (Unsubscribe SubAddr)  $ asHandler_ unsubscribeAddr
     on_ (Unsubscribe SubBlock) $ asHandler_ unsubscribeBlocks
     on_ (Unsubscribe SubTx)    $ asHandler_ unsubscribeTxs
-    on  SetClientAddress       $ asHandler setClientAddress
-    on  SetClientBlock         $ asHandler setClientBlock
     on_ CallMe                 $ emitJSON CallYou empty
     on CallMeString            $ \(s :: Value) -> emit CallYouString s
     on CallMeTxId              $ \(txid :: CTxId) -> emit CallYouTxId txid
-    appendDisconnectHandler . void $ asHandler_ unsubscribeFully
+    appendDisconnectHandler . void $ asHandler_ finishSession
  where
     -- handlers provide context for logging and `ConnectionsVar` changes
     asHandler

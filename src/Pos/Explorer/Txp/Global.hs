@@ -43,7 +43,7 @@ eApplyBlocksSettings
 eApplyBlocksSettings =
     ApplyBlocksSettings
     { absApplySingle = applyBlund
-    , absExtraOperations = const mempty
+    , absExtraOperations = extraOps
     }
 
 extraOps :: ExplorerExtra -> SomeBatchOp

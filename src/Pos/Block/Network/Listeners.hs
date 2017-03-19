@@ -31,7 +31,7 @@ import           Pos.Communication.Util     (stubListenerConv)
 import qualified Pos.DB.Block               as DB
 import           Pos.DB.Error               (DBError (DBMalformed))
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
-import           Pos.Util                   (NewestFirst (..))
+import           Pos.Util.Chrono            (NewestFirst (..))
 import           Pos.WorkMode               (WorkMode)
 
 blockListeners

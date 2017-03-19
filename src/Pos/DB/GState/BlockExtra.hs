@@ -27,8 +27,7 @@ import           Pos.DB.Functions      (RocksBatchOp (..), rocksGetBi, rocksPutB
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Types             (Block, BlockHeader, HasHeaderHash, HeaderHash,
                                         blockHeader, headerHash)
-import           Pos.Util              (OldestFirst (..))
-
+import           Pos.Util.Chrono       (OldestFirst (..))
 
 ----------------------------------------------------------------------------
 -- Getters

@@ -1,13 +1,18 @@
 module Explorer.View.Common (
     placeholderView
-    , transactionHeaderView
-    , transactionHeaderView'
+    , txHeaderView
     , transactionBodyView
     , transactionBodyView'
     , emptyTxHeaderView
+    , mkTxHeaderViewProps
+    , mkEmptyTxHeaderViewProps
+    , class TxHeaderViewPropsFactory
     , currencyCSSClass
     , paginationView
     , transactionPaginationView
+    , EmptyProps
+    , mkEmptyProps
+    , noData
     ) where
 
 import Prelude
@@ -19,11 +24,13 @@ import Data.Tuple (Tuple(..))
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
-import Explorer.Util.Factory (mkCAddress)
+import Explorer.Util.Factory (mkCAddress, mkCTxId, mkCoin)
+import Explorer.View.Lenses (txhAmount, txhHash, txhTimeIssued)
+import Exporer.View.Types (TxHeaderViewProps(..))
 import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Core.Types (Coin(..))
-import Pos.Explorer.Web.ClientTypes (CAddress(..), CTxEntry(..), CTxSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CHash, _CTxId, cteAmount, cteId, cteTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalInput, ctsTxTimeIssued)
+import Pos.Explorer.Web.ClientTypes (CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, ctbId, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
 import Pux.Html (Html, text, div, a, p, span, input) as P
 import Pux.Html.Attributes (className, href, value, disabled, type_, min, max) as P
 import Pux.Html.Events (onChange, onFocus, FormEvent, MouseEvent, Target, onClick) as P
@@ -38,44 +45,75 @@ emptyTxHeaderView _ =
         [ P.className "transaction-header"]
         [ ]
 
-transactionHeaderView :: CTxEntry -> P.Html Action
-transactionHeaderView (CTxEntry entry) =
+-- | Factory to create TxHeaderViewProps by a given type
+class TxHeaderViewPropsFactory a where
+    mkTxHeaderViewProps :: a -> TxHeaderViewProps
+
+-- | Creates a TxHeaderViewProps by a given CTxEntry
+instance cTxEntryTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory CTxEntry where
+    mkTxHeaderViewProps (CTxEntry entry) = TxHeaderViewProps
+      { txhHash: entry ^. cteId
+      , txhTimeIssued: Just $ entry ^. cteTimeIssued
+      , txhAmount: entry . cteAmount
+      }
+
+-- | Creates a TxHeaderViewProps by a given CTxBrief
+instance cTxBriefTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory CTxBrief where
+    mkTxHeaderViewProps (CTxBrief txBrief) = TxHeaderViewProps
+      { txhHash: txBrief ^. ctbId
+      , txhTimeIssued: Just $ txBrief ^. ctbTimeIssued
+      , txhAmount: mkCoin 0 -- TODO(jk) We do need an amount here
+      }
+
+-- | Creates a TxHeaderViewProps by a given CTxSummary
+instance cTxSummaryTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory CTxSummary where
+    mkTxHeaderViewProps (CTxSummary txSummary) = TxHeaderViewProps
+      { txhHash: txSummary ^. ctsId
+      , txhTimeIssued: txSummary ^. ctsBlockTimeIssued
+      , txhAmount: txSummary ^. ctsTotalOutput
+      }
+
+-- | Creates a TxHeaderViewProps by a given CTxSummary
+instance mTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory EmptyProps where
+    mkTxHeaderViewProps _ = TxHeaderViewProps
+        { txhHash: mkCTxId noData
+        , txhTimeIssued: Nothing
+        , txhAmount: mkCoin 0
+        }
+
+newtype EmptyProps = EmptyProps {}
+
+mkEmptyProps :: EmptyProps
+mkEmptyProps = EmptyProps {}
+
+-- | Creates an empty TxHeaderViewProps
+mkEmptyTxHeaderViewProps :: TxHeaderViewProps
+mkEmptyTxHeaderViewProps = TxHeaderViewProps
+    { txhHash: mkCTxId noData
+    , txhTimeIssued: Nothing
+    , txhAmount: mkCoin 0
+    }
+
+txHeaderView :: TxHeaderViewProps -> P.Html Action
+txHeaderView (TxHeaderViewProps props) =
     P.div
           [ P.className "transaction-header"]
           [ P.link
               (toUrl Dashboard )
               [ P.className "hash" ]
-              [ P.text $ entry ^. (cteId <<< _CTxId <<< _CHash) ]
+              [ P.text $ props ^. (txhHash <<< _CTxId <<< _CHash) ]
           , P.div
               [ P.className "date"]
-              [ P.text <<< show $ entry ^. (cteTimeIssued <<< _NominalDiffTime)
+              [ P.text $ case props ^. txhTimeIssued of
+                              Just time -> show $ time ^. _NominalDiffTime
+                              Nothing -> "--"
               ]
           , P.div
               [ P.className "amount-container" ]
               [ P.a
                   [ P.className "amount bg-ada"
                   , P.href "#" ]
-                  [ P.text <<< show $ entry ^. (cteAmount <<< _Coin <<< getCoin) ]
-              ]
-          ]
-
-transactionHeaderView' :: CTxSummary -> P.Html Action
-transactionHeaderView' (CTxSummary txSummary) =
-    P.div
-          [ P.className "transaction-header"]
-          [ P.div
-              [ P.className "hash" ]
-              [ P.text $ txSummary ^. (ctsId <<< _CTxId <<< _CHash) ]
-          , P.div
-              [ P.className "date"]
-              [ P.text <<< show $ txSummary ^. (ctsTxTimeIssued <<< _NominalDiffTime)
-              ]
-          , P.div
-              [ P.className "amount-container" ]
-              [ P.a
-                  [ P.className "amount bg-ada"
-                  , P.href "#" ]
-                  [ P.text <<< show $ txSummary ^. (ctsTotalInput <<< _Coin <<< getCoin) ]
+                  [ P.text <<< show $ props ^. (txhAmount <<< _Coin <<< getCoin) ]
               ]
           ]
 
@@ -252,6 +290,9 @@ paginationView props =
 
 
 -- helper
+
+noData :: String
+noData = "--"
 
 currencyCSSClass :: Maybe CCurrency -> String
 currencyCSSClass mCurrency =

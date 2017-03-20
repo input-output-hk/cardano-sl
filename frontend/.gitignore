@@ -13,3 +13,4 @@ src/Generated/*
 src/Data/Time/Lenses/*
 src/Explorer/I18n/Lenses.purs
 src/Explorer/Lenses/*
+src/Explorer/View/Lenses/*

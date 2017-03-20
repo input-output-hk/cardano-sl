@@ -41,3 +41,21 @@ purescript-derive-lenses \
     --moduleName Data.Time.NominalDiffTime.Lenses \
     --moduleImports "import Data.Time.Duration  (Seconds (..))" \
     > $DIR_TIME_LENSES/NominalDiffTime.purs
+
+# - - - - - - - - - - -
+# View
+# - - - - - - - - - - -
+
+DIR_VIEW=src/Explorer/View
+DIR_VIEW_LENSES=$DIR_VIEW/Lenses
+
+mkdir -p $DIR_VIEW_LENSES
+
+purescript-derive-lenses \
+    < $DIR_VIEW/Types.purs \
+    --moduleName Explorer.View.Lenses \
+    --moduleImports "import Data.Time.NominalDiffTime (NominalDiffTime(..))" \
+    --moduleImports "import Data.Maybe (Maybe)" \
+    --moduleImports "import Pos.Core.Types (Coin)" \
+    --moduleImports "import Pos.Explorer.Web.ClientTypes (CTxId)" \
+    > $DIR_VIEW_LENSES/View.purs

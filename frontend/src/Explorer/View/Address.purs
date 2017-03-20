@@ -11,8 +11,7 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
-import Explorer.Util.Factory (mkCTxEntryFrom, mkEmptyCTxEntry)
-import Explorer.View.Common (currencyCSSClass, transactionBodyView, transactionHeaderView, transactionPaginationView)
+import Explorer.View.Common (currencyCSSClass, mkEmptyProps, mkTxHeaderViewProps, transactionBodyView, txHeaderView, transactionPaginationView)
 import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, caAddress, caBalance, caTxList, caTxNum)
@@ -65,9 +64,9 @@ addressView state =
                                   in
                                   P.div
                                       []
-                                      [ transactionHeaderView $ case txList !! (txPagination - 1) of
-                                                                Nothing -> mkEmptyCTxEntry
-                                                                Just txBrief -> mkCTxEntryFrom txBrief
+                                      [ txHeaderView $ case txList !! (txPagination - 1) of
+                                                            Nothing -> mkTxHeaderViewProps mkEmptyProps
+                                                            Just txBrief -> mkTxHeaderViewProps txBrief
                                       , transactionBodyView state
                                       , transactionPaginationView
                                             { label: translate (I18nL.common <<< I18nL.cOf) $ lang'

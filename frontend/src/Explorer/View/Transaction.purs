@@ -9,7 +9,7 @@ import Explorer.I18n.Lenses (common, cTransaction, cTransactionFeed, cSummary, t
 import Explorer.Lenses.State (currentTxSummary, lang)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
-import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, transactionBodyView', transactionHeaderView')
+import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkTxHeaderViewProps, noData, transactionBodyView', txHeaderView)
 import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CTxSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CNetworkAddress, ctsBlockHeight, ctsFees, ctsRelayedBy, ctsTotalOutput, ctsTxTimeIssued)
@@ -34,7 +34,7 @@ transactionView state =
                         Just txSummary ->
                             P.div
                                 []
-                                [ transactionHeaderView' txSummary
+                                [ txHeaderView $ mkTxHeaderViewProps txSummary
                                 , transactionBodyView' txSummary
                                 ]
                 ]
@@ -56,9 +56,6 @@ transactionView state =
                 ]
             ]
         ]
-
-noData :: String
-noData = "--"
 
 type SummaryItems = Array SummaryItem
 

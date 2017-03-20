@@ -90,7 +90,8 @@ module.exports = {
             path.join('src', '**', '*.purs'),
             path.join('bower_components', 'purescript-*', 'src', '**', '*.purs')
           ],
-          watch: !isProd
+          watch: !isProd,
+          bundle: isProd,
         }
       },
       {

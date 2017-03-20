@@ -30,7 +30,6 @@ import           Control.Monad.Loops         (unfoldrM)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import qualified Data.DList                  as DL
-import qualified Data.HashMap.Strict         as HM
 import           Data.Tagged                 (Tagged (..))
 import           System.Wlog                 (WithLogger)
 
@@ -44,16 +43,22 @@ import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
 import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Real                (KademliaDHT (..))
-import           Pos.Slotting                (NtpSlotting, SlottingHolder)
+import           Pos.Slotting                (MonadSlots, NtpSlotting, SlottingHolder)
 import           Pos.Ssc.Class               (SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
+import           Pos.WorkMode                (TxpExtra_TMP)
+#ifdef WITH_EXPLORER
+import           Pos.Explorer                (eTxProcessTransaction)
+#else
+import           Pos.Txp                     (txProcessTransaction)
+#endif
 import           Pos.Txp                     (MonadUtxoRead, Tx (..), TxAux,
                                               TxDistribution, TxId, TxOutAux (..),
                                               TxWitness, TxpHolder (..), Utxo, UtxoStateT,
                                               applyTxToUtxo, evalUtxoStateT,
-                                              filterUtxoByAddr, getMemPool, runUtxoStateT,
-                                              topsortTxs, txOutAddress,
-                                              txProcessTransaction, utxoGet, _mpLocalTxs)
+                                              filterUtxoByAddr, getLocalTxs,
+                                              runUtxoStateT, topsortTxs, txOutAddress,
+                                              utxoGet)
 import           Pos.Types                   (Address, Block, ChainDifficulty, HeaderHash,
                                               blockTxas, difficultyL, prevBlockL)
 import           Pos.Update                  (USHolder (..))
@@ -188,13 +193,11 @@ deriving instance MonadTxHistory m => MonadTxHistory (USHolder m)
 instance ( MonadDB m
          , MonadThrow m
          , WithLogger m
-#ifdef WITH_EXPLORER
          , MonadSlots m
-#endif
          , PC.WithNodeContext s m) =>
-         MonadTxHistory (TxpHolder m) where
+         MonadTxHistory (TxpHolder TxpExtra_TMP m) where
     getTxHistory :: forall ssc. SscHelpersClass ssc
-                 => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> TxpHolder m TxHistoryAnswer)
+                 => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> TxpHolder TxpExtra_TMP m TxHistoryAnswer)
     getTxHistory = Tagged $ \addr mInit -> do
         tip <- GS.getTip
 
@@ -221,7 +224,7 @@ instance ( MonadDB m
                 deriveAddrHistoryPartial txs addr [blk]
             localFetcher blkTxs = do
                 let mp (txid, (tx, txw, txd)) = (WithHash tx txid, txw, txd)
-                ltxs <- HM.toList . _mpLocalTxs <$> lift (lift getMemPool)
+                ltxs <- lift . lift $ getLocalTxs
                 txs <- getRelatedTxs addr $ map mp ltxs
                 return $ txs ++ blkTxs
 
@@ -238,6 +241,8 @@ instance ( MonadDB m
 
         maybe (error "deriveAddrHistory: Nothing") pure mres
 
+#ifdef WITH_EXPLORER
+    saveTx txw = () <$ runExceptT (eTxProcessTransaction txw)
+#else
     saveTx txw = () <$ runExceptT (txProcessTransaction txw)
-
---deriving instance MonadTxHistory m => MonadTxHistory (Modern.TxpLDHolder m)
+#endif

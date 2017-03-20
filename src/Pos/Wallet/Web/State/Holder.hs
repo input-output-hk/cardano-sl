@@ -41,7 +41,7 @@ newtype WalletWebDB m a = WalletWebDB
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName, WithPeerState,
                 MonadWalletDB, WithWalletContext, MonadDHT, MonadSlots, MonadTrans,
                 CanLog, MonadKeys, WithNodeContext ssc, MonadUSMem, MonadPollRead,
-                MonadTxpMem, MonadDelegation, MonadReportingMem)
+                MonadTxpMem __, MonadDelegation, MonadReportingMem)
 
 instance Monad m => WrappedM (WalletWebDB m) where
     type UnwrappedM (WalletWebDB m) = ReaderT WalletState m

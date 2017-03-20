@@ -178,7 +178,7 @@ instance MonadUpdates m => MonadUpdates (PeerStateHolder m)
 instance MonadUpdates m => MonadUpdates (NtpSlotting m)
 instance MonadUpdates m => MonadUpdates (SlottingHolder m)
 
-deriving instance MonadUpdates m => MonadUpdates (TxpHolder m)
+deriving instance MonadUpdates m => MonadUpdates (TxpHolder __ m)
 deriving instance MonadUpdates m => MonadUpdates (SscHolder ssc m)
 deriving instance MonadUpdates m => MonadUpdates (DelegationT m)
 deriving instance MonadUpdates m => MonadUpdates (USHolder m)

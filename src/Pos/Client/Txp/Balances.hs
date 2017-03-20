@@ -49,7 +49,7 @@ deriving instance MonadBalances m => MonadBalances (SscHolder ssc m)
 deriving instance MonadBalances m => MonadBalances (DelegationT m)
 deriving instance MonadBalances m => MonadBalances (USHolder m)
 
-instance (MonadDB m, MonadMask m) => MonadBalances (TxpHolder m) where
+instance (MonadDB m, MonadMask m) => MonadBalances (TxpHolder __ m) where
     getOwnUtxo addr = do
         utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoModifier

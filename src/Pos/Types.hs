@@ -11,9 +11,6 @@ module Pos.Types
        , module Pos.Core.Version
        , module Pos.Types.Arbitrary
        , module Pos.Types.Block
-#ifdef WITH_EXPLORER
-       , module Pos.Types.Explorer
-#endif
        ) where
 
 import           Pos.Binary.Core      ()
@@ -27,7 +24,4 @@ import           Pos.Core.Version
 import           Pos.SafeCopy.Types   ()
 import           Pos.Types.Arbitrary
 import           Pos.Types.Block
-#ifdef WITH_EXPLORER
-import           Pos.Types.Explorer
-#endif
 import           Pos.Types.SharedSeed ()

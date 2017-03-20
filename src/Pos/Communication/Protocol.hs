@@ -32,8 +32,7 @@ import qualified Data.HashMap.Strict              as HM
 import           Data.Proxy                       (Proxy)
 import           Formatting                       (build, sformat, shown, stext, (%))
 import           Mockable                         (Delay, Fork, Mockable, SharedAtomic,
-                                                   Throw, modifySharedAtomic,
-                                                   readSharedAtomic, throw)
+                                                   Throw, throw)
 import qualified Node                             as N
 import           Node.Message                     (Message (..), MessageName (..),
                                                    messageName')

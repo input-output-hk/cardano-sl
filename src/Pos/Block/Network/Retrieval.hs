@@ -14,7 +14,7 @@ module Pos.Block.Network.Retrieval
        , needRecovery
        ) where
 
-import           Control.Concurrent.STM     (isEmptyTBQueue, isFullTBQueue, putTMVar,
+import           Control.Concurrent.STM     (isFullTBQueue, putTMVar,
                                              readTVar, tryReadTBQueue, tryReadTMVar,
                                              tryTakeTMVar, writeTBQueue, writeTVar)
 import           Control.Lens               (_Wrapped)
@@ -119,19 +119,19 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
                 reportingFatal $
                 withConnectionTo sendActions peerId $ \_peerData ->
                     requestHeaders mghNext peerId rHeader
-        handleBlockRetrievalE recHeaderVar (peerId, headers) e = do
+        handleBlockRetrievalE recHV (peerId, headers) e = do
             logWarning $ sformat
                 ("Error handling peerId="%build%", headers="%listJson%": "%shown)
                 peerId (fmap headerHash headers) e
             dropUpdateHeader
-            dropRecoveryHeaderAndRepeat recHeaderVar peerId
-        handleHeadersRecoveryE recHeaderVar peerId e = do
+            dropRecoveryHeaderAndRepeat recHV peerId
+        handleHeadersRecoveryE recHV peerId e = do
             logWarning $ sformat
                 ("Failed while trying to get more headers "%
                  "for recovery from peerId="%build%", error: "%shown)
                 peerId e
             dropUpdateHeader
-            dropRecoveryHeaderAndRepeat recHeaderVar peerId
+            dropRecoveryHeaderAndRepeat recHV peerId
 
     dropUpdateHeader = do
         progressHeaderVar <- ncProgressHeader <$> getNodeContext

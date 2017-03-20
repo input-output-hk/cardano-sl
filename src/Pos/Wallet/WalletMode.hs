@@ -65,7 +65,7 @@ import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)
 import qualified Pos.Wallet.State            as WS
-import           Pos.Wallet.Tx.Pure          (TxHistoryEntry, deriveAddrHistory, thDifficulty,
+import           Pos.Wallet.Tx.Pure          (TxHistoryEntry, deriveAddrHistory, 
                                               deriveAddrHistoryPartial, getRelatedTxs)
 import           Pos.Wallet.Web.State        (WalletWebDB (..))
 
@@ -152,10 +152,10 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
     getTxHistory addr _ = do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
-        res <- fmap (fst . fromMaybe (panic "deriveAddrHistory: Nothing")) $
+        _ <- fmap (fst . fromMaybe (panic "deriveAddrHistory: Nothing")) $
             runMaybeT $ flip runUtxoStateT utxo $
             deriveAddrHistory addr chain
-        pure undefined
+        pure $ panic "undefined"
     saveTx _ = pure ()
 
 instance (SscHelpersClass ssc, MonadDB ssc m, MonadThrow m, WithLogger m, PC.WithNodeContext ssc m)

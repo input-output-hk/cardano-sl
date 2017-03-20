@@ -15,12 +15,12 @@ module Pos.Wallet.Web.Server.Methods
        , walletServerOuts
        ) where
 
-import           Control.Lens                  (makeLenses, (+=), (.=))
+import           Control.Lens                  (makeLenses, (.=))
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
 import           Control.Monad.State           (runStateT)
 import qualified Data.ByteString.Base64        as B64
-import           Data.Default                  (Default, def)
+import           Data.Default                  (def)
 import           Data.List                     (elemIndex, (!!))
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
 import           Formatting                    (build, ords, sformat, stext, (%))
@@ -38,7 +38,7 @@ import           Pos.Constants                 (curSoftwareVersion)
 import           Pos.Crypto                    (SecretKey, deterministicKeyGen, hash,
                                                 toPublic)
 import           Pos.DHT.Model                 (getKnownPeers)
-import           Pos.Types                     (Address, ChainDifficulty (..), Coin,
+import           Pos.Types                     (Address, Coin,
                                                 TxOut (..), addressF, coinF,
                                                 decodeTextAddress, makePubKeyAddress,
                                                 mkCoin)
@@ -161,7 +161,7 @@ launchNotifier nat = void . liftIO $ mapM startForking
   where
     cooldownPeriod = 5000000         -- 5 sec
     difficultyNotifyPeriod = 500000  -- 0.5 sec
-    networkResendPeriod = 10         -- in delay periods
+    -- networkResendPeriod = 10         -- in delay periods
     forkForever action = forkFinally action $ const $ do
         -- TODO: log error
         -- cooldown
@@ -324,7 +324,7 @@ getHistory :: WalletWebMode ssc m => CAddress -> Word -> Word -> m ([CTx], Word)
 getHistory cAddr skip limit = do
     (minit, cachedTxs) <- transCache <$> getHistoryCache cAddr
 
-    txan@TxHistoryAnswer {..} <- flip getTxHistory minit
+    TxHistoryAnswer {..} <- flip getTxHistory minit
         =<< decodeCAddressOrFail cAddr
 
     -- Add allowed portion of result to cache

@@ -25,7 +25,7 @@ import           Pos.Communication.Protocol    (SendActions)
 import           Pos.Constants                 (isDevelopment)
 import           Pos.Context                   (NodeContext, getNodeContext,
                                                 runContextHolder)
-import           Pos.Crypto                    (emptyPassphrase, toEncrypted)
+import           Pos.Crypto                    (toEncrypted)
 import           Pos.DB                        (NodeDBs, getNodeDBs, runDBHolder)
 import           Pos.Delegation.Class          (DelegationWrap, askDelegationState)
 import           Pos.Delegation.Holder         (runDelegationTFromTVar)

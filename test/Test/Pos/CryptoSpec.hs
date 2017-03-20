@@ -13,14 +13,14 @@ import           Test.QuickCheck       (Property, (===), (==>))
 import           Universum
 
 import           Pos.Binary            (AsBinary, Bi)
-import           Pos.Crypto            (EncShare, Hash, ProxyCert, ProxySecretKey (..),
-                                        ProxySignature, PublicKey, Secret, SecretKey,
-                                        SecretProof, SecretSharingExtra, Share, Signature,
-                                        Signed, VssPublicKey, checkSig,
-                                        createProxySecretKey, deterministic,
-                                        fullPublicKeyF, hash, hashHexF, keyGen,
-                                        parseFullPublicKey, proxySign, proxyVerify,
-                                        randomNumber, sign, toPublic,
+import           Pos.Crypto            (EncShare, Hash, PassPhrase, ProxyCert,
+                                        ProxySecretKey (..), ProxySignature, PublicKey,
+                                        Secret, SecretKey, SecretProof,
+                                        SecretSharingExtra, Share, Signature, Signed,
+                                        VssPublicKey, checkSig, createProxySecretKey,
+                                        deterministic, fullPublicKeyF, hash, hashHexF,
+                                        keyGen, parseFullPublicKey, proxySign,
+                                        proxyVerify, randomNumber, sign, toPublic,
                                         verifyProxySecretKey)
 import           Pos.Ssc.GodTossing    ()
 
@@ -79,6 +79,7 @@ spec = describe "Crypto" $ do
                 binaryTest @(ProxySignature Int32 Int32)
                 binaryTest @(Signed Bool)
                 binaryTest @VssPublicKey
+                binaryTest @PassPhrase
                 binaryTest @(AsBinary VssPublicKey)
                 binaryTest @(AsBinary Secret)
                 binaryTest @(AsBinary Share)

@@ -57,7 +57,7 @@ import           Pos.Ssc.Class                 (SscHelpersClass)
 import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, safeKeysFromPhrase)
-import           Pos.Util.UserSecret           (readUserSecret, usKeys, usPrimKey)
+import           Pos.Util.UserSecret           (readUserSecret, usKeys)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
 import           Pos.Wallet.Tx                 (sendTxOuts, submitRedemptionTx, submitTx)
@@ -588,8 +588,8 @@ genSaveAddress passphrase ph =
 
 decodeCPassPhraseOrFail :: WalletWebMode ssc m => CPassPhrase -> m PassPhrase
 decodeCPassPhraseOrFail cpass =
-    cPassPhraseToPassPhrase cpass >>=
-    either (const . throwM $ Internal "Decoding of passphrase failed") return
+    either (const . throwM $ Internal "Decoding of passphrase failed") return $
+    cPassPhraseToPassPhrase cpass
 
 ----------------------------------------------------------------------------
 -- Orphan instances

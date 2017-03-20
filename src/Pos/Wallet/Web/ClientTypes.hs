@@ -37,6 +37,8 @@ module Pos.Wallet.Web.ClientTypes
       , toCUpdateInfo
       ) where
 
+import           Control.Lens          (_Left)
+import qualified Data.ByteString.Lazy  as LBS
 import           Data.Text             (Text, isInfixOf, toLower)
 import           GHC.Generics          (Generic)
 import qualified Prelude
@@ -49,9 +51,9 @@ import           Formatting            (build, sformat)
 import qualified Serokell.Util.Base64  as Base64
 
 import           Pos.Aeson.Types       ()
+import           Pos.Binary.Class      (decodeFull, encodeStrict)
 import           Pos.Core.Types        (ScriptVersion)
-import           Pos.Crypto            (PassPhrase, hashHexF, mkPassPhrase,
-                                        passPhraseToByteString)
+import           Pos.Crypto            (PassPhrase, hashHexF)
 import           Pos.Txp.Core.Types    (Tx (..), TxId, txOutAddress, txOutValue)
 import           Pos.Types             (Address (..), BlockVersion, ChainDifficulty, Coin,
                                         SoftwareVersion, decodeTextAddress, sumCoins,
@@ -145,14 +147,14 @@ newtype CPassPhrase = CPassPhrase Text deriving (Eq, Generic)
 instance Show CPassPhrase where
     show _ = "<pass phrase>"
 
-passPhraseToCPassPhrase :: MonadIO m => PassPhrase -> m CPassPhrase
+passPhraseToCPassPhrase :: PassPhrase -> CPassPhrase
 passPhraseToCPassPhrase passphrase =
-    CPassPhrase . Base64.encode <$> passPhraseToByteString passphrase
+    CPassPhrase . Base64.encode $ encodeStrict passphrase
 
 cPassPhraseToPassPhrase
-    :: MonadIO m => CPassPhrase -> m (Either Text PassPhrase)
+    :: CPassPhrase -> Either Text PassPhrase
 cPassPhraseToPassPhrase (CPassPhrase text) =
-    mapM mkPassPhrase (Base64.decode text)
+    (_Left %~ toText) . decodeFull . LBS.fromStrict =<< Base64.decode text
 
 ----------------------------------------------------------------------------
 -- Wallet

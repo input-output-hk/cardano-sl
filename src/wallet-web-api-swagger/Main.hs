@@ -1,11 +1,11 @@
-{-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE KindSignatures      #-}
-{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE OverloadedStrings   #-}
 
 -- | This program builds Swagger specification for wallet web API and converts it to JSON.
 -- We run this program during CI build.
--- Produced JSON will be used to create online
+-- Produced JSON will be used to create online 
 -- version of wallet web API description at http://cardano-docs.iohk.io
 -- (please see 'update_wallet_web_api_docs.sh' for technical details).
 
@@ -13,31 +13,29 @@ module Main where
 
 import           Universum
 
-import           Control.Lens               (mapped, (?~))
-import           Data.Aeson                 (encode)
-import qualified Data.ByteString.Lazy.Char8 as BSL8
-import           Data.Swagger               (Swagger, ToParamSchema, ToSchema (..),
-                                             allOperations, declareNamedSchema,
-                                             defaultSchemaOptions, description,
-                                             genericDeclareNamedSchema, host, info, name,
-                                             title, version)
-import           Data.Typeable              (Typeable, typeOf)
-import           Data.Version               (showVersion)
+import           Control.Lens                   ((?~), mapped)
+import           Data.Aeson                     (encode)
+import qualified Data.ByteString.Lazy.Char8     as BSL8
+import           Data.Swagger                   (Swagger, ToSchema (..), ToParamSchema,
+                                                 allOperations, declareNamedSchema,
+                                                 genericDeclareNamedSchema, defaultSchemaOptions,
+                                                 name, info, description, version, title, host)
+import           Data.Typeable                  (Typeable, typeOf)
+import           Data.Version                   (showVersion)
 
-import           Servant.Swagger            (toSwagger)
-import           Servant.Swagger.UI         (SwaggerSchemaUI)
+import           Servant.Swagger.UI             (SwaggerSchemaUI)
+import           Servant.Swagger                (toSwagger)
 
-import qualified Paths_cardano_sl           as CSL
-import           Pos.Types                  (ApplicationName, BlockVersion,
-                                             ChainDifficulty, Coin, SoftwareVersion)
-import           Pos.Util.BackupPhrase      (BackupPhrase)
-import           Pos.Wallet.Web             (CAddress, CCurrency, CHash, CInitialized,
-                                             CProfile, CTType, CTx, CTxId, CTxMeta,
-                                             CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, CWalletType,
-                                             SyncProgress, WalletApi, WalletError,
-                                             walletApi)
-
+import           Pos.Types                      (Coin, SoftwareVersion, ApplicationName,
+                                                 ChainDifficulty, BlockVersion)
+import           Pos.Util.BackupPhrase          (BackupPhrase)
+import           Pos.Wallet.Web                 (CAddress, CCurrency, CHash, CInitialized, 
+                                                 CProfile, CTType, CTx, CTxId, CTxMeta, CUpdateInfo,
+                                                 CWallet, CWalletInit, CWalletMeta, CWalletRedeem,
+                                                 CWalletType, SyncProgress,
+                                                 WalletApi, walletApi,
+                                                 WalletError)
+import qualified Paths_cardano_sl               as CSL
 
 main :: IO ()
 main = do

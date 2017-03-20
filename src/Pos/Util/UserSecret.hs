@@ -4,7 +4,7 @@
 -- | Secret key file storage and management functions based on file
 -- locking.
 
-#if !defined(mingw32_HOST_OS) && !defined(__MINGW32__)
+#if !defined(mingw32_HOST_OS)
 #define POSIX
 #endif
 
@@ -23,11 +23,14 @@ module Pos.Util.UserSecret
        , writeUserSecretRelease
        ) where
 
+import           Control.Exception    (throwIO, try)
 import           Control.Lens         (makeLenses, to)
 import           Data.Binary.Get      (label)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default         (Default (..))
+import           Formatting           (build, formatToString, oct, sformat, (%))
 import qualified Prelude
+import           Serokell.Util.Text   (listJson)
 import           System.FileLock      (FileLock, SharedExclusive (..), lockFile,
                                        unlockFile, withFileLock)
 import qualified Turtle               as T
@@ -37,17 +40,15 @@ import           Pos.Binary.Class     (Bi (..), decodeFull, encode)
 import           Pos.Binary.Crypto    ()
 import           Pos.Crypto           (EncryptedSecretKey, SecretKey, VssKeyPair)
 
-import           System.FilePath      (takeDirectory, takeFileName)
 import           System.Directory     (renameFile)
+import           System.FilePath      (takeDirectory, takeFileName)
 import           System.IO            (hClose)
 import           System.IO.Temp       (openBinaryTempFile)
 
 #ifdef POSIX
-import           Numeric              (showIntAtBase)
-import           Data.Char            (intToDigit)
+import           Pos.Wallet.Web.Error (WalletError (..))
 import qualified System.Posix.Files   as PSX
 import qualified System.Posix.Types   as PSX (FileMode)
-import           Pos.Wallet.Web.Error (WalletError (..))
 #endif
 
 -- | User secret data. Includes secret keys only for now (not
@@ -65,9 +66,8 @@ makeLenses ''UserSecret
 -- | Show instance to be able to include it into NodeParams
 instance Show UserSecret where
     show UserSecret {..} =
-        "UserSecret { _usKeys = " <> show _usKeys <>
-        ", _usVss = " <> show _usVss <>
-        ", _usPath = " <> show _usPath
+        formatToString ("UserSecret { _usKeys = "%listJson%", _usVss = "%build%", _usPath = "%build%"}")
+            _usKeys _usVss _usPath
 
 -- | Path of lock file for the provided path.
 lockFilePath :: FilePath -> FilePath
@@ -100,7 +100,7 @@ instance Bi UserSecret where
         return $ def & usVss .~ vss & usPrimKey .~ pkey & usKeys .~ keys
 
 #ifdef POSIX
--- | Constant that defines file mode 600.
+-- | Constant that defines file mode 600 (readable & writable only by owner).
 mode600 :: PSX.FileMode
 mode600 = PSX.unionFileModes PSX.ownerReadMode PSX.ownerWriteMode
 
@@ -111,9 +111,8 @@ failIfModeNot600 path = do
     let accessMode = PSX.intersectFileModes mode PSX.accessModes
     when (accessMode /= mode600) $
         throwM $ Internal $
-            "Key file access mode is incorrect. Set it to 600 and try again." <>
-            " Key file path: " <> show path <>
-            " Current mode: " <> toText (showIntAtBase 8 intToDigit accessMode "")
+            sformat ("Key file access mode is incorrect. Set it to 600 and try again. Key file path: "%build%" Current mode: "%oct)
+            path accessMode
 
 -- | Set mode 600 on a given file, regardless of its current mode.
 setMode600 :: (MonadIO m) => FilePath -> m ()
@@ -192,15 +191,18 @@ writeRaw u = do
     let path = u ^. usPath
     -- On POSIX platforms, openTempFile guarantees that the file
     -- will be created with mode 600.
-    bracket
-        (openBinaryTempFile (takeDirectory path) (takeFileName path))
-        (\(tempPath, tempHandle) -> do
-            hClose tempHandle
-            renameFile tempPath path
-        )
-        (\(tempPath, tempHandle) -> do
-            BSL.hPut tempHandle $ encode u
-        )
+    r1 <- try $ openBinaryTempFile (takeDirectory path) (takeFileName path) :: IO (Either SomeException (FilePath, Handle))
+    case r1 of
+        Left e -> throwIO e
+        Right (tempPath, tempHandle) -> do
+            r2 <- try $ BSL.hPut tempHandle $ encode u :: IO (Either SomeException ())
+            case r2 of
+                Left e -> do
+                    hClose tempHandle
+                    throwIO e
+                Right () -> do
+                    hClose tempHandle
+                    renameFile tempPath path
 
 -- | Helper for taking shared lock on file
 takeReadLock :: MonadIO m => FilePath -> IO a -> m a

@@ -21,7 +21,7 @@ import           Serokell.Util        (Color (Red), colorize)
 import           Universum
 
 import           Pos.Block.Types      (Blund, Undo (undoTx, undoUS))
-import           Pos.Context          (getNodeContext, ncTxpGlobalSetttings,
+import           Pos.Context          (getNodeContext, ncTxpGlobalSettings,
                                        putBlkSemaphore, takeBlkSemaphore)
 import           Pos.Core             (IsGenesisHeader, IsMainHeader)
 import           Pos.DB               (SomeBatchOp (..))
@@ -95,7 +95,7 @@ applyBlocksUnsafeDo
 applyBlocksUnsafeDo blunds pModifier = do
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
-    TxpGlobalSettings {..} <- ncTxpGlobalSetttings <$> getNodeContext
+    TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
     usBatch <- SomeBatchOp <$> usApplyBlocks blocks pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
@@ -133,7 +133,7 @@ rollbackBlocksUnsafe
 rollbackBlocksUnsafe toRollback = reportingFatal version $ do
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks (toRollback & each._2 %~ undoUS)
-    TxpGlobalSettings {..} <- ncTxpGlobalSetttings <$> getNodeContext
+    TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
     txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
     sscRollbackBlocks $ fmap fst toRollback
     let putTip = SomeBatchOp $

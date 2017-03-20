@@ -55,7 +55,7 @@ import           Pos.Block.Types            (Blund, Undo (..))
 import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,
                                              epochSlots, lastKnownBlockVersion,
                                              recoveryHeadersMessage, slotSecurityParam)
-import           Pos.Context                (NodeContext (ncNodeParams, ncTxpGlobalSetttings),
+import           Pos.Context                (NodeContext (ncNodeParams, ncTxpGlobalSettings),
                                              getNodeContext, lrcActionOnEpochReason,
                                              npSecretKey)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash), hash,
@@ -421,7 +421,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
     verResToMonadError formatAllErrors $
         Types.verifyBlocks curSlot bvd (Just leaders) (Just bv) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
-    TxpGlobalSettings {..} <- ncTxpGlobalSetttings <$> getNodeContext
+    TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
     txUndo <- withExceptT pretty $ tgsVerifyBlocks $ map toTxpBlock blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $ usVerifyBlocks blocks

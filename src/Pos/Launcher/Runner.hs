@@ -380,9 +380,9 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
             , ncStartTime = curTime
             , ncLastKnownHeader = lastKnownHeader
 #ifdef WITH_EXPLORER
-            , ncTxpGlobalSetttings = explorerTxpGlobalSettings
+            , ncTxpGlobalSettings = explorerTxpGlobalSettings
 #else
-            , ncTxpGlobalSetttings = txpGlobalSettings
+            , ncTxpGlobalSettings = txpGlobalSettings
 #endif
             }
     runContextHolder ctx act

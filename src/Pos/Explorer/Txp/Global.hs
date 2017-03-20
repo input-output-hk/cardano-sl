@@ -26,8 +26,7 @@ import qualified Pos.Explorer.DB       as GS
 import           Pos.Explorer.Txp.Toil (EGlobalToilMode, ExplorerExtra (..), eApplyToil,
                                         eRollbackToil)
 
--- | Settings used for global transactions data processing used by a
--- simple full node.
+-- | Settings used for global transactions data processing used by explorer.
 explorerTxpGlobalSettings :: TxpGlobalSettings
 explorerTxpGlobalSettings =
     -- verification is same

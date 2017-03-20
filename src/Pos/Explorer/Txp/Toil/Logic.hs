@@ -14,12 +14,12 @@ module Pos.Explorer.Txp.Toil.Logic
 import           Universum
 
 import           Control.Monad.Except        (MonadError (..))
-
-import           Pos.Crypto                  (WithHash (..), hash)
-
-import           Data.List                   (delete, union)
+import qualified Data.HashSet                as HS
+import           Data.List                   (delete)
 import qualified Data.List.NonEmpty          as NE
+
 import           Pos.Core                    (Address, HeaderHash, Timestamp)
+import           Pos.Crypto                  (WithHash (..), hash)
 import           Pos.Explorer.Core           (AddrHistory, TxExtra (..))
 import           Pos.Explorer.Txp.Toil.Class (MonadTxExtra (..), MonadTxExtraRead (..))
 import           Pos.Txp.Core                (Tx (..), TxAux, TxId, TxOut (..),
@@ -51,7 +51,7 @@ eApplyToil curTime txun hh = do
     applier (i, (txaux@(tx, _, _), txundo)) = do
         let id = hash tx
             newExtra = TxExtra (Just (hh, i)) curTime txundo
-        extra <- maybe newExtra identity <$> getTxExtra id
+        extra <- fromMaybe newExtra <$> getTxExtra id
         putTxExtraWithHistory id extra $ getTxRelatedAddrs txaux txundo
 
 -- | Rollback transactions from one block.
@@ -127,6 +127,9 @@ delTxExtraWithHistory id addrs = do
         NewestFirst . delete id . getNewestFirst
 
 getTxRelatedAddrs :: TxAux -> TxUndo -> NonEmpty Address
-getTxRelatedAddrs (UnsafeTx {..}, _, _) undo = NE.fromList $
-    map txOutAddress (NE.toList _txOutputs) `union`
-    map (txOutAddress . toaOut) (NE.toList undo)
+getTxRelatedAddrs (UnsafeTx {..}, _, _) undo =
+    map txOutAddress _txOutputs `unionNE` map (txOutAddress . toaOut) undo
+  where
+    toSet = HS.fromList . toList
+    -- Safe here, because union of non-empty sets can't be empty.
+    unionNE lhs rhs = NE.fromList $ toList $ HS.union (toSet lhs) (toSet rhs)

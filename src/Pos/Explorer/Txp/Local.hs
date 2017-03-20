@@ -46,6 +46,9 @@ type ETxpLocalWorkMode m =
 
 type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra
 
+-- A simple monad transformer, the only purpose of which is to provide
+-- 'MonadTxExtraRead' instance corresponding to absence of any extra
+-- data used by explorer.
 newtype NoExtra m a = NoExtra
     { runNoExtra :: m a
     } deriving ( Functor

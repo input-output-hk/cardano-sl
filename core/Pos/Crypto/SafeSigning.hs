@@ -76,9 +76,8 @@ encToPublic :: EncryptedSecretKey -> PublicKey
 encToPublic (EncryptedSecretKey sk) = PublicKey (CC.toXPub sk)
 
 -- | Re-wrap unencrypted secret key as an encrypted one
--- TODO: encrypt
-toEncrypted :: PassPhrase -> SecretKey -> EncryptedSecretKey
-toEncrypted _ (SecretKey k) = EncryptedSecretKey k
+toEncrypted :: SecretKey -> EncryptedSecretKey
+toEncrypted (SecretKey k) = EncryptedSecretKey k
 
 signRaw' :: PassPhrase -> EncryptedSecretKey -> ByteString -> Signature Raw
 signRaw' (PassPhrase pp) (EncryptedSecretKey sk) x =

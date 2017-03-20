@@ -47,8 +47,8 @@ import           Pos.Core                      (Address, Coin, addressF, coinF,
                                                 decodeTextAddress, makePubKeyAddress,
                                                 mkCoin)
 import           Pos.Crypto                    (PassPhrase, encToPublic, fakeSigner, hash,
-                                                redeemDeterministicKeyGen, toEncrypted,
-                                                toPublic, withSafeSigner, withSafeSigner)
+                                                redeemDeterministicKeyGen, toPublic,
+                                                withSafeSigner, withSafeSigner)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (getKnownPeers)
 import           Pos.Reporting.MemState        (MonadReportingMem (..))
@@ -520,9 +520,7 @@ importKey
 importKey sendActions cPassphrase (toString -> fp) = do
     passphrase <- decodeCPassPhraseOrFail cPassphrase
     secret <- readUserSecret fp
-    let keys = case secret ^. usPrimKey of
-            Nothing -> secret ^. usKeys
-            Just k  -> toEncrypted passphrase k : secret ^. usKeys
+    let keys = secret ^. usKeys
     forM_ keys $ \key -> do
         addSecretKey key
         let addr = makePubKeyAddress $ encToPublic key

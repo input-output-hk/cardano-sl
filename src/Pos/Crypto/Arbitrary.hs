@@ -5,6 +5,7 @@ module Pos.Crypto.Arbitrary
        (
        ) where
 
+import qualified Data.ByteArray              as ByteArray
 import           Data.List.NonEmpty          (fromList)
 import           System.IO.Unsafe            (unsafePerformIO)
 import           Test.QuickCheck             (Arbitrary (..), choose, elements, generate)
@@ -15,6 +16,9 @@ import           Pos.Binary.Crypto           ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
 import           Pos.Crypto.AsBinary         ()
 import           Pos.Crypto.Hashing          (AbstractHash, HashAlgorithm)
+import           Pos.Crypto.RedeemSigning    (RedeemPublicKey, RedeemSecretKey,
+                                              RedeemSignature, redeemKeyGen, redeemSign)
+import           Pos.Crypto.SafeSigning      (PassPhrase)
 import           Pos.Crypto.SecretSharing    (EncShare, Secret, SecretProof,
                                               SecretSharingExtra, Share, VssKeyPair,
                                               VssPublicKey, decryptShare, genSharedSecret,
@@ -23,8 +27,6 @@ import           Pos.Crypto.Signing          (ProxyCert, ProxySecretKey, ProxySi
                                               PublicKey, SecretKey, Signature, Signed,
                                               createProxyCert, createProxySecretKey,
                                               keyGen, mkSigned, proxySign, sign, toPublic)
-import           Pos.Crypto.RedeemSigning    (RedeemPublicKey, RedeemSecretKey,
-                                              RedeemSignature, redeemKeyGen, redeemSign)
 import           Pos.Util.Arbitrary          (Nonrepeating (..), arbitraryUnsafe,
                                               sublistN, unsafeMakePool)
 
@@ -175,3 +177,10 @@ instance Arbitrary (AsBinary Share) where
 
 instance (HashAlgorithm algo, Bi a) => Arbitrary (AbstractHash algo a) where
     arbitrary = arbitraryUnsafe
+
+----------------------------------------------------------------------------
+-- Arbitrary passphrases
+----------------------------------------------------------------------------
+
+instance Arbitrary PassPhrase where
+    arbitrary = ByteArray.pack <$> arbitrary

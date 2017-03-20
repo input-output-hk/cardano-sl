@@ -39,8 +39,9 @@ import           Universum
 
 import           Pos.Slotting                 (NtpSlotting)
 import           Pos.Types                    (HeaderHash, Utxo)
-import           Pos.Wallet.Web.ClientTypes   (CAddress, CProfile, CTx, CTxId,
-                                               CTxMeta, CUpdateInfo, CWalletMeta)
+import           Pos.Wallet.Tx.Pure           (TxHistoryEntry)
+import           Pos.Wallet.Web.ClientTypes   (CAddress, CProfile, CTxId, CTxMeta,
+                                               CUpdateInfo, CWalletMeta)
 import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A
@@ -94,7 +95,7 @@ getUpdates = queryDisk A.GetUpdates
 getNextUpdate :: WebWalletModeDB m => m (Maybe CUpdateInfo)
 getNextUpdate = queryDisk A.GetNextUpdate
 
-getHistoryCache :: WebWalletModeDB m => CAddress -> m (Maybe (HeaderHash, Utxo, [CTx]))
+getHistoryCache :: WebWalletModeDB m => CAddress -> m (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
 getHistoryCache = queryDisk . A.GetHistoryCache
 
 createWallet :: WebWalletModeDB m => CAddress -> CWalletMeta -> m ()
@@ -124,5 +125,5 @@ addUpdate = updateDisk . A.AddUpdate
 removeNextUpdate :: WebWalletModeDB m => m ()
 removeNextUpdate = updateDisk A.RemoveNextUpdate
 
-updateHistoryCache :: WebWalletModeDB m => CAddress -> HeaderHash -> Utxo -> [CTx] -> m ()
+updateHistoryCache :: WebWalletModeDB m => CAddress -> HeaderHash -> Utxo -> [TxHistoryEntry] -> m ()
 updateHistoryCache cAddr h utxo = updateDisk . A.UpdateHistoryCache cAddr h utxo

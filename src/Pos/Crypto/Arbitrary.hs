@@ -1,4 +1,3 @@
-
 -- | `Arbitrary` instances for using in tests and benchmarks
 
 module Pos.Crypto.Arbitrary
@@ -158,7 +157,7 @@ instance Arbitrary SecretProof where
     arbitrary = elements . fmap (view _3) $ sharedSecrets
 
 instance Arbitrary EncShare where
-    arbitrary = elements . concat . fmap (view _4) $ sharedSecrets
+    arbitrary = elements . concatMap (view _4) $ sharedSecrets
 
 instance Arbitrary (AsBinary EncShare) where
     arbitrary = asBinary @EncShare <$> arbitrary

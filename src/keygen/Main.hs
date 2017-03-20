@@ -48,7 +48,7 @@ generateKeyfile fp = do
     return (toPublic sk, vssCert)
 
 replace :: FilePath -> FilePath -> FilePath -> FilePath
-replace a b = T.unpack . (T.replace `on` T.pack) a b . T.pack
+replace a b = toString . (T.replace `on` toText) a b . toText
 
 optsParser :: Parser KeygenOptions
 optsParser = do
@@ -119,4 +119,3 @@ main = do
             if length (encode genData) < 10*1024
                 then putText "Printing GenesisData:\n\n" >> print genData
                 else putText "genesis.bin is bigger than 10k, won't print it\n"
-

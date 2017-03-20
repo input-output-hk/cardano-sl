@@ -151,9 +151,7 @@ getKnownPeersImpl = do
         (updateCache inst =<< selectSufficientNodes inst myId peers)
     selectSufficientNodes inst myId l =
         if enhancedMessageBroadcast /= (0 :: Int)
-            then concat <$>
-                 mapM
-                     (getPeersFromBucket enhancedMessageBroadcast inst)
+            then concatMapM (getPeersFromBucket enhancedMessageBroadcast inst)
                      (splitToBuckets (kdiHandle inst) myId l)
             else return l
     bucketIndex origin x =

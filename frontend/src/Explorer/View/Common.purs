@@ -5,7 +5,6 @@ module Explorer.View.Common (
     , transactionBodyView'
     , emptyTxHeaderView
     , mkTxHeaderViewProps
-    , mkEmptyTxHeaderViewProps
     , class TxHeaderViewPropsFactory
     , currencyCSSClass
     , paginationView
@@ -73,7 +72,7 @@ instance cTxSummaryTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory CTxSumma
       , txhAmount: txSummary ^. ctsTotalOutput
       }
 
--- | Creates a TxHeaderViewProps by a given CTxSummary
+-- | Creates a TxHeaderViewProps by a given EmptyProps
 instance mTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory EmptyProps where
     mkTxHeaderViewProps _ = TxHeaderViewProps
         { txhHash: mkCTxId noData
@@ -85,14 +84,6 @@ newtype EmptyProps = EmptyProps {}
 
 mkEmptyProps :: EmptyProps
 mkEmptyProps = EmptyProps {}
-
--- | Creates an empty TxHeaderViewProps
-mkEmptyTxHeaderViewProps :: TxHeaderViewProps
-mkEmptyTxHeaderViewProps = TxHeaderViewProps
-    { txhHash: mkCTxId noData
-    , txhTimeIssued: Nothing
-    , txhAmount: mkCoin 0
-    }
 
 txHeaderView :: TxHeaderViewProps -> P.Html Action
 txHeaderView (TxHeaderViewProps props) =
@@ -110,9 +101,8 @@ txHeaderView (TxHeaderViewProps props) =
               ]
           , P.div
               [ P.className "amount-container" ]
-              [ P.a
-                  [ P.className "amount bg-ada"
-                  , P.href "#" ]
+              [ P.div
+                  [ P.className "amount bg-ada" ]
                   [ P.text <<< show $ props ^. (txhAmount <<< _Coin <<< getCoin) ]
               ]
           ]

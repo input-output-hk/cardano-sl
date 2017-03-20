@@ -40,6 +40,7 @@ library
                       , cardano-sl-infra
                       , cardano-sl-db
                       , exceptions
+                      , either
                       , formatting
                       , lens
                       , log-warper

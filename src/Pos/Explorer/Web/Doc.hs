@@ -9,25 +9,35 @@
 
 module           Pos.Explorer.Web.Doc           (walletDocsText) where
 
-import           Data.Time                      (defaultTimeLocale, parseTimeOrError)
-import           Data.Time.Clock.POSIX          (POSIXTime, utcTimeToPOSIXSeconds)
+import           Data.Time                      (defaultTimeLocale,
+                                                 parseTimeOrError)
+import           Data.Time.Clock.POSIX          (POSIXTime,
+                                                 utcTimeToPOSIXSeconds)
 
 import           Servant.API                    (Capture, QueryParam)
-import           Servant.Docs                   (API, DocCapture (..), DocIntro (..),
-                                                 DocQueryParam (..), ParamKind (Normal),
-                                                 ToCapture (toCapture), ToParam (toParam),
-                                                 ToSample (toSamples), docsWithIntros,
-                                                 markdown, pretty)
+import           Servant.Docs                   (API, DocCapture (..),
+                                                 DocIntro (..),
+                                                 DocQueryParam (..),
+                                                 ParamKind (Normal),
+                                                 ToCapture (toCapture),
+                                                 ToParam (toParam),
+                                                 ToSample (toSamples),
+                                                 docsWithIntros, markdown,
+                                                 pretty)
 import           Universum
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
-                                                 CBlockEntry (..), CBlockSummary (..),
-                                                 CHash (..), CTxEntry (..), CTxId (..),
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
+                                                 CAddressSummary (..),
+                                                 CBlockEntry (..),
+                                                 CBlockSummary (..), CHash (..),
+                                                 CSearchId (..), CTxEntry (..),
+                                                 CTxId (..), CHashSearchResult (..),
                                                  CTxSummary (..))
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 import           Pos.Types                      (mkCoin)
+
 
 walletDocs :: API
 walletDocs = docsWithIntros intros (Servant.Docs.pretty explorerApi)
@@ -69,6 +79,13 @@ instance ToCapture (Capture "hash" CHash) where
         , _capDesc = "Hash"
         }
 
+instance ToCapture (Capture "hash" CSearchId) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "hash"
+        , _capDesc = "Search id by which the user can find address, block or transaction"
+        }
+
 instance ToCapture (Capture "txid" CTxId) where
     toCapture Proxy =
         DocCapture
@@ -87,6 +104,14 @@ instance ToCapture (Capture "address" CAddress) where
 --------------------------------------------------------------------------------
 posixTime :: POSIXTime
 posixTime = utcTimeToPOSIXSeconds (parseTimeOrError True defaultTimeLocale "%F" "2017-12-03")
+
+sampleAddressSummary :: CAddressSummary
+sampleAddressSummary = CAddressSummary
+    { caAddress = CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
+    , caTxNum   = 0
+    , caBalance = mkCoin 0
+    , caTxList  = []
+    }
 --------------------------------------------------------------------------------
 
 {-
@@ -100,6 +125,19 @@ data ExplorerError =
 
 instance ToSample ExplorerError where
     toSamples Proxy = [("Sample error", Internal "This is an example error")]
+
+{-
+
+data CHashSearchResult
+    = AddressFound CAddressSummary
+    | BlockFound CBlockSummary
+    | FoundTransaction CTxSummary
+    deriving (Show, Generic)
+
+-}
+
+instance ToSample CHashSearchResult where
+    toSamples Proxy = [("Sample search result, address found", AddressFound sampleAddressSummary)]
 
 {-
 
@@ -226,9 +264,4 @@ data CAddressSummary = CAddressSummary
 instance ToSample CAddressSummary where
     toSamples Proxy = [("Sample address summary", sample)]
       where
-        sample = CAddressSummary
-            { caAddress = CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
-            , caTxNum   = 0
-            , caBalance = mkCoin 0
-            , caTxList  = []
-            }
+        sample = sampleAddressSummary

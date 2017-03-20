@@ -6,6 +6,7 @@ module Daedalus.Types
        , module DT
        , _address
        , _coin
+       , _passPhrase
        , mkCoin
        , mkCAddress
        , mkCWalletMeta
@@ -24,7 +25,7 @@ module Daedalus.Types
 
 import Prelude
 
-import Pos.Wallet.Web.ClientTypes (CAddress (..), CHash (..))
+import Pos.Wallet.Web.ClientTypes (CAddress (..), CHash (..), CPassPhrase (..))
 import Pos.Core.Types (Coin (..))
 
 import Pos.Wallet.Web.ClientTypes as CT
@@ -88,6 +89,9 @@ _hash (CHash h) = h
 
 _address :: CAddress -> String
 _address (CAddress a) = _hash a
+
+_passPhrase :: CPassPhrase -> String
+_passPhrase (CPassPhrase p) = p
 
 mkCAddress :: String -> CAddress
 mkCAddress = CAddress <<< CHash

@@ -22,7 +22,8 @@ import           Bench.Network.Commons      (MeasureEvent (..), Ping (..), Pong 
 import qualified Network.Transport.TCP      as TCP
 import           Network.Transport.Concrete (concrete)
 import           Node                       (ListenerAction (..), NodeAction (..), node,
-                                             sendTo, defaultNodeEnvironment)
+                                             sendTo, defaultNodeEnvironment,
+                                             simpleNodeEndPoint)
 import           Node.Message               (BinaryP (..))
 import           ReceiverOptions            (Args (..), argsParser)
 
@@ -46,7 +47,7 @@ main = do
     let prng = mkStdGen 0
 
     runProduction $ usingLoggerName "receiver" $ do
-        node transport prng BinaryP () defaultNodeEnvironment $ \_ ->
+        node (simpleNodeEndPoint transport) prng BinaryP () defaultNodeEnvironment $ \_ ->
             NodeAction [pingListener noPong] $ \_ -> do
                 threadDelay (fromIntegral duration :: Second)
   where

@@ -23,6 +23,11 @@ module Node (
     , NodeAction(..)
     , node
 
+    , LL.NodeEndPoint(..)
+    , simpleNodeEndPoint
+
+    , LL.NodeState(..)
+
     , MessageName
     , Message (..)
     , messageName'
@@ -260,6 +265,15 @@ nodeConversationActions _ _ packing inchan outchan =
 
 data NodeAction packing peerData m t = NodeAction [Listener packing peerData m] (SendActions packing peerData m -> m t)
 
+simpleNodeEndPoint
+    :: NT.Transport m
+    -> SharedAtomicT m (LL.NodeState peerData m)
+    -> LL.NodeEndPoint m
+simpleNodeEndPoint transport _ = LL.NodeEndPoint {
+      newNodeEndPoint = NT.newEndPoint transport
+    , closeNodeEndPoint = NT.closeEndPoint
+    }
+
 -- | Spin up a node. You must give a function to create listeners given the
 --   'NodeId', and an action to do given the 'NodeId' and sending actions.
 --
@@ -285,14 +299,14 @@ node
        , MonadFix m, Serializable packing MessageName, WithLogger m
        , Serializable packing peerData
        )
-    => NT.Transport m
+    => (SharedAtomicT m (LL.NodeState peerData m) -> LL.NodeEndPoint m)
     -> StdGen
     -> packing
     -> peerData
     -> LL.NodeEnvironment m
     -> (Node m -> NodeAction packing peerData m t)
     -> m t
-node transport prng packing peerData nodeEnv k = do
+node mkEndPoint prng packing peerData nodeEnv k = do
     rec { let nId = LL.nodeId llnode
         ; let endPoint = LL.nodeEndPoint llnode
         ; let nodeUnit = Node nId endPoint (LL.nodeStatistics llnode)
@@ -305,7 +319,7 @@ node transport prng packing peerData nodeEnv k = do
         ; llnode <- LL.startNode
               packing
               peerData
-              transport
+              (mkEndPoint . LL.nodeState)
               prng
               nodeEnv
               (handlerIn listenerIndex sendActions)

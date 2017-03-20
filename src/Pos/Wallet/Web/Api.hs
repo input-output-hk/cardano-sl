@@ -75,7 +75,6 @@ type WalletApi =
      "api"
      :> "wallets"
      :> "keys"
-     :> Capture "passphrase" CPassPhrase
      :> ReqBody '[JSON] Text
      :> Post '[JSON] (Either WalletError CWallet)
     :<|>

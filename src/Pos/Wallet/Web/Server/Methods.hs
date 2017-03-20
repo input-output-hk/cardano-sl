@@ -300,7 +300,7 @@ servantHandlers sendActions =
     apiUpdateWallet             = (\a -> catchWalletError . updateWallet a)
     apiNewWallet                = (\a -> catchWalletError . newWallet a)
     apiDeleteWallet             = catchWalletError . deleteWallet
-    apiImportKey                = (\a -> catchWalletError . importKey sendActions a)
+    apiImportKey                = (catchWalletError . importKey sendActions)
     apiRestoreWallet            = (\a -> catchWalletError . restoreWallet a)
     apiIsValidAddress           = (\a -> catchWalletError . isValidAddress a)
     apiGetUserProfile           = catchWalletError getUserProfile
@@ -514,11 +514,9 @@ reportingInitialized cinit = do
 importKey
     :: WalletWebMode ssc m
     => SendActions m
-    -> CPassPhrase
     -> Text
     -> m CWallet
-importKey sendActions cPassphrase (toString -> fp) = do
-    passphrase <- decodeCPassPhraseOrFail cPassphrase
+importKey sendActions (toString -> fp) = do
     secret <- readUserSecret fp
     let keys = secret ^. usKeys
     forM_ keys $ \key -> do

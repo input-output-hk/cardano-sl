@@ -24,7 +24,7 @@ import Data.Tuple (Tuple(..))
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
-import Explorer.Util.Factory (mkCAddress, mkCTxId, mkCoin)
+import Explorer.Util.Factory (mkCAddress, mkCTxId, mkCoin, sumCoinOfInputsOutputs)
 import Explorer.View.Lenses (txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
 import Exporer.View.Types (TxBodyViewProps(..), TxHeaderViewProps(..))
 import Pos.Core.Lenses.Types (_Coin, getCoin)
@@ -57,7 +57,7 @@ instance cTxBriefTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory CTxBrief w
     mkTxHeaderViewProps (CTxBrief txBrief) = TxHeaderViewProps
         { txhHash: txBrief ^. ctbId
         , txhTimeIssued: Just $ txBrief ^. ctbTimeIssued
-        , txhAmount: mkCoin 0 -- TODO(jk) We do need an amount here
+        , txhAmount: sumCoinOfInputsOutputs $ txBrief ^. ctbOutputs
         }
 
 -- | Creates a TxHeaderViewProps by a given CTxSummary

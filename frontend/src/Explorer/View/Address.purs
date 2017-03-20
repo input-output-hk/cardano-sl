@@ -40,7 +40,6 @@ addressView state =
                               [ addressDetailView addressSummary lang'
                               , addressQr addressSummary lang'
                               ]
-
                       ]
                   ]
             , P.div

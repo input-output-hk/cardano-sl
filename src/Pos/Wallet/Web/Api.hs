@@ -1,5 +1,7 @@
-{-# LANGUAGE DataKinds     #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE KindSignatures      #-}
+{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Servant API for wallet.
 
@@ -11,14 +13,18 @@ module Pos.Wallet.Web.Api
        , swaggerSpecForWalletApi
        ) where
 
+
+import           Data.Typeable              (Typeable, typeOf)
 import           Data.Version               (showVersion)
-import           Control.Lens               ((?~))
+import           Control.Lens               ((?~), mapped)
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
                                              Post, Put, QueryParam, ReqBody)
 import           Servant.Swagger.UI         (SwaggerSchemaUI)
 import           Servant.Swagger            (toSwagger)
-import           Data.Swagger               (Swagger, ToSchema, ToParamSchema,
-                                             info, description, version, title, host)
+import           Data.Swagger               (Swagger, ToSchema (..), ToParamSchema,
+                                             allOperations, declareNamedSchema,
+                                             genericDeclareNamedSchema, defaultSchemaOptions,
+                                             name, info, description, version, title, host)
 
 import           Universum
 
@@ -250,6 +256,13 @@ instance ToSchema      SyncProgress
 instance ToSchema      ChainDifficulty
 instance ToSchema      BlockVersion
 instance ToSchema      BackupPhrase
+
+-- | Instance for Either-based types (types we return as 'Right') in responses.
+-- Due 'typeOf' these types must be 'Typeable'.
+-- We need this instance for correct Swagger-specification.
+instance {-# OVERLAPPING #-} (Typeable a, ToSchema a) => ToSchema (Either WalletError a) where
+    declareNamedSchema proxy = genericDeclareNamedSchema defaultSchemaOptions proxy
+        & mapped . name ?~ toText ("Either WalletError " ++ show (typeOf (undefined :: a)))
 
 -- | Build Swagger-specification from 'walletApi'.
 swaggerSpecForWalletApi :: Swagger

@@ -1,7 +1,7 @@
 module Explorer.View.Common (
     placeholderView
     , txHeaderView
-    , transactionBodyView
+    , txBodyView
     , emptyTxHeaderView
     , mkTxHeaderViewProps
     , class TxHeaderViewPropsFactory
@@ -9,7 +9,7 @@ module Explorer.View.Common (
     , class TxBodyViewPropsFactory
     , currencyCSSClass
     , paginationView
-    , transactionPaginationView
+    , txPaginationView
     , EmptyViewProps
     , mkEmptyViewProps
     , noData
@@ -131,8 +131,8 @@ instance emptyTxBodyViewPropsFactory :: TxBodyViewPropsFactory EmptyViewProps wh
         , txbOutputs: []
         }
 
-transactionBodyView :: TxBodyViewProps -> P.Html Action
-transactionBodyView (TxBodyViewProps props) =
+txBodyView :: TxBodyViewProps -> P.Html Action
+txBodyView (TxBodyViewProps props) =
     P.div
         [ P.className "transaction-body" ]
         [ P.div
@@ -180,8 +180,8 @@ type PaginationViewProps =
     , onFocusAction :: (P.Target -> Action)
     }
 
-transactionPaginationView :: PaginationViewProps -> P.Html Action
-transactionPaginationView props =
+txPaginationView :: PaginationViewProps -> P.Html Action
+txPaginationView props =
     P.div
         [ P.className "transaction-pagination"]
         [ paginationView props ]

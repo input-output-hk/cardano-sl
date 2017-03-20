@@ -10,7 +10,7 @@ import Explorer.Lenses.State (addressDetail, addressTxPagination, currentAddress
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
-import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, transactionBodyView, transactionPaginationView, txHeaderView)
+import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txPaginationView, txHeaderView)
 import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, caAddress, caBalance, caTxList, caTxNum)
@@ -61,10 +61,10 @@ addressView state =
                                       [ txHeaderView $ case currentTxBrief of
                                                             Nothing -> mkTxHeaderViewProps mkEmptyViewProps
                                                             Just txBrief -> mkTxHeaderViewProps txBrief
-                                      , transactionBodyView $ case currentTxBrief of
+                                      , txBodyView $ case currentTxBrief of
                                                                   Nothing -> mkTxBodyViewProps mkEmptyViewProps
                                                                   Just txBrief -> mkTxBodyViewProps txBrief
-                                      , transactionPaginationView
+                                      , txPaginationView
                                             { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                                             , currentPage: txPagination
                                             , maxPage: length txList

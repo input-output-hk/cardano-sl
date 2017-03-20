@@ -9,7 +9,6 @@ import Data.Either (Either(..), either)
 import Data.Generic (class Generic)
 import Data.HTTP.Method (Method(..))
 import Data.Lens ((^.))
-import Debug.Trace (trace, traceAny)
 import Explorer.Api.Helper (decodeResult)
 import Explorer.Api.Types (EndpointError(..), Endpoint)
 import Explorer.Types.State (CBlockEntries, CTxEntries)
@@ -39,7 +38,7 @@ request req endpoint = do
       isHttpError (StatusCode c) = c >= 400
 
 get :: forall eff a. Generic a => Endpoint -> Aff (ajax :: AJAX | eff) a
-get e = trace "get" \_ -> traceAny e \_ -> request defaultRequest e
+get e = request defaultRequest e
 
 post :: forall eff a. Generic a => Endpoint -> Aff (ajax :: AJAX | eff) a
 post = request $ defaultRequest { method = Left POST }

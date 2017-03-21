@@ -67,10 +67,8 @@ export default {
             'bower_components/purescript-*/src/**/*.purs',
             'src/**/*.purs'
           ],
-          ffi: [
-            'bower_components/purescript-*/src/**/*.js',
-            'src/**/*.js'
-          ],
+          watch: isDev,
+          bundle: !isDev,
         }
       }
     ]

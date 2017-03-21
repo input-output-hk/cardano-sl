@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Class which provides access to WalletContext.
 
@@ -35,7 +35,7 @@ instance (Monad m, WithWalletContext m) => WithWalletContext (SlottingHolder m)
 instance Monad m => WithWalletContext (PC.ContextHolder ssc m) where
     getWalletContext = fromNodeCtx <$> PC.getNodeContext
 
-instance (Monad m, WithWalletContext m) => WithWalletContext (TxpHolder m)
+instance (Monad m, WithWalletContext m) => WithWalletContext (TxpHolder __ m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (SscHolder ssc m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (DelegationT m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (USHolder m)

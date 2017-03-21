@@ -38,10 +38,10 @@ import           Data.Acid                    (EventResult, EventState, QueryEve
 import           Mockable                     (MonadMockable)
 import           Universum
 
+import           Pos.Client.Txp.History       (TxHistoryEntry)
 import           Pos.Slotting                 (NtpSlotting)
 import           Pos.Txp                      (Utxo)
 import           Pos.Types                    (HeaderHash)
-import           Pos.Wallet.Tx.Pure           (TxHistoryEntry)
 import           Pos.Wallet.Web.ClientTypes   (CAddress, CProfile, CTxId, CTxMeta,
                                                CUpdateInfo, CWalletMeta)
 import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,

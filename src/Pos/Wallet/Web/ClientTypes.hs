@@ -37,32 +37,31 @@ module Pos.Wallet.Web.ClientTypes
       , toCUpdateInfo
       ) where
 
-import           Control.Lens          (_Left)
-import qualified Data.ByteString.Lazy  as LBS
-import           Data.Text             (Text, isInfixOf, toLower)
-import           GHC.Generics          (Generic)
-import qualified Prelude
 import           Universum
 
-import           Data.Default          (Default, def)
-import           Data.Hashable         (Hashable (..))
-import           Data.Time.Clock.POSIX (POSIXTime)
-import           Formatting            (build, sformat)
-import qualified Serokell.Util.Base64  as Base64
+import           Control.Lens           (_Left)
+import qualified Data.ByteString.Lazy   as LBS
+import           Data.Default           (Default, def)
+import           Data.Hashable          (Hashable (..))
+import           Data.Text              (Text, isInfixOf, toLower)
+import           Data.Time.Clock.POSIX  (POSIXTime)
+import           Formatting             (build, sformat)
+import           Prelude                (show)
+import qualified Serokell.Util.Base64   as Base64
 
-import           Pos.Aeson.Types       ()
-import           Pos.Binary.Class      (decodeFull, encodeStrict)
-import           Pos.Core.Types        (ScriptVersion)
-import           Pos.Crypto            (PassPhrase, hashHexF)
-import           Pos.Txp.Core.Types    (Tx (..), TxId, txOutAddress, txOutValue)
-import           Pos.Types             (Address (..), BlockVersion, ChainDifficulty, Coin,
-                                        SoftwareVersion, decodeTextAddress, sumCoins,
-                                        unsafeIntegerToCoin)
-import           Pos.Update.Core       (BlockVersionData (..), StakeholderVotes,
-                                        UpdateProposal (..), isPositiveVote)
-import           Pos.Update.Poll       (ConfirmedProposalState (..))
-import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Wallet.Tx.Pure    (TxHistoryEntry (..))
+import           Pos.Aeson.Types        ()
+import           Pos.Binary.Class       (decodeFull, encodeStrict)
+import           Pos.Client.Txp.History (TxHistoryEntry (..))
+import           Pos.Core.Types         (ScriptVersion)
+import           Pos.Crypto             (PassPhrase, hashHexF)
+import           Pos.Txp.Core.Types     (Tx (..), TxId, txOutAddress, txOutValue)
+import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
+                                         Coin, SoftwareVersion, decodeTextAddress,
+                                         sumCoins, unsafeIntegerToCoin)
+import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes,
+                                         UpdateProposal (..), isPositiveVote)
+import           Pos.Update.Poll        (ConfirmedProposalState (..))
+import           Pos.Util.BackupPhrase  (BackupPhrase)
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty

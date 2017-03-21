@@ -38,8 +38,8 @@ import           Pos.Slotting                  (NtpSlotting (..), NtpSlottingVar
                                                 runNtpSlotting, runSlottingHolder)
 import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolder)
-import           Pos.Txp                       (TxpLocalData, askTxpMem,
-                                                runTxpHolderReader)
+import           Pos.Txp                       (GenericTxpLocalData, askTxpMem,
+                                                runTxpHolder)
 import           Pos.Update.MemState.Holder    (runUSHolder)
 import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
@@ -50,11 +50,11 @@ import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar,
                                                 WalletWebSockets, runWalletWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletState,
                                                 WalletWebDB, runWalletWebDB)
-import           Pos.WorkMode                  (RawRealMode)
+import           Pos.WorkMode                  (RawRealMode, TxpExtra_TMP)
 
 walletServeWebFull
     :: forall ssc.
-       SscConstraint ssc
+       (SscConstraint ssc)
     => SendActions (RawRealMode ssc)
     -> Bool      -- whether to include genesis keys
     -> FilePath  -- to Daedalus acid-state
@@ -92,7 +92,7 @@ convertHandler
        KademliaDHTInstance
     -> NodeContext ssc              -- (.. insert monad `m` here ..)
     -> NodeDBs
-    -> TxpLocalData
+    -> GenericTxpLocalData TxpExtra_TMP
     -> SscState ssc
     -> WalletState
     -> (TVar DelegationWrap)
@@ -110,7 +110,7 @@ convertHandler kinst nc modernDBs tlw ssc ws delWrap psCtx conn slotVar ntpSlotV
            . runSlottingHolder slotVar
            . runNtpSlotting ntpSlotVar
            . runSscHolder ssc
-           . runTxpHolderReader tlw
+           . runTxpHolder tlw
            . runDelegationTFromTVar delWrap
            . runUSHolder
            . runKademliaDHT kinst

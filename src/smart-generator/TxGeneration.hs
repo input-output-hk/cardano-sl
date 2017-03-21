@@ -19,6 +19,7 @@ import           Data.Time.Units               (convertUnit)
 import           Serokell.Util                 (sec)
 import           Universum                     hiding (head)
 
+import           Pos.Client.Txp.Util           (makeMOfNTx, makePubKeyTx)
 import           Pos.Constants                 (genesisSlotDuration, slotSecurityParam)
 import           Pos.Crypto                    (SecretKey, fakeSigner, hash, toPublic,
                                                 unsafeHash)
@@ -31,7 +32,6 @@ import           Pos.Txp                       (Tx (..), TxAux, TxId, TxIn (..),
                                                 TxOut (..), TxOutAux (..))
 import           Pos.Types                     (makePubKeyAddress, makeScriptAddress,
                                                 mkCoin)
-import           Pos.Wallet                    (makeMOfNTx, makePubKeyTx)
 import           Pos.WorkMode                  (WorkMode)
 
 import           GenOptions                    (GenOptions (..))

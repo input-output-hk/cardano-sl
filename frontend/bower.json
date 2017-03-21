@@ -22,7 +22,8 @@
     "purescript-maps": "^2.1.1",
     "purescript-profunctor-lenses": "^2.6.0",
     "purescript-argonaut-generic-codecs": "^4.0.0",
-    "purescript-eff-functions": "^2.0.0"
+    "purescript-eff-functions": "^2.0.0",
+    "purescript-formatters": "^0.2.0"
   },
   "devDependencies": {
     "purescript-debug": "^2.0.0",

@@ -12,7 +12,8 @@
     "server:dev": "npm run clean:output && NODE_ENV=development npm run server:webpack",
     "server:prod": "npm run clean:output && NODE_ENV=production npm run server:webpack",
     "build:prod": "./node_modules/.bin/rimraf dist && mkdir dist && NODE_ENV=production ./node_modules/.bin/webpack --config webpack.config.babel.js",
-    "test": "psc -o output 'bower_components/purescript-*/src/**/*.purs' 'src/**/*.purs' && NODE_PATH=./output node -e 'require(\"Main.Test\").main();'"
+    "test": "npm run clean:output && npm run test:all",
+    "test:all": "psc -o output 'bower_components/purescript-*/src/**/*.purs' 'src/**/*.purs' && NODE_PATH=./output node -e 'require(\"Main.Test\").main();'"
   },
   "repository": {
     "type": "git",

@@ -58,9 +58,9 @@ addressView state =
                                   in
                                   P.div
                                       []
-                                      [ txHeaderView $ case currentTxBrief of
-                                                            Nothing -> mkTxHeaderViewProps mkEmptyViewProps
-                                                            Just txBrief -> mkTxHeaderViewProps txBrief
+                                      [ txHeaderView lang' $ case currentTxBrief of
+                                                                Nothing -> mkTxHeaderViewProps mkEmptyViewProps
+                                                                Just txBrief -> mkTxHeaderViewProps txBrief
                                       , txBodyView $ case currentTxBrief of
                                                                   Nothing -> mkTxBodyViewProps mkEmptyViewProps
                                                                   Just txBrief -> mkTxBodyViewProps txBrief

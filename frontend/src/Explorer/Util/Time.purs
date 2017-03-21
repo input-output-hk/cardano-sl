@@ -51,7 +51,7 @@ prettyDate' format dateTime =
   either (const Nothing) Just $ formatDateTime format dateTime
 
 prettyDate :: TimeFormat -> NominalDiffTime -> Maybe String
-prettyDate format t = do
-    dateTime <- nominalDiffTimeToDateTime t
+prettyDate format time = do
+    dateTime <- nominalDiffTimeToDateTime time
     pretty <- prettyDate' format dateTime
     pure pretty

@@ -2,13 +2,13 @@ module Explorer.View.Transaction (transactionView) where
 
 import Prelude
 import Data.Lens ((^.))
-import Data.Maybe (Maybe(..))
-import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
+import Data.Maybe (Maybe(..), fromMaybe)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (common, cTransaction, cTransactionFeed, cSummary, tx, cTotalOutput, txRelayed, txIncluded, txTime) as I18nL
+import Explorer.I18n.Lenses (common, cDateFormat, cTransaction, cTransactionFeed, cSummary, tx, cTotalOutput, txRelayed, txIncluded, txTime) as I18nL
 import Explorer.Lenses.State (currentTxSummary, lang)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
+import Explorer.Util.Time (prettyDate)
 import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkTxBodyViewProps, mkTxHeaderViewProps, noData, txBodyView, txHeaderView)
 import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CTxSummary(..))
@@ -68,7 +68,8 @@ type SummaryItem =
 summaryItems :: CTxSummary -> Language -> SummaryItems
 summaryItems (CTxSummary txSummary) lang =
     [ { label: translate (I18nL.tx <<< I18nL.txTime) lang
-      , value: show $ txSummary ^. (ctsTxTimeIssued <<< _NominalDiffTime)
+      , value: let dateFormat = translate (I18nL.common <<< I18nL.cDateFormat) lang in
+               fromMaybe noData <<< prettyDate dateFormat $ txSummary ^. ctsTxTimeIssued
       , currency: Nothing
       }
     , { label: translate (I18nL.tx <<< I18nL.txIncluded) lang

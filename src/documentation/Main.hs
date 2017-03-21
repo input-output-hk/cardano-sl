@@ -1,9 +1,12 @@
 module Main (main) where
 
 import Universum
-import Pos.Explorer.Web.Doc (walletDocsText)
+import Pos.Explorer.Web.Doc (walletDocsText, walletTableDocsText)
 
 main :: IO ()
-main = writeFile fp walletDocsText >> putStrLn ("See " <> fp)
-  where
-    fp = "docs/cardano-explorer-web-api.md"
+main = do
+  writeFile mdFp walletDocsText >> putStrLn ("See " <> mdFp)
+  writeFile mdTblFp walletTableDocsText >> putStrLn ("See " <> mdTblFp)
+    where
+      mdFp = "docs/cardano-explorer-web-api.md"
+      mdTblFp = "docs/cardano-explorer-table-web-api.md"

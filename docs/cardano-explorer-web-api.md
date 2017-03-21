@@ -1,8 +1,16 @@
-## Documentation of cardano-explorer web API
+## Explorer Backend API
 
-This is very first version, don't expect it to be smart.
+Currently, the explorer's API provides a series of methods to work with `cardano-sl`. The `servant` Haskell library that provides a modular approach to API-building was used. This library uses combinators to both build atomic HTTP actions and to glue these atomic methods together to form larger and more complete APIs.
+
+If the event requests fail, there is a `ExplorerError` type, which is simply a wrapper over `Text` to show what happened.
+
+Currently, the explorer's API supports the following operations (see Comments below):
 
 ## GET /api/addresses/summary/:address
+
+#### Description
+
+Get address summary.
 
 #### Authentication
 
@@ -48,6 +56,10 @@ Clients must supply the following data
 ```
 
 ## GET /api/blocks/last
+
+#### Description
+
+Get last block.
 
 #### Authentication
 
@@ -187,6 +199,10 @@ Clients must supply the following data
 
 ## GET /api/blocks/summary/:hash
 
+#### Description
+
+Get block summary.
+
 #### Authentication
 
 
@@ -240,6 +256,10 @@ Clients must supply the following data
 
 ## GET /api/blocks/txs/:hash
 
+#### Description
+
+Get block transactions.
+
 #### Authentication
 
 
@@ -294,7 +314,7 @@ Clients must supply the following data
     "Right": [
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
@@ -310,14 +330,14 @@ Clients must supply the following data
     "Right": [
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         },
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
@@ -333,21 +353,21 @@ Clients must supply the following data
     "Right": [
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         },
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         },
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
@@ -356,7 +376,63 @@ Clients must supply the following data
 }
 ```
 
+## GET /api/search/:hash
+
+#### Description
+
+Search for transaction, block or address.
+
+#### Authentication
+
+
+
+Clients must supply the following data
+
+
+#### Captures:
+
+- *hash*: Search id by which the user can find address, block or transaction
+
+#### Response:
+
+- Status code 200
+- Headers: []
+
+- Supported content types are:
+
+    - `application/json`
+
+- Sample error
+
+```javascript
+{
+    "Left": "This is an example error"
+}
+```
+
+- Sample search result, address found
+
+```javascript
+{
+    "Right": {
+        "tag": "AddressFound",
+        "contents": {
+            "caTxList": [],
+            "caBalance": {
+                "getCoin": 0
+            },
+            "caAddress": "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv",
+            "caTxNum": 0
+        }
+    }
+}
+```
+
 ## GET /api/txs/last
+
+#### Description
+
+Get last transaction.
 
 #### Authentication
 
@@ -408,7 +484,7 @@ Clients must supply the following data
     "Right": [
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
@@ -424,14 +500,14 @@ Clients must supply the following data
     "Right": [
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         },
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
@@ -447,21 +523,21 @@ Clients must supply the following data
     "Right": [
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         },
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         },
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
@@ -471,6 +547,10 @@ Clients must supply the following data
 ```
 
 ## GET /api/txs/summary/:txid
+
+#### Description
+
+Get transaction summary.
 
 #### Authentication
 

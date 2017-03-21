@@ -1,57 +1,83 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds         #-}
 {-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE TypeOperators     #-}
 
+
 -- | Documentation of cardano explorer web API.
+module Pos.Explorer.Web.Doc
+       ( walletDocsText
+       , walletTableDocsText
+       ) where
 
-module           Pos.Explorer.Web.Doc           (walletDocsText) where
-
+import           Control.Lens                   ((<>~))
+import qualified Data.ByteString.Char8          as BSC
+import qualified Data.HashMap.Strict            as HM
+import           Data.String                    as DS
 import           Data.Time                      (defaultTimeLocale,
                                                  parseTimeOrError)
 import           Data.Time.Clock.POSIX          (POSIXTime,
                                                  utcTimeToPOSIXSeconds)
-
-import           Servant.API                    (Capture, QueryParam)
-import           Servant.Docs                   (API, DocCapture (..),
-                                                 DocIntro (..),
-                                                 DocQueryParam (..),
-                                                 ParamKind (Normal),
-                                                 ToCapture (toCapture),
-                                                 ToParam (toParam),
-                                                 ToSample (toSamples),
-                                                 docsWithIntros, markdown,
-                                                 pretty)
-import           Universum
-
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
                                                  CAddressSummary (..),
                                                  CBlockEntry (..),
                                                  CBlockSummary (..), CHash (..),
+                                                 CHashSearchResult (..),
                                                  CSearchId (..), CTxEntry (..),
-                                                 CTxId (..), CHashSearchResult (..),
-                                                 CTxSummary (..))
+                                                 CTxId (..), CTxSummary (..))
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 import           Pos.Types                      (mkCoin)
+import           Servant.API                    (Capture, QueryParam)
+import           Servant.Docs                   (API, Action, DocCapture (..),
+                                                 DocIntro (..), DocNote (..),
+                                                 DocQueryParam (..), Endpoint,
+                                                 ExtraInfo (..),
+                                                 ParamKind (Normal),
+                                                 ToCapture (toCapture),
+                                                 ToParam (toParam),
+                                                 ToSample (toSamples),
+                                                 apiEndpoints, apiIntros,
+                                                 capDesc, capSymbol, captures,
+                                                 defAction, defEndpoint,
+                                                 defaultDocOptions, docsWith,
+                                                 introBody, introTitle,
+                                                 markdown, method, noteBody,
+                                                 notes, paramDesc, paramName,
+                                                 params, path, pretty)
+import           Universum
 
 
 walletDocs :: API
-walletDocs = docsWithIntros intros (Servant.Docs.pretty explorerApi)
--- walletDocs = docsWith defaultDocOptions intros extras (pretty explorerApi)
+walletDocs = docsWith defaultDocOptions intros extras (Servant.Docs.pretty explorerApi)
+-- walletDocs = docsWithIntros intros (Servant.Docs.pretty explorerApi)
 -- walletDocs = docs (pretty explorerApi)
 
 walletDocsText :: Text
 walletDocsText = toText $ markdown walletDocs
 
+walletTableDocsText :: Text
+walletTableDocsText = toText $ markdownTable walletDocs
+
 intros :: [DocIntro]
-intros =
-    [ DocIntro
-          "Documentation of cardano-explorer web API"
-          ["This is very first version, don't expect it to be smart."]
+intros = [DocIntro "Explorer Backend API"
+    [ "Currently, the explorer's API provides a series of methods to work with `cardano-sl`. The `servant` Haskell library that provides a modular approach to API-building was used. This library uses combinators to both build atomic HTTP actions and to glue these atomic methods together to form larger and more complete APIs."
+    , "If the event requests fail, there is a `ExplorerError` type, which is simply a wrapper over `Text` to show what happened."
+    , "Currently, the explorer's API supports the following operations (see Comments below):"]]
+
+extras :: ExtraInfo api
+extras =
+    ExtraInfo . HM.fromList $
+    [ (defEndpoint  & path <>~ ["api", "blocks", "last"], defAction & notes <>~ [ DocNote "Description" ["Get last block."] ])
+    , (defEndpoint  & path <>~ ["api", "blocks", "summary", ":hash"], defAction & notes <>~ [ DocNote "Description" ["Get block summary."] ])
+    , (defEndpoint  & path <>~ ["api", "blocks", "txs", ":hash"], defAction & notes <>~ [ DocNote "Description" ["Get block transactions."] ])
+    , (defEndpoint  & path <>~ ["api", "txs", "last"], defAction & notes <>~ [ DocNote "Description" ["Get last transaction."] ])
+    , (defEndpoint  & path <>~ ["api", "txs", "summary", ":txid"], defAction & notes <>~ [ DocNote "Description" ["Get transaction summary."] ])
+    , (defEndpoint  & path <>~ ["api", "addresses", "summary", ":address"], defAction & notes <>~ [ DocNote "Description" ["Get address summary."] ])
+    , (defEndpoint  & path <>~ ["api", "search", ":hash"], defAction & notes <>~ [ DocNote "Description" ["Search for transaction, block or address."] ])
     ]
 
 instance ToParam (QueryParam "offset" Word) where
@@ -114,45 +140,11 @@ sampleAddressSummary = CAddressSummary
     }
 --------------------------------------------------------------------------------
 
-{-
-
-data ExplorerError =
-    -- | Some internal error.
-    Internal !Text
-    deriving (Show, Generic)
-
--}
-
 instance ToSample ExplorerError where
     toSamples Proxy = [("Sample error", Internal "This is an example error")]
 
-{-
-
-data CHashSearchResult
-    = AddressFound CAddressSummary
-    | BlockFound CBlockSummary
-    | FoundTransaction CTxSummary
-    deriving (Show, Generic)
-
--}
-
 instance ToSample CHashSearchResult where
     toSamples Proxy = [("Sample search result, address found", AddressFound sampleAddressSummary)]
-
-{-
-
-utcTimeToPOSIXSeconds ((reads "2011-11-19 18:28:r52.607875 UTC") :: UTCTime)
-
-data CBlockEntry = CBlockEntry
-    { cbeBlkHash    :: !CHash
-    , cbeHeight     :: !Word
-    , cbeTimeIssued :: !(Maybe POSIXTime)
-    , cbeTxNum      :: !Word
-    , cbeTotalSent  :: !Coin
-    , cbeSize       :: !Word64
-    , cbeRelayedBy  :: !(Maybe Text)
-
--}
 
 instance ToSample CBlockEntry where
     toSamples Proxy = [("Sample block entry", sample)]
@@ -166,17 +158,6 @@ instance ToSample CBlockEntry where
             , cbeSize       = 390
             , cbeRelayedBy  = Nothing
             }
-
-{-
-
-data CBlockSummary = CBlockSummary
-    { cbsEntry      :: !CBlockEntry
-    , cbsPrevHash   :: !CHash
-    , cbsNextHash   :: !(Maybe CHash)
-    , cbsMerkleRoot :: !CHash
-    } deriving (Show, Generic)
-
--}
 
 instance ToSample CBlockSummary where
     toSamples Proxy = [("Sample block summary", sample)]
@@ -196,16 +177,6 @@ instance ToSample CBlockSummary where
             , cbsMerkleRoot = CHash "69217a3079908094e11121d042354a7c1f55b6482ca1a51e1b250dfd1ed0eef9"
             }
 
-{-
-
-data CTxEntry = CTxEntry
-    { cteId         :: !CTxId
-    , cteTimeIssued :: !(Maybe POSIXTime)
-    , cteAmount     :: !Coin
-    } deriving (Show, Generic)
-
--}
-
 instance ToSample CTxEntry where
     toSamples Proxy = [("Sample transaction entry", sample)]
       where
@@ -214,23 +185,6 @@ instance ToSample CTxEntry where
             , cteTimeIssued = posixTime
             , cteAmount     = mkCoin 33333
             }
-
-{-
-
-data CTxSummary = CTxSummary
-    { ctsId              :: !CTxId
-    , ctsTxTimeIssued    :: !(Maybe POSIXTime)
-    , ctsBlockTimeIssued :: !(Maybe POSIXTime)
-    , ctsBlockHeight     :: !(Maybe Word)
-    , ctsRelayedBy       :: !(Maybe CNetworkAddress)
-    , ctsTotalInput      :: !Coin
-    , ctsTotalOutput     :: !Coin
-    , ctsFees            :: !Coin
-    , ctsInputs          :: ![(CAddress, Coin)]
-    , ctsOutputs         :: ![(CAddress, Coin)]
-    } deriving (Show, Generic)
-
--}
 
 instance ToSample CTxSummary where
     toSamples Proxy = [("Sample transaction summary", sample)]
@@ -248,20 +202,58 @@ instance ToSample CTxSummary where
             , ctsOutputs         = [(CAddress "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ", mkCoin 33333)]
             }
 
-
-
-{-
-
-data CAddressSummary = CAddressSummary
-    { caAddress :: !CAddress
-    , caTxNum   :: !Word
-    , caBalance :: !Coin
-    , caTxList  :: ![CTxBrief]
-    } deriving (Show, Generic)
-
--}
-
 instance ToSample CAddressSummary where
     toSamples Proxy = [("Sample address summary", sample)]
       where
         sample = sampleAddressSummary
+
+-- | Generate documentation in Markdown table format for the given 'API'.
+markdownTable :: API -> String
+markdownTable api = DS.unlines $
+    introsStr (api ^. apiIntros)
+    ++ ["| API | Endpoint | Parameter | Optional parameters | Description |"]
+    ++ ["|-----|----------|-----------|---------------------|-------------|"]
+    ++ (concatMap (uncurry printEndpoint) . sort . HM.toList $ api ^. apiEndpoints)
+
+  where showPath :: [String] -> String
+        showPath [] = "/"
+        showPath ps = concatMap ('/' :) ps
+
+        printEndpoint :: Endpoint -> Action -> [String]
+        printEndpoint endpoint action =
+            ["| " ++ str ++
+            " | " ++ capturesStr (action ^. captures) ++
+            " | " ++ paramsStr (action ^. params) ++
+            " | " ++ notesStr (action ^. notes) ++
+            " | "]
+          where
+            str = BSC.unpack (endpoint^.method) ++ " |" ++ " " ++ showPath (endpoint ^. path)
+
+        introsStr :: [DocIntro] -> [String]
+        introsStr = concatMap introStr
+          where
+            introStr :: DocIntro -> [String]
+            introStr i =
+                ("## " ++ i ^. introTitle) :
+                "" :
+                intersperse "" (i ^. introBody) ++
+                [""]
+
+        capturesStr :: [DocCapture] -> String
+        capturesStr [] = []
+        capturesStr l = concatMap captureStr l
+          where
+            captureStr cap = "`" ++ (cap ^. capSymbol) ++ "` - " ++ (cap ^. capDesc) ++ "<br/> "
+
+        paramsStr :: [DocQueryParam] -> String
+        paramsStr [] = []
+        paramsStr l = concatMap paramStr l
+          where
+            paramStr param = "`" ++ param ^. paramName ++ "` - " ++ param ^. paramDesc ++ "<br/> "
+
+        notesStr :: [DocNote] -> String
+        notesStr = concatMap noteStr
+          where
+            noteStr :: DocNote -> String
+            noteStr nt = DS.unwords (nt ^. noteBody) ++ "<br/> "
+            -- noteStr nt = nt ^. noteTitle ++ " - " ++ DS.unwords (nt ^. noteBody) ++ "<br/> "

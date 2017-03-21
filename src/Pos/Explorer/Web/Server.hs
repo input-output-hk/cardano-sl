@@ -107,34 +107,33 @@ explorerHandlers _sendActions =
     :<|>
       apiSearch
   where
-    apiBlocksLast     = catchExplorerError ... defaultLimit 10 getLastBlocks
+    apiBlocksLast     = getLastBlocksDefault
     apiBlocksSummary  = catchExplorerError . getBlockSummary
-    apiBlocksTxs      = (\h -> catchExplorerError ... defaultLimit 10 (getBlockTxs h))
-    apiTxsLast        = catchExplorerError ... defaultLimit 10 getLastTxs
+    apiBlocksTxs      = getBlockTxsDefault
+    apiTxsLast        = getLastTxsDefault
     apiTxsSummary     = catchExplorerError . getTxSummary
     apiAddressSummary = catchExplorerError . getAddressSummary
     apiSearch         = catchExplorerError . searchHash
 
     catchExplorerError = try
-    f ... g = (f .) . g
 
-    -- defaultLimit = (fromIntegral $ fromMaybe 100 limit)
-    -- defaultSkip  = (fromIntegral $ fromMaybe 0 skip)
+    getLastBlocksDefault      limit skip =
+      catchExplorerError $ getLastBlocks (defaultLimit limit) (defaultSkip skip)
 
-defaultLimit
-    :: Word                 -- default limit (default offset is always 0)
-    -> (Word -> Word -> a)  -- action to transform
-    -> Maybe Word
-    -> Maybe Word
-    -> a
-defaultLimit lim action mlim moff =
-    action (fromMaybe lim mlim) (fromMaybe 0 moff)
+    getBlockTxsDefault hash'  limit skip =
+      catchExplorerError $ getBlockTxs hash' (defaultLimit limit) (defaultSkip skip)
+
+    getLastTxsDefault         limit skip =
+      catchExplorerError $ getLastTxs (defaultLimit limit) (defaultSkip skip)
+
+    defaultLimit limit = (fromIntegral $ fromMaybe 100 limit)
+    defaultSkip  skip  = (fromIntegral $ fromMaybe 0 skip)
 
 searchHash :: forall m. ExplorerMode m => CSearchId -> m CHashSearchResult
 searchHash shash = getResult $ do
-    grab $ TransactionFound <$> findTx
-    grab $ BlockFound       <$> findBlock
-    grab $ AddressFound     <$> findAddress
+    void $ grab $ TransactionFound <$> findTx
+    void $ grab $ BlockFound       <$> findBlock
+    void $ grab $ AddressFound     <$> findAddress
   where
     grab :: MonadCatch m => m CHashSearchResult -> EitherT CHashSearchResult m ExplorerError
     grab = EitherT . fmap swapEither . try

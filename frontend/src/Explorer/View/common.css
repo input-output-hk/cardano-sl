@@ -16,6 +16,8 @@
     @neat-span-columns 8;
     color: var(--color8);
     line-height: var(--transaction-header-height);
+    button: standard-button;
+    button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
   }
 
   .date {
@@ -34,14 +36,11 @@
   .amount {
     box-item: center;
 
-    color: var(--color0);
-
     padding: 5px 10px 5px 20px;
-
-    button: primary-button;
+    color: var(--color0);
     border-radius: 4px;
 
-
+    background-color: var(--color10);
     background-repeat: no-repeat;
     background-position: 7px center;
     background-size: 8px 7px;
@@ -68,7 +67,7 @@
   }
 
   .to-hash-container {
-    @neat-span-columns 4;
+    @neat-span-columns 5;
 
     background-repeat: no-repeat;
     background-position: left center;
@@ -86,19 +85,8 @@
     padding-bottom: 12px;
   }
 
-  .to-alias-container {
-    @neat-span-columns 2;
-    padding: 18px 0 0 0;
-    box-item: center;
-  }
-
-  .to-alias {
-    padding-bottom: 12px;
-    padding-left: 15px;
-  }
-
   .amount-container {
-    @neat-span-columns 2;
+    @neat-span-columns 3;
     padding: 18px 0 0 0;
     text-align: right;
     box-item: center;

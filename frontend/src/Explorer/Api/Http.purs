@@ -16,8 +16,8 @@ import Explorer.Types.State (CBlockEntries, CTxEntries)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
-import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
-import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CHash, _CTxId)
+import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CBlockSummary, CHash(..), CTxId, CTxSummary)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId)
 
 endpointPrefix :: String
 -- endpointPrefix = "http://localhost:8100/api/"
@@ -51,10 +51,10 @@ fetchLatestBlocks :: forall eff. Aff (ajax::AJAX | eff) CBlockEntries
 fetchLatestBlocks = get "blocks/last"
 
 fetchBlockSummary :: forall eff. CHash -> Aff (ajax::AJAX | eff) CBlockSummary
-fetchBlockSummary hash = get $ "blocks/summary/" <> hash ^. _CHash
+fetchBlockSummary (CHash hash) = get $ "blocks/summary/" <> hash
 
 fetchBlockTxs :: forall eff. CHash -> Aff (ajax::AJAX | eff) CTxEntries
-fetchBlockTxs hash = get $ "blocks/txs/" <> hash ^. _CHash
+fetchBlockTxs (CHash hash) = get $ "blocks/txs/" <> hash
 
 -- txs
 fetchLatestTxs :: forall eff. Aff (ajax::AJAX | eff) CTxEntries
@@ -65,4 +65,4 @@ fetchTxSummary id = get $ "txs/summary/" <> id ^. (_CTxId <<< _CHash)
 
 -- addresses
 fetchAddressSummary :: forall eff. CAddress -> Aff (ajax::AJAX | eff) CAddressSummary
-fetchAddressSummary address = get $ "addresses/summary/" <> address ^. _CAddress
+fetchAddressSummary (CAddress address) = get $ "addresses/summary/" <> address

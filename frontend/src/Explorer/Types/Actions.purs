@@ -43,7 +43,7 @@ data Action
     | DashboardSearch                       -- dasboard search
     | DashboardFocusSearchInput Boolean
     -- address detail
-    | AddressPaginateTransactions Int       -- current pagination of transactions
+    | AddressPaginateTxs Int       -- current pagination of transactions
     -- block detail
     | BlockPaginateTransactions Int       -- current pagination of transactions
     -- misc

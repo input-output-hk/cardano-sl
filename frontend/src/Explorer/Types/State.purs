@@ -18,7 +18,7 @@ type State =
     , handleLatestBlocksSocketResult :: Boolean
     , initialTxsRequested :: Boolean
     , handleLatestTxsSocketResult :: Boolean
-    , currentBlock :: Maybe CBlockSummary
+    , currentBlockSummary :: Maybe CBlockSummary
     , currentBlockTxs :: CTxEntries
     , currentTxSummary :: Maybe CTxSummary
     , latestTransactions :: CTxEntries

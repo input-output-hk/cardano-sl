@@ -19,12 +19,14 @@ import Prelude
 import Data.Int (binary, fromString, toStringAs)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
-import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Data.Tuple (Tuple(..))
+import Explorer.I18n.Lang (Language, translate)
+import Explorer.I18n.Lenses (common, cDateFormat) as I18nL
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkCoin, sumCoinOfInputsOutputs)
+import Explorer.Util.Time (prettyDate)
 import Explorer.View.Lenses (txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
 import Exporer.View.Types (TxBodyViewProps(..), TxHeaderViewProps(..))
 import Pos.Core.Lenses.Types (_Coin, getCoin)
@@ -76,8 +78,8 @@ instance emtpyTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory EmptyViewProp
         , txhAmount: mkCoin 0
         }
 
-txHeaderView :: TxHeaderViewProps -> P.Html Action
-txHeaderView (TxHeaderViewProps props) =
+txHeaderView :: Language -> TxHeaderViewProps -> P.Html Action
+txHeaderView lang (TxHeaderViewProps props) =
     P.div
           [ P.className "transaction-header"]
           [ P.link (toUrl <<< Tx $ props ^. txhHash)
@@ -86,8 +88,10 @@ txHeaderView (TxHeaderViewProps props) =
           , P.div
               [ P.className "date"]
               [ P.text $ case props ^. txhTimeIssued of
-                              Just time -> show $ time ^. _NominalDiffTime
-                              Nothing -> "--"
+                              Just time ->
+                                  let format = translate (I18nL.common <<< I18nL.cDateFormat) lang
+                                  in fromMaybe noData $ prettyDate format time
+                              Nothing -> noData
               ]
           , P.div
               [ P.className "amount-container" ]

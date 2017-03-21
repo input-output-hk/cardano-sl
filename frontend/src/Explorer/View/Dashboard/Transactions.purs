@@ -3,21 +3,22 @@ module Explorer.View.Dashboard.Transactions (transactionsView) where
 import Prelude
 import Data.Array (length, null, slice)
 import Data.Lens ((^.))
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Explorer.I18n.Lang (translate)
-import Explorer.I18n.Lenses (dbExploreTransactions, cCollapse, cNoData, cExpand, common, dashboard, cTransactionFeed) as I18nL
+import Explorer.I18n.Lenses (dbExploreTransactions, cCollapse, cNoData, cExpand, common, dashboard, cTransactionFeed, cDateFormat) as I18nL
 import Explorer.Lenses.State (lang, latestTransactions)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State, CTxEntries)
-import Explorer.View.Common (currencyCSSClass)
+import Explorer.Util.Time (prettyDate)
+import Explorer.View.Common (currencyCSSClass, noData)
 import Explorer.View.Dashboard.Lenses (dashboardTransactionsExpanded)
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
+import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CTxEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (cteId, cteAmount, cteTimeIssued, _CTxId, _CHash)
-import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pux.Html (Html, div, text) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Html.Events (onClick, MouseEvent) as P
@@ -84,12 +85,15 @@ transactionsView state =
 
 transactionRow :: State -> CTxEntry -> P.Html Action
 transactionRow state (CTxEntry entry) =
+    let format = translate (I18nL.common <<< I18nL.cDateFormat) $ state ^. lang
+        dateValue = fromMaybe noData <<< prettyDate format $ entry ^. cteTimeIssued
+    in
     P.div
         [ P.className "transactions__row" ]
         [ P.link (toUrl <<< Tx $ entry ^. cteId)
               [ P.className "transactions__column hash" ]
               [ P.text $ entry ^. (cteId <<< _CTxId <<< _CHash) ]
-        , transactionColumn (show $ entry ^. (cteTimeIssued <<< _NominalDiffTime)) ""
+        , transactionColumn dateValue ""
         , transactionColumn (show $ entry ^. (cteAmount <<< _Coin <<< getCoin)) <<< currencyCSSClass $ Just ADA
         ]
 

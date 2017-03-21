@@ -1,14 +1,23 @@
-module Explorer.Util.Time (prettyDuration) where
+module Explorer.Util.Time (
+  prettyDuration
+  , nominalDiffTimeToDateTime
+  , prettyDate
+  ) where
 
 import Prelude
-
+import Data.DateTime (DateTime)
+import Data.DateTime.Instant (instant, toDateTime)
+import Data.Either (either)
+import Data.Formatter.DateTime (formatDateTime)
 import Data.Int (floor, toNumber)
-import Data.String (trim, joinWith)
-import Data.Tuple (uncurry, Tuple(..))
+import Data.Maybe (Maybe(..))
 import Data.Newtype (un)
-import Data.Time.Duration (class Duration, Minutes(..), Hours(..), Days(..), convertDuration)
-import Explorer.I18n.Lenses (common, cDays, cHours, cMinutes) as I18nL
+import Data.String (joinWith, trim)
+import Data.Time.Duration (class Duration, Days(..), Hours(..), Minutes(..), convertDuration, fromDuration)
+import Data.Time.NominalDiffTime (NominalDiffTime(..))
+import Data.Tuple (uncurry, Tuple(..))
 import Explorer.I18n.Lang (Language, translate)
+import Explorer.I18n.Lenses (common, cDays, cHours, cMinutes) as I18nL
 
 -- show readable duration
 prettyDuration :: forall a. Duration a => Language -> a -> String
@@ -29,3 +38,20 @@ prettyDuration lang dur | convertDuration dur < Minutes 1.0 = "< 1 " <> translat
         if nu == 0
             then ""
             else show nu <> " " <> st
+
+nominalDiffTimeToDateTime :: NominalDiffTime -> Maybe DateTime
+nominalDiffTimeToDateTime (NominalDiffTime s) =
+    map toDateTime <<< instant $ fromDuration s
+
+
+type TimeFormat = String
+
+prettyDate' :: TimeFormat -> DateTime -> Maybe String
+prettyDate' format dateTime =
+  either (const Nothing) Just $ formatDateTime format dateTime
+
+prettyDate :: TimeFormat -> NominalDiffTime -> Maybe String
+prettyDate format t = do
+    dateTime <- nominalDiffTimeToDateTime t
+    pretty <- prettyDate' format dateTime
+    pure pretty

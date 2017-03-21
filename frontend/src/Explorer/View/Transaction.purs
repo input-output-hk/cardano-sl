@@ -34,7 +34,7 @@ transactionView state =
                         Just txSummary ->
                             P.div
                                 []
-                                [ txHeaderView $ mkTxHeaderViewProps txSummary
+                                [ txHeaderView lang' $ mkTxHeaderViewProps txSummary
                                 , txBodyView $ mkTxBodyViewProps txSummary
                                 ]
                 ]

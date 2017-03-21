@@ -43,7 +43,7 @@ blockView state =
                     [ P.className "headline"]
                     [ P.text $ translate (I18nL.common <<< I18nL.cSummary) lang' ]
                 -- TODO (jk) use empty CTxEntry if we'll have real data
-                , txHeaderView $ mkTxHeaderViewProps mkEmptyViewProps
+                , txHeaderView lang' $ mkTxHeaderViewProps mkEmptyViewProps
                 , txBodyView $ mkTxBodyViewProps mkEmptyViewProps
                 , txPaginationView paginationViewProps
                 ]

@@ -336,7 +336,7 @@ pstAddHandler provenance map = case provenance of
             newSharedAtomic (PeerStatistics 1 0 0) >>= \peerStatistics ->
             return (Map.insert peer peerStatistics map, True)
         Just !statsVar -> modifySharedAtomic statsVar $ \stats ->
-            let !stats' = stats { pstRunningHandlersLocal = pstRunningHandlersRemote stats + 1 }
+            let !stats' = stats { pstRunningHandlersRemote = pstRunningHandlersRemote stats + 1 }
             in return (stats', (map, False))
 
 -- | Remove a handler for a given peer. Second component is True if there

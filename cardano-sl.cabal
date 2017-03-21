@@ -962,32 +962,26 @@ executable cardano-wallet-web-docs
   else
     buildable:         False
 
---executable cardano-wallet-web-api-swagger
---  hs-source-dirs:      src/wallet-web-api-swagger
---  main-is:             Main.hs
---  build-depends:       aeson
---                     , base
---                     , bytestring
---                     , cardano-sl
---                     , swagger2
---                     , servant-swagger
---                     , servant-swagger-ui
---                     , universum >= 0.1.11
---  default-language:    Haskell2010
---  ghc-options:         -threaded -rtsopts
---                       -Wall
---                       -with-rtsopts=-N
---                       -O2
---  default-extensions:   NoImplicitPrelude
---                        OverloadedStrings
---
---  build-tools: cpphs >= 1.19
---  ghc-options: -pgmP cpphs -optP --cpp
---
---  if flag(with-web) && flag(with-wallet)
---    buildable:         True
---  else
---    buildable:         False
+executable cardano-wallet-web-api-swagger
+  hs-source-dirs:      src/wallet-web-api-swagger
+  main-is:             Main.hs
+  build-depends:       aeson
+                     , base
+                     , bytestring
+                     , cardano-sl
+                     , lens
+                     , swagger2
+                     , servant-swagger
+                     , servant-swagger-ui
+                     , universum >= 0.1.11
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -with-rtsopts=-N
+                       -O2
+  default-extensions:   NoImplicitPrelude
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
 
 executable cardano-checks
   hs-source-dirs:      src/checks

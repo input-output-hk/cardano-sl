@@ -26,7 +26,7 @@ import           Pos.Crypto.Hashing       (AbstractHash (..), Hash, HashAlgorith
                                            WithHash (..), withHash)
 import           Pos.Crypto.RedeemSigning (RedeemPublicKey (..), RedeemSecretKey (..),
                                            RedeemSignature (..))
-import           Pos.Crypto.SafeSigning   (EncryptedSecretKey (..), PassPhrase (..))
+import           Pos.Crypto.SafeSigning   (EncryptedSecretKey (..), PassPhrase)
 import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),
                                            SecretSharingExtra (..), Share (..),
                                            VssKeyPair (..), VssPublicKey (..))
@@ -102,12 +102,14 @@ BiMacro(SecretProof, 64)
 -- Signing
 ----------------------------------------------------------------------------
 
-secretKeyLength, publicKeyLength, signatureLength, chainCodeLength, encryptedKeyLength :: Int
+secretKeyLength, publicKeyLength, signatureLength, chainCodeLength,
+    encryptedKeyLength, passphraseLength :: Int
 secretKeyLength = 32
 publicKeyLength = 32
 encryptedKeyLength = 96
 signatureLength = 64
 chainCodeLength = 32
+passphraseLength = 32
 
 putAssertLength :: Monad m => Text -> Int -> ByteString -> m ()
 putAssertLength typeName expectedLength bs =
@@ -191,8 +193,11 @@ instance (Bi w) => Bi (ProxySignature w a) where
     get = label "ProxySignature" $ liftM4 ProxySignature get get get get
 
 instance Bi PassPhrase where
-    put = put . BS.pack . ByteArray.unpack
-    get = ByteArray.pack . BS.unpack <$> get
+    put pp = do
+        let bs = BS.pack $ ByteArray.unpack pp
+        putAssertLength "PassPhrase" passphraseLength bs
+        putByteString bs
+    get = label "PassPhrase" $ ByteArray.pack . BS.unpack <$> get
 
 -------------------------------------------------------------------------------
 -- Standard Ed25519 instances for ADA redeem keys

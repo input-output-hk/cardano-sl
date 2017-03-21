@@ -294,7 +294,7 @@ Clients must supply the following data
     "Right": [
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
@@ -310,14 +310,14 @@ Clients must supply the following data
     "Right": [
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         },
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
@@ -333,26 +333,74 @@ Clients must supply the following data
     "Right": [
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         },
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         },
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         }
     ]
+}
+```
+
+## GET /api/search/:hash
+
+#### Authentication
+
+
+
+Clients must supply the following data
+
+
+#### Captures:
+
+- *hash*: Search id by which the user can find address, block or transaction
+
+#### Response:
+
+- Status code 200
+- Headers: []
+
+- Supported content types are:
+
+    - `application/json`
+
+- Sample error
+
+```javascript
+{
+    "Left": "This is an example error"
+}
+```
+
+- Sample search result, address found
+
+```javascript
+{
+    "Right": {
+        "tag": "AddressFound",
+        "contents": {
+            "caTxList": [],
+            "caBalance": {
+                "getCoin": 0
+            },
+            "caAddress": "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv",
+            "caTxNum": 0
+        }
+    }
 }
 ```
 
@@ -408,7 +456,7 @@ Clients must supply the following data
     "Right": [
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
@@ -424,14 +472,14 @@ Clients must supply the following data
     "Right": [
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         },
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
@@ -447,21 +495,21 @@ Clients must supply the following data
     "Right": [
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         },
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }
         },
         {
             "cteId": "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02",
-            "cteTimeIssued": null,
+            "cteTimeIssued": 1512259200,
             "cteAmount": {
                 "getCoin": 33333
             }

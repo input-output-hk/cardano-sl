@@ -21,6 +21,7 @@ module Node.Internal (
     NodeEnvironment(..),
     defaultNodeEnvironment,
     NodeEndPoint(..),
+    simpleNodeEndPoint,
     NodeState(..),
     nodeId,
     nodeEndPointAddress,
@@ -545,10 +546,21 @@ stRemoveHandler !provenance !elapsed !outcome !statistics = case provenance of
             avg' = avg - (1 / fromIntegral npeers)
             avg2' = avg - (fromIntegral (2 * nhandlers + 1) / fromIntegral npeers)
 
--- | TODO document.
+-- | How to create and close an 'EndPoint'.
+--   See 'simpleNodeEndPoint' for a very obvious example.
+--   More complicated things are possible, for instance using concrete
+--   transport specific features.
 data NodeEndPoint m = NodeEndPoint {
       newNodeEndPoint :: m (Either (NT.TransportError NT.NewEndPointErrorCode) (NT.EndPoint m))
     , closeNodeEndPoint :: NT.EndPoint m -> m ()
+    }
+
+-- | A 'NodeEndPoint' which uses the typical network-transport 'newEndPoint'
+--   and 'closeEndPoint'.
+simpleNodeEndPoint :: NT.Transport m -> NodeEndPoint m
+simpleNodeEndPoint transport = NodeEndPoint {
+      newNodeEndPoint = NT.newEndPoint transport
+    , closeNodeEndPoint = NT.closeEndPoint
     }
 
 -- | Bring up a 'Node' using a network transport.

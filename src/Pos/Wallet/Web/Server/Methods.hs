@@ -36,7 +36,6 @@ import           Serokell.Util                 (threadDelay)
 import           Servant.API                   ((:<|>) ((:<|>)),
                                                 FromHttpApiData (parseUrlPiece))
 import           Servant.Server                (Handler, Server, ServerT, err403, serve)
-import           Servant.Swagger.UI            (swaggerSchemaUIServer)
 import           Servant.Utils.Enter           ((:~>) (..), enter)
 import           System.Wlog                   (logDebug, logError, logInfo)
 
@@ -68,8 +67,7 @@ import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
                                                 getBalance, getTxHistory,
                                                 localChainDifficulty,
                                                 networkChainDifficulty, waitForUpdate)
-import           Pos.Wallet.Web.Api            (WalletApi, swaggerSpecForWalletApi,
-                                                walletApiWithDocs)
+import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CInitialized,
                                                 CProfile, CProfile (..), CTx, CTxId,
                                                 CTxMeta (..), CUpdateInfo (..),
@@ -136,12 +134,9 @@ walletApplication
     :: WalletWebMode ssc m
     => m (Server WalletApi)
     -> m Application
-walletApplication server = do
+walletApplication serv = do
     wsConn <- getWalletWebSockets
-    withoutDocs <- server
-    let serverWithDocs = swaggerSchemaUIServer swaggerSpecForWalletApi
-                    :<|> withoutDocs
-    return $ upgradeApplicationWS wsConn $ serve walletApiWithDocs serverWithDocs
+    serv >>= return . upgradeApplicationWS wsConn . serve walletApi
 
 walletServer
     :: forall ssc m.

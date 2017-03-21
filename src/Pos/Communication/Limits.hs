@@ -63,7 +63,7 @@ mcCommitmentMsgLenLimit :: Limit GtMsgContents
 mcCommitmentMsgLenLimit = MCCommitment <$> msgLenLimit
 
 mcOpeningLenLimit :: Limit GtMsgContents
-mcOpeningLenLimit = 63
+mcOpeningLenLimit = 62
 
 mcSharesMsgLenLimit :: Limit GtMsgContents
 mcSharesMsgLenLimit =

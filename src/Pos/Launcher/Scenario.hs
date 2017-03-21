@@ -64,7 +64,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     mapM_ (fork . unpackPlugin) plugins'
 
     -- Instead of sleeping forever, we wait until graceful shutdown
-    waitForWorkers allWorkersCount
+    waitForWorkers (allWorkersCount @ssc @m)
     liftIO $ exitWith (ExitFailure 20)
   where
     reportHandler (SomeException e) = do

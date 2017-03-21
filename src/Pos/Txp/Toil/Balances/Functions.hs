@@ -18,10 +18,10 @@ import           System.Wlog         (WithLogger, logInfo)
 
 import           Pos.Core.Coin       (coinToInteger, sumCoins, unsafeAddCoin,
                                       unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Types           (Coin, StakeholderId, mkCoin)
+import           Pos.Types           (mkCoin)
 
-import           Pos.Txp.Core        (Tx (..), TxAux, TxOutAux (..), TxUndo,
-                                      getTxDistribution, txOutStake)
+import           Pos.Txp.Core        (Tx (..), TxAux, TxOutAux (..), TxOutDistribution,
+                                      TxUndo, getTxDistribution, txOutStake)
 import           Pos.Txp.Toil.Class  (MonadBalances (..), MonadBalancesRead (..))
 
 type BalancesMode m = (MonadBalances m, WithLogger m)
@@ -45,8 +45,8 @@ rollbackTxsBalances txun = do
 -- Compute new stakeholder's stakes by lists of spent and received coins.
 recomputeStakes
     :: BalancesMode m
-    => [(StakeholderId, Coin)]
-    -> [(StakeholderId, Coin)]
+    => TxOutDistribution
+    -> TxOutDistribution
     -> m ()
 recomputeStakes plusDistr minusDistr = do
     let (plusStakeHolders, plusCoins) = unzip plusDistr
@@ -70,7 +70,7 @@ recomputeStakes plusDistr minusDistr = do
   where
     createInfo = sformat ("Stake for " %build%" will be created in UtxoDB")
     resolve ad = whenNothingM (getStake ad) (mkCoin 0 <$ logInfo (createInfo ad))
-    calcPosStakes distr = foldl' plusAt HM.empty distr
+    calcPosStakes = foldl' plusAt HM.empty
     calcNegStakes distr hm = foldl' minusAt hm distr
     -- @pva701 says it's not possible to get negative coin here. We *can* in
     -- theory get overflow because we're adding and only then subtracting,
@@ -85,7 +85,7 @@ recomputeStakes plusDistr minusDistr = do
 -- Concatenate stakes of the all passed transactions and undos.
 concatStakes
     :: [(TxAux, TxUndo)]
-    -> ([(StakeholderId, Coin)], [(StakeholderId, Coin)])
+    -> (TxOutDistribution, TxOutDistribution)
 concatStakes (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
   where
     txasTxOutDistr = concatMap concatDistr txas

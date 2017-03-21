@@ -59,7 +59,7 @@ newtype DelegationT m a = DelegationT
                , MonadMask
                , MonadSscMem kek
                , MonadSlotsData
-               , MonadTxpMem
+               , MonadTxpMem x
                , MonadDhtMem
                , MonadReportingMem
                , MonadRelayMem

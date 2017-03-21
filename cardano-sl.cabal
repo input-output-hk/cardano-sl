@@ -82,9 +82,15 @@ library
 
                         Pos.Statistics
 
+                        -- Client
+                        Pos.Client.Txp.Balances
+                        Pos.Client.Txp.History
+                        Pos.Client.Txp.Util
+
                         -- Txp
                         Pos.Txp
                         Pos.Txp.Core
+                        Pos.Txp.Settings
 
                         Pos.Types
                         Pos.Types.Arbitrary
@@ -107,16 +113,16 @@ library
                         -- Worker, work mode
                         Pos.Worker
                         Pos.WorkMode
+  -- Explorer (TODO: move into cardano-explorer)
+  exposed-modules:
+                        Pos.Explorer
+                        Pos.Explorer.Core
   if flag(with-web)
     exposed-modules:    Pos.Web
   if flag(with-wallet)
     exposed-modules:    Pos.Wallet
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
-  if flag(with-explorer)
-    exposed-modules:
-                        Pos.DB.GState.Explorer
-                        Pos.Types.Explorer
   other-modules:        Paths_cardano_sl
 
                         Pos.Aeson.CompileConfig
@@ -181,6 +187,7 @@ library
                         Pos.Communication.Types
                         Pos.Communication.Message
                         Pos.Communication.Methods
+                        Pos.Communication.Tx
                         Pos.Communication.Server
                         Pos.Communication.Server.SysStart
                         Pos.Communication.Specs
@@ -283,6 +290,7 @@ library
                         Pos.Txp.Network
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
+                        Pos.Txp.Settings.Global
                         Pos.Txp.Toil
                         Pos.Txp.Toil.Balances
                         Pos.Txp.Toil.Balances.Functions
@@ -344,6 +352,19 @@ library
                         Pos.Util.Arbitrary
                         Pos.Util.LogSafe
                         Pos.Util.Undefined
+
+  -- Explorer (TODO: move into cardano-explorer)
+  other-modules:        Pos.Binary.Explorer
+                        Pos.Explorer.Core.Types
+                        Pos.Explorer.DB
+                        Pos.Explorer.Txp
+                        Pos.Explorer.Txp.Global
+                        Pos.Explorer.Txp.Local
+                        Pos.Explorer.Txp.Toil
+                        Pos.Explorer.Txp.Toil.Class
+                        Pos.Explorer.Txp.Toil.Logic
+                        Pos.Explorer.Txp.Toil.Types
+
   if flag(with-web)
     other-modules:      Pos.Aeson.Crypto
                         Pos.Aeson.Types
@@ -352,9 +373,7 @@ library
                         Pos.Web.Server
                         Pos.Web.Types
   if flag(with-wallet)
-    other-modules:      Pos.Wallet.Tx
-                        Pos.Wallet.Tx.Pure
-                        Pos.Wallet.WalletMode
+    other-modules:      Pos.Wallet.WalletMode
                         Pos.Wallet.Launcher
                         Pos.Wallet.Launcher.Runner
                         Pos.Wallet.Launcher.Param
@@ -389,9 +408,6 @@ library
                         Pos.Wallet.Web.State.Limits
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
-
-  if flag(with-explorer)
-    other-modules:      Pos.Binary.Explorer
 
   build-depends:        IfElse
                       , QuickCheck

@@ -148,12 +148,12 @@ instance Show CPassPhrase where
 
 passPhraseToCPassPhrase :: PassPhrase -> CPassPhrase
 passPhraseToCPassPhrase passphrase =
-    CPassPhrase . Base64.encode $ encodeStrict passphrase
+    CPassPhrase . Base64.encodeUrl $ encodeStrict passphrase
 
 cPassPhraseToPassPhrase
     :: CPassPhrase -> Either Text PassPhrase
 cPassPhraseToPassPhrase (CPassPhrase text) =
-    (_Left %~ toText) . decodeFull . LBS.fromStrict =<< Base64.decode text
+    (_Left %~ toText) . decodeFull . LBS.fromStrict =<< Base64.decodeUrl text
 
 ----------------------------------------------------------------------------
 -- Wallet

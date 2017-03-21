@@ -20,6 +20,9 @@ module Node.Internal (
     Node(..),
     NodeEnvironment(..),
     defaultNodeEnvironment,
+    NodeEndPoint(..),
+    simpleNodeEndPoint,
+    NodeState(..),
     nodeId,
     nodeEndPointAddress,
     Statistics(..),
@@ -168,6 +171,7 @@ defaultNodeEnvironment = NodeEnvironment {
 --   state and a thread to dispatch network-transport events.
 data Node packingType peerData (m :: * -> *) = Node {
        nodeEndPoint         :: NT.EndPoint m
+     , nodeCloseEndPoint    :: m ()
      , nodeDispatcherThread :: Promise m ()
      , nodeEnvironment      :: NodeEnvironment m
      , nodeState            :: SharedAtomicT m (NodeState peerData m)
@@ -542,6 +546,23 @@ stRemoveHandler !provenance !elapsed !outcome !statistics = case provenance of
             avg' = avg - (1 / fromIntegral npeers)
             avg2' = avg - (fromIntegral (2 * nhandlers + 1) / fromIntegral npeers)
 
+-- | How to create and close an 'EndPoint'.
+--   See 'simpleNodeEndPoint' for a very obvious example.
+--   More complicated things are possible, for instance using concrete
+--   transport specific features.
+data NodeEndPoint m = NodeEndPoint {
+      newNodeEndPoint :: m (Either (NT.TransportError NT.NewEndPointErrorCode) (NT.EndPoint m))
+    , closeNodeEndPoint :: NT.EndPoint m -> m ()
+    }
+
+-- | A 'NodeEndPoint' which uses the typical network-transport 'newEndPoint'
+--   and 'closeEndPoint'.
+simpleNodeEndPoint :: NT.Transport m -> NodeEndPoint m
+simpleNodeEndPoint transport = NodeEndPoint {
+      newNodeEndPoint = NT.newEndPoint transport
+    , closeNodeEndPoint = NT.closeEndPoint
+    }
+
 -- | Bring up a 'Node' using a network transport.
 startNode
     :: ( Mockable SharedAtomic m, Mockable Channel.Channel m
@@ -554,10 +575,7 @@ startNode
        , MonadFix m, WithLogger m )
     => packingType
     -> peerData
-    -> NT.Transport m
-    -- ^ Given a QDisc constructor, make a transport. startNode will
-    --   create the transport and one end point. stopNode will close it
-    --   up.
+    -> (Node packingType peerData m -> NodeEndPoint m)
     -> StdGen
     -- ^ A source of randomness, for generating nonces.
     -> NodeEnvironment m
@@ -566,25 +584,29 @@ startNode
     -> (peerData -> NodeId -> ChannelIn m -> ChannelOut m -> m ())
     -- ^ Handle incoming bidirectional connections.
     -> m (Node packingType peerData m)
-startNode packingType peerData transport prng nodeEnv handlerIn handlerOut = do
-    mEndPoint <- NT.newEndPoint transport
-    case mEndPoint of
-        Left err -> throw err
-        Right endPoint -> do
-            sharedState <- initialNodeState prng
-            -- TODO this thread should get exceptions from the dispatcher thread.
-            rec { let node = Node {
-                            nodeEndPoint         = endPoint
-                          , nodeDispatcherThread = dispatcherThread
-                          , nodeEnvironment      = nodeEnv
-                          , nodeState            = sharedState
-                          , nodePackingType      = packingType
-                          , nodePeerData         = peerData
-                          }
-                ; dispatcherThread <- async $
-                      nodeDispatcher node handlerIn handlerOut
-                }
-            return node
+startNode packingType peerData mkNodeEndPoint prng nodeEnv handlerIn handlerOut = do
+    rec { let nodeEndPoint = mkNodeEndPoint node
+        ; mEndPoint <- newNodeEndPoint nodeEndPoint
+        ; node <- case mEndPoint of
+              Left err -> throw err
+              Right endPoint -> do
+                  sharedState <- initialNodeState prng
+                  -- TODO this thread should get exceptions from the dispatcher thread.
+                  rec { let node = Node {
+                                  nodeEndPoint         = endPoint
+                                , nodeCloseEndPoint    = closeNodeEndPoint nodeEndPoint endPoint
+                                , nodeDispatcherThread = dispatcherThread
+                                , nodeEnvironment      = nodeEnv
+                                , nodeState            = sharedState
+                                , nodePackingType      = packingType
+                                , nodePeerData         = peerData
+                                }
+                      ; dispatcherThread <- async $
+                            nodeDispatcher node handlerIn handlerOut
+                      }
+                  return node
+        }
+    return node
 
 -- | Stop a 'Node', closing its network transport and end point.
 stopNode
@@ -599,7 +621,7 @@ stopNode Node {..} = do
     -- This eventually will shut down the dispatcher thread, which in turn
     -- ought to stop the connection handling threads.
     -- It'll also close all TCP connections.
-    NT.closeEndPoint nodeEndPoint
+    nodeCloseEndPoint
     -- Must wait on any handler threads. The dispatcher thread will eventually
     -- see an event indicating that the end point has closed, after which it
     -- will wait on all running handlers. Since the end point has been closed,

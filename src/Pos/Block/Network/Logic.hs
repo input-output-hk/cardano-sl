@@ -470,11 +470,14 @@ relayBlock
     :: forall ssc m.
        (WorkMode ssc m)
     => SendActions m -> Block ssc -> m ()
-relayBlock _ (Left _)                  = pass
+relayBlock _ (Left _)                  = logDebug "Not relaying Genesis block"
 relayBlock sendActions (Right mainBlk) = do
-    -- Why 'ncPropagation' is not considered?
-    unlessM isRecoveryMode $
-        void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
+    isRecoveryMode >>= \case
+        True -> logDebug "Not relaying block in recovery mode"
+        False -> do
+            logDebug $ sformat ("Calling announceBlock for "%shown%".") (mainBlk ^. gbHeader)
+            -- Why 'ncPropagation' is not considered?
+            void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------
 -- Common logging / logic sink points

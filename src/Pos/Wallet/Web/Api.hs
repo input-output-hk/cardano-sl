@@ -1,42 +1,28 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE KindSignatures      #-}
-{-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds      #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE TypeOperators  #-}
 
 -- | Servant API for wallet.
 
 module Pos.Wallet.Web.Api
        ( WalletApi
        , walletApi
-       , WalletApiWithDocs
-       , walletApiWithDocs
-       , swaggerSpecForWalletApi
        ) where
 
 
-import           Data.Typeable              (Typeable, typeOf)
-import           Data.Version               (showVersion)
-import           Control.Lens               ((?~), mapped)
+import           Control.Lens               ((?~))
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
                                              Post, Put, QueryParam, ReqBody)
-import           Servant.Swagger.UI         (SwaggerSchemaUI)
-import           Servant.Swagger            (toSwagger)
-import           Data.Swagger               (Swagger, ToSchema (..), ToParamSchema,
-                                             allOperations, declareNamedSchema,
-                                             genericDeclareNamedSchema, defaultSchemaOptions,
-                                             name, info, description, version, title, host)
 
 import           Universum
 
-import           Pos.Types                  (Coin, SoftwareVersion, ApplicationName,
-                                             ChainDifficulty, BlockVersion)
+import           Pos.Types                  (Coin, SoftwareVersion)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CInitialized, 
-                                             CProfile, CTType, CTx, CTxId, CTxMeta, CUpdateInfo,
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CInitialized, 
+                                             CProfile, CTx, CTxId, CTxMeta, CUpdateInfo,
                                              CWallet, CWalletInit, CWalletMeta, CWalletRedeem,
                                              CWalletType, SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
-import qualified Paths_cardano_sl           as CSL
 
 
 -- | Servant API which provides access to wallet.
@@ -210,64 +196,6 @@ type WalletApi =
      :> "progress"
      :> Get '[JSON] (Either WalletError SyncProgress)
 
--- | Full API with Swagger-based documentation.
--- "wallet-api-docs" is docs endpoint, so documentation is
--- available at "http://localhost:8090/wallet-api-docs" by default.
-type WalletApiWithDocs =
-         SwaggerSchemaUI "wallet-api-docs" "swagger.json"
-    :<|> WalletApi
-
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi
 walletApi = Proxy
-
--- | Helper Proxy for full API with Swagger-based documentation.
-walletApiWithDocs :: Proxy WalletApiWithDocs
-walletApiWithDocs = Proxy
-
--- | Instances we need to build Swagger-specification for 'walletApi':
--- 'ToParamSchema' - for types in parameters ('Capture', etc.),
--- 'ToSchema' - for types in bodies.
-instance ToSchema      Coin
-instance ToParamSchema Coin
-instance ToSchema      CTxId
-instance ToParamSchema CTxId
-instance ToSchema      CTType
-instance ToSchema      CTx
-instance ToSchema      CTxMeta
-instance ToSchema      CHash
-instance ToParamSchema CHash
-instance ToSchema      CAddress
-instance ToParamSchema CAddress
-instance ToSchema      CCurrency
-instance ToParamSchema CCurrency
-instance ToSchema      CProfile
-instance ToSchema      WalletError
-instance ToSchema      CWalletMeta
-instance ToSchema      CWalletInit
-instance ToSchema      CWalletType
-instance ToSchema      CWalletRedeem
-instance ToSchema      CWallet
-instance ToSchema      CInitialized
-instance ToSchema      CUpdateInfo
-instance ToSchema      SoftwareVersion
-instance ToSchema      ApplicationName
-instance ToSchema      SyncProgress
-instance ToSchema      ChainDifficulty
-instance ToSchema      BlockVersion
-instance ToSchema      BackupPhrase
-
--- | Instance for Either-based types (types we return as 'Right') in responses.
--- Due 'typeOf' these types must be 'Typeable'.
--- We need this instance for correct Swagger-specification.
-instance {-# OVERLAPPING #-} (Typeable a, ToSchema a) => ToSchema (Either WalletError a) where
-    declareNamedSchema proxy = genericDeclareNamedSchema defaultSchemaOptions proxy
-        & mapped . name ?~ toText ("Either WalletError " ++ show (typeOf (undefined :: a)))
-
--- | Build Swagger-specification from 'walletApi'.
-swaggerSpecForWalletApi :: Swagger
-swaggerSpecForWalletApi = toSwagger walletApi
-    & info . title       .~ "Cardano SL Wallet Web API"
-    & info . version     .~ (toText $ showVersion CSL.version)
-    & info . description ?~ "This is an API for Cardano SL wallet."
-    & host               ?~ "localhost:8090" -- Default node's port for wallet web API.

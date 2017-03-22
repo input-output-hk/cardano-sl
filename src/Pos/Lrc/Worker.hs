@@ -24,12 +24,12 @@ import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUn
                                              withBlkSemaphore_)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants              (slotSecurityParam)
-import           Pos.Context                (LrcSyncData, getNodeContext, ncLrcSync)
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
 import qualified Pos.DB.GState.Balances     as GS
 import           Pos.Lrc.Consumer           (LrcConsumer (..))
 import           Pos.Lrc.Consumers          (allLrcConsumers)
+import           Pos.Lrc.Context            (LrcContext (lcLrcSync), LrcSyncData)
 import           Pos.Lrc.DB                 (IssuersStakes, getLeaders, putEpoch,
                                              putIssuersStakes, putLeaders)
 import           Pos.Lrc.Error              (LrcError (..))
@@ -47,6 +47,7 @@ import           Pos.Update.DB              (getConfirmedBVStates)
 import           Pos.Update.Poll.Types      (BlockVersionState (..))
 import           Pos.Util                   (NewestFirst (..), logWarningWaitLinear,
                                              toOldestFirst)
+import           Pos.Util.Context           (askContext)
 import           Pos.WorkMode               (WorkMode)
 
 lrcOnNewSlotWorker
@@ -81,7 +82,7 @@ lrcSingleShotImpl
     :: WorkMode ssc m
     => Bool -> EpochIndex -> [LrcConsumer m] -> m ()
 lrcSingleShotImpl withSemaphore epoch consumers = do
-    lock <- ncLrcSync <$> getNodeContext
+    lock <- askContext @LrcContext lcLrcSync
     tryAcuireExclusiveLock epoch lock onAcquiredLock
   where
     onAcquiredLock = do

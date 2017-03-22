@@ -50,7 +50,8 @@ import           Universum
 
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe,
-                                             withBlkSemaphore, withBlkSemaphore_)
+                                             toUpdateBlock, withBlkSemaphore,
+                                             withBlkSemaphore_)
 import           Pos.Block.Types            (Blund, Undo (..))
 import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,
                                              epochSlots, lastKnownBlockVersion,
@@ -419,7 +420,8 @@ verifyBlocksPrefix blocks = runExceptT $ do
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
     txUndo <- withExceptT pretty $ txVerifyBlocks blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
-    (pModifier, usUndos) <- withExceptT pretty $ usVerifyBlocks blocks
+    (pModifier, usUndos) <- withExceptT pretty $
+        usVerifyBlocks (map toUpdateBlock blocks)
     when (length txUndo /= length pskUndo) $
         throwError "Internal error of verifyBlocksPrefix: lengths of undos don't match"
     pure ( OldestFirst $ neZipWith3 Undo
@@ -640,7 +642,7 @@ createGenesisBlockDo epoch leaders tip = do
         | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
             let blk = mkGenesisBlock (Just tipHeader) epoch leaders
             let newTip = headerHash blk
-            runExceptT (usVerifyBlocks (one (Left blk))) >>= \case
+            runExceptT (usVerifyBlocks (one (toUpdateBlock (Left blk)))) >>= \case
                 Left err -> reportFatalError $ pretty err
                 Right (pModifier, usUndos) -> do
                     let undo = def {undoUS = usUndos ^. _Wrapped . _neHead}
@@ -726,7 +728,7 @@ createMainBlockFinish slotId pSk prevHeader = do
         Left err ->
             assertionFailed $ sformat ("We've created bad block: "%stext) err
         Right _ -> pass
-    (pModifier,verUndo) <- runExceptT (usVerifyBlocks (one (Right blk))) >>= \case
+    (pModifier,verUndo) <- runExceptT (usVerifyBlocks (one (toUpdateBlock (Right blk)))) >>= \case
         Left _ -> throwError "Couldn't get pModifier while creating MainBlock"
         Right o -> pure o
     let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs)

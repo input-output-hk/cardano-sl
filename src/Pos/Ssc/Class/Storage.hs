@@ -1,6 +1,6 @@
-{-# LANGUAGE AllowAmbiguousTypes  #-}
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE RankNTypes          #-}
 
 -- | Global state of generic Shared Seed Calculation implementation.
 
@@ -17,12 +17,13 @@ import           Control.Monad.Except (MonadError)
 import           System.Wlog          (WithLogger)
 import           Universum
 
-import           Pos.Context.Class    (WithNodeContext)
 import           Pos.DB.Class         (MonadDB)
+import           Pos.Lrc.Context      (LrcContext)
 import           Pos.Lrc.Types        (RichmenStake)
 import           Pos.Ssc.Class.Types  (Ssc (..))
 import           Pos.Types            (Block, EpochIndex, SharedSeed)
 import           Pos.Util             (NE, NewestFirst, OldestFirst)
+import           Pos.Util.Context     (HasContext)
 
 ----------------------------------------------------------------------------
 -- Modern
@@ -43,7 +44,7 @@ class Ssc ssc =>
       SscGStateClass ssc where
     -- | Load global state from DB by recreating it from recent blocks.
     sscLoadGlobalState
-        :: (WithNodeContext ssc m, MonadDB m, WithLogger m)
+        :: (HasContext LrcContext m, MonadDB m, WithLogger m)
         => m (SscGlobalState ssc)
     -- | Rollback application of blocks.
     sscRollbackU :: NewestFirst NE (Block ssc) -> SscGlobalUpdate ssc ()

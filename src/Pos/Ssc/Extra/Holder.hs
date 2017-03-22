@@ -33,6 +33,7 @@ import           Pos.Context               (WithNodeContext)
 import           Pos.DB                    (MonadDB)
 import           Pos.DB.Limits             (MonadDBLimits)
 import           Pos.DHT.MemState          (MonadDhtMem)
+import           Pos.Lrc.Context           (LrcContext)
 import           Pos.Reporting             (MonadReportingMem)
 import           Pos.Shutdown              (MonadShutdownMem)
 import           Pos.Slotting.Class        (MonadSlots)
@@ -119,7 +120,7 @@ runSscHolder st holder = runReaderT (getSscHolder holder) st
 mkStateAndRunSscHolder
     :: forall ssc m a.
        ( WithLogger m
-       , WithNodeContext ssc m
+       , HasContext LrcContext m
        , SscGStateClass ssc
        , SscLocalDataClass ssc
        , MonadDB m
@@ -134,7 +135,7 @@ mkStateAndRunSscHolder holder = do
 mkSscHolderState
     :: forall ssc m .
        ( WithLogger m
-       , WithNodeContext ssc m
+       , HasContext LrcContext m
        , SscGStateClass ssc
        , SscLocalDataClass ssc
        , MonadDB m

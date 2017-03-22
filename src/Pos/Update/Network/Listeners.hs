@@ -25,9 +25,9 @@ import           Pos.Update.Core            (UpId, UpdateProposal (..), UpdateVo
 import           Pos.Update.Logic.Local     (getLocalProposalNVotes, getLocalVote,
                                              isProposalNeeded, isVoteNeeded,
                                              processProposal, processVote)
+import           Pos.Update.Mode            (UpdateMode)
 import           Pos.Update.Network.Types   (ProposalMsgTag (..), VoteMsgTag (..))
 import           Pos.Util                   (mappendPair)
-import           Pos.WorkMode               (WorkMode)
 
 proposalProxy :: RelayProxy UpId ProposalMsgTag (UpdateProposal, [UpdateVote])
 proposalProxy = RelayProxy
@@ -37,7 +37,7 @@ voteProxy = RelayProxy
 
 -- | Listeners for requests related to update system
 usListeners
-    :: (WorkMode ssc m)
+    :: (UpdateMode m)
     => m ([ListenerSpec m], OutSpecs)
 usListeners = liftM2 mappendPair
                 (relayListeners proposalProxy)
@@ -54,7 +54,7 @@ usStubListeners = mappendPair
 -- UpdateProposal listeners
 ----------------------------------------------------------------------------
 
-instance WorkMode ssc m =>
+instance UpdateMode m =>
          Relay m ProposalMsgTag UpId (UpdateProposal, [UpdateVote]) where
     contentsToTag _ = pure ProposalMsgTag
     contentsToKey (up,_) = pure $ hash up
@@ -85,7 +85,7 @@ instance WorkMode ssc m =>
 -- UpdateVote listeners
 ----------------------------------------------------------------------------
 
-instance WorkMode ssc m =>
+instance UpdateMode m =>
          Relay m VoteMsgTag VoteId UpdateVote where
     contentsToTag _ = pure VoteMsgTag
     contentsToKey UpdateVote{..} = pure (uvProposalId, uvKey, uvDecision)

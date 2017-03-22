@@ -10,6 +10,7 @@ module Pos.Block.Logic.Internal
        , rollbackBlocksUnsafe
        , withBlkSemaphore
        , withBlkSemaphore_
+       , toUpdateBlock
        ) where
 
 import           Control.Arrow        ((&&&))
@@ -33,17 +34,32 @@ import           Pos.Slotting         (putSlottingData)
 #ifdef WITH_EXPLORER
 import           Pos.Slotting         (currentTimeSlotting)
 #endif
+import           Pos.Ssc.Class        (Ssc)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.Txp.Logic        (txApplyBlocks, txNormalize, txRollbackBlocks)
-import           Pos.Types            (HeaderHash, epochIndexL, headerHash, headerHashG,
+import           Pos.Types            (Block, GenesisBlock, HeaderHash, IsGenesisHeader,
+                                       IsMainHeader, MainBlock, epochIndexL, gbBody,
+                                       gbHeader, headerHash, headerHashG, mbUpdatePayload,
                                        prevBlockL)
+import           Pos.Update.Core      (UpdateBlock, UpdatePayload)
 import qualified Pos.Update.DB        as UDB
 import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll      (PollModifier)
-import           Pos.Util             (NE, NewestFirst (..), OldestFirst (..),
+import           Pos.Util             (NE, NewestFirst (..), OldestFirst (..), Some (..),
                                        inAssertMode, spanSafe, _neLast)
 import           Pos.WorkMode         (WorkMode)
 
+-- [CSL-780] Totally need something more elegant
+toUpdateBlock
+    :: forall ssc.
+       Ssc ssc
+    => Block ssc -> UpdateBlock
+toUpdateBlock = bimap convertGenesis convertMain
+  where
+    convertGenesis :: GenesisBlock ssc -> Some IsGenesisHeader
+    convertGenesis = Some . view gbHeader
+    convertMain :: MainBlock ssc -> (Some IsMainHeader, UpdatePayload)
+    convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbUpdatePayload)
 
 -- | Run action acquiring lock on block application. Argument of
 -- action is an old tip, result is put as a new tip.
@@ -89,7 +105,7 @@ applyBlocksUnsafeDo
 applyBlocksUnsafeDo blunds pModifier = do
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
-    usBatch <- SomeBatchOp <$> usApplyBlocks blocks pModifier
+    usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
 #ifdef WITH_EXPLORER
     curTime <- currentTimeSlotting
@@ -126,7 +142,9 @@ rollbackBlocksUnsafe
     => NewestFirst NE (Blund ssc) -> m ()
 rollbackBlocksUnsafe toRollback = reportingFatal version $ do
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
-    usRoll <- SomeBatchOp <$> usRollbackBlocks (toRollback & each._2 %~ undoUS)
+    usRoll <- SomeBatchOp <$> usRollbackBlocks
+                  (toRollback & each._2 %~ undoUS
+                              & each._1 %~ toUpdateBlock)
     txRoll <- txRollbackBlocks toRollback
     sscRollbackBlocks $ fmap fst toRollback
     let putTip = SomeBatchOp $

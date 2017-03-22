@@ -3,8 +3,7 @@
 -- | Runtime context of node.
 
 module Pos.Context.Context
-       ( LrcSyncData
-       , NodeContext (..)
+       ( NodeContext (..)
        , ncPublicKey
        , ncPubKeyAddress
        , ncGenesisLeaders
@@ -25,22 +24,20 @@ import           Pos.Communication.Types (NodeId)
 import           Pos.Crypto              (PublicKey, toPublic)
 import           Pos.Genesis             (genesisLeaders)
 import           Pos.Launcher.Param      (BaseParams (..), NodeParams (..))
+import           Pos.Lrc.Context         (LrcContext)
 import           Pos.Ssc.Class.Types     (Ssc (SscNodeContext))
 import           Pos.Txp.Toil.Types      (Utxo)
 import           Pos.Types               (Address, BlockHeader, EpochIndex, HeaderHash,
                                           SlotLeaders, Timestamp, makePubKeyAddress)
+import           Pos.Update.Context      (UpdateContext)
 import           Pos.Update.Poll.Types   (ConfirmedProposalState)
 import           Pos.Util                (NE, NewestFirst)
+import           Pos.Util.Context        (ExtractContext (..))
 import           Pos.Util.UserSecret     (UserSecret)
 
 ----------------------------------------------------------------------------
 -- NodeContext
 ----------------------------------------------------------------------------
-
--- | Data used for LRC syncronization. First value is __False__ iff
--- LRC is running now. Second value is last epoch for which we have
--- already computed LRC.
-type LrcSyncData = (Bool, EpochIndex)
 
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext
@@ -48,11 +45,13 @@ data NodeContext ssc = NodeContext
     -- @georgeee please add documentation when you see this comment
     , ncSscContext          :: !(SscNodeContext ssc)
     -- @georgeee please add documentation when you see this comment
+    , ncUpdateContext       :: !UpdateContext
+    -- ^ Context needed for the update system
+    , ncLrcContext          :: !LrcContext
+    -- ^ Context needed for LRC
     , ncBlkSemaphore        :: !(MVar HeaderHash)
     -- ^ Semaphore which manages access to block application.
     -- Stored hash is a hash of last applied block.
-    , ncLrcSync             :: !(STM.TVar LrcSyncData)
-    -- ^ Primitive for synchronization with LRC.
     , ncUserSecret          :: !(STM.TVar UserSecret)
     -- ^ Secret keys (and path to file) which are used to send transactions
     , ncBlockRetrievalQueue :: !(TBQueue (NodeId, NewestFirst NE (BlockHeader ssc)))
@@ -70,9 +69,6 @@ data NodeContext ssc = NodeContext
     , ncProgressHeader      :: !(STM.TMVar (BlockHeader ssc))
     -- ^ Header of the last block that was downloaded in retrieving
     -- queue. Is needed to show smooth prorgess on the frontend.
-    , ncUpdateSemaphore     :: !(MVar ConfirmedProposalState)
-    -- ^ A semaphore which is unlocked when update data is downloaded
-    -- and ready to apply.
     , ncInvPropagationQueue :: !RelayInvQueue
     -- ^ Queue is used in Relay framework,
     -- it stores inv messages for earlier received data.
@@ -95,6 +91,13 @@ data NodeContext ssc = NodeContext
     -- which reached us). Should be use only for informational purposes
     -- (status in Daedalus). It's easy to falsify this value.
     }
+
+instance ExtractContext UpdateContext (NodeContext ssc) where
+    extractContext = ncUpdateContext
+instance ExtractContext LrcContext (NodeContext ssc) where
+    extractContext = ncLrcContext
+instance ExtractContext NodeParams (NodeContext ssc) where
+    extractContext = ncNodeParams
 
 ----------------------------------------------------------------------------
 -- Helper functions

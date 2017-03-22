@@ -1,9 +1,9 @@
+{-# LANGUAGE CPP                  #-}
 {-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE InstanceSigs         #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE CPP #-}
 
 -- | 'WalletMode' constraint. Like `WorkMode`, but for wallet.
 
@@ -58,10 +58,10 @@ import           Pos.Types                   (Address, BlockHeader, ChainDifficu
                                               flattenSlotId, prevBlockL, prevBlockL,
                                               sumCoins, sumCoins)
 import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
+import           Pos.Update.Context          (UpdateContext (ucUpdateSemaphore))
 import           Pos.Util                    (maybeThrow)
+import           Pos.Util.Context            (askContext)
 import qualified Pos.Util.Modifier           as MM
-import           Pos.WorkMode                (MinWorkMode, RawRealMode)
-
 import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)
@@ -69,6 +69,7 @@ import qualified Pos.Wallet.State            as WS
 import           Pos.Wallet.Tx.Pure          (TxHistoryEntry, deriveAddrHistory,
                                               deriveAddrHistoryPartial, getRelatedTxs)
 import           Pos.Wallet.Web.State        (WalletWebDB (..))
+import           Pos.WorkMode                (MinWorkMode, RawRealMode)
 
 -- | A class which have the methods to get state of address' balance
 class Monad m => MonadBalances m where
@@ -333,7 +334,8 @@ instance MonadIO m => MonadUpdates (WalletDB m) where
 -- | Instance for full node
 instance (Ssc ssc, MonadIO m, WithLogger m) =>
          MonadUpdates (PC.ContextHolder ssc m) where
-    waitForUpdate = liftIO . takeMVar . PC.ncUpdateSemaphore =<< PC.getNodeContext
+    waitForUpdate = liftIO . takeMVar =<<
+                        askContext @UpdateContext ucUpdateSemaphore
     applyLastUpdate = triggerShutdown
 
 ---------------------------------------------------------------

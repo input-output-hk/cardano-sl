@@ -18,16 +18,14 @@ import           System.Wlog          (WithLogger, logError, modifyLoggerName)
 import           Universum
 
 import           Pos.Constants        (lastKnownBlockVersion)
-import           Pos.Context          (WithNodeContext)
+import           Pos.Core             (ApplicationName, BlockVersion, NumSoftwareVersion,
+                                       SoftwareVersion (..), addressHash, blockVersionL,
+                                       epochIndexL, headerHashG, headerLeaderKeyL,
+                                       headerSlotL)
 import qualified Pos.DB               as DB
+import           Pos.Lrc.Context      (LrcContext)
 import           Pos.Slotting         (SlottingData)
-import           Pos.Ssc.Class        (SscHelpersClass)
-import           Pos.Types            (ApplicationName, Block, BlockVersion,
-                                       NumSoftwareVersion, SoftwareVersion (..),
-                                       addressHash, blockSlot, epochIndexL, gbBody,
-                                       gbHeader, gbhConsensus, gbhExtra, headerHash,
-                                       mbUpdatePayload, mcdLeaderKey, mehBlockVersion)
-import           Pos.Update.Core      (BlockVersionData, UpId)
+import           Pos.Update.Core      (BlockVersionData, UpId, UpdateBlock)
 import           Pos.Update.DB        (UpdateOp (..))
 import           Pos.Update.Error     (USError (USInternalError))
 import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState,
@@ -36,19 +34,19 @@ import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState
                                        execRollT, processGenesisBlock,
                                        recordBlockIssuance, rollbackUS, runDBPoll,
                                        runPollT, verifyAndApplyUSPayload)
-import           Pos.Util             (NE, NewestFirst, OldestFirst, Some (..),
-                                       inAssertMode)
+import           Pos.Util             (NE, NewestFirst, OldestFirst, inAssertMode)
+import           Pos.Util.Context     (HasContext)
 import qualified Pos.Util.Modifier    as MM
 
-type USGlobalApplyMode ssc m = ( WithLogger m
-                               , DB.MonadDB m
-                               , SscHelpersClass ssc
-                               , WithNodeContext ssc m)
-type USGlobalVerifyMode ssc m = ( DB.MonadDB m
-                                , MonadError PollVerFailure m
-                                , SscHelpersClass ssc
-                                , WithNodeContext ssc m
-                                , WithLogger m)
+type USGlobalApplyMode m = ( WithLogger m
+                           , DB.MonadDB m
+                           , HasContext LrcContext m
+                           )
+type USGlobalVerifyMode m = ( WithLogger m
+                            , DB.MonadDB m
+                            , HasContext LrcContext m
+                            , MonadError PollVerFailure m
+                            )
 
 withUSLogger :: WithLogger m => m a -> m a
 withUSLogger = modifyLoggerName (<> "us")
@@ -60,8 +58,8 @@ withUSLogger = modifyLoggerName (<> "us")
 -- application, one can pass 'PollModifier' obtained from verification
 -- to this function.
 usApplyBlocks
-    :: (MonadThrow m, USGlobalApplyMode ssc m)
-    => OldestFirst NE (Block ssc)
+    :: (MonadThrow m, USGlobalApplyMode m)
+    => OldestFirst NE UpdateBlock
     -> Maybe PollModifier
     -> m [DB.SomeBatchOp]
 usApplyBlocks blocks modifierMaybe = withUSLogger $
@@ -87,9 +85,9 @@ usApplyBlocks blocks modifierMaybe = withUSLogger $
 -- data. The caller must ensure that the tip stored in DB is 'headerHash' of
 -- head.
 usRollbackBlocks
-    :: forall ssc m.
-       USGlobalApplyMode ssc m
-    => NewestFirst NE (Block ssc, USUndo) -> m [DB.SomeBatchOp]
+    :: forall m.
+       USGlobalApplyMode m
+    => NewestFirst NE (UpdateBlock, USUndo) -> m [DB.SomeBatchOp]
 usRollbackBlocks blunds = withUSLogger $
     modifierToBatch <$>
     (runDBPoll . execPollT def $ mapM_ (rollbackUS . snd) blunds)
@@ -99,38 +97,38 @@ usRollbackBlocks blunds = withUSLogger $
 -- are assumed to be done earlier, most likely during objects
 -- construction.
 usVerifyBlocks
-    :: (USGlobalVerifyMode ssc m)
-    => OldestFirst NE (Block ssc) -> m (PollModifier, OldestFirst NE USUndo)
+    :: (USGlobalVerifyMode m)
+    => OldestFirst NE UpdateBlock -> m (PollModifier, OldestFirst NE USUndo)
 usVerifyBlocks blocks = withUSLogger $ swap <$> run (mapM verifyBlock blocks)
   where
     run = runDBPoll . runPollT def
 
 verifyBlock
-    :: (USGlobalVerifyMode ssc m, MonadPoll m)
-    => Block ssc -> m USUndo
+    :: (USGlobalVerifyMode m, MonadPoll m)
+    => UpdateBlock -> m USUndo
 verifyBlock (Left genBlk) =
     execRollT $ processGenesisBlock (genBlk ^. epochIndexL)
-verifyBlock (Right blk) =
+verifyBlock (Right (header, payload)) =
     execRollT $ do
         verifyAndApplyUSPayload
             True
-            (Right $ Some (blk ^. gbHeader))
-            (blk ^. gbBody . mbUpdatePayload)
+            (Right header)
+            payload
         -- Block issuance can't affect verification and application of US
         -- payload, so it's fine to separate it. Note, however, that it's
         -- important to do it after 'verifyAndApplyUSPayload', because there
         -- we assume that block version is confirmed.
-        let leaderPk = blk ^. gbHeader . gbhConsensus . mcdLeaderKey
+        let leaderPk = header ^. headerLeaderKeyL
         recordBlockIssuance
             (addressHash leaderPk)
-            (blk ^. gbHeader . gbhExtra . mehBlockVersion)
-            (blk ^. blockSlot)
-            (headerHash blk)
+            (header ^. blockVersionL)
+            (header ^. headerSlotL)
+            (header ^. headerHashG)
 
 -- | Checks whether our software can create block according to current
 -- global state.
 usCanCreateBlock
-    :: (WithLogger m, WithNodeContext ssc m, DB.MonadDB m)
+    :: (WithLogger m, DB.MonadDB m, HasContext LrcContext m)
     => m Bool
 usCanCreateBlock =
     withUSLogger $ runDBPoll $ canCreateBlockBV lastKnownBlockVersion

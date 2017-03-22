@@ -13,7 +13,7 @@ import           Pos.Binary            ()
 import qualified Pos.CLI               as CLI
 import           Pos.Communication     (ActionSpec (..))
 import           Pos.Constants         (isDevelopment, staticSysStart)
-import           Pos.Context           (getNodeContext, ncUpdateSemaphore)
+import           Pos.Context           (getNodeContext)
 import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.Genesis           (genesisDevSecretKeys, genesisStakeDistribution,
                                         genesisUtxo)
@@ -28,6 +28,7 @@ import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing,
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import           Pos.Ssc.SscAlgo       (SscAlgo (..))
 import           Pos.Types             (Timestamp (Timestamp))
+import           Pos.Update.Context    (ucUpdateSemaphore)
 import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
 import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usPrimKey, usVss,
@@ -43,6 +44,7 @@ import           Pos.Wallet.Web        (walletServeWebFull, walletServerOuts)
 import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
 #endif
 #endif
+import           Pos.Util.Context      (askContext)
 
 import           NodeOptions           (Args (..), getNodeOptions)
 
@@ -242,7 +244,7 @@ updateTriggerWorker
     => ([WorkerSpec (RawRealMode ssc)], OutSpecs)
 updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     logInfo "Update trigger worker is locked"
-    void $ liftIO . takeMVar . ncUpdateSemaphore =<< getNodeContext
+    void $ liftIO . takeMVar =<< askContext ucUpdateSemaphore
     triggerShutdown
 
 walletServe

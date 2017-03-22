@@ -92,6 +92,7 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
                                               stopDHTInstance)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
+import           Pos.Lrc.Context             (LrcContext (..))
 import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.Slotting                (SlottingVar, mkNtpSlottingVar,
                                               runNtpSlotting, runSlottingHolder)
@@ -102,6 +103,7 @@ import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscH
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp                     (runTxpHolder)
 import           Pos.Types                   (Timestamp (Timestamp))
+import           Pos.Update.Context          (UpdateContext (..))
 import qualified Pos.Update.DB               as GState
 import           Pos.Update.MemState         (runUSHolder)
 import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
@@ -358,13 +360,15 @@ runCH params@NodeParams {..} sscNodeContext act = do
             { ncJLFile = jlFile
             , ncSscContext = sscNodeContext
             , ncBlkSemaphore = semaphore
-            , ncLrcSync = lrcSync
+            , ncLrcContext = LrcContext
+                { lcLrcSync = lrcSync }
+            , ncUpdateContext = UpdateContext
+                { ucUpdateSemaphore = updSemaphore }
             , ncUserSecret = userSecretVar
             , ncBlockRetrievalQueue = queue
             , ncInvPropagationQueue = propQueue
             , ncRecoveryHeader = recoveryHeaderVar
             , ncProgressHeader = progressHeader
-            , ncUpdateSemaphore = updSemaphore
             , ncShutdownFlag = shutdownFlag
             , ncShutdownNotifyQueue = shutdownQueue
             , ncNodeParams = params

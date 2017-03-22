@@ -84,10 +84,12 @@ encodeHashHex = decodeUtf8 . B16.encode . Bi.encodeStrict
 
 decodeHashHex :: Text -> Either Text (Hash a)
 decodeHashHex = fmap Bi.decode . processRes . B16.decode . encodeUtf8
-  where processRes (res, rest) =
-            if BS.null rest
-            then Right $ BSL.fromStrict res
-            else Left $ "decodeHashHex: couldn't decode rest of hash: " <> decodeUtf8 rest
+  where
+    processRes :: (ByteString, ByteString) -> Either Text LByteString
+    processRes (res, rest) =
+        if BS.null rest
+        then Right $ BSL.fromStrict res
+        else Left $ "decodeHashHex: couldn't decode rest of hash: " <> decodeUtf8 rest
 
 decodeHashHex' :: Text -> Hash a
 decodeHashHex' = either (error "decodeHashHex: invalid hash") identity . decodeHashHex

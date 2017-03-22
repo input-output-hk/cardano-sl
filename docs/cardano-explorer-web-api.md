@@ -1,8 +1,16 @@
-## Documentation of cardano-explorer web API
+## Explorer Backend API
 
-This is very first version, don't expect it to be smart.
+Currently, the explorer's API provides a series of methods to work with `cardano-sl`. The `servant` Haskell library that provides a modular approach to API-building was used. This library uses combinators to both build atomic HTTP actions and to glue these atomic methods together to form larger and more complete APIs.
+
+If the event requests fail, there is a `ExplorerError` type, which is simply a wrapper over `Text` to show what happened.
+
+Currently, the explorer's API supports the following operations (see Comments below):
 
 ## GET /api/addresses/summary/:address
+
+#### Description
+
+Get address summary.
 
 #### Authentication
 
@@ -48,6 +56,10 @@ Clients must supply the following data
 ```
 
 ## GET /api/blocks/last
+
+#### Description
+
+Get last block.
 
 #### Authentication
 
@@ -187,6 +199,10 @@ Clients must supply the following data
 
 ## GET /api/blocks/summary/:hash
 
+#### Description
+
+Get block summary.
+
 #### Authentication
 
 
@@ -239,6 +255,10 @@ Clients must supply the following data
 ```
 
 ## GET /api/blocks/txs/:hash
+
+#### Description
+
+Get block transactions.
 
 #### Authentication
 
@@ -358,6 +378,10 @@ Clients must supply the following data
 
 ## GET /api/search/:hash
 
+#### Description
+
+Search for transaction, block or address.
+
 #### Authentication
 
 
@@ -405,6 +429,10 @@ Clients must supply the following data
 ```
 
 ## GET /api/txs/last
+
+#### Description
+
+Get last transaction.
 
 #### Authentication
 
@@ -519,6 +547,10 @@ Clients must supply the following data
 ```
 
 ## GET /api/txs/summary/:txid
+
+#### Description
+
+Get transaction summary.
 
 #### Authentication
 

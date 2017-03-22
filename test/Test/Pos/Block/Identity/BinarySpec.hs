@@ -6,17 +6,17 @@ module Test.Pos.Block.Identity.BinarySpec
        ( spec
        ) where
 
-import           Test.Hspec                 (Spec, describe)
+import           Test.Hspec          (Spec, describe)
 import           Universum
 
-import           Pos.Block.Arbitrary        ()
-import qualified Pos.Block.Network          as BT
-import qualified Pos.Communication          ()
-import           Pos.Ssc.GodTossing         (SscGodTossing)
-import           Pos.Ssc.NistBeacon         (SscNistBeacon)
-import qualified Pos.Types                  as BT
+import           Pos.Block.Arbitrary ()
+import qualified Pos.Block.Network   as BT
+import qualified Pos.Communication   ()
+import           Pos.Ssc.GodTossing  (SscGodTossing)
+import           Pos.Ssc.NistBeacon  (SscNistBeacon)
+import qualified Pos.Types           as BT
 
-import           Test.Pos.Util              (binaryTest, networkBinaryTest)
+import           Test.Pos.Util       (binaryTest, networkBinaryTest)
 
 spec :: Spec
 spec = describe "Block types" $ do

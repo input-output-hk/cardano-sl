@@ -36,9 +36,9 @@ import           Pos.Communication     (Limit (..), MessageLimitedPure (..))
 import           Test.Hspec            (Expectation, Selector, Spec, describe,
                                         shouldThrow)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck       (Arbitrary (arbitrary), Property, (===), (.&&.),
-                                        conjoin, counterexample, forAll, property, resize,
-                                        suchThat, vectorOf)
+import           Test.QuickCheck       (Arbitrary (arbitrary), Property, conjoin,
+                                        counterexample, forAll, property, resize,
+                                        suchThat, vectorOf, (.&&.), (===))
 
 import           Universum
 

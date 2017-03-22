@@ -1,5 +1,5 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE DataKinds    #-}
+{-# LANGUAGE RankNTypes   #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- | Pos.Util specification

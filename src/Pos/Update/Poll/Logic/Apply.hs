@@ -294,9 +294,7 @@ applyDepthCheck hh cd
     | otherwise = do
         deepProposals <- getDeepProposals (cd - blkSecurityParam)
         let winners =
-                concatMap toList $
-                map resetAllDecisions $
-                map (NE.sortBy proposalCmp) $
+                concatMap (toList . resetAllDecisions . NE.sortBy proposalCmp) $
                 NE.groupWith groupCriterion deepProposals
         mapM_ applyDepthCheckDo winners
   where

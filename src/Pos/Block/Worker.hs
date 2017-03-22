@@ -13,7 +13,6 @@ import           Control.Lens                (ix)
 import           Data.Default                (def)
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
-import           Pos.Communication.Protocol  (SendActions)
 import           Serokell.Util               (VerificationRes (..), listJson, pairF)
 import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
@@ -22,7 +21,7 @@ import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
-import           Pos.Communication.Protocol  (OutSpecs, Worker', WorkerSpec,
+import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', WorkerSpec,
                                               onNewSlotWorker)
 import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (getNodeContext, ncPublicKey)

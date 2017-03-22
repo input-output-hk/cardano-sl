@@ -29,8 +29,6 @@ import           Data.Serialize        (runGet, runPut)
 import           Data.Typeable         (typeRep)
 import           Formatting            (formatToString, int, (%))
 import           Prelude               (read)
-import           Test.QuickCheck       (arbitrary, conjoin, counterexample, forAll,
-                                        property, resize, suchThat, vectorOf, (.&&.))
 
 import           Pos.Binary            (AsBinaryClass (..), Bi (..), encode)
 import           Pos.Communication     (Limit (..), MessageLimitedPure (..))
@@ -38,7 +36,10 @@ import           Pos.Communication     (Limit (..), MessageLimitedPure (..))
 import           Test.Hspec            (Expectation, Selector, Spec, describe,
                                         shouldThrow)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck       (Arbitrary, Property, (===))
+import           Test.QuickCheck       (Arbitrary (arbitrary), Property, (===), (.&&.),
+                                        conjoin, counterexample, forAll, property, resize,
+                                        suchThat, vectorOf)
+
 import           Universum
 
 binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
@@ -80,7 +81,7 @@ networkBinaryEncodeDecode a = stage1 $ runGetIncremental get
         stage3 $ continue Nothing
 
     -- all data consumed, but parser wants more input
-    stage3 (Done _ _ _) =
+    stage3 (Done {}) =
         failText "Parser tried to check, at end of the input, \
             \whether input ends - this is not allowed"
     stage3 (Fail _ _ why) =

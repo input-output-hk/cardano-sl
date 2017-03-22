@@ -46,7 +46,7 @@ normalizeProposals
     :: MonadPoll m
     => SlotId -> UpdateProposals -> m UpdateProposals
 normalizeProposals slotId (toList -> proposals) =
-    HM.fromList . map (\x->(hash x, x)) . map fst . catRights proposals <$>
+    HM.fromList . map ((\x->(hash x, x)) . fst) . catRights proposals <$>
     forM proposals
         (runExceptT . verifyAndApplyProposal False (Left slotId) [])
 

@@ -11,7 +11,7 @@ module Pos.Communication.Limits.Instances
        (
        ) where
 
-import           Control.Lens                   (both, each, ix)
+import           Control.Lens                   (each, ix)
 import           Data.Binary.Get                (getWord8, lookAhead)
 import           Universum
 

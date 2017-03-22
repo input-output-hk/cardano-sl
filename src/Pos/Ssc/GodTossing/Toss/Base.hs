@@ -413,8 +413,7 @@ verifyEntriesGuardM
     -> m ()
 verifyEntriesGuardM fKey fVal exception cond lst =
     maybeThrowError exception =<<
-    nonEmpty <$>
-    map fKey <$>
+    (nonEmpty . map fKey) <$>
     filterM f lst
   where
     f x = not <$> cond (fVal x)

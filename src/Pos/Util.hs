@@ -260,9 +260,8 @@ clearMVar = liftIO . void . tryTakeMVar
 
 forcePutMVar :: MonadIO m => MVar a -> a -> m ()
 forcePutMVar mvar val = do
-    res <- liftIO $ tryPutMVar mvar val
-    unless res $ do
-        _ <- liftIO $ tryTakeMVar mvar
+    unlessM (tryPutMVar mvar val) $ do
+        _ <- tryTakeMVar mvar
         forcePutMVar mvar val
 
 -- | Block until value in MVar satisfies given predicate. When value

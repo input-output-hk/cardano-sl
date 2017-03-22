@@ -302,6 +302,8 @@ addToBlockRequestQueue
     -> BlockHeader ssc
     -> m ()
 addToBlockRequestQueue headers peerId origTip = do
+    wasInRecoveryMode <- isRecoveryMode
+    logDebug $ sformat ("At start of addToBlockRequestQueue, isRecoveryMode="%shown) wasInRecoveryMode
     queue <- ncBlockRetrievalQueue <$> getNodeContext
     recHeaderVar <- ncRecoveryHeader <$> getNodeContext
     lastKnownH <- ncLastKnownHeader <$> getNodeContext
@@ -322,6 +324,8 @@ addToBlockRequestQueue headers peerId origTip = do
         ifM (isFullTBQueue queue)
             (pure False)
             (True <$ writeTBQueue queue (peerId, headers))
+    isInRecoveryMode <- isRecoveryMode
+    logDebug $ sformat ("At end of addToBlockRequestQueue, isRecoveryMode="%shown) isInRecoveryMode
     if added
     then logDebug $ sformat ("Added to block request queue: peerId="%build%
                              ", headers="%listJson)

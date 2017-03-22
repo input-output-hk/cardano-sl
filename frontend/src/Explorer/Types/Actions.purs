@@ -20,8 +20,8 @@ data Action
     | GenerateQrCode CAddress
     -- socket endpoints
     | SocketConnected Boolean
-    | SocketLatestBlocks (Either Error CBlockEntries)
-    | SocketLatestTransactions (Either Error CTxEntries)
+    | SocketBlocksUpdated (Either Error CBlockEntries)
+    | SocketTxsUpdated (Either Error CTxEntries)
     -- socket endpoints for debugging only
     | SocketCallMe
     | SocketCallMeString String

@@ -11,8 +11,8 @@ import Data.String (Pattern(..), Replacement(..), replaceAll)
 import Debug.Trace (traceAnyM, traceShowM)
 import Explorer.Api.Helper (decodeResult', encodeJson)
 import Explorer.Types.Actions (Action(..), ActionChannel)
-import Pos.Explorer.Web.ClientTypes (CTxId)
 import Pos.Explorer.Socket.Methods (ClientEvent, ServerEvent)
+import Pos.Explorer.Web.ClientTypes (CTxId)
 import Signal.Channel (CHANNEL, send)
 
 
@@ -42,12 +42,6 @@ connectEvent = "connect"
 closeEvent :: Event
 closeEvent = "close"
 
-lastestBlocksEvent :: Event
-lastestBlocksEvent = "latestBlocks"
-
-lastestTransactionsEvent :: Event
-lastestTransactionsEvent = "latestTransactions"
-
 -- event handler
 
 connectHandler :: forall eff. ActionChannel -> Foreign
@@ -60,17 +54,18 @@ closeHandler :: forall eff. ActionChannel -> Foreign
 closeHandler channel _ =
     send channel $ SocketConnected false
 
-latestBlocksHandler :: forall eff. ActionChannel -> Json
+blocksUpdatedEventHandler :: forall eff. ActionChannel -> Json
     -> Eff (channel :: CHANNEL | eff) Unit
-latestBlocksHandler channel json =
+blocksUpdatedEventHandler channel json =
     let result = decodeResult' json in
-    send channel $ SocketLatestBlocks result
+    send channel $ SocketBlocksUpdated result
 
-latestTransactionsHandler :: forall eff. ActionChannel -> Json
+
+txsUpdatedHandler :: forall eff. ActionChannel -> Json
     -> Eff (channel :: CHANNEL | eff) Unit
-latestTransactionsHandler channel json =
+txsUpdatedHandler channel json =
     let result = decodeResult' json in
-    send channel $ SocketLatestTransactions result
+    send channel $ SocketTxsUpdated result
 
 -- all following event handler are for debugging only
 

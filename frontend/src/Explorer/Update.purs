@@ -36,18 +36,18 @@ update (SetLanguage lang) state = noEffects $ state { lang = lang }
 
 update (SocketConnected status) state = noEffects $
     set (socket <<< connected) status state
-update (SocketLatestBlocks (Right blocks)) state = noEffects $
+update (SocketBlocksUpdated (Right blocks)) state = noEffects $
     if state ^. handleLatestBlocksSocketResult
     -- add incoming blocks ahead of previous blocks
     then over latestBlocks (\b -> blocks <> b) state
     else state
-update (SocketLatestBlocks (Left error)) state = noEffects $
+update (SocketBlocksUpdated (Left error)) state = noEffects $
     -- add incoming errors ahead of previous errors
     over errors (\errors' -> (show error) : errors') state
-update (SocketLatestTransactions (Right transactions)) state = noEffects $
+update (SocketTxsUpdated (Right transactions)) state = noEffects $
     -- add incoming transactions ahead of previous transactions
     over latestTransactions (\t -> transactions <> t) state
-update (SocketLatestTransactions (Left error)) state = noEffects $
+update (SocketTxsUpdated (Left error)) state = noEffects $
     -- add incoming errors ahead of previous errors
     over errors (\errors' -> (show error) : errors') state
 update SocketCallMe state =

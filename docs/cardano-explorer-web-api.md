@@ -356,6 +356,54 @@ Clients must supply the following data
 }
 ```
 
+## GET /api/search/:hash
+
+#### Authentication
+
+
+
+Clients must supply the following data
+
+
+#### Captures:
+
+- *hash*: Search id by which the user can find address, block or transaction
+
+#### Response:
+
+- Status code 200
+- Headers: []
+
+- Supported content types are:
+
+    - `application/json`
+
+- Sample error
+
+```javascript
+{
+    "Left": "This is an example error"
+}
+```
+
+- Sample search result, address found
+
+```javascript
+{
+    "Right": {
+        "tag": "AddressFound",
+        "contents": {
+            "caTxList": [],
+            "caBalance": {
+                "getCoin": 0
+            },
+            "caAddress": "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv",
+            "caTxNum": 0
+        }
+    }
+}
+```
+
 ## GET /api/txs/last
 
 #### Authentication

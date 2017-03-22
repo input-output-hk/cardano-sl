@@ -15,7 +15,7 @@ import Explorer.Types.State (State) as Ex
 import Explorer.Update (update) as Ex
 import Explorer.View.Layout (view)
 import Network.HTTP.Affjax (AJAX)
-import Pos.Explorer.Web.Sockets.Methods (ServerEvent(..))
+import Pos.Explorer.Socket.Methods (ServerEvent(..))
 import Prelude (($), (<<<), bind, pure)
 import Pux (App, Config, CoreEffects, Update, renderToDOM, start)
 import Pux.Devtool (Action, start) as Pux.Devtool

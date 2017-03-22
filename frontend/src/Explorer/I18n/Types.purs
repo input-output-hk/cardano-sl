@@ -50,6 +50,7 @@ type Common =
     , cHours :: String
     , cMinutes :: String
     , cSeconds :: String
+    , cDateFormat :: String
     }
 
 -- translations of main navigation

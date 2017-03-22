@@ -6,7 +6,7 @@ import Data.Either (Either)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Explorer.Types.State (DashboardAPICode, CBlockEntries, CTxEntries)
-import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId)
+import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
 import Signal.Channel (Channel)
 
 data Action
@@ -16,6 +16,8 @@ data Action
     -- DOM
     | ScrollTop
     | SelectInputText HTMLInputElement
+    -- QR code
+    | GenerateQrCode CAddress
     -- socket endpoints
     | SocketConnected Boolean
     | SocketLatestBlocks (Either Error CBlockEntries)
@@ -33,6 +35,8 @@ data Action
     | ReceiveBlockTxs (Either Error CTxEntries)
     | RequestInitialTxs
     | ReceiveInitialTxs (Either Error CTxEntries)
+    | RequestTxSummary CTxId
+    | ReceiveTxSummary (Either Error CTxSummary)
     | RequestAddressSummary CAddress
     | ReceiveAddressSummary (Either Error CAddressSummary)
     -- dashboard
@@ -43,7 +47,7 @@ data Action
     | DashboardSearch                       -- dasboard search
     | DashboardFocusSearchInput Boolean
     -- address detail
-    | AddressPaginateTransactions Int       -- current pagination of transactions
+    | AddressPaginateTxs Int       -- current pagination of transactions
     -- block detail
     | BlockPaginateTransactions Int       -- current pagination of transactions
     -- misc

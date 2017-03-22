@@ -4,7 +4,7 @@ import Control.SocketIO.Client (Socket)
 import Data.Maybe (Maybe)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
-import Pos.Explorer.Web.ClientTypes (CAddressSummary, CBlockEntry, CBlockSummary, CTxEntry)
+import Pos.Explorer.Web.ClientTypes (CAddressSummary, CBlockEntry, CBlockSummary, CTxEntry, CTxSummary)
 import Prelude (class Eq, class Ord)
 
 -- Add all State types here to generate lenses from it
@@ -19,8 +19,9 @@ type State =
     , handleLatestBlocksSocketResult :: Boolean
     , initialTxsRequested :: Boolean
     , handleLatestTxsSocketResult :: Boolean
-    , currentBlock :: Maybe CBlockSummary
+    , currentBlockSummary :: Maybe CBlockSummary
     , currentBlockTxs :: CTxEntries
+    , currentTxSummary :: Maybe CTxSummary
     , latestTransactions :: CTxEntries
     , currentAddressSummary :: Maybe CAddressSummary
     , errors :: Errors

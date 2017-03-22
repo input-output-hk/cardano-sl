@@ -50,6 +50,7 @@ library
                       , engine-io
                       , engine-io-snap
                       , exceptions
+                      , either
                       , formatting
                       , lens
                       , log-warper

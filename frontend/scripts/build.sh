@@ -8,6 +8,7 @@ pushd ..
 stack --nix build --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
 stack --nix exec -- cardano-explorer-hs2purs --bridge-path frontend/src/Generated/
 popd
+nix-shell --run "rm -rf .psci_modules/ .pulp-cache/ node_modules/ bower_components/ output/"
 nix-shell --run "npm install"
 nix-shell --run ./scripts/generate-backend-lenses.sh
 nix-shell --run ./scripts/generate-frontend-lenses.sh

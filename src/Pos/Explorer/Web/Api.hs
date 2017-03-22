@@ -12,8 +12,8 @@ import           Data.Proxy                   (Proxy (Proxy))
 
 import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary,
                                                CBlockEntry, CBlockSummary,
-                                               CHash, CTxEntry, CTxId,
-                                               CTxSummary)
+                                               CSearchId, CHash, CTxEntry, CTxId,
+                                               CTxSummary, CHashSearchResult)
 import           Pos.Explorer.Web.Error       (ExplorerError)
 import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
                                                QueryParam)
@@ -60,6 +60,11 @@ type ExplorerApi =
       :> "summary"
       :> Capture "address" CAddress
       :> Get '[JSON] (Either ExplorerError CAddressSummary)
+    :<|>
+      "api"
+      :> "search"
+      :> Capture "hash" CSearchId
+      :> Get '[JSON] (Either ExplorerError CHashSearchResult)
 
 -- | Helper Proxy
 explorerApi :: Proxy ExplorerApi

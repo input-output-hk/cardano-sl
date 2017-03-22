@@ -12,7 +12,7 @@ import Debug.Trace (traceAnyM, traceShowM)
 import Explorer.Api.Helper (decodeResult', encodeJson)
 import Explorer.Types.Actions (Action(..), ActionChannel)
 import Pos.Explorer.Web.ClientTypes (CTxId)
-import Pos.Explorer.Web.Sockets.Methods (ClientEvent, ServerEvent)
+import Pos.Explorer.Socket.Methods (ClientEvent, ServerEvent)
 import Signal.Channel (CHANNEL, send)
 
 
@@ -32,7 +32,7 @@ instance socketEventServerEvent :: SocketEvent ClientEvent where
 instance socketEventClientEvent :: SocketEvent ServerEvent where
     toEvent = cleanEventName <<< show <<< encodeJson
 
--- | Helper function to remove """ from event names 
+-- | Helper function to remove """ from event names
 cleanEventName :: Event -> Event
 cleanEventName = replaceAll (Pattern "\"") (Replacement "")
 

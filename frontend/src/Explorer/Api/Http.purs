@@ -9,15 +9,14 @@ import Data.Either (Either(..), either)
 import Data.Generic (class Generic)
 import Data.HTTP.Method (Method(..))
 import Data.Lens ((^.))
-import Debug.Trace (trace, traceAny)
 import Explorer.Api.Helper (decodeResult)
 import Explorer.Api.Types (EndpointError(..), Endpoint)
 import Explorer.Types.State (CBlockEntries, CTxEntries)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
-import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash)
-import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CAddress)
+import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CBlockSummary, CHash(..), CTxId, CTxSummary)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId)
 
 endpointPrefix :: String
 -- endpointPrefix = "http://localhost:8100/api/"
@@ -39,7 +38,7 @@ request req endpoint = do
       isHttpError (StatusCode c) = c >= 400
 
 get :: forall eff a. Generic a => Endpoint -> Aff (ajax :: AJAX | eff) a
-get e = trace "get" \_ -> traceAny e \_ -> request defaultRequest e
+get e = request defaultRequest e
 
 post :: forall eff a. Generic a => Endpoint -> Aff (ajax :: AJAX | eff) a
 post = request $ defaultRequest { method = Left POST }
@@ -51,15 +50,18 @@ fetchLatestBlocks :: forall eff. Aff (ajax::AJAX | eff) CBlockEntries
 fetchLatestBlocks = get "blocks/last"
 
 fetchBlockSummary :: forall eff. CHash -> Aff (ajax::AJAX | eff) CBlockSummary
-fetchBlockSummary hash = get $ "blocks/summary/" <> hash ^. _CHash
+fetchBlockSummary (CHash hash) = get $ "blocks/summary/" <> hash
 
 fetchBlockTxs :: forall eff. CHash -> Aff (ajax::AJAX | eff) CTxEntries
-fetchBlockTxs hash = get $ "blocks/txs/" <> hash ^. _CHash
+fetchBlockTxs (CHash hash) = get $ "blocks/txs/" <> hash
 
 -- txs
 fetchLatestTxs :: forall eff. Aff (ajax::AJAX | eff) CTxEntries
 fetchLatestTxs = get "txs/last"
 
+fetchTxSummary :: forall eff. CTxId -> Aff (ajax::AJAX | eff) CTxSummary
+fetchTxSummary id = get $ "txs/summary/" <> id ^. (_CTxId <<< _CHash)
+
 -- addresses
 fetchAddressSummary :: forall eff. CAddress -> Aff (ajax::AJAX | eff) CAddressSummary
-fetchAddressSummary address = get $ "addresses/summary/" <> address ^. _CAddress
+fetchAddressSummary (CAddress address) = get $ "addresses/summary/" <> address

@@ -21,6 +21,7 @@ module Daedalus.Types
        , mkBackupPhrase
        , mkCWalletRedeem
        , mkCInitialized
+       , mkCPassPhrase
        ) where
 
 import Prelude
@@ -45,7 +46,7 @@ import Data.Array (length, filter)
 import Partial.Unsafe (unsafePartial)
 import Data.String (split, null, trim, joinWith, Pattern (..))
 
-import Daedalus.Crypto (isValidMnemonic)
+import Daedalus.Crypto (isValidMnemonic, toUrlSafe, blake2b, bytesToB64)
 import Data.Types (mkTime)
 import Data.Types as DT
 
@@ -92,6 +93,9 @@ _address (CAddress a) = _hash a
 
 _passPhrase :: CPassPhrase -> String
 _passPhrase (CPassPhrase p) = p
+
+mkCPassPhrase :: String -> CPassPhrase
+mkCPassPhrase = CPassPhrase <<< toUrlSafe <<< bytesToB64 <<< blake2b
 
 mkCAddress :: String -> CAddress
 mkCAddress = CAddress <<< CHash

@@ -107,7 +107,7 @@ deleteWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) Unit
 deleteWallet addr = deleteR ["wallets", _address addr]
 
 importKey :: forall eff. String -> Aff (ajax :: AJAX | eff) CWallet
-importKey pass = postRBody ["wallets", "keys", _passPhrase pass]
+importKey = postRBody ["wallets", "keys"]
 
 restoreWallet :: forall eff. CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
 restoreWallet pass = postRBody ["wallets", "restore", _passPhrase pass]

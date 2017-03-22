@@ -6,7 +6,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkCWalletInitIgnoreChecksum, mkBackupPhrase, mkCInitialized, CPassPhrase (..))
+import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkCWalletInitIgnoreChecksum, mkBackupPhrase, mkCInitialized, mkCPassPhrase)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
@@ -49,7 +49,7 @@ searchHistory = mkEffFn4 \addr search skip limit -> fromAff <<< map encodeJson $
 send :: forall eff. EffFn4 (ajax :: AJAX | eff) String String String Int (Promise Json)
 send = mkEffFn4 \pass addrFrom addrTo amount -> fromAff <<< map encodeJson $
     B.send
-        (CPassPhrase pass)
+        (mkCPassPhrase pass)
         (mkCAddress addrFrom)
         (mkCAddress addrTo)
         (mkCoin amount)
@@ -57,7 +57,7 @@ send = mkEffFn4 \pass addrFrom addrTo amount -> fromAff <<< map encodeJson $
 sendExtended :: forall eff. EffFn7 (ajax :: AJAX | eff) String String String Int String String String (Promise Json)
 sendExtended = mkEffFn7 \pass addrFrom addrTo amount curr title desc -> fromAff <<< map encodeJson $
     B.sendExtended
-        (CPassPhrase pass)
+        (mkCPassPhrase pass)
         (mkCAddress addrFrom)
         (mkCAddress addrTo)
         (mkCoin amount)
@@ -75,7 +75,7 @@ isValidMnemonic = mkEffFn1 $ pure <<< either (const false) (const true) <<< mkBa
 newWallet :: forall eff . EffFn5 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String String String String
   (Promise Json)
 newWallet = mkEffFn5 \pass wType wCurrency wName mnemonic -> fromAff <<< map encodeJson <<<
-    either throwError (B.newWallet $ CPassPhrase pass) $ mkCWalletInit wType wCurrency wName mnemonic
+    either throwError (B.newWallet $ mkCPassPhrase pass) $ mkCWalletInit wType wCurrency wName mnemonic
 
 -- NOTE: https://issues.serokell.io/issue/DAE-33#comment=96-1798
 -- Daedalus.ClientApi.newWallet(
@@ -141,10 +141,10 @@ blockchainSlotDuration :: forall eff. Eff (ajax :: AJAX | eff) (Promise Int)
 blockchainSlotDuration = fromAff B.blockchainSlotDuration
 
 restoreWallet :: forall eff. EffFn5 (ajax :: AJAX | eff) String String String String String (Promise Json)
-restoreWallet = mkEffFn5 \pass wType wCurrency wName -> fromAff <<< map encodeJson <<< either throwError (B.restoreWallet $ CPassPhrase pass) <<< mkCWalletInit wType wCurrency wName
+restoreWallet = mkEffFn5 \pass wType wCurrency wName -> fromAff <<< map encodeJson <<< either throwError (B.restoreWallet $ mkCPassPhrase pass) <<< mkCWalletInit wType wCurrency wName
 
 restoreWalletIgnoreChecksum :: forall eff. EffFn5 (ajax :: AJAX | eff) String String String String String (Promise Json)
-restoreWalletIgnoreChecksum = mkEffFn5 \pass wType wCurrency wName -> fromAff <<< map encodeJson <<< either throwError (B.restoreWallet $ CPassPhrase pass) <<< mkCWalletInitIgnoreChecksum wType wCurrency wName
+restoreWalletIgnoreChecksum = mkEffFn5 \pass wType wCurrency wName -> fromAff <<< map encodeJson <<< either throwError (B.restoreWallet $ mkCPassPhrase pass) <<< mkCWalletInitIgnoreChecksum wType wCurrency wName
 
 nextUpdate :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 nextUpdate = fromAff $ map encodeJson B.nextUpdate
@@ -161,8 +161,8 @@ redeemADA = mkEffFn2 \seed -> fromAff <<< map encodeJson <<< B.redeemADA <<< mkC
 reportInit :: forall eff. EffFn2 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) Int Int (Promise Unit)
 reportInit = mkEffFn2 \total -> fromAff <<< B.reportInit <<< mkCInitialized total
 
-importKey :: forall eff. EffFn2 (ajax :: AJAX | eff) String String (Promise Json)
-importKey = mkEffFn2 $ \pass -> fromAff <<< map encodeJson <<< B.importKey (CPassPhrase pass)
+importKey :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
+importKey = mkEffFn1 $ fromAff <<< map encodeJson <<< B.importKey
 
 syncProgress :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 syncProgress = fromAff $ map encodeJson B.syncProgress

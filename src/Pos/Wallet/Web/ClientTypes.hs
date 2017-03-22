@@ -19,6 +19,7 @@ module Pos.Wallet.Web.ClientTypes
       , CInitialized (..)
       , CWallet (..)
       , CWalletType (..)
+      , CWalletAssurance (..)
       , CWalletMeta (..)
       , CWalletInit (..)
       , CUpdateInfo (..)
@@ -47,14 +48,18 @@ import           Pos.Aeson.Types        ()
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core.Types         (ScriptVersion)
 import           Pos.Crypto             (hashHexF)
-import           Pos.Txp.Core.Types     (Tx (..), TxId, txOutAddress, txOutValue)
-import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
-                                         Coin, SoftwareVersion, decodeTextAddress,
-                                         sumCoins, unsafeIntegerToCoin)
-import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes,
-                                         UpdateProposal (..), isPositiveVote)
+import           Pos.Txp.Core.Types     (Tx (..), TxId, txOutAddress,
+                                         txOutValue)
+import           Pos.Types              (Address (..), BlockVersion,
+                                         ChainDifficulty, Coin, SoftwareVersion,
+                                         decodeTextAddress, sumCoins,
+                                         unsafeIntegerToCoin)
+import           Pos.Update.Core        (BlockVersionData (..),
+                                         StakeholderVotes, UpdateProposal (..),
+                                         isPositiveVote)
 import           Pos.Update.Poll        (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase  (BackupPhrase)
+
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty
@@ -144,16 +149,24 @@ data CWalletType
     | CWTShared
     deriving (Show, Generic)
 
+-- | A level of assurance for the wallet "meta type"
+data CWalletAssurance
+    = CWAStrict
+    | CWANormal
+    deriving (Show, Generic)
+
 -- | Meta data of CWallet
 -- Includes data which are not provided by Cardano
 data CWalletMeta = CWalletMeta
-    { cwType     :: !CWalletType
-    , cwCurrency :: !CCurrency
-    , cwName     :: !Text
+    { cwType      :: !CWalletType
+    , cwCurrency  :: !CCurrency
+    , cwName      :: !Text
+    , cwAssurance :: !CWalletAssurance
+    , cwUnit      :: !Int -- ^ https://issues.serokell.io/issue/CSM-163#comment=96-2480
     } deriving (Show, Generic)
 
 instance Default CWalletMeta where
-    def = CWalletMeta CWTPersonal ADA "Personal Wallet"
+    def = CWalletMeta CWTPersonal ADA "Personal Wallet" CWANormal 0
 
 -- | Client Wallet (CW)
 -- (Flow type: walletType)

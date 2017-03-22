@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 -- | Simplified NIST beacon implementation of SSC.

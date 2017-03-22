@@ -8,6 +8,6 @@ module Pos.DHT.Model
       ) where
 
 import           Pos.DHT.Model.Class
-import           Pos.DHT.Model.Types
 import           Pos.DHT.Model.Neighbors
+import           Pos.DHT.Model.Types
 import           Pos.DHT.Model.Util

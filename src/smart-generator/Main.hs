@@ -224,7 +224,7 @@ main = do
 
     -- Check correctness of --m-of-n param
     case goMOfNParams of
-        Nothing -> return ()
+        Nothing     -> return ()
         Just (m, n) -> when (m > n || n > genesisN) $ error "Invalid `--m-of-n` value"
 
     sk <- generate arbitrary

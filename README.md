@@ -32,13 +32,9 @@ in the [IOHK website](https://iohk.io/research/papers/a-provably-secure-proof-of
 
 ### Where to start
 
-Aside from reading the paper[1], a good starting point is the source code
-hosted herein. We recommend starting with the following source files:
-
-- [Node entry point](src/node/Main.hs)
-- [Core node logic](src/Pos/Launcher.hs), and the exported modules.
-- [Listeners](src/Pos/Communication/)
-- [Workers](src/Pos/Worker/)
+It is recommended to start by reading the documentation, which is available [here](https://cardano-docs.iohk.io/introduction/).
+Its repository is [here](https://github.com/input-output-hk/cardano-docs.iohk.io). 
+Developers are encouraged to contribute.
 
 Platform support
 ----------------
@@ -50,21 +46,22 @@ a [wallet](https://github.com/input-output-hk/daedalus).
 Build from source
 -----------------
 
-To build from source, clone this repository, navigate to the directory
-into which the project was cloned and run `stack build`.
+To build from source, please refer to [this](https://cardano-docs.iohk.io/for-contributors/building-from-source/#cardano-sl-and-daedalus-bridge)
+ page of the documentation.
 
-The [`stack` system](https://docs.haskellstack.org/en/stable/README/) is
+Note that the [`stack` system](https://docs.haskellstack.org/en/stable/README/) is
 required before `cardano-sl` can be built.
+
+For developer convenience, also note that in the `scripts` and `util-scripts` folders
+there are a variety of utility scripts to build various components of the system,
+such as the general `util-scripts/build.sh`, or the `util-scripts/clean.sh` to remove
+byproducts of compilation.
 
 Running the nodes
 -----------------
 
-After the project is built, run it:
-
-- open *new terminal window*, run `tmux` in it (`sudo apt-get install tmux` or else according to your distro)
-- open *new terminal window*, run `export WALLET_TEST=1; ./scripts/launch.sh` in it
-
-After a while, the first terminal windows should be populated with 4 tabs, 3 out of which will have a node running in them.
+If you wish to launch and run nodes locally please refer to [this](https://cardano-docs.iohk.io/for-contributors/building-from-source/#cardano-node)
+page of the documentation.
 
 Generating the wallet documentation
 -----------------------------------

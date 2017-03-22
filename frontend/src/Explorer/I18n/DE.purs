@@ -35,6 +35,7 @@ translation =
         , cHours: "Stunden"
         , cMinutes: "Minuten"
         , cSeconds: "Sekunden"
+        , cDateFormat: "DD.MM.YYYY HH:mm:ss"
         }
     , navigation:
         { navHome: "Home"

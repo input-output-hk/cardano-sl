@@ -750,7 +750,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs)
                          pskUndo
                          (verUndo ^. _Wrapped . _neHead)
-    !() <- (blockUndo `deepseq` blk) `deepseq` pure ()
+    () <- (blockUndo `deepseq` blk) `deepseq` pure ()
     logDebug "Created main block/undos, applying"
     lift $ blk <$ applyBlocksUnsafe (one (Right blk, blockUndo)) (Just pModifier)
   where

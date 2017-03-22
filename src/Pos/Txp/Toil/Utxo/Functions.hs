@@ -224,5 +224,5 @@ rollbackTxUtxo
     => (TxAux, TxUndo) -> m ()
 rollbackTxUtxo ((tx@UnsafeTx{..}, _, _), undo) = do
     let txid = hash tx
-    mapM_ utxoDel $ take (length _txOutputs) $ zipWith TxIn (repeat txid) [0..]
+    mapM_ utxoDel $ take (length _txOutputs) $ map (TxIn txid) [0..]
     mapM_ (uncurry utxoPut) $ NE.zip _txInputs undo

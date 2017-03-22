@@ -15,7 +15,6 @@ module Pos.DB.Misc
        , checkSecretKeyHash
        ) where
 
-import           Data.List          (nub)
 import           Universum
 
 import           Pos.Binary.Ssc     ()
@@ -51,7 +50,7 @@ getProxySecretKeys = do
 addProxySecretKey :: MonadDB m => ProxySKLight -> m ()
 addProxySecretKey psk = do
     keys <- getProxySecretKeys
-    miscPutBi proxySKKey $ nub $ psk:keys
+    miscPutBi proxySKKey $ ordNub $ psk:keys
 
 -- | Removes proxy secret key if present by issuer pk.
 removeProxySecretKey :: MonadDB m => PublicKey -> m ()

@@ -1,5 +1,4 @@
 {-# LANGUAGE DataKinds      #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE TypeOperators  #-}
 
 -- | Servant API for wallet.
@@ -18,7 +17,7 @@ import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CInitialized, 
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CInitialized,
                                              CProfile, CTx, CTxId, CTxMeta, CUpdateInfo,
                                              CWallet, CWalletInit, CWalletMeta, CWalletRedeem,
                                              CWalletType, SyncProgress)

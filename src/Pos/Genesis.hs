@@ -45,19 +45,19 @@ import           Universum
 import qualified Pos.Constants              as Const
 import           Pos.Core.Types             (ScriptVersion, SoftwareVersion (..),
                                              StakeholderId)
-import           Pos.Crypto                 (PublicKey, SecretKey, deterministicKeyGen)
-import           Pos.Crypto                 (unsafeHash)
+import           Pos.Crypto                 (PublicKey, SecretKey, deterministicKeyGen,
+                                             unsafeHash)
 import           Pos.Genesis.Parser         (compileGenData)
 import           Pos.Genesis.Types          (GenesisData (..), StakeDistribution (..))
 import           Pos.Lrc.FtsPure            (followTheSatoshi)
 import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..), TxOutAux (..),
                                              TxOutDistribution)
 import           Pos.Txp.Toil.Types         (Utxo)
-import           Pos.Types                  (makePubKeyAddress)
 import           Pos.Types                  (Address (..), BlockVersion (..), Coin,
                                              SharedSeed (SharedSeed), SlotLeaders,
                                              applyCoinPortion, coinToInteger, divCoin,
-                                             mkCoin, unsafeAddCoin, unsafeMulCoin)
+                                             makePubKeyAddress, mkCoin, unsafeAddCoin,
+                                             unsafeMulCoin)
 import           Pos.Update.Core.Types      (BlockVersionData (..))
 
 ----------------------------------------------------------------------------

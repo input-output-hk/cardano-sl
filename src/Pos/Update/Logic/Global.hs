@@ -34,7 +34,7 @@ import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState
                                        execRollT, processGenesisBlock,
                                        recordBlockIssuance, rollbackUS, runDBPoll,
                                        runPollT, verifyAndApplyUSPayload)
-import           Pos.Util             (Some (..), inAssertMode)
+import           Pos.Util             (inAssertMode)
 import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 import           Pos.Util.Context     (HasContext)
 import qualified Pos.Util.Modifier    as MM

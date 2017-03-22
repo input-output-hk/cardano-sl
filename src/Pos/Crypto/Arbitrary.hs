@@ -1,4 +1,3 @@
-
 -- | `Arbitrary` instances for using in tests and benchmarks
 
 module Pos.Crypto.Arbitrary
@@ -15,6 +14,8 @@ import           Pos.Binary.Crypto           ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
 import           Pos.Crypto.AsBinary         ()
 import           Pos.Crypto.Hashing          (AbstractHash, HashAlgorithm)
+import           Pos.Crypto.RedeemSigning    (RedeemPublicKey, RedeemSecretKey,
+                                              RedeemSignature, redeemKeyGen, redeemSign)
 import           Pos.Crypto.SecretSharing    (EncShare, Secret, SecretProof,
                                               SecretSharingExtra, Share, VssKeyPair,
                                               VssPublicKey, decryptShare, genSharedSecret,
@@ -23,8 +24,6 @@ import           Pos.Crypto.Signing          (ProxyCert, ProxySecretKey, ProxySi
                                               PublicKey, SecretKey, Signature, Signed,
                                               createProxyCert, createProxySecretKey,
                                               keyGen, mkSigned, proxySign, sign, toPublic)
-import           Pos.Crypto.RedeemSigning    (RedeemPublicKey, RedeemSecretKey,
-                                              RedeemSignature, redeemKeyGen, redeemSign)
 import           Pos.Util.Arbitrary          (Nonrepeating (..), arbitraryUnsafe,
                                               sublistN, unsafeMakePool)
 
@@ -158,7 +157,7 @@ instance Arbitrary SecretProof where
     arbitrary = elements . fmap (view _3) $ sharedSecrets
 
 instance Arbitrary EncShare where
-    arbitrary = elements . concat . fmap (view _4) $ sharedSecrets
+    arbitrary = elements . concatMap (view _4) $ sharedSecrets
 
 instance Arbitrary (AsBinary EncShare) where
     arbitrary = asBinary @EncShare <$> arbitrary

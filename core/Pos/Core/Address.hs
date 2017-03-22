@@ -38,9 +38,10 @@ import           Universum
 
 import           Pos.Binary.Class       (Bi)
 import qualified Pos.Binary.Class       as Bi
-import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey, RedeemPublicKey)
 import           Pos.Core.Types         (AddrPkAttrs (..), Address (..), AddressHash,
                                          Script, StakeholderId)
+import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey,
+                                         RedeemPublicKey)
 import           Pos.Data.Attributes    (mkAttributes)
 
 instance Bi Address => Hashable Address where

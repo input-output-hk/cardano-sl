@@ -28,10 +28,9 @@ import           Pos.Lrc.Context         (LrcContext)
 import           Pos.Ssc.Class.Types     (Ssc (SscNodeContext))
 import           Pos.Txp.Settings        (TxpGlobalSettings)
 import           Pos.Txp.Toil.Types      (Utxo)
-import           Pos.Types               (Address, BlockHeader, EpochIndex, HeaderHash,
-                                          SlotLeaders, Timestamp, makePubKeyAddress)
+import           Pos.Types               (Address, BlockHeader, HeaderHash, SlotLeaders,
+                                          Timestamp, makePubKeyAddress)
 import           Pos.Update.Context      (UpdateContext)
-import           Pos.Update.Poll.Types   (ConfirmedProposalState)
 import           Pos.Util.Chrono         (NE, NewestFirst)
 import           Pos.Util.Context        (ExtractContext (..))
 import           Pos.Util.UserSecret     (UserSecret)

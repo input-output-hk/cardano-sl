@@ -61,7 +61,7 @@ import           Pos.WorkMode                (RawRealMode)
 deriving instance MonadBalances m => MonadBalances (WalletWebDB m)
 
 instance MonadIO m => MonadBalances (WalletDB m) where
-    getOwnUtxo addr = WS.getUtxo >>= return . filterUtxoByAddr addr
+    getOwnUtxo addr = filterUtxoByAddr addr <$> WS.getUtxo
 
 deriving instance MonadTxHistory m => MonadTxHistory (WalletWebDB m)
 

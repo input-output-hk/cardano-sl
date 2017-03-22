@@ -17,7 +17,7 @@ module Pos.Client.Txp.Util
 import           Control.Lens        ((%=))
 import           Control.Monad.State (StateT (..), evalStateT)
 import           Data.List           (tail)
-import           Data.List.NonEmpty  (nonEmpty, (<|))
+import           Data.List.NonEmpty  ((<|))
 import qualified Data.Map            as M
 import qualified Data.Vector         as V
 import           Universum
@@ -104,7 +104,7 @@ prepareInpOuts utxo addr outputs = do
     totalMoney = unsafeIntegerToCoin $ sumCoins $ map (txOutValue . toaOut) outputs
     allUnspent = M.toList $ filterUtxoByAddr addr utxo
     sortedUnspent =
-        sortBy (comparing $ Down . txOutValue . toaOut . snd) allUnspent
+        sortOn (Down . txOutValue . toaOut . snd) allUnspent
     pickInputs :: FlatUtxo -> InputPicker FlatUtxo
     pickInputs inps = do
         moneyLeft <- use _1

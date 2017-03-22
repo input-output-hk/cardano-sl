@@ -33,8 +33,8 @@ import           Pos.Crypto             (shortHashF)
 import           Pos.DB.Class           (MonadDB)
 import           Pos.DB.Error           (DBError (..))
 import           Pos.DB.Functions       (RocksBatchOp (..))
-import           Pos.DB.GState.Balances (BalanceIter, ftsStakeKey, ftsSumKey, getFtsSumMaybe,
-                                         getTotalFtsStake)
+import           Pos.DB.GState.Balances (BalanceIter, ftsStakeKey, ftsSumKey,
+                                         getFtsSumMaybe, getTotalFtsStake)
 import           Pos.DB.GState.Common   (gsPutBi)
 import           Pos.DB.Iterator        (DBnIterator, DBnMapIterator, IterType,
                                          runDBnIterator, runDBnMapIterator)

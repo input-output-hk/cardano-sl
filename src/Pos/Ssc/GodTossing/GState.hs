@@ -136,8 +136,7 @@ rollbackBlocks blocks = tossToUpdate mempty $ rollbackGT oldestEOS payloads
   where
     oldestEOS = blocks ^. _Wrapped . _neLast . epochOrSlotG
     payloads =
-        NewestFirst . map (view blockMpc) . catMaybes . map rightToMaybe . toList $
-        blocks
+        NewestFirst . map (view blockMpc) . rights . toList $ blocks
 
 verifyAndApply
     :: RichmenStake

@@ -15,7 +15,7 @@ module Pos.Data.Attributes
 
 import           Universum
 
-import qualified Base                as Base
+import qualified Base
 import           Data.Binary.Get     (Get, getWord8)
 import qualified Data.Binary.Get     as G
 import           Data.Binary.Put     (Put, putByteString, putWord8)

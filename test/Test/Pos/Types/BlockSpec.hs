@@ -50,10 +50,7 @@ spec = describe "Block properties" $ do
     verifyEmptyHsDesc = "Successfully validates an empty header chain"
     emptyHeaderChain l =
         it verifyEmptyHsDesc $
-            and
-                [isVerSuccess $
-                    T.verifyHeaders b l
-                        | b <- [False, True]] == True
+            all isVerSuccess [T.verifyHeaders b l | b <- [False, True]]
 
 -- | Both of the following tests are boilerplate - they use `mkGenericHeader` to create
 -- headers and then compare these with manually built headers.

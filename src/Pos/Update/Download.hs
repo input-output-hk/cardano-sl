@@ -9,7 +9,6 @@ import           Control.Monad.Except    (ExceptT (..), throwError)
 import qualified Data.ByteArray          as BA
 import qualified Data.ByteString.Lazy    as BSL
 import qualified Data.HashMap.Strict     as HM
-import qualified Data.Text               as T
 import           Formatting              (build, sformat, stext, (%))
 import           Network.HTTP.Client     (Manager, newManager)
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
@@ -89,7 +88,7 @@ downloadHash updateServers h = do
 
     let -- try all servers in turn until there's a Right
         go errs (serv:rest) = do
-            let uri = T.unpack serv <//> showHash h
+            let uri = toString serv <//> showHash h
             downloadUri manager uri h >>= \case
                 Left e -> go (e:errs) rest
                 Right r -> return (Right r)

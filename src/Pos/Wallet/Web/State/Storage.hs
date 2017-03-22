@@ -28,17 +28,18 @@ module Pos.Wallet.Web.State.Storage
        , updateHistoryCache
        ) where
 
+import           Universum
+
 import           Control.Lens               (at, ix, makeClassy, (%=), (.=), _Just, _head)
 import           Control.Monad.State.Class  (put)
 import           Data.Default               (Default, def)
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
+import           Pos.Client.Txp.History     (TxHistoryEntry)
 import           Pos.Txp                    (Utxo)
 import           Pos.Types                  (HeaderHash)
-import           Pos.Wallet.Tx.Pure         (TxHistoryEntry)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTxId,
                                              CTxMeta, CUpdateInfo, CWalletMeta,
                                              CWalletType)
-import           Universum
 
 type TransactionHistory = HashMap CTxId CTxMeta
 

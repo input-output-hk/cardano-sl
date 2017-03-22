@@ -32,6 +32,8 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Binary.Crypto           ()
+import           Pos.Client.Txp.Balances     (MonadBalances)
+import           Pos.Client.Txp.History      (MonadTxHistory)
 import           Pos.Communication.PeerState (PeerStateHolder)
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               WithNodeContext (..))
@@ -127,7 +129,8 @@ newtype KeyStorage m a = KeyStorage
                 MonadReader KeyData, MonadDB,
                 MonadWalletDB, WithWalletContext, WithNodeContext ssc,
                 MonadDelegation, MonadTrans, MonadBase io, MonadFix,
-                MonadDBLimits, MonadReportingMem)
+                MonadDBLimits, MonadReportingMem,
+                MonadTxHistory, MonadBalances)
 
 instance Monad m => WrappedM (KeyStorage m) where
     type UnwrappedM (KeyStorage m) = ReaderT KeyData m
@@ -210,6 +213,6 @@ instance (MonadIO m, MonadThrow m) =>
 
 -- | Derived instances for ancestors in monad stack
 deriving instance MonadKeys m => MonadKeys (SscHolder ssc m)
-deriving instance MonadKeys m => MonadKeys (TxpHolder m)
+deriving instance MonadKeys m => MonadKeys (TxpHolder __ m)
 deriving instance MonadKeys m => MonadKeys (DelegationT m)
 deriving instance MonadKeys m => MonadKeys (USHolder m)

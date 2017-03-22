@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Runners in various modes.
@@ -77,7 +78,7 @@ import           Pos.Constants               (blockRetrievalQueueSize,
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               runContextHolder)
-import           Pos.Core.Timestamp          (timestampF)
+import           Pos.Core                    (Timestamp (Timestamp), timestampF)
 import           Pos.Crypto                  (createProxySecretKey, encToPublic)
 import           Pos.DB                      (MonadDB (..), runDBHolder)
 import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
@@ -100,8 +101,12 @@ import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
                                               SscParams, sscCreateNodeContext)
 import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
-import           Pos.Txp                     (runTxpHolder)
-import           Pos.Types                   (Timestamp (Timestamp))
+import           Pos.Txp                     (mkTxpLocalData, runTxpHolder)
+#ifdef WITH_EXPLORER
+import           Pos.Explorer                (explorerTxpGlobalSettings)
+#else
+import           Pos.Txp                     (txpGlobalSettings)
+#endif
 import qualified Pos.Update.DB               as GState
 import           Pos.Update.MemState         (runUSHolder)
 import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
@@ -186,12 +191,14 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
     usingLoggerName lpRunnerTag $ do
        initNC <- untag @ssc sscCreateNodeContext sscnp
        modernDBs <- openNodeDBs npRebuildDb npDbPathM
+       let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc)
        -- TODO [CSL-775] ideally initialization logic should be in scenario.
-       runDBHolder modernDBs . runCH @ssc np initNC $ initNodeDBs
+       runDBHolder modernDBs . runCH @ssc allWorkersNum np initNC $ initNodeDBs
        initTip <- runDBHolder modernDBs getTip
        stateM <- liftIO SM.newIO
        stateM_ <- liftIO SM.newIO
        slottingVar <- runDBHolder  modernDBs $ mkSlottingVar npSystemStart
+       txpVar <- mkTxpLocalData mempty initTip
        ntpSlottingVar <- mkNtpSlottingVar
 
        -- TODO [CSL-775] need an effect-free way of running this into IO.
@@ -199,11 +206,11 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
            runIO = runProduction .
                        usingLoggerName lpRunnerTag .
                        runDBHolder modernDBs .
-                       runCH @ssc np initNC .
+                       runCH @ssc allWorkersNum np initNC .
                        runSlottingHolder slottingVar .
                        runNtpSlotting ntpSlottingVar .
                        ignoreSscHolder .
-                       runTxpHolder mempty initTip .
+                       runTxpHolder txpVar .
                        runDelegationT def .
                        runUSHolder .
                        runKademliaDHT (rmDHT res) .
@@ -218,11 +225,11 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
                Just ekgServer -> stopMonitor ekgServer
 
        runDBHolder modernDBs .
-          runCH np initNC .
+          runCH allWorkersNum np initNC .
           runSlottingHolder slottingVar .
           runNtpSlotting ntpSlottingVar .
           (mkStateAndRunSscHolder @ssc) .
-          runTxpHolder mempty initTip .
+          runTxpHolder txpVar .
           runDelegationT def .
           runUSHolder .
           runKademliaDHT (rmDHT res) .
@@ -329,8 +336,8 @@ runStatsMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
 ----------------------------------------------------------------------------
 
 runCH :: forall ssc m a . (SscConstraint ssc, MonadDB m, Mockable CurrentTime m)
-      => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
-runCH params@NodeParams {..} sscNodeContext act = do
+      => Int -> NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
+runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
     logCfg <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     semaphore <- liftIO newEmptyMVar
@@ -350,7 +357,7 @@ runCH params@NodeParams {..} sscNodeContext act = do
     recoveryHeaderVar <- liftIO newEmptyTMVarIO
     progressHeader <- liftIO newEmptyTMVarIO
     shutdownFlag <- liftIO $ newTVarIO False
-    shutdownQueue <- liftIO $ newTBQueueIO allWorkersCount
+    shutdownQueue <- liftIO $ newTBQueueIO allWorkersNum
     curTime <- liftIO Time.getCurrentTime
     lastKnownHeader <- liftIO $ newTVarIO Nothing
     let ctx =
@@ -372,6 +379,11 @@ runCH params@NodeParams {..} sscNodeContext act = do
             , ncSendLock = Nothing
             , ncStartTime = curTime
             , ncLastKnownHeader = lastKnownHeader
+#ifdef WITH_EXPLORER
+            , ncTxpGlobalSettings = explorerTxpGlobalSettings
+#else
+            , ncTxpGlobalSettings = txpGlobalSettings
+#endif
             }
     runContextHolder ctx act
 

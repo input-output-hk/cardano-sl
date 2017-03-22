@@ -45,7 +45,7 @@ instance Limiter (Limit t, Limit t, Limit t, Limit t) where
             Nothing    -> fail ("get@DataMsg: invalid tag: " ++ show tag)
             Just limit -> limitGet limit parser
 
-    addLimit a = both %~ addLimit a
+    addLimit a = each %~ addLimit a
 
 ----------------------------------------------------------------------------
 -- Instances for MessageLimited

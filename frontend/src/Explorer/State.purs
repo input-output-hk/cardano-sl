@@ -13,6 +13,7 @@ initialState =
     , socket:
         { connected: false
         , connection: Nothing
+        , subscriptions: []
         }
     , viewStates:
         { dashboard:

@@ -4,6 +4,7 @@ import Control.SocketIO.Client (Socket)
 import Data.Maybe (Maybe)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
+import Pos.Explorer.Socket.Methods (Subscription)
 import Pos.Explorer.Web.ClientTypes (CAddressSummary, CBlockEntry, CBlockSummary, CTxEntry, CTxSummary)
 import Prelude (class Eq, class Ord)
 
@@ -31,6 +32,7 @@ type State =
 type SocketState =
     { connected :: Boolean
     , connection :: Maybe Socket
+    , subscriptions :: Array Subscription
     }
 
 data DashboardAPICode = Curl | Node | JQuery

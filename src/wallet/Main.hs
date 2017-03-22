@@ -16,7 +16,7 @@ import           Mockable                  (delay)
 import           Options.Applicative       (execParser)
 import           System.IO                 (hFlush, stdout)
 import           System.Wlog               (logDebug, logError, logInfo, logWarning)
-#if !(defined(mingw32_HOST_OS) && defined(__MINGW32__))
+#if !(defined(mingw32_HOST_OS))
 import           System.Exit               (ExitCode (ExitSuccess))
 import           System.Posix.Process      (exitImmediately)
 #endif
@@ -26,7 +26,7 @@ import           Universum
 import           Pos.Binary                (Raw)
 import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
-                                            worker)
+                                            sendTxOuts, submitTx, worker)
 import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey,
                                             fakeSigner, hash, hashHexF, sign, toPublic,
                                             unsafeHash)
@@ -48,8 +48,8 @@ import           Pos.Update                (BlockVersionData (..), UpdateProposa
                                             skovorodaUpdateData)
 import           Pos.Wallet                (WalletMode, WalletParams (..), WalletRealMode,
                                             getBalance, runWalletReal, sendProposalOuts,
-                                            sendTxOuts, sendVoteOuts, submitTx,
-                                            submitUpdateProposal, submitVote)
+                                            sendVoteOuts, submitUpdateProposal,
+                                            submitVote)
 #ifdef WITH_WEB
 import           Pos.Wallet.Web            (walletServeWebLite, walletServerOuts)
 #endif
@@ -213,7 +213,7 @@ runWalletCmd wo str sa = do
     putText "Command execution finished"
     putText " " -- for exit by SIGPIPE
     liftIO $ hFlush stdout
-#if !(defined(mingw32_HOST_OS) && defined(__MINGW32__))
+#if !(defined(mingw32_HOST_OS))
     delay $ sec 3
     liftIO $ exitImmediately ExitSuccess
 #endif

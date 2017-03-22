@@ -22,7 +22,7 @@ import           Pos.Lrc.Context      (LrcContext)
 import           Pos.Lrc.Types        (RichmenStake)
 import           Pos.Ssc.Class.Types  (Ssc (..))
 import           Pos.Types            (Block, EpochIndex, SharedSeed)
-import           Pos.Util             (NE, NewestFirst, OldestFirst)
+import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 import           Pos.Util.Context     (HasContext)
 
 ----------------------------------------------------------------------------

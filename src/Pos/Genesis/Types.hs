@@ -5,8 +5,9 @@ module Pos.Genesis.Types
 
 import           Universum
 
-import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap)
 import           Pos.Core.Types                (Address, Coin)
+import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap)
+import           Pos.Txp.Core.Types            (TxOutDistribution)
 
 -- | Stake distribution in genesis block.
 -- FlatStakes is a flat distribution, i. e. each node has the same amount of coins.
@@ -22,7 +23,7 @@ data StakeDistribution
         , sdPoor       :: !Word
         }
     | ExponentialStakes -- First three nodes get 0.875% of stake.
-    | ExplicitStakes !(HashMap Address Coin)
+    | ExplicitStakes !(HashMap Address (Coin, TxOutDistribution))
     deriving (Show, Eq)
 
 -- | Hardcoded genesis data

@@ -56,7 +56,7 @@ newtype ContextHolder ssc m a = ContextHolder
                , CanLog
                , MonadSlotsData
                , MonadSlots
-               , MonadTxpMem
+               , MonadTxpMem x
                , MonadFix
                , MonadDB
                , MonadDBLimits

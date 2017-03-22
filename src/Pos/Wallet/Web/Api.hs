@@ -1,5 +1,6 @@
-{-# LANGUAGE DataKinds     #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds      #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE TypeOperators  #-}
 
 -- | Servant API for wallet.
 
@@ -8,17 +9,21 @@ module Pos.Wallet.Web.Api
        , walletApi
        ) where
 
-import           Data.Proxy                 (Proxy (Proxy))
 
-import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CInitialized, CProfile,
-                                             CTx, CTxId, CTxMeta, CUpdateInfo, CWallet,
-                                             CWalletInit, CWalletMeta, CWalletRedeem,
-                                             SyncProgress)
-import           Pos.Wallet.Web.Error       (WalletError)
+import           Control.Lens               ((?~))
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
                                              Post, Put, QueryParam, ReqBody)
+
 import           Universum
+
+import           Pos.Types                  (Coin, SoftwareVersion)
+import           Pos.Util.BackupPhrase      (BackupPhrase)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CInitialized, 
+                                             CProfile, CTx, CTxId, CTxMeta, CUpdateInfo,
+                                             CWallet, CWalletInit, CWalletMeta, CWalletRedeem,
+                                             CWalletType, SyncProgress)
+import           Pos.Wallet.Web.Error       (WalletError)
+
 
 -- | Servant API which provides access to wallet.
 -- TODO: Should be composed depending on the resource - wallets, txs, ... http://haskell-servant.github.io/tutorial/0.4/server.html#nested-apis
@@ -190,8 +195,6 @@ type WalletApi =
      :> "sync"
      :> "progress"
      :> Get '[JSON] (Either WalletError SyncProgress)
-
-
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

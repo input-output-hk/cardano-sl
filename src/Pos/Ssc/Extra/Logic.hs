@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -29,12 +28,12 @@ module Pos.Ssc.Extra.Logic
 import           Control.Concurrent.STM  (readTVar, writeTVar)
 import           Control.Lens            (_Wrapped)
 import           Control.Monad.Except    (MonadError, runExceptT)
+import           Control.Monad.Morph     (generalize, hoist)
 import           Control.Monad.State     (put)
 import           Formatting              (build, int, sformat, (%))
 import           Serokell.Util           (listJson)
-import           System.Wlog             (LogEvent, LoggerName, LoggerNameBox, PureLogger,
-                                          WithLogger, dispatchEvents, getLoggerName,
-                                          logDebug, runPureLog, usingLoggerName)
+import           System.Wlog             (NamedPureLogger, WithLogger, launchNamedPureLog,
+                                          logDebug)
 import           Universum
 
 import           Pos.Context             (lrcActionOnEpochReason)
@@ -52,13 +51,24 @@ import           Pos.Ssc.Extra.Class     (MonadSscMem (askSscMem))
 import           Pos.Ssc.Extra.Types     (SscState (sscGlobal, sscLocal))
 import           Pos.Types               (Block, EpochIndex, HeaderHash, SharedSeed,
                                           SlotId, epochIndexL, headerHash)
-import           Pos.Util                (NE, NewestFirst, OldestFirst, inAssertMode,
-                                          _neHead, _neLast)
+import           Pos.Util                (inAssertMode, _neHead, _neLast)
+import           Pos.Util.Chrono         (NE, NewestFirst, OldestFirst)
 import           Pos.Util.Context        (HasContext)
 
 ----------------------------------------------------------------------------
 -- Utilities
 ----------------------------------------------------------------------------
+
+-- | Applies state changes to given var.
+syncingStateWith
+    :: TVar s
+    -> StateT s (NamedPureLogger STM) a
+    -> NamedPureLogger STM a
+syncingStateWith var action = do
+    oldV <- lift $ readTVar var
+    (res, newV) <- runStateT action oldV
+    lift $ writeTVar var newV
+    return res
 
 -- | Run something that reads 'SscLocalData' in 'MonadSscMem'.
 -- 'MonadIO' is also needed to use stm.
@@ -75,18 +85,10 @@ sscRunLocalQuery action = do
 sscRunLocalSTM
     :: forall ssc m a.
        (MonadSscMem ssc m, MonadIO m, WithLogger m)
-    => (LoggerNameBox (PureLogger (StateT (SscLocalData ssc) STM)) a) -> m a
+    => StateT (SscLocalData ssc) (NamedPureLogger STM) a -> m a
 sscRunLocalSTM action = do
-    loggerName <- getLoggerName
     localVar <- sscLocal <$> askSscMem
-    (res, events) <-
-        atomically $ do
-            oldLD <- readTVar localVar
-            ((res, events), !newLD) <-
-                flip runStateT oldLD . runPureLog . usingLoggerName loggerName $
-                action
-            (res, events) <$ writeTVar localVar newLD
-    res <$ dispatchEvents events
+    launchNamedPureLog atomically $ syncingStateWith localVar action
 
 -- | Run something that reads 'SscGlobalState' in 'MonadSscMem'.
 -- 'MonadIO' is also needed to use stm.
@@ -146,17 +148,10 @@ sscNormalize = do
     globalVar <- sscGlobal <$> askSscMem
     localVar <- sscLocal <$> askSscMem
     gs <- atomically $ readTVar globalVar
-    loggerName <- getLoggerName
-    let sscNormalizeDo :: STM [LogEvent]
-        sscNormalizeDo = do
-            oldLD <- readTVar localVar
-            let (((), logEvents), !newLD) =
-                    flip runState oldLD .
-                    runPureLog . usingLoggerName loggerName $
-                    sscNormalizeU @ssc tipEpoch richmenData gs
-            logEvents <$ writeTVar localVar newLD
-    logEvents <- atomically sscNormalizeDo
-    dispatchEvents logEvents
+
+    launchNamedPureLog atomically $
+        syncingStateWith localVar $
+        sscNormalizeU @ssc tipEpoch richmenData gs
 
 -- | Reset local data to empty state.  This function can be used when
 -- we detect that something is really bad. In this case it makes sense
@@ -186,34 +181,17 @@ type SscGlobalVerifyMode ssc m =
      MonadDB m, HasContext LrcContext m,
      MonadError (SscVerifyError ssc) m)
 
-sscRunGlobalUpdatePure
-    :: forall ssc a.
-       LoggerName
-    -> SscGlobalState ssc
-    -> LoggerNameBox (PureLogger (State (SscGlobalState ssc))) a
-    -> (a, SscGlobalState ssc, [LogEvent])
-sscRunGlobalUpdatePure loggerName st =
-    convertRes . flip runState st . runPureLog . usingLoggerName loggerName
-  where
-    convertRes :: ((a, [LogEvent]), SscGlobalState ssc)
-               -> (a, SscGlobalState ssc, [LogEvent])
-    convertRes ((res, events), newSt) = (res, newSt, events)
-
 sscRunGlobalUpdate
     :: forall ssc m a.
        SscGlobalApplyMode ssc m
-    => LoggerNameBox (PureLogger (State (SscGlobalState ssc))) a -> m a
+    => StateT (SscGlobalState ssc) (NamedPureLogger Identity) a -> m a
 sscRunGlobalUpdate action = do
-    loggerName <- getLoggerName
     globalVar <- sscGlobal <$> askSscMem
-    (res, events) <- atomically $ sscRunGlobalUpdateDo loggerName globalVar
-    res <$ dispatchEvents events
+    launchNamedPureLog atomically $
+        syncingStateWith globalVar $
+        switchMonadBaseIdentityToSTM action
   where
-    sscRunGlobalUpdateDo loggerName globalVar = do
-        oldState <- readTVar globalVar
-        let (res, !newState, events) =
-                sscRunGlobalUpdatePure @ssc loggerName oldState action
-        (res, events) <$ writeTVar globalVar newState
+    switchMonadBaseIdentityToSTM = hoist $ hoist generalize
 
 -- | Apply sequence of definitely valid blocks. Global state which is
 -- result of application of these blocks can be optionally passed as

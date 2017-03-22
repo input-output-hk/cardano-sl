@@ -1,7 +1,9 @@
 -- | Type stored in the Txp holder.
 
 module Pos.Txp.MemState.Types
-       ( TxpLocalData (..)
+       ( GenericTxpLocalData (..)
+       , GenericTxpLocalDataPure
+       , TxpLocalData
        , TxpLocalDataPure
        ) where
 
@@ -21,13 +23,20 @@ import           Pos.Txp.Toil.Types     (MemPool, UndoMap, UtxoModifier)
 -- resulting Utxo will be equivalent to 'um' with respect to
 -- MonadUtxo.
 
--- | Real data inside TxpHolder.
-data TxpLocalData = TxpLocalData
+-- | Memory state of Txp. Generic version.
+data GenericTxpLocalData extra = TxpLocalData
     { txpUtxoModifier :: !(STM.TVar UtxoModifier)
     , txpMemPool      :: !(STM.TVar MemPool)
     , txpUndos        :: !(STM.TVar UndoMap)
     , txpTip          :: !(STM.TVar HeaderHash)
+    , txpExtra        :: !(STM.TVar extra)
     }
 
+-- | Pure version of GenericTxpLocalData.
+type GenericTxpLocalDataPure extra = (UtxoModifier, MemPool, UndoMap, HeaderHash, extra)
+
+-- | Memory state of Txp. This version is used by actual Txp implementation.
+type TxpLocalData = GenericTxpLocalData ()
+
 -- | Pure version of TxpLocalData.
-type TxpLocalDataPure = (UtxoModifier,  MemPool, UndoMap, HeaderHash)
+type TxpLocalDataPure = GenericTxpLocalDataPure ()

@@ -1,6 +1,6 @@
 -- | Module containing explorer-specific logic and data
 
-module Pos.DB.GState.Explorer
+module Pos.Explorer.DB
        ( ExplorerOp (..)
        , getTxExtra
        , getAddrHistory
@@ -10,14 +10,13 @@ import qualified Database.RocksDB     as Rocks
 import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
-import           Pos.Binary.Explorer  ()
 import           Pos.Core.Types       (Address)
 import           Pos.DB.Class         (MonadDB)
 import           Pos.DB.Functions     (RocksBatchOp (..))
 import           Pos.DB.GState.Common (gsGetBi)
-import           Pos.Txp.Core.Types   (TxId)
-import           Pos.Types.Explorer   (AddrHistory, TxExtra (..))
-import           Pos.Util             (NewestFirst (..))
+import           Pos.Explorer.Core    (AddrHistory, TxExtra (..))
+import           Pos.Txp.Core         (TxId)
+import           Pos.Util.Chrono      (NewestFirst (..))
 
 ----------------------------------------------------------------------------
 -- Getters

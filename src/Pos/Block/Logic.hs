@@ -56,8 +56,9 @@ import           Pos.Block.Types            (Blund, Undo (..))
 import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,
                                              epochSlots, lastKnownBlockVersion,
                                              recoveryHeadersMessage, slotSecurityParam)
-import           Pos.Context                (NodeContext (ncNodeParams), getNodeContext,
-                                             lrcActionOnEpochReason, npSecretKey)
+import           Pos.Context                (NodeContext (ncNodeParams, ncTxpGlobalSettings),
+                                             getNodeContext, lrcActionOnEpochReason,
+                                             npSecretKey)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash), hash,
                                              shortHashF)
 import           Pos.Data.Attributes        (mkAttributes)
@@ -75,20 +76,23 @@ import           Pos.Slotting.Class         (getCurrentSlot)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
                                              SscWorkersClass (..))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscVerifyBlocks)
-import           Pos.Txp.Core               (TxAux, TxId, mkTxPayload, topsortTxs)
-import           Pos.Txp.Logic              (txVerifyBlocks)
+import           Pos.Txp.Core               (TxAux, TxId, TxPayload, mkTxPayload,
+                                             topsortTxs)
 import           Pos.Txp.MemState           (getLocalTxsNUndo)
+import           Pos.Txp.Settings           (TxpBlock, TxpGlobalSettings (..))
 import           Pos.Types                  (Block, BlockHeader, EpochIndex,
                                              EpochOrSlot (..), GenesisBlock, HeaderHash,
-                                             MainBlock, MainExtraBodyData (..),
+                                             IsGenesisHeader, IsMainHeader, MainBlock,
+                                             MainExtraBodyData (..),
                                              MainExtraHeaderData (..), ProxySKEither,
                                              ProxySKHeavy, SlotId (..), SlotLeaders,
                                              VerifyHeaderParams (..), blockHeader,
                                              blockLeaders, difficultyL, epochIndexL,
-                                             epochOrSlot, flattenSlotId, genesisHash,
-                                             getEpochOrSlot, headerHash, headerHashG,
-                                             headerSlot, mkGenesisBlock, mkMainBlock,
-                                             prevBlockL, verifyHeader, verifyHeaders,
+                                             epochOrSlot, flattenSlotId, gbBody, gbHeader,
+                                             genesisHash, getEpochOrSlot, headerHash,
+                                             headerHashG, headerSlot, mbTxPayload,
+                                             mkGenesisBlock, mkMainBlock, prevBlockL,
+                                             verifyHeader, verifyHeaders,
                                              vhpVerifyConsensus)
 import qualified Pos.Types                  as Types
 import           Pos.Update.Core            (UpdatePayload (..))
@@ -96,10 +100,10 @@ import qualified Pos.Update.DB              as UDB
 import           Pos.Update.Logic           (usCanCreateBlock, usPreparePayload,
                                              usVerifyBlocks)
 import           Pos.Update.Poll            (PollModifier)
-import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
-                                             inAssertMode, maybeThrow, neZipWith3,
-                                             spanSafe, toNewestFirst, toOldestFirst,
-                                             _neHead, _neLast)
+import           Pos.Util                   (Some (Some), inAssertMode, maybeThrow,
+                                             neZipWith3, spanSafe, _neHead, _neLast)
+import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
+                                             toNewestFirst, toOldestFirst)
 import           Pos.WorkMode               (WorkMode)
 
 ----------------------------------------------------------------------------
@@ -418,7 +422,8 @@ verifyBlocksPrefix blocks = runExceptT $ do
     verResToMonadError formatAllErrors $
         Types.verifyBlocks curSlot bvd (Just leaders) (Just bv) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
-    txUndo <- withExceptT pretty $ txVerifyBlocks blocks
+    TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
+    txUndo <- withExceptT pretty $ tgsVerifyBlocks $ map toTxpBlock blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $
         usVerifyBlocks (map toUpdateBlock blocks)
@@ -431,6 +436,19 @@ verifyBlocksPrefix blocks = runExceptT $ do
          , pModifier)
   where
     headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
+
+-- [CSL-780] Need something more elegant, at least eliminate copy-paste.
+-- Should be done soon™.
+toTxpBlock
+    :: forall ssc.
+       Ssc ssc
+    => Block ssc -> TxpBlock
+toTxpBlock = bimap convertGenesis convertMain
+  where
+    convertGenesis :: GenesisBlock ssc -> Some IsGenesisHeader
+    convertGenesis = Some . view gbHeader
+    convertMain :: MainBlock ssc -> (Some IsMainHeader, TxPayload)
+    convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbTxPayload)
 
 -- | Applies blocks if they're valid. Takes one boolean flag
 -- "rollback". Returns header hash of last applied block (new tip) on
@@ -667,7 +685,7 @@ createGenesisBlockDo epoch leaders tip = do
 -- given SlotId
 createMainBlock
     :: forall ssc m.
-       WorkMode ssc m
+       (WorkMode ssc m)
     => SlotId
     -> Maybe ProxySKEither
     -> m (Either Text (MainBlock ssc))
@@ -703,7 +721,7 @@ canCreateBlock sId tipHeader
 -- Here we assume that blkSemaphore has been taken.
 createMainBlockFinish
     :: forall ssc m.
-       WorkMode ssc m
+       (WorkMode ssc m)
     => SlotId
     -> Maybe ProxySKEither
     -> BlockHeader ssc

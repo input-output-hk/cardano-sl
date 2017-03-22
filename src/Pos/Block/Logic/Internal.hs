@@ -21,8 +21,10 @@ import           Paths_cardano_sl     (version)
 import           Serokell.Util        (Color (Red), colorize)
 import           Universum
 
-import           Pos.Block.Types      (Blund, Undo (undoUS))
-import           Pos.Context          (putBlkSemaphore, takeBlkSemaphore)
+import           Pos.Block.Types      (Blund, Undo (undoTx, undoUS))
+import           Pos.Context          (getNodeContext, ncTxpGlobalSettings,
+                                       putBlkSemaphore, takeBlkSemaphore)
+import           Pos.Core             (IsGenesisHeader, IsMainHeader)
 import           Pos.DB               (SomeBatchOp (..))
 import qualified Pos.DB.Block         as DB
 import qualified Pos.DB.DB            as DB
@@ -31,22 +33,25 @@ import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollback
 import           Pos.Exception        (assertionFailed)
 import           Pos.Reporting        (reportingFatal)
 import           Pos.Slotting         (putSlottingData)
+import           Pos.Txp.Core         (TxPayload)
 #ifdef WITH_EXPLORER
-import           Pos.Slotting         (currentTimeSlotting)
+import           Pos.Explorer.Txp     (eTxNormalize)
+#else
+import           Pos.Txp.Logic        (txNormalize)
 #endif
 import           Pos.Ssc.Class        (Ssc)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
-import           Pos.Txp.Logic        (txApplyBlocks, txNormalize, txRollbackBlocks)
-import           Pos.Types            (Block, GenesisBlock, HeaderHash, IsGenesisHeader,
-                                       IsMainHeader, MainBlock, epochIndexL, gbBody,
-                                       gbHeader, headerHash, headerHashG, mbUpdatePayload,
+import           Pos.Txp.Settings     (TxpBlund, TxpGlobalSettings (..))
+import           Pos.Types            (Block, GenesisBlock, HeaderHash, MainBlock,
+                                       epochIndexL, gbBody, gbHeader, headerHash,
+                                       headerHashG, mbTxPayload, mbUpdatePayload,
                                        prevBlockL)
 import           Pos.Update.Core      (UpdateBlock, UpdatePayload)
 import qualified Pos.Update.DB        as UDB
 import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll      (PollModifier)
-import           Pos.Util             (NE, NewestFirst (..), OldestFirst (..), Some (..),
-                                       inAssertMode, spanSafe, _neLast)
+import           Pos.Util             (Some (..), inAssertMode, spanSafe, _neLast)
+import           Pos.Util.Chrono      (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode         (WorkMode)
 
 -- [CSL-780] Totally need something more elegant
@@ -105,23 +110,23 @@ applyBlocksUnsafeDo
 applyBlocksUnsafeDo blunds pModifier = do
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
+    TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
-#ifdef WITH_EXPLORER
-    curTime <- currentTimeSlotting
-    txBatch <- txApplyBlocks blunds curTime
-#else
-    txBatch <- txApplyBlocks blunds
-#endif
+    txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
     sscApplyBlocks blocks Nothing -- TODO: pass not only 'Nothing'
     let putTip = SomeBatchOp $
                  GS.PutTip $
                  headerHash $
                  NE.last $
                  getOldestFirst blunds
-    GS.writeBatchGState [putTip, delegateBatch, usBatch, txBatch, forwardLinksBatch, inMainBatch]
+    GS.writeBatchGState [putTip, delegateBatch, usBatch, txpBatch, forwardLinksBatch, inMainBatch]
     sscNormalize
+#ifdef WITH_EXPLORER
+    eTxNormalize
+#else
     txNormalize
+#endif
     usNormalize
     DB.sanityCheckDB
     putSlottingData =<< UDB.getSlottingData
@@ -145,7 +150,8 @@ rollbackBlocksUnsafe toRollback = reportingFatal version $ do
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS
                               & each._1 %~ toUpdateBlock)
-    txRoll <- txRollbackBlocks toRollback
+    TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
+    txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
     sscRollbackBlocks $ fmap fst toRollback
     let putTip = SomeBatchOp $
                  GS.PutTip $
@@ -166,3 +172,16 @@ rollbackBlocksUnsafe toRollback = reportingFatal version $ do
         fmap (GS.RemoveForwardLink . view prevBlockL . fst) toRollback
     isGenesis0 (Left genesisBlk) = genesisBlk ^. epochIndexL == 0
     isGenesis0 (Right _)         = False
+
+-- [CSL-780] Need something more elegant, at least eliminate copy-paste.
+-- Should be done soon™.
+toTxpBlund
+    :: forall ssc.
+       Ssc ssc
+    => Blund ssc -> TxpBlund
+toTxpBlund = bimap (bimap convertGenesis convertMain) undoTx
+  where
+    convertGenesis :: GenesisBlock ssc -> Some IsGenesisHeader
+    convertGenesis = Some . view gbHeader
+    convertMain :: MainBlock ssc -> (Some IsMainHeader, TxPayload)
+    convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbTxPayload)

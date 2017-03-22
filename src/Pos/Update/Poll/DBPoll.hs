@@ -31,7 +31,6 @@ import           Pos.Lrc.Context             (LrcContext)
 import           Pos.Lrc.DB                  (getIssuersStakes, getRichmenUS)
 import           Pos.Lrc.Types               (FullRichmenData)
 import           Pos.Ssc.Extra               (MonadSscMem)
-import           Pos.Txp.MemState            (MonadTxpMem (..))
 import           Pos.Types                   (Coin)
 import qualified Pos.Update.DB               as GS
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
@@ -60,7 +59,6 @@ newtype DBPoll m a = DBPoll
                , MonadMask
                , MonadUSMem
                , MonadSscMem peka
-               , MonadTxpMem
                , MonadBase io
                , MonadDelegation
                , MonadFix

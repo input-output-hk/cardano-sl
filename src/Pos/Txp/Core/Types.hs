@@ -11,6 +11,7 @@ module Pos.Txp.Core.Types
        -- * Witness
        , TxInWitness (..)
        , TxWitness
+       , TxOutDistribution
        , TxDistribution (..)
        , TxSigData
        , TxSig
@@ -112,11 +113,16 @@ instance Buildable TxInWitness where
 -- is provided for each input.
 type TxWitness = Vector TxInWitness
 
+-- | Distribution of "fake" stake that follow-the-satoshi would use
+-- for a particular transaction output. Sum of coins in the list should
+-- be the same as `txOutValue` of corresponding output.
+type TxOutDistribution = [(StakeholderId, Coin)]
+
 -- | Distribution of “fake” stake that follow-the-satoshi would use
 -- for a particular transaction.  Length of stored list must be same
 -- as length of '_txOutputs' of corresponding transaction.
 newtype TxDistribution = TxDistribution
-    { getTxDistribution :: NonEmpty [(StakeholderId, Coin)]
+    { getTxDistribution :: NonEmpty TxOutDistribution
     } deriving (Eq, Show, Generic, Typeable)
 
 instance Buildable TxDistribution where
@@ -155,9 +161,9 @@ instance Buildable TxOut where
 -- | Transaction output and auxilary data corresponding to it.
 -- [CSL-366] Add more data.
 data TxOutAux = TxOutAux
-    { toaOut   :: !TxOut                   -- ^ Tx output
-    , toaDistr :: ![(StakeholderId, Coin)] -- ^ Stake distribution
-                                           -- associated with output
+    { toaOut   :: !TxOut             -- ^ Tx output
+    , toaDistr :: !TxOutDistribution -- ^ Stake distribution
+                                     -- associated with output
     } deriving (Show, Eq)
 
 instance Buildable TxOutAux where

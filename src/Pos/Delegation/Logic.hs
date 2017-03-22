@@ -77,9 +77,9 @@ import           Pos.Types                   (Block, HeaderHash, ProxySKHeavy,
                                               ProxySKLight, ProxySigLight, addressHash,
                                               blockProxySKs, epochIndexL, headerHash,
                                               prevBlockL)
-import           Pos.Util                    (NE, NewestFirst (..), OldestFirst (..),
-                                              withReadLifted, withWriteLifted, _neHead,
+import           Pos.Util                    (withReadLifted, withWriteLifted, _neHead,
                                               _neLast)
+import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Context            (HasContext)
 
 ----------------------------------------------------------------------------

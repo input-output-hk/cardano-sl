@@ -62,6 +62,7 @@ library
                        Pos.Binary.Core.Types
                        Pos.Binary.Core.Version
 
+                       Pos.Util.Chrono
                        Pos.Util.Config
                        Pos.Util.Context
                        Pos.Util.HVect
@@ -71,7 +72,8 @@ library
 
   other-modules:       Pos.Util.Config.Path
 
-  build-depends:       aeson
+  build-depends:      QuickCheck
+                     , aeson
                      , base
                      , base58-bytestring
                      , log-warper >= 1.0.3
@@ -118,6 +120,7 @@ library
                      , universum
                      , unordered-containers
                      , vector
+                     , witherable
                      , yaml
 
   default-language:    Haskell2010

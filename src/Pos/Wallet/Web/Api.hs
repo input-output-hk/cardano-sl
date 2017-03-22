@@ -10,18 +10,16 @@ module Pos.Wallet.Web.Api
        ) where
 
 
-import           Control.Lens               ((?~))
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
                                              Post, Put, QueryParam, ReqBody)
 
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CInitialized, CProfile,
                                              CTx, CTxId, CTxMeta, CUpdateInfo, CWallet,
                                              CWalletInit, CWalletMeta, CWalletRedeem,
-                                             CWalletType, SyncProgress)
+                                             SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 

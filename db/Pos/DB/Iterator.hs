@@ -5,5 +5,5 @@ module Pos.DB.Iterator
        , module Pos.DB.Iterator.DBIterator
        ) where
 
-import Pos.DB.Iterator.Class
-import Pos.DB.Iterator.DBIterator
+import           Pos.DB.Iterator.Class
+import           Pos.DB.Iterator.DBIterator

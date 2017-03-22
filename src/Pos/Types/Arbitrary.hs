@@ -42,9 +42,9 @@ import           Pos.Constants              (epochSlots, sharedSeedLength)
 import           Pos.Core.Address           (makePubKeyAddress, makeRedeemAddress,
                                              makeScriptAddress)
 import           Pos.Core.Coin              (coinToInteger, divCoin, unsafeSubCoin)
-import qualified Pos.Core.Types             as Types
-import           Pos.Core.Types             (Coin, BlockVersion (..),
+import           Pos.Core.Types             (BlockVersion (..), Coin,
                                              SoftwareVersion (..))
+import qualified Pos.Core.Types             as Types
 import           Pos.Core.Version           (applicationNameMaxLength)
 import           Pos.Crypto                 (Hash, PublicKey, SecretKey, Share, hash,
                                              sign, toPublic)

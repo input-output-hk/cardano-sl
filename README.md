@@ -46,10 +46,10 @@ a [wallet](https://github.com/input-output-hk/daedalus).
 Build from source
 -----------------
 
-To build from source, clone this repository, navigate to the directory
-into which the project was cloned and run `stack build`.
+To build from source, please refer to [this](https://cardano-docs.iohk.io/for-contributors/building-from-source/#cardano-sl-and-daedalus-bridge)
+ page of the documentation.
 
-The [`stack` system](https://docs.haskellstack.org/en/stable/README/) is
+Note that the [`stack` system](https://docs.haskellstack.org/en/stable/README/) is
 required before `cardano-sl` can be built.
 
 For developer convenience, also note that in the `scripts` and `util-scripts` folders
@@ -57,9 +57,11 @@ there are a variety of utility scripts to build various components of the system
 such as the general `util-scripts/build.sh`, or the `util-scripts/clean.sh` to remove
 byproducts of compilation.
 
-Note also that as of March 2017, it is not possible to use the `cardano-sl:with-web` and
-`cardano-sl:with-wallet` `stack` compilation flags, as they rely on a module that imports
-some functionality from the `unix` package, which is not in any way supported in Windows.
+Running the nodes
+-----------------
+
+If you wish to launch and run nodes locally please refer to [this](https://cardano-docs.iohk.io/for-contributors/building-from-source/#cardano-node)
+page of the documentation.
 
 Generating the wallet documentation
 -----------------------------------

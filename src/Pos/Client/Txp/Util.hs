@@ -14,7 +14,7 @@ module Pos.Client.Txp.Util
        , TxError
        ) where
 
-import           Control.Lens        ((%=))
+import           Control.Lens        ((%=), (.=))
 import           Control.Monad.State (StateT (..), evalStateT)
 import           Data.List           (tail)
 import           Data.List.NonEmpty  (nonEmpty, (<|))
@@ -115,7 +115,7 @@ prepareInpOuts utxo addr outputs = do
                 case mNextOut of
                     Nothing -> fail "Not enough money to send!"
                     Just inp@(_, (TxOutAux (TxOut {..}) _)) -> do
-                        _1 %= unsafeSubCoin (min txOutValue moneyLeft)
+                        _1 .= unsafeSubCoin moneyLeft (min txOutValue moneyLeft)
                         _2 %= tail
                         pickInputs (inp : inps)
 

@@ -1,6 +1,5 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | Secret key file storage and management functions based on file
 -- locking.
@@ -24,7 +23,7 @@ module Pos.Util.UserSecret
        , writeUserSecretRelease
        ) where
 
-import           Control.Exception    (throwIO, try)
+import           Control.Exception    (onException)
 import           Control.Lens         (makeLenses, to)
 import           Data.Binary.Get      (label)
 import qualified Data.ByteString.Lazy as BSL
@@ -197,9 +196,9 @@ writeRaw u = do
     (tempPath, tempHandle) <-
         openBinaryTempFile (takeDirectory path) (takeFileName path)
 
-    BSL.hPut tempHandle (encode u) `catch` \(e :: SomeException) -> do
+    -- onException rethrows the exception after calling the handler.
+    BSL.hPut tempHandle (encode u) `onException` do
         hClose tempHandle
-        throwIO e
 
     hClose tempHandle
     renameFile tempPath path

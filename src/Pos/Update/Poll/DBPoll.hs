@@ -35,6 +35,7 @@ import           Pos.Types                   (Coin)
 import qualified Pos.Update.DB               as GS
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPollRead (..))
+import           Pos.Util.Context            (HasContext, MonadContext (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -64,6 +65,9 @@ newtype DBPoll m a = DBPoll
                , MonadFix
                , MonadDB
                )
+
+instance MonadContext m => MonadContext (DBPoll m) where
+    type ContextType (DBPoll m) = ContextType m
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code

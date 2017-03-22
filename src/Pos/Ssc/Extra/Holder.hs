@@ -41,6 +41,7 @@ import           Pos.Ssc.Class.LocalData   (SscLocalDataClass (sscNewLocalData))
 import           Pos.Ssc.Class.Storage     (SscGStateClass (sscLoadGlobalState))
 import           Pos.Ssc.Extra.Class       (MonadSscMem (..))
 import           Pos.Ssc.Extra.Types       (SscState (..))
+import           Pos.Util.Context          (HasContext, MonadContext (..))
 import           Pos.Util.JsonLog          (MonadJL (..))
 
 newtype SscHolder ssc m a = SscHolder
@@ -68,6 +69,9 @@ newtype SscHolder ssc m a = SscHolder
                , MonadDB
                , MonadDBLimits
                )
+
+instance MonadContext m => MonadContext (SscHolder ssc m) where
+    type ContextType (SscHolder ssc m) = ContextType m
 
 type instance ThreadId (SscHolder ssc m) = ThreadId m
 

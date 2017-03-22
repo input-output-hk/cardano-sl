@@ -10,7 +10,7 @@ module Pos.Update.Poll.Trans
        , execPollT
        ) where
 
-import           Control.Lens                (iso, (%=), (.=), uses)
+import           Control.Lens                (iso, uses, (%=), (.=))
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Except        (MonadError)
 import           Control.Monad.Fix           (MonadFix)
@@ -50,6 +50,7 @@ import           Pos.Update.Poll.Types       (BlockVersionState (..),
                                               pmAdoptedBVFullL, pmBVsL, pmConfirmedL,
                                               pmConfirmedPropsL, pmDelActivePropsIdxL,
                                               pmSlottingDataL, psProposal)
+import           Pos.Util.Context            (MonadContext (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 import qualified Pos.Util.Modifier           as MM
 
@@ -69,6 +70,9 @@ newtype PollT m a = PollT
                 WithNodeContext ssc, MonadJL, CanLog, MonadMask, MonadUSMem,
                 MonadSscMem mem, MonadDB,
                 MonadTxpMem, MonadBase io, MonadDelegation, MonadFix)
+
+instance MonadContext m => MonadContext (PollT m) where
+    type ContextType (PollT m) = ContextType m
 
 ----------------------------------------------------------------------------
 -- Runners

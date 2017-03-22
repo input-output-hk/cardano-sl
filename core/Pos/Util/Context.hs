@@ -28,9 +28,11 @@ module Pos.Util.Context
 
 import           Universum
 
-import           Control.Lens   (Getting)
-import           Pos.Util.HVect (HVect)
-import qualified Pos.Util.HVect as HVect
+import           Control.Lens        (Getting)
+import           Control.Monad.Trans (MonadTrans)
+
+import           Pos.Util.HVect      (HVect)
+import qualified Pos.Util.HVect      as HVect
 
 class ExtractContext a s where
     extractContext :: s -> a
@@ -38,6 +40,19 @@ class ExtractContext a s where
 class Monad m => MonadContext m where
     type ContextType m
     getFullContext :: m (ContextType m)
+
+    default getFullContext
+        :: (MonadTrans t, MonadContext m',
+            t m' ~ m, ContextType m' ~ ContextType m)
+        => m (ContextType m)
+    getFullContext = lift getFullContext
+
+instance MonadContext m => MonadContext (ReaderT s m) where
+    type ContextType (ReaderT s m) = ContextType m
+instance MonadContext m => MonadContext (StateT s m) where
+    type ContextType (StateT s m) = ContextType m
+instance MonadContext m => MonadContext (ExceptT s m) where
+    type ContextType (ExceptT s m) = ContextType m
 
 {- |
 Using 'getFullContext' if not very convenient because usually we don't need

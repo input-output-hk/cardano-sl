@@ -49,6 +49,7 @@ import           Pos.Slotting.Class          (MonadSlots (..))
 import qualified Pos.Slotting.Constants      as C
 import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
 import           Pos.Slotting.Types          (EpochSlottingData (..), SlottingData (..))
+import           Pos.Util.Context            (MonadContext (..))
 
 ----------------------------------------------------------------------------
 -- State
@@ -98,6 +99,9 @@ newtype NtpSlotting m a = NtpSlotting
 ----------------------------------------------------------------------------
 -- Common instances used all over the code
 ----------------------------------------------------------------------------
+
+instance MonadContext m => MonadContext (NtpSlotting m) where
+    type ContextType (NtpSlotting m) = ContextType m
 
 type instance ThreadId (NtpSlotting m) = ThreadId m
 type instance Promise (NtpSlotting m) = Promise m

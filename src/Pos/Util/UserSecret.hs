@@ -1,5 +1,6 @@
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Secret key file storage and management functions based on file
 -- locking.
@@ -189,20 +190,19 @@ writeUserSecretRelease u
 writeRaw :: UserSecret -> IO ()
 writeRaw u = do
     let path = u ^. usPath
-    -- On POSIX platforms, openTempFile guarantees that the file
+    -- On POSIX platforms, openBinaryTempFile guarantees that the file
     -- will be created with mode 600.
-    r1 <- try $ openBinaryTempFile (takeDirectory path) (takeFileName path) :: IO (Either SomeException (FilePath, Handle))
-    case r1 of
-        Left e -> throwIO e
-        Right (tempPath, tempHandle) -> do
-            r2 <- try $ BSL.hPut tempHandle $ encode u :: IO (Either SomeException ())
-            case r2 of
-                Left e -> do
-                    hClose tempHandle
-                    throwIO e
-                Right () -> do
-                    hClose tempHandle
-                    renameFile tempPath path
+    -- If openBinaryTempFile throws, we want to propagate this exception,
+    -- hence no handler.
+    (tempPath, tempHandle) <-
+        openBinaryTempFile (takeDirectory path) (takeFileName path)
+
+    BSL.hPut tempHandle (encode u) `catch` \(e :: SomeException) -> do
+        hClose tempHandle
+        throwIO e
+
+    hClose tempHandle
+    renameFile tempPath path
 
 -- | Helper for taking shared lock on file
 takeReadLock :: MonadIO m => FilePath -> IO a -> m a

@@ -152,13 +152,7 @@ mkCTxMeta currency title description date =
                , ctmDate: mkTime date
                }
 
-mkCProfile :: String -> String -> String -> String -> Number -> String -> String -> CT.CProfile
-mkCProfile name email phone pass date locale picture =
-    CT.CProfile { cpName: name
-                , cpEmail: email
-                , cpPhoneNumber: phone
-                , cpPwHash: pass
-                , cpPwCreated: mkTime date
-                , cpLocale: locale
-                , cpPicture: picture
+mkCProfile :: String -> CT.CProfile
+mkCProfile locale =
+    CT.CProfile { cpLocale: locale
                 }

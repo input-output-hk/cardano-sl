@@ -22,8 +22,8 @@ import Daedalus.Crypto as Crypto
 getProfile :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 getProfile = fromAff $ map encodeJson B.getProfile
 
-updateProfile :: forall eff. EffFn7 (ajax :: AJAX | eff) String String String String Number String String  (Promise Json)
-updateProfile = mkEffFn7 \name email phone pass date locale picture -> fromAff <<< map encodeJson <<< B.updateProfile $ mkCProfile name email phone pass date locale picture
+updateProfile :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
+updateProfile = mkEffFn1 \locale -> fromAff <<< map encodeJson <<< B.updateProfile $ mkCProfile locale
 
 getWallets :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 getWallets = fromAff $ map encodeJson B.getWallets

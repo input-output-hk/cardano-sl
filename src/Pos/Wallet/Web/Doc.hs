@@ -333,13 +333,7 @@ instance ToSample CProfile where
     toSamples Proxy = singleSample sample
       where
         sample = CProfile
-            { cpName        = ""
-            , cpEmail       = ""
-            , cpPhoneNumber = ""
-            , cpPwHash      = ""
-            , cpPwCreated   = posixTime
-            , cpLocale      = ""
-            , cpPicture     = ""
+            { cpLocale      = ""
             }
 
 instance ToSample Word where

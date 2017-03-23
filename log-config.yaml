@@ -1,0 +1,5 @@
+severity: Info
+node:
+    plugin:
+        notifier:
+            severity: Debug

@@ -332,55 +332,43 @@ runStatsMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
 runCH :: forall ssc m a . (SscConstraint ssc, MonadDB m, Mockable CurrentTime m)
       => Int -> NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
 runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
-    logCfg <- getRealLoggerConfig $ bpLoggingParams npBaseParams
-    jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
-    semaphore <- liftIO newEmptyMVar
-    updSemaphore <- liftIO newEmptyMVar
+    ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
+    ncJLFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
+    ncBlkSemaphore <- liftIO newEmptyMVar
+    ucUpdateSemaphore <- liftIO newEmptyMVar
 
     -- TODO [CSL-775] lrc initialization logic is duplicated.
-    lrcSync <- liftIO . newTVarIO . (True,) =<< LrcDB.getEpochDefault
+    lcLrcSync <- liftIO . newTVarIO . (True,) =<< LrcDB.getEpochDefault
 
     let eternity = (minBound, maxBound)
         makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . encToPublic
         ownPSKs = npUserSecret ^.. usKeys._tail.each.to makeOwnPSK
     forM_ ownPSKs addProxySecretKey
 
-    userSecretVar <- liftIO . newTVarIO $ npUserSecret
-    queue <- liftIO $ newTBQueueIO Const.blockRetrievalQueueSize
-    propQueue <- liftIO $ newTBQueueIO Const.propagationQueueSize
-    recoveryHeaderVar <- liftIO newEmptyTMVarIO
-    progressHeader <- liftIO newEmptyTMVarIO
-    shutdownFlag <- liftIO $ newTVarIO False
-    shutdownQueue <- liftIO $ newTBQueueIO allWorkersNum
-    curTime <- liftIO Time.getCurrentTime
-    lastKnownHeader <- liftIO $ newTVarIO Nothing
+    ncUserSecret <- liftIO . newTVarIO $ npUserSecret
+    ncBlockRetrievalQueue <- liftIO $
+        newTBQueueIO Const.blockRetrievalQueueSize
+    ncInvPropagationQueue <- liftIO $
+        newTBQueueIO Const.propagationQueueSize
+    ncRecoveryHeader <- liftIO newEmptyTMVarIO
+    ncProgressHeader <- liftIO newEmptyTMVarIO
+    ncShutdownFlag <- liftIO $ newTVarIO False
+    ncShutdownNotifyQueue <- liftIO $ newTBQueueIO allWorkersNum
+    ncStartTime <- liftIO Time.getCurrentTime
+    ncLastKnownHeader <- liftIO $ newTVarIO Nothing
     let ctx =
             NodeContext
-            { ncJLFile = jlFile
-            , ncSscContext = sscNodeContext
-            , ncBlkSemaphore = semaphore
-            , ncLrcContext = LrcContext
-                { lcLrcSync = lrcSync }
-            , ncUpdateContext = UpdateContext
-                { ucUpdateSemaphore = updSemaphore }
-            , ncUserSecret = userSecretVar
-            , ncBlockRetrievalQueue = queue
-            , ncInvPropagationQueue = propQueue
-            , ncRecoveryHeader = recoveryHeaderVar
-            , ncProgressHeader = progressHeader
-            , ncShutdownFlag = shutdownFlag
-            , ncShutdownNotifyQueue = shutdownQueue
+            { ncSscContext = sscNodeContext
+            , ncLrcContext = LrcContext {..}
+            , ncUpdateContext = UpdateContext {..}
             , ncNodeParams = params
-            , ncLoggerConfig = logCfg
             , ncSendLock = Nothing
-            , ncStartTime = curTime
-            , ncLastKnownHeader = lastKnownHeader
 #ifdef WITH_EXPLORER
             , ncTxpGlobalSettings = explorerTxpGlobalSettings
 #else
             , ncTxpGlobalSettings = txpGlobalSettings
 #endif
-            }
+            , .. }
     runContextHolder ctx act
 
 ----------------------------------------------------------------------------

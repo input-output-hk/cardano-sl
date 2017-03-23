@@ -23,7 +23,7 @@ import qualified Data.Vector      as V
 import           GHC.TypeLits     (type (+))
 import           Unsafe.Coerce    (unsafeCoerce)
 
--- | A heterogeneous vector. @HVect [Int, Bool, Char]@ is a vector of with
+-- | A heterogeneous vector. @HVect [Int, Bool, Char]@ is a vector with
 -- three elements; the first one is of type 'Int', the second is of type
 -- 'Bool', and the third is of type 'Char'.
 --

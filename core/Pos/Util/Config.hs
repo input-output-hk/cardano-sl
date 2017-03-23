@@ -147,7 +147,7 @@ class Monad m => MonadConfig m where
     getFullConfig :: m (ConfigType m)
 
 {- |
-Using 'getFullConfig' if not very convenient because usually we don't need
+Using 'getFullConfig' is not very convenient because usually we don't need
 the full config. Thus we define a type synonym 'HasConfig' which combines
 'MonadConfig' and 'ExtractConfig' – in particular, @HasConfig A m@ means that
 inside @m@ you can access config of type @A@.

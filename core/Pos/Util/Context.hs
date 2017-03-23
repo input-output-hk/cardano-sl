@@ -55,7 +55,7 @@ instance MonadContext m => MonadContext (ExceptT s m) where
     type ContextType (ExceptT s m) = ContextType m
 
 {- |
-Using 'getFullContext' if not very convenient because usually we don't need
+Using 'getFullContext' is not very convenient because usually we don't need
 the full context. Thus we define a type synonym 'HasContext' which combines
 'MonadContext' and 'ExtractContext' – in particular, @HasContext A m@ means
 that inside @m@ you can access context of type @A@.

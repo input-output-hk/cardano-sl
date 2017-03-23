@@ -169,4 +169,4 @@ testReset :: forall eff. Eff (ajax :: AJAX | eff) (Promise Unit)
 testReset = fromAff B.testReset
 
 isValidRedeemCode :: String -> Boolean
-isValidRedeemCode = either (const false) ((==) 32 <<< length) <<< decode
+isValidRedeemCode code = either (const false) (const $ 44 == length code) $ decode code

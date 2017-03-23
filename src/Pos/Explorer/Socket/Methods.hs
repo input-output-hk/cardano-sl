@@ -30,8 +30,11 @@ module Pos.Explorer.Socket.Methods
 import           Control.Lens                   (at, non, (.=), _Just)
 import           Control.Monad.State            (MonadState)
 import           Data.Aeson                     (ToJSON)
+import           Data.List                      (intersperse)
 import qualified Data.Set                       as S
+import           Data.Text.Buildable            (build)
 import           Formatting                     (sformat, shown, stext, (%))
+import qualified Formatting                     as F
 import qualified GHC.Exts                       as Exts
 import           Network.EngineIO               (SocketId)
 import           Network.SocketIO               (Socket, socketId)
@@ -58,7 +61,7 @@ import           Pos.Explorer.Socket.Holder     (ConnectionsState, ccAddress, cc
                                                  csBlocksSubscribers, csClients,
                                                  csTxsSubscribers, mkClientContext)
 import           Pos.Explorer.Socket.Util       (EventName (..), emitTo)
-import           Pos.Explorer.Web.ClientTypes   (CAddress, CTxEntry, fromCAddress,
+import           Pos.Explorer.Web.ClientTypes   (CAddress, CTxEntry (..), fromCAddress,
                                                  toBlockEntry, toTxEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 import           Pos.Explorer.Web.Server        (topsortTxsOrFail)
@@ -252,8 +255,10 @@ notifyTxsSubscribers
     => [Block ssc] -> m ()
 notifyTxsSubscribers blocks = do
     recipients <- view csTxsSubscribers
-    cTxEntries <- forM blocks getBlockTxs
+    cTxEntries <- concat <$> forM blocks getBlockTxs
     broadcast TxsUpdated cTxEntries recipients
+    logDebug $ sformat ("Broadcasted transactions: "%F.build)
+               (mconcat . intersperse "," $ build . cteId <$> cTxEntries)
 
 getBlocksFromTo
     :: forall ssc m.

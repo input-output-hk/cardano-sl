@@ -76,7 +76,7 @@ newtype CAddress = CAddress Text
 
 -- | Client transaction id
 newtype CTxId = CTxId CHash
-    deriving (Show, Eq, Generic, Hashable)
+    deriving (Show, Eq, Generic, Buildable, Hashable)
 
 -- | Transformation of core hash-types to client representations and vice versa
 encodeHashHex :: Hash a -> Text

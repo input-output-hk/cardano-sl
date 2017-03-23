@@ -6,7 +6,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkCWalletInitIgnoreChecksum, mkBackupPhrase, mkCInitialized)
+import Daedalus.Types (getProfileLocale, mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkCWalletInitIgnoreChecksum, mkBackupPhrase, mkCInitialized)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
@@ -19,11 +19,11 @@ import Control.Monad.Error.Class (throwError)
 import Data.Either (either)
 import Daedalus.Crypto as Crypto
 
-getProfile :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
-getProfile = fromAff $ map encodeJson B.getProfile
+getLocale :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
+getLocale = fromAff $ map encodeJson (getProfileLocale <$> B.getProfile)
 
-updateProfile :: forall eff. EffFn7 (ajax :: AJAX | eff) String String String String Number String String  (Promise Json)
-updateProfile = mkEffFn7 \name email phone pass date locale picture -> fromAff <<< map encodeJson <<< B.updateProfile $ mkCProfile name email phone pass date locale picture
+updateLocale :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
+updateLocale = mkEffFn1 \locale -> fromAff <<< map encodeJson <<< B.updateProfile $ mkCProfile locale
 
 getWallets :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 getWallets = fromAff $ map encodeJson B.getWallets

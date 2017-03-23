@@ -20,6 +20,7 @@ module Daedalus.Types
        , mkBackupPhrase
        , mkCWalletRedeem
        , mkCInitialized
+       , getProfileLocale
        ) where
 
 import Prelude
@@ -156,3 +157,6 @@ mkCProfile :: String -> CT.CProfile
 mkCProfile locale =
     CT.CProfile { cpLocale: locale
                 }
+
+getProfileLocale :: CT.CProfile -> String
+getProfileLocale (CT.CProfile r) = r.cpLocale

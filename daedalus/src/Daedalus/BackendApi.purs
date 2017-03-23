@@ -122,12 +122,6 @@ getProfile = getR ["profile"]
 
 updateProfile :: forall eff. CProfile -> Aff (ajax :: AJAX | eff) CProfile
 updateProfile = postRBody ["profile"]
-
-getLocale :: forall eff. Aff (ajax :: AJAX | eff) CProfile
-getLocale = getR ["profile"]
-
-updateLocale :: forall eff. CProfile -> Aff (ajax :: AJAX | eff) CProfile
-updateLocale = postRBody ["profile"]
 --------------------------------------------------------------------------------
 -- TRANSACTIONS ----------------------------------------------------------------
 send :: forall eff. CAddress -> CAddress -> Coin -> Aff (ajax :: AJAX | eff) CTx

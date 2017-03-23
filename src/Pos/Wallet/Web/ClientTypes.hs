@@ -48,7 +48,7 @@ import           Data.Time.Clock.POSIX  (POSIXTime)
 import           Data.Typeable          (Typeable)
 import           Formatting             (build, sformat)
 import           Prelude                (show)
-import qualified Serokell.Util.Base64   as Base64
+import qualified Serokell.Util.Base16   as Base16
 
 import           Pos.Aeson.Types        ()
 import           Pos.Binary.Class       (decodeFull, encodeStrict)
@@ -149,12 +149,12 @@ instance Show CPassPhrase where
 
 passPhraseToCPassPhrase :: PassPhrase -> CPassPhrase
 passPhraseToCPassPhrase passphrase =
-    CPassPhrase . Base64.encodeUrl $ encodeStrict passphrase
+    CPassPhrase . Base16.encode $ encodeStrict passphrase
 
 cPassPhraseToPassPhrase
     :: CPassPhrase -> Either Text PassPhrase
 cPassPhraseToPassPhrase (CPassPhrase text) =
-    (_Left %~ toText) . decodeFull . LBS.fromStrict =<< Base64.decodeUrl text
+    (_Left %~ toText) . decodeFull . LBS.fromStrict =<< Base16.decode text
 
 ----------------------------------------------------------------------------
 -- Wallet

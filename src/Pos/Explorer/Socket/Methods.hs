@@ -29,9 +29,7 @@ module Pos.Explorer.Socket.Methods
 
 import           Control.Lens                   (at, non, (.=), _Just)
 import           Control.Monad.State            (MonadState)
-import           Data.Aeson                     (ToJSON, encode)
-import           Data.Aeson.TH                  (defaultOptions, deriveJSON)
-import           Pos.Aeson                      ()
+import           Data.Aeson                     (ToJSON)
 import           Data.List                      (intersperse)
 import qualified Data.Set                       as S
 import           Data.Text.Buildable            (build)
@@ -76,10 +74,6 @@ data Subscription
     | SubTx
     deriving (Show, Generic)
 
-deriveJSON defaultOptions ''Subscription
-
-
-
 data ClientEvent
     = Subscribe Subscription
     | Unsubscribe Subscription
@@ -88,12 +82,8 @@ data ClientEvent
     | CallMeTxId
     deriving (Show, Generic)
 
-deriveJSON defaultOptions ''ClientEvent
-
 instance EventName ClientEvent where
-    toEvent = decodeUtf8 . encode
-
-
+    toName = show
 
 data ServerEvent
     = AddrUpdated
@@ -105,12 +95,8 @@ data ServerEvent
     | CallYouTxId
     deriving (Show, Generic)
 
-deriveJSON defaultOptions ''ServerEvent
-
 instance EventName ServerEvent where
-    toEvent = decodeUtf8 . encode
-
-
+    toName = show
 
 -- * Util
 

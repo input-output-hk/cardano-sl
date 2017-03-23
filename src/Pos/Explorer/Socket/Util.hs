@@ -33,7 +33,7 @@ import           Universum                   hiding (on)
 -- * Provides type-safity for event names in some socket-io functions.
 
 class EventName a where
-    toEvent :: a -> Text
+    toName :: a -> Text
 
 -- ** Socket-io functions which works with `EventName name` rather than
 -- with plain `Text`.
@@ -42,31 +42,31 @@ emit
     :: (ToJSON event, EventName name, MonadReader S.Socket m, MonadIO m)
     => name -> event -> m ()
 emit eventName =
-    S.emit $ toEvent eventName
+    S.emit $ toName eventName
     -- logDebug . sformat ("emit "%stext) $ toName eventName
 
 emitTo
     :: (ToJSON event, EventName name, MonadIO m)
     => S.Socket -> name -> event -> m ()
-emitTo sock eventName = S.emitTo sock (toEvent eventName)
+emitTo sock eventName = S.emitTo sock (toName eventName)
 
 emitJSON
     :: (EventName name, MonadReader S.Socket m, MonadIO m)
     => name -> Array -> m ()
-emitJSON eventName = S.emitJSON (toEvent eventName)
+emitJSON eventName = S.emitJSON (toName eventName)
 
 emitJSONTo
     :: (EventName name, MonadIO m)
     => S.Socket -> name -> Array -> m ()
-emitJSONTo sock eventName = S.emitJSONTo sock (toEvent eventName)
+emitJSONTo sock eventName = S.emitJSONTo sock (toName eventName)
 
 on_ :: (MonadState S.RoutingTable m, EventName name)
     => name -> S.EventHandler a -> m ()
-on_ eventName = S.on (toEvent eventName)
+on_ eventName = S.on (toName eventName)
 
 on :: (MonadState S.RoutingTable m, FromJSON event, EventName name)
    => name -> (event -> S.EventHandler a) -> m ()
-on eventName = S.on (toEvent eventName)
+on eventName = S.on (toName eventName)
 
 -- * Instances
 

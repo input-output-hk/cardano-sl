@@ -23,7 +23,6 @@ import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects)
 
-
 update :: forall eff. Action -> State -> EffModel State Action (dom :: DOM
     , ajax :: AJAX, socket :: SocketIO | eff)
 

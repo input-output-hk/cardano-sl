@@ -49,14 +49,17 @@ import qualified Pos.DB.GState          as GS
 import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
-import           Pos.Txp                (Tx (..), TxId, TxOut (..), TxOutAux (..),
-                                         _txOutputs)
-import           Pos.Types              (Address, Coin, MainBlock, Timestamp, addressF,
-                                         blockTxs, decodeTextAddress, difficultyL,
-                                         gbHeader, gbhConsensus, headerHash, mcdSlot,
-                                         mkCoin, prevBlockL, sumCoins, unsafeAddCoin,
+import           Pos.Txp                (Tx (..), TxId, TxOut (..),
+                                         TxOutAux (..), _txOutputs)
+import           Pos.Types              (Address, Coin, MainBlock, Timestamp,
+                                         addressF, blockTxs, decodeTextAddress,
+                                         difficultyL, epochIndexL, gbHeader,
+                                         gbhConsensus, getEpochIndex,
+                                         headerHash, mcdSlot, mkCoin,
+                                         prevBlockL, sumCoins, unsafeAddCoin,
                                          unsafeIntegerToCoin)
 import           Pos.Types.Explorer     (TxExtra (..))
+
 
 -------------------------------------------------------------------------------------
 -- Hash types
@@ -142,7 +145,8 @@ data CHashSearchResult
 
 -- | List of block entries is returned from "get latest N blocks" endpoint
 data CBlockEntry = CBlockEntry
-    { cbeBlkHash    :: !CHash
+    { cbeEpoch      :: !Word64
+    , cbeBlkHash    :: !CHash
     , cbeHeight     :: !Word
     , cbeTimeIssued :: !(Maybe POSIXTime)
     , cbeTxNum      :: !Word
@@ -160,17 +164,19 @@ toBlockEntry
     -> m CBlockEntry
 toBlockEntry blk = do
     blkSlotStart <- getSlotStart (blk ^. gbHeader . gbhConsensus . mcdSlot)
-    let cbeBlkHash = toCHash $ headerHash blk
-        cbeHeight = fromIntegral $ blk ^. difficultyL
+    let cbeEpoch      = getEpochIndex $ blk ^. epochIndexL
+        cbeBlkHash    = toCHash $ headerHash blk
+        cbeHeight     = fromIntegral $ blk ^. difficultyL
         cbeTimeIssued = toPosixTime <$> blkSlotStart
-        txs = blk ^. blockTxs
-        cbeTxNum = fromIntegral $ length txs
-        addCoins c = unsafeAddCoin c . totalTxMoney
-        cbeTotalSent = foldl' addCoins (mkCoin 0) txs
+        txs           = blk ^. blockTxs
+        cbeTxNum      = fromIntegral $ length txs
+        addCoins c    = unsafeAddCoin c . totalTxMoney
+        cbeTotalSent  = foldl' addCoins (mkCoin 0) txs
         -- TODO: is there a way to get it more efficiently?
-        cbeSize = fromIntegral . BSL.length $ Bi.encode blk
-        cbeRelayedBy = Nothing
+        cbeSize       = fromIntegral . BSL.length $ Bi.encode blk
+        cbeRelayedBy  = Nothing
     return CBlockEntry {..}
+
 
 -- | List of tx entries is returned from "get latest N transactions" endpoint
 data CTxEntry = CTxEntry

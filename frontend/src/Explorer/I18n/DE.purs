@@ -18,6 +18,7 @@ translation =
         , cBlock: "Slot"
         , cHash: "Hash"
         , cHashes: "Hashes"
+        , cEpoch: "Epoche Nr."
         , cHeight: "Slot Nr."
         , cAge: "Seit"
         , cTotalSent: "Insgesamt gesendet"

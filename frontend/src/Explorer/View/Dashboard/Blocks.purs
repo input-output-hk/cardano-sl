@@ -8,7 +8,7 @@ import Data.Newtype (unwrap)
 import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Data.Time.Duration (Milliseconds(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (dashboard, dbLastBlocks, cOf, common, dbExploreBlocks, cUnknown, cHeight, cExpand, cNoData, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB) as I18nL
+import Explorer.I18n.Lenses (dashboard, dbLastBlocks, cOf, common, dbExploreBlocks, cUnknown, cEpoch, cHeight, cExpand, cNoData, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB) as I18nL
 import Explorer.Lenses.State (dashboardBlockPagination, lang, latestBlocks)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
@@ -20,7 +20,7 @@ import Explorer.View.Dashboard.Lenses (dashboardBlocksExpanded, dashboardViewSta
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeHeight, cbeRelayedBy, cbeSize, cbeTimeIssued, cbeTotalSent, cbeTxNum)
+import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeEpoch, cbeHeight, cbeRelayedBy, cbeSize, cbeTimeIssued, cbeTotalSent, cbeTxNum)
 import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pux.Html (Html, div, text) as P
 import Pux.Html.Attributes (className) as P
@@ -108,7 +108,8 @@ blockRow :: State -> CBlockEntry -> P.Html Action
 blockRow state (CBlockEntry entry) =
     P.link (toUrl <<< Block $ entry ^. cbeBlkHash)
         [ P.className "blocks-body__row" ]
-        [ blockColumn <<< show $ entry ^. cbeHeight
+        [ blockColumn <<< show $ entry ^. cbeEpoch
+        , blockColumn <<< show $ entry ^. cbeHeight
         , blockColumn $ case entry ^. cbeTimeIssued of
                             Just time -> prettyDuration language (Milliseconds
                                 $ unwrap $ time ^. _NominalDiffTime)
@@ -141,7 +142,8 @@ blockHeaderItemView state label =
 
 mkBlocksHeaderItems :: Language -> Array String
 mkBlocksHeaderItems lang =
-    [ translate (I18nL.common <<< I18nL.cHeight) lang
+    [ translate (I18nL.common <<< I18nL.cEpoch) lang
+    , translate (I18nL.common <<< I18nL.cHeight) lang
     , translate (I18nL.common <<< I18nL.cAge) lang
     , translate (I18nL.common <<< I18nL.cTransactions) lang
     , translate (I18nL.common <<< I18nL.cTotalSent) lang

@@ -33,6 +33,7 @@ type Common =
     , cBlock :: String
     , cHash :: String
     , cHashes :: String
+    , cEpoch :: String
     , cHeight :: String
     , cAge :: String
     , cTotalSent :: String

@@ -20,6 +20,7 @@ translation =
         , cBlock: "Slot"
         , cHash: "Hash"
         , cHashes: "Hashes"
+        , cEpoch: "Epoch no."
         , cHeight: "Slot no."
         , cAge: "Since"
         , cTotalSent: "Total Sent"

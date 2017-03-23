@@ -29,7 +29,7 @@ import qualified Pos.DB.GState              as GS
 import qualified Pos.DB.GState.Balances     as GS
 import           Pos.Lrc.Consumer           (LrcConsumer (..))
 import           Pos.Lrc.Consumers          (allLrcConsumers)
-import           Pos.Lrc.Context            (LrcContext (lcLrcSync), LrcSyncData)
+import           Pos.Lrc.Context            (LrcContext (lcLrcSync), LrcSyncData (..))
 import           Pos.Lrc.DB                 (IssuersStakes, getLeaders, putEpoch,
                                              putIssuersStakes, putLeaders)
 import           Pos.Lrc.Error              (LrcError (..))
@@ -114,15 +114,14 @@ tryAcuireExclusiveLock epoch lock action =
     bracketOnError acquireLock (flip whenJust releaseLock) doAction
   where
     acquireLock = atomically $ do
-        res <- readTVar lock
-        case res of
-            (False, _) -> retry
-            (True, lockEpoch)
-                | lockEpoch >= epoch -> pure Nothing
-                | lockEpoch == epoch - 1 ->
-                    Just lockEpoch <$ writeTVar lock (False, lockEpoch)
-                | otherwise -> throwM UnknownBlocksForLrc
-    releaseLock = atomically . writeTVar lock . (True,)
+        sync <- readTVar lock
+        if | not (lrcNotRunning sync) {- i.e. lrc is running -} -> retry
+           | lastEpochWithLrc sync >= epoch -> pure Nothing
+           | lastEpochWithLrc sync == epoch - 1 -> do
+                 writeTVar lock (LrcSyncData False (lastEpochWithLrc sync))
+                 pure (Just (lastEpochWithLrc sync))
+           | otherwise -> throwM UnknownBlocksForLrc
+    releaseLock e = atomically $ writeTVar lock (LrcSyncData True e)
     doAction Nothing = pass
     doAction _       = action >> releaseLock epoch
 

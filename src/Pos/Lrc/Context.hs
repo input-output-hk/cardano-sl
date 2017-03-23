@@ -1,5 +1,5 @@
 module Pos.Lrc.Context
-       ( LrcSyncData
+       ( LrcSyncData(..)
        , LrcContext(..)
        ) where
 
@@ -16,4 +16,7 @@ data LrcContext = LrcContext
 -- | Data used for LRC syncronization. First value is __False__ iff
 -- LRC is running now. Second value is last epoch for which we have
 -- already computed LRC.
-type LrcSyncData = (Bool, EpochIndex)
+data LrcSyncData = LrcSyncData
+    { lrcNotRunning    :: !Bool
+    , lastEpochWithLrc :: !EpochIndex
+    }

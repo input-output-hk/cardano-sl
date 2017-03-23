@@ -88,7 +88,7 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
                                               stopDHTInstance)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
-import           Pos.Lrc.Context             (LrcContext (..))
+import           Pos.Lrc.Context             (LrcContext (..), LrcSyncData (..))
 import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.Slotting                (SlottingVar, mkNtpSlottingVar,
                                               runNtpSlotting, runSlottingHolder)
@@ -338,7 +338,8 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
     ucUpdateSemaphore <- liftIO newEmptyMVar
 
     -- TODO [CSL-775] lrc initialization logic is duplicated.
-    lcLrcSync <- liftIO . newTVarIO . (True,) =<< LrcDB.getEpochDefault
+    epochDef <- LrcDB.getEpochDefault
+    lcLrcSync <- liftIO $ newTVarIO (LrcSyncData True epochDef)
 
     let eternity = (minBound, maxBound)
         makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . encToPublic

@@ -28,7 +28,7 @@ import           Pos.Context          (NodeContext (..), getNodeContext, ncPubKe
 import qualified Pos.DB.GState        as GS
 import           Pos.Delegation.Logic (initDelegation)
 import           Pos.DHT.Model        (discoverPeers)
-import           Pos.Lrc.Context      (lcLrcSync)
+import           Pos.Lrc.Context      (LrcSyncData (..), lcLrcSync)
 import qualified Pos.Lrc.DB           as LrcDB
 import           Pos.Reporting        (reportMisbehaviourMasked)
 import           Pos.Shutdown         (waitForWorkers)
@@ -105,7 +105,8 @@ initSemaphore = do
 initLrc :: WorkMode ssc m => m ()
 initLrc = do
     lrcSync <- askContext lcLrcSync
-    atomically . writeTVar lrcSync . (True,) =<< LrcDB.getEpoch
+    epoch <- LrcDB.getEpoch
+    atomically $ writeTVar lrcSync (LrcSyncData True epoch)
 
 initUSMemState :: WorkMode ssc m => m ()
 initUSMemState = do

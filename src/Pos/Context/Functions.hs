@@ -29,7 +29,7 @@ import           Universum
 import           Pos.Context.Class      (WithNodeContext (..))
 import           Pos.Context.Context    (NodeContext (..), ncGenesisLeaders,
                                          ncGenesisUtxo, ncStartTime)
-import           Pos.Lrc.Context        (LrcContext (..))
+import           Pos.Lrc.Context        (LrcContext (..), LrcSyncData (..))
 import           Pos.Lrc.Error          (LrcError (..))
 import           Pos.Txp.Toil.Types     (Utxo)
 import           Pos.Types              (EpochIndex, HeaderHash, SlotLeaders)
@@ -75,7 +75,7 @@ waitLrc
     => EpochIndex -> m ()
 waitLrc epoch = do
     sync <- askContext @LrcContext lcLrcSync
-    () <$ readTVarConditional ((>= epoch) . snd) sync
+    () <$ readTVarConditional ((>= epoch) . lastEpochWithLrc) sync
 
 lrcActionOnEpoch
     :: (MonadIO m, HasContext LrcContext m, MonadThrow m)

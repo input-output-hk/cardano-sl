@@ -35,6 +35,9 @@ module Pos.Update.Core.Types
        , UpdateProof
        , mkUpdateProof
 
+       -- * Block
+       , UpdateBlock
+
        -- * VoteState
        , VoteState (..)
        , canCombineVotes
@@ -60,15 +63,13 @@ import           Universum                  hiding (show)
 
 import           Pos.Binary.Class           (Bi, Raw)
 import           Pos.Binary.Crypto          ()
-import           Pos.Core.Address           (addressHash)
-import           Pos.Core.Coin              ()
-import           Pos.Core.Script            ()
-import           Pos.Core.Types             (BlockVersion, CoinPortion, FlatSlotId,
-                                             ScriptVersion, SoftwareVersion)
-import           Pos.Core.Version           ()
+import           Pos.Core                   (BlockVersion, CoinPortion, FlatSlotId,
+                                             IsGenesisHeader, IsMainHeader, ScriptVersion,
+                                             SoftwareVersion, addressHash)
 import           Pos.Crypto                 (Hash, PublicKey, Signature, hash, shortHashF,
                                              unsafeHash)
 import           Pos.Data.Attributes        (Attributes)
+import           Pos.Util.Util              (Some)
 
 ----------------------------------------------------------------------------
 -- UpdateProposal and related
@@ -312,6 +313,14 @@ mkUpdateProof
     :: Bi UpdatePayload
     => UpdatePayload -> UpdateProof
 mkUpdateProof = hash
+
+----------------------------------------------------------------------------
+-- Block
+----------------------------------------------------------------------------
+
+-- TODO: I don't like that 'Some' is used here
+-- —@neongreen
+type UpdateBlock = Either (Some IsGenesisHeader) (Some IsMainHeader, UpdatePayload)
 
 ----------------------------------------------------------------------------
 -- VoteState

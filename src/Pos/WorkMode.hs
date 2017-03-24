@@ -29,7 +29,7 @@ import           Universum
 
 import           Pos.Communication.PeerState (PeerStateHolder (..), WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
-import           Pos.Context                 (ContextHolder, WithNodeContext)
+import           Pos.Context                 (ContextHolder, NodeParams, WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.DB.Holder               (DBHolder)
 import           Pos.DB.Limits               (MonadDBLimits)
@@ -38,6 +38,7 @@ import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.MemState            (MonadDhtMem)
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT (..), WithKademliaDHTInstance)
+import           Pos.Lrc.Context             (LrcContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
 #endif
@@ -52,7 +53,9 @@ import           Pos.Ssc.Class.Storage       (SscGStateClass)
 import           Pos.Ssc.Extra               (MonadSscMem, SscHolder)
 import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
 import           Pos.Txp.MemState            (MonadTxpMem, TxpHolder)
+import           Pos.Update.Context          (UpdateContext)
 import           Pos.Update.MemState         (MonadUSMem, USHolder)
+import           Pos.Util.Context            (HasContext)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 -- Something extremely unpleasant.
@@ -80,6 +83,9 @@ type WorkMode ssc m
       , SscLocalDataClass ssc
       , SscHelpersClass ssc
       , WithNodeContext ssc m
+      , HasContext LrcContext m
+      , HasContext UpdateContext m
+      , HasContext NodeParams m
       , MonadStats m
       , MonadJL m
       , WithKademliaDHTInstance m

@@ -64,6 +64,8 @@ library
 
                        Pos.Util.Chrono
                        Pos.Util.Config
+                       Pos.Util.Context
+                       Pos.Util.HVect
                        Pos.Util.Iterator
                        Pos.Util.Modifier
                        Pos.Util.Util

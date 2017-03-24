@@ -49,6 +49,7 @@ import           Pos.Update.Poll.Types       (BlockVersionState (..),
                                               pmAdoptedBVFullL, pmBVsL, pmConfirmedL,
                                               pmConfirmedPropsL, pmDelActivePropsIdxL,
                                               pmSlottingDataL, psProposal)
+import           Pos.Util.Context            (MonadContext (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 import qualified Pos.Util.Modifier           as MM
 
@@ -85,6 +86,9 @@ newtype PollT m a = PollT
                , MonadDelegation
                , MonadFix
                )
+
+instance MonadContext m => MonadContext (PollT m) where
+    type ContextType (PollT m) = ContextType m
 
 ----------------------------------------------------------------------------
 -- Runners

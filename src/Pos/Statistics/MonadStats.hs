@@ -50,6 +50,7 @@ import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Statistics.StatEntry    (StatLabel (..))
 import           Pos.Txp.MemState            (MonadTxpMem (..))
 import           Pos.Update.MemState         (MonadUSMem)
+import           Pos.Util.Context            (MonadContext (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 
@@ -84,6 +85,9 @@ newtype NoStatsT m a = NoStatsT
                 WithNodeContext ssc, MonadDelegation, MonadUSMem,
                 MonadDhtMem, MonadReportingMem, MonadRelayMem, MonadShutdownMem,
                 MonadDB, MonadDBLimits)
+
+instance MonadContext m => MonadContext (NoStatsT m) where
+    type ContextType (NoStatsT m) = ContextType m
 
 instance Monad m => WrappedM (NoStatsT m) where
     type UnwrappedM (NoStatsT m) = m
@@ -138,6 +142,9 @@ newtype StatsT m a = StatsT
                 WithNodeContext ssc, MonadDelegation, MonadUSMem,
                 MonadDhtMem, MonadReportingMem, MonadRelayMem, MonadShutdownMem,
                 MonadDB, MonadDBLimits)
+
+instance MonadContext m => MonadContext (StatsT m) where
+    type ContextType (StatsT m) = ContextType m
 
 instance Monad m => WrappedM (StatsT m) where
     type UnwrappedM (StatsT m) = ReaderT StatsMap m

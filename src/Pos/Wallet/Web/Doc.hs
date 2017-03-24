@@ -87,7 +87,14 @@ instance ToCapture (Capture "walletId" CAddress) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "walletId"
-        , _capDesc = "WalletId, walletId = address, future versions should have HD wallets, and then it should have multiple addresses"
+        , _capDesc = undefined
+        }
+
+instance ToCapture (Capture "walletSetId" CAddress) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "walletSetId"
+        , _capDesc = undefined
         }
 
 instance ToCapture (Capture "from" CAddress) where

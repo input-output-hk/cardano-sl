@@ -157,7 +157,7 @@ walletServer sendActions nat = do
             (runWalletWebDB ws . runWalletWS socks)
             sendActions
     nat >>= launchNotifier
-    myCAddresses >>= mapM_ insertAddressMeta
+    addressToCAddress <<$>> myRootAddresses >>= mapM_ insertAddressMeta
     (`enter` servantHandlers @ssc sendActions') <$> nat
   where
     insertAddressMeta cAddr =
@@ -224,7 +224,7 @@ launchNotifier nat =
 
     -- historyNotifier :: WalletWebMode ssc m => m ()
     -- historyNotifier = do
-    --     cAddresses <- myCAddresses
+    --     cAddresses <- addressToCAddress <<$>> myRootAddresses
     --     forM_ cAddresses $ \cAddress -> do
     --         -- TODO: is reading from acid RAM only (not reading from disk?)
     --         oldHistoryLength <- length . fromMaybe mempty <$> getWalletHistory cAddress
@@ -246,6 +246,16 @@ servantHandlers
 servantHandlers sendActions =
      catchWalletError testResetAll
     :<|>
+
+     apiGetWSet
+    :<|>
+     apiGetWSets
+    :<|>
+     apiNewWSet
+    :<|>
+     apiRestoreWSet
+    :<|>
+
      apiGetWallet
     :<|>
      apiGetWallets
@@ -258,14 +268,15 @@ servantHandlers sendActions =
     :<|>
      apiImportKey
     :<|>
-     apiRestoreWSet
-    :<|>
+
      apiIsValidAddress
     :<|>
+
      apiGetUserProfile
     :<|>
      apiUpdateUserProfile
     :<|>
+
      apiTxsPayments
     :<|>
      apiTxsPaymentsExt
@@ -276,14 +287,18 @@ servantHandlers sendActions =
     :<|>
      apiSearchHistory
     :<|>
+
      apiNextUpdate
     :<|>
      apiApplyUpdate
     :<|>
+
      apiRedeemAda
     :<|>
+
      apiReportingInitialized
     :<|>
+
      apiSettingsSlotDuration
     :<|>
      apiSettingsSoftwareVersion
@@ -292,13 +307,16 @@ servantHandlers sendActions =
   where
     -- TODO: can we with Traversable map catchWalletError over :<|>
     -- TODO: add logging on error
+    apiGetWSet                  = (catchWalletError . getWSet)
+    apiGetWSets                 = catchWalletError getWSets
+    apiNewWSet                  = (\a -> catchWalletError . newWSet a)
+    apiRestoreWSet              = (\a -> catchWalletError . restoreWSet a)
     apiGetWallet                = (catchWalletError . getWallet)
     apiGetWallets               = catchWalletError getWallets
     apiUpdateWallet             = (\a -> catchWalletError . updateWallet a)
     apiNewWallet                = (\a -> catchWalletError . newWallet a)
     apiDeleteWallet             = catchWalletError . deleteWallet
     apiImportKey                = catchWalletError . importKey sendActions
-    apiRestoreWSet              = (\a -> catchWalletError . restoreWSet a)
     apiIsValidAddress           = (\a -> catchWalletError . isValidAddress a)
     apiGetUserProfile           = catchWalletError getUserProfile
     apiUpdateUserProfile        = catchWalletError . updateUserProfile
@@ -317,10 +335,10 @@ servantHandlers sendActions =
 
     catchWalletError            = try
 -- getAddresses :: WalletWebMode ssc m => m [CAddress]
--- getAddresses = map addressToCAddress <$> myAddresses
+-- getAddresses = map addressToCAddress <$> myRootAddresses
 
 -- getBalances :: WalletWebMode ssc m => m [(CAddress, Coin)]
--- getBalances = join $ mapM gb <$> myAddresses
+-- getBalances = join $ mapM gb <$> myRootAddresses
 --   where gb addr = (,) (addressToCAddress addr) <$> getBalance addr
 
 getUserProfile :: WalletWebMode ssc m => m CProfile
@@ -356,7 +374,10 @@ decodeCAddressOrFail = either wrongAddress pure . cAddressToAddress
             sformat ("Error while decoding CAddress: "%stext) err
 
 getWallets :: WalletWebMode ssc m => m [CWallet]
-getWallets = join $ mapM getWallet <$> myCAddresses
+getWallets = undefined
+
+getWSets :: WalletWebMode ssc m => m [CWalletSet]
+getWSets = join $ mapM (getWSet . addressToCAddress) <$> myRootAddresses
 
 send :: WalletWebMode ssc m => SendActions m -> CPassPhrase -> CAddress -> CAddress -> Coin -> m CTx
 send sendActions cpass srcCAddr dstCAddr c =
@@ -576,14 +597,11 @@ testResetAll | isDevelopment = deleteAllKeys >> testReset
 -- Helpers
 ----------------------------------------------------------------------------
 
-myAddresses :: MonadKeys m => m [Address]
-myAddresses = map (makePubKeyAddress . encToPublic) <$> getSecretKeys
-
-myCAddresses :: MonadKeys m => m [CAddress]
-myCAddresses = map addressToCAddress <$> myAddresses
+myRootAddresses :: MonadKeys m => m [Address]
+myRootAddresses = map (makePubKeyAddress . encToPublic) <$> getSecretKeys
 
 getAddrIdx :: WalletWebMode ssc m => Address -> m Int
-getAddrIdx addr = elemIndex addr <$> myAddresses >>= maybe notFound pure
+getAddrIdx addr = elemIndex addr <$> undefined >>= maybe notFound pure
   where notFound = throwM . Internal $
             sformat ("Address "%addressF%" is not found in wallet") $ addr
 

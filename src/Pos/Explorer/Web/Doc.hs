@@ -151,8 +151,8 @@ instance ToSample CBlockEntry where
       where
         sample = CBlockEntry
             { cbeEpoch      = 37294
+            , cbeSlot       = 10
             , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
-            , cbeHeight     = 10
             , cbeTimeIssued = Nothing
             , cbeTxNum      = 0
             , cbeTotalSent  = mkCoin 0
@@ -166,8 +166,8 @@ instance ToSample CBlockSummary where
         sample = CBlockSummary
             { cbsEntry      = CBlockEntry
                                 { cbeEpoch      = 37294
+                                , cbeSlot       = 10
                                 , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
-                                , cbeHeight     = 10
                                 , cbeTimeIssued = Nothing
                                 , cbeTxNum      = 0
                                 , cbeTotalSent  = mkCoin 0

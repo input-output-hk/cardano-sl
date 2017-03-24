@@ -21,7 +21,7 @@ translation =
         , cHash: "Hash"
         , cHashes: "Hashes"
         , cEpoch: "Epoch"
-        , cHeight: "Slot"
+        , cSlot: "Slot"
         , cAge: "Since"
         , cTotalSent: "Total Sent"
         , cRelayedBy: "Slot leader"

@@ -34,7 +34,7 @@ type Common =
     , cHash :: String
     , cHashes :: String
     , cEpoch :: String
-    , cHeight :: String
+    , cSlot :: String
     , cAge :: String
     , cTotalSent :: String
     , cRelayedBy :: String

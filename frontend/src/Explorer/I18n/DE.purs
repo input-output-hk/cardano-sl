@@ -19,7 +19,7 @@ translation =
         , cHash: "Hash"
         , cHashes: "Hashes"
         , cEpoch: "Epoche"
-        , cHeight: "Slot"
+        , cSlot: "Slot"
         , cAge: "Seit"
         , cTotalSent: "Insgesamt gesendet"
         , cRelayedBy: "Weitergegeben durch"

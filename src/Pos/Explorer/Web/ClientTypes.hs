@@ -51,14 +51,15 @@ import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
 import           Pos.Txp                (Tx (..), TxId, TxOut (..),
                                          TxOutAux (..), _txOutputs)
-import           Pos.Types              (Address, Coin, MainBlock, Timestamp,
-                                         addressF, blockTxs, decodeTextAddress,
-                                         difficultyL, epochIndexL, gbHeader,
+import           Pos.Types              (Address, Coin, MainBlock, SlotId (..),
+                                         Timestamp, addressF, blockSlot,
+                                         blockTxs, decodeTextAddress, gbHeader,
                                          gbhConsensus, getEpochIndex,
-                                         headerHash, mcdSlot, mkCoin,
-                                         prevBlockL, sumCoins, unsafeAddCoin,
-                                         unsafeIntegerToCoin)
+                                         getSlotIndex, headerHash, mcdSlot,
+                                         mkCoin, prevBlockL, sumCoins,
+                                         unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Types.Explorer     (TxExtra (..))
+
 
 
 -------------------------------------------------------------------------------------
@@ -146,8 +147,8 @@ data CHashSearchResult
 -- | List of block entries is returned from "get latest N blocks" endpoint
 data CBlockEntry = CBlockEntry
     { cbeEpoch      :: !Word64
+    , cbeSlot       :: !Word16
     , cbeBlkHash    :: !CHash
-    , cbeHeight     :: !Word
     , cbeTimeIssued :: !(Maybe POSIXTime)
     , cbeTxNum      :: !Word
     , cbeTotalSent  :: !Coin
@@ -164,9 +165,10 @@ toBlockEntry
     -> m CBlockEntry
 toBlockEntry blk = do
     blkSlotStart <- getSlotStart (blk ^. gbHeader . gbhConsensus . mcdSlot)
-    let cbeEpoch      = getEpochIndex $ blk ^. epochIndexL
+    let headerSlot    = blk ^. blockSlot
+        cbeEpoch      = getEpochIndex $ siEpoch headerSlot
+        cbeSlot       = getSlotIndex  $ siSlot  headerSlot
         cbeBlkHash    = toCHash $ headerHash blk
-        cbeHeight     = fromIntegral $ blk ^. difficultyL
         cbeTimeIssued = toPosixTime <$> blkSlotStart
         txs           = blk ^. blockTxs
         cbeTxNum      = fromIntegral $ length txs

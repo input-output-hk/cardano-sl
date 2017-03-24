@@ -8,7 +8,7 @@ import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..))
 import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (dashboard, dbLastBlocks, cOf, common, dbExploreBlocks, cUnknown, cEpoch, cHeight, cExpand, cNoData, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB) as I18nL
+import Explorer.I18n.Lenses (dashboard, dbLastBlocks, cOf, common, dbExploreBlocks, cUnknown, cEpoch, cSlot, cExpand, cNoData, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB) as I18nL
 import Explorer.Lenses.State (dashboardBlockPagination, lang, latestBlocks)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
@@ -22,7 +22,7 @@ import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
 import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeEpoch, cbeHeight, cbeRelayedBy, cbeSize, cbeTimeIssued, cbeTotalSent, cbeTxNum)
+import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeEpoch, cbeSlot, cbeRelayedBy, cbeSize, cbeTimeIssued, cbeTotalSent, cbeTxNum)
 import Pux.Html (Html, div, text) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Html.Events (onClick) as P
@@ -115,7 +115,7 @@ blockRow state (CBlockEntry entry) =
         [ blockColumn { label: show $ entry ^. cbeEpoch
                       , clazz: CSS.blocksColumnEpoch
                       }
-        , blockColumn { label: show $ entry ^. cbeHeight
+        , blockColumn { label: show $ entry ^. cbeSlot
                       , clazz: CSS.blocksColumnSlot
                       }
         , blockColumn { label: labelAge
@@ -166,7 +166,7 @@ mkBlocksHeaderProps lang =
     [ { label: translate (I18nL.common <<< I18nL.cEpoch) lang
       , clazz: CSS.blocksColumnEpoch
       }
-    , { label: translate (I18nL.common <<< I18nL.cHeight) lang
+    , { label: translate (I18nL.common <<< I18nL.cSlot) lang
       , clazz: CSS.blocksColumnSlot
       }
     , { label: translate (I18nL.common <<< I18nL.cAge) lang

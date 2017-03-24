@@ -26,7 +26,8 @@ import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', Wo
 import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (getNodeContext, ncPublicKey)
 import           Pos.Core.Address            (addressHash)
-import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
+import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk,
+                                                              pskOmega))
 import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Exception               (assertionFailed)
@@ -35,7 +36,7 @@ import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
 #if defined(WITH_WALLET)
 import           Data.Time.Units             (Second, convertUnit)
-import           Pos.Block.Network.Logic     (requestTipOuts, triggerRecovery)
+import           Pos.Block.Network           (requestTipOuts, triggerRecovery)
 import           Pos.Communication           (worker)
 import           Pos.Constants               (isDevelopment)
 import           Pos.Slotting                (getLastKnownSlotDuration)

@@ -74,6 +74,7 @@ library
 
   build-depends:      QuickCheck
                      , aeson
+                     , autoexporter
                      , base
                      , base58-bytestring
                      , log-warper >= 1.0.3

@@ -32,7 +32,6 @@ import           Control.Lens                (each, to, _tail)
 import           Control.Monad.Fix           (MonadFix)
 import qualified Data.ByteString.Char8       as BS8
 import           Data.Default                (def)
-import           Data.List                   (nub)
 import           Data.Tagged                 (proxy, untag)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
@@ -71,10 +70,6 @@ import           Pos.Communication           (ActionSpec (..), BiP (..),
                                               sysStartRespListener, toAction, toOutSpecs,
                                               unpackLSpecs)
 import           Pos.Communication.PeerState (runPeerStateHolder)
-import           Pos.Constants               (lastKnownBlockVersion, protocolMagic)
-import           Pos.Constants               (blockRetrievalQueueSize,
-                                              networkConnectionTimeout,
-                                              propagationQueueSize)
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               runContextHolder)
@@ -220,9 +215,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
                Nothing   -> return Nothing
                Just port -> Just <$> setupMonitor port runIO node'
 
-       let stopMonitoring it = case it of
-               Nothing        -> return ()
-               Just ekgServer -> stopMonitor ekgServer
+       let stopMonitoring it = whenJust it stopMonitor
 
        runDBHolder modernDBs .
           runCH allWorkersNum np initNC .
@@ -275,15 +268,14 @@ runServer transport packedLS_M (OutSpecs wouts) withNode afterNode (ActionSpec a
     packedLS  <- packedLS_M
     let (listeners', InSpecs ins, OutSpecs outs) = unpackLSpecs packedLS
         ourVerInfo =
-            VerInfo protocolMagic lastKnownBlockVersion ins $ outs <> wouts
+            VerInfo Const.protocolMagic Const.lastKnownBlockVersion ins $ outs <> wouts
         listeners = listeners' ourVerInfo
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo "%build) ourVerInfo
     node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) defaultNodeEnvironment $ \__node ->
         NodeAction listeners $ \sendActions -> do
             t <- withNode __node
-            a <- action ourVerInfo sendActions `finally` afterNode t
-            return a
+            action ourVerInfo sendActions `finally` afterNode t
 
 runServer_
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
@@ -352,8 +344,8 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
     forM_ ownPSKs addProxySecretKey
 
     userSecretVar <- liftIO . newTVarIO $ npUserSecret
-    queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
-    propQueue <- liftIO $ newTBQueueIO propagationQueueSize
+    queue <- liftIO $ newTBQueueIO Const.blockRetrievalQueueSize
+    propQueue <- liftIO $ newTBQueueIO Const.propagationQueueSize
     recoveryHeaderVar <- liftIO newEmptyTMVarIO
     progressHeader <- liftIO newEmptyTMVarIO
     shutdownFlag <- liftIO $ newTVarIO False
@@ -438,7 +430,7 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
         KademliaDHTInstanceConfig
         { kdcKey = bpDHTKey
         , kdcPort = snd bpIpPort
-        , kdcInitialPeers = nub $ bpDHTPeers ++ Const.defaultPeers
+        , kdcInitialPeers = ordNub $ bpDHTPeers ++ Const.defaultPeers
         , kdcExplicitInitial = bpDHTExplicitInitial
         , kdcDumpPath = bpKademliaDump
         }
@@ -450,7 +442,7 @@ createTransport ip port = do
     let tcpParams =
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =
-                   Just $ fromIntegral networkConnectionTimeout
+                   Just $ fromIntegral Const.networkConnectionTimeout
              , TCP.tcpNewQDisc = fairQDisc $ \_ -> return Nothing
              })
     transportE <-

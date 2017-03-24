@@ -203,15 +203,16 @@ clientScenario logConf node wallet updater nodeTimeout report = do
 -- successful.
 runUpdater :: (FilePath, [Text], Maybe FilePath) -> Shell ()
 runUpdater (path, args, updateArchive) = do
+    {-
     exists <- testfile path
     if not exists then
       -- See DAEF-12
-      {-
         printf ("The updater at "%fp%" doesn't exist, skipping the update\n")
                path
-      -}
         return ()
-    else do
+    else
+    -}
+    unlessM (testfile path) $ do
         echo "Running the updater"
         let args' = args ++ maybe [] (one . toText) updateArchive
         exitCode <- proc (toText path) args' mempty

@@ -9,6 +9,7 @@ module Pos.Wallet.Web.Api
        , walletApi
        ) where
 
+
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
                                              Post, Put, QueryParam, ReqBody)
 import           Universum

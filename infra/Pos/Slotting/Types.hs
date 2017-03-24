@@ -5,11 +5,11 @@ module Pos.Slotting.Types
        , SlottingData (..)
        ) where
 
-import           Data.Time.Units     (Millisecond)
+import           Data.Time.Units    (Millisecond)
 import           Universum
 
-import           Pos.Core.Types      (EpochIndex, Timestamp)
 import           Pos.Core.Timestamp ()
+import           Pos.Core.Types     (EpochIndex, Timestamp)
 
 -- | Data which is necessary for slotting and corresponds to a particular epoch.
 data EpochSlottingData = EpochSlottingData

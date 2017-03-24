@@ -18,7 +18,8 @@ import           Pos.Types                  (Coin, SoftwareVersion)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CInitialized,
                                              CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
                                              CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, SyncProgress)
+                                             CWalletMeta, CWalletRedeem, CWalletSet,
+                                             CWalletSetInit, SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 
@@ -70,8 +71,8 @@ type WalletApi =
      :> "wallets"
      :> "restore"
      :> Capture "passphrase" CPassPhrase
-     :> ReqBody '[JSON] CWalletInit
-     :> Post '[JSON] (Either WalletError CWallet)
+     :> ReqBody '[JSON] CWalletSetInit
+     :> Post '[JSON] (Either WalletError CWalletSet)
     :<|>
      ----------------------------------------------------------------------------
      -- Addresses

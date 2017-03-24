@@ -13,6 +13,8 @@ module Pos.Wallet.Web.State.State
        , getProfile
        , getWalletMetas
        , getWalletMeta
+       , getWSetMetas
+       , getWSetMeta
        , getTxMeta
        , getWalletHistory
        , getUpdates
@@ -22,8 +24,10 @@ module Pos.Wallet.Web.State.State
        -- * Setters
        , testReset
        , createWallet
+       , createWSet
        , setProfile
        , setWalletMeta
+       , setWSetMeta
        , setWalletTransactionMeta
        , setWalletHistory
        , addOnlyNewTxMeta
@@ -43,7 +47,7 @@ import           Pos.Slotting                 (NtpSlotting)
 import           Pos.Txp                      (Utxo)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Wallet.Web.ClientTypes   (CAddress, CProfile, CTxId, CTxMeta,
-                                               CUpdateInfo, CWalletMeta)
+                                               CUpdateInfo, CWalletMeta, CWalletSetMeta)
 import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A
@@ -79,11 +83,17 @@ updateDisk e = getWalletWebState >>= flip A.update e
 getWalletMetas :: WebWalletModeDB m => m [CWalletMeta]
 getWalletMetas = queryDisk A.GetWalletMetas
 
-getProfile :: WebWalletModeDB m => m (Maybe CProfile)
-getProfile = queryDisk A.GetProfile
-
 getWalletMeta :: WebWalletModeDB m => CAddress -> m (Maybe CWalletMeta)
 getWalletMeta = queryDisk . A.GetWalletMeta
+
+getWSetMetas :: WebWalletModeDB m => m [CWalletSetMeta]
+getWSetMetas = queryDisk A.GetWSetMetas
+
+getWSetMeta :: WebWalletModeDB m => CAddress -> m (Maybe CWalletSetMeta)
+getWSetMeta = queryDisk . A.GetWSetMeta
+
+getProfile :: WebWalletModeDB m => m (Maybe CProfile)
+getProfile = queryDisk A.GetProfile
 
 getTxMeta :: WebWalletModeDB m => CAddress -> CTxId -> m (Maybe CTxMeta)
 getTxMeta addr = queryDisk . A.GetTxMeta addr
@@ -103,8 +113,14 @@ getHistoryCache = queryDisk . A.GetHistoryCache
 createWallet :: WebWalletModeDB m => CAddress -> CWalletMeta -> m ()
 createWallet addr = updateDisk . A.CreateWallet addr
 
+createWSet :: WebWalletModeDB m => CAddress -> CWalletSetMeta -> m ()
+createWSet addr = updateDisk . A.CreateWSet addr
+
 setWalletMeta :: WebWalletModeDB m => CAddress -> CWalletMeta -> m ()
 setWalletMeta addr = updateDisk . A.SetWalletMeta addr
+
+setWSetMeta :: WebWalletModeDB m => CAddress -> CWalletSetMeta -> m ()
+setWSetMeta addr = updateDisk . A.SetWSetMeta addr
 
 setProfile :: WebWalletModeDB m => CProfile -> m ()
 setProfile = updateDisk . A.SetProfile

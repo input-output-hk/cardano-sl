@@ -15,14 +15,18 @@ module Pos.Wallet.Web.State.Acidic
        , GetProfile (..)
        , GetWalletMetas (..)
        , GetWalletMeta (..)
+       , GetWSetMetas (..)
+       , GetWSetMeta (..)
        , GetTxMeta (..)
        , GetUpdates (..)
        , GetNextUpdate (..)
        , TestReset (..)
        , GetHistoryCache (..)
        , CreateWallet (..)
+       , CreateWSet (..)
        , SetProfile (..)
        , SetWalletMeta (..)
+       , SetWSetMeta (..)
        , SetWalletTransactionMeta (..)
        , SetWalletHistory (..)
        , GetWalletHistory (..)
@@ -75,13 +79,17 @@ makeAcidic ''WalletStorage
     , 'WS.getProfile
     , 'WS.getWalletMetas
     , 'WS.getWalletMeta
+    , 'WS.getWSetMetas
+    , 'WS.getWSetMeta
     , 'WS.getTxMeta
     , 'WS.getUpdates
     , 'WS.getNextUpdate
     , 'WS.getHistoryCache
     , 'WS.createWallet
+    , 'WS.createWSet
     , 'WS.setProfile
     , 'WS.setWalletMeta
+    , 'WS.setWSetMeta
     , 'WS.setWalletTransactionMeta
     , 'WS.setWalletHistory
     , 'WS.getWalletHistory

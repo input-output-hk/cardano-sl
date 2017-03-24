@@ -22,6 +22,10 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletType (..)
       , CWalletMeta (..)
       , CWalletInit (..)
+      , CWalletSet (..)
+      , CWalletSetMeta (..)
+      , CWalletSetInit (..)
+      , CWalletSetId
       , CUpdateInfo (..)
       , CWalletRedeem (..)
       , NotifyEvent (..)
@@ -160,13 +164,17 @@ cPassPhraseToPassPhrase (CPassPhrase text) =
 -- Wallet
 ----------------------------------------------------------------------------
 
+-- | Wallet set identifier
+-- TODO: what should be here?
+type CWalletSetId = Int
+
 -- | A wallet can be used as personal or shared wallet
 data CWalletType
     = CWTPersonal
     | CWTShared
     deriving (Show, Generic)
 
--- | Meta data of CWallet
+-- | Meta data of 'CWallet'
 -- Includes data which are not provided by Cardano
 data CWalletMeta = CWalletMeta
     { cwType     :: !CWalletType
@@ -183,13 +191,13 @@ data CWallet = CWallet
     { cwAddress :: !CAddress
     , cwAmount  :: !Coin
     , cwMeta    :: !CWalletMeta
+    , cwSetId   :: !CWalletSetId
     } deriving (Show, Generic, Typeable)
 
 -- | Query data for wallet creation
--- (wallet meta + backup phrase)
 data CWalletInit = CWalletInit
-    { cwBackupPhrase :: !BackupPhrase
-    , cwInitMeta     :: !CWalletMeta
+    { cwInitMeta   :: !CWalletMeta
+    , cwInitWSetId :: !CWalletSetId
     } deriving (Show, Generic)
 
 -- | Query data for redeem
@@ -197,6 +205,25 @@ data CWalletRedeem = CWalletRedeem
     { crWalletId :: !CAddress
     , crSeed     :: !Text -- TODO: newtype!
     } deriving (Show, Generic)
+
+-- | Meta data of 'CWalletSet'
+data CWalletSetMeta = CWalletSetMeta
+    { cwsName :: !Text
+    }
+
+-- | Client Wallet (CW)
+data CWalletSet = CWalletSet
+    { cwsAddress       :: !CAddress
+    , cwsId            :: !CWalletSetId
+    , cwsWSetMeta      :: !CWalletSetMeta
+    , cwsWalletsNumber :: !Int
+    }
+
+-- | Query data for wallet set creation
+data CWalletSetInit = CWalletSetInit
+    { cwsBackupPhrase :: !BackupPhrase
+    , cwsInitMeta     :: !CWalletSetMeta
+    }
 
 ----------------------------------------------------------------------------
 -- Profile

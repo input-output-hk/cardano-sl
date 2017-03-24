@@ -11,6 +11,7 @@ import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CInitia
                                              CProfile, CProfile, CTExMeta, CTType, CTx,
                                              CTxId, CTxMeta, CUpdateInfo, CWallet,
                                              CWalletInit, CWalletMeta, CWalletRedeem,
+                                             CWalletSet, CWalletSetInit, CWalletSetMeta,
                                              CWalletType, NotifyEvent, SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
@@ -19,6 +20,8 @@ deriveJSON defaultOptions ''CWalletType
 deriveJSON defaultOptions ''CWalletMeta
 deriveJSON defaultOptions ''CWalletInit
 deriveJSON defaultOptions ''CWalletRedeem
+deriveJSON defaultOptions ''CWalletSetMeta
+deriveJSON defaultOptions ''CWalletSetInit
 deriveJSON defaultOptions ''CTxMeta
 deriveJSON defaultOptions ''CProfile
 deriveJSON defaultOptions ''BackupPhrase
@@ -31,6 +34,7 @@ deriveToJSON defaultOptions ''NotifyEvent
 deriveToJSON defaultOptions ''WalletError
 deriveToJSON defaultOptions ''CTxId
 deriveToJSON defaultOptions ''CWallet
+deriveToJSON defaultOptions ''CWalletSet
 deriveToJSON defaultOptions ''CTx
 deriveToJSON defaultOptions ''CTType
 deriveToJSON defaultOptions ''CTExMeta

@@ -73,9 +73,10 @@ import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CInit
                                                 CTx, CTxId, CTxMeta (..),
                                                 CUpdateInfo (..), CWallet (..),
                                                 CWalletInit (..), CWalletMeta (..),
-                                                CWalletRedeem (..), NotifyEvent (..),
-                                                SyncProgress (..), addressToCAddress,
-                                                cAddressToAddress,
+                                                CWalletRedeem (..), CWalletSet (..),
+                                                CWalletSetId, CWalletSetInit (..),
+                                                NotifyEvent (..), SyncProgress (..),
+                                                addressToCAddress, cAddressToAddress,
                                                 cPassPhraseToPassPhrase, mkCTx, mkCTxId,
                                                 toCUpdateInfo, txContainsTitle,
                                                 txIdToCTxId)
@@ -86,9 +87,10 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 notify, runWalletWS, upgradeApplicationWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, addUpdate, closeState,
-                                                createWallet, getHistoryCache,
+                                                createWSet, createWallet, getHistoryCache,
                                                 getNextUpdate, getProfile, getTxMeta,
-                                                getWalletMeta, getWalletState, openState,
+                                                getWSetMeta, getWalletMeta,
+                                                getWalletState, openState,
                                                 removeNextUpdate, removeWallet,
                                                 runWalletWebDB, setProfile, setWalletMeta,
                                                 setWalletTransactionMeta, testReset,
@@ -256,7 +258,7 @@ servantHandlers sendActions =
     :<|>
      apiImportKey
     :<|>
-     apiRestoreWallet
+     apiRestoreWSet
     :<|>
      apiIsValidAddress
     :<|>
@@ -295,8 +297,8 @@ servantHandlers sendActions =
     apiUpdateWallet             = (\a -> catchWalletError . updateWallet a)
     apiNewWallet                = (\a -> catchWalletError . newWallet a)
     apiDeleteWallet             = catchWalletError . deleteWallet
-    apiImportKey                = (catchWalletError . importKey sendActions)
-    apiRestoreWallet            = (\a -> catchWalletError . restoreWallet a)
+    apiImportKey                = catchWalletError . importKey sendActions
+    apiRestoreWSet              = (\a -> catchWalletError . restoreWSet a)
     apiIsValidAddress           = (\a -> catchWalletError . isValidAddress a)
     apiGetUserProfile           = catchWalletError getUserProfile
     apiUpdateUserProfile        = catchWalletError . updateUserProfile
@@ -332,11 +334,20 @@ updateUserProfile profile = setProfile profile >> getUserProfile
 getWallet :: WalletWebMode ssc m => CAddress -> m CWallet
 getWallet cAddr = do
     balance <- getBalance =<< decodeCAddressOrFail cAddr
-    meta <- getWalletMeta cAddr >>= maybe noWallet pure
-    pure $ CWallet cAddr balance meta
+    meta    <- getWalletMeta cAddr >>= maybe noWallet pure
+    wSetId  <- undefined
+    pure $ CWallet cAddr balance meta wSetId
   where
     noWallet = throwM . Internal $
         sformat ("No wallet with address "%build%" is found") cAddr
+
+getWSet :: WalletWebMode ssc m => CAddress -> m CWalletSet
+getWSet cAddr = do
+    meta    <- getWSetMeta cAddr >>= maybe noWSet pure
+    pure $ undefined CWalletSet meta
+  where
+    noWSet = throwM . Internal $
+        sformat ("No wallet set with address "%build%" is found") cAddr
 
 -- TODO: probably poor naming
 decodeCAddressOrFail :: WalletWebMode ssc m => CAddress -> m Address
@@ -426,21 +437,29 @@ addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
     meta' <- maybe meta identity <$> getTxMeta cAddr cId
     return $ mkCTx addr diff wtx meta'
 
+newWSet :: WalletWebMode ssc m => CPassPhrase -> CWalletSetInit -> m CWalletSet
+newWSet cPassphrase CWalletSetInit {..} = do
+    passphrase <- decodeCPassPhraseOrFail cPassphrase
+    cAddr <- genSaveAddress passphrase cwsBackupPhrase
+    createWSet cAddr cwsInitMeta
+    getWSet cAddr
+
 newWallet :: WalletWebMode ssc m => CPassPhrase -> CWalletInit -> m CWallet
 newWallet cPassphrase CWalletInit {..} = do
     passphrase <- decodeCPassPhraseOrFail cPassphrase
-    cAddr <- genSaveAddress passphrase cwBackupPhrase
+    cAddr <- genSaveWalletAddress passphrase cwInitWSetId
     createWallet cAddr cwInitMeta
     getWallet cAddr
 
-restoreWallet :: WalletWebMode ssc m => CPassPhrase -> CWalletInit -> m CWallet
-restoreWallet cPassphrase CWalletInit {..} = do
+restoreWSet :: WalletWebMode ssc m => CPassPhrase -> CWalletSetInit -> m CWalletSet
+restoreWSet cPassphrase CWalletSetInit {..} = do
     passphrase <- decodeCPassPhraseOrFail cPassphrase
-    cAddr <- genSaveAddress passphrase cwBackupPhrase
-    getWalletMeta cAddr >>= maybe (createWallet cAddr cwInitMeta) (const walletExistsError)
-    getWallet cAddr
+    cAddr <- genSaveAddress passphrase cwsBackupPhrase
+    getWSetMeta cAddr
+        >>= maybe (createWSet cAddr cwsInitMeta) (const wSetExistsError)
+    getWSet cAddr
   where
-    walletExistsError = throwM $ Internal "Wallet with that mnemonics already exists"
+    wSetExistsError = throwM $ Internal "Wallet set with that mnemonics already exists"
 
 updateWallet :: WalletWebMode ssc m => CAddress -> CWalletMeta -> m CWallet
 updateWallet cAddr wMeta = do
@@ -580,6 +599,14 @@ genSaveAddress passphrase ph =
         let sk = fst $ safeKeysFromPhrase passphrase ph
         addSecretKey sk
         return sk
+
+genSaveWalletAddress
+    :: WalletWebMode ssc m
+    => PassPhrase
+    -> CWalletSetId
+    -> m CAddress
+genSaveWalletAddress _passphrase _wSet = undefined
+    -- generate child sk from sk of given wallet set
 
 decodeCPassPhraseOrFail :: WalletWebMode ssc m => CPassPhrase -> m PassPhrase
 decodeCPassPhraseOrFail cpass =

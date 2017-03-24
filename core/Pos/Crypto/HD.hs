@@ -12,25 +12,27 @@ module Pos.Crypto.HD
 import           Cardano.Crypto.Wallet        (deriveXPrv, deriveXPrvHardened, deriveXPub,
                                                unXPub)
 import           Crypto.Cipher.ChaChaPoly1305 as C
-import           Crypto.Error
+import           Crypto.Error                 (CryptoFailable (..))
 import           Crypto.Hash                  (SHA512 (..))
 import qualified Crypto.KDF.PBKDF2            as PBKDF2
-import           Data.Binary.Put              (runPut)
 import           Data.ByteArray               as BA (ByteArrayAccess, convert)
 import           Data.ByteString.Char8        as B
-import qualified Data.ByteString.Lazy         as BSL
 import           Universum
 
-import           Pos.Binary.Class             (Bi (..))
+import           Pos.Binary.Class             (encodeStrict)
 import           Pos.Crypto.Signing           (PublicKey (..), SecretKey (..))
 
 -- | Passphrase is a hash of root public key.
--- We don't use root public key for store money, we use hash of it instead.
+-- We don't use root public key to store money, we use hash of it instead.
 newtype HDPassphrase = HDPassphrase ByteString
 
 -- | HDAddressPayload consists of
--- * serialiazed and encrypted with symmetric scheme with passphrase (via ChaChaPoly1305 algorithm)
+--
+-- * serialiazed and encrypted with symmetric scheme path from the root
+-- key to given descendant key with passphrase (via ChaChaPoly1305 algorithm)
+--
 -- * cryptographic tag
+--
 -- For more information see 'packHDAddressAttr' and 'encryptChaChaPoly'.
 newtype HDAddressPayload = HDAddressPayload ByteString
     deriving (Eq, Ord, Show, NFData, Generic)
@@ -50,9 +52,9 @@ deriveHDPassphrase (PublicKey pk) = HDPassphrase $
 -- Direct children of node are numbered from 0 to 2^32-1.
 -- Child with index less or equal @maxHardened@ is a hardened child.
 maxHardened :: Word32
-maxHardened = fromIntegral $ (2::Word32)^(31::Word32)-1
+maxHardened = 2 ^ (31 :: Word32) - 1
 
--- | Derive public key from public key via non-hardened (normal) way.
+-- | Derive public key from public key in non-hardened (normal) way.
 -- If you try to pass index more than @maxHardened@, error will be called.
 deriveHDPublicKey :: PublicKey -> Word32 -> PublicKey
 deriveHDPublicKey (PublicKey xpub) childIndex
@@ -61,7 +63,7 @@ deriveHDPublicKey (PublicKey xpub) childIndex
     | otherwise = PublicKey $ deriveXPub xpub (childIndex - maxHardened - 1)
 
 -- | Derive secret key from secret key.
--- If @childIndex@ <= @maxHardened@ key will be deriving hardened way, otherwise non-hardened.
+-- If @childIndex <= maxHardened@ key will be deriving hardened way, otherwise non-hardened.
 deriveHDSecretKey :: ByteArrayAccess passPhrase
                   => passPhrase
                   -> SecretKey
@@ -76,7 +78,7 @@ deriveHDSecretKey passPhrase (SecretKey xprv) childIndex
 -- | Serialize tree path and encrypt it using passphrase via ChaChaPoly1305.
 packHDAddressAttr :: HDPassphrase -> [Word32] -> HDAddressPayload
 packHDAddressAttr (HDPassphrase simkey) path = do
-    let pathSer = BSL.toStrict $ runPut (put path)
+    let pathSer = encodeStrict path
     let packCF =
           encryptChaChaPoly
               "serokellfore"
@@ -100,4 +102,4 @@ encryptChaChaPoly nonce key header plaintext = do
     let st2 = C.finalizeAAD $ C.appendAAD header st1
     let (out, st3) = C.encrypt plaintext st2
     let auth = C.finalize st3
-    pure $ out `B.append` BA.convert auth
+    pure $ out <> BA.convert auth

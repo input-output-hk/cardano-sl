@@ -85,13 +85,13 @@ echo "Going to build: $to_build"
 for prj in $to_build; do
   echo "Building $prj"
   stack build                               \
-      --ghc-options="+RTS -A256m -n2m -RTS" \
+      --ghc-options="-Wwarn +RTS -A256m -n2m -RTS" \
       $commonargs $norun                    \
       --dependencies-only                   \
       $args                                 \
       $prj
   stack build                               \
-      --ghc-options="+RTS -A256m -n2m -RTS" \
+      --ghc-options="-Wwarn +RTS -A256m -n2m -RTS" \
       $commonargs $norun                    \
       --fast                                \
       $args                                 \
@@ -103,7 +103,7 @@ done
 
 if [[ $test == true ]]; then
   stack build                               \
-      --ghc-options="+RTS -A256m -n2m -RTS" \
+      --ghc-options="-Wwarn +RTS -A256m -n2m -RTS" \
       $commonargs                           \
       --no-run-benchmarks                   \
       --fast                                \

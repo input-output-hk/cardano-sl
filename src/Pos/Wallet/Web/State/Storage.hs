@@ -35,9 +35,10 @@ import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import           Pos.Txp                    (Utxo)
 import           Pos.Types                  (HeaderHash)
 import           Pos.Wallet.Tx.Pure         (TxHistoryEntry)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTxId,
-                                             CTxMeta, CUpdateInfo, CWalletMeta,
-                                             CWalletType)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash,
+                                             CProfile, CTxId, CTxMeta,
+                                             CUpdateInfo, CWalletAssurance,
+                                             CWalletMeta, CWalletType)
 import           Universum
 
 type TransactionHistory = HashMap CTxId CTxMeta
@@ -132,6 +133,7 @@ deriveSafeCopySimple 0 'base ''CHash
 deriveSafeCopySimple 0 'base ''CAddress
 deriveSafeCopySimple 0 'base ''CCurrency
 deriveSafeCopySimple 0 'base ''CWalletType
+deriveSafeCopySimple 0 'base ''CWalletAssurance
 deriveSafeCopySimple 0 'base ''CWalletMeta
 deriveSafeCopySimple 0 'base ''CTxId
 deriveSafeCopySimple 0 'base ''TxHistoryEntry

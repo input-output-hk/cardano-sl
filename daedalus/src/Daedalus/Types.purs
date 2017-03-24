@@ -106,11 +106,16 @@ mkCWalletType = either (const CT.CWTPersonal) id <<< decodeJson <<< fromString
 mkCCurrency :: String -> CT.CCurrency
 mkCCurrency = either (const CT.ADA) id <<< decodeJson <<< fromString
 
-mkCWalletMeta :: String -> String -> String -> CT.CWalletMeta
-mkCWalletMeta wType wCurrency wName =
+mkCWAssurance :: String -> CT.CWalletAssurance
+mkCWAssurance = either (const CT.CWANormal) id <<< decodeJson <<< fromString
+
+mkCWalletMeta :: String -> String -> String -> String -> Int -> CT.CWalletMeta
+mkCWalletMeta wType wCurrency wName wAssurance wUnit =
     CT.CWalletMeta { cwType: mkCWalletType wType
                    , cwCurrency: mkCCurrency wCurrency
                    , cwName: wName
+                   , cwAssurance: mkCWAssurance wAssurance
+                   , cwUnit: wUnit
                    }
 
 mkCInitialized :: Int -> Int -> CT.CInitialized
@@ -119,18 +124,18 @@ mkCInitialized total preInit =
                     , cPreInit: preInit
                     }
 
-mkCWalletInit :: String -> String -> String -> String -> Either Error CT.CWalletInit
-mkCWalletInit wType wCurrency wName mnemonic =
-    mkCWalletInit' wType wCurrency wName <$> mkBackupPhrase mnemonic
+mkCWalletInit :: String -> String -> String -> String -> Int -> String -> Either Error CT.CWalletInit
+mkCWalletInit wType wCurrency wName wAssurance wUnit mnemonic =
+    mkCWalletInit' wType wCurrency wName wAssurance wUnit <$> mkBackupPhrase mnemonic
 
-mkCWalletInitIgnoreChecksum :: String -> String -> String -> String -> Either Error CT.CWalletInit
-mkCWalletInitIgnoreChecksum wType wCurrency wName mnemonic= do
-    mkCWalletInit' wType wCurrency wName <$> mkBackupPhraseIgnoreChecksum mnemonic
+mkCWalletInitIgnoreChecksum :: String -> String -> String -> String -> Int -> String -> Either Error CT.CWalletInit
+mkCWalletInitIgnoreChecksum wType wCurrency wName wAssurance wUnit mnemonic= do
+    mkCWalletInit' wType wCurrency wName wAssurance wUnit <$> mkBackupPhraseIgnoreChecksum mnemonic
 
-mkCWalletInit' :: String -> String -> String -> BackupPhrase -> CT.CWalletInit
-mkCWalletInit' wType wCurrency wName bp =
+mkCWalletInit' :: String -> String -> String -> String -> Int -> BackupPhrase -> CT.CWalletInit
+mkCWalletInit' wType wCurrency wName wAssurance wUnit bp =
     CT.CWalletInit { cwBackupPhrase: bp
-                   , cwInitMeta: mkCWalletMeta wType wCurrency wName
+                   , cwInitMeta: mkCWalletMeta wType wCurrency wName wAssurance wUnit
                    }
 
 mkCWalletRedeem :: String -> String -> CT.CWalletRedeem

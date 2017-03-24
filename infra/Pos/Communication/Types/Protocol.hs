@@ -39,8 +39,7 @@ import           Formatting            (bprint, build, hex, int, sformat, stext,
 import qualified Node                  as N
 import           Node.Message          (Message (..), MessageName (..))
 import           Serokell.Util.Base16  (base16F)
-import           Serokell.Util.Text    (listJson)
-import           Serokell.Util.Text    (mapJson)
+import           Serokell.Util.Text    (listJson, mapJson)
 import           Universum             hiding (show)
 
 import           Pos.Binary.Class      (Bi)

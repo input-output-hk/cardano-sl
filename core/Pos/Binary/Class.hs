@@ -471,23 +471,23 @@ instance Bi Char where
     {-# INLINE put #-}
     put = putCharUtf8
     get = do
-        let getByte = liftM (fromIntegral :: Word8 -> Int) get
+        let getByte = (fromIntegral :: Word8 -> Int) <$> get
             shiftL6 = flip shiftL 6 :: Int -> Int
         w <- getByte
         r <- case () of
                 _ | w < 0x80  -> return w
                   | w < 0xe0  -> do
-                                    x <- liftM (xor 0x80) getByte
+                                    x <- xor 0x80 <$> getByte
                                     return (x .|. shiftL6 (xor 0xc0 w))
                   | w < 0xf0  -> do
-                                    x <- liftM (xor 0x80) getByte
-                                    y <- liftM (xor 0x80) getByte
+                                    x <- xor 0x80 <$> getByte
+                                    y <- xor 0x80 <$>  getByte
                                     return (y .|. shiftL6 (x .|. shiftL6
                                             (xor 0xe0 w)))
                   | otherwise -> do
-                                x <- liftM (xor 0x80) getByte
-                                y <- liftM (xor 0x80) getByte
-                                z <- liftM (xor 0x80) getByte
+                                x <- xor 0x80 <$> getByte
+                                y <- xor 0x80 <$> getByte
+                                z <- xor 0x80 <$> getByte
                                 return (z .|. shiftL6 (y .|. shiftL6
                                         (x .|. shiftL6 (xor 0xf0 w))))
         getChr r
@@ -577,8 +577,8 @@ instance (Bi a, Bi b) => Bi (Either a b) where
     get = do
         w <- getWord8
         case w of
-            0 -> liftM Left  get
-            1 -> liftM Right get
+            0 -> Left  <$> get
+            1 -> Right <$> get
             _ -> fail "unexpected Either tag"
 
 instance Bi a => Bi (NonEmpty a) where
@@ -592,7 +592,7 @@ instance (Bi a) => Bi (Maybe a) where
         w <- getWord8
         case w of
             0 -> return Nothing
-            _ -> liftM Just get
+            _ -> Just <$> get
 
 instance (Hashable k, Eq k, Bi k, Bi v) => Bi (HM.HashMap k v) where
     get = fmap HM.fromList get

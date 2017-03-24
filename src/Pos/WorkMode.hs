@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                  #-}
 {-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -9,6 +10,8 @@
 module Pos.WorkMode
        ( WorkMode
        , MinWorkMode
+
+       , TxpExtra_TMP
 
        -- * Actual modes
        , ProductionMode
@@ -26,7 +29,7 @@ import           Universum
 
 import           Pos.Communication.PeerState (PeerStateHolder (..), WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
-import           Pos.Context                 (ContextHolder, WithNodeContext)
+import           Pos.Context                 (ContextHolder, NodeParams, WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.DB.Holder               (DBHolder)
 import           Pos.DB.Limits               (MonadDBLimits)
@@ -35,6 +38,10 @@ import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.MemState            (MonadDhtMem)
 import           Pos.DHT.Model               (MonadDHT)
 import           Pos.DHT.Real                (KademliaDHT (..), WithKademliaDHTInstance)
+import           Pos.Lrc.Context             (LrcContext)
+#ifdef WITH_EXPLORER
+import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
+#endif
 import           Pos.Reporting               (MonadReportingMem)
 import           Pos.Shutdown                (MonadShutdownMem)
 import           Pos.Slotting.Class          (MonadSlots)
@@ -45,9 +52,19 @@ import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage       (SscGStateClass)
 import           Pos.Ssc.Extra               (MonadSscMem, SscHolder)
 import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
-import           Pos.Txp.MemState            (MonadTxpMem (..), TxpHolder)
+import           Pos.Txp.MemState            (MonadTxpMem, TxpHolder)
+import           Pos.Update.Context          (UpdateContext)
 import           Pos.Update.MemState         (MonadUSMem, USHolder)
+import           Pos.Util.Context            (HasContext)
 import           Pos.Util.JsonLog            (MonadJL (..))
+
+-- Something extremely unpleasant.
+-- TODO: get rid of it after CSL-777 is done.
+#ifdef WITH_EXPLORER
+type TxpExtra_TMP = ExplorerExtra
+#else
+type TxpExtra_TMP = ()
+#endif
 
 -- | Bunch of constraints to perform work for real world distributed system.
 type WorkMode ssc m
@@ -56,7 +73,7 @@ type WorkMode ssc m
       , MonadSlots m
       , MonadDB m
       , MonadDBLimits m
-      , MonadTxpMem m
+      , MonadTxpMem TxpExtra_TMP m
       , MonadDhtMem m
       , MonadRelayMem m
       , MonadDelegation m
@@ -66,6 +83,9 @@ type WorkMode ssc m
       , SscLocalDataClass ssc
       , SscHelpersClass ssc
       , WithNodeContext ssc m
+      , HasContext LrcContext m
+      , HasContext UpdateContext m
+      , HasContext NodeParams m
       , MonadStats m
       , MonadJL m
       , WithKademliaDHTInstance m
@@ -136,7 +156,7 @@ deriving instance MonadUSMem m => MonadUSMem (KademliaDHT m)
 deriving instance MonadUSMem m => MonadUSMem (PeerStateHolder m)
 
 deriving instance MonadSscMem ssc m => MonadSscMem ssc (PeerStateHolder m)
-deriving instance MonadTxpMem m => MonadTxpMem (PeerStateHolder m)
+deriving instance MonadTxpMem x m => MonadTxpMem x (PeerStateHolder m)
 
 deriving instance MonadShutdownMem m => MonadShutdownMem (PeerStateHolder m)
 deriving instance MonadShutdownMem m => MonadShutdownMem (KademliaDHT m)
@@ -157,7 +177,7 @@ type RawRealMode ssc =
     KademliaDHT (
     USHolder (
     DelegationT (
-    TxpHolder (
+    TxpHolder TxpExtra_TMP (
     SscHolder ssc (
     NtpSlotting (
     SlottingHolder (

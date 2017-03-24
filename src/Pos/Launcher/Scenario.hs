@@ -11,33 +11,35 @@ module Pos.Launcher.Scenario
        , runNode'
        ) where
 
-import           Data.Default         (def)
-import           Development.GitRev   (gitBranch, gitHash)
-import           Formatting           (build, sformat, shown, (%))
-import           Mockable             (fork)
-import           Paths_cardano_sl     (version)
-import           Serokell.Util        (sec)
-import           System.Exit          (ExitCode (..))
-import           System.Wlog          (getLoggerName, logError, logInfo)
+import           Data.Default       (def)
+import           Development.GitRev (gitBranch, gitHash)
+import           Formatting         (build, sformat, shown, (%))
+import           Mockable           (fork)
+import           Paths_cardano_sl   (version)
+import           Serokell.Util      (sec)
+import           System.Exit        (ExitCode (..))
+import           System.Wlog        (getLoggerName, logError, logInfo)
 import           Universum
 
-import           Pos.Communication    (ActionSpec (..), OutSpecs, WorkerSpec,
-                                       wrapActionSpec)
-import           Pos.Context          (NodeContext (..), getNodeContext, ncPubKeyAddress,
-                                       ncPublicKey)
-import qualified Pos.DB.GState        as GS
-import           Pos.Delegation.Logic (initDelegation)
-import           Pos.DHT.Model        (discoverPeers)
-import qualified Pos.Lrc.DB           as LrcDB
-import           Pos.Reporting        (reportMisbehaviourMasked)
-import           Pos.Shutdown         (waitForWorkers)
-import           Pos.Slotting         (getCurrentSlot, waitSystemStart)
-import           Pos.Ssc.Class        (SscConstraint)
-import           Pos.Types            (SlotId (..), addressHash)
-import           Pos.Update           (MemState (..), askUSMemVar, mvState)
-import           Pos.Util             (inAssertMode, waitRandomInterval)
-import           Pos.Worker           (allWorkers, allWorkersCount)
-import           Pos.WorkMode         (WorkMode)
+import           Pos.Communication  (ActionSpec (..), OutSpecs, WorkerSpec,
+                                     wrapActionSpec)
+import           Pos.Context        (NodeContext (..), getNodeContext, ncPubKeyAddress,
+                                     ncPublicKey)
+import qualified Pos.DB.GState      as GS
+import           Pos.Delegation     (initDelegation)
+import           Pos.DHT.Model      (discoverPeers)
+import           Pos.Lrc.Context    (LrcSyncData (..), lcLrcSync)
+import qualified Pos.Lrc.DB         as LrcDB
+import           Pos.Reporting      (reportMisbehaviourMasked)
+import           Pos.Shutdown       (waitForWorkers)
+import           Pos.Slotting       (getCurrentSlot, waitSystemStart)
+import           Pos.Ssc.Class      (SscConstraint)
+import           Pos.Types          (SlotId (..), addressHash)
+import           Pos.Update         (MemState (..), askUSMemVar, mvState)
+import           Pos.Util           (inAssertMode, waitRandomInterval)
+import           Pos.Util.Context   (askContext)
+import           Pos.Worker         (allWorkers, allWorkersCount)
+import           Pos.WorkMode       (WorkMode)
 
 -- | Run full node in any WorkMode.
 runNode'
@@ -64,7 +66,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     mapM_ (fork . unpackPlugin) plugins'
 
     -- Instead of sleeping forever, we wait until graceful shutdown
-    waitForWorkers allWorkersCount
+    waitForWorkers (allWorkersCount @ssc @m)
     liftIO $ exitWith (ExitFailure 20)
   where
     reportHandler (SomeException e) = do
@@ -102,8 +104,9 @@ initSemaphore = do
 
 initLrc :: WorkMode ssc m => m ()
 initLrc = do
-    lrcSync <- ncLrcSync <$> getNodeContext
-    atomically . writeTVar lrcSync . (True,) =<< LrcDB.getEpoch
+    lrcSync <- askContext lcLrcSync
+    epoch <- LrcDB.getEpoch
+    atomically $ writeTVar lrcSync (LrcSyncData True epoch)
 
 initUSMemState :: WorkMode ssc m => m ()
 initUSMemState = do

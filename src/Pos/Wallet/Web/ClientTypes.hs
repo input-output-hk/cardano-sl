@@ -34,33 +34,33 @@ module Pos.Wallet.Web.ClientTypes
       , toCUpdateInfo
       ) where
 
-import           Data.Text             (Text, isInfixOf, toLower)
-import           GHC.Generics          (Generic)
 import           Universum
 
-import           Data.Default          (Default, def)
-import           Data.Hashable         (Hashable (..))
-import           Data.Time.Clock.POSIX (POSIXTime)
-import           Formatting            (build, sformat)
+import           Data.Default           (Default, def)
+import           Data.Hashable          (Hashable (..))
+import           Data.Text              (Text, isInfixOf, toLower)
+import           Data.Time.Clock.POSIX  (POSIXTime)
+import           Data.Typeable          (Typeable)
+import           Formatting             (build, sformat)
 
-import           Pos.Aeson.Types       ()
-import           Pos.Core.Types        (ScriptVersion)
-import           Pos.Crypto            (hashHexF)
-import           Pos.Txp.Core.Types    (Tx (..), TxId, txOutAddress, txOutValue)
-import           Pos.Types             (Address (..), BlockVersion, ChainDifficulty, Coin,
-                                        SoftwareVersion, decodeTextAddress, sumCoins,
-                                        unsafeIntegerToCoin)
-import           Pos.Update.Core       (BlockVersionData (..), StakeholderVotes,
-                                        UpdateProposal (..), isPositiveVote)
-import           Pos.Update.Poll       (ConfirmedProposalState (..))
-import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Wallet.Tx.Pure    (TxHistoryEntry (..))
+import           Pos.Aeson.Types        ()
+import           Pos.Client.Txp.History (TxHistoryEntry (..))
+import           Pos.Core.Types         (ScriptVersion)
+import           Pos.Crypto             (hashHexF)
+import           Pos.Txp.Core.Types     (Tx (..), TxId, txOutAddress, txOutValue)
+import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
+                                         Coin, SoftwareVersion, decodeTextAddress,
+                                         sumCoins, unsafeIntegerToCoin)
+import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes,
+                                         UpdateProposal (..), isPositiveVote)
+import           Pos.Update.Poll        (ConfirmedProposalState (..))
+import           Pos.Util.BackupPhrase  (BackupPhrase)
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty
     , _spNetworkCD :: Maybe ChainDifficulty
     , _spPeers     :: Word
-    } deriving (Show, Generic)
+    } deriving (Show, Generic, Typeable)
 
 instance Default SyncProgress where
     def = SyncProgress 0 mzero 0
@@ -161,7 +161,7 @@ data CWallet = CWallet
     { cwAddress :: !CAddress
     , cwAmount  :: !Coin
     , cwMeta    :: !CWalletMeta
-    } deriving (Show, Generic)
+    } deriving (Show, Generic, Typeable)
 
 -- | Query data for wallet creation
 -- (wallet meta + backup phrase)
@@ -194,7 +194,7 @@ data CProfile = CProfile
     , cpPwCreated   :: POSIXTime
     , cpLocale      :: Text
     , cpPicture     :: Text -- TODO: base64
-    } deriving (Show, Generic)
+    } deriving (Show, Generic, Typeable)
 
 ----------------------------------------------------------------------------
 -- Transactions
@@ -229,7 +229,7 @@ data CTx = CTx
     , ctAmount        :: Coin
     , ctConfirmations :: Word
     , ctType          :: CTType -- it includes all "meta data"
-    } deriving (Show, Generic)
+    } deriving (Show, Generic, Typeable)
 
 ctType' :: Lens' CTx CTType
 ctType' f (CTx id amount cf tp) = CTx id amount cf <$> f tp
@@ -262,7 +262,7 @@ data CUpdateInfo = CUpdateInfo
     , cuiVotesAgainst    :: !Int
     , cuiPositiveStake   :: !Coin
     , cuiNegativeStake   :: !Coin
-    } deriving (Show, Generic)
+    } deriving (Show, Generic, Typeable)
 
 -- | Return counts of negative and positive votes
 countVotes :: StakeholderVotes -> (Int, Int)

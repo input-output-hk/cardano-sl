@@ -1,5 +1,5 @@
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE Rank2Types           #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE Rank2Types      #-}
 
 -- | This module defines methods which operate on GtLocalData.
 
@@ -29,6 +29,8 @@ import           Universum
 
 import           Pos.Binary.Ssc                     ()
 import           Pos.Context                        (WithNodeContext)
+import           Pos.Core.Types                     (EpochIndex, SlotId (..),
+                                                     StakeholderId)
 import           Pos.DB                             (MonadDB)
 import qualified Pos.Lrc.DB                         as LrcDB
 import           Pos.Lrc.Types                      (RichmenStake)
@@ -56,8 +58,6 @@ import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossM
                                                      verifyAndApplyGtPayload)
 import           Pos.Ssc.GodTossing.Type            (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types           (GtGlobalState)
-import           Pos.Core.Types                          (EpochIndex, SlotId (..),
-                                                     StakeholderId)
 
 ----------------------------------------------------------------------------
 -- Methods from type class

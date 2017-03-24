@@ -19,7 +19,8 @@ import           Universum
 
 import qualified Pos.CLI                     as CLI
 import           Pos.Communication           (ActionSpec (..), SendActions,
-                                              convertSendActions, wrapSendActions)
+                                              convertSendActions, sendTxOuts, submitTxRaw,
+                                              wrapSendActions)
 import           Pos.Constants               (genesisN, genesisSlotDuration,
                                               neighborsSendThreshold, slotSecurityParam)
 import           Pos.Crypto                  (hash)
@@ -38,7 +39,6 @@ import           Pos.Ssc.SscAlgo             (SscAlgo (..))
 import           Pos.Txp                     (TxAux)
 import           Pos.Util.JsonLog            ()
 import           Pos.Util.UserSecret         (simpleUserSecret)
-import           Pos.Wallet                  (sendTxOuts, submitTxRaw)
 import           Pos.Worker                  (allWorkers)
 import           Pos.WorkMode                (ProductionMode)
 
@@ -193,11 +193,10 @@ runSmartGen res np@NodeParams{..} sscnp opts@GenOptions{..} =
       let globalTime, realTPS :: Double
           globalTime = (fromIntegral (finishT - startMeasurementsT)) / 1000
           realTPS = (fromIntegral realTxNumVal) / globalTime
-          (newTPS, newStep) = if realTPS >= goTPS' - 5
-                              then (goTPS' + increaseStep, increaseStep)
-                              else if realTPS >= goTPS' * 0.8
-                                   then (goTPS', increaseStep)
-                                   else (realTPS, increaseStep / 2)
+          (newTPS, newStep)
+              | realTPS >= goTPS' - 5 = (goTPS' + increaseStep, increaseStep)
+              | realTPS >= goTPS' * 0.8 = (goTPS', increaseStep)
+              | otherwise = (realTPS, increaseStep / 2)
 
       putText "----------------------------------------"
       putText $ "Sending transactions took (s): " <> show globalTime
@@ -225,10 +224,8 @@ main = do
 
     -- Check correctness of --m-of-n param
     case goMOfNParams of
-        Nothing -> return ()
-        Just (m, n) -> if m > n || n > genesisN
-                       then error "Invalid `--m-of-n` value"
-                       else return ()
+        Nothing     -> return ()
+        Just (m, n) -> when (m > n || n > genesisN) $ error "Invalid `--m-of-n` value"
 
     sk <- generate arbitrary
     vssKeyPair <- generate arbitrary

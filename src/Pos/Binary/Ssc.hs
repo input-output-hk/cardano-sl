@@ -40,10 +40,10 @@ instance Bi GtMsgContents where
         MCVssCertificate vssCert  -> putWord8 3 >> put vssCert
     get = label "GtMsgContents" $ do
         getWord8 >>= \case
-            0 -> liftM MCCommitment get
+            0 -> MCCommitment <$> get
             1 -> liftM2 MCOpening get get
             2 -> liftM2 MCShares get get
-            3 -> liftM MCVssCertificate get
+            3 -> MCVssCertificate <$> get
             tag -> fail ("get@DataMsg: invalid tag: " ++ show tag)
 
 ----------------------------------------------------------------------------

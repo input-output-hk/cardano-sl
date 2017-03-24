@@ -7,7 +7,7 @@ environment:
   global:
     # Avoid long paths on Windows
     STACK_ROOT: "c:\\sr"
-    STACK_WORK: ".stack-work"
+    STACK_WORK: ".w"
     CSL_SYSTEM_TAG: "win64"
     CACHE_DIR: "c:\\cache"
 
@@ -45,8 +45,9 @@ before_test:
 - IF EXIST %CACHE_DIR% dir %CACHE_DIR%
 - IF EXIST %CACHED_STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %CACHED_STACK_ROOT% %STACK_ROOT%
 - IF EXIST %CACHED_STACK_WORK% xcopy /q /s /e /r /k /i /v /h /y %CACHED_STACK_WORK% %STACK_WORK%
+- ps: Install-Product node 6
 # Install stack
-- curl -sSL -o stack.zip --insecure http://www.stackage.org/stack/windows-x86_64
+- ps: Start-FileDownload http://www.stackage.org/stack/windows-x86_64 -FileName stack.zip
 - 7z x stack.zip stack.exe
 
 
@@ -60,15 +61,16 @@ test_script:
   # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
   - scripts\appveyor-retry call stack --no-terminal --local-bin-path daedalus
       install -j 2 --test --no-haddock-deps --bench --no-run-benchmarks
+      --work-dir %STACK_WORK%
       --flag cardano-sl:with-web
       --flag cardano-sl:with-wallet
       --flag cardano-sl:-asserts
       --flag cardano-sl-core:-dev-mode
       --extra-include-dirs="C:\OpenSSL-Win64\include"
       --extra-lib-dirs="C:\OpenSSL-Win64"
-      --extra-include-dirs="C:\projects\pos-haskell-prototype\rocksdb\include"
-      --extra-lib-dirs="C:\projects\pos-haskell-prototype"
-  - stack exec -- cardano-wallet-hs2purs
+      --extra-include-dirs="C:\projects\cardano-sl\rocksdb\include"
+      --extra-lib-dirs="C:\projects\cardano-sl"
+  - stack exec --work-dir %STACK_WORK% -- cardano-wallet-hs2purs
   - copy log-config-prod.yaml daedalus\log-config-prod.yaml
   - cd daedalus
   - Echo %APPVEYOR_BUILD_VERSION% > build-id

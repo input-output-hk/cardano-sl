@@ -1,9 +1,5 @@
 -- | Arbitrary instances for Update System types.
 
-module Pos.Update.Arbitrary
-       (
-       ) where
-
-import           Pos.Update.Arbitrary.Core    ()
-import           Pos.Update.Arbitrary.Network ()
-import           Pos.Update.Arbitrary.Poll    ()
+{-# OPTIONS_GHC -F -pgmF autoexporter #-}
+{-# OPTIONS_GHC -Wno-unused-imports   #-}
+{-# OPTIONS_GHC -Wno-dodgy-exports    #-}

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Runners in various modes.
@@ -31,7 +32,6 @@ import           Control.Lens                (each, to, _tail)
 import           Control.Monad.Fix           (MonadFix)
 import qualified Data.ByteString.Char8       as BS8
 import           Data.Default                (def)
-import           Data.List                   (nub)
 import           Data.Tagged                 (proxy, untag)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
@@ -70,14 +70,10 @@ import           Pos.Communication           (ActionSpec (..), BiP (..),
                                               sysStartRespListener, toAction, toOutSpecs,
                                               unpackLSpecs)
 import           Pos.Communication.PeerState (runPeerStateHolder)
-import           Pos.Constants               (lastKnownBlockVersion, protocolMagic)
-import           Pos.Constants               (blockRetrievalQueueSize,
-                                              networkConnectionTimeout,
-                                              propagationQueueSize)
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               runContextHolder)
-import           Pos.Core.Timestamp          (timestampF)
+import           Pos.Core                    (Timestamp (Timestamp), timestampF)
 import           Pos.Crypto                  (createProxySecretKey, encToPublic)
 import           Pos.DB                      (MonadDB (..), runDBHolder)
 import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
@@ -92,6 +88,7 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
                                               stopDHTInstance)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
+import           Pos.Lrc.Context             (LrcContext (..), LrcSyncData (..))
 import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.Slotting                (SlottingVar, mkNtpSlottingVar,
                                               runNtpSlotting, runSlottingHolder)
@@ -100,8 +97,13 @@ import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
                                               SscParams, sscCreateNodeContext)
 import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
-import           Pos.Txp                     (runTxpHolder)
-import           Pos.Types                   (Timestamp (Timestamp))
+import           Pos.Txp                     (mkTxpLocalData, runTxpHolder)
+#ifdef WITH_EXPLORER
+import           Pos.Explorer                (explorerTxpGlobalSettings)
+#else
+import           Pos.Txp                     (txpGlobalSettings)
+#endif
+import           Pos.Update.Context          (UpdateContext (..))
 import qualified Pos.Update.DB               as GState
 import           Pos.Update.MemState         (runUSHolder)
 import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
@@ -186,12 +188,14 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
     usingLoggerName lpRunnerTag $ do
        initNC <- untag @ssc sscCreateNodeContext sscnp
        modernDBs <- openNodeDBs npRebuildDb npDbPathM
+       let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc)
        -- TODO [CSL-775] ideally initialization logic should be in scenario.
-       runDBHolder modernDBs . runCH @ssc np initNC $ initNodeDBs
+       runDBHolder modernDBs . runCH @ssc allWorkersNum np initNC $ initNodeDBs
        initTip <- runDBHolder modernDBs getTip
        stateM <- liftIO SM.newIO
        stateM_ <- liftIO SM.newIO
        slottingVar <- runDBHolder  modernDBs $ mkSlottingVar npSystemStart
+       txpVar <- mkTxpLocalData mempty initTip
        ntpSlottingVar <- mkNtpSlottingVar
 
        -- TODO [CSL-775] need an effect-free way of running this into IO.
@@ -199,11 +203,11 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
            runIO = runProduction .
                        usingLoggerName lpRunnerTag .
                        runDBHolder modernDBs .
-                       runCH @ssc np initNC .
+                       runCH @ssc allWorkersNum np initNC .
                        runSlottingHolder slottingVar .
                        runNtpSlotting ntpSlottingVar .
                        ignoreSscHolder .
-                       runTxpHolder mempty initTip .
+                       runTxpHolder txpVar .
                        runDelegationT def .
                        runUSHolder .
                        runKademliaDHT (rmDHT res) .
@@ -213,16 +217,14 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
                Nothing   -> return Nothing
                Just port -> Just <$> setupMonitor port runIO node'
 
-       let stopMonitoring it = case it of
-               Nothing        -> return ()
-               Just ekgServer -> stopMonitor ekgServer
+       let stopMonitoring it = whenJust it stopMonitor
 
        runDBHolder modernDBs .
-          runCH np initNC .
+          runCH allWorkersNum np initNC .
           runSlottingHolder slottingVar .
           runNtpSlotting ntpSlottingVar .
           (mkStateAndRunSscHolder @ssc) .
-          runTxpHolder mempty initTip .
+          runTxpHolder txpVar .
           runDelegationT def .
           runUSHolder .
           runKademliaDHT (rmDHT res) .
@@ -268,15 +270,14 @@ runServer transport packedLS_M (OutSpecs wouts) withNode afterNode (ActionSpec a
     packedLS  <- packedLS_M
     let (listeners', InSpecs ins, OutSpecs outs) = unpackLSpecs packedLS
         ourVerInfo =
-            VerInfo protocolMagic lastKnownBlockVersion ins $ outs <> wouts
+            VerInfo Const.protocolMagic Const.lastKnownBlockVersion ins $ outs <> wouts
         listeners = listeners' ourVerInfo
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo "%build) ourVerInfo
     node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) defaultNodeEnvironment $ \__node ->
         NodeAction listeners $ \sendActions -> do
             t <- withNode __node
-            a <- action ourVerInfo sendActions `finally` afterNode t
-            return a
+            action ourVerInfo sendActions `finally` afterNode t
 
 runServer_
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
@@ -329,50 +330,46 @@ runStatsMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
 ----------------------------------------------------------------------------
 
 runCH :: forall ssc m a . (SscConstraint ssc, MonadDB m, Mockable CurrentTime m)
-      => NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
-runCH params@NodeParams {..} sscNodeContext act = do
-    logCfg <- getRealLoggerConfig $ bpLoggingParams npBaseParams
-    jlFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
-    semaphore <- liftIO newEmptyMVar
-    updSemaphore <- liftIO newEmptyMVar
+      => Int -> NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
+runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
+    ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
+    ncJLFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
+    ncBlkSemaphore <- liftIO newEmptyMVar
+    ucUpdateSemaphore <- liftIO newEmptyMVar
 
     -- TODO [CSL-775] lrc initialization logic is duplicated.
-    lrcSync <- liftIO . newTVarIO . (True,) =<< LrcDB.getEpochDefault
+    epochDef <- LrcDB.getEpochDefault
+    lcLrcSync <- liftIO $ newTVarIO (LrcSyncData True epochDef)
 
     let eternity = (minBound, maxBound)
         makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . encToPublic
         ownPSKs = npUserSecret ^.. usKeys._tail.each.to makeOwnPSK
     forM_ ownPSKs addProxySecretKey
 
-    userSecretVar <- liftIO . newTVarIO $ npUserSecret
-    queue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
-    propQueue <- liftIO $ newTBQueueIO propagationQueueSize
-    recoveryHeaderVar <- liftIO newEmptyTMVarIO
-    progressHeader <- liftIO newEmptyTMVarIO
-    shutdownFlag <- liftIO $ newTVarIO False
-    shutdownQueue <- liftIO $ newTBQueueIO allWorkersCount
-    curTime <- liftIO Time.getCurrentTime
-    lastKnownHeader <- liftIO $ newTVarIO Nothing
+    ncUserSecret <- liftIO . newTVarIO $ npUserSecret
+    ncBlockRetrievalQueue <- liftIO $
+        newTBQueueIO Const.blockRetrievalQueueSize
+    ncInvPropagationQueue <- liftIO $
+        newTBQueueIO Const.propagationQueueSize
+    ncRecoveryHeader <- liftIO newEmptyTMVarIO
+    ncProgressHeader <- liftIO newEmptyTMVarIO
+    ncShutdownFlag <- liftIO $ newTVarIO False
+    ncShutdownNotifyQueue <- liftIO $ newTBQueueIO allWorkersNum
+    ncStartTime <- liftIO Time.getCurrentTime
+    ncLastKnownHeader <- liftIO $ newTVarIO Nothing
     let ctx =
             NodeContext
-            { ncJLFile = jlFile
-            , ncSscContext = sscNodeContext
-            , ncBlkSemaphore = semaphore
-            , ncLrcSync = lrcSync
-            , ncUserSecret = userSecretVar
-            , ncBlockRetrievalQueue = queue
-            , ncInvPropagationQueue = propQueue
-            , ncRecoveryHeader = recoveryHeaderVar
-            , ncProgressHeader = progressHeader
-            , ncUpdateSemaphore = updSemaphore
-            , ncShutdownFlag = shutdownFlag
-            , ncShutdownNotifyQueue = shutdownQueue
+            { ncSscContext = sscNodeContext
+            , ncLrcContext = LrcContext {..}
+            , ncUpdateContext = UpdateContext {..}
             , ncNodeParams = params
-            , ncLoggerConfig = logCfg
             , ncSendLock = Nothing
-            , ncStartTime = curTime
-            , ncLastKnownHeader = lastKnownHeader
-            }
+#ifdef WITH_EXPLORER
+            , ncTxpGlobalSettings = explorerTxpGlobalSettings
+#else
+            , ncTxpGlobalSettings = txpGlobalSettings
+#endif
+            , .. }
     runContextHolder ctx act
 
 ----------------------------------------------------------------------------
@@ -426,7 +423,7 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
         KademliaDHTInstanceConfig
         { kdcKey = bpDHTKey
         , kdcPort = snd bpIpPort
-        , kdcInitialPeers = nub $ bpDHTPeers ++ Const.defaultPeers
+        , kdcInitialPeers = ordNub $ bpDHTPeers ++ Const.defaultPeers
         , kdcExplicitInitial = bpDHTExplicitInitial
         , kdcDumpPath = bpKademliaDump
         }
@@ -438,7 +435,7 @@ createTransport ip port = do
     let tcpParams =
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =
-                   Just $ fromIntegral networkConnectionTimeout
+                   Just $ fromIntegral Const.networkConnectionTimeout
              , TCP.tcpNewQDisc = fairQDisc $ \_ -> return Nothing
              })
     transportE <-

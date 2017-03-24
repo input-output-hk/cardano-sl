@@ -31,11 +31,11 @@ allListeners
     :: (SscListenersClass ssc, SscWorkersClass ssc, WorkMode ssc m)
     => m ([ListenerSpec m], OutSpecs)
 allListeners = mconcatPair <$> sequence
-        [ modifier "block"      <$> blockListeners
-        , modifier "ssc"        <$> untag <$> sscListeners
-        , modifier "tx"         <$> txListeners
-        , modifier "delegation" <$> pure delegationListeners
-        , modifier "update"     <$> usListeners
+        [ modifier "block"       <$> blockListeners
+        , modifier "ssc" . untag <$> sscListeners
+        , modifier "tx"          <$> txListeners
+        , modifier "delegation"  <$> pure delegationListeners
+        , modifier "update"      <$> usListeners
         ]
   where
     modifier lname = over _1 (map pModifier)

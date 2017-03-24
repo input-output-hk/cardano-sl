@@ -19,6 +19,7 @@ import           Universum
 
 import           Control.Concurrent            (forkFinally)
 import           Control.Lens                  (makeLenses, (.=))
+import           Control.Monad                 (replicateM_)
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
 import           Control.Monad.State           (runStateT)
@@ -40,7 +41,9 @@ import           Servant.Utils.Enter           ((:~>) (..), enter)
 import           System.Wlog                   (logDebug, logError, logInfo)
 
 import           Pos.Aeson.ClientTypes         ()
-import           Pos.Communication.Protocol    (OutSpecs, SendActions, hoistSendActions)
+import           Pos.Client.Txp.History        (TxHistoryAnswer (..), TxHistoryEntry (..))
+import           Pos.Communication             (OutSpecs, SendActions, hoistSendActions,
+                                                sendTxOuts, submitRedemptionTx, submitTx)
 import           Pos.Constants                 (curSoftwareVersion, isDevelopment)
 import           Pos.Core                      (Address, Coin, addressF, coinF,
                                                 decodeTextAddress, makePubKeyAddress,
@@ -60,11 +63,9 @@ import           Pos.Util.BackupPhrase         (BackupPhrase, safeKeysFromPhrase
 import           Pos.Util.UserSecret           (readUserSecret, usKeys, usPrimKey)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
-import           Pos.Wallet.Tx                 (sendTxOuts, submitRedemptionTx, submitTx)
-import           Pos.Wallet.Tx.Pure            (TxHistoryEntry (..))
-import           Pos.Wallet.WalletMode         (TxHistoryAnswer (..), WalletMode,
-                                                applyLastUpdate, blockchainSlotDuration,
-                                                connectedPeers, getBalance, getTxHistory,
+import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
+                                                blockchainSlotDuration, connectedPeers,
+                                                getBalance, getTxHistory,
                                                 localChainDifficulty,
                                                 networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
@@ -82,7 +83,6 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
                                                 getWalletWebSockets, initWSConnection,
                                                 notify, runWalletWS, upgradeApplicationWS)
-import           Pos.Wallet.Web.State          (testReset)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, addUpdate, closeState,
                                                 createWallet, getHistoryCache,
@@ -90,7 +90,7 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWeb
                                                 getWalletMeta, getWalletState, openState,
                                                 removeNextUpdate, removeWallet,
                                                 runWalletWebDB, setProfile, setWalletMeta,
-                                                setWalletTransactionMeta,
+                                                setWalletTransactionMeta, testReset,
                                                 updateHistoryCache)
 import           Pos.Web.Server                (serveImpl)
 
@@ -545,7 +545,7 @@ testResetAll | isDevelopment = deleteAllKeys >> testReset
   where
     deleteAllKeys = do
         keyNum <- length <$> getSecretKeys
-        sequence_ $ replicate keyNum $ deleteSecretKey 0
+        replicateM_ keyNum $ deleteSecretKey 0
 
 ---------------------------------------------------------------------------
 -- Helpers

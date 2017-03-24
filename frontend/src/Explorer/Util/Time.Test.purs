@@ -4,11 +4,11 @@ import Prelude
 import Control.Monad.Aff (Aff)
 import Control.Monad.State (StateT)
 import Data.Identity (Identity)
-import Data.Maybe (Maybe(..), fromJust, fromMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Time.Duration (Days(Days), Milliseconds(Milliseconds), Minutes(Minutes), Seconds(Seconds))
 import Data.Time.NominalDiffTime (mkTime)
 import Explorer.I18n.Lang (Language(..))
-import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime, prettyDate)
+import Explorer.Util.Time (prettyDuration, prettyDate)
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -45,4 +45,4 @@ testPrettyDuration =
                   "21.03.2017 12:12,27" `shouldEqual` fromMaybe "failed" result
               it "format date of MM/DD/YYYY HH:mm,ss" do
                   let result =  prettyDate "DD.MM.YYYY HH:mm.ss" $ mkTime 1490098689.0
-                  "21.03.2017 12:18.9" `shouldEqual` fromMaybe "failed" result
+                  "21.03.2017 12:18.09" `shouldEqual` fromMaybe "failed" result

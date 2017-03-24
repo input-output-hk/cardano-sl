@@ -5,8 +5,8 @@ import Data.Array (length, null, slice)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
-import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Data.Time.Duration (Milliseconds(..))
+import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (dashboard, dbLastBlocks, cOf, common, dbExploreBlocks, cUnknown, cEpoch, cHeight, cExpand, cNoData, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB) as I18nL
 import Explorer.Lenses.State (dashboardBlockPagination, lang, latestBlocks)
@@ -15,13 +15,14 @@ import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State, CBlockEntries)
 import Explorer.Util.DOM (targetToHTMLInputElement)
 import Explorer.Util.Time (prettyDuration)
-import Explorer.View.Common (paginationView)
+import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnRelayedBy, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFooter, blocksHeader, blocksWaiting, dashboardContainer, dashboardWrapper) as CSS
+import Explorer.View.Common (noData, paginationView)
 import Explorer.View.Dashboard.Lenses (dashboardBlocksExpanded, dashboardViewState)
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
+import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeEpoch, cbeHeight, cbeRelayedBy, cbeSize, cbeTimeIssued, cbeTotalSent, cbeTxNum)
-import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pux.Html (Html, div, text) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Html.Events (onClick) as P
@@ -40,20 +41,25 @@ minBlockRows = 3
 blocksView :: State -> P.Html Action
 blocksView state =
     P.div
-        [ P.className "explorer-dashboard__wrapper" ]
+        [ P.className CSS.dashboardWrapper ]
         [ P.div
-            [ P.className "explorer-dashboard__container" ]
+            [ P.className CSS.dashboardContainer ]
             [ headerView state headerOptions
-            , blocksHeaderView state
-            , P.div
-                [ P.className $ "blocks-waiting" <> visibleWaitingClazz ]
-                [ P.text $ translate (I18nL.common <<< I18nL.cNoData) lang' ]
-            , P.div
-                [ P.className $ "blocks-body" <> visibleBlockClazz ]
-                $ map (blockRow state) latestBlocks'
-            , P.div
-                [ P.className $ "blocks-footer" <> visibleBlockClazz ]
-                [ blocksFooterView ]
+            , if null blocks then
+                P.div
+                    [ P.className CSS.blocksWaiting ]
+                    [ P.text $ translate (I18nL.common <<< I18nL.cNoData) lang' ]
+              else
+                P.div
+                    []
+                    [ blocksHeaderView state
+                    , P.div
+                        [ P.className CSS.blocksBody ]
+                        $ map (blockRow state) latestBlocks'
+                    , P.div
+                        [ P.className CSS.blocksFooter ]
+                        [ blocksFooterView ]
+                    ]
             ]
         ]
       where
@@ -67,8 +73,6 @@ blocksView state =
         expanded = state ^. dashboardBlocksExpanded
         expandable = length blocks > minBlockRows
         noBlocks = null blocks
-        visibleBlockClazz = if noBlocks then " invisible" else ""
-        visibleWaitingClazz = if not noBlocks then " invisible" else ""
         currentBlockPage = state ^. (dashboardViewState <<< dashboardBlockPagination)
         minBlockIndex = (currentBlockPage - 1) * maxBlockRows
 
@@ -107,46 +111,91 @@ blocksView state =
 blockRow :: State -> CBlockEntry -> P.Html Action
 blockRow state (CBlockEntry entry) =
     P.link (toUrl <<< Block $ entry ^. cbeBlkHash)
-        [ P.className "blocks-body__row" ]
-        [ blockColumn <<< show $ entry ^. cbeEpoch
-        , blockColumn <<< show $ entry ^. cbeHeight
-        , blockColumn $ case entry ^. cbeTimeIssued of
-                            Just time -> prettyDuration language (Milliseconds
-                                $ unwrap $ time ^. _NominalDiffTime)
-                            Nothing -> "-"
-        , blockColumn <<< show $ entry ^. cbeTxNum
-        , blockColumn <<< show $ entry ^. (cbeTotalSent <<< _Coin <<< getCoin)
-        , blockColumn <<< fromMaybe (translate (I18nL.common <<< I18nL.cUnknown) language) $ entry ^. cbeRelayedBy
-        , blockColumn <<< show $ entry ^. cbeSize
+        [ P.className CSS.blocksBodyRow ]
+        [ blockColumn { label: show $ entry ^. cbeEpoch
+                      , clazz: CSS.blocksColumnEpoch
+                      }
+        , blockColumn { label: show $ entry ^. cbeHeight
+                      , clazz: CSS.blocksColumnSlot
+                      }
+        , blockColumn { label: labelAge
+                      , clazz: CSS.blocksColumnAge
+                      }
+        , blockColumn { label: show $ entry ^. cbeTxNum
+                      , clazz: CSS.blocksColumnTxs
+                      }
+        , blockColumn { label: show $ entry ^. (cbeTotalSent <<< _Coin <<< getCoin)
+                      , clazz: CSS.blocksColumnTotalSent
+                      }
+        , blockColumn { label: labelRelayed
+                      , clazz: CSS.blocksColumnRelayedBy
+                      }
+        , blockColumn { label: show $ entry ^. cbeSize
+                      , clazz: CSS.blocksColumnSize
+                      }
         ]
     where
-      language      = state ^. lang
+        language = state ^. lang
+        labelAge = case entry ^. cbeTimeIssued of
+                        Just time -> prettyDuration language (Milliseconds
+                            $ unwrap $ time ^. _NominalDiffTime)
+                        Nothing -> noData
+        labelRelayed = fromMaybe (translate (I18nL.common <<< I18nL.cUnknown) language)
+                            $ entry ^. cbeRelayedBy
 
-blockColumn :: String -> P.Html Action
-blockColumn value =
+
+
+type BlockColumnProps =
+    { label :: String
+    , clazz :: String
+    }
+
+blockColumn :: BlockColumnProps -> P.Html Action
+blockColumn props =
     P.div
-        [ P.className "blocks-body__column" ]
-        [ P.text value ]
+        [ P.className props.clazz ]
+        [ P.text props.label ]
+
+type BlocksHeaderProps =
+    { label :: String
+    , clazz :: String
+    }
+
+mkBlocksHeaderProps :: Language -> Array BlocksHeaderProps
+mkBlocksHeaderProps lang =
+    [ { label: translate (I18nL.common <<< I18nL.cEpoch) lang
+      , clazz: CSS.blocksColumnEpoch
+      }
+    , { label: translate (I18nL.common <<< I18nL.cHeight) lang
+      , clazz: CSS.blocksColumnSlot
+      }
+    , { label: translate (I18nL.common <<< I18nL.cAge) lang
+      , clazz: CSS.blocksColumnAge
+      }
+    , { label: translate (I18nL.common <<< I18nL.cTransactions) lang
+      , clazz: CSS.blocksColumnTxs
+      }
+    , { label: translate (I18nL.common <<< I18nL.cTotalSent) lang
+      , clazz: CSS.blocksColumnTotalSent
+      }
+    , { label: translate (I18nL.common <<< I18nL.cRelayedBy) lang
+      , clazz: CSS.blocksColumnRelayedBy
+      }
+    , { label: translate (I18nL.common <<< I18nL.cSizeKB) lang
+      , clazz: CSS.blocksColumnSize
+      }
+    ]
 
 blocksHeaderView :: State -> P.Html Action
 blocksHeaderView state =
     P.div
-          [ P.className $ "blocks-header" <> if null $ state ^. latestBlocks then " invisible" else "" ]
-          $ map (blockHeaderItemView state) $ mkBlocksHeaderItems state.lang
+          [ P.className $ CSS.blocksHeader
+                <> if null $ state ^. latestBlocks then " invisible" else ""
+          ]
+          $ map (blockHeaderItemView state) $ mkBlocksHeaderProps state.lang
 
-blockHeaderItemView :: State -> String -> P.Html Action
-blockHeaderItemView state label =
+blockHeaderItemView :: State -> BlocksHeaderProps -> P.Html Action
+blockHeaderItemView state props =
     P.div
-        [ P.className "blocks-header__item" ]
-        [ P.text label ]
-
-mkBlocksHeaderItems :: Language -> Array String
-mkBlocksHeaderItems lang =
-    [ translate (I18nL.common <<< I18nL.cEpoch) lang
-    , translate (I18nL.common <<< I18nL.cHeight) lang
-    , translate (I18nL.common <<< I18nL.cAge) lang
-    , translate (I18nL.common <<< I18nL.cTransactions) lang
-    , translate (I18nL.common <<< I18nL.cTotalSent) lang
-    , translate (I18nL.common <<< I18nL.cRelayedBy) lang
-    , translate (I18nL.common <<< I18nL.cSizeKB) lang
-    ]
+        [ P.className props.clazz ]
+        [ P.text props.label ]

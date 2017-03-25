@@ -64,7 +64,7 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
                                                  CTxId (..), CTxSummary (..),
                                                  TxInternal (..),
                                                  convertTxOutputs, fromCAddress,
-                                                 fromCHash',
+                                                 fromCHash,
                                                  fromCSearchIdAddress,
                                                  fromCSearchIdHash,
                                                  fromCSearchIdTx, fromCTxId,
@@ -179,12 +179,14 @@ getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
     pure $ [toTxEntry (tiTimestamp txi) (tiTx txi) | txi <- localTxsWithTs <> blockTxsWithTs]
 
 getBlockSummary :: ExplorerMode m => CHash -> m CBlockSummary
-getBlockSummary (fromCHash' -> h) = do
+getBlockSummary cHash = do
+    h <- either (throwM . Internal) pure $ fromCHash cHash
     mainBlock <- getMainBlock h
     toBlockSummary mainBlock
 
 getBlockTxs :: ExplorerMode m => CHash -> Word -> Word -> m [CTxEntry]
-getBlockTxs (fromCHash' -> h) (fromIntegral -> lim) (fromIntegral -> off) = do
+getBlockTxs cHash (fromIntegral -> lim) (fromIntegral -> off) = do
+    h <- either (throwM . Internal) pure $ fromCHash cHash
     blk <- getMainBlock h
     txs <- topsortTxsOrFail withHash $ toList $ blk ^. blockTxs
     forM (take lim . drop off $ txs) $ \tx -> do

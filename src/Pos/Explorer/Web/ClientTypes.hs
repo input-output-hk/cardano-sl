@@ -16,7 +16,6 @@ module Pos.Explorer.Web.ClientTypes
        , TxInternal (..)
        , toCHash
        , fromCHash
-       , fromCHash'
        , toCAddress
        , fromCAddress
        , toCTxId
@@ -33,6 +32,7 @@ module Pos.Explorer.Web.ClientTypes
        ) where
 
 import           Control.Arrow          ((&&&))
+import           Control.Lens           (_Left)
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Lazy   as BSL
@@ -83,16 +83,15 @@ encodeHashHex :: Hash a -> Text
 encodeHashHex = decodeUtf8 . B16.encode . Bi.encodeStrict
 
 decodeHashHex :: Text -> Either Text (Hash a)
-decodeHashHex = fmap Bi.decode . processRes . B16.decode . encodeUtf8
+decodeHashHex hashText = do
+    hashBinary <- processRes . B16.decode . encodeUtf8 $ hashText
+    over _Left toText $ Bi.decodeFull hashBinary
   where
     processRes :: (ByteString, ByteString) -> Either Text LByteString
     processRes (res, rest) =
         if BS.null rest
         then Right $ BSL.fromStrict res
         else Left $ "decodeHashHex: couldn't decode rest of hash: " <> decodeUtf8 rest
-
-decodeHashHex' :: Text -> Hash a
-decodeHashHex' = either (error "decodeHashHex: invalid hash") identity . decodeHashHex
 
 toCSearchId :: Hash a -> CSearchId
 toCSearchId = CSearchId . encodeHashHex
@@ -115,9 +114,6 @@ toCHash = CHash . encodeHashHex
 
 fromCHash :: CHash -> Either Text (Hash a)
 fromCHash (CHash h) = decodeHashHex h
-
-fromCHash' :: CHash -> Hash a
-fromCHash' (CHash h) = decodeHashHex' h
 
 toCAddress :: Address -> CAddress
 toCAddress = CAddress . sformat addressF

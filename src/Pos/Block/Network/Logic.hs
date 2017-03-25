@@ -163,12 +163,12 @@ handleUnsolicitedHeader header peerId conv = do
     case classificationRes of
         CHContinues -> do
             logDebug $ sformat continuesFormat hHash
-            addToBlockRequestQueue (one header) peerId header
+            addToBlockRequestQueue (one header) peerId Nothing
         CHAlternative -> do
             logInfo $ sformat alternativeFormat hHash
             mghM <- mkHeadersRequest (Just hHash)
             whenJust mghM $ \mgh ->
-                requestHeaders mgh peerId header Proxy conv
+                requestHeaders mgh peerId (Just header) Proxy conv
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> do
             logDebug $ sformat ("handleUnsolicited: header "%shortHashF%
@@ -222,7 +222,7 @@ requestHeaders
        (SscWorkersClass ssc, WorkMode ssc m)
     => MsgGetHeaders
     -> NodeId
-    -> BlockHeader ssc
+    -> Maybe (BlockHeader ssc)
     -> Proxy s
     -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
     -> m ()
@@ -255,7 +255,7 @@ handleRequestedHeaders
        (WorkMode ssc m)
     => NewestFirst NE (BlockHeader ssc)
     -> NodeId
-    -> BlockHeader ssc
+    -> Maybe (BlockHeader ssc)
     -> m ()
 handleRequestedHeaders headers peerId origTip = do
     logDebug "handleRequestedHeaders: headers were requested, will process"
@@ -299,26 +299,27 @@ addToBlockRequestQueue
        (WorkMode ssc m)
     => NewestFirst NE (BlockHeader ssc)
     -> NodeId
-    -> BlockHeader ssc
+    -> Maybe (BlockHeader ssc)
     -> m ()
-addToBlockRequestQueue headers peerId origTip = do
+addToBlockRequestQueue headers peerId mrecoveryTip = do
     queue <- ncBlockRetrievalQueue <$> getNodeContext
     recHeaderVar <- ncRecoveryHeader <$> getNodeContext
     lastKnownH <- ncLastKnownHeader <$> getNodeContext
-    atomically $ do
-        oldV <- readTVar lastKnownH
-        when (maybe True (origTip `isMoreDifficult`) oldV) $
-            writeTVar lastKnownH (Just origTip)
-    atomically $ do
-        let replace = tryTakeTMVar recHeaderVar >>= \case
-                Just (_, header')
-                    | not (origTip `isMoreDifficult` header') -> pass
-                _ -> putTMVar recHeaderVar (peerId, origTip)
-        tryReadTMVar recHeaderVar >>= \case
-            Nothing -> replace
-            Just (_,curRecHeader) ->
-                when (origTip `isMoreDifficult` curRecHeader) replace
+    let updateRecoveryHeader (Just recoveryTip) = do
+            oldV <- readTVar lastKnownH
+            when (maybe True (recoveryTip `isMoreDifficult`) oldV) $
+                writeTVar lastKnownH (Just recoveryTip)
+            let replace = tryTakeTMVar recHeaderVar >>= \case
+                    Just (_, header')
+                        | not (recoveryTip `isMoreDifficult` header') -> pass
+                    _ -> putTMVar recHeaderVar (peerId, recoveryTip)
+            tryReadTMVar recHeaderVar >>= \case
+                Nothing -> replace
+                Just (_,curRecHeader) ->
+                    when (recoveryTip `isMoreDifficult` curRecHeader) replace
+        updateRecoveryHeader Nothing = pass
     added <- atomically $ do
+        updateRecoveryHeader mrecoveryTip
         ifM (isFullTBQueue queue)
             (pure False)
             (True <$ writeTBQueue queue (peerId, headers))
@@ -470,11 +471,13 @@ relayBlock
     :: forall ssc m.
        (WorkMode ssc m)
     => SendActions m -> Block ssc -> m ()
-relayBlock _ (Left _)                  = pass
+relayBlock _ (Left _)                  = logDebug "Not relaying Genesis block"
 relayBlock sendActions (Right mainBlk) = do
-    -- Why 'ncPropagation' is not considered?
-    unlessM isRecoveryMode $
-        void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
+    isRecoveryMode >>= \case
+        True -> logDebug "Not relaying block in recovery mode"
+        False -> do
+            logDebug $ sformat ("Calling announceBlock for "%shown%".") (mainBlk ^. gbHeader)
+            void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------
 -- Common logging / logic sink points

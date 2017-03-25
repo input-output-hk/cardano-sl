@@ -47,7 +47,7 @@ import           Pos.Communication             (OutSpecs, SendActions, hoistSend
 import           Pos.Constants                 (curSoftwareVersion, isDevelopment)
 import           Pos.Core                      (Address, Coin, addressF, coinF,
                                                 decodeTextAddress, makePubKeyAddress,
-                                                mkCoin)
+                                                mkCoin, unsafeSubCoin)
 import           Pos.Crypto                    (PassPhrase, encToPublic, fakeSigner, hash,
                                                 redeemDeterministicKeyGen, toPublic,
                                                 withSafeSigner, withSafeSigner)
@@ -68,13 +68,13 @@ import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
                                                 localChainDifficulty,
                                                 networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
-import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CInitialized,
-                                                CPassPhrase (..), CProfile, CProfile (..),
-                                                CTx, CTxId, CTxMeta (..),
+import           Pos.Wallet.Web.ClientTypes    (CAccount (..), CAddress, CCurrency (ADA),
+                                                CInitialized, CPassPhrase (..), CProfile,
+                                                CProfile (..), CTx, CTxId, CTxMeta (..),
                                                 CUpdateInfo (..), CWallet (..),
                                                 CWalletInit (..), CWalletMeta (..),
                                                 CWalletRedeem (..), CWalletSet (..),
-                                                CWalletSetId, CWalletSetInit (..),
+                                                CWalletSetAddress, CWalletSetInit (..),
                                                 NotifyEvent (..), SyncProgress (..),
                                                 addressToCAddress, cAddressToAddress,
                                                 cPassPhraseToPassPhrase, mkCTx, mkCTxId,
@@ -86,13 +86,16 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 getWalletWebSockets, initWSConnection,
                                                 notify, runWalletWS, upgradeApplicationWS)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
-                                                addOnlyNewTxMeta, addUpdate, closeState,
-                                                createWSet, createWallet, getHistoryCache,
+                                                addOnlyNewTxMeta, addUpdate,
+                                                addWalletAccount, closeState, createWSet,
+                                                createWallet, getHistoryCache,
                                                 getNextUpdate, getProfile, getTxMeta,
-                                                getWSetMeta, getWalletMeta,
+                                                getWSetMeta, getWalletAccounts,
+                                                getWalletAddresses, getWalletMeta,
                                                 getWalletState, openState,
                                                 removeNextUpdate, removeWallet,
-                                                runWalletWebDB, setProfile, setWalletMeta,
+                                                removeWalletAccount, runWalletWebDB,
+                                                setProfile, setWalletMeta,
                                                 setWalletTransactionMeta, testReset,
                                                 updateHistoryCache)
 import           Pos.Web.Server                (serveImpl)
@@ -161,7 +164,7 @@ walletServer sendActions nat = do
     (`enter` servantHandlers @ssc sendActions') <$> nat
   where
     insertAddressMeta cAddr =
-        getWalletMeta cAddr >>= createWallet cAddr . fromMaybe def
+        getWSetMeta cAddr >>= createWSet cAddr . fromMaybe def
     createUserProfile = do
         time <- liftIO getPOSIXTime
         pure $ CProfile mempty mempty mempty mempty time mempty mempty
@@ -311,8 +314,8 @@ servantHandlers sendActions =
     apiGetWSets                 = catchWalletError getWSets
     apiNewWSet                  = (\a -> catchWalletError . newWSet a)
     apiRestoreWSet              = (\a -> catchWalletError . restoreWSet a)
-    apiGetWallet                = (catchWalletError . getWallet)
-    apiGetWallets               = catchWalletError getWallets
+    apiGetWallet                = catchWalletError . getWallet
+    apiGetWallets               = catchWalletError . getWallets
     apiUpdateWallet             = (\a -> catchWalletError . updateWallet a)
     apiNewWallet                = (\a -> catchWalletError . newWallet a)
     apiDeleteWallet             = catchWalletError . deleteWallet
@@ -349,20 +352,40 @@ getUserProfile = getProfile >>= maybe noProfile pure
 updateUserProfile :: WalletWebMode ssc m => CProfile -> m CProfile
 updateUserProfile profile = setProfile profile >> getUserProfile
 
+getAccount :: WalletWebMode ssc m => CAddress -> m CAccount
+getAccount cAddr = do
+    balance <- getBalance =<< decodeCAddressOrFail cAddr
+    return $ CAccount cAddr balance
+
+getAccounts :: WalletWebMode ssc m => CAddress -> m [CAccount]
+getAccounts wCAddr = getWalletAccounts wCAddr >>= mapM getAccount
+
+getAccountWallet :: WalletWebMode ssc m => CAddress -> m CAddress
+getAccountWallet accCAddr = do
+    allWallets <- getWallets Nothing
+    founds <- forM (allWallets) $ \CWallet{..} ->
+        -- TODO [CSL-931]: optimise?
+        find (accCAddr ==) <$> getWalletAccounts cwAddress
+    case catMaybes founds of
+        []  -> throwM . Internal $
+            sformat ("No account with address "%build%" is found") accCAddr
+        [x] -> return x
+        _   -> throwM . Internal $ "Unexpectedly account is in different wallets"
+
 getWallet :: WalletWebMode ssc m => CAddress -> m CWallet
 getWallet cAddr = do
-    balance <- getBalance =<< decodeCAddressOrFail cAddr
-    meta    <- getWalletMeta cAddr >>= maybe noWallet pure
-    wSetId  <- undefined
-    pure $ CWallet cAddr balance meta wSetId
+    accounts <- getAccounts cAddr
+    meta     <- getWalletMeta cAddr >>= maybe noWallet pure
+    pure $ CWallet cAddr meta accounts
   where
     noWallet = throwM . Internal $
         sformat ("No wallet with address "%build%" is found") cAddr
 
 getWSet :: WalletWebMode ssc m => CAddress -> m CWalletSet
 getWSet cAddr = do
-    meta    <- getWSetMeta cAddr >>= maybe noWSet pure
-    pure $ undefined CWalletSet meta
+    meta       <- getWSetMeta cAddr >>= maybe noWSet pure
+    walletsNum <- length <$> getWallets (Just cAddr)
+    pure $ CWalletSet cAddr meta walletsNum
   where
     noWSet = throwM . Internal $
         sformat ("No wallet set with address "%build%" is found") cAddr
@@ -373,10 +396,14 @@ decodeCAddressOrFail = either wrongAddress pure . cAddressToAddress
   where wrongAddress err = throwM . Internal $
             sformat ("Error while decoding CAddress: "%stext) err
 
-getWallets :: WalletWebMode ssc m => m [CWallet]
-getWallets = undefined
+getWallets :: WalletWebMode ssc m => Maybe CWalletSetAddress -> m [CWallet]
+getWallets Nothing      =
+    getWalletAddresses >>= mapM getWallet
+getWallets (Just cAddr) =
+    filter ((== cAddr) . cwSetId . cwMeta) <$> getWallets Nothing
 
 getWSets :: WalletWebMode ssc m => m [CWalletSet]
+-- TODO [CSL-931]: reasonable?
 getWSets = join $ mapM (getWSet . addressToCAddress) <$> myRootAddresses
 
 send :: WalletWebMode ssc m => SendActions m -> CPassPhrase -> CAddress -> CAddress -> Coin -> m CTx
@@ -388,12 +415,21 @@ sendExtended sendActions cpassphrase srcCAddr dstCAddr c curr title desc = do
     passphrase <- decodeCPassPhraseOrFail cpassphrase
     srcAddr <- decodeCAddressOrFail srcCAddr
     dstAddr <- decodeCAddressOrFail dstCAddr
+    srcWCAddr <- getAccountWallet srcCAddr
     idx <- getAddrIdx srcAddr
     sks <- getSecretKeys
     let sk = sks !! idx
+    let mainTx = TxOutAux (TxOut dstAddr c) []
+    balance <- getBalance srcAddr
+    mRems <- if balance < c
+        then return Nothing
+        else do
+            remAddr <- genSaveChildAddress passphrase srcWCAddr
+            let remTx = TxOutAux (TxOut remAddr $ balance `unsafeSubCoin` c) []
+            return $ Just (remTx, remAddr)
     na <- getKnownPeers
     withSafeSigner sk (return passphrase) $ \ss -> do
-        etx <- submitTx sendActions ss na (one $ TxOutAux (TxOut dstAddr c) [])
+        etx <- submitTx sendActions ss na (mainTx :| maybe mempty (one . fst) mRems)
         case etx of
             Left err -> throwM . Internal $ sformat ("Cannot send transaction: "%stext) err
             Right (tx, _, _) -> do
@@ -402,6 +438,10 @@ sendExtended sendActions cpassphrase srcCAddr dstCAddr c curr title desc = do
                     c idx dstAddr
                 -- TODO: this should be removed in production
                 let txHash = hash tx
+                whenJust mRems $ \(_, remAddr) -> do
+                    let remCAddr = addressToCAddress remAddr
+                    () <$ addHistoryTx remCAddr curr title desc (THEntry txHash tx True Nothing)
+                    removeWalletAccount srcWCAddr srcCAddr
                 () <$ addHistoryTx dstCAddr curr title desc (THEntry txHash tx False Nothing)
                 addHistoryTx srcCAddr curr title desc (THEntry txHash tx True Nothing)
 
@@ -458,19 +498,27 @@ addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
     meta' <- maybe meta identity <$> getTxMeta cAddr cId
     return $ mkCTx addr diff wtx meta'
 
+newAccount :: WalletWebMode ssc m => CPassPhrase -> CAddress -> m CAccount
+newAccount cPassphrase cWAddr = do
+    passphrase <- decodeCPassPhraseOrFail cPassphrase
+    cAccAddr <- addressToCAddress <$> genSaveChildAddress passphrase cWAddr
+    addWalletAccount cWAddr cAccAddr
+    getAccount cAccAddr
+
+newWallet :: WalletWebMode ssc m => CPassPhrase -> CWalletInit -> m CWallet
+newWallet cPassphrase CWalletInit {..} = do
+    passphrase <- decodeCPassPhraseOrFail cPassphrase
+    cAddr <- addressToCAddress <$> genSaveChildAddress passphrase (cwSetId cwInitMeta)
+    createWallet cAddr cwInitMeta
+    () <$ newAccount cPassphrase cAddr
+    getWallet cAddr
+
 newWSet :: WalletWebMode ssc m => CPassPhrase -> CWalletSetInit -> m CWalletSet
 newWSet cPassphrase CWalletSetInit {..} = do
     passphrase <- decodeCPassPhraseOrFail cPassphrase
     cAddr <- genSaveAddress passphrase cwsBackupPhrase
     createWSet cAddr cwsInitMeta
     getWSet cAddr
-
-newWallet :: WalletWebMode ssc m => CPassPhrase -> CWalletInit -> m CWallet
-newWallet cPassphrase CWalletInit {..} = do
-    passphrase <- decodeCPassPhraseOrFail cPassphrase
-    cAddr <- genSaveWalletAddress passphrase cwInitWSetId
-    createWallet cAddr cwInitMeta
-    getWallet cAddr
 
 restoreWSet :: WalletWebMode ssc m => CPassPhrase -> CWalletSetInit -> m CWalletSet
 restoreWSet cPassphrase CWalletSetInit {..} = do
@@ -546,6 +594,7 @@ reportingInitialized cinit = do
         sformat ("Didn't manage to report initialization time "%shown%
                  " because of exception "%shown) cinit e
 
+-- TODO [CSL-931]:
 importKey
     :: WalletWebMode ssc m
     => SendActions m
@@ -558,7 +607,7 @@ importKey sendActions (toString -> fp) = do
         addSecretKey key
         let addr = makePubKeyAddress $ encToPublic key
             cAddr = addressToCAddress addr
-        createWallet cAddr def
+        createWSet cAddr def
 
     let importedAddr = makePubKeyAddress $ encToPublic (keys !! 0)
         importedCAddr = addressToCAddress importedAddr
@@ -618,12 +667,12 @@ genSaveAddress passphrase ph =
         addSecretKey sk
         return sk
 
-genSaveWalletAddress
+genSaveChildAddress
     :: WalletWebMode ssc m
     => PassPhrase
-    -> CWalletSetId
-    -> m CAddress
-genSaveWalletAddress _passphrase _wSet = undefined
+    -> CAddress
+    -> m Address
+genSaveChildAddress _passphrase _parentCAddr = undefined
     -- generate child sk from sk of given wallet set
 
 decodeCPassPhraseOrFail :: WalletWebMode ssc m => CPassPhrase -> m PassPhrase

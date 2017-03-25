@@ -67,6 +67,7 @@ type WalletApi =
     :<|>
      "api"
      :> "wallets"
+     :> Capture "mWalletSetId" (Maybe CAddress)
      :> Get '[JSON] (Either WalletError [CWallet])
     :<|>
      "api"

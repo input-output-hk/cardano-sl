@@ -18,6 +18,7 @@ module Pos.Wallet.Web.ClientTypes
       , CTxMeta (..)
       , CTExMeta (..)
       , CInitialized (..)
+      , CAccount (..)
       , CWallet (..)
       , CWalletType (..)
       , CWalletMeta (..)
@@ -25,7 +26,7 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletSet (..)
       , CWalletSetMeta (..)
       , CWalletSetInit (..)
-      , CWalletSetId
+      , CWalletSetAddress
       , CUpdateInfo (..)
       , CWalletRedeem (..)
       , NotifyEvent (..)
@@ -39,6 +40,7 @@ module Pos.Wallet.Web.ClientTypes
       , ctTypeMeta
       , txContainsTitle
       , toCUpdateInfo
+      , mkDefCWalletMeta
       ) where
 
 import           Universum
@@ -165,8 +167,7 @@ cPassPhraseToPassPhrase (CPassPhrase text) =
 ----------------------------------------------------------------------------
 
 -- | Wallet set identifier
--- TODO: what should be here?
-type CWalletSetId = Int
+type CWalletSetAddress = CAddress
 
 -- | A wallet can be used as personal or shared wallet
 data CWalletType
@@ -174,30 +175,36 @@ data CWalletType
     | CWTShared
     deriving (Show, Generic)
 
+-- | Single account in a wallet
+data CAccount = CAccount
+    { caAddress :: !CAddress
+    , caAmount  :: !Coin
+    } deriving (Show, Generic)
+
 -- | Meta data of 'CWallet'
 -- Includes data which are not provided by Cardano
 data CWalletMeta = CWalletMeta
     { cwType     :: !CWalletType
     , cwCurrency :: !CCurrency
     , cwName     :: !Text
+    , cwSetId    :: !CWalletSetAddress
     } deriving (Show, Generic)
 
-instance Default CWalletMeta where
-    def = CWalletMeta CWTPersonal ADA "Personal Wallet"
+-- | Creates wallet meta with some default properties
+mkDefCWalletMeta :: CWalletSetAddress -> CWalletMeta
+mkDefCWalletMeta = CWalletMeta CWTPersonal ADA "Personal Wallet"
 
 -- | Client Wallet (CW)
 -- (Flow type: walletType)
 data CWallet = CWallet
-    { cwAddress :: !CAddress
-    , cwAmount  :: !Coin
-    , cwMeta    :: !CWalletMeta
-    , cwSetId   :: !CWalletSetId
+    { cwAddress  :: !CAddress
+    , cwMeta     :: !CWalletMeta
+    , cwAccounts :: ![CAccount]
     } deriving (Show, Generic, Typeable)
 
 -- | Query data for wallet creation
 data CWalletInit = CWalletInit
     { cwInitMeta   :: !CWalletMeta
-    , cwInitWSetId :: !CWalletSetId
     } deriving (Show, Generic)
 
 -- | Query data for redeem
@@ -211,10 +218,12 @@ data CWalletSetMeta = CWalletSetMeta
     { cwsName :: !Text
     }
 
+instance Default CWalletSetMeta where
+    def = CWalletSetMeta "Personal Wallet Set"
+
 -- | Client Wallet (CW)
 data CWalletSet = CWalletSet
-    { cwsAddress       :: !CAddress
-    , cwsId            :: !CWalletSetId
+    { cwsAddress       :: !CWalletSetAddress
     , cwsWSetMeta      :: !CWalletSetMeta
     , cwsWalletsNumber :: !Int
     }

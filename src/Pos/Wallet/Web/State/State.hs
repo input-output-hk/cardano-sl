@@ -11,8 +11,10 @@ module Pos.Wallet.Web.State.State
 
        -- * Getters
        , getProfile
+       , getWalletAddresses
        , getWalletMetas
        , getWalletMeta
+       , getWalletAccounts
        , getWSetMetas
        , getWSetMeta
        , getTxMeta
@@ -25,6 +27,7 @@ module Pos.Wallet.Web.State.State
        , testReset
        , createWallet
        , createWSet
+       , addWalletAccount
        , setProfile
        , setWalletMeta
        , setWSetMeta
@@ -32,6 +35,7 @@ module Pos.Wallet.Web.State.State
        , setWalletHistory
        , addOnlyNewTxMeta
        , removeWallet
+       , removeWalletAccount
        , addUpdate
        , removeNextUpdate
        , updateHistoryCache
@@ -80,6 +84,9 @@ updateDisk
     => event -> m (EventResult event)
 updateDisk e = getWalletWebState >>= flip A.update e
 
+getWalletAddresses :: WebWalletModeDB m => m [CAddress]
+getWalletAddresses = queryDisk A.GetWalletAddresses
+
 getWalletMetas :: WebWalletModeDB m => m [CWalletMeta]
 getWalletMetas = queryDisk A.GetWalletMetas
 
@@ -91,6 +98,9 @@ getWSetMetas = queryDisk A.GetWSetMetas
 
 getWSetMeta :: WebWalletModeDB m => CAddress -> m (Maybe CWalletSetMeta)
 getWSetMeta = queryDisk . A.GetWSetMeta
+
+getWalletAccounts :: WebWalletModeDB m => CAddress -> m [CAddress]
+getWalletAccounts = queryDisk . A.GetWalletAccounts
 
 getProfile :: WebWalletModeDB m => m (Maybe CProfile)
 getProfile = queryDisk A.GetProfile
@@ -116,6 +126,9 @@ createWallet addr = updateDisk . A.CreateWallet addr
 createWSet :: WebWalletModeDB m => CAddress -> CWalletSetMeta -> m ()
 createWSet addr = updateDisk . A.CreateWSet addr
 
+addWalletAccount :: WebWalletModeDB m => CAddress -> CAddress -> m ()
+addWalletAccount waddr aaddr = updateDisk $ A.AddWalletAccount waddr aaddr
+
 setWalletMeta :: WebWalletModeDB m => CAddress -> CWalletMeta -> m ()
 setWalletMeta addr = updateDisk . A.SetWalletMeta addr
 
@@ -136,6 +149,9 @@ addOnlyNewTxMeta addr ctxId = updateDisk . A.AddOnlyNewTxMeta addr ctxId
 
 removeWallet :: WebWalletModeDB m => CAddress -> m ()
 removeWallet = updateDisk . A.RemoveWallet
+
+removeWalletAccount :: WebWalletModeDB m => CAddress -> CAddress -> m ()
+removeWalletAccount aaddr = updateDisk . A.RemoveWalletAccount aaddr
 
 addUpdate :: WebWalletModeDB m => CUpdateInfo -> m ()
 addUpdate = updateDisk . A.AddUpdate

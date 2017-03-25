@@ -30,8 +30,8 @@ import           Pos.Types                  (BlockVersion (..), Coin, SoftwareVe
                                              makePubKeyAddress, mkCoin)
 import           Pos.Util.BackupPhrase      (BackupPhrase, mkBackupPhrase)
 import           Pos.Wallet.Web.Api         (walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAddress (..), CCurrency (..), CHash (..),
-                                             CInitialized (..), CPassPhrase,
+import           Pos.Wallet.Web.ClientTypes (CAccount (..), CAddress (..), CCurrency (..),
+                                             CHash (..), CInitialized (..), CPassPhrase,
                                              CProfile (..), CTType (..), CTx (..), CTxId,
                                              CTxMeta (..), CUpdateInfo (..), CWallet (..),
                                              CWalletInit (..), CWalletMeta (..),
@@ -87,14 +87,21 @@ instance ToCapture (Capture "walletId" CAddress) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "walletId"
-        , _capDesc = undefined
+        , _capDesc = "Address of wallet."
         }
 
 instance ToCapture (Capture "walletSetId" CAddress) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "walletSetId"
-        , _capDesc = undefined
+        , _capDesc = "Address of wallet set."
+        }
+
+instance ToCapture (Capture "mWalletSetId" (Maybe CAddress)) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "walletSetId"
+        , _capDesc = "Wallet filter, by wallet set address."
         }
 
 instance ToCapture (Capture "from" CAddress) where
@@ -267,14 +274,18 @@ instance ToSample CWallet where
     toSamples Proxy = singleSample sample
       where
         sample = CWallet
-            { cwAddress = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
-            , cwAmount  = mkCoin 0
-            , cwMeta    = CWalletMeta
-                            { cwType     = CWTPersonal
-                            , cwCurrency = ADA
-                            , cwName     = "Personal Wallet"
-                            }
-            , cwSetId   = 0
+            { cwAddress  = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
+            , cwMeta     = CWalletMeta
+                { cwType     = CWTPersonal
+                , cwCurrency = ADA
+                , cwName     = "Personal Wallet"
+                , cwSetId    = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
+                }
+            , cwAccounts =
+                [ CAccount
+                    (CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv")
+                    (mkCoin 0)
+                ]
             }
 
 
@@ -285,18 +296,19 @@ instance ToSample CWalletMeta where
             { cwType     = CWTPersonal
             , cwCurrency = ADA
             , cwName     = "Personal Wallet"
+            , cwSetId    = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
             }
 
 instance ToSample CWalletInit where
     toSamples Proxy = singleSample sample
       where
         sample = CWalletInit
-            { cwInitMeta     = CWalletMeta
-                                  { cwType     = CWTPersonal
-                                  , cwCurrency = ADA
-                                  , cwName     = "Personal Wallet"
-                                  }
-            , cwInitWSetId   = 0
+            { cwInitMeta = CWalletMeta
+                { cwType     = CWTPersonal
+                , cwCurrency = ADA
+                , cwName     = "Personal Wallet"
+                , cwSetId    = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
+                }
             }
 
 instance ToSample CWalletSet where

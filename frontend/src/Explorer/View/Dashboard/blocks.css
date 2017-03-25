@@ -10,7 +10,28 @@
     font-weight: bold;
     color: var(--color8);
 
-    &__item {
+  }
+
+  .blocks-column {
+    &__epoch {
+      @neat-span-columns 1;
+    }
+    &__slot {
+      @neat-span-columns 1;
+    }
+    &__age {
+      @neat-span-columns 2;
+    }
+    &__txs {
+      @neat-span-columns 2;
+    }
+    &__totalSend {
+      @neat-span-columns 2;
+    }
+    &__relayedBy {
+      @neat-span-columns 2;
+    }
+    &__size {
       @neat-span-columns 2;
     }
   }
@@ -39,10 +60,6 @@
       &:nth-child(odd) {
         background-color: var(--color7);
       }
-    }
-
-    &__column {
-      @neat-span-columns 2;
     }
   }
 

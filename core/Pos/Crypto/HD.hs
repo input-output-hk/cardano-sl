@@ -27,7 +27,7 @@ import           Pos.Binary.Class             (decodeFull, encodeStrict)
 import           Pos.Crypto.Signing           (PublicKey (..), SecretKey (..))
 
 -- | Passphrase is a hash of root public key.
--- We don't use root public key for store money, we use hash of it instead.
+--- We don't use root public key to store money, we use hash of it instead.
 data HDPassphrase = HDPassphrase !ByteString
     deriving Show
 
@@ -87,8 +87,12 @@ deriveHDSecretKey passPhrase (SecretKey xprv) childIndex
 addrAttrNonce :: ByteString
 addrAttrNonce = "serokellfore"
 
+-- Encryption header.
+-- Header is chunk of data we want to transfer unecncrypted
+-- but still want it to be part of tag digest.
+-- So tag verifies validity of both encrypted data and unencrypted header.
 addrAttrHeader :: ByteString
-addrAttrHeader = "addressattr"
+addrAttrHeader = ""
 
 -- | Serialize tree path and encrypt it using passphrase via ChaChaPoly1305.
 packHDAddressAttr :: HDPassphrase -> [Word32] -> HDAddressPayload
@@ -98,7 +102,7 @@ packHDAddressAttr (HDPassphrase passphrase) path = do
           encryptChaChaPoly
               addrAttrNonce
               passphrase
-              addrAttrHeader -- I don't know what does this parameter mean. Seems value isn't important...
+              addrAttrHeader
               pathSer
     case packCF of
         CryptoFailed er -> error $ "Error in packHDAddressAttr: " <> show er
@@ -115,7 +119,7 @@ unpackHDAddressAttr (HDPassphrase passphrase) (HDAddressPayload payload) = do
     case unpackCF of
         Left er ->
             fail $ "Error in unpackHDAddressAttr, during decryption: " <> show er
-        Right p -> case decodeFull . BSL.fromStrict $ p of
+        Right p -> case decodeFull $ BSL.fromStrict p of
             Left er ->
                 fail $ "Error in unpackHDAddressAttr, during deserialization: " <> show er
             Right path -> pure path
@@ -124,7 +128,7 @@ unpackHDAddressAttr (HDPassphrase passphrase) (HDAddressPayload payload) = do
 encryptChaChaPoly
     :: ByteString -- nonce (12 random bytes)
     -> ByteString -- symmetric key (must be 32 bytes)
-    -> ByteString -- optional associated data (won't be encrypted)
+    -> ByteString -- optional associated data (for more information see @addrAttrHeader@)
     -> ByteString -- input plaintext to be encrypted
     -> CryptoFailable ByteString -- ciphertext with a 128-bit tag attached
 encryptChaChaPoly nonce key header plaintext = do
@@ -142,7 +146,7 @@ toEither (CryptoFailed er) = Left $ show er
 decryptChaChaPoly
     :: ByteString -- nonce (12 random bytes)
     -> ByteString -- symmetric key
-    -> ByteString -- optional associated data (won't be encrypted)
+    -> ByteString -- optional associated data (for more information see @addrAttrHeader@)
     -> ByteString -- input plaintext to be decrypted
     -> Either Text ByteString -- decrypted text
 decryptChaChaPoly nonce key header encDataWithTag = do

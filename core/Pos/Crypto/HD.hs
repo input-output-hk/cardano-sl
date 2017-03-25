@@ -87,13 +87,6 @@ deriveHDSecretKey passPhrase (SecretKey xprv) childIndex
 addrAttrNonce :: ByteString
 addrAttrNonce = "serokellfore"
 
--- Encryption header.
--- Header is chunk of data we want to transfer unecncrypted
--- but still want it to be part of tag digest.
--- So tag verifies validity of both encrypted data and unencrypted header.
-addrAttrHeader :: ByteString
-addrAttrHeader = ""
-
 -- | Serialize tree path and encrypt it using passphrase via ChaChaPoly1305.
 packHDAddressAttr :: HDPassphrase -> [Word32] -> HDAddressPayload
 packHDAddressAttr (HDPassphrase passphrase) path = do
@@ -102,7 +95,7 @@ packHDAddressAttr (HDPassphrase passphrase) path = do
           encryptChaChaPoly
               addrAttrNonce
               passphrase
-              addrAttrHeader
+              ""
               pathSer
     case packCF of
         CryptoFailed er -> error $ "Error in packHDAddressAttr: " <> show er
@@ -114,7 +107,7 @@ unpackHDAddressAttr (HDPassphrase passphrase) (HDAddressPayload payload) = do
           decryptChaChaPoly
               addrAttrNonce
               passphrase
-              addrAttrHeader
+              ""
               payload
     case unpackCF of
         Left er ->
@@ -126,11 +119,14 @@ unpackHDAddressAttr (HDPassphrase passphrase) (HDAddressPayload payload) = do
 
 -- Wrapper around ChaChaPoly1305 module.
 encryptChaChaPoly
-    :: ByteString -- nonce (12 random bytes)
-    -> ByteString -- symmetric key (must be 32 bytes)
-    -> ByteString -- optional associated data (for more information see @addrAttrHeader@)
-    -> ByteString -- input plaintext to be encrypted
-    -> CryptoFailable ByteString -- ciphertext with a 128-bit tag attached
+    :: ByteString -- Nonce (12 random bytes)
+    -> ByteString -- Symmetric key (must be 32 bytes)
+    -> ByteString -- Encryption header.
+                  -- Header is chunk of data we want to transfer unecncrypted
+                  -- but still want it to be part of tag digest.
+                  -- So tag verifies validity of both encrypted data and unencrypted header.
+    -> ByteString -- Input plaintext to be encrypted
+    -> CryptoFailable ByteString -- Ciphertext with a 128-bit tag attached
 encryptChaChaPoly nonce key header plaintext = do
     st1 <- C.nonce12 nonce >>= C.initialize key
     let st2 = C.finalizeAAD $ C.appendAAD header st1
@@ -144,11 +140,11 @@ toEither (CryptoFailed er) = Left $ show er
 
 -- Wrapper around ChaChaPoly1305 module.
 decryptChaChaPoly
-    :: ByteString -- nonce (12 random bytes)
-    -> ByteString -- symmetric key
-    -> ByteString -- optional associated data (for more information see @addrAttrHeader@)
-    -> ByteString -- input plaintext to be decrypted
-    -> Either Text ByteString -- decrypted text
+    :: ByteString -- Nonce (12 random bytes)
+    -> ByteString -- Symmetric key
+    -> ByteString -- Encryption header, optional associated data.
+    -> ByteString -- Input plaintext to be decrypted
+    -> Either Text ByteString -- Decrypted text
 decryptChaChaPoly nonce key header encDataWithTag = do
     let tagSize = 16::Int
     let l = B.length encDataWithTag

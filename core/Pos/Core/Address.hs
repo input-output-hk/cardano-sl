@@ -11,6 +11,8 @@ module Pos.Core.Address
        , checkUnknownAddressType
        , makePubKeyAddress
        , makePubKeyHdwAddress
+       , createHDAddressNH
+       , createHDAddressH
        , makeScriptAddress
        , makeRedeemAddress
        , decodeTextAddress
@@ -25,6 +27,7 @@ module Pos.Core.Address
 
 import           Crypto.Hash            (Blake2s_224, Digest, SHA3_256, hashlazy)
 import qualified Crypto.Hash            as CryptoHash
+import           Data.ByteArray         (ByteArrayAccess)
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58,
                                          encodeBase58)
 import qualified Data.ByteString.Lazy   as BSL (fromStrict, toStrict)
@@ -33,15 +36,18 @@ import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
 import           Formatting             (Format, bprint, build, later, (%))
 import           Serokell.Util.Base16   (base16F)
-import           Serokell.Util.Text     (listJson)
 import           Universum
 
 import           Pos.Binary.Class       (Bi)
 import qualified Pos.Binary.Class       as Bi
+import           Pos.Binary.Crypto      ()
 import           Pos.Core.Types         (AddrPkAttrs (..), Address (..), AddressHash,
                                          Script, StakeholderId)
 import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey,
-                                         RedeemPublicKey)
+                                         RedeemPublicKey, SecretKey, toPublic)
+import           Pos.Crypto.HD          (HDAddressPayload, HDPassphrase,
+                                         deriveHDPublicKey, deriveHDSecretKey,
+                                         packHDAddressAttr)
 import           Pos.Data.Attributes    (mkAttributes)
 
 instance Bi Address => Hashable Address where
@@ -80,11 +86,32 @@ makePubKeyAddress key =
 makePubKeyHdwAddress
     :: Bi PublicKey
     => PublicKey
-    -> [Word32]         -- ^ Derivation path
+    -> HDAddressPayload    -- ^ Derivation path
     -> Address
 makePubKeyHdwAddress key path =
     PubKeyAddress (addressHash key)
                   (mkAttributes (AddrPkAttrs (Just path)))
+
+-- | Create address from secret key in hardened way.
+createHDAddressH :: ByteArrayAccess passPhrase
+                 => passPhrase
+                 -> HDPassphrase
+                 -> SecretKey
+                 -> [Word32]
+                 -> Word32
+                 -> (Address, SecretKey)
+createHDAddressH passphrase walletPassphrase parent parentPath childIndex = do
+    let derivedSK = deriveHDSecretKey passphrase parent childIndex
+    let addressPayload = packHDAddressAttr walletPassphrase $ parentPath ++ [childIndex]
+    let pk = toPublic derivedSK
+    (makePubKeyHdwAddress pk addressPayload, derivedSK)
+
+-- | Create address from public key via non-hardened way.
+createHDAddressNH :: HDPassphrase -> PublicKey -> [Word32] -> Word32 -> (Address, PublicKey)
+createHDAddressNH passphrase parent parentPath childIndex = do
+    let derivedPK = deriveHDPublicKey parent childIndex
+    let addressPayload = packHDAddressAttr passphrase $ parentPath ++ [childIndex]
+    (makePubKeyHdwAddress derivedPK addressPayload, derivedPK)
 
 -- | A function for making an address from a validation script
 makeScriptAddress :: Bi Script => Script -> Address
@@ -124,8 +151,8 @@ addressF = build
 
 instance Buildable AddrPkAttrs where
     build (AddrPkAttrs p) = case p of
-        Nothing   -> "{}"
-        Just path -> bprint ("{path: "%listJson%"}") path
+        Nothing -> "{}"
+        Just _  -> bprint ("{path is encrypted}")
 
 -- | A formatter showing guts of an 'Address'.
 addressDetailedF :: Format r (Address -> r)

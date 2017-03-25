@@ -47,7 +47,7 @@ import           Pos.Txp                     (TxpHolder (..), filterUtxoByAddr,
                                               runUtxoStateT)
 import           Pos.Types                   (BlockHeader, ChainDifficulty, difficultyL,
                                               flattenEpochOrSlot, flattenSlotId)
-import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
+import           Pos.Update                  (ConfirmedProposalState (..))
 import           Pos.Update.Context          (UpdateContext (ucUpdateSemaphore))
 import           Pos.Util                    (maybeThrow)
 import           Pos.Util.Context            (askContext)
@@ -183,7 +183,6 @@ instance MonadUpdates m => MonadUpdates (SlottingHolder m)
 deriving instance MonadUpdates m => MonadUpdates (TxpHolder __ m)
 deriving instance MonadUpdates m => MonadUpdates (SscHolder ssc m)
 deriving instance MonadUpdates m => MonadUpdates (DelegationT m)
-deriving instance MonadUpdates m => MonadUpdates (USHolder m)
 deriving instance MonadUpdates m => MonadUpdates (WalletWebDB m)
 
 -- | Dummy instance for lite-wallet

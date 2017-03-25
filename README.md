@@ -69,7 +69,9 @@ After a while, the first terminal windows should be populated with 4 tabs, 3 out
 Generating the wallet documentation
 -----------------------------------
 
-Build the project and run `stack exec --nix -- cardano-wallet-web-docs`. Look at the generated `./docs/wallet-web-api.md`.
+Build the project and run `stack exec --nix -- cardano-wallet-web-docs`. Look at the generated:
+- `./docs/wallet-web-api.md`
+- `./docs/wallet-table-web-api.md`
 
 Benchmarking
 ------------

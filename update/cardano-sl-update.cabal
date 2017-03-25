@@ -16,6 +16,8 @@ library
                        Pos.Update.Core
                        Pos.Update.Core.Types
                        Pos.Update.Mode
+                       Pos.Update.DB
+                       Pos.Update.Constants
 
                        -- Poll
                        Pos.Update.Poll.Types
@@ -30,7 +32,8 @@ library
                        Pos.Update.Context
                        Pos.Update.Params
 
-  build-depends:       base
+  build-depends:       aeson
+                     , base
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra
@@ -45,9 +48,11 @@ library
                      , mtl
                      , node-sketch
                      , parsec
+                     , rocksdb
                      , safecopy
                      , serokell-util
                      , stm
+                     , tagged
                      , template-haskell
                      , text
                      , text-format

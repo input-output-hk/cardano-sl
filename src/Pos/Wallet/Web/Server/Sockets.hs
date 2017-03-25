@@ -43,7 +43,6 @@ import           Pos.DHT.Model                  (MonadDHT)
 import           Pos.Reporting.MemState         (MonadReportingMem)
 import           Pos.Slotting                   (MonadSlots, MonadSlotsData)
 import           Pos.Txp                        (MonadTxpMem)
-import qualified Pos.Update                     as US
 
 import           Pos.Wallet.Context             (WithWalletContext)
 import           Pos.Wallet.KeyStorage          (MonadKeys)

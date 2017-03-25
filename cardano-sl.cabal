@@ -317,7 +317,6 @@ library
                         Pos.Update.Arbitrary.Core
                         Pos.Update.Arbitrary.Network
                         Pos.Update.Arbitrary.Poll
-                        Pos.Update.DB
                         Pos.Update.Download
                         Pos.Update.Logic
                         Pos.Update.Logic.Global

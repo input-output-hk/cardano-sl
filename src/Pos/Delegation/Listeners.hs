@@ -67,7 +67,7 @@ handleSendProxySK = listenerOneMsg outSpecs $
   where
     handleDo sendActions req@(SendProxySKHeavy pSk) = do
         logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
-        verdict <- processProxySKHeavy pSk
+        verdict <- processProxySKHeavy @ssc pSk
         logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
         doPropagate <- npPropagation . ncNodeParams <$> getNodeContext
         if | verdict == PHIncoherent -> do

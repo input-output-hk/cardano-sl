@@ -12,6 +12,7 @@ import           Universum
 import           Pos.Binary            ()
 import           Pos.Core.Address      (unsafeAddressHash)
 import           Pos.Core.Types        (AddrPkAttrs (..), Address (..))
+import           Pos.Crypto.HD         (HDAddressPayload (..))
 import           Pos.Data.Attributes   (mkAttributes)
 
 spec :: Spec
@@ -30,7 +31,7 @@ pkAndShAreShownDifferently x =
 
 pkAndHdwAreShownDifferently :: Word8 -> Bool
 pkAndHdwAreShownDifferently x =
-    (show (PubKeyAddress h (mkAttributes (AddrPkAttrs Nothing)))) /=
-    (show (PubKeyAddress h (mkAttributes (AddrPkAttrs (Just [123])))) :: Text)
+    (show (PubKeyAddress h (mkAttributes $ AddrPkAttrs Nothing))) /=
+    (show (PubKeyAddress h (mkAttributes $ AddrPkAttrs $ Just $ HDAddressPayload "pataq")) :: Text)
   where
     h = unsafeAddressHash x

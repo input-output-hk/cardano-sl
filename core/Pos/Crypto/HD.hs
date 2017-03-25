@@ -42,7 +42,9 @@ deriveHDPassphrase :: PublicKey -> HDPassphrase
 deriveHDPassphrase (PublicKey pk) = HDPassphrase $
     PBKDF2.generate
         (PBKDF2.prfHMAC SHA512)
-        (PBKDF2.Parameters 500 passLen)
+        (PBKDF2.Parameters
+             500 -- Parameters for the hashing function. 500 iter of PBDKF2 with HMAC-SHA256
+             passLen)
         (unXPub pk)
         ("address-hashing"::ByteString)
   where

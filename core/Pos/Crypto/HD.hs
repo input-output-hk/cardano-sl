@@ -32,8 +32,12 @@ data HDPassphrase = HDPassphrase !ByteString
     deriving Show
 
 -- | HDAddressPayload consists of
--- * serialiazed and encrypted with symmetric scheme with passphrase (via ChaChaPoly1305 algorithm)
+--
+-- * serialiazed and encrypted with symmetric scheme path from the root
+-- key to given descendant key with passphrase (via ChaChaPoly1305 algorithm)
+--
 -- * cryptographic tag
+--
 -- For more information see 'packHDAddressAttr' and 'encryptChaChaPoly'.
 data HDAddressPayload = HDAddressPayload !ByteString
     deriving (Eq, Ord, Show, Generic)
@@ -45,7 +49,9 @@ deriveHDPassphrase :: PublicKey -> HDPassphrase
 deriveHDPassphrase (PublicKey pk) = HDPassphrase $
     PBKDF2.generate
         (PBKDF2.prfHMAC SHA512)
-        (PBKDF2.Parameters 500 passLen)
+        (PBKDF2.Parameters
+             500 -- Parameters for the hashing function. 500 iter of PBDKF2 with HMAC-SHA256
+             passLen)
         (unXPub pk)
         ("address-hashing"::ByteString)
   where
@@ -55,7 +61,7 @@ deriveHDPassphrase (PublicKey pk) = HDPassphrase $
 -- Direct children of node are numbered from 0 to 2^32-1.
 -- Child with index less or equal @maxHardened@ is a hardened child.
 maxHardened :: Word32
-maxHardened = (2::Word32)^(31::Word32)-1
+maxHardened = 2 ^ (31 :: Word32) - 1
 
 -- | Derive public key from public key in non-hardened (normal) way.
 -- If you try to pass index more than @maxHardened@, error will be called.
@@ -66,7 +72,7 @@ deriveHDPublicKey (PublicKey xpub) childIndex
     | otherwise = PublicKey $ deriveXPub xpub (childIndex - maxHardened - 1)
 
 -- | Derive secret key from secret key.
--- If @childIndex@ <= @maxHardened@ key will be deriving hardened way, otherwise non-hardened.
+-- If @childIndex <= maxHardened@ key will be deriving hardened way, otherwise non-hardened.
 deriveHDSecretKey :: ByteArrayAccess passPhrase
                   => passPhrase
                   -> SecretKey
@@ -129,7 +135,7 @@ encryptChaChaPoly nonce key header plaintext = do
     pure $ out <> BA.convert auth
 
 toEither :: CryptoFailable a -> Either Text a
-toEither (CryptoPassed x) = pure x
+toEither (CryptoPassed x)  = pure x
 toEither (CryptoFailed er) = Left $ show er
 
 -- Wrapper around ChaChaPoly1305 module.

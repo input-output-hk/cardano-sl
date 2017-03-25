@@ -86,13 +86,13 @@ makePubKeyAddress key =
 makePubKeyHdwAddress
     :: Bi PublicKey
     => PublicKey
-    -> HDAddressPayload         -- ^ Derivation path
+    -> HDAddressPayload    -- ^ Derivation path
     -> Address
 makePubKeyHdwAddress key path =
     PubKeyAddress (addressHash key)
                   (mkAttributes (AddrPkAttrs (Just path)))
 
--- | Create address from private key via hardened way.
+-- | Create address from secret key in hardened way.
 createHDAddressH :: ByteArrayAccess passPhrase
                  => passPhrase
                  -> HDPassphrase

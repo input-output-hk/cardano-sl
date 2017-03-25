@@ -6,7 +6,7 @@ module Pos.Crypto.Arbitrary
 
 import           Data.List.NonEmpty          (fromList)
 import           System.IO.Unsafe            (unsafePerformIO)
-import           Test.QuickCheck             (Arbitrary (..), choose, elements, generate)
+import           Test.QuickCheck             (Arbitrary (..), choose, elements, generate, vector)
 import           Universum
 
 import           Pos.Binary.Class            (AsBinary (..), AsBinaryClass (..), Bi)
@@ -14,6 +14,7 @@ import           Pos.Binary.Crypto           ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
 import           Pos.Crypto.AsBinary         ()
 import           Pos.Crypto.Hashing          (AbstractHash, HashAlgorithm)
+import           Pos.Crypto.HD               (HDPassphrase (..))
 import           Pos.Crypto.RedeemSigning    (RedeemPublicKey, RedeemSecretKey,
                                               RedeemSignature, redeemKeyGen, redeemSign)
 import           Pos.Crypto.SecretSharing    (EncShare, Secret, SecretProof,
@@ -174,3 +175,10 @@ instance Arbitrary (AsBinary Share) where
 
 instance (HashAlgorithm algo, Bi a) => Arbitrary (AbstractHash algo a) where
     arbitrary = arbitraryUnsafe
+
+----------------------------------------------------------------------------
+-- HD
+----------------------------------------------------------------------------
+
+instance Arbitrary HDPassphrase where
+    arbitrary = HDPassphrase . fromString <$> vector 32

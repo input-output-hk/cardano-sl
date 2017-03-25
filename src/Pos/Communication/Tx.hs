@@ -1,23 +1,25 @@
+{-# LANGUAGE ConstraintKinds #-}
+
 -- | Functions for operating with transactions
 
-module Pos.Wallet.Tx
-       ( makePubKeyTx
-       , makeMOfNTx
+module Pos.Communication.Tx
+       ( TxMode
        , submitTx
        , submitRedemptionTx
        , submitTxRaw
-       , createTx
-       , createMOfNTx
        , sendTxOuts
        ) where
 
 import           Control.Monad.Except       (ExceptT (..), runExceptT)
 import           Formatting                 (build, sformat, (%))
-import           Mockable                   (mapConcurrently)
+import           Mockable                   (MonadMockable, mapConcurrently)
 import           System.Wlog                (logInfo)
 import           Universum
 
 import           Pos.Binary                 ()
+import           Pos.Client.Txp.Balances    (MonadBalances (..))
+import           Pos.Client.Txp.History     (MonadTxHistory (..))
+import           Pos.Client.Txp.Util        (TxError, createRedemptionTx, createTx)
 import           Pos.Communication.Methods  (sendTx)
 import           Pos.Communication.Protocol (SendActions)
 import           Pos.Communication.Specs    (sendTxOuts)
@@ -28,10 +30,16 @@ import           Pos.DHT.Model              (DHTNode)
 import           Pos.Txp.Core               (TxAux, TxOut (..), TxOutAux (..), txaF)
 import           Pos.Types                  (Address, makePubKeyAddress,
                                              makeRedeemAddress, mkCoin, unsafeAddCoin)
-import           Pos.Wallet.Tx.Pure         (TxError, createMOfNTx, createRedemptionTx,
-                                             createTx, makeMOfNTx, makePubKeyTx)
-import           Pos.Wallet.WalletMode      (TxMode, getOwnUtxo, saveTx)
 import           Pos.WorkMode               (MinWorkMode)
+
+type TxMode ssc m
+    = ( MinWorkMode m
+      , MonadBalances m
+      , MonadTxHistory m
+      , MonadMockable m
+      , MonadMask m
+      , MonadDBLimits m
+      )
 
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx

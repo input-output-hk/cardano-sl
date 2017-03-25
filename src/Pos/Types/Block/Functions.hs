@@ -29,7 +29,6 @@ import           Control.Lens               (folded, iconcatMap, imap, ix)
 import           Data.Default               (Default (def))
 import           Data.List                  (groupBy)
 import           Data.Tagged                (untag)
-import qualified Data.Text                  as Text
 import           Formatting                 (build, int, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Verify       (VerificationRes (..), verifyGeneric)
@@ -69,7 +68,7 @@ import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
                                              MainExtraBodyData (..), MainExtraHeaderData,
                                              mehBlockVersion)
 import           Pos.Update.Core            (BlockVersionData (..))
-import           Pos.Util                   (NewestFirst (..), OldestFirst)
+import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficultyIncrement :: BlockHeader ssc -> ChainDifficulty
@@ -179,7 +178,7 @@ recreateMainBlock _gbHeader _gbBody _gbExtra = do
     let gb = GenericBlock{..}
     case verifyBBlock gb of
         Right _  -> pass
-        Left err -> fail $ Text.unpack err
+        Left err -> fail $ toString err
     pure gb
 
 -- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.

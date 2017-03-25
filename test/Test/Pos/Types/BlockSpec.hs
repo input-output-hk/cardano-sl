@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Specification of Pos.Types.Block.
 
@@ -18,7 +18,7 @@ import           Pos.Ssc.Class         (Ssc (..), SscHelpersClass)
 import           Pos.Ssc.GodTossing    (SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import qualified Pos.Types             as T
-import           Pos.Util              (NewestFirst (..))
+import           Pos.Util.Chrono       (NewestFirst (..))
 import           Serokell.Util         (isVerSuccess)
 
 import           Test.QuickCheck       (Property, (===))
@@ -50,10 +50,7 @@ spec = describe "Block properties" $ do
     verifyEmptyHsDesc = "Successfully validates an empty header chain"
     emptyHeaderChain l =
         it verifyEmptyHsDesc $
-            and
-                [isVerSuccess $
-                    T.verifyHeaders b l
-                        | b <- [False, True]] == True
+            all isVerSuccess [T.verifyHeaders b l | b <- [False, True]]
 
 -- | Both of the following tests are boilerplate - they use `mkGenericHeader` to create
 -- headers and then compare these with manually built headers.

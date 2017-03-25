@@ -12,21 +12,19 @@ module Pos.Txp.Toil.Types
        , MemPool (..)
        , mpLocalTxs
        , mpLocalTxsSize
-#ifdef WITH_EXPLORER
-       , mpLocalTxsExtra
-       , mpAddrHistories
-#endif
        , TxMap
        , BalancesView (..)
        , bvStakes
        , bvTotal
        , UndoMap
        , UtxoModifier
-       , ToilModifier (..)
+       , GenericToilModifier (..)
+       , ToilModifier
        , tmUtxo
        , tmBalances
        , tmMemPool
        , tmUndos
+       , tmExtra
 
        -- * Env
        , ToilEnv (..)
@@ -45,10 +43,6 @@ import           Universum
 import           Pos.Core                   (Coin, StakeholderId)
 import           Pos.Txp.Core               (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import qualified Pos.Util.Modifier          as MM
-#ifdef WITH_EXPLORER
-import           Pos.Core                   (Address)
-import           Pos.Types.Explorer         (AddrHistory, TxExtra)
-#endif
 
 ----------------------------------------------------------------------------
 -- UTXO
@@ -91,25 +85,10 @@ type TxMap = HashMap TxId TxAux
 instance Default TxMap where
     def = mempty
 
-#ifdef WITH_EXPLORER
-type TxMapExtra = MM.MapModifier TxId TxExtra
-type UpdatedAddrHistories = HashMap Address AddrHistory
-
-instance Default TxMapExtra where
-    def = mempty
-
-instance Default UpdatedAddrHistories where
-    def = mempty
-#endif
-
 data MemPool = MemPool
-    { _mpLocalTxs      :: !TxMap
+    { _mpLocalTxs     :: !TxMap
       -- | @length@ is @O(n)@ for 'HM.HashMap' so we store it explicitly.
-    , _mpLocalTxsSize  :: !Int
-#ifdef WITH_EXPLORER
-    , _mpLocalTxsExtra :: !TxMapExtra
-    , _mpAddrHistories :: !UpdatedAddrHistories
-#endif
+    , _mpLocalTxsSize :: !Int
     }
 
 makeLenses ''MemPool
@@ -119,10 +98,6 @@ instance Default MemPool where
         MemPool
         { _mpLocalTxs      = HM.empty
         , _mpLocalTxsSize  = 0
-#ifdef WITH_EXPLORER
-        , _mpLocalTxsExtra = def
-        , _mpAddrHistories = def
-#endif
         }
 
 ----------------------------------------------------------------------------
@@ -135,17 +110,20 @@ type UndoMap = HashMap TxId TxUndo
 instance Default UndoMap where
     def = mempty
 
-data ToilModifier = ToilModifier
+data GenericToilModifier extension = ToilModifier
     { _tmUtxo     :: !UtxoModifier
     , _tmBalances :: !BalancesView
     , _tmMemPool  :: !MemPool
     , _tmUndos    :: !UndoMap
+    , _tmExtra    :: !extension
     }
 
-instance Default ToilModifier where
-    def = ToilModifier mempty def def mempty
+type ToilModifier = GenericToilModifier ()
 
-makeLenses ''ToilModifier
+instance Default ext => Default (GenericToilModifier ext) where
+    def = ToilModifier mempty def def mempty def
+
+makeLenses ''GenericToilModifier
 
 ----------------------------------------------------------------------------
 -- Toil environment

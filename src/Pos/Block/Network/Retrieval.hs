@@ -41,8 +41,8 @@ import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
                                              HeaderHash, blockHeader, difficultyL,
                                              prevBlockL)
-import           Pos.Util                   (NE, NewestFirst (..), OldestFirst (..),
-                                             _neHead, _neLast)
+import           Pos.Util                   (_neHead, _neLast)
+import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode               (WorkMode)
 
 retrievalWorker
@@ -68,7 +68,7 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
         queue <- ncBlockRetrievalQueue <$> getNodeContext
         recHeaderVar <- ncRecoveryHeader <$> getNodeContext
         inRecovery <- needRecovery (Proxy @ssc)
-        when (not inRecovery) $
+        unless inRecovery $
             whenJustM (atomically $ tryTakeTMVar recHeaderVar) $
                 const (triggerRecovery sendActions)
         logDebug "Waiting on the queue"

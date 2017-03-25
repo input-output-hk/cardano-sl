@@ -42,14 +42,9 @@ import           Pos.Constants              (epochSlots, sharedSeedLength)
 import           Pos.Core.Address           (makePubKeyAddress, makeRedeemAddress,
                                              makeScriptAddress)
 import           Pos.Core.Coin              (coinToInteger, divCoin, unsafeSubCoin)
-import           Pos.Core.Types             (Address (..), ChainDifficulty (..), Coin,
-                                             CoinPortion, EpochIndex (..),
-                                             EpochOrSlot (..), LocalSlotIndex (..),
-                                             SharedSeed (..), SlotId (..), Timestamp (..),
-                                             getCoinPortion, mkCoin,
-                                             unsafeCoinPortionFromDouble, unsafeGetCoin)
-import           Pos.Core.Types             (ApplicationName (..), BlockVersion (..),
+import           Pos.Core.Types             (BlockVersion (..), Coin,
                                              SoftwareVersion (..))
+import qualified Pos.Core.Types             as Types
 import           Pos.Core.Version           (applicationNameMaxLength)
 import           Pos.Crypto                 (Hash, PublicKey, SecretKey, Share, hash,
                                              sign, toPublic)
@@ -73,21 +68,21 @@ instance Arbitrary Script where
     arbitrary = elements
         [intValidator, goodIntRedeemer, badIntRedeemer]
 
-instance Arbitrary Address where
+instance Arbitrary Types.Address where
     arbitrary = oneof [
         makePubKeyAddress <$> arbitrary,
         makeScriptAddress <$> arbitrary,
         makeRedeemAddress <$> arbitrary,
-        UnknownAddressType <$> choose (3, 255) <*> scale (min 150) arbitrary
+        Types.UnknownAddressType <$> choose (3, 255) <*> scale (min 150) arbitrary
         ]
 
-deriving instance Arbitrary ChainDifficulty
+deriving instance Arbitrary Types.ChainDifficulty
 
 derive makeArbitrary ''TxOut
 derive makeArbitrary ''TxOutAux
 
 instance Arbitrary Coin where
-    arbitrary = mkCoin <$> choose (1, unsafeGetCoin maxBound)
+    arbitrary = Types.mkCoin <$> choose (1, Types.unsafeGetCoin maxBound)
 
 -- | This datatype has two coins that will always overflow when added.
 -- It is used in tests to make sure addition raises the appropriate exception when this
@@ -101,7 +96,7 @@ instance Arbitrary CoinPairOverflowSum where
         c1 <- arbitrary
         let lowerBound = succ $ coinToInteger $ (maxBound @Coin) `unsafeSubCoin` c1
             upperBound = coinToInteger (maxBound @Coin)
-        c2 <- mkCoin . fromIntegral <$> choose (lowerBound, upperBound)
+        c2 <- Types.mkCoin . fromIntegral <$> choose (lowerBound, upperBound)
         return $ TwoCoinsSum (c1, c2)
 
 -- | This datatype has two coins that will never overflow when added.
@@ -114,9 +109,9 @@ newtype SafeCoinPairSum = CoinPairSum
 instance Arbitrary SafeCoinPairSum where
     arbitrary = do
         c1 <- arbitrary
-        let upperBound = unsafeGetCoin c1
-            highestBound = unsafeGetCoin maxBound
-        c2 <- mkCoin <$> choose (0, highestBound - upperBound)
+        let upperBound = Types.unsafeGetCoin c1
+            highestBound = Types.unsafeGetCoin maxBound
+        c2 <- Types.mkCoin <$> choose (0, highestBound - upperBound)
         return $ CoinPairSum (c1, c2)
 
 -- | This datatype has two coins that will always underflow when subtracted.
@@ -129,9 +124,9 @@ newtype CoinPairOverflowSub = TwoCoinsSub
 instance Arbitrary CoinPairOverflowSub where
     arbitrary = do
         firstCoin <- arbitrary
-        let firstWord = unsafeGetCoin firstCoin
+        let firstWord = Types.unsafeGetCoin firstCoin
             c1 = if firstCoin == maxBound
-                then mkCoin $ firstWord - 1
+                then Types.mkCoin $ firstWord - 1
                 else firstCoin
         c2 <- arbitrary `suchThat` (> c1)
         return $ TwoCoinsSub (c1, c2)
@@ -146,8 +141,8 @@ newtype SafeCoinPairSub = CoinPairSub
 instance Arbitrary SafeCoinPairSub where
     arbitrary = do
         c1 <- arbitrary
-        let upperBound = unsafeGetCoin c1
-        c2 <- mkCoin <$> choose (0, upperBound)
+        let upperBound = Types.unsafeGetCoin c1
+        c2 <- Types.mkCoin <$> choose (0, upperBound)
         return $ CoinPairSub (c1, c2)
 
 -- | This datatype has a 'Coin' and an 'Integer' that will always overflow when
@@ -206,10 +201,11 @@ newtype IntegerToCoinNoOverflow = Integer
     } deriving (Show, Eq)
 
 instance Arbitrary IntegerToCoinNoOverflow where
-    arbitrary = Integer . fromIntegral <$> choose (0, unsafeGetCoin $ maxBound @Coin)
+    arbitrary =
+        Integer . fromIntegral <$> choose (0, Types.unsafeGetCoin $ maxBound @Coin)
 
-instance Arbitrary CoinPortion where
-    arbitrary = unsafeCoinPortionFromDouble . (1/) <$> choose (1, 20)
+instance Arbitrary Types.CoinPortion where
+    arbitrary = Types.unsafeCoinPortionFromDouble . (1/) <$> choose (1, 20)
 
 -- | A wrapper over 'Double'. Its 'Arbitrary' instance ensures the 'Double' within can
 -- never be converted into a 'CoinPortion' without an exception being raised. Used in
@@ -244,30 +240,30 @@ newtype SafeWord = SafeWord
     } deriving (Show, Eq)
 
 instance Arbitrary SafeWord where
-    arbitrary = SafeWord . getCoinPortion <$> arbitrary
+    arbitrary = SafeWord . Types.getCoinPortion <$> arbitrary
 
 maxReasonableEpoch :: Integral a => a
 maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not
 
-deriving instance Random EpochIndex
+deriving instance Random Types.EpochIndex
 
-instance Arbitrary EpochIndex where
+instance Arbitrary Types.EpochIndex where
     arbitrary = choose (0, maxReasonableEpoch)
 
-deriving instance Random LocalSlotIndex
+deriving instance Random Types.LocalSlotIndex
 
-instance Arbitrary LocalSlotIndex where
+instance Arbitrary Types.LocalSlotIndex where
     arbitrary = choose (0, epochSlots - 1)
 
-instance Arbitrary SlotId where
-    arbitrary = SlotId
+instance Arbitrary Types.SlotId where
+    arbitrary = Types.SlotId
         <$> arbitrary
         <*> arbitrary
 
-instance Arbitrary EpochOrSlot where
+instance Arbitrary Types.EpochOrSlot where
     arbitrary = oneof [
-          EpochOrSlot . Left <$> arbitrary
-        , EpochOrSlot . Right <$> arbitrary
+          Types.EpochOrSlot . Left <$> arbitrary
+        , Types.EpochOrSlot . Right <$> arbitrary
         ]
 
 instance Arbitrary TxInWitness where
@@ -382,23 +378,23 @@ instance Arbitrary (MerkleTree Tx) where
 instance Arbitrary TxProof where
     arbitrary = TxProof <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
-instance Arbitrary SharedSeed where
+instance Arbitrary Types.SharedSeed where
     arbitrary = do
         bs <- replicateM sharedSeedLength (choose (0, 255))
-        return $ SharedSeed $ BS.pack bs
+        return $ Types.SharedSeed $ BS.pack bs
 
 ----------------------------------------------------------------------------
 -- Arbitrary types from MainExtra[header/body]data
 ----------------------------------------------------------------------------
 
-instance Arbitrary ApplicationName where
-    arbitrary = ApplicationName  .
+instance Arbitrary Types.ApplicationName where
+    arbitrary = Types.ApplicationName  .
         toText                   .
         map (chr . flip mod 128) .
         take applicationNameMaxLength <$> arbitrary
 
-derive makeArbitrary ''BlockVersion
-derive makeArbitrary ''SoftwareVersion
+derive makeArbitrary ''Types.BlockVersion
+derive makeArbitrary ''Types.SoftwareVersion
 
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types
@@ -410,7 +406,7 @@ instance Arbitrary Millisecond where
 instance Arbitrary Microsecond where
     arbitrary = fromMicroseconds <$> choose (0, 600 * 1000 * 1000)
 
-deriving instance Arbitrary Timestamp
+deriving instance Arbitrary Types.Timestamp
 
 newtype SmallHashMap =
     SmallHashMap (HashMap PublicKey (HashMap PublicKey (AsBinary Share)))

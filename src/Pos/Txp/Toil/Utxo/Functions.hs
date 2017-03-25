@@ -117,11 +117,7 @@ verifyOutputs VTxContext {..} (UnsafeTx {..}, _, distrs)=
                                 "has non-empty distribution") i)
                    ]
                ScriptAddress{} -> checkDist i d txOutValue
-               RedeemAddress{} ->
-                   [ ( null d
-                     , sformat ("output #"%int%" with redeem address "%
-                                "has non-empty distribution") i)
-                   ]
+               RedeemAddress{} -> checkDist i d txOutValue
                UnknownAddressType t _
                    | vtcVerifyVersions ->
                          [ (False, sformat ("output #"%int%" has "%
@@ -228,5 +224,5 @@ rollbackTxUtxo
     => (TxAux, TxUndo) -> m ()
 rollbackTxUtxo ((tx@UnsafeTx{..}, _, _), undo) = do
     let txid = hash tx
-    mapM_ utxoDel $ take (length _txOutputs) $ zipWith TxIn (repeat txid) [0..]
+    mapM_ utxoDel $ take (length _txOutputs) $ map (TxIn txid) [0..]
     mapM_ (uncurry utxoPut) $ NE.zip _txInputs undo

@@ -37,9 +37,10 @@ import           Pos.Shutdown                (MonadShutdownMem)
 import           Pos.Slotting.Class          (MonadSlots)
 import           Pos.Slotting.MemState       (MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
-import           Pos.Txp.MemState            (MonadTxpMem (..))
+import           Pos.Txp.MemState            (MonadTxpMem)
 import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.MemState.Types   (MemVar, newMemVar)
+import           Pos.Util.Context            (MonadContext (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -65,7 +66,7 @@ newtype USHolder m a = USHolder
                , CanLog
                , MonadMask
                , MonadSscMem ssc
-               , MonadTxpMem
+               , MonadTxpMem x
                , MonadBase io
                , MonadDelegation
                , MonadFix
@@ -80,6 +81,9 @@ newtype USHolder m a = USHolder
 ----------------------------------------------------------------------------
 -- Common instances used all over the code
 ----------------------------------------------------------------------------
+
+instance MonadContext m => MonadContext (USHolder m) where
+    type ContextType (USHolder m) = ContextType m
 
 type instance ThreadId (USHolder m) = ThreadId m
 type instance Promise (USHolder m) = Promise m

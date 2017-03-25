@@ -5,9 +5,9 @@ module Pos.Ssc.Class.Helpers
 import           Data.Tagged           (Tagged)
 import           Universum
 
+import           Pos.Core.Types        (EpochIndex)
 import           Pos.Ssc.Class.Types   (Ssc (..))
 import           Pos.Types.Block.Types (MainBlockHeader)
-import           Pos.Core.Types        (EpochIndex)
 
 class Ssc ssc => SscHelpersClass ssc where
     sscVerifyPayload ::

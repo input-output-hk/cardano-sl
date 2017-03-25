@@ -16,7 +16,7 @@ import           System.Wlog                (logWarning)
 import           Universum
 
 import           Pos.Binary.Ssc             ()
-import           Pos.Block.Network.Logic    (needRecovery, requestTipOuts,
+import           Pos.Block.Network          (needRecovery, requestTipOuts,
                                              triggerRecovery)
 import           Pos.Communication.Protocol (OutSpecs, SendActions, WorkerSpec,
                                              localWorker, worker)

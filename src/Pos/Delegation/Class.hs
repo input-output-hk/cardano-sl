@@ -1,5 +1,5 @@
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 -- | Definitions for class of monads that capture logic of processing
 -- delegate certificates (proxy secret keys).

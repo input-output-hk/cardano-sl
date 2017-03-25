@@ -45,7 +45,7 @@ mkBackupPhrase ls
     | otherwise = error "Invalid number of words in backup phrase!"
 
 instance Show BackupPhrase where
-    show = T.unpack . T.unwords . bpToList
+    show = toString . T.unwords . bpToList
 
 instance Buildable BackupPhrase where
     build = build . T.unwords . bpToList
@@ -59,7 +59,7 @@ instance Read BackupPhrase where
             let (w, rest) = span isAlpha $ dropWhile isSpace str
             if null w
                 then fail "Invalid phrase"
-                else over _1 (T.pack w :) <$> takeW (n - 1) rest
+                else over _1 (toText w :) <$> takeW (n - 1) rest
 
 toSeed :: BackupPhrase -> ByteString
 toSeed bp = encodeStrict $ iterate hash256 (hash256 ph) !! (hashingRoundsNum - 1)

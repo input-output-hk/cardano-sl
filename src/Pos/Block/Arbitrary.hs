@@ -8,11 +8,10 @@ module Pos.Block.Arbitrary
        ) where
 
 import           Data.Ix              (range)
-import           Data.List.NonEmpty   (nonEmpty)
 import qualified Data.List.NonEmpty   as NE
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
-import           Formatting           (bprint, build, formatToString, (%))
+import           Formatting           (bprint, build, (%))
 import           Prelude              (Show (..))
 import           System.Random        (mkStdGen, randomR)
 import           Test.QuickCheck      (Arbitrary (..), Gen, choose, listOf, listOf, oneof,
@@ -220,8 +219,7 @@ newtype BlockHeaderList ssc = BHL
     } deriving (Eq)
 
 instance T.BiSsc ssc => Show (BlockHeaderList ssc) where
-    show =
-        concat . intersperse "\n" . map (formatToString build) . uncurry zip . getHeaderList
+    show = toString . unlines . map pretty . uncurry zip . getHeaderList
 
 -- | Starting Epoch in block header verification tests
 startingEpoch :: Integral a => a

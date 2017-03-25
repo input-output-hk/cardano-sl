@@ -5,6 +5,7 @@ module Pos.Txp.Core.Core
        , mkTxProof
        , txInToPair
        , txOutStake
+       , flattenTxPayload
        ) where
 
 import           Universum
@@ -13,11 +14,11 @@ import           Pos.Binary.Core    ()
 import           Pos.Binary.Crypto  ()
 import           Pos.Binary.Txp     ()
 import           Pos.Core.Address   ()
-import           Pos.Core.Types     (Address (..), Coin, StakeholderId)
+import           Pos.Core.Types     (Address (..))
 import           Pos.Crypto         (hash)
 import           Pos.Merkle         (mtRoot)
-import           Pos.Txp.Core.Types (TxId, TxIn (..), TxOut (..), TxOutAux (..),
-                                     TxPayload (..), TxProof (..))
+import           Pos.Txp.Core.Types (TxAux, TxId, TxIn (..), TxOut (..), TxOutAux (..),
+                                     TxOutDistribution, TxPayload (..), TxProof (..))
 
 -- | A predicate for `TxOutAux` which checks whether given address
 -- belongs to it.
@@ -30,7 +31,7 @@ txInToPair (TxIn h i) = (h, i)
 
 -- | Use this function if you need to know how a 'TxOut' distributes stake
 -- (e.g. for the purpose of running follow-the-satoshi).
-txOutStake :: TxOutAux -> [(StakeholderId, Coin)]
+txOutStake :: TxOutAux -> TxOutDistribution
 txOutStake TxOutAux {..} = case txOutAddress toaOut of
     PubKeyAddress x _ -> [(x, txOutValue toaOut)]
     _                 -> toaDistr
@@ -44,3 +45,8 @@ mkTxProof UnsafeTxPayload {..} =
     , txpWitnessesHash = hash _txpWitnesses
     , txpDistributionsHash = hash _txpDistributions
     }
+
+-- | Convert 'TxPayload' into a flat list of `TxAux`s.
+flattenTxPayload :: TxPayload -> [TxAux]
+flattenTxPayload UnsafeTxPayload {..} =
+    zip3 (toList _txpTxs) _txpWitnesses _txpDistributions

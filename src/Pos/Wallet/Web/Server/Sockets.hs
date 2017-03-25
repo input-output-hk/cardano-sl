@@ -111,7 +111,7 @@ newtype WalletWebSockets m a = WalletWebSockets
                 MonadDHT, MonadSlots, MonadSlotsData,
                 CanLog, MonadKeys, MonadBalances, MonadUpdates,
                 MonadTxHistory, MonadBlockchainInfo, WithNodeContext ssc, WithPeerState,
-                MonadDB, MonadTxpMem, MonadWalletWebDB, MonadDelegation,
+                MonadDB, MonadTxpMem x, MonadWalletWebDB, MonadDelegation,
                 US.MonadUSMem, MonadReportingMem)
 
 instance Monad m => WrappedM (WalletWebSockets m) where

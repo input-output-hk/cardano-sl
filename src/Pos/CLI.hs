@@ -27,7 +27,6 @@ module Pos.CLI
        ) where
 
 import           Control.Lens                         (zoom, (?=))
-import qualified Data.Text                            as T
 import           Formatting                           (build, formatToString, shown, (%))
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
 import qualified Options.Applicative.Simple           as Opt
@@ -211,7 +210,7 @@ disablePropagationOption =
 reportServersOption :: Opt.Parser [Text]
 reportServersOption =
     many $
-    T.pack <$>
+    toText <$>
     Opt.strOption
         (templateParser
              "report-server"
@@ -221,7 +220,7 @@ reportServersOption =
 updateServersOption :: Opt.Parser [Text]
 updateServersOption =
     many $
-    T.pack <$>
+    toText <$>
     Opt.strOption
         (templateParser "update-server" "URI" "Server to download updates from")
 

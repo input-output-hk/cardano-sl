@@ -38,8 +38,8 @@ import qualified Data.ByteString.Lazy   as BSL
 import qualified Data.List.NonEmpty     as NE
 import           Data.Time.Clock.POSIX  (POSIXTime)
 import           Formatting             (sformat)
-import           Servant.API            (FromHttpApiData (..))
 import           Serokell.Util.Base16   as SB16
+import           Servant.API            (FromHttpApiData (..))
 import           Universum
 
 import qualified Pos.Binary             as Bi
@@ -49,15 +49,14 @@ import qualified Pos.DB.GState          as GS
 import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
-import           Pos.Txp                (Tx (..), TxId, TxOut (..),
-                                         TxOutAux (..), _txOutputs)
-import           Pos.Types              (Address, Coin, MainBlock, SlotId (..),
-                                         Timestamp, addressF, blockSlot,
-                                         blockTxs, decodeTextAddress, gbHeader,
-                                         gbhConsensus, getEpochIndex,
-                                         getSlotIndex, headerHash, mcdSlot,
-                                         mkCoin, prevBlockL, sumCoins,
-                                         unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Txp                (Tx (..), TxId, TxOut (..), TxOutAux (..),
+                                         _txOutputs)
+import           Pos.Types              (Address, Coin, MainBlock, SlotId (..), Timestamp,
+                                         addressF, blockSlot, blockTxs, decodeTextAddress,
+                                         gbHeader, gbhConsensus, getEpochIndex,
+                                         getSlotIndex, headerHash, mcdSlot, mkCoin,
+                                         prevBlockL, sumCoins, unsafeAddCoin,
+                                         unsafeIntegerToCoin)
 import           Pos.Types.Explorer     (TxExtra (..))
 
 

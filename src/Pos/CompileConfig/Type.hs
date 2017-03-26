@@ -7,10 +7,9 @@ module Pos.CompileConfig.Type
        ( CompileConfig (..)
        ) where
 
-import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Util                   ()
+import           Pos.Util  ()
 
 -- | Compile time configuration. See example in /constants.yaml/ file.
 data CompileConfig = CompileConfig

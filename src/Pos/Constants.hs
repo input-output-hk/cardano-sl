@@ -47,19 +47,14 @@ module Pos.Constants
        , appSystemTag
        ) where
 
-import           Data.Time.Units             (Microsecond, Millisecond, convertUnit)
+import           Data.Time.Units             (Microsecond)
 import           Language.Haskell.TH.Syntax  (lift, runIO)
-import           Serokell.Data.Memory.Units  (Byte)
-import           Serokell.Util               (ms, sec, staticAssert)
+import           Serokell.Util               (ms, sec)
 import           System.Environment          (lookupEnv)
 import qualified Text.Parsec                 as P
 import           Universum                   hiding (lift)
 
 import           Pos.CompileConfig           (CompileConfig (..), compileConfig)
-import           Pos.Core.Types              (ApplicationName, BlockVersion (..),
-                                              CoinPortion, SoftwareVersion (..),
-                                              unsafeCoinPortionFromDouble)
-import           Pos.Core.Version            (mkApplicationName)
 import           Pos.DHT.Model.Types         (DHTNode, dhtNodeParser)
 import           Pos.Update.Core             (SystemTag, mkSystemTag)
 import           Pos.Util                    ()
@@ -97,9 +92,6 @@ mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ compileConfig
 ----------------------------------------------------------------------------
 -- Genesis
 ----------------------------------------------------------------------------
-
-cc :: CompileConfig
-cc = compileConfig
 
 -- | See 'Pos.CompileConfig.ccGenesisN'.
 genesisN :: Integral i => i

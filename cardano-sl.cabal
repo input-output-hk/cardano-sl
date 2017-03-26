@@ -138,7 +138,6 @@ library
                         Pos.Binary.Ssc
                         Pos.Binary.Ssc.GodTossing.Core
                         Pos.Binary.Txp
-                        Pos.Binary.Update
 
                         -- Block processing
                         Pos.Block.Error

@@ -19,6 +19,8 @@ library
                        Pos.Update.DB
                        Pos.Update.Constants
 
+                       Pos.Binary.Update
+
                        -- Poll
                        Pos.Update.Poll.Types
                        Pos.Update.Poll.Modifier
@@ -34,6 +36,7 @@ library
 
   build-depends:       aeson
                      , base
+                     , binary
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra

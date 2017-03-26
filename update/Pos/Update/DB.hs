@@ -46,8 +46,9 @@ import qualified Database.RocksDB           as Rocks
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Binary.Class           (Bi, encodeStrict)
+import           Pos.Binary.Class           (encodeStrict)
 import           Pos.Binary.Infra.Slotting  ()
+import           Pos.Binary.Update          ()
 import           Pos.Core                   (ApplicationName, BlockVersion,
                                              ChainDifficulty, NumSoftwareVersion, SlotId,
                                              SoftwareVersion (..), Timestamp (..))
@@ -79,55 +80,43 @@ import           Pos.Update.Poll.Types      (BlockVersionState (..),
 import           Pos.Util.Iterator          (MonadIterator (..))
 import           Pos.Util.Util              (maybeThrow)
 
--- | All of these instances are defined in cardano-sl, but not here, so we
--- have to add lots of constraints to everything
-type BiUpdate = (Bi BlockVersionState, Bi BlockVersionData,
-                 Bi ProposalState, Bi ConfirmedProposalState,
-                 Bi UpdateProposal)
-
 ----------------------------------------------------------------------------
 -- Getters
 ----------------------------------------------------------------------------
 
 -- | Get last adopted block version.
-getAdoptedBV :: (MonadDB m, BiUpdate) => m BlockVersion
+getAdoptedBV :: MonadDB m => m BlockVersion
 getAdoptedBV = fst <$> getAdoptedBVFull
 
 -- | Get state of last adopted BlockVersion.
-getAdoptedBVData :: (MonadDB m, BiUpdate) => m BlockVersionData
+getAdoptedBVData :: MonadDB m => m BlockVersionData
 getAdoptedBVData = snd <$> getAdoptedBVFull
 
 -- | Get last adopted BlockVersion and data associated with it.
-getAdoptedBVFull
-    :: (MonadDB m, BiUpdate)
-    => m (BlockVersion, BlockVersionData)
+getAdoptedBVFull :: MonadDB m => m (BlockVersion, BlockVersionData)
 getAdoptedBVFull = maybeThrow (DBMalformed msg) =<< getAdoptedBVFullMaybe
   where
     msg =
         "Update System part of GState DB is not initialized (last adopted BV is missing)"
 
 -- | Get maximum block size (in bytes).
-getMaxBlockSize :: (MonadDB m, BiUpdate) => m Byte
+getMaxBlockSize :: MonadDB m => m Byte
 getMaxBlockSize = bvdMaxBlockSize <$> getAdoptedBVData
 
 -- | Get 'BlockVersionState' associated with given BlockVersion.
-getBVState
-    :: (MonadDB m, BiUpdate)
-    => BlockVersion -> m (Maybe BlockVersionState)
+getBVState :: MonadDB m => BlockVersion -> m (Maybe BlockVersionState)
 getBVState = gsGetBi . bvStateKey
 
 -- | Get state of UpdateProposal for given UpId
-getProposalState :: (MonadDB m, BiUpdate) => UpId -> m (Maybe ProposalState)
+getProposalState :: MonadDB m => UpId -> m (Maybe ProposalState)
 getProposalState = gsGetBi . proposalKey
 
 -- | Get UpId of current proposal for given appName
-getAppProposal :: (MonadDB m, BiUpdate) => ApplicationName -> m (Maybe UpId)
+getAppProposal :: MonadDB m => ApplicationName -> m (Maybe UpId)
 getAppProposal = gsGetBi . proposalAppKey
 
 -- | Get states of all active 'UpdateProposal's for given 'ApplicationName'.
-getProposalsByApp
-    :: (MonadDB m, BiUpdate)
-    => ApplicationName -> m [ProposalState]
+getProposalsByApp :: MonadDB m => ApplicationName -> m [ProposalState]
 getProposalsByApp appName = runProposalMapIterator (step []) snd
   where
     step res = nextItem >>= maybe (pure res) (onItem res)
@@ -136,13 +125,11 @@ getProposalsByApp appName = runProposalMapIterator (step []) snd
         | otherwise = step res
 
 -- | Get last confirmed SoftwareVersion of given application.
-getConfirmedSV
-    :: (MonadDB m, BiUpdate)
-    => ApplicationName -> m (Maybe NumSoftwareVersion)
+getConfirmedSV :: MonadDB m => ApplicationName -> m (Maybe NumSoftwareVersion)
 getConfirmedSV = gsGetBi . confirmedVersionKey
 
 -- | Get most recent 'SlottingData'.
-getSlottingData :: (MonadDB m, BiUpdate) => m SlottingData
+getSlottingData :: MonadDB m => m SlottingData
 getSlottingData = maybeThrow (DBMalformed msg) =<< gsGetBi slottingDataKey
   where
     msg =
@@ -164,7 +151,7 @@ data UpdateOp
     | DelBV !BlockVersion
     | PutSlottingData !SlottingData
 
-instance BiUpdate => RocksBatchOp UpdateOp where
+instance RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
         [ Rocks.Put (proposalKey upId) (encodeStrict ps)
         , Rocks.Put (proposalAppKey appName) (encodeStrict upId)
@@ -196,7 +183,7 @@ instance BiUpdate => RocksBatchOp UpdateOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareGStateUS :: (MonadDB m, BiUpdate) => Timestamp -> m ()
+prepareGStateUS :: MonadDB m => Timestamp -> m ()
 prepareGStateUS systemStart =
     unlessM isInitialized $ do
         let genesisSlottingData = SlottingData
@@ -221,7 +208,7 @@ prepareGStateUS systemStart =
             SetAdopted genesisBlockVersion genesisBlockVersionData :
             map ConfirmVersion genesisSoftwareVersions
 
-isInitialized :: (MonadDB m, BiUpdate) => m Bool
+isInitialized :: MonadDB m => m Bool
 isInitialized = isJust <$> getAdoptedBVFullMaybe
 
 ----------------------------------------------------------------------------
@@ -249,7 +236,7 @@ runProposalMapIterator = runDBnMapIterator @PropIter _gStateDB
 -- 'SlotId's, but I don't think it may be crucial.
 -- | Get all proposals which were issued no later than given slot.
 getOldProposals
-    :: (MonadDB m, BiUpdate)
+    :: MonadDB m
     => SlotId -> m [UndecidedProposalState]
 getOldProposals slotId = runProposalMapIterator (step []) snd
   where
@@ -264,7 +251,7 @@ getOldProposals slotId = runProposalMapIterator (step []) snd
 -- | Get all decided proposals which were accepted deeper than given
 -- difficulty.
 getDeepProposals
-    :: (MonadDB m, BiUpdate)
+    :: MonadDB m
     => ChainDifficulty -> m [DecidedProposalState]
 getDeepProposals cd = runProposalMapIterator (step []) snd
   where
@@ -288,7 +275,7 @@ instance DBIteratorClass ConfPropIter where
 -- passed). For instance, current software version can be passed to
 -- this function to get all proposals with bigger version.
 getConfirmedProposals
-    :: (MonadDB m, BiUpdate)
+    :: MonadDB m
     => Maybe NumSoftwareVersion -> m [ConfirmedProposalState]
 getConfirmedProposals reqNsv = runDBnIterator @ConfPropIter _gStateDB (step [])
   where
@@ -310,13 +297,13 @@ instance DBIteratorClass BVIter where
     iterKeyPrefix _ = bvStateIterationPrefix
 
 -- | Get all proposed 'BlockVersion's.
-getProposedBVs :: (MonadDB m, BiUpdate) => m [BlockVersion]
+getProposedBVs :: MonadDB m => m [BlockVersion]
 getProposedBVs = runDBnMapIterator @BVIter _gStateDB (step []) fst
   where
     step res = nextItem >>= maybe (pure res) (onItem res)
     onItem res = step . (: res)
 
-getProposedBVStates :: (MonadDB m, BiUpdate) => m [BlockVersionState]
+getProposedBVStates :: MonadDB m => m [BlockVersionState]
 getProposedBVStates = runDBnMapIterator @BVIter _gStateDB (step []) snd
   where
     step res = nextItem >>= maybe (pure res) (onItem res)
@@ -324,7 +311,7 @@ getProposedBVStates = runDBnMapIterator @BVIter _gStateDB (step []) snd
 
 -- | Get all confirmed 'BlockVersion's and their states.
 getConfirmedBVStates
-    :: (MonadDB m, BiUpdate)
+    :: MonadDB m
     => m [(BlockVersion, BlockVersionState)]
 getConfirmedBVStates = runDBnIterator @BVIter _gStateDB (step [])
   where
@@ -375,7 +362,7 @@ slottingDataKey = "us/slotting/"
 ----------------------------------------------------------------------------
 
 getAdoptedBVFullMaybe
-    :: (MonadDB m, BiUpdate)
+    :: MonadDB m
     => m (Maybe (BlockVersion, BlockVersionData))
 getAdoptedBVFullMaybe = gsGetBi adoptedBVKey
 
@@ -383,7 +370,7 @@ getAdoptedBVFullMaybe = gsGetBi adoptedBVKey
 -- Some instance
 ----------------------------------------------------------------------------
 
-instance (MonadIO m, MonadThrow m, BiUpdate) =>
+instance (MonadIO m, MonadThrow m) =>
          DBLimits.MonadDBLimits (DBHolder m) where
     getMaxBlockSize = getMaxBlockSize
     getMaxHeaderSize = bvdMaxHeaderSize <$> getAdoptedBVData

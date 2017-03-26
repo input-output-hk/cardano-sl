@@ -43,8 +43,8 @@ import qualified Pos.Binary.Class       as Bi
 import           Pos.Binary.Crypto      ()
 import           Pos.Core.Types         (AddrPkAttrs (..), Address (..), AddressHash,
                                          Script, StakeholderId)
-import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey,
-                                         RedeemPublicKey, SecretKey, toPublic)
+import           Pos.Crypto             (AbstractHash (AbstractHash), EncryptedSecretKey,
+                                         PublicKey, RedeemPublicKey, encToPublic)
 import           Pos.Crypto.HD          (HDAddressPayload, HDPassphrase,
                                          deriveHDPublicKey, deriveHDSecretKey,
                                          packHDAddressAttr)
@@ -96,14 +96,14 @@ makePubKeyHdwAddress key path =
 createHDAddressH :: ByteArrayAccess passPhrase
                  => passPhrase
                  -> HDPassphrase
-                 -> SecretKey
+                 -> EncryptedSecretKey
                  -> [Word32]
                  -> Word32
-                 -> (Address, SecretKey)
+                 -> (Address, EncryptedSecretKey)
 createHDAddressH passphrase walletPassphrase parent parentPath childIndex = do
     let derivedSK = deriveHDSecretKey passphrase parent childIndex
     let addressPayload = packHDAddressAttr walletPassphrase $ parentPath ++ [childIndex]
-    let pk = toPublic derivedSK
+    let pk = encToPublic derivedSK
     (makePubKeyHdwAddress pk addressPayload, derivedSK)
 
 -- | Create address from public key via non-hardened way.

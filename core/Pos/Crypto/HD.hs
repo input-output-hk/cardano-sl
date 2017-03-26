@@ -24,7 +24,8 @@ import qualified Data.ByteString.Lazy         as BSL
 import           Universum
 
 import           Pos.Binary.Class             (decodeFull, encodeStrict)
-import           Pos.Crypto.Signing           (PublicKey (..), SecretKey (..))
+import           Pos.Crypto.SafeSigning       (EncryptedSecretKey (..))
+import           Pos.Crypto.Signing           (PublicKey (..))
 
 -- | Passphrase is a hash of root public key.
 --- We don't use root public key to store money, we use hash of it instead.
@@ -75,14 +76,14 @@ deriveHDPublicKey (PublicKey xpub) childIndex
 -- If @childIndex <= maxHardened@ key will be deriving hardened way, otherwise non-hardened.
 deriveHDSecretKey :: ByteArrayAccess passPhrase
                   => passPhrase
-                  -> SecretKey
+                  -> EncryptedSecretKey
                   -> Word32
-                  -> SecretKey
-deriveHDSecretKey passPhrase (SecretKey xprv) childIndex
+                  -> EncryptedSecretKey
+deriveHDSecretKey passPhrase (EncryptedSecretKey xprv) childIndex
   | childIndex <= maxHardened =
-      SecretKey $ deriveXPrvHardened passPhrase xprv childIndex
+      EncryptedSecretKey $ deriveXPrvHardened passPhrase xprv childIndex
   | otherwise =
-      SecretKey $ deriveXPrv passPhrase xprv (childIndex - maxHardened - 1)
+      EncryptedSecretKey $ deriveXPrv passPhrase xprv (childIndex - maxHardened - 1)
 
 addrAttrNonce :: ByteString
 addrAttrNonce = "serokellfore"

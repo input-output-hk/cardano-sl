@@ -54,7 +54,8 @@ import           Pos.Crypto                    (EncryptedSecretKey, PassPhrase, 
                                                 deriveHDPassphrase, encToPublic,
                                                 fakeSigner, hash,
                                                 redeemDeterministicKeyGen, toPublic,
-                                                withSafeSigner, withSafeSigner)
+                                                unpackHDAddressAttr, withSafeSigner,
+                                                withSafeSigner)
 import           Pos.Data.Attributes           (attrData)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (getKnownPeers)
@@ -410,14 +411,15 @@ decodeCAddressOrFail = either wrongAddress pure . cAddressToAddress
             sformat ("Error while decoding CAddress: "%stext) err
 
 getWallets :: WalletWebMode ssc m => Maybe CWalletSetAddress -> m [CWallet]
-getWallets Nothing      =
-    getWalletAddresses >>= mapM getWallet
-getWallets (Just cAddr) =
-    filter ((== cAddr) . cwSetId . cwMeta) <$> getWallets Nothing
+getWallets mCAddr = do
+    wallets <- getWalletAddresses >>= mapM getWallet
+    return $ filterByAddr mCAddr wallets
+  where
+    filterByAddr = maybe identity $ \cAddr ->
+        filter $ (== cAddr) . cwSetId . cwMeta
 
 getWSets :: WalletWebMode ssc m => m [CWalletSet]
--- TODO [CSL-931]: reasonable? maybe get from db?
-getWSets = join $ mapM (getWSet . addressToCAddress) . filter undefined <$> myAddresses
+getWSets = undefined  -- TODO [CSL-931]: by analogy with `getWallets`
 
 decodeCPassPhraseOrFail :: WalletWebMode ssc m => CPassPhrase -> m PassPhrase
 decodeCPassPhraseOrFail cpass =
@@ -698,10 +700,9 @@ getPathFromAddress :: PublicKey -> Address -> Either Text [Word32]
 getPathFromAddress rootPk PubKeyAddress{..} = do
     let mHdPayload = addrPkDerivationPath $ attrData addrPkAttributes
         hdPass     = deriveHDPassphrase rootPk
-        unpackHDAddressAttr = undefined  -- TODO: get from CSL-880
         noPath     = Left "No path found in public key"
     hdPayload <- maybe noPath return mHdPayload
-    return $ unpackHDAddressAttr hdPass hdPayload
+    unpackHDAddressAttr hdPass hdPayload
 getPathFromAddress _ other =
     Left $ sformat ("Address "%addressF%" is not public key address") other
 
@@ -720,18 +721,15 @@ genSaveWalletAddress
     => PassPhrase
     -> CAddress
     -> m Address
-genSaveWalletAddress pass wsCAddr = do
+genSaveWalletAddress passphrase wsCAddr = do
     wsAddr       <- decodeCAddressOrFail wsCAddr
-    -- wSetCAddr   <- getWSetMeta wCAddr >>= maybe noWallet (pure . cwSetId)
     (_, wsSk)    <- getSKByAddr wsAddr
-    let hdPass   = deriveHDPassphrase $ encToPublic wsSk
-    let generate = createHDAddressH pass hdPass (undefined wsSk) []
+    let hdPass   =  deriveHDPassphrase $ encToPublic wsSk
+    let generate =  createHDAddressH passphrase hdPass wsSk []
     (wAddr, wSk) <- generateUnique generate isDuplicateAddr
-    addSecretKey $ undefined wSk
+    addSecretKey wSk
     return wAddr
   where
-    -- noWallet = throwM . Internal $
-        -- sformat ("No wallet with address "%build%" is found") wCAddr
     isDuplicateAddr (wAddr, _) =
         isJust <$> getWalletMeta (addressToCAddress wAddr)
 
@@ -740,18 +738,25 @@ genSaveAccountAddress
     => PassPhrase
     -> CAddress
     -> m Address
-genSaveAccountAddress pass wAddr = undefined
-
--- | Only public key could be parent address, used to check wallet and
--- wallet sets addresses.
--- TODO [CSL-931]: is it really needed?
-ensureCPublicKey :: WalletWebMode ssc m => CAddress -> m ()
-ensureCPublicKey cAddr = do
-    addr <- decodeCAddressOrFail cAddr
-    case addr of
-        PubKeyAddress{} -> return ()
-        _           ->
-            throwM . Internal $ sformat ("Not a public key "%addressF) addr
+genSaveAccountAddress passphrase wCAddr = do
+    wAddr       <- decodeCAddressOrFail wCAddr
+    wSetCAddr   <- getWalletMeta wCAddr >>= maybe noWallet (pure . cwSetId)
+    wSetAddr    <- decodeCAddressOrFail wSetCAddr
+    (_, wSk)    <- getSKByAddr wAddr
+    (_, wSetSk) <- getSKByAddr wSetAddr
+    let hdPass  =  deriveHDPassphrase $ encToPublic wSetSk
+    let wSetPk  =  encToPublic wSetSk
+    wPath       <- either (throwM . Internal) return $
+                   getPathFromAddress wSetPk wAddr
+    let generate = createHDAddressH passphrase hdPass wSk wPath
+    (accAddr, accSk) <- generateUnique generate isDuplicateAddr
+    addSecretKey accSk
+    return accAddr
+  where
+    noWallet = throwM . Internal $
+        sformat ("No wallet with address "%build%" is found") wCAddr
+    isDuplicateAddr (wAddr, _) =
+        isJust <$> getWalletMeta (addressToCAddress wAddr)
 
 ----------------------------------------------------------------------------
 -- Orphan instances

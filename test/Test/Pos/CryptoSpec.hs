@@ -13,14 +13,15 @@ import           Test.QuickCheck       (Property, (===), (==>))
 import           Universum
 
 import           Pos.Binary            (AsBinary, Bi)
-import           Pos.Crypto            (EncShare, Hash, PassPhrase, ProxyCert,
-                                        ProxySecretKey (..), ProxySignature, PublicKey,
-                                        Secret, SecretKey, SecretProof,
+import           Pos.Crypto            (EncShare, HDPassphrase, Hash, PassPhrase,
+                                        ProxyCert, ProxySecretKey (..), ProxySignature,
+                                        PublicKey, Secret, SecretKey, SecretProof,
                                         SecretSharingExtra, Share, Signature, Signed,
                                         VssPublicKey, checkSig, createProxySecretKey,
                                         deterministic, fullPublicKeyF, hash, hashHexF,
-                                        keyGen, parseFullPublicKey, proxySign,
-                                        proxyVerify, randomNumber, sign, toPublic,
+                                        keyGen, packHDAddressAttr, parseFullPublicKey,
+                                        proxySign, proxyVerify, randomNumber, sign,
+                                        toPublic, unpackHDAddressAttr,
                                         verifyProxySecretKey)
 import           Pos.Ssc.GodTossing    ()
 
@@ -146,6 +147,8 @@ spec = describe "Crypto" $ do
             prop
                 "incorrect proxy signature schemes fails correctness check"
                 (proxySecretKeyCheckIncorrect @(Int32,Int32))
+        describe "HD wallet" $ do
+            prop "pack/unpack address payload" packUnpackHDAddress
 
 
 
@@ -221,3 +224,7 @@ proxySignVerifyDifferentData issuerSk delegateSk w m m2 =
     issuerPk = toPublic issuerSk
     proxySk = createProxySecretKey issuerSk (toPublic delegateSk) w
     signature = proxySign delegateSk proxySk m
+
+packUnpackHDAddress :: HDPassphrase -> [Word32] -> Bool
+packUnpackHDAddress passphrase path =
+    maybe False (== path) (unpackHDAddressAttr passphrase (packHDAddressAttr passphrase path))

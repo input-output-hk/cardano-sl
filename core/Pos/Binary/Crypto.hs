@@ -198,7 +198,8 @@ instance Bi PassPhrase where
         let bs = BS.pack $ ByteArray.unpack pp
         putAssertLength "PassPhrase" passphraseLength bs
         putByteString bs
-    get = label "PassPhrase" $ ByteArray.pack . BS.unpack <$> get
+    get = label "PassPhrase" $
+          ByteArray.pack . BS.unpack <$> getByteString passphraseLength
 
 -------------------------------------------------------------------------------
 -- Hierarchical derivation

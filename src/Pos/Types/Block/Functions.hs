@@ -13,7 +13,6 @@ module Pos.Types.Block.Functions
        , mkMainHeader
        , mkGenesisHeader
        , mkGenesisBlock
-       , mkGenesisEHD
 
        , genesisHash
 
@@ -186,20 +185,15 @@ recreateMainBlock _gbHeader _gbBody _gbExtra = do
         Left err -> fail $ toString err
     pure gb
 
--- | Dummy implementation of make genesis extra header data.
-mkGenesisEHD :: () -> GenesisExtraHeaderData
-mkGenesisEHD = GenesisExtraHeaderData . mkAttributes
-
 -- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.
 mkGenesisHeader
     :: BiSsc ssc
     => Maybe (BlockHeader ssc)
     -> EpochIndex
     -> Body (GenesisBlockchain ssc)
-    -> ExtraHeaderData (GenesisBlockchain ssc)
     -> GenesisBlockHeader ssc
-mkGenesisHeader prevHeader epoch body extra =
-    mkGenericHeader prevHeader body consensus extra
+mkGenesisHeader prevHeader epoch body =
+    mkGenericHeader prevHeader body consensus (GenesisExtraHeaderData $ mkAttributes ())
   where
     difficulty = maybe 0 (view difficultyL) prevHeader
     consensus _ _ =
@@ -211,11 +205,10 @@ mkGenesisBlock
     => Maybe (BlockHeader ssc)
     -> EpochIndex
     -> SlotLeaders
-    -> ExtraHeaderData (GenesisBlockchain ssc)
     -> GenesisBlock ssc
-mkGenesisBlock prevHeader epoch leaders extra =
+mkGenesisBlock prevHeader epoch leaders =
     GenericBlock
-    { _gbHeader = mkGenesisHeader prevHeader epoch body extra
+    { _gbHeader = mkGenesisHeader prevHeader epoch body
     , _gbBody = body
     , _gbExtra = ()
     }

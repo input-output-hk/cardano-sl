@@ -38,8 +38,7 @@ import           Pos.DB.Types                     (NodeDBs (..))
 import           Pos.Lrc.DB                       (prepareLrcDB)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Types                        (Block, BlockHeader, getBlockHeader,
-                                                   headerHash, mkGenesisBlock,
-                                                   mkGenesisEHD)
+                                                   headerHash, mkGenesisBlock)
 import           Pos.Util                         (inAssertMode)
 import           Pos.Util.Chrono                  (NewestFirst)
 
@@ -70,7 +69,7 @@ initNodeDBs
     => m ()
 initNodeDBs = do
     leaders0 <- genesisLeadersM
-    let genesisBlock0 = mkGenesisBlock @ssc Nothing 0 leaders0 $ mkGenesisEHD ()
+    let genesisBlock0 = mkGenesisBlock @ssc Nothing 0 leaders0
         initialTip = headerHash genesisBlock0
     prepareBlockDB genesisBlock0
     prepareGStateDB initialTip

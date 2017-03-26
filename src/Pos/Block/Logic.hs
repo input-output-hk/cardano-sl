@@ -90,8 +90,8 @@ import           Pos.Types                  (Block, BlockHeader, EpochIndex,
                                              epochOrSlot, flattenSlotId, gbBody, gbHeader,
                                              genesisHash, getEpochOrSlot, headerHash,
                                              headerHashG, headerSlot, mbTxPayload,
-                                             mkGenesisBlock, mkGenesisEHD, mkMainBlock,
-                                             prevBlockL, verifyHeader, verifyHeaders,
+                                             mkGenesisBlock, mkMainBlock, prevBlockL,
+                                             verifyHeader, verifyHeaders,
                                              vhpVerifyConsensus)
 import qualified Pos.Types                  as Types
 import           Pos.Update.Core            (UpdatePayload (..))
@@ -657,7 +657,7 @@ createGenesisBlockDo epoch leaders tip = do
   where
     createGenesisBlockFinally tipHeader
         | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
-            let blk = mkGenesisBlock (Just tipHeader) epoch leaders $ mkGenesisEHD ()
+            let blk = mkGenesisBlock (Just tipHeader) epoch leaders
             let newTip = headerHash blk
             runExceptT (usVerifyBlocks (one (toUpdateBlock (Left blk)))) >>= \case
                 Left err -> reportFatalError $ pretty err

@@ -49,7 +49,8 @@ done
 
 # TODO: how can --ghc-options be moved into commonargs?
 commonargs='--test --no-haddock-deps --bench --jobs=4'
-norun='--no-run-tests --no-run-benchmarks'
+#norun='--no-run-tests --no-run-benchmarks'
+norun='--no-run-benchmarks'
 
 if [ -e .no-nix ]; then
   commonargs="$commonargs --no-nix"

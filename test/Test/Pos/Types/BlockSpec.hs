@@ -14,6 +14,7 @@ import           Pos.Binary            (Bi)
 import           Pos.Block.Arbitrary   as T
 import           Pos.Crypto            (ProxySecretKey (pskIssuerPk), SecretKey,
                                         createProxySecretKey, proxySign, sign, toPublic)
+import           Pos.Data.Attributes   (mkAttributes)
 import           Pos.Ssc.Class         (Ssc (..), SscHelpersClass)
 import           Pos.Ssc.GodTossing    (SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
@@ -63,18 +64,17 @@ genesisHeaderFormation
     => Maybe (T.BlockHeader ssc)
     -> T.EpochIndex
     -> T.Body (T.GenesisBlockchain ssc)
-    -> T.ExtraHeaderData (T.GenesisBlockchain ssc)
     -> Property
-genesisHeaderFormation prevHeader epoch body extra =
+genesisHeaderFormation prevHeader epoch body =
     header === manualHeader
   where
-    header = T.mkGenesisHeader prevHeader epoch body extra
+    header = T.mkGenesisHeader prevHeader epoch body
     manualHeader =
         T.GenericBlockHeader
         { T._gbhPrevBlock = h
         , T._gbhBodyProof = proof
         , T._gbhConsensus = consensus h proof
-        , T._gbhExtra = extra
+        , T._gbhExtra = T.GenesisExtraHeaderData $ mkAttributes ()
         }
     h = maybe T.genesisHash T.headerHash prevHeader
     proof = T.mkBodyProof body

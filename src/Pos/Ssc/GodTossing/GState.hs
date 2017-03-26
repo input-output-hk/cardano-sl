@@ -21,10 +21,11 @@ import           Universum
 
 import           Pos.Binary.Ssc                 ()
 import           Pos.Constants                  (vssMaxTTL)
-import           Pos.Context                    (WithNodeContext, lrcActionOnEpoch)
+import           Pos.Context                    (lrcActionOnEpoch)
 import           Pos.DB                         (DBError (DBMalformed), MonadDB)
 import           Pos.DB.DB                      (getTipBlockHeader,
                                                  loadBlundsFromTipWhile)
+import           Pos.Lrc.Context                (LrcContext)
 import qualified Pos.Lrc.DB                     as LrcDB
 import           Pos.Lrc.Types                  (RichmenStake)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
@@ -47,6 +48,7 @@ import           Pos.Types                      (Block, EpochIndex (..), SlotId 
 import           Pos.Util                       (maybeThrow, _neHead, _neLast)
 import           Pos.Util.Chrono                (NE, NewestFirst (..), OldestFirst (..),
                                                  toOldestFirst)
+import           Pos.Util.Context               (HasContext)
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -87,7 +89,7 @@ instance SscGStateClass SscGodTossing where
         view gsShares
 
 loadGlobalState
-    :: ( WithNodeContext SscGodTossing m
+    :: ( HasContext LrcContext m
        , WithLogger m
        , MonadDB m
        )

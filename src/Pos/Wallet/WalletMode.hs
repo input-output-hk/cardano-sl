@@ -48,7 +48,9 @@ import           Pos.Txp                     (TxpHolder (..), filterUtxoByAddr,
 import           Pos.Types                   (BlockHeader, ChainDifficulty, difficultyL,
                                               flattenEpochOrSlot, flattenSlotId)
 import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
+import           Pos.Update.Context          (UpdateContext (ucUpdateSemaphore))
 import           Pos.Util                    (maybeThrow)
+import           Pos.Util.Context            (askContext)
 import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)
@@ -192,7 +194,8 @@ instance MonadIO m => MonadUpdates (WalletDB m) where
 -- | Instance for full node
 instance (Ssc ssc, MonadIO m, WithLogger m) =>
          MonadUpdates (PC.ContextHolder ssc m) where
-    waitForUpdate = liftIO . takeMVar . PC.ncUpdateSemaphore =<< PC.getNodeContext
+    waitForUpdate = liftIO . takeMVar =<<
+                        askContext @UpdateContext ucUpdateSemaphore
     applyLastUpdate = triggerShutdown
 
 ---------------------------------------------------------------

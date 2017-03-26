@@ -16,6 +16,7 @@ import           Pos.Binary.Crypto           ()
 import           Pos.Crypto.Arbitrary.Unsafe ()
 import           Pos.Crypto.AsBinary         ()
 import           Pos.Crypto.Hashing          (AbstractHash, HashAlgorithm)
+import           Pos.Crypto.HD               (HDPassphrase (..))
 import           Pos.Crypto.RedeemSigning    (RedeemPublicKey, RedeemSecretKey,
                                               RedeemSignature, redeemKeyGen, redeemSign)
 import           Pos.Crypto.SafeSigning      (PassPhrase)
@@ -184,3 +185,10 @@ instance (HashAlgorithm algo, Bi a) => Arbitrary (AbstractHash algo a) where
 
 instance Arbitrary PassPhrase where
     arbitrary = ByteArray.pack <$> vector 32
+
+----------------------------------------------------------------------------
+-- HD
+----------------------------------------------------------------------------
+
+instance Arbitrary HDPassphrase where
+    arbitrary = HDPassphrase . fromString <$> vector 32

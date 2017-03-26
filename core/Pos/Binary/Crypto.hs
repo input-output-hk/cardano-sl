@@ -24,6 +24,7 @@ import           Formatting               (int, sformat, stext, (%))
 import           Pos.Binary.Class         (AsBinary (..), Bi (..), getCopyBi, putCopyBi)
 import           Pos.Crypto.Hashing       (AbstractHash (..), Hash, HashAlgorithm,
                                            WithHash (..), withHash)
+import           Pos.Crypto.HD            (HDAddressPayload (..))
 import           Pos.Crypto.RedeemSigning (RedeemPublicKey (..), RedeemSecretKey (..),
                                            RedeemSignature (..))
 import           Pos.Crypto.SafeSigning   (EncryptedSecretKey (..), PassPhrase)
@@ -199,6 +200,12 @@ instance Bi PassPhrase where
         putByteString bs
     get = label "PassPhrase" $
           ByteArray.pack . BS.unpack <$> getByteString passphraseLength
+
+-------------------------------------------------------------------------------
+-- Hierarchical derivation
+-------------------------------------------------------------------------------
+instance Binary.Binary HDAddressPayload
+instance Bi HDAddressPayload
 
 -------------------------------------------------------------------------------
 -- Standard Ed25519 instances for ADA redeem keys

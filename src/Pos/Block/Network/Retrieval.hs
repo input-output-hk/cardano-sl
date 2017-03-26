@@ -93,7 +93,7 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
             reportingFatal version $
             reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
             withConnectionTo sendActions peerId $ \_peerData ->
-                requestHeaders mghNext peerId rHeader limPx
+                requestHeaders mghNext peerId (Just rHeader) limPx
     handleBlockRetrievalE (peerId, headers) e = do
         logWarning $ sformat
             ("Error handling peerId="%build%", headers="%listJson%": "%shown)

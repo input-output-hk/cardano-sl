@@ -46,7 +46,7 @@ import Data.Array (length, filter)
 import Partial.Unsafe (unsafePartial)
 import Data.String (split, null, trim, joinWith, Pattern (..))
 
-import Daedalus.Crypto (isValidMnemonic, toUrlSafe, blake2b, bytesToB64)
+import Daedalus.Crypto (isValidMnemonic, blake2b, bytesToB16)
 import Data.Types (mkTime)
 import Data.Types as DT
 
@@ -95,7 +95,7 @@ _passPhrase :: CPassPhrase -> String
 _passPhrase (CPassPhrase p) = p
 
 mkCPassPhrase :: String -> CPassPhrase
-mkCPassPhrase = CPassPhrase <<< toUrlSafe <<< bytesToB64 <<< blake2b
+mkCPassPhrase = CPassPhrase <<< bytesToB16 <<< blake2b
 
 mkCAddress :: String -> CAddress
 mkCAddress = CAddress <<< CHash

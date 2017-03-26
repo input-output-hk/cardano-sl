@@ -46,7 +46,6 @@
     "xhr2": "^0.1.4"
   },
   "dependencies": {
-    "base64-js": "^1.2.0",
     "bip39": "^2.2.0",
     "blakejs": "^1.0.1",
     "json-loader": "^0.5.4"

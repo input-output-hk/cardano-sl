@@ -167,6 +167,7 @@ library
                         -- Crypto
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Unsafe
+                        Pos.Crypto.HDDiscovery
 
                         -- Heavy delegation
                         Pos.Delegation.Class

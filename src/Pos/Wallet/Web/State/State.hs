@@ -15,6 +15,7 @@ module Pos.Wallet.Web.State.State
        , getWalletMetas
        , getWalletMeta
        , getWalletAccounts
+       , getAddressPath
        , getWSetMetas
        , getWSetMeta
        , getTxMeta
@@ -28,6 +29,7 @@ module Pos.Wallet.Web.State.State
        , createWallet
        , createWSet
        , addWalletAccount
+       , addAddressPath
        , setProfile
        , setWalletMeta
        , setWSetMeta
@@ -99,8 +101,11 @@ getWSetMetas = queryDisk A.GetWSetMetas
 getWSetMeta :: WebWalletModeDB m => CAddress -> m (Maybe CWalletSetMeta)
 getWSetMeta = queryDisk . A.GetWSetMeta
 
-getWalletAccounts :: WebWalletModeDB m => CAddress -> m [CAddress]
+getWalletAccounts :: WebWalletModeDB m => CAddress -> m (Maybe [CAddress])
 getWalletAccounts = queryDisk . A.GetWalletAccounts
+
+getAddressPath :: WebWalletModeDB m => CAddress -> m (Maybe [Word32])
+getAddressPath = queryDisk . A.GetAddressPath
 
 getProfile :: WebWalletModeDB m => m (Maybe CProfile)
 getProfile = queryDisk A.GetProfile
@@ -128,6 +133,9 @@ createWSet addr = updateDisk . A.CreateWSet addr
 
 addWalletAccount :: WebWalletModeDB m => CAddress -> CAddress -> m ()
 addWalletAccount waddr aaddr = updateDisk $ A.AddWalletAccount waddr aaddr
+
+addAddressPath :: WebWalletModeDB m => CAddress -> [Word32] -> m ()
+addAddressPath addr = updateDisk . A.AddAddressPath addr
 
 setWalletMeta :: WebWalletModeDB m => CAddress -> CWalletMeta -> m ()
 setWalletMeta addr = updateDisk . A.SetWalletMeta addr

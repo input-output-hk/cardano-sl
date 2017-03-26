@@ -15,6 +15,7 @@ module Pos.Wallet.Web.State.Storage
        , getWSetMetas
        , getWSetMeta
        , getWalletAccounts
+       , getAddressPath
        , getTxMeta
        , getUpdates
        , getNextUpdate
@@ -22,6 +23,7 @@ module Pos.Wallet.Web.State.Storage
        , createWallet
        , createWSet
        , addWalletAccount
+       , addAddressPath
        , setWalletMeta
        , setWSetMeta
        , setWalletHistory
@@ -58,6 +60,7 @@ type Accounts = HashSet CAddress
 data WalletStorage = WalletStorage
     { _wsWSetMetas    :: !(HashMap CAddress CWalletSetMeta)
     , _wsWalletMetas  :: !(HashMap CAddress (CWalletMeta, TransactionHistory, Accounts))
+    , _wsAddressPaths :: !(HashMap CAddress [Word32])
     , _wsProfile      :: !(Maybe CProfile)
     , _wsReadyUpdates :: [CUpdateInfo]
     , _wsHistoryCache :: !(HashMap CAddress (HeaderHash, Utxo, [TxHistoryEntry]))
@@ -70,6 +73,7 @@ instance Default WalletStorage where
         WalletStorage
         { _wsWSetMetas = mempty
         , _wsWalletMetas = mempty
+        , _wsAddressPaths = mempty
         , _wsProfile = mzero
         , _wsReadyUpdates = mempty
         , _wsHistoryCache = mempty
@@ -99,8 +103,11 @@ getWSetMetas = toList <$> view wsWSetMetas
 getWSetMeta :: CAddress -> Query (Maybe CWalletSetMeta)
 getWSetMeta cAddr = preview (wsWSetMetas . ix cAddr)
 
-getWalletAccounts :: CAddress -> Query [CAddress]
-getWalletAccounts walletAddr = toList <$> view (wsWalletMetas . ix walletAddr . _3)
+getWalletAccounts :: CAddress -> Query (Maybe [CAddress])
+getWalletAccounts walletAddr = toList <<$>> preview (wsWalletMetas . ix walletAddr . _3)
+
+getAddressPath :: CAddress -> Query (Maybe [Word32])
+getAddressPath cAddr = preview (wsAddressPaths . ix cAddr)
 
 getTxMeta :: CAddress -> CTxId -> Query (Maybe CTxMeta)
 getTxMeta cAddr ctxId = preview $ wsWalletMetas . at cAddr . _Just . _2 . at ctxId . _Just
@@ -125,6 +132,9 @@ createWSet cAddr wSMeta = wsWSetMetas . at cAddr ?= wSMeta
 
 addWalletAccount :: CAddress -> CAddress -> Update ()
 addWalletAccount walletAddr accountAddr = wsWalletMetas . at walletAddr . _Just . _3 . at accountAddr ?= ()
+
+addAddressPath :: CAddress -> [Word32] -> Update ()
+addAddressPath cAddr path = wsAddressPaths . at cAddr ?= path
 
 setWalletMeta :: CAddress -> CWalletMeta -> Update ()
 setWalletMeta cAddr wMeta = wsWalletMetas . at cAddr . _Just . _1 .= wMeta

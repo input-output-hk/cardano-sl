@@ -19,6 +19,7 @@ module Pos.Wallet.Web.State.Acidic
        , GetWSetMetas (..)
        , GetWSetMeta (..)
        , GetWalletAccounts (..)
+       , GetAddressPath (..)
        , GetTxMeta (..)
        , GetUpdates (..)
        , GetNextUpdate (..)
@@ -26,6 +27,7 @@ module Pos.Wallet.Web.State.Acidic
        , GetHistoryCache (..)
        , CreateWallet (..)
        , AddWalletAccount (..)
+       , AddAddressPath (..)
        , CreateWSet (..)
        , SetProfile (..)
        , SetWalletMeta (..)
@@ -87,6 +89,7 @@ makeAcidic ''WalletStorage
     , 'WS.getWSetMetas
     , 'WS.getWSetMeta
     , 'WS.getWalletAccounts
+    , 'WS.getAddressPath
     , 'WS.getTxMeta
     , 'WS.getUpdates
     , 'WS.getNextUpdate
@@ -94,6 +97,7 @@ makeAcidic ''WalletStorage
     , 'WS.createWallet
     , 'WS.createWSet
     , 'WS.addWalletAccount
+    , 'WS.addAddressPath
     , 'WS.setProfile
     , 'WS.setWalletMeta
     , 'WS.setWSetMeta

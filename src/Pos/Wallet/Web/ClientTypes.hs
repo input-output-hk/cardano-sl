@@ -106,6 +106,7 @@ instance Hashable CHash where
     hashWithSalt s (CHash h) = hashWithSalt s h
 
 -- | Client address
+-- TODO: [CSL-931] introduce phantom type for type safety?
 newtype CAddress = CAddress CHash deriving (Show, Eq, Generic, Hashable, Buildable)
 
 -- TODO: this is not complitely safe. If someone changes

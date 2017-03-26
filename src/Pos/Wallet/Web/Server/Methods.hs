@@ -96,9 +96,9 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWeb
                                                 addWalletAccount, closeState, createWSet,
                                                 createWallet, getHistoryCache,
                                                 getNextUpdate, getProfile, getTxMeta,
-                                                getWSetMeta, getWalletAccounts,
-                                                getWalletAddresses, getWalletMeta,
-                                                getWalletState, openState,
+                                                getWSetAddresses, getWSetMeta,
+                                                getWalletAccounts, getWalletAddresses,
+                                                getWalletMeta, getWalletState, openState,
                                                 removeNextUpdate, removeWallet,
                                                 removeWalletAccount, runWalletWebDB,
                                                 setProfile, setWalletMeta,
@@ -419,7 +419,7 @@ getWallets mCAddr = do
         filter $ (== cAddr) . cwSetId . cwMeta
 
 getWSets :: WalletWebMode ssc m => m [CWalletSet]
-getWSets = undefined  -- TODO [CSL-931]: by analogy with `getWallets`
+getWSets = getWSetAddresses >>= mapM getWSet
 
 decodeCPassPhraseOrFail :: WalletWebMode ssc m => CPassPhrase -> m PassPhrase
 decodeCPassPhraseOrFail cpass =

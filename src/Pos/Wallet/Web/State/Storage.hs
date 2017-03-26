@@ -14,6 +14,7 @@ module Pos.Wallet.Web.State.Storage
        , getWalletMeta
        , getWSetMetas
        , getWSetMeta
+       , getWSetAddresses
        , getWalletAccounts
        , getAddressPath
        , getTxMeta
@@ -102,6 +103,9 @@ getWSetMetas = toList <$> view wsWSetMetas
 
 getWSetMeta :: CAddress -> Query (Maybe CWalletSetMeta)
 getWSetMeta cAddr = preview (wsWSetMetas . ix cAddr)
+
+getWSetAddresses :: Query [CAddress]
+getWSetAddresses = HM.keys <$> view wsWSetMetas
 
 getWalletAccounts :: CAddress -> Query (Maybe [CAddress])
 getWalletAccounts walletAddr = toList <<$>> preview (wsWalletMetas . ix walletAddr . _3)

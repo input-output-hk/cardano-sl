@@ -36,7 +36,8 @@ import           Pos.Wallet.Web.ClientTypes (CAccount (..), CAddress (..), CCurr
                                              CTxMeta (..), CUpdateInfo (..), CWallet (..),
                                              CWalletInit (..), CWalletMeta (..),
                                              CWalletRedeem (..), CWalletSet (..),
-                                             CWalletSetInit (..), CWalletType (..),
+                                             CWalletSetInit (..), CWalletSetInit (..),
+                                             CWalletSetMeta (..), CWalletType (..),
                                              SyncProgress, addressToCAddress, mkCTxId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 
@@ -314,12 +315,21 @@ instance ToSample CWalletInit where
 instance ToSample CWalletSet where
     toSamples Proxy = singleSample sample
       where
-        sample = undefined
+        sample = CWalletSet
+            { cwsAddress  = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
+            , cwsWSetMeta = CWalletSetMeta
+                { cwsName = "Personal wallet set" }
+            , cwsWalletsNumber = 3
+            }
 
 instance ToSample CWalletSetInit where
     toSamples Proxy = singleSample sample
       where
-        sample = undefined
+        sample = CWalletSetInit
+            { cwsBackupPhrase = backupPhrase
+            , cwsInitMeta     = CWalletSetMeta
+                { cwsName = "Personal wallet set" }
+            }
 
 instance ToSample CUpdateInfo where
     toSamples Proxy = singleSample sample

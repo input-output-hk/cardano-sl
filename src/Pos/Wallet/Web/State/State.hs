@@ -18,6 +18,7 @@ module Pos.Wallet.Web.State.State
        , getAddressPath
        , getWSetMetas
        , getWSetMeta
+       , getWSetAddresses
        , getTxMeta
        , getWalletHistory
        , getUpdates
@@ -95,11 +96,14 @@ getWalletMetas = queryDisk A.GetWalletMetas
 getWalletMeta :: WebWalletModeDB m => CAddress -> m (Maybe CWalletMeta)
 getWalletMeta = queryDisk . A.GetWalletMeta
 
-getWSetMetas :: WebWalletModeDB m => m [CWalletSetMeta]
-getWSetMetas = queryDisk A.GetWSetMetas
+getWSetAddresses :: WebWalletModeDB m => m [CAddress]
+getWSetAddresses = queryDisk A.GetWSetAddresses
 
 getWSetMeta :: WebWalletModeDB m => CAddress -> m (Maybe CWalletSetMeta)
 getWSetMeta = queryDisk . A.GetWSetMeta
+
+getWSetMetas :: WebWalletModeDB m => m ([CWalletSetMeta])
+getWSetMetas = queryDisk A.GetWSetMetas
 
 getWalletAccounts :: WebWalletModeDB m => CAddress -> m (Maybe [CAddress])
 getWalletAccounts = queryDisk . A.GetWalletAccounts

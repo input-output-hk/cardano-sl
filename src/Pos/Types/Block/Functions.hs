@@ -52,6 +52,7 @@ import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
 import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySign,
                                              proxyVerify, pskIssuerPk, pskOmega, sign,
                                              toPublic, unsafeHash)
+import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Script                 (isKnownScriptVersion, scrVersion)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Txp.Core.Types         (Tx (..), TxInWitness (..), TxOut (..))
@@ -64,7 +65,8 @@ import           Pos.Types.Block.Instances  (Body (..), ConsensusData (..), bloc
 import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
                                              BlockSignature (..), GenesisBlock,
                                              GenesisBlockHeader, GenesisBlockchain,
-                                             MainBlock, MainBlockHeader, MainBlockchain,
+                                             GenesisExtraHeaderData (..), MainBlock,
+                                             MainBlockHeader, MainBlockchain,
                                              MainExtraBodyData (..), MainExtraHeaderData,
                                              mehBlockVersion)
 import           Pos.Update.Core            (BlockVersionData (..))
@@ -189,7 +191,8 @@ mkGenesisHeader
     -> Body (GenesisBlockchain ssc)
     -> GenesisBlockHeader ssc
 mkGenesisHeader prevHeader epoch body =
-    mkGenericHeader prevHeader body consensus ()
+    mkGenericHeader prevHeader body consensus
+      $ GenesisExtraHeaderData $ mkAttributes ()
   where
     difficulty = maybe 0 (view difficultyL) prevHeader
     consensus _ _ =

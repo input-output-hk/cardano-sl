@@ -70,10 +70,10 @@ import           Pos.Txp.Core          (Tx, TxAux, TxDistribution, TxPayload, Tx
                                         txpWitnesses)
 import           Pos.Types.Block.Types (BiHeader, BiSsc, Block, BlockHeader,
                                         BlockSignature, GenesisBlock, GenesisBlockHeader,
-                                        GenesisBlockchain, MainBlock, MainBlockHeader,
-                                        MainBlockchain, MainExtraBodyData,
-                                        MainExtraHeaderData, mehBlockVersion,
-                                        mehSoftwareVersion)
+                                        GenesisBlockchain, GenesisExtraHeaderData,
+                                        MainBlock, MainBlockHeader, MainBlockchain,
+                                        MainExtraBodyData, MainExtraHeaderData,
+                                        mehBlockVersion, mehSoftwareVersion)
 import           Pos.Update.Core.Types (UpdatePayload, UpdateProof, UpdateProposal,
                                         mkUpdateProof)
 
@@ -158,6 +158,7 @@ instance Blockchain (GenesisBlockchain ssc) where
           _gcdDifficulty :: !ChainDifficulty
         } deriving (Generic, Show, Eq)
     type BBlockHeader (GenesisBlockchain ssc) = BlockHeader ssc
+    type ExtraHeaderData (GenesisBlockchain ssc) = GenesisExtraHeaderData
 
     -- | Body of genesis block consists of slot leaders for epoch
     -- associated with this block.

@@ -7,7 +7,8 @@ module Pos.Crypto.Arbitrary
 import qualified Data.ByteArray              as ByteArray
 import           Data.List.NonEmpty          (fromList)
 import           System.IO.Unsafe            (unsafePerformIO)
-import           Test.QuickCheck             (Arbitrary (..), choose, elements, generate)
+import           Test.QuickCheck             (Arbitrary (..), choose, elements, generate,
+                                              vector)
 import           Universum
 
 import           Pos.Binary.Class            (AsBinary (..), AsBinaryClass (..), Bi)
@@ -182,4 +183,4 @@ instance (HashAlgorithm algo, Bi a) => Arbitrary (AbstractHash algo a) where
 ----------------------------------------------------------------------------
 
 instance Arbitrary PassPhrase where
-    arbitrary = ByteArray.pack <$> arbitrary
+    arbitrary = ByteArray.pack <$> vector 32

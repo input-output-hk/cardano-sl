@@ -13,6 +13,7 @@ module Pos.Types.Block.Functions
        , mkMainHeader
        , mkGenesisHeader
        , mkGenesisBlock
+       , mkGenesisEHD
 
        , genesisHash
 
@@ -52,6 +53,7 @@ import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
 import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySign,
                                              proxyVerify, pskIssuerPk, pskOmega, sign,
                                              toPublic, unsafeHash)
+import           Pos.Data.Attributes        (Attributes)
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Script                 (isKnownScriptVersion, scrVersion)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
@@ -65,7 +67,8 @@ import           Pos.Types.Block.Instances  (Body (..), ConsensusData (..), bloc
 import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
                                              BlockSignature (..), GenesisBlock,
                                              GenesisBlockHeader, GenesisBlockchain,
-                                             GenesisExtraHeaderData (..), MainBlock,
+                                             GenesisExtraHeaderData (..),
+                                             GenesisHeaderAttributes, MainBlock,
                                              MainBlockHeader, MainBlockchain,
                                              MainExtraBodyData (..), MainExtraHeaderData,
                                              mehBlockVersion)
@@ -144,7 +147,7 @@ mkMainHeader prevHeader slotId sk pSk body extra =
     makeSignature toSign (Left psk)  = BlockPSignatureEpoch $ proxySign sk psk toSign
     makeSignature toSign (Right psk) = BlockPSignatureSimple $ proxySign sk psk toSign
     signature prevHash proof =
-        let toSign = (prevHash, proof, slotId, difficulty)
+        let toSign = (prevHash, proof, slotId, difficulty, extra)
         in maybe (BlockSignature $ sign sk toSign) (makeSignature toSign) pSk
     consensus prevHash proof =
         MainConsensusData
@@ -183,16 +186,20 @@ recreateMainBlock _gbHeader _gbBody _gbExtra = do
         Left err -> fail $ toString err
     pure gb
 
+-- | Dummy implementation of make genesis extra header data.
+mkGenesisEHD :: () -> GenesisExtraHeaderData
+mkGenesisEHD = GenesisExtraHeaderData . mkAttributes
+
 -- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.
 mkGenesisHeader
     :: BiSsc ssc
     => Maybe (BlockHeader ssc)
     -> EpochIndex
     -> Body (GenesisBlockchain ssc)
+    -> ExtraHeaderData (GenesisBlockchain ssc)
     -> GenesisBlockHeader ssc
-mkGenesisHeader prevHeader epoch body =
-    mkGenericHeader prevHeader body consensus
-      $ GenesisExtraHeaderData $ mkAttributes ()
+mkGenesisHeader prevHeader epoch body extra =
+    mkGenericHeader prevHeader body consensus extra
   where
     difficulty = maybe 0 (view difficultyL) prevHeader
     consensus _ _ =
@@ -204,10 +211,11 @@ mkGenesisBlock
     => Maybe (BlockHeader ssc)
     -> EpochIndex
     -> SlotLeaders
+    -> ExtraHeaderData (GenesisBlockchain ssc)
     -> GenesisBlock ssc
-mkGenesisBlock prevHeader epoch leaders =
+mkGenesisBlock prevHeader epoch leaders extra =
     GenericBlock
-    { _gbHeader = mkGenesisHeader prevHeader epoch body
+    { _gbHeader = mkGenesisHeader prevHeader epoch body extra
     , _gbBody = body
     , _gbExtra = ()
     }
@@ -228,22 +236,24 @@ verifyConsensusLocal (Right header) =
         ]
   where
     verifyBlockSignature (BlockSignature sig) =
-        checkSig pk (_gbhPrevBlock, _gbhBodyProof, slotId, d) sig
+        checkSig pk signature sig
     verifyBlockSignature (BlockPSignatureEpoch proxySig) =
         proxyVerify
             pk
             proxySig
             (\(epochLow, epochHigh) ->
                epochId <= epochHigh && epochId >= epochLow)
-            (_gbhPrevBlock, _gbhBodyProof, slotId, d)
+            signature
     verifyBlockSignature (BlockPSignatureSimple proxySig) =
         proxyVerify
             pk
             proxySig
             (const True)
-            (_gbhPrevBlock, _gbhBodyProof, slotId, d)
+            signature
     GenericBlockHeader {_gbhConsensus = consensus
+                       , _gbhExtra = extra
                        ,..} = header
+    signature = (_gbhPrevBlock, _gbhBodyProof, slotId, d, extra)
     pk = consensus ^. mcdLeaderKey
     slotId = consensus ^. mcdSlot
     epochId = siEpoch slotId

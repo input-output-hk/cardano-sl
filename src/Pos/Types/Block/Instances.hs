@@ -85,7 +85,7 @@ instance (SscHelpersClass ssc, Bi TxWitness, Bi UpdatePayload, Bi EpochIndex) =>
          Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
     data BodyProof (MainBlockchain ssc) = MainProof
-        { mpTxProof        :: !TxProof
+        { mpTxProof       :: !TxProof
         , mpMpcProof      :: !(SscProof ssc)
         , mpProxySKsProof :: !(Hash [ProxySKHeavy])
         , mpUpdateProof   :: !UpdateProof

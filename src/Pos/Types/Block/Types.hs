@@ -58,7 +58,12 @@ import           Pos.Ssc.Class.Types (Ssc (..))
 data MainBlockchain ssc
 
 -- | Data to be signed in main block.
-type MainToSign ssc = (HeaderHash, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
+type MainToSign ssc = ( HeaderHash
+                      , BodyProof (MainBlockchain ssc)
+                      , SlotId
+                      , ChainDifficulty
+                      , MainExtraHeaderData
+                      )
 
 -- | Signature of the block. Can be either regular signature from the
 -- issuer or delegated signature having a constraint on epoch indices

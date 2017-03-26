@@ -63,17 +63,18 @@ genesisHeaderFormation
     => Maybe (T.BlockHeader ssc)
     -> T.EpochIndex
     -> T.Body (T.GenesisBlockchain ssc)
+    -> T.ExtraHeaderData (T.GenesisBlockchain ssc)
     -> Property
-genesisHeaderFormation prevHeader epoch body =
+genesisHeaderFormation prevHeader epoch body extra =
     header === manualHeader
   where
-    header = (T.mkGenesisHeader prevHeader epoch body)
+    header = T.mkGenesisHeader prevHeader epoch body extra
     manualHeader =
         T.GenericBlockHeader
         { T._gbhPrevBlock = h
         , T._gbhBodyProof = proof
         , T._gbhConsensus = consensus h proof
-        , T._gbhExtra = ()
+        , T._gbhExtra = extra
         }
     h = maybe T.genesisHash T.headerHash prevHeader
     proof = T.mkBodyProof body
@@ -118,7 +119,7 @@ mainHeaderFormation prevHeader slotId signer body extra =
     makeSignature toSign (Left psk)  = T.BlockPSignatureEpoch $ proxySign sk psk toSign
     makeSignature toSign (Right psk) = T.BlockPSignatureSimple $ proxySign sk psk toSign
     signature prevHash p =
-        let toSign = (prevHash, p, slotId, difficulty)
+        let toSign = (prevHash, p, slotId, difficulty, extra)
         in maybe (T.BlockSignature $ sign sk toSign) (makeSignature toSign) pSk
     consensus prevHash p =
         T.MainConsensusData

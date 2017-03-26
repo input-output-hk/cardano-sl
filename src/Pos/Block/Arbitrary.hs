@@ -267,7 +267,7 @@ recursiveHeaderGen (eitherOfLeader : leaders)
     genHeader
       | slot == epochSlots = do
         body <- arbitrary
-        return $ Left $ T.mkGenesisHeader (Just prevHeader) (epochCounter + 1) body
+        return $ Left $ T.mkGenesisHeader (Just prevHeader) (epochCounter + 1) body $ T.mkGenesisEHD ()
       | otherwise = do
         body <- arbitrary
         extraHData <- arbitrary
@@ -321,7 +321,7 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
             vectorOf ((epochSlots * fullEpochs) + fromIntegral incompleteEpochSize)
                 arbitrary
         firstGenesisBody <- arbitrary
-        let firstHeader = Left $ T.mkGenesisHeader Nothing startingEpoch firstGenesisBody
+        let firstHeader = Left $ T.mkGenesisHeader Nothing startingEpoch firstGenesisBody $ T.mkGenesisEHD ()
             actualLeaders = map (toPublic . either identity (view _1)) leadersList
         (, actualLeaders) <$>
             recursiveHeaderGen

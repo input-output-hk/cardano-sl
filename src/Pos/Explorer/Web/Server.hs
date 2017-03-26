@@ -180,13 +180,13 @@ getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
 
 getBlockSummary :: ExplorerMode m => CHash -> m CBlockSummary
 getBlockSummary cHash = do
-    h <- either (throwM . Internal) pure $ fromCHash cHash
+    h <- unwrapOrThrow $ fromCHash cHash
     mainBlock <- getMainBlock h
     toBlockSummary mainBlock
 
 getBlockTxs :: ExplorerMode m => CHash -> Word -> Word -> m [CTxEntry]
 getBlockTxs cHash (fromIntegral -> lim) (fromIntegral -> off) = do
-    h <- either (throwM . Internal) pure $ fromCHash cHash
+    h <- unwrapOrThrow $ fromCHash cHash
     blk <- getMainBlock h
     txs <- topsortTxsOrFail withHash $ toList $ blk ^. blockTxs
     forM (take lim . drop off $ txs) $ \tx -> do
@@ -259,6 +259,9 @@ getTxSummary cTxId = do
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
+
+unwrapOrThrow :: ExplorerMode m => Either Text a -> m a
+unwrapOrThrow = either (throwM . Internal) pure
 
 fetchTxFromMempoolOrFail :: ExplorerMode m => TxId -> m TxAux
 fetchTxFromMempoolOrFail txId =

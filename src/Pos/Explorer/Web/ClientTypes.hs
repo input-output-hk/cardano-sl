@@ -33,13 +33,13 @@ module Pos.Explorer.Web.ClientTypes
 
 import           Control.Arrow          ((&&&))
 import           Control.Lens           (_Left)
-import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Lazy   as BSL
 import qualified Data.List.NonEmpty     as NE
 import           Data.Time.Clock.POSIX  (POSIXTime)
 import           Formatting             (sformat)
 import           Servant.API            (FromHttpApiData (..))
+import           Serokell.Util.Base16   as SB16
 import           Universum
 
 import qualified Pos.Binary             as Bi
@@ -88,14 +88,8 @@ encodeHashHex = decodeUtf8 . B16.encode . Bi.encodeStrict
 
 decodeHashHex :: Text -> Either Text (Hash a)
 decodeHashHex hashText = do
-    hashBinary <- processRes . B16.decode . encodeUtf8 $ hashText
-    over _Left toText $ Bi.decodeFull hashBinary
-  where
-    processRes :: (ByteString, ByteString) -> Either Text LByteString
-    processRes (res, rest) =
-        if BS.null rest
-        then Right $ BSL.fromStrict res
-        else Left $ "decodeHashHex: couldn't decode rest of hash: " <> decodeUtf8 rest
+    hashBinary <- SB16.decode hashText
+    over _Left toText $ Bi.decodeFull $ BSL.fromStrict hashBinary
 
 toCSearchId :: Hash a -> CSearchId
 toCSearchId = CSearchId . encodeHashHex

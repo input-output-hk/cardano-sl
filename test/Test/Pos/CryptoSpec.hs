@@ -13,16 +13,7 @@ import           Test.QuickCheck       (Property, (===), (==>))
 import           Universum
 
 import           Pos.Binary            (AsBinary, Bi)
-import           Pos.Crypto            (EncShare, HDPassphrase, Hash, ProxyCert,
-                                        ProxySecretKey (..), ProxySignature, PublicKey,
-                                        Secret, SecretKey, SecretProof,
-                                        SecretSharingExtra, Share, Signature, Signed,
-                                        VssPublicKey, checkSig, createProxySecretKey,
-                                        deterministic, fullPublicKeyF, hash, hashHexF,
-                                        keyGen, packHDAddressAttr, parseFullPublicKey,
-                                        proxySign, proxyVerify, randomNumber, sign,
-                                        toPublic, unpackHDAddressAttr,
-                                        verifyProxySecretKey)
+import qualified Pos.Crypto            as Crypto
 import           Pos.Ssc.GodTossing    ()
 
 import           Test.Pos.Util         (binaryEncodeDecode, binaryTest,
@@ -37,7 +28,7 @@ spec = describe "Crypto" $ do
         describe "random number determinism" $ do
             let seed = BS.pack [1..40]
             specify "[0,1)" $
-                deterministic seed (randomNumber 1) `shouldBe` 0
+                Crypto.deterministic seed (Crypto.randomNumber 1) `shouldBe` 0
             -- specify "[0,2)" $
             --     deterministic seed (randomNumber 2) `shouldBe` 1
             -- specify "[0,1000)" $
@@ -47,10 +38,10 @@ spec = describe "Crypto" $ do
         describe "Hash instances" $ do
             prop
                 "Bi"
-                (binaryEncodeDecode @(Hash Word64))
+                (binaryEncodeDecode @(Crypto.Hash Word64))
             prop
                 "SafeCopy"
-                (safeCopyEncodeDecode @(Hash Word64))
+                (safeCopyEncodeDecode @(Crypto.Hash Word64))
         describe "hashes of different values are different" $ do
             prop
                 "Bool"
@@ -72,48 +63,54 @@ spec = describe "Crypto" $ do
     describe "Signing" $ do
         describe "Identity testing" $ do
             describe "Bi instances" $ do
-                binaryTest @SecretKey
-                binaryTest @PublicKey
-                binaryTest @(Signature ())
-                binaryTest @(ProxyCert Int32)
-                binaryTest @(ProxySecretKey Int32)
-                binaryTest @(ProxySignature Int32 Int32)
-                binaryTest @(Signed Bool)
-                binaryTest @VssPublicKey
-                binaryTest @(AsBinary VssPublicKey)
-                binaryTest @(AsBinary Secret)
-                binaryTest @(AsBinary Share)
-                binaryTest @(AsBinary EncShare)
-                binaryTest @(AsBinary SecretProof)
-                binaryTest @(AsBinary SecretSharingExtra)
+                binaryTest @Crypto.SecretKey
+                binaryTest @Crypto.PublicKey
+                binaryTest @(Crypto.Signature ())
+                binaryTest @(Crypto.ProxyCert Int32)
+                binaryTest @(Crypto.ProxySecretKey Int32)
+                binaryTest @(Crypto.ProxySignature Int32 Int32)
+                binaryTest @(Crypto.Signed Bool)
+                binaryTest @Crypto.RedeemSecretKey
+                binaryTest @Crypto.RedeemPublicKey
+                binaryTest @(Crypto.RedeemSignature Bool)
+                binaryTest @Crypto.VssPublicKey
+                binaryTest @(AsBinary Crypto.VssPublicKey)
+                binaryTest @(AsBinary Crypto.Secret)
+                binaryTest @(AsBinary Crypto.Share)
+                binaryTest @(AsBinary Crypto.EncShare)
+                binaryTest @(AsBinary Crypto.SecretProof)
+                binaryTest @(AsBinary Crypto.SecretSharingExtra)
             describe "SafeCopy instances" $ do
-                safeCopyTest @SecretKey
-                safeCopyTest @PublicKey
-                safeCopyTest @(Signature ())
-                safeCopyTest @(Signed ())
-                safeCopyTest @(ProxyCert Int32)
-                safeCopyTest @(ProxySecretKey Int32)
-                safeCopyTest @(ProxySignature Int32 Int32)
-                safeCopyTest @(Signed Bool)
-                safeCopyTest @(AsBinary VssPublicKey)
-                safeCopyTest @(AsBinary Secret)
-                safeCopyTest @(AsBinary Share)
-                safeCopyTest @(AsBinary EncShare)
-                safeCopyTest @(AsBinary SecretProof)
-                safeCopyTest @(AsBinary SecretSharingExtra)
+                safeCopyTest @Crypto.SecretKey
+                safeCopyTest @Crypto.PublicKey
+                safeCopyTest @(Crypto.Signature ())
+                safeCopyTest @(Crypto.Signed ())
+                safeCopyTest @(Crypto.ProxyCert Int32)
+                safeCopyTest @(Crypto.ProxySecretKey Int32)
+                safeCopyTest @(Crypto.ProxySignature Int32 Int32)
+                safeCopyTest @(Crypto.Signed Bool)
+                safeCopyTest @Crypto.RedeemSecretKey
+                safeCopyTest @Crypto.RedeemPublicKey
+                safeCopyTest @(Crypto.RedeemSignature Bool)
+                safeCopyTest @(AsBinary Crypto.VssPublicKey)
+                safeCopyTest @(AsBinary Crypto.Secret)
+                safeCopyTest @(AsBinary Crypto.Share)
+                safeCopyTest @(AsBinary Crypto.EncShare)
+                safeCopyTest @(AsBinary Crypto.SecretProof)
+                safeCopyTest @(AsBinary Crypto.SecretSharingExtra)
         describe "AsBinaryClass" $ do
             prop "VssPublicKey <-> AsBinary VssPublicKey"
-                (serDeserId @VssPublicKey)
+                (serDeserId @Crypto.VssPublicKey)
             prop "Secret <-> AsBinary Secret"
-                (serDeserId @Secret)
+                (serDeserId @Crypto.Secret)
             prop "Share <-> AsBinary Share"
-                (serDeserId @Share)
+                (serDeserId @Crypto.Share)
             prop "EncShare <-> AsBinary EncShare"
-                (serDeserId @EncShare)
+                (serDeserId @Crypto.EncShare)
             prop "SecretProof <-> AsBinary SecretProof"
-                (serDeserId @SecretProof)
+                (serDeserId @Crypto.SecretProof)
             prop "SecretSharingExtra <-> AsBinary SecretSharingExtra"
-                (serDeserId @SecretSharingExtra)
+                (serDeserId @Crypto.SecretSharingExtra)
         describe "keys" $ do
             it  "derived pubkey equals to generated pubkey"
                 keyDerivation
@@ -146,84 +143,120 @@ spec = describe "Crypto" $ do
             prop
                 "incorrect proxy signature schemes fails correctness check"
                 (proxySecretKeyCheckIncorrect @(Int32,Int32))
+        describe "redeemer signatures" $ do
+            prop
+                "signature can be verified successfully"
+                (redeemSignCheck @[Int32])
+            prop
+                "signature can't be verified with a different key"
+                (redeemThenCheckDifferentKey @[Int32])
+            prop
+                "modified data signature can't be verified "
+                (redeemThenCheckDifferentData @[Int32])
+
         describe "HD wallet" $ do
             prop "pack/unpack address payload" packUnpackHDAddress
 
 
 
 hashInequality :: (Eq a, Bi a) => a -> a -> Property
-hashInequality a b = a /= b ==> hash a /= hash b
+hashInequality a b = a /= b ==> Crypto.hash a /= Crypto.hash b
 
 checkHash :: Bi a => a -> Text -> Expectation
-checkHash x s = sformat hashHexF (hash x) `shouldBe` s
+checkHash x s = sformat Crypto.hashHexF (Crypto.hash x) `shouldBe` s
 
 keyDerivation :: Expectation
 keyDerivation = do
-    (pk, sk) <- keyGen
-    pk `shouldBe` toPublic sk
+    (pk, sk) <- Crypto.keyGen
+    pk `shouldBe` Crypto.toPublic sk
 
-keyParsing :: PublicKey -> Property
-keyParsing pk = parseFullPublicKey (sformat fullPublicKeyF pk) === Just pk
+keyParsing :: Crypto.PublicKey -> Property
+keyParsing pk = Crypto.parseFullPublicKey (sformat Crypto.fullPublicKeyF pk) === Just pk
 
 signThenVerify
     :: Bi a
-    => SecretKey -> a -> Bool
-signThenVerify sk a = checkSig (toPublic sk) a $ sign sk a
+    => Crypto.SecretKey -> a -> Bool
+signThenVerify sk a = Crypto.checkSig (Crypto.toPublic sk) a $ Crypto.sign sk a
 
 signThenVerifyDifferentKey
     :: Bi a
-    => SecretKey -> PublicKey -> a -> Property
+    => Crypto.SecretKey -> Crypto.PublicKey -> a -> Property
 signThenVerifyDifferentKey sk1 pk2 a =
-    (toPublic sk1 /= pk2) ==> not (checkSig pk2 a $ sign sk1 a)
+    (Crypto.toPublic sk1 /= pk2) ==> not (Crypto.checkSig pk2 a $ Crypto.sign sk1 a)
 
 signThenVerifyDifferentData
     :: (Eq a, Bi a)
-    => SecretKey -> a -> a -> Property
+    => Crypto.SecretKey -> a -> a -> Property
 signThenVerifyDifferentData sk a b =
-    (a /= b) ==> not (checkSig (toPublic sk) b $ sign sk a)
+    (a /= b) ==> not (Crypto.checkSig (Crypto.toPublic sk) b $ Crypto.sign sk a)
 
 proxySecretKeyCheckCorrect
-    :: (Bi w) => SecretKey -> SecretKey -> w -> Bool
+    :: (Bi w) => Crypto.SecretKey -> Crypto.SecretKey -> w -> Bool
 proxySecretKeyCheckCorrect issuerSk delegateSk w =
-    verifyProxySecretKey proxySk
+    Crypto.verifyProxySecretKey proxySk
   where
-    proxySk = createProxySecretKey issuerSk (toPublic delegateSk) w
+    proxySk = Crypto.createProxySecretKey issuerSk (Crypto.toPublic delegateSk) w
 
 proxySecretKeyCheckIncorrect
-    :: (Bi w) => SecretKey -> SecretKey -> PublicKey -> w -> Property
+    :: (Bi w) => Crypto.SecretKey -> Crypto.SecretKey -> Crypto.PublicKey -> w -> Property
 proxySecretKeyCheckIncorrect issuerSk delegateSk pk2 w = do
-    let ProxySecretKey{..} =
-            createProxySecretKey issuerSk (toPublic delegateSk) w
-        wrongPsk = ProxySecretKey { pskIssuerPk = pk2, ..}
-    (toPublic issuerSk /= pk2) ==> not (verifyProxySecretKey wrongPsk)
+    let Crypto.ProxySecretKey{..} =
+            Crypto.createProxySecretKey issuerSk (Crypto.toPublic delegateSk) w
+        wrongPsk = Crypto.ProxySecretKey { pskIssuerPk = pk2, ..}
+    (Crypto.toPublic issuerSk /= pk2) ==> not (Crypto.verifyProxySecretKey wrongPsk)
 
-proxySignVerify :: (Bi a, Bi w, Eq w) => SecretKey -> SecretKey -> w -> a -> Bool
+proxySignVerify
+    :: (Bi a, Bi w, Eq w)
+    => Crypto.SecretKey
+    -> Crypto.SecretKey
+    -> w
+    -> a
+    -> Bool
 proxySignVerify issuerSk delegateSk w m =
-    proxyVerify issuerPk signature (== w) m
+    Crypto.proxyVerify issuerPk signature (== w) m
   where
-    issuerPk = toPublic issuerSk
-    proxySk = createProxySecretKey issuerSk (toPublic delegateSk) w
-    signature = proxySign delegateSk proxySk m
+    issuerPk = Crypto.toPublic issuerSk
+    proxySk = Crypto.createProxySecretKey issuerSk (Crypto.toPublic delegateSk) w
+    signature = Crypto.proxySign delegateSk proxySk m
 
 proxySignVerifyDifferentKey
     :: (Bi a, Bi w, Eq w)
-    => SecretKey -> SecretKey -> PublicKey -> w -> a -> Property
+    => Crypto.SecretKey -> Crypto.SecretKey -> Crypto.PublicKey -> w -> a -> Property
 proxySignVerifyDifferentKey issuerSk delegateSk pk2 w m =
-    (toPublic issuerSk /= pk2) ==> not (proxyVerify pk2 signature (== w) m)
+    (Crypto.toPublic issuerSk /= pk2) ==> not (Crypto.proxyVerify pk2 signature (== w) m)
   where
-    proxySk = createProxySecretKey issuerSk (toPublic delegateSk) w
-    signature = proxySign delegateSk proxySk m
+    proxySk = Crypto.createProxySecretKey issuerSk (Crypto.toPublic delegateSk) w
+    signature = Crypto.proxySign delegateSk proxySk m
 
 proxySignVerifyDifferentData
     :: (Bi a, Eq a, Bi w, Eq w)
-    => SecretKey -> SecretKey -> w -> a -> a -> Property
+    => Crypto.SecretKey -> Crypto.SecretKey -> w -> a -> a -> Property
 proxySignVerifyDifferentData issuerSk delegateSk w m m2 =
-    (m /= m2) ==> not (proxyVerify issuerPk signature (== w) m2)
+    (m /= m2) ==> not (Crypto.proxyVerify issuerPk signature (== w) m2)
   where
-    issuerPk = toPublic issuerSk
-    proxySk = createProxySecretKey issuerSk (toPublic delegateSk) w
-    signature = proxySign delegateSk proxySk m
+    issuerPk = Crypto.toPublic issuerSk
+    proxySk = Crypto.createProxySecretKey issuerSk (Crypto.toPublic delegateSk) w
+    signature = Crypto.proxySign delegateSk proxySk m
 
-packUnpackHDAddress :: HDPassphrase -> [Word32] -> Bool
+redeemSignCheck :: Bi a => Crypto.RedeemSecretKey -> a -> Bool
+redeemSignCheck redeemerSK a =
+    Crypto.redeemCheckSig redeemerPK a $ Crypto.redeemSign redeemerSK a
+  where redeemerPK = Crypto.redeemToPublic redeemerSK
+
+redeemThenCheckDifferentKey
+    :: Bi a
+    => Crypto.RedeemSecretKey -> Crypto.RedeemPublicKey -> a -> Property
+redeemThenCheckDifferentKey sk1 pk2 a =
+    (Crypto.redeemToPublic sk1 /= pk2) ==>
+    not (Crypto.redeemCheckSig pk2 a $ Crypto.redeemSign sk1 a)
+
+redeemThenCheckDifferentData
+    :: (Eq a, Bi a)
+    => Crypto.RedeemSecretKey -> a -> a -> Property
+redeemThenCheckDifferentData sk a b =
+    (a /= b) ==>
+    not (Crypto.redeemCheckSig (Crypto.redeemToPublic sk) b $ Crypto.redeemSign sk a)
+
+packUnpackHDAddress :: Crypto.HDPassphrase -> [Word32] -> Bool
 packUnpackHDAddress passphrase path =
-    maybe False (== path) (unpackHDAddressAttr passphrase (packHDAddressAttr passphrase path))
+    maybe False (== path) (Crypto.unpackHDAddressAttr passphrase (Crypto.packHDAddressAttr passphrase path))

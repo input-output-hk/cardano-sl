@@ -122,22 +122,22 @@ setMode600 path = liftIO $ PSX.setFileMode path mode600
 -- | Create user secret file at the given path, but only when one doesn't
 -- already exist.
 initializeUserSecret :: (MonadIO m, MonadThrow m) => FilePath -> m ()
-initializeUserSecret path = do
-    exists <- T.testfile (fromString path)
+initializeUserSecret secretPath = do
+    exists <- T.testfile (fromString secretPath)
     liftIO $
 #ifdef POSIX
         if exists
-        then failIfModeNot600 path
+        then failIfModeNot600 secretPath
         else do
-            createEmptyFile path
-            setMode600 path
+            createEmptyFile secretPath
+            setMode600 secretPath
 #else
         when (not exists) $
-            createEmptyFile path
+            createEmptyFile secretPath
 #endif
   where
     createEmptyFile :: (MonadIO m) => FilePath -> m ()
-    createEmptyFile path = T.output (fromString path) empty
+    createEmptyFile filePath = T.output (fromString filePath) empty
 
 -- | Reads user secret from file, assuming that file exists,
 -- and has mode 600, throws exception in other case

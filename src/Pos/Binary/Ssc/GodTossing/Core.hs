@@ -11,12 +11,12 @@ import           Universum
 
 import           Pos.Binary.Class              (Bi (..))
 import           Pos.Binary.Crypto             ()
+import           Pos.Core.Address              (addressHash)
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), Commitment (..),
                                                 CommitmentsMap, GtPayload (..),
                                                 GtProof (..), Opening (..),
                                                 VssCertificate (..), mkCommitmentsMap,
                                                 recreateVssCertificate)
-import           Pos.Core.Address             (addressHash)
 
 instance Bi Commitment where
     put Commitment {..} = do

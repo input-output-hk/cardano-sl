@@ -40,13 +40,12 @@ import           Pos.Binary.Crypto   ()
 import           Pos.Core.Block      (Blockchain (..), GenericBlock (..),
                                       GenericBlockHeader (..))
 import           Pos.Core.Types      (BlockVersion, ChainDifficulty, HeaderHash,
-                                      SlotId (..), SoftwareVersion)
-import           Pos.Core.Types      (ProxySigHeavy, ProxySigLight)
+                                      ProxySigHeavy, ProxySigLight, SlotId (..),
+                                      SoftwareVersion)
 import           Pos.Crypto          (Signature)
 import           Pos.Data.Attributes (Attributes)
 import           Pos.Ssc.Class.Types (Ssc (..))
 --import           Pos.Update.Version    ()
-import           Pos.Core.Types      ()
 
 ----------------------------------------------------------------------------
 -- MainBlock

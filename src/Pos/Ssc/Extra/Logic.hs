@@ -36,10 +36,11 @@ import           System.Wlog             (NamedPureLogger, WithLogger, launchNam
                                           logDebug)
 import           Universum
 
-import           Pos.Context             (WithNodeContext, lrcActionOnEpochReason)
+import           Pos.Context             (lrcActionOnEpochReason)
 import           Pos.DB                  (MonadDB)
 import           Pos.DB.DB               (getTipBlockHeader)
 import           Pos.Exception           (assertionFailed)
+import           Pos.Lrc.Context         (LrcContext)
 import qualified Pos.Lrc.DB              as LrcDB
 import           Pos.Slotting.Class      (MonadSlots)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
@@ -52,6 +53,7 @@ import           Pos.Types               (Block, EpochIndex, HeaderHash, SharedS
                                           SlotId, epochIndexL, headerHash)
 import           Pos.Util                (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono         (NE, NewestFirst, OldestFirst)
+import           Pos.Util.Context        (HasContext)
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -131,7 +133,7 @@ sscNormalize
        ( MonadDB m
        , MonadSscMem ssc m
        , SscLocalDataClass ssc
-       , WithNodeContext ssc m
+       , HasContext LrcContext m
        , SscHelpersClass ssc
        , WithLogger m
        )
@@ -172,10 +174,12 @@ sscResetLocal = do
 -- 'MonadDB' is needed only to get richmen.
 -- We can try to eliminate these constraints later.
 type SscGlobalApplyMode ssc m =
-    (MonadSscMem ssc m, SscGStateClass ssc, WithLogger m, MonadDB m, WithNodeContext ssc m)
+    (MonadSscMem ssc m, SscGStateClass ssc, WithLogger m,
+     MonadDB m, HasContext LrcContext m)
 type SscGlobalVerifyMode ssc m =
     (MonadSscMem ssc m, SscGStateClass ssc, WithLogger m,
-     MonadDB m, MonadError (SscVerifyError ssc) m, WithNodeContext ssc m)
+     MonadDB m, HasContext LrcContext m,
+     MonadError (SscVerifyError ssc) m)
 
 sscRunGlobalUpdate
     :: forall ssc m a.

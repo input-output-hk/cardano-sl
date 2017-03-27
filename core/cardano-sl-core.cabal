@@ -42,6 +42,7 @@ library
 
                        Pos.Crypto
                        Pos.Crypto.AsBinary
+                       Pos.Crypto.HD
                        Pos.Crypto.Random
                        Pos.Crypto.Hashing
                        Pos.Crypto.SafeSigning
@@ -64,6 +65,8 @@ library
 
                        Pos.Util.Chrono
                        Pos.Util.Config
+                       Pos.Util.Context
+                       Pos.Util.HVect
                        Pos.Util.Iterator
                        Pos.Util.Modifier
                        Pos.Util.Util
@@ -72,6 +75,7 @@ library
 
   build-depends:      QuickCheck
                      , aeson
+                     , autoexporter
                      , base
                      , base58-bytestring
                      , log-warper >= 1.0.3

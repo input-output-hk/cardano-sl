@@ -30,21 +30,21 @@ module Pos.Util.Binary
        , putAsciiString1b
        ) where
 
-import           Data.Binary.Get            (Get, getByteString,
-                                            getRemainingLazyByteString, getWord8)
-import           Data.Binary.Put            (Put, PutM, putByteString, putLazyByteString,
-                                            putWord8, runPutM)
-import qualified Data.ByteString            as BS
-import qualified Data.ByteString.Lazy       as BSL
-import           Data.Char                  (isAscii)
-import           Data.SafeCopy              (Contained, SafeCopy (..), contain, safeGet,
-                                            safePut)
-import qualified Data.Serialize             as Cereal (Get, Put)
-import           Formatting                 (formatToString, int, (%))
-import           Universum                  hiding (putByteString)
+import           Data.Binary.Get      (Get, getByteString, getRemainingLazyByteString,
+                                       getWord8)
+import           Data.Binary.Put      (Put, PutM, putByteString, putLazyByteString,
+                                       putWord8, runPutM)
+import qualified Data.ByteString      as BS
+import qualified Data.ByteString.Lazy as BSL
+import           Data.Char            (isAscii)
+import           Data.SafeCopy        (Contained, SafeCopy (..), contain, safeGet,
+                                       safePut)
+import qualified Data.Serialize       as Cereal (Get, Put)
+import           Formatting           (formatToString, int, (%))
+import           Universum            hiding (putByteString)
 
-import           Pos.Binary.Class           (Bi (..))
-import qualified Pos.Binary.Class           as Bi
+import           Pos.Binary.Class     (Bi (..))
+import qualified Pos.Binary.Class     as Bi
 
 
 -- | A wrapper over 'ByteString' for adding type safety to

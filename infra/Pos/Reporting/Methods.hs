@@ -24,7 +24,6 @@ import           Data.Aeson               (encode)
 import           Data.Bits                (Bits (..))
 import qualified Data.HashMap.Strict      as HM
 import qualified Data.List.NonEmpty       as NE
-import qualified Data.Text                as T
 import qualified Data.Text.IO             as TIO
 import           Data.Time.Clock          (getCurrentTime)
 import           Data.Version             (Version (..))
@@ -94,7 +93,7 @@ sendReportNodeImpl
 sendReportNodeImpl memLogs version reportType = do
     servers <- view rcReportServers <$> askReportingContext
     errors <- fmap lefts $ forM servers $ try .
-        sendReport [] memLogs reportType "cardano-node" version . T.unpack
+        sendReport [] memLogs reportType "cardano-node" version . toString
     whenNotNull errors $ throwSE . NE.head
   where
     throwSE (e :: SomeException) = throwM e
@@ -220,13 +219,13 @@ sendReport logFiles rawLogs reportType appName appVersion reportServerUri = do
         whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError (show e')
   where
     partFile' fp = partFile (toFileName fp) fp
-    toFileName = T.pack . takeFileName
+    toFileName = toText . takeFileName
     reportInfo curTime files =
         ReportInfo
         { rApplication = appName
         , rVersion = appVersion
         , rBuild = 0 -- what should be put here?
-        , rOS = T.pack (os <> "-" <> arch)
+        , rOS = toText (os <> "-" <> arch)
         , rLogs = map toFileName files
         , rMagic = protocolMagic
         , rDate = curTime

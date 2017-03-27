@@ -103,7 +103,7 @@ prepareGStateUtxo genesisUtxo =
     putIfEmpty exists putter = whenM (not <$> exists) $ putter
     putGenesisUtxo = do
         let utxoList = M.toList genesisUtxo
-        writeBatchGState $ concat $ map createBatchOp utxoList
+        writeBatchGState $ concatMap createBatchOp utxoList
         gsPutBi genUtxoFlagKey True
     createBatchOp (txin, txout) =
         [AddTxOut txin txout , AddGenTxOut txin txout]

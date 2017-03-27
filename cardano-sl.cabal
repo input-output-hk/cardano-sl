@@ -58,6 +58,7 @@ library
 
                         -- LRC
                         Pos.Lrc
+                        Pos.Lrc.Context
                         Pos.Lrc.FtsPure
 
                         -- Scripting
@@ -102,6 +103,8 @@ library
 
                         -- Update system
                         Pos.Update
+                        Pos.Update.Context
+                        Pos.Update.Mode
                         Pos.Update.Arbitrary
 
                         -- Utilities/helpers
@@ -164,6 +167,7 @@ library
                         -- Crypto
                         Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Unsafe
+                        Pos.Crypto.HDDiscovery
 
                         -- Heavy delegation
                         Pos.Delegation.Class

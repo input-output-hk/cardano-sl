@@ -80,8 +80,9 @@ import           Serokell.AcidState   ()
 import           Serokell.Util.Base16 (formatBase16)
 import           Universum
 
-import           Pos.Crypto           (AbstractHash, Hash, ProxySecretKey, ProxySignature,
-                                       PublicKey, RedeemPublicKey)
+import           Pos.Crypto           (AbstractHash, HDAddressPayload, Hash,
+                                       ProxySecretKey, ProxySignature, PublicKey,
+                                       RedeemPublicKey)
 import           Pos.Data.Attributes  (Attributes)
 
 -- | Timestamp is a number which represents some point in time. It is
@@ -109,7 +110,7 @@ data Address
     deriving (Eq, Ord, Generic, Typeable, Show)
 
 newtype AddrPkAttrs = AddrPkAttrs
-    { addrPkDerivationPath :: Maybe [Word32]
+    { addrPkDerivationPath :: Maybe HDAddressPayload
     } deriving (Eq, Ord, Show, Generic, Typeable, NFData)
 
 instance Default AddrPkAttrs where

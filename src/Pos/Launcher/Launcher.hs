@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Applications of runners to scenarios.
 

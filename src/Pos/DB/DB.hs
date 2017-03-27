@@ -8,6 +8,7 @@ module Pos.DB.DB
        , getTip
        , getTipBlock
        , getTipBlockHeader
+       , loadBlundsFromTipMatching
        , loadBlundsFromTipWhile
        , loadBlundsFromTipByDepth
        , sanityCheckDB
@@ -26,7 +27,8 @@ import           Pos.Block.Types                  (Blund)
 import           Pos.Context.Class                (WithNodeContext)
 import           Pos.Context.Functions            (genesisLeadersM)
 import           Pos.DB.Block                     (getBlock, loadBlundsByDepth,
-                                                   loadBlundsWhile, prepareBlockDB)
+                                                   loadBlundsWhile, prepareBlockDB,
+                                                   loadBlundsMatching)
 import           Pos.DB.Class                     (MonadDB)
 import           Pos.DB.Error                     (DBError (DBMalformed))
 import           Pos.DB.Functions                 (openDB)
@@ -90,7 +92,13 @@ getTipBlockHeader
     => m (BlockHeader ssc)
 getTipBlockHeader = getBlockHeader <$> getTipBlock
 
--- | Load blunds from BlockDB starting from tip and while the @condition@ is
+-- | Load blunds from BlockDB starting from tip and matching the @condition@.
+loadBlundsFromTipMatching
+    :: (SscHelpersClass ssc, MonadDB m)
+    => (Block ssc -> Bool) -> m (NewestFirst [] (Blund ssc))
+loadBlundsFromTipMatching condition = getTip >>= loadBlundsMatching condition
+
+-- | Load blunds from BlockDB starting from tip and matching the @condition@ is
 -- true.
 loadBlundsFromTipWhile
     :: (SscHelpersClass ssc, MonadDB m)

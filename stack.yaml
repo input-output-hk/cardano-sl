@@ -78,3 +78,12 @@ extra-deps:
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
+
+# If you find it too restrictive, you can use `util-scripts/build.sh' script
+ghc-options:
+  cardano-sl-core:   -Werror
+  cardano-sl-db:     -Werror
+  cardano-sl-infra:  -Werror
+  cardano-sl-lrc:    -Werror
+  cardano-sl-update: -Werror
+  cardano-sl:        -Werror

@@ -136,6 +136,10 @@ instance Bi T.GenesisExtraHeaderData where
     put T.GenesisExtraHeaderData {..} = put _gehAttributes
     get = label "GenesisExtraHeaderData" $ T.GenesisExtraHeaderData <$> get
 
+instance Bi T.GenesisExtraBodyData where
+    put T.GenesisExtraBodyData {..} = put _gebAttributes
+    get = label "GenesisExtraBodyData" $ T.GenesisExtraBodyData <$> get
+
 instance Bi (T.BodyProof (T.GenesisBlockchain ssc)) where
     put (T.GenesisProof h) = put h
     get = label "GenesisProof" $ T.GenesisProof <$> get

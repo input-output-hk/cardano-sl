@@ -70,8 +70,9 @@ import           Pos.Txp.Core          (Tx, TxAux, TxDistribution, TxPayload, Tx
                                         txpWitnesses)
 import           Pos.Types.Block.Types (BiHeader, BiSsc, Block, BlockHeader,
                                         BlockSignature, GenesisBlock, GenesisBlockHeader,
-                                        GenesisBlockchain, GenesisExtraHeaderData,
-                                        MainBlock, MainBlockHeader, MainBlockchain,
+                                        GenesisBlockchain, GenesisExtraBodyData,
+                                        GenesisExtraHeaderData, MainBlock,
+                                        MainBlockHeader, MainBlockchain,
                                         MainExtraBodyData, MainExtraHeaderData,
                                         mehBlockVersion, mehSoftwareVersion)
 import           Pos.Update.Core.Types (UpdatePayload, UpdateProof, UpdateProposal,
@@ -165,6 +166,8 @@ instance Blockchain (GenesisBlockchain ssc) where
     data Body (GenesisBlockchain ssc) = GenesisBody
         { _gbLeaders :: !SlotLeaders
         } deriving (Generic, Show, Eq)
+
+    type ExtraBodyData (GenesisBlockchain ssc) = GenesisExtraBodyData
     type BBlock (GenesisBlockchain ssc) = Block ssc
 
     mkBodyProof = GenesisProof . hash . _gbLeaders

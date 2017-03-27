@@ -17,6 +17,8 @@ module Pos.Types.Block.Types
        , GenesisBlockchain
        , GenesisBlockHeader
        , GenesisBlock
+       , GenesisExtraBodyData (..)
+       , GenesisBodyAttributes
        , GenesisExtraHeaderData (..)
        , GenesisHeaderAttributes
 
@@ -150,6 +152,22 @@ data GenesisExtraHeaderData = GenesisExtraHeaderData
 instance NFData GenesisExtraHeaderData
 
 instance Buildable GenesisExtraHeaderData where
+    -- Currently there is no extra data in genesis block header, attributes are empty.
+    build _ = bprint "no extra data"
+
+
+-- | Represents genesis block header attributes.
+type GenesisBodyAttributes = Attributes ()
+
+-- | Represents genesis block header extra data
+data GenesisExtraBodyData = GenesisExtraBodyData
+    { -- | Header attributes
+      _gebAttributes      :: !GenesisBodyAttributes
+    } deriving (Eq, Show, Generic)
+
+instance NFData GenesisExtraBodyData
+
+instance Buildable GenesisExtraBodyData where
     -- Currently there is no extra data in genesis block header, attributes are empty.
     build _ = bprint "no extra data"
 

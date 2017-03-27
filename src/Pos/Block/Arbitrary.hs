@@ -70,6 +70,9 @@ properBlock = do
 instance Arbitrary T.GenesisExtraHeaderData where
     arbitrary = T.GenesisExtraHeaderData <$> arbitrary
 
+instance Arbitrary T.GenesisExtraBodyData where
+    arbitrary = T.GenesisExtraBodyData <$> arbitrary
+
 instance Arbitrary (T.GenesisBlockHeader ssc) where
     arbitrary = T.GenericBlockHeader
         <$> arbitrary

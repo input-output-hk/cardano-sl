@@ -52,7 +52,6 @@ import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
 import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySign,
                                              proxyVerify, pskIssuerPk, pskOmega, sign,
                                              toPublic, unsafeHash)
-import           Pos.Data.Attributes        (Attributes)
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Script                 (isKnownScriptVersion, scrVersion)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
@@ -66,8 +65,8 @@ import           Pos.Types.Block.Instances  (Body (..), ConsensusData (..), bloc
 import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
                                              BlockSignature (..), GenesisBlock,
                                              GenesisBlockHeader, GenesisBlockchain,
-                                             GenesisExtraHeaderData (..),
-                                             GenesisHeaderAttributes, MainBlock,
+                                             GenesisExtraBodyData (..),
+                                             GenesisExtraHeaderData (..), MainBlock,
                                              MainBlockHeader, MainBlockchain,
                                              MainExtraBodyData (..), MainExtraHeaderData,
                                              mehBlockVersion)
@@ -210,7 +209,7 @@ mkGenesisBlock prevHeader epoch leaders =
     GenericBlock
     { _gbHeader = mkGenesisHeader prevHeader epoch body
     , _gbBody = body
-    , _gbExtra = ()
+    , _gbExtra = GenesisExtraBodyData $ mkAttributes ()
     }
   where
     body = GenesisBody leaders

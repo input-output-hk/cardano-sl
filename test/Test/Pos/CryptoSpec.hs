@@ -16,7 +16,7 @@ import           Pos.Binary            (AsBinary, Bi)
 import qualified Pos.Crypto            as Crypto
 import           Pos.Ssc.GodTossing    ()
 
-import           Test.Pos.Util         (binaryEncodeDecode, binaryTest,
+import           Test.Pos.Util         ((.=.), binaryEncodeDecode, binaryTest,
                                         safeCopyEncodeDecode, safeCopyTest, serDeserId)
 
 spec :: Spec
@@ -166,6 +166,17 @@ spec = describe "Crypto" $ do
             prop
                 "signed data can't be verified with a different nonce"
                 encrypyDecryptChaChaDifferentNonce
+
+        describe "Safe Signing" $ do
+            prop
+                "turning a secret key into an encrypted secret key and this encrypted\
+                 \ secret key into a public key is the same as turning the secret key\
+                 \ into a public key"
+                 encToPublicToEnc
+            prop
+                "turning a secret key into an safe signer and this safe signer into a\
+                 \ public key is the same as turning the secret key into a public key"
+                 skToSafeSigner
 
 hashInequality :: (Eq a, Bi a) => a -> a -> Property
 hashInequality a b = a /= b ==> Crypto.hash a /= Crypto.hash b
@@ -343,3 +354,11 @@ encrypyDecryptChaChaDifferentNonce
   where
     encrypt = Crypto.encryptChaChaPoly nonce1 key header
     decrypt = Crypto.decryptChaChaPoly nonce2 key header
+
+encToPublicToEnc :: Crypto.SecretKey -> Property
+encToPublicToEnc =
+    Crypto.encToPublic . Crypto.toEncrypted .=. Crypto.toPublic
+
+skToSafeSigner :: Crypto.SecretKey -> Property
+skToSafeSigner =
+    Crypto.safeToPublic . Crypto.fakeSigner .=. Crypto.toPublic

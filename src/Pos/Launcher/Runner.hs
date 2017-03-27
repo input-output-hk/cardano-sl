@@ -112,6 +112,9 @@ import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (MinWorkMode, ProductionMode, RawRealMode,
                                               ServiceMode, StatsMode)
 
+-- Remove this once there's no #ifdef-ed Pos.Txp import
+{-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
+
 data RealModeResources = RealModeResources
     { rmTransport :: Transport
     , rmDHT       :: KademliaDHTInstance

@@ -64,6 +64,9 @@ import           Pos.Types                   (Address, Block, ChainDifficulty, H
 import           Pos.Update                  (USHolder (..))
 import           Pos.Util                    (maybeThrow)
 
+-- Remove this once there's no #ifdef-ed Pos.Txp import
+{-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
+
 data TxHistoryAnswer = TxHistoryAnswer
     { taLastCachedHash :: HeaderHash
     , taCachedNum      :: Int

@@ -163,6 +163,8 @@ instance MonadPollRead m =>
             new <- pmSlottingData <$> get
             maybe getSlottingData pure new
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
 instance MonadPollRead m =>
          MonadPoll (PollT m) where
     putBVState bv st = PollT $ pmBVsL %= MM.insert bv st

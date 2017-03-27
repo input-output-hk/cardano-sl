@@ -535,12 +535,6 @@ instance (Bi a, Bi b, Bi c, Bi d) => Bi (a, b, c, d) where
     {-# INLINE get #-}
     get = liftM4 (,,,) get get get get
 
-instance (Bi a, Bi b, Bi c, Bi d, Bi e) => Bi (a, b, c, d, e) where
-    {-# INLINE put #-}
-    put (a, b, c, d, e) = put a <> put b <> put c <> put d <> put e
-    {-# INLINE get #-}
-    get = liftM5 (,,,,) get get get get get
-
 instance Bi ByteString where
     put bs = put (UnsignedVarInt (BS.length bs)) <> putByteString bs
     get = do

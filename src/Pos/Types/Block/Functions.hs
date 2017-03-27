@@ -69,7 +69,7 @@ import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
                                              GenesisExtraHeaderData (..), MainBlock,
                                              MainBlockHeader, MainBlockchain,
                                              MainExtraBodyData (..), MainExtraHeaderData,
-                                             mehBlockVersion)
+                                             MainToSign (..), mehBlockVersion)
 import           Pos.Update.Core            (BlockVersionData (..))
 import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
 
@@ -145,7 +145,7 @@ mkMainHeader prevHeader slotId sk pSk body extra =
     makeSignature toSign (Left psk)  = BlockPSignatureEpoch $ proxySign sk psk toSign
     makeSignature toSign (Right psk) = BlockPSignatureSimple $ proxySign sk psk toSign
     signature prevHash proof =
-        let toSign = (prevHash, proof, slotId, difficulty, extra)
+        let toSign = MainToSign prevHash proof slotId difficulty extra
         in maybe (BlockSignature $ sign sk toSign) (makeSignature toSign) pSk
     consensus prevHash proof =
         MainConsensusData
@@ -245,7 +245,7 @@ verifyConsensusLocal (Right header) =
     GenericBlockHeader {_gbhConsensus = consensus
                        , _gbhExtra = extra
                        ,..} = header
-    signature = (_gbhPrevBlock, _gbhBodyProof, slotId, d, extra)
+    signature = MainToSign _gbhPrevBlock _gbhBodyProof slotId d extra
     pk = consensus ^. mcdLeaderKey
     slotId = consensus ^. mcdSlot
     epochId = siEpoch slotId

@@ -119,7 +119,7 @@ mainHeaderFormation prevHeader slotId signer body extra =
     makeSignature toSign (Left psk)  = T.BlockPSignatureEpoch $ proxySign sk psk toSign
     makeSignature toSign (Right psk) = T.BlockPSignatureSimple $ proxySign sk psk toSign
     signature prevHash p =
-        let toSign = (prevHash, p, slotId, difficulty, extra)
+        let toSign = T.MainToSign prevHash p slotId difficulty extra
         in maybe (T.BlockSignature $ sign sk toSign) (makeSignature toSign) pSk
     consensus prevHash p =
         T.MainConsensusData

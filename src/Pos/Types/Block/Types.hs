@@ -11,7 +11,7 @@ module Pos.Types.Block.Types
        , BlockBodyAttributes
        , BiSsc
        , BlockSignature (..)
-       , MainToSign
+       , MainToSign (..)
        , MainBlock
 
        , GenesisBlockchain
@@ -60,12 +60,14 @@ import           Pos.Ssc.Class.Types (Ssc (..))
 data MainBlockchain ssc
 
 -- | Data to be signed in main block.
-type MainToSign ssc = ( HeaderHash
-                      , BodyProof (MainBlockchain ssc)
-                      , SlotId
-                      , ChainDifficulty
-                      , MainExtraHeaderData
-                      )
+data MainToSign ssc
+    = MainToSign
+    { _msHeaderHash  :: !HeaderHash
+    , _msBodyProof   :: !(BodyProof (MainBlockchain ssc))
+    , _msSlot        :: !SlotId
+    , _msChainDiff   :: !ChainDifficulty
+    , _msExtraHeader :: !MainExtraHeaderData
+    }
 
 -- | Signature of the block. Can be either regular signature from the
 -- issuer or delegated signature having a constraint on epoch indices

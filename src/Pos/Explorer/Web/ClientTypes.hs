@@ -16,7 +16,6 @@ module Pos.Explorer.Web.ClientTypes
        , TxInternal (..)
        , toCHash
        , fromCHash
-       , fromCHash'
        , toCAddress
        , fromCAddress
        , toCTxId
@@ -33,12 +32,13 @@ module Pos.Explorer.Web.ClientTypes
        ) where
 
 import           Control.Arrow          ((&&&))
-import qualified Data.ByteString        as BS
+import           Control.Lens           (_Left)
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Lazy   as BSL
 import qualified Data.List.NonEmpty     as NE
 import           Data.Time.Clock.POSIX  (POSIXTime)
 import           Formatting             (sformat)
+import           Serokell.Util.Base16   as SB16
 import           Servant.API            (FromHttpApiData (..))
 import           Universum
 
@@ -49,15 +49,14 @@ import qualified Pos.DB.GState          as GS
 import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
-import           Pos.Txp                (Tx (..), TxId, TxOut (..),
-                                         TxOutAux (..), _txOutputs)
-import           Pos.Types              (Address, Coin, MainBlock, SlotId (..),
-                                         Timestamp, addressF, blockSlot,
-                                         blockTxs, decodeTextAddress, gbHeader,
-                                         gbhConsensus, getEpochIndex,
-                                         getSlotIndex, headerHash, mcdSlot,
-                                         mkCoin, prevBlockL, sumCoins,
-                                         unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Txp                (Tx (..), TxId, TxOut (..), TxOutAux (..),
+                                         _txOutputs)
+import           Pos.Types              (Address, Coin, MainBlock, SlotId (..), Timestamp,
+                                         addressF, blockSlot, blockTxs, decodeTextAddress,
+                                         gbHeader, gbhConsensus, getEpochIndex,
+                                         getSlotIndex, headerHash, mcdSlot, mkCoin,
+                                         prevBlockL, sumCoins, unsafeAddCoin,
+                                         unsafeIntegerToCoin)
 import           Pos.Types.Explorer     (TxExtra (..))
 
 
@@ -87,14 +86,9 @@ encodeHashHex :: Hash a -> Text
 encodeHashHex = decodeUtf8 . B16.encode . Bi.encodeStrict
 
 decodeHashHex :: Text -> Either Text (Hash a)
-decodeHashHex = fmap Bi.decode . processRes . B16.decode . encodeUtf8
-  where processRes (res, rest) =
-            if BS.null rest
-            then Right $ BSL.fromStrict res
-            else Left $ "decodeHashHex: couldn't decode rest of hash: " <> decodeUtf8 rest
-
-decodeHashHex' :: Text -> Hash a
-decodeHashHex' = either (error "decodeHashHex: invalid hash") identity . decodeHashHex
+decodeHashHex hashText = do
+    hashBinary <- SB16.decode hashText
+    over _Left toText $ Bi.decodeFull $ BSL.fromStrict hashBinary
 
 toCSearchId :: Hash a -> CSearchId
 toCSearchId = CSearchId . encodeHashHex
@@ -117,9 +111,6 @@ toCHash = CHash . encodeHashHex
 
 fromCHash :: CHash -> Either Text (Hash a)
 fromCHash (CHash h) = decodeHashHex h
-
-fromCHash' :: CHash -> Hash a
-fromCHash' (CHash h) = decodeHashHex' h
 
 toCAddress :: Address -> CAddress
 toCAddress = CAddress . sformat addressF

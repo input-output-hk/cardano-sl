@@ -9,7 +9,7 @@ import           Formatting            (sformat)
 import           Test.Hspec            (Expectation, Spec, describe, it, shouldBe,
                                         specify)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Property, (===), (==>))
+import           Test.QuickCheck       (Arbitrary (..), Property, (===), (==>), vector)
 import           Universum
 
 import           Pos.Binary            (AsBinary, Bi)
@@ -156,8 +156,16 @@ spec = describe "Crypto" $ do
 
         describe "HD wallet" $ do
             prop "pack/unpack address payload" packUnpackHDAddress
-
-
+            prop "decryptChaCha . encryptChaCha = id" encrypyDecryptChaChaPoly
+            prop
+                "signed data can't be verified with a different key"
+                encrypyDecryptChaChaDifferentKey
+            prop
+                "signed data can't be verified with a different header"
+                encrypyDecryptChaChaDifferentHeader
+            prop
+                "signed data can't be verified with a different nonce"
+                encrypyDecryptChaChaDifferentNonce
 
 hashInequality :: (Eq a, Bi a) => a -> a -> Property
 hashInequality a b = a /= b ==> Crypto.hash a /= Crypto.hash b
@@ -260,3 +268,78 @@ redeemThenCheckDifferentData sk a b =
 packUnpackHDAddress :: Crypto.HDPassphrase -> [Word32] -> Bool
 packUnpackHDAddress passphrase path =
     maybe False (== path) (Crypto.unpackHDAddressAttr passphrase (Crypto.packHDAddressAttr passphrase path))
+
+newtype Nonce = Nonce ByteString
+    deriving (Show, Eq)
+
+instance Arbitrary Nonce where
+    arbitrary = Nonce . BS.pack <$> vector 12
+
+encrypyDecryptChaChaPoly
+    :: Nonce
+    -> Crypto.HDPassphrase
+    -> ByteString
+    -> ByteString
+    -> Bool
+encrypyDecryptChaChaPoly (Nonce nonce) (Crypto.HDPassphrase key) header plaintext =
+    (join $ (decrypt <$> (Crypto.toEither . encrypt $ plaintext))) == (Right plaintext)
+  where
+    encrypt = Crypto.encryptChaChaPoly nonce key header
+    decrypt = Crypto.decryptChaChaPoly nonce key header
+
+encrypyDecryptChaChaDifferentKey
+    :: Nonce
+    -> Crypto.HDPassphrase
+    -> Crypto.HDPassphrase
+    -> ByteString
+    -> ByteString
+    -> Property
+encrypyDecryptChaChaDifferentKey
+    (Nonce nonce)
+    (Crypto.HDPassphrase key1)
+    (Crypto.HDPassphrase key2)
+    header
+    plaintext =
+    (key1 /= key2) ==>
+    (isLeft (join  (decrypt <$> (Crypto.toEither . encrypt $ plaintext))))
+  where
+    encrypt = Crypto.encryptChaChaPoly nonce key1 header
+    decrypt = Crypto.decryptChaChaPoly nonce key2 header
+
+encrypyDecryptChaChaDifferentHeader
+    :: Nonce
+    -> Crypto.HDPassphrase
+    -> ByteString
+    -> ByteString
+    -> ByteString
+    -> Property
+encrypyDecryptChaChaDifferentHeader
+    (Nonce nonce)
+    (Crypto.HDPassphrase key)
+    header1
+    header2
+    plaintext =
+    (header1 /= header2) ==>
+    (isLeft (join  (decrypt <$> (Crypto.toEither . encrypt $ plaintext))))
+  where
+    encrypt = Crypto.encryptChaChaPoly nonce key header1
+    decrypt = Crypto.decryptChaChaPoly nonce key header2
+
+encrypyDecryptChaChaDifferentNonce
+    :: Nonce
+    -> Nonce
+    -> Crypto.HDPassphrase
+    -> ByteString
+    -> ByteString
+    -> Property
+encrypyDecryptChaChaDifferentNonce
+    (Nonce nonce1)
+    (Nonce nonce2)
+    (Crypto.HDPassphrase key)
+    header
+    plaintext =
+    (nonce1 /= nonce2) ==>
+    (isLeft (join  (decrypt <$> (Crypto.toEither . encrypt $ plaintext))))
+  where
+    encrypt = Crypto.encryptChaChaPoly nonce1 key header
+    decrypt = Crypto.decryptChaChaPoly nonce2 key header

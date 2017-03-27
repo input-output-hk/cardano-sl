@@ -9,6 +9,9 @@ module Pos.Crypto.HD
        , deriveHDPublicKey
        , deriveHDSecretKey
        , deriveHDPassphrase
+       , decryptChaChaPoly
+       , encryptChaChaPoly
+       , toEither
        ) where
 
 import           Cardano.Crypto.Wallet        (deriveXPrv, deriveXPrvHardened, deriveXPub,

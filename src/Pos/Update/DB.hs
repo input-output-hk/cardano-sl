@@ -16,6 +16,7 @@ module Pos.Update.DB
        , getConfirmedSV
        , getMaxBlockSize
        , getSlottingData
+       , getEpochProposers
 
          -- * Operations
        , UpdateOp (..)
@@ -64,7 +65,8 @@ import           Pos.Genesis                (genesisBlockVersion, genesisBlockVe
 import           Pos.Slotting.Types         (EpochSlottingData (..), SlottingData (..))
 import           Pos.Types                  (ApplicationName, BlockVersion,
                                              ChainDifficulty, NumSoftwareVersion, SlotId,
-                                             SoftwareVersion (..), Timestamp (..))
+                                             SoftwareVersion (..), StakeholderId,
+                                             Timestamp (..))
 import           Pos.Update.Core            (BlockVersionData (..), UpId,
                                              UpdateProposal (..))
 import           Pos.Update.Poll.Types      (BlockVersionState (..),
@@ -133,6 +135,12 @@ getSlottingData = maybeThrow (DBMalformed msg) =<< gsGetBi slottingDataKey
     msg =
         "Update System part of GState DB is not initialized (slotting data is missing)"
 
+-- | Get proposers for current epoch.
+getEpochProposers :: MonadDB m => m (HashSet StakeholderId)
+getEpochProposers = maybeThrow (DBMalformed msg) =<< gsGetBi epochProposersKey
+  where
+    msg =
+        "Update System part of GState DB is not initialized (epoch proposers are missing)"
 ----------------------------------------------------------------------------
 -- Operations
 ----------------------------------------------------------------------------
@@ -148,6 +156,7 @@ data UpdateOp
     | SetBVState !BlockVersion !BlockVersionState
     | DelBV !BlockVersion
     | PutSlottingData !SlottingData
+    | PutEpochProposers !(HashSet StakeholderId)
 
 instance RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
@@ -176,6 +185,8 @@ instance RocksBatchOp UpdateOp where
         [Rocks.Del (bvStateKey bv)]
     toBatchOp (PutSlottingData sd) =
         [Rocks.Put slottingDataKey (encodeStrict sd)]
+    toBatchOp (PutEpochProposers proposers) =
+        [Rocks.Put epochProposersKey (encodeStrict proposers)]
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -191,7 +202,8 @@ prepareGStateUS systemStart =
         flip rocksWriteBatch db $
             PutSlottingData genesisSlottingData :
             SetAdopted genesisBlockVersion genesisBlockVersionData :
-            map ConfirmVersion genesisSoftwareVersions
+            map ConfirmVersion genesisSoftwareVersions :
+            PutEpochProposers mempty
   where
     esdPenult =
         EpochSlottingData
@@ -351,6 +363,9 @@ confirmedIterationPrefix = "us/cp/"
 
 slottingDataKey :: ByteString
 slottingDataKey = "us/slotting/"
+
+epochProposersKey :: ByteString
+epochProposersKey = "us/epoch-proposers/"
 
 ----------------------------------------------------------------------------
 -- Details

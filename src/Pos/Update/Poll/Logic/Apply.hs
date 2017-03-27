@@ -11,6 +11,7 @@ module Pos.Update.Poll.Logic.Apply
        ) where
 
 import           Control.Monad.Except          (MonadError, throwError)
+import qualified Data.HashSet                  as HS
 import           Data.List                     (partition)
 import qualified Data.List.NonEmpty            as NE
 import           Formatting                    (build, builder, int, sformat, (%))
@@ -29,7 +30,7 @@ import           Pos.Core                      (ChainDifficulty, Coin, EpochInde
                                                 epochIndexL, flattenSlotId, headerHashG,
                                                 headerSlotL, sumCoins, unflattenSlotId,
                                                 unsafeIntegerToCoin)
-import           Pos.Crypto                    (checkSig, hash, shortHashF)
+import           Pos.Crypto                    (abstractHash, checkSig, hash, shortHashF)
 import           Pos.Update.Core               (BlockVersionData (..), UpId,
                                                 UpdatePayload (..), UpdateProposal (..),
                                                 UpdateProposalToSign (..),
@@ -48,6 +49,8 @@ import           Pos.Update.Poll.Types         (ConfirmedProposalState (..),
                                                 UndecidedProposalState (..),
                                                 UpsExtra (..), psProposal)
 import           Pos.Util                      (Some (..))
+
+import           Serokell.Util                 (listJson)
 
 type ApplyMode m = (MonadError PollVerFailure m, MonadPoll m)
 
@@ -149,10 +152,18 @@ verifyAndApplyProposal
     -> m ()
 verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {..} = do
     let !upId = hash up
+    let !upFromId = abstractHash upFrom
     let toSign =
           UpdateProposalToSign upBlockVersion upBlockVersionData upSoftwareVersion upData upAttributes
     unless (checkSig upFrom toSign upSignature) $
         throwError $ PollProposalInvalidSign upId
+
+    proposersD <- getEpochProposers
+    logDebug $ sformat ("PROPOSERS: "%listJson) proposersD
+    logDebug $ sformat ("UP_FROM_ID: "%build) upFromId
+
+    whenM (HS.member upFromId <$> getEpochProposers) $
+        throwError $ PollMoreThanOneProposalPerEpoch upFromId upId
     let epoch = slotOrHeader ^. epochIndexL
     let proposalSize = biSize up
     proposalSizeLimit <- bvdMaxProposalSize <$> getAdoptedBVData

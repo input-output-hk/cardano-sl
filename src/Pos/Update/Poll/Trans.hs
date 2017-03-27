@@ -31,7 +31,7 @@ import           System.Wlog                 (CanLog, HasLoggerName, logWarning)
 import           Universum
 
 import           Pos.Context                 (WithNodeContext)
-import           Pos.Crypto                  (hash)
+import           Pos.Crypto                  (abstractHash, hash)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Slotting.Class          (MonadSlots)
@@ -48,7 +48,8 @@ import           Pos.Update.Poll.Types       (BlockVersionState (..),
                                               cpsSoftwareVersion, pmActivePropsL,
                                               pmAdoptedBVFullL, pmBVsL, pmConfirmedL,
                                               pmConfirmedPropsL, pmDelActivePropsIdxL,
-                                              pmSlottingDataL, psProposal)
+                                              pmEpochProposersL, pmSlottingDataL,
+                                              psProposal)
 import           Pos.Util.Context            (MonadContext (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 import qualified Pos.Util.Modifier           as MM
@@ -111,6 +112,11 @@ instance MonadPollRead m =>
          MonadPollRead (PollT m) where
     getBVState pv = PollT $ MM.lookupM getBVState pv =<< use pmBVsL
     getProposedBVs = PollT $ MM.keysM getProposedBVs =<< use pmBVsL
+    getEpochProposers = PollT $ do
+        whenNothingM_ (use pmEpochProposersL) $ do
+            dbProposers <- getEpochProposers
+            pmEpochProposersL .= Just dbProposers
+        fromMaybe mempty <$> use pmEpochProposersL
     getConfirmedBVStates =
         PollT $
         filter (bvsIsConfirmed . snd) <$>
@@ -179,17 +185,17 @@ instance MonadPollRead m =>
     addConfirmedProposal cps =
         PollT $ pmConfirmedPropsL %= MM.insert (cpsSoftwareVersion cps) cps
     delConfirmedProposal sv = PollT $ pmConfirmedPropsL %= MM.delete sv
-    addActiveProposal ps =
-        PollT $ do
-            let up = psProposal ps
-                upId = hash up
-                sv = upSoftwareVersion up
-                appName = svAppName sv
+    addActiveProposal ps = PollT $ do
+        let up@UpdateProposal{upSoftwareVersion = sv, ..} = psProposal ps
+            upId = hash up
+            appName = svAppName sv
 
-                alterDel _ Nothing     = Nothing
-                alterDel val (Just hs) = Just $ HS.delete val hs
-            pmActivePropsL %= MM.insert upId ps
-            pmDelActivePropsIdxL %= HM.alter (alterDel upId) appName
+            alterDel _ Nothing     = Nothing
+            alterDel val (Just hs) = Just $ HS.delete val hs
+        pmActivePropsL %= MM.insert upId ps
+        pmDelActivePropsIdxL %= HM.alter (alterDel upId) appName
+        whenNothingM_ (getProposal upId) $ -- if not exist such proposal
+            pmEpochProposersL %= HS.insert (abstractHash upFrom)
     deactivateProposal id = do
         prop <- getProposal id
         whenJust prop $ \ps ->
@@ -204,6 +210,7 @@ instance MonadPollRead m =>
                 pmActivePropsL %= MM.delete upId
                 pmDelActivePropsIdxL %= HM.alter (alterIns upId) appName
     setSlottingData sd = PollT $ pmSlottingDataL .= Just sd
+    setEpochProposers ep = PollT $ pmEpochProposersL .= Just ep
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code

@@ -32,6 +32,7 @@ module Pos.Update.Poll.Types
        , pmActivePropsL
        , pmDelActivePropsIdxL
        , pmSlottingDataL
+       , pmEpochProposersL
 
          -- * Rollback
        , PrevValue (..)
@@ -211,6 +212,9 @@ data PollModifier = PollModifier
     , pmActiveProps       :: !(MapModifier UpId ProposalState)
     , pmDelActivePropsIdx :: !(HashMap ApplicationName (HashSet UpId))
     , pmSlottingData      :: !(Maybe SlottingData)
+    , pmEpochProposers    :: !(Maybe (HashSet StakeholderId))
+    -- ^ Cache of DB state.
+    -- Nothing means that we haven't got data from GState yet.
     } deriving (Show)
 
 flip makeLensesFor ''PollModifier
@@ -221,6 +225,7 @@ flip makeLensesFor ''PollModifier
     , ("pmActiveProps", "pmActivePropsL")
     , ("pmDelActivePropsIdx", "pmDelActivePropsIdxL")
     , ("pmSlottingData", "pmSlottingDataL")
+    , ("pmEpochProposers", "pmEpochProposersL")
     ]
 
 ----------------------------------------------------------------------------

@@ -32,6 +32,8 @@ class (Monad m, WithLogger m) => MonadPollRead m where
     -- ^ Retrieve state of given block version.
     getProposedBVs :: m [BlockVersion]
     -- ^ Retrieve all proposed block versions.
+    getEpochProposers :: m (HashSet StakeholderId)
+    -- ^ Retreive all stakeholders which proposed proposals in the current epoch.
     getConfirmedBVStates :: m [(BlockVersion, BlockVersionState)]
     -- ^ Get all confirmed 'BlockVersion's and their states.
     getAdoptedBVFull :: m (BlockVersion, BlockVersionData)
@@ -78,6 +80,10 @@ class (Monad m, WithLogger m) => MonadPollRead m where
     default getProposedBVs
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m [BlockVersion]
     getProposedBVs = lift getProposedBVs
+
+    default getEpochProposers
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m (HashSet StakeholderId)
+    getEpochProposers = lift getEpochProposers
 
     default getConfirmedBVStates
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
@@ -168,6 +174,8 @@ class MonadPollRead m => MonadPoll m where
     -- ^ Delete active proposal given its name and identifier.
     setSlottingData :: SlottingData -> m ()
     -- ^ Set most recent 'SlottingData'.
+    setEpochProposers :: HashSet StakeholderId -> m ()
+    -- ^ Set proposers.
 
     -- | Default implementations for 'MonadTrans'.
     default putBVState
@@ -209,6 +217,10 @@ class MonadPollRead m => MonadPoll m where
     default setSlottingData
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => SlottingData -> m ()
     setSlottingData = lift . setSlottingData
+
+    default setEpochProposers
+        :: (MonadTrans t, MonadPoll m', t m' ~ m) => HashSet StakeholderId -> m ()
+    setEpochProposers = lift . setEpochProposers
 
 instance MonadPoll m => MonadPoll (ReaderT s m)
 instance MonadPoll m => MonadPoll (StateT s m)

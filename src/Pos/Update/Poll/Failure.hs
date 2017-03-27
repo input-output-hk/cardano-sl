@@ -67,7 +67,10 @@ data PollVerFailure
                            , ptlpSize  :: !Byte
                            , ptlpLimit :: !Byte
                            }
-    | PollProposalInvalidSign { ptlpUpId :: !UpId }
+    | PollProposalInvalidSign { ppisUpId :: !UpId }
+    | PollMoreThanOneProposalPerEpoch { ptopFrom :: !StakeholderId
+                                      , ptopUpId :: !UpId
+                                      }
     | PollInternalError !Text
 
 instance Buildable PollVerFailure where
@@ -133,6 +136,8 @@ instance Buildable PollVerFailure where
                 int%" > "%int%")")
         ptlpUpId ptlpSize ptlpLimit
     build (PollProposalInvalidSign {..}) =
-        bprint ("signature of update proposal "%shortHashF % " is invalid") ptlpUpId
+        bprint ("signature of update proposal "%shortHashF % " is invalid") ppisUpId
+    build (PollMoreThanOneProposalPerEpoch {..}) =
+        bprint ("stakeholder "%shortHashF % " proposed second proposal "%shortHashF) ptopFrom ptopUpId
     build (PollInternalError msg) =
         bprint ("internal error: "%stext) msg

@@ -10,6 +10,7 @@ module Pos.Util.TimeWarp
        , addressToNodeId'
        , nodeIdToAddress
        , addrParser
+       , addrParserNoWildcard
        ) where
 
 import qualified Data.ByteString.Char8 as BS8
@@ -50,3 +51,11 @@ nodeIdToAddress (NodeId ep) = do
 -- | Parsed for network address in format @host:port@.
 addrParser :: P.Parser NetworkAddress
 addrParser = (,) <$> (encodeUtf8 <$> P.host) <*> (P.char ':' *> P.port)
+
+-- | Parses an IPv4 NetworkAddress where the host is not 0.0.0.0.
+addrParserNoWildcard :: P.Parser NetworkAddress
+addrParserNoWildcard = do
+  (host, port) <- addrParser
+  if host == BS8.pack "0.0.0.0"
+  then empty
+  else return (host, port)

@@ -80,7 +80,7 @@ optionsParser = do
         help "If the DB already exist, discard its contents and \
              \create new one from scratch"
     woIpPort <-
-        CLI.ipPortOption ("0.0.0.0", 24961)   -- truly random value
+        CLI.ipPortOption ("127.0.0.1", 24961)
     woKeyFilePath <- strOption $
         long    "keys-path" <>
         metavar "FILEPATH" <>

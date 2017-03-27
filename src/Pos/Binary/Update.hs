@@ -80,6 +80,8 @@ instance Bi U.UpdateProposal where
             <*> get
             <*> getUpData
             <*> get
+            <*> get
+            <*> get
       where getUpData = do   -- Check if proposal data is non-empty
                 pd <- get
                 when (HM.null pd) $
@@ -90,6 +92,18 @@ instance Bi U.UpdateProposal where
                               *> put upSoftwareVersion
                               *> put upData
                               *> put upAttributes
+                              *> put upFrom
+                              *> put upSignature
+
+instance Bi U.UpdateProposalToSign where
+    get = label "UpdateProposalToSign" $
+          U.UpdateProposalToSign
+            <$> get
+            <*> get
+            <*> get
+            <*> get
+            <*> get
+    put U.UpdateProposalToSign {..} = put upsBV *> put upsBVD *> put upsSV *> put upsData *> put upsAttr
 
 instance Bi U.UpdatePayload where
     get = label "UpdatePayload" $ liftA2 U.UpdatePayload get get

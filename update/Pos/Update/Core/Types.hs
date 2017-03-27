@@ -10,6 +10,7 @@ module Pos.Update.Core.Types
        , UpId
        , UpAttributes
        , UpdateData (..)
+       , UpdateProposalToSign (..)
        , BlockVersionData (..)
        , SystemTag (getSystemTag)
        , mkSystemTag
@@ -95,17 +96,29 @@ type UpId = Hash UpdateProposal
 
 type UpAttributes = Attributes ()
 
+data UpdateProposalToSign
+    = UpdateProposalToSign
+    { upsBV   :: !BlockVersion
+    , upsBVD  :: !BlockVersionData
+    , upsSV   :: !SoftwareVersion
+    , upsData :: !(HM.HashMap SystemTag UpdateData)
+    , upsAttr :: !UpAttributes
+    }
+
 -- | Proposal for software update
 data UpdateProposal = UpdateProposal
     { upBlockVersion     :: !BlockVersion
     , upBlockVersionData :: !BlockVersionData
     , upSoftwareVersion  :: !SoftwareVersion
     , upData             :: !(HM.HashMap SystemTag UpdateData)
-    -- ^ UpdateData for each system which this update affects.
-    -- It must be non-empty.
     , upAttributes       :: !UpAttributes
     -- ^ Attributes which are currently empty, but provide
     -- extensibility.
+    -- ^ UpdateData for each system which this update affects.
+    -- It must be non-empty.
+    , upFrom             :: !PublicKey
+    -- ^ Who proposed this UP.
+    , upSignature        :: !(Signature UpdateProposalToSign)
     } deriving (Eq, Show, Generic, Typeable)
 
 

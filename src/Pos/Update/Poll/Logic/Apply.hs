@@ -29,9 +29,10 @@ import           Pos.Core                      (ChainDifficulty, Coin, EpochInde
                                                 epochIndexL, flattenSlotId, headerHashG,
                                                 headerSlotL, sumCoins, unflattenSlotId,
                                                 unsafeIntegerToCoin)
-import           Pos.Crypto                    (hash, shortHashF)
+import           Pos.Crypto                    (checkSig, hash, shortHashF)
 import           Pos.Update.Core               (BlockVersionData (..), UpId,
                                                 UpdatePayload (..), UpdateProposal (..),
+                                                UpdateProposalToSign (..),
                                                 UpdateVote (..))
 import           Pos.Update.Poll.Class         (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure       (PollVerFailure (..))
@@ -147,8 +148,12 @@ verifyAndApplyProposal
     -> UpdateProposal
     -> m ()
 verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {..} = do
-    let epoch = slotOrHeader ^. epochIndexL
     let !upId = hash up
+    let toSign =
+          UpdateProposalToSign upBlockVersion upBlockVersionData upSoftwareVersion upData upAttributes
+    unless (checkSig upFrom toSign upSignature) $
+        throwError $ PollProposalInvalidSign upId
+    let epoch = slotOrHeader ^. epochIndexL
     let proposalSize = biSize up
     proposalSizeLimit <- bvdMaxProposalSize <$> getAdoptedBVData
     when (proposalSize > proposalSizeLimit) $

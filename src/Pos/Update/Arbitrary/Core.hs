@@ -18,7 +18,7 @@ import           Pos.Data.Attributes   (mkAttributes)
 import           Pos.Types.Arbitrary   ()
 import           Pos.Update.Core.Types (BlockVersionData (..), SystemTag, UpdateData (..),
                                         UpdatePayload (..), UpdateProposal (..),
-                                        UpdateVote (..), VoteState (..), mkSystemTag)
+                                        UpdateVote (..), VoteState (..), mkSystemTag, UpdateProposalToSign (..))
 
 instance Arbitrary SystemTag where
     arbitrary =
@@ -37,12 +37,22 @@ instance Arbitrary UpdateVote where
         return UpdateVote {..}
 
 instance Arbitrary UpdateProposal where
-    arbitrary = UpdateProposal
-        <$> arbitrary
-        <*> arbitrary
-        <*> arbitrary
-        <*> (HM.fromList <$> listOf1 arbitrary)
-        <*> pure (mkAttributes ())
+    arbitrary = do
+        upBlockVersion <- arbitrary
+        upBlockVersionData <- arbitrary
+        upSoftwareVersion <- arbitrary
+        upData <- HM.fromList <$> listOf1 arbitrary
+        let upAttributes = mkAttributes ()
+        skey <- arbitrary
+        let upFrom = toPublic skey
+        let upSignature = sign skey $
+                UpdateProposalToSign
+                  upBlockVersion
+                  upBlockVersionData
+                  upSoftwareVersion
+                  upData
+                  upAttributes
+        pure UpdateProposal {..}
 
 instance Arbitrary VoteState where
     arbitrary =

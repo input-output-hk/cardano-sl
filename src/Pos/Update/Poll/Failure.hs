@@ -67,6 +67,7 @@ data PollVerFailure
                            , ptlpSize  :: !Byte
                            , ptlpLimit :: !Byte
                            }
+    | PollProposalInvalidSign { ptlpUpId :: !UpId }
     | PollInternalError !Text
 
 instance Buildable PollVerFailure where
@@ -131,5 +132,7 @@ instance Buildable PollVerFailure where
         bprint ("update proposal "%shortHashF%" exceeds maximal size ("%
                 int%" > "%int%")")
         ptlpUpId ptlpSize ptlpLimit
+    build (PollProposalInvalidSign {..}) =
+        bprint ("signature of update proposal "%shortHashF % " is invalid") ptlpUpId
     build (PollInternalError msg) =
         bprint ("internal error: "%stext) msg

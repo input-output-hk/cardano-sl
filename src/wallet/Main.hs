@@ -44,8 +44,8 @@ import           Pos.Ssc.SscAlgo           (SscAlgo (..))
 import           Pos.Txp                   (TxOutAux (..), txaF)
 import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress)
 import           Pos.Update                (BlockVersionData (..), UpdateProposal (..),
-                                            UpdateVote (..), patakUpdateData,
-                                            skovorodaUpdateData)
+                                            UpdateProposalToSign (..), UpdateVote (..),
+                                            patakUpdateData, skovorodaUpdateData)
 import           Pos.Wallet                (WalletMode, WalletParams (..), WalletRealMode,
                                             getBalance, runWalletReal, sendProposalOuts,
                                             sendVoteOuts, submitUpdateProposal,
@@ -100,20 +100,22 @@ runCmd sendActions ProposeUpdate{..} = do
         liftIO $ putText $ sformat ("Read file succesfuly, its hash: "%hashHexF) h
         pure h
     let skey = skeys !! puIdx
+    let pkey = toPublic skey
     let bvd = genesisBlockVersionData
             { bvdScriptVersion = puScriptVersion
             , bvdSlotDuration = convertUnit (sec puSlotDurationSec)
             , bvdMaxBlockSize = puMaxBlockSize
             }
+    let udata = maybe patakUpdateData skovorodaUpdateData diffFile
+    let toSign = UpdateProposalToSign puBlockVersion bvd puSoftwareVersion udata (mkAttributes ())
     let updateProposal = UpdateProposal
             { upBlockVersion     = puBlockVersion
             , upBlockVersionData = bvd
             , upSoftwareVersion  = puSoftwareVersion
-            , upData             =
-                maybe patakUpdateData
-                      skovorodaUpdateData
-                      diffFile
+            , upData             = udata
             , upAttributes       = mkAttributes ()
+            , upFrom             = pkey
+            , upSignature        = sign skey toSign
             }
     if null na
         then putText "Error: no addresses specified"

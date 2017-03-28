@@ -1,14 +1,12 @@
-{-# LANGUAGE ApplicativeDo       #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
+import           Data.Aeson           (eitherDecode)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict  as HM
 import qualified Data.Text            as T
-import           Options.Applicative  (Parser, ParserInfo, auto, execParser, fullDesc,
-                                       help, helper, info, long, metavar, option, option,
-                                       progDesc, short, strOption, value)
+import           Options.Applicative  (execParser)
 import           Prelude              (show)
 import           System.Directory     (createDirectoryIfMissing)
 import           System.FilePath      (takeDirectory)
@@ -19,19 +17,16 @@ import           Pos.Binary           (asBinary, decodeFull, encode)
 import           Pos.Constants        (vssMaxTTL, vssMinTTL)
 import           Pos.Crypto           (PublicKey, keyGen, toPublic, toVssPublicKey,
                                        vssKeyGen)
-import           Pos.Genesis          (GenesisData (..), StakeDistribution (..))
+import           Pos.Genesis          (GenesisData (..), StakeDistribution (..),
+                                       getTotalStake)
 import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
 import           Pos.Types            (addressHash, makePubKeyAddress, mkCoin)
 import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usPrimKey,
                                        usVss, writeUserSecretRelease)
 
-data KeygenOptions = KO
-    { koPattern      :: FilePath
-    , koGenesisFile  :: FilePath
-    , koStakeholders :: Word
-    , koRichmen      :: Word
-    , koTotalStake   :: Word64
-    }
+import           Avvm                 (genGenesis, getHolderId)
+import           KeygenOptions        (AvvmStakeOptions (..), KeygenOptions (..),
+                                       TestStakeOptions (..), optsInfo)
 
 generateKeyfile :: FilePath -> IO (PublicKey, VssCertificate)
 generateKeyfile fp = do
@@ -50,72 +45,65 @@ generateKeyfile fp = do
 replace :: FilePath -> FilePath -> FilePath -> FilePath
 replace a b = toString . (T.replace `on` toText) a b . toText
 
-optsParser :: Parser KeygenOptions
-optsParser = do
-    koPattern <- strOption $
-        long    "file-pattern" <>
-        short   'f' <>
-        metavar "PATTERN" <>
-        help    "Filename pattern for generated keyfiles \
-                \(`{}` is a place for number)"
-    koGenesisFile <- strOption $
-        long    "genesis-file" <>
-        metavar "FILE" <>
-        value   "genesis.bin" <>
-        help    "File to dump binary shared genesis data"
-    koStakeholders <- option auto $
-        long    "total-stakeholders" <>
-        short   'n' <>
-        metavar "INT" <>
-        help    "Total number of keyfiles to generate"
-    koRichmen <- option auto $
-        long    "richmen" <>
-        short   'm' <>
-        metavar "INT" <>
-        help    "Number of richmen among stakeholders"
-    koTotalStake <- option auto $
-        long    "total-stake" <>
-        metavar "INT" <>
-        help    "Total coins in genesis"
-    pure KO{..}
-
-optsInfo :: ParserInfo KeygenOptions
-optsInfo = info (helper <*> optsParser) $
-    fullDesc `mappend` progDesc "Tool to generate keyfiles"
-
-main :: IO ()
-main = do
-    KO {..} <- execParser optsInfo
-    let keysDir = takeDirectory koPattern
-        genFileDir = takeDirectory koGenesisFile
+getTestnetGenesis :: TestStakeOptions -> IO GenesisData
+getTestnetGenesis TSO{..} = do
+    let keysDir = takeDirectory tsoPattern
     createDirectoryIfMissing True keysDir
-    createDirectoryIfMissing True genFileDir
 
-    genesisList <- forM [1..koStakeholders] $ \i ->
-        generateKeyfile $ replace "{}" (show i) koPattern
-    print $ show koStakeholders ++ " keyfiles are generated"
+    genesisList <- forM [1..tsoStakeholders] $ \i ->
+        generateKeyfile $ replace "{}" (show i) tsoPattern
+    print $ show tsoStakeholders ++ " keyfiles are generated"
 
     let distr = TestnetStakes
-            { sdTotalStake = mkCoin koTotalStake
-            , sdRichmen    = koRichmen
-            , sdPoor       = koStakeholders - koRichmen
+            { sdTotalStake = mkCoin tsoTotalStake
+            , sdRichmen    = tsoRichmen
+            , sdPoor       = tsoStakeholders - tsoRichmen
             }
         genesisAddrs = map (makePubKeyAddress . fst) genesisList
         genesisVssCerts = HM.fromList
                           $ map (_1 %~ addressHash)
-                          $ take (fromIntegral koRichmen) genesisList
+                          $ take (fromIntegral tsoRichmen) genesisList
         genData = GenesisData
             { gdAddresses = genesisAddrs
             , gdDistribution = distr
             , gdVssCertificates = genesisVssCerts
             }
-    BSL.writeFile koGenesisFile $ encode genData
-    case decodeFull (encode genData) of
-        Right (_ :: GenesisData) ->
+    return genData
+
+getAvvmGenesis :: AvvmStakeOptions -> IO GenesisData
+getAvvmGenesis ASO{..} = do
+    jsonfile <- BSL.readFile asoJsonPath
+    holder <- getHolderId asoHolderKeyfile
+    case eitherDecode jsonfile of
+        Left err       -> error $ toText err
+        Right avvmData -> pure $
+            genGenesis avvmData asoIsRandcerts holder
+
+main :: IO ()
+main = do
+    KO {..} <- execParser optsInfo
+    let genFileDir = takeDirectory koGenesisFile
+    createDirectoryIfMissing True genFileDir
+
+    mTestnetGenesis <- traverse getTestnetGenesis koTestStake
+    mAvvmGenesis <- traverse getAvvmGenesis koAvvmStake
+
+    let mGenData = mappend <$> mTestnetGenesis <*> mAvvmGenesis
+                   <|> mTestnetGenesis
+                   <|> mAvvmGenesis
+        genData = maybe (error "At least one of options \
+                               \(AVVM stake or testnet stake) \
+                               \should be provided")
+                  identity mGenData
+        binGenesis = encode genData
+
+    case decodeFull binGenesis of
+        Right (_ :: GenesisData) -> do
             putText "genesis.bin generated successfully\n"
+            BSL.writeFile koGenesisFile binGenesis
         Left err                 -> do
             putText ("Generated genesis.bin can't be read: " <>
                      toText err <> "\n")
-            if length (encode genData) < 10*1024
+            if length binGenesis < 10*1024
                 then putText "Printing GenesisData:\n\n" >> print genData
                 else putText "genesis.bin is bigger than 10k, won't print it\n"

@@ -4,7 +4,7 @@ import Prelude
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (cBlock, common, cOf, cNotAvailable, block, blFees, blRoot, blNextBlock, blPrevBlock, blEstVolume, cHash, cSummary, cTotalOutput, cHashes, cHeight, cTransactions) as I18nL
+import Explorer.I18n.Lenses (cBlock, common, cOf, cNotAvailable, block, blFees, blRoot, blNextBlock, blPrevBlock, blEstVolume, cHash, cSummary, cTotalOutput, cHashes, cSlot, cTransactions) as I18nL
 import Explorer.Lenses.State (currentBlockSummary, lang)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
@@ -13,7 +13,7 @@ import Explorer.Util.DOM (targetToHTMLInputElement)
 import Explorer.View.Common (currencyCSSClass, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txPaginationView, txHeaderView)
 import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeHeight, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
 import Pux.Html (Html, div, text, h3) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Router (link) as P
@@ -87,8 +87,8 @@ mkSummaryItems lang (CBlockEntry entry) =
       , amount: "0"
       , currency: Just ADA
       }
-    , { label: translate (I18nL.common <<< I18nL.cHeight) lang
-      , amount: show $ entry ^. (cbeHeight)
+    , { label: translate (I18nL.common <<< I18nL.cSlot) lang
+      , amount: show $ entry ^. cbeSlot
       , currency: Nothing
       }
     ]

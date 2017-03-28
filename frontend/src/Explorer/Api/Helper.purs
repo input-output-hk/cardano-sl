@@ -35,6 +35,7 @@ options =
     , userEncoding
     , userDecoding
     , fieldLabelModifier: id
+    , omitNothingFields: false
     }
 
 

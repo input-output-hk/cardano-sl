@@ -16,7 +16,6 @@ module Pos.Explorer.Web.ClientTypes
        , TxInternal (..)
        , toCHash
        , fromCHash
-       , fromCHash'
        , toCAddress
        , fromCAddress
        , toCTxId
@@ -33,12 +32,13 @@ module Pos.Explorer.Web.ClientTypes
        ) where
 
 import           Control.Arrow          ((&&&))
-import qualified Data.ByteString        as BS
+import           Control.Lens           (_Left)
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Lazy   as BSL
 import qualified Data.List.NonEmpty     as NE
 import           Data.Time.Clock.POSIX  (POSIXTime)
 import           Formatting             (sformat)
+import           Serokell.Util.Base16   as SB16
 import           Servant.API            (FromHttpApiData (..))
 import           Universum
 
@@ -51,12 +51,15 @@ import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
 import           Pos.Txp                (Tx (..), TxId, TxOut (..), TxOutAux (..),
                                          _txOutputs)
-import           Pos.Types              (Address, Coin, MainBlock, Timestamp, addressF,
-                                         blockTxs, decodeTextAddress, difficultyL,
-                                         gbHeader, gbhConsensus, headerHash, mcdSlot,
-                                         mkCoin, prevBlockL, sumCoins, unsafeAddCoin,
+import           Pos.Types              (Address, Coin, MainBlock, SlotId (..), Timestamp,
+                                         addressF, blockSlot, blockTxs, decodeTextAddress,
+                                         gbHeader, gbhConsensus, getEpochIndex,
+                                         getSlotIndex, headerHash, mcdSlot, mkCoin,
+                                         prevBlockL, sumCoins, unsafeAddCoin,
                                          unsafeIntegerToCoin)
 import           Pos.Types.Explorer     (TxExtra (..))
+
+
 
 -------------------------------------------------------------------------------------
 -- Hash types
@@ -83,14 +86,9 @@ encodeHashHex :: Hash a -> Text
 encodeHashHex = decodeUtf8 . B16.encode . Bi.encodeStrict
 
 decodeHashHex :: Text -> Either Text (Hash a)
-decodeHashHex = fmap Bi.decode . processRes . B16.decode . encodeUtf8
-  where processRes (res, rest) =
-            if BS.null rest
-            then Right $ BSL.fromStrict res
-            else Left $ "decodeHashHex: couldn't decode rest of hash: " <> decodeUtf8 rest
-
-decodeHashHex' :: Text -> Hash a
-decodeHashHex' = either (error "decodeHashHex: invalid hash") identity . decodeHashHex
+decodeHashHex hashText = do
+    hashBinary <- SB16.decode hashText
+    over _Left toText $ Bi.decodeFull $ BSL.fromStrict hashBinary
 
 toCSearchId :: Hash a -> CSearchId
 toCSearchId = CSearchId . encodeHashHex
@@ -113,9 +111,6 @@ toCHash = CHash . encodeHashHex
 
 fromCHash :: CHash -> Either Text (Hash a)
 fromCHash (CHash h) = decodeHashHex h
-
-fromCHash' :: CHash -> Hash a
-fromCHash' (CHash h) = decodeHashHex' h
 
 toCAddress :: Address -> CAddress
 toCAddress = CAddress . sformat addressF
@@ -142,8 +137,9 @@ data CHashSearchResult
 
 -- | List of block entries is returned from "get latest N blocks" endpoint
 data CBlockEntry = CBlockEntry
-    { cbeBlkHash    :: !CHash
-    , cbeHeight     :: !Word
+    { cbeEpoch      :: !Word64
+    , cbeSlot       :: !Word16
+    , cbeBlkHash    :: !CHash
     , cbeTimeIssued :: !(Maybe POSIXTime)
     , cbeTxNum      :: !Word
     , cbeTotalSent  :: !Coin
@@ -160,17 +156,20 @@ toBlockEntry
     -> m CBlockEntry
 toBlockEntry blk = do
     blkSlotStart <- getSlotStart (blk ^. gbHeader . gbhConsensus . mcdSlot)
-    let cbeBlkHash = toCHash $ headerHash blk
-        cbeHeight = fromIntegral $ blk ^. difficultyL
+    let headerSlot    = blk ^. blockSlot
+        cbeEpoch      = getEpochIndex $ siEpoch headerSlot
+        cbeSlot       = getSlotIndex  $ siSlot  headerSlot
+        cbeBlkHash    = toCHash $ headerHash blk
         cbeTimeIssued = toPosixTime <$> blkSlotStart
-        txs = blk ^. blockTxs
-        cbeTxNum = fromIntegral $ length txs
-        addCoins c = unsafeAddCoin c . totalTxMoney
-        cbeTotalSent = foldl' addCoins (mkCoin 0) txs
+        txs           = blk ^. blockTxs
+        cbeTxNum      = fromIntegral $ length txs
+        addCoins c    = unsafeAddCoin c . totalTxMoney
+        cbeTotalSent  = foldl' addCoins (mkCoin 0) txs
         -- TODO: is there a way to get it more efficiently?
-        cbeSize = fromIntegral . BSL.length $ Bi.encode blk
-        cbeRelayedBy = Nothing
+        cbeSize       = fromIntegral . BSL.length $ Bi.encode blk
+        cbeRelayedBy  = Nothing
     return CBlockEntry {..}
+
 
 -- | List of tx entries is returned from "get latest N transactions" endpoint
 data CTxEntry = CTxEntry

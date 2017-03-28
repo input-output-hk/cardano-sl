@@ -45,7 +45,7 @@ import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
 import           Node                        (Node, NodeAction (..),
                                               defaultNodeEnvironment, hoistSendActions,
-                                              node)
+                                              node, simpleNodeEndPoint)
 import           Node.Util.Monitor           (setupMonitor, stopMonitor)
 import           Serokell.Util               (sec)
 import qualified STMContainers.Map           as SM
@@ -277,7 +277,7 @@ runServer transport packedLS_M (OutSpecs wouts) withNode afterNode (ActionSpec a
         listeners = listeners' ourVerInfo
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo "%build) ourVerInfo
-    node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) defaultNodeEnvironment $ \__node ->
+    node (simpleNodeEndPoint (concrete transport)) stdGen BiP (ourPeerId, ourVerInfo) defaultNodeEnvironment $ \__node ->
         NodeAction listeners $ \sendActions -> do
             t <- withNode __node
             action ourVerInfo sendActions `finally` afterNode t

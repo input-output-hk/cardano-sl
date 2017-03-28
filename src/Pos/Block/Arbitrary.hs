@@ -67,6 +67,12 @@ properBlock = do
 -- GenesisBlockchain
 ------------------------------------------------------------------------------------------
 
+instance Arbitrary T.GenesisExtraHeaderData where
+    arbitrary = T.GenesisExtraHeaderData <$> arbitrary
+
+instance Arbitrary T.GenesisExtraBodyData where
+    arbitrary = T.GenesisExtraBodyData <$> arbitrary
+
 instance Arbitrary (T.GenesisBlockHeader ssc) where
     arbitrary = T.GenericBlockHeader
         <$> arbitrary
@@ -133,6 +139,14 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
         <*> arbitrary
         <*> arbitrary
 
+instance (Ssc ssc, Arbitrary (SscProof ssc)) => Arbitrary (T.MainToSign ssc) where
+    arbitrary = T.MainToSign
+        <$> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+
 -- | In the main blockchain's body, the number of transactions must be the same as the
 -- number of transaction witnesses.
 --
@@ -163,6 +177,8 @@ newtype SmallTxPayload =
 
 instance Arbitrary SmallTxPayload where
     arbitrary = SmallTxPayload <$> makeSmall arbitrary
+
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 instance Arbitrary (SscPayloadDependsOnSlot ssc) =>
          Arbitrary (BodyDependsOnConsensus (T.MainBlockchain ssc)) where

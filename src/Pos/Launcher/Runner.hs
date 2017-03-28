@@ -45,7 +45,7 @@ import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
 import           Node                        (Node, NodeAction (..),
                                               defaultNodeEnvironment, hoistSendActions,
-                                              node)
+                                              node, simpleNodeEndPoint)
 import           Node.Util.Monitor           (setupMonitor, stopMonitor)
 import           Serokell.Util               (sec)
 import qualified STMContainers.Map           as SM
@@ -105,12 +105,15 @@ import           Pos.Txp                     (txpGlobalSettings)
 #endif
 import           Pos.Update.Context          (UpdateContext (..))
 import qualified Pos.Update.DB               as GState
-import           Pos.Update.MemState         (runUSHolder)
+import           Pos.Update.MemState         (newMemVar)
 import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
 import           Pos.Util.UserSecret         (usKeys)
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (MinWorkMode, ProductionMode, RawRealMode,
                                               ServiceMode, StatsMode)
+
+-- Remove this once there's no #ifdef-ed Pos.Txp import
+{-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
 
 data RealModeResources = RealModeResources
     { rmTransport :: Transport
@@ -209,7 +212,6 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
                        ignoreSscHolder .
                        runTxpHolder txpVar .
                        runDelegationT def .
-                       runUSHolder .
                        runKademliaDHT (rmDHT res) .
                        runPeerStateHolder stateM_
 
@@ -226,7 +228,6 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
           (mkStateAndRunSscHolder @ssc) .
           runTxpHolder txpVar .
           runDelegationT def .
-          runUSHolder .
           runKademliaDHT (rmDHT res) .
           runPeerStateHolder stateM .
           runServer (rmTransport res) listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
@@ -274,7 +275,7 @@ runServer transport packedLS_M (OutSpecs wouts) withNode afterNode (ActionSpec a
         listeners = listeners' ourVerInfo
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo "%build) ourVerInfo
-    node (concrete transport) stdGen BiP (ourPeerId, ourVerInfo) defaultNodeEnvironment $ \__node ->
+    node (simpleNodeEndPoint (concrete transport)) stdGen BiP (ourPeerId, ourVerInfo) defaultNodeEnvironment $ \__node ->
         NodeAction listeners $ \sendActions -> do
             t <- withNode __node
             action ourVerInfo sendActions `finally` afterNode t
@@ -357,6 +358,7 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
     ncShutdownNotifyQueue <- liftIO $ newTBQueueIO allWorkersNum
     ncStartTime <- liftIO Time.getCurrentTime
     ncLastKnownHeader <- liftIO $ newTVarIO Nothing
+    ucMemState <- newMemVar
     let ctx =
             NodeContext
             { ncSscContext = sscNodeContext

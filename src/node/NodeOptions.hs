@@ -94,7 +94,7 @@ argsParser = do
         help    (show backupPhraseWordsNum ++
                  "-word phrase to recover the wallet")
     ipPort <-
-        CLI.ipPortOption ("0.0.0.0", 3000)
+        CLI.ipPortOption ("127.0.0.1", 3000)
     supporterNode <- switch $
         long "supporter" <>
         help "Launch DHT supporter instead of full node"

@@ -11,12 +11,16 @@ module Pos.Types.Block.Types
        , BlockBodyAttributes
        , BiSsc
        , BlockSignature (..)
-       , MainToSign
+       , MainToSign (..)
        , MainBlock
 
        , GenesisBlockchain
        , GenesisBlockHeader
        , GenesisBlock
+       , GenesisExtraBodyData (..)
+       , GenesisBodyAttributes
+       , GenesisExtraHeaderData (..)
+       , GenesisHeaderAttributes
 
        , BlockHeader
        , Block
@@ -56,7 +60,14 @@ import           Pos.Ssc.Class.Types (Ssc (..))
 data MainBlockchain ssc
 
 -- | Data to be signed in main block.
-type MainToSign ssc = (HeaderHash, BodyProof (MainBlockchain ssc), SlotId, ChainDifficulty)
+data MainToSign ssc
+    = MainToSign
+    { _msHeaderHash  :: !HeaderHash
+    , _msBodyProof   :: !(BodyProof (MainBlockchain ssc))
+    , _msSlot        :: !SlotId
+    , _msChainDiff   :: !ChainDifficulty
+    , _msExtraHeader :: !MainExtraHeaderData
+    }
 
 -- | Signature of the block. Can be either regular signature from the
 -- issuer or delegated signature having a constraint on epoch indices
@@ -93,8 +104,7 @@ data MainExtraHeaderData = MainExtraHeaderData
       _mehSoftwareVersion :: !SoftwareVersion
     , -- | Header attributes
       _mehAttributes      :: !BlockHeaderAttributes
-    }
-    deriving (Eq, Show, Generic)
+    } deriving (Eq, Show, Generic)
 
 instance NFData MainExtraHeaderData
 
@@ -131,6 +141,37 @@ type MainBlock ssc = GenericBlock (MainBlockchain ssc)
 ----------------------------------------------------------------------------
 -- GenesisBlock
 ----------------------------------------------------------------------------
+
+-- | Represents genesis block header attributes.
+type GenesisHeaderAttributes = Attributes ()
+
+-- | Represents genesis block header extra data
+data GenesisExtraHeaderData = GenesisExtraHeaderData
+    { -- | Header attributes
+      _gehAttributes      :: !GenesisHeaderAttributes
+    } deriving (Eq, Show, Generic)
+
+instance NFData GenesisExtraHeaderData
+
+instance Buildable GenesisExtraHeaderData where
+    -- Currently there is no extra data in genesis block header, attributes are empty.
+    build _ = bprint "no extra data"
+
+
+-- | Represents genesis block header attributes.
+type GenesisBodyAttributes = Attributes ()
+
+-- | Represents genesis block header extra data
+data GenesisExtraBodyData = GenesisExtraBodyData
+    { -- | Header attributes
+      _gebAttributes      :: !GenesisBodyAttributes
+    } deriving (Eq, Show, Generic)
+
+instance NFData GenesisExtraBodyData
+
+instance Buildable GenesisExtraBodyData where
+    -- Currently there is no extra data in genesis block header, attributes are empty.
+    build _ = bprint "no extra data"
 
 -- | Represents blockchain consisting of genesis blocks.  Genesis
 -- block doesn't have any special payload and is not strictly

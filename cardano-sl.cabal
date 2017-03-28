@@ -58,7 +58,6 @@ library
 
                         -- LRC
                         Pos.Lrc
-                        Pos.Lrc.Context
                         Pos.Lrc.FtsPure
 
                         -- Scripting
@@ -103,8 +102,6 @@ library
 
                         -- Update system
                         Pos.Update
-                        Pos.Update.Context
-                        Pos.Update.Mode
                         Pos.Update.Arbitrary
 
                         -- Utilities/helpers
@@ -141,7 +138,6 @@ library
                         Pos.Binary.Ssc
                         Pos.Binary.Ssc.GodTossing.Core
                         Pos.Binary.Txp
-                        Pos.Binary.Update
 
                         -- Block processing
                         Pos.Block.Error
@@ -321,17 +317,11 @@ library
                         Pos.Update.Arbitrary.Core
                         Pos.Update.Arbitrary.Network
                         Pos.Update.Arbitrary.Poll
-                        Pos.Update.DB
                         Pos.Update.Download
                         Pos.Update.Logic
                         Pos.Update.Logic.Global
                         Pos.Update.Logic.Local
                         Pos.Update.Lrc
-                        Pos.Update.MemState
-                        Pos.Update.MemState.Class
-                        Pos.Update.MemState.Functions
-                        Pos.Update.MemState.Holder
-                        Pos.Update.MemState.Types
                         Pos.Update.Network
                         Pos.Update.Network.Listeners
                         Pos.Update.Network.Types
@@ -346,10 +336,8 @@ library
                         Pos.Update.Poll.Logic.Rollback
                         Pos.Update.Poll.Logic.Softfork
                         Pos.Update.Poll.Logic.Version
-                        Pos.Update.Poll.Modifier
                         Pos.Update.Poll.RollTrans
                         Pos.Update.Poll.Trans
-                        Pos.Update.Poll.Types
                         Pos.Update.Worker
 
                         -- Utilities/helpers
@@ -564,6 +552,7 @@ executable cardano-node
                      , cardano-sl-core
                      , cardano-sl-infra
                      , cardano-sl-lrc
+                     , cardano-sl-update
                      , cardano-sl
                      , data-default
                      , directory
@@ -782,6 +771,7 @@ executable cardano-smart-generator
                      , data-default
                      , cardano-sl-core
                      , cardano-sl-infra
+                     , cardano-sl-update
                      , cardano-sl
                      , cardano-sl-core
                      , filepath

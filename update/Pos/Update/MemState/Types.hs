@@ -16,8 +16,8 @@ import           Universum
 import           Control.Concurrent.Lock  (Lock, new)
 import           Data.Default             (Default (def))
 
+import           Pos.Core.Types           (HeaderHash, SlotId (..))
 import           Pos.Crypto               (unsafeHash)
-import           Pos.Types                (HeaderHash, SlotId (..))
 import           Pos.Update.Core          (LocalVotes, UpdateProposals)
 import           Pos.Update.Poll.Modifier ()
 import           Pos.Update.Poll.Types    (PollModifier)

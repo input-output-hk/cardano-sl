@@ -65,7 +65,9 @@ openNodeDBs recreate fp = do
 -- | Initialize DBs if necessary.
 initNodeDBs
     :: forall ssc m.
-       (SscHelpersClass ssc, WithNodeContext ssc m, MonadDB m)
+       ( SscHelpersClass ssc
+       , WithNodeContext ssc m
+       , MonadDB m )
     => m ()
 initNodeDBs = do
     leaders0 <- genesisLeadersM

@@ -132,6 +132,7 @@ dropRecoveryHeader peerId = do
                    maybe "noth" show realPeer <> " vs " <> show peerId
     pure kicked
 
+{-# ANN dropRecoveryHeaderAndRepeat ("HLint: ignore Use whenM" :: Text) #-}
 dropRecoveryHeaderAndRepeat
     :: (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m -> NodeId -> m ()

@@ -103,7 +103,7 @@ loadDataWhile getter predicate start = NewestFirst <$> doIt start
                 then (d :) <$> doIt prev
                 else pure []
 
--- Return all blocks that match the given predicate. It is repetetive,
+-- | Return all blocks that match the given predicate. It is repetetive,
 -- but it's also already pretty generic.
 loadDataMatching
     :: forall m a .
@@ -112,19 +112,19 @@ loadDataMatching
     -> (a -> Bool)
     -> HeaderHash
     -> m (NewestFirst [] a)
-loadDataMatching getter predicate start = NewestFirst <$> doIt start []
+loadDataMatching getter predicate start = NewestFirst <$> doIt start (pure [])
   where
-    doIt :: HeaderHash -> [HeaderHash] -> m [a]
+    doIt :: HeaderHash ->  m [a] -> m [a]
     doIt h acc
         -- When we reach the genesis block, return the accumulator.
-        | h == genesisHash = sequence $ getter <$> acc
+        | h == genesisHash = acc
         -- Otherwise iterate back from the top block (called tip) and add all
         -- blocks (hash) to accumulator satisfying the predicate.
         | otherwise = do
             d <- getter h
             let prev = d ^. prevBlockL
             if predicate d
-                then doIt prev (h : acc)
+                then doIt prev ((:) <$> pure d <*> acc)
                 else doIt prev acc
 
 

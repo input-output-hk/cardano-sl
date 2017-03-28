@@ -26,6 +26,7 @@ before_install:
   xz --strip-components=1 -C ~/.local/bin
 script:
 - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export EXTRA_STACK="--test --haddock"; else export EXTRA_STACK="--no-haddock-deps"; fi
+- util-scripts/lint.sh
 - stack --nix --no-terminal --local-bin-path daedalus/ install cardano-sl $EXTRA_STACK  --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --jobs=4
   --flag cardano-sl:-asserts
   --flag cardano-sl-core:-dev-mode

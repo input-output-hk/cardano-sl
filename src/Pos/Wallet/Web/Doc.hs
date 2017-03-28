@@ -320,12 +320,41 @@ instance ToSample CWalletSet where
             , cwsWalletsNumber = 3
             }
 
+instance ToSample CAccount where
+    toSamples Proxy = singleSample sample
+      where
+        sample = CAccount
+            { caAddress = CAccountAddress
+                { caaAddress      = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
+                , caaWalletIndex  = 2
+                , caaAccountIndex = 15
+                }
+            , caAmount  = mkCoin 5
+            }
+
 instance ToSample CWalletSetInit where
     toSamples Proxy = singleSample sample
       where
         sample = CWalletSetInit
             { cwsBackupPhrase = backupPhrase
             , cwsInitMeta     = def
+            }
+
+instance ToSample CWalletAddress where
+    toSamples Proxy = singleSample sample
+      where
+        sample = CWalletAddress
+            { cwaAddress = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
+            , cwaIndex   = 2
+            }
+
+instance ToSample CAccountAddress where
+    toSamples Proxy = singleSample sample
+      where
+        sample = CAccountAddress
+            { caaAddress      = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
+            , caaWalletIndex  = 2
+            , caaAccountIndex = 15
             }
 
 instance ToSample CUpdateInfo where

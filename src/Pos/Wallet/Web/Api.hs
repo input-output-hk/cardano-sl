@@ -15,12 +15,13 @@ import           Servant.API                ((:<|>), (:>), Capture, Delete, Get,
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Wallet.Web.ClientTypes (CAccountAddress, CCurrency, CInitialized,
-                                             CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
-                                             CUpdateInfo, CWallet, CWalletAddress,
-                                             CWalletInit, CWalletMeta, CWalletRedeem,
-                                             CWalletSet, CWalletSet, CWalletSetAddress,
-                                             CWalletSetInit, SyncProgress)
+import           Pos.Wallet.Web.ClientTypes (CAccount, CAccountAddress, CCurrency,
+                                             CInitialized, CPassPhrase, CProfile, CTx,
+                                             CTxId, CTxMeta, CUpdateInfo, CWallet,
+                                             CWalletAddress, CWalletInit, CWalletMeta,
+                                             CWalletRedeem, CWalletSet, CWalletSet,
+                                             CWalletSetAddress, CWalletSetInit,
+                                             SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 
@@ -58,6 +59,12 @@ type WalletApi =
      :> ReqBody '[JSON] CWalletSetInit
      :> Post '[JSON] (Either WalletError CWalletSet)
     :<|>
+     "api"
+     :> "walletSets"
+     :> "keys"
+     :> ReqBody '[JSON] Text
+     :> Post '[JSON] (Either WalletError CWalletSet)
+    :<|>
      -------------------------------------------------------------------------
      -- Wallets
      -------------------------------------------------------------------------
@@ -88,11 +95,14 @@ type WalletApi =
      :> Capture "walletId" CWalletAddress
      :> Delete '[JSON] (Either WalletError ())
     :<|>
+     -------------------------------------------------------------------------
+     -- Accounts
+     -------------------------------------------------------------------------
      "api"
      :> "wallets"
-     :> "keys"
-     :> ReqBody '[JSON] Text
-     :> Post '[JSON] (Either WalletError CWalletSet)
+     :> Capture "passphrase" CPassPhrase
+     :> ReqBody '[JSON] CWalletAddress
+     :> Post '[JSON] (Either WalletError CAccount)
     :<|>
      ----------------------------------------------------------------------------
      -- Addresses

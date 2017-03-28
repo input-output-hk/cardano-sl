@@ -263,6 +263,8 @@ servantHandlers sendActions =
     :<|>
      apiRestoreWSet
     :<|>
+     apiImportKey
+    :<|>
 
      apiGetWallet
     :<|>
@@ -274,7 +276,8 @@ servantHandlers sendActions =
     :<|>
      apiDeleteWallet
     :<|>
-     apiImportKey
+
+     apiNewAccount
     :<|>
 
      apiIsValidAddress
@@ -319,12 +322,13 @@ servantHandlers sendActions =
     apiGetWSets                 = catchWalletError getWSets
     apiNewWSet                  = (\a -> catchWalletError . newWSet a)
     apiRestoreWSet              = (\a -> catchWalletError . restoreWSet a)
+    apiImportKey                = catchWalletError . importKey sendActions
     apiGetWallet                = catchWalletError . getWallet
     apiGetWallets               = catchWalletError . getWallets
     apiUpdateWallet             = (\a -> catchWalletError . updateWallet a)
     apiNewWallet                = (\a -> catchWalletError . newWallet a)
     apiDeleteWallet             = catchWalletError . deleteWallet
-    apiImportKey                = catchWalletError . importKey sendActions
+    apiNewAccount               = (\a -> catchWalletError . newAccount a)
     apiIsValidAddress           = (\a -> catchWalletError . isValidAddress a)
     apiGetUserProfile           = catchWalletError getUserProfile
     apiUpdateUserProfile        = catchWalletError . updateUserProfile
@@ -448,7 +452,7 @@ getHistory
        (SscHelpersClass ssc, WalletWebMode ssc m)
     => CAccountAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
 getHistory cAddr skip limit = do
-    (minit, cachedTxs) <- transCache <$> getHistoryCache (undefined cAddr)
+    (minit, cachedTxs) <- transCache <$> getHistoryCache cAddr
 
     TxHistoryAnswer {..} <- untag @ssc getTxHistory (undefined cAddr) minit
 
@@ -458,7 +462,7 @@ getHistory cAddr skip limit = do
         cached = drop (lenHistory - taCachedNum) taHistory
 
     unless (null cached) $
-        updateHistoryCache (undefined cAddr) taLastCachedHash taCachedUtxo (cached <> cachedTxs)
+        updateHistoryCache cAddr taLastCachedHash taCachedUtxo (cached <> cachedTxs)
 
     cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) fullHistory
     pure (paginate cHistory, fromIntegral $ length cHistory)
@@ -492,8 +496,8 @@ addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
     (addr, _) <- deriveAccountSK passphrase cAddr
     meta <- CTxMeta curr title desc <$> liftIO getPOSIXTime
     let cId = txIdToCTxId txId
-    addOnlyNewTxMeta (undefined cAddr) cId meta
-    meta' <- maybe meta identity <$> getTxMeta (undefined cAddr) cId
+    addOnlyNewTxMeta cAddr cId meta
+    meta' <- maybe meta identity <$> getTxMeta cAddr cId
     return $ mkCTx addr diff wtx meta'
 
 newAccount :: WalletWebMode ssc m => CPassPhrase -> CWalletAddress -> m CAccount
@@ -534,7 +538,7 @@ updateWallet cAddr wMeta = do
     getWallet cAddr
 
 updateTransaction :: WalletWebMode ssc m => CAccountAddress -> CTxId -> CTxMeta -> m ()
-updateTransaction cAddr = setWalletTransactionMeta (undefined cAddr)
+updateTransaction cAddr = setWalletTransactionMeta cAddr
 
 deleteWallet :: WalletWebMode ssc m => CWalletAddress -> m ()
 deleteWallet = removeWallet

@@ -54,12 +54,9 @@ import           Pos.Wallet.Web.ClientTypes (CAccountAddress, CAccountAddress (.
                                              CTxMeta, CUpdateInfo, CWalletAddress,
                                              CWalletMeta, CWalletSetAddress,
                                              CWalletSetMeta, CWalletType,
-                                             accountAddrByWallet, walletAddrByAccount)
+                                             walletAddrByAccount)
 
 type TransactionHistory = HashMap CTxId CTxMeta
-
--- | For some wallet, set of indices to derive accounts
-type Accounts = HashSet Word32
 
 data WalletStorage = WalletStorage
     { _wsWSetMetas    :: !(HashMap CWalletSetAddress CWalletSetMeta)
@@ -188,6 +185,7 @@ updateHistoryCache cAddr cHash utxo cTxs = wsHistoryCache . at cAddr ?= (cHash, 
 deriveSafeCopySimple 0 'base ''CProfile
 deriveSafeCopySimple 0 'base ''CHash
 deriveSafeCopySimple 0 'base ''CAddress
+deriveSafeCopySimple 0 'base ''CWalletSetAddress
 deriveSafeCopySimple 0 'base ''CWalletAddress
 deriveSafeCopySimple 0 'base ''CAccountAddress
 deriveSafeCopySimple 0 'base ''CCurrency

@@ -18,7 +18,7 @@ module Pos.Wallet.Web.ClientTypes
       , CTxMeta (..)
       , CTExMeta (..)
       , CInitialized (..)
-      , CWalletSetAddress
+      , CWalletSetAddress (..)
       , CWalletAddress (..)
       , CAccountAddress (..)
       , CAccount (..)
@@ -44,7 +44,6 @@ module Pos.Wallet.Web.ClientTypes
       , txContainsTitle
       , toCUpdateInfo
       , walletAddrByAccount
-      , accountAddrByWallet
       ) where
 
 import           Universum
@@ -174,46 +173,49 @@ cPassPhraseToPassPhrase (CPassPhrase text) =
 ----------------------------------------------------------------------------
 
 -- | Wallet set identifier
-type CWalletSetAddress = CAddress
+newtype CWalletSetAddress = CWalletSetAddress
+    { cwsaAddress :: CAddress
+    } deriving (Eq, Show, Generic, Hashable)
+
+instance Buildable CWalletSetAddress where
+    build (CWalletSetAddress addr) =
+        bprint ("CWalletSetAddress { "%F.build%" }") addr
 
 -- | Wallet identifier
 data CWalletAddress = CWalletAddress
     { -- | Address of wallet set this wallet belongs to
-      cwaAddress :: CWalletSetAddress
+      cwaWSAddress :: CWalletSetAddress
     , -- | Derivation index of this wallet key
-      cwaIndex   :: Word32
+      cwaIndex     :: Word32
     } deriving (Eq, Show, Generic)
 
 instance Hashable CWalletAddress
 
 instance Buildable CWalletAddress where
     build CWalletAddress{..} =
-        bprint ("{ addr="%F.build%", ixd="%F.build%" }") cwaAddress cwaIndex
+        bprint (F.build%"#"%F.build) cwaWSAddress cwaIndex
 
 -- | Account identifier
 data CAccountAddress = CAccountAddress
     { -- | Address of wallet set this account belongs to
-      caaAddress      :: CWalletSetAddress
+      caaWSAddress    :: CWalletSetAddress
     , -- | First index in derivation path of this account key
       caaWalletIndex  :: Word32
     , -- | Second index in derivation path of this account key
       caaAccountIndex :: Word32
+    , -- | Actual adress of this account
+      caaAddress      :: CAddress
     } deriving (Eq, Show, Generic)
 
 instance Buildable CAccountAddress where
-    build = undefined
+    build CAccountAddress{..} =
+        bprint (F.build%"#"%F.build%"#"%F.build%" ("%F.build%")")
+        caaWSAddress caaWalletIndex caaAccountIndex caaAddress
 
 walletAddrByAccount :: CAccountAddress -> CWalletAddress
 walletAddrByAccount CAccountAddress{..} = CWalletAddress
-    { cwaAddress = caaAddress
-    , cwaIndex   = caaWalletIndex
-    }
-
-accountAddrByWallet :: CWalletAddress -> Word32 -> CAccountAddress
-accountAddrByWallet CWalletAddress{..} index = CAccountAddress
-    { caaAddress      = cwaAddress
-    , caaWalletIndex  = cwaIndex
-    , caaAccountIndex = index
+    { cwaWSAddress = caaWSAddress
+    , cwaIndex     = caaWalletIndex
     }
 
 instance Hashable CAccountAddress

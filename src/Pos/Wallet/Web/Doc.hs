@@ -39,7 +39,7 @@ import           Pos.Wallet.Web.ClientTypes (CAccount (..), CAccountAddress (..)
                                              CWalletAddress (..), CWalletAddress,
                                              CWalletInit (..), CWalletMeta (..),
                                              CWalletRedeem (..), CWalletSet (..),
-                                             CWalletSetAddress, CWalletSetInit (..),
+                                             CWalletSetAddress (..), CWalletSetInit (..),
                                              CWalletSetInit (..), SyncProgress,
                                              addressToCAddress, mkCTxId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
@@ -261,7 +261,7 @@ instance ToSample CWalletRedeem where
       where
         sample = CWalletRedeem
             { crWalletId = CWalletAddress
-                { cwaAddress = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
+                { cwaWSAddress = cWalletSetAddressSample
                 , cwaIndex   = 1
                 }
             , crSeed     = "1354644684681"
@@ -277,22 +277,32 @@ instance ToSample Coin where
 instance ToSample CHash where
     toSamples Proxy = singleSample $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
 
+cAccountAddressSample :: CAccountAddress
+cAccountAddressSample = CAccountAddress
+    { caaWSAddress    = cWalletSetAddressSample
+    , caaWalletIndex  = 1
+    , caaAccountIndex = 216
+    , caaAddress      = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
+    }
+
+cWalletSetAddressSample :: CWalletSetAddress
+cWalletSetAddressSample =
+    CWalletSetAddress $
+    CAddress $
+    CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
+
 instance ToSample CWallet where
     toSamples Proxy = singleSample sample
       where
         sample = CWallet
             { cwAddress  = CWalletAddress
-                { cwaAddress = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
-                , cwaIndex   = 1
+                { cwaWSAddress = cWalletSetAddressSample
+                , cwaIndex     = 1
                 }
             , cwMeta     = def
             , cwAccounts =
                 [ CAccount
-                    { caAddress = CAccountAddress
-                        { caaAddress      = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
-                        , caaWalletIndex  = 1
-                        , caaAccountIndex = 216
-                        }
+                    { caAddress = cAccountAddressSample
                     , caAmount = mkCoin 0
                     }
                 ]
@@ -308,14 +318,14 @@ instance ToSample CWalletInit where
       where
         sample = CWalletInit
             { cwInitMeta = def
-            , cwInitWSetId = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
+            , cwInitWSetId = cWalletSetAddressSample
             }
 
 instance ToSample CWalletSet where
     toSamples Proxy = singleSample sample
       where
         sample = CWalletSet
-            { cwsAddress  = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
+            { cwsAddress  = cWalletSetAddressSample
             , cwsWSetMeta = def
             , cwsWalletsNumber = 3
             }
@@ -324,11 +334,7 @@ instance ToSample CAccount where
     toSamples Proxy = singleSample sample
       where
         sample = CAccount
-            { caAddress = CAccountAddress
-                { caaAddress      = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
-                , caaWalletIndex  = 2
-                , caaAccountIndex = 15
-                }
+            { caAddress = cAccountAddressSample
             , caAmount  = mkCoin 5
             }
 
@@ -344,18 +350,14 @@ instance ToSample CWalletAddress where
     toSamples Proxy = singleSample sample
       where
         sample = CWalletAddress
-            { cwaAddress = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
+            { cwaWSAddress = cWalletSetAddressSample
             , cwaIndex   = 2
             }
 
 instance ToSample CAccountAddress where
     toSamples Proxy = singleSample sample
       where
-        sample = CAccountAddress
-            { caaAddress      = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
-            , caaWalletIndex  = 2
-            , caaAccountIndex = 15
-            }
+        sample = cAccountAddressSample
 
 instance ToSample CUpdateInfo where
     toSamples Proxy = singleSample sample

@@ -7,10 +7,9 @@ module Pos.CompileConfig.Type
        ( CompileConfig (..)
        ) where
 
-import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Util                   ()
+import           Pos.Util  ()
 
 -- | Compile time configuration. See example in /constants.yaml/ file.
 data CompileConfig = CompileConfig
@@ -21,49 +20,6 @@ data CompileConfig = CompileConfig
 ----------------------------------------------------------------------------
       ccGenesisN                      :: !Int
       -- ^ Number of pre-generated keys
-    , ccGenesisSlotDurationSec        :: !Int
-      -- ^ Length of slot in seconds
-    , ccGenesisMaxBlockSize           :: !Byte
-      -- ^ Maximum block size in bytes
-    , ccGenesisMaxHeaderSize          :: !Byte
-      -- ^ Maximum block header size in bytes
-
-----------------------------------------------------------------------------
--- -- Txp
-----------------------------------------------------------------------------
-    , ccGenesisMaxTxSize              :: !Byte
-      -- ^ Maximum tx size in bytes
-
-----------------------------------------------------------------------------
--- -- SSC
-----------------------------------------------------------------------------
-    , ccGenesisMpcThd                 :: !Double
-      -- ^ Eligibility threshold for MPC
-
-----------------------------------------------------------------------------
--- -- Delegation
-----------------------------------------------------------------------------
-    , ccGenesisHeavyDelThd            :: !Double
-      -- ^ Threshold for heavyweight delegation
-
-----------------------------------------------------------------------------
--- -- UpdateSystem
-----------------------------------------------------------------------------
-    , ccGenesisUpdateVoteThd          :: !Double
-      -- ^ Portion of total stake necessary to vote for or against update.
-    , ccGenesisMaxUpdateProposalSize  :: !Byte
-      -- ^ Maximum update proposal size in bytes
-    , ccGenesisUpdateProposalThd      :: !Double
-      -- ^ Portion of total stake such that block containing
-      -- UpdateProposal must contain positive votes for this proposal
-      -- from stakeholders owning at least this amount of stake.
-    , ccGenesisUpdateImplicit         :: !Word
-      -- ^ Number of slots after which update is implicitly approved
-      -- unless it has more negative votes than positive.
-    , ccGenesisUpdateSoftforkThd      :: !Double
-      -- ^ Portion of total stake such that if total stake of issuers of blocks
-      -- with some block version is bigger than this portion, this block
-      -- version is adopted.
 
 ----------------------------------------------------------------------------
 -- Other

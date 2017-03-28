@@ -33,7 +33,6 @@ import           Pos.Lrc.Types               (FullRichmenData)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Types                   (Coin)
 import qualified Pos.Update.DB               as GS
-import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPollRead (..))
 import           Pos.Util.Context            (HasContext, MonadContext (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
@@ -57,7 +56,6 @@ newtype DBPoll m a = DBPoll
                , MonadJL
                , CanLog
                , MonadMask
-               , MonadUSMem
                , MonadSscMem peka
                , MonadBase io
                , MonadDelegation

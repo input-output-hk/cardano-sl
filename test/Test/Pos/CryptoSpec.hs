@@ -28,6 +28,8 @@ import           Pos.Ssc.GodTossing    ()
 import           Test.Pos.Util         (binaryEncodeDecode, binaryTest,
                                         safeCopyEncodeDecode, safeCopyTest, serDeserId)
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
 spec :: Spec
 spec = describe "Crypto" $ do
     describe "Random" $ do

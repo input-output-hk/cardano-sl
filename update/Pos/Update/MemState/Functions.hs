@@ -1,4 +1,4 @@
--- | Functions which work in MonadUSMem.
+-- | Functions which work with MemVar.
 
 module Pos.Update.MemState.Functions
        ( withUSLock
@@ -10,23 +10,25 @@ import           Control.Monad.Catch       (MonadMask, bracket_)
 import qualified Data.HashMap.Strict       as HM
 import           Universum
 
+import           Pos.Binary.Class          (Bi)
 import           Pos.Crypto                (PublicKey, hash)
+import           Pos.Update.Context        (UpdateContext (ucMemState))
 import           Pos.Update.Core.Types     (LocalVotes, UpdatePayload (..),
-                                            UpdateVote (..))
-import           Pos.Update.MemState.Class (MonadUSMem (askUSMemVar))
+                                            UpdateProposal, UpdateVote (..))
 import           Pos.Update.MemState.Types (MemPool (..), MemVar (..))
+import           Pos.Util.Context          (HasContext, askContext)
 
 type UpdateVotes = HashMap PublicKey UpdateVote
 
 withUSLock
-    :: (MonadUSMem m, MonadIO m, MonadMask m)
+    :: (HasContext UpdateContext m, MonadIO m, MonadMask m)
     => m a -> m a
 withUSLock action = do
-    lock <- mvLock <$> askUSMemVar
+    lock <- mvLock <$> askContext ucMemState
     bracket_ (liftIO $ Lock.acquire lock) (liftIO $ Lock.release lock) action
 
 -- | Add given payload to MemPool.
-addToMemPool :: UpdatePayload -> MemPool -> MemPool
+addToMemPool :: Bi UpdateProposal => UpdatePayload -> MemPool -> MemPool
 addToMemPool UpdatePayload {..} = addProposal . addVotes
   where
     addProposal mp =

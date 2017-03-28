@@ -54,7 +54,7 @@ import           Pos.Ssc.Extra               (MonadSscMem, SscHolder)
 import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
 import           Pos.Txp.MemState            (MonadTxpMem, TxpHolder)
 import           Pos.Update.Context          (UpdateContext)
-import           Pos.Update.MemState         (MonadUSMem, USHolder)
+import           Pos.Update.Params           (UpdateParams)
 import           Pos.Util.Context            (HasContext)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
@@ -86,11 +86,11 @@ type WorkMode ssc m
       , HasContext LrcContext m
       , HasContext UpdateContext m
       , HasContext NodeParams m
+      , HasContext UpdateParams m
       , MonadStats m
       , MonadJL m
       , WithKademliaDHTInstance m
       , WithPeerState m
-      , MonadUSMem m
       , MonadShutdownMem m
       )
 
@@ -152,9 +152,6 @@ deriving instance MonadRelayMem m => MonadRelayMem (KademliaDHT m)
 deriving instance MonadRelayMem m => MonadRelayMem (NtpSlotting m)
 deriving instance MonadRelayMem m => MonadRelayMem (SlottingHolder m)
 
-deriving instance MonadUSMem m => MonadUSMem (KademliaDHT m)
-deriving instance MonadUSMem m => MonadUSMem (PeerStateHolder m)
-
 deriving instance MonadSscMem ssc m => MonadSscMem ssc (PeerStateHolder m)
 deriving instance MonadTxpMem x m => MonadTxpMem x (PeerStateHolder m)
 
@@ -175,7 +172,6 @@ deriving instance (Monad m, WithKademliaDHTInstance m)
 type RawRealMode ssc =
     PeerStateHolder (
     KademliaDHT (
-    USHolder (
     DelegationT (
     TxpHolder TxpExtra_TMP (
     SscHolder ssc (
@@ -184,7 +180,7 @@ type RawRealMode ssc =
     ContextHolder ssc (
     DBHolder (
     LoggerNameBox Production
-    ))))))))))
+    )))))))))
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.

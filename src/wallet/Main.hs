@@ -12,11 +12,11 @@ import           Data.List                 ((!!))
 import qualified Data.Text                 as T
 import           Data.Time.Units           (convertUnit)
 import           Formatting                (build, int, sformat, stext, (%))
-import           Mockable                  (delay)
 import           Options.Applicative       (execParser)
 import           System.IO                 (hFlush, stdout)
 import           System.Wlog               (logDebug, logError, logInfo, logWarning)
 #if !(defined(mingw32_HOST_OS))
+import           Mockable                  (delay)
 import           System.Exit               (ExitCode (ExitSuccess))
 import           System.Posix.Process      (exitImmediately)
 #endif
@@ -27,6 +27,7 @@ import           Pos.Binary                (Raw)
 import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
                                             sendTxOuts, submitTx, worker)
+import           Pos.Constants             (genesisBlockVersionData)
 import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey,
                                             fakeSigner, hash, hashHexF, sign, toPublic,
                                             unsafeHash)
@@ -34,8 +35,8 @@ import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Delegation            (sendProxySKHeavy, sendProxySKHeavyOuts,
                                             sendProxySKLight, sendProxySKLightOuts)
 import           Pos.DHT.Model             (DHTNode, discoverPeers, getKnownPeers)
-import           Pos.Genesis               (genesisBlockVersionData, genesisDevPublicKeys,
-                                            genesisDevSecretKeys, genesisUtxo)
+import           Pos.Genesis               (genesisDevPublicKeys, genesisDevSecretKeys,
+                                            genesisUtxo)
 import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
                                             bracketResources, stakesDistr)
 import           Pos.Ssc.GodTossing        (SscGodTossing)

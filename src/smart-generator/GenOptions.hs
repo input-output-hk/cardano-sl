@@ -93,7 +93,7 @@ optionsParser = do
     goCommonArgs <-
         CLI.commonArgsParser "Initial DHT peer (may be many)"
     goIpPort <-
-        CLI.ipPortOption ("0.0.0.0", 24962)
+        CLI.ipPortOption ("127.0.0.1", 24962)
     return GenOptions{..}
 
 optsInfo :: ParserInfo GenOptions

@@ -49,7 +49,6 @@ module Pos.Util
        , withWriteLifted
 
        -- * Instances
-       -- ** MonadFail (Either s), assuming IsString s
        -- ** MonadFail ParsecT
        -- ** MonadFail Dialog
        -- ** MonadFail Transfer
@@ -239,9 +238,6 @@ eitherToVerRes (Left errors) = if T.null errors then VerFailure []
                                else VerFailure $ T.split (==';') errors
 eitherToVerRes (Right _ )    = VerSuccess
 
-
-instance IsString s => MonadFail (Either s) where
-    fail = Left . fromString
 
 instance MonadFail (ParsecT s u m) where
     fail = Monad.fail

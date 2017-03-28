@@ -19,6 +19,7 @@ module Pos.Util.Util
        -- ** Lift Byte
        -- ** FromJSON Byte
        -- ** ToJSON Byte
+       -- ** MonadFail (Either s), assuming IsString s
        ) where
 
 import           Control.Lens               (ALens', Getter, Getting, cloneLens, to)
@@ -79,6 +80,13 @@ instance FromJSON Byte where
 
 instance ToJSON Byte where
     toJSON = toJSON . toBytes
+
+instance IsString s => MonadFail (Either s) where
+    fail = Left . fromString
+
+----------------------------------------------------------------------------
+-- Not instances
+----------------------------------------------------------------------------
 
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
 maybeThrow e = maybe (throwM e) pure

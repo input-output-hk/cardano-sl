@@ -971,6 +971,7 @@ executable cardano-wallet-web-api-swagger
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
+                       -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
   default-extensions:   NoImplicitPrelude

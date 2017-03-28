@@ -17,13 +17,12 @@ import           Control.Lens                   ((?~), mapped)
 import           Data.Aeson                     (encode)
 import qualified Data.ByteString.Lazy.Char8     as BSL8
 import           Data.Swagger                   (Swagger, ToSchema (..), ToParamSchema,
-                                                 allOperations, declareNamedSchema,
+                                                 declareNamedSchema,
                                                  genericDeclareNamedSchema, defaultSchemaOptions,
                                                  name, info, description, version, title, host)
-import           Data.Typeable                  (Typeable, typeOf)
+import           Data.Typeable                  (Typeable, typeRep)
 import           Data.Version                   (showVersion)
 
-import           Servant.Swagger.UI             (SwaggerSchemaUI)
 import           Servant.Swagger                (toSwagger)
 
 import           Pos.Types                      (Coin, SoftwareVersion, ApplicationName,
@@ -33,8 +32,7 @@ import           Pos.Wallet.Web                 (CAddress, CCurrency, CHash, CIn
                                                  CProfile, CTType, CTx, CTxId, CTxMeta, CUpdateInfo,
                                                  CWallet, CWalletInit, CWalletMeta, CWalletRedeem,
                                                  CWalletType, SyncProgress,
-                                                 WalletApi, walletApi,
-                                                 WalletError)
+                                                 walletApi, WalletError)
 import qualified Paths_cardano_sl               as CSL
 
 main :: IO ()
@@ -81,7 +79,10 @@ instance ToSchema      BackupPhrase
 -- We need this instance for correct Swagger-specification.
 instance {-# OVERLAPPING #-} (Typeable a, ToSchema a) => ToSchema (Either WalletError a) where
     declareNamedSchema proxy = genericDeclareNamedSchema defaultSchemaOptions proxy
-        & mapped . name ?~ toText ("Either WalletError " ++ show (typeOf (undefined :: a)))
+        & mapped . name ?~ toText ("Either WalletError " ++ show (typeRep right))
+      where
+        right :: Proxy a
+        right = Proxy
 
 -- | Build Swagger-specification from 'walletApi'.
 swaggerSpecForWalletApi :: Swagger

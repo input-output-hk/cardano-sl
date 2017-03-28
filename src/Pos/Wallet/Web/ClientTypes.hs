@@ -41,7 +41,6 @@ import           Data.Default           (Default, def)
 import           Data.Hashable          (Hashable (..))
 import           Data.Text              (Text, isInfixOf, toLower)
 import           Data.Time.Clock.POSIX  (POSIXTime)
-import           Data.Typeable          (Typeable)
 import           Formatting             (build, sformat)
 
 import           Pos.Aeson.Types        ()

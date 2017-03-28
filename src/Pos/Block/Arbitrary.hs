@@ -67,6 +67,12 @@ properBlock = do
 -- GenesisBlockchain
 ------------------------------------------------------------------------------------------
 
+instance Arbitrary T.GenesisExtraHeaderData where
+    arbitrary = T.GenesisExtraHeaderData <$> arbitrary
+
+instance Arbitrary T.GenesisExtraBodyData where
+    arbitrary = T.GenesisExtraBodyData <$> arbitrary
+
 instance Arbitrary (T.GenesisBlockHeader ssc) where
     arbitrary = T.GenericBlockHeader
         <$> arbitrary
@@ -129,6 +135,14 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
     Arbitrary (T.ConsensusData (T.MainBlockchain ssc)) where
     arbitrary = T.MainConsensusData
         <$> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+
+instance (Ssc ssc, Arbitrary (SscProof ssc)) => Arbitrary (T.MainToSign ssc) where
+    arbitrary = T.MainToSign
+        <$> arbitrary
+        <*> arbitrary
         <*> arbitrary
         <*> arbitrary
         <*> arbitrary

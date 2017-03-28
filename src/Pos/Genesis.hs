@@ -9,6 +9,7 @@ module Pos.Genesis
        -- * Static state
          StakeDistribution (..)
        , GenesisData (..)
+       , getTotalStake
        , compileGenData
        , genesisStakeDistribution
        , genesisUtxo
@@ -48,7 +49,8 @@ import           Pos.Core.Types             (ScriptVersion, SoftwareVersion (..)
 import           Pos.Crypto                 (PublicKey, SecretKey, deterministicKeyGen,
                                              unsafeHash)
 import           Pos.Genesis.Parser         (compileGenData)
-import           Pos.Genesis.Types          (GenesisData (..), StakeDistribution (..))
+import           Pos.Genesis.Types          (GenesisData (..), StakeDistribution (..),
+                                             getTotalStake)
 import           Pos.Lrc.FtsPure            (followTheSatoshi)
 import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..), TxOutAux (..),
                                              TxOutDistribution)
@@ -147,6 +149,8 @@ stakeDistribution TestnetStakes {..} =
     basicDist = genericReplicate richs rich ++ genericReplicate poors poor
 stakeDistribution (ExplicitStakes balances) =
     toList balances
+stakeDistribution (CombinedStakes distA distB) =
+    stakeDistribution distA <> stakeDistribution distB
 
 bitcoinDistribution1000Coins :: Word -> [Coin]
 bitcoinDistribution1000Coins stakeholders

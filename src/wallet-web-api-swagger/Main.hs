@@ -1,11 +1,12 @@
-{-# LANGUAGE KindSignatures      #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
 
 -- | This program builds Swagger specification for wallet web API and converts it to JSON.
 -- We run this program during CI build.
--- Produced JSON will be used to create online 
+-- Produced JSON will be used to create online
 -- version of wallet web API description at http://cardano-docs.iohk.io
 -- (please see 'update_wallet_web_api_docs.sh' for technical details).
 
@@ -13,27 +14,27 @@ module Main where
 
 import           Universum
 
-import           Control.Lens                   ((?~), mapped)
-import           Data.Aeson                     (encode)
-import qualified Data.ByteString.Lazy.Char8     as BSL8
-import           Data.Swagger                   (Swagger, ToSchema (..), ToParamSchema,
-                                                 declareNamedSchema,
-                                                 genericDeclareNamedSchema, defaultSchemaOptions,
-                                                 name, info, description, version, title, host)
-import           Data.Typeable                  (Typeable, typeRep)
-import           Data.Version                   (showVersion)
+import           Control.Lens               (mapped, (?~))
+import           Data.Aeson                 (encode)
+import qualified Data.ByteString.Lazy.Char8 as BSL8
+import           Data.Swagger               (Swagger, ToParamSchema, ToSchema (..),
+                                             declareNamedSchema, defaultSchemaOptions,
+                                             description, genericDeclareNamedSchema, host,
+                                             info, name, title, version)
+import           Data.Typeable              (Typeable, typeRep)
+import           Data.Version               (showVersion)
 
-import           Servant.Swagger                (toSwagger)
+import           Servant.Swagger            (toSwagger)
 
-import           Pos.Types                      (Coin, SoftwareVersion, ApplicationName,
-                                                 ChainDifficulty, BlockVersion)
-import           Pos.Util.BackupPhrase          (BackupPhrase)
-import           Pos.Wallet.Web                 (CAddress, CCurrency, CHash, CInitialized, 
-                                                 CProfile, CTType, CTx, CTxId, CTxMeta, CUpdateInfo,
-                                                 CWallet, CWalletInit, CWalletMeta, CWalletRedeem,
-                                                 CWalletType, SyncProgress,
-                                                 walletApi, WalletError)
-import qualified Paths_cardano_sl               as CSL
+import qualified Paths_cardano_sl           as CSL
+import           Pos.Types                  (ApplicationName, BlockVersion,
+                                             ChainDifficulty, Coin, SoftwareVersion)
+import           Pos.Util.BackupPhrase      (BackupPhrase)
+import           Pos.Wallet.Web             (CAddress, CCurrency, CHash, CInitialized,
+                                             CProfile, CTType, CTx, CTxId, CTxMeta,
+                                             CUpdateInfo, CWallet, CWalletInit,
+                                             CWalletMeta, CWalletRedeem, CWalletType,
+                                             SyncProgress, WalletError, walletApi)
 
 main :: IO ()
 main = do
@@ -79,10 +80,7 @@ instance ToSchema      BackupPhrase
 -- We need this instance for correct Swagger-specification.
 instance {-# OVERLAPPING #-} (Typeable a, ToSchema a) => ToSchema (Either WalletError a) where
     declareNamedSchema proxy = genericDeclareNamedSchema defaultSchemaOptions proxy
-        & mapped . name ?~ toText ("Either WalletError " ++ show (typeRep right))
-      where
-        right :: Proxy a
-        right = Proxy
+        & mapped . name ?~ show (typeRep (Proxy @(Either WalletError a)))
 
 -- | Build Swagger-specification from 'walletApi'.
 swaggerSpecForWalletApi :: Swagger

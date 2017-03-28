@@ -6,17 +6,18 @@ import Control.Monad.Eff.Class (liftEff)
 import Control.SocketIO.Client (SocketIO, emit, emit')
 import DOM (DOM)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array ((:))
+import Data.Array (difference, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
+import Data.Newtype (unwrap)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentTxSummary, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, subscriptions, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (State)
+import Explorer.Types.State (SocketSubscription(..), State)
 import Explorer.Util.DOM (scrollTop)
 import Explorer.Util.QrCode (generateQrCode)
 import Network.HTTP.Affjax (AJAX)
@@ -24,8 +25,9 @@ import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects)
 
+
 update :: forall eff. Action -> State ->
-    EffModel State Action 
+    EffModel State Action
     (dom :: DOM
     , ajax :: AJAX
     , socket :: SocketIO
@@ -81,31 +83,19 @@ update (SocketCallMeCTxId id) state =
           pure NoOp
     ]}
 
-update (SocketSubscribe sub) state =
-    { state: over (socket <<< subscriptions) ((:) sub) state
+update (SocketUpdateSubscriptions nextSubs) state =
+    let currentSubs = state ^. socket <<< subscriptions in
+    { state: set (socket <<< subscriptions) nextSubs state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
               Just socket' -> do
-                -- log "SocketSubscribe ---"
-                -- log $ gShow sub
-                -- log "---"
-                liftEff <<< emit' socket' $ toEvent (Subscribe sub)
-              Nothing -> pure unit
-          pure NoOp
-    ]}
-
-update SocketUnsubscribeAll state =
-    let subsToSend = state ^. socket <<< subscriptions in
-    -- clear all stored subscriptions in store
-    { state: set (socket <<< subscriptions) [] $ state
-    , effects : [ do
-          _ <- case state ^. (socket <<< connection) of
-              Just socket' -> do
-                -- log "SocketUnsubscribeAll ---"
-                -- traverse_ (log <<< gShow ) subsToSend
-                -- log "---"
-                -- unsubscribe all subscriptions are used before
-                traverse_ (liftEff <<< emit' socket' <<< toEvent <<< Unsubscribe) subsToSend
+                -- 1. unsubscribe all not used events
+                let diffNextFromCurrentSubs = difference currentSubs nextSubs
+                traverse_ (liftEff <<< emit' socket' <<< toEvent <<< Unsubscribe <<< unwrap) diffNextFromCurrentSubs
+                -- 2. subscribe all new subscriptions
+                let diffCurrentFromNextSubs = difference nextSubs currentSubs
+                traverse_ (liftEff <<< emit' socket' <<< toEvent <<< Subscribe <<< unwrap) diffCurrentFromNextSubs
+                -- pure unit
               Nothing -> pure unit
           pure NoOp
     ]}
@@ -264,15 +254,13 @@ routeEffects Dashboard state =
     { state
     , effects:
         [ pure ScrollTop
-        , pure SocketUnsubscribeAll
+        , pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock, SocketSubscription SubTx ]
         , if not $ state ^. initialBlocksRequested
           then pure RequestInitialBlocks
           else pure NoOp
         , if not $ state ^. initialTxsRequested
           then pure RequestInitialTxs
           else pure NoOp
-        , pure $ SocketSubscribe SubBlock
-        , pure $ SocketSubscribe SubTx
         ]
     }
 
@@ -280,7 +268,7 @@ routeEffects (Tx id) state =
     { state: set currentTxSummary Nothing state
     , effects:
         [ pure ScrollTop
-        , pure SocketUnsubscribeAll
+        , pure $ SocketUpdateSubscriptions []
         , pure $ RequestTxSummary id
         ]
     }
@@ -291,7 +279,7 @@ routeEffects (Address address) state =
         $ set (viewStates <<< addressDetail <<< addressTxPagination) 1 state
     , effects:
         [ pure ScrollTop
-        , pure SocketUnsubscribeAll
+        , pure $ SocketUpdateSubscriptions []
         , pure $ RequestAddressSummary address
         ]
     }
@@ -302,7 +290,7 @@ routeEffects (Block hash) state =
     { state: set currentBlockSummary Nothing state
     , effects:
         [ pure ScrollTop
-        , pure SocketUnsubscribeAll
+        , pure $ SocketUpdateSubscriptions []
         , pure $ RequestBlockSummary hash
         , pure $ RequestBlockTxs hash
         ]
@@ -312,7 +300,7 @@ routeEffects Playground state =
     { state
     , effects:
         [ pure ScrollTop
-        , pure SocketUnsubscribeAll
+        , pure $ SocketUpdateSubscriptions []
         ]
     }
 
@@ -320,6 +308,6 @@ routeEffects NotFound state =
     { state
     , effects:
         [ pure ScrollTop
-        , pure SocketUnsubscribeAll
+        , pure $ SocketUpdateSubscriptions []
         ]
     }

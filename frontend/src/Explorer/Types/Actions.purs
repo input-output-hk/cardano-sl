@@ -5,7 +5,7 @@ import DOM.HTML.Types (HTMLInputElement)
 import Data.Either (Either)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
-import Explorer.Types.State (DashboardAPICode, CBlockEntries, CTxEntries)
+import Explorer.Types.State (CBlockEntries, CTxEntries, DashboardAPICode, SocketSubscription)
 import Pos.Explorer.Socket.Methods (Subscription)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
 import Signal.Channel (Channel)
@@ -27,8 +27,7 @@ data Action
     | SocketCallMe
     | SocketCallMeString String
     | SocketCallMeCTxId CTxId
-    | SocketSubscribe Subscription
-    | SocketUnsubscribeAll
+    | SocketUpdateSubscriptions (Array SocketSubscription)
     -- http endpoints
     | RequestInitialBlocks
     | ReceiveInitialBlocks (Either Error CBlockEntries)

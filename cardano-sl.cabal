@@ -1025,6 +1025,7 @@ executable cardano-keygen
   main-is:             Main.hs
   other-modules:       KeygenOptions
                      , Avvm
+                     , Testnet
   build-depends:       QuickCheck >= 2.9
                      , base
                      , aeson

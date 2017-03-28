@@ -121,32 +121,18 @@ stakeDistribution (BitcoinStakes stakeholders coins) =
     normalize x = x `unsafeMulCoin`
                   coinToInteger (coins `divCoin` (1000 :: Int))
 stakeDistribution ExponentialStakes = map (, []) expTwoDistribution
-stakeDistribution TestnetStakes {..} =
-    map ((, []) . mkCoin . fromIntegral) $ basicDist & _head +~ rmd
+stakeDistribution ts@TestnetStakes {..} =
+    checkMpcThd (getTotalStake ts) sdRichStake $
+    map (, []) basicDist
   where
-    -- Total number of richmen
-    richs = fromIntegral sdRichmen
-    -- Total number of poor
-    poors = fromIntegral sdPoor
-    -- Minimum amount of money to become rich
-    thresholdRich = coinToInteger $
-        applyCoinPortion Const.genesisMpcThd sdTotalStake
-    -- Maximal amount of total money which poor stakeholders can hold
-    maxPoorStake = (thresholdRich - 1) * poors
-    -- Minimum amount of richmen's money to prevent poors becoming richmen
-    minRichStake = coinToInteger sdTotalStake - maxPoorStake
-    -- Minimum amount of money per richman to maintain number of richmen
-    minRich = minRichStake `div` richs
-    -- Final amount of money per richman
-    rich = max thresholdRich minRich
-    -- Amount of money left to poor
-    poorStake = coinToInteger sdTotalStake - richs * rich
-    -- Money per poor and modulo (it goes to first richman)
-    (poor, rmd) = if poors == 0
-                  then (0, poorStake)
-                  else (poorStake `div` poors, poorStake `mod` poors)
-    -- Coin distribution (w/o modulo added)
-    basicDist = genericReplicate richs rich ++ genericReplicate poors poor
+    -- Node won't start if richmen cannot participate in MPC
+    checkMpcThd total richs =
+        if richs < applyCoinPortion Const.genesisMpcThd total
+        then error "Pos.Genesis: TestnetStakes: richmen stake \
+                   \is less than MPC threshold"
+        else identity
+    basicDist = genericReplicate sdRichmen sdRichStake ++
+                genericReplicate sdPoor sdPoorStake
 stakeDistribution (ExplicitStakes balances) =
     toList balances
 stakeDistribution (CombinedStakes distA distB) =

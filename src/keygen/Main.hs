@@ -10,55 +10,31 @@ import           Options.Applicative  (execParser)
 import           Prelude              (show)
 import           System.Directory     (createDirectoryIfMissing)
 import           System.FilePath      (takeDirectory)
-import           System.Random        (randomRIO)
 import           Universum            hiding (show)
 
-import           Pos.Binary           (asBinary, decodeFull, encode)
-import           Pos.Constants        (vssMaxTTL, vssMinTTL)
-import           Pos.Crypto           (PublicKey, keyGen, toPublic, toVssPublicKey,
-                                       vssKeyGen)
-import           Pos.Genesis          (GenesisData (..), StakeDistribution (..),
-                                       getTotalStake)
-import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
-import           Pos.Types            (addressHash, makePubKeyAddress, mkCoin)
-import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usPrimKey,
-                                       usVss, writeUserSecretRelease)
+import           Pos.Binary           (decodeFull, encode)
+import           Pos.Genesis          (GenesisData (..), getTotalStake)
+import           Pos.Types            (Coin, addressHash, makePubKeyAddress, mkCoin)
 
 import           Avvm                 (genGenesis, getHolderId)
 import           KeygenOptions        (AvvmStakeOptions (..), KeygenOptions (..),
                                        TestStakeOptions (..), optsInfo)
-
-generateKeyfile :: FilePath -> IO (PublicKey, VssCertificate)
-generateKeyfile fp = do
-    initializeUserSecret fp
-    sk <- snd <$> keyGen
-    vss <- vssKeyGen
-    us <- takeUserSecret fp
-    writeUserSecretRelease $
-        us & usPrimKey .~ Just sk
-           & usVss .~ Just vss
-    expiry <- fromIntegral <$> randomRIO (vssMinTTL :: Int, vssMaxTTL)
-    let vssPk = asBinary $ toVssPublicKey vss
-        vssCert = mkVssCertificate sk vssPk expiry
-    return (toPublic sk, vssCert)
+import           Testnet              (genTestnetStakes, generateKeyfile)
 
 replace :: FilePath -> FilePath -> FilePath -> FilePath
 replace a b = toString . (T.replace `on` toText) a b . toText
 
-getTestnetGenesis :: TestStakeOptions -> IO GenesisData
-getTestnetGenesis TSO{..} = do
+getTestnetGenesis :: Coin -> TestStakeOptions -> IO GenesisData
+getTestnetGenesis avvmStake tso@TSO{..} = do
     let keysDir = takeDirectory tsoPattern
     createDirectoryIfMissing True keysDir
 
-    genesisList <- forM [1..tsoStakeholders] $ \i ->
+    let totalStakeholders = tsoRichmen + tsoPoors
+    genesisList <- forM [1 .. totalStakeholders] $ \i ->
         generateKeyfile $ replace "{}" (show i) tsoPattern
-    print $ show tsoStakeholders ++ " keyfiles are generated"
+    print $ show totalStakeholders ++ " keyfiles are generated"
 
-    let distr = TestnetStakes
-            { sdTotalStake = mkCoin tsoTotalStake
-            , sdRichmen    = tsoRichmen
-            , sdPoor       = tsoStakeholders - tsoRichmen
-            }
+    let distr = genTestnetStakes avvmStake tso
         genesisAddrs = map (makePubKeyAddress . fst) genesisList
         genesisVssCerts = HM.fromList
                           $ map (_1 %~ addressHash)
@@ -85,8 +61,10 @@ main = do
     let genFileDir = takeDirectory koGenesisFile
     createDirectoryIfMissing True genFileDir
 
-    mTestnetGenesis <- traverse getTestnetGenesis koTestStake
     mAvvmGenesis <- traverse getAvvmGenesis koAvvmStake
+    let avvmStake = maybe (mkCoin 0)
+            (getTotalStake . gdDistribution) mAvvmGenesis
+    mTestnetGenesis <- traverse (getTestnetGenesis avvmStake) koTestStake
 
     let mGenData = mappend <$> mTestnetGenesis <*> mAvvmGenesis
                    <|> mTestnetGenesis

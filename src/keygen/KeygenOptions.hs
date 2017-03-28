@@ -20,7 +20,7 @@ data KeygenOptions = KO
 
 data TestStakeOptions = TSO
     { tsoPattern      :: FilePath
-    , tsoStakeholders :: Word
+    , tsoPoors        :: Word
     , tsoRichmen      :: Word
     , tsoRichmenShare :: Double
     , tsoTotalStake   :: Word64
@@ -51,7 +51,7 @@ testStakeParser = do
         metavar "PATTERN" <>
         help    "Filename pattern for generated keyfiles \
                 \(`{}` is a place for number)"
-    tsoStakeholders <- option auto $
+    tsoPoors <- option auto $
         long    "testnet-keys" <>
         short   'n' <>
         metavar "INT" <>
@@ -91,4 +91,3 @@ avvmStakeParser = do
 optsInfo :: ParserInfo KeygenOptions
 optsInfo = info (helper <*> optsParser) $
     fullDesc `mappend` progDesc "Tool to generate keyfiles"
-

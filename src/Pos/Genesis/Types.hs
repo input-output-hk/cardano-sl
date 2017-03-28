@@ -6,7 +6,7 @@ module Pos.Genesis.Types
 
 import           Universum
 
-import           Pos.Core.Coin                 (sumCoins, unsafeAddCoin,
+import           Pos.Core.Coin                 (coinToInteger, sumCoins, unsafeAddCoin,
                                                 unsafeIntegerToCoin)
 import           Pos.Core.Types                (Address, Coin, mkCoin)
 import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap)
@@ -21,9 +21,10 @@ data StakeDistribution
     | BitcoinStakes !Word  -- number of stakeholders
                     !Coin  -- total number of coins
     | TestnetStakes
-        { sdTotalStake :: !Coin
-        , sdRichmen    :: !Word
-        , sdPoor       :: !Word
+        { sdRichmen   :: !Word
+        , sdRichStake :: !Coin
+        , sdPoor      :: !Word
+        , sdPoorStake :: !Coin
         }
     | ExponentialStakes -- First three nodes get 0.875% of stake.
     | ExplicitStakes !(HashMap Address (Coin, TxOutDistribution))
@@ -37,7 +38,9 @@ instance Monoid StakeDistribution where
 getTotalStake :: StakeDistribution -> Coin
 getTotalStake (FlatStakes _ st) = st
 getTotalStake (BitcoinStakes _ st) = st
-getTotalStake (TestnetStakes st _ _) = st
+getTotalStake TestnetStakes {..} = unsafeIntegerToCoin $
+    coinToInteger sdRichStake * fromIntegral sdRichmen +
+    coinToInteger sdPoorStake * fromIntegral sdPoor
 getTotalStake ExponentialStakes = mkCoin . sum $
     let g 0 = []
         g n = n : g (n `div` 2)

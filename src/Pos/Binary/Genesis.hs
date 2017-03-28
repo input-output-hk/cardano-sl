@@ -20,15 +20,15 @@ instance Bi StakeDistribution where
     get = label "StakeDistribution" $ getWord8 >>= \case
         0 -> FlatStakes <$> getUVI <*> get
         1 -> BitcoinStakes <$> getUVI <*> get
-        2 -> TestnetStakes <$> get <*> getUVI <*> getUVI
+        2 -> TestnetStakes <$> getUVI <*> get <*> getUVI <*> get
         3 -> pure ExponentialStakes
         4 -> ExplicitStakes <$> get
         5 -> CombinedStakes <$> get <*> get
         _ -> fail "Pos.Binary.Genesis: StakeDistribution: invalid tag"
     put (FlatStakes n total)      = putWord8 0 >> putUVI n >> put total
     put (BitcoinStakes n total)   = putWord8 1 >> putUVI n >> put total
-    put (TestnetStakes total m n) = putWord8 2 >> put total >>
-                                    putUVI m >> putUVI n
+    put (TestnetStakes m rs n ps) = putWord8 2 >> putUVI m >> put rs >>
+                                    putUVI n >> put ps
     put ExponentialStakes         = putWord8 3
     put (ExplicitStakes balances) = putWord8 4 >> put balances
     put (CombinedStakes st1 st2)  = putWord8 5 >> put st1 >> put st2

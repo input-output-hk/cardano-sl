@@ -15,10 +15,11 @@ import           Servant.API                ((:<|>), (:>), Capture, Delete, Get,
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CInitialized,
+import           Pos.Wallet.Web.ClientTypes (CAccountAddress, CCurrency, CInitialized,
                                              CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
-                                             CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, CWalletSet,
+                                             CUpdateInfo, CWallet, CWalletAddress,
+                                             CWalletInit, CWalletMeta, CWalletRedeem,
+                                             CWalletSet, CWalletSet, CWalletSetAddress,
                                              CWalletSetInit, SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
@@ -37,7 +38,7 @@ type WalletApi =
      -------------------------------------------------------------------------
      "api"
      :> "walletSets"
-     :> Capture "walletSetId" CAddress
+     :> Capture "walletSetId" CWalletSetAddress
      :> Get '[JSON] (Either WalletError CWalletSet)
     :<|>
      "api"
@@ -57,22 +58,22 @@ type WalletApi =
      :> ReqBody '[JSON] CWalletSetInit
      :> Post '[JSON] (Either WalletError CWalletSet)
     :<|>
-  -------------------------------------------------------------------------
+     -------------------------------------------------------------------------
      -- Wallets
      -------------------------------------------------------------------------
      "api"
      :> "wallets"
-     :> Capture "walletId" CAddress
+     :> Capture "walletId" CWalletAddress
      :> Get '[JSON] (Either WalletError CWallet)
     :<|>
      "api"
      :> "wallets"
-     :> Capture "mWalletSetId" (Maybe CAddress)
+     :> Capture "mWalletSetId" (Maybe CWalletSetAddress)
      :> Get '[JSON] (Either WalletError [CWallet])
     :<|>
      "api"
      :> "wallets"
-     :> Capture "walletId" CAddress
+     :> Capture "walletId" CWalletAddress
      :> ReqBody '[JSON] CWalletMeta
      :> Put '[JSON] (Either WalletError CWallet)
     :<|>
@@ -84,14 +85,14 @@ type WalletApi =
     :<|>
      "api"
      :> "wallets"
-     :> Capture "walletId" CAddress
+     :> Capture "walletId" CWalletAddress
      :> Delete '[JSON] (Either WalletError ())
     :<|>
      "api"
      :> "wallets"
      :> "keys"
      :> ReqBody '[JSON] Text
-     :> Post '[JSON] (Either WalletError CWallet)
+     :> Post '[JSON] (Either WalletError CWalletSet)
     :<|>
      ----------------------------------------------------------------------------
      -- Addresses
@@ -124,8 +125,8 @@ type WalletApi =
      :> "txs"
      :> "payments"
      :> Capture "passphrase" CPassPhrase
-     :> Capture "from" CAddress
-     :> Capture "to" CAddress
+     :> Capture "from" CAccountAddress
+     :> Capture "to" CAccountAddress
      :> Capture "amount" Coin
      :> Post '[JSON] (Either WalletError CTx)
     :<|>
@@ -134,8 +135,8 @@ type WalletApi =
      :> "txs"
      :> "payments"
      :> Capture "passphrase" CPassPhrase
-     :> Capture "from" CAddress
-     :> Capture "to" CAddress
+     :> Capture "from" CAccountAddress
+     :> Capture "to" CAccountAddress
      :> Capture "amount" Coin
      :> Capture "currency" CCurrency
      :> Capture "title" Text
@@ -146,7 +147,7 @@ type WalletApi =
       "api"
       :> "txs"
       :> "payments"
-      :> Capture "address" CAddress
+      :> Capture "address" CAccountAddress
       :> Capture "transaction" CTxId
       :> ReqBody '[JSON] CTxMeta
       :> Post '[JSON] (Either WalletError ())
@@ -154,7 +155,7 @@ type WalletApi =
      "api"
      :> "txs"
      :> "histories"
-     :> Capture "address" CAddress
+     :> Capture "address" CAccountAddress
      :> QueryParam "skip" Word
      :> QueryParam "limit" Word
      :> Get '[JSON] (Either WalletError ([CTx], Word))
@@ -162,7 +163,7 @@ type WalletApi =
      "api"
      :> "txs"
      :> "histories"
-     :> Capture "address" CAddress
+     :> Capture "address" CAccountAddress
      :> Capture "search" Text
      :> QueryParam "skip" Word
      :> QueryParam "limit" Word

@@ -18,6 +18,9 @@ module Pos.Wallet.Web.ClientTypes
       , CTxMeta (..)
       , CTExMeta (..)
       , CInitialized (..)
+      , CWalletSetAddress
+      , CWalletAddress (..)
+      , CAccountAddress (..)
       , CAccount (..)
       , CWallet (..)
       , CWalletType (..)
@@ -26,10 +29,10 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletSet (..)
       , CWalletSetMeta (..)
       , CWalletSetInit (..)
-      , CWalletSetAddress
       , CUpdateInfo (..)
       , CWalletRedeem (..)
       , NotifyEvent (..)
+      , WithDerivationPath (..)
       , addressToCAddress
       , cAddressToAddress
       , passPhraseToCPassPhrase
@@ -40,7 +43,8 @@ module Pos.Wallet.Web.ClientTypes
       , ctTypeMeta
       , txContainsTitle
       , toCUpdateInfo
-      , mkDefCWalletMeta
+      , walletAddrByAccount
+      , accountAddrByWallet
       ) where
 
 import           Universum
@@ -50,9 +54,11 @@ import qualified Data.ByteString.Lazy   as LBS
 import           Data.Default           (Default, def)
 import           Data.Hashable          (Hashable (..))
 import           Data.Text              (Text, isInfixOf, toLower)
+import           Data.Text.Buildable    (build)
 import           Data.Time.Clock.POSIX  (POSIXTime)
 import           Data.Typeable          (Typeable)
-import           Formatting             (build, sformat)
+import           Formatting             (bprint, sformat, (%))
+import qualified Formatting             as F
 import           Prelude                (show)
 import qualified Serokell.Util.Base16   as Base16
 
@@ -116,7 +122,7 @@ newtype CAddress = CAddress CHash deriving (Show, Eq, Generic, Hashable, Buildab
 -- will know it will probably change something for purescript.
 -- | Transform Address into CAddress
 addressToCAddress :: Address -> CAddress
-addressToCAddress = CAddress . CHash . sformat build
+addressToCAddress = CAddress . CHash . sformat F.build
 
 cAddressToAddress :: CAddress -> Either Text Address
 cAddressToAddress (CAddress (CHash h)) = decodeTextAddress h
@@ -170,6 +176,48 @@ cPassPhraseToPassPhrase (CPassPhrase text) =
 -- | Wallet set identifier
 type CWalletSetAddress = CAddress
 
+-- | Wallet identifier
+data CWalletAddress = CWalletAddress
+    { -- | Address of wallet set this wallet belongs to
+      cwaAddress :: CWalletSetAddress
+    , -- | Derivation index of this wallet key
+      cwaIndex   :: Word32
+    } deriving (Eq, Show, Generic)
+
+instance Hashable CWalletAddress
+
+instance Buildable CWalletAddress where
+    build CWalletAddress{..} =
+        bprint ("{ addr="%F.build%", ixd="%F.build%" }") cwaAddress cwaIndex
+
+-- | Account identifier
+data CAccountAddress = CAccountAddress
+    { -- | Address of wallet set this account belongs to
+      caaAddress      :: CWalletSetAddress
+    , -- | First index in derivation path of this account key
+      caaWalletIndex  :: Word32
+    , -- | Second index in derivation path of this account key
+      caaAccountIndex :: Word32
+    } deriving (Eq, Show, Generic)
+
+instance Buildable CAccountAddress where
+    build = undefined
+
+walletAddrByAccount :: CAccountAddress -> CWalletAddress
+walletAddrByAccount CAccountAddress{..} = CWalletAddress
+    { cwaAddress = caaAddress
+    , cwaIndex   = caaWalletIndex
+    }
+
+accountAddrByWallet :: CWalletAddress -> Word32 -> CAccountAddress
+accountAddrByWallet CWalletAddress{..} index = CAccountAddress
+    { caaAddress      = cwaAddress
+    , caaWalletIndex  = cwaIndex
+    , caaAccountIndex = index
+    }
+
+instance Hashable CAccountAddress
+
 -- | A wallet can be used as personal or shared wallet
 data CWalletType
     = CWTPersonal
@@ -178,7 +226,7 @@ data CWalletType
 
 -- | Single account in a wallet
 data CAccount = CAccount
-    { caAddress :: !CAddress
+    { caAddress :: !CAccountAddress
     , caAmount  :: !Coin
     } deriving (Show, Generic)
 
@@ -188,17 +236,15 @@ data CWalletMeta = CWalletMeta
     { cwType     :: !CWalletType
     , cwCurrency :: !CCurrency
     , cwName     :: !Text
-    , cwSetId    :: !CWalletSetAddress
     } deriving (Show, Generic)
 
--- | Creates wallet meta with some default properties
-mkDefCWalletMeta :: CWalletSetAddress -> CWalletMeta
-mkDefCWalletMeta = CWalletMeta CWTPersonal ADA "Personal Wallet"
+instance Default CWalletMeta where
+    def = CWalletMeta CWTPersonal ADA "Personal Wallet"
 
 -- | Client Wallet (CW)
 -- (Flow type: walletType)
 data CWallet = CWallet
-    { cwAddress  :: !CAddress
+    { cwAddress  :: !CWalletAddress
     , cwMeta     :: !CWalletMeta
     , cwAccounts :: ![CAccount]
     } deriving (Show, Generic, Typeable)
@@ -206,11 +252,12 @@ data CWallet = CWallet
 -- | Query data for wallet creation
 data CWalletInit = CWalletInit
     { cwInitMeta   :: !CWalletMeta
+    , cwInitWSetId :: !CWalletSetAddress
     } deriving (Show, Generic)
 
 -- | Query data for redeem
 data CWalletRedeem = CWalletRedeem
-    { crWalletId :: !CAddress
+    { crWalletId :: !CWalletAddress
     , crSeed     :: !Text -- TODO: newtype!
     } deriving (Show, Generic)
 
@@ -234,6 +281,18 @@ data CWalletSetInit = CWalletSetInit
     { cwsBackupPhrase :: !BackupPhrase
     , cwsInitMeta     :: !CWalletSetMeta
     }
+
+class WithDerivationPath a where
+    getDerivationPath :: a -> [Word32]
+
+instance WithDerivationPath CAddress where
+    getDerivationPath _ = []
+
+instance WithDerivationPath CWalletAddress where
+    getDerivationPath CWalletAddress{..} = [cwaIndex]
+
+instance WithDerivationPath CAccountAddress where
+    getDerivationPath CAccountAddress{..} = [caaWalletIndex, caaAccountIndex]
 
 ----------------------------------------------------------------------------
 -- Profile

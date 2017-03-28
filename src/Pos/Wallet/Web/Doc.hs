@@ -30,15 +30,18 @@ import           Pos.Types                  (BlockVersion (..), Coin, SoftwareVe
                                              makePubKeyAddress, mkCoin)
 import           Pos.Util.BackupPhrase      (BackupPhrase, mkBackupPhrase)
 import           Pos.Wallet.Web.Api         (walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAccount (..), CAddress (..), CCurrency (..),
-                                             CHash (..), CInitialized (..), CPassPhrase,
+import           Pos.Wallet.Web.ClientTypes (CAccount (..), CAccountAddress (..),
+                                             CAccountAddress, CAddress (..),
+                                             CCurrency (..), CHash (..),
+                                             CInitialized (..), CPassPhrase,
                                              CProfile (..), CTType (..), CTx (..), CTxId,
                                              CTxMeta (..), CUpdateInfo (..), CWallet (..),
+                                             CWalletAddress (..), CWalletAddress,
                                              CWalletInit (..), CWalletMeta (..),
                                              CWalletRedeem (..), CWalletSet (..),
-                                             CWalletSetInit (..), CWalletSetInit (..),
-                                             CWalletSetMeta (..), CWalletType (..),
-                                             SyncProgress, addressToCAddress, mkCTxId)
+                                             CWalletSetAddress, CWalletSetInit (..),
+                                             CWalletSetInit (..), SyncProgress,
+                                             addressToCAddress, mkCTxId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 
 
@@ -84,35 +87,35 @@ extras =
 -- Orphan instances
 ----------------------------------------------------------------------------
 
-instance ToCapture (Capture "walletId" CAddress) where
+instance ToCapture (Capture "walletId" CWalletAddress) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "walletId"
         , _capDesc = "Address of wallet."
         }
 
-instance ToCapture (Capture "walletSetId" CAddress) where
+instance ToCapture (Capture "walletSetId" CWalletSetAddress) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "walletSetId"
         , _capDesc = "Address of wallet set."
         }
 
-instance ToCapture (Capture "mWalletSetId" (Maybe CAddress)) where
+instance ToCapture (Capture "mWalletSetId" (Maybe CWalletSetAddress)) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "walletSetId"
         , _capDesc = "Wallet filter, by wallet set address."
         }
 
-instance ToCapture (Capture "from" CAddress) where
+instance ToCapture (Capture "from" CAccountAddress) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "from"
         , _capDesc = "Address from which coins should be sent."
         }
 
-instance ToCapture (Capture "to" CAddress) where
+instance ToCapture (Capture "to" CAccountAddress) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "to"
@@ -126,7 +129,7 @@ instance ToCapture (Capture "amount" Coin) where
         , _capDesc = "Amount of coins to send."
         }
 
-instance ToCapture (Capture "address" CAddress) where
+instance ToCapture (Capture "address" CAccountAddress) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "address"
@@ -257,7 +260,10 @@ instance ToSample CWalletRedeem where
     toSamples Proxy = singleSample sample
       where
         sample = CWalletRedeem
-            { crWalletId = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
+            { crWalletId = CWalletAddress
+                { cwaAddress = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
+                , cwaIndex   = 1
+                }
             , crSeed     = "1354644684681"
             }
 
@@ -275,41 +281,34 @@ instance ToSample CWallet where
     toSamples Proxy = singleSample sample
       where
         sample = CWallet
-            { cwAddress  = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
-            , cwMeta     = CWalletMeta
-                { cwType     = CWTPersonal
-                , cwCurrency = ADA
-                , cwName     = "Personal Wallet"
-                , cwSetId    = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
+            { cwAddress  = CWalletAddress
+                { cwaAddress = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
+                , cwaIndex   = 1
                 }
+            , cwMeta     = def
             , cwAccounts =
                 [ CAccount
-                    (CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv")
-                    (mkCoin 0)
+                    { caAddress = CAccountAddress
+                        { caaAddress      = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
+                        , caaWalletIndex  = 1
+                        , caaAccountIndex = 216
+                        }
+                    , caAmount = mkCoin 0
+                    }
                 ]
             }
-
 
 instance ToSample CWalletMeta where
     toSamples Proxy = singleSample sample
       where
-        sample = CWalletMeta
-            { cwType     = CWTPersonal
-            , cwCurrency = ADA
-            , cwName     = "Personal Wallet"
-            , cwSetId    = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
-            }
+        sample = def
 
 instance ToSample CWalletInit where
     toSamples Proxy = singleSample sample
       where
         sample = CWalletInit
-            { cwInitMeta = CWalletMeta
-                { cwType     = CWTPersonal
-                , cwCurrency = ADA
-                , cwName     = "Personal Wallet"
-                , cwSetId    = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
-                }
+            { cwInitMeta = def
+            , cwInitWSetId = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
             }
 
 instance ToSample CWalletSet where
@@ -317,8 +316,7 @@ instance ToSample CWalletSet where
       where
         sample = CWalletSet
             { cwsAddress  = CAddress $ CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
-            , cwsWSetMeta = CWalletSetMeta
-                { cwsName = "Personal wallet set" }
+            , cwsWSetMeta = def
             , cwsWalletsNumber = 3
             }
 
@@ -327,8 +325,7 @@ instance ToSample CWalletSetInit where
       where
         sample = CWalletSetInit
             { cwsBackupPhrase = backupPhrase
-            , cwsInitMeta     = CWalletSetMeta
-                { cwsName = "Personal wallet set" }
+            , cwsInitMeta     = def
             }
 
 instance ToSample CUpdateInfo where

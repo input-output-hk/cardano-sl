@@ -28,7 +28,7 @@ import           Control.Lens         (makeLenses, to)
 import           Data.Binary.Get      (label)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default         (Default (..))
-import           Formatting           (build, formatToString, oct, sformat, (%))
+import           Formatting           (build, formatToString, (%))
 import qualified Prelude
 import           Serokell.Util.Text   (listJson)
 import           System.FileLock      (FileLock, SharedExclusive (..), lockFile,
@@ -48,6 +48,7 @@ import           System.IO.Temp       (openBinaryTempFile)
 import           Pos.Wallet.Web.Error (WalletError (..))
 
 #ifdef POSIX
+import           Formatting           (oct, sformat)
 import qualified System.Posix.Files   as PSX
 import qualified System.Posix.Types   as PSX (FileMode)
 #endif

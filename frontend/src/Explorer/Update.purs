@@ -8,6 +8,7 @@ import DOM (DOM)
 import DOM.HTML.HTMLInputElement (select)
 import Data.Array ((:))
 import Data.Either (Either(..))
+import Data.Foldable (traverse_)
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary)
@@ -23,8 +24,14 @@ import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects)
 
-update :: forall eff. Action -> State -> EffModel State Action (dom :: DOM
-    , ajax :: AJAX, socket :: SocketIO | eff)
+update :: forall eff. Action -> State ->
+    EffModel State Action 
+    (dom :: DOM
+    , ajax :: AJAX
+    , socket :: SocketIO
+    -- , console :: CONSOLE
+    | eff
+    )
 
 -- Language
 
@@ -53,7 +60,7 @@ update SocketCallMe state =
     { state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff $ emit' socket' (toEvent CallMe)
+              Just socket' -> liftEff <<< emit' socket' $ toEvent CallMe
               Nothing -> pure unit
           pure NoOp
     ]}
@@ -78,18 +85,27 @@ update (SocketSubscribe sub) state =
     { state: over (socket <<< subscriptions) ((:) sub) state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff $ emit' socket' (toEvent (Subscribe sub))
+              Just socket' -> do
+                -- log "SocketSubscribe ---"
+                -- log $ gShow sub
+                -- log "---"
+                liftEff <<< emit' socket' $ toEvent (Subscribe sub)
               Nothing -> pure unit
           pure NoOp
     ]}
 
 update SocketUnsubscribeAll state =
     let subsToSend = state ^. socket <<< subscriptions in
+    -- clear all stored subscriptions in store
     { state: set (socket <<< subscriptions) [] $ state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
-              -- TODO (jk) Send all subscriptions
-              Just socket' -> pure unit
+              Just socket' -> do
+                -- log "SocketUnsubscribeAll ---"
+                -- traverse_ (log <<< gShow ) subsToSend
+                -- log "---"
+                -- unsubscribe all subscriptions are used before
+                traverse_ (liftEff <<< emit' socket' <<< toEvent <<< Unsubscribe) subsToSend
               Nothing -> pure unit
           pure NoOp
     ]}

@@ -24,7 +24,8 @@ import           Pos.Update.Poll.Class     (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types     (PrevValue, USUndo (..), cpsSoftwareVersion,
                                             maybeToPrev, psProposal, unChangedBVL,
                                             unChangedConfPropsL, unChangedPropsL,
-                                            unChangedSVL, unLastAdoptedBVL)
+                                            unChangedSVL, unLastAdoptedBVL,
+                                            unPrevProposersL)
 
 newtype RollT m a = RollT
     { getRollT :: StateT USUndo m a
@@ -72,12 +73,21 @@ instance MonadPoll m => MonadPoll (RollT m) where
     delConfirmedProposal = lift . delConfirmedProposal
 
     addActiveProposal ps = RollT $ do
+        whenNothingM_ (use unPrevProposersL) $ do
+            prev <- getEpochProposers
+            unPrevProposersL .= Just prev
         insertIfNotExist (hash $ psProposal $ ps) unChangedPropsL getProposal
         addActiveProposal ps
 
     deactivateProposal id = RollT $ do
         insertIfNotExist id unChangedPropsL getProposal
         deactivateProposal id
+
+    setEpochProposers proposers = RollT $ do
+        whenNothingM_ (use unPrevProposersL) $ do
+            prev <- getEpochProposers
+            unPrevProposersL .= Just prev
+        setEpochProposers proposers
 
 insertIfNotExist
     :: (Eq a, Hashable a, MonadState USUndo m)

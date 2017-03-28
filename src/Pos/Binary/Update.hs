@@ -131,6 +131,7 @@ instance Bi U.USUndo where
         unChangedProps <- get
         unChangedSV <- get
         unChangedConfProps <- get
+        unPrevProposers <- get
         return $ U.USUndo {..}
     put U.USUndo{..} = do
         put unChangedBV
@@ -138,6 +139,7 @@ instance Bi U.USUndo where
         put unChangedProps
         put unChangedSV
         put unChangedConfProps
+        put unPrevProposers
 
 instance Bi U.UpsExtra where
     put U.UpsExtra {..} = put ueProposedBlk

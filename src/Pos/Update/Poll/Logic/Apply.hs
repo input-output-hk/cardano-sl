@@ -25,12 +25,13 @@ import           Pos.Constants                 (blkSecurityParam, genesisUpdateI
 import           Pos.Core                      (ChainDifficulty, Coin, EpochIndex,
                                                 HeaderHash, IsMainHeader (..),
                                                 SlotId (siEpoch), SoftwareVersion (..),
-                                                addressHash, applyCoinPortion,
-                                                blockVersionL, coinToInteger, difficultyL,
-                                                epochIndexL, flattenSlotId, headerHashG,
-                                                headerSlotL, sumCoins, unflattenSlotId,
+                                                addressHash, addressHash,
+                                                applyCoinPortion, blockVersionL,
+                                                coinToInteger, difficultyL, epochIndexL,
+                                                flattenSlotId, headerHashG, headerSlotL,
+                                                sumCoins, unflattenSlotId,
                                                 unsafeIntegerToCoin)
-import           Pos.Crypto                    (abstractHash, checkSig, hash, shortHashF)
+import           Pos.Crypto                    (checkSig, hash, shortHashF)
 import           Pos.Update.Core               (BlockVersionData (..), UpId,
                                                 UpdatePayload (..), UpdateProposal (..),
                                                 UpdateProposalToSign (..),
@@ -49,8 +50,6 @@ import           Pos.Update.Poll.Types         (ConfirmedProposalState (..),
                                                 UndecidedProposalState (..),
                                                 UpsExtra (..), psProposal)
 import           Pos.Util                      (Some (..))
-
-import           Serokell.Util                 (listJson)
 
 type ApplyMode m = (MonadError PollVerFailure m, MonadPoll m)
 
@@ -152,16 +151,11 @@ verifyAndApplyProposal
     -> m ()
 verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {..} = do
     let !upId = hash up
-    let !upFromId = abstractHash upFrom
+    let !upFromId = addressHash upFrom
     let toSign =
           UpdateProposalToSign upBlockVersion upBlockVersionData upSoftwareVersion upData upAttributes
     unless (checkSig upFrom toSign upSignature) $
         throwError $ PollProposalInvalidSign upId
-
-    proposersD <- getEpochProposers
-    logDebug $ sformat ("PROPOSERS: "%listJson) proposersD
-    logDebug $ sformat ("UP_FROM_ID: "%build) upFromId
-
     whenM (HS.member upFromId <$> getEpochProposers) $
         throwError $ PollMoreThanOneProposalPerEpoch upFromId upId
     let epoch = slotOrHeader ^. epochIndexL

@@ -201,9 +201,9 @@ prepareGStateUS systemStart =
         db <- getUtxoDB
         flip rocksWriteBatch db $
             PutSlottingData genesisSlottingData :
+            PutEpochProposers mempty :
             SetAdopted genesisBlockVersion genesisBlockVersionData :
-            map ConfirmVersion genesisSoftwareVersions :
-            PutEpochProposers mempty
+            map ConfirmVersion genesisSoftwareVersions
   where
     esdPenult =
         EpochSlottingData

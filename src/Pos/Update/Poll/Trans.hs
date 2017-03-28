@@ -31,7 +31,8 @@ import           System.Wlog                 (CanLog, HasLoggerName, logWarning)
 import           Universum
 
 import           Pos.Context                 (WithNodeContext)
-import           Pos.Crypto                  (abstractHash, hash)
+import           Pos.Core                    (addressHash)
+import           Pos.Crypto                  (hash)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Slotting.Class          (MonadSlots)
@@ -185,17 +186,17 @@ instance MonadPollRead m =>
     addConfirmedProposal cps =
         PollT $ pmConfirmedPropsL %= MM.insert (cpsSoftwareVersion cps) cps
     delConfirmedProposal sv = PollT $ pmConfirmedPropsL %= MM.delete sv
-    addActiveProposal ps = PollT $ do
+    addActiveProposal ps = do
         let up@UpdateProposal{upSoftwareVersion = sv, ..} = psProposal ps
             upId = hash up
             appName = svAppName sv
-
-            alterDel _ Nothing     = Nothing
-            alterDel val (Just hs) = Just $ HS.delete val hs
-        pmActivePropsL %= MM.insert upId ps
-        pmDelActivePropsIdxL %= HM.alter (alterDel upId) appName
         whenNothingM_ (getProposal upId) $ -- if not exist such proposal
-            pmEpochProposersL %= HS.insert (abstractHash upFrom)
+            HS.insert (addressHash upFrom) <$> getEpochProposers >>= setEpochProposers
+        PollT $ do
+            let alterDel _ Nothing     = Nothing
+                alterDel val (Just hs) = Just $ HS.delete val hs
+            pmActivePropsL %= MM.insert upId ps
+            pmDelActivePropsIdxL %= HM.alter (alterDel upId) appName
     deactivateProposal id = do
         prop <- getProposal id
         whenJust prop $ \ps ->

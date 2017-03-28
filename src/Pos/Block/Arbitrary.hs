@@ -164,6 +164,8 @@ newtype SmallTxPayload =
 instance Arbitrary SmallTxPayload where
     arbitrary = SmallTxPayload <$> makeSmall arbitrary
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
 instance Arbitrary (SscPayloadDependsOnSlot ssc) =>
          Arbitrary (BodyDependsOnConsensus (T.MainBlockchain ssc)) where
     arbitrary = pure $ BodyDependsOnConsensus $ \T.MainConsensusData{..} -> makeSmall $ do

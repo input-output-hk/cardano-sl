@@ -105,7 +105,7 @@ import           Pos.Txp                     (txpGlobalSettings)
 #endif
 import           Pos.Update.Context          (UpdateContext (..))
 import qualified Pos.Update.DB               as GState
-import           Pos.Update.MemState         (runUSHolder)
+import           Pos.Update.MemState         (newMemVar)
 import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
 import           Pos.Util.UserSecret         (usKeys)
 import           Pos.Worker                  (allWorkersCount)
@@ -212,7 +212,6 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
                        ignoreSscHolder .
                        runTxpHolder txpVar .
                        runDelegationT def .
-                       runUSHolder .
                        runKademliaDHT (rmDHT res) .
                        runPeerStateHolder stateM_
 
@@ -229,7 +228,6 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
           (mkStateAndRunSscHolder @ssc) .
           runTxpHolder txpVar .
           runDelegationT def .
-          runUSHolder .
           runKademliaDHT (rmDHT res) .
           runPeerStateHolder stateM .
           runServer (rmTransport res) listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
@@ -360,6 +358,7 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
     ncShutdownNotifyQueue <- liftIO $ newTBQueueIO allWorkersNum
     ncStartTime <- liftIO Time.getCurrentTime
     ncLastKnownHeader <- liftIO $ newTVarIO Nothing
+    ucMemState <- newMemVar
     let ctx =
             NodeContext
             { ncSscContext = sscNodeContext

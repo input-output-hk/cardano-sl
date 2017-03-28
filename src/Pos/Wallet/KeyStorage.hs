@@ -49,7 +49,6 @@ import           Pos.Slotting                (MonadSlots, MonadSlotsData, NtpSlo
                                               SlottingHolder)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp                     (TxpHolder (..))
-import           Pos.Update                  (USHolder (..))
 import           Pos.Util                    ()
 import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys,
                                               usPrimKey, writeUserSecret)
@@ -215,4 +214,3 @@ instance (MonadIO m, MonadThrow m) =>
 deriving instance MonadKeys m => MonadKeys (SscHolder ssc m)
 deriving instance MonadKeys m => MonadKeys (TxpHolder __ m)
 deriving instance MonadKeys m => MonadKeys (DelegationT m)
-deriving instance MonadKeys m => MonadKeys (USHolder m)

@@ -33,7 +33,6 @@ import           Pos.Slotting                (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Update.Core             (BlockVersionData (..))
 import           Pos.Update.DB               (getAdoptedBVData)
-import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 import           Pos.Txp.Toil.Class          (MonadBalancesRead (..), MonadToilEnv (..),
@@ -55,7 +54,6 @@ newtype DBTxp m a = DBTxp
                , MonadJL
                , CanLog
                , MonadMask
-               , MonadUSMem
                , MonadSscMem peka
                , MonadBase io
                , MonadDelegation

@@ -35,7 +35,8 @@ import           Pos.Shutdown       (waitForWorkers)
 import           Pos.Slotting       (getCurrentSlot, waitSystemStart)
 import           Pos.Ssc.Class      (SscConstraint)
 import           Pos.Types          (SlotId (..), addressHash)
-import           Pos.Update         (MemState (..), askUSMemVar, mvState)
+import           Pos.Update         (MemState (..), mvState)
+import           Pos.Update.Context (UpdateContext (ucMemState))
 import           Pos.Util           (inAssertMode, waitRandomInterval)
 import           Pos.Util.Context   (askContext)
 import           Pos.Worker         (allWorkers, allWorkersCount)
@@ -111,6 +112,6 @@ initLrc = do
 initUSMemState :: WorkMode ssc m => m ()
 initUSMemState = do
     tip <- GS.getTip
-    tvar <- mvState <$> askUSMemVar
+    tvar <- mvState <$> askContext @UpdateContext ucMemState
     slot <- fromMaybe (SlotId 0 0) <$> getCurrentSlot
     atomically $ writeTVar tvar (MemState slot tip def def)

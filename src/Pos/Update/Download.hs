@@ -22,13 +22,12 @@ import           System.Wlog             (logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Constants           (appSystemTag, curSoftwareVersion)
-import           Pos.Context             (NodeParams, npUpdatePath, npUpdateServers,
-                                          npUpdateWithPkg)
 import           Pos.Core.Types          (SoftwareVersion (..))
 import           Pos.Crypto              (Hash, castHash, hash)
 import           Pos.Update.Context      (UpdateContext (ucUpdateSemaphore))
 import           Pos.Update.Core.Types   (UpdateData (..), UpdateProposal (..))
 import           Pos.Update.Mode         (UpdateMode)
+import           Pos.Update.Params       (UpdateParams (..))
 import           Pos.Update.Poll.Types   (ConfirmedProposalState (..))
 import           Pos.Util                ((<//>))
 import           Pos.Util.Context        (askContext)
@@ -46,8 +45,8 @@ versionIsNew ver = svAppName ver /= svAppName curSoftwareVersion
 downloadUpdate :: UpdateMode m => ConfirmedProposalState -> m ()
 downloadUpdate cst@ConfirmedProposalState {..} = do
     logDebug "Update downloading triggered"
-    useInstaller <- askContext @NodeParams npUpdateWithPkg
-    updateServers <- askContext @NodeParams npUpdateServers
+    useInstaller <- askContext @UpdateParams upUpdateWithPkg
+    updateServers <- askContext @UpdateParams upUpdateServers
 
     let dataHash = if useInstaller then udPkgHash else udAppDiffHash
         mupdHash = castHash . dataHash <$>
@@ -62,7 +61,7 @@ downloadUpdate cst@ConfirmedProposalState {..} = do
                                   \current software version is newer than \
                                   \update version") updHash
 
-        updPath <- askContext @NodeParams npUpdatePath
+        updPath <- askContext @UpdateParams upUpdatePath
         whenM (liftIO $ doesFileExist updPath) $
             throwError "There's unapplied update already downloaded"
 

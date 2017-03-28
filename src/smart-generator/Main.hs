@@ -37,6 +37,7 @@ import           Pos.Ssc.GodTossing          (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon          (SscNistBeacon)
 import           Pos.Ssc.SscAlgo             (SscAlgo (..))
 import           Pos.Txp                     (TxAux)
+import           Pos.Update.Params           (UpdateParams (..))
 import           Pos.Util.JsonLog            ()
 import           Pos.Util.UserSecret         (simpleUserSecret)
 import           Pos.Worker                  (allWorkers)
@@ -277,10 +278,12 @@ main = do
                 , npAttackTypes   = []
                 , npAttackTargets = []
                 , npPropagation   = not (CLI.disablePropagation goCommonArgs)
-                , npUpdatePath    = "update.exe"
-                , npUpdateWithPkg = True
-                , npUpdateServers = []
                 , npReportServers = []
+                , npUpdateParams = UpdateParams
+                    { upUpdatePath    = "update.exe"
+                    , upUpdateWithPkg = True
+                    , upUpdateServers = []
+                    }
                 }
             gtParams =
                 GtParams

@@ -19,6 +19,8 @@ library
                        Pos.Lrc.Consumer
                        Pos.Lrc.Class
 
+                       Pos.Lrc.Context
+
                        Pos.Lrc.DB.Common
                        Pos.Lrc.DB.Issuers
                        Pos.Lrc.DB.RichmenBase

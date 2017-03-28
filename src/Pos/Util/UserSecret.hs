@@ -45,8 +45,9 @@ import           System.FilePath      (takeDirectory, takeFileName)
 import           System.IO            (hClose)
 import           System.IO.Temp       (openBinaryTempFile)
 
-#ifdef POSIX
 import           Pos.Wallet.Web.Error (WalletError (..))
+
+#ifdef POSIX
 import qualified System.Posix.Files   as PSX
 import qualified System.Posix.Types   as PSX (FileMode)
 #endif

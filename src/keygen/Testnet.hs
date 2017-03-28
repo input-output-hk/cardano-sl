@@ -36,7 +36,7 @@ generateKeyfile fp = do
     return (toPublic sk, vssCert)
 
 genTestnetStakes :: Coin -> TestStakeOptions -> StakeDistribution
-genTestnetStakes avvmStake TSO{..} = checkConsistency $ TestnetStakes {..}
+genTestnetStakes avvmStake TestStakeOptions{..} = checkConsistency $ TestnetStakes {..}
   where
     richs = fromIntegral tsoRichmen
     poors = fromIntegral tsoPoors
@@ -58,8 +58,9 @@ genTestnetStakes avvmStake TSO{..} = checkConsistency $ TestnetStakes {..}
     sdPoor = fromInteger poors
     sdPoorStake = unsafeIntegerToCoin onePoorStake
 
-    everythingIsConsisent :: [(Bool, Text)]
-    everythingIsConsisent =
+    -- Consistency checks
+    everythingIsConsistent :: [(Bool, Text)]
+    everythingIsConsistent =
         [ ( maxRichStake <= realRichStake
           , "Desired richmen's stake is more than allowed by \
             \constrains on total stake and given AVVM stake."
@@ -73,9 +74,10 @@ genTestnetStakes avvmStake TSO{..} = checkConsistency $ TestnetStakes {..}
         ]
 
     checkConsistency :: a -> a
-    checkConsistency = case verifyGeneric everythingIsConsisent of
+    checkConsistency = case verifyGeneric everythingIsConsistent of
         VerSuccess        -> identity
         VerFailure errors -> error $ formatAllErrors errors
 
     getShare :: Double -> Integer -> Integer
     getShare sh n = round $ sh * fromInteger n
+

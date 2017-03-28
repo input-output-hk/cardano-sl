@@ -12,13 +12,13 @@ import           Options.Applicative (Parser, ParserInfo, auto, fullDesc, help, 
                                       strOption, switch, value)
 import           Universum
 
-data KeygenOptions = KO
+data KeygenOptions = KeygenOptions
     { koGenesisFile :: FilePath
     , koTestStake   :: Maybe TestStakeOptions
     , koAvvmStake   :: Maybe AvvmStakeOptions
     }
 
-data TestStakeOptions = TSO
+data TestStakeOptions = TestStakeOptions
     { tsoPattern      :: FilePath
     , tsoPoors        :: Word
     , tsoRichmen      :: Word
@@ -26,7 +26,7 @@ data TestStakeOptions = TSO
     , tsoTotalStake   :: Word64
     }
 
-data AvvmStakeOptions = ASO
+data AvvmStakeOptions = AvvmStakeOptions
     { asoJsonPath      :: FilePath
     , asoIsRandcerts   :: Bool
     , asoHolderKeyfile :: Maybe FilePath
@@ -41,7 +41,7 @@ optsParser = do
         help    "File to dump binary shared genesis data"
     koTestStake <- optional testStakeParser
     koAvvmStake <- optional avvmStakeParser
-    pure KO{..}
+    pure KeygenOptions{..}
 
 testStakeParser :: Parser TestStakeOptions
 testStakeParser = do
@@ -69,7 +69,7 @@ testStakeParser = do
         long    "total-stake" <>
         metavar "INT" <>
         help    "Total coins in genesis stake, excluding RSCoin ledger."
-    pure TSO{..}
+    pure TestStakeOptions{..}
 
 avvmStakeParser :: Parser AvvmStakeOptions
 avvmStakeParser = do
@@ -85,7 +85,7 @@ avvmStakeParser = do
         metavar "FILE" <>
         help    "A keyfile from which to read public key of stakeholder \
                 \to which AVVM stakes are delegated."
-    pure ASO{..}
+    pure AvvmStakeOptions{..}
 
 optsInfo :: ParserInfo KeygenOptions
 optsInfo = info (helper <*> optsParser) $

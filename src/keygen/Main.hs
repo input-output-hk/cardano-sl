@@ -24,7 +24,7 @@ replace :: FilePath -> FilePath -> FilePath -> FilePath
 replace a b = toString . (T.replace `on` toText) a b . toText
 
 getTestnetGenesis :: Coin -> TestStakeOptions -> IO GenesisData
-getTestnetGenesis avvmStake tso@TSO{..} = do
+getTestnetGenesis avvmStake tso@TestStakeOptions{..} = do
     let keysDir = takeDirectory tsoPattern
     createDirectoryIfMissing True keysDir
 
@@ -46,7 +46,7 @@ getTestnetGenesis avvmStake tso@TSO{..} = do
     return genData
 
 getAvvmGenesis :: AvvmStakeOptions -> IO GenesisData
-getAvvmGenesis ASO{..} = do
+getAvvmGenesis AvvmStakeOptions{..} = do
     jsonfile <- BSL.readFile asoJsonPath
     holder <- getHolderId asoHolderKeyfile
     case eitherDecode jsonfile of
@@ -56,7 +56,7 @@ getAvvmGenesis ASO{..} = do
 
 main :: IO ()
 main = do
-    KO {..} <- execParser optsInfo
+    KeygenOptions {..} <- execParser optsInfo
     let genFileDir = takeDirectory koGenesisFile
     createDirectoryIfMissing True genFileDir
 

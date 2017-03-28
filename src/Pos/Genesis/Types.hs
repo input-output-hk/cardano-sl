@@ -6,9 +6,9 @@ module Pos.Genesis.Types
 
 import           Universum
 
-import           Pos.Core.Coin                 (coinToInteger, sumCoins, unsafeAddCoin,
+import           Pos.Core                      (Address, Coin, coinToInteger, mkCoin,
+                                                sumCoins, unsafeAddCoin,
                                                 unsafeIntegerToCoin)
-import           Pos.Core.Types                (Address, Coin, mkCoin)
 import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap)
 import           Pos.Txp.Core.Types            (TxOutDistribution)
 

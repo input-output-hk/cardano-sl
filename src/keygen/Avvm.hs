@@ -23,7 +23,6 @@ import           Pos.Types            (Address, Coin, StakeholderId, addressHash
 import           Pos.Util             (runGen)
 import           Pos.Util.UserSecret  (readUserSecret, usPrimKey)
 
-
 data AvvmData = AvvmData
     { utxo :: [AvvmEntry]
     } deriving (Show, Generic)
@@ -86,9 +85,9 @@ genGenesis avvm genCerts holder = GenesisData
 getHolderId :: Maybe FilePath -> IO StakeholderId
 getHolderId holderPath = case holderPath of
     Just fileName -> do
-        sk <- maybe
-            (fail "No secret key is found in file")
-            pure =<< view usPrimKey <$> readUserSecret fileName
+        mSk <- view usPrimKey <$> readUserSecret fileName
+        sk <- maybe (fail "No secret key is found in file")
+              pure mSk
         pure $ addressHash $ toPublic sk
     Nothing -> do
         putText "USING RANDOM STAKEHOLDER ID."

@@ -8,8 +8,8 @@ module KeygenOptions
        ) where
 
 import           Options.Applicative (Parser, ParserInfo, auto, fullDesc, help, helper,
-                                      info, long, metavar, option, option, progDesc,
-                                      short, strOption, switch, value)
+                                      info, long, metavar, option, progDesc, short,
+                                      strOption, switch, value)
 import           Universum
 
 data KeygenOptions = KO
@@ -64,7 +64,6 @@ testStakeParser = do
     tsoRichmenShare <- option auto $
         long    "richmen-share" <>
         metavar "FLOAT" <>
-        value   0.7 <>
         help    "Percent of stake dedicated to richmen"
     tsoTotalStake <- option auto $
         long    "total-stake" <>

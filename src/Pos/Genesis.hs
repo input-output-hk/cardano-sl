@@ -24,7 +24,6 @@ module Pos.Genesis
        , genesisLeaders
        ) where
 
-import           Control.Lens       ((+~), _head)
 import           Data.Default       (Default (..))
 import           Data.List          (genericLength, genericReplicate)
 import qualified Data.Map.Strict    as M

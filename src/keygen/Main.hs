@@ -7,10 +7,9 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict  as HM
 import qualified Data.Text            as T
 import           Options.Applicative  (execParser)
-import           Prelude              (show)
 import           System.Directory     (createDirectoryIfMissing)
 import           System.FilePath      (takeDirectory)
-import           Universum            hiding (show)
+import           Universum
 
 import           Pos.Binary           (decodeFull, encode)
 import           Pos.Genesis          (GenesisData (..), getTotalStake)
@@ -32,7 +31,7 @@ getTestnetGenesis avvmStake tso@TSO{..} = do
     let totalStakeholders = tsoRichmen + tsoPoors
     genesisList <- forM [1 .. totalStakeholders] $ \i ->
         generateKeyfile $ replace "{}" (show i) tsoPattern
-    print $ show totalStakeholders ++ " keyfiles are generated"
+    putText $ show totalStakeholders <> " keyfiles are generated"
 
     let distr = genTestnetStakes avvmStake tso
         genesisAddrs = map (makePubKeyAddress . fst) genesisList
@@ -69,10 +68,9 @@ main = do
     let mGenData = mappend <$> mTestnetGenesis <*> mAvvmGenesis
                    <|> mTestnetGenesis
                    <|> mAvvmGenesis
-        genData = maybe (error "At least one of options \
-                               \(AVVM stake or testnet stake) \
-                               \should be provided")
-                  identity mGenData
+        genData = fromMaybe (error "At least one of options \
+                                   \(AVVM stake or testnet stake) \
+                                   \should be provided") mGenData
         binGenesis = encode genData
 
     case decodeFull binGenesis of

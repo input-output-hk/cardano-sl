@@ -70,10 +70,10 @@ generateMnemonic = Crypto.generateMnemonic
 isValidMnemonic :: forall eff. EffFn1 (crypto :: Crypto.CRYPTO | eff) String Boolean
 isValidMnemonic = mkEffFn1 $ pure <<< either (const false) (const true) <<< mkBackupPhrase
 
-newWallet :: forall eff . EffFn6 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String String String Int String
+newWallet :: forall eff . EffFn4 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String String String
   (Promise Json)
-newWallet = mkEffFn6 \wType wCurrency wName wAssurance wUnit mnemonic -> fromAff <<< map encodeJson <<<
-    either throwError B.newWallet $ mkCWalletInit wType wCurrency wName wAssurance wUnit mnemonic
+newWallet = mkEffFn4 \wType wCurrency wName mnemonic -> fromAff <<< map encodeJson <<<
+    either throwError B.newWallet $ mkCWalletInit wType wCurrency wName mnemonic
 
 -- NOTE: https://issues.serokell.io/issue/DAE-33#comment=96-1798
 -- Daedalus.ClientApi.newWallet(
@@ -138,11 +138,11 @@ notify = mkEffFn2 \messageCb errorCb -> do
 blockchainSlotDuration :: forall eff. Eff (ajax :: AJAX | eff) (Promise Int)
 blockchainSlotDuration = fromAff B.blockchainSlotDuration
 
-restoreWallet :: forall eff. EffFn6 (ajax :: AJAX | eff) String String String String Int String (Promise Json)
-restoreWallet = mkEffFn6 \wType wCurrency wName wAssurance wUnit-> fromAff <<< map encodeJson <<< either throwError B.restoreWallet <<< mkCWalletInit wType wCurrency wName wAssurance wUnit
+restoreWallet :: forall eff. EffFn4 (ajax :: AJAX | eff) String String String String (Promise Json)
+restoreWallet = mkEffFn4 \wType wCurrency wName -> fromAff <<< map encodeJson <<< either throwError B.restoreWallet <<< mkCWalletInit wType wCurrency wName
 
-restoreWalletIgnoreChecksum :: forall eff. EffFn6 (ajax :: AJAX | eff) String String String String Int String (Promise Json)
-restoreWalletIgnoreChecksum = mkEffFn6 \wType wCurrency wName wAssurance wUnit -> fromAff <<< map encodeJson <<< either throwError B.restoreWallet <<< mkCWalletInitIgnoreChecksum wType wCurrency wName wAssurance wUnit
+restoreWalletIgnoreChecksum :: forall eff. EffFn4 (ajax :: AJAX | eff) String String String String (Promise Json)
+restoreWalletIgnoreChecksum = mkEffFn4 \wType wCurrency wName -> fromAff <<< map encodeJson <<< either throwError B.restoreWallet <<< mkCWalletInitIgnoreChecksum wType wCurrency wName
 
 nextUpdate :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 nextUpdate = fromAff $ map encodeJson B.nextUpdate

@@ -30,23 +30,18 @@ import           Pos.Crypto                     (WithHash (..), hash, withHash)
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.GState                  as GS
 import qualified Pos.DB.GState.Balances         as GS (getFtsStake)
-import qualified Pos.DB.GState.Explorer         as GS (getAddrHistory,
-                                                       getTxExtra)
+import qualified Pos.DB.GState.Explorer         as GS (getAddrHistory, getTxExtra)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (Tx (..), TxAux, TxId,
-                                                 TxOutAux (..), getLocalTxs,
-                                                 getMemPool, mpAddrHistories,
-                                                 mpLocalTxs, mpLocalTxsExtra,
-                                                 topsortTxs, txOutValue,
-                                                 _txOutputs)
-import           Pos.Types                      (Address (..), HeaderHash,
-                                                 MainBlock, Timestamp, blockTxs,
-                                                 difficultyL, gbHeader,
-                                                 gbhConsensus, mcdSlot, mkCoin,
+import           Pos.Txp                        (Tx (..), TxAux, TxId, TxOutAux (..),
+                                                 getLocalTxs, getMemPool, mpAddrHistories,
+                                                 mpLocalTxs, mpLocalTxsExtra, topsortTxs,
+                                                 txOutValue, _txOutputs)
+import           Pos.Types                      (Address (..), HeaderHash, MainBlock,
+                                                 Timestamp, blockTxs, difficultyL,
+                                                 gbHeader, gbhConsensus, mcdSlot, mkCoin,
                                                  prevBlockL, sumCoins,
-                                                 unsafeIntegerToCoin,
-                                                 unsafeSubCoin)
+                                                 unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Types.Explorer             (AddrHistory, TxExtra (..))
 import           Pos.Util                       (NewestFirst (..), maybeThrow)
 import qualified Pos.Util.Modifier              as MM
@@ -55,21 +50,16 @@ import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
-                                                 CAddressSummary (..),
-                                                 CBlockEntry (..),
-                                                 CBlockSummary (..), CHash,
-                                                 CHashSearchResult (..),
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
+                                                 CBlockEntry (..), CBlockSummary (..),
+                                                 CHash, CHashSearchResult (..),
                                                  CSearchId (..), CTxEntry (..),
                                                  CTxId (..), CTxSummary (..),
-                                                 TxInternal (..),
-                                                 convertTxOutputs, fromCAddress,
-                                                 fromCHash',
-                                                 fromCSearchIdAddress,
-                                                 fromCSearchIdHash,
-                                                 fromCSearchIdTx, fromCTxId,
-                                                 toBlockEntry, toBlockSummary,
-                                                 toPosixTime, toTxBrief,
+                                                 TxInternal (..), convertTxOutputs,
+                                                 fromCAddress, fromCHash,
+                                                 fromCSearchIdAddress, fromCSearchIdHash,
+                                                 fromCSearchIdTx, fromCTxId, toBlockEntry,
+                                                 toBlockSummary, toPosixTime, toTxBrief,
                                                  toTxEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
@@ -179,12 +169,14 @@ getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
     pure $ [toTxEntry (tiTimestamp txi) (tiTx txi) | txi <- localTxsWithTs <> blockTxsWithTs]
 
 getBlockSummary :: ExplorerMode m => CHash -> m CBlockSummary
-getBlockSummary (fromCHash' -> h) = do
+getBlockSummary cHash = do
+    h <- unwrapOrThrow $ fromCHash cHash
     mainBlock <- getMainBlock h
     toBlockSummary mainBlock
 
 getBlockTxs :: ExplorerMode m => CHash -> Word -> Word -> m [CTxEntry]
-getBlockTxs (fromCHash' -> h) (fromIntegral -> lim) (fromIntegral -> off) = do
+getBlockTxs cHash (fromIntegral -> lim) (fromIntegral -> off) = do
+    h <- unwrapOrThrow $ fromCHash cHash
     blk <- getMainBlock h
     txs <- topsortTxsOrFail withHash $ toList $ blk ^. blockTxs
     forM (take lim . drop off $ txs) $ \tx -> do
@@ -257,6 +249,9 @@ getTxSummary cTxId = do
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
+
+unwrapOrThrow :: ExplorerMode m => Either Text a -> m a
+unwrapOrThrow = either (throwM . Internal) pure
 
 fetchTxFromMempoolOrFail :: ExplorerMode m => TxId -> m TxAux
 fetchTxFromMempoolOrFail txId =

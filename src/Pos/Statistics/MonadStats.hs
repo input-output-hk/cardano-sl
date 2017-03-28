@@ -49,7 +49,6 @@ import           Pos.Slotting.MemState       (MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Statistics.StatEntry    (StatLabel (..))
 import           Pos.Txp.MemState            (MonadTxpMem (..))
-import           Pos.Update.MemState         (MonadUSMem)
 import           Pos.Util.Context            (MonadContext (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
@@ -82,7 +81,7 @@ newtype NoStatsT m a = NoStatsT
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
                 MonadJL, CanLog, MonadTxpMem x, MonadSscMem ssc,
-                WithNodeContext ssc, MonadDelegation, MonadUSMem,
+                WithNodeContext ssc, MonadDelegation,
                 MonadDhtMem, MonadReportingMem, MonadRelayMem, MonadShutdownMem,
                 MonadDB, MonadDBLimits)
 
@@ -139,7 +138,7 @@ newtype StatsT m a = StatsT
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
                 MonadTrans, MonadJL, CanLog, MonadTxpMem x,
                 MonadSscMem ssc, MonadSlotsData,
-                WithNodeContext ssc, MonadDelegation, MonadUSMem,
+                WithNodeContext ssc, MonadDelegation,
                 MonadDhtMem, MonadReportingMem, MonadRelayMem, MonadShutdownMem,
                 MonadDB, MonadDBLimits)
 

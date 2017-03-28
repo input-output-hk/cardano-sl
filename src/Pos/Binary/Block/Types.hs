@@ -128,9 +128,26 @@ instance Bi T.MainExtraBodyData where
    put T.MainExtraBodyData{..} = put _mebAttributes
    get = label "MainExtraBodyData" $ T.MainExtraBodyData <$> get
 
+instance Ssc ssc => Bi (T.MainToSign ssc) where
+    put T.MainToSign {..} =
+        put _msHeaderHash <>
+        put _msBodyProof <>
+        put _msSlot <>
+        put _msChainDiff <>
+        put _msExtraHeader
+    get = label "MainToSign" $ T.MainToSign <$> get <*> get <*> get <*> get <*> get
+
 ----------------------------------------------------------------------------
 -- GenesisBlock
 ----------------------------------------------------------------------------
+
+instance Bi T.GenesisExtraHeaderData where
+    put T.GenesisExtraHeaderData {..} = put _gehAttributes
+    get = label "GenesisExtraHeaderData" $ T.GenesisExtraHeaderData <$> get
+
+instance Bi T.GenesisExtraBodyData where
+    put T.GenesisExtraBodyData {..} = put _gebAttributes
+    get = label "GenesisExtraBodyData" $ T.GenesisExtraBodyData <$> get
 
 instance Bi (T.BodyProof (T.GenesisBlockchain ssc)) where
     put (T.GenesisProof h) = put h

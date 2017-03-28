@@ -15,6 +15,7 @@ import           Pos.DHT.Model.Types (DHTKey, DHTNode)
 import           Pos.Security.CLI    (AttackTarget, AttackType)
 import           Pos.Txp.Toil.Types  (Utxo)
 import           Pos.Types           (Timestamp)
+import           Pos.Update.Params   (UpdateParams)
 import           Pos.Util.UserSecret (UserSecret)
 
 -- | Contains all parameters required for hierarchical logger initialization.
@@ -49,8 +50,6 @@ data NodeParams = NodeParams
     , npAttackTypes   :: ![AttackType]      -- ^ List of attack types used by malicious emulation
     , npAttackTargets :: ![AttackTarget]    -- ^ List of targets to attack by malicious emulation
     , npPropagation   :: !Bool              -- ^ Whether to propagate txs, ssc data, blocks to neighbors
-    , npUpdatePath    :: !FilePath          -- ^ Path to update installer executable, downloaded by update system
-    , npUpdateWithPkg :: !Bool              -- ^ If `True` then use installer update mechanism
-    , npUpdateServers :: ![Text]            -- ^ List of update server URLs
     , npReportServers :: ![Text]            -- ^ List of report server URLs
+    , npUpdateParams  :: !UpdateParams      -- ^ Params for update system
     } deriving (Show)

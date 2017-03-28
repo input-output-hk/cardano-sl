@@ -236,8 +236,8 @@ getDecryptedShares
     :: MonadRandom m
     => NonEmpty VssKeyPair -> Commitment -> m [[Share]]
 getDecryptedShares vssKeys comm =
-    forM (fmap (second $ traverse fromBinary) $ HM.toList (commShares comm)) $
-        \(pubKey, encShare) -> do
+    forM (HM.toList (commShares comm)) $
+        \(pubKey, traverse fromBinary -> encShare) -> do
             let secKey = case find ((== pubKey) . asBinary . toVssPublicKey) vssKeys of
                     Just k  -> k
                     Nothing -> error $

@@ -43,7 +43,6 @@ import           Pos.DHT.Model                  (MonadDHT)
 import           Pos.Reporting.MemState         (MonadReportingMem)
 import           Pos.Slotting                   (MonadSlots, MonadSlotsData)
 import           Pos.Txp                        (MonadTxpMem)
-import qualified Pos.Update                     as US
 
 import           Pos.Wallet.Context             (WithWalletContext)
 import           Pos.Wallet.KeyStorage          (MonadKeys)
@@ -112,7 +111,7 @@ newtype WalletWebSockets m a = WalletWebSockets
                 CanLog, MonadKeys, MonadBalances, MonadUpdates,
                 MonadTxHistory, MonadBlockchainInfo, WithNodeContext ssc, WithPeerState,
                 MonadDB, MonadTxpMem x, MonadWalletWebDB, MonadDelegation,
-                US.MonadUSMem, MonadReportingMem)
+                MonadReportingMem)
 
 instance Monad m => WrappedM (WalletWebSockets m) where
     type UnwrappedM (WalletWebSockets m) = ReaderT ConnectionsVar m

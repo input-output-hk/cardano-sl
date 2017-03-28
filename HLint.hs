@@ -18,6 +18,8 @@ ignore "Eta reduce"
 ignore "Avoid lambda"
 
 -- Humans know better
+ignore "Use camelCase"
+ignore "Use const"
 ignore "Use section"
 ignore "Use if"
 ignore "Use notElem"
@@ -45,6 +47,22 @@ ignore "Unused LANGUAGE pragma"
 -- so they shouldn't be replaced with 'newtype' blindly
 ignore "Use newtype instead of data"
 
+
+----------------------------------------------------------------------------
+-- Hints with 'id' should use 'identity'
+----------------------------------------------------------------------------
+
+warn = any identity ==> or
+warn = all identity ==> and
+warn = (x >>= identity) ==> join x
+warn = (identity =<< x) ==> join x
+warn = mapM identity ==> sequence
+warn = mapM_ identity ==> sequence_
+warn = maybe x identity ==> fromMaybe x
+warn = mapMaybe identity ==> catMaybes
+warn = maybe Nothing identity ==> join
+
+
 ----------------------------------------------------------------------------
 -- Various stuff
 ----------------------------------------------------------------------------
@@ -56,6 +74,7 @@ warn "Avoid 'both'" = both ==> Control.Lens.each
     \the *last two elements* instead of failing with a type error.\n\
     \  * If you want to traverse all elements of the tuple, use 'each'.\n\
     \  * If 'both' is used on 'Either' here, replace it with 'chosen'."
+
 
 ----------------------------------------------------------------------------
 -- Universum
@@ -115,9 +134,10 @@ suggest = or <$> mapM f s ==> Universum.anyM f s
   where note = "Applying this hint would mean that some actions\n\
         \that were being executed previously would no longer be executed."
 
--- These are suggestions because we potentially use a variable name
-suggest = (do x <- m; when x a) ==> Universum.whenM m a
-suggest = (do x <- m; unless x a) ==> Universum.unlessM m a
+-- Unfortunately, these are often bad because they remove a variable name
+-- (which usually clarifies things):
+--     suggest = (do x <- m; when x a) ==> Universum.whenM m a
+--     suggest = (do x <- m; unless x a) ==> Universum.unlessM m a
 
 warn = (case m of Just x -> f x; Nothing -> pure ()) ==> Universum.whenJust m f
 warn = (case m of Just x -> f x; Nothing -> return ()) ==> Universum.whenJust m f

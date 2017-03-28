@@ -23,6 +23,7 @@ instance Bi StakeDistribution where
         2 -> TestnetStakes <$> get <*> getUVI <*> getUVI
         3 -> pure ExponentialStakes
         4 -> ExplicitStakes <$> get
+        5 -> CombinedStakes <$> get <*> get
         _ -> fail "Pos.Binary.Genesis: StakeDistribution: invalid tag"
     put (FlatStakes n total)      = putWord8 0 >> putUVI n >> put total
     put (BitcoinStakes n total)   = putWord8 1 >> putUVI n >> put total
@@ -30,6 +31,7 @@ instance Bi StakeDistribution where
                                     putUVI m >> putUVI n
     put ExponentialStakes         = putWord8 3
     put (ExplicitStakes balances) = putWord8 4 >> put balances
+    put (CombinedStakes st1 st2)  = putWord8 5 >> put st1 >> put st2
 
 instance Bi GenesisData where
     get = label "GenesisData" $ GenesisData <$> get <*> get <*> get

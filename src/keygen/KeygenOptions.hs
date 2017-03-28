@@ -55,7 +55,7 @@ testStakeParser = do
         long    "testnet-keys" <>
         short   'n' <>
         metavar "INT" <>
-        help    "Number of testnet (poor) stakeholders to generate"
+        help    "Number of testnet stakeholders to generate"
     tsoRichmen <- option auto $
         long    "richmen" <>
         short   'm' <>

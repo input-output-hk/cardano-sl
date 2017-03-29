@@ -8,10 +8,11 @@ set -o pipefail
 #   build.sh core|db|update|infra|sl   build only a specific project
 #   build.sh -c                        stack clean
 #
-# * Do `touch .no-nix` if you want builds without Nix,
-#     or pass the --no-nix flag.
-# * Do `touch .ram` if you have lots of RAM and want to make builds faster,
-#     or pass the --ram flag.
+# * Pass --no-nix if you want builds without Nix,
+#     or do `touch .no-nix`.
+# * Pass --ram if you have lots of RAM and want to make builds faster,
+#     or do `touch .ram`.
+# * Pass --prod if you want to compile in production mode.
 
 # This script builds the project in a way that is convenient for developers.
 # Specifically, it does the following:
@@ -33,6 +34,7 @@ spec_prj=''
 
 no_nix=false
 ram=false
+prod=false
 
 if [ -e .no-nix ]; then
   no_nix=true
@@ -55,6 +57,9 @@ do
   # --ram = use more RAM
   elif [[ $var == "--ram" ]]; then
     ram=true
+  # --prod = compile in production mode
+  elif [[ $var == "--prod" ]]; then
+    prod=true
   # project name = build only the project
   elif [[ $var == "sl" ]]; then
     spec_prj="sl"
@@ -71,6 +76,11 @@ norun='--no-run-tests --no-run-benchmarks'
 
 if [[ $no_nix == true ]]; then
   commonargs="$commonargs --no-nix"
+fi
+
+if [[ $prod == true ]]; then
+  commonargs="$commonargs --flag cardano-sl-core:-dev-mode"
+  export CSL_SYSTEM_TAG=linux64
 fi
 
 if [[ $ram == true ]]; then

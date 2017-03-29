@@ -168,7 +168,7 @@ class MonadPollRead m => MonadPoll m where
     -- ^ Add new confirmed update proposal.
     delConfirmedProposal :: SoftwareVersion -> m ()
     -- ^ Del confirmed update proposal (for rollback only).
-    addActiveProposal :: ProposalState -> m ()
+    insertActiveProposal :: ProposalState -> m ()
     -- ^ Add new active proposal with its state.
     deactivateProposal :: UpId -> m ()
     -- ^ Delete active proposal given its name and identifier.
@@ -206,9 +206,9 @@ class MonadPollRead m => MonadPoll m where
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => SoftwareVersion -> m ()
     delConfirmedProposal = lift . delConfirmedProposal
 
-    default addActiveProposal
+    default insertActiveProposal
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => ProposalState -> m ()
-    addActiveProposal = lift . addActiveProposal
+    insertActiveProposal = lift . insertActiveProposal
 
     default deactivateProposal
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => UpId -> m ()

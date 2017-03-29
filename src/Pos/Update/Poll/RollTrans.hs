@@ -72,12 +72,12 @@ instance MonadPoll m => MonadPoll (RollT m) where
     -- can't be called during apply
     delConfirmedProposal = lift . delConfirmedProposal
 
-    addActiveProposal ps = RollT $ do
+    insertActiveProposal ps = RollT $ do
         whenNothingM_ (use unPrevProposersL) $ do
             prev <- getEpochProposers
             unPrevProposersL .= Just prev
         insertIfNotExist (hash $ psProposal $ ps) unChangedPropsL getProposal
-        addActiveProposal ps
+        insertActiveProposal ps
 
     deactivateProposal id = RollT $ do
         insertIfNotExist id unChangedPropsL getProposal

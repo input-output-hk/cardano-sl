@@ -260,7 +260,7 @@ verifyAndApplyVoteDo cd ups v@UpdateVote {..} = do
                     , dpsExtra = DpsExtra . snd <$> cd <*> Just False
                     }
             | otherwise = PSUndecided newUPS
-    addActiveProposal newPS
+    insertActiveProposal newPS
 
 -- According to implicit agreement rule all proposals which were put
 -- into blocks earlier than 'genesisUpdateImplicit' slots before slot
@@ -278,7 +278,7 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd hh
   where
     applyImplicitAgreementDo ups = do
         let decided = makeImplicitlyDecided ups
-        addActiveProposal $ PSDecided decided
+        insertActiveProposal $ PSDecided decided
         let upId = hash $ upsProposal ups
             status | dpsDecision decided = "approved"
                    | otherwise = "rejected"

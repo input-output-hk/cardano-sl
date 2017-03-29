@@ -111,11 +111,11 @@ data UpdateProposal = UpdateProposal
     , upBlockVersionData :: !BlockVersionData
     , upSoftwareVersion  :: !SoftwareVersion
     , upData             :: !(HM.HashMap SystemTag UpdateData)
+    -- ^ UpdateData for each system which this update affects.
+    -- It must be non-empty.
     , upAttributes       :: !UpAttributes
     -- ^ Attributes which are currently empty, but provide
     -- extensibility.
-    -- ^ UpdateData for each system which this update affects.
-    -- It must be non-empty.
     , upFrom             :: !PublicKey
     -- ^ Who proposed this UP.
     , upSignature        :: !(Signature UpdateProposalToSign)

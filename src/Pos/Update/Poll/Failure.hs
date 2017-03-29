@@ -136,8 +136,8 @@ instance Buildable PollVerFailure where
                 int%" > "%int%")")
         ptlpUpId ptlpSize ptlpLimit
     build (PollProposalInvalidSign {..}) =
-        bprint ("signature of update proposal "%shortHashF % " is invalid") ppisUpId
+        bprint ("signature of update proposal "%shortHashF%" is invalid") ppisUpId
     build (PollMoreThanOneProposalPerEpoch {..}) =
-        bprint ("stakeholder "%shortHashF % " proposed second proposal "%shortHashF) ptopFrom ptopUpId
+        bprint ("stakeholder "%shortHashF%" proposed second proposal "%shortHashF) ptopFrom ptopUpId
     build (PollInternalError msg) =
         bprint ("internal error: "%stext) msg

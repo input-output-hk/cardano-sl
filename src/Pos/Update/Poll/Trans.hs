@@ -186,11 +186,11 @@ instance MonadPollRead m =>
     addConfirmedProposal cps =
         PollT $ pmConfirmedPropsL %= MM.insert (cpsSoftwareVersion cps) cps
     delConfirmedProposal sv = PollT $ pmConfirmedPropsL %= MM.delete sv
-    addActiveProposal ps = do
+    insertActiveProposal ps = do
         let up@UpdateProposal{upSoftwareVersion = sv, ..} = psProposal ps
             upId = hash up
             appName = svAppName sv
-        whenNothingM_ (getProposal upId) $ -- if not exist such proposal
+        whenNothingM_ (getProposal upId) $
             HS.insert (addressHash upFrom) <$> getEpochProposers >>= setEpochProposers
         PollT $ do
             let alterDel _ Nothing     = Nothing

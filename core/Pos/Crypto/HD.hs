@@ -27,14 +27,16 @@ import           Pos.Binary.Class             (decodeFull, encodeStrict)
 import           Pos.Crypto.Signing           (PublicKey (..), SecretKey (..))
 
 -- | Passphrase is a hash of root public key.
---- We don't use root public key to store money, we use hash of it instead.
+--- We don't use root public key to store money, we use hash of it
+--- instead.
 data HDPassphrase = HDPassphrase !ByteString
     deriving Show
 
 -- | HDAddressPayload consists of
 --
--- * serialiazed and encrypted with symmetric scheme path from the root
--- key to given descendant key with passphrase (via ChaChaPoly1305 algorithm)
+-- * serialiazed and encrypted with symmetric scheme path from the
+-- root key to given descendant key with passphrase (using
+-- ChaChaPoly1305 algorithm)
 --
 -- * cryptographic tag
 --
@@ -73,11 +75,9 @@ deriveHDPublicKey (PublicKey xpub) childIndex
 
 -- | Derive secret key from secret key.
 -- If @childIndex <= maxHardened@ key will be deriving hardened way, otherwise non-hardened.
-deriveHDSecretKey :: ByteArrayAccess passPhrase
-                  => passPhrase
-                  -> SecretKey
-                  -> Word32
-                  -> SecretKey
+deriveHDSecretKey
+    :: ByteArrayAccess passPhrase
+    => passPhrase -> SecretKey -> Word32 -> SecretKey
 deriveHDSecretKey passPhrase (SecretKey xprv) childIndex
   | childIndex <= maxHardened =
       SecretKey $ deriveXPrvHardened passPhrase xprv childIndex

@@ -52,7 +52,8 @@ import           Data.SafeCopy                   (SafeCopy (..), base, contain,
                                                   deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text.Buildable             as B
 import           Data.Text.Lazy.Builder          (Builder)
-import           Formatting                      (Format, bprint, build, later, (%))
+import           Formatting                      (Format, bprint, build, fitLeft, later,
+                                                  (%), (%.))
 import           Prelude                         (show)
 import qualified Serokell.Util.Base16            as B16
 import qualified Serokell.Util.Base64            as Base64 (decode, formatBase64)
@@ -61,7 +62,7 @@ import           Universum                       hiding (show)
 
 import           Pos.Binary.Class                (Bi, Raw)
 import qualified Pos.Binary.Class                as Bi
-import           Pos.Crypto.Hashing              (hash, shortHashF)
+import           Pos.Crypto.Hashing              (hash)
 import           Pos.Crypto.Random               (secureRandomBS)
 
 ----------------------------------------------------------------------------
@@ -106,12 +107,10 @@ instance Show SecretKey where
     show sk = "<secret of " ++ show (toPublic sk) ++ ">"
 
 instance Bi PublicKey => B.Buildable PublicKey where
-    -- Hash the key, take first 8 chars (that's how GPG does fingerprinting,
-    -- except that their binary representation of the key is different)
-    build = bprint ("pub:"%shortHashF) . hash
+    build = bprint ("pub:"%shortPublicKeyHexF)
 
 instance Bi PublicKey => B.Buildable SecretKey where
-    build = bprint ("sec:"%shortHashF) . hash . toPublic
+    build = bprint ("sec:"%shortPublicKeyHexF) . toPublic
 
 -- | 'Builder' for 'PublicKey' to show it in base64 encoded form.
 formatFullPublicKey :: PublicKey -> Builder
@@ -124,19 +123,19 @@ fullPublicKeyF = later formatFullPublicKey
 
 -- | Formatter for 'PublicKey' to show it in hex.
 fullPublicKeyHexF :: Format r (PublicKey -> r)
-fullPublicKeyHexF = later $ \(PublicKey x) ->
-    B16.formatBase16 . CC.unXPub $ x
+fullPublicKeyHexF = later $ \(PublicKey x) -> B16.formatBase16 . CC.unXPub $ x
+
+-- | Formatter for 'PublicKey' to show it in hex, but only first 8 chars.
+shortPublicKeyHexF :: Format r (PublicKey -> r)
+shortPublicKeyHexF = fitLeft 8 %. fullPublicKeyHexF
 
 -- | Parse 'PublicKey' from base64 encoded string.
 parseFullPublicKey :: (Bi PublicKey) => Text -> Maybe PublicKey
-parseFullPublicKey s =
-    case Base64.decode s of
-        Left _  -> Nothing
-        Right b -> case Bi.decodeOrFail (BSL.fromStrict b) of
-            Left _ -> Nothing
-            Right (unconsumed, _, a)
-                | BSL.null unconsumed -> Just a
-                | otherwise -> Nothing
+parseFullPublicKey s = do
+    b <- rightToMaybe $ Base64.decode s
+    (unconsumed, _, a) <- rightToMaybe $ Bi.decodeOrFail (BSL.fromStrict b)
+    guard $ not $ BSL.null unconsumed
+    pure a
 
 emptyPass :: ScrubbedBytes
 emptyPass = mempty

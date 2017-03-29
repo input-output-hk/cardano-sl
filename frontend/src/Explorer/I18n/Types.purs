@@ -120,6 +120,7 @@ type Transaction =
     { txTime :: String
     , txIncluded :: String
     , txRelayed :: String
+    , txEmpty :: String
     }
 
 -- translations of block detail page

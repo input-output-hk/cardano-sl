@@ -1,7 +1,7 @@
 module Explorer.View.Block (blockView) where
 
 import Prelude
-import Data.Array ((!!), length)
+import Data.Array (length, null, (!!))
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
@@ -11,7 +11,7 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
-import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txHeaderView, txPaginationView)
+import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
 import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
@@ -47,24 +47,27 @@ blockView state =
                 , case state ^. currentBlockTxs of
                       Nothing -> emptyTxHeaderView state
                       Just blockTxs ->
-                          let txPagination = state ^. (viewStates <<< blockDetail <<< blockTxPagination)
-                              currentTxBrief = blockTxs !! (txPagination - 1)
-                          in
-                          P.div
-                              []
-                              [ txHeaderView lang' $ case currentTxBrief of
-                                                          Nothing -> mkTxHeaderViewProps mkEmptyViewProps
-                                                          Just txBrief -> mkTxHeaderViewProps txBrief
-                              , txBodyView $ case currentTxBrief of
-                                                  Nothing -> mkTxBodyViewProps mkEmptyViewProps
-                                                  Just txBrief -> mkTxBodyViewProps txBrief
-                              , txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                                                  , currentPage: txPagination
-                                                  , maxPage: length blockTxs
-                                                  , changePageAction: BlockPaginateTxs
-                                                  , onFocusAction: SelectInputText <<< targetToHTMLInputElement
-                                                  }
-                              ]
+                          if null blockTxs then
+                              txEmptyContentView lang'
+                          else
+                              let txPagination = state ^. (viewStates <<< blockDetail <<< blockTxPagination)
+                                  currentTxBrief = blockTxs !! (txPagination - 1)
+                              in
+                              P.div
+                                  []
+                                  [ txHeaderView lang' $ case currentTxBrief of
+                                                              Nothing -> mkTxHeaderViewProps mkEmptyViewProps
+                                                              Just txBrief -> mkTxHeaderViewProps txBrief
+                                  , txBodyView $ case currentTxBrief of
+                                                      Nothing -> mkTxBodyViewProps mkEmptyViewProps
+                                                      Just txBrief -> mkTxBodyViewProps txBrief
+                                  , txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                                                      , currentPage: txPagination
+                                                      , maxPage: length blockTxs
+                                                      , changePageAction: BlockPaginateTxs
+                                                      , onFocusAction: SelectInputText <<< targetToHTMLInputElement
+                                                      }
+                                  ]
                 ]
             ]
         ]

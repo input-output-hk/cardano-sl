@@ -167,3 +167,15 @@
 
   }
 }
+
+.tx-empty {
+
+  &__container {
+    padding: 10px 24px;
+
+    font-size: 10px;
+    font-family: var(--fontFamily0-Regular);
+    color: var(--color13);
+
+  }
+}

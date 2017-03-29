@@ -92,6 +92,7 @@ translation =
         { txTime: "Received time"
         , txIncluded: "Included In Slots"
         , txRelayed: "Relayed by IP"
+        , txEmpty: "No transactions"
         }
     , block:
         { blFees: "Fees"

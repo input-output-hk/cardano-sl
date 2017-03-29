@@ -12,6 +12,7 @@ module Explorer.View.Common (
     , txPaginationView
     , EmptyViewProps
     , mkEmptyViewProps
+    , txEmptyContentView
     , noData
     ) where
 
@@ -21,7 +22,7 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (common, cDateFormat) as I18nL
+import Explorer.I18n.Lenses (common, cDateFormat, cNoData, tx, txEmpty) as I18nL
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
@@ -257,6 +258,14 @@ paginationView props =
               then props.changePageAction value
               else NoOp
 
+-- -----------------
+-- txs empty view
+-- -----------------
+
+txEmptyContentView :: Language -> P.Html Action
+txEmptyContentView lang = P.div
+                        [ P.className "tx-empty__container" ]
+                        [ P.text $ translate (I18nL.tx <<< I18nL.txEmpty) lang ]
 
 -- -----------------
 -- helper

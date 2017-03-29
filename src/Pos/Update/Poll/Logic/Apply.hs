@@ -31,10 +31,9 @@ import           Pos.Core                      (ChainDifficulty, Coin, EpochInde
                                                 flattenSlotId, headerHashG, headerSlotL,
                                                 sumCoins, unflattenSlotId,
                                                 unsafeIntegerToCoin)
-import           Pos.Crypto                    (checkSig, hash, shortHashF)
+import           Pos.Crypto                    (hash, shortHashF)
 import           Pos.Update.Core               (BlockVersionData (..), UpId,
                                                 UpdatePayload (..), UpdateProposal (..),
-                                                UpdateProposalToSign (..),
                                                 UpdateVote (..))
 import           Pos.Update.Poll.Class         (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure       (PollVerFailure (..))
@@ -149,13 +148,9 @@ verifyAndApplyProposal
     -> [UpdateVote]
     -> UpdateProposal
     -> m ()
-verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {..} = do
+verifyAndApplyProposal considerThreshold slotOrHeader votes up@UnsafeUpdateProposal {..} = do
     let !upId = hash up
     let !upFromId = addressHash upFrom
-    let toSign =
-          UpdateProposalToSign upBlockVersion upBlockVersionData upSoftwareVersion upData upAttributes
-    unless (checkSig upFrom toSign upSignature) $
-        throwError $ PollProposalInvalidSign upId
     whenM (HS.member upFromId <$> getEpochProposers) $
         throwError $ PollMoreThanOneProposalPerEpoch upFromId upId
     let epoch = slotOrHeader ^. epochIndexL

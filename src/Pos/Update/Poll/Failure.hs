@@ -67,7 +67,6 @@ data PollVerFailure
                            , ptlpSize  :: !Byte
                            , ptlpLimit :: !Byte
                            }
-    | PollProposalInvalidSign { ppisUpId :: !UpId }
     | PollMoreThanOneProposalPerEpoch { ptopFrom :: !StakeholderId
                                       , ptopUpId :: !UpId
                                       }
@@ -135,8 +134,6 @@ instance Buildable PollVerFailure where
         bprint ("update proposal "%shortHashF%" exceeds maximal size ("%
                 int%" > "%int%")")
         ptlpUpId ptlpSize ptlpLimit
-    build (PollProposalInvalidSign {..}) =
-        bprint ("signature of update proposal "%shortHashF%" is invalid") ppisUpId
     build (PollMoreThanOneProposalPerEpoch {..}) =
         bprint ("stakeholder "%shortHashF%" proposed second proposal "%shortHashF) ptopFrom ptopUpId
     build (PollInternalError msg) =

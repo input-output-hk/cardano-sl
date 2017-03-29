@@ -13,6 +13,8 @@ module Pos.Update.Core.Types
        , UpdateProposalToSign (..)
        , BlockVersionData (..)
        , SystemTag (getSystemTag)
+       , mkUpdateProposal
+       , mkUpdateProposalWSign
        , mkSystemTag
        , systemTagMaxLength
        , patakUpdateData
@@ -67,8 +69,9 @@ import           Pos.Binary.Crypto          ()
 import           Pos.Core                   (BlockVersion, CoinPortion, FlatSlotId,
                                              IsGenesisHeader, IsMainHeader, ScriptVersion,
                                              SoftwareVersion, addressHash)
-import           Pos.Crypto                 (Hash, PublicKey, Signature, hash, shortHashF,
-                                             unsafeHash)
+import           Pos.Crypto                 (Hash, PublicKey, SecretKey, Signature,
+                                             checkSig, hash, shortHashF, toPublic,
+                                             unsafeHash, sign)
 import           Pos.Data.Attributes        (Attributes)
 import           Pos.Util.Util              (Some)
 
@@ -106,7 +109,7 @@ data UpdateProposalToSign
     }
 
 -- | Proposal for software update
-data UpdateProposal = UpdateProposal
+data UpdateProposal = UnsafeUpdateProposal
     { upBlockVersion     :: !BlockVersion
     , upBlockVersionData :: !BlockVersionData
     , upSoftwareVersion  :: !SoftwareVersion
@@ -121,9 +124,58 @@ data UpdateProposal = UpdateProposal
     , upSignature        :: !(Signature UpdateProposalToSign)
     } deriving (Eq, Show, Generic, Typeable)
 
+mkUpdateProposal
+    :: (MonadFail m, Bi UpdateProposalToSign)
+    => BlockVersion
+    -> BlockVersionData
+    -> SoftwareVersion
+    -> HM.HashMap SystemTag UpdateData
+    -> UpAttributes
+    -> PublicKey
+    -> Signature UpdateProposalToSign
+    -> m UpdateProposal
+mkUpdateProposal
+    upBlockVersion
+    upBlockVersionData
+    upSoftwareVersion
+    upData
+    upAttributes
+    upFrom
+    upSignature = do
+    when (HM.null upData) $ -- Check if proposal data is non-empty
+        fail "UpdateProposal: empty proposal data"
+    let toSign =
+          UpdateProposalToSign upBlockVersion upBlockVersionData upSoftwareVersion upData upAttributes
+    unless (checkSig upFrom toSign upSignature) $
+        fail $ "UpdateProposal: signature is invalid"
+    pure UnsafeUpdateProposal{..}
+
+mkUpdateProposalWSign
+    :: (MonadFail m, Bi UpdateProposalToSign)
+    => BlockVersion
+    -> BlockVersionData
+    -> SoftwareVersion
+    -> HM.HashMap SystemTag UpdateData
+    -> UpAttributes
+    -> SecretKey
+    -> m UpdateProposal
+mkUpdateProposalWSign
+    upBlockVersion
+    upBlockVersionData
+    upSoftwareVersion
+    upData
+    upAttributes
+    skey = do
+    when (HM.null upData) $ -- Check if proposal data is non-empty
+        fail "UpdateProposal: empty proposal data"
+    let toSign =
+          UpdateProposalToSign upBlockVersion upBlockVersionData upSoftwareVersion upData upAttributes
+    let upFrom = toPublic skey
+    let upSignature = sign skey toSign
+    pure UnsafeUpdateProposal{..}
 
 instance Bi UpdateProposal => Buildable UpdateProposal where
-    build up@UpdateProposal {..} =
+    build up@UnsafeUpdateProposal {..} =
       bprint (build%
               " { block v"%build%
               ", UpId: "%build%

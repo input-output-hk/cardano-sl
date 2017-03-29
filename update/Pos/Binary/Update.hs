@@ -74,21 +74,16 @@ instance Bi U.BlockVersionData where
         put bvdUpdateSoftforkThd
 
 instance Bi U.UpdateProposal where
-    get = label "UpdateProposal" $
-          U.UpdateProposal
-            <$> get
-            <*> get
-            <*> get
-            <*> getUpData
-            <*> get
-            <*> get
-            <*> get
-      where getUpData = do   -- Check if proposal data is non-empty
-                pd <- get
-                when (HM.null pd) $
-                    fail "Pos.Binary.Update: UpdateProposal: empty proposal data"
-                return pd
-    put U.UpdateProposal {..} =  put upBlockVersion
+    get = label "UpdateProposal" $ do
+        d <- get
+        r <- get
+        a <- get
+        t <- get
+        u <- get
+        t' <- get
+        i <- get
+        U.mkUpdateProposal d r a t u t' i
+    put U.UnsafeUpdateProposal {..} =  put upBlockVersion
                               *> put upBlockVersionData
                               *> put upSoftwareVersion
                               *> put upData

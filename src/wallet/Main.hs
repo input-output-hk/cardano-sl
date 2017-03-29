@@ -109,7 +109,7 @@ runCmd sendActions ProposeUpdate{..} = do
             }
     let udata = maybe patakUpdateData skovorodaUpdateData diffFile
     let toSign = UpdateProposalToSign puBlockVersion bvd puSoftwareVersion udata (mkAttributes ())
-    let updateProposal = UpdateProposal
+    let updateProposal = UnsafeUpdateProposal
             { upBlockVersion     = puBlockVersion
             , upBlockVersionData = bvd
             , upSoftwareVersion  = puSoftwareVersion

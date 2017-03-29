@@ -185,7 +185,7 @@ instance MonadPollRead m =>
         PollT $ pmConfirmedPropsL %= MM.insert (cpsSoftwareVersion cps) cps
     delConfirmedProposal sv = PollT $ pmConfirmedPropsL %= MM.delete sv
     insertActiveProposal ps = do
-        let up@UpdateProposal{upSoftwareVersion = sv, ..} = psProposal ps
+        let up@UnsafeUpdateProposal{upSoftwareVersion = sv, ..} = psProposal ps
             upId = hash up
             appName = svAppName sv
         whenNothingM_ (getProposal upId) $
@@ -195,6 +195,7 @@ instance MonadPollRead m =>
                 alterDel val (Just hs) = Just $ HS.delete val hs
             pmActivePropsL %= MM.insert upId ps
             pmDelActivePropsIdxL %= HM.alter (alterDel upId) appName
+    -- Deactivate proposal doesn't change epoch proposers.
     deactivateProposal id = do
         prop <- getProposal id
         whenJust prop $ \ps ->

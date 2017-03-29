@@ -18,7 +18,8 @@ import           Pos.Data.Attributes   (mkAttributes)
 import           Pos.Types.Arbitrary   ()
 import           Pos.Update.Core.Types (BlockVersionData (..), SystemTag, UpdateData (..),
                                         UpdatePayload (..), UpdateProposal (..),
-                                        UpdateVote (..), VoteState (..), mkSystemTag, UpdateProposalToSign (..))
+                                        UpdateProposalToSign (..), UpdateVote (..),
+                                        VoteState (..), mkSystemTag)
 
 instance Arbitrary SystemTag where
     arbitrary =
@@ -52,7 +53,7 @@ instance Arbitrary UpdateProposal where
                   upSoftwareVersion
                   upData
                   upAttributes
-        pure UpdateProposal {..}
+        pure UnsafeUpdateProposal {..}
 
 instance Arbitrary VoteState where
     arbitrary =

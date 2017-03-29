@@ -75,7 +75,7 @@ import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAccount (..), CAccountAddress (..),
                                                 CAddress, CCurrency (ADA), CInitialized,
                                                 CPassPhrase (..), CProfile, CProfile (..),
-                                                CTx, CTxId, CTxMeta (..),
+                                                CTx (..), CTxId, CTxMeta (..),
                                                 CUpdateInfo (..), CWallet (..),
                                                 CWalletAddress (..), CWalletInit (..),
                                                 CWalletMeta (..), CWalletRedeem (..),
@@ -451,22 +451,25 @@ sendExtended sendActions cpassphrase srcCAddr dstCAddr c curr title desc = do
 getHistory
     :: forall ssc m.
        (SscHelpersClass ssc, WalletWebMode ssc m)
-    => CAccountAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
-getHistory cAccAddr skip limit = do
-    (minit, cachedTxs) <- transCache <$> getHistoryCache cAccAddr
-    cAddr <- decodeCAddressOrFail $ caaAddress cAccAddr
+    => CWalletAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
+getHistory wAddr skip limit = do
+    cAccAddrs <- getWalletAccAddrsOrThrow wAddr
+    cHistory <- fmap concat . forM cAccAddrs $ \cAccAddr -> do
+        (minit, cachedTxs) <- transCache <$> getHistoryCache cAccAddr
+        cAddr <- decodeCAddressOrFail $ caaAddress cAccAddr
 
-    TxHistoryAnswer {..} <- untag @ssc getTxHistory cAddr minit
+        TxHistoryAnswer {..} <- untag @ssc getTxHistory cAddr minit
 
-    -- Add allowed portion of result to cache
-    let fullHistory = taHistory <> cachedTxs
-        lenHistory = length taHistory
-        cached = drop (lenHistory - taCachedNum) taHistory
+        -- Add allowed portion of result to cache
+        let fullHistory = taHistory <> cachedTxs
+            lenHistory = length taHistory
+            cached = drop (lenHistory - taCachedNum) taHistory
 
-    unless (null cached) $
-        updateHistoryCache cAccAddr taLastCachedHash taCachedUtxo (cached <> cachedTxs)
+        unless (null cached) $
+            updateHistoryCache cAccAddr taLastCachedHash taCachedUtxo
+            (cached <> cachedTxs)
 
-    cHistory <- mapM (addHistoryTx cAccAddr ADA mempty mempty) fullHistory
+        mapM (addHistoryTx cAccAddr ADA mempty mempty) fullHistory
     pure (paginate cHistory, fromIntegral $ length cHistory)
   where
     paginate     = take defaultLimit . drop defaultSkip
@@ -476,13 +479,15 @@ getHistory cAccAddr skip limit = do
     transCache (Just (hh, utxo, txs)) = (Just (hh, utxo), txs)
 
 -- FIXME: is Word enough for length here?
--- TODO [CSL-931]: attach accountId to transactions
 searchHistory
     :: forall ssc m.
        (SscHelpersClass ssc, WalletWebMode ssc m)
     => CWalletAddress -> Text -> Maybe CAccountAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
-searchHistory wAddr search accAddr skip limit =
-    first (filter $ txContainsTitle search) <$> getHistory @ssc undefined skip limit
+searchHistory wAddr search mAccAddr skip limit =
+    first (filter fits) <$> getHistory @ssc wAddr skip limit
+  where
+    fits ctx = txContainsTitle search ctx
+            && maybe (const True) (==) mAccAddr (ctAccAddr ctx)
 
 addHistoryTx
     :: WalletWebMode ssc m

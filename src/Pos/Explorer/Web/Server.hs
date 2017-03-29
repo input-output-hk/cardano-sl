@@ -162,37 +162,31 @@ searchHash shash = getResult $ do
     findAddress   =  getAddressSummary $ fromCSearchIdAddress shash
 
 -- | Search the blocks by epoch and slot. Slot is optional.
-epochSlotSearch :: (ExplorerMode m) =>
-    EpochIndex ->
-    Maybe Word16 ->
-    m [CBlockEntry]
+epochSlotSearch
+    :: (ExplorerMode m)
+    => EpochIndex
+    -> Maybe Word16
+    -> m [CBlockEntry]
 epochSlotSearch epochIndex slotIndex = findBlocksByEpoch >>= transformToCBlockEntry
   where
     findBlocksByEpoch = getBlocksByEpoch @SscGodTossing epochIndex localSlotIndex
     localSlotIndex = fmap LocalSlotIndex slotIndex
-    transformToCBlockEntry blocks = sequence $ toBlockEntry <$> blocks
+    transformToCBlockEntry blocks = traverse toBlockEntry blocks
 
 -- | Get all blocks by epoch and slot. The slot is optional, if it exists,
 -- it just adds another predicate to match it.
-getBlocksByEpoch :: (SscHelpersClass ssc, ExplorerMode m) =>
-    EpochIndex ->
-    Maybe LocalSlotIndex ->
-    m [MainBlock ssc]
-getBlocksByEpoch epochIndex Nothing = do
+getBlocksByEpoch
+    :: (SscHelpersClass ssc, ExplorerMode m)
+    => EpochIndex
+    -> Maybe LocalSlotIndex
+    -> m [MainBlock ssc]
+getBlocksByEpoch epochIndex mSlotIndex = do
     tipHash <- GS.getTip
     filterMainBlocks tipHash findBlocksByEpochPred
       where
-        findBlocksByEpochPred mb =
-            (siEpoch $ mb ^. blockSlot) == epochIndex
-
-getBlocksByEpoch epochIndex (Just slotIndex) = do
-    tipHash <- GS.getTip
-    filterMainBlocks tipHash findBlocksByEpochPred
-      where
-        findBlocksByEpochPred mb =
-            (siEpoch $ mb ^. blockSlot) == epochIndex &&
-            (siSlot  $ mb ^. blockSlot) == slotIndex
-
+        findBlocksByEpochPred mb = (siEpoch $ mb ^. blockSlot) == epochIndex &&
+                fromMaybe True ((siSlot (mb ^. blockSlot) ==) <$> mSlotIndex)
+--
 getLastBlocks :: ExplorerMode m => Word -> Word -> m [CBlockEntry]
 getLastBlocks lim off = do
     tip <- GS.getTip
@@ -305,26 +299,28 @@ getTxSummary cTxId = do
 --------------------------------------------------------------------------------
 
 -- | Find all `MainBlock` by applying the *predicate*, starting from *headerHash*
-filterMainBlocks :: (SscHelpersClass ssc, ExplorerMode m) =>
-    HeaderHash ->
-    (MainBlock ssc -> Bool) ->
-    m [MainBlock ssc]
+filterMainBlocks
+    :: (SscHelpersClass ssc, ExplorerMode m)
+    => HeaderHash
+    -> (MainBlock ssc -> Bool)
+    -> m [MainBlock ssc]
 filterMainBlocks headerHash predicate = rights <$> generalBlockSearch
   where
-    generalBlockSearch = filterAllBlocks headerHash specializedPred (pure [])
-    specializedPred block = case block of
-        Left  _   -> False
-        Right mb  -> predicate mb
+    generalBlockSearch    = filterAllBlocks headerHash specializedPred (pure [])
+    specializedPred block = either (const False) predicate block
 
 -- | Find all blocks matching the sent predicate. This is a generic function
 -- that can be called with either `MainBlock` or `GenesisBlock` in mind.
-filterAllBlocks :: (SscHelpersClass ssc, ExplorerMode m) =>
-    HeaderHash ->
-    (Block ssc -> Bool) ->
-    m [Block ssc] ->
-    m [Block ssc]
+filterAllBlocks
+    :: (SscHelpersClass ssc, ExplorerMode m)
+    => HeaderHash
+    -> (Block ssc -> Bool)
+    -> m [Block ssc]
+    -> m [Block ssc]
 filterAllBlocks headerHash predicate acc
-    -- When we reach the genesis block, return the accumulator.
+    -- When we reach the genesis block, return the accumulator. This is
+    -- literaly the first block ever, so we reached the begining of the
+    -- whole blockchain and there is nothing more to search.
     | headerHash == genesisHash = acc
     -- Otherwise iterate back from the top block (called tip) and add all
     -- blocks (hash) to accumulator satisfying the predicate.
@@ -336,11 +332,11 @@ filterAllBlocks headerHash predicate acc
         -- If there is a block then iterate backwards with the predicate
         let prevBlock = block ^. prevBlockL
 
-        case predicate block of
+        if predicate block
             -- When the predicate is true, add the block to the list
-            True  -> filterAllBlocks prevBlock predicate ((:) <$> pure block <*> acc)
+            then filterAllBlocks prevBlock predicate ((:) <$> pure block <*> acc)
             -- When the predicate is false, don't add the block to the list
-            False -> filterAllBlocks prevBlock predicate acc
+            else filterAllBlocks prevBlock predicate acc
 
 
 unwrapOrThrow :: ExplorerMode m => Either Text a -> m a

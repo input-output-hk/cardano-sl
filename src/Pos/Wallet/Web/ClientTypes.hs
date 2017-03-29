@@ -30,7 +30,7 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletSetMeta (..)
       , CWalletSetInit (..)
       , CUpdateInfo (..)
-      , CAccountRedeem (..)
+      , CWalletRedeem (..)
       , NotifyEvent (..)
       , WithDerivationPath (..)
       , addressToCAddress
@@ -259,9 +259,9 @@ data CWalletInit = CWalletInit
     } deriving (Show, Generic)
 
 -- | Query data for redeem
-data CAccountRedeem = CAccountRedeem
-    { crAccountId :: !CAccountAddress
-    , crSeed      :: !Text -- TODO: newtype!
+data CWalletRedeem = CWalletRedeem
+    { crWalletId :: !CWalletAddress
+    , crSeed     :: !Text -- TODO: newtype!
     } deriving (Show, Generic)
 
 -- | Meta data of 'CWalletSet'

@@ -17,6 +17,7 @@ cache:
   #- daedalus/bower_components
 
 before_install:
+- echo $TRAVIS_OS_NAME
 - export CSL_SYSTEM_TAG=$TRAVIS_OS_NAME
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH

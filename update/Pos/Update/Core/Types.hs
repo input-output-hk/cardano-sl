@@ -46,6 +46,8 @@ module Pos.Update.Core.Types
        , newVoteState
        ) where
 
+import           Universum
+
 import           Data.Char                  (isAscii)
 import           Data.Default               (Default (def))
 import qualified Data.HashMap.Strict        as HM
@@ -59,7 +61,6 @@ import           Instances.TH.Lift          ()
 import           Language.Haskell.TH.Syntax (Lift)
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Text         (listJson)
-import           Universum                  hiding (show)
 
 import           Pos.Binary.Class           (Bi, Raw)
 import           Pos.Binary.Crypto          ()
@@ -337,11 +338,10 @@ data VoteState
 instance NFData VoteState
 
 instance Buildable VoteState where
-    --build x = bprint $ show x
-    build PositiveVote   = bprint "PositiveVote"
-    build NegativeVote   = bprint "NegativeVote"
-    build PositiveRevote = bprint "PositiveRevote"
-    build NegativeRevote = bprint "NegativeRevote"
+    build PositiveVote   = "PositiveVote"
+    build NegativeVote   = "NegativeVote"
+    build PositiveRevote = "PositiveRevote"
+    build NegativeRevote = "NegativeRevote"
 
 -- | Create new VoteState from bool, which is simple vote, not revote.
 newVoteState :: Bool -> VoteState

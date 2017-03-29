@@ -28,6 +28,7 @@ import qualified Data.ByteString.Base64        as B64
 import           Data.Default                  (Default (def))
 import           Data.List                     (elemIndex, (!!))
 import           Data.Tagged                   (untag)
+import qualified Data.Text                     as T
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
 import           Data.Time.Units               (Microsecond, Second)
 import           Formatting                    (build, ords, sformat, shown, stext, (%))
@@ -169,8 +170,6 @@ walletServer sendActions nat = do
   where
     insertAddressMeta cAddr = do
         getWSetMeta cAddr >>= createWSet cAddr . fromMaybe def
-        -- TODO [CSL-931] Restore wallets and accounts?
-        () <$ undefined
     createUserProfile = do
         time <- liftIO getPOSIXTime
         pure $ CProfile mempty mempty mempty mempty time mempty mempty
@@ -337,7 +336,7 @@ servantHandlers sendActions =
     apiTxsPaymentsExt           = (\a b c d e f -> catchWalletError . sendExtended sendActions a b c d e f)
     apiUpdateTransaction        = (\a b -> catchWalletError . updateTransaction a b)
     apiGetHistory               = (\a b -> catchWalletError . getHistory @ssc a b )
-    apiSearchHistory            = (\a b c -> catchWalletError . searchHistory @ssc a b c)
+    apiSearchHistory            = (\a b c d -> catchWalletError . searchHistory @ssc a b c d)
     apiNextUpdate               = catchWalletError nextUpdate
     apiApplyUpdate              = catchWalletError applyUpdate
     apiRedeemAda                = catchWalletError . redeemADA sendActions
@@ -477,11 +476,13 @@ getHistory cAccAddr skip limit = do
     transCache (Just (hh, utxo, txs)) = (Just (hh, utxo), txs)
 
 -- FIXME: is Word enough for length here?
+-- TODO [CSL-931]: attach accountId to transactions
 searchHistory
     :: forall ssc m.
        (SscHelpersClass ssc, WalletWebMode ssc m)
-    => CAccountAddress -> Text -> Maybe Word -> Maybe Word -> m ([CTx], Word)
-searchHistory cAddr search skip limit = first (filter $ txContainsTitle search) <$> getHistory @ssc cAddr skip limit
+    => CWalletAddress -> Text -> Maybe CAccountAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
+searchHistory wAddr search accAddr skip limit =
+    first (filter $ txContainsTitle search) <$> getHistory @ssc undefined skip limit
 
 addHistoryTx
     :: WalletWebMode ssc m
@@ -500,7 +501,7 @@ addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
     let cId = txIdToCTxId txId
     addOnlyNewTxMeta cAddr cId meta
     meta' <- maybe meta identity <$> getTxMeta cAddr cId
-    return $ mkCTx addr diff wtx meta'
+    return $ mkCTx addr diff wtx meta' cAddr
 
 newAccount :: WalletWebMode ssc m => CPassPhrase -> CWalletAddress -> m CAccount
 newAccount cPassphrase cWAddr = do
@@ -759,11 +760,28 @@ instance FromHttpApiData CAddress where
 instance FromHttpApiData CWalletSetAddress where
     parseUrlPiece = fmap CWalletSetAddress . parseUrlPiece
 
-instance FromHttpApiData CAccountAddress where
-    parseUrlPiece = undefined
-
 instance FromHttpApiData CWalletAddress where
-    parseUrlPiece = undefined
+    parseUrlPiece url =
+        case T.splitOn "#" url of
+            [part1, part2] -> do
+                cwaWSAddress <- parseUrlPiece part1
+                cwaIndex     <- maybe (Left "Invalid wallet index") Right $
+                                readMaybe $ toString part2
+                return CWalletAddress{..}
+            _ -> Left "Expected 2 parts separated by '#'"
+
+instance FromHttpApiData CAccountAddress where
+    parseUrlPiece url =
+        case T.splitOn "#" url of
+            [part1, part2, part3, part4] -> do
+                caaWSAddress    <- parseUrlPiece part1
+                caaWalletIndex  <- maybe (Left "Invalid wallet index") Right $
+                                   readMaybe $ toString part2
+                caaAccountIndex <- maybe (Left "Invalid account index") Right $
+                                   readMaybe $ toString part3
+                caaAddress      <- parseUrlPiece part4
+                return CAccountAddress{..}
+            _ -> Left "Expected 4 parts separated by '#'"
 
 -- FIXME: unsafe (temporary, will be removed probably in future)
 -- we are not checking is receaved Text really vald CTxId

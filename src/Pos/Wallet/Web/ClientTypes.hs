@@ -141,8 +141,9 @@ mkCTx
     -> ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
+    -> CAccountAddress    -- ^ Address of related account
     -> CTx
-mkCTx addr diff THEntry {..} meta = CTx {..}
+mkCTx addr diff THEntry {..} meta ctAccAddr = CTx {..}
   where
     ctId = txIdToCTxId _thTxId
     outputs = toList $ _txOutputs _thTx
@@ -349,10 +350,11 @@ data CTx = CTx
     , ctAmount        :: Coin
     , ctConfirmations :: Word
     , ctType          :: CTType -- it includes all "meta data"
+    , ctAccAddr       :: CAccountAddress
     } deriving (Show, Generic, Typeable)
 
 ctType' :: Lens' CTx CTType
-ctType' f (CTx id amount cf tp) = CTx id amount cf <$> f tp
+ctType' f (CTx id amount cf tp acc) = f tp <&> \tp' -> CTx id amount cf tp' acc
 
 txContainsTitle :: Text -> CTx -> Bool
 txContainsTitle search = isInfixOf (toLower search) . toLower . ctmTitle . view (ctType' . ctTypeMeta)

@@ -136,6 +136,13 @@ instance ToCapture (Capture "address" CAccountAddress) where
         , _capDesc = "Address, history of which should be fetched"
         }
 
+instance ToCapture (Capture "address" (Maybe CAccountAddress)) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "address"
+        , _capDesc = "Address, history of which should be fetched"
+        }
+
 instance ToCapture (Capture "index" Word) where
     toCapture Proxy =
         DocCapture
@@ -398,6 +405,7 @@ instance ToSample CTx where
             , ctAmount        = mkCoin 0
             , ctConfirmations = 10
             , ctType          = CTOut ctxMeta
+            , ctAccAddr       = cAccountAddressSample
             }
 
 instance ToSample CTxMeta where

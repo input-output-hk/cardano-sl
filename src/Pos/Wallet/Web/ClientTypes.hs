@@ -196,13 +196,7 @@ type CPwHash = Text -- or Base64 or something else
 -- all data of client are "meta data" - that is not provided by Cardano
 -- (Flow type: accountType)
 data CProfile = CProfile
-    { cpName        :: Text
-    , cpEmail       :: Text
-    , cpPhoneNumber :: Text
-    , cpPwHash      :: CPwHash
-    , cpPwCreated   :: POSIXTime
-    , cpLocale      :: Text
-    , cpPicture     :: Text -- TODO: base64
+    { cpLocale      :: Text
     } deriving (Show, Generic, Typeable)
 
 ----------------------------------------------------------------------------

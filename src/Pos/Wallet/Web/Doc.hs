@@ -387,13 +387,7 @@ instance ToSample CProfile where
       where
         sample =
             CProfile
-            { cpName        = ""
-            , cpEmail       = ""
-            , cpPhoneNumber = ""
-            , cpPwHash      = ""
-            , cpPwCreated   = posixTime
-            , cpLocale      = ""
-            , cpPicture     = ""
+            { cpLocale      = ""
             }
 
 instance ToSample Word where

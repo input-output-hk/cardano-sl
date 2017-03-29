@@ -161,7 +161,7 @@ walletServer sendActions nat = do
         getWalletMeta cAddr >>= createWallet cAddr . fromMaybe def
     createUserProfile = do
         time <- liftIO getPOSIXTime
-        pure $ CProfile mempty mempty mempty mempty time mempty mempty
+        pure $ CProfile mempty
 
 ----------------------------------------------------------------------------
 -- Notifier

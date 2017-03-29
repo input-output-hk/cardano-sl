@@ -26,8 +26,7 @@ import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', Wo
 import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (getNodeContext, ncPublicKey)
 import           Pos.Core.Address            (addressHash)
-import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk,
-                                                              pskOmega))
+import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Exception               (assertionFailed)
@@ -110,7 +109,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
                                 in siEpoch >= w0 && siEpoch <= w1) proxyCerts
             validCert = find (\pSk -> addressHash (pskIssuerPk pSk) == leader)
                              validCerts
-        logNoticeS "THIS IS A SECRET MESSAGE SHOULDN'T GET TO PUBLIC LOGGER"
+        logNoticeS "This is a test debug message which shouldn't be sent to the logging server."
         logLeadersF $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
         logLeadersF $ sformat ("Slot leaders: "%listJson) $
                       map (bprint pairF) (zip [0 :: Int ..] $ toList leaders)

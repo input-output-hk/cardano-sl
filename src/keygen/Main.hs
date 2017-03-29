@@ -42,7 +42,7 @@ generateKeyfile fp = do
     writeUserSecretRelease $
         us & usPrimKey .~ Just sk
            & usVss .~ Just vss
-    expiry <- fromIntegral <$> randomRIO (vssMinTTL :: Int, vssMaxTTL)
+    expiry <- fromIntegral <$> randomRIO @Int (vssMinTTL - 1, vssMaxTTL - 1)
     let vssPk = asBinary $ toVssPublicKey vss
         vssCert = mkVssCertificate sk vssPk expiry
     return (toPublic sk, vssCert)
@@ -119,4 +119,3 @@ main = do
             if length (encode genData) < 10*1024
                 then putText "Printing GenesisData:\n\n" >> print genData
                 else putText "genesis.bin is bigger than 10k, won't print it\n"
-

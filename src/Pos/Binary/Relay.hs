@@ -28,8 +28,13 @@ instance (Bi tag, Bi key) => Bi (ReqMsg key tag) where
     get = label "ReqMsg" $ liftM2 ReqMsg get get
 
 instance (Bi tag) => Bi (MempoolMsg tag) where
-    put MempoolMsg {..} = put mmTag
-    get = MempoolMsg <$> get
+    -- The extra byte is needed because time-warp doesn't work with
+    -- possibly-empty messages. 228 was chosen as homage to @pva701
+    put MempoolMsg {..} = put (228 :: Word8) >> put mmTag
+    get = label "MempoolMsg" $ do
+        x <- get @Word8
+        when (x /= 228) $ fail "wrong byte"
+        MempoolMsg <$> get
 
 instance Bi (DataMsg GtMsgContents) where
     put (DataMsg dmContents) = put dmContents

@@ -7,6 +7,8 @@ module Pos.Crypto.RedeemSigning
        , redeemKeyGen
        , redeemDeterministicKeyGen
        , redeemToPublic
+       , redeemPkB64F
+       , redeemPkB64ShortF
        , RedeemSignature (..)
        , redeemSign
        , redeemCheckSig
@@ -20,12 +22,12 @@ import           Data.Hashable        (Hashable)
 import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeCopySimple,
                                        safeGet, safePut)
 import qualified Data.Text.Buildable  as B
-import           Formatting           (bprint, (%))
+import           Formatting           (Format, bprint, fitLeft, later, (%), (%.))
+import           Serokell.Util.Base64 (formatBase64)
 import           Universum
 
 import           Pos.Binary.Class     (Bi, Raw)
 import qualified Pos.Binary.Class     as Bi
-import           Pos.Crypto.Hashing   (hash, shortHashF)
 import           Pos.Crypto.Random    (secureRandomBS)
 
 instance Hashable Ed25519.PublicKey
@@ -54,11 +56,18 @@ deriveSafeCopySimple 0 'base ''RedeemSecretKey
 redeemToPublic :: RedeemSecretKey -> RedeemPublicKey
 redeemToPublic (RedeemSecretKey k) = RedeemPublicKey (Ed25519.secretToPublicKey k)
 
-instance Bi.Bi RedeemPublicKey => B.Buildable RedeemPublicKey where
-    build = bprint ("redeem_pub:"%shortHashF) . hash
+redeemPkB64F :: Format r (RedeemPublicKey -> r)
+redeemPkB64F =
+    later $ \(RedeemPublicKey pk) -> formatBase64 $ Ed25519.openPublicKey pk
 
-instance Bi.Bi RedeemPublicKey => B.Buildable RedeemSecretKey where
-    build = bprint ("redeem_sec:"%shortHashF) . hash . redeemToPublic
+redeemPkB64ShortF :: Format r (RedeemPublicKey -> r)
+redeemPkB64ShortF = fitLeft 8 %. redeemPkB64F
+
+instance B.Buildable RedeemPublicKey where
+    build = bprint ("redeem_pk:"%redeemPkB64F)
+
+instance B.Buildable RedeemSecretKey where
+    build = bprint ("redeem_sec_of_pk:"%redeemPkB64F) . redeemToPublic
 
 -- | Generate a key pair.
 redeemKeyGen :: MonadIO m => m (RedeemPublicKey, RedeemSecretKey)

@@ -31,17 +31,16 @@ import           Pos.Types                  (BlockVersion (..), Coin, SoftwareVe
 import           Pos.Util.BackupPhrase      (BackupPhrase, mkBackupPhrase)
 import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAccount (..), CAccountAddress (..),
-                                             CAccountAddress, CAddress (..),
-                                             CCurrency (..), CHash (..),
+                                             CAccountAddress, CAccountRedeem (..),
+                                             CAddress (..), CCurrency (..), CHash (..),
                                              CInitialized (..), CPassPhrase,
                                              CProfile (..), CTType (..), CTx (..), CTxId,
                                              CTxMeta (..), CUpdateInfo (..), CWallet (..),
                                              CWalletAddress (..), CWalletAddress,
                                              CWalletInit (..), CWalletMeta (..),
-                                             CWalletRedeem (..), CWalletSet (..),
-                                             CWalletSetAddress (..), CWalletSetInit (..),
-                                             CWalletSetInit (..), SyncProgress,
-                                             addressToCAddress, mkCTxId)
+                                             CWalletSet (..), CWalletSetAddress (..),
+                                             CWalletSetInit (..), CWalletSetInit (..),
+                                             SyncProgress, addressToCAddress, mkCTxId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 
 
@@ -263,14 +262,11 @@ backupPhrase = mkBackupPhrase [ "transfer"
 instance ToSample WalletError where
     toSamples Proxy = singleSample (Internal "Sample error")
 
-instance ToSample CWalletRedeem where
+instance ToSample CAccountRedeem where
     toSamples Proxy = singleSample sample
       where
-        sample = CWalletRedeem
-            { crWalletId = CWalletAddress
-                { cwaWSAddress = cWalletSetAddressSample
-                , cwaIndex   = 1
-                }
+        sample = CAccountRedeem
+            { crAccountId = cAccountAddressSample
             , crSeed     = "1354644684681"
             }
 

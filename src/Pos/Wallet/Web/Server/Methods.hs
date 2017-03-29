@@ -73,13 +73,14 @@ import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
                                                 networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAccount (..), CAccountAddress (..),
-                                                CAddress, CCurrency (ADA), CInitialized,
+                                                CAccountRedeem (..), CAddress,
+                                                CCurrency (ADA), CInitialized,
                                                 CPassPhrase (..), CProfile, CProfile (..),
                                                 CTx (..), CTxId, CTxMeta (..),
                                                 CUpdateInfo (..), CWallet (..),
                                                 CWalletAddress (..), CWalletInit (..),
-                                                CWalletMeta (..), CWalletRedeem (..),
-                                                CWalletSet (..), CWalletSetAddress (..),
+                                                CWalletMeta (..), CWalletSet (..),
+                                                CWalletSetAddress (..),
                                                 CWalletSetInit (..), NotifyEvent (..),
                                                 SyncProgress (..), addressToCAddress,
                                                 cAddressToAddress,
@@ -579,27 +580,24 @@ nextUpdate = getNextUpdate >>=
 applyUpdate :: WalletWebMode ssc m => m ()
 applyUpdate = removeNextUpdate >> applyLastUpdate
 
-redeemADA :: WalletWebMode ssc m => SendActions m -> CWalletRedeem -> m CTx
-redeemADA sendActions CWalletRedeem {..} = do
+redeemADA :: WalletWebMode ssc m => SendActions m -> CAccountRedeem -> m CTx
+redeemADA sendActions CAccountRedeem {..} = do
     seedBs <- either
         (\e -> throwM $ Internal ("Seed is invalid base64 string: " <> toText e))
         pure $ B64.decode (encodeUtf8 crSeed)
     (_, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
-    -- new redemption wallet
-    walletB <- getWallet crWalletId
 
-    -- send from seedAddress to walletB
-    -- TODO [CSL-931]: redeem account instead of redeem wallet?
-    let dstCAddr = undefined $ cwAddress walletB
+    -- send from seedAddress to given account
+    let dstCAddr = caaAddress crAccountId
     dstAddr <- decodeCAddressOrFail dstCAddr
     na <- getKnownPeers
     etx <- submitRedemptionTx sendActions redeemSK na dstAddr
     case etx of
         Left err -> throwM . Internal $ "Cannot send redemption transaction: " <> err
         Right (tx, _, _) -> do
-            -- add redemption transaction to the history of new wallet
-            addHistoryTx dstCAddr ADA "ADA redemption" ""
+            -- add redemption transaction to the history of new account
+            addHistoryTx crAccountId ADA "ADA redemption" ""
               (THEntry (hash tx) tx False Nothing)
 
 reportingInitialized :: forall ssc m. WalletWebMode ssc m => CInitialized -> m ()

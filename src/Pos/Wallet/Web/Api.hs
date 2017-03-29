@@ -15,11 +15,11 @@ import           Servant.API                ((:<|>), (:>), Capture, Delete, Get,
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Wallet.Web.ClientTypes (CAccount, CAccountAddress, CCurrency,
-                                             CInitialized, CPassPhrase, CProfile, CTx,
-                                             CTxId, CTxMeta, CUpdateInfo, CWallet,
-                                             CWalletAddress, CWalletInit, CWalletMeta,
-                                             CWalletRedeem, CWalletSet, CWalletSet,
+import           Pos.Wallet.Web.ClientTypes (CAccount, CAccountAddress, CAccountRedeem,
+                                             CCurrency, CInitialized, CPassPhrase,
+                                             CProfile, CTx, CTxId, CTxMeta, CUpdateInfo,
+                                             CWallet, CWalletAddress, CWalletInit,
+                                             CWalletMeta, CWalletSet, CWalletSet,
                                              CWalletSetAddress, CWalletSetInit,
                                              SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
@@ -197,7 +197,7 @@ type WalletApi =
      "api"
      :> "redemptions"
      :> "ada"
-     :> ReqBody '[JSON] CWalletRedeem
+     :> ReqBody '[JSON] CAccountRedeem
      :> Post '[JSON] (Either WalletError CTx)
     :<|>
      ----------------------------------------------------------------------------

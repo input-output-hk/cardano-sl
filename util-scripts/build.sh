@@ -8,7 +8,10 @@ set -o pipefail
 #   build.sh core|db|update|infra|sl   build only a specific project
 #   build.sh -c                        stack clean
 #
-# Do `touch .no-nix` if you want builds without Nix.
+# * Do `touch .no-nix` if you want builds without Nix,
+#     or pass the --no-nix flag.
+# * Do `touch .ram` if you have lots of RAM and want to make builds faster,
+#     or pass the --ram flag.
 
 # This script builds the project in a way that is convenient for developers.
 # Specifically, it does the following:
@@ -28,6 +31,16 @@ clean=false
 
 spec_prj=''
 
+no_nix=false
+ram=false
+
+if [ -e .no-nix ]; then
+  no_nix=true
+fi
+if [ -e .ram ]; then
+  ram=true
+fi
+
 for var in "$@"
 do
   # -t = run tests
@@ -36,6 +49,12 @@ do
   # -c = clean
   elif [[ $var == "-c" ]]; then
     clean=true
+  # --no-nix = don't use Nix
+  elif [[ $var == "--no-nix" ]]; then
+    no_nix=true
+  # --ram = use more RAM
+  elif [[ $var == "--ram" ]]; then
+    ram=true
   # project name = build only the project
   elif [[ $var == "sl" ]]; then
     spec_prj="sl"
@@ -47,12 +66,17 @@ do
   fi
 done
 
-# TODO: how can --ghc-options be moved into commonargs?
 commonargs='--test --no-haddock-deps --bench --jobs=4'
 norun='--no-run-tests --no-run-benchmarks'
 
-if [ -e .no-nix ]; then
+if [[ $no_nix == true ]]; then
   commonargs="$commonargs --no-nix"
+fi
+
+if [[ $ram == true ]]; then
+  ghc_opts="-Wwarn +RTS -A2G -n4m -RTS"
+else
+  ghc_opts="-Wwarn +RTS -A256m -n2m -RTS"
 fi
 
 xperl='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'
@@ -85,13 +109,13 @@ echo "Going to build: $to_build"
 for prj in $to_build; do
   echo "Building $prj"
   stack build                               \
-      --ghc-options="-Wwarn +RTS -A256m -n2m -RTS" \
+      --ghc-options="$ghc_opts"             \
       $commonargs $norun                    \
       --dependencies-only                   \
       $args                                 \
       $prj
   stack build                               \
-      --ghc-options="-Wwarn +RTS -A256m -n2m -RTS" \
+      --ghc-options="$ghc_opts"             \
       $commonargs $norun                    \
       --fast                                \
       $args                                 \
@@ -103,7 +127,7 @@ done
 
 if [[ $test == true ]]; then
   stack build                               \
-      --ghc-options="-Wwarn +RTS -A256m -n2m -RTS" \
+      --ghc-options="$ghc_opts"             \
       $commonargs                           \
       --no-run-benchmarks                   \
       --fast                                \

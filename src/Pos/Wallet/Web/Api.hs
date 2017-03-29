@@ -197,6 +197,7 @@ type WalletApi =
      "api"
      :> "redemptions"
      :> "ada"
+     :> Capture "passphrase" CPassPhrase
      :> ReqBody '[JSON] CWalletRedeem
      :> Post '[JSON] (Either WalletError CTx)
     :<|>

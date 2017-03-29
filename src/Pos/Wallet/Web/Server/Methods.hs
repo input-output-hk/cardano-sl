@@ -339,7 +339,7 @@ servantHandlers sendActions =
     apiSearchHistory            = (\a b c d -> catchWalletError . searchHistory @ssc a b c d)
     apiNextUpdate               = catchWalletError nextUpdate
     apiApplyUpdate              = catchWalletError applyUpdate
-    apiRedeemAda                = catchWalletError . redeemADA sendActions
+    apiRedeemAda                = (\a -> catchWalletError . redeemADA sendActions a)
     apiReportingInitialized     = catchWalletError . reportingInitialized
     apiSettingsSlotDuration     = catchWalletError (fromIntegral <$> blockchainSlotDuration)
     apiSettingsSoftwareVersion  = catchWalletError (pure curSoftwareVersion)
@@ -579,20 +579,17 @@ nextUpdate = getNextUpdate >>=
 applyUpdate :: WalletWebMode ssc m => m ()
 applyUpdate = removeNextUpdate >> applyLastUpdate
 
-redeemADA :: WalletWebMode ssc m => SendActions m -> CWalletRedeem -> m CTx
-redeemADA sendActions CWalletRedeem {..} = do
+redeemADA :: WalletWebMode ssc m => SendActions m -> CPassPhrase -> CWalletRedeem -> m CTx
+redeemADA sendActions cpassphrase CWalletRedeem {..} = do
+    passphrase <- decodeCPassPhraseOrFail cpassphrase
     seedBs <- either
         (\e -> throwM $ Internal ("Seed is invalid base64 string: " <> toText e))
         pure $ B64.decode (encodeUtf8 crSeed)
     (_, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
-    -- new redemption wallet
-    walletB <- getWallet crWalletId
 
-    -- send from seedAddress to walletB
-    -- TODO [CSL-931]: redeem account instead of redeem wallet?
-    let dstCAddr = undefined $ cwAddress walletB
-    dstAddr <- decodeCAddressOrFail dstCAddr
+    dstCAddr <- genUniqueAccountAddress passphrase crWalletId
+    dstAddr <- decodeCAddressOrFail $ caaAddress dstCAddr
     na <- getKnownPeers
     etx <- submitRedemptionTx sendActions redeemSK na dstAddr
     case etx of

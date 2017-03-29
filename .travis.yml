@@ -1,11 +1,17 @@
 language: nix
-sudo: true
+# container based have 2 cores, where sudo enabled has 2 bursted (meaning less reliability)
+sudo: false
 matrix:
+  include:
+    - os: osx
+      osx_image: xcode7.3
+    - os: osx
+      osx_image: xcode8
   allow_failures:
-  - os: osx
-    osx_image: xcode7.3
-  - os: osx
-    osx_image: xcode8
+    - os: osx
+  # due to too long builds
+  # https://github.com/NixOS/nixpkgs/issues/21200
+  fast_finish: true
 env:
 - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/8bed8fb53227932886ab23e5f5f9eabe139f8e9f.tar.gz
 cache:
@@ -65,7 +71,3 @@ notifications:
     on_success: change
     on_failure: change
 
-# due to too long builds
-# https://github.com/NixOS/nixpkgs/issues/21200
-matrix:
-  fast_finish: true

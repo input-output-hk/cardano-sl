@@ -8,11 +8,10 @@ module Pos.Block.Arbitrary
        ) where
 
 import           Data.Ix              (range)
-import           Data.List.NonEmpty   (nonEmpty)
 import qualified Data.List.NonEmpty   as NE
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
-import           Formatting           (bprint, build, formatToString, (%))
+import           Formatting           (bprint, build, (%))
 import           Prelude              (Show (..))
 import           System.Random        (mkStdGen, randomR)
 import           Test.QuickCheck      (Arbitrary (..), Gen, choose, listOf, listOf, oneof,
@@ -67,6 +66,12 @@ properBlock = do
 ------------------------------------------------------------------------------------------
 -- GenesisBlockchain
 ------------------------------------------------------------------------------------------
+
+instance Arbitrary T.GenesisExtraHeaderData where
+    arbitrary = T.GenesisExtraHeaderData <$> arbitrary
+
+instance Arbitrary T.GenesisExtraBodyData where
+    arbitrary = T.GenesisExtraBodyData <$> arbitrary
 
 instance Arbitrary (T.GenesisBlockHeader ssc) where
     arbitrary = T.GenericBlockHeader
@@ -134,6 +139,14 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
         <*> arbitrary
         <*> arbitrary
 
+instance (Ssc ssc, Arbitrary (SscProof ssc)) => Arbitrary (T.MainToSign ssc) where
+    arbitrary = T.MainToSign
+        <$> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+
 -- | In the main blockchain's body, the number of transactions must be the same as the
 -- number of transaction witnesses.
 --
@@ -164,6 +177,8 @@ newtype SmallTxPayload =
 
 instance Arbitrary SmallTxPayload where
     arbitrary = SmallTxPayload <$> makeSmall arbitrary
+
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 instance Arbitrary (SscPayloadDependsOnSlot ssc) =>
          Arbitrary (BodyDependsOnConsensus (T.MainBlockchain ssc)) where
@@ -220,8 +235,7 @@ newtype BlockHeaderList ssc = BHL
     } deriving (Eq)
 
 instance T.BiSsc ssc => Show (BlockHeaderList ssc) where
-    show =
-        concat . intersperse "\n" . map (formatToString build) . uncurry zip . getHeaderList
+    show = toString . unlines . map pretty . uncurry zip . getHeaderList
 
 -- | Starting Epoch in block header verification tests
 startingEpoch :: Integral a => a

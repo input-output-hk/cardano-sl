@@ -41,6 +41,7 @@ import           Pos.Util.JsonLog          (MonadJL (..))
 import           Pos.Txp.MemState.Class    (MonadTxpMem (..))
 import           Pos.Txp.MemState.Types    (GenericTxpLocalData (..))
 import           Pos.Txp.Toil.Types        (UtxoModifier)
+import           Pos.Util.Context          (MonadContext (..))
 
 ----------------------------------------------------------------------------
 -- Holder
@@ -72,6 +73,9 @@ newtype TxpHolder ext m a = TxpHolder
                , MonadDB
                , MonadDBLimits
                )
+
+instance MonadContext m => MonadContext (TxpHolder x m) where
+    type ContextType (TxpHolder x m) = ContextType m
 
 type instance ThreadId (TxpHolder x m) = ThreadId m
 type instance Promise (TxpHolder x m) = Promise m

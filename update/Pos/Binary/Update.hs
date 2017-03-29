@@ -1,13 +1,14 @@
+-- | 'Bi' instances for various types from cardano-sl-update.
+module Pos.Binary.Update
+       (
+       ) where
 
--- | Binary serialization of Pos.Update.Types module
-
-module Pos.Binary.Update () where
+import           Universum
 
 import           Data.Binary             (Binary)
 import           Data.Binary.Get         (getWord8, label)
 import           Data.Binary.Put         (putWord8)
 import qualified Data.HashMap.Strict     as HM
-import           Universum
 
 import           Pos.Binary.Class        (Bi (..), getAsciiString1b, putAsciiString1b)
 import           Pos.Binary.Core         ()

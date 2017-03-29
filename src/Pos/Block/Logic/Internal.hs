@@ -10,6 +10,7 @@ module Pos.Block.Logic.Internal
        , rollbackBlocksUnsafe
        , withBlkSemaphore
        , withBlkSemaphore_
+       , toUpdateBlock
        ) where
 
 import           Control.Arrow        ((&&&))
@@ -32,24 +33,38 @@ import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollback
 import           Pos.Exception        (assertionFailed)
 import           Pos.Reporting        (reportingFatal)
 import           Pos.Slotting         (putSlottingData)
-import           Pos.Ssc.Class        (Ssc)
-import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.Txp.Core         (TxPayload)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp     (eTxNormalize)
 #else
 import           Pos.Txp.Logic        (txNormalize)
 #endif
+import           Pos.Ssc.Class        (Ssc)
+import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.Txp.Settings     (TxpBlund, TxpGlobalSettings (..))
-import           Pos.Types            (GenesisBlock, HeaderHash, MainBlock, epochIndexL,
-                                       gbBody, gbHeader, headerHash, headerHashG,
-                                       mbTxPayload, prevBlockL)
+import           Pos.Types            (Block, GenesisBlock, HeaderHash, MainBlock,
+                                       epochIndexL, gbBody, gbHeader, headerHash,
+                                       headerHashG, mbTxPayload, mbUpdatePayload,
+                                       prevBlockL)
+import           Pos.Update.Core      (UpdateBlock, UpdatePayload)
 import qualified Pos.Update.DB        as UDB
 import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll      (PollModifier)
 import           Pos.Util             (Some (..), inAssertMode, spanSafe, _neLast)
 import           Pos.Util.Chrono      (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode         (WorkMode)
+
+-- [CSL-780] Totally need something more elegant
+toUpdateBlock
+    :: forall ssc.
+       Ssc ssc
+    => Block ssc -> UpdateBlock
+toUpdateBlock = bimap convertGenesis convertMain
+  where
+    convertGenesis :: GenesisBlock ssc -> Some IsGenesisHeader
+    convertGenesis = Some . view gbHeader
+    convertMain :: MainBlock ssc -> (Some IsMainHeader, UpdatePayload)
+    convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbUpdatePayload)
 
 -- | Run action acquiring lock on block application. Argument of
 -- action is an old tip, result is put as a new tip.
@@ -96,7 +111,7 @@ applyBlocksUnsafeDo blunds pModifier = do
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
     TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
-    usBatch <- SomeBatchOp <$> usApplyBlocks blocks pModifier
+    usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
     sscApplyBlocks blocks Nothing -- TODO: pass not only 'Nothing'
@@ -132,7 +147,9 @@ rollbackBlocksUnsafe
     => NewestFirst NE (Blund ssc) -> m ()
 rollbackBlocksUnsafe toRollback = reportingFatal version $ do
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
-    usRoll <- SomeBatchOp <$> usRollbackBlocks (toRollback & each._2 %~ undoUS)
+    usRoll <- SomeBatchOp <$> usRollbackBlocks
+                  (toRollback & each._2 %~ undoUS
+                              & each._1 %~ toUpdateBlock)
     TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
     txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
     sscRollbackBlocks $ fmap fst toRollback

@@ -47,8 +47,10 @@ import           Pos.Txp                     (TxpHolder (..), filterUtxoByAddr,
                                               runUtxoStateT)
 import           Pos.Types                   (BlockHeader, ChainDifficulty, difficultyL,
                                               flattenEpochOrSlot, flattenSlotId)
-import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
+import           Pos.Update                  (ConfirmedProposalState (..))
+import           Pos.Update.Context          (UpdateContext (ucUpdateSemaphore))
 import           Pos.Util                    (maybeThrow)
+import           Pos.Util.Context            (askContext)
 import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)
@@ -59,7 +61,7 @@ import           Pos.WorkMode                (RawRealMode)
 deriving instance MonadBalances m => MonadBalances (WalletWebDB m)
 
 instance MonadIO m => MonadBalances (WalletDB m) where
-    getOwnUtxo addr = WS.getUtxo >>= return . filterUtxoByAddr addr
+    getOwnUtxo addr = filterUtxoByAddr addr <$> WS.getUtxo
 
 deriving instance MonadTxHistory m => MonadTxHistory (WalletWebDB m)
 
@@ -181,7 +183,6 @@ instance MonadUpdates m => MonadUpdates (SlottingHolder m)
 deriving instance MonadUpdates m => MonadUpdates (TxpHolder __ m)
 deriving instance MonadUpdates m => MonadUpdates (SscHolder ssc m)
 deriving instance MonadUpdates m => MonadUpdates (DelegationT m)
-deriving instance MonadUpdates m => MonadUpdates (USHolder m)
 deriving instance MonadUpdates m => MonadUpdates (WalletWebDB m)
 
 -- | Dummy instance for lite-wallet
@@ -192,7 +193,8 @@ instance MonadIO m => MonadUpdates (WalletDB m) where
 -- | Instance for full node
 instance (Ssc ssc, MonadIO m, WithLogger m) =>
          MonadUpdates (PC.ContextHolder ssc m) where
-    waitForUpdate = liftIO . takeMVar . PC.ncUpdateSemaphore =<< PC.getNodeContext
+    waitForUpdate = liftIO . takeMVar =<<
+                        askContext @UpdateContext ucUpdateSemaphore
     applyLastUpdate = triggerShutdown
 
 ---------------------------------------------------------------

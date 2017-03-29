@@ -68,7 +68,7 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
         queue <- ncBlockRetrievalQueue <$> getNodeContext
         recHeaderVar <- ncRecoveryHeader <$> getNodeContext
         inRecovery <- needRecovery (Proxy @ssc)
-        when (not inRecovery) $
+        unless inRecovery $
             whenJustM (atomically $ tryTakeTMVar recHeaderVar) $
                 const (triggerRecovery sendActions)
         logDebug "Waiting on the queue"
@@ -93,7 +93,7 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
             reportingFatal version $
             reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
             withConnectionTo sendActions peerId $ \_peerData ->
-                requestHeaders mghNext peerId rHeader limPx
+                requestHeaders mghNext peerId (Just rHeader) limPx
     handleBlockRetrievalE (peerId, headers) e = do
         logWarning $ sformat
             ("Error handling peerId="%build%", headers="%listJson%": "%shown)
@@ -132,6 +132,7 @@ dropRecoveryHeader peerId = do
                    maybe "noth" show realPeer <> " vs " <> show peerId
     pure kicked
 
+{-# ANN dropRecoveryHeaderAndRepeat ("HLint: ignore Use whenM" :: Text) #-}
 dropRecoveryHeaderAndRepeat
     :: (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m -> NodeId -> m ()

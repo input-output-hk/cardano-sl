@@ -49,7 +49,6 @@ module Pos.Util
        , withWriteLifted
 
        -- * Instances
-       -- ** MonadFail (Either s), assuming IsString s
        -- ** MonadFail ParsecT
        -- ** MonadFail Dialog
        -- ** MonadFail Transfer
@@ -240,9 +239,6 @@ eitherToVerRes (Left errors) = if T.null errors then VerFailure []
 eitherToVerRes (Right _ )    = VerSuccess
 
 
-instance IsString s => MonadFail (Either s) where
-    fail = Left . fromString
-
 instance MonadFail (ParsecT s u m) where
     fail = Monad.fail
 
@@ -260,9 +256,8 @@ clearMVar = liftIO . void . tryTakeMVar
 
 forcePutMVar :: MonadIO m => MVar a -> a -> m ()
 forcePutMVar mvar val = do
-    res <- liftIO $ tryPutMVar mvar val
-    unless res $ do
-        _ <- liftIO $ tryTakeMVar mvar
+    unlessM (tryPutMVar mvar val) $ do
+        _ <- tryTakeMVar mvar
         forcePutMVar mvar val
 
 -- | Block until value in MVar satisfies given predicate. When value

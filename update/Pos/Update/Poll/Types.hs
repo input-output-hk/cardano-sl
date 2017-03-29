@@ -51,10 +51,10 @@ import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Core.Types             (ChainDifficulty, Coin, HeaderHash,
-                                             ScriptVersion, SlotId, StakeholderId, mkCoin)
 import           Pos.Core.Types             (ApplicationName, BlockVersion,
-                                             NumSoftwareVersion, SoftwareVersion)
+                                             ChainDifficulty, Coin, HeaderHash,
+                                             NumSoftwareVersion, ScriptVersion, SlotId,
+                                             SoftwareVersion, StakeholderId, mkCoin)
 import           Pos.Slotting.Types         (SlottingData)
 import           Pos.Update.Core            (BlockVersionData (..), StakeholderVotes,
                                              UpId, UpdateProposal (..))

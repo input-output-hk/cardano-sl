@@ -61,8 +61,10 @@ import           Pos.Txp                     (MonadUtxoRead, Tx (..), TxAux,
                                               utxoGet)
 import           Pos.Types                   (Address, Block, ChainDifficulty, HeaderHash,
                                               blockTxas, difficultyL, prevBlockL)
-import           Pos.Update                  (USHolder (..))
 import           Pos.Util                    (maybeThrow)
+
+-- Remove this once there's no #ifdef-ed Pos.Txp import
+{-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
 
 data TxHistoryAnswer = TxHistoryAnswer
     { taLastCachedHash :: HeaderHash
@@ -188,7 +190,6 @@ instance MonadTxHistory m => MonadTxHistory (SlottingHolder m)
 deriving instance MonadTxHistory m => MonadTxHistory (PC.ContextHolder ssc m)
 deriving instance MonadTxHistory m => MonadTxHistory (SscHolder ssc m)
 deriving instance MonadTxHistory m => MonadTxHistory (DelegationT m)
-deriving instance MonadTxHistory m => MonadTxHistory (USHolder m)
 
 instance ( MonadDB m
          , MonadThrow m

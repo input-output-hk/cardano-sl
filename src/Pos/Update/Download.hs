@@ -9,7 +9,6 @@ import           Control.Monad.Except    (ExceptT (..), throwError)
 import qualified Data.ByteArray          as BA
 import qualified Data.ByteString.Lazy    as BSL
 import qualified Data.HashMap.Strict     as HM
-import qualified Data.Text               as T
 import           Formatting              (build, sformat, stext, (%))
 import           Network.HTTP.Client     (Manager, newManager)
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
@@ -23,14 +22,15 @@ import           System.Wlog             (logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Constants           (appSystemTag, curSoftwareVersion)
-import           Pos.Context             (getNodeContext, ncNodeParams, ncUpdateSemaphore,
-                                          npUpdatePath, npUpdateServers, npUpdateWithPkg)
 import           Pos.Core.Types          (SoftwareVersion (..))
 import           Pos.Crypto              (Hash, castHash, hash)
+import           Pos.Update.Context      (UpdateContext (ucUpdateSemaphore))
 import           Pos.Update.Core.Types   (UpdateData (..), UpdateProposal (..))
+import           Pos.Update.Mode         (UpdateMode)
+import           Pos.Update.Params       (UpdateParams (..))
 import           Pos.Update.Poll.Types   (ConfirmedProposalState (..))
 import           Pos.Util                ((<//>))
-import           Pos.WorkMode            (WorkMode)
+import           Pos.Util.Context        (askContext)
 
 showHash :: Hash a -> FilePath
 showHash = toString . B16.encode . BA.convert
@@ -42,11 +42,11 @@ versionIsNew ver = svAppName ver /= svAppName curSoftwareVersion
     || svNumber ver > svNumber curSoftwareVersion
 
 -- | Download and save archive update by given `ConfirmedProposalState`
-downloadUpdate :: WorkMode ssc m => ConfirmedProposalState -> m ()
+downloadUpdate :: UpdateMode m => ConfirmedProposalState -> m ()
 downloadUpdate cst@ConfirmedProposalState {..} = do
     logDebug "Update downloading triggered"
-    useInstaller <- npUpdateWithPkg . ncNodeParams <$> getNodeContext
-    updateServers <- npUpdateServers . ncNodeParams <$> getNodeContext
+    useInstaller <- askContext @UpdateParams upUpdateWithPkg
+    updateServers <- askContext @UpdateParams upUpdateServers
 
     let dataHash = if useInstaller then udPkgHash else udAppDiffHash
         mupdHash = castHash . dataHash <$>
@@ -61,7 +61,7 @@ downloadUpdate cst@ConfirmedProposalState {..} = do
                                   \current software version is newer than \
                                   \update version") updHash
 
-        updPath <- npUpdatePath . ncNodeParams <$> getNodeContext
+        updPath <- askContext @UpdateParams upUpdatePath
         whenM (liftIO $ doesFileExist updPath) $
             throwError "There's unapplied update already downloaded"
 
@@ -72,7 +72,7 @@ downloadUpdate cst@ConfirmedProposalState {..} = do
 
         liftIO $ BSL.writeFile updPath file
         logInfo "Update was downloaded"
-        sm <- ncUpdateSemaphore <$> getNodeContext
+        sm <- askContext @UpdateContext ucUpdateSemaphore
         liftIO $ putMVar sm cst
         logInfo "Update MVar filled, wallet is notified"
 
@@ -87,7 +87,7 @@ downloadHash updateServers h = do
 
     let -- try all servers in turn until there's a Right
         go errs (serv:rest) = do
-            let uri = T.unpack serv <//> showHash h
+            let uri = toString serv <//> showHash h
             downloadUri manager uri h >>= \case
                 Left e -> go (e:errs) rest
                 Right r -> return (Right r)

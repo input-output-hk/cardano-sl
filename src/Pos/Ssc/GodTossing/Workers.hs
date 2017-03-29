@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Instance of SscWorkersClass.
 

@@ -39,7 +39,6 @@ import           Pos.Slotting.MemState       (MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Types                   (SoftwareVersion (..))
 import           Pos.Update.Core             (UpdateProposal (..))
-import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types       (BlockVersionState (..),
                                               DecidedProposalState (..),
@@ -49,6 +48,7 @@ import           Pos.Update.Poll.Types       (BlockVersionState (..),
                                               pmAdoptedBVFullL, pmBVsL, pmConfirmedL,
                                               pmConfirmedPropsL, pmDelActivePropsIdxL,
                                               pmSlottingDataL, psProposal)
+import           Pos.Util.Context            (MonadContext (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 import qualified Pos.Util.Modifier           as MM
 
@@ -78,13 +78,15 @@ newtype PollT m a = PollT
                , MonadJL
                , CanLog
                , MonadMask
-               , MonadUSMem
                , MonadSscMem mem
                , MonadDB
                , MonadBase io
                , MonadDelegation
                , MonadFix
                )
+
+instance MonadContext m => MonadContext (PollT m) where
+    type ContextType (PollT m) = ContextType m
 
 ----------------------------------------------------------------------------
 -- Runners
@@ -158,6 +160,8 @@ instance MonadPollRead m =>
         PollT $ do
             new <- pmSlottingData <$> get
             maybe getSlottingData pure new
+
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 instance MonadPollRead m =>
          MonadPoll (PollT m) where

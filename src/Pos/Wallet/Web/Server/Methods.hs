@@ -19,6 +19,7 @@ import           Universum
 
 import           Control.Concurrent            (forkFinally)
 import           Control.Lens                  (makeLenses, (.=))
+import           Control.Monad                 (replicateM_)
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
 import           Control.Monad.State           (runStateT)
@@ -36,7 +37,6 @@ import           Serokell.Util                 (threadDelay)
 import           Servant.API                   ((:<|>) ((:<|>)),
                                                 FromHttpApiData (parseUrlPiece))
 import           Servant.Server                (Handler, Server, ServerT, err403, serve)
-import           Servant.Swagger.UI            (swaggerSchemaUIServer)
 import           Servant.Utils.Enter           ((:~>) (..), enter)
 import           System.Wlog                   (logDebug, logError, logInfo)
 
@@ -68,8 +68,7 @@ import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
                                                 getBalance, getTxHistory,
                                                 localChainDifficulty,
                                                 networkChainDifficulty, waitForUpdate)
-import           Pos.Wallet.Web.Api            (WalletApi, swaggerSpecForWalletApi,
-                                                walletApiWithDocs)
+import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CInitialized,
                                                 CProfile, CProfile (..), CTx, CTxId,
                                                 CTxMeta (..), CUpdateInfo (..),
@@ -84,7 +83,6 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
                                                 getWalletWebSockets, initWSConnection,
                                                 notify, runWalletWS, upgradeApplicationWS)
-import           Pos.Wallet.Web.State          (testReset)
 import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
                                                 addOnlyNewTxMeta, addUpdate, closeState,
                                                 createWallet, getHistoryCache,
@@ -92,7 +90,7 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWeb
                                                 getWalletMeta, getWalletState, openState,
                                                 removeNextUpdate, removeWallet,
                                                 runWalletWebDB, setProfile, setWalletMeta,
-                                                setWalletTransactionMeta,
+                                                setWalletTransactionMeta, testReset,
                                                 updateHistoryCache)
 import           Pos.Web.Server                (serveImpl)
 
@@ -136,12 +134,9 @@ walletApplication
     :: WalletWebMode ssc m
     => m (Server WalletApi)
     -> m Application
-walletApplication server = do
+walletApplication serv = do
     wsConn <- getWalletWebSockets
-    withoutDocs <- server
-    let serverWithDocs = swaggerSchemaUIServer swaggerSpecForWalletApi
-                    :<|> withoutDocs
-    return $ upgradeApplicationWS wsConn $ serve walletApiWithDocs serverWithDocs
+    upgradeApplicationWS wsConn . serve walletApi <$> serv
 
 walletServer
     :: forall ssc m.
@@ -550,7 +545,7 @@ testResetAll | isDevelopment = deleteAllKeys >> testReset
   where
     deleteAllKeys = do
         keyNum <- length <$> getSecretKeys
-        sequence_ $ replicate keyNum $ deleteSecretKey 0
+        replicateM_ keyNum $ deleteSecretKey 0
 
 ---------------------------------------------------------------------------
 -- Helpers

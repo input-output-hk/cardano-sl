@@ -9,6 +9,7 @@ module Pos.Genesis
        -- * Static state
          StakeDistribution (..)
        , GenesisData (..)
+       , getTotalStake
        , compileGenData
        , genesisStakeDistribution
        , genesisUtxo
@@ -21,44 +22,31 @@ module Pos.Genesis
 
        -- * Ssc
        , genesisLeaders
-
-       -- * Update System
-       , genesisBlockVersion
-       , genesisBlockVersionData
-       , genesisSoftwareVersions
-       , genesisScriptVersion
-       , genesisSlotDuration
-       , genesisMaxBlockSize
        ) where
 
-import           Control.Lens               ((+~), _head)
-import           Data.Default               (Default (..))
-import           Data.List                  (genericLength, genericReplicate)
-import qualified Data.Map.Strict            as M
-import qualified Data.Text                  as T
-import           Data.Time.Units            (Millisecond)
-import           Formatting                 (int, sformat, (%))
-import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util              (enumerate)
+import           Data.Default       (Default (..))
+import           Data.List          (genericLength, genericReplicate)
+import qualified Data.Map.Strict    as M
+import qualified Data.Text          as T
+import           Formatting         (int, sformat, (%))
+import           Serokell.Util      (enumerate)
 import           Universum
 
-import qualified Pos.Constants              as Const
-import           Pos.Core.Types             (ScriptVersion, SoftwareVersion (..),
-                                             StakeholderId)
-import           Pos.Crypto                 (PublicKey, SecretKey, deterministicKeyGen)
-import           Pos.Crypto                 (unsafeHash)
-import           Pos.Genesis.Parser         (compileGenData)
-import           Pos.Genesis.Types          (GenesisData (..), StakeDistribution (..))
-import           Pos.Lrc.FtsPure            (followTheSatoshi)
-import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..), TxOutAux (..),
-                                             TxOutDistribution)
-import           Pos.Txp.Toil.Types         (Utxo)
-import           Pos.Types                  (makePubKeyAddress)
-import           Pos.Types                  (Address (..), BlockVersion (..), Coin,
-                                             SharedSeed (SharedSeed), SlotLeaders,
-                                             applyCoinPortion, coinToInteger, divCoin,
-                                             mkCoin, unsafeAddCoin, unsafeMulCoin)
-import           Pos.Update.Core.Types      (BlockVersionData (..))
+import qualified Pos.Constants      as Const
+import           Pos.Core.Types     (StakeholderId)
+import           Pos.Crypto         (PublicKey, SecretKey, deterministicKeyGen,
+                                     unsafeHash)
+import           Pos.Genesis.Parser (compileGenData)
+import           Pos.Genesis.Types  (GenesisData (..), StakeDistribution (..),
+                                     getTotalStake)
+import           Pos.Lrc.FtsPure    (followTheSatoshi)
+import           Pos.Txp.Core.Types (TxIn (..), TxOut (..), TxOutAux (..),
+                                     TxOutDistribution)
+import           Pos.Txp.Toil.Types (Utxo)
+import           Pos.Types          (Address (..), Coin, SharedSeed (SharedSeed),
+                                     SlotLeaders, applyCoinPortion, coinToInteger,
+                                     divCoin, makePubKeyAddress, mkCoin, unsafeAddCoin,
+                                     unsafeMulCoin)
 
 ----------------------------------------------------------------------------
 -- Static state
@@ -119,34 +107,22 @@ stakeDistribution (BitcoinStakes stakeholders coins) =
     normalize x = x `unsafeMulCoin`
                   coinToInteger (coins `divCoin` (1000 :: Int))
 stakeDistribution ExponentialStakes = map (, []) expTwoDistribution
-stakeDistribution TestnetStakes {..} =
-    map ((, []) . mkCoin . fromIntegral) $ basicDist & _head +~ rmd
+stakeDistribution ts@TestnetStakes {..} =
+    checkMpcThd (getTotalStake ts) sdRichStake $
+    map (, []) basicDist
   where
-    -- Total number of richmen
-    richs = fromIntegral sdRichmen
-    -- Total number of poor
-    poors = fromIntegral sdPoor
-    -- Minimum amount of money to become rich
-    thresholdRich = coinToInteger $
-        applyCoinPortion Const.genesisMpcThd sdTotalStake
-    -- Maximal amount of total money which poor stakeholders can hold
-    maxPoorStake = (thresholdRich - 1) * poors
-    -- Minimum amount of richmen's money to prevent poors becoming richmen
-    minRichStake = coinToInteger sdTotalStake - maxPoorStake
-    -- Minimum amount of money per richman to maintain number of richmen
-    minRich = minRichStake `div` richs
-    -- Final amount of money per richman
-    rich = max thresholdRich minRich
-    -- Amount of money left to poor
-    poorStake = coinToInteger sdTotalStake - richs * rich
-    -- Money per poor and modulo (it goes to first richman)
-    (poor, rmd) = if poors == 0
-                  then (0, poorStake)
-                  else (poorStake `div` poors, poorStake `mod` poors)
-    -- Coin distribution (w/o modulo added)
-    basicDist = genericReplicate richs rich ++ genericReplicate poors poor
+    -- Node won't start if richmen cannot participate in MPC
+    checkMpcThd total richs =
+        if richs < applyCoinPortion Const.genesisMpcThd total
+        then error "Pos.Genesis: TestnetStakes: richmen stake \
+                   \is less than MPC threshold"
+        else identity
+    basicDist = genericReplicate sdRichmen sdRichStake ++
+                genericReplicate sdPoor sdPoorStake
 stakeDistribution (ExplicitStakes balances) =
     toList balances
+stakeDistribution (CombinedStakes distA distB) =
+    stakeDistribution distA <> stakeDistribution distB
 
 bitcoinDistribution1000Coins :: Word -> [Coin]
 bitcoinDistribution1000Coins stakeholders
@@ -198,50 +174,3 @@ genesisSeed = SharedSeed "vasa opasa skovoroda Ggurda boroda provoda"
 -- | Leaders of genesis. See 'followTheSatoshi'.
 genesisLeaders :: Utxo -> SlotLeaders
 genesisLeaders = followTheSatoshi genesisSeed
-
-----------------------------------------------------------------------------
--- Update system
-----------------------------------------------------------------------------
-
--- | BlockVersion used at the very beginning.
-genesisBlockVersion :: BlockVersion
-genesisBlockVersion =
-    BlockVersion
-    { bvMajor = 0
-    , bvMinor = 0
-    , bvAlt = 0
-    }
-
--- | Software Versions
-genesisSoftwareVersions :: [SoftwareVersion]
-genesisSoftwareVersions = [Const.curSoftwareVersion { svNumber = 0 }]
-
--- | 'BlockVersionData' for genesis 'BlockVersion'.
-genesisBlockVersionData :: BlockVersionData
-genesisBlockVersionData =
-    BlockVersionData
-    { bvdScriptVersion = genesisScriptVersion
-    , bvdSlotDuration = Const.genesisSlotDuration
-    , bvdMaxBlockSize = Const.genesisMaxBlockSize
-    , bvdMaxHeaderSize = Const.genesisMaxHeaderSize
-    , bvdMaxTxSize = Const.genesisMaxTxSize
-    , bvdMaxProposalSize = Const.genesisMaxUpdateProposalSize
-    , bvdMpcThd = Const.genesisMpcThd
-    , bvdHeavyDelThd = Const.genesisHeavyDelThd
-    , bvdUpdateVoteThd = Const.genesisUpdateVoteThd
-    , bvdUpdateProposalThd = Const.genesisUpdateProposalThd
-    , bvdUpdateImplicit = Const.genesisUpdateImplicit
-    , bvdUpdateSoftforkThd = Const.genesisUpdateSoftforkThd
-    }
-
--- | ScriptVersion used at the very beginning
-genesisScriptVersion :: ScriptVersion
-genesisScriptVersion = 0
-
--- | Initial slot duration
-genesisSlotDuration :: Millisecond
-genesisSlotDuration = Const.genesisSlotDuration
-
--- | Initial block size limit
-genesisMaxBlockSize :: Byte
-genesisMaxBlockSize = Const.genesisMaxBlockSize

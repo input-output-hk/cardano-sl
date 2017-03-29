@@ -14,7 +14,6 @@ import           Pos.Binary            ()
 import qualified Pos.CLI               as CLI
 import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Constants         (isDevelopment, staticSysStart)
-import           Pos.Context           (getNodeContext, ncUpdateSemaphore)
 import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.Genesis           (genesisDevSecretKeys, genesisStakeDistribution,
                                         genesisUtxo)
@@ -30,6 +29,8 @@ import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import           Pos.Ssc.SscAlgo       (SscAlgo (..))
 import           Pos.Statistics        (getNoStatsT, getStatsMap, runStatsT')
 import           Pos.Types             (Timestamp (Timestamp))
+import           Pos.Update.Context    (ucUpdateSemaphore)
+import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
 import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usPrimKey, usVss,
@@ -42,6 +43,7 @@ import           Pos.WorkMode          (WorkMode)
 import           Pos.Wallet.Web        (walletServeWebFull, walletServerOuts)
 #endif
 #endif
+import           Pos.Util.Context      (askContext)
 
 import           NodeOptions           (Args (..), getNodeOptions)
 
@@ -209,10 +211,12 @@ getNodeParams args@Args {..} systemStart = do
         , npAttackTypes = maliciousEmulationAttacks
         , npAttackTargets = maliciousEmulationTargets
         , npPropagation = not (CLI.disablePropagation commonArgs)
-        , npUpdatePath = updateLatestPath
-        , npUpdateWithPkg = updateWithPackage
-        , npUpdateServers = CLI.updateServers commonArgs
         , npReportServers = CLI.reportServers commonArgs
+        , npUpdateParams = UpdateParams
+            { upUpdatePath = updateLatestPath
+            , upUpdateWithPkg = updateWithPackage
+            , upUpdateServers = CLI.updateServers commonArgs
+            }
         }
 
 gtSscParams :: Args -> VssKeyPair -> GtParams
@@ -241,7 +245,7 @@ updateTriggerWorker
     => ([WorkerSpec (RawRealMode ssc)], OutSpecs)
 updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     logInfo "Update trigger worker is locked"
-    void $ liftIO . takeMVar . ncUpdateSemaphore =<< getNodeContext
+    void $ liftIO . takeMVar =<< askContext ucUpdateSemaphore
     triggerShutdown
 
 walletServe

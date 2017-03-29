@@ -13,19 +13,22 @@ import           Test.QuickCheck       (Property, (===), (==>))
 import           Universum
 
 import           Pos.Binary            (AsBinary, Bi)
-import           Pos.Crypto            (EncShare, Hash, ProxyCert, ProxySecretKey (..),
-                                        ProxySignature, PublicKey, Secret, SecretKey,
-                                        SecretProof, SecretSharingExtra, Share, Signature,
-                                        Signed, VssPublicKey, checkSig,
-                                        createProxySecretKey, deterministic,
-                                        fullPublicKeyF, hash, hashHexF, keyGen,
-                                        parseFullPublicKey, proxySign, proxyVerify,
-                                        randomNumber, sign, toPublic,
+import           Pos.Crypto            (EncShare, HDPassphrase, Hash, ProxyCert,
+                                        ProxySecretKey (..), ProxySignature, PublicKey,
+                                        Secret, SecretKey, SecretProof,
+                                        SecretSharingExtra, Share, Signature, Signed,
+                                        VssPublicKey, checkSig, createProxySecretKey,
+                                        deterministic, fullPublicKeyF, hash, hashHexF,
+                                        keyGen, packHDAddressAttr, parseFullPublicKey,
+                                        proxySign, proxyVerify, randomNumber, sign,
+                                        toPublic, unpackHDAddressAttr,
                                         verifyProxySecretKey)
 import           Pos.Ssc.GodTossing    ()
 
 import           Test.Pos.Util         (binaryEncodeDecode, binaryTest,
                                         safeCopyEncodeDecode, safeCopyTest, serDeserId)
+
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 spec :: Spec
 spec = describe "Crypto" $ do
@@ -145,6 +148,8 @@ spec = describe "Crypto" $ do
             prop
                 "incorrect proxy signature schemes fails correctness check"
                 (proxySecretKeyCheckIncorrect @(Int32,Int32))
+        describe "HD wallet" $ do
+            prop "pack/unpack address payload" packUnpackHDAddress
 
 
 
@@ -220,3 +225,7 @@ proxySignVerifyDifferentData issuerSk delegateSk w m m2 =
     issuerPk = toPublic issuerSk
     proxySk = createProxySecretKey issuerSk (toPublic delegateSk) w
     signature = proxySign delegateSk proxySk m
+
+packUnpackHDAddress :: HDPassphrase -> [Word32] -> Bool
+packUnpackHDAddress passphrase path =
+    maybe False (== path) (unpackHDAddressAttr passphrase (packHDAddressAttr passphrase path))

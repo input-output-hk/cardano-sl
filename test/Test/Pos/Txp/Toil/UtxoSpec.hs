@@ -51,7 +51,7 @@ spec :: Spec
 spec = describe "Txp.Toil.Utxo" $ do
     describe "utxoGet @((->) Utxo)" $ do
         it "returns Nothing when given empty Utxo" $
-            utxoGet myTx (mempty @Utxo) == Nothing
+            isNothing (utxoGet myTx (mempty @Utxo))
         prop description_findTxInUtxo findTxInUtxo
     describe "verifyTxUtxo" $ do
         prop description_verifyTxInUtxo verifyTxInUtxo
@@ -207,7 +207,7 @@ applyTxToUtxoGood (txIn0, txOut0) txMap txOuts =
         newUtxoMap = applyTxToUtxoPure (withHash tx) txDistr utxoMap
         newUtxos =
             NE.fromList $
-            (zipWith TxIn (repeat (hash tx)) [0 ..]) `zip` toList txOuts
+            (map (TxIn (hash tx)) [0 ..]) `zip` toList txOuts
         rmvUtxo = foldr M.delete utxoMap inpList
         insNewUtxo = foldr (uncurry M.insert) rmvUtxo newUtxos
     in insNewUtxo == newUtxoMap

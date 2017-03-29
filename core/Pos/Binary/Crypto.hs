@@ -1,6 +1,6 @@
-{-# LANGUAGE CPP                   #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE ViewPatterns          #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 -- | Serializable instances for Pos.Crypto.*
 
@@ -8,22 +8,25 @@ module Pos.Binary.Crypto () where
 
 import           Universum
 
+import qualified Cardano.Crypto.Wallet    as CC
+import qualified Crypto.ECC.Edwards25519  as Ed25519
 import           Crypto.Hash              (digestFromByteString, hashDigestSize)
 import qualified Crypto.PVSS              as Pvss
-import qualified Crypto.ECC.Edwards25519  as Ed25519
 import qualified Crypto.Sign.Ed25519      as EdStandard
-import qualified Cardano.Crypto.Wallet    as CC
 import qualified Data.Binary              as Binary
-import           Data.Binary.Get          (label, getByteString)
+import           Data.Binary.Get          (getByteString, label)
 import           Data.Binary.Put          (putByteString)
 import qualified Data.ByteArray           as ByteArray
 import qualified Data.ByteString          as BS
 import           Data.SafeCopy            (SafeCopy (..))
 import           Formatting               (int, sformat, stext, (%))
 
-import           Pos.Binary.Class         (AsBinary (..), getCopyBi, putCopyBi, Bi (..))
+import           Pos.Binary.Class         (AsBinary (..), Bi (..), getCopyBi, putCopyBi)
 import           Pos.Crypto.Hashing       (AbstractHash (..), Hash, HashAlgorithm,
                                            WithHash (..), withHash)
+import           Pos.Crypto.HD            (HDAddressPayload (..))
+import           Pos.Crypto.RedeemSigning (RedeemPublicKey (..), RedeemSecretKey (..),
+                                           RedeemSignature (..))
 import           Pos.Crypto.SafeSigning   (EncryptedSecretKey (..))
 import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),
                                            SecretSharingExtra (..), Share (..),
@@ -31,8 +34,6 @@ import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretPro
 import           Pos.Crypto.Signing       (ProxyCert (..), ProxySecretKey (..),
                                            ProxySignature (..), PublicKey (..),
                                            SecretKey (..), Signature (..), Signed (..))
-import           Pos.Crypto.RedeemSigning (RedeemSecretKey (..), RedeemPublicKey (..),
-                                           RedeemSignature (..))
 
 instance Bi a => Bi (WithHash a) where
     put = put . whData
@@ -189,6 +190,12 @@ instance (Bi w) => Bi (ProxySignature w a) where
         put pdCert
         put pdSig
     get = label "ProxySignature" $ liftM4 ProxySignature get get get get
+
+-------------------------------------------------------------------------------
+-- Hierarchical derivation
+-------------------------------------------------------------------------------
+instance Binary.Binary HDAddressPayload
+instance Bi HDAddressPayload
 
 -------------------------------------------------------------------------------
 -- Standard Ed25519 instances for ADA redeem keys

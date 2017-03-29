@@ -22,7 +22,6 @@ import           Pos.Txp                     (TxOutAux (..), TxpHolder (..), Utx
                                               addrBelongsTo, getUtxoModifier, txOutValue)
 import           Pos.Types                   (Address, Coin, sumCoins,
                                               unsafeIntegerToCoin)
-import           Pos.Update                  (USHolder (..))
 import qualified Pos.Util.Modifier           as MM
 
 -- | A class which have the methods to get state of address' balance
@@ -47,7 +46,6 @@ instance MonadBalances m => MonadBalances (SlottingHolder m)
 deriving instance MonadBalances m => MonadBalances (PC.ContextHolder ssc m)
 deriving instance MonadBalances m => MonadBalances (SscHolder ssc m)
 deriving instance MonadBalances m => MonadBalances (DelegationT m)
-deriving instance MonadBalances m => MonadBalances (USHolder m)
 
 instance (MonadDB m, MonadMask m) => MonadBalances (TxpHolder __ m) where
     getOwnUtxo addr = do

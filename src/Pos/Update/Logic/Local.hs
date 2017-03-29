@@ -30,38 +30,52 @@ import           Formatting             (sformat, (%))
 import           System.Wlog            (WithLogger, logWarning)
 import           Universum
 
-import           Pos.Context            (WithNodeContext)
 import           Pos.Crypto             (PublicKey)
 import           Pos.DB.Class           (MonadDB)
 import qualified Pos.DB.GState          as DB
-import           Pos.Ssc.Class          (Ssc)
+import           Pos.Lrc.Context        (LrcContext)
 import           Pos.Types              (HeaderHash, SlotId (..), slotIdF)
+import           Pos.Update.Context     (UpdateContext (..))
 import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposal,
                                          UpdateVote (..), canCombineVotes)
 import           Pos.Update.MemState    (LocalVotes, MemPool (..), MemState (..),
-                                         MonadUSMem, UpdateProposals, addToMemPool,
-                                         askUSMemState, withUSLock)
+                                         MemVar (mvState), UpdateProposals, addToMemPool,
+                                         withUSLock)
 import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
                                          MonadPollRead (getProposal), PollModifier,
                                          PollVerFailure, evalPollT, execPollT,
                                          filterProposalsByThd, modifyPollModifier,
                                          normalizePoll, psVotes, runDBPoll, runPollT,
                                          verifyAndApplyUSPayload)
+import           Pos.Util.Context       (HasContext, askContext)
 
 -- MonadMask is needed because are using Lock. It can be improved later.
-type USLocalLogicMode σ m = ( MonadDB m, MonadUSMem m, MonadMask m
-                            , WithLogger m, Ssc σ, WithNodeContext σ m)
+type USLocalLogicMode m =
+    ( MonadDB m, MonadMask m
+    , WithLogger m
+    , HasContext UpdateContext m, HasContext LrcContext m
+    )
 
-getMemPool :: (MonadUSMem m, MonadIO m) => m MemPool
-getMemPool = msPool <$> (askUSMemState >>= atomically . readTVar)
+getMemPool
+    :: (HasContext UpdateContext m, MonadIO m)
+    => m MemPool
+getMemPool = msPool <$>
+    (atomically . readTVar . mvState =<< askContext ucMemState)
 
-getPollModifier :: (MonadUSMem m, MonadIO m) => m PollModifier
-getPollModifier = msModifier <$> (askUSMemState >>= atomically . readTVar)
+getPollModifier
+    :: (HasContext UpdateContext m, MonadIO m)
+    => m PollModifier
+getPollModifier = msModifier <$>
+    (atomically . readTVar . mvState =<< askContext ucMemState)
 
-getLocalProposals :: (MonadUSMem m, MonadIO m) => m UpdateProposals
+getLocalProposals
+    :: (HasContext UpdateContext m, MonadIO m)
+    => m UpdateProposals
 getLocalProposals = mpProposals <$> getMemPool
 
-getLocalVotes :: (MonadUSMem m, MonadIO m) => m LocalVotes
+getLocalVotes
+    :: (HasContext UpdateContext m, MonadIO m)
+    => m LocalVotes
 getLocalVotes = mpLocalVotes <$> getMemPool
 
 ----------------------------------------------------------------------------
@@ -70,12 +84,14 @@ getLocalVotes = mpLocalVotes <$> getMemPool
 
 -- | This function returns true if update proposal with given
 -- identifier should be requested.
-isProposalNeeded :: (MonadIO m, MonadUSMem m) => UpId -> m Bool
+isProposalNeeded
+    :: (HasContext UpdateContext m, MonadIO m)
+    => UpId -> m Bool
 isProposalNeeded id = not . HM.member id <$> getLocalProposals
 
 -- | Get update proposal with given id if it is known.
 getLocalProposalNVotes
-    :: (MonadIO m, MonadUSMem m)
+    :: (HasContext UpdateContext m, MonadIO m)
     => UpId -> m (Maybe (UpdateProposal, [UpdateVote]))
 getLocalProposalNVotes id = do
     prop <- HM.lookup id <$> getLocalProposals
@@ -92,7 +108,7 @@ getLocalProposalNVotes id = do
 -- Otherwise 'Left err' is returned and 'err' lets caller decide whether
 -- sender could be sure that error would happen.
 processProposal
-    :: (USLocalLogicMode ssc m)
+    :: (USLocalLogicMode m)
     => UpdateProposal -> m (Either PollVerFailure ())
 processProposal proposal = processSkeleton $ UpdatePayload (Just proposal) []
 
@@ -107,7 +123,7 @@ lookupVote propId pk locVotes = HM.lookup propId locVotes >>= HM.lookup pk
 -- identifier issued by stakeholder with given PublicKey and with
 -- given decision should be requested.
 isVoteNeeded
-    :: USLocalLogicMode ssc m
+    :: USLocalLogicMode m
     => UpId -> PublicKey -> Bool -> m Bool
 isVoteNeeded propId pk decision = do
     modifier <- getPollModifier
@@ -123,7 +139,7 @@ isVoteNeeded propId pk decision = do
 -- | Get update vote for proposal with given id from given issuer and
 -- with given decision if it is known.
 getLocalVote
-    :: (MonadIO m, MonadUSMem m)
+    :: (HasContext UpdateContext m, MonadIO m)
     => UpId -> PublicKey -> Bool -> m (Maybe UpdateVote)
 getLocalVote propId pk decision = do
     voteMaybe <- lookupVote propId pk <$> getLocalVotes
@@ -141,14 +157,16 @@ getLocalVote propId pk decision = do
 -- Otherwise 'Left err' is returned and 'err' lets caller decide whether
 -- sender could be sure that error would happen.
 processVote
-    :: (USLocalLogicMode ssc m)
+    :: (USLocalLogicMode m)
     => UpdateVote -> m (Either PollVerFailure ())
 processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 
-withCurrentTip :: (MonadDB m, MonadUSMem m) => (MemState -> m MemState) -> m ()
+withCurrentTip
+    :: (HasContext UpdateContext m, MonadDB m)
+    => (MemState -> m MemState) -> m ()
 withCurrentTip action = do
     tipBefore <- DB.getTip
-    stateVar <- askUSMemState
+    stateVar <- mvState <$> askContext ucMemState
     ms <- atomically $ readTVar stateVar
     newMS <- action ms
     atomically $ modifyTVar' stateVar $ \cur ->
@@ -156,7 +174,7 @@ withCurrentTip action = do
          | otherwise -> cur
 
 processSkeleton
-    :: (USLocalLogicMode ssc m)
+    :: (USLocalLogicMode m)
     => UpdatePayload -> m (Either PollVerFailure ())
 processSkeleton payload = withUSLock $ runExceptT $ withCurrentTip $ \ms@MemState{..} -> do
     modifier <-
@@ -174,19 +192,19 @@ processSkeleton payload = withUSLock $ runExceptT $ withCurrentTip $ \ms@MemStat
 -- current GState.  This function assumes that GState is locked. It
 -- tries to leave as much data as possible. It assumes that
 -- 'blkSemaphore' is taken.
-usNormalize :: (USLocalLogicMode ssc m) => m ()
+usNormalize :: (USLocalLogicMode m) => m ()
 usNormalize =
     withUSLock $ do
         tip <- DB.getTip
-        stateVar <- askUSMemState
+        stateVar <- mvState <$> askContext ucMemState
         atomically . writeTVar stateVar =<< usNormalizeDo (Just tip) Nothing
 
 -- Normalization under lock.
 usNormalizeDo
-    :: (USLocalLogicMode ssc m)
+    :: (USLocalLogicMode m)
     => Maybe HeaderHash -> Maybe SlotId -> m MemState
 usNormalizeDo tip slot = do
-    stateVar <- askUSMemState
+    stateVar <- mvState <$> askContext ucMemState
     ms@MemState {..} <- atomically $ readTVar stateVar
     let mp@MemPool {..} = msPool
     ((newProposals, newVotes), newModifier) <-
@@ -205,7 +223,7 @@ usNormalizeDo tip slot = do
     return newMS
 
 -- | Update memory state to make it correct for given slot.
-processNewSlot :: (USLocalLogicMode ssc m) => SlotId -> m ()
+processNewSlot :: (USLocalLogicMode m) => SlotId -> m ()
 processNewSlot slotId = withUSLock $ withCurrentTip $ \ms@MemState{..} -> do
     if | msSlot >= slotId -> pure ms
        -- Crucial changes happen only when epoch changes.
@@ -217,7 +235,7 @@ processNewSlot slotId = withUSLock $ withCurrentTip $ \ms@MemState{..} -> do
 -- nobody can apply/rollback blocks in parallel.
 -- Sometimes payload can't be created. It can happen if we are trying to
 -- create block for slot which has already passed, for example.
-usPreparePayload :: (USLocalLogicMode ssc m) => SlotId -> m (Maybe UpdatePayload)
+usPreparePayload :: (USLocalLogicMode m) => SlotId -> m (Maybe UpdatePayload)
 usPreparePayload slotId@SlotId{..} = do
     -- First of all, we make sure that mem state corresponds to given
     -- slot.  If mem state corresponds to newer slot already, it won't

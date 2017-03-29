@@ -30,11 +30,11 @@ import           Pos.Ssc.GodTossing.Core
 import           Pos.Ssc.GodTossing.Error
 import           Pos.Ssc.GodTossing.Functions
 import           Pos.Ssc.GodTossing.Genesis
+import           Pos.Ssc.GodTossing.GState
 import           Pos.Ssc.GodTossing.Listeners     ()
 import           Pos.Ssc.GodTossing.LocalData
 import           Pos.Ssc.GodTossing.SecretStorage
 import           Pos.Ssc.GodTossing.Seed
-import           Pos.Ssc.GodTossing.GState
 import           Pos.Ssc.GodTossing.Toss
 import           Pos.Ssc.GodTossing.Type
 import           Pos.Ssc.GodTossing.Types

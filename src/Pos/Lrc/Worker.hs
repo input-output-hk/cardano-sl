@@ -24,12 +24,12 @@ import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUn
                                              withBlkSemaphore_)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants              (slotSecurityParam)
-import           Pos.Context                (LrcSyncData, getNodeContext, ncLrcSync)
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
 import qualified Pos.DB.GState.Balances     as GS
 import           Pos.Lrc.Consumer           (LrcConsumer (..))
 import           Pos.Lrc.Consumers          (allLrcConsumers)
+import           Pos.Lrc.Context            (LrcContext (lcLrcSync), LrcSyncData (..))
 import           Pos.Lrc.DB                 (IssuersStakes, getLeaders, putEpoch,
                                              putIssuersStakes, putLeaders)
 import           Pos.Lrc.Error              (LrcError (..))
@@ -47,6 +47,7 @@ import           Pos.Update.DB              (getConfirmedBVStates)
 import           Pos.Update.Poll.Types      (BlockVersionState (..))
 import           Pos.Util                   (logWarningWaitLinear)
 import           Pos.Util.Chrono            (NewestFirst (..), toOldestFirst)
+import           Pos.Util.Context           (askContext)
 import           Pos.WorkMode               (WorkMode)
 
 lrcOnNewSlotWorker
@@ -81,7 +82,7 @@ lrcSingleShotImpl
     :: WorkMode ssc m
     => Bool -> EpochIndex -> [LrcConsumer m] -> m ()
 lrcSingleShotImpl withSemaphore epoch consumers = do
-    lock <- ncLrcSync <$> getNodeContext
+    lock <- askContext @LrcContext lcLrcSync
     tryAcuireExclusiveLock epoch lock onAcquiredLock
   where
     onAcquiredLock = do
@@ -113,15 +114,14 @@ tryAcuireExclusiveLock epoch lock action =
     bracketOnError acquireLock (flip whenJust releaseLock) doAction
   where
     acquireLock = atomically $ do
-        res <- readTVar lock
-        case res of
-            (False, _) -> retry
-            (True, lockEpoch)
-                | lockEpoch >= epoch -> pure Nothing
-                | lockEpoch == epoch - 1 ->
-                    Just lockEpoch <$ writeTVar lock (False, lockEpoch)
-                | otherwise -> throwM UnknownBlocksForLrc
-    releaseLock = atomically . writeTVar lock . (True,)
+        sync <- readTVar lock
+        if | not (lrcNotRunning sync) {- i.e. lrc is running -} -> retry
+           | lastEpochWithLrc sync >= epoch -> pure Nothing
+           | lastEpochWithLrc sync == epoch - 1 -> do
+                 writeTVar lock (LrcSyncData False (lastEpochWithLrc sync))
+                 pure (Just (lastEpochWithLrc sync))
+           | otherwise -> throwM UnknownBlocksForLrc
+    releaseLock e = atomically $ writeTVar lock (LrcSyncData True e)
     doAction Nothing = pass
     doAction _       = action >> releaseLock epoch
 

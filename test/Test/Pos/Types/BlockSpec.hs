@@ -14,6 +14,7 @@ import           Pos.Binary            (Bi)
 import           Pos.Block.Arbitrary   as T
 import           Pos.Crypto            (ProxySecretKey (pskIssuerPk), SecretKey,
                                         createProxySecretKey, proxySign, sign, toPublic)
+import           Pos.Data.Attributes   (mkAttributes)
 import           Pos.Ssc.Class         (Ssc (..), SscHelpersClass)
 import           Pos.Ssc.GodTossing    (SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
@@ -50,10 +51,7 @@ spec = describe "Block properties" $ do
     verifyEmptyHsDesc = "Successfully validates an empty header chain"
     emptyHeaderChain l =
         it verifyEmptyHsDesc $
-            and
-                [isVerSuccess $
-                    T.verifyHeaders b l
-                        | b <- [False, True]] == True
+            all isVerSuccess [T.verifyHeaders b l | b <- [False, True]]
 
 -- | Both of the following tests are boilerplate - they use `mkGenericHeader` to create
 -- headers and then compare these with manually built headers.
@@ -70,13 +68,13 @@ genesisHeaderFormation
 genesisHeaderFormation prevHeader epoch body =
     header === manualHeader
   where
-    header = (T.mkGenesisHeader prevHeader epoch body)
+    header = T.mkGenesisHeader prevHeader epoch body
     manualHeader =
         T.GenericBlockHeader
         { T._gbhPrevBlock = h
         , T._gbhBodyProof = proof
         , T._gbhConsensus = consensus h proof
-        , T._gbhExtra = ()
+        , T._gbhExtra = T.GenesisExtraHeaderData $ mkAttributes ()
         }
     h = maybe T.genesisHash T.headerHash prevHeader
     proof = T.mkBodyProof body
@@ -121,7 +119,7 @@ mainHeaderFormation prevHeader slotId signer body extra =
     makeSignature toSign (Left psk)  = T.BlockPSignatureEpoch $ proxySign sk psk toSign
     makeSignature toSign (Right psk) = T.BlockPSignatureSimple $ proxySign sk psk toSign
     signature prevHash p =
-        let toSign = (prevHash, p, slotId, difficulty)
+        let toSign = T.MainToSign prevHash p slotId difficulty extra
         in maybe (T.BlockSignature $ sign sk toSign) (makeSignature toSign) pSk
     consensus prevHash p =
         T.MainConsensusData

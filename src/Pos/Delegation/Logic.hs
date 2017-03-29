@@ -70,6 +70,7 @@ import           Pos.Delegation.Class        (DelegationWrap, MonadDelegation (.
 import           Pos.Delegation.Types        (SendProxySK (..))
 import           Pos.Exception               (cardanoExceptionFromException,
                                               cardanoExceptionToException)
+import           Pos.Lrc.Context             (LrcContext)
 import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Types                   (Block, HeaderHash, ProxySKHeavy,
@@ -79,6 +80,7 @@ import           Pos.Types                   (Block, HeaderHash, ProxySKHeavy,
 import           Pos.Util                    (withReadLifted, withWriteLifted, _neHead,
                                               _neLast)
 import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.Context            (HasContext)
 
 ----------------------------------------------------------------------------
 -- Different helpers to simplify logic
@@ -197,7 +199,7 @@ processProxySKHeavy
        ( SscHelpersClass ssc
        , MonadDB m
        , MonadDelegation m
-       , WithNodeContext ssc m
+       , HasContext LrcContext m
        )
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk = do
@@ -254,7 +256,7 @@ makeLenses ''DelVerState
 -- It's assumed blocks are correct from 'Pos.Types.Block#verifyBlocks'
 -- point of view.
 delegationVerifyBlocks
-    :: forall ssc m. (SscHelpersClass ssc, MonadDB m, WithNodeContext ssc m)
+    :: forall ssc m. (SscHelpersClass ssc, MonadDB m, HasContext LrcContext m)
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE [ProxySKHeavy]))
 delegationVerifyBlocks blocks = do
@@ -361,7 +363,7 @@ delegationRollbackBlocks
        ( SscHelpersClass ssc
        , MonadDelegation m
        , MonadDB m
-       , WithNodeContext ssc m
+       , HasContext LrcContext m
        )
     => NewestFirst NE (Blund ssc) -> m (NonEmpty SomeBatchOp)
 delegationRollbackBlocks blunds = do

@@ -40,7 +40,6 @@ import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolder)
 import           Pos.Txp                       (GenericTxpLocalData, askTxpMem,
                                                 runTxpHolder)
-import           Pos.Update.MemState.Holder    (runUSHolder)
 import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
                                                 walletServeImpl, walletServer,
@@ -77,14 +76,14 @@ nat = do
     ws         <- getWalletWebState
     kinst      <- lift . lift . lift $ getKademliaDHTInstance
     tlw        <- askTxpMem
-    ssc        <- lift . lift . lift . lift . lift . lift . lift $ SscHolder ask
+    ssc        <- lift . lift . lift . lift . lift . lift $ SscHolder ask
     delWrap    <- askDelegationState
     psCtx      <- lift . lift $ getAllStates
     nc         <- getNodeContext
     modernDB   <- getNodeDBs
     conn       <- getWalletWebSockets
-    slotVar    <- lift . lift . lift . lift . lift . lift . lift . lift . lift $ SlottingHolder ask
-    ntpSlotVar <- lift . lift . lift . lift . lift . lift . lift . lift $ NtpSlotting ask
+    slotVar    <- lift . lift . lift . lift . lift . lift . lift . lift $ SlottingHolder ask
+    ntpSlotVar <- lift . lift . lift . lift . lift . lift . lift $ NtpSlotting ask
     pure $ Nat (convertHandler kinst nc modernDB tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar)
 
 convertHandler
@@ -112,7 +111,6 @@ convertHandler kinst nc modernDBs tlw ssc ws delWrap psCtx conn slotVar ntpSlotV
            . runSscHolder ssc
            . runTxpHolder tlw
            . runDelegationTFromTVar delWrap
-           . runUSHolder
            . runKademliaDHT kinst
            . (\m -> flip runPeerStateHolder m =<< peerStateFromSnapshot psCtx)
            . runWalletWebDB ws

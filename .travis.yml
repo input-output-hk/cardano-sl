@@ -1,17 +1,17 @@
 language: nix
 sudo: true
 matrix:
-  include:
+  allow_failures:
   - os: osx
     osx_image: xcode7.3
   - os: osx
     osx_image: xcode8
 env:
-- NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/6a8790429692280998801c96660dcc85e30fb759.tar.gz
+- NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/8bed8fb53227932886ab23e5f5f9eabe139f8e9f.tar.gz
 cache:
   directories:
-  - "$HOME/.stack"
-  - "$HOME/build/input-output-hk/pos-haskell-prototype/.stack-work"
+  #- "$HOME/.stack"
+  #- "$HOME/build/input-output-hk/cardano-sl/.stack-work"
   # TODO: https://github.com/npm/fs-write-stream-atomic/pull/14
   #- daedalus/node_modules
   #- daedalus/bower_components
@@ -24,26 +24,35 @@ before_install:
 # TODO: https://github.com/NixOS/nixpkgs/issues/21200
 - travis_retry curl -L https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64 | tar
   xz --strip-components=1 -C ~/.local/bin
-- mkdir s3
 script:
 - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export EXTRA_STACK="--test --haddock"; else export EXTRA_STACK="--no-haddock-deps"; fi
-- stack --nix --no-terminal --local-bin-path s3/ install --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
-  $EXTRA_STACK --jobs=4
+- stack --nix --no-terminal --local-bin-path daedalus/ install cardano-sl $EXTRA_STACK  --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --jobs=4
   --flag cardano-sl:-asserts
   --flag cardano-sl-core:-dev-mode
 - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ./update_haddock.sh; fi
+# - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ./update_wallet_web_api_docs.sh; fi
 - stack exec --nix -- cardano-wallet-hs2purs
 - stack exec --nix -- cardano-wallet-web-docs
-- cd daedalus
-- nix-shell -p nodejs --run "npm install && npm run build:prod"
-- cd ..
-- XZ_OPT=-1 tar Jcvf s3/daedalus-bridge.tar.xz daedalus/ 2> /dev/null
-- echo $TRAVIS_BUILD_NUMBER > s3/build-id
+- pushd daedalus
+- nix-shell --run "npm install && npm run build:prod"
+- echo $TRAVIS_BUILD_NUMBER > build-id
+- popd
+- mkdir s3
+- XZ_OPT=-1 tar Jcvf s3/daedalus-bridge.tar.xz daedalus/ >/dev/null 2>/dev/null
 deploy:
   provider: s3
-  access_key_id: AKIAJETSFTAMXGNCGC6Q
+  access_key_id: AKIAJKSJR3FUN3CWKC5Q
   secret_access_key:
-    secure: L3T5J71xUkozQ935MJIavcgM3Latp+Zy0Ga1wZovXDLp34kgWyJ7/zRSd/TaVM54Kv8Alm1YxbmYKpQAOzGEzAIG+2VUjXbH7aW8KsCnN2RRZahj8pJlq0qmqYrUC4yDFWvrAuO+bE8GRTHFkrX7eT1hoejAw5bPSPu4lkRbh74ys2d5/eOCmxyLSrle1une0i1AM6WRjBKqYyGWFZ0/zhTdISziw+8excfPuutUUIw13vG2ywhMI4M0oP8csYYPdwg3PMzRpmcucebNXWr3QjJSTNuX/nwIQHyoS1BiIciDHIosdUOPsxVkdQWDUCvk9YXMPgB+XpPFB3O7d5V36EiyrSnQMuYdN6YKZzXmLaLlz8tEMaclRIr+yWVXUL27veYD+IYhjFUWcKzuBnnBa+v+Edl/ewQBMTxznstrBtGAjHhsmPaocXdFjz7fvoSDsr5fafhMnr0O2mKo9+6MKIbGdK/OsBc/Lp1fQK1PuWAjY4+eJ9HSUpD1s120uuV5NkbHnvdB+/PGH0GMHkuf8D7NGhNtTUDjBz+Pvo9SqKGwKyBuCDIeUNLMaCMa3aDY7uRpCVxsZPyjUBUlx/hICy5Ig7d3nKxmZhDot8zooY9a5ANSzDBQsLDWugx1ukKDzJ65wxqjmzaTvALqyk8GIY7ShREuNjFJOrdM8WwZbwU=
+    secure: PtDmmCXYtnIvoR2j17TJNqdEtAWyeN1JN7x8Ecs47C/77lUxuHIJn/9iqyWYHRqkc0pJvanUHmYQY1dxQTHmIdcZwPaI7i9Hib5xEpi+1AKleZ4fTxiJ9Vt1V7cmCnx9HJ8KEmzbmrD9fPj5N2sl/ROYGWa+gNN89UsX462ms577jSBhdvJcaIeACbyEmnFDct0l5Hv23SF3Ciljiva+OLtSahuuhWjTmjb8kS/KjhU5Sl2uF5ZPsi9Xt7y9w3hvowQn/YCxz+161ekKDQkdWPaIYD0xawo6U5Z/GX3HGUYmZBZvlwEaCDa88dXrEfaxH9eYrRyRSuf93DIDMCdiWAWDf1vZBxYuTH8B88ptgjh9xGYMFdUtLq7sWtoMumYWsW8ldnImI1Y1zNdBXV0LrSmKV5Gy0E1cHYyv+rNCcR5tXBlkVOLRKnVLxA8XGfQjFCTQwaljarx7NKqToHzkOb9uiOvPyBvD6WQTYEeebzop/Uj6rFxOLjJ1Fb7xM6zeLkFktEThReDFefX34a8qzD6YnJuBbVTOvROoBC06I4FaBo5rwrpHe7tLohwxLASdhrCy/e6SMsehEOS+luwHNDEV95TnzcNDITqzKQHPdI1J0OYXEal3MkhYwYEtGuwnNDOEfd1nm+2BSw8L0F+pAyP/GBlnLUO9QVg+LWvKOfw=
+  bucket: cardano-sl-travis
+  region: eu-central-1
+  local_dir: s3
+  skip_cleanup: true
+  on:
+    all_branches: true
+  notifications:
+    email: false
+    slack:
   bucket: cardano-sl-testing
   region: eu-central-1
   local_dir: s3
@@ -54,3 +63,8 @@ notifications:
     secure: HRcMUU+/MNGP3TS3Ta61y8ouDh865zJm/iS6tnDWjajsJC1cvQmUKzBJGSfAl7fCCznDJowsX3p33TyQq1Ulb+SKD88Umb5QaTDyINepUhrirUVdkHTn3o61wauib6lpyuSi7c1CjfGe2Oh4nD+z7AidRSBhxUeeJvROMVPNDRMWfz8hxgII/qWdxucpJ2LphqbOlq3KefUdq8Z3VGm5Nu1QhkIZvrzEzPgCbNz+L+reVIGLPlPYEEkxY/zOZeerIgbfHVyxgxXAxx81r5dQbnNH628gmDOHRq98Bgsp1lqCKuf0A8iAWpxE9ru9VTV4AdydR4IMeKnxlXSEuusGDJ9l2VXSA9tN8yoxiLFwedNly6kQOUgQLPjzzXAbafKTjMvyCdFrUmQPmebBdv+l27HCuyLvVqKrydnNFQjhLX8Nfxf1uOCoYrAk67dU+9HKHYvVavuHD1BVwNfi1V5StfiIWNZTOdSmE5fpCfNYlSDiDD+pxMmI/smeFbrzsiZCE4wBW7CFrZ3ENZ2C07Lz88ip7nCrrPzc7RUmVQg5fELquadKMQ5R013S0/pIuSbgc4aQmsxMhabQ8JgOUYTKVX+cx3JTVTVHZ67JE/WA/3y2Hjune3D8rCIbdJ5sj63lts7aQLMUyBMSdahYKjSHgHuaULg2k1UAc90sLyDe3HM=
     on_success: change
     on_failure: change
+
+# due to too long builds
+# https://github.com/NixOS/nixpkgs/issues/21200
+matrix:
+  fast_finish: true

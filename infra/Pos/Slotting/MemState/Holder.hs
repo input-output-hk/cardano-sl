@@ -30,6 +30,7 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 
 import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
 import           Pos.Slotting.Types          (SlottingData (sdPenultEpoch))
+import           Pos.Util.Context            (MonadContext (..))
 
 ----------------------------------------------------------------------------
 -- Transformer
@@ -61,6 +62,9 @@ newtype SlottingHolder m a = SlottingHolder
 ----------------------------------------------------------------------------
 -- Common instances used all over the code
 ----------------------------------------------------------------------------
+
+instance MonadContext m => MonadContext (SlottingHolder m) where
+    type ContextType (SlottingHolder m) = ContextType m
 
 type instance ThreadId (SlottingHolder m) = ThreadId m
 type instance Promise (SlottingHolder m) = Promise m

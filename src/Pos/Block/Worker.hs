@@ -26,8 +26,7 @@ import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', Wo
 import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (getNodeContext, ncPublicKey)
 import           Pos.Core.Address            (addressHash)
-import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk,
-                                                              pskOmega))
+import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Exception               (assertionFailed)

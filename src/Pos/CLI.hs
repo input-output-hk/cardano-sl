@@ -50,7 +50,8 @@ import           Pos.DHT.Model.Types                  (DHTNode (..), dhtKeyParse
 import           Pos.Security.CLI                     (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Util                             ()
-import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser)
+import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
+                                                       addrParserNoWildcard)
 
 -- | Parse 'DHTNode's from a file (nodes should be separated by newlines).
 readPeersFile :: FilePath -> IO [DHTNode]
@@ -271,7 +272,7 @@ walletPortOption portNum help =
 
 ipPortOption :: NetworkAddress -> Opt.Parser NetworkAddress
 ipPortOption na =
-    Opt.option (fromParsec addrParser) $
+    Opt.option (fromParsec addrParserNoWildcard) $
             Opt.long "listen"
          <> Opt.metavar "IP:PORT"
          <> Opt.help helpMsg
@@ -281,4 +282,5 @@ ipPortOption na =
     helpMsg = "Ip and port on which to listen. "
         <> "Please mind that you need to specify actual accessible "
         <> "ip of host, at which node is run,"
-        <> " otherwise work of CSL is not guaranteed."
+        <> " otherwise work of CSL is not guaranteed. "
+        <> "0.0.0.0 is not accepted as a valid host."

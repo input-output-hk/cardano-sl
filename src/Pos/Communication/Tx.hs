@@ -41,6 +41,15 @@ type TxMode ssc m
       , MonadDBLimits m
       )
 
+submitAndSave
+    :: TxMode ssc m
+    => SendActions m -> [DHTNode] -> TxAux -> ExceptT TxError m TxAux
+submitAndSave sendActions na txw = do
+    let txId = hash (txw ^. _1)
+    lift $ submitTxRaw sendActions na txw
+    lift $ saveTx (txId, txw)
+    return txw
+
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx
     :: TxMode ssc m
@@ -53,10 +62,7 @@ submitTx sendActions ss na outputs = do
     utxo <- getOwnUtxo $ makePubKeyAddress $ safeToPublic ss
     runExceptT $ do
         txw <- ExceptT $ return $ createTx utxo ss outputs
-        let txId = hash (txw ^. _1)
-        lift $ submitTxRaw sendActions na txw
-        lift $ saveTx (txId, txw)
-        return txw
+        submitAndSave sendActions na txw
 
 -- | Construct redemption Tx using redemption secret key and a output address
 submitRedemptionTx
@@ -75,10 +81,7 @@ submitRedemptionTx sendActions rsk na output = do
                 one $
                 TxOutAux {toaOut = TxOut output redeemBalance, toaDistr = []}
         txw <- ExceptT $ return $ createRedemptionTx utxo rsk txouts
-        let txId = hash (txw ^. _1)
-        lift $ submitTxRaw sendActions na txw
-        lift $ saveTx (txId, txw)
-        return txw
+        submitAndSave sendActions na txw
 
 -- | Send the ready-to-use transaction
 submitTxRaw

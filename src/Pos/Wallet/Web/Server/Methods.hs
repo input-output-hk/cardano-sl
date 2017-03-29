@@ -137,7 +137,7 @@ walletApplication
     -> m Application
 walletApplication serv = do
     wsConn <- getWalletWebSockets
-    serv >>= return . upgradeApplicationWS wsConn . serve walletApi
+    upgradeApplicationWS wsConn . serve walletApi <$> serv
 
 walletServer
     :: forall ssc m.

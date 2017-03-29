@@ -34,9 +34,11 @@ spec =
       describe "Network" $ do
         networkBinaryTest @(R.InvMsg T.TxId T.TxMsgTag)
         networkBinaryTest @(R.ReqMsg T.TxId T.TxMsgTag)
+        networkBinaryTest @(R.MempoolMsg T.TxMsgTag)
         networkBinaryTest @(R.DataMsg T.TxMsgContents)
     describe "Message length limit" $ do
       msgLenLimitedTest @(R.InvMsg T.TxId T.TxMsgTag)
       msgLenLimitedTest @(R.ReqMsg T.TxId T.TxMsgTag)
+      msgLenLimitedTest @(R.MempoolMsg T.TxMsgTag)
       -- No check for (DataMsg T.TxMsgContents) since overal message size
       -- is forcely limited

@@ -100,7 +100,7 @@ instance ToCapture (Capture "walletSetId" CWalletSetAddress) where
         , _capDesc = "Address of wallet set."
         }
 
-instance ToCapture (Capture "mWalletSetId" (Maybe CWalletSetAddress)) where
+instance ToCapture (Capture "walletSetId" (Maybe CWalletSetAddress)) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "walletSetId"

@@ -3,7 +3,7 @@ module Explorer.Types.State where
 import Data.Maybe (Maybe)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
-import Pos.Explorer.Web.ClientTypes (CAddressSummary, CBlockEntry, CBlockSummary, CTxEntry, CTxSummary)
+import Pos.Explorer.Web.ClientTypes (CAddressSummary, CBlockEntry, CBlockSummary, CTxEntry, CTxSummary, CTxBrief)
 import Prelude (class Eq, class Ord)
 
 -- Add all State types here to generate lenses from it
@@ -19,7 +19,7 @@ type State =
     , initialTxsRequested :: Boolean
     , handleLatestTxsSocketResult :: Boolean
     , currentBlockSummary :: Maybe CBlockSummary
-    , currentBlockTxs :: CTxEntries
+    , currentBlockTxs :: CTxBriefs
     , currentTxSummary :: Maybe CTxSummary
     , latestTransactions :: CTxEntries
     , currentAddressSummary :: Maybe CAddressSummary
@@ -38,6 +38,7 @@ derive instance ordDashboardAPICode :: Ord DashboardAPICode
 
 type CBlockEntries = Array CBlockEntry
 type CTxEntries = Array CTxEntry
+type CTxBriefs = Array CTxBrief
 
 type Errors = Array String
 

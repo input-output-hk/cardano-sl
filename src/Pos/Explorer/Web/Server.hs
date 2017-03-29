@@ -53,14 +53,14 @@ import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
                                                  CBlockEntry (..), CBlockSummary (..),
                                                  CHash, CHashSearchResult (..),
-                                                 CSearchId (..), CTxEntry (..),
-                                                 CTxId (..), CTxSummary (..),
-                                                 TxInternal (..), convertTxOutputs,
-                                                 fromCAddress, fromCHash,
-                                                 fromCSearchIdAddress, fromCSearchIdHash,
-                                                 fromCSearchIdTx, fromCTxId, toBlockEntry,
-                                                 toBlockSummary, toPosixTime, toTxBrief,
-                                                 toTxEntry)
+                                                 CSearchId (..), CTxBrief (..),
+                                                 CTxEntry (..), CTxId (..),
+                                                 CTxSummary (..), TxInternal (..),
+                                                 convertTxOutputs, fromCAddress,
+                                                 fromCHash, fromCSearchIdAddress,
+                                                 fromCSearchIdHash, fromCSearchIdTx,
+                                                 fromCTxId, toBlockEntry, toBlockSummary,
+                                                 toPosixTime, toTxBrief, toTxEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 
@@ -174,16 +174,16 @@ getBlockSummary cHash = do
     mainBlock <- getMainBlock h
     toBlockSummary mainBlock
 
-getBlockTxs :: ExplorerMode m => CHash -> Word -> Word -> m [CTxEntry]
+getBlockTxs :: ExplorerMode m => CHash -> Word -> Word -> m [CTxBrief]
 getBlockTxs cHash (fromIntegral -> lim) (fromIntegral -> off) = do
     h <- unwrapOrThrow $ fromCHash cHash
     blk <- getMainBlock h
     txs <- topsortTxsOrFail withHash $ toList $ blk ^. blockTxs
     forM (take lim . drop off $ txs) $ \tx -> do
-        TxExtra {..} <- GS.getTxExtra (hash tx) >>=
-            maybeThrow (Internal "In-block transaction doesn't \
-                                 \have extra info in DB")
-        pure $ toTxEntry teReceivedTime tx
+        extra <- GS.getTxExtra (hash tx) >>=
+                 maybeThrow (Internal "In-block transaction doesn't \
+                                      \have extra info in DB")
+        pure $ makeTxBrief tx extra
 
 getAddressSummary :: ExplorerMode m => CAddress -> m CAddressSummary
 getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
@@ -195,8 +195,7 @@ getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
         transactions <- forM txIds $ \id -> do
             extra <- getTxExtraOrFail id
             tx <- getTxMain id extra
-            let txInt = TxInternal (teReceivedTime extra) tx
-            pure $ toTxBrief txInt extra
+            pure $ makeTxBrief tx extra
         return $ CAddressSummary cAddr 0 balance transactions
     _ -> throwM $
          Internal "Non-P2PKH addresses are not supported in Explorer yet"
@@ -249,6 +248,10 @@ getTxSummary cTxId = do
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
+
+makeTxBrief :: Tx -> TxExtra -> CTxBrief
+makeTxBrief tx extra = toTxBrief txInt extra
+  where txInt = TxInternal (teReceivedTime extra) tx
 
 unwrapOrThrow :: ExplorerMode m => Either Text a -> m a
 unwrapOrThrow = either (throwM . Internal) pure

@@ -11,7 +11,7 @@ import Data.HTTP.Method (Method(..))
 import Data.Lens ((^.))
 import Explorer.Api.Helper (decodeResult)
 import Explorer.Api.Types (EndpointError(..), Endpoint)
-import Explorer.Types.State (CBlockEntries, CTxEntries)
+import Explorer.Types.State (CBlockEntries, CTxEntries, CTxBriefs)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
@@ -52,7 +52,7 @@ fetchLatestBlocks = get "blocks/last"
 fetchBlockSummary :: forall eff. CHash -> Aff (ajax::AJAX | eff) CBlockSummary
 fetchBlockSummary (CHash hash) = get $ "blocks/summary/" <> hash
 
-fetchBlockTxs :: forall eff. CHash -> Aff (ajax::AJAX | eff) CTxEntries
+fetchBlockTxs :: forall eff. CHash -> Aff (ajax::AJAX | eff) CTxBriefs
 fetchBlockTxs (CHash hash) = get $ "blocks/txs/" <> hash
 
 -- txs

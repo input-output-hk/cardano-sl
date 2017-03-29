@@ -66,7 +66,9 @@ page of the documentation.
 Generating the wallet documentation
 -----------------------------------
 
-Build the project and run `stack exec --nix -- cardano-wallet-web-docs`. Look at the generated `./docs/wallet-web-api.md`.
+Build the project and run `stack exec --nix -- cardano-wallet-web-docs`. Look at the generated:
+- `./docs/wallet-web-api.md`
+- `./docs/wallet-table-web-api.md`
 
 Benchmarking
 ------------

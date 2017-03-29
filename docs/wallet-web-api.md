@@ -1,8 +1,17 @@
-## Documentation of cardano-wallet web API
+## Wallet Backend API
 
-This is very first version, don't expect it to be smart.
+Currently, the wallet's API provides a series of methods to work with wallets. The `servant` Haskell library that provides a modular approach to API-building was used. This library uses combinators to both build atomic HTTP actions and to glue these atomic methods together to form larger and more complete APIs.
 
-## GET /addresses
+If the event requests fail, there is a `WalletError` type, which is simply a wrapper over `Text` to show what happened.
+
+Please note that:
+
+* The code `Post '[JSON]` and `Get '[JSON]` indicates that the type of the contents in the message will be `[JSON]`. 
+* `ReqBody '[JSON] t` extracts the request body `[JSON]` as a value of type `t`.
+
+Currently, the wallet's API supports the following operations (see Comments below):
+
+## GET /api/addresses
 
 #### Description
 
@@ -23,6 +32,10 @@ Clients must supply the following data
 - No response body
 
 ## GET /api/addresses/:address/currencies/:currency
+
+#### Description
+
+Reply with `True` if the address is valid, and `False` otherwise. `[4]`
 
 #### Authentication
 
@@ -71,6 +84,10 @@ Clients must supply the following data
 
 ## GET /api/profile
 
+#### Description
+
+Fetch the client’s current user profile - the datatype CProfile. [5]
+
 #### Authentication
 
 
@@ -100,18 +117,16 @@ Clients must supply the following data
 ```javascript
 {
     "Right": {
-        "cpPwCreated": 1512259200,
-        "cpPhoneNumber": "",
-        "cpPicture": "",
-        "cpLocale": "",
-        "cpName": "",
-        "cpEmail": "",
-        "cpPwHash": ""
+        "cpLocale": ""
     }
 }
 ```
 
 ## POST /api/profile
+
+#### Description
+
+Update the user’s profile, returning the new one in the process.
 
 #### Authentication
 
@@ -130,13 +145,7 @@ Clients must supply the following data
 
 ```javascript
 {
-    "cpPwCreated": 1512259200,
-    "cpPhoneNumber": "",
-    "cpPicture": "",
-    "cpLocale": "",
-    "cpName": "",
-    "cpEmail": "",
-    "cpPwHash": ""
+    "cpLocale": ""
 }
 ```
 
@@ -162,18 +171,16 @@ Clients must supply the following data
 ```javascript
 {
     "Right": {
-        "cpPwCreated": 1512259200,
-        "cpPhoneNumber": "",
-        "cpPicture": "",
-        "cpLocale": "",
-        "cpName": "",
-        "cpEmail": "",
-        "cpPwHash": ""
+        "cpLocale": ""
     }
 }
 ```
 
 ## POST /api/redemptions/ada
+
+#### Description
+
+Redeem ADA from a token `[6]`, create and return a wallet with the redeemded ADA.
 
 #### Authentication
 
@@ -219,20 +226,82 @@ Clients must supply the following data
 ```javascript
 {
     "Right": {
-        "cwAmount": {
-            "getCoin": 0
+        "ctType": {
+            "tag": "CTOut",
+            "contents": {
+                "ctmDescription": "Transaction from A to B",
+                "ctmDate": 1512259200,
+                "ctmTitle": "Transaction",
+                "ctmCurrency": "ADA"
+            }
         },
-        "cwAddress": "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ",
-        "cwMeta": {
-            "cwType": "CWTPersonal",
-            "cwCurrency": "ADA",
-            "cwName": "Personal Wallet"
+        "ctId": "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ",
+        "ctConfirmations": 10,
+        "ctAmount": {
+            "getCoin": 0
         }
     }
 }
 ```
 
+## POST /api/reporting/initialized
+
+#### Description
+
+Initialize reporting.
+
+#### Authentication
+
+
+
+Clients must supply the following data
+
+
+#### Request:
+
+- Supported content types are:
+
+    - `application/json`
+
+- Example: `application/json`
+
+```javascript
+{
+    "cTotalTime": 123,
+    "cPreInit": 456
+}
+```
+
+#### Response:
+
+- Status code 200
+- Headers: []
+
+- Supported content types are:
+
+    - `application/json`
+
+- 
+
+```javascript
+{
+    "Left": "Sample error"
+}
+```
+
+- 
+
+```javascript
+{
+    "Right": []
+}
+```
+
 ## GET /api/settings/slots/duration
+
+#### Description
+
+Fetch the value of current slot duration.
 
 #### Authentication
 
@@ -267,6 +336,10 @@ Clients must supply the following data
 ```
 
 ## GET /api/settings/sync/progress
+
+#### Description
+
+Synchronization progress.
 
 #### Authentication
 
@@ -308,6 +381,10 @@ Clients must supply the following data
 
 ## GET /api/settings/version
 
+#### Description
+
+Fetch the system’s version.
+
 #### Authentication
 
 
@@ -347,6 +424,10 @@ Clients must supply the following data
 
 ## POST /api/test/reset
 
+#### Description
+
+The key reset when running `dev` mode.
+
 #### Authentication
 
 
@@ -380,6 +461,10 @@ Clients must supply the following data
 ```
 
 ## GET /api/txs/histories/:address
+
+#### Description
+
+Fetch a tuple with the list of transactions where the address took part in the index interval [skip + 1, limit], and its length. `[2]`
 
 #### Authentication
 
@@ -564,6 +649,10 @@ Clients must supply the following data
 ```
 
 ## GET /api/txs/histories/:address/:search
+
+#### Description
+
+Fetch a tuple with the list of transactions whose title has search as an infix, in the index interval [skip + 1, limit], and its length. `[2]`
 
 #### Authentication
 
@@ -750,6 +839,10 @@ Clients must supply the following data
 
 ## POST /api/txs/payments/:address/:transaction
 
+#### Description
+
+Add the transaction which has the given ID to the wallet’s transaction history, if such a transaction exists.
+
 #### Authentication
 
 
@@ -806,6 +899,10 @@ Clients must supply the following data
 
 ## POST /api/txs/payments/:from/:to/:amount
 
+#### Description
+
+Send coins in the default currency (presently, `ADA`) from an origin address to a destination address, without any transaction message or description. `[1]`
+
 #### Authentication
 
 
@@ -860,6 +957,10 @@ Clients must supply the following data
 ```
 
 ## POST /api/txs/payments/:from/:to/:amount/:currency/:title/:description
+
+#### Description
+
+Send coins with currency (presently, `ADA`) from an origin address to a destination address, with title and description.
 
 #### Authentication
 
@@ -919,6 +1020,10 @@ Clients must supply the following data
 
 ## GET /api/update
 
+#### Description
+
+Fetch information related to the next update.
+
 #### Authentication
 
 
@@ -975,6 +1080,10 @@ Clients must supply the following data
 
 ## POST /api/update
 
+#### Description
+
+Apply the system’s most recent update.
+
 #### Authentication
 
 
@@ -1009,6 +1118,10 @@ Clients must supply the following data
 
 ## GET /api/wallets
 
+#### Description
+
+Fetch all wallets to which the system has access to.
+
 #### Authentication
 
 
@@ -1052,9 +1165,11 @@ Clients must supply the following data
             },
             "cwAddress": "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ",
             "cwMeta": {
+                "cwUnit": 0,
                 "cwType": "CWTPersonal",
                 "cwCurrency": "ADA",
-                "cwName": "Personal Wallet"
+                "cwName": "Personal Wallet",
+                "cwAssurance": "CWANormal"
             }
         }
     ]
@@ -1072,9 +1187,11 @@ Clients must supply the following data
             },
             "cwAddress": "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ",
             "cwMeta": {
+                "cwUnit": 0,
                 "cwType": "CWTPersonal",
                 "cwCurrency": "ADA",
-                "cwName": "Personal Wallet"
+                "cwName": "Personal Wallet",
+                "cwAssurance": "CWANormal"
             }
         },
         {
@@ -1083,9 +1200,11 @@ Clients must supply the following data
             },
             "cwAddress": "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ",
             "cwMeta": {
+                "cwUnit": 0,
                 "cwType": "CWTPersonal",
                 "cwCurrency": "ADA",
-                "cwName": "Personal Wallet"
+                "cwName": "Personal Wallet",
+                "cwAssurance": "CWANormal"
             }
         }
     ]
@@ -1103,9 +1222,11 @@ Clients must supply the following data
             },
             "cwAddress": "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ",
             "cwMeta": {
+                "cwUnit": 0,
                 "cwType": "CWTPersonal",
                 "cwCurrency": "ADA",
-                "cwName": "Personal Wallet"
+                "cwName": "Personal Wallet",
+                "cwAssurance": "CWANormal"
             }
         },
         {
@@ -1114,9 +1235,11 @@ Clients must supply the following data
             },
             "cwAddress": "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ",
             "cwMeta": {
+                "cwUnit": 0,
                 "cwType": "CWTPersonal",
                 "cwCurrency": "ADA",
-                "cwName": "Personal Wallet"
+                "cwName": "Personal Wallet",
+                "cwAssurance": "CWANormal"
             }
         },
         {
@@ -1125,9 +1248,11 @@ Clients must supply the following data
             },
             "cwAddress": "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ",
             "cwMeta": {
+                "cwUnit": 0,
                 "cwType": "CWTPersonal",
                 "cwCurrency": "ADA",
-                "cwName": "Personal Wallet"
+                "cwName": "Personal Wallet",
+                "cwAssurance": "CWANormal"
             }
         }
     ]
@@ -1135,6 +1260,10 @@ Clients must supply the following data
 ```
 
 ## POST /api/wallets
+
+#### Description
+
+Create a new wallet.
 
 #### Authentication
 
@@ -1170,9 +1299,11 @@ Clients must supply the following data
         ]
     },
     "cwInitMeta": {
+        "cwUnit": 0,
         "cwType": "CWTPersonal",
         "cwCurrency": "ADA",
-        "cwName": "Personal Wallet"
+        "cwName": "Personal Wallet",
+        "cwAssurance": "CWANormal"
     }
 }
 ```
@@ -1204,15 +1335,21 @@ Clients must supply the following data
         },
         "cwAddress": "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ",
         "cwMeta": {
+            "cwUnit": 0,
             "cwType": "CWTPersonal",
             "cwCurrency": "ADA",
-            "cwName": "Personal Wallet"
+            "cwName": "Personal Wallet",
+            "cwAssurance": "CWANormal"
         }
     }
 }
 ```
 
 ## DELETE /api/wallets/:walletId
+
+#### Description
+
+Delete the wallet associated to an address.
 
 #### Authentication
 
@@ -1252,6 +1389,10 @@ Clients must supply the following data
 
 ## GET /api/wallets/:walletId
 
+#### Description
+
+Fetch the wallet related to a given address address, if it exists.
+
 #### Authentication
 
 
@@ -1290,15 +1431,21 @@ Clients must supply the following data
         },
         "cwAddress": "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ",
         "cwMeta": {
+            "cwUnit": 0,
             "cwType": "CWTPersonal",
             "cwCurrency": "ADA",
-            "cwName": "Personal Wallet"
+            "cwName": "Personal Wallet",
+            "cwAssurance": "CWANormal"
         }
     }
 }
 ```
 
 ## PUT /api/wallets/:walletId
+
+#### Description
+
+Given an address and wallet meta-information, update the address’ wallet.
 
 #### Authentication
 
@@ -1321,9 +1468,11 @@ Clients must supply the following data
 
 ```javascript
 {
+    "cwUnit": 0,
     "cwType": "CWTPersonal",
     "cwCurrency": "ADA",
-    "cwName": "Personal Wallet"
+    "cwName": "Personal Wallet",
+    "cwAssurance": "CWANormal"
 }
 ```
 
@@ -1354,15 +1503,21 @@ Clients must supply the following data
         },
         "cwAddress": "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ",
         "cwMeta": {
+            "cwUnit": 0,
             "cwType": "CWTPersonal",
             "cwCurrency": "ADA",
-            "cwName": "Personal Wallet"
+            "cwName": "Personal Wallet",
+            "cwAssurance": "CWANormal"
         }
     }
 }
 ```
 
 ## POST /api/wallets/keys
+
+#### Description
+
+Import wallet from a key.
 
 #### Authentication
 
@@ -1410,15 +1565,21 @@ Clients must supply the following data
         },
         "cwAddress": "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ",
         "cwMeta": {
+            "cwUnit": 0,
             "cwType": "CWTPersonal",
             "cwCurrency": "ADA",
-            "cwName": "Personal Wallet"
+            "cwName": "Personal Wallet",
+            "cwAssurance": "CWANormal"
         }
     }
 }
 ```
 
 ## POST /api/wallets/restore
+
+#### Description
+
+Recover the wallet associated to the given backup information `[3]`, if it exists.
 
 #### Authentication
 
@@ -1454,9 +1615,11 @@ Clients must supply the following data
         ]
     },
     "cwInitMeta": {
+        "cwUnit": 0,
         "cwType": "CWTPersonal",
         "cwCurrency": "ADA",
-        "cwName": "Personal Wallet"
+        "cwName": "Personal Wallet",
+        "cwAssurance": "CWANormal"
     }
 }
 ```
@@ -1488,31 +1651,13 @@ Clients must supply the following data
         },
         "cwAddress": "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ",
         "cwMeta": {
+            "cwUnit": 0,
             "cwType": "CWTPersonal",
             "cwCurrency": "ADA",
-            "cwName": "Personal Wallet"
+            "cwName": "Personal Wallet",
+            "cwAssurance": "CWANormal"
         }
     }
 }
 ```
-
-## POST /send
-
-#### Description
-
-Send coins from one address from wallet to arbitrary address
-
-#### Authentication
-
-
-
-Clients must supply the following data
-
-
-#### Response:
-
-- Status code 200
-- Headers: []
-
-- No response body
 

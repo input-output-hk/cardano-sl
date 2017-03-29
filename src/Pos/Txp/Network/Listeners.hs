@@ -52,15 +52,19 @@ instance ( WorkMode ssc m
     contentsToTag _ = pure TxMsgTag
     contentsToKey (TxMsgContents tx _ _) = pure $ hash tx
 
-    verifyInvTag _ = pure VerSuccess
-    verifyReqTag _ = pure VerSuccess
+    verifyInvTag       _ = pure VerSuccess
+    verifyReqTag       _ = pure VerSuccess
+    verifyMempoolTag   _ = pure VerSuccess
     verifyDataContents _ = pure VerSuccess
 
     handleInv _ txId = not . HM.member txId  . _mpLocalTxs <$> getMemPool
 
-    handleReq _ txId = fmap toContents . HM.lookup txId . _mpLocalTxs <$> getMemPool
+    handleReq _ txId =
+        fmap toContents . HM.lookup txId . _mpLocalTxs <$> getMemPool
       where
         toContents (tx, tw, td) = TxMsgContents tx tw td
+
+    handleMempool _ = HM.keys . _mpLocalTxs <$> getMemPool
 
     handleData (TxMsgContents tx tw td) = handleTxDo (hash tx, (tx, tw, td))
 

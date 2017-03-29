@@ -12,7 +12,8 @@ import           Universum
 
 import           Pos.Communication.Limits.Types (MessageLimited)
 import           Pos.Communication.Relay.Types  (RelayContext)
-import           Pos.Communication.Types.Relay  (DataMsg, InvOrData, ReqMsg (..))
+import           Pos.Communication.Types.Relay  (DataMsg, InvOrData, MempoolMsg,
+                                                 ReqMsg (..))
 
 -- | Typeclass for general Inv/Req/Dat framework. It describes monads,
 -- that store data described by tag, where "key" stands for node
@@ -24,6 +25,7 @@ class ( Buildable tag
       , Typeable contents
       , Typeable key
       , Message (ReqMsg key tag)
+      , Message (MempoolMsg tag)
       , Message (InvOrData tag key contents)
       , MessageLimited (DataMsg contents)
       ) => Relay m tag key contents
@@ -38,6 +40,7 @@ class ( Buildable tag
 
     verifyInvTag :: tag -> m VerificationRes
     verifyReqTag :: tag -> m VerificationRes
+    verifyMempoolTag :: tag -> m VerificationRes
     verifyDataContents :: contents -> m VerificationRes
 
     -- | Handle inv msg and return whether it's useful or not
@@ -45,6 +48,9 @@ class ( Buildable tag
 
     -- | Handle req msg and return (Just data) in case requested data can be provided
     handleReq :: tag -> key -> m (Maybe contents)
+
+    -- | Handle mempool msg and return all keys we want to send
+    handleMempool :: tag -> m [key]
 
     -- | Handle data msg and return True if message is to be propagated
     handleData :: contents -> m Bool

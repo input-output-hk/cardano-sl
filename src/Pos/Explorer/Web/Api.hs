@@ -69,6 +69,7 @@ type ExplorerApi =
     :<|>
       "api"
       :> "search"
+      :> "epoch"
       :> Capture "epoch" EpochIndex
       :> QueryParam "slot" Word16
       :> Get '[JSON] (Either ExplorerError [CBlockEntry])

@@ -90,6 +90,7 @@ translation =
         { txTime: "Eingangszeit"
         , txIncluded: "Bestand im Slot"
         , txRelayed: "Weitergabe per IP"
+        , txEmpty: "Keine Transaktionen"
         }
     , block:
         { blFees: "Gebühren"

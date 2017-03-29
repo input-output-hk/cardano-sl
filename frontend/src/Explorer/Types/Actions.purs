@@ -47,7 +47,7 @@ data Action
     -- address detail
     | AddressPaginateTxs Int       -- current pagination of transactions
     -- block detail
-    | BlockPaginateTransactions Int       -- current pagination of transactions
+    | BlockPaginateTxs Int       -- current pagination of transactions
     -- misc
     | NoOp
 

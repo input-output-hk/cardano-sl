@@ -30,18 +30,27 @@ import           Pos.Crypto                     (WithHash (..), hash, withHash)
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.GState                  as GS
 import qualified Pos.DB.GState.Balances         as GS (getFtsStake)
-import qualified Pos.DB.GState.Explorer         as GS (getAddrHistory, getTxExtra)
+import qualified Pos.DB.GState.Explorer         as GS (getAddrHistory,
+                                                       getTxExtra)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
+import           Pos.Ssc.Class                  (SscHelpersClass)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (Tx (..), TxAux, TxId, TxOutAux (..),
-                                                 getLocalTxs, getMemPool, mpAddrHistories,
-                                                 mpLocalTxs, mpLocalTxsExtra, topsortTxs,
-                                                 txOutValue, _txOutputs)
-import           Pos.Types                      (Address (..), HeaderHash, MainBlock,
-                                                 Timestamp, blockTxs, difficultyL,
-                                                 gbHeader, gbhConsensus, mcdSlot, mkCoin,
-                                                 prevBlockL, sumCoins,
-                                                 unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Txp                        (Tx (..), TxAux, TxId,
+                                                 TxOutAux (..), getLocalTxs,
+                                                 getMemPool, mpAddrHistories,
+                                                 mpLocalTxs, mpLocalTxsExtra,
+                                                 topsortTxs, txOutValue,
+                                                 _txOutputs)
+import           Pos.Types                      (Address (..), Block,
+                                                 EpochIndex, HeaderHash,
+                                                 LocalSlotIndex (..), MainBlock,
+                                                 Timestamp, blockSlot, blockTxs,
+                                                 difficultyL, gbHeader,
+                                                 gbhConsensus, genesisHash,
+                                                 mcdSlot, mkCoin, prevBlockL,
+                                                 siEpoch, siSlot, sumCoins,
+                                                 unsafeIntegerToCoin,
+                                                 unsafeSubCoin)
 import           Pos.Types.Explorer             (AddrHistory, TxExtra (..))
 import           Pos.Util                       (NewestFirst (..), maybeThrow)
 import qualified Pos.Util.Modifier              as MM
@@ -50,18 +59,25 @@ import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
-                                                 CBlockEntry (..), CBlockSummary (..),
-                                                 CHash, CHashSearchResult (..),
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
+                                                 CAddressSummary (..),
+                                                 CBlockEntry (..),
+                                                 CBlockSummary (..), CHash,
+                                                 CHashSearchResult (..),
                                                  CSearchId (..), CTxEntry (..),
                                                  CTxId (..), CTxSummary (..),
-                                                 TxInternal (..), convertTxOutputs,
-                                                 fromCAddress, fromCHash,
-                                                 fromCSearchIdAddress, fromCSearchIdHash,
-                                                 fromCSearchIdTx, fromCTxId, toBlockEntry,
-                                                 toBlockSummary, toPosixTime, toTxBrief,
+                                                 TxInternal (..),
+                                                 convertTxOutputs, fromCAddress,
+                                                 fromCHash,
+                                                 fromCSearchIdAddress,
+                                                 fromCSearchIdHash,
+                                                 fromCSearchIdTx, fromCTxId,
+                                                 toBlockEntry, toBlockSummary,
+                                                 toPosixTime, toTxBrief,
                                                  toTxEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
+
+
 
 
 
@@ -96,14 +112,17 @@ explorerHandlers _sendActions =
       apiAddressSummary
     :<|>
       apiSearch
+    :<|>
+      apiEpochSlotSearch
   where
-    apiBlocksLast     = getLastBlocksDefault
-    apiBlocksSummary  = catchExplorerError . getBlockSummary
-    apiBlocksTxs      = getBlockTxsDefault
-    apiTxsLast        = getLastTxsDefault
-    apiTxsSummary     = catchExplorerError . getTxSummary
-    apiAddressSummary = catchExplorerError . getAddressSummary
-    apiSearch         = catchExplorerError . searchHash
+    apiBlocksLast       = getLastBlocksDefault
+    apiBlocksSummary    = catchExplorerError . getBlockSummary
+    apiBlocksTxs        = getBlockTxsDefault
+    apiTxsLast          = getLastTxsDefault
+    apiTxsSummary       = catchExplorerError . getTxSummary
+    apiAddressSummary   = catchExplorerError . getAddressSummary
+    apiSearch           = catchExplorerError . searchHash
+    apiEpochSlotSearch  = tryEpochSlotSearch
 
     catchExplorerError = try
 
@@ -115,6 +134,9 @@ explorerHandlers _sendActions =
 
     getLastTxsDefault         limit skip =
       catchExplorerError $ getLastTxs (defaultLimit limit) (defaultSkip skip)
+
+    tryEpochSlotSearch   epoch maybeSlot =
+      catchExplorerError $ epochSlotSearch epoch maybeSlot
 
     defaultLimit limit = (fromIntegral $ fromMaybe 100 limit)
     defaultSkip  skip  = (fromIntegral $ fromMaybe 0 skip)
@@ -135,9 +157,41 @@ searchHash shash = getResult $ do
         Left found -> return found
         Right _    -> throwM $ Internal "Search failed. No transactions, blocks or adresses found."
 
-    findTx      =  getTxSummary $ fromCSearchIdTx shash
-    findBlock   =  getBlockSummary $ fromCSearchIdHash shash
-    findAddress =  getAddressSummary $ fromCSearchIdAddress shash
+    findTx        =  getTxSummary $ fromCSearchIdTx shash
+    findBlock     =  getBlockSummary $ fromCSearchIdHash shash
+    findAddress   =  getAddressSummary $ fromCSearchIdAddress shash
+
+-- | Search the blocks by epoch and slot. Slot is optional.
+epochSlotSearch :: (ExplorerMode m) =>
+    EpochIndex ->
+    Maybe Word16 ->
+    m [CBlockEntry]
+epochSlotSearch epochIndex slotIndex = findBlocksByEpoch >>= transformToCBlockEntry
+  where
+    findBlocksByEpoch = getBlocksByEpoch @SscGodTossing epochIndex localSlotIndex
+    localSlotIndex = fmap LocalSlotIndex slotIndex
+    transformToCBlockEntry blocks = sequence $ toBlockEntry <$> blocks
+
+-- | Get all blocks by epoch and slot. The slot is optional, if it exists,
+-- it just adds another predicate to match it.
+getBlocksByEpoch :: (SscHelpersClass ssc, ExplorerMode m) =>
+    EpochIndex ->
+    Maybe LocalSlotIndex ->
+    m [MainBlock ssc]
+getBlocksByEpoch epochIndex Nothing = do
+    tipHash <- GS.getTip
+    filterMainBlocks tipHash findBlocksByEpochPred
+      where
+        findBlocksByEpochPred mb =
+            (siEpoch $ mb ^. blockSlot) == epochIndex
+
+getBlocksByEpoch epochIndex (Just slotIndex) = do
+    tipHash <- GS.getTip
+    filterMainBlocks tipHash findBlocksByEpochPred
+      where
+        findBlocksByEpochPred mb =
+            (siEpoch $ mb ^. blockSlot) == epochIndex &&
+            (siSlot  $ mb ^. blockSlot) == slotIndex
 
 getLastBlocks :: ExplorerMode m => Word -> Word -> m [CBlockEntry]
 getLastBlocks lim off = do
@@ -249,6 +303,45 @@ getTxSummary cTxId = do
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
+
+-- | Find all `MainBlock` by applying the *predicate*, starting from *headerHash*
+filterMainBlocks :: (SscHelpersClass ssc, ExplorerMode m) =>
+    HeaderHash ->
+    (MainBlock ssc -> Bool) ->
+    m [MainBlock ssc]
+filterMainBlocks headerHash predicate = rights <$> generalBlockSearch
+  where
+    generalBlockSearch = filterAllBlocks headerHash specializedPred (pure [])
+    specializedPred block = case block of
+        Left  _   -> False
+        Right mb  -> predicate mb
+
+-- | Find all blocks matching the sent predicate. This is a generic function
+-- that can be called with either `MainBlock` or `GenesisBlock` in mind.
+filterAllBlocks :: (SscHelpersClass ssc, ExplorerMode m) =>
+    HeaderHash ->
+    (Block ssc -> Bool) ->
+    m [Block ssc] ->
+    m [Block ssc]
+filterAllBlocks headerHash predicate acc
+    -- When we reach the genesis block, return the accumulator.
+    | headerHash == genesisHash = acc
+    -- Otherwise iterate back from the top block (called tip) and add all
+    -- blocks (hash) to accumulator satisfying the predicate.
+    | otherwise = do
+        -- Get the block with the sent hash, throw exception if/when the block
+        -- search fails.
+        block <- DB.getBlock headerHash >>=
+            maybeThrow (Internal "Block with hash cannot be found!")
+        -- If there is a block then iterate backwards with the predicate
+        let prevBlock = block ^. prevBlockL
+
+        case predicate block of
+            -- When the predicate is true, add the block to the list
+            True  -> filterAllBlocks prevBlock predicate ((:) <$> pure block <*> acc)
+            -- When the predicate is false, don't add the block to the list
+            False -> filterAllBlocks prevBlock predicate acc
+
 
 unwrapOrThrow :: ExplorerMode m => Either Text a -> m a
 unwrapOrThrow = either (throwM . Internal) pure

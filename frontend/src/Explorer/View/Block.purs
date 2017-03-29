@@ -1,16 +1,17 @@
 module Explorer.View.Block (blockView) where
 
 import Prelude
+import Data.Array ((!!), length)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cBlock, common, cOf, cNotAvailable, block, blFees, blRoot, blNextBlock, blPrevBlock, blEstVolume, cHash, cSummary, cTotalOutput, cHashes, cSlot, cTransactions) as I18nL
-import Explorer.Lenses.State (currentBlockSummary, lang)
+import Explorer.Lenses.State (blockDetail, blockTxPagination, currentBlockSummary, currentBlockTxs, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
-import Explorer.View.Common (currencyCSSClass, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txPaginationView, txHeaderView)
+import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txHeaderView, txPaginationView)
 import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
@@ -22,6 +23,7 @@ import Pux.Router (link) as P
 
 blockView :: State -> P.Html Action
 blockView state =
+    let lang' = state ^. lang in
     P.div
         [ P.className "explorer-block" ]
         [ P.div
@@ -42,22 +44,30 @@ blockView state =
                 [ P.h3
                     [ P.className "headline"]
                     [ P.text $ translate (I18nL.common <<< I18nL.cSummary) lang' ]
-                -- TODO (jk) use empty CTxEntry if we'll have real data
-                , txHeaderView lang' $ mkTxHeaderViewProps mkEmptyViewProps
-                , txBodyView $ mkTxBodyViewProps mkEmptyViewProps
-                , txPaginationView paginationViewProps
+                , case state ^. currentBlockTxs of
+                      Nothing -> emptyTxHeaderView state
+                      Just blockTxs ->
+                          let txPagination = state ^. (viewStates <<< blockDetail <<< blockTxPagination)
+                              currentTxBrief = blockTxs !! (txPagination - 1)
+                          in
+                          P.div
+                              []
+                              [ txHeaderView lang' $ case currentTxBrief of
+                                                          Nothing -> mkTxHeaderViewProps mkEmptyViewProps
+                                                          Just txBrief -> mkTxHeaderViewProps txBrief
+                              , txBodyView $ case currentTxBrief of
+                                                  Nothing -> mkTxBodyViewProps mkEmptyViewProps
+                                                  Just txBrief -> mkTxBodyViewProps txBrief
+                              , txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                                                  , currentPage: txPagination
+                                                  , maxPage: length blockTxs
+                                                  , changePageAction: BlockPaginateTxs
+                                                  , onFocusAction: SelectInputText <<< targetToHTMLInputElement
+                                                  }
+                              ]
                 ]
             ]
         ]
-        where
-            lang' = state ^. lang
-            paginationViewProps =
-                { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                , currentPage: 1
-                , maxPage: 1
-                , changePageAction: BlockPaginateTransactions
-                , onFocusAction: SelectInputText <<< targetToHTMLInputElement
-                }
 
 --  summary
 
@@ -107,7 +117,9 @@ summaryRow item =
 
 blockSummaryView :: Maybe CBlockSummary -> Language -> P.Html Action
 blockSummaryView Nothing _ =
-    P.div [] [P.text "" ]
+    P.div
+        [ P.className "blocks-wrapper" ]
+        [P.text "" ]
 blockSummaryView (Just block) lang =
     P.div
       [ P.className "blocks-wrapper" ]

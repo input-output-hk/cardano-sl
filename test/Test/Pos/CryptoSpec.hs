@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 -- | Pos.Crypto specification
 
 module Test.Pos.CryptoSpec
@@ -6,6 +8,7 @@ module Test.Pos.CryptoSpec
 
 import qualified Data.ByteString       as BS
 import           Formatting            (sformat)
+import           Prelude               ((!!))
 import           Test.Hspec            (Expectation, Spec, describe, it, shouldBe,
                                         specify)
 import           Test.Hspec.QuickCheck (prop)
@@ -14,6 +17,7 @@ import           Universum
 
 import           Pos.Binary            (AsBinary, Bi)
 import qualified Pos.Crypto            as Crypto
+import           Pos.Crypto.Arbitrary  (SharedSecrets (..))
 import           Pos.Ssc.GodTossing    ()
 
 import           Test.Pos.Util         ((.=.), binaryEncodeDecode, binaryTest,
@@ -73,7 +77,14 @@ spec = describe "Crypto" $ do
                 binaryTest @Crypto.RedeemSecretKey
                 binaryTest @Crypto.RedeemPublicKey
                 binaryTest @(Crypto.RedeemSignature Bool)
+                binaryTest @Crypto.Threshold
                 binaryTest @Crypto.VssPublicKey
+                binaryTest @Crypto.VssKeyPair
+                binaryTest @Crypto.Secret
+                binaryTest @Crypto.Share
+                binaryTest @Crypto.EncShare
+                binaryTest @Crypto.SecretProof
+                binaryTest @Crypto.SecretSharingExtra
                 binaryTest @(AsBinary Crypto.VssPublicKey)
                 binaryTest @(AsBinary Crypto.Secret)
                 binaryTest @(AsBinary Crypto.Share)
@@ -92,6 +103,7 @@ spec = describe "Crypto" $ do
                 safeCopyTest @Crypto.RedeemSecretKey
                 safeCopyTest @Crypto.RedeemPublicKey
                 safeCopyTest @(Crypto.RedeemSignature Bool)
+                safeCopyTest @Crypto.Threshold
                 safeCopyTest @(AsBinary Crypto.VssPublicKey)
                 safeCopyTest @(AsBinary Crypto.Secret)
                 safeCopyTest @(AsBinary Crypto.Share)
@@ -177,6 +189,43 @@ spec = describe "Crypto" $ do
                 "turning a secret key into an safe signer and this safe signer into a\
                  \ public key is the same as turning the secret key into a public key"
                  skToSafeSigner
+
+        describe "Secret Sharing" $ do
+            prop
+                "verifying an encrypted share with a valid VSS public key and valid extra\
+                \ secret information works"
+                verifyEncShareGoodData
+            prop
+                "verifying an encrypted share with a valid VSS public key and invalid\
+                \ extra secret information fails"
+                verifyEncShareBadSecShare
+            prop
+                "verifying an encrypted share with a mismatching VSS public key fails"
+                verifyEncShareMismatchShareKey
+            prop
+                "successfully verifies a properly decrypted share"
+                verifyShareGoodData
+            prop
+                "verifying a correctly decrypted share with the wrong public key fails"
+                verifyShareBadShare
+            prop
+                "verifying a correctly decrypted share with a mismatching encrypted\
+                \ share fails"
+                verifyShareMismatchingShares
+            prop
+                "successfully verifies a secret proof with its secret"
+                verifyProofGoodData
+            prop
+                "unsuccessfully verifies a valid secret with a valid proof when given\
+                \ invalid secret sharing extra data"
+                verifyProofBadSecShare
+            prop
+                "unsuccessfully verifies an invalid secret with an unrelated secret\
+                \ proof"
+                verifyProofBadSecret
+            prop
+                "unsuccessfully verifies a secret with an invalid proof"
+                verifyProofBadSecProof
 
 hashInequality :: (Eq a, Bi a) => a -> a -> Property
 hashInequality a b = a /= b ==> Crypto.hash a /= Crypto.hash b
@@ -362,3 +411,122 @@ encToPublicToEnc =
 skToSafeSigner :: Crypto.SecretKey -> Property
 skToSafeSigner =
     Crypto.safeToPublic . Crypto.fakeSigner .=. Crypto.toPublic
+
+verifyEncShareGoodData :: SharedSecrets -> Bool
+verifyEncShareGoodData SharedSecrets
+    { getSecretSharing = secShare
+    , getShares = shareList
+    , getVSSPKs = vssPKList
+    , getPosition = pos
+    } =
+    Crypto.verifyEncShare secShare (vssPKList !! pos) (fst $ shareList !! pos)
+
+verifyEncShareBadSecShare :: SharedSecrets -> Crypto.SecretSharingExtra -> Property
+verifyEncShareBadSecShare SharedSecrets
+    { getSecretSharing = secShare1
+    , getShares = shareList
+    , getVSSPKs = vssPKList
+    , getPosition = pos
+    }
+    secShare2 =
+    (secShare1 /= secShare2) ==>
+    (not $ Crypto.verifyEncShare secShare2 (vssPKList !! pos) (fst $ shareList !! pos))
+
+verifyEncShareMismatchShareKey :: SharedSecrets -> Int -> Property
+verifyEncShareMismatchShareKey SharedSecrets
+    { getSecretSharing = secShare
+    , getShares = sharesList
+    , getVSSPKs = vssPKList
+    , getPosition = pos1
+    }
+    p2 =
+    (pos1 /= pos2) ==>
+    (not (Crypto.verifyEncShare secShare (vssPKList !! pos1) (fst $ sharesList !! pos2)) &&
+     not (Crypto.verifyEncShare secShare (vssPKList !! pos2) (fst $ sharesList !! pos1)))
+  where
+    len = length vssPKList
+    pos2 = abs $ p2 `mod` len
+
+verifyShareGoodData :: SharedSecrets -> Bool
+verifyShareGoodData SharedSecrets
+    { getShares = sharesList
+    , getVSSPKs = vssPKList
+    , getPosition = pos
+    } =
+    Crypto.verifyShare encShare vssPK decShare
+  where
+    (encShare, decShare) = sharesList !! pos
+    vssPK = vssPKList !! pos
+
+verifyShareBadShare :: SharedSecrets -> Int -> Property
+verifyShareBadShare SharedSecrets
+    { getShares = sharesList
+    , getVSSPKs = vssPKList
+    , getPosition = pos1
+    }
+    p2 =
+    (s1 /= s2 || vssPK1 /= vssPK2) ==>
+    (not (Crypto.verifyShare encShare1 vssPK1 decShare1) &&
+     not (Crypto.verifyShare encShare2 vssPK2 decShare2))
+  where
+    len = length vssPKList
+    pos2 = abs $ p2 `mod` len
+    s1@(encShare1, decShare1) = sharesList !! pos1
+    s2@(encShare2, decShare2) = sharesList !! pos2
+    vssPK1 = vssPKList !! pos2
+    vssPK2 = vssPKList !! pos1
+
+verifyShareMismatchingShares :: SharedSecrets -> Int -> Property
+verifyShareMismatchingShares SharedSecrets
+    { getShares = sharesList
+    , getVSSPKs = vssPKList
+    , getPosition = pos1
+    }
+    p2 =
+    (vssPK1 /= vssPK2) ==>
+    not (Crypto.verifyShare encShare1 vssPK1 decShare2)
+  where
+    len = length vssPKList
+    pos2 = abs $ p2 `mod` len
+    (encShare1, _) = sharesList !! pos1
+    (_, decShare2) = sharesList !! pos2
+    vssPK1 = vssPKList !! pos2
+    vssPK2 = vssPKList !! pos1
+
+verifyProofGoodData :: SharedSecrets -> Bool
+verifyProofGoodData SharedSecrets
+    { getSecretSharing = secShare
+    , getSecret        = secret
+    , getSecretProof   = secretProof
+    } =
+    Crypto.verifySecretProof secShare secret secretProof
+
+verifyProofBadSecShare :: SharedSecrets -> Crypto.SecretSharingExtra -> Property
+verifyProofBadSecShare SharedSecrets
+    { getSecretSharing = secShare1
+    , getSecret        = secret
+    , getSecretProof   = secretProof
+    }
+    secShare2 =
+    (secShare1 /= secShare2) ==>
+    not (Crypto.verifySecretProof secShare2 secret secretProof)
+
+verifyProofBadSecret :: SharedSecrets -> Crypto.Secret -> Property
+verifyProofBadSecret SharedSecrets
+    { getSecretSharing = secShare
+    , getSecret        = secret1
+    , getSecretProof   = secretProof
+    }
+    secret2 =
+    (secret1 /= secret2) ==>
+    not (Crypto.verifySecretProof secShare secret2 secretProof)
+
+verifyProofBadSecProof :: SharedSecrets -> Crypto.SecretProof -> Property
+verifyProofBadSecProof SharedSecrets
+    { getSecretSharing = secShare
+    , getSecret        = secret
+    , getSecretProof   = secretProof1
+    }
+    secretProof2 =
+    (secretProof1 /= secretProof2) ==>
+    not (Crypto.verifySecretProof secShare secret secretProof2)

@@ -70,8 +70,8 @@ import           Pos.Core                   (BlockVersion, CoinPortion, FlatSlot
                                              IsGenesisHeader, IsMainHeader, ScriptVersion,
                                              SoftwareVersion, addressHash)
 import           Pos.Crypto                 (Hash, PublicKey, SecretKey, Signature,
-                                             checkSig, hash, shortHashF, toPublic,
-                                             unsafeHash, sign)
+                                             checkSig, hash, shortHashF, sign, toPublic,
+                                             unsafeHash)
 import           Pos.Data.Attributes        (Attributes)
 import           Pos.Util.Util              (Some)
 
@@ -145,7 +145,12 @@ mkUpdateProposal
     when (HM.null upData) $ -- Check if proposal data is non-empty
         fail "UpdateProposal: empty proposal data"
     let toSign =
-          UpdateProposalToSign upBlockVersion upBlockVersionData upSoftwareVersion upData upAttributes
+            UpdateProposalToSign
+                upBlockVersion
+                upBlockVersionData
+                upSoftwareVersion
+                upData
+                upAttributes
     unless (checkSig upFrom toSign upSignature) $
         fail $ "UpdateProposal: signature is invalid"
     pure UnsafeUpdateProposal{..}
@@ -169,7 +174,12 @@ mkUpdateProposalWSign
     when (HM.null upData) $ -- Check if proposal data is non-empty
         fail "UpdateProposal: empty proposal data"
     let toSign =
-          UpdateProposalToSign upBlockVersion upBlockVersionData upSoftwareVersion upData upAttributes
+            UpdateProposalToSign
+                upBlockVersion
+                upBlockVersionData
+                upSoftwareVersion
+                upData
+                upAttributes
     let upFrom = toPublic skey
     let upSignature = sign skey toSign
     pure UnsafeUpdateProposal{..}

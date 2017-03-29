@@ -18,8 +18,8 @@ import           Pos.Data.Attributes   (mkAttributes)
 import           Pos.Types.Arbitrary   ()
 import           Pos.Update.Core.Types (BlockVersionData (..), SystemTag, UpdateData (..),
                                         UpdatePayload (..), UpdateProposal (..),
-                                        UpdateProposalToSign (..), UpdateVote (..),
-                                        VoteState (..), mkSystemTag)
+                                        UpdateVote (..), VoteState (..), mkSystemTag,
+                                        mkUpdateProposalWSign)
 
 instance Arbitrary SystemTag where
     arbitrary =
@@ -45,15 +45,15 @@ instance Arbitrary UpdateProposal where
         upData <- HM.fromList <$> listOf1 arbitrary
         let upAttributes = mkAttributes ()
         skey <- arbitrary
-        let upFrom = toPublic skey
-        let upSignature = sign skey $
-                UpdateProposalToSign
-                  upBlockVersion
-                  upBlockVersionData
-                  upSoftwareVersion
-                  upData
-                  upAttributes
-        pure UnsafeUpdateProposal {..}
+        let onFailure = error . mappend "arbitrary @UpdateProposal failed: "
+        either onFailure pure $
+            mkUpdateProposalWSign
+                upBlockVersion
+                upBlockVersionData
+                upSoftwareVersion
+                upData
+                upAttributes
+                skey
 
 instance Arbitrary VoteState where
     arbitrary =

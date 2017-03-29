@@ -8,7 +8,6 @@ import           Universum
 import           Data.Binary             (Binary)
 import           Data.Binary.Get         (getWord8, label)
 import           Data.Binary.Put         (putWord8)
-import qualified Data.HashMap.Strict     as HM
 
 import           Pos.Binary.Class        (Bi (..), getAsciiString1b, putAsciiString1b)
 import           Pos.Binary.Core         ()

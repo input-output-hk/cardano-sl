@@ -80,6 +80,8 @@ instance MonadPoll m => MonadPoll (RollT m) where
         insertActiveProposal ps
 
     deactivateProposal id = RollT $ do
+        -- Proposer still can't propose new updates in the current epoch
+        -- even if his update was deactivated in the same epoch
         insertIfNotExist id unChangedPropsL getProposal
         deactivateProposal id
 

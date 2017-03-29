@@ -112,10 +112,8 @@ instance MonadPollRead m =>
     getBVState pv = PollT $ MM.lookupM getBVState pv =<< use pmBVsL
     getProposedBVs = PollT $ MM.keysM getProposedBVs =<< use pmBVsL
     getEpochProposers = PollT $ do
-        whenNothingM_ (use pmEpochProposersL) $ do
-            dbProposers <- getEpochProposers
-            pmEpochProposersL .= Just dbProposers
-        fromMaybe mempty <$> use pmEpochProposersL
+        new <- use pmEpochProposersL
+        maybe getEpochProposers pure new
     getConfirmedBVStates =
         PollT $
         filter (bvsIsConfirmed . snd) <$>

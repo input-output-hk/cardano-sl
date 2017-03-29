@@ -214,8 +214,6 @@ data PollModifier = PollModifier
     , pmDelActivePropsIdx :: !(HashMap ApplicationName (HashSet UpId))
     , pmSlottingData      :: !(Maybe SlottingData)
     , pmEpochProposers    :: !(Maybe (HashSet StakeholderId))
-    -- ^ Cache of DB state.
-    -- Nothing means that we haven't got data from GState yet.
     } deriving (Show)
 
 flip makeLensesFor ''PollModifier

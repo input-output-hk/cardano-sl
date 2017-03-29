@@ -41,7 +41,7 @@ git add .
 if [ -n "$(git status --porcelain)" ]; then 
     echo "     There are changes in Wallet Web API docs, push it";
     git commit -a -m "Automatic Wallet Web API docs rebuilding."
-    git push origin master
+    git push --force origin master
     # After we push new docs in `master`,
     # Jekyll will automatically rebuild it on cardano-docs.iohk.io website.
 else

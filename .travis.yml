@@ -54,16 +54,10 @@ deploy:
   bucket: cardano-sl-travis
   region: eu-central-1
   local_dir: s3
+  acl: public_read
   skip_cleanup: true
   on:
     all_branches: true
-  notifications:
-    email: false
-    slack:
-  bucket: cardano-sl-testing
-  region: eu-central-1
-  local_dir: s3
-  skip_cleanup: true
 notifications:
   email: false
   slack:

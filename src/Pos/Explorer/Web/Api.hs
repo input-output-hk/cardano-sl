@@ -17,6 +17,7 @@ import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlock
 import           Pos.Explorer.Web.Error       (ExplorerError)
 import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
                                                QueryParam)
+import           Pos.Types                    (EpochIndex)
 import           Universum
 
 -- | Servant API which provides access to explorer
@@ -65,6 +66,13 @@ type ExplorerApi =
       :> "search"
       :> Capture "hash" CSearchId
       :> Get '[JSON] (Either ExplorerError CHashSearchResult)
+    :<|>
+      "api"
+      :> "search"
+      :> "epoch"
+      :> Capture "epoch" EpochIndex
+      :> QueryParam "slot" Word16
+      :> Get '[JSON] (Either ExplorerError [CBlockEntry])
 
 -- | Helper Proxy
 explorerApi :: Proxy ExplorerApi

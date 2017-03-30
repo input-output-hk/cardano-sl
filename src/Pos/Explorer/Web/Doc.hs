@@ -27,7 +27,7 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary 
                                                  CTxEntry (..), CTxId (..),
                                                  CTxSummary (..))
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
-import           Pos.Types                      (mkCoin)
+import           Pos.Types                      (EpochIndex, mkCoin)
 import           Servant.API                    (Capture, QueryParam)
 import           Servant.Docs                   (API, Action, DocCapture (..),
                                                  DocIntro (..), DocNote (..),
@@ -117,6 +117,22 @@ instance ToCapture (Capture "address" CAddress) where
         DocCapture
         { _capSymbol = "address"
         , _capDesc = "Address"
+        }
+
+instance ToCapture (Capture "epoch" EpochIndex) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "epoch"
+        , _capDesc = "Epoch index"
+        }
+
+instance ToParam (QueryParam "slot" Word16) where
+    toParam Proxy =
+        DocQueryParam
+        { _paramName    = "slot"
+        , _paramValues  = ["0", "1", "2"]
+        , _paramDesc    = "Slot index"
+        , _paramKind    = Normal
         }
 
 -- sample data --

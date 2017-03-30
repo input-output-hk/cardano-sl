@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -9,11 +10,11 @@ module Pos.DHT.Real.Real
 
 import           Universum                 hiding (bracket, catchAll)
 
-import           Control.Concurrent.STM    (newTVar, readTVar, writeTVar)
+import           Control.Concurrent.STM    (newTVar, writeTVar)
 import           Data.Binary               (decode)
 import qualified Data.ByteString.Lazy      as BS
 import qualified Data.HashMap.Strict       as HM
-import           Data.List                 (intersect, (\\))
+import           Data.List                 (minimumBy)
 import           Formatting                (build, int, sformat, shown, (%))
 import           Mockable                  (Async, Catch, Mockable, MonadMockable,
                                             Promise, Throw, bracket, catchAll, fork,
@@ -26,7 +27,7 @@ import           System.Wlog               (WithLogger, logDebug, logError, logI
 
 import           Pos.Binary.Class          (Bi (..))
 import           Pos.Binary.Infra.DHTModel ()
-import           Pos.DHT.Constants         (enhancedMessageBroadcast,
+import           Pos.DHT.Constants         (enhancedMessageTimeout,
                                             neighborsSendThreshold)
 import           Pos.DHT.Model.Class       (DHTException (..), MonadDHT (..),
                                             withDhtLogger)
@@ -37,6 +38,7 @@ import           Pos.DHT.Real.Types        (DHTHandle, KademliaDHT (..),
                                             KademliaDHTInstanceConfig (..))
 import           Pos.Util.TimeLimit        (runWithRandomIntervals')
 import           Pos.Util.TimeWarp         (NetworkAddress)
+
 
 kademliaConfig :: K.KademliaConfig
 kademliaConfig = K.defaultConfig { K.k = 16 }
@@ -97,9 +99,9 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
 
     log' logF =  usingLoggerName ("kademlia" <> "messager") . logF . toText
     createKademlia port key cfg =
-        K.createL (fromIntegral port) key cfg (log' logDebug) (log' logError)
+        K.createL "127.0.0.1" (fromIntegral port) key cfg (log' logDebug) (log' logError)
     createKademliaFromSnapshot port cfg snapshot =
-        K.createLFromSnapshot (fromIntegral port)
+        K.createLFromSnapshot "127.0.0.1" (fromIntegral port)
             cfg snapshot (log' logDebug) (log' logError)
 
 rejoinNetwork
@@ -138,40 +140,40 @@ getKnownPeersImpl = do
     (inst, initialPeers, explicitInitial) <-
         KademliaDHT $
         (,,) <$> ask <*> asks kdiInitialPeers <*> asks kdiExplicitInitial
-    peers <- liftIO $ K.dumpPeers $ kdiHandle inst
+    buckets <- liftIO (K.viewBuckets $ kdiHandle inst)
     let initPeers = bool [] initialPeers explicitInitial
-    filter ((/= myId) . dhtNodeId) <$> extendPeers inst myId initPeers peers
+    filter ((/= myId) . dhtNodeId) <$> extendPeers inst myId initPeers buckets
   where
-    extendPeers inst myId initial peers =
+    extendPeers
+        :: MonadIO m1
+        => KademliaDHTInstance
+        -> DHTKey
+        -> [DHTNode]
+        -> [[(K.Node DHTKey, Int64)]]
+        -> m1 [DHTNode]
+    extendPeers inst myId initial buckets =
         map snd .
         HM.toList .
         HM.delete myId .
         flip (foldr $ \n -> HM.insert (dhtNodeId n) n) initial .
         HM.fromList . map (\(toDHTNode -> n) -> (dhtNodeId n, n)) <$>
-        (updateCache inst =<< selectSufficientNodes inst myId peers)
-    selectSufficientNodes inst myId l =
-        if enhancedMessageBroadcast /= (0 :: Int)
-            then concatMapM (getPeersFromBucket enhancedMessageBroadcast inst)
-                     (splitToBuckets (kdiHandle inst) myId l)
-            else return l
-    bucketIndex origin x =
-        length . takeWhile (== False) <$> K.distance origin (K.nodeId x)
-    insertId origin i hm = do
-        bucket <- bucketIndex origin i
-        return $ HM.insertWith (++) bucket [i] hm
-    splitToBuckets kInst origin peers =
-        flip K.usingKademliaInstance kInst $
-        HM.elems <$> foldrM (insertId origin) HM.empty peers
-    getPeersFromBucket p inst bucket = do
-        cache <- atomically $ readTVar $ kdiKnownPeersCache inst
-        let fromCache = tryTake p $ intersect cache bucket
-        return $ fromCache ++ tryTake (p - length fromCache) (bucket \\ cache)
-    tryTake x l
-        | length l < x = l
-        | otherwise = take x l
-    updateCache inst peers = do
-        atomically $ writeTVar (kdiKnownPeersCache inst) peers
-        return peers
+        (updateCache inst $ concatMap getPeersFromBucket buckets)
+
+    getPeersFromBucket
+        :: [(K.Node DHTKey, Int64)]
+        -> [K.Node DHTKey]
+    getPeersFromBucket bucket
+        | null bucket = []
+        | otherwise =
+            let peers = filter ((< enhancedMessageTimeout) . snd) bucket in
+            if null peers then
+                [fst $ minimumBy (\x y -> compare (snd x) (snd y)) bucket]
+            else
+                map fst $ peers
+
+    updateCache :: MonadIO m1 => KademliaDHTInstance -> [K.Node DHTKey] -> m1 [K.Node DHTKey]
+    updateCache inst peers =
+        peers <$ (atomically $ writeTVar (kdiKnownPeersCache inst) peers)
 
 instance ( MonadIO m
          , Mockable Async m

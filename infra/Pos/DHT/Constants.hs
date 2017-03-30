@@ -1,12 +1,12 @@
 module Pos.DHT.Constants
-       ( enhancedMessageBroadcast
+       ( enhancedMessageTimeout
        , neighborsSendThreshold
        , kademliaDumpInterval
        ) where
 
 import           Universum
 
-import           Pos.Infra.Constants (ccEnhancedMessageBroadcast, ccKademliaDumpInterval,
+import           Pos.Infra.Constants (ccEnhancedMessageTimeout, ccKademliaDumpInterval,
                                       ccNeighboursSendThreshold, infraConstants)
 
 -- | See 'Pos.CompileConfig.ccNeighboursSendThreshold'.
@@ -18,6 +18,6 @@ neighborsSendThreshold =
 kademliaDumpInterval :: Integral a => a
 kademliaDumpInterval = fromIntegral . ccKademliaDumpInterval $ infraConstants
 
--- | Setting this to true enables enhanced message broadcast
-enhancedMessageBroadcast :: Integral a => a
-enhancedMessageBroadcast = fromIntegral . ccEnhancedMessageBroadcast $ infraConstants
+-- | Broadcast to nodes which timestamp at most @enhancedMessageTimeout@.
+enhancedMessageTimeout :: Integral a => a
+enhancedMessageTimeout = fromIntegral . ccEnhancedMessageTimeout $ infraConstants

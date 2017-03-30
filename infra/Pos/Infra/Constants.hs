@@ -30,8 +30,8 @@ data InfraConstants = InfraConstants
       -- ^ Broadcasting threshold
     , ccKademliaDumpInterval     :: !Int
       -- ^ Interval for dumping Kademlia state in slots
-    , ccEnhancedMessageBroadcast :: !Word
-      -- ^ True if we should enable enhanced bessage broadcast
+    , ccEnhancedMessageTimeout   :: !Word
+    -- ^ We consider node as known if it was pinged at most 10 sec ago.
 
     , ccNetworkReceiveTimeout    :: !Int
       -- ^ Network timeout on `recv` in milliseconds

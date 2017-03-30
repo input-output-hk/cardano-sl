@@ -3,8 +3,8 @@ resolver: lts-8.2
 packages:
   - '.'
   - location:
-      git: https://github.com/serokell/kademlia.git
-      commit: 278171b8ab104c78aa95bcdd9b63c8ced4fb1ed2
+      git: https://github.com/avieth/kademlia.git
+      commit: 90c94245d86e4e6008734ab1c7d1e070a75e4834
     extra-dep: true
   - location:
       git: https://github.com/avieth/network-transport

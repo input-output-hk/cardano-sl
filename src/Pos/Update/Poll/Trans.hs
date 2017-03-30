@@ -189,7 +189,7 @@ instance MonadPollRead m =>
             upId = hash up
             appName = svAppName sv
         whenNothingM_ (getProposal upId) $
-            HS.insert (addressHash upFrom) <$> getEpochProposers >>= setEpochProposers
+            setEpochProposers =<< (HS.insert (addressHash upFrom) <$> getEpochProposers)
         PollT $ do
             let alterDel _ Nothing     = Nothing
                 alterDel val (Just hs) = Just $ HS.delete val hs

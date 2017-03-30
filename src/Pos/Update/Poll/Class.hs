@@ -33,7 +33,7 @@ class (Monad m, WithLogger m) => MonadPollRead m where
     getProposedBVs :: m [BlockVersion]
     -- ^ Retrieve all proposed block versions.
     getEpochProposers :: m (HashSet StakeholderId)
-    -- ^ Retreive all stakeholders which proposed proposals in the current epoch.
+    -- ^ Retrieve all stakeholders who proposed proposals in the current epoch.
     getConfirmedBVStates :: m [(BlockVersion, BlockVersionState)]
     -- ^ Get all confirmed 'BlockVersion's and their states.
     getAdoptedBVFull :: m (BlockVersion, BlockVersionData)

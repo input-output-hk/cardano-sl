@@ -142,18 +142,18 @@ mkUpdateProposal
     upAttributes
     upFrom
     upSignature = do
-    when (HM.null upData) $ -- Check if proposal data is non-empty
-        fail "UpdateProposal: empty proposal data"
-    let toSign =
-            UpdateProposalToSign
-                upBlockVersion
-                upBlockVersionData
-                upSoftwareVersion
-                upData
-                upAttributes
-    unless (checkSig upFrom toSign upSignature) $
-        fail $ "UpdateProposal: signature is invalid"
-    pure UnsafeUpdateProposal{..}
+        when (HM.null upData) $ -- Check if proposal data is non-empty
+            fail "UpdateProposal: empty proposal data"
+        let toSign =
+                UpdateProposalToSign
+                    upBlockVersion
+                    upBlockVersionData
+                    upSoftwareVersion
+                    upData
+                    upAttributes
+        unless (checkSig upFrom toSign upSignature) $
+            fail $ "UpdateProposal: signature is invalid"
+        pure UnsafeUpdateProposal{..}
 
 mkUpdateProposalWSign
     :: (MonadFail m, Bi UpdateProposalToSign)
@@ -171,18 +171,18 @@ mkUpdateProposalWSign
     upData
     upAttributes
     skey = do
-    when (HM.null upData) $ -- Check if proposal data is non-empty
-        fail "UpdateProposal: empty proposal data"
-    let toSign =
-            UpdateProposalToSign
-                upBlockVersion
-                upBlockVersionData
-                upSoftwareVersion
-                upData
-                upAttributes
-    let upFrom = toPublic skey
-    let upSignature = sign skey toSign
-    pure UnsafeUpdateProposal{..}
+        when (HM.null upData) $ -- Check if proposal data is non-empty
+            fail "UpdateProposal: empty proposal data"
+        let toSign =
+                UpdateProposalToSign
+                    upBlockVersion
+                    upBlockVersionData
+                    upSoftwareVersion
+                    upData
+                    upAttributes
+        let upFrom = toPublic skey
+        let upSignature = sign skey toSign
+        pure UnsafeUpdateProposal{..}
 
 instance Bi UpdateProposal => Buildable UpdateProposal where
     build up@UnsafeUpdateProposal {..} =

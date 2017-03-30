@@ -15,7 +15,7 @@ import Explorer.Types.State (CBlockEntries, CTxEntries, CTxBriefs)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
-import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CBlockSummary, CHash(..), CTxId, CTxSummary)
+import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CBlockSummary, CHash(..), CHashSearchResult, CSearchId(..), CTxId, CTxSummary)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId)
 
 endpointPrefix :: String
@@ -65,3 +65,7 @@ fetchTxSummary id = get $ "txs/summary/" <> id ^. (_CTxId <<< _CHash)
 -- addresses
 fetchAddressSummary :: forall eff. CAddress -> Aff (ajax::AJAX | eff) CAddressSummary
 fetchAddressSummary (CAddress address) = get $ "addresses/summary/" <> address
+
+-- search
+search :: forall eff. CSearchId -> Aff (ajax::AJAX | eff) CHashSearchResult
+search (CSearchId id) = get $ "search/" <> id

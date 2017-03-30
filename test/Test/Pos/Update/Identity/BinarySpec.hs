@@ -39,15 +39,19 @@ spec =
       describe "Network" $ do
         networkBinaryTest @(R.InvMsg U.VoteId U.VoteMsgTag)
         networkBinaryTest @(R.ReqMsg U.VoteId U.VoteMsgTag)
+        networkBinaryTest @(R.MempoolMsg U.VoteMsgTag)
         networkBinaryTest @(R.DataMsg U.UpdateVote)
         networkBinaryTest @(R.InvMsg U.UpId U.ProposalMsgTag)
         networkBinaryTest @(R.ReqMsg U.UpId U.ProposalMsgTag)
+        networkBinaryTest @(R.MempoolMsg U.ProposalMsgTag)
         networkBinaryTest @(R.DataMsg (U.UpdateProposal, [U.UpdateVote]))
     describe "Message length limit" $ do
         msgLenLimitedTest @(R.InvMsg U.VoteId U.VoteMsgTag)
         msgLenLimitedTest @(R.ReqMsg U.VoteId U.VoteMsgTag)
+        msgLenLimitedTest @(R.MempoolMsg U.VoteMsgTag)
         msgLenLimitedTest @(R.InvMsg U.UpId U.ProposalMsgTag)
         msgLenLimitedTest @(R.ReqMsg U.UpId U.ProposalMsgTag)
+        msgLenLimitedTest @(R.MempoolMsg U.ProposalMsgTag)
         -- TODO [CSL-859]
         -- msgLenLimitedTest @(C.MaxSize (R.DataMsg (U.UpdateProposal, [U.UpdateVote])))
         msgLenLimitedTest @(R.DataMsg U.UpdateVote)

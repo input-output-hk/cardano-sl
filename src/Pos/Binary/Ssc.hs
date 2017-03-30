@@ -4,11 +4,9 @@
 
 module Pos.Binary.Ssc () where
 
-import           Data.Binary.Get                  (getWord8, label)
-import           Data.Binary.Put                  (putWord8)
 import           Universum
 
-import           Pos.Binary.Class                 (Bi (..))
+import           Pos.Binary.Class                 (Bi (..), getWord8, label, putWord8)
 import           Pos.Binary.Crypto                ()
 import           Pos.Binary.Ssc.GodTossing.Core   ()
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtTag (..))

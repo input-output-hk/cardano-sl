@@ -3,13 +3,14 @@ module Pos.Binary.Core.Address () where
 
 import           Universum
 
-import           Data.Binary.Get     (Get, getWord32be, getWord8, label)
-import           Data.Binary.Put     (Put, putByteString, putWord32be, putWord8, runPut)
+import           Data.Binary.Get     (Get, getWord32be)
+import           Data.Binary.Put     (Put, putWord32be, runPut)
 import           Data.Default        (def)
 import           Data.Digest.CRC32   (CRC32 (..), crc32)
 
 import           Pos.Binary.Class    (Bi (..), getRemainingByteString, getSmallWithLength,
-                                      putSmallWithLength)
+                                      getWord8, label, putByteString, putSmallWithLength,
+                                      putWord8)
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (AddrPkAttrs (..), Address (..))
 import           Pos.Data.Attributes (getAttributes, putAttributes)

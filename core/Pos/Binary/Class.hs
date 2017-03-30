@@ -22,6 +22,13 @@ module Pos.Binary.Class
        , decodeOrFail
        , decodeFull
 
+       -- * Primitives for serialization
+       , getWord8
+       , putWord8
+       , getByteString
+       , putByteString
+       , label
+
        -- * The 'Raw' wrapper
        , Raw
 

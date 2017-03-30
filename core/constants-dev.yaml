@@ -37,6 +37,9 @@ mpcSendInterval: 10 # must be less than (2 * k * slotDuration - networkDiameter)
 # Lightweight delegation
 lightDlgConfirmationTimeout: 500
 
+# Update system
+applicationName: cardano-sl
+
 # Production start time
 productionNetworkStartTime: 0
 

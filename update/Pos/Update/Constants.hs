@@ -55,8 +55,10 @@ updateConstants =
 
 data UpdateConstants = UpdateConstants
     {
+      -- | Name of this application.
+      ccApplicationName              :: !Text
       -- | Length of slot in seconds
-      ccGenesisSlotDurationSec       :: !Int
+    , ccGenesisSlotDurationSec       :: !Int
       -- | Portion of total stake necessary to vote for or against update.
     , ccGenesisUpdateVoteThd         :: !Double
       -- | Maximum update proposal size in bytes
@@ -97,7 +99,9 @@ instance IsConfig UpdateConstants where
 
 -- | Name of our application.
 ourAppName :: ApplicationName
-ourAppName = cardanoSlAppName
+ourAppName =
+    either (error . mappend "Failed to init our application name: ") identity $
+    mkApplicationName $ ccApplicationName updateConstants
 
 -- | Last block version application is aware of.
 lastKnownBlockVersion :: BlockVersion
@@ -105,11 +109,7 @@ lastKnownBlockVersion = BlockVersion 0 0 0
 
 -- | Version of application (code running)
 curSoftwareVersion :: SoftwareVersion
-curSoftwareVersion = SoftwareVersion cardanoSlAppName 0
-
-cardanoSlAppName :: ApplicationName
-cardanoSlAppName = either (error . ("Failed to init cardanoSlAppName: " <>))
-                       identity $ mkApplicationName "cardano"
+curSoftwareVersion = SoftwareVersion ourAppName 0
 
 ----------------------------------------------------------------------------
 -- Genesis constants
@@ -126,7 +126,17 @@ genesisBlockVersion =
 
 -- | Software Versions
 genesisSoftwareVersions :: [SoftwareVersion]
-genesisSoftwareVersions = [curSoftwareVersion { svNumber = 0 }]
+genesisSoftwareVersions = map f genesisAppNames
+  where
+    f (nameStr, Left err) =
+        error $
+        "Failed to create ApplicationName for " <> nameStr <> ": " <> err
+    f (_, Right appName) = SoftwareVersion {svAppName = appName, svNumber = 0}
+
+genesisAppNames :: [(Text, Either Text ApplicationName)]
+genesisAppNames = map f ["cardano-sl", "csl-daedalus"]
+  where
+    f name = (name, mkApplicationName name)
 
 -- | 'BlockVersionData' for genesis 'BlockVersion'.
 genesisBlockVersionData :: BlockVersionData
@@ -234,5 +244,13 @@ staticAssert
     (ccGenesisUpdateSoftforkThd updateConstants > 0 &&
      ccGenesisUpdateSoftforkThd updateConstants < 1)
     "genesisUpdateSoftforkThd is not in range (0, 1)"
+
+staticAssert
+    (isJust $ mkApplicationName $ ccApplicationName updateConstants)
+    "it's sad, because ourAppName will be `error' sadly"
+
+staticAssert
+    (all (isRight . snd) $ genesisAppNames)
+    "it's sad too, I guess you realize it"
 
 -}

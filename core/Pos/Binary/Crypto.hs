@@ -194,6 +194,7 @@ instance (Bi w) => Bi (ProxySignature w a) where
 -------------------------------------------------------------------------------
 -- Hierarchical derivation
 -------------------------------------------------------------------------------
+
 instance Binary.Binary HDAddressPayload
 instance Bi HDAddressPayload
 

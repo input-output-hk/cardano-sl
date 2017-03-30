@@ -30,6 +30,7 @@ data AvvmStakeOptions = AvvmStakeOptions
     { asoJsonPath      :: FilePath
     , asoIsRandcerts   :: Bool
     , asoHolderKeyfile :: Maybe FilePath
+    , asoBlacklisted   :: Maybe FilePath
     }
 
 optsParser :: Parser KeygenOptions
@@ -85,6 +86,11 @@ avvmStakeParser = do
         metavar "FILE" <>
         help    "A keyfile from which to read public key of stakeholder \
                 \to which AVVM stakes are delegated."
+    asoBlacklisted <- optional $ strOption $
+        long    "blacklisted" <>
+        metavar "FILE" <>
+        help    "Path to the file containing blacklisted addresse \
+                \(an address per line)"
     pure AvvmStakeOptions{..}
 
 optsInfo :: ParserInfo KeygenOptions

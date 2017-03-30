@@ -7,6 +7,7 @@ module Pos.Crypto.RedeemSigning
        , redeemKeyGen
        , redeemDeterministicKeyGen
        , redeemToPublic
+       , redeemPkBuild
        , redeemPkB64F
        , redeemPkB64ShortF
        , RedeemSignature (..)
@@ -30,6 +31,11 @@ import           Pos.Binary.Class     (Bi, Raw)
 import qualified Pos.Binary.Class     as Bi
 import           Pos.Crypto.Random    (secureRandomBS)
 
+
+----------------------------------------------------------------------------
+-- Underlying wrappers' instances
+----------------------------------------------------------------------------
+
 instance Hashable Ed25519.PublicKey
 instance Hashable Ed25519.SecretKey
 instance Hashable Ed25519.Signature
@@ -42,6 +48,10 @@ deriveSafeCopySimple 0 'base ''Ed25519.PublicKey
 deriveSafeCopySimple 0 'base ''Ed25519.SecretKey
 deriveSafeCopySimple 0 'base ''Ed25519.Signature
 
+----------------------------------------------------------------------------
+-- PK/SK and formatters
+----------------------------------------------------------------------------
+
 -- | Wrapper around 'Ed25519.PublicKey'.
 newtype RedeemPublicKey = RedeemPublicKey Ed25519.PublicKey
     deriving (Eq, Ord, Show, Generic, NFData, Hashable, Typeable)
@@ -52,9 +62,6 @@ newtype RedeemSecretKey = RedeemSecretKey Ed25519.SecretKey
 
 deriveSafeCopySimple 0 'base ''RedeemPublicKey
 deriveSafeCopySimple 0 'base ''RedeemSecretKey
-
-redeemToPublic :: RedeemSecretKey -> RedeemPublicKey
-redeemToPublic (RedeemSecretKey k) = RedeemPublicKey (Ed25519.secretToPublicKey k)
 
 redeemPkB64F :: Format r (RedeemPublicKey -> r)
 redeemPkB64F =
@@ -69,12 +76,17 @@ instance B.Buildable RedeemPublicKey where
 instance B.Buildable RedeemSecretKey where
     build = bprint ("redeem_sec_of_pk:"%redeemPkB64F) . redeemToPublic
 
+----------------------------------------------------------------------------
+-- Conversion and keygens
+----------------------------------------------------------------------------
+
 -- | Generate a key pair.
 redeemKeyGen :: MonadIO m => m (RedeemPublicKey, RedeemSecretKey)
-redeemKeyGen = liftIO $ secureRandomBS 32 >>=
+redeemKeyGen =
+    liftIO $ secureRandomBS 32 >>=
     maybe err pure . redeemDeterministicKeyGen
-  where err = error "Pos.Crypto.RedeemSigning.redeemKeyGen:\
-                    \ createKeypairFromSeed_ failed"
+  where
+    err = error "Pos.Crypto.RedeemSigning.redeemKeyGen: createKeypairFromSeed_ failed"
 
 -- | Create key pair deterministically from 32 bytes.
 redeemDeterministicKeyGen
@@ -82,6 +94,24 @@ redeemDeterministicKeyGen
     -> Maybe (RedeemPublicKey, RedeemSecretKey)
 redeemDeterministicKeyGen seed =
     bimap RedeemPublicKey RedeemSecretKey <$> Ed25519.createKeypairFromSeed_ seed
+
+-- | Public key derivation function
+redeemToPublic :: RedeemSecretKey -> RedeemPublicKey
+redeemToPublic (RedeemSecretKey k) = RedeemPublicKey (Ed25519.secretToPublicKey k)
+
+-- | Creates a public key from 32 byte bytestring, fails with 'error'
+-- otherwise.
+redeemPkBuild :: ByteString -> RedeemPublicKey
+redeemPkBuild bs
+    | BS.length bs /= 32 =
+        error $
+        "consRedeemPk: failed to form pk, wrong bs length: " <> show (BS.length bs) <>
+        ", when should be 32"
+    | otherwise = RedeemPublicKey $ Ed25519.PublicKey $ bs
+
+----------------------------------------------------------------------------
+-- Redeem signatures
+----------------------------------------------------------------------------
 
 -- | Wrapper around 'Ed25519.Signature'.
 newtype RedeemSignature a = RedeemSignature Ed25519.Signature

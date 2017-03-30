@@ -15,7 +15,8 @@ import           Pos.Binary           (decodeFull, encode)
 import           Pos.Genesis          (GenesisData (..), getTotalStake)
 import           Pos.Types            (Coin, addressHash, makePubKeyAddress, mkCoin)
 
-import           Avvm                 (genGenesis, getHolderId)
+import           Avvm                 (aeCoin, applyBlacklisted, genGenesis, getHolderId,
+                                       utxo)
 import           KeygenOptions        (AvvmStakeOptions (..), KeygenOptions (..),
                                        TestStakeOptions (..), optsInfo)
 import           Testnet              (genTestnetStakes, generateKeyfile)
@@ -46,13 +47,16 @@ getTestnetGenesis avvmStake tso@TestStakeOptions{..} = do
     return genData
 
 getAvvmGenesis :: AvvmStakeOptions -> IO GenesisData
-getAvvmGenesis AvvmStakeOptions{..} = do
+getAvvmGenesis AvvmStakeOptions {..} = do
     jsonfile <- BSL.readFile asoJsonPath
     holder <- getHolderId asoHolderKeyfile
     case eitherDecode jsonfile of
         Left err       -> error $ toText err
-        Right avvmData -> pure $
-            genGenesis avvmData asoIsRandcerts holder
+        Right avvmData -> do
+            avvmDataFiltered <- applyBlacklisted asoBlacklisted avvmData
+            let totalAvvmStake = sum $ map aeCoin $ utxo avvmDataFiltered
+            putText $ "Total avvm stake after applying blacklist: " <> show totalAvvmStake
+            pure $ genGenesis avvmDataFiltered asoIsRandcerts holder
 
 main :: IO ()
 main = do

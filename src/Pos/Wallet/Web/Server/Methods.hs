@@ -20,7 +20,8 @@ import           Universum
 import           Control.Concurrent            (forkFinally)
 import           Control.Lens                  (ix, makeLenses, (.=))
 import           Control.Monad                 (replicateM_)
-import           Control.Monad.Catch           (try)
+import           Control.Monad.Catch           (SomeException, catches, try)
+import qualified Control.Monad.Catch           as E
 import           Control.Monad.Except          (runExceptT)
 import           Control.Monad.State           (runStateT)
 import qualified Data.ByteString.Base64        as B64
@@ -504,12 +505,18 @@ reportingInitialized cinit = do
         sformat ("Didn't manage to report initialization time "%shown%
                  " because of exception "%shown) cinit e
 
+rewrapError :: WalletWebMode ssc m => m a -> m a
+rewrapError = flip catches
+    [ E.Handler $ \e@(Internal _)    -> throwM e
+    , E.Handler $ \(SomeException e) -> throwM . Internal $ show e
+    ]
+
 importKey
     :: WalletWebMode ssc m
     => Text
     -> m CWallet
 importKey (toString -> fp) = do
-    secret <- readUserSecret fp
+    secret <- rewrapError $ readUserSecret fp
     let keys = secret ^. usKeys
     forM_ keys $ \key -> do
         addSecretKey key

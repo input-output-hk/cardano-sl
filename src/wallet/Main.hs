@@ -44,8 +44,8 @@ import           Pos.Ssc.NistBeacon        (SscNistBeacon)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
 import           Pos.Txp                   (TxOutAux (..), txaF)
 import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress)
-import           Pos.Update                (BlockVersionData (..), UpdateProposal (..),
-                                            UpdateVote (..), patakUpdateData,
+import           Pos.Update                (BlockVersionData (..), UpdateVote (..),
+                                            mkUpdateProposalWSign, patakUpdateData,
                                             skovorodaUpdateData)
 import           Pos.Wallet                (WalletMode, WalletParams (..), WalletRealMode,
                                             getBalance, runWalletReal, sendProposalOuts,
@@ -106,16 +106,17 @@ runCmd sendActions ProposeUpdate{..} = do
             , bvdSlotDuration = convertUnit (sec puSlotDurationSec)
             , bvdMaxBlockSize = puMaxBlockSize
             }
-    let updateProposal = UpdateProposal
-            { upBlockVersion     = puBlockVersion
-            , upBlockVersionData = bvd
-            , upSoftwareVersion  = puSoftwareVersion
-            , upData             =
-                maybe patakUpdateData
-                      skovorodaUpdateData
-                      diffFile
-            , upAttributes       = mkAttributes ()
-            }
+    let udata = maybe patakUpdateData skovorodaUpdateData diffFile
+    let whenCantCreate = error . mappend "Failed to create update proposal: "
+    let updateProposal =
+            either whenCantCreate identity $
+            mkUpdateProposalWSign
+                puBlockVersion
+                bvd
+                puSoftwareVersion
+                udata
+                (mkAttributes ())
+                skey
     if null na
         then putText "Error: no addresses specified"
         else do

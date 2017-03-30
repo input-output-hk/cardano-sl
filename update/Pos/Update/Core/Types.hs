@@ -10,8 +10,11 @@ module Pos.Update.Core.Types
        , UpId
        , UpAttributes
        , UpdateData (..)
+       , UpdateProposalToSign (..)
        , BlockVersionData (..)
        , SystemTag (getSystemTag)
+       , mkUpdateProposal
+       , mkUpdateProposalWSign
        , mkSystemTag
        , systemTagMaxLength
        , patakUpdateData
@@ -67,7 +70,8 @@ import           Pos.Binary.Crypto          ()
 import           Pos.Core                   (BlockVersion, CoinPortion, FlatSlotId,
                                              IsGenesisHeader, IsMainHeader, ScriptVersion,
                                              SoftwareVersion, addressHash)
-import           Pos.Crypto                 (Hash, PublicKey, Signature, hash, shortHashF,
+import           Pos.Crypto                 (Hash, PublicKey, SecretKey, Signature,
+                                             checkSig, hash, shortHashF, sign, toPublic,
                                              unsafeHash)
 import           Pos.Data.Attributes        (Attributes)
 import           Pos.Util.Util              (Some)
@@ -96,8 +100,17 @@ type UpId = Hash UpdateProposal
 
 type UpAttributes = Attributes ()
 
+data UpdateProposalToSign
+    = UpdateProposalToSign
+    { upsBV   :: !BlockVersion
+    , upsBVD  :: !BlockVersionData
+    , upsSV   :: !SoftwareVersion
+    , upsData :: !(HM.HashMap SystemTag UpdateData)
+    , upsAttr :: !UpAttributes
+    }
+
 -- | Proposal for software update
-data UpdateProposal = UpdateProposal
+data UpdateProposal = UnsafeUpdateProposal
     { upBlockVersion     :: !BlockVersion
     , upBlockVersionData :: !BlockVersionData
     , upSoftwareVersion  :: !SoftwareVersion
@@ -107,11 +120,73 @@ data UpdateProposal = UpdateProposal
     , upAttributes       :: !UpAttributes
     -- ^ Attributes which are currently empty, but provide
     -- extensibility.
+    , upFrom             :: !PublicKey
+    -- ^ Who proposed this UP.
+    , upSignature        :: !(Signature UpdateProposalToSign)
     } deriving (Eq, Show, Generic, Typeable)
 
+mkUpdateProposal
+    :: (MonadFail m, Bi UpdateProposalToSign)
+    => BlockVersion
+    -> BlockVersionData
+    -> SoftwareVersion
+    -> HM.HashMap SystemTag UpdateData
+    -> UpAttributes
+    -> PublicKey
+    -> Signature UpdateProposalToSign
+    -> m UpdateProposal
+mkUpdateProposal
+    upBlockVersion
+    upBlockVersionData
+    upSoftwareVersion
+    upData
+    upAttributes
+    upFrom
+    upSignature = do
+        when (HM.null upData) $ -- Check if proposal data is non-empty
+            fail "UpdateProposal: empty proposal data"
+        let toSign =
+                UpdateProposalToSign
+                    upBlockVersion
+                    upBlockVersionData
+                    upSoftwareVersion
+                    upData
+                    upAttributes
+        unless (checkSig upFrom toSign upSignature) $
+            fail $ "UpdateProposal: signature is invalid"
+        pure UnsafeUpdateProposal{..}
+
+mkUpdateProposalWSign
+    :: (MonadFail m, Bi UpdateProposalToSign)
+    => BlockVersion
+    -> BlockVersionData
+    -> SoftwareVersion
+    -> HM.HashMap SystemTag UpdateData
+    -> UpAttributes
+    -> SecretKey
+    -> m UpdateProposal
+mkUpdateProposalWSign
+    upBlockVersion
+    upBlockVersionData
+    upSoftwareVersion
+    upData
+    upAttributes
+    skey = do
+        when (HM.null upData) $ -- Check if proposal data is non-empty
+            fail "UpdateProposal: empty proposal data"
+        let toSign =
+                UpdateProposalToSign
+                    upBlockVersion
+                    upBlockVersionData
+                    upSoftwareVersion
+                    upData
+                    upAttributes
+        let upFrom = toPublic skey
+        let upSignature = sign skey toSign
+        pure UnsafeUpdateProposal{..}
 
 instance Bi UpdateProposal => Buildable UpdateProposal where
-    build up@UpdateProposal {..} =
+    build up@UnsafeUpdateProposal {..} =
       bprint (build%
               " { block v"%build%
               ", UpId: "%build%

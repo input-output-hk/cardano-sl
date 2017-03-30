@@ -90,6 +90,7 @@ processGenesisBlock epoch = do
         Just (chooseToAdopt -> toAdopt) -> adoptAndFinish confirmed toAdopt
     -- In the end we also update slotting data to the most recent state.
     updateSlottingData epoch
+    setEpochProposers mempty
   where
     checkThreshold thd (bv, bvs) =
         checkThresholdDo thd (bv, bvs) <$> calculateIssuersStake epoch bvs

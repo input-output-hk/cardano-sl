@@ -31,6 +31,7 @@ rollbackUS USUndo{..} = do
     mapM_ setOrDelBV $ HM.toList unChangedBV
     -- Rollback last adopted
     whenJust unLastAdoptedBV setAdoptedBV
+    whenJust unPrevProposers setEpochProposers
   where
     setOrDelLastConfirmedSV :: (ApplicationName, PrevValue NumSoftwareVersion) -> m ()
     setOrDelLastConfirmedSV (svAppName, PrevValue svNumber) =
@@ -39,7 +40,7 @@ rollbackUS USUndo{..} = do
 
     setOrDelProposal :: (UpId, PrevValue ProposalState) -> m ()
     setOrDelProposal (upid, NoExist)   = deactivateProposal upid
-    setOrDelProposal (_, PrevValue ps) = addActiveProposal ps
+    setOrDelProposal (_, PrevValue ps) = insertActiveProposal ps
 
     setOrDelBV :: (BlockVersion, PrevValue BlockVersionState) -> m ()
     setOrDelBV (bv, NoExist)       = delBVState bv

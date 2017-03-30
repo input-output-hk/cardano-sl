@@ -20,6 +20,7 @@ instance Default PollModifier where
         , pmActiveProps = mempty
         , pmDelActivePropsIdx = mempty
         , pmSlottingData = Nothing
+        , pmEpochProposers = mempty
         }
 
 -- | Unite two PollModifiers. Second argument dominates, i. e. if
@@ -33,6 +34,7 @@ modifyPollModifier pmOld pmNew = PollModifier
     (pmActiveProps pmOld <> pmActiveProps pmNew)
     (unionHM pmDelActivePropsIdx)
     (pmSlottingData pmNew <|> pmSlottingData pmOld)
+    (pmEpochProposers pmNew)
   where
     unionHM :: (Hashable k, Eq k) => (PollModifier -> HashMap k v) -> HashMap k v
     unionHM getter = getter pmNew `HM.union` getter pmOld

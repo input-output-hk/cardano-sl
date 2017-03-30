@@ -250,13 +250,13 @@ servantHandlers sendActions =
     :<|>
      apiUpdateWallet
     :<|>
-     apiNewWallet
-    :<|>
      apiDeleteWallet
     :<|>
      apiImportKey
     :<|>
      apiRestoreWallet
+    :<|>
+     apiNewWallet
     :<|>
      apiIsValidAddress
     :<|>

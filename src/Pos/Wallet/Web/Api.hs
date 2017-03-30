@@ -51,12 +51,6 @@ type WalletApi =
     :<|>
      "api"
      :> "wallets"
-     :> Capture "passphrase" CPassPhrase
-     :> ReqBody '[JSON] CWalletInit
-     :> Post '[JSON] (Either WalletError CWallet)
-    :<|>
-     "api"
-     :> "wallets"
      :> Capture "walletId" CAddress
      :> Delete '[JSON] (Either WalletError ())
     :<|>
@@ -69,6 +63,12 @@ type WalletApi =
      "api"
      :> "wallets"
      :> "restore"
+     :> Capture "passphrase" CPassPhrase
+     :> ReqBody '[JSON] CWalletInit
+     :> Post '[JSON] (Either WalletError CWallet)
+    :<|>
+     "api"
+     :> "wallets"
      :> Capture "passphrase" CPassPhrase
      :> ReqBody '[JSON] CWalletInit
      :> Post '[JSON] (Either WalletError CWallet)

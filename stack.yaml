@@ -54,6 +54,13 @@ packages:
     git: https://github.com/input-output-hk/cardano-crypto
     commit: 838b064d8a59286142aa2fe14434fe7601896ddb
   extra-dep: true
+# We're using forked version of 'swagger2' package because of bug in haddock package.
+# Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will
+# be fixed, we'll back to Hackage-version.
+- location:
+    git: https://github.com/serokell/swagger2
+    commit: 6cc2063e1c8da9e701f3ac95549b8a33be9605de
+  extra-dep: true
 #- location:
 #    git: https://github.com/haskell-crypto/cryptonite.git
 #    commit: 2932df9e243aa7ae7eb2b25d7c60fa77a30c6fb5

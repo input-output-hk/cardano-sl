@@ -32,6 +32,7 @@ module Pos.Update.Poll.Types
        , pmActivePropsL
        , pmDelActivePropsIdxL
        , pmSlottingDataL
+       , pmEpochProposersL
 
          -- * Rollback
        , PrevValue (..)
@@ -42,6 +43,7 @@ module Pos.Update.Poll.Types
        , unChangedBVL
        , unLastAdoptedBVL
        , unChangedConfPropsL
+       , unPrevProposersL
        ) where
 
 import           Control.Lens               (makeLensesFor)
@@ -211,6 +213,7 @@ data PollModifier = PollModifier
     , pmActiveProps       :: !(MapModifier UpId ProposalState)
     , pmDelActivePropsIdx :: !(HashMap ApplicationName (HashSet UpId))
     , pmSlottingData      :: !(Maybe SlottingData)
+    , pmEpochProposers    :: !(Maybe (HashSet StakeholderId))
     } deriving (Show)
 
 flip makeLensesFor ''PollModifier
@@ -221,6 +224,7 @@ flip makeLensesFor ''PollModifier
     , ("pmActiveProps", "pmActivePropsL")
     , ("pmDelActivePropsIdx", "pmDelActivePropsIdxL")
     , ("pmSlottingData", "pmSlottingDataL")
+    , ("pmEpochProposers", "pmEpochProposersL")
     ]
 
 ----------------------------------------------------------------------------
@@ -243,7 +247,8 @@ data USUndo = USUndo
     , unChangedProps     :: !(HashMap UpId (PrevValue ProposalState))
     , unChangedSV        :: !(HashMap ApplicationName (PrevValue NumSoftwareVersion))
     , unChangedConfProps :: !(HashMap SoftwareVersion (PrevValue ConfirmedProposalState))
-    } deriving (Generic,Show)
+    , unPrevProposers    :: !(Maybe (HashSet StakeholderId))
+    } deriving (Generic, Show)
 
 
 makeLensesFor [ ("unChangedBV", "unChangedBVL")
@@ -251,6 +256,7 @@ makeLensesFor [ ("unChangedBV", "unChangedBVL")
               , ("unChangedProps", "unChangedPropsL")
               , ("unChangedSV", "unChangedSVL")
               , ("unChangedConfProps", "unChangedConfPropsL")
+              , ("unPrevProposers", "unPrevProposersL")
               ]
   ''USUndo
 
@@ -258,7 +264,7 @@ instance Buildable USUndo where
     build _ = "BSUndo"
 
 instance Default USUndo where
-    def = USUndo mempty Nothing mempty mempty mempty
+    def = USUndo mempty Nothing mempty mempty mempty Nothing
 
 ----------------------------------------------------------------------------
 -- NFData instances

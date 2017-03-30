@@ -1,7 +1,12 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | Secret key file storage and management functions based on file
 -- locking.
+
+#if !defined(mingw32_HOST_OS)
+#define POSIX
+#endif
 
 module Pos.Util.UserSecret
        ( UserSecret
@@ -18,19 +23,35 @@ module Pos.Util.UserSecret
        , writeUserSecretRelease
        ) where
 
+import           Control.Exception    (onException)
 import           Control.Lens         (makeLenses, to)
 import           Data.Binary.Get      (label)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default         (Default (..))
-import           Prelude              (show)
+import           Formatting           (build, formatToString, (%))
+import qualified Prelude
+import           Serokell.Util.Text   (listJson)
 import           System.FileLock      (FileLock, SharedExclusive (..), lockFile,
                                        unlockFile, withFileLock)
 import qualified Turtle               as T
-import           Universum            hiding (show)
+import           Universum
 
 import           Pos.Binary.Class     (Bi (..), decodeFull, encode)
 import           Pos.Binary.Crypto    ()
 import           Pos.Crypto           (EncryptedSecretKey, SecretKey, VssKeyPair)
+
+import           System.Directory     (renameFile)
+import           System.FilePath      (takeDirectory, takeFileName)
+import           System.IO            (hClose)
+import           System.IO.Temp       (openBinaryTempFile)
+
+import           Pos.Wallet.Web.Error (WalletError (..))
+
+#ifdef POSIX
+import           Formatting           (oct, sformat)
+import qualified System.Posix.Files   as PSX
+import qualified System.Posix.Types   as PSX (FileMode)
+#endif
 
 -- | User secret data. Includes secret keys only for now (not
 -- including auxiliary @_usPath@).
@@ -47,9 +68,8 @@ makeLenses ''UserSecret
 -- | Show instance to be able to include it into NodeParams
 instance Show UserSecret where
     show UserSecret {..} =
-        "UserSecret { _usKeys = " ++ show _usKeys ++
-        ", _usVss = " ++ show _usVss ++
-        ", _usPath = " ++ show _usPath
+        formatToString ("UserSecret { _usKeys = "%listJson%", _usVss = "%build%", _usPath = "%build%"}")
+            _usKeys _usVss _usPath
 
 -- | Path of lock file for the provided path.
 lockFilePath :: FilePath -> FilePath
@@ -81,23 +101,58 @@ instance Bi UserSecret where
         keys <- get
         return $ def & usVss .~ vss & usPrimKey .~ pkey & usKeys .~ keys
 
+#ifdef POSIX
+-- | Constant that defines file mode 600 (readable & writable only by owner).
+mode600 :: PSX.FileMode
+mode600 = PSX.unionFileModes PSX.ownerReadMode PSX.ownerWriteMode
+
+-- | Check whether a given file has mode 600.
+failIfModeNot600 :: (MonadIO m, MonadThrow m) => FilePath -> m ()
+failIfModeNot600 path = do
+    mode <- liftIO $ PSX.fileMode <$> PSX.getFileStatus path
+    let accessMode = PSX.intersectFileModes mode PSX.accessModes
+    when (accessMode /= mode600) $
+        throwM $ Internal $
+            sformat ("Key file access mode is incorrect. Set it to 600 and try again. Key file path: "%build%" Current mode: "%oct)
+            path accessMode
+
+-- | Set mode 600 on a given file, regardless of its current mode.
+setMode600 :: (MonadIO m) => FilePath -> m ()
+setMode600 path = liftIO $ PSX.setFileMode path mode600
+#endif
+
 -- | Create user secret file at the given path, but only when one doesn't
 -- already exist.
-initializeUserSecret :: (MonadIO m) => FilePath -> m ()
-initializeUserSecret path = do
-    exists <- T.testfile (fromString path)
-    liftIO (unless exists $ T.output (fromString path) empty)
+initializeUserSecret :: (MonadIO m, MonadThrow m) => FilePath -> m ()
+initializeUserSecret secretPath = do
+    exists <- T.testfile (fromString secretPath)
+    liftIO $
+#ifdef POSIX
+        if exists
+        then failIfModeNot600 secretPath
+        else do
+            createEmptyFile secretPath
+            setMode600 secretPath
+#else
+        unless exists $ createEmptyFile secretPath
+#endif
+  where
+    createEmptyFile :: (MonadIO m) => FilePath -> m ()
+    createEmptyFile filePath = T.output (fromString filePath) empty
 
 -- | Reads user secret from file, assuming that file exists,
--- throws exception in other case
-readUserSecret :: MonadIO m => FilePath -> m UserSecret
+-- and has mode 600, throws exception in other case
+readUserSecret :: (MonadIO m, MonadThrow m) => FilePath -> m UserSecret
 readUserSecret path = takeReadLock path $ do
-    content <- either fail pure . decodeFull =<< BSL.readFile path
+#ifdef POSIX
+    failIfModeNot600 path
+#endif
+    content <- either (throwM . Internal . toText) pure . decodeFull =<< BSL.readFile path
     pure $ content & usPath .~ path
 
 -- | Reads user secret from the given file.
 -- If the file does not exist/is empty, returns empty user secret
-peekUserSecret :: (MonadIO m) => FilePath -> m UserSecret
+peekUserSecret :: (MonadIO m, MonadThrow m) => FilePath -> m UserSecret
 peekUserSecret path = takeReadLock path $ do
     initializeUserSecret path
     econtent <- decodeFull <$> BSL.readFile path
@@ -105,8 +160,9 @@ peekUserSecret path = takeReadLock path $ do
 
 -- | Read user secret putting an exclusive lock on it. To unlock, use
 -- 'writeUserSecretRelease'.
-takeUserSecret :: (MonadIO m) => FilePath -> m UserSecret
+takeUserSecret :: (MonadIO m, MonadThrow m) => FilePath -> m UserSecret
 takeUserSecret path = liftIO $ do
+    initializeUserSecret path
     l <- lockFile (lockFilePath path) Exclusive
     econtent <- decodeFull <$> BSL.readFile path
     pure $ either (const def) identity econtent
@@ -132,7 +188,21 @@ writeUserSecretRelease u
 
 -- | Helper for writing secret to file
 writeRaw :: UserSecret -> IO ()
-writeRaw u = BSL.writeFile (u ^. usPath) $ encode u
+writeRaw u = do
+    let path = u ^. usPath
+    -- On POSIX platforms, openBinaryTempFile guarantees that the file
+    -- will be created with mode 600.
+    -- If openBinaryTempFile throws, we want to propagate this exception,
+    -- hence no handler.
+    (tempPath, tempHandle) <-
+        openBinaryTempFile (takeDirectory path) (takeFileName path)
+
+    -- onException rethrows the exception after calling the handler.
+    BSL.hPut tempHandle (encode u) `onException` do
+        hClose tempHandle
+
+    hClose tempHandle
+    renameFile tempPath path
 
 -- | Helper for taking shared lock on file
 takeReadLock :: MonadIO m => FilePath -> IO a -> m a

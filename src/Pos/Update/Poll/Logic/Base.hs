@@ -356,7 +356,7 @@ putNewProposal
     -> [(UpdateVote, Coin)]
     -> UpdateProposal
     -> m ()
-putNewProposal slotOrHeader totalStake votesAndStakes up = addActiveProposal ps
+putNewProposal slotOrHeader totalStake votesAndStakes up = insertActiveProposal ps
   where
     slotId = either identity (view headerSlotL) slotOrHeader
     cd = either (const Nothing) (Just . view difficultyL) slotOrHeader

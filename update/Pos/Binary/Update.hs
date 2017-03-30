@@ -8,7 +8,6 @@ import           Universum
 import           Data.Binary             (Binary)
 import           Data.Binary.Get         (getWord8, label)
 import           Data.Binary.Put         (putWord8)
-import qualified Data.HashMap.Strict     as HM
 
 import           Pos.Binary.Class        (Bi (..), getAsciiString1b, putAsciiString1b)
 import           Pos.Binary.Core         ()
@@ -74,23 +73,32 @@ instance Bi U.BlockVersionData where
         put bvdUpdateSoftforkThd
 
 instance Bi U.UpdateProposal where
-    get = label "UpdateProposal" $
-          U.UpdateProposal
-            <$> get
-            <*> get
-            <*> get
-            <*> getUpData
-            <*> get
-      where getUpData = do   -- Check if proposal data is non-empty
-                pd <- get
-                when (HM.null pd) $
-                    fail "Pos.Binary.Update: UpdateProposal: empty proposal data"
-                return pd
-    put U.UpdateProposal {..} =  put upBlockVersion
+    get = label "UpdateProposal" $ do
+        d <- get
+        r <- get
+        a <- get
+        t <- get
+        u <- get
+        t' <- get
+        i <- get
+        U.mkUpdateProposal d r a t u t' i
+    put U.UnsafeUpdateProposal {..} =  put upBlockVersion
                               *> put upBlockVersionData
                               *> put upSoftwareVersion
                               *> put upData
                               *> put upAttributes
+                              *> put upFrom
+                              *> put upSignature
+
+instance Bi U.UpdateProposalToSign where
+    get = label "UpdateProposalToSign" $
+          U.UpdateProposalToSign
+            <$> get
+            <*> get
+            <*> get
+            <*> get
+            <*> get
+    put U.UpdateProposalToSign {..} = put upsBV *> put upsBVD *> put upsSV *> put upsData *> put upsAttr
 
 instance Bi U.UpdatePayload where
     get = label "UpdatePayload" $ liftA2 U.UpdatePayload get get
@@ -118,6 +126,7 @@ instance Bi U.USUndo where
         unChangedProps <- get
         unChangedSV <- get
         unChangedConfProps <- get
+        unPrevProposers <- get
         return $ U.USUndo {..}
     put U.USUndo{..} = do
         put unChangedBV
@@ -125,6 +134,7 @@ instance Bi U.USUndo where
         put unChangedProps
         put unChangedSV
         put unChangedConfProps
+        put unPrevProposers
 
 instance Bi U.UpsExtra where
     put U.UpsExtra {..} = put ueProposedBlk

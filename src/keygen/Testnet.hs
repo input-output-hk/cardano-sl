@@ -29,7 +29,9 @@ generateKeyfile fp = do
     writeUserSecretRelease $
         us & usPrimKey .~ Just sk
            & usVss .~ Just vss
-    expiry <- fromIntegral <$> randomRIO (Const.vssMinTTL :: Int, Const.vssMaxTTL)
+    expiry <-
+        fromIntegral <$>
+        randomRIO @Int (Const.vssMinTTL - 1, Const.vssMaxTTL - 1)
     let vssPk = asBinary $ toVssPublicKey vss
         vssCert = mkVssCertificate sk vssPk expiry
     return (toPublic sk, vssCert)

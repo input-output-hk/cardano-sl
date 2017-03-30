@@ -17,6 +17,7 @@ cache:
   #- daedalus/bower_components
 
 before_install:
+- echo $TRAVIS_OS_NAME
 - export CSL_SYSTEM_TAG=$TRAVIS_OS_NAME
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
@@ -25,12 +26,12 @@ before_install:
 - travis_retry curl -L https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64 | tar
   xz --strip-components=1 -C ~/.local/bin
 script:
-- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export EXTRA_STACK="--test --haddock"; else export EXTRA_STACK="--no-haddock-deps"; fi
+- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" ]]; then export EXTRA_STACK="--test --haddock"; else export EXTRA_STACK="--no-haddock-deps"; fi
 - stack --nix --no-terminal --local-bin-path daedalus/ install cardano-sl $EXTRA_STACK  --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --jobs=4
   --flag cardano-sl:-asserts
   --flag cardano-sl-core:-dev-mode
-- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ./update_haddock.sh; fi
-# - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ./update_wallet_web_api_docs.sh; fi
+- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ./update_wallet_web_api_docs.sh; fi
+- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" ]]; then ./update_haddock.sh; fi
 - stack exec --nix -- cardano-wallet-hs2purs
 - stack exec --nix -- cardano-wallet-web-docs
 - pushd daedalus

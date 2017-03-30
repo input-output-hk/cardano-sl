@@ -6,7 +6,8 @@ module Pos.Crypto.Arbitrary
 
 import           Data.List.NonEmpty          (fromList)
 import           System.IO.Unsafe            (unsafePerformIO)
-import           Test.QuickCheck             (Arbitrary (..), choose, elements, generate, vector)
+import           Test.QuickCheck             (Arbitrary (..), choose, elements, generate,
+                                              vector)
 import           Universum
 
 import           Pos.Binary.Class            (AsBinary (..), AsBinaryClass (..), Bi)

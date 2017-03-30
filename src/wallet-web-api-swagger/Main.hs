@@ -2,6 +2,7 @@
 {-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
 
 -- | This program builds Swagger specification for wallet web API and converts it to JSON.
 -- We run this program during CI build.
@@ -17,15 +18,13 @@ import           Control.Lens               (mapped, (?~))
 import           Data.Aeson                 (encode)
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import           Data.Swagger               (Swagger, ToParamSchema, ToSchema (..),
-                                             allOperations, declareNamedSchema,
-                                             defaultSchemaOptions, description,
-                                             genericDeclareNamedSchema, host, info, name,
-                                             title, version)
-import           Data.Typeable              (Typeable, typeOf)
+                                             declareNamedSchema, defaultSchemaOptions,
+                                             description, genericDeclareNamedSchema, host,
+                                             info, name, title, version)
+import           Data.Typeable              (Typeable, typeRep)
 import           Data.Version               (showVersion)
 
 import           Servant.Swagger            (toSwagger)
-import           Servant.Swagger.UI         (SwaggerSchemaUI)
 
 import qualified Paths_cardano_sl           as CSL
 import           Pos.Types                  (ApplicationName, BlockVersion,
@@ -35,9 +34,7 @@ import           Pos.Wallet.Web             (CAddress, CCurrency, CHash, CInitia
                                              CProfile, CTType, CTx, CTxId, CTxMeta,
                                              CUpdateInfo, CWallet, CWalletInit,
                                              CWalletMeta, CWalletRedeem, CWalletType,
-                                             SyncProgress, WalletApi, WalletError,
-                                             walletApi)
-
+                                             SyncProgress, WalletError, walletApi)
 
 main :: IO ()
 main = do
@@ -83,7 +80,7 @@ instance ToSchema      BackupPhrase
 -- We need this instance for correct Swagger-specification.
 instance {-# OVERLAPPING #-} (Typeable a, ToSchema a) => ToSchema (Either WalletError a) where
     declareNamedSchema proxy = genericDeclareNamedSchema defaultSchemaOptions proxy
-        & mapped . name ?~ toText ("Either WalletError " ++ show (typeOf (undefined :: a)))
+        & mapped . name ?~ show (typeRep (Proxy @(Either WalletError a)))
 
 -- | Build Swagger-specification from 'walletApi'.
 swaggerSpecForWalletApi :: Swagger

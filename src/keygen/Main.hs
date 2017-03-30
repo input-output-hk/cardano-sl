@@ -12,8 +12,8 @@ import           System.FilePath      (takeDirectory)
 import           Universum
 
 import           Pos.Binary           (decodeFull, encode)
-import           Pos.Genesis          (GenesisData (..), getTotalStake)
-import           Pos.Types            (Coin, addressHash, makePubKeyAddress, mkCoin)
+import           Pos.Genesis          (GenesisData (..))
+import           Pos.Types            (addressHash, makePubKeyAddress)
 
 import           Avvm                 (aeCoin, applyBlacklisted, genGenesis, getHolderId,
                                        utxo)
@@ -67,8 +67,6 @@ main = do
     createDirectoryIfMissing True genFileDir
 
     mAvvmGenesis <- traverse getAvvmGenesis koAvvmStake
-    let avvmStake = maybe (mkCoin 0)
-            (getTotalStake . gdDistribution) mAvvmGenesis
     mTestnetGenesis <- traverse getTestnetGenesis koTestStake
     putText $ "testnet genesis created successfully..."
 

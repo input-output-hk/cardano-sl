@@ -20,6 +20,7 @@ module Daedalus.Types
        , mkBackupPhrase
        , mkCWalletRedeem
        , mkCInitialized
+       , getProfileLocale
        ) where
 
 import Prelude
@@ -105,11 +106,16 @@ mkCWalletType = either (const CT.CWTPersonal) id <<< decodeJson <<< fromString
 mkCCurrency :: String -> CT.CCurrency
 mkCCurrency = either (const CT.ADA) id <<< decodeJson <<< fromString
 
-mkCWalletMeta :: String -> String -> String -> CT.CWalletMeta
-mkCWalletMeta wType wCurrency wName =
+mkCWAssurance :: String -> CT.CWalletAssurance
+mkCWAssurance = either (const CT.CWANormal) id <<< decodeJson <<< fromString
+
+mkCWalletMeta :: String -> String -> String -> String -> Int -> CT.CWalletMeta
+mkCWalletMeta wType wCurrency wName wAssurance wUnit =
     CT.CWalletMeta { cwType: mkCWalletType wType
                    , cwCurrency: mkCCurrency wCurrency
                    , cwName: wName
+                   , cwAssurance: mkCWAssurance wAssurance
+                   , cwUnit: wUnit
                    }
 
 mkCInitialized :: Int -> Int -> CT.CInitialized
@@ -129,7 +135,7 @@ mkCWalletInitIgnoreChecksum wType wCurrency wName mnemonic= do
 mkCWalletInit' :: String -> String -> String -> BackupPhrase -> CT.CWalletInit
 mkCWalletInit' wType wCurrency wName bp =
     CT.CWalletInit { cwBackupPhrase: bp
-                   , cwInitMeta: mkCWalletMeta wType wCurrency wName
+                   , cwInitMeta: mkCWalletMeta wType wCurrency wName "CWANormal" 0 -- FIXME: don't use string!
                    }
 
 mkCWalletRedeem :: String -> String -> CT.CWalletRedeem
@@ -152,13 +158,10 @@ mkCTxMeta currency title description date =
                , ctmDate: mkTime date
                }
 
-mkCProfile :: String -> String -> String -> String -> Number -> String -> String -> CT.CProfile
-mkCProfile name email phone pass date locale picture =
-    CT.CProfile { cpName: name
-                , cpEmail: email
-                , cpPhoneNumber: phone
-                , cpPwHash: pass
-                , cpPwCreated: mkTime date
-                , cpLocale: locale
-                , cpPicture: picture
+mkCProfile :: String -> CT.CProfile
+mkCProfile locale =
+    CT.CProfile { cpLocale: locale
                 }
+
+getProfileLocale :: CT.CProfile -> String
+getProfileLocale (CT.CProfile r) = r.cpLocale

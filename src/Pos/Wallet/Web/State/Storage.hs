@@ -34,12 +34,13 @@ import           Control.Lens               (at, ix, makeClassy, (%=), (.=), _Ju
 import           Control.Monad.State.Class  (put)
 import           Data.Default               (Default, def)
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
+
 import           Pos.Client.Txp.History     (TxHistoryEntry)
 import           Pos.Txp                    (Utxo)
 import           Pos.Types                  (HeaderHash)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTxId,
-                                             CTxMeta, CUpdateInfo, CWalletMeta,
-                                             CWalletType)
+                                             CTxMeta, CUpdateInfo, CWalletAssurance,
+                                             CWalletMeta, CWalletType)
 
 type TransactionHistory = HashMap CTxId CTxMeta
 
@@ -133,6 +134,7 @@ deriveSafeCopySimple 0 'base ''CHash
 deriveSafeCopySimple 0 'base ''CAddress
 deriveSafeCopySimple 0 'base ''CCurrency
 deriveSafeCopySimple 0 'base ''CWalletType
+deriveSafeCopySimple 0 'base ''CWalletAssurance
 deriveSafeCopySimple 0 'base ''CWalletMeta
 deriveSafeCopySimple 0 'base ''CTxId
 deriveSafeCopySimple 0 'base ''TxHistoryEntry

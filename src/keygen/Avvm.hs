@@ -68,13 +68,13 @@ instance FromJSON AvvmCoin where
 -}
 
 data AvvmEntry = AvvmEntry
-    { aeCoin      :: !Integer
+    { aeCoin      :: !Integer         -- in lovelaces
     , aePublicKey :: !RedeemPublicKey -- in base64(u), yep
     } deriving (Show, Generic, Eq)
 
 instance FromJSON AvvmEntry where
     parseJSON = withObject "avvmEntry" $ \o -> do
-        aeCoin <- o .: "coin"
+        aeCoin <- (* (1000000 :: Integer)) <$> o .: "coin"
         (addrText :: Text) <- o .: "address"
         aePublicKey <- fromAvvmPk addrText
         return AvvmEntry{..}

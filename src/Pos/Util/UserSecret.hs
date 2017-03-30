@@ -86,9 +86,7 @@ instance Bi UserSecret where
 initializeUserSecret :: (MonadIO m) => FilePath -> m ()
 initializeUserSecret path = do
     exists <- T.testfile (fromString path)
-    liftIO (if exists
-            then return ()
-            else T.output (fromString path) empty)
+    liftIO (unless exists $ T.output (fromString path) empty)
 
 -- | Reads user secret from file, assuming that file exists,
 -- throws exception in other case

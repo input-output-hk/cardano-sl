@@ -16,9 +16,9 @@ module Pos.Data.Attributes
 import           Universum
 
 import qualified Base
-import           Data.Binary.Get     (Get, getWord8)
+import           Data.Binary.Get     (Get)
 import qualified Data.Binary.Get     as G
-import           Data.Binary.Put     (Put, putByteString, putWord8)
+import           Data.Binary.Put     (Put)
 import qualified Data.ByteString     as BS
 import           Data.Default        (Default (..))
 import           Data.DeriveTH       (derive, makeNFData)
@@ -29,7 +29,8 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, int, (%))
 
 import           Pos.Binary.Class    (getRemainingByteString, getWithLength,
-                                      getWithLengthLimited, putWithLength)
+                                      getWithLengthLimited, getWord8, putByteString,
+                                      putWithLength, putWord8)
 
 mkAttributes :: h -> Attributes h
 mkAttributes dat = Attributes dat BS.empty

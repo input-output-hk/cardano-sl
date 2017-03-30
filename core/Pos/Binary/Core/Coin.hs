@@ -8,12 +8,12 @@ module Pos.Binary.Core.Coin
 
 import           Universum
 
-import           Control.Monad   (when)
-import           Data.Binary.Get (Get, getWord8)
-import           Data.Bits       (Bits (..))
-import           Data.Word       ()
+import           Data.Binary.Get  (Get)
+import           Data.Bits        (Bits (..))
+import           Data.Word        ()
 
-import           Pos.Core.Types  (Coin, mkCoin, unsafeGetCoin)
+import           Pos.Binary.Class (getWord8)
+import           Pos.Core.Types   (Coin, mkCoin, unsafeGetCoin)
 
 -- number of total coins is 45*10^9 * 10^6
 --

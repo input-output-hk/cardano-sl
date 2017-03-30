@@ -6,11 +6,10 @@ module Pos.Binary.Update
 import           Universum
 
 import           Data.Binary             (Binary)
-import           Data.Binary.Get         (getWord8, label)
-import           Data.Binary.Put         (putWord8)
 import qualified Data.HashMap.Strict     as HM
 
-import           Pos.Binary.Class        (Bi (..), getAsciiString1b, putAsciiString1b)
+import           Pos.Binary.Class        (Bi (..), getAsciiString1b, getWord8, label,
+                                          putAsciiString1b, putWord8)
 import           Pos.Binary.Core         ()
 import           Pos.Binary.Core.Version ()
 import           Pos.Crypto              (checkSig)

@@ -12,8 +12,10 @@ module Pos.Communication.Limits.Instances
        ) where
 
 import           Control.Lens                   (each, ix)
-import           Data.Binary.Get                (getWord8, lookAhead)
+import           Data.Binary.Get                (lookAhead)
 import           Universum
+
+import           Pos.Binary.Class               (getWord8)
 
 import qualified Pos.Communication.Constants    as Const
 import           Pos.Communication.Limits.Types (Limit (..), Limiter (..),

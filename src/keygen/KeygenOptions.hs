@@ -67,7 +67,7 @@ testStakeParser = do
         metavar "FLOAT" <>
         help    "Percent of stake dedicated to richmen (between 0 and 1)"
     tsoTotalStake <- option auto $
-        long    "total-stake" <>
+        long    "testnet-stake" <>
         metavar "INT" <>
         help    "Total coins in genesis stake, excluding RSCoin ledger."
     pure TestStakeOptions{..}

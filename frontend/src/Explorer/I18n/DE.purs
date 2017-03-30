@@ -53,8 +53,6 @@ translation =
     , dashboard:
         { dbLastBlocks: "Aktuelle Slots"
         , dbLastBlocksDescription: "Am {0} wurden {1} Transakationen generiert."
-        , dbNetworkDifficulty: "Netzwerk difficulty"
-        , dbNetworkDifficultyDescription: "Difficulty ist eine Maßeinheit die beschreibt, wieviel Aufwand es bedarf, um einen neuen Block unterhalb einer bestimmten Grenze zu finden"
         , dbPriceAverage: "Price (Durchschnitt)"
         , dbPriceForOne: "{0} für 1 {1}"
         , dbPriceSince: "{0} seid gestern."

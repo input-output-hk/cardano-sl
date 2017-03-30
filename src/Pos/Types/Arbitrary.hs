@@ -21,6 +21,8 @@ module Pos.Types.Arbitrary
        , SmallGoodTx (..)
        ) where
 
+import           Universum
+
 import qualified Data.ByteString            as BS (pack)
 import           Data.Char                  (chr)
 import           Data.DeriveTH              (derive, makeArbitrary)
@@ -31,7 +33,6 @@ import           System.Random              (Random)
 import           Test.QuickCheck            (Arbitrary (..), Gen, choose, choose,
                                              elements, oneof, scale, suchThat)
 import           Test.QuickCheck.Instances  ()
-import           Universum
 
 import           Pos.Binary.Class           (AsBinary, FixedSizeInt (..), Raw,
                                              SignedVarInt (..), UnsignedVarInt (..))
@@ -43,9 +44,9 @@ import           Pos.Core.Address           (makePubKeyAddress, makeRedeemAddres
                                              makeScriptAddress)
 import           Pos.Core.Coin              (coinToInteger, divCoin, unsafeSubCoin)
 import           Pos.Core.Types             (BlockVersion (..), Coin,
-                                             SoftwareVersion (..))
+                                             SoftwareVersion (..),
+                                             applicationNameMaxLength, mkApplicationName)
 import qualified Pos.Core.Types             as Types
-import           Pos.Core.Version           (applicationNameMaxLength)
 import           Pos.Crypto                 (Hash, PublicKey, SecretKey, Share, hash,
                                              sign, toPublic)
 import           Pos.Crypto.Arbitrary       ()
@@ -388,10 +389,11 @@ instance Arbitrary Types.SharedSeed where
 ----------------------------------------------------------------------------
 
 instance Arbitrary Types.ApplicationName where
-    arbitrary = Types.ApplicationName  .
-        toText                   .
-        map (chr . flip mod 128) .
-        take applicationNameMaxLength <$> arbitrary
+    arbitrary =
+        either (error . mappend "arbitrary @ApplicationName failed: ") identity .
+        mkApplicationName .
+        toText . map (chr . flip mod 128) . take applicationNameMaxLength <$>
+        arbitrary
 
 derive makeArbitrary ''Types.BlockVersion
 derive makeArbitrary ''Types.SoftwareVersion

@@ -35,7 +35,7 @@ parseBlockVersion = do
     return BlockVersion{..}
 
 applicationNameMaxLength :: Integral i => i
-applicationNameMaxLength = 10
+applicationNameMaxLength = 12
 
 parseSoftwareVersion :: Parser SoftwareVersion
 parseSoftwareVersion = do

@@ -122,7 +122,7 @@ applyBlacklisted (Just blacklistPath) AvvmData{..} = do
     let filteredBad = filter ((`elem` blacklisted) . aePublicKey) utxo
     let filtered = utxo \\ filteredBad
     putText $
-        "Removing " <> show (length filtered) <> " entries from utxo (out of " <>
+        "Removing " <> show (length filteredBad) <> " entries from utxo (out of " <>
         show (length blacklisted) <> " total entries in the blacklist)"
     pure $ AvvmData filtered
 

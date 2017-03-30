@@ -83,7 +83,7 @@ encodeVarint w
     | w <= 0x1FFFFF     = [0xc0 .|. (w .>>. 16), w .>>. 8, fromIntegral w]
     | w <= 0x0FFFFFFF   = [0xe0 .|. (w .>>. 24), w .>>. 16, w .>>. 8, fromIntegral w]
     | w <= 0x0FFFFFFFFF = [0xf0 .|. (w .>>. 32), w .>>. 24, w .>>. 16, w .>>. 8, fromIntegral w]
-    | otherwise         = error "invalid encoding for integral part"
+    | otherwise         = error $ "invalid encoding for integral part: " <> show w
 
 expectedContBytes :: Word64 -> Int
 expectedContBytes w

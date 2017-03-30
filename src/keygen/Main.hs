@@ -24,8 +24,8 @@ import           Testnet              (genTestnetStakes, generateKeyfile)
 replace :: FilePath -> FilePath -> FilePath -> FilePath
 replace a b = toString . (T.replace `on` toText) a b . toText
 
-getTestnetGenesis :: Coin -> TestStakeOptions -> IO GenesisData
-getTestnetGenesis avvmStake tso@TestStakeOptions{..} = do
+getTestnetGenesis :: TestStakeOptions -> IO GenesisData
+getTestnetGenesis tso@TestStakeOptions{..} = do
     let keysDir = takeDirectory tsoPattern
     createDirectoryIfMissing True keysDir
 
@@ -34,7 +34,7 @@ getTestnetGenesis avvmStake tso@TestStakeOptions{..} = do
         generateKeyfile $ replace "{}" (show i) tsoPattern
     putText $ show totalStakeholders <> " keyfiles are generated"
 
-    let distr = genTestnetStakes avvmStake tso
+    let distr = genTestnetStakes tso
         genesisAddrs = map (makePubKeyAddress . fst) genesisList
         genesisVssCerts = HM.fromList
                           $ map (_1 %~ addressHash)
@@ -44,6 +44,8 @@ getTestnetGenesis avvmStake tso@TestStakeOptions{..} = do
             , gdDistribution = distr
             , gdVssCertificates = genesisVssCerts
             }
+
+    putText $ "Total testnet genesis stake: " <> show distr
     return genData
 
 getAvvmGenesis :: AvvmStakeOptions -> IO GenesisData
@@ -67,7 +69,8 @@ main = do
     mAvvmGenesis <- traverse getAvvmGenesis koAvvmStake
     let avvmStake = maybe (mkCoin 0)
             (getTotalStake . gdDistribution) mAvvmGenesis
-    mTestnetGenesis <- traverse (getTestnetGenesis avvmStake) koTestStake
+    mTestnetGenesis <- traverse getTestnetGenesis koTestStake
+    putText $ "testnet genesis created successfully..."
 
     let mGenData = mappend <$> mTestnetGenesis <*> mAvvmGenesis
                    <|> mTestnetGenesis

@@ -14,8 +14,7 @@ import           Pos.Crypto           (PublicKey, keyGen, toPublic, toVssPublicK
                                        vssKeyGen)
 import           Pos.Genesis          (StakeDistribution (..))
 import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
-import           Pos.Types            (Coin, coinPortionToDouble, coinToInteger,
-                                       unsafeIntegerToCoin)
+import           Pos.Types            (coinPortionToDouble, unsafeIntegerToCoin)
 import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usPrimKey,
                                        usVss, writeUserSecretRelease)
 
@@ -35,23 +34,24 @@ generateKeyfile fp = do
         vssCert = mkVssCertificate sk vssPk expiry
     return (toPublic sk, vssCert)
 
-genTestnetStakes :: Coin -> TestStakeOptions -> StakeDistribution
-genTestnetStakes avvmStake TestStakeOptions{..} = checkConsistency $ TestnetStakes {..}
+genTestnetStakes :: TestStakeOptions -> StakeDistribution
+genTestnetStakes TestStakeOptions{..} =
+    checkConsistency $ TestnetStakes {..}
   where
     richs = fromIntegral tsoRichmen
     poors = fromIntegral tsoPoors
     testStake = fromIntegral tsoTotalStake
-    totalStake = coinToInteger avvmStake + testStake
 
     -- Calculate actual stakes
-    maxRichStake = testStake - poors
-    desiredRichStake = getShare tsoRichmenShare totalStake
+    desiredRichStake = getShare tsoRichmenShare testStake
     oneRichmanStake = desiredRichStake `div` richs +
         if desiredRichStake `mod` richs > 0 then 1 else 0
     realRichStake = oneRichmanStake * richs
     poorsStake = testStake - realRichStake
     onePoorStake = poorsStake `div` poors
-    mpcStake = getShare (coinPortionToDouble Const.genesisMpcThd) totalStake
+    realPoorStake = onePoorStake * poors
+
+    mpcStake = getShare (coinPortionToDouble Const.genesisMpcThd) testStake
 
     sdRichmen = fromInteger richs
     sdRichStake = unsafeIntegerToCoin oneRichmanStake
@@ -61,14 +61,13 @@ genTestnetStakes avvmStake TestStakeOptions{..} = checkConsistency $ TestnetStak
     -- Consistency checks
     everythingIsConsistent :: [(Bool, Text)]
     everythingIsConsistent =
-        [ ( maxRichStake <= realRichStake
-          , "Desired richmen's stake is more than allowed by \
-            \constrains on total stake and given AVVM stake."
+        [ ( realRichStake + realPoorStake <= testStake
+          , "Real rich + poor stake is more than desired."
           )
         , ( oneRichmanStake >= mpcStake
           , "Richman's stake is less than MPC threshold"
           )
-        , ( poorsStake < mpcStake
+        , ( onePoorStake < mpcStake
           , "Poor's stake is more than MPC threshold"
           )
         ]
@@ -80,4 +79,3 @@ genTestnetStakes avvmStake TestStakeOptions{..} = checkConsistency $ TestnetStak
 
     getShare :: Double -> Integer -> Integer
     getShare sh n = round $ sh * fromInteger n
-

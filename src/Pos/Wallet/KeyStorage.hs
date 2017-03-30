@@ -164,7 +164,7 @@ instance ( Mockable d m
          ) => Mockable d (KeyStorage m) where
     liftMockable = liftMockableWrappedM
 
-runKeyStorage :: MonadIO m => FilePath -> KeyStorage m a -> m a
+runKeyStorage :: (MonadIO m, MonadThrow m) => FilePath -> KeyStorage m a -> m a
 runKeyStorage fp ks =
     peekUserSecret fp >>= liftIO . STM.newTVarIO >>= runKeyStorageRaw ks
 

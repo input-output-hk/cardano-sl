@@ -25,8 +25,8 @@ import           Data.Coerce           (coerce)
 import           Data.SafeCopy         (base, deriveSafeCopySimple)
 import           Data.Text.Buildable   (build)
 import qualified Data.Text.Buildable   as B
-import           Prelude               (show)
-import           Universum             hiding (show)
+import qualified Prelude
+import           Universum
 
 import           Pos.Binary.Class      (Bi, Raw)
 import qualified Pos.Binary.Class      as Bi

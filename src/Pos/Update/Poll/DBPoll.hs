@@ -109,6 +109,7 @@ instance (MonadDB m, WithLogger m, HasContext LrcContext m) =>
          MonadPollRead (DBPoll m) where
     getBVState = GS.getBVState
     getProposedBVs = GS.getProposedBVs
+    getEpochProposers = GS.getEpochProposers
     getConfirmedBVStates = GS.getConfirmedBVStates
     getAdoptedBVFull = GS.getAdoptedBVFull
     getLastConfirmedSV = GS.getConfirmedSV

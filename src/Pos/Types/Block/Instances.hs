@@ -334,7 +334,7 @@ instance (Bi UpdateProposal, BiSsc ssc) => Buildable (MainBlock ssc) where
             (stext%":\n"%
              "  "%build%
              "  transactions ("%int%" items): "%listJson%"\n"%
-             "  certificates ("%int%" items): "%listJson%"\n"%
+             "  proxy signing keys ("%int%" items): "%listJson%"\n"%
              build%"\n"%
              "  update payload: "%build%"\n"%
              "  "%build

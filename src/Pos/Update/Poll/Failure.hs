@@ -67,6 +67,9 @@ data PollVerFailure
                            , ptlpSize  :: !Byte
                            , ptlpLimit :: !Byte
                            }
+    | PollMoreThanOneProposalPerEpoch { ptopFrom :: !StakeholderId
+                                      , ptopUpId :: !UpId
+                                      }
     | PollInternalError !Text
 
 instance Buildable PollVerFailure where
@@ -131,5 +134,7 @@ instance Buildable PollVerFailure where
         bprint ("update proposal "%shortHashF%" exceeds maximal size ("%
                 int%" > "%int%")")
         ptlpUpId ptlpSize ptlpLimit
+    build (PollMoreThanOneProposalPerEpoch {..}) =
+        bprint ("stakeholder "%shortHashF%" proposed second proposal "%shortHashF) ptopFrom ptopUpId
     build (PollInternalError msg) =
         bprint ("internal error: "%stext) msg

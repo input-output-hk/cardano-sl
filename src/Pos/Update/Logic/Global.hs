@@ -19,9 +19,9 @@ import           Universum
 
 import           Pos.Constants        (lastKnownBlockVersion)
 import           Pos.Core             (ApplicationName, BlockVersion, NumSoftwareVersion,
-                                       SoftwareVersion (..), addressHash, blockVersionL,
-                                       epochIndexL, headerHashG, headerLeaderKeyL,
-                                       headerSlotL)
+                                       SoftwareVersion (..), StakeholderId, addressHash,
+                                       blockVersionL, epochIndexL, headerHashG,
+                                       headerLeaderKeyL, headerSlotL)
 import qualified Pos.DB               as DB
 import           Pos.Lrc.Context      (LrcContext)
 import           Pos.Slotting         (SlottingData)
@@ -151,6 +151,7 @@ modifierToBatch PollModifier {..} =
           (MM.deletions pmConfirmedProps)
     , upModifierToBatch (MM.insertions pmActiveProps) pmDelActivePropsIdx
     , sdModifierToBatch pmSlottingData
+    , epModifierToBatch pmEpochProposers
     ]
 
 bvsModifierToBatch
@@ -199,3 +200,7 @@ upModifierToBatch (map snd -> added) (HM.toList -> deleted)
 sdModifierToBatch :: Maybe SlottingData -> [DB.SomeBatchOp]
 sdModifierToBatch Nothing   = []
 sdModifierToBatch (Just sd) = [DB.SomeBatchOp $ PutSlottingData sd]
+
+epModifierToBatch :: Maybe (HashSet StakeholderId) -> [DB.SomeBatchOp]
+epModifierToBatch Nothing   = []
+epModifierToBatch (Just ep) = [DB.SomeBatchOp $ PutEpochProposers ep]

@@ -88,7 +88,7 @@ verifyAndApplyProposalBVS upId up =
 verifyBlockVersion
     :: (MonadError PollVerFailure m, MonadPollRead m)
     => UpId -> UpdateProposal -> m ()
-verifyBlockVersion upId UpdateProposal {..} = do
+verifyBlockVersion upId UnsafeUpdateProposal {..} = do
     lastAdopted <- getAdoptedBV
     unlessM (canBeProposedBV upBlockVersion) $
         throwError
@@ -103,7 +103,7 @@ verifyBlockVersion upId UpdateProposal {..} = do
 verifySoftwareVersion
     :: (MonadError PollVerFailure m, MonadPollRead m)
     => UpId -> UpdateProposal -> m ()
-verifySoftwareVersion upId UpdateProposal {..} =
+verifySoftwareVersion upId UnsafeUpdateProposal {..} =
     getLastConfirmedSV app >>= \case
         -- If there is no confirmed versions for given application,
         -- We check that version is 0.

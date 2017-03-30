@@ -32,9 +32,10 @@ import           Pos.Types                  (ApplicationName, BlockVersion,
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web             (CAddress, CCurrency, CHash, CInitialized,
                                              CPassPhrase, CProfile, CTType, CTx, CTxId,
-                                             CTxMeta, CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, CWalletType,
-                                             SyncProgress, WalletError, walletApi)
+                                             CTxMeta, CUpdateInfo, CWallet,
+                                             CWalletAssurance, CWalletInit, CWalletMeta,
+                                             CWalletRedeem, CWalletType, SyncProgress,
+                                             WalletError, walletApi)
 
 main :: IO ()
 main = do
@@ -61,6 +62,7 @@ instance ToSchema      CCurrency
 instance ToParamSchema CCurrency
 instance ToSchema      CProfile
 instance ToSchema      WalletError
+instance ToSchema      CWalletAssurance
 instance ToSchema      CWalletMeta
 instance ToSchema      CWalletInit
 instance ToSchema      CWalletType

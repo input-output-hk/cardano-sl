@@ -18,7 +18,7 @@ module Pos.Wallet.Web.Server.Methods
 import           Universum
 
 import           Control.Concurrent            (forkFinally)
-import           Control.Lens                  (makeLenses, (.=))
+import           Control.Lens                  (ix, makeLenses, (.=))
 import           Control.Monad                 (replicateM_)
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
@@ -48,9 +48,9 @@ import           Pos.Constants                 (curSoftwareVersion, isDevelopmen
 import           Pos.Core                      (Address, Coin, addressF, coinF,
                                                 decodeTextAddress, makePubKeyAddress,
                                                 mkCoin)
-import           Pos.Crypto                    (PassPhrase, encToPublic, fakeSigner, hash,
-                                                redeemDeterministicKeyGen, toPublic,
-                                                withSafeSigner, withSafeSigner)
+import           Pos.Crypto                    (PassPhrase, encToPublic, hash,
+                                                redeemDeterministicKeyGen, withSafeSigner,
+                                                withSafeSigner)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (getKnownPeers)
 import           Pos.Reporting.MemState        (MonadReportingMem (..))
@@ -293,7 +293,7 @@ servantHandlers sendActions =
     apiUpdateWallet             = (\a -> catchWalletError . updateWallet a)
     apiNewWallet                = (\a -> catchWalletError . newWallet a)
     apiDeleteWallet             = catchWalletError . deleteWallet
-    apiImportKey                = (catchWalletError . importKey sendActions)
+    apiImportKey                = (catchWalletError . importKey)
     apiRestoreWallet            = (\a -> catchWalletError . restoreWallet a)
     apiIsValidAddress           = (\a -> catchWalletError . isValidAddress a)
     apiGetUserProfile           = catchWalletError getUserProfile
@@ -506,10 +506,9 @@ reportingInitialized cinit = do
 
 importKey
     :: WalletWebMode ssc m
-    => SendActions m
-    -> Text
+    => Text
     -> m CWallet
-importKey sendActions (toString -> fp) = do
+importKey (toString -> fp) = do
     secret <- readUserSecret fp
     let keys = secret ^. usKeys
     forM_ keys $ \key -> do
@@ -518,23 +517,13 @@ importKey sendActions (toString -> fp) = do
             cAddr = addressToCAddress addr
         createWallet cAddr def
 
-    let importedAddr = makePubKeyAddress $ encToPublic (keys !! 0)
-        importedCAddr = addressToCAddress importedAddr
-    when isDevelopment $ do
-        psk <- maybeThrow (Internal "No primary key is present!")
-               =<< getPrimaryKey
-        let pAddr = makePubKeyAddress $ toPublic psk
-        primaryBalance <- getBalance pAddr
-        when (primaryBalance > mkCoin 0) $ do
-            na <- getKnownPeers
-            etx <- submitTx sendActions (fakeSigner psk) na
-                       (one $ TxOutAux (TxOut importedAddr primaryBalance) [])
-            case etx of
-                Left err -> throwM . Internal $ "Cannot transfer funds from genesis key" <> err
-                Right (tx, _, _) -> void $
-                    addHistoryTx importedCAddr ADA "Transfer money from genesis key" ""
-                        (THEntry (hash tx) tx False Nothing)
-    getWallet importedCAddr
+    case keys ^? ix 0 of
+        Just key -> do
+            let importedAddr = makePubKeyAddress $ encToPublic key
+                importedCAddr = addressToCAddress importedAddr
+            getWallet importedCAddr
+        Nothing -> throwM . Internal $
+            sformat ("No spending key found at "%build) fp
 
 syncProgress :: WalletWebMode ssc m => m SyncProgress
 syncProgress = do

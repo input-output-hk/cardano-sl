@@ -11,6 +11,7 @@ import           Universum                 hiding (bracket, catchAll)
 
 import           Control.Concurrent.STM    (newTVar, readTVar, writeTVar)
 import           Data.Binary               (decode)
+import qualified Data.ByteString.Char8     as B8 (unpack)
 import qualified Data.ByteString.Lazy      as BS
 import qualified Data.HashMap.Strict       as HM
 import           Data.List                 (intersect, (\\))
@@ -71,6 +72,8 @@ startDHTInstance
        )
     => KademliaDHTInstanceConfig -> m KademliaDHTInstance
 startDHTInstance KademliaDHTInstanceConfig {..} = do
+    let host :: String
+        host = B8.unpack kdcHost
     logInfo "Generating dht key.."
     kdiKey <- maybe randomDHTKey pure kdcKey
     logInfo $ sformat ("Generated dht key "%build) kdiKey
@@ -79,10 +82,10 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
         if shouldRestore
         then do logInfo "Restoring DHT Instance from snapshot"
                 catchErrors $
-                    createKademliaFromSnapshot kdcPort kademliaConfig =<<
+                    createKademliaFromSnapshot host kdcPort kademliaConfig =<<
                     decode <$> BS.readFile kdcDumpPath
         else do logInfo "Creating new DHT instance"
-                catchErrors $ createKademlia kdcPort kdiKey kademliaConfig
+                catchErrors $ createKademlia host kdcPort kdiKey kademliaConfig
 
     logInfo "Created DHT instance"
     let kdiInitialPeers = kdcInitialPeers
@@ -96,10 +99,10 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
     catchErrors x = liftIO x `catchAll` catchErrorsHandler
 
     log' logF =  usingLoggerName ("kademlia" <> "messager") . logF . toText
-    createKademlia port key cfg =
-        K.createL (fromIntegral port) key cfg (log' logDebug) (log' logError)
-    createKademliaFromSnapshot port cfg snapshot =
-        K.createLFromSnapshot (fromIntegral port)
+    createKademlia host port key cfg =
+        K.createL host (fromIntegral port) key cfg (log' logDebug) (log' logError)
+    createKademliaFromSnapshot host port cfg snapshot =
+        K.createLFromSnapshot host (fromIntegral port)
             cfg snapshot (log' logDebug) (log' logError)
 
 rejoinNetwork

@@ -62,7 +62,8 @@ data KademliaDHTInstance = KademliaDHTInstance
 
 -- | Instance of part of config.
 data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
-    { kdcPort            :: !Word16
+    { kdcHost            :: !BS.ByteString
+    , kdcPort            :: !Word16
     , kdcKey             :: !(Maybe DHTKey)
     , kdcInitialPeers    :: ![DHTNode]
     , kdcExplicitInitial :: !Bool

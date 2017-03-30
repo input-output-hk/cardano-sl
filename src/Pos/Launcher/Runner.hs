@@ -422,6 +422,7 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
     instConfig =
         KademliaDHTInstanceConfig
         { kdcKey = bpDHTKey
+        , kdcHost = fst bpIpPort
         , kdcPort = snd bpIpPort
         , kdcInitialPeers = ordNub $ bpDHTPeers ++ Const.defaultPeers
         , kdcExplicitInitial = bpDHTExplicitInitial

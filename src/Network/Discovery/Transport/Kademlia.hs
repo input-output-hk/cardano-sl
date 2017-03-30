@@ -101,7 +101,7 @@ kademliaJoinAndUpdate kademliaInst peersTVar initialPeer = do
         K.NodeDown -> pure $ Left (DiscoveryError KademliaInitialPeerDown "Initial peer is down")
         -- [sic]
         K.JoinSuccess -> do
-            peerList <- K.dumpPeers kademliaInst
+            peerList <- map fst <$> K.dumpPeers kademliaInst
             -- We have the peers, but we do not have the 'EndPointAddress'es for
             -- them. We must ask the network for them.
             endPointAddresses <- fmap (M.mapMaybe id) (kademliaLookupEndPointAddresses kademliaInst M.empty peerList)
@@ -124,7 +124,7 @@ kademliaDiscoverPeers
     -> IO (Either (DiscoveryError KademliaDiscoveryErrorCode) (S.Set EndPointAddress))
 kademliaDiscoverPeers kademliaInst peersTVar = do
     recordedPeers <- TVar.readTVarIO peersTVar
-    currentPeers <- K.dumpPeers kademliaInst
+    currentPeers <- map fst <$> K.dumpPeers kademliaInst
     -- The idea is to always update the TVar to the set of nodes in allPeers,
     -- but only lookup the addresses for nodes which are not in the recorded
     -- set to begin with.

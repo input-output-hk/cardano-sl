@@ -6,15 +6,17 @@ import Control.Monad.Eff.Exception (Error, error)
 import Control.Monad.Error.Class (throwError)
 import Data.Argonaut.Core (Json)
 import Data.Either (Either(..), either)
-import Data.Generic (class Generic)
+import Data.Generic (class Generic, gShow)
 import Data.HTTP.Method (Method(..))
 import Data.Lens ((^.))
+import Data.Maybe (Maybe(..))
 import Explorer.Api.Helper (decodeResult)
 import Explorer.Api.Types (EndpointError(..), Endpoint)
 import Explorer.Types.State (CBlockEntries, CTxEntries, CTxBriefs)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
+import Pos.Core.Types (EpochIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CBlockSummary, CHash(..), CHashSearchResult, CSearchId(..), CTxId, CTxSummary)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId)
 
@@ -69,3 +71,9 @@ fetchAddressSummary (CAddress address) = get $ "addresses/summary/" <> address
 -- search
 search :: forall eff. CSearchId -> Aff (ajax::AJAX | eff) CHashSearchResult
 search (CSearchId id) = get $ "search/" <> id
+
+searchEpoch :: forall eff. EpochIndex -> Maybe Int -> Aff (ajax::AJAX | eff) CBlockEntries
+searchEpoch epoch mSlot = get $ "search/epoch/" <> gShow epoch <> slotQuery mSlot
+    where
+        slotQuery Nothing = ""
+        slotQuery (Just s) = "?slot=" <> show s

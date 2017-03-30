@@ -89,7 +89,7 @@ avvmStakeParser = do
     asoBlacklisted <- optional $ strOption $
         long    "blacklisted" <>
         metavar "FILE" <>
-        help    "Path to the file containing blacklisted addresse \
+        help    "Path to the file containing blacklisted addresses \
                 \(an address per line)"
     pure AvvmStakeOptions{..}
 

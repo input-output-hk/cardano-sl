@@ -62,12 +62,13 @@ data KademliaDHTInstance = KademliaDHTInstance
 
 -- | Instance of part of config.
 data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
-    { kdcPort            :: !Word16
+    { kdcHost            :: !BS.ByteString
+    , kdcPort            :: !Word16
     , kdcKey             :: !(Maybe DHTKey)
     , kdcInitialPeers    :: ![DHTNode]
     , kdcExplicitInitial :: !Bool
     , kdcDumpPath        :: !FilePath
-    }
+    } deriving (Show)
 
 -- | Node of /Kademlia DHT/ algorithm with access to 'KademliaDHTContext'.
 newtype KademliaDHT m a = KademliaDHT

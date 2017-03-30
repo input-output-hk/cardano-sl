@@ -40,7 +40,7 @@ import           Data.Ix                        (inRange)
 import qualified Data.List.NonEmpty             as NE
 import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder         (Builder)
-import           Formatting                     (Format, bprint, (%))
+import           Formatting                     (Format, bprint, int, (%))
 import           Serokell.Util                  (VerificationRes, listJson, verifyGeneric)
 import           Universum
 
@@ -56,8 +56,9 @@ import           Pos.Crypto                     (EncShare, Secret, SecretKey,
                                                  SecureRandom (..), Threshold,
                                                  VssPublicKey, checkSig, encShareId,
                                                  genSharedSecret, getDhSecret, hash,
-                                                 secretToDhSecret, sign, toPublic,
-                                                 verifyEncShare, verifySecretProof)
+                                                 secretToDhSecret, shortHashF, sign,
+                                                 toPublic, verifyEncShare,
+                                                 verifySecretProof)
 import           Pos.Ssc.GodTossing.Core.Types  (Commitment (..),
                                                  CommitmentsMap (getCommitmentsMap),
                                                  GtPayload (..), GtProof (..),
@@ -266,7 +267,9 @@ instance Buildable GtPayload where
         formatCertificates certs =
             formatIfNotNull
                 ("  certificates from: " %listJson % "\n")
-                (HM.keys certs)
+                (map formatVssCert $ HM.toList certs)
+        formatVssCert (id, cert) =
+            bprint (shortHashF%":"%int) id (vcExpiryEpoch cert)
         formatTwo formatter hm certs =
             mconcat [formatter hm, formatCertificates certs]
 

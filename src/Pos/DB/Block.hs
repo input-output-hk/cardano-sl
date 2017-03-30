@@ -16,6 +16,7 @@ module Pos.DB.Block
        -- * Load data
        , loadBlundsWhile
        , loadBlundsByDepth
+       , loadBlundsMatching
        , loadBlocksWhile
        , loadHeadersWhile
        , loadHeadersByDepth
@@ -102,6 +103,31 @@ loadDataWhile getter predicate start = NewestFirst <$> doIt start
                 then (d :) <$> doIt prev
                 else pure []
 
+-- | Return all blocks that match the given predicate. It is repetetive,
+-- but it's also already pretty generic.
+loadDataMatching
+    :: forall m a .
+       (Monad m, HasPrevBlock a)
+    => (HeaderHash -> m a)
+    -> (a -> Bool)
+    -> HeaderHash
+    -> m (NewestFirst [] a)
+loadDataMatching getter predicate start = NewestFirst <$> doIt start (pure [])
+  where
+    doIt :: HeaderHash ->  m [a] -> m [a]
+    doIt h acc
+        -- When we reach the genesis block, return the accumulator.
+        | h == genesisHash = acc
+        -- Otherwise iterate back from the top block (called tip) and add all
+        -- blocks (hash) to accumulator satisfying the predicate.
+        | otherwise = do
+            d <- getter h
+            let prev = d ^. prevBlockL
+            if predicate d
+                then doIt prev ((:) <$> pure d <*> acc)
+                else doIt prev acc
+
+
 -- For depth 'd' load blocks that have depth < 'd'. Given header
 -- (newest one) is assumed to have depth 0.
 loadDataByDepth
@@ -134,6 +160,13 @@ loadDataByDepth getter extraPredicate depth h = do
         getter
         (\a -> a ^. difficultyL >= targetDifficulty && extraPredicate a)
         prev
+
+-- | Load blunds starting from block with header hash equal to given hash
+-- and returns all blunds for which @predicate@ is true.
+loadBlundsMatching
+    :: (SscHelpersClass ssc, MonadDB m)
+    => (Block ssc -> Bool) -> HeaderHash -> m (NewestFirst [] (Blund ssc))
+loadBlundsMatching predicate = loadDataMatching getBlundThrow (predicate . fst)
 
 -- | Load blunds starting from block with header hash equal to given hash
 -- and while @predicate@ is true.

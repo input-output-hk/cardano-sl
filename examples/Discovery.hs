@@ -89,7 +89,7 @@ makeNode transport i = do
             -- its initial peer appears to be down.
             then K.Node (K.Peer host (fromIntegral port)) anId
             else K.Node (K.Peer host (fromIntegral (port - 1))) (makeId (i - 1))
-    let kademliaConfig = K.KademliaConfiguration (fromIntegral port) anId
+    let kademliaConfig = K.KademliaConfiguration host (fromIntegral port) anId
     let prng1 = mkStdGen (2 * i)
     let prng2 = mkStdGen ((2 * i) + 1)
     liftIO . putStrLn $ "Starting node " ++ show i

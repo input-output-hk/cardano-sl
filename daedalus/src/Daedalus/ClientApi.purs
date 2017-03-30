@@ -170,11 +170,13 @@ syncProgress = fromAff $ map encodeJson B.syncProgress
 testReset :: forall eff. Eff (ajax :: AJAX | eff) (Promise Unit)
 testReset = fromAff B.testReset
 
+-- Valid redeem code is base64 encoded 32byte data
 isValidRedeemCode :: String -> Boolean
 isValidRedeemCode code = either (const false) (const $ endsWithEqual && 44 == length code) $ B64.decode code
   where
     -- Because it is 32byte base64 encoded
     endsWithEqual = isJust $ stripSuffix (Pattern "=") code
 
+-- Valid postvend code is base58 encoded 32byte data
 isValidPostVendRedeemCode :: String -> Boolean
-isValidPostVendRedeemCode code = maybe false (const $ not (isValidRedeemCode code) && 44 == length code) $ B58.decode code
+isValidPostVendRedeemCode code = maybe false (const $ 44 == length code) $ B58.decode code

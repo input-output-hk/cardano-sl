@@ -23,10 +23,10 @@ import           Control.Monad                 (replicateM_)
 import           Control.Monad.Catch           (try)
 import           Control.Monad.Except          (runExceptT)
 import           Control.Monad.State           (runStateT)
-import qualified Data.ByteString.Base64        as B64
 import           Data.Default                  (Default (def))
 import           Data.List                     (elemIndex, (!!))
 import           Data.Tagged                   (untag)
+import qualified Data.Text                     as T
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
 import           Data.Time.Units               (Microsecond, Second)
 import           Formatting                    (build, ords, sformat, shown, stext, (%))
@@ -34,6 +34,7 @@ import           Network.Wai                   (Application)
 import           Paths_cardano_sl              (version)
 import           Pos.ReportServer.Report       (ReportType (RInfo))
 import           Serokell.Util                 (threadDelay)
+import qualified Serokell.Util.Base64          as B64
 import           Servant.API                   ((:<|>) ((:<|>)),
                                                 FromHttpApiData (parseUrlPiece))
 import           Servant.Server                (Handler, Server, ServerT, err403, serve)
@@ -470,9 +471,10 @@ applyUpdate = removeNextUpdate >> applyLastUpdate
 
 redeemADA :: WalletWebMode ssc m => SendActions m -> CWalletRedeem -> m CTx
 redeemADA sendActions CWalletRedeem {..} = do
+    let base64rify = T.replace "-" "+" . T.replace "_" "/"
     seedBs <- either
         (\e -> throwM $ Internal ("Seed is invalid base64 string: " <> toText e))
-        pure $ B64.decode (encodeUtf8 crSeed)
+        pure $ B64.decode $ base64rify crSeed
     (_, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
     -- new redemption wallet

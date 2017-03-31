@@ -171,6 +171,7 @@ testReset :: forall eff. Eff (ajax :: AJAX | eff) (Promise Unit)
 testReset = fromAff B.testReset
 
 -- Valid redeem code is base64 encoded 32byte data
+-- NOTE: this method handles both base64 and base64url base on rfc4648: see more https://github.com/menelaos/purescript-b64/blob/59e2e9189358a4c8e3eef8662ca281906844e783/src/Data/String/Base64.purs#L182
 isValidRedeemCode :: String -> Boolean
 isValidRedeemCode code = either (const false) (const $ endsWithEqual && 44 == length code) $ B64.decode code
   where

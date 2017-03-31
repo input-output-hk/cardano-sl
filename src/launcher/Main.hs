@@ -212,7 +212,7 @@ runUpdater (path, args, updateArchive) = do
         return ()
     else
     -}
-    unlessM (testfile path) $ do
+    whenM (testfile path) $ do
         echo "Running the updater"
         let args' = args ++ maybe [] (one . toText) updateArchive
         exitCode <- proc (toText path) args' mempty

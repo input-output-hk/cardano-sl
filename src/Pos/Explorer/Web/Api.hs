@@ -10,15 +10,16 @@ module Pos.Explorer.Web.Api
 
 import           Data.Proxy                   (Proxy (Proxy))
 
-import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry,
-                                               CBlockSummary, CHash, CHashSearchResult,
-                                               CSearchId, CTxBrief, CTxEntry, CTxId,
+import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary,
+                                               CBlockEntry, CBlockSummary,
+                                               CHash, CTxBrief, CTxEntry, CTxId,
                                                CTxSummary)
 import           Pos.Explorer.Web.Error       (ExplorerError)
+import           Pos.Types                    (EpochIndex)
 import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
                                                QueryParam)
-import           Pos.Types                    (EpochIndex)
 import           Universum
+
 
 -- | Servant API which provides access to explorer
 type ExplorerApi =
@@ -61,11 +62,6 @@ type ExplorerApi =
       :> "summary"
       :> Capture "address" CAddress
       :> Get '[JSON] (Either ExplorerError CAddressSummary)
-    :<|>
-      "api"
-      :> "search"
-      :> Capture "hash" CSearchId
-      :> Get '[JSON] (Either ExplorerError CHashSearchResult)
     :<|>
       "api"
       :> "search"

@@ -10,9 +10,11 @@ import Daedalus.Types (getProfileLocale, mkCAddress, mkCoin, mkCWalletMeta, mkCT
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
+import Data.String.Base64 as B64
+import Data.Base58 as B58
+import Data.String (length, stripSuffix, Pattern (..))
+import Data.Maybe (isJust, maybe)
 import Data.Function.Eff (EffFn1, mkEffFn1, EffFn2, mkEffFn2, EffFn4, mkEffFn4, EffFn3, mkEffFn3, EffFn6, mkEffFn6, EffFn7, mkEffFn7, mkEffFn5, EffFn5)
-import Data.String.Base64 (decode)
-import Data.String (length)
 import Network.HTTP.Affjax (AJAX)
 import WebSocket (WEBSOCKET)
 import Control.Monad.Error.Class (throwError)
@@ -170,5 +172,14 @@ syncProgress = fromAff $ map encodeJson B.syncProgress
 testReset :: forall eff. Eff (ajax :: AJAX | eff) (Promise Unit)
 testReset = fromAff B.testReset
 
+-- Valid redeem code is base64 encoded 32byte data
+-- NOTE: this method handles both base64 and base64url base on rfc4648: see more https://github.com/menelaos/purescript-b64/blob/59e2e9189358a4c8e3eef8662ca281906844e783/src/Data/String/Base64.purs#L182
 isValidRedeemCode :: String -> Boolean
-isValidRedeemCode code = either (const false) (const $ 44 == length code) $ decode code
+isValidRedeemCode code = either (const false) (const $ endsWithEqual && 44 == length code) $ B64.decode code
+  where
+    -- Because it is 32byte base64 encoded
+    endsWithEqual = isJust $ stripSuffix (Pattern "=") code
+
+-- Valid postvend code is base58 encoded 32byte data
+isValidPostVendRedeemCode :: String -> Boolean
+isValidPostVendRedeemCode code = maybe false (const $ 44 == length code) $ B58.decode code

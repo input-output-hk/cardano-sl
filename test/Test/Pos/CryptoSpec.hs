@@ -1,5 +1,3 @@
-{-# LANGUAGE NamedFieldPuns #-}
-
 -- | Pos.Crypto specification
 
 module Test.Pos.CryptoSpec
@@ -342,7 +340,7 @@ encrypyDecryptChaChaPoly
     -> ByteString
     -> Bool
 encrypyDecryptChaChaPoly (Nonce nonce) (Crypto.HDPassphrase key) header plaintext =
-    (join $ (decrypt <$> (Crypto.toEither . encrypt $ plaintext))) == (Right plaintext)
+    (decrypt =<< (Crypto.toEither . encrypt $ plaintext)) == Right plaintext
   where
     encrypt = Crypto.encryptChaChaPoly nonce key header
     decrypt = Crypto.decryptChaChaPoly nonce key header
@@ -361,7 +359,7 @@ encrypyDecryptChaChaDifferentKey
     header
     plaintext =
     (key1 /= key2) ==>
-    (isLeft (join  (decrypt <$> (Crypto.toEither . encrypt $ plaintext))))
+    isLeft (decrypt =<< (Crypto.toEither . encrypt $ plaintext))
   where
     encrypt = Crypto.encryptChaChaPoly nonce key1 header
     decrypt = Crypto.decryptChaChaPoly nonce key2 header
@@ -380,7 +378,7 @@ encrypyDecryptChaChaDifferentHeader
     header2
     plaintext =
     (header1 /= header2) ==>
-    (isLeft (join  (decrypt <$> (Crypto.toEither . encrypt $ plaintext))))
+    isLeft (decrypt =<< (Crypto.toEither . encrypt $ plaintext))
   where
     encrypt = Crypto.encryptChaChaPoly nonce key header1
     decrypt = Crypto.decryptChaChaPoly nonce key header2
@@ -399,7 +397,7 @@ encrypyDecryptChaChaDifferentNonce
     header
     plaintext =
     (nonce1 /= nonce2) ==>
-    (isLeft (join  (decrypt <$> (Crypto.toEither . encrypt $ plaintext))))
+    isLeft (decrypt =<< (Crypto.toEither . encrypt $ plaintext))
   where
     encrypt = Crypto.encryptChaChaPoly nonce1 key header
     decrypt = Crypto.decryptChaChaPoly nonce2 key header
@@ -413,120 +411,72 @@ skToSafeSigner =
     Crypto.safeToPublic . Crypto.fakeSigner .=. Crypto.toPublic
 
 verifyEncShareGoodData :: SharedSecrets -> Bool
-verifyEncShareGoodData SharedSecrets
-    { getSecretSharing = secShare
-    , getShares = shareList
-    , getVSSPKs = vssPKList
-    , getPosition = pos
-    } =
-    Crypto.verifyEncShare secShare (vssPKList !! pos) (fst $ shareList !! pos)
+verifyEncShareGoodData SharedSecrets {..} =
+    Crypto.verifyEncShare ssSecShare
+                          (ssVSSPKs !! ssPos)
+                          (fst $ ssShares !! ssPos)
 
 verifyEncShareBadSecShare :: SharedSecrets -> Crypto.SecretSharingExtra -> Property
-verifyEncShareBadSecShare SharedSecrets
-    { getSecretSharing = secShare1
-    , getShares = shareList
-    , getVSSPKs = vssPKList
-    , getPosition = pos
-    }
-    secShare2 =
-    (secShare1 /= secShare2) ==>
-    (not $ Crypto.verifyEncShare secShare2 (vssPKList !! pos) (fst $ shareList !! pos))
+verifyEncShareBadSecShare SharedSecrets {..} secShare =
+    (ssSecShare /= secShare) ==>
+    not $ Crypto.verifyEncShare secShare (ssVSSPKs !! ssPos) (fst $ ssShares !! ssPos)
 
 verifyEncShareMismatchShareKey :: SharedSecrets -> Int -> Property
-verifyEncShareMismatchShareKey SharedSecrets
-    { getSecretSharing = secShare
-    , getShares = sharesList
-    , getVSSPKs = vssPKList
-    , getPosition = pos1
-    }
-    p2 =
-    (pos1 /= pos2) ==>
-    (not (Crypto.verifyEncShare secShare (vssPKList !! pos1) (fst $ sharesList !! pos2)) &&
-     not (Crypto.verifyEncShare secShare (vssPKList !! pos2) (fst $ sharesList !! pos1)))
+verifyEncShareMismatchShareKey SharedSecrets {..} p =
+    (ssPos /= pos) ==>
+    not (Crypto.verifyEncShare ssSecShare (ssVSSPKs !! ssPos) (fst $ ssShares !! pos)) &&
+    not (Crypto.verifyEncShare ssSecShare (ssVSSPKs !! pos) (fst $ ssShares !! ssPos))
   where
-    len = length vssPKList
-    pos2 = abs $ p2 `mod` len
+    len = length ssVSSPKs
+    pos = abs $ p `mod` len
 
 verifyShareGoodData :: SharedSecrets -> Bool
-verifyShareGoodData SharedSecrets
-    { getShares = sharesList
-    , getVSSPKs = vssPKList
-    , getPosition = pos
-    } =
+verifyShareGoodData SharedSecrets {..} =
     Crypto.verifyShare encShare vssPK decShare
   where
-    (encShare, decShare) = sharesList !! pos
-    vssPK = vssPKList !! pos
+    (encShare, decShare) = ssShares !! ssPos
+    vssPK = ssVSSPKs !! ssPos
 
 verifyShareBadShare :: SharedSecrets -> Int -> Property
-verifyShareBadShare SharedSecrets
-    { getShares = sharesList
-    , getVSSPKs = vssPKList
-    , getPosition = pos1
-    }
-    p2 =
+verifyShareBadShare SharedSecrets {..} p =
     (s1 /= s2 || vssPK1 /= vssPK2) ==>
-    (not (Crypto.verifyShare encShare1 vssPK1 decShare1) &&
-     not (Crypto.verifyShare encShare2 vssPK2 decShare2))
+    not (Crypto.verifyShare encShare1 vssPK1 decShare1) &&
+    not (Crypto.verifyShare encShare2 vssPK2 decShare2)
   where
-    len = length vssPKList
-    pos2 = abs $ p2 `mod` len
-    s1@(encShare1, decShare1) = sharesList !! pos1
-    s2@(encShare2, decShare2) = sharesList !! pos2
-    vssPK1 = vssPKList !! pos2
-    vssPK2 = vssPKList !! pos1
+    len = length ssVSSPKs
+    pos = abs $ p `mod` len
+    s1@(encShare1, decShare1) = ssShares !! ssPos
+    s2@(encShare2, decShare2) = ssShares !! pos
+    vssPK1 = ssVSSPKs !! pos
+    vssPK2 = ssVSSPKs !! ssPos
 
 verifyShareMismatchingShares :: SharedSecrets -> Int -> Property
-verifyShareMismatchingShares SharedSecrets
-    { getShares = sharesList
-    , getVSSPKs = vssPKList
-    , getPosition = pos1
-    }
-    p2 =
+verifyShareMismatchingShares SharedSecrets {..} p =
     (vssPK1 /= vssPK2) ==>
     not (Crypto.verifyShare encShare1 vssPK1 decShare2)
   where
-    len = length vssPKList
-    pos2 = abs $ p2 `mod` len
-    (encShare1, _) = sharesList !! pos1
-    (_, decShare2) = sharesList !! pos2
-    vssPK1 = vssPKList !! pos2
-    vssPK2 = vssPKList !! pos1
+    len = length ssVSSPKs
+    pos = abs $ p `mod` len
+    (encShare1, _) = ssShares !! ssPos
+    (_, decShare2) = ssShares !! pos
+    vssPK1 = ssVSSPKs !! pos
+    vssPK2 = ssVSSPKs !! ssPos
 
 verifyProofGoodData :: SharedSecrets -> Bool
-verifyProofGoodData SharedSecrets
-    { getSecretSharing = secShare
-    , getSecret        = secret
-    , getSecretProof   = secretProof
-    } =
-    Crypto.verifySecretProof secShare secret secretProof
+verifyProofGoodData SharedSecrets {..} =
+    Crypto.verifySecretProof ssSecShare ssSecret ssSecProof
 
 verifyProofBadSecShare :: SharedSecrets -> Crypto.SecretSharingExtra -> Property
-verifyProofBadSecShare SharedSecrets
-    { getSecretSharing = secShare1
-    , getSecret        = secret
-    , getSecretProof   = secretProof
-    }
-    secShare2 =
-    (secShare1 /= secShare2) ==>
-    not (Crypto.verifySecretProof secShare2 secret secretProof)
+verifyProofBadSecShare SharedSecrets {..} secShare =
+    (ssSecShare /= secShare) ==>
+    not (Crypto.verifySecretProof secShare ssSecret ssSecProof)
 
 verifyProofBadSecret :: SharedSecrets -> Crypto.Secret -> Property
-verifyProofBadSecret SharedSecrets
-    { getSecretSharing = secShare
-    , getSecret        = secret1
-    , getSecretProof   = secretProof
-    }
-    secret2 =
-    (secret1 /= secret2) ==>
-    not (Crypto.verifySecretProof secShare secret2 secretProof)
+verifyProofBadSecret SharedSecrets {..} secret =
+    (ssSecret /= secret) ==>
+    not (Crypto.verifySecretProof ssSecShare secret ssSecProof)
 
 verifyProofBadSecProof :: SharedSecrets -> Crypto.SecretProof -> Property
-verifyProofBadSecProof SharedSecrets
-    { getSecretSharing = secShare
-    , getSecret        = secret
-    , getSecretProof   = secretProof1
-    }
-    secretProof2 =
-    (secretProof1 /= secretProof2) ==>
-    not (Crypto.verifySecretProof secShare secret secretProof2)
+verifyProofBadSecProof SharedSecrets {..} secProof =
+    (ssSecProof /= secProof) ==>
+    not (Crypto.verifySecretProof ssSecShare ssSecret secProof)

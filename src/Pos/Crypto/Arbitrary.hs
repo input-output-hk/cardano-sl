@@ -132,14 +132,14 @@ instance (Bi w, Arbitrary w, Bi a, Arbitrary a) =>
 ----------------------------------------------------------------------------
 
 data SharedSecrets = SharedSecrets
-    { getSecretSharing :: SecretSharingExtra
-    , getSecret        :: Secret
-    , getSecretProof   :: SecretProof
-    , getShares        :: [(EncShare, Share)]
-    , getThreshold     :: Threshold
-    , getVSSPKs        :: [VssPublicKey]
-    , getPosition      :: Int            -- This field is a valid, zero-based index in the
-                                         -- shares/keys lists.
+    { ssSecShare  :: SecretSharingExtra
+    , ssSecret    :: Secret
+    , ssSecProof  :: SecretProof
+    , ssShares    :: [(EncShare, Share)]
+    , ssThreshold :: Threshold
+    , ssVSSPKs    :: [VssPublicKey]
+    , ssPos       :: Int            -- This field is a valid, zero-based index in the
+                                    -- shares/keys lists.
     } deriving (Show, Eq)
 
 sharedSecrets :: [SharedSecrets]
@@ -157,7 +157,7 @@ sharedSecrets =
 {-# NOINLINE sharedSecrets #-}
 
 instance Arbitrary SecretSharingExtra where
-    arbitrary = elements . fmap getSecretSharing $ sharedSecrets
+    arbitrary = elements . fmap ssSecShare $ sharedSecrets
 
 instance Arbitrary (AsBinary SecretSharingExtra) where
     arbitrary = asBinary @SecretSharingExtra <$> arbitrary
@@ -166,16 +166,16 @@ instance Arbitrary (AsBinary SecretProof) where
     arbitrary = asBinary @SecretProof <$> arbitrary
 
 instance Arbitrary Secret where
-    arbitrary = elements . fmap getSecret $ sharedSecrets
+    arbitrary = elements . fmap ssSecret $ sharedSecrets
 
 instance Arbitrary (AsBinary Secret) where
     arbitrary = asBinary @Secret <$> arbitrary
 
 instance Arbitrary SecretProof where
-    arbitrary = elements . fmap getSecretProof $ sharedSecrets
+    arbitrary = elements . fmap ssSecProof $ sharedSecrets
 
 instance Arbitrary EncShare where
-    arbitrary = elements . concatMap (fmap fst . getShares) $ sharedSecrets
+    arbitrary = elements . concatMap (fmap fst . ssShares) $ sharedSecrets
 
 instance Arbitrary (AsBinary EncShare) where
     arbitrary = asBinary @EncShare <$> arbitrary

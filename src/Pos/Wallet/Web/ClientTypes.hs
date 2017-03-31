@@ -10,6 +10,7 @@ module Pos.Wallet.Web.ClientTypes
       , CCurrency (..)
       , CHash (..)
       , CTType (..)
+      , CPassPhrase (..)
       , CProfile (..)
       , CPwHash
       , CTx (..)
@@ -27,6 +28,8 @@ module Pos.Wallet.Web.ClientTypes
       , NotifyEvent (..)
       , addressToCAddress
       , cAddressToAddress
+      , passPhraseToCPassPhrase
+      , cPassPhraseToPassPhrase
       , mkCTx
       , mkCTxId
       , txIdToCTxId
@@ -37,17 +40,22 @@ module Pos.Wallet.Web.ClientTypes
 
 import           Universum
 
+import           Control.Lens           (_Left)
+import qualified Data.ByteString.Lazy   as LBS
 import           Data.Default           (Default, def)
 import           Data.Hashable          (Hashable (..))
 import           Data.Text              (Text, isInfixOf, toLower)
 import           Data.Time.Clock.POSIX  (POSIXTime)
 import           Data.Typeable          (Typeable)
 import           Formatting             (build, sformat)
+import           Prelude                (show)
+import qualified Serokell.Util.Base16   as Base16
 
 import           Pos.Aeson.Types        ()
+import           Pos.Binary.Class       (decodeFull, encodeStrict)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core.Types         (ScriptVersion)
-import           Pos.Crypto             (hashHexF)
+import           Pos.Crypto             (PassPhrase, hashHexF)
 import           Pos.Txp.Core.Types     (Tx (..), TxId, txOutAddress, txOutValue)
 import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
                                          Coin, SoftwareVersion, decodeTextAddress,
@@ -134,6 +142,20 @@ mkCTx addr diff THEntry {..} meta = CTx {..}
     ctType = if _thIsOutput
              then CTOut meta
              else CTIn meta
+
+newtype CPassPhrase = CPassPhrase Text deriving (Eq, Generic)
+
+instance Show CPassPhrase where
+    show _ = "<pass phrase>"
+
+passPhraseToCPassPhrase :: PassPhrase -> CPassPhrase
+passPhraseToCPassPhrase passphrase =
+    CPassPhrase . Base16.encode $ encodeStrict passphrase
+
+cPassPhraseToPassPhrase
+    :: CPassPhrase -> Either Text PassPhrase
+cPassPhraseToPassPhrase (CPassPhrase text) =
+    (_Left %~ toText) . decodeFull . LBS.fromStrict =<< Base16.decode text
 
 ----------------------------------------------------------------------------
 -- Wallet

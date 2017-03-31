@@ -31,11 +31,11 @@ import           Pos.Types                  (ApplicationName, BlockVersion,
                                              ChainDifficulty, Coin, SoftwareVersion)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web             (CAddress, CCurrency, CHash, CInitialized,
-                                             CProfile, CTType, CTx, CTxId, CTxMeta,
-                                             CUpdateInfo, CWallet, CWalletAssurance,
-                                             CWalletInit, CWalletMeta, CWalletRedeem,
-                                             CWalletType, SyncProgress, WalletError,
-                                             walletApi)
+                                             CPassPhrase, CProfile, CTType, CTx, CTxId,
+                                             CTxMeta, CUpdateInfo, CWallet,
+                                             CWalletAssurance, CWalletInit, CWalletMeta,
+                                             CWalletRedeem, CWalletType, SyncProgress,
+                                             WalletError, walletApi)
 
 main :: IO ()
 main = do
@@ -76,6 +76,7 @@ instance ToSchema      SyncProgress
 instance ToSchema      ChainDifficulty
 instance ToSchema      BlockVersion
 instance ToSchema      BackupPhrase
+instance ToParamSchema CPassPhrase
 
 -- | Instance for Either-based types (types we return as 'Right') in responses.
 -- Due 'typeOf' these types must be 'Typeable'.

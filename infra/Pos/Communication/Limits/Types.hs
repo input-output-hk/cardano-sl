@@ -18,8 +18,8 @@ module Pos.Communication.Limits.Types
        , reifyMsgLimit
        , recvLimited
 
+       , (🐱)
        , MaxSize (..)
-       , (<+>)
        ) where
 
 import           Data.Binary                (Get)
@@ -36,9 +36,9 @@ import qualified Pos.DB.Limits              as DB
 newtype Limit t = Limit Byte
     deriving (Eq, Ord, Show, Num, Enum, Real, Integral)
 
-infixl 4 <+>
-(<+>) :: Limit (a -> b) -> Limit a -> Limit b
-Limit x <+> Limit y = Limit $ x + y
+infixl 4 🐱
+(🐱) :: Limit (a -> b) -> Limit a -> Limit b
+Limit x 🐱 Limit y = Limit $ x + y
 
 instance Functor Limit where
     fmap _ (Limit x) = Limit x
@@ -88,14 +88,14 @@ instance ( MessageLimitedPure a
          , MessageLimitedPure b
          )
          => MessageLimitedPure (a, b) where
-    msgLenLimit = (,) <$> msgLenLimit <+> msgLenLimit
+    msgLenLimit = (,) <$> msgLenLimit 🐱 msgLenLimit
 
 instance ( MessageLimitedPure a
          , MessageLimitedPure b
          , MessageLimitedPure c
          )
          => MessageLimitedPure (a, b, c) where
-    msgLenLimit = (,,) <$> msgLenLimit <+> msgLenLimit <+> msgLenLimit
+    msgLenLimit = (,,) <$> msgLenLimit 🐱 msgLenLimit 🐱 msgLenLimit
 
 instance MessageLimitedPure Bool where
     msgLenLimit = 1

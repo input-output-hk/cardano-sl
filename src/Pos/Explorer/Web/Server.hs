@@ -5,10 +5,12 @@
 -- API server logic
 
 module Pos.Explorer.Web.Server
-       ( explorerServeImpl
+       ( ExplorerMode
+       , explorerServeImpl
        , explorerApp
        , explorerHandlers
        , topsortTxsOrFail
+       , getMempoolTxs
        ) where
 
 import           Control.Lens                   (at)
@@ -59,9 +61,9 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary 
                                                  TxInternal (..), convertTxOutputs,
                                                  fromCAddress, fromCHash,
                                                  fromCSearchIdAddress, fromCSearchIdHash,
-                                                 fromCSearchIdTx, fromCTxId, toBlockEntry,
-                                                 toBlockSummary, toPosixTime, toTxBrief,
-                                                 toTxEntry)
+                                                 fromCSearchIdTx, fromCTxId, tiToTxEntry,
+                                                 toBlockEntry, toBlockSummary,
+                                                 toPosixTime, toTxBrief, toTxEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 
@@ -166,7 +168,7 @@ getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
 
     blockTxsWithTs <- getBlockchainTxs newOff newLim
 
-    pure $ [toTxEntry (tiTimestamp txi) (tiTx txi) | txi <- localTxsWithTs <> blockTxsWithTs]
+    pure $ tiToTxEntry <$> localTxsWithTs <> blockTxsWithTs
 
 getBlockSummary :: ExplorerMode m => CHash -> m CBlockSummary
 getBlockSummary cHash = do

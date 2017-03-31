@@ -23,8 +23,9 @@ module Pos.Explorer.Socket.Methods
        , notifyTxsSubscribers
        , getBlocksFromTo
        , addrsTouchedByTx
-       , getBlockInfo
-       , groupBlockInfo
+       , getBlockTxs
+       , getTxInfo
+       , groupTxsInfo
        ) where
 
 import           Control.Lens                   (at, non, (.=), _Just)
@@ -61,8 +62,8 @@ import           Pos.Explorer.Socket.Holder     (ConnectionsState, ccAddress, cc
                                                  csBlocksSubscribers, csClients,
                                                  csTxsSubscribers, mkClientContext)
 import           Pos.Explorer.Socket.Util       (EventName (..), emitTo)
-import           Pos.Explorer.Web.ClientTypes   (CAddress, CTxEntry (..), fromCAddress,
-                                                 toBlockEntry, toTxEntry)
+import           Pos.Explorer.Web.ClientTypes   (CAddress, CTxEntry (..), TxInternal (..),
+                                                 fromCAddress, tiToTxEntry, toBlockEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 import           Pos.Explorer.Web.Server        (topsortTxsOrFail)
 
@@ -252,6 +253,8 @@ notifyTxsSubscribers cTxEntries = do
     logDebug $ sformat ("Broadcasted transactions: "%F.build)
                (mconcat . intersperse "," $ build . cteId <$> cTxEntries)
 
+-- * Helpers
+
 getBlocksFromTo
     :: forall ssc m.
        (MonadDB m, SscHelpersClass ssc)
@@ -267,34 +270,35 @@ addrsTouchedByTx tx = do
     -- for each transaction, get its OutTx
     -- and transactions from InTx
     inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
+        -- TODO [CSM-153]: lookup mempool as well
         Nothing    -> mempty <$ logError "Can't find input of transaction!"
         Just txOut -> return . one $ toaOut txOut
 
     let relatedTxs = toList (_txOutputs tx) <> concat (toList inTxs)
     return . S.fromList $ txOutAddress <$> relatedTxs
 
-mkTxEntry
+getBlockTxs
     :: (MonadDB m, WithLogger m)
-    => Tx -> m CTxEntry
-mkTxEntry tx = do
-    TxExtra {..} <- DB.getTxExtra (hash tx) >>=
-        maybeThrow (Internal "In-block transaction doesn't \
-                                 \have extra info in DB")
-    pure $ toTxEntry teReceivedTime tx
-
-getBlockInfo
-    :: (MonadDB m, WithLogger m)
-    => Block ssc -> m [(CTxEntry, S.Set Address)]
-getBlockInfo (Left  _  ) = return []
-getBlockInfo (Right blk) = do
+    => Block ssc -> m [TxInternal]
+getBlockTxs (Left  _  ) = return []
+getBlockTxs (Right blk) = do
     txs <- topsortTxsOrFail withHash $ toList $ blk ^. blockTxs
     forM txs $ \tx -> do
-        cTxEntry <- mkTxEntry tx
-        addrs    <- addrsTouchedByTx tx
-        return (cTxEntry, addrs)
+        TxExtra {..} <- DB.getTxExtra (hash tx) >>=
+            maybeThrow (Internal "In-block transaction doesn't \
+                                 \have extra info in DB")
+        pure $ TxInternal teReceivedTime tx
 
-groupBlockInfo :: [(CTxEntry, S.Set Address)] -> M.Map Address [CTxEntry]
-groupBlockInfo info =
+getTxInfo
+    :: (MonadDB m, WithLogger m)
+    => TxInternal -> m (CTxEntry, S.Set Address)
+getTxInfo tx = do
+    let cTxEntry = tiToTxEntry tx
+    addrs <- addrsTouchedByTx (tiTx tx)
+    return (cTxEntry, addrs)
+
+groupTxsInfo :: [(CTxEntry, S.Set Address)] -> M.Map Address [CTxEntry]
+groupTxsInfo info =
     let entries = fmap swap $ concat $ fmap sequence
                 $ toList <<$>> info :: [(Address, CTxEntry)]
     in  fmap ($ []) $ M.fromListWith (.) $ fmap (second $ (++) . pure) entries

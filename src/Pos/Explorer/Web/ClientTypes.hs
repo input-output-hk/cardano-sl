@@ -29,6 +29,7 @@ module Pos.Explorer.Web.ClientTypes
        , fromCSearchIdAddress
        , fromCSearchIdTx
        , convertTxOutputs
+       , tiToTxEntry
        ) where
 
 import           Control.Arrow          ((&&&))
@@ -261,7 +262,10 @@ instance FromHttpApiData CSearchId where
 data TxInternal = TxInternal
     { tiTimestamp :: !Timestamp
     , tiTx        :: !Tx
-    } deriving (Show)
+    } deriving (Show, Eq, Ord)
+
+tiToTxEntry :: TxInternal -> CTxEntry
+tiToTxEntry TxInternal{..} = toTxEntry tiTimestamp tiTx
 
 convertTxOutputs :: [TxOut] -> [(CAddress, Coin)]
 convertTxOutputs = map (toCAddress . txOutAddress &&& txOutValue)

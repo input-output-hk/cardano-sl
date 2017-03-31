@@ -14,6 +14,7 @@ import qualified Control.Concurrent.STM           as STM
 import           Control.Lens                     ((<<.=))
 import           Control.Monad.Trans.Control      (MonadBaseControl)
 import           Data.Aeson                       (Value)
+import qualified Data.Set                         as S
 import           Data.Time.Units                  (Millisecond)
 import           Formatting                       (build, int, sformat, (%))
 import qualified GHC.Exts                         as Exts
@@ -27,6 +28,7 @@ import           Pos.DB.Class                     (MonadDB)
 import qualified Pos.DB.GState                    as DB
 import           Pos.Slotting.Class               (MonadSlots)
 import           Pos.Ssc.Class                    (SscHelpersClass)
+import           Pos.WorkMode                     (WorkMode)
 import           Snap.Core                        (MonadSnap, route)
 import qualified Snap.CORS                        as CORS
 import           Snap.Http.Server                 (httpServe)
@@ -43,8 +45,9 @@ import           Pos.Explorer.Socket.Holder       (ConnectionsState, Connections
                                                    withConnState)
 import           Pos.Explorer.Socket.Methods      (ClientEvent (..), ServerEvent (..),
                                                    Subscription (..), finishSession,
-                                                   getBlockInfo, getBlocksFromTo,
-                                                   groupBlockInfo, notifyAddrSubscribers,
+                                                   getBlockTxs, getBlocksFromTo,
+                                                   getTxInfo, groupTxsInfo,
+                                                   notifyAddrSubscribers,
                                                    notifyBlocksSubscribers,
                                                    notifyTxsSubscribers, startSession,
                                                    subscribeAddr, subscribeBlocks,
@@ -52,7 +55,8 @@ import           Pos.Explorer.Socket.Methods      (ClientEvent (..), ServerEvent
                                                    unsubscribeBlocks, unsubscribeTxs)
 import           Pos.Explorer.Socket.Util         (emit, emitJSON, forkAccompanion, on,
                                                    on_, runPeriodicallyUnless)
-import           Pos.Explorer.Web.ClientTypes     (CTxId)
+import           Pos.Explorer.Web.ClientTypes     (CTxId, TxInternal, tiToTxEntry)
+import           Pos.Explorer.Web.Server          (ExplorerMode, getMempoolTxs)
 
 data NotifierSettings = NotifierSettings
     { nsPort :: Word16
@@ -109,13 +113,17 @@ notifierServer settings connVar = do
 
 periodicPollChanges
     :: forall ssc m.
-       (MonadIO m, MonadMask m, MonadDB m, WithLogger m, SscHelpersClass ssc,
-        MonadSlots m)
+       (ExplorerMode m, SscHelpersClass ssc)
     => ConnectionsVar -> m Bool -> m ()
 periodicPollChanges connVar closed =
-    runPeriodicallyUnless (500 :: Millisecond) closed Nothing $ do
-        curBlock  <- DB.getTip
-        mWasBlock <- identity <<.= Just curBlock
+    runPeriodicallyUnless (500 :: Millisecond) closed (Nothing, mempty) $ do
+        curBlock   <- DB.getTip
+        mempoolTxs <- lift $ S.fromList <$> getMempoolTxs
+
+        mWasBlock     <- _1 <<.= Just curBlock
+        wasMempoolTxs <- _2 <<.= mempoolTxs
+
+        let newLocalTxs = S.toList $ mempoolTxs `S.difference` wasMempoolTxs
 
         when (mWasBlock /= Just curBlock) $ do
             whenJust mWasBlock $ \wasBlock -> do
@@ -124,13 +132,15 @@ periodicPollChanges connVar closed =
                     Nothing     -> do
                         logDebug "Failed to fetch blocks from db"
                     Just blocks -> askingConnState connVar $ do
-                        notify blocks
+                        blockTxs <- concat <$> forM blocks getBlockTxs
+                        notify blocks (blockTxs <> newLocalTxs)
   where
-    notify blocks = do
-        blockInfos <- concat <$> forM blocks getBlockInfo
-        let groupedBlockInfos = Exts.toList $ groupBlockInfo blockInfos
+    notify blocks txs = do
+        txsInfo <- mapM getTxInfo txs
+        let groupedTxInfo = Exts.toList $ groupTxsInfo txsInfo
 
-        forM_ groupedBlockInfos $ \(addr, cTxEntries) -> do
+        -- notify abuot transactions
+        forM_ groupedTxInfo $ \(addr, cTxEntries) -> do
             notifyAddrSubscribers addr cTxEntries
             logDebug $ sformat ("Notified address "%build%" about "
                        %int%" transactions") addr (length cTxEntries)
@@ -141,14 +151,13 @@ periodicPollChanges connVar closed =
                    (length blocks)
 
         -- notify about transactions
-        notifyTxsSubscribers $ fst <$> blockInfos
+        notifyTxsSubscribers $ fst <$> txsInfo
 
 
 -- | Starts notification server. Kill current thread to stop it.
 notifierApp
     :: forall ssc m.
-       (MonadIO m, MonadMask m, MonadDB m, Mockable Fork m,
-        WithLogger m, MonadSlots m, SscHelpersClass ssc)
+       (ExplorerMode m, SscHelpersClass ssc)
     => NotifierSettings -> m ()
 notifierApp settings = modifyLoggerName (<> "notifier") $ do
     logInfo "Starting"

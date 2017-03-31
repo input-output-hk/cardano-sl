@@ -14,29 +14,27 @@ import qualified Control.Concurrent.STM           as STM
 import           Control.Lens                     ((<<.=))
 import           Control.Monad.Trans.Control      (MonadBaseControl)
 import           Data.Aeson                       (Value)
+import           Data.List                        (intersperse)
 import qualified Data.Set                         as S
 import           Data.Time.Units                  (Millisecond)
-import           Formatting                       (build, int, sformat, (%))
+import           Formatting                       (bprint, build, int, sformat, (%))
 import qualified GHC.Exts                         as Exts
-import           Mockable                         (Fork, Mockable)
 import           Network.EngineIO                 (SocketId)
 import           Network.EngineIO.Snap            (snapAPI)
 import           Network.SocketIO                 (RoutingTable, Socket,
                                                    appendDisconnectHandler, initialize,
                                                    socketId)
-import           Pos.DB.Class                     (MonadDB)
+import           Pos.Core                         (addressF)
 import qualified Pos.DB.GState                    as DB
-import           Pos.Slotting.Class               (MonadSlots)
 import           Pos.Ssc.Class                    (SscHelpersClass)
-import           Pos.WorkMode                     (WorkMode)
 import           Snap.Core                        (MonadSnap, route)
 import qualified Snap.CORS                        as CORS
 import           Snap.Http.Server                 (httpServe)
 import qualified Snap.Internal.Http.Server.Config as Config
 import           System.Wlog                      (CanLog, LoggerName, LoggerNameBox,
                                                    PureLogger, WithLogger, getLoggerName,
-                                                   logDebug, logInfo, modifyLoggerName,
-                                                   usingLoggerName)
+                                                   logDebug, logInfo, logWarning,
+                                                   modifyLoggerName, usingLoggerName)
 import           Universum                        hiding (on)
 
 import           Pos.Explorer.Aeson.ClientTypes   ()
@@ -55,7 +53,7 @@ import           Pos.Explorer.Socket.Methods      (ClientEvent (..), ServerEvent
                                                    unsubscribeBlocks, unsubscribeTxs)
 import           Pos.Explorer.Socket.Util         (emit, emitJSON, forkAccompanion, on,
                                                    on_, runPeriodicallyUnless)
-import           Pos.Explorer.Web.ClientTypes     (CTxId, TxInternal, tiToTxEntry)
+import           Pos.Explorer.Web.ClientTypes     (CTxId, cteId)
 import           Pos.Explorer.Web.Server          (ExplorerMode, getMempoolTxs)
 
 data NotifierSettings = NotifierSettings
@@ -116,43 +114,49 @@ periodicPollChanges
        (ExplorerMode m, SscHelpersClass ssc)
     => ConnectionsVar -> m Bool -> m ()
 periodicPollChanges connVar closed =
-    runPeriodicallyUnless (500 :: Millisecond) closed (Nothing, mempty) $ do
+    runPeriodicallyUnless (500 :: Millisecond) closed (Nothing, mempty) $
+    askingConnState connVar $ do
         curBlock   <- DB.getTip
-        mempoolTxs <- lift $ S.fromList <$> getMempoolTxs
+        mempoolTxs <- lift . lift $ S.fromList <$> getMempoolTxs
 
         mWasBlock     <- _1 <<.= Just curBlock
         wasMempoolTxs <- _2 <<.= mempoolTxs
 
-        let newLocalTxs = S.toList $ mempoolTxs `S.difference` wasMempoolTxs
-
-        when (mWasBlock /= Just curBlock) $ do
-            whenJust mWasBlock $ \wasBlock -> do
+        newBlocks <- if mWasBlock /= Just curBlock
+            then return Nothing
+            else fmap join . forM mWasBlock $ \wasBlock -> do
                 mBlocks <- getBlocksFromTo @ssc curBlock wasBlock
                 case mBlocks of
                     Nothing     -> do
-                        logDebug "Failed to fetch blocks from db"
-                    Just blocks -> askingConnState connVar $ do
-                        blockTxs <- concat <$> forM blocks getBlockTxs
-                        notify blocks (blockTxs <> newLocalTxs)
-  where
-    notify blocks txs = do
-        txsInfo <- mapM getTxInfo txs
+                        logWarning "Failed to fetch blocks from db"
+                        return Nothing
+                    Just []     -> return Nothing
+                    Just blocks -> do
+                        -- notify about blocks
+                        notifyBlocksSubscribers blocks
+                        logDebug $ sformat ("Blockchain updated ("%int%
+                                   " blocks)") (length blocks)
+                        return $ Just blocks
+
+        newBlockchainTxs <- concat <$> forM (fromMaybe [] newBlocks) getBlockTxs
+        let newLocalTxs = S.toList $ mempoolTxs `S.difference` wasMempoolTxs
+
+        txsInfo <- mapM getTxInfo (newBlockchainTxs <> newLocalTxs)
         let groupedTxInfo = Exts.toList $ groupTxsInfo txsInfo
 
         -- notify abuot transactions
         forM_ groupedTxInfo $ \(addr, cTxEntries) -> do
             notifyAddrSubscribers addr cTxEntries
-            logDebug $ sformat ("Notified address "%build%" about "
+            logDebug $ sformat ("Notified address "%addressF%" about "
                        %int%" transactions") addr (length cTxEntries)
 
-        -- notify about blocks
-        notifyBlocksSubscribers blocks
-        logDebug $ sformat ("Blockchain updated ("%int%" blocks)")
-                   (length blocks)
-
         -- notify about transactions
-        notifyTxsSubscribers $ fst <$> txsInfo
-
+        let cTxEntries = fst <$> txsInfo
+        notifyTxsSubscribers cTxEntries
+        when (not $ null cTxEntries) $
+            logDebug $ sformat ("Broadcasted transactions: "%build)
+                       (mconcat . intersperse "," $
+                       bprint build . cteId <$> cTxEntries)
 
 -- | Starts notification server. Kill current thread to stop it.
 notifierApp

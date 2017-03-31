@@ -31,12 +31,9 @@ module Pos.Explorer.Socket.Methods
 import           Control.Lens                   (at, non, (.=), _Just)
 import           Control.Monad.State            (MonadState)
 import           Data.Aeson                     (ToJSON)
-import           Data.List                      (intersperse)
 import qualified Data.Map                       as M
 import qualified Data.Set                       as S
-import           Data.Text.Buildable            (build)
 import           Formatting                     (sformat, shown, stext, (%))
-import qualified Formatting                     as F
 import           Network.EngineIO               (SocketId)
 import           Network.SocketIO               (Socket, socketId)
 import qualified Pos.Block.Logic                as DB
@@ -51,7 +48,7 @@ import           Pos.Txp                        (Tx (..), TxOut (..), TxOutAux (
                                                  txOutAddress)
 import           Pos.Types                      (Address, Block, HeaderHash, TxExtra (..),
                                                  blockTxs)
-import           Pos.Util                       (maybeThrow)
+import           Pos.Util                       (getOldestFirst, maybeThrow)
 import           System.Wlog                    (WithLogger, logDebug, logError,
                                                  logWarning)
 import           Universum
@@ -247,21 +244,20 @@ notifyTxsSubscribers
     :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m,
         MonadDB m)
     => [CTxEntry] -> m ()
-notifyTxsSubscribers cTxEntries = do
-    recipients <- view csTxsSubscribers
-    broadcast TxsUpdated cTxEntries recipients
-    logDebug $ sformat ("Broadcasted transactions: "%F.build)
-               (mconcat . intersperse "," $ build . cteId <$> cTxEntries)
+notifyTxsSubscribers cTxEntries =
+    view csTxsSubscribers >>= broadcast TxsUpdated cTxEntries
 
 -- * Helpers
 
+-- | Gets blocks from recent inclusive to old one exclusive.
 getBlocksFromTo
     :: forall ssc m.
        (MonadDB m, SscHelpersClass ssc)
     => HeaderHash -> HeaderHash -> m (Maybe [Block ssc])
 getBlocksFromTo recentBlock oldBlock = do
     mheaders <- DB.getHeadersFromToIncl @ssc oldBlock recentBlock
-    forM mheaders $ fmap catMaybes . mapM DB.getBlock . toList
+    forM (getOldestFirst <$> mheaders) $ \(_ :| headers) ->
+        fmap catMaybes $ forM headers DB.getBlock
 
 addrsTouchedByTx
     :: (MonadDB m, WithLogger m)
@@ -271,7 +267,7 @@ addrsTouchedByTx tx = do
     -- and transactions from InTx
     inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
         -- TODO [CSM-153]: lookup mempool as well
-        Nothing    -> mempty <$ logError "Can't find input of transaction!"
+        Nothing    -> mempty <$ return () -- logError "Can't find input of transaction!"
         Just txOut -> return . one $ toaOut txOut
 
     let relatedTxs = toList (_txOutputs tx) <> concat (toList inTxs)

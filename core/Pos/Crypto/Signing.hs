@@ -134,7 +134,7 @@ parseFullPublicKey :: (Bi PublicKey) => Text -> Maybe PublicKey
 parseFullPublicKey s = do
     b <- rightToMaybe $ Base64.decode s
     (unconsumed, _, a) <- rightToMaybe $ Bi.decodeOrFail (BSL.fromStrict b)
-    guard $ not $ BSL.null unconsumed
+    guard $ BSL.null unconsumed
     pure a
 
 emptyPass :: ScrubbedBytes

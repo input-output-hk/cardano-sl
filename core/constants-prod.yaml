@@ -1,16 +1,16 @@
 # Fundamental constants for core protocol
-k: 60
+k: 9
 
 # Genesis constants
-genesisN: 12014
-genesisSlotDurationSec: 120
+genesisN: 27000
+genesisSlotDurationSec: 20
 genesisMaxBlockSize: 2000000
 genesisMaxHeaderSize: 200000
 genesisMaxTxSize: 4096 # 4 Kb
 maxReqSize: 100 # 100 bytes
 maxMempoolMsgSize: 100 # 100 bytes
 maxInvSize: 100 # 100 bytes
-genesisMpcThd: 0.05 # 5% of stake
+genesisMpcThd: 0.11 # 11% of stake
 genesisHeavyDelThd: 0.0003 # 0.03% of stake
 genesisUpdateVoteThd: 0.001 # 0.1% of total stake
 genesisMaxUpdateProposalSize: 700 # 700 bytes
@@ -22,7 +22,7 @@ genesisUpdateSoftforkThd: 0.75 # 75% of total stake
 defaultPeers: []
 kademliaDumpInterval: 4
 neighboursSendThreshold: 2
-networkDiameter: 45
+networkDiameter: 15
 networkConnectionTimeout: 2000
 networkReceiveTimeout: 5000
 
@@ -42,7 +42,7 @@ lightDlgConfirmationTimeout: 500
 applicationName: cardano-sl
 
 # Production start time
-productionNetworkStartTime: 1489700040
+productionNetworkStartTime: 1490824920
 
 # NTP
 ntpResponseTimeout: 1000000 # 1 sec
@@ -50,7 +50,7 @@ ntpPollDelay: 15000000 # 15 sec
 
 # Misc
 maxLocalTxs: 1000
-protocolMagic: 50987833
+protocolMagic: 91635431
 enhancedMessageBroadcast: 2
 messageCacheTimeout: 30
 propagationQueueSize: 100

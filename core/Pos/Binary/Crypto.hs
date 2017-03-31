@@ -204,6 +204,7 @@ instance Bi PassPhrase where
 -------------------------------------------------------------------------------
 -- Hierarchical derivation
 -------------------------------------------------------------------------------
+
 instance Binary.Binary HDAddressPayload
 instance Bi HDAddressPayload
 

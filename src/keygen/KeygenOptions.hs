@@ -16,7 +16,7 @@ data KeygenOptions = KeygenOptions
     { koGenesisFile :: FilePath
     , koTestStake   :: Maybe TestStakeOptions
     , koAvvmStake   :: Maybe AvvmStakeOptions
-    }
+    } deriving (Show)
 
 data TestStakeOptions = TestStakeOptions
     { tsoPattern      :: FilePath
@@ -24,13 +24,14 @@ data TestStakeOptions = TestStakeOptions
     , tsoRichmen      :: Word
     , tsoRichmenShare :: Double
     , tsoTotalStake   :: Word64
-    }
+    } deriving (Show)
 
 data AvvmStakeOptions = AvvmStakeOptions
     { asoJsonPath      :: FilePath
     , asoIsRandcerts   :: Bool
     , asoHolderKeyfile :: Maybe FilePath
-    }
+    , asoBlacklisted   :: Maybe FilePath
+    } deriving (Show)
 
 optsParser :: Parser KeygenOptions
 optsParser = do
@@ -64,9 +65,9 @@ testStakeParser = do
     tsoRichmenShare <- option auto $
         long    "richmen-share" <>
         metavar "FLOAT" <>
-        help    "Percent of stake dedicated to richmen"
+        help    "Percent of stake dedicated to richmen (between 0 and 1)"
     tsoTotalStake <- option auto $
-        long    "total-stake" <>
+        long    "testnet-stake" <>
         metavar "INT" <>
         help    "Total coins in genesis stake, excluding RSCoin ledger."
     pure TestStakeOptions{..}
@@ -85,6 +86,11 @@ avvmStakeParser = do
         metavar "FILE" <>
         help    "A keyfile from which to read public key of stakeholder \
                 \to which AVVM stakes are delegated."
+    asoBlacklisted <- optional $ strOption $
+        long    "blacklisted" <>
+        metavar "FILE" <>
+        help    "Path to the file containing blacklisted addresses \
+                \(an address per line)"
     pure AvvmStakeOptions{..}
 
 optsInfo :: ParserInfo KeygenOptions

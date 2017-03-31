@@ -53,6 +53,7 @@ import qualified Pos.Binary.Class     as Bi
 ----------------------------------------------------------------------------
 -- WithHash
 ----------------------------------------------------------------------------
+
 data WithHash a = WithHash
     { whData :: a
     , whHash :: Hash a

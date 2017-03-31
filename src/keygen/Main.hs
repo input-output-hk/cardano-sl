@@ -12,10 +12,11 @@ import           System.FilePath      (takeDirectory)
 import           Universum
 
 import           Pos.Binary           (decodeFull, encode)
-import           Pos.Genesis          (GenesisData (..), getTotalStake)
-import           Pos.Types            (Coin, addressHash, makePubKeyAddress, mkCoin)
+import           Pos.Genesis          (GenesisData (..))
+import           Pos.Types            (addressHash, makePubKeyAddress)
 
-import           Avvm                 (genGenesis, getHolderId)
+import           Avvm                 (aeCoin, applyBlacklisted, genGenesis, getHolderId,
+                                       utxo)
 import           KeygenOptions        (AvvmStakeOptions (..), KeygenOptions (..),
                                        TestStakeOptions (..), optsInfo)
 import           Testnet              (genTestnetStakes, generateKeyfile)
@@ -23,8 +24,8 @@ import           Testnet              (genTestnetStakes, generateKeyfile)
 replace :: FilePath -> FilePath -> FilePath -> FilePath
 replace a b = toString . (T.replace `on` toText) a b . toText
 
-getTestnetGenesis :: Coin -> TestStakeOptions -> IO GenesisData
-getTestnetGenesis avvmStake tso@TestStakeOptions{..} = do
+getTestnetGenesis :: TestStakeOptions -> IO GenesisData
+getTestnetGenesis tso@TestStakeOptions{..} = do
     let keysDir = takeDirectory tsoPattern
     createDirectoryIfMissing True keysDir
 
@@ -33,7 +34,7 @@ getTestnetGenesis avvmStake tso@TestStakeOptions{..} = do
         generateKeyfile $ replace "{}" (show i) tsoPattern
     putText $ show totalStakeholders <> " keyfiles are generated"
 
-    let distr = genTestnetStakes avvmStake tso
+    let distr = genTestnetStakes tso
         genesisAddrs = map (makePubKeyAddress . fst) genesisList
         genesisVssCerts = HM.fromList
                           $ map (_1 %~ addressHash)
@@ -43,16 +44,21 @@ getTestnetGenesis avvmStake tso@TestStakeOptions{..} = do
             , gdDistribution = distr
             , gdVssCertificates = genesisVssCerts
             }
+
+    putText $ "Total testnet genesis stake: " <> show distr
     return genData
 
 getAvvmGenesis :: AvvmStakeOptions -> IO GenesisData
-getAvvmGenesis AvvmStakeOptions{..} = do
+getAvvmGenesis AvvmStakeOptions {..} = do
     jsonfile <- BSL.readFile asoJsonPath
     holder <- getHolderId asoHolderKeyfile
     case eitherDecode jsonfile of
         Left err       -> error $ toText err
-        Right avvmData -> pure $
-            genGenesis avvmData asoIsRandcerts holder
+        Right avvmData -> do
+            avvmDataFiltered <- applyBlacklisted asoBlacklisted avvmData
+            let totalAvvmStake = sum $ map aeCoin $ utxo avvmDataFiltered
+            putText $ "Total avvm stake after applying blacklist: " <> show totalAvvmStake
+            pure $ genGenesis avvmDataFiltered asoIsRandcerts holder
 
 main :: IO ()
 main = do
@@ -61,9 +67,8 @@ main = do
     createDirectoryIfMissing True genFileDir
 
     mAvvmGenesis <- traverse getAvvmGenesis koAvvmStake
-    let avvmStake = maybe (mkCoin 0)
-            (getTotalStake . gdDistribution) mAvvmGenesis
-    mTestnetGenesis <- traverse (getTestnetGenesis avvmStake) koTestStake
+    mTestnetGenesis <- traverse getTestnetGenesis koTestStake
+    putText $ "testnet genesis created successfully..."
 
     let mGenData = mappend <$> mTestnetGenesis <*> mAvvmGenesis
                    <|> mTestnetGenesis

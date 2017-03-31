@@ -134,8 +134,7 @@ initializeUserSecret secretPath = do
             createEmptyFile secretPath
             setMode600 secretPath
 #else
-        when (not exists) $
-            createEmptyFile secretPath
+        unless exists $ createEmptyFile secretPath
 #endif
   where
     createEmptyFile :: (MonadIO m) => FilePath -> m ()

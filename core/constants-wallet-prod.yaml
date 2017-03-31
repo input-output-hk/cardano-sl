@@ -38,6 +38,9 @@ mpcSendInterval: 100 # must be less than (2 * k * slotDuration - networkDiameter
 # Lightweight delegation
 lightDlgConfirmationTimeout: 500
 
+# Update system
+applicationName: csl-daedalus
+
 # Production start time
 productionNetworkStartTime: 1489700040
 

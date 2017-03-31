@@ -224,10 +224,10 @@ instance FromHttpApiData CHash where
     parseUrlPiece = fmap toCHash . decodeHashHex
 
 instance FromHttpApiData CAddress where
-    parseUrlPiece = fmap toCAddress . decodeTextAddress
+    parseUrlPiece = pure . CAddress
 
 instance FromHttpApiData CTxId where
-    parseUrlPiece = fmap toCTxId . decodeHashHex
+    parseUrlPiece = pure . CTxId . CHash
 
 -- TODO: When we have a generic enough `readEither`
 -- instance FromHttpApiData LocalSlotIndex where

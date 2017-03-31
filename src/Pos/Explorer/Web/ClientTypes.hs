@@ -253,10 +253,10 @@ instance FromHttpApiData CHash where
     parseUrlPiece = fmap toCHash . decodeHashHex
 
 instance FromHttpApiData CAddress where
-    parseUrlPiece = fmap toCAddress . decodeTextAddress
+    parseUrlPiece = pure . CAddress
 
 instance FromHttpApiData CTxId where
-    parseUrlPiece = fmap toCTxId . decodeHashHex
+    parseUrlPiece = pure . CTxId . CHash
 
 instance FromHttpApiData CSearchId where
     parseUrlPiece = fmap toCSearchId . decodeHashHex

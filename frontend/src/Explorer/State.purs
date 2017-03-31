@@ -3,7 +3,7 @@ module Explorer.State where
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language(..))
 import Explorer.Routes (Route(..))
-import Explorer.Types.State (DashboardAPICode(..), State)
+import Explorer.Types.State (DashboardAPICode(..), Search(..), State)
 
 
 initialState :: State
@@ -38,6 +38,7 @@ initialState =
     , latestTransactions: []
     , currentTxSummary: Nothing
     , currentAddressSummary: Nothing
+    , selectedSearch: SearchAddress
     , errors: []
     , loading: false
     }

@@ -10,7 +10,7 @@ import Data.Either (Either(..))
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary)
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentTxSummary, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentTxSummary, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, selectedSearch, socket, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
@@ -50,7 +50,6 @@ update (SocketLatestTransactions (Left error)) state = noEffects $
 
 -- Dashboard
 
-update DashboardSearch state = noEffects state
 update (DashboardExpandBlocks toggled) state = noEffects $
     set (viewStates <<< dashboard <<< blocksExpanded) toggled state
 update (DashboardExpandTransactions toggled) state = noEffects $
@@ -95,6 +94,13 @@ update (GenerateQrCode address) state =
         [ liftEff $ generateQrCode (address ^. _CAddress) "qr_image_id" >>= \_ -> pure NoOp
         ]
     }
+
+-- Search
+
+update DashboardSearch state = noEffects state
+
+update (UpdateSelectedSearch search) state =
+    noEffects $ set selectedSearch search state
 
 -- NoOp
 

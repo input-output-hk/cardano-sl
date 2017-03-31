@@ -313,6 +313,7 @@ servantHandlers sendActions =
     apiSettingsSyncProgress     = catchWalletError syncProgress
 
     catchWalletError            = try
+    
 -- getAddresses :: WalletWebMode ssc m => m [CAddress]
 -- getAddresses = map addressToCAddress <$> myAddresses
 

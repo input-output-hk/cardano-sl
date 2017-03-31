@@ -28,6 +28,7 @@ module Pos.Explorer.Web.ClientTypes
        , fromCSearchIdHash
        , fromCSearchIdAddress
        , fromCSearchIdTx
+       , fromCSearchText
        , convertTxOutputs
        ) where
 
@@ -38,6 +39,7 @@ import qualified Data.ByteString.Lazy   as BSL
 import qualified Data.List.NonEmpty     as NE
 import           Data.Time.Clock.POSIX  (POSIXTime)
 import           Formatting             (sformat)
+import           Prelude                ()
 import           Serokell.Util.Base16   as SB16
 import           Servant.API            (FromHttpApiData (..))
 import           Universum
@@ -49,15 +51,17 @@ import qualified Pos.DB.GState          as GS
 import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
-import           Pos.Txp                (Tx (..), TxId, TxOut (..), TxOutAux (..),
-                                         _txOutputs)
-import           Pos.Types              (Address, Coin, MainBlock, SlotId (..), Timestamp,
-                                         addressF, blockSlot, blockTxs, decodeTextAddress,
-                                         gbHeader, gbhConsensus, getEpochIndex,
-                                         getSlotIndex, headerHash, mcdSlot, mkCoin,
-                                         prevBlockL, sumCoins, unsafeAddCoin,
-                                         unsafeIntegerToCoin)
+import           Pos.Txp                (Tx (..), TxId, TxOut (..),
+                                         TxOutAux (..), _txOutputs)
+import           Pos.Types              (Address, Coin, MainBlock, SlotId (..),
+                                         Timestamp, addressF, blockSlot,
+                                         blockTxs, decodeTextAddress, gbHeader,
+                                         gbhConsensus, getEpochIndex,
+                                         getSlotIndex, headerHash, mcdSlot,
+                                         mkCoin, prevBlockL, sumCoins,
+                                         unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Types.Explorer     (TxExtra (..))
+
 
 
 
@@ -98,13 +102,16 @@ toCSearchId = CSearchId . encodeHashHex
 
 --TODO: Iso?
 fromCSearchIdHash :: CSearchId -> CHash
-fromCSearchIdHash (CSearchId hashId) = CHash hashId
+fromCSearchIdHash = CHash . fromCSearchText
 
 fromCSearchIdAddress :: CSearchId -> CAddress
-fromCSearchIdAddress (CSearchId hashId) = CAddress hashId
+fromCSearchIdAddress = CAddress . fromCSearchText
 
 fromCSearchIdTx :: CSearchId -> CTxId
 fromCSearchIdTx sid = CTxId $ fromCSearchIdHash sid
+
+fromCSearchText :: CSearchId -> Text
+fromCSearchText (CSearchId search) = search
 
 toCHash :: Hash a -> CHash
 toCHash = CHash . encodeHashHex
@@ -246,13 +253,17 @@ instance FromHttpApiData CHash where
     parseUrlPiece = fmap toCHash . decodeHashHex
 
 instance FromHttpApiData CAddress where
-    parseUrlPiece = fmap toCAddress . decodeTextAddress
+    parseUrlPiece = pure . CAddress
 
 instance FromHttpApiData CTxId where
-    parseUrlPiece = fmap toCTxId . decodeHashHex
+    parseUrlPiece = pure . CTxId . CHash
 
 instance FromHttpApiData CSearchId where
     parseUrlPiece = fmap toCSearchId . decodeHashHex
+
+-- TODO: When we have a generic enough `readEither`
+-- instance FromHttpApiData LocalSlotIndex where
+--     parseUrlPiece = readEither
 
 --------------------------------------------------------------------------------
 -- Helper types and conversions

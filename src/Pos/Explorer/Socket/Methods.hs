@@ -19,23 +19,23 @@ module Pos.Explorer.Socket.Methods
        , unsubscribeTxs
 
        , notifyAddrSubscribers
-       , notifyAllAddrSubscribers
        , notifyBlocksSubscribers
        , notifyTxsSubscribers
        , getBlocksFromTo
-       , blockAddresses
-       , getBlockTxs
+       , addrsTouchedByTx
+       , getBlockInfo
+       , groupBlockInfo
        ) where
 
 import           Control.Lens                   (at, non, (.=), _Just)
 import           Control.Monad.State            (MonadState)
 import           Data.Aeson                     (ToJSON)
 import           Data.List                      (intersperse)
+import qualified Data.Map                       as M
 import qualified Data.Set                       as S
 import           Data.Text.Buildable            (build)
 import           Formatting                     (sformat, shown, stext, (%))
 import qualified Formatting                     as F
-import qualified GHC.Exts                       as Exts
 import           Network.EngineIO               (SocketId)
 import           Network.SocketIO               (Socket, socketId)
 import qualified Pos.Block.Logic                as DB
@@ -49,7 +49,7 @@ import           Pos.Ssc.Class                  (SscHelpersClass)
 import           Pos.Txp                        (Tx (..), TxOut (..), TxOutAux (..),
                                                  txOutAddress)
 import           Pos.Types                      (Address, Block, HeaderHash, TxExtra (..),
-                                                 blockTxas, blockTxs)
+                                                 blockTxs)
 import           Pos.Util                       (maybeThrow)
 import           System.Wlog                    (WithLogger, logDebug, logError,
                                                  logWarning)
@@ -225,17 +225,10 @@ broadcast event args recipients = do
 
 notifyAddrSubscribers
     :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m)
-    => Address -> m ()
-notifyAddrSubscribers addr = do
+    => Address -> [CTxEntry] -> m ()
+notifyAddrSubscribers addr cTxEntries = do
     mRecipients <- view $ csAddressSubscribers . at addr
-    whenJust mRecipients $ broadcast AddrUpdated ()
-
-notifyAllAddrSubscribers
-    :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m)
-    => m ()
-notifyAllAddrSubscribers = do
-    addrSubscribers <- view csAddressSubscribers
-    mapM_ notifyAddrSubscribers $ map fst $ Exts.toList addrSubscribers
+    whenJust mRecipients $ broadcast AddrUpdated cTxEntries
 
 notifyBlocksSubscribers
     :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m,
@@ -252,10 +245,9 @@ notifyBlocksSubscribers blocks = do
 notifyTxsSubscribers
     :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m,
         MonadDB m)
-    => [Block ssc] -> m ()
-notifyTxsSubscribers blocks = do
+    => [CTxEntry] -> m ()
+notifyTxsSubscribers cTxEntries = do
     recipients <- view csTxsSubscribers
-    cTxEntries <- concat <$> forM blocks getBlockTxs
     broadcast TxsUpdated cTxEntries recipients
     logDebug $ sformat ("Broadcasted transactions: "%F.build)
                (mconcat . intersperse "," $ build . cteId <$> cTxEntries)
@@ -268,33 +260,41 @@ getBlocksFromTo recentBlock oldBlock = do
     mheaders <- DB.getHeadersFromToIncl @ssc oldBlock recentBlock
     forM mheaders $ fmap catMaybes . mapM DB.getBlock . toList
 
-blockAddresses
+addrsTouchedByTx
     :: (MonadDB m, WithLogger m)
-    => Block ssc -> m [Address]
-blockAddresses block = do
-    relatedTxs <- case block of
-        Left _          -> return S.empty
-        Right mainBlock -> fmap mconcat $
-            forM (mainBlock ^. blockTxas) $ \(tx, _, _) -> do
-                -- for each transaction, get its OutTx
-                -- and transactions from InTx
-                inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
-                    Nothing       -> S.empty <$ logError "DB is malformed!"
-                    Just txOut -> return . one $ toaOut txOut
+    => Tx -> m (S.Set Address)
+addrsTouchedByTx tx = do
+    -- for each transaction, get its OutTx
+    -- and transactions from InTx
+    inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
+        Nothing    -> mempty <$ logError "Can't find input of transaction!"
+        Just txOut -> return . one $ toaOut txOut
 
-                return $ S.fromList (toList $ _txOutputs tx)
-                      <> (mconcat $ toList inTxs)
+    let relatedTxs = toList (_txOutputs tx) <> concat (toList inTxs)
+    return . S.fromList $ txOutAddress <$> relatedTxs
 
-    return $ txOutAddress <$> S.toList relatedTxs
-
-getBlockTxs
+mkTxEntry
     :: (MonadDB m, WithLogger m)
-    => Block ssc -> m [CTxEntry]
-getBlockTxs (Left  _  ) = return []
-getBlockTxs (Right blk) = do
+    => Tx -> m CTxEntry
+mkTxEntry tx = do
+    TxExtra {..} <- DB.getTxExtra (hash tx) >>=
+        maybeThrow (Internal "In-block transaction doesn't \
+                                 \have extra info in DB")
+    pure $ toTxEntry teReceivedTime tx
+
+getBlockInfo
+    :: (MonadDB m, WithLogger m)
+    => Block ssc -> m [(CTxEntry, S.Set Address)]
+getBlockInfo (Left  _  ) = return []
+getBlockInfo (Right blk) = do
     txs <- topsortTxsOrFail withHash $ toList $ blk ^. blockTxs
     forM txs $ \tx -> do
-        TxExtra {..} <- DB.getTxExtra (hash tx) >>=
-            maybeThrow (Internal "In-block transaction doesn't \
-                                 \have extra info in DB")
-        pure $ toTxEntry teReceivedTime tx
+        cTxEntry <- mkTxEntry tx
+        addrs    <- addrsTouchedByTx tx
+        return (cTxEntry, addrs)
+
+groupBlockInfo :: [(CTxEntry, S.Set Address)] -> M.Map Address [CTxEntry]
+groupBlockInfo info =
+    let entries = fmap swap $ concat $ fmap sequence
+                $ toList <<$>> info :: [(Address, CTxEntry)]
+    in  fmap ($ []) $ M.fromListWith (.) $ fmap (second $ (++) . pure) entries

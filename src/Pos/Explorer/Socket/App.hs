@@ -15,7 +15,8 @@ import           Control.Lens                     ((<<.=))
 import           Control.Monad.Trans.Control      (MonadBaseControl)
 import           Data.Aeson                       (Value)
 import           Data.Time.Units                  (Millisecond)
-import           Formatting                       (int, sformat, shown, stext, (%))
+import           Formatting                       (build, int, sformat, (%))
+import qualified GHC.Exts                         as Exts
 import           Mockable                         (Fork, Mockable)
 import           Network.EngineIO                 (SocketId)
 import           Network.EngineIO.Snap            (snapAPI)
@@ -41,10 +42,9 @@ import           Pos.Explorer.Socket.Holder       (ConnectionsState, Connections
                                                    askingConnState, mkConnectionsState,
                                                    withConnState)
 import           Pos.Explorer.Socket.Methods      (ClientEvent (..), ServerEvent (..),
-                                                   Subscription (..), blockAddresses,
-                                                   finishSession, getBlocksFromTo,
-                                                   notifyAddrSubscribers,
-                                                   notifyAllAddrSubscribers,
+                                                   Subscription (..), finishSession,
+                                                   getBlockInfo, getBlocksFromTo,
+                                                   groupBlockInfo, notifyAddrSubscribers,
                                                    notifyBlocksSubscribers,
                                                    notifyTxsSubscribers, startSession,
                                                    subscribeAddr, subscribeBlocks,
@@ -118,29 +118,31 @@ periodicPollChanges connVar closed =
         mWasBlock <- identity <<.= Just curBlock
 
         when (mWasBlock /= Just curBlock) $ do
-            mBlocks <- fmap join $ forM mWasBlock $ \wasBlock ->
-                getBlocksFromTo @ssc curBlock wasBlock
-            case mBlocks of
-                Nothing     -> do
-                    logDebug "Failed to fetch blocks from db"
-                    askingConnState connVar notifyAllAddrSubscribers
-                Just blocks -> askingConnState connVar $ do
-                    -- notify about addrs
-                    addrs <- ordNub . mconcat <$> mapM blockAddresses blocks
-                    forM_ addrs notifyAddrSubscribers
-                    unless (null addrs) $
-                        logDebug $ sformat ("Addresses updated: "%shown) addrs
+            whenJust mWasBlock $ \wasBlock -> do
+                mBlocks <- getBlocksFromTo @ssc curBlock wasBlock
+                case mBlocks of
+                    Nothing     -> do
+                        logDebug "Failed to fetch blocks from db"
+                    Just blocks -> askingConnState connVar $ do
+                        notify blocks
+  where
+    notify blocks = do
+        blockInfos <- concat <$> forM blocks getBlockInfo
+        let groupedBlockInfos = Exts.toList $ groupBlockInfo blockInfos
 
-                    -- notify about blocks
-                    notifyBlocksSubscribers blocks
+        forM_ groupedBlockInfos $ \(addr, cTxEntries) -> do
+            notifyAddrSubscribers addr cTxEntries
+            logDebug $ sformat ("Notified address "%build%" about "
+                       %int%" transactions") addr (length cTxEntries)
 
-                    let blocksInfo =
-                            maybe "" (sformat $ " ("%int%" blocks)") $
-                            length <$> mBlocks
-                    logDebug $ sformat ("Blockchain updated"%stext) blocksInfo
+        -- notify about blocks
+        notifyBlocksSubscribers blocks
+        logDebug $ sformat ("Blockchain updated ("%int%" blocks)")
+                   (length blocks)
 
-                    -- notify about transactions
-                    notifyTxsSubscribers blocks
+        -- notify about transactions
+        notifyTxsSubscribers $ fst <$> blockInfos
+
 
 -- | Starts notification server. Kill current thread to stop it.
 notifierApp

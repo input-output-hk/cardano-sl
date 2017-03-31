@@ -48,6 +48,7 @@
   "dependencies": {
     "bip39": "^2.2.0",
     "bs58": "^4.0.0",
+    "blakejs": "^1.0.1",
     "json-loader": "^0.5.4"
   }
 }

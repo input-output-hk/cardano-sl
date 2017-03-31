@@ -4,11 +4,9 @@ module Pos.Binary.Txp () where
 
 import           Universum
 
-import           Data.Binary.Get    (getWord8, label)
-import           Data.Binary.Put    (putByteString, putWord8)
-
 import           Pos.Binary.Class   (Bi (..), UnsignedVarInt (..), getRemainingByteString,
-                                     getWithLength, putWithLength)
+                                     getWithLength, getWord8, label, putByteString,
+                                     putWithLength, putWord8)
 import           Pos.Binary.Core    ()
 import           Pos.Binary.Merkle  ()
 import qualified Pos.Txp.Core.Types as T

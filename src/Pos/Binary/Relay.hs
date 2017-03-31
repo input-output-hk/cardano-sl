@@ -5,13 +5,13 @@
 
 module Pos.Binary.Relay () where
 
-import           Data.Binary.Get                  (label)
 import           Universum
 
-import           Pos.Binary.Class                 (Bi (..))
+import           Pos.Binary.Class                 (Bi (..), getWord8, label, putWord8)
 import           Pos.Binary.Crypto                ()
 import           Pos.Binary.Ssc                   ()
-import           Pos.Communication.Types.Relay    (DataMsg (..), InvMsg (..), ReqMsg (..))
+import           Pos.Communication.Types.Relay    (DataMsg (..), InvMsg (..),
+                                                   MempoolMsg (..), ReqMsg (..))
 import           Pos.Crypto                       (hash)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
 import           Pos.Txp.Network.Types            (TxMsgContents (..))
@@ -24,6 +24,15 @@ instance (Bi tag, Bi key) => Bi (InvMsg key tag) where
 instance (Bi tag, Bi key) => Bi (ReqMsg key tag) where
     put ReqMsg {..} = put rmTag >> put rmKey
     get = label "ReqMsg" $ liftM2 ReqMsg get get
+
+instance (Bi tag) => Bi (MempoolMsg tag) where
+    -- The extra byte is needed because time-warp doesn't work with
+    -- possibly-empty messages. 228 was chosen as homage to @pva701
+    put MempoolMsg {..} = putWord8 228 >> put mmTag
+    get = label "MempoolMsg" $ do
+        x <- getWord8
+        when (x /= 228) $ fail "wrong byte"
+        MempoolMsg <$> get
 
 instance Bi (DataMsg GtMsgContents) where
     put (DataMsg dmContents) = put dmContents

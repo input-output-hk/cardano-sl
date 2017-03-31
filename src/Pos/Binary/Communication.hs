@@ -5,8 +5,6 @@ module Pos.Binary.Communication () where
 
 import           Universum
 
-import           Data.Binary.Get                  (getByteString, getWord8, label)
-import           Data.Binary.Put                  (putByteString, putWord8)
 import           Data.Bits                        (Bits (..))
 import qualified Data.ByteString                  as BS
 import qualified Data.ByteString.Lazy             as BSL
@@ -15,9 +13,11 @@ import           Node.Message                     (MessageName (..))
 
 import           Pos.Binary.Class                 (Bi (..), UnsignedVarInt (..),
                                                    decodeFull, encodeStrict,
-                                                   getRemainingByteString,
+                                                   getByteString, getRemainingByteString,
                                                    getSmallWithLength, getWithLength,
-                                                   putSmallWithLength, putWithLength)
+                                                   getWord8, label, putByteString,
+                                                   putSmallWithLength, putWithLength,
+                                                   putWord8)
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types          (SysStartRequest (..),
@@ -39,9 +39,9 @@ deriving instance Bi MessageName
 ----------------------------------------------------------------------------
 
 instance Bi SysStartRequest where
-    put _ = put (1 :: Word8)
+    put _ = putWord8 1
     get = label "SysStartRequest" $ do
-        (i :: Word8) <- get
+        i <- getWord8
         when (i /= 1) $
            fail "SysStartRequest: 1 expected"
         return SysStartRequest

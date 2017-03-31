@@ -4,11 +4,11 @@ module Pos.Binary.Block.Types
        (
        ) where
 
-import           Data.Binary.Get           (getInt32be, getWord8, label)
-import           Data.Binary.Put           (putInt32be, putWord8)
+import           Data.Binary.Get           (getInt32be)
+import           Data.Binary.Put           (putInt32be)
 import           Universum
 
-import           Pos.Binary.Class          (Bi (..))
+import           Pos.Binary.Class          (Bi (..), getWord8, label, putWord8)
 import           Pos.Binary.Core           ()
 import           Pos.Binary.Txp            ()
 import           Pos.Constants             (protocolMagic)

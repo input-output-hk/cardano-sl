@@ -39,9 +39,9 @@ import           Pos.Types                  (BlockVersion (..), Coin, SoftwareVe
 import           Pos.Util.BackupPhrase      (BackupPhrase, mkBackupPhrase)
 import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress (..), CCurrency (..), CHash (..),
-                                             CInitialized (..), CProfile (..),
-                                             CTType (..), CTx (..), CTxId, CTxMeta (..),
-                                             CUpdateInfo (..), CWallet (..),
+                                             CInitialized (..), CPassPhrase,
+                                             CProfile (..), CTType (..), CTx (..), CTxId,
+                                             CTxMeta (..), CUpdateInfo (..), CWallet (..),
                                              CWalletAssurance (..), CWalletInit (..),
                                              CWalletMeta (..), CWalletRedeem (..),
                                              CWalletType (..), SyncProgress,
@@ -252,6 +252,13 @@ instance ToCapture (Capture "key" FilePath) where
         DocCapture
         { _capSymbol = "key"
         , _capDesc = "File path to the secret key"
+        }
+
+instance ToCapture (Capture "passphrase" CPassPhrase) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "passphrase"
+        , _capDesc = "Passphrase to wallet"
         }
 
 -- sample data --

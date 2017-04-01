@@ -37,6 +37,7 @@ import           Pos.Shutdown              (MonadShutdownMem (..), ShutdownConte
 import           Pos.Slotting.Class        (MonadSlots)
 import           Pos.Slotting.MemState     (MonadSlotsData)
 import           Pos.Txp.MemState.Class    (MonadTxpMem)
+import           Pos.Util.Context          (MonadContext (..))
 import           Pos.Util.JsonLog          (MonadJL (..), appendJL)
 
 -- | Wrapper for monadic action which brings 'NodeContext'.
@@ -55,7 +56,7 @@ newtype ContextHolder ssc m a = ContextHolder
                , CanLog
                , MonadSlotsData
                , MonadSlots
-               , MonadTxpMem
+               , MonadTxpMem x
                , MonadFix
                , MonadDB
                , MonadDBLimits
@@ -90,6 +91,10 @@ instance ( Mockable d m
 instance Monad m => WithNodeContext ssc (ContextHolder ssc m) where
     getNodeContext = ContextHolder ask
 
+instance Monad m => MonadContext (ContextHolder ssc m) where
+    type ContextType (ContextHolder ssc m) = NodeContext ssc
+    getFullContext = getNodeContext
+
 instance (MonadIO m, Mockable Catch m, WithLogger m) => MonadJL (ContextHolder ssc m) where
     jlLog ev = ContextHolder (asks ncJLFile) >>= maybe (pure ()) doLog
       where
@@ -98,7 +103,7 @@ instance (MonadIO m, Mockable Catch m, WithLogger m) => MonadJL (ContextHolder s
             `catchAll` \e -> logWarning $ sformat ("Can't write to json log: " % shown) e
 
 instance Monad m => MonadReportingMem (ContextHolder ssc m) where
-    askReportingMem =
+    askReportingContext =
         ContextHolder $
             asks (ReportingContext . npReportServers . ncNodeParams)
 

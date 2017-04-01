@@ -5,50 +5,45 @@ module Main where
 import           Data.List             ((!!))
 import           Data.Maybe            (fromJust)
 import           Mockable              (Production)
+import           Node                  (hoistSendActions)
 import           Serokell.Util         (sec)
 import           System.Wlog           (LoggerName, logInfo)
 import           Universum
 
 import           Pos.Binary            ()
 import qualified Pos.CLI               as CLI
-import           Pos.Constants         (staticSysStart)
-import           Pos.Context           (getNodeContext, ncUpdateSemaphore)
+import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec, worker)
+import           Pos.Constants         (isDevelopment, staticSysStart)
 import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
-#ifdef DEV_MODE
-import           Pos.Genesis           (genesisSecretKeys)
-#else
-import           Pos.Genesis           (genesisStakeDistribution)
-#endif
-import           Pos.Genesis           (genesisUtxo)
+import           Pos.Genesis           (genesisDevSecretKeys, genesisStakeDistribution,
+                                        genesisUtxo)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
                                         NodeParams (..), RealModeResources,
                                         bracketResources, runNodeProduction, runNodeStats,
                                         runTimeLordReal, runTimeSlaveReal, stakesDistr)
-#ifdef DEV_MODE
-import           Pos.Ssc.GodTossing    (genesisVssKeyPairs)
-#endif
-import           Pos.Communication     (ActionSpec (..))
 import           Pos.Shutdown          (triggerShutdown)
 import           Pos.Ssc.Class         (SscConstraint)
-import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
+import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing,
+                                        genesisDevVssKeyPairs)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import           Pos.Ssc.SscAlgo       (SscAlgo (..))
+import           Pos.Statistics        (getNoStatsT, getStatsMap, runStatsT')
 import           Pos.Types             (Timestamp (Timestamp))
+import           Pos.Update.Context    (ucUpdateSemaphore)
+import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
-import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usVss, usPrimKey,
+import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usPrimKey, usVss,
                                         writeUserSecret)
+import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
 #ifdef WITH_WEB
 import           Pos.Web               (serveWebBase, serveWebGT)
 import           Pos.WorkMode          (WorkMode)
 #ifdef WITH_WALLET
-import           Node                  (hoistSendActions)
-import           Pos.Communication     (OutSpecs, WorkerSpec, worker)
-import           Pos.Statistics        (getNoStatsT, getStatsMap, runStatsT')
 import           Pos.Wallet.Web        (walletServeWebFull, walletServerOuts)
-import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
 #endif
 #endif
+import           Pos.Util.Context      (askContext)
 
 import           NodeOptions           (Args (..), getNodeOptions)
 
@@ -116,57 +111,49 @@ action args@Args {..} res = do
     case (enableStats, CLI.sscAlgo commonArgs) of
         (True, GodTossingAlgo) ->
             runNodeStats @SscGodTossing res
-                         (convPlugins currentPluginsGT `mappendPair` walletStats args)
-                         currentParams gtParams
+                (convPlugins currentPluginsGT `mappendPair` walletStats args)
+                currentParams gtParams
         (True, NistBeaconAlgo) ->
             runNodeStats @SscNistBeacon res
-                         (convPlugins currentPlugins `mappendPair`  walletStats args)
-                         currentParams ()
+                (convPlugins currentPlugins `mappendPair`  walletStats args)
+                currentParams ()
         (False, GodTossingAlgo) ->
             runNodeProduction @SscGodTossing res
-                              (convPlugins currentPluginsGT `mappendPair` walletProd args)
-                              currentParams
-                              gtParams
+                (convPlugins currentPluginsGT `mappendPair` walletProd args)
+                currentParams gtParams
         (False, NistBeaconAlgo) ->
             runNodeProduction @SscNistBeacon res
-                              (convPlugins currentPlugins `mappendPair` walletProd args)
-                              currentParams
-                              ()
+                (convPlugins currentPlugins `mappendPair` walletProd args)
+                currentParams ()
   where
     convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
 
-#ifdef DEV_MODE
 userSecretWithGenesisKey
     :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m (SecretKey, UserSecret)
-userSecretWithGenesisKey Args {..} userSecret = case spendingGenesisI of
-    Nothing -> fetchPrimaryKey userSecret
-    Just i -> do
-        let sk = genesisSecretKeys !! i
-            us = userSecret & usPrimKey .~ Just sk
-        writeUserSecret us
-        return (sk, us)
+userSecretWithGenesisKey Args{..} userSecret
+    | isDevelopment = case devSpendingGenesisI of
+          Nothing -> fetchPrimaryKey userSecret
+          Just i -> do
+              let sk = genesisDevSecretKeys !! i
+                  us = userSecret & usPrimKey .~ Just sk
+              writeUserSecret us
+              return (sk, us)
+    | otherwise = fetchPrimaryKey userSecret
 
 getKeyfilePath :: Args -> FilePath
-getKeyfilePath Args {..} =
-    maybe keyfilePath (\i -> "node-" ++ show i ++ "." ++ keyfilePath) spendingGenesisI
+getKeyfilePath Args {..}
+    | isDevelopment = case devSpendingGenesisI of
+          Nothing -> keyfilePath
+          Just i  -> "node-" ++ show i ++ "." ++ keyfilePath
+    | otherwise = keyfilePath
 
 updateUserSecretVSS
     :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m UserSecret
-updateUserSecretVSS Args {..} us = case vssGenesisI of
-    Just i  -> return $ us & usVss .~ Just (genesisVssKeyPairs !! i)
-    Nothing -> fillUserSecretVSS us
-#else
-userSecretWithGenesisKey
-    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m (SecretKey, UserSecret)
-userSecretWithGenesisKey _ = fetchPrimaryKey
-
-getKeyfilePath :: Args -> FilePath
-getKeyfilePath = keyfilePath
-
-updateUserSecretVSS
-    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m UserSecret
-updateUserSecretVSS _ = fillUserSecretVSS
-#endif
+updateUserSecretVSS Args{..} us
+    | isDevelopment = case devVssGenesisI of
+          Nothing -> fillUserSecretVSS us
+          Just i  -> return $ us & usVss .~ Just (genesisDevVssKeyPairs !! i)
+    | otherwise = fillUserSecretVSS us
 
 fetchPrimaryKey :: (MonadIO m, MonadFail m) => UserSecret -> m (SecretKey, UserSecret)
 fetchPrimaryKey userSecret = case userSecret ^. usPrimKey of
@@ -199,7 +186,7 @@ processUserSecret args@Args {..} userSecret = case backupPhrase of
         writeUserSecret us
         return (sk, us)
 
-getNodeParams :: (MonadIO m, MonadFail m) => Args -> Timestamp -> m NodeParams
+getNodeParams :: (MonadIO m, MonadFail m, MonadThrow m) => Args -> Timestamp -> m NodeParams
 getNodeParams args@Args {..} systemStart = do
     (primarySK, userSecret) <-
         userSecretWithGenesisKey args =<<
@@ -213,24 +200,23 @@ getNodeParams args@Args {..} systemStart = do
         , npUserSecret = userSecret
         , npSystemStart = systemStart
         , npBaseParams = params
-        , npCustomUtxo =
-                genesisUtxo $
-#ifdef DEV_MODE
-                stakesDistr (CLI.flatDistr commonArgs)
-                            (CLI.bitcoinDistr commonArgs)
-                            (CLI.expDistr commonArgs)
-#else
-                genesisStakeDistribution
-#endif
+        , npCustomUtxo = genesisUtxo $
+              if isDevelopment
+                  then stakesDistr (CLI.flatDistr commonArgs)
+                                   (CLI.bitcoinDistr commonArgs)
+                                   (CLI.expDistr commonArgs)
+                  else genesisStakeDistribution
         , npTimeLord = timeLord
         , npJLFile = jlPath
         , npAttackTypes = maliciousEmulationAttacks
         , npAttackTargets = maliciousEmulationTargets
         , npPropagation = not (CLI.disablePropagation commonArgs)
-        , npUpdatePath = updateLatestPath
-        , npUpdateWithPkg = updateWithPackage
-        , npUpdateServers = CLI.updateServers commonArgs
         , npReportServers = CLI.reportServers commonArgs
+        , npUpdateParams = UpdateParams
+            { upUpdatePath = updateLatestPath
+            , upUpdateWithPkg = updateWithPackage
+            , upUpdateServers = CLI.updateServers commonArgs
+            }
         }
 
 gtSscParams :: Args -> VssKeyPair -> GtParams
@@ -259,7 +245,7 @@ updateTriggerWorker
     => ([WorkerSpec (RawRealMode ssc)], OutSpecs)
 updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     logInfo "Update trigger worker is locked"
-    void $ liftIO . takeMVar . ncUpdateSemaphore =<< getNodeContext
+    void $ liftIO . takeMVar =<< askContext ucUpdateSemaphore
     triggerShutdown
 
 walletServe
@@ -298,11 +284,9 @@ walletStats = first (map liftPlugin) . walletServe
 
 printFlags :: IO ()
 printFlags = do
-#ifdef DEV_MODE
-    putText "[Attention] We are in DEV mode"
-#else
-    putText "[Attention] We are in PRODUCTION mode"
-#endif
+    if isDevelopment
+        then putText "[Attention] We are in DEV mode"
+        else putText "[Attention] We are in PRODUCTION mode"
 #ifdef WITH_WEB
     putText "[Attention] Web-mode is on"
 #endif

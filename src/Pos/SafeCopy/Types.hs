@@ -12,7 +12,9 @@ import           Data.SafeCopy         (SafeCopy (..), base, contain,
 import qualified Data.Serialize        as Cereal (getWord8, putWord8)
 import           Universum
 
+import           Pos.Crypto.HD         (HDAddressPayload (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
+
 -- FIXME
 import           Pos.Core.Types
 import           Pos.Txp.Core.Types
@@ -25,6 +27,7 @@ deriveSafeCopySimple 0 'base ''LocalSlotIndex
 deriveSafeCopySimple 0 'base ''SlotId
 deriveSafeCopySimple 0 'base ''EpochOrSlot
 deriveSafeCopySimple 0 'base ''Coin
+deriveSafeCopySimple 0 'base ''HDAddressPayload
 deriveSafeCopySimple 0 'base ''AddrPkAttrs
 deriveSafeCopySimple 0 'base ''Address
 deriveSafeCopySimple 0 'base ''TxInWitness
@@ -33,6 +36,7 @@ deriveSafeCopySimple 0 'base ''TxInWitness
 deriveSafeCopySimple 0 'base ''TxDistribution
 deriveSafeCopySimple 0 'base ''TxIn
 deriveSafeCopySimple 0 'base ''TxOut
+deriveSafeCopySimple 0 'base ''TxOutAux
 deriveSafeCopySimple 0 'base ''Tx
 deriveSafeCopySimple 0 'base ''TxProof
 deriveSafeCopySimple 0 'base ''TxPayload
@@ -40,6 +44,8 @@ deriveSafeCopySimple 0 'base ''SharedSeed
 
 deriveSafeCopySimple 0 'base ''MainExtraBodyData
 deriveSafeCopySimple 0 'base ''MainExtraHeaderData
+deriveSafeCopySimple 0 'base ''GenesisExtraHeaderData
+deriveSafeCopySimple 0 'base ''GenesisExtraBodyData
 
 deriveSafeCopySimple 0 'base ''SystemTag
 deriveSafeCopySimple 0 'base ''UpdateData

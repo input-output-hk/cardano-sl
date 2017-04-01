@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | Types used for managing of transactions
@@ -17,26 +18,31 @@ module Pos.Txp.Toil.Types
        , bvTotal
        , UndoMap
        , UtxoModifier
-       , TxpModifier (..)
-       , txmUtxoModifier
-       , txmBalances
-       , txmMemPool
-       , txmUndos
+       , GenericToilModifier (..)
+       , ToilModifier
+       , tmUtxo
+       , tmBalances
+       , tmMemPool
+       , tmUndos
+       , tmExtra
+
+       -- * Env
+       , ToilEnv (..)
        ) where
 
-import           Control.Lens           (makeLenses)
-import           Data.Default           (Default, def)
-import qualified Data.HashMap.Strict    as HM
-import qualified Data.Map               as M (toList)
-import           Data.Text.Lazy.Builder (Builder)
-import           Formatting             (Format, later)
-import           Serokell.Util.Text     (mapBuilderJson)
+import           Control.Lens               (makeLenses)
+import           Data.Default               (Default, def)
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.Map                   as M (toList)
+import           Data.Text.Lazy.Builder     (Builder)
+import           Formatting                 (Format, later)
+import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util.Text         (mapBuilderJson)
 import           Universum
 
-import           Pos.Txp.Core.Types     (TxAux, TxId, TxIn, TxOutAux, TxUndo)
--- import Pos.Binary.
-import           Pos.Types              (Coin, StakeholderId, mkCoin)
-import qualified Pos.Util.Modifier      as MM
+import           Pos.Core                   (Coin, StakeholderId)
+import           Pos.Txp.Core               (TxAux, TxId, TxIn, TxOutAux, TxUndo)
+import qualified Pos.Util.Modifier          as MM
 
 ----------------------------------------------------------------------------
 -- UTXO
@@ -62,13 +68,13 @@ utxoF = later formatUtxo
 
 data BalancesView = BalancesView
     { _bvStakes :: !(HashMap StakeholderId Coin)
-    , _bvTotal  :: !Coin
+    , _bvTotal  :: !(Maybe Coin)
     }
 
 makeLenses ''BalancesView
 
 instance Default BalancesView where
-    def = BalancesView mempty $ mkCoin 0
+    def = BalancesView mempty Nothing
 
 ----------------------------------------------------------------------------
 -- MemPool
@@ -90,12 +96,12 @@ makeLenses ''MemPool
 instance Default MemPool where
     def =
         MemPool
-        { _mpLocalTxs = HM.empty
-        , _mpLocalTxsSize = 0
+        { _mpLocalTxs      = HM.empty
+        , _mpLocalTxsSize  = 0
         }
 
 ----------------------------------------------------------------------------
--- TxpModifier
+-- ToilModifier
 ----------------------------------------------------------------------------
 
 type UtxoModifier = MM.MapModifier TxIn TxOutAux
@@ -104,11 +110,26 @@ type UndoMap = HashMap TxId TxUndo
 instance Default UndoMap where
     def = mempty
 
-data TxpModifier = TxpModifier
-    { _txmUtxoModifier :: !UtxoModifier
-    , _txmBalances     :: !BalancesView
-    , _txmMemPool      :: !MemPool
-    , _txmUndos        :: !UndoMap
+data GenericToilModifier extension = ToilModifier
+    { _tmUtxo     :: !UtxoModifier
+    , _tmBalances :: !BalancesView
+    , _tmMemPool  :: !MemPool
+    , _tmUndos    :: !UndoMap
+    , _tmExtra    :: !extension
     }
 
-makeLenses ''TxpModifier
+type ToilModifier = GenericToilModifier ()
+
+instance Default ext => Default (GenericToilModifier ext) where
+    def = ToilModifier mempty def def mempty def
+
+makeLenses ''GenericToilModifier
+
+----------------------------------------------------------------------------
+-- Toil environment
+----------------------------------------------------------------------------
+
+-- | Environment used by Toil.
+data ToilEnv = ToilEnv
+    { teMaxTxSize :: !Byte
+    }

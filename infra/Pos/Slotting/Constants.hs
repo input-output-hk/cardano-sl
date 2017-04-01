@@ -4,12 +4,12 @@ module Pos.Slotting.Constants
        , ntpResponseTimeout
        ) where
 
-import           Data.Time.Units            (Microsecond)
-import           Serokell.Util              (mcs, sec)
+import           Data.Time.Units     (Microsecond)
+import           Serokell.Util       (mcs, sec)
 import           Universum
 
-import           Pos.Infra.Constants.Parser (infraConstants)
-import           Pos.Infra.Constants.Type   (ccNtpPollDelay, ccNtpResponseTimeout)
+import           Pos.Infra.Constants (ccNtpPollDelay, ccNtpResponseTimeout,
+                                      infraConstants)
 
 ----------------------------------------------------------------------------
 -- NTP

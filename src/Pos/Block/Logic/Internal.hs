@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Internal block logic. Mostly needed for use in 'Pos.Lrc' -- using
@@ -9,6 +10,7 @@ module Pos.Block.Logic.Internal
        , rollbackBlocksUnsafe
        , withBlkSemaphore
        , withBlkSemaphore_
+       , toUpdateBlock
        ) where
 
 import           Control.Arrow        ((&&&))
@@ -19,8 +21,10 @@ import           Paths_cardano_sl     (version)
 import           Serokell.Util        (Color (Red), colorize)
 import           Universum
 
-import           Pos.Block.Types      (Blund, Undo (undoUS))
-import           Pos.Context          (putBlkSemaphore, takeBlkSemaphore)
+import           Pos.Block.Types      (Blund, Undo (undoTx, undoUS))
+import           Pos.Context          (getNodeContext, ncTxpGlobalSettings,
+                                       putBlkSemaphore, takeBlkSemaphore)
+import           Pos.Core             (IsGenesisHeader, IsMainHeader)
 import           Pos.DB               (SomeBatchOp (..))
 import qualified Pos.DB.Block         as DB
 import qualified Pos.DB.DB            as DB
@@ -29,17 +33,38 @@ import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollback
 import           Pos.Exception        (assertionFailed)
 import           Pos.Reporting        (reportingFatal)
 import           Pos.Slotting         (putSlottingData)
+import           Pos.Txp.Core         (TxPayload)
+#ifdef WITH_EXPLORER
+import           Pos.Explorer.Txp     (eTxNormalize)
+#else
+import           Pos.Txp.Logic        (txNormalize)
+#endif
+import           Pos.Ssc.Class        (Ssc)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
-import           Pos.Txp.Logic        (txApplyBlocks, txNormalize, txRollbackBlocks)
-import           Pos.Types            (HeaderHash, epochIndexL, headerHash, headerHashG,
+import           Pos.Txp.Settings     (TxpBlund, TxpGlobalSettings (..))
+import           Pos.Types            (Block, GenesisBlock, HeaderHash, MainBlock,
+                                       epochIndexL, gbBody, gbHeader, headerHash,
+                                       headerHashG, mbTxPayload, mbUpdatePayload,
                                        prevBlockL)
+import           Pos.Update.Core      (UpdateBlock, UpdatePayload)
 import qualified Pos.Update.DB        as UDB
 import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll      (PollModifier)
-import           Pos.Util             (NE, NewestFirst (..), OldestFirst (..),
-                                       inAssertMode, spanSafe, _neLast)
+import           Pos.Util             (Some (..), inAssertMode, spanSafe, _neLast)
+import           Pos.Util.Chrono      (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode         (WorkMode)
 
+-- [CSL-780] Totally need something more elegant
+toUpdateBlock
+    :: forall ssc.
+       Ssc ssc
+    => Block ssc -> UpdateBlock
+toUpdateBlock = bimap convertGenesis convertMain
+  where
+    convertGenesis :: GenesisBlock ssc -> Some IsGenesisHeader
+    convertGenesis = Some . view gbHeader
+    convertMain :: MainBlock ssc -> (Some IsMainHeader, UpdatePayload)
+    convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbUpdatePayload)
 
 -- | Run action acquiring lock on block application. Argument of
 -- action is an old tip, result is put as a new tip.
@@ -85,18 +110,23 @@ applyBlocksUnsafeDo
 applyBlocksUnsafeDo blunds pModifier = do
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
-    usBatch <- SomeBatchOp <$> usApplyBlocks blocks pModifier
+    TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
+    usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
-    txBatch <- txApplyBlocks blunds
+    txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
     sscApplyBlocks blocks Nothing -- TODO: pass not only 'Nothing'
     let putTip = SomeBatchOp $
                  GS.PutTip $
                  headerHash $
                  NE.last $
                  getOldestFirst blunds
-    GS.writeBatchGState [putTip, delegateBatch, usBatch, txBatch, forwardLinksBatch, inMainBatch]
+    GS.writeBatchGState [putTip, delegateBatch, usBatch, txpBatch, forwardLinksBatch, inMainBatch]
     sscNormalize
+#ifdef WITH_EXPLORER
+    eTxNormalize
+#else
     txNormalize
+#endif
     usNormalize
     DB.sanityCheckDB
     putSlottingData =<< UDB.getSlottingData
@@ -117,8 +147,11 @@ rollbackBlocksUnsafe
     => NewestFirst NE (Blund ssc) -> m ()
 rollbackBlocksUnsafe toRollback = reportingFatal version $ do
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
-    usRoll <- SomeBatchOp <$> usRollbackBlocks (toRollback & each._2 %~ undoUS)
-    txRoll <- txRollbackBlocks toRollback
+    usRoll <- SomeBatchOp <$> usRollbackBlocks
+                  (toRollback & each._2 %~ undoUS
+                              & each._1 %~ toUpdateBlock)
+    TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
+    txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
     sscRollbackBlocks $ fmap fst toRollback
     let putTip = SomeBatchOp $
                  GS.PutTip $
@@ -139,3 +172,16 @@ rollbackBlocksUnsafe toRollback = reportingFatal version $ do
         fmap (GS.RemoveForwardLink . view prevBlockL . fst) toRollback
     isGenesis0 (Left genesisBlk) = genesisBlk ^. epochIndexL == 0
     isGenesis0 (Right _)         = False
+
+-- [CSL-780] Need something more elegant, at least eliminate copy-paste.
+-- Should be done soon™.
+toTxpBlund
+    :: forall ssc.
+       Ssc ssc
+    => Blund ssc -> TxpBlund
+toTxpBlund = bimap (bimap convertGenesis convertMain) undoTx
+  where
+    convertGenesis :: GenesisBlock ssc -> Some IsGenesisHeader
+    convertGenesis = Some . view gbHeader
+    convertMain :: MainBlock ssc -> (Some IsMainHeader, TxPayload)
+    convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbTxPayload)

@@ -5,10 +5,10 @@ module Pos.Update.Download
        , downloadHash
        ) where
 
+import           Control.Monad.Except    (ExceptT (..), throwError)
 import qualified Data.ByteArray          as BA
 import qualified Data.ByteString.Lazy    as BSL
 import qualified Data.HashMap.Strict     as HM
-import qualified Data.Text               as T
 import           Formatting              (build, sformat, stext, (%))
 import           Network.HTTP.Client     (Manager, newManager)
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
@@ -21,46 +21,62 @@ import           System.Directory        (doesFileExist)
 import           System.Wlog             (logDebug, logInfo, logWarning)
 import           Universum
 
-import           Pos.Constants           (appSystemTag)
-import           Pos.Context             (getNodeContext, ncNodeParams, ncUpdateSemaphore,
-                                          npUpdatePath, npUpdateServers, npUpdateWithPkg)
+import           Pos.Constants           (appSystemTag, curSoftwareVersion)
+import           Pos.Core.Types          (SoftwareVersion (..))
 import           Pos.Crypto              (Hash, castHash, hash)
+import           Pos.Update.Context      (UpdateContext (ucUpdateSemaphore))
 import           Pos.Update.Core.Types   (UpdateData (..), UpdateProposal (..))
+import           Pos.Update.Mode         (UpdateMode)
+import           Pos.Update.Params       (UpdateParams (..))
 import           Pos.Update.Poll.Types   (ConfirmedProposalState (..))
 import           Pos.Util                ((<//>))
-import           Pos.WorkMode            (WorkMode)
+import           Pos.Util.Context        (askContext)
 
 showHash :: Hash a -> FilePath
 showHash = toString . B16.encode . BA.convert
 
+-- CSL-887: if we're downloading update not for `cardano-sl`,
+-- but e. g. for `daedalus`, how do we check that version is new?
+versionIsNew :: SoftwareVersion -> Bool
+versionIsNew ver = svAppName ver /= svAppName curSoftwareVersion
+    || svNumber ver > svNumber curSoftwareVersion
+
 -- | Download and save archive update by given `ConfirmedProposalState`
-downloadUpdate :: WorkMode ssc m => ConfirmedProposalState -> m ()
+downloadUpdate :: UpdateMode m => ConfirmedProposalState -> m ()
 downloadUpdate cst@ConfirmedProposalState {..} = do
     logDebug "Update downloading triggered"
-    useInstaller <- npUpdateWithPkg . ncNodeParams <$> getNodeContext
-    updateServers <- npUpdateServers . ncNodeParams <$> getNodeContext
+    useInstaller <- askContext @UpdateParams upUpdateWithPkg
+    updateServers <- askContext @UpdateParams upUpdateServers
+
     let dataHash = if useInstaller then udPkgHash else udAppDiffHash
         mupdHash = castHash . dataHash <$>
                    HM.lookup appSystemTag (upData cpsUpdateProposal)
-    case mupdHash of
-        Nothing -> logInfo "This update is not for our system"
-        Just updHash -> do
-            updPath <- npUpdatePath . ncNodeParams <$> getNodeContext
-            -- let updAppName = svAppName . upSoftwareVersion $
-            --                  cpsUpdateProposal
-            unlessM (liftIO $ doesFileExist updPath) $ do
-                logInfo "Downloading update..."
-                efile <- liftIO $ downloadHash updateServers updHash
-                case efile of
-                    Left err -> logWarning $
-                        sformat ("Update download (hash "%build%") has failed: "%stext)
-                        updHash err
-                    Right file -> do
-                        liftIO $ BSL.writeFile updPath file
-                        logInfo "Update was downloaded"
-                        sm <- ncUpdateSemaphore <$> getNodeContext
-                        liftIO $ putMVar sm cst
-                        logInfo "Update MVar filled, wallet is notified"
+
+    res <- runExceptT $ do
+        updHash <- maybe (throwError "This update is not for our system")
+                   pure mupdHash
+        let updateVersion = upSoftwareVersion cpsUpdateProposal
+        unless (versionIsNew updateVersion) $
+            throwError $ sformat ("Update #"%build%" hasn't been downloaded: \
+                                  \current software version is newer than \
+                                  \update version") updHash
+
+        updPath <- askContext @UpdateParams upUpdatePath
+        whenM (liftIO $ doesFileExist updPath) $
+            throwError "There's unapplied update already downloaded"
+
+        logInfo "Downloading update..."
+        file <- ExceptT $ liftIO (downloadHash updateServers updHash) <&>
+                first (sformat ("Update download (hash "%build%
+                                ") has failed: "%stext) updHash)
+
+        liftIO $ BSL.writeFile updPath file
+        logInfo "Update was downloaded"
+        sm <- askContext @UpdateContext ucUpdateSemaphore
+        liftIO $ putMVar sm cst
+        logInfo "Update MVar filled, wallet is notified"
+
+    whenLeft res logWarning
 
 -- | Download a file by its hash.
 --
@@ -71,13 +87,13 @@ downloadHash updateServers h = do
 
     let -- try all servers in turn until there's a Right
         go errs (serv:rest) = do
-            let uri = T.unpack serv <//> showHash h
+            let uri = toString serv <//> showHash h
             downloadUri manager uri h >>= \case
                 Left e -> go (e:errs) rest
                 Right r -> return (Right r)
 
         -- if there were no servers, that's really weird
-        go [] [] = error "no update servers are known"
+        go [] [] = return . Left $ "no update servers are known"
 
         -- if we've tried all servers already, fail
         go errs [] = return . Left $

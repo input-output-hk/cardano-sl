@@ -1,9 +1,10 @@
-{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE CPP                  #-}
+{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE KindSignatures       #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -12,7 +13,7 @@ module Pos.Util.Config
        (
        -- * Small configs
          IsConfig(..)
-       , parseConfig
+       , configParser
        , readConfig
        , unsafeReadConfig
 
@@ -38,22 +39,26 @@ module Pos.Util.Config
 
        -- * Cardano SL config
        , cslConfigFilePath
+       , cslConfig
+       , parseFromCslConfig
        ) where
 
-import           Control.Lens     (Getter, _Left)
-import           System.Directory (doesFileExist)
-import           System.FilePath  ((</>))
-import           Data.Yaml        (FromJSON)
-import qualified Data.Yaml        as Y
-import qualified Data.Aeson       as Y (withObject)
-import           Data.Tagged      (untag, Tagged)
-import           Data.Vector      (Vector)
-import qualified Data.Vector      as V
-import           GHC.TypeLits     (type (+))
+import           Control.Lens               (Getting, _Left)
+import qualified Data.Aeson                 as Y (withObject)
+import           Data.Tagged                (Tagged, untag)
+import           Data.Yaml                  (FromJSON)
+import qualified Data.Yaml                  as Y
 import           Universum
-import           Unsafe.Coerce    (unsafeCoerce)
 
-import           Paths_cardano_sl_core (getDataFileName)
+#if EMBED_CONFIG
+import qualified Language.Haskell.TH.Syntax as TH
+#else
+import           System.IO.Unsafe           (unsafePerformIO)
+#endif
+
+import           Pos.Util.Config.Path       (cslConfigFilePath)
+import           Pos.Util.HVect             (HVect)
+import qualified Pos.Util.HVect             as HVect
 
 ----------------------------------------------------------------------------
 -- Small configs
@@ -87,8 +92,8 @@ class FromJSON config => IsConfig config where
     configPrefix :: Tagged config (Maybe Text)
 
 -- | Parse a config from a bigger JSON\/YAML value using the scheme above.
-parseConfig :: forall c. IsConfig c => Y.Value -> Y.Parser c
-parseConfig = Y.withObject "config" $ \obj ->
+configParser :: forall c. IsConfig c => Y.Value -> Y.Parser c
+configParser = Y.withObject "config" $ \obj ->
     case untag @c configPrefix of
         Nothing  -> Y.parseJSON (Y.Object obj)
         Just key -> Y.parseJSON =<< obj Y..: key
@@ -97,7 +102,7 @@ parseConfig = Y.withObject "config" $ \obj ->
 readConfig :: IsConfig c => FilePath -> IO (Either String c)
 readConfig fp =
     Y.decodeFileEither fp <&> \case
-        Right y -> Y.parseEither parseConfig y
+        Right y -> Y.parseEither configParser y
         Left x -> Left (Y.prettyPrintParseException x)
 
 -- | Like 'readConfig', but throws an exception at runtime instead of
@@ -142,7 +147,7 @@ class Monad m => MonadConfig m where
     getFullConfig :: m (ConfigType m)
 
 {- |
-Using 'getFullConfig' if not very convenient because usually we don't need
+Using 'getFullConfig' is not very convenient because usually we don't need
 the full config. Thus we define a type synonym 'HasConfig' which combines
 'MonadConfig' and 'ExtractConfig' – in particular, @HasConfig A m@ means that
 inside @m@ you can access config of type @A@.
@@ -161,18 +166,18 @@ type family HasConfigs (xs :: [*]) m :: Constraint where
     HasConfigs    '[]    _ = ()
     HasConfigs (x ': xs) m = (HasConfig x m, HasConfigs xs m)
 
--- | Get the config.
+-- | Get a config.
 getConfig :: HasConfig a m => m a
 getConfig = extractConfig <$> getFullConfig
 {-# INLINE getConfig #-}
 
--- | Get some field from the config.
+-- | Get some field from a config.
 askConfig :: HasConfig a m => (a -> x) -> m x
 askConfig f = f <$> getConfig
 {-# INLINE askConfig #-}
 
--- | Get some lens from the config.
-viewConfig :: HasConfig a m => Getter a x -> m x
+-- | Get some lens from a config.
+viewConfig :: HasConfig a m => Getting x a x -> m x
 viewConfig f = view f <$> getConfig
 {-# INLINE viewConfig #-}
 
@@ -197,22 +202,18 @@ usingConfigT cfg act = runReaderT (getConfigT act) cfg
 -- ConfigSet
 ----------------------------------------------------------------------------
 
-{- |
-@ConfigSet '[A, B, C]@ is a collection of configs from which you can extract
-@A@, @B@ or @C@. In other words, it's a heterogenous list (but fast). You're
-expected to use it instead of creating your own @Config@ type with
-subconfigs.
+{- | @ConfigSet '[A, B, C]@ is a collection of configs from which you can
+extract @A@, @B@ or @C@. You're expected to use it instead of creating your
+own @Config@ type with subconfigs.
 
-A 'ConfigSet' is intended to have only one config of each given type, but this
-condition is not checked.
+A 'ConfigSet' is intended to have only one config of each given type, but
+this condition is not checked.
 -}
-newtype ConfigSet (xs :: [*]) =
-    -- the underlying type is a vector of untyped values
-    ConfigSet (Vector Any)
+newtype ConfigSet (xs :: [*]) = ConfigSet (HVect xs)
 
 -- | Add a config to a 'ConfigSet'.
 consConfigSet :: x -> ConfigSet xs -> ConfigSet (x ': xs)
-consConfigSet x (ConfigSet xs) = ConfigSet (V.cons (unsafeCoerce x) xs)
+consConfigSet x (ConfigSet v) = ConfigSet (HVect.cons x v)
 
 -- | Parse a 'ConfigSet' from a YAML file.
 readConfigSet
@@ -234,49 +235,52 @@ unsafeReadConfigSet fp =
 -- ConfigSet magic
 ----------------------------------------------------------------------------
 
--- We can use 'Index' to find the position of a type in a list of types. The
--- result is a 'Nat', i.e. a type-level number.
-type family Index (x :: *) (xs :: [*]) :: Nat where
-    Index x (x ': _)  = 0
-    Index x (_ ': xs) = 1 + Index x xs
-
--- If we know index of a type in a list of types stored in a 'ConfigSet', we
--- can extract it from the underlying vector and convert it to the right type
--- with 'unsafeCoerce'.
-instance KnownNat (Index x xs) => ExtractConfig x (ConfigSet xs) where
-    extractConfig (ConfigSet v) =
-        let i = natVal (Proxy @(Index x xs))
-        in  unsafeCoerce (v V.! fromIntegral i)
+instance HVect.Contains x xs => ExtractConfig x (ConfigSet xs) where
+    extractConfig (ConfigSet v) = HVect.extract v
 
 -- If all types in a 'ConfigSet' are configs, we can parse a whole JSON\/YAML
 -- config into a 'ConfigSet' by parsing each config separately.
 instance (IsConfig x, FromJSON (ConfigSet xs)) =>
          FromJSON (ConfigSet (x ': xs)) where
     parseJSON val = do
-        x <- parseConfig val
+        x <- configParser val
         xs <- Y.parseJSON @(ConfigSet xs) val
         return (consConfigSet x xs)
 
 instance FromJSON (ConfigSet '[]) where
-    parseJSON = \_ -> return (ConfigSet mempty)
+    parseJSON = \_ -> return (ConfigSet HVect.empty)
 
 ----------------------------------------------------------------------------
 -- Cardano SL config
 ----------------------------------------------------------------------------
 
--- | Path to config that should be used by all parts of Cardano SL (depend on
--- whether we're in DEV_MODE or not).
-cslConfigFilePath :: IO FilePath
-cslConfigFilePath = do
-#if defined(DEV_MODE)
-    let name = "constants-dev.yaml"
-#elif defined(WITH_WALLET)
-    let name = "constants-wallet-prod.yaml"
+-- | The config as a YAML value. In development mode it's read at the start
+-- of the program, in production mode it's embedded into the file.
+--
+-- TODO: add a flag DO_NOT_EMBED_CONFIG which would be used on deployment
+--
+-- TODO: allow overriding config values via an env var?
+cslConfig :: Y.Value
+#ifdef EMBED_CONFIG
+cslConfig = $(do
+    TH.qAddDependentFile cslConfigFilePath
+    TH.runIO (Y.decodeFileEither @Y.Value cslConfigFilePath) >>= \case
+        Left err -> fail $ "Couldn't parse " ++ cslConfigFilePath ++
+                           ": " ++ Y.prettyPrintParseException err
+        Right x  -> TH.lift x)
 #else
-    let name = "constants-prod.yaml"
+cslConfig = unsafePerformIO $
+    Y.decodeFileEither cslConfigFilePath >>= \case
+        Left err -> fail $ "Couldn't parse " ++ cslConfigFilePath ++
+                           ": " ++ Y.prettyPrintParseException err
+        Right x  -> return x
+{-# NOINLINE cslConfig #-}
 #endif
-    existsA <- doesFileExist (".." </> name)
-    existsB <- doesFileExist name
-    if | existsA   -> return (".." </> name)
-       | existsB   -> return name
-       | otherwise -> getDataFileName name
+
+-- | Read a value from 'cslConfig'.
+--
+-- Usually you would pass 'configParser' here if you need to extract a single
+-- config from a hierarchical config, or 'parseJSON' if you need to read a
+-- 'ConfigSet'.
+parseFromCslConfig :: (Y.Value -> Y.Parser a) -> Either String a
+parseFromCslConfig p = Y.parseEither p cslConfig

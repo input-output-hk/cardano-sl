@@ -12,6 +12,7 @@ module Pos.Constants
        , module Pos.DHT.Constants
        , module Pos.Communication.Constants
        , module Pos.Slotting.Constants
+       , module Pos.Update.Constants
 
        -- * Constants mentioned in paper
        , networkDiameter
@@ -22,17 +23,6 @@ module Pos.Constants
 
        -- * Genesis constants
        , genesisN
-       , genesisSlotDuration
-       , genesisMaxBlockSize
-       , genesisMaxHeaderSize
-       , genesisMaxTxSize
-       , genesisMpcThd
-       , genesisHeavyDelThd
-       , genesisUpdateVoteThd
-       , genesisMaxUpdateProposalSize
-       , genesisUpdateProposalThd
-       , genesisUpdateImplicit
-       , genesisUpdateSoftforkThd
 
        -- * Other constants
        , maxLocalTxs
@@ -54,31 +44,18 @@ module Pos.Constants
        , mdNoCommitmentsEpochThreshold
 
        -- * Update system constants
-       , lastKnownBlockVersion
-       , curSoftwareVersion
-       , ourAppName
        , appSystemTag
        ) where
 
-import           Data.Time.Units             (Microsecond, Millisecond, convertUnit)
+import           Data.Time.Units             (Microsecond)
 import           Language.Haskell.TH.Syntax  (lift, runIO)
-import           Serokell.Data.Memory.Units  (Byte)
-import           Serokell.Util               (ms, sec, staticAssert)
+import           Serokell.Util               (ms, sec)
 import           System.Environment          (lookupEnv)
 import qualified Text.Parsec                 as P
 import           Universum                   hiding (lift)
-#ifndef DEV_MODE
-import           Data.Time.Clock.POSIX       (getPOSIXTime)
-import           System.IO.Unsafe            (unsafePerformIO)
-#endif
 
-import           Pos.CLI                     (dhtNodeParser)
 import           Pos.CompileConfig           (CompileConfig (..), compileConfig)
-import           Pos.Core.Types              (ApplicationName, BlockVersion (..),
-                                              CoinPortion, SoftwareVersion (..),
-                                              unsafeCoinPortionFromDouble)
-import           Pos.Core.Version            (mkApplicationName)
-import           Pos.DHT.Model.Types         (DHTNode)
+import           Pos.DHT.Model.Types         (DHTNode, dhtNodeParser)
 import           Pos.Update.Core             (SystemTag, mkSystemTag)
 import           Pos.Util                    ()
 
@@ -87,6 +64,7 @@ import           Pos.Communication.Constants
 import           Pos.Core.Constants
 import           Pos.DHT.Constants
 import           Pos.Slotting.Constants
+import           Pos.Update.Constants
 
 ----------------------------------------------------------------------------
 -- Main constants mentioned in paper
@@ -115,77 +93,9 @@ mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ compileConfig
 -- Genesis
 ----------------------------------------------------------------------------
 
-cc :: CompileConfig
-cc = compileConfig
-
 -- | See 'Pos.CompileConfig.ccGenesisN'.
 genesisN :: Integral i => i
 genesisN = fromIntegral . ccGenesisN $ compileConfig
-
--- | Length of slot.
-genesisSlotDuration :: Millisecond
-genesisSlotDuration =
-    convertUnit . sec . ccGenesisSlotDurationSec $ compileConfig
-
--- | Maximum size of a block (in bytes)
-genesisMaxBlockSize :: Byte
-genesisMaxBlockSize = ccGenesisMaxBlockSize $ compileConfig
-
--- | Maximum size of a block header (in bytes)
-genesisMaxHeaderSize :: Byte
-genesisMaxHeaderSize = ccGenesisMaxHeaderSize $ compileConfig
-
--- | See 'Pos.CompileConfig.ccGenesisMaxTxSize'.
-genesisMaxTxSize :: Byte
-genesisMaxTxSize = ccGenesisMaxTxSize cc
-
--- | See 'Pos.CompileConfig.ccGenesisMpcThd'.
-genesisMpcThd :: CoinPortion
-genesisMpcThd = unsafeCoinPortionFromDouble $ ccGenesisMpcThd compileConfig
-
-staticAssert
-    (ccGenesisMpcThd compileConfig >= 0 && ccGenesisMpcThd compileConfig < 1)
-    "genesisMpcThd is not in range [0, 1)"
-
--- | See 'Pos.CompileConfig.ccGenesisHeavyDelThd'.
-genesisHeavyDelThd :: CoinPortion
-genesisHeavyDelThd = unsafeCoinPortionFromDouble $ ccGenesisHeavyDelThd cc
-
-staticAssert
-    (ccGenesisHeavyDelThd compileConfig >= 0 && ccGenesisMpcThd compileConfig < 1)
-    "genesisHeavyDelThd is not in range [0, 1)"
-
--- | See 'Pos.CompileConfig.ccGenesisUpdateVoteThd'.
-genesisUpdateVoteThd :: CoinPortion
-genesisUpdateVoteThd = unsafeCoinPortionFromDouble $ ccGenesisUpdateVoteThd cc
-
-staticAssert
-    (ccGenesisUpdateVoteThd compileConfig >= 0 && ccGenesisUpdateVoteThd compileConfig < 1)
-    "genesisUpdateVoteThd is not in range [0, 1)"
-
--- | See 'Pos.CompileConfig.ccGenesisMaxUpdateProposalSize'.
-genesisMaxUpdateProposalSize :: Byte
-genesisMaxUpdateProposalSize = ccGenesisMaxUpdateProposalSize cc
-
--- | See 'Pos.CompileConfig.ccGenesisUpdateProposalThd'.
-genesisUpdateProposalThd :: CoinPortion
-genesisUpdateProposalThd = unsafeCoinPortionFromDouble $ ccGenesisUpdateProposalThd cc
-
-staticAssert
-    (ccGenesisUpdateProposalThd compileConfig > 0 && ccGenesisUpdateProposalThd compileConfig < 1)
-    "genesisUpdateProposalThd is not in range (0, 1)"
-
--- | See 'Pos.CompileConfig.ccGenesisUpdateImplicit'.
-genesisUpdateImplicit :: Integral i => i
-genesisUpdateImplicit = fromIntegral . ccGenesisUpdateImplicit $ cc
-
--- | See 'Pos.CompileConfig.ccGenesisUpdateSoftforkThd'.
-genesisUpdateSoftforkThd :: CoinPortion
-genesisUpdateSoftforkThd = unsafeCoinPortionFromDouble $ ccGenesisUpdateSoftforkThd cc
-
-staticAssert
-    (ccGenesisUpdateSoftforkThd compileConfig > 0 && ccGenesisUpdateSoftforkThd compileConfig < 1)
-    "genesisUpdateSoftforkThd is not in range (0, 1)"
 
 ----------------------------------------------------------------------------
 -- Other constants
@@ -276,33 +186,16 @@ mdNoCommitmentsEpochThreshold = fromIntegral . ccMdNoCommitmentsEpochThreshold $
 -- Update system
 ----------------------------------------------------------------------------
 
-cardanoSlAppName :: ApplicationName
-cardanoSlAppName = either (error . (<>) "Failed to init cardanoSlAppName: ")
-                      identity $ mkApplicationName "cardano"
-
 appSystemTag :: SystemTag
 appSystemTag = $(do
     mbTag <- runIO (lookupEnv "CSL_SYSTEM_TAG")
     case mbTag of
-        Nothing ->
-#ifdef DEV_MODE
-            [|error "'appSystemTag' can't be used if \
-                    \env var \"CSL_SYSTEM_TAG\" wasn't set \
-                    \during compilation" |]
-#else
-            fail "Failed to init appSystemTag: \
-                 \couldn't find env var \"CSL_SYSTEM_TAG\""
-#endif
-        Just tag -> lift =<< mkSystemTag (toText tag))
-
--- | Last block version application is aware of.
-lastKnownBlockVersion :: BlockVersion
-lastKnownBlockVersion = BlockVersion 0 0 0
-
--- | Version of application (code running)
-curSoftwareVersion :: SoftwareVersion
-curSoftwareVersion = SoftwareVersion cardanoSlAppName 0
-
--- | Name of our application.
-ourAppName :: ApplicationName
-ourAppName = cardanoSlAppName
+        Just tag -> lift =<< mkSystemTag (toText tag)
+        Nothing
+            | isDevelopment ->
+                  [|error "'appSystemTag' can't be used if \
+                          \env var \"CSL_SYSTEM_TAG\" wasn't set \
+                          \during compilation" |]
+            | otherwise ->
+                  fail "Failed to init appSystemTag: \
+                       \couldn't find env var \"CSL_SYSTEM_TAG\"")

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                  #-}
 {-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE InstanceSigs         #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
@@ -9,143 +10,60 @@
 module Pos.Wallet.WalletMode
        ( MonadBalances (..)
        , MonadTxHistory (..)
-       , TxHistoryAnswer (..)
        , MonadBlockchainInfo (..)
        , MonadUpdates (..)
-       , TxMode
        , WalletMode
        , WalletRealMode
        ) where
 
 import           Control.Concurrent.STM      (TMVar, tryReadTMVar)
-import           Control.Monad.Loops         (unfoldrM)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
-import qualified Data.HashMap.Strict         as HM
-import qualified Data.Map                    as M
 import           Data.Tagged                 (Tagged (..))
 import           Data.Time.Units             (Millisecond)
-import           Mockable                    (MonadMockable, Production)
+import           Mockable                    (Production)
 import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
 
+import           Pos.Client.Txp.Balances     (MonadBalances (..))
+import           Pos.Client.Txp.History      (MonadTxHistory (..), deriveAddrHistory)
+import           Pos.Communication           (TxMode)
 import           Pos.Communication.PeerState (PeerStateHolder, WithPeerState)
 import           Pos.Constants               (blkSecurityParam)
 import qualified Pos.Context                 as PC
-import           Pos.Core.Coin               (unsafeIntegerToCoin)
-import           Pos.Crypto                  (WithHash (..))
 import           Pos.DB                      (MonadDB)
 import qualified Pos.DB.Block                as DB
 import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
-import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
 import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Shutdown                (triggerShutdown)
-import           Pos.Slotting                (MonadSlots (..))
-import           Pos.Slotting                (NtpSlotting, SlottingHolder,
-                                              getLastKnownSlotDuration)
+import           Pos.Slotting                (MonadSlots (..), NtpSlotting,
+                                              SlottingHolder, getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
-import           Pos.Txp                     (TxAux, TxId, TxpHolder (..), Utxo,
-                                              belongsTo, evalUtxoStateT, filterUtxoByAddr,
-                                              getMemPool, getUtxoModifier, runUtxoStateT,
-                                              txOutValue, txProcessTransaction,
-                                              _mpLocalTxs)
-import           Pos.Types                   (Address, BlockHeader, ChainDifficulty, Coin,
-                                              HeaderHash, difficultyL, flattenEpochOrSlot,
-                                              flattenSlotId, prevBlockL, prevBlockL,
-                                              sumCoins, sumCoins)
-import           Pos.Update                  (ConfirmedProposalState (..), USHolder (..))
+import           Pos.Txp                     (TxpHolder (..), filterUtxoByAddr,
+                                              runUtxoStateT)
+import           Pos.Types                   (BlockHeader, ChainDifficulty, difficultyL,
+                                              flattenEpochOrSlot, flattenSlotId)
+import           Pos.Update                  (ConfirmedProposalState (..))
+import           Pos.Update.Context          (UpdateContext (ucUpdateSemaphore))
 import           Pos.Util                    (maybeThrow)
-import qualified Pos.Util.Modifier           as MM
-import           Pos.WorkMode                (MinWorkMode, RawRealMode)
-
+import           Pos.Util.Context            (askContext)
 import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)
 import qualified Pos.Wallet.State            as WS
-import           Pos.Wallet.Tx.Pure          (TxHistoryEntry, deriveAddrHistory,
-                                              deriveAddrHistoryPartial, getRelatedTxs)
 import           Pos.Wallet.Web.State        (WalletWebDB (..))
+import           Pos.WorkMode                (RawRealMode)
 
--- | A class which have the methods to get state of address' balance
-class Monad m => MonadBalances m where
-    getOwnUtxo :: Address -> m Utxo
-    getBalance :: Address -> m Coin
-    getBalance addr = unsafeIntegerToCoin . sumCoins .
-                      map (txOutValue . fst) . toList <$> getOwnUtxo addr
-    -- TODO: add a function to get amount of stake (it's different from
-    -- balance because of distributions)
-
-    default getOwnUtxo :: (MonadTrans t, MonadBalances m', t m' ~ m) => Address -> m Utxo
-    getOwnUtxo = lift . getOwnUtxo
-
-instance MonadBalances m => MonadBalances (ReaderT r m)
-instance MonadBalances m => MonadBalances (StateT s m)
-instance MonadBalances m => MonadBalances (KademliaDHT m)
-instance MonadBalances m => MonadBalances (KeyStorage m)
-instance MonadBalances m => MonadBalances (PeerStateHolder m)
-instance MonadBalances m => MonadBalances (NtpSlotting m)
-instance MonadBalances m => MonadBalances (SlottingHolder m)
-
-deriving instance MonadBalances m => MonadBalances (PC.ContextHolder ssc m)
-deriving instance MonadBalances m => MonadBalances (SscHolder ssc m)
-deriving instance MonadBalances m => MonadBalances (DelegationT m)
-deriving instance MonadBalances m => MonadBalances (USHolder m)
 deriving instance MonadBalances m => MonadBalances (WalletWebDB m)
 
--- | Instances of 'MonadBalances' for wallet's and node's DBs
 instance MonadIO m => MonadBalances (WalletDB m) where
-    getOwnUtxo addr = WS.getUtxo >>= return . filterUtxoByAddr addr
+    getOwnUtxo addr = filterUtxoByAddr addr <$> WS.getUtxo
 
-instance (MonadDB m, MonadMask m) => MonadBalances (TxpHolder m) where
-    getOwnUtxo addr = do
-        utxo <- GS.getFilteredUtxo addr
-        updates <- getUtxoModifier
-        let toDel = MM.deletions updates
-            toAdd = HM.filter (`belongsTo` addr) $ MM.insertionsMap updates
-            utxo' = foldr M.delete utxo toDel
-        return $ HM.foldrWithKey M.insert utxo' toAdd
-
-data TxHistoryAnswer = TxHistoryAnswer
-    { taLastCachedHash :: HeaderHash
-    , taCachedNum      :: Int
-    , taCachedUtxo     :: Utxo
-    , taHistory        :: [TxHistoryEntry]
-    } deriving (Show)
-
--- | A class which have methods to get transaction history
-class Monad m => MonadTxHistory m where
-    getTxHistory
-        :: SscHelpersClass ssc
-        => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
-    saveTx :: (TxId, TxAux) -> m ()
-
-    default getTxHistory
-        :: (SscHelpersClass ssc, MonadTrans t, MonadTxHistory m', t m' ~ m)
-        => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
-    getTxHistory = fmap (fmap lift) <$> getTxHistory
-
-    default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()
-    saveTx = lift . saveTx
-
-instance MonadTxHistory m => MonadTxHistory (ReaderT r m)
-instance MonadTxHistory m => MonadTxHistory (StateT s m)
-instance MonadTxHistory m => MonadTxHistory (KademliaDHT m)
-instance MonadTxHistory m => MonadTxHistory (KeyStorage m)
-instance MonadTxHistory m => MonadTxHistory (PeerStateHolder m)
-instance MonadTxHistory m => MonadTxHistory (NtpSlotting m)
-instance MonadTxHistory m => MonadTxHistory (SlottingHolder m)
-
-deriving instance MonadTxHistory m => MonadTxHistory (PC.ContextHolder ssc m)
-deriving instance MonadTxHistory m => MonadTxHistory (SscHolder ssc m)
-deriving instance MonadTxHistory m => MonadTxHistory (DelegationT m)
-deriving instance MonadTxHistory m => MonadTxHistory (USHolder m)
 deriving instance MonadTxHistory m => MonadTxHistory (WalletWebDB m)
-
--- | Instances of 'MonadTxHistory' for wallet's and node's DBs
 
 -- | Get tx history for Address
 instance MonadIO m => MonadTxHistory (WalletDB m) where
@@ -157,57 +75,6 @@ instance MonadIO m => MonadTxHistory (WalletDB m) where
             deriveAddrHistory addr chain
         pure $ error "getTxHistory is not implemented for light wallet"
     saveTx _ = pure ()
-
-instance (MonadDB m, MonadThrow m, WithLogger m, PC.WithNodeContext s m) =>
-         MonadTxHistory (TxpHolder m) where
-    getTxHistory :: forall ssc. SscHelpersClass ssc
-                 => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> TxpHolder m TxHistoryAnswer)
-    getTxHistory = Tagged $ \addr mInit -> do
-        tip <- GS.getTip
-
-        let getGenUtxo = filterUtxoByAddr addr . PC.ncGenesisUtxo <$> PC.getNodeContext
-        (bot, genUtxo) <- maybe ((,) <$> GS.getBot <*> getGenUtxo) pure mInit
-
-        -- Getting list of all hashes in main blockchain (excluding bottom block - it's genesis anyway)
-        hashList <- flip unfoldrM tip $ \h ->
-            if h == bot
-            then return Nothing
-            else do
-                header <- DB.getBlockHeader @ssc h >>=
-                    maybeThrow (DBMalformed "Best blockchain is non-continuous")
-                let prev = header ^. prevBlockL
-                return $ Just (h, prev)
-
-        -- Determine last block which txs should be cached
-        let cachedHashes = drop blkSecurityParam hashList
-            nonCachedHashes = take blkSecurityParam hashList
-
-        let blockFetcher h txs = do
-                blk <- lift . lift $ DB.getBlock @ssc h >>=
-                       maybeThrow (DBMalformed "A block mysteriously disappeared!")
-                deriveAddrHistoryPartial txs addr [blk]
-            localFetcher blkTxs = do
-                let mp (txid, (tx, txw, txd)) = (WithHash tx txid, txw, txd)
-                ltxs <- HM.toList . _mpLocalTxs <$> lift (lift getMemPool)
-                txs <- getRelatedTxs addr $ map mp ltxs
-                return $ txs ++ blkTxs
-
-        mres <- runMaybeT $ do
-            (cachedTxs, cachedUtxo) <- runUtxoStateT
-                (foldrM blockFetcher [] cachedHashes) genUtxo
-
-            result <- evalUtxoStateT
-                (foldrM blockFetcher cachedTxs nonCachedHashes >>= localFetcher)
-                cachedUtxo
-
-            let lastCachedHash = maybe bot identity $ head cachedHashes
-            return $ TxHistoryAnswer lastCachedHash (length cachedTxs) cachedUtxo result
-
-        maybe (error "deriveAddrHistory: Nothing") pure mres
-
-    saveTx txw = () <$ runExceptT (txProcessTransaction txw)
-
---deriving instance MonadTxHistory m => MonadTxHistory (Modern.TxpLDHolder m)
 
 class Monad m => MonadBlockchainInfo m where
     networkChainDifficulty :: m (Maybe ChainDifficulty)
@@ -313,10 +180,9 @@ instance MonadUpdates m => MonadUpdates (PeerStateHolder m)
 instance MonadUpdates m => MonadUpdates (NtpSlotting m)
 instance MonadUpdates m => MonadUpdates (SlottingHolder m)
 
-deriving instance MonadUpdates m => MonadUpdates (TxpHolder m)
+deriving instance MonadUpdates m => MonadUpdates (TxpHolder __ m)
 deriving instance MonadUpdates m => MonadUpdates (SscHolder ssc m)
 deriving instance MonadUpdates m => MonadUpdates (DelegationT m)
-deriving instance MonadUpdates m => MonadUpdates (USHolder m)
 deriving instance MonadUpdates m => MonadUpdates (WalletWebDB m)
 
 -- | Dummy instance for lite-wallet
@@ -327,21 +193,13 @@ instance MonadIO m => MonadUpdates (WalletDB m) where
 -- | Instance for full node
 instance (Ssc ssc, MonadIO m, WithLogger m) =>
          MonadUpdates (PC.ContextHolder ssc m) where
-    waitForUpdate = liftIO . takeMVar . PC.ncUpdateSemaphore =<< PC.getNodeContext
+    waitForUpdate = liftIO . takeMVar =<<
+                        askContext @UpdateContext ucUpdateSemaphore
     applyLastUpdate = triggerShutdown
 
 ---------------------------------------------------------------
 -- Composite restrictions
 ---------------------------------------------------------------
-
-type TxMode ssc m
-    = ( MinWorkMode m
-      , MonadBalances m
-      , MonadTxHistory m
-      , MonadMockable m
-      , MonadMask m
-      , MonadDBLimits m
-      )
 
 type WalletMode ssc m
     = ( TxMode ssc m

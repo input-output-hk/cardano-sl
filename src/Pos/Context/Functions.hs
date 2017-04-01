@@ -29,10 +29,12 @@ import           Universum
 import           Pos.Context.Class      (WithNodeContext (..))
 import           Pos.Context.Context    (NodeContext (..), ncGenesisLeaders,
                                          ncGenesisUtxo, ncStartTime)
+import           Pos.Lrc.Context        (LrcContext (..), LrcSyncData (..))
 import           Pos.Lrc.Error          (LrcError (..))
 import           Pos.Txp.Toil.Types     (Utxo)
 import           Pos.Types              (EpochIndex, HeaderHash, SlotLeaders)
 import           Pos.Util               (maybeThrow, readTVarConditional)
+import           Pos.Util.Context       (HasContext, askContext)
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -69,14 +71,14 @@ readBlkSemaphore = liftIO . readMVar . ncBlkSemaphore =<< getNodeContext
 
 -- | Block until LRC data is available for given epoch.
 waitLrc
-    :: (MonadIO m, WithNodeContext ssc m)
+    :: (MonadIO m, HasContext LrcContext m)
     => EpochIndex -> m ()
 waitLrc epoch = do
-    sync <- ncLrcSync <$> getNodeContext
-    () <$ readTVarConditional ((>= epoch) . snd) sync
+    sync <- askContext @LrcContext lcLrcSync
+    () <$ readTVarConditional ((>= epoch) . lastEpochWithLrc) sync
 
 lrcActionOnEpoch
-    :: (MonadIO m, WithNodeContext ssc m, MonadThrow m)
+    :: (MonadIO m, HasContext LrcContext m, MonadThrow m)
     => EpochIndex
     -> (EpochIndex -> m (Maybe a))
     -> m a
@@ -86,7 +88,7 @@ lrcActionOnEpoch epoch =
         "action on lrcCallOnEpoch couldn't be performed properly"
 
 lrcActionOnEpochReason
-    :: (MonadIO m, WithNodeContext ssc m, MonadThrow m)
+    :: (MonadIO m, HasContext LrcContext m, MonadThrow m)
     => EpochIndex
     -> Text
     -> (EpochIndex -> m (Maybe a))

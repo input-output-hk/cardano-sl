@@ -1,116 +1,133 @@
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- | Transaction processing logic.
+-- | Settings used for global transactions data processing.
 
 module Pos.Txp.Logic.Global
-       ( txVerifyBlocks
-       , txApplyBlocks
-       , txRollbackBlocks
+       ( txpGlobalSettings
+
+       -- * Helpers
+       , ApplyBlocksSettings (..)
+       , applyBlocksWith
+       , blundToAuxNUndo
+       , genericToilModifierToBatch
+       , runToilAction
        ) where
 
-import qualified Data.HashMap.Strict    as HM
-import           System.Wlog            (WithLogger)
+import           Control.Monad.Except    (runExceptT)
+import           Data.Default            (Default)
+import qualified Data.HashMap.Strict     as HM
+import           Formatting              (build, sformat, (%))
 import           Universum
 
-import           Pos.Block.Types        (Blund, Undo (undoTx))
-import           Pos.DB                 (MonadDB, SomeBatchOp (..))
-import qualified Pos.DB.GState          as GS
-import qualified Pos.DB.GState.Balances as GS
-import           Pos.Exception          (assertionFailed)
-import           Pos.Txp.Core.Types     (TxAux, TxUndo, TxpUndo)
-import           Pos.Types              (Block, blockTxas)
-import           Pos.Util               (NE, NewestFirst (..), OldestFirst (..),
-                                         inAssertMode)
+import           Pos.DB                  (MonadDB, SomeBatchOp (..))
+import qualified Pos.DB.GState           as GS
+import           Pos.Exception           (assertionFailed)
+import           Pos.Util                (inAssertMode)
+import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..))
+import qualified Pos.Util.Modifier       as MM
 
-import           Pos.Txp.Error          (TxpError (..))
-import           Pos.Txp.MemState       (MonadTxpMem (..))
-import           Pos.Txp.Toil           (BalancesView (..), BalancesView (..), DBTxp,
-                                         TxpModifier (..), TxpT, TxpVerFailure, applyTxp,
-                                         rollbackTxp, runDBTxp, runTxpTGlobal, verifyTxp)
-import qualified Pos.Util.Modifier      as MM
+import           Pos.Txp.Core            (TxAux, TxUndo, TxpUndo, flattenTxPayload)
+import           Pos.Txp.Settings.Global (TxpBlock, TxpBlund, TxpGlobalApplyMode,
+                                          TxpGlobalRollbackMode, TxpGlobalSettings (..),
+                                          TxpGlobalVerifyMode)
+import           Pos.Txp.Toil            (BalancesView (..), BalancesView (..), DBTxp,
+                                          GenericToilModifier (..), GlobalToilMode,
+                                          ToilModifier, ToilT, applyToil, rollbackToil,
+                                          runDBTxp, runToilTGlobal, verifyToil)
 
-type TxpWorkMode m = (WithLogger m, MonadDB m, MonadTxpMem m, MonadThrow m)
+-- | Settings used for global transactions data processing used by a
+-- simple full node.
+txpGlobalSettings :: TxpGlobalSettings
+txpGlobalSettings =
+    TxpGlobalSettings
+    { tgsVerifyBlocks = verifyBlocks
+    , tgsApplyBlocks = applyBlocksWith applyBlocksSettings
+    , tgsRollbackBlocks = rollbackBlocks
+    }
 
--- | Verify chain of blocks and return transaction undos of blocks.
-txVerifyBlocks
-    :: forall ssc m . TxpWorkMode m
-    => OldestFirst NE (Block ssc)
-    -> m (Either Text (OldestFirst NE TxpUndo))
-txVerifyBlocks newChain = do
-    verdict <- runTxpAction $
-                   mapM (verifyTxp . getTxas) newChain
-    case verdict of
-        Left er          -> pure $ Left $ pretty er
-        Right (undos, _) -> pure $ Right undos
+verifyBlocks
+    :: forall m.
+       TxpGlobalVerifyMode m
+    => OldestFirst NE TxpBlock -> m (OldestFirst NE TxpUndo)
+verifyBlocks newChain =
+    fst <$> runToilAction @_ @() (mapM (verifyToil . convertPayload) newChain)
+  where
+    convertPayload :: TxpBlock -> [TxAux]
+    convertPayload (Left _)             = []
+    convertPayload (Right (_, payload)) = flattenTxPayload payload
 
--- | Apply chain of /definitely/ valid blocks to state on transactions
--- processing.
-txApplyBlocks
-    :: TxpWorkMode m
-    => OldestFirst NE (Blund ssc)
+data ApplyBlocksSettings extra m = ApplyBlocksSettings
+    { absApplySingle     :: TxpBlund -> m ()
+    , absExtraOperations :: extra -> SomeBatchOp
+    }
+
+applyBlocksSettings
+    :: forall m.
+       GlobalToilMode m
+    => ApplyBlocksSettings () m
+applyBlocksSettings =
+    ApplyBlocksSettings
+    { absApplySingle = applyToil . blundToAuxNUndo
+    , absExtraOperations = const mempty
+    }
+
+applyBlocksWith
+    :: (TxpGlobalApplyMode m, Default extra)
+    => ApplyBlocksSettings extra (ToilT extra (DBTxp m))
+    -> OldestFirst NE TxpBlund
     -> m SomeBatchOp
-txApplyBlocks blunds = do
+applyBlocksWith ApplyBlocksSettings {..} blunds = do
     let blocks = map fst blunds
-    inAssertMode $
-        do verdict <- txVerifyBlocks blocks
-           case verdict of
-               Right _     -> pass
-               Left errors ->
-                   assertionFailed $
-                   "txVerifyBlocks failed in txApplyBlocks call: " <> errors
-    verdict <- runTxpAction $
-                   mapM (applyTxp . blundToAuxNUndo) $ blunds
-    case verdict of
-        Left er           -> throwEx $ pretty er
-        Right (_, txpMod) ->
-            pure $ txpModifierToBatch txpMod
-  where
-    throwEx = throwM . TxpInternalError . (<>) "txApplyBlocks failed: "
+    inAssertMode $ do
+        verdict <- runExceptT $ verifyBlocks blocks
+        whenLeft verdict $
+            assertionFailed .
+            sformat ("we are trying to apply txp blocks which we fail to verify :("%build)
+    genericToilModifierToBatch absExtraOperations . snd <$>
+        runToilAction (mapM absApplySingle blunds)
 
--- | Rollback chain of blocks.
-txRollbackBlocks
-    :: (WithLogger m, MonadDB m)
-    => NewestFirst NE (Blund ssc) -> m SomeBatchOp
-txRollbackBlocks blunds = do
-    verdict <- runTxpAction $
-                   mapM (rollbackTxp . blundToAuxNUndo) $ blunds
-    case verdict of
-        Left er           -> throwEx $ pretty er
-        Right (_, txpMod) -> pure $ txpModifierToBatch txpMod
-  where
-    throwEx = throwM . TxpInternalError . (<>) "txRollbackBlocks failed: "
+rollbackBlocks
+    :: TxpGlobalRollbackMode m
+    => NewestFirst NE TxpBlund -> m SomeBatchOp
+rollbackBlocks blunds =
+    toilModifierToBatch . snd <$>
+    runToilAction (mapM (rollbackToil . blundToAuxNUndo) blunds)
 
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
--- Convert TxpModifier to batch of database operations.
-txpModifierToBatch :: TxpModifier -> SomeBatchOp
-txpModifierToBatch (TxpModifier um (BalancesView (HM.toList -> stakes) total) _ _) =
-    SomeBatchOp
-        [ SomeBatchOp $
-          map GS.DelTxIn (MM.deletions um) ++
-          map (uncurry GS.AddTxOut) (MM.insertions um)
-        , SomeBatchOp $
-          map (uncurry GS.PutFtsStake) stakes ++ [GS.PutFtsSum total]
-        ]
+-- | Convert 'GenericToilModifier' to batch of database operations.
+genericToilModifierToBatch :: (e -> SomeBatchOp)
+                           -> GenericToilModifier e
+                           -> SomeBatchOp
+genericToilModifierToBatch convertExtra ToilModifier { _tmUtxo = um
+                                                     , _tmBalances = (BalancesView (HM.toList -> stakes) total)
+                                                     , _tmExtra = extra
+                                                     } =
+    SomeBatchOp (extraOp : [SomeBatchOp utxoOps, SomeBatchOp balancesOps])
+  where
+    utxoOps =
+        map GS.DelTxIn (MM.deletions um) ++
+        map (uncurry GS.AddTxOut) (MM.insertions um)
+    balancesOpsAlmost = map (uncurry GS.PutFtsStake) stakes
+    balancesOps =
+        case total of
+            Nothing -> balancesOpsAlmost
+            Just x  -> GS.PutFtsSum x : balancesOpsAlmost
+    extraOp = convertExtra extra
 
--- Run action which requires MonadUtxo and MonadTxPool interfaces.
-runTxpAction
-    :: MonadDB m
-    => TxpT (DBTxp (ExceptT TxpVerFailure m)) a
-    -> m (Either TxpVerFailure (a, TxpModifier))
-runTxpAction action = do
-    total <- GS.getTotalFtsStake
-    let balView = BalancesView mempty total
-    runExceptT . runDBTxp . runTxpTGlobal balView $ action
+-- | Convert simple 'ToilModifier' to batch of database operations.
+toilModifierToBatch :: ToilModifier -> SomeBatchOp
+toilModifierToBatch = genericToilModifierToBatch (const mempty)
+
+-- | Run action which requires toil interfaces.
+runToilAction
+    :: (MonadDB m, Default e)
+    => ToilT e (DBTxp m) a -> m (a, GenericToilModifier e)
+runToilAction action = runDBTxp . runToilTGlobal $ action
 
 -- Zip block's TxAuxes and corresponding TxUndos.
-blundToAuxNUndo :: Blund ssc -> [(TxAux, TxUndo)]
-blundToAuxNUndo = uncurry zip . bimap getTxas undoTx
-
--- Get block's TxAuxes.
-getTxas :: Block ssc -> [TxAux]
-getTxas (Left _)   = []
-getTxas (Right mb) = mb ^. blockTxas
+blundToAuxNUndo :: TxpBlund -> [(TxAux, TxUndo)]
+blundToAuxNUndo (Left _, _)                = []
+blundToAuxNUndo (Right (_, payload), undo) = zip (flattenTxPayload payload) undo

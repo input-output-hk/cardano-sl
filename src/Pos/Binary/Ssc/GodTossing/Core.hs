@@ -4,19 +4,17 @@ module Pos.Binary.Ssc.GodTossing.Core
        (
        ) where
 
-import           Data.Binary.Get               (getWord8, label)
-import           Data.Binary.Put               (putWord8)
 import qualified Data.HashMap.Strict           as HM
 import           Universum
 
-import           Pos.Binary.Class              (Bi (..))
+import           Pos.Binary.Class              (Bi (..), getWord8, label, putWord8)
 import           Pos.Binary.Crypto             ()
+import           Pos.Core.Address              (addressHash)
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), Commitment (..),
                                                 CommitmentsMap, GtPayload (..),
                                                 GtProof (..), Opening (..),
                                                 VssCertificate (..), mkCommitmentsMap,
                                                 recreateVssCertificate)
-import           Pos.Core.Address             (addressHash)
 
 instance Bi Commitment where
     put Commitment {..} = do

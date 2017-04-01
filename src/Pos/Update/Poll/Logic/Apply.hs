@@ -11,6 +11,7 @@ module Pos.Update.Poll.Logic.Apply
        ) where
 
 import           Control.Monad.Except          (MonadError, throwError)
+import qualified Data.HashSet                  as HS
 import           Data.List                     (partition)
 import qualified Data.List.NonEmpty            as NE
 import           Formatting                    (build, builder, int, sformat, (%))
@@ -24,10 +25,11 @@ import           Pos.Constants                 (blkSecurityParam, genesisUpdateI
 import           Pos.Core                      (ChainDifficulty, Coin, EpochIndex,
                                                 HeaderHash, IsMainHeader (..),
                                                 SlotId (siEpoch), SoftwareVersion (..),
-                                                addressHash, applyCoinPortion,
-                                                blockVersionL, coinToInteger, difficultyL,
-                                                epochIndexL, flattenSlotId, headerHashG,
-                                                headerSlotL, sumCoins, unflattenSlotId,
+                                                addressHash, addressHash,
+                                                applyCoinPortion, blockVersionL,
+                                                coinToInteger, difficultyL, epochIndexL,
+                                                flattenSlotId, headerHashG, headerSlotL,
+                                                sumCoins, unflattenSlotId,
                                                 unsafeIntegerToCoin)
 import           Pos.Crypto                    (hash, shortHashF)
 import           Pos.Update.Core               (BlockVersionData (..), UpId,
@@ -146,9 +148,12 @@ verifyAndApplyProposal
     -> [UpdateVote]
     -> UpdateProposal
     -> m ()
-verifyAndApplyProposal considerThreshold slotOrHeader votes up@UpdateProposal {..} = do
-    let epoch = slotOrHeader ^. epochIndexL
+verifyAndApplyProposal considerThreshold slotOrHeader votes up@UnsafeUpdateProposal {..} = do
     let !upId = hash up
+    let !upFromId = addressHash upFrom
+    whenM (HS.member upFromId <$> getEpochProposers) $
+        throwError $ PollMoreThanOneProposalPerEpoch upFromId upId
+    let epoch = slotOrHeader ^. epochIndexL
     let proposalSize = biSize up
     proposalSizeLimit <- bvdMaxProposalSize <$> getAdoptedBVData
     when (proposalSize > proposalSizeLimit) $
@@ -250,7 +255,7 @@ verifyAndApplyVoteDo cd ups v@UpdateVote {..} = do
                     , dpsExtra = DpsExtra . snd <$> cd <*> Just False
                     }
             | otherwise = PSUndecided newUPS
-    addActiveProposal newPS
+    insertActiveProposal newPS
 
 -- According to implicit agreement rule all proposals which were put
 -- into blocks earlier than 'genesisUpdateImplicit' slots before slot
@@ -268,7 +273,7 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd hh
   where
     applyImplicitAgreementDo ups = do
         let decided = makeImplicitlyDecided ups
-        addActiveProposal $ PSDecided decided
+        insertActiveProposal $ PSDecided decided
         let upId = hash $ upsProposal ups
             status | dpsDecision decided = "approved"
                    | otherwise = "rejected"
@@ -294,9 +299,7 @@ applyDepthCheck hh cd
     | otherwise = do
         deepProposals <- getDeepProposals (cd - blkSecurityParam)
         let winners =
-                concatMap toList $
-                map resetAllDecisions $
-                map (NE.sortBy proposalCmp) $
+                concatMap (toList . resetAllDecisions . NE.sortBy proposalCmp) $
                 NE.groupWith groupCriterion deepProposals
         mapM_ applyDepthCheckDo winners
   where

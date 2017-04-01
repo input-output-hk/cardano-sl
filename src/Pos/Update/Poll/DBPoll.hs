@@ -26,15 +26,15 @@ import           Universum
 
 import           Pos.Context                 (WithNodeContext, lrcActionOnEpochReason)
 import           Pos.DB.Class                (MonadDB)
-import           Pos.Lrc.DB                  (getIssuersStakes, getRichmenUS)
 import           Pos.Delegation.Class        (MonadDelegation)
+import           Pos.Lrc.Context             (LrcContext)
+import           Pos.Lrc.DB                  (getIssuersStakes, getRichmenUS)
 import           Pos.Lrc.Types               (FullRichmenData)
 import           Pos.Ssc.Extra               (MonadSscMem)
-import           Pos.Txp.MemState            (MonadTxpMem (..))
 import           Pos.Types                   (Coin)
 import qualified Pos.Update.DB               as GS
-import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPollRead (..))
+import           Pos.Util.Context            (HasContext, MonadContext (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -56,14 +56,15 @@ newtype DBPoll m a = DBPoll
                , MonadJL
                , CanLog
                , MonadMask
-               , MonadUSMem
                , MonadSscMem peka
-               , MonadTxpMem
                , MonadBase io
                , MonadDelegation
                , MonadFix
                , MonadDB
                )
+
+instance MonadContext m => MonadContext (DBPoll m) where
+    type ContextType (DBPoll m) = ContextType m
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code
@@ -104,10 +105,11 @@ instance MonadBaseControl IO m => MonadBaseControl IO (DBPoll m) where
 -- MonadPoll
 ----------------------------------------------------------------------------
 
-instance (WithNodeContext ssc m, MonadDB m, WithLogger m) =>
+instance (MonadDB m, WithLogger m, HasContext LrcContext m) =>
          MonadPollRead (DBPoll m) where
     getBVState = GS.getBVState
     getProposedBVs = GS.getProposedBVs
+    getEpochProposers = GS.getEpochProposers
     getConfirmedBVStates = GS.getConfirmedBVStates
     getAdoptedBVFull = GS.getAdoptedBVFull
     getLastConfirmedSV = GS.getConfirmedSV

@@ -1,5 +1,5 @@
 name:                cardano-sl-update
-version:             0.1.0.0
+version:             0.3.0.0
 synopsis:            Cardano SL - update
 description:         Cardano SL - update
 license:             MIT
@@ -15,18 +15,51 @@ library
   exposed-modules:     Pos.Update.Error
                        Pos.Update.Core
                        Pos.Update.Core.Types
+                       Pos.Update.Mode
+                       Pos.Update.DB
+                       Pos.Update.Constants
 
-  build-depends:       base
+                       Pos.Binary.Update
+
+                       -- Poll
+                       Pos.Update.Poll.Types
+                       Pos.Update.Poll.Modifier
+
+                       -- MemState
+                       Pos.Update.MemState
+                       Pos.Update.MemState.Functions
+                       Pos.Update.MemState.Types
+
+                       -- Context-like things
+                       Pos.Update.Context
+                       Pos.Update.Params
+
+  build-depends:       aeson
+                     , base
+                     , binary
                      , cardano-sl-core
+                     , cardano-sl-db
+                     , cardano-sl-infra
+                     , cardano-sl-lrc
+                     , concurrent-extra
                      , data-default
+                     , exceptions
                      , formatting
                      , hashable
+                     , lens
+                     , log-warper
+                     , mtl
+                     , node-sketch
                      , parsec
+                     , rocksdb
                      , safecopy
                      , serokell-util
+                     , stm
+                     , tagged
                      , template-haskell
                      , text
                      , text-format
+                     , th-lift-instances
                      , time-units
                      , universum
                      , unordered-containers

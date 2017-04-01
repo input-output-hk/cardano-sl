@@ -30,6 +30,7 @@ import           System.Wlog               (CanLog, HasLoggerName)
 
 import           Pos.Binary.Class          (Bi (..), decodeOrFail, encode)
 import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..))
+import           Pos.Util.Context          (MonadContext (..))
 
 toBSBinary :: Bi b => b -> BS.ByteString
 toBSBinary = toStrict . encode
@@ -73,6 +74,9 @@ newtype KademliaDHT m a = KademliaDHT
     { unKademliaDHT :: ReaderT KademliaDHTInstance m a
     } deriving (Functor, Applicative, Monad, MonadFail, MonadThrow, MonadCatch, MonadIO,
                 MonadMask, CanLog, HasLoggerName, MonadTrans, MonadFix)
+
+instance MonadContext m => MonadContext (KademliaDHT m) where
+    type ContextType (KademliaDHT m) = ContextType m
 
 -- | Class for getting KademliaDHTInstance from 'KademliaDHT'
 class WithKademliaDHTInstance m where

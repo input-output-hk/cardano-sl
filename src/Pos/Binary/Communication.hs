@@ -5,8 +5,6 @@ module Pos.Binary.Communication () where
 
 import           Universum
 
-import           Data.Binary.Get                  (getByteString, getWord8, label)
-import           Data.Binary.Put                  (putByteString, putWord8)
 import           Data.Bits                        (Bits (..))
 import qualified Data.ByteString                  as BS
 import qualified Data.ByteString.Lazy             as BSL
@@ -14,9 +12,12 @@ import           Formatting                       (int, sformat, (%))
 import           Node.Message                     (MessageName (..))
 
 import           Pos.Binary.Class                 (Bi (..), UnsignedVarInt (..),
-                                                   decodeOrFail, encodeStrict,
-                                                   getRemainingByteString, getWithLength,
-                                                   putWithLength)
+                                                   decodeFull, encodeStrict,
+                                                   getByteString, getRemainingByteString,
+                                                   getSmallWithLength, getWithLength,
+                                                   getWord8, label, putByteString,
+                                                   putSmallWithLength, putWithLength,
+                                                   putWord8)
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types          (SysStartRequest (..),
@@ -38,9 +39,9 @@ deriving instance Bi MessageName
 ----------------------------------------------------------------------------
 
 instance Bi SysStartRequest where
-    put _ = put (1 :: Word8)
+    put _ = putWord8 1
     get = label "SysStartRequest" $ do
-        (i :: Word8) <- get
+        i <- getWord8
         when (i /= 1) $
            fail "SysStartRequest: 1 expected"
         return SysStartRequest
@@ -132,17 +133,20 @@ instance Bi VoteMsgTag where
 instance Bi HandlerSpec where
     put OneMsgHandler = putWord8 0
     put (ConvHandler (MessageName m)) =
-        case decodeOrFail $ BSL.fromStrict m of
-            Right (_, _, UnsignedVarInt a) | a < 64 -> putWord8 (0x40 .|. (fromIntegral (a :: Word) .&. 0x3f))
-            _ -> putWord8 0x01 <> putWithLength (put m)
+        case decodeFull $ BSL.fromStrict m of
+            Right (UnsignedVarInt a)
+                | a < 64 -> putWord8 (0x40 .|. (fromIntegral (a :: Word) .&. 0x3f))
+            _ -> putWord8 1 >> putSmallWithLength (put m)
     put (UnknownHandler t b) =
-        putWord8 t <>
-        putWithLength (putByteString b)
+        putWord8 t >> putSmallWithLength (putByteString b)
     get = label "HandlerSpec" $ getWord8 >>= \case
         0                        -> pure OneMsgHandler
-        0x1                      -> getWithLength (ConvHandler <$> get)
-        t | (t .&. 0xc0) == 0x40 -> pure $ ConvHandler $ MessageName $ encodeStrict $ UnsignedVarInt (fromIntegral (t .&. 0x3f) :: Word)
-          | otherwise            -> getWithLength (UnknownHandler t <$> getRemainingByteString)
+        1                        -> getSmallWithLength (ConvHandler <$> get)
+        t | (t .&. 0xc0) == 0x40 ->
+            pure . ConvHandler . MessageName . encodeStrict $
+            UnsignedVarInt (fromIntegral (t .&. 0x3f) :: Word)
+          | otherwise            ->
+            getSmallWithLength (UnknownHandler t <$> getRemainingByteString)
 
 instance Bi VerInfo where
     put VerInfo {..} = put vIMagic

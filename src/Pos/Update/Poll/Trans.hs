@@ -10,7 +10,7 @@ module Pos.Update.Poll.Trans
        , execPollT
        ) where
 
-import           Control.Lens                (iso, (%=), (.=), uses)
+import           Control.Lens                (iso, uses, (%=), (.=))
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Except        (MonadError)
 import           Control.Monad.Fix           (MonadFix)
@@ -31,16 +31,15 @@ import           System.Wlog                 (CanLog, HasLoggerName, logWarning)
 import           Universum
 
 import           Pos.Context                 (WithNodeContext)
+import           Pos.Core                    (addressHash)
 import           Pos.Crypto                  (hash)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Slotting.Class          (MonadSlots)
 import           Pos.Slotting.MemState       (MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
-import           Pos.Txp.MemState            (MonadTxpMem (..))
 import           Pos.Types                   (SoftwareVersion (..))
 import           Pos.Update.Core             (UpdateProposal (..))
-import           Pos.Update.MemState.Class   (MonadUSMem (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types       (BlockVersionState (..),
                                               DecidedProposalState (..),
@@ -49,7 +48,9 @@ import           Pos.Update.Poll.Types       (BlockVersionState (..),
                                               cpsSoftwareVersion, pmActivePropsL,
                                               pmAdoptedBVFullL, pmBVsL, pmConfirmedL,
                                               pmConfirmedPropsL, pmDelActivePropsIdxL,
-                                              pmSlottingDataL, psProposal)
+                                              pmEpochProposersL, pmSlottingDataL,
+                                              psProposal)
+import           Pos.Util.Context            (MonadContext (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 import qualified Pos.Util.Modifier           as MM
 
@@ -64,11 +65,30 @@ import qualified Pos.Util.Modifier           as MM
 -- single-threaded usage only.
 newtype PollT m a = PollT
     { getPollT :: StateT PollModifier m a
-    } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData, MonadSlots,
-                MonadCatch, MonadIO, HasLoggerName, MonadTrans, MonadError e,
-                WithNodeContext ssc, MonadJL, CanLog, MonadMask, MonadUSMem,
-                MonadSscMem mem, MonadDB,
-                MonadTxpMem, MonadBase io, MonadDelegation, MonadFix)
+    } deriving ( Functor
+               , Applicative
+               , Monad
+               , MonadThrow
+               , MonadSlotsData
+               , MonadSlots
+               , MonadCatch
+               , MonadIO
+               , HasLoggerName
+               , MonadTrans
+               , MonadError e
+               , WithNodeContext ssc
+               , MonadJL
+               , CanLog
+               , MonadMask
+               , MonadSscMem mem
+               , MonadDB
+               , MonadBase io
+               , MonadDelegation
+               , MonadFix
+               )
+
+instance MonadContext m => MonadContext (PollT m) where
+    type ContextType (PollT m) = ContextType m
 
 ----------------------------------------------------------------------------
 -- Runners
@@ -91,6 +111,9 @@ instance MonadPollRead m =>
          MonadPollRead (PollT m) where
     getBVState pv = PollT $ MM.lookupM getBVState pv =<< use pmBVsL
     getProposedBVs = PollT $ MM.keysM getProposedBVs =<< use pmBVsL
+    getEpochProposers = PollT $ do
+        new <- use pmEpochProposersL
+        maybe getEpochProposers pure new
     getConfirmedBVStates =
         PollT $
         filter (bvsIsConfirmed . snd) <$>
@@ -143,6 +166,8 @@ instance MonadPollRead m =>
             new <- pmSlottingData <$> get
             maybe getSlottingData pure new
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
 instance MonadPollRead m =>
          MonadPoll (PollT m) where
     putBVState bv st = PollT $ pmBVsL %= MM.insert bv st
@@ -159,17 +184,18 @@ instance MonadPollRead m =>
     addConfirmedProposal cps =
         PollT $ pmConfirmedPropsL %= MM.insert (cpsSoftwareVersion cps) cps
     delConfirmedProposal sv = PollT $ pmConfirmedPropsL %= MM.delete sv
-    addActiveProposal ps =
+    insertActiveProposal ps = do
+        let up@UnsafeUpdateProposal{upSoftwareVersion = sv, ..} = psProposal ps
+            upId = hash up
+            appName = svAppName sv
+        whenNothingM_ (getProposal upId) $
+            setEpochProposers =<< (HS.insert (addressHash upFrom) <$> getEpochProposers)
         PollT $ do
-            let up = psProposal ps
-                upId = hash up
-                sv = upSoftwareVersion up
-                appName = svAppName sv
-
-                alterDel _ Nothing     = Nothing
+            let alterDel _ Nothing     = Nothing
                 alterDel val (Just hs) = Just $ HS.delete val hs
             pmActivePropsL %= MM.insert upId ps
             pmDelActivePropsIdxL %= HM.alter (alterDel upId) appName
+    -- Deactivate proposal doesn't change epoch proposers.
     deactivateProposal id = do
         prop <- getProposal id
         whenJust prop $ \ps ->
@@ -184,6 +210,7 @@ instance MonadPollRead m =>
                 pmActivePropsL %= MM.delete upId
                 pmDelActivePropsIdxL %= HM.alter (alterIns upId) appName
     setSlottingData sd = PollT $ pmSlottingDataL .= Just sd
+    setEpochProposers ep = PollT $ pmEpochProposersL .= Just ep
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code

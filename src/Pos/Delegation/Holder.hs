@@ -33,8 +33,8 @@ import           Pos.Slotting.Class        (MonadSlots)
 import           Pos.Slotting.MemState     (MonadSlotsData)
 import           Pos.Ssc.Extra             (MonadSscMem (..))
 import           Pos.Txp.MemState.Class    (MonadTxpMem (..))
+import           Pos.Util.Context          (MonadContext (..))
 import           Pos.Util.JsonLog          (MonadJL (..))
-
 
 
 type ReaderTCtx = TVar DelegationWrap
@@ -59,7 +59,7 @@ newtype DelegationT m a = DelegationT
                , MonadMask
                , MonadSscMem kek
                , MonadSlotsData
-               , MonadTxpMem
+               , MonadTxpMem x
                , MonadDhtMem
                , MonadReportingMem
                , MonadRelayMem
@@ -67,6 +67,9 @@ newtype DelegationT m a = DelegationT
                , MonadDB
                , MonadDBLimits
                )
+
+instance MonadContext m => MonadContext (DelegationT m) where
+    type ContextType (DelegationT m) = ContextType m
 
 instance (Monad m) => MonadDelegation (DelegationT m) where
     askDelegationState = DelegationT ask

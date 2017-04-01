@@ -1,5 +1,4 @@
-{-# LANGUAGE ApplicativeDo   #-}
-{-# LANGUAGE CPP             #-}
+{-# LANGUAGE ApplicativeDo #-}
 
 -- | Module for command-line utilites, parsers and convenient handlers.
 
@@ -27,19 +26,11 @@ module Pos.CLI
        , readPeersFile
        ) where
 
-import           Formatting                           (build, formatToString, shown, (%))
-import           Universum
-
 import           Control.Lens                         (zoom, (?=))
-import           Data.Either                          (either)
-import qualified Data.Text                            as T
+import           Formatting                           (build, formatToString, shown, (%))
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
-import qualified Options.Applicative.Simple           as Opt (Mod, Parser, auto, help,
-                                                              long, metavar, option,
-                                                              optional, showDefault,
-                                                              strOption, switch, value)
+import qualified Options.Applicative.Simple           as Opt
 import           Serokell.Util.OptParse               (fromParsec)
-import qualified Serokell.Util.Parse                  as P
 import           System.Wlog                          (LoggerConfig (..),
                                                        Severity (Info, Warning),
                                                        fromScratch, lcTree, ltSeverity,
@@ -47,31 +38,20 @@ import           System.Wlog                          (LoggerConfig (..),
 import           Text.Parsec                          (eof, parse, try)
 import qualified Text.Parsec.Char                     as P
 import qualified Text.Parsec.String                   as P
+import           Universum
 
 import           Pos.Binary.Core                      ()
-import           Pos.Core.Address                     (decodeTextAddress)
-import           Pos.Core.Types                       (Address (..), AddressHash)
+import           Pos.Constants                        (isDevelopment)
+import           Pos.Core                             (Address (..), AddressHash,
+                                                       decodeTextAddress)
 import           Pos.Crypto                           (PublicKey)
-import           Pos.DHT.Model.Types                  (DHTKey, DHTNode (..),
-                                                       bytesToDHTKey)
+import           Pos.DHT.Model.Types                  (DHTNode (..), dhtKeyParser,
+                                                       dhtNodeParser)
 import           Pos.Security.CLI                     (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Util                             ()
-import           Pos.Util.TimeWarp                    (NetworkAddress)
-
--- | Parser for DHT key.
-dhtKeyParser :: P.Parser DHTKey
-dhtKeyParser = P.base64Url >>= toDHTKey
-  where
-    toDHTKey = either fail return . bytesToDHTKey
-
--- | Parsed for network address in format @host:port@.
-addrParser :: P.Parser NetworkAddress
-addrParser = (,) <$> (encodeUtf8 <$> P.host) <*> (P.char ':' *> P.port)
-
--- | Parser for 'DHTNode'.
-dhtNodeParser :: P.Parser DHTNode
-dhtNodeParser = DHTNode <$> addrParser <*> (P.char '/' *> dhtKeyParser)
+import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
+                                                       addrParserNoWildcard)
 
 -- | Parse 'DHTNode's from a file (nodes should be separated by newlines).
 readPeersFile :: FilePath -> IO [DHTNode]
@@ -137,11 +117,10 @@ data CommonArgs = CommonArgs
     , disablePropagation :: !Bool
     , reportServers      :: ![Text]
     , updateServers      :: ![Text]
-#ifdef DEV_MODE
+    -- distributions, only used in dev mode
     , flatDistr          :: !(Maybe (Int, Int))
     , bitcoinDistr       :: !(Maybe (Int, Int))
     , expDistr           :: !Bool
-#endif
     } deriving Show
 
 commonArgsParser :: String -> Opt.Parser CommonArgs
@@ -160,12 +139,10 @@ commonArgsParser peerHelpMsg = do
     --
     reportServers <- reportServersOption
     updateServers <- updateServersOption
-    --
-#ifdef DEV_MODE
-    flatDistr    <- flatDistrOptional
-    bitcoinDistr <- btcDistrOptional
-    expDistr     <- expDistrOption
-#endif
+    -- distributions
+    flatDistr    <- if isDevelopment then flatDistrOptional else pure Nothing
+    bitcoinDistr <- if isDevelopment then btcDistrOptional  else pure Nothing
+    expDistr     <- if isDevelopment then expDistrOption    else pure False
     --
     pure CommonArgs{..}
 
@@ -234,7 +211,7 @@ disablePropagationOption =
 reportServersOption :: Opt.Parser [Text]
 reportServersOption =
     many $
-    T.pack <$>
+    toText <$>
     Opt.strOption
         (templateParser
              "report-server"
@@ -244,11 +221,10 @@ reportServersOption =
 updateServersOption :: Opt.Parser [Text]
 updateServersOption =
     many $
-    T.pack <$>
+    toText <$>
     Opt.strOption
         (templateParser "update-server" "URI" "Server to download updates from")
 
-#ifdef DEV_MODE
 flatDistrOptional :: Opt.Parser (Maybe (Int, Int))
 flatDistrOptional =
     Opt.optional $
@@ -273,8 +249,6 @@ expDistrOption =
     Opt.switch
         (Opt.long "exp-distr" <> Opt.help "Enable exponential distribution")
 
-#endif
-
 timeLordOption :: Opt.Parser Bool
 timeLordOption =
     Opt.switch
@@ -298,7 +272,7 @@ walletPortOption portNum help =
 
 ipPortOption :: NetworkAddress -> Opt.Parser NetworkAddress
 ipPortOption na =
-    Opt.option (fromParsec addrParser) $
+    Opt.option (fromParsec addrParserNoWildcard) $
             Opt.long "listen"
          <> Opt.metavar "IP:PORT"
          <> Opt.help helpMsg
@@ -308,4 +282,5 @@ ipPortOption na =
     helpMsg = "Ip and port on which to listen. "
         <> "Please mind that you need to specify actual accessible "
         <> "ip of host, at which node is run,"
-        <> " otherwise work of CSL is not guaranteed."
+        <> " otherwise work of CSL is not guaranteed. "
+        <> "0.0.0.0 is not accepted as a valid host."

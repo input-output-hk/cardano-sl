@@ -1,6 +1,6 @@
-{-# LANGUAGE CPP           #-}
-{-# LANGUAGE DataKinds     #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds      #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE TypeOperators  #-}
 
 -- | Servant API for wallet.
 
@@ -9,28 +9,31 @@ module Pos.Wallet.Web.Api
        , walletApi
        ) where
 
-import           Data.Proxy                 (Proxy (Proxy))
 
-import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CProfile, CTx, CTxId,
-                                             CTxMeta, CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, SyncProgress)
-import           Pos.Wallet.Web.Error       (WalletError)
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
                                              Post, Put, QueryParam, ReqBody)
 import           Universum
 
+import           Pos.Types                  (Coin, SoftwareVersion)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CInitialized,
+                                             CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
+                                             CUpdateInfo, CWallet, CWalletInit,
+                                             CWalletMeta, CWalletRedeem, SyncProgress)
+import           Pos.Wallet.Web.Error       (WalletError)
+
+
 -- | Servant API which provides access to wallet.
 -- TODO: Should be composed depending on the resource - wallets, txs, ... http://haskell-servant.github.io/tutorial/0.4/server.html#nested-apis
 type WalletApi =
-#ifdef DEV_MODE
+     -- only works in development mode, gives 403 otherwise
      "api"
      :> "test"
      :> "reset"
      :> Post '[JSON] (Either WalletError ())
     :<|>
-#endif
-     ----------------------------WALLETS----------------------------
+     -------------------------------------------------------------------------
+     -- Wallets
+     -------------------------------------------------------------------------
      "api"
      :> "wallets"
      :> Capture "walletId" CAddress
@@ -48,11 +51,6 @@ type WalletApi =
     :<|>
      "api"
      :> "wallets"
-     :> ReqBody '[JSON] CWalletInit
-     :> Post '[JSON] (Either WalletError CWallet)
-    :<|>
-     "api"
-     :> "wallets"
      :> Capture "walletId" CAddress
      :> Delete '[JSON] (Either WalletError ())
     :<|>
@@ -65,10 +63,19 @@ type WalletApi =
      "api"
      :> "wallets"
      :> "restore"
+     :> Capture "passphrase" CPassPhrase
      :> ReqBody '[JSON] CWalletInit
      :> Post '[JSON] (Either WalletError CWallet)
     :<|>
-     ----------------------------ADDRESSSES----------------------------
+     "api"
+     :> "wallets"
+     :> Capture "passphrase" CPassPhrase
+     :> ReqBody '[JSON] CWalletInit
+     :> Post '[JSON] (Either WalletError CWallet)
+    :<|>
+     ----------------------------------------------------------------------------
+     -- Addresses
+     ----------------------------------------------------------------------------
      "api"
      :> "addresses"
      :> Capture "address" Text
@@ -76,7 +83,9 @@ type WalletApi =
      :> Capture "currency" CCurrency
      :> Get '[JSON] (Either WalletError Bool)
     :<|>
-     ----------------------------PROFILE(S)----------------------------
+     ----------------------------------------------------------------------------
+     -- Profile(s)
+     ----------------------------------------------------------------------------
      -- TODO: A single profile? Should be possible in the future to have multiple profiles?
      "api"
      :> "profile"
@@ -87,11 +96,14 @@ type WalletApi =
      :> ReqBody '[JSON] CProfile
      :> Post '[JSON] (Either WalletError CProfile)
     :<|>
-    ----------------------------TRANSACTIONS----------------------------
+     ----------------------------------------------------------------------------
+     -- Transactons
+     ----------------------------------------------------------------------------
     -- TODO: for now we only support one2one sending. We should extend this to support many2many
      "api"
      :> "txs"
      :> "payments"
+     :> Capture "passphrase" CPassPhrase
      :> Capture "from" CAddress
      :> Capture "to" CAddress
      :> Capture "amount" Coin
@@ -101,6 +113,7 @@ type WalletApi =
      "api"
      :> "txs"
      :> "payments"
+     :> Capture "passphrase" CPassPhrase
      :> Capture "from" CAddress
      :> Capture "to" CAddress
      :> Capture "amount" Coin
@@ -135,7 +148,9 @@ type WalletApi =
      :> QueryParam "limit" Word
      :> Get '[JSON] (Either WalletError ([CTx], Word))
     :<|>
-    ----------------------------UPDATES----------------------------
+     ----------------------------------------------------------------------------
+     -- Updates
+     ----------------------------------------------------------------------------
      "api"
      :> "update"
      :> Get '[JSON] (Either WalletError CUpdateInfo)
@@ -144,14 +159,27 @@ type WalletApi =
      :> "update"
      :> Post '[JSON] (Either WalletError ())
     :<|>
-    ----------------------------REDEMPTIONS----------------------------
+     ----------------------------------------------------------------------------
+     -- Redemptions
+     ----------------------------------------------------------------------------
      "api"
      :> "redemptions"
      :> "ada"
      :> ReqBody '[JSON] CWalletRedeem
-     :> Post '[JSON] (Either WalletError CWallet)
+     :> Post '[JSON] (Either WalletError CTx)
     :<|>
-    ----------------------------SETTINGS----------------------------
+     ----------------------------------------------------------------------------
+     -- Reporting
+     ----------------------------------------------------------------------------
+     "api"
+     :> "reporting"
+     :> "initialized"
+     :> ReqBody '[JSON] CInitialized
+     :> Post '[JSON] (Either WalletError ())
+    :<|>
+     ----------------------------------------------------------------------------
+     -- Settings
+     ----------------------------------------------------------------------------
      "api"
      :> "settings"
      :> "slots"

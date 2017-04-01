@@ -3,9 +3,6 @@ set -euo pipefail
 
 echo "Haddock updating"
 
-echo "**** 1. Rebuild documentation ****"
-stack --nix --no-terminal haddock --fast
-
 readonly PROJECT_NAME=$(cat ./*.cabal | grep "name:" | awk '{ print $2 }')
 readonly PROJECT_VERSION=$(cat ./*.cabal | grep "version:" | grep -v "cabal" | awk '{ print $2 }')
 readonly PROJECT_FULL_NAME="${PROJECT_NAME}"-"${PROJECT_VERSION}"
@@ -73,7 +70,8 @@ git add .
 if [ -n "$(git status --porcelain)" ]; then 
     echo "     There are changes in Haddock-docs, push it";
     git commit -a -m "Automatic Haddock docs rebuilding."
-    git push origin master
+    # Force-push to prevent race condition among few master-based CI-build. 
+    git push -f origin master
     # After we push new docs in `master`,
     # Jekyll will automatically rebuild it on cardano-docs.iohk.io website.
 else

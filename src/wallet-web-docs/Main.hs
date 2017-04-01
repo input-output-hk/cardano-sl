@@ -1,8 +1,11 @@
 import           Universum
 
-import           Pos.Wallet.Web (walletDocsText)
+import           Pos.Wallet.Web (walletDocsText, walletTableDocsText)
 
 main :: IO ()
-main = writeFile fp walletDocsText >> putStrLn ("See " <> fp)
-  where
-    fp = "wallet-web-api.md"
+main = do
+  writeFile mdFp walletDocsText >> putStrLn ("See " <> mdFp)
+  writeFile mdTblFp walletTableDocsText >> putStrLn ("See " <> mdTblFp)
+    where
+      mdFp = "docs/wallet-web-api.md"
+      mdTblFp = "docs/wallet-table-web-api.md"

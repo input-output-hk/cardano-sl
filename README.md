@@ -2,7 +2,7 @@ A Provably Secure Proof-of-Stake Blockchain Protocol
 ----------------------------------------------------
 
 [![Build Status](https://travis-ci.org/input-output-hk/cardano-sl.svg)](https://travis-ci.org/input-output-hk/cardano-sl)
-[![Windows build status](https://ci.appveyor.com/api/projects/status/github/input-output-hk/cardano-sl?branch=master&svg=true)](https://ci.appveyor.com/project/jagajaga/pos-haskell-prototype)
+[![Windows build status](https://ci.appveyor.com/api/projects/status/github/input-output-hk/cardano-sl?branch=master&svg=true)](https://ci.appveyor.com/project/jagajaga/cardano-sl)
 [![Release](https://img.shields.io/github/release/input-output-hk/cardano-sl.svg)](https://github.com/input-output-hk/cardano-sl/releases)
 
 This repository
@@ -32,39 +32,43 @@ in the [IOHK website](https://iohk.io/research/papers/a-provably-secure-proof-of
 
 ### Where to start
 
-Aside from reading the paper[1], a good starting point is the source code
-hosted herein. We recommend starting with the following source files:
-
-- [Node entry point](src/node/Main.hs)
-- [Core node logic](src/Pos/Launcher.hs), and the exported modules.
-- [Listeners](src/Pos/Communication/)
-- [Workers](src/Pos/Worker/)
+It is recommended to start by reading the documentation, which is available [here](https://cardano-docs.iohk.io/introduction/).
+Its repository is [here](https://github.com/input-output-hk/cardano-docs.iohk.io). 
+Developers are encouraged to contribute.
 
 Platform support
 ----------------
 
-At the moment, supported platforms are Windows, macOS and Linux. There are [installers 
-for Windows and macOS](https://daedaluswallet.io/#download), which include a node and 
+At the moment, supported platforms are Windows, macOS and Linux. There are [installers
+for Windows and macOS](https://daedaluswallet.io/#download), which include a node and
 a [wallet](https://github.com/input-output-hk/daedalus).
 
 Build from source
 -----------------
 
-To build from source, clone this repository, navigate to the directory
-into which the project was cloned and run `stack build`.
+To build from source, please refer to [this](https://cardano-docs.iohk.io/for-contributors/building-from-source/#cardano-sl-and-daedalus-bridge)
+ page of the documentation.
 
-The [`stack` system](https://docs.haskellstack.org/en/stable/README/) is
+Note that the [`stack` system](https://docs.haskellstack.org/en/stable/README/) is
 required before `cardano-sl` can be built.
+
+For developer convenience, also note that in the `scripts` and `util-scripts` folders
+there are a variety of utility scripts to build various components of the system,
+such as the general `util-scripts/build.sh`, or the `util-scripts/clean.sh` to remove
+byproducts of compilation.
 
 Running the nodes
 -----------------
 
-After the project is built, run it:
+If you wish to launch and run nodes locally please refer to [this](https://cardano-docs.iohk.io/for-contributors/building-from-source/#cardano-node)
+page of the documentation.
 
-- open *new terminal window*, run `tmux` in it (`sudo apt-get install tmux` or else according to your distro)
-- open *new terminal window*, run `export WALLET_TEST=1; ./scripts/launch.sh` in it
+Generating the wallet documentation
+-----------------------------------
 
-After a while, the first terminal windows should be populated with 4 tabs, 3 out of which will have a node running in them.
+Build the project and run `stack exec --nix -- cardano-wallet-web-docs`. Look at the generated:
+- `./docs/wallet-web-api.md`
+- `./docs/wallet-table-web-api.md`
 
 Benchmarking
 ------------
@@ -79,3 +83,4 @@ _Pending_
 #### References
 
 [1]: A. Kiayias, I. Konstantinou, A. Russell, B. David, R. Oliynykov, "[A Provably Secure Proof-of-Stake Blockchain Protocol](https://eprint.iacr.org/2016/889.pdf)"
+

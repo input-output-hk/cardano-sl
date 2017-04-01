@@ -32,6 +32,8 @@ import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Binary.Crypto           ()
+import           Pos.Client.Txp.Balances     (MonadBalances)
+import           Pos.Client.Txp.History      (MonadTxHistory)
 import           Pos.Communication.PeerState (PeerStateHolder)
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               WithNodeContext (..))
@@ -42,11 +44,11 @@ import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.Real                (KademliaDHT)
+import           Pos.Reporting.MemState      (MonadReportingMem)
 import           Pos.Slotting                (MonadSlots, MonadSlotsData, NtpSlotting,
                                               SlottingHolder)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp                     (TxpHolder (..))
-import           Pos.Update                  (USHolder (..))
 import           Pos.Util                    ()
 import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys,
                                               usPrimKey, writeUserSecret)
@@ -126,7 +128,8 @@ newtype KeyStorage m a = KeyStorage
                 MonadReader KeyData, MonadDB,
                 MonadWalletDB, WithWalletContext, WithNodeContext ssc,
                 MonadDelegation, MonadTrans, MonadBase io, MonadFix,
-                MonadDBLimits)
+                MonadDBLimits, MonadReportingMem,
+                MonadTxHistory, MonadBalances)
 
 instance Monad m => WrappedM (KeyStorage m) where
     type UnwrappedM (KeyStorage m) = ReaderT KeyData m
@@ -161,7 +164,7 @@ instance ( Mockable d m
          ) => Mockable d (KeyStorage m) where
     liftMockable = liftMockableWrappedM
 
-runKeyStorage :: MonadIO m => FilePath -> KeyStorage m a -> m a
+runKeyStorage :: (MonadIO m, MonadThrow m) => FilePath -> KeyStorage m a -> m a
 runKeyStorage fp ks =
     peekUserSecret fp >>= liftIO . STM.newTVarIO >>= runKeyStorageRaw ks
 
@@ -209,6 +212,5 @@ instance (MonadIO m, MonadThrow m) =>
 
 -- | Derived instances for ancestors in monad stack
 deriving instance MonadKeys m => MonadKeys (SscHolder ssc m)
-deriving instance MonadKeys m => MonadKeys (TxpHolder m)
+deriving instance MonadKeys m => MonadKeys (TxpHolder __ m)
 deriving instance MonadKeys m => MonadKeys (DelegationT m)
-deriving instance MonadKeys m => MonadKeys (USHolder m)

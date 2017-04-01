@@ -25,9 +25,9 @@ import           Pos.Update.Core            (UpId, UpdateProposal (..), UpdateVo
 import           Pos.Update.Logic.Local     (getLocalProposalNVotes, getLocalVote,
                                              isProposalNeeded, isVoteNeeded,
                                              processProposal, processVote)
+import           Pos.Update.Mode            (UpdateMode)
 import           Pos.Update.Network.Types   (ProposalMsgTag (..), VoteMsgTag (..))
 import           Pos.Util                   (mappendPair)
-import           Pos.WorkMode               (WorkMode)
 
 proposalProxy :: RelayProxy UpId ProposalMsgTag (UpdateProposal, [UpdateVote])
 proposalProxy = RelayProxy
@@ -37,7 +37,7 @@ voteProxy = RelayProxy
 
 -- | Listeners for requests related to update system
 usListeners
-    :: (WorkMode ssc m)
+    :: (UpdateMode m)
     => m ([ListenerSpec m], OutSpecs)
 usListeners = liftM2 mappendPair
                 (relayListeners proposalProxy)
@@ -54,17 +54,19 @@ usStubListeners = mappendPair
 -- UpdateProposal listeners
 ----------------------------------------------------------------------------
 
-instance WorkMode ssc m =>
+instance UpdateMode m =>
          Relay m ProposalMsgTag UpId (UpdateProposal, [UpdateVote]) where
     contentsToTag _ = pure ProposalMsgTag
     contentsToKey (up,_) = pure $ hash up
 
-    verifyInvTag _ = pure VerSuccess
-    verifyReqTag _ = pure VerSuccess
+    verifyInvTag       _ = pure VerSuccess
+    verifyReqTag       _ = pure VerSuccess
+    verifyMempoolTag   _ = pure VerSuccess
     verifyDataContents _ = pure VerSuccess
 
     handleInv _ = isProposalNeeded
     handleReq _ = getLocalProposalNVotes
+    handleMempool _ = pure []
     handleData (proposal, votes) = do
         res <- processProposal proposal
         logProp res
@@ -85,17 +87,19 @@ instance WorkMode ssc m =>
 -- UpdateVote listeners
 ----------------------------------------------------------------------------
 
-instance WorkMode ssc m =>
+instance UpdateMode m =>
          Relay m VoteMsgTag VoteId UpdateVote where
     contentsToTag _ = pure VoteMsgTag
     contentsToKey UpdateVote{..} = pure (uvProposalId, uvKey, uvDecision)
 
     verifyInvTag _ = pure VerSuccess
     verifyReqTag _ = pure VerSuccess
+    verifyMempoolTag _ = pure VerSuccess
     verifyDataContents UpdateVote{..} = pure VerSuccess
 
     handleInv _ (id, pk, dec) = isVoteNeeded id pk dec
     handleReq _ (id, pk, dec) = getLocalVote id pk dec
+    handleMempool _ = pure []
     handleData uv = do
         res <- processVote uv
         logProcess res

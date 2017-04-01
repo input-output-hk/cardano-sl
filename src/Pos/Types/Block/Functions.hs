@@ -29,7 +29,6 @@ import           Control.Lens               (folded, iconcatMap, imap, ix)
 import           Data.Default               (Default (def))
 import           Data.List                  (groupBy)
 import           Data.Tagged                (untag)
-import qualified Data.Text                  as Text
 import           Formatting                 (build, int, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Verify       (VerificationRes (..), verifyGeneric)
@@ -53,6 +52,7 @@ import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
 import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySign,
                                              proxyVerify, pskIssuerPk, pskOmega, sign,
                                              toPublic, unsafeHash)
+import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Script                 (isKnownScriptVersion, scrVersion)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Txp.Core.Types         (Tx (..), TxInWitness (..), TxOut (..))
@@ -65,11 +65,13 @@ import           Pos.Types.Block.Instances  (Body (..), ConsensusData (..), bloc
 import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
                                              BlockSignature (..), GenesisBlock,
                                              GenesisBlockHeader, GenesisBlockchain,
-                                             MainBlock, MainBlockHeader, MainBlockchain,
+                                             GenesisExtraBodyData (..),
+                                             GenesisExtraHeaderData (..), MainBlock,
+                                             MainBlockHeader, MainBlockchain,
                                              MainExtraBodyData (..), MainExtraHeaderData,
-                                             mehBlockVersion)
+                                             MainToSign (..), mehBlockVersion)
 import           Pos.Update.Core            (BlockVersionData (..))
-import           Pos.Util                   (NewestFirst (..), OldestFirst)
+import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficultyIncrement :: BlockHeader ssc -> ChainDifficulty
@@ -143,7 +145,7 @@ mkMainHeader prevHeader slotId sk pSk body extra =
     makeSignature toSign (Left psk)  = BlockPSignatureEpoch $ proxySign sk psk toSign
     makeSignature toSign (Right psk) = BlockPSignatureSimple $ proxySign sk psk toSign
     signature prevHash proof =
-        let toSign = (prevHash, proof, slotId, difficulty)
+        let toSign = MainToSign prevHash proof slotId difficulty extra
         in maybe (BlockSignature $ sign sk toSign) (makeSignature toSign) pSk
     consensus prevHash proof =
         MainConsensusData
@@ -179,7 +181,7 @@ recreateMainBlock _gbHeader _gbBody _gbExtra = do
     let gb = GenericBlock{..}
     case verifyBBlock gb of
         Right _  -> pass
-        Left err -> fail $ Text.unpack err
+        Left err -> fail $ toString err
     pure gb
 
 -- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.
@@ -190,7 +192,7 @@ mkGenesisHeader
     -> Body (GenesisBlockchain ssc)
     -> GenesisBlockHeader ssc
 mkGenesisHeader prevHeader epoch body =
-    mkGenericHeader prevHeader body consensus ()
+    mkGenericHeader prevHeader body consensus (GenesisExtraHeaderData $ mkAttributes ())
   where
     difficulty = maybe 0 (view difficultyL) prevHeader
     consensus _ _ =
@@ -207,7 +209,7 @@ mkGenesisBlock prevHeader epoch leaders =
     GenericBlock
     { _gbHeader = mkGenesisHeader prevHeader epoch body
     , _gbBody = body
-    , _gbExtra = ()
+    , _gbExtra = GenesisExtraBodyData $ mkAttributes ()
     }
   where
     body = GenesisBody leaders
@@ -226,22 +228,24 @@ verifyConsensusLocal (Right header) =
         ]
   where
     verifyBlockSignature (BlockSignature sig) =
-        checkSig pk (_gbhPrevBlock, _gbhBodyProof, slotId, d) sig
+        checkSig pk signature sig
     verifyBlockSignature (BlockPSignatureEpoch proxySig) =
         proxyVerify
             pk
             proxySig
             (\(epochLow, epochHigh) ->
                epochId <= epochHigh && epochId >= epochLow)
-            (_gbhPrevBlock, _gbhBodyProof, slotId, d)
+            signature
     verifyBlockSignature (BlockPSignatureSimple proxySig) =
         proxyVerify
             pk
             proxySig
             (const True)
-            (_gbhPrevBlock, _gbhBodyProof, slotId, d)
+            signature
     GenericBlockHeader {_gbhConsensus = consensus
+                       , _gbhExtra = extra
                        ,..} = header
+    signature = MainToSign _gbhPrevBlock _gbhBodyProof slotId d extra
     pk = consensus ^. mcdLeaderKey
     slotId = consensus ^. mcdSlot
     epochId = siEpoch slotId

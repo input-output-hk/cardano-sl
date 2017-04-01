@@ -13,7 +13,7 @@ import           Universum            hiding (FilePath, fold)
 
 main :: IO ()
 main = do
-    args <- map (fromString . T.unpack) <$> arguments
+    args <- map (fromString . toString) <$> arguments
     case args of
         [oldDir, newDir, updPath] -> createUpdate oldDir newDir updPath
         _                         -> printHelp >> exit (ExitFailure 1)

@@ -5,7 +5,7 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Exception (error, Error)
 import Control.Monad.Error.Class (throwError)
 import Daedalus.Constants (backendPrefix)
-import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit, BackupPhrase, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress)
+import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit, BackupPhrase, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Bifunctor (bimap)
@@ -100,8 +100,8 @@ getWallet addr = getR ["wallets", _address addr]
 updateWallet :: forall eff. CAddress -> CWalletMeta -> Aff (ajax :: AJAX | eff) CWallet
 updateWallet addr = putRBody ["wallets", _address addr]
 
-newWallet :: forall eff. CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
-newWallet = postRBody ["wallets"]
+newWallet :: forall eff. CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
+newWallet pass = postRBody ["wallets", _passPhrase pass]
 
 deleteWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) Unit
 deleteWallet addr = deleteR ["wallets", _address addr]
@@ -109,8 +109,8 @@ deleteWallet addr = deleteR ["wallets", _address addr]
 importKey :: forall eff. String -> Aff (ajax :: AJAX | eff) CWallet
 importKey = postRBody ["wallets", "keys"]
 
-restoreWallet :: forall eff. CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
-restoreWallet = postRBody ["wallets", "restore"]
+restoreWallet :: forall eff. CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
+restoreWallet pass = postRBody ["wallets", "restore", _passPhrase pass]
 --------------------------------------------------------------------------------
 -- ADDRESSSES ------------------------------------------------------------------
 isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
@@ -124,20 +124,20 @@ updateProfile :: forall eff. CProfile -> Aff (ajax :: AJAX | eff) CProfile
 updateProfile = postRBody ["profile"]
 --------------------------------------------------------------------------------
 -- TRANSACTIONS ----------------------------------------------------------------
-send :: forall eff. CAddress -> CAddress -> Coin -> Aff (ajax :: AJAX | eff) CTx
-send addrFrom addrTo amount = postR ["txs", "payments", _address addrFrom, _address addrTo, show $ _coin amount]
+send :: forall eff. CPassPhrase -> CAddress -> CAddress -> Coin -> Aff (ajax :: AJAX | eff) CTx
+send pass addrFrom addrTo amount = postR ["txs", "payments", _passPhrase pass, _address addrFrom, _address addrTo, show $ _coin amount]
 
-sendExtended :: forall eff. CAddress -> CAddress -> Coin -> CCurrency -> String -> String -> Aff (ajax :: AJAX | eff) CTx
-sendExtended addrFrom addrTo amount curr title desc = postR ["txs", "payments", _address addrFrom, _address addrTo, show $ _coin amount, showCCurrency curr, title, desc]
+sendExtended :: forall eff. CPassPhrase -> CAddress -> CAddress -> Coin -> CCurrency -> String -> String -> Aff (ajax :: AJAX | eff) CTx
+sendExtended pass addrFrom addrTo amount curr title desc = postR ["txs", "payments", _passPhrase pass, _address addrFrom, _address addrTo, show $ _coin amount, showCCurrency curr, title, desc]
 
 updateTransaction :: forall eff. CAddress -> CTxId -> CTxMeta -> Aff (ajax :: AJAX | eff) Unit
 updateTransaction addr ctxId = postRBody ["txs", "payments", _address addr, _ctxIdValue ctxId]
 
 getHistory :: forall eff. CAddress -> Int -> Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
-getHistory addr skip limit = getR ["txs", "histories", _address addr, show skip, show limit]
+getHistory addr skip limit = getR ["txs", "histories", _address addr <> "?skip=" <> show skip <> "&limit=" <> show limit]
 
 searchHistory :: forall eff. CAddress -> String -> Int -> Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
-searchHistory addr search skip limit = getR ["txs", "histories", _address addr, search, show skip, show limit]
+searchHistory addr search skip limit = getR ["txs", "histories", _address addr, search <> "?skip=" <> show skip <> "&limit=" <> show limit]
 --------------------------------------------------------------------------------
 -- UPDATES ---------------------------------------------------------------------
 nextUpdate :: forall eff. Aff (ajax :: AJAX | eff) CUpdateInfo
@@ -147,10 +147,14 @@ applyUpdate :: forall eff. Aff (ajax :: AJAX | eff) Unit
 applyUpdate = postR ["update"]
 --------------------------------------------------------------------------------
 -- REDEMPTIONS -----------------------------------------------------------------
-redeemADA :: forall eff. CWalletRedeem -> Aff (ajax :: AJAX | eff) CWallet
+redeemADA :: forall eff. CWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
 redeemADA = postRBody ["redemptions", "ada"]
 --------------------------------------------------------------------------------
--- UPDATES ---------------------------------------------------------------------
+-- REPORTING ---------------------------------------------------------------------
+reportInit :: forall eff. CInitialized -> Aff (ajax :: AJAX | eff) Unit
+reportInit = postRBody ["reporting", "initialized"]
+--------------------------------------------------------------------------------
+-- SETTINGS ---------------------------------------------------------------------
 blockchainSlotDuration :: forall eff. Aff (ajax :: AJAX | eff) Int
 blockchainSlotDuration = getR ["settings", "slots", "duration"]
 

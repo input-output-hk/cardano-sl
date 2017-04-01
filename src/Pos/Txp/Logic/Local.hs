@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE ConstraintKinds #-}
 
 -- | Logic for local processing of transactions.
@@ -8,32 +9,31 @@ module Pos.Txp.Logic.Local
        , txNormalize
        ) where
 
-import           Control.Monad.Except (MonadError (..), runExcept)
-import           Data.Default         (def)
-import qualified Data.HashMap.Strict  as HM
+import           Control.Monad.Except (MonadError (..))
+import           Data.Default         (Default (def))
 import qualified Data.List.NonEmpty   as NE
 import qualified Data.Map             as M (fromList)
 import           Formatting           (build, sformat, (%))
 import           System.Wlog          (WithLogger, logDebug)
 import           Universum
 
+import           Pos.Core             (HeaderHash)
 import           Pos.DB.Class         (MonadDB)
 import qualified Pos.DB.GState        as GS
-import           Pos.Txp.Core.Types   (Tx (..), TxAux, TxId)
-
-import           Pos.Txp.MemState     (MonadTxpMem (..), getMemPool, getUtxoModifier,
-                                       modifyTxpLocalData, setTxpLocalData)
-import           Pos.Txp.Toil         (MemPool (..), MonadUtxoRead (..), TxpModifier (..),
-                                       TxpVerFailure (..), execTxpTLocal, normalizeTxp,
-                                       processTx, runDBTxp, runTxpTLocal, runUtxoReaderT,
-                                       utxoGet)
-
+import           Pos.Txp.Core         (Tx (..), TxAux, TxId)
+import           Pos.Txp.MemState     (MonadTxpMem (..), TxpLocalDataPure, getLocalTxs,
+                                       getUtxoModifier, modifyTxpLocalData,
+                                       setTxpLocalData)
+import           Pos.Txp.Toil         (GenericToilModifier (..), MonadUtxoRead (..),
+                                       ToilEnv, ToilVerFailure (..), Utxo, execToilTLocal,
+                                       getToilEnv, normalizeToil, processTx, runDBTxp,
+                                       runToilTLocal, runUtxoReaderT, utxoGet)
 
 type TxpLocalWorkMode m =
     ( MonadDB m
-    , MonadTxpMem m
+    , MonadTxpMem () m
     , WithLogger m
-    , MonadError TxpVerFailure m
+    , MonadError ToilVerFailure m
     )
 
 -- CHECK: @processTx
@@ -43,15 +43,22 @@ txProcessTransaction
     => (TxId, TxAux) -> m ()
 txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
     tipBefore <- GS.getTip
-    localUM <- getUtxoModifier
+    localUM <- getUtxoModifier @()
+    -- Note: snapshot isn't used here, because it's not necessary.  If
+    -- tip changes after 'getTip' and before resolving all inputs, it's
+    -- possible that invalid transaction will appear in
+    -- mempool. However, in this case it will be removed by
+    -- normalization before releasing lock on block application.
     (resolvedOuts, _) <- runDBTxp $ runUM localUM $ mapM utxoGet _txInputs
-    -- Resolved are transaction outputs which haven't been deleted from the utxo yet
-    -- (from Utxo DB and from UtxoView also)
-    let resolved = HM.fromList $
+    toilEnv <- runDBTxp getToilEnv
+    -- Resolved are unspent transaction outputs corresponding to input
+    -- of given transaction.
+    let resolved = M.fromList $
                    catMaybes $
                    toList $
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
-    pRes <- modifyTxpLocalData $ processTxDo resolved tipBefore itw
+    pRes <- modifyTxpLocalData $
+            processTxDo resolved toilEnv tipBefore itw
     case pRes of
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: "%build) txId
@@ -59,31 +66,36 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
         Right _   ->
             logDebug (sformat ("Transaction is processed successfully: "%build) txId)
   where
-    processTxDo resolved tipBefore tx txld@(uv, mp, undo, tip)
-        | tipBefore /= tip = (Left $ TxpInvalid "Tips aren't same", txld)
+    processTxDo
+        :: Utxo
+        -> ToilEnv
+        -> HeaderHash
+        -> (TxId, TxAux)
+        -> TxpLocalDataPure
+        -> (Either ToilVerFailure (), TxpLocalDataPure)
+    processTxDo resolved toilEnv tipBefore tx txld@(uv, mp, undo, tip, ())
+        | tipBefore /= tip = (Left $ ToilTipsMismatch tipBefore tip, txld)
         | otherwise =
-            let res = runExcept $
-                      flip runUtxoReaderT (M.fromList $ HM.toList resolved) $
-                      execTxpTLocal uv mp undo $
-                      processTx tx in
+            let res = (runExceptT $
+                      flip runUtxoReaderT resolved $
+                      execToilTLocal uv mp undo $
+                      processTx tx
+                      ) toilEnv
+            in
             case res of
                 Left er  -> (Left er, txld)
-                Right TxpModifier{..} ->
-                    (Right (), (_txmUtxoModifier, _txmMemPool, _txmUndos, tip))
-    runUM um = runTxpTLocal um def mempty
+                Right ToilModifier{..} ->
+                    (Right (), (_tmUtxo, _tmMemPool, _tmUndos, tip, ()))
+    runUM um = runToilTLocal um def mempty
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Remove invalid transactions from MemPool
 -- | 3. Set new tip to txp local data
 txNormalize
-    :: (MonadDB m, MonadTxpMem m) => m ()
+    :: (MonadDB m, MonadTxpMem () m) => m ()
 txNormalize = do
     utxoTip <- GS.getTip
-    MemPool {..} <- getMemPool
-    res <- runExceptT $
-           runDBTxp $
-           execTxpTLocal mempty def mempty $
-           normalizeTxp $ HM.toList _mpLocalTxs
-    case res of
-        Left _                -> setTxpLocalData (mempty, def, mempty, utxoTip)
-        Right TxpModifier{..} -> setTxpLocalData (_txmUtxoModifier, _txmMemPool, _txmUndos, utxoTip)
+    localTxs <- getLocalTxs
+    ToilModifier {..} <-
+        runDBTxp $ execToilTLocal mempty def mempty $ normalizeToil localTxs
+    setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)

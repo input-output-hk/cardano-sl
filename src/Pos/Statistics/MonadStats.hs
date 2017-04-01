@@ -49,7 +49,7 @@ import           Pos.Slotting.MemState       (MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Statistics.StatEntry    (StatLabel (..))
 import           Pos.Txp.MemState            (MonadTxpMem (..))
-import           Pos.Update.MemState         (MonadUSMem)
+import           Pos.Util.Context            (MonadContext (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 
@@ -80,10 +80,13 @@ newtype NoStatsT m a = NoStatsT
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
-                MonadJL, CanLog, MonadTxpMem, MonadSscMem ssc,
-                WithNodeContext ssc, MonadDelegation, MonadUSMem,
+                MonadJL, CanLog, MonadTxpMem x, MonadSscMem ssc,
+                WithNodeContext ssc, MonadDelegation,
                 MonadDhtMem, MonadReportingMem, MonadRelayMem, MonadShutdownMem,
                 MonadDB, MonadDBLimits)
+
+instance MonadContext m => MonadContext (NoStatsT m) where
+    type ContextType (NoStatsT m) = ContextType m
 
 instance Monad m => WrappedM (NoStatsT m) where
     type UnwrappedM (NoStatsT m) = m
@@ -133,11 +136,14 @@ newtype StatsT m a = StatsT
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
-                MonadTrans, MonadJL, CanLog, MonadTxpMem,
+                MonadTrans, MonadJL, CanLog, MonadTxpMem x,
                 MonadSscMem ssc, MonadSlotsData,
-                WithNodeContext ssc, MonadDelegation, MonadUSMem,
+                WithNodeContext ssc, MonadDelegation,
                 MonadDhtMem, MonadReportingMem, MonadRelayMem, MonadShutdownMem,
                 MonadDB, MonadDBLimits)
+
+instance MonadContext m => MonadContext (StatsT m) where
+    type ContextType (StatsT m) = ContextType m
 
 instance Monad m => WrappedM (StatsT m) where
     type UnwrappedM (StatsT m) = ReaderT StatsMap m

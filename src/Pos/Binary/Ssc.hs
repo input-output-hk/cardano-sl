@@ -4,11 +4,9 @@
 
 module Pos.Binary.Ssc () where
 
-import           Data.Binary.Get                  (getWord8, label)
-import           Data.Binary.Put                  (putWord8)
 import           Universum
 
-import           Pos.Binary.Class                 (Bi (..))
+import           Pos.Binary.Class                 (Bi (..), getWord8, label, putWord8)
 import           Pos.Binary.Crypto                ()
 import           Pos.Binary.Ssc.GodTossing.Core   ()
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), GtTag (..))
@@ -40,10 +38,10 @@ instance Bi GtMsgContents where
         MCVssCertificate vssCert  -> putWord8 3 >> put vssCert
     get = label "GtMsgContents" $ do
         getWord8 >>= \case
-            0 -> liftM MCCommitment get
+            0 -> MCCommitment <$> get
             1 -> liftM2 MCOpening get get
             2 -> liftM2 MCShares get get
-            3 -> liftM MCVssCertificate get
+            3 -> MCVssCertificate <$> get
             tag -> fail ("get@DataMsg: invalid tag: " ++ show tag)
 
 ----------------------------------------------------------------------------

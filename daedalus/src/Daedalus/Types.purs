@@ -6,6 +6,7 @@ module Daedalus.Types
        , module DT
        , _address
        , _coin
+       , _passPhrase
        , mkCoin
        , mkCAddress
        , mkCWalletMeta
@@ -19,11 +20,14 @@ module Daedalus.Types
        , showCCurrency
        , mkBackupPhrase
        , mkCWalletRedeem
+       , mkCInitialized
+       , mkCPassPhrase
+       , getProfileLocale
        ) where
 
 import Prelude
 
-import Pos.Wallet.Web.ClientTypes (CAddress (..), CHash (..))
+import Pos.Wallet.Web.ClientTypes (CAddress (..), CHash (..), CPassPhrase (..))
 import Pos.Core.Types (Coin (..))
 
 import Pos.Wallet.Web.ClientTypes as CT
@@ -41,37 +45,43 @@ import Data.Generic (gShow)
 import Data.Array.Partial (last)
 import Data.Array (length, filter)
 import Partial.Unsafe (unsafePartial)
-import Data.String (split, null, trim, joinWith)
+import Data.String (split, null, trim, joinWith, Pattern (..))
 
-import Daedalus.Crypto (isValidMnemonic)
+import Daedalus.Crypto (isValidMnemonic, blake2b, bytesToB16)
 import Data.Types (mkTime)
 import Data.Types as DT
+
+space :: Pattern
+space = Pattern " "
+
+dot :: Pattern
+dot = Pattern "."
 
 mkBackupPhrase :: String -> Either Error BackupPhrase
 mkBackupPhrase mnemonic = mkBackupPhraseIgnoreChecksum mnemonic >>= const do
     if not $ isValidMnemonic mnemonicCleaned
         then Left $ error "Invalid mnemonic: checksum missmatch"
-        else Right $ BackupPhrase { bpToList: split " " mnemonicCleaned }
+        else Right $ BackupPhrase { bpToList: split space mnemonicCleaned }
   where
     mnemonicCleaned = cleanMnemonic mnemonic
 
 cleanMnemonic :: String -> String
-cleanMnemonic = joinWith " " <<< filter (not <<< null) <<< split " " <<< trim
+cleanMnemonic = joinWith " " <<< filter (not <<< null) <<< split space <<< trim
 
 mkBackupPhraseIgnoreChecksum :: String -> Either Error BackupPhrase
 mkBackupPhraseIgnoreChecksum mnemonic =
     if not $ hasAtLeast12words mnemonicCleaned
         then Left $ error "Invalid mnemonic: mnemonic should have at least 12 words"
-        else Right $ BackupPhrase { bpToList: split " " mnemonicCleaned }
+        else Right $ BackupPhrase { bpToList: split space mnemonicCleaned }
   where
-    hasAtLeast12words = (<=) 12 <<< length <<< split " "
+    hasAtLeast12words = (<=) 12 <<< length <<< split space
     mnemonicCleaned = cleanMnemonic mnemonic
 
 showCCurrency :: CT.CCurrency -> String
 showCCurrency = dropModuleName <<< gShow
   where
     -- TODO: this is again stupid. We should derive Show for this type instead of doing this
-    dropModuleName = unsafePartial last <<< split "."
+    dropModuleName = unsafePartial last <<< split dot
 
 -- TODO: it would be useful to extend purescript-bridge
 -- and generate lenses
@@ -81,6 +91,12 @@ _hash (CHash h) = h
 
 _address :: CAddress -> String
 _address (CAddress a) = _hash a
+
+_passPhrase :: CPassPhrase -> String
+_passPhrase (CPassPhrase p) = p
+
+mkCPassPhrase :: String -> CPassPhrase
+mkCPassPhrase = CPassPhrase <<< bytesToB16 <<< blake2b
 
 mkCAddress :: String -> CAddress
 mkCAddress = CAddress <<< CHash
@@ -98,12 +114,23 @@ mkCWalletType = either (const CT.CWTPersonal) id <<< decodeJson <<< fromString
 mkCCurrency :: String -> CT.CCurrency
 mkCCurrency = either (const CT.ADA) id <<< decodeJson <<< fromString
 
-mkCWalletMeta :: String -> String -> String -> CT.CWalletMeta
-mkCWalletMeta wType wCurrency wName =
+mkCWAssurance :: String -> CT.CWalletAssurance
+mkCWAssurance = either (const CT.CWANormal) id <<< decodeJson <<< fromString
+
+mkCWalletMeta :: String -> String -> String -> String -> Int -> CT.CWalletMeta
+mkCWalletMeta wType wCurrency wName wAssurance wUnit =
     CT.CWalletMeta { cwType: mkCWalletType wType
                    , cwCurrency: mkCCurrency wCurrency
                    , cwName: wName
+                   , cwAssurance: mkCWAssurance wAssurance
+                   , cwUnit: wUnit
                    }
+
+mkCInitialized :: Int -> Int -> CT.CInitialized
+mkCInitialized total preInit =
+    CT.CInitialized { cTotalTime: total
+                    , cPreInit: preInit
+                    }
 
 mkCWalletInit :: String -> String -> String -> String -> Either Error CT.CWalletInit
 mkCWalletInit wType wCurrency wName mnemonic =
@@ -116,7 +143,7 @@ mkCWalletInitIgnoreChecksum wType wCurrency wName mnemonic= do
 mkCWalletInit' :: String -> String -> String -> BackupPhrase -> CT.CWalletInit
 mkCWalletInit' wType wCurrency wName bp =
     CT.CWalletInit { cwBackupPhrase: bp
-                   , cwInitMeta: mkCWalletMeta wType wCurrency wName
+                   , cwInitMeta: mkCWalletMeta wType wCurrency wName "CWANormal" 0 -- FIXME: don't use string!
                    }
 
 mkCWalletRedeem :: String -> String -> CT.CWalletRedeem
@@ -139,13 +166,10 @@ mkCTxMeta currency title description date =
                , ctmDate: mkTime date
                }
 
-mkCProfile :: String -> String -> String -> String -> Number -> String -> String -> CT.CProfile
-mkCProfile name email phone pass date locale picture =
-    CT.CProfile { cpName: name
-                , cpEmail: email
-                , cpPhoneNumber: phone
-                , cpPwHash: pass
-                , cpPwCreated: mkTime date
-                , cpLocale: locale
-                , cpPicture: picture
+mkCProfile :: String -> CT.CProfile
+mkCProfile locale =
+    CT.CProfile { cpLocale: locale
                 }
+
+getProfileLocale :: CT.CProfile -> String
+getProfileLocale (CT.CProfile r) = r.cpLocale

@@ -57,13 +57,15 @@ instance WorkMode SscGodTossing m =>
             MCCommitment (pk, _, _) -> addressHash pk
             MCVssCertificate vc     -> getCertId vc
 
-    verifyInvTag _ = pure VerSuccess
-    verifyReqTag _ = pure VerSuccess
+    verifyInvTag       _ = pure VerSuccess
+    verifyReqTag       _ = pure VerSuccess
+    verifyMempoolTag   _ = pure VerSuccess
     verifyDataContents _ = pure VerSuccess
 
     handleInv = sscIsDataUseful
     handleReq tag addr =
         toContents tag addr . view ldModifier <$> sscRunLocalQuery ask
+    handleMempool _ = pure []
     handleData dat = do
         addr <- contentsToKey dat
         -- [CSL-685] TODO: Add here malicious emulation for network addresses

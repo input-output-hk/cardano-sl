@@ -13,7 +13,6 @@ import           Control.Lens                (ix)
 import           Data.Default                (def)
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
-import           Pos.Communication.Protocol  (SendActions)
 import           Serokell.Util               (VerificationRes (..), listJson, pairF)
 import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
@@ -22,7 +21,7 @@ import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
-import           Pos.Communication.Protocol  (OutSpecs, Worker', WorkerSpec,
+import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', WorkerSpec,
                                               onNewSlotWorker)
 import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (getNodeContext, ncPublicKey)
@@ -34,10 +33,11 @@ import           Pos.Exception               (assertionFailed)
 import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
-#if !defined(DEV_MODE) && defined(WITH_WALLET)
+#if defined(WITH_WALLET)
 import           Data.Time.Units             (Second, convertUnit)
-import           Pos.Block.Network.Retrieval (requestTipOuts, triggerRecovery)
+import           Pos.Block.Network           (requestTipOuts, triggerRecovery)
 import           Pos.Communication           (worker)
+import           Pos.Constants               (isDevelopment)
 import           Pos.Slotting                (getLastKnownSlotDuration)
 #endif
 import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
@@ -55,12 +55,11 @@ import           Pos.WorkMode                (WorkMode)
 -- | All workers specific to block processing.
 blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => ([WorkerSpec m], OutSpecs)
 blkWorkers =
-    merge [ blkOnNewSlot
-          , retrievalWorker
-#if !defined(DEV_MODE) && defined(WITH_WALLET)
-          , behindNatWorker
+    merge $ [ blkOnNewSlot
+            , retrievalWorker ]
+#if defined(WITH_WALLET)
+            ++ [ behindNatWorker | not isDevelopment ]
 #endif
-          ]
   where
     merge = mconcatPair . map (first pure)
 
@@ -110,7 +109,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
                                 in siEpoch >= w0 && siEpoch <= w1) proxyCerts
             validCert = find (\pSk -> addressHash (pskIssuerPk pSk) == leader)
                              validCerts
-        logNoticeS "THIS IS A SECRET MESSAGE SHOULDN'T GET TO PUBLIC LOGGER"
+        logNoticeS "This is a test debug message which shouldn't be sent to the logging server."
         logLeadersF $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
         logLeadersF $ sformat ("Slot leaders: "%listJson) $
                       map (bprint pairF) (zip [0 :: Int ..] $ toList leaders)
@@ -186,7 +185,7 @@ verifyCreatedBlock blk =
         , vbpVerifySsc = True
         }
 
-#if !defined(DEV_MODE) && defined(WITH_WALLET)
+#if defined(WITH_WALLET)
 -- | This one just triggers every @max (slotDur / 4) 5@ seconds and
 -- asks for current tip. Does nothing when recovery is enabled.
 behindNatWorker :: (WorkMode ssc m, SscWorkersClass ssc) => (WorkerSpec m, OutSpecs)

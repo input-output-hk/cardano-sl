@@ -39,8 +39,7 @@ import           Formatting            (bprint, build, hex, int, sformat, stext,
 import qualified Node                  as N
 import           Node.Message          (Message (..), MessageName (..))
 import           Serokell.Util.Base16  (base16F)
-import           Serokell.Util.Text    (listJson)
-import           Serokell.Util.Text    (mapJson)
+import           Serokell.Util.Text    (listJson, mapJson)
 import           Universum             hiding (show)
 
 import           Pos.Binary.Class      (Bi)
@@ -103,9 +102,9 @@ instance Buildable PeerId where
     build (PeerId bs) = bprint base16F bs
 
 data HandlerSpec
-  = ConvHandler { hsReplyType :: MessageName }
-  | OneMsgHandler
-  | UnknownHandler Word8 ByteString
+    = ConvHandler { hsReplyType :: MessageName}
+    | OneMsgHandler
+    | UnknownHandler Word8 ByteString
     deriving (Show, Generic, Eq)
 
 convH :: (Message snd, Message rcv) => Proxy snd -> Proxy rcv -> (MessageName, HandlerSpec)
@@ -135,8 +134,7 @@ data VerInfo = VerInfo
     , vIBlockVersion :: BlockVersion
     , vIInHandlers   :: HandlerSpecs
     , vIOutHandlers  :: HandlerSpecs
-    }
-  deriving (Eq, Generic, Show)
+    } deriving (Eq, Generic, Show)
 
 instance Buildable VerInfo where
     build VerInfo {..} = bprint ("VerInfo { magic="%hex%", blockVersion="

@@ -1,4 +1,4 @@
-resolver: lts-8.2
+resolver: lts-8.5
 
 flags: {}
 
@@ -35,16 +35,16 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 7cb2dc70c5f28194fd13fe6daa4e64eeb65e1e4c
+    commit: 424e4ecacdf038a01542025dd1296bd272ce770d
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 8631647810b950a21735d1466fa72348626213ed
+    commit: e0a48924e7e308f1164168a81f67c0f25eaabda1
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
     git: https://github.com/avieth/network-transport-tcp
-    commit: 1739cc6d5c73257201e5551088f4ba56d5ede15c
+    commit: 15847920ac1a32ada237e5a00ac4f56f3ca421a7
   extra-dep: true
 - location:
     git: https://github.com/avieth/network-transport
@@ -53,6 +53,13 @@ packages:
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
     commit: 838b064d8a59286142aa2fe14434fe7601896ddb
+  extra-dep: true
+# We're using forked version of 'swagger2' package because of bug in haddock package.
+# Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will
+# be fixed, we'll back to Hackage-version.
+- location:
+    git: https://github.com/serokell/swagger2
+    commit: 6cc2063e1c8da9e701f3ac95549b8a33be9605de
   extra-dep: true
 #- location:
 #    git: https://github.com/haskell-crypto/cryptonite.git
@@ -65,16 +72,25 @@ nix:
 extra-deps:
 - universum-0.3
 - time-units-1.0.0
-- serokell-util-0.1.4.0
+- serokell-util-0.1.5.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-1.0.2
+- log-warper-1.0.4
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.5.26                   # not yet in lts-8
 - haskell-src-exts-1.17.1         # derive has not moved to 1.18 yet
-- wreq-0.5.0.0                    # not yet in lts-8
 - purescript-bridge-0.8.0.1
 - cryptonite-0.22
+- directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
+
+# If you find it too restrictive, you can use `util-scripts/build.sh' script
+ghc-options:
+  cardano-sl-core:   -Werror
+  cardano-sl-db:     -Werror
+  cardano-sl-infra:  -Werror
+  cardano-sl-lrc:    -Werror
+  cardano-sl-update: -Werror
+  cardano-sl:        -Werror

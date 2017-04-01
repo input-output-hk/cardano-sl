@@ -4,11 +4,11 @@ module Test.Pos.Types.Identity.TimestampSpec
        ( spec
        ) where
 
-import           Pos.Types             (Timestamp)
-import           Test.Hspec            (Spec, describe)
+import           Pos.Types     (Timestamp)
+import           Test.Hspec    (Spec, describe)
 import           Universum
 
-import           Test.Pos.Util         (binaryTest, showReadTest)
+import           Test.Pos.Util (binaryTest, showReadTest)
 
 spec :: Spec
 spec = describe "Timestamp" $ do

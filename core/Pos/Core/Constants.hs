@@ -1,12 +1,13 @@
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE DeriveLift          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Constants that the rest of the code needs to know. They're available
 -- from this module directly, instead of being passed as a config.
 module Pos.Core.Constants
-       ( epochSlots
+       ( CoreConstants(..)
+       , coreConstants
+
+       , epochSlots
        , blkSecurityParam
        , slotSecurityParam
        , isDevelopment
@@ -14,32 +15,44 @@ module Pos.Core.Constants
        , staticSysStart
        ) where
 
-import           System.IO.Unsafe           (unsafePerformIO)
-import           Universum                  hiding (lift)
+import           Data.Aeson             (FromJSON (..), genericParseJSON)
+import           Data.Tagged            (Tagged (..))
+import           Data.Time.Clock.POSIX  (getPOSIXTime)
+import           Serokell.Aeson.Options (defaultOptions)
+import           Serokell.Util          (sec)
+import           System.IO.Unsafe       (unsafePerformIO)
+import           Universum
 
-#ifndef DEV_MODE
-import           Data.Time.Clock.POSIX      (getPOSIXTime)
-import           Language.Haskell.TH.Syntax (lift, runIO)
-import           Serokell.Util              (sec)
-#endif
-
-import           Pos.Core.Constants.Type    (CoreConstants (..))
-import           Pos.Core.Timestamp         (Timestamp (..))
-import           Pos.Util.Config            (cslConfigFilePath, unsafeReadConfig)
+import           Pos.Core.Timestamp     (Timestamp (..))
+import           Pos.Util.Config        (IsConfig (..), configParser, parseFromCslConfig)
 
 ----------------------------------------------------------------------------
 -- Config itself
 ----------------------------------------------------------------------------
 
 coreConstants :: CoreConstants
-#ifdef DEV_MODE
-coreConstants = unsafePerformIO (unsafeReadConfig =<< cslConfigFilePath)
-{-# NOINLINE coreConstants #-}
-#else
-coreConstants = $(do
-    x :: CoreConstants <- runIO (unsafeReadConfig =<< cslConfigFilePath)
-    lift x)
-#endif
+coreConstants =
+    case parseFromCslConfig configParser of
+        Left err -> error (toText ("Couldn't parse core config: " ++ err))
+        Right x  -> x
+
+data CoreConstants = CoreConstants
+    {
+      -- | Security parameter from paper
+      ccK                          :: !Int
+    , -- | Magic constant for separating real/testnet
+      ccProtocolMagic              :: !Int32
+    , -- | Start time of network (in @Production@ running mode). If set to
+      -- zero, then running time is 2 minutes after build.
+      ccProductionNetworkStartTime :: !Int
+    }
+    deriving (Show, Generic)
+
+instance FromJSON CoreConstants where
+    parseJSON = genericParseJSON defaultOptions
+
+instance IsConfig CoreConstants where
+    configPrefix = Tagged Nothing
 
 ----------------------------------------------------------------------------
 -- Constants taken from the config
@@ -61,28 +74,29 @@ epochSlots = 10 * blkSecurityParam
 
 -- | @True@ if current mode is 'Development'.
 isDevelopment :: Bool
-isDevelopment = isNothing staticSysStart
+#ifdef DEV_MODE
+isDevelopment = True
+#else
+isDevelopment = False
+#endif
 
 -- | System start time embeded into binary.
 staticSysStart :: Maybe Timestamp
-#ifdef DEV_MODE
-staticSysStart = Nothing
+staticSysStart
+    | isDevelopment = Nothing
+    | st > 0        = Just $ Timestamp $ sec st
+    -- If several local nodes are started within 20 sec,
+    -- they'll have same start time
+    | otherwise     = Just $ Timestamp $ sec $
+          (after3Mins `div` divider + alignment) * divider
   where
-    -- to avoid the “defined but not used” warning
-    _ = ccProductionNetworkStartTime
-#else
-staticSysStart = Just $ Timestamp $ sec $
-    let st = ccProductionNetworkStartTime coreConstants
-    in if st > 0 then st
-       else let pause = 30
-                divider = 10
-                after3Mins = pause + unsafePerformIO (round <$> getPOSIXTime)
-                minuteMod = after3Mins `mod` divider
-                alignment = if minuteMod > (divider `div` 2) then 1 else 0
-            in (after3Mins `div` divider + alignment) * divider
-               -- ^ If several local nodes are started within 20 sec,
-               -- they'll have same start time
-#endif
+    st = ccProductionNetworkStartTime coreConstants
+    pause = 30
+    divider = 20
+    after3Mins :: Int
+    after3Mins = pause + unsafePerformIO (round <$> getPOSIXTime)
+    minuteMod = after3Mins `mod` divider
+    alignment = if minuteMod > (divider `div` 2) then 1 else 0
 
 -- | Protocol magic constant. Is put to block serialized version to
 -- distinguish testnet and realnet (for example, possible usages are

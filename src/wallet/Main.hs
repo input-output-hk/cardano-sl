@@ -12,11 +12,11 @@ import           Data.List                 ((!!))
 import qualified Data.Text                 as T
 import           Data.Time.Units           (convertUnit)
 import           Formatting                (build, int, sformat, stext, (%))
-import           Mockable                  (delay)
 import           Options.Applicative       (execParser)
 import           System.IO                 (hFlush, stdout)
 import           System.Wlog               (logDebug, logError, logInfo, logWarning)
-#if !(defined(mingw32_HOST_OS) && defined(__MINGW32__))
+#if !(defined(mingw32_HOST_OS))
+import           Mockable                  (delay)
 import           System.Exit               (ExitCode (ExitSuccess))
 import           System.Posix.Process      (exitImmediately)
 #endif
@@ -26,31 +26,31 @@ import           Universum
 import           Pos.Binary                (Raw)
 import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
-                                            worker)
-import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey, fakeSigner,
-                                            hash, hashHexF, sign, toPublic,
+                                            sendTxOuts, submitTx, worker)
+import           Pos.Constants             (genesisBlockVersionData)
+import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey,
+                                            fakeSigner, hash, hashHexF, sign, toPublic,
                                             unsafeHash)
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Delegation            (sendProxySKHeavy, sendProxySKHeavyOuts,
                                             sendProxySKLight, sendProxySKLightOuts)
 import           Pos.DHT.Model             (DHTNode, discoverPeers, getKnownPeers)
-import           Pos.Genesis               (genesisBlockVersionData, genesisPublicKeys,
-                                            genesisSecretKeys, genesisUtxo)
+import           Pos.Genesis               (genesisDevPublicKeys, genesisDevSecretKeys,
+                                            genesisUtxo)
 import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
-                                            bracketResources, runTimeSlaveReal,
-                                            stakesDistr)
+                                            bracketResources, stakesDistr)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Ssc.NistBeacon        (SscNistBeacon)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
-import           Pos.Txp                   (txaF)
+import           Pos.Txp                   (TxOutAux (..), txaF)
 import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress)
-import           Pos.Update                (BlockVersionData (..), UpdateProposal (..),
-                                            UpdateVote (..), patakUpdateData,
+import           Pos.Update                (BlockVersionData (..), UpdateVote (..),
+                                            mkUpdateProposalWSign, patakUpdateData,
                                             skovorodaUpdateData)
 import           Pos.Wallet                (WalletMode, WalletParams (..), WalletRealMode,
                                             getBalance, runWalletReal, sendProposalOuts,
-                                            sendTxOuts, sendVoteOuts, submitTx,
-                                            submitUpdateProposal, submitVote)
+                                            sendVoteOuts, submitUpdateProposal,
+                                            submitVote)
 #ifdef WITH_WEB
 import           Pos.Wallet.Web            (walletServeWebLite, walletServerOuts)
 #endif
@@ -66,7 +66,13 @@ runCmd _ (Balance addr) = lift (getBalance addr) >>=
                          putText . sformat ("Current balance: "%coinF)
 runCmd sendActions (Send idx outputs) = do
     (skeys, na) <- ask
-    etx <- lift $ submitTx sendActions (fakeSigner $ skeys !! idx) na (map (,[]) outputs)
+    etx <-
+        lift $
+        submitTx
+            sendActions
+            (fakeSigner $ skeys !! idx)
+            na
+            (map (flip TxOutAux []) outputs)
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
@@ -100,16 +106,17 @@ runCmd sendActions ProposeUpdate{..} = do
             , bvdSlotDuration = convertUnit (sec puSlotDurationSec)
             , bvdMaxBlockSize = puMaxBlockSize
             }
-    let updateProposal = UpdateProposal
-            { upBlockVersion     = puBlockVersion
-            , upBlockVersionData = bvd
-            , upSoftwareVersion  = puSoftwareVersion
-            , upData             =
-                maybe patakUpdateData
-                      skovorodaUpdateData
-                      diffFile
-            , upAttributes       = mkAttributes ()
-            }
+    let udata = maybe patakUpdateData skovorodaUpdateData diffFile
+    let whenCantCreate = error . mappend "Failed to create update proposal: "
+    let updateProposal =
+            either whenCantCreate identity $
+            mkUpdateProposalWSign
+                puBlockVersion
+                bvd
+                puSoftwareVersion
+                udata
+                (mkAttributes ())
+                skey
     if null na
         then putText "Error: no addresses specified"
         else do
@@ -138,17 +145,17 @@ runCmd _ Help = do
 runCmd _ ListAddresses = do
     addrs <- map (makePubKeyAddress . toPublic) <$> asks fst
     putText "Available addresses:"
-    forM_ (zip [0 :: Int ..] addrs) $
+    for_ (zip [0 :: Int ..] addrs) $
         putText . uncurry (sformat $ "    #"%int%":   "%build)
 runCmd sendActions (DelegateLight i j) = do
-    let issuerSk = genesisSecretKeys !! i
-        delegatePk = genesisPublicKeys !! j
+    let issuerSk = genesisDevSecretKeys !! i
+        delegatePk = genesisDevPublicKeys !! j
         psk = createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
     lift $ sendProxySKLight psk sendActions
     putText "Sent lightweight cert"
 runCmd sendActions (DelegateHeavy i j epochMaybe) = do
-    let issuerSk = genesisSecretKeys !! i
-        delegatePk = genesisPublicKeys !! j
+    let issuerSk = genesisDevSecretKeys !! i
+        delegatePk = genesisDevPublicKeys !! j
         epoch = fromMaybe 0 epochMaybe
         psk = createProxySecretKey issuerSk delegatePk epoch
     lift $ sendProxySKHeavy psk sendActions
@@ -194,13 +201,13 @@ runWalletRepl :: WalletMode ssc m => WalletOptions -> Worker' m
 runWalletRepl wo sa = do
     na <- initialize wo
     putText "Welcome to Wallet CLI Node"
-    runReaderT (evalCmd sa Help) (genesisSecretKeys, na)
+    runReaderT (evalCmd sa Help) (genesisDevSecretKeys, na)
 
 runWalletCmd :: WalletMode ssc m => WalletOptions -> Text -> Worker' m
 runWalletCmd wo str sa = do
     na <- initialize wo
     let strs = T.splitOn "," str
-    flip runReaderT (genesisSecretKeys, na) $ forM_ strs $ \scmd -> do
+    flip runReaderT (genesisDevSecretKeys, na) $ for_ strs $ \scmd -> do
         let mcmd = parseCommand scmd
         case mcmd of
             Left err   -> putStrLn err
@@ -208,7 +215,7 @@ runWalletCmd wo str sa = do
     putText "Command execution finished"
     putText " " -- for exit by SIGPIPE
     liftIO $ hFlush stdout
-#if !(defined(mingw32_HOST_OS) && defined(__MINGW32__))
+#if !(defined(mingw32_HOST_OS))
     delay $ sec 3
     liftIO $ exitImmediately ExitSuccess
 #endif
@@ -236,21 +243,21 @@ main = do
             , bpKademliaDump       = "kademlia.dump"
             }
     bracketResources baseParams $ \res -> do
-        let timeSlaveParams =
-                baseParams
-                { bpLoggingParams = logParams { lpRunnerTag = "time-slave" }
-                }
+        -- let timeSlaveParams =
+        --         baseParams
+        --         { bpLoggingParams = logParams { lpRunnerTag = "time-slave" }
+        --         }
 
-        systemStart <- case CLI.sscAlgo woCommonArgs of
-            GodTossingAlgo -> runTimeSlaveReal (Proxy @SscGodTossing) res timeSlaveParams
-            NistBeaconAlgo -> runTimeSlaveReal (Proxy @SscNistBeacon) res timeSlaveParams
+        -- systemStart <- case CLI.sscAlgo woCommonArgs of
+        --     GodTossingAlgo -> runTimeSlaveReal (Proxy @SscGodTossing) res timeSlaveParams
+        --     NistBeaconAlgo -> runTimeSlaveReal (Proxy @SscNistBeacon) res timeSlaveParams
 
         let params =
                 WalletParams
                 { wpDbPath      = Just woDbPath
                 , wpRebuildDb   = woRebuildDb
                 , wpKeyFilePath = woKeyFilePath
-                , wpSystemStart = systemStart
+                , wpSystemStart = error "light wallet doesn't know system start"
                 , wpGenesisKeys = woDebug
                 , wpBaseParams  = baseParams
                 , wpGenesisUtxo =

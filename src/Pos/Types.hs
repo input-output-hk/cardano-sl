@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- | Re-export of Pos.Types.* + binary instances
 
 module Pos.Types

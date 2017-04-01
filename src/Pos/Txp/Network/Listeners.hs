@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                  #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Server which handles transactions.
@@ -23,7 +24,11 @@ import           Pos.Communication.Relay    (Relay (..), RelayProxy (..), relayL
 import           Pos.Crypto                 (hash)
 import           Pos.Statistics             (StatProcessTx (..), statlogCountEvent)
 import           Pos.Txp.Core.Types         (TxAux, TxId)
+#ifdef WITH_EXPLORER
+import           Pos.Explorer.Txp.Local     (eTxProcessTransaction)
+#else
 import           Pos.Txp.Logic              (txProcessTransaction)
+#endif
 import           Pos.Txp.MemState           (getMemPool)
 import           Pos.Txp.Network.Types      (TxMsgContents (..), TxMsgTag (..))
 import           Pos.Txp.Toil.Types         (MemPool (..))
@@ -47,15 +52,19 @@ instance ( WorkMode ssc m
     contentsToTag _ = pure TxMsgTag
     contentsToKey (TxMsgContents tx _ _) = pure $ hash tx
 
-    verifyInvTag _ = pure VerSuccess
-    verifyReqTag _ = pure VerSuccess
+    verifyInvTag       _ = pure VerSuccess
+    verifyReqTag       _ = pure VerSuccess
+    verifyMempoolTag   _ = pure VerSuccess
     verifyDataContents _ = pure VerSuccess
 
     handleInv _ txId = not . HM.member txId  . _mpLocalTxs <$> getMemPool
 
-    handleReq _ txId = fmap toContents . HM.lookup txId . _mpLocalTxs <$> getMemPool
+    handleReq _ txId =
+        fmap toContents . HM.lookup txId . _mpLocalTxs <$> getMemPool
       where
         toContents (tx, tw, td) = TxMsgContents tx tw td
+
+    handleMempool _ = HM.keys . _mpLocalTxs <$> getMemPool
 
     handleData (TxMsgContents tx tw td) = handleTxDo (hash tx, (tx, tw, td))
 
@@ -66,7 +75,11 @@ handleTxDo
     :: WorkMode ssc m
     => (TxId, TxAux) -> m Bool
 handleTxDo tx = do
+#ifdef WITH_EXPLORER
+    res <- runExceptT $ eTxProcessTransaction tx
+#else
     res <- runExceptT $ txProcessTransaction tx
+#endif
     let txId = fst tx
     case res of
         Right _ -> do

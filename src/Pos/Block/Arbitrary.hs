@@ -4,14 +4,14 @@
 module Pos.Block.Arbitrary
        ( HeaderAndParams (..)
        , BlockHeaderList (..)
+       , SmallTxPayload (..)
        ) where
 
 import           Data.Ix              (range)
-import           Data.List.NonEmpty   (nonEmpty)
 import qualified Data.List.NonEmpty   as NE
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
-import           Formatting           (bprint, build, formatToString, (%))
+import           Formatting           (bprint, build, (%))
 import           Prelude              (Show (..))
 import           System.Random        (mkStdGen, randomR)
 import           Test.QuickCheck      (Arbitrary (..), Gen, choose, listOf, listOf, oneof,
@@ -26,7 +26,7 @@ import           Pos.Crypto           (ProxySecretKey, PublicKey, SecretKey,
 import           Pos.Data.Attributes  (Attributes (..), mkAttributes)
 import           Pos.Ssc.Arbitrary    (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.Class        (Ssc (..), SscHelpersClass)
-import           Pos.Txp.Core         (Tx (..), TxDistribution (..), TxWitness,
+import           Pos.Txp.Core         (Tx (..), TxDistribution (..), TxPayload, TxWitness,
                                        mkTxPayload)
 import qualified Pos.Types            as T
 import           Pos.Update.Arbitrary ()
@@ -66,6 +66,12 @@ properBlock = do
 ------------------------------------------------------------------------------------------
 -- GenesisBlockchain
 ------------------------------------------------------------------------------------------
+
+instance Arbitrary T.GenesisExtraHeaderData where
+    arbitrary = T.GenesisExtraHeaderData <$> arbitrary
+
+instance Arbitrary T.GenesisExtraBodyData where
+    arbitrary = T.GenesisExtraBodyData <$> arbitrary
 
 instance Arbitrary (T.GenesisBlockHeader ssc) where
     arbitrary = T.GenericBlockHeader
@@ -133,6 +139,14 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
         <*> arbitrary
         <*> arbitrary
 
+instance (Ssc ssc, Arbitrary (SscProof ssc)) => Arbitrary (T.MainToSign ssc) where
+    arbitrary = T.MainToSign
+        <$> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+
 -- | In the main blockchain's body, the number of transactions must be the same as the
 -- number of transaction witnesses.
 --
@@ -151,23 +165,38 @@ txOutDistGen = listOf $ do
     (txOuts, txDist) <- second TxDistribution . NE.unzip <$> arbitrary
     return (UnsafeTx txIns txOuts $ mkAttributes (), txInW, txDist)
 
+instance Arbitrary TxPayload where
+    arbitrary =
+        fromMaybe (error "arbitrary@TxPayload: mkTxPayload failed") .
+        mkTxPayload <$>
+        txOutDistGen
+
+newtype SmallTxPayload =
+    SmallTxPayload TxPayload
+    deriving (Show, Eq, Bi)
+
+instance Arbitrary SmallTxPayload where
+    arbitrary = SmallTxPayload <$> makeSmall arbitrary
+
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
 instance Arbitrary (SscPayloadDependsOnSlot ssc) =>
          Arbitrary (BodyDependsOnConsensus (T.MainBlockchain ssc)) where
     arbitrary = pure $ BodyDependsOnConsensus $ \T.MainConsensusData{..} -> makeSmall $ do
-        txws <- txOutDistGen
-        generator <- genPayloadDependsOnSlot @ssc <$> arbitrary
-        mpcData <- generator _mcdSlot
+        txPayload   <- arbitrary
+        generator   <- genPayloadDependsOnSlot @ssc <$> arbitrary
+        mpcData     <- generator _mcdSlot
         mpcProxySKs <- arbitrary
         mpcUpload   <- arbitrary
-        return $ T.MainBody (mkTxPayload txws) mpcData mpcProxySKs mpcUpload
+        return $ T.MainBody txPayload mpcData mpcProxySKs mpcUpload
 
 instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc)) where
     arbitrary = makeSmall $ do
-        txws <- txOutDistGen
+        txPayload   <- arbitrary
         mpcData     <- arbitrary
         mpcProxySKs <- arbitrary
         mpcUpload   <- arbitrary
-        return $ T.MainBody (mkTxPayload txws) mpcData mpcProxySKs mpcUpload
+        return $ T.MainBody txPayload mpcData mpcProxySKs mpcUpload
 
 instance (Arbitrary (SscProof ssc), Arbitrary (SscPayloadDependsOnSlot ssc), SscHelpersClass ssc) =>
     Arbitrary (T.GenericBlock (T.MainBlockchain ssc)) where
@@ -206,8 +235,7 @@ newtype BlockHeaderList ssc = BHL
     } deriving (Eq)
 
 instance T.BiSsc ssc => Show (BlockHeaderList ssc) where
-    show =
-        concat . intersperse "\n" . map (formatToString build) . uncurry zip . getHeaderList
+    show = toString . unlines . map pretty . uncurry zip . getHeaderList
 
 -- | Starting Epoch in block header verification tests
 startingEpoch :: Integral a => a

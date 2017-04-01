@@ -1,5 +1,3 @@
-{-# LANGUAGE CPP #-}
-
 {-| Blockchain genesis. Not to be confused with genesis block in epoch.
     Blockchain genesis means genesis values which are hardcoded in advance
     (before system starts doing anything). Genesis block in epoch exists
@@ -11,64 +9,52 @@ module Pos.Genesis
        -- * Static state
          StakeDistribution (..)
        , GenesisData (..)
+       , getTotalStake
        , compileGenData
-#ifdef DEV_MODE
-       , genesisAddresses
-       , genesisKeyPairs
-       , genesisPublicKeys
-       , genesisSecretKeys
-#endif
        , genesisStakeDistribution
        , genesisUtxo
        , genesisDelegation
+       , genesisAddresses
+       -- ** Genesis data used in development mode
+       , genesisDevKeyPairs
+       , genesisDevPublicKeys
+       , genesisDevSecretKeys
 
        -- * Ssc
        , genesisLeaders
-
-       -- * Update System
-       , genesisBlockVersion
-       , genesisBlockVersionData
-       , genesisSoftwareVersions
-       , genesisScriptVersion
-       , genesisSlotDuration
-       , genesisMaxBlockSize
        ) where
 
-import           Control.Lens               (_head)
-import           Data.Default               (Default (..))
-import           Data.List                  (genericLength, genericReplicate)
-import qualified Data.Map.Strict            as M
-import qualified Data.Text                  as T
-import           Data.Time.Units            (Millisecond)
-import           Formatting                 (int, sformat, (%))
-import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util              (enumerate)
+import           Data.Default       (Default (..))
+import           Data.List          (genericLength, genericReplicate)
+import qualified Data.Map.Strict    as M
+import qualified Data.Text          as T
+import           Formatting         (int, sformat, (%))
+import           Serokell.Util      (enumerate)
 import           Universum
 
-import qualified Pos.Constants              as Const
-import           Pos.Core.Types             (ScriptVersion, SoftwareVersion (..))
-import           Pos.Crypto                 (PublicKey, SecretKey, deterministicKeyGen,
-                                             unsafeHash)
-import           Pos.Genesis.Parser         (compileGenData)
-import           Pos.Genesis.Types          (GenesisData (..), StakeDistribution (..))
-import           Pos.Lrc.FtsPure            (followTheSatoshi)
-import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..))
-import           Pos.Txp.Toil.Types         (Utxo)
-import           Pos.Types                  (Address (..), BlockVersion (..), Coin,
-                                             SharedSeed (SharedSeed), SlotLeaders,
-                                             StakeholderId, applyCoinPortion,
-                                             coinToInteger, divCoin, makePubKeyAddress,
-                                             mkCoin, unsafeAddCoin, unsafeMulCoin)
-import           Pos.Update.Core.Types      (BlockVersionData (..))
+import qualified Pos.Constants      as Const
+import           Pos.Core.Types     (StakeholderId)
+import           Pos.Crypto         (PublicKey, SecretKey, deterministicKeyGen,
+                                     unsafeHash)
+import           Pos.Genesis.Parser (compileGenData)
+import           Pos.Genesis.Types  (GenesisData (..), StakeDistribution (..),
+                                     getTotalStake)
+import           Pos.Lrc.FtsPure    (followTheSatoshi)
+import           Pos.Txp.Core.Types (TxIn (..), TxOut (..), TxOutAux (..),
+                                     TxOutDistribution)
+import           Pos.Txp.Toil.Types (Utxo)
+import           Pos.Types          (Address (..), Coin, SharedSeed (SharedSeed),
+                                     SlotLeaders, applyCoinPortion, coinToInteger,
+                                     divCoin, makePubKeyAddress, mkCoin, unsafeAddCoin,
+                                     unsafeMulCoin)
 
 ----------------------------------------------------------------------------
 -- Static state
 ----------------------------------------------------------------------------
 
-#ifdef DEV_MODE
 -- | List of pairs from 'SecretKey' with corresponding 'PublicKey'.
-genesisKeyPairs :: [(PublicKey, SecretKey)]
-genesisKeyPairs = map gen [0 .. Const.genesisN - 1]
+genesisDevKeyPairs :: [(PublicKey, SecretKey)]
+genesisDevKeyPairs = map gen [0 .. Const.genesisN - 1]
   where
     gen :: Int -> (PublicKey, SecretKey)
     gen =
@@ -77,27 +63,24 @@ genesisKeyPairs = map gen [0 .. Const.genesisN - 1]
         encodeUtf8 .
         T.take 32 . sformat ("My awesome 32-byte seed #" %int % "             ")
 
--- | List of 'SecrekKey'`s in genesis.
-genesisSecretKeys :: [SecretKey]
-genesisSecretKeys = map snd genesisKeyPairs
+-- | List of 'PublicKey's in genesis.
+genesisDevPublicKeys :: [PublicKey]
+genesisDevPublicKeys = map fst genesisDevKeyPairs
 
--- | List of 'PublicKey'`s in genesis.
-genesisPublicKeys :: [PublicKey]
-genesisPublicKeys = map fst genesisKeyPairs
+-- | List of 'SecretKey's in genesis.
+genesisDevSecretKeys :: [SecretKey]
+genesisDevSecretKeys = map snd genesisDevKeyPairs
 
--- | List of 'Address'`es in genesis. See 'genesisPublicKeys'.
+-- | List of addresses in genesis. See 'genesisPublicKeys'.
 genesisAddresses :: [Address]
-genesisAddresses = map makePubKeyAddress genesisPublicKeys
+genesisAddresses
+    | Const.isDevelopment = map makePubKeyAddress genesisDevPublicKeys
+    | otherwise           = gdAddresses compileGenData
 
 genesisStakeDistribution :: StakeDistribution
-genesisStakeDistribution = def
-#else
-genesisAddresses :: [Address]
-genesisAddresses = gdAddresses compileGenData
-
-genesisStakeDistribution :: StakeDistribution
-genesisStakeDistribution = gdDistribution compileGenData
-#endif
+genesisStakeDistribution
+    | Const.isDevelopment = def
+    | otherwise           = gdDistribution compileGenData
 
 instance Default StakeDistribution where
     def = FlatStakes Const.genesisN
@@ -113,49 +96,37 @@ bitcoinDistribution20 :: [Coin]
 bitcoinDistribution20 = map mkCoin
     [200,163,120,105,78,76,57,50,46,31,26,13,11,11,7,4,2,0,0,0]
 
-stakeDistribution :: StakeDistribution -> [Coin]
+stakeDistribution :: StakeDistribution -> [(Coin, TxOutDistribution)]
 stakeDistribution (FlatStakes stakeholders coins) =
     genericReplicate stakeholders val
   where
-    val = coins `divCoin` stakeholders
+    val = (coins `divCoin` stakeholders, [])
 stakeDistribution (BitcoinStakes stakeholders coins) =
-    map normalize $ bitcoinDistribution1000Coins stakeholders
+    map ((, []) . normalize) $ bitcoinDistribution1000Coins stakeholders
   where
     normalize x = x `unsafeMulCoin`
                   coinToInteger (coins `divCoin` (1000 :: Int))
-stakeDistribution ExponentialStakes = expTwoDistribution
-stakeDistribution TestnetStakes {..} =
-    map (mkCoin . fromIntegral) $ basicDist & _head %~ (+ rmd)
+stakeDistribution ExponentialStakes = map (, []) expTwoDistribution
+stakeDistribution ts@TestnetStakes {..} =
+    checkMpcThd (getTotalStake ts) sdRichStake $
+    map (, []) basicDist
   where
-    -- Total number of richmen
-    richs = fromIntegral sdRichmen
-    -- Total number of poor
-    poors = fromIntegral sdPoor
-    -- Minimum amount of money to become rich
-    thresholdRich = coinToInteger $
-        applyCoinPortion Const.genesisMpcThd sdTotalStake
-    -- Maximal amount of total money which poor stakeholders can hold
-    maxPoorStake = (thresholdRich - 1) * poors
-    -- Minimum amount of richmen's money to prevent poors becoming richmen
-    minRichStake = coinToInteger sdTotalStake - maxPoorStake
-    -- Minimum amount of money per richman to maintain number of richmen
-    minRich = minRichStake `div` richs
-    -- Final amount of money per richman
-    rich = max thresholdRich minRich
-    -- Amount of money left to poor
-    poorStake = coinToInteger sdTotalStake - richs * rich
-    -- Money per poor and modulo (it goes to first richman)
-    (poor, rmd) = if poors == 0
-                  then (0, poorStake)
-                  else (poorStake `div` poors, poorStake `mod` poors)
-    -- Coin distribution (w/o modulo added)
-    basicDist = genericReplicate richs rich ++ genericReplicate poors poor
+    -- Node won't start if richmen cannot participate in MPC
+    checkMpcThd total richs =
+        if richs < applyCoinPortion Const.genesisMpcThd total
+        then error "Pos.Genesis: TestnetStakes: richmen stake \
+                   \is less than MPC threshold"
+        else identity
+    basicDist = genericReplicate sdRichmen sdRichStake ++
+                genericReplicate sdPoor sdPoorStake
 stakeDistribution (ExplicitStakes balances) =
     toList balances
+stakeDistribution (CombinedStakes distA distB) =
+    stakeDistribution distA <> stakeDistribution distB
 
 bitcoinDistribution1000Coins :: Word -> [Coin]
 bitcoinDistribution1000Coins stakeholders
-    | stakeholders < 20 = stakeDistribution
+    | stakeholders < 20 = map fst $ stakeDistribution
           (FlatStakes stakeholders (mkCoin 1000))
     | stakeholders == 20 = bitcoinDistribution20
     | otherwise =
@@ -185,7 +156,10 @@ genesisUtxo :: StakeDistribution -> Utxo
 genesisUtxo sd =
     M.fromList . zipWith zipF (stakeDistribution sd) $ genesisAddresses
   where
-    zipF coin addr = (TxIn (unsafeHash addr) 0, (TxOut addr coin, []))
+    zipF (coin, distr) addr =
+        ( TxIn (unsafeHash addr) 0
+        , TxOutAux (TxOut addr coin) distr
+        )
 
 genesisDelegation :: HashMap StakeholderId [StakeholderId]
 genesisDelegation = mempty
@@ -200,50 +174,3 @@ genesisSeed = SharedSeed "vasa opasa skovoroda Ggurda boroda provoda"
 -- | Leaders of genesis. See 'followTheSatoshi'.
 genesisLeaders :: Utxo -> SlotLeaders
 genesisLeaders = followTheSatoshi genesisSeed
-
-----------------------------------------------------------------------------
--- Update system
-----------------------------------------------------------------------------
-
--- | BlockVersion used at the very beginning.
-genesisBlockVersion :: BlockVersion
-genesisBlockVersion =
-    BlockVersion
-    { bvMajor = 0
-    , bvMinor = 0
-    , bvAlt = 0
-    }
-
--- | Software Versions
-genesisSoftwareVersions :: [SoftwareVersion]
-genesisSoftwareVersions = [Const.curSoftwareVersion { svNumber = 0 }]
-
--- | 'BlockVersionData' for genesis 'BlockVersion'.
-genesisBlockVersionData :: BlockVersionData
-genesisBlockVersionData =
-    BlockVersionData
-    { bvdScriptVersion = genesisScriptVersion
-    , bvdSlotDuration = Const.genesisSlotDuration
-    , bvdMaxBlockSize = Const.genesisMaxBlockSize
-    , bvdMaxHeaderSize = Const.genesisMaxHeaderSize
-    , bvdMaxTxSize = Const.genesisMaxTxSize
-    , bvdMaxProposalSize = Const.genesisMaxUpdateProposalSize
-    , bvdMpcThd = Const.genesisMpcThd
-    , bvdHeavyDelThd = Const.genesisHeavyDelThd
-    , bvdUpdateVoteThd = Const.genesisUpdateVoteThd
-    , bvdUpdateProposalThd = Const.genesisUpdateProposalThd
-    , bvdUpdateImplicit = Const.genesisUpdateImplicit
-    , bvdUpdateSoftforkThd = Const.genesisUpdateSoftforkThd
-    }
-
--- | ScriptVersion used at the very beginning
-genesisScriptVersion :: ScriptVersion
-genesisScriptVersion = 0
-
--- | Initial slot duration
-genesisSlotDuration :: Millisecond
-genesisSlotDuration = Const.genesisSlotDuration
-
--- | Initial block size limit
-genesisMaxBlockSize :: Byte
-genesisMaxBlockSize = Const.genesisMaxBlockSize

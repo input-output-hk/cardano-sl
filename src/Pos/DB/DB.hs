@@ -39,7 +39,8 @@ import           Pos.Lrc.DB                       (prepareLrcDB)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Types                        (Block, BlockHeader, getBlockHeader,
                                                    headerHash, mkGenesisBlock)
-import           Pos.Util                         (NewestFirst, inAssertMode)
+import           Pos.Util                         (inAssertMode)
+import           Pos.Util.Chrono                  (NewestFirst)
 
 -- | Open all DBs stored on disk.
 openNodeDBs
@@ -64,7 +65,9 @@ openNodeDBs recreate fp = do
 -- | Initialize DBs if necessary.
 initNodeDBs
     :: forall ssc m.
-       (SscHelpersClass ssc, WithNodeContext ssc m, MonadDB m)
+       ( SscHelpersClass ssc
+       , WithNodeContext ssc m
+       , MonadDB m )
     => m ()
 initNodeDBs = do
     leaders0 <- genesisLeadersM

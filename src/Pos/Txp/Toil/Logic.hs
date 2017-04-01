@@ -1,153 +1,133 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies    #-}
 
--- | All logic of Txp,
--- it operates in terms of MonadUtxo, MonadBalances and MonadTxPool.
+-- | All logic of Toil.  It operates in terms of MonadUtxo,
+-- MonadToilEnv, MonadBalances and MonadTxPool.
 
 module Pos.Txp.Toil.Logic
-       ( verifyTxp
-       , applyTxp
-       , rollbackTxp
-       , normalizeTxp
+       ( GlobalToilMode
+       , verifyToil
+       , applyToil
+       , rollbackToil
+
+       , LocalToilMode
+       , normalizeToil
        , processTx
+
+       , verifyAndApplyTx
        ) where
 
-import           Control.Monad.Except (MonadError (..))
-import qualified Data.HashMap.Strict  as HM
-import qualified Data.HashSet         as HS
-import qualified Data.List.NonEmpty   as NE
-import           Formatting           (build, sformat, (%))
-import           System.Wlog          (WithLogger, logInfo)
+import           Control.Monad.Except  (MonadError (..))
+import           System.Wlog           (WithLogger)
 import           Universum
 
-import           Pos.Constants        (maxLocalTxs)
-import           Pos.Core.Coin        (coinToInteger, sumCoins, unsafeAddCoin,
-                                       unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Crypto           (WithHash (..), hash)
-import           Pos.Types            (Coin, StakeholderId, mkCoin)
+import           Pos.Binary.Class      (biSize)
+import           Pos.Constants         (maxLocalTxs)
+import           Pos.Crypto            (WithHash (..), hash)
 
-import           Pos.Txp.Core         (Tx (..), TxAux, TxId, TxUndo, TxpUndo,
-                                       getTxDistribution, topsortTxs, txOutStake)
-import           Pos.Txp.Toil.Class   (MonadBalances (..), MonadBalancesRead (..),
-                                       MonadTxPool (..), MonadUtxo (..))
-import           Pos.Txp.Toil.Failure (TxpVerFailure (..))
-import qualified Pos.Txp.Toil.Utxo    as Utxo
+import           Pos.Txp.Core          (TxAux, TxId, TxUndo, TxpUndo, topsortTxs)
+import           Pos.Txp.Toil.Balances (applyTxsToBalances, rollbackTxsBalances)
+import           Pos.Txp.Toil.Class    (MonadBalances (..), MonadToilEnv (..),
+                                        MonadTxPool (..), MonadUtxo (..))
+import           Pos.Txp.Toil.Failure  (ToilVerFailure (..))
+import           Pos.Txp.Toil.Types    (ToilEnv (teMaxTxSize))
+import qualified Pos.Txp.Toil.Utxo     as Utxo
 
-type GlobalTxpMode m = ( MonadUtxo m
-                       , MonadBalances m
-                       , MonadError TxpVerFailure m
-                       , WithLogger m)
+----------------------------------------------------------------------------
+-- Global
+----------------------------------------------------------------------------
 
-type LocalTxpMode m = ( MonadUtxo m
-                      , MonadTxPool m
-                      , MonadError TxpVerFailure m)
+type GlobalToilMode m = ( MonadUtxo m
+                        , MonadBalances m
+                        , MonadToilEnv m
+                        , WithLogger m)
 
--- CHECK: @verifyTxp
+-- CHECK: @verifyToil
 -- | Verify transactions correctness with respect to Utxo applying
 -- them one-by-one.
 -- Note: transactions must be topsorted to pass check.
 -- Warning: this function may apply some transactions and fail
 -- eventually. Use it only on temporary data.
-verifyTxp :: GlobalTxpMode m => [TxAux] -> m TxpUndo
-verifyTxp = mapM (processTxWithPureChecks True . withTxId)
+verifyToil
+    :: (GlobalToilMode m, MonadError ToilVerFailure m)
+    => [TxAux] -> m TxpUndo
+verifyToil = mapM (verifyAndApplyTx False . withTxId)
 
--- | Apply transactions from one block.
-applyTxp :: GlobalTxpMode m => [(TxAux, TxUndo)] -> m ()
-applyTxp txun = do
-    let (txOutPlus, txInMinus) = concatStakes txun
-    recomputeStakes txOutPlus txInMinus
+-- | Apply transactions from one block. They must be valid (for
+-- example, it implies topological sort).
+applyToil
+    :: GlobalToilMode m
+    => [(TxAux, TxUndo)]
+    -> m ()
+applyToil txun = do
+    applyTxsToBalances txun
     mapM_ (applyTxToUtxo' . withTxId . fst) txun
 
 -- | Rollback transactions from one block.
-rollbackTxp :: GlobalTxpMode m => [(TxAux, TxUndo)] -> m ()
-rollbackTxp txun = do
-    let (txOutMinus, txInPlus) = concatStakes txun
-    recomputeStakes txInPlus txOutMinus
+rollbackToil :: GlobalToilMode m => [(TxAux, TxUndo)] -> m ()
+rollbackToil txun = do
+    rollbackTxsBalances txun
     mapM_ Utxo.rollbackTxUtxo $ reverse txun
 
--- | Get rid of invalid transactions.
--- All valid transactions will be added to mem pool and applied to utxo.
-normalizeTxp :: LocalTxpMode m => [(TxId, TxAux)] -> m ()
-normalizeTxp txs = do
-    topsorted <- note TxpCantTopsort (topsortTxs wHash txs)
-    mapM_ (runExceptT . processTx) topsorted
-  where
-    wHash (i, (t, _, _)) = WithHash t i
+----------------------------------------------------------------------------
+-- Local
+----------------------------------------------------------------------------
+
+type LocalToilMode m = ( MonadUtxo m
+                      , MonadToilEnv m
+                      , MonadTxPool m
+                      )
 
 -- CHECK: @processTx
 -- #processWithPureChecks
--- Validate one transaction and also add it to mem pool and apply to utxo
+-- | Verify one transaction and also add it to mem pool and apply to utxo
 -- if transaction is valid.
 processTx
-    :: LocalTxpMode m => (TxId, TxAux) -> m ()
+    :: (LocalToilMode m, MonadError ToilVerFailure m)
+    => (TxId, TxAux) -> m TxUndo
 processTx tx@(id, aux) = do
-    whenM (hasTx id) $ throwError TxpKnown
-    whenM ((>= maxLocalTxs) <$> poolSize) $ throwError TxpOverwhelmed
-    undo <- processTxWithPureChecks True tx
-    putTxWithUndo id aux undo
+    whenM (hasTx id) $ throwError ToilKnown
+    whenM ((>= maxLocalTxs) <$> poolSize) $ throwError ToilOverwhelmed
+    undo <- verifyAndApplyTx True tx
+    undo <$ putTxWithUndo id aux undo
+
+-- | Get rid of invalid transactions.
+-- All valid transactions will be added to mem pool and applied to utxo.
+normalizeToil
+    :: (LocalToilMode m)
+    => [(TxId, TxAux)]
+    -> m ()
+normalizeToil txs = mapM_ normalize ordered
+  where
+    ordered = fromMaybe txs $ topsortTxs wHash txs
+    wHash (i, (t, _, _)) = WithHash t i
+    normalize = runExceptT . processTx
+
+----------------------------------------------------------------------------
+-- ToilEnv logic
+----------------------------------------------------------------------------
+
+verifyToilEnv
+    :: (MonadToilEnv m, MonadError ToilVerFailure m)
+    => TxAux -> m ()
+verifyToilEnv txAux = do
+    limit <- teMaxTxSize <$> getToilEnv
+    let txSize = biSize txAux
+    when (txSize > limit) $
+        throwError ToilTooLargeTx {ttltSize = txSize, ttltLimit = limit}
 
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
--- Compute new stakeholder's stakes by lists of spent and received coins.
-recomputeStakes
-    :: (MonadBalances m, WithLogger m)
-    => [(StakeholderId, Coin)]
-    -> [(StakeholderId, Coin)]
-    -> m ()
-recomputeStakes plusDistr minusDistr = do
-    let needResolve =
-            HS.toList $
-            HS.fromList (map fst plusDistr) `HS.union`
-            HS.fromList (map fst minusDistr)
-    resolvedStakes <- mapM resolve needResolve
-    totalStake <- getTotalStake
-    let positiveDelta = sumCoins (map snd plusDistr)
-    let negativeDelta = sumCoins (map snd minusDistr)
-    let newTotalStake = unsafeIntegerToCoin $
-                        coinToInteger totalStake + positiveDelta - negativeDelta
-
-    let newStakes
-          = HM.toList $
-              calcNegStakes minusDistr
-                  (calcPosStakes $ zip needResolve resolvedStakes ++ plusDistr)
-    setTotalStake newTotalStake
-    mapM_ (uncurry setStake) newStakes
-  where
-    createInfo = sformat ("Stake for " %build%" will be created in UtxoDB")
-    resolve ad = maybe (mkCoin 0 <$ logInfo (createInfo ad)) pure =<< getStake ad
-    calcPosStakes distr = foldl' plusAt HM.empty distr
-    calcNegStakes distr hm = foldl' minusAt hm distr
-    -- @pva701 says it's not possible to get negative coin here. We *can* in
-    -- theory get overflow because we're adding and only then subtracting,
-    -- but in practice it won't happen unless someone has 2^63 coins or
-    -- something.
-    plusAt hm (key, val) = HM.insertWith unsafeAddCoin key val hm
-    minusAt hm (key, val) =
-        HM.alter (maybe err (\v -> Just (unsafeSubCoin v val))) key hm
-      where
-        err = error ("recomputeStakes: no stake for " <> show key)
-
--- Concatenate stakes of the all passed transactions and undos.
-concatStakes
-    :: [(TxAux, TxUndo)]
-    -> ([(StakeholderId, Coin)], [(StakeholderId, Coin)])
-concatStakes (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
-  where
-    txasTxOutDistr = concatMap concatDistr txas
-    undoTxInDistr = concatMap txOutStake (concat undo)
-    concatDistr (UnsafeTx {..}, _, distr) =
-        concatMap txOutStake $
-        toList (NE.zip _txOutputs (getTxDistribution distr))
-
-processTxWithPureChecks
-    :: (MonadUtxo m, MonadError TxpVerFailure m)
+verifyAndApplyTx
+    :: (MonadUtxo m, MonadToilEnv m, MonadError ToilVerFailure m)
     => Bool -> (TxId, TxAux) -> m TxUndo
-processTxWithPureChecks verifyVersions tx@(_, aux) = do
-    undo <- Utxo.verifyTxUtxo verifyVersions aux
-    applyTxToUtxo' tx
-    pure undo
+verifyAndApplyTx verifyVersions tx@(_, txAux) = do
+    verifyToilEnv txAux
+    Utxo.verifyTxUtxo ctx txAux <* applyTxToUtxo' tx
+  where
+    ctx = Utxo.VTxContext verifyVersions
 
 withTxId :: TxAux -> (TxId, TxAux)
 withTxId aux@(tx, _, _) = (hash tx, aux)

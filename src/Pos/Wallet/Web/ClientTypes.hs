@@ -5,7 +5,8 @@
 
 -- | Types representing client (wallet) requests on wallet API.
 module Pos.Wallet.Web.ClientTypes
-      ( SyncProgress (..)
+      ( CMaybe (..)
+      , SyncProgress (..)
       , CAddress (..)
       , CCurrency (..)
       , CHash (..)
@@ -73,7 +74,10 @@ import           Pos.Types              (Address (..), BlockVersion, ChainDiffic
 import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes,
                                          UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll        (ConfirmedProposalState (..))
-import           Pos.Util.BackupPhrase  (BackupPhrase)
+import           Pos.Util.BackupPhrase  (BackupPhrase, mkBackupPhrase)
+
+newtype CMaybe a = CMaybe (Maybe a)
+    deriving (Show, Eq, Buildable)
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty
@@ -179,8 +183,7 @@ newtype CWalletSetAddress = CWalletSetAddress
     } deriving (Eq, Show, Generic, Hashable)
 
 instance Buildable CWalletSetAddress where
-    build (CWalletSetAddress addr) =
-        bprint ("CWalletSetAddress { "%F.build%" }") addr
+    build (CWalletSetAddress addr) = build addr
 
 -- | Wallet identifier
 data CWalletAddress = CWalletAddress
@@ -266,11 +269,28 @@ data CWalletRedeem = CWalletRedeem
 
 -- | Meta data of 'CWalletSet'
 data CWalletSetMeta = CWalletSetMeta
-    { cwsName :: !Text
+    { cwsName         :: !Text
+    , cwsBackupPhrase :: !BackupPhrase
     }
 
+instance Default BackupPhrase where
+    def = mkBackupPhrase
+        [ "transfer"
+        , "uniform"
+        , "grunt"
+        , "excess"
+        , "six"
+        , "veteran"
+        , "vintage"
+        , "warm"
+        , "confirm"
+        , "vote"
+        , "nephew"
+        , "allow"
+        ]
+
 instance Default CWalletSetMeta where
-    def = CWalletSetMeta "Personal Wallet Set"
+    def = CWalletSetMeta "Personal Wallet Set" def
 
 -- | Client Wallet (CW)
 data CWalletSet = CWalletSet
@@ -281,8 +301,7 @@ data CWalletSet = CWalletSet
 
 -- | Query data for wallet set creation
 data CWalletSetInit = CWalletSetInit
-    { cwsBackupPhrase :: !BackupPhrase
-    , cwsInitMeta     :: !CWalletSetMeta
+    { cwsInitMeta     :: !CWalletSetMeta
     }
 
 class WithDerivationPath a where

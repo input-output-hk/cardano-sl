@@ -74,15 +74,16 @@ import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAccount (..), CAccountAddress (..),
                                                 CAddress, CCurrency (ADA), CInitialized,
-                                                CPassPhrase (..), CProfile, CProfile (..),
-                                                CTx (..), CTxId, CTxMeta (..),
-                                                CUpdateInfo (..), CWallet (..),
-                                                CWalletAddress (..), CWalletInit (..),
-                                                CWalletMeta (..), CWalletRedeem (..),
-                                                CWalletSet (..), CWalletSetAddress (..),
-                                                CWalletSetInit (..), NotifyEvent (..),
-                                                SyncProgress (..), addressToCAddress,
-                                                cAddressToAddress,
+                                                CMaybe (..), CPassPhrase (..), CProfile,
+                                                CProfile (..), CTx (..), CTxId,
+                                                CTxMeta (..), CUpdateInfo (..),
+                                                CWallet (..), CWalletAddress (..),
+                                                CWalletInit (..), CWalletMeta (..),
+                                                CWalletRedeem (..), CWalletSet (..),
+                                                CWalletSetAddress (..),
+                                                CWalletSetInit (..), CWalletSetMeta (..),
+                                                NotifyEvent (..), SyncProgress (..),
+                                                addressToCAddress, cAddressToAddress,
                                                 cPassPhraseToPassPhrase, mkCTx, mkCTxId,
                                                 toCUpdateInfo, txContainsTitle,
                                                 txIdToCTxId, walletAddrByAccount)
@@ -268,6 +269,8 @@ servantHandlers sendActions =
 
      apiGetWallet
     :<|>
+     apiGetWalletsOf
+    :<|>
      apiGetWallets
     :<|>
      apiUpdateWallet
@@ -324,7 +327,8 @@ servantHandlers sendActions =
     apiRestoreWSet              = (\a -> catchWalletError . restoreWSet a)
     apiImportKey                = catchWalletError . importKey sendActions
     apiGetWallet                = catchWalletError . getWallet
-    apiGetWallets               = catchWalletError . getWallets
+    apiGetWalletsOf             = catchWalletError . getWallets . Just
+    apiGetWallets               = catchWalletError $ getWallets Nothing
     apiUpdateWallet             = (\a -> catchWalletError . updateWallet a)
     apiNewWallet                = (\a -> catchWalletError . newWallet a)
     apiDeleteWallet             = catchWalletError . deleteWallet
@@ -369,7 +373,7 @@ getWalletAccAddrsOrThrow wCAddr =
     getWalletAccounts wCAddr >>= maybe noWallet return
   where
     noWallet = throwM . Internal $
-        sformat ("No wallet with address "%build%" is found") wCAddr
+        sformat ("No wallet with address "%build%" found") wCAddr
 
 getAccounts :: WalletWebMode ssc m => CWalletAddress -> m [CAccount]
 getAccounts = getWalletAccAddrsOrThrow >=> mapM getAccount
@@ -381,7 +385,7 @@ getWallet cAddr = do
     pure $ CWallet cAddr meta accounts
   where
     noWallet = throwM . Internal $
-        sformat ("No wallet with address "%build%" is found") cAddr
+        sformat ("No wallet with address "%build%" found") cAddr
 
 getWSet :: WalletWebMode ssc m => CWalletSetAddress -> m CWalletSet
 getWSet cAddr = do
@@ -390,7 +394,7 @@ getWSet cAddr = do
     pure $ CWalletSet cAddr meta walletsNum
   where
     noWSet = throwM . Internal $
-        sformat ("No wallet set with address "%build%" is found") cAddr
+        sformat ("No wallet set with address "%build%" found") cAddr
 
 -- TODO: probably poor naming
 decodeCAddressOrFail :: WalletWebMode ssc m => CAddress -> m Address
@@ -482,8 +486,8 @@ getHistory wAddr skip limit = do
 searchHistory
     :: forall ssc m.
        (SscHelpersClass ssc, WalletWebMode ssc m)
-    => CWalletAddress -> Text -> Maybe CAccountAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
-searchHistory wAddr search mAccAddr skip limit =
+    => CWalletAddress -> Text -> CMaybe CAccountAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
+searchHistory wAddr search (CMaybe mAccAddr) skip limit =
     first (filter fits) <$> getHistory @ssc wAddr skip limit
   where
     fits ctx = txContainsTitle search ctx
@@ -510,6 +514,9 @@ addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
 
 newAccount :: WalletWebMode ssc m => CPassPhrase -> CWalletAddress -> m CAccount
 newAccount cPassphrase cWAddr = do
+    -- check wallet exists
+    _ <- getWallet cWAddr
+
     passphrase <- decodeCPassPhraseOrFail cPassphrase
     cAccAddr <- genUniqueAccountAddress passphrase cWAddr
     addAccount cAccAddr
@@ -517,6 +524,9 @@ newAccount cPassphrase cWAddr = do
 
 newWallet :: WalletWebMode ssc m => CPassPhrase -> CWalletInit -> m CWallet
 newWallet cPassphrase CWalletInit {..} = do
+    -- check wallet set exists
+    _ <- getWSet cwInitWSetId
+
     cAddr <- genUniqueWalletAddress cwInitWSetId
     createWallet cAddr cwInitMeta
     () <$ newAccount cPassphrase cAddr
@@ -525,13 +535,24 @@ newWallet cPassphrase CWalletInit {..} = do
 newWSet :: WalletWebMode ssc m => CPassPhrase -> CWalletSetInit -> m CWalletSet
 newWSet cPassphrase CWalletSetInit {..} = do
     passphrase <- decodeCPassPhraseOrFail cPassphrase
+    let CWalletSetMeta {..} = cwsInitMeta
     cAddr <- genSaveRootAddress passphrase cwsBackupPhrase
+
+    whenM (wSetExists cAddr) $
+        throwM . Internal $
+        sformat ("Wallet set with this backphrase already exists: "%build)
+        cwsBackupPhrase
+
     createWSet cAddr cwsInitMeta
     getWSet cAddr
+  where
+    wSetExists cAddr =
+        (getWSet cAddr $> True) `catch` \(Internal _) -> pure False
 
 restoreWSet :: WalletWebMode ssc m => CPassPhrase -> CWalletSetInit -> m CWalletSet
 restoreWSet cPassphrase CWalletSetInit {..} = do
     passphrase <- decodeCPassPhraseOrFail cPassphrase
+    let CWalletSetMeta {..} = cwsInitMeta
     cAddr <- genSaveRootAddress passphrase cwsBackupPhrase
     getWSetMeta cAddr
         >>= maybe (createWSet cAddr cwsInitMeta) (const wSetExistsError)
@@ -750,6 +771,10 @@ deriveAccountSK passphrase CWalletAddress{..} accIndex = do
 -- Orphan instances
 ----------------------------------------------------------------------------
 
+instance FromHttpApiData a => FromHttpApiData (CMaybe a) where
+    parseUrlPiece t =
+        CMaybe <$> if null t then pure Nothing else Just <$> parseUrlPiece t
+
 instance FromHttpApiData Coin where
     parseUrlPiece = fmap mkCoin . parseUrlPiece
 
@@ -764,7 +789,7 @@ instance FromHttpApiData CWalletSetAddress where
 
 instance FromHttpApiData CWalletAddress where
     parseUrlPiece url =
-        case T.splitOn "#" url of
+        case T.splitOn "@" url of
             [part1, part2] -> do
                 cwaWSAddress <- parseUrlPiece part1
                 cwaIndex     <- maybe (Left "Invalid wallet index") Right $
@@ -774,7 +799,7 @@ instance FromHttpApiData CWalletAddress where
 
 instance FromHttpApiData CAccountAddress where
     parseUrlPiece url =
-        case T.splitOn "#" url of
+        case T.splitOn "@" url of
             [part1, part2, part3, part4] -> do
                 caaWSAddress    <- parseUrlPiece part1
                 caaWalletIndex  <- maybe (Left "Invalid wallet index") Right $

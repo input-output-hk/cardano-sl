@@ -49,6 +49,7 @@ import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import           Pos.Client.Txp.History     (TxHistoryEntry)
 import           Pos.Txp                    (Utxo)
 import           Pos.Types                  (HeaderHash)
+import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (CAccountAddress, CAccountAddress (..),
                                              CAddress, CCurrency, CHash, CProfile, CTxId,
                                              CTxMeta, CUpdateInfo, CWalletAddress,
@@ -185,6 +186,7 @@ updateHistoryCache cAddr cHash utxo cTxs = wsHistoryCache . at cAddr ?= (cHash, 
 deriveSafeCopySimple 0 'base ''CProfile
 deriveSafeCopySimple 0 'base ''CHash
 deriveSafeCopySimple 0 'base ''CAddress
+deriveSafeCopySimple 0 'base ''BackupPhrase
 deriveSafeCopySimple 0 'base ''CWalletSetAddress
 deriveSafeCopySimple 0 'base ''CWalletAddress
 deriveSafeCopySimple 0 'base ''CAccountAddress

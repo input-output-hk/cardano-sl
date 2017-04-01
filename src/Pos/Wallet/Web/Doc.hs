@@ -28,12 +28,12 @@ import           Pos.Constants              (curSoftwareVersion)
 import           Pos.Crypto                 (keyGen)
 import           Pos.Types                  (BlockVersion (..), Coin, SoftwareVersion,
                                              makePubKeyAddress, mkCoin)
-import           Pos.Util.BackupPhrase      (BackupPhrase, mkBackupPhrase)
+import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAccount (..), CAccountAddress (..),
                                              CAccountAddress, CAddress (..),
                                              CCurrency (..), CHash (..),
-                                             CInitialized (..), CPassPhrase,
+                                             CInitialized (..), CMaybe (..), CPassPhrase,
                                              CProfile (..), CTType (..), CTx (..), CTxId,
                                              CTxMeta (..), CUpdateInfo (..), CWallet (..),
                                              CWalletAddress (..), CWalletAddress,
@@ -101,7 +101,7 @@ instance ToCapture (Capture "walletSetId" CWalletSetAddress) where
         , _capDesc = "Address of wallet set."
         }
 
-instance ToCapture (Capture "walletSetId" (Maybe CWalletSetAddress)) where
+instance ToCapture (Capture "walletSetId" (CMaybe CWalletSetAddress)) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "walletSetId"
@@ -136,7 +136,7 @@ instance ToCapture (Capture "address" CAccountAddress) where
         , _capDesc = "Address, history of which should be fetched"
         }
 
-instance ToCapture (Capture "address" (Maybe CAccountAddress)) where
+instance ToCapture (Capture "address" (CMaybe CAccountAddress)) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "address"
@@ -244,20 +244,6 @@ ctxMeta = CTxMeta
       , ctmDate        = posixTime
       }
 
-backupPhrase :: BackupPhrase
-backupPhrase = mkBackupPhrase [ "transfer"
-                              , "uniform"
-                              , "grunt"
-                              , "excess"
-                              , "six"
-                              , "veteran"
-                              , "vintage"
-                              , "warm"
-                              , "confirm"
-                              , "vote"
-                              , "nephew"
-                              , "allow"
-                              ]
 --------------------------------------------------------------------------------
 
 instance ToSample WalletError where
@@ -349,8 +335,7 @@ instance ToSample CWalletSetInit where
     toSamples Proxy = singleSample sample
       where
         sample = CWalletSetInit
-            { cwsBackupPhrase = backupPhrase
-            , cwsInitMeta     = def
+            { cwsInitMeta = def
             }
 
 instance ToSample CWalletAddress where
@@ -432,7 +417,7 @@ instance ToSample Word where
 instance ToSample BackupPhrase where
     toSamples Proxy = singleSample sample
       where
-        sample = backupPhrase
+        sample = def
 
 instance ToSample SoftwareVersion where
     toSamples Proxy = singleSample curSoftwareVersion

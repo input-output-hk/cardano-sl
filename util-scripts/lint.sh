@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 projects="core db lrc infra update"
 
-incpath=$(find $(stack path --compiler-bin)/../lib -maxdepth 2 -path */include)
+incpath=$(find $(stack path $@ --compiler-bin)/../lib -maxdepth 2 -path */include)
 
 # Some people have tests and subprojects symlinked into src/, others don't
 if [ -d "src/core" ]; then

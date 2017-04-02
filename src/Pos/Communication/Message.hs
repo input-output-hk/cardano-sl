@@ -9,7 +9,7 @@ import           Pos.Binary.Class                 (UnsignedVarInt (..), encodeSt
 import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                                                    MsgHeaders)
 import           Pos.Communication.MessagePart    (MessagePart (..))
-import           Pos.Communication.Types.Relay    (DataMsg, InvOrData, ReqMsg)
+import           Pos.Communication.Types.Relay    (DataMsg, InvOrData, MempoolMsg, ReqMsg)
 import           Pos.Communication.Types.SysStart (SysStartRequest, SysStartResponse)
 import           Pos.Delegation.Types             (ConfirmProxySK, SendProxySK)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents, GtTag)
@@ -94,9 +94,17 @@ instance (MessagePart tag) =>
         tagM _ = Proxy
     formatMessage _ = "Request"
 
+instance (MessagePart tag) =>
+         Message (MempoolMsg tag) where
+    messageName p = varIntMName 10 <> pMessageName (tagM p)
+      where
+        tagM :: Proxy (MempoolMsg tag) -> Proxy tag
+        tagM _ = Proxy
+    formatMessage _ = "Mempool"
+
 instance (MessagePart contents) =>
          Message (DataMsg contents) where
-    messageName p = varIntMName 10 <> pMessageName (contentsM p)
+    messageName p = varIntMName 11 <> pMessageName (contentsM p)
       where
         contentsM :: Proxy (DataMsg contents) -> Proxy contents
         contentsM _ = Proxy

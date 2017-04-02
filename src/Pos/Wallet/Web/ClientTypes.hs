@@ -25,6 +25,7 @@ module Pos.Wallet.Web.ClientTypes
       , CAccount (..)
       , CWallet (..)
       , CWalletType (..)
+      , CWalletAssurance (..)
       , CWalletMeta (..)
       , CWalletInit (..)
       , CWalletSet (..)
@@ -77,7 +78,7 @@ import           Pos.Update.Poll        (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase  (BackupPhrase, mkBackupPhrase)
 
 newtype CMaybe a = CMaybe (Maybe a)
-    deriving (Show, Eq, Buildable)
+    deriving (Show, Eq, Buildable, Generic)
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty
@@ -230,22 +231,29 @@ data CWalletType
     | CWTShared
     deriving (Show, Generic)
 
+-- | A level of assurance for the wallet "meta type"
+data CWalletAssurance
+    = CWAStrict
+    | CWANormal
+    deriving (Show, Generic)
+
 -- | Single account in a wallet
 data CAccount = CAccount
     { caAddress :: !CAccountAddress
     , caAmount  :: !Coin
     } deriving (Show, Generic)
 
--- | Meta data of 'CWallet'
 -- Includes data which are not provided by Cardano
 data CWalletMeta = CWalletMeta
-    { cwType     :: !CWalletType
-    , cwCurrency :: !CCurrency
-    , cwName     :: !Text
+    { cwType      :: !CWalletType
+    , cwCurrency  :: !CCurrency
+    , cwName      :: !Text
+    , cwAssurance :: !CWalletAssurance
+    , cwUnit      :: !Int -- ^ https://issues.serokell.io/issue/CSM-163#comment=96-2480
     } deriving (Show, Generic)
 
 instance Default CWalletMeta where
-    def = CWalletMeta CWTPersonal ADA "Personal Wallet"
+    def = CWalletMeta CWTPersonal ADA "Personal Wallet" CWANormal 0
 
 -- | Client Wallet (CW)
 -- (Flow type: walletType)
@@ -271,7 +279,7 @@ data CWalletRedeem = CWalletRedeem
 data CWalletSetMeta = CWalletSetMeta
     { cwsName         :: !Text
     , cwsBackupPhrase :: !BackupPhrase
-    }
+    } deriving (Show, Eq, Generic)
 
 instance Default BackupPhrase where
     def = mkBackupPhrase
@@ -297,12 +305,12 @@ data CWalletSet = CWalletSet
     { cwsAddress       :: !CWalletSetAddress
     , cwsWSetMeta      :: !CWalletSetMeta
     , cwsWalletsNumber :: !Int
-    }
+    } deriving (Eq, Show, Generic)
 
 -- | Query data for wallet set creation
 data CWalletSetInit = CWalletSetInit
     { cwsInitMeta     :: !CWalletSetMeta
-    }
+    } deriving (Eq, Show, Generic)
 
 class WithDerivationPath a where
     getDerivationPath :: a -> [Word32]
@@ -327,13 +335,7 @@ type CPwHash = Text -- or Base64 or something else
 -- all data of client are "meta data" - that is not provided by Cardano
 -- (Flow type: accountType)
 data CProfile = CProfile
-    { cpName        :: Text
-    , cpEmail       :: Text
-    , cpPhoneNumber :: Text
-    , cpPwHash      :: CPwHash
-    , cpPwCreated   :: POSIXTime
-    , cpLocale      :: Text
-    , cpPicture     :: Text -- TODO: base64
+    { cpLocale      :: Text
     } deriving (Show, Generic, Typeable)
 
 ----------------------------------------------------------------------------
@@ -415,7 +417,7 @@ countVotes = foldl' counter (0, 0)
 -- | Creates 'CTUpdateInfo' from 'ConfirmedProposalState'
 toCUpdateInfo :: ConfirmedProposalState -> CUpdateInfo
 toCUpdateInfo ConfirmedProposalState {..} =
-    let UpdateProposal {..} = cpsUpdateProposal
+    let UnsafeUpdateProposal {..} = cpsUpdateProposal
         cuiSoftwareVersion  = upSoftwareVersion
         cuiBlockVesion      = upBlockVersion
         cuiScriptVersion    = bvdScriptVersion upBlockVersionData

@@ -22,6 +22,13 @@ module Pos.Binary.Class
        , decodeOrFail
        , decodeFull
 
+       -- * Primitives for serialization
+       , getWord8
+       , putWord8
+       , getByteString
+       , putByteString
+       , label
+
        -- * The 'Raw' wrapper
        , Raw
 
@@ -171,20 +178,25 @@ putUnsignedVarInt n
           putUnsignedVarInt $ shiftR n 7
 {-# INLINE putUnsignedVarInt #-}
 
-getUnsignedVarInt' :: (Num a, Bits a) => Get a
-getUnsignedVarInt' = getWord8 >>= go
+getUnsignedVarInt' :: (Integral a, Bits a) => Get a
+getUnsignedVarInt' = do
+    (bytes, i) <- getWord8 >>= go
+    let iBytes = runPut $ putUnsignedVarInt i
+    if BSL.pack bytes /= iBytes
+       then fail $ "Ambigious varInt bytes: " ++ show bytes
+       else return i
   where
     go n | testBit n 7 = do
-             m <- getWord8 >>= go
-             return $ shiftL m 7 .|. clearBit (fromIntegral n) 7
-         | otherwise = return $ fromIntegral n
+             (bs, m) <- getWord8 >>= go
+             return (n:bs, shiftL m 7 .|. clearBit (fromIntegral n) 7)
+         | otherwise = return ([n], fromIntegral n)
 {-# INLINE getUnsignedVarInt' #-}
 
 putSignedVarInt :: (ZZEncode a b, Integral b, Bits b) => a -> Put
 putSignedVarInt x = putUnsignedVarInt (zzEncode x)
 {-# INLINE putSignedVarInt #-}
 
-getSignedVarInt' :: (ZZEncode a b, Num b, Bits b) => Get a
+getSignedVarInt' :: (ZZEncode a b, Integral b, Bits b) => Get a
 getSignedVarInt' = zzDecode <$> getUnsignedVarInt'
 {-# INLINE getSignedVarInt' #-}
 
@@ -781,8 +793,8 @@ instance SafeCopy (AsBinary a) where
     putCopy = contain . safePut . getAsBinary
 
 class AsBinaryClass a where
-  asBinary :: a -> AsBinary a
-  fromBinary :: AsBinary a -> Either String a
+    asBinary :: a -> AsBinary a
+    fromBinary :: AsBinary a -> Either String a
 
 fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
 fromBinaryM = either fail return . fromBinary

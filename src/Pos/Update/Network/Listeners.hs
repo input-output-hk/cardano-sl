@@ -59,12 +59,14 @@ instance UpdateMode m =>
     contentsToTag _ = pure ProposalMsgTag
     contentsToKey (up,_) = pure $ hash up
 
-    verifyInvTag _ = pure VerSuccess
-    verifyReqTag _ = pure VerSuccess
+    verifyInvTag       _ = pure VerSuccess
+    verifyReqTag       _ = pure VerSuccess
+    verifyMempoolTag   _ = pure VerSuccess
     verifyDataContents _ = pure VerSuccess
 
     handleInv _ = isProposalNeeded
     handleReq _ = getLocalProposalNVotes
+    handleMempool _ = pure []
     handleData (proposal, votes) = do
         res <- processProposal proposal
         logProp res
@@ -92,10 +94,12 @@ instance UpdateMode m =>
 
     verifyInvTag _ = pure VerSuccess
     verifyReqTag _ = pure VerSuccess
+    verifyMempoolTag _ = pure VerSuccess
     verifyDataContents UpdateVote{..} = pure VerSuccess
 
     handleInv _ (id, pk, dec) = isVoteNeeded id pk dec
     handleReq _ (id, pk, dec) = getLocalVote id pk dec
+    handleMempool _ = pure []
     handleData uv = do
         res <- processVote uv
         logProcess res

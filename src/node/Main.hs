@@ -30,6 +30,7 @@ import           Pos.Ssc.SscAlgo       (SscAlgo (..))
 import           Pos.Statistics        (getNoStatsT, getStatsMap, runStatsT')
 import           Pos.Types             (Timestamp (Timestamp))
 import           Pos.Update.Context    (ucUpdateSemaphore)
+import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
 import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usPrimKey, usVss,
@@ -185,7 +186,7 @@ processUserSecret args@Args {..} userSecret = case backupPhrase of
         writeUserSecret us
         return (sk, us)
 
-getNodeParams :: (MonadIO m, MonadFail m) => Args -> Timestamp -> m NodeParams
+getNodeParams :: (MonadIO m, MonadFail m, MonadThrow m) => Args -> Timestamp -> m NodeParams
 getNodeParams args@Args {..} systemStart = do
     (primarySK, userSecret) <-
         userSecretWithGenesisKey args =<<
@@ -210,10 +211,12 @@ getNodeParams args@Args {..} systemStart = do
         , npAttackTypes = maliciousEmulationAttacks
         , npAttackTargets = maliciousEmulationTargets
         , npPropagation = not (CLI.disablePropagation commonArgs)
-        , npUpdatePath = updateLatestPath
-        , npUpdateWithPkg = updateWithPackage
-        , npUpdateServers = CLI.updateServers commonArgs
         , npReportServers = CLI.reportServers commonArgs
+        , npUpdateParams = UpdateParams
+            { upUpdatePath = updateLatestPath
+            , upUpdateWithPkg = updateWithPackage
+            , upUpdateServers = CLI.updateServers commonArgs
+            }
         }
 
 gtSscParams :: Args -> VssKeyPair -> GtParams

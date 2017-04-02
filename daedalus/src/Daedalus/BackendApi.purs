@@ -154,7 +154,7 @@ redeemADA = postRBody ["redemptions", "ada"]
 reportInit :: forall eff. CInitialized -> Aff (ajax :: AJAX | eff) Unit
 reportInit = postRBody ["reporting", "initialized"]
 --------------------------------------------------------------------------------
--- UPDATES ---------------------------------------------------------------------
+-- SETTINGS ---------------------------------------------------------------------
 blockchainSlotDuration :: forall eff. Aff (ajax :: AJAX | eff) Int
 blockchainSlotDuration = getR ["settings", "slots", "duration"]
 

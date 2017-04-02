@@ -58,7 +58,6 @@ library
 
                         -- LRC
                         Pos.Lrc
-                        Pos.Lrc.Context
                         Pos.Lrc.FtsPure
 
                         -- Scripting
@@ -103,8 +102,6 @@ library
 
                         -- Update system
                         Pos.Update
-                        Pos.Update.Context
-                        Pos.Update.Mode
                         Pos.Update.Arbitrary
 
                         -- Utilities/helpers
@@ -141,7 +138,6 @@ library
                         Pos.Binary.Ssc
                         Pos.Binary.Ssc.GodTossing.Core
                         Pos.Binary.Txp
-                        Pos.Binary.Update
 
                         -- Block processing
                         Pos.Block.Error
@@ -321,17 +317,11 @@ library
                         Pos.Update.Arbitrary.Core
                         Pos.Update.Arbitrary.Network
                         Pos.Update.Arbitrary.Poll
-                        Pos.Update.DB
                         Pos.Update.Download
                         Pos.Update.Logic
                         Pos.Update.Logic.Global
                         Pos.Update.Logic.Local
                         Pos.Update.Lrc
-                        Pos.Update.MemState
-                        Pos.Update.MemState.Class
-                        Pos.Update.MemState.Functions
-                        Pos.Update.MemState.Holder
-                        Pos.Update.MemState.Types
                         Pos.Update.Network
                         Pos.Update.Network.Listeners
                         Pos.Update.Network.Types
@@ -346,10 +336,8 @@ library
                         Pos.Update.Poll.Logic.Rollback
                         Pos.Update.Poll.Logic.Softfork
                         Pos.Update.Poll.Logic.Version
-                        Pos.Update.Poll.Modifier
                         Pos.Update.Poll.RollTrans
                         Pos.Update.Poll.Trans
-                        Pos.Update.Poll.Types
                         Pos.Update.Worker
 
                         -- Utilities/helpers
@@ -506,6 +494,9 @@ library
                       , wreq
                       , yaml
 
+  if !os(windows)
+    build-depends:      unix
+
   if flag(with-web)
     build-depends:      http-types
                       , servant >= 0.8.1
@@ -561,6 +552,7 @@ executable cardano-node
                      , cardano-sl-core
                      , cardano-sl-infra
                      , cardano-sl-lrc
+                     , cardano-sl-update
                      , cardano-sl
                      , data-default
                      , directory
@@ -715,10 +707,10 @@ executable cardano-wallet
     buildable:         False
 
   if flag(with-web)
-    cpp-options: -DWITH_WEB
+    cpp-options:      -DWITH_WEB
 
   if !os(windows)
-    build-depends: unix
+    build-depends:     unix
 
 executable cardano-wallet-hs2purs
   hs-source-dirs:      src/wallet-purescript
@@ -779,6 +771,7 @@ executable cardano-smart-generator
                      , data-default
                      , cardano-sl-core
                      , cardano-sl-infra
+                     , cardano-sl-update
                      , cardano-sl
                      , cardano-sl-core
                      , filepath
@@ -966,26 +959,27 @@ executable cardano-wallet-web-docs
   else
     buildable:         False
 
---executable cardano-wallet-web-api-swagger
---  hs-source-dirs:      src/wallet-web-api-swagger
---  main-is:             Main.hs
---  build-depends:       aeson
---                     , base
---                     , bytestring
---                     , cardano-sl
---                     , lens
---                     , swagger2
---                     , servant-swagger
---                     , servant-swagger-ui
---                     , universum >= 0.1.11
---  default-language:    Haskell2010
---  ghc-options:         -threaded -rtsopts
---                       -Wall
---                       -with-rtsopts=-N
---                       -O2
---  default-extensions:   NoImplicitPrelude
---  build-tools: cpphs >= 1.19
---  ghc-options: -pgmP cpphs -optP --cpp
+executable cardano-wallet-web-api-swagger
+  hs-source-dirs:      src/wallet-web-api-swagger
+  main-is:             Main.hs
+  build-depends:       aeson
+                     , base
+                     , bytestring
+                     , cardano-sl
+                     , lens
+                     , swagger2
+                     , servant-swagger
+                     , servant-swagger-ui
+                     , universum >= 0.1.11
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -with-rtsopts=-N
+                       -O2
+  default-extensions:   NoImplicitPrelude
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
 
 executable cardano-checks
   hs-source-dirs:      src/checks
@@ -1020,36 +1014,20 @@ executable cardano-genupdate
   default-extensions:  OverloadedStrings
                        NoImplicitPrelude
 
-executable cardano-avvmmigrate
-  hs-source-dirs:      src/avvmmigrate
-  main-is:             Main.hs
-  build-depends:       QuickCheck
-                     , aeson
-                     , base
-                     , bytestring
-                     , cardano-sl-core
-                     , cardano-sl
-                     , directory
-                     , ed25519
-                     , filepath
-                     , serokell-util >= 0.1.3.4
-                     , text
-                     , universum
-                     , unordered-containers
-  default-language:    Haskell2010
-  ghc-options:         -threaded
-                       -Wall
-                       -O2
-  default-extensions:  OverloadedStrings
-                       NoImplicitPrelude
-
 executable cardano-keygen
   hs-source-dirs:      src/keygen
   main-is:             Main.hs
-  build-depends:       base
+  other-modules:       KeygenOptions
+                     , Avvm
+                     , Testnet
+  build-depends:       QuickCheck >= 2.9
+                     , base
+                     , aeson
                      , cardano-sl-core
                      , cardano-sl
+                     , ed25519
                      , universum >= 0.1
+                     , serokell-util >= 0.1
                      , text
                      , lens
                      , optparse-applicative >= 0.12

@@ -22,9 +22,10 @@ instance Arbitrary T.StakeDistribution where
       , do stakeholders <- choose (1, 10000)
            coins <- mkCoin <$> choose (stakeholders, 20*1000*1000*1000)
            return (T.BitcoinStakes (fromIntegral stakeholders) coins)
-      , do sdTotalStake <- mkCoin <$> choose (10000, 10000000)
-           sdRichmen <- choose (0, 20)
+      , do sdRichmen <- choose (0, 20)
+           sdRichStake <- mkCoin <$> choose (100000, 5000000)
            sdPoor <- choose (0, 20)
+           sdPoorStake <- mkCoin <$> choose (1000, 50000)
            return T.TestnetStakes{..}
       , return T.ExponentialStakes
       , T.ExplicitStakes <$> arbitrary

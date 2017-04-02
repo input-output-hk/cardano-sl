@@ -4,11 +4,11 @@ module Pos.Binary.Block.Types
        (
        ) where
 
-import           Data.Binary.Get           (getInt32be, getWord8, label)
-import           Data.Binary.Put           (putInt32be, putWord8)
+import           Data.Binary.Get           (getInt32be)
+import           Data.Binary.Put           (putInt32be)
 import           Universum
 
-import           Pos.Binary.Class          (Bi (..))
+import           Pos.Binary.Class          (Bi (..), getWord8, label, putWord8)
 import           Pos.Binary.Core           ()
 import           Pos.Binary.Txp            ()
 import           Pos.Constants             (protocolMagic)
@@ -128,9 +128,26 @@ instance Bi T.MainExtraBodyData where
    put T.MainExtraBodyData{..} = put _mebAttributes
    get = label "MainExtraBodyData" $ T.MainExtraBodyData <$> get
 
+instance Ssc ssc => Bi (T.MainToSign ssc) where
+    put T.MainToSign {..} =
+        put _msHeaderHash <>
+        put _msBodyProof <>
+        put _msSlot <>
+        put _msChainDiff <>
+        put _msExtraHeader
+    get = label "MainToSign" $ T.MainToSign <$> get <*> get <*> get <*> get <*> get
+
 ----------------------------------------------------------------------------
 -- GenesisBlock
 ----------------------------------------------------------------------------
+
+instance Bi T.GenesisExtraHeaderData where
+    put T.GenesisExtraHeaderData {..} = put _gehAttributes
+    get = label "GenesisExtraHeaderData" $ T.GenesisExtraHeaderData <$> get
+
+instance Bi T.GenesisExtraBodyData where
+    put T.GenesisExtraBodyData {..} = put _gebAttributes
+    get = label "GenesisExtraBodyData" $ T.GenesisExtraBodyData <$> get
 
 instance Bi (T.BodyProof (T.GenesisBlockchain ssc)) where
     put (T.GenesisProof h) = put h

@@ -44,6 +44,8 @@ deriveSafeCopySimple 0 'base ''SharedSeed
 
 deriveSafeCopySimple 0 'base ''MainExtraBodyData
 deriveSafeCopySimple 0 'base ''MainExtraHeaderData
+deriveSafeCopySimple 0 'base ''GenesisExtraHeaderData
+deriveSafeCopySimple 0 'base ''GenesisExtraBodyData
 
 deriveSafeCopySimple 0 'base ''SystemTag
 deriveSafeCopySimple 0 'base ''UpdateData

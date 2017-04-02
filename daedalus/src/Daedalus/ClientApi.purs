@@ -6,24 +6,26 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkCWalletInitIgnoreChecksum, mkBackupPhrase, mkCInitialized, mkCPassPhrase)
+import Daedalus.Types (getProfileLocale, mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkCWalletInitIgnoreChecksum, mkBackupPhrase, mkCInitialized, mkCPassPhrase)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
+import Data.String.Base64 as B64
+import Data.Base58 as B58
+import Data.String (length, stripSuffix, Pattern (..))
+import Data.Maybe (isJust, maybe)
 import Data.Function.Eff (EffFn1, mkEffFn1, EffFn2, mkEffFn2, EffFn4, mkEffFn4, EffFn3, mkEffFn3, EffFn6, mkEffFn6, EffFn7, mkEffFn7, mkEffFn5, EffFn5)
-import Data.String.Base64 (decode)
-import Data.String (length)
 import Network.HTTP.Affjax (AJAX)
 import WebSocket (WEBSOCKET)
 import Control.Monad.Error.Class (throwError)
 import Data.Either (either)
 import Daedalus.Crypto as Crypto
 
-getProfile :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
-getProfile = fromAff $ map encodeJson B.getProfile
+getLocale :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
+getLocale = fromAff $ map encodeJson (getProfileLocale <$> B.getProfile)
 
-updateProfile :: forall eff. EffFn7 (ajax :: AJAX | eff) String String String String Number String String  (Promise Json)
-updateProfile = mkEffFn7 \name email phone pass date locale picture -> fromAff <<< map encodeJson <<< B.updateProfile $ mkCProfile name email phone pass date locale picture
+updateLocale :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
+updateLocale = mkEffFn1 \locale -> fromAff <<< map encodeJson <<< B.updateProfile $ mkCProfile locale
 
 getWallets :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 getWallets = fromAff $ map encodeJson B.getWallets
@@ -111,11 +113,11 @@ newWallet = mkEffFn5 \pass wType wCurrency wName mnemonic -> fromAff <<< map enc
 --         isConfirmed
 --         mkCWalletInit wType wCurrency wName mnemonic
 
-updateWallet :: forall eff. EffFn4 (ajax :: AJAX | eff) String String String String (Promise Json)
-updateWallet = mkEffFn4 \addr wType wCurrency wName -> fromAff <<< map encodeJson <<<
+updateWallet :: forall eff. EffFn6 (ajax :: AJAX | eff) String String String String String Int (Promise Json)
+updateWallet = mkEffFn6 \addr wType wCurrency wName wAssurance wUnit -> fromAff <<< map encodeJson <<<
     B.updateWallet
         (mkCAddress addr)
-        $ mkCWalletMeta wType wCurrency wName
+        $ mkCWalletMeta wType wCurrency wName wAssurance wUnit
 
 updateTransaction :: forall eff. EffFn6 (ajax :: AJAX | eff) String String String String String Number (Promise Unit)
 updateTransaction = mkEffFn6 \addr ctxId ctmCurrency ctmTitle ctmDescription ctmDate -> fromAff <<<
@@ -170,5 +172,14 @@ syncProgress = fromAff $ map encodeJson B.syncProgress
 testReset :: forall eff. Eff (ajax :: AJAX | eff) (Promise Unit)
 testReset = fromAff B.testReset
 
+-- Valid redeem code is base64 encoded 32byte data
+-- NOTE: this method handles both base64 and base64url base on rfc4648: see more https://github.com/menelaos/purescript-b64/blob/59e2e9189358a4c8e3eef8662ca281906844e783/src/Data/String/Base64.purs#L182
 isValidRedeemCode :: String -> Boolean
-isValidRedeemCode = either (const false) ((==) 32 <<< length) <<< decode
+isValidRedeemCode code = either (const false) (const $ endsWithEqual && 44 == length code) $ B64.decode code
+  where
+    -- Because it is 32byte base64 encoded
+    endsWithEqual = isJust $ stripSuffix (Pattern "=") code
+
+-- Valid postvend code is base58 encoded 32byte data
+isValidPostVendRedeemCode :: String -> Boolean
+isValidPostVendRedeemCode code = maybe false (const $ 44 == length code) $ B58.decode code

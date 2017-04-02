@@ -1,4 +1,4 @@
-version: 0.2.{build}
+version: 0.4.{build}
 image: Visual Studio 2015
 
 build: off
@@ -36,7 +36,7 @@ cache:
   # different branch is built.
   - "%BRANCH_CACHE_DIR%"        # e.g. C:\cache\feature_abc123
   - "%CACHE_DIR%\\master"
-  - "%CACHE_DIR%\\cardano-sl-0.2"
+  - "%CACHE_DIR%\\cardano-sl-0.4"
   # Add more "%CACHE_DIR%\\<branch_name>" directories as needed
 
 before_test:

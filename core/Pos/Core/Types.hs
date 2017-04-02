@@ -18,10 +18,13 @@ module Pos.Core.Types
        , ChainDifficulty (..)
 
         -- * Version
-       , ApplicationName (..)
+       , ApplicationName
+       , getApplicationName
        , BlockVersion (..)
        , NumSoftwareVersion
        , SoftwareVersion (..)
+       , applicationNameMaxLength
+       , mkApplicationName
 
        -- * HeaderHash related types and functions
        , BlockHeaderStub
@@ -64,11 +67,13 @@ module Pos.Core.Types
        ) where
 
 import           Crypto.Hash          (Blake2s_224)
+import           Data.Char            (isAscii)
 import           Data.Data            (Data)
 import           Data.Default         (Default (..))
 import           Data.Hashable        (Hashable)
 import           Data.Ix              (Ix)
 import           Data.SafeCopy        (base, deriveSafeCopySimple)
+import qualified Data.Text            as T
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Time.Units      (Microsecond)
@@ -147,6 +152,18 @@ data BlockVersion = BlockVersion
 newtype ApplicationName = ApplicationName
     { getApplicationName :: Text
     } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable, Buildable, NFData)
+
+-- | Smart constructor of 'ApplicationName'.
+mkApplicationName :: MonadFail m => Text -> m ApplicationName
+mkApplicationName appName
+    | length appName > applicationNameMaxLength =
+        fail "ApplicationName: too long string passed"
+    | T.any (not . isAscii) appName =
+        fail "ApplicationName: not ascii string passed"
+    | otherwise = pure $ ApplicationName appName
+
+applicationNameMaxLength :: Integral i => i
+applicationNameMaxLength = 12
 
 -- | Numeric software version associated with ApplicationName.
 type NumSoftwareVersion = Word32

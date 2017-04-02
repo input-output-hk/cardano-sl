@@ -33,6 +33,7 @@ spec = describe "GodTossing" $ do
         binaryTest @GT.GtPayload
         binaryTest @(R.InvMsg StakeholderId GT.GtTag)
         binaryTest @(R.ReqMsg StakeholderId GT.GtTag)
+        binaryTest @(R.MempoolMsg GT.GtTag)
         binaryTest @(R.DataMsg GT.GtMsgContents)
         binaryTest @GT.GtSecretStorage
     describe "Message length limit" $ do
@@ -49,6 +50,7 @@ spec = describe "GodTossing" $ do
 
         msgLenLimitedTest @(R.InvMsg StakeholderId GT.GtTag)
         msgLenLimitedTest @(R.ReqMsg StakeholderId GT.GtTag)
+        msgLenLimitedTest @(R.MempoolMsg GT.GtTag)
         msgLenLimitedTest' @(C.MaxSize (R.DataMsg GT.GtMsgContents))
             (C.MaxSize . R.DataMsg <$> C.mcCommitmentMsgLenLimit)
             "MCCommitment"

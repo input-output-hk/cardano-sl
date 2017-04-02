@@ -20,11 +20,11 @@ import           Universum
 import           Control.Concurrent            (forkFinally)
 import           Control.Lens                  (makeLenses, (.=))
 import           Control.Monad                 (replicateM_)
-import           Control.Monad.Catch           (try)
+import           Control.Monad.Catch           (SomeException, catches, try)
+import qualified Control.Monad.Catch           as E
 import           Control.Monad.Except          (runExceptT)
 import           Control.Monad.State           (runStateT)
 import           Data.Bits                     (setBit)
-import qualified Data.ByteString.Base64        as B64
 import           Data.Default                  (Default (def))
 import           Data.List                     (elemIndex, (!!))
 import           Data.Tagged                   (untag)
@@ -36,6 +36,7 @@ import           Network.Wai                   (Application)
 import           Paths_cardano_sl              (version)
 import           Pos.ReportServer.Report       (ReportType (RInfo))
 import           Serokell.Util                 (threadDelay)
+import qualified Serokell.Util.Base64          as B64
 import           Servant.API                   ((:<|>) ((:<|>)),
                                                 FromHttpApiData (parseUrlPiece))
 import           Servant.Server                (Handler, Server, ServerT, err403, serve)
@@ -52,10 +53,9 @@ import           Pos.Core                      (Address (..), Coin, addressF, co
                                                 createHDAddressH, decodeTextAddress,
                                                 makePubKeyAddress, mkCoin, unsafeSubCoin)
 import           Pos.Crypto                    (EncryptedSecretKey, PassPhrase,
-                                                deriveHDPassphrase, encToPublic,
-                                                fakeSigner, hash,
-                                                redeemDeterministicKeyGen, toPublic,
-                                                withSafeSigner, withSafeSigner)
+                                                deriveHDPassphrase, encToPublic, hash,
+                                                redeemDeterministicKeyGen, withSafeSigner,
+                                                withSafeSigner)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (getKnownPeers)
 import           Pos.Reporting.MemState        (MonadReportingMem (..))
@@ -148,7 +148,7 @@ walletApplication
     -> m Application
 walletApplication serv = do
     wsConn <- getWalletWebSockets
-    serv >>= return . upgradeApplicationWS wsConn . serve walletApi
+    upgradeApplicationWS wsConn . serve walletApi <$> serv
 
 walletServer
     :: forall ssc m.
@@ -171,9 +171,7 @@ walletServer sendActions nat = do
   where
     insertAddressMeta cAddr = do
         getWSetMeta cAddr >>= createWSet cAddr . fromMaybe def
-    createUserProfile = do
-        time <- liftIO getPOSIXTime
-        pure $ CProfile mempty mempty mempty mempty time mempty mempty
+    createUserProfile = pure $ CProfile mempty
 
 ----------------------------------------------------------------------------
 -- Notifier
@@ -325,7 +323,7 @@ servantHandlers sendActions =
     apiGetWSets                 = catchWalletError getWSets
     apiNewWSet                  = (\a -> catchWalletError . newWSet a)
     apiRestoreWSet              = (\a -> catchWalletError . restoreWSet a)
-    apiImportKey                = catchWalletError . importKey sendActions
+    apiImportKey                = catchWalletError . importKey
     apiGetWallet                = catchWalletError . getWallet
     apiGetWalletsOf             = catchWalletError . getWallets . Just
     apiGetWallets               = catchWalletError $ getWallets Nothing
@@ -350,6 +348,13 @@ servantHandlers sendActions =
     apiSettingsSyncProgress     = catchWalletError syncProgress
 
     catchWalletError            = try
+
+-- getAddresses :: WalletWebMode ssc m => m [CAddress]
+-- getAddresses = map addressToCAddress <$> myAddresses
+
+-- getBalances :: WalletWebMode ssc m => m [(CAddress, Coin)]
+-- getBalances = join $ mapM gb <$> myAddresses
+--   where gb addr = (,) (addressToCAddress addr) <$> getBalance addr
 
 getUserProfile :: WalletWebMode ssc m => m CProfile
 getUserProfile = getProfile >>= maybe noProfile pure
@@ -532,33 +537,28 @@ newWallet cPassphrase CWalletInit {..} = do
     () <$ newAccount cPassphrase cAddr
     getWallet cAddr
 
+createWSetSafe :: WalletWebMode ssc m => CWalletSetAddress -> CWalletSetMeta -> m CWalletSet
+createWSetSafe cAddr wsMeta = do
+    wSetExists <- isJust <$> getWSetMeta cAddr
+    when wSetExists $
+        throwM $ Internal "Wallet set with that mnemonics already exists"
+    createWSet cAddr wsMeta
+    getWSet cAddr
+
 newWSet :: WalletWebMode ssc m => CPassPhrase -> CWalletSetInit -> m CWalletSet
 newWSet cPassphrase CWalletSetInit {..} = do
     passphrase <- decodeCPassPhraseOrFail cPassphrase
     let CWalletSetMeta {..} = cwsInitMeta
     cAddr <- genSaveRootAddress passphrase cwsBackupPhrase
-
-    whenM (wSetExists cAddr) $
-        throwM . Internal $
-        sformat ("Wallet set with this backphrase already exists: "%build)
-        cwsBackupPhrase
-
     createWSet cAddr cwsInitMeta
     getWSet cAddr
-  where
-    wSetExists cAddr =
-        (getWSet cAddr $> True) `catch` \(Internal _) -> pure False
 
 restoreWSet :: WalletWebMode ssc m => CPassPhrase -> CWalletSetInit -> m CWalletSet
 restoreWSet cPassphrase CWalletSetInit {..} = do
     passphrase <- decodeCPassPhraseOrFail cPassphrase
     let CWalletSetMeta {..} = cwsInitMeta
     cAddr <- genSaveRootAddress passphrase cwsBackupPhrase
-    getWSetMeta cAddr
-        >>= maybe (createWSet cAddr cwsInitMeta) (const wSetExistsError)
-    getWSet cAddr
-  where
-    wSetExistsError = throwM $ Internal "Wallet set with that mnemonics already exists"
+    createWSetSafe cAddr cwsInitMeta
 
 updateWallet :: WalletWebMode ssc m => CWalletAddress -> CWalletMeta -> m CWallet
 updateWallet cAddr wMeta = do
@@ -603,9 +603,10 @@ applyUpdate = removeNextUpdate >> applyLastUpdate
 redeemADA :: WalletWebMode ssc m => SendActions m -> CPassPhrase -> CWalletRedeem -> m CTx
 redeemADA sendActions cpassphrase CWalletRedeem {..} = do
     passphrase <- decodeCPassPhraseOrFail cpassphrase
+    let base64rify = T.replace "-" "+" . T.replace "_" "/"
     seedBs <- either
         (\e -> throwM $ Internal ("Seed is invalid base64 string: " <> toText e))
-        pure $ B64.decode (encodeUtf8 crSeed)
+        pure $ B64.decode $ base64rify crSeed
     (_, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
 
@@ -630,43 +631,29 @@ reportingInitialized cinit = do
         sformat ("Didn't manage to report initialization time "%shown%
                  " because of exception "%shown) cinit e
 
+rewrapError :: WalletWebMode ssc m => m a -> m a
+rewrapError = flip catches
+    [ E.Handler $ \e@(Internal _)    -> throwM e
+    , E.Handler $ \(SomeException e) -> throwM . Internal $ show e
+    ]
+
 importKey
     :: WalletWebMode ssc m
-    => SendActions m
-    -> Text
+    => Text
     -> m CWalletSet
-importKey sendActions (toString -> fp) = do
-    secret <- readUserSecret fp
+importKey (toString -> fp) = do
+    secret <- rewrapError $ readUserSecret fp
     let keys = secret ^. usKeys
-    forM_ keys $ \key -> do
+    importedWSets <- forM keys $ \key -> do
         addSecretKey key
         let addr = makePubKeyAddress $ encToPublic key
             wsAddr = addressToWSAddress addr
-        createWSet wsAddr def
+        createWSetSafe wsAddr def
 
-    let importedAddr = makePubKeyAddress $ encToPublic (keys !! 0)
-        importedWSAddr = addressToWSAddress importedAddr
-    accountCAddr <- undefined importedAddr
-
-    -- TODO [CSL-931]: What is supposed to be here?
-    -- We can't just send money from wallet set to wallet set
-    when isDevelopment $ do
-        psk <- maybeThrow (Internal "No primary key is present!")
-               =<< getPrimaryKey
-        let pAddr = makePubKeyAddress $ toPublic psk
-        primaryBalance <- getBalance pAddr
-        when (primaryBalance > mkCoin 0) $ do
-            na <- getKnownPeers
-            etx <- submitTx sendActions (fakeSigner psk) na
-                       (one $ TxOutAux (TxOut importedAddr primaryBalance) [])
-            -- TODO [CSL-931]: generate wallet and account along with wallet set
-            -- and send to it, not to master key
-            case etx of
-                Left err -> throwM . Internal $ "Cannot transfer funds from genesis key" <> err
-                Right (tx, _, _) -> void $
-                    addHistoryTx accountCAddr ADA "Transfer money from genesis key" ""
-                        (THEntry (hash tx) tx False Nothing)
-    getWSet importedWSAddr
+    case importedWSets of
+        wSet:_ -> return wSet
+        _      -> throwM . Internal $
+            sformat ("No spending key found at "%build) fp
 
 syncProgress :: WalletWebMode ssc m => m SyncProgress
 syncProgress = do

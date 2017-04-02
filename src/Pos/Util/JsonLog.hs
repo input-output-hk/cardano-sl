@@ -34,14 +34,12 @@ type TxId = Text
 type JLSlotId = (Word64, Word16)
 
 -- | Json log of one block with corresponding 'BlockId'.
-data JLBlock =
-  JLBlock
+data JLBlock = JLBlock
     { jlHash      :: BlockId
     , jlPrevBlock :: BlockId
     , jlTxs       :: [TxId]
     , jlSlot      :: JLSlotId
-    }
-  deriving Show
+    } deriving (Show)
 
 -- | Get 'SlotId' from 'JLSlotId'.
 fromJLSlotId :: JLSlotId -> SlotId
@@ -54,12 +52,10 @@ data JLEvent = JLCreatedBlock JLBlock
   deriving Show
 
 -- | 'JLEvent' with 'Timestamp' -- corresponding time of this event.
-data JLTimedEvent =
-  JLTimedEvent
+data JLTimedEvent = JLTimedEvent
     { jlTimestamp :: Integer
     , jlEvent     :: JLEvent
-    }
-  deriving Show
+    } deriving (Show)
 
 $(deriveJSON defaultOptions ''JLBlock)
 $(deriveJSON defaultOptions ''JLEvent)

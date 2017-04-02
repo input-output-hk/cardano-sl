@@ -45,7 +45,7 @@ import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (
                                               Timestamp (Timestamp),
                                               VerifyBlockParams (..), gbHeader, slotIdF,
                                               verifyBlock)
-import           Pos.Util                    (inAssertMode, logWarningWaitLinear,
+import           Pos.Util                    (inAssertMode, logWarningSWaitLinear,
                                               mconcatPair)
 import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
 import           Pos.Util.LogSafe            (logDebugS, logInfoS, logNoticeS,
@@ -168,7 +168,7 @@ onNewSlotWhenLeader slotId pSk sendActions = do
             createdBlock <- createMainBlock slotId pSk
             either whenNotCreated whenCreated createdBlock
             logInfoS "onNewSlotWhenLeader: done"
-    logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
+    logWarningSWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 
 verifyCreatedBlock
     :: (WithLogger m, SscHelpersClass ssc, MonadThrow m)

@@ -1,4 +1,6 @@
-{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Util.TimeLimit
        ( execWithTimeLimit
@@ -9,6 +11,7 @@ module Pos.Util.TimeLimit
        , logWarningLongAction
        , logWarningWaitOnce
        , logWarningWaitLinear
+       , logWarningSWaitLinear
        , logWarningWaitInf
        , runWithRandomIntervals'
        , waitRandomInterval'
@@ -26,6 +29,7 @@ import           Mockable          (Async, Bracket, Delay, Fork, Mockable, async
 import           System.Wlog       (WithLogger, logWarning)
 
 import           Pos.Crypto.Random (randomNumber)
+import           Pos.Util.LogSafe  (logWarningS)
 
 -- | Data type to represent waiting strategy for printing warnings
 -- if action take too much time.
@@ -38,50 +42,61 @@ data WaitingDelta
     deriving (Show)
 
 -- | Constraint for something that can be logged in parallel with other action.
-type CanLogInParallel m = (Mockable Delay m, Mockable Fork m, WithLogger m, Mockable Bracket m)
+type CanLogInParallel m =
+    (Mockable Delay m, Mockable Fork m, WithLogger m, MonadIO m, Mockable Bracket m)
 
 
 -- | Run action and print warning if it takes more time than expected.
-logWarningLongAction :: CanLogInParallel m => WaitingDelta -> Text -> m a -> m a
-logWarningLongAction delta actionTag action =
+logWarningLongAction
+    :: forall m a.
+       CanLogInParallel m
+    => Bool -> WaitingDelta -> Text -> m a -> m a
+logWarningLongAction secure delta actionTag action =
     bracket (fork $ waitAndWarn delta) onFinish (const action)
   where
+    logFunc :: Text -> m ()
+    logFunc = bool logWarning logWarningS secure
     onFinish logThreadId = do
         killThread logThreadId
         --logDebug (sformat ("Action `"%stext%"` finished") actionTag)
-    printWarning t = logWarning $ sformat ("Action `"%stext%"` took more than "%shown)
-                                  actionTag
-                                  t
+    printWarning t = logFunc $ sformat ("Action `"%stext%"` took more than "%shown)
+                                       actionTag t
 
     -- [LW-4]: avoid code duplication somehow (during refactoring)
     waitAndWarn (WaitOnce      s  ) = delay s >> printWarning s
-    waitAndWarn (WaitLinear    s  ) = let waitLoop acc = do
-                                              delay s
-                                              printWarning acc
-                                              waitLoop (acc + s)
-                                      in waitLoop s
-    waitAndWarn (WaitGeometric s q) = let waitLoop acc t = do
-                                              delay t
-                                              let newAcc = acc + t
-                                              let newT   = round $ fromIntegral t * q
-                                              printWarning (convertUnit newAcc :: Second)
-                                              waitLoop newAcc newT
-                                      in waitLoop 0 s
+    waitAndWarn (WaitLinear    s  ) =
+        let waitLoop acc = do
+                delay s
+                printWarning acc
+                waitLoop (acc + s)
+        in waitLoop s
+    waitAndWarn (WaitGeometric s q) =
+        let waitLoop acc t = do
+                delay t
+                let newAcc = acc + t
+                let newT   = round $ fromIntegral t * q
+                printWarning (convertUnit newAcc :: Second)
+                waitLoop newAcc newT
+        in waitLoop 0 s
 
 {- Helper functions to avoid dealing with data type -}
 
 -- | Specialization of 'logWarningLongAction' with 'WaitOnce'.
 logWarningWaitOnce :: CanLogInParallel m => Second -> Text -> m a -> m a
-logWarningWaitOnce = logWarningLongAction . WaitOnce
+logWarningWaitOnce = logWarningLongAction False . WaitOnce
 
 -- | Specialization of 'logWarningLongAction' with 'WaiLinear'.
 logWarningWaitLinear :: CanLogInParallel m => Second -> Text -> m a -> m a
-logWarningWaitLinear = logWarningLongAction . WaitLinear
+logWarningWaitLinear = logWarningLongAction False . WaitLinear
+
+-- | Secure version of 'logWarningWaitLinear'.
+logWarningSWaitLinear :: CanLogInParallel m => Second -> Text -> m a -> m a
+logWarningSWaitLinear = logWarningLongAction True . WaitLinear
 
 -- | Specialization of 'logWarningLongAction' with 'WaitGeometric'
 -- with parameter @1.3@. Accepts 'Second'.
 logWarningWaitInf :: CanLogInParallel m => Second -> Text -> m a -> m a
-logWarningWaitInf = logWarningLongAction . (`WaitGeometric` 1.3) . convertUnit
+logWarningWaitInf = logWarningLongAction False . (`WaitGeometric` 1.3) . convertUnit
 
 execWithTimeLimit
     :: ( Mockable Async m

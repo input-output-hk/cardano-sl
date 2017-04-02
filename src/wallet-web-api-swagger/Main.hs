@@ -68,10 +68,10 @@ instance ToSchema      CProfile
 instance ToSchema      WalletError
 instance ToSchema      CAccountAddress
 instance ToParamSchema CAccountAddress where
-    toParamSchema = undefined  -- TODO [CSL-171]
+    toParamSchema = undefined  -- TODO [CSM-171]
 instance ToSchema      CWalletAddress
 instance ToParamSchema CWalletAddress where
-    toParamSchema = undefined  -- TODO [CSL-171]
+    toParamSchema = undefined  -- TODO [CSM-171]
 instance ToSchema      CWalletSetAddress
 instance ToParamSchema CWalletSetAddress
 instance ToSchema      CWalletAssurance

@@ -1,4 +1,4 @@
--- | Framework for Inv/Req/Dat message handling
+-- | Framework for Inv\/Req\/Data message handling
 
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE Rank2Types          #-}
@@ -16,6 +16,11 @@ module Pos.Communication.Relay.Logic
        , relayWorkers
        , RelayProxy (..)
        , InvOrData
+
+       , handleInvL
+       , handleReqL
+       , handleMempoolL
+       , handleDataL
 
        , invReqDataFlow
        , invReqDataFlowNeighbors

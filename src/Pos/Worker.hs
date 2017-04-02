@@ -23,6 +23,7 @@ import           Pos.Security.Workers    (SecurityWorkersClass, securityWorkers)
 import           Pos.Slotting.Class      (MonadSlots (slottingWorkers))
 import           Pos.Slotting.Util       (logNewSlotWorker)
 import           Pos.Ssc.Class.Workers   (SscWorkersClass, sscWorkers)
+import           Pos.Txp.Worker          (txpWorkers)
 import           Pos.Update              (usWorkers)
 import           Pos.Util                (mconcatPair)
 import           Pos.Worker.SysStart     (sysStartWorker)
@@ -44,6 +45,7 @@ allWorkers = mconcatPair
 
       -- Have custom loggers
     , wrap' "block"      $ blkWorkers
+    , wrap' "txp"        $ txpWorkers
     , wrap' "delegation" $ dlgWorkers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
     , wrap' "relay"      $ relayWorkers allOutSpecs

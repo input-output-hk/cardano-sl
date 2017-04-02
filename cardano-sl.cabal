@@ -305,6 +305,7 @@ library
                         Pos.Txp.Toil.Utxo.Functions
                         Pos.Txp.Toil.Utxo.Pure
                         Pos.Txp.Toil.Utxo.Util
+                        Pos.Txp.Worker
 
                         -- Types
                         Pos.Types.SharedSeed

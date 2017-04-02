@@ -4,22 +4,23 @@ module Test.Pos.CryptoSpec
        ( spec
        ) where
 
-import qualified Data.ByteString       as BS
-import           Formatting            (sformat)
-import           Prelude               ((!!))
-import           Test.Hspec            (Expectation, Spec, describe, it, shouldBe,
-                                        specify)
-import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Arbitrary (..), Property, (===), (==>), vector)
+import qualified Data.ByteString         as BS
+import           Formatting              (sformat)
+import           Prelude                 ((!!))
+import           Test.Hspec              (Expectation, Spec, describe, it, shouldBe,
+                                          specify)
+import           Test.Hspec.QuickCheck   (prop)
+import           Test.QuickCheck         (Arbitrary (..), Property, (===), (==>), vector)
+import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 import           Universum
 
-import           Pos.Binary            (AsBinary, Bi)
-import qualified Pos.Crypto            as Crypto
-import           Pos.Crypto.Arbitrary  (SharedSecrets (..))
-import           Pos.Ssc.GodTossing    ()
+import           Pos.Binary              (AsBinary, Bi)
+import qualified Pos.Crypto              as Crypto
+import           Pos.Crypto.Arbitrary    (SharedSecrets (..))
+import           Pos.Ssc.GodTossing      ()
 
-import           Test.Pos.Util         ((.=.), binaryEncodeDecode, binaryTest,
-                                        safeCopyEncodeDecode, safeCopyTest, serDeserId)
+import           Test.Pos.Util           ((.=.), binaryEncodeDecode, binaryTest,
+                                          safeCopyEncodeDecode, safeCopyTest, serDeserId)
 
 spec :: Spec
 spec = describe "Crypto" $ do
@@ -190,6 +191,12 @@ spec = describe "Crypto" $ do
 
         describe "Secret Sharing" $ do
             prop
+                " VSS key pairs generated from different 'ByteString' seeds are different"
+                keygenInequality
+            prop
+                "successfully verifies correct decryption of an encrypted share"
+                goodShareIsDecrypted
+            prop
                 "verifying an encrypted share with a valid VSS public key and valid extra\
                 \ secret information works"
                 verifyEncShareGoodData
@@ -224,6 +231,14 @@ spec = describe "Crypto" $ do
             prop
                 "unsuccessfully verifies a secret with an invalid proof"
                 verifyProofBadSecProof
+            prop
+                "successfully recover a secret given a list of encrypted shares, those\
+                \ decrypted shares and their corresponding VSS public keys"
+                recoverSecretSuccessfully
+            prop
+                "unsuccessfully recovers a secret with insufficient shares for the given\
+                \ threshold"
+                recoverSecBadThreshold
 
 hashInequality :: (Eq a, Bi a) => a -> a -> Property
 hashInequality a b = a /= b ==> Crypto.hash a /= Crypto.hash b
@@ -410,6 +425,22 @@ skToSafeSigner :: Crypto.SecretKey -> Property
 skToSafeSigner =
     Crypto.safeToPublic . Crypto.fakeSigner .=. Crypto.toPublic
 
+-- | It appears 'Crypto.deterministicVSsKeyGen' ignores all consecutive null characters
+--starting from the beginning of the 'ByteString' seed, so for this property to make sense
+-- they need to be dropped.
+keygenInequality :: ByteString -> ByteString -> Property
+keygenInequality a b =
+    (a' /= b') ==> Crypto.deterministicVssKeyGen a' /= Crypto.deterministicVssKeyGen b'
+  where
+    dropNULs = BS.dropWhile ((== "\NUL") . BS.singleton)
+    a' = dropNULs a
+    b' = dropNULs b
+
+goodShareIsDecrypted :: Crypto.VssKeyPair -> Crypto.EncShare -> Property
+goodShareIsDecrypted vssKP encShare = monadicIO $ do
+    decShare <- run $ Crypto.decryptShare vssKP encShare
+    assert $ Crypto.verifyShare encShare (Crypto.toVssPublicKey vssKP) decShare
+
 verifyEncShareGoodData :: SharedSecrets -> Bool
 verifyEncShareGoodData SharedSecrets {..} =
     Crypto.verifyEncShare ssSecShare
@@ -480,3 +511,19 @@ verifyProofBadSecProof :: SharedSecrets -> Crypto.SecretProof -> Property
 verifyProofBadSecProof SharedSecrets {..} secProof =
     (ssSecProof /= secProof) ==>
     not (Crypto.verifySecretProof ssSecShare ssSecret secProof)
+
+recoverSecretSuccessfully :: SharedSecrets -> Property
+recoverSecretSuccessfully SharedSecrets {..} =
+    Crypto.recoverSecret ssThreshold triplesList === Just ssSecret
+  where
+    triplesList = zipWith (\(a,c) b -> (a,b,c)) ssShares ssVSSPKs
+
+recoverSecBadThreshold :: SharedSecrets -> Integer -> Property
+recoverSecBadThreshold SharedSecrets {..} rnd =
+    (badThreshold > ssThreshold) ==>
+    isNothing (Crypto.recoverSecret badThreshold triplesList)
+  where
+    maxThreshold = genericLength triplesList
+    -- badThreshold is in ]actualThreshold, actualThreshold * 2]
+    badThreshold = maxThreshold + (succ . abs $ rnd `mod` maxThreshold)
+    triplesList = zipWith (\(a,c) b -> (a,b,c)) ssShares ssVSSPKs

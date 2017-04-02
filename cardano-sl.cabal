@@ -342,7 +342,6 @@ library
 
                         -- Utilities/helpers
                         Pos.Util.Arbitrary
-                        Pos.Util.LogSafe
                         Pos.Util.Undefined
 
   -- Explorer (TODO: move into cardano-explorer)
@@ -501,7 +500,7 @@ library
     build-depends:      http-types
                       , servant >= 0.8.1
                       , servant-docs >= 0.8.1
-                      , servant-server >= 0.8.1 
+                      , servant-server >= 0.8.1
                       , wai
                       , wai-extra
                       , warp

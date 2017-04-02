@@ -8,12 +8,12 @@ module Pos.Binary.Core.Coin
 
 import           Universum
 
-import           Control.Monad   (when)
-import           Data.Binary.Get (Get, getWord8)
-import           Data.Bits       (Bits (..))
-import           Data.Word       ()
+import           Data.Binary.Get  (Get)
+import           Data.Bits        (Bits (..))
+import           Data.Word        ()
 
-import           Pos.Core.Types  (Coin, mkCoin, unsafeGetCoin)
+import           Pos.Binary.Class (getWord8)
+import           Pos.Core.Types   (Coin, mkCoin, unsafeGetCoin)
 
 -- number of total coins is 45*10^9 * 10^6
 --
@@ -83,7 +83,7 @@ encodeVarint w
     | w <= 0x1FFFFF     = [0xc0 .|. (w .>>. 16), w .>>. 8, fromIntegral w]
     | w <= 0x0FFFFFFF   = [0xe0 .|. (w .>>. 24), w .>>. 16, w .>>. 8, fromIntegral w]
     | w <= 0x0FFFFFFFFF = [0xf0 .|. (w .>>. 32), w .>>. 24, w .>>. 16, w .>>. 8, fromIntegral w]
-    | otherwise         = error "invalid encoding for integral part"
+    | otherwise         = error $ "invalid encoding for integral part: " <> show w
 
 expectedContBytes :: Word64 -> Int
 expectedContBytes w

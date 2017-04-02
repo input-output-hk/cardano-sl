@@ -1,5 +1,7 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Part of GState DB which stores data necessary for update system.
 
@@ -16,6 +18,7 @@ module Pos.Update.DB
        , getConfirmedSV
        , getMaxBlockSize
        , getSlottingData
+       , getEpochProposers
 
          -- * Operations
        , UpdateOp (..)
@@ -46,7 +49,12 @@ import           Universum
 
 import           Pos.Binary.Class           (encodeStrict)
 import           Pos.Binary.Infra.Slotting  ()
-import           Pos.Constants              (epochSlots, ourAppName)
+import           Pos.Binary.Update          ()
+import           Pos.Core                   (ApplicationName, BlockVersion,
+                                             ChainDifficulty, NumSoftwareVersion, SlotId,
+                                             SoftwareVersion (..), StakeholderId,
+                                             Timestamp (..))
+import           Pos.Core.Constants         (epochSlots)
 import           Pos.Crypto                 (hash)
 import           Pos.DB.Class               (MonadDB, getUtxoDB)
 import           Pos.DB.Error               (DBError (DBMalformed))
@@ -59,12 +67,10 @@ import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
                                              runDBnMapIterator)
 import qualified Pos.DB.Limits              as DBLimits
 import           Pos.DB.Types               (NodeDBs (..))
-import           Pos.Genesis                (genesisBlockVersion, genesisBlockVersionData,
-                                             genesisSlotDuration, genesisSoftwareVersions)
 import           Pos.Slotting.Types         (EpochSlottingData (..), SlottingData (..))
-import           Pos.Types                  (ApplicationName, BlockVersion,
-                                             ChainDifficulty, NumSoftwareVersion, SlotId,
-                                             SoftwareVersion (..), Timestamp (..))
+import           Pos.Update.Constants       (genesisBlockVersion, genesisBlockVersionData,
+                                             genesisSlotDuration, genesisSoftwareVersions,
+                                             ourAppName)
 import           Pos.Update.Core            (BlockVersionData (..), UpId,
                                              UpdateProposal (..))
 import           Pos.Update.Poll.Types      (BlockVersionState (..),
@@ -73,8 +79,8 @@ import           Pos.Update.Poll.Types      (BlockVersionState (..),
                                              ProposalState (..),
                                              UndecidedProposalState (upsSlot),
                                              cpsSoftwareVersion, psProposal)
-import           Pos.Util                   (maybeThrow)
 import           Pos.Util.Iterator          (MonadIterator (..))
+import           Pos.Util.Util              (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -121,9 +127,7 @@ getProposalsByApp appName = runProposalMapIterator (step []) snd
         | otherwise = step res
 
 -- | Get last confirmed SoftwareVersion of given application.
-getConfirmedSV
-    :: MonadDB m
-    => ApplicationName -> m (Maybe NumSoftwareVersion)
+getConfirmedSV :: MonadDB m => ApplicationName -> m (Maybe NumSoftwareVersion)
 getConfirmedSV = gsGetBi . confirmedVersionKey
 
 -- | Get most recent 'SlottingData'.
@@ -133,6 +137,12 @@ getSlottingData = maybeThrow (DBMalformed msg) =<< gsGetBi slottingDataKey
     msg =
         "Update System part of GState DB is not initialized (slotting data is missing)"
 
+-- | Get proposers for current epoch.
+getEpochProposers :: MonadDB m => m (HashSet StakeholderId)
+getEpochProposers = maybeThrow (DBMalformed msg) =<< gsGetBi epochProposersKey
+  where
+    msg =
+        "Update System part of GState DB is not initialized (epoch proposers are missing)"
 ----------------------------------------------------------------------------
 -- Operations
 ----------------------------------------------------------------------------
@@ -148,6 +158,7 @@ data UpdateOp
     | SetBVState !BlockVersion !BlockVersionState
     | DelBV !BlockVersion
     | PutSlottingData !SlottingData
+    | PutEpochProposers !(HashSet StakeholderId)
 
 instance RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
@@ -176,32 +187,38 @@ instance RocksBatchOp UpdateOp where
         [Rocks.Del (bvStateKey bv)]
     toBatchOp (PutSlottingData sd) =
         [Rocks.Put slottingDataKey (encodeStrict sd)]
+    toBatchOp (PutEpochProposers proposers) =
+        [Rocks.Put epochProposersKey (encodeStrict proposers)]
 
 ----------------------------------------------------------------------------
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareGStateUS
-    :: forall m.
-       MonadDB m
-    => Timestamp -> m ()
+prepareGStateUS :: MonadDB m => Timestamp -> m ()
 prepareGStateUS systemStart =
     unlessM isInitialized $ do
+        let genesisSlottingData = SlottingData
+                { sdPenult      = esdPenult
+                , sdPenultEpoch = 0
+                , sdLast        = esdLast
+                }
+            esdPenult = EpochSlottingData
+                { esdSlotDuration = genesisSlotDuration
+                , esdStart        = systemStart
+                }
+            epoch1Start =
+                systemStart +
+                epochSlots * Timestamp (convertUnit genesisSlotDuration)
+            esdLast = EpochSlottingData
+                { esdSlotDuration = genesisSlotDuration
+                , esdStart        = epoch1Start
+                }
         db <- getUtxoDB
         flip rocksWriteBatch db $
             PutSlottingData genesisSlottingData :
+            PutEpochProposers mempty :
             SetAdopted genesisBlockVersion genesisBlockVersionData :
             map ConfirmVersion genesisSoftwareVersions
-  where
-    esdPenult =
-        EpochSlottingData
-        {esdSlotDuration = genesisSlotDuration, esdStart = systemStart}
-    epoch1Start = systemStart + epochSlots * Timestamp (convertUnit genesisSlotDuration)
-    esdLast =
-        EpochSlottingData
-        {esdSlotDuration = genesisSlotDuration, esdStart = epoch1Start}
-    genesisSlottingData =
-        SlottingData {sdPenult = esdPenult, sdPenultEpoch = 0, sdLast = esdLast}
 
 isInitialized :: MonadDB m => m Bool
 isInitialized = isJust <$> getAdoptedBVFullMaybe
@@ -231,8 +248,7 @@ runProposalMapIterator = runDBnMapIterator @PropIter _gStateDB
 -- 'SlotId's, but I don't think it may be crucial.
 -- | Get all proposals which were issued no later than given slot.
 getOldProposals
-    :: forall m.
-       MonadDB m
+    :: MonadDB m
     => SlotId -> m [UndecidedProposalState]
 getOldProposals slotId = runProposalMapIterator (step []) snd
   where
@@ -247,8 +263,7 @@ getOldProposals slotId = runProposalMapIterator (step []) snd
 -- | Get all decided proposals which were accepted deeper than given
 -- difficulty.
 getDeepProposals
-    :: forall m.
-       MonadDB m
+    :: MonadDB m
     => ChainDifficulty -> m [DecidedProposalState]
 getDeepProposals cd = runProposalMapIterator (step []) snd
   where
@@ -307,7 +322,9 @@ getProposedBVStates = runDBnMapIterator @BVIter _gStateDB (step []) snd
     onItem res = step . (: res)
 
 -- | Get all confirmed 'BlockVersion's and their states.
-getConfirmedBVStates :: MonadDB m => m [(BlockVersion, BlockVersionState)]
+getConfirmedBVStates
+    :: MonadDB m
+    => m [(BlockVersion, BlockVersionState)]
 getConfirmedBVStates = runDBnIterator @BVIter _gStateDB (step [])
   where
     step res = nextItem >>= maybe (pure res) (onItem res)
@@ -352,18 +369,24 @@ confirmedIterationPrefix = "us/cp/"
 slottingDataKey :: ByteString
 slottingDataKey = "us/slotting/"
 
+epochProposersKey :: ByteString
+epochProposersKey = "us/epoch-proposers/"
+
 ----------------------------------------------------------------------------
 -- Details
 ----------------------------------------------------------------------------
 
-getAdoptedBVFullMaybe :: MonadDB m => m (Maybe (BlockVersion, BlockVersionData))
+getAdoptedBVFullMaybe
+    :: MonadDB m
+    => m (Maybe (BlockVersion, BlockVersionData))
 getAdoptedBVFullMaybe = gsGetBi adoptedBVKey
 
 ----------------------------------------------------------------------------
 -- Some instance
 ----------------------------------------------------------------------------
 
-instance (MonadIO m, MonadThrow m) => DBLimits.MonadDBLimits (DBHolder m) where
+instance (MonadIO m, MonadThrow m) =>
+         DBLimits.MonadDBLimits (DBHolder m) where
     getMaxBlockSize = getMaxBlockSize
     getMaxHeaderSize = bvdMaxHeaderSize <$> getAdoptedBVData
     getMaxTxSize = bvdMaxTxSize <$> getAdoptedBVData

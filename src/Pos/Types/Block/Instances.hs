@@ -70,10 +70,11 @@ import           Pos.Txp.Core          (Tx, TxAux, TxDistribution, TxPayload, Tx
                                         txpWitnesses)
 import           Pos.Types.Block.Types (BiHeader, BiSsc, Block, BlockHeader,
                                         BlockSignature, GenesisBlock, GenesisBlockHeader,
-                                        GenesisBlockchain, MainBlock, MainBlockHeader,
-                                        MainBlockchain, MainExtraBodyData,
-                                        MainExtraHeaderData, mehBlockVersion,
-                                        mehSoftwareVersion)
+                                        GenesisBlockchain, GenesisExtraBodyData,
+                                        GenesisExtraHeaderData, MainBlock,
+                                        MainBlockHeader, MainBlockchain,
+                                        MainExtraBodyData, MainExtraHeaderData,
+                                        mehBlockVersion, mehSoftwareVersion)
 import           Pos.Update.Core.Types (UpdatePayload, UpdateProof, UpdateProposal,
                                         mkUpdateProof)
 
@@ -85,7 +86,7 @@ instance (SscHelpersClass ssc, Bi TxWitness, Bi UpdatePayload, Bi EpochIndex) =>
          Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
     data BodyProof (MainBlockchain ssc) = MainProof
-        { mpTxProof        :: !TxProof
+        { mpTxProof       :: !TxProof
         , mpMpcProof      :: !(SscProof ssc)
         , mpProxySKsProof :: !(Hash [ProxySKHeavy])
         , mpUpdateProof   :: !UpdateProof
@@ -158,12 +159,15 @@ instance Blockchain (GenesisBlockchain ssc) where
           _gcdDifficulty :: !ChainDifficulty
         } deriving (Generic, Show, Eq)
     type BBlockHeader (GenesisBlockchain ssc) = BlockHeader ssc
+    type ExtraHeaderData (GenesisBlockchain ssc) = GenesisExtraHeaderData
 
     -- | Body of genesis block consists of slot leaders for epoch
     -- associated with this block.
     data Body (GenesisBlockchain ssc) = GenesisBody
         { _gbLeaders :: !SlotLeaders
         } deriving (Generic, Show, Eq)
+
+    type ExtraBodyData (GenesisBlockchain ssc) = GenesisExtraBodyData
     type BBlock (GenesisBlockchain ssc) = Block ssc
 
     mkBodyProof = GenesisProof . hash . _gbLeaders
@@ -330,7 +334,7 @@ instance (Bi UpdateProposal, BiSsc ssc) => Buildable (MainBlock ssc) where
             (stext%":\n"%
              "  "%build%
              "  transactions ("%int%" items): "%listJson%"\n"%
-             "  certificates ("%int%" items): "%listJson%"\n"%
+             "  proxy signing keys ("%int%" items): "%listJson%"\n"%
              build%"\n"%
              "  update payload: "%build%"\n"%
              "  "%build

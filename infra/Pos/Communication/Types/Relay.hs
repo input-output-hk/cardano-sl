@@ -3,6 +3,7 @@
 module Pos.Communication.Types.Relay
        ( InvMsg (..)
        , ReqMsg (..)
+       , MempoolMsg (..)
        , DataMsg (..)
        , InvOrData
        ) where
@@ -31,6 +32,13 @@ data ReqMsg key tag = ReqMsg
 
 deriving instance (Show key, Show tag) => Show (ReqMsg key tag)
 deriving instance (Eq key, Eq tag) => Eq (ReqMsg key tag)
+
+data MempoolMsg tag = MempoolMsg
+    { mmTag  :: !tag
+    }
+
+deriving instance Show tag => Show (MempoolMsg tag)
+deriving instance Eq tag => Eq (MempoolMsg tag)
 
 -- | Data message. Can be used to send actual data.
 data DataMsg contents = DataMsg

@@ -10,6 +10,7 @@ module Pos.Wallet.Web.ClientTypes
       , CCurrency (..)
       , CHash (..)
       , CTType (..)
+      , CPassPhrase (..)
       , CProfile (..)
       , CPwHash
       , CTx (..)
@@ -19,6 +20,7 @@ module Pos.Wallet.Web.ClientTypes
       , CInitialized (..)
       , CWallet (..)
       , CWalletType (..)
+      , CWalletAssurance (..)
       , CWalletMeta (..)
       , CWalletInit (..)
       , CUpdateInfo (..)
@@ -26,6 +28,8 @@ module Pos.Wallet.Web.ClientTypes
       , NotifyEvent (..)
       , addressToCAddress
       , cAddressToAddress
+      , passPhraseToCPassPhrase
+      , cPassPhraseToPassPhrase
       , mkCTx
       , mkCTxId
       , txIdToCTxId
@@ -36,17 +40,22 @@ module Pos.Wallet.Web.ClientTypes
 
 import           Universum
 
+import           Control.Lens           (_Left)
+import qualified Data.ByteString.Lazy   as LBS
 import           Data.Default           (Default, def)
 import           Data.Hashable          (Hashable (..))
 import           Data.Text              (Text, isInfixOf, toLower)
 import           Data.Time.Clock.POSIX  (POSIXTime)
 import           Data.Typeable          (Typeable)
 import           Formatting             (build, sformat)
+import           Prelude                (show)
+import qualified Serokell.Util.Base16   as Base16
 
 import           Pos.Aeson.Types        ()
+import           Pos.Binary.Class       (decodeFull, encodeStrict)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core.Types         (ScriptVersion)
-import           Pos.Crypto             (hashHexF)
+import           Pos.Crypto             (PassPhrase, hashHexF)
 import           Pos.Txp.Core.Types     (Tx (..), TxId, txOutAddress, txOutValue)
 import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
                                          Coin, SoftwareVersion, decodeTextAddress,
@@ -134,6 +143,20 @@ mkCTx addr diff THEntry {..} meta = CTx {..}
              then CTOut meta
              else CTIn meta
 
+newtype CPassPhrase = CPassPhrase Text deriving (Eq, Generic)
+
+instance Show CPassPhrase where
+    show _ = "<pass phrase>"
+
+passPhraseToCPassPhrase :: PassPhrase -> CPassPhrase
+passPhraseToCPassPhrase passphrase =
+    CPassPhrase . Base16.encode $ encodeStrict passphrase
+
+cPassPhraseToPassPhrase
+    :: CPassPhrase -> Either Text PassPhrase
+cPassPhraseToPassPhrase (CPassPhrase text) =
+    (_Left %~ toText) . decodeFull . LBS.fromStrict =<< Base16.decode text
+
 ----------------------------------------------------------------------------
 -- Wallet
 ----------------------------------------------------------------------------
@@ -144,16 +167,24 @@ data CWalletType
     | CWTShared
     deriving (Show, Generic)
 
+-- | A level of assurance for the wallet "meta type"
+data CWalletAssurance
+    = CWAStrict
+    | CWANormal
+    deriving (Show, Generic)
+
 -- | Meta data of CWallet
 -- Includes data which are not provided by Cardano
 data CWalletMeta = CWalletMeta
-    { cwType     :: !CWalletType
-    , cwCurrency :: !CCurrency
-    , cwName     :: !Text
+    { cwType      :: !CWalletType
+    , cwCurrency  :: !CCurrency
+    , cwName      :: !Text
+    , cwAssurance :: !CWalletAssurance
+    , cwUnit      :: !Int -- ^ https://issues.serokell.io/issue/CSM-163#comment=96-2480
     } deriving (Show, Generic)
 
 instance Default CWalletMeta where
-    def = CWalletMeta CWTPersonal ADA "Personal Wallet"
+    def = CWalletMeta CWTPersonal ADA "Personal Wallet" CWANormal 0
 
 -- | Client Wallet (CW)
 -- (Flow type: walletType)
@@ -187,13 +218,7 @@ type CPwHash = Text -- or Base64 or something else
 -- all data of client are "meta data" - that is not provided by Cardano
 -- (Flow type: accountType)
 data CProfile = CProfile
-    { cpName        :: Text
-    , cpEmail       :: Text
-    , cpPhoneNumber :: Text
-    , cpPwHash      :: CPwHash
-    , cpPwCreated   :: POSIXTime
-    , cpLocale      :: Text
-    , cpPicture     :: Text -- TODO: base64
+    { cpLocale      :: Text
     } deriving (Show, Generic, Typeable)
 
 ----------------------------------------------------------------------------
@@ -274,7 +299,7 @@ countVotes = foldl' counter (0, 0)
 -- | Creates 'CTUpdateInfo' from 'ConfirmedProposalState'
 toCUpdateInfo :: ConfirmedProposalState -> CUpdateInfo
 toCUpdateInfo ConfirmedProposalState {..} =
-    let UpdateProposal {..} = cpsUpdateProposal
+    let UnsafeUpdateProposal {..} = cpsUpdateProposal
         cuiSoftwareVersion  = upSoftwareVersion
         cuiBlockVesion      = upBlockVersion
         cuiScriptVersion    = bvdScriptVersion upBlockVersionData

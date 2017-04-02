@@ -7,7 +7,6 @@ import           Universum
 
 import           Pos.Binary.Class (Bi (..), getAsciiString1b, putAsciiString1b)
 import qualified Pos.Core.Types   as V
-import qualified Pos.Core.Version as V
 
 instance Bi V.ApplicationName where
     get = label "ApplicationName" $ V.mkApplicationName . toText

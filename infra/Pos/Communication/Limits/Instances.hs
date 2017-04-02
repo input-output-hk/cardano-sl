@@ -12,14 +12,17 @@ module Pos.Communication.Limits.Instances
        ) where
 
 import           Control.Lens                   (each, ix)
-import           Data.Binary.Get                (getWord8, lookAhead)
+import           Data.Binary.Get                (lookAhead)
 import           Universum
+
+import           Pos.Binary.Class               (getWord8)
 
 import qualified Pos.Communication.Constants    as Const
 import           Pos.Communication.Limits.Types (Limit (..), Limiter (..),
                                                  MessageLimited (..),
                                                  MessageLimitedPure (..))
-import           Pos.Communication.Types.Relay  (DataMsg (..), InvMsg, InvOrData, ReqMsg)
+import           Pos.Communication.Types.Relay  (DataMsg (..), InvMsg, InvOrData,
+                                                 MempoolMsg (..), ReqMsg)
 
 ----------------------------------------------------------------------------
 -- Instances for Limiter
@@ -59,6 +62,10 @@ instance MessageLimited (ReqMsg key tag) where
     type LimitType (ReqMsg key tag) = Limit (ReqMsg key tag)
     getMsgLenLimit _ = return msgLenLimit
 
+instance MessageLimited (MempoolMsg tag) where
+    type LimitType (MempoolMsg tag) = Limit (MempoolMsg tag)
+    getMsgLenLimit _ = return msgLenLimit
+
 instance MessageLimited (DataMsg contents)
       => MessageLimited (InvOrData tag key contents) where
     type LimitType (InvOrData tag key contents) =
@@ -80,3 +87,6 @@ instance MessageLimitedPure (InvMsg key tag) where
 
 instance MessageLimitedPure (ReqMsg key tag) where
     msgLenLimit = Limit Const.maxReqSize
+
+instance MessageLimitedPure (MempoolMsg tag) where
+    msgLenLimit = Limit Const.maxMempoolMsgSize

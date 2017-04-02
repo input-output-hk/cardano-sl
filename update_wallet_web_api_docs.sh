@@ -17,6 +17,8 @@ echo "**** 2. Convert JSON with Swagger-specification to HTML ****"
 nix-shell -p nodejs --run "npm install bootprint"
 nix-shell -p nodejs --run "npm install bootprint-openapi"
 nix-shell -p nodejs --run "npm install html-inline"
+# We need add it in PATH to run it.
+PATH=$PATH:$(pwd)/node_modules/.bin
 nix-shell -p nodejs --run "bootprint openapi ${SWAGGER_WALLET_API_JSON_SPEC} ${WALLET_API_PRODUCED_ROOT}"
 nix-shell -p nodejs --run "html-inline ${WALLET_API_PRODUCED_ROOT}/${WALLET_API_HTML} > ${WALLET_API_HTML}"
 
@@ -39,7 +41,7 @@ git add .
 if [ -n "$(git status --porcelain)" ]; then 
     echo "     There are changes in Wallet Web API docs, push it";
     git commit -a -m "Automatic Wallet Web API docs rebuilding."
-    git push origin master
+    git push --force origin master
     # After we push new docs in `master`,
     # Jekyll will automatically rebuild it on cardano-docs.iohk.io website.
 else

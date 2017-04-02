@@ -49,7 +49,6 @@ import           Pos.Slotting                (MonadSlots, MonadSlotsData, NtpSlo
                                               SlottingHolder)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp                     (TxpHolder (..))
-import           Pos.Update                  (USHolder (..))
 import           Pos.Util                    ()
 import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys,
                                               usPrimKey, writeUserSecret)
@@ -165,7 +164,7 @@ instance ( Mockable d m
          ) => Mockable d (KeyStorage m) where
     liftMockable = liftMockableWrappedM
 
-runKeyStorage :: MonadIO m => FilePath -> KeyStorage m a -> m a
+runKeyStorage :: (MonadIO m, MonadThrow m) => FilePath -> KeyStorage m a -> m a
 runKeyStorage fp ks =
     peekUserSecret fp >>= liftIO . STM.newTVarIO >>= runKeyStorageRaw ks
 
@@ -215,4 +214,3 @@ instance (MonadIO m, MonadThrow m) =>
 deriving instance MonadKeys m => MonadKeys (SscHolder ssc m)
 deriving instance MonadKeys m => MonadKeys (TxpHolder __ m)
 deriving instance MonadKeys m => MonadKeys (DelegationT m)
-deriving instance MonadKeys m => MonadKeys (USHolder m)

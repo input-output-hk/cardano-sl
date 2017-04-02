@@ -66,7 +66,9 @@ page of the documentation.
 Generating the wallet documentation
 -----------------------------------
 
-Build the project and run `stack exec --nix -- cardano-wallet-web-docs`. Look at the generated `./docs/wallet-web-api.md`.
+Build the project and run `stack exec --nix -- cardano-wallet-web-docs`. Look at the generated:
+- `./docs/wallet-web-api.md`
+- `./docs/wallet-table-web-api.md`
 
 Benchmarking
 ------------
@@ -81,3 +83,4 @@ _Pending_
 #### References
 
 [1]: A. Kiayias, I. Konstantinou, A. Russell, B. David, R. Oliynykov, "[A Provably Secure Proof-of-Stake Blockchain Protocol](https://eprint.iacr.org/2016/889.pdf)"
+

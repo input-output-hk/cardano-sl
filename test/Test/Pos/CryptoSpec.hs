@@ -22,6 +22,8 @@ import           Pos.Ssc.GodTossing      ()
 import           Test.Pos.Util           ((.=.), binaryEncodeDecode, binaryTest,
                                           safeCopyEncodeDecode, safeCopyTest, serDeserId)
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
 spec :: Spec
 spec = describe "Crypto" $ do
     describe "Random" $ do
@@ -66,6 +68,7 @@ spec = describe "Crypto" $ do
     describe "Signing" $ do
         describe "Identity testing" $ do
             describe "Bi instances" $ do
+<<<<<<< HEAD
                 binaryTest @Crypto.SecretKey
                 binaryTest @Crypto.PublicKey
                 binaryTest @(Crypto.Signature ())
@@ -78,6 +81,7 @@ spec = describe "Crypto" $ do
                 binaryTest @(Crypto.RedeemSignature Bool)
                 binaryTest @Crypto.Threshold
                 binaryTest @Crypto.VssPublicKey
+                binaryTest @CryptoPassPhrase
                 binaryTest @Crypto.VssKeyPair
                 binaryTest @Crypto.Secret
                 binaryTest @Crypto.Share

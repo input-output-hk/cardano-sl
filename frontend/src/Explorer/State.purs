@@ -4,6 +4,8 @@ import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language(..))
 import Explorer.Routes (Route(..))
 import Explorer.Types.State (DashboardAPICode(..), Search(..), State)
+import Explorer.Util.Factory (mkCAddress)
+import Network.RemoteData (RemoteData(..))
 
 
 initialState :: State
@@ -37,7 +39,8 @@ initialState =
     , currentBlockTxs: Nothing
     , latestTransactions: []
     , currentTxSummary: Nothing
-    , currentAddressSummary: Nothing
+    , currentCAddress: mkCAddress ""
+    , currentAddressSummary: NotAsked
     , selectedSearch: SearchAddress
     , searchQuery: emptySearch
     , errors: []

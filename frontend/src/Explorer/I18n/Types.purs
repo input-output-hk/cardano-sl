@@ -112,6 +112,7 @@ type Address =
     { addScan :: String
     , addQrCode :: String
     , addFinalBalance :: String
+    , addNotFound :: String
     }
 
 -- translations of transaction detail page

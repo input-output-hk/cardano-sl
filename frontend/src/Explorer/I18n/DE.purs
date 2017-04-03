@@ -85,6 +85,7 @@ translation =
         { addScan: "Scannen Sie hier den QR Code, um die Adresse in die Zwischenablage zu kopieren."
         , addQrCode: "QR-Code"
         , addFinalBalance: "Aktueller Kontostand"
+        , addNotFound: "Addresse {0} existiert nicht."
         }
     , tx:
         { txTime: "Eingangszeit"

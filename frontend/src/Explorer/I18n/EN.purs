@@ -87,6 +87,7 @@ translation =
         { addScan: "Scan this QR Code to copy address to clipboard"
         , addQrCode: "QR-Code"
         , addFinalBalance: "Final balance"
+        , addNotFound: "Address {0} does not exist."
         }
     , tx:
         { txTime: "Received time"

@@ -10,7 +10,8 @@ import Data.Either (Either(..))
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary)
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentTxSummary, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, searchQuery, selectedApiCode, selectedSearch, socket, transactionsExpanded, viewStates)
+import Explorer.I18n.Lenses (cAddress)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentCAddress, currentTxSummary, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, searchQuery, selectedApiCode, selectedSearch, socket, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (emptySearch)
 import Explorer.Types.Actions (Action(..))
@@ -19,6 +20,7 @@ import Explorer.Util.DOM (scrollTop)
 import Explorer.Util.Factory (mkCAddress)
 import Explorer.Util.QrCode (generateQrCode)
 import Network.HTTP.Affjax (AJAX)
+import Network.RemoteData (RemoteData(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects)
 import Pux.Router (navigateTo) as P
@@ -212,13 +214,15 @@ update (RequestAddressSummary address) state =
 update (ReceiveAddressSummary (Right address)) state =
     { state:
         set loading false $
-        set currentAddressSummary (Just address) state
+        set currentAddressSummary Loading state
+        -- set currentAddressSummary (Success address) state
     , effects:
         [ pure $ GenerateQrCode $ address ^. (_CAddressSummary <<< caAddress) ]
     }
 update (ReceiveAddressSummary (Left error)) state =
     noEffects $
     set loading false $
+    set currentAddressSummary (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
 -- routing
@@ -247,13 +251,14 @@ routeEffects (Tx id) state =
         ]
     }
 
-routeEffects (Address address) state =
+routeEffects (Address cAddress) state =
     { state:
-        set currentAddressSummary Nothing
-        $ set (viewStates <<< addressDetail <<< addressTxPagination) 1 state
+        set currentAddressSummary Loading $
+        set currentCAddress cAddress $
+        set (viewStates <<< addressDetail <<< addressTxPagination) 1 state
     , effects:
         [ pure ScrollTop
-        , pure $ RequestAddressSummary address
+        , pure $ RequestAddressSummary cAddress
         ]
     }
 

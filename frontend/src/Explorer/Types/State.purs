@@ -1,10 +1,12 @@
 module Explorer.Types.State where
 
+import Control.Monad.Eff.Exception (Error)
 import Data.Generic (class Generic, gShow)
 import Data.Maybe (Maybe)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
-import Pos.Explorer.Web.ClientTypes (CAddressSummary, CBlockEntry, CBlockSummary, CTxEntry, CTxSummary, CTxBrief)
+import Network.RemoteData (RemoteData)
+import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CBlockEntry, CBlockSummary, CTxBrief, CTxEntry, CTxSummary)
 import Prelude (class Eq, class Ord, class Show)
 
 -- Add all State types here to generate lenses from it
@@ -23,7 +25,8 @@ type State =
     , currentBlockTxs :: Maybe CTxBriefs
     , currentTxSummary :: Maybe CTxSummary
     , latestTransactions :: CTxEntries
-    , currentAddressSummary :: Maybe CAddressSummary
+    , currentCAddress :: CAddress
+    , currentAddressSummary :: RemoteData Error CAddressSummary
     , selectedSearch :: Search
     , searchQuery :: String
     , errors :: Errors

@@ -5,17 +5,19 @@ import Data.Array (length, (!!))
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (cAddress, common, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, currentAddressSummary, lang, viewStates)
+import Explorer.I18n.Lenses (addNotFound, cAddress, common, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance) as I18nL
+import Explorer.Lenses.State (addressDetail, addressTxPagination, currentAddressSummary, currentCAddress, lang, viewStates)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
+import Explorer.Util.String (substitute)
 import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txPaginationView, txHeaderView)
+import Network.RemoteData (RemoteData(..))
 import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, caAddress, caBalance, caTxList, caTxNum)
 import Pux.Html (Html, div, text, h3, p) as P
-import Pux.Html.Attributes (className, id_) as P
+import Pux.Html.Attributes (className, dangerouslySetInnerHTML, id_) as P
 
 addressView :: State -> P.Html Action
 addressView state =
@@ -30,13 +32,15 @@ addressView state =
                           [ P.className "headline"]
                           [ P.text $ translate (I18nL.common <<< I18nL.cAddress) lang' ]
                   , case state ^. currentAddressSummary of
-                      Nothing ->
+                      NotAsked -> emptyAddressDetail ""
+                      -- Loading -> emptyAddressWrapper ""
+                      Loading -> emptyAddressDetail <<< flip substitute
+                                    ["<span class='address-hash'>" <> (state ^. (currentCAddress <<< _CAddress)) <> "</span>"]
+                                    $ translate (I18nL.address <<< I18nL.addNotFound) lang'
+                      Failure _ -> emptyAddressDetail $ translate (I18nL.address <<< I18nL.addNotFound) lang'
+                      Success addressSummary ->
                           P.div
-                              [ P.className "address-wrapper" ]
-                              [ P.text "" ]
-                      Just addressSummary ->
-                          P.div
-                              [ P.className "address-wrapper" ]
+                              []
                               [ addressDetailView addressSummary lang'
                               , addressQr addressSummary lang'
                               ]
@@ -50,8 +54,10 @@ addressView state =
                           [ P.className "headline"]
                           [ P.text $ translate (I18nL.common <<< I18nL.cTransactions) lang' ]
                         , case state ^. currentAddressSummary of
-                              Nothing -> emptyTxHeaderView state
-                              Just (CAddressSummary addressSummary) ->
+                              NotAsked -> emptyTxHeaderView state
+                              Loading -> emptyTxHeaderView state
+                              Failure _ -> emptyTxHeaderView state
+                              Success (CAddressSummary addressSummary) ->
                                   let txList = addressSummary ^. caTxList
                                       txPagination = state ^. (viewStates <<< addressDetail <<< addressTxPagination)
                                       currentTxBrief = txList !! (txPagination - 1)
@@ -138,4 +144,13 @@ addressDetailRow item =
         , P.div
               [ P.className $ "address-detail__column amount" <> currencyCSSClass item.currency ]
               [ P.text item.value ]
+        ]
+
+emptyAddressDetail :: String -> P.Html Action
+emptyAddressDetail message =
+    P.div
+        [ P.className "explorer-address__container" ]
+        [ P.div
+            [ P.dangerouslySetInnerHTML message ]
+            []
         ]

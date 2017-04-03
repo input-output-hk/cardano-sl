@@ -13,6 +13,7 @@
   &__container {
     @neat-outer-container;
     padding: 46px 0px 38px 0px;
+
   }
   @media (--md) {
     &__container {
@@ -20,6 +21,15 @@
       max-width:var(--max-width-desktop);
       padding: 56px 48px 48px 48px;
     }
+  }
+
+  .address-hash {
+      background-color: var(--color6);
+      padding: 5px 10px;
+      font-family: var(--fontFamily0-Regular);
+      color: color(var(--color8) a(0.6));
+      font-size: 12px;
+      font-weight: normal;
   }
 
   .address-detail {

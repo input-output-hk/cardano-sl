@@ -10,15 +10,18 @@ import Data.Either (Either(..))
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary)
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentTxSummary, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, selectedSearch, socket, transactionsExpanded, viewStates)
-import Explorer.Routes (Route(..))
+import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentTxSummary, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, searchQuery, selectedApiCode, selectedSearch, socket, transactionsExpanded, viewStates)
+import Explorer.Routes (Route(..), toUrl)
+import Explorer.State (emptySearch)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (State)
+import Explorer.Types.State (Search(..), State)
 import Explorer.Util.DOM (scrollTop)
+import Explorer.Util.Factory (mkCAddress)
 import Explorer.Util.QrCode (generateQrCode)
 import Network.HTTP.Affjax (AJAX)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects)
+import Pux.Router (navigateTo) as P
 
 
 update :: forall eff. Action -> State -> EffModel State Action (dom :: DOM, ajax :: AJAX | eff)
@@ -91,16 +94,34 @@ update (SelectInputText input) state =
 update (GenerateQrCode address) state =
     { state
     , effects:
-        [ liftEff $ generateQrCode (address ^. _CAddress) "qr_image_id" >>= \_ -> pure NoOp
+        [ liftEff $ generateQrCode (address ^. _CAddress) "qr_image_id" *> pure NoOp
         ]
     }
 
 -- Search
 
-update DashboardSearch state = noEffects state
+-- update DashboardSearch state = noEffects state
+update DashboardSearch state =
+    let query = state ^. searchQuery in
+    { state: set searchQuery emptySearch $ state
+    , effects: [
+      -- set state of focus explicitly
+      pure $ DashboardFocusSearchInput false
+      , case state ^. selectedSearch of
+          SearchAddress ->
+              (liftEff <<< P.navigateTo <<< toUrl <<< Address $ mkCAddress query)
+              *> pure NoOp
+          -- SearchTx ->
+          -- SearchEpoch ->
+          _ -> pure NoOp
+      ]
+    }
 
 update (UpdateSelectedSearch search) state =
     noEffects $ set selectedSearch search state
+
+update (UpdateSearchText search) state =
+    noEffects $ set searchQuery search state
 
 -- NoOp
 

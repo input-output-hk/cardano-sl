@@ -4,13 +4,13 @@ import Prelude
 import Data.Lens ((^.))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cAddress, cTransaction, cEpoch, common, hero, hrTitle, hrSearch, hrSubtitle) as I18nL
-import Explorer.Lenses.State (lang, searchInput, selectedSearch)
+import Explorer.Lenses.State (lang, searchInput, searchQuery, selectedSearch)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), State)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Pux.Html (Html, div, text, h1, h2, ul, li, label, input) as P
 import Pux.Html.Attributes (checked, className, htmlFor, id_, name, type_, placeholder, value) as P
-import Pux.Html.Events (onChange, onClick, onFocus, onBlur) as P
+import Pux.Html.Events (onChange, onClick, onFocus, onBlur, onKey) as P
 
 heroView :: State -> P.Html Action
 heroView state =
@@ -40,6 +40,9 @@ heroView state =
                                       else translate (I18nL.hero <<< I18nL.hrSearch) lang'
                     , P.onFocus <<< const $ DashboardFocusSearchInput true
                     , P.onBlur <<< const $ DashboardFocusSearchInput false
+                    , P.onChange $ UpdateSearchText <<< _.value <<< _.target
+                    , P.onKey "enter" $ const DashboardSearch
+                    , P.value $ state ^. searchQuery
                     ]
                     []
                 , P.ul

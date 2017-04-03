@@ -39,6 +39,10 @@ initialState =
     , currentTxSummary: Nothing
     , currentAddressSummary: Nothing
     , selectedSearch: SearchAddress
+    , searchQuery: emptySearch
     , errors: []
     , loading: false
     }
+
+emptySearch :: String
+emptySearch = ""

@@ -25,6 +25,7 @@ type State =
     , latestTransactions :: CTxEntries
     , currentAddressSummary :: Maybe CAddressSummary
     , selectedSearch :: Search
+    , searchQuery :: String
     , errors :: Errors
     , loading :: Boolean
     }

@@ -50,7 +50,7 @@ translation =
     , hero:
         { hrTitle: "Cardano Blockchain Explorer"
         , hrSubtitle: "most effective way to reasearch crypto currencies network"
-        , hrSearch: "Search for address, slot, token"
+        , hrSearch: "Search for addresses, transactions, slots and epochs"
         }
     , dashboard:
         { dbLastBlocks: "Last slots"

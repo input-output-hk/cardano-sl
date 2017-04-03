@@ -38,6 +38,7 @@ data Action
     -- search
     | DashboardSearch                       -- dasboard search
     | UpdateSelectedSearch Search
+    | UpdateSearchText String
     -- dashboard
     | DashboardExpandBlocks Boolean         -- toggle blocks
     | DashboardPaginateBlocks Int           -- current pagination of blocks

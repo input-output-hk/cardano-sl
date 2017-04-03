@@ -48,7 +48,7 @@ translation =
     , hero:
         { hrTitle: "Cardano Blockchain Explorer"
         , hrSubtitle: "Der effektivste Weg um das Netzwerk der Kryptowährung zu erforschen."
-        , hrSearch: "Suche Addresse, Slot, Token"
+        , hrSearch: "Suche nach Addressen, Transaktionen, Slots und Epochen"
         }
     , dashboard:
         { dbLastBlocks: "Aktuelle Slots"

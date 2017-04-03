@@ -181,7 +181,7 @@ cPassPhraseToPassPhrase (CPassPhrase text) =
 -- | Wallet set identifier
 newtype CWalletSetAddress = CWalletSetAddress
     { cwsaAddress :: CAddress
-    } deriving (Eq, Show, Generic, Hashable)
+    } deriving (Eq, Show, Generic, Hashable, Typeable)
 
 instance Buildable CWalletSetAddress where
     build (CWalletSetAddress addr) = build addr
@@ -192,7 +192,7 @@ data CWalletAddress = CWalletAddress
       cwaWSAddress :: CWalletSetAddress
     , -- | Derivation index of this wallet key
       cwaIndex     :: Word32
-    } deriving (Eq, Show, Generic)
+    } deriving (Eq, Show, Generic, Typeable)
 
 instance Hashable CWalletAddress
 
@@ -210,7 +210,7 @@ data CAccountAddress = CAccountAddress
       caaAccountIndex :: Word32
     , -- | Actual adress of this account
       caaAddress      :: CAddress
-    } deriving (Eq, Show, Generic)
+    } deriving (Eq, Show, Generic, Typeable)
 
 instance Buildable CAccountAddress where
     build CAccountAddress{..} =

@@ -17,9 +17,10 @@ import           Universum
 import           Control.Lens               (mapped, (?~))
 import           Data.Aeson                 (Value (..), encode)
 import qualified Data.ByteString.Lazy.Char8 as BSL8
-import           Data.Swagger               (Swagger, ToParamSchema (..), ToSchema (..),
+import           Data.Swagger               (Swagger, SwaggerType (SwaggerString),
+                                             ToParamSchema (..), ToSchema (..),
                                              declareNamedSchema, defaultSchemaOptions,
-                                             default_, description,
+                                             default_, description, type_, format,
                                              genericDeclareNamedSchema, host, info, name,
                                              title, version)
 import           Data.Typeable              (Typeable, typeRep)
@@ -66,12 +67,19 @@ instance ToSchema      CCurrency
 instance ToParamSchema CCurrency
 instance ToSchema      CProfile
 instance ToSchema      WalletError
+
 instance ToSchema      CAccountAddress
 instance ToParamSchema CAccountAddress where
-    toParamSchema = undefined  -- TODO [CSM-171]
+    toParamSchema _ = mempty
+        & type_ .~ SwaggerString
+        & format ?~ "walletSetAddress@walletIndex@accountIndex@address"
+
 instance ToSchema      CWalletAddress
 instance ToParamSchema CWalletAddress where
-    toParamSchema = undefined  -- TODO [CSM-171]
+    toParamSchema _ = mempty
+        & type_ .~ SwaggerString
+        & format ?~ "walletSetAddress@walletKeyIndex"
+
 instance ToSchema      CWalletSetAddress
 instance ToParamSchema CWalletSetAddress
 instance ToSchema      CWalletAssurance

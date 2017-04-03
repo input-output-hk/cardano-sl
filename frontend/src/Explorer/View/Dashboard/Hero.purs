@@ -31,9 +31,9 @@ heroView state =
                 [ P.className "hero-subheadline"]
                 [ P.text $ translate (I18nL.hero <<< I18nL.hrSubtitle) lang' ]
             , P.div
-                [ P.className $ "hero-search-container" <> focusedClazz ]
+                [ P.className $ "hero-search__container" <> focusedClazz ]
                 [ P.input
-                    [ P.className $ "hero-input" <> focusedClazz
+                    [ P.className $ "hero-search__input" <> focusedClazz
                     , P.type_ "text"
                     , P.placeholder $ if searchInputFocused
                                       then ""
@@ -42,15 +42,15 @@ heroView state =
                     , P.onBlur <<< const $ DashboardFocusSearchInput false
                     ]
                     []
+                , P.ul
+                    [ P.className "hero-search-nav__container"]
+                    <<< map (\item -> searchItemView item $ state ^. selectedSearch)
+                        $ mkSearchItems lang'
                 , P.div
-                    [ P.className $ "hero-search-btn" <> searchIconClazz <> focusedClazz
+                    [ P.className $ "hero-search__btn" <> searchIconClazz <> focusedClazz
                     , P.onClick $ const DashboardSearch
                     ]
                     []
-                , P.ul
-                    []
-                    <<< map (\item -> searchItemView item $ state ^. selectedSearch)
-                        $ mkSearchItems lang'
                 ]
             ]
         ]
@@ -78,8 +78,11 @@ mkSearchItems lang =
 
 searchItemView :: SearchItem -> Search -> P.Html Action
 searchItemView item selectedSearch =
+    let selected = item.value == selectedSearch
+        selectedClass = if selected then " selected" else ""
+    in
     P.li
-        []
+        [ P.className "hero-search-nav__item" ]
         [ P.input
             [ P.type_ "radio"
             , P.id_ $ show item.value
@@ -90,6 +93,7 @@ searchItemView item selectedSearch =
             ]
             []
         , P.label
-            [ P.htmlFor $ show item.value ]
+            [ P.className $ "hero-search-nav__item--label" <> selectedClass
+            , P.htmlFor $ show item.value ]
             [ P.text item.label ]
         ]

@@ -170,6 +170,7 @@ type WalletApi =
      :> Post '[JSON] (Either WalletError CTx)
     :<|>
      "api"
+     :> "postvend"
      :> "redemptions"
      :> "ada"
      :> ReqBody '[JSON] CPostVendWalletRedeem

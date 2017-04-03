@@ -5,7 +5,7 @@ module Test.Pos.Ssc.GodTossing.Identity.BinarySpec
        ) where
 
 import           Control.Lens                           (has)
-import           Crypto.Hash                            (Blake2s_224, Blake2s_256)
+import           Crypto.Hash                            (Blake2b_224, Blake2b_256)
 import           Test.Hspec                             (Spec, describe)
 import           Universum
 
@@ -42,8 +42,8 @@ spec = describe "GodTossing" $ do
         msgLenLimitedTest @EncShare
         msgLenLimitedTest @(C.MaxSize SecretSharingExtra)
         msgLenLimitedTest @(Signature ())
-        msgLenLimitedTest @(AbstractHash Blake2s_224 Void)
-        msgLenLimitedTest @(AbstractHash Blake2s_256 Void)
+        msgLenLimitedTest @(AbstractHash Blake2b_224 Void)
+        msgLenLimitedTest @(AbstractHash Blake2b_256 Void)
         msgLenLimitedTest @SecretProof
         msgLenLimitedTest @Share
         msgLenLimitedTest @VssPublicKey

@@ -35,7 +35,7 @@ module Pos.Crypto.Hashing
 
 import           Control.DeepSeq      (force)
 import           Control.Lens         (makeLensesFor)
-import           Crypto.Hash          (Blake2s_256, Digest, HashAlgorithm)
+import           Crypto.Hash          (Blake2b_256, Digest, HashAlgorithm)
 import qualified Crypto.Hash          as Hash (hash, hashlazy)
 import qualified Data.ByteArray       as ByteArray
 import qualified Data.ByteString.Lazy as BSL
@@ -109,7 +109,7 @@ decodeAbstractHash = Bi.decode . processRes . B16.decode
 
 -- | Parses given hash in base16 form.
 decodeHash :: Bi (Hash a) => Text -> Hash a
-decodeHash = decodeAbstractHash @Blake2s_256
+decodeHash = decodeAbstractHash @Blake2b_256
 
 -- | Encode thing as 'Binary' data and then wrap into constructor.
 abstractHash
@@ -124,7 +124,7 @@ unsafeAbstractHash
 unsafeAbstractHash = AbstractHash . Hash.hashlazy . Bi.encode
 
 -- | Type alias for commonly used hash
-type Hash = AbstractHash Blake2s_256
+type Hash = AbstractHash Blake2b_256
 
 -- | Short version of 'unsafeHash'.
 hash :: Bi a => a -> Hash a

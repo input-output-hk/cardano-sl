@@ -160,7 +160,7 @@ instance ToParam (QueryParam "walletSetId" CWalletSetAddress) where
     toParam Proxy =
         DocQueryParam
         { _paramName    = "limit"
-        , _paramValues  = [undefined]
+        , _paramValues  = ["1g4oyDDJfMUc2xPzZjxdrxeygepjAor4JbvCebubfVmpwk2"]
         , _paramDesc    = "Wallet filter, by wallet set address."
         , _paramKind    = Normal
         }
@@ -197,7 +197,9 @@ instance ToParam (QueryParam "address" CAccountAddress) where
     toParam Proxy =
         DocQueryParam
         { _paramName    = "address"
-        , _paramValues  = [undefined]
+        , _paramValues  = ["1g4oyDDJfMUc2xPzZjxdrxeygepjAor4JbvCebubfVmpwk2\
+                            \@134464342@523126232\
+                            \@d6c61d81875c65b24e1b98e413cf35b2f60b6c55733297f238a973a1226b12ce"]
         , _paramDesc    = "Address, history of which should be fetched"
         , _paramKind    = Normal
         }

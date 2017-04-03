@@ -33,11 +33,10 @@ addressView state =
                           [ P.text $ translate (I18nL.common <<< I18nL.cAddress) lang' ]
                   , case state ^. currentAddressSummary of
                       NotAsked -> emptyAddressDetail ""
-                      -- Loading -> emptyAddressWrapper ""
-                      Loading -> emptyAddressDetail <<< flip substitute
+                      Loading -> emptyAddressDetail ""
+                      Failure _ -> emptyAddressDetail <<< flip substitute
                                     ["<span class='address-hash'>" <> (state ^. (currentCAddress <<< _CAddress)) <> "</span>"]
                                     $ translate (I18nL.address <<< I18nL.addNotFound) lang'
-                      Failure _ -> emptyAddressDetail $ translate (I18nL.address <<< I18nL.addNotFound) lang'
                       Success addressSummary ->
                           P.div
                               []

@@ -68,7 +68,6 @@ spec = describe "Crypto" $ do
     describe "Signing" $ do
         describe "Identity testing" $ do
             describe "Bi instances" $ do
-<<<<<<< HEAD
                 binaryTest @Crypto.SecretKey
                 binaryTest @Crypto.PublicKey
                 binaryTest @(Crypto.Signature ())
@@ -81,7 +80,7 @@ spec = describe "Crypto" $ do
                 binaryTest @(Crypto.RedeemSignature Bool)
                 binaryTest @Crypto.Threshold
                 binaryTest @Crypto.VssPublicKey
-                binaryTest @CryptoPassPhrase
+                binaryTest @Crypto.PassPhrase
                 binaryTest @Crypto.VssKeyPair
                 binaryTest @Crypto.Secret
                 binaryTest @Crypto.Share
@@ -423,7 +422,7 @@ encrypyDecryptChaChaDifferentNonce
 
 encToPublicToEnc :: Crypto.SecretKey -> Property
 encToPublicToEnc =
-    Crypto.encToPublic . Crypto.toEncrypted .=. Crypto.toPublic
+    Crypto.encToPublic . Crypto.noPassEncrypt .=. Crypto.toPublic
 
 skToSafeSigner :: Crypto.SecretKey -> Property
 skToSafeSigner =

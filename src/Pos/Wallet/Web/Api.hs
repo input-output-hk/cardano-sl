@@ -48,6 +48,7 @@ type WalletApi =
     :<|>
      "api"
      :> "walletSets"
+     :> "new"
      :> Capture "passphrase" CPassPhrase
      :> ReqBody '[JSON] CWalletSetInit
      :> Post '[JSON] (Either WalletError CWalletSet)

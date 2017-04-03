@@ -20,6 +20,7 @@ module Daedalus.Types
        , showCCurrency
        , mkBackupPhrase
        , mkCWalletRedeem
+       , mkCPostVendWalletRedeem
        , mkCInitialized
        , mkCPassPhrase
        , getProfileLocale
@@ -151,6 +152,14 @@ mkCWalletRedeem seed wId = do
     CT.CWalletRedeem { crWalletId: mkCAddress wId
                      , crSeed: seed
                      }
+
+mkCPostVendWalletRedeem :: String -> String -> String -> Either Error CT.CPostVendWalletRedeem
+mkCPostVendWalletRedeem seed mnemonic wId = do
+    bp <- mkBackupPhrase mnemonic
+    pure $ CT.CPostVendWalletRedeem { pvWalletId: mkCAddress wId
+                                    , pvBackupPhrase: bp
+                                    , pvSeed: seed
+                                    }
 
 _ctxIdValue :: CT.CTxId -> String
 _ctxIdValue (CT.CTxId tx) = _hash tx

@@ -14,10 +14,10 @@ import           System.Wlog       (logWarning)
 
 import           Pos.Communication (ConversationActions (..), DataMsg (..), InvMsg (..),
                                     InvOrData, Limit, LimitType, LimitedLengthExt,
-                                    MempoolMsg, OutSpecs,
+                                    MempoolMsg (..), OutSpecs,
                                     RelayError (UnexpectedData, UnexpectedInv),
                                     RelayProxy (..), ReqMsg (..), SendActions,
-                                    TxMsgContents, TxMsgTag, WorkerSpec, convH,
+                                    TxMsgContents, TxMsgTag (..), WorkerSpec, convH,
                                     handleDataL, handleInvL, reifyMsgLimit, toOutSpecs,
                                     withLimitedLength, worker)
 import           Pos.Constants     (isDevelopment)
@@ -65,7 +65,8 @@ queryTxsWorker = worker requestTxsOuts $ \sendActions -> do
                 []          -> return ()
                 (node:rest) -> do
                     liftIO $ writeIORef nodesRef rest
-                    receiveTxMempool sendActions node
+                    txs <- getTxMempoolInvs sendActions node
+                    requestTxs sendActions node txs
             delay $ delayInterval
         handler (e :: SomeException) = do
             logWarning $ "Exception arised in queryTxsWorker: " <> show e
@@ -84,13 +85,38 @@ requestTxsOuts =
     toOutSpecs [ convH (Proxy @(MempoolMsg TxMsgTag))
                        (Proxy @(InvOrData TxMsgTag TxId TxMsgContents)) ]
 
--- | A handler for InvOrData messages – it receives an Inv message, sends the
--- Req, and then expects a Data. It does so until there are no messages left
--- to be received (i.e. until 'recv' returns 'Nothing').
---
--- This code was copied from 'Pos.Communication.Relay.Logic.relayListeners'.
-receiveTxMempool :: WorkMode ssc m => SendActions m -> DHTNode -> m ()
-receiveTxMempool sendActions node =
+-- | Send a MempoolMsg to a node and receive incoming 'InvMsg's with
+-- transaction IDs.
+getTxMempoolInvs
+    :: WorkMode ssc m
+    => SendActions m -> DHTNode -> m [TxId]
+getTxMempoolInvs sendActions node =
+    reifyMsgLimit (Proxy @(InvOrData TxMsgTag TxId TxMsgContents)) $
+      \(_ :: Proxy s) -> converseToNode sendActions node $ \_
+        (ConversationActions{..}::(ConversationActions
+                                  (MempoolMsg TxMsgTag)
+                                  (InvOrDataLimitedLength s TxId TxMsgTag TxMsgContents)
+                                  m)
+        ) -> do
+            let txProxy = RelayProxy :: RelayProxy TxId TxMsgTag TxMsgContents
+            send $ MempoolMsg TxMsgTag
+            let getInvs = do
+                  inv' <- recv
+                  case withLimitedLength <$> inv' of
+                      Nothing -> return []
+                      Just (Right _) -> throw UnexpectedData
+                      Just (Left inv@InvMsg{..}) -> do
+                          useful <- handleInvL txProxy inv
+                          case useful of
+                              Nothing  -> getInvs
+                              Just key -> (key:) <$> getInvs
+            getInvs
+
+-- | Request several transactions.
+requestTxs
+    :: WorkMode ssc m
+    => SendActions m -> DHTNode -> [TxId] -> m ()
+requestTxs sendActions node txIds =
     reifyMsgLimit (Proxy @(InvOrData TxMsgTag TxId TxMsgContents)) $
       \(_ :: Proxy s) -> converseToNode sendActions node $ \_
         (ConversationActions{..}::(ConversationActions
@@ -99,20 +125,17 @@ receiveTxMempool sendActions node =
                                   m)
         ) -> do
             let txProxy = RelayProxy :: RelayProxy TxId TxMsgTag TxMsgContents
-            inv' <- recv
-            whenJust (withLimitedLength <$> inv') $ expectLeft $
-                \inv@InvMsg{..} -> do
-                    useful <- handleInvL txProxy inv
-                    whenJust useful $ \ne -> do
-                        send $ ReqMsg imTag ne
-                        dt' <- recv
-                        whenJust (withLimitedLength <$> dt') $ expectRight $
-                            \dt@DataMsg{..} -> handleDataL txProxy dt
+            let getTxs [] = return ()
+                getTxs (id:ids) = do
+                  send $ ReqMsg TxMsgTag id
+                  dt' <- recv
+                  whenJust (withLimitedLength <$> dt') $ expectRight $
+                      \dt@DataMsg{..} -> do
+                          handleDataL txProxy dt
+                          getTxs ids
+            getTxs txIds
 
   where
-    expectLeft call (Left msg) = call msg
-    expectLeft _ (Right _)     = throw UnexpectedData
-
     expectRight _ (Left _)       = throw UnexpectedInv
     expectRight call (Right msg) = call msg
 

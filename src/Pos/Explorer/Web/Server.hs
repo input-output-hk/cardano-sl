@@ -139,11 +139,14 @@ epochSlotSearch
     => EpochIndex
     -> Maybe Word16
     -> m [CBlockEntry]
-epochSlotSearch epochIndex slotIndex = findBlocksByEpoch >>= transformToCBlockEntry
+epochSlotSearch epochIndex slotIndex = do 
+    blocks <- findBlocksByEpoch >>= traverse toBlockEntry
+    if null blocks
+        then throwM $ Internal "No epoch/slots found."
+        else pure blocks
   where
     findBlocksByEpoch = getBlocksByEpoch @SscGodTossing epochIndex localSlotIndex
-    localSlotIndex = fmap LocalSlotIndex slotIndex
-    transformToCBlockEntry blocks = traverse toBlockEntry blocks
+    localSlotIndex    = fmap LocalSlotIndex slotIndex
 
 -- | Get all blocks by epoch and slot. The slot is optional, if it exists,
 -- it just adds another predicate to match it.
@@ -170,7 +173,7 @@ getLastBlocks lim off = do
     let unfolder n h = do
             when (n == 0) $
                 fail "limit!"
-            MaybeT (DB.getBlock @SscGodTossing h) >>= \case
+            MaybeT (DB.getBlock @SscGodTossing h) >>= \mBlock -> case mBlock of
                 Left gb -> unfolder n (gb ^. prevBlockL)
                 Right mb -> (,) <$> lift (toBlockEntry mb) <*>
                             pure (n - 1, mb ^. prevBlockL)

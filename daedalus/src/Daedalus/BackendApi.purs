@@ -151,7 +151,7 @@ redeemADA :: forall eff. CWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
 redeemADA = postRBody ["redemptions", "ada"]
 
 postVendRedeemADA :: forall eff. CPostVendWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
-postVendRedeemADA = postRBody ["redemptions", "ada"]
+postVendRedeemADA = postRBody ["postvend", "redemptions", "ada"]
 --------------------------------------------------------------------------------
 -- REPORTING ---------------------------------------------------------------------
 reportInit :: forall eff. CInitialized -> Aff (ajax :: AJAX | eff) Unit

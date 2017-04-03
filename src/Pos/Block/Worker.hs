@@ -27,6 +27,7 @@ import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (getNodeContext, ncPublicKey)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
+import           Pos.DB.Class                (MonadDBCore)
 import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Exception               (assertionFailed)
@@ -53,7 +54,9 @@ import           Pos.WorkMode                (WorkMode)
 
 
 -- | All workers specific to block processing.
-blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => ([WorkerSpec m], OutSpecs)
+blkWorkers
+    :: (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
+    => ([WorkerSpec m], OutSpecs)
 blkWorkers =
     merge $ [ blkOnNewSlot
             , retrievalWorker ]

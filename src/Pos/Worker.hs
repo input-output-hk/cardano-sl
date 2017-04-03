@@ -16,6 +16,7 @@ import           Pos.Block.Worker        (blkWorkers)
 import           Pos.Communication       (OutSpecs, WorkerSpec, localWorker, relayWorkers,
                                           wrapActionSpec)
 import           Pos.Communication.Specs (allOutSpecs)
+import           Pos.DB                  (MonadDBCore)
 import           Pos.Delegation          (dlgWorkers)
 import           Pos.DHT.Workers         (dhtWorkers)
 import           Pos.Lrc.Worker          (lrcOnNewSlotWorker)
@@ -30,7 +31,11 @@ import           Pos.WorkMode            (WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers
-    :: (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m)
+    :: ( SscWorkersClass ssc
+       , SecurityWorkersClass ssc
+       , WorkMode ssc m
+       , MonadDBCore m
+       )
     => ([WorkerSpec m], OutSpecs)
 allWorkers = mconcatPair
     [
@@ -58,6 +63,6 @@ allWorkers = mconcatPair
 
 allWorkersCount
     :: forall ssc m.
-       (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m)
+       (MonadDBCore m, SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m)
     => Int
 allWorkersCount = length $ fst (allWorkers @ssc @m)

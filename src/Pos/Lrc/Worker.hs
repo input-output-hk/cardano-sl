@@ -24,6 +24,8 @@ import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUn
                                              withBlkSemaphore_)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants              (slotSecurityParam)
+import           Pos.Core                   (Coin)
+import           Pos.DB.Class               (MonadDBCore)
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
 import qualified Pos.DB.GState.Balances     as GS
@@ -51,7 +53,7 @@ import           Pos.Util.Context           (askContext)
 import           Pos.WorkMode               (WorkMode)
 
 lrcOnNewSlotWorker
-    :: (SscWorkersClass ssc, WorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc m, MonadDBCore m)
     => (WorkerSpec m, OutSpecs)
 lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     when (siSlot < slotSecurityParam) $
@@ -68,18 +70,18 @@ lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
 -- | Run leaders and richmen computation for given epoch. If stable
 -- block for this epoch is not known, LrcError will be thrown.
 lrcSingleShot
-    :: (SscWorkersClass ssc, WorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc m, MonadDBCore m)
     => EpochIndex -> m ()
 lrcSingleShot epoch = lrcSingleShotImpl True epoch allLrcConsumers
 
 -- | Same, but doesn't take lock on the semaphore.
 lrcSingleShotNoLock
-    :: (SscWorkersClass ssc, WorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc m, MonadDBCore m)
     => EpochIndex -> m ()
 lrcSingleShotNoLock epoch = lrcSingleShotImpl False epoch allLrcConsumers
 
 lrcSingleShotImpl
-    :: WorkMode ssc m
+    :: (WorkMode ssc m, MonadDBCore m)
     => Bool -> EpochIndex -> [LrcConsumer m] -> m ()
 lrcSingleShotImpl withSemaphore epoch consumers = do
     lock <- askContext @LrcContext lcLrcSync
@@ -179,24 +181,30 @@ leadersComputationDo epochId seed =
         leaders <- GS.runBalanceIterator (followTheSatoshiM seed totalStake)
         putLeaders epochId leaders
 
-richmenComputationDo :: forall ssc m . WorkMode ssc m
+richmenComputationDo
+    :: forall ssc m.
+       WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> m ()
 richmenComputationDo epochIdx consumers = unless (null consumers) $ do
     total <- GS.getTotalFtsStake
-    let minThreshold = safeThreshold total (not . lcConsiderDelegated)
-    let minThresholdD = safeThreshold total lcConsiderDelegated
+    consumersAndThds <-
+        zip consumers <$> mapM (flip lcThreshold total) consumers
+    let minThreshold :: Maybe Coin
+        minThreshold = safeThreshold consumersAndThds (not . lcConsiderDelegated)
+        minThresholdD :: Maybe Coin
+        minThresholdD = safeThreshold consumersAndThds lcConsiderDelegated
     (richmen, richmenD) <- GS.runBalanceIterator
                                (findAllRichmenMaybe minThreshold minThresholdD)
-    let callCallback cons = void $ fork $
+    let callCallback (cons, thd) = void $ fork $
             if lcConsiderDelegated cons
             then lcComputedCallback cons epochIdx total
-                   (HM.filter (>= lcThreshold cons total) richmenD)
+                   (HM.filter (>= thd) richmenD)
             else lcComputedCallback cons epochIdx total
-                   (HM.filter (>= lcThreshold cons total) richmen)
-    mapM_ callCallback consumers
+                   (HM.filter (>= thd) richmen)
+    mapM_ callCallback consumersAndThds
   where
-    safeThreshold total f =
-        safeMinimum
-        $ map (flip lcThreshold total)
-        $ filter f consumers
-    safeMinimum a = if null a then Nothing else Just $ minimum a
+    safeThreshold consumersAndThds f =
+        safeMinimum $ map snd $ filter (f . fst) consumersAndThds
+    safeMinimum a
+        | null a = Nothing
+        | otherwise = Just $ minimum a

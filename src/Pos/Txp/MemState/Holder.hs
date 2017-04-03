@@ -27,7 +27,7 @@ import           Universum
 
 import           Pos.Communication.Relay   (MonadRelayMem)
 import           Pos.Context.Class         (WithNodeContext)
-import           Pos.DB.Class              (MonadDB)
+import           Pos.DB.Class              (MonadDB, MonadDBCore)
 import           Pos.DB.Limits             (MonadDBLimits)
 import           Pos.DHT.MemState          (MonadDhtMem)
 import           Pos.Reporting             (MonadReportingMem)
@@ -71,6 +71,7 @@ newtype TxpHolder ext m a = TxpHolder
                , MonadRelayMem
                , MonadShutdownMem
                , MonadDB
+               , MonadDBCore
                , MonadDBLimits
                )
 

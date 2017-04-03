@@ -23,7 +23,7 @@ import           Universum
 
 import           Pos.Communication.Relay   (MonadRelayMem)
 import           Pos.Context               (WithNodeContext)
-import           Pos.DB.Class              (MonadDB)
+import           Pos.DB.Class              (MonadDB, MonadDBCore)
 import           Pos.DB.Limits             (MonadDBLimits)
 import           Pos.Delegation.Class      (DelegationWrap (..), MonadDelegation (..))
 import           Pos.DHT.MemState          (MonadDhtMem)
@@ -66,6 +66,7 @@ newtype DelegationT m a = DelegationT
                , MonadShutdownMem
                , MonadDB
                , MonadDBLimits
+               , MonadDBCore
                )
 
 instance MonadContext m => MonadContext (DelegationT m) where

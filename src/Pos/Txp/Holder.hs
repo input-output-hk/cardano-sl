@@ -29,7 +29,7 @@ import           System.Wlog               (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Context               (WithNodeContext)
-import           Pos.DB.Class              (MonadDB)
+import           Pos.DB.Class              (MonadDB, MonadDBCore)
 import           Pos.DB.Holder             (DBHolder (..))
 import           Pos.DB.Limits             (MonadDBLimits)
 import           Pos.Slotting.Class        (MonadSlots, MonadSlotsData)
@@ -47,10 +47,27 @@ import           Pos.Util.JsonLog          (MonadJL (..))
 
 newtype TxpLDHolder ssc m a = TxpLDHolder
     { getTxpLDHolder :: ReaderT (TxpLDWrap ssc) m a
-    } deriving (Functor, Applicative, Monad, MonadTrans, MonadThrow,
-                MonadSlotsData, MonadSlots, MonadCatch, MonadIO, MonadFail,
-                HasLoggerName, WithNodeContext ssc, MonadJL, MonadDBLimits,
-                CanLog, MonadMask, MonadSscMem ssc, MonadFix)
+    } deriving ( Functor
+               , Applicative
+               , Monad
+               , MonadTrans
+               , MonadThrow
+               , MonadSlotsData
+               , MonadSlots
+               , MonadCatch
+               , MonadIO
+               , MonadFail
+               , MonadDB
+               , MonadDBCore
+               , HasLoggerName
+               , WithNodeContext ssc
+               , MonadJL
+               , MonadDBLimits
+               , CanLog
+               , MonadMask
+               , MonadSscMem ssc
+               , MonadFix
+               )
 
 type instance ThreadId (TxpLDHolder ssc m) = ThreadId m
 type instance Promise (TxpLDHolder ssc m) = Promise m
@@ -66,8 +83,6 @@ instance ( Mockable d m
          , MFunctor' d (TxpLDHolder ssc m) (ReaderT (TxpLDWrap ssc) m)
          ) => Mockable d (TxpLDHolder ssc m) where
     liftMockable = liftMockableWrappedM
-
-deriving instance MonadDB m => MonadDB (TxpLDHolder ssc m)
 
 deriving instance MonadTxpLD ssc m => MonadTxpLD ssc (DBHolder ssc m)
 

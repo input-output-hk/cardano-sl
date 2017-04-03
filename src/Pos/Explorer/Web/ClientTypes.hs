@@ -1,11 +1,9 @@
 -- | Types for using in purescript-bridge
 
 module Pos.Explorer.Web.ClientTypes
-       ( CSearchId (..)
-       , CHash (..)
+       ( CHash (..)
        , CAddress (..)
        , CTxId (..)
-       , CHashSearchResult (..)
        , CBlockEntry (..)
        , CTxEntry (..)
        , CBlockSummary (..)
@@ -25,10 +23,6 @@ module Pos.Explorer.Web.ClientTypes
        , toBlockSummary
        , toTxBrief
        , toPosixTime
-       , fromCSearchIdHash
-       , fromCSearchIdAddress
-       , fromCSearchIdTx
-       , fromCSearchText
        , convertTxOutputs
        ) where
 
@@ -70,10 +64,6 @@ import           Pos.Types.Explorer     (TxExtra (..))
 -------------------------------------------------------------------------------------
 
 -- | Client hash
-newtype CSearchId = CSearchId Text
-    deriving (Show, Eq, Generic, Buildable, Hashable)
-
--- | Client hash
 newtype CHash = CHash Text
     deriving (Show, Eq, Generic, Buildable, Hashable)
 
@@ -93,25 +83,6 @@ decodeHashHex :: Text -> Either Text (Hash a)
 decodeHashHex hashText = do
     hashBinary <- SB16.decode hashText
     over _Left toText $ Bi.decodeFull $ BSL.fromStrict hashBinary
-
-toCSearchId :: Hash a -> CSearchId
-toCSearchId = CSearchId . encodeHashHex
-
--- fromCSearchId :: CSearchId -> Either Text (Hash a)
--- fromCSearchId (CSearchId hashId) = decodeHashHex hashId
-
---TODO: Iso?
-fromCSearchIdHash :: CSearchId -> CHash
-fromCSearchIdHash = CHash . fromCSearchText
-
-fromCSearchIdAddress :: CSearchId -> CAddress
-fromCSearchIdAddress = CAddress . fromCSearchText
-
-fromCSearchIdTx :: CSearchId -> CTxId
-fromCSearchIdTx sid = CTxId $ fromCSearchIdHash sid
-
-fromCSearchText :: CSearchId -> Text
-fromCSearchText (CSearchId search) = search
 
 toCHash :: Hash a -> CHash
 toCHash = CHash . encodeHashHex
@@ -257,9 +228,6 @@ instance FromHttpApiData CAddress where
 
 instance FromHttpApiData CTxId where
     parseUrlPiece = pure . CTxId . CHash
-
-instance FromHttpApiData CSearchId where
-    parseUrlPiece = fmap toCSearchId . decodeHashHex
 
 -- TODO: When we have a generic enough `readEither`
 -- instance FromHttpApiData LocalSlotIndex where

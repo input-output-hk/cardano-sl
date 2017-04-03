@@ -77,8 +77,6 @@ type Hero =
 type Dashboard =
     { dbLastBlocks :: String
     , dbLastBlocksDescription :: String
-    , dbNetworkDifficulty :: String
-    , dbNetworkDifficultyDescription :: String
     , dbPriceAverage :: String
     , dbPriceForOne :: String
     , dbPriceSince :: String

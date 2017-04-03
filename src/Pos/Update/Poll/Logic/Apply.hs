@@ -19,9 +19,7 @@ import           System.Wlog                   (logDebug, logInfo, logNotice)
 import           Universum
 
 import           Pos.Binary.Class              (biSize)
-import           Pos.Constants                 (blkSecurityParam,
-                                                genesisUpdateProposalThd,
-                                                genesisUpdateVoteThd)
+import           Pos.Constants                 (blkSecurityParam, genesisUpdateVoteThd)
 import           Pos.Core                      (ChainDifficulty, Coin, EpochIndex,
                                                 HeaderHash, IsMainHeader (..),
                                                 SlotId (siEpoch), SoftwareVersion (..),
@@ -189,7 +187,8 @@ verifyProposalStake
     :: (MonadPollRead m, MonadError PollVerFailure m)
     => Coin -> [(UpdateVote, Coin)] -> UpId -> m ()
 verifyProposalStake totalStake votesAndStakes upId = do
-    let threshold = applyCoinPortion genesisUpdateProposalThd totalStake
+    thresholdPortion <- bvdUpdateProposalThd <$> getAdoptedBVData
+    let threshold = applyCoinPortion thresholdPortion totalStake
     let thresholdInt = coinToInteger threshold
     let votesSum =
             sumCoins . map snd . filter (uvDecision . fst) $ votesAndStakes

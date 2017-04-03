@@ -6,14 +6,16 @@ import           Data.Aeson           (eitherDecode)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict  as HM
 import qualified Data.Text            as T
+import           Formatting           (sformat, shown, (%))
 import           Options.Applicative  (execParser)
+import           Serokell.Util.Text   (listJson)
 import           System.Directory     (createDirectoryIfMissing)
 import           System.FilePath      (takeDirectory)
 import           Universum
 
 import           Pos.Binary           (decodeFull, encode)
 import           Pos.Genesis          (GenesisData (..))
-import           Pos.Types            (addressHash, makePubKeyAddress)
+import           Pos.Types            (addressDetailedF, addressHash, makePubKeyAddress)
 
 import           Avvm                 (aeCoin, applyBlacklisted, genGenesis, getHolderId,
                                        utxo)
@@ -68,7 +70,10 @@ main = do
 
     mAvvmGenesis <- traverse getAvvmGenesis koAvvmStake
     mTestnetGenesis <- traverse getTestnetGenesis koTestStake
-    putText $ "testnet genesis created successfully..."
+    whenJust mTestnetGenesis $ \tg ->
+        putText $ sformat ("testnet genesis created successfully. First 30 addresses: "%listJson%" distr: "%shown)
+                          (map (sformat addressDetailedF) . take 10 $ gdAddresses tg)
+                          (gdDistribution <$> mTestnetGenesis)
 
     let mGenData = mappend <$> mTestnetGenesis <*> mAvvmGenesis
                    <|> mTestnetGenesis

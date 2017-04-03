@@ -1026,6 +1026,7 @@ executable cardano-keygen
                      , cardano-sl-core
                      , cardano-sl
                      , ed25519
+                     , formatting
                      , universum >= 0.1
                      , serokell-util >= 0.1
                      , text

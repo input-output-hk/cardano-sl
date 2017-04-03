@@ -12,7 +12,7 @@ import           System.FilePath      (takeDirectory)
 import           Universum
 
 import           Pos.Binary           (decodeFull, encode)
-import           Pos.Genesis          (GenesisData (..))
+import           Pos.Genesis          (GenesisData (..), StakeDistribution (..))
 import           Pos.Types            (addressHash, makePubKeyAddress)
 
 import           Avvm                 (aeCoin, applyBlacklisted, genGenesis, getHolderId,
@@ -35,6 +35,9 @@ getTestnetGenesis tso@TestStakeOptions{..} = do
     putText $ show totalStakeholders <> " keyfiles are generated"
 
     let distr = genTestnetStakes tso
+        richmanStake = case distr of
+            TestnetStakes {..} -> sdRichStake
+            _ -> error "cardano-keygen: impossible type of generated testnet stake"
         genesisAddrs = map (makePubKeyAddress . fst) genesisList
         genesisVssCerts = HM.fromList
                           $ map (_1 %~ addressHash)
@@ -43,6 +46,9 @@ getTestnetGenesis tso@TestStakeOptions{..} = do
             { gdAddresses = genesisAddrs
             , gdDistribution = distr
             , gdVssCertificates = genesisVssCerts
+            , gdBootstrapBalances = HM.fromList $
+                map ((, richmanStake) . addressHash . fst) $
+                genericTake tsoRichmen genesisList
             }
 
     putText $ "Total testnet genesis stake: " <> show distr

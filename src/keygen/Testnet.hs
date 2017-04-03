@@ -20,7 +20,11 @@ import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usP
 
 import           KeygenOptions        (TestStakeOptions (..))
 
-generateKeyfile :: FilePath -> IO (PublicKey, VssCertificate)
+import           System.Wlog          (WithLogger)
+
+generateKeyfile
+    :: (MonadIO m, MonadFail m, WithLogger m)
+    => FilePath -> m (PublicKey, VssCertificate)
 generateKeyfile fp = do
     initializeUserSecret fp
     sk <- snd <$> keyGen
@@ -29,7 +33,7 @@ generateKeyfile fp = do
     writeUserSecretRelease $
         us & usPrimKey .~ Just sk
            & usVss .~ Just vss
-    expiry <-
+    expiry <- liftIO $
         fromIntegral <$>
         randomRIO @Int (Const.vssMinTTL - 1, Const.vssMaxTTL - 1)
     let vssPk = asBinary $ toVssPublicKey vss

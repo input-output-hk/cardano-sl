@@ -1036,6 +1036,7 @@ executable cardano-keygen
                      , random >= 1.1
                      , filepath
                      , directory
+                     , log-warper
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall

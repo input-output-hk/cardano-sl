@@ -15,14 +15,14 @@ module Main where
 import           Universum
 
 import           Control.Lens               (mapped, (?~))
-import           Data.Aeson                 (Value (..), encode)
+import           Data.Aeson                 (encode)
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import           Data.Swagger               (Swagger, SwaggerType (SwaggerString),
                                              ToParamSchema (..), ToSchema (..),
                                              declareNamedSchema, defaultSchemaOptions,
-                                             default_, description, type_, format,
+                                             description, format,
                                              genericDeclareNamedSchema, host, info, name,
-                                             title, version)
+                                             title, type_, version)
 import           Data.Typeable              (Typeable, typeRep)
 import           Data.Version               (showVersion)
 
@@ -33,12 +33,11 @@ import           Pos.Types                  (ApplicationName, BlockVersion,
                                              ChainDifficulty, Coin, SoftwareVersion)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web             (CAccount, CAccountAddress, CAddress,
-                                             CCurrency, CHash, CInitialized, CMaybe,
-                                             CPassPhrase, CProfile, CTType, CTx, CTxId,
-                                             CTxMeta, CUpdateInfo, CWallet,
-                                             CWalletAddress, CWalletAssurance,
-                                             CWalletInit, CWalletMeta, CWalletRedeem,
-                                             CWalletSet, CWalletSetAddress,
+                                             CCurrency, CHash, CInitialized, CPassPhrase,
+                                             CProfile, CTType, CTx, CTxId, CTxMeta,
+                                             CUpdateInfo, CWallet, CWalletAddress,
+                                             CWalletAssurance, CWalletInit, CWalletMeta,
+                                             CWalletRedeem, CWalletSet, CWalletSetAddress,
                                              CWalletSetInit, CWalletSetMeta, CWalletType,
                                              SyncProgress, WalletError, walletApi)
 
@@ -101,8 +100,6 @@ instance ToSchema      ChainDifficulty
 instance ToSchema      BlockVersion
 instance ToSchema      BackupPhrase
 instance ToParamSchema CPassPhrase
-instance ToParamSchema a => ToParamSchema (CMaybe a) where
-    toParamSchema _ = toParamSchema (Proxy @a) & default_ .~ Just (String "")
 
 -- | Instance for Either-based types (types we return as 'Right') in responses.
 -- Due 'typeOf' these types must be 'Typeable'.

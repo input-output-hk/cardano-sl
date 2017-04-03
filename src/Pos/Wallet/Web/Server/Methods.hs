@@ -74,13 +74,12 @@ import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAccount (..), CAccountAddress (..),
                                                 CAddress, CCurrency (ADA), CInitialized,
-                                                CMaybe (..), CPassPhrase (..), CProfile,
-                                                CProfile (..), CTx (..), CTxId,
-                                                CTxMeta (..), CUpdateInfo (..),
-                                                CWallet (..), CWalletAddress (..),
-                                                CWalletInit (..), CWalletMeta (..),
-                                                CWalletRedeem (..), CWalletSet (..),
-                                                CWalletSetAddress (..),
+                                                CPassPhrase (..), CProfile, CProfile (..),
+                                                CTx (..), CTxId, CTxMeta (..),
+                                                CUpdateInfo (..), CWallet (..),
+                                                CWalletAddress (..), CWalletInit (..),
+                                                CWalletMeta (..), CWalletRedeem (..),
+                                                CWalletSet (..), CWalletSetAddress (..),
                                                 CWalletSetInit (..), CWalletSetMeta (..),
                                                 NotifyEvent (..), SyncProgress (..),
                                                 addressToCAddress, cAddressToAddress,
@@ -267,8 +266,6 @@ servantHandlers sendActions =
 
      apiGetWallet
     :<|>
-     apiGetWalletsOf
-    :<|>
      apiGetWallets
     :<|>
      apiUpdateWallet
@@ -325,8 +322,7 @@ servantHandlers sendActions =
     apiRestoreWSet              = (\a -> catchWalletError . restoreWSet a)
     apiImportKey                = catchWalletError . importKey
     apiGetWallet                = catchWalletError . getWallet
-    apiGetWalletsOf             = catchWalletError . getWallets . Just
-    apiGetWallets               = catchWalletError $ getWallets Nothing
+    apiGetWallets               = catchWalletError . getWallets
     apiUpdateWallet             = (\a -> catchWalletError . updateWallet a)
     apiNewWallet                = (\a -> catchWalletError . newWallet a)
     apiDeleteWallet             = catchWalletError . deleteWallet
@@ -491,8 +487,8 @@ getHistory wAddr skip limit = do
 searchHistory
     :: forall ssc m.
        (SscHelpersClass ssc, WalletWebMode ssc m)
-    => CWalletAddress -> Text -> CMaybe CAccountAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
-searchHistory wAddr search (CMaybe mAccAddr) skip limit =
+    => CWalletAddress -> Text -> Maybe CAccountAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
+searchHistory wAddr search mAccAddr skip limit =
     first (filter fits) <$> getHistory @ssc wAddr skip limit
   where
     fits ctx = txContainsTitle search ctx
@@ -757,10 +753,6 @@ deriveAccountSK passphrase CWalletAddress{..} accIndex = do
 ----------------------------------------------------------------------------
 -- Orphan instances
 ----------------------------------------------------------------------------
-
-instance FromHttpApiData a => FromHttpApiData (CMaybe a) where
-    parseUrlPiece t =
-        CMaybe <$> if null t then pure Nothing else Just <$> parseUrlPiece t
 
 instance FromHttpApiData Coin where
     parseUrlPiece = fmap mkCoin . parseUrlPiece

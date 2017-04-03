@@ -16,8 +16,8 @@ import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
 import           Pos.Wallet.Web.ClientTypes (CAccount, CAccountAddress, CCurrency,
-                                             CInitialized, CMaybe, CPassPhrase, CProfile,
-                                             CTx, CTxId, CTxMeta, CUpdateInfo, CWallet,
+                                             CInitialized, CPassPhrase, CProfile, CTx,
+                                             CTxId, CTxMeta, CUpdateInfo, CWallet,
                                              CWalletAddress, CWalletInit, CWalletMeta,
                                              CWalletRedeem, CWalletSet, CWalletSet,
                                              CWalletSetAddress, CWalletSetInit,
@@ -76,13 +76,8 @@ type WalletApi =
     :<|>
      "api"
      :> "wallets"
-     :> "of"
-     :> Capture "walletSetId" CWalletSetAddress
-     :> Get '[JSON] (Either WalletError [CWallet])
-    :<|>
-     "api"
-     :> "wallets"
      :> "all"
+     :> QueryParam "walletSetId" CWalletSetAddress
      :> Get '[JSON] (Either WalletError [CWallet])
     :<|>
      "api"
@@ -182,7 +177,7 @@ type WalletApi =
      :> "histories"
      :> Capture "walletId" CWalletAddress
      :> Capture "search" Text
-     :> Capture "address" (CMaybe CAccountAddress)
+     :> QueryParam "address" CAccountAddress
      :> QueryParam "skip" Word
      :> QueryParam "limit" Word
      :> Get '[JSON] (Either WalletError ([CTx], Word))

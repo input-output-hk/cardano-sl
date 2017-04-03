@@ -41,7 +41,7 @@ import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAccount (..), CAccountAddress (..),
                                              CAccountAddress, CAddress (..),
                                              CCurrency (..), CHash (..),
-                                             CInitialized (..), CMaybe (..), CPassPhrase,
+                                             CInitialized (..), CPassPhrase,
                                              CProfile (..), CTType (..), CTx (..), CTxId,
                                              CTxMeta (..), CUpdateInfo (..), CWallet (..),
                                              CWalletAddress (..), CWalletAddress,
@@ -156,11 +156,13 @@ instance ToCapture (Capture "walletSetId" CWalletSetAddress) where
         , _capDesc = "Address of wallet set."
         }
 
-instance ToCapture (Capture "walletSetId" (CMaybe CWalletSetAddress)) where
-    toCapture Proxy =
-        DocCapture
-        { _capSymbol = "walletSetId"
-        , _capDesc = "Wallet filter, by wallet set address."
+instance ToParam (QueryParam "walletSetId" CWalletSetAddress) where
+    toParam Proxy =
+        DocQueryParam
+        { _paramName    = "limit"
+        , _paramValues  = [undefined]
+        , _paramDesc    = "Wallet filter, by wallet set address."
+        , _paramKind    = Normal
         }
 
 instance ToCapture (Capture "from" CAccountAddress) where
@@ -191,11 +193,13 @@ instance ToCapture (Capture "address" CAccountAddress) where
         , _capDesc = "Address, history of which should be fetched"
         }
 
-instance ToCapture (Capture "address" (CMaybe CAccountAddress)) where
-    toCapture Proxy =
-        DocCapture
-        { _capSymbol = "address"
-        , _capDesc = "Address, history of which should be fetched"
+instance ToParam (QueryParam "address" CAccountAddress) where
+    toParam Proxy =
+        DocQueryParam
+        { _paramName    = "address"
+        , _paramValues  = [undefined]
+        , _paramDesc    = "Address, history of which should be fetched"
+        , _paramKind    = Normal
         }
 
 instance ToCapture (Capture "index" Word) where

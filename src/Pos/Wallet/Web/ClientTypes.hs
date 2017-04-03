@@ -5,8 +5,7 @@
 
 -- | Types representing client (wallet) requests on wallet API.
 module Pos.Wallet.Web.ClientTypes
-      ( CMaybe (..)
-      , SyncProgress (..)
+      ( SyncProgress (..)
       , CAddress (..)
       , CCurrency (..)
       , CHash (..)
@@ -76,9 +75,6 @@ import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes
                                          UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll        (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase  (BackupPhrase, mkBackupPhrase)
-
-newtype CMaybe a = CMaybe (Maybe a)
-    deriving (Show, Eq, Buildable, Generic)
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty

@@ -16,9 +16,10 @@ import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CInitialized,
-                                             CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
-                                             CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, SyncProgress)
+                                             CPassPhrase, CPostVendWalletRedeem, CProfile,
+                                             CTx, CTxId, CTxMeta, CUpdateInfo, CWallet,
+                                             CWalletInit, CWalletMeta, CWalletRedeem,
+                                             SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 
@@ -166,6 +167,12 @@ type WalletApi =
      :> "redemptions"
      :> "ada"
      :> ReqBody '[JSON] CWalletRedeem
+     :> Post '[JSON] (Either WalletError CTx)
+    :<|>
+     "api"
+     :> "redemptions"
+     :> "ada"
+     :> ReqBody '[JSON] CPostVendWalletRedeem
      :> Post '[JSON] (Either WalletError CTx)
     :<|>
      ----------------------------------------------------------------------------

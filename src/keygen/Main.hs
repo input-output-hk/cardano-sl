@@ -15,19 +15,24 @@ import           System.FilePath.Glob (glob)
 import           Universum
 
 import           Pos.Binary           (decodeFull, encode)
-import           Pos.Genesis          (GenesisData (..))
+import           Pos.Core             (mkCoin)
+import           Pos.Genesis          (GenesisData (..), StakeDistribution (..))
 import           Pos.Types            (addressDetailedF, addressHash, makePubKeyAddress,
                                        makeRedeemAddress)
 
 import           Avvm                 (aeCoin, applyBlacklisted, genGenesis, getHolderId,
                                        utxo)
-import           KeygenOptions        (AvvmStakeOptions (..), KeygenOptions (..),
-                                       TestStakeOptions (..), optsInfo)
+import           KeygenOptions        (AvvmStakeOptions (..), FakeAvvmOptions (..),
+                                       KeygenOptions (..), TestStakeOptions (..),
+                                       optsInfo)
 import           Testnet              (genTestnetStakes, generateFakeAvvm,
                                        generateKeyfile, rearrangeKeyfile)
 
 replace :: FilePath -> FilePath -> FilePath -> FilePath
 replace a b = toString . (T.replace `on` toText) a b . toText
+
+applyPattern :: Show a => FilePath -> a -> FilePath
+applyPattern fp a = replace "{}" (show a) fp
 
 getTestnetGenesis :: TestStakeOptions -> IO GenesisData
 getTestnetGenesis tso@TestStakeOptions{..} = do
@@ -35,12 +40,11 @@ getTestnetGenesis tso@TestStakeOptions{..} = do
     createDirectoryIfMissing True keysDir
 
     let totalStakeholders = tsoRichmen + tsoPoors
-        getFilename i = replace "{}" (show i) tsoPattern
 
     richmenList <- forM [1 .. tsoRichmen] $ \i ->
-        generateKeyfile True $ getFilename i <> ".primary"
+        generateKeyfile True $ applyPattern tsoPattern i <> ".primary"
     poorsList <- forM [1 .. tsoPoors] $
-        generateKeyfile False . getFilename
+        generateKeyfile False . applyPattern tsoPattern
 
     let genesisList = richmenList ++ poorsList
 
@@ -60,18 +64,18 @@ getTestnetGenesis tso@TestStakeOptions{..} = do
     putText $ "Total testnet genesis stake: " <> show distr
     return genData
 
-getFakeAvvmGenesis :: TestStakeOptions -> IO GenesisData
-getFakeAvvmGenesis tso@TestStakeOptions{..} = do
-    createDirectoryIfMissing True $ takeDirectory tsoPattern
+getFakeAvvmGenesis :: FakeAvvmOptions -> IO GenesisData
+getFakeAvvmGenesis FakeAvvmOptions{..} = do
+    createDirectoryIfMissing True $ takeDirectory faoSeedPattern
 
-    let totalStakeholders = tsoRichmen + tsoPoors
-    fakeAvvmPubkeys <- forM [1 .. totalStakeholders] $ \i ->
-        generateFakeAvvm $ replace "{}" (show i) tsoPattern <> ".seed"
+    fakeAvvmPubkeys <- forM [1 .. faoCount] $
+        generateFakeAvvm . applyPattern faoSeedPattern
 
-    putText $ show totalStakeholders <> " fake avvm seeds are generated"
+    putText $ show faoCount <> " fake avvm seeds are generated"
 
-    let gdDistribution = genTestnetStakes tso
-        gdAddresses = map makeRedeemAddress fakeAvvmPubkeys
+    let gdAddresses = map makeRedeemAddress fakeAvvmPubkeys
+        gdDistribution = ExplicitStakes $ HM.fromList $
+            map (, (mkCoin $ fromIntegral faoOneStake, [])) gdAddresses
         gdVssCertificates = mempty
 
     return GenesisData {..}
@@ -99,11 +103,8 @@ main = do
             createDirectoryIfMissing True genFileDir
 
             mAvvmGenesis <- traverse getAvvmGenesis koAvvmStake
-            mTestnetGenesis <- traverse
-                (if koFakeAvvmStakes
-                    then getFakeAvvmGenesis
-                    else getTestnetGenesis)
-                koTestStake
+            mTestnetGenesis <- traverse getTestnetGenesis koTestStake
+            mFakeAvvmGenesis <- traverse getFakeAvvmGenesis koFakeAvvmStake
             whenJust mTestnetGenesis $ \tg ->
                 putText $ sformat ("testnet genesis created successfully. First 30 addresses: "%listJson%" distr: "%shown)
                               (map (sformat addressDetailedF) . take 10 $ gdAddresses tg)
@@ -112,9 +113,10 @@ main = do
             let mGenData = mappend <$> mTestnetGenesis <*> mAvvmGenesis
                            <|> mTestnetGenesis
                            <|> mAvvmGenesis
-                genData = fromMaybe (error "At least one of options \
-                                           \(AVVM stake or testnet stake) \
-                                           \should be provided") mGenData
+                genData' = fromMaybe (error "At least one of options \
+                                            \(AVVM stake or testnet stake) \
+                                            \should be provided") mGenData
+                genData = genData' <> fromMaybe mempty mFakeAvvmGenesis
                 binGenesis = encode genData
 
             case decodeFull binGenesis of

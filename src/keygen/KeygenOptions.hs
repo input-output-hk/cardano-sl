@@ -4,6 +4,7 @@ module KeygenOptions
        ( KeygenOptions (..)
        , AvvmStakeOptions (..)
        , TestStakeOptions (..)
+       , FakeAvvmOptions (..)
        , optsInfo
        ) where
 
@@ -13,11 +14,11 @@ import           Options.Applicative (Parser, ParserInfo, auto, fullDesc, help, 
 import           Universum
 
 data KeygenOptions = KeygenOptions
-    { koGenesisFile    :: FilePath
-    , koFakeAvvmStakes :: Bool
-    , koRearrangeMask  :: Maybe FilePath
-    , koTestStake      :: Maybe TestStakeOptions
-    , koAvvmStake      :: Maybe AvvmStakeOptions
+    { koGenesisFile   :: FilePath
+    , koRearrangeMask :: Maybe FilePath
+    , koTestStake     :: Maybe TestStakeOptions
+    , koAvvmStake     :: Maybe AvvmStakeOptions
+    , koFakeAvvmStake :: Maybe FakeAvvmOptions
     } deriving (Show)
 
 data TestStakeOptions = TestStakeOptions
@@ -35,6 +36,12 @@ data AvvmStakeOptions = AvvmStakeOptions
     , asoBlacklisted   :: Maybe FilePath
     } deriving (Show)
 
+data FakeAvvmOptions = FakeAvvmOptions
+    { faoSeedPattern :: FilePath
+    , faoCount       :: Word
+    , faoOneStake    :: Word64
+    } deriving (Show)
+
 optsParser :: Parser KeygenOptions
 optsParser = do
     koGenesisFile <- strOption $
@@ -42,16 +49,13 @@ optsParser = do
         metavar "FILE" <>
         value   "genesis.bin" <>
         help    "File to dump binary shared genesis data"
-    koFakeAvvmStakes <- switch $
-        long    "fake-avvm" <>
-        help    "Generate fake avvm stakes with seed files \
-                \instead of regular test stake with keyfiles"
     koRearrangeMask <- optional $ strOption $
         long    "rearrange-mask" <>
         metavar "PATTERN" <>
         help    "Secret keyfiles to rearrange"
     koTestStake <- optional testStakeParser
     koAvvmStake <- optional avvmStakeParser
+    koFakeAvvmStake <- optional fakeAvvmParser
     pure KeygenOptions{..}
 
 testStakeParser :: Parser TestStakeOptions
@@ -102,6 +106,24 @@ avvmStakeParser = do
         help    "Path to the file containing blacklisted addresses \
                 \(an address per line)"
     pure AvvmStakeOptions{..}
+
+fakeAvvmParser :: Parser FakeAvvmOptions
+fakeAvvmParser = do
+    faoSeedPattern <- strOption $
+        long    "fake-avvm-seed-pattern" <>
+        metavar "PATTERN" <>
+        help    "Filename pattern for generated AVVM seeds \
+                \(`{}` is a place for number)"
+    faoCount <- option auto $
+        long    "fake-avvm-entries" <>
+        metavar "INT" <>
+        help    "Number of fake avvm stakeholders"
+    faoOneStake <- option auto $
+        long    "fake-avvm-stake" <>
+        metavar "INT" <>
+        value   15000000 <>
+        help    "A stake assigned to each of fake avvm stakeholders"
+    return FakeAvvmOptions{..}
 
 optsInfo :: ParserInfo KeygenOptions
 optsInfo = info (helper <*> optsParser) $

@@ -44,7 +44,6 @@ module Pos.Wallet.Web.ClientTypes
 
 import           Universum
 
-import           Control.Lens           (_Left)
 import qualified Data.ByteString.Lazy   as LBS
 import           Data.Default           (Default, def)
 import           Data.Hashable          (Hashable (..))
@@ -159,7 +158,7 @@ passPhraseToCPassPhrase passphrase =
 cPassPhraseToPassPhrase
     :: CPassPhrase -> Either Text PassPhrase
 cPassPhraseToPassPhrase (CPassPhrase text) =
-    (_Left %~ toText) . decodeFull . LBS.fromStrict =<< Base16.decode text
+    first toText . decodeFull . LBS.fromStrict =<< Base16.decode text
 
 ----------------------------------------------------------------------------
 -- Wallet

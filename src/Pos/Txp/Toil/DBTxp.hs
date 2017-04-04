@@ -27,7 +27,6 @@ import           Universum
 import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import qualified Pos.DB.GState               as GS
-import qualified Pos.DB.GState.Balances      as GS
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Slotting                (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)

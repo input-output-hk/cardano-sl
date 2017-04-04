@@ -37,7 +37,6 @@ import           Pos.Slotting                (currentTimeSlotting,
 import           Data.Time.Units             (Second, convertUnit)
 import           Pos.Block.Network           (requestTipOuts, triggerRecovery)
 import           Pos.Communication           (worker)
-import           Pos.Constants               (isDevelopment)
 import           Pos.Slotting                (getLastKnownSlotDuration)
 #endif
 import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
@@ -61,7 +60,7 @@ blkWorkers =
             , retrievalWorker
             ]
 #if defined(WITH_WALLET)
-            ++ [ queryBlocksWorker | not isDevelopment ]
+            ++ [ queryBlocksWorker ]
 #endif
   where
     merge = mconcatPair . map (first pure)

@@ -21,7 +21,6 @@ import           Pos.Communication (ConversationActions (..), InvMsg (..), InvOr
                                     TxMsgContents, TxMsgTag (..), WorkerSpec, convH,
                                     handleDataL, handleInvL, reifyMsgLimit, toOutSpecs,
                                     withLimitedLength, worker)
-import           Pos.Constants     (isDevelopment)
 import           Pos.DHT           (DHTNode, converseToNode, getKnownPeers)
 import           Pos.Slotting      (getLastKnownSlotDuration)
 import           Pos.Ssc.Class     (SscWorkersClass)
@@ -36,7 +35,7 @@ txpWorkers
 txpWorkers =
     merge $ []
 #if defined(WITH_WALLET)
-            ++ [ queryTxsWorker | not isDevelopment ]
+            ++ [ queryTxsWorker ]
 #endif
   where
     merge = mconcatPair . map (first pure)

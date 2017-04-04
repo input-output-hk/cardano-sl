@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
 -- This module is to be moved later anywhere else, just to have a
 -- starting point
@@ -26,6 +27,8 @@ module Pos.Wallet.Web.ClientTypes
       , CUpdateInfo (..)
       , CWalletRedeem (..)
       , CPostVendWalletRedeem (..)
+      , CCoin
+      , mkCCoin
       , NotifyEvent (..)
       , addressToCAddress
       , cAddressToAddress
@@ -49,7 +52,7 @@ import           Data.Text              (Text, isInfixOf, toLower)
 import           Data.Time.Clock.POSIX  (POSIXTime)
 import           Data.Typeable          (Typeable)
 import           Formatting             (build, sformat)
-import           Prelude                (show)
+import qualified Prelude
 import qualified Serokell.Util.Base16   as Base16
 
 import           Pos.Aeson.Types        ()
@@ -60,7 +63,7 @@ import           Pos.Crypto             (PassPhrase, hashHexF)
 import           Pos.Txp.Core.Types     (Tx (..), TxId, txOutAddress, txOutValue)
 import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
                                          Coin, SoftwareVersion, decodeTextAddress,
-                                         sumCoins, unsafeIntegerToCoin)
+                                         sumCoins, unsafeGetCoin, unsafeIntegerToCoin)
 import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes,
                                          UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll        (ConfirmedProposalState (..))
@@ -137,7 +140,7 @@ mkCTx addr diff THEntry {..} meta = CTx {..}
     ctId = txIdToCTxId _thTxId
     outputs = toList $ _txOutputs _thTx
     isToItself = all ((== addr) . txOutAddress) outputs
-    ctAmount = unsafeIntegerToCoin . sumCoins . map txOutValue $
+    ctAmount = mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
         filter ((|| isToItself) . xor _thIsOutput . (== addr) . txOutAddress) outputs
     ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
     ctType = if _thIsOutput
@@ -161,6 +164,13 @@ cPassPhraseToPassPhrase (CPassPhrase text) =
 ----------------------------------------------------------------------------
 -- Wallet
 ----------------------------------------------------------------------------
+
+newtype CCoin = CCoin
+    { getCoin :: Text
+    } deriving (Show, Generic)
+
+mkCCoin :: Coin -> CCoin
+mkCCoin = CCoin . show . unsafeGetCoin
 
 -- | A wallet can be used as personal or shared wallet
 data CWalletType
@@ -191,7 +201,7 @@ instance Default CWalletMeta where
 -- (Flow type: walletType)
 data CWallet = CWallet
     { cwAddress :: !CAddress
-    , cwAmount  :: !Coin
+    , cwAmount  :: !CCoin
     , cwMeta    :: !CWalletMeta
     } deriving (Show, Generic, Typeable)
 
@@ -259,7 +269,7 @@ ctTypeMeta f (CTOut meta) = CTOut <$> f meta
 -- (Flow type: transactionType)
 data CTx = CTx
     { ctId            :: CTxId
-    , ctAmount        :: Coin
+    , ctAmount        :: CCoin
     , ctConfirmations :: Word
     , ctType          :: CTType -- it includes all "meta data"
     } deriving (Show, Generic, Typeable)
@@ -293,8 +303,8 @@ data CUpdateInfo = CUpdateInfo
 --    , cuiAdopted         :: !(Maybe HeaderHash)
     , cuiVotesFor        :: !Int
     , cuiVotesAgainst    :: !Int
-    , cuiPositiveStake   :: !Coin
-    , cuiNegativeStake   :: !Coin
+    , cuiPositiveStake   :: !CCoin
+    , cuiNegativeStake   :: !CCoin
     } deriving (Show, Generic, Typeable)
 
 -- | Return counts of negative and positive votes
@@ -317,8 +327,8 @@ toCUpdateInfo ConfirmedProposalState {..} =
 --        cuiConfirmed        = cpsConfirmed
 --        cuiAdopted          = cpsAdopted
         (cuiVotesFor, cuiVotesAgainst) = countVotes cpsVotes
-        cuiPositiveStake    = cpsPositiveStake
-        cuiNegativeStake    = cpsNegativeStake
+        cuiPositiveStake    = mkCCoin cpsPositiveStake
+        cuiNegativeStake    = mkCCoin cpsNegativeStake
     in CUpdateInfo {..}
 
 ----------------------------------------------------------------------------

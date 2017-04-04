@@ -30,12 +30,21 @@ import qualified Paths_cardano_sl           as CSL
 import           Pos.Types                  (ApplicationName, BlockVersion,
                                              ChainDifficulty, Coin, SoftwareVersion)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
+<<<<<<< HEAD
 import           Pos.Wallet.Web             (CAddress, CCurrency, CHash, CInitialized,
                                              CPassPhrase, CPostVendWalletRedeem, CProfile,
                                              CTType, CTx, CTxId, CTxMeta, CUpdateInfo,
                                              CWallet, CWalletAssurance, CWalletInit,
                                              CWalletMeta, CWalletRedeem, CWalletType,
                                              SyncProgress, WalletError, walletApi)
+=======
+import           Pos.Wallet.Web             (CAddress, CCoin, CCurrency, CHash,
+                                             CInitialized, CPassPhrase, CProfile, CTType,
+                                             CTx, CTxId, CTxMeta, CUpdateInfo, CWallet,
+                                             CWalletAssurance, CWalletInit, CWalletMeta,
+                                             CWalletRedeem, CWalletType, SyncProgress,
+                                             WalletError, walletApi)
+>>>>>>> origin/cardano-sl-0.4-rc
 
 main :: IO ()
 main = do
@@ -69,6 +78,7 @@ instance ToSchema      CWalletType
 instance ToSchema      CWalletRedeem
 instance ToSchema      CPostVendWalletRedeem
 instance ToSchema      CWallet
+instance ToSchema      CCoin
 instance ToSchema      CInitialized
 instance ToSchema      CUpdateInfo
 instance ToSchema      SoftwareVersion

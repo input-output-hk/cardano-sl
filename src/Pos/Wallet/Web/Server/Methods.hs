@@ -80,8 +80,8 @@ import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CInit
                                                 CWalletRedeem (..), NotifyEvent (..),
                                                 SyncProgress (..), addressToCAddress,
                                                 cAddressToAddress,
-                                                cPassPhraseToPassPhrase, mkCTx, mkCTxId,
-                                                toCUpdateInfo, txContainsTitle,
+                                                cPassPhraseToPassPhrase, mkCCoin, mkCTx,
+                                                mkCTxId, toCUpdateInfo, txContainsTitle,
                                                 txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
@@ -337,7 +337,7 @@ updateUserProfile profile = setProfile profile >> getUserProfile
 
 getWallet :: WalletWebMode ssc m => CAddress -> m CWallet
 getWallet cAddr = do
-    balance <- getBalance =<< decodeCAddressOrFail cAddr
+    balance <- fmap mkCCoin . getBalance =<< decodeCAddressOrFail cAddr
     meta <- getWalletMeta cAddr >>= maybe noWallet pure
     pure $ CWallet cAddr balance meta
   where

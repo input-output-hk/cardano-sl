@@ -46,7 +46,7 @@ import           Pos.Wallet.Web.ClientTypes (CAddress (..), CCurrency (..), CHas
                                              CWalletAssurance (..), CWalletInit (..),
                                              CWalletMeta (..), CWalletRedeem (..),
                                              CWalletType (..), SyncProgress,
-                                             addressToCAddress, mkCTxId)
+                                             addressToCAddress, mkCCoin, mkCTxId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 
 
@@ -335,7 +335,7 @@ instance ToSample CWallet where
       where
         sample = CWallet
             { cwAddress = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
-            , cwAmount  = mkCoin 0
+            , cwAmount  = mkCCoin $ mkCoin 0
             , cwMeta    = cWalletMeta
             }
 
@@ -367,8 +367,8 @@ instance ToSample CUpdateInfo where
             , cuiImplicit        = False
             , cuiVotesFor        = 2
             , cuiVotesAgainst    = 3
-            , cuiPositiveStake   = mkCoin 10
-            , cuiNegativeStake   = mkCoin 3
+            , cuiPositiveStake   = mkCCoin $ mkCoin 10
+            , cuiNegativeStake   = mkCCoin $ mkCoin 3
             }
 
 
@@ -389,7 +389,7 @@ instance ToSample CTx where
       where
         sample = CTx
             { ctId            = mkCTxId "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
-            , ctAmount        = mkCoin 0
+            , ctAmount        = mkCCoin $ mkCoin 0
             , ctConfirmations = 10
             , ctType          = CTOut ctxMeta
             }

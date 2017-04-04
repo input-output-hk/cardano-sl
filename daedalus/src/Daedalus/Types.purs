@@ -5,9 +5,9 @@ module Daedalus.Types
        , module BP
        , module DT
        , _address
-       , _coin
+       , _ccoin
        , _passPhrase
-       , mkCoin
+       , mkCCoin
        , mkCAddress
        , mkCWalletMeta
        , mkCWalletInit
@@ -28,8 +28,7 @@ module Daedalus.Types
 
 import Prelude
 
-import Pos.Wallet.Web.ClientTypes (CAddress (..), CHash (..), CPassPhrase (..))
-import Pos.Core.Types (Coin (..))
+import Pos.Wallet.Web.ClientTypes (CAddress (..), CHash (..), CPassPhrase (..), CCoin (..))
 
 import Pos.Wallet.Web.ClientTypes as CT
 import Pos.Core.Types as C
@@ -108,11 +107,11 @@ mkCPassPhrase = CPassPhrase <<< bytesToB16 <<< blake2b
 mkCAddress :: String -> CAddress
 mkCAddress = CAddress <<< CHash
 
-_coin :: Coin -> Int
-_coin (Coin c) = c.getCoin
+_ccoin :: CCoin -> String
+_ccoin (CCoin c) = c.getCoin
 
-mkCoin :: Int -> Coin
-mkCoin amount = Coin { getCoin: amount }
+mkCCoin :: String -> CCoin
+mkCCoin amount = CCoin { getCoin: amount }
 
 -- NOTE: use genericRead maybe https://github.com/paluh/purescript-generic-read-example
 mkCWalletType :: String -> CT.CWalletType

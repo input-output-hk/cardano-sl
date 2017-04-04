@@ -13,11 +13,10 @@ import           Formatting        (build, sformat, shown, (%))
 import           Mockable          (delay, throw)
 import           System.Wlog       (logWarning)
 
-import           Pos.Communication (ConversationActions (..), DataMsg (..), InvMsg (..),
-                                    InvOrData, Limit, LimitType, LimitedLengthExt,
+import           Pos.Communication (ConversationActions (..), InvMsg (..), InvOrData,
                                     MempoolMsg (..), OutSpecs,
                                     RelayError (UnexpectedData, UnexpectedInv),
-                                    RelayProxy (..), ReqMsg (..), SendActions,
+                                    RelayProxy (..), ReqMsg (..), SendActions, SmartLimit,
                                     TxMsgContents, TxMsgTag (..), WorkerSpec, convH,
                                     handleDataL, handleInvL, reifyMsgLimit, toOutSpecs,
                                     withLimitedLength, worker)
@@ -96,7 +95,7 @@ getTxMempoolInvs sendActions node =
       \(_ :: Proxy s) -> converseToNode sendActions node $ \_
         (ConversationActions{..}::(ConversationActions
                                   (MempoolMsg TxMsgTag)
-                                  (InvOrDataLimitedLength s TxId TxMsgTag TxMsgContents)
+                                  (SmartLimit s (InvOrData TxMsgTag TxId TxMsgContents))
                                   m)
         ) -> do
             let txProxy = RelayProxy :: RelayProxy TxId TxMsgTag TxMsgContents
@@ -122,7 +121,7 @@ requestTxs sendActions node txIds =
       \(_ :: Proxy s) -> converseToNode sendActions node $ \_
         (ConversationActions{..}::(ConversationActions
                                   (ReqMsg TxId TxMsgTag)
-                                  (InvOrDataLimitedLength s TxId TxMsgTag TxMsgContents)
+                                  (SmartLimit s (InvOrData TxMsgTag TxId TxMsgContents))
                                   m)
         ) -> do
             let txProxy = RelayProxy :: RelayProxy TxId TxMsgTag TxMsgContents
@@ -143,12 +142,5 @@ requestTxs sendActions node txIds =
             ("Couldn't get transaction with id "%build%" "%
              "from node "%build%": "%shown)
             id node e
-
--- | Type `InvOrData` with limited length. Was, too, copied from
--- Pos.Communication.Relay.Logic.
-type InvOrDataLimitedLength s key tag contents =
-    LimitedLengthExt s
-        (Limit (InvMsg key tag), LimitType (DataMsg contents))
-        (InvOrData tag key contents)
 
 #endif

@@ -15,6 +15,7 @@ module Pos.Communication.Limits.Types
 
        , LimitedLengthExt (..)
        , LimitedLength
+       , SmartLimit
        , reifyMsgLimit
        , recvLimited
 
@@ -114,6 +115,8 @@ newtype LimitedLengthExt s l a = LimitedLength
 deriving instance Message a => Message (LimitedLengthExt s l a)
 
 type LimitedLength s a = LimitedLengthExt s (Limit a) a
+
+type SmartLimit s a = LimitedLengthExt s (LimitType a) a
 
 -- | Used to provide type @s@, which carries limit on length
 -- of message @a@ (via Data.Reflection).

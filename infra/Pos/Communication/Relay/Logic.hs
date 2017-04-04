@@ -41,9 +41,8 @@ import           Universum
 
 import           Pos.Binary.Class                   (Bi (..))
 import           Pos.Binary.Infra.Communication     ()
-import           Pos.Communication.Limits.Types     (Limit, LimitedLength,
-                                                     LimitedLengthExt (..),
-                                                     MessageLimited (..), recvLimited,
+import           Pos.Communication.Limits.Types     (LimitedLength, LimitedLengthExt (..),
+                                                     SmartLimit, recvLimited,
                                                      reifyMsgLimit, withLimitedLength)
 import           Pos.Communication.MessagePart      (MessagePart)
 import           Pos.Communication.PeerState        (WithPeerState)
@@ -210,12 +209,6 @@ processMessage defaultRes name param verifier action = do
                 ("Wrong "%stext%": invalid "%build%": "%listJson)
                 name param reasons)
 
--- | Type `InvOrData` with limited length.
-type InvOrDataLimitedLength s key tag contents =
-    LimitedLengthExt s
-        (Limit (InvMsg key tag), LimitType (DataMsg contents))
-        (InvOrData tag key contents)
-
 relayListeners
   :: forall m key tag contents.
      ( MonadDHT m
@@ -243,7 +236,7 @@ relayListeners proxy =
       \(_ :: Proxy s) -> return $ listenerConv $ \_ __peerId
         (ConversationActions{..}::(ConversationActions
                                   (ReqMsg key tag)
-                                  (InvOrDataLimitedLength s key tag contents)
+                                  (SmartLimit s (InvOrData tag key contents))
                                   m)
         ) -> do
             inv' <- recv

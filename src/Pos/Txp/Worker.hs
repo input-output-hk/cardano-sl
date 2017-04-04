@@ -52,7 +52,7 @@ txpWorkers =
 queryTxsWorker
     :: (WorkMode ssc m, SscWorkersClass ssc)
     => (WorkerSpec m, OutSpecs)
-queryTxsWorker = worker requestTxsOuts $ \sendActions -> do
+queryTxsWorker = worker queryTxsSpec $ \sendActions -> do
     slotDur <- getLastKnownSlotDuration
     nodesRef <- liftIO . newIORef =<< getKnownPeers
     let delayInterval = max (slotDur `div` 4) (convertUnit (5 :: Second))
@@ -81,10 +81,16 @@ queryTxsWorker = worker requestTxsOuts $ \sendActions -> do
 --
 --     * It will receive some InvOrData messages (containing transactions
 --       from the mempool)
-requestTxsOuts :: OutSpecs
-requestTxsOuts =
-    toOutSpecs [ convH (Proxy @(MempoolMsg TxMsgTag))
-                       (Proxy @(InvOrData TxMsgTag TxId TxMsgContents)) ]
+queryTxsSpec :: OutSpecs
+queryTxsSpec =
+    toOutSpecs
+        [ -- used by 'getTxMempoolInvs'
+          convH (Proxy @(MempoolMsg TxMsgTag))
+                (Proxy @(InvOrData TxMsgTag TxId TxMsgContents))
+          -- used by 'requestTxs'
+        , convH (Proxy @(ReqMsg TxId TxMsgTag))
+                (Proxy @(InvOrData TxMsgTag TxId TxMsgContents))
+        ]
 
 -- | Send a MempoolMsg to a node and receive incoming 'InvMsg's with
 -- transaction IDs.

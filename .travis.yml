@@ -51,7 +51,8 @@ script:
 - cp ../log-config-prod.yaml .
 - popd
 - mkdir s3
-- XZ_OPT=-1 tar cJf s3/daedalus-bridge-$TRAVIS_OS_NAME-$TRAVIS_BRANCH.tar.xz daedalus/
+# Replace TRAVIS_BRANCH slash not to fail on subdirectory missing
+- XZ_OPT=-1 tar cJf s3/daedalus-bridge-$TRAVIS_OS_NAME-${TRAVIS_BRANCH/\//-}.tar.xz daedalus/
 deploy:
   provider: s3
   access_key_id: AKIAJKSJR3FUN3CWKC5Q

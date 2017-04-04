@@ -13,10 +13,11 @@ import           Options.Applicative (Parser, ParserInfo, auto, fullDesc, help, 
 import           Universum
 
 data KeygenOptions = KeygenOptions
-    { koGenesisFile   :: FilePath
-    , koRearrangeMask :: Maybe FilePath
-    , koTestStake     :: Maybe TestStakeOptions
-    , koAvvmStake     :: Maybe AvvmStakeOptions
+    { koGenesisFile    :: FilePath
+    , koFakeAvvmStakes :: Bool
+    , koRearrangeMask  :: Maybe FilePath
+    , koTestStake      :: Maybe TestStakeOptions
+    , koAvvmStake      :: Maybe AvvmStakeOptions
     } deriving (Show)
 
 data TestStakeOptions = TestStakeOptions
@@ -41,6 +42,10 @@ optsParser = do
         metavar "FILE" <>
         value   "genesis.bin" <>
         help    "File to dump binary shared genesis data"
+    koFakeAvvmStakes <- switch $
+        long    "fake-avvm" <>
+        help    "Generate fake avvm stakes with seed files \
+                \instead of regular test stake with keyfiles"
     koRearrangeMask <- optional $ strOption $
         long    "rearrange-mask" <>
         metavar "PATTERN" <>

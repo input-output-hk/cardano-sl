@@ -16,14 +16,15 @@ import           Universum
 
 import           Pos.Binary           (decodeFull, encode)
 import           Pos.Genesis          (GenesisData (..))
-import           Pos.Types            (addressDetailedF, addressHash, makePubKeyAddress)
+import           Pos.Types            (addressDetailedF, addressHash, makePubKeyAddress,
+                                       makeRedeemAddress)
 
 import           Avvm                 (aeCoin, applyBlacklisted, genGenesis, getHolderId,
                                        utxo)
 import           KeygenOptions        (AvvmStakeOptions (..), KeygenOptions (..),
                                        TestStakeOptions (..), optsInfo)
-import           Testnet              (genTestnetStakes, generateKeyfile,
-                                       rearrangeKeyfile)
+import           Testnet              (genTestnetStakes, generateFakeAvvm,
+                                       generateKeyfile, rearrangeKeyfile)
 
 replace :: FilePath -> FilePath -> FilePath -> FilePath
 replace a b = toString . (T.replace `on` toText) a b . toText
@@ -59,6 +60,22 @@ getTestnetGenesis tso@TestStakeOptions{..} = do
     putText $ "Total testnet genesis stake: " <> show distr
     return genData
 
+getFakeAvvmGenesis :: TestStakeOptions -> IO GenesisData
+getFakeAvvmGenesis tso@TestStakeOptions{..} = do
+    createDirectoryIfMissing True $ takeDirectory tsoPattern
+
+    let totalStakeholders = tsoRichmen + tsoPoors
+    fakeAvvmPubkeys <- forM [1 .. totalStakeholders] $ \i ->
+        generateFakeAvvm $ replace "{}" (show i) tsoPattern <> ".seed"
+
+    putText $ show totalStakeholders <> " fake avvm seeds are generated"
+
+    let gdDistribution = genTestnetStakes tso
+        gdAddresses = map makeRedeemAddress fakeAvvmPubkeys
+        gdVssCertificates = mempty
+
+    return GenesisData {..}
+
 getAvvmGenesis :: AvvmStakeOptions -> IO GenesisData
 getAvvmGenesis AvvmStakeOptions {..} = do
     jsonfile <- BSL.readFile asoJsonPath
@@ -82,7 +99,11 @@ main = do
             createDirectoryIfMissing True genFileDir
 
             mAvvmGenesis <- traverse getAvvmGenesis koAvvmStake
-            mTestnetGenesis <- traverse getTestnetGenesis koTestStake
+            mTestnetGenesis <- traverse
+                (if koFakeAvvmStakes
+                    then getFakeAvvmGenesis
+                    else getTestnetGenesis)
+                koTestStake
             whenJust mTestnetGenesis $ \tg ->
                 putText $ sformat ("testnet genesis created successfully. First 30 addresses: "%listJson%" distr: "%shown)
                               (map (sformat addressDetailedF) . take 10 $ gdAddresses tg)

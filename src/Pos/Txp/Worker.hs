@@ -9,9 +9,10 @@ import           Universum
 
 import           Data.IORef        (newIORef, readIORef, writeIORef)
 import           Data.Time.Units   (Second, convertUnit)
-import           Formatting        (build, sformat, shown, (%))
+import           Formatting        (build, int, sformat, shown, (%))
 import           Mockable          (delay, throw)
-import           System.Wlog       (logWarning)
+import           Serokell.Util     (listJson)
+import           System.Wlog       (logDebug, logInfo, logWarning)
 
 import           Pos.Communication (ConversationActions (..), InvMsg (..), InvOrData,
                                     MempoolMsg (..), OutSpecs,
@@ -90,7 +91,8 @@ requestTxsOuts =
 getTxMempoolInvs
     :: WorkMode ssc m
     => SendActions m -> DHTNode -> m [TxId]
-getTxMempoolInvs sendActions node =
+getTxMempoolInvs sendActions node = do
+    logInfo ("Querying tx mempool from node " <> show node)
     reifyMsgLimit (Proxy @(InvOrData TxMsgTag TxId TxMsgContents)) $
       \(_ :: Proxy s) -> converseToNode sendActions node $ \_
         (ConversationActions{..}::(ConversationActions
@@ -116,7 +118,13 @@ getTxMempoolInvs sendActions node =
 requestTxs
     :: WorkMode ssc m
     => SendActions m -> DHTNode -> [TxId] -> m ()
-requestTxs sendActions node txIds =
+requestTxs sendActions node txIds = do
+    logInfo $ sformat
+        ("Requesting "%int%" txs from node "%shown)
+        (length txIds) node
+    logDebug $ sformat
+        ("First 5 (or less) transactions: "%listJson)
+        (take 5 txIds)
     reifyMsgLimit (Proxy @(InvOrData TxMsgTag TxId TxMsgContents)) $
       \(_ :: Proxy s) -> converseToNode sendActions node $ \_
         (ConversationActions{..}::(ConversationActions
@@ -126,6 +134,7 @@ requestTxs sendActions node txIds =
         ) -> do
             let txProxy = RelayProxy :: RelayProxy TxId TxMsgTag TxMsgContents
             let getTx id = do
+                    logDebug $ sformat ("Requesting transaction "%build) id
                     send $ ReqMsg TxMsgTag id
                     dt' <- recv
                     case withLimitedLength <$> dt' of
@@ -133,6 +142,9 @@ requestTxs sendActions node txIds =
                         Just x  -> expectRight (handleDataL txProxy) x
             for_ txIds $ \id ->
                 getTx id `catch` handler id
+    logInfo $ sformat
+        ("Finished requesting txs from node "%shown)
+        node
   where
     expectRight _ (Left _)       = throw UnexpectedInv
     expectRight call (Right msg) = call msg

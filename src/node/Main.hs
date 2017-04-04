@@ -80,7 +80,7 @@ baseParams loggingTag args@Args {..} = do
     let allPeers = CLI.dhtPeers commonArgs ++ filePeers
     return $ BaseParams
         { bpLoggingParams = loggingParams loggingTag args
-        , bpIpPort = ipPort
+        , bpIpPort = Just ipPort
         , bpDHTPeers = allPeers
         , bpDHTKey = dhtKey
         , bpDHTExplicitInitial = CLI.dhtExplicitInitial commonArgs

@@ -422,8 +422,8 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
     instConfig =
         KademliaDHTInstanceConfig
         { kdcKey = bpDHTKey
-        , kdcHost = fst bpIpPort
-        , kdcPort = snd bpIpPort
+        , kdcHost = maybe "0.0.0.0" fst bpIpPort
+        , kdcPort = maybe 0 snd bpIpPort
         , kdcInitialPeers = ordNub $ bpDHTPeers ++ Const.defaultPeers
         , kdcExplicitInitial = bpDHTExplicitInitial
         , kdcDumpPath = bpKademliaDump
@@ -431,16 +431,17 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
 
 createTransport
     :: (MonadIO m, WithLogger m, Mockable Throw m)
-    => String -> Word16 -> m Transport
-createTransport ip port = do
+    => TCP.TCPAddr -> m Transport
+createTransport addrInfo = do
     let tcpParams =
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =
                    Just $ fromIntegral Const.networkConnectionTimeout
              , TCP.tcpNewQDisc = fairQDisc $ \_ -> return Nothing
+             , TCP.tcpCheckPeerHost = True
              })
     transportE <-
-        liftIO $ TCP.createTransport "0.0.0.0" (show port) ((,) ip) tcpParams
+        liftIO $ TCP.createTransport addrInfo tcpParams
     case transportE of
         Left e -> do
             logError $ sformat ("Error creating TCP transport: " % shown) e
@@ -450,10 +451,14 @@ createTransport ip port = do
 bracketTransport :: BaseParams -> (Transport -> Production a) -> Production a
 bracketTransport BaseParams {..} =
     bracket
-        (withLog $ createTransport (BS8.unpack $ fst bpIpPort) (snd bpIpPort))
+        (withLog $ createTransport (maybe TCP.Unaddressable TCP.Addressable addrInfo))
         (liftIO . closeTransport)
   where
     withLog = usingLoggerName $ lpRunnerTag bpLoggingParams
+    addrInfo = do
+        host <- fmap (BS8.unpack . fst) bpIpPort
+        port <- fmap (show . snd) bpIpPort
+        return (TCP.TCPAddrInfo host port ((,) host))
 
 bracketResources :: BaseParams -> (RealModeResources -> Production a) -> IO a
 bracketResources bp action =

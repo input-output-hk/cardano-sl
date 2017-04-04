@@ -3,7 +3,7 @@ with (import (fetchTarball https://github.com/NixOS/nixpkgs/archive/8bed8fb53227
 stdenv.mkDerivation {
   name = "daedalus-bridge";
 
-  buildInputs = [ nodejs-6_x nodePackages.bower purescript ];
+  buildInputs = [ nodejs-7_x nodePackages.bower purescript ];
 
   src = null;
 }

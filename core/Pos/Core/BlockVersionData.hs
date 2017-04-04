@@ -12,6 +12,7 @@ import           Serokell.Data.Memory.Units (memory)
 
 import           Pos.Core.Coin              ()
 import           Pos.Core.Types             (BlockVersionData (..))
+import           Pos.Util.Util              ()
 
 instance Buildable BlockVersionData where
     build BlockVersionData {..} =
@@ -42,14 +43,3 @@ instance Buildable BlockVersionData where
         bvdUpdateSoftforkThd
 
 instance NFData BlockVersionData where
-    rnf BlockVersionData{..} =
-        deepseq bvdScriptVersion $
-        deepseq (toInteger bvdSlotDuration) $
-        deepseq bvdMaxBlockSize $
-        deepseq bvdMaxTxSize $
-        deepseq bvdMpcThd $
-        deepseq bvdHeavyDelThd $
-        deepseq bvdUpdateVoteThd $
-        deepseq bvdUpdateProposalThd $
-        deepseq bvdUpdateImplicit $
-        deepseq bvdUpdateSoftforkThd $ ()

@@ -47,6 +47,7 @@ deriveAesKeyBS = AesKey . blake2b
 aesEncrypt :: ByteString -> AesKey -> ByteString
 aesEncrypt input (fromAESKey -> sk) = ctrCombine init nullIV input
   where
+    -- FIXME: return either here
     init :: AES256
     init = either (error . show) identity $ eitherCryptoError $ cipherInit sk
 

@@ -61,6 +61,8 @@ packages:
     git: https://github.com/serokell/swagger2
     commit: 6cc2063e1c8da9e701f3ac95549b8a33be9605de
   extra-dep: true
+- location: ../log-warper
+  extra-dep: true
 #- location:
 #    git: https://github.com/haskell-crypto/cryptonite.git
 #    commit: 2932df9e243aa7ae7eb2b25d7c60fa77a30c6fb5
@@ -75,7 +77,7 @@ extra-deps:
 - serokell-util-0.1.5.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-1.0.4
+#- log-warper-1.0.4
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.5.26                   # not yet in lts-8
 - haskell-src-exts-1.17.1         # derive has not moved to 1.18 yet

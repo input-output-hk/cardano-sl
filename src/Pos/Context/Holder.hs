@@ -105,7 +105,9 @@ instance (MonadIO m, Mockable Catch m, WithLogger m) => MonadJL (ContextHolder s
 instance Monad m => MonadReportingMem (ContextHolder ssc m) where
     askReportingContext =
         ContextHolder $
-            asks (ReportingContext . npReportServers . ncNodeParams)
+            asks (\NodeContext{..} ->
+                    ReportingContext (npReportServers ncNodeParams)
+                                     ncLoggerConfig)
 
 instance Monad m => MonadDhtMem (ContextHolder ssc m) where
     askDhtMem =

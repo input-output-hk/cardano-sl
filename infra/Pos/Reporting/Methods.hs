@@ -12,17 +12,17 @@ module Pos.Reporting.Methods
        , reportingFatal
        , sendReport
        , retrieveLogFiles
-       , chooseLogFiles
        ) where
 
 import           Universum
 
 import           Control.Exception        (ErrorCall (..), SomeException)
-import           Control.Lens             (to)
+import           Control.Lens             (each, to)
 import           Control.Monad.Catch      (try)
 import           Data.Aeson               (encode)
 import           Data.Bits                (Bits (..))
 import qualified Data.HashMap.Strict      as HM
+import           Data.List                (isSuffixOf)
 import qualified Data.List.NonEmpty       as NE
 import qualified Data.Text.IO             as TIO
 import           Data.Time.Clock          (getCurrentTime)
@@ -31,22 +31,23 @@ import           Formatting               (build, sformat, shown, stext, (%))
 import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Network.Wreq             (partFile, partLBS, post)
 import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
+import           Serokell.Util.Exceptions (throwText)
 import           Serokell.Util.Text       (listBuilderJSON, listJson)
-import           System.Directory         (doesFileExist, listDirectory)
-import           System.FilePath          (dropExtension, takeDirectory, takeExtension,
-                                           takeFileName, (<.>), (</>))
+import           System.Directory         (doesFileExist)
+import           System.FilePath          (takeFileName)
 import           System.Info              (arch, os)
 import           System.IO                (hClose)
 import           System.IO.Temp           (withSystemTempFile)
 import           System.Wlog              (CanLog, HasLoggerName, LoggerConfig (..),
-                                           lcFilePrefix, lcTree, logDebug, logError,
-                                           ltFiles, ltSubloggers, readMemoryLogs)
+                                           hwFilePath, lcTree, logDebug, logError,
+                                           ltFiles, ltSubloggers, retrieveLogContent)
 
 import           Pos.Core.Constants       (protocolMagic)
 import           Pos.DHT.Model.Class      (MonadDHT, currentNodeKey, getKnownPeers)
 import           Pos.Exception            (CardanoFatalError)
 import           Pos.Reporting.Exceptions (ReportingError (..))
-import           Pos.Reporting.MemState   (MonadReportingMem (..), rcReportServers)
+import           Pos.Reporting.MemState   (MonadReportingMem (..), rcLoggingConfig,
+                                           rcReportServers)
 
 -- TODO From Pos.Util, remove after refactoring.
 -- | Concatenates two url part using regular slash '/'.
@@ -69,8 +70,16 @@ sendReportNode
     :: (MonadIO m, MonadMask m, MonadReportingMem m)
     => Version -> ReportType -> m ()
 sendReportNode version reportType = do
-    memLogs <- takeGlobalSize charsConst <$> readMemoryLogs
-    sendReportNodeImpl (reverse memLogs) version reportType
+    logConfig <- view rcLoggingConfig <$> askReportingContext
+    let allFiles = map snd $ retrieveLogFiles logConfig
+    logFile <- maybe
+        (throwText "sendReportNode: can't find any .pub file in logconfig")
+        pure
+        (head $ filter (".pub" `isSuffixOf`) allFiles)
+    logContent <-
+        takeGlobalSize charsConst <$>
+        retrieveLogContent logFile (Just 5000)
+    sendReportNodeImpl (reverse logContent) version reportType
   where
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int
@@ -205,7 +214,7 @@ sendReport logFiles rawLogs reportType appName appVersion reportServerUri = do
     when (null existingFiles && not (null logFiles)) $
         throwM $ CantRetrieveLogs logFiles
     putText $ "Rawlogs size is: " <> show (length rawLogs)
-    withSystemTempFile "memlog.log" $ \tempFp tempHandle -> liftIO $ do
+    withSystemTempFile "main.log" $ \tempFp tempHandle -> liftIO $ do
         forM_ rawLogs $ TIO.hPutStrLn tempHandle
         hClose tempHandle
         let memlogFiles = bool [tempFp] [] (null rawLogs)
@@ -233,38 +242,12 @@ sendReport logFiles rawLogs reportType appName appVersion reportServerUri = do
         }
 
 -- | Given logger config, retrieves all (logger name, filepath) for
--- every logger that has file handle.
+-- every logger that has file handle. Filepath inside does __not__
+-- contain the common logger config prefix.
 retrieveLogFiles :: LoggerConfig -> [([Text], FilePath)]
-retrieveLogFiles lconfig =
-    map (second (prefix </>)) $ fromLogTree $ lconfig ^. lcTree
+retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
   where
-    prefix = lconfig ^. lcFilePrefix . to (fromMaybe ".")
     fromLogTree lt =
-        let curElems = map ([],) (lt ^. ltFiles)
+        let curElems = map ([],) (lt ^.. ltFiles . each . hwFilePath)
             addFoo (part, node) = map (first (part :)) $ fromLogTree node
         in curElems ++ concatMap addFoo (lt ^. ltSubloggers . to HM.toList)
-
--- | Retrieves real filepathes of logs given filepathes from log
--- description. Example: there's @component.log@ in config, but this
--- function will return @[component.log.122, component.log.123]@.
-chooseLogFiles :: (MonadIO m) => FilePath -> m [FilePath]
-chooseLogFiles filePath = liftIO $ do
-    dirContents <- map (dir </>) <$> listDirectory dir
-    dirFiles <- filterM doesFileExist dirContents
-    let fileMatches = fileName `elem` map takeFileName dirFiles
-    let samePrefix = filter (isPrefixOf fileName . takeFileName) dirFiles
-    let rotationLogs :: [(FilePath, Int)]
-        rotationLogs = flip mapMaybe samePrefix $ \candidate -> do
-            let fname = takeFileName candidate
-            let basename = dropExtension fname
-            let ext = drop 1 $ takeExtension fname
-            guard $ basename == fileName
-            guard $ fname == basename <.> ext
-            (candidate,) <$> readMaybe ext
-    pure $ if | not (null rotationLogs) ->
-                take 2 $ map fst $ reverse $ sortOn snd rotationLogs
-              | fileMatches -> [filePath]
-              | otherwise -> [] -- haven't found any logs
-  where
-    fileName = takeFileName filePath
-    dir = takeDirectory filePath

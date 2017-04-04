@@ -42,7 +42,10 @@ initialState =
     , currentCAddress: mkCAddress ""
     , currentAddressSummary: NotAsked
     , selectedSearch: SearchAddress
-    , searchQuery: ""
+    , searchQuery: emptySearchQuery
     , errors: []
     , loading: false
     }
+
+emptySearchQuery :: String
+emptySearchQuery = ""

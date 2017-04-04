@@ -3,6 +3,7 @@ module Explorer.Types.Actions where
 import Control.Monad.Eff.Exception (Error)
 import DOM.HTML.Types (HTMLInputElement)
 import Data.Either (Either)
+import Data.Maybe (Maybe)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, Search)
@@ -36,7 +37,7 @@ data Action
     | ReceiveTxSummary (Either Error CTxSummary)
     | RequestAddressSummary CAddress
     | ReceiveAddressSummary (Either Error CAddressSummary)
-    | RequestEpochSlot EpochIndex
+    | RequestEpochSlot EpochIndex (Maybe LocalSlotIndex)
     | ReceiveEpochSlot (Either Error CBlockEntries)
     -- search
     | DashboardSearch                       -- dasboard search

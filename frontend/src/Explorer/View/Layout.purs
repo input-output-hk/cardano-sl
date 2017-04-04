@@ -32,7 +32,7 @@ view state =
                           (Tx id) -> transactionView state
                           (Address address) -> addressView state
                           (Epoch epoch) -> blocksView state
-                          -- (EpochSlot epoch slot) -> blocksView state
+                          (EpochSlot epoch slot) -> blocksView state
                           Calculator -> calculatorView state
                           (Block hash) -> blockView state
                           NotFound -> notFoundView state

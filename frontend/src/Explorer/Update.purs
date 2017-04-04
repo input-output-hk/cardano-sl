@@ -1,26 +1,28 @@
 module Explorer.Update where
 
 import Prelude
-import Data.Int (fromString)
 import Control.Monad.Aff (attempt)
 import Control.Monad.Eff.Class (liftEff)
 import DOM (DOM)
 import DOM.HTML.HTMLInputElement (select)
 import Data.Array ((:))
 import Data.Either (Either(..))
+import Data.Int (fromString)
 import Data.Lens ((^.), over, set)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary, searchEpoch)
 import Explorer.I18n.Lenses (cAddress)
 import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentCAddress, currentTxSummary, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, searchQuery, selectedApiCode, selectedSearch, socket, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..), toUrl)
+import Explorer.State (emptySearchQuery)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), State)
 import Explorer.Util.DOM (scrollTop)
-import Explorer.Util.Factory (mkCAddress, mkCTxId)
+import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex)
 import Explorer.Util.QrCode (generateQrCode)
 import Network.HTTP.Affjax (AJAX)
 import Network.RemoteData (RemoteData(..))
+import Pos.Core.Lenses.Types (_EpochIndex, getEpochIndex)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects)
 import Pux.Router (navigateTo) as P
@@ -102,7 +104,7 @@ update (GenerateQrCode address) state =
 -- update DashboardSearch state = noEffects state
 update DashboardSearch state =
     let query = state ^. searchQuery in
-    { state: set searchQuery "" $ state
+    { state: set searchQuery emptySearchQuery $ state
     , effects: [
       -- set state of focus explicitly
       pure $ DashboardFocusSearchInput false
@@ -111,8 +113,9 @@ update DashboardSearch state =
               (liftEff <<< P.navigateTo <<< toUrl <<< Address $ mkCAddress query) *> pure NoOp
           SearchTx ->
               (liftEff <<< P.navigateTo <<< toUrl <<< Tx $ mkCTxId query) *> pure NoOp
-          SearchEpoch -> pure NoOp
-              -- (liftEff <<< P.navigateTo <<< toUrl <<< Epoch $ fromString query) *> pure NoOp
+          SearchEpoch ->
+              (liftEff <<< P.navigateTo <<< toUrl <<< Epoch $ mkEpochIndex
+                  <<< fromMaybe 0 $ fromString query) *> pure NoOp
       ]
     }
 
@@ -162,9 +165,9 @@ update (ReceiveBlockSummary (Left error)) state =
 
 -- Epoch, slot
 
-update (RequestEpochSlot slot) state =
+update (RequestEpochSlot epoch slot) state =
     { state: set loading true $ state
-    , effects: [ attempt (searchEpoch slot Nothing) >>= pure <<< ReceiveEpochSlot ]
+    , effects: [ attempt (searchEpoch epoch slot) >>= pure <<< ReceiveEpochSlot ]
     }
 update (ReceiveEpochSlot (Right blocks)) state =
     noEffects $
@@ -285,7 +288,15 @@ routeEffects (Epoch epochIndex) state =
     { state
     , effects:
         [ pure ScrollTop
-        , pure $ RequestEpochSlot epochIndex
+        , pure $ RequestEpochSlot epochIndex Nothing
+        ]
+    }
+
+routeEffects (EpochSlot epochIndex slotIndex) state =
+    { state
+    , effects:
+        [ pure ScrollTop
+        , pure $ RequestEpochSlot epochIndex (Just slotIndex)
         ]
     }
 

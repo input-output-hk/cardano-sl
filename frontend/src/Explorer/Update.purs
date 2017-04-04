@@ -10,16 +10,18 @@ import Data.Either (Either(..))
 import Data.Int (fromString)
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Tuple (Tuple(..))
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary, searchEpoch)
 import Explorer.I18n.Lenses (cAddress)
 import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentCAddress, currentTxSummary, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, searchQuery, selectedApiCode, selectedSearch, socket, transactionsExpanded, viewStates)
-import Explorer.Routes (Route(..), toUrl)
+import Explorer.Routes (Route(..), slotIndexToString, toUrl)
 import Explorer.State (emptySearchQuery)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), State)
 import Explorer.Util.DOM (scrollTop)
-import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex)
+import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
+import Explorer.Util.String (substitute, parseSearchEpoch)
 import Network.HTTP.Affjax (AJAX)
 import Network.RemoteData (RemoteData(..))
 import Pos.Core.Lenses.Types (_EpochIndex, getEpochIndex)
@@ -114,8 +116,18 @@ update DashboardSearch state =
           SearchTx ->
               (liftEff <<< P.navigateTo <<< toUrl <<< Tx $ mkCTxId query) *> pure NoOp
           SearchEpoch ->
-              (liftEff <<< P.navigateTo <<< toUrl <<< Epoch $ mkEpochIndex
-                  <<< fromMaybe 0 $ fromString query) *> pure NoOp
+              case parseSearchEpoch query of
+                  Right (Tuple (Just epoch) (Just slot)) ->
+                      let epochIndex = mkEpochIndex epoch
+                          slotIndex  = mkLocalSlotIndex slot
+                      in
+                      liftEff <<< P.navigateTo <<< toUrl <<< (EpochSlot epochIndex slotIndex) *> pure NoOp
+                  Right (Tuple (Just epoch) Nothing) ->
+                      let epochIndex = mkEpochIndex epoch
+                      in
+                      liftEff <<< P.navigateTo <<< toUrl <<< Epoch epochIndex *> pure NoOp
+
+                  _ -> pure NoOp -- TODO (ks) maybe put up a message?
       ]
     }
 

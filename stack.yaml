@@ -44,7 +44,7 @@ packages:
 # These two are needed for time-warp-nt
 - location:
     git: https://github.com/avieth/network-transport-tcp
-    commit: 15847920ac1a32ada237e5a00ac4f56f3ca421a7
+    commit: 07dd1ec57da2b8397db464831520f3bcb75eec19
   extra-dep: true
 - location:
     git: https://github.com/avieth/network-transport

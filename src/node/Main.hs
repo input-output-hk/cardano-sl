@@ -181,13 +181,12 @@ processUserSecret
 processUserSecret args@Args {..} userSecret = case backupPhrase of
     Nothing -> updateUserSecretVSS args userSecret >>= userSecretWithGenesisKey args
     Just ph -> do
-        (sk, vss) <-
-            either
-                (\msg -> fail $ "Key creation from phrase failed: " <> show msg)
-                pure $ keysFromPhrase ph
+        (sk, vss) <- either keyFromPhraseFailed pure $ keysFromPhrase ph
         let us = userSecret & usPrimKey .~ Just sk & usVss .~ Just vss
         writeUserSecret us
         return (sk, us)
+  where
+    keyFromPhraseFailed msg = fail $ "Key creation from phrase failed: " <> show msg
 
 getNodeParams :: (MonadIO m, MonadFail m, MonadThrow m) => Args -> Timestamp -> m NodeParams
 getNodeParams args@Args {..} systemStart = do

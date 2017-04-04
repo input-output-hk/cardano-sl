@@ -26,6 +26,7 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletInit (..)
       , CUpdateInfo (..)
       , CWalletRedeem (..)
+      , CPostVendWalletRedeem (..)
       , CCoin
       , mkCCoin
       , NotifyEvent (..)
@@ -215,6 +216,13 @@ data CWalletInit = CWalletInit
 data CWalletRedeem = CWalletRedeem
     { crWalletId :: !CAddress
     , crSeed     :: !Text -- TODO: newtype!
+    } deriving (Show, Generic)
+
+-- | Query data for redeem
+data CPostVendWalletRedeem = CPostVendWalletRedeem
+    { pvWalletId     :: !CAddress
+    , pvSeed         :: !Text -- TODO: newtype!
+    , pvBackupPhrase :: !BackupPhrase
     } deriving (Show, Generic)
 
 ----------------------------------------------------------------------------

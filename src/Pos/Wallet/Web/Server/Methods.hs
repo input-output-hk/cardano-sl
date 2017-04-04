@@ -27,7 +27,6 @@ import           Control.Monad.State           (runStateT)
 import           Data.Default                  (Default (def))
 import           Data.List                     (elemIndex, (!!))
 import           Data.Tagged                   (untag)
-import qualified Data.Text                     as T
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
 import           Data.Time.Units               (Microsecond, Second)
 import           Formatting                    (build, ords, sformat, shown, stext, (%))
@@ -42,6 +41,7 @@ import           Servant.Server                (Handler, Server, ServerT, err403
 import           Servant.Utils.Enter           ((:~>) (..), enter)
 import           System.Wlog                   (logDebug, logError, logInfo)
 
+import           Data.ByteString.Base58        (bitcoinAlphabet, decodeBase58)
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Client.Txp.History        (TxHistoryAnswer (..), TxHistoryEntry (..))
 import           Pos.Communication             (OutSpecs, SendActions, hoistSendActions,
@@ -50,7 +50,8 @@ import           Pos.Constants                 (curSoftwareVersion, isDevelopmen
 import           Pos.Core                      (Address, Coin, addressF, coinF,
                                                 decodeTextAddress, makePubKeyAddress,
                                                 mkCoin)
-import           Pos.Crypto                    (PassPhrase, encToPublic, hash,
+import           Pos.Crypto                    (PassPhrase, aesDecrypt, deriveAesKeyBS,
+                                                encToPublic, hash,
                                                 redeemDeterministicKeyGen, withSafeSigner,
                                                 withSafeSigner)
 import           Pos.DB.Limits                 (MonadDBLimits)
@@ -60,7 +61,7 @@ import           Pos.Reporting.Methods         (sendReportNodeNologs)
 import           Pos.Ssc.Class                 (SscHelpersClass)
 import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
 import           Pos.Util                      (maybeThrow)
-import           Pos.Util.BackupPhrase         (BackupPhrase, safeKeysFromPhrase)
+import           Pos.Util.BackupPhrase         (BackupPhrase, safeKeysFromPhrase, toSeed)
 import           Pos.Util.UserSecret           (readUserSecret, usKeys)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
@@ -71,8 +72,9 @@ import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
                                                 networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CInitialized,
-                                                CPassPhrase (..), CProfile, CProfile (..),
-                                                CTx, CTxId, CTxMeta (..),
+                                                CPassPhrase (..),
+                                                CPostVendWalletRedeem (..), CProfile,
+                                                CProfile (..), CTx, CTxId, CTxMeta (..),
                                                 CUpdateInfo (..), CWallet (..),
                                                 CWalletInit (..), CWalletMeta (..),
                                                 CWalletRedeem (..), NotifyEvent (..),
@@ -280,6 +282,8 @@ servantHandlers sendActions =
     :<|>
      apiRedeemAda
     :<|>
+     apiPostVendRedeemAda
+    :<|>
      apiReportingInitialized
     :<|>
      apiSettingsSlotDuration
@@ -308,6 +312,7 @@ servantHandlers sendActions =
     apiNextUpdate               = catchWalletError nextUpdate
     apiApplyUpdate              = catchWalletError applyUpdate
     apiRedeemAda                = catchWalletError . redeemADA sendActions
+    apiPostVendRedeemAda        = catchWalletError . postVendRedeemADA sendActions
     apiReportingInitialized     = catchWalletError . reportingInitialized
     apiSettingsSlotDuration     = catchWalletError (fromIntegral <$> blockchainSlotDuration)
     apiSettingsSoftwareVersion  = catchWalletError (pure curSoftwareVersion)
@@ -477,14 +482,36 @@ applyUpdate = removeNextUpdate >> applyLastUpdate
 
 redeemADA :: WalletWebMode ssc m => SendActions m -> CWalletRedeem -> m CTx
 redeemADA sendActions CWalletRedeem {..} = do
-    let base64rify = T.replace "-" "+" . T.replace "_" "/"
-    seedBs <- either
-        (\e -> throwM $ Internal ("Seed is invalid base64 string: " <> toText e))
-        pure $ B64.decode $ base64rify crSeed
+    seedBs <- maybe invalidBase64 pure
+        -- NOTE: this is just safety measure
+        $ rightToMaybe (B64.decode crSeed) <|> rightToMaybe (B64.decodeUrl crSeed)
+    redeemADAInternal sendActions crWalletId seedBs
+  where
+    invalidBase64 = throwM . Internal $ "Seed is invalid base64(url) string: " <> crSeed
+
+-- Decrypts certificate based on:
+--  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L205
+--  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L160
+postVendRedeemADA :: WalletWebMode ssc m => SendActions m -> CPostVendWalletRedeem -> m CTx
+postVendRedeemADA sendActions CPostVendWalletRedeem {..} = do
+    seedEncBs <- maybe invalidBase58 pure
+        $ decodeBase58 bitcoinAlphabet $ encodeUtf8 pvSeed
+    aesKey <- either invalidMnemonic pure
+        $ deriveAesKeyBS <$> toSeed pvBackupPhrase
+    seedDecBs <- either decryptionFailed pure
+        $ aesDecrypt seedEncBs aesKey
+    redeemADAInternal sendActions pvWalletId seedDecBs
+  where
+    invalidBase58 = throwM . Internal $ "Seed is invalid base58 string: " <> pvSeed
+    invalidMnemonic e = throwM . Internal $ "Invalid mnemonic: " <> toText e
+    decryptionFailed e = throwM . Internal $ "Decryption failed: " <> show e
+
+redeemADAInternal :: WalletWebMode ssc m => SendActions m -> CAddress -> ByteString -> m CTx
+redeemADAInternal sendActions walletId seedBs = do
     (_, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
     -- new redemption wallet
-    walletB <- getWallet crWalletId
+    walletB <- getWallet walletId
 
     -- send from seedAddress to walletB
     let dstCAddr = cwAddress walletB
@@ -497,6 +524,7 @@ redeemADA sendActions CWalletRedeem {..} = do
             -- add redemption transaction to the history of new wallet
             addHistoryTx dstCAddr ADA "ADA redemption" ""
               (THEntry (hash tx) tx False Nothing)
+
 
 reportingInitialized :: forall ssc m. WalletWebMode ssc m => CInitialized -> m ()
 reportingInitialized cinit = do
@@ -574,9 +602,11 @@ genSaveAddress passphrase ph =
     addressToCAddress . makePubKeyAddress . encToPublic <$> genSaveSK
   where
     genSaveSK = do
-        let sk = fst $ safeKeysFromPhrase passphrase ph
+        sk <- either keyFromPhraseFailed (pure . fst)
+            $ safeKeysFromPhrase passphrase ph
         addSecretKey sk
         return sk
+    keyFromPhraseFailed msg = throwM . Internal $ "Key creation from phrase failed: " <> msg
 
 decodeCPassPhraseOrFail :: WalletWebMode ssc m => CPassPhrase -> m PassPhrase
 decodeCPassPhraseOrFail cpass =

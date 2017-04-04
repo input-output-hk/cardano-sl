@@ -41,6 +41,7 @@ library
                        Pos.Core.Version
 
                        Pos.Crypto
+                       Pos.Crypto.Encryption
                        Pos.Crypto.AsBinary
                        Pos.Crypto.HD
                        Pos.Crypto.Random
@@ -70,6 +71,7 @@ library
                        Pos.Util.Iterator
                        Pos.Util.Modifier
                        Pos.Util.Util
+                       Pos.Util.Mnemonics
 
   other-modules:       Pos.Util.Config.Path
 

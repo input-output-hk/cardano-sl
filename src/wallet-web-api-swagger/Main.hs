@@ -30,9 +30,10 @@ import qualified Paths_cardano_sl           as CSL
 import           Pos.Types                  (ApplicationName, BlockVersion,
                                              ChainDifficulty, Coin, SoftwareVersion)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
-import           Pos.Wallet.Web             (CAddress, CCurrency, CHash, CInitialized,
-                                             CPassPhrase, CProfile, CTType, CTx, CTxId,
-                                             CTxMeta, CUpdateInfo, CWallet,
+import           Pos.Wallet.Web             (CAddress, CCoin, CCurrency, CHash,
+                                             CInitialized, CPassPhrase,
+                                             CPostVendWalletRedeem, CProfile, CTType, CTx,
+                                             CTxId, CTxMeta, CUpdateInfo, CWallet,
                                              CWalletAssurance, CWalletInit, CWalletMeta,
                                              CWalletRedeem, CWalletType, SyncProgress,
                                              WalletError, walletApi)
@@ -67,7 +68,9 @@ instance ToSchema      CWalletMeta
 instance ToSchema      CWalletInit
 instance ToSchema      CWalletType
 instance ToSchema      CWalletRedeem
+instance ToSchema      CPostVendWalletRedeem
 instance ToSchema      CWallet
+instance ToSchema      CCoin
 instance ToSchema      CInitialized
 instance ToSchema      CUpdateInfo
 instance ToSchema      SoftwareVersion

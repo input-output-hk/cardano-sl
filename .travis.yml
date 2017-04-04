@@ -33,12 +33,7 @@ before_install:
   xz --strip-components=1 -C ~/.local/bin
 
 script:
-- pushd ~/.local    # any path that doesn't have a stack.yaml will do
-                    # (we override the haskell-src-exts version
-                    # in CSL's stack.yaml and hlint doesn't work
-                    # with the older version we're using)
-- stack --nix --no-terminal --resolver lts-8.5 install hlint
-- popd
+- stack --nix --no-terminal install hlint
 - util-scripts/lint.sh --nix
 - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" ]]; then export EXTRA_STACK="--haddock"; else export EXTRA_STACK="--no-haddock-deps"; fi
 - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export EXTRA_STACK="--test $EXTRA_STACK"; fi

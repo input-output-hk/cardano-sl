@@ -13,9 +13,10 @@ import           Options.Applicative (Parser, ParserInfo, auto, fullDesc, help, 
 import           Universum
 
 data KeygenOptions = KeygenOptions
-    { koGenesisFile :: FilePath
-    , koTestStake   :: Maybe TestStakeOptions
-    , koAvvmStake   :: Maybe AvvmStakeOptions
+    { koGenesisFile   :: FilePath
+    , koRearrangeMask :: Maybe FilePath
+    , koTestStake     :: Maybe TestStakeOptions
+    , koAvvmStake     :: Maybe AvvmStakeOptions
     } deriving (Show)
 
 data TestStakeOptions = TestStakeOptions
@@ -40,6 +41,10 @@ optsParser = do
         metavar "FILE" <>
         value   "genesis.bin" <>
         help    "File to dump binary shared genesis data"
+    koRearrangeMask <- optional $ strOption $
+        long    "rearrange-mask" <>
+        metavar "PATTERN" <>
+        help    "Secret keyfiles to rearrange"
     koTestStake <- optional testStakeParser
     koAvvmStake <- optional avvmStakeParser
     pure KeygenOptions{..}

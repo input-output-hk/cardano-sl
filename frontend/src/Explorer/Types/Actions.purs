@@ -6,7 +6,6 @@ import Data.Either (Either)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Explorer.Types.State (CBlockEntries, CTxEntries, DashboardAPICode, SocketSubscription)
-import Pos.Explorer.Socket.Methods (Subscription)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
 import Signal.Channel (Channel)
 
@@ -23,11 +22,12 @@ data Action
     | SocketConnected Boolean
     | SocketBlocksUpdated (Either Error CBlockEntries)
     | SocketTxsUpdated (Either Error CTxEntries)
+    | SocketUpdateSubscriptions (Array SocketSubscription)
+    | SocketReconnectSubscriptions
     -- socket endpoints for debugging only
     | SocketCallMe
     | SocketCallMeString String
     | SocketCallMeCTxId CTxId
-    | SocketUpdateSubscriptions (Array SocketSubscription)
     -- http endpoints
     | RequestInitialBlocks
     | ReceiveInitialBlocks (Either Error CBlockEntries)

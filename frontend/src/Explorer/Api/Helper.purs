@@ -34,8 +34,6 @@ options =
     , encodeSingleConstructors: false
     , userEncoding
     , userDecoding
-    , fieldLabelModifier: id
-    , omitNothingFields: false
     }
 
 

@@ -42,8 +42,14 @@ update (SetLanguage lang) state = noEffects $ state { lang = lang }
 
 -- Socket
 
-update (SocketConnected status) state = noEffects $
-    set (socket <<< connected) status state
+update (SocketConnected connected') state =
+    { state: set (socket <<< connected) connected' state
+    , effects:
+          [ if connected'
+            then pure SocketReconnectSubscriptions
+            else pure NoOp
+          ]
+    }
 update (SocketBlocksUpdated (Right blocks)) state = noEffects $
     if state ^. handleLatestBlocksSocketResult
     -- add incoming blocks ahead of previous blocks
@@ -95,7 +101,17 @@ update (SocketUpdateSubscriptions nextSubs) state =
                 -- 2. subscribe all new subscriptions
                 let diffCurrentFromNextSubs = difference nextSubs currentSubs
                 traverse_ (liftEff <<< emit' socket' <<< toEvent <<< Subscribe <<< unwrap) diffCurrentFromNextSubs
-                -- pure unit
+              Nothing -> pure unit
+          pure NoOp
+    ]}
+
+update SocketReconnectSubscriptions state =
+    let currentSubs = state ^. socket <<< subscriptions in
+    { state
+    , effects : [ do
+          _ <- case state ^. (socket <<< connection) of
+              Just socket' -> do
+                traverse_ (liftEff <<< emit' socket' <<< toEvent <<< Subscribe <<< unwrap) currentSubs
               Nothing -> pure unit
           pure NoOp
     ]}

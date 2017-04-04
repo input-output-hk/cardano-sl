@@ -1,6 +1,7 @@
 module Testnet
        ( generateKeyfile
        , genTestnetStakes
+       , rearrangeKeyfile
        ) where
 
 import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors,
@@ -10,24 +11,33 @@ import           Universum
 
 import           Pos.Binary           (asBinary)
 import qualified Pos.Constants        as Const
-import           Pos.Crypto           (PublicKey, keyGen, toPublic, toVssPublicKey,
-                                       vssKeyGen)
+import           Pos.Crypto           (PublicKey, keyGen, noPassEncrypt, toPublic,
+                                       toVssPublicKey, vssKeyGen)
 import           Pos.Genesis          (StakeDistribution (..))
 import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
 import           Pos.Types            (coinPortionToDouble, unsafeIntegerToCoin)
-import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usPrimKey,
-                                       usVss, writeUserSecretRelease)
+import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usKeys,
+                                       usPrimKey, usVss, writeUserSecretRelease)
 
 import           KeygenOptions        (TestStakeOptions (..))
 
-generateKeyfile :: FilePath -> IO (PublicKey, VssCertificate)
-generateKeyfile fp = do
+rearrangeKeyfile :: FilePath -> IO ()
+rearrangeKeyfile fp = do
+    us <- takeUserSecret fp
+    let sk = maybeToList $ us ^. usPrimKey
+    writeUserSecretRelease $
+        us & usKeys %~ (++ map noPassEncrypt sk)
+
+generateKeyfile :: Bool -> FilePath -> IO (PublicKey, VssCertificate)
+generateKeyfile isPrim fp = do
     initializeUserSecret fp
     sk <- snd <$> keyGen
     vss <- vssKeyGen
     us <- takeUserSecret fp
     writeUserSecretRelease $
-        us & usPrimKey .~ Just sk
+        us & (if isPrim
+              then usPrimKey .~ Just sk
+              else usKeys %~ (noPassEncrypt sk :))
            & usVss .~ Just vss
     expiry <-
         fromIntegral <$>

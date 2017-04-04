@@ -38,14 +38,11 @@ initialState =
     , currentBlockSummary: Nothing
     , currentBlockTxs: Nothing
     , latestTransactions: []
-    , currentTxSummary: Nothing
+    , currentTxSummary: NotAsked
     , currentCAddress: mkCAddress ""
     , currentAddressSummary: NotAsked
     , selectedSearch: SearchAddress
-    , searchQuery: emptySearch
+    , searchQuery: ""
     , errors: []
     , loading: false
     }
-
-emptySearch :: String
-emptySearch = ""

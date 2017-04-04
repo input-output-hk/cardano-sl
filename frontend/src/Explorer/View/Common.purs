@@ -35,7 +35,7 @@ import Pos.Core.Types (Coin(..))
 import Pos.Explorer.Web.ClientTypes (CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, ctbId, ctbInputs, ctbOutputs, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
 import Pux.Html (Html, text, div, p, span, input) as P
-import Pux.Html.Attributes (className, value, disabled, type_, min, max) as P
+import Pux.Html.Attributes (className, value, disabled, type_, min, max, dangerouslySetInnerHTML) as P
 import Pux.Html.Events (onChange, onFocus, FormEvent, MouseEvent, Target, onClick) as P
 import Pux.Router (link) as P
 
@@ -102,11 +102,12 @@ txHeaderView lang (TxHeaderViewProps props) =
               ]
           ]
 
-emptyTxHeaderView :: State -> P.Html Action
-emptyTxHeaderView _ =
+emptyTxHeaderView :: P.Html Action
+emptyTxHeaderView =
     P.div
         [ P.className "transaction-header"]
         [ ]
+
 -- -----------------
 -- tx body
 -- -----------------

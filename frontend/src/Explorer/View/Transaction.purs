@@ -3,8 +3,9 @@ module Explorer.View.Transaction (transactionView) where
 import Prelude
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
+import Network.RemoteData (RemoteData(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (common, cDateFormat, cTransaction, cTransactionFeed, cSummary, tx, cTotalOutput, txRelayed, txIncluded, txTime) as I18nL
+import Explorer.I18n.Lenses (common, cDateFormat, cTransaction, txNotFound, cTransactionFeed, cSummary, tx, cTotalOutput, txRelayed, txIncluded, txTime) as I18nL
 import Explorer.Lenses.State (currentTxSummary, lang)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
@@ -14,7 +15,7 @@ import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CTxSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CNetworkAddress, ctsBlockHeight, ctsFees, ctsRelayedBy, ctsTotalOutput, ctsTxTimeIssued)
 import Pux.Html (Html, div, text, h3, table, tr, td) as P
-import Pux.Html.Attributes (className) as P
+import Pux.Html.Attributes (className, dangerouslySetInnerHTML) as P
 
 transactionView :: State -> P.Html Action
 transactionView state =
@@ -29,13 +30,15 @@ transactionView state =
                     [ P.className "headline"]
                     [ P.text $ translate (I18nL.common <<< I18nL.cTransaction) lang' ]
                   , case state ^. currentTxSummary of
-                        Nothing ->
-                            emptyTxHeaderView state
-                        Just txSummary ->
+                        NotAsked  -> emptyTxHeaderView
+                        Loading   -> textTxHeaderView "Loading..."
+                        Failure _ ->
+                            textTxHeaderView $ translate (I18nL.tx <<< I18nL.txNotFound) lang'
+                        Success txSum@(CTxSummary txSummary) ->
                             P.div
                                 []
-                                [ txHeaderView lang' $ mkTxHeaderViewProps txSummary
-                                , txBodyView $ mkTxBodyViewProps txSummary
+                                [ txHeaderView lang' $ mkTxHeaderViewProps txSum
+                                , txBodyView $ mkTxBodyViewProps txSum
                                 ]
                 ]
             ]
@@ -49,10 +52,11 @@ transactionView state =
                   , P.table
                       [ P.className "table-summary" ]
                       case state ^. currentTxSummary of
-                          Nothing ->
-                              [ emptySummaryRow ]
-                          Just txSummary ->
-                              map summaryRow $ summaryItems txSummary lang'
+                          NotAsked  -> [ emptySummaryRow ]
+                          Loading   -> [ emptySummaryRow ]
+                          Failure _ -> [ emptySummaryRow ]
+                          Success txSum@(CTxSummary txSummary) ->
+                              map summaryRow $ summaryItems txSum lang'
                 ]
             ]
         ]
@@ -111,4 +115,13 @@ summaryRow item =
         , P.td
             [ P.className $ "" <> currencyCSSClass item.currency  ]
             [ P.text item.value ]
+        ]
+
+textTxHeaderView :: String -> P.Html Action
+textTxHeaderView message =
+    P.div
+        [ P.className "explorer-transaction__container" ]
+        [ P.div
+            [ P.dangerouslySetInnerHTML message ]
+            []
         ]

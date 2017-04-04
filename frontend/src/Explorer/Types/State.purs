@@ -6,7 +6,7 @@ import Data.Maybe (Maybe)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Network.RemoteData (RemoteData)
-import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CBlockEntry, CBlockSummary, CTxBrief, CTxEntry, CTxSummary)
+import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry, CBlockSummary, CTxBrief, CTxEntry, CTxSummary)
 import Prelude (class Eq, class Ord, class Show)
 
 -- Add all State types here to generate lenses from it
@@ -23,7 +23,7 @@ type State =
     , handleLatestTxsSocketResult :: Boolean
     , currentBlockSummary :: Maybe CBlockSummary
     , currentBlockTxs :: Maybe CTxBriefs
-    , currentTxSummary :: Maybe CTxSummary
+    , currentTxSummary :: RemoteData Error CTxSummary
     , latestTransactions :: CTxEntries
     , currentCAddress :: CAddress
     , currentAddressSummary :: RemoteData Error CAddressSummary

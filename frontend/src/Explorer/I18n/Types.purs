@@ -120,6 +120,7 @@ type Transaction =
     , txIncluded :: String
     , txRelayed :: String
     , txEmpty :: String
+    , txNotFound :: String
     }
 
 -- translations of block detail page

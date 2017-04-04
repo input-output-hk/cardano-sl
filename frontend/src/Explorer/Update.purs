@@ -1,6 +1,7 @@
 module Explorer.Update where
 
 import Prelude
+import Data.Int (fromString)
 import Control.Monad.Aff (attempt)
 import Control.Monad.Eff.Class (liftEff)
 import DOM (DOM)
@@ -9,15 +10,14 @@ import Data.Array ((:))
 import Data.Either (Either(..))
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
-import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary)
+import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary, searchEpoch)
 import Explorer.I18n.Lenses (cAddress)
 import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentCAddress, currentTxSummary, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, searchQuery, selectedApiCode, selectedSearch, socket, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..), toUrl)
-import Explorer.State (emptySearch)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), State)
 import Explorer.Util.DOM (scrollTop)
-import Explorer.Util.Factory (mkCAddress)
+import Explorer.Util.Factory (mkCAddress, mkCTxId)
 import Explorer.Util.QrCode (generateQrCode)
 import Network.HTTP.Affjax (AJAX)
 import Network.RemoteData (RemoteData(..))
@@ -90,9 +90,6 @@ update (SelectInputText input) state =
         [ liftEff $ select input >>= \_ -> pure NoOp
         ]
     }
-
--- QR side effects
-
 update (GenerateQrCode address) state =
     { state
     , effects:
@@ -105,17 +102,17 @@ update (GenerateQrCode address) state =
 -- update DashboardSearch state = noEffects state
 update DashboardSearch state =
     let query = state ^. searchQuery in
-    { state: set searchQuery emptySearch $ state
+    { state: set searchQuery "" $ state
     , effects: [
       -- set state of focus explicitly
       pure $ DashboardFocusSearchInput false
       , case state ^. selectedSearch of
           SearchAddress ->
-              (liftEff <<< P.navigateTo <<< toUrl <<< Address $ mkCAddress query)
-              *> pure NoOp
-          -- SearchTx ->
-          -- SearchEpoch ->
-          _ -> pure NoOp
+              (liftEff <<< P.navigateTo <<< toUrl <<< Address $ mkCAddress query) *> pure NoOp
+          SearchTx ->
+              (liftEff <<< P.navigateTo <<< toUrl <<< Tx $ mkCTxId query) *> pure NoOp
+          SearchEpoch -> pure NoOp
+              -- (liftEff <<< P.navigateTo <<< toUrl <<< Epoch $ fromString query) *> pure NoOp
       ]
     }
 
@@ -163,6 +160,27 @@ update (ReceiveBlockSummary (Left error)) state =
     set loading false $
     over errors (\errors' -> (show error) : errors') state
 
+-- Epoch, slot
+
+update (RequestEpochSlot slot) state =
+    { state: set loading true $ state
+    , effects: [ attempt (searchEpoch slot Nothing) >>= pure <<< ReceiveEpochSlot ]
+    }
+update (ReceiveEpochSlot (Right blocks)) state =
+    noEffects $
+    set loading false <<<
+    set initialBlocksRequested true <<<
+    set handleLatestBlocksSocketResult true $
+    set latestBlocks blocks $
+    state
+
+update (ReceiveEpochSlot (Left error)) state =
+    noEffects $
+    set loading false <<<
+    set initialBlocksRequested true <<<
+    set handleLatestBlocksSocketResult true $
+    over errors (\errors' -> (show error) : errors') state
+
 update (RequestBlockTxs hash) state =
     { state: set loading true $ state
     , effects: [ attempt (fetchBlockTxs hash) >>= pure <<< ReceiveBlockTxs ]
@@ -201,10 +219,11 @@ update (RequestTxSummary id) state =
 update (ReceiveTxSummary (Right tx)) state =
     noEffects $
     set loading false $
-    set currentTxSummary (Just tx) state
+    set currentTxSummary (Success tx) state
 update (ReceiveTxSummary (Left error)) state =
     noEffects $
     set loading false $
+    set currentTxSummary (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
 update (RequestAddressSummary address) state =
@@ -214,8 +233,7 @@ update (RequestAddressSummary address) state =
 update (ReceiveAddressSummary (Right address)) state =
     { state:
         set loading false $
-        set currentAddressSummary Loading state
-        -- set currentAddressSummary (Success address) state
+        set currentAddressSummary (Success address) state
     , effects:
         [ pure $ GenerateQrCode $ address ^. (_CAddressSummary <<< caAddress) ]
     }
@@ -243,11 +261,12 @@ routeEffects Dashboard state =
         ]
     }
 
-routeEffects (Tx id) state =
-    { state: set currentTxSummary Nothing state
+routeEffects (Tx tx) state =
+    { state:
+      set currentTxSummary Loading state
     , effects:
         [ pure ScrollTop
-        , pure $ RequestTxSummary id
+        , pure $ RequestTxSummary tx
         ]
     }
 
@@ -261,6 +280,15 @@ routeEffects (Address cAddress) state =
         , pure $ RequestAddressSummary cAddress
         ]
     }
+
+routeEffects (Epoch epochIndex) state =
+    { state
+    , effects:
+        [ pure ScrollTop
+        , pure $ RequestEpochSlot epochIndex
+        ]
+    }
+
 
 routeEffects Calculator state = { state, effects: [ pure ScrollTop ] }
 

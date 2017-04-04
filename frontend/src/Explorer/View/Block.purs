@@ -45,7 +45,7 @@ blockView state =
                     [ P.className "headline"]
                     [ P.text $ translate (I18nL.common <<< I18nL.cSummary) lang' ]
                 , case state ^. currentBlockTxs of
-                      Nothing -> emptyTxHeaderView state
+                      Nothing -> emptyTxHeaderView
                       Just blockTxs ->
                           if null blockTxs then
                               txEmptyContentView lang'

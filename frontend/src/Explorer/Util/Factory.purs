@@ -6,7 +6,7 @@ import Data.Lens ((^.))
 import Data.Time.NominalDiffTime (mkTime)
 import Data.Tuple (Tuple(..))
 import Pos.Core.Lenses.Types (_Coin, getCoin)
-import Pos.Core.Types (Coin(..))
+import Pos.Core.Types (Coin(..), EpochIndex(..), LocalSlotIndex(..))
 import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary(..), CHash(..), CTxEntry(..), CTxId(..))
 
 
@@ -23,6 +23,12 @@ mkCoin coin =
 
 mkCAddress :: String -> CAddress
 mkCAddress = CAddress
+
+mkEpochIndex :: Int -> EpochIndex
+mkEpochIndex index = EpochIndex {getEpochIndex: index}
+
+mkLocalSlotIndex :: Int -> LocalSlotIndex
+mkLocalSlotIndex index = LocalSlotIndex {getSlotIndex: index}
 
 -- | Helper to summarize coins by a list of Tx inputs or outputs
 sumCoinOfInputsOutputs :: Array (Tuple CAddress Coin) -> Coin

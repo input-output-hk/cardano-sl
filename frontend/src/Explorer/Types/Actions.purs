@@ -6,6 +6,7 @@ import Data.Either (Either)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, Search)
+import Pos.Core.Types (EpochIndex(..), LocalSlotIndex(..))
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
 import Signal.Channel (Channel)
 
@@ -35,6 +36,8 @@ data Action
     | ReceiveTxSummary (Either Error CTxSummary)
     | RequestAddressSummary CAddress
     | ReceiveAddressSummary (Either Error CAddressSummary)
+    | RequestEpochSlot EpochIndex
+    | ReceiveEpochSlot (Either Error CBlockEntries)
     -- search
     | DashboardSearch                       -- dasboard search
     | UpdateSelectedSearch Search

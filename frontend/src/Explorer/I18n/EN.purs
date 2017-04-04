@@ -1,7 +1,8 @@
 module Explorer.I18n.EN where
 
-import Explorer.I18n.Lenses (cCalculator)
+import Explorer.I18n.Types (Translation)
 
+translation :: Translation
 translation =
     { common:
         { cBack: "Back"
@@ -85,13 +86,14 @@ translation =
         { addScan: "Scan this QR Code to copy address to clipboard"
         , addQrCode: "QR-Code"
         , addFinalBalance: "Final balance"
-        , addNotFound: "Address {0} does not exist."
+        , addNotFound: "Address does not exist."
         }
     , tx:
         { txTime: "Received time"
         , txIncluded: "Included In Slots"
         , txRelayed: "Relayed by IP"
         , txEmpty: "No transactions"
+        , txNotFound: "Transaction does not exist."
         }
     , block:
         { blFees: "Fees"

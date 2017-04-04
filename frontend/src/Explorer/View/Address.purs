@@ -6,11 +6,10 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (addNotFound, cAddress, common, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, currentAddressSummary, currentCAddress, lang, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, currentAddressSummary, lang, viewStates)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
-import Explorer.Util.String (substitute)
 import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txPaginationView, txHeaderView)
 import Network.RemoteData (RemoteData(..))
 import Pos.Core.Lenses.Types (_Coin, getCoin)
@@ -18,6 +17,7 @@ import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, caAddress, caBalance, caTxList, caTxNum)
 import Pux.Html (Html, div, text, h3, p) as P
 import Pux.Html.Attributes (className, dangerouslySetInnerHTML, id_) as P
+
 
 addressView :: State -> P.Html Action
 addressView state =
@@ -31,20 +31,9 @@ addressView state =
                   [ P.h3
                           [ P.className "headline"]
                           [ P.text $ translate (I18nL.common <<< I18nL.cAddress) lang' ]
-                  , case state ^. currentAddressSummary of
-                      NotAsked -> emptyAddressDetail ""
-                      Loading -> emptyAddressDetail ""
-                      Failure _ -> emptyAddressDetail <<< flip substitute
-                                    ["<span class='address-hash'>" <> (state ^. (currentCAddress <<< _CAddress)) <> "</span>"]
-                                    $ translate (I18nL.address <<< I18nL.addNotFound) lang'
-                      Success addressSummary ->
-                          P.div
-                              []
-                              [ addressDetailView addressSummary lang'
-                              , addressQr addressSummary lang'
-                              ]
-                      ]
+                  , addressOverview (state ^. currentAddressSummary) lang'
                   ]
+            ]
             , P.div
                 [ P.className "explorer-address__wrapper" ]
                 [ P.div
@@ -53,9 +42,9 @@ addressView state =
                           [ P.className "headline"]
                           [ P.text $ translate (I18nL.common <<< I18nL.cTransactions) lang' ]
                         , case state ^. currentAddressSummary of
-                              NotAsked -> emptyTxHeaderView state
-                              Loading -> emptyTxHeaderView state
-                              Failure _ -> emptyTxHeaderView state
+                              NotAsked  -> emptyTxHeaderView
+                              Loading   -> emptyTxHeaderView
+                              Failure _ -> emptyTxHeaderView
                               Success (CAddressSummary addressSummary) ->
                                   let txList = addressSummary ^. caTxList
                                       txPagination = state ^. (viewStates <<< addressDetail <<< addressTxPagination)
@@ -82,6 +71,17 @@ addressView state =
                 ]
             ]
 
+-- | Address overview, we leave the error abstract (we are not using it)
+addressOverview :: forall e. RemoteData e CAddressSummary -> Language -> P.Html Action
+addressOverview NotAsked    lang = emptyAddressDetail ""
+addressOverview Loading     lang = emptyAddressDetail "Loading..."
+addressOverview (Failure _) lang = emptyAddressDetail $ translate (I18nL.address <<< I18nL.addNotFound) lang
+addressOverview (Success addressSummary) lang =
+    P.div
+        []
+        [ addressDetailView addressSummary lang
+        , addressQr addressSummary lang
+        ]
 
 addressDetailView :: CAddressSummary -> Language -> P.Html Action
 addressDetailView addressSummary lang =

@@ -1,5 +1,8 @@
 module Explorer.I18n.DE where
 
+import Explorer.I18n.Types (Translation)
+
+translation :: Translation
 translation =
     { common:
         { cBack: "Zurück"
@@ -83,13 +86,14 @@ translation =
         { addScan: "Scannen Sie hier den QR Code, um die Adresse in die Zwischenablage zu kopieren."
         , addQrCode: "QR-Code"
         , addFinalBalance: "Aktueller Kontostand"
-        , addNotFound: "Addresse {0} existiert nicht."
+        , addNotFound: "Addresse existiert nicht."
         }
     , tx:
         { txTime: "Eingangszeit"
         , txIncluded: "Bestand im Slot"
         , txRelayed: "Weitergabe per IP"
         , txEmpty: "Keine Transaktionen"
+        , txNotFound: "Transaktionen existiert nicht."
         }
     , block:
         { blFees: "Gebühren"

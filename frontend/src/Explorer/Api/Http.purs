@@ -16,7 +16,8 @@ import Explorer.Types.State (CBlockEntries, CTxEntries, CTxBriefs)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
-import Pos.Core.Types (EpochIndex)
+import Pos.Core.Lenses.Types (_EpochIndex, _LocalSlotIndex, getEpochIndex, getSlotIndex)
+import Pos.Core.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CBlockSummary, CHash(..), CTxId, CTxSummary)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId)
 
@@ -69,8 +70,10 @@ fetchAddressSummary :: forall eff. CAddress -> Aff (ajax::AJAX | eff) CAddressSu
 fetchAddressSummary (CAddress address) = get $ "addresses/summary/" <> address
 
 -- search by epoch / slot
-searchEpoch :: forall eff. EpochIndex -> Maybe Int -> Aff (ajax::AJAX | eff) CBlockEntries
-searchEpoch epoch mSlot = get $ "search/epoch/" <> gShow epoch <> slotQuery mSlot
-    where
-        slotQuery Nothing = ""
-        slotQuery (Just s) = "?slot=" <> show s
+searchEpoch :: forall eff. EpochIndex -> Maybe LocalSlotIndex -> Aff (ajax::AJAX | eff) CBlockEntries
+searchEpoch epoch mSlot = get $ "search/epoch/" <> show epochIndex <> slotQuery mSlot
+  where
+      slotQuery Nothing = ""
+      slotQuery (Just slot) = "?slot=" <> show (slot ^. (_LocalSlotIndex <<< getSlotIndex))
+
+      epochIndex = epoch ^. (_EpochIndex <<< getEpochIndex)

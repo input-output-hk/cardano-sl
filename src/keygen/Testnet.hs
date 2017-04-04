@@ -28,14 +28,16 @@ rearrangeKeyfile fp = do
     writeUserSecretRelease $
         us & usKeys %~ (++ map noPassEncrypt sk)
 
-generateKeyfile :: FilePath -> IO (PublicKey, VssCertificate)
-generateKeyfile fp = do
+generateKeyfile :: Bool -> FilePath -> IO (PublicKey, VssCertificate)
+generateKeyfile isPrim fp = do
     initializeUserSecret fp
     sk <- snd <$> keyGen
     vss <- vssKeyGen
     us <- takeUserSecret fp
     writeUserSecretRelease $
-        us & usKeys %~ (noPassEncrypt sk :)
+        us & (if isPrim
+              then usPrimKey .~ Just sk
+              else usKeys %~ (noPassEncrypt sk :))
            & usVss .~ Just vss
     expiry <-
         fromIntegral <$>

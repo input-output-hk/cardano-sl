@@ -32,8 +32,15 @@ getTestnetGenesis tso@TestStakeOptions{..} = do
     createDirectoryIfMissing True keysDir
 
     let totalStakeholders = tsoRichmen + tsoPoors
-    genesisList <- forM [1 .. totalStakeholders] $ \i ->
-        generateKeyfile $ replace "{}" (show i) tsoPattern
+        getFilename i = replace "{}" (show i) tsoPattern
+
+    richmenList <- forM [1 .. tsoRichmen] $ \i ->
+        generateKeyfile True $ getFilename i <> ".primary"
+    poorsList <- forM [1 .. tsoPoors] $
+        generateKeyfile False . getFilename
+
+    let genesisList = richmenList ++ poorsList
+
     putText $ show totalStakeholders <> " keyfiles are generated"
 
     let distr = genTestnetStakes tso

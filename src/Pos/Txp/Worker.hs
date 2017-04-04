@@ -9,6 +9,7 @@ import           Universum
 
 import           Data.IORef        (newIORef, readIORef, writeIORef)
 import           Data.Time.Units   (Second, convertUnit)
+import           Formatting        (build, sformat, shown, (%))
 import           Mockable          (delay, throw)
 import           System.Wlog       (logWarning)
 
@@ -125,19 +126,23 @@ requestTxs sendActions node txIds =
                                   m)
         ) -> do
             let txProxy = RelayProxy :: RelayProxy TxId TxMsgTag TxMsgContents
-            let getTxs [] = return ()
-                getTxs (id:ids) = do
-                  send $ ReqMsg TxMsgTag id
-                  dt' <- recv
-                  whenJust (withLimitedLength <$> dt') $ expectRight $
-                      \dt@DataMsg{..} -> do
-                          handleDataL txProxy dt
-                          getTxs ids
-            getTxs txIds
-
+            let getTx id = do
+                    send $ ReqMsg TxMsgTag id
+                    dt' <- recv
+                    case withLimitedLength <$> dt' of
+                        Nothing -> error "didn't get an answer to Req"
+                        Just x  -> expectRight (handleDataL txProxy) x
+            for_ txIds $ \id ->
+                getTx id `catch` handler id
   where
     expectRight _ (Left _)       = throw UnexpectedInv
     expectRight call (Right msg) = call msg
+
+    handler id (e :: SomeException) = do
+        logWarning $ sformat
+            ("Couldn't get transaction with id "%build%" "%
+             "from node "%build%": "%shown)
+            id node e
 
 -- | Type `InvOrData` with limited length. Was, too, copied from
 -- Pos.Communication.Relay.Logic.

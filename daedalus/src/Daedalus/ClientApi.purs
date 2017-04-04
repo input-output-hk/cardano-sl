@@ -6,7 +6,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (getProfileLocale, mkCAddress, mkCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkCWalletInitIgnoreChecksum, mkBackupPhrase, mkCInitialized, mkCPassPhrase)
+import Daedalus.Types (getProfileLocale, mkCAddress, mkCCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkCWalletInitIgnoreChecksum, mkBackupPhrase, mkCInitialized, mkCPassPhrase)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
@@ -48,21 +48,21 @@ searchHistory = mkEffFn4 \addr search skip limit -> fromAff <<< map encodeJson $
         skip
         limit
 
-send :: forall eff. EffFn3 (ajax :: AJAX | eff) String String Int (Promise Json)
+send :: forall eff. EffFn3 (ajax :: AJAX | eff) String String String (Promise Json)
 send = mkEffFn3 \addrFrom addrTo amount -> fromAff <<< map encodeJson $
     B.send
         (mkCPassPhrase "")
         (mkCAddress addrFrom)
         (mkCAddress addrTo)
-        (mkCoin amount)
+        (mkCCoin amount)
 
-sendExtended :: forall eff. EffFn6 (ajax :: AJAX | eff) String String Int String String String (Promise Json)
+sendExtended :: forall eff. EffFn6 (ajax :: AJAX | eff) String String String String String String (Promise Json)
 sendExtended = mkEffFn6 \addrFrom addrTo amount curr title desc -> fromAff <<< map encodeJson $
     B.sendExtended
         (mkCPassPhrase "")
         (mkCAddress addrFrom)
         (mkCAddress addrTo)
-        (mkCoin amount)
+        (mkCCoin amount)
         (mkCCurrency curr)
         title
         desc

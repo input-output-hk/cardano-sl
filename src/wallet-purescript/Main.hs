@@ -40,6 +40,7 @@ main =
       , mkSumType (Proxy @CT.CInitialized)
       , mkSumType (Proxy @CT.CPassPhrase)
       , mkSumType (Proxy @CT.CWalletAssurance)
+      , mkSumType (Proxy @CT.CCoin)
       , mkSumType (Proxy @PT.Coin)
       , mkSumType (Proxy @PT.ChainDifficulty)
       , mkSumType (Proxy @PT.BlockVersion)

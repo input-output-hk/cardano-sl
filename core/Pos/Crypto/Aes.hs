@@ -12,7 +12,7 @@ module Pos.Crypto.Aes
 
 import           Crypto.Cipher.AES   (AES256)
 import           Crypto.Cipher.Types (BlockCipher (..), cipherInit, ctrCombine, nullIV)
-import           Crypto.Error        (eitherCryptoError)
+import           Crypto.Error        (CryptoError, eitherCryptoError)
 import           Crypto.Hash         (Blake2b_256, Digest, HashAlgorithm, hash)
 import           Data.ByteArray      (convert)
 import qualified Data.Text.Encoding  as TE
@@ -44,12 +44,12 @@ deriveAesKey = deriveAesKeyBS . TE.encodeUtf8
 deriveAesKeyBS :: ByteString -> AesKey
 deriveAesKeyBS = AesKey . blake2b
 
-aesEncrypt :: ByteString -> AesKey -> ByteString
-aesEncrypt input (fromAESKey -> sk) = ctrCombine init nullIV input
+aesEncrypt :: ByteString -> AesKey -> Either CryptoError ByteString
+aesEncrypt input (fromAESKey -> sk) = ctrCombine <$> init <*> pure nullIV <*> pure input
   where
     -- FIXME: return either here
-    init :: AES256
-    init = either (error . show) identity $ eitherCryptoError $ cipherInit sk
+    init :: Either CryptoError AES256
+    init = eitherCryptoError $ cipherInit sk
 
-aesDecrypt :: ByteString -> AesKey -> ByteString
+aesDecrypt :: ByteString -> AesKey -> Either CryptoError ByteString
 aesDecrypt = aesEncrypt -- encryption/decryption is symmetric

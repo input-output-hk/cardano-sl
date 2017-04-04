@@ -494,14 +494,16 @@ redeemADA sendActions CWalletRedeem {..} = do
 --  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L160
 postVendRedeemADA :: WalletWebMode ssc m => SendActions m -> CPostVendWalletRedeem -> m CTx
 postVendRedeemADA sendActions CPostVendWalletRedeem {..} = do
-   seedBs <- maybe
+   seedEncBs <- maybe
        (throwM $ Internal ("Seed is invalid base58 string: " <> pvSeed))
        pure $ decodeBase58 bitcoinAlphabet $ encodeUtf8 pvSeed
    aesKey <- either
        (\e -> throwM $ Internal ("Invalid mnemonic: " <> toText e))
        pure $ deriveAesKeyBS <$> toSeed pvBackupPhrase
-
-   redeemADAInternal sendActions pvWalletId $ aesDecrypt seedBs aesKey
+   seedDecBs <- either
+       (\e -> throwM $ Internal ("Decryption failed: " <> show e))
+       pure $ aesDecrypt seedEncBs aesKey
+   redeemADAInternal sendActions pvWalletId seedDecBs
 
 redeemADAInternal :: WalletWebMode ssc m => SendActions m -> CAddress -> ByteString -> m CTx
 redeemADAInternal sendActions walletId seedBs = do
@@ -599,7 +601,7 @@ genSaveAddress passphrase ph =
     addressToCAddress . makePubKeyAddress . encToPublic <$> genSaveSK
   where
     genSaveSK = do
-        let sk = fst $ safeKeysFromPhrase passphrase ph
+        sk <- either (\msg -> throwM . Internal $ "Key creation from phrase failed: " <> msg) (pure . fst) $ safeKeysFromPhrase passphrase ph
         addSecretKey sk
         return sk
 

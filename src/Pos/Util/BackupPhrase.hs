@@ -59,24 +59,24 @@ toSeed :: BackupPhrase -> Either Text ByteString
 toSeed = first T.pack . fromMnemonic . T.unwords . bpToList
 
 -- FIXME: return Either String ByteString
-toHashSeed :: BackupPhrase -> ByteString
-toHashSeed = encodeStrict . blake2b . either error identity . toSeed
+toHashSeed :: BackupPhrase -> Either Text ByteString
+toHashSeed bp = encodeStrict . blake2b <$> toSeed bp
   where blake2b :: Bi a => a -> AbstractHash Blake2b_256 b
         blake2b = unsafeAbstractHash
 
-keysFromPhrase :: BackupPhrase -> (SecretKey, VssKeyPair)
-keysFromPhrase ph = (sk, vss)
+keysFromPhrase :: BackupPhrase -> Either Text (SecretKey, VssKeyPair)
+keysFromPhrase ph = (,) <$> sk <*> vss
   where hashSeed = toHashSeed ph
         errorMsg = "Pos.Util.BackupPhrase: impossible: seed is always 32-bit"
-        sk = snd $ fromMaybe (error errorMsg) $ deterministicKeyGen hashSeed
-        vss = deterministicVssKeyGen hashSeed
+        sk = maybe (Left errorMsg) (Right . snd) . deterministicKeyGen =<< hashSeed
+        vss = deterministicVssKeyGen <$> hashSeed
 
 safeKeysFromPhrase
     :: PassPhrase
     -> BackupPhrase
-    -> (EncryptedSecretKey, VssKeyPair)
-safeKeysFromPhrase pp ph = (esk, vss)
+    -> Either Text (EncryptedSecretKey, VssKeyPair)
+safeKeysFromPhrase pp ph = (,) <$> esk <*> vss
   where hashSeed = toHashSeed ph
         errorMsg = "Pos.Util.BackupPhrase: impossible: seed is always 32-bit"
-        esk = snd $ maybe (error errorMsg) identity $ safeDeterministicKeyGen hashSeed pp
-        vss = deterministicVssKeyGen hashSeed
+        esk = maybe (Left errorMsg) (Right . snd) . flip safeDeterministicKeyGen pp =<< hashSeed
+        vss = deterministicVssKeyGen <$> hashSeed

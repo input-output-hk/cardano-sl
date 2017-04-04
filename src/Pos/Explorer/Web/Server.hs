@@ -14,9 +14,7 @@ module Pos.Explorer.Web.Server
 import           Control.Lens                   (at)
 import           Control.Monad.Catch            (try)
 import           Control.Monad.Loops            (unfoldrM)
-import           Control.Monad.Trans.Either     (EitherT (..))
 import           Control.Monad.Trans.Maybe      (MaybeT (..))
-import           Data.Either.Combinators        (swapEither)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.List.NonEmpty             as NE
 import           Data.Maybe                     (fromMaybe)
@@ -63,19 +61,16 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
                                                  CAddressSummary (..),
                                                  CBlockEntry (..),
                                                  CBlockSummary (..), CHash,
-                                                 CHashSearchResult (..),
-                                                 CSearchId (..), CTxBrief (..), CTxEntry (..),
+                                                 CTxBrief (..), CTxEntry (..),
                                                  CTxId (..), CTxSummary (..),
                                                  TxInternal (..),
                                                  convertTxOutputs, fromCAddress,
-                                                 fromCHash,
-                                                 fromCSearchIdAddress,
-                                                 fromCSearchIdHash,
-                                                 fromCSearchIdTx, fromCTxId,
+                                                 fromCHash, fromCTxId,
                                                  toBlockEntry, toBlockSummary,
                                                  toPosixTime, toTxBrief,
                                                  toTxEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
+
 
 
 
@@ -111,8 +106,6 @@ explorerHandlers _sendActions =
     :<|>
       apiAddressSummary
     :<|>
-      apiSearch
-    :<|>
       apiEpochSlotSearch
   where
     apiBlocksLast       = getLastBlocksDefault
@@ -121,7 +114,6 @@ explorerHandlers _sendActions =
     apiTxsLast          = getLastTxsDefault
     apiTxsSummary       = catchExplorerError . getTxSummary
     apiAddressSummary   = catchExplorerError . getAddressSummary
-    apiSearch           = catchExplorerError . searchHash
     apiEpochSlotSearch  = tryEpochSlotSearch
 
     catchExplorerError = try
@@ -141,37 +133,20 @@ explorerHandlers _sendActions =
     defaultLimit limit = (fromIntegral $ fromMaybe 100 limit)
     defaultSkip  skip  = (fromIntegral $ fromMaybe 0 skip)
 
-searchHash :: forall m. ExplorerMode m => CSearchId -> m CHashSearchResult
-searchHash shash = getResult $ do
-    void $ grab $ TransactionFound <$> findTx
-    void $ grab $ BlockFound       <$> findBlock
-    void $ grab $ AddressFound     <$> findAddress
-  where
-    grab :: MonadCatch m => m CHashSearchResult -> EitherT CHashSearchResult m ExplorerError
-    grab = EitherT . fmap swapEither . try
-
-    getResult :: EitherT CHashSearchResult m a -> m CHashSearchResult
-    getResult action = do
-      result <- runEitherT action
-      case result of
-        Left found -> return found
-        Right _    -> throwM $ Internal "Search failed. No transactions, blocks or adresses found."
-
-    findTx        =  getTxSummary $ fromCSearchIdTx shash
-    findBlock     =  getBlockSummary $ fromCSearchIdHash shash
-    findAddress   =  getAddressSummary $ fromCSearchIdAddress shash
-
 -- | Search the blocks by epoch and slot. Slot is optional.
 epochSlotSearch
     :: (ExplorerMode m)
     => EpochIndex
     -> Maybe Word16
     -> m [CBlockEntry]
-epochSlotSearch epochIndex slotIndex = findBlocksByEpoch >>= transformToCBlockEntry
+epochSlotSearch epochIndex slotIndex = do 
+    blocks <- findBlocksByEpoch >>= traverse toBlockEntry
+    if null blocks
+        then throwM $ Internal "No epoch/slots found."
+        else pure blocks
   where
     findBlocksByEpoch = getBlocksByEpoch @SscGodTossing epochIndex localSlotIndex
-    localSlotIndex = fmap LocalSlotIndex slotIndex
-    transformToCBlockEntry blocks = traverse toBlockEntry blocks
+    localSlotIndex    = fmap LocalSlotIndex slotIndex
 
 -- | Get all blocks by epoch and slot. The slot is optional, if it exists,
 -- it just adds another predicate to match it.
@@ -198,7 +173,7 @@ getLastBlocks lim off = do
     let unfolder n h = do
             when (n == 0) $
                 fail "limit!"
-            MaybeT (DB.getBlock @SscGodTossing h) >>= \case
+            MaybeT (DB.getBlock @SscGodTossing h) >>= \mBlock -> case mBlock of
                 Left gb -> unfolder n (gb ^. prevBlockL)
                 Right mb -> (,) <$> lift (toBlockEntry mb) <*>
                             pure (n - 1, mb ^. prevBlockL)

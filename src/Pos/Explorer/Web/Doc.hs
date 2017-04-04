@@ -16,32 +16,40 @@ import           Control.Lens                   ((<>~))
 import qualified Data.ByteString.Char8          as BSC
 import qualified Data.HashMap.Strict            as HM
 import           Data.String                    as DS
-import           Data.Time                      (defaultTimeLocale, parseTimeOrError)
-import           Data.Time.Clock.POSIX          (POSIXTime, utcTimeToPOSIXSeconds)
+import           Data.Time                      (defaultTimeLocale,
+                                                 parseTimeOrError)
+import           Data.Time.Clock.POSIX          (POSIXTime,
+                                                 utcTimeToPOSIXSeconds)
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
-                                                 CBlockEntry (..), CBlockSummary (..),
-                                                 CHash (..), CHashSearchResult (..),
-                                                 CSearchId (..), CTxBrief (..),
-                                                 CTxEntry (..), CTxId (..),
-                                                 CTxSummary (..))
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
+                                                 CAddressSummary (..),
+                                                 CBlockEntry (..),
+                                                 CBlockSummary (..), CHash (..),
+                                                 CTxBrief (..), CTxEntry (..),
+                                                 CTxId (..), CTxSummary (..))
+
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 import           Pos.Types                      (EpochIndex, mkCoin)
 import           Servant.API                    (Capture, QueryParam)
 import           Servant.Docs                   (API, Action, DocCapture (..),
                                                  DocIntro (..), DocNote (..),
                                                  DocQueryParam (..), Endpoint,
-                                                 ExtraInfo (..), ParamKind (Normal),
-                                                 ToCapture (toCapture), ToParam (toParam),
-                                                 ToSample (toSamples), apiEndpoints,
-                                                 apiIntros, capDesc, capSymbol, captures,
+                                                 ExtraInfo (..),
+                                                 ParamKind (Normal),
+                                                 ToCapture (toCapture),
+                                                 ToParam (toParam),
+                                                 ToSample (toSamples),
+                                                 apiEndpoints, apiIntros,
+                                                 capDesc, capSymbol, captures,
                                                  defAction, defEndpoint,
-                                                 defaultDocOptions, docsWith, introBody,
-                                                 introTitle, markdown, method, noteBody,
-                                                 notes, paramDesc, paramName, params,
-                                                 path, pretty)
+                                                 defaultDocOptions, docsWith,
+                                                 introBody, introTitle,
+                                                 markdown, method, noteBody,
+                                                 notes, paramDesc, paramName,
+                                                 params, path, pretty)
 import           Universum
+
 
 
 walletDocs :: API
@@ -98,13 +106,6 @@ instance ToCapture (Capture "hash" CHash) where
         , _capDesc = "Hash"
         }
 
-instance ToCapture (Capture "hash" CSearchId) where
-    toCapture Proxy =
-        DocCapture
-        { _capSymbol = "hash"
-        , _capDesc = "Search id by which the user can find address, block or transaction"
-        }
-
 instance ToCapture (Capture "txid" CTxId) where
     toCapture Proxy =
         DocCapture
@@ -151,9 +152,6 @@ sampleAddressSummary = CAddressSummary
 
 instance ToSample ExplorerError where
     toSamples Proxy = [("Sample error", Internal "This is an example error")]
-
-instance ToSample CHashSearchResult where
-    toSamples Proxy = [("Sample search result, address found", AddressFound sampleAddressSummary)]
 
 instance ToSample CBlockEntry where
     toSamples Proxy = [("Sample block entry", sample)]

@@ -152,8 +152,8 @@ periodicPollChanges connVar closed =
 
         -- notify about transactions
         let cTxEntries = fst <$> txsInfo
-        notifyTxsSubscribers cTxEntries
-        when (not $ null cTxEntries) $
+        when (not $ null cTxEntries) $ do
+            notifyTxsSubscribers cTxEntries
             logDebug $ sformat ("Broadcasted transactions: "%build)
                        (mconcat . intersperse "," $
                        bprint build . cteId <$> cTxEntries)

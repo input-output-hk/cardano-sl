@@ -111,16 +111,23 @@ handleReqL
 handleReqL proxy = reifyMsgLimit (Proxy @(ReqMsg key tag)) $
   \(_ :: Proxy s) -> return $ listenerConv $
     \_ __peerId ConversationActions{..} ->
-    whenJustM recv $ \(withLimitedLength @s -> msg@ReqMsg {..}) -> do
-      let _ = reqCatchType proxy msg
-      processMessage () "Request" rmTag verifyReqTag $ do
-          dtMB <- handleReq rmTag rmKey
-          case dtMB of
-              Nothing ->
-                  logDebug $ sformat ("We don't have data "%build%" for key "%build) rmTag rmKey
-              Just dt -> do
-                  logDebug $ sformat ("We have data "%build%" for key "%build) rmTag rmKey
-                  send $ constructDataMsg dt
+    let handlingLoop = do
+            mbMsg <- fmap (withLimitedLength @s) <$> recv
+            whenJust mbMsg $ \msg@ReqMsg{..} -> do
+                let _ = reqCatchType proxy msg
+                processMessage () "Request" rmTag verifyReqTag $ do
+                    let logNoData = logDebug $ sformat
+                            ("We don't have data "%build%" for key "%build)
+                            rmTag rmKey
+                        logHaveData = logDebug $ sformat
+                            ("We have data "%build%" for key "%build)
+                            rmTag rmKey
+                    dtMB <- handleReq rmTag rmKey
+                    case dtMB of
+                        Nothing -> logNoData
+                        Just dt -> logHaveData >> send (constructDataMsg dt)
+                handlingLoop
+    in handlingLoop
   where
     constructDataMsg :: contents -> InvOrData tag key contents
     constructDataMsg = Right . DataMsg

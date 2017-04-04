@@ -58,7 +58,6 @@ instance Read BackupPhrase where
 toSeed :: BackupPhrase -> Either Text ByteString
 toSeed = first T.pack . fromMnemonic . T.unwords . bpToList
 
--- FIXME: return Either String ByteString
 toHashSeed :: BackupPhrase -> Either Text ByteString
 toHashSeed bp = encodeStrict . blake2b <$> toSeed bp
   where blake2b :: Bi a => a -> AbstractHash Blake2b_256 b

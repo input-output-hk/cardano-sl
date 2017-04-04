@@ -27,7 +27,6 @@ import           Control.Monad.State           (runStateT)
 import           Data.Default                  (Default (def))
 import           Data.List                     (elemIndex, (!!))
 import           Data.Tagged                   (untag)
-import qualified Data.Text                     as T
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
 import           Data.Time.Units               (Microsecond, Second)
 import           Formatting                    (build, ords, sformat, shown, stext, (%))
@@ -483,27 +482,29 @@ applyUpdate = removeNextUpdate >> applyLastUpdate
 
 redeemADA :: WalletWebMode ssc m => SendActions m -> CWalletRedeem -> m CTx
 redeemADA sendActions CWalletRedeem {..} = do
-    let base64rify = T.replace "-" "+" . T.replace "_" "/"
-    seedBs <- either
-        (\e -> throwM $ Internal ("Seed is invalid base64(url) string: " <> toText e))
-        pure $ B64.decode $ base64rify crSeed
+    seedBs <- maybe invalidBase64 pure
+        -- NOTE: this is just safety measure
+        $ rightToMaybe (B64.decode crSeed) <|> rightToMaybe (B64.decodeUrl crSeed)
     redeemADAInternal sendActions crWalletId seedBs
+  where
+    invalidBase64 = throwM . Internal $ "Seed is invalid base64(url) string: " <> crSeed
 
 -- Decrypts certificate based on:
 --  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L205
 --  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L160
 postVendRedeemADA :: WalletWebMode ssc m => SendActions m -> CPostVendWalletRedeem -> m CTx
 postVendRedeemADA sendActions CPostVendWalletRedeem {..} = do
-   seedEncBs <- maybe
-       (throwM $ Internal ("Seed is invalid base58 string: " <> pvSeed))
-       pure $ decodeBase58 bitcoinAlphabet $ encodeUtf8 pvSeed
-   aesKey <- either
-       (\e -> throwM $ Internal ("Invalid mnemonic: " <> toText e))
-       pure $ deriveAesKeyBS <$> toSeed pvBackupPhrase
-   seedDecBs <- either
-       (\e -> throwM $ Internal ("Decryption failed: " <> show e))
-       pure $ aesDecrypt seedEncBs aesKey
-   redeemADAInternal sendActions pvWalletId seedDecBs
+    seedEncBs <- maybe invalidBase58 pure
+        $ decodeBase58 bitcoinAlphabet $ encodeUtf8 pvSeed
+    aesKey <- either invalidMnemonic pure
+        $ deriveAesKeyBS <$> toSeed pvBackupPhrase
+    seedDecBs <- either decryptionFailed pure
+        $ aesDecrypt seedEncBs aesKey
+    redeemADAInternal sendActions pvWalletId seedDecBs
+  where
+    invalidBase58 = throwM . Internal $ "Seed is invalid base58 string: " <> pvSeed
+    invalidMnemonic e = throwM . Internal $ "Invalid mnemonic: " <> toText e
+    decryptionFailed e = throwM . Internal $ "Decryption failed: " <> show e
 
 redeemADAInternal :: WalletWebMode ssc m => SendActions m -> CAddress -> ByteString -> m CTx
 redeemADAInternal sendActions walletId seedBs = do
@@ -601,9 +602,11 @@ genSaveAddress passphrase ph =
     addressToCAddress . makePubKeyAddress . encToPublic <$> genSaveSK
   where
     genSaveSK = do
-        sk <- either (\msg -> throwM . Internal $ "Key creation from phrase failed: " <> msg) (pure . fst) $ safeKeysFromPhrase passphrase ph
+        sk <- either keyFromPhraseFailed (pure . fst)
+            $ safeKeysFromPhrase passphrase ph
         addSecretKey sk
         return sk
+    keyFromPhraseFailed msg = throwM . Internal $ "Key creation from phrase failed: " <> msg
 
 decodeCPassPhraseOrFail :: WalletWebMode ssc m => CPassPhrase -> m PassPhrase
 decodeCPassPhraseOrFail cpass =

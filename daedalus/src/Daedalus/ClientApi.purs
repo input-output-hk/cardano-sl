@@ -70,9 +70,9 @@ sendExtended = mkEffFn7 \pass addrFrom addrTo amount curr title desc -> fromAff 
 generateMnemonic :: forall eff. Eff (crypto :: Crypto.CRYPTO | eff) String
 generateMnemonic = Crypto.generateMnemonic
 
--- | bip39.validateMnemonic and has at least 12 words
-isValidMnemonic :: forall eff. EffFn1 (crypto :: Crypto.CRYPTO | eff) String Boolean
-isValidMnemonic = mkEffFn1 $ pure <<< either (const false) (const true) <<< mkBackupPhrase
+-- | bip39.validateMnemonic and has at least len words
+isValidMnemonic :: forall eff. EffFn2 (crypto :: Crypto.CRYPTO | eff) Int String Boolean
+isValidMnemonic = mkEffFn2 \len -> pure <<< either (const false) (const true) <<< mkBackupPhrase len
 
 newWallet :: forall eff . EffFn5 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String String String String
   (Promise Json)

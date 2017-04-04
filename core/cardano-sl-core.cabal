@@ -41,7 +41,7 @@ library
                        Pos.Core.Version
 
                        Pos.Crypto
-                       Pos.Crypto.Aes
+                       Pos.Crypto.Encryption
                        Pos.Crypto.AsBinary
                        Pos.Crypto.HD
                        Pos.Crypto.Random

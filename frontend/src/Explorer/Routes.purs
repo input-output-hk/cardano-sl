@@ -2,7 +2,6 @@ module Explorer.Routes where
 
 import Prelude
 import Control.Alt ((<|>))
-import Data.Int (binary, fromString, toStringAs)
 import Data.Lens ((^.))
 import Data.Maybe (fromMaybe)
 import Explorer.Util.Factory (mkCAddress, mkCHash, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
@@ -10,14 +9,14 @@ import Pos.Core.Lenses.Types (_EpochIndex, _LocalSlotIndex, getEpochIndex, getSl
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress, CHash, CTxId)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CHash, _CTxId)
-import Pux.Router (end, int, lit, param, router, str)
+import Pux.Router (end, int, lit, router, str)
 
 data Route
     = Dashboard
     | Tx CTxId
     | Address CAddress
-    | Epoch EpochIndex
     | EpochSlot EpochIndex LocalSlotIndex
+    | Epoch EpochIndex
     | Calculator
     | Block CHash
     | NotFound
@@ -31,26 +30,23 @@ match url = fromMaybe NotFound $ router url $
     Address <<< mkCAddress <$> (lit addressLit *> str) <* end
     <|>
     EpochSlot <$> mkEpochIndex <$> (lit epochLit *> int)
-              <*> (mkLocalSlotIndex <$> (lit epochLit *> int <* param "slot"))
-              <* end
+              <*> (mkLocalSlotIndex <$> (lit slotLit *> int) <* end)
     <|>
     Epoch <<< mkEpochIndex <$> (lit epochLit *> int) <* end
     <|>
-    Calculator <$ lit calculatorLit <* end
+    Calculator <$ (lit calculatorLit) <* end
     <|>
-    Block <<< mkCHash <$> (lit blockLit *> str) <* end
-  where
-    stringToInt = fromString
+    Block <<< mkCHash <$> (lit slotLit *> str) <* end
 
 toUrl :: Route -> String
 toUrl Dashboard = dashboardUrl
 toUrl (Tx id) = transactionUrl id
 toUrl (Address address) = addressUrl address
-toUrl (Epoch epoch) = epochUrl epoch
 toUrl (EpochSlot epoch slot) = epochSlotUrl epoch slot
+toUrl (Epoch epoch) = epochUrl epoch
 toUrl Calculator = calculatorUrl
 toUrl (Block hash) = blockUrl hash
-toUrl NotFound = dashboardUrl
+toUrl NotFound = notFoundUrl
 
 litUrl :: String -> String
 litUrl lit = "/" <> lit <> "/"
@@ -73,33 +69,40 @@ addressUrl address = litUrl addressLit <> address ^. _CAddress
 epochLit :: String
 epochLit = "epoch"
 
+slotLit :: String
+slotLit = "slot"
+
 epochUrl :: EpochIndex -> String
-epochUrl epoch = litUrl epochLit <> epochIndexToString epoch
+epochUrl epoch = litUrl epochLit <> paramToString epoch
 
 epochSlotUrl :: EpochIndex -> LocalSlotIndex -> String
 epochSlotUrl epoch slot = litUrl epochLit
-                          <> epochIndexToString epoch
-                          <> "?slot="
-                          <> slotIndexToString slot
+                          <> paramToString epoch
+                          <> litUrl slotLit
+                          <> paramToString slot
 
 calculatorLit :: String
 calculatorLit = "calculator"
 
 calculatorUrl :: String
-calculatorUrl = litUrl calculatorLit
-
-blockLit :: String
-blockLit = "slot"
+calculatorUrl = "/" <> calculatorLit
 
 blockUrl :: CHash -> String
-blockUrl hash = litUrl blockLit <> hash ^. _CHash
+blockUrl hash = litUrl slotLit <> hash ^. _CHash
 
--- TODO (jk) Create a generic Show instance of EpochIndex
-epochIndexToString :: EpochIndex -> String
-epochIndexToString epoch =
-    show (epoch ^. (_EpochIndex <<< getEpochIndex))
+notFoundLit :: String
+notFoundLit = "404"
 
--- TODO (jk) Create a generic Show instance of LocalSlotIndex
-slotIndexToString :: LocalSlotIndex -> String
-slotIndexToString slot =
-    show (slot ^. (_LocalSlotIndex <<< getSlotIndex))
+notFoundUrl :: String
+notFoundUrl = "/" <> notFoundLit
+
+class RouteParams a where
+    paramToString :: a -> String
+
+instance epochIndexRouteParams :: RouteParams EpochIndex where
+    paramToString epoch =
+        show (epoch ^. (_EpochIndex <<< getEpochIndex))
+
+instance localSlotIndexRouteParams :: RouteParams LocalSlotIndex where
+    paramToString slot =
+        show (slot ^. (_LocalSlotIndex <<< getSlotIndex))

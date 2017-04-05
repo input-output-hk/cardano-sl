@@ -27,8 +27,8 @@ substitute = substituteImpl
 -- | ```
 parseSearchEpochQuery :: Parser String (Tuple (Maybe Int) (Maybe Int))
 parseSearchEpochQuery = do
-  epoch <- many digit >>= pure <<< fromString <<< fromCharArray
-  pure $ Tuple epoch Nothing
+    epoch <- many digit >>= pure <<< fromString <<< fromCharArray
+    pure $ Tuple epoch Nothing
 
 -- | A simple parser for the epoch and slot:
 -- | ```purescript
@@ -36,12 +36,12 @@ parseSearchEpochQuery = do
 -- | ```
 parseSearchEpochSlotQuery :: Parser String (Tuple (Maybe Int) (Maybe Int))
 parseSearchEpochSlotQuery = do
-  -- char '('
-  epoch <- many digit >>= pure <<< fromString <<< fromCharArray
-  char ','
-  slot  <- many digit >>= pure <<< fromString <<< fromCharArray
-  -- char ')'
-  pure $ Tuple epoch slot
+    -- char '('
+    epoch <- many digit >>= pure <<< fromString <<< fromCharArray
+    char ','
+    slot  <- many digit >>= pure <<< fromString <<< fromCharArray
+    -- char ')'
+    pure $ Tuple epoch slot
 
 -- | Combine both parsers
 parseEpochOrEpochSlot :: Parser String (Tuple (Maybe Int) (Maybe Int))

@@ -99,10 +99,10 @@ sendReportNodeNologs = sendReportNodeImpl []
 sendReportNodeImpl
     :: (MonadIO m, MonadMask m, MonadReportingMem m)
     => [Text] -> Version -> ReportType -> m ()
-sendReportNodeImpl memLogs version reportType = do
+sendReportNodeImpl rawLogs version reportType = do
     servers <- view rcReportServers <$> askReportingContext
     errors <- fmap lefts $ forM servers $ try .
-        sendReport [] memLogs reportType "cardano-node" version . toString
+        sendReport [] rawLogs reportType "cardano-node" version . toString
     whenNotNull errors $ throwSE . NE.head
   where
     throwSE (e :: SomeException) = throwM e
@@ -146,7 +146,7 @@ reportMisbehaviour
     :: forall m . ReportingWorkMode m
     => Version -> Text -> m ()
 reportMisbehaviour version reason = do
-    logDebug $ "Reporting misbehaviour \"" <> reason <> "\""
+    logError $ "Reporting misbehaviour \"" <> reason <> "\""
     nodeInfo <- getNodeInfo
     sendReportNode version $ RMisbehavior $ sformat misbehF reason nodeInfo
   where
@@ -207,7 +207,13 @@ reportingFatal version action =
 -- parameter for that.
 sendReport
     :: (MonadIO m, MonadMask m)
-    => [FilePath] -> [Text] -> ReportType -> Text -> Version -> String -> m ()
+    => [FilePath]                 -- ^ Log files to read from
+    -> [Text]                     -- ^ Raw log text (optional)
+    -> ReportType
+    -> Text
+    -> Version
+    -> String
+    -> m ()
 sendReport logFiles rawLogs reportType appName appVersion reportServerUri = do
     curTime <- liftIO getCurrentTime
     existingFiles <- filterM (liftIO . doesFileExist) logFiles
@@ -227,6 +233,8 @@ sendReport logFiles rawLogs reportType appName appVersion reportServerUri = do
              payloadPart : (memlogPart ++ pathsPart)
         whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError (show e')
   where
+    withSystemTempFiles :: [String] -> (FilePath -> Handle -> IO ()) -> IO ()
+    withSystemTempFiles n format = undefined
     partFile' fp = partFile (toFileName fp) fp
     toFileName = toText . takeFileName
     reportInfo curTime files =

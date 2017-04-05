@@ -22,7 +22,9 @@ translation =
         , cHash: "Hash"
         , cHashes: "Hashes"
         , cEpoch: "Epoche"
+        , cEpochs: "Epochen"
         , cSlot: "Slot"
+        , cSlots: "Slots"
         , cAge: "Seit"
         , cTotalSent: "Insgesamt gesendet"
         , cRelayedBy: "Weitergegeben durch"
@@ -35,6 +37,7 @@ translation =
         , cTotalOutput: "Gesamtausgabe"
         , cOf: "von"
         , cNotAvailable: "nicht verfügbar"
+        , cLoading: "Lade..."
         , cDays: "Tage"
         , cHours: "Stunden"
         , cMinutes: "Minuten"
@@ -93,7 +96,7 @@ translation =
         , txIncluded: "Bestand im Slot"
         , txRelayed: "Weitergabe per IP"
         , txEmpty: "Keine Transaktionen"
-        , txNotFound: "Transaktionen existiert nicht."
+        , txNotFound: "Transaktion existiert nicht."
         }
     , block:
         { blFees: "Gebühren"
@@ -101,6 +104,7 @@ translation =
         , blPrevBlock: "Vorheriger Slot"
         , blNextBlock: "Nächster Slot"
         , blRoot: "Oberer Slot"
+        , blNotFound: "Epoche / Slot existiert nicht."
         }
     , footer:
         { fooRessources: "Ressourcen"

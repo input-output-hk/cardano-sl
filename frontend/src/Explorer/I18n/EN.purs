@@ -22,7 +22,9 @@ translation =
         , cHash: "Hash"
         , cHashes: "Hashes"
         , cEpoch: "Epoch"
+        , cEpochs: "Epochs"
         , cSlot: "Slot"
+        , cSlots: "Slots"
         , cAge: "Since"
         , cTotalSent: "Total Sent"
         , cRelayedBy: "Slot leader"
@@ -35,6 +37,7 @@ translation =
         , cTotalOutput: "Total Output"
         , cOf: "of"
         , cNotAvailable: "not available"
+        , cLoading: "Loading..."
         , cDays: "Days"
         , cHours: "Hours"
         , cMinutes: "Minutes"
@@ -101,6 +104,7 @@ translation =
         , blPrevBlock: "Previous slot"
         , blNextBlock: "Next slot"
         , blRoot: "Merkle root"
+        , blNotFound: "Epoch / slot do not exist."
         }
     , footer:
         { fooRessources: "Ressources"

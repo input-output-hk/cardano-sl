@@ -30,7 +30,7 @@ initialState =
             { blockTxPagination: 1 -- Note: We do start with 1 (not 0)
             }
         }
-    , latestBlocks: []
+    , latestBlocks: NotAsked
     , initialBlocksRequested: false
     , handleLatestBlocksSocketResult: false
     , initialTxsRequested: false

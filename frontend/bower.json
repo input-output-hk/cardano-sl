@@ -24,7 +24,7 @@
     "purescript-argonaut-generic-codecs": "^4.0.0",
     "purescript-eff-functions": "^2.0.0",
     "purescript-formatters": "https://github.com/sectore/purescript-formatters.git#feature/minutes-seconds-two-digits",
-    "purescript-remotedata": "^1.1.0",
+    "purescript-remotedata": "^2.0.0",
     "purescript-parsing": "^3.2.1"
   },
   "devDependencies": {

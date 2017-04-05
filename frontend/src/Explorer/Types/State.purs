@@ -16,7 +16,7 @@ type State =
     , route :: Route
     , socket :: SocketState
     , viewStates :: ViewStates
-    , latestBlocks :: CBlockEntries
+    , latestBlocks :: RemoteData Error CBlockEntries
     , initialBlocksRequested :: Boolean
     , handleLatestBlocksSocketResult :: Boolean
     , initialTxsRequested :: Boolean

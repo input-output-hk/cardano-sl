@@ -22,10 +22,10 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (common, cDateFormat, cNoData, tx, txEmpty) as I18nL
+import Explorer.I18n.Lenses (common, cDateFormat, tx, txEmpty) as I18nL
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (CCurrency(..), State)
+import Explorer.Types.State (CCurrency(..))
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkCoin, sumCoinOfInputsOutputs)
 import Explorer.Util.Time (prettyDate)
 import Explorer.View.Lenses (txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
@@ -35,7 +35,7 @@ import Pos.Core.Types (Coin(..))
 import Pos.Explorer.Web.ClientTypes (CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, ctbId, ctbInputs, ctbOutputs, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
 import Pux.Html (Html, text, div, p, span, input) as P
-import Pux.Html.Attributes (className, value, disabled, type_, min, max, dangerouslySetInnerHTML) as P
+import Pux.Html.Attributes (className, value, disabled, type_, min, max) as P
 import Pux.Html.Events (onChange, onFocus, FormEvent, MouseEvent, Target, onClick) as P
 import Pux.Router (link) as P
 
@@ -209,8 +209,8 @@ paginationView props =
                 [ P.className "page-number"
                 , P.value <<< show $ props.currentPage
                 , P.disabled $ props.maxPage == minPage
-                , P.min $ toStringAs binary minPage
-                , P.max $ toStringAs binary props.maxPage
+                , P.min $ show minPage
+                , P.max $ show props.maxPage
                 , P.onChange changeHandler
                 , P.onFocus $ props.onFocusAction <<< _.target
                 ]

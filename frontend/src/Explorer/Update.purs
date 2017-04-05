@@ -7,9 +7,8 @@ import DOM (DOM)
 import DOM.HTML.HTMLInputElement (select)
 import Data.Array ((:))
 import Data.Either (Either(..))
-import Data.Int (fromString)
 import Data.Lens ((^.), over, set)
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary, searchEpoch)
 import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentCAddress, currentTxSummary, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, searchQuery, selectedApiCode, selectedSearch, socket, transactionsExpanded, viewStates)
@@ -20,9 +19,9 @@ import Explorer.Types.State (Search(..), State)
 import Explorer.Util.DOM (scrollTop)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
-import Explorer.Util.String (substitute, parseSearchEpoch)
+import Explorer.Util.String (parseSearchEpoch)
 import Network.HTTP.Affjax (AJAX)
-import Network.RemoteData (RemoteData(..))
+import Network.RemoteData (RemoteData(..), _Success)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects)
 import Pux.Router (navigateTo) as P
@@ -42,9 +41,10 @@ update (SocketConnected status) state = noEffects $
 update (SocketLatestBlocks (Right blocks)) state = noEffects $
     if state ^. handleLatestBlocksSocketResult
     -- add incoming blocks ahead of previous blocks
-    then over latestBlocks (\b -> blocks <> b) state
+    then over (latestBlocks <<< _Success) (\b -> blocks <> b) state
     else state
 update (SocketLatestBlocks (Left error)) state = noEffects $
+    set latestBlocks (Failure error) $
     -- add incoming errors ahead of previous errors
     over errors (\errors' -> (show error) : errors') state
 update (SocketLatestTransactions (Right transactions)) state = noEffects $
@@ -152,7 +152,7 @@ update (ReceiveInitialBlocks (Right blocks)) state =
     set loading false <<<
     set initialBlocksRequested true <<<
     set handleLatestBlocksSocketResult true $
-    set latestBlocks blocks $
+    set latestBlocks (Success blocks) $
     state
 
 update (ReceiveInitialBlocks (Left error)) state =
@@ -160,6 +160,7 @@ update (ReceiveInitialBlocks (Left error)) state =
     set loading false <<<
     set initialBlocksRequested true <<<
     set handleLatestBlocksSocketResult true $
+    set latestBlocks (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
 update (RequestBlockSummary hash) state =
@@ -178,7 +179,9 @@ update (ReceiveBlockSummary (Left error)) state =
 -- Epoch, slot
 
 update (RequestEpochSlot epoch slot) state =
-    { state: set loading true $ state
+    { state:
+          set loading true $
+          set latestBlocks Loading $state
     , effects: [ attempt (searchEpoch epoch slot) >>= pure <<< ReceiveEpochSlot ]
     }
 update (ReceiveEpochSlot (Right blocks)) state =
@@ -186,7 +189,7 @@ update (ReceiveEpochSlot (Right blocks)) state =
     set loading false <<<
     set initialBlocksRequested true <<<
     set handleLatestBlocksSocketResult true $
-    set latestBlocks blocks $
+    set latestBlocks (Success blocks) $
     state
 
 update (ReceiveEpochSlot (Left error)) state =
@@ -194,6 +197,7 @@ update (ReceiveEpochSlot (Left error)) state =
     set loading false <<<
     set initialBlocksRequested true <<<
     set handleLatestBlocksSocketResult true $
+    set latestBlocks (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
 update (RequestBlockTxs hash) state =
@@ -278,7 +282,7 @@ routeEffects Dashboard state =
 
 routeEffects (Tx tx) state =
     { state:
-      set currentTxSummary Loading state
+        set currentTxSummary Loading state
     , effects:
         [ pure ScrollTop
         , pure $ RequestTxSummary tx

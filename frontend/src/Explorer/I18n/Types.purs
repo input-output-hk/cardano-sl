@@ -34,7 +34,9 @@ type Common =
     , cHash :: String
     , cHashes :: String
     , cEpoch :: String
+    , cEpochs :: String
     , cSlot :: String
+    , cSlots :: String
     , cAge :: String
     , cTotalSent :: String
     , cRelayedBy :: String
@@ -47,6 +49,7 @@ type Common =
     , cTotalOutput :: String
     , cOf :: String
     , cNotAvailable :: String
+    , cLoading :: String
     , cDays :: String
     , cHours :: String
     , cMinutes :: String
@@ -131,6 +134,7 @@ type Block =
     , blPrevBlock :: String
     , blNextBlock :: String
     , blRoot :: String
+    , blNotFound :: String
     }
 
 -- translations of footer

@@ -1,70 +1,93 @@
 
-.explorer-dashboard {
+/* blocks (slot) / epoch page */
 
-  .blocks-header {
+.explorer-blocks {
+
+  &__wrapper {
+    background-color: var(--color4);
+  }
+
+
+  &__container {
     @neat-outer-container;
-    padding: 10px 24px;
+    padding: 46px 0px 38px 0px;
 
-    font-size: 10px;
-    font-family: var(--fontFamily0-Bold);
-    font-weight: bold;
+  }
+
+  @media (--md) {
+    &__container {
+      @neat-outer-container;
+      max-width:var(--max-width-desktop);
+      padding: 56px 48px 48px 48px;
+    }
+  }
+}
+
+
+/* shared */
+
+.blocks-header {
+  @neat-outer-container;
+  padding: 10px 24px;
+
+  font-size: 10px;
+  font-family: var(--fontFamily0-Bold);
+  font-weight: bold;
+  color: var(--color8);
+
+}
+
+.blocks-column {
+  &__epoch {
+    @neat-span-columns 1;
+  }
+  &__slot {
+    @neat-span-columns 1;
+  }
+  &__age {
+    @neat-span-columns 2;
+  }
+  &__txs {
+    @neat-span-columns 2;
+  }
+  &__totalSend {
+    @neat-span-columns 2;
+  }
+  &__relayedBy {
+    @neat-span-columns 2;
+  }
+  &__size {
+    @neat-span-columns 2;
+  }
+}
+
+.blocks-waiting {
+  padding: 10px 24px;
+
+  font-size: 10px;
+  font-family: var(--fontFamily0-Regular);
+  color: var(--color13);
+}
+
+.blocks-body {
+  padding-bottom: 24px;
+
+  &__row {
+    @neat-outer-container;
+    display: block;
+    padding: 10px 24px;
     color: var(--color8);
-
-  }
-
-  .blocks-column {
-    &__epoch {
-      @neat-span-columns 1;
-    }
-    &__slot {
-      @neat-span-columns 1;
-    }
-    &__age {
-      @neat-span-columns 2;
-    }
-    &__txs {
-      @neat-span-columns 2;
-    }
-    &__totalSend {
-      @neat-span-columns 2;
-    }
-    &__relayedBy {
-      @neat-span-columns 2;
-    }
-    &__size {
-      @neat-span-columns 2;
-    }
-  }
-
-  .blocks-waiting {
-    padding: 10px 24px;
 
     font-size: 10px;
     font-family: var(--fontFamily0-Regular);
-    color: var(--color13);
-  }
+    font-weight: normal;
 
-  .blocks-body {
-    padding-bottom: 24px;
-
-    &__row {
-      @neat-outer-container;
-      display: block;
-      padding: 10px 24px;
-      color: var(--color8);
-
-      font-size: 10px;
-      font-family: var(--fontFamily0-Regular);
-      font-weight: normal;
-
-      &:nth-child(odd) {
-        background-color: var(--color7);
-      }
+    &:nth-child(odd) {
+      background-color: var(--color7);
     }
   }
+}
 
-  .blocks-footer {
-    text-align: center;
-  }
-
+.blocks-footer {
+  text-align: center;
 }

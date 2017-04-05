@@ -5,7 +5,7 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Network.RemoteData (RemoteData(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (common, cDateFormat, cTransaction, txNotFound, cTransactionFeed, cSummary, tx, cTotalOutput, txRelayed, txIncluded, txTime) as I18nL
+import Explorer.I18n.Lenses (common, cDateFormat, cLoading, cTransaction, txNotFound, cTransactionFeed, cSummary, tx, cTotalOutput, txRelayed, txIncluded, txTime) as I18nL
 import Explorer.Lenses.State (currentTxSummary, lang)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
@@ -31,7 +31,7 @@ transactionView state =
                     [ P.text $ translate (I18nL.common <<< I18nL.cTransaction) lang' ]
                   , case state ^. currentTxSummary of
                         NotAsked  -> emptyTxHeaderView
-                        Loading   -> textTxHeaderView "Loading..."
+                        Loading   -> textTxHeaderView $ translate (I18nL.common <<< I18nL.cLoading) lang'
                         Failure _ ->
                             textTxHeaderView $ translate (I18nL.tx <<< I18nL.txNotFound) lang'
                         Success txSum@(CTxSummary txSummary) ->

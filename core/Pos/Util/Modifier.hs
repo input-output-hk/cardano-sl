@@ -3,7 +3,7 @@
 -- | Wrapper for modifier pattern which is used intensively in code
 
 module Pos.Util.Modifier
-       ( MapModifier
+       ( MapModifier (..)
        , lookupM
        , lookup
        , keysM
@@ -30,7 +30,7 @@ import           Universum           hiding (toList)
 -- and deletions) of something map-like.
 newtype MapModifier k v = MapModifier
     { getMapModifier :: HashMap k (Maybe v)
-    } deriving (Show)
+    } deriving (Eq, Show)
 
 instance (Eq k, Hashable k) =>
          Monoid (MapModifier k v) where

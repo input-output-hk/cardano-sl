@@ -5,8 +5,9 @@ module Pos.Update.Poll.Modifier
        ) where
 
 import           Data.Default          (Default (def))
+import           Data.Semigroup        (Semigroup ((<>)))
 import qualified Data.HashMap.Strict   as HM
-import           Universum
+import           Universum             hiding ((<>))
 
 import           Pos.Update.Poll.Types (PollModifier (..))
 
@@ -39,8 +40,5 @@ modifyPollModifier pmOld pmNew = PollModifier
     unionHM :: (Hashable k, Eq k) => (PollModifier -> HashMap k v) -> HashMap k v
     unionHM getter = getter pmNew `HM.union` getter pmOld
 
-instance Monoid PollModifier where
-    mempty = def
-    mappend = modifyPollModifier
-
-instance Semigroup PollModifier
+instance Semigroup PollModifier where
+    (<>) = modifyPollModifier

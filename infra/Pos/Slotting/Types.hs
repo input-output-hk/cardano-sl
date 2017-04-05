@@ -17,7 +17,7 @@ data EpochSlottingData = EpochSlottingData
     -- ^ Slot duration actual for given epoch.
     , esdStart        :: !Timestamp
     -- ^ Time when epoch starts.
-    } deriving (Show)
+    } deriving (Eq, Show)
 
 -- | Data necessary for slotting to work which is basically part of GState.
 data SlottingData = SlottingData
@@ -28,4 +28,4 @@ data SlottingData = SlottingData
     -- Last means 'sdPenultEpoch + 1'.
     , sdPenultEpoch :: !EpochIndex
     -- ^ Penult epoch for which 'EpochSlottingData' is known.
-    } deriving (Show)
+    } deriving (Eq, Show)

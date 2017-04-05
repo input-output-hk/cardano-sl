@@ -64,6 +64,9 @@ library
                         Pos.Script
                         Pos.Script.Examples
 
+                        -- Slotting
+                        Pos.Slotting.Arbitrary
+
                         -- Something
                         Pos.Launcher
                         Pos.Security
@@ -1124,6 +1127,7 @@ test-suite cardano-test
                        Test.Pos.Update.Identity.BinarySpec
                        Test.Pos.Update.Identity.SafeCopySpec
                        Test.Pos.Update.MemStateSpec
+                       Test.Pos.Update.PollSpec
                        Test.Pos.Util
                        Test.Pos.UtilSpec
   type:                exitcode-stdio-1.0

@@ -31,7 +31,9 @@ before_install:
 # TODO: https://github.com/NixOS/nixpkgs/issues/21200
 - travis_retry curl -L https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64 | tar
   xz --strip-components=1 -C ~/.local/bin
+
 script:
+- nix-shell -p haskellPackages.hlint --run "util-scripts/lint.sh --nix"
 - if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" ]]; then export EXTRA_STACK="--haddock"; else export EXTRA_STACK="--no-haddock-deps"; fi
 - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export EXTRA_STACK="--test $EXTRA_STACK"; fi
 - stack --nix --no-terminal --local-bin-path daedalus/ install cardano-sl
@@ -48,7 +50,8 @@ script:
 - cp ../log-config-prod.yaml .
 - popd
 - mkdir s3
-- XZ_OPT=-1 tar Jcvf s3/daedalus-bridge-$TRAVIS_OS_NAME-$TRAVIS_BRANCH.tar.xz daedalus/ >/dev/null 2>/dev/null
+# Replace TRAVIS_BRANCH slash not to fail on subdirectory missing
+- XZ_OPT=-1 tar cJf s3/daedalus-bridge-$TRAVIS_OS_NAME-${TRAVIS_BRANCH/\//-}.tar.xz daedalus/
 deploy:
   provider: s3
   access_key_id: AKIAJKSJR3FUN3CWKC5Q

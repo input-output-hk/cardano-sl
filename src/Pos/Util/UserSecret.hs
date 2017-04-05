@@ -53,6 +53,9 @@ import qualified System.Posix.Files   as PSX
 import qualified System.Posix.Types   as PSX (FileMode)
 #endif
 
+-- Because of the Formatting import
+{-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
+
 -- | User secret data. Includes secret keys only for now (not
 -- including auxiliary @_usPath@).
 data UserSecret = UserSecret

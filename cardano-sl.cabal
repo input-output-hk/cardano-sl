@@ -1025,6 +1025,7 @@ executable cardano-keygen
                      , Avvm
                      , Testnet
   build-depends:       QuickCheck >= 2.9
+                     , Glob
                      , base
                      , aeson
                      , cardano-sl-core

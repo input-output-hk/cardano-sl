@@ -14,13 +14,11 @@ stack exec --nix -- cardano-wallet-web-api-swagger
 # Done, 'SWAGGER_WALLET_API_JSON_SPEC' file is already here.
 
 echo "**** 2. Convert JSON with Swagger-specification to HTML ****"
-nix-shell -p nodejs --run "npm install bootprint"
-nix-shell -p nodejs --run "npm install bootprint-openapi"
-nix-shell -p nodejs --run "npm install html-inline"
+nix-shell -p nodejs-7_x --run "npm install bootprint bootprint-openapi html-inline"
 # We need add it in PATH to run it.
 PATH=$PATH:$(pwd)/node_modules/.bin
-nix-shell -p nodejs --run "bootprint openapi ${SWAGGER_WALLET_API_JSON_SPEC} ${WALLET_API_PRODUCED_ROOT}"
-nix-shell -p nodejs --run "html-inline ${WALLET_API_PRODUCED_ROOT}/${WALLET_API_HTML} > ${WALLET_API_HTML}"
+nix-shell -p nodejs-7_x --run "bootprint openapi ${SWAGGER_WALLET_API_JSON_SPEC} ${WALLET_API_PRODUCED_ROOT}"
+nix-shell -p nodejs-7_x --run "html-inline ${WALLET_API_PRODUCED_ROOT}/${WALLET_API_HTML} > ${WALLET_API_HTML}"
 
 echo "**** 3. Cloning cardano-docs.iohk.io repository ****"
 # Variable ${GITHUB_CARDANO_DOCS_ACCESS} already stored in Travis CI settings for 'cardano-sl' repository.

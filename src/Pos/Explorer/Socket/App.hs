@@ -122,23 +122,25 @@ periodicPollChanges connVar closed =
         mWasBlock     <- _1 <<.= Just curBlock
         wasMempoolTxs <- _2 <<.= mempoolTxs
 
-        newBlocks <- if mWasBlock /= Just curBlock
-            then return Nothing
-            else fmap join . forM mWasBlock $ \wasBlock -> do
-                mBlocks <- getBlocksFromTo @ssc curBlock wasBlock
-                case mBlocks of
-                    Nothing     -> do
-                        logWarning "Failed to fetch blocks from db"
-                        return Nothing
-                    Just []     -> return Nothing
-                    Just blocks -> do
-                        -- notify about blocks
-                        notifyBlocksSubscribers blocks
-                        logDebug $ sformat ("Blockchain updated ("%int%
-                                   " blocks)") (length blocks)
-                        return $ Just blocks
+        mNewBlocks <-
+            if mWasBlock == Just curBlock
+                then return Nothing
+                else forM mWasBlock $ \wasBlock -> do
+                    mBlocks <- getBlocksFromTo @ssc curBlock wasBlock
+                    case mBlocks of
+                        Nothing     -> do
+                            logWarning "Failed to fetch blocks from db"
+                            return []
+                        Just blocks -> return blocks
+        let newBlocks = fromMaybe [] mNewBlocks
 
-        newBlockchainTxs <- concat <$> forM (fromMaybe [] newBlocks) getBlockTxs
+        -- notify about blocks
+        when (not $ null newBlocks) $ do
+            notifyBlocksSubscribers newBlocks
+            logDebug $ sformat ("Blockchain updated ("%int%" blocks)")
+                       (length newBlocks)
+
+        newBlockchainTxs <- concat <$> forM newBlocks getBlockTxs
         let newLocalTxs = S.toList $ mempoolTxs `S.difference` wasMempoolTxs
 
         txsInfo <- mapM getTxInfo (newBlockchainTxs <> newLocalTxs)

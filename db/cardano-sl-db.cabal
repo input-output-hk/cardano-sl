@@ -31,6 +31,7 @@ library
                      , cardano-sl-core
                      , concurrent-extra
                      , data-default
+                     , ether
                      , formatting
                      , lens
                      , log-warper
@@ -39,8 +40,8 @@ library
                      , resourcet
                      , rocksdb
                      , serokell-util
-                     , transformers-base
                      , text-format
+                     , transformers-base
                      , universum
 
   default-language:    Haskell2010

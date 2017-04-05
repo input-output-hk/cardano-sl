@@ -29,6 +29,7 @@ module Pos.Util.Context
 import           Universum
 
 import           Control.Lens        (Getting)
+import qualified Control.Monad.Ether as Ether
 import           Control.Monad.Trans (MonadTrans)
 
 import           Pos.Util.HVect      (HVect)
@@ -53,6 +54,9 @@ instance MonadContext m => MonadContext (StateT s m) where
     type ContextType (StateT s m) = ContextType m
 instance MonadContext m => MonadContext (ExceptT s m) where
     type ContextType (ExceptT s m) = ContextType m
+
+instance MonadContext m => MonadContext (Ether.StateT t s m) where
+    type ContextType (Ether.StateT t s m) = ContextType m
 
 {- |
 Using 'getFullContext' is not very convenient because usually we don't need

@@ -1,7 +1,8 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE GADTs           #-}
-{-# LANGUAGE RankNTypes      #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 module Pos.Util.Util
        (
@@ -14,6 +15,10 @@ module Pos.Util.Util
 
        , maybeThrow
        , getKeys
+
+       -- * Ether
+       , ether
+       , mapEtherStateT
 
        -- * Instances
        -- ** Lift Byte
@@ -34,11 +39,17 @@ module Pos.Util.Util
        -- ** Buildable Day
        -- ** Buildable Week
        -- ** Buildable Fortnight
+       -- ** Ether instances
+       -- *** CanLog Ether.StateT
+       -- *** HasLoggerName Ether.StateT
        ) where
 
 import           Universum
 
 import           Control.Lens               (ALens', Getter, Getting, cloneLens, to)
+import qualified Control.Monad.Ether              as Ether
+import qualified Control.Monad.Trans.Ether.Tagged as Ether
+import           Control.Monad.Trans.Lift.Local   (liftLocal)
 import           Data.Aeson                 (FromJSON (..), ToJSON (..))
 import           Data.HashSet               (fromMap)
 import           Data.Text.Buildable        (build)
@@ -92,7 +103,7 @@ liftGetterSome l = \f (Some a) -> Some <$> to (view l) f a
 -- Instances
 ----------------------------------------------------------------------------
 
-instance Lift Byte where
+instance TH.Lift Byte where
     lift x = let b = toBytes x in [|fromBytes b :: Byte|]
 
 instance FromJSON Byte where
@@ -132,6 +143,17 @@ instance Buildable Microsecond where
     build = build . (++ "mcs") . show . toMicroseconds
 
 ----------------------------------------------------------------------------
+-- Ether instances
+----------------------------------------------------------------------------
+
+instance CanLog m => CanLog (Ether.StateT t s m)
+
+instance (Monad m, HasLoggerName m) =>
+         HasLoggerName (Ether.StateT t s m) where
+    getLoggerName = lift getLoggerName
+    modifyLoggerName = liftLocal getLoggerName modifyLoggerName
+
+----------------------------------------------------------------------------
 -- Not instances
 ----------------------------------------------------------------------------
 
@@ -141,3 +163,14 @@ maybeThrow e = maybe (throwM e) pure
 -- | Create HashSet from HashMap's keys
 getKeys :: HashMap k v -> HashSet k
 getKeys = fromMap . void
+
+-- | Make a Reader or State computation work in an Ether transformer. Useful
+-- to make lenses work with Ether.
+ether :: trans m a -> Ether.TaggedTrans tag trans m a
+ether = Ether.pack
+
+mapEtherStateT
+    :: forall t s m a n b.
+       (m (a, s) -> n (b, s)) -> Ether.StateT t s m a -> Ether.StateT t s n b
+mapEtherStateT f m =
+    Ether.stateT (Proxy @t) $ f . Ether.runStateT (Proxy @t) m

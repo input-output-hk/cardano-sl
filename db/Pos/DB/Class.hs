@@ -15,6 +15,7 @@ module Pos.DB.Class
 import           Universum
 
 import           Control.Lens                 (ASetter')
+import qualified Control.Monad.Ether          as Ether
 import           Control.Monad.Except         (ExceptT (..), mapExceptT)
 import           Control.Monad.Reader         (mapReaderT)
 import           Control.Monad.State          (StateT (..), mapStateT)
@@ -26,6 +27,7 @@ import           Pos.Core                     (BlockVersionData)
 import           Pos.DB.Types                 (DB, NodeDBs, blockIndexDB, gStateDB, lrcDB,
                                                miscDB)
 import           Pos.Util.Iterator            (ListHolderT (..))
+import           Pos.Util.Util                (mapEtherStateT)
 
 -- TODO write a documentation. LensLike' is just a lens. Written using
 -- LensLike' to avoid rankntypes.
@@ -60,6 +62,11 @@ instance (MonadDB m) => MonadDB (ExceptT e m) where
 instance (MonadDB m) => MonadDB (StateT a m) where
     usingReadOptions how l = mapStateT (usingReadOptions how l)
     usingWriteOptions how l = mapStateT (usingWriteOptions how l)
+
+instance (MonadDB m) => MonadDB (Ether.StateT t a m) where
+    getNodeDBs = lift getNodeDBs
+    usingReadOptions how l = mapEtherStateT (usingReadOptions how l)
+    usingWriteOptions how l = mapEtherStateT (usingWriteOptions how l)
 
 instance (MonadDB m) => MonadDB (ResourceT m) where
     usingReadOptions how l = transResourceT (usingReadOptions how l)

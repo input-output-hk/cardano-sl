@@ -25,7 +25,7 @@ module Pos.Core.Address
        , unsafeAddressHash
        ) where
 
-import           Crypto.Hash            (Blake2s_224, Digest, SHA3_256, hashlazy)
+import           Crypto.Hash            (Blake2b_224, Digest, SHA3_256, hashlazy)
 import qualified Crypto.Hash            as CryptoHash
 import           Data.ByteArray         (ByteArrayAccess)
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58,
@@ -175,7 +175,7 @@ unsafeAddressHash = AbstractHash . secondHash . firstHash
   where
     firstHash :: Bi a => a -> Digest SHA3_256
     firstHash = hashlazy . Bi.encode
-    secondHash :: Digest SHA3_256 -> Digest Blake2s_224
+    secondHash :: Digest SHA3_256 -> Digest Blake2b_224
     secondHash = CryptoHash.hash
 
 addressHash :: Bi a => a -> AddressHash a

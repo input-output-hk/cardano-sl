@@ -51,8 +51,9 @@ import           Pos.Communication.Protocol         (ConversationActions (..),
                                                      SendActions (..), WorkerSpec,
                                                      listenerConv, mergeLs, worker)
 import           Pos.Communication.Relay.Class      (MonadRelayMem (..), Relay (..))
-import           Pos.Communication.Relay.Types      (RelayContext (..), RelayError (..),
-                                                     RelayProxy (..), SomeInvMsg (..))
+import           Pos.Communication.Relay.Types      (RelayContext (..), RelayProxy (..),
+                                                     SomeInvMsg (..))
+import           Pos.Communication.Relay.Util       (expectData, expectInv)
 import           Pos.Communication.Types.Relay      (DataMsg (..), InvMsg (..), InvOrData,
                                                      MempoolMsg (..), ReqMsg (..))
 import           Pos.Communication.Util             (stubListenerConv)
@@ -247,21 +248,14 @@ relayListeners proxy =
                                   m)
         ) -> do
             inv' <- recv
-            whenJust (withLimitedLength <$> inv') $ expectLeft $
+            whenJust (withLimitedLength <$> inv') $ expectInv $
                 \inv@InvMsg{..} -> do
                     useful <- handleInvL proxy inv
                     whenJust useful $ \ne -> do
                         send $ ReqMsg imTag ne
                         dt' <- recv
-                        whenJust (withLimitedLength <$> dt') $ expectRight $
-                            \dt@DataMsg{..} -> handleDataL proxy dt
-
-    expectLeft call (Left msg) = call msg
-    expectLeft _ (Right _)     = throw UnexpectedData
-
-    expectRight _ (Left _)       = throw UnexpectedInv
-    expectRight call (Right msg) = call msg
-
+                        whenJust (withLimitedLength <$> dt') $ expectData $
+                            \dt -> handleDataL proxy dt
 
 relayStubListeners
     :: ( WithLogger m

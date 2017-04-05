@@ -16,9 +16,9 @@ import           System.Wlog       (logDebug, logInfo, logWarning)
 
 import           Pos.Communication (ConversationActions (..), InvMsg (..), InvOrData,
                                     MempoolMsg (..), OutSpecs,
-                                    RelayError (UnexpectedData, UnexpectedInv),
-                                    RelayProxy (..), ReqMsg (..), SendActions, SmartLimit,
-                                    TxMsgContents, TxMsgTag (..), WorkerSpec, convH,
+                                    RelayError (UnexpectedData), RelayProxy (..),
+                                    ReqMsg (..), SendActions, SmartLimit, TxMsgContents,
+                                    TxMsgTag (..), WorkerSpec, convH, expectData,
                                     handleDataL, handleInvL, reifyMsgLimit, toOutSpecs,
                                     withLimitedLength, worker)
 import           Pos.DHT           (DHTNode, converseToNode, getKnownPeers)
@@ -144,16 +144,13 @@ requestTxs sendActions node txIds = do
                     dt' <- recv
                     case withLimitedLength <$> dt' of
                         Nothing -> error "didn't get an answer to Req"
-                        Just x  -> expectRight (handleDataL txProxy) x
+                        Just x  -> expectData (handleDataL txProxy) x
             for_ txIds $ \id ->
                 getTx id `catch` handler id
     logInfo $ sformat
         ("Finished requesting txs from node "%shown)
         node
   where
-    expectRight _ (Left _)       = throw UnexpectedInv
-    expectRight call (Right msg) = call msg
-
     handler id (e :: SomeException) = do
         logWarning $ sformat
             ("Couldn't get transaction with id "%build%" "%

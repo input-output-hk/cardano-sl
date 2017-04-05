@@ -34,7 +34,9 @@ type Common =
     , cHash :: String
     , cHashes :: String
     , cEpoch :: String
+    , cEpochs :: String
     , cSlot :: String
+    , cSlots :: String
     , cAge :: String
     , cTotalSent :: String
     , cRelayedBy :: String
@@ -47,6 +49,7 @@ type Common =
     , cTotalOutput :: String
     , cOf :: String
     , cNotAvailable :: String
+    , cLoading :: String
     , cDays :: String
     , cHours :: String
     , cMinutes :: String
@@ -110,6 +113,7 @@ type Address =
     { addScan :: String
     , addQrCode :: String
     , addFinalBalance :: String
+    , addNotFound :: String
     }
 
 -- translations of transaction detail page
@@ -119,6 +123,7 @@ type Transaction =
     , txIncluded :: String
     , txRelayed :: String
     , txEmpty :: String
+    , txNotFound :: String
     }
 
 -- translations of block detail page
@@ -129,6 +134,7 @@ type Block =
     , blPrevBlock :: String
     , blNextBlock :: String
     , blRoot :: String
+    , blNotFound :: String
     }
 
 -- translations of footer

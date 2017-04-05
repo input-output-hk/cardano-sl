@@ -27,10 +27,9 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
                                                  CBlockEntry (..),
                                                  CBlockSummary (..), CHash (..),
                                                  CTxBrief (..), CTxEntry (..),
-                                                 CTxId (..), CTxSummary (..))
-
+                                                 CTxId (..), CTxSummary (..),
+                                                 EpochIndex, mkCoin)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
-import           Pos.Types                      (EpochIndex, mkCoin)
 import           Servant.API                    (Capture, QueryParam)
 import           Servant.Docs                   (API, Action, DocCapture (..),
                                                  DocIntro (..), DocNote (..),

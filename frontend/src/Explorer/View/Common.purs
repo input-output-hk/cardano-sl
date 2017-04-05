@@ -22,10 +22,10 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (common, cDateFormat, cNoData, tx, txEmpty) as I18nL
+import Explorer.I18n.Lenses (common, cDateFormat, tx, txEmpty) as I18nL
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (CCurrency(..), State)
+import Explorer.Types.State (CCurrency(..))
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkCoin, sumCoinOfInputsOutputs)
 import Explorer.Util.Time (prettyDate)
 import Explorer.View.Lenses (txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
@@ -102,11 +102,12 @@ txHeaderView lang (TxHeaderViewProps props) =
               ]
           ]
 
-emptyTxHeaderView :: State -> P.Html Action
-emptyTxHeaderView _ =
+emptyTxHeaderView :: P.Html Action
+emptyTxHeaderView =
     P.div
         [ P.className "transaction-header"]
         [ ]
+
 -- -----------------
 -- tx body
 -- -----------------
@@ -208,8 +209,8 @@ paginationView props =
                 [ P.className "page-number"
                 , P.value <<< show $ props.currentPage
                 , P.disabled $ props.maxPage == minPage
-                , P.min $ toStringAs binary minPage
-                , P.max $ toStringAs binary props.maxPage
+                , P.min $ show minPage
+                , P.max $ show props.maxPage
                 , P.onChange changeHandler
                 , P.onFocus $ props.onFocusAction <<< _.target
                 ]

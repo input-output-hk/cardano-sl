@@ -9,16 +9,22 @@ import Data.Array ((:))
 import Data.Either (Either(..))
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
-import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary)
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentTxSummary, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, selectedApiCode, socket, transactionsExpanded, viewStates)
-import Explorer.Routes (Route(..))
+import Data.Tuple (Tuple(..))
+import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary, searchEpoch)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentCAddress, currentTxSummary, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, searchQuery, selectedApiCode, selectedSearch, socket, transactionsExpanded, viewStates)
+import Explorer.Routes (Route(..), toUrl)
+import Explorer.State (emptySearchQuery)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (State)
+import Explorer.Types.State (Search(..), State)
 import Explorer.Util.DOM (scrollTop)
+import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
+import Explorer.Util.String (parseSearchEpoch)
 import Network.HTTP.Affjax (AJAX)
+import Network.RemoteData (RemoteData(..), _Success)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects)
+import Pux.Router (navigateTo) as P
 
 
 update :: forall eff. Action -> State -> EffModel State Action (dom :: DOM, ajax :: AJAX | eff)
@@ -35,9 +41,10 @@ update (SocketConnected status) state = noEffects $
 update (SocketLatestBlocks (Right blocks)) state = noEffects $
     if state ^. handleLatestBlocksSocketResult
     -- add incoming blocks ahead of previous blocks
-    then over latestBlocks (\b -> blocks <> b) state
+    then over (latestBlocks <<< _Success) (\b -> blocks <> b) state
     else state
 update (SocketLatestBlocks (Left error)) state = noEffects $
+    set latestBlocks (Failure error) $
     -- add incoming errors ahead of previous errors
     over errors (\errors' -> (show error) : errors') state
 update (SocketLatestTransactions (Right transactions)) state = noEffects $
@@ -50,7 +57,6 @@ update (SocketLatestTransactions (Left error)) state = noEffects $
 
 -- Dashboard
 
-update DashboardSearch state = noEffects state
 update (DashboardExpandBlocks toggled) state = noEffects $
     set (viewStates <<< dashboard <<< blocksExpanded) toggled state
 update (DashboardExpandTransactions toggled) state = noEffects $
@@ -86,15 +92,50 @@ update (SelectInputText input) state =
         [ liftEff $ select input >>= \_ -> pure NoOp
         ]
     }
-
--- QR side effects
-
 update (GenerateQrCode address) state =
     { state
     , effects:
-        [ liftEff $ generateQrCode (address ^. _CAddress) "qr_image_id" >>= \_ -> pure NoOp
+        [ liftEff $ generateQrCode (address ^. _CAddress) "qr_image_id" *> pure NoOp
         ]
     }
+
+-- Search
+
+-- update DashboardSearch state = noEffects state
+update DashboardSearch state =
+    let query = state ^. searchQuery in
+    { state: set searchQuery emptySearchQuery $ state
+    , effects: [
+      -- set state of focus explicitly
+      pure $ DashboardFocusSearchInput false
+      , case state ^. selectedSearch of
+          SearchAddress ->
+              (liftEff <<< P.navigateTo <<< toUrl <<< Address $ mkCAddress query) *> pure NoOp
+          SearchTx ->
+              (liftEff <<< P.navigateTo <<< toUrl <<< Tx $ mkCTxId query) *> pure NoOp
+          SearchEpoch ->
+              case parseSearchEpoch query of
+                  Right (Tuple (Just epoch) (Just slot)) ->
+                      let epochIndex = mkEpochIndex epoch
+                          slotIndex  = mkLocalSlotIndex slot
+                          epochSlotUrl = EpochSlot epochIndex slotIndex
+                      in
+                      (liftEff <<< P.navigateTo <<< toUrl $ epochSlotUrl) *> pure NoOp
+                  Right (Tuple (Just epoch) Nothing) ->
+                      let epochIndex = mkEpochIndex epoch
+                          epochUrl   = Epoch $ epochIndex
+                      in
+                      (liftEff <<< P.navigateTo <<< toUrl $ epochUrl) *> pure NoOp
+
+                  _ -> pure NoOp -- TODO (ks) maybe put up a message?
+      ]
+    }
+
+update (UpdateSelectedSearch search) state =
+    noEffects $ set selectedSearch search state
+
+update (UpdateSearchText search) state =
+    noEffects $ set searchQuery search state
 
 -- NoOp
 
@@ -111,7 +152,7 @@ update (ReceiveInitialBlocks (Right blocks)) state =
     set loading false <<<
     set initialBlocksRequested true <<<
     set handleLatestBlocksSocketResult true $
-    set latestBlocks blocks $
+    set latestBlocks (Success blocks) $
     state
 
 update (ReceiveInitialBlocks (Left error)) state =
@@ -119,6 +160,7 @@ update (ReceiveInitialBlocks (Left error)) state =
     set loading false <<<
     set initialBlocksRequested true <<<
     set handleLatestBlocksSocketResult true $
+    set latestBlocks (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
 update (RequestBlockSummary hash) state =
@@ -132,6 +174,30 @@ update (ReceiveBlockSummary (Right blockSummary)) state =
 update (ReceiveBlockSummary (Left error)) state =
     noEffects $
     set loading false $
+    over errors (\errors' -> (show error) : errors') state
+
+-- Epoch, slot
+
+update (RequestEpochSlot epoch slot) state =
+    { state:
+          set loading true $
+          set latestBlocks Loading $state
+    , effects: [ attempt (searchEpoch epoch slot) >>= pure <<< ReceiveEpochSlot ]
+    }
+update (ReceiveEpochSlot (Right blocks)) state =
+    noEffects $
+    set loading false <<<
+    set initialBlocksRequested true <<<
+    set handleLatestBlocksSocketResult true $
+    set latestBlocks (Success blocks) $
+    state
+
+update (ReceiveEpochSlot (Left error)) state =
+    noEffects $
+    set loading false <<<
+    set initialBlocksRequested true <<<
+    set handleLatestBlocksSocketResult true $
+    set latestBlocks (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
 update (RequestBlockTxs hash) state =
@@ -172,10 +238,11 @@ update (RequestTxSummary id) state =
 update (ReceiveTxSummary (Right tx)) state =
     noEffects $
     set loading false $
-    set currentTxSummary (Just tx) state
+    set currentTxSummary (Success tx) state
 update (ReceiveTxSummary (Left error)) state =
     noEffects $
     set loading false $
+    set currentTxSummary (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
 update (RequestAddressSummary address) state =
@@ -185,13 +252,14 @@ update (RequestAddressSummary address) state =
 update (ReceiveAddressSummary (Right address)) state =
     { state:
         set loading false $
-        set currentAddressSummary (Just address) state
+        set currentAddressSummary (Success address) state
     , effects:
         [ pure $ GenerateQrCode $ address ^. (_CAddressSummary <<< caAddress) ]
     }
 update (ReceiveAddressSummary (Left error)) state =
     noEffects $
     set loading false $
+    set currentAddressSummary (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
 -- routing
@@ -212,23 +280,42 @@ routeEffects Dashboard state =
         ]
     }
 
-routeEffects (Tx id) state =
-    { state: set currentTxSummary Nothing state
+routeEffects (Tx tx) state =
+    { state:
+        set currentTxSummary Loading state
     , effects:
         [ pure ScrollTop
-        , pure $ RequestTxSummary id
+        , pure $ RequestTxSummary tx
         ]
     }
 
-routeEffects (Address address) state =
+routeEffects (Address cAddress) state =
     { state:
-        set currentAddressSummary Nothing
-        $ set (viewStates <<< addressDetail <<< addressTxPagination) 1 state
+        set currentAddressSummary Loading $
+        set currentCAddress cAddress $
+        set (viewStates <<< addressDetail <<< addressTxPagination) 1 state
     , effects:
         [ pure ScrollTop
-        , pure $ RequestAddressSummary address
+        , pure $ RequestAddressSummary cAddress
         ]
     }
+
+routeEffects (Epoch epochIndex) state =
+    { state
+    , effects:
+        [ pure ScrollTop
+        , pure $ RequestEpochSlot epochIndex Nothing
+        ]
+    }
+
+routeEffects (EpochSlot epochIndex slotIndex) state =
+    { state
+    , effects:
+        [ pure ScrollTop
+        , pure $ RequestEpochSlot epochIndex (Just slotIndex)
+        ]
+    }
+
 
 routeEffects Calculator state = { state, effects: [ pure ScrollTop ] }
 

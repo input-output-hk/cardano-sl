@@ -1,7 +1,8 @@
 module Explorer.I18n.EN where
 
-import Explorer.I18n.Lenses (cCalculator)
+import Explorer.I18n.Types (Translation)
 
+translation :: Translation
 translation =
     { common:
         { cBack: "Back"
@@ -21,7 +22,9 @@ translation =
         , cHash: "Hash"
         , cHashes: "Hashes"
         , cEpoch: "Epoch"
+        , cEpochs: "Epochs"
         , cSlot: "Slot"
+        , cSlots: "Slots"
         , cAge: "Since"
         , cTotalSent: "Total Sent"
         , cRelayedBy: "Slot leader"
@@ -34,6 +37,7 @@ translation =
         , cTotalOutput: "Total Output"
         , cOf: "of"
         , cNotAvailable: "not available"
+        , cLoading: "Loading..."
         , cDays: "Days"
         , cHours: "Hours"
         , cMinutes: "Minutes"
@@ -50,7 +54,7 @@ translation =
     , hero:
         { hrTitle: "Cardano Blockchain Explorer"
         , hrSubtitle: "most effective way to reasearch crypto currencies network"
-        , hrSearch: "Search for address, slot, token"
+        , hrSearch: "Search for addresses, transactions, slots and epochs"
         }
     , dashboard:
         { dbLastBlocks: "Last slots"
@@ -85,12 +89,14 @@ translation =
         { addScan: "Scan this QR Code to copy address to clipboard"
         , addQrCode: "QR-Code"
         , addFinalBalance: "Final balance"
+        , addNotFound: "Address does not exist."
         }
     , tx:
         { txTime: "Received time"
         , txIncluded: "Included In Slots"
         , txRelayed: "Relayed by IP"
         , txEmpty: "No transactions"
+        , txNotFound: "Transaction does not exist."
         }
     , block:
         { blFees: "Fees"
@@ -98,6 +104,7 @@ translation =
         , blPrevBlock: "Previous slot"
         , blNextBlock: "Next slot"
         , blRoot: "Merkle root"
+        , blNotFound: "Epoch / slot do not exist."
         }
     , footer:
         { fooRessources: "Ressources"

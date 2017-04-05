@@ -4,7 +4,10 @@ import Prelude
 import Control.Monad.Aff (Aff)
 import Control.Monad.State (StateT)
 import Data.Identity (Identity)
-import Explorer.Util.String (substitute)
+import Data.Tuple (Tuple (..))
+import Data.Either (Either (..))
+import Data.Maybe (Maybe (..))
+import Explorer.Util.String (substitute, parseSearchEpoch)
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -27,4 +30,21 @@ testStringUtil =
             it "ignores placeholder if an argument is missing" do
                 let result = substitute "Hello {0}, let's go now" []
                     expected = "Hello , let's go now"
+                result `shouldEqual` expected
+        describe "query parser" do
+            it "parses an epoch" do
+                let result = Right $ Tuple (Just 3) Nothing
+                    expected = parseSearchEpoch "3"
+                result `shouldEqual` expected
+            it "parses an epoch and raises error" do
+                let result = Right $ Tuple Nothing Nothing
+                    expected = parseSearchEpoch "d"
+                result `shouldEqual` expected
+            it "parses an epoch and a slot" do
+                let result = Right $ Tuple (Just 583) (Just 12)
+                    expected = parseSearchEpoch "583,12"
+                result `shouldEqual` expected
+            it "parses an epoch and a slot and raises error" do
+                let result = Right $ Tuple (Just 583) Nothing
+                    expected = parseSearchEpoch "583,aa"
                 result `shouldEqual` expected

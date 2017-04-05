@@ -228,6 +228,11 @@
 
 .invisible {
   visibility: hidden !important;
+  display: none;
+}
+
+.hide {
+  display: none !important;
 }
 
 .btn-debug {

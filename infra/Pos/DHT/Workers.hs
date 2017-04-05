@@ -2,7 +2,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Pos.DHT.Workers
-       ( dhtWorkers
+       ( DhtWorkMode
+       , dhtWorkers
        ) where
 
 import           Data.Binary                (encode)
@@ -18,34 +19,32 @@ import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlo
 import           Pos.Core.Slotting          (flattenSlotId)
 import           Pos.Core.Types             (slotIdF)
 import           Pos.DHT.Constants          (kademliaDumpInterval)
-import           Pos.DHT.MemState           (DhtContext (..), MonadDhtMem (..))
-import           Pos.DHT.Model.Class        (MonadDHT)
-import           Pos.DHT.Real.Types         (KademliaDHTInstance (..),
-                                             WithKademliaDHTInstance (..))
+import           Pos.DHT.Real.Types         (KademliaDHTInstance (..))
 import           Pos.Reporting              (MonadReportingMem)
 import           Pos.Shutdown               (MonadShutdownMem)
 import           Pos.Slotting.Class         (MonadSlots)
 
 type DhtWorkMode m = ( WithLogger m
-                     , MonadDhtMem m
-                     , WithKademliaDHTInstance m
                      , MonadSlots m
                      , MonadIO m
                      , MonadMask m
                      , Mockable Fork m
                      , Mockable Delay m
-                     , MonadDHT m
                      , MonadReportingMem m
-                     , MonadShutdownMem m)
+                     , MonadShutdownMem m
+                     )
 
-dhtWorkers :: DhtWorkMode m => ([WorkerSpec m], OutSpecs)
-dhtWorkers = first pure dumpKademliaStateWorker
+dhtWorkers :: DhtWorkMode m => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
+dhtWorkers kademliaInst = first pure (dumpKademliaStateWorker kademliaInst)
 
-dumpKademliaStateWorker :: DhtWorkMode m => (WorkerSpec m, OutSpecs)
-dumpKademliaStateWorker = localOnNewSlotWorker True $ \slotId ->
+dumpKademliaStateWorker
+    :: DhtWorkMode m
+    => KademliaDHTInstance
+    -> (WorkerSpec m, OutSpecs)
+dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId ->
     when (flattenSlotId slotId `mod` kademliaDumpInterval == 0) $ do
-        dumpFile <- _dhtKademliadDump <$> askDhtMem
+        let dumpFile = kdiDumpPath kademliaInst
         logNotice $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId
-        inst <- kdiHandle <$> getKademliaDHTInstance
+        let inst = kdiHandle kademliaInst
         snapshot <- liftIO $ takeSnapshot inst
         liftIO . BS.writeFile dumpFile $ encode snapshot

@@ -27,12 +27,12 @@ import qualified Data.List.NonEmpty       as NE
 import qualified Data.Text.IO             as TIO
 import           Data.Time.Clock          (getCurrentTime)
 import           Data.Version             (Version (..))
-import           Formatting               (build, sformat, shown, stext, (%))
+import           Formatting               (sformat, shown, stext, (%))
 import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Network.Wreq             (partFile, partLBS, post)
 import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
 import           Serokell.Util.Exceptions (throwText)
-import           Serokell.Util.Text       (listBuilderJSON, listJson)
+import           Serokell.Util.Text       (listBuilderJSON)
 import           System.Directory         (doesFileExist)
 import           System.FilePath          (takeFileName)
 import           System.Info              (arch, os)
@@ -43,7 +43,6 @@ import           System.Wlog              (CanLog, HasLoggerName, LoggerConfig (
                                            ltFiles, ltSubloggers, retrieveLogContent)
 
 import           Pos.Core.Constants       (protocolMagic)
-import           Pos.DHT.Model.Class      (MonadDHT, currentNodeKey, getKnownPeers)
 import           Pos.Exception            (CardanoFatalError)
 import           Pos.Reporting.Exceptions (ReportingError (..))
 import           Pos.Reporting.MemState   (MonadReportingMem (..), rcLoggingConfig,
@@ -118,23 +117,20 @@ ipv4Local w =
 
 -- | Retrieves node info that we would like to know when analyzing
 -- malicious behavior of node.
-getNodeInfo :: (MonadDHT m, MonadIO m) => m Text
+getNodeInfo :: (MonadIO m) => m Text
 getNodeInfo = do
-    peers <- getKnownPeers
-    key <- currentNodeKey
     (ips :: [Text]) <-
         map show . filter ipExternal . map ipv4 <$>
         liftIO getNetworkInterfaces
-    pure $ sformat outputF (pretty $ listBuilderJSON ips) key peers
+    pure $ sformat outputF (pretty $ listBuilderJSON ips)
   where
     ipExternal (IPv4 w) =
         not $ ipv4Local w || w == 0 || w == 16777343 -- the last is 127.0.0.1
-    outputF = ("{ nodeParams: '"%stext%":"%build%"', otherNodes: "%listJson%" }")
+    outputF = ("{ nodeParams: '"%stext%"' }")
 
 type ReportingWorkMode m =
        ( MonadIO m
        , MonadMask m
-       , MonadDHT m
        , MonadReportingMem m
        , HasLoggerName m
        , CanLog m

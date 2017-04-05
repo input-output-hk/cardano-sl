@@ -36,8 +36,6 @@ import qualified Pos.DB.Block                as DB
 import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
 import           Pos.Delegation              (DelegationT (..))
-import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
-import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Shutdown                (triggerShutdown)
 import           Pos.Slotting                (MonadSlots (..), NtpSlotting,
                                               SlottingHolder, getLastKnownSlotDuration)
@@ -156,7 +154,7 @@ instance forall ssc . SscHelpersClass ssc =>
         Just dh -> return $ dh ^. difficultyL
         Nothing -> view difficultyL <$> topHeader @ssc
 
-    connectedPeers = fromIntegral . length <$> getKnownPeers
+    connectedPeers = fromIntegral . length <$> getContextTVar PC.ncConnectedPeers
     blockchainSlotDuration = getLastKnownSlotDuration
 
 -- | Abstraction over getting update proposals
@@ -174,7 +172,6 @@ class Monad m => MonadUpdates m where
 
 instance MonadUpdates m => MonadUpdates (ReaderT r m)
 instance MonadUpdates m => MonadUpdates (StateT s m)
-instance MonadUpdates m => MonadUpdates (KademliaDHT m)
 instance MonadUpdates m => MonadUpdates (KeyStorage m)
 instance MonadUpdates m => MonadUpdates (PeerStateHolder m)
 instance MonadUpdates m => MonadUpdates (NtpSlotting m)
@@ -207,7 +204,6 @@ type WalletMode ssc m
       , MonadBlockchainInfo m
       , MonadUpdates m
       , WithWalletContext m
-      , MonadDHT m
       , WithPeerState m
       )
 
@@ -215,10 +211,10 @@ type WalletMode ssc m
 -- Implementations of 'WalletMode'
 ---------------------------------------------------------------
 
-type WalletRealMode = PeerStateHolder (KademliaDHT
+type WalletRealMode = PeerStateHolder
                       (KeyStorage
                        (WalletDB
                         (ContextHolder
                          (LoggerNameBox
                           Production
-                           )))))
+                           ))))

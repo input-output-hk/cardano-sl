@@ -43,7 +43,6 @@ import           Pos.Communication.BiP            (BiP)
 import           Pos.Communication.PeerState      (WithPeerState (..))
 import           Pos.Communication.Types.Protocol
 import           Pos.Core.Types                   (SlotId)
-import           Pos.DHT.Model.Class              (MonadDHT)
 import           Pos.Reporting                    (MonadReportingMem)
 import           Pos.Shutdown                     (MonadShutdownMem)
 import           Pos.Slotting                     (MonadSlots)
@@ -224,7 +223,6 @@ type OnNewSlotComm m =
     , Mockable Throw m
     , WithPeerState m
     , Mockable SharedAtomic m
-    , MonadDHT m
     , MonadReportingMem m
     , MonadShutdownMem m
     )
@@ -254,7 +252,6 @@ localOnNewSlotWorker
        , WithLogger m
        , Mockable Fork m
        , Mockable Delay m
-       , MonadDHT m
        , MonadReportingMem m
        , MonadShutdownMem m
        ) => Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)

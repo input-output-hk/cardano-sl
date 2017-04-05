@@ -12,7 +12,6 @@ import           Universum
 import           Pos.Communication.PeerState (PeerStateHolder)
 import qualified Pos.Context                 as PC
 import           Pos.Delegation.Holder       (DelegationT (..))
-import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Slotting                (NtpSlotting, SlottingHolder)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp                     (TxpHolder (..))
@@ -37,4 +36,3 @@ instance Monad m => WithWalletContext (PC.ContextHolder ssc m) where
 instance (Monad m, WithWalletContext m) => WithWalletContext (TxpHolder __ m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (SscHolder ssc m)
 instance (Monad m, WithWalletContext m) => WithWalletContext (DelegationT m)
-instance (Monad m, WithWalletContext m) => WithWalletContext (KademliaDHT m)

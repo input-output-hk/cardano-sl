@@ -29,9 +29,7 @@ import           Pos.Context.Class         (WithNodeContext (..))
 import           Pos.Context.Context       (NodeContext (..))
 import           Pos.DB.Class              (MonadDB, MonadDBCore)
 import           Pos.DB.Limits             (MonadDBLimits)
-import           Pos.DHT.MemState          (DhtContext (..), MonadDhtMem (..))
-import           Pos.Launcher.Param        (bpKademliaDump, npBaseParams, npPropagation,
-                                            npReportServers)
+import           Pos.Launcher.Param        (npPropagation, npReportServers)
 import           Pos.Reporting             (MonadReportingMem (..), ReportingContext (..))
 import           Pos.Shutdown              (MonadShutdownMem (..), ShutdownContext (..))
 import           Pos.Slotting.Class        (MonadSlots)
@@ -110,12 +108,6 @@ instance Monad m => MonadReportingMem (ContextHolder ssc m) where
                     ReportingContext (npReportServers ncNodeParams)
                                      ncLoggerConfig)
 
-instance Monad m => MonadDhtMem (ContextHolder ssc m) where
-    askDhtMem =
-        ContextHolder $ asks (DhtContext .
-                              bpKademliaDump .
-                              npBaseParams .
-                              ncNodeParams)
 instance Monad m => MonadRelayMem (ContextHolder ssc m) where
     askRelayMem =
         ContextHolder

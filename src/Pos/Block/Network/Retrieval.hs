@@ -49,8 +49,8 @@ import           Pos.WorkMode               (WorkMode)
 retrievalWorker
     :: forall ssc m.
        (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
-    => (WorkerSpec m, OutSpecs)
-retrievalWorker = worker outs retrievalWorkerImpl
+    => m (Set NodeId) -> (WorkerSpec m, OutSpecs)
+retrievalWorker getPeers = worker outs (retrievalWorkerImpl getPeers)
   where
     outs = announceBlockOuts <>
            toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
@@ -60,8 +60,8 @@ retrievalWorker = worker outs retrievalWorkerImpl
 retrievalWorkerImpl
     :: forall ssc m.
        (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions m -> m ()
-retrievalWorkerImpl sendActions = handleAll handleTop $ do
+    => m (Set NodeId) -> SendActions m -> m ()
+retrievalWorkerImpl getPeers sendActions = handleAll handleTop $ do
     logDebug "Starting retrievalWorker loop"
     mainLoop
   where
@@ -72,7 +72,7 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
         unless inRecovery $
             whenJustM (atomically $ tryTakeTMVar recHeaderVar) $ const $ do
                 logDebug "Triggering recovery from main loop"
-                triggerRecovery sendActions
+                triggerRecovery getPeers sendActions
         logDebug "Waiting on the queue"
         loopCont <- atomically $ do
             qV <- tryReadTBQueue queue
@@ -87,7 +87,7 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
         mainLoop
     onLeft ph =
         handleAll (handleBlockRetrievalE ph) $
-        reportingFatal version $ workerHandle sendActions ph
+        reportingFatal version $ workerHandle getPeers sendActions ph
     onRight (peerId, rHeader) = do
         logDebug "Queue is empty, we're in recovery mode -> querying more"
         whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
@@ -101,14 +101,14 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
             ("Error handling peerId="%build%", headers="%listJson%": "%shown)
             peerId (fmap headerHash headers) e
         dropUpdateHeader
-        dropRecoveryHeaderAndRepeat sendActions peerId
+        dropRecoveryHeaderAndRepeat getPeers sendActions peerId
     handleHeadersRecoveryE peerId e = do
         logWarning $ sformat
             ("Failed while trying to get more headers "%
              "for recovery from peerId="%build%", error: "%shown)
             peerId e
         dropUpdateHeader
-        dropRecoveryHeaderAndRepeat sendActions peerId
+        dropRecoveryHeaderAndRepeat getPeers sendActions peerId
     handleTop e = do
         logError $ sformat ("retrievalWorker: error caught "%shown) e
         throw e
@@ -137,14 +137,14 @@ dropRecoveryHeader peerId = do
 {-# ANN dropRecoveryHeaderAndRepeat ("HLint: ignore Use whenM" :: Text) #-}
 dropRecoveryHeaderAndRepeat
     :: (SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions m -> NodeId -> m ()
-dropRecoveryHeaderAndRepeat sendActions peerId = do
+    => m (Set NodeId) -> SendActions m -> NodeId -> m ()
+dropRecoveryHeaderAndRepeat getPeers sendActions peerId = do
     kicked <- dropRecoveryHeader peerId
     when kicked $ attemptRestartRecovery
   where
     attemptRestartRecovery = do
         logDebug "Attempting to restart recovery"
-        handleAll handleRecoveryTriggerE $ triggerRecovery sendActions
+        handleAll handleRecoveryTriggerE $ triggerRecovery getPeers sendActions
         logDebug "Attempting to restart recovery over"
     handleRecoveryTriggerE e =
         logError $ "Exception happened while trying to trigger " <>
@@ -153,8 +153,8 @@ dropRecoveryHeaderAndRepeat sendActions peerId = do
 
 workerHandle
     :: (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions m -> (NodeId, NewestFirst NE (BlockHeader ssc)) -> m ()
-workerHandle sendActions (peerId, headers) = do
+    => m (Set NodeId) -> SendActions m -> (NodeId, NewestFirst NE (BlockHeader ssc)) -> m ()
+workerHandle getPeers sendActions (peerId, headers) = do
     logDebug $ sformat
         ("retrievalWorker: handling peerId="%build%", headers="%listJson)
         peerId (fmap headerHash headers)
@@ -164,7 +164,7 @@ workerHandle sendActions (peerId, headers) = do
         oldestHash = headerHash $ headers ^. _Wrapped . _neLast
     case classificationRes of
         CHsValid lcaChild ->
-            void $ handleCHsValid sendActions peerId lcaChild newestHash
+            void $ handleCHsValid getPeers sendActions peerId lcaChild newestHash
         CHsUseless reason ->
             logDebug $ sformat uselessFormat oldestHash newestHash reason
         CHsInvalid reason ->
@@ -190,8 +190,8 @@ workerHandle sendActions (peerId, headers) = do
 handleCHsValid
     :: forall ssc m.
        (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions m -> NodeId -> (BlockHeader ssc) -> HeaderHash -> m ()
-handleCHsValid sendActions peerId lcaChild newestHash = do
+    => m (Set NodeId) -> SendActions m -> NodeId -> (BlockHeader ssc) -> HeaderHash -> m ()
+handleCHsValid getPeers sendActions peerId lcaChild newestHash = do
     let lcaChildHash = headerHash lcaChild
     logDebug $ sformat validFormat lcaChildHash newestHash
     reifyMsgLimit (Proxy @(MsgBlock ssc)) $ \(_ :: Proxy s0) ->
@@ -207,12 +207,12 @@ handleCHsValid sendActions peerId lcaChild newestHash = do
                     ("Error retrieving blocks from "%shortHashF%
                      " to "%shortHashF%" from peer "%build%": "%stext)
                     lcaChildHash newestHash peerId e
-                dropRecoveryHeaderAndRepeat sendActions peerId
+                dropRecoveryHeaderAndRepeat getPeers sendActions peerId
             Right blocks -> do
                 logDebug $ sformat
                     ("retrievalWorker: retrieved blocks "%listJson)
                     (map (headerHash . view blockHeader) blocks)
-                handleBlocks peerId blocks sendActions
+                handleBlocks getPeers peerId blocks sendActions
                 dropUpdateHeader
                 -- If we've downloaded any block with bigger
                 -- difficulty than ncrecoveryheader, we're

@@ -15,7 +15,6 @@ import qualified Pos.Context                 as PC
 import           Pos.DB                      (MonadDB)
 import qualified Pos.DB.GState               as GS
 import           Pos.Delegation              (DelegationT (..))
-import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Slotting                (NtpSlotting, SlottingHolder)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp                     (TxOutAux (..), TxpHolder (..), Utxo,
@@ -38,7 +37,6 @@ class Monad m => MonadBalances m where
 
 instance MonadBalances m => MonadBalances (ReaderT r m)
 instance MonadBalances m => MonadBalances (StateT s m)
-instance MonadBalances m => MonadBalances (KademliaDHT m)
 instance MonadBalances m => MonadBalances (PeerStateHolder m)
 instance MonadBalances m => MonadBalances (NtpSlotting m)
 instance MonadBalances m => MonadBalances (SlottingHolder m)

@@ -19,7 +19,8 @@ import           Universum
 
 import           Pos.Binary.Communication   ()
 import           Pos.Communication.Protocol (ListenerSpec, OutSpecs, SendActions (..),
-                                             listenerOneMsg, mergeLs, oneMsgH, toOutSpecs)
+                                             listenerOneMsg, mergeLs, oneMsgH, toOutSpecs,
+                                             NodeId)
 import           Pos.Context                (getNodeContext, ncBlkSemaphore, ncNodeParams,
                                              npPropagation)
 import           Pos.Delegation.Logic       (ConfirmPskLightVerdict (..),
@@ -30,17 +31,18 @@ import           Pos.Delegation.Methods     (sendProxyConfirmSK, sendProxyConfir
                                              sendProxySKHeavy, sendProxySKHeavyOuts,
                                              sendProxySKLight, sendProxySKLightOuts)
 import           Pos.Delegation.Types       (ConfirmProxySK (..), SendProxySK (..))
-import           Pos.DHT.Model              (sendToNeighbors)
+import           Pos.Discovery              (sendToNeighbors)
 import           Pos.Types                  (ProxySKLight)
 import           Pos.WorkMode               (WorkMode)
 
 -- | Listeners for requests related to delegation processing.
 delegationListeners
     :: WorkMode ssc m
-    => ([ListenerSpec m], OutSpecs)
-delegationListeners = mergeLs
-    [ handleSendProxySK
-    , handleConfirmProxySK
+    => m (Set NodeId)
+    -> ([ListenerSpec m], OutSpecs)
+delegationListeners getPeers = mergeLs
+    [ handleSendProxySK getPeers
+    , handleConfirmProxySK getPeers
     --, handleCheckProxySKConfirmed
     ]
 
@@ -61,8 +63,9 @@ delegationStubListeners = mergeLs
 handleSendProxySK
     :: forall ssc m.
        (WorkMode ssc m)
-    => (ListenerSpec m, OutSpecs)
-handleSendProxySK = listenerOneMsg outSpecs $
+    => m (Set NodeId)
+    -> (ListenerSpec m, OutSpecs)
+handleSendProxySK getPeers = listenerOneMsg outSpecs $
     \_ _ sendActions (pr :: SendProxySK) -> handleDo sendActions pr
   where
     handleDo sendActions req@(SendProxySKHeavy pSk) = do
@@ -78,7 +81,7 @@ handleSendProxySK = listenerOneMsg outSpecs $
                handleDo sendActions req
            | verdict == PHAdded && doPropagate -> do
                logDebug $ sformat ("Propagating heavyweight PSK: "%build) pSk
-               sendProxySKHeavy pSk sendActions
+               sendProxySKHeavy getPeers pSk sendActions
            | otherwise -> pass
     handleDo sendActions (SendProxySKLight pSk) = do
         logDebug "Got request on handleGetHeaders"
@@ -110,8 +113,8 @@ handleSendProxySK = listenerOneMsg outSpecs $
     propagateProxySKLight PLUnrelated pSk sendActions =
         whenM (npPropagation . ncNodeParams <$> getNodeContext) $ do
             logDebug $ sformat ("Propagating lightweight PSK: "%build) pSk
-            sendProxySKLight pSk sendActions
-    propagateProxySKLight PLAdded pSk sendActions = sendProxyConfirmSK pSk sendActions
+            sendProxySKLight getPeers pSk sendActions
+    propagateProxySKLight PLAdded pSk sendActions = sendProxyConfirmSK getPeers pSk sendActions
     propagateProxySKLight _ _ _ = pass
 
 ----------------------------------------------------------------------------
@@ -121,28 +124,32 @@ handleSendProxySK = listenerOneMsg outSpecs $
 handleConfirmProxySK
     :: forall ssc m.
        (WorkMode ssc m)
-    => (ListenerSpec m, OutSpecs)
-handleConfirmProxySK = listenerOneMsg outSpecs $
+    => m (Set NodeId)
+    -> (ListenerSpec m, OutSpecs)
+handleConfirmProxySK getPeers = listenerOneMsg outSpecs $
     \_ _ sendActions ((o@(ConfirmProxySK pSk proof)) :: ConfirmProxySK) -> do
         logDebug $ sformat ("Got request to handle confirmation for psk: "%build) pSk
         verdict <- processConfirmProxySk pSk proof
-        propagateConfirmProxySK verdict o sendActions
+        propagateConfirmProxySK getPeers verdict o sendActions
   where
     outSpecs = toOutSpecs [oneMsgH (Proxy :: Proxy ConfirmProxySK)]
 
     propagateConfirmProxySK
         :: forall ssc1 m1. (WorkMode ssc1 m1)
-        => ConfirmPskLightVerdict
+        => m1 (Set NodeId)
+        -> ConfirmPskLightVerdict
         -> ConfirmProxySK
         -> SendActions m1
         -> m1 ()
-    propagateConfirmProxySK CPValid
+    propagateConfirmProxySK getPeers_
+                            CPValid
                             confPSK@(ConfirmProxySK pSk _)
                             sendActions = do
         whenM (npPropagation . ncNodeParams <$> getNodeContext) $ do
             logDebug $ sformat ("Propagating psk confirmation for psk: "%build) pSk
-            sendToNeighbors sendActions confPSK
-    propagateConfirmProxySK _ _ _ = pure ()
+            peers <- getPeers_
+            sendToNeighbors peers sendActions confPSK
+    propagateConfirmProxySK _ _ _ _ = pure ()
 
 --handleCheckProxySKConfirmed
 --    :: forall ssc m.

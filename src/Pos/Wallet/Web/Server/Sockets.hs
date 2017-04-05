@@ -39,7 +39,6 @@ import           Pos.Context                    (WithNodeContext)
 import           Pos.DB                         (MonadDB)
 import           Pos.DB.Limits                  (MonadDBLimits)
 import           Pos.Delegation.Class           (MonadDelegation)
-import           Pos.DHT.Model                  (MonadDHT)
 import           Pos.Reporting.MemState         (MonadReportingMem)
 import           Pos.Slotting                   (MonadSlots, MonadSlotsData)
 import           Pos.Txp                        (MonadTxpMem)
@@ -107,7 +106,7 @@ newtype WalletWebSockets m a = WalletWebSockets
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
                 MonadWalletDB, MonadDBLimits, WithWalletContext,
-                MonadDHT, MonadSlots, MonadSlotsData,
+                MonadSlots, MonadSlotsData,
                 CanLog, MonadKeys, MonadBalances, MonadUpdates,
                 MonadTxHistory, MonadBlockchainInfo, WithNodeContext ssc, WithPeerState,
                 MonadDB, MonadTxpMem x, MonadWalletWebDB, MonadDelegation,

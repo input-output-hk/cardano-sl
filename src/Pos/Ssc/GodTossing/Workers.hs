@@ -30,7 +30,7 @@ import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.Message        (MessagePart)
 import           Pos.Communication.Protocol       (OutSpecs, SendActions, Worker',
                                                    WorkerSpec, convH, onNewSlotWorker,
-                                                   toOutSpecs)
+                                                   toOutSpecs, NodeId)
 import           Pos.Communication.Relay          (DataMsg, InvOrData, ReqMsg,
                                                    invReqDataFlowNeighbors)
 import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
@@ -78,15 +78,16 @@ import           Pos.Util                         (getKeys, inAssertMode)
 import           Pos.WorkMode                     (WorkMode)
 
 instance SscWorkersClass SscGodTossing where
-    sscWorkers = Tagged $ first pure onNewSlotSsc
+    sscWorkers getPeers = Tagged $ first pure (onNewSlotSsc getPeers)
     sscLrcConsumers = Tagged [gtLrcConsumer]
 
 -- CHECK: @onNewSlotSsc
 -- #checkNSendOurCert
 onNewSlotSsc
     :: (WorkMode SscGodTossing m)
-    => (WorkerSpec m, OutSpecs)
-onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions -> do
+    => m (Set NodeId)
+    -> (WorkerSpec m, OutSpecs)
+onNewSlotSsc getPeers = onNewSlotWorker True outs $ \slotId sendActions -> do
     richmen <- lrcActionOnEpochReason (siEpoch slotId)
         "couldn't get SSC richmen"
         getRichmenSsc
@@ -98,10 +99,10 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions -> do
     when (participationEnabled && not enoughStake) $
         logDebug "Not enough stake to participate in MPC"
     when (participationEnabled && enoughStake) $ do
-        checkNSendOurCert sendActions
-        onNewSlotCommitment slotId sendActions
-        onNewSlotOpening slotId sendActions
-        onNewSlotShares slotId sendActions
+        checkNSendOurCert getPeers sendActions
+        onNewSlotCommitment getPeers slotId sendActions
+        onNewSlotOpening getPeers slotId sendActions
+        onNewSlotShares getPeers slotId sendActions
   where
     outs = toOutSpecs [ convH (Proxy :: Proxy (InvOrData GtTag StakeholderId GtMsgContents))
                               (Proxy :: Proxy (ReqMsg StakeholderId GtTag))
@@ -109,8 +110,8 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions -> do
 
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
-checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => Worker' m
-checkNSendOurCert sendActions = do
+checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => m (Set NodeId) -> Worker' m
+checkNSendOurCert getPeers sendActions = do
     (_, ourId) <- getOurPkAndId
     let sendCert resend slot = do
             if resend then
@@ -122,7 +123,7 @@ checkNSendOurCert sendActions = do
             ourVssCertificate <- getOurVssCertificate slot
             let contents = MCVssCertificate ourVssCertificate
             sscProcessOurMessage contents
-            invReqDataFlowNeighbors "ssc" sendActions VssCertificateMsg ourId contents
+            invReqDataFlowNeighbors getPeers "ssc" sendActions VssCertificateMsg ourId contents
             logDebug "Announced our VssCertificate."
 
     slMaybe <- getCurrentSlot
@@ -171,8 +172,8 @@ getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
     :: (WorkMode SscGodTossing m)
-    => SlotId -> Worker' m
-onNewSlotCommitment slotId@SlotId {..} sendActions
+    => m (Set NodeId) -> SlotId -> Worker' m
+onNewSlotCommitment getPeers slotId@SlotId {..} sendActions
     | not (isCommitmentIdx siSlot) = pass
     | otherwise = do
         ourId <- addressHash . ncPublicKey <$> getNodeContext
@@ -200,13 +201,13 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
     sendOurCommitment comm ourId = do
         let msg = MCCommitment comm
         sscProcessOurMessage msg
-        sendOurData sendActions CommitmentMsg ourId msg siEpoch 0
+        sendOurData getPeers sendActions CommitmentMsg ourId msg siEpoch 0
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
     :: WorkMode SscGodTossing m
-    => SlotId -> Worker' m
-onNewSlotOpening SlotId {..} sendActions
+    => m (Set NodeId) -> SlotId -> Worker' m
+onNewSlotOpening getPeers SlotId {..} sendActions
     | not $ isOpeningIdx siSlot = pass
     | otherwise = do
         ourId <- addressHash . ncPublicKey <$> getNodeContext
@@ -224,14 +225,14 @@ onNewSlotOpening SlotId {..} sendActions
             Just open -> do
                 let msg = MCOpening ourId open
                 sscProcessOurMessage msg
-                sendOurData sendActions OpeningMsg ourId msg siEpoch 2
+                sendOurData getPeers sendActions OpeningMsg ourId msg siEpoch 2
             Nothing -> logWarning "We don't know our opening, maybe we started recently"
 
 -- Shares-related part of new slot processing
 onNewSlotShares
     :: (WorkMode SscGodTossing m)
-    => SlotId -> Worker' m
-onNewSlotShares SlotId {..} sendActions = do
+    => m (Set NodeId) -> SlotId -> Worker' m
+onNewSlotShares getPeers SlotId {..} sendActions = do
     ourId <- addressHash . ncPublicKey <$> getNodeContext
     -- Send decrypted shares that others have sent us
     shouldSendShares <- do
@@ -244,7 +245,7 @@ onNewSlotShares SlotId {..} sendActions = do
         unless (HM.null shares) $ do
             let msg = MCShares ourId lShares
             sscProcessOurMessage msg
-            sendOurData sendActions SharesMsg ourId msg siEpoch 4
+            sendOurData getPeers sendActions SharesMsg ourId msg siEpoch 4
 
 sscProcessOurMessage
     :: WorkMode SscGodTossing m
@@ -264,14 +265,21 @@ sendOurData ::
     ( WorkMode SscGodTossing m
     , MessagePart contents
     , Bi (DataMsg contents))
-    => SendActions m -> GtTag -> StakeholderId -> contents -> EpochIndex -> LocalSlotIndex -> m ()
-sendOurData sendActions msgTag ourId dt epoch slMultiplier = do
+    => m (Set NodeId)
+    -> SendActions m
+    -> GtTag
+    -> StakeholderId
+    -> contents
+    -> EpochIndex
+    -> LocalSlotIndex
+    -> m ()
+sendOurData getPeers sendActions msgTag ourId dt epoch slMultiplier = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one
     -- type of message.
     waitUntilSend msgTag epoch slMultiplier
     logInfo $ sformat ("Announcing our "%build) msgTag
-    invReqDataFlowNeighbors "ssc" sendActions msgTag ourId dt
+    invReqDataFlowNeighbors getPeers "ssc" sendActions msgTag ourId dt
     logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
 
 -- Generate new commitment and opening and use them for the current

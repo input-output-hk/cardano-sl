@@ -2,12 +2,14 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.DHT.Real.Real
-       ( runKademliaDHT
+       ( foreverRejoinNetwork
+       , K.lookupNode
+       , kademliaGetKnownPeers
        , startDHTInstance
        , stopDHTInstance
        ) where
 
-import           Universum                 hiding (bracket, catchAll)
+import           Universum                 hiding (bracket, catchAll, catch)
 
 import           Control.Concurrent.STM    (newTVar, readTVar, writeTVar)
 import           Data.Binary               (decode)
@@ -18,23 +20,22 @@ import           Data.List                 (intersect, (\\))
 import           Formatting                (build, int, sformat, shown, (%))
 import           Mockable                  (Async, Catch, Mockable, MonadMockable,
                                             Promise, Throw, bracket, catchAll, fork,
-                                            killThread, throw, waitAnyUnexceptional)
+                                            killThread, throw, waitAnyUnexceptional,
+                                            catch)
 import qualified Network.Kademlia          as K
 import           Serokell.Util             (ms, sec)
 import           System.Directory          (doesFileExist)
 import           System.Wlog               (WithLogger, logDebug, logError, logInfo,
-                                            logWarning, usingLoggerName)
+                                            logWarning, usingLoggerName,
+                                            HasLoggerName (modifyLoggerName))
 
 import           Pos.Binary.Class          (Bi (..))
 import           Pos.Binary.Infra.DHTModel ()
 import           Pos.DHT.Constants         (enhancedMessageBroadcast,
                                             neighborsSendThreshold)
-import           Pos.DHT.Model.Class       (DHTException (..), MonadDHT (..),
-                                            withDhtLogger)
-import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..), randomDHTKey)
-import           Pos.DHT.Model.Util        (joinNetworkNoThrow)
-import           Pos.DHT.Real.Types        (DHTHandle, KademliaDHT (..),
-                                            KademliaDHTInstance (..),
+import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..), randomDHTKey,
+                                            DHTException (..))
+import           Pos.DHT.Real.Types        (KademliaDHTInstance (..),
                                             KademliaDHTInstanceConfig (..))
 import           Pos.Util.TimeLimit        (runWithRandomIntervals')
 import           Pos.Util.TimeWarp         (NetworkAddress)
@@ -42,18 +43,21 @@ import           Pos.Util.TimeWarp         (NetworkAddress)
 kademliaConfig :: K.KademliaConfig
 kademliaConfig = K.defaultConfig { K.k = 16 }
 
--- | Run KademliaDHT
-runKademliaDHT
+foreverRejoinNetwork
     :: ( MonadMockable m
        , Eq (Promise m (Maybe ()))
        , MonadIO m
        , WithLogger m
        )
-    => KademliaDHTInstance -> KademliaDHT m a -> m a
-runKademliaDHT inst action = runReaderT (unKademliaDHT action') inst
+    => KademliaDHTInstance
+    -> m a
+    -> m a
+foreverRejoinNetwork inst action = action'
   where
+    -- TODO this is not correct. `killThread` is interruptible, so the
+    -- network rejoin could be left running.
     action' = bracket spawnR killThread (const action)
-    spawnR = fork $ runWithRandomIntervals' (ms 500) (sec 5) rejoinNetwork
+    spawnR = fork $ runWithRandomIntervals' (ms 500) (sec 5) (rejoinNetwork inst)
 
 -- | Stop chosen 'KademliaDHTInstance'.
 stopDHTInstance
@@ -91,6 +95,7 @@ startDHTInstance kconf@KademliaDHTInstanceConfig {..} = do
     let kdiInitialPeers = kdcInitialPeers
     let kdiExplicitInitial = kdcExplicitInitial
     kdiKnownPeersCache <- atomically $ newTVar []
+    let kdiDumpPath = kdcDumpPath
     pure $ KademliaDHTInstance {..}
   where
     catchErrorsHandler e = do
@@ -115,17 +120,24 @@ rejoinNetwork
        , Bi DHTData
        , Bi DHTKey
        )
-    => KademliaDHT m ()
-rejoinNetwork = withDhtLogger $ do
-    init <- KademliaDHT $ asks kdiInitialPeers
-    peers <- getKnownPeers
+    => KademliaDHTInstance
+    -> m ()
+rejoinNetwork inst = withKademliaLogger $ do
+    let init = kdiInitialPeers inst
+    peers <- kademliaGetKnownPeers inst
     logDebug $ sformat ("rejoinNetwork: peers " % build) peers
     when (length peers < neighborsSendThreshold) $ do
       logWarning $ sformat ("Not enough peers: "%int%", threshold is "%int)
                            (length peers) (neighborsSendThreshold :: Int)
-      joinNetworkNoThrow init
+      kademliaJoinNetworkNoThrow inst init
 
-getKnownPeersImpl
+withKademliaLogger
+    :: ( HasLoggerName m )
+    => m a
+    -> m a
+withKademliaLogger action = modifyLoggerName (<> "kademlia") action
+
+kademliaGetKnownPeers
     :: ( MonadIO m
        , Mockable Async m
        , Mockable Catch m
@@ -135,27 +147,27 @@ getKnownPeersImpl
        , Bi DHTData
        , Bi DHTKey
        )
-    => KademliaDHT m [DHTNode]
-getKnownPeersImpl = do
-    myId <- currentNodeKey
-    (inst, initialPeers, explicitInitial) <-
-        KademliaDHT $
-        (,,) <$> ask <*> asks kdiInitialPeers <*> asks kdiExplicitInitial
+    => KademliaDHTInstance
+    -> m [DHTNode]
+kademliaGetKnownPeers inst = do
+    let myId = kdiKey inst
+    let initialPeers = kdiInitialPeers inst
+    let explicitInitial = kdiExplicitInitial inst
     peers <- liftIO $ K.dumpPeers $ kdiHandle inst
     let initPeers = bool [] initialPeers explicitInitial
     filter ((/= myId) . dhtNodeId) <$> extendPeers inst myId initPeers peers
   where
-    extendPeers inst myId initial peers =
+    extendPeers inst_ myId initial peers =
         map snd .
         HM.toList .
         HM.delete myId .
         flip (foldr $ \n -> HM.insert (dhtNodeId n) n) initial .
         HM.fromList . map (\(toDHTNode -> n) -> (dhtNodeId n, n)) <$>
-        (updateCache inst =<< selectSufficientNodes inst myId peers)
-    selectSufficientNodes inst myId l =
+        (updateCache inst_ =<< selectSufficientNodes inst_ myId peers)
+    selectSufficientNodes inst_ myId l =
         if enhancedMessageBroadcast /= (0 :: Int)
-            then concatMapM (getPeersFromBucket enhancedMessageBroadcast inst)
-                     (splitToBuckets (kdiHandle inst) myId l)
+            then concatMapM (getPeersFromBucket enhancedMessageBroadcast inst_)
+                     (splitToBuckets (kdiHandle inst_) myId l)
             else return l
     bucketIndex origin x =
         length . takeWhile (== False) <$> K.distance origin (K.nodeId x)
@@ -165,43 +177,16 @@ getKnownPeersImpl = do
     splitToBuckets kInst origin peers =
         flip K.usingKademliaInstance kInst $
         HM.elems <$> foldrM (insertId origin) HM.empty peers
-    getPeersFromBucket p inst bucket = do
-        cache <- atomically $ readTVar $ kdiKnownPeersCache inst
+    getPeersFromBucket p inst_ bucket = do
+        cache <- atomically $ readTVar $ kdiKnownPeersCache inst_
         let fromCache = tryTake p $ intersect cache bucket
         return $ fromCache ++ tryTake (p - length fromCache) (bucket \\ cache)
     tryTake x l
         | length l < x = l
         | otherwise = take x l
-    updateCache inst peers = do
-        atomically $ writeTVar (kdiKnownPeersCache inst) peers
+    updateCache inst_ peers = do
+        atomically $ writeTVar (kdiKnownPeersCache inst_) peers
         return peers
-
-instance ( MonadIO m
-         , Mockable Async m
-         , Mockable Catch m
-         , Mockable Throw m
-         , Eq (Promise m (Maybe ()))
-         , WithLogger m
-         , Bi DHTData
-         , Bi DHTKey
-         ) =>
-         MonadDHT (KademliaDHT m) where
-    joinNetwork [] = throw AllPeersUnavailable
-    joinNetwork nodes = do
-        inst <- KademliaDHT $ asks kdiHandle
-        KademliaDHT $
-            waitAnyUnexceptional (map (joinNetwork' inst) nodes) >>= handleRes
-      where
-        handleRes (Just _) = pure ()
-        handleRes _        = throw AllPeersUnavailable
-    discoverPeers = do
-        inst <- KademliaDHT $ asks kdiHandle
-        _ <- liftIO $ K.lookupNode inst =<< randomDHTKey
-        getKnownPeers
-    getKnownPeers = getKnownPeersImpl
-    currentNodeKey = KademliaDHT $ asks kdiKey
-    dhtLoggerName _ = "kademlia"
-
 
 toDHTNode :: K.Node DHTKey -> DHTNode
 toDHTNode n = DHTNode (fromKPeer . K.peer $ n) $ K.nodeId n
@@ -212,12 +197,37 @@ fromKPeer K.Peer{..} = (encodeUtf8 peerHost, fromIntegral peerPort)
 toKPeer :: NetworkAddress -> K.Peer
 toKPeer (peerHost, peerPort) = K.Peer (decodeUtf8 peerHost) (fromIntegral peerPort)
 
-joinNetwork'
-    :: (MonadIO m, Mockable Throw m, WithLogger m, Bi DHTKey, Bi DHTData)
-    => DHTHandle -> DHTNode -> m ()
-joinNetwork' inst node = do
+kademliaJoinNetwork
+    :: ( MonadIO m
+       , Mockable Catch m
+       , Mockable Throw m
+       , Mockable Async m
+       , Eq (Promise m (Maybe ()))
+       , WithLogger m
+       , Bi DHTKey
+       , Bi DHTData
+       )
+    => KademliaDHTInstance
+    -> [DHTNode]
+    -> m ()
+kademliaJoinNetwork _ [] = throw AllPeersUnavailable
+kademliaJoinNetwork inst nodes =
+    waitAnyUnexceptional (map (kademliaJoinNetwork' inst) nodes) >>= handleRes
+    where
+    handleRes (Just _) = pure ()
+    handleRes _        = throw AllPeersUnavailable
+
+kademliaJoinNetwork'
+    :: ( MonadIO m
+       , Mockable Throw m
+       , WithLogger m
+       , Bi DHTKey
+       , Bi DHTData
+       )
+    => KademliaDHTInstance -> DHTNode -> m ()
+kademliaJoinNetwork' inst node = do
     let node' = K.Node (toKPeer $ dhtAddr node) (dhtNodeId node)
-    res <- liftIO $ K.joinNetwork inst node'
+    res <- liftIO $ K.joinNetwork (kdiHandle inst) node'
     case res of
         K.JoinSuccess -> pure ()
         K.NodeDown -> throw NodeDown
@@ -227,3 +237,22 @@ joinNetwork' inst node = do
         K.IDClash ->
             logInfo $
             sformat ("joinNetwork: node " % build % " already contains us") node
+
+kademliaJoinNetworkNoThrow
+    :: ( MonadIO m
+       , Mockable Catch m
+       , Mockable Throw m
+       , Mockable Async m
+       , Eq (Promise m (Maybe ()))
+       , WithLogger m
+       , Bi DHTKey
+       , Bi DHTData
+       )
+    => KademliaDHTInstance
+    -> [DHTNode]
+    -> m ()
+kademliaJoinNetworkNoThrow inst peers = kademliaJoinNetwork inst peers `catch` handleJoinE
+    where
+    handleJoinE AllPeersUnavailable =
+        logWarning $ sformat ("Not connected to any of peers " % build) peers
+    handleJoinE e = throw e

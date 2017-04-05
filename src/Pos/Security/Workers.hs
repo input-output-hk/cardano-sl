@@ -19,7 +19,7 @@ import           Pos.Binary.Ssc             ()
 import           Pos.Block.Network          (needRecovery, requestTipOuts,
                                              triggerRecovery)
 import           Pos.Communication.Protocol (OutSpecs, SendActions, WorkerSpec,
-                                             localWorker, worker)
+                                             localWorker, worker, NodeId)
 import           Pos.Constants              (blkSecurityParam, mdNoBlocksSlotThreshold,
                                              mdNoCommitmentsEpochThreshold)
 import           Pos.Context                (getNodeContext, getUptime, isRecoveryMode,
@@ -49,20 +49,20 @@ import           Pos.WorkMode               (WorkMode)
 
 
 instance SecurityWorkersClass SscGodTossing where
-    securityWorkers =
+    securityWorkers getPeers =
         Tagged $
-        merge [checkForReceivedBlocksWorker, checkForIgnoredCommitmentsWorker]
+        merge [checkForReceivedBlocksWorker getPeers, checkForIgnoredCommitmentsWorker]
       where
         merge = mconcatPair . map (first pure)
 
 instance SecurityWorkersClass SscNistBeacon where
-    securityWorkers = Tagged $ first pure checkForReceivedBlocksWorker
+    securityWorkers getPeers = Tagged $ first pure (checkForReceivedBlocksWorker getPeers)
 
 checkForReceivedBlocksWorker ::
     (SscWorkersClass ssc, WorkMode ssc m)
-    => (WorkerSpec m, OutSpecs)
-checkForReceivedBlocksWorker =
-    worker requestTipOuts checkForReceivedBlocksWorkerImpl
+    => m (Set NodeId) -> (WorkerSpec m, OutSpecs)
+checkForReceivedBlocksWorker getPeers =
+    worker requestTipOuts (checkForReceivedBlocksWorkerImpl getPeers)
 
 checkEclipsed
     :: (SscHelpersClass ssc, MonadDB m)
@@ -103,11 +103,11 @@ checkEclipsed ourPk slotId x = notEclipsed x
 checkForReceivedBlocksWorkerImpl
     :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions m -> m ()
-checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
+    => m (Set NodeId) -> SendActions m -> m ()
+checkForReceivedBlocksWorkerImpl getPeers sendActions = afterDelay $ do
     repeatOnInterval (const (sec' 4)) . reportingFatal version $
         whenM (needRecovery $ Proxy @ssc) $
-            triggerRecovery sendActions
+            triggerRecovery getPeers sendActions
     repeatOnInterval (min (sec' 20)) . reportingFatal version $ do
         ourPk <- ncPublicKey <$> getNodeContext
         let onSlotDefault slotId = do

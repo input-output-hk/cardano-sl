@@ -33,7 +33,6 @@ import           Universum
 
 import           Pos.Core.Slotting      (flattenSlotId)
 import           Pos.Core.Types         (FlatSlotId, SlotId (..), Timestamp (..), slotIdF)
-import           Pos.DHT.Model.Class    (MonadDHT)
 import           Pos.Exception          (CardanoException)
 import           Pos.Reporting.MemState (MonadReportingMem)
 import           Pos.Reporting.Methods  (reportMisbehaviourMasked, reportingFatal)
@@ -80,7 +79,6 @@ type OnNewSlot m =
     ( MonadIO m
     , MonadSlots m
     , MonadMask m
-    , MonadDHT m
     , WithLogger m
     , Mockable Fork m
     , Mockable Delay m

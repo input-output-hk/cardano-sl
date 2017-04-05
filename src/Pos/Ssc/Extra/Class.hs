@@ -11,7 +11,6 @@ import           Control.Monad.Except (ExceptT)
 import           Control.Monad.Trans  (MonadTrans)
 import           Universum
 
-import           Pos.DHT.Real         (KademliaDHT)
 import           Pos.Ssc.Extra.Types  (SscState)
 
 class Monad m =>
@@ -24,4 +23,3 @@ class Monad m =>
 instance (MonadSscMem ssc m) => MonadSscMem ssc (ReaderT x m)
 instance (MonadSscMem ssc m) => MonadSscMem ssc (StateT x m)
 instance (MonadSscMem ssc m) => MonadSscMem ssc (ExceptT x m)
-instance (MonadSscMem ssc m) => MonadSscMem ssc (KademliaDHT m)

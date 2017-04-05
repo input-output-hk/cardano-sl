@@ -21,12 +21,11 @@ import           Pos.Client.Txp.Balances    (MonadBalances (..))
 import           Pos.Client.Txp.History     (MonadTxHistory (..))
 import           Pos.Client.Txp.Util        (TxError, createRedemptionTx, createTx)
 import           Pos.Communication.Methods  (sendTx)
-import           Pos.Communication.Protocol (SendActions)
+import           Pos.Communication.Protocol (SendActions, NodeId)
 import           Pos.Communication.Specs    (sendTxOuts)
 import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
                                              redeemToPublic, safeToPublic)
 import           Pos.DB.Limits              (MonadDBLimits)
-import           Pos.DHT.Model              (DHTNode)
 import           Pos.Txp.Core               (TxAux, TxOut (..), TxOutAux (..), txaF)
 import           Pos.Types                  (Address, makePubKeyAddress,
                                              makeRedeemAddress, mkCoin, unsafeAddCoin)
@@ -43,7 +42,7 @@ type TxMode ssc m
 
 submitAndSave
     :: TxMode ssc m
-    => SendActions m -> [DHTNode] -> TxAux -> ExceptT TxError m TxAux
+    => SendActions m -> [NodeId] -> TxAux -> ExceptT TxError m TxAux
 submitAndSave sendActions na txw = do
     let txId = hash (txw ^. _1)
     lift $ submitTxRaw sendActions na txw
@@ -55,7 +54,7 @@ submitTx
     :: TxMode ssc m
     => SendActions m
     -> SafeSigner
-    -> [DHTNode]
+    -> [NodeId]
     -> NonEmpty TxOutAux
     -> m (Either TxError TxAux)
 submitTx sendActions ss na outputs = do
@@ -69,7 +68,7 @@ submitRedemptionTx
     :: TxMode ssc m
     => SendActions m
     -> RedeemSecretKey
-    -> [DHTNode]
+    -> [NodeId]
     -> Address
     -> m (Either TxError TxAux)
 submitRedemptionTx sendActions rsk na output = do
@@ -86,7 +85,7 @@ submitRedemptionTx sendActions rsk na output = do
 -- | Send the ready-to-use transaction
 submitTxRaw
     :: (MinWorkMode m, MonadDBLimits m)
-    => SendActions m -> [DHTNode] -> TxAux -> m ()
+    => SendActions m -> [NodeId] -> TxAux -> m ()
 submitTxRaw sa na tx = do
     let txId = hash (tx ^. _1)
     logInfo $ sformat ("Submitting transaction: "%txaF) tx

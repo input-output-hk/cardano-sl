@@ -476,7 +476,7 @@ relayBlock sendActions (Right mainBlk) = do
     isRecoveryMode >>= \case
         True -> logDebug "Not relaying block in recovery mode"
         False -> do
-            logDebug $ sformat ("Calling announceBlock for "%shown%".") (mainBlk ^. gbHeader)
+            logDebug $ sformat ("Calling announceBlock for "%build%".") (mainBlk ^. gbHeader)
             void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------

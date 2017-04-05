@@ -7,6 +7,12 @@ module Pos.Txp.Worker
 
 import           Universum
 
+import           Pos.Communication (OutSpecs, WorkerSpec)
+import           Pos.Ssc.Class     (SscWorkersClass)
+import           Pos.Util          (mconcatPair)
+import           Pos.WorkMode      (WorkMode)
+
+#ifdef WITH_WALLET
 import           Data.IORef        (newIORef, readIORef, writeIORef)
 import           Data.Time.Units   (Second, convertUnit)
 import           Formatting        (build, int, sformat, shown, (%))
@@ -15,18 +21,15 @@ import           Serokell.Util     (listJson)
 import           System.Wlog       (logDebug, logInfo, logWarning)
 
 import           Pos.Communication (ConversationActions (..), InvMsg (..), InvOrData,
-                                    MempoolMsg (..), OutSpecs,
-                                    RelayError (UnexpectedData), RelayProxy (..),
-                                    ReqMsg (..), SendActions, SmartLimit, TxMsgContents,
-                                    TxMsgTag (..), WorkerSpec, convH, expectData,
+                                    MempoolMsg (..), RelayError (UnexpectedData),
+                                    RelayProxy (..), ReqMsg (..), SendActions, SmartLimit,
+                                    TxMsgContents, TxMsgTag (..), convH, expectData,
                                     handleDataL, handleInvL, reifyMsgLimit, toOutSpecs,
                                     withLimitedLength, worker)
 import           Pos.DHT           (DHTNode, converseToNode, getKnownPeers)
 import           Pos.Slotting      (getLastKnownSlotDuration)
-import           Pos.Ssc.Class     (SscWorkersClass)
 import           Pos.Txp.Core      (TxId)
-import           Pos.Util          (mconcatPair)
-import           Pos.WorkMode      (WorkMode)
+#endif
 
 -- | All workers specific to transaction processing.
 txpWorkers

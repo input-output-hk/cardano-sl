@@ -233,8 +233,6 @@ sendReport logFiles rawLogs reportType appName appVersion reportServerUri = do
              payloadPart : (memlogPart ++ pathsPart)
         whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError (show e')
   where
-    withSystemTempFiles :: [String] -> (FilePath -> Handle -> IO ()) -> IO ()
-    withSystemTempFiles n format = undefined
     partFile' fp = partFile (toFileName fp) fp
     toFileName = toText . takeFileName
     reportInfo curTime files =

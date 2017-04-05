@@ -14,12 +14,15 @@ module Pos.Txp.Toil.Class
        , MonadTxPool (..)
        ) where
 
+import           Control.Lens              (at, (.=))
+import qualified Control.Monad.Ether       as Ether
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Universum
 
 import           Pos.Core                  (Coin, StakeholderId)
 import           Pos.Txp.Core.Types        (TxAux, TxId, TxIn, TxOutAux, TxUndo)
-import           Pos.Txp.Toil.Types        (ToilEnv)
+import           Pos.Txp.Toil.Types        (ToilEnv, Utxo)
+import           Pos.Util                  (ether)
 
 ----------------------------------------------------------------------------
 -- MonadUtxo
@@ -32,7 +35,12 @@ class Monad m => MonadUtxoRead m where
 
 instance MonadUtxoRead m => MonadUtxoRead (ReaderT a m) where
 instance MonadUtxoRead m => MonadUtxoRead (ExceptT e m) where
-instance MonadUtxoRead m => MonadUtxoRead (StateT e m) where
+instance MonadUtxoRead m => MonadUtxoRead (StateT s m) where
+instance MonadUtxoRead m => MonadUtxoRead (Ether.StateT t s m) where
+
+instance {-# OVERLAPPING #-} Monad m =>
+  MonadUtxoRead (Ether.StateT Utxo Utxo m) where
+    utxoGet id = Ether.tagAttach (Proxy @Utxo) $ use (at id)
 
 class MonadUtxoRead m => MonadUtxo m where
     utxoPut :: TxIn -> TxOutAux -> m ()
@@ -45,6 +53,12 @@ class MonadUtxoRead m => MonadUtxo m where
 instance MonadUtxo m => MonadUtxo (ReaderT e m) where
 instance MonadUtxo m => MonadUtxo (ExceptT e m) where
 instance MonadUtxo m => MonadUtxo (StateT e m) where
+instance MonadUtxo m => MonadUtxo (Ether.StateT t e m) where
+
+instance {-# OVERLAPPING #-} Monad m =>
+  MonadUtxo (Ether.StateT Utxo Utxo m) where
+    utxoPut id v = ether $ at id .= Just v
+    utxoDel id = ether $ at id .= Nothing
 
 ----------------------------------------------------------------------------
 -- MonadBalances

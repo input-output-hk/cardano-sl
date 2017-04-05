@@ -61,7 +61,7 @@ import           Pos.Txp                     (MonadUtxoRead, Tx (..), TxAux,
                                               utxoGet)
 import           Pos.Types                   (Address, Block, ChainDifficulty, HeaderHash,
                                               blockTxas, difficultyL, prevBlockL)
-import           Pos.Util                    (maybeThrow)
+import           Pos.Util                    (ether, maybeThrow)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -125,7 +125,7 @@ getRelatedTxs addr txs = fmap DL.toList $
 
     handleRelatedTx (isOutgoing, isToItself) (tx, txId, dist) = do
         applyTxToUtxo (WithHash tx txId) dist
-        identity %= filterUtxoByAddr addr
+        ether $ identity %= filterUtxoByAddr addr
 
         -- Workaround to present A to A transactions as a pair of
         -- self-cancelling transactions in history
@@ -141,8 +141,9 @@ getRelatedTxs addr txs = fmap DL.toList $
 deriveAddrHistory
     -- :: (Monad m, Ssc ssc) => Address -> [Block ssc] -> TxSelectorT m [TxHistoryEntry]
     :: (Monad m) => Address -> [Block ssc] -> TxSelectorT m [TxHistoryEntry]
-deriveAddrHistory addr chain = identity %= filterUtxoByAddr addr >>
-                               deriveAddrHistoryPartial [] addr chain
+deriveAddrHistory addr chain = do
+    ether $ identity %= filterUtxoByAddr addr
+    deriveAddrHistoryPartial [] addr chain
 
 deriveAddrHistoryPartial
     :: (Monad m)

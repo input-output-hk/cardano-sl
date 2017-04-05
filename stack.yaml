@@ -81,8 +81,7 @@ extra-deps:
 - base58-bytestring-0.1.0
 #- log-warper-1.0.4               # 1.1.0 is not in hackage yet
 - concurrent-extra-0.7.0.10       # not yet in lts-8
-- derive-2.5.26                   # not yet in lts-8
-- haskell-src-exts-1.17.1         # derive has not moved to 1.18 yet
+- derive-2.6.2
 - purescript-bridge-0.8.0.1
 - cryptonite-0.22
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8

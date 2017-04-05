@@ -7,7 +7,7 @@ import           Data.Maybe            (fromJust)
 import           Mockable              (Production)
 import           Node                  (hoistSendActions)
 import           Serokell.Util         (sec)
-import           System.Wlog           (LoggerName, logInfo)
+import           System.Wlog           (LoggerName, WithLogger, logInfo)
 import           Universum
 
 import           Pos.Binary            ()
@@ -188,7 +188,9 @@ processUserSecret args@Args {..} userSecret = case backupPhrase of
   where
     keyFromPhraseFailed msg = fail $ "Key creation from phrase failed: " <> show msg
 
-getNodeParams :: (MonadIO m, MonadFail m, MonadThrow m) => Args -> Timestamp -> m NodeParams
+getNodeParams
+    :: (MonadIO m, MonadFail m, MonadThrow m, WithLogger m)
+    => Args -> Timestamp -> m NodeParams
 getNodeParams args@Args {..} systemStart = do
     (primarySK, userSecret) <-
         userSecretWithGenesisKey args =<<

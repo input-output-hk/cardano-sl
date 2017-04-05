@@ -21,7 +21,7 @@ module Pos.Communication.Limits
     ) where
 
 import           Control.Lens                       (each)
-import           Crypto.Hash                        (Blake2s_224, Blake2s_256)
+import           Crypto.Hash                        (Blake2b_224, Blake2b_256)
 import qualified Crypto.PVSS                        as PVSS
 import           GHC.Exts                           (IsList (..))
 import qualified Test.QuickCheck                    as T
@@ -172,10 +172,10 @@ instance MessageLimitedPure PVSS.Commitment where
 instance MessageLimitedPure PVSS.ExtraGen where
     msgLenLimit = 33
 
-instance MessageLimitedPure (AbstractHash Blake2s_224 a) where
+instance MessageLimitedPure (AbstractHash Blake2b_224 a) where
     msgLenLimit = 28
 
-instance MessageLimitedPure (AbstractHash Blake2s_256 a) where
+instance MessageLimitedPure (AbstractHash Blake2b_256 a) where
     msgLenLimit = 32
 
 -- instance MessageLimitedPure Word32 where

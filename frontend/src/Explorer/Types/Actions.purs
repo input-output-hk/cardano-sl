@@ -6,10 +6,12 @@ import           DOM.HTML.Types               (HTMLInputElement)
 import           Explorer.I18n.Lang           (Language)
 import           Explorer.Routes              (Route)
 import           Explorer.Types.State         (CBlockEntries, CTxBriefs, CTxEntries,
-                                               DashboardAPICode, SocketSubscription)
+                                               DashboardAPICode, SocketSubscription, Search)
 import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary,
                                                CHash, CTxId, CTxSummary)
 import           Signal.Channel               (Channel)
+import           Data.Maybe (Maybe)
+import           Pos.Core.Types (EpochIndex(..), LocalSlotIndex(..))
 
 data Action
     = SetLanguage Language
@@ -43,12 +45,17 @@ data Action
     | ReceiveTxSummary (Either Error CTxSummary)
     | RequestAddressSummary CAddress
     | ReceiveAddressSummary (Either Error CAddressSummary)
+    | RequestEpochSlot EpochIndex (Maybe LocalSlotIndex)
+    | ReceiveEpochSlot (Either Error CBlockEntries)
+    -- search
+    | DashboardSearch                       -- dasboard search
+    | UpdateSelectedSearch Search
+    | UpdateSearchText String
     -- dashboard
     | DashboardExpandBlocks Boolean         -- toggle blocks
     | DashboardPaginateBlocks Int           -- current pagination of blocks
     | DashboardExpandTransactions Boolean   -- dashboard transactions
     | DashboardShowAPICode DashboardAPICode -- dashboard api
-    | DashboardSearch                       -- dasboard search
     | DashboardFocusSearchInput Boolean
     -- address detail
     | AddressPaginateTxs Int       -- current pagination of transactions

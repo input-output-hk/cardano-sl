@@ -5,6 +5,7 @@ import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
 import Explorer.View.Address (addressView)
 import Explorer.View.Block (blockView)
+import Explorer.View.Blocks (blocksView)
 import Explorer.View.Calculator (calculatorView)
 import Explorer.View.Dashboard.Dashboard (dashboardView)
 import Explorer.View.Footer (footerView)
@@ -31,6 +32,8 @@ view state =
                           Dashboard -> dashboardView state
                           (Tx id) -> transactionView state
                           (Address address) -> addressView state
+                          (Epoch epoch) -> blocksView state
+                          (EpochSlot epoch slot) -> blocksView state
                           Calculator -> calculatorView state
                           (Block hash) -> blockView state
                           Playground -> playgroundView state

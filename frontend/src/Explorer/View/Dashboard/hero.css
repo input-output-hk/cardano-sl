@@ -38,12 +38,12 @@
       padding-bottom: 15px;
     }
 
-    &-search-container {
+    &-search__container {
       border: 1px solid color(var(--color0) a(0.3));
       border-radius: 2px;
       padding: 5px 5px 5px 15px;
-      @neat-span-columns 8;
-      @neat-shift 2;
+      @neat-span-columns 10;
+      @neat-shift 1;
       box: horizontal;
 
       &.focused {
@@ -51,18 +51,19 @@
       }
     }
     @media (--sm) {
-      &-search-container {
+      &-search__container {
         width:100%;
         margin: 0;
       }
     }
 
-    &-input {
+    &-search__input {
       width: 100%;
       border: none;
       color: color(var(--color0) a(0.3));
       font-size: 13px;
       font-family: var(--fontFamily0-Light);
+      padding-right: 15px;
 
       box-item: stretch;
       background-color: transparent;
@@ -73,7 +74,7 @@
 
     }
 
-    &-search-btn {
+    &-search__btn {
       box-item: right;
       button: standard-button;
       height: 30px;
@@ -82,6 +83,36 @@
       background-repeat: no-repeat;
       background-position: center center;
       background-size: 15px 15px;
+    }
+
+    &-search-nav {
+
+      &__container {
+        box: horizontal center;
+      }
+
+      &__item {
+        box: center;
+        padding-right: 15px;
+
+        input[type="radio"] {
+           @extend .hide;
+        }
+
+        &--label {
+          color: color(var(--color3) a(0.5));
+          font-size: 13px;
+          font-family: var(--fontFamily0-Light);
+          cursor: pointer;
+
+          &:hover,
+          &:active,
+          &.selected {
+            color: color(var(--color0));
+          }
+        }
+
+      }
     }
 
   }

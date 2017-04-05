@@ -12,6 +12,10 @@ module Pos.Explorer.Web.ClientTypes
        , CNetworkAddress (..)
        , CTxSummary (..)
        , TxInternal (..)
+       , Coin (..)
+       , EpochIndex (..)
+       , LocalSlotIndex (..)
+       , mkCoin
        , toCHash
        , fromCHash
        , toCAddress
@@ -48,7 +52,8 @@ import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
 import           Pos.Txp                (Tx (..), TxId, TxOut (..),
                                          TxOutAux (..), _txOutputs)
-import           Pos.Types              (Address, Coin, MainBlock, SlotId (..),
+import           Pos.Types              (Address, Coin, EpochIndex,
+                                         LocalSlotIndex, MainBlock, SlotId (..),
                                          Timestamp, addressF, blockSlot,
                                          blockTxs, decodeTextAddress, gbHeader,
                                          gbhConsensus, getEpochIndex,
@@ -56,6 +61,7 @@ import           Pos.Types              (Address, Coin, MainBlock, SlotId (..),
                                          mkCoin, prevBlockL, sumCoins,
                                          unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Types.Explorer     (TxExtra (..))
+
 
 
 
@@ -106,13 +112,6 @@ fromCTxId (CTxId (CHash txId)) = decodeHashHex txId
 -------------------------------------------------------------------------------------
 -- Composite types
 -------------------------------------------------------------------------------------
-
--- | Client search result when the client searches by hash.
-data CHashSearchResult
-    = AddressFound CAddressSummary
-    | BlockFound CBlockSummary
-    | TransactionFound CTxSummary
-    deriving (Show, Generic)
 
 -- | List of block entries is returned from "get latest N blocks" endpoint
 data CBlockEntry = CBlockEntry

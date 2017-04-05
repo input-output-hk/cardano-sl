@@ -68,8 +68,7 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
                                                  CTxId (..), CTxSummary (..),
                                                  TxInternal (..), convertTxOutputs,
                                                  fromCAddress, fromCHash,
-                                                 fromCSearchIdAddress, fromCSearchIdHash,
-                                                 fromCSearchIdTx, fromCTxId, tiToTxEntry,
+                                                 fromCTxId, tiToTxEntry,
                                                  toBlockEntry, toBlockSummary,
                                                  toPosixTime, toTxBrief, toTxEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))

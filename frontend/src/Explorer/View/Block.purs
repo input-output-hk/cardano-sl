@@ -31,8 +31,8 @@ blockView state =
             [ P.div
                   [ P.className "explorer-block__container" ]
                   [ P.h3
-                      [ P.className "headline"]
-                      [ P.text $ translate (I18nL.common <<< I18nL.cBlock) lang' ]
+                        [ P.className "headline"]
+                        [ P.text $ translate (I18nL.common <<< I18nL.cBlock) lang' ]
                     , blockSummaryView (state ^. currentBlockSummary) lang'
                   ]
 
@@ -42,10 +42,10 @@ blockView state =
             [ P.div
                 [ P.className "explorer-block__container" ]
                 [ P.h3
-                    [ P.className "headline"]
-                    [ P.text $ translate (I18nL.common <<< I18nL.cSummary) lang' ]
+                      [ P.className "headline"]
+                      [ P.text $ translate (I18nL.common <<< I18nL.cSummary) lang' ]
                 , case state ^. currentBlockTxs of
-                      Nothing -> emptyTxHeaderView state
+                      Nothing -> emptyTxHeaderView
                       Just blockTxs ->
                           if null blockTxs then
                               txEmptyContentView lang'

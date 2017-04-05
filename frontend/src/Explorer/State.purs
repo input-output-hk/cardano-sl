@@ -3,7 +3,9 @@ module Explorer.State where
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language(..))
 import Explorer.Routes (Route(..))
-import Explorer.Types.State (DashboardAPICode(..), State)
+import Explorer.Types.State (DashboardAPICode(..), Search(..), State)
+import Explorer.Util.Factory (mkCAddress)
+import Network.RemoteData (RemoteData(..))
 
 
 initialState :: State
@@ -30,7 +32,7 @@ initialState =
             { blockTxPagination: 1 -- Note: We do start with 1 (not 0)
             }
         }
-    , latestBlocks: []
+    , latestBlocks: NotAsked
     , initialBlocksRequested: false
     , handleLatestBlocksSocketResult: false
     , initialTxsRequested: false
@@ -38,8 +40,14 @@ initialState =
     , currentBlockSummary: Nothing
     , currentBlockTxs: Nothing
     , latestTransactions: []
-    , currentTxSummary: Nothing
-    , currentAddressSummary: Nothing
+    , currentTxSummary: NotAsked
+    , currentCAddress: mkCAddress ""
+    , currentAddressSummary: NotAsked
+    , selectedSearch: SearchAddress
+    , searchQuery: emptySearchQuery
     , errors: []
     , loading: false
     }
+
+emptySearchQuery :: String
+emptySearchQuery = ""

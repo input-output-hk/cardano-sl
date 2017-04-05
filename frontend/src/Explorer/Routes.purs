@@ -12,8 +12,8 @@ import Pos.Explorer.Web.ClientTypes (CAddress, CHash, CTxId)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CHash, _CTxId)
 import Pux.Router (end, int, lit, param, router, str)
 
-data Route =
-    Dashboard
+data Route
+    = Dashboard
     | Tx CTxId
     | Address CAddress
     | Epoch EpochIndex
@@ -97,9 +97,9 @@ blockUrl hash = litUrl blockLit <> hash ^. _CHash
 -- TODO (jk) Create a generic Show instance of EpochIndex
 epochIndexToString :: EpochIndex -> String
 epochIndexToString epoch =
-  toStringAs binary (epoch ^. (_EpochIndex <<< getEpochIndex))
+    show (epoch ^. (_EpochIndex <<< getEpochIndex))
 
 -- TODO (jk) Create a generic Show instance of LocalSlotIndex
 slotIndexToString :: LocalSlotIndex -> String
 slotIndexToString slot =
-  toStringAs binary (slot ^. (_LocalSlotIndex <<< getSlotIndex))
+    show (slot ^. (_LocalSlotIndex <<< getSlotIndex))

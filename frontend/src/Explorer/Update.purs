@@ -120,12 +120,14 @@ update DashboardSearch state =
                   Right (Tuple (Just epoch) (Just slot)) ->
                       let epochIndex = mkEpochIndex epoch
                           slotIndex  = mkLocalSlotIndex slot
+                          epochSlotUrl = EpochSlot epochIndex slotIndex
                       in
-                      liftEff <<< P.navigateTo <<< toUrl <<< (EpochSlot epochIndex slotIndex) *> pure NoOp
+                      (liftEff <<< P.navigateTo <<< toUrl $ epochSlotUrl) *> pure NoOp
                   Right (Tuple (Just epoch) Nothing) ->
                       let epochIndex = mkEpochIndex epoch
+                          epochUrl   = Epoch $ epochIndex
                       in
-                      liftEff <<< P.navigateTo <<< toUrl <<< Epoch epochIndex *> pure NoOp
+                      (liftEff <<< P.navigateTo <<< toUrl $ epochUrl) *> pure NoOp
 
                   _ -> pure NoOp -- TODO (ks) maybe put up a message?
       ]

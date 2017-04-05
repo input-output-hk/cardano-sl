@@ -23,7 +23,7 @@
     "purescript-profunctor-lenses": "^2.6.0",
     "purescript-argonaut-generic-codecs": "^5.1.0",
     "purescript-eff-functions": "^2.0.0",
-    "purescript-formatters": "^0.3.0"
+    "purescript-formatters": "https://github.com/sectore/purescript-formatters.git#feature/minutes-seconds-two-digits"
   },
   "devDependencies": {
     "purescript-debug": "^2.0.0",

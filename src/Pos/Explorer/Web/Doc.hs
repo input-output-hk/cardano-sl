@@ -1,6 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds         #-}
 {-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE TypeOperators     #-}
@@ -26,11 +26,11 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
                                                  CAddressSummary (..),
                                                  CBlockEntry (..),
                                                  CBlockSummary (..), CHash (..),
-                                                 CHashSearchResult (..),
-                                                 CSearchId (..), CTxEntry (..),
+                                                 CTxBrief (..), CTxEntry (..),
                                                  CTxId (..), CTxSummary (..))
+
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
-import           Pos.Types                      (mkCoin)
+import           Pos.Types                      (EpochIndex, mkCoin)
 import           Servant.API                    (Capture, QueryParam)
 import           Servant.Docs                   (API, Action, DocCapture (..),
                                                  DocIntro (..), DocNote (..),
@@ -49,6 +49,7 @@ import           Servant.Docs                   (API, Action, DocCapture (..),
                                                  notes, paramDesc, paramName,
                                                  params, path, pretty)
 import           Universum
+
 
 
 walletDocs :: API
@@ -105,13 +106,6 @@ instance ToCapture (Capture "hash" CHash) where
         , _capDesc = "Hash"
         }
 
-instance ToCapture (Capture "hash" CSearchId) where
-    toCapture Proxy =
-        DocCapture
-        { _capSymbol = "hash"
-        , _capDesc = "Search id by which the user can find address, block or transaction"
-        }
-
 instance ToCapture (Capture "txid" CTxId) where
     toCapture Proxy =
         DocCapture
@@ -124,6 +118,22 @@ instance ToCapture (Capture "address" CAddress) where
         DocCapture
         { _capSymbol = "address"
         , _capDesc = "Address"
+        }
+
+instance ToCapture (Capture "epoch" EpochIndex) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "epoch"
+        , _capDesc = "Epoch index"
+        }
+
+instance ToParam (QueryParam "slot" Word16) where
+    toParam Proxy =
+        DocQueryParam
+        { _paramName    = "slot"
+        , _paramValues  = ["0", "1", "2"]
+        , _paramDesc    = "Slot index"
+        , _paramKind    = Normal
         }
 
 -- sample data --
@@ -142,9 +152,6 @@ sampleAddressSummary = CAddressSummary
 
 instance ToSample ExplorerError where
     toSamples Proxy = [("Sample error", Internal "This is an example error")]
-
-instance ToSample CHashSearchResult where
-    toSamples Proxy = [("Sample search result, address found", AddressFound sampleAddressSummary)]
 
 instance ToSample CBlockEntry where
     toSamples Proxy = [("Sample block entry", sample)]
@@ -186,6 +193,16 @@ instance ToSample CTxEntry where
             { cteId         = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
             , cteTimeIssued = posixTime
             , cteAmount     = mkCoin 33333
+            }
+
+instance ToSample CTxBrief where
+    toSamples Proxy = [("Sample transaction brief description", sample)]
+      where
+        sample = CTxBrief
+            { ctbId         = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
+            , ctbTimeIssued = posixTime
+            , ctbInputs     = [(CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv", mkCoin 33333)]
+            , ctbOutputs    = [(CAddress "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ", mkCoin 33333)]
             }
 
 instance ToSample CTxSummary where

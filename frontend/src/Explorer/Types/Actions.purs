@@ -1,13 +1,15 @@
 module Explorer.Types.Actions where
 
-import Control.Monad.Eff.Exception (Error)
-import DOM.HTML.Types (HTMLInputElement)
-import Data.Either (Either)
-import Explorer.I18n.Lang (Language)
-import Explorer.Routes (Route)
-import Explorer.Types.State (CBlockEntries, CTxEntries, DashboardAPICode, SocketSubscription)
-import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
-import Signal.Channel (Channel)
+import           Control.Monad.Eff.Exception  (Error)
+import           Data.Either                  (Either)
+import           DOM.HTML.Types               (HTMLInputElement)
+import           Explorer.I18n.Lang           (Language)
+import           Explorer.Routes              (Route)
+import           Explorer.Types.State         (CBlockEntries, CTxBriefs, CTxEntries,
+                                               DashboardAPICode, SocketSubscription)
+import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary,
+                                               CHash, CTxId, CTxSummary)
+import           Signal.Channel               (Channel)
 
 data Action
     = SetLanguage Language
@@ -34,7 +36,7 @@ data Action
     | RequestBlockSummary CHash
     | ReceiveBlockSummary (Either Error CBlockSummary)
     | RequestBlockTxs CHash
-    | ReceiveBlockTxs (Either Error CTxEntries)
+    | ReceiveBlockTxs (Either Error CTxBriefs)
     | RequestInitialTxs
     | ReceiveInitialTxs (Either Error CTxEntries)
     | RequestTxSummary CTxId
@@ -51,7 +53,7 @@ data Action
     -- address detail
     | AddressPaginateTxs Int       -- current pagination of transactions
     -- block detail
-    | BlockPaginateTransactions Int       -- current pagination of transactions
+    | BlockPaginateTxs Int       -- current pagination of transactions
     -- misc
     | NoOp
 

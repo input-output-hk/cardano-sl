@@ -137,7 +137,7 @@ update (AddressPaginateTxs value) state = noEffects $
 
 -- Block
 
-update (BlockPaginateTransactions value) state = noEffects $
+update (BlockPaginateTxs value) state = noEffects $
     set (viewStates <<< blockDetail <<< blockTxPagination) value state
 
 -- DOM side effects
@@ -209,11 +209,12 @@ update (RequestBlockTxs hash) state =
 update (ReceiveBlockTxs (Right txs)) state =
     noEffects $
     set loading false <<<
-    set currentBlockTxs txs $
+    set currentBlockTxs (Just txs) $
     state
 update (ReceiveBlockTxs (Left error)) state =
     noEffects $
     set loading false $
+    set currentBlockTxs Nothing $
     over errors (\errors' -> (show error) : errors') state
 update RequestInitialTxs state =
     { state: set loading true state

@@ -77,8 +77,6 @@ type Hero =
 type Dashboard =
     { dbLastBlocks :: String
     , dbLastBlocksDescription :: String
-    , dbNetworkDifficulty :: String
-    , dbNetworkDifficultyDescription :: String
     , dbPriceAverage :: String
     , dbPriceForOne :: String
     , dbPriceSince :: String
@@ -120,6 +118,7 @@ type Transaction =
     { txTime :: String
     , txIncluded :: String
     , txRelayed :: String
+    , txEmpty :: String
     }
 
 -- translations of block detail page

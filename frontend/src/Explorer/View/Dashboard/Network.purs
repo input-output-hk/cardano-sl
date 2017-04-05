@@ -3,7 +3,7 @@ module Explorer.View.Dashboard.Network (networkView) where
 import Prelude
 import Data.Lens ((^.))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (cADA, dbTotalAmountOfTransactions, cTransactions, dbTotalAmountOf, dbTotalSupply, dbPriceSince, dbPriceForOne, dbPriceAverage, cNetwork, common, dashboard, dbNetworkDifficulty, dbNetworkDifficultyDescription, dbLastBlocks, dbLastBlocksDescription) as I18nL
+import Explorer.I18n.Lenses (cADA, dbTotalAmountOfTransactions, cTransactions, dbTotalAmountOf, dbTotalSupply, dbPriceSince, dbPriceForOne, dbPriceAverage, cNetwork, common, dashboard, dbLastBlocks, dbLastBlocksDescription) as I18nL
 import Explorer.Lenses.State (lang)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
@@ -29,10 +29,6 @@ networkItems lang =
       , subheadline: "123456"
       , description: flip substitute ["20.02.2017 17:51:00", "50"]
             $ translate (I18nL.dashboard <<< I18nL.dbLastBlocksDescription) lang
-      }
-    , { headline: translate (I18nL.dashboard <<< I18nL.dbNetworkDifficulty) lang
-      , subheadline: "1,234,567,890.12"
-      , description: translate (I18nL.dashboard <<< I18nL.dbNetworkDifficultyDescription) lang
       }
     , { headline: translate (I18nL.dashboard <<< I18nL.dbPriceAverage) lang
       , subheadline: flip substitute ["1,000,000$", ada]

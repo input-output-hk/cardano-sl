@@ -53,8 +53,6 @@ translation =
     , dashboard:
         { dbLastBlocks: "Last slots"
         , dbLastBlocksDescription: "On {0} {1} transactions are generated"
-        , dbNetworkDifficulty: "Network difficulty"
-        , dbNetworkDifficultyDescription: "Difficulty is a measure of how difficult it is to find a new slot below a given target."
         , dbPriceAverage: "Price (average)"
         , dbPriceForOne: "{0} for 1 {1}"
         , dbPriceSince: "{0} since yesterday."
@@ -90,6 +88,7 @@ translation =
         { txTime: "Received time"
         , txIncluded: "Included In Slots"
         , txRelayed: "Relayed by IP"
+        , txEmpty: "No transactions"
         }
     , block:
         { blFees: "Fees"

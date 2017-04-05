@@ -12,12 +12,14 @@ import           Data.Proxy                   (Proxy (Proxy))
 
 import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary,
                                                CBlockEntry, CBlockSummary,
-                                               CSearchId, CHash, CTxEntry, CTxId,
-                                               CTxSummary, CHashSearchResult)
+                                               CHash, CTxBrief, CTxEntry, CTxId,
+                                               CTxSummary)
 import           Pos.Explorer.Web.Error       (ExplorerError)
+import           Pos.Types                    (EpochIndex)
 import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
                                                QueryParam)
 import           Universum
+
 
 -- | Servant API which provides access to explorer
 type ExplorerApi =
@@ -40,7 +42,7 @@ type ExplorerApi =
       :> Capture "hash" CHash
       :> QueryParam "limit" Word
       :> QueryParam "offset" Word
-      :> Get '[JSON] (Either ExplorerError [CTxEntry])
+      :> Get '[JSON] (Either ExplorerError [CTxBrief])
     :<|>
       "api"
       :> "txs"
@@ -63,8 +65,10 @@ type ExplorerApi =
     :<|>
       "api"
       :> "search"
-      :> Capture "hash" CSearchId
-      :> Get '[JSON] (Either ExplorerError CHashSearchResult)
+      :> "epoch"
+      :> Capture "epoch" EpochIndex
+      :> QueryParam "slot" Word16
+      :> Get '[JSON] (Either ExplorerError [CBlockEntry])
 
 -- | Helper Proxy
 explorerApi :: Proxy ExplorerApi

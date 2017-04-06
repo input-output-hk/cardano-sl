@@ -4,9 +4,9 @@ extra-package-dbs: []
 
 packages:
 - '.'
-- location: '../cardano-sl'
-    # git: https://github.com/input-output-hk/cardano-sl
-    # commit: b37b7f0b65ca8cea6c1f0e2937ab2512c4b2f7f5
+- location:
+    git: https://github.com/input-output-hk/cardano-sl
+    commit: 5c8ac1c539a86723dac29af04cf5ff4b51e00a20
   extra-dep: true
   subdirs:
       - '.'

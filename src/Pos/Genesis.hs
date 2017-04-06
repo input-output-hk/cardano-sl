@@ -107,14 +107,14 @@ stakeDistribution (BitcoinStakes stakeholders coins) =
     normalize x = x `unsafeMulCoin`
                   coinToInteger (coins `divCoin` (1000 :: Int))
 stakeDistribution ExponentialStakes = map (, []) expTwoDistribution
-stakeDistribution ts@TestnetStakes {..} =
+stakeDistribution ts@RichPoorStakes {..} =
     checkMpcThd (getTotalStake ts) sdRichStake $
     map (, []) basicDist
   where
     -- Node won't start if richmen cannot participate in MPC
     checkMpcThd total richs =
         if richs < applyCoinPortion Const.genesisMpcThd total
-        then error "Pos.Genesis: TestnetStakes: richmen stake \
+        then error "Pos.Genesis: RichPoorStakes: richmen stake \
                    \is less than MPC threshold"
         else identity
     basicDist = genericReplicate sdRichmen sdRichStake ++

@@ -264,6 +264,7 @@ main = do
                     genesisUtxo $
                     stakesDistr (CLI.flatDistr woCommonArgs)
                                 (CLI.bitcoinDistr woCommonArgs)
+                                (CLI.richPoorDistr woCommonArgs)
                                 (CLI.expDistr woCommonArgs)
                 }
 

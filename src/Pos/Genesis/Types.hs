@@ -20,7 +20,7 @@ data StakeDistribution
                  !Coin     -- total number of coins
     | BitcoinStakes !Word  -- number of stakeholders
                     !Coin  -- total number of coins
-    | TestnetStakes
+    | RichPoorStakes
         { sdRichmen   :: !Word
         , sdRichStake :: !Coin
         , sdPoor      :: !Word
@@ -38,7 +38,7 @@ instance Monoid StakeDistribution where
 getTotalStake :: StakeDistribution -> Coin
 getTotalStake (FlatStakes _ st) = st
 getTotalStake (BitcoinStakes _ st) = st
-getTotalStake TestnetStakes {..} = unsafeIntegerToCoin $
+getTotalStake RichPoorStakes {..} = unsafeIntegerToCoin $
     coinToInteger sdRichStake * fromIntegral sdRichmen +
     coinToInteger sdPoorStake * fromIntegral sdPoor
 getTotalStake ExponentialStakes = mkCoin . sum $

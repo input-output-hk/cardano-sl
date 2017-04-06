@@ -52,16 +52,16 @@ import           Pos.Types          (Address (..), Coin, SharedSeed (SharedSeed)
 -- Static state
 ----------------------------------------------------------------------------
 
+generateGenesisKeyPair :: Int -> (PublicKey, SecretKey)
+generateGenesisKeyPair =
+    fromMaybe (error "deterministicKeyGen failed in Genesis") .
+    deterministicKeyGen .
+    encodeUtf8 .
+    T.take 32 . sformat ("My awesome 32-byte seed #" %int % "             ")
+
 -- | List of pairs from 'SecretKey' with corresponding 'PublicKey'.
 genesisDevKeyPairs :: [(PublicKey, SecretKey)]
-genesisDevKeyPairs = map gen [0 .. Const.genesisN - 1]
-  where
-    gen :: Int -> (PublicKey, SecretKey)
-    gen =
-        fromMaybe (error "deterministicKeyGen failed in Genesis") .
-        deterministicKeyGen .
-        encodeUtf8 .
-        T.take 32 . sformat ("My awesome 32-byte seed #" %int % "             ")
+genesisDevKeyPairs = map generateGenesisKeyPair [0 .. Const.genesisN - 1]
 
 -- | List of 'PublicKey's in genesis.
 genesisDevPublicKeys :: [PublicKey]
@@ -154,12 +154,15 @@ bitcoinDistributionImpl ratio coins (coinIdx, coin) =
 -- | Genesis 'Utxo'.
 genesisUtxo :: StakeDistribution -> Utxo
 genesisUtxo sd =
-    M.fromList . zipWith zipF (stakeDistribution sd) $ genesisAddresses
+    M.fromList . zipWith zipF (stakeDistribution sd) $
+    genesisAddresses <> tailAddresses
   where
     zipF (coin, distr) addr =
         ( TxIn (unsafeHash addr) 0
         , TxOutAux (TxOut addr coin) distr
         )
+    tailAddresses = map (makePubKeyAddress . fst . generateGenesisKeyPair)
+        [Const.genesisN ..]
 
 genesisDelegation :: HashMap StakeholderId [StakeholderId]
 genesisDelegation = mempty

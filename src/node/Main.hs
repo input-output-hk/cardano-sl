@@ -204,6 +204,7 @@ getNodeParams args@Args {..} systemStart = do
               if isDevelopment
                   then stakesDistr (CLI.flatDistr commonArgs)
                                    (CLI.bitcoinDistr commonArgs)
+                                   (CLI.richPoorDistr commonArgs)
                                    (CLI.expDistr commonArgs)
                   else genesisStakeDistribution
         , npTimeLord = timeLord

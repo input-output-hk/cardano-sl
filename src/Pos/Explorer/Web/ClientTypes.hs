@@ -28,6 +28,7 @@ module Pos.Explorer.Web.ClientTypes
        , toTxBrief
        , toPosixTime
        , convertTxOutputs
+       , tiToTxEntry
        ) where
 
 import           Control.Arrow          ((&&&))
@@ -79,7 +80,7 @@ newtype CAddress = CAddress Text
 
 -- | Client transaction id
 newtype CTxId = CTxId CHash
-    deriving (Show, Eq, Generic, Hashable)
+    deriving (Show, Eq, Generic, Buildable, Hashable)
 
 -- | Transformation of core hash-types to client representations and vice versa
 encodeHashHex :: Hash a -> Text
@@ -239,7 +240,10 @@ instance FromHttpApiData CTxId where
 data TxInternal = TxInternal
     { tiTimestamp :: !Timestamp
     , tiTx        :: !Tx
-    } deriving (Show)
+    } deriving (Show, Eq, Ord)
+
+tiToTxEntry :: TxInternal -> CTxEntry
+tiToTxEntry TxInternal{..} = toTxEntry tiTimestamp tiTx
 
 convertTxOutputs :: [TxOut] -> [(CAddress, Coin)]
 convertTxOutputs = map (toCAddress . txOutAddress &&& txOutValue)

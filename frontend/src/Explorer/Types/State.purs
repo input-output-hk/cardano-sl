@@ -1,10 +1,13 @@
 module Explorer.Types.State where
 
+import Control.SocketIO.Client (Socket)
 import Control.Monad.Eff.Exception (Error)
-import Data.Generic (class Generic, gShow)
+import Data.Generic (class Generic, gEq, gShow)
 import Data.Maybe (Maybe)
+import Data.Newtype (class Newtype)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
+import Pos.Explorer.Socket.Methods (Subscription)
 import Network.RemoteData (RemoteData)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry, CBlockSummary, CTxBrief, CTxEntry, CTxSummary)
 import Prelude (class Eq, class Ord, class Show)
@@ -45,11 +48,21 @@ derive instance eqSearch :: Eq Search
 
 type SocketState =
     { connected :: Boolean
+    , connection :: Maybe Socket
+    , subscriptions :: Array SocketSubscription
     }
 
 data DashboardAPICode = Curl | Node | JQuery
 derive instance eqDashboardAPICode :: Eq DashboardAPICode
 derive instance ordDashboardAPICode :: Ord DashboardAPICode
+
+-- Wrapper of 'Subscription' built by 'purescript bridge'
+-- needed to derive generice instances of it
+newtype SocketSubscription = SocketSubscription Subscription
+derive instance gSocketSubscription :: Generic SocketSubscription
+derive instance newtypeSocketSubscription :: Newtype SocketSubscription _
+instance eqSocketSubscription :: Eq SocketSubscription where
+  eq = gEq
 
 type CBlockEntries = Array CBlockEntry
 type CTxEntries = Array CTxEntry

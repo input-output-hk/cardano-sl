@@ -23,41 +23,61 @@ flag dev-mode
   description: Switch between Development and Production mode
 
 library
-  exposed-modules:      Pos.Explorer.Web
+  exposed-modules:      Pos.Explorer.Socket
+                        Pos.Explorer.Web
                         Pos.Explorer.Web.ClientTypes
                         Pos.Explorer.Web.Error
                         Pos.Explorer.Web.Doc
   other-modules:        Pos.Explorer.Aeson.ClientTypes
+
+                        Pos.Explorer.Socket.App
+                        Pos.Explorer.Socket.Holder
+                        Pos.Explorer.Socket.Methods
+                        Pos.Explorer.Socket.Util
+
                         Pos.Explorer.Web.Server
                         Pos.Explorer.Web.Transform
                         Pos.Explorer.Web.Api
   build-depends:        base
                       , aeson
+                      , binary
                       , bytestring
                       , base16-bytestring
                       , cardano-sl
                       , cardano-sl-core
                       , cardano-sl-infra
                       , cardano-sl-db
+                      , engine-io
+                      , engine-io-snap
                       , exceptions
                       , either
                       , formatting
                       , lens
                       , log-warper
+                      , lifted-base
                       , mtl
+                      , monad-control
                       , monad-loops
                       , node-sketch
                       , serokell-util
                       , servant
                       , servant-docs
                       , servant-server
+                      , socket-io
+                      , snap-core
+                      , snap-cors
+                      , snap-server
+                      , engine-io-wai
                       , stm
                       , text-format
+                      , text
                       , time
+                      , time-units
                       , transformers
                       , universum
                       , unordered-containers
                       , wai
+                      , containers
   hs-source-dirs:       src
   default-language:     Haskell2010
   ghc-options:         -Wall

@@ -2,13 +2,15 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
-
 -- API server logic
 
 module Pos.Explorer.Web.Server
-       ( explorerServeImpl
+       ( ExplorerMode
+       , explorerServeImpl
        , explorerApp
        , explorerHandlers
+       , topsortTxsOrFail
+       , getMempoolTxs
        ) where
 
 import           Control.Lens                   (at)
@@ -21,6 +23,7 @@ import           Data.Maybe                     (fromMaybe)
 import           Network.Wai                    (Application)
 import           Servant.API                    ((:<|>) ((:<|>)))
 import           Servant.Server                 (Server, ServerT, serve)
+
 import           Universum
 
 import           Pos.Communication              (SendActions)
@@ -63,12 +66,11 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
                                                  CBlockSummary (..), CHash,
                                                  CTxBrief (..), CTxEntry (..),
                                                  CTxId (..), CTxSummary (..),
-                                                 TxInternal (..),
-                                                 convertTxOutputs, fromCAddress,
-                                                 fromCHash, fromCTxId,
+                                                 TxInternal (..), convertTxOutputs,
+                                                 fromCAddress, fromCHash,
+                                                 fromCTxId, tiToTxEntry,
                                                  toBlockEntry, toBlockSummary,
-                                                 toPosixTime, toTxBrief,
-                                                 toTxEntry)
+                                                 toPosixTime, toTxBrief, toTxEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 
@@ -139,7 +141,7 @@ epochSlotSearch
     => EpochIndex
     -> Maybe Word16
     -> m [CBlockEntry]
-epochSlotSearch epochIndex slotIndex = do 
+epochSlotSearch epochIndex slotIndex = do
     blocks <- findBlocksByEpoch >>= traverse toBlockEntry
     if null blocks
         then throwM $ Internal "No epoch/slots found."
@@ -189,7 +191,7 @@ getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
 
     blockTxsWithTs <- getBlockchainTxs newOff newLim
 
-    pure $ [toTxEntry (tiTimestamp txi) (tiTx txi) | txi <- localTxsWithTs <> blockTxsWithTs]
+    pure $ tiToTxEntry <$> localTxsWithTs <> blockTxsWithTs
 
 getBlockSummary :: ExplorerMode m => CHash -> m CBlockSummary
 getBlockSummary cHash = do

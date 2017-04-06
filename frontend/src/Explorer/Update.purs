@@ -3,31 +3,43 @@ module Explorer.Update where
 import Prelude
 import Control.Monad.Aff (attempt)
 import Control.Monad.Eff.Class (liftEff)
+import Control.SocketIO.Client (SocketIO, emit, emit')
 import DOM (DOM)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array ((:))
+import Data.Array (difference, (:))
 import Data.Either (Either(..))
+import Data.Foldable (traverse_)
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
+import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary, searchEpoch)
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentCAddress, currentTxSummary, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, searchQuery, selectedApiCode, selectedSearch, socket, transactionsExpanded, viewStates)
+import Explorer.Api.Socket (toEvent)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentCAddress, currentTxSummary, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, searchQuery, selectedApiCode, selectedSearch, socket, subscriptions, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (emptySearchQuery)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (Search(..), State)
+import Explorer.Types.State (SocketSubscription(..), Search(..), State)
 import Explorer.Util.DOM (scrollTop)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
 import Explorer.Util.String (parseSearchEpoch)
 import Network.HTTP.Affjax (AJAX)
 import Network.RemoteData (RemoteData(..), _Success)
+import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects)
 import Pux.Router (navigateTo) as P
 
 
-update :: forall eff. Action -> State -> EffModel State Action (dom :: DOM, ajax :: AJAX | eff)
+update :: forall eff. Action -> State ->
+    EffModel State Action
+    (dom :: DOM
+    , ajax :: AJAX
+    , socket :: SocketIO
+    -- , console :: CONSOLE
+    | eff
+    )
 
 -- Language
 
@@ -36,24 +48,80 @@ update (SetLanguage lang) state = noEffects $ state { lang = lang }
 
 -- Socket
 
-update (SocketConnected status) state = noEffects $
-    set (socket <<< connected) status state
-update (SocketLatestBlocks (Right blocks)) state = noEffects $
+update (SocketConnected connected') state =
+    { state: set (socket <<< connected) connected' state
+    , effects:
+          [ if connected'
+            then pure SocketReconnectSubscriptions
+            else pure NoOp
+          ]
+    }
+update (SocketBlocksUpdated (Right blocks)) state = noEffects $
     if state ^. handleLatestBlocksSocketResult
     -- add incoming blocks ahead of previous blocks
     then over (latestBlocks <<< _Success) (\b -> blocks <> b) state
     else state
-update (SocketLatestBlocks (Left error)) state = noEffects $
+update (SocketBlocksUpdated (Left error)) state = noEffects $
     set latestBlocks (Failure error) $
     -- add incoming errors ahead of previous errors
     over errors (\errors' -> (show error) : errors') state
-update (SocketLatestTransactions (Right transactions)) state = noEffects $
+update (SocketTxsUpdated (Right transactions)) state = noEffects $
     -- add incoming transactions ahead of previous transactions
     over latestTransactions (\t -> transactions <> t) state
-update (SocketLatestTransactions (Left error)) state = noEffects $
+update (SocketTxsUpdated (Left error)) state = noEffects $
     -- add incoming errors ahead of previous errors
     over errors (\errors' -> (show error) : errors') state
+update SocketCallMe state =
+    { state
+    , effects : [ do
+          _ <- case state ^. (socket <<< connection) of
+              Just socket' -> liftEff <<< emit' socket' $ toEvent CallMe
+              Nothing -> pure unit
+          pure NoOp
+    ]}
+update (SocketCallMeString str) state =
+    { state
+    , effects : [ do
+          _ <- case state ^. (socket <<< connection) of
+              Just socket' -> liftEff $ emit socket' (toEvent CallMeString) str
+              Nothing -> pure unit
+          pure NoOp
+    ]}
+update (SocketCallMeCTxId id) state =
+    { state
+    , effects : [ do
+          _ <- case state ^. (socket <<< connection) of
+              Just socket' -> liftEff $ emit socket' (toEvent CallMeTxId) id
+              Nothing -> pure unit
+          pure NoOp
+    ]}
 
+update (SocketUpdateSubscriptions nextSubs) state =
+    let currentSubs = state ^. socket <<< subscriptions in
+    { state: set (socket <<< subscriptions) nextSubs state
+    , effects : [ do
+          _ <- case state ^. (socket <<< connection) of
+              Just socket' -> do
+                -- 1. unsubscribe all not used events
+                let diffNextFromCurrentSubs = difference currentSubs nextSubs
+                traverse_ (liftEff <<< emit' socket' <<< toEvent <<< Unsubscribe <<< unwrap) diffNextFromCurrentSubs
+                -- 2. subscribe all new subscriptions
+                let diffCurrentFromNextSubs = difference nextSubs currentSubs
+                traverse_ (liftEff <<< emit' socket' <<< toEvent <<< Subscribe <<< unwrap) diffCurrentFromNextSubs
+              Nothing -> pure unit
+          pure NoOp
+    ]}
+
+update SocketReconnectSubscriptions state =
+    let currentSubs = state ^. socket <<< subscriptions in
+    { state
+    , effects : [ do
+          _ <- case state ^. (socket <<< connection) of
+              Just socket' -> do
+                traverse_ (liftEff <<< emit' socket' <<< toEvent <<< Subscribe <<< unwrap) currentSubs
+              Nothing -> pure unit
+          pure NoOp
+    ]}
 
 -- Dashboard
 
@@ -214,7 +282,6 @@ update (ReceiveBlockTxs (Left error)) state =
     set loading false $
     set currentBlockTxs Nothing $
     over errors (\errors' -> (show error) : errors') state
-
 update RequestInitialTxs state =
     { state: set loading true state
     , effects: [ attempt fetchLatestTxs >>= pure <<< ReceiveInitialTxs ]
@@ -266,11 +333,13 @@ update (ReceiveAddressSummary (Left error)) state =
 
 update (UpdateView route) state = routeEffects route (state { route = route })
 
-routeEffects :: forall eff. Route -> State -> EffModel State Action (dom :: DOM, ajax :: AJAX | eff)
+routeEffects :: forall eff. Route -> State -> EffModel State Action (dom :: DOM
+    , ajax :: AJAX | eff)
 routeEffects Dashboard state =
     { state
     , effects:
         [ pure ScrollTop
+        , pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock, SocketSubscription SubTx ]
         , if not $ state ^. initialBlocksRequested
           then pure RequestInitialBlocks
           else pure NoOp
@@ -285,6 +354,7 @@ routeEffects (Tx tx) state =
         set currentTxSummary Loading state
     , effects:
         [ pure ScrollTop
+        , pure $ SocketUpdateSubscriptions []
         , pure $ RequestTxSummary tx
         ]
     }
@@ -296,6 +366,7 @@ routeEffects (Address cAddress) state =
         set (viewStates <<< addressDetail <<< addressTxPagination) 1 state
     , effects:
         [ pure ScrollTop
+        , pure $ SocketUpdateSubscriptions []
         , pure $ RequestAddressSummary cAddress
         ]
     }
@@ -323,9 +394,24 @@ routeEffects (Block hash) state =
     { state: set currentBlockSummary Nothing state
     , effects:
         [ pure ScrollTop
+        , pure $ SocketUpdateSubscriptions []
         , pure $ RequestBlockSummary hash
         , pure $ RequestBlockTxs hash
         ]
     }
 
-routeEffects NotFound state = { state, effects: [ pure ScrollTop ] }
+routeEffects Playground state =
+    { state
+    , effects:
+        [ pure ScrollTop
+        , pure $ SocketUpdateSubscriptions []
+        ]
+    }
+
+routeEffects NotFound state =
+    { state
+    , effects:
+        [ pure ScrollTop
+        , pure $ SocketUpdateSubscriptions []
+        ]
+    }

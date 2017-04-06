@@ -14,6 +14,8 @@ initialState =
     , route: Dashboard
     , socket:
         { connected: false
+        , connection: Nothing
+        , subscriptions: []
         }
     , viewStates:
         { dashboard:

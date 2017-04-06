@@ -7,8 +7,8 @@ module Main where
 import           Data.Maybe          (fromJust)
 import           Data.Proxy          (Proxy (..))
 import           Mockable            (Production)
-import           System.Wlog         (LoggerName)
 import           Serokell.Util       (sec)
+import           System.Wlog         (LoggerName)
 import           Universum
 
 import           Pos.Binary          ()
@@ -26,11 +26,12 @@ import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
 import           Pos.Ssc.Class       (SscConstraint)
 import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
 import           Pos.Types           (Timestamp (Timestamp))
-import           Pos.Util            (inAssertMode)
-import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usVss, usPrimKey,
+import           Pos.Util            (inAssertMode, mconcatPair)
+import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usPrimKey, usVss,
                                       writeUserSecret)
 
-import           Pos.Explorer.Web    (explorerPlugin)
+import           Pos.Explorer.Socket (NotifierSettings (..))
+import           Pos.Explorer.Web    (explorerPlugin, notifierPlugin)
 
 import           ExplorerOptions     (Args (..), getExplorerOptions)
 
@@ -80,7 +81,11 @@ action args@Args {..} res = do
         gtParams = gtSscParams args vssSK
 
     putText "Running using GodTossing"
-    runNodeProduction @SscGodTossing res (explorerPlugin webPort) currentParams gtParams
+    let plugins = mconcatPair
+            [ explorerPlugin webPort
+            , notifierPlugin NotifierSettings{ nsPort = notifierPort }
+            ]
+    runNodeProduction @SscGodTossing res plugins currentParams gtParams
 
 userSecretWithGenesisKey
     :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m (SecretKey, UserSecret)

@@ -54,6 +54,14 @@ packages:
     commit: f2321a103f53f51d36c99383132e3ffa3ef1c401
   extra-dep: true
 - location:
+    git: https://github.com/serokell/engine.io.git
+    commit: f8b2ae4af83f4f5220bb6c8f50adda82c3a1e9f3
+  extra-dep: true
+  subdirs:
+    - socket-io
+    - engine-io
+    - engine-io-wai
+- location:
     git: https://github.com/input-output-hk/cardano-crypto
     commit: 838b064d8a59286142aa2fe14434fe7601896ddb
   extra-dep: true
@@ -77,6 +85,18 @@ extra-deps:
 - derive-2.5.26                   # not yet in lts-8
 - haskell-src-exts-1.17.1         # derive has not moved to 1.18 yet
 - wreq-0.5.0.0                    # not yet in lts-8
+- turtle-1.3.1                    # earlier versions don't have 'stat'
+- optparse-applicative-0.13.0.0   # needed for turtle
+- criterion-1.1.4.0               # older criterion doesn't like optparse-0.13
+- code-page-0.1.1                 # needed for criterion
+- websockets-snap-0.10.2.0
+- websockets-0.9.8.2
+- aeson-0.11.3.0
+- engine-io-snap-1.0.4
+- heist-1.0.1.0
+- map-syntax-0.2.0.2
+- snap-1.0.0.1
+- snap-cors-1.2.11
 - purescript-bridge-0.10.1.0
 - cryptonite-0.22
 

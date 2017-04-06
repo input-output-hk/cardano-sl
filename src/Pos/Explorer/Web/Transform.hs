@@ -3,6 +3,7 @@
 module Pos.Explorer.Web.Transform
        ( explorerServeWebReal
        , explorerPlugin
+       , notifierPlugin
        ) where
 
 import           Control.Concurrent.STM  (TVar)
@@ -14,13 +15,11 @@ import           Servant.Utils.Enter     ((:~>) (..), enter)
 import           System.Wlog             (usingLoggerName)
 import           Universum
 
-import           Pos.Communication       (OutSpecs, PeerStateSnapshot,
-                                          SendActions, WithPeerState (..),
-                                          WorkerSpec, getAllStates,
-                                          peerStateFromSnapshot,
-                                          runPeerStateHolder, worker)
-import           Pos.Context             (NodeContext, getNodeContext,
-                                          runContextHolder)
+import           Pos.Communication       (OutSpecs, PeerStateSnapshot, SendActions,
+                                          WithPeerState (..), WorkerSpec, getAllStates,
+                                          peerStateFromSnapshot, runPeerStateHolder,
+                                          worker)
+import           Pos.Context             (NodeContext, getNodeContext, runContextHolder)
 import           Pos.DB                  (NodeDBs, getNodeDBs, runDBHolder)
 import           Pos.Delegation          (DelegationWrap, askDelegationState,
                                           runDelegationTFromTVar)
@@ -30,15 +29,14 @@ import           Pos.DHT.Real.Types      (KademliaDHTInstance (..),
 import           Pos.Slotting            (NtpSlotting (..), NtpSlottingVar,
                                           SlottingHolder (..), SlottingVar,
                                           runNtpSlotting, runSlottingHolder)
-import           Pos.Ssc.Extra           (SscHolder (..), SscState,
-                                          runSscHolder)
+import           Pos.Ssc.Extra           (SscHolder (..), SscState, runSscHolder)
 import           Pos.Ssc.GodTossing      (SscGodTossing)
 import           Pos.Statistics          (getNoStatsT)
-import           Pos.Txp                 (TxpLocalData, askTxpMem,
-                                          runTxpHolderReader)
+import           Pos.Txp                 (TxpLocalData, askTxpMem, runTxpHolderReader)
 import           Pos.Update              (runUSHolder)
 import           Pos.WorkMode            (ProductionMode)
 
+import           Pos.Explorer.Socket.App (NotifierSettings, notifierApp)
 import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers,
                                           explorerServeImpl)
 
@@ -47,6 +45,10 @@ import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers,
 -----------------------------------------------------------------
 
 type ExplorerProd = ProductionMode SscGodTossing
+
+notifierPlugin :: NotifierSettings -> ([WorkerSpec ExplorerProd], OutSpecs)
+notifierPlugin = first pure . worker mempty .
+    \settings _sa -> notifierApp @SscGodTossing settings
 
 explorerPlugin :: Word16 -> ([WorkerSpec ExplorerProd], OutSpecs)
 explorerPlugin = first pure . worker mempty . flip explorerServeWebReal

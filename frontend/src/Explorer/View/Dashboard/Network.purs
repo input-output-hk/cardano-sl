@@ -55,7 +55,7 @@ networkView state =
         [ P.div
           [ P.className "explorer-dashboard__container" ]
           [ P.h3
-                [ P.className "headline"]
+                [ P.className "headline" ]
                 [ P.text $ translate (I18nL.common <<< I18nL.cNetwork) lang' ]
           , P.div
                 [ P.className "explorer-dashboard__teaser" ]

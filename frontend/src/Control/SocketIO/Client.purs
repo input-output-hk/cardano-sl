@@ -2,6 +2,7 @@ module Control.SocketIO.Client where
 
 import Prelude
 import Control.Monad.Eff (Eff)
+import Data.Foreign.Undefined (writeUndefined)
 import Data.Function.Uncurried (Fn3, runFn1, runFn3)
 
 foreign import data SocketIO :: !
@@ -19,8 +20,13 @@ foreign import onImpl :: forall a eff. Fn3 Socket Event (EventHandler a eff) (Ef
 connect :: forall eff. Host -> Eff (socket :: SocketIO | eff) Socket
 connect host = runFn1 connectImpl host
 
+-- | Emits an event and data
 emit :: forall d eff. Socket -> Event -> d -> Eff (socket :: SocketIO | eff) Unit
 emit socket event dataObj = runFn3 emitImpl socket event dataObj
+
+-- | Emits an event without data
+emit' :: forall eff. Socket -> Event -> Eff (socket :: SocketIO | eff) Unit
+emit' socket event = runFn3 emitImpl socket event writeUndefined
 
 on :: forall a eff. Socket -> Event -> (EventHandler a eff) -> Eff (socket :: SocketIO | eff) Unit
 on socket event callback = runFn3 onImpl socket event callback

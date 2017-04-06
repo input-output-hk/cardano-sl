@@ -9,6 +9,7 @@ import           Language.PureScript.Bridge         (BridgePart, buildBridge,
 import           Language.PureScript.Bridge.PSTypes (psInt)
 import           Universum
 
+import qualified Pos.Explorer.Socket                as PS
 import qualified Pos.Explorer.Web.ClientTypes       as CT
 import qualified Pos.Explorer.Web.Error             as CE
 
@@ -33,6 +34,9 @@ main = do
       , mkSumType (Proxy @CT.CTxSummary)
       , mkSumType (Proxy @CE.ExplorerError)
       , mkSumType (Proxy @CT.Coin)
+      , mkSumType (Proxy @PS.ClientEvent)
+      , mkSumType (Proxy @PS.ServerEvent)
+      , mkSumType (Proxy @PS.Subscription)
       , mkSumType (Proxy @CT.EpochIndex)
       , mkSumType (Proxy @CT.LocalSlotIndex)
       ]

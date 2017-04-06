@@ -34,19 +34,31 @@ options =
     , encodeSingleConstructors: false
     , userEncoding
     , userDecoding
+    , fieldLabelModifier: id
+    , omitNothingFields: false
     }
 
 
+-- | Encodes JSON using custom Options provided by `options`
 encodeJson :: forall a. (Generic a) => a -> Json
 encodeJson = genericEncodeJson options
 
+-- | Decodes JSON using custom Options provided by `options`
 decodeJson :: forall a. (Generic a) => Json -> Either String a
 decodeJson = genericDecodeJson options
 
 -- decode result of `http` or `socket` endpoints
 
+-- | Converts a JSONDecodingError into an error
+mkJSONError :: String -> Error
+mkJSONError = error <<< show <<< JSONDecodingError
+
+-- | Decodes result considering JSON and Server errors
 decodeResult :: forall a. Generic a => Json -> Either Error a
 decodeResult = either (Left <<< mkJSONError) (bimap mkServerError id) <<< decodeJson
   where
-    mkJSONError = error <<< show <<< JSONDecodingError
     mkServerError = error <<< show <<< ServerError
+
+-- | Decodes result considering JSON errors, only
+decodeResult' :: forall a. Generic a => Json -> Either Error a
+decodeResult' = either (Left <<< mkJSONError) pure <<< decodeJson

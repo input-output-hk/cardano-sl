@@ -19,6 +19,7 @@ data Route
     | Epoch EpochIndex
     | Calculator
     | Block CHash
+    | Playground
     | NotFound
 
 match :: String -> Route
@@ -37,6 +38,10 @@ match url = fromMaybe NotFound $ router url $
     Calculator <$ (lit calculatorLit) <* end
     <|>
     Block <<< mkCHash <$> (lit slotLit *> str) <* end
+    <|>
+    -- TODO (jk) Disable Playground route in production mode
+    -- It is just for debugging
+    Playground <$ lit playgroundLit <* end
 
 toUrl :: Route -> String
 toUrl Dashboard = dashboardUrl
@@ -46,6 +51,7 @@ toUrl (EpochSlot epoch slot) = epochSlotUrl epoch slot
 toUrl (Epoch epoch) = epochUrl epoch
 toUrl Calculator = calculatorUrl
 toUrl (Block hash) = blockUrl hash
+toUrl Playground = playgroundUrl
 toUrl NotFound = notFoundUrl
 
 litUrl :: String -> String
@@ -89,6 +95,12 @@ calculatorUrl = "/" <> calculatorLit
 
 blockUrl :: CHash -> String
 blockUrl hash = litUrl slotLit <> hash ^. _CHash
+
+playgroundLit :: String
+playgroundLit = "playground"
+
+playgroundUrl :: String
+playgroundUrl = litUrl playgroundLit
 
 notFoundLit :: String
 notFoundLit = "404"

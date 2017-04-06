@@ -96,7 +96,7 @@ Clients must supply the following data
 }
 ```
 
-- 
+-
 
 ```javascript
 {
@@ -299,7 +299,7 @@ Clients must supply the following data
 }
 ```
 
-- 
+-
 
 ```javascript
 {
@@ -469,7 +469,7 @@ Clients must supply the following data
 }
 ```
 
-- 
+-
 
 ```javascript
 {
@@ -618,4 +618,3 @@ Clients must supply the following data
     }
 }
 ```
-

@@ -449,7 +449,7 @@ library
                       , lens
                       , lifted-async
                       , list-t
-                      , log-warper >= 1.1.0
+                      , log-warper >= 1.1.1
                       , lrucache
                       , memory
                       , mmorph

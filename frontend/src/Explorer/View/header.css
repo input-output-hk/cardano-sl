@@ -126,32 +126,6 @@
         display: block;
       }
     }
-    .currency__select {
-      height: var(--height-header-top);
-      color: var(--color0);
-      font-family: var(--fontFamily0-Light);
-      font-size: 12px;
-      margin: 0;
-      width: auto;
-      border: none;
-      background-color: transparent;
-      background-repeat: no-repeat;
-      background-position: right center;
-      background-size: 8px 8px;
-      appearance: none;
-      padding-right: 15px;
-
-      &:hover{
-        cursor: pointer;
-      }
-    }
-
-    @media (--sm) {
-      .currency__select {
-        @extend .invisible;
-      }
-    }
-
   }
 }
 @media (--mdd) {

@@ -23,6 +23,7 @@ module Daedalus.Types
        , mkCPostVendWalletRedeem
        , mkCInitialized
        , mkCPassPhrase
+       , emptyCPassPhrase
        , getProfileLocale
        ) where
 
@@ -100,6 +101,9 @@ _address (CAddress a) = _hash a
 
 _passPhrase :: CPassPhrase -> String
 _passPhrase (CPassPhrase p) = p
+
+emptyCPassPhrase :: CPassPhrase
+emptyCPassPhrase = CPassPhrase ""
 
 mkCPassPhrase :: String -> CPassPhrase
 mkCPassPhrase = CPassPhrase <<< bytesToB16 <<< blake2b

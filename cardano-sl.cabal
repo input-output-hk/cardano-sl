@@ -116,7 +116,10 @@ library
   -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:
                         Pos.Explorer
+                        Pos.Explorer.DB
                         Pos.Explorer.Core
+                        Pos.Explorer.Core.Types
+                        Pos.Explorer.Txp.Toil.Types
   if flag(with-web)
     exposed-modules:    Pos.Web
   if flag(with-wallet)
@@ -347,15 +350,12 @@ library
 
   -- Explorer (TODO: move into cardano-explorer)
   other-modules:        Pos.Binary.Explorer
-                        Pos.Explorer.Core.Types
-                        Pos.Explorer.DB
                         Pos.Explorer.Txp
                         Pos.Explorer.Txp.Global
                         Pos.Explorer.Txp.Local
                         Pos.Explorer.Txp.Toil
                         Pos.Explorer.Txp.Toil.Class
                         Pos.Explorer.Txp.Toil.Logic
-                        Pos.Explorer.Txp.Toil.Types
 
   if flag(with-web)
     other-modules:      Pos.Aeson.Crypto
@@ -501,7 +501,7 @@ library
     build-depends:      http-types
                       , servant >= 0.8.1
                       , servant-docs >= 0.8.1
-                      , servant-server >= 0.8.1 
+                      , servant-server >= 0.8.1
                       , wai
                       , wai-extra
                       , warp

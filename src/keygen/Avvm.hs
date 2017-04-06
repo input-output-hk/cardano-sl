@@ -89,6 +89,7 @@ genGenesis avvm genCerts holder = GenesisData
     { gdAddresses = HM.keys balances
     , gdDistribution = ExplicitStakes balances
     , gdVssCertificates = if genCerts then randCerts else mempty
+    , gdBootstrapBalances = mempty
     }
   where
     distr = pure . (holder, )

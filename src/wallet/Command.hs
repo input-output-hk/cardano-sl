@@ -21,7 +21,7 @@ import           Pos.Core.Types             (ScriptVersion)
 import           Pos.Core.Version           (parseBlockVersion, parseSoftwareVersion)
 import           Pos.Crypto                 (Hash, decodeHash)
 import           Pos.Txp                    (TxOut (..))
-import           Pos.Types                  (Address (..), BlockVersion, EpochIndex, Coin,
+import           Pos.Types                  (Address (..), BlockVersion, Coin, EpochIndex,
                                              SoftwareVersion, decodeTextAddress, mkCoin)
 import           Pos.Update                 (UpId)
 

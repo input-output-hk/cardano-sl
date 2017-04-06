@@ -90,14 +90,14 @@ prepareGStateUtxo
        MonadDB m
     => Utxo -> m ()
 prepareGStateUtxo genesisUtxo =
-    putIfEmpty genUtxoExists putGenesisUtxo
+    putIfEmpty isUtxoInitialized putGenesisUtxo
   where
     putIfEmpty :: m Bool -> m () -> m ()
     putIfEmpty exists putter = whenM (not <$> exists) $ putter
     putGenesisUtxo = do
         let utxoList = M.toList genesisUtxo
         writeBatchGState $ concatMap createBatchOp utxoList
-        gsPutBi genUtxoFlagKey True
+        gsPutBi initializationFlagKey True
     createBatchOp (txin, txout) =
         [AddTxOut txin txout]
 
@@ -200,12 +200,12 @@ txInKey = encodeWithKeyPrefix @UtxoIter
 iterationUtxoPrefix :: ByteString
 iterationUtxoPrefix = "ut/t/"
 
-genUtxoFlagKey :: ByteString
-genUtxoFlagKey = "ut/gutxo"
+initializationFlagKey :: ByteString
+initializationFlagKey = "ut/gutxo"
 
 ----------------------------------------------------------------------------
 -- Details
 ----------------------------------------------------------------------------
 
-genUtxoExists :: MonadDB m => m Bool
-genUtxoExists = isJust <$> (getUtxoDB >>= rocksGetBytes genUtxoFlagKey)
+isUtxoInitialized :: MonadDB m => m Bool
+isUtxoInitialized = isJust <$> (getUtxoDB >>= rocksGetBytes initializationFlagKey)

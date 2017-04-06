@@ -12,7 +12,7 @@ module Pos.Explorer.Web.ClientTypes
        , CNetworkAddress (..)
        , CTxSummary (..)
        , TxInternal (..)
-       , Coin (..)
+       , Coin
        , EpochIndex (..)
        , LocalSlotIndex (..)
        , mkCoin
@@ -60,7 +60,7 @@ import           Pos.Types              (Address, Coin, EpochIndex,
                                          getSlotIndex, headerHash, mcdSlot,
                                          mkCoin, prevBlockL, sumCoins,
                                          unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Types.Explorer     (TxExtra (..))
+import          Pos.Explorer.Core.Types  (TxExtra (..))
 
 
 

@@ -4,16 +4,16 @@ extra-package-dbs: []
 
 packages:
 - '.'
-- location:
-    git: https://github.com/input-output-hk/cardano-sl
-    commit: 7ee83d2d1e4bfd8d9fa946b2788e5aa035babc30
+- location: '../cardano-sl'
+    # git: https://github.com/input-output-hk/cardano-sl
+    # commit: b37b7f0b65ca8cea6c1f0e2937ab2512c4b2f7f5
   extra-dep: true
   subdirs:
       - '.'
       - core
+      - update
       - infra
       - db
-      - update
       - lrc
 - location:
     git: https://github.com/serokell/acid-state.git
@@ -55,7 +55,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/engine.io.git
-    commit: f8b2ae4af83f4f5220bb6c8f50adda82c3a1e9f3
+    commit: a594e402fd450f11ad60d09ddbd93db500000632
   extra-dep: true
   subdirs:
     - socket-io
@@ -64,6 +64,13 @@ packages:
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
     commit: 838b064d8a59286142aa2fe14434fe7601896ddb
+  extra-dep: true
+# We're using forked version of 'swagger2' package because of bug in haddock package.
+# Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will
+# be fixed, we'll back to Hackage-version.
+- location:
+    git: https://github.com/serokell/swagger2
+    commit: 6cc2063e1c8da9e701f3ac95549b8a33be9605de
   extra-dep: true
 # - location:
 #     git: https://github.com/haskell-crypto/cryptonite.git
@@ -91,7 +98,7 @@ extra-deps:
 - code-page-0.1.1                 # needed for criterion
 - websockets-snap-0.10.2.0
 - websockets-0.9.8.2
-- aeson-0.11.3.0
+- aeson-1.0.2.1
 - engine-io-snap-1.0.4
 - heist-1.0.1.0
 - map-syntax-0.2.0.2
@@ -99,6 +106,7 @@ extra-deps:
 - snap-cors-1.2.11
 - purescript-bridge-0.10.1.0
 - cryptonite-0.22
+- directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
 
 resolver: lts-8.5
 

@@ -21,13 +21,14 @@ import           Pos.Core.Types             (ScriptVersion)
 import           Pos.Core.Version           (parseBlockVersion, parseSoftwareVersion)
 import           Pos.Crypto                 (Hash, decodeHash)
 import           Pos.Txp                    (TxOut (..))
-import           Pos.Types                  (Address (..), BlockVersion, EpochIndex,
+import           Pos.Types                  (Address (..), BlockVersion, EpochIndex, Coin,
                                              SoftwareVersion, decodeTextAddress, mkCoin)
 import           Pos.Update                 (UpId)
 
 data Command
     = Balance Address
     | Send Int (NonEmpty TxOut)
+    | SendToAllGenesis Coin
     | Vote Int Bool UpId
     | ProposeUpdate
           { puIdx             :: Int           -- TODO: what is this? rename
@@ -68,8 +69,11 @@ address = lexeme $ do
 num :: Num a => Parser a
 num = lexeme $ fromInteger . read <$> many1 digit
 
+coin :: Parser Coin
+coin = mkCoin <$> num
+
 txout :: Parser TxOut
-txout = TxOut <$> address <*> (mkCoin <$> num)
+txout = TxOut <$> address <*> coin
 
 hash :: Parser (Hash a)
 hash = decodeHash <$> anyText
@@ -91,6 +95,9 @@ delegateH = DelegateHeavy <$> num <*> num <*> optional num
 send :: Parser Command
 send = Send <$> num <*> (NE.fromList <$> many1 txout)
 
+sendToAllGenesis :: Parser Command
+sendToAllGenesis = SendToAllGenesis <$> coin
+
 vote :: Parser Command
 vote = Vote <$> num <*> switch <*> hash
 
@@ -107,6 +114,7 @@ proposeUpdate =
 
 command :: Parser Command
 command = try (text "balance") *> balance <|>
+          try (text "send-to-all-genesis") *> sendToAllGenesis <|>
           try (text "send") *> send <|>
           try (text "vote") *> vote <|>
           try (text "propose-update") *> proposeUpdate <|>

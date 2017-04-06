@@ -9,6 +9,7 @@ import           Control.Monad.Reader      (MonadReader (..), ReaderT, ask, asks
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Data.ByteString           as BS
 import           Data.List                 ((!!))
+import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
 import           Data.Time.Units           (convertUnit)
 import           Formatting                (build, int, sformat, stext, (%))
@@ -42,7 +43,7 @@ import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Ssc.NistBeacon        (SscNistBeacon)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
-import           Pos.Txp                   (TxOutAux (..), txaF)
+import           Pos.Txp                   (TxOut (..), TxOutAux (..), txaF)
 import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress)
 import           Pos.Update                (BlockVersionData (..), UpdateVote (..),
                                             mkUpdateProposalWSign, patakUpdateData,
@@ -76,6 +77,23 @@ runCmd sendActions (Send idx outputs) = do
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
+runCmd sendActions (SendToAllGenesis amount) = do
+    (skeys, na) <- ask
+    forM_ skeys $ \key -> do
+        let txOut = TxOut {
+            txOutAddress = makePubKeyAddress (toPublic key),
+            txOutValue = amount
+        }
+        etx <-
+            lift $
+            submitTx
+                sendActions
+                (fakeSigner key)
+                na
+                (NE.fromList [TxOutAux txOut []])
+        case etx of
+            Left err -> putText $ sformat ("Error: "%stext) err
+            Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
 runCmd sendActions v@(Vote idx decision upid) = do
     logDebug $ "Submitting a vote :" <> show v
     (skeys, na) <- ask
@@ -131,6 +149,8 @@ runCmd _ Help = do
             , "   balance <address>              -- check balance on given address (may be any address)"
             , "   send <N> [<address> <coins>]+  -- create and send transaction with given outputs"
             , "                                     from own address #N"
+            , "   send-to-all-genesis <coins>    -- create and send transactions from all genesis addresses"
+            , "                                     to themselves with the given amount of coins"
             , "   vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base64) and"
             , "                                     decision, from own address #N"
             , "   propose-update <N> <block ver> <script ver> <slot duration> <max block size> <software ver> <propose_file>?"

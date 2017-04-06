@@ -12,6 +12,7 @@ import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.String.Base64 as B64
 import Data.Base58 as B58
+import Data.Array as A
 import Data.String (length, stripSuffix, Pattern (..))
 import Data.Maybe (isJust, maybe)
 import Data.Function.Eff (EffFn1, mkEffFn1, EffFn2, mkEffFn2, EffFn4, mkEffFn4, EffFn3, mkEffFn3, EffFn6, mkEffFn6, EffFn7, mkEffFn7, mkEffFn5, EffFn5)
@@ -185,4 +186,4 @@ isValidRedeemCode code = either (const false) (const $ endsWithEqual && 44 == le
 
 -- Valid postvend code is base58 encoded 32byte data
 isValidPostVendRedeemCode :: String -> Boolean
-isValidPostVendRedeemCode code = maybe false (const true) $ B58.decode code
+isValidPostVendRedeemCode code = maybe false ((==) 32 <<< A.length) $ B58.decode code

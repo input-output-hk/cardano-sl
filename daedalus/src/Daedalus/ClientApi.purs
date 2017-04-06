@@ -185,4 +185,4 @@ isValidRedeemCode code = either (const false) (const $ endsWithEqual && 44 == le
 
 -- Valid postvend code is base58 encoded 32byte data
 isValidPostVendRedeemCode :: String -> Boolean
-isValidPostVendRedeemCode code = maybe false (const $ 44 == length code) $ B58.decode code
+isValidPostVendRedeemCode code = maybe false (const true) $ B58.decode code

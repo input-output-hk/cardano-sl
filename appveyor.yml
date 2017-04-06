@@ -81,13 +81,13 @@ test_script:
       --extra-lib-dirs="C:\OpenSSL-Win64"
       --extra-include-dirs="C:\projects\cardano-sl\rocksdb\include"
       --extra-lib-dirs="C:\projects\cardano-sl"
- - stack exec --work-dir %STACK_WORK% -- cardano-wallet-hs2purs
- - copy log-config-prod.yaml daedalus\log-config-prod.yaml
- - cd daedalus
- - Echo %APPVEYOR_BUILD_VERSION% > build-id
- - ps: Install-Product node 7
- - ..\scripts\appveyor-retry call npm install
- - npm run build:prod
+  - stack exec --work-dir %STACK_WORK% -- cardano-wallet-hs2purs
+  - copy log-config-prod.yaml daedalus\log-config-prod.yaml
+  - cd daedalus
+  - Echo %APPVEYOR_BUILD_VERSION% > build-id
+  - ps: Install-Product node 7
+  - ..\scripts\appveyor-retry call npm install
+  - npm run build:prod
 
 after_test:
  - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %STACK_ROOT% %CACHED_STACK_ROOT%

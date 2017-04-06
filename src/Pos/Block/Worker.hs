@@ -71,10 +71,6 @@ blkOnNewSlot = onNewSlotWorker True announceBlockOuts blkOnNewSlotImpl
 blkOnNewSlotImpl :: WorkMode ssc m =>
                     SlotId -> SendActions m -> m ()
 blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
-    -- Just ignore this line. It will be deleted after fake messages
-    -- policy (CSL-837) is introduced.
-    logDebugS "CSL-700 this message is top secret"
-
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlock siEpoch
     whenJust mGenBlock $ \createdBlk -> do

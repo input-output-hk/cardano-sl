@@ -6,7 +6,8 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 import           Control.Concurrent        (modifyMVar_)
-import           Control.Concurrent.Async  hiding (wait)
+import           Control.Concurrent.Async  (Async, cancel, poll, waitAny,
+                                            withAsyncWithUnmask)
 import           Data.List                 (isSuffixOf)
 import qualified Filesystem.Path           as FP
 import           Filesystem.Path.CurrentOS (encodeString)
@@ -21,7 +22,10 @@ import           System.Process            (ProcessHandle)
 import qualified System.Process            as Process
 import           System.Timeout            (timeout)
 import           System.Wlog               (lcFilePrefix)
-import           Turtle                    hiding (option, toText, (</>))
+import           Turtle                    (ExitCode (..), FilePath, Line, Shell,
+                                            appendonly, d, echo, fork, format, fp, mktemp,
+                                            mktree, outhandle, printf, proc, rm, s, sh,
+                                            sleep, testfile, wait, (%))
 import           Universum                 hiding (FilePath)
 
 -- Modules needed for the “Turtle internals” session

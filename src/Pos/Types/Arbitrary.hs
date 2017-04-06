@@ -57,7 +57,7 @@ import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
 import           Pos.Txp.Core.Types         (Tx (..), TxDistribution (..), TxIn (..),
                                              TxInWitness (..), TxOut (..), TxOutAux (..),
-                                             TxProof (..), mkTx)
+                                             TxProof (..), TxSigData (..), mkTx)
 import           Pos.Types.Arbitrary.Unsafe ()
 import           Pos.Util                   (makeSmall)
 
@@ -81,6 +81,7 @@ deriving instance Arbitrary Types.ChainDifficulty
 
 derive makeArbitrary ''TxOut
 derive makeArbitrary ''TxOutAux
+derive makeArbitrary ''TxSigData
 
 instance Arbitrary Coin where
     arbitrary = Types.mkCoin <$> choose (1, Types.unsafeGetCoin maxBound)
@@ -331,7 +332,10 @@ buildProperTx triplesList (inCoin, outCoin) = fmap newTx txList
             witness =
                 PkWitness
                 { twKey = toPublic fromSk
-                , twSig = sign fromSk (txHash, 0, txOutsHash, distrHash)
+                , twSig = sign fromSk TxSigData{
+                             txSigInput = txIn,
+                             txSigOutsHash = txOutsHash,
+                             txSigDistrHash = distrHash }
                 }
         in ((tx, makeNullDistribution tx), txIn, (TxOutAux txOutput []), witness)
     makeTxOutput s c = TxOut (makePubKeyAddress $ toPublic s) c

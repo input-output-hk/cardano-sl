@@ -64,6 +64,9 @@ library
                         Pos.Script
                         Pos.Script.Examples
 
+                        -- Slotting
+                        Pos.Slotting.Arbitrary
+
                         -- Something
                         Pos.Launcher
                         Pos.Security
@@ -315,6 +318,7 @@ library
 
                         -- Update System
                         Pos.Update.Arbitrary.Core
+                        Pos.Update.Arbitrary.MemState
                         Pos.Update.Arbitrary.Network
                         Pos.Update.Arbitrary.Poll
                         Pos.Update.Download
@@ -501,7 +505,7 @@ library
     build-depends:      http-types
                       , servant >= 0.8.1
                       , servant-docs >= 0.8.1
-                      , servant-server >= 0.8.1 
+                      , servant-server >= 0.8.1
                       , wai
                       , wai-extra
                       , warp
@@ -1123,6 +1127,8 @@ test-suite cardano-test
                        Test.Pos.Types.SlottingSpec
                        Test.Pos.Update.Identity.BinarySpec
                        Test.Pos.Update.Identity.SafeCopySpec
+                       Test.Pos.Update.MemStateSpec
+                       Test.Pos.Update.PollSpec
                        Test.Pos.Util
                        Test.Pos.UtilSpec
   type:                exitcode-stdio-1.0
@@ -1132,6 +1138,7 @@ test-suite cardano-test
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-infra >= 0.1
+                     , cardano-sl-update
                      , cardano-sl
                      , cereal
                      , containers

@@ -30,6 +30,7 @@ module Pos.Wallet.Web.State.Storage
        , getAccountHistory
        , addOnlyNewTxMeta
        , setWalletTransactionMeta
+       , removeWSet
        , removeWallet
        , removeAccount
        , addUpdate
@@ -142,8 +143,7 @@ createWSet :: CWalletSetAddress -> CWalletSetMeta -> Update ()
 createWSet cAddr wSMeta = wsWSetMetas . at cAddr ?= wSMeta
 
 addAccount :: CAccountAddress -> Update ()
-addAccount accAddr@CAccountAddress{..} =
-    wsAccountTxs . at accAddr ?= mempty
+addAccount accAddr@CAccountAddress{..} = wsAccountTxs . at accAddr ?= mempty
 
 setWalletMeta :: CWalletAddress -> CWalletMeta -> Update ()
 setWalletMeta cAddr wMeta = wsWalletMetas . at cAddr . _Just .= wMeta
@@ -164,6 +164,9 @@ addOnlyNewTxMeta cAddr ctxId ctxMeta = wsAccountTxs . at cAddr . _Just . at ctxI
 -- NOTE: sets transaction meta only for transactions ids that are already seen
 setWalletTransactionMeta :: CAccountAddress -> CTxId -> CTxMeta -> Update ()
 setWalletTransactionMeta cAddr ctxId ctxMeta = wsAccountTxs . at cAddr . _Just . at ctxId %= fmap (const ctxMeta)
+
+removeWSet :: CWalletSetAddress -> Update ()
+removeWSet cAddr = wsWSetMetas . at cAddr .= Nothing
 
 removeWallet :: CWalletAddress -> Update ()
 removeWallet cAddr = wsWalletMetas . at cAddr .= Nothing

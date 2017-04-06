@@ -193,7 +193,7 @@ instance ToCapture (Capture "address" CAccountAddress) where
         , _capDesc = "Address, history of which should be fetched"
         }
 
-instance ToParam (QueryParam "address" CAccountAddress) where
+instance ToParam (QueryParam "account" CAccountAddress) where
     toParam Proxy =
         DocQueryParam
         { _paramName    = "address"

@@ -44,8 +44,6 @@ instance ( Bi (T.BHeaderHash b)
     get =
         label "GenericBlockHeader" $ do
         blockMagic <- getInt32be
-        when (blockMagic /= protocolMagic) $
-            fail $ "GenericBlockHeader failed with wrong magic: " <> show blockMagic
         T.GenericBlockHeader <$> get <*> get <*> get <*> get
 
 instance ( Bi (T.BHeaderHash b)

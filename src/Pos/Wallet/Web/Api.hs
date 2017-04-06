@@ -177,7 +177,7 @@ type WalletApi =
      :> "histories"
      :> Capture "walletId" CWalletAddress
      :> Capture "search" Text
-     :> QueryParam "address" CAccountAddress
+     :> QueryParam "account" CAccountAddress
      :> QueryParam "skip" Word
      :> QueryParam "limit" Word
      :> Get '[JSON] (Either WalletError ([CTx], Word))

@@ -193,7 +193,7 @@ instance Hashable CWalletAddress
 
 instance Buildable CWalletAddress where
     build CWalletAddress{..} =
-        bprint (F.build%"#"%F.build) cwaWSAddress cwaIndex
+        bprint (F.build%"@"%F.build) cwaWSAddress cwaIndex
 
 -- | Account identifier
 data CAccountAddress = CAccountAddress
@@ -209,7 +209,7 @@ data CAccountAddress = CAccountAddress
 
 instance Buildable CAccountAddress where
     build CAccountAddress{..} =
-        bprint (F.build%"#"%F.build%"#"%F.build%" ("%F.build%")")
+        bprint (F.build%"@"%F.build%"@"%F.build%" ("%F.build%")")
         caaWSAddress caaWalletIndex caaAccountIndex caaAddress
 
 walletAddrByAccount :: CAccountAddress -> CWalletAddress

@@ -501,7 +501,7 @@ library
     build-depends:      http-types
                       , servant >= 0.8.1
                       , servant-docs >= 0.8.1
-                      , servant-server >= 0.8.1 
+                      , servant-server >= 0.8.1
                       , wai
                       , wai-extra
                       , warp
@@ -512,6 +512,12 @@ library
   ghc-options:         -Wall
                        -fno-warn-orphans
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -572,6 +578,12 @@ executable cardano-node
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -623,6 +635,12 @@ executable cardano-analyzer
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -680,6 +698,12 @@ executable cardano-wallet
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -727,6 +751,12 @@ executable cardano-wallet-hs2purs
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -798,6 +828,12 @@ executable cardano-smart-generator
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -858,6 +894,12 @@ executable cardano-dht-keygen
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -892,6 +934,12 @@ executable cardano-web-docs
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed ups for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -933,6 +981,12 @@ executable cardano-wallet-web-docs
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -977,6 +1031,12 @@ executable cardano-wallet-web-api-swagger
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   NoImplicitPrelude
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -993,6 +1053,12 @@ executable cardano-checks
   ghc-options:         -threaded
                        -Wall
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:  OverloadedStrings
 
 executable cardano-genupdate
@@ -1011,6 +1077,12 @@ executable cardano-genupdate
   ghc-options:         -threaded
                        -Wall
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:  OverloadedStrings
                        NoImplicitPrelude
 
@@ -1043,6 +1115,12 @@ executable cardano-keygen
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -1083,6 +1161,12 @@ executable cardano-launcher
   ghc-options:         -threaded
                        -Wall
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:  OverloadedStrings
                        RecordWildCards
                        TupleSections
@@ -1165,6 +1249,12 @@ test-suite cardano-test
                        -Wall
                        -fno-warn-orphans
                        -with-rtsopts=-N
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -1215,6 +1305,12 @@ benchmark cardano-bench-criterion
                        -Wall
                        -fno-warn-orphans
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving

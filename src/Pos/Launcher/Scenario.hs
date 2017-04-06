@@ -98,7 +98,7 @@ waitForPeers = discoverPeers >>= \case
 initSemaphore :: (WorkMode ssc m) => m ()
 initSemaphore = do
     semaphore <- ncBlkSemaphore <$> getNodeContext
-    whenNothingM_ (tryReadMVar semaphore) $
+    whenJustM (tryReadMVar semaphore) $ const $
         logError "ncBlkSemaphore is not empty at the very beginning"
     tip <- GS.getTip
     putMVar semaphore tip

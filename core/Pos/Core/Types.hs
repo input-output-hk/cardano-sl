@@ -66,7 +66,7 @@ module Pos.Core.Types
        , ScriptVersion
        ) where
 
-import           Crypto.Hash          (Blake2s_224)
+import           Crypto.Hash          (Blake2b_224)
 import           Data.Char            (isAscii)
 import           Data.Data            (Data)
 import           Data.Default         (Default (..))
@@ -124,7 +124,7 @@ instance Default AddrPkAttrs where
 -- | Stakeholder identifier (stakeholders are identified by their public keys)
 type StakeholderId = AddressHash PublicKey
 
-type AddressHash = AbstractHash Blake2s_224
+type AddressHash = AbstractHash Blake2b_224
 
 instance NFData Address
 

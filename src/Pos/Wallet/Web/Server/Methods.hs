@@ -433,6 +433,7 @@ send :: WalletWebMode ssc m => SendActions m -> CPassPhrase -> CAccountAddress -
 send sendActions cpass srcCAddr dstCAddr c =
     sendExtended sendActions cpass srcCAddr dstCAddr c ADA mempty mempty
 
+-- TODO [CSM-185]: Send between wallets, not accounts
 sendExtended :: WalletWebMode ssc m => SendActions m -> CPassPhrase -> CAccountAddress -> CAccountAddress -> Coin -> CCurrency -> Text -> Text -> m CTx
 sendExtended sendActions cpassphrase srcCAddr dstCAddr c curr title desc = do
     passphrase <- decodeCPassPhraseOrFail cpassphrase
@@ -472,7 +473,7 @@ getHistory
     => CWalletAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
 getHistory wAddr skip limit = do
     cAccAddrs <- getWalletAccAddrsOrThrow wAddr
-    cHistory <- fmap concat . forM cAccAddrs $ \cAccAddr -> do
+    cHistory <- concatForM cAccAddrs $ \cAccAddr -> do
         (minit, cachedTxs) <- transCache <$> getHistoryCache cAccAddr
         cAddr <- decodeCAddressOrFail $ caaAddress cAccAddr
 

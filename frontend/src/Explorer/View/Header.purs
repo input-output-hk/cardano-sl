@@ -30,38 +30,10 @@ headerView state = do
                     ]
                 , P.div
                     [ P.className "nav__container" ]
-                    [ navigationView state ]
+                    []
                 , P.div
                     [P.className "currency__container"]
                     []
                 ]
             ]
         ]
-
--- navigation
-
-mkNavItems :: Language -> Array String
-mkNavItems lang =
-    [ translate (I18nL.navigation <<< I18nL.navHome) lang
-    , translate (I18nL.navigation <<< I18nL.navBlockchain) lang
-    , translate (I18nL.navigation <<< I18nL.navMarket) lang
-    , translate (I18nL.navigation <<< I18nL.navCharts) lang
-    , translate (I18nL.navigation <<< I18nL.navTools) lang
-    ]
-
-navigationView :: State -> P.Html Action
-navigationView state =
-    P.nav
-      [ P.className "nav__list"]
-      $ map navItemView <<< mkNavItems $ state ^. lang
-
-
-navItemView :: String -> P.Html Action
-navItemView label =
-  P.div
-      [ P.className "nav__item-wrapper" ]
-      [
-        P.span
-        [ P.className "nav__item-text" ]
-        [ P.text label ]
-      ]

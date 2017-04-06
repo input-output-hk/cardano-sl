@@ -51,6 +51,7 @@ library
                      , mtl
                      , node-sketch
                      , parsec
+                     , QuickCheck
                      , rocksdb
                      , safecopy
                      , serokell-util

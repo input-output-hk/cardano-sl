@@ -60,7 +60,7 @@ generateFakeAvvm fp = do
 
 genTestnetStakes :: TestStakeOptions -> StakeDistribution
 genTestnetStakes TestStakeOptions{..} =
-    checkConsistency $ TestnetStakes {..}
+    checkConsistency $ RichPoorStakes {..}
   where
     richs = fromIntegral tsoRichmen
     poors = fromIntegral tsoPoors

@@ -120,6 +120,7 @@ data CommonArgs = CommonArgs
     -- distributions, only used in dev mode
     , flatDistr          :: !(Maybe (Int, Int))
     , bitcoinDistr       :: !(Maybe (Int, Int))
+    , richPoorDistr      :: !(Maybe (Int, Int, Integer, Double))
     , expDistr           :: !Bool
     } deriving Show
 
@@ -140,9 +141,10 @@ commonArgsParser peerHelpMsg = do
     reportServers <- reportServersOption
     updateServers <- updateServersOption
     -- distributions
-    flatDistr    <- if isDevelopment then flatDistrOptional else pure Nothing
-    bitcoinDistr <- if isDevelopment then btcDistrOptional  else pure Nothing
-    expDistr     <- if isDevelopment then expDistrOption    else pure False
+    flatDistr     <- if isDevelopment then flatDistrOptional else pure Nothing
+    bitcoinDistr  <- if isDevelopment then btcDistrOptional  else pure Nothing
+    richPoorDistr <- if isDevelopment then rnpDistrOptional  else pure Nothing
+    expDistr      <- if isDevelopment then expDistrOption    else pure False
     --
     pure CommonArgs{..}
 
@@ -243,6 +245,17 @@ btcDistrOptional =
                 "(INT,INT)"
                 "Use bitcoin stake distribution with given parameters (nodes,\
                 \ coins)"
+
+rnpDistrOptional :: Opt.Parser (Maybe (Int, Int, Integer, Double))
+rnpDistrOptional =
+    Opt.optional $
+        Opt.option Opt.auto $
+            templateParser
+                "rich-poor-distr"
+                "(INT,INT,INT,FLOAT)"
+                "Use rich'n'poor stake distribution with given parameters\
+                \ (number of richmen, number of poors, total stake, richmen's\
+                \ share of stake)"
 
 expDistrOption :: Opt.Parser Bool
 expDistrOption =

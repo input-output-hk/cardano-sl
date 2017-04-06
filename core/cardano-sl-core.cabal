@@ -110,6 +110,7 @@ library
                      , parsec
                      , plutus-prototype
                      , pvss
+                     , quickcheck-instances
                      , random
                      , safecopy
                      , semigroups

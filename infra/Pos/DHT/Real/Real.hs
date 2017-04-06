@@ -167,9 +167,9 @@ getKnownPeersImpl = do
         | otherwise =
             let peers = filter ((< enhancedMessageTimeout) . snd) bucket in
             if null peers then
-                [fst $ minimumBy (\x y -> compare (snd x) (snd y)) bucket]
+                [fst $ minimumBy (comparing snd) bucket]
             else
-                map fst $ peers
+                map fst peers
 
     updateCache :: MonadIO m1 => KademliaDHTInstance -> [K.Node DHTKey] -> m1 [K.Node DHTKey]
     updateCache inst peers =

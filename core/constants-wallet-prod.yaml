@@ -8,6 +8,7 @@ genesisMaxBlockSize: 2000000
 genesisMaxHeaderSize: 200000
 genesisMaxTxSize: 4096 # 4 Kb
 maxReqSize: 100 # 100 bytes
+maxMempoolMsgSize: 100 # 100 bytes
 maxInvSize: 100 # 100 bytes
 genesisMpcThd: 0.05 # 5% of stake
 genesisHeavyDelThd: 0.0003 # 0.03% of stake
@@ -36,6 +37,9 @@ mpcSendInterval: 100 # must be less than (2 * k * slotDuration - networkDiameter
 
 # Lightweight delegation
 lightDlgConfirmationTimeout: 500
+
+# Update system
+applicationName: csl-daedalus
 
 # Production start time
 productionNetworkStartTime: 1489700040

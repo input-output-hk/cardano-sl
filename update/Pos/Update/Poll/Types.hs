@@ -136,7 +136,7 @@ cpsSoftwareVersion = upSoftwareVersion . cpsUpdateProposal
 data ProposalState
     = PSUndecided !UndecidedProposalState
     | PSDecided !DecidedProposalState
-      deriving (Generic, Show)
+      deriving (Eq, Generic, Show)
 
 psProposal :: ProposalState -> UpdateProposal
 psProposal (PSUndecided ups) = upsProposal ups
@@ -187,7 +187,7 @@ data BlockVersionState = BlockVersionState
     -- ^ Identifier of last block which modified set of 'bvsIssuersStable'.
     , bvsLastBlockUnstable :: !(Maybe HeaderHash)
     -- ^ Identifier of last block which modified set of 'bvsIssuersUnstable'.
-    } deriving (Show, Generic)
+    } deriving (Eq, Show, Generic)
 
 bvsScriptVersion :: BlockVersionState -> ScriptVersion
 bvsScriptVersion = bvdScriptVersion . bvsData
@@ -214,7 +214,7 @@ data PollModifier = PollModifier
     , pmDelActivePropsIdx :: !(HashMap ApplicationName (HashSet UpId))
     , pmSlottingData      :: !(Maybe SlottingData)
     , pmEpochProposers    :: !(Maybe (HashSet StakeholderId))
-    } deriving (Show)
+    } deriving (Eq, Show)
 
 flip makeLensesFor ''PollModifier
     [ ("pmBVs", "pmBVsL")

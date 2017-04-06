@@ -7,7 +7,7 @@ module Pos.Crypto.SafeSigning
        , PassPhrase
        , SafeSigner
        , emptyPassphrase
-       , toEncrypted
+       , noPassEncrypt
        , encToPublic
        , safeSign
        , safeToPublic
@@ -18,7 +18,7 @@ module Pos.Crypto.SafeSigning
        ) where
 
 import qualified Cardano.Crypto.Wallet as CC
-import           Data.ByteArray        (ScrubbedBytes)
+import           Data.ByteArray        (ByteArray, ByteArrayAccess, ScrubbedBytes)
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Lazy  as BSL
 import           Data.Coerce           (coerce)
@@ -43,11 +43,17 @@ instance B.Buildable EncryptedSecretKey where
     build _ = "<encrypted key>"
 
 newtype PassPhrase = PassPhrase ScrubbedBytes
-    deriving (Eq, NFData)
+    deriving (Eq, Ord, Monoid, NFData, ByteArray, ByteArrayAccess)
+
+instance Show PassPhrase where
+    show _ = "<passphrase>"
+
+instance Buildable PassPhrase where
+    build _ = "<passphrase>"
 
 deriveSafeCopySimple 0 'base ''EncryptedSecretKey
 
--- | Empty passphrase used as a placeholder
+-- | Empty passphrase used in development.
 emptyPassphrase :: PassPhrase
 emptyPassphrase = PassPhrase mempty
 
@@ -55,9 +61,9 @@ emptyPassphrase = PassPhrase mempty
 encToPublic :: EncryptedSecretKey -> PublicKey
 encToPublic (EncryptedSecretKey sk) = PublicKey (CC.toXPub sk)
 
--- | Re-wrap unencrypted secret key as an encrypted one (with empty passphrase)
-toEncrypted :: SecretKey -> EncryptedSecretKey
-toEncrypted (SecretKey k) = EncryptedSecretKey k
+-- | Re-wrap unencrypted secret key as an encrypted one
+noPassEncrypt :: SecretKey -> EncryptedSecretKey
+noPassEncrypt (SecretKey k) = EncryptedSecretKey k
 
 signRaw' :: PassPhrase -> EncryptedSecretKey -> ByteString -> Signature Raw
 signRaw' (PassPhrase pp) (EncryptedSecretKey sk) x =

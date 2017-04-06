@@ -4,6 +4,7 @@ module KeygenOptions
        ( KeygenOptions (..)
        , AvvmStakeOptions (..)
        , TestStakeOptions (..)
+       , FakeAvvmOptions (..)
        , optsInfo
        ) where
 
@@ -13,10 +14,12 @@ import           Options.Applicative (Parser, ParserInfo, auto, fullDesc, help, 
 import           Universum
 
 data KeygenOptions = KeygenOptions
-    { koGenesisFile :: FilePath
-    , koTestStake   :: Maybe TestStakeOptions
-    , koAvvmStake   :: Maybe AvvmStakeOptions
-    }
+    { koGenesisFile   :: FilePath
+    , koRearrangeMask :: Maybe FilePath
+    , koTestStake     :: Maybe TestStakeOptions
+    , koAvvmStake     :: Maybe AvvmStakeOptions
+    , koFakeAvvmStake :: Maybe FakeAvvmOptions
+    } deriving (Show)
 
 data TestStakeOptions = TestStakeOptions
     { tsoPattern      :: FilePath
@@ -24,13 +27,20 @@ data TestStakeOptions = TestStakeOptions
     , tsoRichmen      :: Word
     , tsoRichmenShare :: Double
     , tsoTotalStake   :: Word64
-    }
+    } deriving (Show)
 
 data AvvmStakeOptions = AvvmStakeOptions
     { asoJsonPath      :: FilePath
     , asoIsRandcerts   :: Bool
     , asoHolderKeyfile :: Maybe FilePath
-    }
+    , asoBlacklisted   :: Maybe FilePath
+    } deriving (Show)
+
+data FakeAvvmOptions = FakeAvvmOptions
+    { faoSeedPattern :: FilePath
+    , faoCount       :: Word
+    , faoOneStake    :: Word64
+    } deriving (Show)
 
 optsParser :: Parser KeygenOptions
 optsParser = do
@@ -39,8 +49,13 @@ optsParser = do
         metavar "FILE" <>
         value   "genesis.bin" <>
         help    "File to dump binary shared genesis data"
+    koRearrangeMask <- optional $ strOption $
+        long    "rearrange-mask" <>
+        metavar "PATTERN" <>
+        help    "Secret keyfiles to rearrange"
     koTestStake <- optional testStakeParser
     koAvvmStake <- optional avvmStakeParser
+    koFakeAvvmStake <- optional fakeAvvmParser
     pure KeygenOptions{..}
 
 testStakeParser :: Parser TestStakeOptions
@@ -64,9 +79,9 @@ testStakeParser = do
     tsoRichmenShare <- option auto $
         long    "richmen-share" <>
         metavar "FLOAT" <>
-        help    "Percent of stake dedicated to richmen"
+        help    "Percent of stake dedicated to richmen (between 0 and 1)"
     tsoTotalStake <- option auto $
-        long    "total-stake" <>
+        long    "testnet-stake" <>
         metavar "INT" <>
         help    "Total coins in genesis stake, excluding RSCoin ledger."
     pure TestStakeOptions{..}
@@ -85,7 +100,30 @@ avvmStakeParser = do
         metavar "FILE" <>
         help    "A keyfile from which to read public key of stakeholder \
                 \to which AVVM stakes are delegated."
+    asoBlacklisted <- optional $ strOption $
+        long    "blacklisted" <>
+        metavar "FILE" <>
+        help    "Path to the file containing blacklisted addresses \
+                \(an address per line)"
     pure AvvmStakeOptions{..}
+
+fakeAvvmParser :: Parser FakeAvvmOptions
+fakeAvvmParser = do
+    faoSeedPattern <- strOption $
+        long    "fake-avvm-seed-pattern" <>
+        metavar "PATTERN" <>
+        help    "Filename pattern for generated AVVM seeds \
+                \(`{}` is a place for number)"
+    faoCount <- option auto $
+        long    "fake-avvm-entries" <>
+        metavar "INT" <>
+        help    "Number of fake avvm stakeholders"
+    faoOneStake <- option auto $
+        long    "fake-avvm-stake" <>
+        metavar "INT" <>
+        value   15000000 <>
+        help    "A stake assigned to each of fake avvm stakeholders"
+    return FakeAvvmOptions{..}
 
 optsInfo :: ParserInfo KeygenOptions
 optsInfo = info (helper <*> optsParser) $

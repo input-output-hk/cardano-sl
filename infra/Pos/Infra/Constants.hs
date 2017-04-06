@@ -43,6 +43,8 @@ data InfraConstants = InfraConstants
       -- ^ Maximum `ReqMsg` size in bytes
     , ccMaxInvSize               :: !Byte
       -- ^ Maximum `InvMsg` size in bytes
+    , ccMaxMempoolMsgSize        :: !Byte
+      -- ^ Maximum `MempoolMsg` size in bytes
     } deriving (Show, Generic)
 
 instance FromJSON InfraConstants where

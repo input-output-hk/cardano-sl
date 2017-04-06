@@ -60,6 +60,9 @@ do
   # --prod = compile in production mode
   elif [[ $var == "--prod" ]]; then
     prod=true
+  # disabling -O0 (-O2 is default)
+  elif [[ $var == "-O2" ]]; then
+    no_fast=true
   # project name = build only the project
   elif [[ $var == "sl" ]]; then
     spec_prj="sl"
@@ -81,6 +84,12 @@ fi
 if [[ $prod == true ]]; then
   commonargs="$commonargs --flag cardano-sl-core:-dev-mode"
   export CSL_SYSTEM_TAG=linux64
+fi
+
+if [[ $no_fast == true ]]; then
+  fast=""
+else
+  fast="--fast"
 fi
 
 if [[ $ram == true ]]; then
@@ -127,7 +136,7 @@ for prj in $to_build; do
   stack build                               \
       --ghc-options="$ghc_opts"             \
       $commonargs $norun                    \
-      --fast                                \
+      $fast                                 \
       $args                                 \
       $prj                                  \
       2>&1                                  \
@@ -140,7 +149,7 @@ if [[ $test == true ]]; then
       --ghc-options="$ghc_opts"             \
       $commonargs                           \
       --no-run-benchmarks                   \
-      --fast                                \
+      $fast                                 \
       $args                                 \
       cardano-sl
 fi

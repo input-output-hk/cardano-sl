@@ -22,6 +22,13 @@ module Pos.Binary.Class
        , decodeOrFail
        , decodeFull
 
+       -- * Primitives for serialization
+       , getWord8
+       , putWord8
+       , getByteString
+       , putByteString
+       , label
+
        -- * The 'Raw' wrapper
        , Raw
 
@@ -786,8 +793,8 @@ instance SafeCopy (AsBinary a) where
     putCopy = contain . safePut . getAsBinary
 
 class AsBinaryClass a where
-  asBinary :: a -> AsBinary a
-  fromBinary :: AsBinary a -> Either String a
+    asBinary :: a -> AsBinary a
+    fromBinary :: AsBinary a -> Either String a
 
 fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
 fromBinaryM = either fail return . fromBinary

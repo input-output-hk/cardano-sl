@@ -6,6 +6,9 @@ module Test.Pos.Util
        ( binaryEncodeDecode
        , networkBinaryEncodeDecode
        , binaryTest
+       , formsCommutativeMonoid
+       , formsMonoid
+       , formsSemigroup
        , networkBinaryTest
        , msgLenLimitedTest
        , msgLenLimitedTest'
@@ -25,6 +28,7 @@ import qualified Data.Binary.Get       as Bin
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Lazy  as LBS
 import           Data.SafeCopy         (SafeCopy, safeGet, safePut)
+import qualified Data.Semigroup        as Semigroup
 import           Data.Serialize        (runGet, runPut)
 import           Data.Typeable         (typeRep)
 import           Formatting            (formatToString, int, (%))
@@ -38,7 +42,7 @@ import           Test.Hspec            (Expectation, Selector, Spec, describe,
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Arbitrary (arbitrary), Property, conjoin,
                                         counterexample, forAll, property, resize,
-                                        suchThat, vectorOf, (.&&.), (===))
+                                        suchThat, vectorOf, (===), (.&&.))
 
 import           Universum
 
@@ -201,3 +205,32 @@ shouldThrowException
     -> Expectation
 shouldThrowException action exception arg =
     (return $! action arg) `shouldThrow` exception
+
+isAssociative :: (Show m, Eq m, Semigroup m) => m -> m -> m -> Property
+isAssociative m1 m2 m3 =
+    let assoc1 = (m1 Semigroup.<> m2) Semigroup.<> m3
+        assoc2 = m1 Semigroup.<> (m2 Semigroup.<> m3)
+    in assoc1 === assoc2
+
+formsSemigroup :: (Show m, Eq m, Semigroup m) => m -> m -> m -> Property
+formsSemigroup = isAssociative
+
+hasIdentity :: (Eq m, Semigroup m, Monoid m) => m -> Property
+hasIdentity m =
+    let id1 = mempty Semigroup.<> m
+        id2 = m Semigroup.<> mempty
+    in (m == id1) .&&. (m == id2)
+
+formsMonoid :: (Show m, Eq m, Semigroup m, Monoid m) => m -> m -> m -> Property
+formsMonoid m1 m2 m3 =
+    (formsSemigroup m1 m2 m3) .&&. (hasIdentity m1)
+
+isCommutative :: (Show m, Eq m, Semigroup m, Monoid m) => m -> m -> Property
+isCommutative m1 m2 =
+    let comm1 = m1 <> m2
+        comm2 = m2 <> m1
+    in comm1 === comm2
+
+formsCommutativeMonoid :: (Show m, Eq m, Semigroup m, Monoid m) => m -> m -> m -> Property
+formsCommutativeMonoid m1 m2 m3 =
+    (formsMonoid m1 m2 m3) .&&. (isCommutative m1 m2)

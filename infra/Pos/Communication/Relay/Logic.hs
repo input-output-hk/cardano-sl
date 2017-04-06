@@ -1,4 +1,4 @@
--- | Framework for Inv/Req/Dat message handling
+-- | Framework for Inv\/Req\/Data message handling
 
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE Rank2Types          #-}
@@ -9,12 +9,18 @@ module Pos.Communication.Relay.Logic
        ( Relay (..)
        , InvMsg (..)
        , ReqMsg (..)
+       , MempoolMsg (..)
        , DataMsg (..)
        , relayListeners
        , relayStubListeners
        , relayWorkers
        , RelayProxy (..)
        , InvOrData
+
+       , handleInvL
+       , handleReqL
+       , handleMempoolL
+       , handleDataL
 
        , invReqDataFlow
        , invReqDataFlowNeighbors
@@ -35,9 +41,8 @@ import           Universum
 
 import           Pos.Binary.Class                   (Bi (..))
 import           Pos.Binary.Infra.Communication     ()
-import           Pos.Communication.Limits.Types     (Limit, LimitedLength,
-                                                     LimitedLengthExt (..),
-                                                     MessageLimited (..), recvLimited,
+import           Pos.Communication.Limits.Types     (LimitedLength, LimitedLengthExt (..),
+                                                     SmartLimit, recvLimited,
                                                      reifyMsgLimit, withLimitedLength)
 import           Pos.Communication.MessagePart      (MessagePart)
 import           Pos.Communication.PeerState        (WithPeerState)
@@ -46,10 +51,11 @@ import           Pos.Communication.Protocol         (ConversationActions (..),
                                                      SendActions (..), WorkerSpec,
                                                      listenerConv, mergeLs, worker)
 import           Pos.Communication.Relay.Class      (MonadRelayMem (..), Relay (..))
-import           Pos.Communication.Relay.Types      (RelayContext (..), RelayError (..),
-                                                     RelayProxy (..), SomeInvMsg (..))
+import           Pos.Communication.Relay.Types      (RelayContext (..), RelayProxy (..),
+                                                     SomeInvMsg (..))
+import           Pos.Communication.Relay.Util       (expectData, expectInv)
 import           Pos.Communication.Types.Relay      (DataMsg (..), InvMsg (..), InvOrData,
-                                                     ReqMsg (..))
+                                                     MempoolMsg (..), ReqMsg (..))
 import           Pos.Communication.Util             (stubListenerConv)
 import           Pos.DB.Limits                      (MonadDBLimits)
 import           Pos.DHT.Model                      (DHTNode, MonadDHT (..),
@@ -106,19 +112,54 @@ handleReqL
 handleReqL proxy = reifyMsgLimit (Proxy @(ReqMsg key tag)) $
   \(_ :: Proxy s) -> return $ listenerConv $
     \_ __peerId ConversationActions{..} ->
-    whenJustM recv $ \(withLimitedLength @s -> msg@ReqMsg {..}) -> do
-      let _ = reqCatchType proxy msg
-      processMessage () "Request" rmTag verifyReqTag $ do
-          dtMB <- handleReq rmTag rmKey
-          case dtMB of
-              Nothing ->
-                  logDebug $ sformat ("We don't have data "%build%" for key "%build) rmTag rmKey
-              Just dt -> do
-                  logDebug $ sformat ("We have data "%build%" for key "%build) rmTag rmKey
-                  send $ constructDataMsg dt
+    let handlingLoop = do
+            mbMsg <- fmap (withLimitedLength @s) <$> recv
+            whenJust mbMsg $ \msg@ReqMsg{..} -> do
+                let _ = reqCatchType proxy msg
+                processMessage () "Request" rmTag verifyReqTag $ do
+                    let logNoData = logDebug $ sformat
+                            ("We don't have data "%build%" for key "%build)
+                            rmTag rmKey
+                        logHaveData = logDebug $ sformat
+                            ("We have data "%build%" for key "%build)
+                            rmTag rmKey
+                    dtMB <- handleReq rmTag rmKey
+                    case dtMB of
+                        Nothing -> logNoData
+                        Just dt -> logHaveData >> send (constructDataMsg dt)
+                handlingLoop
+    in handlingLoop
   where
     constructDataMsg :: contents -> InvOrData tag key contents
     constructDataMsg = Right . DataMsg
+
+handleMempoolL
+    :: forall key tag contents m .
+       ( Bi (MempoolMsg tag)
+       , Bi (InvOrData tag key contents)
+       , Message (InvOrData tag key contents)
+       , Relay m tag key contents
+       , MinRelayWorkMode m
+       , MonadDBLimits m
+       )
+    => RelayProxy key tag contents
+    -> m (ListenerSpec m, OutSpecs)
+handleMempoolL proxy = reifyMsgLimit (Proxy @(MempoolMsg tag)) $
+  \(_ :: Proxy s) -> return $ listenerConv $
+    \_ __peerId ConversationActions{..} ->
+    whenJustM recv $ \(withLimitedLength @s -> msg@MempoolMsg{..}) -> do
+      let _ = mempoolCatchType proxy msg
+      processMessage () "Mempool" mmTag verifyMempoolTag $ do
+          res <- handleMempool mmTag
+          case nonEmpty res of
+              Nothing -> logDebug $ sformat
+                  ("We don't have mempool data "%build) mmTag
+              Just xs -> do
+                  logDebug $ sformat ("We have mempool data "%build) mmTag
+                  mapM_ (send . constructInvMsg mmTag) xs
+  where
+    constructInvMsg :: tag -> key -> InvOrData tag key contents
+    constructInvMsg tag = Left . InvMsg tag
 
 -- Returns True if we should propagate.
 handleDataL
@@ -176,12 +217,6 @@ processMessage defaultRes name param verifier action = do
                 ("Wrong "%stext%": invalid "%build%": "%listJson)
                 name param reasons)
 
--- | Type `InvOrData` with limited length.
-type InvOrDataLimitedLength s key tag contents =
-    LimitedLengthExt s
-        (Limit (InvMsg key tag), LimitType (DataMsg contents))
-        (InvOrData tag key contents)
-
 relayListeners
   :: forall m key tag contents.
      ( MonadDHT m
@@ -190,6 +225,7 @@ relayListeners
      , Bi (InvMsg key tag)
      , Bi (DataMsg contents)
      , Bi (ReqMsg key tag)
+     , Bi (MempoolMsg tag)
      , Bi (InvOrData tag key contents)
      , MessagePart contents
      , MessagePart tag
@@ -200,44 +236,42 @@ relayListeners
      , MonadDBLimits m
      )
   => RelayProxy key tag contents -> m ([ListenerSpec m], OutSpecs)
-relayListeners proxy = mergeLs <$> sequence [handleReqL proxy, invDataListener]
+relayListeners proxy =
+    mergeLs <$> sequence
+        [handleReqL proxy, handleMempoolL proxy, invDataListener]
   where
     invDataListener = reifyMsgLimit (Proxy @(InvOrData tag key contents)) $
       \(_ :: Proxy s) -> return $ listenerConv $ \_ __peerId
         (ConversationActions{..}::(ConversationActions
                                   (ReqMsg key tag)
-                                  (InvOrDataLimitedLength s key tag contents)
+                                  (SmartLimit s (InvOrData tag key contents))
                                   m)
         ) -> do
             inv' <- recv
-            whenJust (withLimitedLength <$> inv') $ expectLeft $
+            whenJust (withLimitedLength <$> inv') $ expectInv $
                 \inv@InvMsg{..} -> do
                     useful <- handleInvL proxy inv
                     whenJust useful $ \ne -> do
                         send $ ReqMsg imTag ne
                         dt' <- recv
-                        whenJust (withLimitedLength <$> dt') $ expectRight $
-                            \dt@DataMsg{..} -> handleDataL proxy dt
-
-    expectLeft call (Left msg) = call msg
-    expectLeft _ (Right _)     = throw UnexpectedData
-
-    expectRight _ (Left _)       = throw UnexpectedInv
-    expectRight call (Right msg) = call msg
-
+                        whenJust (withLimitedLength <$> dt') $ expectData $
+                            \dt -> handleDataL proxy dt
 
 relayStubListeners
     :: ( WithLogger m
        , Bi (InvMsg key tag)
        , Bi (ReqMsg key tag)
+       , Bi (MempoolMsg tag)
        , Bi (DataMsg contents)
        , Message (InvOrData tag key contents)
        , Message (ReqMsg key tag)
+       , Message (MempoolMsg tag)
        )
     => RelayProxy key tag contents -> ([ListenerSpec m], OutSpecs)
 relayStubListeners p = mergeLs
     [ stubListenerConv $ invDataMsgProxy p
     , stubListenerConv $ reqMsgProxy p
+    , stubListenerConv $ mempoolMsgProxy p
     ]
 
 invCatchType :: RelayProxy key tag contents -> InvMsg key tag -> ()
@@ -249,7 +283,13 @@ reqMsgProxy :: RelayProxy key tag contents
             -> Proxy (InvOrData tag key contents, ReqMsg key tag)
 reqMsgProxy _ = Proxy
 
-dataCatchType :: RelayProxy key tag contents -> DataMsg ontents -> ()
+mempoolCatchType :: RelayProxy key tag contents -> MempoolMsg tag -> ()
+mempoolCatchType _ _ = ()
+mempoolMsgProxy :: RelayProxy key tag contents
+                -> Proxy (InvOrData tag key contents, MempoolMsg tag)
+mempoolMsgProxy _ = Proxy
+
+dataCatchType :: RelayProxy key tag contents -> DataMsg contents -> ()
 dataCatchType _ _ = ()
 
 invDataMsgProxy :: RelayProxy key tag contents

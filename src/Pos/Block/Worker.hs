@@ -37,7 +37,6 @@ import           Pos.Slotting                (currentTimeSlotting,
 import           Data.Time.Units             (Second, convertUnit)
 import           Pos.Block.Network           (requestTipOuts, triggerRecovery)
 import           Pos.Communication           (worker)
-import           Pos.Constants               (isDevelopment)
 import           Pos.Slotting                (getLastKnownSlotDuration)
 #endif
 import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
@@ -53,12 +52,15 @@ import           Pos.WorkMode                (WorkMode)
 
 
 -- | All workers specific to block processing.
-blkWorkers :: (SscWorkersClass ssc, WorkMode ssc m) => ([WorkerSpec m], OutSpecs)
+blkWorkers
+    :: (SscWorkersClass ssc, WorkMode ssc m)
+    => ([WorkerSpec m], OutSpecs)
 blkWorkers =
     merge $ [ blkOnNewSlot
-            , retrievalWorker ]
+            , retrievalWorker
+            ]
 #if defined(WITH_WALLET)
-            ++ [ behindNatWorker | not isDevelopment ]
+            ++ [ queryBlocksWorker ]
 #endif
   where
     merge = mconcatPair . map (first pure)
@@ -109,7 +111,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
                                 in siEpoch >= w0 && siEpoch <= w1) proxyCerts
             validCert = find (\pSk -> addressHash (pskIssuerPk pSk) == leader)
                              validCerts
-        logNoticeS "THIS IS A SECRET MESSAGE SHOULDN'T GET TO PUBLIC LOGGER"
+        logNoticeS "This is a test debug message which shouldn't be sent to the logging server."
         logLeadersF $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
         logLeadersF $ sformat ("Slot leaders: "%listJson) $
                       map (bprint pairF) (zip [0 :: Int ..] $ toList leaders)
@@ -186,17 +188,23 @@ verifyCreatedBlock blk =
         }
 
 #if defined(WITH_WALLET)
--- | This one just triggers every @max (slotDur / 4) 5@ seconds and
--- asks for current tip. Does nothing when recovery is enabled.
-behindNatWorker :: (WorkMode ssc m, SscWorkersClass ssc) => (WorkerSpec m, OutSpecs)
-behindNatWorker = worker requestTipOuts $ \sendActions -> do
+-- | When we're behind NAT, other nodes can't send data to us and thus we
+-- won't get blocks that are broadcast through the network – we have to reach
+-- out to other nodes by ourselves.
+--
+-- This worker just triggers every @max (slotDur / 4) 5@ seconds and asks for
+-- current tip. Does nothing when recovery is enabled.
+queryBlocksWorker
+    :: (WorkMode ssc m, SscWorkersClass ssc)
+    => (WorkerSpec m, OutSpecs)
+queryBlocksWorker = worker requestTipOuts $ \sendActions -> do
     slotDur <- getLastKnownSlotDuration
     let delayInterval = max (slotDur `div` 4) (convertUnit $ (5 :: Second))
         action = forever $ do
             triggerRecovery sendActions
             delay $ delayInterval
         handler (e :: SomeException) = do
-            logWarning $ "Exception arised in behindNatWorker: " <> show e
+            logWarning $ "Exception arised in queryBlocksWorker: " <> show e
             delay $ delayInterval * 2
             action `catch` handler
     action `catch` handler

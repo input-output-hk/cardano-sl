@@ -1,19 +1,30 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
+-- | Former avvm-migration script. Parses rscoin-dump to create
+-- genesis block of CSL.
+
 module Avvm
        ( AvvmData (..)
-       , AvvmCoin (..)
        , AvvmEntry (..)
        , genGenesis
+       , applyBlacklisted
        , getHolderId
        ) where
 
-import qualified Crypto.Sign.Ed25519  as Ed
 import           Data.Aeson           (FromJSON (..), withObject, (.:))
+import qualified Data.ByteString      as BS
 import qualified Data.HashMap.Strict  as HM
-import           Serokell.Util.Base64 (decodeUrl)
+import           Data.List            ((\\))
+import qualified Data.Text            as T
+import qualified Data.Text.IO         as TIO
+import qualified Serokell.Util.Base64 as B64
+import           System.Random        (randomRIO)
 import           Test.QuickCheck      (arbitrary)
 import           Universum
 
-import           Pos.Crypto           (RedeemPublicKey (..), keyGen, toPublic)
+import qualified Pos.Binary.Class     as Bi
+import           Pos.Crypto           (RedeemPublicKey (..), keyGen, redeemPkBuild,
+                                       toPublic)
 import           Pos.Genesis          (GenesisData (..), StakeDistribution (..))
 import           Pos.Ssc.GodTossing   (vcSigningKey)
 import           Pos.Txp.Core         (TxOutDistribution)
@@ -23,12 +34,27 @@ import           Pos.Types            (Address, Coin, StakeholderId, addressHash
 import           Pos.Util             (runGen)
 import           Pos.Util.UserSecret  (readUserSecret, usPrimKey)
 
+
+-- | Read the text into a redeeming public key.
+fromAvvmPk :: (MonadFail m, Monad m) => Text -> m RedeemPublicKey
+fromAvvmPk addrText = do
+    let base64rify = T.replace "-" "+" . T.replace "_" "/"
+    let parsedM = B64.decode $ base64rify addrText
+    addrParsed <-
+        maybe (fail $ "Address " <> toString addrText <> " is not base64(url) format")
+        pure
+        (rightToMaybe parsedM)
+    unless (BS.length addrParsed == 32) $
+        fail "Address' length is not equal to 32, can't be redeeming pk"
+    pure $ redeemPkBuild addrParsed
+
 data AvvmData = AvvmData
     { utxo :: [AvvmEntry]
     } deriving (Show, Generic)
 
 instance FromJSON AvvmData
 
+{- I will use rscoin's dump-state(-new) format for now which doesn't use colored coins,
 data AvvmCoin = AvvmCoin
     { coinAmount :: Integer
     , coinColor  :: Integer
@@ -39,14 +65,21 @@ instance FromJSON AvvmCoin where
         coinAmount <- o .: "coinAmount"
         coinColor <- o .: "coinColor" >>= (.: "getColor")
         return AvvmCoin{..}
+-}
 
 data AvvmEntry = AvvmEntry
-    { coin    :: AvvmCoin
-    , address :: Text
-    } deriving (Show, Generic)
+    { aeCoin      :: !Integer         -- in lovelaces
+    , aePublicKey :: !RedeemPublicKey -- in base64(u), yep
+    } deriving (Show, Generic, Eq)
 
-instance FromJSON AvvmEntry
+instance FromJSON AvvmEntry where
+    parseJSON = withObject "avvmEntry" $ \o -> do
+        aeCoin <- (* (1000000 :: Integer)) <$> o .: "coin"
+        (addrText :: Text) <- o .: "address"
+        aePublicKey <- fromAvvmPk addrText
+        return AvvmEntry{..}
 
+-- | Generate genesis data out of avvm parameters.
 genGenesis
     :: AvvmData
     -> Bool           -- ^ Whether to generate random certificates
@@ -75,24 +108,36 @@ genGenesis avvm genCerts holder = GenesisData
     balances :: HashMap Address (Coin, TxOutDistribution)
     balances = HM.fromListWith sumOutcomes $ do
         AvvmEntry{..} <- utxo avvm
-        let pk = case decodeUrl address of
-                Right x -> RedeemPublicKey (Ed.PublicKey x)
-                Left _  -> error ("couldn't decode address " <> address)
-        let addr = makeRedeemAddress pk
-            adaCoin = unsafeIntegerToCoin $ coinAmount coin
+        let addr = makeRedeemAddress aePublicKey
+            adaCoin = unsafeIntegerToCoin aeCoin
         return (addr, (adaCoin, distr adaCoin))
 
+-- | Applies blacklist to avvm utxo, produces warnings and stats about
+-- how much was deleted.
+applyBlacklisted :: Maybe FilePath -> AvvmData -> IO AvvmData
+applyBlacklisted Nothing r = r <$ putText "Blacklisting: file not specified, skipping"
+applyBlacklisted (Just blacklistPath) AvvmData{..} = do
+    addrTexts <- T.lines <$> TIO.readFile blacklistPath
+    blacklisted <- mapM fromAvvmPk addrTexts
+    let filteredBad = filter ((`elem` blacklisted) . aePublicKey) utxo
+    let filtered = utxo \\ filteredBad
+    putText $
+        "Removing " <> show (length filteredBad) <> " entries from utxo (out of " <>
+        show (length blacklisted) <> " total entries in the blacklist)"
+    pure $ AvvmData filtered
+
 getHolderId :: Maybe FilePath -> IO StakeholderId
-getHolderId holderPath = case holderPath of
-    Just fileName -> do
-        mSk <- view usPrimKey <$> readUserSecret fileName
-        sk <- maybe (fail "No secret key is found in file")
-              pure mSk
-        pure $ addressHash $ toPublic sk
-    Nothing -> do
-        putText "USING RANDOM STAKEHOLDER ID."
-        putText "NOT FOR PRODUCTION USAGE, ONLY FOR TESTING"
-        putText "IF YOU INTEND TO GENERATE GENESIS.BIN FOR PRODUCTION, \
-                \STOP RIGHT HERE AND USE `--fileholder <path to secret>` OPTION. \
-                \THIS IS SERIOUS."
-        addressHash . fst <$> keyGen
+getHolderId (Just fileName) = do
+    mSk <- view usPrimKey <$> readUserSecret fileName
+    let sk = fromMaybe (error "No secret key is found in file") mSk
+    pure $ addressHash $ toPublic sk
+getHolderId Nothing = do
+    skPath <- ("redeemingHolderKey" <>) . show <$> randomRIO (0,100000::Int)
+    (pk,sk) <- keyGen
+    putText $ "USING RANDOM STAKEHOLDER ID, WRITING KEY TO " <> fromString skPath
+    putText "NOT FOR PRODUCTION USAGE, ONLY FOR TESTING"
+    putText "IF YOU INTEND TO GENERATE GENESIS.BIN FOR PRODUCTION, \
+            \STOP RIGHT HERE AND USE `--fileholder <path to secret>` OPTION. \
+            \THIS IS SERIOUS."
+    BS.writeFile skPath $ Bi.encodeStrict sk
+    pure $ addressHash pk

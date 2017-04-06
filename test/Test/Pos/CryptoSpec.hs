@@ -13,9 +13,9 @@ import           Test.QuickCheck       (Property, (===), (==>))
 import           Universum
 
 import           Pos.Binary            (AsBinary, Bi)
-import           Pos.Crypto            (EncShare, HDPassphrase, Hash, ProxyCert,
-                                        ProxySecretKey (..), ProxySignature, PublicKey,
-                                        Secret, SecretKey, SecretProof,
+import           Pos.Crypto            (EncShare, HDPassphrase, Hash, PassPhrase,
+                                        ProxyCert, ProxySecretKey (..), ProxySignature,
+                                        PublicKey, Secret, SecretKey, SecretProof,
                                         SecretSharingExtra, Share, Signature, Signed,
                                         VssPublicKey, checkSig, createProxySecretKey,
                                         deterministic, fullPublicKeyF, hash, hashHexF,
@@ -69,7 +69,8 @@ spec = describe "Crypto" $ do
                 checkHash (1 :: Word64)
                     -- "009d179ba955ae9b0690b8f6a96a866972b1606d97b0c9d8094073a374de77b7612d4ae35ac3e38f4092aced0f1680295a0bc95722ad039253ee6aa275569848" -- Blake2b_512
                     -- "c43b29d95a3585cb5264b3223d70e853f899a82e01cb3e62b0bdd871" -- Blake2s_224
-                    "4bd3a3255713f33d6c673f7d84048a7a8bcfc206464c85555c603ef4d72189c6" -- Blake2s_256
+                    -- "4bd3a3255713f33d6c673f7d84048a7a8bcfc206464c85555c603ef4d72189c6" -- Blake2s_256
+                    "12dd0a6a7d0e222a97926da03adb5a7768d31cc7c5c2bd6828e14a7d25fa3a60" -- Blake2b_256
 
     describe "Signing" $ do
         describe "Identity testing" $ do
@@ -82,6 +83,7 @@ spec = describe "Crypto" $ do
                 binaryTest @(ProxySignature Int32 Int32)
                 binaryTest @(Signed Bool)
                 binaryTest @VssPublicKey
+                binaryTest @PassPhrase
                 binaryTest @(AsBinary VssPublicKey)
                 binaryTest @(AsBinary Secret)
                 binaryTest @(AsBinary Share)

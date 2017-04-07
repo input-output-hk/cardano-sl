@@ -4,16 +4,19 @@ module Pos.Ssc.GodTossing.Toss.Pure
        ( PureToss (..)
        , MultiRichmenStake
        , MultiRichmenSet
+       , runPureToss
        , runPureTossWithLogger
        , evalPureTossWithLogger
        , execPureTossWithLogger
        ) where
 
-import           Control.Lens                   (at, to, (%=), (.=))
+import           Control.Lens                   (at, (%=), (.=))
 import           Control.Monad.RWS.Strict       (RWS, runRWS)
 import qualified Data.HashMap.Strict            as HM
-import           System.Wlog                    (CanLog, HasLoggerName, NamedPureLogger,
-                                                 WithLogger, launchNamedPureLog)
+import           System.Wlog                    (CanLog, HasLoggerName, LogEvent,
+                                                 LoggerName, NamedPureLogger (..),
+                                                 WithLogger, launchNamedPureLog,
+                                                 runPureLog, usingLoggerName)
 import           Universum
 
 import           Pos.Lrc.Types                  (RichmenSet, RichmenStake)
@@ -37,7 +40,8 @@ instance MonadTossRead PureToss where
     getCommitments = PureToss $ use gsCommitments
     getOpenings = PureToss $ use gsOpenings
     getShares = PureToss $ use gsShares
-    getVssCertificates = PureToss $ use $ gsVssCertificates . to VCD.certs
+    getVssCertificates = VCD.certs <$> getVssCertData
+    getVssCertData = PureToss $ use $ gsVssCertificates
     getStableCertificates epoch
         | epoch == 0 = pure genesisCertificates
         | otherwise =
@@ -62,6 +66,21 @@ instance MonadToss PureToss where
         gsOpenings .= mempty
     resetShares = PureToss $ gsShares .= mempty
     setEpochOrSlot eos = PureToss $ gsVssCertificates %= VCD.setLastKnownEoS eos
+
+runPureToss
+    :: LoggerName
+    -> MultiRichmenStake
+    -> GtGlobalState
+    -> PureToss a
+    -> (a, GtGlobalState, [LogEvent])
+runPureToss loggerName richmenData gs =
+    convertRes .
+    (\a -> runRWS a richmenData gs) .
+    usingLoggerName loggerName . runPureLog . runNamedPureLogger . getPureToss
+  where
+    convertRes :: ((a, [LogEvent]), GtGlobalState, ())
+               -> (a, GtGlobalState, [LogEvent])
+    convertRes ((res, logEvents), newGs, ()) = (res, newGs, logEvents)
 
 runPureTossWithLogger
     :: WithLogger m

@@ -110,6 +110,16 @@ translation =
         { fooRessources: "Ressourcen"
         , fooFollow: "Folgen Sie uns"
         , fooLinks: "Links"
+        , fooIohkSupportP: "IOHK unterstütztes Projekt"
+        , fooDocumentation: "Dokumentation"
+        , fooGithub: "Github"
+        , fooLinkedin: "Linkedin"
+        , fooTwitter: "Twitter"
+        , fooDaedalusWallet: "Daedalus Wallet"
+        , fooWhyCardano: "Warum Cardano"
+        , fooCardanoRoadmap: "Cardano Roadmap"
+        , fooCardanoADAFaucet: "Cardano ADA Faucet"
+        , fooCardanoSLDocumentation: "Cardano SL Dokumentation"
         }
     , notfound:
         { nfTitle: "404"

@@ -143,6 +143,16 @@ type Footer =
     { fooRessources :: String
     , fooFollow :: String
     , fooLinks :: String
+    , fooIohkSupportP :: String
+    , fooDocumentation :: String
+    , fooGithub :: String
+    , fooLinkedin :: String
+    , fooTwitter :: String
+    , fooDaedalusWallet :: String
+    , fooWhyCardano :: String
+    , fooCardanoRoadmap :: String
+    , fooCardanoADAFaucet :: String
+    , fooCardanoSLDocumentation :: String
     }
 
 -- translations of 404

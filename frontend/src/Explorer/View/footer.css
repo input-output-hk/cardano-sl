@@ -1,8 +1,13 @@
 
 :root {
   --height-footer-bottom: 70px;
-  --logo-footer-width: 49px;
-  --logo-footer-height: 45px;
+
+  --cardano-logo-width: 103.5px;
+  --cardano-logo-height: 30px;
+
+  --iohk-logo-width: 138.4px;
+  --iohk-logo-height: 30px;
+
 }
 
 .explorer-footer {
@@ -24,15 +29,6 @@
     border-bottom: 1px solid color(var(--color3) a(0.5));
     padding: 50px 0;
 
-    .logo__container {
-      @neat-span-columns 2;
-    }
-
-    .logo__img {
-      width: var(--logo-footer-width);
-      height: var(--logo-footer-height);
-    }
-
     .nav__container {
       @neat-shift 1;
       @neat-span-columns 8;
@@ -42,6 +38,10 @@
 
       &__container {
         @neat-span-columns 3;
+
+        @media (--xs) {
+          @neat-span-columns 2;
+        }
       }
 
       &__header {
@@ -70,6 +70,44 @@
     .content {
       @neat-span-columns 6;
       height: var(--height-footer-bottom);
+
+      .logo__container {
+        box: horizontal;
+      }
+
+      .logo_name__img {
+        width: var(--cardano-logo-width);
+        height: var(--cardano-logo-height);
+        box-item: center;
+      }
+
+      .logo_iohk_name__img {
+        width: var(--iohk-logo-width);
+        height: var(--iohk-logo-height);
+        box-item: center;
+      }
+
+      .split {
+        display: inline-block;
+        background: var(--color14);
+        opacity: 0.2;
+        width: 1px;
+        height: 30px;
+        margin-left: 24px;
+        box-item: center;
+      }
+
+      .support {
+        color: var(--color3);
+        opacity: 0.7;
+        font-family: var(--fontFamily0-Light);
+        font-size: 8px;
+        font-weight: 400;
+        box-sizing: border-box;
+        margin: 0 5px 0 20px;
+        text-transform: uppercase;
+        box-item: center;
+      }
 
       &__right {
         box: horizontal right;

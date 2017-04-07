@@ -6,10 +6,11 @@ module Pos.Delegation.Lrc
 
 -- import           Universum
 
+import           Pos.Core         (BlockVersionData (bvdHeavyDelThd))
 import qualified Pos.DB           as DB
 import           Pos.Lrc.Consumer (LrcConsumer (..), lrcConsumerFromComponentSimple)
 import           Pos.Lrc.DB       (RCDlg)
 
 -- | Consumer will be called on every Richmen computation.
-delegationLrcConsumer :: DB.MonadDB m => LrcConsumer m
-delegationLrcConsumer = lrcConsumerFromComponentSimple @RCDlg
+delegationLrcConsumer :: DB.MonadDBCore m => LrcConsumer m
+delegationLrcConsumer = lrcConsumerFromComponentSimple @RCDlg bvdHeavyDelThd

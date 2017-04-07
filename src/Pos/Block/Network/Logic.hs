@@ -49,6 +49,7 @@ import           Pos.Constants              (blkSecurityParam)
 import           Pos.Context                (NodeContext (..), getNodeContext,
                                              isRecoveryMode)
 import           Pos.Crypto                 (shortHashF)
+import           Pos.DB.Class               (MonadDBCore)
 import qualified Pos.DB.DB                  as DB
 import           Pos.DHT.Model              (converseToNeighbors)
 import           Pos.Reporting.Methods      (reportMisbehaviourMasked)
@@ -350,7 +351,7 @@ mkBlocksRequest lcaChild wantedBlock =
 
 handleBlocks
     :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+       (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
     => NodeId
     -> OldestFirst NE (Block ssc)
     -> SendActions m
@@ -371,7 +372,7 @@ handleBlocks peerId blocks sendActions = do
 
 handleBlocksWithLca
     :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+       (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
     => NodeId
     -> SendActions m
     -> OldestFirst NE (Block ssc)
@@ -389,7 +390,7 @@ handleBlocksWithLca peerId sendActions blocks lcaHash = do
 
 applyWithoutRollback
     :: forall ssc m.
-       (WorkMode ssc m, SscWorkersClass ssc)
+       (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
     => SendActions m -> OldestFirst NE (Block ssc) -> m ()
 applyWithoutRollback sendActions blocks = do
     logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
@@ -424,7 +425,7 @@ applyWithoutRollback sendActions blocks = do
 
 applyWithRollback
     :: forall ssc m.
-       (WorkMode ssc m, SscWorkersClass ssc)
+       (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
     => NodeId
     -> SendActions m
     -> OldestFirst NE (Block ssc)

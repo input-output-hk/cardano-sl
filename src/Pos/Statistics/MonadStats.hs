@@ -36,7 +36,7 @@ import           Universum
 import           Pos.Communication.PeerState (WithPeerState (..))
 import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context.Class           (WithNodeContext)
-import           Pos.DB                      (MonadDB (..))
+import           Pos.DB                      (MonadDB, MonadDBCore)
 import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.MemState            (MonadDhtMem)
@@ -83,7 +83,7 @@ newtype NoStatsT m a = NoStatsT
                 MonadJL, CanLog, MonadTxpMem x, MonadSscMem ssc,
                 WithNodeContext ssc, MonadDelegation,
                 MonadDhtMem, MonadReportingMem, MonadRelayMem, MonadShutdownMem,
-                MonadDB, MonadDBLimits)
+                MonadDB, MonadDBLimits, MonadDBCore)
 
 instance MonadContext m => MonadContext (NoStatsT m) where
     type ContextType (NoStatsT m) = ContextType m
@@ -140,7 +140,7 @@ newtype StatsT m a = StatsT
                 MonadSscMem ssc, MonadSlotsData,
                 WithNodeContext ssc, MonadDelegation,
                 MonadDhtMem, MonadReportingMem, MonadRelayMem, MonadShutdownMem,
-                MonadDB, MonadDBLimits)
+                MonadDB, MonadDBLimits, MonadDBCore)
 
 instance MonadContext m => MonadContext (StatsT m) where
     type ContextType (StatsT m) = ContextType m

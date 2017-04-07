@@ -61,3 +61,32 @@ instance Bi T.SharedSeed where
 instance Bi T.ChainDifficulty where
     get = label "ChainDifficulty" $ T.ChainDifficulty . getUnsignedVarInt <$> get
     put (T.ChainDifficulty c) = put (UnsignedVarInt c)
+
+instance Bi T.BlockVersionData where
+    get = label "BlockVersionData" $ do
+        bvdScriptVersion     <- get
+        bvdSlotDuration      <- get
+        bvdMaxBlockSize      <- get
+        bvdMaxHeaderSize     <- get
+        bvdMaxTxSize         <- get
+        bvdMaxProposalSize   <- get
+        bvdMpcThd            <- get
+        bvdHeavyDelThd       <- get
+        bvdUpdateVoteThd     <- get
+        bvdUpdateProposalThd <- get
+        bvdUpdateImplicit    <- get
+        bvdUpdateSoftforkThd <- get
+        return $ T.BlockVersionData {..}
+    put T.BlockVersionData {..} = do
+        put bvdScriptVersion
+        put bvdSlotDuration
+        put bvdMaxBlockSize
+        put bvdMaxHeaderSize
+        put bvdMaxTxSize
+        put bvdMaxProposalSize
+        put bvdMpcThd
+        put bvdHeavyDelThd
+        put bvdUpdateVoteThd
+        put bvdUpdateProposalThd
+        put bvdUpdateImplicit
+        put bvdUpdateSoftforkThd

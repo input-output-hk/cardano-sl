@@ -30,7 +30,7 @@ import           Universum
 
 import           Pos.Communication.Relay   (MonadRelayMem)
 import           Pos.Context               (WithNodeContext)
-import           Pos.DB                    (MonadDB)
+import           Pos.DB                    (MonadDB, MonadDBCore)
 import           Pos.DB.Limits             (MonadDBLimits)
 import           Pos.DHT.MemState          (MonadDhtMem)
 import           Pos.Lrc.Context           (LrcContext)
@@ -68,6 +68,7 @@ newtype SscHolder ssc m a = SscHolder
                , MonadRelayMem
                , MonadShutdownMem
                , MonadDB
+               , MonadDBCore
                , MonadDBLimits
                )
 

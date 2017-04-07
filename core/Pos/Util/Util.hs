@@ -20,11 +20,14 @@ module Pos.Util.Util
        -- ** FromJSON Byte
        -- ** ToJSON Byte
        -- ** MonadFail (Either s), assuming IsString s
+       -- ** NFData Millisecond
+       -- ** NFData Microsecond
        ) where
 
 import           Control.Lens               (ALens', Getter, Getting, cloneLens, to)
 import           Data.Aeson                 (FromJSON (..), ToJSON (..))
 import           Data.HashSet               (fromMap)
+import           Data.Time.Units            (Microsecond, Millisecond)
 import           Language.Haskell.TH.Syntax (Lift (..))
 import qualified Prelude
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
@@ -83,6 +86,12 @@ instance ToJSON Byte where
 
 instance IsString s => MonadFail (Either s) where
     fail = Left . fromString
+
+instance NFData Millisecond where
+    rnf ms = deepseq (toInteger ms) ()
+
+instance NFData Microsecond where
+    rnf ms = deepseq (toInteger ms) ()
 
 ----------------------------------------------------------------------------
 -- Not instances

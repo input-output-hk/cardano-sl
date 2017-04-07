@@ -27,7 +27,7 @@ import           Universum                 hiding (catchAll)
 import           Pos.Communication.Relay   (MonadRelayMem (..), RelayContext (..))
 import           Pos.Context.Class         (WithNodeContext (..))
 import           Pos.Context.Context       (NodeContext (..))
-import           Pos.DB.Class              (MonadDB)
+import           Pos.DB.Class              (MonadDB, MonadDBCore)
 import           Pos.DB.Limits             (MonadDBLimits)
 import           Pos.DHT.MemState          (DhtContext (..), MonadDhtMem (..))
 import           Pos.Launcher.Param        (bpKademliaDump, npBaseParams, npPropagation,
@@ -59,6 +59,7 @@ newtype ContextHolder ssc m a = ContextHolder
                , MonadTxpMem x
                , MonadFix
                , MonadDB
+               , MonadDBCore
                , MonadDBLimits
                )
 

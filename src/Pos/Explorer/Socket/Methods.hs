@@ -42,13 +42,15 @@ import           Pos.Crypto                     (hash)
 import           Pos.DB                         (MonadDB)
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.GState                  as DB
+import           Pos.Explorer                   (TxExtra (..))
+import qualified Pos.Explorer.DB                as DB
 import           Pos.Slotting.Class             (MonadSlots)
 import           Pos.Ssc.Class                  (SscHelpersClass)
 import           Pos.Txp                        (Tx (..), TxOut (..), TxOutAux (..),
                                                  txOutAddress)
-import           Pos.Types                      (Address, Block, HeaderHash, TxExtra (..),
-                                                 blockTxs)
-import           Pos.Util                       (getOldestFirst, maybeThrow)
+import           Pos.Types                      (Address, Block, HeaderHash, blockTxs)
+import           Pos.Util                       (maybeThrow)
+import           Pos.Util.Chrono                (getOldestFirst)
 import           System.Wlog                    (WithLogger, logDebug, logError,
                                                  logWarning)
 import           Universum

@@ -13,7 +13,7 @@ module Pos.Explorer.Socket.Util
 
 import qualified Control.Concurrent.STM      as STM
 import           Control.Concurrent.STM.TVar (readTVarIO, writeTVar)
-import           Control.Monad.Catch         (MonadCatch, MonadThrow)
+import           Control.Monad.Catch         (MonadCatch)
 import           Control.Monad.Reader        (MonadReader)
 import           Control.Monad.State         (MonadState)
 import           Control.Monad.Trans         (MonadIO)
@@ -102,5 +102,3 @@ forkAccompanion accompanion main = do
     bracket_ (fork $ accompanion whetherStopped)
              (atomically $ writeTVar stopped True)
              main
-
-deriving instance MonadThrow m => MonadThrow (PureLogger m)

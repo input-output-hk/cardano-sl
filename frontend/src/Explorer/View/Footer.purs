@@ -2,15 +2,13 @@ module Explorer.View.Footer (footerView) where
 
 import Prelude
 import Data.Maybe (fromMaybe)
-import Data.String (take)
 import Data.Lens ((^.))
 import Explorer.I18n.Lang (Language(..), readLanguage, translate)
-import Explorer.I18n.Lenses (common, cCopyright, cApi, footer, fooLinks, fooRessources, fooFollow) as I18nL
+import Explorer.I18n.Lenses (common, cApi, footer, fooLinks, fooRessources, fooFollow, fooIohkSupportP, cDocumentation, cGithub, cLinkedin, cTwitter, cDaedalusWallet, cWhyCardano, cCardanoRoadmap, cCardanoADAFaucet, cCardanoSLDocumentation) as I18nL
 import Explorer.State (initialState)
 import Explorer.Lenses.State (lang)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
-import Explorer.Util.Version (version, commitHash)
 import Pux.Html (Html, div, text, nav, a, select, option, p, span) as P
 import Pux.Html.Attributes (value, className, href, selected) as P
 import Pux.Html.Events (onChange) as P
@@ -51,7 +49,7 @@ footerView state =
                       []
                   , P.a
                       [ P.className "support", P.href "//iohk.io/projects/cardano/"]
-                      [ P.text "IOHK supported project" ]
+                      [ P.text $ translate (I18nL.footer <<< I18nL.fooIohkSupportP) lang' ]
                   , P.div
                       [ P.className "logo__container"]
                       [ P.a
@@ -92,10 +90,10 @@ navItemsRow0 lang =
     [ { label: translate (I18nL.common <<< I18nL.cApi) lang
       , link: "https://github.com/input-output-hk/cardano-sl-explorer/blob/master/docs/cardano-explorer-table-web-api.md"
       }
-    , { label: "Documentation"
+    , { label: translate (I18nL.common <<< I18nL.cDocumentation) lang
       , link: "https://github.com/input-output-hk/cardano-sl-explorer/blob/master/docs/cardano-explorer-web-api.md"
       }
-      -- TODO (ks) Add when we have the links
+    -- TODO (ks) Add when we have the links
     -- , { label: "Support"
     --   , link: "/"
     --   }
@@ -110,27 +108,45 @@ navItemsRow0 lang =
 followUsNavRow :: Language -> NavRow
 followUsNavRow lang =
     { header: translate (I18nL.footer <<< I18nL.fooFollow) lang
-    , items: navItemsRow1 lang }
+    , items: navItemsRow1 lang
+    }
 
 navItemsRow1 :: Language -> Array NavItem
 navItemsRow1 lang =
-    [ { label: "Github", link: "https://github.com/input-output-hk/" }
-    , { label: "Linkedin", link: "https://www.linkedin.com/company-beta/6385405/?pathWildcard=6385405" }
-    , { label: "Twitter", link: "https://twitter.com/InputOutputHK" }
+    [ { label: translate (I18nL.common <<< I18nL.cGithub) lang
+      , link: "https://github.com/input-output-hk/"
+      }
+    , { label: translate (I18nL.common <<< I18nL.cLinkedin) lang
+      , link: "https://www.linkedin.com/company-beta/6385405/?pathWildcard=6385405"
+      }
+    , { label: translate (I18nL.common <<< I18nL.cTwitter) lang
+      , link: "https://twitter.com/InputOutputHK"
+      }
     ]
 
 linksNavRow :: Language -> NavRow
 linksNavRow  lang =
     { header: translate (I18nL.footer <<< I18nL.fooLinks) lang
-    , items: navItemsRow2 lang }
+    , items: navItemsRow2 lang
+    }
 
 navItemsRow2 :: Language -> Array NavItem
 navItemsRow2 lang =
-    [ { label: "Daedalus Wallet", link: "https://daedaluswallet.io/" }
-    , { label: "Why Cardano", link: "https://whycardano.com/" }
-    , { label: "Cardano Roadmap", link: "https://cardanoroadmap.com/" }
-    , { label: "Cardano ADA Faucet", link: "https://tada.iohk.io/" }
-    , { label: "Cardano SL Documentation", link: "https://cardano-docs.iohk.io/introduction/" }
+    [ { label: translate (I18nL.common <<< I18nL.cDaedalusWallet) lang
+      , link: "https://daedaluswallet.io/"
+      }
+    , { label: translate (I18nL.common <<< I18nL.cWhyCardano) lang
+      , link: "https://whycardano.com/"
+      }
+    , { label: translate (I18nL.common <<< I18nL.cCardanoRoadmap) lang
+      , link: "https://cardanoroadmap.com/"
+      }
+    , { label: translate (I18nL.common <<< I18nL.cCardanoADAFaucet) lang
+      , link: "https://tada.iohk.io/"
+      }
+    , { label: translate (I18nL.common <<< I18nL.cCardanoSLDocumentation) lang
+      , link: "https://cardano-docs.iohk.io/introduction/"
+      }
     ]
 
 navRowView :: NavRow -> P.Html Action

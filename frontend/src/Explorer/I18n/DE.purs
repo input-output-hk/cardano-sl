@@ -10,6 +10,15 @@ translation =
         , cBCshort: "BC"
         , cBCong: "Bitcoin"
         , cApi: "Api"
+        , cDocumentation: "Dokumentation"
+        , cGithub: "Github"
+        , cLinkedin: "Linkedin"
+        , cTwitter: "Twitter"
+        , cDaedalusWallet: "Daedalus Wallet"
+        , cWhyCardano: "Warum Cardano"
+        , cCardanoRoadmap: "Cardano Roadmap"
+        , cCardanoADAFaucet: "Cardano ADA Faucet"
+        , cCardanoSLDocumentation: "Cardano SL Dokumentation"
         , cTransaction: "Transaktion"
         , cTransactions: "Transaktionen"
         , cTransactionFeed: "Transaktionen Feed"
@@ -110,6 +119,7 @@ translation =
         { fooRessources: "Ressourcen"
         , fooFollow: "Folgen Sie uns"
         , fooLinks: "Links"
+        , fooIohkSupportP: "IOHK unterstütztes Projekt"
         }
     , notfound:
         { nfTitle: "404"

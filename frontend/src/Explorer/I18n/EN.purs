@@ -7,6 +7,15 @@ translation =
     { common:
         { cBack: "Back"
         , cApi: "Api"
+        , cDocumentation: "Documentation"
+        , cGithub: "Github"
+        , cLinkedin: "Linkedin"
+        , cTwitter: "Twitter"
+        , cDaedalusWallet: "Daedalus Wallet"
+        , cWhyCardano: "Why Cardano"
+        , cCardanoRoadmap: "Cardano Roadmap"
+        , cCardanoADAFaucet: "Cardano ADA Faucet"
+        , cCardanoSLDocumentation: "Cardano SL Documentation"
         , cADA: "ADA"
         , cBCshort: "BC"
         , cBCong: "Bitcoin"
@@ -110,6 +119,7 @@ translation =
         { fooRessources: "Ressources"
         , fooFollow: "Follow us"
         , fooLinks: "Links"
+        , fooIohkSupportP: "IOHK supported project"
         }
     , notfound:
         { nfTitle: "404"

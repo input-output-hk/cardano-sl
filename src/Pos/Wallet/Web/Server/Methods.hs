@@ -55,11 +55,10 @@ import           Pos.Core                      (Address (..), Coin, addressF,
                                                 mkCoin, unsafeCoinPortionFromDouble,
                                                 unsafeSubCoin)
 import           Pos.Crypto                    (EncryptedSecretKey, PassPhrase,
-                                                deriveHDPassphrase, deriveHDSecretKey,
-                                                emptyPassphrase, encToPublic, fakeSigner,
-                                                hash, noPassEncrypt,
-                                                redeemDeterministicKeyGen, withSafeSigner,
-                                                withSafeSigner)
+                                                deriveHDSecretKey, emptyPassphrase,
+                                                encToPublic, fakeSigner, hash,
+                                                noPassEncrypt, redeemDeterministicKeyGen,
+                                                withSafeSigner, withSafeSigner)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (getKnownPeers)
 import           Pos.Genesis                   (genesisDevSecretKeys)

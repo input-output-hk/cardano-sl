@@ -10,8 +10,8 @@ import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CInitialized,
                                              CProfile, CProfile, CTExMeta, CTType, CTx,
                                              CTxId, CTxMeta, CUpdateInfo, CWallet,
-                                             CWalletInit, CWalletAssurance, CWalletMeta, 
-                                             CWalletRedeem, CWalletType, NotifyEvent, 
+                                             CWalletAssurance, CWalletInit, CWalletMeta,
+                                             CWalletRedeem, CWalletType, NotifyEvent,
                                              SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
 

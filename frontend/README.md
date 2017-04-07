@@ -143,7 +143,7 @@ npm start
 ```bash
 cd {path/to/}cardano-sl
 tmux
-export WALLET_TEST=1; ./scripts/launch.sh
+./util-scripts/start-dev.sh
 ```
 *1.1 Add wallet (**only once**)*
 
@@ -171,8 +171,22 @@ export WALLET_TEST=1; ./scripts/launch.sh
 
 ```bash
 cd {path/to/}cardano-sl-explorer
-./test-launch.sh {path/to/}cardano-sl/scripts/common.sh
+./test-launch.sh
 ```
+
+*2.1 Solving issues*
+
+- Issue:
+```
+cardano-explorer: Internal "Key file access mode is incorrect. Set it to 600 and try again. Key file path: secret.key Current mode: 644"
+```
+
+- Solution:
+```
+cd {path/to/}cardano-sl-explorer
+rm secret.key secret.key.lock
+```
+
 
 *3. Send a transaction (using a valid address listed in `http://localhost:8090/api/get_wallets`)*
 

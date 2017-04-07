@@ -26,6 +26,7 @@ import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
 import           Pos.Ssc.Class       (SscConstraint)
 import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
 import           Pos.Types           (Timestamp (Timestamp))
+import           Pos.Update          (UpdateParams (..))
 import           Pos.Util            (inAssertMode, mconcatPair)
 import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usPrimKey, usVss,
                                       writeUserSecret)
@@ -118,7 +119,7 @@ fillUserSecretVSS userSecret = case userSecret ^. usVss of
         writeUserSecret us
         return us
 
-getNodeParams :: (MonadIO m, MonadFail m) => Args -> Timestamp -> m NodeParams
+getNodeParams :: (MonadIO m, MonadFail m, MonadThrow m) => Args -> Timestamp -> m NodeParams
 getNodeParams args@Args {..} systemStart = do
     (primarySK, userSecret) <-
         userSecretWithGenesisKey args =<<
@@ -146,9 +147,11 @@ getNodeParams args@Args {..} systemStart = do
         , npAttackTypes = []
         , npAttackTargets = []
         , npPropagation = not (CLI.disablePropagation commonArgs)
-        , npUpdatePath = "explorer-update"
-        , npUpdateWithPkg = True
-        , npUpdateServers = CLI.updateServers commonArgs
+        , npUpdateParams = UpdateParams
+            { upUpdatePath = "explorer-update"
+            , upUpdateWithPkg = True
+            , upUpdateServers = CLI.updateServers commonArgs
+            }
         , npReportServers = CLI.reportServers commonArgs
         }
 

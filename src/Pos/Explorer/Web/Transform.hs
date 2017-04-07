@@ -6,39 +6,41 @@ module Pos.Explorer.Web.Transform
        , notifierPlugin
        ) where
 
-import           Control.Concurrent.STM  (TVar)
-import qualified Control.Monad.Catch     as Catch (Handler (..), catches)
-import           Control.Monad.Except    (MonadError (throwError))
-import           Mockable                (runProduction)
-import           Servant.Server          (Handler)
-import           Servant.Utils.Enter     ((:~>) (..), enter)
-import           System.Wlog             (usingLoggerName)
+import           Control.Concurrent.STM      (TVar)
+import qualified Control.Monad.Catch         as Catch (Handler (..), catches)
+import           Control.Monad.Except        (MonadError (throwError))
+import           Mockable                    (runProduction)
+import           Servant.Server              (Handler)
+import           Servant.Utils.Enter         ((:~>) (..), enter)
+import           System.Wlog                 (usingLoggerName)
 import           Universum
 
-import           Pos.Communication       (OutSpecs, PeerStateSnapshot, SendActions,
-                                          WithPeerState (..), WorkerSpec, getAllStates,
-                                          peerStateFromSnapshot, runPeerStateHolder,
-                                          worker)
-import           Pos.Context             (NodeContext, getNodeContext, runContextHolder)
-import           Pos.DB                  (NodeDBs, getNodeDBs, runDBHolder)
-import           Pos.Delegation          (DelegationWrap, askDelegationState,
-                                          runDelegationTFromTVar)
-import           Pos.DHT.Real.Real       (runKademliaDHT)
-import           Pos.DHT.Real.Types      (KademliaDHTInstance (..),
-                                          getKademliaDHTInstance)
-import           Pos.Slotting            (NtpSlotting (..), NtpSlottingVar,
-                                          SlottingHolder (..), SlottingVar,
-                                          runNtpSlotting, runSlottingHolder)
-import           Pos.Ssc.Extra           (SscHolder (..), SscState, runSscHolder)
-import           Pos.Ssc.GodTossing      (SscGodTossing)
-import           Pos.Statistics          (getNoStatsT)
-import           Pos.Txp                 (TxpLocalData, askTxpMem, runTxpHolderReader)
-import           Pos.Update              (runUSHolder)
-import           Pos.WorkMode            (ProductionMode)
+import           Pos.Communication           (OutSpecs, PeerStateSnapshot, SendActions,
+                                              WithPeerState (..), WorkerSpec,
+                                              getAllStates, peerStateFromSnapshot,
+                                              runPeerStateHolder, worker)
+import           Pos.Context                 (NodeContext, getNodeContext,
+                                              runContextHolder)
+import           Pos.DB                      (NodeDBs, getNodeDBs, runDBHolder)
+import           Pos.Delegation              (DelegationWrap, askDelegationState,
+                                              runDelegationTFromTVar)
+import           Pos.DHT.Real.Real           (runKademliaDHT)
+import           Pos.DHT.Real.Types          (KademliaDHTInstance (..),
+                                              getKademliaDHTInstance)
+import           Pos.Slotting                (NtpSlotting (..), NtpSlottingVar,
+                                              SlottingHolder (..), SlottingVar,
+                                              runNtpSlotting, runSlottingHolder)
+import           Pos.Ssc.Extra               (SscHolder (..), SscState, runSscHolder)
+import           Pos.Ssc.GodTossing          (SscGodTossing)
+import           Pos.Statistics              (getNoStatsT)
+import           Pos.Txp                     (GenericTxpLocalData, askTxpMem,
+                                              runTxpHolder)
+import           Pos.WorkMode                (ProductionMode)
 
-import           Pos.Explorer.Socket.App (NotifierSettings, notifierApp)
-import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers,
-                                          explorerServeImpl)
+import           Pos.Explorer                (ExplorerExtra)
+import           Pos.Explorer.Socket.App     (NotifierSettings, notifierApp)
+import           Pos.Explorer.Web.Server     (explorerApp, explorerHandlers,
+                                              explorerServeImpl)
 
 -----------------------------------------------------------------
 -- Transformation to `Handler`
@@ -61,20 +63,20 @@ nat :: ExplorerProd (ExplorerProd :~> Handler)
 nat = do
     kinst      <- lift getKademliaDHTInstance
     tlw        <- askTxpMem
-    ssc        <- lift . lift . lift . lift . lift . lift $ SscHolder ask
+    ssc        <- lift . lift . lift . lift . lift $ SscHolder ask
     delWrap    <- askDelegationState
     psCtx      <- getAllStates
     nc         <- getNodeContext
     modernDB   <- getNodeDBs
-    slotVar    <- lift . lift . lift . lift . lift . lift . lift . lift $ SlottingHolder ask
-    ntpSlotVar <- lift . lift . lift . lift . lift . lift . lift $ NtpSlotting ask
+    slotVar    <- lift . lift . lift . lift . lift . lift . lift $ SlottingHolder ask
+    ntpSlotVar <- lift . lift . lift . lift . lift . lift $ NtpSlotting ask
     pure $ Nat (convertHandler kinst nc modernDB tlw ssc delWrap psCtx slotVar ntpSlotVar)
 
 convertHandler
     :: KademliaDHTInstance
     -> NodeContext SscGodTossing
     -> NodeDBs
-    -> TxpLocalData
+    -> GenericTxpLocalData ExplorerExtra
     -> SscState SscGodTossing
     -> TVar DelegationWrap
     -> PeerStateSnapshot
@@ -90,9 +92,8 @@ convertHandler kinst nc modernDBs tlw ssc delWrap psCtx slotVar ntpSlotVar handl
            . runSlottingHolder slotVar
            . runNtpSlotting ntpSlotVar
            . runSscHolder ssc
-           . runTxpHolderReader tlw
+           . runTxpHolder tlw
            . runDelegationTFromTVar delWrap
-           . runUSHolder
            . runKademliaDHT kinst
            . (\m -> flip runPeerStateHolder m =<< peerStateFromSnapshot psCtx)
            . getNoStatsT

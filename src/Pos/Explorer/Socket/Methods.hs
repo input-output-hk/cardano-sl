@@ -43,7 +43,7 @@ import           Pos.DB                         (MonadDB)
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.GState                  as DB
 import           Pos.Explorer                   (TxExtra (..))
-import qualified Pos.Explorer.DB                as DB
+import qualified Pos.Explorer                   as DB
 import           Pos.Slotting.Class             (MonadSlots)
 import           Pos.Ssc.Class                  (SscHelpersClass)
 import           Pos.Txp                        (Tx (..), TxOut (..), TxOutAux (..),

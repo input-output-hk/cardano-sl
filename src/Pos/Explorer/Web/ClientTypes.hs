@@ -60,7 +60,7 @@ import           Pos.Types              (Address, Coin, EpochIndex,
                                          getSlotIndex, headerHash, mcdSlot,
                                          mkCoin, prevBlockL, sumCoins,
                                          unsafeAddCoin, unsafeIntegerToCoin)
-import          Pos.Explorer.Core.Types  (TxExtra (..))
+import          Pos.Explorer             (TxExtra (..))
 
 
 

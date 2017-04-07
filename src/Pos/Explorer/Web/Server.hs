@@ -50,10 +50,9 @@ import           Pos.Util.Chrono                (NewestFirst (..))
 import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
 
-import           Pos.Explorer                   (getTxExtra)
+import           Pos.Explorer                   (TxExtra (..), getTxExtra)
+import qualified Pos.Explorer                   as EX (getAddrHistory, getTxExtra)
 import           Pos.Explorer.Aeson.ClientTypes ()
-import           Pos.Explorer.Core.Types        (TxExtra (..))
-import qualified Pos.Explorer.DB                as EX (getAddrHistory, getTxExtra)
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
                                                  CBlockEntry (..), CBlockSummary (..),

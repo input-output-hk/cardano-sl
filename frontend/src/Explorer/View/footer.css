@@ -89,7 +89,7 @@
 
       .split {
         display: inline-block;
-        background: #f9f9f9;
+        background: var(--color14);
         opacity: 0.2;
         width: 1px;
         height: 30px;
@@ -98,9 +98,9 @@
       }
 
       .support {
-        color: #fcfcfc;
+        color: var(--color3);
         opacity: 0.7;
-        font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
+        font-family: var(--fontFamily0-Light);
         font-size: 8px;
         font-weight: 400;
         box-sizing: border-box;

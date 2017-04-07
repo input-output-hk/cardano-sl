@@ -78,4 +78,4 @@ instance Monad m => WithWalletContext (ContextHolder m) where
     getWalletContext = ContextHolder ask
 
 instance Monad m => MonadReportingMem (ContextHolder m) where
-    askReportingContext = pure $ ReportingContext []
+    askReportingContext = pure $ ReportingContext [] mempty

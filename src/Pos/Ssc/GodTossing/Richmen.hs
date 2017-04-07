@@ -4,10 +4,11 @@ module Pos.Ssc.GodTossing.Richmen
 
 -- import           Universum
 
+import           Pos.Core         (BlockVersionData (bvdMpcThd))
 import qualified Pos.DB           as DB
 import           Pos.Lrc.Consumer (LrcConsumer (..), lrcConsumerFromComponentSimple)
 import           Pos.Lrc.DB       (RCSsc)
 
 -- | Consumer will be called on every Richmen computation.
-gtLrcConsumer :: DB.MonadDB m => LrcConsumer m
-gtLrcConsumer = lrcConsumerFromComponentSimple @RCSsc
+gtLrcConsumer :: DB.MonadDBCore m => LrcConsumer m
+gtLrcConsumer = lrcConsumerFromComponentSimple @RCSsc bvdMpcThd

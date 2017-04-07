@@ -11,8 +11,9 @@ module Pos.Lrc.Consumer
 
 import           Universum
 
-import           Pos.Core.Types         (Coin, EpochIndex)
-import           Pos.DB.Class           (MonadDB)
+import           Pos.Core               (BlockVersionData, Coin, CoinPortion, EpochIndex,
+                                         applyCoinPortion)
+import           Pos.DB.Class           (MonadDBCore (dbAdoptedBVData))
 import           Pos.Lrc.Class          (RichmenComponent (..))
 import           Pos.Lrc.DB.RichmenBase (getRichmen, putRichmen)
 import           Pos.Lrc.Types          (RichmenStake)
@@ -21,8 +22,9 @@ import           Pos.Lrc.Types          (RichmenStake)
 -- If you want to compute richmen, you should add such client to LRC framework
 data LrcConsumer m = LrcConsumer
     {
-      lcThreshold         :: Coin -> Coin
-    -- ^ Function which defines threshold depends on total stake
+      lcThreshold         :: Coin -> m Coin
+    -- ^ Function which computes threshold taking total stake in
+    -- the system as an argument.
     , lcIfNeedCompute     :: EpochIndex -> m Bool
     -- ^ Function which defines necessity of richmen computation
     , lcComputedCallback  :: EpochIndex -> Coin -> RichmenStake -> m ()
@@ -36,12 +38,13 @@ data LrcConsumer m = LrcConsumer
 lrcConsumerFromComponent
     :: forall c m.
        RichmenComponent c
-    => (EpochIndex -> m Bool)
+    => (Coin -> m Coin)
+    -> (EpochIndex -> m Bool)
     -> (EpochIndex -> Coin -> RichmenStake -> m ())
     -> LrcConsumer m
-lrcConsumerFromComponent ifNeedCompute callback =
+lrcConsumerFromComponent thd ifNeedCompute callback =
     LrcConsumer
-    { lcThreshold = rcThreshold proxy
+    { lcThreshold = thd
     , lcIfNeedCompute = ifNeedCompute
     , lcComputedCallback = callback
     , lcConsiderDelegated = rcConsiderDelegated proxy
@@ -54,11 +57,13 @@ lrcConsumerFromComponent ifNeedCompute callback =
 -- which uses only LRC DB.
 lrcConsumerFromComponentSimple
     :: forall c m.
-       (RichmenComponent c, MonadDB m)
-    => LrcConsumer m
-lrcConsumerFromComponentSimple =
-    lrcConsumerFromComponent @c ifNeedCompute onComputed
+       (RichmenComponent c, MonadDBCore m)
+    => (BlockVersionData -> CoinPortion) -> LrcConsumer m
+lrcConsumerFromComponentSimple thresholdGetter =
+    lrcConsumerFromComponent @c toThreshold ifNeedCompute onComputed
   where
+    toThreshold total =
+        flip applyCoinPortion total . thresholdGetter <$> dbAdoptedBVData
     ifNeedCompute epoch = isNothing <$> getRichmen @c epoch
     onComputed epoch totalStake stakes =
         putRichmen @c epoch (totalStake, stakes)

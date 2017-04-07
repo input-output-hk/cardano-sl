@@ -64,7 +64,10 @@ computeInitial
     :: RichmenComponent c
     => TxOutDistribution -> Proxy c -> FullRichmenData
 computeInitial initialDistr proxy =
-    findRichmenPure initialDistr (rcThreshold proxy) richmenType
+    findRichmenPure
+        initialDistr
+        (applyCoinPortion (rcInitialThreshold proxy))
+        richmenType
   where
     richmenType
         | rcConsiderDelegated proxy = RTDelegation genesisDelegation
@@ -95,7 +98,7 @@ instance RichmenComponent RCSsc where
     type RichmenData RCSsc = RichmenStake
     rcToData = snd
     rcTag Proxy = "ssc"
-    rcThreshold Proxy = applyCoinPortion genesisMpcThd
+    rcInitialThreshold Proxy = genesisMpcThd
     rcConsiderDelegated Proxy = True
 
 getRichmenSsc :: MonadDB m => EpochIndex -> m (Maybe RichmenStake)
@@ -116,7 +119,7 @@ instance RichmenComponent RCUs where
     type RichmenData RCUs = FullRichmenData
     rcToData = identity
     rcTag Proxy = "us"
-    rcThreshold Proxy = applyCoinPortion genesisUpdateVoteThd
+    rcInitialThreshold Proxy = genesisUpdateVoteThd
     rcConsiderDelegated Proxy = True
 
 getRichmenUS :: MonadDB m => EpochIndex -> m (Maybe FullRichmenData)
@@ -137,7 +140,7 @@ instance RichmenComponent RCDlg where
     type RichmenData RCDlg = Richmen
     rcToData = toRichmen . snd
     rcTag Proxy = "dlg"
-    rcThreshold Proxy = applyCoinPortion genesisHeavyDelThd
+    rcInitialThreshold Proxy = genesisHeavyDelThd
     rcConsiderDelegated Proxy = False
 
 getRichmenDlg :: MonadDB m => EpochIndex -> m (Maybe Richmen)

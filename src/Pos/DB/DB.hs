@@ -27,18 +27,20 @@ import           Pos.Context.Class                (WithNodeContext)
 import           Pos.Context.Functions            (genesisLeadersM)
 import           Pos.DB.Block                     (getBlock, loadBlundsByDepth,
                                                    loadBlundsWhile, prepareBlockDB)
-import           Pos.DB.Class                     (MonadDB)
+import           Pos.DB.Class                     (MonadDB, MonadDBCore (..))
 import           Pos.DB.Error                     (DBError (DBMalformed))
 import           Pos.DB.Functions                 (openDB)
 import           Pos.DB.GState.BlockExtra         (prepareGStateBlockExtra)
 import           Pos.DB.GState.Common             (getTip)
 import           Pos.DB.GState.GState             (prepareGStateDB, sanityCheckGStateDB)
+import           Pos.DB.Holder                    (DBHolder)
 import           Pos.DB.Misc                      (prepareMiscDB)
 import           Pos.DB.Types                     (NodeDBs (..))
 import           Pos.Lrc.DB                       (prepareLrcDB)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Types                        (Block, BlockHeader, getBlockHeader,
                                                    headerHash, mkGenesisBlock)
+import           Pos.Update.DB                    (getAdoptedBVData)
 import           Pos.Util                         (inAssertMode)
 import           Pos.Util.Chrono                  (NewestFirst)
 
@@ -120,3 +122,11 @@ ensureDirectoryExists
     :: MonadIO m
     => FilePath -> m ()
 ensureDirectoryExists = liftIO . createDirectoryIfMissing True
+
+----------------------------------------------------------------------------
+-- MonadDB instance
+----------------------------------------------------------------------------
+
+instance (MonadIO m, MonadThrow m) =>
+         MonadDBCore (DBHolder m) where
+    dbAdoptedBVData = getAdoptedBVData

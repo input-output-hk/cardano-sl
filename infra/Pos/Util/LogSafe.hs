@@ -13,6 +13,7 @@ import           Control.Monad.Trans (MonadTrans)
 import           Data.List           (isSuffixOf)
 import           System.Wlog         (CanLog (..), HasLoggerName (..), Severity (..),
                                       loggerName)
+import           System.Wlog.Handler (LogHandlerTag (HandlerFilelike))
 import           System.Wlog.Logger  (logMCond)
 import           Universum
 
@@ -29,11 +30,8 @@ instance (MonadIO m) => CanLog (SecureLogWrapped m) where
         (loggerName      -> name)
         severity
         msg =
-      let acceptable p
-              | "fileHandler" `isPrefixOf` p ||
-                "rollerHandler" `isPrefixOf` p
-              = not $ ".pub" `isSuffixOf` p
-              | otherwise = True
+      let acceptable (HandlerFilelike p) = not $ ".pub" `isSuffixOf` p
+          acceptable _                   = False
       in liftIO $ logMCond name severity msg acceptable
 
 instance (Monad m, HasLoggerName m) => HasLoggerName (SecureLogWrapped m) where

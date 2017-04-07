@@ -66,7 +66,7 @@ checkForReceivedBlocksWorker =
 checkEclipsed
     :: (SscHelpersClass ssc, MonadDB m)
     => PublicKey -> SlotId -> BlockHeader ssc -> m Bool
-checkEclipsed ourPk slotId = notEclipsed
+checkEclipsed ourPk slotId x = notEclipsed x
   where
     onBlockLoadFailure header = do
         throwM $ DBMalformed $

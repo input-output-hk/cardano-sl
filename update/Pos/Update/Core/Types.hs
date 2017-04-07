@@ -58,16 +58,15 @@ import qualified Data.Text                  as T
 import qualified Data.Text.Buildable        as Buildable
 import           Data.Text.Lazy.Builder     (Builder)
 import           Data.Time.Units            (Millisecond)
-import           Formatting                 (Format, bprint, build, builder, int, later,
-                                             (%))
+import           Formatting                 (Format, bprint, build, builder, later, (%))
 import           Instances.TH.Lift          ()
 import           Language.Haskell.TH.Syntax (Lift)
-import           Serokell.Data.Memory.Units (Byte, memory)
+import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Text         (listJson)
 
 import           Pos.Binary.Class           (Bi, Raw)
 import           Pos.Binary.Crypto          ()
-import           Pos.Core                   (BlockVersion, CoinPortion, FlatSlotId,
+import           Pos.Core                   (BlockVersion, BlockVersionData (..),
                                              IsGenesisHeader, IsMainHeader, ScriptVersion,
                                              SoftwareVersion, addressHash)
 import           Pos.Crypto                 (Hash, PublicKey, SecretKey, Signature,
@@ -208,50 +207,6 @@ instance (Bi UpdateProposal) =>
             up
             (map formatVoteShort votes)
 
--- | Data which is associated with 'BlockVersion'.
-data BlockVersionData = BlockVersionData
-    { bvdScriptVersion     :: !ScriptVersion
-    , bvdSlotDuration      :: !Millisecond
-    , bvdMaxBlockSize      :: !Byte
-    , bvdMaxHeaderSize     :: !Byte
-    , bvdMaxTxSize         :: !Byte
-    , bvdMaxProposalSize   :: !Byte
-    , bvdMpcThd            :: !CoinPortion
-    , bvdHeavyDelThd       :: !CoinPortion
-    , bvdUpdateVoteThd     :: !CoinPortion
-    , bvdUpdateProposalThd :: !CoinPortion
-    , bvdUpdateImplicit    :: !FlatSlotId
-    , bvdUpdateSoftforkThd :: !CoinPortion
-    } deriving (Show, Eq, Generic, Typeable)
-
-instance Buildable BlockVersionData where
-    build BlockVersionData {..} =
-      bprint ("{ scripts v"%build%
-              ", slot duration: "%int%" mcs"%
-              ", block size limit: "%memory%
-              ", header size limit: "%memory%
-              ", tx size limit: "%memory%
-              ", proposal size limit: "%memory%
-              ", mpc threshold: "%build%
-              ", heavyweight delegation threshold: "%build%
-              ", update vote threshold: "%build%
-              ", update proposal threshold: "%build%
-              ", update implicit period: "%int%" slots"%
-              ", update softfork threshold: "%build%
-              " }")
-        bvdScriptVersion
-        bvdSlotDuration
-        bvdMaxBlockSize
-        bvdMaxHeaderSize
-        bvdMaxTxSize
-        bvdMaxProposalSize
-        bvdMpcThd
-        bvdHeavyDelThd
-        bvdUpdateVoteThd
-        bvdUpdateProposalThd
-        bvdUpdateImplicit
-        bvdUpdateSoftforkThd
-
 upScriptVersion :: UpdateProposal -> ScriptVersion
 upScriptVersion = bvdScriptVersion . upBlockVersionData
 
@@ -295,18 +250,6 @@ instance NFData SystemTag
 instance NFData UpdateProposal
 -- Proper NFData Millisecond instance should be defined in
 -- time-units. I'm sorry for this. volhovm.
-instance NFData BlockVersionData where
-    rnf BlockVersionData{..} =
-        deepseq bvdScriptVersion $
-        deepseq (toInteger bvdSlotDuration) $
-        deepseq bvdMaxBlockSize $
-        deepseq bvdMaxTxSize $
-        deepseq bvdMpcThd $
-        deepseq bvdHeavyDelThd $
-        deepseq bvdUpdateVoteThd $
-        deepseq bvdUpdateProposalThd $
-        deepseq bvdUpdateImplicit $
-        deepseq bvdUpdateSoftforkThd $ ()
 instance NFData UpdateData
 
 ----------------------------------------------------------------------------

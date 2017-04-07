@@ -75,7 +75,7 @@ extra-deps:
 - serokell-util-0.1.5.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-1.0.4
+- log-warper-1.1.1      
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.6.2
 - purescript-bridge-0.8.0.1

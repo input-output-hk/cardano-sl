@@ -47,10 +47,12 @@ walletServeWebLite
     :: forall ssc.
        SscHelpersClass ssc
     => Proxy ssc
-    -> SendActions WalletRealMode
-    -> FilePath
-    -> Bool
-    -> Word16
+    -> SendActions WalletRealMode  -- ^ whether to include genesis keys
+    -> FilePath                    -- ^ to Daedalus acid-state
+    -> Bool                        -- ^ Rebuild flag
+    -> Word16                      -- ^ Port to listen
+    -> FilePath                    -- ^ TLS Certificate path
+    -> FilePath                    -- ^ TLS Key file
     -> WalletRealMode ()
 walletServeWebLite _ sendActions =
     walletServeImpl $ walletApplication $ walletServer @ssc sendActions nat

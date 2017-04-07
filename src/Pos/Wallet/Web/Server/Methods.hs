@@ -121,10 +121,17 @@ walletServeImpl
     -> FilePath                           -- ^ Path to wallet acid-state
     -> Bool                               -- ^ Rebuild flag for acid-state
     -> Word16                             -- ^ Port to listen
+    -> FilePath                           -- ^ TLS Certificate path
+    -> FilePath                           -- ^ TLS Key file
     -> m ()
-walletServeImpl app daedalusDbPath dbRebuild port =
+walletServeImpl app daedalusDbPath dbRebuild port tlsCert tlsKey =
     bracket pre post $ \(db, conn) ->
-        serveImpl (runWalletWebDB db $ runWalletWS conn app) "127.0.0.1" port
+        serveImpl
+            (runWalletWebDB db $ runWalletWS conn app)
+            "127.0.0.1"
+            port
+            tlsCert
+            tlsKey
   where
     pre = (,) <$> openDB <*> initWS
     post (db, conn) = closeDB db >> closeWS conn
@@ -314,7 +321,7 @@ servantHandlers sendActions =
     apiSettingsSyncProgress     = catchWalletError syncProgress
 
     catchWalletError            = try
-    
+
 -- getAddresses :: WalletWebMode ssc m => m [CAddress]
 -- getAddresses = map addressToCAddress <$> myAddresses
 

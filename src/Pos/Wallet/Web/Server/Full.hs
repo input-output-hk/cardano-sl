@@ -55,10 +55,12 @@ walletServeWebFull
     :: forall ssc.
        (SscConstraint ssc)
     => SendActions (RawRealMode ssc)
-    -> Bool      -- whether to include genesis keys
-    -> FilePath  -- to Daedalus acid-state
-    -> Bool      -- Rebuild flag
-    -> Word16
+    -> Bool      -- ^ whether to include genesis keys
+    -> FilePath  -- ^ to Daedalus acid-state
+    -> Bool      -- ^ Rebuild flag
+    -> Word16    -- ^ Port to listen
+    -> FilePath  -- ^ TLS Certificate path
+    -> FilePath  -- ^ TLS Key file
     -> RawRealMode ssc ()
 walletServeWebFull sendActions debug = walletServeImpl action
   where

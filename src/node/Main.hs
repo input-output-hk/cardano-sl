@@ -229,14 +229,14 @@ gtSscParams Args {..} vssSK =
 #ifdef WITH_WEB
 plugins :: (SscConstraint ssc, WorkMode ssc m) => Args -> [m ()]
 plugins Args {..}
-    | enableWeb = [serveWebBase webPort]
+    | enableWeb = [serveWebBase webPort walletTLSCertPath walletTLSKeyPath]
     | otherwise = []
 #endif
 
 #ifdef WITH_WEB
 pluginsGT :: (WorkMode SscGodTossing m) => Args -> [m ()]
 pluginsGT Args {..}
-    | enableWeb = [serveWebGT webPort]
+    | enableWeb = [serveWebGT webPort walletTLSCertPath walletTLSKeyPath]
     | otherwise = []
 #endif
 
@@ -258,6 +258,7 @@ walletServe Args {..} =
     then first pure $ worker walletServerOuts $ \sendActions ->
             walletServeWebFull sendActions walletDebug walletDbPath
                                            walletRebuildDb walletPort
+                                           walletTLSCertPath walletTLSKeyPath
     else updateTriggerWorker
 #else
 walletServe _ = updateTriggerWorker

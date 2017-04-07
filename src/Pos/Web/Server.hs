@@ -20,8 +20,8 @@ import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
 import           Mockable                             (Production (runProduction))
 import           Network.Wai                          (Application)
-import           Network.Wai.Handler.Warp             (defaultSettings, runSettings,
-                                                       setHost, setPort)
+import           Network.Wai.Handler.Warp             (defaultSettings, setHost, setPort)
+import           Network.Wai.Handler.WarpTLS          (runTLS, tlsSettings)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import           Servant.API                          ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server                       (Handler, ServantErr (errBody),
@@ -55,7 +55,7 @@ import           Pos.Web.Api                          (BaseNodeApi, GodTossingAp
 -- [CSL-152]: I want SscConstraint to be part of WorkMode.
 type MyWorkMode ssc m = (WorkMode ssc m, SscConstraint ssc)
 
-serveWebBase :: MyWorkMode ssc m => Word16 -> m ()
+serveWebBase :: MyWorkMode ssc m => Word16 -> FilePath -> FilePath -> m ()
 serveWebBase = serveImpl applicationBase "127.0.0.1"
 
 applicationBase :: MyWorkMode ssc m => m Application
@@ -63,7 +63,7 @@ applicationBase = do
     server <- servantServerBase
     return $ serve baseNodeApi server
 
-serveWebGT :: MyWorkMode SscGodTossing m => Word16 -> m ()
+serveWebGT :: MyWorkMode SscGodTossing m => Word16 -> FilePath -> FilePath -> m ()
 serveWebGT = serveImpl applicationGT "127.0.0.1"
 
 applicationGT :: MyWorkMode SscGodTossing m => m Application
@@ -72,12 +72,13 @@ applicationGT = do
     return $ serve gtNodeApi server
 
 -- [CSL-217]: do not hardcode logStdoutDev.
-serveImpl :: MonadIO m => m Application -> String -> Word16 -> m ()
-serveImpl application host port =
-    liftIO . runSettings mySettings . logStdoutDev =<< application
+serveImpl :: MonadIO m => m Application -> String -> Word16 -> FilePath -> FilePath -> m ()
+serveImpl application host port walletTLSCert walletTLSKey =
+    liftIO . runTLS tlsConfig mySettings . logStdoutDev =<< application
   where
     mySettings = setHost (fromString host) $
                  setPort (fromIntegral port) defaultSettings
+    tlsConfig = tlsSettings walletTLSCert walletTLSKey
 
 ----------------------------------------------------------------------------
 -- Servant infrastructure

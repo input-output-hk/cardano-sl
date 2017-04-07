@@ -23,12 +23,14 @@ import           Pos.Util.TimeWarp      (NetworkAddress)
 data WalletOptions = WalletOptions
     { woDbPath      :: !FilePath
     , woRebuildDb   :: !Bool
-    , woIpPort      :: !NetworkAddress -- ^ DHT/Blockchain port
-    , woKeyFilePath :: !FilePath       -- ^ Path to file with secret keys
-    , woDebug       :: !Bool           -- ^ Run in debug mode (with genesis keys included)
+    , woIpPort      :: !NetworkAddress    -- ^ DHT/Blockchain port
+    , woKeyFilePath :: !FilePath          -- ^ Path to file with secret keys
+    , woDebug       :: !Bool              -- ^ Run in debug mode (with genesis keys included)
     , woJLFile      :: !(Maybe FilePath)
-    , woCommonArgs  :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
+    , woCommonArgs  :: !CLI.CommonArgs    -- ^ Common CLI args, including initial DHT nodes
     , woAction      :: !WalletAction
+    , woTLSCertPath :: !FilePath          -- ^ TLS Certificate path
+    , woTLSKeyPath  :: !FilePath          -- ^ TLS Key file
     }
 
 data WalletAction = Repl
@@ -95,6 +97,16 @@ optionsParser = do
         CLI.commonArgsParser "Initial DHT peer (may be many)"
     woAction <-
         actionParser
+    woTLSCertPath <- strOption $
+        long    "tlscert" <>
+        metavar "FILEPATH" <>
+        value   "certificate.pem" <>
+        help    "Path to file with TLS certificate"
+    woTLSKeyPath <- strOption $
+        long    "tlskey" <>
+        metavar "FILEPATH" <>
+        value   "key.pem" <>
+        help    "Path to file with TLS key"
 
     pure WalletOptions{..}
 

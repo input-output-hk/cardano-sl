@@ -44,6 +44,8 @@ data Args = Args
 #ifdef WITH_WEB
     , enableWeb                 :: !Bool
     , webPort                   :: !Word16
+    , walletTLSCertPath         :: !FilePath
+    , walletTLSKeyPath          :: !FilePath
 #ifdef WITH_WALLET
     , enableWallet              :: !Bool
     , walletPort                :: !Word16
@@ -130,6 +132,16 @@ argsParser = do
         help "Run web server"
     webPort <-
         CLI.webPortOption 8080 "Port for web server"
+    walletTLSCertPath <- strOption $
+        long    "tlscert" <>
+        metavar "FILEPATH" <>
+        value   "certificate.pem" <>
+        help    "Path to file with TLS certificate"
+    walletTLSKeyPath <- strOption $
+        long    "tlskey" <>
+        metavar "FILEPATH" <>
+        value   "key.pem" <>
+        help    "Path to file with TLS key"
 #ifdef WITH_WALLET
     enableWallet <- switch $
         long "wallet" <>

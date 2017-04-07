@@ -13,7 +13,7 @@ import           Control.Monad.STM          (retry)
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.HashSet               as HS
 import           Formatting                 (build, sformat, (%))
-import           Mockable                   (fork)
+import           Mockable                   (forConcurrently)
 import           Paths_cardano_sl           (version)
 import           Serokell.Util.Exceptions   ()
 import           System.Wlog                (logInfo, logWarning)
@@ -195,13 +195,13 @@ richmenComputationDo epochIdx consumers = unless (null consumers) $ do
         minThresholdD = safeThreshold consumersAndThds lcConsiderDelegated
     (richmen, richmenD) <- GS.runBalanceIterator
                                (findAllRichmenMaybe minThreshold minThresholdD)
-    let callCallback (cons, thd) = void $ fork $
+    let callCallback (cons, thd) =
             if lcConsiderDelegated cons
             then lcComputedCallback cons epochIdx total
                    (HM.filter (>= thd) richmenD)
             else lcComputedCallback cons epochIdx total
                    (HM.filter (>= thd) richmen)
-    mapM_ callCallback consumersAndThds
+    void $ forConcurrently consumersAndThds callCallback
   where
     safeThreshold consumersAndThds f =
         safeMinimum $ map snd $ filter (f . fst) consumersAndThds

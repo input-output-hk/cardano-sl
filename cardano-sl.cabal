@@ -45,6 +45,7 @@ library
                         Pos.CompileConfig
                         Pos.Communication
                         Pos.Constants
+                        Pos.Crypto.Arbitrary
 
                         Pos.DB.DB
                         Pos.DB.Block
@@ -164,7 +165,6 @@ library
                         Pos.Context.Holder
 
                         -- Crypto
-                        Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Unsafe
                         Pos.Crypto.HDDiscovery
 

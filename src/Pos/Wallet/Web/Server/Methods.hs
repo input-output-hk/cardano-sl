@@ -327,7 +327,7 @@ servantHandlers sendActions =
     apiGetWSet                  = (catchWalletError . getWSet)
     apiGetWSets                 = catchWalletError getWSets
     apiNewWSet                  = (\a -> catchWalletError . newWSet a)
-    apiRestoreWSet              = (\a -> catchWalletError . restoreWSet a)
+    apiRestoreWSet              = (\a -> catchWalletError . newWSet a)
     apiImportKey                = catchWalletError . importKey
     apiGetWallet                = catchWalletError . getWallet
     apiGetWallets               = catchWalletError . getWallets
@@ -557,14 +557,6 @@ createWSetSafe cAddr wsMeta = do
 
 newWSet :: WalletWebMode ssc m => CPassPhrase -> CWalletSetInit -> m CWalletSet
 newWSet cPassphrase CWalletSetInit {..} = do
-    passphrase <- decodeCPassPhraseOrFail cPassphrase
-    let CWalletSetMeta {..} = cwsInitMeta
-    cAddr <- genSaveRootAddress passphrase cwsBackupPhrase
-    createWSet cAddr cwsInitMeta
-    getWSet cAddr
-
-restoreWSet :: WalletWebMode ssc m => CPassPhrase -> CWalletSetInit -> m CWalletSet
-restoreWSet cPassphrase CWalletSetInit {..} = do
     passphrase <- decodeCPassPhraseOrFail cPassphrase
     let CWalletSetMeta {..} = cwsInitMeta
     cAddr <- genSaveRootAddress passphrase cwsBackupPhrase

@@ -4,7 +4,7 @@ import Prelude
 import Data.Maybe (fromMaybe)
 import Data.Lens ((^.))
 import Explorer.I18n.Lang (Language(..), readLanguage, translate)
-import Explorer.I18n.Lenses (common, cApi, footer, fooLinks, fooRessources, fooFollow, fooIohkSupportP, cDocumentation, cGithub, cLinkedin, cTwitter, cDaedalusWallet, cWhyCardano, cCardanoRoadmap, cCardanoADAFaucet, cCardanoSLDocumentation) as I18nL
+import Explorer.I18n.Lenses (common, cApi, footer, fooLinks, fooRessources, fooFollow, fooIohkSupportP, fooDocumentation, fooGithub, fooLinkedin, fooTwitter, fooDaedalusWallet, fooWhyCardano, fooCardanoRoadmap, fooCardanoADAFaucet, fooCardanoSLDocumentation) as I18nL
 import Explorer.State (initialState)
 import Explorer.Lenses.State (lang)
 import Explorer.Types.Actions (Action(..))
@@ -90,7 +90,7 @@ navItemsRow0 lang =
     [ { label: translate (I18nL.common <<< I18nL.cApi) lang
       , link: "https://github.com/input-output-hk/cardano-sl-explorer/blob/master/docs/cardano-explorer-table-web-api.md"
       }
-    , { label: translate (I18nL.common <<< I18nL.cDocumentation) lang
+    , { label: translate (I18nL.footer <<< I18nL.fooDocumentation) lang
       , link: "https://github.com/input-output-hk/cardano-sl-explorer/blob/master/docs/cardano-explorer-web-api.md"
       }
     -- TODO (ks) Add when we have the links
@@ -113,13 +113,13 @@ followUsNavRow lang =
 
 navItemsRow1 :: Language -> Array NavItem
 navItemsRow1 lang =
-    [ { label: translate (I18nL.common <<< I18nL.cGithub) lang
+    [ { label: translate (I18nL.footer <<< I18nL.fooGithub) lang
       , link: "https://github.com/input-output-hk/"
       }
-    , { label: translate (I18nL.common <<< I18nL.cLinkedin) lang
+    , { label: translate (I18nL.footer <<< I18nL.fooLinkedin) lang
       , link: "https://www.linkedin.com/company-beta/6385405/?pathWildcard=6385405"
       }
-    , { label: translate (I18nL.common <<< I18nL.cTwitter) lang
+    , { label: translate (I18nL.footer <<< I18nL.fooTwitter) lang
       , link: "https://twitter.com/InputOutputHK"
       }
     ]
@@ -132,19 +132,19 @@ linksNavRow  lang =
 
 navItemsRow2 :: Language -> Array NavItem
 navItemsRow2 lang =
-    [ { label: translate (I18nL.common <<< I18nL.cDaedalusWallet) lang
+    [ { label: translate (I18nL.footer <<< I18nL.fooDaedalusWallet) lang
       , link: "https://daedaluswallet.io/"
       }
-    , { label: translate (I18nL.common <<< I18nL.cWhyCardano) lang
+    , { label: translate (I18nL.footer <<< I18nL.fooWhyCardano) lang
       , link: "https://whycardano.com/"
       }
-    , { label: translate (I18nL.common <<< I18nL.cCardanoRoadmap) lang
+    , { label: translate (I18nL.footer <<< I18nL.fooCardanoRoadmap) lang
       , link: "https://cardanoroadmap.com/"
       }
-    , { label: translate (I18nL.common <<< I18nL.cCardanoADAFaucet) lang
+    , { label: translate (I18nL.footer <<< I18nL.fooCardanoADAFaucet) lang
       , link: "https://tada.iohk.io/"
       }
-    , { label: translate (I18nL.common <<< I18nL.cCardanoSLDocumentation) lang
+    , { label: translate (I18nL.footer <<< I18nL.fooCardanoSLDocumentation) lang
       , link: "https://cardano-docs.iohk.io/introduction/"
       }
     ]

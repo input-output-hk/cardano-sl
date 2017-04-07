@@ -22,15 +22,6 @@ type Common =
     , cBCshort :: String
     , cBCong :: String
     , cApi :: String
-    , cDocumentation :: String
-    , cGithub :: String
-    , cLinkedin :: String
-    , cTwitter :: String
-    , cDaedalusWallet :: String
-    , cWhyCardano :: String
-    , cCardanoRoadmap :: String
-    , cCardanoADAFaucet :: String
-    , cCardanoSLDocumentation :: String
     , cTransaction :: String
     , cTransactions :: String
     , cTransactionFeed :: String
@@ -153,6 +144,15 @@ type Footer =
     , fooFollow :: String
     , fooLinks :: String
     , fooIohkSupportP :: String
+    , fooDocumentation :: String
+    , fooGithub :: String
+    , fooLinkedin :: String
+    , fooTwitter :: String
+    , fooDaedalusWallet :: String
+    , fooWhyCardano :: String
+    , fooCardanoRoadmap :: String
+    , fooCardanoADAFaucet :: String
+    , fooCardanoSLDocumentation :: String
     }
 
 -- translations of 404

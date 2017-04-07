@@ -27,7 +27,6 @@ import           Pos.Delegation              (DelegationWrap, askDelegationState
 import           Pos.DHT.Real.Real           (runKademliaDHT)
 import           Pos.DHT.Real.Types          (KademliaDHTInstance (..),
                                               getKademliaDHTInstance)
-import           Pos.Explorer.Txp.Toil.Types (ExplorerExtra)
 import           Pos.Slotting                (NtpSlotting (..), NtpSlottingVar,
                                               SlottingHolder (..), SlottingVar,
                                               runNtpSlotting, runSlottingHolder)
@@ -38,6 +37,7 @@ import           Pos.Txp                     (GenericTxpLocalData, askTxpMem,
                                               runTxpHolder)
 import           Pos.WorkMode                (ProductionMode)
 
+import           Pos.Explorer                (ExplorerExtra)
 import           Pos.Explorer.Socket.App     (NotifierSettings, notifierApp)
 import           Pos.Explorer.Web.Server     (explorerApp, explorerHandlers,
                                               explorerServeImpl)

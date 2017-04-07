@@ -83,6 +83,7 @@ getFakeAvvmGenesis FakeAvvmOptions{..} = do
         gdDistribution = ExplicitStakes $ HM.fromList $
             map (, (mkCoin $ fromIntegral faoOneStake, [])) gdAddresses
         gdVssCertificates = mempty
+        gdBootstrapBalances = mempty
 
     return GenesisData {..}
 

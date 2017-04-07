@@ -4,23 +4,24 @@ module Main where
 
 import           Data.List             ((!!))
 import           Data.Maybe            (fromJust)
-import           Mockable              (Production)
+import           Mockable              (Production, currentTime)
 import           Node                  (hoistSendActions)
-import           Serokell.Util         (sec)
 import           System.Wlog           (LoggerName, logInfo)
+import           Formatting            ((%), sformat, shown)
 import           Universum
 
 import           Pos.Binary            ()
+import           Pos.Core.Types        (Timestamp (..))
 import qualified Pos.CLI               as CLI
 import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec, worker)
-import           Pos.Constants         (isDevelopment, staticSysStart)
+import           Pos.Constants         (isDevelopment)
 import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.Genesis           (genesisDevSecretKeys, genesisStakeDistribution,
                                         genesisUtxo)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
                                         NodeParams (..), RealModeResources,
                                         bracketResources, runNodeProduction, runNodeStats,
-                                        runTimeLordReal, runTimeSlaveReal, stakesDistr)
+                                        stakesDistr)
 import           Pos.Shutdown          (triggerShutdown)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing,
@@ -28,7 +29,6 @@ import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing,
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import           Pos.Ssc.SscAlgo       (SscAlgo (..))
 import           Pos.Statistics        (getNoStatsT, getStatsMap, runStatsT')
-import           Pos.Types             (Timestamp (Timestamp))
 import           Pos.Update.Context    (ucUpdateSemaphore)
 import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util              (inAssertMode, mappendPair)
@@ -46,23 +46,6 @@ import           Pos.Wallet.Web        (walletServeWebFull, walletServerOuts)
 import           Pos.Util.Context      (askContext)
 
 import           NodeOptions           (Args (..), getNodeOptions)
-
-getSystemStart
-    :: SscConstraint ssc
-    => Proxy ssc -> RealModeResources -> Args -> Production Timestamp
-getSystemStart sscProxy inst args
-    | noSystemStart args > 0 = pure $ Timestamp $ sec $ noSystemStart args
-    | otherwise =
-        case staticSysStart of
-            Nothing ->
-                if timeLord args
-                    then runTimeLordReal (loggingParams "time-lord" args)
-                    else do params <- liftIO $ baseParams "time-slave" args
-                            runTimeSlaveReal
-                                sscProxy
-                                inst
-                                params
-            Just systemStart -> return systemStart
 
 loggingParams :: LoggerName -> Args -> LoggingParams
 loggingParams tag Args{..} =
@@ -89,9 +72,10 @@ baseParams loggingTag args@Args {..} = do
 
 action :: Args -> RealModeResources -> Production ()
 action args@Args {..} res = do
-    systemStart <- case CLI.sscAlgo commonArgs of
-                       GodTossingAlgo -> getSystemStart (Proxy :: Proxy SscGodTossing) res args
-                       NistBeaconAlgo -> getSystemStart (Proxy :: Proxy SscNistBeacon) res args
+    let systemStart = CLI.sysStart commonArgs
+    logInfo $ sformat ("System start time is " % shown) systemStart
+    t <- currentTime
+    logInfo $ sformat ("Current time is " % shown) (Timestamp t)
     currentParams <- getNodeParams args systemStart
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         gtParams = gtSscParams args vssSK

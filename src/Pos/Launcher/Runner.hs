@@ -10,10 +10,6 @@ module Pos.Launcher.Runner
        , runStatsMode
        , runServiceMode
 
-       --  -- * Service runners
-       , runTimeSlaveReal
-       , runTimeLordReal
-
        -- * Exported for custom usage in CLI utils
        , addDevListeners
        , setupLoggers
@@ -32,13 +28,12 @@ import           Control.Lens                (each, to, _tail)
 import           Control.Monad.Fix           (MonadFix)
 import qualified Data.ByteString.Char8       as BS8
 import           Data.Default                (def)
-import           Data.Tagged                 (proxy, untag)
+import           Data.Tagged                 (untag)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (CurrentTime, Mockable, MonadMockable,
                                               Production (..), Throw, bracket,
-                                              currentTime, delay, finally, fork,
-                                              killThread, throw)
+                                              finally, throw)
 import           Network.QDisc.Fair          (fairQDisc)
 import           Network.Transport           (Transport, closeTransport)
 import           Network.Transport.Concrete  (concrete)
@@ -47,11 +42,10 @@ import           Node                        (Node, NodeAction (..),
                                               defaultNodeEnvironment, hoistSendActions,
                                               node, simpleNodeEndPoint)
 import           Node.Util.Monitor           (setupMonitor, stopMonitor)
-import           Serokell.Util               (sec)
 import qualified STMContainers.Map           as SM
 import           System.Random               (newStdGen)
 import           System.Wlog                 (LoggerConfig (..), WithLogger, logError,
-                                              logInfo, logWarning, mapperB, productionB,
+                                              logInfo, mapperB, productionB,
                                               releaseAllHandlers, setupLogging,
                                               usingLoggerName)
 import           Universum                   hiding (bracket, finally)
@@ -59,28 +53,27 @@ import           Universum                   hiding (bracket, finally)
 import           Pos.Binary                  ()
 import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication           (ActionSpec (..), BiP (..),
-                                              ConversationActions (..), InSpecs (..),
+                                              InSpecs (..),
                                               ListenersWithOut, OutSpecs (..),
-                                              PeerId (..), SysStartRequest (..),
+                                              PeerId (..),
                                               SysStartResponse, VerInfo (..),
-                                              allListeners, allStubListeners, convH,
-                                              handleSysStartResp, hoistListenerSpec,
-                                              mergeLs, stubListenerConv,
+                                              allListeners,
+                                              hoistListenerSpec,
+                                              mergeLs,
                                               stubListenerOneMsg, sysStartReqListener,
-                                              sysStartRespListener, toAction, toOutSpecs,
                                               unpackLSpecs)
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               runContextHolder)
-import           Pos.Core                    (Timestamp (Timestamp), timestampF)
+import           Pos.Core                    (Timestamp)
 import           Pos.Crypto                  (createProxySecretKey, encToPublic)
 import           Pos.DB                      (MonadDB (..), runDBHolder)
 import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
 import           Pos.DB.GState               (getTip)
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Holder       (runDelegationT)
-import           Pos.DHT.Model               (MonadDHT (..), converseToNeighbors,
+import           Pos.DHT.Model               (MonadDHT (..),
                                               getMeaningPart)
 import           Pos.DHT.Real                (KademliaDHTInstance,
                                               KademliaDHTInstanceConfig (..),
@@ -92,8 +85,8 @@ import           Pos.Lrc.Context             (LrcContext (..), LrcSyncData (..))
 import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.Slotting                (SlottingVar, mkNtpSlottingVar,
                                               runNtpSlotting, runSlottingHolder)
-import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
-                                              SscListenersClass, SscNodeContext,
+import           Pos.Ssc.Class               (SscConstraint,
+                                              SscNodeContext,
                                               SscParams, sscCreateNodeContext)
 import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
@@ -106,7 +99,7 @@ import           Pos.Txp                     (txpGlobalSettings)
 import           Pos.Update.Context          (UpdateContext (..))
 import qualified Pos.Update.DB               as GState
 import           Pos.Update.MemState         (newMemVar)
-import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
+import           Pos.Util                    (mappendPair)
 import           Pos.Util.UserSecret         (usKeys)
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (MinWorkMode, ProductionMode, RawRealMode,
@@ -119,58 +112,6 @@ data RealModeResources = RealModeResources
     { rmTransport :: Transport
     , rmDHT       :: KademliaDHTInstance
     }
-
-----------------------------------------------------------------------------
--- Service node runners
-----------------------------------------------------------------------------
-
--- | Runs node as time-slave inside IO monad.
-runTimeSlaveReal
-    :: (SscListenersClass ssc, SscHelpersClass ssc)
-    => Proxy ssc -> RealModeResources -> BaseParams -> Production Timestamp
-runTimeSlaveReal sscProxy res bp = do
-    mvar <- liftIO newEmptyMVar
-    runServiceMode res bp (listeners mvar) outs . toAction $ \sendActions ->
-      case Const.isDevelopment of
-         True -> do
-           tId <- fork $ do
-             delay (sec 5)
-             runWithRandomIntervalsNow (sec 10) (sec 60) $ liftIO (tryReadMVar mvar) >>= \case
-                 Nothing -> do
-                    logInfo "Asking neighbors for system start"
-                    converseToNeighbors sendActions $ \peerId conv -> do
-                        send conv SysStartRequest
-                        mResp <- recv conv
-                        whenJust mResp $ handleSysStartResp' mvar peerId sendActions
-                 Just _ -> fail "Close thread"
-           t <- liftIO $ takeMVar mvar
-           killThread tId
-           t <$ logInfo (sformat ("[Time slave] adopted system start " % timestampF) t)
-         False -> logWarning "Time slave launched in Production" $>
-           error "Time slave in production, rly?"
-  where
-    outs = sysStartOuts
-              <> toOutSpecs [ convH (Proxy :: Proxy SysStartRequest)
-                                    (Proxy :: Proxy SysStartResponse)]
-    (handleSysStartResp', sysStartOuts) = handleSysStartResp
-    listeners mvar =
-      if Const.isDevelopment
-         then second (`mappend` sysStartOuts) $
-                proxy allStubListeners sscProxy `mappendPair`
-                  mergeLs [ stubListenerConv (Proxy :: Proxy (SysStartRequest, SysStartResponse))
-                          , sysStartRespListener mvar
-                          ]
-         else proxy allStubListeners sscProxy
-
--- | Runs time-lord to acquire system start.
-runTimeLordReal :: LoggingParams -> Production Timestamp
-runTimeLordReal LoggingParams{..} = do
-    t <- Timestamp <$> currentTime
-    usingLoggerName lpRunnerTag (doLog t) $> t
-  where
-    doLog t = do
-        realTime <- liftIO Time.getZonedTime
-        logInfo (sformat ("[Time lord] System start: " %timestampF%", i. e.: "%shown) t realTime)
 
 ----------------------------------------------------------------------------
 -- High level runners

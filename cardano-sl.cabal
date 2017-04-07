@@ -505,6 +505,7 @@ library
   if flag(with-web)
     build-depends:      http-types
                       , servant >= 0.8.1
+                      , servant-multipart >= 0.10
                       , servant-docs >= 0.8.1
                       , servant-server >= 0.8.1
                       , wai
@@ -973,6 +974,8 @@ executable cardano-wallet-web-api-swagger
                      , cardano-sl
                      , lens
                      , swagger2
+                     , servant-server
+                     , servant-multipart
                      , servant-swagger
                      , servant-swagger-ui
                      , universum >= 0.1.11

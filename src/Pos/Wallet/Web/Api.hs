@@ -12,13 +12,15 @@ module Pos.Wallet.Web.Api
 
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
                                              Post, Put, QueryParam, ReqBody)
+import           Servant.Multipart          (MultipartForm)
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CInitialized,
-                                             CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
-                                             CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, SyncProgress)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CElectronCrashReport,
+                                             CInitialized, CPassPhrase, CProfile, CTx,
+                                             CTxId, CTxMeta, CUpdateInfo, CWallet,
+                                             CWalletInit, CWalletMeta, CWalletRedeem,
+                                             SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 
@@ -175,6 +177,12 @@ type WalletApi =
      :> "reporting"
      :> "initialized"
      :> ReqBody '[JSON] CInitialized
+     :> Post '[JSON] (Either WalletError ())
+    :<|>
+     "api"
+     :> "reporting"
+     :> "electroncrash"
+     :> MultipartForm CElectronCrashReport
      :> Post '[JSON] (Either WalletError ())
     :<|>
      ----------------------------------------------------------------------------

@@ -22,10 +22,10 @@ import           Control.Lens                  (ix, makeLenses, (.=))
 import           Control.Monad                 (replicateM_)
 import           Control.Monad.Catch           (SomeException, catches, try)
 import qualified Control.Monad.Catch           as E
-import           Control.Monad.Except          (runExceptT)
 import           Control.Monad.State           (runStateT)
 import           Data.Default                  (Default (def))
 import           Data.List                     (elemIndex, (!!))
+import qualified Data.List.NonEmpty            as NE
 import           Data.Tagged                   (untag)
 import qualified Data.Text                     as T
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
@@ -38,7 +38,9 @@ import           Serokell.Util                 (threadDelay)
 import qualified Serokell.Util.Base64          as B64
 import           Servant.API                   ((:<|>) ((:<|>)),
                                                 FromHttpApiData (parseUrlPiece))
-import           Servant.Server                (Handler, Server, ServerT, err403, serve)
+import           Servant.Multipart             (fdFilePath)
+import           Servant.Server                (Handler, Server, ServerT, err403,
+                                                runHandler, serve)
 import           Servant.Utils.Enter           ((:~>) (..), enter)
 import           System.Wlog                   (logDebug, logError, logInfo)
 
@@ -55,8 +57,8 @@ import           Pos.Crypto                    (PassPhrase, encToPublic, hash,
                                                 withSafeSigner)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (getKnownPeers)
-import           Pos.Reporting.MemState        (MonadReportingMem (..))
-import           Pos.Reporting.Methods         (sendReportNodeNologs)
+import           Pos.Reporting.MemState        (MonadReportingMem (..), rcReportServers)
+import           Pos.Reporting.Methods         (sendReport, sendReportNodeNologs)
 import           Pos.Ssc.Class                 (SscHelpersClass)
 import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
 import           Pos.Util                      (maybeThrow)
@@ -70,7 +72,8 @@ import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
                                                 localChainDifficulty,
                                                 networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
-import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA), CInitialized,
+import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA),
+                                                CElectronCrashReport (..), CInitialized,
                                                 CPassPhrase (..), CProfile, CProfile (..),
                                                 CTx, CTxId, CTxMeta (..),
                                                 CUpdateInfo (..), CWallet (..),
@@ -168,7 +171,7 @@ walletServer sendActions nat = do
 -- Notifier
 ----------------------------------------------------------------------------
 
--- FIXME: this is really inaficient. Temporary solution
+-- FIXME: this is really inefficient. Temporary solution
 launchNotifier :: WalletWebMode ssc m => (m :~> Handler) -> m ()
 launchNotifier nat =
     void . liftIO $ mapM startForking
@@ -190,7 +193,7 @@ launchNotifier nat =
         void $ forkForever action
     -- TODO: use Servant.enter here
     -- FIXME: don't ignore errors, send error msg to the socket
-    startForking = forkForever . void . runExceptT . unNat nat
+    startForking = forkForever . void . runHandler . ($$) nat
     notifier period action = forever $ do
         liftIO $ threadDelay period
         action
@@ -282,6 +285,8 @@ servantHandlers sendActions =
     :<|>
      apiReportingInitialized
     :<|>
+     apiReportingElectroncrash
+    :<|>
      apiSettingsSlotDuration
     :<|>
      apiSettingsSoftwareVersion
@@ -309,12 +314,13 @@ servantHandlers sendActions =
     apiApplyUpdate              = catchWalletError applyUpdate
     apiRedeemAda                = catchWalletError . redeemADA sendActions
     apiReportingInitialized     = catchWalletError . reportingInitialized
+    apiReportingElectroncrash   = catchWalletError . reportingElectroncrash
     apiSettingsSlotDuration     = catchWalletError (fromIntegral <$> blockchainSlotDuration)
     apiSettingsSoftwareVersion  = catchWalletError (pure curSoftwareVersion)
     apiSettingsSyncProgress     = catchWalletError syncProgress
 
     catchWalletError            = try
-    
+
 -- getAddresses :: WalletWebMode ssc m => m [CAddress]
 -- getAddresses = map addressToCAddress <$> myAddresses
 
@@ -507,6 +513,22 @@ reportingInitialized cinit = do
         logError $
         sformat ("Didn't manage to report initialization time "%shown%
                  " because of exception "%shown) cinit e
+
+reportingElectroncrash :: forall ssc m. WalletWebMode ssc m => CElectronCrashReport -> m ()
+reportingElectroncrash celcrash = do
+    servers <- view rcReportServers <$> askReportingContext
+    (errors :: [SomeException]) <- fmap lefts $ forM servers $ \serv ->
+        try $ sendReport [fdFilePath $ cecUploadDump celcrash]
+                         []
+                         (RInfo $ show celcrash)
+                         "daedalus"
+                         version
+                         (toString serv)
+    whenNotNull errors $ handler . NE.head
+  where
+    fmt = ("Didn't manage to report electron crash "%shown%" because of exception "%shown)
+    handler :: SomeException -> m ()
+    handler e = logError $ sformat fmt celcrash e
 
 rewrapError :: WalletWebMode ssc m => m a -> m a
 rewrapError = flip catches

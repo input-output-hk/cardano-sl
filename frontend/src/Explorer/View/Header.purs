@@ -7,8 +7,8 @@ import Explorer.I18n.Lenses (navBlockchain, navCharts, navHome, navMarket, navig
 import Explorer.Lenses.State (lang)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
-import Pux.Html (Html, div, text, header, nav, span) as P
-import Pux.Html.Attributes (className) as P
+import Pux.Html (Html, div, text, header, nav, span, a) as P
+import Pux.Html.Attributes (className, href) as P
 
 headerView :: State -> P.Html Action
 headerView state = do
@@ -23,8 +23,9 @@ headerView state = do
                     [ P.className "logo__container"]
                     [ P.div
                         [ P.className "logo__wrapper"]
-                        [ P.div
-                            [ P.className "logo__img bg-logo" ]
+                        [ P.a
+                            [ P.className "logo__img bg-logo"
+                            , P.href "/"]
                             []
                         ]
                     ]

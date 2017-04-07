@@ -87,6 +87,20 @@
   embedded svg
 ------------------------------ */
 
+@svg-load logo-name url('../static/images/cardano-logo-name.svg');
+
+.bg-logo-name {
+  background-image: svg-inline(logo-name);
+  background-size: contain;
+}
+
+@svg-load iohk-logo url('../static/images/iohk-logo.svg');
+
+.bg-iohk-logo {
+  background-image: svg-inline(iohk-logo);
+  background-size: contain;
+}
+
 @svg-load logo url('../static/images/cardano-logo.svg');
 
 .bg-logo {

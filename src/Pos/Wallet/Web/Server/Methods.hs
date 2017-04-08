@@ -517,7 +517,7 @@ reportingInitialized cinit = do
 reportingElectroncrash :: forall ssc m. WalletWebMode ssc m => CElectronCrashReport -> m ()
 reportingElectroncrash celcrash = do
     servers <- view rcReportServers <$> askReportingContext
-    (errors :: [SomeException]) <- fmap lefts $ forM servers $ \serv ->
+    errors <- fmap lefts $ forM servers $ \serv ->
         try $ sendReport [fdFilePath $ cecUploadDump celcrash]
                          []
                          (RInfo $ show celcrash)

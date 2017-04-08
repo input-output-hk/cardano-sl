@@ -80,7 +80,7 @@ isDevelopment = True
 isDevelopment = False
 #endif
 
--- | System start time embeded into binary.
+-- | System start time embedded into binary.
 staticSysStart :: Maybe Timestamp
 staticSysStart
     | isDevelopment = Nothing

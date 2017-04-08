@@ -14,13 +14,13 @@ import           Universum           hiding (show)
 import           Pos.Core.Types      (Timestamp (..))
 
 instance Show Timestamp where
-  show = show . getTimestamp
+    show = show . getTimestamp
 
 instance Read Timestamp where
-  readsPrec i = fmap (first Timestamp) . readsPrec i
+    readsPrec i = fmap (first Timestamp) . Prelude.readsPrec i
 
 instance Buildable Timestamp where
-    build = Buildable.build @Integer . fromIntegral
+    build = Buildable.build . toInteger
 
 instance NFData Timestamp where
     rnf Timestamp{..} = rnf (toInteger getTimestamp)

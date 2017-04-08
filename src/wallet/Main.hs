@@ -28,9 +28,9 @@ import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
                                             sendTxOuts, submitTx, worker)
 import           Pos.Constants             (genesisBlockVersionData)
-import           Pos.Crypto                (Hash, SecretKey, createProxySecretKey,
-                                            fakeSigner, hash, hashHexF, sign, toPublic,
-                                            unsafeHash)
+import           Pos.Crypto                (Hash, SecretKey, SignTag (SignUSVote),
+                                            createProxySecretKey, fakeSigner, hash,
+                                            hashHexF, sign, toPublic, unsafeHash)
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Delegation            (sendProxySKHeavy, sendProxySKHeavyOuts,
                                             sendProxySKLight, sendProxySKLightOuts)
@@ -84,7 +84,7 @@ runCmd sendActions v@(Vote idx decision upid) = do
             { uvKey        = toPublic skey
             , uvProposalId = upid
             , uvDecision   = decision
-            , uvSignature  = sign skey (upid, decision)
+            , uvSignature  = sign SignUSVote skey (upid, decision)
             }
     if null na
         then putText "Error: no addresses specified"

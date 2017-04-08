@@ -49,9 +49,10 @@ import           Pos.Core.Address           (Address (..), addressHash)
 import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
                                              GenericBlockHeader (..), gbBody, gbBodyProof,
                                              gbHeader, gbhExtra)
-import           Pos.Crypto                 (Hash, SecretKey, checkSig, proxySign,
-                                             proxyVerify, pskIssuerPk, pskOmega, sign,
-                                             toPublic, unsafeHash)
+import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignMainBlock),
+                                             checkSig, proxySign, proxyVerify,
+                                             pskIssuerPk, pskOmega, sign, toPublic,
+                                             unsafeHash)
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Script                 (isKnownScriptVersion, scrVersion)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
@@ -146,7 +147,9 @@ mkMainHeader prevHeader slotId sk pSk body extra =
     makeSignature toSign (Right psk) = BlockPSignatureSimple $ proxySign sk psk toSign
     signature prevHash proof =
         let toSign = MainToSign prevHash proof slotId difficulty extra
-        in maybe (BlockSignature $ sign sk toSign) (makeSignature toSign) pSk
+        in maybe (BlockSignature $ sign SignMainBlock sk toSign)
+                 (makeSignature toSign)
+             pSk
     consensus prevHash proof =
         MainConsensusData
         { _mcdSlot = slotId
@@ -228,13 +231,13 @@ verifyConsensusLocal (Right header) =
         ]
   where
     verifyBlockSignature (BlockSignature sig) =
-        checkSig pk signature sig
+        checkSig SignMainBlock pk signature sig
     verifyBlockSignature (BlockPSignatureEpoch proxySig) =
         proxyVerify
             pk
             proxySig
             (\(epochLow, epochHigh) ->
-               epochId <= epochHigh && epochId >= epochLow)
+               epochLow <= epochId && epochId <= epochHigh)
             signature
     verifyBlockSignature (BlockPSignatureSimple proxySig) =
         proxyVerify
@@ -242,9 +245,9 @@ verifyConsensusLocal (Right header) =
             proxySig
             (const True)
             signature
-    GenericBlockHeader {_gbhConsensus = consensus
+    GenericBlockHeader { _gbhConsensus = consensus
                        , _gbhExtra = extra
-                       ,..} = header
+                       , ..} = header
     signature = MainToSign _gbhPrevBlock _gbhBodyProof slotId d extra
     pk = consensus ^. mcdLeaderKey
     slotId = consensus ^. mcdSlot

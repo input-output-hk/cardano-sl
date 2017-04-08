@@ -76,7 +76,6 @@ import           Data.SafeCopy        (base, deriveSafeCopySimple)
 import qualified Data.Text            as T
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
-import           Data.Time.Units      (Microsecond)
 import           Formatting           (Format, bprint, build, formatToString, int, ords,
                                        shown, stext, (%))
 import qualified PlutusCore.Program   as PLCore
@@ -85,18 +84,11 @@ import           Serokell.AcidState   ()
 import           Serokell.Util.Base16 (formatBase16)
 import           Universum
 
+import           Pos.Core.Timestamp   (Timestamp (..))
 import           Pos.Crypto           (AbstractHash, HDAddressPayload, Hash,
                                        ProxySecretKey, ProxySignature, PublicKey,
                                        RedeemPublicKey)
 import           Pos.Data.Attributes  (Attributes)
-
--- | Timestamp is a number which represents some point in time. It is
--- used in MonadSlots and its meaning is up to implementation of this
--- type class. The only necessary knowledge is that difference between
--- timestamps is microsecond. Hence underlying type is Microsecond.
-newtype Timestamp = Timestamp
-    { getTimestamp :: Microsecond
-    } deriving (Num, Eq, Ord, Enum, Real, Integral, Typeable, Generic)
 
 ----------------------------------------------------------------------------
 -- Address

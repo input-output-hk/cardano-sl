@@ -10,13 +10,13 @@ import           Data.Maybe
 import           Test.QuickCheck    (generate)
 import           Universum
 
-import           Pos.Crypto         (SecretKey, hash, sign)
+import           Pos.Crypto         (SecretKey, SignTag (SignTxIn), hash, sign)
 import           Pos.Txp            (TxDistribution (..), TxId, TxIn (..), TxOut, TxSig,
                                      TxSigData (..))
 import           Pos.Util           (arbitraryUnsafe)
 
 signTx :: (SecretKey, TxId, Word32, NonEmpty TxOut) -> TxSig
-signTx (sk, thash, tidx, touts) = sign sk txSigData
+signTx (sk, thash, tidx, touts) = sign SignTxIn sk txSigData
   where
     distr = TxDistribution ([] :| replicate (length touts - 1) [])
     txSigData = TxSigData

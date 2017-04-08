@@ -12,7 +12,7 @@ import           Test.QuickCheck       (Arbitrary (..), listOf1, oneof)
 import           Universum
 
 import           Pos.Binary.Update     ()
-import           Pos.Crypto            (sign, toPublic)
+import           Pos.Crypto            (SignTag (SignUSVote), sign, toPublic)
 import           Pos.Crypto.Arbitrary  ()
 import           Pos.Data.Attributes   (mkAttributes)
 import           Pos.Types.Arbitrary   ()
@@ -34,7 +34,7 @@ instance Arbitrary UpdateVote where
         let uvKey = toPublic sk
         uvProposalId <- arbitrary
         uvDecision <- arbitrary
-        let uvSignature = sign sk (uvProposalId, uvDecision)
+        let uvSignature = sign SignUSVote sk (uvProposalId, uvDecision)
         return UpdateVote {..}
 
 instance Arbitrary UpdateProposal where

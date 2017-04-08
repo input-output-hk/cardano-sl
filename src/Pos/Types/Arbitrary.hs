@@ -47,8 +47,8 @@ import           Pos.Core.Types             (BlockVersion (..), Coin,
                                              SoftwareVersion (..),
                                              applicationNameMaxLength, mkApplicationName)
 import qualified Pos.Core.Types             as Types
-import           Pos.Crypto                 (Hash, PublicKey, SecretKey, Share, hash,
-                                             sign, toPublic)
+import           Pos.Crypto                 (Hash, PublicKey, SecretKey, Share,
+                                             SignTag (SignTxIn), hash, sign, toPublic)
 import           Pos.Crypto.Arbitrary       ()
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Merkle                 (MerkleRoot (..), MerkleTree, mkMerkleTree)
@@ -332,7 +332,7 @@ buildProperTx triplesList (inCoin, outCoin) = fmap newTx txList
             witness =
                 PkWitness
                 { twKey = toPublic fromSk
-                , twSig = sign fromSk TxSigData{
+                , twSig = sign SignTxIn fromSk TxSigData{
                              txSigInput = txIn,
                              txSigOutsHash = txOutsHash,
                              txSigDistrHash = distrHash }

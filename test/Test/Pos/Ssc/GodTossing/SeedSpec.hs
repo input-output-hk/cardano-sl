@@ -20,7 +20,8 @@ import           Unsafe                   ()
 
 import           Pos.Binary               (AsBinaryClass (..))
 import           Pos.Core.Address         (AddressHash, addressHash)
-import           Pos.Crypto               (PublicKey, SecretKey, Share, Threshold,
+import           Pos.Crypto               (PublicKey, SecretKey, Share,
+                                           SignTag (SignCommitment), Threshold,
                                            VssKeyPair, decryptShare, sign, toPublic,
                                            toVssPublicKey)
 import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Opening (..),
@@ -229,7 +230,7 @@ mkCommitmentsMap' keys comms =
     mkCommitmentsMap $ do
         (sk, comm) <- zip keys comms
         let epochIdx = 0  -- we don't care here
-        let sig = sign sk (epochIdx, comm)
+        let sig = sign SignCommitment sk (epochIdx, comm)
         return (toPublic sk, comm, sig)
 
 getDecryptedShares

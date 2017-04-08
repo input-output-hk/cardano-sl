@@ -1,15 +1,19 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | `Arbitrary` instances for using in tests and benchmarks
 
 module Pos.Crypto.Arbitrary
        (
        ) where
 
+import           Universum
+
 import qualified Data.ByteArray              as ByteArray
+import           Data.DeriveTH               (derive, makeArbitrary)
 import           Data.List.NonEmpty          (fromList)
 import           System.IO.Unsafe            (unsafePerformIO)
 import           Test.QuickCheck             (Arbitrary (..), choose, elements, generate,
                                               vector)
-import           Universum
 
 import           Pos.Binary.Class            (AsBinary (..), AsBinaryClass (..), Bi)
 import           Pos.Binary.Crypto           ()
@@ -28,6 +32,7 @@ import           Pos.Crypto.Signing          (ProxyCert, ProxySecretKey, ProxySi
                                               PublicKey, SecretKey, Signature, Signed,
                                               createProxyCert, createProxySecretKey,
                                               keyGen, mkSigned, proxySign, sign, toPublic)
+import           Pos.Crypto.SignTag          (SignTag (..))
 import           Pos.Util.Arbitrary          (Nonrepeating (..), arbitraryUnsafe,
                                               sublistN, unsafeMakePool)
 
@@ -41,6 +46,12 @@ the point of testing key generation when we use different generators in
 production and in tests?). So, we just generate lots of keys and seeds with
 'unsafePerformIO' and use them for everything.
 -}
+
+----------------------------------------------------------------------------
+-- SignTag
+----------------------------------------------------------------------------
+
+derive makeArbitrary ''SignTag
 
 ----------------------------------------------------------------------------
 -- Arbitrary signing keys
@@ -106,13 +117,13 @@ instance Nonrepeating VssPublicKey where
 ----------------------------------------------------------------------------
 
 instance (Bi a, Arbitrary a) => Arbitrary (Signature a) where
-    arbitrary = sign <$> arbitrary <*> arbitrary
+    arbitrary = sign <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance (Bi a, Arbitrary a) => Arbitrary (RedeemSignature a) where
     arbitrary = redeemSign <$> arbitrary <*> arbitrary
 
 instance (Bi a, Arbitrary a) => Arbitrary (Signed a) where
-    arbitrary = mkSigned <$> arbitrary <*> arbitrary
+    arbitrary = mkSigned <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance (Bi w, Arbitrary w) => Arbitrary (ProxyCert w) where
     arbitrary = liftA3 createProxyCert arbitrary arbitrary arbitrary

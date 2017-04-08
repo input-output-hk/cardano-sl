@@ -16,13 +16,13 @@ import           Pos.Binary            (AsBinary, Bi)
 import           Pos.Crypto            (EncShare, HDPassphrase, Hash, PassPhrase,
                                         ProxyCert, ProxySecretKey (..), ProxySignature,
                                         PublicKey, Secret, SecretKey, SecretProof,
-                                        SecretSharingExtra, Share, Signature, Signed,
-                                        VssPublicKey, checkSig, createProxySecretKey,
-                                        deterministic, fullPublicKeyF, hash, hashHexF,
-                                        keyGen, packHDAddressAttr, parseFullPublicKey,
-                                        proxySign, proxyVerify, randomNumber, sign,
-                                        toPublic, unpackHDAddressAttr,
-                                        verifyProxySecretKey)
+                                        SecretSharingExtra, Share, SignTag, Signature,
+                                        Signed, VssPublicKey, checkSig,
+                                        createProxySecretKey, deterministic,
+                                        fullPublicKeyF, hash, hashHexF, keyGen,
+                                        packHDAddressAttr, parseFullPublicKey, proxySign,
+                                        proxyVerify, randomNumber, sign, toPublic,
+                                        unpackHDAddressAttr, verifyProxySecretKey)
 import           Pos.Ssc.GodTossing    ()
 
 import           Test.Pos.Util         (binaryEncodeDecode, binaryTest,
@@ -171,20 +171,20 @@ keyParsing pk = parseFullPublicKey (sformat fullPublicKeyF pk) === Just pk
 
 signThenVerify
     :: Bi a
-    => SecretKey -> a -> Bool
-signThenVerify sk a = checkSig (toPublic sk) a $ sign sk a
+    => SignTag -> SecretKey -> a -> Bool
+signThenVerify t sk a = checkSig t (toPublic sk) a $ sign t sk a
 
 signThenVerifyDifferentKey
     :: Bi a
-    => SecretKey -> PublicKey -> a -> Property
-signThenVerifyDifferentKey sk1 pk2 a =
-    (toPublic sk1 /= pk2) ==> not (checkSig pk2 a $ sign sk1 a)
+    => SignTag -> SecretKey -> PublicKey -> a -> Property
+signThenVerifyDifferentKey t sk1 pk2 a =
+    (toPublic sk1 /= pk2) ==> not (checkSig t pk2 a $ sign t sk1 a)
 
 signThenVerifyDifferentData
     :: (Eq a, Bi a)
-    => SecretKey -> a -> a -> Property
-signThenVerifyDifferentData sk a b =
-    (a /= b) ==> not (checkSig (toPublic sk) b $ sign sk a)
+    => SignTag -> SecretKey -> a -> a -> Property
+signThenVerifyDifferentData t sk a b =
+    (a /= b) ==> not (checkSig t (toPublic sk) b $ sign t sk a)
 
 proxySecretKeyCheckCorrect
     :: (Bi w) => SecretKey -> SecretKey -> w -> Bool

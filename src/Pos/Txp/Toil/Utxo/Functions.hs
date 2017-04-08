@@ -23,7 +23,8 @@ import           Pos.Core.Address          (addressDetailedF, checkPubKeyAddress
                                             checkRedeemAddress, checkScriptAddress,
                                             checkUnknownAddressType)
 import           Pos.Core.Coin             (coinToInteger, sumCoins)
-import           Pos.Crypto                (WithHash (..), checkSig, hash, redeemCheckSig)
+import           Pos.Crypto                (SignTag (SignTxIn), WithHash (..), checkSig,
+                                            hash, redeemCheckSig)
 import           Pos.Script                (Script (..), isKnownScriptVersion,
                                             txScriptCheck)
 import           Pos.Txp.Core              (Tx (..), TxAux, TxDistribution (..),
@@ -196,7 +197,7 @@ verifyInputs VTxContext {..} resolvedInputs (view txOutputs -> outs, witnesses, 
         in
         case wit of
             PkWitness{..}
-                | checkSig twKey txSigData twSig ->
+                | checkSig SignTxIn twKey txSigData twSig ->
                       Right ()
                 | otherwise ->
                       Left "signature check failed"

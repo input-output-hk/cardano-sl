@@ -24,8 +24,9 @@ import           Universum
 
 import           Pos.Binary          ()
 import           Pos.Core.Coin       (unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Crypto          (PublicKey, RedeemSecretKey, SafeSigner, hash,
-                                      redeemSign, redeemToPublic, safeSign, safeToPublic)
+import           Pos.Crypto          (PublicKey, RedeemSecretKey, SafeSigner,
+                                      SignTag (SignTxIn), hash, redeemSign,
+                                      redeemToPublic, safeSign, safeToPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Script          (Script)
 import           Pos.Script.Examples (multisigRedeemer, multisigValidator)
@@ -68,7 +69,7 @@ makePubKeyTx ss = makeAbstractTx mkWit
   where pk = safeToPublic ss
         mkWit sigData = PkWitness
             { twKey = pk
-            , twSig = safeSign ss sigData
+            , twSig = safeSign SignTxIn ss sigData
             }
 
 makeMOfNTx :: Script -> [Maybe SafeSigner] -> TxInputs -> TxOutputs -> TxAux

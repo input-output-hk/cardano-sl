@@ -22,8 +22,8 @@ import           Test.QuickCheck       (arbitrary)
 import qualified Text.Regex.TDFA       as TDFA
 import qualified Text.Regex.TDFA.Text  as TDFA
 
-import           Pos.Crypto            (checkSig, fakeSigner, hash, toPublic, unsafeHash,
-                                        withHash)
+import           Pos.Crypto            (SignTag (SignTxIn), checkSig, fakeSigner, hash,
+                                        toPublic, unsafeHash, withHash)
 import           Pos.Data.Attributes   (mkAttributes)
 import           Pos.Script            (Script)
 import           Pos.Script.Examples   (alwaysSuccessValidator, badIntRedeemer,
@@ -184,7 +184,7 @@ signatureIsValid outs (Just (txIn, (TxOutAux TxOut {..} _)), PkWitness {..}) =
             , txSigDistrHash = hash txDist
             }
     in checkPubKeyAddress twKey txOutAddress &&
-       checkSig twKey txSigData twSig
+       checkSig SignTxIn twKey txSigData twSig
 signatureIsValid _ _ = False
 
 signatureIsNotValid :: NonEmpty TxOutAux -> (Maybe (TxIn, TxOutAux), TxInWitness) -> Bool

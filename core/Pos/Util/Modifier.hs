@@ -20,11 +20,13 @@ module Pos.Util.Modifier
        , delete
 
        , mapMaybeM
+       , mapMaybe
        ) where
 
 import           Data.Hashable       (Hashable)
 import qualified Data.HashMap.Strict as HM
-import           Universum           hiding (toList)
+import           Universum           hiding (mapMaybe, toList)
+import qualified Universum           (mapMaybe)
 
 -- | 'MapModifier' is a type which collects modifications (insertions
 -- and deletions) of something map-like.
@@ -143,5 +145,12 @@ mapMaybeM
 mapMaybeM getter f mm@(MapModifier m) = mapMaybeDo <$> getter
   where
     mapMaybeDo kvs =
-        mapMaybe (\(k, v) -> (k, ) <$> f v) (insertions mm) <>
+        Universum.mapMaybe (\(k, v) -> (k, ) <$> f v) (insertions mm) <>
         filter (not . flip HM.member m . fst) kvs
+
+
+-- | Get contents of something map-like taking 'MapModifier' into account.
+mapMaybe
+    :: (Eq k, Hashable k)
+    => [(k, v2)] -> (v1 -> Maybe v2) -> MapModifier k v1 -> [(k, v2)]
+mapMaybe getter f = runIdentity . mapMaybeM (Identity getter) f

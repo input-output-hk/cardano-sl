@@ -58,9 +58,7 @@ instance Buildable PassPhrase where
 emptyPassphrase :: PassPhrase
 emptyPassphrase = PassPhrase mempty
 
-mkEncSecret
-    :: Bi PassPhrase
-    => PassPhrase -> CC.XPrv -> EncryptedSecretKey
+mkEncSecret :: Bi PassPhrase => PassPhrase -> CC.XPrv -> EncryptedSecretKey
 mkEncSecret pp payload = EncryptedSecretKey payload (hash pp)
 
 -- | Generate a public key using an encrypted secret key and passphrase
@@ -68,9 +66,7 @@ encToPublic :: EncryptedSecretKey -> PublicKey
 encToPublic (EncryptedSecretKey sk _) = PublicKey (CC.toXPub sk)
 
 -- | Re-wrap unencrypted secret key as an encrypted one
-noPassEncrypt
-    :: Bi PassPhrase
-    => SecretKey -> EncryptedSecretKey
+noPassEncrypt :: Bi PassPhrase => SecretKey -> EncryptedSecretKey
 noPassEncrypt (SecretKey k) = mkEncSecret emptyPassphrase k
 
 signRaw' :: PassPhrase -> EncryptedSecretKey -> ByteString -> Signature Raw
@@ -110,9 +106,7 @@ safeDeterministicKeyGen seed pp =
 data SafeSigner = SafeSigner EncryptedSecretKey PassPhrase
                 | FakeSigner SecretKey
 
-safeSign
-    :: (Bi a, Bi PassPhrase)
-    => SafeSigner -> a -> Signature a
+safeSign :: Bi a => SafeSigner -> a -> Signature a
 safeSign (SafeSigner sk pp) = sign' pp sk
 safeSign (FakeSigner sk)    = sign sk
 

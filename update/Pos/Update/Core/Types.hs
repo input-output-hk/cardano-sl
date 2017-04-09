@@ -69,9 +69,9 @@ import           Pos.Binary.Crypto          ()
 import           Pos.Core                   (BlockVersion, BlockVersionData (..),
                                              IsGenesisHeader, IsMainHeader, ScriptVersion,
                                              SoftwareVersion, addressHash)
-import           Pos.Crypto                 (Hash, PublicKey, SecretKey, Signature,
-                                             checkSig, hash, shortHashF, sign, toPublic,
-                                             unsafeHash)
+import           Pos.Crypto                 (Hash, PublicKey, SafeSigner, Signature,
+                                             checkSig, hash, safeSign, safeToPublic,
+                                             shortHashF, unsafeHash)
 import           Pos.Data.Attributes        (Attributes)
 import           Pos.Util.Util              (Some)
 
@@ -162,7 +162,7 @@ mkUpdateProposalWSign
     -> SoftwareVersion
     -> HM.HashMap SystemTag UpdateData
     -> UpAttributes
-    -> SecretKey
+    -> SafeSigner
     -> m UpdateProposal
 mkUpdateProposalWSign
     upBlockVersion
@@ -170,7 +170,7 @@ mkUpdateProposalWSign
     upSoftwareVersion
     upData
     upAttributes
-    skey = do
+    ss = do
         when (HM.null upData) $ -- Check if proposal data is non-empty
             fail "UpdateProposal: empty proposal data"
         let toSign =
@@ -180,8 +180,8 @@ mkUpdateProposalWSign
                     upSoftwareVersion
                     upData
                     upAttributes
-        let upFrom = toPublic skey
-        let upSignature = sign skey toSign
+        let upFrom = safeToPublic ss
+        let upSignature = safeSign ss toSign
         pure UnsafeUpdateProposal{..}
 
 instance Bi UpdateProposal => Buildable UpdateProposal where

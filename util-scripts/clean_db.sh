@@ -6,3 +6,4 @@
 rm -rf ./run/*
 rm -rf wallet-db
 rm -rf node-*.*key*
+rm -rf kademlia-abc.dump

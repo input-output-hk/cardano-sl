@@ -9,6 +9,7 @@ import qualified Serokell.Util.Base64 as B64
 import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors,
                                        verifyGeneric)
 import           System.Random        (randomRIO)
+import           System.Wlog          (WithLogger)
 import           Universum
 
 import           Pos.Binary           (asBinary)
@@ -24,14 +25,14 @@ import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usK
 
 import           KeygenOptions        (TestStakeOptions (..))
 
-rearrangeKeyfile :: FilePath -> IO ()
+rearrangeKeyfile :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
 rearrangeKeyfile fp = do
     us <- takeUserSecret fp
     let sk = maybeToList $ us ^. usPrimKey
     writeUserSecretRelease $
         us & usKeys %~ (++ map noPassEncrypt sk)
 
-generateKeyfile :: Bool -> FilePath -> IO (PublicKey, VssCertificate)
+generateKeyfile :: (MonadIO m, MonadFail m, WithLogger m) => Bool -> FilePath -> m (PublicKey, VssCertificate)
 generateKeyfile isPrim fp = do
     initializeUserSecret fp
     sk <- snd <$> keyGen
@@ -42,14 +43,14 @@ generateKeyfile isPrim fp = do
               then usPrimKey .~ Just sk
               else usKeys %~ (noPassEncrypt sk :))
            & usVss .~ Just vss
-    expiry <-
+    expiry <- liftIO $
         fromIntegral <$>
         randomRIO @Int (Const.vssMinTTL - 1, Const.vssMaxTTL - 1)
     let vssPk = asBinary $ toVssPublicKey vss
         vssCert = mkVssCertificate sk vssPk expiry
     return (toPublic sk, vssCert)
 
-generateFakeAvvm :: FilePath -> IO RedeemPublicKey
+generateFakeAvvm :: MonadIO m => FilePath -> m RedeemPublicKey
 generateFakeAvvm fp = do
     seed <- secureRandomBS 32
     let (pk, _) = fromMaybe

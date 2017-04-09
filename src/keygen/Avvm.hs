@@ -33,6 +33,7 @@ import           Pos.Types            (Address, Coin, StakeholderId, addressHash
                                        unsafeIntegerToCoin)
 import           Pos.Util             (runGen)
 import           Pos.Util.UserSecret  (readUserSecret, usPrimKey)
+import           System.Wlog          (WithLogger)
 
 
 -- | Read the text into a redeeming public key.
@@ -89,6 +90,7 @@ genGenesis avvm genCerts holder = GenesisData
     { gdAddresses = HM.keys balances
     , gdDistribution = ExplicitStakes balances
     , gdVssCertificates = if genCerts then randCerts else mempty
+    , gdBootstrapBalances = mempty
     }
   where
     distr = pure . (holder, )
@@ -126,18 +128,18 @@ applyBlacklisted (Just blacklistPath) AvvmData{..} = do
         show (length blacklisted) <> " total entries in the blacklist)"
     pure $ AvvmData filtered
 
-getHolderId :: Maybe FilePath -> IO StakeholderId
+getHolderId :: (MonadIO m, WithLogger m) => Maybe FilePath -> m StakeholderId
 getHolderId (Just fileName) = do
     mSk <- view usPrimKey <$> readUserSecret fileName
     let sk = fromMaybe (error "No secret key is found in file") mSk
     pure $ addressHash $ toPublic sk
 getHolderId Nothing = do
-    skPath <- ("redeemingHolderKey" <>) . show <$> randomRIO (0,100000::Int)
+    skPath <- liftIO $ ("redeemingHolderKey" <>) . show <$> randomRIO (0,100000::Int)
     (pk,sk) <- keyGen
     putText $ "USING RANDOM STAKEHOLDER ID, WRITING KEY TO " <> fromString skPath
     putText "NOT FOR PRODUCTION USAGE, ONLY FOR TESTING"
     putText "IF YOU INTEND TO GENERATE GENESIS.BIN FOR PRODUCTION, \
             \STOP RIGHT HERE AND USE `--fileholder <path to secret>` OPTION. \
             \THIS IS SERIOUS."
-    BS.writeFile skPath $ Bi.encodeStrict sk
+    liftIO $ BS.writeFile skPath $ Bi.encodeStrict sk
     pure $ addressHash pk

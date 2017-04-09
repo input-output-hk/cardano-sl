@@ -330,8 +330,7 @@ ntpSettings
     => NtpSlottingVar -> NtpClientSettings m
 ntpSettings var = NtpClientSettings
         { -- list of servers addresses
-          ntpServers         = [ "pool.ntp.org"
-                               , "time.windows.com"
+          ntpServers         = [ "time.windows.com"
                                , "clock.isc.org"
                                , "ntp5.stratum2.ru"]
         -- got time margin callback

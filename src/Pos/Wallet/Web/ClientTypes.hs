@@ -29,6 +29,7 @@ module Pos.Wallet.Web.ClientTypes
       , CPostVendWalletRedeem (..)
       , CCoin
       , mkCCoin
+      , CElectronCrashReport (..)
       , NotifyEvent (..)
       , addressToCAddress
       , cAddressToAddress
@@ -53,6 +54,8 @@ import           Data.Typeable          (Typeable)
 import           Formatting             (build, sformat)
 import qualified Prelude
 import qualified Serokell.Util.Base16   as Base16
+import           Servant.Multipart      (FileData, FromMultipart (..), lookupFile,
+                                         lookupInput)
 
 import           Pos.Aeson.Types        ()
 import           Pos.Binary.Class       (decodeFull, encodeStrict)
@@ -342,3 +345,30 @@ data CInitialized = CInitialized
     , cPreInit   :: Word -- ^ Time passed from beginning to network
                             -- connection with peers established.
     } deriving (Show, Generic)
+
+
+data CElectronCrashReport = CElectronCrashReport
+    { cecVersion     :: Text
+    , cecPlatform    :: Text
+    , cecProcessType :: Text
+    , cecGuid        :: Text
+    , cecVersionJson :: Text
+    , cecProductName :: Text
+    , cecProd        :: Text
+    , cecCompanyName :: Text
+    , cecUploadDump  :: FileData
+    } deriving (Show, Generic)
+
+instance FromMultipart CElectronCrashReport where
+    fromMultipart form = do
+        let look t = lookupInput t form
+        CElectronCrashReport
+          <$> look "ver"
+          <*> look "platform"
+          <*> look "process_type"
+          <*> look "guid"
+          <*> look "_version"
+          <*> look "_productName"
+          <*> look "prod"
+          <*> look "_companyName"
+          <*> lookupFile "upload_file_minidump" form

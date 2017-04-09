@@ -73,7 +73,7 @@ getTestnetGenesis tso@TestStakeOptions{..} = do
 
 getFakeAvvmGenesis :: (MonadIO m, WithLogger m) => FakeAvvmOptions -> m GenesisData
 getFakeAvvmGenesis FakeAvvmOptions{..} = do
-    createDirectoryIfMissing True $ takeDirectory faoSeedPattern
+    liftIO $ createDirectoryIfMissing True $ takeDirectory faoSeedPattern
 
     fakeAvvmPubkeys <- forM [1 .. faoCount] $
         generateFakeAvvm . applyPattern faoSeedPattern
@@ -101,12 +101,13 @@ getAvvmGenesis AvvmStakeOptions {..} = do
             pure $ genGenesis avvmDataFiltered asoIsRandcerts holder
 
 main :: IO ()
-main = execParser optsInfo >= \(KeygenOptions {..}) ->
+main = do
+  KeygenOptions {..} <- execParser optsInfo
   usingLoggerName "keygen" $ case koRearrangeMask of
-      Just msk -> glob msk >>= mapM_ rearrangeKeyfile
+      Just msk -> liftIO (glob msk) >>= mapM_ rearrangeKeyfile
       Nothing -> do
           let genFileDir = takeDirectory koGenesisFile
-          createDirectoryIfMissing True genFileDir
+          liftIO $ createDirectoryIfMissing True genFileDir
 
           mAvvmGenesis <- traverse getAvvmGenesis koAvvmStake
           mTestnetGenesis <- traverse getTestnetGenesis koTestStake
@@ -129,7 +130,7 @@ main = execParser optsInfo >= \(KeygenOptions {..}) ->
           case decodeFull binGenesis of
               Right (_ :: GenesisData) -> do
                   putText "genesis.bin generated successfully\n"
-                  BSL.writeFile koGenesisFile binGenesis
+                  liftIO $ BSL.writeFile koGenesisFile binGenesis
               Left err                 -> do
                   putText ("Generated genesis.bin can't be read: " <>
                            toText err <> "\n")

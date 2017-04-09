@@ -9,6 +9,7 @@ import qualified Serokell.Util.Base64 as B64
 import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors,
                                        verifyGeneric)
 import           System.Random        (randomRIO)
+import           System.Wlog          (WithLogger)
 import           Universum
 
 import           Pos.Binary           (asBinary)
@@ -24,14 +25,14 @@ import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usK
 
 import           KeygenOptions        (TestStakeOptions (..))
 
-rearrangeKeyfile :: (MonadIO m, WithLogger m) => FilePath -> m ()
+rearrangeKeyfile :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
 rearrangeKeyfile fp = do
     us <- takeUserSecret fp
     let sk = maybeToList $ us ^. usPrimKey
     writeUserSecretRelease $
         us & usKeys %~ (++ map noPassEncrypt sk)
 
-generateKeyfile :: (MonadIO m, WithLogger m) => Bool -> FilePath -> m (PublicKey, VssCertificate)
+generateKeyfile :: (MonadIO m, MonadFail m, WithLogger m) => Bool -> FilePath -> m (PublicKey, VssCertificate)
 generateKeyfile isPrim fp = do
     initializeUserSecret fp
     sk <- snd <$> keyGen

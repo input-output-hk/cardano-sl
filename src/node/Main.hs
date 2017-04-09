@@ -4,10 +4,13 @@ module Main where
 
 import           Data.List             ((!!))
 import           Data.Maybe            (fromJust)
+import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Data.Time.Units       (toMicroseconds)
 import           Mockable              (Production, currentTime)
 import           Node                  (hoistSendActions)
 import           System.Wlog           (LoggerName, WithLogger, logInfo)
 import           Formatting            ((%), sformat, shown)
+import           Serokell.Util         (sec)
 import           Universum
 
 import           Pos.Binary            ()
@@ -70,9 +73,26 @@ baseParams loggingTag args@Args {..} = do
         , bpKademliaDump = kademliaDumpPath
         }
 
+getNodeSystemStart :: (MonadIO m) => Timestamp -> m Timestamp
+getNodeSystemStart cliSystemStart | cliSystemStart >= 1400000000 =
+    -- UNIX time 1400000000 is Tue, 13 May 2014 16:53:20 GMT
+    pure cliSystemStart
+getNodeSystemStart cliSystemStart | otherwise = do
+    let frameLength = timestampToSeconds cliSystemStart
+    currentPOSIXTime <- liftIO $ round <$> getPOSIXTime
+    -- The whole timeline is split into frames, with the first frame starting
+    -- at UNIX epoch start. We're looking for a time `t` which would be in the
+    -- middle of the same frame as the current UNIX time.
+    let currentFrame = currentPOSIXTime `div` frameLength
+        t = currentFrame * frameLength + (frameLength `div` 2)
+    pure $ Timestamp $ sec $ fromIntegral t
+  where
+    timestampToSeconds :: Timestamp -> Integer
+    timestampToSeconds = (`div` 1000000) . toMicroseconds . getTimestamp
+
 action :: Args -> RealModeResources -> Production ()
 action args@Args {..} res = do
-    let systemStart = CLI.sysStart commonArgs
+    systemStart <- getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)

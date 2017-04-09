@@ -80,30 +80,23 @@ isDevelopment = True
 isDevelopment = False
 #endif
 
--- | In development there's a system start.
---   TBD why not 0? Judging by other uses of system start, only positive
---   numbers are OK. Is that true?
-defaultDevelopmentSysStart :: Timestamp
-defaultDevelopmentSysStart = Timestamp $ sec 1
-
 -- | System start time embedded into binary.
 staticSysStart :: Timestamp
 staticSysStart
-    | isDevelopment = defaultDevelopmentSysStart
-    | st > 0        = Timestamp $ sec st
+    | isDevelopment    = error "System start time should be passed \
+                              \as a command line argument in dev mode."
+    | st >= 1400000000 = Timestamp $ sec st
     -- If several local nodes are started within 20 sec,
     -- they'll have same start time
-    | otherwise     = Timestamp $ sec $
-          (after3Mins `div` divider + alignment) * divider
+    | otherwise        =
+          let frameLength  = st
+              currentFrame = currentPOSIXTime `div` frameLength
+              t = currentFrame * frameLength + (frameLength `div` 2) in
+          Timestamp $ sec t
   where
     st = ccProductionNetworkStartTime coreConstants
-    pause = 30
-    divider = 20
     currentPOSIXTime :: Int
     currentPOSIXTime = unsafePerformIO (round <$> getPOSIXTime)
-    after3Mins = pause + currentPOSIXTime
-    minuteMod = after3Mins `mod` divider
-    alignment = if minuteMod > (divider `div` 2) then 1 else 0
 
 -- | Protocol magic constant. Is put to block serialized version to
 -- distinguish testnet and realnet (for example, possible usages are

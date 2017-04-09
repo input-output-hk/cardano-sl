@@ -157,7 +157,13 @@ sysStartParser :: Opt.Parser Timestamp
 sysStartParser = Opt.option (Timestamp . sec <$> Opt.auto) $
     Opt.long    "system-start" <>
     Opt.metavar "TIMESTAMP" <>
-    Opt.value   staticSysStart
+    defaultValue
+  where
+    -- In development mode, this parameter is mandatory.
+    -- In production mode, it is optional, and its default value is populated
+    -- from `staticSysStart`.
+    defaultValue =
+        if isDevelopment then mempty else Opt.value staticSysStart
 
 templateParser :: (HasName f, HasMetavar f) => String -> String -> String -> Opt.Mod f a
 templateParser long metavar help =

@@ -570,6 +570,8 @@ executable cardano-node
                      , optparse-simple
                      , parsec
                      , serokell-util >= 0.1.3.4
+                     , time
+                     , time-units
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts

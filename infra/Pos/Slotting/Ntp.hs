@@ -26,7 +26,7 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               defaultRestoreM, defaultRestoreT)
 import           Data.List                   ((!!))
 import           Data.Time.Units             (Microsecond, convertUnit)
-import           Formatting                  (int, sformat, (%))
+import           Formatting                  (int, sformat, shown, stext, (%))
 import           Mockable                    (Catch, ChannelT, Counter, CurrentTime,
                                               Delay, Distribution, Fork, Gauge, MFunctor',
                                               Mockable (liftMockable), Mockables, Promise,
@@ -163,11 +163,11 @@ instance SlottingConstraint m =>
 ----------------------------------------------------------------------------
 
 data SlotStatus
-    = CantTrust  -- ^ We can't trust local time.
+    = CantTrust Text                    -- ^ We can't trust local time.
     | OutdatedSlottingData !EpochIndex  -- ^ We don't know recent
                                         -- slotting data, last known
                                         -- penult epoch is attached.
-    | CurrentSlot !SlotId -- ^ Slot is calculated successfully.
+    | CurrentSlot !SlotId               -- ^ Slot is calculated successfully.
 
 ntpGetCurrentSlot :: SlottingConstraint m => NtpSlotting m (Maybe SlotId)
 ntpGetCurrentSlot = do
@@ -180,9 +180,9 @@ ntpGetCurrentSlot = do
                  " is outdated. Last known penult epoch = "%int)
                 i
             return Nothing
-        CantTrust -> do
-            logDebug
-                "Can't get current slot, because we can't trust local time"
+        CantTrust t -> do
+            logDebug $
+                "Can't get current slot, because we can't trust local time, details: " <> t
             return Nothing
 
 ntpGetCurrentSlotInaccurate :: SlottingConstraint m => NtpSlotting m SlotId
@@ -190,7 +190,7 @@ ntpGetCurrentSlotInaccurate = do
     res <- ntpGetCurrentSlotImpl
     case res of
         CurrentSlot slot -> pure slot
-        CantTrust        -> do
+        CantTrust _        -> do
             var <- NtpSlotting ask
             _nssLastSlot <$> atomically (STM.readTVar var)
         OutdatedSlottingData penult -> do
@@ -211,23 +211,29 @@ ntpGetCurrentSlotImpl = do
     var <- NtpSlotting ask
     NtpSlottingState {..} <- atomically $ STM.readTVar var
     t <- Timestamp . (+ _nssLastMargin) <$> currentTime
-    if | canWeTrustLocalTime _nssLastLocalTime t ->
-           do penult <- sdPenultEpoch <$> getSlottingData
-              res <- fmap (max _nssLastSlot) <$> ntpGetCurrentSlotDo t
-              let setLastSlot s =
-                      atomically $ STM.modifyTVar' var (nssLastSlot %~ max s)
-              whenJust res setLastSlot
-              pure $ maybe (OutdatedSlottingData penult) CurrentSlot res
-       | otherwise -> return CantTrust
+    case canWeTrustLocalTime _nssLastLocalTime t of
+      Nothing -> do
+          penult <- sdPenultEpoch <$> getSlottingData
+          res <- fmap (max _nssLastSlot) <$> ntpGetCurrentSlotDo t
+          let setLastSlot s =
+                  atomically $ STM.modifyTVar' var (nssLastSlot %~ max s)
+          whenJust res setLastSlot
+          pure $ maybe (OutdatedSlottingData penult) CurrentSlot res
+      Just reason -> pure $ CantTrust reason
   where
     -- We can trust getCurrentTime if it is:
     -- • not bigger than 'time for which we got margin (last time)
     --   + NTP delay (+ some eps, for safety)'
     -- • not less than 'last time - some eps'
-    canWeTrustLocalTime :: Timestamp -> Timestamp -> Bool
-    canWeTrustLocalTime (Timestamp lastLocalTime) (Timestamp t) =
-        t <= lastLocalTime + C.ntpPollDelay + C.ntpMaxError &&
-        lastLocalTime - C.ntpMaxError <= t
+    canWeTrustLocalTime :: Timestamp -> Timestamp -> Maybe Text
+    canWeTrustLocalTime t1@(Timestamp lastLocalTime) t2@(Timestamp t) = do
+        let ret = sformat ("T1: "%shown%", T2: "%shown%", reason: "%stext) t1 t2
+        if | t > lastLocalTime + C.ntpPollDelay + C.ntpMaxError ->
+             Just $ ret $ "curtime is bigger then last local: " <>
+                    show C.ntpPollDelay <> ", " <> show C.ntpMaxError
+           | t < lastLocalTime - C.ntpMaxError ->
+             Just $ ret $ "curtime is less then last - error: " <> show C.ntpMaxError
+           | otherwise -> Nothing
 
 ntpGetCurrentSlotDo
     :: SlottingConstraint m
@@ -257,7 +263,7 @@ ntpGetCurrentSlotBlocking :: SlottingConstraint m => NtpSlotting m SlotId
 ntpGetCurrentSlotBlocking = do
     slotSt <- ntpGetCurrentSlotImpl
     case slotSt of
-        CantTrust -> do
+        CantTrust _ -> do
             delay C.ntpPollDelay
             ntpGetCurrentSlotBlocking
         OutdatedSlottingData penult -> do

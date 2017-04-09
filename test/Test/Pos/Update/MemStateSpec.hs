@@ -4,7 +4,7 @@ module Test.Pos.Update.MemStateSpec
        ( spec
        ) where
 
-import qualified Data.HashMap.Strict as HM
+import qualified Data.HashMap.Strict   as HM
 
 import           Pos.Crypto            (PublicKey, hash)
 import           Pos.Update.Arbitrary  ()
@@ -13,7 +13,7 @@ import qualified Pos.Update.MemState   as Upd
 
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Property, (==>), (.&&.))
+import           Test.QuickCheck       (Property, (.&&.), (==>))
 import           Universum
 
 spec :: Spec
@@ -38,7 +38,7 @@ payloadIsAddedToMemPool up@Upd.UpdatePayload {..} mp =
     proposalWasAdded .&&. votesWereAdded
   where
     proposalWasAdded = case upProposal of
-        Nothing -> True
+        Nothing    -> True
         Just uProp -> HM.lookup (hash uProp) mpProposals == Just uProp
     votesWereAdded = all verifyVoteWasAdded upVotes
     verifyVoteWasAdded vote@(Upd.UpdateVote {..}) =

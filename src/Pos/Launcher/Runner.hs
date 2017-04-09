@@ -32,8 +32,8 @@ import           Data.Tagged                 (untag)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (CurrentTime, Mockable, MonadMockable,
-                                              Production (..), Throw, bracket,
-                                              finally, throw)
+                                              Production (..), Throw, bracket, finally,
+                                              throw)
 import           Network.QDisc.Fair          (fairQDisc)
 import           Network.Transport           (Transport, closeTransport)
 import           Network.Transport.Concrete  (concrete)
@@ -52,14 +52,10 @@ import           Universum                   hiding (bracket, finally)
 
 import           Pos.Binary                  ()
 import           Pos.CLI                     (readLoggerConfig)
-import           Pos.Communication           (ActionSpec (..), BiP (..),
-                                              InSpecs (..),
+import           Pos.Communication           (ActionSpec (..), BiP (..), InSpecs (..),
                                               ListenersWithOut, OutSpecs (..),
-                                              PeerId (..),
-                                              SysStartResponse, VerInfo (..),
-                                              allListeners,
-                                              hoistListenerSpec,
-                                              mergeLs,
+                                              PeerId (..), SysStartResponse, VerInfo (..),
+                                              allListeners, hoistListenerSpec, mergeLs,
                                               stubListenerOneMsg, sysStartReqListener,
                                               unpackLSpecs)
 import           Pos.Communication.PeerState (runPeerStateHolder)
@@ -73,8 +69,7 @@ import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
 import           Pos.DB.GState               (getTip)
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Holder       (runDelegationT)
-import           Pos.DHT.Model               (MonadDHT (..),
-                                              getMeaningPart)
+import           Pos.DHT.Model               (MonadDHT (..), getMeaningPart)
 import           Pos.DHT.Real                (KademliaDHTInstance,
                                               KademliaDHTInstanceConfig (..),
                                               runKademliaDHT, startDHTInstance,
@@ -85,9 +80,8 @@ import           Pos.Lrc.Context             (LrcContext (..), LrcSyncData (..))
 import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.Slotting                (SlottingVar, mkNtpSlottingVar,
                                               runNtpSlotting, runSlottingHolder)
-import           Pos.Ssc.Class               (SscConstraint,
-                                              SscNodeContext,
-                                              SscParams, sscCreateNodeContext)
+import           Pos.Ssc.Class               (SscConstraint, SscNodeContext, SscParams,
+                                              sscCreateNodeContext)
 import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp                     (mkTxpLocalData, runTxpHolder)

@@ -22,8 +22,8 @@ import           Pos.Crypto.RedeemSigning    (RedeemPublicKey, RedeemSecretKey,
                                               RedeemSignature, redeemKeyGen, redeemSign)
 import           Pos.Crypto.SafeSigning      (PassPhrase)
 import           Pos.Crypto.SecretSharing    (EncShare, Secret, SecretProof,
-                                              SecretSharingExtra, Share, VssKeyPair,
-                                              VssPublicKey, Threshold, decryptShare,
+                                              SecretSharingExtra, Share, Threshold,
+                                              VssKeyPair, VssPublicKey, decryptShare,
                                               genSharedSecret, toVssPublicKey, vssKeyGen)
 import           Pos.Crypto.Signing          (ProxyCert, ProxySecretKey, ProxySignature,
                                               PublicKey, SecretKey, Signature, Signed,

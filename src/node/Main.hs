@@ -6,18 +6,18 @@ import           Data.List             ((!!))
 import           Data.Maybe            (fromJust)
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Data.Time.Units       (toMicroseconds)
+import           Formatting            (sformat, shown, (%))
 import           Mockable              (Production, currentTime)
 import           Node                  (hoistSendActions)
-import           System.Wlog           (LoggerName, WithLogger, logInfo)
-import           Formatting            ((%), sformat, shown)
 import           Serokell.Util         (sec)
+import           System.Wlog           (LoggerName, WithLogger, logInfo)
 import           Universum
 
 import           Pos.Binary            ()
-import           Pos.Core.Types        (Timestamp (..))
 import qualified Pos.CLI               as CLI
 import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Constants         (isDevelopment)
+import           Pos.Core.Types        (Timestamp (..))
 import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.Genesis           (genesisDevSecretKeys, genesisStakeDistribution,
                                         genesisUtxo)

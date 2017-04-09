@@ -10,7 +10,7 @@ import           Prelude                 ((!!))
 import           Test.Hspec              (Expectation, Spec, describe, it, shouldBe,
                                           specify)
 import           Test.Hspec.QuickCheck   (prop)
-import           Test.QuickCheck         (Arbitrary (..), Property, (===), (==>), vector)
+import           Test.QuickCheck         (Arbitrary (..), Property, vector, (===), (==>))
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 import           Universum
 
@@ -19,8 +19,9 @@ import qualified Pos.Crypto              as Crypto
 import           Pos.Crypto.Arbitrary    (SharedSecrets (..))
 import           Pos.Ssc.GodTossing      ()
 
-import           Test.Pos.Util           ((.=.), binaryEncodeDecode, binaryTest,
-                                          safeCopyEncodeDecode, safeCopyTest, serDeserId)
+import           Test.Pos.Util           (binaryEncodeDecode, binaryTest,
+                                          safeCopyEncodeDecode, safeCopyTest, serDeserId,
+                                          (.=.))
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 

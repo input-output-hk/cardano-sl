@@ -86,7 +86,7 @@ isDevelopment = False
 defaultDevelopmentSysStart :: Timestamp
 defaultDevelopmentSysStart = Timestamp $ sec 1
 
--- | System start time embeded into binary.
+-- | System start time embedded into binary.
 staticSysStart :: Timestamp
 staticSysStart
     | isDevelopment = defaultDevelopmentSysStart
@@ -99,8 +99,9 @@ staticSysStart
     st = ccProductionNetworkStartTime coreConstants
     pause = 30
     divider = 20
-    after3Mins :: Int
-    after3Mins = pause + unsafePerformIO (round <$> getPOSIXTime)
+    currentPOSIXTime :: Int
+    currentPOSIXTime = unsafePerformIO (round <$> getPOSIXTime)
+    after3Mins = pause + currentPOSIXTime
     minuteMod = after3Mins `mod` divider
     alignment = if minuteMod > (divider `div` 2) then 1 else 0
 

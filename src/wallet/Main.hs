@@ -29,8 +29,9 @@ import           Pos.Communication         (OutSpecs, SendActions, Worker', Work
                                             sendTxOuts, submitTx, worker)
 import           Pos.Constants             (genesisBlockVersionData, isDevelopment)
 import           Pos.Crypto                (Hash, SecretKey, emptyPassphrase, encToPublic,
-                                            hash, hashHexF, noPassEncrypt, safeSign,
-                                            unsafeHash, withSafeSigner)
+                                            fakeSigner, hash, hashHexF, noPassEncrypt,
+                                            safeSign, toPublic, unsafeHash,
+                                            withSafeSigner)
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Delegation            (sendProxySKHeavyOuts, sendProxySKLightOuts)
 import           Pos.DHT.Model             (DHTNode, discoverPeers, getKnownPeers)
@@ -42,7 +43,7 @@ import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Ssc.NistBeacon        (SscNistBeacon)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
 import           Pos.Txp                   (TxOut (..), TxOutAux (..), txaF)
-import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress)
+import           Pos.Types                 (coinF, makePubKeyAddress)
 import           Pos.Update                (BlockVersionData (..), UpdateVote (..),
                                             mkUpdateProposalWSign, patakUpdateData,
                                             skovorodaUpdateData)

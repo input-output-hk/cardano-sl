@@ -18,8 +18,8 @@ import           Universum
 import           Pos.Binary           (decodeFull, encode)
 import           Pos.Core             (mkCoin)
 import           Pos.Genesis          (GenesisData (..), StakeDistribution (..))
-import           Pos.Types            (addressDetailedF, addressHash, addressHash,
-                                       makePubKeyAddress, makeRedeemAddress)
+import           Pos.Types            (addressDetailedF, addressHash, makePubKeyAddress,
+                                       makeRedeemAddress)
 
 import           Avvm                 (aeCoin, applyBlacklisted, genGenesis, getHolderId,
                                        utxo)
@@ -53,7 +53,7 @@ getTestnetGenesis tso@TestStakeOptions{..} = do
 
     let distr = genTestnetStakes tso
         richmanStake = case distr of
-            TestnetStakes {..} -> sdRichStake
+            RichPoorStakes {..} -> sdRichStake
             _ -> error "cardano-keygen: impossible type of generated testnet stake"
         genesisAddrs = map (makePubKeyAddress . fst) genesisList
         genesisVssCerts = HM.fromList
@@ -102,35 +102,38 @@ getAvvmGenesis AvvmStakeOptions {..} = do
 
 main :: IO ()
 main = do
-    KeygenOptions {..} <- execParser optsInfo
-    case koRearrangeMask of
-        Just msk -> glob msk >>= mapM_ rearrangeKeyfile
-        Nothing -> do
-            let genFileDir = takeDirectory koGenesisFile
-            createDirectoryIfMissing True genFileDir
+  KeygenOptions {..} <- execParser optsInfo
+  usingLoggerName "keygen" $ case koRearrangeMask of
+      Just msk -> liftIO (glob msk) >>= mapM_ rearrangeKeyfile
+      Nothing -> do
+          let genFileDir = takeDirectory koGenesisFile
+          liftIO $ createDirectoryIfMissing True genFileDir
 
-            mAvvmGenesis <- traverse getAvvmGenesis koAvvmStake
-            mTestnetGenesis <- traverse getTestnetGenesis koTestStake
-            mFakeAvvmGenesis <- traverse getFakeAvvmGenesis koFakeAvvmStake
+          mAvvmGenesis <- traverse getAvvmGenesis koAvvmStake
+          mTestnetGenesis <- traverse getTestnetGenesis koTestStake
+          mFakeAvvmGenesis <- traverse getFakeAvvmGenesis koFakeAvvmStake
+          whenJust mTestnetGenesis $ \tg ->
+              putText $ sformat ("testnet genesis created successfully. "
+                                %"First 30 addresses: "%listJson%" distr: "%shown)
+                            (map (sformat addressDetailedF) . take 10 $ gdAddresses tg)
+                            (gdDistribution <$> mTestnetGenesis)
 
-            putText $ "testnet genesis created successfully..."
+          let mGenData = mappend <$> mTestnetGenesis <*> mAvvmGenesis
+                         <|> mTestnetGenesis
+                         <|> mAvvmGenesis
+              genData' = fromMaybe (error "At least one of options \
+                                          \(AVVM stake or testnet stake) \
+                                          \should be provided") mGenData
+              genData = genData' <> fromMaybe mempty mFakeAvvmGenesis
+              binGenesis = encode genData
 
-            let mGenData = mappend <$> mTestnetGenesis <*> mAvvmGenesis
-                           <|> mTestnetGenesis
-                           <|> mAvvmGenesis
-                genData' = fromMaybe (error "At least one of options \
-                                            \(AVVM stake or testnet stake) \
-                                            \should be provided") mGenData
-                genData = genData' <> fromMaybe mempty mFakeAvvmGenesis
-                binGenesis = encode genData
-
-            case decodeFull binGenesis of
-                Right (_ :: GenesisData) -> do
-                    putText "genesis.bin generated successfully\n"
-                    BSL.writeFile koGenesisFile binGenesis
-                Left err                 -> do
-                    putText ("Generated genesis.bin can't be read: " <>
-                             toText err <> "\n")
-                    if length binGenesis < 10*1024
-                        then putText "Printing GenesisData:\n\n" >> print genData
-                        else putText "genesis.bin is bigger than 10k, won't print it\n"
+          case decodeFull binGenesis of
+              Right (_ :: GenesisData) -> do
+                  putText "genesis.bin generated successfully\n"
+                  liftIO $ BSL.writeFile koGenesisFile binGenesis
+              Left err                 -> do
+                  putText ("Generated genesis.bin can't be read: " <>
+                           toText err <> "\n")
+                  if length binGenesis < 10*1024
+                      then putText "Printing GenesisData:\n\n" >> print genData
+                      else putText "genesis.bin is bigger than 10k, won't print it\n"

@@ -163,7 +163,8 @@ readUserSecret path = do
 -- | Reads user secret from the given file.
 -- If the file does not exist/is empty, returns empty user secret
 peekUserSecret :: (MonadIO m, WithLogger m) => FilePath -> m UserSecret
-initializeUserSecret path
+peekUserSecret path = do
+    initializeUserSecret path
     takeReadLock path $ do
         econtent <- decodeFull <$> BSL.readFile path
         pure $ either (const def) identity econtent & usPath .~ path

@@ -28,7 +28,7 @@ data LoggingParams = LoggingParams
 
 -- | Contains basic & networking parameters for running node.
 data BaseParams = BaseParams
-    { bpIpPort             :: !(Maybe NetworkAddress) -- ^ Port to run on
+    { bpNetworkAddress     :: !(Maybe NetworkAddress) -- ^ Host/port to run on
     , bpDHTPeers           :: ![DHTNode]      -- ^ Peers passed from CLI
     , bpDHTKey             :: !(Maybe DHTKey)
     , bpDHTExplicitInitial :: !Bool

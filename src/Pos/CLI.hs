@@ -21,7 +21,7 @@ module Pos.CLI
        , timeLordOption
        , webPortOption
        , walletPortOption
-       , ipPortOption
+       , networkAddressOption
 
        , readPeersFile
        ) where
@@ -283,8 +283,8 @@ walletPortOption portNum help =
         <> Opt.value portNum
         <> Opt.showDefault
 
-ipPortOption :: NetworkAddress -> Opt.Parser NetworkAddress
-ipPortOption na =
+networkAddressOption :: NetworkAddress -> Opt.Parser NetworkAddress
+networkAddressOption na =
     Opt.option (fromParsec addrParserNoWildcard) $
             Opt.long "listen"
          <> Opt.metavar "IP:PORT"

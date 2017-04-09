@@ -31,7 +31,7 @@ data GenOptions = GenOptions
     , goMOfNParams      :: !(Maybe (Int, Int)) -- ^ If this is provided, send M-of-N script transactions instead of P2PKH
     , goJLFile          :: !(Maybe FilePath)
     , goCommonArgs      :: !CLI.CommonArgs -- ^ Common CLI arguments, including initial DHT nodes
-    , goIpPort          :: !NetworkAddress         -- ^ DHT/Blockchain ip/port
+    , goNetworkAddress  :: !NetworkAddress         -- ^ DHT/Blockchain ip/port
     }
 
 optionsParser :: Parser GenOptions
@@ -92,8 +92,8 @@ optionsParser = do
         CLI.optionalJSONPath
     goCommonArgs <-
         CLI.commonArgsParser "Initial DHT peer (may be many)"
-    goIpPort <-
-        CLI.ipPortOption ("127.0.0.1", 24962)
+    goNetworkAddress <-
+        CLI.networkAddressOption ("127.0.0.1", 24962)
     return GenOptions{..}
 
 optsInfo :: ParserInfo GenOptions

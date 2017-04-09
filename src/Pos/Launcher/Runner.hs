@@ -422,8 +422,8 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
     instConfig =
         KademliaDHTInstanceConfig
         { kdcKey = bpDHTKey
-        , kdcHost = maybe "0.0.0.0" fst bpIpPort
-        , kdcPort = maybe 0 snd bpIpPort
+        , kdcHost = maybe "0.0.0.0" fst bpNetworkAddress
+        , kdcPort = maybe 0 snd bpNetworkAddress
         , kdcInitialPeers = ordNub $ bpDHTPeers ++ Const.defaultPeers
         , kdcExplicitInitial = bpDHTExplicitInitial
         , kdcDumpPath = bpKademliaDump
@@ -456,8 +456,7 @@ bracketTransport BaseParams {..} =
   where
     withLog = usingLoggerName $ lpRunnerTag bpLoggingParams
     addrInfo = do
-        host <- fmap (BS8.unpack . fst) bpIpPort
-        port <- fmap (show . snd) bpIpPort
+        (host, port) <- bimap BS8.unpack show <$> bpNetworkAddress
         return (TCP.TCPAddrInfo host port ((,) host))
 
 bracketResources :: BaseParams -> (RealModeResources -> Production a) -> IO a

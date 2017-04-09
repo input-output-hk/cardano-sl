@@ -5,9 +5,9 @@ module Daedalus.Types
        , module BP
        , module DT
        , _address
-       , _coin
+       , _ccoin
        , _passPhrase
-       , mkCoin
+       , mkCCoin
        , mkCAddress
        , mkCWalletMeta
        , mkCWalletInit
@@ -20,15 +20,16 @@ module Daedalus.Types
        , showCCurrency
        , mkBackupPhrase
        , mkCWalletRedeem
+       , mkCPostVendWalletRedeem
        , mkCInitialized
        , mkCPassPhrase
+       , emptyCPassPhrase
        , getProfileLocale
        ) where
 
 import Prelude
 
-import Pos.Wallet.Web.ClientTypes (CAddress (..), CHash (..), CPassPhrase (..))
-import Pos.Core.Types (Coin (..))
+import Pos.Wallet.Web.ClientTypes (CAddress (..), CHash (..), CPassPhrase (..), CCoin (..))
 
 import Pos.Wallet.Web.ClientTypes as CT
 import Pos.Core.Types as C
@@ -57,8 +58,14 @@ space = Pattern " "
 dot :: Pattern
 dot = Pattern "."
 
-mkBackupPhrase :: String -> Either Error BackupPhrase
-mkBackupPhrase mnemonic = mkBackupPhraseIgnoreChecksum mnemonic >>= const do
+backupMnemonicLen :: Int
+backupMnemonicLen = 12
+
+paperVendMnemonicLen :: Int
+paperVendMnemonicLen = 9
+
+mkBackupPhrase :: Int -> String -> Either Error BackupPhrase
+mkBackupPhrase len mnemonic = mkBackupPhraseIgnoreChecksum len mnemonic >>= const do
     if not $ isValidMnemonic mnemonicCleaned
         then Left $ error "Invalid mnemonic: checksum missmatch"
         else Right $ BackupPhrase { bpToList: split space mnemonicCleaned }
@@ -68,13 +75,13 @@ mkBackupPhrase mnemonic = mkBackupPhraseIgnoreChecksum mnemonic >>= const do
 cleanMnemonic :: String -> String
 cleanMnemonic = joinWith " " <<< filter (not <<< null) <<< split space <<< trim
 
-mkBackupPhraseIgnoreChecksum :: String -> Either Error BackupPhrase
-mkBackupPhraseIgnoreChecksum mnemonic =
-    if not $ hasAtLeast12words mnemonicCleaned
+mkBackupPhraseIgnoreChecksum :: Int -> String -> Either Error BackupPhrase
+mkBackupPhraseIgnoreChecksum len mnemonic =
+    if not $ hasExactlyNwords len mnemonicCleaned
         then Left $ error "Invalid mnemonic: mnemonic should have at least 12 words"
         else Right $ BackupPhrase { bpToList: split space mnemonicCleaned }
   where
-    hasAtLeast12words = (<=) 12 <<< length <<< split space
+    hasExactlyNwords len = (==) len <<< length <<< split space
     mnemonicCleaned = cleanMnemonic mnemonic
 
 showCCurrency :: CT.CCurrency -> String
@@ -95,17 +102,20 @@ _address (CAddress a) = _hash a
 _passPhrase :: CPassPhrase -> String
 _passPhrase (CPassPhrase p) = p
 
+emptyCPassPhrase :: CPassPhrase
+emptyCPassPhrase = CPassPhrase ""
+
 mkCPassPhrase :: String -> CPassPhrase
 mkCPassPhrase = CPassPhrase <<< bytesToB16 <<< blake2b
 
 mkCAddress :: String -> CAddress
 mkCAddress = CAddress <<< CHash
 
-_coin :: Coin -> Int
-_coin (Coin c) = c.getCoin
+_ccoin :: CCoin -> String
+_ccoin (CCoin c) = c.getCoin
 
-mkCoin :: Int -> Coin
-mkCoin amount = Coin { getCoin: amount }
+mkCCoin :: String -> CCoin
+mkCCoin amount = CCoin { getCoin: amount }
 
 -- NOTE: use genericRead maybe https://github.com/paluh/purescript-generic-read-example
 mkCWalletType :: String -> CT.CWalletType
@@ -134,11 +144,11 @@ mkCInitialized total preInit =
 
 mkCWalletInit :: String -> String -> String -> String -> Either Error CT.CWalletInit
 mkCWalletInit wType wCurrency wName mnemonic =
-    mkCWalletInit' wType wCurrency wName <$> mkBackupPhrase mnemonic
+    mkCWalletInit' wType wCurrency wName <$> mkBackupPhrase backupMnemonicLen mnemonic
 
 mkCWalletInitIgnoreChecksum :: String -> String -> String -> String -> Either Error CT.CWalletInit
 mkCWalletInitIgnoreChecksum wType wCurrency wName mnemonic= do
-    mkCWalletInit' wType wCurrency wName <$> mkBackupPhraseIgnoreChecksum mnemonic
+    mkCWalletInit' wType wCurrency wName <$> mkBackupPhraseIgnoreChecksum backupMnemonicLen mnemonic
 
 mkCWalletInit' :: String -> String -> String -> BackupPhrase -> CT.CWalletInit
 mkCWalletInit' wType wCurrency wName bp =
@@ -151,6 +161,14 @@ mkCWalletRedeem seed wId = do
     CT.CWalletRedeem { crWalletId: mkCAddress wId
                      , crSeed: seed
                      }
+
+mkCPostVendWalletRedeem :: String -> String -> String -> Either Error CT.CPostVendWalletRedeem
+mkCPostVendWalletRedeem seed mnemonic wId = do
+    bp <- mkBackupPhrase paperVendMnemonicLen mnemonic
+    pure $ CT.CPostVendWalletRedeem { pvWalletId: mkCAddress wId
+                                    , pvBackupPhrase: bp
+                                    , pvSeed: seed
+                                    }
 
 _ctxIdValue :: CT.CTxId -> String
 _ctxIdValue (CT.CTxId tx) = _hash tx

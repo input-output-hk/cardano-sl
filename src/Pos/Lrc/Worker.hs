@@ -28,7 +28,6 @@ import           Pos.Core                   (Coin)
 import           Pos.DB.Class               (MonadDBCore)
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
-import qualified Pos.DB.GState.Balances     as GS
 import           Pos.Lrc.Consumer           (LrcConsumer (..))
 import           Pos.Lrc.Consumers          (allLrcConsumers)
 import           Pos.Lrc.Context            (LrcContext (lcLrcSync), LrcSyncData (..))
@@ -178,7 +177,7 @@ leadersComputationDo :: WorkMode ssc m => EpochIndex -> SharedSeed -> m ()
 leadersComputationDo epochId seed =
     unlessM (isJust <$> getLeaders epochId) $ do
         totalStake <- GS.getTotalFtsStake
-        leaders <- GS.runBalanceIterator (followTheSatoshiM seed totalStake)
+        leaders <- GS.runBalanceIterator $ followTheSatoshiM seed totalStake
         putLeaders epochId leaders
 
 richmenComputationDo

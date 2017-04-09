@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
@@ -7,6 +8,11 @@ module Pos.Txp.DB.Balances
        (
          -- * Operations
          BalancesOp (..)
+
+         -- * Getters
+       , isBootstrapEra
+       , getTotalFtsStake
+       , getFtsStake
 
          -- * Initialization
        , prepareGStateBalances
@@ -29,22 +35,24 @@ import           System.Wlog            (WithLogger, logError)
 import           Universum
 
 import           Pos.Binary.Class       (encodeStrict)
+import qualified Pos.Constants          as Const
 import           Pos.Crypto             (shortHashF)
 import           Pos.DB.Class           (MonadDB)
 import           Pos.DB.Error           (DBError (..))
 import           Pos.DB.Functions       (RocksBatchOp (..))
 import           Pos.DB.GState.Balances (BalanceIter, ftsStakeKey, ftsSumKey,
-                                         getFtsSumMaybe, getTotalFtsStake)
+                                         getFtsSumMaybe)
+import qualified Pos.DB.GState.Balances as GS
 import           Pos.DB.GState.Common   (gsPutBi)
-import           Pos.DB.Iterator        (DBnIterator, DBnMapIterator, IterType,
-                                         runDBnIterator, runDBnMapIterator)
+import           Pos.DB.Iterator        (IterType, runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types           (NodeDBs (_gStateDB))
+import           Pos.Genesis            (genesisBalances)
 import           Pos.Txp.Core           (txOutStake)
 import           Pos.Txp.Toil.Types     (Utxo)
 import           Pos.Txp.Toil.Utxo      (utxoToStakes)
 import           Pos.Types              (Coin, StakeholderId, coinF, mkCoin, sumCoins,
                                          unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Util.Iterator      (MonadIterator (..))
+import           Pos.Util.Iterator      (MonadIterator (..), runListHolderT)
 
 ----------------------------------------------------------------------------
 -- Operations
@@ -65,6 +73,25 @@ instance RocksBatchOp BalancesOp where
     toBatchOp (PutFtsStake ad c) =
         if c == mkCoin 0 then [Rocks.Del (ftsStakeKey ad)]
         else [Rocks.Put (ftsStakeKey ad) (encodeStrict c)]
+
+----------------------------------------------------------------------------
+-- Overloaded getters (for fixed balances for bootstrap era)
+----------------------------------------------------------------------------
+
+-- TODO: provide actual implementation after corresponding
+-- flag is actually stored in the DB
+isBootstrapEra :: MonadDB m => m Bool
+isBootstrapEra = pure $ not Const.isDevelopment && True
+
+getTotalFtsStake :: MonadDB m => m Coin
+getTotalFtsStake = ifM isBootstrapEra
+    (pure $ foldl' unsafeAddCoin (mkCoin 0) genesisBalances)
+    GS.getTotalFtsStake
+
+getFtsStake :: MonadDB m => StakeholderId -> m (Maybe Coin)
+getFtsStake id = ifM isBootstrapEra
+    (pure $ HM.lookup id genesisBalances) $
+    GS.getFtsStake id
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -97,13 +124,24 @@ putTotalFtsStake = gsPutBi ftsSumKey
 
 runBalanceIterator
     :: forall m a . MonadDB m
-    => DBnIterator BalanceIter a -> m a
-runBalanceIterator = runDBnIterator @BalanceIter _gStateDB
+    => (forall iter . ( MonadIterator (IterType BalanceIter) iter
+                      , MonadDB iter
+                      ) => iter a)
+    -> m a
+runBalanceIterator iter = ifM isBootstrapEra
+    (flip runListHolderT (HM.toList genesisBalances) iter) $
+    runDBnIterator @BalanceIter _gStateDB iter
 
 runBalanceMapIterator
     :: forall v m a . MonadDB m
-    => DBnMapIterator BalanceIter v a -> (IterType BalanceIter -> v) -> m a
-runBalanceMapIterator = runDBnMapIterator @BalanceIter _gStateDB
+    => (forall iter . ( MonadIterator v iter
+                      , MonadDB iter
+                      ) => iter a)
+    -> ((StakeholderId, Coin) -> v)
+    -> m a
+runBalanceMapIterator iter f = ifM isBootstrapEra
+    (flip runListHolderT (f <$> HM.toList genesisBalances) iter) $
+    runDBnMapIterator @BalanceIter _gStateDB iter f
 
 ----------------------------------------------------------------------------
 -- Sanity checks
@@ -115,7 +153,7 @@ sanityCheckBalances
 sanityCheckBalances = do
     let step sm = nextItem >>= maybe (pure sm) (\c -> step (unsafeAddCoin sm c))
     realTotalStake <- runBalanceMapIterator (step (mkCoin 0)) snd
-    totalStake <- getTotalFtsStake
+    totalStake <- GS.getTotalFtsStake
     let fmt =
             ("Wrong total FTS stake: \
              \real total FTS stake (sum of balances): "%coinF%

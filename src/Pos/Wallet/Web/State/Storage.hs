@@ -38,9 +38,9 @@ import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import           Pos.Client.Txp.History     (TxHistoryEntry)
 import           Pos.Txp                    (Utxo)
 import           Pos.Types                  (HeaderHash)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTxId,
-                                             CTxMeta, CUpdateInfo, CWalletAssurance,
-                                             CWalletMeta, CWalletType)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCoin, CCurrency, CHash, CProfile,
+                                             CTxId, CTxMeta, CUpdateInfo,
+                                             CWalletAssurance, CWalletMeta, CWalletType)
 
 type TransactionHistory = HashMap CTxId CTxMeta
 
@@ -129,6 +129,7 @@ testReset = put def
 updateHistoryCache :: CAddress -> HeaderHash -> Utxo -> [TxHistoryEntry] -> Update ()
 updateHistoryCache cAddr cHash utxo cTxs = wsHistoryCache . at cAddr .= Just (cHash, utxo, cTxs)
 
+deriveSafeCopySimple 0 'base ''CCoin
 deriveSafeCopySimple 0 'base ''CProfile
 deriveSafeCopySimple 0 'base ''CHash
 deriveSafeCopySimple 0 'base ''CAddress

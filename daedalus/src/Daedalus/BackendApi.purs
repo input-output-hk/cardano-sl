@@ -5,7 +5,7 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Exception (error, Error)
 import Control.Monad.Error.Class (throwError)
 import Daedalus.Constants (backendPrefix)
-import Daedalus.Types (CAddress, Coin, _address, _coin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit, BackupPhrase, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase)
+import Daedalus.Types (CAddress, _address, _ccoin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit, BackupPhrase, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPostVendWalletRedeem)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Bifunctor (bimap)
@@ -124,11 +124,11 @@ updateProfile :: forall eff. CProfile -> Aff (ajax :: AJAX | eff) CProfile
 updateProfile = postRBody ["profile"]
 --------------------------------------------------------------------------------
 -- TRANSACTIONS ----------------------------------------------------------------
-send :: forall eff. CPassPhrase -> CAddress -> CAddress -> Coin -> Aff (ajax :: AJAX | eff) CTx
-send pass addrFrom addrTo amount = postR ["txs", "payments", _passPhrase pass, _address addrFrom, _address addrTo, show $ _coin amount]
+send :: forall eff. CPassPhrase -> CAddress -> CAddress -> CCoin -> Aff (ajax :: AJAX | eff) CTx
+send pass addrFrom addrTo amount = postR ["txs", "payments", _passPhrase pass, _address addrFrom, _address addrTo, _ccoin amount]
 
-sendExtended :: forall eff. CPassPhrase -> CAddress -> CAddress -> Coin -> CCurrency -> String -> String -> Aff (ajax :: AJAX | eff) CTx
-sendExtended pass addrFrom addrTo amount curr title desc = postR ["txs", "payments", _passPhrase pass, _address addrFrom, _address addrTo, show $ _coin amount, showCCurrency curr, title, desc]
+sendExtended :: forall eff. CPassPhrase -> CAddress -> CAddress -> CCoin -> CCurrency -> String -> String -> Aff (ajax :: AJAX | eff) CTx
+sendExtended pass addrFrom addrTo amount curr title desc = postR ["txs", "payments", _passPhrase pass, _address addrFrom, _address addrTo, _ccoin amount, showCCurrency curr, title, desc]
 
 updateTransaction :: forall eff. CAddress -> CTxId -> CTxMeta -> Aff (ajax :: AJAX | eff) Unit
 updateTransaction addr ctxId = postRBody ["txs", "payments", _address addr, _ctxIdValue ctxId]
@@ -149,6 +149,9 @@ applyUpdate = postR ["update"]
 -- REDEMPTIONS -----------------------------------------------------------------
 redeemADA :: forall eff. CWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
 redeemADA = postRBody ["redemptions", "ada"]
+
+postVendRedeemADA :: forall eff. CPostVendWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
+postVendRedeemADA = postRBody ["postvend", "redemptions", "ada"]
 --------------------------------------------------------------------------------
 -- REPORTING ---------------------------------------------------------------------
 reportInit :: forall eff. CInitialized -> Aff (ajax :: AJAX | eff) Unit

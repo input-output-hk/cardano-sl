@@ -39,16 +39,17 @@ import           Pos.Constants              (curSoftwareVersion)
 import           Pos.Crypto                 (keyGen)
 import           Pos.Types                  (BlockVersion (..), Coin, SoftwareVersion,
                                              makePubKeyAddress, mkCoin)
-import           Pos.Util.BackupPhrase      (BackupPhrase, mkBackupPhrase)
+import           Pos.Util.BackupPhrase      (BackupPhrase, mkBackupPhrase12)
 import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress (..), CCurrency (..), CHash (..),
                                              CInitialized (..), CPassPhrase,
-                                             CProfile (..), CTType (..), CTx (..), CTxId,
-                                             CTxMeta (..), CUpdateInfo (..), CWallet (..),
+                                             CPostVendWalletRedeem (..), CProfile (..),
+                                             CTType (..), CTx (..), CTxId, CTxMeta (..),
+                                             CUpdateInfo (..), CWallet (..),
                                              CWalletAssurance (..), CWalletInit (..),
                                              CWalletMeta (..), CWalletRedeem (..),
                                              CWalletType (..), SyncProgress,
-                                             addressToCAddress, mkCTxId)
+                                             addressToCAddress, mkCCoin, mkCTxId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 
 
@@ -294,20 +295,19 @@ ctxMeta = CTxMeta
       }
 
 backupPhrase :: BackupPhrase
-backupPhrase = mkBackupPhrase [ "transfer"
-                              , "uniform"
-                              , "grunt"
-                              , "excess"
-                              , "six"
-                              , "veteran"
-                              , "vintage"
-                              , "warm"
-                              , "confirm"
-                              , "vote"
-                              , "nephew"
-                              , "allow"
-                              ]
-
+backupPhrase = mkBackupPhrase12 [ "transfer"
+                                , "uniform"
+                                , "grunt"
+                                , "excess"
+                                , "six"
+                                , "veteran"
+                                , "vintage"
+                                , "warm"
+                                , "confirm"
+                                , "vote"
+                                , "nephew"
+                                , "allow"
+                                ]
 --------------------------------------------------------------------------------
 
 instance ToSample WalletError where
@@ -319,6 +319,15 @@ instance ToSample CWalletRedeem where
         sample = CWalletRedeem
             { crWalletId = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
             , crSeed     = "1354644684681"
+            }
+
+instance ToSample CPostVendWalletRedeem where
+    toSamples Proxy = singleSample sample
+      where
+        sample = CPostVendWalletRedeem
+            { pvWalletId         = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
+            , pvSeed             = "1354644684681"
+            , pvBackupPhrase     = mkBackupPhrase12 ["garlic", "swim", "arrow", "globe", "note", "gossip", "cabin", "wheel", "sibling", "cigar", "person", "clap"]
             }
 
 instance ToSample Coin where
@@ -336,7 +345,7 @@ instance ToSample CWallet where
       where
         sample = CWallet
             { cwAddress = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
-            , cwAmount  = mkCoin 0
+            , cwAmount  = mkCCoin $ mkCoin 0
             , cwMeta    = cWalletMeta
             }
 
@@ -368,8 +377,8 @@ instance ToSample CUpdateInfo where
             , cuiImplicit        = False
             , cuiVotesFor        = 2
             , cuiVotesAgainst    = 3
-            , cuiPositiveStake   = mkCoin 10
-            , cuiNegativeStake   = mkCoin 3
+            , cuiPositiveStake   = mkCCoin $ mkCoin 10
+            , cuiNegativeStake   = mkCCoin $ mkCoin 3
             }
 
 
@@ -390,7 +399,7 @@ instance ToSample CTx where
       where
         sample = CTx
             { ctId            = mkCTxId "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
-            , ctAmount        = mkCoin 0
+            , ctAmount        = mkCCoin $ mkCoin 0
             , ctConfirmations = 10
             , ctType          = CTOut ctxMeta
             }

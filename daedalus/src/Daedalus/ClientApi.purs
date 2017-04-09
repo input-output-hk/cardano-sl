@@ -6,12 +6,13 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (getProfileLocale, mkCAddress, mkCCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkCWalletInitIgnoreChecksum, mkBackupPhrase, mkCInitialized, mkCPassPhrase, mkCPostVendWalletRedeem)
+import Daedalus.Types (getProfileLocale, mkCAddress, mkCCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkCWalletInitIgnoreChecksum, mkBackupPhrase, mkCInitialized, mkCPassPhrase, mkCPostVendWalletRedeem, emptyCPassPhrase)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.String.Base64 as B64
 import Data.Base58 as B58
+import Data.Array as A
 import Data.String (length, stripSuffix, Pattern (..))
 import Data.Maybe (isJust, maybe)
 import Data.Function.Eff (EffFn1, mkEffFn1, EffFn2, mkEffFn2, EffFn4, mkEffFn4, EffFn3, mkEffFn3, EffFn6, mkEffFn6, EffFn7, mkEffFn7, mkEffFn5, EffFn5)
@@ -51,7 +52,7 @@ searchHistory = mkEffFn4 \addr search skip limit -> fromAff <<< map encodeJson $
 send :: forall eff. EffFn3 (ajax :: AJAX | eff) String String String (Promise Json)
 send = mkEffFn3 \addrFrom addrTo amount -> fromAff <<< map encodeJson $
     B.send
-        (mkCPassPhrase "")
+        emptyCPassPhrase
         (mkCAddress addrFrom)
         (mkCAddress addrTo)
         (mkCCoin amount)
@@ -59,7 +60,7 @@ send = mkEffFn3 \addrFrom addrTo amount -> fromAff <<< map encodeJson $
 sendExtended :: forall eff. EffFn6 (ajax :: AJAX | eff) String String String String String String (Promise Json)
 sendExtended = mkEffFn6 \addrFrom addrTo amount curr title desc -> fromAff <<< map encodeJson $
     B.sendExtended
-        (mkCPassPhrase "")
+        emptyCPassPhrase
         (mkCAddress addrFrom)
         (mkCAddress addrTo)
         (mkCCoin amount)
@@ -185,4 +186,4 @@ isValidRedeemCode code = either (const false) (const $ endsWithEqual && 44 == le
 
 -- Valid postvend code is base58 encoded 32byte data
 isValidPostVendRedeemCode :: String -> Boolean
-isValidPostVendRedeemCode code = maybe false (const $ 44 == length code) $ B58.decode code
+isValidPostVendRedeemCode code = maybe false ((==) 32 <<< A.length) $ B58.decode code

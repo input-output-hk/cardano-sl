@@ -50,7 +50,7 @@ instance Bi a => SafeCopy (WithHash a) where
 instance HashAlgorithm algo => Bi (AbstractHash algo a) where
     {-# SPECIALIZE instance Bi (Hash a) #-}
     get = label "AbstractHash" $ do
-        bs <- getByteString $ hashDigestSize @algo $
+        bs <- fmap BS.copy $ getByteString $ hashDigestSize @algo $
               error "Pos.Crypto.Hashing.get: HashAlgorithm value is evaluated!"
         case digestFromByteString bs of
             -- It's impossible because getByteString will already fail if

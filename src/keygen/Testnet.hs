@@ -1,8 +1,11 @@
 module Testnet
        ( generateKeyfile
+       , generateFakeAvvm
        , genTestnetStakes
+       , rearrangeKeyfile
        ) where
 
+import qualified Serokell.Util.Base64 as B64
 import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors,
                                        verifyGeneric)
 import           System.Random        (randomRIO)
@@ -10,28 +13,34 @@ import           Universum
 
 import           Pos.Binary           (asBinary)
 import qualified Pos.Constants        as Const
-import           Pos.Crypto           (PublicKey, keyGen, toPublic, toVssPublicKey,
-                                       vssKeyGen)
+import           Pos.Crypto           (PublicKey, RedeemPublicKey, keyGen, noPassEncrypt,
+                                       redeemDeterministicKeyGen, secureRandomBS,
+                                       toPublic, toVssPublicKey, vssKeyGen)
 import           Pos.Genesis          (StakeDistribution (..))
 import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
 import           Pos.Types            (coinPortionToDouble, unsafeIntegerToCoin)
-import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usPrimKey,
-                                       usVss, writeUserSecretRelease)
+import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usKeys,
+                                       usPrimKey, usVss, writeUserSecretRelease)
 
 import           KeygenOptions        (TestStakeOptions (..))
 
-import           System.Wlog          (WithLogger)
+rearrangeKeyfile :: (MonadIO m, WithLogger m) => FilePath -> m ()
+rearrangeKeyfile fp = do
+    us <- takeUserSecret fp
+    let sk = maybeToList $ us ^. usPrimKey
+    writeUserSecretRelease $
+        us & usKeys %~ (++ map noPassEncrypt sk)
 
-generateKeyfile
-    :: (MonadIO m, MonadFail m, WithLogger m)
-    => FilePath -> m (PublicKey, VssCertificate)
-generateKeyfile fp = do
+generateKeyfile :: (MonadIO m, WithLogger m) => Bool -> FilePath -> m (PublicKey, VssCertificate)
+generateKeyfile isPrim fp = do
     initializeUserSecret fp
     sk <- snd <$> keyGen
     vss <- vssKeyGen
     us <- takeUserSecret fp
     writeUserSecretRelease $
-        us & usPrimKey .~ Just sk
+        us & (if isPrim
+              then usPrimKey .~ Just sk
+              else usKeys %~ (noPassEncrypt sk :))
            & usVss .~ Just vss
     expiry <- liftIO $
         fromIntegral <$>
@@ -39,6 +48,15 @@ generateKeyfile fp = do
     let vssPk = asBinary $ toVssPublicKey vss
         vssCert = mkVssCertificate sk vssPk expiry
     return (toPublic sk, vssCert)
+
+generateFakeAvvm :: MonadIO m => FilePath -> m RedeemPublicKey
+generateFakeAvvm fp = do
+    seed <- secureRandomBS 32
+    let (pk, _) = fromMaybe
+            (error "cardano-keygen: impossible - seed is not 32 bytes long") $
+            redeemDeterministicKeyGen seed
+    writeFile fp $ B64.encode seed
+    return pk
 
 genTestnetStakes :: TestStakeOptions -> StakeDistribution
 genTestnetStakes TestStakeOptions{..} =

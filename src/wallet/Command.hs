@@ -42,6 +42,8 @@ data Command
     | ListAddresses
     | DelegateLight !Int !Int
     | DelegateHeavy !Int !Int !(Maybe EpochIndex)
+    | AddKeyFromPool !Int
+    | AddKeyFromFile !FilePath
     | Quit
     deriving Show
 
@@ -88,6 +90,10 @@ delegateL, delegateH :: Parser Command
 delegateL = DelegateLight <$> num <*> num
 delegateH = DelegateHeavy <$> num <*> num <*> optional num
 
+addKeyFromPool, addKeyFromFile :: Parser Command
+addKeyFromPool = AddKeyFromPool <$> num
+addKeyFromFile = AddKeyFromFile <$> lexeme (many1 anyChar)
+
 send :: Parser Command
 send = Send <$> num <*> (NE.fromList <$> many1 txout)
 
@@ -112,6 +118,8 @@ command = try (text "balance") *> balance <|>
           try (text "propose-update") *> proposeUpdate <|>
           try (text "delegate-light") *> delegateL <|>
           try (text "delegate-heavy") *> delegateH <|>
+          try (text "add-key-pool") *> addKeyFromPool <|>
+          try (text "add-key") *> addKeyFromFile <|>
           try (text "quit") *> pure Quit <|>
           try (text "help") *> pure Help <|>
           try (text "listaddr") *> pure ListAddresses <?>

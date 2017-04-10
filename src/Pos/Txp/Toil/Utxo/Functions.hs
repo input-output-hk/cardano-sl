@@ -7,6 +7,8 @@ module Pos.Txp.Toil.Utxo.Functions
        , rollbackTxUtxo
        ) where
 
+import           Universum
+
 import           Control.Monad.Error.Class (MonadError (..))
 import           Data.List                 (zipWith3)
 import qualified Data.List.NonEmpty        as NE
@@ -14,23 +16,22 @@ import           Formatting                (build, int, sformat, (%))
 import           Serokell.Util             (VerificationRes, allDistinct,
                                             formatFirstError, verResToMonadError,
                                             verifyGeneric)
-import           Universum
 
-import           Pos.Binary.Core           ()
 import           Pos.Binary.Txp            ()
-import           Pos.Core                  (Address (..), StakeholderId, coinF, mkCoin)
+import           Pos.Core                  (Address (..), StakeholderId, coinF,
+                                            coinToInteger, mkCoin, sumCoins)
 import           Pos.Core.Address          (addressDetailedF, checkPubKeyAddress,
                                             checkRedeemAddress, checkScriptAddress,
                                             checkUnknownAddressType)
-import           Pos.Core.Coin             (coinToInteger, sumCoins)
 import           Pos.Crypto                (SignTag (SignTxIn), WithHash (..), checkSig,
                                             hash, redeemCheckSig)
+import           Pos.Data.Attributes       (Attributes (attrRemain))
 import           Pos.Script                (Script (..), isKnownScriptVersion,
                                             txScriptCheck)
-import           Pos.Txp.Core              (Tx (..), TxAux, TxDistribution (..),
-                                            TxIn (..), TxInWitness (..), TxOut (..),
-                                            TxOutAux (..), TxSigData (..), TxUndo,
-                                            TxWitness, txOutputs)
+import           Pos.Txp.Core              (Tx (..), TxAttributes, TxAux,
+                                            TxDistribution (..), TxIn (..),
+                                            TxInWitness (..), TxOut (..), TxOutAux (..),
+                                            TxSigData (..), TxUndo, TxWitness, txOutputs)
 import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure      (ToilVerFailure (..))
 
@@ -44,8 +45,9 @@ import           Pos.Txp.Toil.Failure      (ToilVerFailure (..))
 -- | Global context data needed for tx verification. VT stands for
 -- "Verify Tx". To be populated in further versions.
 data VTxContext = VTxContext
-    { -- | Verify that script & address versions in tx are known
-      vtcVerifyVersions :: !Bool
+    { -- | Verify that script versions in tx are known, addresses' and
+      -- witnesses' types are known, attributes are known too.
+      vtcVerifyAllIsKnown :: !Bool
 --    , vtcSlotId   :: !SlotId         -- ^ Slot id of block transaction is checked in
 --    , vtcLeaderId :: !StakeholderId  -- ^ Leader id of block transaction is checked in
     } deriving (Show)
@@ -57,20 +59,22 @@ data VTxContext = VTxContext
 -- * sum of inputs >= sum of outputs;
 -- * every input has a proper witness verifying that input;
 -- * script witnesses have matching script versions;
--- * if 'vtcVerifyVersions' is 'True', addresses' versions are verified
---   to be known.
+-- * if 'vtcVerifyAllIsKnown' is 'True', addresses' versions are verified
+--   to be known, as well as witnesses, attributes, script versions.
 --
--- Note that 'verifyTxUtxo' doesn't attempt to verify scripts with versions
--- higher than maximum script version we can handle. That's because we want
--- blocks with such transactions to be accepted (to avoid hard
--- forks). However, we won't include such transactions into blocks when we're
--- creating a block.
+-- Note that 'verifyTxUtxo' doesn't attempt to verify scripts with
+-- versions higher than maximum script version we can handle. That's
+-- because we want blocks with such transactions to be accepted (to
+-- avoid hard forks). However, we won't include such transactions into
+-- blocks when we're creating a block (because transactions for
+-- inclusion into blocks are verified with 'vtcVerifyAllIsKnown'
+-- set to 'True', so unknown script versions are rejected).
 verifyTxUtxo
     :: (MonadUtxoRead m, MonadError ToilVerFailure m)
     => VTxContext
     -> TxAux
     -> m TxUndo
-verifyTxUtxo ctx ta@(UnsafeTx {..}, witnesses, _) = do
+verifyTxUtxo ctx@VTxContext {..} ta@(UnsafeTx {..}, witnesses, _) = do
     verifyConsistency _txInputs witnesses
     verResToMonadError (ToilInvalidOutputs . formatFirstError) $
         verifyOutputs ctx ta
@@ -78,6 +82,7 @@ verifyTxUtxo ctx ta@(UnsafeTx {..}, witnesses, _) = do
     verifySums resolvedInputs _txOutputs
     verResToMonadError ToilInvalidInputs $
         verifyInputs ctx resolvedInputs ta
+    when vtcVerifyAllIsKnown $ verifyAttributesAreKnown _txAttributes
     return $ map snd resolvedInputs
 
 resolveInput
@@ -121,7 +126,7 @@ verifyOutputs VTxContext {..} (UnsafeTx {..}, _, distrs)=
                ScriptAddress{} -> checkDist i d txOutValue
                RedeemAddress{} -> checkDist i d txOutValue
                UnknownAddressType t _
-                   | vtcVerifyVersions ->
+                   | vtcVerifyAllIsKnown ->
                          [ (False, sformat ("output #"%int%" has "%
                                             "unknown address type: "%int)
                                            i t) ]
@@ -186,7 +191,7 @@ verifyInputs VTxContext {..} resolvedInputs (view txOutputs -> outs, witnesses, 
         RedeemWitness{..}      -> checkRedeemAddress twRedeemKey addr
         UnknownWitnessType t _ -> checkUnknownAddressType t addr
 
-    -- third argument here is local context, can be used for scripts
+    -- the second argument here includes local context, can be used for scripts
     validateTxIn :: TxIn -> TxOutAux -> TxInWitness -> Either String ()
     validateTxIn txIn _txOutAux wit =
         let txSigData = TxSigData
@@ -206,7 +211,8 @@ verifyInputs VTxContext {..} resolvedInputs (view txOutputs -> outs, witnesses, 
                 | scrVersion twValidator /= scrVersion twRedeemer ->
                       Left "validator and redeemer have different versions"
                 | not (isKnownScriptVersion (scrVersion twValidator)) ->
-                      Right ()
+                      when vtcVerifyAllIsKnown $
+                      Left ("unknown script version " <> show (scrVersion twValidator))
                 | otherwise ->
                       txScriptCheck txSigData twValidator twRedeemer
 
@@ -217,10 +223,18 @@ verifyInputs VTxContext {..} resolvedInputs (view txOutputs -> outs, witnesses, 
                       Left "signature check failed"
 
             UnknownWitnessType t _
-                | vtcVerifyVersions ->
+                | vtcVerifyAllIsKnown ->
                       Left ("unknown witness type: " <> show t)
                 | otherwise ->
                       Right ()
+
+verifyAttributesAreKnown
+    :: (MonadError ToilVerFailure m)
+    => TxAttributes -> m ()
+verifyAttributesAreKnown attrs =
+    unless (null remaining) $ throwError $ ToilUnknownAttributes remaining
+  where
+    remaining = attrRemain attrs
 
 -- | Remove unspent outputs used in given transaction, add new unspent
 -- outputs.

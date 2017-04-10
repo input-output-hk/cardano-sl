@@ -7,6 +7,7 @@ module Pos.Txp.Toil.Failure
 import qualified Data.Text.Buildable
 import           Formatting                 (bprint, build, int, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
+import           Serokell.Util.Base16       (base16F)
 import           Serokell.Util.Verify       (formatAllErrors)
 import           Universum
 
@@ -27,6 +28,7 @@ data ToilVerFailure
     | ToilInvalidInputs ![Text] -- [CSL-814] TODO: make it more informative
     | ToilTooLargeTx { ttltSize  :: !Byte
                      , ttltLimit :: !Byte}
+    | ToilUnknownAttributes !ByteString
     deriving (Show, Eq)
 
 instance Buildable ToilVerFailure where
@@ -51,3 +53,5 @@ instance Buildable ToilVerFailure where
     build (ToilTooLargeTx {..}) =
         bprint ("transaction's size exceeds limit "%
                 "("%memory%" > "%memory%")") ttltSize ttltLimit
+    build (ToilUnknownAttributes bs) =
+        bprint ("transaction has unknown attributes: "%base16F) bs

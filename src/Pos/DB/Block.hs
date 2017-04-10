@@ -25,14 +25,17 @@ module Pos.DB.Block
 import           Control.Lens              (_Wrapped)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.ByteArray            (convert)
+import qualified Data.ByteString           as BS (readFile, writeFile)
+import qualified Data.ByteString.Lazy      as BSL
 import           Data.Default              (Default (def))
 import           Data.Text                 (unpack)
 import           Formatting                (sformat, (%))
+import           System.Directory          (removeFile)
 import           System.FilePath           ((</>))
 import           Universum
 
 import           Pos.Binary.Block          ()
-import           Pos.Binary.Class          (Bi)
+import           Pos.Binary.Class          (Bi, decodeFull, encodeStrict)
 import           Pos.Block.Types           (Blund, Undo (..))
 import           Pos.Crypto                (hashHexF, shortHashF)
 import           Pos.DB.Class              (MonadDB, getBlockIndexDB, getNodeDBs)
@@ -50,7 +53,7 @@ import           Pos.Util.Chrono           (NewestFirst (..))
 
 -- | Get block with given hash from Block DB.
 getBlock
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (SscHelpersClass ssc, MonadDB m, MonadCatch m)
     => HeaderHash -> m (Maybe (Block ssc))
 getBlock = blockDataPath >=> getData
 
@@ -61,12 +64,12 @@ getBlockHeader
 getBlockHeader = getBi . blockIndexKey
 
 -- | Get undo data for block with given hash from Block DB.
-getUndo :: MonadDB m => HeaderHash -> m (Maybe Undo)
+getUndo :: (MonadDB m, MonadCatch m) => HeaderHash -> m (Maybe Undo)
 getUndo = undoDataPath >=> getData
 
 -- | Retrieves block and undo together.
 getBlockWithUndo
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (SscHelpersClass ssc, MonadDB m, MonadCatch m)
     => HeaderHash -> m (Maybe (Block ssc, Undo))
 getBlockWithUndo x =
     runMaybeT $ (,) <$> MaybeT (getBlock x) <*> MaybeT (getUndo x)
@@ -81,7 +84,7 @@ putBlock undo blk = do
     flip putData undo =<< undoDataPath h
     putBi (blockIndexKey h) (T.getBlockHeader blk)
 
-deleteBlock :: (MonadDB m) => HeaderHash -> m ()
+deleteBlock :: (MonadDB m, MonadCatch m) => HeaderHash -> m ()
 deleteBlock hh = do
     delete (blockIndexKey hh)
     deleteData =<< blockDataPath hh
@@ -221,14 +224,21 @@ putBi k v = rocksPutBi k v =<< getBlockIndexDB
 delete :: (MonadDB m) => ByteString -> m ()
 delete k = rocksDelete k =<< getBlockIndexDB
 
-getData ::  (MonadIO m, Bi v) => FilePath -> m (Maybe v)
-getData = undefined
+getData ::  (MonadIO m, MonadCatch m, Bi v) => FilePath -> m (Maybe v)
+getData fp = liftIO (decodeMaybe . BSL.fromStrict <$> BS.readFile fp) `catch` handle
+  where
+    decodeMaybe x = case decodeFull x of
+        Left _  -> Nothing
+        Right r -> Just r
+    handle (_::SomeException) = pure Nothing
 
 putData ::  (MonadIO m, Bi v) => FilePath -> v -> m ()
-putData = undefined
+putData fp = liftIO . BS.writeFile fp . encodeStrict
 
-deleteData :: (MonadIO m) => FilePath -> m ()
-deleteData = undefined
+deleteData :: (MonadIO m, MonadCatch m) => FilePath -> m ()
+deleteData fp = (liftIO $ removeFile fp) `catch` handle
+  where
+    handle (_::SomeException) = pure () -- poh
 
 blockDataPath :: MonadDB m => HeaderHash -> m FilePath
 blockDataPath (unpack . sformat (hashHexF%".block") -> fn) =
@@ -243,7 +253,7 @@ undoDataPath (unpack . sformat (hashHexF%".undo") -> fn) =
 ----------------------------------------------------------------------------
 
 getBlundThrow
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (SscHelpersClass ssc, MonadDB m, MonadCatch m)
     => HeaderHash -> m (Block ssc, Undo)
 getBlundThrow hash =
     maybeThrow (DBMalformed $ sformat errFmt hash) =<<
@@ -252,7 +262,7 @@ getBlundThrow hash =
     errFmt = ("getBlockThrow: no blund with HeaderHash: " %shortHashF)
 
 getBlockThrow
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (SscHelpersClass ssc, MonadDB m, MonadCatch m)
     => HeaderHash -> m (Block ssc)
 getBlockThrow hash = maybeThrow (DBMalformed $ sformat errFmt hash) =<< getBlock hash
   where

@@ -7,7 +7,8 @@ module Pos.DB.Types
          -- * General types.
          DB (..)
        , NodeDBs (..)
-       , blockDB
+       , blockIndexDB
+       , blockData
        , gStateDB
        , lrcDB
        , miscDB
@@ -36,11 +37,12 @@ data DB = DB
     }
 
 data NodeDBs = NodeDBs
-    { _blockDB  :: !DB     -- ^ Blocks, block index, undo data.
-    , _gStateDB :: !DB     -- ^ Global state corresponding to some tip.
-    , _lrcDB    :: !DB     -- ^ Data computed by LRC.
-    , _miscDB   :: !DB     -- ^ Everything small and insignificant
-    , _miscLock :: !RWLock -- ^ Lock on misc db
+    { _blockIndexDB  :: !DB       -- ^ Block index.
+    , _blockData     :: !FilePath -- ^ Block and undo files.
+    , _gStateDB      :: !DB       -- ^ Global state corresponding to some tip.
+    , _lrcDB         :: !DB       -- ^ Data computed by LRC.
+    , _miscDB        :: !DB       -- ^ Everything small and insignificant
+    , _miscLock      :: !RWLock   -- ^ Lock on misc db
     }
 
 makeLenses ''NodeDBs

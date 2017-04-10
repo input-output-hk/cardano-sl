@@ -52,12 +52,19 @@ openNodeDBs recreate fp = do
     liftIO $
         whenM ((recreate &&) <$> doesDirectoryExist fp) $
             removeDirectoryRecursive fp
-    let blockPath = fp </> "blocks"
+    let blocksDir = fp </> "blocks"
+    let blocksIndexPath = blocksDir </> "index"
+    let _blockData = blocksDir </> "data"
     let gStatePath = fp </> "gState"
     let lrcPath = fp </> "lrc"
     let miscPath = fp </> "misc"
-    mapM_ ensureDirectoryExists [blockPath, gStatePath, lrcPath, miscPath]
-    _blockDB <- openDB blockPath
+    mapM_ ensureDirectoryExists [ blocksDir
+                                , _blockData
+                                , blocksIndexPath
+                                , gStatePath
+                                , lrcPath
+                                , miscPath]
+    _blockDB <- openDB blocksIndexPath
     _gStateDB <- openDB gStatePath
     _lrcDB <- openDB lrcPath
     _miscDB <- openDB miscPath

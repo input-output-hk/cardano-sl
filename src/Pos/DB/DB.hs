@@ -64,7 +64,7 @@ openNodeDBs recreate fp = do
                                 , gStatePath
                                 , lrcPath
                                 , miscPath]
-    _blockDB <- openDB blocksIndexPath
+    _blockIndexDB <- openDB blocksIndexPath
     _gStateDB <- openDB gStatePath
     _lrcDB <- openDB lrcPath
     _miscDB <- openDB miscPath
@@ -134,6 +134,6 @@ ensureDirectoryExists = liftIO . createDirectoryIfMissing True
 -- MonadDB instance
 ----------------------------------------------------------------------------
 
-instance (MonadIO m, MonadThrow m) =>
+instance (MonadIO m, MonadThrow m, MonadCatch m) =>
          MonadDBCore (DBHolder m) where
     dbAdoptedBVData = getAdoptedBVData

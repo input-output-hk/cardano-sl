@@ -53,7 +53,7 @@ import           Pos.Util.Chrono           (NewestFirst (..))
 
 -- | Get block with given hash from Block DB.
 getBlock
-    :: (SscHelpersClass ssc, MonadDB m, MonadCatch m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Maybe (Block ssc))
 getBlock = blockDataPath >=> getData
 
@@ -64,12 +64,12 @@ getBlockHeader
 getBlockHeader = getBi . blockIndexKey
 
 -- | Get undo data for block with given hash from Block DB.
-getUndo :: (MonadDB m, MonadCatch m) => HeaderHash -> m (Maybe Undo)
+getUndo :: (MonadDB m) => HeaderHash -> m (Maybe Undo)
 getUndo = undoDataPath >=> getData
 
 -- | Retrieves block and undo together.
 getBlockWithUndo
-    :: (SscHelpersClass ssc, MonadDB m, MonadCatch m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Maybe (Block ssc, Undo))
 getBlockWithUndo x =
     runMaybeT $ (,) <$> MaybeT (getBlock x) <*> MaybeT (getUndo x)
@@ -84,7 +84,7 @@ putBlock undo blk = do
     flip putData undo =<< undoDataPath h
     putBi (blockIndexKey h) (T.getBlockHeader blk)
 
-deleteBlock :: (MonadDB m, MonadCatch m) => HeaderHash -> m ()
+deleteBlock :: (MonadDB m) => HeaderHash -> m ()
 deleteBlock hh = do
     delete (blockIndexKey hh)
     deleteData =<< blockDataPath hh
@@ -253,7 +253,7 @@ undoDataPath (unpack . sformat (hashHexF%".undo") -> fn) =
 ----------------------------------------------------------------------------
 
 getBlundThrow
-    :: (SscHelpersClass ssc, MonadDB m, MonadCatch m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Block ssc, Undo)
 getBlundThrow hash =
     maybeThrow (DBMalformed $ sformat errFmt hash) =<<
@@ -262,7 +262,7 @@ getBlundThrow hash =
     errFmt = ("getBlockThrow: no blund with HeaderHash: " %shortHashF)
 
 getBlockThrow
-    :: (SscHelpersClass ssc, MonadDB m, MonadCatch m)
+    :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Block ssc)
 getBlockThrow hash = maybeThrow (DBMalformed $ sformat errFmt hash) =<< getBlock hash
   where

@@ -18,7 +18,8 @@ import           Pos.Communication.Specs    (sendProposalOuts, sendVoteOuts)
 import           Pos.DB.Limits              (MonadDBLimits)
 import           Pos.DHT.Model              (DHTNode)
 
-import           Pos.Crypto                 (SafeSigner, hash, safeSign, safeToPublic)
+import           Pos.Crypto                 (SafeSigner, SignTag (SignUSVote), hash,
+                                             safeSign, safeToPublic)
 import           Pos.Update                 (UpdateProposal, UpdateVote (..))
 import           Pos.WorkMode               (MinWorkMode)
 
@@ -47,7 +48,7 @@ submitUpdateProposal sendActions ss na prop = do
             { uvKey        = safeToPublic ss
             , uvProposalId = upid
             , uvDecision   = True
-            , uvSignature  = safeSign ss (upid, True)
+            , uvSignature  = safeSign SignUSVote ss (upid, True)
             }
     void $ forConcurrently na $
         \addr -> sendUpdateProposal sendActions addr upid prop [initUpdVote]

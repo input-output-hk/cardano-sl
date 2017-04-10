@@ -23,12 +23,14 @@ import           Pos.Core.Address          (addressDetailedF, checkPubKeyAddress
                                             checkRedeemAddress, checkScriptAddress,
                                             checkUnknownAddressType)
 import           Pos.Core.Coin             (coinToInteger, sumCoins)
-import           Pos.Crypto                (WithHash (..), checkSig, hash, redeemCheckSig)
+import           Pos.Crypto                (SignTag (SignTxIn), WithHash (..), checkSig,
+                                            hash, redeemCheckSig)
 import           Pos.Script                (Script (..), isKnownScriptVersion,
                                             txScriptCheck)
 import           Pos.Txp.Core              (Tx (..), TxAux, TxDistribution (..),
                                             TxIn (..), TxInWitness (..), TxOut (..),
-                                            TxOutAux (..), TxUndo, TxWitness, txOutputs)
+                                            TxOutAux (..), TxSigData (..), TxUndo,
+                                            TxWitness, txOutputs)
 import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure      (ToilVerFailure (..))
 
@@ -150,8 +152,8 @@ verifyInputs VTxContext {..} resolvedInputs (view txOutputs -> outs, witnesses, 
     verifyGeneric . concat $
     zipWith3 inputPredicates [0 ..] (toList resolvedInputs) (toList witnesses)
   where
-    txOutHash = hash outs
-    distrsHash = hash distrs
+    outsHash  = hash outs
+    distrHash = hash distrs
     inputPredicates
         :: Word32           -- ^ Input index
         -> (TxIn, TxOutAux) -- ^ Input and corresponding output data
@@ -186,25 +188,39 @@ verifyInputs VTxContext {..} resolvedInputs (view txOutputs -> outs, witnesses, 
 
     -- third argument here is local context, can be used for scripts
     validateTxIn :: TxIn -> TxOutAux -> TxInWitness -> Either String ()
-    validateTxIn TxIn {..} _ PkWitness {..} =
-        unless (checkSig twKey (txInHash, txInIndex, txOutHash, distrsHash) twSig) $
-        Left "signature check failed"
-    validateTxIn TxIn{..} _txOutAux ScriptWitness{..}
-        | scrVersion twValidator /= scrVersion twRedeemer =
-            Left "validator and redeemer have different versions"
-        | not (isKnownScriptVersion (scrVersion twValidator)) =
-            Right ()
-        | otherwise =
-                let txSigData = (txInHash, txInIndex, txOutHash, distrsHash)
-                in txScriptCheck txSigData twValidator twRedeemer
-    validateTxIn TxIn{..} _ RedeemWitness{..}
-        | redeemCheckSig twRedeemKey (txInHash, txInIndex, txOutHash, distrsHash) twRedeemSig =
-            Right ()
-        | otherwise =
-            Left "signature check failed"
-    validateTxIn _ _ (UnknownWitnessType t _)
-        | vtcVerifyVersions = Left ("unknown witness type: " <> show t)
-        | otherwise         = Right ()
+    validateTxIn txIn _txOutAux wit =
+        let txSigData = TxSigData
+                { txSigInput     = txIn
+                , txSigOutsHash  = outsHash
+                , txSigDistrHash = distrHash
+                }
+        in
+        case wit of
+            PkWitness{..}
+                | checkSig SignTxIn twKey txSigData twSig ->
+                      Right ()
+                | otherwise ->
+                      Left "signature check failed"
+
+            ScriptWitness{..}
+                | scrVersion twValidator /= scrVersion twRedeemer ->
+                      Left "validator and redeemer have different versions"
+                | not (isKnownScriptVersion (scrVersion twValidator)) ->
+                      Right ()
+                | otherwise ->
+                      txScriptCheck txSigData twValidator twRedeemer
+
+            RedeemWitness{..}
+                | redeemCheckSig twRedeemKey txSigData twRedeemSig ->
+                      Right ()
+                | otherwise ->
+                      Left "signature check failed"
+
+            UnknownWitnessType t _
+                | vtcVerifyVersions ->
+                      Left ("unknown witness type: " <> show t)
+                | otherwise ->
+                      Right ()
 
 -- | Remove unspent outputs used in given transaction, add new unspent
 -- outputs.

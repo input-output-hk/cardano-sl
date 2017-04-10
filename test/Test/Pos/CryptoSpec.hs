@@ -10,7 +10,7 @@ import           Prelude                 ((!!))
 import           Test.Hspec              (Expectation, Spec, describe, it, shouldBe,
                                           specify)
 import           Test.Hspec.QuickCheck   (prop)
-import           Test.QuickCheck         (Arbitrary (..), Property, (===), (==>), vector)
+import           Test.QuickCheck         (Arbitrary (..), Property, vector, (===), (==>))
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 import           Universum
 
@@ -19,8 +19,9 @@ import qualified Pos.Crypto              as Crypto
 import           Pos.Crypto.Arbitrary    (SharedSecrets (..))
 import           Pos.Ssc.GodTossing      ()
 
-import           Test.Pos.Util           ((.=.), binaryEncodeDecode, binaryTest,
-                                          safeCopyEncodeDecode, safeCopyTest, serDeserId)
+import           Test.Pos.Util           (binaryEncodeDecode, binaryTest,
+                                          safeCopyEncodeDecode, safeCopyTest, serDeserId,
+                                          (.=.))
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -260,20 +261,20 @@ keyParsing pk = Crypto.parseFullPublicKey (sformat Crypto.fullPublicKeyF pk) ===
 
 signThenVerify
     :: Bi a
-    => Crypto.SecretKey -> a -> Bool
-signThenVerify sk a = Crypto.checkSig (Crypto.toPublic sk) a $ Crypto.sign sk a
+    => Crypto.SignTag -> Crypto.SecretKey -> a -> Bool
+signThenVerify t sk a = Crypto.checkSig t (Crypto.toPublic sk) a $ Crypto.sign t sk a
 
 signThenVerifyDifferentKey
     :: Bi a
-    => Crypto.SecretKey -> Crypto.PublicKey -> a -> Property
-signThenVerifyDifferentKey sk1 pk2 a =
-    (Crypto.toPublic sk1 /= pk2) ==> not (Crypto.checkSig pk2 a $ Crypto.sign sk1 a)
+    => Crypto.SignTag -> Crypto.SecretKey -> Crypto.PublicKey -> a -> Property
+signThenVerifyDifferentKey t sk1 pk2 a =
+    (Crypto.toPublic sk1 /= pk2) ==> not (Crypto.checkSig t pk2 a $ Crypto.sign t sk1 a)
 
 signThenVerifyDifferentData
     :: (Eq a, Bi a)
-    => Crypto.SecretKey -> a -> a -> Property
-signThenVerifyDifferentData sk a b =
-    (a /= b) ==> not (Crypto.checkSig (Crypto.toPublic sk) b $ Crypto.sign sk a)
+    => Crypto.SignTag -> Crypto.SecretKey -> a -> a -> Property
+signThenVerifyDifferentData t sk a b =
+    (a /= b) ==> not (Crypto.checkSig t (Crypto.toPublic sk) b $ Crypto.sign t sk a)
 
 proxySecretKeyCheckCorrect
     :: (Bi w) => Crypto.SecretKey -> Crypto.SecretKey -> w -> Bool

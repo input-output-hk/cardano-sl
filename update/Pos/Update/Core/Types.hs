@@ -69,7 +69,8 @@ import           Pos.Binary.Crypto          ()
 import           Pos.Core                   (BlockVersion, BlockVersionData (..),
                                              IsGenesisHeader, IsMainHeader, ScriptVersion,
                                              SoftwareVersion, addressHash)
-import           Pos.Crypto                 (Hash, PublicKey, SafeSigner, Signature,
+import           Pos.Crypto                 (Hash, PublicKey, SafeSigner,
+                                             SignTag (SignUSProposal), Signature,
                                              checkSig, hash, safeSign, safeToPublic,
                                              shortHashF, unsafeHash)
 import           Pos.Data.Attributes        (Attributes)
@@ -151,7 +152,7 @@ mkUpdateProposal
                     upSoftwareVersion
                     upData
                     upAttributes
-        unless (checkSig upFrom toSign upSignature) $
+        unless (checkSig SignUSProposal upFrom toSign upSignature) $
             fail $ "UpdateProposal: signature is invalid"
         pure UnsafeUpdateProposal{..}
 
@@ -181,7 +182,7 @@ mkUpdateProposalWSign
                     upData
                     upAttributes
         let upFrom = safeToPublic ss
-        let upSignature = safeSign ss toSign
+        let upSignature = safeSign SignUSProposal ss toSign
         pure UnsafeUpdateProposal{..}
 
 instance Bi UpdateProposal => Buildable UpdateProposal where

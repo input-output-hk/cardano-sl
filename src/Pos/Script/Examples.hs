@@ -35,9 +35,9 @@ import           NeatInterpolation  (text)
 import           Universum
 
 import           Pos.Binary.Core    ()
-import           Pos.Crypto         (PublicKey, SafeSigner, deterministicKeyGen,
-                                     fullPublicKeyHexF, fullSignatureHexF, safeSign,
-                                     signRaw)
+import           Pos.Crypto         (PublicKey, SafeSigner, SignTag (SignTxIn),
+                                     deterministicKeyGen, fullPublicKeyHexF,
+                                     fullSignatureHexF, safeSign, signRaw)
 import           Pos.Script         (Script, parseRedeemer, parseValidator)
 import           Pos.Txp.Core.Types (TxSigData)
 
@@ -141,7 +141,8 @@ multisigRedeemer txSigData sks = fromE $ parseRedeemer Nothing [text|
     mkCons Nothing s = sformat ("(Cons Nothing "%build%")") s
     mkCons (Just sig) s = sformat
         ("(Cons (Just #"%fullSignatureHexF%") "%build%")") sig s
-    shownSigs = foldr mkCons "Nil" $ (`safeSign` txSigData) <<$>> sks
+    sigs = map (fmap (\k -> safeSign SignTxIn k txSigData)) sks
+    shownSigs = foldr mkCons "Nil" sigs
 
 ----------------------------------------------------------------------------
 -- A pair with extra names
@@ -211,7 +212,7 @@ sigStressRedeemer n = fromE $ parseRedeemer Nothing [text|
   where
     ns = show n
     Just (pk, sk) = deterministicKeyGen (BS.replicate 32 0)
-    sig = signRaw sk (BS.pack [0])
+    sig = signRaw Nothing sk (BS.pack [0])
 
     keyS = sformat fullPublicKeyHexF pk
     sigS = sformat fullSignatureHexF sig

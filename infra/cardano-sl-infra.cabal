@@ -79,6 +79,7 @@ library
                         Pos.Binary.Infra.Communication
 
                         -- Pos.Util
+                        Pos.Util.LogSafe
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
 

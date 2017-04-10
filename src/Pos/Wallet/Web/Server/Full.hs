@@ -86,7 +86,7 @@ nat = do
     conn       <- getWalletWebSockets
     slotVar    <- lift . lift . lift . lift . lift . lift . lift . lift $ SlottingHolder ask
     ntpSlotVar <- lift . lift . lift . lift . lift . lift . lift $ NtpSlotting ask
-    pure $ Nat (convertHandler kinst nc modernDB tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar)
+    pure $ NT (convertHandler kinst nc modernDB tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar)
 
 convertHandler
     :: forall ssc a .

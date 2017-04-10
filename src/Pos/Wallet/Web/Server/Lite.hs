@@ -65,7 +65,7 @@ nat = do
     kinst <- lift . lift $ getKademliaDHTInstance
     wc    <- getWalletContext
     mws   <- getWalletState
-    return $ Nat (convertHandler kinst wc mws kd ws wsConn)
+    return $ NT (convertHandler kinst wc mws kd ws wsConn)
 
 convertHandler
     :: forall a .

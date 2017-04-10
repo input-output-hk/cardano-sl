@@ -19,9 +19,7 @@ import           System.Wlog                   (logDebug, logInfo, logNotice)
 import           Universum
 
 import           Pos.Binary.Class              (biSize)
-import           Pos.Constants                 (blkSecurityParam, genesisUpdateImplicit,
-                                                genesisUpdateProposalThd,
-                                                genesisUpdateVoteThd)
+import           Pos.Constants                 (blkSecurityParam, genesisUpdateVoteThd)
 import           Pos.Core                      (ChainDifficulty, Coin, EpochIndex,
                                                 HeaderHash, IsMainHeader (..),
                                                 SlotId (siEpoch), SoftwareVersion (..),
@@ -189,7 +187,8 @@ verifyProposalStake
     :: (MonadPollRead m, MonadError PollVerFailure m)
     => Coin -> [(UpdateVote, Coin)] -> UpId -> m ()
 verifyProposalStake totalStake votesAndStakes upId = do
-    let threshold = applyCoinPortion genesisUpdateProposalThd totalStake
+    thresholdPortion <- bvdUpdateProposalThd <$> getAdoptedBVData
+    let threshold = applyCoinPortion thresholdPortion totalStake
     let thresholdInt = coinToInteger threshold
     let votesSum =
             sumCoins . map snd . filter (uvDecision . fst) $ votesAndStakes
@@ -258,17 +257,17 @@ verifyAndApplyVoteDo cd ups v@UpdateVote {..} = do
     insertActiveProposal newPS
 
 -- According to implicit agreement rule all proposals which were put
--- into blocks earlier than 'genesisUpdateImplicit' slots before slot
+-- into blocks earlier than 'updateImplicit' slots before slot
 -- of current block become implicitly decided (approved or rejected).
 -- If proposal's total positive stake is bigger than negative, it's
 -- approved. Otherwise it's rejected.
 applyImplicitAgreement
     :: MonadPoll m
     => SlotId -> ChainDifficulty -> HeaderHash -> m ()
-applyImplicitAgreement (flattenSlotId -> slotId) cd hh
-    | slotId < genesisUpdateImplicit = pass
-    | otherwise = do
-        let oldSlot = unflattenSlotId $ slotId - genesisUpdateImplicit
+applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
+    BlockVersionData {..} <- getAdoptedBVData
+    let oldSlot = unflattenSlotId $ slotId - bvdUpdateImplicit
+    unless (slotId < bvdUpdateImplicit) $
         mapM_ applyImplicitAgreementDo =<< getOldProposals oldSlot
   where
     applyImplicitAgreementDo ups = do

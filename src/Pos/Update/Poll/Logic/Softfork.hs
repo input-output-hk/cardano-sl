@@ -13,10 +13,10 @@ import           Serokell.Util.Text         (listJson)
 import           System.Wlog                (logInfo)
 import           Universum
 
-import           Pos.Constants              (genesisUpdateSoftforkThd)
 import           Pos.Types                  (BlockVersion, Coin, EpochIndex, HeaderHash,
                                              SlotId (..), StakeholderId, applyCoinPortion,
                                              crucialSlot, sumCoins, unsafeIntegerToCoin)
+import           Pos.Update.Core            (BlockVersionData (..))
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure    (PollVerFailure (..))
 import           Pos.Update.Poll.Logic.Base (adoptBlockVersion, canBeAdoptedBV,
@@ -71,7 +71,8 @@ processGenesisBlock
 processGenesisBlock epoch = do
     -- First thing to do is to find out threshold for softfork resolution rule.
     totalStake <- note (PollUnknownStakes epoch) =<< getEpochTotalStake epoch
-    let threshold = applyCoinPortion genesisUpdateSoftforkThd totalStake
+    BlockVersionData {..} <- getAdoptedBVData
+    let threshold = applyCoinPortion bvdUpdateSoftforkThd totalStake
     -- Then we take all confirmed BlockVersions and check softfork
     -- resolution rule for them.
     confirmed <- getConfirmedBVStates

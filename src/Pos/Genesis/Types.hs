@@ -6,9 +6,9 @@ module Pos.Genesis.Types
 
 import           Universum
 
-import           Pos.Core                      (Address, Coin, coinToInteger, mkCoin,
-                                                sumCoins, unsafeAddCoin,
-                                                unsafeIntegerToCoin)
+import           Pos.Core                      (Address, Coin, StakeholderId,
+                                                coinToInteger, mkCoin, sumCoins,
+                                                unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap)
 import           Pos.Txp.Core.Types            (TxOutDistribution)
 
@@ -20,7 +20,7 @@ data StakeDistribution
                  !Coin     -- total number of coins
     | BitcoinStakes !Word  -- number of stakeholders
                     !Coin  -- total number of coins
-    | TestnetStakes
+    | RichPoorStakes
         { sdRichmen   :: !Word
         , sdRichStake :: !Coin
         , sdPoor      :: !Word
@@ -38,7 +38,7 @@ instance Monoid StakeDistribution where
 getTotalStake :: StakeDistribution -> Coin
 getTotalStake (FlatStakes _ st) = st
 getTotalStake (BitcoinStakes _ st) = st
-getTotalStake TestnetStakes {..} = unsafeIntegerToCoin $
+getTotalStake RichPoorStakes {..} = unsafeIntegerToCoin $
     coinToInteger sdRichStake * fromIntegral sdRichmen +
     coinToInteger sdPoorStake * fromIntegral sdPoor
 getTotalStake ExponentialStakes = mkCoin . sum $
@@ -52,13 +52,14 @@ getTotalStake (CombinedStakes st1 st2) =
 
 -- | Hardcoded genesis data
 data GenesisData = GenesisData
-    { gdAddresses       :: [Address]
-    , gdDistribution    :: StakeDistribution
-    , gdVssCertificates :: VssCertificatesMap
+    { gdAddresses         :: [Address]
+    , gdDistribution      :: StakeDistribution
+    , gdVssCertificates   :: VssCertificatesMap
+    , gdBootstrapBalances :: !(HashMap StakeholderId Coin)
     }
     deriving (Show, Eq)
 
 instance Monoid GenesisData where
-    mempty = GenesisData mempty mempty mempty
-    (GenesisData addrsA distA vssA) `mappend` (GenesisData addrsB distB vssB) =
-        GenesisData (addrsA <> addrsB) (distA <> distB) (vssA <> vssB)
+    mempty = GenesisData mempty mempty mempty mempty
+    (GenesisData addrsA distA vssA bbsA) `mappend` (GenesisData addrsB distB vssB bbsB) =
+        GenesisData (addrsA <> addrsB) (distA <> distB) (vssA <> vssB) (bbsA <> bbsB)

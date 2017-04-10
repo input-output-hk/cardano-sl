@@ -21,13 +21,14 @@ import           Pos.Core.Types             (ScriptVersion)
 import           Pos.Core.Version           (parseBlockVersion, parseSoftwareVersion)
 import           Pos.Crypto                 (Hash, decodeHash)
 import           Pos.Txp                    (TxOut (..))
-import           Pos.Types                  (Address (..), BlockVersion, EpochIndex,
+import           Pos.Types                  (Address (..), BlockVersion, Coin, EpochIndex,
                                              SoftwareVersion, decodeTextAddress, mkCoin)
 import           Pos.Update                 (UpId)
 
 data Command
     = Balance Address
     | Send Int (NonEmpty TxOut)
+    | SendToAllGenesis Coin Int
     | Vote Int Bool UpId
     | ProposeUpdate
           { puIdx             :: Int           -- TODO: what is this? rename
@@ -42,6 +43,8 @@ data Command
     | ListAddresses
     | DelegateLight !Int !Int
     | DelegateHeavy !Int !Int !(Maybe EpochIndex)
+    | AddKeyFromPool !Int
+    | AddKeyFromFile !FilePath
     | Quit
     deriving Show
 
@@ -68,8 +71,11 @@ address = lexeme $ do
 num :: Num a => Parser a
 num = lexeme $ fromInteger . read <$> many1 digit
 
+coin :: Parser Coin
+coin = mkCoin <$> num
+
 txout :: Parser TxOut
-txout = TxOut <$> address <*> (mkCoin <$> num)
+txout = TxOut <$> address <*> coin
 
 hash :: Parser (Hash a)
 hash = decodeHash <$> anyText
@@ -88,8 +94,15 @@ delegateL, delegateH :: Parser Command
 delegateL = DelegateLight <$> num <*> num
 delegateH = DelegateHeavy <$> num <*> num <*> optional num
 
+addKeyFromPool, addKeyFromFile :: Parser Command
+addKeyFromPool = AddKeyFromPool <$> num
+addKeyFromFile = AddKeyFromFile <$> lexeme (many1 anyChar)
+
 send :: Parser Command
 send = Send <$> num <*> (NE.fromList <$> many1 txout)
+
+sendToAllGenesis :: Parser Command
+sendToAllGenesis = SendToAllGenesis <$> coin <*> num
 
 vote :: Parser Command
 vote = Vote <$> num <*> switch <*> hash
@@ -107,11 +120,14 @@ proposeUpdate =
 
 command :: Parser Command
 command = try (text "balance") *> balance <|>
+          try (text "send-to-all-genesis") *> sendToAllGenesis <|>
           try (text "send") *> send <|>
           try (text "vote") *> vote <|>
           try (text "propose-update") *> proposeUpdate <|>
           try (text "delegate-light") *> delegateL <|>
           try (text "delegate-heavy") *> delegateH <|>
+          try (text "add-key-pool") *> addKeyFromPool <|>
+          try (text "add-key") *> addKeyFromFile <|>
           try (text "quit") *> pure Quit <|>
           try (text "help") *> pure Help <|>
           try (text "listaddr") *> pure ListAddresses <?>

@@ -5,30 +5,38 @@
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-import           Control.Concurrent       (modifyMVar_)
-import           Control.Concurrent.Async hiding (wait)
-import           Data.List                (isSuffixOf)
-import qualified Filesystem.Path          as FP
-import           Options.Applicative      (Mod, OptionFields, Parser, ParserInfo, auto,
-                                           execParser, fullDesc, help, helper, info, long,
-                                           metavar, option, progDesc, short, strOption)
-import           System.Directory         (getTemporaryDirectory)
-import qualified System.IO                as IO
-import           System.Process           (ProcessHandle)
-import qualified System.Process           as Process
-import           System.Timeout           (timeout)
-import           Turtle                   hiding (option, toText)
-import           Universum                hiding (FilePath)
+import           Control.Concurrent        (modifyMVar_)
+import           Control.Concurrent.Async  (Async, cancel, poll, waitAny,
+                                            withAsyncWithUnmask)
+import           Data.List                 (isSuffixOf)
+import qualified Filesystem.Path           as FP
+import           Filesystem.Path.CurrentOS (encodeString)
+import           Options.Applicative       (Mod, OptionFields, Parser, ParserInfo, auto,
+                                            execParser, fullDesc, help, helper, info,
+                                            long, metavar, option, progDesc, short,
+                                            strOption)
+import           System.Directory          (getTemporaryDirectory)
+import           System.FilePath           ((</>))
+import qualified System.IO                 as IO
+import           System.Process            (ProcessHandle)
+import qualified System.Process            as Process
+import           System.Timeout            (timeout)
+import           System.Wlog               (lcFilePrefix)
+import           Turtle                    (ExitCode (..), FilePath, Line, Shell,
+                                            appendonly, d, echo, fork, format, fp, mktemp,
+                                            mktree, outhandle, printf, proc, rm, s, sh,
+                                            sleep, testfile, wait, (%))
+import           Universum                 hiding (FilePath)
 
 -- Modules needed for the “Turtle internals” session
-import           Control.Exception        (handle, mask_, throwIO)
-import           Foreign.C.Error          (Errno (..), ePIPE)
-import           GHC.IO.Exception         (IOErrorType (..), IOException (..))
+import           Control.Exception         (handle, mask_, throwIO)
+import           Foreign.C.Error           (Errno (..), ePIPE)
+import           GHC.IO.Exception          (IOErrorType (..), IOException (..))
 
-import           Paths_cardano_sl         (version)
-import           Pos.CLI                  (readLoggerConfig)
-import           Pos.Reporting.Methods    (chooseLogFiles, retrieveLogFiles, sendReport)
-import           Pos.ReportServer.Report  (ReportType (..))
+import           Paths_cardano_sl          (version)
+import           Pos.CLI                   (readLoggerConfig)
+import           Pos.Reporting.Methods     (retrieveLogFiles, sendReport)
+import           Pos.ReportServer.Report   (ReportType (..))
 
 data LauncherOptions = LO
     { loNodePath       :: !FilePath
@@ -282,16 +290,14 @@ reportNodeCrash
     -> m ()
 reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
     logConfig <- readLoggerConfig (toString <$> logConfPath)
-    let logFileNames = map snd $ retrieveLogFiles logConfig
-    -- TODO: we don't want to send all logs;
-    -- see Pos.Reporting.Methods.sendReportNode
-    logFiles <-
-        (toString logPath :) <$>
-        concatMapM chooseLogFiles (filter (".pub" `isSuffixOf`) logFileNames)
+    let logFileNames =
+            map ((fromMaybe "" (logConfig ^. lcFilePrefix) </>) . snd) $
+            retrieveLogFiles logConfig
+    let logFiles = filter (".pub" `isSuffixOf`) logFileNames
     let ec = case exitCode of
             ExitSuccess   -> 0
             ExitFailure n -> n
-    sendReport logFiles [] (RCrash ec) "cardano-node" version reportServ
+    sendReport (encodeString logPath:logFiles) [] (RCrash ec) "cardano-node" version reportServ
 
 ----------------------------------------------------------------------------
 -- Utils

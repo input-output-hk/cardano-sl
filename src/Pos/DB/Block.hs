@@ -26,16 +26,19 @@ import           Control.Lens              (_Wrapped)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.ByteArray            (convert)
 import           Data.Default              (Default (def))
+import           Data.Text                 (unpack)
 import           Formatting                (sformat, (%))
+import           System.FilePath           ((</>))
 import           Universum
 
 import           Pos.Binary.Block          ()
 import           Pos.Binary.Class          (Bi)
 import           Pos.Block.Types           (Blund, Undo (..))
-import           Pos.Crypto                (shortHashF)
-import           Pos.DB.Class              (MonadDB, getBlockDB)
+import           Pos.Crypto                (hashHexF, shortHashF)
+import           Pos.DB.Class              (MonadDB, getBlockIndexDB, getNodeDBs)
 import           Pos.DB.Error              (DBError (..))
 import           Pos.DB.Functions          (rocksDelete, rocksGetBi, rocksPutBi)
+import           Pos.DB.Types              (blockData)
 import           Pos.Ssc.Class.Helpers     (SscHelpersClass)
 import           Pos.Types                 (Block, BlockHeader, GenesisBlock,
                                             HasDifficulty (difficultyL), HasPrevBlock,
@@ -49,17 +52,17 @@ import           Pos.Util.Chrono           (NewestFirst (..))
 getBlock
     :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Maybe (Block ssc))
-getBlock = getBi . blockKey
+getBlock = blockDataPath >=> getData
 
 -- | Returns header of block that was requested from Block DB.
 getBlockHeader
     :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Maybe (BlockHeader ssc))
-getBlockHeader h = fmap T.getBlockHeader <$> getBlock h
+getBlockHeader = getBi . blockIndexKey
 
 -- | Get undo data for block with given hash from Block DB.
 getUndo :: MonadDB m => HeaderHash -> m (Maybe Undo)
-getUndo = getBi . undoKey
+getUndo = undoDataPath >=> getData
 
 -- | Retrieves block and undo together.
 getBlockWithUndo
@@ -74,11 +77,15 @@ putBlock
     => Undo -> Block ssc -> m ()
 putBlock undo blk = do
     let h = headerHash blk
-    putBi (blockKey h) blk
-    putBi (undoKey h) undo
+    flip putData blk =<< blockDataPath h
+    flip putData undo =<< undoDataPath h
+    putBi (blockIndexKey h) (T.getBlockHeader blk)
 
 deleteBlock :: (MonadDB m) => HeaderHash -> m ()
-deleteBlock = delete . blockKey
+deleteBlock hh = do
+    delete (blockIndexKey hh)
+    deleteData =<< blockDataPath hh
+    deleteData =<< undoDataPath hh
 
 ----------------------------------------------------------------------------
 -- Load
@@ -194,11 +201,8 @@ prepareBlockDB = putBlock def . Left
 -- Keys
 ----------------------------------------------------------------------------
 
-blockKey :: HeaderHash -> ByteString
-blockKey h = "b" <> convert h
-
-undoKey :: HeaderHash -> ByteString
-undoKey h = "u" <> convert h
+blockIndexKey :: HeaderHash -> ByteString
+blockIndexKey h = "b" <> convert h
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -207,15 +211,32 @@ undoKey h = "u" <> convert h
 getBi
     :: (MonadDB m, Bi v)
     => ByteString -> m (Maybe v)
-getBi k = rocksGetBi k =<< getBlockDB
+getBi k = rocksGetBi k =<< getBlockIndexDB
 
 putBi
     :: (MonadDB m, Bi v)
     => ByteString -> v -> m ()
-putBi k v = rocksPutBi k v =<< getBlockDB
+putBi k v = rocksPutBi k v =<< getBlockIndexDB
 
 delete :: (MonadDB m) => ByteString -> m ()
-delete k = rocksDelete k =<< getBlockDB
+delete k = rocksDelete k =<< getBlockIndexDB
+
+getData ::  (MonadIO m, Bi v) => FilePath -> m (Maybe v)
+getData = undefined
+
+putData ::  (MonadIO m, Bi v) => FilePath -> v -> m ()
+putData = undefined
+
+deleteData :: (MonadIO m) => FilePath -> m ()
+deleteData = undefined
+
+blockDataPath :: MonadDB m => HeaderHash -> m FilePath
+blockDataPath (unpack . sformat (hashHexF%".block") -> fn) =
+    (</> fn) . (^. blockData) <$> getNodeDBs
+
+undoDataPath :: MonadDB m => HeaderHash -> m FilePath
+undoDataPath (unpack . sformat (hashHexF%".undo") -> fn) =
+    (</> fn) . (^. blockData) <$> getNodeDBs
 
 ----------------------------------------------------------------------------
 -- Private functions

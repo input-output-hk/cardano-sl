@@ -110,6 +110,7 @@ function node_cmd {
   local stake_distr=$5
   local wallet_args=$6
   local kademlia_dump_path=$7
+  local system_start=$8
   local st=''
   local reb=''
   local ssc_algo=''
@@ -159,6 +160,7 @@ function node_cmd {
   echo -n " $report_server "
   echo -n " $wallet_args "
   echo -n " --kademlia-dump-path  $(dump_path $kademlia_dump_path)"
+  echo -n " --system-start $system_start"
   # echo -n " --monitor-port $monitor_port +RTS -T -RTS "
   echo ''
 }

@@ -80,14 +80,20 @@ isDevelopment = True
 isDevelopment = False
 #endif
 
+-- | In development there's a system start.
+--   TBD why not 0? Judging by other uses of system start, only positive
+--   numbers are OK. Is that true?
+defaultDevelopmentSysStart :: Timestamp
+defaultDevelopmentSysStart = Timestamp $ sec 1
+
 -- | System start time embeded into binary.
-staticSysStart :: Maybe Timestamp
+staticSysStart :: Timestamp
 staticSysStart
-    | isDevelopment = Nothing
-    | st > 0        = Just $ Timestamp $ sec st
+    | isDevelopment = defaultDevelopmentSysStart
+    | st > 0        = Timestamp $ sec st
     -- If several local nodes are started within 20 sec,
     -- they'll have same start time
-    | otherwise     = Just $ Timestamp $ sec $
+    | otherwise     = Timestamp $ sec $
           (after3Mins `div` divider + alignment) * divider
   where
     st = ccProductionNetworkStartTime coreConstants

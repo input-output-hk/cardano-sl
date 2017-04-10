@@ -8,7 +8,7 @@ import           Data.Maybe          (fromJust)
 import           Data.Proxy          (Proxy (..))
 import           Mockable            (Production)
 import           Serokell.Util       (sec)
-import           System.Wlog         (LoggerName)
+import           System.Wlog         (CanLog, LoggerName, HasLoggerName)
 import           Universum
 
 import           Pos.Binary          ()
@@ -119,7 +119,7 @@ fillUserSecretVSS userSecret = case userSecret ^. usVss of
         writeUserSecret us
         return us
 
-getNodeParams :: (MonadIO m, MonadFail m, MonadThrow m) => Args -> Timestamp -> m NodeParams
+getNodeParams :: (MonadIO m, MonadFail m, MonadThrow m, CanLog m, HasLoggerName m) => Args -> Timestamp -> m NodeParams
 getNodeParams args@Args {..} systemStart = do
     (primarySK, userSecret) <-
         userSecretWithGenesisKey args =<<
@@ -138,6 +138,7 @@ getNodeParams args@Args {..} systemStart = do
 #ifdef DEV_MODE
                 stakesDistr (CLI.flatDistr commonArgs)
                             (CLI.bitcoinDistr commonArgs)
+                            (CLI.richPoorDistr commonArgs)
                             (CLI.expDistr commonArgs)
 #else
                 genesisStakeDistribution

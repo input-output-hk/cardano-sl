@@ -6,7 +6,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/input-output-hk/cardano-sl
-    commit: e0cfc885305727d4c8f80a104e1e4b7370ff47cd
+    commit: 599e8dfdf3f2c4f2a1067eb2830defa3a92fc893
   extra-dep: true
   subdirs:
       - '.'
@@ -87,7 +87,7 @@ extra-deps:
 - serokell-util-0.1.5.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-1.0.4
+- log-warper-1.1.1
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.5.26                   # not yet in lts-8
 - haskell-src-exts-1.17.1         # derive has not moved to 1.18 yet
@@ -107,6 +107,11 @@ extra-deps:
 - purescript-bridge-0.10.1.0
 - cryptonite-0.22
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
+- servant-0.10                    # servant-multipart supports version servant-10 only
+- servant-server-0.10             # so it triggers another dependencies to be v10
+- servant-swagger-1.1.2.1
+- servant-docs-0.10
+- servant-multipart-0.10
 
 resolver: lts-8.5
 

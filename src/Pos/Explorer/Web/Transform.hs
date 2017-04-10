@@ -70,7 +70,7 @@ nat = do
     modernDB   <- getNodeDBs
     slotVar    <- lift . lift . lift . lift . lift . lift . lift $ SlottingHolder ask
     ntpSlotVar <- lift . lift . lift . lift . lift . lift $ NtpSlotting ask
-    pure $ Nat (convertHandler kinst nc modernDB tlw ssc delWrap psCtx slotVar ntpSlotVar)
+    pure $ NT (convertHandler kinst nc modernDB tlw ssc delWrap psCtx slotVar ntpSlotVar)
 
 convertHandler
     :: KademliaDHTInstance

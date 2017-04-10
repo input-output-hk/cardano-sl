@@ -22,7 +22,6 @@ module Pos.CLI
        , webPortOption
        , walletPortOption
        , ipPortOption
-       , sysStartParser
 
        , readPeersFile
        ) where
@@ -161,7 +160,7 @@ sysStartParser = Opt.option (Timestamp . sec <$> Opt.auto) $
   where
     -- In development mode, this parameter is mandatory.
     -- In production mode, it is optional, and its default value is populated
-    -- from `staticSysStart`.
+    -- from `staticSysStart`, which gets it from the config file.
     defaultValue =
         if isDevelopment then mempty else Opt.value staticSysStart
 

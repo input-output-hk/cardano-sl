@@ -74,11 +74,13 @@ baseParams loggingTag args@Args {..} = do
         }
 
 getNodeSystemStart :: (MonadIO m) => Timestamp -> m Timestamp
-getNodeSystemStart cliSystemStart | cliSystemStart >= 1400000000 =
-    -- UNIX time 1400000000 is Tue, 13 May 2014 16:53:20 GMT
-    pure cliSystemStart
-getNodeSystemStart cliSystemStart | otherwise = do
-    let frameLength = timestampToSeconds cliSystemStart
+getNodeSystemStart cliOrConfigSystemStart
+    | cliOrConfigSystemStart >= 1400000000 =
+    -- UNIX time 1400000000 is Tue, 13 May 2014 16:53:20 GMT.
+    -- It was chosen arbitrarily as some date far enough in the past.
+    pure cliOrConfigSystemStart
+getNodeSystemStart cliOrConfigSystemStart = do
+    let frameLength = timestampToSeconds cliOrConfigSystemStart
     currentPOSIXTime <- liftIO $ round <$> getPOSIXTime
     -- The whole timeline is split into frames, with the first frame starting
     -- at UNIX epoch start. We're looking for a time `t` which would be in the

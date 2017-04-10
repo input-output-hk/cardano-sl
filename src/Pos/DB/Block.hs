@@ -28,10 +28,10 @@ import           Data.ByteArray            (convert)
 import qualified Data.ByteString           as BS (readFile, writeFile)
 import qualified Data.ByteString.Lazy      as BSL
 import           Data.Default              (Default (def))
-import           Data.Text                 (unpack)
-import           Formatting                (sformat, (%))
+import           Formatting                (formatToString, sformat, (%))
 import           System.Directory          (removeFile)
 import           System.FilePath           ((</>))
+import           System.IO.Error           (isDoesNotExistError)
 import           Universum
 
 import           Pos.Binary.Block          ()
@@ -41,7 +41,7 @@ import           Pos.Crypto                (hashHexF, shortHashF)
 import           Pos.DB.Class              (MonadDB, getBlockIndexDB, getNodeDBs)
 import           Pos.DB.Error              (DBError (..))
 import           Pos.DB.Functions          (rocksDelete, rocksGetBi, rocksPutBi)
-import           Pos.DB.Types              (blockData)
+import           Pos.DB.Types              (blockDataDir)
 import           Pos.Ssc.Class.Helpers     (SscHelpersClass)
 import           Pos.Types                 (Block, BlockHeader, GenesisBlock,
                                             HasDifficulty (difficultyL), HasPrevBlock,
@@ -225,12 +225,7 @@ delete :: (MonadDB m) => ByteString -> m ()
 delete k = rocksDelete k =<< getBlockIndexDB
 
 getData ::  (MonadIO m, MonadCatch m, Bi v) => FilePath -> m (Maybe v)
-getData fp = liftIO (decodeMaybe . BSL.fromStrict <$> BS.readFile fp) `catch` handle
-  where
-    decodeMaybe x = case decodeFull x of
-        Left _  -> Nothing
-        Right r -> Just r
-    handle (_::SomeException) = pure Nothing
+getData fp = liftIO (rightToMaybe . decodeFull . BSL.fromStrict <$> BS.readFile fp)
 
 putData ::  (MonadIO m, Bi v) => FilePath -> v -> m ()
 putData fp = liftIO . BS.writeFile fp . encodeStrict
@@ -238,15 +233,17 @@ putData fp = liftIO . BS.writeFile fp . encodeStrict
 deleteData :: (MonadIO m, MonadCatch m) => FilePath -> m ()
 deleteData fp = (liftIO $ removeFile fp) `catch` handle
   where
-    handle (_::SomeException) = pure () -- poh
+    handle e
+        | isDoesNotExistError e = pure ()
+        | otherwise = throwM e
 
 blockDataPath :: MonadDB m => HeaderHash -> m FilePath
-blockDataPath (unpack . sformat (hashHexF%".block") -> fn) =
-    (</> fn) . (^. blockData) <$> getNodeDBs
+blockDataPath (formatToString (hashHexF%".block") -> fn) =
+    getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> fn
 
 undoDataPath :: MonadDB m => HeaderHash -> m FilePath
-undoDataPath (unpack . sformat (hashHexF%".undo") -> fn) =
-    (</> fn) . (^. blockData) <$> getNodeDBs
+undoDataPath (formatToString (hashHexF%".undo") -> fn) =
+    getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> fn
 
 ----------------------------------------------------------------------------
 -- Private functions

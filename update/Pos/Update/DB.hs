@@ -385,7 +385,7 @@ getAdoptedBVFullMaybe = gsGetBi adoptedBVKey
 -- Some instance
 ----------------------------------------------------------------------------
 
-instance (MonadIO m, MonadThrow m, MonadCatch m) =>
+instance (MonadIO m, MonadCatch m) =>
          DBLimits.MonadDBLimits (DBHolder m) where
     getMaxBlockSize = getMaxBlockSize
     getMaxHeaderSize = bvdMaxHeaderSize <$> getAdoptedBVData

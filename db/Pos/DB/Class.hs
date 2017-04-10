@@ -29,7 +29,7 @@ import           Pos.Util.Iterator            (ListHolderT (..))
 
 -- TODO write a documentation. LensLike' is just a lens. Written using
 -- LensLike' to avoid rankntypes.
-class (MonadIO m, MonadThrow m, MonadCatch m) => MonadDB m where
+class (MonadIO m, MonadCatch m) => MonadDB m where
     getNodeDBs :: m NodeDBs
     usingReadOptions :: Rocks.ReadOptions -> ASetter' NodeDBs DB -> m a -> m a
     usingWriteOptions :: Rocks.WriteOptions -> ASetter' NodeDBs DB -> m a -> m a

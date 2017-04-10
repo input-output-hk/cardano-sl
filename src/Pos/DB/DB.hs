@@ -54,12 +54,12 @@ openNodeDBs recreate fp = do
             removeDirectoryRecursive fp
     let blocksDir = fp </> "blocks"
     let blocksIndexPath = blocksDir </> "index"
-    let _blockData = blocksDir </> "data"
+    let _blockDataDir = blocksDir </> "data"
     let gStatePath = fp </> "gState"
     let lrcPath = fp </> "lrc"
     let miscPath = fp </> "misc"
     mapM_ ensureDirectoryExists [ blocksDir
-                                , _blockData
+                                , _blockDataDir
                                 , blocksIndexPath
                                 , gStatePath
                                 , lrcPath

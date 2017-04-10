@@ -7,14 +7,15 @@ import           Data.Maybe            (fromJust)
 import           Mockable              (Production)
 import           Node                  (hoistSendActions)
 import           Serokell.Util         (sec)
-import           System.Wlog           (LoggerName, logInfo)
+import           System.Wlog           (LoggerName, WithLogger, logInfo)
 import           Universum
 
 import           Pos.Binary            ()
 import qualified Pos.CLI               as CLI
 import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Constants         (isDevelopment, staticSysStart)
-import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
+import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, noPassEncrypt,
+                                        vssKeyGen)
 import           Pos.Genesis           (genesisDevSecretKeys, genesisStakeDistribution,
                                         genesisUtxo)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
@@ -33,8 +34,8 @@ import           Pos.Update.Context    (ucUpdateSemaphore)
 import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
-import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usPrimKey, usVss,
-                                        writeUserSecret)
+import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usPrimKey,
+                                        usVss, writeUserSecret)
 import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
 #ifdef WITH_WEB
 import           Pos.Web               (serveWebBase, serveWebGT)
@@ -135,7 +136,9 @@ userSecretWithGenesisKey Args{..} userSecret
           Nothing -> fetchPrimaryKey userSecret
           Just i -> do
               let sk = genesisDevSecretKeys !! i
-                  us = userSecret & usPrimKey .~ Just sk
+                  us = userSecret
+                       & usPrimKey .~ Just sk
+                       & usKeys %~ (noPassEncrypt sk :)
               writeUserSecret us
               return (sk, us)
     | otherwise = fetchPrimaryKey userSecret
@@ -181,12 +184,16 @@ processUserSecret
 processUserSecret args@Args {..} userSecret = case backupPhrase of
     Nothing -> updateUserSecretVSS args userSecret >>= userSecretWithGenesisKey args
     Just ph -> do
-        let (sk, vss) = keysFromPhrase ph
-            us = userSecret & usPrimKey .~ Just sk & usVss .~ Just vss
+        (sk, vss) <- either keyFromPhraseFailed pure $ keysFromPhrase ph
+        let us = userSecret & usPrimKey .~ Just sk & usVss .~ Just vss
         writeUserSecret us
         return (sk, us)
+  where
+    keyFromPhraseFailed msg = fail $ "Key creation from phrase failed: " <> show msg
 
-getNodeParams :: (MonadIO m, MonadFail m, MonadThrow m) => Args -> Timestamp -> m NodeParams
+getNodeParams
+    :: (MonadIO m, MonadFail m, MonadThrow m, WithLogger m)
+    => Args -> Timestamp -> m NodeParams
 getNodeParams args@Args {..} systemStart = do
     (primarySK, userSecret) <-
         userSecretWithGenesisKey args =<<
@@ -204,6 +211,7 @@ getNodeParams args@Args {..} systemStart = do
               if isDevelopment
                   then stakesDistr (CLI.flatDistr commonArgs)
                                    (CLI.bitcoinDistr commonArgs)
+                                   (CLI.richPoorDistr commonArgs)
                                    (CLI.expDistr commonArgs)
                   else genesisStakeDistribution
         , npTimeLord = timeLord

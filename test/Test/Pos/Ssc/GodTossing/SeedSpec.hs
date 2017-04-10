@@ -12,8 +12,9 @@ import           Formatting               (build, int, sformat, (%))
 import           Serokell.Util            (listJson)
 import           Test.Hspec               (Spec, describe, pending)
 import           Test.Hspec.QuickCheck    (modifyMaxSize, modifyMaxSuccess, prop)
+import           Test.Pos.Util            (formsCommutativeMonoid)
 import           Test.QuickCheck          (Property, choose, counterexample, generate,
-                                           ioProperty, property, sized, (===))
+                                           ioProperty, property, sized, (===), (.&&.))
 import           Test.QuickCheck.Property (failed, succeeded)
 import           Universum
 import           Unsafe                   ()
@@ -77,26 +78,14 @@ spec = do
 -- Properties
 ----------------------------------------------------------------------------
 
-xorFormsAbelianGroup :: SharedSeed -> SharedSeed -> SharedSeed -> Bool
+xorFormsAbelianGroup :: SharedSeed -> SharedSeed -> SharedSeed -> Property
 xorFormsAbelianGroup fts1 fts2 fts3 =
-    let isAssociative =
-            let assoc1 = (fts1 <> fts2) <> fts3
-                assoc2 = fts1 <> (fts2 <> fts3)
-            in assoc1 == assoc2
-        hasIdentity =
-            let id1 = mempty <> fts1
-                id2 = fts1 <> mempty
-            in (fts1 == id1) && (fts1 == id2)
-        hasInverses =
+    let hasInverses =
             let inv1 = fts1 <> fts2
                 inv2 = inv1 <> fts2
                 inv3 = fts1 <> inv1
             in inv2 == fts1 && inv3 == fts2
-        isCommutative =
-            let comm1 = fts1 <> fts2
-                comm2 = fts2 <> fts1
-            in comm1 == comm2
-    in isAssociative && hasIdentity && hasInverses && isCommutative
+    in formsCommutativeMonoid fts1 fts2 fts3 .&&. hasInverses
 
 -- | When each party has provided either an opening or shares (or both), we
 -- should be able to recover the secret. When at least somebody hasn't

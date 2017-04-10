@@ -4,50 +4,52 @@
 
 module Main where
 
-import           Control.Monad.Reader      (MonadReader (..), ReaderT, ask, asks,
-                                            runReaderT)
+import           Control.Monad.Reader      (MonadReader (..), ReaderT, ask, runReaderT)
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Data.ByteString           as BS
 import           Data.List                 ((!!))
+import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
 import           Data.Time.Units           (convertUnit)
 import           Formatting                (build, int, sformat, stext, (%))
+import           Mockable                  (delay)
 import           Options.Applicative       (execParser)
 import           System.IO                 (hFlush, stdout)
 import           System.Wlog               (logDebug, logError, logInfo, logWarning)
 #if !(defined(mingw32_HOST_OS))
-import           Mockable                  (delay)
 import           System.Exit               (ExitCode (ExitSuccess))
 import           System.Posix.Process      (exitImmediately)
 #endif
-import           Serokell.Util             (sec)
+import           Serokell.Util             (ms, sec)
 import           Universum
 
 import           Pos.Binary                (Raw)
 import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
                                             sendTxOuts, submitTx, worker)
-import           Pos.Constants             (genesisBlockVersionData)
+import           Pos.Constants             (genesisBlockVersionData, isDevelopment)
 import           Pos.Crypto                (Hash, SecretKey, SignTag (SignUSVote),
-                                            createProxySecretKey, fakeSigner, hash,
-                                            hashHexF, sign, toPublic, unsafeHash)
+                                            emptyPassphrase, encToPublic, fakeSigner,
+                                            hash, hashHexF, noPassEncrypt, safeSign,
+                                            toPublic, unsafeHash, withSafeSigner)
 import           Pos.Data.Attributes       (mkAttributes)
-import           Pos.Delegation            (sendProxySKHeavy, sendProxySKHeavyOuts,
-                                            sendProxySKLight, sendProxySKLightOuts)
+import           Pos.Delegation            (sendProxySKHeavyOuts, sendProxySKLightOuts)
 import           Pos.DHT.Model             (DHTNode, discoverPeers, getKnownPeers)
-import           Pos.Genesis               (genesisDevPublicKeys, genesisDevSecretKeys,
-                                            genesisUtxo)
+import           Pos.Genesis               (genesisDevSecretKeys,
+                                            genesisStakeDistribution, genesisUtxo)
 import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
                                             bracketResources, stakesDistr)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Ssc.NistBeacon        (SscNistBeacon)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
-import           Pos.Txp                   (TxOutAux (..), txaF)
-import           Pos.Types                 (EpochIndex (..), coinF, makePubKeyAddress)
+import           Pos.Txp                   (TxOut (..), TxOutAux (..), txaF)
+import           Pos.Types                 (coinF, makePubKeyAddress)
 import           Pos.Update                (BlockVersionData (..), UpdateVote (..),
                                             mkUpdateProposalWSign, patakUpdateData,
                                             skovorodaUpdateData)
-import           Pos.Wallet                (WalletMode, WalletParams (..), WalletRealMode,
+import           Pos.Util.UserSecret       (readUserSecret, usKeys)
+import           Pos.Wallet                (MonadKeys (addSecretKey, getSecretKeys),
+                                            WalletMode, WalletParams (..), WalletRealMode,
                                             getBalance, runWalletReal, sendProposalOuts,
                                             sendVoteOuts, submitUpdateProposal,
                                             submitVote)
@@ -65,26 +67,48 @@ runCmd :: WalletMode ssc m => SendActions m -> Command -> CmdRunner m ()
 runCmd _ (Balance addr) = lift (getBalance addr) >>=
                          putText . sformat ("Current balance: "%coinF)
 runCmd sendActions (Send idx outputs) = do
-    (skeys, na) <- ask
+    (_, na) <- ask
+    skeys <- getSecretKeys
     etx <-
-        lift $
-        submitTx
-            sendActions
-            (fakeSigner $ skeys !! idx)
-            na
-            (map (flip TxOutAux []) outputs)
+        lift $ withSafeSigner (skeys !! idx) (pure emptyPassphrase) $ \ss ->
+            submitTx
+                sendActions
+                ss
+                na
+                (map (flip TxOutAux []) outputs)
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
+runCmd sendActions (SendToAllGenesis amount delay_) = do
+    (skeys, na) <- ask
+    forM_ skeys $ \key -> do
+        let txOut = TxOut {
+            txOutAddress = makePubKeyAddress (toPublic key),
+            txOutValue = amount
+        }
+        etx <-
+            lift $
+            submitTx
+                sendActions
+                (fakeSigner key)
+                na
+                (NE.fromList [TxOutAux txOut []])
+        case etx of
+            Left err -> putText $ sformat ("Error: "%stext) err
+            Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
+        delay $ ms delay_
 runCmd sendActions v@(Vote idx decision upid) = do
     logDebug $ "Submitting a vote :" <> show v
-    (skeys, na) <- ask
+    (_, na) <- ask
+    skeys <- getSecretKeys
     let skey = skeys !! idx
+    signature <- lift $ withSafeSigner skey (pure emptyPassphrase) $ \ss ->
+                            pure $ safeSign SignUSVote ss (upid, decision)
     let voteUpd = UpdateVote
-            { uvKey        = toPublic skey
+            { uvKey        = encToPublic skey
             , uvProposalId = upid
             , uvDecision   = decision
-            , uvSignature  = sign SignUSVote skey (upid, decision)
+            , uvSignature  = signature
             }
     if null na
         then putText "Error: no addresses specified"
@@ -93,7 +117,8 @@ runCmd sendActions v@(Vote idx decision upid) = do
             putText "Submitted vote"
 runCmd sendActions ProposeUpdate{..} = do
     logDebug "Proposing update..."
-    (skeys, na) <- ask
+    (_, na) <- ask
+    skeys <- getSecretKeys
     (diffFile :: Maybe (Hash Raw)) <- runMaybeT $ do
         filePath <- MaybeT $ pure puFilePath
         fileData <- liftIO $ BS.readFile filePath
@@ -108,22 +133,22 @@ runCmd sendActions ProposeUpdate{..} = do
             }
     let udata = maybe patakUpdateData skovorodaUpdateData diffFile
     let whenCantCreate = error . mappend "Failed to create update proposal: "
-    let updateProposal =
-            either whenCantCreate identity $
-            mkUpdateProposalWSign
-                puBlockVersion
-                bvd
-                puSoftwareVersion
-                udata
-                (mkAttributes ())
-                skey
-    if null na
-        then putText "Error: no addresses specified"
-        else do
-            lift $ submitUpdateProposal sendActions skey na updateProposal
-            let id = hash updateProposal
-            putText $
-              sformat ("Update proposal submitted, upId: "%hashHexF) id
+    lift $ withSafeSigner skey (pure emptyPassphrase) $ \ss -> do
+        let updateProposal = either whenCantCreate identity $
+                mkUpdateProposalWSign
+                    puBlockVersion
+                    bvd
+                    puSoftwareVersion
+                    udata
+                    (mkAttributes ())
+                    ss
+        if null na
+            then putText "Error: no addresses specified"
+            else do
+                submitUpdateProposal sendActions ss na updateProposal
+                let id = hash updateProposal
+                putText $
+                  sformat ("Update proposal submitted, upId: "%hashHexF) id
 runCmd _ Help = do
     putText $
         unlines
@@ -131,6 +156,8 @@ runCmd _ Help = do
             , "   balance <address>              -- check balance on given address (may be any address)"
             , "   send <N> [<address> <coins>]+  -- create and send transaction with given outputs"
             , "                                     from own address #N"
+            , "   send-to-all-genesis <coins> <delay>  -- create and send transactions from all genesis addresses, delay in ms"
+            , "                                     to themselves with the given amount of coins"
             , "   vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base64) and"
             , "                                     decision, from own address #N"
             , "   propose-update <N> <block ver> <script ver> <slot duration> <max block size> <software ver> <propose_file>?"
@@ -139,27 +166,38 @@ runCmd _ Help = do
             , "   listaddr                       -- list own addresses"
             , "   delegate-light <N> <M>         -- delegate secret key #N to #M (genesis) light version"
             , "   delegate-heavy <N> <M>         -- delegate secret key #N to #M (genesis) heavyweight "
+            , "   add-key-pool <N>               -- add key from intial pool"
+            , "   add-key <file>                 -- add key from file"
             , "   help                           -- show this message"
             , "   quit                           -- shutdown node wallet"
             ]
 runCmd _ ListAddresses = do
-    addrs <- map (makePubKeyAddress . toPublic) <$> asks fst
-    putText "Available addresses:"
-    for_ (zip [0 :: Int ..] addrs) $
-        putText . uncurry (sformat $ "    #"%int%":   "%build)
-runCmd sendActions (DelegateLight i j) = do
-    let issuerSk = genesisDevSecretKeys !! i
-        delegatePk = genesisDevPublicKeys !! j
-        psk = createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
-    lift $ sendProxySKLight psk sendActions
-    putText "Sent lightweight cert"
-runCmd sendActions (DelegateHeavy i j epochMaybe) = do
-    let issuerSk = genesisDevSecretKeys !! i
-        delegatePk = genesisDevPublicKeys !! j
-        epoch = fromMaybe 0 epochMaybe
-        psk = createProxySecretKey issuerSk delegatePk epoch
-    lift $ sendProxySKHeavy psk sendActions
-    putText "Sent heavyweight cert"
+   addrs <- map (makePubKeyAddress . encToPublic) <$> getSecretKeys
+   putText "Available addresses:"
+   for_ (zip [0 :: Int ..] addrs) $
+       putText . uncurry (sformat $ "    #"%int%":   "%build)
+runCmd __sendActions (DelegateLight __i __j) = error "Not implemented"
+--   (skeys, _) <- ask
+--   let issuerSk = skeys !! i
+--       delegatePk = undefined
+--       psk = createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
+--   lift $ sendProxySKLight psk sendActions
+--   putText "Sent lightweight cert"
+runCmd __sendActions (DelegateHeavy __i __j __epochMaybe) = error "Not implemented"
+--   (skeys, _) <- ask
+--   let issuerSk = skeys !! i
+--       delegatePk = undefined
+--       epoch = fromMaybe 0 epochMaybe
+--       psk = createProxySecretKey issuerSk delegatePk epoch
+--   lift $ sendProxySKHeavy psk sendActions
+--   putText "Sent heavyweight cert"
+runCmd _ (AddKeyFromPool i) = do
+   (skeys, _) <- ask
+   let key = skeys !! i
+   addSecretKey $ noPassEncrypt key
+runCmd _ (AddKeyFromFile f) = do
+    secret <- readUserSecret f
+    mapM_ addSecretKey $ secret ^. usKeys
 runCmd _ Quit = pure ()
 
 runCmdOuts :: OutSpecs
@@ -201,13 +239,15 @@ runWalletRepl :: WalletMode ssc m => WalletOptions -> Worker' m
 runWalletRepl wo sa = do
     na <- initialize wo
     putText "Welcome to Wallet CLI Node"
-    runReaderT (evalCmd sa Help) (genesisDevSecretKeys, na)
+    let keysPool = if isDevelopment then genesisDevSecretKeys else []
+    runReaderT (evalCmd sa Help) (keysPool, na)
 
 runWalletCmd :: WalletMode ssc m => WalletOptions -> Text -> Worker' m
 runWalletCmd wo str sa = do
     na <- initialize wo
     let strs = T.splitOn "," str
-    flip runReaderT (genesisDevSecretKeys, na) $ for_ strs $ \scmd -> do
+    let keysPool = if isDevelopment then genesisDevSecretKeys else []
+    flip runReaderT (keysPool, na) $ for_ strs $ \scmd -> do
         let mcmd = parseCommand scmd
         case mcmd of
             Left err   -> putStrLn err
@@ -262,9 +302,12 @@ main = do
                 , wpBaseParams  = baseParams
                 , wpGenesisUtxo =
                     genesisUtxo $
-                    stakesDistr (CLI.flatDistr woCommonArgs)
-                                (CLI.bitcoinDistr woCommonArgs)
-                                (CLI.expDistr woCommonArgs)
+                      if isDevelopment
+                          then stakesDistr (CLI.flatDistr woCommonArgs)
+                                           (CLI.bitcoinDistr woCommonArgs)
+                                           (CLI.richPoorDistr woCommonArgs)
+                                           (CLI.expDistr woCommonArgs)
+                          else genesisStakeDistribution
                 }
 
             plugins :: ([ WorkerSpec WalletRealMode ], OutSpecs)

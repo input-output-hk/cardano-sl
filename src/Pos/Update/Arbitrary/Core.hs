@@ -12,7 +12,7 @@ import           Test.QuickCheck       (Arbitrary (..), listOf1, oneof)
 import           Universum
 
 import           Pos.Binary.Update     ()
-import           Pos.Crypto            (SignTag (SignUSVote), sign, toPublic)
+import           Pos.Crypto            (SignTag (SignUSVote), fakeSigner, sign, toPublic)
 import           Pos.Crypto.Arbitrary  ()
 import           Pos.Data.Attributes   (mkAttributes)
 import           Pos.Types.Arbitrary   ()
@@ -44,7 +44,7 @@ instance Arbitrary UpdateProposal where
         upSoftwareVersion <- arbitrary
         upData <- HM.fromList <$> listOf1 arbitrary
         let upAttributes = mkAttributes ()
-        skey <- arbitrary
+        ss <- fakeSigner <$> arbitrary
         let onFailure = error . mappend "arbitrary @UpdateProposal failed: "
         either onFailure pure $
             mkUpdateProposalWSign
@@ -53,7 +53,7 @@ instance Arbitrary UpdateProposal where
                 upSoftwareVersion
                 upData
                 upAttributes
-                skey
+                ss
 
 instance Arbitrary VoteState where
     arbitrary =

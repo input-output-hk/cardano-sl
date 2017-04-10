@@ -272,6 +272,7 @@ main = do
                                         stakesDistr
                                         (CLI.flatDistr goCommonArgs)
                                         (CLI.bitcoinDistr goCommonArgs)
+                                        (CLI.richPoorDistr goCommonArgs)
                                         (CLI.expDistr goCommonArgs)
                 , npTimeLord      = False
                 , npJLFile        = goJLFile

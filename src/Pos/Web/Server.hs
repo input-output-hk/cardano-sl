@@ -26,7 +26,7 @@ import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import           Servant.API                          ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server                       (Handler, ServantErr (errBody),
                                                        Server, ServerT, err404, serve)
-import           Servant.Utils.Enter                  ((:~>) (Nat), enter)
+import           Servant.Utils.Enter                  ((:~>) (NT), enter)
 import           Universum
 
 import           Pos.Aeson.Types                      ()
@@ -115,7 +115,7 @@ nat = do
     nc <- getNodeContext
     nodeDBs <- DB.getNodeDBs
     txpLocalData <- askTxpMem
-    return $ Nat (convertHandler nc nodeDBs txpLocalData)
+    return $ NT (convertHandler nc nodeDBs txpLocalData)
 
 servantServerBase :: forall ssc m . MyWorkMode ssc m => m (Server (BaseNodeApi ssc))
 servantServerBase = flip enter baseServantHandlers <$> (nat @ssc @m)

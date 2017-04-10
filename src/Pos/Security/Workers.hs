@@ -38,12 +38,13 @@ import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
                                              getCommitmentsMap)
 import           Pos.Ssc.NistBeacon         (SscNistBeacon)
-import           Pos.Types                  (BlockHeader, EpochIndex, MainBlock,
+import           Pos.Types                  (Block, BlockHeader, EpochIndex, MainBlock,
                                              SlotId (..), addressHash, blockMpc,
-                                             flattenEpochOrSlot, flattenSlotId,
+                                             blockSlot, flattenEpochOrSlot, flattenSlotId,
                                              genesisHash, headerHash, headerLeaderKey,
                                              prevBlockL)
 import           Pos.Util                   (mconcatPair)
+import           Pos.Util.Chrono            (NewestFirst (..))
 import           Pos.WorkMode               (WorkMode)
 
 
@@ -66,7 +67,7 @@ checkForReceivedBlocksWorker =
 checkEclipsed
     :: (SscHelpersClass ssc, MonadDB m)
     => PublicKey -> SlotId -> BlockHeader ssc -> m Bool
-checkEclipsed ourPk slotId = notEclipsed
+checkEclipsed ourPk slotId x = notEclipsed x
   where
     onBlockLoadFailure header = do
         throwM $ DBMalformed $
@@ -145,42 +146,32 @@ checkForIgnoredCommitmentsWorker
     => (WorkerSpec m, OutSpecs)
 checkForIgnoredCommitmentsWorker = localWorker $ do
     epochIdx <- atomically (newTVar 0)
-    _ <- runReaderT (onNewSlot True checkForIgnoredCommitmentsWorkerImpl) epochIdx
-    return ()
+    void $ onNewSlot True (checkForIgnoredCommitmentsWorkerImpl epochIdx)
 
 checkForIgnoredCommitmentsWorkerImpl
-    :: forall m. WorkMode SscGodTossing m
-    => SlotId -> ReaderT (TVar EpochIndex) m ()
-checkForIgnoredCommitmentsWorkerImpl slotId = do
-    checkCommitmentsInPreviousBlocks slotId
-    tvar <- ask
-    lastCommitment <- lift $ atomically $ readTVar tvar
+    :: forall m. (WorkMode SscGodTossing m)
+    => TVar EpochIndex -> SlotId -> m ()
+checkForIgnoredCommitmentsWorkerImpl tvar slotId = do
+    -- Check prev blocks
+    (kBlocks :: NewestFirst [] (Block SscGodTossing)) <-
+        map fst <$> loadBlundsFromTipByDepth @SscGodTossing blkSecurityParam
+    forM_ kBlocks $ \blk -> whenRight blk checkCommitmentsInBlock
+
+    -- Print warning
+    lastCommitment <- atomically $ readTVar tvar
     when (siEpoch slotId - lastCommitment > mdNoCommitmentsEpochThreshold) $
         logWarning $ sformat
             ("Our neighbors are likely trying to carry out an eclipse attack! "%
              "Last commitment was at epoch "%int%", "%
              "which is more than 'mdNoCommitmentsEpochThreshold' epochs ago")
             lastCommitment
-
-checkCommitmentsInPreviousBlocks
-    :: forall m. WorkMode SscGodTossing m
-    => SlotId -> ReaderT (TVar EpochIndex) m ()
-checkCommitmentsInPreviousBlocks slotId = do
-    kBlocks <- map fst <$> loadBlundsFromTipByDepth blkSecurityParam
-    forM_ kBlocks $ \case
-        Right blk -> checkCommitmentsInBlock slotId blk
-        _         -> return ()
-
-checkCommitmentsInBlock
-    :: forall m. WorkMode SscGodTossing m
-    => SlotId -> MainBlock SscGodTossing -> ReaderT (TVar EpochIndex) m ()
-checkCommitmentsInBlock slotId block = do
-    ourId <- addressHash . ncPublicKey <$> getNodeContext
-    let commitmentInBlockchain = isCommitmentInPayload ourId (block ^. blockMpc)
-    when commitmentInBlockchain $ do
-        tvar <- ask
-        lift $ atomically $ writeTVar tvar $ siEpoch slotId
   where
+    checkCommitmentsInBlock :: MainBlock SscGodTossing -> m ()
+    checkCommitmentsInBlock block = do
+        ourId <- addressHash . ncPublicKey <$> getNodeContext
+        let commitmentInBlockchain = isCommitmentInPayload ourId (block ^. blockMpc)
+        when commitmentInBlockchain $
+            atomically $ writeTVar tvar $ siEpoch $ block ^. blockSlot
     isCommitmentInPayload addr (CommitmentsPayload commitments _) =
         HM.member addr $ getCommitmentsMap commitments
     isCommitmentInPayload _ _ = False

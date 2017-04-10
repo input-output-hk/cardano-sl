@@ -26,6 +26,9 @@ module Pos.Core.Types
        , applicationNameMaxLength
        , mkApplicationName
 
+       -- * Update system
+       , BlockVersionData (..)
+
        -- * HeaderHash related types and functions
        , BlockHeaderStub
        , HeaderHash
@@ -66,29 +69,31 @@ module Pos.Core.Types
        , ScriptVersion
        ) where
 
-import           Crypto.Hash          (Blake2b_224)
-import           Data.Char            (isAscii)
-import           Data.Data            (Data)
-import           Data.Default         (Default (..))
-import           Data.Hashable        (Hashable)
-import           Data.Ix              (Ix)
-import           Data.SafeCopy        (base, deriveSafeCopySimple)
-import qualified Data.Text            as T
-import           Data.Text.Buildable  (Buildable)
-import qualified Data.Text.Buildable  as Buildable
-import           Formatting           (Format, bprint, build, formatToString, int, ords,
-                                       shown, stext, (%))
-import qualified PlutusCore.Program   as PLCore
-import qualified Prelude
-import           Serokell.AcidState   ()
-import           Serokell.Util.Base16 (formatBase16)
 import           Universum
 
-import           Pos.Core.Timestamp   (Timestamp (..))
-import           Pos.Crypto           (AbstractHash, HDAddressPayload, Hash,
-                                       ProxySecretKey, ProxySignature, PublicKey,
-                                       RedeemPublicKey)
-import           Pos.Data.Attributes  (Attributes)
+import           Crypto.Hash                (Blake2b_224)
+import           Data.Char                  (isAscii)
+import           Data.Data                  (Data)
+import           Data.Default               (Default (..))
+import           Data.Hashable              (Hashable)
+import           Data.Ix                    (Ix)
+import           Data.SafeCopy              (base, deriveSafeCopySimple)
+import qualified Data.Text                  as T
+import qualified Data.Text.Buildable        as Buildable
+import           Data.Time.Units            (Millisecond)
+import           Formatting                 (Format, bprint, build, formatToString, int,
+                                             ords, shown, stext, (%))
+import qualified PlutusCore.Program         as PLCore
+import qualified Prelude
+import           Serokell.AcidState         ()
+import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util.Base16       (formatBase16)
+
+import           Pos.Core.Timestamp         (Timestamp (..))
+import           Pos.Crypto                 (AbstractHash, HDAddressPayload, Hash,
+                                             ProxySecretKey, ProxySignature, PublicKey,
+                                             RedeemPublicKey)
+import           Pos.Data.Attributes        (Attributes)
 
 ----------------------------------------------------------------------------
 -- Address
@@ -186,6 +191,26 @@ instance Hashable BlockVersion
 
 instance NFData BlockVersion
 instance NFData SoftwareVersion
+
+----------------------------------------------------------------------------
+-- Values updatable by update system
+----------------------------------------------------------------------------
+
+-- | Data which is associated with 'BlockVersion'.
+data BlockVersionData = BlockVersionData
+    { bvdScriptVersion     :: !ScriptVersion
+    , bvdSlotDuration      :: !Millisecond
+    , bvdMaxBlockSize      :: !Byte
+    , bvdMaxHeaderSize     :: !Byte
+    , bvdMaxTxSize         :: !Byte
+    , bvdMaxProposalSize   :: !Byte
+    , bvdMpcThd            :: !CoinPortion
+    , bvdHeavyDelThd       :: !CoinPortion
+    , bvdUpdateVoteThd     :: !CoinPortion
+    , bvdUpdateProposalThd :: !CoinPortion
+    , bvdUpdateImplicit    :: !FlatSlotId
+    , bvdUpdateSoftforkThd :: !CoinPortion
+    } deriving (Show, Eq, Generic, Typeable)
 
 ----------------------------------------------------------------------------
 -- HeaderHash

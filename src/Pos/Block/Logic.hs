@@ -61,7 +61,7 @@ import           Pos.Context                (NodeContext (ncNodeParams, ncTxpGlo
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash), hash,
                                              shortHashF)
 import           Pos.Data.Attributes        (mkAttributes)
-import           Pos.DB                     (DBError (..), MonadDB)
+import           Pos.DB                     (DBError (..), MonadDB, MonadDBCore)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
@@ -458,7 +458,7 @@ toTxpBlock = bimap convertGenesis convertMain
 -- header hash of new tip. It's up to caller to log warning that
 -- partial application happened.
 verifyAndApplyBlocks
-    :: (WorkMode ssc m, SscWorkersClass ssc)
+    :: (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
     => Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
 verifyAndApplyBlocks rollback =
     reportingFatal version . verifyAndApplyBlocksInternal True rollback
@@ -467,7 +467,7 @@ verifyAndApplyBlocks rollback =
 -- parameterizes LRC calculation which can be turned on/off with the first
 -- flag.
 verifyAndApplyBlocksInternal
-    :: forall ssc m. (WorkMode ssc m, SscWorkersClass ssc)
+    :: forall ssc m. (WorkMode ssc m, SscWorkersClass ssc, MonadDBCore m)
     => Bool -> Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
 verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
     tip <- GS.getTip
@@ -541,7 +541,8 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
 -- and ensured that chain is based on our tip. Blocks will be applied
 -- per-epoch, calculating lrc when needed if flag is set.
 applyBlocks
-    :: forall ssc m . (WorkMode ssc m, SscWorkersClass ssc)
+    :: forall ssc m.
+       (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
     => Bool -> Maybe PollModifier -> OldestFirst NE (Blund ssc) -> m ()
 applyBlocks calculateLrc pModifier blunds = do
     when (isLeft prefixHead && calculateLrc) $
@@ -577,7 +578,7 @@ rollbackBlocks blunds = do
 
 -- | Rollbacks some blocks and then applies some blocks.
 applyWithRollback
-    :: (WorkMode ssc m, SscWorkersClass ssc)
+    :: (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
     => NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
     -> OldestFirst NE (Block ssc)  -- ^ Blocks to apply
     -> m (Either Text HeaderHash)
@@ -602,7 +603,6 @@ applyWithRollback toRollback toApply = reportingFatal version $ runExceptT $ do
     applyBack = lift $ applyBlocks True Nothing reApply
     expectedTipApply = toApply ^. _Wrapped . _neHead . prevBlockL
     newestToRollback = toRollback ^. _Wrapped . _neHead . _1 . headerHashG
-
 
 ----------------------------------------------------------------------------
 -- GenesisBlock creation

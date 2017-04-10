@@ -16,6 +16,7 @@ import           Pos.Block.Worker        (blkWorkers)
 import           Pos.Communication       (OutSpecs, WorkerSpec, localWorker, relayWorkers,
                                           wrapActionSpec)
 import           Pos.Communication.Specs (allOutSpecs)
+import           Pos.DB                  (MonadDBCore)
 import           Pos.Delegation          (dlgWorkers)
 import           Pos.DHT.Workers         (dhtWorkers)
 import           Pos.Lrc.Worker          (lrcOnNewSlotWorker)
@@ -23,6 +24,7 @@ import           Pos.Security.Workers    (SecurityWorkersClass, securityWorkers)
 import           Pos.Slotting.Class      (MonadSlots (slottingWorkers))
 import           Pos.Slotting.Util       (logNewSlotWorker)
 import           Pos.Ssc.Class.Workers   (SscWorkersClass, sscWorkers)
+import           Pos.Txp.Worker          (txpWorkers)
 import           Pos.Update              (usWorkers)
 import           Pos.Util                (mconcatPair)
 import           Pos.Worker.SysStart     (sysStartWorker)
@@ -30,7 +32,11 @@ import           Pos.WorkMode            (WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers
-    :: (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m)
+    :: ( SscWorkersClass ssc
+       , SecurityWorkersClass ssc
+       , WorkMode ssc m
+       , MonadDBCore m
+       )
     => ([WorkerSpec m], OutSpecs)
 allWorkers = mconcatPair
     [
@@ -44,6 +50,7 @@ allWorkers = mconcatPair
 
       -- Have custom loggers
     , wrap' "block"      $ blkWorkers
+    , wrap' "txp"        $ txpWorkers
     , wrap' "delegation" $ dlgWorkers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
     , wrap' "relay"      $ relayWorkers allOutSpecs
@@ -58,6 +65,6 @@ allWorkers = mconcatPair
 
 allWorkersCount
     :: forall ssc m.
-       (SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m)
+       (MonadDBCore m, SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m)
     => Int
 allWorkersCount = length $ fst (allWorkers @ssc @m)

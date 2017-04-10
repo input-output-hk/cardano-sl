@@ -28,7 +28,7 @@ import           Mockable                    (ChannelT, Counter, Distribution, G
                                               SharedAtomicT, SharedExclusiveT, ThreadId,
                                               liftMockableWrappedM)
 import           Serokell.Util.Lens          (WrappedM (..))
-import           System.Wlog                 (CanLog, HasLoggerName)
+import           System.Wlog                 (CanLog, HasLoggerName, WithLogger)
 import           Universum
 
 import           Pos.Binary.Crypto           ()
@@ -164,7 +164,7 @@ instance ( Mockable d m
          ) => Mockable d (KeyStorage m) where
     liftMockable = liftMockableWrappedM
 
-runKeyStorage :: (MonadIO m, MonadThrow m) => FilePath -> KeyStorage m a -> m a
+runKeyStorage :: (MonadIO m, WithLogger m) => FilePath -> KeyStorage m a -> m a
 runKeyStorage fp ks =
     peekUserSecret fp >>= liftIO . STM.newTVarIO >>= runKeyStorageRaw ks
 

@@ -12,7 +12,7 @@ import           Pos.Types                    (mkCoin)
 
 
 instance Arbitrary T.GenesisData where
-    arbitrary = T.GenesisData <$> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = T.GenesisData <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 instance Arbitrary T.StakeDistribution where
     arbitrary = oneof
@@ -26,7 +26,7 @@ instance Arbitrary T.StakeDistribution where
            sdRichStake <- mkCoin <$> choose (100000, 5000000)
            sdPoor <- choose (0, 20)
            sdPoorStake <- mkCoin <$> choose (1000, 50000)
-           return T.TestnetStakes{..}
+           return T.RichPoorStakes{..}
       , return T.ExponentialStakes
       , T.ExplicitStakes <$> arbitrary
       ]

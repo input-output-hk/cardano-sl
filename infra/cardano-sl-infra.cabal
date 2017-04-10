@@ -63,6 +63,7 @@ library
                         Pos.Communication.Relay.Class
                         Pos.Communication.Relay.Logic
                         Pos.Communication.Relay.Types
+                        Pos.Communication.Relay.Util
                         Pos.Communication.Util
 
                         -- Pos.Communication
@@ -78,6 +79,7 @@ library
                         Pos.Binary.Infra.Communication
 
                         -- Pos.Util
+                        Pos.Util.LogSafe
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
 

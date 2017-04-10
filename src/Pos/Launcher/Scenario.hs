@@ -25,6 +25,7 @@ import           Pos.Communication  (ActionSpec (..), OutSpecs, WorkerSpec,
                                      wrapActionSpec)
 import           Pos.Context        (NodeContext (..), getNodeContext, ncPubKeyAddress,
                                      ncPublicKey)
+import           Pos.DB.Class       (MonadDBCore)
 import qualified Pos.DB.GState      as GS
 import           Pos.Delegation     (initDelegation)
 import           Pos.DHT.Model      (discoverPeers)
@@ -45,7 +46,7 @@ import           Pos.WorkMode       (WorkMode)
 -- | Run full node in any WorkMode.
 runNode'
     :: forall ssc m.
-       (SscConstraint ssc, WorkMode ssc m)
+       (SscConstraint ssc, WorkMode ssc m, MonadDBCore m)
     => [WorkerSpec m] -> WorkerSpec m
 runNode' plugins' = ActionSpec $ \vI sendActions -> do
     logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
@@ -79,7 +80,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
 
 -- | Run full node in any WorkMode.
 runNode
-    :: (SscConstraint ssc, WorkMode ssc m)
+    :: (SscConstraint ssc, WorkMode ssc m, MonadDBCore m)
     => ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
 runNode (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' $ workers' ++ plugins''
@@ -98,7 +99,7 @@ waitForPeers = discoverPeers >>= \case
 initSemaphore :: (WorkMode ssc m) => m ()
 initSemaphore = do
     semaphore <- ncBlkSemaphore <$> getNodeContext
-    whenNothingM_ (tryReadMVar semaphore) $
+    whenJustM (tryReadMVar semaphore) $ const $
         logError "ncBlkSemaphore is not empty at the very beginning"
     tip <- GS.getTip
     putMVar semaphore tip

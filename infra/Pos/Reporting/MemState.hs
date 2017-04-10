@@ -5,16 +5,19 @@
 module Pos.Reporting.MemState
        ( ReportingContext (..)
        , rcReportServers
+       , rcLoggingConfig
        , MonadReportingMem (..)
        ) where
 
-import           Control.Lens        (makeLenses)
-import           Control.Monad.Trans (MonadTrans)
+import           Control.Lens             (makeLenses)
+import           Control.Monad.Trans      (MonadTrans)
+import           System.Wlog.LoggerConfig (LoggerConfig)
 import           Universum
 
 -- | Context needed to provide remote reporting capabilities.
 data ReportingContext = ReportingContext
     { _rcReportServers :: ![Text] -- ^ Report servers list (urls)
+    , _rcLoggingConfig :: !LoggerConfig
     }
 
 makeLenses ''ReportingContext

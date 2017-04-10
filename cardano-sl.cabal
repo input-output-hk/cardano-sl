@@ -45,6 +45,7 @@ library
                         Pos.CompileConfig
                         Pos.Communication
                         Pos.Constants
+                        Pos.Crypto.Arbitrary
 
                         Pos.DB.DB
                         Pos.DB.Block
@@ -63,6 +64,9 @@ library
                         -- Scripting
                         Pos.Script
                         Pos.Script.Examples
+
+                        -- Slotting
+                        Pos.Slotting.Arbitrary
 
                         -- Something
                         Pos.Launcher
@@ -116,7 +120,6 @@ library
   -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:
                         Pos.Explorer
-                        Pos.Explorer.Core
   if flag(with-web)
     exposed-modules:    Pos.Web
   if flag(with-wallet)
@@ -161,7 +164,6 @@ library
                         Pos.Context.Holder
 
                         -- Crypto
-                        Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Unsafe
                         Pos.Crypto.HDDiscovery
 
@@ -305,6 +307,7 @@ library
                         Pos.Txp.Toil.Utxo.Functions
                         Pos.Txp.Toil.Utxo.Pure
                         Pos.Txp.Toil.Utxo.Util
+                        Pos.Txp.Worker
 
                         -- Types
                         Pos.Types.SharedSeed
@@ -315,6 +318,7 @@ library
 
                         -- Update System
                         Pos.Update.Arbitrary.Core
+                        Pos.Update.Arbitrary.MemState
                         Pos.Update.Arbitrary.Network
                         Pos.Update.Arbitrary.Poll
                         Pos.Update.Download
@@ -342,13 +346,12 @@ library
 
                         -- Utilities/helpers
                         Pos.Util.Arbitrary
-                        Pos.Util.LogSafe
                         Pos.Util.Undefined
 
   -- Explorer (TODO: move into cardano-explorer)
   other-modules:        Pos.Binary.Explorer
+                        Pos.Explorer.Core
                         Pos.Explorer.Core.Types
-                        Pos.Explorer.DB
                         Pos.Explorer.Txp
                         Pos.Explorer.Txp.Global
                         Pos.Explorer.Txp.Local
@@ -356,6 +359,7 @@ library
                         Pos.Explorer.Txp.Toil.Class
                         Pos.Explorer.Txp.Toil.Logic
                         Pos.Explorer.Txp.Toil.Types
+                        Pos.Explorer.DB
 
   if flag(with-web)
     other-modules:      Pos.Aeson.Crypto
@@ -450,7 +454,7 @@ library
                       , lens
                       , lifted-async
                       , list-t
-                      , log-warper >= 1.0.3
+                      , log-warper >= 1.1.1
                       , lrucache
                       , memory
                       , mmorph
@@ -500,8 +504,9 @@ library
   if flag(with-web)
     build-depends:      http-types
                       , servant >= 0.8.1
+                      , servant-multipart >= 0.10
                       , servant-docs >= 0.8.1
-                      , servant-server >= 0.8.1 
+                      , servant-server >= 0.8.1
                       , wai
                       , wai-extra
                       , warp
@@ -559,7 +564,7 @@ executable cardano-node
                      , filepath
                      , formatting
                      , lens
-                     , log-warper >= 1.0.3
+                     , log-warper
                      , network-transport
                      , node-sketch
                      , optparse-simple
@@ -609,7 +614,7 @@ executable cardano-analyzer
                      , cardano-sl-core
                      , cardano-sl
                      , formatting
-                     , log-warper >= 1.0.3
+                     , log-warper
                      , optparse-simple
                      , serokell-util >= 0.1.3.4
                      , text
@@ -661,7 +666,7 @@ executable cardano-wallet
                      , formatting
                      , lens
                      , lifted-async
-                     , log-warper >= 1.0.3
+                     , log-warper
                      , mtl
                      , network-transport
                      , node-sketch
@@ -778,7 +783,7 @@ executable cardano-smart-generator
                      , formatting
                      , lens
                      , lifted-async
-                     , log-warper >= 1.0.3
+                     , log-warper
                      , node-sketch
                      , optparse-applicative
                      , parsec
@@ -840,7 +845,7 @@ executable cardano-dht-keygen
                      , kademlia
                      , lens
                      , lifted-async
-                     , log-warper >= 1.0.3
+                     , log-warper
                      , optparse-applicative
                      , parsec
                      , random
@@ -968,6 +973,8 @@ executable cardano-wallet-web-api-swagger
                      , cardano-sl
                      , lens
                      , swagger2
+                     , servant-server
+                     , servant-multipart
                      , servant-swagger
                      , servant-swagger-ui
                      , universum >= 0.1.11
@@ -1027,6 +1034,7 @@ executable cardano-keygen
                      , cardano-sl-core
                      , cardano-sl
                      , ed25519
+                     , formatting
                      , universum >= 0.1
                      , serokell-util >= 0.1
                      , text
@@ -1037,6 +1045,7 @@ executable cardano-keygen
                      , random >= 1.1
                      , filepath
                      , directory
+                     , log-warper
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -1068,10 +1077,11 @@ executable cardano-launcher
                      , base
                      , optparse-applicative
                      , cardano-report-server >= 0.1.1
-                     , log-warper >= 1.0.3
+                     , log-warper
                      , cardano-sl
                      , cardano-sl-infra
                      , directory
+                     , filepath
                      , process
                      , system-filepath
                      , text
@@ -1123,6 +1133,8 @@ test-suite cardano-test
                        Test.Pos.Types.SlottingSpec
                        Test.Pos.Update.Identity.BinarySpec
                        Test.Pos.Update.Identity.SafeCopySpec
+                       Test.Pos.Update.MemStateSpec
+                       Test.Pos.Update.PollSpec
                        Test.Pos.Util
                        Test.Pos.UtilSpec
   type:                exitcode-stdio-1.0
@@ -1132,6 +1144,7 @@ test-suite cardano-test
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-infra >= 0.1
+                     , cardano-sl-update
                      , cardano-sl
                      , cereal
                      , containers
@@ -1142,7 +1155,7 @@ test-suite cardano-test
                      , hspec
                      , kademlia
                      , lens
-                     , log-warper >= 1.0.3
+                     , log-warper
                      , memory
                      , mtl
                      , node-sketch
@@ -1204,7 +1217,7 @@ benchmark cardano-bench-criterion
                      , formatting
                      , hashtables
                      , lens
-                     , log-warper >= 1.0.3
+                     , log-warper
                      , serokell-util >= 0.1.3.4
                      , text-format
                      , universum >= 0.1.11

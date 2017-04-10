@@ -12,15 +12,15 @@ import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
 import           Data.Time.Units           (convertUnit)
 import           Formatting                (build, int, sformat, stext, (%))
+import           Mockable                  (delay)
 import           Options.Applicative       (execParser)
 import           System.IO                 (hFlush, stdout)
 import           System.Wlog               (logDebug, logError, logInfo, logWarning)
 #if !(defined(mingw32_HOST_OS))
-import           Mockable                  (delay)
 import           System.Exit               (ExitCode (ExitSuccess))
 import           System.Posix.Process      (exitImmediately)
 #endif
-import           Serokell.Util             (sec)
+import           Serokell.Util             (ms, sec)
 import           Universum
 
 import           Pos.Binary                (Raw)
@@ -79,7 +79,7 @@ runCmd sendActions (Send idx outputs) = do
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
-runCmd sendActions (SendToAllGenesis amount) = do
+runCmd sendActions (SendToAllGenesis amount delay_) = do
     (skeys, na) <- ask
     forM_ skeys $ \key -> do
         let txOut = TxOut {
@@ -96,6 +96,7 @@ runCmd sendActions (SendToAllGenesis amount) = do
         case etx of
             Left err -> putText $ sformat ("Error: "%stext) err
             Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
+        delay $ ms delay_
 runCmd sendActions v@(Vote idx decision upid) = do
     logDebug $ "Submitting a vote :" <> show v
     (_, na) <- ask
@@ -155,7 +156,7 @@ runCmd _ Help = do
             , "   balance <address>              -- check balance on given address (may be any address)"
             , "   send <N> [<address> <coins>]+  -- create and send transaction with given outputs"
             , "                                     from own address #N"
-            , "   send-to-all-genesis <coins>    -- create and send transactions from all genesis addresses"
+            , "   send-to-all-genesis <coins> <delay>  -- create and send transactions from all genesis addresses, delay in ms"
             , "                                     to themselves with the given amount of coins"
             , "   vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base64) and"
             , "                                     decision, from own address #N"

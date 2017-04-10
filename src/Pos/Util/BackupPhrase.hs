@@ -53,10 +53,10 @@ instance Buildable BackupPhrase where
     build = build . T.unwords . bpToList
 
 instance Read BackupPhrase where
-    readsPrec _ str = either fail (pure . (, mempty) .BackupPhrase . T.words) $ toMnemonic =<< fromMnemonic (T.pack str)
+    readsPrec _ str = either fail (pure . (, mempty) .BackupPhrase . T.words) $ toMnemonic =<< fromMnemonic (toText str)
 
 toSeed :: BackupPhrase -> Either Text ByteString
-toSeed = first T.pack . fromMnemonic . T.unwords . bpToList
+toSeed = first toText . fromMnemonic . T.unwords . bpToList
 
 toHashSeed :: BackupPhrase -> Either Text ByteString
 toHashSeed bp = encodeStrict . blake2b <$> toSeed bp

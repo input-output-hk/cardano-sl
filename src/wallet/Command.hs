@@ -28,7 +28,7 @@ import           Pos.Update                 (UpId)
 data Command
     = Balance Address
     | Send Int (NonEmpty TxOut)
-    | SendToAllGenesis Coin
+    | SendToAllGenesis Coin Int
     | Vote Int Bool UpId
     | ProposeUpdate
           { puIdx             :: Int           -- TODO: what is this? rename
@@ -102,7 +102,7 @@ send :: Parser Command
 send = Send <$> num <*> (NE.fromList <$> many1 txout)
 
 sendToAllGenesis :: Parser Command
-sendToAllGenesis = SendToAllGenesis <$> coin
+sendToAllGenesis = SendToAllGenesis <$> coin <*> num
 
 vote :: Parser Command
 vote = Vote <$> num <*> switch <*> hash

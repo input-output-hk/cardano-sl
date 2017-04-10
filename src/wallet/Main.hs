@@ -28,10 +28,10 @@ import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
                                             sendTxOuts, submitTx, worker)
 import           Pos.Constants             (genesisBlockVersionData, isDevelopment)
-import           Pos.Crypto                (Hash, SecretKey, emptyPassphrase, encToPublic,
-                                            fakeSigner, hash, hashHexF, noPassEncrypt,
-                                            safeSign, toPublic, unsafeHash,
-                                            withSafeSigner)
+import           Pos.Crypto                (Hash, SecretKey, SignTag (SignUSVote),
+                                            emptyPassphrase, encToPublic, fakeSigner,
+                                            hash, hashHexF, noPassEncrypt, safeSign,
+                                            toPublic, unsafeHash, withSafeSigner)
 import           Pos.Data.Attributes       (mkAttributes)
 import           Pos.Delegation            (sendProxySKHeavyOuts, sendProxySKLightOuts)
 import           Pos.DHT.Model             (DHTNode, discoverPeers, getKnownPeers)
@@ -102,8 +102,8 @@ runCmd sendActions v@(Vote idx decision upid) = do
     (_, na) <- ask
     skeys <- getSecretKeys
     let skey = skeys !! idx
-    signature <- lift $ withSafeSigner skey (pure emptyPassphrase) $
-                                \ss -> pure $ safeSign ss (upid, decision)
+    signature <- lift $ withSafeSigner skey (pure emptyPassphrase) $ \ss ->
+                            pure $ safeSign SignUSVote ss (upid, decision)
     let voteUpd = UpdateVote
             { uvKey        = encToPublic skey
             , uvProposalId = upid

@@ -13,7 +13,8 @@ import           Universum
 import           Pos.Binary            (Bi)
 import           Pos.Block.Arbitrary   as T
 import           Pos.Crypto            (ProxySecretKey (pskIssuerPk), SecretKey,
-                                        createProxySecretKey, proxySign, sign, toPublic)
+                                        SignTag (SignMainBlock), createProxySecretKey,
+                                        proxySign, sign, toPublic)
 import           Pos.Data.Attributes   (mkAttributes)
 import           Pos.Ssc.Class         (Ssc (..), SscHelpersClass)
 import           Pos.Ssc.GodTossing    (SscGodTossing)
@@ -120,7 +121,9 @@ mainHeaderFormation prevHeader slotId signer body extra =
     makeSignature toSign (Right psk) = T.BlockPSignatureSimple $ proxySign sk psk toSign
     signature prevHash p =
         let toSign = T.MainToSign prevHash p slotId difficulty extra
-        in maybe (T.BlockSignature $ sign sk toSign) (makeSignature toSign) pSk
+        in maybe (T.BlockSignature (sign SignMainBlock sk toSign))
+                 (makeSignature toSign)
+             pSk
     consensus prevHash p =
         T.MainConsensusData
         { T._mcdSlot = slotId

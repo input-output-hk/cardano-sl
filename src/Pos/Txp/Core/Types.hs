@@ -13,7 +13,7 @@ module Pos.Txp.Core.Types
        , TxWitness
        , TxOutDistribution
        , TxDistribution (..)
-       , TxSigData
+       , TxSigData (..)
        , TxSig
 
        -- * Tx parts
@@ -78,7 +78,17 @@ type TxId = Hash Tx
 ----------------------------------------------------------------------------
 
 -- | Data that is being signed when creating a TxSig.
-type TxSigData = (TxId, Word32, Hash (NonEmpty TxOut), Hash TxDistribution)
+data TxSigData = TxSigData
+    { -- | Input that we're signing (i.e. our signature certifies that we own
+      -- funds referenced by this input)
+      txSigInput     :: !TxIn
+      -- | Outputs of the transaction (i.e. our signature certifies that we
+      -- actually want the funds to go to these particular outputs)
+    , txSigOutsHash  :: !(Hash (NonEmpty TxOut))
+      -- | Distribution of the transaction
+    , txSigDistrHash :: !(Hash TxDistribution)
+    }
+    deriving (Eq, Show, Generic, Typeable)
 
 -- | 'Signature' of addrId.
 type TxSig = Signature TxSigData

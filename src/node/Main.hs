@@ -76,11 +76,12 @@ baseParams loggingTag args@Args {..} = do
 
 getNodeSystemStart :: (MonadIO m) => Timestamp -> m Timestamp
 getNodeSystemStart cliOrConfigSystemStart
-    | cliOrConfigSystemStart >= 1400000000 =
+  | cliOrConfigSystemStart >= 1400000000 =
     -- UNIX time 1400000000 is Tue, 13 May 2014 16:53:20 GMT.
     -- It was chosen arbitrarily as some date far enough in the past.
+    -- See CSL-983 for more information.
     pure cliOrConfigSystemStart
-getNodeSystemStart cliOrConfigSystemStart = do
+  | otherwise = do
     let frameLength = timestampToSeconds cliOrConfigSystemStart
     currentPOSIXTime <- liftIO $ round <$> getPOSIXTime
     -- The whole timeline is split into frames, with the first frame starting

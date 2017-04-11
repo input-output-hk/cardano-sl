@@ -73,11 +73,11 @@ getKademliaParams Args {..} = do
     filePeers <- maybe (return []) readDhtPeersFile dhtPeersFile
     let allPeers = dhtPeersList ++ filePeers
     return $ KademliaParams
-                 { kpIpPort = dhtNetworkAddress
-                 , kpPeers = allPeers
-                 , kpKey = dhtKey
+                 { kpNetworkAddress  = dhtNetworkAddress
+                 , kpPeers           = allPeers
+                 , kpKey             = dhtKey
                  , kpExplicitInitial = dhtExplicitInitial
-                 , kpDump = kademliaDumpPath
+                 , kpDump            = kademliaDumpPath
                  }
 
 getBaseParams :: LoggerName -> Args -> BaseParams

@@ -8,7 +8,7 @@ import           Pos.DHT.Model.Types (DHTKey, DHTNode)
 
 -- | Parameters for the Kademlia DHT subsystem.
 data KademliaParams = KademliaParams {
-      kpIpPort          :: !NetworkAddress
+      kpNetworkAddress  :: !NetworkAddress
     , kpPeers           :: ![DHTNode]      -- ^ Peers passed from CLI
     , kpKey             :: !(Maybe DHTKey)
     , kpExplicitInitial :: !Bool

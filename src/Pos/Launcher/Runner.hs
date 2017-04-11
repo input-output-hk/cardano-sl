@@ -372,8 +372,8 @@ bracketDHTInstance BaseParams {..} KademliaParams {..} action = bracket acquire 
     instConfig =
         KademliaDHTInstanceConfig
         { kdcKey = kpKey
-        , kdcHost = fst kpIpPort
-        , kdcPort = snd kpIpPort
+        , kdcHost = fst kpNetworkAddress
+        , kdcPort = snd kpNetworkAddress
         , kdcInitialPeers = ordNub $ kpPeers ++ Const.defaultPeers
         , kdcExplicitInitial = kpExplicitInitial
         , kdcDumpPath = kpDump

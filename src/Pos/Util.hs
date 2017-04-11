@@ -71,8 +71,6 @@ import qualified Data.Cache.LRU                   as LRU
 import           Data.Hashable                    (Hashable)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (span, zipWith3)
-import           Data.SafeCopy                    (SafeCopy (..), base, contain,
-                                                   deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text                        as T
 import qualified Language.Haskell.TH              as TH
 import           Mockable                         (Mockable, Throw, throw)
@@ -109,7 +107,7 @@ readerToState
     => Reader s a -> m a
 readerToState = gets . runReader
 
-deriveSafeCopySimple 0 'base ''VerificationRes
+-- deriveSafeCopySimple 0 'base ''VerificationRes
 
 -- | A helper for simple error handling in executables
 eitherPanic :: Show a => Text -> Either a b -> b
@@ -218,16 +216,6 @@ _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
 -- | Remove all items from LRU, retaining maxSize property.
 clearLRU :: Ord k => LRU.LRU k v -> LRU.LRU k v
 clearLRU = LRU.newLRU . LRU.maxSize
-
--- [SRK-51]: Probably this instance should be in @safecopy@ library
-instance (Ord k, SafeCopy k, SafeCopy v) =>
-         SafeCopy (LRU.LRU k v) where
-    getCopy = contain $ LRU.fromList <$> safeGet <*> safeGet
-    putCopy lru =
-        contain $
-        do safePut $ LRU.maxSize lru
-           safePut $ LRU.toList lru
-    errorTypeName _ = "LRU"
 
 ----------------------------------------------------------------------------
 -- Deserialized wrapper

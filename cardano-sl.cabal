@@ -214,14 +214,8 @@ library
                         Pos.Lrc.Logic
                         Pos.Lrc.Worker
 
-                        -- SafeCopy serialization (obsolete, but still needed)
+                        -- SafeCopy serialization (required in wallet)
                         Pos.SafeCopy
-                        Pos.SafeCopy.GodTossing
-                        Pos.SafeCopy.GodTossing.Base
-                        Pos.SafeCopy.GodTossing.Types
-                        Pos.SafeCopy.GodTossing.VssCertData
-                        Pos.SafeCopy.Types
-                        Pos.SafeCopy.Update
 
                         -- SSC
                         Pos.Ssc.Class.Types

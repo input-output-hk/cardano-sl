@@ -422,7 +422,9 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
     instConfig =
         KademliaDHTInstanceConfig
         { kdcKey = bpDHTKey
-        , kdcHost = maybe "0.0.0.0" fst bpNetworkAddress
+        --, kdcHost = maybe "0.0.0.0" fst bpNetworkAddress
+        , kdcHost = "0.0.0.0" -- Amazon servers have different ifconfig (local) ip and public ip
+                              -- so we can't bind on public directly.
         , kdcPort = maybe 0 snd bpNetworkAddress
         , kdcInitialPeers = ordNub $ bpDHTPeers ++ Const.defaultPeers
         , kdcExplicitInitial = bpDHTExplicitInitial

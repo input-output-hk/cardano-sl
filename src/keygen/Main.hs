@@ -119,7 +119,7 @@ dumpKeys pat = do
     let keysDir = takeDirectory pat
     liftIO $ createDirectoryIfMissing True keysDir
     for_ (zip [1..] genesisDevSecretKeys) $ \(i :: Int, k) ->
-        generateKeyfile True (Just k) $ applyPattern pat i
+        generateKeyfile False (Just k) $ applyPattern pat i
 
 genGenesisBin
     :: (MonadIO m, MonadFail m, WithLogger m)

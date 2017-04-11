@@ -28,7 +28,7 @@ import           Data.ByteArray            (convert)
 import qualified Data.ByteString           as BS (readFile, writeFile)
 import qualified Data.ByteString.Lazy      as BSL
 import           Data.Default              (Default (def))
-import           Formatting                (formatToString, sformat, (%))
+import           Formatting                (build, formatToString, sformat, (%))
 import           System.Directory          (removeFile)
 import           System.FilePath           ((</>))
 import           System.IO.Error           (isDoesNotExistError)
@@ -39,7 +39,7 @@ import           Pos.Binary.Class          (Bi, decodeFull, encodeStrict)
 import           Pos.Block.Types           (Blund, Undo (..))
 import           Pos.Crypto                (hashHexF, shortHashF)
 import           Pos.DB.Class              (MonadDB, getBlockIndexDB, getNodeDBs)
-import           Pos.DB.Error              (DBError (..))
+import           Pos.DB.Error              (DBError (DBMalformed))
 import           Pos.DB.Functions          (rocksDelete, rocksGetBi, rocksPutBi)
 import           Pos.DB.Types              (blockDataDir)
 import           Pos.Ssc.Class.Helpers     (SscHelpersClass)
@@ -225,7 +225,16 @@ delete :: (MonadDB m) => ByteString -> m ()
 delete k = rocksDelete k =<< getBlockIndexDB
 
 getData ::  (MonadIO m, MonadCatch m, Bi v) => FilePath -> m (Maybe v)
-getData fp = liftIO (rightToMaybe . decodeFull . BSL.fromStrict <$> BS.readFile fp)
+getData fp = flip catch handle $ liftIO $
+    either (\er -> throwM $ DBMalformed $
+             sformat ("Couldn't deserialize "%build%", reason: "%build) fp er) pure .
+    decodeFull .
+    BSL.fromStrict <$>
+    BS.readFile fp
+  where
+    handle e
+        | isDoesNotExistError e = pure Nothing
+        | otherwise = throwM e
 
 putData ::  (MonadIO m, Bi v) => FilePath -> v -> m ()
 putData fp = liftIO . BS.writeFile fp . encodeStrict

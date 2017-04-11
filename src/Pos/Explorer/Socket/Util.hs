@@ -26,8 +26,7 @@ import           Mockable                    (Fork, Mockable, fork)
 import qualified Network.SocketIO            as S
 import           Serokell.Util.Concurrent    (threadDelay)
 import           Snap.Core                   (Snap)
-import           System.Wlog                 (CanLog (..), PureLogger (..), WithLogger,
-                                              logWarning)
+import           System.Wlog                 (CanLog (..), WithLogger, logWarning)
 import           Universum                   hiding (on)
 
 -- * Provides type-safity for event names in some socket-io functions.

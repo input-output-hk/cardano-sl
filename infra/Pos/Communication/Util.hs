@@ -8,13 +8,14 @@ module Pos.Communication.Util
        , wrapSendActions
        ) where
 
-import           Universum                   hiding (bracket, finally)
+import           Universum
 
 import           Data.Proxy                  (asProxyTypeOf)
 import           Data.Time.Units             (Microsecond)
 import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (Async, Bracket, Delay, Mockable)
 import qualified Node                        as N
+import           Serokell.Util.Base16        (base16F)
 import           System.Wlog                 (LoggerName, WithLogger, logDebug,
                                               logWarning, modifyLoggerName)
 
@@ -72,7 +73,7 @@ sendActionsWithWaitLog sendActions = sendActions
     { N.sendTo = \nodeId msg ->
                   let MessageName mName = messageName' msg
                    in logWarningWaitLinear 4
-                        (sformat ("Send "%shown%" to "%shown) mName nodeId) $
+                        (sformat ("Send "%base16F%" to "%shown) mName nodeId) $
                           N.sendTo sendActions nodeId msg
     , N.withConnectionTo =
         \nodeId action ->
@@ -89,8 +90,9 @@ convWithWaitLog nodeId conv = conv { N.send = send', N.recv = recv' }
   where
     send' msg =
         logWarningWaitLinear 4
-          (sformat ("Send "%shown%" to "%shown%" in conversation") sndMsg nodeId) $
-            N.send conv msg
+          (sformat ("Send "%base16F%" to "%shown%" in conversation")
+            sndMsg nodeId) $
+           N.send conv msg
     recv' =
         logWarningWaitLinear 4
           (sformat ("Recv from "%shown%" in conversation") nodeId) $
@@ -111,7 +113,7 @@ convWithWaitLogL nodeId conv = conv { N.send = send', N.recv = recv' }
             N.send conv msg
     recv' =
         logWarningWaitLinear 4
-          (sformat ("Recv "%shown%" from "%shown%" in conversation") rcvMsg nodeId) $
+          (sformat ("Recv "%base16F%" from "%shown%" in conversation") rcvMsg nodeId) $
             N.recv conv
     MessageName rcvMsg = messageName $
         ((\_ -> Proxy) :: N.ConversationActions snd rcv m -> Proxy rcv) conv

@@ -276,7 +276,8 @@ main = do
         baseParams =
             BaseParams
             { bpLoggingParams      = logParams
-            , bpNetworkAddress     = Nothing
+            , bpBindAddress        = Nothing
+            , bpPublicHost         = Nothing
             , bpDHTPeers           = allPeers
             , bpDHTKey             = Nothing
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial woCommonArgs

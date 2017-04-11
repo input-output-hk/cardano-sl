@@ -422,10 +422,8 @@ bracketDHTInstance BaseParams {..} action = bracket acquire release action
     instConfig =
         KademliaDHTInstanceConfig
         { kdcKey = bpDHTKey
-        --, kdcHost = maybe "0.0.0.0" fst bpNetworkAddress
-        , kdcHost = "0.0.0.0" -- Amazon servers have different ifconfig (local) ip and public ip
-                              -- so we can't bind on public directly.
-        , kdcPort = maybe 0 snd bpNetworkAddress
+        , kdcHost = maybe "0.0.0.0" fst bpBindAddress
+        , kdcPort = maybe 0 snd bpBindAddress
         , kdcInitialPeers = ordNub $ bpDHTPeers ++ Const.defaultPeers
         , kdcExplicitInitial = bpDHTExplicitInitial
         , kdcDumpPath = bpKademliaDump
@@ -458,8 +456,9 @@ bracketTransport BaseParams {..} =
   where
     withLog = usingLoggerName $ lpRunnerTag bpLoggingParams
     addrInfo = do
-        (host, port) <- bimap BS8.unpack show <$> bpNetworkAddress
-        return (TCP.TCPAddrInfo host port ((,) host))
+        (host, port) <- bimap BS8.unpack show <$> bpBindAddress
+        let realPubHost = fromMaybe host bpPublicHost
+        pure $ TCP.TCPAddrInfo host port (realPubHost,)
 
 bracketResources :: BaseParams -> (RealModeResources -> Production a) -> IO a
 bracketResources bp action =

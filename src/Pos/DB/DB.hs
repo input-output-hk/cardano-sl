@@ -52,12 +52,19 @@ openNodeDBs recreate fp = do
     liftIO $
         whenM ((recreate &&) <$> doesDirectoryExist fp) $
             removeDirectoryRecursive fp
-    let blockPath = fp </> "blocks"
+    let blocksDir = fp </> "blocks"
+    let blocksIndexPath = blocksDir </> "index"
+    let _blockDataDir = blocksDir </> "data"
     let gStatePath = fp </> "gState"
     let lrcPath = fp </> "lrc"
     let miscPath = fp </> "misc"
-    mapM_ ensureDirectoryExists [blockPath, gStatePath, lrcPath, miscPath]
-    _blockDB <- openDB blockPath
+    mapM_ ensureDirectoryExists [ blocksDir
+                                , _blockDataDir
+                                , blocksIndexPath
+                                , gStatePath
+                                , lrcPath
+                                , miscPath]
+    _blockIndexDB <- openDB blocksIndexPath
     _gStateDB <- openDB gStatePath
     _lrcDB <- openDB lrcPath
     _miscDB <- openDB miscPath
@@ -127,6 +134,6 @@ ensureDirectoryExists = liftIO . createDirectoryIfMissing True
 -- MonadDB instance
 ----------------------------------------------------------------------------
 
-instance (MonadIO m, MonadThrow m) =>
+instance (MonadIO m, MonadThrow m, MonadCatch m) =>
          MonadDBCore (DBHolder m) where
     dbAdoptedBVData = getAdoptedBVData

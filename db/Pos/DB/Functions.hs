@@ -40,7 +40,7 @@ import           Pos.DB.Error          (DBError (DBMalformed))
 import           Pos.DB.Iterator.Class (DBIteratorClass (..))
 import           Pos.DB.Types          (DB (..))
 
-openDB :: MonadIO m => FilePath -> m (DB)
+openDB :: MonadIO m => FilePath -> m DB
 openDB fp = DB def def def
                    <$> Rocks.open fp def
                         { Rocks.createIfMissing = True

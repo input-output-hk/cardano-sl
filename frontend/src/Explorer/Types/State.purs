@@ -1,14 +1,15 @@
 module Explorer.Types.State where
 
-import Control.SocketIO.Client (Socket)
 import Control.Monad.Eff.Exception (Error)
+import Control.SocketIO.Client (Socket)
 import Data.Generic (class Generic, gEq, gShow)
 import Data.Maybe (Maybe)
 import Data.Newtype (class Newtype)
+import Data.Tuple (Tuple)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
-import Pos.Explorer.Socket.Methods (Subscription)
 import Network.RemoteData (RemoteData)
+import Pos.Explorer.Socket.Methods (Subscription)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry, CBlockSummary, CTxBrief, CTxEntry, CTxSummary)
 import Prelude (class Eq, class Ord, class Show)
 
@@ -32,6 +33,7 @@ type State =
     , currentAddressSummary :: RemoteData Error CAddressSummary
     , selectedSearch :: Search
     , searchQuery :: String
+    , searchTimeQuery :: SearchEpochSlotQuery
     , errors :: Errors
     , loading :: Boolean
     }
@@ -39,12 +41,14 @@ type State =
 data Search
     = SearchAddress
     | SearchTx
-    | SearchEpoch
+    | SearchTime
 
 derive instance gSearch :: Generic Search
 instance showSearch :: Show Search where
     show = gShow
 derive instance eqSearch :: Eq Search
+
+type SearchEpochSlotQuery = Tuple (Maybe Int) (Maybe Int)
 
 type SocketState =
     { connected :: Boolean

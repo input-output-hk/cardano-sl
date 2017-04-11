@@ -41,7 +41,7 @@
     &-search__container {
       border: 1px solid color(var(--color0) a(0.3));
       border-radius: 2px;
-      padding: 5px 5px 5px 15px;
+      padding: 5px 5px 5px 0px;
       @neat-span-columns 10;
       @neat-shift 1;
       box: horizontal;
@@ -57,19 +57,42 @@
       }
     }
 
-    &-search__input {
+    &-search__wrapper {
       width: 100%;
+      box: horizontal;
+    }
+
+    &-search__label {
+        color: color(var(--color3) a(0.5));
+        box-item: center;
+        padding-left: 15px;
+    }
+
+    &-search__input {
       border: none;
       color: color(var(--color0) a(0.3));
       font-size: 13px;
       font-family: var(--fontFamily0-Light);
-      padding-right: 15px;
+      padding: 0 15px;
 
-      box-item: stretch;
       background-color: transparent;
 
       &.focused {
         color: var(--color0);
+      }
+
+
+      &--address-tx {
+        width: 100%;
+        box-item: stretch;
+      }
+
+      &--epoch {
+        width: 100px;
+      }
+
+      &--slot {
+        width: 100px;
       }
 
     }

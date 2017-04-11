@@ -26,6 +26,12 @@ stack exec cardano-explorer-docs
 
 Then check out ./cardano-explorer-web-api.md
 
+## Run mock server
+
+```bash
+stack exec cardano-explorer-mock
+```
+
 ## Run it
 
 - start `cardano-sl`

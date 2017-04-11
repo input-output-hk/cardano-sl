@@ -1,13 +1,12 @@
 module Explorer.View.Dashboard.Hero (heroView) where
 
 import Prelude
-import Data.Int (fromString)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Data.String (length)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (cAddress, cTransaction, common, hero, hrTitle, hrSearch, hrSubtitle, hrTime) as I18nL
+import Explorer.I18n.Lenses (cAddress, cEpoch, cSlot, cTransaction, common, hero, hrTitle, hrSearch, hrSubtitle, hrTime) as I18nL
 import Explorer.Lenses.State (lang, searchInput, searchQuery, searchTimeQuery, selectedSearch)
 import Explorer.State (maxSlotInEpoch)
 import Explorer.Types.Actions (Action(..))
@@ -67,7 +66,7 @@ heroView state =
                         [ P.className $ "hero-search__label"
                         , P.htmlFor inputEpochName
                         ]
-                        [ P.text "Epoch" ]
+                        [ P.text $ translate (I18nL.common <<< I18nL.cEpoch) lang' ]
                     , P.input
                         [ P.className $ "hero-search__input hero-search__input--epoch"
                                       <> focusedClazz
@@ -86,7 +85,7 @@ heroView state =
                         [ P.className $ "hero-search__label"
                         , P.htmlFor inputSlotName
                         ]
-                        [ P.text "Slot" ]
+                        [ P.text $ translate (I18nL.common <<< I18nL.cSlot) lang' ]
                     , P.input
                         [ P.className $ "hero-search__input hero-search__input--slot"
                                       <> focusedClazz

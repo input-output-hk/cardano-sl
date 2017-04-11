@@ -9,21 +9,21 @@ import DOM.HTML.HTMLInputElement (select)
 import Data.Array (difference, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
+import Data.Int (fromString)
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
-import Data.Tuple (Tuple(..))
+import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentCAddress, currentTxSummary, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, searchQuery, selectedApiCode, selectedSearch, socket, subscriptions, transactionsExpanded, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentCAddress, currentTxSummary, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, searchQuery, searchTimeQuery, selectedApiCode, selectedSearch, socket, subscriptions, transactionsExpanded, viewStates)
 import Explorer.Routes (Route(..), toUrl)
-import Explorer.State (emptySearchQuery)
+import Explorer.State (emptySearchQuery, emptySearchTimeQuery)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (SocketSubscription(..), Search(..), State)
+import Explorer.Types.State (Search(..), SocketSubscription(..), State)
 import Explorer.Util.DOM (scrollTop)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
-import Explorer.Util.String (parseSearchEpoch)
 import Network.HTTP.Affjax (AJAX)
 import Network.RemoteData (RemoteData(..), _Success)
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
@@ -169,7 +169,6 @@ update (GenerateQrCode address) state =
 
 -- Search
 
--- update DashboardSearch state = noEffects state
 update DashboardSearch state =
     let query = state ^. searchQuery in
     { state: set searchQuery emptySearchQuery $ state
@@ -181,29 +180,49 @@ update DashboardSearch state =
               (liftEff <<< P.navigateTo <<< toUrl <<< Address $ mkCAddress query) *> pure NoOp
           SearchTx ->
               (liftEff <<< P.navigateTo <<< toUrl <<< Tx $ mkCTxId query) *> pure NoOp
-          SearchEpoch ->
-              case parseSearchEpoch query of
-                  Right (Tuple (Just epoch) (Just slot)) ->
-                      let epochIndex = mkEpochIndex epoch
-                          slotIndex  = mkLocalSlotIndex slot
-                          epochSlotUrl = EpochSlot epochIndex slotIndex
-                      in
-                      (liftEff <<< P.navigateTo <<< toUrl $ epochSlotUrl) *> pure NoOp
-                  Right (Tuple (Just epoch) Nothing) ->
-                      let epochIndex = mkEpochIndex epoch
-                          epochUrl   = Epoch $ epochIndex
-                      in
-                      (liftEff <<< P.navigateTo <<< toUrl $ epochUrl) *> pure NoOp
+          _ -> pure NoOp  -- TODO (ks) maybe put up a message?
+      ]
+    }
+update DashboardSearchTime state =
+    let query = state ^. searchTimeQuery in
+    { state: set searchTimeQuery emptySearchTimeQuery $ state
+    , effects: [
+      -- set state of focus explicitly
+      pure $ DashboardFocusSearchInput false
+      , case query of
+            Tuple (Just epoch) (Just slot) ->
+                let epochIndex = mkEpochIndex epoch
+                    slotIndex  = mkLocalSlotIndex slot
+                    epochSlotUrl = EpochSlot epochIndex slotIndex
+                in
+                (liftEff <<< P.navigateTo <<< toUrl $ epochSlotUrl) *> pure NoOp
+            Tuple (Just epoch) Nothing ->
+                let epochIndex = mkEpochIndex epoch
+                    epochUrl   = Epoch $ epochIndex
+                in
+                (liftEff <<< P.navigateTo <<< toUrl $ epochUrl) *> pure NoOp
 
-                  _ -> pure NoOp -- TODO (ks) maybe put up a message?
+            _ -> pure NoOp -- TODO (ks) maybe put up a message?
       ]
     }
 
 update (UpdateSelectedSearch search) state =
     noEffects $ set selectedSearch search state
 
-update (UpdateSearchText search) state =
+update (UpdateSearchValue search) state =
     noEffects $ set searchQuery search state
+
+update (UpdateSearchEpochValue value) state =
+    let slot = snd $ state ^. searchTimeQuery
+        epoch = fromString value
+    in
+    noEffects $ set searchTimeQuery (Tuple epoch slot) state
+
+update (UpdateSearchSlotValue value) state =
+    let slot = fromString value
+        epoch = fst $ state ^. searchTimeQuery
+    in
+    noEffects $ set searchTimeQuery (Tuple epoch slot) state
 
 -- NoOp
 

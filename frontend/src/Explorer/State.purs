@@ -1,9 +1,10 @@
 module Explorer.State where
 
 import Data.Maybe (Maybe(..))
+import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language(..))
 import Explorer.Routes (Route(..))
-import Explorer.Types.State (DashboardAPICode(..), Search(..), State)
+import Explorer.Types.State (DashboardAPICode(..), Search(..), State, SearchEpochSlotQuery)
 import Explorer.Util.Factory (mkCAddress)
 import Network.RemoteData (RemoteData(..))
 
@@ -45,9 +46,16 @@ initialState =
     , currentAddressSummary: NotAsked
     , selectedSearch: SearchAddress
     , searchQuery: emptySearchQuery
+    , searchTimeQuery: emptySearchTimeQuery
     , errors: []
     , loading: false
     }
 
 emptySearchQuery :: String
 emptySearchQuery = ""
+
+emptySearchTimeQuery :: SearchEpochSlotQuery
+emptySearchTimeQuery = Tuple Nothing Nothing
+
+maxSlotInEpoch :: Int
+maxSlotInEpoch = 21600

@@ -1,12 +1,13 @@
 module Explorer.Util.String (substitute, parseSearchEpoch) where
 
 import Control.Alt ((<|>))
-import Data.Tuple (Tuple (..))
-import Data.Either (Either)
-import Data.Maybe (Maybe (..))
-import Data.String (fromCharArray)
 import Data.Array (many)
+import Data.Either (Either)
 import Data.Int (fromString)
+import Data.Maybe (Maybe(..))
+import Data.String (fromCharArray)
+import Data.Tuple (Tuple(..))
+import Explorer.Types.State (SearchEpochSlotQuery)
 import Text.Parsing.Parser (Parser, ParseError, runParser)
 import Text.Parsing.Parser.Combinators (try)
 import Text.Parsing.Parser.String (char)
@@ -25,7 +26,7 @@ substitute = substituteImpl
 -- | ```purescript
 -- | parseSearchEpochSlotQuery "256"
 -- | ```
-parseSearchEpochQuery :: Parser String (Tuple (Maybe Int) (Maybe Int))
+parseSearchEpochQuery :: Parser String SearchEpochSlotQuery
 parseSearchEpochQuery = do
     epoch <- many digit >>= pure <<< fromString <<< fromCharArray
     pure $ Tuple epoch Nothing
@@ -34,19 +35,17 @@ parseSearchEpochQuery = do
 -- | ```purescript
 -- | parseSearchEpochSlotQuery "256,12"
 -- | ```
-parseSearchEpochSlotQuery :: Parser String (Tuple (Maybe Int) (Maybe Int))
+parseSearchEpochSlotQuery :: Parser String SearchEpochSlotQuery
 parseSearchEpochSlotQuery = do
-    -- char '('
     epoch <- many digit >>= pure <<< fromString <<< fromCharArray
     char ','
     slot  <- many digit >>= pure <<< fromString <<< fromCharArray
-    -- char ')'
     pure $ Tuple epoch slot
 
 -- | Combine both parsers
-parseEpochOrEpochSlot :: Parser String (Tuple (Maybe Int) (Maybe Int))
+parseEpochOrEpochSlot :: Parser String SearchEpochSlotQuery
 parseEpochOrEpochSlot = try parseSearchEpochSlotQuery <|> parseSearchEpochQuery
 
 -- | Run the actual parser
-parseSearchEpoch :: String -> Either ParseError (Tuple (Maybe Int) (Maybe Int))
+parseSearchEpoch :: String -> Either ParseError SearchEpochSlotQuery
 parseSearchEpoch input = runParser input parseEpochOrEpochSlot

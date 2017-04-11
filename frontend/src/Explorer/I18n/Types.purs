@@ -73,6 +73,7 @@ type Hero =
     { hrTitle :: String
     , hrSubtitle :: String
     , hrSearch :: String
+    , hrTime :: String
     }
 
 -- translations of dashboard

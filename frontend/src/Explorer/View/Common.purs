@@ -17,7 +17,7 @@ module Explorer.View.Common (
     ) where
 
 import Prelude
-import Data.Int (binary, fromString, toStringAs)
+import Data.Int (fromString)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))

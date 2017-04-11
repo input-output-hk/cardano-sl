@@ -11,7 +11,7 @@ import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlock
                                                CHash, CTxId, CTxSummary)
 import           Signal.Channel               (Channel)
 import           Data.Maybe (Maybe)
-import           Pos.Core.Types (EpochIndex(..), LocalSlotIndex(..))
+import           Pos.Core.Types (EpochIndex, LocalSlotIndex)
 
 data Action
     = SetLanguage Language
@@ -48,9 +48,12 @@ data Action
     | RequestEpochSlot EpochIndex (Maybe LocalSlotIndex)
     | ReceiveEpochSlot (Either Error CBlockEntries)
     -- search
-    | DashboardSearch                       -- dasboard search
+    | DashboardSearch                       -- dasboard search for address + transaction
+    | DashboardSearchTime                   -- dasboard search for time
     | UpdateSelectedSearch Search
-    | UpdateSearchText String
+    | UpdateSearchValue String
+    | UpdateSearchEpochValue String
+    | UpdateSearchSlotValue String
     -- dashboard
     | DashboardExpandBlocks Boolean         -- toggle blocks
     | DashboardPaginateBlocks Int           -- current pagination of blocks

@@ -19,9 +19,9 @@ import qualified Data.HashMap.Strict       as HM
 import           Data.List                 (intersect, (\\))
 import           Formatting                (build, int, sformat, shown, (%))
 import           Mockable                  (Async, Catch, Mockable, MonadMockable,
-                                            Promise, Throw, bracket, catchAll, fork,
-                                            killThread, throw, waitAnyUnexceptional,
-                                            catch)
+                                            Promise, Throw, catchAll,
+                                            throw, waitAnyUnexceptional,
+                                            catch, withAsync)
 import qualified Network.Kademlia          as K
 import           Serokell.Util             (ms, sec)
 import           System.Directory          (doesFileExist)
@@ -43,6 +43,9 @@ import           Pos.Util.TimeWarp         (NetworkAddress)
 kademliaConfig :: K.KademliaConfig
 kademliaConfig = K.defaultConfig { K.k = 16 }
 
+-- | Rejoin the Kademlia network at random intervals (in a separate thread)
+--   while some action is going. The rejoining thread will be killed when
+--   the action is finished.
 foreverRejoinNetwork
     :: ( MonadMockable m
        , Eq (Promise m (Maybe ()))
@@ -52,12 +55,9 @@ foreverRejoinNetwork
     => KademliaDHTInstance
     -> m a
     -> m a
-foreverRejoinNetwork inst action = action'
-  where
-    -- TODO this is not correct. `killThread` is interruptible, so the
-    -- network rejoin could be left running.
-    action' = bracket spawnR killThread (const action)
-    spawnR = fork $ runWithRandomIntervals' (ms 500) (sec 5) (rejoinNetwork inst)
+foreverRejoinNetwork inst action = withAsync
+    (runWithRandomIntervals' (ms 500) (sec 5) (rejoinNetwork inst))
+    (const action)
 
 -- | Stop chosen 'KademliaDHTInstance'.
 stopDHTInstance
@@ -155,37 +155,37 @@ kademliaGetKnownPeers inst = do
     let explicitInitial = kdiExplicitInitial inst
     peers <- liftIO $ K.dumpPeers $ kdiHandle inst
     let initPeers = bool [] initialPeers explicitInitial
-    filter ((/= myId) . dhtNodeId) <$> extendPeers inst myId initPeers peers
+    filter ((/= myId) . dhtNodeId) <$> extendPeers myId initPeers peers
   where
-    extendPeers inst_ myId initial peers =
+    extendPeers myId initial peers =
         map snd .
         HM.toList .
         HM.delete myId .
         flip (foldr $ \n -> HM.insert (dhtNodeId n) n) initial .
         HM.fromList . map (\(toDHTNode -> n) -> (dhtNodeId n, n)) <$>
-        (updateCache inst_ =<< selectSufficientNodes inst_ myId peers)
-    selectSufficientNodes inst_ myId l =
+        (updateCache =<< selectSufficientNodes myId peers)
+    selectSufficientNodes myId l =
         if enhancedMessageBroadcast /= (0 :: Int)
-            then concatMapM (getPeersFromBucket enhancedMessageBroadcast inst_)
-                     (splitToBuckets (kdiHandle inst_) myId l)
+            then concatMapM (getPeersFromBucket enhancedMessageBroadcast)
+                     (splitToBuckets myId l)
             else return l
     bucketIndex origin x =
         length . takeWhile (== False) <$> K.distance origin (K.nodeId x)
     insertId origin i hm = do
         bucket <- bucketIndex origin i
         return $ HM.insertWith (++) bucket [i] hm
-    splitToBuckets kInst origin peers =
-        flip K.usingKademliaInstance kInst $
+    splitToBuckets origin peers =
+        flip K.usingKademliaInstance (kdiHandle inst) $
         HM.elems <$> foldrM (insertId origin) HM.empty peers
-    getPeersFromBucket p inst_ bucket = do
-        cache <- atomically $ readTVar $ kdiKnownPeersCache inst_
+    getPeersFromBucket p bucket = do
+        cache <- atomically $ readTVar $ kdiKnownPeersCache inst
         let fromCache = tryTake p $ intersect cache bucket
         return $ fromCache ++ tryTake (p - length fromCache) (bucket \\ cache)
     tryTake x l
         | length l < x = l
         | otherwise = take x l
-    updateCache inst_ peers = do
-        atomically $ writeTVar (kdiKnownPeersCache inst_) peers
+    updateCache peers = do
+        atomically $ writeTVar (kdiKnownPeersCache inst) peers
         return peers
 
 toDHTNode :: K.Node DHTKey -> DHTNode

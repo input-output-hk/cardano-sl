@@ -5,9 +5,9 @@
 module Pos.DB.GState.Balances
        ( BalanceIter
          -- * Getters
-       , getTotalFtsStake
-       , getFtsStake
-       , getFtsSumMaybe
+       , getRealTotalStake
+       , getRealStake
+       , getRealStakeSumMaybe
 
        , ftsStakeKey
        , ftsSumKey
@@ -49,19 +49,30 @@ ftsSumKey = "b/ftssum"
 -- Getters
 ----------------------------------------------------------------------------
 
--- | Get total amount of stake to be used for follow-the-satoshi. It's
--- different from total amount of coins in the system.
-getTotalFtsStake :: MonadDB m => m Coin
-getTotalFtsStake =
-    maybeThrow (DBMalformed "no total FTS stake in GState DB") =<< getFtsSumMaybe
+-- | Get real total amount of stake to be used for follow-the-satoshi
+-- and other procedures which use stake of some stakeholder.
+--
+-- Word `real` is essential here, because there is also apparent stake
+-- during bootstrap era.
+--
+-- It's different from total amount of spendable coins in the system,
+-- because spending is done using Utxo. For example, one can send
+-- coins to script address and not include it into transaction
+-- distribution.
+getRealTotalStake :: MonadDB m => m Coin
+getRealTotalStake =
+    maybeThrow (DBMalformed "no total FTS stake in GState DB") =<< getRealStakeSumMaybe
 
--- | Get stake owne by given stakeholder (according to rules used for FTS).
-getFtsStake :: MonadDB m => StakeholderId -> m (Maybe Coin)
-getFtsStake = gsGetBi . ftsStakeKey
+-- | Get real stake owned by given stakeholder (according to rules
+-- used for FTS and similar procedures). Word `real` is essential
+-- here. See documentation of 'getRealTotalStake' for some
+-- explanation.
+getRealStake :: MonadDB m => StakeholderId -> m (Maybe Coin)
+getRealStake = gsGetBi . ftsStakeKey
 
 ----------------------------------------------------------------------------
 -- Details
 ----------------------------------------------------------------------------
 
-getFtsSumMaybe :: MonadDB m => m (Maybe Coin)
-getFtsSumMaybe = gsGetBi ftsSumKey
+getRealStakeSumMaybe :: MonadDB m => m (Maybe Coin)
+getRealStakeSumMaybe = gsGetBi ftsSumKey

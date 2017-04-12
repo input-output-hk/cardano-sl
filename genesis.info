@@ -1,5 +1,5 @@
 Running command: stack exec cardano-keygen -- --genesis-file genesis.bin -f secrets/secret-{}.key -m 5 -n 12000 --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file /home/georgeee/work/serokell/cardano-sl/util-scripts/../util-scripts/avvm-files/utxo-dump-last-new.json --randcerts --blacklisted /home/georgeee/work/serokell/cardano-sl/util-scripts/../util-scripts/avvm-files/full_blacklist.js --fake-avvm-seed-pattern avvm/fake-{}.seed --fake-avvm-entries 100
-USING RANDOM STAKEHOLDER ID, WRITING KEY TO redeemingHolderKey92312
+USING RANDOM STAKEHOLDER ID, WRITING KEY TO redeemingHolderKey24287
 NOT FOR PRODUCTION USAGE, ONLY FOR TESTING
 IF YOU INTEND TO GENERATE GENESIS.BIN FOR PRODUCTION, STOP RIGHT HERE AND USE `--fileholder <path to secret>` OPTION. THIS IS SERIOUS.
 Removing 101 entries from utxo (out of 188 total entries in the blacklist)
@@ -7,7 +7,7 @@ Total avvm stake after applying blacklist: 25927070538000000
 12005 keyfiles are generated
 Total testnet genesis stake: RichPoorStakes {sdRichmen = 5, sdRichStake = Coin {getCoin = 3585708670856000}, sdPoor = 12000, sdPoorStake = Coin {getCoin = 95364592310}}
 100 fake avvm seeds are generated
-testnet genesis created successfully. First 30 addresses: [PubKeyAddress 26367fad (attrs: {}), PubKeyAddress 99c7e582 (attrs: {}), PubKeyAddress c309f76b (attrs: {}), PubKeyAddress 2ec89cd2 (attrs: {}), PubKeyAddress d5881192 (attrs: {}), PubKeyAddress 8d42048d (attrs: {}), PubKeyAddress a4510ac8 (attrs: {}), PubKeyAddress 1ee99994 (attrs: {}), PubKeyAddress a693d1cf (attrs: {}), PubKeyAddress 693715c3 (attrs: {})] distr: Just (RichPoorStakes {sdRichmen = 5, sdRichStake = Coin {getCoin = 3585708670856000}, sdPoor = 12000, sdPoorStake = Coin {getCoin = 95364592310}})
+testnet genesis created successfully. First 30 addresses: [PubKeyAddress f4ad3fbc (attrs: {}), PubKeyAddress 51d37aa9 (attrs: {}), PubKeyAddress f9d339ef (attrs: {}), PubKeyAddress c4d8661e (attrs: {}), PubKeyAddress f9f339e8 (attrs: {}), PubKeyAddress 193550b8 (attrs: {}), PubKeyAddress 3cb26adc (attrs: {}), PubKeyAddress a12135f5 (attrs: {}), PubKeyAddress 794d767c (attrs: {}), PubKeyAddress 73050d35 (attrs: {})] distr: Just (RichPoorStakes {sdRichmen = 5, sdRichStake = Coin {getCoin = 3585708670856000}, sdPoor = 12000, sdPoorStake = Coin {getCoin = 95364592310}})
 [generating VSS keys for tests...]
 [generating keys for tests...]
 genesis.bin generated successfully
@@ -17,4 +17,4 @@ genesis.bin generated successfully
 'secrets/secret-3.key.primary' -> 'nodes/key3'
 'secrets/secret-4.key.primary' -> 'nodes/key4'
 'secrets/secret-5.key.primary' -> 'nodes/key5'
-'redeemingHolderKey92312' -> 'nodes/key0'
+'redeemingHolderKey24287' -> 'nodes/key0'

@@ -74,9 +74,7 @@ signRaw' :: Maybe SignTag
 signRaw' mbTag (PassPhrase pp) (EncryptedSecretKey sk) x =
     Signature (CC.sign pp sk (tag <> x))
   where
-    tag = case mbTag of
-        Nothing -> mempty
-        Just t  -> signTag t
+    tag = maybe mempty signTag mbTag
 
 sign'
     :: Bi a

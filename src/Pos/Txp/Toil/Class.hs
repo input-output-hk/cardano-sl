@@ -40,6 +40,7 @@ instance {-# OVERLAPPABLE #-}
 instance Monad m => MonadUtxoRead (Ether.StateT Utxo m) where
     utxoGet id = ether $ use (at id)
 
+
 class MonadUtxoRead m => MonadUtxo m where
     utxoPut :: TxIn -> TxOutAux -> m ()
     default utxoPut :: (MonadTrans t, MonadUtxo m', t m' ~ m) => TxIn -> TxOutAux -> m ()

@@ -6,16 +6,16 @@ module Pos.Slotting.Class
        ( MonadSlots (..)
        ) where
 
-import           Control.Monad.Trans   (MonadTrans)
+import qualified Control.Monad.Ether.Implicit as Ether
+import           Control.Monad.Trans          (MonadTrans)
 import           Universum
 
-import           Pos.Core.Types        (SlotId (..), Timestamp)
-import           Pos.Slotting.MemState (MonadSlotsData)
+import           Pos.Core.Types               (SlotId (..), Timestamp)
+import           Pos.Slotting.MemState        (MonadSlotsData)
 
 
 -- | Type class providing information about current slot.
-class MonadSlotsData m =>
-      MonadSlots m where
+class MonadSlotsData m => MonadSlots m where
 
     getCurrentSlot :: m (Maybe SlotId)
 
@@ -54,6 +54,7 @@ class MonadSlotsData m =>
         m SlotId
     getCurrentSlotInaccurate = lift getCurrentSlotInaccurate
 
-instance MonadSlots m => MonadSlots (ReaderT s m) where
-instance MonadSlots m => MonadSlots (ExceptT s m) where
-instance MonadSlots m => MonadSlots (StateT s m) where
+instance MonadSlots m => MonadSlots (ReaderT s m)
+instance MonadSlots m => MonadSlots (ExceptT s m)
+instance MonadSlots m => MonadSlots (StateT s m)
+instance {-# OVERLAPPABLE #-} MonadSlots m => MonadSlots (Ether.StateT s m)

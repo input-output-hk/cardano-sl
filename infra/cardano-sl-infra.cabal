@@ -96,6 +96,7 @@ library
                       , cardano-report-server
                       , data-default
                       , directory
+                      , ether
                       , exceptions
                       , filepath
                       , formatting

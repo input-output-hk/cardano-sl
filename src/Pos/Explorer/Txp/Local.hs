@@ -111,8 +111,7 @@ eTxProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
                      runNoExtra $
                      execToil $ eProcessTx tx (makeExtra resolved curTime))
                         toilEnv
-            in
-            case res of
+            in case res of
                 Left er  -> (Left er, txld)
                 Right ToilModifier{..} ->
                     (Right (), (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra))

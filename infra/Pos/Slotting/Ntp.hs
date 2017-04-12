@@ -307,7 +307,7 @@ mkNtpSlottingVar = do
     singleShot settings = unless C.isDevelopment $ do
         logInfo $ "Waiting for response from NTP servers"
         ntpSingleShot settings
-        delay C.ntpMaxError
+        delay C.ntpResponseTimeout
 
 runNtpSlotting :: NtpSlottingVar -> NtpSlotting m a -> m a
 runNtpSlotting var = usingReaderT var . getNtpSlotting

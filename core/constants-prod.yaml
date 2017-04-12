@@ -45,8 +45,9 @@ applicationName: cardano-sl
 productionNetworkStartTime: 1490824920
 
 # NTP
-ntpResponseTimeout: 1000000 # 1 sec
-ntpPollDelay: 15000000 # 15 sec
+ntpResponseTimeout: 7000000 # 7 sec
+ntpPollDelay: 30000000 # 30 sec
+ntpMaxError: 120000000 # 2 mins
 
 # Misc
 maxLocalTxs: 1000

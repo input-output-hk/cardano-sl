@@ -201,9 +201,7 @@ signRaw
     -> Signature Raw
 signRaw mbTag (SecretKey k) x = Signature (CC.sign emptyPass k (tag <> x))
   where
-    tag = case mbTag of
-        Nothing -> mempty
-        Just t  -> signTag t
+    tag = maybe mempty signTag mbTag
 
 -- CHECK: @checkSig
 -- | Verify a signature.
@@ -216,9 +214,7 @@ checkSig t k x s = verifyRaw (Just t) k (BSL.toStrict (Bi.encode x)) (coerce s)
 verifyRaw :: Maybe SignTag -> PublicKey -> ByteString -> Signature Raw -> Bool
 verifyRaw mbTag (PublicKey k) x (Signature s) = CC.verify k (tag <> x) s
   where
-    tag = case mbTag of
-        Nothing -> mempty
-        Just t  -> signTag t
+    tag = maybe mempty signTag mbTag
 
 -- | Value and signature for this value.
 data Signed a = Signed
@@ -344,12 +340,10 @@ instance (SafeCopy w) => SafeCopy (ProxySignature w a) where
 -- delegate secret key passed doesn't pair with delegate public key in
 -- certificate inside, we panic. Please check this condition outside
 -- of this function.
---
--- TODO: wtf is this and should SignTag be used here
 proxySign
     :: (Bi a)
-    => SecretKey -> ProxySecretKey w -> a -> ProxySignature w a
-proxySign sk@(SecretKey delegateSk) ProxySecretKey{..} m
+    => SignTag -> SecretKey -> ProxySecretKey w -> a -> ProxySignature w a
+proxySign t sk@(SecretKey delegateSk) ProxySecretKey{..} m
     | toPublic sk /= pskDelegatePk =
         error "proxySign called with irrelevant certificate"
     | otherwise =
@@ -364,15 +358,17 @@ proxySign sk@(SecretKey delegateSk) ProxySecretKey{..} m
     sigma =
         CC.sign emptyPass delegateSk $
         mconcat
-            ["01", CC.unXPub issuerPk, BSL.toStrict $ Bi.encode m]
+            -- it's safe to put the tag after issuerPk because `CC.unXPub
+            -- issuerPk` always takes 64 bytes
+            ["01", CC.unXPub issuerPk, signTag t, BSL.toStrict $ Bi.encode m]
 
 -- CHECK: @proxyVerify
 -- | Verify delegated signature given issuer's pk, signature, message
 -- space predicate and message itself.
 proxyVerify
     :: (Bi w, Bi a)
-    => PublicKey -> ProxySignature w a -> (w -> Bool) -> a -> Bool
-proxyVerify iPk@(PublicKey issuerPk) ProxySignature{..} omegaPred m =
+    => SignTag -> PublicKey -> ProxySignature w a -> (w -> Bool) -> a -> Bool
+proxyVerify t iPk@(PublicKey issuerPk) ProxySignature{..} omegaPred m =
     and [predCorrect, certValid, sigValid]
   where
     PublicKey pdDelegatePkRaw = pdDelegatePk
@@ -384,6 +380,7 @@ proxyVerify iPk@(PublicKey issuerPk) ProxySignature{..} omegaPred m =
             (mconcat
                  [ "01"
                  , CC.unXPub issuerPk
+                 , signTag t
                  , BSL.toStrict $ Bi.encode m
                  ])
             pdSig

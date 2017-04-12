@@ -299,30 +299,32 @@ proxySignVerify
     -> a
     -> Bool
 proxySignVerify issuerSk delegateSk w m =
-    Crypto.proxyVerify issuerPk signature (== w) m
+    Crypto.proxyVerify Crypto.SignForTestingOnly issuerPk signature (== w) m
   where
     issuerPk = Crypto.toPublic issuerSk
     proxySk = Crypto.createProxySecretKey issuerSk (Crypto.toPublic delegateSk) w
-    signature = Crypto.proxySign delegateSk proxySk m
+    signature = Crypto.proxySign Crypto.SignForTestingOnly delegateSk proxySk m
 
 proxySignVerifyDifferentKey
     :: (Bi a, Bi w, Eq w)
     => Crypto.SecretKey -> Crypto.SecretKey -> Crypto.PublicKey -> w -> a -> Property
 proxySignVerifyDifferentKey issuerSk delegateSk pk2 w m =
-    (Crypto.toPublic issuerSk /= pk2) ==> not (Crypto.proxyVerify pk2 signature (== w) m)
+    (Crypto.toPublic issuerSk /= pk2) ==>
+    not (Crypto.proxyVerify Crypto.SignForTestingOnly pk2 signature (== w) m)
   where
     proxySk = Crypto.createProxySecretKey issuerSk (Crypto.toPublic delegateSk) w
-    signature = Crypto.proxySign delegateSk proxySk m
+    signature = Crypto.proxySign Crypto.SignForTestingOnly delegateSk proxySk m
 
 proxySignVerifyDifferentData
     :: (Bi a, Eq a, Bi w, Eq w)
     => Crypto.SecretKey -> Crypto.SecretKey -> w -> a -> a -> Property
 proxySignVerifyDifferentData issuerSk delegateSk w m m2 =
-    (m /= m2) ==> not (Crypto.proxyVerify issuerPk signature (== w) m2)
+    (m /= m2) ==>
+    not (Crypto.proxyVerify Crypto.SignForTestingOnly issuerPk signature (== w) m2)
   where
     issuerPk = Crypto.toPublic issuerSk
     proxySk = Crypto.createProxySecretKey issuerSk (Crypto.toPublic delegateSk) w
-    signature = Crypto.proxySign delegateSk proxySk m
+    signature = Crypto.proxySign Crypto.SignForTestingOnly delegateSk proxySk m
 
 redeemSignCheck :: Bi a => Crypto.RedeemSecretKey -> a -> Bool
 redeemSignCheck redeemerSK a =

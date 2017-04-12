@@ -41,15 +41,13 @@ module Pos.Crypto.Signing
        ) where
 
 import qualified Cardano.Crypto.Wallet           as CC
-import qualified Cardano.Crypto.Wallet.Encrypted as CC
-import qualified Crypto.ECC.Edwards25519         as Ed25519
+-- import qualified Cardano.Crypto.Wallet.Encrypted as CC
+-- import qualified Crypto.ECC.Edwards25519         as Ed25519
 import           Data.ByteArray                  (ScrubbedBytes)
 import qualified Data.ByteString                 as BS
 import qualified Data.ByteString.Lazy            as BSL
 import           Data.Coerce                     (coerce)
 import           Data.Hashable                   (Hashable)
-import           Data.SafeCopy                   (SafeCopy (..), base, contain,
-                                                  deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text.Buildable             as B
 import           Data.Text.Lazy.Builder          (Builder)
 import           Formatting                      (Format, bprint, build, fitLeft, later,
@@ -67,20 +65,6 @@ import           Pos.Crypto.Random               (secureRandomBS)
 import           Pos.Crypto.SignTag              (SignTag, signTag)
 
 ----------------------------------------------------------------------------
--- Some orphan instances
-----------------------------------------------------------------------------
-
-deriveSafeCopySimple 0 'base ''Ed25519.PointCompressed
-deriveSafeCopySimple 0 'base ''Ed25519.Scalar
-deriveSafeCopySimple 0 'base ''Ed25519.Signature
-
-deriveSafeCopySimple 0 'base ''CC.EncryptedKey
-deriveSafeCopySimple 0 'base ''CC.ChainCode
-deriveSafeCopySimple 0 'base ''CC.XPub
-deriveSafeCopySimple 0 'base ''CC.XPrv
-deriveSafeCopySimple 0 'base ''CC.XSignature
-
-----------------------------------------------------------------------------
 -- Keys, key generation & printing & decoding
 ----------------------------------------------------------------------------
 
@@ -91,9 +75,6 @@ newtype PublicKey = PublicKey CC.XPub
 -- | Wrapper around 'CC.XPrv'.
 newtype SecretKey = SecretKey CC.XPrv
     deriving (NFData)
-
-deriveSafeCopySimple 0 'base ''PublicKey
-deriveSafeCopySimple 0 'base ''SecretKey
 
 -- | Generate a public key from a secret key. Fast (it just drops some bytes
 -- off the secret key).
@@ -170,10 +151,6 @@ deterministicKeyGen seed =
 newtype Signature a = Signature CC.XSignature
     deriving (Eq, Ord, Show, Generic, NFData, Hashable, Typeable)
 
-instance SafeCopy (Signature a) where
-    putCopy (Signature sig) = contain $ safePut sig
-    getCopy = contain $ Signature <$> safeGet
-
 instance B.Buildable (Signature a) where
     build _ = "<signature>"
 
@@ -230,14 +207,6 @@ data Signed a = Signed
 mkSigned :: (Bi a) => SignTag -> SecretKey -> a -> Signed a
 mkSigned t sk x = Signed x (sign t sk x)
 
-instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
-    putCopy (Signed v s) = contain $ safePut (Bi.encode (v,s))
-    getCopy = contain $ do
-        bs <- safeGet
-        case Bi.decodeFull bs of
-            Left err    -> fail $ "getCopy@SafeCopy: " ++ err
-            Right (v,s) -> pure $ Signed v s
-
 ----------------------------------------------------------------------------
 -- Proxy signing
 ----------------------------------------------------------------------------
@@ -248,12 +217,6 @@ newtype ProxyCert w = ProxyCert { unProxyCert :: CC.XSignature }
 
 instance B.Buildable (ProxyCert w) where
     build _ = "<proxy_cert>"
-
--- Written by hand, because @deriveSafeCopySimple@ generates redundant
--- constraint (SafeCopy w) though it's phantom.
-instance SafeCopy (ProxyCert w) where
-    putCopy (ProxyCert sig) = contain $ safePut sig
-    getCopy = contain $ ProxyCert <$> safeGet
 
 -- | Proxy certificate creation from secret key of issuer, public key
 -- of delegate and the message space ω.
@@ -294,8 +257,6 @@ instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey (w,w)) whe
     build (ProxySecretKey w iPk dPk _) =
         bprint ("ProxySk { w = "%pairF%", iPk = "%build%", dPk = "%build%" }") w iPk dPk
 
-deriveSafeCopySimple 0 'base ''ProxySecretKey
-
 -- | Creates proxy secret key
 createProxySecretKey :: (Bi w) => SecretKey -> PublicKey -> w -> ProxySecretKey w
 createProxySecretKey issuerSk delegatePk w =
@@ -330,15 +291,6 @@ instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature (w,w) a) w
     build ProxySignature{..} =
         bprint ("Proxy signature { w = "%pairF%", delegatePk = "%build%" }")
                pdOmega pdDelegatePk
-
-instance (SafeCopy w) => SafeCopy (ProxySignature w a) where
-    putCopy ProxySignature{..} = contain $ do
-        safePut pdOmega
-        safePut pdDelegatePk
-        safePut pdCert
-        safePut pdSig
-    getCopy = contain $
-        ProxySignature <$> safeGet <*> safeGet <*> safeGet <*> safeGet
 
 -- | Make a proxy delegate signature with help of certificate. If the
 -- delegate secret key passed doesn't pair with delegate public key in

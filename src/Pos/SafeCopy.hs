@@ -7,24 +7,90 @@ module Pos.SafeCopy
        (
        ) where
 
-import           Data.SafeCopy                 (SafeCopy (..), base, contain,
-                                                deriveSafeCopySimple, safeGet,
-                                                safePut)
-import qualified Data.Serialize                as Cereal (getWord8, putWord8)
+import           Data.SafeCopy                   (SafeCopy (..), base, contain,
+                                                  deriveSafeCopySimple, safeGet,
+                                                  safePut)
+import qualified Data.Serialize                  as Cereal (getWord8, putWord8)
 import           Universum
 
-import           Pos.Crypto.HD                 (HDAddressPayload (..))
-import           Pos.Ssc.Class.Types           (Ssc (..))
+import qualified Cardano.Crypto.Wallet           as CC
+import qualified Cardano.Crypto.Wallet.Encrypted as CC
+import qualified Crypto.ECC.Edwards25519         as ED25519
+import qualified Crypto.Sign.Ed25519             as EDS25519
+import           Pos.Binary.Class                (Bi)
+import qualified Pos.Binary.Class                as Bi
+import           Pos.Crypto.HD                   (HDAddressPayload (..))
+import           Pos.Crypto.RedeemSigning        (RedeemPublicKey (..),
+                                                  RedeemSecretKey (..),
+                                                  RedeemSignature (..))
+import           Pos.Crypto.Signing              (ProxyCert (..),
+                                                  ProxySecretKey (..),
+                                                  ProxySignature (..),
+                                                  PublicKey (..),
+                                                  SecretKey (..),
+                                                  Signature (..), Signed (..))
+import           Pos.Ssc.Class.Types             (Ssc (..))
 
--- FIXME
-import           Pos.Core.Types
-import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), CommitmentsMap,
-                                                GtPayload (..), GtProof (..),
-                                                Opening (..),
-                                                VssCertificate (..))
-import           Pos.Txp.Core.Types
+import           Pos.Core.Types                  (AddrPkAttrs (..),
+                                                  Address (..),
+                                                  ApplicationName (..),
+                                                  BlockVersion (..),
+                                                  BlockVersionData (..),
+                                                  ChainDifficulty (..), Coin,
+                                                  CoinPortion (..),
+                                                  EpochIndex (..),
+                                                  EpochOrSlot (..),
+                                                  LocalSlotIndex (..),
+                                                  Script (..), SharedSeed (..),
+                                                  SlotId (..),
+                                                  SoftwareVersion (..))
+import           Pos.Ssc.GodTossing.Core.Types   (Commitment (..),
+                                                  CommitmentsMap,
+                                                  GtPayload (..), GtProof (..),
+                                                  Opening (..),
+                                                  VssCertificate (..))
+import           Pos.Txp.Core.Types              (Tx (..), TxDistribution (..),
+                                                  TxIn (..), TxInWitness (..),
+                                                  TxOut (..), TxOutAux (..),
+                                                  TxPayload (..), TxProof (..))
 import           Pos.Types.Block
-import           Pos.Update.Core.Types
+import           Pos.Update.Core.Types           (SystemTag (..),
+                                                  UpdateData (..),
+                                                  UpdatePayload (..),
+                                                  UpdateProposal (..),
+                                                  UpdateVote (..))
+
+
+----------------------------------------------------------------------------
+-- Core types
+----------------------------------------------------------------------------
+
+deriveSafeCopySimple 0 'base ''Script
+deriveSafeCopySimple 0 'base ''ApplicationName
+deriveSafeCopySimple 0 'base ''BlockVersion
+deriveSafeCopySimple 0 'base ''SoftwareVersion
+
+deriveSafeCopySimple 0 'base ''ED25519.PointCompressed
+deriveSafeCopySimple 0 'base ''ED25519.Scalar
+deriveSafeCopySimple 0 'base ''ED25519.Signature
+--
+deriveSafeCopySimple 0 'base ''CC.EncryptedKey
+deriveSafeCopySimple 0 'base ''CC.ChainCode
+deriveSafeCopySimple 0 'base ''CC.XPub
+deriveSafeCopySimple 0 'base ''CC.XPrv
+deriveSafeCopySimple 0 'base ''CC.XSignature
+
+deriveSafeCopySimple 0 'base ''PublicKey
+deriveSafeCopySimple 0 'base ''SecretKey
+
+deriveSafeCopySimple 0 'base ''ProxySecretKey
+
+deriveSafeCopySimple 0 'base ''EDS25519.PublicKey
+deriveSafeCopySimple 0 'base ''EDS25519.SecretKey
+deriveSafeCopySimple 0 'base ''EDS25519.Signature
+
+deriveSafeCopySimple 0 'base ''RedeemPublicKey
+deriveSafeCopySimple 0 'base ''RedeemSecretKey
 
 ----------------------------------------------------------------------------
 -- God tossing
@@ -78,6 +144,8 @@ deriveSafeCopySimple 0 'base ''UpdatePayload
 -- Manually written instances can't be derived because
 -- 'deriveSafeCopySimple' is not clever enough to add
 -- “SafeCopy (Whatever a) =>” constraints.
+-- Written by hand, because @deriveSafeCopySimple@ generates redundant
+-- constraint (SafeCopy w) though it's phantom.
 ----------------------------------------------------------------------------
 -- Manual instances
 ----------------------------------------------------------------------------
@@ -205,3 +273,32 @@ instance SafeCopy (Body (GenesisBlockchain ssc)) where
     putCopy GenesisBody {..} =
         contain $
         do safePut _gbLeaders
+
+instance SafeCopy (RedeemSignature a) where
+    putCopy (RedeemSignature sig) = contain $ safePut sig
+    getCopy = contain $ RedeemSignature <$> safeGet
+
+instance SafeCopy (Signature a) where
+    putCopy (Signature sig) = contain $ safePut sig
+    getCopy = contain $ Signature <$> safeGet
+
+instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
+    putCopy (Signed v s) = contain $ safePut (Bi.encode (v,s))
+    getCopy = contain $ do
+        bs <- safeGet
+        case Bi.decodeFull bs of
+            Left err    -> fail $ "getCopy@SafeCopy: " ++ err
+            Right (v,s) -> pure $ Signed v s
+
+instance SafeCopy (ProxyCert w) where
+    putCopy (ProxyCert sig) = contain $ safePut sig
+    getCopy = contain $ ProxyCert <$> safeGet
+
+instance (SafeCopy w) => SafeCopy (ProxySignature w a) where
+    putCopy ProxySignature{..} = contain $ do
+        safePut pdOmega
+        safePut pdDelegatePk
+        safePut pdCert
+        safePut pdSig
+    getCopy = contain $
+        ProxySignature <$> safeGet <*> safeGet <*> safeGet <*> safeGet

@@ -107,8 +107,6 @@ readerToState
     => Reader s a -> m a
 readerToState = gets . runReader
 
--- deriveSafeCopySimple 0 'base ''VerificationRes
-
 -- | A helper for simple error handling in executables
 eitherPanic :: Show a => Text -> Either a b -> b
 eitherPanic msgPrefix = either (error . (msgPrefix <>) . show) identity

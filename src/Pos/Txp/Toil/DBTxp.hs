@@ -27,6 +27,7 @@ import           Universum
 import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import qualified Pos.DB.GState               as GS
+import           Pos.DB.GState.Balances      (getRealStake, getRealTotalStake)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Slotting                (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
@@ -105,8 +106,8 @@ instance (Monad m, MonadDB m) => MonadUtxoRead (DBTxp m) where
     utxoGet = GS.getTxOut
 
 instance (Monad m, MonadDB m) => MonadBalancesRead (DBTxp m) where
-    getTotalStake = GS.getTotalFtsStake
-    getStake = GS.getFtsStake
+    getTotalStake = getRealTotalStake
+    getStake = getRealStake
 
 instance (Monad m, MonadDB m) => MonadToilEnv (DBTxp m) where
     getToilEnv = ToilEnv . bvdMaxTxSize <$> getAdoptedBVData

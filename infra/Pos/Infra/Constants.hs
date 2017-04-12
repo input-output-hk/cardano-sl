@@ -25,6 +25,8 @@ data InfraConstants = InfraConstants
       -- ^ How often request to NTP server and response collection
     , ccNtpPollDelay             :: !Int
       -- ^ How often send request to NTP server
+    , ccNtpMaxError              :: !Int
+    -- ^ Max NTP error (max difference between local and global time, which is trusted)
 
     , ccNeighboursSendThreshold  :: !Int
       -- ^ Broadcasting threshold

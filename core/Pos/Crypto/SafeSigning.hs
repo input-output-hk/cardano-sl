@@ -22,7 +22,6 @@ import           Data.ByteArray        (ByteArray, ByteArrayAccess, ScrubbedByte
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Lazy  as BSL
 import           Data.Coerce           (coerce)
-import           Data.SafeCopy         (base, deriveSafeCopySimple)
 import           Data.Text.Buildable   (build)
 import qualified Data.Text.Buildable   as B
 import qualified Prelude
@@ -51,8 +50,6 @@ instance Show PassPhrase where
 
 instance Buildable PassPhrase where
     build _ = "<passphrase>"
-
-deriveSafeCopySimple 0 'base ''EncryptedSecretKey
 
 -- | Empty passphrase used in development.
 emptyPassphrase :: PassPhrase

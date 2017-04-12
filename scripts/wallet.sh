@@ -11,4 +11,5 @@ fi
 
 $(find_binary cardano-wallet) $(peer_config 0) $(logs smartwallet$i.log) \
                               --db-path "run/wallet-db" --rebuild-db \
-                              --flat-distr "(3, 100000)" $ssc_algo "$@"
+                              --flat-distr "(3, 100000)" $ssc_algo "$@" \
+                              --system-start 100500  # random value, not used, but mandatory

@@ -14,7 +14,7 @@ import           Test.Hspec               (Spec, describe, pending)
 import           Test.Hspec.QuickCheck    (modifyMaxSize, modifyMaxSuccess, prop)
 import           Test.Pos.Util            (formsCommutativeMonoid)
 import           Test.QuickCheck          (Property, choose, counterexample, generate,
-                                           ioProperty, property, sized, (===), (.&&.))
+                                           ioProperty, property, sized, (.&&.), (===))
 import           Test.QuickCheck.Property (failed, succeeded)
 import           Universum
 import           Unsafe                   ()

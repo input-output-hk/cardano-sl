@@ -47,10 +47,9 @@ import           Pos.Core                   (ChainDifficulty, EpochIndex, EpochO
 import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
                                              GenericBlockHeader (..), gbBody, gbBodyProof,
                                              gbHeader)
-import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignMainBlock),
-                                             checkSig, proxySign, proxyVerify,
-                                             pskIssuerPk, pskOmega, sign, toPublic,
-                                             unsafeHash)
+import           Pos.Crypto                 (Hash, SecretKey, SignTag (..), checkSig,
+                                             proxySign, proxyVerify, pskIssuerPk,
+                                             pskOmega, sign, toPublic, unsafeHash)
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Types.Block.Instances  (Body (..), ConsensusData (..), blockLeaders,
@@ -138,8 +137,10 @@ mkMainHeader prevHeader slotId sk pSk body extra =
     mkGenericHeader prevHeader body consensus extra
   where
     difficulty = maybe 0 (succ . view difficultyL) prevHeader
-    makeSignature toSign (Left psk)  = BlockPSignatureEpoch $ proxySign sk psk toSign
-    makeSignature toSign (Right psk) = BlockPSignatureSimple $ proxySign sk psk toSign
+    makeSignature toSign (Left psk) = BlockPSignatureEpoch $
+        proxySign SignMainBlockLight sk psk toSign
+    makeSignature toSign (Right psk) = BlockPSignatureSimple $
+        proxySign SignMainBlockHeavy sk psk toSign
     signature prevHash proof =
         let toSign = MainToSign prevHash proof slotId difficulty extra
         in maybe (BlockSignature $ sign SignMainBlock sk toSign)
@@ -152,6 +153,7 @@ mkMainHeader prevHeader slotId sk pSk body extra =
         , _mcdDifficulty = difficulty
         , _mcdSignature = signature prevHash proof
         }
+
 -- | Smart constructor for 'MainBlock'. Uses 'mkMainHeader'.
 mkMainBlock
     :: (BiSsc ssc, SscHelpersClass ssc, MonadFail m)
@@ -228,14 +230,14 @@ verifyConsensusLocal (Right header) =
     verifyBlockSignature (BlockSignature sig) =
         checkSig SignMainBlock pk signature sig
     verifyBlockSignature (BlockPSignatureEpoch proxySig) =
-        proxyVerify
+        proxyVerify SignMainBlockLight
             pk
             proxySig
             (\(epochLow, epochHigh) ->
                epochLow <= epochId && epochId <= epochHigh)
             signature
     verifyBlockSignature (BlockPSignatureSimple proxySig) =
-        proxyVerify
+        proxyVerify SignMainBlockHeavy
             pk
             proxySig
             (const True)

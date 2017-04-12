@@ -5,7 +5,7 @@
 
 module Pos.DB.Class
        ( MonadDB (..)
-       , getBlockDB
+       , getBlockIndexDB
        , getUtxoDB
        , getLrcDB
        , getMiscDB
@@ -23,13 +23,13 @@ import           Control.Monad.Trans.Resource (ResourceT, transResourceT)
 import qualified Database.RocksDB             as Rocks
 
 import           Pos.Core                     (BlockVersionData)
-import           Pos.DB.Types                 (DB, NodeDBs, blockDB, gStateDB, lrcDB,
+import           Pos.DB.Types                 (DB, NodeDBs, blockIndexDB, gStateDB, lrcDB,
                                                miscDB)
 import           Pos.Util.Iterator            (ListHolderT (..))
 
 -- TODO write a documentation. LensLike' is just a lens. Written using
 -- LensLike' to avoid rankntypes.
-class (MonadIO m, MonadThrow m) => MonadDB m where
+class (MonadIO m, MonadCatch m) => MonadDB m where
     getNodeDBs :: m NodeDBs
     usingReadOptions :: Rocks.ReadOptions -> ASetter' NodeDBs DB -> m a -> m a
     usingWriteOptions :: Rocks.WriteOptions -> ASetter' NodeDBs DB -> m a -> m a
@@ -37,8 +37,8 @@ class (MonadIO m, MonadThrow m) => MonadDB m where
     default getNodeDBs :: (MonadTrans t, MonadDB m', t m' ~ m) => m NodeDBs
     getNodeDBs = lift getNodeDBs
 
-getBlockDB :: MonadDB m => m DB
-getBlockDB = view blockDB <$> getNodeDBs
+getBlockIndexDB :: MonadDB m => m DB
+getBlockIndexDB = view blockIndexDB <$> getNodeDBs
 
 getUtxoDB :: MonadDB m => m DB
 getUtxoDB = view gStateDB <$> getNodeDBs

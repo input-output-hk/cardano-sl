@@ -5,10 +5,10 @@ module Pos.Slotting.Constants
        ) where
 
 import           Data.Time.Units     (Microsecond)
-import           Serokell.Util       (mcs, sec)
+import           Serokell.Util       (mcs)
 import           Universum
 
-import           Pos.Infra.Constants (ccNtpPollDelay, ccNtpResponseTimeout,
+import           Pos.Infra.Constants (ccNtpMaxError, ccNtpPollDelay, ccNtpResponseTimeout,
                                       infraConstants)
 
 ----------------------------------------------------------------------------
@@ -17,7 +17,7 @@ import           Pos.Infra.Constants (ccNtpPollDelay, ccNtpResponseTimeout,
 
 -- | Inaccuracy in call threadDelay (actually it is error much less than 1 sec)
 ntpMaxError :: Microsecond
-ntpMaxError = sec 1
+ntpMaxError = mcs . ccNtpMaxError $ infraConstants
 
 -- | After making request to NTP servers, how long to wait for their response
 ntpResponseTimeout :: Microsecond

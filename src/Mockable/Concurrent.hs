@@ -30,6 +30,7 @@ module Mockable.Concurrent (
   , cancelWith
   , cancel
   , asyncThreadId
+  , race
   , waitAny
   , waitAnyNonFail
   , waitAnyUnexceptional
@@ -114,6 +115,7 @@ data Async m t where
     WaitAny :: [Promise m t] -> Async m (Promise m t, t)
     CancelWith :: Exception e => Promise m t -> e -> Async m ()
     AsyncThreadId :: Promise m t -> Async m (ThreadId m)
+    Race :: m t -> m r -> Async m (Either t r)
 
 {-# INLINE async #-}
 async :: ( Mockable Async m ) => m t -> m (Promise m t)
@@ -143,6 +145,10 @@ cancelWith promise e = liftMockable $ CancelWith promise e
 asyncThreadId :: ( Mockable Async m ) => Promise m t -> m (ThreadId m)
 asyncThreadId promise = liftMockable $ AsyncThreadId promise
 
+{-# INLINE race #-}
+race :: (Mockable Async m ) => m t -> m r -> m (Either t r)
+race a b = liftMockable $ Race a b
+
 instance (Promise n ~ Promise m, ThreadId n ~ ThreadId m) => MFunctor' Async m n where
     hoist' nat (Async act)     = Async $ nat act
     hoist' nat (WithAsync m k) = WithAsync (nat m) (nat . k)
@@ -150,6 +156,7 @@ instance (Promise n ~ Promise m, ThreadId n ~ ThreadId m) => MFunctor' Async m n
     hoist' _ (WaitAny p)       = WaitAny p
     hoist' _ (CancelWith p e)  = CancelWith p e
     hoist' _ (AsyncThreadId p) = AsyncThreadId p
+    hoist' nat (Race p e)      = Race (nat p) (nat e)
 
 data Concurrently m t where
     Concurrently :: m a -> m b -> Concurrently m (a, b)

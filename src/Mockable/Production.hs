@@ -84,6 +84,7 @@ instance Mockable Async Production where
     liftMockable (WaitAny promises)     = Production $ Conc.waitAny promises
     liftMockable (CancelWith promise e) = Production $ Conc.cancelWith promise e
     liftMockable (AsyncThreadId p)      = Production $ return (Conc.asyncThreadId p)
+    liftMockable (Race a b)             = Production $ Conc.race (runProduction a) (runProduction b)
 
 instance Mockable Concurrently Production where
     {-# INLINABLE liftMockable #-}

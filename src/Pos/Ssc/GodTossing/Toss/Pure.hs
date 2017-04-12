@@ -12,6 +12,7 @@ module Pos.Ssc.GodTossing.Toss.Pure
 
 import           Control.Lens                   (at, (%=), (.=))
 import           Control.Monad.RWS.Strict       (RWS, runRWS)
+import           Control.Monad.Trans.Identity   (mapIdentityT)
 import qualified Data.HashMap.Strict            as HM
 import           System.Wlog                    (CanLog, HasLoggerName, LogEvent,
                                                  LoggerName, NamedPureLogger (..),
@@ -35,6 +36,11 @@ type MultiRichmenSet = HashMap EpochIndex RichmenSet
 newtype PureToss a = PureToss
     { getPureToss :: NamedPureLogger (RWS MultiRichmenStake () GtGlobalState) a
     } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName)
+
+instance (Monad m, HasLoggerName m) => HasLoggerName (IdentityT a m) where
+    getLoggerName = lift getLoggerName
+
+    modifyLoggerName = mapIdentityT . modifyLoggerName
 
 instance MonadTossRead PureToss where
     getCommitments = PureToss $ use gsCommitments

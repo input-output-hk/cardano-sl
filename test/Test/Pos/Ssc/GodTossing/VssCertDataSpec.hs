@@ -24,9 +24,9 @@ import           Pos.Types             (EpochIndex (..), EpochOrSlot (..), SlotI
 import           Pos.Util.Chrono       (NewestFirst (..))
 
 import           Test.Hspec            (Spec, describe)
-import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess, prop)
+import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Arbitrary (..), Gen, Property, choose, conjoin,
-                                        suchThat, vectorOf, (===), (==>), (.&&.))
+                                        suchThat, vectorOf, (==>))
 
 spec :: Spec
 spec = describe "Ssc.GodTossing.VssCertData" $ do
@@ -40,29 +40,8 @@ spec = describe "Ssc.GodTossing.VssCertData" $ do
         prop description_verifySetLastKnownSlot verifySetLastKnownSlot
     describe "verifyDeleteAndFilter" $
         prop description_verifyDeleteAndFilter verifyDeleteAndFilter
-    let smaller = modifyMaxSuccess (const 100)
-    describe "verifyRollback" $ smaller $
-        prop description_verifyRollback $
-            do goodVssCertData@(VssCertData {..}) <- getVssCertData <$> arbitrary
-               certsToRollbackN <- choose (0, 100) >>= choose . (0,)
-               slotsToRollback <- choose (1, slotSecurityParam :: Word64)
-               let lastKEoSWord = flattenEpochOrSlot lastKnownEoS
-                   rollbackFrom = slotsToRollback + lastKEoSWord
-                   rollbackGen = do
-                       sk <- arbitrary
-                       binVssPK <- arbitrary
-                       thisEpoch  <-
-                           siEpoch . unflattenSlotId <$>
-                               choose (succ lastKEoSWord, rollbackFrom)
-                       return $ mkVssCertificate sk binVssPK thisEpoch
-               certsToRollback <- vectorOf @VssCertificate certsToRollbackN rollbackGen
-               return $ verifyRollback mempty
-                                       (GtGlobalState mempty
-                                                      mempty
-                                                      mempty
-                                                      goodVssCertData)
-                                       lastKnownEoS
-                                       certsToRollback
+    describe "verifyRollback" $
+        prop description_verifyRollback verifyRollback
   where
     description_verifyInsertVssCertData =
         "successfully verifies if certificate is in certificate data\
@@ -182,13 +161,32 @@ verifyDeleteAndFilter (getVssCertData -> vcd@VssCertData{..}) =
         resultCorrectVcd    = CorrectVssCertData resultVcd
     in isConsistent resultCorrectVcd
 
+data RollbackData = Rollback MultiRichmenStake GtGlobalState EpochOrSlot [VssCertificate]
+    deriving (Show, Eq)
+
+instance Arbitrary RollbackData where
+    arbitrary = do
+        goodVssCertData@(VssCertData {..}) <- getVssCertData <$> arbitrary
+        certsToRollbackN <- choose (0, 100) >>= choose . (0,)
+        slotsToRollback <- choose (1, slotSecurityParam :: Word64)
+        let lastKEoSWord = flattenEpochOrSlot lastKnownEoS
+            rollbackFrom = slotsToRollback + lastKEoSWord
+            rollbackGen = do
+                sk <- arbitrary
+                binVssPK <- arbitrary
+                thisEpoch  <-
+                    siEpoch . unflattenSlotId <$>
+                        choose (succ lastKEoSWord, rollbackFrom)
+                return $ mkVssCertificate sk binVssPK thisEpoch
+        certsToRollback <- vectorOf @VssCertificate certsToRollbackN rollbackGen
+        return $ Rollback mempty
+                          (GtGlobalState mempty mempty mempty goodVssCertData)
+                          lastKnownEoS
+                          certsToRollback
+
 verifyRollback
-    :: MultiRichmenStake
-    -> GtGlobalState
-    -> EpochOrSlot
-    -> [VssCertificate]
-    -> Property
-verifyRollback mrs oldGtGlobalState rollbackEoS vssCerts =
+    :: RollbackData -> Property
+verifyRollback (Rollback mrs oldGtGlobalState rollbackEoS vssCerts) =
     let certAdder vcd = foldl' (flip insert) vcd vssCerts
         newGtGlobalState@(GtGlobalState _ _ _ newVssCertData) =
             oldGtGlobalState & gsVssCertificates %~ certAdder

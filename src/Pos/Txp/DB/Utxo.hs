@@ -29,14 +29,16 @@ module Pos.Txp.DB.Utxo
 import qualified Data.Map             as M
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB     as Rocks
-import           Formatting           (bprint, build, (%))
+import           Formatting           (bprint, build, sformat, (%))
+import           Serokell.Util        (Color (Red), colorize)
 import           Serokell.Util.Text   (listJson, pairF)
-import           System.Wlog          (WithLogger)
+import           System.Wlog          (WithLogger, logError)
 import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
 import           Pos.Binary.Core      ()
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
+import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi,
                                        rocksGetBytes)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
@@ -45,7 +47,8 @@ import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMap
 import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
 import           Pos.Txp.Core         (TxIn (..), TxOutAux, addrBelongsTo, txOutStake)
 import           Pos.Txp.Toil.Types   (Utxo)
-import           Pos.Types            (Address, Coin)
+import           Pos.Types            (Address, Coin, coinF, mkCoin, sumCoins,
+                                       unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Util.Iterator    (nextItem)
 
 ----------------------------------------------------------------------------
@@ -168,26 +171,24 @@ getFilteredUtxo = getFilteredUtxo' @UtxoIter
 sanityCheckUtxo
     :: (MonadDB m, WithLogger m)
     => Coin -> m ()
-    -- TODO (!!!) CSL-999 Uncomment these lines
-sanityCheckUtxo _ = pure () -- do
--- sanityCheckUtxo expectedTotalStake = do
---     calculatedTotalStake <-
---         runUtxoMapIterator @UtxoIter (step (mkCoin 0)) (map snd . txOutStake . snd)
---     let fmt =
---             ("Sum of stakes in Utxo differs from expected total stake (the former is "
---              %coinF%", while the latter is "%coinF%")")
---     let msg = sformat fmt calculatedTotalStake expectedTotalStake
---     unless (calculatedTotalStake == expectedTotalStake) $ do
---         logError $ colorize Red msg
---         throwM $ DBMalformed msg
---  where
---    step sm =
---        nextItem >>= \case
---            Nothing -> pure sm
---            Just stakes ->
---                step
---                    (sm `unsafeAddCoin`
---                     unsafeIntegerToCoin (sumCoins @[Coin] stakes))
+sanityCheckUtxo expectedTotalStake = do
+    calculatedTotalStake <-
+        runUtxoMapIterator @UtxoIter (step (mkCoin 0)) (map snd . txOutStake . snd)
+    let fmt =
+            ("Sum of stakes in Utxo differs from expected total stake (the former is "
+             %coinF%", while the latter is "%coinF%")")
+    let msg = sformat fmt calculatedTotalStake expectedTotalStake
+    unless (calculatedTotalStake == expectedTotalStake) $ do
+        logError $ colorize Red msg
+        throwM $ DBMalformed msg
+  where
+    step sm =
+        nextItem >>= \case
+            Nothing -> pure sm
+            Just stakes ->
+                step
+                    (sm `unsafeAddCoin`
+                     unsafeIntegerToCoin (sumCoins @[Coin] stakes))
 
 ----------------------------------------------------------------------------
 -- Keys

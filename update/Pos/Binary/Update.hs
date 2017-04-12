@@ -11,7 +11,7 @@ import           Pos.Binary.Class        (Bi (..), getAsciiString1b, getWord8, l
                                           putAsciiString1b, putWord8)
 import           Pos.Binary.Core         ()
 import           Pos.Binary.Core.Version ()
-import           Pos.Crypto              (checkSig)
+import           Pos.Crypto              (SignTag (SignUSVote), checkSig)
 import qualified Pos.Update.Core.Types   as U
 import qualified Pos.Update.Poll.Types   as U
 
@@ -27,7 +27,11 @@ instance Bi U.UpdateVote where
         uvProposalId <- get
         uvDecision <- get
         uvSignature <- get
-        unless (checkSig uvKey (uvProposalId, uvDecision) uvSignature) $
+        let sigValid = checkSig SignUSVote
+                           uvKey
+                           (uvProposalId, uvDecision)
+                           uvSignature
+        unless sigValid $
             fail "Pos.Binary.Update: UpdateVote: invalid signature"
         return U.UpdateVote {..}
     put U.UpdateVote {..} =  put uvKey

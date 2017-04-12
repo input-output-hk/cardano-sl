@@ -22,6 +22,8 @@ module Pos.Context.Functions
        ) where
 
 import qualified Control.Concurrent.STM as STM
+import qualified Data.HashMap.Strict    as HM
+import qualified Data.List.NonEmpty     as NE
 import           Data.Time              (diffUTCTime, getCurrentTime)
 import           Data.Time.Units        (Microsecond, fromMicroseconds)
 import           Universum
@@ -29,8 +31,11 @@ import           Universum
 import           Pos.Context.Class      (WithNodeContext (..))
 import           Pos.Context.Context    (NodeContext (..), ncGenesisLeaders,
                                          ncGenesisUtxo, ncStartTime)
+import           Pos.DB.Class           (MonadDB (..))
+import           Pos.Genesis            (genesisBalances)
 import           Pos.Lrc.Context        (LrcContext (..), LrcSyncData (..))
 import           Pos.Lrc.Error          (LrcError (..))
+import           Pos.Txp.DB.Balances    (isBootstrapEra)
 import           Pos.Txp.Toil.Types     (Utxo)
 import           Pos.Types              (EpochIndex, HeaderHash, SlotLeaders)
 import           Pos.Util               (maybeThrow, readTVarConditional)
@@ -43,8 +48,10 @@ import           Pos.Util.Context       (HasContext, askContext)
 genesisUtxoM :: (Functor m, WithNodeContext ssc m) => m Utxo
 genesisUtxoM = ncGenesisUtxo <$> getNodeContext
 
-genesisLeadersM :: (Functor m, WithNodeContext ssc m) => m SlotLeaders
-genesisLeadersM = ncGenesisLeaders <$> getNodeContext
+genesisLeadersM :: (MonadDB m, WithNodeContext ssc m) => m SlotLeaders
+genesisLeadersM = ifM isBootstrapEra
+    (pure $ NE.fromList $ HM.keys genesisBalances)
+    (ncGenesisLeaders <$> getNodeContext)
 
 ----------------------------------------------------------------------------
 -- Semaphore-related logic

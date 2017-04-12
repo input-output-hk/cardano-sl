@@ -37,7 +37,9 @@ if [[ "$TPS" != "" ]]; then
 fi
 
 # System start time in seconds (time since epoch).
-system_start=`date +%s`
+# An extra second is added so that the nodes have extra time to start up
+# and start processing the first slot.
+system_start=$((`date +%s` + 1))
 
 echo "Using system start time "$system_start
 

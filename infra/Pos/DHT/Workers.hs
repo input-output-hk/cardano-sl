@@ -15,7 +15,8 @@ import           System.Wlog                (WithLogger, logNotice)
 import           Universum
 
 import           Pos.Binary.Infra.DHTModel  ()
-import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
+import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker,
+                                             NodeId)
 import           Pos.Core.Slotting          (flattenSlotId)
 import           Pos.Core.Types             (slotIdF)
 import           Pos.DHT.Constants          (kademliaDumpInterval)
@@ -34,14 +35,17 @@ type DhtWorkMode m = ( WithLogger m
                      , MonadShutdownMem m
                      )
 
-dhtWorkers :: DhtWorkMode m => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
-dhtWorkers kademliaInst = first pure (dumpKademliaStateWorker kademliaInst)
+dhtWorkers
+    :: DhtWorkMode m
+    => m (Set NodeId) -> KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
+dhtWorkers getPeers kademliaInst = first pure (dumpKademliaStateWorker getPeers kademliaInst)
 
 dumpKademliaStateWorker
     :: DhtWorkMode m
-    => KademliaDHTInstance
+    => m (Set NodeId)
+    -> KademliaDHTInstance
     -> (WorkerSpec m, OutSpecs)
-dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId ->
+dumpKademliaStateWorker getPeers kademliaInst = localOnNewSlotWorker getPeers True $ \slotId ->
     when (flattenSlotId slotId `mod` kademliaDumpInterval == 0) $ do
         let dumpFile = kdiDumpPath kademliaInst
         logNotice $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId

@@ -74,9 +74,10 @@ runNode' res plugins' = ActionSpec $ \vI sendActions -> do
     waitForWorkers (allWorkersCount @ssc @m)
     liftIO $ exitWith (ExitFailure 20)
   where
+    -- FIXME shouldn't this kill the whole program?
     reportHandler (SomeException e) = do
         loggerName <- getLoggerName
-        reportMisbehaviourMasked version $
+        reportMisbehaviourMasked (rmGetPeers res) version $
             sformat ("Worker/plugin with logger name "%shown%
                     " failed with exception: "%shown)
             loggerName e

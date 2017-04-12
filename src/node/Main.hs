@@ -134,7 +134,7 @@ action kademliaInst args@Args {..} res = do
                
         (True, GodTossingAlgo) -> do
             let wrappedDhtWorkers :: ([WorkerSpec (StatsMode SscGodTossing)], OutSpecs)
-                wrappedDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers kademliaInst)
+                wrappedDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers (rmGetPeers res') kademliaInst)
                 allPlugins :: ([WorkerSpec (StatsMode SscGodTossing)], OutSpecs)
                 allPlugins = wrappedDhtWorkers `mappendPair` convPlugins currentPluginsGT `mappendPair` walletStats args res
                 res' :: RealModeResources (StatsMode SscGodTossing)
@@ -146,7 +146,7 @@ action kademliaInst args@Args {..} res = do
                 currentParams gtParams
         (True, NistBeaconAlgo) -> do
             let wrappedDhtWorkers :: ([WorkerSpec (StatsMode SscNistBeacon)], OutSpecs)
-                wrappedDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers kademliaInst)
+                wrappedDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers (rmGetPeers res') kademliaInst)
                 allPlugins :: ([WorkerSpec (StatsMode SscNistBeacon)], OutSpecs)
                 allPlugins = wrappedDhtWorkers `mappendPair` convPlugins currentPlugins `mappendPair` walletStats args res
                 res' :: RealModeResources (StatsMode SscNistBeacon)
@@ -158,7 +158,7 @@ action kademliaInst args@Args {..} res = do
                 currentParams ()
         (False, GodTossingAlgo) -> do
             let wrappedDhtWorkers :: ([WorkerSpec (ProductionMode SscGodTossing)], OutSpecs)
-                wrappedDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers kademliaInst)
+                wrappedDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers (rmGetPeers res') kademliaInst)
                 allPlugins :: ([WorkerSpec (ProductionMode SscGodTossing)], OutSpecs)
                 allPlugins = wrappedDhtWorkers `mappendPair` convPlugins currentPluginsGT `mappendPair` walletProd args res
                 res' :: RealModeResources (ProductionMode SscGodTossing)
@@ -170,7 +170,7 @@ action kademliaInst args@Args {..} res = do
                 currentParams gtParams
         (False, NistBeaconAlgo) -> do
             let wrappedDhtWorkers :: ([WorkerSpec (ProductionMode SscNistBeacon)], OutSpecs)
-                wrappedDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers kademliaInst)
+                wrappedDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers (rmGetPeers res') kademliaInst)
                 allPlugins :: ([WorkerSpec (ProductionMode SscNistBeacon)], OutSpecs)
                 allPlugins = wrappedDhtWorkers `mappendPair` convPlugins currentPlugins `mappendPair` walletProd args res
                 res' :: RealModeResources (ProductionMode SscNistBeacon)

@@ -87,7 +87,7 @@ onNewSlotSsc
     :: (WorkMode SscGodTossing m)
     => m (Set NodeId)
     -> (WorkerSpec m, OutSpecs)
-onNewSlotSsc getPeers = onNewSlotWorker True outs $ \slotId sendActions -> do
+onNewSlotSsc getPeers = onNewSlotWorker getPeers True outs $ \slotId sendActions -> do
     richmen <- lrcActionOnEpochReason (siEpoch slotId)
         "couldn't get SSC richmen"
         getRichmenSsc

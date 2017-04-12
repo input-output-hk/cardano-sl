@@ -32,7 +32,7 @@ import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4
 import           Network.Wreq             (partFile, partLBS, post)
 import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
 import           Serokell.Util.Exceptions (throwText)
-import           Serokell.Util.Text       (listBuilderJSON)
+import           Serokell.Util.Text       (listBuilderJSON, listJson)
 import           System.Directory         (doesFileExist)
 import           System.FilePath          (takeFileName)
 import           System.Info              (arch, os)
@@ -47,6 +47,7 @@ import           Pos.Exception            (CardanoFatalError)
 import           Pos.Reporting.Exceptions (ReportingError (..))
 import           Pos.Reporting.MemState   (MonadReportingMem (..), rcLoggingConfig,
                                            rcReportServers)
+import           Pos.Communication.Types.Protocol (NodeId)
 
 -- TODO From Pos.Util, remove after refactoring.
 -- | Concatenates two url part using regular slash '/'.
@@ -117,16 +118,17 @@ ipv4Local w =
 
 -- | Retrieves node info that we would like to know when analyzing
 -- malicious behavior of node.
-getNodeInfo :: (MonadIO m) => m Text
-getNodeInfo = do
+getNodeInfo :: (MonadIO m) => m (Set NodeId) -> m Text
+getNodeInfo getPeers = do
+    peers <- getPeers
     (ips :: [Text]) <-
         map show . filter ipExternal . map ipv4 <$>
         liftIO getNetworkInterfaces
-    pure $ sformat outputF (pretty $ listBuilderJSON ips)
+    pure $ sformat outputF (pretty $ listBuilderJSON ips) peers
   where
     ipExternal (IPv4 w) =
         not $ ipv4Local w || w == 0 || w == 16777343 -- the last is 127.0.0.1
-    outputF = ("{ nodeParams: '"%stext%"' }")
+    outputF = ("{ nodeParams: '"%stext%"', otherNodes: "%listJson%" }")
 
 type ReportingWorkMode m =
        ( MonadIO m
@@ -140,20 +142,25 @@ type ReportingWorkMode m =
 -- for 'WorkMode' context.
 reportMisbehaviour
     :: forall m . ReportingWorkMode m
-    => Version -> Text -> m ()
-reportMisbehaviour version reason = do
+    => m (Set NodeId) -> Version -> Text -> m ()
+reportMisbehaviour getPeers version reason = do
     logError $ "Reporting misbehaviour \"" <> reason <> "\""
-    nodeInfo <- getNodeInfo
+    nodeInfo <- getNodeInfo getPeers
     sendReportNode version $ RMisbehavior $ sformat misbehF reason nodeInfo
   where
     misbehF = stext%", nodeInfo: "%stext
 
 -- | Report misbehaveour, but catch all errors inside
+--
+--   FIXME very misleading name. Suggests reporting misbehaviours while
+--   asynchronous exceptions are masked.
+--
+--   FIXME catch and squelch *all* exceptions? Probably a bad idea.
 reportMisbehaviourMasked
     :: forall m . ReportingWorkMode m
-    => Version -> Text -> m ()
-reportMisbehaviourMasked version reason =
-    reportMisbehaviour version reason `catch` handler
+    => m (Set NodeId) -> Version -> Text -> m ()
+reportMisbehaviourMasked getPeers version reason =
+    reportMisbehaviour getPeers version reason `catch` handler
   where
     handler :: SomeException -> m ()
     handler e =
@@ -166,8 +173,8 @@ reportMisbehaviourMasked version reason =
 -- logged and ignored.
 reportingFatal
     :: forall m a . ReportingWorkMode m
-    => Version -> m a -> m a
-reportingFatal version action =
+    => m (Set NodeId) -> Version -> m a -> m a
+reportingFatal getPeers version action =
     action `catch` handler1 `catch` handler2
   where
     andThrow :: (Exception e, MonadThrow n) => (e -> n x) -> e -> n y
@@ -175,7 +182,7 @@ reportingFatal version action =
     report reason = do
         logDebug $ "Reporting error \"" <> reason <> "\""
         let errorF = stext%", nodeInfo: "%stext
-        nodeInfo <- getNodeInfo
+        nodeInfo <- getNodeInfo getPeers
         sendReportNode version (RError $ sformat errorF reason nodeInfo) `catch`
             handlerSend reason
     handlerSend reason (e :: SomeException) =

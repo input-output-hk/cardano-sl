@@ -70,14 +70,14 @@ blkWorkers getPeers =
 
 -- Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode ssc m => m (Set NodeId) -> (WorkerSpec m, OutSpecs)
-blkOnNewSlot getPeers = onNewSlotWorker True announceBlockOuts (blkOnNewSlotImpl getPeers)
+blkOnNewSlot getPeers = onNewSlotWorker getPeers True announceBlockOuts (blkOnNewSlotImpl getPeers)
 
 blkOnNewSlotImpl :: WorkMode ssc m =>
                     m (Set NodeId) -> SlotId -> SendActions m -> m ()
 blkOnNewSlotImpl getPeers (slotId@SlotId {..}) sendActions = do
 
     -- First of all we create genesis block if necessary.
-    mGenBlock <- createGenesisBlock siEpoch
+    mGenBlock <- createGenesisBlock getPeers siEpoch
     whenJust mGenBlock $ \createdBlk -> do
         logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
         jlLog $ jlCreatedBlock (Left createdBlk)
@@ -167,7 +167,7 @@ onNewSlotWhenLeader getPeers slotId pSk sendActions = do
                     verifyCreatedBlock createdBlk
                     void $ fork $ announceBlock getPeers sendActions $ createdBlk ^. gbHeader
             let whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
-            createdBlock <- createMainBlock slotId pSk
+            createdBlock <- createMainBlock getPeers slotId pSk
             either whenNotCreated whenCreated createdBlock
             logInfoS "onNewSlotWhenLeader: done"
     logWarningSWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo

@@ -41,6 +41,7 @@ import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Error     (SlottingError (..))
 import           Pos.Slotting.MemState  (MonadSlotsData (..))
 import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData (..))
+import           Pos.Communication.Types.Protocol (NodeId)
 
 -- TODO eliminate this copy-paste when would refactor Pos.Util
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
@@ -91,20 +92,20 @@ type OnNewSlot m =
 -- MonadSlots and Mockable implementations.
 onNewSlot
     :: OnNewSlot m
-    => Bool -> (SlotId -> m ()) -> m ()
-onNewSlot = onNewSlotImpl False
+    => m (Set NodeId) -> Bool -> (SlotId -> m ()) -> m ()
+onNewSlot getPeers = onNewSlotImpl getPeers False
 
 onNewSlotWithLogging
     :: OnNewSlot m
-    => Bool -> (SlotId -> m ()) -> m ()
-onNewSlotWithLogging = onNewSlotImpl True
+    => m (Set NodeId) -> Bool -> (SlotId -> m ()) -> m ()
+onNewSlotWithLogging getPeers = onNewSlotImpl getPeers True
 
 -- TODO [CSL-198]: think about exceptions more carefully.
 onNewSlotImpl
     :: forall m. OnNewSlot m
-    => Bool -> Bool -> (SlotId -> m ()) -> m ()
-onNewSlotImpl withLogging startImmediately action =
-    reportingFatal version impl `catch` workerHandler
+    => m (Set NodeId) -> Bool -> Bool -> (SlotId -> m ()) -> m ()
+onNewSlotImpl getPeers withLogging startImmediately action =
+    reportingFatal getPeers version impl `catch` workerHandler
   where
     impl = onNewSlotDo withLogging Nothing startImmediately actionWithCatch
     actionWithCatch s = action s `catch` actionHandler
@@ -117,9 +118,9 @@ onNewSlotImpl withLogging startImmediately action =
     workerHandler e = do
         let msg = sformat ("Error occurred in 'onNewSlot' worker itself: " %build) e
         logError $ msg
-        reportMisbehaviourMasked version msg
+        reportMisbehaviourMasked getPeers version msg
         delay =<< getLastKnownSlotDuration
-        onNewSlotImpl withLogging startImmediately action
+        onNewSlotImpl getPeers withLogging startImmediately action
 
 onNewSlotDo
     :: OnNewSlot m
@@ -155,9 +156,9 @@ onNewSlotDo withLogging expectedSlotId startImmediately action = runIfNotShutdow
 
 logNewSlotWorker
     :: OnNewSlot m
-    => m ()
-logNewSlotWorker =
-    onNewSlotWithLogging True $ \slotId -> do
+    => m (Set NodeId) -> m ()
+logNewSlotWorker getPeers =
+    onNewSlotWithLogging getPeers True $ \slotId -> do
         modifyLoggerName (<> "slotting") $
             logNotice $ sformat ("New slot has just started: " %slotIdF) slotId
 

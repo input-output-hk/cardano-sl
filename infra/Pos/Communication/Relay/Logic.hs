@@ -323,7 +323,7 @@ relayWorkers :: forall m .
              => m (Set NodeId) -> OutSpecs -> ([WorkerSpec m], OutSpecs)
 relayWorkers getPeers allOutSpecs =
     first (:[]) $ worker allOutSpecs $ \sendActions ->
-        handleAll handleWE $ reportingFatal version $ action sendActions
+        handleAll handleWE $ reportingFatal getPeers version $ action sendActions
   where
     action sendActions = do
         queue <- _rlyPropagationQueue <$> askRelayMem

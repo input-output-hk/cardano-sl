@@ -47,13 +47,13 @@ allWorkers getPeers = mconcatPair
 
       wrap' "ssc"        $ untag (sscWorkers getPeers)
     , wrap' "security"   $ untag (securityWorkers getPeers)
-    , wrap' "lrc"        $ first pure lrcOnNewSlotWorker
-    , wrap' "us"         $ usWorkers
+    , wrap' "lrc"        $ first pure (lrcOnNewSlotWorker getPeers)
+    , wrap' "us"         $ usWorkers getPeers
 
       -- Have custom loggers
     , wrap' "block"      $ blkWorkers getPeers
     , wrap' "txp"        $ txpWorkers getPeers
-    , wrap' "delegation" $ dlgWorkers
+    , wrap' "delegation" $ dlgWorkers getPeers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
     , wrap' "relay"      $ relayWorkers getPeers allOutSpecs
 
@@ -62,7 +62,7 @@ allWorkers getPeers = mconcatPair
     ]
   where
     properSlottingWorkers =
-        map (fst . localWorker) (logNewSlotWorker:slottingWorkers)
+        map (fst . localWorker) (logNewSlotWorker getPeers : slottingWorkers)
     wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)
 
 -- FIXME this shouldn't be needed.

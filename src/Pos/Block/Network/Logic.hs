@@ -428,7 +428,7 @@ applyWithoutRollback getPeers sendActions blocks = do
     applyWithoutRollbackDo
         :: HeaderHash -> m (Either Text HeaderHash, HeaderHash)
     applyWithoutRollbackDo curTip = do
-        res <- verifyAndApplyBlocks False blocks
+        res <- verifyAndApplyBlocks getPeers False blocks
         let newTip = either (const curTip) identity res
         pure (res, newTip)
 
@@ -447,7 +447,7 @@ applyWithRollback getPeers peerId sendActions toApply lca toRollback = do
         (map (view blockHeader) toApply)
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
     res <- withBlkSemaphore $ \curTip -> do
-        res <- L.applyWithRollback toRollback toApplyAfterLca
+        res <- L.applyWithRollback getPeers toRollback toApplyAfterLca
         pure (res, either (const curTip) identity res)
     case res of
         Left err -> logWarning $ "Couldn't apply blocks with rollback: " <> err
@@ -469,7 +469,7 @@ applyWithRollback getPeers peerId sendActions toApply lca toRollback = do
     reportRollback =
         unlessM isRecoveryMode $ do
             logDebug "Reporting rollback happened"
-            reportMisbehaviourMasked version $
+            reportMisbehaviourMasked getPeers version $
                 sformat reportF peerId toRollbackHashes toApplyHashes
     panicBrokenLca = error "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =

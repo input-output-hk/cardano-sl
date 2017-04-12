@@ -7,19 +7,21 @@ module Pos.Update.Poll.Class
        , MonadPoll (..)
        ) where
 
-import           Control.Monad.Except  (ExceptT)
-import           Control.Monad.Trans   (MonadTrans)
-import           System.Wlog           (WithLogger)
+import qualified Control.Monad.Ether.Implicit as Ether
+import           Control.Monad.Except         (ExceptT)
+import           Control.Monad.Trans          (MonadTrans)
+import           System.Wlog                  (WithLogger)
 import           Universum
 
-import           Pos.Slotting.Types    (SlottingData)
-import           Pos.Types             (ApplicationName, BlockVersion, ChainDifficulty,
-                                        Coin, EpochIndex, NumSoftwareVersion, SlotId,
-                                        SoftwareVersion, StakeholderId)
-import           Pos.Update.Core       (BlockVersionData, UpId)
-import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState,
-                                        DecidedProposalState, ProposalState,
-                                        UndecidedProposalState)
+import           Pos.Slotting.Types           (SlottingData)
+import           Pos.Types                    (ApplicationName, BlockVersion,
+                                               ChainDifficulty, Coin, EpochIndex,
+                                               NumSoftwareVersion, SlotId,
+                                               SoftwareVersion, StakeholderId)
+import           Pos.Update.Core              (BlockVersionData, UpId)
+import           Pos.Update.Poll.Types        (BlockVersionState, ConfirmedProposalState,
+                                               DecidedProposalState, ProposalState,
+                                               UndecidedProposalState)
 
 ----------------------------------------------------------------------------
 -- Read-only
@@ -146,6 +148,7 @@ class (Monad m, WithLogger m) => MonadPollRead m where
 instance MonadPollRead m => MonadPollRead (ReaderT s m)
 instance MonadPollRead m => MonadPollRead (StateT s m)
 instance MonadPollRead m => MonadPollRead (ExceptT s m)
+instance {-# OVERLAPPABLE #-} MonadPollRead m => MonadPollRead (Ether.StateT s m)
 
 ----------------------------------------------------------------------------
 -- Writeable
@@ -225,3 +228,4 @@ class MonadPollRead m => MonadPoll m where
 instance MonadPoll m => MonadPoll (ReaderT s m)
 instance MonadPoll m => MonadPoll (StateT s m)
 instance MonadPoll m => MonadPoll (ExceptT s m)
+instance {-# OVERLAPPABLE #-} MonadPoll m => MonadPoll (Ether.StateT s m)

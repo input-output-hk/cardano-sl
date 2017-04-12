@@ -22,18 +22,16 @@ import           Pos.Core.Constants   (protocolMagic)
 -- makes sense, to ensure that things intended for testnet won't work for
 -- mainnet.
 data SignTag
-    -- | Transaction input:    @TxSigData@
-    = SignTxIn
-    -- | Vss certificate:      @(AsBinary VssPublicKey, EpochIndex)@
-    | SignVssCert
-    -- | Update proposal:      @UpdateProposalToSign@
-    | SignUSProposal
-    -- | Commitment:           @(EpochIndex, Commitment)@
-    | SignCommitment
-    -- | Update proposal vote: @(UpId, Bool)@
-    | SignUSVote
-    -- | Main block:           @MainToSign@
-    | SignMainBlock
+    = SignForTestingOnly  -- ^ Anything (to be used for testing only)
+    | SignTxIn            -- ^ Tx input:         @TxSigData@
+    | SignVssCert         -- ^ Vss certificate:  @(VssPublicKey, EpochIndex)@
+    | SignUSProposal      -- ^ Update proposal:  @UpdateProposalToSign@
+    | SignCommitment      -- ^ Commitment:       @(EpochIndex, Commitment)@
+    | SignUSVote          -- ^ US proposal vote: @(UpId, Bool)@
+    | SignMainBlock       -- ^ Main block:       @MainToSign@
+    | SignMainBlockLight
+    | SignMainBlockHeavy
+    | SignProxySK         -- ^ Proxy key:        @ProxySecretKey@
     deriving (Eq, Ord, Show, Generic, Typeable)
 
 -- TODO: it would be nice if we couldn't use 'SignTag' with wrong
@@ -46,11 +44,15 @@ instance Buildable SignTag where
 -- (and begin with a different byte) for different tags.
 signTag :: SignTag -> ByteString
 signTag = \case
-    SignTxIn       -> "\x01" <> network
-    SignVssCert    -> "\x02" <> network
-    SignUSProposal -> "\x03" <> network
-    SignCommitment -> "\x04" <> network
-    SignUSVote     -> "\x05" <> network
-    SignMainBlock  -> "\x06" <> network
+    SignForTestingOnly -> "\x00"
+    SignTxIn           -> "\x01" <> network
+    SignVssCert        -> "\x02" <> network
+    SignUSProposal     -> "\x03" <> network
+    SignCommitment     -> "\x04" <> network
+    SignUSVote         -> "\x05" <> network
+    SignMainBlock      -> "\x06" <> network
+    SignMainBlockLight -> "\x07" <> network
+    SignMainBlockHeavy -> "\x08" <> network
+    SignProxySK        -> "\x09" <> network
   where
     network = BSL.toStrict (Bi.encode protocolMagic)

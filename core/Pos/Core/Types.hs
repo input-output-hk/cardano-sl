@@ -230,7 +230,7 @@ headerHashF = build
 ----------------------------------------------------------------------------
 
 -- | Proxy signature used in csl -- holds a pair of epoch
--- indices. Block is valid if it's epoch index is inside this range.
+-- indices. Block is valid if its epoch index is inside this range.
 type ProxySigLight a = ProxySignature (EpochIndex, EpochIndex) a
 
 -- | Same alias for the proxy secret key (see 'ProxySigLight').

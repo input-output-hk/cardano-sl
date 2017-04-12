@@ -36,6 +36,13 @@ if [[ "$TPS" != "" ]]; then
   panesCnt=$((n+1))
 fi
 
+# System start time in seconds (time since epoch).
+# An extra second is added so that the nodes have extra time to start up
+# and start processing the first slot.
+system_start=$((`date +%s` + 1))
+
+echo "Using system start time "$system_start
+
 i=0
 while [[ $i -lt $panesCnt ]]; do
   im=$((i%4))
@@ -81,7 +88,7 @@ while [[ $i -lt $panesCnt ]]; do
   fi
 
   if [[ $i -lt $n ]]; then
-    tmux send-keys "$(node_cmd $i "$time_lord" "$dht_conf" "$stats" "$stake_distr" "$wallet_args" "$kademlia_dump_path")" C-m
+    tmux send-keys "$(node_cmd $i "$time_lord" "$dht_conf" "$stats" "$stake_distr" "$wallet_args" "$kademlia_dump_path" "$system_start")" C-m
   else
     tmux send-keys "NODE_COUNT=$n $base/bench/runSmartGen.sh 0 -R 1 -N 2 -t $TPS -S 3 --init-money 100000 --recipients-share 0" C-m
   fi

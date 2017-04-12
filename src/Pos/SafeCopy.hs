@@ -54,6 +54,9 @@ import           Pos.Txp.Core.Types              (Tx (..), TxDistribution (..),
                                                   TxOut (..), TxOutAux (..),
                                                   TxPayload (..), TxProof (..))
 import           Pos.Types.Block
+import           Pos.Merkle                      (MerkleTree(..), MerkleNode(..), MerkleRoot(..))
+import           Pos.Data.Attributes             (Attributes (..))
+import           Pos.Crypto.Hashing              (AbstractHash (..))
 import           Pos.Update.Core.Types           (SystemTag (..),
                                                   UpdateData (..),
                                                   UpdatePayload (..),
@@ -302,3 +305,31 @@ instance (SafeCopy w) => SafeCopy (ProxySignature w a) where
         safePut pdSig
     getCopy = contain $
         ProxySignature <$> safeGet <*> safeGet <*> safeGet <*> safeGet
+
+instance Bi (MerkleRoot a) => SafeCopy (MerkleRoot a) where
+    getCopy = Bi.getCopyBi "MerkleRoot"
+    putCopy = Bi.putCopyBi
+
+instance Bi (MerkleNode a) => SafeCopy (MerkleNode a) where
+    getCopy = Bi.getCopyBi "MerkleNode"
+    putCopy = Bi.putCopyBi
+
+instance Bi (MerkleTree a) => SafeCopy (MerkleTree a) where
+    getCopy = Bi.getCopyBi "MerkleTree"
+    putCopy = Bi.putCopyBi
+
+instance SafeCopy h => SafeCopy (Attributes h) where
+    getCopy =
+        contain $
+        do attrData <- safeGet
+           attrRemain <- safeGet
+           return $! Attributes {..}
+    putCopy Attributes {..} =
+        contain $
+        do safePut attrData
+           safePut attrRemain
+
+instance Bi (AbstractHash algo a) =>
+        SafeCopy (AbstractHash algo a) where
+   putCopy = Bi.putCopyBi
+   getCopy = Bi.getCopyBi "AbstractHash"

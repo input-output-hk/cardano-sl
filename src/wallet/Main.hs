@@ -127,6 +127,7 @@ runCmd sendActions (SendToAllGenesis amount delay_ tpsSentFile) = do
                 Left err -> addTxFailed tpsMVar >> putText (sformat ("Error: "%stext) err)
                 Right tx -> addTxSubmit tpsMVar >> putText (sformat ("Submitted transaction: "%txaF) tx)
             delay $ ms delay_
+    putStr $ unwords ["Sending", show (length skeys), "transactions"]
     either absurd id <$> race writeTPS sendTxs
 runCmd sendActions v@(Vote idx decision upid) = do
     logDebug $ "Submitting a vote :" <> show v

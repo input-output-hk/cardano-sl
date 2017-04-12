@@ -17,7 +17,7 @@ import           Pos.Context.Class      (WithNodeContext (getNodeContext))
 import           Pos.Context.Context    (ncSystemStart)
 import           Pos.Context.Functions  (genesisUtxoM)
 import           Pos.DB.Class           (MonadDB (getNodeDBs, usingReadOptions))
-import           Pos.DB.GState.Balances (getTotalFtsStake)
+import           Pos.DB.GState.Balances (getRealTotalStake)
 import           Pos.DB.GState.Common   (prepareGStateCommon)
 import           Pos.DB.Types           (DB (..), NodeDBs (..), Snapshot (..), gStateDB,
                                          usingSnapshot)
@@ -46,7 +46,7 @@ sanityCheckGStateDB
     => m ()
 sanityCheckGStateDB = do
     sanityCheckBalances
-    sanityCheckUtxo =<< getTotalFtsStake
+    sanityCheckUtxo =<< getRealTotalStake
 
 usingGStateSnapshot :: (MonadDB m, MonadMask m) => m a -> m a
 usingGStateSnapshot action = do

@@ -6,6 +6,7 @@ module Pos.Wallet.Launcher.Runner
        , runWallet
        ) where
 
+import           Data.Tagged                 (untag)
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (Production, bracket, fork, sleepForever)
 import qualified STMContainers.Map           as SM
@@ -13,12 +14,13 @@ import           System.Wlog                 (logDebug, logInfo, usingLoggerName
 import           Universum                   hiding (bracket)
 
 import           Pos.Communication           (ActionSpec (..), ListenersWithOut, OutSpecs,
-                                              WorkerSpec)
+                                              WorkerSpec, allStubListeners)
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import           Pos.DHT.Model               (getKnownPeers)
 import           Pos.DHT.Real                (runKademliaDHT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               RealModeResources (..), runServer_)
+import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Wallet.Context          (WalletContext (..), runContextHolder)
 import           Pos.Wallet.KeyStorage       (runKeyStorage)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
@@ -29,10 +31,8 @@ import           Pos.Wallet.WalletMode       (WalletMode, WalletRealMode)
 -- TODO: Move to some `Pos.Wallet.Communication` and provide
 -- meaningful listeners
 allListeners
-    -- :: (MonadDHTDialog SState m, WalletMode SscGodTossing m)
-    -- => [ListenerDHT SState m]
-    :: Monoid b => ([a], b)
-allListeners = ([], mempty)
+    :: ListenersWithOut WalletRealMode
+allListeners = untag @SscGodTossing allStubListeners
 
 -- TODO: Move to some `Pos.Wallet.Worker` and provide
 -- meaningful ones

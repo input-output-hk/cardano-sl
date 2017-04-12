@@ -19,7 +19,6 @@ import           Universum
 
 import           Control.Concurrent            (forkFinally)
 import           Control.Lens                  (ix, makeLenses, (.=))
-import           Control.Monad                 (replicateM_)
 import           Control.Monad.Catch           (SomeException, catches, try)
 import qualified Control.Monad.Catch           as E
 import           Control.Monad.State           (runStateT)
@@ -312,7 +311,7 @@ servantHandlers sendActions =
     apiTxsPayments              = (\a b c -> catchWalletError . send sendActions a b c)
     apiTxsPaymentsExt           = (\a b c d e f -> catchWalletError . sendExtended sendActions a b c d e f)
     apiUpdateTransaction        = (\a b -> catchWalletError . updateTransaction a b)
-    apiGetHistory               = (\a b -> catchWalletError . getHistory @ssc a b )
+    apiGetHistory               = (\a b -> catchWalletError . getHistory @ssc a b)
     apiSearchHistory            = (\a b c -> catchWalletError . searchHistory @ssc a b c)
     apiNextUpdate               = catchWalletError nextUpdate
     apiApplyUpdate              = catchWalletError applyUpdate

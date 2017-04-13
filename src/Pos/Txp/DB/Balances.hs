@@ -135,7 +135,7 @@ runBalanceIterReal
 runBalanceIterReal iter = runDBnIterator @BalanceIter _gStateDB iter
 
 runBalanceIterBootstrap
-    :: forall m a . MonadDB m
+    :: forall m a . Monad m
     => ListHolderT (IterType BalanceIter) m a -> m a
 runBalanceIterBootstrap = flip runListHolderT $ HM.toList genesisBalances
 
@@ -157,7 +157,7 @@ runBalanceMapIterReal
 runBalanceMapIterReal iter f = runDBnMapIterator @BalanceIter _gStateDB iter f
 
 runBalanceMapIterBootstrap
-    :: forall v m a . MonadDB m
+    :: forall v m a . Monad m
     => ListHolderT v m a -> (IterType BalanceIter -> v) -> m a
 runBalanceMapIterBootstrap iter f = runListHolderT iter $
     f <$> HM.toList genesisBalances

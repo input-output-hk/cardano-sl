@@ -67,12 +67,12 @@ deriving instance MonadTxHistory m => MonadTxHistory (WalletWebDB m)
 
 -- | Get tx history for Address
 instance MonadIO m => MonadTxHistory (WalletDB m) where
-    getTxHistory = Tagged $ \addr _ -> do
+    getTxHistory = Tagged $ \addrs _ -> do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
         _ <- fmap (fst . fromMaybe (error "deriveAddrHistory: Nothing")) $
             runMaybeT $ flip runUtxoStateT utxo $
-            deriveAddrHistory addr chain
+            deriveAddrHistory addrs chain
         pure $ error "getTxHistory is not implemented for light wallet"
     saveTx _ = pure ()
 

@@ -2,6 +2,7 @@
 
 module Pos.Txp.Toil.Utxo.Util
        ( filterUtxoByAddr
+       , filterUtxoByAddrs
        , utxoToStakes
        ) where
 
@@ -14,9 +15,13 @@ import           Pos.Core            (Address, Coin, StakeholderId, unsafeAddCoi
 import           Pos.Txp.Core        (addrBelongsTo, txOutStake)
 import           Pos.Txp.Toil.Types  (Utxo)
 
--- | Select only TxOuts for given addresses
+-- | Select only TxOuts for given address
 filterUtxoByAddr :: Address -> Utxo -> Utxo
 filterUtxoByAddr addr = M.filter (`addrBelongsTo` addr)
+
+-- | Select only TxOuts for given addresses
+filterUtxoByAddrs :: [Address] -> Utxo -> Utxo
+filterUtxoByAddrs addrs = M.filter $ \utxo -> any (addrBelongsTo utxo) addrs
 
 -- | Convert 'Utxo' to map from 'StakeholderId' to stake.
 utxoToStakes :: Utxo -> HashMap StakeholderId Coin

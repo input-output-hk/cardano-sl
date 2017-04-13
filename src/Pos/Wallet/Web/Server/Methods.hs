@@ -442,7 +442,7 @@ sendExtended sendActions cpassphrase srcCAddr dstCAddr c curr title desc = do
     sk      <- getSKByAccAddr passphrase srcCAddr
     let mainTx = TxOutAux (TxOut dstAddr c) []
     balance <- getAccountBalance srcCAddr
-    mRems <- if balance < c
+    mRems <- if balance <= c
         then return Nothing
         else do
             remCAddr <- caAddress <$> newAccount cpassphrase srcWCAddr
@@ -472,11 +472,11 @@ getHistory
     => CWalletAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
 getHistory wAddr skip limit = do
     cAccAddrs <- getWalletAccAddrsOrThrow wAddr
-    cHistory <- concatForM cAccAddrs $ \cAccAddr -> do
-        (minit, cachedTxs) <- transCache <$> getHistoryCache cAccAddr
-        cAddr <- decodeCAddressOrFail $ caaAddress cAccAddr
+    cAddrs    <- forM cAccAddrs (decodeCAddressOrFail . caaAddress)
+    cHistory <- do
+        (minit, cachedTxs) <- transCache <$> getHistoryCache wAddr
 
-        TxHistoryAnswer {..} <- untag @ssc getTxHistory cAddr minit
+        TxHistoryAnswer {..} <- untag @ssc getTxHistory cAddrs minit
 
         -- Add allowed portion of result to cache
         let fullHistory = taHistory <> cachedTxs
@@ -484,10 +484,11 @@ getHistory wAddr skip limit = do
             cached = drop (lenHistory - taCachedNum) taHistory
 
         unless (null cached) $
-            updateHistoryCache cAccAddr taLastCachedHash taCachedUtxo
+            updateHistoryCache wAddr taLastCachedHash taCachedUtxo
             (cached <> cachedTxs)
 
-        mapM (addHistoryTx cAccAddr ADA mempty mempty) fullHistory
+        -- TODO [CSM-931]: what should this line do?
+        mapM (addHistoryTx undefined ADA mempty mempty) fullHistory
     pure (paginate cHistory, fromIntegral $ length cHistory)
   where
     paginate     = take defaultLimit . drop defaultSkip
@@ -519,7 +520,7 @@ addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
     -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
             networkChainDifficulty
-    addr <- decodeCAddressOrFail . cwsaAddress $ caaWSAddress cAddr
+    addr <- decodeCAddressOrFail $ caaAddress cAddr
     meta <- CTxMeta curr title desc <$> liftIO getPOSIXTime
     let cId = txIdToCTxId txId
     addOnlyNewTxMeta cAddr cId meta

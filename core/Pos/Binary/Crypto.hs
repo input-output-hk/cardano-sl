@@ -197,7 +197,7 @@ instance Bi PassPhrase where
         -- currently passphrase may be 32-byte long, or empty
         -- (for unencrypted keys)
         let bs = BS.pack $ ByteArray.unpack pp
-        when (all (/= BS.length bs) [0, 32]) $ error $
+        unless (BS.length bs `elem` [0, 32]) $ error $
             sformat ("put@PassPhrase: expected length 0 or 32, not "%int)
                 (BS.length bs)
         putByteString bs

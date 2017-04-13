@@ -67,7 +67,7 @@ data WalletStorage = WalletStorage
     , _wsAccountTxs   :: !(HashMap CAccountAddress TransactionHistory)
     , _wsProfile      :: !(Maybe CProfile)
     , _wsReadyUpdates :: [CUpdateInfo]
-    , _wsHistoryCache :: !(HashMap CAccountAddress (HeaderHash, Utxo, [TxHistoryEntry]))
+    , _wsHistoryCache :: !(HashMap CWalletAddress (HeaderHash, Utxo, [TxHistoryEntry]))
     }
 
 makeClassy ''WalletStorage
@@ -133,7 +133,7 @@ getUpdates = view wsReadyUpdates
 getNextUpdate :: Query (Maybe CUpdateInfo)
 getNextUpdate = preview (wsReadyUpdates . _head)
 
-getHistoryCache :: CAccountAddress -> Query (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
+getHistoryCache :: CWalletAddress -> Query (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
 getHistoryCache cAddr = view $ wsHistoryCache . at cAddr
 
 createWallet :: CWalletAddress -> CWalletMeta -> Update ()
@@ -184,7 +184,7 @@ removeNextUpdate = wsReadyUpdates %= drop 1
 testReset :: Update ()
 testReset = put def
 
-updateHistoryCache :: CAccountAddress -> HeaderHash -> Utxo -> [TxHistoryEntry] -> Update ()
+updateHistoryCache :: CWalletAddress -> HeaderHash -> Utxo -> [TxHistoryEntry] -> Update ()
 updateHistoryCache cAddr cHash utxo cTxs = wsHistoryCache . at cAddr ?= (cHash, utxo, cTxs)
 
 deriveSafeCopySimple 0 'base ''CProfile

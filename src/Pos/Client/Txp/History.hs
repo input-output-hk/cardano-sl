@@ -30,6 +30,7 @@ import           Control.Monad.Loops         (unfoldrM)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import qualified Data.DList                  as DL
+import qualified Data.Set                    as S
 import           Data.Tagged                 (Tagged (..))
 import           System.Wlog                 (WithLogger)
 
@@ -56,7 +57,7 @@ import           Pos.Txp                     (MonadUtxoRead, Tx (..), TxAux,
                                               TxDistribution, TxId, TxOutAux (..),
                                               TxWitness, TxpHolder (..), Utxo, UtxoStateT,
                                               applyTxToUtxo, evalUtxoStateT,
-                                              filterUtxoByAddr, getLocalTxs,
+                                              filterUtxoByAddrs, getLocalTxs,
                                               runUtxoStateT, topsortTxs, txOutAddress,
                                               utxoGet)
 import           Pos.Types                   (Address, Block, ChainDifficulty, HeaderHash,
@@ -77,17 +78,23 @@ data TxHistoryAnswer = TxHistoryAnswer
 -- Deduction of history
 ----------------------------------------------------------------------
 
+-- | Checks whether to lists have common elements
+intersects :: Ord a => [a] -> [a] -> Bool
+intersects x y = unique x + unique y > unique (x ++ y)
+  where unique = length . S.fromList
+
 -- | Check if given 'Address' is one of the receivers of 'Tx'
-hasReceiver :: Tx -> Address -> Bool
-hasReceiver UnsafeTx {..} addr = any ((== addr) . txOutAddress) _txOutputs
+hasReceiver :: Tx -> [Address] -> Bool
+hasReceiver UnsafeTx {..} addrs = addrs `intersects` toList (txOutAddress <$> _txOutputs)
 
 -- | Given some 'Utxo', check if given 'Address' is one of the senders of 'Tx'
-hasSender :: MonadUtxoRead m => Tx -> Address -> m Bool
-hasSender UnsafeTx {..} addr = anyM hasCorrespondingOutput $ toList _txInputs
+hasSender :: MonadUtxoRead m => Tx -> [Address] -> m Bool
+hasSender UnsafeTx {..} addrs = anyM hasCorrespondingOutput $ toList _txInputs
   where hasCorrespondingOutput txIn =
-            fmap toBool $ ((== addr) . txOutAddress . toaOut) <<$>> utxoGet txIn
+            fmap toBool $ ((`S.member` addrsSet) . txOutAddress . toaOut) <<$>> utxoGet txIn
         toBool Nothing  = False
         toBool (Just b) = b
+        addrsSet = S.fromList addrs
 
 -- | Datatype for returning info about tx history
 data TxHistoryEntry = THEntry
@@ -106,18 +113,19 @@ type TxSelectorT m = UtxoStateT (MaybeT m)
 -- whether the transaction is outgoing (i. e. is sent from given address)
 getRelatedTxs
     :: Monad m
-    => Address
+    => [Address]
     -> [(WithHash Tx, TxWitness, TxDistribution)]
     -> TxSelectorT m [TxHistoryEntry]
-getRelatedTxs addr txs = fmap DL.toList $
+getRelatedTxs addrs txs = fmap DL.toList $
     lift (MaybeT $ return $ topsortTxs (view _1) txs) >>=
     foldlM step DL.empty
   where
     step ls (WithHash tx txId, _wit, dist) = do
-        let isIncoming = tx `hasReceiver` addr
-        isOutgoing <- tx `hasSender` addr
-        let allToAddr = all ((== addr) . txOutAddress) $ _txOutputs tx
-            isToItself = isOutgoing && allToAddr
+        let isIncoming = tx `hasReceiver` addrs
+        isOutgoing <- tx `hasSender` addrs
+        let allToAddr addr = all ((== addr) . txOutAddress) $ _txOutputs tx
+            allToSomeAddr  = any allToAddr addrs
+            isToItself = isOutgoing && allToSomeAddr
         lsAdd <- if isOutgoing || isIncoming
             then handleRelatedTx (isOutgoing, isToItself) (tx, txId, dist)
             else return mempty
@@ -125,7 +133,7 @@ getRelatedTxs addr txs = fmap DL.toList $
 
     handleRelatedTx (isOutgoing, isToItself) (tx, txId, dist) = do
         applyTxToUtxo (WithHash tx txId) dist
-        identity %= filterUtxoByAddr addr
+        identity %= filterUtxoByAddrs addrs
 
         -- Workaround to present A to A transactions as a pair of
         -- self-cancelling transactions in history
@@ -140,22 +148,22 @@ getRelatedTxs addr txs = fmap DL.toList $
 -- Tx will be required.
 deriveAddrHistory
     -- :: (Monad m, Ssc ssc) => Address -> [Block ssc] -> TxSelectorT m [TxHistoryEntry]
-    :: (Monad m) => Address -> [Block ssc] -> TxSelectorT m [TxHistoryEntry]
-deriveAddrHistory addr chain = identity %= filterUtxoByAddr addr >>
-                               deriveAddrHistoryPartial [] addr chain
+    :: (Monad m) => [Address] -> [Block ssc] -> TxSelectorT m [TxHistoryEntry]
+deriveAddrHistory addrs chain = identity %= filterUtxoByAddrs addrs >>
+                                deriveAddrHistoryPartial [] addrs chain
 
 deriveAddrHistoryPartial
     :: (Monad m)
     => [TxHistoryEntry]
-    -> Address
+    -> [Address]
     -> [Block ssc]
     -> TxSelectorT m [TxHistoryEntry]
-deriveAddrHistoryPartial hist addr chain =
+deriveAddrHistoryPartial hist addrs chain =
     DL.toList <$> foldrM updateAll (DL.fromList hist) chain
   where
     updateAll (Left _) hst = pure hst
     updateAll (Right blk) hst = do
-        txs <- getRelatedTxs addr $
+        txs <- getRelatedTxs addrs $
                    map (over _1 withHash) (blk ^. blockTxas)
         let difficulty = blk ^. difficultyL
             txs' = map (thDifficulty .~ Just difficulty) txs
@@ -169,12 +177,12 @@ deriveAddrHistoryPartial hist addr chain =
 class Monad m => MonadTxHistory m where
     getTxHistory
         :: SscHelpersClass ssc
-        => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
+        => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
     saveTx :: (TxId, TxAux) -> m ()
 
     default getTxHistory
         :: (SscHelpersClass ssc, MonadTrans t, MonadTxHistory m', t m' ~ m)
-        => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
+        => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
     getTxHistory = fmap lift <<$>> getTxHistory
 
     default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()
@@ -198,11 +206,11 @@ instance ( MonadDB m
          , PC.WithNodeContext s m) =>
          MonadTxHistory (TxpHolder TxpExtra_TMP m) where
     getTxHistory :: forall ssc. SscHelpersClass ssc
-                 => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> TxpHolder TxpExtra_TMP m TxHistoryAnswer)
-    getTxHistory = Tagged $ \addr mInit -> do
+                 => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> TxpHolder TxpExtra_TMP m TxHistoryAnswer)
+    getTxHistory = Tagged $ \addrs mInit -> do
         tip <- GS.getTip
 
-        let getGenUtxo = filterUtxoByAddr addr . PC.ncGenesisUtxo <$> PC.getNodeContext
+        let getGenUtxo = filterUtxoByAddrs addrs . PC.ncGenesisUtxo <$> PC.getNodeContext
         (bot, genUtxo) <- maybe ((,) <$> GS.getBot <*> getGenUtxo) pure mInit
 
         -- Getting list of all hashes in main blockchain (excluding bottom block - it's genesis anyway)
@@ -222,11 +230,11 @@ instance ( MonadDB m
         let blockFetcher h txs = do
                 blk <- lift . lift $ DB.getBlock @ssc h >>=
                        maybeThrow (DBMalformed "A block mysteriously disappeared!")
-                deriveAddrHistoryPartial txs addr [blk]
+                deriveAddrHistoryPartial txs addrs [blk]
             localFetcher blkTxs = do
                 let mp (txid, (tx, txw, txd)) = (WithHash tx txid, txw, txd)
                 ltxs <- lift . lift $ getLocalTxs
-                txs <- getRelatedTxs addr $ map mp ltxs
+                txs <- getRelatedTxs addrs $ map mp ltxs
                 return $ txs ++ blkTxs
 
         mres <- runMaybeT $ do

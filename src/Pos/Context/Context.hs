@@ -6,7 +6,6 @@ module Pos.Context.Context
        ( NodeContext (..)
        , ncPublicKey
        , ncPubKeyAddress
-       , ncGenesisLeaders
        , ncGenesisUtxo
        , ncSystemStart
        , NodeParams(..)
@@ -22,7 +21,6 @@ import           Universum
 import           Pos.Communication.Relay (RelayInvQueue)
 import           Pos.Communication.Types (NodeId)
 import           Pos.Crypto              (PublicKey, toPublic)
-import           Pos.Genesis             (genesisLeaders)
 import           Pos.Launcher.Param      (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context         (LrcContext)
 import           Pos.Ssc.Class.Types     (Ssc (SscNodeContext))

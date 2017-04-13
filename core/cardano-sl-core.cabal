@@ -42,12 +42,14 @@ library
                        Pos.Core.Version
 
                        Pos.Crypto
+                       Pos.Crypto.Encryption
                        Pos.Crypto.AsBinary
                        Pos.Crypto.HD
                        Pos.Crypto.Random
                        Pos.Crypto.Hashing
                        Pos.Crypto.SafeSigning
                        Pos.Crypto.Signing
+                       Pos.Crypto.SignTag
                        Pos.Crypto.SecretSharing
                        Pos.Crypto.RedeemSigning
 
@@ -71,6 +73,7 @@ library
                        Pos.Util.Iterator
                        Pos.Util.Modifier
                        Pos.Util.Util
+                       Pos.Util.Mnemonics
 
   other-modules:       Pos.Util.Config.Path
 

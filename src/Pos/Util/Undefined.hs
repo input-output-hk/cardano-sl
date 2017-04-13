@@ -9,7 +9,6 @@ import           Universum
 
 import           Data.Binary     (Binary)
 import           Data.Hashable   (Hashable)
-import           Data.SafeCopy   (base, deriveSafeCopySimple)
 import           Test.QuickCheck (Arbitrary (..))
 
 
@@ -18,5 +17,3 @@ instance Hashable Undefined
 
 instance Arbitrary Undefined where
     arbitrary = pure Undefined
-
-deriveSafeCopySimple 0 'base ''Undefined

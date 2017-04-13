@@ -35,8 +35,8 @@ import           Pos.Crypto.Signing    (PublicKey (..), SecretKey (..), Signatur
                                         sign, toPublic)
 
 data EncryptedSecretKey = EncryptedSecretKey
-    { eskPayload :: CC.XPrv
-    , eskHash    :: Hash PassPhrase
+    { eskPayload :: !CC.XPrv
+    , eskHash    :: !(Hash PassPhrase)
     }
 
 instance Show EncryptedSecretKey where

@@ -147,7 +147,11 @@ tmux
 ```
 *1.1 Add wallet (**only once**)*
 
-- Download key from https://tada.iohk.io/
+- Generate keys
+```bash
+cd {path/to/}cardano-sl
+stack exec cardano-keygen -- --dump-dev-genesis-keys keys/{}.key
+```
 - Add key as follow:
 
   ```bash
@@ -158,11 +162,11 @@ tmux
   cd daedalus
   npm install
   npm run build:prod
-  # use node repl to import key
+  # use node REPL to import key
   node
   > var api = require('../output/Daedalus.ClientApi')
-  > api.importKey('{path/to/}ada_secret.key').then(console.log).catch(console.log)
-  # check wallet
+  > api.importKey('{/path/to/cardano-sl/keys/{number}.key').then(console.log).catch(console.log)
+  # check wallets
   > api.getWallets().then(console.log)
   ```
 

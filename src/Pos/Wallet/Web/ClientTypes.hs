@@ -241,6 +241,11 @@ data CProfile = CProfile
     { cpLocale      :: Text
     } deriving (Show, Generic, Typeable)
 
+-- | Added default instance for `testReset`, we need an inital state for
+-- @CProfile@
+instance Default CProfile where
+    def = CProfile mempty
+
 ----------------------------------------------------------------------------
 -- Transactions
 ----------------------------------------------------------------------------

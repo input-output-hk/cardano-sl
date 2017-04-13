@@ -7,34 +7,35 @@
 
 module Main where
 
-import           Control.Applicative        (empty, liftA2)
-import           Control.Lens               (makeLenses, (+=))
-import           Control.Monad              (forM, forM_)
-import           Control.Monad.Random       (evalRandT, getRandomR)
-import           Control.Monad.State        (evalStateT, get, put)
-import           Control.Monad.Trans        (MonadIO (liftIO), lift)
+import           Control.Applicative            (empty, liftA2)
+import           Control.Lens                   (makeLenses, (+=))
+import           Control.Monad                  (forM, forM_)
+import           Control.Monad.Random           (evalRandT, getRandomR)
+import           Control.Monad.State            (evalStateT, get, put)
+import           Control.Monad.Trans            (MonadIO (liftIO), lift)
 
-import           Data.Time.Units            (Microsecond, Second, convertUnit)
-import           GHC.IO.Encoding            (setLocaleEncoding, utf8)
-import qualified Network.Transport.TCP      as TCP
-import           Options.Applicative.Simple (simpleOptions)
-import           Serokell.Util.Concurrent   (threadDelay)
-import           System.Random              (mkStdGen)
-import           System.Wlog                (usingLoggerName, LoggerNameBox)
+import           Data.Time.Units                (Microsecond, Second, convertUnit)
+import           GHC.IO.Encoding                (setLocaleEncoding, utf8)
+import qualified Network.Transport.TCP          as TCP
+import qualified Network.Transport.TCP.Internal as TCP (encodeEndPointAddress)
+import           Options.Applicative.Simple     (simpleOptions)
+import           Serokell.Util.Concurrent       (threadDelay)
+import           System.Random                  (mkStdGen)
+import           System.Wlog                    (usingLoggerName, LoggerNameBox)
 
-import           Mockable                   (fork, realTime, delay, Production, runProduction)
-import qualified Network.Transport.Abstract as NT
-import           Network.Transport.Concrete (concrete)
-import           Node                       (ListenerAction (..), NodeAction (..), node,
-                                             nodeEndPoint, sendTo, Node(..),
-                                             defaultNodeEnvironment, simpleNodeEndPoint)
-import           Node.Internal              (NodeId (..))
-import           Node.Message               (BinaryP (..))
+import           Mockable                       (fork, realTime, delay, Production, runProduction)
+import qualified Network.Transport.Abstract     as NT
+import           Network.Transport.Concrete     (concrete)
+import           Node                           (ListenerAction (..), NodeAction (..), node,
+                                                 nodeEndPoint, sendTo, Node(..),
+                                                 defaultNodeEnvironment, simpleNodeEndPoint)
+import           Node.Internal                  (NodeId (..))
+import           Node.Message                   (BinaryP (..))
 
 
-import           Bench.Network.Commons      (MeasureEvent (..), Payload (..), Ping (..),
-                                             Pong (..), loadLogConfig, logMeasure)
-import           SenderOptions              (Args (..), argsParser)
+import           Bench.Network.Commons          (MeasureEvent (..), Payload (..), Ping (..),
+                                                 Pong (..), loadLogConfig, logMeasure)
+import           SenderOptions                  (Args (..), argsParser)
 
 data PingState = PingState
     { _lastResetMcs    :: !Microsecond

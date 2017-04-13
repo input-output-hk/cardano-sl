@@ -26,7 +26,7 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletInit (..)
       , CUpdateInfo (..)
       , CWalletRedeem (..)
-      , CPostVendWalletRedeem (..)
+      , CPaperVendWalletRedeem (..)
       , CCoin
       , mkCCoin
       , CElectronCrashReport (..)
@@ -221,7 +221,7 @@ data CWalletRedeem = CWalletRedeem
     } deriving (Show, Generic)
 
 -- | Query data for redeem
-data CPostVendWalletRedeem = CPostVendWalletRedeem
+data CPaperVendWalletRedeem = CPaperVendWalletRedeem
     { pvWalletId     :: !CAddress
     , pvSeed         :: !Text -- TODO: newtype!
     , pvBackupPhrase :: !BackupPhrase

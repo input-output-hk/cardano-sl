@@ -5,7 +5,7 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Exception (error, Error)
 import Control.Monad.Error.Class (throwError)
 import Daedalus.Constants (backendPrefix)
-import Daedalus.Types (CAddress, _address, _ccoin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPostVendWalletRedeem)
+import Daedalus.Types (CAddress, _address, _ccoin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPaperVendWalletRedeem)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Bifunctor (bimap)
@@ -147,11 +147,11 @@ applyUpdate :: forall eff. Aff (ajax :: AJAX | eff) Unit
 applyUpdate = postR ["update"]
 --------------------------------------------------------------------------------
 -- REDEMPTIONS -----------------------------------------------------------------
-redeemADA :: forall eff. CWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
-redeemADA = postRBody ["redemptions", "ada"]
+redeemAda :: forall eff. CWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
+redeemAda = postRBody ["redemptions", "ada"]
 
-postVendRedeemADA :: forall eff. CPostVendWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
-postVendRedeemADA = postRBody ["postvend", "redemptions", "ada"]
+redeemAdaPaperVend :: forall eff. CPaperVendWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
+redeemAdaPaperVend = postRBody ["papervend", "redemptions", "ada"]
 --------------------------------------------------------------------------------
 -- REPORTING ---------------------------------------------------------------------
 reportInit :: forall eff. CInitialized -> Aff (ajax :: AJAX | eff) Unit

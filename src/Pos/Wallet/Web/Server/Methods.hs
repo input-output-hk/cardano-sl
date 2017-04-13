@@ -152,8 +152,6 @@ walletServer
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
 walletServer sendActions nat = do
-    whenM (isNothing <$> getProfile) $
-        createUserProfile >>= setProfile
     ws    <- lift getWalletState
     socks <- getWalletWebSockets
     let sendActions' = hoistSendActions
@@ -166,7 +164,6 @@ walletServer sendActions nat = do
   where
     insertAddressMeta cAddr =
         getWalletMeta cAddr >>= createWallet cAddr . fromMaybe def
-    createUserProfile = pure $ CProfile mempty
 
 ----------------------------------------------------------------------------
 -- Notifier
@@ -333,9 +330,7 @@ servantHandlers sendActions =
 --   where gb addr = (,) (addressToCAddress addr) <$> getBalance addr
 
 getUserProfile :: WalletWebMode ssc m => m CProfile
-getUserProfile = getProfile >>= maybe noProfile pure
-  where
-    noProfile = throwM $ Internal "No user profile"
+getUserProfile = getProfile
 
 updateUserProfile :: WalletWebMode ssc m => CProfile -> m CProfile
 updateUserProfile profile = setProfile profile >> getUserProfile

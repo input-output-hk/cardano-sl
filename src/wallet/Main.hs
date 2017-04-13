@@ -15,7 +15,7 @@ import           Data.Time.Units           (convertUnit)
 import           Data.Void                 (absurd)
 import           Formatting                (build, int, sformat, stext, (%))
 import           Mockable                  (Mockable, SharedAtomic, SharedAtomicT,
-                                            currentTime, delay,
+                                            currentTime, fork, delay,
                                             modifySharedAtomic, newSharedAtomic,
                                             race)
 import           Options.Applicative       (execParser)
@@ -114,20 +114,21 @@ runCmd sendActions (SendToAllGenesis amount delay_ tpsSentFile) = do
             writeTPS
     let sendTxs :: CmdRunner m ()
         sendTxs = forM_ skeys $ \key -> do
-            let txOut = TxOut {
-                txOutAddress = makePubKeyAddress (toPublic key),
-                txOutValue = amount
-            }
-            etx <-
-                lift $
-                submitTx
-                    sendActions
-                    (fakeSigner key)
-                    na
-                    (NE.fromList [TxOutAux txOut []])
-            case etx of
-                Left err -> addTxFailed tpsMVar >> putText (sformat ("Error: "%stext) err)
-                Right tx -> addTxSubmit tpsMVar >> putText (sformat ("Submitted transaction: "%txaF) tx)
+            void . fork $ do
+                let txOut = TxOut {
+                    txOutAddress = makePubKeyAddress (toPublic key),
+                    txOutValue = amount
+                }
+                etx <-
+                    lift $
+                    submitTx
+                        sendActions
+                        (fakeSigner key)
+                        na
+                        (NE.fromList [TxOutAux txOut []])
+                case etx of
+                    Left err -> addTxFailed tpsMVar >> putText (sformat ("Error: "%stext) err)
+                    Right tx -> addTxSubmit tpsMVar >> putText (sformat ("Submitted transaction: "%txaF) tx)
             delay $ ms delay_
     putStr $ unwords ["Sending", show (length skeys), "transactions"]
     either absurd id <$> race writeTPS sendTxs

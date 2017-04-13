@@ -32,6 +32,7 @@ import qualified Data.Text                     as T
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
 import           Data.Time.Units               (Microsecond, Second)
 import           Formatting                    (build, int, sformat, shown, stext, (%))
+import qualified Formatting                    as F
 import           Network.Wai                   (Application)
 import           Paths_cardano_sl              (version)
 import           Pos.ReportServer.Report       (ReportType (RInfo))
@@ -432,59 +433,44 @@ send
     :: (WalletWebMode ssc m)
     => SendActions m
     -> CPassPhrase
-    -> CAccountAddress
+    -> CWalletAddress
     -> CAddress
     -> Coin
-    -> m CTx
+    -> m [CTx]
 send sendActions cpass srcCAddr dstCAddr c =
     sendExtended sendActions cpass srcCAddr dstCAddr c ADA mempty mempty
 
--- TODO [CSM-185]: Send between wallets, not accounts
 sendExtended
     :: (WalletWebMode ssc m)
     => SendActions m
     -> CPassPhrase
-    -> CAccountAddress
+    -> CWalletAddress
     -> CAddress
     -> Coin
     -> CCurrency
     -> Text
     -> Text
-    -> m CTx
-sendExtended sendActions cpassphrase srcCAddr dstCAddr c curr title desc = do
+    -> m [CTx]
+sendExtended sendActions cpassphrase srcWallet dstAccount c curr title desc = do
     passphrase <- decodeCPassPhraseOrFail cpassphrase
-    let srcWCAddr = walletAddrByAccount srcCAddr
-    srcAddr <- decodeCAddressOrFail $ caaAddress srcCAddr
-    dstAddr <- decodeCAddressOrFail dstCAddr
-    sk      <- getSKByAccAddr passphrase srcCAddr
-    let mainTx = TxOutAux (TxOut dstAddr c) []
-    balance <- getAccountBalance srcCAddr
-    mRems <- if balance <= c
+    dstAddr <- decodeCAddressOrFail dstAccount
+    allAccounts <- getWalletAccAddrsOrThrow srcWallet
+    (remaining, spendings) <- selectSrcAccounts c allAccounts
+    mRemTx <- if remaining == mkCoin 0
         then return Nothing
         else do
-            remCAddr <- caAddress <$> newAccount cpassphrase srcWCAddr
+            remCAddr <- caAddress <$> newAccount cpassphrase srcWallet
             remAddr  <- decodeCAddressOrFail $ caaAddress remCAddr
-            let remTx = TxOutAux (TxOut remAddr $ balance `unsafeSubCoin` c) []
+            let remTx = TxOutAux (TxOut remAddr remaining) []
             return $ Just (remTx, remCAddr)
+    let mainTxs    = spendings <&> \(srcAcc, coin) -> (srcAcc, TxOutAux (TxOut dstAddr coin) [])
+        txsWithRem = zipWith (\(srcAcc, txs) remTxs -> (srcAcc, txs :| remTxs))
+                     (toList mainTxs) (maybe mempty (one . fst) mRemTx : cycle [])
+
     na <- getKnownPeers
-    withSafeSigner sk (return passphrase) $ \ss -> do
-        etx <- submitTx sendActions ss na (mainTx :| maybe mempty (one . fst) mRems)
-        case etx of
-            Left err -> throwM . Internal $ sformat ("Cannot send transaction: "%stext) err
-            Right (tx, _, _) -> do
-                logInfo $
-                    sformat ("Successfully sent "%coinF%" from "%addressF%" address to "%addressF)
-                    c srcAddr dstAddr
-                -- TODO: this should be removed in production
-                let txHash = hash tx
-                whenJust mRems $ \(_, remCAddr) -> do
-                    () <$ addHistoryTx (caaAddress remCAddr) curr title desc (THEntry txHash tx True Nothing)
-                    removeAccount srcCAddr
-                () <$ addHistoryTx dstCAddr curr title desc (THEntry txHash tx False Nothing)
-                addHistoryTx (caaAddress srcCAddr) curr title desc (THEntry txHash tx True Nothing)
+    forM txsWithRem $ uncurry (sendDo na passphrase)
   where
-    -- for [CSM-185]
-    selectSrcAccounts :: WalletWebMode ssc m => Coin -> [CAccountAddress] -> m (Coin, [CAccountAddress])
+    selectSrcAccounts :: WalletWebMode ssc m => Coin -> [CAccountAddress] -> m (Coin, NonEmpty (CAccountAddress, Coin))
     selectSrcAccounts reqCoins accounts = case accounts of
         _ | reqCoins <= mkCoin 0 ->
             throwM $ Internal "Spending non-positive amount of money!"
@@ -496,8 +482,30 @@ sendExtended sendActions cpassphrase srcCAddr dstCAddr c curr title desc = do
             if balance < reqCoins
                 then do
                     let remCoins = reqCoins `unsafeSubCoin` balance
-                    (acc:) <<$>> selectSrcAccounts remCoins accs
-                else return (balance `unsafeSubCoin` reqCoins, [acc])
+                    ((acc, balance) :|) . toList <<$>> selectSrcAccounts remCoins accs
+                else return (balance `unsafeSubCoin` reqCoins, (acc, reqCoins) :| [])
+
+    sendDo na passphrase srcAccount txs = do
+        sk <- getSKByAccAddr passphrase srcAccount
+        srcAccAddr <- decodeCAddressOrFail (caaAddress srcAccount)
+        let dstAddrs = toList txs <&> \(TxOutAux (TxOut addr _) _) -> addr
+        withSafeSigner sk (return passphrase) $ \ss -> do
+            etx <- submitTx sendActions ss na txs
+            case etx of
+                Left err -> throwM . Internal $ sformat ("Cannot send transaction: "%stext) err
+                Right (tx, _, _) -> do
+                    logInfo $
+                        sformat ("Successfully sent "%coinF%" from "%addressF%" address to "%listF addressF)
+                        c srcAccAddr dstAddrs
+                    -- TODO: this should be removed in production
+                    let txHash = hash tx
+                    removeAccount srcAccount
+                    forM_ dstAddrs $ \dstAddr ->
+                        let dstCAddr = addressToCAddress dstAddr
+                        in  addHistoryTx dstCAddr curr title desc (THEntry txHash tx True Nothing)
+                    addHistoryTx (caaAddress srcAccount) curr title desc (THEntry txHash tx True Nothing)
+
+    listF formatter = F.later $ mconcat . intersperse "," . map (F.bprint formatter)
 
 getHistory
     :: forall ssc m.

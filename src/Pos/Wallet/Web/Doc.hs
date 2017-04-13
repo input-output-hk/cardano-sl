@@ -165,7 +165,7 @@ instance ToParam (QueryParam "walletSetId" CWalletSetAddress) where
         , _paramKind    = Normal
         }
 
-instance ToCapture (Capture "from" CAccountAddress) where
+instance ToCapture (Capture "from" CWalletAddress) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "from"

@@ -15,12 +15,11 @@ import           Servant.API                ((:<|>), (:>), Capture, Delete, Get,
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Wallet.Web.ClientTypes (CAccount, CAccountAddress, CAddress,
-                                             CCurrency, CInitialized, CPassPhrase,
-                                             CProfile, CTx, CTxId, CTxMeta, CUpdateInfo,
-                                             CWallet, CWalletAddress, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, CWalletSet,
-                                             CWalletSet, CWalletSetAddress,
+import           Pos.Wallet.Web.ClientTypes (CAccount, CAddress, CCurrency, CInitialized,
+                                             CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
+                                             CUpdateInfo, CWallet, CWalletAddress,
+                                             CWalletInit, CWalletMeta, CWalletRedeem,
+                                             CWalletSet, CWalletSet, CWalletSetAddress,
                                              CWalletSetInit, SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
@@ -137,23 +136,23 @@ type WalletApi =
      :> "txs"
      :> "payments"
      :> Capture "passphrase" CPassPhrase
-     :> Capture "from" CAccountAddress
+     :> Capture "from" CWalletAddress
      :> Capture "to" CAddress
      :> Capture "amount" Coin
-     :> Post '[JSON] (Either WalletError CTx)
+     :> Post '[JSON] (Either WalletError [CTx])
     :<|>
     -- TODO: for now we only support one2one sending. We should extend this to support many2many
      "api"
      :> "txs"
      :> "payments"
      :> Capture "passphrase" CPassPhrase
-     :> Capture "from" CAccountAddress
+     :> Capture "from" CWalletAddress
      :> Capture "to" CAddress
      :> Capture "amount" Coin
      :> Capture "currency" CCurrency
      :> Capture "title" Text
      :> Capture "description" Text
-     :> Post '[JSON] (Either WalletError CTx)
+     :> Post '[JSON] (Either WalletError [CTx])
     :<|>
      -- FIXME: Should capture the URL parameters in the payload.
      "api"

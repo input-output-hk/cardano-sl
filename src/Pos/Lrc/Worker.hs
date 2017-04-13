@@ -28,7 +28,6 @@ import           Pos.Core                   (Coin)
 import           Pos.DB.Class               (MonadDBCore)
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
-import qualified Pos.DB.GState.Balances     as GS
 import           Pos.Lrc.Consumer           (LrcConsumer (..))
 import           Pos.Lrc.Consumers          (allLrcConsumers)
 import           Pos.Lrc.Context            (LrcContext (lcLrcSync), LrcSyncData (..))
@@ -169,7 +168,7 @@ issuersComputationDo epochId = do
   where
     unionHSs = foldl' (flip HS.union) mempty
     putIsStake :: IssuersStakes -> StakeholderId -> m IssuersStakes
-    putIsStake hm id = GS.getFtsStake id >>= \case
+    putIsStake hm id = GS.getEffectiveStake id >>= \case
         Nothing ->
            hm <$ (logWarning $ sformat ("Stake for issuer "%build% " not found") id)
         Just stake -> pure $ HM.insert id stake hm
@@ -177,8 +176,8 @@ issuersComputationDo epochId = do
 leadersComputationDo :: WorkMode ssc m => EpochIndex -> SharedSeed -> m ()
 leadersComputationDo epochId seed =
     unlessM (isJust <$> getLeaders epochId) $ do
-        totalStake <- GS.getTotalFtsStake
-        leaders <- GS.runBalanceIterator (followTheSatoshiM seed totalStake)
+        totalStake <- GS.getEffectiveTotalStake
+        leaders <- GS.runBalanceIterator $ followTheSatoshiM seed totalStake
         putLeaders epochId leaders
 
 richmenComputationDo
@@ -186,7 +185,7 @@ richmenComputationDo
        WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> m ()
 richmenComputationDo epochIdx consumers = unless (null consumers) $ do
-    total <- GS.getTotalFtsStake
+    total <- GS.getEffectiveTotalStake
     consumersAndThds <-
         zip consumers <$> mapM (flip lcThreshold total) consumers
     let minThreshold :: Maybe Coin

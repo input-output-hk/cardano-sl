@@ -12,12 +12,14 @@ module Pos.Wallet.Web.Api
 
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
                                              Post, Put, QueryParam, ReqBody)
+import           Servant.Multipart          (MultipartForm)
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CInitialized,
-                                             CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
-                                             CUpdateInfo, CWallet, CWalletInit,
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CElectronCrashReport,
+                                             CInitialized, CPassPhrase,
+                                             CPostVendWalletRedeem, CProfile, CTx, CTxId,
+                                             CTxMeta, CUpdateInfo, CWallet, CWalletInit,
                                              CWalletMeta, CWalletRedeem, SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
@@ -73,9 +75,9 @@ type WalletApi =
      :> ReqBody '[JSON] CWalletInit
      :> Post '[JSON] (Either WalletError CWallet)
     :<|>
-     ----------------------------------------------------------------------------
+     -------------------------------------------------------------------------
      -- Addresses
-     ----------------------------------------------------------------------------
+     -------------------------------------------------------------------------
      "api"
      :> "addresses"
      :> Capture "address" Text
@@ -83,10 +85,11 @@ type WalletApi =
      :> Capture "currency" CCurrency
      :> Get '[JSON] (Either WalletError Bool)
     :<|>
-     ----------------------------------------------------------------------------
+     -------------------------------------------------------------------------
      -- Profile(s)
-     ----------------------------------------------------------------------------
-     -- TODO: A single profile? Should be possible in the future to have multiple profiles?
+     -------------------------------------------------------------------------
+     -- TODO: A single profile? Should be possible in the future to have
+     -- multiple profiles?
      "api"
      :> "profile"
      :> Get '[JSON] (Either WalletError CProfile)
@@ -96,10 +99,11 @@ type WalletApi =
      :> ReqBody '[JSON] CProfile
      :> Post '[JSON] (Either WalletError CProfile)
     :<|>
-     ----------------------------------------------------------------------------
+     -------------------------------------------------------------------------
      -- Transactons
-     ----------------------------------------------------------------------------
-    -- TODO: for now we only support one2one sending. We should extend this to support many2many
+     -------------------------------------------------------------------------
+    -- TODO: for now we only support one2one sending. We should extend this
+    -- to support many2many
      "api"
      :> "txs"
      :> "payments"
@@ -109,7 +113,8 @@ type WalletApi =
      :> Capture "amount" Coin
      :> Post '[JSON] (Either WalletError CTx)
     :<|>
-    -- TODO: for now we only support one2one sending. We should extend this to support many2many
+    -- TODO: for now we only support one2one sending. We should extend this
+    -- to support many2many
      "api"
      :> "txs"
      :> "payments"
@@ -148,9 +153,9 @@ type WalletApi =
      :> QueryParam "limit" Word
      :> Get '[JSON] (Either WalletError ([CTx], Word))
     :<|>
-     ----------------------------------------------------------------------------
+     -------------------------------------------------------------------------
      -- Updates
-     ----------------------------------------------------------------------------
+     -------------------------------------------------------------------------
      "api"
      :> "update"
      :> Get '[JSON] (Either WalletError CUpdateInfo)
@@ -159,27 +164,40 @@ type WalletApi =
      :> "update"
      :> Post '[JSON] (Either WalletError ())
     :<|>
-     ----------------------------------------------------------------------------
+     -------------------------------------------------------------------------
      -- Redemptions
-     ----------------------------------------------------------------------------
+     -------------------------------------------------------------------------
      "api"
      :> "redemptions"
      :> "ada"
      :> ReqBody '[JSON] CWalletRedeem
      :> Post '[JSON] (Either WalletError CTx)
     :<|>
-     ----------------------------------------------------------------------------
+     "api"
+     :> "postvend"
+     :> "redemptions"
+     :> "ada"
+     :> ReqBody '[JSON] CPostVendWalletRedeem
+     :> Post '[JSON] (Either WalletError CTx)
+    :<|>
+     -------------------------------------------------------------------------
      -- Reporting
-     ----------------------------------------------------------------------------
+     -------------------------------------------------------------------------
      "api"
      :> "reporting"
      :> "initialized"
      :> ReqBody '[JSON] CInitialized
      :> Post '[JSON] (Either WalletError ())
     :<|>
-     ----------------------------------------------------------------------------
+     "api"
+     :> "reporting"
+     :> "electroncrash"
+     :> MultipartForm CElectronCrashReport
+     :> Post '[JSON] (Either WalletError ())
+    :<|>
+     -------------------------------------------------------------------------
      -- Settings
-     ----------------------------------------------------------------------------
+     -------------------------------------------------------------------------
      "api"
      :> "settings"
      :> "slots"

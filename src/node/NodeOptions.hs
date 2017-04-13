@@ -53,7 +53,6 @@ data Args = Args
 #endif
 #endif
     , commonArgs                :: !CLI.CommonArgs
-    , noSystemStart             :: !Int
     , updateLatestPath          :: !FilePath
     , updateWithPackage         :: !Bool
     , monitorPort               :: !(Maybe Int)
@@ -152,10 +151,6 @@ argsParser = do
 #endif
     commonArgs <-
         CLI.commonArgsParser peerHelpMsg
-    noSystemStart <- option auto $
-        long    "system-start" <>
-        metavar "TIMESTAMP" <>
-        value   (-1)
     updateLatestPath <- strOption $
         long    "update-latest-path" <>
         metavar "FILEPATH" <>

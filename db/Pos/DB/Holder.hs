@@ -49,7 +49,7 @@ instance MonadBase IO m => MonadBase IO (DBHolder m) where
 
 deriving instance MonadResource m => MonadResource (DBHolder m)
 
-instance (MonadIO m, MonadThrow m) =>
+instance (MonadIO m, MonadCatch m) =>
          MonadDB (DBHolder m) where
     getNodeDBs = DBHolder $ ask
     usingReadOptions opts l (DBHolder rdr)

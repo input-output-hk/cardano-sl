@@ -191,7 +191,7 @@ verifyRollback (Rollback mrs oldGtGlobalState rollbackEoS vssCerts) =
         newGtGlobalState@(GtGlobalState _ _ _ newVssCertData) =
             oldGtGlobalState & gsVssCertificates %~ certAdder
         (_, GtGlobalState _ _ _ rolledVssCertData, _) =
-            runPureToss "" mrs newGtGlobalState $ rollbackGT rollbackEoS (NewestFirst [])
+            runPureToss mrs newGtGlobalState $ rollbackGT rollbackEoS (NewestFirst [])
     in conjoin $ fmap (\cert ->
                           isJust (lookup (getCertId cert) newVssCertData) &&
                           maybe True

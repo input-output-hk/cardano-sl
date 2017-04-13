@@ -12,12 +12,10 @@ module Pos.Ssc.GodTossing.Toss.Pure
 
 import           Control.Lens                   (at, (%=), (.=))
 import           Control.Monad.RWS.Strict       (RWS, runRWS)
-import           Control.Monad.Trans.Identity   (mapIdentityT)
 import qualified Data.HashMap.Strict            as HM
-import           System.Wlog                    (CanLog, HasLoggerName, LogEvent,
-                                                 LoggerName, NamedPureLogger (..),
-                                                 WithLogger, launchNamedPureLog,
-                                                 runPureLog, usingLoggerName)
+import           System.Wlog                    (CanLog, HasLoggerName (..), LogEvent,
+                                                 NamedPureLogger (..), WithLogger,
+                                                 launchNamedPureLog, runNamedPureLog)
 import           Universum
 
 import           Pos.Lrc.Types                  (RichmenSet, RichmenStake)
@@ -37,10 +35,10 @@ newtype PureToss a = PureToss
     { getPureToss :: NamedPureLogger (RWS MultiRichmenStake () GtGlobalState) a
     } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName)
 
-instance (Monad m, HasLoggerName m) => HasLoggerName (IdentityT a m) where
-    getLoggerName = lift getLoggerName
+instance HasLoggerName Identity where
+    getLoggerName = mempty
 
-    modifyLoggerName = mapIdentityT . modifyLoggerName
+    modifyLoggerName = flip const
 
 instance MonadTossRead PureToss where
     getCommitments = PureToss $ use gsCommitments
@@ -74,15 +72,12 @@ instance MonadToss PureToss where
     setEpochOrSlot eos = PureToss $ gsVssCertificates %= VCD.setLastKnownEoS eos
 
 runPureToss
-    :: LoggerName
-    -> MultiRichmenStake
+    :: MultiRichmenStake
     -> GtGlobalState
     -> PureToss a
     -> (a, GtGlobalState, [LogEvent])
-runPureToss loggerName richmenData gs =
-    convertRes .
-    (\a -> runRWS a richmenData gs) .
-    usingLoggerName loggerName . runPureLog . runNamedPureLogger . getPureToss
+runPureToss richmenData gs =
+    convertRes . (\a -> runRWS a richmenData gs) . runNamedPureLog . getPureToss
   where
     convertRes :: ((a, [LogEvent]), GtGlobalState, ())
                -> (a, GtGlobalState, [LogEvent])

@@ -107,6 +107,12 @@
 
   }
 
+  .address-failed {
+    padding: 0 24px 30px 24px;
+    font-size: 10px;
+    font-family: var(--fontFamily0-Regular);
+    color: var(--color1);
+  }
 
   .transaction-header {
     background-color: var(--color7); /* overridden */

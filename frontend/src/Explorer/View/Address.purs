@@ -5,18 +5,20 @@ import Data.Array (length, (!!))
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (addNotFound, cAddress, common, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance) as I18nL
+import Explorer.I18n.Lenses (addNotFound, cAddress, cBack2Dashboard, common, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance) as I18nL
 import Explorer.Lenses.State (addressDetail, addressTxPagination, currentAddressSummary, lang, viewStates)
+import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
-import Explorer.View.Common (currencyCSSClass, emptyTxBodyView, emptyTxHeaderView, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txHeaderView, txPaginationView)
+import Explorer.View.Common (currencyCSSClass, emptyTxBodyView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txHeaderView, txPaginationView)
 import Network.RemoteData (RemoteData(..))
 import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, caAddress, caBalance, caTxList, caTxNum)
 import Pux.Html (Html, div, text, h3, p) as P
 import Pux.Html.Attributes (className, dangerouslySetInnerHTML, id_) as P
+import Pux.Router (link) as P
 
 
 addressView :: State -> P.Html Action
@@ -29,8 +31,8 @@ addressView state =
             [ P.div
                   [ P.className "explorer-address__container" ]
                   [ P.h3
-                          [ P.className "headline"]
-                          [ P.text $ translate (I18nL.common <<< I18nL.cAddress) lang' ]
+                        [ P.className "headline"]
+                        [ P.text $ translate (I18nL.common <<< I18nL.cAddress) lang' ]
                   , addressOverview (state ^. currentAddressSummary) lang'
                   ]
             ]
@@ -38,45 +40,48 @@ addressView state =
                 [ P.className "explorer-address__wrapper" ]
                 [ P.div
                       [ P.className "explorer-address__container" ]
-                      [ P.h3
-                          [ P.className "headline"]
-                          [ P.text $ translate (I18nL.common <<< I18nL.cTransactions) lang' ]
-                        , case state ^. currentAddressSummary of
-                              NotAsked  -> emptyTxHeaderView
-                              Loading   -> emptyTxHeaderView
-                              Failure _ -> emptyTxHeaderView
-                              Success (CAddressSummary addressSummary) ->
-                                  let txList = addressSummary ^. caTxList
-                                      txPagination = state ^. (viewStates <<< addressDetail <<< addressTxPagination)
-                                      currentTxBrief = txList !! (txPagination - 1)
-                                  in
-                                  P.div
-                                      []
-                                      case currentTxBrief of
-                                          Nothing ->
-                                              [ emptyTxHeaderView
-                                              , emptyTxBodyView
-                                              ]
-                                          Just txBrief ->
-                                              [ txHeaderView lang' $ mkTxHeaderViewProps txBrief
-                                              , txBodyView $ mkTxBodyViewProps txBrief
-                                              , txPaginationView
-                                                    { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                                                    , currentPage: txPagination
-                                                    , maxPage: length txList
-                                                    , changePageAction: AddressPaginateTxs
-                                                    , onFocusAction: SelectInputText <<< targetToHTMLInputElement
-                                                    }
-                                              ]
-                      ]
+                      [ case state ^. currentAddressSummary of
+                            NotAsked  -> emptyAddressTxView
+                            Loading   -> emptyAddressTxView
+                            Failure _ -> emptyAddressTxView
+                            Success (CAddressSummary addressSummary) ->
+                                let txList = addressSummary ^. caTxList
+                                    txPagination = state ^. (viewStates <<< addressDetail <<< addressTxPagination)
+                                    currentTxBrief = txList !! (txPagination - 1)
+                                in
+                                P.div
+                                    []
+                                    [ P.h3
+                                          [ P.className "headline"]
+                                          [ P.text $ translate (I18nL.common <<< I18nL.cTransactions) lang' ]
+                                    , case currentTxBrief of
+                                        Nothing ->
+                                            P.div []
+                                            [ txHeaderView lang' $ mkTxHeaderViewProps mkEmptyViewProps
+                                            , emptyTxBodyView
+                                            ]
+                                        Just txBrief ->
+                                            P.div []
+                                            [ txHeaderView lang' $ mkTxHeaderViewProps txBrief
+                                            , txBodyView $ mkTxBodyViewProps txBrief
+                                            , txPaginationView
+                                                  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                                                  , currentPage: txPagination
+                                                  , maxPage: length txList
+                                                  , changePageAction: AddressPaginateTxs
+                                                  , onFocusAction: SelectInputText <<< targetToHTMLInputElement
+                                                  }
+                                            ]
+                                    ]
                 ]
             ]
+        ]
 
 -- | Address overview, we leave the error abstract (we are not using it)
 addressOverview :: forall e. RemoteData e CAddressSummary -> Language -> P.Html Action
 addressOverview NotAsked    lang = emptyAddressDetail ""
 addressOverview Loading     lang = emptyAddressDetail "Loading..."
-addressOverview (Failure _) lang = emptyAddressDetail $ translate (I18nL.address <<< I18nL.addNotFound) lang
+addressOverview (Failure _) lang = failureView lang
 addressOverview (Success addressSummary) lang =
     P.div
         []
@@ -149,8 +154,26 @@ addressDetailRow item =
 emptyAddressDetail :: String -> P.Html Action
 emptyAddressDetail message =
     P.div
-        [ P.className "explorer-address__container" ]
+        []
         [ P.div
             [ P.dangerouslySetInnerHTML message ]
             []
+        ]
+
+emptyAddressTxView :: P.Html Action
+emptyAddressTxView =
+    P.div
+        [ P.className "explorer-address__container" ]
+        []
+
+failureView :: Language -> P.Html Action
+failureView lang =
+    P.div
+        []
+        [ P.p
+            [ P.className "address-failed" ]
+            [ P.text $ translate (I18nL.address <<< I18nL.addNotFound) lang ]
+        , P.link (toUrl Dashboard)
+            [ P.className "btn-back" ]
+            [ P.text $ translate (I18nL.common <<< I18nL.cBack2Dashboard) lang ]
         ]

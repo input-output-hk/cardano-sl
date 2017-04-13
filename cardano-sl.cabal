@@ -964,7 +964,7 @@ executable cardano-wallet-web-docs
   else
     buildable:         False
 
-executable cardano-wallet-web-api-swagger
+executable cardano-swagger
   hs-source-dirs:      src/wallet-web-api-swagger
   main-is:             Main.hs
   build-depends:       aeson

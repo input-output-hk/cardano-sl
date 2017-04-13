@@ -10,7 +10,7 @@ import Explorer.Lenses.State (addressDetail, addressTxPagination, currentAddress
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
-import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txPaginationView, txHeaderView)
+import Explorer.View.Common (currencyCSSClass, emptyTxBodyView, emptyTxHeaderView, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txHeaderView, txPaginationView)
 import Network.RemoteData (RemoteData(..))
 import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
@@ -52,21 +52,22 @@ addressView state =
                                   in
                                   P.div
                                       []
-                                      [ txHeaderView lang' $ case currentTxBrief of
-                                                                Nothing -> mkTxHeaderViewProps mkEmptyViewProps
-                                                                Just txBrief -> mkTxHeaderViewProps txBrief
-                                      , txBodyView $ case currentTxBrief of
-                                                                  Nothing -> mkTxBodyViewProps mkEmptyViewProps
-                                                                  Just txBrief -> mkTxBodyViewProps txBrief
-                                      , txPaginationView
-                                            { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                                            , currentPage: txPagination
-                                            , maxPage: length txList
-                                            , changePageAction: AddressPaginateTxs
-                                            , onFocusAction: SelectInputText <<< targetToHTMLInputElement
-                                            }
-                                      ]
-
+                                      case currentTxBrief of
+                                          Nothing ->
+                                              [ emptyTxHeaderView
+                                              , emptyTxBodyView
+                                              ]
+                                          Just txBrief ->
+                                              [ txHeaderView lang' $ mkTxHeaderViewProps txBrief
+                                              , txBodyView $ mkTxBodyViewProps txBrief
+                                              , txPaginationView
+                                                    { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                                                    , currentPage: txPagination
+                                                    , maxPage: length txList
+                                                    , changePageAction: AddressPaginateTxs
+                                                    , onFocusAction: SelectInputText <<< targetToHTMLInputElement
+                                                    }
+                                              ]
                       ]
                 ]
             ]

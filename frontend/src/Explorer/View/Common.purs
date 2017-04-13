@@ -2,6 +2,7 @@ module Explorer.View.Common (
     placeholderView
     , txHeaderView
     , txBodyView
+    , emptyTxBodyView
     , emptyTxHeaderView
     , mkTxHeaderViewProps
     , class TxHeaderViewPropsFactory
@@ -152,6 +153,11 @@ txBodyView (TxBodyViewProps props) =
               <<< map txAmountView $ props ^. txbOutputs
         ]
 
+emptyTxBodyView :: P.Html Action
+emptyTxBodyView =
+    P.div
+        [ P.className "transaction-body" ]
+        []
 
 txFromView :: Tuple CAddress Coin -> P.Html Action
 txFromView (Tuple (CAddress cAddress) _) =

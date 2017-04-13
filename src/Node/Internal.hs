@@ -603,6 +603,8 @@ startNode packingType peerData mkNodeEndPoint prng nodeEnv handlerIn handlerOut 
                                 }
                       ; dispatcherThread <- async $
                             nodeDispatcher node handlerIn handlerOut
+                      -- Exceptions in the dispatcher are re-thrown here.
+                      ; link dispatcherThread
                       }
                   return node
         }
@@ -812,7 +814,15 @@ nodeDispatcher node handlerIn handlerInOut =
             return (st, ())
 
         _ <- waitForRunningHandlers node
-        return ()
+
+        -- Check that this node was closed by a call to 'stopNode'. If it
+        -- wasn't, we throw an exception. This is important because the thread
+        -- which runs 'startNode' must *not* continue after the 'EndPoint' is
+        -- closed.
+        withSharedAtomic nstate $ \nodeState ->
+            if _nodeStateClosed nodeState
+            then pure ()
+            else throw (InternalError "EndPoint prematurely closed")
 
     connectionOpened
         :: DispatcherState peerData m
@@ -954,12 +964,10 @@ nodeDispatcher node handlerIn handlerInOut =
             -- We're waiting for peer data on this connection, but we don't
             -- have an entry for the peer. That's an internal error.
             Nothing -> do
-                logWarning $ sformat ("inconsistent dispatcher state")
-                return state
+                throw $ InternalError "node dispatcher inconsistent state (waiting for peer data)"
 
-            unexpected -> do
-                logError (sformat ("received: unexpected peer state " % shown) unexpected)
-                throw $ InternalError "nodeDispatcher: received: impossible"
+            Just (GotPeerData _ _) -> do
+                throw $ InternalError "node dispatcher inconsistent state (already got peer data)"
 
         -- Waiting for a handshake. Try to get a control header and then
         -- move on.
@@ -1161,12 +1169,7 @@ nodeDispatcher node handlerIn handlerInOut =
 
                             Channel.writeChannel channel Nothing
                             return channels'
-                        (Nothing, channels') -> do
-                            logWarning $ sformat "inconsistent peer and connection identifier state"
-                            return channels'
-                        (Just cState, _channels') -> do
-                            logError $ sformat ("unexpected ConnectionState in connectionLost: " % shown) cState
-                            throw $ InternalError "nodeDispatcher: connectionLost: impossible"
+                        (_, channels') -> return channels'
                 channels' <- foldlM folder (dsConnections state) connids
                 return $ state {
                       dsConnections = channels'

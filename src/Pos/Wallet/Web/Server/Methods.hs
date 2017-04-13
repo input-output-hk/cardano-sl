@@ -428,17 +428,34 @@ decodeCPassPhraseOrFail cpass =
     either (const . throwM $ Internal "Decoding of passphrase failed") return $
     cPassPhraseToPassPhrase cpass
 
-send :: WalletWebMode ssc m => SendActions m -> CPassPhrase -> CAccountAddress -> CAccountAddress -> Coin -> m CTx
+send
+    :: (WalletWebMode ssc m)
+    => SendActions m
+    -> CPassPhrase
+    -> CAccountAddress
+    -> CAddress
+    -> Coin
+    -> m CTx
 send sendActions cpass srcCAddr dstCAddr c =
     sendExtended sendActions cpass srcCAddr dstCAddr c ADA mempty mempty
 
 -- TODO [CSM-185]: Send between wallets, not accounts
-sendExtended :: WalletWebMode ssc m => SendActions m -> CPassPhrase -> CAccountAddress -> CAccountAddress -> Coin -> CCurrency -> Text -> Text -> m CTx
+sendExtended
+    :: (WalletWebMode ssc m)
+    => SendActions m
+    -> CPassPhrase
+    -> CAccountAddress
+    -> CAddress
+    -> Coin
+    -> CCurrency
+    -> Text
+    -> Text
+    -> m CTx
 sendExtended sendActions cpassphrase srcCAddr dstCAddr c curr title desc = do
     passphrase <- decodeCPassPhraseOrFail cpassphrase
     let srcWCAddr = walletAddrByAccount srcCAddr
     srcAddr <- decodeCAddressOrFail $ caaAddress srcCAddr
-    dstAddr <- decodeCAddressOrFail $ caaAddress dstCAddr
+    dstAddr <- decodeCAddressOrFail dstCAddr
     sk      <- getSKByAccAddr passphrase srcCAddr
     let mainTx = TxOutAux (TxOut dstAddr c) []
     balance <- getAccountBalance srcCAddr
@@ -461,10 +478,26 @@ sendExtended sendActions cpassphrase srcCAddr dstCAddr c curr title desc = do
                 -- TODO: this should be removed in production
                 let txHash = hash tx
                 whenJust mRems $ \(_, remCAddr) -> do
-                    () <$ addHistoryTx remCAddr curr title desc (THEntry txHash tx True Nothing)
+                    () <$ addHistoryTx (caaAddress remCAddr) curr title desc (THEntry txHash tx True Nothing)
                     removeAccount srcCAddr
                 () <$ addHistoryTx dstCAddr curr title desc (THEntry txHash tx False Nothing)
-                addHistoryTx srcCAddr curr title desc (THEntry txHash tx True Nothing)
+                addHistoryTx (caaAddress srcCAddr) curr title desc (THEntry txHash tx True Nothing)
+  where
+    -- for [CSM-185]
+    selectSrcAccounts :: WalletWebMode ssc m => Coin -> [CAccountAddress] -> m (Coin, [CAccountAddress])
+    selectSrcAccounts reqCoins accounts = case accounts of
+        _ | reqCoins <= mkCoin 0 ->
+            throwM $ Internal "Spending non-positive amount of money!"
+        [] ->
+            throwM . Internal $
+            sformat ("Not enough money (need "%build%" more)") reqCoins
+        acc:accs -> do
+            balance <- getAccountBalance acc
+            if balance < reqCoins
+                then do
+                    let remCoins = reqCoins `unsafeSubCoin` balance
+                    (acc:) <<$>> selectSrcAccounts remCoins accs
+                else return (balance `unsafeSubCoin` reqCoins, [acc])
 
 getHistory
     :: forall ssc m.
@@ -472,11 +505,11 @@ getHistory
     => CWalletAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
 getHistory wAddr skip limit = do
     cAccAddrs <- getWalletAccAddrsOrThrow wAddr
-    cAddrs    <- forM cAccAddrs (decodeCAddressOrFail . caaAddress)
+    accAddrs  <- forM cAccAddrs (decodeCAddressOrFail . caaAddress)
     cHistory <- do
         (minit, cachedTxs) <- transCache <$> getHistoryCache wAddr
 
-        TxHistoryAnswer {..} <- untag @ssc getTxHistory cAddrs minit
+        TxHistoryAnswer {..} <- untag @ssc getTxHistory accAddrs minit
 
         -- Add allowed portion of result to cache
         let fullHistory = taHistory <> cachedTxs
@@ -501,16 +534,16 @@ getHistory wAddr skip limit = do
 searchHistory
     :: forall ssc m.
        (SscHelpersClass ssc, WalletWebMode ssc m)
-    => CWalletAddress -> Text -> Maybe CAccountAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
+    => CWalletAddress -> Text -> Maybe CAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
 searchHistory wAddr search mAccAddr skip limit =
     first (filter fits) <$> getHistory @ssc wAddr skip limit
   where
     fits ctx = txContainsTitle search ctx
-            && maybe (const True) (==) mAccAddr (ctAccAddr ctx)
+            && maybe (const True) (==) mAccAddr (ctAccAddress ctx)
 
 addHistoryTx
     :: WalletWebMode ssc m
-    => CAccountAddress
+    => CAddress
     -> CCurrency
     -> Text
     -> Text
@@ -520,12 +553,12 @@ addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
     -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
             networkChainDifficulty
-    addr <- decodeCAddressOrFail $ caaAddress cAddr
+    addr <- decodeCAddressOrFail cAddr
     meta <- CTxMeta curr title desc <$> liftIO getPOSIXTime
     let cId = txIdToCTxId txId
     addOnlyNewTxMeta cAddr cId meta
     meta' <- maybe meta identity <$> getTxMeta cAddr cId
-    return $ mkCTx addr diff wtx meta' cAddr
+    return $ mkCTx addr diff wtx meta'
 
 newAccount :: WalletWebMode ssc m => CPassPhrase -> CWalletAddress -> m CAccount
 newAccount cPassphrase cWAddr = do
@@ -567,8 +600,8 @@ updateWallet cAddr wMeta = do
     setWalletMeta cAddr wMeta
     getWallet cAddr
 
-updateTransaction :: WalletWebMode ssc m => CAccountAddress -> CTxId -> CTxMeta -> m ()
-updateTransaction cAddr = setWalletTransactionMeta cAddr
+updateTransaction :: WalletWebMode ssc m => CAddress -> CTxId -> CTxMeta -> m ()
+updateTransaction = setWalletTransactionMeta
 
 deleteWSet :: WalletWebMode ssc m => CWalletSetAddress -> m ()
 deleteWSet wsAddr = do
@@ -623,7 +656,7 @@ redeemADA sendActions cpassphrase CWalletRedeem {..} = do
         Left err -> throwM . Internal $ "Cannot send redemption transaction: " <> err
         Right (tx, _, _) -> do
             -- add redemption transaction to the history of new wallet
-            addHistoryTx dstCAddr ADA "ADA redemption" ""
+            addHistoryTx (caaAddress dstCAddr) ADA "ADA redemption" ""
               (THEntry (hash tx) tx False Nothing)
 
 reportingInitialized :: forall ssc m. WalletWebMode ssc m => CInitialized -> m ()
@@ -801,7 +834,7 @@ genUniqueAccountAddress
     -> m CAccountAddress
 genUniqueAccountAddress passphrase wCAddr@CWalletAddress{..} =
     generateUnique (mkAccount . nonHardenedOnly)
-                    doesAccountExist
+                   (doesAccountExist . caaAddress)
   where
     mkAccount caaAccountIndex = do
         (address, _) <- deriveAccountSK passphrase wCAddr caaAccountIndex

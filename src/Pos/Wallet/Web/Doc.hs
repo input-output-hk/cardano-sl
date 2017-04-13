@@ -172,7 +172,7 @@ instance ToCapture (Capture "from" CAccountAddress) where
         , _capDesc = "Address from which coins should be sent."
         }
 
-instance ToCapture (Capture "to" CAccountAddress) where
+instance ToCapture (Capture "to" CAddress) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "to"
@@ -186,22 +186,20 @@ instance ToCapture (Capture "amount" Coin) where
         , _capDesc = "Amount of coins to send."
         }
 
-instance ToCapture (Capture "address" CAccountAddress) where
+instance ToCapture (Capture "address" CAddress) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "address"
         , _capDesc = "Address, history of which should be fetched"
         }
 
-instance ToParam (QueryParam "account" CAccountAddress) where
+instance ToParam (QueryParam "account" CAddress) where
     toParam Proxy =
         DocQueryParam
-        { _paramName    = "address"
-        , _paramValues  = ["1g4oyDDJfMUc2xPzZjxdrxeygepjAor4JbvCebubfVmpwk2\
-                            \@134464342@523126232\
-                            \@d6c61d81875c65b24e1b98e413cf35b2f60b6c55733297f238a973a1226b12ce"]
-        , _paramDesc    = "Address, history of which should be fetched"
-        , _paramKind    = Normal
+        { _paramName   = "address"
+        , _paramValues = ["d6c61d81875c65b24e1b98e413cf35b2f60b6c55733297f238a973a1226b12ce"]
+        , _paramDesc   = "Address, history of which should be fetched"
+        , _paramKind   = Normal
         }
 
 instance ToCapture (Capture "index" Word) where
@@ -451,7 +449,7 @@ instance ToSample CTx where
             , ctAmount        = mkCoin 0
             , ctConfirmations = 10
             , ctType          = CTOut ctxMeta
-            , ctAccAddr       = cAccountAddressSample
+            , ctAccAddress    = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
             }
 
 instance ToSample CTxMeta where

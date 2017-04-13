@@ -61,10 +61,12 @@ import           Pos.Wallet.Web.ClientTypes (CAccountAddress, CAccountAddress (.
 
 type TransactionHistory = HashMap CTxId CTxMeta
 
+type CAccounts = HashSet CAccountAddress
+
 data WalletStorage = WalletStorage
     { _wsWSetMetas    :: !(HashMap CWalletSetAddress CWalletSetMeta)
-    , _wsWalletMetas  :: !(HashMap CWalletAddress CWalletMeta)
-    , _wsAccountTxs   :: !(HashMap CAccountAddress TransactionHistory)
+    , _wsWalletMetas  :: !(HashMap CWalletAddress (CWalletMeta, CAccounts))
+    , _wsAccountTxs   :: !(HashMap CAddress TransactionHistory)
     , _wsProfile      :: !(Maybe CProfile)
     , _wsReadyUpdates :: [CUpdateInfo]
     , _wsHistoryCache :: !(HashMap CWalletAddress (HeaderHash, Utxo, [TxHistoryEntry]))
@@ -96,10 +98,10 @@ getWalletAddresses :: Query [CWalletAddress]
 getWalletAddresses = HM.keys <$> view wsWalletMetas
 
 getWalletMetas :: Query [CWalletMeta]
-getWalletMetas = toList <$> view wsWalletMetas
+getWalletMetas = map fst . toList <$> view wsWalletMetas
 
 getWalletMeta :: CWalletAddress -> Query (Maybe CWalletMeta)
-getWalletMeta cAddr = preview (wsWalletMetas . ix cAddr)
+getWalletMeta cAddr = preview (wsWalletMetas . ix cAddr . _1)
 
 getWSetMetas :: Query [CWalletSetMeta]
 getWSetMetas = toList <$> view wsWSetMetas
@@ -111,20 +113,15 @@ getWSetAddresses :: Query [CWalletSetAddress]
 getWSetAddresses = HM.keys <$> view wsWSetMetas
 
 getWalletAccounts :: CWalletAddress -> Query (Maybe [CAccountAddress])
-getWalletAccounts walletAddr = do
-    -- TODO: optimise (perhaps store some index: wallet -> account)
-    let belongsToWallet = (== walletAddr) .  walletAddrByAccount
-    ifM (isJust <$> getWalletMeta walletAddr)
-        (Just . filter belongsToWallet . HM.keys <$> view wsAccountTxs)
-        (return Nothing)
+getWalletAccounts wAddr = toList <<$>> preview (wsWalletMetas . ix wAddr . _2)
 
-doesAccountExist :: CAccountAddress -> Query Bool
+doesAccountExist :: CAddress -> Query Bool
 doesAccountExist accAddr = isJust <$> view (wsAccountTxs . at accAddr)
 
-getTxMeta :: CAccountAddress -> CTxId -> Query (Maybe CTxMeta)
+getTxMeta :: CAddress -> CTxId -> Query (Maybe CTxMeta)
 getTxMeta cAddr ctxId = preview $ wsAccountTxs . at cAddr . _Just . at ctxId . _Just
 
-getAccountHistory :: CAccountAddress -> Query (Maybe [CTxMeta])
+getAccountHistory :: CAddress -> Query (Maybe [CTxMeta])
 getAccountHistory cAddr = fmap toList <$> view (wsAccountTxs . at cAddr)
 
 getUpdates :: Query [CUpdateInfo]
@@ -137,32 +134,34 @@ getHistoryCache :: CWalletAddress -> Query (Maybe (HeaderHash, Utxo, [TxHistoryE
 getHistoryCache cAddr = view $ wsHistoryCache . at cAddr
 
 createWallet :: CWalletAddress -> CWalletMeta -> Update ()
-createWallet cAddr wMeta = wsWalletMetas . at cAddr ?= wMeta
+createWallet cAddr wMeta = wsWalletMetas . at cAddr ?= (wMeta, mempty)
 
 createWSet :: CWalletSetAddress -> CWalletSetMeta -> Update ()
 createWSet cAddr wSMeta = wsWSetMetas . at cAddr ?= wSMeta
 
 addAccount :: CAccountAddress -> Update ()
-addAccount accAddr@CAccountAddress{..} = wsAccountTxs . at accAddr ?= mempty
+addAccount accAddr@CAccountAddress{..} = do
+    wsWalletMetas . at (walletAddrByAccount accAddr) . _Just . _2 . at accAddr ?= ()
+    wsAccountTxs . at caaAddress ?= mempty
 
 setWalletMeta :: CWalletAddress -> CWalletMeta -> Update ()
-setWalletMeta cAddr wMeta = wsWalletMetas . at cAddr . _Just .= wMeta
+setWalletMeta cAddr wMeta = wsWalletMetas . at cAddr . _Just . _1 .= wMeta
 
 setWSetMeta :: CWalletSetAddress -> CWalletSetMeta -> Update ()
 setWSetMeta cAddr wSMeta = wsWSetMetas . at cAddr ?= wSMeta
 
-addAccountHistoryTx :: CAccountAddress -> CTxId -> CTxMeta -> Update ()
+addAccountHistoryTx :: CAddress -> CTxId -> CTxMeta -> Update ()
 addAccountHistoryTx cAddr ctxId ctxMeta = wsAccountTxs . at cAddr . _Just . at ctxId ?= ctxMeta
 
-setAccountHistory :: CAccountAddress -> [(CTxId, CTxMeta)] -> Update ()
+setAccountHistory :: CAddress -> [(CTxId, CTxMeta)] -> Update ()
 setAccountHistory cAddr ctxs = () <$ mapM (uncurry $ addAccountHistoryTx cAddr) ctxs
 
 -- FIXME: this will be removed later (temporary solution)
-addOnlyNewTxMeta :: CAccountAddress -> CTxId -> CTxMeta -> Update ()
+addOnlyNewTxMeta :: CAddress -> CTxId -> CTxMeta -> Update ()
 addOnlyNewTxMeta cAddr ctxId ctxMeta = wsAccountTxs . at cAddr . _Just . at ctxId %= Just . maybe ctxMeta identity
 
 -- NOTE: sets transaction meta only for transactions ids that are already seen
-setWalletTransactionMeta :: CAccountAddress -> CTxId -> CTxMeta -> Update ()
+setWalletTransactionMeta :: CAddress -> CTxId -> CTxMeta -> Update ()
 setWalletTransactionMeta cAddr ctxId ctxMeta = wsAccountTxs . at cAddr . _Just . at ctxId %= fmap (const ctxMeta)
 
 removeWSet :: CWalletSetAddress -> Update ()
@@ -172,8 +171,9 @@ removeWallet :: CWalletAddress -> Update ()
 removeWallet cAddr = wsWalletMetas . at cAddr .= Nothing
 
 removeAccount :: CAccountAddress -> Update ()
-removeAccount accAddr =
-    wsAccountTxs . at accAddr .= Nothing
+removeAccount accAddr@CAccountAddress{..} = do
+  wsWalletMetas . at (walletAddrByAccount accAddr) . _Just . _2 . at accAddr .= Nothing
+  wsAccountTxs . at caaAddress .= Nothing
 
 addUpdate :: CUpdateInfo -> Update ()
 addUpdate ui = wsReadyUpdates %= (++ [ui])

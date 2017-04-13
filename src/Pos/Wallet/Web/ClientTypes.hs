@@ -141,11 +141,11 @@ mkCTx
     -> ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
-    -> CAccountAddress    -- ^ Address of related account
     -> CTx
-mkCTx addr diff THEntry {..} meta ctAccAddr = CTx {..}
+mkCTx addr diff THEntry {..} meta = CTx {..}
   where
     ctId = txIdToCTxId _thTxId
+    ctAccAddress = addressToCAddress addr
     outputs = toList $ _txOutputs _thTx
     isToItself = all ((== addr) . txOutAddress) outputs
     ctAmount = unsafeIntegerToCoin . sumCoins . map txOutValue $
@@ -154,6 +154,7 @@ mkCTx addr diff THEntry {..} meta ctAccAddr = CTx {..}
     ctType = if _thIsOutput
              then CTOut meta
              else CTIn meta
+
 
 newtype CPassPhrase = CPassPhrase Text deriving (Eq, Generic)
 
@@ -366,7 +367,7 @@ data CTx = CTx
     , ctAmount        :: Coin
     , ctConfirmations :: Word
     , ctType          :: CTType -- it includes all "meta data"
-    , ctAccAddr       :: CAccountAddress
+    , ctAccAddress    :: CAddress
     } deriving (Show, Generic, Typeable)
 
 ctType' :: Lens' CTx CTType

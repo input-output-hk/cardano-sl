@@ -15,13 +15,13 @@ import           Servant.API                ((:<|>), (:>), Capture, Delete, Get,
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Wallet.Web.ClientTypes (CAccount, CAccountAddress, CCurrency,
-                                             CInitialized, CPassPhrase, CProfile, CTx,
-                                             CTxId, CTxMeta, CUpdateInfo, CWallet,
-                                             CWalletAddress, CWalletInit, CWalletMeta,
-                                             CWalletRedeem, CWalletSet, CWalletSet,
-                                             CWalletSetAddress, CWalletSetInit,
-                                             SyncProgress)
+import           Pos.Wallet.Web.ClientTypes (CAccount, CAccountAddress, CAddress,
+                                             CCurrency, CInitialized, CPassPhrase,
+                                             CProfile, CTx, CTxId, CTxMeta, CUpdateInfo,
+                                             CWallet, CWalletAddress, CWalletInit,
+                                             CWalletMeta, CWalletRedeem, CWalletSet,
+                                             CWalletSet, CWalletSetAddress,
+                                             CWalletSetInit, SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 
@@ -138,7 +138,7 @@ type WalletApi =
      :> "payments"
      :> Capture "passphrase" CPassPhrase
      :> Capture "from" CAccountAddress
-     :> Capture "to" CAccountAddress
+     :> Capture "to" CAddress
      :> Capture "amount" Coin
      :> Post '[JSON] (Either WalletError CTx)
     :<|>
@@ -148,21 +148,21 @@ type WalletApi =
      :> "payments"
      :> Capture "passphrase" CPassPhrase
      :> Capture "from" CAccountAddress
-     :> Capture "to" CAccountAddress
+     :> Capture "to" CAddress
      :> Capture "amount" Coin
      :> Capture "currency" CCurrency
      :> Capture "title" Text
      :> Capture "description" Text
      :> Post '[JSON] (Either WalletError CTx)
     :<|>
-      -- FIXME: Should capture the URL parameters in the payload.
-      "api"
-      :> "txs"
-      :> "payments"
-      :> Capture "address" CAccountAddress
-      :> Capture "transaction" CTxId
-      :> ReqBody '[JSON] CTxMeta
-      :> Post '[JSON] (Either WalletError ())
+     -- FIXME: Should capture the URL parameters in the payload.
+     "api"
+     :> "txs"
+     :> "payments"
+     :> Capture "address" CAddress
+     :> Capture "transaction" CTxId
+     :> ReqBody '[JSON] CTxMeta
+     :> Post '[JSON] (Either WalletError ())
     :<|>
      "api"
      :> "txs"
@@ -177,7 +177,7 @@ type WalletApi =
      :> "histories"
      :> Capture "walletId" CWalletAddress
      :> Capture "search" Text
-     :> QueryParam "account" CAccountAddress
+     :> QueryParam "account" CAddress
      :> QueryParam "skip" Word
      :> QueryParam "limit" Word
      :> Get '[JSON] (Either WalletError ([CTx], Word))

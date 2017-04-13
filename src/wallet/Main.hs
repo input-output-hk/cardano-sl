@@ -19,7 +19,8 @@ import           Mockable                  (Mockable, SharedAtomic, SharedAtomic
                                             modifySharedAtomic, newSharedAtomic,
                                             race)
 import           Options.Applicative       (execParser)
-import           System.IO                 (hFlush, stdout)
+import           System.IO                 (BufferMode (LineBuffering),
+                                            hClose, hFlush, hSetBuffering, stdout)
 import           System.Wlog               (logDebug, logError, logInfo, logWarning)
 #if !(defined(mingw32_HOST_OS))
 import           System.Exit               (ExitCode (ExitSuccess))
@@ -99,7 +100,8 @@ runCmd sendActions (Send idx outputs) = do
 runCmd sendActions (SendToAllGenesis amount delay_ tpsSentFile) = do
     (skeys, na) <- ask
     tpsMVar <- newSharedAtomic $ TxCount 0 0
-    h <- liftIO $ openFile tpsSentFile WriteMode
+    h <- liftIO $ openFile tpsSentFile WriteMode -- TODO: I'd like to bracket here, but I don't think WalletMode includes MonadBaseControl IO.
+    liftIO $ hSetBuffering h LineBuffering
     liftIO $ T.hPutStrLn h "time,dt,txSent,txFailed,delay,"
     let writeTPS :: CmdRunner m void
         -- every 20 seconds, write the number of sent and failed transactions to a CSV file.
@@ -129,6 +131,7 @@ runCmd sendActions (SendToAllGenesis amount delay_ tpsSentFile) = do
             delay $ ms delay_
     putStr $ unwords ["Sending", show (length skeys), "transactions"]
     either absurd id <$> race writeTPS sendTxs
+    liftIO $ hClose h
 runCmd sendActions v@(Vote idx decision upid) = do
     logDebug $ "Submitting a vote :" <> show v
     (_, na) <- ask

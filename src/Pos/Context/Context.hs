@@ -93,6 +93,8 @@ data NodeContext ssc = NodeContext
     -- (status in Daedalus). It's easy to falsify this value.
     , ncTxpGlobalSettings   :: !TxpGlobalSettings
     -- ^ Settings for global Txp.
+    , ncGenesisLeaders      :: !SlotLeaders
+    -- ^ Leaders of the first epoch
     }
 
 instance ExtractContext UpdateContext (NodeContext ssc) where
@@ -118,9 +120,6 @@ ncPubKeyAddress = makePubKeyAddress . ncPublicKey
 
 ncGenesisUtxo :: NodeContext ssc -> Utxo
 ncGenesisUtxo = npCustomUtxo . ncNodeParams
-
-ncGenesisLeaders :: NodeContext ssc -> SlotLeaders
-ncGenesisLeaders = genesisLeaders . ncGenesisUtxo
 
 ncSystemStart :: NodeContext __ -> Timestamp
 ncSystemStart = npSystemStart . ncNodeParams

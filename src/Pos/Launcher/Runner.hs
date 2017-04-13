@@ -74,10 +74,12 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
                                               KademliaDHTInstanceConfig (..),
                                               runKademliaDHT, startDHTInstance,
                                               stopDHTInstance)
+import           Pos.Genesis                 (genesisLeaders, genesisSeed)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
 import           Pos.Lrc.Context             (LrcContext (..), LrcSyncData (..))
 import qualified Pos.Lrc.DB                  as LrcDB
+import           Pos.Lrc.Fts                 (followTheSatoshiM)
 import           Pos.Slotting                (SlottingVar, mkNtpSlottingVar,
                                               runNtpSlotting, runSlottingHolder)
 import           Pos.Ssc.Class               (SscConstraint, SscNodeContext, SscParams,
@@ -85,6 +87,8 @@ import           Pos.Ssc.Class               (SscConstraint, SscNodeContext, Ssc
 import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp                     (mkTxpLocalData, runTxpHolder)
+import           Pos.Txp.DB                  (genesisFakeTotalStake,
+                                              runBalanceIterBootstrap)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer                (explorerTxpGlobalSettings)
 #else
@@ -98,7 +102,6 @@ import           Pos.Util.UserSecret         (usKeys)
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (MinWorkMode, ProductionMode, RawRealMode,
                                               ServiceMode, StatsMode)
-
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
 
@@ -293,6 +296,10 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
     ncShutdownNotifyQueue <- liftIO $ newTBQueueIO allWorkersNum
     ncStartTime <- liftIO Time.getCurrentTime
     ncLastKnownHeader <- liftIO $ newTVarIO Nothing
+    ncGenesisLeaders <- if Const.isDevelopment
+                        then pure $ genesisLeaders npCustomUtxo
+                        else runBalanceIterBootstrap $
+                             followTheSatoshiM genesisSeed genesisFakeTotalStake
     ucMemState <- newMemVar
     let ctx =
             NodeContext

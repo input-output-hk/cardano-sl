@@ -11,7 +11,7 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
-import Explorer.View.Common (currencyCSSClass, emptyTxBodyView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txHeaderView, txPaginationView)
+import Explorer.View.Common (currencyCSSClass, emptyTxBodyView, emptyTxHeaderView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
 import Network.RemoteData (RemoteData(..))
 import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
@@ -56,10 +56,7 @@ addressView state =
                                           [ P.text $ translate (I18nL.common <<< I18nL.cTransactions) lang' ]
                                     , case currentTxBrief of
                                         Nothing ->
-                                            P.div []
-                                            [ txHeaderView lang' $ mkTxHeaderViewProps mkEmptyViewProps
-                                            , emptyTxBodyView
-                                            ]
+                                            txEmptyContentView lang'
                                         Just txBrief ->
                                             P.div []
                                             [ txHeaderView lang' $ mkTxHeaderViewProps txBrief

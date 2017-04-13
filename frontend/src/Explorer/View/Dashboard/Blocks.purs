@@ -7,6 +7,7 @@ import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (cExpand, cOf, dashboard, dbLastBlocks, common, dbExploreBlocks, cNoData) as I18nL
 import Explorer.Lenses.State (dbViewBlockPagination, dbViewBlocksExpanded, lang, latestBlocks)
+import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State, CBlockEntries)
 import Explorer.Util.DOM (targetToHTMLInputElement)
@@ -75,7 +76,7 @@ blocksFooterView state =
     if expanded then
         paginationView { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                         , currentPage: currentBlockPage
-                        , maxPage: (+) 1 <<< flip (/) maxBlockRows $ length blocks
+                        , maxPage: (+) minPagination <<< flip (/) maxBlockRows $ length blocks
                         , changePageAction: DashboardPaginateBlocks
                         , onFocusAction: SelectInputText <<< targetToHTMLInputElement
                         }

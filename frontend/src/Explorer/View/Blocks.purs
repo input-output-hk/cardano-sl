@@ -20,6 +20,7 @@ import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (block, blNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB) as I18nL
 import Explorer.Lenses.State (blocksViewState, blsViewPagination, currentBlocksResult, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
+import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State, CBlockEntries)
 import Explorer.Util.DOM (targetToHTMLInputElement)
@@ -64,7 +65,7 @@ blocksView state =
                           let paginationViewProps =
                                   { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                                   , currentPage: state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
-                                  , maxPage: (+) 1 <<< flip (/) maxBlockRows $ length blocks
+                                  , maxPage: (+) minPagination <<< flip (/) maxBlockRows $ length blocks
                                   , changePageAction: BlocksPaginateBlocks
                                   , onFocusAction: SelectInputText <<< targetToHTMLInputElement
                                   }

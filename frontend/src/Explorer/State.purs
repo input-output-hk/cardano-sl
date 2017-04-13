@@ -21,19 +21,19 @@ initialState =
     , viewStates:
         { dashboard:
             { dbViewBlocksExpanded: false
-            , dbViewBlockPagination: firstNumberOfPagination
+            , dbViewBlockPagination: minPagination
             , dbViewTxsExpanded: false
             , dbViewSelectedApiCode: Curl
             , dbViewSearchInput: false
             }
         , addressDetail:
-            { addressTxPagination: firstNumberOfPagination
+            { addressTxPagination: minPagination
             }
         , blockDetail:
-            { blockTxPagination: firstNumberOfPagination
+            { blockTxPagination: minPagination
             }
         , blocksViewState:
-            { blsViewPagination: firstNumberOfPagination
+            { blsViewPagination: minPagination
             }
         }
     , latestBlocks: NotAsked
@@ -66,5 +66,5 @@ emptySearchTimeQuery = Tuple Nothing Nothing
 maxSlotInEpoch :: Int
 maxSlotInEpoch = 21600
 
-firstNumberOfPagination :: Int
-firstNumberOfPagination = 1 -- Note: We do start with 1 (not 0)
+minPagination :: Int
+minPagination = 1 -- Note: We do start with 1 (not 0)

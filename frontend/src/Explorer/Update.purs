@@ -18,7 +18,7 @@ import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs,
 import Explorer.Api.Socket (toEvent)
 import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksViewState, blsViewPagination, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dashboard, dbViewBlockPagination, dbViewBlocksExpanded, dbViewSearchInput, dbViewSelectedApiCode, dbViewTxsExpanded, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchQuery, searchTimeQuery, selectedSearch, socket, subscriptions, viewStates)
 import Explorer.Routes (Route(..), toUrl)
-import Explorer.State (emptySearchQuery, emptySearchTimeQuery, firstNumberOfPagination)
+import Explorer.State (emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), SocketSubscription(..), State)
 import Explorer.Util.DOM (scrollTop)
@@ -385,7 +385,7 @@ routeEffects (Address cAddress) state =
         set currentAddressSummary Loading $
         set currentCAddress cAddress $
         set (viewStates <<< addressDetail <<< addressTxPagination)
-            firstNumberOfPagination state
+            minPagination state
     , effects:
         [ pure ScrollTop
         , pure $ SocketUpdateSubscriptions []
@@ -396,7 +396,7 @@ routeEffects (Address cAddress) state =
 routeEffects (Epoch epochIndex) state =
     { state:
           set (viewStates <<< blocksViewState <<< blsViewPagination)
-              firstNumberOfPagination $
+              minPagination $
           state
     , effects:
         [ pure ScrollTop

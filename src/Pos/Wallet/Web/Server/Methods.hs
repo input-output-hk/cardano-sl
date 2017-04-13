@@ -371,7 +371,8 @@ sendExtended sendActions cpassphrase srcCAddr dstCAddr c curr title desc = do
     sks <- getSecretKeys
     let sk = sks !! idx
     na <- getKnownPeers
-    withSafeSigner sk (return passphrase) $ \ss -> do
+    withSafeSigner sk (return passphrase) $ \mss -> do
+        ss  <- mss `whenNothing` throwM (Internal "Passphrase doesn't match")
         etx <- submitTx sendActions ss na (one $ TxOutAux (TxOut dstAddr c) [])
         case etx of
             Left err -> throwM . Internal $ sformat ("Cannot send transaction: "%stext) err

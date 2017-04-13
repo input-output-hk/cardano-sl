@@ -659,6 +659,7 @@ executable cardano-wallet
                      , cardano-sl-update
                      , cardano-sl-infra
                      , cardano-sl
+                     , either
                      , formatting
                      , lens
                      , lifted-async

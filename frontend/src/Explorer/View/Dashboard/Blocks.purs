@@ -7,13 +7,12 @@ import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (cExpand, cOf, dashboard, dbLastBlocks, common, dbExploreBlocks, cNoData) as I18nL
 import Explorer.Lenses.State (dbViewBlockPagination, dbViewBlocksExpanded, lang, latestBlocks)
-import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State, CBlockEntries)
 import Explorer.Util.DOM (targetToHTMLInputElement)
 import Explorer.View.Blocks (blockRow, blocksHeaderView, maxBlockRows, minBlockRows, unwrapLatestBlocks)
 import Explorer.View.CSS (blocksBody, blocksFooter, blocksWaiting, dashboardContainer, dashboardWrapper) as CSS
-import Explorer.View.Common (paginationView)
+import Explorer.View.Common (getMaxPaginationNumber, paginationView)
 import Explorer.View.Dashboard.Lenses (dashboardBlocksExpanded, dashboardViewState)
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
@@ -76,7 +75,7 @@ blocksFooterView state =
     if expanded then
         paginationView { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                         , currentPage: currentBlockPage
-                        , maxPage: minPagination + ((length blocks) / maxBlockRows)
+                        , maxPage: getMaxPaginationNumber (length blocks) maxBlockRows
                         , changePageAction: DashboardPaginateBlocks
                         , onFocusAction: SelectInputText <<< targetToHTMLInputElement
                         }

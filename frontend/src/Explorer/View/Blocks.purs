@@ -20,13 +20,12 @@ import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (block, blNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB) as I18nL
 import Explorer.Lenses.State (blocksViewState, blsViewPagination, currentBlocksResult, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
-import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State, CBlockEntries)
 import Explorer.Util.DOM (targetToHTMLInputElement)
 import Explorer.Util.Time (prettyDuration)
 import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnRelayedBy, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
-import Explorer.View.Common (noData, paginationView)
+import Explorer.View.Common (getMaxPaginationNumber, noData, paginationView)
 import Network.RemoteData (RemoteData(..))
 import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
@@ -65,7 +64,7 @@ blocksView state =
                           let paginationViewProps =
                                   { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                                   , currentPage: state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
-                                  , maxPage: minPagination + ((length blocks) / maxBlockRows)
+                                  , maxPage: getMaxPaginationNumber (length blocks) maxBlockRows
                                   , changePageAction: BlocksPaginateBlocks
                                   , onFocusAction: SelectInputText <<< targetToHTMLInputElement
                                   }

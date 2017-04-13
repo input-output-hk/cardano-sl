@@ -45,8 +45,8 @@ data Action
     | ReceiveTxSummary (Either Error CTxSummary)
     | RequestAddressSummary CAddress
     | ReceiveAddressSummary (Either Error CAddressSummary)
-    | RequestEpochSlot EpochIndex (Maybe LocalSlotIndex)
-    | ReceiveEpochSlot (Either Error CBlockEntries)
+    | RequestSearchBlocks EpochIndex (Maybe LocalSlotIndex)
+    | ReceiveSearchBlocks (Either Error CBlockEntries)
     -- search
     | DashboardSearch                       -- dasboard search for address + transaction
     | DashboardSearchTime                   -- dasboard search for time
@@ -54,16 +54,18 @@ data Action
     | UpdateSearchValue String
     | UpdateSearchEpochValue String
     | UpdateSearchSlotValue String
-    -- dashboard
-    | DashboardExpandBlocks Boolean         -- toggle blocks
-    | DashboardPaginateBlocks Int           -- current pagination of blocks
-    | DashboardExpandTransactions Boolean   -- dashboard transactions
-    | DashboardShowAPICode DashboardAPICode -- dashboard api
+    -- dashboard view
+    | DashboardExpandBlocks Boolean         -- expand list of blocks
+    | DashboardPaginateBlocks Int           -- pagination of blocks
+    | DashboardExpandTransactions Boolean   -- expand dashboard transactions
+    | DashboardShowAPICode DashboardAPICode -- toggle dashboard api
     | DashboardFocusSearchInput Boolean
-    -- address detail
-    | AddressPaginateTxs Int       -- current pagination of transactions
-    -- block detail
-    | BlockPaginateTxs Int       -- current pagination of transactions
+    -- address detail view
+    | AddressPaginateTxs Int                -- current pagination of transactions
+    -- block detail view
+    | BlockPaginateTxs Int                  -- current pagination of transactions
+    -- blocks view
+    | BlocksPaginateBlocks Int              -- current pagination of blocks
     -- misc
     | NoOp
 

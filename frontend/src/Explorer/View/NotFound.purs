@@ -3,7 +3,7 @@ module Explorer.View.NotFound (notFoundView) where
 import Prelude
 import Data.Lens ((^.))
 import Explorer.I18n.Lang (translate)
-import Explorer.I18n.Lenses (notfound, nfTitle, nfDescription, nfBack2Dashboard) as I18nL
+import Explorer.I18n.Lenses (common, notfound, nfTitle, nfDescription, cBack2Dashboard) as I18nL
 import Explorer.Lenses.State (lang)
 import Explorer.Routes (Route(Dashboard), toUrl)
 import Explorer.Types.Actions (Action)
@@ -30,7 +30,7 @@ notFoundView state =
                       [ P.text $ translate (I18nL.notfound <<< I18nL.nfDescription) lang' ]
                 , P.link (toUrl Dashboard)
                   [ P.className "btn-back" ]
-                  [ P.text $ translate (I18nL.notfound <<< I18nL.nfBack2Dashboard) lang' ]
+                  [ P.text $ translate (I18nL.common <<< I18nL.cBack2Dashboard) lang' ]
                 ]
             ]
         ]

@@ -47,7 +47,7 @@ class (Monad m, WithLogger m) => MonadPollRead m where
     getConfirmedProposals :: m [ConfirmedProposalState]
     -- ^ Get all known confirmed proposals.
     getEpochTotalStake :: EpochIndex -> m (Maybe Coin)
-    -- ^ Get total stake from distribution corresponding to give epoch
+    -- ^ Get total stake from distribution corresponding to given epoch
     getRichmanStake :: EpochIndex -> StakeholderId -> m (Maybe Coin)
     -- ^ Get stake of ricmhan corresponding to given epoch (if she is
     -- really rich)

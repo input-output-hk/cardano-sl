@@ -334,6 +334,8 @@ library
                         Pos.Update.Poll.Logic.Rollback
                         Pos.Update.Poll.Logic.Softfork
                         Pos.Update.Poll.Logic.Version
+                        Pos.Update.Poll.PollState
+                        Pos.Update.Poll.Pure
                         Pos.Update.Poll.RollTrans
                         Pos.Update.Poll.Trans
                         Pos.Update.Worker

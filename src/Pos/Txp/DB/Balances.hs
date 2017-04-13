@@ -13,6 +13,7 @@ module Pos.Txp.DB.Balances
        , isBootstrapEra
        , getEffectiveTotalStake
        , getEffectiveStake
+       , genesisFakeTotalStake
 
          -- * Initialization
        , prepareGStateBalances
@@ -21,6 +22,7 @@ module Pos.Txp.DB.Balances
        , BalanceIter
        , runBalanceIterator
        , runBalanceMapIterator
+       , runBalanceIterBootstrap
 
          -- * Sanity checks
        , sanityCheckBalances
@@ -44,7 +46,8 @@ import           Pos.DB.GState.Balances (BalanceIter, ftsStakeKey, ftsSumKey,
                                          getRealStakeSumMaybe)
 import qualified Pos.DB.GState.Balances as GS
 import           Pos.DB.GState.Common   (gsPutBi)
-import           Pos.DB.Iterator        (IterType, runDBnIterator, runDBnMapIterator)
+import           Pos.DB.Iterator        (DBnIterator, DBnMapIterator, IterType,
+                                         runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types           (NodeDBs (_gStateDB))
 import           Pos.Genesis            (genesisBalances)
 import           Pos.Txp.Core           (txOutStake)
@@ -52,7 +55,7 @@ import           Pos.Txp.Toil.Types     (Utxo)
 import           Pos.Txp.Toil.Utxo      (utxoToStakes)
 import           Pos.Types              (Coin, StakeholderId, coinF, mkCoin, sumCoins,
                                          unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Util.Iterator      (MonadIterator (..), runListHolderT)
+import           Pos.Util.Iterator      (ListHolderT, MonadIterator (..), runListHolderT)
 
 ----------------------------------------------------------------------------
 -- Operations
@@ -128,11 +131,13 @@ putTotalFtsStake = gsPutBi ftsSumKey
 -- | Run iterator over real balances.
 runBalanceIterReal
     :: forall m a . MonadDB m
-    => (forall iter . ( MonadIterator (IterType BalanceIter) iter
-                      , MonadDB iter
-                      ) => iter a)
-    -> m a
+    => DBnIterator BalanceIter a -> m a
 runBalanceIterReal iter = runDBnIterator @BalanceIter _gStateDB iter
+
+runBalanceIterBootstrap
+    :: forall m a . Monad m
+    => ListHolderT (IterType BalanceIter) m a -> m a
+runBalanceIterBootstrap = flip runListHolderT $ HM.toList genesisBalances
 
 -- | Run iterator over effective balances.
 runBalanceIterator
@@ -142,18 +147,20 @@ runBalanceIterator
                       ) => iter a)
     -> m a
 runBalanceIterator iter = ifM isBootstrapEra
-    (flip runListHolderT (HM.toList genesisBalances) iter) $
-    runBalanceIterReal iter
+    (runBalanceIterBootstrap iter)
+    (runBalanceIterReal iter)
 
 -- | Run map iterator over real balances.
 runBalanceMapIterReal
     :: forall v m a . MonadDB m
-    => (forall iter . ( MonadIterator v iter
-                      , MonadDB iter
-                      ) => iter a)
-    -> ((StakeholderId, Coin) -> v)
-    -> m a
+    => DBnMapIterator BalanceIter v a -> (IterType BalanceIter -> v) -> m a
 runBalanceMapIterReal iter f = runDBnMapIterator @BalanceIter _gStateDB iter f
+
+runBalanceMapIterBootstrap
+    :: forall v m a . Monad m
+    => ListHolderT v m a -> (IterType BalanceIter -> v) -> m a
+runBalanceMapIterBootstrap iter f = runListHolderT iter $
+    f <$> HM.toList genesisBalances
 
 -- | Run map iterator over effective balances.
 runBalanceMapIterator
@@ -161,10 +168,10 @@ runBalanceMapIterator
     => (forall iter . ( MonadIterator v iter
                       , MonadDB iter
                       ) => iter a)
-    -> ((StakeholderId, Coin) -> v)
+    -> (IterType BalanceIter -> v)
     -> m a
 runBalanceMapIterator iter f = ifM isBootstrapEra
-    (flip runListHolderT (f <$> HM.toList genesisBalances) iter) $
+    (runBalanceMapIterBootstrap iter f)
     (runBalanceMapIterReal iter f)
 
 ----------------------------------------------------------------------------

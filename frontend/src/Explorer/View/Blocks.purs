@@ -65,7 +65,7 @@ blocksView state =
                           let paginationViewProps =
                                   { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                                   , currentPage: state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
-                                  , maxPage: (+) minPagination <<< flip (/) maxBlockRows $ length blocks
+                                  , maxPage: minPagination + ((length blocks) / maxBlockRows)
                                   , changePageAction: BlocksPaginateBlocks
                                   , onFocusAction: SelectInputText <<< targetToHTMLInputElement
                                   }

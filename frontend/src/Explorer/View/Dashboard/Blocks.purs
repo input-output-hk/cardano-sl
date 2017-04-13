@@ -76,7 +76,7 @@ blocksFooterView state =
     if expanded then
         paginationView { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                         , currentPage: currentBlockPage
-                        , maxPage: (+) minPagination <<< flip (/) maxBlockRows $ length blocks
+                        , maxPage: minPagination + ((length blocks) / maxBlockRows)
                         , changePageAction: DashboardPaginateBlocks
                         , onFocusAction: SelectInputText <<< targetToHTMLInputElement
                         }

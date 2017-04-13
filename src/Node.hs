@@ -144,7 +144,7 @@ data SendActions packing peerData m = SendActions {
 
 data ConversationActions body rcv m = ConversationActions {
        -- | Send a message within the context of this conversation
-       send     :: body -> m ()
+       send :: body -> m ()
 
        -- | Receive a message within the context of this conversation.
        --   'Nothing' means end of input (peer ended conversation).

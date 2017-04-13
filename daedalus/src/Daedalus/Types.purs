@@ -20,7 +20,7 @@ module Daedalus.Types
        , showCCurrency
        , mkBackupPhrase
        , mkCWalletRedeem
-       , mkCPostVendWalletRedeem
+       , mkCPaperVendWalletRedeem
        , mkCInitialized
        , mkCPassPhrase
        , emptyCPassPhrase
@@ -161,10 +161,10 @@ mkCWalletRedeem seed wId = do
                      , crSeed: seed
                      }
 
-mkCPostVendWalletRedeem :: String -> String -> String -> Either Error CT.CPostVendWalletRedeem
-mkCPostVendWalletRedeem seed mnemonic wId = do
+mkCPaperVendWalletRedeem :: String -> String -> String -> Either Error CT.CPaperVendWalletRedeem
+mkCPaperVendWalletRedeem seed mnemonic wId = do
     bp <- mkBackupPhrase paperVendMnemonicLen mnemonic
-    pure $ CT.CPostVendWalletRedeem { pvWalletId: mkCAddress wId
+    pure $ CT.CPaperVendWalletRedeem { pvWalletId: mkCAddress wId
                                     , pvBackupPhrase: bp
                                     , pvSeed: seed
                                     }

@@ -6,7 +6,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (getProfileLocale, mkCAddress, mkCCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkCWalletInitIgnoreChecksum, mkBackupPhrase, mkCInitialized, mkCPassPhrase, mkCPostVendWalletRedeem, emptyCPassPhrase)
+import Daedalus.Types (getProfileLocale, mkCAddress, mkCCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkCWalletInitIgnoreChecksum, mkBackupPhrase, mkCInitialized, mkCPassPhrase, mkCPaperVendWalletRedeem, emptyCPassPhrase)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
@@ -158,11 +158,11 @@ applyUpdate = fromAff B.applyUpdate
 systemVersion :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 systemVersion = fromAff $ map encodeJson B.systemVersion
 
-redeemADA :: forall eff. EffFn2 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String (Promise Json)
-redeemADA = mkEffFn2 \seed -> fromAff <<< map encodeJson <<< B.redeemADA <<< mkCWalletRedeem seed
+redeemAda :: forall eff. EffFn2 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String (Promise Json)
+redeemAda = mkEffFn2 \seed -> fromAff <<< map encodeJson <<< B.redeemAda <<< mkCWalletRedeem seed
 
-postVendRedeemADA :: forall eff. EffFn3 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String String (Promise Json)
-postVendRedeemADA = mkEffFn3 \seed mnemonic -> fromAff <<< map encodeJson <<< either throwError B.postVendRedeemADA <<< mkCPostVendWalletRedeem seed mnemonic
+redeemAdaPaperVend :: forall eff. EffFn3 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String String (Promise Json)
+redeemAdaPaperVend = mkEffFn3 \seed mnemonic -> fromAff <<< map encodeJson <<< either throwError B.redeemAdaPaperVend <<< mkCPaperVendWalletRedeem seed mnemonic
 
 reportInit :: forall eff. EffFn2 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) Int Int (Promise Unit)
 reportInit = mkEffFn2 \total -> fromAff <<< B.reportInit <<< mkCInitialized total
@@ -178,12 +178,12 @@ testReset = fromAff B.testReset
 
 -- Valid redeem code is base64 encoded 32byte data
 -- NOTE: this method handles both base64 and base64url base on rfc4648: see more https://github.com/menelaos/purescript-b64/blob/59e2e9189358a4c8e3eef8662ca281906844e783/src/Data/String/Base64.purs#L182
-isValidRedeemCode :: String -> Boolean
-isValidRedeemCode code = either (const false) (const $ endsWithEqual && 44 == length code) $ B64.decode code
+isValidRedemtionKey :: String -> Boolean
+isValidRedemtionKey code = either (const false) (const $ endsWithEqual && 44 == length code) $ B64.decode code
   where
     -- Because it is 32byte base64 encoded
     endsWithEqual = isJust $ stripSuffix (Pattern "=") code
 
--- Valid postvend code is base58 encoded 32byte data
-isValidPostVendRedeemCode :: String -> Boolean
-isValidPostVendRedeemCode code = maybe false ((==) 32 <<< A.length) $ B58.decode code
+-- Valid paper vend key is base58 encoded 32byte data
+isValidPaperVendRedemtionKey :: String -> Boolean
+isValidPaperVendRedemtionKey code = maybe false ((==) 32 <<< A.length) $ B58.decode code

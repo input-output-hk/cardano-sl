@@ -150,7 +150,7 @@ runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
       logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)
           roundNum goRoundNumber goTPS
 
-      realTxNum <- liftIO $ newTVarIO (0 :: Int)
+      realTxNum <- newTVarIO (0 :: Int)
 
       -- Make a pause between rounds
       delay (round $ goRoundPause * fromIntegral (sec 1) :: Microsecond)
@@ -182,9 +182,10 @@ runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
                             logInfo $ sformat ("Sending transaction #"%int) idx
                             submitTxRaw sA na (transaction, witness, distr)
                             when (startT >= startMeasurementsT) $ liftIO $ do
-                                liftIO $ atomically $ modifyTVar' realTxNum (+1)
+                                atomically $ modifyTVar' realTxNum (+1)
                                 -- put timestamp to current txmap
-                                registerSentTx txTimestamps curTxId roundNum $ fromIntegral startT * 1000
+                                registerSentTx txTimestamps curTxId roundNum $
+                                    fromIntegral startT * 1000
 
                     endT <- getPosixMs
                     let runDelta = endT - startT

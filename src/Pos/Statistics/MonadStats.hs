@@ -80,7 +80,7 @@ getStatsMap = Ether.ask
 instance (MonadIO m, MonadJL m) => MonadStats (StatsT m) where
     statLog label entry = do
         statsMap <- ether ask
-        liftIO $ atomically $ SM.focus update (show' label) statsMap
+        atomically $ SM.focus update (show' label) statsMap
         return ()
       where
         update = alterM $ \v -> return $ fmap Binary.encode $
@@ -88,7 +88,7 @@ instance (MonadIO m, MonadJL m) => MonadStats (StatsT m) where
 
     resetStat label = do
         statsMap <- ether ask
-        mval <- liftIO $ atomically $ SM.focus reset (show' label) statsMap
+        mval <- atomically $ SM.focus reset (show' label) statsMap
         let val = fromMaybe mempty $ Binary.decode <$> mval
         lift $ jlLog $ toJLEvent label val
       where

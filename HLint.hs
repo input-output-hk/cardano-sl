@@ -166,3 +166,52 @@ warn "Use 'nonEmpty' from Universum" = Data.List.NonEmpty.nonEmpty ==> Universum
   where
     note = "'nonEmpty' is available in Universum, so you don't have to\n\
     \import it from Data.List.NonEmpty"
+
+
+----------------------------------------------------------------------------
+-- Lifted functions in Universum
+----------------------------------------------------------------------------
+
+warn "liftIO is not needed" = liftIO newEmptyMVar ==> Universum.newEmptyMVar
+  where
+    note = "If you import 'newEmptyMVar' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (newMVar x) ==> Universum.newMVar x
+  where
+    note = "If you import 'newMVar' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (putMVar x y) ==> Universum.putMVar x y
+  where
+    note = "If you import 'putMVar' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (readMVar x) ==> Universum.readMVar x
+  where
+    note = "If you import 'readMVar' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (swapMVar x y) ==> Universum.swapMVar x y
+  where
+    note = "If you import 'swapMVar' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (takeMVar x) ==> Universum.takeMVar x
+  where
+    note = "If you import 'takeMVar' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (tryPutMVar x y) ==> Universum.tryPutMVar x y
+  where
+    note = "If you import 'tryPutMVar' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (tryReadMVar x) ==> Universum.tryReadMVar x
+  where
+    note = "If you import 'tryReadMVar' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (tryTakeMVar x) ==> Universum.tryTakeMVar x
+  where
+    note = "If you import 'tryTakeMVar' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (atomically x) ==> Universum.atomically x
+  where
+    note = "If you import 'atomically' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (newTVarIO x) ==> Universum.newTVarIO x
+  where
+    note = "If you import 'newTVarIO' from Universum, it's already lifted"

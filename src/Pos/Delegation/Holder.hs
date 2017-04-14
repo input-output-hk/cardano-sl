@@ -19,7 +19,7 @@ type DelegationT = Ether.ReaderT (TVar DelegationWrap)
 -- | Executes delegationT transformer creating tvar from given wrap.
 runDelegationT :: MonadIO m => DelegationWrap -> DelegationT m a -> m a
 runDelegationT wrap action =
-    liftIO (newTVarIO wrap) >>= Ether.runReaderT action
+    newTVarIO wrap >>= Ether.runReaderT action
 
 -- | Executes delegation wrap using existing delegation wrap tvar.
 runDelegationTFromTVar :: TVar DelegationWrap -> DelegationT m a -> m a

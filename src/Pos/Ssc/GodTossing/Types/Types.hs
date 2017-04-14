@@ -115,7 +115,7 @@ data GtContext = GtContext
 
 createGtContext :: MonadIO m => GtParams -> m GtContext
 createGtContext GtParams {..} =
-    GtContext gtpVssKeyPair <$> liftIO (newTVarIO gtpSscEnabled)
+    GtContext gtpVssKeyPair <$> newTVarIO gtpSscEnabled
 
 ----------------------------------------------------------------------------
 -- Secret storage

@@ -77,7 +77,7 @@ handleSendProxySK getPeers = listenerOneMsg outSpecs $
                -- We're probably updating state over epoch, so leaders
                -- can be calculated incorrectly.
                blkSemaphore <- ncBlkSemaphore <$> getNodeContext
-               void $ liftIO $ readMVar blkSemaphore
+               void $ readMVar blkSemaphore
                handleDo sendActions req
            | verdict == PHAdded && doPropagate -> do
                logDebug $ sformat ("Propagating heavyweight PSK: "%build) pSk

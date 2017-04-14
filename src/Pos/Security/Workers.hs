@@ -106,7 +106,7 @@ checkForReceivedBlocksWorkerImpl
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
     repeatOnInterval (const (sec' 4)) . reportingFatal version $
-        whenM (needRecovery $ Proxy @ssc) $ do
+        whenM (needRecovery $ Proxy @ssc) $
             triggerRecovery sendActions
     repeatOnInterval (min (sec' 20)) . reportingFatal version $ do
         ourPk <- ncPublicKey <$> getNodeContext

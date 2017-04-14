@@ -15,7 +15,6 @@ module Pos.Data.Attributes
 
 import           Universum
 
-import qualified Base
 import           Data.Binary.Get     (Get)
 import qualified Data.Binary.Get     as G
 import           Data.Binary.Put     (Put)
@@ -26,6 +25,7 @@ import qualified Data.Map            as M
 import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, int, (%))
+import qualified Prelude
 
 import           Pos.Binary.Class    (getRemainingByteString, getWithLength,
                                       getWithLengthLimited, getWord8, putByteString,
@@ -47,7 +47,7 @@ data Attributes h = Attributes
 instance Default h => Default (Attributes h) where
     def = mkAttributes def
 
-instance Base.Show h => Base.Show (Attributes h) where
+instance Show h => Show (Attributes h) where
     show Attributes {..} =
         let remain | BS.null attrRemain = ""
                    | otherwise = ", remain: <" <> show (BS.length attrRemain) <> " bytes>"

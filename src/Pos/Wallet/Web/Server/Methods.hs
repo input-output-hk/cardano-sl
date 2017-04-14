@@ -70,7 +70,8 @@ import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Util.UserSecret           (readUserSecret, usKeys)
-import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
+import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
+                                                addSecretKey)
 import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
                                                 blockchainSlotDuration, connectedPeers,
                                                 getBalance, getTxHistory,
@@ -361,9 +362,7 @@ servantHandlers sendActions =
 --   where gb addr = (,) (addressToCAddress addr) <$> getBalance addr
 
 getUserProfile :: WalletWebMode ssc m => m CProfile
-getUserProfile = getProfile >>= maybe noProfile pure
-  where
-    noProfile = throwM $ Internal "No user profile"
+getUserProfile = getProfile >>= maybeThrow (Internal "No user profile")
 
 updateUserProfile :: WalletWebMode ssc m => CProfile -> m CProfile
 updateUserProfile profile = setProfile profile >> getUserProfile
@@ -379,10 +378,10 @@ getAccount cAddr = do
 
 getWalletAccAddrsOrThrow :: WalletWebMode ssc m => CWalletAddress -> m [CAccountAddress]
 getWalletAccAddrsOrThrow wCAddr =
-    getWalletAccounts wCAddr >>= maybe noWallet return
+    getWalletAccounts wCAddr >>= maybeThrow noWallet
   where
-    noWallet = throwM . Internal $
-        sformat ("No wallet with address "%build%" found") wCAddr
+    noWallet =
+        Internal $ sformat ("No wallet with address "%build%" found") wCAddr
 
 getAccounts :: WalletWebMode ssc m => CWalletAddress -> m [CAccount]
 getAccounts = getWalletAccAddrsOrThrow >=> mapM getAccount
@@ -390,19 +389,19 @@ getAccounts = getWalletAccAddrsOrThrow >=> mapM getAccount
 getWallet :: WalletWebMode ssc m => CWalletAddress -> m CWallet
 getWallet cAddr = do
     accounts <- getAccounts cAddr
-    meta     <- getWalletMeta cAddr >>= maybe noWallet pure
+    meta     <- getWalletMeta cAddr >>= maybeThrow noWallet
     pure $ CWallet cAddr meta accounts
   where
-    noWallet = throwM . Internal $
-        sformat ("No wallet with address "%build%" found") cAddr
+    noWallet =
+        Internal $ sformat ("No wallet with address "%build%" found") cAddr
 
 getWSet :: WalletWebMode ssc m => CAddress WS -> m CWalletSet
 getWSet cAddr = do
-    meta       <- getWSetMeta cAddr >>= maybe noWSet pure
+    meta       <- getWSetMeta cAddr >>= maybeThrow noWSet
     walletsNum <- length <$> getWallets (Just cAddr)
     pure $ CWalletSet cAddr meta walletsNum
   where
-    noWSet = throwM . Internal $
+    noWSet = Internal $
         sformat ("No wallet set with address "%build%" found") cAddr
 
 -- TODO: probably poor naming
@@ -641,20 +640,22 @@ deleteWSet :: WalletWebMode ssc m => CAddress WS -> m ()
 deleteWSet wsAddr = do
     wallets <- getWallets (Just wsAddr)
     mapM_ (deleteWallet . cwAddress) wallets
+    deleteAddress wsAddr
     removeWSet wsAddr
-    -- TODO [CSM-171]:
-  -- where
-    -- deleteAddress addr = do
-        -- idx <- getAddrIdx addr
-        -- deleteSecretKey (fromIntegral idx) `catch` deleteErrHandler
-    -- deleteErrHandler (PrimaryKey err) = throwM . Internal $
-        -- sformat ("Error while deleting wallet set: "%stext) err
+  where
+    deleteAddress addr = do
+        idx <- getAddrIdx addr
+        deleteSecretKey (fromIntegral idx) `catch` deleteErrHandler
+    deleteErrHandler (PrimaryKey err) = throwM . Internal $
+        sformat ("Error while deleting wallet set: "%stext) err
 
 deleteWallet :: WalletWebMode ssc m => CWalletAddress -> m ()
 deleteWallet wAddr = do
-    -- TODO [CSM-171]:
-    -- deleteAccount <- getWalletAccAddrsOrThrow wAddr
+    mapM_ deleteAccount =<< getWalletAccAddrsOrThrow wAddr
     removeWallet wAddr
+
+deleteAccount :: WalletWebMode ssc m => CAccountAddress -> m ()
+deleteAccount = removeAccount
 
 -- NOTE: later we will have `isValidAddress :: CCurrency -> CAddress -> m Bool` which should work for arbitrary crypto
 isValidAddress :: WalletWebMode ssc m => Text -> CCurrency -> m Bool
@@ -732,7 +733,7 @@ importKey (toString -> fp) = do
 addInitialRichAccount :: WalletWebMode ssc m => SendActions m -> Int -> m ()
 addInitialRichAccount sendActions keyId =
     when isDevelopment . E.handleAll handler $ do
-        key <- whenNothing (genesisDevSecretKeys ^? ix keyId) noKey
+        key <- maybeThrow noKey (genesisDevSecretKeys ^? ix keyId)
         let enKey = noPassEncrypt key
 
         let addr = makePubKeyAddress $ encToPublic enKey
@@ -748,7 +749,7 @@ addInitialRichAccount sendActions keyId =
         let cpass = passPhraseToCPassPhrase emptyPassphrase
         wAddr    <- cwAddress <$> newWallet cpass (CWalletInit def wsAddr)
         accounts <- getAccounts wAddr
-        accAddr  <- maybe noAccount return . head $ caAddress <$> accounts
+        accAddr  <- maybeThrow noAccount . head $ caAddress <$> accounts
 
         -- send all money from wallet set (corresponds to genesis address)
         -- to its account
@@ -767,9 +768,8 @@ addInitialRichAccount sendActions keyId =
                            %int) coinsToSend keyId
 
   where
-    noKey = throwM . Internal $ sformat ("No genesis key #"%build) keyId
-    noAccount = throwM . Internal $
-        sformat ("No account created with wallet creation!")
+    noKey = Internal $ sformat ("No genesis key #"%build) keyId
+    noAccount = Internal "No account created with wallet creation!"
 
     handler = logError . sformat ("Creation of init account failed: "%build)
 
@@ -797,9 +797,9 @@ myRootAddresses =
     addressToCAddress . makePubKeyAddress . encToPublic <<$>> getSecretKeys
 
 getAddrIdx :: WalletWebMode ssc m => CAddress WS -> m Int
-getAddrIdx addr = elemIndex addr <$> myRootAddresses >>= maybe notFound pure
-  where notFound = throwM . Internal $
-            sformat ("Address "%build%" is not found in wallet") addr
+getAddrIdx addr = elemIndex addr <$> myRootAddresses >>= maybeThrow notFound
+  where notFound =
+          Internal $ sformat ("Address "%build%" is not found in wallet") addr
 
 getSKByAddr
     :: WalletWebMode ssc m

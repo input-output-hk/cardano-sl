@@ -80,6 +80,9 @@ warn "Avoid 'both'" = both ==> Control.Lens.each
 warn = either (const True) (const False) ==> isLeft
 warn = either (const False) (const True) ==> isRight
 
+warn = Data.Map.toAscList (Data.Map.fromList x) ==> sortOn fst x
+warn = Data.Map.toDescList (Data.Map.fromList x) ==> sortOn (Down . fst) x
+
 
 ----------------------------------------------------------------------------
 -- Universum

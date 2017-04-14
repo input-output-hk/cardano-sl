@@ -22,7 +22,6 @@ import           Data.Binary.Put     (Put)
 import qualified Data.ByteString     as BS
 import           Data.Default        (Default (..))
 import           Data.DeriveTH       (derive, makeNFData)
-import qualified Data.Map            as M
 import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, int, (%))
@@ -107,6 +106,6 @@ putAttributes putMapper Attributes {..} =
         putByteString attrRemain
   where
     putAttr (k, v) = putWord8 k *> v
-    kvs = M.toAscList $ M.fromList $ putMapper attrData
+    kvs = sortOn fst $ putMapper attrData
 
 derive makeNFData ''Attributes

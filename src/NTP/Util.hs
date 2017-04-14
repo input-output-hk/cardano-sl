@@ -4,17 +4,20 @@ module NTP.Util
     ( ntpPort
     , resolveNtpHost
     , getCurrentTime
+    , preferIPv6
     ) where
 
 import           Control.Lens          (to, (^?), _head)
 import           Control.Monad.Catch   (catchAll)
 import           Control.Monad.Trans   (MonadIO (..))
+import           Data.List             (sortOn)
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Data.Time.Units       (Microsecond, fromMicroseconds)
-import           Network.Socket        (AddrInfoFlag (AI_ADDRCONFIG), PortNumber (..),
+import           Network.Socket        (AddrInfo, AddrInfoFlag (AI_ADDRCONFIG),
+                                        Family (AF_INET, AF_INET6), PortNumber (..),
                                         SockAddr (..), SocketType (Datagram), addrAddress,
-                                        addrFlags, addrSocketType, defaultHints,
-                                        getAddrInfo)
+                                        addrFamily, addrFlags, addrSocketType,
+                                        defaultHints, getAddrInfo)
 
 
 ntpPort :: PortNumber
@@ -44,3 +47,10 @@ resolveNtpHost host = do
 
 getCurrentTime :: MonadIO m => m Microsecond
 getCurrentTime = liftIO $ fromMicroseconds . round . ( * 1000000) <$> getPOSIXTime
+
+preferIPv6 :: [AddrInfo] -> AddrInfo
+preferIPv6 =
+    head .
+    reverse .
+    sortOn addrFamily .
+    filter (\a -> addrFamily a == AF_INET6 || addrFamily a == AF_INET)

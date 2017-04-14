@@ -32,8 +32,7 @@ import           Data.Text                   (Text)
 import           Data.Time.Units             (Microsecond, Second, toMicroseconds)
 import           Data.Typeable               (Typeable)
 import           Formatting                  (sformat, shown, (%))
-import           Network.Socket              (AddrInfoFlag (AI_PASSIVE),
-                                              Family (AF_INET, AF_INET6), SockAddr (..),
+import           Network.Socket              (AddrInfoFlag (AI_PASSIVE), SockAddr (..),
                                               Socket, SocketOption (IPv6Only, ReuseAddr),
                                               SocketType (Datagram), aNY_PORT,
                                               addrAddress, addrFamily, addrFlags,
@@ -51,7 +50,7 @@ import           Mockable.Concurrent         (Delay, Fork, delay, fork)
 import           Mockable.Exception          (Catch, Throw, catchAll, handleAll, throw)
 import           NTP.Packet                  (NtpPacket (..), evalClockOffset,
                                               mkCliNtpPacket, ntpPacketSize)
-import           NTP.Util                    (resolveNtpHost)
+import           NTP.Util                    (preferIPv6, resolveNtpHost)
 
 data NtpClientSettings m = NtpClientSettings
     { ntpServers         :: [String]
@@ -178,7 +177,12 @@ startSend addrs cli = do
         startSend addrs cli
 
 mkSocket :: NtpMonad m => NtpClientSettings m -> m Socket
-mkSocket settings = doMkSocket `catchAll` handlerE
+mkSocket settings = do
+    (sock, addrInfo) <- doMkSocket `catchAll` handlerE
+    log' settings Info $
+        sformat ("Created socket (family/addr): "%shown%"/"%shown)
+                (addrFamily addrInfo) (addrAddress addrInfo)
+    pure sock
   where
     doMkSocket = liftIO $ do
         let hints = defaultHints { addrFlags = [AI_PASSIVE], addrSocketType = Datagram }
@@ -187,23 +191,19 @@ mkSocket settings = doMkSocket `catchAll` handlerE
 
         -- Couldn't be empty. Throws exception if empty.
         -- IPv6 addresses are more preffered.
-        let (serveraddr:_) =
-                reverse $
-                sortOn addrFamily $
-                filter (\a -> addrFamily a == AF_INET6 || addrFamily a == AF_INET) serveraddrs
-        --log' settings Info $ "Selected Address Family: " <> pack (show $ addrFamily serveraddr)
+        let serveraddr = preferIPv6 serveraddrs
         sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
         setSocketOption sock ReuseAddr 1
         -- See here https://hackage.haskell.org/package/network-2.6.3.1/docs/Network-Socket.html#v:socket
         setSocketOption sock IPv6Only 0
         bind sock (addrAddress serveraddr)
-        return sock
+        pure (sock, serveraddr)
     handlerE e = do
         log' settings Warning $
             sformat ("Failed to create socket, retrying in 5 sec... (reason: "%shown%")")
             e
         liftIO $ threadDelay (5 :: Second)
-        mkSocket settings
+        doMkSocket
 
 handleNtpPacket :: NtpMonad m => NtpClient m -> NtpPacket -> m ()
 handleNtpPacket cli packet = do

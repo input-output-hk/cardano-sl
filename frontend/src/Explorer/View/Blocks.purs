@@ -1,16 +1,15 @@
 module Explorer.View.Blocks
-    ( maxBlockRows
-    , minBlockRows
-    , blocksView
+    ( blocksView
     , blockRow
-    , latestBlocks'
-    , currentBlocks
     , blocksHeaderView
     , blockHeaderItemView
-    , blocksFooterView
+    , maxBlockRows
+    , minBlockRows
+    , unwrapLatestBlocks
     ) where
 
 import Prelude
+import Control.Monad.Eff.Exception (Error)
 import Data.Array (length, null, slice)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
@@ -18,23 +17,21 @@ import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..))
 import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (block, blNotFound, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cExpand, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB) as I18nL
-import Explorer.Lenses.State (dashboardBlockPagination, lang, latestBlocks)
+import Explorer.I18n.Lenses (block, blNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB) as I18nL
+import Explorer.Lenses.State (blocksViewState, blsViewPagination, currentBlocksResult, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State, CBlockEntries)
 import Explorer.Util.DOM (targetToHTMLInputElement)
 import Explorer.Util.Time (prettyDuration)
-import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnRelayedBy, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFooter, blocksHeader) as CSS
-import Explorer.View.Common (noData, paginationView)
-import Explorer.View.Dashboard.Lenses (dashboardBlocksExpanded, dashboardViewState)
+import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnRelayedBy, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
+import Explorer.View.Common (getMaxPaginationNumber, noData, paginationView)
 import Network.RemoteData (RemoteData(..))
 import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeEpoch, cbeSlot, cbeRelayedBy, cbeSize, cbeTimeIssued, cbeTotalSent, cbeTxNum)
-import Pux.Html (Html, div, text, h3) as P
+import Pux.Html (Html, div, text, h3, p) as P
 import Pux.Html.Attributes (className, dangerouslySetInnerHTML) as P
-import Pux.Html.Events (onClick) as P
 import Pux.Router (link) as P
 
 maxBlockRows :: Int
@@ -59,11 +56,19 @@ blocksView state =
                             <> " / " <>
                             (translate (I18nL.common <<< I18nL.cSlot) lang')
                       ]
-                , case state ^. latestBlocks of
+                , case state ^. currentBlocksResult of
                       NotAsked  -> emptyBlocksView ""
                       Loading   -> emptyBlocksView $ translate (I18nL.common <<< I18nL.cLoading) lang'
-                      Failure _ -> emptyBlocksView $ translate (I18nL.block <<< I18nL.blNotFound) lang'
+                      Failure _ -> failureView lang'
                       Success blocks ->
+                          let paginationViewProps =
+                                  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                                  , currentPage: state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
+                                  , maxPage: getMaxPaginationNumber (length blocks) maxBlockRows
+                                  , changePageAction: BlocksPaginateBlocks
+                                  , onFocusAction: SelectInputText <<< targetToHTMLInputElement
+                                  }
+                          in
                           P.div
                               []
                               [ blocksHeaderView state
@@ -72,7 +77,7 @@ blocksView state =
                                   $ map (blockRow state) (currentBlocks state)
                               , P.div
                                   [ P.className CSS.blocksFooter ]
-                                  [ blocksFooterView state ]
+                                  [ paginationView paginationViewProps ]
                               ]
                   ]
             ]
@@ -86,55 +91,33 @@ emptyBlocksView message =
         [ P.dangerouslySetInnerHTML message ]
         []
 
-latestBlocks' :: State -> CBlockEntries
-latestBlocks' state =
-    case state ^. latestBlocks of
+failureView :: Language -> P.Html Action
+failureView lang =
+    P.div
+        []
+        [ P.p
+            [ P.className CSS.blocksFailed ]
+            [ P.text $ translate (I18nL.block <<< I18nL.blNotFound) lang ]
+        , P.link (toUrl Dashboard)
+            [ P.className "btn-back" ]
+            [ P.text $ translate (I18nL.common <<< I18nL.cBack2Dashboard) lang ]
+        ]
+
+
+
+unwrapLatestBlocks :: RemoteData Error CBlockEntries -> CBlockEntries
+unwrapLatestBlocks blocks =
+    case blocks of
             Success blocks' -> blocks'
             _ -> []
 
 currentBlocks :: State -> CBlockEntries
 currentBlocks state =
-    if expanded
-    then slice minBlockIndex (minBlockIndex + maxBlockRows) blocks
-    else slice 0 minBlockRows blocks
+    slice minBlockIndex (minBlockIndex + maxBlockRows) blocks
     where
-        blocks = latestBlocks' state
-        expanded = state ^. dashboardBlocksExpanded
-        currentBlockPage = state ^. (dashboardViewState <<< dashboardBlockPagination)
+        blocks = unwrapLatestBlocks $ state ^. currentBlocksResult
+        currentBlockPage = state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
         minBlockIndex = (currentBlockPage - 1) * maxBlockRows
-
-
-blocksFooterView :: State -> P.Html Action
-blocksFooterView state =
-    if expanded then
-        let paginationViewProps =
-              { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-              , currentPage: currentBlockPage
-              , maxPage: flip (/) maxBlockRows $ length blocks
-              , changePageAction: DashboardPaginateBlocks
-              , onFocusAction: SelectInputText <<< targetToHTMLInputElement
-              }
-        in
-            paginationView paginationViewProps
-    else
-        let
-            clickHandler _ =
-                if expandable
-                then DashboardExpandBlocks true
-                else NoOp
-            visibleBtnExpandClazz = if expandable then "" else " disabled"
-        in
-            P.div
-              [ P.className $ "btn-expand" <> visibleBtnExpandClazz
-              , P.onClick clickHandler ]
-              [ P.text $ translate (I18nL.common <<< I18nL.cExpand) lang']
-    where
-        lang' = state ^. lang
-        blocks = latestBlocks' state
-        expanded = state ^. dashboardBlocksExpanded
-        expandable = length blocks > minBlockRows
-        currentBlockPage = state ^. (dashboardViewState <<< dashboardBlockPagination)
-
 
 blockRow :: State -> CBlockEntry -> P.Html Action
 blockRow state (CBlockEntry entry) =
@@ -166,7 +149,7 @@ blockRow state (CBlockEntry entry) =
         language = state ^. lang
         labelAge = case entry ^. cbeTimeIssued of
                         Just time -> prettyDuration language (Milliseconds
-                            $ unwrap $ time ^. _NominalDiffTime)
+                            <<< unwrap $ time ^. _NominalDiffTime)
                         Nothing -> noData
         labelRelayed = fromMaybe (translate (I18nL.common <<< I18nL.cUnknown) language)
                             $ entry ^. cbeRelayedBy
@@ -218,7 +201,9 @@ blocksHeaderView :: State -> P.Html Action
 blocksHeaderView state =
     P.div
           [ P.className $ CSS.blocksHeader
-                <> if null $ latestBlocks' state then " invisible" else ""
+                <>  if null <<< unwrapLatestBlocks $ state ^. currentBlocksResult
+                    then " invisible"
+                    else ""
           ]
           $ map (blockHeaderItemView state) $ mkBlocksHeaderProps state.lang
 

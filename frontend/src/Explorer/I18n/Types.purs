@@ -50,6 +50,7 @@ type Common =
     , cOf :: String
     , cNotAvailable :: String
     , cLoading :: String
+    , cBack2Dashboard :: String
     , cDays :: String
     , cHours :: String
     , cMinutes :: String
@@ -161,5 +162,4 @@ type Footer =
 type NotFound =
     { nfTitle :: String
     , nfDescription :: String
-    , nfBack2Dashboard :: String
     }

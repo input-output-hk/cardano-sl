@@ -22,6 +22,23 @@
   }
 }
 
+.btn-back {
+  font-family: var(--fontFamily0-Regular);
+  font-weight: normal;
+  font-size: 12;
+
+  margin-top: 24px;
+  padding: 18px 24px;
+  margin: 0 24px;
+
+  border-radius: 2px;
+  button: outline-button;
+  button-color: var(--color5) var(--color4) var(--color4);
+  button-border: 1px var(--color5) transparent transparent;
+  button-background: transparent var(--color5) var(--color5);
+}
+
+
 .transaction-header {
   @neat-outer-container;
   height: var(--transaction-header-height);

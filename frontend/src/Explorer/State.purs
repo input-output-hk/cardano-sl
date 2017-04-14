@@ -20,17 +20,20 @@ initialState =
         }
     , viewStates:
         { dashboard:
-            { blocksExpanded: false
-            , dashboardBlockPagination: 1 -- Note: We do start with 1 (not 0)
-            , transactionsExpanded: false
-            , selectedApiCode: Curl
-            , searchInput: false
+            { dbViewBlocksExpanded: false
+            , dbViewBlockPagination: minPagination
+            , dbViewTxsExpanded: false
+            , dbViewSelectedApiCode: Curl
+            , dbViewSearchInput: false
             }
         , addressDetail:
-            { addressTxPagination: 1 -- Note: We do start with 1 (not 0)
+            { addressTxPagination: minPagination
             }
         , blockDetail:
-            { blockTxPagination: 1 -- Note: We do start with 1 (not 0)
+            { blockTxPagination: minPagination
+            }
+        , blocksViewState:
+            { blsViewPagination: minPagination
             }
         }
     , latestBlocks: NotAsked
@@ -47,9 +50,12 @@ initialState =
     , selectedSearch: SearchAddress
     , searchQuery: emptySearchQuery
     , searchTimeQuery: emptySearchTimeQuery
+    , currentBlocksResult: NotAsked
     , errors: []
     , loading: false
     }
+
+-- all constants are following here:
 
 emptySearchQuery :: String
 emptySearchQuery = ""
@@ -59,3 +65,6 @@ emptySearchTimeQuery = Tuple Nothing Nothing
 
 maxSlotInEpoch :: Int
 maxSlotInEpoch = 21600
+
+minPagination :: Int
+minPagination = 1 -- Note: We do start with 1 (not 0)

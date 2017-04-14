@@ -1,20 +1,25 @@
 module Explorer.View.Dashboard.Blocks (dashBoardBlocksView) where
 
 import Prelude
+import Data.Array (length, slice)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (translate)
-import Explorer.I18n.Lenses (dashboard, dbLastBlocks, common, dbExploreBlocks, cNoData) as I18nL
-import Explorer.Lenses.State (lang, latestBlocks)
+import Explorer.I18n.Lenses (cExpand, cOf, dashboard, dbLastBlocks, common, dbExploreBlocks, cNoData) as I18nL
+import Explorer.Lenses.State (dbViewBlockPagination, dbViewBlocksExpanded, lang, latestBlocks)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (State)
-import Explorer.View.Blocks (blockRow, blocksFooterView, blocksHeaderView, currentBlocks)
+import Explorer.Types.State (State, CBlockEntries)
+import Explorer.Util.DOM (targetToHTMLInputElement)
+import Explorer.View.Blocks (blockRow, blocksHeaderView, maxBlockRows, minBlockRows, unwrapLatestBlocks)
 import Explorer.View.CSS (blocksBody, blocksFooter, blocksWaiting, dashboardContainer, dashboardWrapper) as CSS
+import Explorer.View.Common (getMaxPaginationNumber, paginationView)
+import Explorer.View.Dashboard.Lenses (dashboardBlocksExpanded, dashboardViewState)
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
 import Network.RemoteData (RemoteData(..))
 import Pux.Html (Html, div, text) as P
 import Pux.Html.Attributes (className) as P
+import Pux.Html.Events (onClick) as P
 
 dashBoardBlocksView :: State -> P.Html Action
 dashBoardBlocksView state =
@@ -53,3 +58,40 @@ emptyBlocksView message =
     P.div
         [ P.className CSS.blocksWaiting ]
         [ P.text message ]
+
+currentBlocks :: State -> CBlockEntries
+currentBlocks state =
+    if expanded
+    then slice minBlockIndex (minBlockIndex + maxBlockRows) blocks
+    else slice 0 minBlockRows blocks
+    where
+        blocks = unwrapLatestBlocks $ state ^. latestBlocks
+        expanded = state ^. dashboardBlocksExpanded
+        currentBlockPage = state ^. (dashboardViewState <<< dbViewBlockPagination)
+        minBlockIndex = (currentBlockPage - 1) * maxBlockRows
+
+blocksFooterView :: State -> P.Html Action
+blocksFooterView state =
+    if expanded then
+        paginationView { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                        , currentPage: currentBlockPage
+                        , maxPage: getMaxPaginationNumber (length blocks) maxBlockRows
+                        , changePageAction: DashboardPaginateBlocks
+                        , onFocusAction: SelectInputText <<< targetToHTMLInputElement
+                        }
+    else
+        P.div
+            [ P.className $ "btn-expand" <> visibleBtnExpandClazz
+            , P.onClick clickHandler ]
+            [ P.text $ translate (I18nL.common <<< I18nL.cExpand) lang']
+    where
+        lang' = state ^. lang
+        blocks = unwrapLatestBlocks $ state ^. latestBlocks
+        expanded = state ^. (dashboardViewState <<< dbViewBlocksExpanded)
+        expandable = length blocks > minBlockRows
+        currentBlockPage = state ^. (dashboardViewState <<< dbViewBlockPagination)
+        clickHandler _ =
+            if expandable
+            then DashboardExpandBlocks true
+            else NoOp
+        visibleBtnExpandClazz = if expandable then "" else " disabled"

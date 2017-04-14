@@ -16,9 +16,9 @@ import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksExpanded, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentCAddress, currentTxSummary, dashboard, dashboardBlockPagination, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchInput, searchQuery, searchTimeQuery, selectedApiCode, selectedSearch, socket, subscriptions, transactionsExpanded, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksViewState, blsViewPagination, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dashboard, dbViewBlockPagination, dbViewBlocksExpanded, dbViewSearchInput, dbViewSelectedApiCode, dbViewTxsExpanded, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchQuery, searchTimeQuery, selectedSearch, socket, subscriptions, viewStates)
 import Explorer.Routes (Route(..), toUrl)
-import Explorer.State (emptySearchQuery, emptySearchTimeQuery)
+import Explorer.State (emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), SocketSubscription(..), State)
 import Explorer.Util.DOM (scrollTop)
@@ -125,16 +125,16 @@ update SocketReconnectSubscriptions state =
 
 -- Dashboard
 
-update (DashboardExpandBlocks toggled) state = noEffects $
-    set (viewStates <<< dashboard <<< blocksExpanded) toggled state
-update (DashboardExpandTransactions toggled) state = noEffects $
-    set (viewStates <<< dashboard <<< transactionsExpanded) toggled state
+update (DashboardExpandBlocks expanded) state = noEffects $
+    set (viewStates <<< dashboard <<< dbViewBlocksExpanded) expanded state
+update (DashboardExpandTransactions expanded) state = noEffects $
+    set (viewStates <<< dashboard <<< dbViewTxsExpanded) expanded state
 update (DashboardPaginateBlocks value) state = noEffects $
-    set (viewStates <<< dashboard <<< dashboardBlockPagination) value state
+    set (viewStates <<< dashboard <<< dbViewBlockPagination) value state
 update (DashboardShowAPICode code) state = noEffects $
-    set (viewStates <<< dashboard <<< selectedApiCode) code state
+    set (viewStates <<< dashboard <<< dbViewSelectedApiCode) code state
 update (DashboardFocusSearchInput value) state = noEffects $
-    set (viewStates <<< dashboard <<< searchInput) value state
+    set (viewStates <<< dashboard <<< dbViewSearchInput) value state
 
 -- Address
 
@@ -145,6 +145,11 @@ update (AddressPaginateTxs value) state = noEffects $
 
 update (BlockPaginateTxs value) state = noEffects $
     set (viewStates <<< blockDetail <<< blockTxPagination) value state
+
+-- Blocks
+
+update (BlocksPaginateBlocks value) state = noEffects $
+    set (viewStates <<< blocksViewState <<< blsViewPagination) value state
 
 -- DOM side effects
 
@@ -265,26 +270,23 @@ update (ReceiveBlockSummary (Left error)) state =
 
 -- Epoch, slot
 
-update (RequestEpochSlot epoch slot) state =
+update (RequestSearchBlocks epoch slot) state =
     { state:
           set loading true $
-          set latestBlocks Loading $state
-    , effects: [ attempt (searchEpoch epoch slot) >>= pure <<< ReceiveEpochSlot ]
+          set currentBlocksResult Loading $
+          state
+    , effects: [ attempt (searchEpoch epoch slot) >>= pure <<< ReceiveSearchBlocks ]
     }
-update (ReceiveEpochSlot (Right blocks)) state =
+update (ReceiveSearchBlocks (Right blocks)) state =
     noEffects $
     set loading false <<<
-    set initialBlocksRequested true <<<
-    set handleLatestBlocksSocketResult true $
-    set latestBlocks (Success blocks) $
+    set currentBlocksResult (Success blocks) $
     state
 
-update (ReceiveEpochSlot (Left error)) state =
+update (ReceiveSearchBlocks (Left error)) state =
     noEffects $
     set loading false <<<
-    set initialBlocksRequested true <<<
-    set handleLatestBlocksSocketResult true $
-    set latestBlocks (Failure error) $
+    set currentBlocksResult (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
 update (RequestBlockTxs hash) state =
@@ -382,7 +384,8 @@ routeEffects (Address cAddress) state =
     { state:
         set currentAddressSummary Loading $
         set currentCAddress cAddress $
-        set (viewStates <<< addressDetail <<< addressTxPagination) 1 state
+        set (viewStates <<< addressDetail <<< addressTxPagination)
+            minPagination state
     , effects:
         [ pure ScrollTop
         , pure $ SocketUpdateSubscriptions []
@@ -391,10 +394,13 @@ routeEffects (Address cAddress) state =
     }
 
 routeEffects (Epoch epochIndex) state =
-    { state
+    { state:
+          set (viewStates <<< blocksViewState <<< blsViewPagination)
+              minPagination $
+          state
     , effects:
         [ pure ScrollTop
-        , pure $ RequestEpochSlot epochIndex Nothing
+        , pure $ RequestSearchBlocks epochIndex Nothing
         ]
     }
 
@@ -402,7 +408,7 @@ routeEffects (EpochSlot epochIndex slotIndex) state =
     { state
     , effects:
         [ pure ScrollTop
-        , pure $ RequestEpochSlot epochIndex (Just slotIndex)
+        , pure $ RequestSearchBlocks epochIndex (Just slotIndex)
         ]
     }
 

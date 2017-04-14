@@ -11,6 +11,7 @@ module Explorer.View.CSS
   , blocksColumnSize
   , blocksFooter
   , blocksWaiting
+  , blocksFailed
   , dashboardWrapper
   , dashboardContainer
   )
@@ -92,3 +93,6 @@ blocksFooter = "blocks-footer"
 
 blocksWaiting :: String
 blocksWaiting = "blocks-waiting"
+
+blocksFailed :: String
+blocksFailed = "blocks-failed"

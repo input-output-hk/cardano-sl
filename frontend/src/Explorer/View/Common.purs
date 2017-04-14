@@ -2,7 +2,9 @@ module Explorer.View.Common (
     placeholderView
     , txHeaderView
     , txBodyView
+    , emptyTxBodyView
     , emptyTxHeaderView
+    , getMaxPaginationNumber
     , mkTxHeaderViewProps
     , class TxHeaderViewPropsFactory
     , mkTxBodyViewProps
@@ -17,7 +19,7 @@ module Explorer.View.Common (
     ) where
 
 import Prelude
-import Data.Int (fromString)
+import Data.Int (ceil, fromString, toNumber)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
@@ -152,6 +154,11 @@ txBodyView (TxBodyViewProps props) =
               <<< map txAmountView $ props ^. txbOutputs
         ]
 
+emptyTxBodyView :: P.Html Action
+emptyTxBodyView =
+    P.div
+        [ P.className "transaction-body" ]
+        []
 
 txFromView :: Tuple CAddress Coin -> P.Html Action
 txFromView (Tuple (CAddress cAddress) _) =
@@ -258,6 +265,11 @@ paginationView props =
               if value >= minPage && value <= props.maxPage
               then props.changePageAction value
               else NoOp
+
+
+getMaxPaginationNumber :: Int -> Int -> Int
+getMaxPaginationNumber quantity max =
+    ceil (toNumber quantity / toNumber max)
 
 -- -----------------
 -- txs empty view

@@ -7,7 +7,7 @@ import Data.String (length)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cAddress, cEpoch, cSlot, cTransaction, common, hero, hrTitle, hrSearch, hrSubtitle, hrTime) as I18nL
-import Explorer.Lenses.State (lang, searchInput, searchQuery, searchTimeQuery, selectedSearch)
+import Explorer.Lenses.State (lang, dbViewSearchInput, searchQuery, searchTimeQuery, selectedSearch)
 import Explorer.State (maxSlotInEpoch)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), State)
@@ -25,12 +25,12 @@ inputSlotName = "inp_slot"
 heroView :: State -> P.Html Action
 heroView state =
     let
-        searchInputFocused = state ^. (dashboardViewState <<< searchInput)
+        dbViewSearchInputFocused = state ^. (dashboardViewState <<< dbViewSearchInput)
         selectedSearch' = state ^. selectedSearch
-        focusedClazz = if searchInputFocused then " focused " else ""
+        focusedClazz = if dbViewSearchInputFocused then " focused " else ""
         addrHiddenClazz = if selectedSearch' == SearchTime  then " hide " else ""
         epochHiddenClazz = if selectedSearch' /= SearchTime  then " hide " else ""
-        searchIconClazz = if searchInputFocused then " bg-icon-search-hover" else " bg-icon-search"
+        searchIconClazz = if dbViewSearchInputFocused then " bg-icon-search-hover" else " bg-icon-search"
         lang' = state ^. lang
     in
     P.div
@@ -50,7 +50,7 @@ heroView state =
                                   <> addrHiddenClazz
                                   <> focusedClazz
                     , P.type_ "text"
-                    , P.placeholder $ if searchInputFocused
+                    , P.placeholder $ if dbViewSearchInputFocused
                                       then ""
                                       else translate (I18nL.hero <<< I18nL.hrSearch) lang'
                     , P.onFocus <<< const $ DashboardFocusSearchInput true

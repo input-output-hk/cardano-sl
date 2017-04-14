@@ -38,6 +38,7 @@ translation =
         , cOf: "of"
         , cNotAvailable: "not available"
         , cLoading: "Loading..."
+        , cBack2Dashboard: "Back to Dashboard"
         , cDays: "Days"
         , cHours: "Hours"
         , cMinutes: "Minutes"
@@ -125,6 +126,5 @@ translation =
     , notfound:
         { nfTitle: "404"
         , nfDescription: "Page not found"
-        , nfBack2Dashboard: "Back to Dashboard"
         }
     }

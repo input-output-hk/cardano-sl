@@ -51,10 +51,9 @@ import           Pos.Communication             (OutSpecs, SendActions, hoistSend
                                                 sendTxOuts, submitRedemptionTx, submitTx)
 import           Pos.Constants                 (curSoftwareVersion, isDevelopment)
 import           Pos.Core                      (Address (..), Coin, addressF,
-                                                applyCoinPortion, coinF,
-                                                decodeTextAddress, makePubKeyAddress,
-                                                makeRedeemAddress, mkCoin,
-                                                unsafeCoinPortionFromDouble,
+                                                applyCoinPortion, decodeTextAddress,
+                                                makePubKeyAddress, makeRedeemAddress,
+                                                mkCoin, unsafeCoinPortionFromDouble,
                                                 unsafeSubCoin)
 import           Pos.Crypto                    (EncryptedSecretKey, PassPhrase,
                                                 deriveHDSecretKey, emptyPassphrase,
@@ -69,7 +68,8 @@ import           Pos.Reporting.Methods         (sendReportNodeNologs)
 import           Pos.Ssc.Class                 (SscHelpersClass)
 import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
 import           Pos.Util                      (maybeThrow)
-import           Pos.Util.BackupPhrase         (BackupPhrase, safeKeysFromPhrase)
+import           Pos.Util.BackupPhrase         (BackupPhrase, mkBackupPhrase,
+                                                safeKeysFromPhrase)
 import           Pos.Util.UserSecret           (readUserSecret, usKeys)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
@@ -357,7 +357,10 @@ servantHandlers sendActions =
     apiSettingsSoftwareVersion  = catchWalletError (pure curSoftwareVersion)
     apiSettingsSyncProgress     = catchWalletError syncProgress
 
-    catchWalletError            = try
+    catchWalletError            = catchOtherError . try
+    catchOtherError             = E.handleAll $ \e -> do
+        logError $ sformat ("Uncaught error in wallet method: "%shown) e
+        throwM e
 
 -- getAddresses :: WalletWebMode ssc m => m [CAddress]
 -- getAddresses = map addressToCAddress <$> myAddresses
@@ -461,7 +464,8 @@ sendExtended sendActions cpassphrase srcWallet dstAccount c curr title desc = do
     passphrase <- decodeCPassPhraseOrFail cpassphrase
     dstAddr <- decodeCAddressOrFail dstAccount
     allAccounts <- getWalletAccAddrsOrThrow srcWallet
-    (remaining, spendings) <- selectSrcAccounts c allAccounts
+    distr@(remaining, spendings) <- selectSrcAccounts c allAccounts
+    logDebug $ buildDistribution distr
     mRemTx <-
         if remaining == mkCoin 0
             then return Nothing
@@ -474,10 +478,12 @@ sendExtended sendActions cpassphrase srcWallet dstAccount c curr title desc = do
             spendings <&> \(srcAcc, coin) ->
                 (srcAcc, TxOutAux (TxOut dstAddr coin) [])
         txsWithRem =
+            -- attach remaining money destination account to last selected
+            -- source account
             zipWith
                 (\(srcAcc, txs) remTxs -> (srcAcc, txs :| remTxs))
-                mainTxs
-                (maybe mempty (one . fst) mRemTx : cycle [])
+                (reverse mainTxs)
+                (maybe mempty (one . fst) mRemTx : repeat [])
     na <- getKnownPeers
     forM txsWithRem $ uncurry (sendDo na passphrase)
   where
@@ -487,20 +493,25 @@ sendExtended sendActions cpassphrase srcWallet dstAccount c curr title desc = do
     selectSrcAccounts reqCoins accounts =
         case accounts of
             _
-                | reqCoins <= mkCoin 0 ->
+                | reqCoins == mkCoin 0 ->
                     throwM $ Internal "Spending non-positive amount of money!"
             [] ->
                 throwM . Internal $
                 sformat ("Not enough money (need " %build % " more)") reqCoins
             acc:accs -> do
                 balance <- getAccountBalance acc
-                if balance < reqCoins
-                    then do
-                        let remCoins = reqCoins `unsafeSubCoin` balance
-                        ((acc, balance) :) <<$>> selectSrcAccounts remCoins accs
-                    else return
-                             ( balance `unsafeSubCoin` reqCoins
-                             , [(acc, reqCoins)])
+                case () of
+                    _
+                        | balance == mkCoin 0 || caaAddress acc == dstAccount ->
+                            selectSrcAccounts reqCoins accs
+                        | balance < reqCoins -> do
+                            let remCoins = reqCoins `unsafeSubCoin` balance
+                            ((acc, balance) :) <<$>>
+                                selectSrcAccounts remCoins accs
+                        | otherwise ->
+                            return
+                                ( balance `unsafeSubCoin` reqCoins
+                                , [(acc, reqCoins)])
     sendDo na passphrase srcAccount txs = do
         sk <- getSKByAccAddr passphrase srcAccount
         srcAccAddr <- decodeCAddressOrFail (caaAddress srcAccount)
@@ -514,9 +525,8 @@ sendExtended sendActions cpassphrase srcWallet dstAccount c curr title desc = do
                 Right (tx, _, _) -> do
                     logInfo $
                         sformat
-                            ("Successfully sent " %coinF % " from " %addressF %
-                             " address to " %listF addressF)
-                            c
+                            ("Successfully spent money from " %addressF %
+                             " address on " %listF ", " addressF)
                             srcAccAddr
                             dstAddrs
                     -- TODO: this should be removed in production
@@ -533,8 +543,18 @@ sendExtended sendActions cpassphrase srcWallet dstAccount c curr title desc = do
                         let dstCAddr = addressToCAddress dstAddr
                         in addHistory dstCAddr False
                     addHistory (caaAddress srcAccount) True
-    listF formatter =
-        F.later $ mconcat . intersperse ", " . map (F.bprint formatter)
+    listF separator formatter =
+        F.later $ mconcat . intersperse separator . map (F.bprint formatter)
+    buildDistribution (remaining, spendings) =
+        let entries =
+                spendings <&> \(CAccountAddress {..}, coin) ->
+                    F.bprint (build % ": " %build) coin caaAddress
+            remains = F.bprint ("Remaining: " %build) remaining
+        in sformat
+               ("Transaction input distribution:\n" %listF "\n" build %
+                "\n" %build)
+               entries
+               remains
 
 getHistory
     :: forall ssc m.
@@ -735,16 +755,14 @@ importKey
 importKey (toString -> fp) = do
     secret <- rewrapError $ readUserSecret fp
     let keys = secret ^. usKeys
-    importedWSets <- forM keys $ \key -> do
-        let addr = makePubKeyAddress $ encToPublic key
-            wsAddr = addressToCAddress addr
-
-        createWSetSafe wsAddr def <* addSecretKey key
-
-    case importedWSets of
-        wSet:_ -> return wSet
-        _      -> throwM . Internal $
-            sformat ("No spending key found at "%build) fp
+    importedWSets <-
+        forM keys $ \key -> do
+            let addr = makePubKeyAddress $ encToPublic key
+                wsAddr = addressToCAddress addr
+            createWSetSafe wsAddr def <* addSecretKey key
+    maybeThrow noKey $ head importedWSets
+  where
+    noKey = Internal $ sformat ("No spending key found at " %build) fp
 
 -- This method is a temporal hack.
 -- We spend money from /accounts/, which have randomly generated addresses.
@@ -763,12 +781,15 @@ addInitialRichAccount sendActions keyId =
         balance <- getBalance addr
         let coinsToSend = applyCoinPortion (unsafeCoinPortionFromDouble 0.5) balance
 
-        deleteWSet wsAddr `catchAll` \_ -> return ()
-        _ <- createWSetSafe wsAddr def
-        addSecretKey enKey
+        let cpass  = passPhraseToCPassPhrase emptyPassphrase
+            backup = mkBackupPhrase $ sformat build <$> "nyan-forever"
+            wsMeta = CWalletSetMeta "Precreated wallet set full of money" backup
+            wMeta  = def{ cwName = "Initial wallet" }
 
-        let cpass = passPhraseToCPassPhrase emptyPassphrase
-        wAddr    <- cwAddress <$> newWallet cpass (CWalletInit def wsAddr)
+        deleteWSet wsAddr `catchAll` \_ -> return ()
+        _ <- createWSetSafe wsAddr wsMeta
+        addSecretKey enKey
+        wAddr    <- cwAddress <$> newWallet cpass (CWalletInit wMeta wsAddr)
         accounts <- getAccounts wAddr
         accAddr  <- maybeThrow noAccount . head $ caAddress <$> accounts
 
@@ -787,11 +808,9 @@ addInitialRichAccount sendActions keyId =
             Right _  ->
                 logDebug $ sformat ("Spent "%build%" from genesis address #"
                            %int) coinsToSend keyId
-
   where
     noKey = Internal $ sformat ("No genesis key #"%build) keyId
     noAccount = Internal "No account created with wallet creation!"
-
     handler = logError . sformat ("Creation of init account failed: "%build)
 
 syncProgress :: WalletWebMode ssc m => m SyncProgress

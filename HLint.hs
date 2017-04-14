@@ -58,7 +58,9 @@ warn = (x >>= identity) ==> join x
 warn = (identity =<< x) ==> join x
 warn = mapM identity ==> sequence
 warn = mapM_ identity ==> sequence_
-warn = maybe x identity ==> fromMaybe x
+-- This hint had to be given a name because we ignore "Use fromMaybe" above
+-- but we want to keep this one – so we add single quotes here
+warn "Use 'fromMaybe'" = maybe x identity ==> fromMaybe x
 warn = mapMaybe identity ==> catMaybes
 warn = maybe Nothing identity ==> join
 
@@ -74,6 +76,9 @@ warn "Avoid 'both'" = both ==> Control.Lens.each
     \the *last two elements* instead of failing with a type error.\n\
     \  * If you want to traverse all elements of the tuple, use 'each'.\n\
     \  * If 'both' is used on 'Either' here, replace it with 'chosen'."
+
+warn = either (const True) (const False) ==> isLeft
+warn = either (const False) (const True) ==> isRight
 
 
 ----------------------------------------------------------------------------

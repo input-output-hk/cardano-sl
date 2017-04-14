@@ -179,7 +179,7 @@ processSkeleton
 processSkeleton payload = withUSLock $ runExceptT $ withCurrentTip $ \ms@MemState{..} -> do
     modifier <-
         runDBPoll . evalPollT msModifier . execPollT def $
-        verifyAndApplyUSPayload False (Left msSlot) payload
+        verifyAndApplyUSPayload (Left msSlot) payload
     let newModifier = modifyPollModifier msModifier modifier
     let newPool = addToMemPool payload msPool
     pure $ ms {msModifier = newModifier, msPool = newPool}

@@ -112,7 +112,6 @@ verifyBlock (Left genBlk) =
 verifyBlock (Right (header, payload)) =
     execRollT $ do
         verifyAndApplyUSPayload
-            True
             (Right header)
             payload
         -- Block issuance can't affect verification and application of US

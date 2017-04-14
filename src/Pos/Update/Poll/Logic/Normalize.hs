@@ -48,7 +48,7 @@ normalizeProposals
 normalizeProposals slotId (toList -> proposals) =
     HM.fromList . map ((\x->(hash x, x)) . fst) . catRights proposals <$>
     forM proposals
-        (runExceptT . verifyAndApplyProposal False (Left slotId) [])
+        (runExceptT . verifyAndApplyProposal (Left slotId) [])
 
 -- Apply votes which can be applied and put them in result.
 -- Disregard other votes.

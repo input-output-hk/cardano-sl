@@ -151,18 +151,21 @@ setWSetMeta :: CAddress WS -> CWalletSetMeta -> Update ()
 setWSetMeta cAddr wSMeta = wsWSetMetas . at cAddr ?= wSMeta
 
 addAccountHistoryTx :: CAddress Acc -> CTxId -> CTxMeta -> Update ()
-addAccountHistoryTx cAddr ctxId ctxMeta = wsAccountTxs . at cAddr . _Just . at ctxId ?= ctxMeta
+addAccountHistoryTx cAddr ctxId ctxMeta =
+    wsAccountTxs . at cAddr . _Just . at ctxId ?= ctxMeta
 
 setAccountHistory :: CAddress Acc -> [(CTxId, CTxMeta)] -> Update ()
 setAccountHistory cAddr ctxs = () <$ mapM (uncurry $ addAccountHistoryTx cAddr) ctxs
 
 -- FIXME: this will be removed later (temporary solution)
 addOnlyNewTxMeta :: CAddress Acc -> CTxId -> CTxMeta -> Update ()
-addOnlyNewTxMeta cAddr ctxId ctxMeta = wsAccountTxs . at cAddr . _Just . at ctxId %= Just . maybe ctxMeta identity
+addOnlyNewTxMeta cAddr ctxId ctxMeta =
+    wsAccountTxs . at cAddr . _Just . at ctxId %= Just . maybe ctxMeta identity
 
 -- NOTE: sets transaction meta only for transactions ids that are already seen
 setWalletTransactionMeta :: CAddress Acc -> CTxId -> CTxMeta -> Update ()
-setWalletTransactionMeta cAddr ctxId ctxMeta = wsAccountTxs . at cAddr . _Just . at ctxId %= fmap (const ctxMeta)
+setWalletTransactionMeta cAddr ctxId ctxMeta =
+    wsAccountTxs . at cAddr . _Just . at ctxId %= fmap (const ctxMeta)
 
 removeWSet :: CAddress WS -> Update ()
 removeWSet cAddr = wsWSetMetas . at cAddr .= Nothing
@@ -171,9 +174,10 @@ removeWallet :: CWalletAddress -> Update ()
 removeWallet cAddr = wsWalletMetas . at cAddr .= Nothing
 
 removeAccount :: CAccountAddress -> Update ()
-removeAccount accAddr@CAccountAddress{..} = do
-  wsWalletMetas . at (walletAddrByAccount accAddr) . _Just . _2 . at accAddr .= Nothing
-  wsAccountTxs . at caaAddress .= Nothing
+removeAccount accAddr@CAccountAddress {..} = do
+    wsWalletMetas . at (walletAddrByAccount accAddr) . _Just . _2 . at accAddr .=
+        Nothing
+    wsAccountTxs . at caaAddress .= Nothing
 
 addUpdate :: CUpdateInfo -> Update ()
 addUpdate ui = wsReadyUpdates %= (++ [ui])
@@ -185,7 +189,8 @@ testReset :: Update ()
 testReset = put def
 
 updateHistoryCache :: CWalletAddress -> HeaderHash -> Utxo -> [TxHistoryEntry] -> Update ()
-updateHistoryCache cAddr cHash utxo cTxs = wsHistoryCache . at cAddr ?= (cHash, utxo, cTxs)
+updateHistoryCache cAddr cHash utxo cTxs =
+    wsHistoryCache . at cAddr ?= (cHash, utxo, cTxs)
 
 deriveSafeCopySimple 0 'base ''CProfile
 deriveSafeCopySimple 0 'base ''CHash

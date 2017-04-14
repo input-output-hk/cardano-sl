@@ -160,7 +160,11 @@ walletApplication serv = do
 
 walletServer
     :: forall ssc m.
-       (SscHelpersClass ssc, Monad m, MonadIO m, WalletWebMode ssc (WalletWebHandler m))
+       ( SscHelpersClass ssc
+       , Monad m
+       , MonadIO m
+       , WalletWebMode ssc (WalletWebHandler m)
+       )
     => SendActions m
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
@@ -377,7 +381,9 @@ getAccount cAddr = do
     balance <- getAccountBalance cAddr
     return $ CAccount cAddr balance
 
-getWalletAccAddrsOrThrow :: WalletWebMode ssc m => CWalletAddress -> m [CAccountAddress]
+getWalletAccAddrsOrThrow
+    :: WalletWebMode ssc m
+    => CWalletAddress -> m [CAccountAddress]
 getWalletAccAddrsOrThrow wCAddr =
     getWalletAccounts wCAddr >>= maybeThrow noWallet
   where
@@ -568,7 +574,12 @@ getHistory wAddr skip limit = do
 searchHistory
     :: forall ssc m.
        (SscHelpersClass ssc, WalletWebMode ssc m)
-    => CWalletAddress -> Text -> Maybe (CAddress Acc) -> Maybe Word -> Maybe Word -> m ([CTx], Word)
+    => CWalletAddress
+    -> Text
+    -> Maybe (CAddress Acc)
+    -> Maybe Word
+    -> Maybe Word
+    -> m ([CTx], Word)
 searchHistory wAddr search mAccAddr skip limit =
     first (filter fits) <$> getHistory @ssc wAddr skip limit
   where
@@ -614,7 +625,9 @@ newWallet cPassphrase CWalletInit {..} = do
     () <$ newAccount cPassphrase cAddr
     getWallet cAddr
 
-createWSetSafe :: WalletWebMode ssc m => CAddress WS -> CWalletSetMeta -> m CWalletSet
+createWSetSafe
+    :: WalletWebMode ssc m
+    => CAddress WS -> CWalletSetMeta -> m CWalletSet
 createWSetSafe cAddr wsMeta = do
     wSetExists <- isJust <$> getWSetMeta cAddr
     when wSetExists $
@@ -660,7 +673,8 @@ deleteAccount = removeAccount
 
 -- NOTE: later we will have `isValidAddress :: CCurrency -> CAddress -> m Bool` which should work for arbitrary crypto
 isValidAddress :: WalletWebMode ssc m => Text -> CCurrency -> m Bool
-isValidAddress sAddr ADA = pure . either (const False) (const True) $ decodeTextAddress sAddr
+isValidAddress sAddr ADA =
+    pure . either (const False) (const True) $ decodeTextAddress sAddr
 isValidAddress _ _       = pure False
 
 -- | Get last update info
@@ -671,7 +685,9 @@ nextUpdate = getNextUpdate >>=
 applyUpdate :: WalletWebMode ssc m => m ()
 applyUpdate = removeNextUpdate >> applyLastUpdate
 
-redeemADA :: WalletWebMode ssc m => SendActions m -> CPassPhrase -> CWalletRedeem -> m CTx
+redeemADA
+    :: WalletWebMode ssc m
+    => SendActions m -> CPassPhrase -> CWalletRedeem -> m CTx
 redeemADA sendActions cpassphrase CWalletRedeem {..} = do
     passphrase <- decodeCPassPhraseOrFail cpassphrase
     let base64rify = T.replace "-" "+" . T.replace "_" "/"
@@ -693,7 +709,10 @@ redeemADA sendActions cpassphrase CWalletRedeem {..} = do
             addHistoryTx (caaAddress dstCAddr) ADA "ADA redemption" ""
               (THEntry (hash tx) tx False Nothing srcAddr)
 
-reportingInitialized :: forall ssc m. WalletWebMode ssc m => CInitialized -> m ()
+reportingInitialized
+    :: forall ssc m.
+       WalletWebMode ssc m
+    => CInitialized -> m ()
 reportingInitialized cinit = do
     sendReportNodeNologs version (RInfo $ show cinit) `catch` handler
   where
@@ -818,8 +837,9 @@ getSKByAccAddr
     => PassPhrase
     -> CAccountAddress
     -> m EncryptedSecretKey
-getSKByAccAddr passphrase accAddr@CAccountAddress{..} = do
-    (addr, accKey) <- deriveAccountSK passphrase (walletAddrByAccount accAddr) caaAccountIndex
+getSKByAccAddr passphrase accAddr@CAccountAddress {..} = do
+    (addr, accKey) <-
+        deriveAccountSK passphrase (walletAddrByAccount accAddr) caaAccountIndex
     let accCAddr = addressToCAddress addr
     if accCAddr /= caaAddress
         then throwM . Internal $ "Account is contradictory!"

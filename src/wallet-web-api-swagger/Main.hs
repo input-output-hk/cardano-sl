@@ -32,14 +32,14 @@ import qualified Paths_cardano_sl           as CSL
 import           Pos.Types                  (ApplicationName, BlockVersion,
                                              ChainDifficulty, Coin, SoftwareVersion)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
-import           Pos.Wallet.Web             (CAccount, CAccountAddress, CAddress,
+import           Pos.Wallet.Web             (Acc, CAccount, CAccountAddress, CAddress,
                                              CCurrency, CHash, CInitialized, CPassPhrase,
                                              CProfile, CTType, CTx, CTxId, CTxMeta,
                                              CUpdateInfo, CWallet, CWalletAddress,
                                              CWalletAssurance, CWalletInit, CWalletMeta,
-                                             CWalletRedeem, CWalletSet, CWalletSetAddress,
-                                             CWalletSetInit, CWalletSetMeta, CWalletType,
-                                             SyncProgress, WalletError, walletApi)
+                                             CWalletRedeem, CWalletSet, CWalletSetInit,
+                                             CWalletSetMeta, CWalletType, SyncProgress,
+                                             WS, WalletError, walletApi)
 
 main :: IO ()
 main = do
@@ -60,8 +60,10 @@ instance ToSchema      CTx
 instance ToSchema      CTxMeta
 instance ToSchema      CHash
 instance ToParamSchema CHash
-instance ToSchema      CAddress
-instance ToParamSchema CAddress
+instance ToSchema      (CAddress WS)
+instance ToSchema      (CAddress Acc)
+instance ToParamSchema (CAddress WS)
+instance ToParamSchema (CAddress Acc)
 instance ToSchema      CCurrency
 instance ToParamSchema CCurrency
 instance ToSchema      CProfile
@@ -79,8 +81,6 @@ instance ToParamSchema CWalletAddress where
         & type_ .~ SwaggerString
         & format ?~ "walletSetAddress@walletKeyIndex"
 
-instance ToSchema      CWalletSetAddress
-instance ToParamSchema CWalletSetAddress
 instance ToSchema      CWalletAssurance
 instance ToSchema      CWalletMeta
 instance ToSchema      CWalletSetMeta

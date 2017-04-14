@@ -15,12 +15,12 @@ import           Servant.API                ((:<|>), (:>), Capture, Delete, Get,
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Wallet.Web.ClientTypes (CAccount, CAddress, CCurrency, CInitialized,
-                                             CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
-                                             CUpdateInfo, CWallet, CWalletAddress,
-                                             CWalletInit, CWalletMeta, CWalletRedeem,
-                                             CWalletSet, CWalletSet, CWalletSetAddress,
-                                             CWalletSetInit, SyncProgress)
+import           Pos.Wallet.Web.ClientTypes (Acc, CAccount, CAddress, CCurrency,
+                                             CInitialized, CPassPhrase, CProfile, CTx,
+                                             CTxId, CTxMeta, CUpdateInfo, CWallet,
+                                             CWalletAddress, CWalletInit, CWalletMeta,
+                                             CWalletRedeem, CWalletSet, CWalletSet,
+                                             CWalletSetInit, SyncProgress, WS)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 
@@ -38,7 +38,7 @@ type WalletApi =
      -------------------------------------------------------------------------
      "api"
      :> "walletSets"
-     :> Capture "walletSetId" CWalletSetAddress
+     :> Capture "walletSetId" (CAddress WS)
      :> Get '[JSON] (Either WalletError CWalletSet)
     :<|>
      "api"
@@ -76,7 +76,7 @@ type WalletApi =
      "api"
      :> "wallets"
      :> "all"
-     :> QueryParam "walletSetId" CWalletSetAddress
+     :> QueryParam "walletSetId" (CAddress WS)
      :> Get '[JSON] (Either WalletError [CWallet])
     :<|>
      "api"
@@ -137,7 +137,7 @@ type WalletApi =
      :> "payments"
      :> Capture "passphrase" CPassPhrase
      :> Capture "from" CWalletAddress
-     :> Capture "to" CAddress
+     :> Capture "to" (CAddress Acc)
      :> Capture "amount" Coin
      :> Post '[JSON] (Either WalletError [CTx])
     :<|>
@@ -147,7 +147,7 @@ type WalletApi =
      :> "payments"
      :> Capture "passphrase" CPassPhrase
      :> Capture "from" CWalletAddress
-     :> Capture "to" CAddress
+     :> Capture "to" (CAddress Acc)
      :> Capture "amount" Coin
      :> Capture "currency" CCurrency
      :> Capture "title" Text
@@ -158,7 +158,7 @@ type WalletApi =
      "api"
      :> "txs"
      :> "payments"
-     :> Capture "address" CAddress
+     :> Capture "address" (CAddress Acc)
      :> Capture "transaction" CTxId
      :> ReqBody '[JSON] CTxMeta
      :> Post '[JSON] (Either WalletError ())
@@ -176,7 +176,7 @@ type WalletApi =
      :> "histories"
      :> Capture "walletId" CWalletAddress
      :> Capture "search" Text
-     :> QueryParam "account" CAddress
+     :> QueryParam "account" (CAddress Acc)
      :> QueryParam "skip" Word
      :> QueryParam "limit" Word
      :> Get '[JSON] (Either WalletError ([CTx], Word))

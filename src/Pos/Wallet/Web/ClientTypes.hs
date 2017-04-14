@@ -18,7 +18,6 @@ module Pos.Wallet.Web.ClientTypes
       , CTxMeta (..)
       , CTExMeta (..)
       , CInitialized (..)
-      , CWalletSetAddress (..)
       , CWalletAddress (..)
       , CAccountAddress (..)
       , CAccount (..)
@@ -34,6 +33,8 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletRedeem (..)
       , NotifyEvent (..)
       , WithDerivationPath (..)
+      , WS (..)
+      , Acc (..)
       , addressToCAddress
       , cAddressToAddress
       , passPhraseToCPassPhrase
@@ -111,8 +112,14 @@ instance Hashable CHash where
     hashWithSalt s (CHash h) = hashWithSalt s h
 
 -- | Client address
--- TODO: [CSL-931] introduce phantom type for type safety?
-newtype CAddress = CAddress CHash deriving (Show, Eq, Generic, Hashable, Buildable)
+-- @w@ is phantom type and stands for type of item this address belongs to.
+newtype CAddress w = CAddress CHash deriving (Show, Eq, Generic, Hashable, Buildable)
+
+-- | Marks address as belonging to wallet set.
+data WS = WS
+
+-- | Marks address as belonging to account.
+data Acc = Acc
 
 -- TODO: this is not complitely safe. If someone changes
 -- implementation of Buildable Address. It should be probably more
@@ -120,10 +127,10 @@ newtype CAddress = CAddress CHash deriving (Show, Eq, Generic, Hashable, Buildab
 -- implementation has it is with Buildable Address but then person
 -- will know it will probably change something for purescript.
 -- | Transform Address into CAddress
-addressToCAddress :: Address -> CAddress
+addressToCAddress :: Address -> (CAddress w)
 addressToCAddress = CAddress . CHash . sformat F.build
 
-cAddressToAddress :: CAddress -> Either Text Address
+cAddressToAddress :: CAddress w -> Either Text Address
 cAddressToAddress (CAddress (CHash h)) = decodeTextAddress h
 
 -- | Client transaction id
@@ -174,18 +181,10 @@ cPassPhraseToPassPhrase (CPassPhrase text) =
 -- Wallet
 ----------------------------------------------------------------------------
 
--- | Wallet set identifier
-newtype CWalletSetAddress = CWalletSetAddress
-    { cwsaAddress :: CAddress
-    } deriving (Eq, Show, Generic, Hashable, Typeable)
-
-instance Buildable CWalletSetAddress where
-    build (CWalletSetAddress addr) = build addr
-
 -- | Wallet identifier
 data CWalletAddress = CWalletAddress
     { -- | Address of wallet set this wallet belongs to
-      cwaWSAddress :: CWalletSetAddress
+      cwaWSAddress :: CAddress WS
     , -- | Derivation index of this wallet key
       cwaIndex     :: Word32
     } deriving (Eq, Show, Generic, Typeable)
@@ -199,13 +198,13 @@ instance Buildable CWalletAddress where
 -- | Account identifier
 data CAccountAddress = CAccountAddress
     { -- | Address of wallet set this account belongs to
-      caaWSAddress    :: CWalletSetAddress
+      caaWSAddress    :: CAddress WS
     , -- | First index in derivation path of this account key
       caaWalletIndex  :: Word32
     , -- | Second index in derivation path of this account key
       caaAccountIndex :: Word32
     , -- | Actual adress of this account
-      caaAddress      :: CAddress
+      caaAddress      :: CAddress Acc
     } deriving (Eq, Show, Generic, Typeable)
 
 instance Buildable CAccountAddress where
@@ -262,7 +261,7 @@ data CWallet = CWallet
 -- | Query data for wallet creation
 data CWalletInit = CWalletInit
     { cwInitMeta   :: !CWalletMeta
-    , cwInitWSetId :: !CWalletSetAddress
+    , cwInitWSetId :: !(CAddress WS)
     } deriving (Show, Generic)
 
 -- | Query data for redeem
@@ -298,7 +297,7 @@ instance Default CWalletSetMeta where
 
 -- | Client Wallet (CW)
 data CWalletSet = CWalletSet
-    { cwsAddress       :: !CWalletSetAddress
+    { cwsAddress       :: !(CAddress WS)
     , cwsWSetMeta      :: !CWalletSetMeta
     , cwsWalletsNumber :: !Int
     } deriving (Eq, Show, Generic)
@@ -311,7 +310,7 @@ data CWalletSetInit = CWalletSetInit
 class WithDerivationPath a where
     getDerivationPath :: a -> [Word32]
 
-instance WithDerivationPath CAddress where
+instance WithDerivationPath (CAddress WS) where
     getDerivationPath _ = []
 
 instance WithDerivationPath CWalletAddress where
@@ -367,7 +366,7 @@ data CTx = CTx
     , ctAmount        :: Coin
     , ctConfirmations :: Word
     , ctType          :: CTType -- it includes all "meta data"
-    , ctAccAddress    :: CAddress
+    , ctAccAddress    :: CAddress Acc
     } deriving (Show, Generic, Typeable)
 
 ctType' :: Lens' CTx CTType
@@ -384,7 +383,7 @@ data CTExMeta = CTExMeta
     , cexDate        :: POSIXTime
     , cexRate        :: Text
     , cexLabel       :: Text -- counter part of client's 'exchange' value
-    , cexAddress     :: CAddress
+    , cexAddress     :: CAddress Acc
     } deriving (Show, Generic)
 
 -- | Update system data

@@ -38,7 +38,7 @@ import           Pos.Types                  (BlockVersion (..), Coin, SoftwareVe
                                              makePubKeyAddress, mkCoin)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.Api         (walletApi)
-import           Pos.Wallet.Web.ClientTypes (CAccount (..), CAccountAddress (..),
+import           Pos.Wallet.Web.ClientTypes (Acc, CAccount (..), CAccountAddress (..),
                                              CAccountAddress, CAddress (..),
                                              CCurrency (..), CHash (..),
                                              CInitialized (..), CPassPhrase,
@@ -47,9 +47,8 @@ import           Pos.Wallet.Web.ClientTypes (CAccount (..), CAccountAddress (..)
                                              CWalletAddress (..), CWalletAddress,
                                              CWalletInit (..), CWalletMeta (..),
                                              CWalletRedeem (..), CWalletSet (..),
-                                             CWalletSetAddress (..), CWalletSetInit (..),
-                                             CWalletSetInit (..), SyncProgress,
-                                             addressToCAddress, mkCTxId)
+                                             CWalletSetInit (..), CWalletSetInit (..),
+                                             SyncProgress, WS, addressToCAddress, mkCTxId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 
 
@@ -149,14 +148,14 @@ instance ToCapture (Capture "walletId" CWalletAddress) where
         , _capDesc = "Address of wallet."
         }
 
-instance ToCapture (Capture "walletSetId" CWalletSetAddress) where
+instance ToCapture (Capture "walletSetId" (CAddress WS)) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "walletSetId"
         , _capDesc = "Address of wallet set."
         }
 
-instance ToParam (QueryParam "walletSetId" CWalletSetAddress) where
+instance ToParam (QueryParam "walletSetId" (CAddress WS)) where
     toParam Proxy =
         DocQueryParam
         { _paramName    = "limit"
@@ -172,7 +171,7 @@ instance ToCapture (Capture "from" CWalletAddress) where
         , _capDesc = "Address from which coins should be sent."
         }
 
-instance ToCapture (Capture "to" CAddress) where
+instance ToCapture (Capture "to" (CAddress Acc)) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "to"
@@ -186,14 +185,14 @@ instance ToCapture (Capture "amount" Coin) where
         , _capDesc = "Amount of coins to send."
         }
 
-instance ToCapture (Capture "address" CAddress) where
+instance ToCapture (Capture "address" (CAddress Acc)) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "address"
         , _capDesc = "Address, history of which should be fetched"
         }
 
-instance ToParam (QueryParam "account" CAddress) where
+instance ToParam (QueryParam "account" (CAddress Acc)) where
     toParam Proxy =
         DocQueryParam
         { _paramName   = "address"
@@ -314,9 +313,9 @@ instance ToSample CWalletRedeem where
         sample = CWalletRedeem
             { crWalletId = CWalletAddress
                 { cwaWSAddress = cWalletSetAddressSample
-                , cwaIndex   = 1
+                , cwaIndex     = 1
                 }
-            , crSeed     = "1354644684681"
+            , crSeed = "1354644684681"
             }
 
 instance ToSample Coin where
@@ -337,9 +336,8 @@ cAccountAddressSample = CAccountAddress
     , caaAddress      = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
     }
 
-cWalletSetAddressSample :: CWalletSetAddress
+cWalletSetAddressSample :: CAddress WS
 cWalletSetAddressSample =
-    CWalletSetAddress $
     CAddress $
     CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
 
@@ -369,7 +367,7 @@ instance ToSample CWalletInit where
     toSamples Proxy = singleSample sample
       where
         sample = CWalletInit
-            { cwInitMeta = def
+            { cwInitMeta   = def
             , cwInitWSetId = cWalletSetAddressSample
             }
 
@@ -377,8 +375,8 @@ instance ToSample CWalletSet where
     toSamples Proxy = singleSample sample
       where
         sample = CWalletSet
-            { cwsAddress  = cWalletSetAddressSample
-            , cwsWSetMeta = def
+            { cwsAddress       = cWalletSetAddressSample
+            , cwsWSetMeta      = def
             , cwsWalletsNumber = 3
             }
 
@@ -402,7 +400,7 @@ instance ToSample CWalletAddress where
       where
         sample = CWalletAddress
             { cwaWSAddress = cWalletSetAddressSample
-            , cwaIndex   = 2
+            , cwaIndex     = 2
             }
 
 instance ToSample CAccountAddress where
@@ -429,7 +427,7 @@ instance ToSample CUpdateInfo where
             }
 
 
-instance ToSample CAddress where
+instance ToSample (CAddress w) where
     toSamples Proxy = singleSample . addressToCAddress . makePubKeyAddress . fst $
         unsafePerformIO keyGen
 

@@ -6,10 +6,10 @@ build: off
 environment:
   global:
     # Avoid long paths on Windows
-    STACK_ROOT: "c:\\sr"
+    STACK_ROOT: "c:\\s"
     STACK_WORK: ".w"
     CSL_SYSTEM_TAG: "win64"
-    CACHE_DIR: "c:\\cache"
+    CACHE_DIR: "c:\\c"
 
 init:
   - SET BRANCH_CACHE_DIR=%CACHE_DIR%\%APPVEYOR_REPO_BRANCH:/=_%
@@ -40,6 +40,10 @@ cache:
   # Add more "%CACHE_DIR%\\<branch_name>" directories as needed
 
 before_test:
+# Avoid long paths not to each MAX_PATH of 260 chars
+- mkdir C:\w 
+- ps: cd C:\w
+# Setup cache dirs
 - Echo %APPVEYOR_BUILD_VERSION% > build-id
 - Echo BRANCH_CACHE_DIR = %BRANCH_CACHE_DIR%
 - IF EXIST %CACHE_DIR% dir %CACHE_DIR%

@@ -18,8 +18,7 @@ import qualified Pos.CLI               as CLI
 import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Constants         (isDevelopment)
 import           Pos.Core.Types        (Timestamp (..))
-import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, noPassEncrypt,
-                                        vssKeyGen)
+import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.Genesis           (genesisDevSecretKeys, genesisStakeDistribution,
                                         genesisUtxo)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
@@ -37,8 +36,8 @@ import           Pos.Update.Context    (ucUpdateSemaphore)
 import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
-import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usPrimKey,
-                                        usVss, writeUserSecret)
+import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usPrimKey, usVss,
+                                        writeUserSecret)
 import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
 #ifdef WITH_WEB
 import           Pos.Web               (serveWebBase, serveWebGT)
@@ -143,9 +142,7 @@ userSecretWithGenesisKey Args{..} userSecret
           Nothing -> fetchPrimaryKey userSecret
           Just i -> do
               let sk = genesisDevSecretKeys !! i
-                  us = userSecret
-                       & usPrimKey .~ Just sk
-                       & usKeys %~ (noPassEncrypt sk :)
+                  us = userSecret & usPrimKey .~ Just sk
               writeUserSecret us
               return (sk, us)
     | otherwise = fetchPrimaryKey userSecret

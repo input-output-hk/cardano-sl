@@ -10,6 +10,7 @@ environment:
     STACK_WORK: ".w"
     CSL_SYSTEM_TAG: "win64"
     CACHE_DIR: "c:\\c"
+    WORK_DIR: "c:\\w"
 
 init:
   - SET BRANCH_CACHE_DIR=%CACHE_DIR%\%APPVEYOR_REPO_BRANCH:/=_%
@@ -41,8 +42,8 @@ cache:
 
 before_test:
 # Avoid long paths not to each MAX_PATH of 260 chars
-- mkdir C:\w 
-- ps: cd C:\w
+- move C:\projects\cardano-sl "%WORK_DIR%"
+- cd "%WORK_DIR%"
 # Setup cache dirs
 - Echo %APPVEYOR_BUILD_VERSION% > build-id
 - Echo BRANCH_CACHE_DIR = %BRANCH_CACHE_DIR%
@@ -61,6 +62,7 @@ before_test:
 - 7z x rocksdb.zip
 
 test_script:
+  - cd "%WORK_DIR%"
   - stack setup --no-reinstall
   # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
   - scripts\appveyor-retry call stack --no-terminal --local-bin-path daedalus
@@ -72,8 +74,8 @@ test_script:
       --flag cardano-sl-core:-dev-mode
       --extra-include-dirs="C:\OpenSSL-Win64\include"
       --extra-lib-dirs="C:\OpenSSL-Win64"
-      --extra-include-dirs="C:\projects\cardano-sl\rocksdb\include"
-      --extra-lib-dirs="C:\projects\cardano-sl"
+      --extra-include-dirs="%WORK_DIR%\rocksdb\include"
+      --extra-lib-dirs="%WORK_DIR%"
   # - scripts\appveyor-retry call stack --no-terminal --local-bin-path daedalus
   #     install -j 2 --no-haddock-deps
   #     --work-dir %STACK_WORK%

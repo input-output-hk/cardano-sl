@@ -32,7 +32,8 @@ data Args = Args
     , devVssGenesisI            :: !(Maybe Int)
     , keyfilePath               :: !FilePath
     , backupPhrase              :: !(Maybe BackupPhrase)
-    , networkAddress            :: !NetworkAddress
+    , bindAddress               :: !(Maybe NetworkAddress)
+    , publicHost                :: !(Maybe String)
     , supporterNode             :: !Bool
     , dhtKey                    :: !(Maybe DHTKey)
     , timeLord                  :: !Bool
@@ -93,8 +94,12 @@ argsParser = do
         metavar "PHRASE" <>
         help    (show backupPhraseWordsNum ++
                  "-word phrase to recover the wallet")
-    networkAddress <-
-        CLI.networkAddressOption ("127.0.0.1", 3000)
+    bindAddress <- optional $ CLI.networkAddressOption
+    publicHost <-
+        optional $ strOption $
+        long "pubhost" <>
+        metavar "HOST" <>
+        help "Public host if different from one in --listen"
     supporterNode <- switch $
         long "supporter" <>
         help "Launch DHT supporter instead of full node"

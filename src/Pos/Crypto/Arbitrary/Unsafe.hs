@@ -16,6 +16,7 @@ import           Pos.Crypto.SecretSharing  (VssKeyPair, VssPublicKey,
                                             deterministicVssKeyGen, toVssPublicKey)
 import           Pos.Crypto.Signing        (PublicKey, SecretKey, Signature, Signed,
                                             mkSigned)
+import           Pos.Crypto.SignTag        (SignTag)
 import           Pos.Util.Arbitrary        (ArbitraryUnsafe (..), arbitrarySizedSL)
 
 instance Bi PublicKey => ArbitraryUnsafe PublicKey where
@@ -29,9 +30,11 @@ instance Bi (Signature a) => ArbitraryUnsafe (Signature a) where
 
 -- Generating invalid `Signed` objects doesn't make sense even in
 -- benchmarks
-instance (Bi a, Bi SecretKey, ArbitraryUnsafe a) =>
+instance (Bi a, Bi SecretKey, ArbitraryUnsafe a, Arbitrary SignTag) =>
          ArbitraryUnsafe (Signed a) where
-    arbitraryUnsafe = mkSigned <$> arbitraryUnsafe <*> arbitraryUnsafe
+    arbitraryUnsafe = mkSigned <$> arbitrary
+                               <*> arbitraryUnsafe
+                               <*> arbitraryUnsafe
 
 -- Again, no sense in generating invalid data, but in benchmarks we
 -- don't need Really Secure™ randomness

@@ -71,7 +71,7 @@ startDHTInstance
        , Bi DHTKey
        )
     => KademliaDHTInstanceConfig -> m KademliaDHTInstance
-startDHTInstance KademliaDHTInstanceConfig {..} = do
+startDHTInstance kconf@KademliaDHTInstanceConfig {..} = do
     let host :: String
         host = B8.unpack kdcHost
     logInfo "Generating dht key.."
@@ -94,7 +94,7 @@ startDHTInstance KademliaDHTInstanceConfig {..} = do
     pure $ KademliaDHTInstance {..}
   where
     catchErrorsHandler e = do
-        logError $ sformat ("Error launching kademlia at port "%int%": "%shown) kdcPort e
+        logError $ sformat ("Error launching kademlia with options: "%shown%": "%shown) kconf e
         throw e
     catchErrors x = liftIO x `catchAll` catchErrorsHandler
 

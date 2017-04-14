@@ -13,7 +13,7 @@ import           Universum
 import           Pos.Binary.Update         ()
 import           Pos.Communication.Limits  (MaxSize (..), updateVoteNumLimit)
 import           Pos.Communication.Relay   (DataMsg (..))
-import           Pos.Crypto                (hash, sign, toPublic)
+import           Pos.Crypto                (SignTag (SignUSVote), hash, sign, toPublic)
 import           Pos.Types.Arbitrary       ()
 import           Pos.Update.Arbitrary.Core ()
 import           Pos.Update.Core.Types     (UpdateProposal (..), UpdateVote (..))
@@ -33,7 +33,8 @@ instance Arbitrary (DataMsg (UpdateProposal, [UpdateVote])) where
                 sk <- arbitrary
                 let pk = toPublic sk
                 decision <- arbitrary
-                pure $ UpdateVote pk id decision $ sign sk (id, decision)
+                pure $ UpdateVote pk id decision
+                                  (sign SignUSVote sk (id, decision))
         votes <- listOf genVote
         pure $ DataMsg (up, votes)
 

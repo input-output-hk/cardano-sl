@@ -49,6 +49,7 @@ library
                        Pos.Crypto.Hashing
                        Pos.Crypto.SafeSigning
                        Pos.Crypto.Signing
+                       Pos.Crypto.SignTag
                        Pos.Crypto.SecretSharing
                        Pos.Crypto.RedeemSigning
 

@@ -33,6 +33,7 @@ import qualified Pos.Binary.Class      as Bi
 import           Pos.Crypto.Random     (secureRandomBS)
 import           Pos.Crypto.Signing    (PublicKey (..), SecretKey (..), Signature (..),
                                         sign, toPublic)
+import           Pos.Crypto.SignTag    (SignTag, signTag)
 
 newtype EncryptedSecretKey = EncryptedSecretKey CC.XPrv
 
@@ -65,12 +66,22 @@ encToPublic (EncryptedSecretKey sk) = PublicKey (CC.toXPub sk)
 noPassEncrypt :: SecretKey -> EncryptedSecretKey
 noPassEncrypt (SecretKey k) = EncryptedSecretKey k
 
-signRaw' :: PassPhrase -> EncryptedSecretKey -> ByteString -> Signature Raw
-signRaw' (PassPhrase pp) (EncryptedSecretKey sk) x =
-    Signature (CC.sign pp sk x)
+signRaw' :: Maybe SignTag
+         -> PassPhrase
+         -> EncryptedSecretKey
+         -> ByteString
+         -> Signature Raw
+signRaw' mbTag (PassPhrase pp) (EncryptedSecretKey sk) x =
+    Signature (CC.sign pp sk (tag <> x))
+  where
+    tag = case mbTag of
+        Nothing -> mempty
+        Just t  -> signTag t
 
-sign' :: Bi a => PassPhrase -> EncryptedSecretKey -> a -> Signature a
-sign' pp sk = coerce . signRaw' pp sk . BSL.toStrict . Bi.encode
+sign'
+    :: Bi a
+    => SignTag -> PassPhrase -> EncryptedSecretKey -> a -> Signature a
+sign' t pp sk = coerce . signRaw' (Just t) pp sk . BSL.toStrict . Bi.encode
 
 safeCreateKeypairFromSeed
     :: BS.ByteString
@@ -99,9 +110,9 @@ safeDeterministicKeyGen seed pp =
 data SafeSigner = SafeSigner EncryptedSecretKey PassPhrase
                 | FakeSigner SecretKey
 
-safeSign :: Bi a => SafeSigner -> a -> Signature a
-safeSign (SafeSigner sk pp) = sign' pp sk
-safeSign (FakeSigner sk)    = sign sk
+safeSign :: Bi a => SignTag -> SafeSigner -> a -> Signature a
+safeSign t (SafeSigner sk pp) = sign' t pp sk
+safeSign t (FakeSigner sk)    = sign t sk
 
 safeToPublic :: SafeSigner -> PublicKey
 safeToPublic (SafeSigner sk _) = encToPublic sk

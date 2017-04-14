@@ -163,9 +163,21 @@ warn = mapMaybe leftToMaybe ==> lefts
 warn = mapMaybe rightToMaybe ==> rights
 
 warn "Use 'nonEmpty' from Universum" = Data.List.NonEmpty.nonEmpty ==> Universum.nonEmpty
-  where
-    note = "'nonEmpty' is available in Universum, so you don't have to\n\
-    \import it from Data.List.NonEmpty"
+
+warn "Use 'lines' from Universum" = Data.Text.lines ==> Universum.lines
+warn "Use 'unlines' from Universum" = Data.Text.unlines ==> Universum.unlines
+warn "Use 'words' from Universum" = Data.Text.words ==> Universum.words
+warn "Use 'unwords' from Universum" = Data.Text.unwords ==> Universum.unwords
+
+warn "Use 'fromStrict' from Universum" = Data.Text.Lazy.fromStrict ==> Universum.fromStrict
+warn "Use 'toStrict' from Universum" = Data.Text.Lazy.toStrict ==> Universum.toStrict
+
+warn "Use 'getLine' from Universum" = Data.Text.IO.getLine ==> Universum.getLine
+warn "Use 'readFile' from Universum" = Data.Text.IO.readFile ==> Universum.readFile
+warn "Use 'writeFile' from Universum" = Data.Text.IO.writeFile ==> Universum.writeFile
+warn "Use 'appendFile' from Universum" = Data.Text.IO.appendFile ==> Universum.appendFile
+-- TODO: add interact and getContents (not sure whether strict or lazy) once
+-- Universum 0.4 is out
 
 
 ----------------------------------------------------------------------------

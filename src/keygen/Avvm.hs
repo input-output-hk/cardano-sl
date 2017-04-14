@@ -16,7 +16,6 @@ import qualified Data.ByteString      as BS
 import qualified Data.HashMap.Strict  as HM
 import           Data.List            ((\\))
 import qualified Data.Text            as T
-import qualified Data.Text.IO         as TIO
 import qualified Serokell.Util.Base64 as B64
 import           System.Random        (randomRIO)
 import           Test.QuickCheck      (arbitrary)
@@ -119,7 +118,7 @@ genGenesis avvm genCerts holder = GenesisData
 applyBlacklisted :: Maybe FilePath -> AvvmData -> IO AvvmData
 applyBlacklisted Nothing r = r <$ putText "Blacklisting: file not specified, skipping"
 applyBlacklisted (Just blacklistPath) AvvmData{..} = do
-    addrTexts <- T.lines <$> TIO.readFile blacklistPath
+    addrTexts <- lines <$> readFile blacklistPath
     blacklisted <- mapM fromAvvmPk addrTexts
     let filteredBad = filter ((`elem` blacklisted) . aePublicKey) utxo
     let filtered = utxo \\ filteredBad

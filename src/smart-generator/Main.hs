@@ -161,7 +161,7 @@ runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
 
       let sendThread bambooPool = do
             logInfo $ sformat ("CURRENT TXNUM: "%int) txNum
-            forM_ [0 .. txNum - 1] $ \(idx :: Int) -> do
+            for_ [0 .. txNum - 1] $ \(idx :: Int) -> do
                 preStartT <- getPosixMs
                 -- prevent periods longer than we expected
                 unless (preStartT - beginT > round (roundDurationSec * 1000)) $ do

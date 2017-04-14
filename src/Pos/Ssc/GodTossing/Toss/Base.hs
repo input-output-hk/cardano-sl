@@ -164,7 +164,7 @@ computeSharesDistr richmen = do
     --   * if sum error < epsilon - we try minimize sum of commitments
     --   * otherwise we try minimize sum error
     compute fromX toX epsilon portions = do
-        forM_ [fromX..toX] $ \x -> do
+        for_ [fromX..toX] $ \x -> do
             let curDistrN = multPortions portions x
             when (all (> 0) curDistrN) $ do
                 let curDistr = normalize curDistrN

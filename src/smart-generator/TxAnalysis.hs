@@ -91,7 +91,7 @@ checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
                     verifiedPairedData = zip verified verifiedSentData
                     splitData = splitRound verifiedPairedData
 
-                forM_ (M.toList splitData) $ \(roundNum, df) ->
+                for_ (M.toList splitData) $ \(roundNum, df) ->
                     liftIO $ appendVerified (fromIntegral slStart) roundNum df logsPrefix
 
 checkWorker :: forall ssc . SscConstraint ssc

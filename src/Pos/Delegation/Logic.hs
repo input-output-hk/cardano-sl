@@ -350,7 +350,7 @@ delegationApplyBlocks blocks = do
             batchOps = map (GS.DelPSK . pskIssuerPk) toDelete ++ map GS.AddPSK toReplace
         runDelegationStateAction $ ether $ do
             dwEpochId .= block ^. epochIndexL
-            forM_ issuers $ \i -> do
+            for_ issuers $ \i -> do
                 dwProxySKPool %= HM.delete i
                 dwThisEpochPosted %= HS.insert i
         pure $ SomeBatchOp batchOps

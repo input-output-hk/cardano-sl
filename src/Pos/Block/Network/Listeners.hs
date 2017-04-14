@@ -101,7 +101,7 @@ handleGetBlocks = return $ listenerConv $
     sendBlocks conv hashes = do
         logDebug $ sformat
             ("handleGetBlocks: started sending blocks one-by-one: "%listJson) hashes
-        forM_ hashes $ \hHash -> do
+        for_ hashes $ \hHash -> do
             block <- maybe failMalformed pure =<< DB.getBlock hHash
             send conv (MsgBlock block)
         logDebug "handleGetBlocks: blocks sending done"

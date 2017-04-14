@@ -229,7 +229,7 @@ launchNotifier nat =
     -- historyNotifier :: WalletWebMode ssc m => m ()
     -- historyNotifier = do
     --     cAddresses <- myCAddresses
-    --     forM_ cAddresses $ \cAddress -> do
+    --     for_ cAddresses $ \cAddress -> do
     --         -- TODO: is reading from acid RAM only (not reading from disk?)
     --         oldHistoryLength <- length . fromMaybe mempty <$> getWalletHistory cAddress
     --         newHistoryLength <- length <$> getHistory cAddress
@@ -589,7 +589,7 @@ importKey
 importKey (toString -> fp) = do
     secret <- rewrapError $ readUserSecret fp
     let keys = secret ^. usKeys
-    forM_ keys $ \key -> do
+    for_ keys $ \key -> do
         addSecretKey key
         let addr = makePubKeyAddress $ encToPublic key
             cAddr = addressToCAddress addr

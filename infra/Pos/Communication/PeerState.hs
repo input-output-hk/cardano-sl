@@ -57,7 +57,7 @@ peerStateFromSnapshot
 peerStateFromSnapshot (PeerStateSnapshot snapshot) = do
     ctx <- forM snapshot $ mapM newSharedAtomic
     m   <- liftIO STM.newIO
-    atomically $ forM_ ctx $ \(k, v) -> STM.insert v k m
+    atomically $ for_ ctx $ \(k, v) -> STM.insert v k m
     return m
 
 data PeerStateTag

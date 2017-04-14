@@ -156,7 +156,7 @@ checkForIgnoredCommitmentsWorkerImpl tvar slotId = do
     -- Check prev blocks
     (kBlocks :: NewestFirst [] (Block SscGodTossing)) <-
         map fst <$> loadBlundsFromTipByDepth @SscGodTossing blkSecurityParam
-    forM_ kBlocks $ \blk -> whenRight blk checkCommitmentsInBlock
+    for_ kBlocks $ \blk -> whenRight blk checkCommitmentsInBlock
 
     -- Print warning
     lastCommitment <- atomically $ readTVar tvar

@@ -83,6 +83,8 @@ warn = either (const False) (const True) ==> isRight
 warn = Data.Map.toAscList (Data.Map.fromList x) ==> sortOn fst x
 warn = Data.Map.toDescList (Data.Map.fromList x) ==> sortOn (Down . fst) x
 
+warn = forM_ ==> for_
+
 
 ----------------------------------------------------------------------------
 -- Universum

@@ -127,7 +127,7 @@ runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
          seedInitTx res sA goRecipientShare pool (initTx idx)
 
     -- Start writing tps file
-    liftIO $ writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
+    writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
 
     let phaseDurationMs :: Microsecond
         phaseDurationMs =
@@ -140,7 +140,7 @@ runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
     void $ forFold (goInitTps, goTpsIncreaseStep) [1 .. goRoundNumber] $
       \(goTPS', increaseStep) (roundNum :: Int) -> do
       -- Start writing verifications file
-      liftIO $ writeFile (logsFilePrefix </> verifyCsvFile roundNum) verifyCsvHeader
+      writeFile (logsFilePrefix </> verifyCsvFile roundNum) verifyCsvHeader
 
 
       let goTPS = goTPS' / fromIntegral (length bambooPools)
@@ -211,7 +211,7 @@ runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
       putText $ "So real tps was: " <> show realTPS
 
       -- We collect tables of really generated tps
-      liftIO $ appendFile (logsFilePrefix </> tpsCsvFile) $
+      appendFile (logsFilePrefix </> tpsCsvFile) $
           tpsCsvFormat (globalTime, (goTPS, length bambooPools), realTPS)
 
       -- Wait for 1 phase (to get all the last sent transactions)

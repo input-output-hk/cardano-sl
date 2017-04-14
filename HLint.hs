@@ -172,6 +172,8 @@ warn "Use 'nonEmpty' from Universum" = Data.List.NonEmpty.nonEmpty ==> Universum
 -- Lifted functions in Universum
 ----------------------------------------------------------------------------
 
+-- concurrency
+
 warn "liftIO is not needed" = liftIO newEmptyMVar ==> Universum.newEmptyMVar
   where
     note = "If you import 'newEmptyMVar' from Universum, it's already lifted"
@@ -215,3 +217,62 @@ warn "liftIO is not needed" = liftIO (atomically x) ==> Universum.atomically x
 warn "liftIO is not needed" = liftIO (newTVarIO x) ==> Universum.newTVarIO x
   where
     note = "If you import 'newTVarIO' from Universum, it's already lifted"
+
+-- others
+
+
+warn "liftIO is not needed" = liftIO Universum.getContents ==> Universum.getContents
+  where
+    note = "If you import 'getContents' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO Universum.getLine ==> Universum.getLine
+  where
+    note = "If you import 'getLine' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (Universum.interact x) ==> Universum.interact x
+  where
+    note = "If you import 'interact' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (Universum.interact x) ==> Universum.interact x
+  where
+    note = "If you import 'interact' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (Universum.readFile x) ==> Universum.readFile x
+  where
+    note = "If you import 'readFile' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (Universum.writeFile x y) ==> Universum.writeFile x y
+  where
+    note = "If you import 'writeFile' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (Universum.appendFile x y) ==> Universum.appendFile x y
+  where
+    note = "If you import 'appendFile' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (Universum.openFile x y) ==> Universum.openFile x y
+  where
+    note = "If you import 'openFile' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO getArgs ==> Universum.getArgs
+  where
+    note = "If you import 'getArgs' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (exitWith x) ==> Universum.exitWith x
+  where
+    note = "If you import 'exitWith' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO exitFailure ==> Universum.exitFailure
+  where
+    note = "If you import 'exitFailure' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO exitSuccess ==> Universum.exitSuccess
+  where
+    note = "If you import 'exitSuccess' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (die x) ==> Universum.die x
+  where
+    note = "If you import 'die' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (stToIO x) ==> Universum.stToIO x
+  where
+    note = "If you import 'stToIO' from Universum, it's already lifted"

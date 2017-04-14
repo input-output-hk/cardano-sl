@@ -32,7 +32,6 @@ module Pos.Delegation.Logic
        , isProxySKConfirmed
        ) where
 
-import           Control.Concurrent.STM.TVar  (readTVar, writeTVar)
 import           Control.Exception            (Exception (..))
 import           Control.Lens                 (makeLenses, uses, (%=), (.=), _Wrapped)
 import qualified Control.Monad.Ether.Implicit as Ether

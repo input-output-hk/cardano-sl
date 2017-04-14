@@ -80,8 +80,8 @@ warn "Avoid 'both'" = both ==> Control.Lens.each
 warn = either (const True) (const False) ==> isLeft
 warn = either (const False) (const True) ==> isRight
 
-warn = Data.Map.toAscList (Data.Map.fromList x) ==> sortOn fst x
-warn = Data.Map.toDescList (Data.Map.fromList x) ==> sortOn (Down . fst) x
+warn = Data.Map.toAscList (Data.Map.fromList x) ==> Universum.sortOn fst x
+warn = Data.Map.toDescList (Data.Map.fromList x) ==> Universum.sortOn (Down . fst) x
 
 warn = forM_ ==> for_
 
@@ -165,6 +165,11 @@ warn = mapMaybe leftToMaybe ==> lefts
 warn = mapMaybe rightToMaybe ==> rights
 
 warn "Use 'nonEmpty' from Universum" = Data.List.NonEmpty.nonEmpty ==> Universum.nonEmpty
+
+warn "Use 'newTVar' from Universum" = Control.Concurrent.STM.TVar.newTVar ==> Universum.newTVar
+warn "Use 'readTVar' from Universum" = Control.Concurrent.STM.TVar.readTVar ==> Universum.readTVar
+warn "Use 'writeTVar' from Universum" = Control.Concurrent.STM.TVar.writeTVar ==> Universum.writeTVar
+warn "Use 'modifyTVar'' from Universum" = Control.Concurrent.STM.TVar.modifyTVar' ==> Universum.modifyTVar'
 
 warn "Use 'lines' from Universum" = Data.Text.lines ==> Universum.lines
 warn "Use 'unlines' from Universum" = Data.Text.unlines ==> Universum.unlines

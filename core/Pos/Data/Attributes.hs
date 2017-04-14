@@ -53,12 +53,20 @@ instance Show h => Show (Attributes h) where
                    | otherwise = ", remain: <" <> show (BS.length attrRemain) <> " bytes>"
         in mconcat [ "Attributes { data: ", show attrData, remain, " }"]
 
-instance Buildable h => Buildable (Attributes h) where
+instance {-# OVERLAPPABLE #-} Buildable h => Buildable (Attributes h) where
     build Attributes {..} =
         if BS.null attrRemain
         then Buildable.build attrData
         else bprint ("Attributes { data: "%build%", remain: <"%int%" bytes> }")
                attrData (BS.length attrRemain)
+
+instance Buildable (Attributes ()) where
+    build Attributes {..}
+        | null attrRemain = "<no attributes>"
+        | otherwise =
+            bprint
+                ("Attributes { data: (), remain: <"%int%" bytes> }")
+                (length attrRemain)
 
 instance Hashable h => Hashable (Attributes h)
 

@@ -453,7 +453,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         map toTxpBlock blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $
-        usVerifyBlocks (map toUpdateBlock blocks)
+        usVerifyBlocks dataMustBeKnown (map toUpdateBlock blocks)
     when (length txUndo /= length pskUndo) $
         throwError "Internal error of verifyBlocksPrefix: lengths of undos don't match"
     pure ( OldestFirst $ neZipWith3 Undo
@@ -687,7 +687,7 @@ createGenesisBlockDo epoch leaders tip = do
         | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
             let blk = mkGenesisBlock (Just tipHeader) epoch leaders
             let newTip = headerHash blk
-            runExceptT (usVerifyBlocks (one (toUpdateBlock (Left blk)))) >>= \case
+            runExceptT (usVerifyBlocks False (one (toUpdateBlock (Left blk)))) >>= \case
                 Left err -> reportFatalError $ pretty err
                 Right (pModifier, usUndos) -> do
                     let undo = def {undoUS = usUndos ^. _Wrapped . _neHead}
@@ -773,9 +773,11 @@ createMainBlockFinish slotId pSk prevHeader = do
         Left err ->
             assertionFailed $ sformat ("We've created bad block: "%stext) err
         Right _ -> pass
-    (pModifier,verUndo) <- runExceptT (usVerifyBlocks (one (toUpdateBlock (Right blk)))) >>= \case
-        Left _ -> throwError "Couldn't get pModifier while creating MainBlock"
-        Right o -> pure o
+    (pModifier, verUndo) <-
+        runExceptT (usVerifyBlocks False (one (toUpdateBlock (Right blk)))) >>= \case
+            Left _ ->
+                throwError "Couldn't get pModifier while creating MainBlock"
+            Right o -> pure o
     let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs)
                          pskUndo
                          (verUndo ^. _Wrapped . _neHead)

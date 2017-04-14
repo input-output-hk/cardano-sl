@@ -12,6 +12,7 @@ module Pos.Client.Txp.History
        , thTx
        , thIsOutput
        , thDifficulty
+       , thInputAddr
 
        , TxHistoryAnswer(..)
 
@@ -78,23 +79,19 @@ data TxHistoryAnswer = TxHistoryAnswer
 -- Deduction of history
 ----------------------------------------------------------------------
 
--- | Checks whether to lists have common elements
-intersects :: Ord a => [a] -> [a] -> Bool
-intersects x y = unique x + unique y > unique (x ++ y)
-  where unique = length . S.fromList
-
 -- | Check if given 'Address' is one of the receivers of 'Tx'
-hasReceiver :: Tx -> [Address] -> Bool
-hasReceiver UnsafeTx {..} addrs = addrs `intersects` toList (txOutAddress <$> _txOutputs)
+hasReceiver :: Tx -> Set Address -> Set Address
+hasReceiver UnsafeTx {..} addrs =
+    addrs `S.intersection` (S.fromList $ toList (txOutAddress <$> _txOutputs))
 
 -- | Given some 'Utxo', check if given 'Address' is one of the senders of 'Tx'
-hasSender :: MonadUtxoRead m => Tx -> [Address] -> m Bool
-hasSender UnsafeTx {..} addrs = anyM hasCorrespondingOutput $ toList _txInputs
-  where hasCorrespondingOutput txIn =
-            fmap toBool $ ((`S.member` addrsSet) . txOutAddress . toaOut) <<$>> utxoGet txIn
-        toBool Nothing  = False
-        toBool (Just b) = b
-        addrsSet = S.fromList addrs
+hasSender :: MonadUtxoRead m => Tx -> Set Address -> m [Address]
+hasSender UnsafeTx {..} addrs =
+  catMaybes <$> mapM fetchWithCorrespondingOutput (toList _txInputs)
+  where fetchWithCorrespondingOutput txIn = runMaybeT $ do
+          inAddr <- MaybeT $ txOutAddress . toaOut <<$>> utxoGet txIn
+          guard (inAddr `S.member` addrs)
+          return inAddr
 
 -- | Datatype for returning info about tx history
 data TxHistoryEntry = THEntry
@@ -102,6 +99,7 @@ data TxHistoryEntry = THEntry
     , _thTx         :: !Tx
     , _thIsOutput   :: !Bool
     , _thDifficulty :: !(Maybe ChainDifficulty)
+    , _thInputAddr  :: !Address
     } deriving (Show, Eq, Generic)
 
 makeLenses ''TxHistoryEntry
@@ -109,7 +107,7 @@ makeLenses ''TxHistoryEntry
 -- | Type of monad used to deduce history
 type TxSelectorT m = UtxoStateT (MaybeT m)
 
--- | Select transactions related to given address. `Bool` indicates
+-- | Select transactions related to given addresses. `Bool` indicates
 -- whether the transaction is outgoing (i. e. is sent from given address)
 getRelatedTxs
     :: Monad m
@@ -118,29 +116,19 @@ getRelatedTxs
     -> TxSelectorT m [TxHistoryEntry]
 getRelatedTxs addrs txs = fmap DL.toList $
     lift (MaybeT $ return $ topsortTxs (view _1) txs) >>=
-    foldlM step DL.empty
+    fmap mconcat . mapM step
   where
-    step ls (WithHash tx txId, _wit, dist) = do
-        let isIncoming = tx `hasReceiver` addrs
-        isOutgoing <- tx `hasSender` addrs
-        let allToAddr addr = all ((== addr) . txOutAddress) $ _txOutputs tx
-            allToSomeAddr  = any allToAddr addrs
-            isToItself = isOutgoing && allToSomeAddr
-        lsAdd <- if isOutgoing || isIncoming
-            then handleRelatedTx (isOutgoing, isToItself) (tx, txId, dist)
-            else return mempty
-        return (ls <> lsAdd)
+    addrsSet = S.fromList addrs
+    step (WithHash tx txId, _wit, dist) = do
+        let incomings = toList (tx `hasReceiver` addrsSet)
+        outgoings <- tx `hasSender` addrsSet
 
-    handleRelatedTx (isOutgoing, isToItself) (tx, txId, dist) = do
         applyTxToUtxo (WithHash tx txId) dist
         identity %= filterUtxoByAddrs addrs
 
-        -- Workaround to present A to A transactions as a pair of
-        -- self-cancelling transactions in history
-        let resEntry = THEntry txId tx isOutgoing Nothing
-        return $ if isToItself
-            then DL.fromList [resEntry & thIsOutput .~ False, resEntry]
-            else DL.singleton resEntry
+        let addresses = map (True,) outgoings <> map (False,) incomings
+        return $ DL.fromList $ addresses <&> \(isOutgoing, addr) ->
+            THEntry txId tx isOutgoing Nothing addr
 
 -- | Given a full blockchain, derive address history and Utxo
 -- TODO: Such functionality will still be useful for merging

@@ -53,7 +53,8 @@ import           Pos.Constants                 (curSoftwareVersion, isDevelopmen
 import           Pos.Core                      (Address (..), Coin, addressF,
                                                 applyCoinPortion, coinF,
                                                 decodeTextAddress, makePubKeyAddress,
-                                                mkCoin, unsafeCoinPortionFromDouble,
+                                                makeRedeemAddress, mkCoin,
+                                                unsafeCoinPortionFromDouble,
                                                 unsafeSubCoin)
 import           Pos.Crypto                    (EncryptedSecretKey, PassPhrase,
                                                 deriveHDSecretKey, emptyPassphrase,
@@ -469,16 +470,14 @@ sendExtended sendActions cpassphrase srcWallet dstAccount c curr title desc = do
         txsWithRem =
             zipWith
                 (\(srcAcc, txs) remTxs -> (srcAcc, txs :| remTxs))
-                (toList mainTxs)
+                mainTxs
                 (maybe mempty (one . fst) mRemTx : cycle [])
     na <- getKnownPeers
     forM txsWithRem $ uncurry (sendDo na passphrase)
   where
     selectSrcAccounts
         :: WalletWebMode ssc m
-        => Coin
-        -> [CAccountAddress]
-        -> m (Coin, NonEmpty (CAccountAddress, Coin))
+        => Coin -> [CAccountAddress] -> m (Coin, [(CAccountAddress, Coin)])
     selectSrcAccounts reqCoins accounts =
         case accounts of
             _
@@ -492,11 +491,10 @@ sendExtended sendActions cpassphrase srcWallet dstAccount c curr title desc = do
                 if balance < reqCoins
                     then do
                         let remCoins = reqCoins `unsafeSubCoin` balance
-                        ((acc, balance) :|) . toList <<$>>
-                            selectSrcAccounts remCoins accs
+                        ((acc, balance) :) <<$>> selectSrcAccounts remCoins accs
                     else return
                              ( balance `unsafeSubCoin` reqCoins
-                             , (acc, reqCoins) :| [])
+                             , [(acc, reqCoins)])
     sendDo na passphrase srcAccount txs = do
         sk <- getSKByAccAddr passphrase srcAccount
         srcAccAddr <- decodeCAddressOrFail (caaAddress srcAccount)
@@ -523,14 +521,14 @@ sendExtended sendActions cpassphrase srcWallet dstAccount c curr title desc = do
                                 curr
                                 title
                                 desc
-                                (THEntry txHash tx isInput Nothing)
+                                (THEntry txHash tx isInput Nothing srcAccAddr)
                     removeAccount srcAccount
                     forM_ dstAddrs $ \dstAddr ->
                         let dstCAddr = addressToCAddress dstAddr
                         in addHistory dstCAddr False
                     addHistory (caaAddress srcAccount) True
     listF formatter =
-        F.later $ mconcat . intersperse "," . map (F.bprint formatter)
+        F.later $ mconcat . intersperse ", " . map (F.bprint formatter)
 
 getHistory
     :: forall ssc m.
@@ -538,28 +536,31 @@ getHistory
     => CWalletAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
 getHistory wAddr skip limit = do
     cAccAddrs <- getWalletAccAddrsOrThrow wAddr
-    accAddrs  <- forM cAccAddrs (decodeCAddressOrFail . caaAddress)
-    cHistory <- do
-        (minit, cachedTxs) <- transCache <$> getHistoryCache wAddr
+    accAddrs <- forM cAccAddrs (decodeCAddressOrFail . caaAddress)
+    cHistory <-
+        do (minit, cachedTxs) <- transCache <$> getHistoryCache wAddr
 
-        TxHistoryAnswer {..} <- untag @ssc getTxHistory accAddrs minit
+           TxHistoryAnswer {..} <- untag @ssc getTxHistory accAddrs minit
 
-        -- Add allowed portion of result to cache
-        let fullHistory = taHistory <> cachedTxs
-            lenHistory = length taHistory
-            cached = drop (lenHistory - taCachedNum) taHistory
+           -- Add allowed portion of result to cache
+           let fullHistory = taHistory <> cachedTxs
+               lenHistory = length taHistory
+               cached = drop (lenHistory - taCachedNum) taHistory
+           unless (null cached) $
+               updateHistoryCache
+                   wAddr
+                   taLastCachedHash
+                   taCachedUtxo
+                   (cached <> cachedTxs)
 
-        unless (null cached) $
-            updateHistoryCache wAddr taLastCachedHash taCachedUtxo
-            (cached <> cachedTxs)
-
-        -- TODO [CSM-931]: what should this line do?
-        mapM (addHistoryTx undefined ADA mempty mempty) fullHistory
+           forM fullHistory $ \thEntry@THEntry {..} ->
+               let srcCAddr = addressToCAddress _thInputAddr
+               in addHistoryTx srcCAddr ADA mempty mempty thEntry
     pure (paginate cHistory, fromIntegral $ length cHistory)
   where
-    paginate     = take defaultLimit . drop defaultSkip
+    paginate = take defaultLimit . drop defaultSkip
     defaultLimit = (fromIntegral $ fromMaybe 100 limit)
-    defaultSkip  = (fromIntegral $ fromMaybe 0 skip)
+    defaultSkip = (fromIntegral $ fromMaybe 0 skip)
     transCache Nothing                = (Nothing, [])
     transCache (Just (hh, utxo, txs)) = (Just (hh, utxo), txs)
 
@@ -572,7 +573,7 @@ searchHistory wAddr search mAccAddr skip limit =
     first (filter fits) <$> getHistory @ssc wAddr skip limit
   where
     fits ctx = txContainsTitle search ctx
-            && maybe (const True) (==) mAccAddr (ctAccAddress ctx)
+            && maybe True (== ctAccAddress ctx) mAccAddr
 
 addHistoryTx
     :: WalletWebMode ssc m
@@ -582,13 +583,13 @@ addHistoryTx
     -> Text
     -> TxHistoryEntry
     -> m CTx
-addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
+addHistoryTx cAddr curr title desc wtx@THEntry{..} = do
     -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
             networkChainDifficulty
     addr <- decodeCAddressOrFail cAddr
     meta <- CTxMeta curr title desc <$> liftIO getPOSIXTime
-    let cId = txIdToCTxId txId
+    let cId = txIdToCTxId _thTxId
     addOnlyNewTxMeta cAddr cId meta
     meta' <- maybe meta identity <$> getTxMeta cAddr cId
     return $ mkCTx addr diff wtx meta'
@@ -677,9 +678,10 @@ redeemADA sendActions cpassphrase CWalletRedeem {..} = do
     seedBs <- either
         (\e -> throwM $ Internal ("Seed is invalid base64 string: " <> toText e))
         pure $ B64.decode $ base64rify crSeed
-    (_, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
+    (redeemPK, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
 
+    let srcAddr = makeRedeemAddress redeemPK
     dstCAddr <- genUniqueAccountAddress passphrase crWalletId
     dstAddr <- decodeCAddressOrFail $ caaAddress dstCAddr
     na <- getKnownPeers
@@ -689,7 +691,7 @@ redeemADA sendActions cpassphrase CWalletRedeem {..} = do
         Right (tx, _, _) -> do
             -- add redemption transaction to the history of new wallet
             addHistoryTx (caaAddress dstCAddr) ADA "ADA redemption" ""
-              (THEntry (hash tx) tx False Nothing)
+              (THEntry (hash tx) tx False Nothing srcAddr)
 
 reportingInitialized :: forall ssc m. WalletWebMode ssc m => CInitialized -> m ()
 reportingInitialized cinit = do

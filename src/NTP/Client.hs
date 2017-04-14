@@ -267,18 +267,20 @@ startNtpClient settings = do
 
     void . fork $ startReceive cli
 
-    addrs <- mapM resolveHost $ ntpServers settings
+    addrs <- mapM (resolveHost cli) (ntpServers settings)
     void . fork $ startSend addrs cli
 
     log cli Info "Launched"
 
     return $ NtpStopButton $ stopNtpClient cli
   where
-    resolveHost host = do
+    resolveHost cli host = do
         maddr <- liftIO $ resolveNtpHost host
         case maddr of
             Nothing   -> throw $ FailedToResolveHost host
-            Just addr -> return addr
+            Just addr -> do
+                log cli Info $ sformat ("Host "%shown%" is resolved: "%shown) host addr
+                return addr
 
 -- | Start client, wait for a while so that most likely it ticks once
 -- and stop it.

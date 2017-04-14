@@ -7,7 +7,6 @@ module NTP.Util
     , preferIPv6
     ) where
 
-import           Control.Lens          (to, (^?), _head)
 import           Control.Monad.Catch   (catchAll)
 import           Control.Monad.Trans   (MonadIO (..))
 import           Data.List             (sortOn)
@@ -33,7 +32,8 @@ resolveHost host = do
                     `catchAll` \_ -> return []
 
     -- one address is enough
-    return $ addrInfos ^? _head . to addrAddress
+    if null addrInfos then pure Nothing
+    else pure $ Just $ addrAddress $ preferIPv6 addrInfos
 
 replacePort :: SockAddr -> PortNumber -> SockAddr
 replacePort (SockAddrInet  _ host)            port = SockAddrInet  port host

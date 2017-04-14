@@ -42,7 +42,7 @@ cache:
 
 before_test:
 # Avoid long paths not to each MAX_PATH of 260 chars
-- move C:\projects\cardano-sl "%WORK_DIR%"
+- xcopy /q /s /e /r /k /i /v /h /y C:\projects\cardano-sl "%WORK_DIR%"
 - cd "%WORK_DIR%"
 # Setup cache dirs
 - Echo %APPVEYOR_BUILD_VERSION% > build-id

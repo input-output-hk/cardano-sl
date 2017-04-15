@@ -56,6 +56,7 @@ messageCacheTimeout: 30
 blockRetrievalQueueSize: 100
 propagationQueueSize: 100
 recoveryHeadersMessage: 20 # should be greater than k
+maxBlundFileSize: 1 # in MB
 
 # Time slave/lord
 sysTimeBroadcastSlots: 6

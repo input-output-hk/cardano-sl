@@ -35,6 +35,7 @@ module Pos.Constants
        , vssMinTTL
        , recoveryHeadersMessage
        , messageCacheTimeout
+       , maxBlundFileSize
 
        -- * Delegation
        , lightDlgConfirmationTimeout
@@ -159,6 +160,10 @@ recoveryHeadersMessage = fromIntegral . ccRecoveryHeadersMessage $ compileConfig
 -- messages can use this timeout to invalidate caches.
 messageCacheTimeout :: (Integral a) => a
 messageCacheTimeout = fromIntegral . ccMessageCacheTimeout $ compileConfig
+
+-- | Max size of blund file on disk (in bytes).
+maxBlundFileSize :: (Integral a) => a
+maxBlundFileSize = (* 1048576) . fromIntegral . ccMaxBlundFileSize $ compileConfig
 
 ----------------------------------------------------------------------------
 -- Delegation

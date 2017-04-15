@@ -57,4 +57,5 @@ data CompileConfig = CompileConfig
       -- ^ Block retrieval queue capacity
     , ccPropagationQueueSize          :: !Int
       -- ^ InvMsg propagation queue capacity
+    , ccMaxBlundFileSize              :: !Int
     } deriving (Show)

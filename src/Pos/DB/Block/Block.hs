@@ -7,8 +7,6 @@ module Pos.DB.Block.Block
        , getBlockHeader
        , getUndo
        , getBlockWithUndo
-
-       , deleteBlock
        , putBlund
 
        , prepareBlockDB
@@ -29,11 +27,9 @@ import qualified Data.ByteString           as BS
 import qualified Data.ByteString.Lazy      as BSL
 import           Data.Default              (Default (def))
 import           Formatting                (build, formatToString, int, sformat, (%))
-import           System.Directory          (removeFile)
 import           System.FilePath           ((</>))
 import           System.IO                 (IOMode (ReadMode), SeekMode (AbsoluteSeek),
                                             hFileSize, hSeek, withFile)
-import           System.IO.Error           (isDoesNotExistError)
 import           Universum
 
 import           Pos.Binary.Block          ()
@@ -41,11 +37,12 @@ import           Pos.Binary.Class          (Bi, FixedSizeInt (..), WithLength (.
                                             decodeFull, encodeStrict)
 import           Pos.Binary.DB             ()
 import           Pos.Block.Types           (Blund, Undo (..))
+import           Pos.Constants             (maxBlundFileSize)
 import           Pos.Crypto                (shortHashF)
 import           Pos.DB.Block.Aux          (BlundAux (..))
 import           Pos.DB.Class              (MonadDB, getBlockIndexDB, getNodeDBs)
 import           Pos.DB.Error              (DBError (DBMalformed))
-import           Pos.DB.Functions          (rocksDelete, rocksGetBi, rocksPutBi)
+import           Pos.DB.Functions          (rocksGetBi, rocksPutBi)
 import           Pos.DB.Types              (blockDataDir)
 import           Pos.Ssc.Class.Helpers     (SscHelpersClass)
 import           Pos.Types                 (Block, BlockHeader, GenesisBlock,
@@ -98,12 +95,8 @@ putBlund blk undo = getBi lastBlundFileKey >>= \case
         let blockAux = BlundAux{..}
         putBi (blockAuxKey h) blockAux
         putBi (blockIndexKey h) (T.getBlockHeader blk)
-
-deleteBlock :: (MonadDB m) => HeaderHash -> m ()
-deleteBlock hh = undefined
-    -- delete (blockIndexKey hh)
-    -- deleteData =<< blockDataPath hh
-    -- deleteData =<< undoDataPath hh
+        when (undoOffset + undoLen > maxBlundFileSize) $
+            putBi lastBlundFileKey (FixedSizeInt $ lastFile + 1)
 
 ----------------------------------------------------------------------------
 -- Load
@@ -244,8 +237,8 @@ putBi
     => ByteString -> v -> m ()
 putBi k v = rocksPutBi k v =<< getBlockIndexDB
 
-delete :: (MonadDB m) => ByteString -> m ()
-delete k = rocksDelete k =<< getBlockIndexDB
+-- delete :: (MonadDB m) => ByteString -> m ()
+-- delete k = rocksDelete k =<< getBlockIndexDB
 
 getData :: (MonadIO m, MonadCatch m, Bi v)
         => Word32 -- Offset
@@ -274,13 +267,6 @@ putData val fp = liftIO $ withFile fp AppendMode $ \h -> do
     let bsLen = BS.length bs
     BS.hPut h bs
     pure (fromIntegral offset, fromIntegral bsLen)
-
-deleteData :: (MonadIO m, MonadCatch m) => FilePath -> m ()
-deleteData fp = (liftIO $ removeFile fp) `catch` handle
-  where
-    handle e
-        | isDoesNotExistError e = pure ()
-        | otherwise = throwM e
 
 blundDataPath :: MonadDB m => Word32 -> m FilePath
 blundDataPath (formatToString (int%".blunds") -> fn) =

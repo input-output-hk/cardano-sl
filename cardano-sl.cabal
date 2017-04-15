@@ -512,10 +512,13 @@ library
                        -fno-warn-orphans
                        -O2
 
-  -- linker speed up for linux
+  -- linker speed up for linux and macOS
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  if os(darwin)
+    ghc-options:       "-pgmc clang" "-pgma clang" "-pgml clang" "-optl-fuse-ld=lld"
+    ld-options:        -fuse-ld=lld
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -580,10 +583,13 @@ executable cardano-node
                        -with-rtsopts=-N
                        -O2
 
-  -- linker speed up for linux
+  -- linker speed up for linux and macOS
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  if os(darwin)
+    ghc-options:       "-pgmc clang" "-pgma clang" "-pgml clang"
+    ld-options:        -fuse-ld=lld
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -637,10 +643,13 @@ executable cardano-analyzer
                        -with-rtsopts=-N
                        -O2
 
-  -- linker speed up for linux
+  -- linker speed up for linux and macOS
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  if os(darwin)
+    ghc-options:       "-pgmc clang" "-pgma clang" "-pgml clang"
+    ld-options:        -fuse-ld=lld
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -701,10 +710,13 @@ executable cardano-wallet
                        -with-rtsopts=-N
                        -O2
 
-  -- linker speed up for linux
+  -- linker speed up for linux and macOS
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  if os(darwin)
+    ghc-options:       "-pgmc clang" "-pgma clang" "-pgml clang"
+    ld-options:        -fuse-ld=lld
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -754,10 +766,13 @@ executable cardano-wallet-hs2purs
                        -with-rtsopts=-N
                        -O2
 
-  -- linker speed up for linux
+  -- linker speed up for linux and macOS
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  if os(darwin)
+    ghc-options:       "-pgmc clang" "-pgma clang" "-pgml clang"
+    ld-options:        -fuse-ld=lld
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -831,10 +846,13 @@ executable cardano-smart-generator
                        -with-rtsopts=-N
                        -O2
 
-  -- linker speed up for linux
+  -- linker speed up for linux and macOS
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  if os(darwin)
+    ghc-options:       "-pgmc clang" "-pgma clang" "-pgml clang"
+    ld-options:        -fuse-ld=lld
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -897,10 +915,13 @@ executable cardano-dht-keygen
                        -with-rtsopts=-N
                        -O2
 
-  -- linker speed up for linux
+  -- linker speed up for linux and macOS
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  if os(darwin)
+    ghc-options:       "-pgmc clang" "-pgma clang" "-pgml clang"
+    ld-options:        -fuse-ld=lld
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -937,10 +958,13 @@ executable cardano-web-docs
                        -with-rtsopts=-N
                        -O2
 
-  -- linker speed ups for linux
+  -- linker speed ups for linux and macOS
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  if os(darwin)
+    ghc-options:       "-pgmc clang" "-pgma clang" "-pgml clang"
+    ld-options:        -fuse-ld=lld
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -984,10 +1008,13 @@ executable cardano-wallet-web-docs
                        -with-rtsopts=-N
                        -O2
 
-  -- linker speed up for linux
+  -- linker speed up for linux and macOS
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  if os(darwin)
+    ghc-options:       "-pgmc clang" "-pgma clang" "-pgml clang"
+    ld-options:        -fuse-ld=lld
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -1036,10 +1063,13 @@ executable cardano-wallet-web-api-swagger
                        -with-rtsopts=-N
                        -O2
 
-  -- linker speed up for linux
+  -- linker speed up for linux and macOS
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  if os(darwin)
+    ghc-options:       "-pgmc clang" "-pgma clang" "-pgml clang"
+    ld-options:        -fuse-ld=lld
 
   default-extensions:   NoImplicitPrelude
   build-tools: cpphs >= 1.19
@@ -1058,10 +1088,13 @@ executable cardano-checks
                        -Wall
                        -O2
 
-  -- linker speed up for linux
+  -- linker speed up for linux and macOS
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  if os(darwin)
+    ghc-options:       "-pgmc clang" "-pgma clang" "-pgml clang"
+    ld-options:        -fuse-ld=lld
 
   default-extensions:  OverloadedStrings
 
@@ -1082,10 +1115,13 @@ executable cardano-genupdate
                        -Wall
                        -O2
 
-  -- linker speed up for linux
+  -- linker speed up for linux and macOS
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  if os(darwin)
+    ghc-options:       "-pgmc clang" "-pgma clang" "-pgml clang"
+    ld-options:        -fuse-ld=lld
 
   default-extensions:  OverloadedStrings
                        NoImplicitPrelude
@@ -1122,10 +1158,13 @@ executable cardano-keygen
                        -with-rtsopts=-N
                        -O2
 
-  -- linker speed up for linux
+  -- linker speed up for linux and macOS
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  if os(darwin)
+    ghc-options:       "-pgmc clang" "-pgma clang" "-pgml clang"
+    ld-options:        -fuse-ld=lld
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -1169,10 +1208,13 @@ executable cardano-launcher
                        -Wall
                        -O2
 
-  -- linker speed up for linux
+  -- linker speed up for linux and macOS
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  if os(darwin)
+    ghc-options:       "-pgmc clang" "-pgma clang" "-pgml clang"
+    ld-options:        -fuse-ld=lld
 
   default-extensions:  OverloadedStrings
                        RecordWildCards
@@ -1260,10 +1302,13 @@ test-suite cardano-test
                        -fno-warn-orphans
                        -with-rtsopts=-N
 
-  -- linker speed up for linux
+  -- linker speed up for linux and macOS
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  if os(darwin)
+    ghc-options:       "-pgmc clang" "-pgma clang" "-pgml clang"
+    ld-options:        -fuse-ld=lld
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -1316,10 +1361,13 @@ benchmark cardano-bench-criterion
                        -fno-warn-orphans
                        -O2
 
-  -- linker speed up for linux
+  -- linker speed up for linux and macOS
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
+  if os(darwin)
+    ghc-options:       "-pgmc clang" "-pgma clang" "-pgml clang"
+    ld-options:        -fuse-ld=lld
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric

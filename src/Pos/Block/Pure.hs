@@ -259,7 +259,7 @@ data VerifyHeaderParams ssc = VerifyHeaderParams
     , vhpNextHeader      :: !(Maybe (BlockHeader ssc))
     , vhpCurrentSlot     :: !(Maybe SlotId)
     , vhpLeaders         :: !(Maybe SlotLeaders)
-    , vhpMaxSize         :: !Byte
+    , vhpMaxSize         :: !(Maybe Byte)
     } deriving (Show, Eq)
 
 -- | By default nothing is checked.
@@ -271,7 +271,7 @@ instance Default (VerifyHeaderParams ssc) where
         , vhpNextHeader = Nothing
         , vhpCurrentSlot = Nothing
         , vhpLeaders = Nothing
-        , vhpMaxSize = 1000000000 -- TODO: get rid of this module
+        , vhpMaxSize = Nothing
         }
 
 maybeEmpty :: Monoid m => (a -> m) -> Maybe a -> m
@@ -286,7 +286,7 @@ verifyHeader
     :: forall ssc . BiSsc ssc
     => VerifyHeaderParams ssc -> BlockHeader ssc -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
-   consensusRes <> verifyGeneric checks
+    consensusRes <> verifyGeneric checks
   where
     consensusRes | vhpVerifyConsensus = verifyConsensusLocal h
                  | otherwise = mempty
@@ -296,7 +296,7 @@ verifyHeader VerifyHeaderParams {..} h =
             , maybeEmpty relatedToNextHeader vhpNextHeader
             , maybeEmpty relatedToCurrentSlot vhpCurrentSlot
             , maybeEmpty relatedToLeaders vhpLeaders
-            , [checkSize]
+            , checkSize
             ]
     checkHash :: HeaderHash -> HeaderHash -> (Bool, Text)
     checkHash expectedHash actualHash =
@@ -326,9 +326,16 @@ verifyHeader VerifyHeaderParams {..} h =
               ("two adjacent blocks are from different epochs ("%build%" != "%build%")")
               oldEpoch newEpoch
         )
-    checkSize = (Bi.biSize h <= vhpMaxSize,
-                 sformat ("header's size exceeds limit ("%memory%" > "%memory%")")
-                 (Bi.biSize h) vhpMaxSize)
+    checkSize =
+        case vhpMaxSize of
+            Nothing -> mempty
+            Just maxSize ->
+                [ ( Bi.biSize h <= maxSize
+                  , sformat
+                        ("header's size exceeds limit ("%memory%" > "%memory%")")
+                        (Bi.biSize h)
+                        maxSize)
+                ]
 
     -- CHECK: Performs checks related to the previous header:
     --
@@ -386,13 +393,13 @@ verifyHeaders
     :: BiSsc ssc
     => Bool -> NewestFirst [] (BlockHeader ssc) -> VerificationRes
 verifyHeaders _ (NewestFirst []) = mempty
-verifyHeaders checkConsensus (NewestFirst (headers@(_:xh))) =
-    mconcat verified
+verifyHeaders checkConsensus (NewestFirst (headers@(_:xh))) = mconcat verified
   where
     verified = zipWith (\cur prev -> verifyHeader (toVHP prev) cur)
                        headers (map Just xh ++ [Nothing])
     toVHP p = def { vhpVerifyConsensus = checkConsensus
                   , vhpPrevHeader = p }
+
 
 -- CHECK: @verifyGenericBlock
 -- | Perform cheap checks of GenericBlock, which can be done using
@@ -417,10 +424,11 @@ data VerifyBlockParams ssc = VerifyBlockParams
       -- ^ Verifies ssc payload with 'sscVerifyPayload'.
     , vbpVerifyProxySKs :: !Bool
       -- ^ Check that's number of sks is limited (1000 for now).
-    , vbpMaxSize        :: !Byte
+    , vbpMaxSize        :: !(Maybe Byte)
     -- ^ Maximal block size.
     }
 
+-- TODO: get rid of this module
 -- | By default nothing is checked.
 instance Default (VerifyBlockParams ssc) where
     def =
@@ -429,7 +437,7 @@ instance Default (VerifyBlockParams ssc) where
         , vbpVerifyGeneric = False
         , vbpVerifySsc = False
         , vbpVerifyProxySKs = False
-        , vbpMaxSize = 1000000000 -- TODO: get rid of this module
+        , vbpMaxSize =  Nothing
         }
 
 -- CHECK: @verifyBlock
@@ -445,7 +453,7 @@ verifyBlock VerifyBlockParams {..} blk =
         , maybeEmpty (flip verifyHeader (getBlockHeader blk)) vbpVerifyHeader
         , verifySsc
         , verifyProxySKs
-        , checkSize
+        , maybeEmpty checkSize vbpMaxSize
         ]
   where
     toVerRes (Right _) = VerSuccess
@@ -482,10 +490,10 @@ verifyBlock VerifyBlockParams {..} blk =
               , "Block contains psk(s) that have non-matching epoch index")
             ]
         | otherwise = mempty
-    checkSize = verifyGeneric [
-      (Bi.biSize blk <= vbpMaxSize,
+    checkSize maxSize = verifyGeneric [
+      (Bi.biSize blk <= maxSize,
        sformat ("block's size exceeds limit ("%memory%" > "%memory%")")
-       (Bi.biSize blk) vbpMaxSize)
+       (Bi.biSize blk) maxSize)
       ]
 
 -- CHECK: @verifyBlocks
@@ -529,7 +537,7 @@ verifyBlocks curSlotId bvd initLeaders = view _3 . foldl' step start
                 , vhpNextHeader = Nothing
                 , vhpLeaders = newLeaders
                 , vhpCurrentSlot = curSlotId
-                , vhpMaxSize = bvdMaxHeaderSize bvd
+                , vhpMaxSize = Just (bvdMaxHeaderSize bvd)
                 }
             vbp =
                 VerifyBlockParams
@@ -537,6 +545,6 @@ verifyBlocks curSlotId bvd initLeaders = view _3 . foldl' step start
                 , vbpVerifyGeneric = True
                 , vbpVerifySsc = True
                 , vbpVerifyProxySKs = True
-                , vbpMaxSize = bvdMaxBlockSize bvd
+                , vbpMaxSize = Just (bvdMaxBlockSize bvd)
                 }
         in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)

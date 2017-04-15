@@ -408,6 +408,6 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                 , T.vhpNextHeader = next
                 , T.vhpCurrentSlot = randomSlotBeforeThisHeader
                 , T.vhpLeaders = nonEmpty $ map T.addressHash thisHeadersEpoch
-                , T.vhpMaxSize = biSize header
+                , T.vhpMaxSize = Just (biSize header)
                 }
         return . HAndP $ (params, header)

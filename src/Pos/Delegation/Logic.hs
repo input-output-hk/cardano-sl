@@ -54,8 +54,9 @@ import           Pos.Context                 (WithNodeContext (getNodeContext),
                                               lrcActionOnEpochReason, ncNodeParams,
                                               npSecretKey)
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
-                                              pdDelegatePk, proxyVerify, shortHashF,
-                                              toPublic, verifyProxySecretKey)
+                                              SignTag (SignProxySK), pdDelegatePk,
+                                              proxyVerify, shortHashF, toPublic,
+                                              verifyProxySecretKey)
 import           Pos.DB                      (DBError (DBMalformed), MonadDB,
                                               SomeBatchOp (..))
 import qualified Pos.DB                      as DB
@@ -473,12 +474,16 @@ processConfirmProxySk
 processConfirmProxySk psk proof = do
     curTime <- liftIO getCurrentTime
     runDelegationStateAction $ do
-        let valid = proxyVerify (pdDelegatePk proof) proof (const True) psk
+        let valid = proxyVerify SignProxySK
+                      (pdDelegatePk proof)
+                      proof
+                      (const True)
+                      psk
         cached <- HM.member psk <$> use dwConfirmationCache
         when valid $ dwConfirmationCache %= HM.insert psk curTime
-        pure $ if | cached -> CPCached
-                  | not valid -> CPInvalid
-                  | otherwise -> CPValid
+        pure $ if | cached    -> CPCached
+                  | valid     -> CPValid
+                  | otherwise -> CPInvalid
 
 -- | Checks if we hold a confirmation for given PSK.
 isProxySKConfirmed :: ProxySKLight -> DelegationStateAction Bool

@@ -10,31 +10,32 @@ module Pos.Ssc.GodTossing.Toss.Trans
        , execTossT
        ) where
 
-import           Control.Lens                  (at, iso, (%=), (.=))
-import           Control.Monad.Base            (MonadBase (..))
-import           Control.Monad.Except          (MonadError)
-import           Control.Monad.Trans.Class     (MonadTrans)
-import           Control.Monad.Trans.Control   (ComposeSt, MonadBaseControl (..),
+import           Control.Lens                   (at, iso, (%=), (.=))
+import           Control.Monad.Base             (MonadBase (..))
+import           Control.Monad.Except           (MonadError)
+import           Control.Monad.Trans.Class      (MonadTrans)
+import           Control.Monad.Trans.Control    (ComposeSt, MonadBaseControl (..),
                                                 MonadTransControl (..), StM,
                                                 defaultLiftBaseWith, defaultLiftWith,
                                                 defaultRestoreM, defaultRestoreT)
-import qualified Data.HashMap.Strict           as HM
-import           Mockable                      (ChannelT, Promise, SharedAtomicT,
-                                                ThreadId)
-import           Serokell.Util.Lens            (WrappedM (..))
-import           System.Wlog                   (CanLog, HasLoggerName)
+import qualified Data.HashMap.Strict            as HM
+import           Mockable                       (ChannelT, Promise, SharedAtomicT,
+                                                 ThreadId)
+import           Serokell.Util.Lens             (WrappedM (..))
+import           System.Wlog                    (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Context                   (WithNodeContext)
-import           Pos.DB.Class                  (MonadDB)
-import           Pos.Slotting                  (MonadSlots (..), MonadSlotsData)
-import           Pos.Ssc.Extra                 (MonadSscMem)
-import           Pos.Ssc.GodTossing.Core       (deleteSignedCommitment, getCertId,
-                                                insertSignedCommitment)
-import           Pos.Ssc.GodTossing.Toss.Class (MonadToss (..), MonadTossRead (..))
-import           Pos.Ssc.GodTossing.Toss.Types (TossModifier (..), tmCertificates,
-                                                tmCommitments, tmOpenings, tmShares)
-import           Pos.Util.JsonLog              (MonadJL (..))
+import           Pos.Context                    (WithNodeContext)
+import           Pos.DB.Class                   (MonadDB)
+import           Pos.Slotting                   (MonadSlots (..), MonadSlotsData)
+import           Pos.Ssc.Extra                  (MonadSscMem)
+import           Pos.Ssc.GodTossing.Core        (deleteSignedCommitment, getCertId,
+                                                 insertSignedCommitment)
+import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossRead (..))
+import           Pos.Ssc.GodTossing.Toss.Types  (TossModifier (..), tmCertificates,
+                                                 tmCommitments, tmOpenings, tmShares)
+import           Pos.Ssc.GodTossing.VssCertData (VssCertData (certs))
+import           Pos.Util.JsonLog               (MonadJL (..))
 
 ----------------------------------------------------------------------------
 -- Tranformer
@@ -89,8 +90,8 @@ instance MonadTossRead m =>
     getCommitments = TossT $ (<>) <$> use tmCommitments <*> getCommitments
     getOpenings = TossT $ (<>) <$> use tmOpenings <*> getOpenings
     getShares = TossT $ (<>) <$> use tmShares <*> getShares
-    getVssCertificates =
-        TossT $ (<>) <$> use tmCertificates <*> lift getVssCertificates
+    getVssCertificates = certs <$> getVssCertData
+    getVssCertData = TossT getVssCertData
     getStableCertificates = TossT . getStableCertificates
     getRichmen = TossT . getRichmen
 

@@ -4,62 +4,64 @@
 
 module Main where
 
-import           Control.Monad.Reader      (MonadReader (..), ReaderT, ask, runReaderT)
-import           Control.Monad.Trans.Maybe (MaybeT (..))
-import qualified Data.ByteString           as BS
-import           Data.List                 ((!!))
-import qualified Data.List.NonEmpty        as NE
-import qualified Data.Text                 as T
-import           Data.Time.Units           (convertUnit)
-import           Formatting                (build, int, sformat, stext, (%))
-import           Options.Applicative       (execParser)
-import           System.IO                 (hFlush, stdout)
-import           System.Wlog               (logDebug, logError, logInfo, logWarning)
+import           Control.Monad.Error.Class  (throwError)
+import           Control.Monad.Reader       (MonadReader (..), ReaderT, ask, runReaderT)
+import           Control.Monad.Trans.Either (EitherT (..))
+import           Control.Monad.Trans.Maybe  (MaybeT (..))
+import qualified Data.ByteString            as BS
+import           Data.List                  ((!!))
+import qualified Data.List.NonEmpty         as NE
+import qualified Data.Text                  as T
+import           Data.Time.Units            (convertUnit)
+import           Formatting                 (build, int, sformat, stext, (%))
+import           Mockable                   (delay)
+import           Options.Applicative        (execParser)
+import           System.IO                  (hFlush, stdout)
+import           System.Wlog                (logDebug, logError, logInfo, logWarning)
 #if !(defined(mingw32_HOST_OS))
-import           Mockable                  (delay)
-import           System.Exit               (ExitCode (ExitSuccess))
-import           System.Posix.Process      (exitImmediately)
+import           System.Exit                (ExitCode (ExitSuccess))
+import           System.Posix.Process       (exitImmediately)
 #endif
-import           Serokell.Util             (sec)
+import           Serokell.Util              (ms, sec)
 import           Universum
 
-import           Pos.Binary                (Raw)
-import qualified Pos.CLI                   as CLI
-import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
-                                            sendTxOuts, submitTx, worker)
-import           Pos.Constants             (genesisBlockVersionData, isDevelopment)
-import           Pos.Crypto                (Hash, SecretKey, emptyPassphrase, encToPublic,
-                                            fakeSigner, hash, hashHexF, noPassEncrypt,
-                                            safeSign, toPublic, unsafeHash,
-                                            withSafeSigner)
-import           Pos.Data.Attributes       (mkAttributes)
-import           Pos.Delegation            (sendProxySKHeavyOuts, sendProxySKLightOuts)
-import           Pos.DHT.Model             (DHTNode, discoverPeers, getKnownPeers)
-import           Pos.Genesis               (genesisDevSecretKeys,
-                                            genesisStakeDistribution, genesisUtxo)
-import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
-                                            bracketResources, stakesDistr)
-import           Pos.Ssc.GodTossing        (SscGodTossing)
-import           Pos.Ssc.NistBeacon        (SscNistBeacon)
-import           Pos.Ssc.SscAlgo           (SscAlgo (..))
-import           Pos.Txp                   (TxOut (..), TxOutAux (..), txaF)
-import           Pos.Types                 (coinF, makePubKeyAddress)
-import           Pos.Update                (BlockVersionData (..), UpdateVote (..),
-                                            mkUpdateProposalWSign, patakUpdateData,
-                                            skovorodaUpdateData)
-import           Pos.Util.UserSecret       (readUserSecret, usKeys)
-import           Pos.Wallet                (MonadKeys (addSecretKey, getSecretKeys),
-                                            WalletMode, WalletParams (..), WalletRealMode,
-                                            getBalance, runWalletReal, sendProposalOuts,
-                                            sendVoteOuts, submitUpdateProposal,
-                                            submitVote)
+import           Pos.Binary                 (Raw)
+import qualified Pos.CLI                    as CLI
+import           Pos.Communication          (OutSpecs, SendActions, Worker', WorkerSpec,
+                                             sendTxOuts, submitTx, worker)
+import           Pos.Constants              (genesisBlockVersionData, isDevelopment)
+import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignUSVote),
+                                             emptyPassphrase, encToPublic, fakeSigner,
+                                             hash, hashHexF, noPassEncrypt, safeSign,
+                                             toPublic, unsafeHash, withSafeSigner)
+import           Pos.Data.Attributes        (mkAttributes)
+import           Pos.Delegation             (sendProxySKHeavyOuts, sendProxySKLightOuts)
+import           Pos.DHT.Model              (DHTNode, discoverPeers, getKnownPeers)
+import           Pos.Genesis                (genesisDevSecretKeys,
+                                             genesisStakeDistribution, genesisUtxo)
+import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
+                                             bracketResources, stakesDistr)
+import           Pos.Ssc.GodTossing         (SscGodTossing)
+import           Pos.Ssc.NistBeacon         (SscNistBeacon)
+import           Pos.Ssc.SscAlgo            (SscAlgo (..))
+import           Pos.Txp                    (TxOut (..), TxOutAux (..), txaF)
+import           Pos.Types                  (coinF, makePubKeyAddress)
+import           Pos.Update                 (BlockVersionData (..), UpdateVote (..),
+                                             mkUpdateProposalWSign, patakUpdateData,
+                                             skovorodaUpdateData)
+import           Pos.Util.UserSecret        (readUserSecret, usKeys)
+import           Pos.Wallet                 (MonadKeys (addSecretKey, getSecretKeys),
+                                             WalletMode, WalletParams (..),
+                                             WalletRealMode, getBalance, runWalletReal,
+                                             sendProposalOuts, sendVoteOuts,
+                                             submitUpdateProposal, submitVote)
 #ifdef WITH_WEB
-import           Pos.Wallet.Web            (walletServeWebLite, walletServerOuts)
+import           Pos.Wallet.Web             (walletServeWebLite, walletServerOuts)
 #endif
 
-import           Command                   (Command (..), parseCommand)
-import           WalletOptions             (WalletAction (..), WalletOptions (..),
-                                            optsInfo)
+import           Command                    (Command (..), parseCommand)
+import           WalletOptions              (WalletAction (..), WalletOptions (..),
+                                             optsInfo)
 
 type CmdRunner = ReaderT ([SecretKey], [DHTNode])
 
@@ -70,16 +72,19 @@ runCmd sendActions (Send idx outputs) = do
     (_, na) <- ask
     skeys <- getSecretKeys
     etx <-
-        lift $ withSafeSigner (skeys !! idx) (pure emptyPassphrase) $ \ss ->
-            submitTx
-                sendActions
-                ss
-                na
-                (map (flip TxOutAux []) outputs)
+        lift $ withSafeSigner (skeys !! idx) (pure emptyPassphrase) $ \mss ->
+        runEitherT $ do
+            ss <- mss `whenNothing` throwError "Invalid passphrase"
+            EitherT $
+                submitTx
+                    sendActions
+                    ss
+                    na
+                    (map (flip TxOutAux []) outputs)
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
-runCmd sendActions (SendToAllGenesis amount) = do
+runCmd sendActions (SendToAllGenesis amount delay_) = do
     (skeys, na) <- ask
     forM_ skeys $ \key -> do
         let txOut = TxOut {
@@ -96,24 +101,28 @@ runCmd sendActions (SendToAllGenesis amount) = do
         case etx of
             Left err -> putText $ sformat ("Error: "%stext) err
             Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
+        delay $ ms delay_
 runCmd sendActions v@(Vote idx decision upid) = do
     logDebug $ "Submitting a vote :" <> show v
     (_, na) <- ask
     skeys <- getSecretKeys
     let skey = skeys !! idx
-    signature <- lift $ withSafeSigner skey (pure emptyPassphrase) $
-                                \ss -> pure $ safeSign ss (upid, decision)
-    let voteUpd = UpdateVote
-            { uvKey        = encToPublic skey
-            , uvProposalId = upid
-            , uvDecision   = decision
-            , uvSignature  = signature
-            }
-    if null na
-        then putText "Error: no addresses specified"
-        else do
-            lift $ submitVote sendActions na voteUpd
-            putText "Submitted vote"
+    msignature <- lift $ withSafeSigner skey (pure emptyPassphrase) $ mapM $
+                        \ss -> pure $ safeSign SignUSVote ss (upid, decision)
+    case msignature of
+        Nothing -> putText "Invalid passphrase"
+        Just signature -> do
+            let voteUpd = UpdateVote
+                    { uvKey        = encToPublic skey
+                    , uvProposalId = upid
+                    , uvDecision   = decision
+                    , uvSignature  = signature
+                }
+            if null na
+                then putText "Error: no addresses specified"
+                else do
+                    lift $ submitVote sendActions na voteUpd
+                    putText "Submitted vote"
 runCmd sendActions ProposeUpdate{..} = do
     logDebug "Proposing update..."
     (_, na) <- ask
@@ -132,22 +141,24 @@ runCmd sendActions ProposeUpdate{..} = do
             }
     let udata = maybe patakUpdateData skovorodaUpdateData diffFile
     let whenCantCreate = error . mappend "Failed to create update proposal: "
-    lift $ withSafeSigner skey (pure emptyPassphrase) $ \ss -> do
-        let updateProposal = either whenCantCreate identity $
-                mkUpdateProposalWSign
-                    puBlockVersion
-                    bvd
-                    puSoftwareVersion
-                    udata
-                    (mkAttributes ())
-                    ss
-        if null na
-            then putText "Error: no addresses specified"
-            else do
-                submitUpdateProposal sendActions ss na updateProposal
-                let id = hash updateProposal
-                putText $
-                  sformat ("Update proposal submitted, upId: "%hashHexF) id
+    lift $ withSafeSigner skey (pure emptyPassphrase) $ \case
+        Nothing -> putText "Invalid passphrase"
+        Just ss -> do
+            let updateProposal = either whenCantCreate identity $
+                    mkUpdateProposalWSign
+                        puBlockVersion
+                        bvd
+                        puSoftwareVersion
+                        udata
+                        (mkAttributes ())
+                        ss
+            if null na
+                then putText "Error: no addresses specified"
+                else do
+                    submitUpdateProposal sendActions ss na updateProposal
+                    let id = hash updateProposal
+                    putText $
+                      sformat ("Update proposal submitted, upId: "%hashHexF) id
 runCmd _ Help = do
     putText $
         unlines
@@ -155,7 +166,7 @@ runCmd _ Help = do
             , "   balance <address>              -- check balance on given address (may be any address)"
             , "   send <N> [<address> <coins>]+  -- create and send transaction with given outputs"
             , "                                     from own address #N"
-            , "   send-to-all-genesis <coins>    -- create and send transactions from all genesis addresses"
+            , "   send-to-all-genesis <coins> <delay>  -- create and send transactions from all genesis addresses, delay in ms"
             , "                                     to themselves with the given amount of coins"
             , "   vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base64) and"
             , "                                     decision, from own address #N"

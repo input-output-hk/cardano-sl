@@ -1,10 +1,9 @@
 rotation:
     logLimit: 2097152 # 2MB
-    keepFiles: 7
+    keepFiles: 20
 severity: Info
 node:
     severity: Debug
-    files: [node.log, node.log.pub]
     handlers:
       - file: node.pub
         round: 5

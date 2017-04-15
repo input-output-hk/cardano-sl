@@ -2,6 +2,7 @@
 
 module Main where
 
+import           Control.Lens         (each, _head)
 import           Data.Aeson           (eitherDecode)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict  as HM
@@ -16,8 +17,10 @@ import           System.Wlog          (WithLogger, usingLoggerName)
 import           Universum
 
 import           Pos.Binary           (decodeFull, encode)
-import           Pos.Core             (mkCoin)
-import           Pos.Genesis          (GenesisData (..), StakeDistribution (..))
+import           Pos.Core             (coinToInteger, mkCoin, unsafeAddCoin,
+                                       unsafeIntegerToCoin)
+import           Pos.Genesis          (GenesisData (..), StakeDistribution (..),
+                                       genesisDevSecretKeys, getTotalStake)
 import           Pos.Types            (addressDetailedF, addressHash, makePubKeyAddress,
                                        makeRedeemAddress)
 
@@ -35,7 +38,9 @@ replace a b = toString . (T.replace `on` toText) a b . toText
 applyPattern :: Show a => FilePath -> a -> FilePath
 applyPattern fp a = replace "{}" (show a) fp
 
-getTestnetGenesis :: (MonadIO m, MonadFail m, WithLogger m) => TestStakeOptions -> m GenesisData
+getTestnetGenesis
+    :: (MonadIO m, MonadFail m, WithLogger m)
+    => TestStakeOptions -> m GenesisData
 getTestnetGenesis tso@TestStakeOptions{..} = do
     let keysDir = takeDirectory tsoPattern
     liftIO $ createDirectoryIfMissing True keysDir
@@ -43,9 +48,9 @@ getTestnetGenesis tso@TestStakeOptions{..} = do
     let totalStakeholders = tsoRichmen + tsoPoors
 
     richmenList <- forM [1 .. tsoRichmen] $ \i ->
-        generateKeyfile True $ applyPattern tsoPattern i <> ".primary"
-    poorsList <- forM [1 .. tsoPoors] $
-        generateKeyfile False . applyPattern tsoPattern
+        generateKeyfile True Nothing (applyPattern tsoPattern i <> ".primary")
+    poorsList <- forM [1 .. tsoPoors] $ \i ->
+        generateKeyfile False Nothing (applyPattern tsoPattern i)
 
     let genesisList = richmenList ++ poorsList
 
@@ -102,38 +107,69 @@ getAvvmGenesis AvvmStakeOptions {..} = do
 
 main :: IO ()
 main = do
-  KeygenOptions {..} <- execParser optsInfo
-  usingLoggerName "keygen" $ case koRearrangeMask of
-      Just msk -> liftIO (glob msk) >>= mapM_ rearrangeKeyfile
-      Nothing -> do
-          let genFileDir = takeDirectory koGenesisFile
-          liftIO $ createDirectoryIfMissing True genFileDir
+    ko@(KeygenOptions{..}) <- execParser optsInfo
+    usingLoggerName "keygen" $
+        if | Just msk <- koRearrangeMask  -> rearrange msk
+           | Just pat <- koDumpDevGenKeys -> dumpKeys pat
+           | otherwise                    -> genGenesisBin ko
 
-          mAvvmGenesis <- traverse getAvvmGenesis koAvvmStake
-          mTestnetGenesis <- traverse getTestnetGenesis koTestStake
-          mFakeAvvmGenesis <- traverse getFakeAvvmGenesis koFakeAvvmStake
-          whenJust mTestnetGenesis $ \tg ->
-              putText $ sformat ("testnet genesis created successfully. "
-                                %"First 30 addresses: "%listJson%" distr: "%shown)
-                            (map (sformat addressDetailedF) . take 10 $ gdAddresses tg)
-                            (gdDistribution <$> mTestnetGenesis)
+rearrange :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
+rearrange msk = mapM_ rearrangeKeyfile =<< liftIO (glob msk)
 
-          let mGenData = mappend <$> mTestnetGenesis <*> mAvvmGenesis
-                         <|> mTestnetGenesis
-                         <|> mAvvmGenesis
-              genData' = fromMaybe (error "At least one of options \
-                                          \(AVVM stake or testnet stake) \
-                                          \should be provided") mGenData
-              genData = genData' <> fromMaybe mempty mFakeAvvmGenesis
-              binGenesis = encode genData
+dumpKeys :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
+dumpKeys pat = do
+    let keysDir = takeDirectory pat
+    liftIO $ createDirectoryIfMissing True keysDir
+    for_ (zip [1..] genesisDevSecretKeys) $ \(i :: Int, k) ->
+        generateKeyfile False (Just k) $ applyPattern pat i
 
-          case decodeFull binGenesis of
-              Right (_ :: GenesisData) -> do
-                  putText "genesis.bin generated successfully\n"
-                  liftIO $ BSL.writeFile koGenesisFile binGenesis
-              Left err                 -> do
-                  putText ("Generated genesis.bin can't be read: " <>
-                           toText err <> "\n")
-                  if length binGenesis < 10*1024
-                      then putText "Printing GenesisData:\n\n" >> print genData
-                      else putText "genesis.bin is bigger than 10k, won't print it\n"
+reassignBalances :: GenesisData -> GenesisData
+reassignBalances GenesisData{..} = GenesisData
+    { gdBootstrapBalances = newBalances
+    , ..
+    }
+  where
+    newBalances = HM.fromList $ HM.toList gdBootstrapBalances
+                  & each . _2 .~ newBalance
+                  & _head . _2 .~ newBalance `unsafeAddCoin` remainder
+    totalBalance = coinToInteger $ getTotalStake gdDistribution
+    nBalances = fromIntegral $ length gdBootstrapBalances
+    newBalance = unsafeIntegerToCoin $ totalBalance `div` nBalances
+    remainder = unsafeIntegerToCoin $ totalBalance `mod` nBalances
+
+genGenesisBin
+    :: (MonadIO m, MonadFail m, WithLogger m)
+    => KeygenOptions -> m ()
+genGenesisBin KeygenOptions{..} = do
+    let genFileDir = takeDirectory koGenesisFile
+    liftIO $ createDirectoryIfMissing True genFileDir
+
+    mAvvmGenesis <- traverse getAvvmGenesis koAvvmStake
+    mTestnetGenesis <- traverse getTestnetGenesis koTestStake
+    mFakeAvvmGenesis <- traverse getFakeAvvmGenesis koFakeAvvmStake
+    whenJust mTestnetGenesis $ \tg ->
+        putText $ sformat ("testnet genesis created successfully. "
+                          %"First 30 addresses: "%listJson%" distr: "%shown)
+                      (map (sformat addressDetailedF) . take 10 $ gdAddresses tg)
+                      (gdDistribution <$> mTestnetGenesis)
+
+    let mGenData = mappend <$> mTestnetGenesis <*> mAvvmGenesis
+                   <|> mTestnetGenesis
+                   <|> mAvvmGenesis
+        genData' = fromMaybe (error "At least one of options \
+                                    \(AVVM stake or testnet stake) \
+                                    \should be provided") mGenData
+        genData = reassignBalances $ genData' <> fromMaybe mempty mFakeAvvmGenesis
+        binGenesis = encode genData
+
+    case decodeFull binGenesis of
+        Right (_ :: GenesisData) -> do
+            putText "genesis.bin generated successfully\n"
+            liftIO $ BSL.writeFile koGenesisFile binGenesis
+        Left err                 -> do
+            putText ("Generated genesis.bin can't be read: " <>
+                     toText err <> "\n")
+            if length binGenesis < 10*1024
+                then putText "Printing GenesisData:\n\n" >> print genData
+                else putText "genesis.bin is bigger than 10k, won't print it\n"
+

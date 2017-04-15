@@ -24,14 +24,15 @@ import           Universum
 
 import           Pos.Binary          ()
 import           Pos.Core.Coin       (unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Crypto          (PublicKey, RedeemSecretKey, SafeSigner, hash,
-                                      redeemSign, redeemToPublic, safeSign, safeToPublic)
+import           Pos.Crypto          (PublicKey, RedeemSecretKey, SafeSigner,
+                                      SignTag (SignTxIn), hash, redeemSign,
+                                      redeemToPublic, safeSign, safeToPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Script          (Script)
 import           Pos.Script.Examples (multisigRedeemer, multisigValidator)
 import           Pos.Txp             (Tx (..), TxAux, TxDistribution (..), TxIn (..),
                                       TxInWitness (..), TxOut (..), TxOutAux (..),
-                                      TxSigData, Utxo, filterUtxoByAddr)
+                                      TxSigData (..), Utxo, filterUtxoByAddr)
 import           Pos.Types           (Address, Coin, makePubKeyAddress, makeRedeemAddress,
                                       makeScriptAddress, mkCoin, sumCoins)
 
@@ -56,7 +57,11 @@ makeAbstractTx mkWit txInputs outputs = ( UnsafeTx txInputs txOutputs txAttribut
     txDist = TxDistribution (map toaDistr outputs)
     txDistHash = hash txDist
     txWitness = V.fromList $ toList $ map (mkWit . makeTxSigData) txInputs
-    makeTxSigData TxIn{..} = (txInHash, txInIndex, txOutHash, txDistHash)
+    makeTxSigData txIn =
+        TxSigData { txSigInput     = txIn
+                  , txSigOutsHash  = txOutHash
+                  , txSigDistrHash = txDistHash
+                  }
 
 -- | Makes a transaction which use P2PKH addresses as a source
 makePubKeyTx :: SafeSigner -> TxInputs -> TxOutputs -> TxAux
@@ -64,7 +69,7 @@ makePubKeyTx ss = makeAbstractTx mkWit
   where pk = safeToPublic ss
         mkWit sigData = PkWitness
             { twKey = pk
-            , twSig = safeSign ss sigData
+            , twSig = safeSign SignTxIn ss sigData
             }
 
 makeMOfNTx :: Script -> [Maybe SafeSigner] -> TxInputs -> TxOutputs -> TxAux

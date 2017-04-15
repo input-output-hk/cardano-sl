@@ -70,8 +70,9 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
         recHeaderVar <- ncRecoveryHeader <$> getNodeContext
         inRecovery <- needRecovery (Proxy @ssc)
         unless inRecovery $
-            whenJustM (atomically $ tryTakeTMVar recHeaderVar) $
-                const (triggerRecovery sendActions)
+            whenJustM (atomically $ tryTakeTMVar recHeaderVar) $ const $ do
+                logDebug "Triggering recovery from main loop"
+                triggerRecovery sendActions
         logDebug "Waiting on the queue"
         loopCont <- atomically $ do
             qV <- tryReadTBQueue queue

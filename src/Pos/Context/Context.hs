@@ -6,7 +6,6 @@ module Pos.Context.Context
        ( NodeContext (..)
        , ncPublicKey
        , ncPubKeyAddress
-       , ncGenesisLeaders
        , ncGenesisUtxo
        , ncSystemStart
        , NodeParams(..)
@@ -22,7 +21,6 @@ import           Universum
 import           Pos.Communication.Relay (RelayInvQueue)
 import           Pos.Communication.Types (NodeId)
 import           Pos.Crypto              (PublicKey, toPublic)
-import           Pos.Genesis             (genesisLeaders)
 import           Pos.Launcher.Param      (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context         (LrcContext)
 import           Pos.Ssc.Class.Types     (Ssc (SscNodeContext))
@@ -93,6 +91,8 @@ data NodeContext ssc = NodeContext
     -- (status in Daedalus). It's easy to falsify this value.
     , ncTxpGlobalSettings   :: !TxpGlobalSettings
     -- ^ Settings for global Txp.
+    , ncGenesisLeaders      :: !SlotLeaders
+    -- ^ Leaders of the first epoch
     }
 
 instance ExtractContext UpdateContext (NodeContext ssc) where
@@ -118,9 +118,6 @@ ncPubKeyAddress = makePubKeyAddress . ncPublicKey
 
 ncGenesisUtxo :: NodeContext ssc -> Utxo
 ncGenesisUtxo = npCustomUtxo . ncNodeParams
-
-ncGenesisLeaders :: NodeContext ssc -> SlotLeaders
-ncGenesisLeaders = genesisLeaders . ncGenesisUtxo
 
 ncSystemStart :: NodeContext __ -> Timestamp
 ncSystemStart = npSystemStart . ncNodeParams

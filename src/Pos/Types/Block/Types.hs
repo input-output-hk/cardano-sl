@@ -30,6 +30,9 @@ module Pos.Types.Block.Types
        , mehSoftwareVersion
        , mehAttributes
        , mebAttributes
+
+       , gehAttributes
+       , gebAttributes
        ) where
 
 import           Control.Lens        (makeLenses)
@@ -49,7 +52,6 @@ import           Pos.Core.Types      (BlockVersion, ChainDifficulty, HeaderHash,
 import           Pos.Crypto          (Signature)
 import           Pos.Data.Attributes (Attributes)
 import           Pos.Ssc.Class.Types (Ssc (..))
---import           Pos.Update.Version    ()
 
 ----------------------------------------------------------------------------
 -- MainBlock
@@ -204,3 +206,6 @@ type Block ssc = Either (GenesisBlock ssc) (MainBlock ssc)
 
 makeLenses ''MainExtraHeaderData
 makeLenses ''MainExtraBodyData
+
+makeLenses ''GenesisExtraHeaderData
+makeLenses ''GenesisExtraBodyData

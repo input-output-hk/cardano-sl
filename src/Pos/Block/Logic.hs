@@ -419,9 +419,6 @@ verifyBlocksPrefix blocks = runExceptT $ do
                 throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
     (adoptedBV, adoptedBVD) <- UDB.getAdoptedBVFull
-    verResToMonadError formatAllErrors $
-        Pure.verifyBlocks curSlot adoptedBVD (Just leaders) blocks
-    _ <- withExceptT pretty $ sscVerifyBlocks blocks
     -- We verify that data in blocks is known if protocol version used
     -- by this software is greater than or equal to adopted
     -- version. That's because:
@@ -449,6 +446,10 @@ verifyBlocksPrefix blocks = runExceptT $ do
     let adoptedMajMin = toMajMin adoptedBV
     let dataMustBeKnown = lastKnownMajMin > adoptedMajMin
                        || lastKnownBlockVersion == adoptedBV
+    verResToMonadError formatAllErrors $
+        Pure.verifyBlocks curSlot dataMustBeKnown adoptedBVD
+        (Just leaders) blocks
+    _ <- withExceptT pretty $ sscVerifyBlocks blocks
     TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
     txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $
         map toTxpBlock blocks

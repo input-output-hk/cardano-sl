@@ -46,10 +46,11 @@ import           Pos.Core                   (ChainDifficulty, EpochIndex, EpochO
                                              SlotLeaders, addressHash, prevBlockL)
 import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
                                              GenericBlockHeader (..), gbBody, gbBodyProof,
-                                             gbHeader)
+                                             gbExtra, gbHeader)
 import           Pos.Crypto                 (Hash, SecretKey, SignTag (..), checkSig,
                                              proxySign, proxyVerify, pskIssuerPk,
                                              pskOmega, sign, toPublic, unsafeHash)
+import           Pos.Data.Attributes        (Attributes (attrRemain))
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Types.Block.Instances  (Body (..), ConsensusData (..), blockLeaders,
@@ -64,7 +65,8 @@ import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
                                              GenesisExtraHeaderData (..), MainBlock,
                                              MainBlockHeader, MainBlockchain,
                                              MainExtraBodyData (..), MainExtraHeaderData,
-                                             MainToSign (..))
+                                             MainToSign (..), gebAttributes,
+                                             mebAttributes)
 import           Pos.Update.Core            (BlockVersionData (..))
 import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
 
@@ -416,16 +418,18 @@ verifyGenericBlock blk =
 -- Note: to check that block references previous block and/or is referenced
 -- by next block, use header verification (via vbpVerifyHeader).
 data VerifyBlockParams ssc = VerifyBlockParams
-    { vbpVerifyHeader   :: !(Maybe (VerifyHeaderParams ssc))
+    { vbpVerifyHeader    :: !(Maybe (VerifyHeaderParams ssc))
       -- ^ Verifies header accordingly to params ('verifyHeader')
-    , vbpVerifyGeneric  :: !Bool
+    , vbpVerifyGeneric   :: !Bool
       -- ^ Checks 'verifyGenesisBlock' property.
-    , vbpVerifySsc      :: !Bool
+    , vbpVerifySsc       :: !Bool
       -- ^ Verifies ssc payload with 'sscVerifyPayload'.
-    , vbpVerifyProxySKs :: !Bool
+    , vbpVerifyProxySKs  :: !Bool
       -- ^ Check that's number of sks is limited (1000 for now).
-    , vbpMaxSize        :: !(Maybe Byte)
+    , vbpMaxSize         :: !(Maybe Byte)
     -- ^ Maximal block size.
+    , vbpVerifyNoUnknown :: !Bool
+    -- ^ Check that block has no unknown attributes.
     }
 
 -- TODO: get rid of this module
@@ -438,6 +442,7 @@ instance Default (VerifyBlockParams ssc) where
         , vbpVerifySsc = False
         , vbpVerifyProxySKs = False
         , vbpMaxSize =  Nothing
+        , vbpVerifyNoUnknown = False
         }
 
 -- CHECK: @verifyBlock
@@ -454,6 +459,7 @@ verifyBlock VerifyBlockParams {..} blk =
         , verifySsc
         , verifyProxySKs
         , maybeEmpty checkSize vbpMaxSize
+        , bool mempty (verifyNoUnknown blk) vbpVerifyNoUnknown
         ]
   where
     toVerRes (Right _) = VerSuccess
@@ -495,6 +501,18 @@ verifyBlock VerifyBlockParams {..} blk =
        sformat ("block's size exceeds limit ("%memory%" > "%memory%")")
        (Bi.biSize blk) maxSize)
       ]
+    verifyNoUnknown (Left genBlk) =
+        let attrs = genBlk ^. gbExtra . gebAttributes
+        in verifyGeneric
+               [ ( null (attrRemain attrs)
+                 , sformat ("genesis block has unknown attributes: "%build) attrs)
+               ]
+    verifyNoUnknown (Right mainBlk) =
+        let attrs = mainBlk ^. gbExtra . mebAttributes
+        in verifyGeneric
+               [ ( null (attrRemain attrs)
+                 , sformat ("main block has unknown attributes: "%build) attrs)
+               ]
 
 -- CHECK: @verifyBlocks
 -- Verifies a sequence of blocks.
@@ -513,11 +531,12 @@ verifyBlocks
        , NontrivialContainer t
        )
     => Maybe SlotId
+    -> Bool
     -> BlockVersionData
     -> Maybe SlotLeaders
     -> OldestFirst f (Block ssc)
     -> VerificationRes
-verifyBlocks curSlotId bvd initLeaders = view _3 . foldl' step start
+verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
   where
     start :: (Maybe SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)
     start = (initLeaders, Nothing, mempty)
@@ -546,5 +565,6 @@ verifyBlocks curSlotId bvd initLeaders = view _3 . foldl' step start
                 , vbpVerifySsc = True
                 , vbpVerifyProxySKs = True
                 , vbpMaxSize = Just (bvdMaxBlockSize bvd)
+                , vbpVerifyNoUnknown = verifyNoUnknown
                 }
         in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)

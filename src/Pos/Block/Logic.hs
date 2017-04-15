@@ -51,6 +51,10 @@ import qualified Pos.Binary.Class           as Bi
 import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                              toUpdateBlock, withBlkSemaphore,
                                              withBlkSemaphore_)
+import           Pos.Block.Pure             (VerifyHeaderParams (..), genesisHash,
+                                             mkGenesisBlock, mkMainBlock, verifyHeader,
+                                             verifyHeaders)
+import qualified Pos.Block.Pure             as Pure
 import           Pos.Block.Types            (Blund, Undo (..))
 import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,
                                              epochSlots, lastKnownBlockVersion,
@@ -85,14 +89,11 @@ import           Pos.Types                  (Block, BlockHeader, EpochOrSlot (..
                                              MainBlock, MainExtraBodyData (..),
                                              MainExtraHeaderData (..), ProxySKEither,
                                              ProxySKHeavy, SlotId (..), SlotLeaders,
-                                             VerifyHeaderParams (..), blockHeader,
-                                             blockLeaders, difficultyL, epochIndexL,
-                                             epochOrSlot, flattenSlotId, gbBody, gbHeader,
-                                             genesisHash, getEpochOrSlot, headerHash,
+                                             blockHeader, blockLeaders, difficultyL,
+                                             epochIndexL, epochOrSlot, flattenSlotId,
+                                             gbBody, gbHeader, getEpochOrSlot, headerHash,
                                              headerHashG, headerSlot, mbTxPayload,
-                                             mkGenesisBlock, mkMainBlock, prevBlockL,
-                                             verifyHeader, verifyHeaders,
-                                             vhpVerifyConsensus)
+                                             prevBlockL)
 import qualified Pos.Types                  as Types
 import           Pos.Update.Core            (UpdatePayload (..))
 import qualified Pos.Update.DB              as UDB
@@ -419,7 +420,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         _ -> pass
     (adoptedBV, adoptedBVD) <- UDB.getAdoptedBVFull
     verResToMonadError formatAllErrors $
-        Types.verifyBlocks curSlot adoptedBVD (Just leaders) blocks
+        Pure.verifyBlocks curSlot adoptedBVD (Just leaders) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
     -- We verify that data in blocks is known if protocol version used
     -- by this software is greater than or equal to adopted

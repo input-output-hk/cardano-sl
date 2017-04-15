@@ -1,9 +1,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
--- | Functions related to blocks and headers.
+-- | Pure functions related to blocks and headers.
 
-module Pos.Types.Block.Functions
+module Pos.Block.Pure
        ( blockDifficultyIncrement
        , headerDifficultyIncrement
        , mkGenericBlock

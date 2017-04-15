@@ -34,6 +34,7 @@ import           Formatting              (build, int, sformat, (%))
 import           System.Wlog             (WithLogger, logDebug, logNotice)
 import           Universum
 
+import           Pos.Binary.Update       ()
 import           Pos.Constants           (epochSlots)
 import           Pos.Core                (BlockVersion (..), Coin, EpochIndex, HeaderHash,
                                           IsMainHeader (..), ScriptVersion, SlotId,

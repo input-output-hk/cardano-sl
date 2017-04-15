@@ -17,9 +17,9 @@ import qualified Data.List                 as List (find)
 import           System.Wlog               (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Crypto                (hash)
-
+import           Pos.Binary.Update         ()
 import           Pos.Core.Types            (SoftwareVersion (..))
+import           Pos.Crypto                (hash)
 import           Pos.Update.Poll.Class     (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types     (PrevValue, USUndo (..), cpsSoftwareVersion,
                                             maybeToPrev, psProposal, unChangedBVL,

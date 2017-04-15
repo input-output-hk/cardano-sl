@@ -18,6 +18,7 @@ import           Universum
 import           Pos.Binary.Ssc             ()
 import           Pos.Block.Network          (needRecovery, requestTipOuts,
                                              triggerRecovery)
+import           Pos.Block.Pure             (genesisHash)
 import           Pos.Communication.Protocol (OutSpecs, SendActions, WorkerSpec,
                                              localWorker, worker)
 import           Pos.Constants              (blkSecurityParam, mdNoBlocksSlotThreshold,
@@ -41,8 +42,7 @@ import           Pos.Ssc.NistBeacon         (SscNistBeacon)
 import           Pos.Types                  (Block, BlockHeader, EpochIndex, MainBlock,
                                              SlotId (..), addressHash, blockMpc,
                                              blockSlot, flattenEpochOrSlot, flattenSlotId,
-                                             genesisHash, headerHash, headerLeaderKey,
-                                             prevBlockL)
+                                             headerHash, headerLeaderKey, prevBlockL)
 import           Pos.Util                   (mconcatPair)
 import           Pos.Util.Chrono            (NewestFirst (..))
 import           Pos.WorkMode               (WorkMode)

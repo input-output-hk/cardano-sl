@@ -20,6 +20,7 @@ import           Universum
 
 import           Pos.Binary.Class     (Bi, Raw, biSize)
 import           Pos.Block.Network    as T
+import qualified Pos.Block.Pure       as T
 import           Pos.Constants        (epochSlots)
 import           Pos.Crypto           (ProxySecretKey, PublicKey, SecretKey,
                                        createProxySecretKey, toPublic)

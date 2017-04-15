@@ -10,6 +10,7 @@ import           Universum
 import           Pos.Binary.Class                 (Bi (..), getWord8, label, putWord8)
 import           Pos.Binary.Crypto                ()
 import           Pos.Binary.Ssc                   ()
+import           Pos.Binary.Update                ()
 import           Pos.Communication.Types.Relay    (DataMsg (..), InvMsg (..),
                                                    MempoolMsg (..), ReqMsg (..))
 import           Pos.Crypto                       (hash)

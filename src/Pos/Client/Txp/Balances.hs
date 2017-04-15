@@ -2,6 +2,7 @@
 
 module Pos.Client.Txp.Balances
        ( MonadBalances(..)
+       , getBalanceFromUtxo
        ) where
 
 import           Universum
@@ -14,13 +15,14 @@ import           Pos.Communication.PeerState (PeerStateHolder)
 import qualified Pos.Context                 as PC
 import           Pos.DB                      (MonadDB)
 import qualified Pos.DB.GState               as GS
+import qualified Pos.DB.GState.Balances      as GS
 import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Slotting                (NtpSlotting, SlottingHolder)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp                     (TxOutAux (..), TxpHolder (..), Utxo,
                                               addrBelongsTo, getUtxoModifier, txOutValue)
-import           Pos.Types                   (Address, Coin, sumCoins,
+import           Pos.Types                   (Address (..), Coin, mkCoin, sumCoins,
                                               unsafeIntegerToCoin)
 import qualified Pos.Util.Modifier           as MM
 
@@ -28,13 +30,19 @@ import qualified Pos.Util.Modifier           as MM
 class Monad m => MonadBalances m where
     getOwnUtxo :: Address -> m Utxo
     getBalance :: Address -> m Coin
-    getBalance addr = unsafeIntegerToCoin . sumCoins .
-                      map (txOutValue . toaOut) . toList <$> getOwnUtxo addr
     -- TODO: add a function to get amount of stake (it's different from
     -- balance because of distributions)
 
     default getOwnUtxo :: (MonadTrans t, MonadBalances m', t m' ~ m) => Address -> m Utxo
     getOwnUtxo = lift . getOwnUtxo
+
+    default getBalance :: (MonadTrans t, MonadBalances m', t m' ~ m) => Address -> m Coin
+    getBalance = lift . getBalance
+
+getBalanceFromUtxo :: MonadBalances m => Address -> m Coin
+getBalanceFromUtxo addr =
+    unsafeIntegerToCoin . sumCoins .
+    map (txOutValue . toaOut) . toList <$> getOwnUtxo addr
 
 instance MonadBalances m => MonadBalances (ReaderT r m)
 instance MonadBalances m => MonadBalances (StateT s m)
@@ -55,3 +63,7 @@ instance (MonadDB m, MonadMask m) => MonadBalances (TxpHolder __ m) where
             toAdd = HM.filter (`addrBelongsTo` addr) $ MM.insertionsMap updates
             utxo' = foldr M.delete utxo toDel
         return $ HM.foldrWithKey M.insert utxo' toAdd
+
+    getBalance PubKeyAddress{..} =
+        fromMaybe (mkCoin 0) <$> GS.getRealStake addrKeyHash
+    getBalance addr = getBalanceFromUtxo addr

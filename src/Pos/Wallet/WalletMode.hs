@@ -25,7 +25,7 @@ import           Mockable                    (Production)
 import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
 
-import           Pos.Client.Txp.Balances     (MonadBalances (..))
+import           Pos.Client.Txp.Balances     (MonadBalances (..), getBalanceFromUtxo)
 import           Pos.Client.Txp.History      (MonadTxHistory (..), deriveAddrHistory)
 import           Pos.Communication           (TxMode)
 import           Pos.Communication.PeerState (PeerStateHolder, WithPeerState)
@@ -62,6 +62,7 @@ deriving instance MonadBalances m => MonadBalances (WalletWebDB m)
 
 instance MonadIO m => MonadBalances (WalletDB m) where
     getOwnUtxo addr = filterUtxoByAddr addr <$> WS.getUtxo
+    getBalance = getBalanceFromUtxo
 
 deriving instance MonadTxHistory m => MonadTxHistory (WalletWebDB m)
 

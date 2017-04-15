@@ -85,6 +85,8 @@ warn = Data.Map.toDescList (Data.Map.fromList x) ==> Universum.sortOn (Down . fs
 
 warn = forM_ ==> for_
 
+warn = map fst &&& map snd ==> unzip
+
 
 ----------------------------------------------------------------------------
 -- Universum

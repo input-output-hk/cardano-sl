@@ -26,7 +26,6 @@ module Pos.Communication.Protocol
        , convertSendActions
        ) where
 
-import           Control.Arrow                    ((&&&))
 import qualified Data.HashMap.Strict              as HM
 import           Formatting                       (build, sformat, shown, stext, (%))
 import           Mockable                         (Delay, Fork, Mockable, SharedAtomic,
@@ -177,10 +176,7 @@ unpackLSpecs =
   where
     lsToPair (ListenerSpec h spec) = (h, spec)
     convert :: Monoid out => ([(l, i)], out) -> ([l], [i], out)
-    convert = uncurry (uncurry (,,))
-                . first squashPL
-    squashPL :: [(a, b)] -> ([a], [b])
-    squashPL = map fst &&& map snd
+    convert (xs, out) = (map fst xs, map snd xs, out)
 
 
 type WorkerConstr m =

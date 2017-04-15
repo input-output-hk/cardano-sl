@@ -52,6 +52,7 @@ module Pos.Binary.Class
        , fromBinaryM
 
        -- * Serialization with length
+       , WithLength (..)
        , putWithLength
        , getWithLength
        , getWithLengthLimited
@@ -802,6 +803,12 @@ fromBinaryM = either fail return . fromBinary
 ----------------------------------------------------------------------------
 -- Serialization with length
 ----------------------------------------------------------------------------
+
+newtype WithLength a = WithLength { unWithLength ::  a }
+
+instance Bi a => Bi (WithLength a) where
+    put (WithLength x) = putWithLength $ put x
+    get = WithLength <$> getWithLength get
 
 -- | Serialize something together with its length in bytes. The length comes
 -- first.

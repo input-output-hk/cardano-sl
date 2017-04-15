@@ -9,7 +9,7 @@ module Pos.DB.Block.Block
        , getBlockWithUndo
 
        , deleteBlock
-       , putBlock
+       , putBlund
 
        , prepareBlockDB
 
@@ -25,22 +25,23 @@ module Pos.DB.Block.Block
 import           Control.Lens              (_Wrapped)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.ByteArray            (convert)
-import qualified Data.ByteString           as BS (hGet)
+import qualified Data.ByteString           as BS
 import qualified Data.ByteString.Lazy      as BSL
 import           Data.Default              (Default (def))
 import           Formatting                (build, formatToString, int, sformat, (%))
 import           System.Directory          (removeFile)
 import           System.FilePath           ((</>))
 import           System.IO                 (IOMode (ReadMode), SeekMode (AbsoluteSeek),
-                                            hSeek, withFile)
+                                            hFileSize, hSeek, withFile)
 import           System.IO.Error           (isDoesNotExistError)
 import           Universum
 
 import           Pos.Binary.Block          ()
-import           Pos.Binary.Class          (Bi, decodeFull, encodeStrict)
+import           Pos.Binary.Class          (Bi, FixedSizeInt (..), WithLength (..),
+                                            decodeFull, encodeStrict)
 import           Pos.Binary.DB             ()
 import           Pos.Block.Types           (Blund, Undo (..))
-import           Pos.Crypto                (hashHexF, shortHashF)
+import           Pos.Crypto                (shortHashF)
 import           Pos.DB.Block.Aux          (BlundAux (..))
 import           Pos.DB.Class              (MonadDB, getBlockIndexDB, getNodeDBs)
 import           Pos.DB.Error              (DBError (DBMalformed))
@@ -61,7 +62,7 @@ getBlock
     => HeaderHash -> m (Maybe (Block ssc))
 getBlock hh = getBi (blockAuxKey hh) >>= \case
     Nothing -> pure Nothing
-    Just BlundAux{..} -> blockDataPath blundFileNum >>= fmap Just . getData blockOffset blockLen
+    Just BlundAux{..} -> blundDataPath blundFileNum >>= fmap Just . getData blockOffset blockLen
 
 -- | Returns header of block that was requested from Block DB.
 getBlockHeader
@@ -73,7 +74,7 @@ getBlockHeader = getBi . blockIndexKey
 getUndo :: (MonadDB m) => HeaderHash -> m (Maybe Undo)
 getUndo hh = getBi (blockAuxKey hh) >>= \case
     Nothing -> pure Nothing
-    Just BlundAux{..} -> undoDataPath blundFileNum >>= fmap Just . getData undoOffset undoLen
+    Just BlundAux{..} -> blundDataPath blundFileNum >>= fmap Just . getData undoOffset undoLen
 
 -- | Retrieves block and undo together.
 getBlockWithUndo
@@ -83,14 +84,20 @@ getBlockWithUndo x =
     runMaybeT $ (,) <$> MaybeT (getBlock x) <*> MaybeT (getUndo x)
 
 -- | Put given block, its metadata and Undo data into Block DB.
-putBlock
+putBlund
     :: (SscHelpersClass ssc, MonadDB m)
-    => Undo -> Block ssc -> m ()
-putBlock undo blk = undefined
-    -- let h = headerHash blk
-    -- flip putData blk =<< blockDataPath h
-    -- flip putData undo =<< undoDataPath h
-    -- putBi (blockIndexKey h) (T.getBlockHeader blk)
+    => Block ssc -> Undo -> m ()
+putBlund blk undo = getBi lastBlundFileKey >>= \case
+    Nothing -> throwM $ DBMalformed "No last block file in RocksDB"
+    Just (FixedSizeInt (lastFile::Int)) -> do
+        let h = headerHash blk
+        let blundFileNum = fromIntegral lastFile
+        bDataPath <- blundDataPath blundFileNum
+        (blockOffset, blockLen) <- putData blk bDataPath
+        (undoOffset, undoLen) <- putData undo bDataPath
+        let blockAux = BlundAux{..}
+        putBi (blockAuxKey h) blockAux
+        putBi (blockIndexKey h) (T.getBlockHeader blk)
 
 deleteBlock :: (MonadDB m) => HeaderHash -> m ()
 deleteBlock hh = undefined
@@ -206,7 +213,9 @@ prepareBlockDB
     :: forall ssc m.
        (SscHelpersClass ssc, MonadDB m)
     => GenesisBlock ssc -> m ()
-prepareBlockDB = putBlock def . Left
+prepareBlockDB g = do
+    putBi lastBlundFileKey (FixedSizeInt (0::Int))
+    putBlund (Left g) def
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -217,6 +226,9 @@ blockIndexKey h = "b" <> convert h
 
 blockAuxKey :: HeaderHash -> ByteString
 blockAuxKey h = "a" <> convert h
+
+lastBlundFileKey :: ByteString
+lastBlundFileKey = "last_blund_file"
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -242,12 +254,26 @@ getData :: (MonadIO m, MonadCatch m, Bi v)
         -> m v
 getData offset len fp = liftIO $ withFile fp ReadMode $ \h -> do
     hSeek h AbsoluteSeek (fromIntegral offset)
-    BS.hGet h (fromIntegral len) >>= either throwDB pure . decodeFull . BSL.fromStrict
+    bs <- BS.hGet h (fromIntegral len)
+    either throwDB (pure . unWithLength) . decodeFull . BSL.fromStrict $ bs
   where
-    throwDB er = throwM $ DBMalformed $ sformat ("Couldn't deserialize "%build%", reason: "%build) fp er
+    throwDB er = throwM $ DBMalformed $
+      sformat ("Couldn't deserialize "%build%
+               ", offset: "%build%
+               ", len: "%build%
+               ", reason: "%build) fp offset len er
 
-putData ::  (MonadIO m, Bi v) => FilePath -> v -> m ()
-putData fp = undefined --liftIO . BS.writeFile fp . encodeStrict
+-- Serialize data with length to be able read data sequentially without rocksdb index
+putData ::  (MonadIO m, Bi v)
+        => v
+        -> FilePath
+        -> m (Word32, Word32) -- Return (offset, len)
+putData val fp = liftIO $ withFile fp AppendMode $ \h -> do
+    offset <- hFileSize h
+    let bs = encodeStrict $ WithLength val
+    let bsLen = BS.length bs
+    BS.hPut h bs
+    pure (fromIntegral offset, fromIntegral bsLen)
 
 deleteData :: (MonadIO m, MonadCatch m) => FilePath -> m ()
 deleteData fp = (liftIO $ removeFile fp) `catch` handle
@@ -256,12 +282,8 @@ deleteData fp = (liftIO $ removeFile fp) `catch` handle
         | isDoesNotExistError e = pure ()
         | otherwise = throwM e
 
-blockDataPath :: MonadDB m => Word32 -> m FilePath
-blockDataPath (formatToString (int%".blocks") -> fn) =
-    getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> fn
-
-undoDataPath :: MonadDB m => Word32 -> m FilePath
-undoDataPath (formatToString (int%".undos") -> fn) =
+blundDataPath :: MonadDB m => Word32 -> m FilePath
+blundDataPath (formatToString (int%".blunds") -> fn) =
     getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> fn
 
 ----------------------------------------------------------------------------

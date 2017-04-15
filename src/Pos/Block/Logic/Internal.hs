@@ -137,7 +137,7 @@ applyBlocksUnsafeDo blunds pModifier = do
     forwardLinksBatch = SomeBatchOp $ map (uncurry GS.AddForwardLink) forwardLinks
     inMainBatch = SomeBatchOp . getOldestFirst $
         fmap (GS.SetInMainChain True . view headerHashG . fst) blunds
-    putToDB (blk, undo) = DB.putBlock undo blk
+    putToDB (blk, undo) = DB.putBlund blk undo
 
 -- | Rollback sequence of blocks, head-newest order exepected with
 -- head being current tip. It's also assumed that lock on block db is

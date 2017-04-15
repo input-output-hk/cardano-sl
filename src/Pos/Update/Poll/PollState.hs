@@ -42,10 +42,11 @@ import           Pos.Update.Poll              (BlockVersionState,
                                                ConfirmedProposalState,
                                                DecidedProposalState, ProposalState,
                                                UndecidedProposalState)
+import           Pos.Util.Modifier            (MapModifier)
 
 data PollState = PollState
     { -- | All proposed block versions with their states
-      _psBlockVersions      :: !(HashMap BlockVersion BlockVersionState)
+      _psBlockVersions      :: !(MapModifier BlockVersion BlockVersionState)
       -- | Presently adopted block version with its data
     , _psAdoptedBV          :: !(BlockVersion, BlockVersionData)
       -- | Software version of this node
@@ -53,11 +54,11 @@ data PollState = PollState
       -- | All stakeholders who made proposals in the current epoch
     , _psEpochProposers     :: !(HashSet StakeholderId)
       -- | All applications in use and their latest (confirmed) versions
-    , _psConfirmedBVs       :: !(HashMap ApplicationName NumSoftwareVersion)
+    , _psConfirmedBVs       :: !(MapModifier ApplicationName NumSoftwareVersion)
       -- | All proposed software versions and their state
-    , _psConfirmedProposals :: !(HashMap SoftwareVersion ConfirmedProposalState)
+    , _psConfirmedProposals :: !(MapModifier SoftwareVersion ConfirmedProposalState)
       -- | All update proposals and their states
-    , _psActiveProposals    :: !(HashMap UpId ProposalState)
+    , _psActiveProposals    :: !(MapModifier UpId ProposalState)
       -- | Update proposals for each application
     , _psDelActivePropsIdx  :: !(HashMap ApplicationName (HashSet UpId))
       -- | Slotting data for this node

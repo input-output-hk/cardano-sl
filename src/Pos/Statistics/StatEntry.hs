@@ -13,7 +13,6 @@ module Pos.Statistics.StatEntry
 
 import           Data.Binary         (Binary)
 import           Data.Hashable       (Hashable)
-import           Data.SafeCopy       (base, deriveSafeCopySimple)
 import           Data.Text.Buildable (Buildable (..))
 import           Universum
 
@@ -66,6 +65,3 @@ instance Monoid ValueStat where
 -- | Instances for acid and network
 
 instance Binary ValueStat
-
-deriveSafeCopySimple 0 'base ''CountStat
-deriveSafeCopySimple 0 'base ''ValueStat

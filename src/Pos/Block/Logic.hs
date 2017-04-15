@@ -58,6 +58,7 @@ import           Pos.Constants              (blkSecurityParam, curSoftwareVersio
 import           Pos.Context                (NodeContext (ncNodeParams, ncTxpGlobalSettings),
                                              getNodeContext, lrcActionOnEpochReason,
                                              npSecretKey)
+import           Pos.Core                   (BlockVersion (..), EpochIndex, HeaderHash)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash), hash,
                                              shortHashF)
 import           Pos.Data.Attributes        (mkAttributes)
@@ -79,10 +80,9 @@ import           Pos.Txp.Core               (TxAux, TxId, TxPayload, mkTxPayload
                                              topsortTxs)
 import           Pos.Txp.MemState           (getLocalTxsNUndo)
 import           Pos.Txp.Settings           (TxpBlock, TxpGlobalSettings (..))
-import           Pos.Types                  (Block, BlockHeader, EpochIndex,
-                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
-                                             IsGenesisHeader, IsMainHeader, MainBlock,
-                                             MainExtraBodyData (..),
+import           Pos.Types                  (Block, BlockHeader, EpochOrSlot (..),
+                                             GenesisBlock, IsGenesisHeader, IsMainHeader,
+                                             MainBlock, MainExtraBodyData (..),
                                              MainExtraHeaderData (..), ProxySKEither,
                                              ProxySKHeavy, SlotId (..), SlotLeaders,
                                              VerifyHeaderParams (..), blockHeader,
@@ -417,12 +417,40 @@ verifyBlocksPrefix blocks = runExceptT $ do
             when (block ^. blockLeaders /= leaders) $
                 throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
-    (bv, bvd) <- UDB.getAdoptedBVFull
+    (adoptedBV, adoptedBVD) <- UDB.getAdoptedBVFull
     verResToMonadError formatAllErrors $
-        Types.verifyBlocks curSlot bvd (Just leaders) (Just bv) blocks
+        Types.verifyBlocks curSlot adoptedBVD (Just leaders) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
+    -- We verify that data in blocks is known if protocol version used
+    -- by this software is greater than or equal to adopted
+    -- version. That's because:
+    -- 1. Authors of this software are aware of adopted version.
+    -- 2. Each issued block must be formed with respect to adopted version.
+    --
+    -- Comparison is quite tricky here. Table below demonstrates it.
+    --
+    --   Our | Adopted | Check?
+    -- ————————————————————————
+    -- 1.2.3 |  1.2.3  | Yes
+    -- 1.2.3 |  1.2.4  | No
+    -- 1.2.3 |  1.2.2  | No
+    -- 1.2.3 |  1.3.2  | No
+    -- 1.2.3 |  1.1.1  | Yes
+    -- 2.2.8 |  1.9.9  | Yes
+    --
+    -- If `(major, minor)` of our version is greater than of adopted
+    -- one, then check is certainly done. If it's equal, then check is
+    -- done only if `alt` component is the same as adopted one. In
+    -- other cases (i. e. when our `(major, minor)` is less than from
+    -- adopted version) check is not done.
+    let toMajMin BlockVersion {..} = (bvMajor, bvMinor)
+    let lastKnownMajMin = toMajMin lastKnownBlockVersion
+    let adoptedMajMin = toMajMin adoptedBV
+    let dataMustBeKnown = lastKnownMajMin > adoptedMajMin
+                       || lastKnownBlockVersion == adoptedBV
     TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
-    txUndo <- withExceptT pretty $ tgsVerifyBlocks $ map toTxpBlock blocks
+    txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $
+        map toTxpBlock blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $
         usVerifyBlocks (map toUpdateBlock blocks)

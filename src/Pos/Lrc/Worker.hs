@@ -168,7 +168,7 @@ issuersComputationDo epochId = do
   where
     unionHSs = foldl' (flip HS.union) mempty
     putIsStake :: IssuersStakes -> StakeholderId -> m IssuersStakes
-    putIsStake hm id = GS.getFtsStake id >>= \case
+    putIsStake hm id = GS.getEffectiveStake id >>= \case
         Nothing ->
            hm <$ (logWarning $ sformat ("Stake for issuer "%build% " not found") id)
         Just stake -> pure $ HM.insert id stake hm
@@ -176,7 +176,7 @@ issuersComputationDo epochId = do
 leadersComputationDo :: WorkMode ssc m => EpochIndex -> SharedSeed -> m ()
 leadersComputationDo epochId seed =
     unlessM (isJust <$> getLeaders epochId) $ do
-        totalStake <- GS.getTotalFtsStake
+        totalStake <- GS.getEffectiveTotalStake
         leaders <- GS.runBalanceIterator $ followTheSatoshiM seed totalStake
         putLeaders epochId leaders
 
@@ -185,7 +185,7 @@ richmenComputationDo
        WorkMode ssc m
     => EpochIndex -> [LrcConsumer m] -> m ()
 richmenComputationDo epochIdx consumers = unless (null consumers) $ do
-    total <- GS.getTotalFtsStake
+    total <- GS.getEffectiveTotalStake
     consumersAndThds <-
         zip consumers <$> mapM (flip lcThreshold total) consumers
     let minThreshold :: Maybe Coin

@@ -15,13 +15,10 @@ module Pos.Crypto.RedeemSigning
        , redeemCheckSig
        ) where
 
-import qualified Crypto.Sign.Ed25519  as Ed25519
 import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Coerce          (coerce)
 import           Data.Hashable        (Hashable)
-import           Data.SafeCopy        (SafeCopy (..), base, contain, deriveSafeCopySimple,
-                                       safeGet, safePut)
 import qualified Data.Text.Buildable  as B
 import           Formatting           (Format, bprint, fitLeft, later, (%), (%.))
 import           Serokell.Util.Base64 (formatBase64)
@@ -30,6 +27,7 @@ import           Universum
 import           Pos.Binary.Class     (Bi, Raw)
 import qualified Pos.Binary.Class     as Bi
 import           Pos.Crypto.Random    (secureRandomBS)
+import qualified Crypto.Sign.Ed25519  as Ed25519
 
 
 ----------------------------------------------------------------------------
@@ -44,10 +42,6 @@ instance NFData Ed25519.PublicKey
 instance NFData Ed25519.SecretKey
 instance NFData Ed25519.Signature
 
-deriveSafeCopySimple 0 'base ''Ed25519.PublicKey
-deriveSafeCopySimple 0 'base ''Ed25519.SecretKey
-deriveSafeCopySimple 0 'base ''Ed25519.Signature
-
 ----------------------------------------------------------------------------
 -- PK/SK and formatters
 ----------------------------------------------------------------------------
@@ -59,9 +53,6 @@ newtype RedeemPublicKey = RedeemPublicKey Ed25519.PublicKey
 -- | Wrapper around 'Ed25519.SecretKey'.
 newtype RedeemSecretKey = RedeemSecretKey Ed25519.SecretKey
     deriving (Eq, Ord, Show, Generic, NFData, Hashable)
-
-deriveSafeCopySimple 0 'base ''RedeemPublicKey
-deriveSafeCopySimple 0 'base ''RedeemSecretKey
 
 redeemPkB64F :: Format r (RedeemPublicKey -> r)
 redeemPkB64F =
@@ -116,10 +107,6 @@ redeemPkBuild bs
 -- | Wrapper around 'Ed25519.Signature'.
 newtype RedeemSignature a = RedeemSignature Ed25519.Signature
     deriving (Eq, Ord, Show, Generic, NFData, Hashable, Typeable)
-
-instance SafeCopy (RedeemSignature a) where
-    putCopy (RedeemSignature sig) = contain $ safePut sig
-    getCopy = contain $ RedeemSignature <$> safeGet
 
 instance B.Buildable (RedeemSignature a) where
     build _ = "<redeem signature>"

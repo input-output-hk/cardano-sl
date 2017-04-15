@@ -2,6 +2,7 @@
 
 module Main where
 
+import           Control.Lens         (each, _head)
 import           Data.Aeson           (eitherDecode)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict  as HM
@@ -16,9 +17,10 @@ import           System.Wlog          (WithLogger, usingLoggerName)
 import           Universum
 
 import           Pos.Binary           (decodeFull, encode)
-import           Pos.Core             (mkCoin)
+import           Pos.Core             (coinToInteger, mkCoin, unsafeAddCoin,
+                                       unsafeIntegerToCoin)
 import           Pos.Genesis          (GenesisData (..), StakeDistribution (..),
-                                       genesisDevSecretKeys)
+                                       genesisDevSecretKeys, getTotalStake)
 import           Pos.Types            (addressDetailedF, addressHash, makePubKeyAddress,
                                        makeRedeemAddress)
 
@@ -121,6 +123,20 @@ dumpKeys pat = do
     for_ (zip [1..] genesisDevSecretKeys) $ \(i :: Int, k) ->
         generateKeyfile False (Just k) $ applyPattern pat i
 
+reassignBalances :: GenesisData -> GenesisData
+reassignBalances GenesisData{..} = GenesisData
+    { gdBootstrapBalances = newBalances
+    , ..
+    }
+  where
+    newBalances = HM.fromList $ HM.toList gdBootstrapBalances
+                  & each . _2 .~ newBalance
+                  & _head . _2 .~ newBalance `unsafeAddCoin` remainder
+    totalBalance = coinToInteger $ getTotalStake gdDistribution
+    nBalances = fromIntegral $ length gdBootstrapBalances
+    newBalance = unsafeIntegerToCoin $ totalBalance `div` nBalances
+    remainder = unsafeIntegerToCoin $ totalBalance `mod` nBalances
+
 genGenesisBin
     :: (MonadIO m, MonadFail m, WithLogger m)
     => KeygenOptions -> m ()
@@ -143,7 +159,7 @@ genGenesisBin KeygenOptions{..} = do
         genData' = fromMaybe (error "At least one of options \
                                     \(AVVM stake or testnet stake) \
                                     \should be provided") mGenData
-        genData = genData' <> fromMaybe mempty mFakeAvvmGenesis
+        genData = reassignBalances $ genData' <> fromMaybe mempty mFakeAvvmGenesis
         binGenesis = encode genData
 
     case decodeFull binGenesis of

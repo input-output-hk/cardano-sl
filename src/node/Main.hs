@@ -4,7 +4,10 @@ module Main where
 
 import           Data.List             ((!!))
 import           Data.Maybe            (fromJust)
-import           Mockable              (Production)
+import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Data.Time.Units       (toMicroseconds)
+import           Formatting            (sformat, shown, (%))
+import           Mockable              (Production, currentTime)
 import           Node                  (hoistSendActions)
 import           Serokell.Util         (sec)
 import           System.Wlog           (LoggerName, WithLogger, logInfo)
@@ -13,15 +16,15 @@ import           Universum
 import           Pos.Binary            ()
 import qualified Pos.CLI               as CLI
 import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec, worker)
-import           Pos.Constants         (isDevelopment, staticSysStart)
-import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, noPassEncrypt,
-                                        vssKeyGen)
+import           Pos.Constants         (isDevelopment)
+import           Pos.Core.Types        (Timestamp (..))
+import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.Genesis           (genesisDevSecretKeys, genesisStakeDistribution,
                                         genesisUtxo)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
                                         NodeParams (..), RealModeResources,
                                         bracketResources, runNodeProduction, runNodeStats,
-                                        runTimeLordReal, runTimeSlaveReal, stakesDistr)
+                                        stakesDistr)
 import           Pos.Shutdown          (triggerShutdown)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing,
@@ -29,13 +32,12 @@ import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing,
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import           Pos.Ssc.SscAlgo       (SscAlgo (..))
 import           Pos.Statistics        (getNoStatsT, getStatsMap, runStatsT')
-import           Pos.Types             (Timestamp (Timestamp))
 import           Pos.Update.Context    (ucUpdateSemaphore)
 import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util              (inAssertMode, mappendPair)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
-import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usKeys, usPrimKey,
-                                        usVss, writeUserSecret)
+import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usPrimKey, usVss,
+                                        writeUserSecret)
 import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
 #ifdef WITH_WEB
 import           Pos.Web               (serveWebBase, serveWebGT)
@@ -47,23 +49,6 @@ import           Pos.Wallet.Web        (walletServeWebFull, walletServerOuts)
 import           Pos.Util.Context      (askContext)
 
 import           NodeOptions           (Args (..), getNodeOptions)
-
-getSystemStart
-    :: SscConstraint ssc
-    => Proxy ssc -> RealModeResources -> Args -> Production Timestamp
-getSystemStart sscProxy inst args
-    | noSystemStart args > 0 = pure $ Timestamp $ sec $ noSystemStart args
-    | otherwise =
-        case staticSysStart of
-            Nothing ->
-                if timeLord args
-                    then runTimeLordReal (loggingParams "time-lord" args)
-                    else do params <- liftIO $ baseParams "time-slave" args
-                            runTimeSlaveReal
-                                sscProxy
-                                inst
-                                params
-            Just systemStart -> return systemStart
 
 loggingParams :: LoggerName -> Args -> LoggingParams
 loggingParams tag Args{..} =
@@ -89,11 +74,32 @@ baseParams loggingTag args@Args {..} = do
         , bpKademliaDump = kademliaDumpPath
         }
 
+getNodeSystemStart :: (MonadIO m) => Timestamp -> m Timestamp
+getNodeSystemStart cliOrConfigSystemStart
+  | cliOrConfigSystemStart >= 1400000000 =
+    -- UNIX time 1400000000 is Tue, 13 May 2014 16:53:20 GMT.
+    -- It was chosen arbitrarily as some date far enough in the past.
+    -- See CSL-983 for more information.
+    pure cliOrConfigSystemStart
+  | otherwise = do
+    let frameLength = timestampToSeconds cliOrConfigSystemStart
+    currentPOSIXTime <- liftIO $ round <$> getPOSIXTime
+    -- The whole timeline is split into frames, with the first frame starting
+    -- at UNIX epoch start. We're looking for a time `t` which would be in the
+    -- middle of the same frame as the current UNIX time.
+    let currentFrame = currentPOSIXTime `div` frameLength
+        t = currentFrame * frameLength + (frameLength `div` 2)
+    pure $ Timestamp $ sec $ fromIntegral t
+  where
+    timestampToSeconds :: Timestamp -> Integer
+    timestampToSeconds = (`div` 1000000) . toMicroseconds . getTimestamp
+
 action :: Args -> RealModeResources -> Production ()
 action args@Args {..} res = do
-    systemStart <- case CLI.sscAlgo commonArgs of
-                       GodTossingAlgo -> getSystemStart (Proxy :: Proxy SscGodTossing) res args
-                       NistBeaconAlgo -> getSystemStart (Proxy :: Proxy SscNistBeacon) res args
+    systemStart <- getNodeSystemStart $ CLI.sysStart commonArgs
+    logInfo $ sformat ("System start time is " % shown) systemStart
+    t <- currentTime
+    logInfo $ sformat ("Current time is " % shown) (Timestamp t)
     currentParams <- getNodeParams args systemStart
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         gtParams = gtSscParams args vssSK
@@ -137,9 +143,7 @@ userSecretWithGenesisKey Args{..} userSecret
           Nothing -> fetchPrimaryKey userSecret
           Just i -> do
               let sk = genesisDevSecretKeys !! i
-                  us = userSecret
-                       & usPrimKey .~ Just sk
-                       & usKeys %~ (noPassEncrypt sk :)
+                  us = userSecret & usPrimKey .~ Just sk
               writeUserSecret us
               return (sk, us)
     | otherwise = fetchPrimaryKey userSecret

@@ -17,10 +17,8 @@ module Pos.Core.Constants
 
 import           Data.Aeson             (FromJSON (..), genericParseJSON)
 import           Data.Tagged            (Tagged (..))
-import           Data.Time.Clock.POSIX  (getPOSIXTime)
 import           Serokell.Aeson.Options (defaultOptions)
 import           Serokell.Util          (sec)
-import           System.IO.Unsafe       (unsafePerformIO)
 import           Universum
 
 import           Pos.Core.Timestamp     (Timestamp (..))
@@ -81,22 +79,12 @@ isDevelopment = False
 #endif
 
 -- | System start time embedded into binary.
-staticSysStart :: Maybe Timestamp
+staticSysStart :: Timestamp
 staticSysStart
-    | isDevelopment = Nothing
-    | st > 0        = Just $ Timestamp $ sec st
-    -- If several local nodes are started within 20 sec,
-    -- they'll have same start time
-    | otherwise     = Just $ Timestamp $ sec $
-          (after3Mins `div` divider + alignment) * divider
-  where
-    st = ccProductionNetworkStartTime coreConstants
-    pause = 30
-    divider = 20
-    after3Mins :: Int
-    after3Mins = pause + unsafePerformIO (round <$> getPOSIXTime)
-    minuteMod = after3Mins `mod` divider
-    alignment = if minuteMod > (divider `div` 2) then 1 else 0
+    | isDevelopment = error "System start time should be passed \
+                              \as a command line argument in dev mode."
+    | otherwise     =
+          Timestamp $ sec $ ccProductionNetworkStartTime coreConstants
 
 -- | Protocol magic constant. Is put to block serialized version to
 -- distinguish testnet and realnet (for example, possible usages are

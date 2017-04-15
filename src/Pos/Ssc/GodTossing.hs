@@ -24,7 +24,6 @@ module Pos.Ssc.GodTossing
        ) where
 
 import           Pos.Binary.Ssc                   ()
-import           Pos.SafeCopy.GodTossing          ()
 import           Pos.Ssc.GodTossing.Arbitrary
 import           Pos.Ssc.GodTossing.Core
 import           Pos.Ssc.GodTossing.Error

@@ -16,7 +16,7 @@ import           Universum
 
 import           Pos.Crypto.Signing  (pskDelegatePk)
 import           Pos.DB.Class        (MonadDB)
-import           Pos.DB.GState       (getFtsStake, isIssuerByAddressHash,
+import           Pos.DB.GState       (getEffectiveStake, isIssuerByAddressHash,
                                       runPskMapIterator)
 import           Pos.Lrc.Core        (findDelegationStakes, findRichmenStake)
 import           Pos.Lrc.Types       (FullRichmenData, RichmenStake)
@@ -34,7 +34,7 @@ findDelRichUsingPrecomp
 findDelRichUsingPrecomp precomputed t = do
     delIssMap <- computeDelIssMap
     (old, new) <- runListHolderT @(StakeholderId, [StakeholderId])
-                      (findDelegationStakes isIssuerByAddressHash getFtsStake t)
+                      (findDelegationStakes isIssuerByAddressHash getEffectiveStake t)
                       (HM.toList delIssMap)
     -- attention: order of new and precomputed is important
     -- we want to use new balances (computed from delegated) of precomputed richmen

@@ -20,21 +20,16 @@ import           Data.ByteArray       (ByteArrayAccess, convert)
 import qualified Data.ByteString.Lazy as BL (toStrict)
 import           Data.Coerce          (coerce)
 import qualified Data.Foldable        as Foldable
-import           Data.SafeCopy        (SafeCopy (..))
 import           Prelude              (Show (..))
 import           Universum            hiding (show)
 
-import           Pos.Binary.Class     (Bi, Raw, encode, getCopyBi, putCopyBi)
+import           Pos.Binary.Class     (Bi, Raw, encode)
 import           Pos.Crypto           (Hash, hashRaw)
 
 -- | Data type for root of merkle tree.
 newtype MerkleRoot a = MerkleRoot
     { getMerkleRoot :: Hash Raw  -- ^ returns root 'Hash' of Merkle Tree
     } deriving (Show, Eq, Ord, Generic, ByteArrayAccess, Typeable, NFData)
-
-instance Bi (MerkleRoot a) => SafeCopy (MerkleRoot a) where
-    getCopy = getCopyBi "MerkleRoot"
-    putCopy = putCopyBi
 
 -- | Straightforward merkle tree representation in Haskell.
 data MerkleTree a = MerkleEmpty | MerkleTree Word32 (MerkleNode a)
@@ -70,14 +65,6 @@ instance Foldable MerkleNode where
         MerkleLeaf{mVal}            -> f mVal
         MerkleBranch{mLeft, mRight} ->
             foldMap f mLeft `mappend` foldMap f mRight
-
-instance Bi (MerkleNode a) => SafeCopy (MerkleNode a) where
-    getCopy = getCopyBi "MerkleNode"
-    putCopy = putCopyBi
-
-instance Bi (MerkleTree a) => SafeCopy (MerkleTree a) where
-    getCopy = getCopyBi "MerkleTree"
-    putCopy = putCopyBi
 
 mkLeaf :: Bi a => a -> MerkleNode a
 mkLeaf a =

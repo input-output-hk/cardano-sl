@@ -9,6 +9,7 @@ cabal-dev
 *.prof
 *.aux
 *.hp
+*.tix
 .virtualenv
 .hsenv
 .hpc
@@ -60,3 +61,4 @@ db-abc/
 kademlia-abc.dump
 b
 lint
+.idea

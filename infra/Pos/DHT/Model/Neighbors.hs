@@ -8,15 +8,13 @@ module Pos.DHT.Model.Neighbors
 
 
 import           Formatting                 (int, sformat, shown, (%))
-import           Mockable                   (MonadMockable, forConcurrently, handleAll,
-                                             throw)
+import           Mockable                   (MonadMockable, forConcurrently, handleAll)
 import           System.Wlog                (WithLogger, logDebug, logWarning)
 import           Universum                  hiding (catchAll)
 
 import           Pos.Binary.Class           (Bi)
 import           Pos.Communication.Protocol (ConversationActions, Message, NodeId (..),
                                              PeerId (..), SendActions (..))
-import           Pos.Core.Constants         (isDevelopment)
 import           Pos.DHT.Constants          (neighborsSendThreshold)
 import           Pos.DHT.Model.Class        (MonadDHT (..))
 import           Pos.DHT.Model.Types        (DHTNode (..), getMeaningPart)
@@ -53,12 +51,9 @@ getNodesWithCheck = do
 sendToNode
     :: (MonadMockable m, Bi body, Message body)
     => SendActions m -> DHTNode -> body -> m ()
-sendToNode sendActions node msg =
-    handleAll handleE $ trySend 0
-      where
-        handleE e | isDevelopment = trySend 1
-                  | otherwise     = throw e
-        trySend i = sendTo sendActions (toNodeId i node) msg
+sendToNode sendActions node msg = trySend 0
+ where
+   trySend i = sendTo sendActions (toNodeId i node) msg
 
 converseToNode
     :: (MonadMockable m, Bi rcv, Bi snd, Message snd, Message rcv)
@@ -66,15 +61,11 @@ converseToNode
     -> DHTNode
     -> (NodeId -> ConversationActions snd rcv m -> m t)
     -> m t
-converseToNode sendActions node handler =
-    handleAll handleE $ tryConnect 0
+converseToNode sendActions node handler = tryConnect 0
   where
-    handleE e | isDevelopment = tryConnect 1
-              | otherwise     = throw e
     tryConnect i =
         let nodeId = toNodeId i node
         in withConnectionTo sendActions nodeId $ \_peerData -> handler nodeId
-
 
 toNodeId :: Word32 -> DHTNode -> NodeId
 toNodeId i DHTNode {..} = NodeId $ (peerId, addressToNodeId' i dhtAddr)

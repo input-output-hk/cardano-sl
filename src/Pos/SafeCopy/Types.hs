@@ -12,7 +12,7 @@ import           Data.SafeCopy         (SafeCopy (..), base, contain,
 import qualified Data.Serialize        as Cereal (getWord8, putWord8)
 import           Universum
 
-import           Pos.Crypto.HD         (HDAddressPayload (..))
+import           Pos.Crypto            (EncryptedSecretKey, HDAddressPayload (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
 
 -- FIXME
@@ -53,6 +53,8 @@ deriveSafeCopySimple 0 'base ''BlockVersionData
 deriveSafeCopySimple 0 'base ''UpdateProposal
 deriveSafeCopySimple 0 'base ''UpdateVote
 deriveSafeCopySimple 0 'base ''UpdatePayload
+
+deriveSafeCopySimple 0 'base ''EncryptedSecretKey
 
 -- Manually written instances can't be derived because
 -- 'deriveSafeCopySimple' is not clever enough to add

@@ -85,19 +85,14 @@ instance RocksBatchOp UtxoOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareGStateUtxo
-    :: forall m.
-       MonadDB m
-    => Utxo -> m ()
+prepareGStateUtxo :: MonadDB m => Utxo -> m ()
 prepareGStateUtxo genesisUtxo =
-    putIfEmpty isUtxoInitialized putGenesisUtxo
-  where
-    putIfEmpty :: m Bool -> m () -> m ()
-    putIfEmpty exists putter = whenM (not <$> exists) $ putter
-    putGenesisUtxo = do
+    unlessM isUtxoInitialized $ do
+        -- put genesis utxo
         let utxoList = M.toList genesisUtxo
         writeBatchGState $ concatMap createBatchOp utxoList
         gsPutBi initializationFlagKey True
+  where
     createBatchOp (txin, txout) =
         [AddTxOut txin txout]
 

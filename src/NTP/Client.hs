@@ -26,14 +26,14 @@ import           Data.Binary                 (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy        as LBS
 import           Data.Default                (Default (..))
 import           Data.List                   (sortOn)
-import           Data.Maybe                  (isNothing)
+import           Data.Maybe                  (isJust, isNothing)
 import           Data.Monoid                 ((<>))
 import           Data.Text                   (Text)
 import           Data.Time.Units             (Microsecond, Second, toMicroseconds)
 import           Data.Typeable               (Typeable)
 import           Formatting                  (sformat, shown, (%))
 import           Network.Socket              (AddrInfoFlag (AI_PASSIVE), SockAddr (..),
-                                              Socket, SocketOption (IPv6Only, ReuseAddr),
+                                              Socket, SocketOption (ReuseAddr),
                                               SocketType (Datagram), aNY_PORT,
                                               addrAddress, addrFamily, addrFlags,
                                               addrSocketType, bind, close, defaultHints,
@@ -50,7 +50,7 @@ import           Mockable.Concurrent         (Delay, Fork, delay, fork)
 import           Mockable.Exception          (Catch, Throw, catchAll, handleAll, throw)
 import           NTP.Packet                  (NtpPacket (..), evalClockOffset,
                                               mkCliNtpPacket, ntpPacketSize)
-import           NTP.Util                    (preferIPv6, resolveNtpHost)
+import           NTP.Util                    (resolveNtpHost, selectIPv4, selectIPv6)
 
 data NtpClientSettings m = NtpClientSettings
     { ntpServers         :: [String]
@@ -76,18 +76,20 @@ hoistNtpClientSettings f settings =
     settings { ntpHandler = f . ntpHandler settings }
 
 data NtpClient m = NtpClient
-    { ncSocket   :: TVar Socket
+    { ncSocket   :: TVar (Maybe Socket, Maybe Socket)
     , ncState    :: TVar (Maybe [(Microsecond, Microsecond)])
     , ncClosed   :: TVar Bool
     , ncSettings :: NtpClientSettings m
     }
 
-mkNtpClient :: MonadIO m => NtpClientSettings m -> Socket -> m (NtpClient m)
-mkNtpClient ncSettings sock = liftIO $ do
-    ncSocket <- newTVarIO sock
-    ncState  <- newTVarIO Nothing
-    ncClosed <- newTVarIO False
-    return NtpClient{..}
+mkNtpClient :: MonadIO m => NtpClientSettings m -> (Maybe Socket, Maybe Socket) -> m (NtpClient m)
+mkNtpClient ncSettings sockMB = liftIO $ case sockMB of
+    (Nothing, Nothing) -> error "Both sockets are invalid"
+    sock -> do
+        ncSocket <- newTVarIO sock
+        ncState  <- newTVarIO Nothing
+        ncClosed <- newTVarIO False
+        return NtpClient{..}
 
 instance Monad m => Default (NtpClientSettings m) where
     def = NtpClientSettings
@@ -151,8 +153,11 @@ doSend :: NtpMonad m => SockAddr -> NtpClient m -> m ()
 doSend addr cli = do
     sock   <- liftIO $ readTVarIO (ncSocket cli)
     packet <- encode <$> mkCliNtpPacket
-    handleAll handleE . void . liftIO $ sendTo sock (LBS.toStrict packet) addr
+    handleAll handleE . void . liftIO $ sendDo addr (LBS.toStrict packet) sock
   where
+    sendDo a@(SockAddrInet _ _) bytes (Just sock, _)      = sendTo sock bytes a
+    sendDo a@(SockAddrInet6 _ _ _ _) bytes (_, Just sock) = sendTo sock bytes a
+    sendDo _ _ _                                          = error "Unexpected SockAddr"
     -- just log; socket closure is handled by receiver
     handleE =
         log cli Warning . sformat ("Failed to send to "%shown%": "%shown) addr
@@ -176,28 +181,33 @@ startSend addrs cli = do
 
         startSend addrs cli
 
-mkSocket :: NtpMonad m => NtpClientSettings m -> m Socket
-mkSocket settings = do
-    (sock, addrInfo) <- doMkSocket `catchAll` handlerE
-    log' settings Info $
+whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
+whenJust val f = maybe (pure ()) f val
+
+-- Try to create IPv4 and IPv6 socket.
+mkSockets :: NtpMonad m => NtpClientSettings m -> m (Maybe Socket, Maybe Socket)
+mkSockets settings = do
+    (sock1, sock2) <- doMkSocket `catchAll` handlerE
+    whenJust sock1 logging
+    whenJust sock2 logging
+    pure (fst <$> sock1, fst <$> sock2)
+  where
+    logging (_, addrInfo) = log' settings Info $
         sformat ("Created socket (family/addr): "%shown%"/"%shown)
                 (addrFamily addrInfo) (addrAddress addrInfo)
-    pure sock
-  where
+    createSock selecter serveraddrs = case selecter serveraddrs of
+        Nothing -> undefined
+        Just serveraddr -> do
+            sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
+            setSocketOption sock ReuseAddr 1
+            bind sock (addrAddress serveraddr)
+            pure $ Just (sock, serveraddr)
     doMkSocket = liftIO $ do
         let hints = defaultHints { addrFlags = [AI_PASSIVE], addrSocketType = Datagram }
         --                          Hints        Host         Service
         serveraddrs <- getAddrInfo (Just hints) Nothing (Just $ show aNY_PORT)
-
-        -- Couldn't be empty. Throws exception if empty.
-        -- IPv6 addresses are more preffered.
-        let serveraddr = preferIPv6 serveraddrs
-        sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
-        setSocketOption sock ReuseAddr 1
-        -- See here https://hackage.haskell.org/package/network-2.6.3.1/docs/Network-Socket.html#v:socket
-        setSocketOption sock IPv6Only 0
-        bind sock (addrAddress serveraddr)
-        pure (sock, serveraddr)
+        (,) <$> createSock selectIPv4 serveraddrs
+            <*> createSock selectIPv6 serveraddrs
     handlerE e = do
         log' settings Warning $
             sformat ("Failed to create socket, retrying in 5 sec... (reason: "%shown%")")
@@ -220,10 +230,8 @@ handleNtpPacket cli packet = do
     when late $
         log cli Warning "Response was too late"
 
-doReceive :: NtpMonad m => NtpClient m -> m ()
-doReceive cli = do
-    sock <- liftIO . readTVarIO $ ncSocket cli
-    forever $ do
+doReceive :: NtpMonad m => Socket -> NtpClient m -> m ()
+doReceive sock cli = forever $ do
         (received, _) <- liftIO $ recvFrom sock ntpPacketSize
         let eNtpPacket = decodeOrFail $ LBS.fromStrict received
         case eNtpPacket of
@@ -234,14 +242,21 @@ doReceive cli = do
 
 startReceive :: NtpMonad m => NtpClient m -> m ()
 startReceive cli = do
-    doReceive cli `catchAll` handleE
+    sockets <- liftIO . atomically . readTVar $ (ncSocket cli)
+    case sockets of
+        (Just sock1, Just sock2) -> do
+            void $ fork $ doReceive sock1 cli `catchAll` handleE
+            doReceive sock2 cli `catchAll` handleE
+        (Just sock1, _) -> doReceive sock1 cli `catchAll` handleE
+        (_, Just sock2) -> doReceive sock2 cli `catchAll` handleE
+        _ -> log cli Warning $ "Unexpected state to start"
   where
     -- got error while receiving data, recreate socket
     handleE e = do
         closed <- liftIO . readTVarIO $ ncClosed cli
         unless closed $ do
             log cli Debug $ sformat ("Socket closed, recreating (reason: "%shown%")") e
-            sock <- mkSocket $ ncSettings cli
+            sock <- mkSockets $ ncSettings cli
             closed' <- liftIO . atomically $ do
                 writeTVar (ncSocket cli) sock
                 readTVar  (ncClosed cli)
@@ -253,29 +268,30 @@ startReceive cli = do
 stopNtpClient :: NtpMonad m => NtpClient m -> m ()
 stopNtpClient cli = do
     log cli Info "Stopped"
-    sock <- liftIO . atomically $ do
+    (sock1, sock2) <- liftIO . atomically $ do
         writeTVar (ncClosed cli) True
         readTVar  (ncSocket cli)
 
     -- unblock receiving from socket in case no one replies
-    liftIO (close sock) `catchAll` \_ -> return ()
+    whenJust sock1 $ \s -> liftIO (close s) `catchAll` (\_ -> pure ())
+    whenJust sock2 $ \s -> liftIO (close s) `catchAll` (\_ -> pure ())
 
 startNtpClient :: NtpMonad m => NtpClientSettings m -> m (NtpStopButton m)
 startNtpClient settings = do
-    sock <- mkSocket settings
+    sock <- mkSockets settings
     cli <- mkNtpClient settings sock
 
     void . fork $ startReceive cli
 
-    addrs <- mapM (resolveHost cli) (ntpServers settings)
+    addrs <- mapM (resolveHost cli sock) (ntpServers settings)
     void . fork $ startSend addrs cli
 
     log cli Info "Launched"
 
     return $ NtpStopButton $ stopNtpClient cli
   where
-    resolveHost cli host = do
-        maddr <- liftIO $ resolveNtpHost host
+    resolveHost cli (s1, s2) host = do
+        maddr <- liftIO $ resolveNtpHost host (isJust s1, isJust s2)
         case maddr of
             Nothing   -> throw $ FailedToResolveHost host
             Just addr -> do

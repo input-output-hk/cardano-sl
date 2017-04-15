@@ -10,7 +10,7 @@ readonly WALLET_API_HTML=index.html
 readonly WALLET_API_ROOT=technical/wallet/api
 
 echo "**** 1. Get Swagger-specification for wallet web API ****"
-stack exec --nix -- cardano-wallet-web-api-swagger
+stack exec --nix -- cardano-swagger
 # Done, 'SWAGGER_WALLET_API_JSON_SPEC' file is already here.
 
 echo "**** 2. Convert JSON with Swagger-specification to HTML ****"

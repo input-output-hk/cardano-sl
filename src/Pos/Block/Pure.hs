@@ -43,7 +43,8 @@ import           Pos.Core                   (ChainDifficulty, EpochIndex, EpochO
                                              HasDifficulty (..), HasEpochIndex (..),
                                              HasEpochOrSlot (..), HasHeaderHash (..),
                                              HeaderHash, ProxySKEither, SlotId (..),
-                                             SlotLeaders, addressHash, prevBlockL)
+                                             SlotLeaders, addressHash, gbhExtra,
+                                             prevBlockL)
 import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
                                              GenericBlockHeader (..), gbBody, gbBodyProof,
                                              gbExtra, gbHeader)
@@ -66,7 +67,7 @@ import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
                                              MainBlockHeader, MainBlockchain,
                                              MainExtraBodyData (..), MainExtraHeaderData,
                                              MainToSign (..), gebAttributes,
-                                             mebAttributes)
+                                             gehAttributes, mebAttributes, mehAttributes)
 import           Pos.Update.Core            (BlockVersionData (..))
 import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
 
@@ -262,6 +263,8 @@ data VerifyHeaderParams ssc = VerifyHeaderParams
     , vhpCurrentSlot     :: !(Maybe SlotId)
     , vhpLeaders         :: !(Maybe SlotLeaders)
     , vhpMaxSize         :: !(Maybe Byte)
+    , vhpVerifyNoUnknown :: !Bool
+    -- ^ Check that header has no unknown attributes.
     } deriving (Show, Eq)
 
 -- | By default nothing is checked.
@@ -274,6 +277,7 @@ instance Default (VerifyHeaderParams ssc) where
         , vhpCurrentSlot = Nothing
         , vhpLeaders = Nothing
         , vhpMaxSize = Nothing
+        , vhpVerifyNoUnknown = False
         }
 
 maybeEmpty :: Monoid m => (a -> m) -> Maybe a -> m
@@ -299,6 +303,7 @@ verifyHeader VerifyHeaderParams {..} h =
             , maybeEmpty relatedToCurrentSlot vhpCurrentSlot
             , maybeEmpty relatedToLeaders vhpLeaders
             , checkSize
+            , bool mempty (verifyNoUnknown h) vhpVerifyNoUnknown
             ]
     checkHash :: HeaderHash -> HeaderHash -> (Bool, Text)
     checkHash expectedHash actualHash =
@@ -389,6 +394,17 @@ verifyHeader VerifyHeaderParams {..} h =
                      ix (fromIntegral $ siSlot $ mainHeader ^. headerSlot))
                   , "block's leader is different from expected one")
                 ]
+
+    verifyNoUnknown (Left genH) =
+        let attrs = genH ^. gbhExtra . gehAttributes
+        in  [ ( null (attrRemain attrs)
+              , sformat ("genesis header has unknown attributes: "%build) attrs)
+            ]
+    verifyNoUnknown (Right mainH) =
+        let attrs = mainH ^. gbhExtra . mehAttributes
+        in [ ( null (attrRemain attrs)
+             , sformat ("main header has unknown attributes: "%build) attrs)
+           ]
 
 -- | Verifies a set of block headers.
 verifyHeaders
@@ -557,6 +573,7 @@ verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step s
                 , vhpLeaders = newLeaders
                 , vhpCurrentSlot = curSlotId
                 , vhpMaxSize = Just (bvdMaxHeaderSize bvd)
+                , vhpVerifyNoUnknown = verifyNoUnknown
                 }
             vbp =
                 VerifyBlockParams

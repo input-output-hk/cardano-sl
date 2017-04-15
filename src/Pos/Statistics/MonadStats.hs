@@ -18,7 +18,6 @@ import qualified Control.Monad.Trans.Ether.Tagged as Ether
 import           Control.Monad.Trans.Identity     (IdentityT (..))
 import qualified Data.Binary                      as Binary
 import           Data.Coerce                      (coerce)
-import           Data.Maybe                       (fromMaybe)
 import           Focus                            (Decision (Remove), alterM)
 import           Serokell.Util                    (show')
 import qualified STMContainers.Map                as SM

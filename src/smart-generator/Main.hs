@@ -1,13 +1,12 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RankNTypes #-}
 
 module Main where
 
 import           Control.Concurrent.STM.TVar (readTVarIO)
 import           Control.Monad.Trans.Class   (MonadTrans)
-import           Data.Maybe                  (fromMaybe)
-import qualified Data.Set                  as Set (fromList)
+import qualified Data.Set                    as Set (fromList)
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
 import           Data.Time.Units             (Microsecond, convertUnit)
 import           Formatting                  (float, int, sformat, (%))
@@ -21,18 +20,17 @@ import           Test.QuickCheck             (arbitrary, generate)
 import           Universum
 
 import qualified Pos.CLI                     as CLI
-import           Pos.Communication           (ActionSpec (..), SendActions,
-                                              convertSendActions, sendTxOuts, submitTxRaw,
-                                              wrapSendActions, PeerId, NodeId)
+import           Pos.Communication           (ActionSpec (..), NodeId, PeerId,
+                                              SendActions, convertSendActions, sendTxOuts,
+                                              submitTxRaw, wrapSendActions)
 import           Pos.Constants               (genesisN, genesisSlotDuration,
                                               neighborsSendThreshold, slotSecurityParam)
 import           Pos.Crypto                  (hash)
 import           Pos.Genesis                 (genesisUtxo)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               NodeParams (..), RealModeResources (..),
-                                              bracketResources, initLrc, runNode',
-                                              runProductionMode, stakesDistr,
-                                              hoistResources)
+                                              bracketResources, hoistResources, initLrc,
+                                              runNode', runProductionMode, stakesDistr)
 import           Pos.Ssc.Class               (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing          (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon          (SscNistBeacon)
@@ -45,13 +43,13 @@ import           Pos.Worker                  (allWorkers)
 import           Pos.WorkMode                (ProductionMode, RawRealMode)
 
 import           GenOptions                  (GenOptions (..), optsInfo)
+import qualified Network.Transport.TCP       as TCP (TCPAddr (..))
 import           TxAnalysis                  (checkWorker, createTxTimestamps,
                                               registerSentTx)
 import           TxGeneration                (BambooPool, createBambooPool, curBambooTx,
                                               initTransaction, isTxVerified, nextValidTx,
                                               resetBamboo)
 import           Util
-import qualified Network.Transport.TCP       as TCP (TCPAddr (..))
 
 
 -- | Resend initTx with 'slotDuration' period until it's verified

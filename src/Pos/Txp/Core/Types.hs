@@ -51,8 +51,8 @@ import           Data.Hashable        (Hashable)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
-import           Formatting           (Format, bprint, build, formatToString, int, later,
-                                       sformat, (%))
+import           Formatting           (Format, bprint, build, builder, formatToString,
+                                       int, later, sformat, (%))
 import           Serokell.Util.Base16 (base16F)
 import           Serokell.Util.Text   (listBuilderJSON, listJson, listJsonIndent,
                                        pairBuilder)
@@ -67,7 +67,7 @@ import           Pos.Core.Types       (Address (..), Coin, Script, StakeholderId
                                        mkCoin)
 import           Pos.Crypto           (Hash, PublicKey, RedeemPublicKey, RedeemSignature,
                                        Signature, hash, shortHashF)
-import           Pos.Data.Attributes  (Attributes)
+import           Pos.Data.Attributes  (Attributes (attrRemain))
 import           Pos.Merkle           (MerkleRoot, MerkleTree, mkMerkleTree)
 
 -- | Represents transaction identifier as 'Hash' of 'Tx'.
@@ -209,8 +209,12 @@ instance Hashable Tx
 instance Buildable Tx where
     build UnsafeTx {..} =
         bprint
-            ("Transaction with inputs "%listJson%", outputs: "%listJson)
-            _txInputs _txOutputs
+            ("Transaction with inputs "%listJson%", outputs: "%listJson % builder)
+            _txInputs _txOutputs attrsBuilder
+      where
+        attrs = _txAttributes
+        attrsBuilder | null (attrRemain attrs) = mempty
+                     | otherwise = bprint (", attributes: "%build) attrs
 
 -- | Specialized formatter for 'Tx'.
 txF :: Format r (Tx -> r)

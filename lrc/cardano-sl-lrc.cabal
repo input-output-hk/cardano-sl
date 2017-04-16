@@ -18,11 +18,13 @@ library
                        Pos.Lrc.Core
                        Pos.Lrc.Consumer
                        Pos.Lrc.Class
+                       Pos.Lrc.Genesis
 
                        Pos.Lrc.Context
 
                        Pos.Lrc.DB.Common
                        Pos.Lrc.DB.Issuers
+                       Pos.Lrc.DB.Seed
                        Pos.Lrc.DB.RichmenBase
 
   build-depends:       base

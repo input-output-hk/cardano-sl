@@ -31,8 +31,8 @@ import qualified Pos.DB.GState              as GS
 import           Pos.Lrc.Consumer           (LrcConsumer (..))
 import           Pos.Lrc.Consumers          (allLrcConsumers)
 import           Pos.Lrc.Context            (LrcContext (lcLrcSync), LrcSyncData (..))
-import           Pos.Lrc.DB                 (IssuersStakes, getLeaders, putEpoch,
-                                             putIssuersStakes, putLeaders)
+import           Pos.Lrc.DB                 (IssuersStakes, getLeaders, getSeed, putEpoch,
+                                             putIssuersStakes, putLeaders, putSeed)
 import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Fts                (followTheSatoshiM)
 import           Pos.Lrc.Logic              (findAllRichmenMaybe)
@@ -139,14 +139,15 @@ lrcDo epoch consumers tip = tip <$ do
     case nonEmpty blundsList of
         Nothing -> throwM UnknownBlocksForLrc
         Just (NewestFirst -> blunds) -> do
-            mbSeed <- sscCalculateSeed epoch
-            case mbSeed of
-                Left e ->
-                    -- FIXME: don't error, use previous seed!
-                    error $ sformat ("SSC couldn't compute seed: " %build) e
-                Right seed -> do
-                    rollbackBlocksUnsafe blunds
-                    compute seed `finally` applyBack (toOldestFirst blunds)
+            seed <- sscCalculateSeed epoch >>= \case
+                Right s  -> return s
+                Left err -> do
+                    logWarning $ sformat
+                        ("SSC couldn't compute seed: " %build) err
+                    getSeed (epoch - 1)
+            putSeed epoch seed
+            rollbackBlocksUnsafe blunds
+            compute seed `finally` applyBack (toOldestFirst blunds)
   where
     applyBack blunds = applyBlocksUnsafe blunds Nothing
     upToGenesis b = b ^. epochIndexL >= epoch

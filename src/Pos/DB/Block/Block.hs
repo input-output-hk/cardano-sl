@@ -1,6 +1,10 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Interface to Blocks DB.
+-- There is block index which stores header of block by header hash.
+-- Blocks and its undos (blund) are stored in plain files,
+-- several blund per file due to avoid fragmentation.
+-- We don't store blocks in rocksdb for easy portability between databases.
 
 module Pos.DB.Block.Block
        ( getBlock
@@ -214,12 +218,15 @@ prepareBlockDB g = do
 -- Keys
 ----------------------------------------------------------------------------
 
+-- | DB key for getting block header
 blockIndexKey :: HeaderHash -> ByteString
 blockIndexKey h = "b" <> convert h
 
+-- | DB key for location of given block
 blockAuxKey :: HeaderHash -> ByteString
 blockAuxKey h = "a" <> convert h
 
+-- | Last used number for blund file
 lastBlundFileKey :: ByteString
 lastBlundFileKey = "last_blund_file"
 

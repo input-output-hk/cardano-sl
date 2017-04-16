@@ -18,7 +18,6 @@ import           Pos.Update.Poll.Types     (BlockVersionState (..),
                                             DecidedProposalState (..), DpsExtra (..),
                                             PollModifier (..), ProposalState (..),
                                             UndecidedProposalState (..), UpsExtra (..))
-import           Pos.Util.Modifier         (MapModifier (..))
 
 derive makeArbitrary ''UpsExtra
 derive makeArbitrary ''UndecidedProposalState
@@ -30,8 +29,5 @@ derive makeArbitrary ''ConfirmedProposalState
 derive makeArbitrary ''ProposalState
 
 derive makeArbitrary ''BlockVersionState
-
-deriving instance (Eq k, Hashable k, Arbitrary k, Arbitrary v) =>
-    Arbitrary (MapModifier k v)
 
 derive makeArbitrary ''PollModifier

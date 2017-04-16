@@ -14,7 +14,7 @@ import           Universum
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.Pos.Util         (formsMonoid)
-import           Test.QuickCheck   (Property)
+import           Test.QuickCheck       (Property)
 
 spec :: Spec
 spec = describe "MapModifier" $ do
@@ -91,62 +91,72 @@ insertThenLookup k v mapMod =
 
 insertDeleteThenLookup
     :: (Show k, Show v, Eq k, Eq v, Hashable k)
-    => k
+    => HashMap k v
+    -> k
     -> v
     -> Core.MapModifier k v
     -> Bool
-insertDeleteThenLookup k v mapMod =
-    let newMap@(Core.MapModifier mm) = Core.insert k v mapMod
-        (Core.MapModifier dm) = Core.delete k newMap
-    in (HM.lookup k mm == Just (Just v)) && (HM.lookup k dm == Just Nothing)
+insertDeleteThenLookup m k v mapMod =
+    let newMap = HM.insert k v m
+        newMapMod = Core.delete k mapMod
+    in isNothing $ Core.lookup (flip HM.lookup newMap) k newMapMod
 
 allKeysAreInMap
     :: (Ord k, Show k, Show v, Eq k, Eq v, Hashable k)
     => [k]
     -> Core.MapModifier k v
     -> Bool
-allKeysAreInMap ks mapMod@(Core.MapModifier mm) =
+allKeysAreInMap ks mapMod =
     let keys = Core.keys ks mapMod
-    in all (\k -> (isJust $ HM.lookup k mm) || (not $ HM.member k mm)) keys
+    in all (\k ->
+                (isJust $ Core.lookup (const Nothing) k mapMod) ||
+                (not $ Core.member k mapMod))
+       keys
 
 allValsAreInMap
     :: (Ord k, Show k, Show v, Eq k, Eq v, Hashable k)
     => [(k,v)]
     -> Core.MapModifier k v
     -> Bool
-allValsAreInMap kvs mapMod@(Core.MapModifier mm) =
+allValsAreInMap kvs mapMod =
     let vals = Core.values kvs mapMod
-    in all (\v -> (Just v `elem` HM.elems mm) || (v `elem` (fmap snd kvs))) vals
+    in all (\v -> (v `elem` Core.values [] mapMod || (v `elem` fmap snd kvs))) vals
 
 allPairsAreInAssocList
     :: (Ord k, Show k, Show v, Eq k, Eq v, Hashable k)
     => [(k, v)]
     -> Core.MapModifier k v
     -> Bool
-allPairsAreInAssocList kvs mapMod@(Core.MapModifier mm) =
+allPairsAreInAssocList kvs mapMod =
     let keysVals = Core.toList kvs mapMod
-    in all (\(k, _) -> (isJust . join . HM.lookup k) mm || not (HM.member k mm)) keysVals
+    in all (\(k, _) ->
+                (isJust . Core.lookup (const Nothing) k) mapMod ||
+                not (Core.member k mapMod))
+       keysVals
 
 mapModifierToHashMap
     :: (Ord k, Show k, Show v, Eq k, Eq v, Hashable k)
     => Core.MapModifier k v
     -> Bool
-mapModifierToHashMap mapMod@(Core.MapModifier mm) =
-    (fmap Just . Core.insertionsMap) mapMod == HM.filter isJust mm
+mapModifierToHashMap mapMod =
+    Core.insertionsMap mapMod == (Core.insertionsMap . Core.filter isJust) mapMod
 
 mapModifierToList
     :: (Ord k, Show k, Show v, Eq k, Eq v, Hashable k)
     => Core.MapModifier k v
     -> Bool
-mapModifierToList mapMod@(Core.MapModifier mm) =
-    (fmap (second Just) . Core.insertions) mapMod == (HM.toList . HM.filter isJust) mm
+mapModifierToList mapMod =
+    Core.insertions mapMod ==
+    (Core.toList [] . Core.filter isJust) mapMod
 
 mapModifierToDeletionList
     :: (Ord k, Show k, Show v, Eq k, Eq v, Hashable k)
     => Core.MapModifier k v
     -> Bool
-mapModifierToDeletionList mapMod@(Core.MapModifier mm) =
-    Core.deletions mapMod == (HM.keys . HM.filter isNothing) mm
+mapModifierToDeletionList mapMod =
+    let deletions = Core.deletions mapMod
+        keys = Core.keys [] . Core.filter isNothing $ mapMod
+    in all (not . flip elem keys) deletions && all (not . flip elem deletions) keys
 
 allPairsAreInMaybeList
     :: (Ord k, Show k, Show v1, Show v2, Eq k, Eq v1, Eq v2, Hashable k, v1 ~ v2)
@@ -154,6 +164,9 @@ allPairsAreInMaybeList
     -> [(k, v2)]
     -> Core.MapModifier k v1
     -> Bool
-allPairsAreInMaybeList f kv2s mapMod@(Core.MapModifier mm) =
+allPairsAreInMaybeList f kv2s mapMod =
     let keysVal2s = Core.mapMaybe kv2s f mapMod
-    in all (\(k, v) -> HM.lookup k mm == Just (f v) || not (HM.member k mm)) keysVal2s
+    in all (\(k, v) ->
+                Core.lookup (const Nothing) k mapMod == f v ||
+                not (Core.member k mapMod))
+       keysVal2s

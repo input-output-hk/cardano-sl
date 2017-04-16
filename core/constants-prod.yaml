@@ -10,7 +10,7 @@ genesisMaxTxSize: 4096 # 4 Kb
 maxReqSize: 100 # 100 bytes
 maxMempoolMsgSize: 100 # 100 bytes
 maxInvSize: 100 # 100 bytes
-genesisMpcThd: 0.05 # 11% of stake
+genesisMpcThd: 0.03 # 3% of stake
 genesisHeavyDelThd: 0.0003 # 0.03% of stake
 genesisUpdateVoteThd: 0.001 # 0.1% of total stake
 genesisMaxUpdateProposalSize: 700 # 700 bytes

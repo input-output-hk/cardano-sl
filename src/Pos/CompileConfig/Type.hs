@@ -58,4 +58,5 @@ data CompileConfig = CompileConfig
     , ccPropagationQueueSize          :: !Int
       -- ^ InvMsg propagation queue capacity
     , ccMaxBlundFileSize              :: !Int
+      -- ^ Max blund file size on disk (in MB).
     } deriving (Show)

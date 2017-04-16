@@ -21,7 +21,7 @@ import           Universum
 import           Pos.Binary.Class      (encodeStrict)
 import           Pos.Block.Types       (Blund)
 import           Pos.Crypto            (shortHashF)
-import           Pos.DB.Block          (getBlockWithUndo)
+import           Pos.DB.Block          (getBlund)
 import           Pos.DB.Class          (MonadDB, getUtxoDB)
 import           Pos.DB.Functions      (RocksBatchOp (..), rocksGetBi, rocksPutBi)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
@@ -94,7 +94,7 @@ loadUpWhile morph start condition =
     OldestFirst <$> loadUpWhileDo (headerHash start) 0
   where
     loadUpWhileDo :: HeaderHash -> Int -> m [b]
-    loadUpWhileDo curH height = getBlockWithUndo curH >>= \case
+    loadUpWhileDo curH height = getBlund curH >>= \case
         Nothing -> pure []
         Just x@(block,_) -> do
             mbNextLink <- fmap headerHash <$> resolveForwardLink block

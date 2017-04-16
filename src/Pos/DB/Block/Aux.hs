@@ -3,7 +3,7 @@
 -- | Block Auxiliary to store block in file.
 
 module Pos.DB.Block.Aux
-       ( BlundAux (..)
+       ( BlundLocation (..)
        ) where
 
 import           Data.Binary (Binary)
@@ -11,7 +11,7 @@ import           Universum
 
 -- | Structure describes location of block and undo with specific header hash.
 -- Block and corresponding Undo are stored in same file.
-data BlundAux = BlundAux
+data BlundLocation = BlundLocation
     { blundFileNum :: !Word32 -- ^ In which file the blund is stored.
     , blockOffset  :: !Word32 -- ^ Offset of blob of the block in a file.
     , blockLen     :: !Word32 -- ^ Length of blob of the block.

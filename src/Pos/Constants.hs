@@ -163,7 +163,7 @@ messageCacheTimeout = fromIntegral . ccMessageCacheTimeout $ compileConfig
 
 -- | Max size of blund file on disk (in bytes).
 maxBlundFileSize :: (Integral a) => a
-maxBlundFileSize = (* 1048576) . fromIntegral . ccMaxBlundFileSize $ compileConfig
+maxBlundFileSize = (* (1024 * 1024)) . fromIntegral . ccMaxBlundFileSize $ compileConfig
 
 ----------------------------------------------------------------------------
 -- Delegation

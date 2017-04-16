@@ -6,7 +6,7 @@ module Pos.DB.Block.Block
        ( getBlock
        , getBlockHeader
        , getUndo
-       , getBlockWithUndo
+       , getBlund
        , putBlund
 
        , prepareBlockDB
@@ -39,7 +39,7 @@ import           Pos.Binary.DB             ()
 import           Pos.Block.Types           (Blund, Undo (..))
 import           Pos.Constants             (maxBlundFileSize)
 import           Pos.Crypto                (shortHashF)
-import           Pos.DB.Block.Aux          (BlundAux (..))
+import           Pos.DB.Block.Aux          (BlundLocation (..))
 import           Pos.DB.Class              (MonadDB, getBlockIndexDB, getNodeDBs)
 import           Pos.DB.Error              (DBError (DBMalformed))
 import           Pos.DB.Functions          (rocksGetBi, rocksPutBi)
@@ -59,7 +59,7 @@ getBlock
     => HeaderHash -> m (Maybe (Block ssc))
 getBlock hh = getBi (blockAuxKey hh) >>= \case
     Nothing -> pure Nothing
-    Just BlundAux{..} -> blundDataPath blundFileNum >>= fmap Just . getData blockOffset blockLen
+    Just BlundLocation{..} -> blundDataPath blundFileNum >>= fmap Just . getData blockOffset blockLen
 
 -- | Returns header of block that was requested from Block DB.
 getBlockHeader
@@ -71,13 +71,13 @@ getBlockHeader = getBi . blockIndexKey
 getUndo :: (MonadDB m) => HeaderHash -> m (Maybe Undo)
 getUndo hh = getBi (blockAuxKey hh) >>= \case
     Nothing -> pure Nothing
-    Just BlundAux{..} -> blundDataPath blundFileNum >>= fmap Just . getData undoOffset undoLen
+    Just BlundLocation{..} -> blundDataPath blundFileNum >>= fmap Just . getData undoOffset undoLen
 
 -- | Retrieves block and undo together.
-getBlockWithUndo
+getBlund
     :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Maybe (Block ssc, Undo))
-getBlockWithUndo x =
+getBlund x =
     runMaybeT $ (,) <$> MaybeT (getBlock x) <*> MaybeT (getUndo x)
 
 -- | Put given block, its metadata and Undo data into Block DB.
@@ -92,7 +92,7 @@ putBlund blk undo = getBi lastBlundFileKey >>= \case
         bDataPath <- blundDataPath blundFileNum
         (blockOffset, blockLen) <- putData blk bDataPath
         (undoOffset, undoLen) <- putData undo bDataPath
-        let blockAux = BlundAux{..}
+        let blockAux = BlundLocation{..}
         putBi (blockAuxKey h) blockAux
         putBi (blockIndexKey h) (T.getBlockHeader blk)
         when (undoOffset + undoLen > maxBlundFileSize) $
@@ -109,16 +109,16 @@ loadDataWhile
     -> (a -> Bool)
     -> HeaderHash
     -> m (NewestFirst [] a)
-loadDataWhile getter predicate start = NewestFirst <$> doIt start
+loadDataWhile getter predicate start = NewestFirst <$> go start
   where
-    doIt :: HeaderHash -> m [a]
-    doIt h
+    go :: HeaderHash -> m [a]
+    go h
         | h == genesisHash = pure []
         | otherwise = do
             d <- getter h
             let prev = d ^. prevBlockL
             if predicate d
-                then (d :) <$> doIt prev
+                then (d :) <$> go prev
                 else pure []
 
 -- For depth 'd' load blocks that have depth < 'd'. Given header
@@ -257,7 +257,7 @@ getData offset len fp = liftIO $ withFile fp ReadMode $ \h -> do
                ", reason: "%build) fp offset len er
 
 -- Serialize data with length to be able read data sequentially without rocksdb index
-putData ::  (MonadIO m, Bi v)
+putData :: (MonadIO m, Bi v)
         => v
         -> FilePath
         -> m (Word32, Word32) -- Return (offset, len)

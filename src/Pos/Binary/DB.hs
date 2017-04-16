@@ -3,6 +3,6 @@
 module Pos.Binary.DB where
 
 import           Pos.Binary.Class (Bi (..))
-import           Pos.DB.Block.Aux (BlundAux (..))
+import           Pos.DB.Block.Aux (BlundLocation (..))
 
-instance Bi BlundAux
+instance Bi BlundLocation

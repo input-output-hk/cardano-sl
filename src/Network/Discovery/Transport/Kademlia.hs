@@ -72,7 +72,7 @@ kademliaDiscovery configuration initialPeer myAddress = do
         port = fromIntegral (kademliaPort configuration)
     -- A Kademlia instance to do the DHT magic.
     kademliaInst :: K.KademliaInstance (KSerialize i) (KSerialize EndPointAddress)
-        <- liftIO $ K.create "127.0.0.1" port kid
+        <- liftIO $ K.create port kid
     -- A TVar to cache the set of known peers at the last use of 'discoverPeers'
     peersTVar :: TVar.TVar (M.Map (K.Node (KSerialize i)) EndPointAddress)
         <- liftIO . TVar.newTVarIO $ M.empty

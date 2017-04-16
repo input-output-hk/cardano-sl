@@ -4,11 +4,12 @@ module Pos.Update.Poll.Pure
        ( PurePoll (..)
        ) where
 
+import           Universum                  hiding (toList)
+import qualified Universum                  (toList)
+
 import           Control.Lens               (to, (%=), (.=))
 import qualified Data.HashMap.Strict        as HM
-import qualified Data.HashSet               as HS
 import           System.Wlog                (CanLog, HasLoggerName, NamedPureLogger)
-import           Universum                  hiding (toList)
 
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
 import qualified Pos.Update.Poll.PollState  as Poll
@@ -32,13 +33,15 @@ instance MonadPollRead PurePoll where
     getProposal ui =
         PurePoll $ use $ Poll.psActiveProposals . to (lookup (const Nothing) ui)
     getProposalsByApp an = PurePoll $ do
-        let propGetByApp appHashmap upIdHashmap = fromMaybe [] $
+        delActiveProposalsIndices <- use Poll.psDelActivePropsIdx
+        activeProposals           <- use Poll.psActiveProposals
+        pure $ propGetByApp delActiveProposalsIndices activeProposals
+      where propGetByApp appHashmap upIdHashmap = fromMaybe [] $
                 do hashset <- HM.lookup an appHashmap
-                   let uidList = HS.toList hashset
+                   let uidList = Universum.toList hashset
                        propStateList =
                            fmap (flip (lookup (const Nothing)) upIdHashmap) uidList
                    sequence propStateList
-        propGetByApp <$> use Poll.psDelActivePropsIdx <*> use Poll.psActiveProposals
     getConfirmedProposals = PurePoll $ use $ Poll.psConfirmedProposals . to (values [])
     getEpochTotalStake ei = PurePoll $ use $ Poll.psStakePerEpoch . to (HM.lookup ei)
     getRichmanStake ei si =
@@ -59,15 +62,16 @@ instance MonadPoll PurePoll where
     setLastConfirmedSV sv = PurePoll $ Poll.psSoftwareVersion .= sv
     delConfirmedSV an = PurePoll $ Poll.psConfirmedBVs %= delete an
     addConfirmedProposal cps = PurePoll $ void $ do
-        let addProp sv svMap = insert sv cps svMap
         addProp <$> use Poll.psSoftwareVersion <*> use Poll.psConfirmedProposals
+      where
+        addProp sv svMap = insert sv cps svMap
     delConfirmedProposal sv = PurePoll $ Poll.psConfirmedProposals %= delete sv
     insertActiveProposal p = PurePoll $ void $ do
-        let decideProp =
-                case p of
-                    PSDecided ps -> (ps :)
-                    _ -> identity
         decideProp <$> use Poll.psDecidedProposals
+      where
+          decideProp = case p of
+              PSDecided ps -> (ps :)
+              _ -> identity
     deactivateProposal ui = PurePoll $ Poll.psActiveProposals %= delete ui
     setSlottingData sd = PurePoll $ Poll.psSlottingData .= sd
     setEpochProposers hs = PurePoll $ Poll.psEpochProposers .= hs

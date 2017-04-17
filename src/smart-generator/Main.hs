@@ -3,51 +3,48 @@
 
 module Main where
 
-import           Control.Concurrent.STM.TVar (readTVarIO)
-import           Data.Maybe                  (fromMaybe)
-import           Data.Time.Clock.POSIX       (getPOSIXTime)
-import           Data.Time.Units             (Microsecond, convertUnit)
-import           Formatting                  (float, int, sformat, (%))
-import           Mockable                    (Production, delay, forConcurrently, fork)
-import           Options.Applicative         (execParser)
-import           Serokell.Util               (ms, sec)
-import           System.FilePath             ((</>))
-import           System.Random.Shuffle       (shuffleM)
-import           System.Wlog                 (logInfo)
-import           Test.QuickCheck             (arbitrary, generate)
 import           Universum
 
-import qualified Pos.CLI                     as CLI
-import           Pos.Communication           (ActionSpec (..), SendActions,
-                                              convertSendActions, sendTxOuts, submitTxRaw,
-                                              wrapSendActions)
-import           Pos.Constants               (genesisN, genesisSlotDuration,
-                                              neighborsSendThreshold, slotSecurityParam)
-import           Pos.Crypto                  (hash)
-import           Pos.DHT.Model               (DHTNode, MonadDHT, discoverPeers,
-                                              getKnownPeers)
-import           Pos.Genesis                 (genesisUtxo)
-import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
-                                              NodeParams (..), RealModeResources,
-                                              bracketResources, initLrc, runNode',
-                                              runProductionMode, stakesDistr)
-import           Pos.Ssc.Class               (SscConstraint, SscParams)
-import           Pos.Ssc.GodTossing          (GtParams (..), SscGodTossing)
-import           Pos.Ssc.NistBeacon          (SscNistBeacon)
-import           Pos.Ssc.SscAlgo             (SscAlgo (..))
-import           Pos.Txp                     (TxAux)
-import           Pos.Update.Params           (UpdateParams (..))
-import           Pos.Util.JsonLog            ()
-import           Pos.Util.UserSecret         (simpleUserSecret)
-import           Pos.Worker                  (allWorkers)
-import           Pos.WorkMode                (ProductionMode)
+import           Data.Maybe            (fromMaybe)
+import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Data.Time.Units       (Microsecond, convertUnit)
+import           Formatting            (float, int, sformat, (%))
+import           Mockable              (Production, delay, forConcurrently, fork)
+import           Options.Applicative   (execParser)
+import           Serokell.Util         (ms, sec)
+import           System.FilePath       ((</>))
+import           System.Random.Shuffle (shuffleM)
+import           System.Wlog           (logInfo)
+import           Test.QuickCheck       (arbitrary, generate)
 
-import           GenOptions                  (GenOptions (..), optsInfo)
-import           TxAnalysis                  (checkWorker, createTxTimestamps,
-                                              registerSentTx)
-import           TxGeneration                (BambooPool, createBambooPool, curBambooTx,
-                                              initTransaction, isTxVerified, nextValidTx,
-                                              resetBamboo)
+import qualified Pos.CLI               as CLI
+import           Pos.Communication     (ActionSpec (..), SendActions, convertSendActions,
+                                        sendTxOuts, submitTxRaw, wrapSendActions)
+import           Pos.Constants         (genesisN, genesisSlotDuration,
+                                        neighborsSendThreshold, slotSecurityParam)
+import           Pos.Crypto            (hash)
+import           Pos.DHT.Model         (DHTNode, MonadDHT, discoverPeers, getKnownPeers)
+import           Pos.Genesis           (genesisUtxo)
+import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
+                                        NodeParams (..), RealModeResources,
+                                        bracketResources, initLrc, runNode',
+                                        runProductionMode, stakesDistr)
+import           Pos.Ssc.Class         (SscConstraint, SscParams)
+import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
+import           Pos.Ssc.NistBeacon    (SscNistBeacon)
+import           Pos.Ssc.SscAlgo       (SscAlgo (..))
+import           Pos.Txp               (TxAux)
+import           Pos.Update.Params     (UpdateParams (..))
+import           Pos.Util.JsonLog      ()
+import           Pos.Util.UserSecret   (simpleUserSecret)
+import           Pos.Worker            (allWorkers)
+import           Pos.WorkMode          (ProductionMode)
+
+import           GenOptions            (GenOptions (..), optsInfo)
+import           TxAnalysis            (checkWorker, createTxTimestamps, registerSentTx)
+import           TxGeneration          (BambooPool, createBambooPool, curBambooTx,
+                                        initTransaction, isTxVerified, nextValidTx,
+                                        resetBamboo)
 import           Util
 
 

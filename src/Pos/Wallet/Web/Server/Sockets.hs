@@ -18,7 +18,8 @@ module Pos.Wallet.Web.Server.Sockets
        , runWalletWS
        ) where
 
-import           Control.Concurrent.STM.TVar    (readTVarIO)
+import           Universum
+
 import           Control.Lens                   (iso)
 import           Control.Monad.Trans            (MonadTrans (..))
 import           Data.Aeson                     (encode)
@@ -31,7 +32,6 @@ import           Network.Wai.Handler.WebSockets (websocketsOr)
 import qualified Network.WebSockets             as WS
 import           Serokell.Util.Lens             (WrappedM (..))
 import           System.Wlog                    (CanLog, HasLoggerName)
-import           Universum
 
 import           Pos.Aeson.ClientTypes          ()
 import           Pos.Communication.PeerState    (WithPeerState)

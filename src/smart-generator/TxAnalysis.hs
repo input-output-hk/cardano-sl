@@ -7,17 +7,16 @@ module TxAnalysis
        , checkWorker
        ) where
 
+import           Universum             hiding (catchAll)
+
 import           Control.Lens          (_Wrapped, _last)
 import qualified Data.HashMap.Strict   as M
-import           Data.IORef            (IORef, modifyIORef', newIORef, readIORef,
-                                        writeIORef)
 import           Data.List             (intersect)
 import           Data.Maybe            (fromJust, maybeToList)
 import           Formatting            (build, sformat, (%))
 import           Mockable              (catchAll, delay)
 import           System.FilePath.Posix ((</>))
 import           System.Wlog           (logWarning)
-import           Universum             hiding (catchAll)
 
 import           Pos.Constants         (blkSecurityParam, genesisSlotDuration)
 import           Pos.Crypto            (hash)

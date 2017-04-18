@@ -2,11 +2,17 @@
 .explorer-dashboard {
 
   .api-content {
-    @neat-outer-container;
-    max-width:var(--max-width-desktop);
-
+    lost-utility: clearfix;
     &__container {
-      @neat-span-columns 6;
+      lost-column: 1/1;
+    }
+  }
+
+  @media (--md) {
+    .api-content {
+      &__container {
+        lost-column: 1/2 2;
+      }
     }
   }
 
@@ -31,11 +37,6 @@
         color: var(--color8);
         border-bottom: 1px solid var(--color8);
       }
-    }
-  }
-  @media (--sm) {
-    .api-code {
-      width:100%;
     }
   }
 
@@ -75,8 +76,7 @@
   .api-about {
     font-family: var(--fontFamily0-Regular);
     font-weight: normal;
-    padding-right: 24px;
-    padding-top: 40px;
+    padding: 0 24px;
 
     &__headline {
       color: var(--color8);
@@ -103,13 +103,10 @@
       button-background: transparent var(--color5) var(--color5);
     }
   }
-  @media (--sm) {
+
+  @media (--md) {
     .api-about {
-      width:100%;
-      padding: 18px 24px;
+      padding-top: 40px;
     }
   }
-
-
-
 }

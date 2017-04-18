@@ -16,11 +16,13 @@
     }
 
     &__row {
-      @neat-outer-container;
+
+      lost-utility: clearfix;
+
       font-size: 10px;
       font-family: var(--fontFamily0-Regular);
       color: var(--color8);
-      padding: 10px 24px;
+      padding: 10px 0 10px 24px;
 
       &:nth-child(odd) {
         background-color: var(--color6);
@@ -28,14 +30,26 @@
 
     }
 
+    @media (--md) {
+      &__row {
+        padding-right: 24px;
+      }
+    }
+
     &__column {
-      @neat-span-columns 2;
 
       &.hash {
-        @neat-span-columns 8;
+        lost-column: 1/1 1;
         button: standard-button;
         button-color: var(--color8) var(--color5) var(--color5);
+      }
 
+      &.currency {
+        @extend .hide;
+      }
+
+      &.date {
+        @extend .hide;
       }
 
       &.ada,
@@ -51,6 +65,26 @@
 
       &.usd {
         background-size: 6px 10px;
+      }
+    }
+
+    @media (--md) {
+      &__column {
+
+        &.hash {
+          lost-column: 7/12;
+        }
+
+        &.date {
+          @extend .show;
+          lost-column: 3/12;
+        }
+
+        &.currency {
+          @extend .show;
+          lost-column: 2/12;
+        }
+
       }
     }
 

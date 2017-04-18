@@ -93,8 +93,9 @@ transactionRow state (CTxEntry entry) =
         [ P.link (toUrl <<< Tx $ entry ^. cteId)
               [ P.className "transactions__column hash" ]
               [ P.text $ entry ^. (cteId <<< _CTxId <<< _CHash) ]
-        , transactionColumn dateValue ""
-        , transactionColumn (show $ entry ^. (cteAmount <<< _Coin <<< getCoin)) <<< currencyCSSClass $ Just ADA
+        , transactionColumn dateValue "date"
+        , transactionColumn (show $ entry ^. (cteAmount <<< _Coin <<< getCoin))
+              <<< currencyCSSClass $ Just ADA
         ]
 
 transactionColumn :: String -> String -> P.Html Action

@@ -35,7 +35,7 @@ dashBoardBlocksView state =
                   Success blocks ->
                       P.div
                           []
-                          [ blocksHeaderView state
+                          [ blocksHeaderView blocks lang'
                           , P.div
                               [ P.className CSS.blocksBody ]
                               $ map (blockRow state) (currentBlocks state)

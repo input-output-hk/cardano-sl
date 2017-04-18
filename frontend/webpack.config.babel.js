@@ -19,7 +19,7 @@ const isProd = nodeEnv === 'production';
 console.log("production build: ", isProd);
 
 module.exports = {
-  devtool: isProd ? '#hidden-source-map' : '#source-map',
+  devtool: isProd ? 'nosources-source-map' : 'cheap-module-eval-source-map',
   output: {
     path: path.join(__dirname, '/dist'),
     publicPath: '/',

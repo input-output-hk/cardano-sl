@@ -71,7 +71,7 @@ blocksView state =
                           in
                           P.div
                               []
-                              [ blocksHeaderView state
+                              [ blocksHeaderView blocks lang'
                               , P.div
                                   [ P.className CSS.blocksBody ]
                                   $ map (blockRow state) (currentBlocks state)
@@ -197,18 +197,16 @@ mkBlocksHeaderProps lang =
       }
     ]
 
-blocksHeaderView :: State -> P.Html Action
-blocksHeaderView state =
+blocksHeaderView :: CBlockEntries -> Language -> P.Html Action
+blocksHeaderView blocks lang =
     P.div
           [ P.className $ CSS.blocksHeader
-                <>  if null <<< unwrapLatestBlocks $ state ^. currentBlocksResult
-                    then " invisible"
-                    else ""
+                <>  if null blocks then " hide" else ""
           ]
-          $ map (blockHeaderItemView state) $ mkBlocksHeaderProps state.lang
+          <<< map blockHeaderItemView $ mkBlocksHeaderProps lang
 
-blockHeaderItemView :: State -> BlocksHeaderProps -> P.Html Action
-blockHeaderItemView state props =
+blockHeaderItemView :: BlocksHeaderProps -> P.Html Action
+blockHeaderItemView props =
     P.div
         [ P.className props.clazz ]
         [ P.text props.label ]

@@ -11,7 +11,6 @@ module Pos.Update.Poll.PollState
        -- * PollState
        , psBlockVersions
        , psAdoptedBV
-       , psSoftwareVersion
        , psEpochProposers
        , psConfirmedBVs
        , psConfirmedProposals
@@ -48,8 +47,6 @@ data PollState = PollState
       _psBlockVersions      :: !(HashMap BlockVersion BlockVersionState)
       -- | Presently adopted block version with its data
     , _psAdoptedBV          :: !(BlockVersion, BlockVersionData)
-      -- | Software version of this node
-    , _psSoftwareVersion    :: !SoftwareVersion
       -- | All stakeholders who made proposals in the current epoch
     , _psEpochProposers     :: !(HashSet StakeholderId)
       -- | All applications in use and their latest (confirmed) versions
@@ -74,7 +71,6 @@ modifyPollState :: PollModifier -> PollState -> PollState
 modifyPollState PollModifier {..} PollState {..} =
     PollState (modifyHashMap pmBVs _psBlockVersions)
               (fromMaybe _psAdoptedBV pmAdoptedBVFull)
-              _psSoftwareVersion
               (fromMaybe _psEpochProposers pmEpochProposers)
               (modifyHashMap pmConfirmed _psConfirmedBVs)
               (modifyHashMap pmConfirmedProps _psConfirmedProposals)

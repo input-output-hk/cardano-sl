@@ -22,7 +22,7 @@
       padding: 24px 18px;
     }
 
-    @media (--lg) {
+    @media (--md) {
       .nav__container {
         padding: 48px 72px;
       }
@@ -82,7 +82,7 @@
         box-item: center;
       }
 
-      @media (--lg) {
+      @media (--md) {
         .logo__cardano-name {
           width: 104px;
           height: 30px;
@@ -96,7 +96,7 @@
         box-item: center;
       }
 
-      @media (--lg) {
+      @media (--md) {
         .logo__iohk-name {
           width: 138.5px;
           height: 30px;
@@ -124,7 +124,7 @@
         box-item: center;
       }
 
-      @media (--lg) {
+      @media (--md) {
         .support {
           font-size: 12px;
         }
@@ -135,7 +135,7 @@
         box: horizontal;
       }
 
-      @media (--lg) {
+      @media (--md) {
         &__left {
           lost-column: 3/4;
         }
@@ -145,9 +145,9 @@
         @extend .hide;
       }
 
-      @media (--lg) {
+      @media (--md) {
         &__right {
-          display: flex;
+          display: flex !important; /* override .hide */
           box: horizontal right;
           lost-column: 1/4;
         }
@@ -182,7 +182,7 @@
   }
 
 
-  @media (--lg) {
+  @media (--md) {
     &__bottom {
       padding: 24px 72px;
     }

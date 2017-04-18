@@ -20,23 +20,28 @@ module Pos.Update.Poll.PollState
        , psSlottingData
        , psFullRichmenData
        , psIssuersStakes
+
+       -- * Functions
+       , modifyPollState
        ) where
+
+import           Universum
 
 import           Control.Lens                 (makeLenses)
 import           Data.HashSet                 (HashSet)
-import           Data.HashMap.Strict          (HashMap)
-import           Universum
+import qualified Data.HashMap.Strict          as HM
 
-import           Pos.Core.Types               (BlockVersionData)
+import           Pos.Core.Types               (ApplicationName, BlockVersion,
+                                               BlockVersionData, EpochIndex,
+                                               NumSoftwareVersion, SoftwareVersion,
+                                               StakeholderId)
 import           Pos.Lrc.DB.Issuers           (IssuersStakes)
 import           Pos.Lrc.Types                (FullRichmenData)
 import           Pos.Slotting.Types           (SlottingData)
-import           Pos.Types                    (ApplicationName, BlockVersion,
-                                               EpochIndex, NumSoftwareVersion,
-                                               SoftwareVersion, StakeholderId)
 import           Pos.Update.Core              (UpId)
-import           Pos.Update.Poll              (BlockVersionState, ConfirmedProposalState,
-                                               ProposalState)
+import           Pos.Update.Poll.Types        (BlockVersionState, ConfirmedProposalState,
+                                               PollModifier (..), ProposalState)
+import           Pos.Util.Modifier            (modifyHashMap)
 
 data PollState = PollState
     { -- | All competing block versions with their states
@@ -48,19 +53,33 @@ data PollState = PollState
       -- | All stakeholders who made proposals in the current epoch
     , _psEpochProposers     :: !(HashSet StakeholderId)
       -- | All applications in use and their latest (confirmed) versions
-    , _psConfirmedBVs       :: !(HashMap ApplicationName NumSoftwareVersion)
+    , _psConfirmedBVs       :: !(HM.HashMap ApplicationName NumSoftwareVersion)
       -- | All proposed software versions and their state
-    , _psConfirmedProposals :: !(HashMap SoftwareVersion ConfirmedProposalState)
+    , _psConfirmedProposals :: !(HM.HashMap SoftwareVersion ConfirmedProposalState)
       -- | All update proposals and their states
-    , _psActiveProposals    :: !(HashMap UpId ProposalState)
+    , _psActiveProposals    :: !(HM.HashMap UpId ProposalState)
       -- | Update proposals for each application
-    , _psDelActivePropsIdx  :: !(HashMap ApplicationName (HashSet UpId))
+    , _psDelActivePropsIdx  :: !(HM.HashMap ApplicationName (HashSet UpId))
       -- | Slotting data for this node
     , _psSlottingData       :: !SlottingData
       -- | Mapping between epochs and their richmen stake distribution
-    , _psFullRichmenData    :: !(HashMap EpochIndex FullRichmenData)
+    , _psFullRichmenData    :: !(HM.HashMap EpochIndex FullRichmenData)
       -- | Mapping between epochs and stake of each of the epoch's slot's block issuer
-    , _psIssuersStakes      :: !(HashMap EpochIndex IssuersStakes)
+    , _psIssuersStakes      :: !(HM.HashMap EpochIndex IssuersStakes)
     } deriving (Show, Eq)
 
 makeLenses ''PollState
+
+modifyPollState :: PollModifier -> PollState -> PollState
+modifyPollState PollModifier {..} PollState {..} =
+    PollState (modifyHashMap pmBVs _psBlockVersions)
+              (fromMaybe _psAdoptedBV pmAdoptedBVFull)
+              _psSoftwareVersion
+              (fromMaybe _psEpochProposers pmEpochProposers)
+              (modifyHashMap pmConfirmed _psConfirmedBVs)
+              (modifyHashMap pmConfirmedProps _psConfirmedProposals)
+              (modifyHashMap pmActiveProps _psActiveProposals)
+              (pmDelActivePropsIdx <> _psDelActivePropsIdx)
+              (fromMaybe _psSlottingData pmSlottingData)
+              _psFullRichmenData
+              _psIssuersStakes

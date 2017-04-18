@@ -13,7 +13,6 @@ module Pos.Update.DB
        , getAdoptedBVFull
        , getBVState
        , getProposalState
-       , getAppProposal
        , getProposalsByApp
        , getConfirmedSV
        , getMaxBlockSize
@@ -113,10 +112,6 @@ getBVState = gsGetBi . bvStateKey
 getProposalState :: MonadDB m => UpId -> m (Maybe ProposalState)
 getProposalState = gsGetBi . proposalKey
 
--- | Get UpId of current proposal for given appName
-getAppProposal :: MonadDB m => ApplicationName -> m (Maybe UpId)
-getAppProposal = gsGetBi . proposalAppKey
-
 -- | Get states of all active 'UpdateProposal's for given 'ApplicationName'.
 getProposalsByApp :: MonadDB m => ApplicationName -> m [ProposalState]
 getProposalsByApp appName = runProposalMapIterator (step []) snd
@@ -162,13 +157,10 @@ data UpdateOp
 
 instance RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
-        [ Rocks.Put (proposalKey upId) (encodeStrict ps)
-        , Rocks.Put (proposalAppKey appName) (encodeStrict upId)
-        ]
+        [ Rocks.Put (proposalKey upId) (encodeStrict ps)]
       where
         up = psProposal ps
         upId = hash up
-        appName = svAppName $ upSoftwareVersion up
     toBatchOp (DeleteProposal upId appName) =
         [Rocks.Del (proposalAppKey appName), Rocks.Del (proposalKey upId)]
     toBatchOp (ConfirmVersion sv) =

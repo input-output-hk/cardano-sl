@@ -297,3 +297,13 @@ warn "liftIO is not needed" = liftIO (die x) ==> Universum.die x
 warn "liftIO is not needed" = liftIO (stToIO x) ==> Universum.stToIO x
   where
     note = "If you import 'stToIO' from Universum, it's already lifted"
+
+
+----------------------------------------------------------------------------
+-- CSL-specific
+----------------------------------------------------------------------------
+
+warn = Data.ByteString.Lazy.toStrict (Pos.Binary.Class.encode x) ==>
+       Pos.Binary.Class.encodeStrict x
+warn = Data.ByteString.Lazy.toStrict (Pos.Binary.encode x) ==>
+       Pos.Binary.encodeStrict x

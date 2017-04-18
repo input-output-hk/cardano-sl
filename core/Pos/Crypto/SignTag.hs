@@ -5,12 +5,11 @@ module Pos.Crypto.SignTag
 
 import           Universum
 
-import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text.Buildable
-import           Formatting           (bprint, shown)
+import           Formatting          (bprint, shown)
 
-import qualified Pos.Binary.Class     as Bi
-import           Pos.Core.Constants   (protocolMagic)
+import qualified Pos.Binary.Class    as Bi
+import           Pos.Core.Constants  (protocolMagic)
 
 -- | To protect agains replay attacks (i.e. when an attacker intercepts a
 -- signed piece of data and later sends it again), we add a tag to all data
@@ -55,4 +54,4 @@ signTag = \case
     SignMainBlockHeavy -> "\x08" <> network
     SignProxySK        -> "\x09" <> network
   where
-    network = BSL.toStrict (Bi.encode protocolMagic)
+    network = Bi.encodeStrict protocolMagic

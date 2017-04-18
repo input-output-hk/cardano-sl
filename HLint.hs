@@ -151,6 +151,9 @@ suggest = or <$> mapM f s ==> Universum.anyM f s
 --     suggest = (do x <- m; when x a) ==> Universum.whenM m a
 --     suggest = (do x <- m; unless x a) ==> Universum.unlessM m a
 
+warn = whenM (not <$> x) ==> unlessM x
+warn = unlessM (not <$> x) ==> whenM x
+
 warn = (case m of Just x -> f x; Nothing -> pure ()) ==> Universum.whenJust m f
 warn = (case m of Just x -> f x; Nothing -> return ()) ==> Universum.whenJust m f
 

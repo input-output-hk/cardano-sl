@@ -154,17 +154,126 @@ suggest = or <$> mapM f s ==> Universum.anyM f s
 warn = whenM (not <$> x) ==> unlessM x
 warn = unlessM (not <$> x) ==> whenM x
 
-warn = (case m of Just x -> f x; Nothing -> pure ()) ==> Universum.whenJust m f
+-- Oh boy, we sure have many ways of spelling “pure ()”. Also I checked and
+-- HLint isn't smart enough to see reordered case branches.
+warn = (case m of Just x -> f x; Nothing -> pure ()  ) ==> Universum.whenJust m f
 warn = (case m of Just x -> f x; Nothing -> return ()) ==> Universum.whenJust m f
-
-warn = (case m of Nothing -> pure (); Just x -> f x) ==> Universum.whenJust m f
+warn = (case m of Just x -> f x; Nothing -> pass     ) ==> Universum.whenJust m f
+warn = (case m of Nothing -> pure ()  ; Just x -> f x) ==> Universum.whenJust m f
 warn = (case m of Nothing -> return (); Just x -> f x) ==> Universum.whenJust m f
+warn = (case m of Nothing -> pass     ; Just x -> f x) ==> Universum.whenJust m f
+warn = (maybe (pure ())   f m) ==> Universum.whenJust m f
+warn = (maybe (return ()) f m) ==> Universum.whenJust m f
+warn = (maybe pass        f m) ==> Universum.whenJust m f
 
-warn = (case m of Left x -> f x; Right _ -> pure ()) ==> Universum.whenLeft m f
+warn = (m >>= \case Just x -> f x; Nothing -> pure ()  ) ==> Universum.whenJustM m f
+warn = (m >>= \case Just x -> f x; Nothing -> return ()) ==> Universum.whenJustM m f
+warn = (m >>= \case Just x -> f x; Nothing -> pass     ) ==> Universum.whenJustM m f
+warn = (m >>= \case Nothing -> pure ()  ; Just x -> f x) ==> Universum.whenJustM m f
+warn = (m >>= \case Nothing -> return (); Just x -> f x) ==> Universum.whenJustM m f
+warn = (m >>= \case Nothing -> pass     ; Just x -> f x) ==> Universum.whenJustM m f
+warn = (maybe (pure ())   f =<< m) ==> Universum.whenJustM m f
+warn = (maybe (return ()) f =<< m) ==> Universum.whenJustM m f
+warn = (maybe pass        f =<< m) ==> Universum.whenJustM m f
+warn = (m >>= maybe (pure ())   f) ==> Universum.whenJustM m f
+warn = (m >>= maybe (return ()) f) ==> Universum.whenJustM m f
+warn = (m >>= maybe pass        f) ==> Universum.whenJustM m f
+
+warn = (case m of Just _ -> pure ()  ; Nothing -> x) ==> Universum.whenNothing_ m x
+warn = (case m of Just _ -> return (); Nothing -> x) ==> Universum.whenNothing_ m x
+warn = (case m of Just _ -> pass     ; Nothing -> x) ==> Universum.whenNothing_ m x
+warn = (case m of Nothing -> x; Just _ -> pure ()  ) ==> Universum.whenNothing_ m x
+warn = (case m of Nothing -> x; Just _ -> return ()) ==> Universum.whenNothing_ m x
+warn = (case m of Nothing -> x; Just _ -> pass     ) ==> Universum.whenNothing_ m x
+warn = (maybe x (\_ -> pure ()    ) m) ==> Universum.whenNothing_ m x
+warn = (maybe x (\_ -> return ()  ) m) ==> Universum.whenNothing_ m x
+warn = (maybe x (\_ -> pass       ) m) ==> Universum.whenNothing_ m x
+warn = (maybe x (const (pure ()  )) m) ==> Universum.whenNothing_ m x
+warn = (maybe x (const (return ())) m) ==> Universum.whenNothing_ m x
+warn = (maybe x (const (pass     )) m) ==> Universum.whenNothing_ m x
+
+warn = (m >>= \case Just _ -> pure ()  ; Nothing -> x) ==> Universum.whenNothingM_ m x
+warn = (m >>= \case Just _ -> return (); Nothing -> x) ==> Universum.whenNothingM_ m x
+warn = (m >>= \case Just _ -> pass     ; Nothing -> x) ==> Universum.whenNothingM_ m x
+warn = (m >>= \case Nothing -> x; Just _ -> pure ()  ) ==> Universum.whenNothingM_ m x
+warn = (m >>= \case Nothing -> x; Just _ -> return ()) ==> Universum.whenNothingM_ m x
+warn = (m >>= \case Nothing -> x; Just _ -> pass     ) ==> Universum.whenNothingM_ m x
+warn = (maybe x (\_ -> pure ()    ) =<< m) ==> Universum.whenNothingM_ m x
+warn = (maybe x (\_ -> return ()  ) =<< m) ==> Universum.whenNothingM_ m x
+warn = (maybe x (\_ -> pass       ) =<< m) ==> Universum.whenNothingM_ m x
+warn = (maybe x (const (pure ()  )) =<< m) ==> Universum.whenNothingM_ m x
+warn = (maybe x (const (return ())) =<< m) ==> Universum.whenNothingM_ m x
+warn = (maybe x (const (pass     )) =<< m) ==> Universum.whenNothingM_ m x
+warn = (m >>= maybe x (\_ -> pure ())    ) ==> Universum.whenNothingM_ m x
+warn = (m >>= maybe x (\_ -> return ())  ) ==> Universum.whenNothingM_ m x
+warn = (m >>= maybe x (\_ -> pass)       ) ==> Universum.whenNothingM_ m x
+warn = (m >>= maybe x (const (pure ())  )) ==> Universum.whenNothingM_ m x
+warn = (m >>= maybe x (const (return ()))) ==> Universum.whenNothingM_ m x
+warn = (m >>= maybe x (const (pass)     )) ==> Universum.whenNothingM_ m x
+
+warn = (case m of Left x -> f x; Right _ -> pure ()  ) ==> Universum.whenLeft m f
 warn = (case m of Left x -> f x; Right _ -> return ()) ==> Universum.whenLeft m f
+warn = (case m of Left x -> f x; Right _ -> pass     ) ==> Universum.whenLeft m f
+warn = (case m of Right _ -> pure ()  ; Left x -> f x) ==> Universum.whenLeft m f
+warn = (case m of Right _ -> return (); Left x -> f x) ==> Universum.whenLeft m f
+warn = (case m of Right _ -> pass     ; Left x -> f x) ==> Universum.whenLeft m f
+warn = (either f (\_ -> pure ()    ) m) ==> Universum.whenLeft m f
+warn = (either f (\_ -> return ()  ) m) ==> Universum.whenLeft m f
+warn = (either f (\_ -> pass       ) m) ==> Universum.whenLeft m f
+warn = (either f (const (pure ()  )) m) ==> Universum.whenLeft m f
+warn = (either f (const (return ())) m) ==> Universum.whenLeft m f
+warn = (either f (const (pass     )) m) ==> Universum.whenLeft m f
 
-warn = (case m of Left _ -> pure (); Right x -> f x) ==> Universum.whenRight m f
+warn = (m >>= \case Left x -> f x; Right _ -> pure ()  ) ==> Universum.whenLeftM m f
+warn = (m >>= \case Left x -> f x; Right _ -> return ()) ==> Universum.whenLeftM m f
+warn = (m >>= \case Left x -> f x; Right _ -> pass     ) ==> Universum.whenLeftM m f
+warn = (m >>= \case Right _ -> pure ()  ; Left x -> f x) ==> Universum.whenLeftM m f
+warn = (m >>= \case Right _ -> return (); Left x -> f x) ==> Universum.whenLeftM m f
+warn = (m >>= \case Right _ -> pass     ; Left x -> f x) ==> Universum.whenLeftM m f
+warn = (either f (\_ -> pure ()    ) =<< m) ==> Universum.whenLeftM m f
+warn = (either f (\_ -> return ()  ) =<< m) ==> Universum.whenLeftM m f
+warn = (either f (\_ -> pass       ) =<< m) ==> Universum.whenLeftM m f
+warn = (either f (const (pure ()  )) =<< m) ==> Universum.whenLeftM m f
+warn = (either f (const (return ())) =<< m) ==> Universum.whenLeftM m f
+warn = (either f (const (pass     )) =<< m) ==> Universum.whenLeftM m f
+warn = (m >>= either f (\_ -> pure ())    ) ==> Universum.whenLeftM m f
+warn = (m >>= either f (\_ -> return ())  ) ==> Universum.whenLeftM m f
+warn = (m >>= either f (\_ -> pass)       ) ==> Universum.whenLeftM m f
+warn = (m >>= either f (const (pure ())  )) ==> Universum.whenLeftM m f
+warn = (m >>= either f (const (return ()))) ==> Universum.whenLeftM m f
+warn = (m >>= either f (const (pass)     )) ==> Universum.whenLeftM m f
+
+warn = (case m of Right x -> f x; Left _ -> pure ()  ) ==> Universum.whenRight m f
+warn = (case m of Right x -> f x; Left _ -> return ()) ==> Universum.whenRight m f
+warn = (case m of Right x -> f x; Left _ -> pass     ) ==> Universum.whenRight m f
+warn = (case m of Left _ -> pure ()  ; Right x -> f x) ==> Universum.whenRight m f
 warn = (case m of Left _ -> return (); Right x -> f x) ==> Universum.whenRight m f
+warn = (case m of Left _ -> pass     ; Right x -> f x) ==> Universum.whenRight m f
+warn = (either (\_ -> pure ()    ) f m) ==> Universum.whenRight m f
+warn = (either (\_ -> return ()  ) f m) ==> Universum.whenRight m f
+warn = (either (\_ -> pass       ) f m) ==> Universum.whenRight m f
+warn = (either (const (pure ()  )) f m) ==> Universum.whenRight m f
+warn = (either (const (return ())) f m) ==> Universum.whenRight m f
+warn = (either (const (pass     )) f m) ==> Universum.whenRight m f
+
+warn = (m >>= \case Right x -> f x; Left _ -> pure ()  ) ==> Universum.whenRightM m f
+warn = (m >>= \case Right x -> f x; Left _ -> return ()) ==> Universum.whenRightM m f
+warn = (m >>= \case Right x -> f x; Left _ -> pass     ) ==> Universum.whenRightM m f
+warn = (m >>= \case Left _ -> pure ()  ; Right x -> f x) ==> Universum.whenRightM m f
+warn = (m >>= \case Left _ -> return (); Right x -> f x) ==> Universum.whenRightM m f
+warn = (m >>= \case Left _ -> pass     ; Right x -> f x) ==> Universum.whenRightM m f
+warn = (either (\_ -> pure ()    ) f =<< m) ==> Universum.whenRightM m f
+warn = (either (\_ -> return ()  ) f =<< m) ==> Universum.whenRightM m f
+warn = (either (\_ -> pass       ) f =<< m) ==> Universum.whenRightM m f
+warn = (either (const (pure ()  )) f =<< m) ==> Universum.whenRightM m f
+warn = (either (const (return ())) f =<< m) ==> Universum.whenRightM m f
+warn = (either (const (pass     )) f =<< m) ==> Universum.whenRightM m f
+warn = (m >>= either (\_ -> pure ())     f) ==> Universum.whenRightM m f
+warn = (m >>= either (\_ -> return ())   f) ==> Universum.whenRightM m f
+warn = (m >>= either (\_ -> pass)        f) ==> Universum.whenRightM m f
+warn = (m >>= either (const (pure ())  ) f) ==> Universum.whenRightM m f
+warn = (m >>= either (const (return ())) f) ==> Universum.whenRightM m f
+warn = (m >>= either (const (pass)     ) f) ==> Universum.whenRightM m f
 
 warn = mapMaybe leftToMaybe ==> lefts
 warn = mapMaybe rightToMaybe ==> rights

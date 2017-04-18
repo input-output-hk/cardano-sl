@@ -72,7 +72,7 @@ usApplyBlocks blocks modifierMaybe = withUSLogger $
             -- level.
             inAssertMode $ do
                 verdict <- runExceptT $ usVerifyBlocks False blocks
-                either onFailure (const pass) verdict
+                whenLeft verdict $ \v -> onFailure v
             return $ modifierToBatch modifier
   where
     onFailure failure = do

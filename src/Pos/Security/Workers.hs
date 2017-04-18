@@ -19,8 +19,8 @@ import           Pos.Binary.Ssc             ()
 import           Pos.Block.Network          (needRecovery, requestTipOuts,
                                              triggerRecovery)
 import           Pos.Block.Pure             (genesisHash)
-import           Pos.Communication.Protocol (OutSpecs, SendActions, WorkerSpec,
-                                             localWorker, worker, NodeId)
+import           Pos.Communication.Protocol (NodeId, OutSpecs, SendActions, WorkerSpec,
+                                             localWorker, worker)
 import           Pos.Constants              (blkSecurityParam, mdNoBlocksSlotThreshold,
                                              mdNoCommitmentsEpochThreshold)
 import           Pos.Context                (getNodeContext, getUptime, isRecoveryMode,
@@ -113,7 +113,7 @@ checkForReceivedBlocksWorkerImpl getPeers sendActions = afterDelay $ do
         let onSlotDefault slotId = do
                 header <- getTipBlockHeader @ssc
                 unlessM (checkEclipsed ourPk slotId header) onEclipsed
-        maybe (pure ()) onSlotDefault =<< getCurrentSlot
+        whenJustM getCurrentSlot onSlotDefault
   where
     sec' :: Int -> Millisecond
     sec' = convertUnit . sec

@@ -11,7 +11,7 @@ import           Data.List                 ((!!))
 import qualified Data.List.NonEmpty        as NE
 import qualified Data.Text                 as T
 import qualified Data.Text.IO              as T
-import           Data.Time.Units           (convertUnit)
+import           Data.Time.Units           (convertUnit, toMicroseconds)
 import           Data.Void                 (absurd)
 import           Formatting                (build, int, sformat, stext, (%))
 import           Mockable                  (Mockable, SharedAtomic, SharedAtomicT,
@@ -33,7 +33,8 @@ import           Pos.Binary                (Raw)
 import qualified Pos.CLI                   as CLI
 import           Pos.Communication         (OutSpecs, SendActions, Worker', WorkerSpec,
                                             sendTxOuts, submitTx, worker)
-import           Pos.Constants             (genesisBlockVersionData, isDevelopment)
+import           Pos.Constants             (genesisBlockVersionData, genesisSlotDuration,
+                                            isDevelopment)
 import           Pos.Core.Types            (Timestamp (..))
 import           Pos.Crypto                (Hash, SecretKey, SignTag (SignUSVote),
                                             emptyPassphrase, encToPublic, fakeSigner,
@@ -99,6 +100,7 @@ runCmd sendActions (Send idx outputs) = do
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
 runCmd sendActions (SendToAllGenesis amount delay_ tpsSentFile) = do
     (skeys, na) <- ask
+    let slotDuration = fromIntegral (toMicroseconds genesisSlotDuration) `div` 1000000 :: Int
     tpsMVar <- newSharedAtomic $ TxCount 0 0
     h <- liftIO $ openFile tpsSentFile WriteMode -- TODO: I'd like to bracket here, but I don't think WalletMode includes MonadBaseControl IO.
     liftIO $ hSetBuffering h LineBuffering
@@ -106,10 +108,10 @@ runCmd sendActions (SendToAllGenesis amount delay_ tpsSentFile) = do
     let writeTPS :: CmdRunner m void
         -- every 20 seconds, write the number of sent and failed transactions to a CSV file.
         writeTPS = do
-            delay (sec 20)
+            delay (sec slotDuration)
             currentTime <- Timestamp <$> currentTime
             modifySharedAtomic tpsMVar $ \(TxCount submitted failed) -> do
-                liftIO $ T.hPutStrLn h $ T.intercalate "," [T.pack . show $ currentTime, "20", T.pack . show $ submitted, T.pack . show $ failed, T.pack . show $ delay_]
+                liftIO $ T.hPutStrLn h $ T.intercalate "," [T.pack . show $ currentTime, T.pack . show $ slotDuration, T.pack . show $ submitted, T.pack . show $ failed, T.pack . show $ delay_]
                 return (TxCount 0 0, ())
             writeTPS
     let sendTxs :: CmdRunner m ()

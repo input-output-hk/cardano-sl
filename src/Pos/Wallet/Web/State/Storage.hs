@@ -58,8 +58,8 @@ instance Default WalletStorage where
     def =
         WalletStorage
         {
-          _wsWalletMetas = mempty
-        , _wsProfile = mzero
+          _wsWalletMetas  = mempty
+        , _wsProfile      = mzero  -- TODO: Fix, like in `0.4`
         , _wsReadyUpdates = mempty
         , _wsHistoryCache = mempty
         }

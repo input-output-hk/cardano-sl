@@ -3,8 +3,8 @@ module.exports = {
     require('postcss-import'),
     require('postcss-css-reset'),
     require('postcss-custom-properties'),
-    require('postcss-extend'),
     require('postcss-nested'),
+    require('postcss-extend'),
     require('postcss-color-function'),
     require('postcss-button'),
     require('postcss-inline-svg'),
@@ -13,7 +13,7 @@ module.exports = {
     require('postcss-neat')({
       neatMaxWidth: '1200px'
     }),
-    require('postcss-extend'),
+    require('lost'),
     require('postcss-custom-media'),
     require('postcss-media-minmax'),
     require('postcss-cssnext')({

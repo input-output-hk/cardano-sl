@@ -22,6 +22,18 @@ module Pos.Util.Util
        -- ** MonadFail (Either s), assuming IsString s
        -- ** NFData Millisecond
        -- ** NFData Microsecond
+       -- ** Buildable Attosecond
+       -- ** Buildable Femtosecond
+       -- ** Buildable Picosecond
+       -- ** Buildable Nanosecond
+       -- ** Buildable Millisecond
+       -- ** Buildable Microsecond
+       -- ** Buildable Second
+       -- ** Buildable Minute
+       -- ** Buildable Hour
+       -- ** Buildable Day
+       -- ** Buildable Week
+       -- ** Buildable Fortnight
        ) where
 
 import           Universum
@@ -99,7 +111,7 @@ instance NFData Microsecond where
     rnf ms = deepseq (toInteger ms) ()
 
 ----------------------------------------------------------------------------
--- Orpan Buildable insatnces for time-units
+-- Orphan Buildable instances for time-units
 ----------------------------------------------------------------------------
 
 instance Buildable Attosecond  where build = build @String . show

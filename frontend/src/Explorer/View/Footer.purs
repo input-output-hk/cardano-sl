@@ -40,7 +40,7 @@ footerView state =
                   [ P.div
                       [ P.className "logo__container"]
                       [ P.a
-                          [ P.className "logo_name__img bg-logo-name"
+                          [ P.className "logo__cardano-name bg-logo-cardano-name"
                           , P.href "https://iohk.io/projects/cardano/"]
                           []
                       ]
@@ -53,7 +53,7 @@ footerView state =
                   , P.div
                       [ P.className "logo__container"]
                       [ P.a
-                          [ P.className "logo_iohk_name__img bg-iohk-logo"
+                          [ P.className "logo__iohk-name bg-iohk-logo"
                           , P.href "https://iohk.io/"]
                           []
                       ]

@@ -34,15 +34,21 @@
 }
 
 
-/* breakpoints */
+/* breakpoints
+
+ Note:
+ All the following definitions based on Bootstrap's breakpoints
+ @see https://v4-alpha.getbootstrap.com/layout/overview/#responsive-breakpoints
+*/
+
 /*extra small devices (portrait phones, <576px)*/
-@custom-media --xs (width <= 575px);
+/* --xs is the default in Explorer, so we don't need to declare this here */
+@custom-media --xs (width < 576px);
+
 /*small devices (landscape phones, >=576px )*/
-@custom-media --sm (width <= 576px);
+@custom-media --sm (width >= 576px);
 /*medium devices (tablets, >=768px)*/
 @custom-media --md (width >= 768px);
-
-@custom-media --mdd (width <= 768px);
 /*large devices (desktops, >=992px)*/
 @custom-media --lg (width >= 992px);
 /*extra large devices (large desktops, >=1200px)*/
@@ -88,10 +94,10 @@
   embedded svg
 ------------------------------ */
 
-@svg-load logo-name url('../static/images/cardano-logo-name.svg');
+@svg-load logo-cardano-name url('../static/images/cardano-logo-name.svg');
 
-.bg-logo-name {
-  background-image: svg-inline(logo-name);
+.bg-logo-cardano-name {
+  background-image: svg-inline(logo-cardano-name);
   background-size: contain;
 }
 
@@ -255,4 +261,11 @@
   font-size: 10;
   padding: 5px;
   button: standard-button;
+}
+
+.outer-container {
+  margin-left: auto;
+  margin-right: auto;
+  /*background-color: green;*/
+  max-width: var(--max-width-desktop);
 }

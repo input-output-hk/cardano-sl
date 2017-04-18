@@ -18,7 +18,6 @@
 
     .nav__container {
       @extend .outer-container;
-      lost-utility: clearfix;
       padding: 24px 18px;
     }
 
@@ -64,9 +63,8 @@
   }
 
   &__bottom {
-    color: color(var(--color0) a(0.5));
-    lost-utility: clearfix;
     @extend .outer-container;
+    color: color(var(--color0) a(0.5));
     padding: 24px 18px;
 
     .content {

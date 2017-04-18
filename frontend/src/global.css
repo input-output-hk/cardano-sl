@@ -268,4 +268,5 @@
   margin-right: auto;
   /*background-color: green;*/
   max-width: var(--max-width-desktop);
+  lost-utility: clearfix;
 }

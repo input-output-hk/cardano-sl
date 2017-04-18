@@ -2,6 +2,7 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeOperators       #-}
 
 -- | Server launcher
 
@@ -17,7 +18,8 @@ import           Data.Aeson                       (Value)
 import           Data.List                        (intersperse)
 import qualified Data.Set                         as S
 import           Data.Time.Units                  (Millisecond)
-import           Formatting                       (bprint, build, int, sformat, (%))
+import           Formatting                       (bprint, build, int, sformat, shown,
+                                                   string, (%))
 import qualified GHC.Exts                         as Exts
 import           Network.EngineIO                 (SocketId)
 import           Network.EngineIO.Snap            (snapAPI)
@@ -32,8 +34,9 @@ import qualified Snap.CORS                        as CORS
 import           Snap.Http.Server                 (httpServe)
 import qualified Snap.Internal.Http.Server.Config as Config
 import           System.Wlog                      (CanLog, LoggerName, LoggerNameBox,
-                                                   PureLogger, WithLogger, getLoggerName,
-                                                   logDebug, logInfo, logWarning,
+                                                   PureLogger, Severity (..), WithLogger,
+                                                   getLoggerName, logDebug, logInfo,
+                                                   logMessage, logWarning,
                                                    modifyLoggerName, usingLoggerName)
 import           Universum                        hiding (on)
 
@@ -60,10 +63,17 @@ data NotifierSettings = NotifierSettings
     { nsPort :: Word16
     }
 
-toSnapConfig :: MonadSnap m => NotifierSettings -> Config.Config m ()
-toSnapConfig NotifierSettings{..} = Config.defaultConfig
-    { Config.port = Just $ fromIntegral nsPort
+toSnapConfig :: MonadSnap m => NotifierSettings -> LoggerName -> Config.Config m ()
+toSnapConfig NotifierSettings{..} loggerName = Config.defaultConfig
+    { Config.port      = Just $ fromIntegral nsPort
+    , Config.accessLog = logHandler Debug
+    , Config.errorLog  = logHandler Error
     }
+  where
+    logHandler severity =
+        Just . Config.ConfigIoLog $
+            usingLoggerName (loggerName <> "socket-io") .
+            logMessage severity . decodeUtf8
 
 notifierHandler
     :: (MonadState RoutingTable m, MonadReader Socket m, CanLog m, MonadIO m,
@@ -84,7 +94,7 @@ notifierHandler connVar loggerName = do
  where
     -- handlers provide context for logging and `ConnectionsVar` changes
     asHandler
-        :: (a -> SocketId -> LoggerNameBox (PureLogger (StateT ConnectionsState STM)) ())
+        :: (a -> SocketId -> (LoggerNameBox $ PureLogger $ StateT ConnectionsState STM) ())
         -> a
         -> ReaderT Socket IO ()
     asHandler f arg = inHandlerCtx . f arg . socketId =<< ask
@@ -106,7 +116,8 @@ notifierServer settings connVar = do
     loggerName <- getLoggerName
     liftIO $ do
         handler <- liftIO $ initialize snapAPI $ notifierHandler connVar loggerName
-        httpServe (toSnapConfig settings) $ CORS.applyCORS CORS.defaultOptions $
+        httpServe (toSnapConfig settings loggerName) $
+            CORS.applyCORS CORS.defaultOptions $
             route [("/socket.io", handler)]
 
 periodicPollChanges

@@ -3,3 +3,5 @@ node:
     plugin:
         notifier:
             severity: Debug
+            socket-io:
+                severity: Debug

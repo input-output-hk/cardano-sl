@@ -36,7 +36,7 @@ resolveHost host (hasIPv4, hasIPv6) = do
     -- one address is enough
     pure $
         if null addrInfos then Nothing
-        else if hasIPv6 && hasIPv4 then  Just $ addrAddress $ preferIPv6 addrInfos
+        else if hasIPv6 && hasIPv4 then Just $ addrAddress $ preferIPv6 addrInfos
         else fmap addrAddress $ if hasIPv4 then selectIPv4 addrInfos else selectIPv6 addrInfos
 
 replacePort :: SockAddr -> PortNumber -> SockAddr

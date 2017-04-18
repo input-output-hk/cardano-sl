@@ -26,7 +26,7 @@ import           Data.Binary                 (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy        as LBS
 import           Data.Default                (Default (..))
 import           Data.List                   (sortOn)
-import           Data.Maybe                  (isJust, isNothing)
+import           Data.Maybe                  (isNothing)
 import           Data.Monoid                 ((<>))
 import           Data.Text                   (Text)
 import           Data.Time.Units             (Microsecond, Second, toMicroseconds)
@@ -75,21 +75,38 @@ hoistNtpClientSettings
 hoistNtpClientSettings f settings =
     settings { ntpHandler = f . ntpHandler settings }
 
+-- Store created sockets.
+-- If system supports IPv6 and IPv4 we create socket for IPv4 and IPv6.
+-- Otherwise only one.
+data Sockets
+    = IPv4Sock !Socket
+    | IPv6Sock !Socket
+    | BothSock !Socket !Socket
+    deriving Show
+
+socketsToList :: Sockets -> [Socket]
+socketsToList (BothSock s1 s2) = [s1, s2]
+socketsToList (IPv4Sock s1)    = [s1]
+socketsToList (IPv6Sock s1)    = [s1]
+
+socketsToBoolDescr :: Sockets -> (Bool, Bool)
+socketsToBoolDescr (BothSock _ _) = (True, True)
+socketsToBoolDescr (IPv4Sock _)   = (True, False)
+socketsToBoolDescr (IPv6Sock _)   = (False, True)
+
 data NtpClient m = NtpClient
-    { ncSocket   :: TVar (Maybe Socket, Maybe Socket)
+    { ncSocket   :: TVar Sockets
     , ncState    :: TVar (Maybe [(Microsecond, Microsecond)])
     , ncClosed   :: TVar Bool
     , ncSettings :: NtpClientSettings m
     }
 
-mkNtpClient :: MonadIO m => NtpClientSettings m -> (Maybe Socket, Maybe Socket) -> m (NtpClient m)
-mkNtpClient ncSettings sockMB = liftIO $ case sockMB of
-    (Nothing, Nothing) -> error "Both sockets are invalid"
-    sock -> do
-        ncSocket <- newTVarIO sock
-        ncState  <- newTVarIO Nothing
-        ncClosed <- newTVarIO False
-        return NtpClient{..}
+mkNtpClient :: MonadIO m => NtpClientSettings m -> Sockets -> m (NtpClient m)
+mkNtpClient ncSettings sock = liftIO $ do
+    ncSocket <- newTVarIO sock
+    ncState  <- newTVarIO Nothing
+    ncClosed <- newTVarIO False
+    return NtpClient{..}
 
 instance Monad m => Default (NtpClientSettings m) where
     def = NtpClientSettings
@@ -151,13 +168,18 @@ handleCollectedResponses cli = do
 
 doSend :: NtpMonad m => SockAddr -> NtpClient m -> m ()
 doSend addr cli = do
-    sock   <- liftIO $ readTVarIO (ncSocket cli)
+    sock   <- liftIO $ readTVarIO $ ncSocket cli
     packet <- encode <$> mkCliNtpPacket
-    handleAll handleE . void . liftIO $ sendDo addr (LBS.toStrict packet) sock
+    handleAll handleE . void . liftIO $ sendDo addr sock (LBS.toStrict packet)
   where
-    sendDo a@(SockAddrInet _ _) bytes (Just sock, _)      = sendTo sock bytes a
-    sendDo a@(SockAddrInet6 _ _ _ _) bytes (_, Just sock) = sendTo sock bytes a
-    sendDo _ _ _                                          = error "Unexpected SockAddr"
+    sendDo a@(SockAddrInet _ _) (IPv4Sock sock)      = sendTo' sock a
+    sendDo a@(SockAddrInet _ _) (BothSock sock _)    = sendTo' sock a
+    sendDo a@(SockAddrInet6 _ _ _ _) (IPv6Sock sock) = sendTo' sock a
+    sendDo a@(SockAddrInet6 _ _ _ _) (BothSock _ sock)  = sendTo' sock a
+    sendDo a sks                                           =
+        error $ "SockAddr is " ++ show a ++ ", but sockets: " ++ show sks
+    sendTo' sock = flip (sendTo sock)
+
     -- just log; socket closure is handled by receiver
     handleE =
         log cli Warning . sformat ("Failed to send to "%shown%": "%shown) addr
@@ -185,12 +207,19 @@ whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
 whenJust val f = maybe (pure ()) f val
 
 -- Try to create IPv4 and IPv6 socket.
-mkSockets :: NtpMonad m => NtpClientSettings m -> m (Maybe Socket, Maybe Socket)
+mkSockets :: NtpMonad m => NtpClientSettings m -> m Sockets
 mkSockets settings = do
-    (sock1, sock2) <- doMkSocket `catchAll` handlerE
-    whenJust sock1 logging
-    whenJust sock2 logging
-    pure (fst <$> sock1, fst <$> sock2)
+    (sock1MB, sock2MB) <- doMkSocket `catchAll` handlerE
+    whenJust sock1MB logging
+    whenJust sock2MB logging
+    case (fst <$> sock1MB, fst <$> sock2MB) of
+        (Just sock1, Just sock2) -> pure $ BothSock sock1 sock2
+        (Just sock1, Nothing)    -> pure $ IPv4Sock sock1
+        (Nothing, Just sock2)    -> pure $ IPv6Sock sock2
+        (_, _)                   -> do
+            log' settings Warning "Couldn't create both IPv4 and IPv6 socket, retrying in 5 sec..."
+            liftIO $ threadDelay (5 :: Second)
+            mkSockets settings
   where
     logging (_, addrInfo) = log' settings Info $
         sformat ("Created socket (family/addr): "%shown%"/"%shown)
@@ -210,7 +239,7 @@ mkSockets settings = do
             <*> createSock selectIPv6 serveraddrs
     handlerE e = do
         log' settings Warning $
-            sformat ("Failed to create socket, retrying in 5 sec... (reason: "%shown%")")
+            sformat ("Failed to create sockets, retrying in 5 sec... (reason: "%shown%")")
             e
         liftIO $ threadDelay (5 :: Second)
         doMkSocket
@@ -232,24 +261,26 @@ handleNtpPacket cli packet = do
 
 doReceive :: NtpMonad m => Socket -> NtpClient m -> m ()
 doReceive sock cli = forever $ do
-        (received, _) <- liftIO $ recvFrom sock ntpPacketSize
-        let eNtpPacket = decodeOrFail $ LBS.fromStrict received
-        case eNtpPacket of
-            Left  (_, _, err)    ->
-                log cli Warning $ sformat ("Error while receiving time: "%shown) err
-            Right (_, _, packet) ->
-                handleNtpPacket cli packet
+    (received, _) <- liftIO $ recvFrom sock ntpPacketSize
+    let eNtpPacket = decodeOrFail $ LBS.fromStrict received
+    case eNtpPacket of
+        Left  (_, _, err)    ->
+            log cli Warning $ sformat ("Error while receiving time: "%shown) err
+        Right (_, _, packet) ->
+            handleNtpPacket cli packet `catchAll` handleE
+  where
+    handleE = log cli Warning . sformat ("Error while handle packet: "%shown)
 
 startReceive :: NtpMonad m => NtpClient m -> m ()
 startReceive cli = do
-    sockets <- liftIO . atomically . readTVar $ (ncSocket cli)
+    -- TODO fix here
+    sockets <- liftIO . atomically . readTVar $ ncSocket cli
     case sockets of
-        (Just sock1, Just sock2) -> do
-            void $ fork $ doReceive sock1 cli `catchAll` handleE
-            doReceive sock2 cli `catchAll` handleE
-        (Just sock1, _) -> doReceive sock1 cli `catchAll` handleE
-        (_, Just sock2) -> doReceive sock2 cli `catchAll` handleE
-        _ -> log cli Warning $ "Unexpected state to start"
+        BothSock sIPv4 sIPv6 -> do
+            void $ fork $ doReceive sIPv4 cli `catchAll` handleE
+            doReceive sIPv6 cli `catchAll` handleE
+        IPv4Sock sIPv4 -> doReceive sIPv4 cli `catchAll` handleE
+        IPv6Sock sIPv6 -> doReceive sIPv6 cli `catchAll` handleE
   where
     -- got error while receiving data, recreate socket
     handleE e = do
@@ -268,13 +299,12 @@ startReceive cli = do
 stopNtpClient :: NtpMonad m => NtpClient m -> m ()
 stopNtpClient cli = do
     log cli Info "Stopped"
-    (sock1, sock2) <- liftIO . atomically $ do
+    sockets <- liftIO . atomically $ do
         writeTVar (ncClosed cli) True
-        readTVar  (ncSocket cli)
+        socketsToList <$> readTVar  (ncSocket cli)
 
     -- unblock receiving from socket in case no one replies
-    whenJust sock1 $ \s -> liftIO (close s) `catchAll` (\_ -> pure ())
-    whenJust sock2 $ \s -> liftIO (close s) `catchAll` (\_ -> pure ())
+    forM_ sockets $ \s -> liftIO (close s) `catchAll` (const $ pure ())
 
 startNtpClient :: NtpMonad m => NtpClientSettings m -> m (NtpStopButton m)
 startNtpClient settings = do
@@ -283,15 +313,15 @@ startNtpClient settings = do
 
     void . fork $ startReceive cli
 
-    addrs <- mapM (resolveHost cli sock) (ntpServers settings)
+    addrs <- mapM (resolveHost cli $ socketsToBoolDescr sock) (ntpServers settings)
     void . fork $ startSend addrs cli
 
     log cli Info "Launched"
 
     return $ NtpStopButton $ stopNtpClient cli
   where
-    resolveHost cli (s1, s2) host = do
-        maddr <- liftIO $ resolveNtpHost host (isJust s1, isJust s2)
+    resolveHost cli sockDescr host = do
+        maddr <- liftIO $ resolveNtpHost host sockDescr
         case maddr of
             Nothing   -> throw $ FailedToResolveHost host
             Just addr -> do

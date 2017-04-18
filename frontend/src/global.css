@@ -255,6 +255,14 @@
   display: none !important;
 }
 
+.show {
+  display: block !important;
+}
+
+.show-inline {
+  display: inline-block !important;
+}
+
 .btn-debug {
   font-family: var(--fontFamily0-Regular);
   font-weight: normal;

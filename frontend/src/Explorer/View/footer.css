@@ -145,7 +145,7 @@
 
       @media (--md) {
         &__right {
-          display: flex !important; /* override .hide */
+          @extend .show;
           box: horizontal right;
           lost-column: 1/4;
         }

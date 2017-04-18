@@ -9,14 +9,13 @@
 
 
   &__container {
-    @neat-outer-container;
+    @extend .outer-container;
     padding: 46px 0px 38px 0px;
 
   }
 
   @media (--md) {
     &__container {
-      @neat-outer-container;
       max-width:var(--max-width-desktop);
       padding: 56px 48px 48px 48px;
     }
@@ -38,8 +37,6 @@
 }
 
 .blocks-column {
-
-  lost-utility: clearfix;
 
   &__epoch {
     lost-column: 3/12;
@@ -114,7 +111,7 @@
   padding-bottom: 24px;
 
   &__row {
-    @neat-outer-container;
+    lost-utility: clearfix;
     display: block;
     padding: 10px 24px;
     color: var(--color8);

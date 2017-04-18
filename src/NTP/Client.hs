@@ -273,28 +273,22 @@ doReceive sock cli = forever $ do
 
 startReceive :: NtpMonad m => NtpClient m -> m ()
 startReceive cli = do
-    -- TODO fix here
     sockets <- liftIO . atomically . readTVar $ ncSocket cli
     case sockets of
         BothSock sIPv4 sIPv6 -> do
-            void $ fork $ doReceive sIPv4 cli `catchAll` handleE
-            doReceive sIPv6 cli `catchAll` handleE
-        IPv4Sock sIPv4 -> doReceive sIPv4 cli `catchAll` handleE
-        IPv6Sock sIPv6 -> doReceive sIPv6 cli `catchAll` handleE
+            void $ fork $ runDoReceive sIPv4
+            runDoReceive sIPv6
+        IPv4Sock sIPv4 -> runDoReceive sIPv4
+        IPv6Sock sIPv6 -> runDoReceive sIPv6
   where
-    -- got error while receiving data, recreate socket
-    handleE e = do
+    runDoReceive sock = doReceive sock cli `catchAll` (handleE sock)
+    -- got error while receiving data, retrying in 5 sec
+    handleE sock e = do
         closed <- liftIO . readTVarIO $ ncClosed cli
         unless closed $ do
-            log cli Debug $ sformat ("Socket closed, recreating (reason: "%shown%")") e
-            sock <- mkSockets $ ncSettings cli
-            closed' <- liftIO . atomically $ do
-                writeTVar (ncSocket cli) sock
-                readTVar  (ncClosed cli)
-            -- extra check in case socket was closed by stopping client
-            -- while we recreated socket
-            unless closed' $
-                startReceive cli
+            log cli Debug $ sformat ("doReceive failed on socket"%shown%", reason: "%shown%", retrying in 1 sec") sock e
+            liftIO $ threadDelay (1 :: Second)
+            runDoReceive sock
 
 stopNtpClient :: NtpMonad m => NtpClient m -> m ()
 stopNtpClient cli = do

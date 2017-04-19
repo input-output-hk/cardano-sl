@@ -14,6 +14,7 @@ cmd="stack exec cardano-explorer -- `dht_config rand 0` \
       --rebuild-db \
       --flat-distr ($n,100000) \
       --listen 127.0.0.1:$((3000+$n)) \
+      --system-start $(date +%s) \
       --log-config log-config.yaml"
 echo "$cmd"
 $cmd

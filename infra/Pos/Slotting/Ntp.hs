@@ -38,7 +38,7 @@ import           NTP.Client                  (NtpClientSettings (..), ntpSingleS
 import           NTP.Example                 ()
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName, WithLogger, logDebug,
-                                              logInfo)
+                                              logInfo, logWarning)
 import           Universum
 
 import qualified Pos.Core.Constants          as C
@@ -173,15 +173,19 @@ ntpGetCurrentSlot :: SlottingConstraint m => NtpSlotting m (Maybe SlotId)
 ntpGetCurrentSlot = ntpGetCurrentSlotImpl >>= \case
     CurrentSlot slot -> pure $ Just slot
     OutdatedSlottingData i -> do
-        logDebug $ sformat
+        logWarning $ sformat
             ("Can't get current slot, because slotting data"%
              " is outdated. Last known penult epoch = "%int)
             i
-        pure Nothing
+        Nothing <$ printSlottingData
     CantTrust t -> do
-        logDebug $
+        logWarning $
             "Can't get current slot, because we can't trust local time, details: " <> t
-        pure Nothing
+        Nothing <$ printSlottingData
+  where
+    printSlottingData = do
+        sd <- getSlottingData
+        logWarning $ "Slotting data: " <> show sd
 
 ntpGetCurrentSlotInaccurate :: SlottingConstraint m => NtpSlotting m SlotId
 ntpGetCurrentSlotInaccurate = do
@@ -251,7 +255,7 @@ ntpGetCurrentSlotTryEpoch
 ntpGetCurrentSlotTryEpoch (Timestamp curTime) epoch EpochSlottingData {..}
     | curTime < start = Nothing
     | curTime < start + duration * C.epochSlots =
-        Just $ SlotId epoch (fromIntegral $ (curTime - start) `div` duration)
+        Just $ SlotId epoch $ fromIntegral $ (curTime - start) `div` duration
     | otherwise = Nothing
   where
     duration = convertUnit esdSlotDuration

@@ -4,6 +4,7 @@ module Test.Pos.Ssc.GodTossing.SeedSpec
        ( spec
        ) where
 
+import           Control.Lens             (each)
 import           Crypto.Random            (MonadRandom)
 import qualified Data.HashMap.Strict      as HM
 import           Data.List                (unzip, (\\))
@@ -27,9 +28,9 @@ import           Pos.Crypto               (PublicKey, SecretKey, Share,
                                            toVssPublicKey)
 import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Opening (..),
                                            SeedError (..), calculateSeed,
-                                           genCommitmentAndOpening, mkCommitmentsMap,
-                                           secretToSharedSeed)
-import           Pos.Types                (SharedSeed (..))
+                                           genCommitmentAndOpening, getCommitmentsMap,
+                                           mkCommitmentsMap, secretToSharedSeed)
+import           Pos.Types                (SharedSeed (..), mkCoin)
 import           Pos.Util                 (nonrepeating, sublistN)
 
 getPubAddr :: SecretKey -> AddressHash PublicKey
@@ -133,6 +134,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
         (haveSentBoth ++) <$>
         sublistN (n_shares - n_overlap) (keys \\ haveSentOpening)
     let commitmentsMap = mkCommitmentsMap' keys comms
+    let richmen = getCommitmentsMap commitmentsMap & each .~ mkCoin 1000
     let openingsMap = HM.fromList
             [(getPubAddr k, o)
               | (k, o) <- zip keys opens
@@ -158,7 +160,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
              return (addr, receivedShares)
 
     let shouldSucceed = n_openings + n_shares - n_overlap >= n
-    let result = calculateSeed commitmentsMap openingsMap sharesMap
+    let result = calculateSeed commitmentsMap openingsMap sharesMap richmen
     let debugInfo = sformat ("n = "%int%", n_openings = "%int%", "%
                              "n_shares = "%int%", n_overlap = "%int%
                              "\n"%

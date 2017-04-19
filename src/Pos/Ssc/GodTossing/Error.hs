@@ -4,41 +4,52 @@ module Pos.Ssc.GodTossing.Error
        ( SeedError (..)
        ) where
 
-import           Data.Text.Buildable (Buildable (..))
-import           Formatting          (bprint, stext)
-import           Serokell.Util       (listBuilderJSON)
 import           Universum
 
-import           Pos.Core.Types      (StakeholderId)
+import           Data.Text.Buildable (Buildable (..))
+import           Serokell.Util       (listBuilderJSON)
+
+import           Pos.Core.Types      (Coin, StakeholderId)
 
 -- | Data type for error during seed calculation.
 data SeedError
     -- | Some nodes in the 'OpeningsMap' aren't in the set of participants
-    = ExtraneousOpenings !(HashSet StakeholderId)
+    = ExtraOpenings !(HashSet StakeholderId)
     -- | Some nodes in the 'SharesMap' aren't in the set of participants
-    | ExtraneousShares !(HashSet StakeholderId)
-    -- | There were no participants so a random string couldn't be generated
-    | NoParticipants
-    -- | Commitment can't be deserialized or didn't match secret (either recovered or in openings)
-    | BrokenCommitment StakeholderId
+    | ExtraShares !(HashSet StakeholderId)
+    -- | Some participants aren't richmen
+    | NonRichmenParticipants !(HashSet StakeholderId)
+
+    -- | There was no majority of stake participating
+    -- (first parameter – participating stake, second – total richmen stake)
+    | NotEnoughParticipatingStake !Integer !Integer
+    -- | There were no good secrets so a seed couldn't be generated
+    | NoSecrets
+
+    -- | Commitment can't be deserialized or didn't match secret (either
+    -- recovered or in openings)
+    | BrokenCommitment !StakeholderId
     -- | Secret couldn't be recovered, or wasn't found in either
     -- 'OpeningsMap' or 'SharesMap'
-    | NoSecretFound StakeholderId
+    | NoSecretFound !StakeholderId
     -- | Secret can't be deserialized
-    | BrokenSecret StakeholderId
+    | BrokenSecret !StakeholderId
     -- | Share can't be deserialized
-    | BrokenShare StakeholderId
+    | BrokenShare !StakeholderId
+
     -- | Some errors during computation of commitment distribution
     | CommitmentDistrError !Text
     deriving (Eq, Show)
 
 instance Buildable SeedError where
-    build (ExtraneousOpenings ks) =
-        "ExtraneousOpenings " <> listBuilderJSON ks
-    build (ExtraneousShares ks) =
-        "ExtraneousShares " <> listBuilderJSON ks
-    build NoParticipants =
-        "NoParticipants"
+    build (ExtraOpenings ks) =
+        "ExtraOpenings " <> listBuilderJSON ks
+    build (ExtraShares ks) =
+        "ExtraShares " <> listBuilderJSON ks
+    build (NonRichmenParticipants ks) =
+        "NonRichmenParticipants " <> listBuilderJSON ks
+    build NoSecrets =
+        "NoSecrets"
     build (BrokenCommitment k) =
         "BrokenCommitment " <> build k
     build (NoSecretFound k) =
@@ -48,4 +59,4 @@ instance Buildable SeedError where
     build (BrokenShare k) =
         "BrokenShare " <> build k
     build (CommitmentDistrError reason) =
-        bprint stext ("CommitmentDistrError " <> reason)
+        build ("CommitmentDistrError " <> reason)

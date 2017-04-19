@@ -42,6 +42,7 @@ import           Pos.DB.DB               (getTipBlockHeader)
 import           Pos.Exception           (assertionFailed)
 import           Pos.Lrc.Context         (LrcContext)
 import qualified Pos.Lrc.DB              as LrcDB
+import           Pos.Lrc.Types           (RichmenStake)
 import           Pos.Slotting.Class      (MonadSlots)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
@@ -108,9 +109,17 @@ sscRunGlobalQuery action = do
 -- | Calculate 'SharedSeed' for given epoch.
 sscCalculateSeed
     :: forall ssc m.
-       (MonadSscMem ssc m, SscGStateClass ssc, MonadIO m, WithLogger m)
-    => EpochIndex ->  m (Either (SscSeedError ssc) SharedSeed)
-sscCalculateSeed = sscRunGlobalQuery . sscCalculateSeedQ @ssc
+       ( MonadSscMem ssc m
+       , MonadDB m
+       , SscGStateClass ssc
+       , HasContext LrcContext m
+       , MonadIO m
+       , WithLogger m )
+    => EpochIndex
+    -> m (Either (SscSeedError ssc) SharedSeed)
+sscCalculateSeed epoch = do
+    richmenData <- getRichmenFromLrc "sscCalculateSeed" epoch
+    sscRunGlobalQuery $ sscCalculateSeedQ @ssc epoch richmenData
 
 ----------------------------------------------------------------------------
 -- Local Data
@@ -140,11 +149,7 @@ sscNormalize
     => m ()
 sscNormalize = do
     tipEpoch <- view epochIndexL <$> getTipBlockHeader @ssc
-    richmenData <-
-        lrcActionOnEpochReason
-            tipEpoch
-            "sscNormalize: couldn't get SSC richmen"
-            LrcDB.getRichmenSsc
+    richmenData <- getRichmenFromLrc "sscNormalize" tipEpoch
     globalVar <- sscGlobal <$> askSscMem
     localVar <- sscLocal <$> askSscMem
     gs <- atomically $ readTVar globalVar
@@ -277,11 +282,20 @@ sscVerifyBlocks blocks = do
                 lastEpoch
     inAssertMode $ unless (epoch == lastEpoch) $
         assertionFailed differentEpochsMsg
-    richmenSet <-
-        lrcActionOnEpochReason
-            epoch
-            "couldn't get SSC richmen"
-            LrcDB.getRichmenSsc
+    richmenSet <- getRichmenFromLrc "sscVerifyBlocks" epoch
     globalVar <- sscGlobal <$> askSscMem
     gs <- atomically $ readTVar globalVar
     execStateT (sscVerifyAndApplyBlocks richmenSet blocks) gs
+
+----------------------------------------------------------------------------
+-- Utils
+----------------------------------------------------------------------------
+
+getRichmenFromLrc
+    :: (MonadDB m, HasContext LrcContext m)
+    => Text -> EpochIndex -> m RichmenStake
+getRichmenFromLrc fname epoch =
+    lrcActionOnEpochReason
+        epoch
+        (fname <> ": couldn't get SSC richmen")
+        LrcDB.getRichmenSsc

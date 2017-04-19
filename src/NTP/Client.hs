@@ -26,6 +26,7 @@ import           Data.Binary                 (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy        as LBS
 import           Data.Default                (Default (..))
 import           Data.List                   (sortOn)
+import           Data.Maybe                  (catMaybes)
 import           Data.Maybe                  (isNothing)
 import           Data.Monoid                 ((<>))
 import           Data.Text                   (Text)
@@ -47,7 +48,7 @@ import           System.Wlog                 (LoggerName, Severity (..), WithLog
 
 import           Mockable.Class              (Mockable)
 import           Mockable.Concurrent         (Delay, Fork, delay, fork)
-import           Mockable.Exception          (Catch, Throw, catchAll, handleAll, throw)
+import           Mockable.Exception          (Catch, Throw, catchAll, handleAll)
 import           NTP.Packet                  (NtpPacket (..), evalClockOffset,
                                               mkCliNtpPacket, ntpPacketSize)
 import           NTP.Util                    (resolveNtpHost, selectIPv4, selectIPv6)
@@ -110,7 +111,8 @@ mkNtpClient ncSettings sock = liftIO $ do
 
 instance Monad m => Default (NtpClientSettings m) where
     def = NtpClientSettings
-        { ntpServers         = [ "ntp5.stratum2.ru"
+        { ntpServers         = [ "ntp.pool.org"
+                               , "ntp5.stratum2.ru"
                                , "ntp1.stratum1.ru"
                                , "clock.isc.org"
                                ]
@@ -305,22 +307,25 @@ startNtpClient settings = do
     sock <- mkSockets settings
     cli <- mkNtpClient settings sock
 
-    void . fork $ startReceive cli
-
-    addrs <- mapM (resolveHost cli $ socketsToBoolDescr sock) (ntpServers settings)
-    void . fork $ startSend addrs cli
-
-    log cli Info "Launched"
+    addrs <- catMaybes <$> mapM (resolveHost cli $ socketsToBoolDescr sock) (ntpServers settings)
+    if null addrs then
+        log cli Warning "No host resolved, launch failed"
+    else do
+        void . fork $ startReceive cli
+        void . fork $ startSend addrs cli
+        log cli Info "Launched"
 
     return $ NtpStopButton $ stopNtpClient cli
   where
     resolveHost cli sockDescr host = do
         maddr <- liftIO $ resolveNtpHost host sockDescr
         case maddr of
-            Nothing   -> throw $ FailedToResolveHost host
+            Nothing   -> do
+                log cli Warning $ sformat ("Host "%shown%" is not resolved") host
+                pure Nothing
             Just addr -> do
                 log cli Info $ sformat ("Host "%shown%" is resolved: "%shown) host addr
-                return addr
+                pure $ Just addr
 
 -- | Start client, wait for a while so that most likely it ticks once
 -- and stop it.

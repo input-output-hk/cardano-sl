@@ -4,7 +4,6 @@ module NTP.Util
     ( ntpPort
     , resolveNtpHost
     , getCurrentTime
-    , preferIPv6
     , selectIPv6
     , selectIPv4
     ) where
@@ -36,7 +35,7 @@ resolveHost host (hasIPv4, hasIPv6) = do
     -- one address is enough
     pure $
         if null addrInfos then Nothing
-        else if hasIPv6 && hasIPv4 then Just $ addrAddress $ preferIPv6 addrInfos
+        else if hasIPv6 && hasIPv4 then Just $ addrAddress $ preferIPv4 addrInfos
         else fmap addrAddress $ if hasIPv4 then selectIPv4 addrInfos else selectIPv6 addrInfos
 
 replacePort :: SockAddr -> PortNumber -> SockAddr
@@ -52,10 +51,9 @@ resolveNtpHost host whichSockets = do
 getCurrentTime :: MonadIO m => m Microsecond
 getCurrentTime = liftIO $ fromMicroseconds . round . ( * 1000000) <$> getPOSIXTime
 
-preferIPv6 :: [AddrInfo] -> AddrInfo
-preferIPv6 =
+preferIPv4 :: [AddrInfo] -> AddrInfo
+preferIPv4 =
     head .
-    reverse .
     sortOn addrFamily .
     filter (\a -> addrFamily a == AF_INET6 || addrFamily a == AF_INET)
 

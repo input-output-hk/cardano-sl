@@ -1,7 +1,8 @@
-{-# LANGUAGE ConstraintKinds  #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE NamedFieldPuns   #-}
-{-# LANGUAGE RankNTypes       #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | This module implements functionality of NTP client.
 
@@ -32,8 +33,8 @@ import           Data.Text                   (Text)
 import           Data.Time.Units             (Microsecond, Second, toMicroseconds)
 import           Data.Typeable               (Typeable)
 import           Formatting                  (sformat, shown, (%))
-import           Network.Socket              (SockAddr (..), Socket, addrAddress,
-                                              addrFamily, close)
+import           Network.Socket              (AddrInfo, SockAddr (..), Socket,
+                                              addrAddress, addrFamily, close)
 import           Network.Socket.ByteString   (recvFrom, sendTo)
 import           Prelude                     hiding (log)
 import           Serokell.Util.Concurrent    (modifyTVarS, threadDelay)
@@ -42,7 +43,7 @@ import           System.Wlog                 (LoggerName, Severity (..), WithLog
 
 import           Mockable.Class              (Mockable)
 import           Mockable.Concurrent         (Delay, Fork, delay, fork)
-import           Mockable.Exception          (Catch, Throw, catchAll, handleAll)
+import           Mockable.Exception          (Catch, Throw, catchAll, handleAll, throw)
 import           NTP.Packet                  (NtpPacket (..), evalClockOffset,
                                               mkCliNtpPacket, ntpPacketSize)
 import           NTP.Util                    (createAndBindSock, resolveNtpHost,
@@ -72,7 +73,7 @@ hoistNtpClientSettings f settings =
     settings { ntpHandler = f . ntpHandler settings }
 
 data NtpClient m = NtpClient
-    { ncSocket   :: TVar Sockets
+    { ncSockets  :: TVar Sockets
     , ncState    :: TVar (Maybe [(Microsecond, Microsecond)])
     , ncClosed   :: TVar Bool
     , ncSettings :: NtpClientSettings m
@@ -80,7 +81,7 @@ data NtpClient m = NtpClient
 
 mkNtpClient :: MonadIO m => NtpClientSettings m -> Sockets -> m (NtpClient m)
 mkNtpClient ncSettings sock = liftIO $ do
-    ncSocket <- newTVarIO sock
+    ncSockets <- newTVarIO sock
     ncState  <- newTVarIO Nothing
     ncClosed <- newTVarIO False
     return NtpClient{..}
@@ -102,10 +103,10 @@ newtype NtpStopButton m = NtpStopButton
     { pressNtpStopButton :: m ()
     }
 
-newtype FailedToResolveHost = FailedToResolveHost String
+data NoHostResolved = NoHostResolved
     deriving (Show, Typeable)
 
-instance Exception FailedToResolveHost
+instance Exception NoHostResolved
 
 type NtpMonad m =
     ( MonadIO m
@@ -145,7 +146,7 @@ handleCollectedResponses cli = do
 
 doSend :: NtpMonad m => SockAddr -> NtpClient m -> m ()
 doSend addr cli = do
-    sock   <- liftIO $ readTVarIO $ ncSocket cli
+    sock   <- liftIO $ readTVarIO $ ncSockets cli
     packet <- encode <$> mkCliNtpPacket
     handleAll handleE . void . liftIO $ sendDo addr sock (LBS.toStrict packet)
   where
@@ -181,7 +182,7 @@ startSend addrs cli = do
         startSend addrs cli
 
 -- Try to create IPv4 and IPv6 socket.
-mkSockets :: NtpMonad m => NtpClientSettings m -> m Sockets
+mkSockets :: forall m . NtpMonad m => NtpClientSettings m -> m Sockets
 mkSockets settings = do
     (sock1MB, sock2MB) <- doMkSockets `catchAll` handlerE
     whenJust sock1MB logging
@@ -198,6 +199,7 @@ mkSockets settings = do
     logging (_, addrInfo) = log' settings Info $
         sformat ("Created socket (family/addr): "%shown%"/"%shown)
                 (addrFamily addrInfo) (addrAddress addrInfo)
+    doMkSockets :: m (Maybe (Socket, AddrInfo), Maybe (Socket, AddrInfo))
     doMkSockets = liftIO $ do
         serveraddrs <- udpLocalAddresses
         (,) <$> createAndBindSock selectIPv4 serveraddrs
@@ -238,7 +240,7 @@ doReceive sock cli = forever $ do
 
 startReceive :: NtpMonad m => NtpClient m -> m ()
 startReceive cli = do
-    sockets <- liftIO . atomically . readTVar $ ncSocket cli
+    sockets <- liftIO . atomically . readTVar $ ncSockets cli
     case sockets of
         BothSock sIPv4 sIPv6 -> do
             void $ fork $ runDoReceive True sIPv4
@@ -246,7 +248,7 @@ startReceive cli = do
         IPv4Sock sIPv4 -> runDoReceive True sIPv4
         IPv6Sock sIPv6 -> runDoReceive False sIPv6
   where
-    runDoReceive isIPv4 sock = doReceive sock cli `catchAll` (handleE isIPv4 sock)
+    runDoReceive isIPv4 sock = doReceive sock cli `catchAll` handleE isIPv4 sock
     -- got error while receiving data, retrying in 5 sec
     handleE isIPv4 sock e = do
         closed <- liftIO . readTVarIO $ ncClosed cli
@@ -257,26 +259,26 @@ startReceive cli = do
             liftIO $ threadDelay (5 :: Second)
             serveraddrs <- liftIO udpLocalAddresses
             newSockMB <- liftIO $
-                if isIPv4 then createAndBindSock selectIPv4 serveraddrs
-                else createAndBindSock selectIPv6 serveraddrs
-            case fst <$> newSockMB of
-                Nothing      -> log cli Warning "Recreating of socket failed"
-                Just newSock
-                    | isIPv4 -> do
-                          liftIO . atomically $
-                              modifyTVar' (ncSocket cli) (flip mergeSockets $ IPv4Sock newSock)
-                          runDoReceive isIPv4 newSock
-                    | otherwise -> do
-                          liftIO . atomically $
-                              modifyTVar' (ncSocket cli) (flip mergeSockets $ IPv6Sock newSock)
-                          runDoReceive isIPv4 newSock
+                if isIPv4 then
+                    traverse (overwriteSocket IPv4Sock . fst) =<< createAndBindSock selectIPv4 serveraddrs
+                else
+                    traverse (overwriteSocket IPv6Sock . fst) =<< createAndBindSock selectIPv6 serveraddrs
+            case newSockMB of
+                Nothing      -> log cli Warning "Recreating of socket failed" >> handleE isIPv4 sock e
+                Just newSock -> runDoReceive isIPv4 newSock
+    overwriteSocket constr sock = sock <$
+        (liftIO .
+         atomically .
+         modifyTVar' (ncSockets cli) .
+         flip mergeSockets .
+         constr $ sock)
 
 stopNtpClient :: NtpMonad m => NtpClient m -> m ()
 stopNtpClient cli = do
     log cli Info "Stopped"
     sockets <- liftIO . atomically $ do
         writeTVar (ncClosed cli) True
-        socketsToList <$> readTVar  (ncSocket cli)
+        socketsToList <$> readTVar (ncSockets cli)
 
     -- unblock receiving from socket in case no one replies
     forM_ sockets $ \s -> liftIO (close s) `catchAll` (const $ pure ())
@@ -288,7 +290,7 @@ startNtpClient settings = do
 
     addrs <- catMaybes <$> mapM (resolveHost cli $ socketsToBoolDescr sock) (ntpServers settings)
     if null addrs then
-        log cli Warning "No host resolved, launch failed"
+        throw NoHostResolved
     else do
         void . fork $ startReceive cli
         void . fork $ startSend addrs cli

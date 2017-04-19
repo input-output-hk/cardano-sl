@@ -74,7 +74,7 @@
     @media (--md) {
       .currency__container  {
         @extend .show;
-        lost-column: 2/12;
+        lost-column: 2/12 3;
         height: var(--height-header-top);
         text-align: right;
       }

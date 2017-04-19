@@ -47,8 +47,9 @@ import           Pos.Binary.Core     ()
 import           Pos.Core.Address    (addressHash)
 import           Pos.Core.Types      (EpochIndex, StakeholderId)
 import           Pos.Crypto          (EncShare, Hash, PublicKey, Secret, SecretKey,
-                                      SecretProof, SecretSharingExtra, Share, Signature,
-                                      VssPublicKey, checkSig, sign, toPublic)
+                                      SecretProof, SecretSharingExtra, Share,
+                                      SignTag (SignVssCert), Signature, VssPublicKey,
+                                      checkSig, sign, toPublic)
 
 type NodeSet = HashSet StakeholderId
 
@@ -168,7 +169,9 @@ instance Buildable VssCertificate where
 -- data.
 mkVssCertificate :: SecretKey -> AsBinary VssPublicKey -> EpochIndex -> VssCertificate
 mkVssCertificate sk vk expiry =
-    VssCertificate vk expiry (sign sk (vk, expiry)) $ toPublic sk
+    VssCertificate vk expiry signature (toPublic sk)
+  where
+    signature = sign SignVssCert sk (vk, expiry)
 
 -- | Recreate 'VssCertificate' from its contents. This function main
 -- 'fail' if data is invalid.
@@ -197,7 +200,7 @@ recreateVssCertificate vssKey epoch sig pk =
 -- #checkSig
 checkCertSign :: VssCertificate -> Bool
 checkCertSign VssCertificate {..} =
-    checkSig vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature
+    checkSig SignVssCert vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature
 
 getCertId :: VssCertificate -> StakeholderId
 getCertId = addressHash . vcSigningKey

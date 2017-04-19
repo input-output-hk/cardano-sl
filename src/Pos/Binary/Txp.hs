@@ -68,13 +68,24 @@ instance Bi T.TxDistribution where
                     nonEmpty $ replicate n []
                 Right ds -> pure ds
 
+instance Bi T.TxSigData where
+    put T.TxSigData{..} = do
+        put txSigInput
+        put txSigOutsHash
+        put txSigDistrHash
+    get = label "TxSigData" $ do
+        txSigInput     <- get
+        txSigOutsHash  <- get
+        txSigDistrHash <- get
+        return T.TxSigData{..}
+
 instance Bi T.TxProof where
     put (T.TxProof {..}) = do
         put (UnsignedVarInt txpNumber)
         put txpRoot
         put txpWitnessesHash
         put txpDistributionsHash
-    get = do
+    get = label "TxProof" $ do
       txpNumber <- getUnsignedVarInt <$> get
       txpRoot <- get
       txpWitnessesHash <- get

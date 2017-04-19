@@ -32,7 +32,8 @@ data Args = Args
     , devVssGenesisI            :: !(Maybe Int)
     , keyfilePath               :: !FilePath
     , backupPhrase              :: !(Maybe BackupPhrase)
-    , ipPort                    :: !NetworkAddress
+    , bindAddress               :: !(Maybe NetworkAddress)
+    , publicHost                :: !(Maybe String)
     , supporterNode             :: !Bool
     , dhtKey                    :: !(Maybe DHTKey)
     , timeLord                  :: !Bool
@@ -55,7 +56,6 @@ data Args = Args
 #endif
 #endif
     , commonArgs                :: !CLI.CommonArgs
-    , noSystemStart             :: !Int
     , updateLatestPath          :: !FilePath
     , updateWithPackage         :: !Bool
     , monitorPort               :: !(Maybe Int)
@@ -95,8 +95,12 @@ argsParser = do
         metavar "PHRASE" <>
         help    (show backupPhraseWordsNum ++
                  "-word phrase to recover the wallet")
-    ipPort <-
-        CLI.ipPortOption ("127.0.0.1", 3000)
+    bindAddress <- optional $ CLI.networkAddressOption
+    publicHost <-
+        optional $ strOption $
+        long "pubhost" <>
+        metavar "HOST" <>
+        help "Public host if different from one in --listen"
     supporterNode <- switch $
         long "supporter" <>
         help "Launch DHT supporter instead of full node"
@@ -164,10 +168,6 @@ argsParser = do
 #endif
     commonArgs <-
         CLI.commonArgsParser peerHelpMsg
-    noSystemStart <- option auto $
-        long    "system-start" <>
-        metavar "TIMESTAMP" <>
-        value   (-1)
     updateLatestPath <- strOption $
         long    "update-latest-path" <>
         metavar "FILEPATH" <>

@@ -36,7 +36,7 @@ instance MonadIterator a m => MonadIterator a (StateT s m)
 
 -- | Encapsulation of list iterator.
 newtype ListHolderT s m a = ListHolderT (StateT [s] m a)
-    deriving (Functor, Applicative, Monad, MonadThrow, MonadIO)
+    deriving (Functor, Applicative, Monad, MonadThrow, MonadIO, MonadCatch)
 
 type ListHolder s a = ListHolderT s Identity a
 

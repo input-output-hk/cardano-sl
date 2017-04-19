@@ -21,7 +21,6 @@ import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import           Data.Char       (isAscii)
 import qualified Data.List       as L
-import qualified Data.Text       as T
 import           Universum
 
 -- TODO: use newtypes!
@@ -57,7 +56,7 @@ toMnemonic ent = do
         Left "toMnemonic: maximum entropy is 64 bytes (512 bits)"
     when (isJust $ find (not . isAscii) ms) $
         Left "fromMnemonic: non-ASCII characters not supported"
-    return $ T.pack ms
+    return $ toText ms
   where
     (cs_len, remainder) = BS.length ent `quotRem` 4
     cs = calcCS cs_len ent
@@ -82,7 +81,7 @@ fromMnemonic ms = do
         Left $ "fromMnemonic: checksum failed: " ++ sh ent_cs_num ms_cs_num
     return ms_ent
   where
-    ms_words = L.words $ T.unpack ms
+    ms_words = L.words $ toString ms
     word_count = length ms_words
     (ent_len, cs_len) = (word_count * 11) `quotRem` 32
     sh cs_a cs_b = show cs_a ++ " /= " ++ show cs_b
@@ -125,7 +124,7 @@ indicesToBS is = do
     when lrg $ Left "indicesToBS: index larger or equal than 2048"
     return . pad . integerToBS $ (foldl' f 0 is) `shiftL` shift_width
   where
-    lrg = not . isNothing $ find (>= 2048) is
+    lrg = isJust $ find (>= 2048) is
     (q, r) = (length is * 11) `quotRem` 8
     shift_width = if r == 0 then 0 else 8 - r
     bl = if r == 0 then q else q + 1   -- length of resulting ByteString

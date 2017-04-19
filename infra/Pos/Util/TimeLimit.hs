@@ -24,8 +24,8 @@ import           Universum         hiding (bracket, finally)
 
 import           Data.Time.Units   (Microsecond, Second, convertUnit)
 import           Formatting        (sformat, shown, stext, (%))
-import           Mockable          (Async, Bracket, Delay, Fork, Mockable, async, bracket,
-                                    cancel, delay, finally, fork, killThread, waitAny)
+import           Mockable          (Async, Bracket, Delay, Async, Mockable, async,
+                                    cancel, delay, finally, waitAny, withAsync)
 import           System.Wlog       (WithLogger, logWarning)
 
 import           Pos.Crypto.Random (randomNumber)
@@ -43,7 +43,7 @@ data WaitingDelta
 
 -- | Constraint for something that can be logged in parallel with other action.
 type CanLogInParallel m =
-    (Mockable Delay m, Mockable Fork m, WithLogger m, MonadIO m, Mockable Bracket m)
+    (Mockable Delay m, Mockable Async m, WithLogger m, MonadIO m)
 
 
 -- | Run action and print warning if it takes more time than expected.
@@ -52,13 +52,21 @@ logWarningLongAction
        CanLogInParallel m
     => Bool -> WaitingDelta -> Text -> m a -> m a
 logWarningLongAction secure delta actionTag action =
-    bracket (fork $ waitAndWarn delta) onFinish (const action)
+    -- Previous implementation was
+    --
+    --   bracket (fork $ waitAndWarn delta) killThread (const action)
+    --
+    -- but this has a subtle problem: 'killThread' can be interrupted even
+    -- when exceptions are masked, so it's possible that the forked thread is
+    -- left running, polluting the logs with misinformation.
+    --
+    -- 'withAsync' is assumed to take care of this, and indeed it does for
+    -- 'Production's implementation, which uses the definition from the async
+    -- package: 'uninterruptibleCancel' is used to kill the thread.
+    withAsync (waitAndWarn delta) (const action)
   where
     logFunc :: Text -> m ()
     logFunc = bool logWarning logWarningS secure
-    onFinish logThreadId = do
-        killThread logThreadId
-        --logDebug (sformat ("Action `"%stext%"` finished") actionTag)
     printWarning t = logFunc $ sformat ("Action `"%stext%"` took more than "%shown)
                                        actionTag t
 
@@ -121,7 +129,7 @@ waitRandomInterval minT maxT = do
 
 -- | Wait random interval and then perform given action.
 runWithRandomIntervals
-    :: (MonadIO m, WithLogger m, Mockable Fork m, Mockable Delay m)
+    :: (MonadIO m, WithLogger m, Mockable Delay m)
     => Microsecond -> Microsecond -> m () -> m ()
 runWithRandomIntervals minT maxT action = do
   waitRandomInterval minT maxT
@@ -131,7 +139,7 @@ runWithRandomIntervals minT maxT action = do
 -- | Like `runWithRandomIntervals`, but performs action immidiatelly
 -- at first time.
 runWithRandomIntervalsNow
-    :: (MonadIO m, WithLogger m, Mockable Fork m, Mockable Delay m)
+    :: (MonadIO m, WithLogger m, Mockable Delay m)
     => Microsecond -> Microsecond -> m () -> m ()
 runWithRandomIntervalsNow minT maxT action = do
   action

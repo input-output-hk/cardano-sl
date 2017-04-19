@@ -13,14 +13,14 @@ module Pos.Util.TimeWarp
        , addrParserNoWildcard
        ) where
 
-import qualified Data.ByteString.Char8 as BS8
-import           Data.Time.Units       (Microsecond)
-import           Mockable              (realTime)
-import qualified Network.Transport.TCP as TCP
-import           Node                  (NodeId (..))
-import qualified Serokell.Util.Parse   as P
-import qualified Text.Parsec.Char      as P
-import qualified Text.Parsec.String    as P
+import qualified Data.ByteString.Char8          as BS8
+import           Data.Time.Units                (Microsecond)
+import           Mockable                       (realTime)
+import qualified Network.Transport.TCP.Internal as TCP
+import           Node                           (NodeId (..))
+import qualified Serokell.Util.Parse            as P
+import qualified Text.Parsec.Char               as P
+import qualified Text.Parsec.String             as P
 import           Universum
 
 -- | @"127.0.0.1"@.

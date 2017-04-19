@@ -34,6 +34,8 @@ module Pos.Ssc.GodTossing.Core.Core
        , mkGtProof
        ) where
 
+import           Universum
+
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS
 import           Data.Ix                        (inRange)
@@ -42,7 +44,6 @@ import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder         (Builder)
 import           Formatting                     (Format, bprint, int, (%))
 import           Serokell.Util                  (VerificationRes, listJson, verifyGeneric)
-import           Universum
 
 import           Pos.Binary.Class               (AsBinary, Bi, asBinary, fromBinaryM)
 import           Pos.Binary.Crypto              ()
@@ -53,7 +54,8 @@ import           Pos.Core.Types                 (EpochIndex (..), LocalSlotIndex
                                                  SharedSeed (..), SlotId (..),
                                                  StakeholderId)
 import           Pos.Crypto                     (EncShare, Secret, SecretKey,
-                                                 SecureRandom (..), Threshold,
+                                                 SecureRandom (..),
+                                                 SignTag (SignCommitment), Threshold,
                                                  VssPublicKey, checkSig, encShareId,
                                                  genSharedSecret, getDhSecret, hash,
                                                  secretToDhSecret, shortHashF, sign,
@@ -94,7 +96,7 @@ genCommitmentAndOpening n pks
 mkSignedCommitment
     :: Bi Commitment
     => SecretKey -> EpochIndex -> Commitment -> SignedCommitment
-mkSignedCommitment sk i c = (toPublic sk, c, sign sk (i, c))
+mkSignedCommitment sk i c = (toPublic sk, c, sign SignCommitment sk (i, c))
 
 isCommitmentIdx :: LocalSlotIndex -> Bool
 isCommitmentIdx = inRange (0, 2 * blkSecurityParam - 1)
@@ -176,7 +178,7 @@ verifyCommitment Commitment {..} = fromMaybe False $ do
 -- #checkSig
 verifyCommitmentSignature :: Bi Commitment => EpochIndex -> SignedCommitment -> Bool
 verifyCommitmentSignature epoch (pk, comm, commSig) =
-    checkSig pk (epoch, comm) commSig
+    checkSig SignCommitment pk (epoch, comm) commSig
 
 -- CHECK: @verifySignedCommitment
 -- | Verify SignedCommitment using public key and epoch index.

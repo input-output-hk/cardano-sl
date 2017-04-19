@@ -27,7 +27,7 @@ import           Formatting                 (build, sformat, shown, stext, (%))
 import           Mockable                   (fork)
 import           Paths_cardano_sl           (version)
 import           Serokell.Util.Text         (listJson)
-import           Serokell.Util.Verify       (isVerSuccess)
+import           Serokell.Util.Verify       (VerificationRes (..), formatFirstError)
 import           System.Wlog                (logDebug, logInfo, logWarning)
 import           Universum
 
@@ -191,30 +191,31 @@ data MatchReqHeadersRes
     = MRGood
       -- ^ Headers were indeed requested and precisely match our
       -- request
-    | MRUnexpected
-      -- ^ Headers don't represent valid response to our request.
+    | MRUnexpected Text
+      -- ^ Headers don't represent valid response to our
+      -- request. Reason is attached.
     deriving (Show)
 
 matchRequestedHeaders
     :: (Ssc ssc)
     => NewestFirst NE (BlockHeader ssc) -> MsgGetHeaders -> Bool -> MatchReqHeadersRes
-matchRequestedHeaders headers MsgGetHeaders{..} inRecovery =
-    let newTip      = headers ^. _Wrapped . _neHead
+matchRequestedHeaders headers MsgGetHeaders {..} inRecovery =
+    let newTip = headers ^. _Wrapped . _neHead
         startHeader = headers ^. _Wrapped . _neLast
         startMatches =
             or [ (startHeader ^. headerHashG) `elem` mghFrom
-               , (startHeader ^. prevBlockL) `elem` mghFrom]
+               , (startHeader ^. prevBlockL) `elem` mghFrom
+               ]
         mghToMatches
             | inRecovery = True
             | isNothing mghTo = True
             | otherwise = Just (headerHash newTip) == mghTo
-        boolMatch = and [startMatches, mghToMatches, formChain]
-     in if boolMatch
-           then MRGood
-           else MRUnexpected
-  where
-    formChain = isVerSuccess $
-        verifyHeaders True (headers & _Wrapped %~ toList)
+        verRes = verifyHeaders True (headers & _Wrapped %~ toList)
+    in if | not startMatches -> MRUnexpected "start (from) doesn't match"
+          | not mghToMatches -> MRUnexpected "finish (to) doesn't match"
+          | VerFailure errs <- verRes ->
+              MRUnexpected $ "headers are bad: " <> formatFirstError errs
+          | otherwise -> MRGood
 
 -- Second argument is mghTo block header (not hash). Don't pass it
 -- only if you don't know it.
@@ -238,17 +239,19 @@ requestHeaders mgh peerId origTip _ conv = do
             ("requestHeaders: withConnection: received "%listJson)
             (map headerHash headers)
         case matchRequestedHeaders headers mgh inRecovery of
-            MRGood       -> do
+            MRGood           -> do
                 handleRequestedHeaders headers peerId origTip
-            MRUnexpected -> handleUnexpected headers peerId
+            MRUnexpected msg -> handleUnexpected headers msg
   where
     onNothing = logWarning "requestHeaders: received Nothing, waiting for MsgHeaders"
-    handleUnexpected hs _ = do
+    handleUnexpected hs msg = do
         -- TODO: ban node for sending unsolicited header in conversation
         logWarning $ sformat
-            ("requestHeaders: headers received were not requested, address: " % build)
-            peerId
-        logWarning $ sformat ("requestHeaders: unexpected headers: "%listJson) hs
+            ("requestHeaders: headers received were not requested or are invalid"%
+             ", peer id: "%build%", reason:"%stext)
+            peerId msg
+        logWarning $ sformat
+            ("requestHeaders: unexpected or invalid headers: "%listJson) hs
 
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders
@@ -477,7 +480,7 @@ relayBlock sendActions (Right mainBlk) = do
     isRecoveryMode >>= \case
         True -> logDebug "Not relaying block in recovery mode"
         False -> do
-            logDebug $ sformat ("Calling announceBlock for "%shown%".") (mainBlk ^. gbHeader)
+            logDebug $ sformat ("Calling announceBlock for "%build%".") (mainBlk ^. gbHeader)
             void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------

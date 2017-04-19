@@ -48,10 +48,11 @@ txpGlobalSettings =
 verifyBlocks
     :: forall m.
        TxpGlobalVerifyMode m
-    => OldestFirst NE TxpBlock -> m (OldestFirst NE TxpUndo)
-verifyBlocks newChain =
-    fst <$> runToilAction @_ @() (mapM (verifyToil . convertPayload) newChain)
+    => Bool -> OldestFirst NE TxpBlock -> m (OldestFirst NE TxpUndo)
+verifyBlocks verifyAllIsKnown newChain =
+    fst <$> runToilAction @_ @() (mapM verifyDo newChain)
   where
+    verifyDo = verifyToil verifyAllIsKnown . convertPayload
     convertPayload :: TxpBlock -> [TxAux]
     convertPayload (Left _)             = []
     convertPayload (Right (_, payload)) = flattenTxPayload payload
@@ -79,7 +80,7 @@ applyBlocksWith
 applyBlocksWith ApplyBlocksSettings {..} blunds = do
     let blocks = map fst blunds
     inAssertMode $ do
-        verdict <- runExceptT $ verifyBlocks blocks
+        verdict <- runExceptT $ verifyBlocks False blocks
         whenLeft verdict $
             assertionFailed .
             sformat ("we are trying to apply txp blocks which we fail to verify :("%build)

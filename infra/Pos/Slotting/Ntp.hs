@@ -170,20 +170,18 @@ data SlotStatus
     | CurrentSlot !SlotId               -- ^ Slot is calculated successfully.
 
 ntpGetCurrentSlot :: SlottingConstraint m => NtpSlotting m (Maybe SlotId)
-ntpGetCurrentSlot = do
-    ntpGetCurrentSlotImpl >>= \case
-        CurrentSlot slot ->
-            return (Just slot)
-        OutdatedSlottingData i -> do
-            logDebug $ sformat
-                ("Can't get current slot, because slotting data"%
-                 " is outdated. Last known penult epoch = "%int)
-                i
-            return Nothing
-        CantTrust t -> do
-            logDebug $
-                "Can't get current slot, because we can't trust local time, details: " <> t
-            return Nothing
+ntpGetCurrentSlot = ntpGetCurrentSlotImpl >>= \case
+    CurrentSlot slot -> pure $ Just slot
+    OutdatedSlottingData i -> do
+        logDebug $ sformat
+            ("Can't get current slot, because slotting data"%
+             " is outdated. Last known penult epoch = "%int)
+            i
+        pure Nothing
+    CantTrust t -> do
+        logDebug $
+            "Can't get current slot, because we can't trust local time, details: " <> t
+        pure Nothing
 
 ntpGetCurrentSlotInaccurate :: SlottingConstraint m => NtpSlotting m SlotId
 ntpGetCurrentSlotInaccurate = do
@@ -260,16 +258,14 @@ ntpGetCurrentSlotTryEpoch (Timestamp curTime) epoch EpochSlottingData {..}
     start = getTimestamp esdStart
 
 ntpGetCurrentSlotBlocking :: SlottingConstraint m => NtpSlotting m SlotId
-ntpGetCurrentSlotBlocking = do
-    slotSt <- ntpGetCurrentSlotImpl
-    case slotSt of
-        CantTrust _ -> do
-            delay C.ntpPollDelay
-            ntpGetCurrentSlotBlocking
-        OutdatedSlottingData penult -> do
-            waitPenultEpochEquals (penult + 1)
-            ntpGetCurrentSlotBlocking
-        CurrentSlot slot -> pure slot
+ntpGetCurrentSlotBlocking = ntpGetCurrentSlotImpl >>= \case
+    CantTrust _ -> do
+        delay C.ntpPollDelay
+        ntpGetCurrentSlotBlocking
+    OutdatedSlottingData penult -> do
+        waitPenultEpochEquals (penult + 1)
+        ntpGetCurrentSlotBlocking
+    CurrentSlot slot -> pure slot
 
 ntpCurrentTime
     :: SlottingConstraint m
@@ -335,19 +331,19 @@ ntpSettings
     :: (MonadIO m, WithLogger m)
     => NtpSlottingVar -> NtpClientSettings m
 ntpSettings var = NtpClientSettings
-        { -- list of servers addresses
-          ntpServers         = [ "time.windows.com"
-                               , "clock.isc.org"
-                               , "ntp5.stratum2.ru"]
-        -- got time margin callback
-        , ntpHandler         = ntpHandlerDo var
-        -- logger name modifier
-        , ntpLogName         = "ntp"
-        -- delay between making requests and response collection;
-        -- it also means that handler will be invoked with this lag
-        , ntpResponseTimeout = C.ntpResponseTimeout
-        -- how often to send responses to server
-        , ntpPollDelay       = C.ntpPollDelay
-        -- way to sumarize results received from different servers.
-        , ntpMeanSelection   = \l -> let len = length l in sort l !! ((len - 1) `div` 2)
-        }
+    { -- list of servers addresses
+      ntpServers         = [ "time.windows.com"
+                           , "clock.isc.org"
+                           , "ntp5.stratum2.ru"]
+    -- got time margin callback
+    , ntpHandler         = ntpHandlerDo var
+    -- logger name modifier
+    , ntpLogName         = "ntp"
+    -- delay between making requests and response collection;
+    -- it also means that handler will be invoked with this lag
+    , ntpResponseTimeout = C.ntpResponseTimeout
+    -- how often to send responses to server
+    , ntpPollDelay       = C.ntpPollDelay
+    -- way to sumarize results received from different servers.
+    , ntpMeanSelection   = \l -> let len = length l in sort l !! ((len - 1) `div` 2)
+    }

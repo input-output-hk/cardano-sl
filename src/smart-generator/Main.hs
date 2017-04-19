@@ -30,8 +30,7 @@ import           Pos.Genesis                 (genesisUtxo)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               NodeParams (..), RealModeResources,
                                               bracketResources, initLrc, runNode',
-                                              runProductionMode, runTimeSlaveReal,
-                                              stakesDistr)
+                                              runProductionMode, stakesDistr)
 import           Pos.Ssc.Class               (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing          (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon          (SscNistBeacon)
@@ -243,7 +242,8 @@ main = do
         baseParams =
             BaseParams
             { bpLoggingParams      = logParams
-            , bpIpPort             = goIpPort
+            , bpBindAddress        = Nothing
+            , bpPublicHost         = Nothing
             , bpDHTPeers           = allPeers
             , bpDHTKey             = Nothing
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial goCommonArgs
@@ -251,14 +251,8 @@ main = do
             }
 
     bracketResources baseParams $ \res -> do
-        let timeSlaveParams =
-                baseParams
-                { bpLoggingParams = logParams { lpRunnerTag = "time-slave" }
-                }
 
-        systemStart <- case CLI.sscAlgo goCommonArgs of
-            GodTossingAlgo -> runTimeSlaveReal (Proxy :: Proxy SscGodTossing) res timeSlaveParams
-            NistBeaconAlgo -> runTimeSlaveReal (Proxy :: Proxy SscNistBeacon) res timeSlaveParams
+        let systemStart = CLI.sysStart goCommonArgs
 
         let params =
                 NodeParams

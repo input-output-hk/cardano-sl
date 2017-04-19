@@ -274,26 +274,30 @@ relayStubListeners p = mergeLs
     , stubListenerConv $ mempoolMsgProxy p
     ]
 
+-- For stub listeners (e.g. reqMsgProxy), the first parameter in the Proxy is
+-- “what the listener listens to” and the second is “what the listener sends
+-- back”.
+
 invCatchType :: RelayProxy key tag contents -> InvMsg key tag -> ()
 invCatchType _ _ = ()
 
 reqCatchType :: RelayProxy key tag contents -> ReqMsg key tag -> ()
 reqCatchType _ _ = ()
 reqMsgProxy :: RelayProxy key tag contents
-            -> Proxy (InvOrData tag key contents, ReqMsg key tag)
+            -> Proxy (ReqMsg key tag, InvOrData tag key contents)
 reqMsgProxy _ = Proxy
 
 mempoolCatchType :: RelayProxy key tag contents -> MempoolMsg tag -> ()
 mempoolCatchType _ _ = ()
 mempoolMsgProxy :: RelayProxy key tag contents
-                -> Proxy (InvOrData tag key contents, MempoolMsg tag)
+                -> Proxy (MempoolMsg tag, InvOrData tag key contents)
 mempoolMsgProxy _ = Proxy
 
 dataCatchType :: RelayProxy key tag contents -> DataMsg contents -> ()
 dataCatchType _ _ = ()
 
 invDataMsgProxy :: RelayProxy key tag contents
-                -> Proxy (ReqMsg key tag, InvOrData tag key contents)
+                -> Proxy (InvOrData tag key contents, ReqMsg key tag)
 invDataMsgProxy _ = Proxy
 
 

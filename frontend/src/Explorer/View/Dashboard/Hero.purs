@@ -6,7 +6,7 @@ import Data.Maybe (Maybe(..))
 import Data.String (length)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (cAddress, cEpoch, cSlot, cTransaction, common, hero, hrTitle, hrSearch, hrSubtitle, hrTime) as I18nL
+import Explorer.I18n.Lenses (cAddress, cEpoch, cSlot, cTransaction, common, hero, cTitle, hrSearch, hrSubtitle, hrTime) as I18nL
 import Explorer.Lenses.State (lang, dbViewSearchInput, searchQuery, searchTimeQuery, selectedSearch)
 import Explorer.State (maxSlotInEpoch)
 import Explorer.Types.Actions (Action(..))
@@ -39,7 +39,7 @@ heroView state =
             [ P.className "hero-container" ]
             [ P.h1
                 [ P.className "hero-headline" ]
-                [ P.text $ translate (I18nL.hero <<< I18nL.hrTitle) lang' ]
+                [ P.text $ translate (I18nL.common <<< I18nL.cTitle) lang' ]
             , P.h2
                 [ P.className "hero-subheadline"]
                 [ P.text $ translate (I18nL.hero <<< I18nL.hrSubtitle) lang' ]

@@ -16,7 +16,9 @@ import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksViewState, blsViewPagination, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dashboard, dbViewBlockPagination, dbViewBlocksExpanded, dbViewSearchInput, dbViewSelectedApiCode, dbViewTxsExpanded, errors, globalViewState, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, mobileMenuOpenend, searchQuery, searchTimeQuery, selectedSearch, socket, subscriptions, viewStates)
+import Explorer.I18n.Lang (translate)
+import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
+import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksViewState, blsViewPagination, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dashboard, dbViewBlockPagination, dbViewBlocksExpanded, dbViewSearchInput, dbViewSelectedApiCode, dbViewTxsExpanded, errors, globalViewState, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, lang, latestBlocks, latestTransactions, loading, gViewMobileMenuOpenend, gViewTitle, searchQuery, searchTimeQuery, selectedSearch, socket, subscriptions, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
@@ -174,7 +176,7 @@ update (GenerateQrCode address) state =
 
 -- global state
 update (GlobalToggleMobileMenu toggled) state = noEffects $
-    set (viewStates <<< globalViewState <<< mobileMenuOpenend) toggled state
+    set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) toggled state
 
 -- Search
 
@@ -361,7 +363,10 @@ update (UpdateView route) state = routeEffects route (state { route = route })
 routeEffects :: forall eff. Route -> State -> EffModel State Action (dom :: DOM
     , ajax :: AJAX | eff)
 routeEffects Dashboard state =
-    { state
+    { state:
+        set (viewStates <<< globalViewState <<< gViewTitle)
+            (translate (I18nL.common <<< I18nL.cTitle) $ state ^. lang)
+            state
     , effects:
         [ pure ScrollTop
         , pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock, SocketSubscription SubTx ]
@@ -376,7 +381,10 @@ routeEffects Dashboard state =
 
 routeEffects (Tx tx) state =
     { state:
-        set currentTxSummary Loading state
+        set currentTxSummary Loading $
+        set (viewStates <<< globalViewState <<< gViewTitle)
+            (translate (I18nL.common <<< I18nL.cTransaction) $ state ^. lang)
+            state
     , effects:
         [ pure ScrollTop
         , pure $ SocketUpdateSubscriptions []
@@ -388,8 +396,10 @@ routeEffects (Address cAddress) state =
     { state:
         set currentAddressSummary Loading $
         set currentCAddress cAddress $
-        set (viewStates <<< addressDetail <<< addressTxPagination)
-            minPagination state
+        set (viewStates <<< addressDetail <<< addressTxPagination) minPagination $
+        set (viewStates <<< globalViewState <<< gViewTitle)
+            (translate (I18nL.common <<< I18nL.cAddress) $ state ^. lang)
+            state
     , effects:
         [ pure ScrollTop
         , pure $ SocketUpdateSubscriptions []
@@ -399,9 +409,11 @@ routeEffects (Address cAddress) state =
 
 routeEffects (Epoch epochIndex) state =
     { state:
-          set (viewStates <<< blocksViewState <<< blsViewPagination)
-              minPagination $
-          state
+        set (viewStates <<< blocksViewState <<< blsViewPagination)
+            minPagination $
+        set (viewStates <<< globalViewState <<< gViewTitle)
+            (translate (I18nL.common <<< I18nL.cEpoch) $ state ^. lang)
+            state
     , effects:
         [ pure ScrollTop
         , pure $ RequestSearchBlocks epochIndex Nothing
@@ -409,7 +421,14 @@ routeEffects (Epoch epochIndex) state =
     }
 
 routeEffects (EpochSlot epochIndex slotIndex) state =
-    { state
+    let lang' = state ^. lang
+        epochTitle = translate (I18nL.common <<< I18nL.cEpoch) lang'
+        slotTitle = translate (I18nL.common <<< I18nL.cSlot) lang'
+    in
+    { state:
+        set (viewStates <<< globalViewState <<< gViewTitle)
+            (epochTitle <> " / " <> slotTitle)
+            state
     , effects:
         [ pure ScrollTop
         , pure $ RequestSearchBlocks epochIndex (Just slotIndex)
@@ -417,10 +436,20 @@ routeEffects (EpochSlot epochIndex slotIndex) state =
     }
 
 
-routeEffects Calculator state = { state, effects: [ pure ScrollTop ] }
+routeEffects Calculator state =
+    { state:
+        set (viewStates <<< globalViewState <<< gViewTitle)
+            (translate (I18nL.common <<< I18nL.cCalculator) $ state ^. lang)
+            state
+    , effects: [ pure ScrollTop ]
+    }
 
 routeEffects (Block hash) state =
-    { state: set currentBlockSummary Nothing state
+    { state:
+        set currentBlockSummary Nothing $
+        set (viewStates <<< globalViewState <<< gViewTitle)
+            (translate (I18nL.common <<< I18nL.cBlock) $ state ^. lang)
+            state
     , effects:
         [ pure ScrollTop
         , pure $ SocketUpdateSubscriptions []
@@ -438,7 +467,10 @@ routeEffects Playground state =
     }
 
 routeEffects NotFound state =
-    { state
+    { state:
+        set (viewStates <<< globalViewState <<< gViewTitle)
+            (translate (I18nL.notfound <<< I18nL.nfTitle) $ state ^. lang)
+            state
     , effects:
         [ pure ScrollTop
         , pure $ SocketUpdateSubscriptions []

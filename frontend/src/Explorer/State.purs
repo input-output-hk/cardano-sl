@@ -1,8 +1,10 @@
 module Explorer.State where
 
+import Prelude
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
-import Explorer.I18n.Lang (Language(..))
+import Explorer.I18n.Lang (Language(..), translate)
+import Explorer.I18n.Lenses (common, cTitle) as I18nL
 import Explorer.Routes (Route(..))
 import Explorer.Types.State (DashboardAPICode(..), Search(..), State, SearchEpochSlotQuery)
 import Explorer.Util.Factory (mkCAddress)
@@ -20,7 +22,8 @@ initialState =
         }
     , viewStates:
         { globalViewState:
-            { mobileMenuOpenend: false
+            { gViewMobileMenuOpenend: false
+            , gViewTitle: translate (I18nL.common <<< I18nL.cTitle) English
             }
         ,  dashboard:
             { dbViewBlocksExpanded: false

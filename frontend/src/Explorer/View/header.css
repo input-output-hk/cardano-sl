@@ -26,13 +26,12 @@
     height: var(--height-header-top-mobile);
 
     .logo__container {
-      lost-column: 3/12;
+      lost-column: 2/12;
       height: var(--height-header-top-mobile);
     }
 
     @media (--md) {
       .logo__container  {
-        lost-column: 2/12;
         height: var(--height-header-top);
       }
     }
@@ -75,7 +74,7 @@
     @media (--md) {
       .currency__container  {
         @extend .show;
-        lost-column: 2/12 3;
+        lost-column: 2/12;
         height: var(--height-header-top);
         text-align: right;
       }
@@ -83,7 +82,7 @@
 
     .title__container {
       @extend .show;
-      lost-column: 6/12;
+      lost-column: 8/12;
       line-height: var(--height-header-top-mobile);
       text-align: center;
       font-family: var(--fontFamily0-Light);
@@ -98,7 +97,7 @@
     }
 
     .hamburger__container {
-      lost-column: 3/12;
+      lost-column: 2/12;
       height: var(--height-header-top-mobile);
       box: horizontal right;
     }

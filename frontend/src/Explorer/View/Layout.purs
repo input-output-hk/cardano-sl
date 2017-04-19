@@ -2,7 +2,7 @@ module Explorer.View.Layout where
 
 import Prelude
 import Data.Lens ((^.))
-import Explorer.Lenses.State (globalViewState, mobileMenuOpenend, viewStates)
+import Explorer.Lenses.State (globalViewState, gViewMobileMenuOpenend, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
@@ -21,7 +21,7 @@ import Pux.Html.Attributes (className) as P
 
 view :: State -> P.Html Action
 view state =
-    let mobileMenuClazz = if state ^. (viewStates <<< globalViewState <<< mobileMenuOpenend)
+    let mobileMenuClazz = if state ^. (viewStates <<< globalViewState <<< gViewMobileMenuOpenend)
                           then " mobile__menu--opened"
                           else ""
     in

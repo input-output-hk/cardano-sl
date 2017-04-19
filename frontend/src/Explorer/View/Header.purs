@@ -2,7 +2,7 @@ module Explorer.View.Header (headerView) where
 
 import Prelude
 import Data.Lens ((^.))
-import Explorer.Lenses.State (mobileMenuOpenend, viewStates, globalViewState)
+import Explorer.Lenses.State (gViewMobileMenuOpenend, gViewTitle, globalViewState, viewStates)
 import Explorer.Routes (Route(Dashboard), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
@@ -14,7 +14,7 @@ import Pux.Router (link) as P
 headerView :: State -> P.Html Action
 headerView state =
     let lang = state.lang
-        mobileMenuOpenend' = state ^. (viewStates <<< globalViewState <<< mobileMenuOpenend)
+        mobileMenuOpenend = state ^. (viewStates <<< globalViewState <<< gViewMobileMenuOpenend)
     in
     P.header
         [ P.className "explorer-header"]
@@ -42,15 +42,15 @@ headerView state =
                 -- mobile views
                 , P.div
                     [ P.className "title__container" ]
-                    [ P.text "Title" ]
+                    [ P.text $ state ^. (viewStates <<< globalViewState <<< gViewTitle) ]
                 , P.div
                     [ P.className "hamburger__container" ]
                     [ P.div
                         [ P.className
-                              if mobileMenuOpenend'
+                              if mobileMenuOpenend
                               then "cross__icon bg-icon-cross"
                               else "hamburger__icon bg-icon-hamburger"
-                        , P.onClick <<< const <<< GlobalToggleMobileMenu $ not mobileMenuOpenend'
+                        , P.onClick <<< const <<< GlobalToggleMobileMenu $ not mobileMenuOpenend
                         ]
                         []
                     ]

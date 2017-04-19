@@ -2,6 +2,7 @@
 
 module Command
        ( Command (..)
+       , SendMode (..)
        , parseCommand
        ) where
 
@@ -25,10 +26,12 @@ import           Pos.Types                  (Address (..), BlockVersion, Coin, E
                                              SoftwareVersion, decodeTextAddress, mkCoin)
 import           Pos.Update                 (UpId)
 
+data SendMode = SendNeighbours | SendRoundRobin deriving Show
+
 data Command
     = Balance Address
     | Send Int (NonEmpty TxOut)
-    | SendToAllGenesis !Coin !Int !FilePath
+    | SendToAllGenesis !Coin !Int !SendMode !FilePath
     | Vote Int Bool UpId
     | ProposeUpdate
           { puIdx             :: Int           -- TODO: what is this? rename
@@ -101,8 +104,12 @@ addKeyFromFile = AddKeyFromFile <$> lexeme (many1 anyChar)
 send :: Parser Command
 send = Send <$> num <*> (NE.fromList <$> many1 txout)
 
+sendMode :: Parser SendMode
+sendMode = lexeme $ text "neighbours" $> SendNeighbours
+                <|> text "round-robin" $> SendRoundRobin
+
 sendToAllGenesis :: Parser Command
-sendToAllGenesis = SendToAllGenesis <$> coin <*> num <*> lexeme (many1 anyChar)
+sendToAllGenesis = SendToAllGenesis <$> coin <*> num <*> sendMode <*> lexeme (many1 anyChar)
 
 vote :: Parser Command
 vote = Vote <$> num <*> switch <*> hash

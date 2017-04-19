@@ -32,6 +32,7 @@ translation =
         , cExpand: "Expand"
         , cCollapse: "Collapse"
         , cNoData: "No data"
+        , cTitle: "Cardano Blockchain Explorer"
         , cCopyright: "Cardano Blockchain Explorer @2017"
         , cUnknown: "Unknown"
         , cTotalOutput: "Total Output"
@@ -53,13 +54,13 @@ translation =
         , navTools: "Tools"
         }
     , hero:
-        { hrTitle: "Cardano Blockchain Explorer"
-        , hrSubtitle: "most effective way to reasearch crypto currencies network"
+        { hrSubtitle: "most effective way to reasearch crypto currencies network"
         , hrSearch: "Search for addresses, transactions, slots and epochs"
         , hrTime: "Time"
         }
     , dashboard:
-        { dbLastBlocks: "Last slots"
+        { dbTitle: "Dashboard"
+        , dbLastBlocks: "Last slots"
         , dbLastBlocksDescription: "On {0} {1} transactions are generated"
         , dbPriceAverage: "Price (average)"
         , dbPriceForOne: "{0} for 1 {1}"

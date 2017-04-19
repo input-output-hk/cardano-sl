@@ -1,5 +1,6 @@
 module Explorer.Types.State where
 
+import Prelude (class Eq, class Ord, class Show)
 import Control.Monad.Eff.Exception (Error)
 import Control.SocketIO.Client (Socket)
 import Data.Generic (class Generic, gEq, gShow)
@@ -11,7 +12,6 @@ import Explorer.Routes (Route)
 import Network.RemoteData (RemoteData)
 import Pos.Explorer.Socket.Methods (Subscription)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry, CBlockSummary, CTxBrief, CTxEntry, CTxSummary)
-import Prelude (class Eq, class Ord, class Show)
 
 -- Add all State types here to generate lenses from it
 
@@ -76,10 +76,16 @@ type CTxBriefs = Array CTxBrief
 type Errors = Array String
 
 type ViewStates =
-    { dashboard :: DashboardViewState
+    { globalViewState :: GlobalViewState
+    , dashboard :: DashboardViewState
     , addressDetail :: AddressDetailViewState
     , blockDetail :: BlockDetailViewState
     , blocksViewState :: BlocksViewState
+    }
+
+type GlobalViewState =
+    { gViewMobileMenuOpenend :: Boolean
+    , gViewTitle :: String
     }
 
 type DashboardViewState =

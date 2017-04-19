@@ -1,8 +1,7 @@
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NamedFieldPuns        #-}
-{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ConstraintKinds  #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns   #-}
+{-# LANGUAGE RankNTypes       #-}
 
 -- | This module implements functionality of NTP client.
 
@@ -14,7 +13,7 @@ module NTP.Client
     , hoistNtpClientSettings
     ) where
 
-import           Control.Concurrent.STM      (atomically)
+import           Control.Concurrent.STM      (atomically, modifyTVar')
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, readTVarIO,
                                               writeTVar)
 import           Control.Lens                ((%=), (.=), _Just)
@@ -33,13 +32,8 @@ import           Data.Text                   (Text)
 import           Data.Time.Units             (Microsecond, Second, toMicroseconds)
 import           Data.Typeable               (Typeable)
 import           Formatting                  (sformat, shown, (%))
-import           Network.Socket              (AddrInfoFlag (AI_PASSIVE), SockAddr (..),
-                                              Socket, SocketOption (ReuseAddr),
-                                              SocketType (Datagram), aNY_PORT,
-                                              addrAddress, addrFamily, addrFlags,
-                                              addrSocketType, bind, close, defaultHints,
-                                              defaultProtocol, getAddrInfo,
-                                              setSocketOption, socket)
+import           Network.Socket              (SockAddr (..), Socket, addrAddress,
+                                              addrFamily, close)
 import           Network.Socket.ByteString   (recvFrom, sendTo)
 import           Prelude                     hiding (log)
 import           Serokell.Util.Concurrent    (modifyTVarS, threadDelay)
@@ -51,7 +45,8 @@ import           Mockable.Concurrent         (Delay, Fork, delay, fork)
 import           Mockable.Exception          (Catch, Throw, catchAll, handleAll)
 import           NTP.Packet                  (NtpPacket (..), evalClockOffset,
                                               mkCliNtpPacket, ntpPacketSize)
-import           NTP.Util                    (resolveNtpHost, selectIPv4, selectIPv6)
+import           NTP.Util                    (createAndBindSock, resolveNtpHost,
+                                              selectIPv4, selectIPv6, udpLocalAddresses)
 
 data NtpClientSettings m = NtpClientSettings
     { ntpServers         :: [String]
@@ -76,25 +71,6 @@ hoistNtpClientSettings
 hoistNtpClientSettings f settings =
     settings { ntpHandler = f . ntpHandler settings }
 
--- Store created sockets.
--- If system supports IPv6 and IPv4 we create socket for IPv4 and IPv6.
--- Otherwise only one.
-data Sockets
-    = IPv4Sock !Socket
-    | IPv6Sock !Socket
-    | BothSock !Socket !Socket
-    deriving Show
-
-socketsToList :: Sockets -> [Socket]
-socketsToList (BothSock s1 s2) = [s1, s2]
-socketsToList (IPv4Sock s1)    = [s1]
-socketsToList (IPv6Sock s1)    = [s1]
-
-socketsToBoolDescr :: Sockets -> (Bool, Bool)
-socketsToBoolDescr (BothSock _ _) = (True, True)
-socketsToBoolDescr (IPv4Sock _)   = (True, False)
-socketsToBoolDescr (IPv6Sock _)   = (False, True)
-
 data NtpClient m = NtpClient
     { ncSocket   :: TVar Sockets
     , ncState    :: TVar (Maybe [(Microsecond, Microsecond)])
@@ -111,8 +87,7 @@ mkNtpClient ncSettings sock = liftIO $ do
 
 instance Monad m => Default (NtpClientSettings m) where
     def = NtpClientSettings
-        { ntpServers         = [ "ntp.pool.org"
-                               , "ntp5.stratum2.ru"
+        { ntpServers         = [ "ntp5.stratum2.ru"
                                , "ntp1.stratum1.ru"
                                , "clock.isc.org"
                                ]
@@ -205,13 +180,10 @@ startSend addrs cli = do
 
         startSend addrs cli
 
-whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
-whenJust val f = maybe (pure ()) f val
-
 -- Try to create IPv4 and IPv6 socket.
 mkSockets :: NtpMonad m => NtpClientSettings m -> m Sockets
 mkSockets settings = do
-    (sock1MB, sock2MB) <- doMkSocket `catchAll` handlerE
+    (sock1MB, sock2MB) <- doMkSockets `catchAll` handlerE
     whenJust sock1MB logging
     whenJust sock2MB logging
     case (fst <$> sock1MB, fst <$> sock2MB) of
@@ -226,25 +198,16 @@ mkSockets settings = do
     logging (_, addrInfo) = log' settings Info $
         sformat ("Created socket (family/addr): "%shown%"/"%shown)
                 (addrFamily addrInfo) (addrAddress addrInfo)
-    createSock selecter serveraddrs = case selecter serveraddrs of
-        Nothing -> undefined
-        Just serveraddr -> do
-            sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
-            setSocketOption sock ReuseAddr 1
-            bind sock (addrAddress serveraddr)
-            pure $ Just (sock, serveraddr)
-    doMkSocket = liftIO $ do
-        let hints = defaultHints { addrFlags = [AI_PASSIVE], addrSocketType = Datagram }
-        --                          Hints        Host         Service
-        serveraddrs <- getAddrInfo (Just hints) Nothing (Just $ show aNY_PORT)
-        (,) <$> createSock selectIPv4 serveraddrs
-            <*> createSock selectIPv6 serveraddrs
+    doMkSockets = liftIO $ do
+        serveraddrs <- udpLocalAddresses
+        (,) <$> createAndBindSock selectIPv4 serveraddrs
+            <*> createAndBindSock selectIPv6 serveraddrs
     handlerE e = do
         log' settings Warning $
             sformat ("Failed to create sockets, retrying in 5 sec... (reason: "%shown%")")
             e
         liftIO $ threadDelay (5 :: Second)
-        doMkSocket
+        doMkSockets
 
 handleNtpPacket :: NtpMonad m => NtpClient m -> NtpPacket -> m ()
 handleNtpPacket cli packet = do
@@ -278,19 +241,35 @@ startReceive cli = do
     sockets <- liftIO . atomically . readTVar $ ncSocket cli
     case sockets of
         BothSock sIPv4 sIPv6 -> do
-            void $ fork $ runDoReceive sIPv4
-            runDoReceive sIPv6
-        IPv4Sock sIPv4 -> runDoReceive sIPv4
-        IPv6Sock sIPv6 -> runDoReceive sIPv6
+            void $ fork $ runDoReceive True sIPv4
+            runDoReceive False sIPv6
+        IPv4Sock sIPv4 -> runDoReceive True sIPv4
+        IPv6Sock sIPv6 -> runDoReceive False sIPv6
   where
-    runDoReceive sock = doReceive sock cli `catchAll` (handleE sock)
+    runDoReceive isIPv4 sock = doReceive sock cli `catchAll` (handleE isIPv4 sock)
     -- got error while receiving data, retrying in 5 sec
-    handleE sock e = do
+    handleE isIPv4 sock e = do
         closed <- liftIO . readTVarIO $ ncClosed cli
         unless closed $ do
-            log cli Debug $ sformat ("doReceive failed on socket"%shown%", reason: "%shown%", retrying in 1 sec") sock e
-            liftIO $ threadDelay (1 :: Second)
-            runDoReceive sock
+            log cli Debug $ sformat ("doReceive failed on socket"%shown%
+                                     ", reason: "%shown%
+                                     ", recreate socket in 5 sec") sock e
+            liftIO $ threadDelay (5 :: Second)
+            serveraddrs <- liftIO udpLocalAddresses
+            newSockMB <- liftIO $
+                if isIPv4 then createAndBindSock selectIPv4 serveraddrs
+                else createAndBindSock selectIPv6 serveraddrs
+            case fst <$> newSockMB of
+                Nothing      -> log cli Warning "Recreating of socket failed"
+                Just newSock
+                    | isIPv4 -> do
+                          liftIO . atomically $
+                              modifyTVar' (ncSocket cli) (flip mergeSockets $ IPv4Sock newSock)
+                          runDoReceive isIPv4 newSock
+                    | otherwise -> do
+                          liftIO . atomically $
+                              modifyTVar' (ncSocket cli) (flip mergeSockets $ IPv6Sock newSock)
+                          runDoReceive isIPv4 newSock
 
 stopNtpClient :: NtpMonad m => NtpClient m -> m ()
 stopNtpClient cli = do
@@ -336,3 +315,33 @@ ntpSingleShot settings = do
     stopButton <- startNtpClient settings
     delay (ntpResponseTimeout settings)
     pressNtpStopButton stopButton
+
+whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
+whenJust val f = maybe (pure ()) f val
+
+-- Store created sockets.
+-- If system supports IPv6 and IPv4 we create socket for IPv4 and IPv6.
+-- Otherwise only one.
+data Sockets
+    = IPv4Sock !Socket
+    | IPv6Sock !Socket
+    | BothSock !Socket !Socket
+    deriving Show
+
+socketsToList :: Sockets -> [Socket]
+socketsToList (BothSock s1 s2) = [s1, s2]
+socketsToList (IPv4Sock s1)    = [s1]
+socketsToList (IPv6Sock s1)    = [s1]
+
+socketsToBoolDescr :: Sockets -> (Bool, Bool)
+socketsToBoolDescr (BothSock _ _) = (True, True)
+socketsToBoolDescr (IPv4Sock _)   = (True, False)
+socketsToBoolDescr (IPv6Sock _)   = (False, True)
+
+--              Old        New
+mergeSockets :: Sockets -> Sockets -> Sockets
+mergeSockets (BothSock _ v6) (IPv4Sock s) = BothSock s v6
+mergeSockets (BothSock v4 _) (IPv6Sock s) = BothSock v4 s
+mergeSockets (IPv6Sock _) (IPv6Sock s)    = IPv6Sock s
+mergeSockets (IPv4Sock _) (IPv4Sock s)    = IPv4Sock s
+mergeSockets _ _                          = error "Unexpected state of mergeSockets"

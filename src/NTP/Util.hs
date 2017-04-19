@@ -6,6 +6,9 @@ module NTP.Util
     , getCurrentTime
     , selectIPv6
     , selectIPv4
+
+    , createAndBindSock
+    , udpLocalAddresses
     ) where
 
 import           Control.Monad.Catch   (catchAll)
@@ -15,10 +18,13 @@ import           Data.List             (find)
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Data.Time.Units       (Microsecond, fromMicroseconds)
 import           Network.Socket        (AddrInfo, AddrInfoFlag (AI_ADDRCONFIG),
+                                        AddrInfoFlag (AI_PASSIVE),
                                         Family (AF_INET, AF_INET6), PortNumber (..),
-                                        SockAddr (..), SocketType (Datagram), addrAddress,
-                                        addrFamily, addrFlags, addrSocketType,
-                                        defaultHints, getAddrInfo)
+                                        SockAddr (..), Socket, SocketOption (ReuseAddr),
+                                        SocketType (Datagram), aNY_PORT, addrAddress,
+                                        addrFamily, addrFlags, addrSocketType, bind,
+                                        defaultHints, defaultProtocol, getAddrInfo,
+                                        setSocketOption, socket)
 
 ntpPort :: PortNumber
 ntpPort = 123
@@ -62,3 +68,23 @@ selectIPv6 = find (\a -> addrFamily a == AF_INET6)
 
 selectIPv4 :: [AddrInfo] -> Maybe AddrInfo
 selectIPv4 = find (\a -> addrFamily a == AF_INET)
+
+createAndBindSock
+    :: ([AddrInfo] -> Maybe AddrInfo)
+    -> [AddrInfo]
+    -> IO (Maybe (Socket, AddrInfo))
+createAndBindSock addrSelector serveraddrs =
+    traverse createDo (addrSelector serveraddrs)
+  where
+    createDo serveraddr = do
+        sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
+        setSocketOption sock ReuseAddr 1
+        bind sock (addrAddress serveraddr)
+        pure (sock, serveraddr)
+
+udpLocalAddresses :: IO [AddrInfo]
+udpLocalAddresses = do
+    let hints = defaultHints { addrFlags = [AI_PASSIVE], addrSocketType = Datagram }
+    --                          Hints        Host         Service
+    getAddrInfo (Just hints) Nothing (Just $ show aNY_PORT)
+

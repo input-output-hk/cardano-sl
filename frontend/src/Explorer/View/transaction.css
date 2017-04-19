@@ -11,7 +11,13 @@
 
   &__container {
     @neat-outer-container;
-    padding: 56px 48px 48px 48px;
+    padding: 24px 0;
+  }
+
+  @media (--md) {
+    &__container {
+      padding: 56px 48px 48px 48px;
+    }
   }
 
   .table-summary {
@@ -36,8 +42,14 @@
       padding: 10px 10px 10px 0;
 
       &:first-child {
-        padding-left: 24px;
+        padding-left: 18px;
         width: 164px;
+      }
+
+      @media (--md) {
+        &:first-child {
+          padding-left: 24px;
+        }
       }
 
       &.ada {

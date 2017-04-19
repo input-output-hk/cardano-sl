@@ -18,4 +18,5 @@ newtype TxHeaderViewProps = TxHeaderViewProps
 newtype TxBodyViewProps = TxBodyViewProps
   { txbInputs :: Array (Tuple CAddress Coin)
   , txbOutputs :: Array (Tuple CAddress Coin)
+  , txbAmount :: Coin
   }

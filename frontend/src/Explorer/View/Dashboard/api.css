@@ -21,14 +21,20 @@
     font-weight: normal;
 
     &__tabs {
-      padding: 0 12px;
+      padding: 0 18px;
       height: 40px;
       box: horizontal;
     }
 
+    @media (--md) {
+      &__tabs {
+        padding: 0 24px;
+      }
+    }
+
     &__tab {
       box-item: center;
-      margin: 0 12px;
+      margin-right: 12px;
       font-size: 12px;
       button: standard-button;
       color: color(var(--color8) a(0.5));
@@ -46,7 +52,7 @@
     background-color: var(--color6);
     font-family: var(--fontFamily0-Regular);
     font-weight: normal;
-    padding: 18px 24px;
+    padding: 18px;
     margin-bottom: 12px;
 
     &__headline {
@@ -65,7 +71,6 @@
       }
     }
 
-
     &__code {
       font-size: 10px;
       color: var(--color8);
@@ -73,10 +78,17 @@
     }
   }
 
+  @media (--md) {
+    .api-snippet {
+      padding: 18px 24px;
+    }
+
+  }
+
   .api-about {
     font-family: var(--fontFamily0-Regular);
     font-weight: normal;
-    padding: 0 24px;
+    padding: 0 18px;
 
     &__headline {
       color: var(--color8);
@@ -106,7 +118,7 @@
 
   @media (--md) {
     .api-about {
-      padding-top: 40px;
+      padding: 40px 24px 0 24px;
     }
   }
 }

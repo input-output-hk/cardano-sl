@@ -30,9 +30,9 @@ import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..))
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkCoin, sumCoinOfInputsOutputs)
 import Explorer.Util.Time (prettyDate)
-import Explorer.View.Lenses (txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
+import Explorer.View.Lenses (txbAmount, txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
 import Exporer.View.Types (TxBodyViewProps(..), TxHeaderViewProps(..))
-import Pos.Core.Lenses.Types (_Coin, getCoin)
+import Pos.Core.Lenses.Types (getCoin)
 import Pos.Core.Types (Coin(..))
 import Pos.Explorer.Web.ClientTypes (CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, ctbId, ctbInputs, ctbOutputs, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
@@ -96,12 +96,7 @@ txHeaderView lang (TxHeaderViewProps props) =
                                   in fromMaybe noData $ prettyDate format time
                               Nothing -> noData
               ]
-          , P.div
-              [ P.className "amount-container" ]
-              [ P.div
-                  [ P.className "amount bg-ada" ]
-                  [ P.text <<< show $ props ^. (txhAmount <<< _Coin <<< getCoin) ]
-              ]
+          , txAmountView $ props ^. txhAmount
           ]
 
 emptyTxHeaderView :: P.Html Action
@@ -110,6 +105,14 @@ emptyTxHeaderView =
         [ P.className "transaction-header"]
         [ ]
 
+txAmountView :: Coin -> P.Html Action
+txAmountView (Coin coin) =
+    P.div
+        [ P.className "amount-container" ]
+        [ P.div
+            [ P.className "amount bg-ada" ]
+            [ P.text <<< show $ coin ^. getCoin]
+        ]
 -- -----------------
 -- tx body
 -- -----------------
@@ -123,6 +126,7 @@ instance cTxSummaryTxBodyViewPropsFactory :: TxBodyViewPropsFactory CTxSummary w
     mkTxBodyViewProps (CTxSummary txSummary) = TxBodyViewProps
         { txbInputs: txSummary ^. ctsInputs
         , txbOutputs: txSummary ^. ctsOutputs
+        , txbAmount: txSummary ^. ctsTotalOutput
         }
 
 -- | Creates a TxBodyViewProps by a given CTxBrief
@@ -130,6 +134,7 @@ instance cTxBriefTxBodyViewPropsFactory :: TxBodyViewPropsFactory CTxBrief where
     mkTxBodyViewProps (CTxBrief txBrief) = TxBodyViewProps
         { txbInputs: txBrief ^. ctbInputs
         , txbOutputs: txBrief ^. ctbOutputs
+        , txbAmount: sumCoinOfInputsOutputs $ txBrief ^. ctbOutputs
         }
 
 -- | Creates a TxBodyViewProps by a given EmptyViewProps
@@ -137,6 +142,7 @@ instance emptyTxBodyViewPropsFactory :: TxBodyViewPropsFactory EmptyViewProps wh
     mkTxBodyViewProps _ = TxBodyViewProps
         { txbInputs: []
         , txbOutputs: []
+        , txbAmount: mkCoin 0
         }
 
 txBodyView :: TxBodyViewProps -> P.Html Action
@@ -150,8 +156,9 @@ txBodyView (TxBodyViewProps props) =
             [ P.className "to-hash-container bg-transaction-arrow" ]
             <<< map txToView $ props ^. txbOutputs
         , P.div
-              [ P.className "amount-container" ]
-              <<< map txAmountView $ props ^. txbOutputs
+              [ P.className "amounts-container" ]
+              <<< map txBodyAmountView $ props ^. txbOutputs
+        , txAmountView $ props ^. txbAmount
         ]
 
 emptyTxBodyView :: P.Html Action
@@ -172,12 +179,12 @@ txToView (Tuple (CAddress cAddress) _) =
           [ P.className "to-hash"]
           [ P.text cAddress ]
 
-txAmountView :: Tuple CAddress Coin -> P.Html Action
-txAmountView (Tuple _ (Coin coin)) =
+txBodyAmountView :: Tuple CAddress Coin -> P.Html Action
+txBodyAmountView (Tuple _ (Coin coin)) =
     P.div
         [ P.className "amount-wrapper" ]
         [ P.span
-            [ P.className "amount bg-ada-dark" ]
+            [ P.className "plain-amount bg-ada-dark" ]
             [ P.text <<< show $ coin ^. getCoin ]
         ]
 

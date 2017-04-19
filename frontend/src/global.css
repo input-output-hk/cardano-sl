@@ -274,7 +274,13 @@
   font-size: 12px;
   font-weight: normal;
   text-transform: uppercase;
-  padding: 0 24px 24px 24px;
+  padding: 0 18px 24px 18px;
+}
+
+@media (--md) {
+  .headline {
+    padding: 0 24px 24px 24px;
+  }
 }
 
 .invisible {
@@ -291,6 +297,10 @@
 
 .show-inline {
   display: inline-block !important;
+}
+
+.show-flex {
+  display: flex !important;
 }
 
 .btn-debug {

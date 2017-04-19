@@ -10,9 +10,17 @@
   .hero {
 
     &-container {
-      @neat-outer-container;
-      padding: 26px 20px 48px 20px;
+      @extend .hide;
     }
+
+    @media (--md) {
+      &-container {
+        @extend .show;
+        @neat-outer-container;
+        padding: 26px 20px 48px 20px;
+      }
+    }
+
     @media (--md) {
       &-container {
         @neat-outer-container;

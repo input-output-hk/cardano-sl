@@ -19,7 +19,10 @@ initialState =
         , subscriptions: []
         }
     , viewStates:
-        { dashboard:
+        { globalViewState:
+            { mobileMenuOpenend: false
+            }
+        ,  dashboard:
             { dbViewBlocksExpanded: false
             , dbViewBlockPagination: minPagination
             , dbViewTxsExpanded: false

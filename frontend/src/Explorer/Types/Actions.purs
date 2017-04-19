@@ -54,6 +54,8 @@ data Action
     | UpdateSearchValue String
     | UpdateSearchEpochValue String
     | UpdateSearchSlotValue String
+    -- global view states
+    | GlobalToggleMobileMenu Boolean
     -- dashboard view
     | DashboardExpandBlocks Boolean         -- expand list of blocks
     | DashboardPaginateBlocks Int           -- pagination of blocks

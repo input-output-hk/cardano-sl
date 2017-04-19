@@ -76,10 +76,15 @@ type CTxBriefs = Array CTxBrief
 type Errors = Array String
 
 type ViewStates =
-    { dashboard :: DashboardViewState
+    { globalViewState :: GlobalViewState
+    , dashboard :: DashboardViewState
     , addressDetail :: AddressDetailViewState
     , blockDetail :: BlockDetailViewState
     , blocksViewState :: BlocksViewState
+    }
+
+type GlobalViewState =
+    { mobileMenuOpenend :: Boolean
     }
 
 type DashboardViewState =

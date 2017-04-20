@@ -242,7 +242,8 @@ main = do
         baseParams =
             BaseParams
             { bpLoggingParams      = logParams
-            , bpIpPort             = goIpPort
+            , bpBindAddress        = Nothing
+            , bpPublicHost         = Nothing
             , bpDHTPeers           = allPeers
             , bpDHTKey             = Nothing
             , bpDHTExplicitInitial = CLI.dhtExplicitInitial goCommonArgs

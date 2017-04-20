@@ -173,9 +173,18 @@ stack exec cardano-keygen -- --dump-dev-genesis-keys keys/{}.key
 
 *2. Run `cardano-sl-explorer` (in another terminal window)*
 
+If you have `cardano-sl-explorer` and `cardano-sl` in the same folder:
+
 ```bash
 cd {path/to/}cardano-sl-explorer
-./test-launch.sh
+./full-launch.sh
+```
+
+If you have `cardano-sl-explorer` and `cardano-sl` in different folders:
+
+```bash
+cd {path/to/}cardano-sl-explorer
+./full-launch.sh {path/to/}cardano-sl
 ```
 
 *2.1 Solving issues*

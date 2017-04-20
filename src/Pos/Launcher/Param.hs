@@ -28,12 +28,13 @@ data LoggingParams = LoggingParams
 
 -- | Contains basic & networking parameters for running node.
 data BaseParams = BaseParams
-    { bpIpPort             :: !NetworkAddress -- ^ Port to run on
-    , bpDHTPeers           :: ![DHTNode]      -- ^ Peers passed from CLI
-    , bpDHTKey             :: !(Maybe DHTKey)
+    { bpBindAddress        :: !(Maybe NetworkAddress) -- ^ Host/port to bind to
+    , bpPublicHost         :: !(Maybe String)         -- ^ Public host if different from `bpBindAddress` host
+    , bpDHTPeers           :: ![DHTNode]              -- ^ Peers passed from CLI
+    , bpDHTKey             :: !(Maybe DHTKey)         -- ^ DHT key
     , bpDHTExplicitInitial :: !Bool
-    , bpLoggingParams      :: !LoggingParams  -- ^ Logger parameters
-    , bpKademliaDump       :: !FilePath       -- ^ Path to kademlia dump file
+    , bpLoggingParams      :: !LoggingParams          -- ^ Logger parameters
+    , bpKademliaDump       :: !FilePath               -- ^ Path to kademlia dump file
     } deriving (Show)
 
 -- | Contains algorithm specific & storage parameters for Node.

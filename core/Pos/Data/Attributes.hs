@@ -8,6 +8,7 @@
 
 module Pos.Data.Attributes
        ( Attributes (..)
+       , areAttributesKnown
        , getAttributes
        , putAttributes
        , mkAttributes
@@ -41,8 +42,7 @@ data Attributes h = Attributes
       attrData   :: h
       -- | Unparsed ByteString
     , attrRemain :: ByteString
-    }
-  deriving (Eq, Ord, Generic, Typeable)
+    } deriving (Eq, Ord, Generic, Typeable)
 
 instance Default h => Default (Attributes h) where
     def = mkAttributes def
@@ -69,6 +69,11 @@ instance Buildable (Attributes ()) where
                 (length attrRemain)
 
 instance Hashable h => Hashable (Attributes h)
+
+-- | Check whether all data from 'Attributes' is known, i. e. was
+-- successfully parsed into some structured data.
+areAttributesKnown :: Attributes __ -> Bool
+areAttributesKnown = null . attrRemain
 
 -- | Generate 'Attributes' reader given mapper from keys to 'Get',
 -- maximum input length and the attribute value 'h' itself.

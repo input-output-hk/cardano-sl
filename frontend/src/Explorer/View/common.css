@@ -40,6 +40,8 @@
 
 
 .transaction-header {
+  lost-utility: clearfix;
+
   height: var(--transaction-header-height);
   background-color: var(--color6);
   padding: 0 18px;
@@ -110,6 +112,8 @@
 }
 
 .transaction-body {
+  lost-utility: clearfix;
+  
   font-family: var(--fontFamily0-Regular);
   font-size: 10px;
   color: var(--color8);

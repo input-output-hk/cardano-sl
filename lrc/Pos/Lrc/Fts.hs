@@ -11,7 +11,7 @@ import           Control.Lens       (makeLenses, makePrisms, uses)
 import           Data.List.NonEmpty (fromList)
 import           Universum
 
-import           Pos.Core.Coin      (coinToInteger)
+import           Pos.Core.Coin      (coinToInteger, unsafeGetCoin)
 import           Pos.Core.Constants (epochSlots)
 import           Pos.Core.Types     (Coin, LocalSlotIndex (..), SharedSeed (..),
                                      SlotLeaders, StakeholderId, mkCoin)
@@ -32,14 +32,14 @@ import           Pos.Util.Iterator  (MonadIterator (..))
 --           zzz | 80            | [250..329]
 --
 -- In other words, 'Coin' is a cardinal, whereas 'CoinIndex' is an ordinal.
-newtype CoinIndex = CoinIndex Integer
+newtype CoinIndex = CoinIndex Word64
     deriving (Show, Eq, Ord, Num, Enum)
 
 makePrisms ''CoinIndex
 
 -- | Offset a coin index by a given amount of coins.
 coinIndexOffset :: Coin -> CoinIndex -> CoinIndex
-coinIndexOffset c = over _CoinIndex (+ coinToInteger c)
+coinIndexOffset c = over _CoinIndex (+ unsafeGetCoin c)
 
 -- | Assign a local slot index to each value in a list, starting with
 -- @LocalSlotIndex 0@.
@@ -167,7 +167,7 @@ Let's take a look at the intermediate states during execution:
 5.  Select the next coin, @LocalSlotIndex=2, CoinIndex=61@.
 
 6.  @CoinIndex@ falls within the @CoinRange@, yield slot leader
-    @LocalSlotIndex=2, StakeholderId=aa@a.
+    @LocalSlotIndex=2, StakeholderId=aaa@.
 
 7.  Select the next coin, @LocalSlotIndex=k, CoinIndex=205@.
 
@@ -217,8 +217,8 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
     pure . fromList . arrangeBySlots $ res
   where
     coinIndices :: [CoinIndex]
-    coinIndices = map CoinIndex . deterministic seed $
-      replicateM epochSlots (randomNumber (coinToInteger totalCoins))
+    coinIndices = map (CoinIndex . fromInteger) . deterministic seed $
+        replicateM epochSlots (randomNumber (coinToInteger totalCoins))
 
     findLeaders = traverse findLeader
 

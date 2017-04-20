@@ -24,11 +24,13 @@ module Pos.Launcher.Runner
        ) where
 
 import           Control.Concurrent.STM      (newEmptyTMVarIO, newTBQueueIO)
+import           Control.Concurrent.STM.TVar (writeTVar)
 import           Control.Lens                (each, to, _tail)
 import           Control.Monad.Fix           (MonadFix)
 import qualified Data.ByteString.Char8       as BS8
 import           Data.Default                (def)
 import           Data.Tagged                 (untag)
+import           Data.Text                   (pack)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (CurrentTime, Mockable, MonadMockable,
@@ -43,7 +45,9 @@ import           Node                        (Node, NodeAction (..),
                                               node, simpleNodeEndPoint)
 import           Node.Util.Monitor           (setupMonitor, stopMonitor)
 import qualified STMContainers.Map           as SM
+import qualified System.Metrics.Gauge        as Gauge
 import           System.Random               (newStdGen)
+import           System.Remote.Monitoring    (getGauge)
 import           System.Wlog                 (LoggerConfig (..), WithLogger, logError,
                                               logInfo, mapperB, productionB,
                                               releaseAllHandlers, setupLogging,
@@ -88,7 +92,7 @@ import           Pos.Txp                     (mkTxpLocalData, runTxpHolder)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer                (explorerTxpGlobalSettings)
 #else
-import           Pos.Txp                     (txpGlobalSettings)
+import           Pos.Txp                     (txpGlobalSettings, txpSetGauge)
 #endif
 import           Pos.Update.Context          (UpdateContext (..))
 import qualified Pos.Update.DB               as GState
@@ -152,7 +156,11 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
 
        let startMonitoring node' = case lpEkgPort of
                Nothing   -> return Nothing
-               Just port -> Just <$> setupMonitor port runIO node'
+               Just port -> Just <$> do 
+                    server <- setupMonitor port runIO node'
+                    gauge <- liftIO $ getGauge (pack "MemPoolSize") server
+                    atomically $ writeTVar (txpSetGauge txpVar) $ Gauge.set gauge . fromIntegral
+                    return server
 
        let stopMonitoring it = whenJust it stopMonitor
 

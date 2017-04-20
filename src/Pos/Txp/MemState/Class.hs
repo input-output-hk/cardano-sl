@@ -28,7 +28,7 @@ import           Pos.DHT.Real           (KademliaDHT)
 import           Pos.Txp.Core.Types     (TxAux, TxId, TxOutAux)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),
                                          GenericTxpLocalDataPure)
-import           Pos.Txp.Toil.Types     (MemPool (_mpLocalTxs), UtxoModifier)
+import           Pos.Txp.Toil.Types     (MemPool (..), UtxoModifier)
 
 -- | Reduced equivalent of @MonadReader (GenericTxpLocalData mw) m@.
 class Monad m => MonadTxpMem extra m | m -> extra where
@@ -83,19 +83,23 @@ modifyTxpLocalData
     :: (MonadIO m, MonadTxpMem ext m)
     => (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext)) -> m a
 modifyTxpLocalData f =
-    askTxpMem >>= \TxpLocalData{..} -> atomically $ do
-        curUM  <- STM.readTVar txpUtxoModifier
-        curMP  <- STM.readTVar txpMemPool
-        curUndos <- STM.readTVar txpUndos
-        curTip <- STM.readTVar txpTip
-        curExtra <- STM.readTVar txpExtra
-        let (res, (newUM, newMP, newUndos, newTip, newExtra))
-              = f (curUM, curMP, curUndos, curTip, curExtra)
-        STM.writeTVar txpUtxoModifier newUM
-        STM.writeTVar txpMemPool newMP
-        STM.writeTVar txpUndos newUndos
-        STM.writeTVar txpTip newTip
-        STM.writeTVar txpExtra newExtra
+    askTxpMem >>= \TxpLocalData{..} -> do
+        (res, setGaugeIO) <- atomically $ do
+            curUM  <- STM.readTVar txpUtxoModifier
+            curMP  <- STM.readTVar txpMemPool
+            curUndos <- STM.readTVar txpUndos
+            curTip <- STM.readTVar txpTip
+            curExtra <- STM.readTVar txpExtra
+            let (res, (newUM, newMP, newUndos, newTip, newExtra))
+                  = f (curUM, curMP, curUndos, curTip, curExtra)
+            STM.writeTVar txpUtxoModifier newUM
+            STM.writeTVar txpMemPool newMP
+            STM.writeTVar txpUndos newUndos
+            STM.writeTVar txpTip newTip
+            STM.writeTVar txpExtra newExtra
+            setGauge <- STM.readTVar txpSetGauge
+            pure (res, setGauge $ _mpLocalTxsSize newMP)
+        liftIO setGaugeIO
         pure res
 
 setTxpLocalData

@@ -8,6 +8,7 @@ module Pos.Txp.MemState.Types
        ) where
 
 import qualified Control.Concurrent.STM as STM
+import           GHC.Base               (Int, IO)
 
 import           Pos.Core.Types         (HeaderHash)
 import           Pos.Txp.Toil.Types     (MemPool, UndoMap, UtxoModifier)
@@ -30,6 +31,7 @@ data GenericTxpLocalData extra = TxpLocalData
     , txpUndos        :: !(STM.TVar UndoMap)
     , txpTip          :: !(STM.TVar HeaderHash)
     , txpExtra        :: !(STM.TVar extra)
+    , txpSetGauge     :: !(STM.TVar (Int -> IO ()))
     }
 
 -- | Pure version of GenericTxpLocalData.

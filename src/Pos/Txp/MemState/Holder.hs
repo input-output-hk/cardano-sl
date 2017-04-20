@@ -113,6 +113,7 @@ mkTxpLocalData uv initTip = TxpLocalData
     <*> liftIO (STM.newTVarIO mempty)
     <*> liftIO (STM.newTVarIO initTip)
     <*> liftIO (STM.newTVarIO def)
+    <*> liftIO (STM.newTVarIO $ const $ return ())
 
 runTxpHolder :: GenericTxpLocalData ext -> TxpHolder ext m a -> m a
 runTxpHolder ld holder = runReaderT (getTxpHolder holder) ld

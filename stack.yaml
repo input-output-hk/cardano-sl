@@ -42,7 +42,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: e0a48924e7e308f1164168a81f67c0f25eaabda1
+    commit: 17b68653edfcbb72ad92a6b0ecbff82d3b42c4ef
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -89,8 +89,7 @@ extra-deps:
 - base58-bytestring-0.1.0
 - log-warper-1.1.1
 - concurrent-extra-0.7.0.10       # not yet in lts-8
-- derive-2.5.26                   # not yet in lts-8
-- haskell-src-exts-1.17.1         # derive has not moved to 1.18 yet
+- derive-2.6.2                    # not yet in lts-8
 - wreq-0.5.0.0                    # not yet in lts-8
 - turtle-1.3.1                    # earlier versions don't have 'stat'
 - optparse-applicative-0.13.0.0   # needed for turtle

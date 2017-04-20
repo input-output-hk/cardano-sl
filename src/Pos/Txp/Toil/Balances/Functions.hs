@@ -13,16 +13,16 @@ import           Universum
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
 import qualified Data.List.NonEmpty  as NE
-import           Formatting          (build, sformat, (%))
+import           Formatting          (sformat, (%))
+import           Serokell.Util.Text  (listJson)
 import           System.Wlog         (WithLogger, logInfo)
 
 import           Pos.Core.Coin       (coinToInteger, sumCoins, unsafeAddCoin,
                                       unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Types           (mkCoin)
-
 import           Pos.Txp.Core        (Tx (..), TxAux, TxOutAux (..), TxOutDistribution,
                                       TxUndo, getTxDistribution, txOutStake)
 import           Pos.Txp.Toil.Class  (MonadBalances (..), MonadBalancesRead (..))
+import           Pos.Types           (mkCoin)
 
 type BalancesMode m = (MonadBalances m, WithLogger m)
 
@@ -55,12 +55,14 @@ recomputeStakes plusDistr minusDistr = do
             HS.toList $
             HS.fromList plusStakeHolders `HS.union`
             HS.fromList minusStakeHolders
-    resolvedStakes <- mapM resolve needResolve
+    resolvedStakesRaw <- mapM resolve needResolve
+    let resolvedStakes = map fst resolvedStakesRaw
+    let createdStakes = concatMap snd resolvedStakesRaw
+    logInfo $ sformat ("Stakes for " %listJson%" will be created in UtxoDB") createdStakes
     totalStake <- getTotalStake
     let (positiveDelta, negativeDelta) = (sumCoins plusCoins, sumCoins minusCoins)
         newTotalStake = unsafeIntegerToCoin $
                         coinToInteger totalStake + positiveDelta - negativeDelta
-
     let newStakes
           = HM.toList $
               calcNegStakes minusDistr
@@ -68,8 +70,9 @@ recomputeStakes plusDistr minusDistr = do
     setTotalStake newTotalStake
     mapM_ (uncurry setStake) newStakes
   where
-    createInfo = sformat ("Stake for " %build%" will be created in UtxoDB")
-    resolve ad = whenNothingM (getStake ad) (mkCoin 0 <$ logInfo (createInfo ad))
+    resolve ad = getStake ad >>= \case
+        Just x -> pure (x, [])
+        Nothing -> pure (mkCoin 0, [ad])
     calcPosStakes = foldl' plusAt HM.empty
     calcNegStakes distr hm = foldl' minusAt hm distr
     -- @pva701 says it's not possible to get negative coin here. We *can* in

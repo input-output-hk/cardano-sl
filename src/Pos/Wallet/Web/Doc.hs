@@ -1,4 +1,6 @@
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators       #-}
 
 -- | Documentation of wallet web API.
 
@@ -15,18 +17,19 @@ import           Data.Time                  (defaultTimeLocale, parseTimeOrError
 import           Data.Time.Clock.POSIX      (POSIXTime, utcTimeToPOSIXSeconds)
 import           Network.HTTP.Types.Method  (methodDelete, methodGet, methodPost,
                                              methodPut)
-import           Servant.API                (Capture, QueryParam)
+import           Servant.API                ((:>), Capture, QueryParam)
 import           Servant.Docs               (API, Action, DocCapture (..), DocIntro (..),
                                              DocNote (..), DocQueryParam (..), Endpoint,
-                                             ExtraInfo (..), ParamKind (Normal),
-                                             ToCapture (toCapture), ToParam (toParam),
-                                             ToSample (toSamples), apiEndpoints,
-                                             apiIntros, capDesc, capSymbol, captures,
-                                             defAction, defEndpoint, defaultDocOptions,
-                                             docsWith, introBody, introTitle, markdown,
-                                             method, noteBody, notes, paramDesc,
-                                             paramName, params, path, pretty,
-                                             singleSample)
+                                             ExtraInfo (..), HasDocs (..),
+                                             ParamKind (Normal), ToCapture (toCapture),
+                                             ToParam (toParam), ToSample (toSamples),
+                                             apiEndpoints, apiIntros, capDesc, capSymbol,
+                                             captures, defAction, defEndpoint,
+                                             defaultDocOptions, docsWith, introBody,
+                                             introTitle, markdown, method, noteBody,
+                                             notes, paramDesc, paramName, params, path,
+                                             pretty, singleSample)
+import           Servant.Multipart          (MultipartForm)
 import           System.IO.Unsafe           (unsafePerformIO)
 import           Universum
 
@@ -36,20 +39,23 @@ import           Pos.Constants              (curSoftwareVersion)
 import           Pos.Crypto                 (keyGen)
 import           Pos.Types                  (BlockVersion (..), Coin, SoftwareVersion,
                                              makePubKeyAddress, mkCoin)
-import           Pos.Util.BackupPhrase      (BackupPhrase)
+import           Pos.Util.BackupPhrase      (BackupPhrase, mkBackupPhrase12)
 import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (Acc, CAccount (..), CAccountAddress (..),
                                              CAccountAddress, CAddress (..),
                                              CCurrency (..), CHash (..),
                                              CInitialized (..), CPassPhrase,
-                                             CProfile (..), CTType (..), CTx (..), CTxId,
-                                             CTxMeta (..), CUpdateInfo (..), CWallet (..),
+                                             CPostVendWalletRedeem (..), CProfile (..),
+                                             CTType (..), CTx (..), CTxId, CTxMeta (..),
+                                             CUpdateInfo (..), CWallet (..),
                                              CWalletAddress (..), CWalletAddress,
                                              CWalletInit (..), CWalletMeta (..),
                                              CWalletRedeem (..), CWalletSet (..),
                                              CWalletSetInit (..), CWalletSetInit (..),
-                                             SyncProgress, WS, addressToCAddress, mkCTxId)
+                                             SyncProgress, WS, addressToCAddress, mkCCoin,
+                                             mkCTxId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
+
 
 
 
@@ -140,6 +146,9 @@ extras =
 ----------------------------------------------------------------------------
 -- Orphan instances
 ----------------------------------------------------------------------------
+
+instance HasDocs api => HasDocs (MultipartForm a :> api) where
+    docsFor Proxy ep = docsFor (Proxy :: Proxy api) ep
 
 instance ToCapture (Capture "walletId" CWalletAddress) where
     toCapture Proxy =
@@ -289,8 +298,11 @@ instance ToCapture (Capture "passphrase" CPassPhrase) where
         , _capDesc = "Passphrase to wallet"
         }
 
--- sample data --
---------------------------------------------------------------------------------
+
+----------------------------------------------------------------------------
+-- Sample data
+----------------------------------------------------------------------------
+
 posixTime :: POSIXTime
 posixTime = utcTimeToPOSIXSeconds (parseTimeOrError True defaultTimeLocale "%F" "2017-12-03")
 
@@ -316,6 +328,18 @@ instance ToSample CWalletRedeem where
                 , cwaIndex     = 1
                 }
             , crSeed = "1354644684681"
+            }
+
+instance ToSample CPostVendWalletRedeem where
+    toSamples Proxy = singleSample sample
+      where
+        sample = CPostVendWalletRedeem
+            { pvWalletId         = CWalletAddress
+                { cwaWSAddress = cWalletSetAddressSample
+                , cwaIndex     = 1
+                }
+            , pvSeed             = "1354644684681"
+            , pvBackupPhrase     = mkBackupPhrase12 ["garlic", "swim", "arrow", "globe", "note", "gossip", "cabin", "wheel", "sibling", "cigar", "person", "clap"]
             }
 
 instance ToSample Coin where
@@ -353,7 +377,7 @@ instance ToSample CWallet where
             , cwAccounts =
                 [ CAccount
                     { caAddress = cAccountAddressSample
-                    , caAmount = mkCoin 0
+                    , caAmount = mkCCoin $ mkCoin 0
                     }
                 ]
             }
@@ -385,7 +409,7 @@ instance ToSample CAccount where
       where
         sample = CAccount
             { caAddress = cAccountAddressSample
-            , caAmount  = mkCoin 5
+            , caAmount  = mkCCoin $ mkCoin 5
             }
 
 instance ToSample CWalletSetInit where
@@ -422,8 +446,8 @@ instance ToSample CUpdateInfo where
             , cuiImplicit        = False
             , cuiVotesFor        = 2
             , cuiVotesAgainst    = 3
-            , cuiPositiveStake   = mkCoin 10
-            , cuiNegativeStake   = mkCoin 3
+            , cuiPositiveStake   = mkCCoin $ mkCoin 10
+            , cuiNegativeStake   = mkCCoin $ mkCoin 3
             }
 
 
@@ -444,7 +468,7 @@ instance ToSample CTx where
       where
         sample = CTx
             { ctId            = mkCTxId "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
-            , ctAmount        = mkCoin 0
+            , ctAmount        = mkCCoin $ mkCoin 0
             , ctConfirmations = 10
             , ctType          = CTOut ctxMeta
             , ctAccAddress    = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"

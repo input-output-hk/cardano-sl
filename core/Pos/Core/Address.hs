@@ -27,7 +27,6 @@ module Pos.Core.Address
 
 import           Crypto.Hash            (Blake2b_224, Digest, SHA3_256, hashlazy)
 import qualified Crypto.Hash            as CryptoHash
-import           Data.ByteArray         (ByteArrayAccess)
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58,
                                          encodeBase58)
 import qualified Data.ByteString.Lazy   as BSL (fromStrict, toStrict)
@@ -48,6 +47,7 @@ import           Pos.Crypto             (AbstractHash (AbstractHash), EncryptedS
 import           Pos.Crypto.HD          (HDAddressPayload, HDPassphrase,
                                          deriveHDPublicKey, deriveHDSecretKey,
                                          packHDAddressAttr)
+import           Pos.Crypto.SafeSigning (PassPhrase)
 import           Pos.Data.Attributes    (mkAttributes)
 
 instance Bi Address => Hashable Address where
@@ -93,13 +93,13 @@ makePubKeyHdwAddress key path =
                   (mkAttributes (AddrPkAttrs (Just path)))
 
 -- | Create address from secret key in hardened way.
-createHDAddressH :: ByteArrayAccess passPhrase
-                 => passPhrase
-                 -> HDPassphrase
-                 -> EncryptedSecretKey
-                 -> [Word32]
-                 -> Word32
-                 -> (Address, EncryptedSecretKey)
+createHDAddressH
+    :: PassPhrase
+    -> HDPassphrase
+    -> EncryptedSecretKey
+    -> [Word32]
+    -> Word32
+    -> (Address, EncryptedSecretKey)
 createHDAddressH passphrase walletPassphrase parent parentPath childIndex = do
     let derivedSK = deriveHDSecretKey passphrase parent childIndex
     let addressPayload = packHDAddressAttr walletPassphrase $ parentPath ++ [childIndex]

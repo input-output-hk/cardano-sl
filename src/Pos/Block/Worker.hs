@@ -27,6 +27,7 @@ import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (getNodeContext, ncPublicKey)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
+import           Pos.DB.Class                (MonadDBCore)
 import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Exception               (assertionFailed)
@@ -44,16 +45,17 @@ import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (
                                               Timestamp (Timestamp),
                                               VerifyBlockParams (..), gbHeader, slotIdF,
                                               verifyBlock)
-import           Pos.Util                    (inAssertMode, logWarningWaitLinear,
+import           Pos.Util                    (inAssertMode, logWarningSWaitLinear,
                                               mconcatPair)
 import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
-import           Pos.Util.LogSafe            (logNoticeS)
+import           Pos.Util.LogSafe            (logDebugS, logInfoS, logNoticeS,
+                                              logWarningS)
 import           Pos.WorkMode                (WorkMode)
 
 
 -- | All workers specific to block processing.
 blkWorkers
-    :: (SscWorkersClass ssc, WorkMode ssc m)
+    :: (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
     => ([WorkerSpec m], OutSpecs)
 blkWorkers =
     merge $ [ blkOnNewSlot
@@ -72,10 +74,6 @@ blkOnNewSlot = onNewSlotWorker True announceBlockOuts blkOnNewSlotImpl
 blkOnNewSlotImpl :: WorkMode ssc m =>
                     SlotId -> SendActions m -> m ()
 blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
-    -- Just ignore this line. It will be deleted after fake messages
-    -- policy (CSL-837) is introduced.
-    logDebug "CSL-700 this message is top secret"
-
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlock siEpoch
     whenJust mGenBlock $ \createdBlk -> do
@@ -102,6 +100,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
     onNoLeader =
         logWarning "Couldn't find a leader for current slot among known ones"
     logLeadersF = if siSlot == 0 then logInfo else logDebug
+    logLeadersFS = if siSlot == 0 then logInfoS else logDebugS
     onKnownLeader leaders leader = do
         ourPk <- ncPublicKey <$> getNodeContext
         let ourPkHash = addressHash ourPk
@@ -112,17 +111,17 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
             validCert = find (\pSk -> addressHash (pskIssuerPk pSk) == leader)
                              validCerts
         logNoticeS "This is a test debug message which shouldn't be sent to the logging server."
-        logLeadersF $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
+        logLeadersFS $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
         logLeadersF $ sformat ("Slot leaders: "%listJson) $
                       map (bprint pairF) (zip [0 :: Int ..] $ toList leaders)
         logLeadersF $ sformat ("Current slot leader: "%build) leader
-        logDebug $ sformat ("Available to use lightweight PSKs: "%listJson) validCerts
+        logDebugS $ sformat ("Available to use lightweight PSKs: "%listJson) validCerts
         heavyPskM <- getPSKByIssuerAddressHash leader
         logDebug $ "Does someone have cert for this slot: " <> show (isJust heavyPskM)
         let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) heavyPskM
         let heavyWeAreIssuer = maybe False ((== ourPk) . pskIssuerPk) heavyPskM
         if | heavyWeAreIssuer ->
-                 logDebug $ sformat
+                 logDebugS $ sformat
                  ("Not creating the block because it's delegated by psk: "%build)
                  heavyPskM
            | leader == ourPkHash ->
@@ -147,28 +146,28 @@ onNewSlotWhenLeader slotId pSk sendActions = do
             sformat ("using ligtweight proxy signature key "%build%", will do it soon") psk
         logCert (Right psk) =
             sformat ("using heavyweight proxy signature key "%build%", will do it soon") psk
-    logInfo $ logReason <> maybe logLeader logCert pSk
+    logInfoS $ logReason <> maybe logLeader logCert pSk
     nextSlotStart <- getSlotStartEmpatically (succ slotId)
     currentTime <- currentTimeSlotting
     let timeToCreate =
             max currentTime (nextSlotStart - Timestamp networkDiameter)
         Timestamp timeToWait = timeToCreate - currentTime
-    logInfo $
+    logInfoS $
         sformat ("Waiting for "%shown%" before creating block") timeToWait
     delay timeToWait
     let onNewSlotWhenLeaderDo = do
-            logInfo "It's time to create a block for current slot"
+            logInfoS "It's time to create a block for current slot"
             let whenCreated createdBlk = do
-                    logInfo $
+                    logInfoS $
                         sformat ("Created a new block:\n" %build) createdBlk
                     jlLog $ jlCreatedBlock (Right createdBlk)
                     verifyCreatedBlock createdBlk
                     void $ fork $ announceBlock sendActions $ createdBlk ^. gbHeader
-            let whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")
+            let whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
             createdBlock <- createMainBlock slotId pSk
             either whenNotCreated whenCreated createdBlock
-            logInfo "onNewSlotWhenLeader: done"
-    logWarningWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
+            logInfoS "onNewSlotWhenLeader: done"
+    logWarningSWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
 
 verifyCreatedBlock
     :: (WithLogger m, SscHelpersClass ssc, MonadThrow m)
@@ -201,6 +200,7 @@ queryBlocksWorker = worker requestTipOuts $ \sendActions -> do
     slotDur <- getLastKnownSlotDuration
     let delayInterval = max (slotDur `div` 4) (convertUnit $ (5 :: Second))
         action = forever $ do
+            logInfo "Querying blocks from behind NAT"
             triggerRecovery sendActions
             delay $ delayInterval
         handler (e :: SomeException) = do

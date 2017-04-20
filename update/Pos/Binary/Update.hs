@@ -11,7 +11,7 @@ import           Pos.Binary.Class        (Bi (..), getAsciiString1b, getWord8, l
                                           putAsciiString1b, putWord8)
 import           Pos.Binary.Core         ()
 import           Pos.Binary.Core.Version ()
-import           Pos.Crypto              (checkSig)
+import           Pos.Crypto              (SignTag (SignUSVote), checkSig)
 import qualified Pos.Update.Core.Types   as U
 import qualified Pos.Update.Poll.Types   as U
 
@@ -27,7 +27,11 @@ instance Bi U.UpdateVote where
         uvProposalId <- get
         uvDecision <- get
         uvSignature <- get
-        unless (checkSig uvKey (uvProposalId, uvDecision) uvSignature) $
+        let sigValid = checkSig SignUSVote
+                           uvKey
+                           (uvProposalId, uvDecision)
+                           uvSignature
+        unless sigValid $
             fail "Pos.Binary.Update: UpdateVote: invalid signature"
         return U.UpdateVote {..}
     put U.UpdateVote {..} =  put uvKey
@@ -41,35 +45,6 @@ instance Bi U.UpdateData where
                           *> put udPkgHash
                           *> put udUpdaterHash
                           *> put udMetadataHash
-
-instance Bi U.BlockVersionData where
-    get = label "BlockVersionData" $ do
-        bvdScriptVersion     <- get
-        bvdSlotDuration      <- get
-        bvdMaxBlockSize      <- get
-        bvdMaxHeaderSize     <- get
-        bvdMaxTxSize         <- get
-        bvdMaxProposalSize   <- get
-        bvdMpcThd            <- get
-        bvdHeavyDelThd       <- get
-        bvdUpdateVoteThd     <- get
-        bvdUpdateProposalThd <- get
-        bvdUpdateImplicit    <- get
-        bvdUpdateSoftforkThd <- get
-        return $ U.BlockVersionData {..}
-    put U.BlockVersionData {..} = do
-        put bvdScriptVersion
-        put bvdSlotDuration
-        put bvdMaxBlockSize
-        put bvdMaxHeaderSize
-        put bvdMaxTxSize
-        put bvdMaxProposalSize
-        put bvdMpcThd
-        put bvdHeavyDelThd
-        put bvdUpdateVoteThd
-        put bvdUpdateProposalThd
-        put bvdUpdateImplicit
-        put bvdUpdateSoftforkThd
 
 instance Bi U.UpdateProposal where
     get = label "UpdateProposal" $ do

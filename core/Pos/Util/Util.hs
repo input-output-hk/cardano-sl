@@ -20,15 +20,35 @@ module Pos.Util.Util
        -- ** FromJSON Byte
        -- ** ToJSON Byte
        -- ** MonadFail (Either s), assuming IsString s
+       -- ** NFData Millisecond
+       -- ** NFData Microsecond
+       -- ** Buildable Attosecond
+       -- ** Buildable Femtosecond
+       -- ** Buildable Picosecond
+       -- ** Buildable Nanosecond
+       -- ** Buildable Millisecond
+       -- ** Buildable Microsecond
+       -- ** Buildable Second
+       -- ** Buildable Minute
+       -- ** Buildable Hour
+       -- ** Buildable Day
+       -- ** Buildable Week
+       -- ** Buildable Fortnight
        ) where
+
+import           Universum
 
 import           Control.Lens               (ALens', Getter, Getting, cloneLens, to)
 import           Data.Aeson                 (FromJSON (..), ToJSON (..))
 import           Data.HashSet               (fromMap)
+import           Data.Text.Buildable        (build)
+import           Data.Time.Units            (Attosecond, Day, Femtosecond, Fortnight,
+                                             Hour, Microsecond, Millisecond, Minute,
+                                             Nanosecond, Picosecond, Second, Week,
+                                             toMicroseconds)
 import           Language.Haskell.TH.Syntax (Lift (..))
 import qualified Prelude
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
-import           Universum
 
 ----------------------------------------------------------------------------
 -- Some
@@ -83,6 +103,33 @@ instance ToJSON Byte where
 
 instance IsString s => MonadFail (Either s) where
     fail = Left . fromString
+
+instance NFData Millisecond where
+    rnf ms = deepseq (toInteger ms) ()
+
+instance NFData Microsecond where
+    rnf ms = deepseq (toInteger ms) ()
+
+----------------------------------------------------------------------------
+-- Orphan Buildable instances for time-units
+----------------------------------------------------------------------------
+
+instance Buildable Attosecond  where build = build @String . show
+instance Buildable Femtosecond where build = build @String . show
+instance Buildable Picosecond  where build = build @String . show
+instance Buildable Nanosecond  where build = build @String . show
+instance Buildable Millisecond where build = build @String . show
+instance Buildable Second      where build = build @String . show
+instance Buildable Minute      where build = build @String . show
+instance Buildable Hour        where build = build @String . show
+instance Buildable Day         where build = build @String . show
+instance Buildable Week        where build = build @String . show
+instance Buildable Fortnight   where build = build @String . show
+
+-- | Special case. We don't want to print greek letter mu in console because
+-- it breaks things sometimes.
+instance Buildable Microsecond where
+    build = build . (++ "mcs") . show . toMicroseconds
 
 ----------------------------------------------------------------------------
 -- Not instances

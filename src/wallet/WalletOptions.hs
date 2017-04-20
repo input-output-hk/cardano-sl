@@ -21,14 +21,14 @@ import qualified Pos.CLI                as CLI
 import           Pos.Util.TimeWarp      (NetworkAddress)
 
 data WalletOptions = WalletOptions
-    { woDbPath      :: !FilePath
-    , woRebuildDb   :: !Bool
-    , woIpPort      :: !NetworkAddress -- ^ DHT/Blockchain port
-    , woKeyFilePath :: !FilePath       -- ^ Path to file with secret keys
-    , woDebug       :: !Bool           -- ^ Run in debug mode (with genesis keys included)
-    , woJLFile      :: !(Maybe FilePath)
-    , woCommonArgs  :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
-    , woAction      :: !WalletAction
+    { woDbPath         :: !FilePath
+    , woRebuildDb      :: !Bool
+    , woNetworkAddress :: !NetworkAddress -- ^ DHT/Blockchain port
+    , woKeyFilePath    :: !FilePath       -- ^ Path to file with secret keys
+    , woDebug          :: !Bool           -- ^ Run in debug mode (with genesis keys included)
+    , woJLFile         :: !(Maybe FilePath)
+    , woCommonArgs     :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
+    , woAction         :: !WalletAction
     }
 
 data WalletAction = Repl
@@ -79,8 +79,7 @@ optionsParser = do
         long "rebuild-db" <>
         help "If the DB already exist, discard its contents and \
              \create new one from scratch"
-    woIpPort <-
-        CLI.ipPortOption ("127.0.0.1", 24961)
+    woNetworkAddress <- CLI.networkAddressOption
     woKeyFilePath <- strOption $
         long    "keys-path" <>
         metavar "FILEPATH" <>

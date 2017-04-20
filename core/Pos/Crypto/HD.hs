@@ -9,6 +9,9 @@ module Pos.Crypto.HD
        , deriveHDPublicKey
        , deriveHDSecretKey
        , deriveHDPassphrase
+       , decryptChaChaPoly
+       , encryptChaChaPoly
+       , toEither
        ) where
 
 import           Cardano.Crypto.Wallet        (deriveXPrv, deriveXPrvHardened, deriveXPub,
@@ -18,13 +21,15 @@ import           Crypto.Error
 import           Crypto.Hash                  (SHA512 (..))
 import qualified Crypto.KDF.PBKDF2            as PBKDF2
 import qualified Crypto.MAC.Poly1305          as Poly
-import           Data.ByteArray               as BA (ByteArrayAccess, convert)
+import           Data.ByteArray               as BA (convert)
 import           Data.ByteString.Char8        as B
 import qualified Data.ByteString.Lazy         as BSL
 import           Universum
 
+import           Pos.Binary.Class             (Bi)
 import           Pos.Binary.Class             (decodeFull, encodeStrict)
-import           Pos.Crypto.SafeSigning       (EncryptedSecretKey (..))
+import           Pos.Crypto.Hashing           (hash)
+import           Pos.Crypto.SafeSigning       (EncryptedSecretKey (..), PassPhrase)
 import           Pos.Crypto.Signing           (PublicKey (..))
 
 -- | Passphrase is a hash of root public key.
@@ -77,13 +82,19 @@ deriveHDPublicKey (PublicKey xpub) childIndex
 -- | Derive secret key from secret key.
 -- If @childIndex <= maxHardened@ key will be deriving hardened way, otherwise non-hardened.
 deriveHDSecretKey
-    :: ByteArrayAccess passPhrase
-    => passPhrase -> EncryptedSecretKey -> Word32 -> EncryptedSecretKey
-deriveHDSecretKey passPhrase (EncryptedSecretKey xprv) childIndex
-  | childIndex <= maxHardened =
-      EncryptedSecretKey $ deriveXPrvHardened passPhrase xprv childIndex
-  | otherwise =
-      EncryptedSecretKey $ deriveXPrv passPhrase xprv (childIndex - maxHardened - 1)
+    :: Bi PassPhrase
+    => PassPhrase -> EncryptedSecretKey -> Word32 -> EncryptedSecretKey
+deriveHDSecretKey passPhrase (EncryptedSecretKey xprv pph) childIndex
+    | hash passPhrase /= pph =
+        error "deriveHDSecretKey: passphrase doesn't match"
+    | childIndex <= maxHardened =
+        EncryptedSecretKey
+            (deriveXPrvHardened passPhrase xprv childIndex)
+            pph
+    | otherwise =
+        EncryptedSecretKey
+            (deriveXPrv passPhrase xprv (childIndex - maxHardened - 1))
+            pph
 
 addrAttrNonce :: ByteString
 addrAttrNonce = "serokellfore"

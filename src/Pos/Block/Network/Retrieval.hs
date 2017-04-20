@@ -35,6 +35,7 @@ import           Pos.Communication.Protocol (ConversationActions (..), NodeId, O
                                              toOutSpecs, worker)
 import           Pos.Context                (NodeContext (..), getNodeContext)
 import           Pos.Crypto                 (shortHashF)
+import           Pos.DB.Class               (MonadDBCore)
 import           Pos.Reporting.Methods      (reportingFatal)
 import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Ssc.Class              (SscWorkersClass)
@@ -47,7 +48,7 @@ import           Pos.WorkMode               (WorkMode)
 
 retrievalWorker
     :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+       (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
     => (WorkerSpec m, OutSpecs)
 retrievalWorker = worker outs retrievalWorkerImpl
   where
@@ -58,7 +59,7 @@ retrievalWorker = worker outs retrievalWorkerImpl
 
 retrievalWorkerImpl
     :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+       (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m -> m ()
 retrievalWorkerImpl sendActions = handleAll handleTop $ do
     logDebug "Starting retrievalWorker loop"
@@ -69,8 +70,9 @@ retrievalWorkerImpl sendActions = handleAll handleTop $ do
         recHeaderVar <- ncRecoveryHeader <$> getNodeContext
         inRecovery <- needRecovery (Proxy @ssc)
         unless inRecovery $
-            whenJustM (atomically $ tryTakeTMVar recHeaderVar) $
-                const (triggerRecovery sendActions)
+            whenJustM (atomically $ tryTakeTMVar recHeaderVar) $ const $ do
+                logDebug "Triggering recovery from main loop"
+                triggerRecovery sendActions
         logDebug "Waiting on the queue"
         loopCont <- atomically $ do
             qV <- tryReadTBQueue queue
@@ -150,7 +152,7 @@ dropRecoveryHeaderAndRepeat sendActions peerId = do
 
 
 workerHandle
-    :: (SscWorkersClass ssc, WorkMode ssc m)
+    :: (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m -> (NodeId, NewestFirst NE (BlockHeader ssc)) -> m ()
 workerHandle sendActions (peerId, headers) = do
     logDebug $ sformat
@@ -187,7 +189,7 @@ workerHandle sendActions (peerId, headers) = do
 
 handleCHsValid
     :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+       (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m -> NodeId -> (BlockHeader ssc) -> HeaderHash -> m ()
 handleCHsValid sendActions peerId lcaChild newestHash = do
     let lcaChildHash = headerHash lcaChild

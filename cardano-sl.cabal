@@ -45,6 +45,7 @@ library
                         Pos.CompileConfig
                         Pos.Communication
                         Pos.Constants
+                        Pos.Crypto.Arbitrary
 
                         Pos.DB.DB
                         Pos.DB.Block
@@ -119,7 +120,6 @@ library
   -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:
                         Pos.Explorer
-                        Pos.Explorer.Core
   if flag(with-web)
     exposed-modules:    Pos.Web
   if flag(with-wallet)
@@ -164,7 +164,6 @@ library
                         Pos.Context.Holder
 
                         -- Crypto
-                        Pos.Crypto.Arbitrary
                         Pos.Crypto.Arbitrary.Unsafe
                         Pos.Crypto.HDDiscovery
 
@@ -215,14 +214,8 @@ library
                         Pos.Lrc.Logic
                         Pos.Lrc.Worker
 
-                        -- SafeCopy serialization (obsolete, but still needed)
+                        -- SafeCopy serialization (required in wallet)
                         Pos.SafeCopy
-                        Pos.SafeCopy.GodTossing
-                        Pos.SafeCopy.GodTossing.Base
-                        Pos.SafeCopy.GodTossing.Types
-                        Pos.SafeCopy.GodTossing.VssCertData
-                        Pos.SafeCopy.Types
-                        Pos.SafeCopy.Update
 
                         -- SSC
                         Pos.Ssc.Class.Types
@@ -347,13 +340,12 @@ library
 
                         -- Utilities/helpers
                         Pos.Util.Arbitrary
-                        Pos.Util.LogSafe
                         Pos.Util.Undefined
 
   -- Explorer (TODO: move into cardano-explorer)
   other-modules:        Pos.Binary.Explorer
+                        Pos.Explorer.Core
                         Pos.Explorer.Core.Types
-                        Pos.Explorer.DB
                         Pos.Explorer.Txp
                         Pos.Explorer.Txp.Global
                         Pos.Explorer.Txp.Local
@@ -361,6 +353,7 @@ library
                         Pos.Explorer.Txp.Toil.Class
                         Pos.Explorer.Txp.Toil.Logic
                         Pos.Explorer.Txp.Toil.Types
+                        Pos.Explorer.DB
 
   if flag(with-web)
     other-modules:      Pos.Aeson.Crypto
@@ -455,7 +448,7 @@ library
                       , lens
                       , lifted-async
                       , list-t
-                      , log-warper >= 1.0.3
+                      , log-warper >= 1.1.1
                       , lrucache
                       , memory
                       , mmorph
@@ -505,6 +498,7 @@ library
   if flag(with-web)
     build-depends:      http-types
                       , servant >= 0.8.1
+                      , servant-multipart >= 0.10
                       , servant-docs >= 0.8.1
                       , servant-server >= 0.8.1
                       , wai
@@ -517,6 +511,12 @@ library
   ghc-options:         -Wall
                        -fno-warn-orphans
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -564,12 +564,14 @@ executable cardano-node
                      , filepath
                      , formatting
                      , lens
-                     , log-warper >= 1.0.3
+                     , log-warper
                      , network-transport
                      , node-sketch
                      , optparse-simple
                      , parsec
                      , serokell-util >= 0.1.3.4
+                     , time
+                     , time-units
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
@@ -577,6 +579,12 @@ executable cardano-node
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -614,7 +622,7 @@ executable cardano-analyzer
                      , cardano-sl-core
                      , cardano-sl
                      , formatting
-                     , log-warper >= 1.0.3
+                     , log-warper
                      , optparse-simple
                      , serokell-util >= 0.1.3.4
                      , text
@@ -628,6 +636,12 @@ executable cardano-analyzer
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -663,10 +677,11 @@ executable cardano-wallet
                      , cardano-sl-update
                      , cardano-sl-infra
                      , cardano-sl
+                     , either
                      , formatting
                      , lens
                      , lifted-async
-                     , log-warper >= 1.0.3
+                     , log-warper
                      , mtl
                      , network-transport
                      , node-sketch
@@ -685,6 +700,12 @@ executable cardano-wallet
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -732,6 +753,12 @@ executable cardano-wallet-hs2purs
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -783,7 +810,7 @@ executable cardano-smart-generator
                      , formatting
                      , lens
                      , lifted-async
-                     , log-warper >= 1.0.3
+                     , log-warper
                      , node-sketch
                      , optparse-applicative
                      , parsec
@@ -803,6 +830,12 @@ executable cardano-smart-generator
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -845,7 +878,7 @@ executable cardano-dht-keygen
                      , kademlia
                      , lens
                      , lifted-async
-                     , log-warper >= 1.0.3
+                     , log-warper
                      , optparse-applicative
                      , parsec
                      , random
@@ -863,6 +896,12 @@ executable cardano-dht-keygen
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -897,6 +936,12 @@ executable cardano-web-docs
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed ups for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -938,6 +983,12 @@ executable cardano-wallet-web-docs
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -964,7 +1015,7 @@ executable cardano-wallet-web-docs
   else
     buildable:         False
 
-executable cardano-wallet-web-api-swagger
+executable cardano-swagger
   hs-source-dirs:      src/wallet-web-api-swagger
   main-is:             Main.hs
   build-depends:       aeson
@@ -973,6 +1024,8 @@ executable cardano-wallet-web-api-swagger
                      , cardano-sl
                      , lens
                      , swagger2
+                     , servant-server
+                     , servant-multipart
                      , servant-swagger
                      , servant-swagger-ui
                      , universum >= 0.1.11
@@ -982,6 +1035,12 @@ executable cardano-wallet-web-api-swagger
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   NoImplicitPrelude
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -998,6 +1057,12 @@ executable cardano-checks
   ghc-options:         -threaded
                        -Wall
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:  OverloadedStrings
 
 executable cardano-genupdate
@@ -1016,6 +1081,12 @@ executable cardano-genupdate
   ghc-options:         -threaded
                        -Wall
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:  OverloadedStrings
                        NoImplicitPrelude
 
@@ -1032,6 +1103,7 @@ executable cardano-keygen
                      , cardano-sl-core
                      , cardano-sl
                      , ed25519
+                     , formatting
                      , universum >= 0.1
                      , serokell-util >= 0.1
                      , text
@@ -1042,12 +1114,19 @@ executable cardano-keygen
                      , random >= 1.1
                      , filepath
                      , directory
+                     , log-warper
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -1073,10 +1152,11 @@ executable cardano-launcher
                      , base
                      , optparse-applicative
                      , cardano-report-server >= 0.1.1
-                     , log-warper >= 1.0.3
+                     , log-warper
                      , cardano-sl
                      , cardano-sl-infra
                      , directory
+                     , filepath
                      , process
                      , system-filepath
                      , text
@@ -1088,6 +1168,12 @@ executable cardano-launcher
   ghc-options:         -threaded
                        -Wall
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:  OverloadedStrings
                        RecordWildCards
                        TupleSections
@@ -1150,7 +1236,7 @@ test-suite cardano-test
                      , hspec
                      , kademlia
                      , lens
-                     , log-warper >= 1.0.3
+                     , log-warper
                      , memory
                      , mtl
                      , node-sketch
@@ -1173,6 +1259,12 @@ test-suite cardano-test
                        -Wall
                        -fno-warn-orphans
                        -with-rtsopts=-N
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -1212,7 +1304,7 @@ benchmark cardano-bench-criterion
                      , formatting
                      , hashtables
                      , lens
-                     , log-warper >= 1.0.3
+                     , log-warper
                      , serokell-util >= 0.1.3.4
                      , text-format
                      , universum >= 0.1.11
@@ -1223,6 +1315,12 @@ benchmark cardano-bench-criterion
                        -Wall
                        -fno-warn-orphans
                        -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving

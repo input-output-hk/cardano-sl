@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
 -- This module is to be moved later anywhere else, just to have a
 -- starting point
@@ -31,6 +32,10 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletSetInit (..)
       , CUpdateInfo (..)
       , CWalletRedeem (..)
+      , CPostVendWalletRedeem (..)
+      , CCoin
+      , mkCCoin
+      , CElectronCrashReport (..)
       , NotifyEvent (..)
       , WithDerivationPath (..)
       , WS (..)
@@ -59,8 +64,10 @@ import           Data.Time.Clock.POSIX  (POSIXTime)
 import           Data.Typeable          (Typeable)
 import           Formatting             (bprint, sformat, (%))
 import qualified Formatting             as F
-import           Prelude                (show)
+import qualified Prelude
 import qualified Serokell.Util.Base16   as Base16
+import           Servant.Multipart      (FileData, FromMultipart (..), lookupFile,
+                                         lookupInput)
 
 import           Pos.Aeson.Types        ()
 import           Pos.Binary.Class       (decodeFull, encodeStrict)
@@ -70,11 +77,11 @@ import           Pos.Crypto             (PassPhrase, hashHexF)
 import           Pos.Txp.Core.Types     (Tx (..), TxId, txOutAddress, txOutValue)
 import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
                                          Coin, SoftwareVersion, decodeTextAddress,
-                                         sumCoins, unsafeIntegerToCoin)
+                                         sumCoins, unsafeGetCoin, unsafeIntegerToCoin)
 import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes,
                                          UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll        (ConfirmedProposalState (..))
-import           Pos.Util.BackupPhrase  (BackupPhrase, mkBackupPhrase)
+import           Pos.Util.BackupPhrase  (BackupPhrase, mkBackupPhrase12)
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty
@@ -155,7 +162,7 @@ mkCTx addr diff THEntry {..} meta = CTx {..}
     ctAccAddress = addressToCAddress addr
     outputs = toList $ _txOutputs _thTx
     isToItself = all ((== addr) . txOutAddress) outputs
-    ctAmount = unsafeIntegerToCoin . sumCoins . map txOutValue $
+    ctAmount = mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
         filter ((|| isToItself) . xor _thIsOutput . (== addr) . txOutAddress) outputs
     ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
     ctType = if _thIsOutput
@@ -220,6 +227,13 @@ walletAddrByAccount CAccountAddress{..} = CWalletAddress
 
 instance Hashable CAccountAddress
 
+newtype CCoin = CCoin
+    { getCoin :: Text
+    } deriving (Show, Generic)
+
+mkCCoin :: Coin -> CCoin
+mkCCoin = CCoin . show . unsafeGetCoin
+
 -- | A wallet can be used as personal or shared wallet
 data CWalletType
     = CWTPersonal
@@ -235,7 +249,7 @@ data CWalletAssurance
 -- | Single account in a wallet
 data CAccount = CAccount
     { caAddress :: !CAccountAddress
-    , caAmount  :: !Coin
+    , caAmount  :: !CCoin
     } deriving (Show, Generic)
 
 -- Includes data which are not provided by Cardano
@@ -277,7 +291,7 @@ data CWalletSetMeta = CWalletSetMeta
     } deriving (Show, Eq, Generic)
 
 instance Default BackupPhrase where
-    def = mkBackupPhrase
+    def = mkBackupPhrase12
         [ "transfer"
         , "uniform"
         , "grunt"
@@ -318,6 +332,13 @@ instance WithDerivationPath CWalletAddress where
 
 instance WithDerivationPath CAccountAddress where
     getDerivationPath CAccountAddress{..} = [caaWalletIndex, caaAccountIndex]
+
+-- | Query data for redeem
+data CPostVendWalletRedeem = CPostVendWalletRedeem
+    { pvWalletId     :: !CWalletAddress
+    , pvSeed         :: !Text -- TODO: newtype!
+    , pvBackupPhrase :: !BackupPhrase
+    } deriving (Show, Generic)
 
 ----------------------------------------------------------------------------
 -- Profile
@@ -363,7 +384,7 @@ ctTypeMeta f (CTOut meta) = CTOut <$> f meta
 -- (Flow type: transactionType)
 data CTx = CTx
     { ctId            :: CTxId
-    , ctAmount        :: Coin
+    , ctAmount        :: CCoin
     , ctConfirmations :: Word
     , ctType          :: CTType -- it includes all "meta data"
     , ctAccAddress    :: CAddress Acc
@@ -398,8 +419,8 @@ data CUpdateInfo = CUpdateInfo
 --    , cuiAdopted         :: !(Maybe HeaderHash)
     , cuiVotesFor        :: !Int
     , cuiVotesAgainst    :: !Int
-    , cuiPositiveStake   :: !Coin
-    , cuiNegativeStake   :: !Coin
+    , cuiPositiveStake   :: !CCoin
+    , cuiNegativeStake   :: !CCoin
     } deriving (Show, Generic, Typeable)
 
 -- | Return counts of negative and positive votes
@@ -422,8 +443,8 @@ toCUpdateInfo ConfirmedProposalState {..} =
 --        cuiConfirmed        = cpsConfirmed
 --        cuiAdopted          = cpsAdopted
         (cuiVotesFor, cuiVotesAgainst) = countVotes cpsVotes
-        cuiPositiveStake    = cpsPositiveStake
-        cuiNegativeStake    = cpsNegativeStake
+        cuiPositiveStake    = mkCCoin cpsPositiveStake
+        cuiNegativeStake    = mkCCoin cpsNegativeStake
     in CUpdateInfo {..}
 
 ----------------------------------------------------------------------------
@@ -438,3 +459,30 @@ data CInitialized = CInitialized
     , cPreInit   :: Word -- ^ Time passed from beginning to network
                             -- connection with peers established.
     } deriving (Show, Generic)
+
+
+data CElectronCrashReport = CElectronCrashReport
+    { cecVersion     :: Text
+    , cecPlatform    :: Text
+    , cecProcessType :: Text
+    , cecGuid        :: Text
+    , cecVersionJson :: Text
+    , cecProductName :: Text
+    , cecProd        :: Text
+    , cecCompanyName :: Text
+    , cecUploadDump  :: FileData
+    } deriving (Show, Generic)
+
+instance FromMultipart CElectronCrashReport where
+    fromMultipart form = do
+        let look t = lookupInput t form
+        CElectronCrashReport
+          <$> look "ver"
+          <*> look "platform"
+          <*> look "process_type"
+          <*> look "guid"
+          <*> look "_version"
+          <*> look "_productName"
+          <*> look "prod"
+          <*> look "_companyName"
+          <*> lookupFile "upload_file_minidump" form

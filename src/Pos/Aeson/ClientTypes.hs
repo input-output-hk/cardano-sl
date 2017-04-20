@@ -8,13 +8,14 @@ import           Data.Aeson.TH              (defaultOptions, deriveJSON, deriveT
 import           Pos.Core.Types             (BlockVersion (..), SoftwareVersion (..))
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (Acc, CAccount, CAccountAddress, CAddress,
-                                             CCurrency, CHash, CInitialized, CProfile,
-                                             CProfile, CTExMeta, CTType, CTx, CTxId,
-                                             CTxMeta, CUpdateInfo, CWallet,
-                                             CWalletAddress, CWalletAssurance,
-                                             CWalletInit, CWalletMeta, CWalletRedeem,
-                                             CWalletSet, CWalletSetInit, CWalletSetMeta,
-                                             CWalletType, NotifyEvent, SyncProgress, WS)
+                                             CCoin, CCurrency, CHash, CInitialized,
+                                             CPostVendWalletRedeem, CProfile, CProfile,
+                                             CTExMeta, CTType, CTx, CTxId, CTxMeta,
+                                             CUpdateInfo, CWallet, CWalletAddress,
+                                             CWalletAssurance, CWalletInit, CWalletMeta,
+                                             CWalletRedeem, CWalletSet, CWalletSetInit,
+                                             CWalletSetMeta, CWalletType, NotifyEvent,
+                                             SyncProgress, WS)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 deriveJSON defaultOptions ''CCurrency
@@ -27,6 +28,7 @@ deriveJSON defaultOptions ''CWalletInit
 deriveJSON defaultOptions ''CWalletRedeem
 deriveJSON defaultOptions ''CWalletSetMeta
 deriveJSON defaultOptions ''CWalletSetInit
+deriveJSON defaultOptions ''CPostVendWalletRedeem
 deriveJSON defaultOptions ''CTxMeta
 deriveJSON defaultOptions ''CProfile
 deriveJSON defaultOptions ''BackupPhrase
@@ -36,6 +38,7 @@ deriveJSON defaultOptions ''Acc
 deriveJSON defaultOptions ''CHash
 deriveJSON defaultOptions ''CInitialized
 
+deriveToJSON defaultOptions ''CCoin
 deriveToJSON defaultOptions ''SyncProgress
 deriveToJSON defaultOptions ''NotifyEvent
 deriveToJSON defaultOptions ''WalletError

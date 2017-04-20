@@ -15,6 +15,8 @@ module Pos.Genesis
        , genesisUtxo
        , genesisDelegation
        , genesisAddresses
+       , genesisSeed
+       , genesisBalances
        -- ** Genesis data used in development mode
        , genesisDevKeyPairs
        , genesisDevPublicKeys
@@ -81,6 +83,11 @@ genesisStakeDistribution :: StakeDistribution
 genesisStakeDistribution
     | Const.isDevelopment = def
     | otherwise           = gdDistribution compileGenData
+
+genesisBalances :: HashMap StakeholderId Coin
+genesisBalances
+    | Const.isDevelopment = mempty
+    | otherwise           = gdBootstrapBalances compileGenData
 
 instance Default StakeDistribution where
     def = FlatStakes Const.genesisN

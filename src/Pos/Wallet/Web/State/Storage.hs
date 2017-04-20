@@ -53,8 +53,8 @@ import           Pos.Txp                    (Utxo)
 import           Pos.Types                  (HeaderHash)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (Acc, CAccountAddress, CAccountAddress (..),
-                                             CAddress, CCurrency, CHash, CProfile, CTxId,
-                                             CTxMeta, CUpdateInfo, CWalletAddress,
+                                             CAddress, CCoin, CCurrency, CHash, CProfile,
+                                             CTxId, CTxMeta, CUpdateInfo, CWalletAddress,
                                              CWalletAssurance, CWalletMeta,
                                              CWalletSetMeta, CWalletType, WS,
                                              walletAddrByAccount)
@@ -192,6 +192,7 @@ updateHistoryCache :: CWalletAddress -> HeaderHash -> Utxo -> [TxHistoryEntry] -
 updateHistoryCache cAddr cHash utxo cTxs =
     wsHistoryCache . at cAddr ?= (cHash, utxo, cTxs)
 
+deriveSafeCopySimple 0 'base ''CCoin
 deriveSafeCopySimple 0 'base ''CProfile
 deriveSafeCopySimple 0 'base ''CHash
 deriveSafeCopySimple 0 'base ''CAddress

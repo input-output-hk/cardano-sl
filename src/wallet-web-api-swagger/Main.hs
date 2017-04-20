@@ -1,8 +1,10 @@
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE KindSignatures      #-}
+{-# LANGUAGE OverloadedLists     #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE TypeOperators       #-}
 
 -- | This program builds Swagger specification for wallet web API and converts it to JSON.
 -- We run this program during CI build.
@@ -17,29 +19,32 @@ import           Universum
 import           Control.Lens               (mapped, (?~))
 import           Data.Aeson                 (encode)
 import qualified Data.ByteString.Lazy.Char8 as BSL8
-import           Data.Swagger               (Swagger, SwaggerType (SwaggerString),
+import           Data.Swagger               (NamedSchema (..), Swagger, SwaggerType (..),
                                              ToParamSchema (..), ToSchema (..),
-                                             declareNamedSchema, defaultSchemaOptions,
-                                             description, format,
+                                             declareNamedSchema, declareSchemaRef,
+                                             defaultSchemaOptions, description, format,
                                              genericDeclareNamedSchema, host, info, name,
-                                             title, type_, version)
+                                             properties, required, title, type_, version)
 import           Data.Typeable              (Typeable, typeRep)
 import           Data.Version               (showVersion)
-
-import           Servant.Swagger            (toSwagger)
+import           Servant                    ((:>))
+import           Servant.Multipart          (FileData (..), MultipartForm)
+import           Servant.Swagger            (HasSwagger (toSwagger))
 
 import qualified Paths_cardano_sl           as CSL
 import           Pos.Types                  (ApplicationName, BlockVersion,
                                              ChainDifficulty, Coin, SoftwareVersion)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web             (Acc, CAccount, CAccountAddress, CAddress,
-                                             CCurrency, CHash, CInitialized, CPassPhrase,
-                                             CProfile, CTType, CTx, CTxId, CTxMeta,
-                                             CUpdateInfo, CWallet, CWalletAddress,
-                                             CWalletAssurance, CWalletInit, CWalletMeta,
-                                             CWalletRedeem, CWalletSet, CWalletSetInit,
-                                             CWalletSetMeta, CWalletType, SyncProgress,
-                                             WS, WalletError, walletApi)
+                                             CCoin, CCurrency, CElectronCrashReport,
+                                             CHash, CInitialized, CPassPhrase,
+                                             CPostVendWalletRedeem, CProfile, CTType, CTx,
+                                             CTxId, CTxMeta, CUpdateInfo, CWallet,
+                                             CWalletAddress, CWalletAssurance,
+                                             CWalletInit, CWalletMeta, CWalletRedeem,
+                                             CWalletSet, CWalletSetInit, CWalletSetMeta,
+                                             CWalletType, SyncProgress, WS, WalletError,
+                                             walletApi)
 
 main :: IO ()
 main = do
@@ -47,6 +52,23 @@ main = do
     putStrLn $ "Done. See " <> jsonFile <> "."
   where
     jsonFile = "wallet-web-api-swagger.json"
+
+instance HasSwagger api => HasSwagger (MultipartForm a :> api) where
+    toSwagger Proxy = toSwagger $ Proxy @api
+
+instance ToSchema FileData where
+    declareNamedSchema _ = do
+        textSchema <- declareSchemaRef (Proxy :: Proxy Text)
+        filepathSchema <- declareSchemaRef (Proxy :: Proxy FilePath)
+        return $ NamedSchema (Just "FileData") $ mempty
+            & type_ .~ SwaggerObject
+            & properties .~
+                [ ("fdInputFile", textSchema)
+                , ("fdFileName", textSchema)
+                , ("fdFileCType", textSchema)
+                , ("fdFilePath", filepathSchema)
+                ]
+            & required .~ [ "fdInputFile", "fdFileName", "fdFileCType", "fdFilePath"]
 
 -- | Instances we need to build Swagger-specification for 'walletApi':
 -- 'ToParamSchema' - for types in parameters ('Capture', etc.),
@@ -91,7 +113,10 @@ instance ToSchema      CWalletRedeem
 instance ToSchema      CWalletSet
 instance ToSchema      CWallet
 instance ToSchema      CAccount
+instance ToSchema      CPostVendWalletRedeem
+instance ToSchema      CCoin
 instance ToSchema      CInitialized
+instance ToSchema      CElectronCrashReport
 instance ToSchema      CUpdateInfo
 instance ToSchema      SoftwareVersion
 instance ToSchema      ApplicationName

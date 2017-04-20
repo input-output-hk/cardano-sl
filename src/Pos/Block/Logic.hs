@@ -58,10 +58,11 @@ import           Pos.Constants              (blkSecurityParam, curSoftwareVersio
 import           Pos.Context                (NodeContext (ncNodeParams, ncTxpGlobalSettings),
                                              getNodeContext, lrcActionOnEpochReason,
                                              npSecretKey)
+import           Pos.Core                   (BlockVersion (..), EpochIndex, HeaderHash)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash), hash,
                                              shortHashF)
 import           Pos.Data.Attributes        (mkAttributes)
-import           Pos.DB                     (DBError (..), MonadDB)
+import           Pos.DB                     (DBError (..), MonadDB, MonadDBCore)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
@@ -79,10 +80,9 @@ import           Pos.Txp.Core               (TxAux, TxId, TxPayload, mkTxPayload
                                              topsortTxs)
 import           Pos.Txp.MemState           (getLocalTxsNUndo)
 import           Pos.Txp.Settings           (TxpBlock, TxpGlobalSettings (..))
-import           Pos.Types                  (Block, BlockHeader, EpochIndex,
-                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
-                                             IsGenesisHeader, IsMainHeader, MainBlock,
-                                             MainExtraBodyData (..),
+import           Pos.Types                  (Block, BlockHeader, EpochOrSlot (..),
+                                             GenesisBlock, IsGenesisHeader, IsMainHeader,
+                                             MainBlock, MainExtraBodyData (..),
                                              MainExtraHeaderData (..), ProxySKEither,
                                              ProxySKHeavy, SlotId (..), SlotLeaders,
                                              VerifyHeaderParams (..), blockHeader,
@@ -417,12 +417,40 @@ verifyBlocksPrefix blocks = runExceptT $ do
             when (block ^. blockLeaders /= leaders) $
                 throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
-    (bv, bvd) <- UDB.getAdoptedBVFull
+    (adoptedBV, adoptedBVD) <- UDB.getAdoptedBVFull
     verResToMonadError formatAllErrors $
-        Types.verifyBlocks curSlot bvd (Just leaders) (Just bv) blocks
+        Types.verifyBlocks curSlot adoptedBVD (Just leaders) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
+    -- We verify that data in blocks is known if protocol version used
+    -- by this software is greater than or equal to adopted
+    -- version. That's because:
+    -- 1. Authors of this software are aware of adopted version.
+    -- 2. Each issued block must be formed with respect to adopted version.
+    --
+    -- Comparison is quite tricky here. Table below demonstrates it.
+    --
+    --   Our | Adopted | Check?
+    -- ————————————————————————
+    -- 1.2.3 |  1.2.3  | Yes
+    -- 1.2.3 |  1.2.4  | No
+    -- 1.2.3 |  1.2.2  | No
+    -- 1.2.3 |  1.3.2  | No
+    -- 1.2.3 |  1.1.1  | Yes
+    -- 2.2.8 |  1.9.9  | Yes
+    --
+    -- If `(major, minor)` of our version is greater than of adopted
+    -- one, then check is certainly done. If it's equal, then check is
+    -- done only if `alt` component is the same as adopted one. In
+    -- other cases (i. e. when our `(major, minor)` is less than from
+    -- adopted version) check is not done.
+    let toMajMin BlockVersion {..} = (bvMajor, bvMinor)
+    let lastKnownMajMin = toMajMin lastKnownBlockVersion
+    let adoptedMajMin = toMajMin adoptedBV
+    let dataMustBeKnown = lastKnownMajMin > adoptedMajMin
+                       || lastKnownBlockVersion == adoptedBV
     TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
-    txUndo <- withExceptT pretty $ tgsVerifyBlocks $ map toTxpBlock blocks
+    txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $
+        map toTxpBlock blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $
         usVerifyBlocks (map toUpdateBlock blocks)
@@ -458,7 +486,7 @@ toTxpBlock = bimap convertGenesis convertMain
 -- header hash of new tip. It's up to caller to log warning that
 -- partial application happened.
 verifyAndApplyBlocks
-    :: (WorkMode ssc m, SscWorkersClass ssc)
+    :: (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
     => Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
 verifyAndApplyBlocks rollback =
     reportingFatal version . verifyAndApplyBlocksInternal True rollback
@@ -467,7 +495,7 @@ verifyAndApplyBlocks rollback =
 -- parameterizes LRC calculation which can be turned on/off with the first
 -- flag.
 verifyAndApplyBlocksInternal
-    :: forall ssc m. (WorkMode ssc m, SscWorkersClass ssc)
+    :: forall ssc m. (WorkMode ssc m, SscWorkersClass ssc, MonadDBCore m)
     => Bool -> Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
 verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
     tip <- GS.getTip
@@ -541,7 +569,8 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
 -- and ensured that chain is based on our tip. Blocks will be applied
 -- per-epoch, calculating lrc when needed if flag is set.
 applyBlocks
-    :: forall ssc m . (WorkMode ssc m, SscWorkersClass ssc)
+    :: forall ssc m.
+       (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
     => Bool -> Maybe PollModifier -> OldestFirst NE (Blund ssc) -> m ()
 applyBlocks calculateLrc pModifier blunds = do
     when (isLeft prefixHead && calculateLrc) $
@@ -577,7 +606,7 @@ rollbackBlocks blunds = do
 
 -- | Rollbacks some blocks and then applies some blocks.
 applyWithRollback
-    :: (WorkMode ssc m, SscWorkersClass ssc)
+    :: (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
     => NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
     -> OldestFirst NE (Block ssc)  -- ^ Blocks to apply
     -> m (Either Text HeaderHash)
@@ -602,7 +631,6 @@ applyWithRollback toRollback toApply = reportingFatal version $ runExceptT $ do
     applyBack = lift $ applyBlocks True Nothing reApply
     expectedTipApply = toApply ^. _Wrapped . _neHead . prevBlockL
     newestToRollback = toRollback ^. _Wrapped . _neHead . _1 . headerHashG
-
 
 ----------------------------------------------------------------------------
 -- GenesisBlock creation

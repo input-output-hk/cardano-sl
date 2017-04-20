@@ -13,8 +13,6 @@ module Pos.Launcher.Launcher
 
 import           Mockable                   (Production)
 
-
-
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec)
 import           Pos.Launcher.Param         (NodeParams (..))
 import           Pos.Launcher.Runner        (RealModeResources, runProductionMode,

@@ -18,7 +18,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
-    commit: bf65ac0cd50d2ccd7ef6507f0d71786c4bd10ae1
+    commit: 21df94f41008f82ee023e8e0324c7e4a82c4fef2
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
@@ -39,12 +39,12 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: e0a48924e7e308f1164168a81f67c0f25eaabda1
+    commit: b38ab4cb6c09eb7919d7e9e185b03ba66b3441f7
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
     git: https://github.com/avieth/network-transport-tcp
-    commit: 15847920ac1a32ada237e5a00ac4f56f3ca421a7
+    commit: 2cba73cb078c323264ace609e57ee1746e8e2f0c
   extra-dep: true
 - location:
     git: https://github.com/avieth/network-transport
@@ -75,12 +75,17 @@ extra-deps:
 - serokell-util-0.1.5.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-1.0.4
+- log-warper-1.1.1
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.6.2
 - purescript-bridge-0.8.0.1
 - cryptonite-0.22
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
+- servant-0.10                    # servant-multipart supports version servant-10 only
+- servant-server-0.10             # so it triggers another dependencies to be v10
+- servant-swagger-1.1.2.1
+- servant-docs-0.10
+- servant-multipart-0.10
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

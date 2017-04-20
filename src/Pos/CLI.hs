@@ -21,7 +21,7 @@ module Pos.CLI
        , timeLordOption
        , webPortOption
        , walletPortOption
-       , ipPortOption
+       , networkAddressOption
 
        , readPeersFile
        ) where
@@ -30,6 +30,7 @@ import           Control.Lens                         (zoom, (?=))
 import           Formatting                           (build, formatToString, shown, (%))
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
 import qualified Options.Applicative.Simple           as Opt
+import           Serokell.Util                        (sec)
 import           Serokell.Util.OptParse               (fromParsec)
 import           System.Wlog                          (LoggerConfig (..),
                                                        Severity (Info, Warning),
@@ -41,9 +42,10 @@ import qualified Text.Parsec.String                   as P
 import           Universum
 
 import           Pos.Binary.Core                      ()
-import           Pos.Constants                        (isDevelopment)
+import           Pos.Constants                        (isDevelopment, staticSysStart)
 import           Pos.Core                             (Address (..), AddressHash,
                                                        decodeTextAddress)
+import           Pos.Core.Types                       (Timestamp (..))
 import           Pos.Crypto                           (PublicKey)
 import           Pos.DHT.Model.Types                  (DHTNode (..), dhtKeyParser,
                                                        dhtNodeParser)
@@ -122,6 +124,7 @@ data CommonArgs = CommonArgs
     , bitcoinDistr       :: !(Maybe (Int, Int))
     , richPoorDistr      :: !(Maybe (Int, Int, Integer, Double))
     , expDistr           :: !Bool
+    , sysStart           :: !Timestamp
     } deriving Show
 
 commonArgsParser :: String -> Opt.Parser CommonArgs
@@ -146,7 +149,20 @@ commonArgsParser peerHelpMsg = do
     richPoorDistr <- if isDevelopment then rnpDistrOptional  else pure Nothing
     expDistr      <- if isDevelopment then expDistrOption    else pure False
     --
+    sysStart      <- sysStartParser
     pure CommonArgs{..}
+
+sysStartParser :: Opt.Parser Timestamp
+sysStartParser = Opt.option (Timestamp . sec <$> Opt.auto) $
+    Opt.long    "system-start" <>
+    Opt.metavar "TIMESTAMP" <>
+    defaultValue
+  where
+    -- In development mode, this parameter is mandatory.
+    -- In production mode, it is optional, and its default value is populated
+    -- from `staticSysStart`, which gets it from the config file.
+    defaultValue =
+        if isDevelopment then mempty else Opt.value staticSysStart
 
 templateParser :: (HasName f, HasMetavar f) => String -> String -> String -> Opt.Mod f a
 templateParser long metavar help =
@@ -283,14 +299,12 @@ walletPortOption portNum help =
         <> Opt.value portNum
         <> Opt.showDefault
 
-ipPortOption :: NetworkAddress -> Opt.Parser NetworkAddress
-ipPortOption na =
+networkAddressOption :: Opt.Parser NetworkAddress
+networkAddressOption =
     Opt.option (fromParsec addrParserNoWildcard) $
             Opt.long "listen"
          <> Opt.metavar "IP:PORT"
          <> Opt.help helpMsg
-         <> Opt.showDefault
-         <> Opt.value na
   where
     helpMsg = "Ip and port on which to listen. "
         <> "Please mind that you need to specify actual accessible "

@@ -2,6 +2,7 @@
 
 module Pos.Txp.Core.Core
        ( addrBelongsTo
+       , addrBelongsToSet
        , mkTxProof
        , txInToPair
        , txOutStake
@@ -10,6 +11,7 @@ module Pos.Txp.Core.Core
 
 import           Universum
 
+import qualified Data.HashSet       as HS
 import           Pos.Binary.Core    ()
 import           Pos.Binary.Crypto  ()
 import           Pos.Binary.Txp     ()
@@ -24,6 +26,9 @@ import           Pos.Txp.Core.Types (TxAux, TxId, TxIn (..), TxOut (..), TxOutAu
 -- belongs to it.
 addrBelongsTo :: TxOutAux -> Address -> Bool
 TxOutAux {..} `addrBelongsTo` addr = addr == txOutAddress toaOut
+
+addrBelongsToSet :: TxOutAux -> HashSet Address -> Bool
+TxOutAux {..} `addrBelongsToSet` addrs = txOutAddress toaOut `HS.member` addrs
 
 -- | Make a pair from 'TxIn'.
 txInToPair :: TxIn -> (TxId, Word32)

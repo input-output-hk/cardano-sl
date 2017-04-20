@@ -43,7 +43,7 @@ import           Pos.Slotting                (MonadSlots (..), NtpSlotting,
                                               SlottingHolder, getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
-import           Pos.Txp                     (TxpHolder (..), filterUtxoByAddr,
+import           Pos.Txp                     (TxpHolder (..), filterUtxoByAddrs,
                                               runUtxoStateT)
 import           Pos.Types                   (BlockHeader, ChainDifficulty, difficultyL,
                                               flattenEpochOrSlot, flattenSlotId)
@@ -61,7 +61,7 @@ import           Pos.WorkMode                (RawRealMode)
 deriving instance MonadBalances m => MonadBalances (WalletWebDB m)
 
 instance MonadIO m => MonadBalances (WalletDB m) where
-    getOwnUtxo addr = filterUtxoByAddr addr <$> WS.getUtxo
+    getOwnUtxos addrs = filterUtxoByAddrs addrs <$> WS.getUtxo
 
 deriving instance MonadTxHistory m => MonadTxHistory (WalletWebDB m)
 

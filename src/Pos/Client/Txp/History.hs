@@ -10,9 +10,9 @@ module Pos.Client.Txp.History
        ( TxHistoryEntry(..)
        , thTxId
        , thTx
-       , thIsOutput
        , thDifficulty
-       , thInputAddr
+       , thInputAddrs
+       , thOutputAddrs
 
        , TxHistoryAnswer(..)
 
@@ -95,11 +95,11 @@ hasSender UnsafeTx {..} addrs =
 
 -- | Datatype for returning info about tx history
 data TxHistoryEntry = THEntry
-    { _thTxId       :: !TxId
-    , _thTx         :: !Tx
-    , _thIsOutput   :: !Bool
-    , _thDifficulty :: !(Maybe ChainDifficulty)
-    , _thInputAddr  :: !Address
+    { _thTxId        :: !TxId
+    , _thTx          :: !Tx
+    , _thDifficulty  :: !(Maybe ChainDifficulty)
+    , _thInputAddrs  :: ![Address]
+    , _thOutputAddrs :: ![Address]
     } deriving (Show, Eq, Generic)
 
 makeLenses ''TxHistoryEntry
@@ -116,7 +116,7 @@ getRelatedTxs
     -> TxSelectorT m [TxHistoryEntry]
 getRelatedTxs addrs txs = fmap DL.toList $
     lift (MaybeT $ return $ topsortTxs (view _1) txs) >>=
-    fmap mconcat . mapM step
+    fmap DL.fromList . mapM step
   where
     addrsSet = S.fromList addrs
     step (WithHash tx txId, _wit, dist) = do
@@ -126,9 +126,7 @@ getRelatedTxs addrs txs = fmap DL.toList $
         applyTxToUtxo (WithHash tx txId) dist
         identity %= filterUtxoByAddrs addrs
 
-        let addresses = map (True,) outgoings <> map (False,) incomings
-        return $ DL.fromList $ addresses <&> \(isOutgoing, addr) ->
-            THEntry txId tx isOutgoing Nothing addr
+        return $ THEntry txId tx Nothing incomings outgoings
 
 -- | Given a full blockchain, derive address history and Utxo
 -- TODO: Such functionality will still be useful for merging

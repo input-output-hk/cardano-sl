@@ -7,12 +7,13 @@ module Pos.Txp.Toil.Utxo.Util
        ) where
 
 import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet        as HS
 import qualified Data.Map.Strict     as M
 import           Universum
 
 import           Pos.Binary.Core     ()
 import           Pos.Core            (Address, Coin, StakeholderId, unsafeAddCoin)
-import           Pos.Txp.Core        (addrBelongsTo, txOutStake)
+import           Pos.Txp.Core        (addrBelongsTo, addrBelongsToSet, txOutStake)
 import           Pos.Txp.Toil.Types  (Utxo)
 
 -- | Select only TxOuts for given address
@@ -21,7 +22,7 @@ filterUtxoByAddr addr = M.filter (`addrBelongsTo` addr)
 
 -- | Select only TxOuts for given addresses
 filterUtxoByAddrs :: [Address] -> Utxo -> Utxo
-filterUtxoByAddrs addrs = M.filter $ \utxo -> any (addrBelongsTo utxo) addrs
+filterUtxoByAddrs (HS.fromList -> addrs) = M.filter (`addrBelongsToSet` addrs)
 
 -- | Convert 'Utxo' to map from 'StakeholderId' to stake.
 utxoToStakes :: Utxo -> HashMap StakeholderId Coin

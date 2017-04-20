@@ -10,12 +10,11 @@ import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (Acc, CAccount, CAccountAddress, CAddress,
                                              CCoin, CCurrency, CHash, CInitialized,
                                              CPostVendWalletRedeem, CProfile, CProfile,
-                                             CTExMeta, CTType, CTx, CTxId, CTxMeta,
-                                             CUpdateInfo, CWallet, CWalletAddress,
-                                             CWalletAssurance, CWalletInit, CWalletMeta,
-                                             CWalletRedeem, CWalletSet, CWalletSetInit,
-                                             CWalletSetMeta, CWalletType, NotifyEvent,
-                                             SyncProgress, WS)
+                                             CTExMeta, CTx, CTxId, CTxMeta, CUpdateInfo,
+                                             CWallet, CWalletAddress, CWalletAssurance,
+                                             CWalletInit, CWalletMeta, CWalletRedeem,
+                                             CWalletSet, CWalletSetInit, CWalletSetMeta,
+                                             CWalletType, NotifyEvent, SyncProgress, WS)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 deriveJSON defaultOptions ''CCurrency
@@ -47,7 +46,6 @@ deriveToJSON defaultOptions ''CAccount
 deriveToJSON defaultOptions ''CWallet
 deriveToJSON defaultOptions ''CWalletSet
 deriveToJSON defaultOptions ''CTx
-deriveToJSON defaultOptions ''CTType
 deriveToJSON defaultOptions ''CTExMeta
 deriveToJSON defaultOptions ''SoftwareVersion
 deriveToJSON defaultOptions ''BlockVersion

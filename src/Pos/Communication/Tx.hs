@@ -5,6 +5,7 @@
 module Pos.Communication.Tx
        ( TxMode
        , submitTx
+       , submitMTx
        , submitRedemptionTx
        , submitTxRaw
        , sendTxOuts
@@ -17,9 +18,9 @@ import           System.Wlog                (logInfo)
 import           Universum
 
 import           Pos.Binary                 ()
-import           Pos.Client.Txp.Balances    (MonadBalances (..))
+import           Pos.Client.Txp.Balances    (MonadBalances (..), getOwnUtxo)
 import           Pos.Client.Txp.History     (MonadTxHistory (..))
-import           Pos.Client.Txp.Util        (TxError, createRedemptionTx, createTx)
+import           Pos.Client.Txp.Util        (TxError, createMTx, createRedemptionTx)
 import           Pos.Communication.Methods  (sendTx)
 import           Pos.Communication.Protocol (SendActions)
 import           Pos.Communication.Specs    (sendTxOuts)
@@ -50,6 +51,20 @@ submitAndSave sendActions na txw = do
     lift $ saveTx (txId, txw)
     return txw
 
+-- | Construct Tx using multiple secret keys and given list of desired outputs
+submitMTx
+    :: TxMode ssc m
+    => SendActions m
+    -> NonEmpty SafeSigner
+    -> [DHTNode]
+    -> NonEmpty TxOutAux
+    -> m (Either TxError TxAux)
+submitMTx sendActions ss na outputs = do
+    utxo <- getOwnUtxos $ makePubKeyAddress . safeToPublic <$> toList ss
+    runExceptT $ do
+        txw <- ExceptT $ return $ createMTx utxo ss outputs
+        submitAndSave sendActions na txw
+
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx
     :: TxMode ssc m
@@ -58,11 +73,7 @@ submitTx
     -> [DHTNode]
     -> NonEmpty TxOutAux
     -> m (Either TxError TxAux)
-submitTx sendActions ss na outputs = do
-    utxo <- getOwnUtxo $ makePubKeyAddress $ safeToPublic ss
-    runExceptT $ do
-        txw <- ExceptT $ return $ createTx utxo ss outputs
-        submitAndSave sendActions na txw
+submitTx sa ss na outputs = submitMTx sa (one ss) na outputs
 
 -- | Construct redemption Tx using redemption secret key and a output address
 submitRedemptionTx

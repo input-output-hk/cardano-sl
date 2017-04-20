@@ -143,7 +143,7 @@ type WalletApi =
      :> Capture "from" CWalletAddress
      :> Capture "to" (CAddress Acc)
      :> Capture "amount" Coin
-     :> Post '[JSON] (Either WalletError [CTx])
+     :> Post '[JSON] (Either WalletError CTx)
     :<|>
     -- TODO: for now we only support one2one sending. We should extend this
     -- to support many2many
@@ -157,7 +157,7 @@ type WalletApi =
      :> Capture "currency" CCurrency
      :> Capture "title" Text
      :> Capture "description" Text
-     :> Post '[JSON] (Either WalletError [CTx])
+     :> Post '[JSON] (Either WalletError CTx)
     :<|>
      -- FIXME: Should capture the URL parameters in the payload.
      "api"

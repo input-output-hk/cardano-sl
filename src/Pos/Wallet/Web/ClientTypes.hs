@@ -10,7 +10,6 @@ module Pos.Wallet.Web.ClientTypes
       , CAddress (..)
       , CCurrency (..)
       , CHash (..)
-      , CTType (..)
       , CPassPhrase (..)
       , CProfile (..)
       , CPwHash
@@ -47,7 +46,6 @@ module Pos.Wallet.Web.ClientTypes
       , mkCTx
       , mkCTxId
       , txIdToCTxId
-      , ctTypeMeta
       , txContainsTitle
       , toCUpdateInfo
       , walletAddrByAccount
@@ -74,7 +72,7 @@ import           Pos.Binary.Class       (decodeFull, encodeStrict)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core.Types         (ScriptVersion)
 import           Pos.Crypto             (PassPhrase, hashHexF)
-import           Pos.Txp.Core.Types     (Tx (..), TxId, txOutAddress, txOutValue)
+import           Pos.Txp.Core.Types     (Tx (..), TxId, txOutValue)
 import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
                                          Coin, SoftwareVersion, decodeTextAddress,
                                          sumCoins, unsafeGetCoin, unsafeIntegerToCoin)
@@ -151,24 +149,19 @@ txIdToCTxId :: TxId -> CTxId
 txIdToCTxId = mkCTxId . sformat hashHexF
 
 mkCTx
-    :: Address            -- ^ An address for which transaction info is forming
-    -> ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
+    :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
     -> CTx
-mkCTx addr diff THEntry {..} meta = CTx {..}
+mkCTx diff THEntry {..} meta = CTx {..}
   where
     ctId = txIdToCTxId _thTxId
-    ctAccAddress = addressToCAddress addr
     outputs = toList $ _txOutputs _thTx
-    isToItself = all ((== addr) . txOutAddress) outputs
-    ctAmount = mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
-        filter ((|| isToItself) . xor _thIsOutput . (== addr) . txOutAddress) outputs
+    ctAmount = mkCCoin . unsafeIntegerToCoin . sumCoins $ map txOutValue outputs
     ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
-    ctType = if _thIsOutput
-             then CTOut meta
-             else CTIn meta
-
+    ctMeta = meta
+    ctInputAddrs = map addressToCAddress _thInputAddrs
+    ctOutputAddrs = map addressToCAddress _thOutputAddrs
 
 newtype CPassPhrase = CPassPhrase Text deriving (Eq, Generic)
 
@@ -366,18 +359,6 @@ data CTxMeta = CTxMeta
     , ctmDate        :: POSIXTime
     } deriving (Show, Generic)
 
--- | type of transactions
--- It can be an input / output / exchange transaction
--- CTInOut CTExMeta -- Ex == exchange
-data CTType
-    = CTIn CTxMeta
-    | CTOut CTxMeta
-    deriving (Show, Generic)
-
-ctTypeMeta :: Lens' CTType CTxMeta
-ctTypeMeta f (CTIn meta)  = CTIn <$> f meta
-ctTypeMeta f (CTOut meta) = CTOut <$> f meta
-
 -- | Client transaction (CTx)
 -- Provides all Data about a transaction needed by client.
 -- It includes meta data which are not part of Cardano, too
@@ -386,15 +367,13 @@ data CTx = CTx
     { ctId            :: CTxId
     , ctAmount        :: CCoin
     , ctConfirmations :: Word
-    , ctType          :: CTType -- it includes all "meta data"
-    , ctAccAddress    :: CAddress Acc
+    , ctMeta          :: CTxMeta
+    , ctInputAddrs    :: [CAddress Acc]
+    , ctOutputAddrs   :: [CAddress Acc]
     } deriving (Show, Generic, Typeable)
 
-ctType' :: Lens' CTx CTType
-ctType' f (CTx id amount cf tp acc) = f tp <&> \tp' -> CTx id amount cf tp' acc
-
 txContainsTitle :: Text -> CTx -> Bool
-txContainsTitle search = isInfixOf (toLower search) . toLower . ctmTitle . view (ctType' . ctTypeMeta)
+txContainsTitle search = isInfixOf (toLower search) . toLower . ctmTitle . ctMeta
 
 -- | meta data of exchanges
 data CTExMeta = CTExMeta
@@ -448,7 +427,7 @@ toCUpdateInfo ConfirmedProposalState {..} =
     in CUpdateInfo {..}
 
 ----------------------------------------------------------------------------
--- Reporting
+-- Reportin
 ----------------------------------------------------------------------------
 
 -- | Represents a knowledge about how much time did it take for client

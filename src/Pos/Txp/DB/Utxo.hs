@@ -26,6 +26,7 @@ module Pos.Txp.DB.Utxo
        , sanityCheckUtxo
        ) where
 
+import qualified Data.HashSet         as HS
 import qualified Data.Map             as M
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB     as Rocks
@@ -45,7 +46,7 @@ import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
                                        IterType, runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
-import           Pos.Txp.Core         (TxIn (..), TxOutAux, addrBelongsTo, txOutStake)
+import           Pos.Txp.Core         (TxIn (..), TxOutAux, addrBelongsToSet, txOutStake)
 import           Pos.Txp.Toil.Types   (Utxo)
 import           Pos.Types            (Address, Coin, coinF, mkCoin, sumCoins,
                                        unsafeAddCoin, unsafeIntegerToCoin)
@@ -158,10 +159,11 @@ getFilteredUtxo'
        , IterKey i ~ TxIn
        , IterValue i ~ TxOutAux
        )
-    => Address -> m Utxo
-getFilteredUtxo' addr = filterUtxo @i $ \(_, out) -> out `addrBelongsTo` addr
+    => [Address] -> m Utxo
+getFilteredUtxo' addrs = filterUtxo @i $ \(_, out) -> out `addrBelongsToSet` addrsSet
+  where addrsSet = HS.fromList addrs
 
-getFilteredUtxo :: MonadDB m => Address -> m Utxo
+getFilteredUtxo :: MonadDB m => [Address] -> m Utxo
 getFilteredUtxo = getFilteredUtxo' @UtxoIter
 
 ----------------------------------------------------------------------------

@@ -46,7 +46,7 @@ import           Pos.Wallet.Web.ClientTypes (Acc, CAccount (..), CAccountAddress
                                              CCurrency (..), CHash (..),
                                              CInitialized (..), CPassPhrase,
                                              CPostVendWalletRedeem (..), CProfile (..),
-                                             CTType (..), CTx (..), CTxId, CTxMeta (..),
+                                             CTx (..), CTxId, CTxMeta (..),
                                              CUpdateInfo (..), CWallet (..),
                                              CWalletAddress (..), CWalletAddress,
                                              CWalletInit (..), CWalletMeta (..),
@@ -470,8 +470,9 @@ instance ToSample CTx where
             { ctId            = mkCTxId "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
             , ctAmount        = mkCCoin $ mkCoin 0
             , ctConfirmations = 10
-            , ctType          = CTOut ctxMeta
-            , ctAccAddress    = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
+            , ctMeta          = ctxMeta
+            , ctInputAddrs    = one . CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
+            , ctOutputAddrs   = one . CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
             }
 
 instance ToSample CTxMeta where

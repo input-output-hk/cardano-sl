@@ -48,6 +48,8 @@
   font-size: 10px;
 
   .hash {
+    overflow: hidden;
+    text-overflow: ellipsis;
     lost-column: 1/1;
     color: var(--color8);
     line-height: var(--transaction-header-height);
@@ -57,7 +59,7 @@
 
   @media (--md) {
     .hash {
-      lost-column: 8/12;
+      lost-column: 7/12;
     }
   }
 
@@ -68,7 +70,7 @@
   @media (--md) {
     .date {
       @extend .show;
-      lost-column: 2/12;
+      lost-column: 3/12;
       line-height: var(--transaction-header-height);
       color: var(--color9);
     }
@@ -84,7 +86,6 @@
       lost-column: 2/12;
       height: 100%;
       box: horizontal right;
-      padding-right: 12px;
     }
   }
 
@@ -116,21 +117,26 @@
 
   .from-hash-container {
     box-item: center;
+    overflow: hidden;
   }
 
   @media (--md) {
     .from-hash-container {
-      lost-column: 4/12;
+      lost-column: 5/12;
     }
   }
 
   .from-hash {
+    overflow: hidden;
+    display: block;
+    text-overflow: ellipsis;
     button: standard-button;
     button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
     padding: 18px 0 12px 0;
   }
 
   .to-hash-container {
+    /*overflow: hidden;*/
     background-repeat: no-repeat;
     background-position: left top;
     background-size: 15px 15px;
@@ -142,16 +148,13 @@
       background-position: left center;
       padding: 18px 0 0 30px;
       box-item: center;
-    }
-  }
-
-  @media (--md) {
-    .to-hash-container {
       lost-column: 5/12;
     }
   }
 
   .to-hash {
+    overflow: hidden;
+    text-overflow: ellipsis;
     button: standard-button;
     button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
     display: block;
@@ -165,7 +168,7 @@
   @media (--md) {
     .amounts-container {
       @extend .show;
-      lost-column: 3/12 3;
+      lost-column: 2/12 3;
       padding: 18px 0 0 0;
       text-align: right;
       box-item: center;
@@ -178,7 +181,7 @@
 
   .amount-container {
     @extend .show;
-    padding: 18px 0 0 0;
+    padding: 18px 0;
     text-align: right;
     box-item: center;
   }

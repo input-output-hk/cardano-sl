@@ -162,7 +162,7 @@ verifyAndApplyProposal verifyAllIsKnown slotOrHeader votes
     let epoch = slotOrHeader ^. epochIndexL
     let proposalSize = biSize up
     proposalSizeLimit <- bvdMaxProposalSize <$> getAdoptedBVData
-    when (verifyAllIsKnown && not areAttributesKnown upAttributes) $
+    when (verifyAllIsKnown && areAttributesKnown upAttributes) $
         throwError $
         PollUnknownAttributesInProposal
         { puapUpId = upId

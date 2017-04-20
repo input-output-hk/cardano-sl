@@ -67,7 +67,7 @@ import           Pos.Core.Types       (Address (..), Coin, Script, StakeholderId
                                        mkCoin)
 import           Pos.Crypto           (Hash, PublicKey, RedeemPublicKey, RedeemSignature,
                                        Signature, hash, shortHashF)
-import           Pos.Data.Attributes  (Attributes (attrRemain))
+import           Pos.Data.Attributes  (Attributes, areAttributesKnown)
 import           Pos.Merkle           (MerkleRoot, MerkleTree, mkMerkleTree)
 
 -- | Represents transaction identifier as 'Hash' of 'Tx'.
@@ -213,7 +213,7 @@ instance Buildable Tx where
             _txInputs _txOutputs attrsBuilder
       where
         attrs = _txAttributes
-        attrsBuilder | null (attrRemain attrs) = mempty
+        attrsBuilder | areAttributesKnown attrs  = mempty
                      | otherwise = bprint (", attributes: "%build) attrs
 
 -- | Specialized formatter for 'Tx'.

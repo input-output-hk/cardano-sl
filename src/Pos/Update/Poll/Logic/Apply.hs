@@ -30,7 +30,7 @@ import           Pos.Core                      (ChainDifficulty, Coin, EpochInde
                                                 sumCoins, unflattenSlotId,
                                                 unsafeIntegerToCoin)
 import           Pos.Crypto                    (hash, shortHashF)
-import           Pos.Data.Attributes           (Attributes (attrRemain))
+import           Pos.Data.Attributes           (areAttributesKnown)
 import           Pos.Update.Core               (BlockVersionData (..), UpId,
                                                 UpdatePayload (..), UpdateProposal (..),
                                                 UpdateVote (..))
@@ -162,7 +162,7 @@ verifyAndApplyProposal verifyAllIsKnown slotOrHeader votes
     let epoch = slotOrHeader ^. epochIndexL
     let proposalSize = biSize up
     proposalSizeLimit <- bvdMaxProposalSize <$> getAdoptedBVData
-    when (verifyAllIsKnown && not (null (attrRemain upAttributes))) $
+    when (verifyAllIsKnown && not areAttributesKnown upAttributes) $
         throwError $
         PollUnknownAttributesInProposal
         { puapUpId = upId

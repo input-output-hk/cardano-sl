@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Type classes for Poll abstraction.
 
@@ -7,8 +8,6 @@ module Pos.Update.Poll.Class
        , MonadPoll (..)
        ) where
 
-import qualified Control.Monad.Ether.Implicit as Ether
-import           Control.Monad.Except         (ExceptT)
 import           Control.Monad.Trans          (MonadTrans)
 import           System.Wlog                  (WithLogger)
 import           Universum
@@ -145,10 +144,9 @@ class (Monad m, WithLogger m) => MonadPollRead m where
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m SlottingData
     getSlottingData = lift getSlottingData
 
-instance MonadPollRead m => MonadPollRead (ReaderT s m)
-instance MonadPollRead m => MonadPollRead (StateT s m)
-instance MonadPollRead m => MonadPollRead (ExceptT s m)
-instance {-# OVERLAPPABLE #-} MonadPollRead m => MonadPollRead (Ether.StateT s m)
+instance {-# OVERLAPPABLE #-}
+  (MonadPollRead m, MonadTrans t, Monad (t m), WithLogger (t m)) =>
+  MonadPollRead (t m)
 
 ----------------------------------------------------------------------------
 -- Writeable
@@ -225,7 +223,6 @@ class MonadPollRead m => MonadPoll m where
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => HashSet StakeholderId -> m ()
     setEpochProposers = lift . setEpochProposers
 
-instance MonadPoll m => MonadPoll (ReaderT s m)
-instance MonadPoll m => MonadPoll (StateT s m)
-instance MonadPoll m => MonadPoll (ExceptT s m)
-instance {-# OVERLAPPABLE #-} MonadPoll m => MonadPoll (Ether.StateT s m)
+instance {-# OVERLAPPABLE #-}
+  (MonadPoll m, MonadTrans t, Monad (t m), WithLogger (t m)) =>
+  MonadPoll (t m)

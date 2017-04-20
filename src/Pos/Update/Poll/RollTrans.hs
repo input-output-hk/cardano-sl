@@ -32,7 +32,7 @@ type RollT m = Ether.StateT USUndo m
 --
 -- [WARNING] This transformer uses StateT and is intended for
 -- single-threaded usage only.
-instance {-# OVERLAPPING #-} MonadPoll m => MonadPoll (RollT m) where
+instance MonadPoll m => MonadPoll (RollT m) where
     putBVState bv sv = ether $ do
         insertIfNotExist bv unChangedBVL getBVState
         putBVState bv sv

@@ -612,7 +612,7 @@ searchHistory wAddr search mAccAddr skip limit =
   where
     fits ctx = txContainsTitle search ctx
             && maybe True (accRelates ctx) mAccAddr
-    accRelates CTx {..} = (`elem` ctInputAddrs ++ ctOutputAddrs)
+    accRelates CTx {..} = (`elem` (ctInputAddrs ++ ctOutputAddrs))
 
 addHistoryTx
     :: WalletWebMode ssc m
@@ -628,8 +628,8 @@ addHistoryTx cAddr curr title desc wtx@THEntry{..} = do
             networkChainDifficulty
     meta <- CTxMeta curr title desc <$> liftIO getPOSIXTime
     let cId = txIdToCTxId _thTxId
-    addOnlyNewTxMeta (undefined cAddr) cId meta
-    meta' <- maybe meta identity <$> getTxMeta (undefined cAddr) cId
+    addOnlyNewTxMeta cAddr cId meta
+    meta' <- maybe meta identity <$> getTxMeta cAddr cId
     return $ mkCTx diff wtx meta'
 
 newAccount :: WalletWebMode ssc m => CPassPhrase -> CWalletAddress -> m CAccount
@@ -674,7 +674,7 @@ updateWallet cAddr wMeta = do
     setWalletMeta cAddr wMeta
     getWallet cAddr
 
-updateTransaction :: WalletWebMode ssc m => CAddress Acc -> CTxId -> CTxMeta -> m ()
+updateTransaction :: WalletWebMode ssc m => CWalletAddress -> CTxId -> CTxMeta -> m ()
 updateTransaction = setWalletTransactionMeta
 
 deleteWSet :: WalletWebMode ssc m => CAddress WS -> m ()
@@ -953,7 +953,7 @@ genUniqueAccountAddress
     -> m CAccountAddress
 genUniqueAccountAddress passphrase wCAddr@CWalletAddress{..} =
     generateUnique (mkAccount . nonHardenedOnly)
-                   (doesAccountExist . caaAddress)
+                   doesAccountExist
   where
     mkAccount caaAccountIndex = do
         (address, _) <- deriveAccountSK passphrase wCAddr caaAccountIndex

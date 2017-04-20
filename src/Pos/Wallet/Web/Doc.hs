@@ -194,7 +194,7 @@ instance ToCapture (Capture "amount" Coin) where
         , _capDesc = "Amount of coins to send."
         }
 
-instance ToCapture (Capture "address" (CAddress Acc)) where
+instance ToCapture (Capture "address" CWalletAddress) where
     toCapture Proxy =
         DocCapture
         { _capSymbol = "address"

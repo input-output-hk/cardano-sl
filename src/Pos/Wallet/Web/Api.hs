@@ -163,7 +163,7 @@ type WalletApi =
      "api"
      :> "txs"
      :> "payments"
-     :> Capture "address" (CAddress Acc)
+     :> Capture "address" CWalletAddress
      :> Capture "transaction" CTxId
      :> ReqBody '[JSON] CTxMeta
      :> Post '[JSON] (Either WalletError ())

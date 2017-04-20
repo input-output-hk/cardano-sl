@@ -15,12 +15,8 @@ module Pos.DB.Class
 import           Universum
 
 import           Control.Lens                 (ASetter')
-import           Control.Monad.Except         (ExceptT)
 import           Control.Monad.Morph        (MFunctor(..))
-import           Control.Monad.State          (StateT)
 import           Control.Monad.Trans          (MonadTrans)
-import qualified Control.Monad.Trans.Ether.Tagged as Ether
-import           Control.Monad.Trans.Resource (ResourceT)
 import qualified Database.RocksDB             as Rocks
 
 import           Pos.Core                     (BlockVersionData)
@@ -66,14 +62,9 @@ getLrcDB = view lrcDB <$> getNodeDBs
 getMiscDB :: MonadDB m => m DB
 getMiscDB = view miscDB <$> getNodeDBs
 
-instance (MonadDB m) => MonadDB (ReaderT a m)
-instance (MonadDB m) => MonadDB (ExceptT e m)
-instance (MonadDB m) => MonadDB (StateT a m)
-instance (MonadDB m) => MonadDB (ResourceT m)
-
 instance {-# OVERLAPPABLE #-}
     (MonadDB m, MFunctor t, MonadTrans t, MonadIO (t m), MonadCatch (t m)) =>
-    MonadDB (Ether.TaggedTrans tag t m)
+    MonadDB (t m)
 
 deriving instance (MonadDB m) => MonadDB (ListHolderT s m)
 
@@ -85,6 +76,6 @@ class MonadDB m => MonadDBCore m where
         m BlockVersionData
     dbAdoptedBVData = lift dbAdoptedBVData
 
-instance MonadDBCore m => MonadDBCore (ReaderT a m)
-instance MonadDBCore m => MonadDBCore (StateT s m)
-instance MonadDBCore m => MonadDBCore (ExceptT e m)
+instance {-# OVERLAPPABLE #-}
+  (MonadDBCore m, MFunctor t, MonadTrans t, MonadIO (t m), MonadCatch (t m)) =>
+  MonadDBCore (t m)

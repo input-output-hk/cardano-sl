@@ -99,7 +99,7 @@ import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WebWallet
                                                 setWalletTransactionMeta, testReset,
                                                 updateHistoryCache)
 import           Pos.Web.Server                (serveImpl)
-import           Pos.Ssc.Type                  (SscType)
+import           Pos.Wallet.SscType            (WalletSscType)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -108,7 +108,7 @@ import           Pos.Ssc.Type                  (SscType)
 type WalletWebHandler m = WalletWebSockets (WalletWebDB m)
 
 type WalletWebMode m
-    = ( WalletMode SscType m
+    = ( WalletMode WalletSscType m
       , MonadWalletWebDB m
       , MonadDBLimits m
       , MonadWalletWebSockets m
@@ -389,7 +389,7 @@ getHistory cAddr skip limit = do
     (minit, cachedTxs) <- transCache <$> getHistoryCache cAddr
 
     -- TODO: Fix type param! Global type param.
-    TxHistoryAnswer {..} <- flip (untag @SscType getTxHistory) minit
+    TxHistoryAnswer {..} <- flip (untag @WalletSscType getTxHistory) minit
         =<< decodeCAddressOrFail cAddr
 
     -- Add allowed portion of result to cache

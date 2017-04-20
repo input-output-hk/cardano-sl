@@ -1,8 +1,8 @@
 -- | Global export of the @SSC@ type. Exported in order to be able to switch to 
 -- different type-level implementations.
 
-module Pos.Ssc.Type
-       ( SscType
+module Pos.Wallet.SscType
+       ( WalletSscType
        ) where
 
 import Pos.Ssc.GodTossing (SscGodTossing)
@@ -10,5 +10,5 @@ import Pos.Ssc.GodTossing (SscGodTossing)
 
 -- | We can also use CPP flags that I proposed that would enable switching between 
 -- implementations without changing the code.
-type SscType = SscGodTossing
---type SscType = SscNistBeacon
+type WalletSscType = SscGodTossing
+--type WalletSscType = SscNistBeacon

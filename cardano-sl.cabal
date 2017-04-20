@@ -77,7 +77,6 @@ library
                         Pos.Security.Workers
 
                         -- SSC
-                        Pos.Ssc.Type
                         Pos.Ssc.Arbitrary
                         Pos.Ssc.Class
                         Pos.Ssc.GodTossing
@@ -382,6 +381,7 @@ library
                         Pos.Wallet.Context.Context
                         Pos.Wallet.Context.Holder
                         Pos.Wallet.Update
+                        Pos.Wallet.SscType
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
                         Pos.Wallet.Web.ClientTypes

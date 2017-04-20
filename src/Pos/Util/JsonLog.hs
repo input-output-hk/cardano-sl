@@ -49,6 +49,7 @@ fromJLSlotId (ep, sl) = SlotId (fromIntegral ep) (fromIntegral sl)
 data JLEvent = JLCreatedBlock JLBlock
              | JLAdoptedBlock BlockId
              | JLTpsStat Int
+             | JLMemPoolSize Int
   deriving Show
 
 -- | 'JLEvent' with 'Timestamp' -- corresponding time of this event.

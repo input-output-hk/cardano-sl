@@ -100,7 +100,7 @@ after_test:
  - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_WORK% xcopy /q /s /e /r /k /i /v /h /y %STACK_WORK% %CACHED_STACK_WORK%
 
 artifacts:
-  - path: daedalus/
+  - path: "%WORK_DIR%\daedalus\"
     name: CardanoSL
     type: zip
 

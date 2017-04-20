@@ -5,13 +5,14 @@ import Data.Array (length, (!!))
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (addNotFound, cAddress, cBack2Dashboard, common, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance) as I18nL
+import Explorer.I18n.Lenses (addNotFound, cAddress, cBack2Dashboard, common, cLoading, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance) as I18nL
 import Explorer.Lenses.State (addressDetail, addressTxPagination, currentAddressSummary, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
+import Explorer.State (addressQRImageId)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
-import Explorer.View.Common (currencyCSSClass, emptyTxBodyView, emptyTxHeaderView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
+import Explorer.View.Common (currencyCSSClass, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
 import Network.RemoteData (RemoteData(..))
 import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
@@ -77,11 +78,11 @@ addressView state =
 -- | Address overview, we leave the error abstract (we are not using it)
 addressOverview :: forall e. RemoteData e CAddressSummary -> Language -> P.Html Action
 addressOverview NotAsked    lang = emptyAddressDetail ""
-addressOverview Loading     lang = emptyAddressDetail "Loading..."
+addressOverview Loading     lang = emptyAddressDetail <<< translate (I18nL.common <<< I18nL.cLoading) $ lang
 addressOverview (Failure _) lang = failureView lang
 addressOverview (Success addressSummary) lang =
     P.div
-        []
+        [ P.className "address-overview"]
         [ addressDetailView addressSummary lang
         , addressQr addressSummary lang
         ]
@@ -95,19 +96,19 @@ addressDetailView addressSummary lang =
 addressQr :: CAddressSummary -> Language -> P.Html Action
 addressQr _ lang =
     P.div
-      [ P.className "qr" ]
+      [ P.className "address-qr" ]
       [ P.p
-          [ P.className "tab" ]
+          [ P.className "address-qr__tab" ]
           [ P.text $ translate (I18nL.address <<< I18nL.addQrCode) lang  ]
       , P.div
-          [ P.className "qr__wrapper" ]
+          [ P.className "address-qr__wrapper" ]
           [ P.div
-              [ P.className "qr__image"
-              , P.id_ "qr_image_id"
+              [ P.className "address-qr__image"
+              , P.id_ addressQRImageId
               ]
               []
             , P.p
-                [ P.className "qr__description" ]
+                [ P.className "address-qr__description" ]
                 [ P.text $ translate (I18nL.address <<< I18nL.addScan) lang ]
           ]
       ]
@@ -141,7 +142,7 @@ addressDetailRow item =
     P.div
         [ P.className "address-detail__row" ]
         [ P.div
-            [ P.className "address-detail__column column label" ]
+            [ P.className "address-detail__column label" ]
             [ P.text item.label ]
         , P.div
               [ P.className $ "address-detail__column amount" <> currencyCSSClass item.currency ]
@@ -151,7 +152,7 @@ addressDetailRow item =
 emptyAddressDetail :: String -> P.Html Action
 emptyAddressDetail message =
     P.div
-        []
+        [ P.className "message" ]
         [ P.div
             [ P.dangerouslySetInnerHTML message ]
             []

@@ -20,6 +20,9 @@
   }
 
   &__header {
+
+    lost-utility: clearfix;
+
     .headline {
       lost-column: 1/2;
     }

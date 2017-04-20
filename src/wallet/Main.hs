@@ -105,14 +105,21 @@ runCmd sendActions (SendToAllGenesis amount delay_ sendMode tpsSentFile) = do
     tpsMVar <- newSharedAtomic $ TxCount 0 0
     h <- liftIO $ openFile tpsSentFile WriteMode -- TODO: I'd like to bracket here, but I don't think WalletMode includes MonadBaseControl IO.
     liftIO $ hSetBuffering h LineBuffering
+    liftIO . T.hPutStrLn h $ T.intercalate "," [ "slotDuration=" <> (T.pack . show) slotDuration
+                                               , "sendMode=" <> (T.pack . show) sendMode
+                                               , "delay=" <> (T.pack . show) delay_ ]
     liftIO $ T.hPutStrLn h "time,dt,txSent,txFailed,delay,sendmode"
     let writeTPS :: CmdRunner m void
         -- every 20 seconds, write the number of sent and failed transactions to a CSV file.
         writeTPS = do
             delay (sec slotDuration)
-            currentTime <- Timestamp <$> currentTime
+            currentTime <- T.pack . show . toInteger . getTimestamp . Timestamp <$> currentTime
             modifySharedAtomic tpsMVar $ \(TxCount submitted failed) -> do
-                liftIO $ T.hPutStrLn h $ T.intercalate "," [T.pack . show $ currentTime, T.pack . show $ slotDuration, T.pack . show $ submitted, T.pack . show $ failed, T.pack . show $ delay_, T.pack . show $ sendMode]
+                -- CSV is formatted like this:
+                -- time,txCount,txType
+
+                liftIO $ T.hPutStrLn h $ T.intercalate "," [currentTime, T.pack . show $ submitted, "submitted"]
+                liftIO $ T.hPutStrLn h $ T.intercalate "," [currentTime, T.pack . show $ failed, "failed"]
                 return (TxCount 0 0, ())
             writeTPS
     let sendTxs :: CmdRunner m ()

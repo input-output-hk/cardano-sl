@@ -47,7 +47,8 @@ baseParams :: LoggerName -> Args -> BaseParams
 baseParams loggingTag args@Args {..} =
     BaseParams
     { bpLoggingParams = loggingParams loggingTag args
-    , bpIpPort = ipPort
+    , bpBindAddress = ipPort
+    , bpPublicHost = publicHost
     , bpDHTPeers = CLI.dhtPeers commonArgs
     , bpDHTKey = dhtKey
     , bpDHTExplicitInitial = CLI.dhtExplicitInitial commonArgs

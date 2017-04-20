@@ -6,7 +6,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/input-output-hk/cardano-sl
-    commit: 690a1193829b5c5e7712748e11b072629b3290ed
+    commit: 6b595b3a37b7c23ece77edb9c2cf7d14011a4510
   extra-dep: true
   subdirs:
       - '.'
@@ -21,7 +21,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
-    commit: bf65ac0cd50d2ccd7ef6507f0d71786c4bd10ae1
+    commit: 21df94f41008f82ee023e8e0324c7e4a82c4fef2
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
@@ -42,12 +42,12 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 17b68653edfcbb72ad92a6b0ecbff82d3b42c4ef
+    commit: b48bd9b099e47d8c39aa6ddce261aa76f8488d75
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
     git: https://github.com/avieth/network-transport-tcp
-    commit: 15847920ac1a32ada237e5a00ac4f56f3ca421a7
+    commit: ca42a954a15792f5ea8dc203e56fac8175b99c33
   extra-dep: true
 - location:
     git: https://github.com/avieth/network-transport

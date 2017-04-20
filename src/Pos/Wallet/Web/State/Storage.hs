@@ -58,8 +58,8 @@ instance Default WalletStorage where
     def =
         WalletStorage
         {
-          _wsWalletMetas = mempty
-        , _wsProfile = mzero
+          _wsWalletMetas  = mempty
+        , _wsProfile      = Just def -- FIXME: Use CProfile, not Maybe CProfile
         , _wsReadyUpdates = mempty
         , _wsHistoryCache = mempty
         }

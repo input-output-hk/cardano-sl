@@ -15,19 +15,18 @@ module Pos.DB.Class
 import           Universum
 
 import           Control.Lens                 (ASetter')
-import qualified Control.Monad.Ether          as Ether
-import           Control.Monad.Except         (ExceptT (..), mapExceptT)
-import           Control.Monad.Reader         (mapReaderT)
-import           Control.Monad.State          (StateT (..), mapStateT)
+import           Control.Monad.Except         (ExceptT)
+import           Control.Monad.Morph        (MFunctor(..))
+import           Control.Monad.State          (StateT)
 import           Control.Monad.Trans          (MonadTrans)
-import           Control.Monad.Trans.Resource (ResourceT, transResourceT)
+import qualified Control.Monad.Trans.Ether.Tagged as Ether
+import           Control.Monad.Trans.Resource (ResourceT)
 import qualified Database.RocksDB             as Rocks
 
 import           Pos.Core                     (BlockVersionData)
 import           Pos.DB.Types                 (DB, NodeDBs, blockIndexDB, gStateDB, lrcDB,
                                                miscDB)
 import           Pos.Util.Iterator            (ListHolderT (..))
-import           Pos.Util.Util                (mapEtherStateT)
 
 -- TODO write a documentation. LensLike' is just a lens. Written using
 -- LensLike' to avoid rankntypes.
@@ -38,6 +37,22 @@ class (MonadIO m, MonadCatch m) => MonadDB m where
 
     default getNodeDBs :: (MonadTrans t, MonadDB m', t m' ~ m) => m NodeDBs
     getNodeDBs = lift getNodeDBs
+
+    default usingReadOptions
+      :: (MFunctor t, MonadDB m', t m' ~ m)
+      => Rocks.ReadOptions
+      -> ASetter' NodeDBs DB
+      -> m a
+      -> m a
+    usingReadOptions how l = hoist (usingReadOptions how l)
+
+    default usingWriteOptions
+      :: (MFunctor t, MonadDB m', t m' ~ m)
+      => Rocks.WriteOptions
+      -> ASetter' NodeDBs DB
+      -> m a
+      -> m a
+    usingWriteOptions how l = hoist (usingWriteOptions how l)
 
 getBlockIndexDB :: MonadDB m => m DB
 getBlockIndexDB = view blockIndexDB <$> getNodeDBs
@@ -51,26 +66,14 @@ getLrcDB = view lrcDB <$> getNodeDBs
 getMiscDB :: MonadDB m => m DB
 getMiscDB = view miscDB <$> getNodeDBs
 
-instance (MonadDB m) => MonadDB (ReaderT a m) where
-    usingReadOptions how l = mapReaderT (usingReadOptions how l)
-    usingWriteOptions how l = mapReaderT (usingWriteOptions how l)
+instance (MonadDB m) => MonadDB (ReaderT a m)
+instance (MonadDB m) => MonadDB (ExceptT e m)
+instance (MonadDB m) => MonadDB (StateT a m)
+instance (MonadDB m) => MonadDB (ResourceT m)
 
-instance (MonadDB m) => MonadDB (ExceptT e m) where
-    usingReadOptions how l = mapExceptT (usingReadOptions how l)
-    usingWriteOptions how l = mapExceptT (usingWriteOptions how l)
-
-instance (MonadDB m) => MonadDB (StateT a m) where
-    usingReadOptions how l = mapStateT (usingReadOptions how l)
-    usingWriteOptions how l = mapStateT (usingWriteOptions how l)
-
-instance (MonadDB m) => MonadDB (Ether.StateT t a m) where
-    getNodeDBs = lift getNodeDBs
-    usingReadOptions how l = mapEtherStateT (usingReadOptions how l)
-    usingWriteOptions how l = mapEtherStateT (usingWriteOptions how l)
-
-instance (MonadDB m) => MonadDB (ResourceT m) where
-    usingReadOptions how l = transResourceT (usingReadOptions how l)
-    usingWriteOptions how l = transResourceT (usingWriteOptions how l)
+instance {-# OVERLAPPABLE #-}
+    (MonadDB m, MFunctor t, MonadTrans t, MonadIO (t m), MonadCatch (t m)) =>
+    MonadDB (Ether.TaggedTrans tag t m)
 
 deriving instance (MonadDB m) => MonadDB (ListHolderT s m)
 

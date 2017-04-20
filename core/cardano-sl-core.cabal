@@ -85,6 +85,7 @@ library
                     , ether
                     , ether
                     , log-warper >= 1.0.3
+                    , transformers
                     , transformers-lift
                       -- This constraint on 'binary' is so strict because
                       -- we're relying on the internal representation of

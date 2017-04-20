@@ -42,6 +42,7 @@ library
                      , serokell-util
                      , text-format
                      , transformers-base
+                     , mmorph
                      , universum
 
   default-language:    Haskell2010

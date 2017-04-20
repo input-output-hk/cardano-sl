@@ -18,7 +18,6 @@ module Pos.Util.Util
 
        -- * Ether
        , ether
-       , mapEtherStateT
 
        -- * Instances
        -- ** Lift Byte
@@ -39,17 +38,17 @@ module Pos.Util.Util
        -- ** Buildable Day
        -- ** Buildable Week
        -- ** Buildable Fortnight
+
        -- ** Ether instances
        -- *** CanLog Ether.StateT
        -- *** HasLoggerName Ether.StateT
        ) where
 
-import           Universum
-
 import           Control.Lens               (ALens', Getter, Getting, cloneLens, to)
 import qualified Control.Monad.Ether              as Ether
+import           Control.Monad.Trans.Class (MonadTrans)
 import qualified Control.Monad.Trans.Ether.Tagged as Ether
-import           Control.Monad.Trans.Lift.Local   (liftLocal)
+import           Control.Monad.Trans.Lift.Local   (LiftLocal(..))
 import           Data.Aeson                 (FromJSON (..), ToJSON (..))
 import           Data.HashSet               (fromMap)
 import           Data.Text.Buildable        (build)
@@ -57,9 +56,11 @@ import           Data.Time.Units            (Attosecond, Day, Femtosecond, Fortn
                                              Hour, Microsecond, Millisecond, Minute,
                                              Nanosecond, Picosecond, Second, Week,
                                              toMicroseconds)
-import           Language.Haskell.TH.Syntax (Lift (..))
+import qualified Language.Haskell.TH.Syntax       as TH
 import qualified Prelude
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
+import           System.Wlog                      (CanLog, HasLoggerName (..))
+import           Universum
 
 ----------------------------------------------------------------------------
 -- Some
@@ -146,10 +147,13 @@ instance Buildable Microsecond where
 -- Ether instances
 ----------------------------------------------------------------------------
 
-instance CanLog m => CanLog (Ether.StateT t s m)
+instance
+  (Monad m, MonadTrans t, Monad (t m), CanLog m) =>
+  CanLog (Ether.TaggedTrans tag t m)
 
-instance (Monad m, HasLoggerName m) =>
-         HasLoggerName (Ether.StateT t s m) where
+instance
+  (LiftLocal t, Monad m, HasLoggerName m) =>
+  HasLoggerName (Ether.TaggedTrans tag t m) where
     getLoggerName = lift getLoggerName
     modifyLoggerName = liftLocal getLoggerName modifyLoggerName
 
@@ -168,9 +172,3 @@ getKeys = fromMap . void
 -- to make lenses work with Ether.
 ether :: trans m a -> Ether.TaggedTrans tag trans m a
 ether = Ether.pack
-
-mapEtherStateT
-    :: forall t s m a n b.
-       (m (a, s) -> n (b, s)) -> Ether.StateT t s m a -> Ether.StateT t s n b
-mapEtherStateT f m =
-    Ether.stateT (Proxy @t) $ f . Ether.runStateT (Proxy @t) m

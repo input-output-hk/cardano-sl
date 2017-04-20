@@ -26,7 +26,6 @@ main =
       , mkSumType (Proxy @CT.CWalletType)
       , mkSumType (Proxy @CT.CWallet)
       , mkSumType (Proxy @CT.CProfile)
-      , mkSumType (Proxy @CT.CTType)
       , mkSumType (Proxy @CT.CTxMeta)
       , mkSumType (Proxy @CT.CTExMeta)
       , mkSumType (Proxy @(CT.CAddress CT.WS))

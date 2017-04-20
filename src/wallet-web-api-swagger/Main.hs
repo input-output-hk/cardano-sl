@@ -38,8 +38,8 @@ import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web             (Acc, CAccount, CAccountAddress, CAddress,
                                              CCoin, CCurrency, CElectronCrashReport,
                                              CHash, CInitialized, CPassPhrase,
-                                             CPostVendWalletRedeem, CProfile, CTType, CTx,
-                                             CTxId, CTxMeta, CUpdateInfo, CWallet,
+                                             CPostVendWalletRedeem, CProfile, CTx, CTxId,
+                                             CTxMeta, CUpdateInfo, CWallet,
                                              CWalletAddress, CWalletAssurance,
                                              CWalletInit, CWalletMeta, CWalletRedeem,
                                              CWalletSet, CWalletSetInit, CWalletSetMeta,
@@ -77,7 +77,6 @@ instance ToSchema      Coin
 instance ToParamSchema Coin
 instance ToSchema      CTxId
 instance ToParamSchema CTxId
-instance ToSchema      CTType
 instance ToSchema      CTx
 instance ToSchema      CTxMeta
 instance ToSchema      CHash

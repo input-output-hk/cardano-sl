@@ -4,6 +4,7 @@ module Pos.Client.Txp.Util
        (
        -- * Tx creation
          makePubKeyTx
+       , makeMPubKeyTx
        , makeMOfNTx
        , makeRedemptionTx
        , createTx
@@ -15,7 +16,7 @@ module Pos.Client.Txp.Util
        , TxError
        ) where
 
-import           Control.Lens        ((%=), (.=))
+import           Control.Lens        (traversed, (%=), (.=))
 import           Control.Monad.State (StateT (..), evalStateT)
 import qualified Data.HashMap.Strict as HM
 import           Data.List           (tail)
@@ -35,10 +36,12 @@ import           Pos.Script.Examples (multisigRedeemer, multisigValidator)
 import           Pos.Txp             (Tx (..), TxAux, TxDistribution (..), TxIn (..),
                                       TxInWitness (..), TxOut (..), TxOutAux (..),
                                       TxSigData (..), Utxo, filterUtxoByAddrs)
-import           Pos.Types           (Address, Coin, makePubKeyAddress, makeRedeemAddress,
-                                      makeScriptAddress, mkCoin, sumCoins)
+import           Pos.Types           (Address, Coin, makePubKeyAddress, makePubKeyAddress,
+                                      makeRedeemAddress, makeScriptAddress, mkCoin,
+                                      sumCoins)
 
-type TxInputs = NonEmpty (Address, TxIn)
+type TxInputs = NonEmpty TxIn
+type TxOwnedInputs owner = NonEmpty (owner, TxIn)
 type TxOutputs = NonEmpty TxOutAux
 type TxError = Text
 
@@ -48,7 +51,10 @@ type TxError = Text
 
 -- | Generic function to create a transaction, given desired inputs, outputs and a
 -- way to construct witness from signature data
-makeAbstractTx :: (Address -> TxSigData -> TxInWitness) -> TxInputs -> TxOutputs -> TxAux
+makeAbstractTx :: (owner -> TxSigData -> TxInWitness)
+               -> TxOwnedInputs owner
+               -> TxOutputs
+               -> TxAux
 makeAbstractTx mkWit txInputs outputs = ( UnsafeTx (map snd txInputs) txOutputs txAttributes
                                         , txWitness
                                         , txDist)
@@ -66,9 +72,12 @@ makeAbstractTx mkWit txInputs outputs = ( UnsafeTx (map snd txInputs) txOutputs 
                   , txSigDistrHash = txDistHash
                   }
 
--- | Makes a transaction which use P2PKH addresses as a source
-makePubKeyTx :: (Address -> SafeSigner) -> TxInputs -> TxOutputs -> TxAux
-makePubKeyTx getSs = makeAbstractTx mkWit
+-- | Like `makePubKeyTx`, but allows usage of different signers
+makeMPubKeyTx :: (owner -> SafeSigner)
+              -> TxOwnedInputs owner
+              -> TxOutputs
+              -> TxAux
+makeMPubKeyTx getSs = makeAbstractTx mkWit
   where mkWit addr sigData =
           let ss = getSs addr
           in PkWitness
@@ -76,15 +85,20 @@ makePubKeyTx getSs = makeAbstractTx mkWit
               , twSig = safeSign SignTxIn ss sigData
               }
 
+-- | Makes a transaction which use P2PKH addresses as a source
+makePubKeyTx :: SafeSigner -> TxInputs -> TxOutputs -> TxAux
+makePubKeyTx ss txInputs =
+    makeMPubKeyTx (const ss) (map ((), ) txInputs)
+
 makeMOfNTx :: Script -> [Maybe SafeSigner] -> TxInputs -> TxOutputs -> TxAux
-makeMOfNTx validator sks = makeAbstractTx mkWit
+makeMOfNTx validator sks txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
   where mkWit _ sigData = ScriptWitness
             { twValidator = validator
             , twRedeemer = multisigRedeemer sigData sks
             }
 
 makeRedemptionTx :: RedeemSecretKey -> TxInputs -> TxOutputs -> TxAux
-makeRedemptionTx rsk = makeAbstractTx mkWit
+makeRedemptionTx rsk txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
   where rpk = redeemToPublic rsk
         mkWit _ sigData = RedeemWitness
             { twRedeemKey = rpk
@@ -96,7 +110,11 @@ type InputPicker = StateT (Coin, FlatUtxo) (Either TxError)
 
 -- | Given Utxo, desired source addresses and desired outputs, prepare lists
 -- of correct inputs and outputs to form a transaction
-prepareInpsOuts :: Utxo -> NonEmpty Address -> TxOutputs -> Either TxError (TxInputs, TxOutputs)
+prepareInpsOuts
+    :: Utxo
+    -> NonEmpty Address
+    -> TxOutputs
+    -> Either TxError (TxOwnedInputs Address, TxOutputs)
 prepareInpsOuts utxo addrs@(someAddr :| _) outputs = do
     futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
     let inputSum =
@@ -108,12 +126,13 @@ prepareInpsOuts utxo addrs@(someAddr :| _) outputs = do
             | otherwise = outputs
     case nonEmpty futxo of
         Nothing       -> fail "Failed to prepare inputs!"
-        Just inputsNE -> pure (map mkTxInput inputsNE, newOuts)
+        Just inputsNE -> pure (map formTxInputs inputsNE, newOuts)
   where
     totalMoney = unsafeIntegerToCoin $ sumCoins $ map (txOutValue . toaOut) outputs
     allUnspent = M.toList $ filterUtxoByAddrs (toList addrs) utxo
     sortedUnspent =
         sortOn (Down . txOutValue . toaOut . snd) allUnspent
+
     pickInputs :: FlatUtxo -> InputPicker FlatUtxo
     pickInputs inps = do
         moneyLeft <- use _1
@@ -127,20 +146,22 @@ prepareInpsOuts utxo addrs@(someAddr :| _) outputs = do
                         _1 .= unsafeSubCoin moneyLeft (min txOutValue moneyLeft)
                         _2 %= tail
                         pickInputs (inp : inps)
-    -- TODO rename
-    mkTxInput (inp, TxOutAux TxOut {..} _) = (txOutAddress, inp)
+    formTxInputs (inp, TxOutAux TxOut{..} _) = (txOutAddress, inp)
 
 -- | Common use case of 'prepaseInpsOuts' - with single source address
 prepareInpOuts :: Utxo -> Address -> TxOutputs -> Either TxError (TxInputs, TxOutputs)
-prepareInpOuts utxo addr outputs = prepareInpsOuts utxo (one addr) outputs
+prepareInpOuts utxo addr outputs =
+    prepareInpsOuts utxo (one addr) outputs <&>
+    _1 . traversed %~ snd
 
 -- | Make a multi-transaction using given secret key and info for outputs
 createMTx :: Utxo -> NonEmpty SafeSigner -> TxOutputs -> Either TxError TxAux
 createMTx utxo sss outputs =
-    uncurry (makePubKeyTx getSigner) <$>
+    uncurry (makeMPubKeyTx getSigner) <$>
     prepareInpsOuts utxo (makePubKeyAddress . safeToPublic <$> sss) outputs
   where
     signers =
+
         HM.fromList
             [ (makePubKeyAddress $ safeToPublic ss, ss)
             | ss <- toList sss
@@ -152,7 +173,7 @@ createMTx utxo sss outputs =
 -- | Make a multi-transaction using given secret key and info for outputs
 createTx :: Utxo -> SafeSigner -> TxOutputs -> Either TxError TxAux
 createTx utxo ss outputs =
-    uncurry (makePubKeyTx $ const ss) <$>
+    uncurry (makePubKeyTx ss) <$>
     prepareInpOuts utxo (makePubKeyAddress $ safeToPublic ss) outputs
 
 -- | Make a transaction, using M-of-N script as a source

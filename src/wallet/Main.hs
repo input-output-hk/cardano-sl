@@ -103,12 +103,14 @@ runCmd sendActions (SendToAllGenesis amount delay_ sendMode tpsSentFile) = do
     let nNeighbours = length na
     let slotDuration = fromIntegral (toMicroseconds genesisSlotDuration) `div` 1000000 :: Int
     tpsMVar <- newSharedAtomic $ TxCount 0 0
+    startTime <- T.pack . show . toInteger . getTimestamp . Timestamp <$> currentTime
     h <- liftIO $ openFile tpsSentFile WriteMode -- TODO: I'd like to bracket here, but I don't think WalletMode includes MonadBaseControl IO.
     liftIO $ hSetBuffering h LineBuffering
     liftIO . T.hPutStrLn h $ T.intercalate "," [ "slotDuration=" <> (T.pack . show) slotDuration
                                                , "sendMode=" <> (T.pack . show) sendMode
-                                               , "delay=" <> (T.pack . show) delay_ ]
-    liftIO $ T.hPutStrLn h "time,dt,txSent,txFailed,delay,sendmode"
+                                               , "delay=" <> (T.pack . show) delay_
+                                               , "startTime=" <> startTime]
+    liftIO $ T.hPutStrLn h "time,txCount,txType"
     let writeTPS :: CmdRunner m void
         -- every 20 seconds, write the number of sent and failed transactions to a CSV file.
         writeTPS = do

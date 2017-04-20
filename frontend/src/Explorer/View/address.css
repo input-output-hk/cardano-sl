@@ -11,15 +11,26 @@
 
 
   &__container {
-    @neat-outer-container;
-    padding: 46px 0px 38px 0px;
+    @extend .outer-container;
+    padding: 24px 0px;
 
   }
   @media (--md) {
     &__container {
-      @neat-outer-container;
-      max-width:var(--max-width-desktop);
       padding: 56px 48px 48px 48px;
+    }
+  }
+
+  .message {
+    padding: 0 18px;
+    font-size: 10px;
+    font-family: var(--fontFamily0-Regular);
+    color: var(--color13);
+  }
+
+  @media (--md) {
+    .message {
+      padding: 0 24px;
     }
   }
 
@@ -32,8 +43,11 @@
       font-weight: normal;
   }
 
+  .address-overview {
+      lost-utility: clearfix;
+  }
+
   .address-detail {
-      @neat-span-columns 8;
 
       font-family: var(--fontFamily0-Regular);
       color: var(--color8);
@@ -41,9 +55,8 @@
       font-weight: normal;
 
       &__row {
-        @neat-outer-container;
+        lost-utility: clearfix;
         background-color: transparent;
-        padding: 0 24px;
 
         &:nth-child(even) {
           background-color: var(--color6);
@@ -51,20 +64,23 @@
       }
 
       &__column {
-        @neat-span-columns 4;
-        padding: 10px 0;
+        padding: 10px 18px;
         font-family: var(--fontFamily0-Regular);
         color: var(--color8);
         font-size: 10px;
         font-weight: normal;
 
-        &:last-child {
-          @neat-span-columns 8;
+        &.label {
+          @neat-span-columns 4;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
-        .link {
-          button: standard-button;
-          button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
+        &.amount {
+          @neat-span-columns 8;
+          padding-left: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         &.ada {
@@ -74,23 +90,48 @@
           background-size: 8px 7px;
         }
       }
+
+      @media (--md) {
+        &__column {
+          padding: 10px 24px;
+        }
+      }
   }
 
-  .qr {
-    @neat-span-columns 4;
+  @media (--lg) {
+    .address-detail {
+      lost-column: 8/12;
+    }
+  }
+
+  .address-qr {
 
     font-family: var(--fontFamily0-Regular);
     color: var(--color8);
     font-size: 10px;
     font-weight: normal;
 
-    .tab {
-      padding: 10px 24px;
+    &__tab {
+      @extend .hide;
     }
+
+    @media (--md) {
+      &__tab {
+        @extend .show;
+        padding: 10px 24px;
+      }
+    }
+
     &__wrapper {
+      padding: 12px 18px;
       background-color: var(--color6);
-      padding: 12px 24px;
       box: horizontal;
+    }
+
+    @media (--md) {
+      &__wrapper {
+          padding: 10px 24px;
+        }
     }
 
     &__image {
@@ -107,11 +148,22 @@
 
   }
 
+  @media (--lg) {
+    .address-qr {
+      lost-column: 4/12;
+    }
+  }
   .address-failed {
-    padding: 0 24px 30px 24px;
+    padding: 0 18px 30px 18px;
     font-size: 10px;
     font-family: var(--fontFamily0-Regular);
     color: var(--color1);
+  }
+
+  @media (--md) {
+    .address-failed {
+      padding: 0 24px 30px 24px;
+    }
   }
 
   .transaction-header {

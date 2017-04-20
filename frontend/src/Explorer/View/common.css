@@ -113,7 +113,7 @@
 
 .transaction-body {
   lost-utility: clearfix;
-  
+
   font-family: var(--fontFamily0-Regular);
   font-size: 10px;
   color: var(--color8);
@@ -140,7 +140,6 @@
   }
 
   .to-hash-container {
-    /*overflow: hidden;*/
     background-repeat: no-repeat;
     background-position: left top;
     background-size: 15px 15px;

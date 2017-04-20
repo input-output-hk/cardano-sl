@@ -74,3 +74,6 @@ maxSlotInEpoch = 21600
 
 minPagination :: Int
 minPagination = 1 -- Note: We do start with 1 (not 0)
+
+addressQRImageId :: String
+addressQRImageId = "qr_image_id"

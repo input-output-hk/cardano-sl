@@ -20,7 +20,7 @@ import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
 import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksViewState, blsViewPagination, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dashboard, dbViewBlockPagination, dbViewBlocksExpanded, dbViewSearchInput, dbViewSelectedApiCode, dbViewTxsExpanded, errors, globalViewState, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, lang, latestBlocks, latestTransactions, loading, gViewMobileMenuOpenend, gViewTitle, searchQuery, searchTimeQuery, selectedSearch, socket, subscriptions, viewStates)
 import Explorer.Routes (Route(..), toUrl)
-import Explorer.State (emptySearchQuery, emptySearchTimeQuery, minPagination)
+import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), SocketSubscription(..), State)
 import Explorer.Util.DOM (scrollTop)
@@ -170,7 +170,7 @@ update (SelectInputText input) state =
 update (GenerateQrCode address) state =
     { state
     , effects:
-        [ liftEff $ generateQrCode (address ^. _CAddress) "qr_image_id" *> pure NoOp
+        [ liftEff $ generateQrCode (address ^. _CAddress) addressQRImageId *> pure NoOp
         ]
     }
 

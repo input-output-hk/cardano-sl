@@ -37,10 +37,10 @@ import qualified Pos.Util.Modifier            as MM
 -- Used for block application now.
 type ToilT ext m = Ether.StateT (GenericToilModifier ext) m
 
-instance {-# OVERLAPPING #-} MonadUtxoRead m => MonadUtxoRead (ToilT __ m) where
+instance MonadUtxoRead m => MonadUtxoRead (ToilT __ m) where
     utxoGet id = ether $ MM.lookupM utxoGet id =<< use tmUtxo
 
-instance {-# OVERLAPPING #-} MonadUtxoRead m => MonadUtxo (ToilT __ m) where
+instance MonadUtxoRead m => MonadUtxo (ToilT __ m) where
     utxoPut id aux = ether $ tmUtxo %= MM.insert id aux
     utxoDel id = ether $ tmUtxo %= MM.delete id
 

@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Type class used for slotting functionality.
 
@@ -6,7 +7,6 @@ module Pos.Slotting.Class
        ( MonadSlots (..)
        ) where
 
-import qualified Control.Monad.Ether.Implicit as Ether
 import           Control.Monad.Trans          (MonadTrans)
 import           Universum
 
@@ -54,7 +54,6 @@ class MonadSlotsData m => MonadSlots m where
         m SlotId
     getCurrentSlotInaccurate = lift getCurrentSlotInaccurate
 
-instance MonadSlots m => MonadSlots (ReaderT s m)
-instance MonadSlots m => MonadSlots (ExceptT s m)
-instance MonadSlots m => MonadSlots (StateT s m)
-instance {-# OVERLAPPABLE #-} MonadSlots m => MonadSlots (Ether.StateT s m)
+instance {-# OVERLAPPABLE #-}
+  (MonadSlots m, MonadTrans t, Monad (t m)) =>
+  MonadSlots (t m)

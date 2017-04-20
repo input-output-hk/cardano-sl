@@ -1,10 +1,10 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Slotting.MemState.Class
        ( MonadSlotsData (..)
        ) where
 
-import qualified Control.Monad.Ether.Implicit as Ether
 import           Control.Monad.Trans          (MonadTrans)
 import           Universum
 
@@ -38,7 +38,6 @@ class Monad m => MonadSlotsData m where
         SlottingData -> m ()
     putSlottingData = lift . putSlottingData
 
-instance MonadSlotsData m => MonadSlotsData (ReaderT s m)
-instance MonadSlotsData m => MonadSlotsData (ExceptT s m)
-instance MonadSlotsData m => MonadSlotsData (StateT s m)
-instance {-# OVERLAPPABLE #-} MonadSlotsData m => MonadSlotsData (Ether.StateT s m)
+instance {-# OVERLAPPABLE #-}
+  (MonadSlotsData m, MonadTrans t, Monad (t m)) =>
+  MonadSlotsData (t m)

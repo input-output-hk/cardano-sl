@@ -51,8 +51,7 @@ import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
 import           Pos.Crypto                 (Hash, SecretKey, SignTag (..), checkSig,
                                              proxySign, proxyVerify, pskIssuerPk,
                                              pskOmega, sign, toPublic, unsafeHash)
-import           Pos.Data.Attributes        (Attributes (attrRemain))
-import           Pos.Data.Attributes        (mkAttributes)
+import           Pos.Data.Attributes        (Attributes (attrRemain), mkAttributes)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Types.Block.Instances  (Body (..), ConsensusData (..), blockLeaders,
                                              blockMpc, blockProxySKs, getBlockHeader,

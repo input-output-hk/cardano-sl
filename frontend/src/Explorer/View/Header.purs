@@ -57,4 +57,7 @@ headerView state =
                 ]
 
             ]
+          , P.div
+            []
+            []
         ]

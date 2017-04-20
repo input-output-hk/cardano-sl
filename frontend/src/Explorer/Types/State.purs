@@ -31,9 +31,6 @@ type State =
     , latestTransactions :: CTxEntries
     , currentCAddress :: CAddress
     , currentAddressSummary :: RemoteData Error CAddressSummary
-    , selectedSearch :: Search
-    , searchQuery :: String
-    , searchTimeQuery :: SearchEpochSlotQuery
     , currentBlocksResult :: RemoteData Error CBlockEntries
     , errors :: Errors
     , loading :: Boolean
@@ -86,6 +83,10 @@ type ViewStates =
 type GlobalViewState =
     { gViewMobileMenuOpenend :: Boolean
     , gViewTitle :: String
+    , gViewSearchInputFocused :: Boolean
+    , gViewSelectedSearch :: Search
+    , gViewSearchQuery :: String
+    , gViewSearchTimeQuery :: SearchEpochSlotQuery
     }
 
 type DashboardViewState =
@@ -93,7 +94,6 @@ type DashboardViewState =
     , dbViewBlockPagination :: Int
     , dbViewTxsExpanded :: Boolean
     , dbViewSelectedApiCode :: DashboardAPICode
-    , dbViewSearchInput :: Boolean
     }
 
 type BlockDetailViewState =

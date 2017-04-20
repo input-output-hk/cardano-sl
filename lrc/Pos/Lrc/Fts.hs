@@ -220,12 +220,10 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
     coinIndices = map (CoinIndex . fromInteger) . deterministic seed $
         replicateM epochSlots (randomNumber (coinToInteger totalCoins))
 
-    findLeaders = traverse findLeader
+    findLeaders = (traverse . _2) findLeader
 
-    findLeader
-        :: (LocalSlotIndex, CoinIndex)
-        -> StateT FtsState m (LocalSlotIndex, StakeholderId)
-    findLeader c@(localSlotIndex, coinIndex) = do
+    findLeader :: CoinIndex -> StateT FtsState m StakeholderId
+    findLeader coinIndex = do
         inRange <- uses fsCurrentCoinRangeUpperBound (coinIndex <=)
         if inRange
             then do
@@ -234,8 +232,7 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
                 -- on to the next coin.  Notice that we don't move to the next
                 -- stakeholder! The next coin can belong to the same
                 -- stakeholder.
-                stakeholderId <- use fsCurrentStakeholder
-                pure (localSlotIndex, stakeholderId)
+                use fsCurrentStakeholder
             else do
                 -- Coin index does not fall within the range of coins
                 -- that belong to the current stakeholder. Since coin indices
@@ -244,4 +241,4 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
                 -- stakeholder and retry the current coin.
                 s <- nextStakeholder
                 modify (ftsStateUpdate s)
-                findLeader c
+                findLeader coinIndex

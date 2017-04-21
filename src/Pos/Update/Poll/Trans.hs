@@ -15,10 +15,6 @@ import qualified Control.Monad.Ether.Implicit as Ether
 import           Control.Monad.State          (MonadState (..))
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
-import           Mockable                     (ChannelT, Counter, Distribution, Gauge,
-                                               Gauge, Promise, SharedAtomicT,
-                                               SharedExclusiveT, SharedExclusiveT,
-                                               ThreadId)
 import           System.Wlog                  (logWarning)
 import           Universum
 
@@ -169,16 +165,3 @@ instance MonadPollRead m =>
             pmDelActivePropsIdxL %= HM.alter (alterIns upId) appName
     setSlottingData sd = ether $ pmSlottingDataL .= Just sd
     setEpochProposers ep = ether $ pmEpochProposersL .= Just ep
-
-----------------------------------------------------------------------------
--- Common instances used all over the code
-----------------------------------------------------------------------------
-
-type instance ThreadId (PollT m) = ThreadId m
-type instance Promise (PollT m) = Promise m
-type instance SharedAtomicT (PollT m) = SharedAtomicT m
-type instance Counter (PollT m) = Counter m
-type instance Distribution (PollT m) = Distribution m
-type instance SharedExclusiveT (PollT m) = SharedExclusiveT m
-type instance Gauge (PollT m) = Gauge m
-type instance ChannelT (PollT m) = ChannelT m

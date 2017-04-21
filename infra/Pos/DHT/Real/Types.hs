@@ -17,9 +17,6 @@ import qualified Control.Monad.Ether.Implicit as Ether
 import           Control.Monad.Trans.Class (MonadTrans)
 import qualified Data.ByteString           as BS
 import           Data.ByteString.Lazy      (fromStrict, toStrict)
-import           Mockable                  (ChannelT, Counter, Distribution, Gauge, Gauge,
-                                            Promise, SharedAtomicT, SharedExclusiveT,
-                                            SharedExclusiveT, ThreadId)
 import qualified Network.Kademlia          as K
 
 import           Pos.Binary.Class          (Bi (..), decodeOrFail, encode)
@@ -87,12 +84,3 @@ instance {-# OVERLAPPABLE #-}
 
 instance Monad m => WithKademliaDHTInstance (KademliaDHT m) where
     getKademliaDHTInstance = Ether.ask
-
-type instance ThreadId (KademliaDHT m) = ThreadId m
-type instance Promise (KademliaDHT m) = Promise m
-type instance SharedAtomicT (KademliaDHT m) = SharedAtomicT m
-type instance Counter (KademliaDHT m) = Counter m
-type instance Distribution (KademliaDHT m) = Distribution m
-type instance SharedExclusiveT (KademliaDHT m) = SharedExclusiveT m
-type instance Gauge (KademliaDHT m) = Gauge m
-type instance ChannelT (KademliaDHT m) = ChannelT m

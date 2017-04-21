@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE GADTs               #-}
+{-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
@@ -51,6 +52,8 @@ import           Control.Monad.Morph        (MFunctor(..))
 import           Control.Monad.Trans.Class (MonadTrans)
 import qualified Control.Monad.Trans.Ether.Tagged as Ether
 import           Control.Monad.Trans.Lift.Local   (LiftLocal(..))
+import           Control.Monad.Base         (MonadBase)
+import           Control.Monad.Trans.Resource
 import           Data.Aeson                 (FromJSON (..), ToJSON (..))
 import           Data.HashSet               (fromMap)
 import           Data.Text.Buildable        (build)
@@ -59,7 +62,10 @@ import           Data.Time.Units            (Attosecond, Day, Femtosecond, Fortn
                                              Nanosecond, Picosecond, Second, Week,
                                              toMicroseconds)
 import qualified Language.Haskell.TH.Syntax       as TH
-import           Mockable.Class             (Mockable(..), MFunctor'(..))
+import           Mockable                     (Mockable(..), MFunctor'(..),
+                                               ChannelT, Counter, Distribution, Gauge,
+                                               Promise, SharedAtomicT, SharedExclusiveT,
+                                               ThreadId)
 import qualified Prelude
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 import           System.Wlog                      (CanLog, HasLoggerName (..))
@@ -161,6 +167,11 @@ instance
     modifyLoggerName = liftLocal getLoggerName modifyLoggerName
 
 instance {-# OVERLAPPABLE #-}
+  (MonadResource m, MonadTrans t, Applicative (t m), MonadBase IO (t m), MonadIO (t m), MonadThrow (t m)) =>
+  MonadResource (t m) where
+    liftResourceT = lift . liftResourceT
+
+instance {-# OVERLAPPABLE #-}
   (Monad m, MFunctor t) => MFunctor' t m n where
     hoist' = hoist
 
@@ -168,6 +179,15 @@ instance
   (Mockable d (t m), MFunctor' d (Ether.TaggedTrans tag t m) (t m), Monad (t m)) =>
   Mockable d (Ether.TaggedTrans tag t m) where
     liftMockable dmt = Ether.pack $ liftMockable $ hoist' Ether.unpack dmt
+
+type instance ThreadId (Ether.TaggedTrans tag t m) = ThreadId m
+type instance Promise (Ether.TaggedTrans tag t m) = Promise m
+type instance SharedAtomicT (Ether.TaggedTrans tag t m) = SharedAtomicT m
+type instance Counter (Ether.TaggedTrans tag t m) = Counter m
+type instance Distribution (Ether.TaggedTrans tag t m) = Distribution m
+type instance SharedExclusiveT (Ether.TaggedTrans tag t m) = SharedExclusiveT m
+type instance Gauge (Ether.TaggedTrans tag t m) = Gauge m
+type instance ChannelT (Ether.TaggedTrans tag t m) = ChannelT m
 
 ----------------------------------------------------------------------------
 -- Not instances

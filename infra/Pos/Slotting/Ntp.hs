@@ -23,10 +23,8 @@ import           Control.Monad.Trans.Class  (MonadTrans)
 import           Data.List                   ((!!))
 import           Data.Time.Units             (Microsecond, convertUnit)
 import           Formatting                  (int, sformat, shown, stext, (%))
-import           Mockable                    (Catch, ChannelT, Counter, CurrentTime,
-                                              Delay, Distribution, Fork, Gauge, Mockables, Promise,
-                                              SharedAtomicT, SharedExclusiveT, ThreadId,
-                                              Throw, currentTime, delay)
+import           Mockable                    (Catch, Mockables, Fork, Delay,
+                                              CurrentTime, Throw, currentTime, delay)
 import           NTP.Client                  (NtpClientSettings (..), ntpSingleShot,
                                               startNtpClient)
 import           NTP.Example                 ()
@@ -83,19 +81,6 @@ instance {-# OVERLAPPABLE #-}
 
 instance Monad m => MonadNtpSlotting (NtpSlotting m) where
   askNtpSlotting = Ether.ask
-
-----------------------------------------------------------------------------
--- Common instances used all over the code
-----------------------------------------------------------------------------
-
-type instance ThreadId (NtpSlotting m) = ThreadId m
-type instance Promise (NtpSlotting m) = Promise m
-type instance SharedAtomicT (NtpSlotting m) = SharedAtomicT m
-type instance Counter (NtpSlotting m) = Counter m
-type instance Distribution (NtpSlotting m) = Distribution m
-type instance SharedExclusiveT (NtpSlotting m) = SharedExclusiveT m
-type instance Gauge (NtpSlotting m) = Gauge m
-type instance ChannelT (NtpSlotting m) = ChannelT m
 
 ----------------------------------------------------------------------------
 -- MonadSlots implementation

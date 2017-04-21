@@ -14,9 +14,6 @@ module Pos.Ssc.Extra.Holder
 
 import qualified Control.Concurrent.STM    as STM
 import qualified Control.Monad.Ether.Implicit as Ether
-import           Mockable                  (ChannelT, Counter, Distribution, Gauge, Gauge,
-                                            Promise, SharedAtomicT, SharedExclusiveT,
-                                            SharedExclusiveT, ThreadId)
 import           System.Wlog               (WithLogger)
 import           Universum
 
@@ -30,17 +27,6 @@ import           Pos.Ssc.Extra.Types       (SscState (..))
 import           Pos.Util.Context          (HasContext)
 
 type SscHolder ssc = Ether.ReaderT (SscState ssc)
-
-type instance ThreadId (SscHolder ssc m) = ThreadId m
-
-type instance ThreadId (SscHolder ssc m) = ThreadId m
-type instance Promise (SscHolder ssc m) = Promise m
-type instance SharedAtomicT (SscHolder ssc m) = SharedAtomicT m
-type instance Counter (SscHolder ssc m) = Counter m
-type instance Distribution (SscHolder ssc m) = Distribution m
-type instance SharedExclusiveT (SscHolder ssc m) = SharedExclusiveT m
-type instance Gauge (SscHolder ssc m) = Gauge m
-type instance ChannelT (SscHolder ssc m) = ChannelT m
 
 instance Monad m => MonadSscMem ssc (SscHolder ssc m) where
     askSscMem = Ether.ask

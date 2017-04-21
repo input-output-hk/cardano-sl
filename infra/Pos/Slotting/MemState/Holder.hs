@@ -17,8 +17,6 @@ import           Universum
 import qualified Control.Monad.Ether.Implicit as Ether
 import           Control.Monad.STM           (retry)
 import           Control.Monad.Trans.Class   (MonadTrans)
-import           Mockable                    (ChannelT, Counter, Distribution, Gauge,
-                                              Promise, SharedAtomicT, SharedExclusiveT, ThreadId)
 import           Pos.Core.Types              (Timestamp)
 
 import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
@@ -53,19 +51,6 @@ askSlottingVar = snd <$> askSlotting
 
 askSlottingTimestamp :: MonadSlotting m => m Timestamp
 askSlottingTimestamp  = fst <$> askSlotting
-
-----------------------------------------------------------------------------
--- Common instances used all over the code
-----------------------------------------------------------------------------
-
-type instance ThreadId (SlottingHolder m) = ThreadId m
-type instance Promise (SlottingHolder m) = Promise m
-type instance SharedAtomicT (SlottingHolder m) = SharedAtomicT m
-type instance Counter (SlottingHolder m) = Counter m
-type instance Distribution (SlottingHolder m) = Distribution m
-type instance SharedExclusiveT (SlottingHolder m) = SharedExclusiveT m
-type instance Gauge (SlottingHolder m) = Gauge m
-type instance ChannelT (SlottingHolder m) = ChannelT m
 
 ----------------------------------------------------------------------------
 -- MonadSlotsData implementation

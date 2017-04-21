@@ -8,7 +8,7 @@
 module Pos.Delegation.Logic
        (
        -- * Helpers
-         DelegationStateAction(..)
+         DelegationStateAction
        , runDelegationStateAction
        , invalidateProxyCaches
 
@@ -37,6 +37,7 @@ import           Control.Concurrent.STM.TVar (readTVar, writeTVar)
 import           Control.Exception           (Exception (..))
 import           Control.Lens                (makeLenses, uses, (%=), (.=), _Wrapped)
 import           Control.Monad.Trans.Except  (runExceptT, throwE)
+import qualified Control.Monad.Ether.Implicit as Ether
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
 import           Data.List                   (partition)
@@ -82,6 +83,7 @@ import           Pos.Util                    (withReadLifted, withWriteLifted, _
                                               _neLast)
 import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Context            (HasContext)
+import           Pos.Util.Util               (ether)
 
 ----------------------------------------------------------------------------
 -- Different helpers to simplify logic
@@ -89,9 +91,7 @@ import           Pos.Util.Context            (HasContext)
 
 -- | Convenient monad to work in 'DelegationWrap' context while being
 -- in STM.
-newtype DelegationStateAction a = DelegationStateAction
-    { getDelegationStateM :: StateT DelegationWrap STM a
-    } deriving (Functor, Applicative, Monad, MonadState DelegationWrap)
+type DelegationStateAction = Ether.StateT DelegationWrap STM
 
 -- | Effectively takes a lock on ProxyCaches mvar in NodeContext and
 -- allows you to run some computation producing updated ProxyCaches
@@ -103,13 +103,13 @@ runDelegationStateAction action = do
     var <- askDelegationState
     atomically $ do
         startState <- readTVar var
-        (res,newState)<- runStateT (getDelegationStateM action) startState
+        (res,newState)<- Ether.runStateT action startState
         writeTVar var newState
         pure res
 
 -- | Invalidates proxy caches using built-in constants.
 invalidateProxyCaches :: UTCTime -> DelegationStateAction ()
-invalidateProxyCaches curTime = do
+invalidateProxyCaches curTime = ether $ do
     dwMessageCache %=
         HM.filter (\t -> addUTCTime (toDiffTime messageCacheTimeout) t > curTime)
     dwConfirmationCache %=
@@ -164,7 +164,7 @@ initDelegation = do
     let tipEpoch = tip ^. epochIndexL
     fromGenesisPsks <-
         map pskIssuerPk <$> (getPSKsFromThisEpoch @ssc) (headerHash tip)
-    runDelegationStateAction $ do
+    runDelegationStateAction $ ether $ do
         dwEpochId .= tipEpoch
         dwThisEpochPosted .= HS.fromList fromGenesisPsks
 
@@ -177,7 +177,8 @@ getProxyMempool
     :: (MonadDB m, MonadDelegation m)
     => m ([ProxySKHeavy], [ProxySKHeavy])
 getProxyMempool = do
-    sks <- runDelegationStateAction (HM.elems <$> use dwProxySKPool)
+    sks <- runDelegationStateAction $ ether $
+        uses dwProxySKPool HM.elems
     let issuers = map pskIssuerPk sks
     toRollback <- catMaybes <$> mapM GS.getPSKByIssuer issuers
     pure (sks, toRollback)
@@ -217,8 +218,8 @@ processProxySKHeavy psk = do
         issuer = pskIssuerPk psk
         enoughStake = addressHash issuer `elem` richmen
         omegaCorrect = headEpoch == pskOmega psk
-    runDelegationStateAction $ do
-        exists <- use dwProxySKPool <&> \m -> HM.lookup issuer m == Just psk
+    runDelegationStateAction $ ether $ do
+        exists <- uses dwProxySKPool (\m -> HM.lookup issuer m == Just psk)
         cached <- HM.member msg <$> use dwMessageCache
         alreadyPosted <- uses dwThisEpochPosted $ HS.member issuer
         epochMatches <- (headEpoch ==) <$> use dwEpochId
@@ -335,7 +336,7 @@ delegationApplyBlocks blocks = do
   where
     applyBlock :: Block ssc -> m SomeBatchOp
     applyBlock (Left block)      = do
-        runDelegationStateAction $ do
+        runDelegationStateAction $ ether $ do
             -- all possible psks candidates are now invalid because epoch changed
             dwProxySKPool .= HM.empty
             dwThisEpochPosted .= HS.empty
@@ -348,7 +349,7 @@ delegationApplyBlocks blocks = do
                 partition (\ProxySecretKey{..} -> pskIssuerPk == pskDelegatePk)
                 proxySKs
             batchOps = map (GS.DelPSK . pskIssuerPk) toDelete ++ map GS.AddPSK toReplace
-        runDelegationStateAction $ do
+        runDelegationStateAction $ ether $ do
             dwEpochId .= block ^. epochIndexL
             forM_ issuers $ \i -> do
                 dwProxySKPool %= HM.delete i
@@ -380,7 +381,7 @@ delegationRollbackBlocks blunds = do
         LrcDB.getRichmenDlg
     fromGenesisIssuers <-
         HS.fromList . map pskIssuerPk <$> getPSKsFromThisEpoch @ssc tipAfterRollbackHash
-    runDelegationStateAction $ do
+    runDelegationStateAction $ ether $ do
         dwProxySKPool %=
             (HM.filterWithKey $ \pk psk ->
                  not (pk `HS.member` fromGenesisIssuers) &&
@@ -434,7 +435,7 @@ processProxySKLight psk = do
     curTime <- liftIO getCurrentTime
     miscLock <- view DB.miscLock <$> DB.getNodeDBs
     psks <- withReadLifted miscLock Misc.getProxySecretKeys
-    res <- runDelegationStateAction $ do
+    res <- runDelegationStateAction $ ether $ do
         let related = toPublic sk == pskDelegatePk psk
             exists = psk `elem` psks
             msg = SendProxySKLight psk
@@ -473,7 +474,7 @@ processConfirmProxySk
     => ProxySKLight -> ProxySigLight ProxySKLight -> m ConfirmPskLightVerdict
 processConfirmProxySk psk proof = do
     curTime <- liftIO getCurrentTime
-    runDelegationStateAction $ do
+    runDelegationStateAction $ ether $ do
         let valid = proxyVerify SignProxySK
                       (pdDelegatePk proof)
                       proof
@@ -487,4 +488,4 @@ processConfirmProxySk psk proof = do
 
 -- | Checks if we hold a confirmation for given PSK.
 isProxySKConfirmed :: ProxySKLight -> DelegationStateAction Bool
-isProxySKConfirmed psk = HM.member psk <$> use dwConfirmationCache
+isProxySKConfirmed psk = ether $ HM.member psk <$> use dwConfirmationCache

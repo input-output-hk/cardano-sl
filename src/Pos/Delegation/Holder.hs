@@ -10,32 +10,33 @@ module Pos.Delegation.Holder
        , runDelegationTFromTVar
        ) where
 
-import           Control.Lens              (iso)
-import           Control.Monad.Fix         (MonadFix)
-import           Control.Monad.Trans.Class (MonadTrans)
-import           Mockable                  (ChannelT, Counter, Distribution, Gauge,
-                                            MFunctor', Mockable (liftMockable), Promise,
-                                            SharedAtomicT, SharedExclusiveT, ThreadId,
-                                            liftMockableWrappedM)
-import           Serokell.Util.Lens        (WrappedM (..))
-import           System.Wlog               (CanLog, HasLoggerName)
+import           Control.Lens                   (iso)
+import           Control.Monad.Fix              (MonadFix)
+import           Control.Monad.Trans.Class      (MonadTrans)
+import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
+                                                 MFunctor', Mockable (liftMockable),
+                                                 Promise, SharedAtomicT, SharedExclusiveT,
+                                                 ThreadId, liftMockableWrappedM)
+import           Serokell.Util.Lens             (WrappedM (..))
+import           System.Wlog                    (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Communication.Relay   (MonadRelayMem)
-import           Pos.Context               (WithNodeContext)
-import           Pos.DB.Class              (MonadDB, MonadDBCore)
-import           Pos.DB.Limits             (MonadDBLimits)
-import           Pos.Delegation.Class      (DelegationWrap (..), MonadDelegation (..))
-import           Pos.DHT.MemState          (MonadDhtMem)
-import           Pos.Reporting             (MonadReportingMem)
-import           Pos.Shutdown              (MonadShutdownMem)
-import           Pos.Slotting.Class        (MonadSlots)
-import           Pos.Slotting.MemState     (MonadSlotsData)
-import           Pos.Ssc.Extra             (MonadSscMem (..))
-import           Pos.Txp.MemState.Class    (MonadTxpMem (..))
-import           Pos.Util.Context          (MonadContext (..))
-import           Pos.Util.JsonLog          (MonadJL (..))
-import           Control.Monad.Trans.Lift.Local   (LiftLocal(..))
+import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
+import           Pos.Communication.Relay        (MonadRelayMem)
+import           Pos.Context                    (WithNodeContext)
+import           Pos.DB.Class                   (MonadDB, MonadDBCore)
+import           Pos.DB.Limits                  (MonadDBLimits)
+import           Pos.Delegation.Class           (DelegationWrap (..),
+                                                 MonadDelegation (..))
+import           Pos.DHT.MemState               (MonadDhtMem)
+import           Pos.Reporting                  (MonadReportingMem)
+import           Pos.Shutdown                   (MonadShutdownMem)
+import           Pos.Slotting.Class             (MonadSlots)
+import           Pos.Slotting.MemState          (MonadSlotsData)
+import           Pos.Ssc.Extra                  (MonadSscMem (..))
+import           Pos.Txp.MemState.Class         (MonadTxpMem (..))
+import           Pos.Util.Context               (MonadContext (..))
+import           Pos.Util.JsonLog               (MonadJL (..))
 
 
 type ReaderTCtx = TVar DelegationWrap

@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Class which provides access to WalletContext.
@@ -7,12 +7,12 @@ module Pos.Wallet.Context.Class
        ( WithWalletContext (..)
        ) where
 
-import           Control.Monad.Trans         (MonadTrans)
+import           Control.Monad.Trans        (MonadTrans)
 import           Universum
 
-import qualified Pos.Context                 as PC
+import qualified Pos.Context                as PC
 
-import           Pos.Wallet.Context.Context  (WalletContext (..), fromNodeCtx)
+import           Pos.Wallet.Context.Context (WalletContext (..), fromNodeCtx)
 
 -- | Class for something that has 'NodeContext' inside.
 class Monad m => WithWalletContext m where

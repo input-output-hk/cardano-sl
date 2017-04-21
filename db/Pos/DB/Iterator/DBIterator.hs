@@ -23,11 +23,11 @@ import qualified Database.RocksDB       as Rocks
 import           Formatting             (sformat, shown, string, (%))
 import           Universum
 
+import qualified Control.Monad.Ether    as Ether.E
 import           Pos.Binary.Class       (Bi)
 import           Pos.DB.Class           (MonadDB (..))
 import           Pos.DB.Error           (DBError (DBMalformed))
 import           Pos.DB.Functions       (rocksDecodeMaybe, rocksDecodeMaybeWP)
-import qualified Control.Monad.Ether as Ether.E
 import           Pos.DB.Holder          (DBHolder, runDBHolder)
 import           Pos.DB.Iterator.Class  (DBIteratorClass (..), IterType)
 import           Pos.DB.Types           (DB (..), NodeDBs (..))

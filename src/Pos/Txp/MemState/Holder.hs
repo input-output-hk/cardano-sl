@@ -9,40 +9,41 @@ module Pos.Txp.MemState.Holder
        , runTxpHolder
        ) where
 
-import qualified Control.Concurrent.STM    as STM
-import           Control.Lens              (iso)
-import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Fix         (MonadFix)
-import           Control.Monad.Reader      (ReaderT (ReaderT))
-import           Control.Monad.Trans.Class (MonadTrans)
-import           Control.Monad.Trans.Lift.Local   (LiftLocal(..))
-import           Data.Default              (Default (def))
-import           Mockable                  (ChannelT, Counter, Distribution, Gauge, Gauge,
-                                            MFunctor', Mockable (liftMockable), Promise,
-                                            SharedAtomicT, SharedExclusiveT,
-                                            SharedExclusiveT, ThreadId,
-                                            liftMockableWrappedM)
-import           Serokell.Util.Lens        (WrappedM (..))
-import           System.Wlog               (CanLog, HasLoggerName)
+import qualified Control.Concurrent.STM         as STM
+import           Control.Lens                   (iso)
+import           Control.Monad.Catch            (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Fix              (MonadFix)
+import           Control.Monad.Reader           (ReaderT (ReaderT))
+import           Control.Monad.Trans.Class      (MonadTrans)
+import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
+import           Data.Default                   (Default (def))
+import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
+                                                 Gauge, MFunctor',
+                                                 Mockable (liftMockable), Promise,
+                                                 SharedAtomicT, SharedExclusiveT,
+                                                 SharedExclusiveT, ThreadId,
+                                                 liftMockableWrappedM)
+import           Serokell.Util.Lens             (WrappedM (..))
+import           System.Wlog                    (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Communication.Relay   (MonadRelayMem)
-import           Pos.Context.Class         (WithNodeContext)
-import           Pos.DB.Class              (MonadDB, MonadDBCore)
-import           Pos.DB.Limits             (MonadDBLimits)
-import           Pos.DHT.MemState          (MonadDhtMem)
-import           Pos.Reporting             (MonadReportingMem)
-import           Pos.Shutdown              (MonadShutdownMem)
-import           Pos.Slotting.Class        (MonadSlots)
-import           Pos.Slotting.MemState     (MonadSlotsData)
-import           Pos.Ssc.Extra             (MonadSscMem)
-import           Pos.Types                 (HeaderHash)
-import           Pos.Util.JsonLog          (MonadJL (..))
+import           Pos.Communication.Relay        (MonadRelayMem)
+import           Pos.Context.Class              (WithNodeContext)
+import           Pos.DB.Class                   (MonadDB, MonadDBCore)
+import           Pos.DB.Limits                  (MonadDBLimits)
+import           Pos.DHT.MemState               (MonadDhtMem)
+import           Pos.Reporting                  (MonadReportingMem)
+import           Pos.Shutdown                   (MonadShutdownMem)
+import           Pos.Slotting.Class             (MonadSlots)
+import           Pos.Slotting.MemState          (MonadSlotsData)
+import           Pos.Ssc.Extra                  (MonadSscMem)
+import           Pos.Types                      (HeaderHash)
+import           Pos.Util.JsonLog               (MonadJL (..))
 
-import           Pos.Txp.MemState.Class    (MonadTxpMem (..))
-import           Pos.Txp.MemState.Types    (GenericTxpLocalData (..))
-import           Pos.Txp.Toil.Types        (UtxoModifier)
-import           Pos.Util.Context          (MonadContext (..))
+import           Pos.Txp.MemState.Class         (MonadTxpMem (..))
+import           Pos.Txp.MemState.Types         (GenericTxpLocalData (..))
+import           Pos.Txp.Toil.Types             (UtxoModifier)
+import           Pos.Util.Context               (MonadContext (..))
 
 ----------------------------------------------------------------------------
 -- Holder

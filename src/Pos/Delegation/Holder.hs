@@ -35,6 +35,7 @@ import           Pos.Ssc.Extra             (MonadSscMem (..))
 import           Pos.Txp.MemState.Class    (MonadTxpMem (..))
 import           Pos.Util.Context          (MonadContext (..))
 import           Pos.Util.JsonLog          (MonadJL (..))
+import           Control.Monad.Trans.Lift.Local   (LiftLocal(..))
 
 
 type ReaderTCtx = TVar DelegationWrap
@@ -67,6 +68,7 @@ newtype DelegationT m a = DelegationT
                , MonadDB
                , MonadDBLimits
                , MonadDBCore
+               , LiftLocal
                )
 
 instance MonadContext m => MonadContext (DelegationT m) where

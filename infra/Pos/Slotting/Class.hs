@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Type class used for slotting functionality.
@@ -7,11 +7,11 @@ module Pos.Slotting.Class
        ( MonadSlots (..)
        ) where
 
-import           Control.Monad.Trans          (MonadTrans)
+import           Control.Monad.Trans   (MonadTrans)
 import           Universum
 
-import           Pos.Core.Types               (SlotId (..), Timestamp)
-import           Pos.Slotting.MemState        (MonadSlotsData)
+import           Pos.Core.Types        (SlotId (..), Timestamp)
+import           Pos.Slotting.MemState (MonadSlotsData)
 
 
 -- | Type class providing information about current slot.

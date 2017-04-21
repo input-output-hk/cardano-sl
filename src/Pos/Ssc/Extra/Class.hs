@@ -7,10 +7,10 @@ module Pos.Ssc.Extra.Class
        ( MonadSscMem (..)
        ) where
 
-import           Control.Monad.Trans  (MonadTrans)
+import           Control.Monad.Trans (MonadTrans)
 import           Universum
 
-import           Pos.Ssc.Extra.Types  (SscState)
+import           Pos.Ssc.Extra.Types (SscState)
 
 class Monad m =>
       MonadSscMem ssc m | m -> ssc where

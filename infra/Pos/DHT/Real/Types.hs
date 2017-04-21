@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -7,20 +8,20 @@ module Pos.DHT.Real.Types
        , KademliaDHTInstance (..)
        , KademliaDHTInstanceConfig (..)
        , DHTHandle
-       , WithKademliaDHTInstance (..)
+       , WithKademliaDHTInstance
+       , getKademliaDHTInstance
        ) where
 
-import           Universum                 hiding (fromStrict, toStrict)
+import           Universum                    hiding (fromStrict, toStrict)
 
-import           Control.Concurrent.STM    (TVar)
+import           Control.Concurrent.STM       (TVar)
 import qualified Control.Monad.Ether.Implicit as Ether
-import           Control.Monad.Trans.Class (MonadTrans)
-import qualified Data.ByteString           as BS
-import           Data.ByteString.Lazy      (fromStrict, toStrict)
-import qualified Network.Kademlia          as K
+import qualified Data.ByteString              as BS
+import           Data.ByteString.Lazy         (fromStrict, toStrict)
+import qualified Network.Kademlia             as K
 
-import           Pos.Binary.Class          (Bi (..), decodeOrFail, encode)
-import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..))
+import           Pos.Binary.Class             (Bi (..), decodeOrFail, encode)
+import           Pos.DHT.Model.Types          (DHTData, DHTKey, DHTNode (..))
 
 toBSBinary :: Bi b => b -> BS.ByteString
 toBSBinary = toStrict . encode
@@ -64,23 +65,13 @@ data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
 type KademliaDHT = Ether.ReaderT KademliaDHTInstance
 
 -- | Class for getting KademliaDHTInstance from 'KademliaDHT'
-class Monad m => WithKademliaDHTInstance m where
-    getKademliaDHTInstance :: m KademliaDHTInstance
+type WithKademliaDHTInstance = Ether.MonadReader KademliaDHTInstance
 
-    default getKademliaDHTInstance
-      :: (WithKademliaDHTInstance m', MonadTrans t, m ~ t m')
-      => m KademliaDHTInstance
-    getKademliaDHTInstance = lift getKademliaDHTInstance
+getKademliaDHTInstance :: WithKademliaDHTInstance m => m KademliaDHTInstance
+getKademliaDHTInstance = Ether.ask
 
 asksKademliaDHT
   :: WithKademliaDHTInstance m
   => (KademliaDHTInstance -> a)
   -> m a
-asksKademliaDHT g = g <$> getKademliaDHTInstance
-
-instance {-# OVERLAPPABLE #-}
-  (WithKademliaDHTInstance m, MonadTrans t, Monad (t m)) =>
-  WithKademliaDHTInstance (t m)
-
-instance Monad m => WithKademliaDHTInstance (KademliaDHT m) where
-    getKademliaDHTInstance = Ether.ask
+asksKademliaDHT = Ether.asks

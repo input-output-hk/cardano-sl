@@ -16,14 +16,14 @@ import           Mockable                       (ChannelT, Promise, SharedAtomic
                                                  ThreadId)
 import           Universum
 
-import           Control.Monad.Ether.Implicit  as Ether
+import           Control.Monad.Ether.Implicit   as Ether
 import           Pos.Ssc.GodTossing.Core        (deleteSignedCommitment, getCertId,
                                                  insertSignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Toss.Types  (TossModifier (..), tmCertificates,
                                                  tmCommitments, tmOpenings, tmShares)
 import           Pos.Ssc.GodTossing.VssCertData (VssCertData (certs))
-import           Pos.Util                      (ether)
+import           Pos.Util                       (ether)
 
 ----------------------------------------------------------------------------
 -- Tranformer

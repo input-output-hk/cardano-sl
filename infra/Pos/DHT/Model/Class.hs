@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.DHT.Model.Class
@@ -7,11 +7,11 @@ module Pos.DHT.Model.Class
        , withDhtLogger
        ) where
 
-import           Control.Monad.Trans.Class (MonadTrans(..))
-import           System.Wlog         (HasLoggerName (modifyLoggerName), LoggerName)
+import           Control.Monad.Trans.Class (MonadTrans (..))
+import           System.Wlog               (HasLoggerName (modifyLoggerName), LoggerName)
 import           Universum
 
-import           Pos.DHT.Model.Types (DHTKey, DHTNode (..))
+import           Pos.DHT.Model.Types       (DHTKey, DHTNode (..))
 
 -- | Monad for Distributed Hash Table operations.
 class Monad m => MonadDHT m where

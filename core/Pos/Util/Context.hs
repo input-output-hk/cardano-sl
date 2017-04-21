@@ -28,12 +28,14 @@ module Pos.Util.Context
 
 import           Universum
 
-import           Control.Lens        (Getting)
-import qualified Control.Monad.Ether as Ether
-import           Control.Monad.Trans (MonadTrans)
+import           Control.Lens                     (Getting)
+import qualified Control.Monad.Ether              as Ether
+import           Control.Monad.Trans              (MonadTrans)
+import qualified Control.Monad.Trans.Ether.Tagged as Ether
+import           Control.Monad.Trans.Identity     (IdentityT (..))
 
-import           Pos.Util.HVect      (HVect)
-import qualified Pos.Util.HVect      as HVect
+import           Pos.Util.HVect                   (HVect)
+import qualified Pos.Util.HVect                   as HVect
 
 class ExtractContext a s where
     extractContext :: s -> a
@@ -48,6 +50,8 @@ class Monad m => MonadContext m where
         => m (ContextType m)
     getFullContext = lift getFullContext
 
+instance MonadContext m => MonadContext (IdentityT m) where
+    type ContextType (IdentityT m) = ContextType m
 instance MonadContext m => MonadContext (ReaderT s m) where
     type ContextType (ReaderT s m) = ContextType m
 instance MonadContext m => MonadContext (StateT s m) where
@@ -55,6 +59,8 @@ instance MonadContext m => MonadContext (StateT s m) where
 instance MonadContext m => MonadContext (ExceptT s m) where
     type ContextType (ExceptT s m) = ContextType m
 
+instance MonadContext m => MonadContext (Ether.TaggedTrans t IdentityT m) where
+    type ContextType (Ether.TaggedTrans t IdentityT m) = ContextType m
 instance MonadContext m => MonadContext (Ether.ReaderT t s m) where
     type ContextType (Ether.ReaderT t s m) = ContextType m
 instance MonadContext m => MonadContext (Ether.StateT t s m) where

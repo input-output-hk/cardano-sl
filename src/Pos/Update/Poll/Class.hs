@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Type classes for Poll abstraction.
@@ -8,19 +8,18 @@ module Pos.Update.Poll.Class
        , MonadPoll (..)
        ) where
 
-import           Control.Monad.Trans          (MonadTrans)
-import           System.Wlog                  (WithLogger)
+import           Control.Monad.Trans   (MonadTrans)
+import           System.Wlog           (WithLogger)
 import           Universum
 
-import           Pos.Slotting.Types           (SlottingData)
-import           Pos.Types                    (ApplicationName, BlockVersion,
-                                               ChainDifficulty, Coin, EpochIndex,
-                                               NumSoftwareVersion, SlotId,
-                                               SoftwareVersion, StakeholderId)
-import           Pos.Update.Core              (BlockVersionData, UpId)
-import           Pos.Update.Poll.Types        (BlockVersionState, ConfirmedProposalState,
-                                               DecidedProposalState, ProposalState,
-                                               UndecidedProposalState)
+import           Pos.Slotting.Types    (SlottingData)
+import           Pos.Types             (ApplicationName, BlockVersion, ChainDifficulty,
+                                        Coin, EpochIndex, NumSoftwareVersion, SlotId,
+                                        SoftwareVersion, StakeholderId)
+import           Pos.Update.Core       (BlockVersionData, UpId)
+import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState,
+                                        DecidedProposalState, ProposalState,
+                                        UndecidedProposalState)
 
 ----------------------------------------------------------------------------
 -- Read-only

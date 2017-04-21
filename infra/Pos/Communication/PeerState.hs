@@ -1,7 +1,7 @@
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Class which provides access to NodePeerState.
 
@@ -20,11 +20,12 @@ import           Control.Monad.Base               (MonadBase (..))
 import           Control.Monad.Fix                (MonadFix)
 import           Control.Monad.Reader             (ReaderT (..), mapReaderT)
 import           Control.Monad.Trans.Class        (MonadTrans)
+import           Control.Monad.Trans.Lift.Local   (LiftLocal (..))
 import           Data.Coerce                      (coerce)
 import           Data.Default                     (Default (def))
 import qualified ListT                            as LT
 import           Mockable                         (ChannelT, Counter, Distribution, Gauge,
-                                                   Gauge, MFunctor'(..),
+                                                   Gauge, MFunctor' (..),
                                                    Mockable (liftMockable), Promise,
                                                    SharedAtomic, SharedAtomicT,
                                                    SharedExclusiveT, SharedExclusiveT,
@@ -86,6 +87,9 @@ instance m ~ m' => MFunctor' PeerStateHolder m m' where
 
 instance MonadTrans PeerStateHolder where
     lift = PeerStateHolder . lift
+
+instance LiftLocal PeerStateHolder where
+  liftLocal _ l f = hoist' (l f)
 
 instance MonadContext m => MonadContext (PeerStateHolder m) where
     type ContextType (PeerStateHolder m) = ContextType m

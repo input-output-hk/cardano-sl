@@ -7,10 +7,10 @@ module Pos.Context.Class
        ( WithNodeContext (..)
        ) where
 
-import           Control.Monad.Trans          (MonadTrans)
+import           Control.Monad.Trans (MonadTrans)
 import           Universum
 
-import           Pos.Context.Context          (NodeContext)
+import           Pos.Context.Context (NodeContext)
 
 -- | Class for something that has 'NodeContext' inside.
 class Monad m => WithNodeContext ssc m | m -> ssc where

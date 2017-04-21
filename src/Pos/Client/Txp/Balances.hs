@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Client.Txp.Balances
@@ -7,17 +7,16 @@ module Pos.Client.Txp.Balances
 
 import           Universum
 
-import           Control.Monad.Trans         (MonadTrans)
-import qualified Data.HashMap.Strict         as HM
+import           Control.Monad.Trans (MonadTrans)
+import qualified Data.HashMap.Strict as HM
 
-import qualified Data.Map                    as M
-import           Pos.DB                      (MonadDB)
-import qualified Pos.DB.GState               as GS
-import           Pos.Txp                     (TxOutAux (..), TxpHolder (..), Utxo,
-                                              addrBelongsTo, getUtxoModifier, txOutValue)
-import           Pos.Types                   (Address, Coin, sumCoins,
-                                              unsafeIntegerToCoin)
-import qualified Pos.Util.Modifier           as MM
+import qualified Data.Map            as M
+import           Pos.DB              (MonadDB)
+import qualified Pos.DB.GState       as GS
+import           Pos.Txp             (TxOutAux (..), TxpHolder (..), Utxo, addrBelongsTo,
+                                      getUtxoModifier, txOutValue)
+import           Pos.Types           (Address, Coin, sumCoins, unsafeIntegerToCoin)
+import qualified Pos.Util.Modifier   as MM
 
 -- | A class which have the methods to get state of address' balance
 class Monad m => MonadBalances m where

@@ -34,8 +34,8 @@ import           Pos.DHT.Real.Real             (runKademliaDHT)
 import           Pos.DHT.Real.Types            (KademliaDHTInstance (..),
                                                 getKademliaDHTInstance)
 import           Pos.Genesis                   (genesisDevSecretKeys)
-import           Pos.Slotting                  (askNtpSlotting, askSlotting,
-                                                NtpSlottingVar, SlottingVar,
+import           Pos.Slotting                  (NtpSlottingVar, SlottingVar,
+                                                askNtpSlotting, askSlotting,
                                                 runNtpSlotting, runSlottingHolder)
 import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscState, runSscHolder)

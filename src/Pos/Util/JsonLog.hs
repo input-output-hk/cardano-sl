@@ -1,5 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Monadic represantion of something that has @json@ journaled log
@@ -16,7 +16,7 @@ module Pos.Util.JsonLog
        , fromJLSlotId
        ) where
 
-import           Control.Monad.Trans    (MonadTrans(..))
+import           Control.Monad.Trans    (MonadTrans (..))
 import           Data.Aeson             (encode)
 import           Data.Aeson.TH          (deriveJSON)
 import qualified Data.ByteString.Lazy   as LBS

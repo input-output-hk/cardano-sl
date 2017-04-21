@@ -11,35 +11,34 @@ module Pos.Slotting.Ntp
        , NtpSlottingVar
 
        , NtpSlotting
-       , MonadNtpSlotting(..)
+       , MonadNtpSlotting
+       , askNtpSlotting
        , mkNtpSlottingVar
        , runNtpSlotting
        ) where
 
-import qualified Control.Concurrent.STM      as STM
-import           Control.Lens                (makeLenses)
+import qualified Control.Concurrent.STM       as STM
+import           Control.Lens                 (makeLenses)
 import qualified Control.Monad.Ether.Implicit as Ether
-import           Control.Monad.Trans.Class  (MonadTrans)
-import           Data.List                   ((!!))
-import           Data.Time.Units             (Microsecond, convertUnit)
-import           Formatting                  (int, sformat, shown, stext, (%))
-import           Mockable                    (Catch, Mockables, Fork, Delay,
-                                              CurrentTime, Throw, currentTime, delay)
-import           NTP.Client                  (NtpClientSettings (..), ntpSingleShot,
-                                              startNtpClient)
-import           NTP.Example                 ()
-import           System.Wlog                 (WithLogger, logDebug,
-                                              logInfo, logWarning)
+import           Data.List                    ((!!))
+import           Data.Time.Units              (Microsecond, convertUnit)
+import           Formatting                   (int, sformat, shown, stext, (%))
+import           Mockable                     (Catch, CurrentTime, Delay, Fork, Mockables,
+                                               Throw, currentTime, delay)
+import           NTP.Client                   (NtpClientSettings (..), ntpSingleShot,
+                                               startNtpClient)
+import           NTP.Example                  ()
+import           System.Wlog                  (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
-import qualified Pos.Core.Constants          as C
-import           Pos.Core.Slotting           (flattenEpochIndex, unflattenSlotId)
-import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..))
+import qualified Pos.Core.Constants           as C
+import           Pos.Core.Slotting            (flattenEpochIndex, unflattenSlotId)
+import           Pos.Core.Types               (EpochIndex, SlotId (..), Timestamp (..))
 
-import           Pos.Slotting.Class          (MonadSlots (..))
-import qualified Pos.Slotting.Constants      as C
-import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
-import           Pos.Slotting.Types          (EpochSlottingData (..), SlottingData (..))
+import           Pos.Slotting.Class           (MonadSlots (..))
+import qualified Pos.Slotting.Constants       as C
+import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
+import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData (..))
 
 ----------------------------------------------------------------------------
 -- State
@@ -68,19 +67,10 @@ makeLenses ''NtpSlottingState
 -- | Monad transformer which implements NTP-based solution for slotting.
 type NtpSlotting = Ether.ReaderT NtpSlottingVar
 
-class Monad m => MonadNtpSlotting m where
-  askNtpSlotting :: m NtpSlottingVar
+type MonadNtpSlotting = Ether.MonadReader NtpSlottingVar
 
-  default askNtpSlotting
-    :: (MonadNtpSlotting m', MonadTrans t, m ~ t m') => m NtpSlottingVar
-  askNtpSlotting = lift askNtpSlotting
-
-instance {-# OVERLAPPABLE #-}
-  (MonadNtpSlotting m, MonadTrans t, Monad (t m)) =>
-  MonadNtpSlotting (t m)
-
-instance Monad m => MonadNtpSlotting (NtpSlotting m) where
-  askNtpSlotting = Ether.ask
+askNtpSlotting :: MonadNtpSlotting m => m NtpSlottingVar
+askNtpSlotting = Ether.ask
 
 ----------------------------------------------------------------------------
 -- MonadSlots implementation

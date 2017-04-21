@@ -21,7 +21,7 @@ module Pos.Wallet.Web.Server.Sockets
 import           Control.Concurrent.STM.TVar    (readTVarIO)
 import           Control.Lens                   (iso)
 import           Control.Monad.Trans            (MonadTrans (..))
-import           Control.Monad.Trans.Lift.Local   (LiftLocal(..))
+import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Data.Aeson                     (encode)
 import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
                                                  MFunctor', Mockable (liftMockable),

@@ -25,39 +25,38 @@ module Pos.Client.Txp.History
 
 import           Universum
 
-import           Control.Lens                (makeLenses, (%=))
-import           Control.Monad.Loops         (unfoldrM)
-import           Control.Monad.Trans         (MonadTrans)
-import           Control.Monad.Trans.Maybe   (MaybeT (..))
-import qualified Data.DList                  as DL
-import           Data.Tagged                 (Tagged (..))
-import           System.Wlog                 (WithLogger)
+import           Control.Lens              (makeLenses, (%=))
+import           Control.Monad.Loops       (unfoldrM)
+import           Control.Monad.Trans       (MonadTrans)
+import           Control.Monad.Trans.Maybe (MaybeT (..))
+import qualified Data.DList                as DL
+import           Data.Tagged               (Tagged (..))
+import           System.Wlog               (WithLogger)
 
-import           Pos.Constants               (blkSecurityParam)
-import qualified Pos.Context                 as PC
-import           Pos.Crypto                  (WithHash (..), withHash)
-import           Pos.DB                      (MonadDB)
-import qualified Pos.DB.Block                as DB
-import           Pos.DB.Error                (DBError (..))
-import qualified Pos.DB.GState               as GS
-import           Pos.Slotting                (MonadSlots)
-import           Pos.Ssc.Class               (SscHelpersClass)
-import           Pos.WorkMode                (TxpExtra_TMP)
+import           Pos.Constants             (blkSecurityParam)
+import qualified Pos.Context               as PC
+import           Pos.Crypto                (WithHash (..), withHash)
+import           Pos.DB                    (MonadDB)
+import qualified Pos.DB.Block              as DB
+import           Pos.DB.Error              (DBError (..))
+import qualified Pos.DB.GState             as GS
+import           Pos.Slotting              (MonadSlots)
+import           Pos.Ssc.Class             (SscHelpersClass)
+import           Pos.WorkMode              (TxpExtra_TMP)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer                (eTxProcessTransaction)
+import           Pos.Explorer              (eTxProcessTransaction)
 #else
-import           Pos.Txp                     (txProcessTransaction)
+import           Pos.Txp                   (txProcessTransaction)
 #endif
-import           Pos.Txp                     (MonadUtxoRead, Tx (..), TxAux,
-                                              TxDistribution, TxId, TxOutAux (..),
-                                              TxWitness, TxpHolder (..), Utxo, UtxoStateT,
-                                              applyTxToUtxo, evalUtxoStateT,
-                                              filterUtxoByAddr, getLocalTxs,
-                                              runUtxoStateT, topsortTxs, txOutAddress,
-                                              utxoGet)
-import           Pos.Types                   (Address, Block, ChainDifficulty, HeaderHash,
-                                              blockTxas, difficultyL, prevBlockL)
-import           Pos.Util                    (ether, maybeThrow)
+import           Pos.Txp                   (MonadUtxoRead, Tx (..), TxAux, TxDistribution,
+                                            TxId, TxOutAux (..), TxWitness,
+                                            TxpHolder (..), Utxo, UtxoStateT,
+                                            applyTxToUtxo, evalUtxoStateT,
+                                            filterUtxoByAddr, getLocalTxs, runUtxoStateT,
+                                            topsortTxs, txOutAddress, utxoGet)
+import           Pos.Types                 (Address, Block, ChainDifficulty, HeaderHash,
+                                            blockTxas, difficultyL, prevBlockL)
+import           Pos.Util                  (ether, maybeThrow)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}

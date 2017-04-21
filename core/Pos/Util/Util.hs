@@ -1,9 +1,10 @@
-{-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE GADTs                #-}
+{-# LANGUAGE PolyKinds            #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Util.Util
@@ -46,28 +47,30 @@ module Pos.Util.Util
        -- *** HasLoggerName Ether.StateT
        ) where
 
-import           Control.Lens               (ALens', Getter, Getting, cloneLens, to)
+import           Control.Lens                     (ALens', Getter, Getting, cloneLens, to)
+import           Control.Monad.Base               (MonadBase)
 import qualified Control.Monad.Ether              as Ether
-import           Control.Monad.Morph        (MFunctor(..))
-import           Control.Monad.Trans.Class (MonadTrans)
+import           Control.Monad.Morph              (MFunctor (..))
+import           Control.Monad.Trans.Class        (MonadTrans)
 import qualified Control.Monad.Trans.Ether.Tagged as Ether
-import           Control.Monad.Trans.Lift.Local   (LiftLocal(..))
-import           Control.Monad.Base         (MonadBase)
+import           Control.Monad.Trans.Identity     (IdentityT (..))
+import           Control.Monad.Trans.Lift.Local   (LiftLocal (..))
 import           Control.Monad.Trans.Resource
-import           Data.Aeson                 (FromJSON (..), ToJSON (..))
-import           Data.HashSet               (fromMap)
-import           Data.Text.Buildable        (build)
-import           Data.Time.Units            (Attosecond, Day, Femtosecond, Fortnight,
-                                             Hour, Microsecond, Millisecond, Minute,
-                                             Nanosecond, Picosecond, Second, Week,
-                                             toMicroseconds)
+import           Data.Aeson                       (FromJSON (..), ToJSON (..))
+import           Data.HashSet                     (fromMap)
+import           Data.Text.Buildable              (build)
+import           Data.Time.Units                  (Attosecond, Day, Femtosecond,
+                                                   Fortnight, Hour, Microsecond,
+                                                   Millisecond, Minute, Nanosecond,
+                                                   Picosecond, Second, Week,
+                                                   toMicroseconds)
 import qualified Language.Haskell.TH.Syntax       as TH
-import           Mockable                     (Mockable(..), MFunctor'(..),
-                                               ChannelT, Counter, Distribution, Gauge,
-                                               Promise, SharedAtomicT, SharedExclusiveT,
-                                               ThreadId)
+import           Mockable                         (ChannelT, Counter, Distribution, Gauge,
+                                                   MFunctor' (..), Mockable (..), Promise,
+                                                   SharedAtomicT, SharedExclusiveT,
+                                                   ThreadId)
 import qualified Prelude
-import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
+import           Serokell.Data.Memory.Units       (Byte, fromBytes, toBytes)
 import           System.Wlog                      (CanLog, HasLoggerName (..))
 import           Universum
 
@@ -160,9 +163,15 @@ instance
   (Monad m, MonadTrans t, Monad (t m), CanLog m) =>
   CanLog (Ether.TaggedTrans tag t m)
 
+instance (Monad m, CanLog m) => CanLog (IdentityT m)
+
 instance
   (LiftLocal t, Monad m, HasLoggerName m) =>
   HasLoggerName (Ether.TaggedTrans tag t m) where
+    getLoggerName = lift getLoggerName
+    modifyLoggerName = liftLocal getLoggerName modifyLoggerName
+
+instance (Monad m, HasLoggerName m) => HasLoggerName (IdentityT m) where
     getLoggerName = lift getLoggerName
     modifyLoggerName = liftLocal getLoggerName modifyLoggerName
 
@@ -176,9 +185,23 @@ instance {-# OVERLAPPABLE #-}
     hoist' = hoist
 
 instance
+  (Mockable d m, MFunctor' d (IdentityT m) m) =>
+  Mockable d (IdentityT m) where
+    liftMockable dmt = IdentityT $ liftMockable $ hoist' runIdentityT dmt
+
+instance
   (Mockable d (t m), MFunctor' d (Ether.TaggedTrans tag t m) (t m), Monad (t m)) =>
   Mockable d (Ether.TaggedTrans tag t m) where
     liftMockable dmt = Ether.pack $ liftMockable $ hoist' Ether.unpack dmt
+
+type instance ThreadId (IdentityT m) = ThreadId m
+type instance Promise (IdentityT m) = Promise m
+type instance SharedAtomicT (IdentityT m) = SharedAtomicT m
+type instance Counter (IdentityT m) = Counter m
+type instance Distribution (IdentityT m) = Distribution m
+type instance SharedExclusiveT (IdentityT m) = SharedExclusiveT m
+type instance Gauge (IdentityT m) = Gauge m
+type instance ChannelT (IdentityT m) = ChannelT m
 
 type instance ThreadId (Ether.TaggedTrans tag t m) = ThreadId m
 type instance Promise (Ether.TaggedTrans tag t m) = Promise m

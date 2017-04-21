@@ -14,15 +14,14 @@ module Pos.DB.Class
 
 import           Universum
 
-import           Control.Lens                 (ASetter')
-import           Control.Monad.Trans          (MonadTrans)
-import qualified Database.RocksDB             as Rocks
+import           Control.Lens        (ASetter')
+import           Control.Monad.Trans (MonadTrans)
+import qualified Database.RocksDB    as Rocks
 
-import           Pos.Core                     (BlockVersionData)
-import           Pos.DB.Types                 (DB, NodeDBs, blockIndexDB, gStateDB, lrcDB,
-                                               miscDB)
-import           Pos.Util.Iterator            (ListHolderT (..))
-import           Mockable.Class               (MFunctor'(..))
+import           Mockable.Class      (MFunctor' (..))
+import           Pos.Core            (BlockVersionData)
+import           Pos.DB.Types        (DB, NodeDBs, blockIndexDB, gStateDB, lrcDB, miscDB)
+import           Pos.Util.Iterator   (ListHolderT (..))
 
 -- TODO write a documentation. LensLike' is just a lens. Written using
 -- LensLike' to avoid rankntypes.

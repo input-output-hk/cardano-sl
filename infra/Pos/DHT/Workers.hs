@@ -21,7 +21,7 @@ import           Pos.DHT.Constants          (kademliaDumpInterval)
 import           Pos.DHT.MemState           (DhtContext (..), MonadDhtMem (..))
 import           Pos.DHT.Model.Class        (MonadDHT)
 import           Pos.DHT.Real.Types         (KademliaDHTInstance (..),
-                                             WithKademliaDHTInstance (..))
+                                             WithKademliaDHTInstance, getKademliaDHTInstance)
 import           Pos.Reporting              (MonadReportingMem)
 import           Pos.Shutdown               (MonadShutdownMem)
 import           Pos.Slotting.Class         (MonadSlots)

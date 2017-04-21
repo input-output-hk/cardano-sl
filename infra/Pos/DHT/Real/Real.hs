@@ -7,41 +7,41 @@ module Pos.DHT.Real.Real
        , stopDHTInstance
        ) where
 
-import           Universum                 hiding (bracket, catchAll)
+import           Universum                    hiding (bracket, catchAll)
 
-import           Control.Concurrent.STM    (newTVar, readTVar, writeTVar)
+import           Control.Concurrent.STM       (newTVar, readTVar, writeTVar)
 import qualified Control.Monad.Ether.Implicit as Ether
-import           Data.Binary               (decode)
-import qualified Data.ByteString.Char8     as B8 (unpack)
-import qualified Data.ByteString.Lazy      as BS
-import qualified Data.HashMap.Strict       as HM
-import           Data.List                 (intersect, (\\))
-import           Formatting                (build, int, sformat, shown, (%))
-import           Mockable                  (Async, Catch, Mockable, MonadMockable,
-                                            Promise, Throw, bracket, catchAll, fork,
-                                            killThread, throw, waitAnyUnexceptional)
-import qualified Network.Kademlia          as K
-import           Serokell.Util             (ms, sec)
-import           System.Directory          (doesFileExist)
-import           System.Wlog               (WithLogger, logDebug, logError, logInfo,
-                                            logWarning, usingLoggerName)
+import           Data.Binary                  (decode)
+import qualified Data.ByteString.Char8        as B8 (unpack)
+import qualified Data.ByteString.Lazy         as BS
+import qualified Data.HashMap.Strict          as HM
+import           Data.List                    (intersect, (\\))
+import           Formatting                   (build, int, sformat, shown, (%))
+import           Mockable                     (Async, Catch, Mockable, MonadMockable,
+                                               Promise, Throw, bracket, catchAll, fork,
+                                               killThread, throw, waitAnyUnexceptional)
+import qualified Network.Kademlia             as K
+import           Serokell.Util                (ms, sec)
+import           System.Directory             (doesFileExist)
+import           System.Wlog                  (WithLogger, logDebug, logError, logInfo,
+                                               logWarning, usingLoggerName)
 
-import           Pos.Binary.Class          (Bi (..))
-import           Pos.Binary.Infra.DHTModel ()
-import           Pos.DHT.Constants         (enhancedMessageBroadcast,
-                                            neighborsSendThreshold)
-import           Pos.DHT.Model.Class       (DHTException (..), MonadDHT (..),
-                                            withDhtLogger)
-import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..), randomDHTKey)
-import           Pos.DHT.Model.Util        (joinNetworkNoThrow)
-import           Pos.DHT.Real.Types        (DHTHandle, KademliaDHT,
-                                            WithKademliaDHTInstance(..),
-                                            asksKademliaDHT,
-                                            KademliaDHTInstance (..),
-                                            KademliaDHTInstanceConfig (..))
-import           Pos.Util.TimeLimit        (runWithRandomIntervals')
-import           Pos.Util.TimeWarp         (NetworkAddress)
-import           Pos.Util.Util             (ether)
+import           Pos.Binary.Class             (Bi (..))
+import           Pos.Binary.Infra.DHTModel    ()
+import           Pos.DHT.Constants            (enhancedMessageBroadcast,
+                                               neighborsSendThreshold)
+import           Pos.DHT.Model.Class          (DHTException (..), MonadDHT (..),
+                                               withDhtLogger)
+import           Pos.DHT.Model.Types          (DHTData, DHTKey, DHTNode (..),
+                                               randomDHTKey)
+import           Pos.DHT.Model.Util           (joinNetworkNoThrow)
+import           Pos.DHT.Real.Types           (DHTHandle, KademliaDHT,
+                                               KademliaDHTInstance (..),
+                                               KademliaDHTInstanceConfig (..),
+                                               asksKademliaDHT, getKademliaDHTInstance)
+import           Pos.Util.TimeLimit           (runWithRandomIntervals')
+import           Pos.Util.TimeWarp            (NetworkAddress)
+import           Pos.Util.Util                (ether)
 
 kademliaConfig :: K.KademliaConfig
 kademliaConfig = K.defaultConfig { K.k = 16 }

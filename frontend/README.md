@@ -142,12 +142,10 @@ npm start
 
 ## How to provide live data locally?
 
-*1. Run `cardano-sl`*
+*1. Run `tmux` in a new window required for `cardano-sl` to run*
 
 ```bash
-cd {path/to/}cardano-sl
 tmux
-./util-scripts/start-dev.sh
 ```
 *1.1 Add wallet (**only once**)*
 
@@ -177,18 +175,19 @@ stack exec cardano-keygen -- --dump-dev-genesis-keys keys/{}.key
 
 *2. Run `cardano-sl-explorer` (in another terminal window)*
 
+This is for the *DEV* version.
 If you have `cardano-sl-explorer` and `cardano-sl` in the same folder:
 
 ```bash
 cd {path/to/}cardano-sl-explorer
-./full-launch.sh
+./start-dev.sh
 ```
 
 If you have `cardano-sl-explorer` and `cardano-sl` in different folders:
 
 ```bash
 cd {path/to/}cardano-sl-explorer
-./full-launch.sh {path/to/}cardano-sl
+./start-dev.sh {path/to/}cardano-sl
 ```
 
 *2.1 Solving issues*

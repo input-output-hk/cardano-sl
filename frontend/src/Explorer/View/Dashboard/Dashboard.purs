@@ -12,14 +12,15 @@ import Explorer.View.Dashboard.Transactions (transactionsView)
 import Pux.Html (Html, div) as P
 import Pux.Html.Attributes (className) as P
 
+-- TODO (ks): Currently removed since they don't have any meaningful data
 dashboardView :: State -> P.Html Action
 dashboardView state =
     P.div
         [ P.className "explorer-dashboard" ]
         [ heroView state
-        , networkView state
+        --, networkView state
         , dashBoardBlocksView state
         , transactionsView state
-        , offerView state
-        , apiView state
+        --, offerView state
+        --, apiView state
         ]

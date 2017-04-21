@@ -22,7 +22,6 @@ import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Context                 (WithNodeContext)
 import           Pos.Reporting.MemState      (MonadReportingMem)
 import           Pos.Slotting                (MonadSlots, MonadSlotsData)
 import           Pos.Ssc.Extra               (MonadSscMem)
@@ -39,7 +38,7 @@ newtype WalletDB m a = WalletDB
     { getWalletDB :: ReaderT WalletState m a
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                WithNodeContext ssc, MonadSlotsData,
+                MonadSlotsData,
                 MonadSlots, MonadSscMem ssc, MonadFix,
                 MonadJL, CanLog, MonadStats,
                 MonadKeys, WithWalletContext, MonadTrans, MonadReportingMem)

@@ -1,25 +1,27 @@
+{-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE PolyKinds            #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Class which provides access to NodeContext.
 
 module Pos.Context.Class
-       ( WithNodeContext (..)
+       ( WithNodeContext
+       , getNodeContext
+       , NodeContextTagK(..)
        ) where
 
-import           Control.Monad.Trans (MonadTrans)
+import qualified Control.Monad.Ether as Ether.E
 import           Universum
 
 import           Pos.Context.Context (NodeContext)
 
+-- TODO: Remove DataKinds shenanigans.
+data NodeContextTagK = NodeContextTag
+
 -- | Class for something that has 'NodeContext' inside.
-class Monad m => WithNodeContext ssc m | m -> ssc where
-    getNodeContext :: m (NodeContext ssc)
+type WithNodeContext ssc = Ether.E.MonadReader 'NodeContextTag (NodeContext ssc)
 
-    default getNodeContext :: (MonadTrans t, WithNodeContext ssc m', t m' ~ m) =>
-        m (NodeContext ssc)
-    getNodeContext = lift getNodeContext
-
-instance {-# OVERLAPPABLE #-}
-  (WithNodeContext ssc m, MonadTrans t, Monad (t m)) =>
-  WithNodeContext ssc (t m)
+getNodeContext :: WithNodeContext ssc m => m (NodeContext ssc)
+getNodeContext = Ether.E.ask (Proxy @'NodeContextTag)

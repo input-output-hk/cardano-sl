@@ -21,7 +21,6 @@ import           Serokell.Util.Lens             (WrappedM (..))
 import           System.Wlog                    (CanLog, HasLoggerName)
 
 import           Pos.Communication.PeerState    (WithPeerState)
-import           Pos.Context                    (WithNodeContext)
 import           Pos.DB                         (MonadDB)
 import           Pos.Delegation.Class           (MonadDelegation)
 import           Pos.DHT.Model                  (MonadDHT)
@@ -42,7 +41,7 @@ newtype WalletWebDB m a = WalletWebDB
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData, MonadDB,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName, WithPeerState,
                 MonadWalletDB, WithWalletContext, MonadDHT, MonadSlots, MonadTrans,
-                CanLog, MonadKeys, WithNodeContext ssc, MonadPollRead,
+                CanLog, MonadKeys, MonadPollRead,
                 MonadTxpMem __, MonadDelegation, MonadReportingMem, LiftLocal)
 
 instance Monad m => WrappedM (WalletWebDB m) where

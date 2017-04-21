@@ -20,11 +20,11 @@ import           Mockable                    (ChannelT, Counter, Distribution, G
                                               MFunctor', Mockable (liftMockable), Promise,
                                               SharedAtomicT, SharedExclusiveT, ThreadId,
                                               liftMockableWrappedM)
+import           Pos.Context                    (lrcActionOnEpochReason)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName, WithLogger)
 import           Universum
 
-import           Pos.Context                 (WithNodeContext, lrcActionOnEpochReason)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Lrc.Context             (LrcContext)
@@ -52,7 +52,6 @@ newtype DBPoll m a = DBPoll
                , MonadFail
                , HasLoggerName
                , MonadError e
-               , WithNodeContext ssc
                , MonadJL
                , CanLog
                , MonadMask

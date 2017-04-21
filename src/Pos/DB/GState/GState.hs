@@ -13,7 +13,7 @@ import qualified Database.RocksDB       as Rocks
 import           System.Wlog            (WithLogger)
 import           Universum
 
-import           Pos.Context.Class      (WithNodeContext (getNodeContext))
+import           Pos.Context.Class      (WithNodeContext, getNodeContext)
 import           Pos.Context.Context    (ncSystemStart)
 import           Pos.Context.Functions  (genesisUtxoM)
 import           Pos.DB.Class           (MonadDB (getNodeDBs, usingReadOptions))

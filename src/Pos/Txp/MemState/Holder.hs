@@ -28,7 +28,6 @@ import           System.Wlog                    (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Communication.Relay        (MonadRelayMem)
-import           Pos.Context.Class              (WithNodeContext)
 import           Pos.DB.Class                   (MonadDB, MonadDBCore)
 import           Pos.DB.Limits                  (MonadDBLimits)
 import           Pos.DHT.MemState               (MonadDhtMem)
@@ -62,7 +61,6 @@ newtype TxpHolder ext m a = TxpHolder
                , MonadIO
                , MonadFail
                , HasLoggerName
-               , WithNodeContext ssc
                , MonadJL
                , CanLog
                , MonadMask

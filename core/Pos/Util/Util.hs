@@ -21,6 +21,7 @@ module Pos.Util.Util
 
        -- * Ether
        , ether
+       , Ether.TaggedTrans
 
        -- * Instances
        -- ** Lift Byte

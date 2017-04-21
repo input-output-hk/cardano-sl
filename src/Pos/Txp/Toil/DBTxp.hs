@@ -24,7 +24,6 @@ import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName)
 import           Universum
 
-import           Pos.Context                 (WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import qualified Pos.DB.GState               as GS
 import           Pos.DB.GState.Balances      (getRealStake, getRealTotalStake)
@@ -50,7 +49,6 @@ newtype DBTxp m a = DBTxp
                , MonadFail
                , HasLoggerName
                , MonadError e
-               , WithNodeContext ssc
                , MonadJL
                , CanLog
                , MonadMask

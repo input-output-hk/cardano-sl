@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE PolyKinds            #-}
+{-# LANGUAGE DataKinds            #-}
 
 module Pos.Wallet.KeyStorage
        ( MonadKeys (..)
@@ -15,6 +17,7 @@ import qualified Control.Concurrent.STM      as STM
 import           Control.Lens                (iso, lens, (%=), (<>=))
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
+import qualified Control.Monad.Trans.Ether.Tagged as Ether
 import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.Reader        (ReaderT (..), ask)
 import           Control.Monad.State         (MonadState (..))
@@ -34,11 +37,11 @@ import           Universum
 import           Pos.Binary.Crypto           ()
 import           Pos.Client.Txp.Balances     (MonadBalances)
 import           Pos.Client.Txp.History      (MonadTxHistory)
-import           Pos.Context                 (ContextHolder (..), NodeContext (..),
-                                              WithNodeContext (..))
+import           Pos.Context                 (NodeContext (..))
 import           Pos.Crypto                  (EncryptedSecretKey, PassPhrase, SecretKey,
                                               hash, safeKeyGen)
 import           Pos.DB                      (MonadDB)
+import           Pos.Context.Class           (getNodeContext, NodeContextTagK(..))
 import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Reporting.MemState      (MonadReportingMem)
@@ -114,7 +117,7 @@ newtype KeyStorage m a = KeyStorage
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, CanLog, MonadMask,
                 MonadReader KeyData, MonadDB,
-                MonadWalletDB, WithWalletContext, WithNodeContext ssc,
+                MonadWalletDB, WithWalletContext,
                 MonadDelegation, MonadTrans, MonadBase io, MonadFix,
                 MonadDBLimits, MonadReportingMem,
                 MonadTxHistory, MonadBalances)
@@ -180,17 +183,20 @@ instance Exception KeyError
 usLens :: Lens' (NodeContext ssc) KeyData
 usLens = lens ncUserSecret $ \c us -> c { ncUserSecret = us }
 
-instance Monad m => MonadReader KeyData (ContextHolder ssc m) where
+instance {-# OVERLAPPING #-}
+    (Monad m, t ~ ReaderT (NodeContext ssc)) =>
+        MonadReader KeyData (Ether.TaggedTrans 'NodeContextTag t m) where
     ask = ncUserSecret <$> getNodeContext
-    local f = ContextHolder . local (usLens %~ f) . getContextHolder
+    local f = Ether.pack . local (usLens %~ f) . Ether.unpack
 
-instance (MonadIO m) =>
-         MonadState UserSecret (ContextHolder ssc m) where
+instance {-# OVERLAPPING #-}
+    (MonadIO m, t ~ ReaderT (NodeContext ssc)) =>
+         MonadState UserSecret (Ether.TaggedTrans 'NodeContextTag t m) where
     get = getSecret
     put = putSecret
 
-instance (MonadIO m, MonadThrow m) =>
-         MonadKeys (ContextHolder ssc m) where
+instance (MonadIO m, MonadThrow m, t ~ ReaderT (NodeContext ssc)) =>
+         MonadKeys (Ether.TaggedTrans 'NodeContextTag t m) where
     getPrimaryKey = use usPrimKey
     getSecretKeys = use usKeys
     addSecretKey sk =

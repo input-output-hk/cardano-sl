@@ -60,7 +60,7 @@ import           Pos.Communication           (ActionSpec (..), BiP (..), InSpecs
                                               unpackLSpecs)
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import qualified Pos.Constants               as Const
-import           Pos.Context                 (ContextHolder (..), NodeContext (..),
+import           Pos.Context                 (ContextHolder, NodeContext (..),
                                               runContextHolder)
 import           Pos.Core                    (Timestamp)
 import           Pos.Crypto                  (createProxySecretKey, encToPublic)

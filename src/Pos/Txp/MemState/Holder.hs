@@ -15,6 +15,7 @@ import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Fix         (MonadFix)
 import           Control.Monad.Reader      (ReaderT (ReaderT))
 import           Control.Monad.Trans.Class (MonadTrans)
+import           Control.Monad.Trans.Lift.Local   (LiftLocal(..))
 import           Data.Default              (Default (def))
 import           Mockable                  (ChannelT, Counter, Distribution, Gauge, Gauge,
                                             MFunctor', Mockable (liftMockable), Promise,
@@ -73,6 +74,7 @@ newtype TxpHolder ext m a = TxpHolder
                , MonadDB
                , MonadDBCore
                , MonadDBLimits
+               , LiftLocal
                )
 
 instance MonadContext m => MonadContext (TxpHolder x m) where

@@ -485,6 +485,7 @@ library
                       , time-units
                       , transformers
                       , transformers-base
+                      , transformers-lift
                       , mmorph
                       , turtle
                       , universum >= 0.1.11

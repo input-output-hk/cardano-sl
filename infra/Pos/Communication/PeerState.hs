@@ -20,6 +20,7 @@ import           Control.Monad.Base               (MonadBase (..))
 import           Control.Monad.Fix                (MonadFix)
 import           Control.Monad.Reader             (ReaderT (..), mapReaderT)
 import           Control.Monad.Trans.Class        (MonadTrans)
+import           Data.Coerce                      (coerce)
 import           Data.Default                     (Default (def))
 import qualified ListT                            as LT
 import           Mockable                         (ChannelT, Counter, Distribution, Gauge,
@@ -34,7 +35,6 @@ import           Serokell.Util.Lens               (WrappedM (..))
 import qualified STMContainers.Map                as STM
 import           System.Wlog                      (CanLog, HasLoggerName)
 import           Universum
-import           Data.Coerce                      (coerce)
 
 import           Pos.Communication.Types.State
 import           Pos.Util.Context                 (MonadContext (..))

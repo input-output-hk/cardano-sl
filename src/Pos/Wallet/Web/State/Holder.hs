@@ -29,6 +29,7 @@ import           Pos.Slotting                (MonadSlots, MonadSlotsData)
 import           Pos.Txp                     (MonadTxpMem)
 import           Pos.Update                  (MonadPollRead)
 
+import           Control.Monad.Trans.Lift.Local   (LiftLocal(..))
 import           Pos.Wallet.Context          (WithWalletContext)
 import           Pos.Wallet.KeyStorage       (MonadKeys)
 import           Pos.Wallet.State            (MonadWalletDB)
@@ -41,7 +42,7 @@ newtype WalletWebDB m a = WalletWebDB
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName, WithPeerState,
                 MonadWalletDB, WithWalletContext, MonadDHT, MonadSlots, MonadTrans,
                 CanLog, MonadKeys, WithNodeContext ssc, MonadPollRead,
-                MonadTxpMem __, MonadDelegation, MonadReportingMem)
+                MonadTxpMem __, MonadDelegation, MonadReportingMem, LiftLocal)
 
 instance Monad m => WrappedM (WalletWebDB m) where
     type UnwrappedM (WalletWebDB m) = ReaderT WalletState m

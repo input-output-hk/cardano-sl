@@ -399,10 +399,14 @@ instance ToSample CTx where
       where
         sample = CTx
             { ctId            = mkCTxId "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
-            , ctAmount        = mkCCoin $ mkCoin 0
+            , ctAmount        = sampleCoin
+            , ctFrom          = Just [(sampleAddress, sampleCoin)]
+            , ctTo            = [(sampleAddress, sampleCoin)]
             , ctConfirmations = 10
             , ctType          = CTOut ctxMeta
             }
+        sampleAddress = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
+        sampleCoin = mkCCoin $ mkCoin 0
 
 instance ToSample CTxMeta where
     toSamples Proxy = singleSample sample

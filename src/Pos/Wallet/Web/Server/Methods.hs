@@ -436,7 +436,7 @@ addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
     let cId = txIdToCTxId txId
     addOnlyNewTxMeta cAddr cId meta
     meta' <- maybe meta identity <$> getTxMeta cAddr cId
-    return $ mkCTx addr diff wtx meta'
+    mkCTx addr diff wtx meta'
 
 newWallet :: WalletWebMode ssc m => CPassPhrase -> CWalletInit -> m CWallet
 newWallet cPassphrase CWalletInit {..} = do

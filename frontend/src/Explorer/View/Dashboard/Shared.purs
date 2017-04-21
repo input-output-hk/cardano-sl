@@ -16,9 +16,9 @@ headerView state (HeaderOptions options) =
         [ P.h3
             [ P.className "headline"]
             [ P.text options.headline ]
-        , P.div
-            [ P.className "more__container"]
-            [ linkView options.link ]
+        -- , P.div
+            -- [ P.className "more__container"]
+            -- [ linkView options.link ]
         ]
     where
       linkView link = case link of

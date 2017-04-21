@@ -15,7 +15,7 @@ module Pos.Update.Poll.PollState
        , psConfirmedBVs
        , psConfirmedProposals
        , psActiveProposals
-       , psDelActivePropsIdx
+       , psActivePropsIdx
        , psSlottingData
        , psFullRichmenData
        , psIssuersStakes
@@ -51,12 +51,12 @@ data PollState = PollState
     , _psEpochProposers     :: !(HashSet StakeholderId)
       -- | All applications in use and their latest (confirmed) versions
     , _psConfirmedBVs       :: !(HM.HashMap ApplicationName NumSoftwareVersion)
-      -- | All proposed software versions and their state
+      -- | All confirmed software versions and their state
     , _psConfirmedProposals :: !(HM.HashMap SoftwareVersion ConfirmedProposalState)
       -- | All update proposals and their states
     , _psActiveProposals    :: !(HM.HashMap UpId ProposalState)
       -- | Update proposals for each application
-    , _psDelActivePropsIdx  :: !(HM.HashMap ApplicationName (HashSet UpId))
+    , _psActivePropsIdx     :: !(HM.HashMap ApplicationName (HashSet UpId))
       -- | Slotting data for this node
     , _psSlottingData       :: !SlottingData
       -- | Mapping between epochs and their richmen stake distribution
@@ -75,7 +75,7 @@ modifyPollState PollModifier {..} PollState {..} =
               (modifyHashMap pmConfirmed _psConfirmedBVs)
               (modifyHashMap pmConfirmedProps _psConfirmedProposals)
               (modifyHashMap pmActiveProps _psActiveProposals)
-              (pmDelActivePropsIdx <> _psDelActivePropsIdx)
+              _psActivePropsIdx
               (fromMaybe _psSlottingData pmSlottingData)
               _psFullRichmenData
               _psIssuersStakes

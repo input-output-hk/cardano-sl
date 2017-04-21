@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -26,6 +27,7 @@ import           Mockable                    (ChannelT, Counter, Distribution, G
                                               Gauge, Promise, SharedAtomicT,
                                               SharedExclusiveT, SharedExclusiveT,
                                               ThreadId)
+import qualified Prelude
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName, logWarning)
 import           Universum

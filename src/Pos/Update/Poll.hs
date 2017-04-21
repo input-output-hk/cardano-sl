@@ -12,6 +12,8 @@ import           Pos.Update.Poll.DBPoll    as X
 import           Pos.Update.Poll.Failure   as X
 import           Pos.Update.Poll.Logic     as X
 import           Pos.Update.Poll.Modifier  as X
+import           Pos.Update.Poll.PollState as X
 import           Pos.Update.Poll.RollTrans as X
+import           Pos.Update.Poll.Pure      as X
 import           Pos.Update.Poll.Trans     as X
 import           Pos.Update.Poll.Types     as X

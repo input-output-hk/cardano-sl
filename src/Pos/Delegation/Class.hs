@@ -1,6 +1,6 @@
+{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Definitions for class of monads that capture logic of processing
@@ -17,18 +17,18 @@ module Pos.Delegation.Class
        , askDelegationState
        ) where
 
+import           Control.Concurrent.STM       (TVar)
+import           Control.Lens                 (makeLenses)
 import qualified Control.Monad.Ether.Implicit as Ether
-import           Control.Concurrent.STM    (TVar)
-import           Control.Lens              (makeLenses)
-import           Data.Default              (Default (def))
-import qualified Data.HashMap.Strict       as HM
-import qualified Data.HashSet              as HS
-import           Data.Time.Clock           (UTCTime)
+import           Data.Default                 (Default (def))
+import qualified Data.HashMap.Strict          as HM
+import qualified Data.HashSet                 as HS
+import           Data.Time.Clock              (UTCTime)
 import           Universum
 
-import           Pos.Crypto                (PublicKey)
-import           Pos.Delegation.Types      (SendProxySK)
-import           Pos.Types                 (EpochIndex, ProxySKHeavy, ProxySKLight)
+import           Pos.Crypto                   (PublicKey)
+import           Pos.Delegation.Types         (SendProxySK)
+import           Pos.Types                    (EpochIndex, ProxySKHeavy, ProxySKLight)
 
 ---------------------------------------------------------------------------
 -- Delegation in-memory data

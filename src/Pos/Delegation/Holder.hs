@@ -1,6 +1,6 @@
+{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ConstraintKinds      #-}
 
 -- | Definitions for class of monads that capture logic of processing
 -- delegate certificates (proxy secret keys).
@@ -12,7 +12,7 @@ module Pos.Delegation.Holder
        ) where
 
 import qualified Control.Monad.Ether.Implicit as Ether
-import           Pos.Delegation.Class           (DelegationWrap (..))
+import           Pos.Delegation.Class         (DelegationWrap (..))
 import           Universum
 
 

@@ -9,6 +9,7 @@ module Pos.Wallet.Web.Server.Lite
        ) where
 
 import qualified Control.Monad.Catch           as Catch
+import qualified Control.Monad.Ether.Implicit  as Ether
 import           Control.Monad.Except          (MonadError (throwError))
 import           Mockable                      (runProduction)
 import           Pos.Communication.Protocol    (SendActions)
@@ -57,7 +58,7 @@ nat :: WebHandler (WebHandler :~> Handler)
 nat = do
     wsConn <- getWalletWebSockets
     ws    <- getWalletWebState
-    kd    <- lift . lift . lift . lift $ ask
+    kd    <- Ether.ask
     kinst <- lift . lift $ getKademliaDHTInstance
     mws   <- getWalletState
     return $ NT (convertHandler kinst mws kd ws wsConn)

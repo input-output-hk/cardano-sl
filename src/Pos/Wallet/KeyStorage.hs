@@ -6,7 +6,7 @@
 module Pos.Wallet.KeyStorage
        ( MonadKeys (..)
        , newSecretKey
-       , KeyStorage (..)
+       , KeyStorage
        , KeyData
        , KeyError (..)
        , runKeyStorage
@@ -14,42 +14,27 @@ module Pos.Wallet.KeyStorage
        ) where
 
 import qualified Control.Concurrent.STM           as STM
-import           Control.Lens                     (iso, lens, (%=), (<>=))
-import           Control.Monad.Base               (MonadBase (..))
-import           Control.Monad.Catch              (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Fix                (MonadFix)
+import           Control.Lens                     (lens, (%=), (<>=))
+import           Control.Monad.Catch              (MonadThrow)
+import qualified Control.Monad.Ether.Implicit     as Ether
 import           Control.Monad.Reader             (ReaderT (..), ask)
 import           Control.Monad.State              (MonadState (..))
 import           Control.Monad.Trans              (MonadTrans (..))
-import           Control.Monad.Trans.Control      (ComposeSt, MonadBaseControl (..),
-                                                   MonadTransControl (..), StM,
-                                                   defaultLiftBaseWith, defaultLiftWith,
-                                                   defaultRestoreM, defaultRestoreT)
+import           Control.Monad.Trans.Ether.Tagged (TaggedTrans (..))
 import qualified Control.Monad.Trans.Ether.Tagged as Ether
-import           Control.Monad.Trans.Lift.Local   (LiftLocal (..))
-import           Mockable                         (ChannelT, Counter, Distribution, Gauge,
-                                                   MFunctor', Mockable (liftMockable),
-                                                   Promise, SharedAtomicT,
-                                                   SharedExclusiveT, ThreadId,
-                                                   liftMockableWrappedM)
-import           Serokell.Util.Lens               (WrappedM (..))
-import           System.Wlog                      (CanLog, HasLoggerName, WithLogger)
+import           System.Wlog                      (WithLogger)
 import           Universum
 
 import           Pos.Binary.Crypto                ()
-import           Pos.Client.Txp.Balances          (MonadBalances)
-import           Pos.Client.Txp.History           (MonadTxHistory)
 import           Pos.Context                      (NodeContext (..))
 import           Pos.Context.Class                (getNodeContext)
 import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
                                                    SecretKey, hash, safeKeyGen)
-import           Pos.DB                           (MonadDB)
-import           Pos.DB.Limits                    (MonadDBLimits)
-import           Pos.Slotting                     (MonadSlots, MonadSlotsData)
 import           Pos.Util                         ()
 import           Pos.Util.Context                 (ContextTagK (..))
 import           Pos.Util.UserSecret              (UserSecret, peekUserSecret, usKeys,
                                                    usPrimKey, writeUserSecret)
+import           Pos.Util.Util                    (ether)
 
 type KeyData = STM.TVar UserSecret
 
@@ -110,55 +95,19 @@ containsKey ls k = hash k `elem` map hash ls
 -- KeyStorage transformer
 ------------------------------------------------------------------------
 
-newtype KeyStorage m a = KeyStorage
-    { getKeyStorage :: ReaderT KeyData m a
-    } deriving (Functor, Applicative, Monad, MonadSlotsData,
-                MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
-                HasLoggerName, CanLog, MonadMask,
-                MonadReader KeyData, MonadDB,
-                MonadTrans, MonadBase io, MonadFix,
-                MonadDBLimits,
-                MonadTxHistory, MonadBalances, LiftLocal)
-
-instance Monad m => WrappedM (KeyStorage m) where
-    type UnwrappedM (KeyStorage m) = ReaderT KeyData m
-    _WrappedM = iso getKeyStorage KeyStorage
-
-instance (MonadIO m) => MonadState UserSecret (KeyStorage m) where
-    get = KeyStorage getSecret
-    put = KeyStorage . putSecret
-
-instance MonadTransControl KeyStorage where
-    type StT KeyStorage a = StT (ReaderT KeyData) a
-    liftWith = defaultLiftWith KeyStorage getKeyStorage
-    restoreT = defaultRestoreT KeyStorage
-
-instance MonadBaseControl IO m => MonadBaseControl IO (KeyStorage m) where
-    type StM (KeyStorage m) a = ComposeSt KeyStorage m a
-    liftBaseWith     = defaultLiftBaseWith
-    restoreM         = defaultRestoreM
-
-type instance ThreadId (KeyStorage m) = ThreadId m
-type instance Promise (KeyStorage m) = Promise m
-type instance SharedAtomicT (KeyStorage m) = SharedAtomicT m
-type instance Counter (KeyStorage m) = Counter m
-type instance Distribution (KeyStorage m) = Distribution m
-type instance SharedExclusiveT (KeyStorage m) = SharedExclusiveT m
-type instance Gauge (KeyStorage m) = Gauge m
-type instance ChannelT (KeyStorage m) = ChannelT m
-
-instance ( Mockable d m
-         , MFunctor' d (KeyStorage m) (ReaderT KeyData m)
-         , MFunctor' d (ReaderT KeyData m) m
-         ) => Mockable d (KeyStorage m) where
-    liftMockable = liftMockableWrappedM
+type KeyStorage = Ether.ReaderT KeyData
 
 runKeyStorage :: (MonadIO m, WithLogger m) => FilePath -> KeyStorage m a -> m a
 runKeyStorage fp ks =
     peekUserSecret fp >>= liftIO . STM.newTVarIO >>= runKeyStorageRaw ks
 
 runKeyStorageRaw :: KeyStorage m a -> KeyData -> m a
-runKeyStorageRaw = runReaderT . getKeyStorage
+runKeyStorageRaw = Ether.runReaderT
+
+instance {-# OVERLAPPING #-}
+  (MonadIO m) => MonadState UserSecret (KeyStorage m) where
+    get = ether getSecret
+    put = ether . putSecret
 
 instance (MonadIO m) => MonadKeys (KeyStorage m) where
     getPrimaryKey = use usPrimKey
@@ -183,18 +132,18 @@ usLens = lens ncUserSecret $ \c us -> c { ncUserSecret = us }
 
 instance {-# OVERLAPPING #-}
     (Monad m, t ~ ReaderT (NodeContext ssc)) =>
-        MonadReader KeyData (Ether.TaggedTrans 'ContextTag t m) where
+        MonadReader KeyData (TaggedTrans 'ContextTag t m) where
     ask = ncUserSecret <$> getNodeContext
     local f = Ether.pack . local (usLens %~ f) . Ether.unpack
 
 instance {-# OVERLAPPING #-}
     (MonadIO m, t ~ ReaderT (NodeContext ssc)) =>
-         MonadState UserSecret (Ether.TaggedTrans 'ContextTag t m) where
+         MonadState UserSecret (TaggedTrans 'ContextTag t m) where
     get = getSecret
     put = putSecret
 
 instance (MonadIO m, MonadThrow m, t ~ ReaderT (NodeContext ssc)) =>
-         MonadKeys (Ether.TaggedTrans 'ContextTag t m) where
+         MonadKeys (TaggedTrans 'ContextTag t m) where
     getPrimaryKey = use usPrimKey
     getSecretKeys = use usKeys
     addSecretKey sk =

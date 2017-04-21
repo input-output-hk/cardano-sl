@@ -52,15 +52,10 @@ import           Pos.Util.Context             (askContext)
 import           Pos.Wallet.KeyStorage        (KeyStorage, MonadKeys)
 import           Pos.Wallet.State             (WalletDB)
 import qualified Pos.Wallet.State             as WS
-import           Pos.Wallet.Web.State         (WalletWebDB (..))
 import           Pos.WorkMode                 (RawRealMode)
-
-deriving instance MonadBalances m => MonadBalances (WalletWebDB m)
 
 instance MonadIO m => MonadBalances (WalletDB m) where
     getOwnUtxo addr = filterUtxoByAddr addr <$> WS.getUtxo
-
-deriving instance MonadTxHistory m => MonadTxHistory (WalletWebDB m)
 
 -- | Get tx history for Address
 instance MonadIO m => MonadTxHistory (WalletDB m) where
@@ -95,10 +90,9 @@ class Monad m => MonadBlockchainInfo m where
         :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m Word
     connectedPeers = lift connectedPeers
 
-instance MonadBlockchainInfo m => MonadBlockchainInfo (ReaderT r m)
-instance MonadBlockchainInfo m => MonadBlockchainInfo (StateT s m)
-
-deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (WalletWebDB m)
+instance {-# OVERLAPPABLE #-}
+  (MonadBlockchainInfo m, MonadTrans t, Monad (t m)) =>
+  MonadBlockchainInfo (t m)
 
 -- | Stub instance for lite-wallet
 instance MonadBlockchainInfo WalletRealMode where

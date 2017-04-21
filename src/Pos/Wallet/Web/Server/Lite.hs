@@ -32,9 +32,8 @@ import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeIm
 import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar,
                                                 MonadWalletWebSockets (..),
                                                 WalletWebSockets, runWalletWS)
-import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletState,
-                                                WalletWebDB, getWalletWebState,
-                                                runWalletWebDB)
+import           Pos.Wallet.Web.State          (WalletState, WalletWebDB,
+                                                getWalletWebState, runWalletWebDB)
 import           System.Wlog                   (usingLoggerName)
 
 

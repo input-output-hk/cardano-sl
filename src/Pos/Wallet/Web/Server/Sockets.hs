@@ -47,7 +47,6 @@ import           Pos.Wallet.KeyStorage          (MonadKeys)
 import           Pos.Wallet.WalletMode          (MonadBalances, MonadBlockchainInfo,
                                                  MonadTxHistory, MonadUpdates)
 import           Pos.Wallet.Web.ClientTypes     (NotifyEvent (ConnectionClosed, ConnectionOpened))
-import           Pos.Wallet.Web.State           (MonadWalletWebDB)
 
 -- NODE: for now we are assuming only one client will be used. If there will be need for multiple clients we should extend and hold multiple connections here.
 -- We might add multiple clients when we add user profiles but I am not sure if we are planning on supporting more at all.
@@ -107,7 +106,7 @@ newtype WalletWebSockets m a = WalletWebSockets
                 MonadDHT, MonadSlots, MonadSlotsData,
                 CanLog, MonadKeys, MonadBalances, MonadUpdates,
                 MonadTxHistory, MonadBlockchainInfo, WithPeerState,
-                MonadDB, MonadTxpMem x, MonadWalletWebDB, MonadDelegation,
+                MonadDB, MonadTxpMem x, MonadDelegation,
                 LiftLocal)
 
 instance Monad m => WrappedM (WalletWebSockets m) where

@@ -48,8 +48,8 @@ import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplicat
 import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar,
                                                 MonadWalletWebSockets (..),
                                                 WalletWebSockets, runWalletWS)
-import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletState,
-                                                WalletWebDB, runWalletWebDB)
+import           Pos.Wallet.Web.State          (WalletState, WalletWebDB, runWalletWebDB)
+import           Pos.Wallet.Web.State.State    (getWalletWebState)
 import           Pos.WorkMode                  (RawRealMode, TxpExtra_TMP)
 
 walletServeWebFull

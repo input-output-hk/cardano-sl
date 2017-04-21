@@ -92,7 +92,7 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
                                                 getWalletWebSockets, initWSConnection,
                                                 notify, runWalletWS, upgradeApplicationWS)
-import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
+import           Pos.Wallet.Web.State          (MonadWalletWebDB, WalletWebDB,
                                                 WebWalletModeDB, addOnlyNewTxMeta,
                                                 addUpdate, closeState, createWallet,
                                                 getHistoryCache, getNextUpdate,

@@ -6,7 +6,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/input-output-hk/cardano-sl
-    commit: 16fee7f1fff3950391d72a41eb8864935325d49c
+    commit: 6b595b3a37b7c23ece77edb9c2cf7d14011a4510
   extra-dep: true
   subdirs:
       - '.'
@@ -21,7 +21,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
-    commit: bf65ac0cd50d2ccd7ef6507f0d71786c4bd10ae1
+    commit: 21df94f41008f82ee023e8e0324c7e4a82c4fef2
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
@@ -42,12 +42,12 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: e0a48924e7e308f1164168a81f67c0f25eaabda1
+    commit: b48bd9b099e47d8c39aa6ddce261aa76f8488d75
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
     git: https://github.com/avieth/network-transport-tcp
-    commit: 15847920ac1a32ada237e5a00ac4f56f3ca421a7
+    commit: ca42a954a15792f5ea8dc203e56fac8175b99c33
   extra-dep: true
 - location:
     git: https://github.com/avieth/network-transport
@@ -89,8 +89,7 @@ extra-deps:
 - base58-bytestring-0.1.0
 - log-warper-1.1.1
 - concurrent-extra-0.7.0.10       # not yet in lts-8
-- derive-2.5.26                   # not yet in lts-8
-- haskell-src-exts-1.17.1         # derive has not moved to 1.18 yet
+- derive-2.6.2                    # not yet in lts-8
 - wreq-0.5.0.0                    # not yet in lts-8
 - turtle-1.3.1                    # earlier versions don't have 'stat'
 - optparse-applicative-0.13.0.0   # needed for turtle

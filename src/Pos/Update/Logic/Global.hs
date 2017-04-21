@@ -149,7 +149,9 @@ modifierToBatch PollModifier {..} =
     , confirmedPropModifierToBatch
           (MM.insertions pmConfirmedProps)
           (MM.deletions pmConfirmedProps)
-    , upModifierToBatch (MM.insertions pmActiveProps) pmDelActivePropsIdx
+    , upModifierToBatch
+          (MM.insertions pmActiveProps)
+          (MM.deletions pmActiveProps)
     , sdModifierToBatch pmSlottingData
     , epModifierToBatch pmEpochProposers
     ]
@@ -188,14 +190,13 @@ confirmedPropModifierToBatch (map snd -> confAdded) confDeleted =
     confDelOps = map (DB.SomeBatchOp . DelConfirmedProposal) confDeleted
 
 upModifierToBatch :: [(UpId, ProposalState)]
-                  -> HashMap ApplicationName (HashSet UpId)
+                  -> [UpId]
                   -> [DB.SomeBatchOp]
-upModifierToBatch (map snd -> added) (HM.toList -> deleted)
+upModifierToBatch (map snd -> added) deleted
       = addOps ++ delOps
   where
-    deepToList = concatMap (\(x, y) -> zip (repeat x) (toList y))
     addOps = map (DB.SomeBatchOp . PutProposal) added
-    delOps = map (DB.SomeBatchOp . uncurry (flip DeleteProposal)) (deepToList deleted)
+    delOps = map (DB.SomeBatchOp . DeleteProposal) deleted
 
 sdModifierToBatch :: Maybe SlottingData -> [DB.SomeBatchOp]
 sdModifierToBatch Nothing   = []

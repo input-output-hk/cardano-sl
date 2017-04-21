@@ -30,7 +30,6 @@ module Pos.Update.Poll.Types
        , pmConfirmedL
        , pmConfirmedPropsL
        , pmActivePropsL
-       , pmDelActivePropsIdxL
        , pmSlottingDataL
        , pmEpochProposersL
 
@@ -206,14 +205,13 @@ bvsMaxBlockSize = bvdMaxBlockSize . bvsData
 -- one should apply to global state to obtain result of application of
 -- MemPool or blocks which are verified.
 data PollModifier = PollModifier
-    { pmBVs               :: !(MapModifier BlockVersion BlockVersionState)
-    , pmAdoptedBVFull     :: !(Maybe (BlockVersion, BlockVersionData))
-    , pmConfirmed         :: !(MapModifier ApplicationName NumSoftwareVersion)
-    , pmConfirmedProps    :: !(MapModifier SoftwareVersion ConfirmedProposalState)
-    , pmActiveProps       :: !(MapModifier UpId ProposalState)
-    , pmDelActivePropsIdx :: !(HashMap ApplicationName (HashSet UpId))
-    , pmSlottingData      :: !(Maybe SlottingData)
-    , pmEpochProposers    :: !(Maybe (HashSet StakeholderId))
+    { pmBVs            :: !(MapModifier BlockVersion BlockVersionState)
+    , pmAdoptedBVFull  :: !(Maybe (BlockVersion, BlockVersionData))
+    , pmConfirmed      :: !(MapModifier ApplicationName NumSoftwareVersion)
+    , pmConfirmedProps :: !(MapModifier SoftwareVersion ConfirmedProposalState)
+    , pmActiveProps    :: !(MapModifier UpId ProposalState)
+    , pmSlottingData   :: !(Maybe SlottingData)
+    , pmEpochProposers :: !(Maybe (HashSet StakeholderId))
     } deriving (Eq, Show)
 
 flip makeLensesFor ''PollModifier
@@ -222,7 +220,6 @@ flip makeLensesFor ''PollModifier
     , ("pmConfirmed", "pmConfirmedL")
     , ("pmConfirmedProps", "pmConfirmedPropsL")
     , ("pmActiveProps", "pmActivePropsL")
-    , ("pmDelActivePropsIdx", "pmDelActivePropsIdxL")
     , ("pmSlottingData", "pmSlottingDataL")
     , ("pmEpochProposers", "pmEpochProposersL")
     ]

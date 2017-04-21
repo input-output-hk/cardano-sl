@@ -47,9 +47,8 @@ import           Pos.Update.Poll.Types       (BlockVersionState (..),
                                               UndecidedProposalState (..),
                                               cpsSoftwareVersion, pmActivePropsL,
                                               pmAdoptedBVFullL, pmBVsL, pmConfirmedL,
-                                              pmConfirmedPropsL, pmDelActivePropsIdxL,
-                                              pmEpochProposersL, pmSlottingDataL,
-                                              psProposal)
+                                              pmConfirmedPropsL, pmEpochProposersL,
+                                              pmSlottingDataL, psProposal)
 import           Pos.Util.Context            (MonadContext (..))
 import           Pos.Util.JsonLog            (MonadJL (..))
 import qualified Pos.Util.Modifier           as MM
@@ -194,7 +193,6 @@ instance MonadPollRead m =>
             let alterDel _ Nothing     = Nothing
                 alterDel val (Just hs) = Just $ HS.delete val hs
             pmActivePropsL %= MM.insert upId ps
-            pmDelActivePropsIdxL %= HM.alter (alterDel upId) appName
     -- Deactivate proposal doesn't change epoch proposers.
     deactivateProposal id = do
         prop <- getProposal id
@@ -208,7 +206,6 @@ instance MonadPollRead m =>
                     alterIns val Nothing   = Just $ HS.singleton val
                     alterIns val (Just hs) = Just $ HS.insert val hs
                 pmActivePropsL %= MM.delete upId
-                pmDelActivePropsIdxL %= HM.alter (alterIns upId) appName
     setSlottingData sd = PollT $ pmSlottingDataL .= Just sd
     setEpochProposers ep = PollT $ pmEpochProposersL .= Just ep
 

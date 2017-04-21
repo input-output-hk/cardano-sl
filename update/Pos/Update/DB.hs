@@ -144,7 +144,7 @@ getEpochProposers = maybeThrow (DBMalformed msg) =<< gsGetBi epochProposersKey
 
 data UpdateOp
     = PutProposal !ProposalState
-    | DeleteProposal !UpId !ApplicationName
+    | DeleteProposal !UpId
     | ConfirmVersion !SoftwareVersion
     | DelConfirmedVersion !ApplicationName
     | AddConfirmedProposal !ConfirmedProposalState
@@ -161,8 +161,8 @@ instance RocksBatchOp UpdateOp where
       where
         up = psProposal ps
         upId = hash up
-    toBatchOp (DeleteProposal upId appName) =
-        [Rocks.Del (proposalAppKey appName), Rocks.Del (proposalKey upId)]
+    toBatchOp (DeleteProposal upId) =
+        [Rocks.Del (proposalKey upId)]
     toBatchOp (ConfirmVersion sv) =
         [Rocks.Put (confirmedVersionKey $ svAppName sv) (encodeStrict $ svNumber sv)]
     toBatchOp (DelConfirmedVersion app) =
@@ -339,9 +339,6 @@ bvStateIterationPrefix = "us/bvs/"
 
 proposalKey :: UpId -> ByteString
 proposalKey = encodeWithKeyPrefix @PropIter
-
-proposalAppKey :: ApplicationName -> ByteString
-proposalAppKey = mappend "us/an/" . encodeStrict
 
 confirmedVersionKey :: ApplicationName -> ByteString
 confirmedVersionKey = mappend "us/cv/" . encodeStrict

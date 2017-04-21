@@ -67,11 +67,15 @@ stack exec -- cardano-explorer-hs2purs --bridge-path ./frontend/src/Generated
 
 All of the following steps are required **only once**.
 
-Install executable of `purescript-derive-lenses`:
+Install executable of `purescript-derive-lenses`.
+
+_Important note:_ Don't install latest version of `purescript-derive-lenses`, which does not work with Explorer. We do need [`v0.10.5.1`](https://github.com/paf31/purescript-derive-lenses/releases/tag/v0.10.5.1) (commit [`02457e6`](https://github.com/paf31/purescript-derive-lenses/commit/02457e610789263326b936ebdfa72edbb6599094))
 
 ```bash
 git clone git@github.com:paf31/purescript-derive-lenses.git
 cd {/path/to/}purescript-derive-lenses
+## Checkout `v0.10.5.1`, which is based on commit `02457e6`
+git checkout 02457e610789263326b936ebdfa72edbb6599094
 stack build
 stack install purescript-derive-lenses
 ```

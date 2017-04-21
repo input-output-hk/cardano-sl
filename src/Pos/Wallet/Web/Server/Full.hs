@@ -67,7 +67,7 @@ walletServeWebFull sendActions debug = walletServeImpl action
         logInfo "DAEDALUS has STARTED!"
         when (isDevelopment && debug) $
             mapM_ (addSecretKey . noPassEncrypt) genesisDevSecretKeys
-        walletApplication $ walletServer @ssc sendActions nat
+        walletApplication $ walletServer sendActions nat
 
 type WebHandler ssc = WalletWebSockets (WalletWebDB (RawRealMode ssc))
 

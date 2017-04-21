@@ -16,18 +16,28 @@
     @media (--md) {
       &-container {
         @extend .show;
-        @neat-outer-container;
-        padding: 26px 20px 48px 20px;
+        @extend .outer-container;
+        lost-utility: clearfix;
+        
+        padding: 18px 48px 48px 48px;
+
+        .logo__container {
+          width: 100%;
+          padding-bottom: 18px;
+        }
+
+        .logo__wrapper {
+          height: 100%;
+          box: horizontal center;
+        }
+
+        .logo__img {
+          width: 49px;
+          height: 45px;
+        }
       }
     }
 
-    @media (--md) {
-      &-container {
-        @neat-outer-container;
-        max-width:var(--max-width-desktop);
-        padding: 26px 48px 48px 48px;
-      }
-    }
 
     &-headline {
       font-size: 26px;
@@ -50,8 +60,7 @@
       border: 1px solid color(var(--color0) a(0.3));
       border-radius: 2px;
       padding: 5px 5px 5px 0px;
-      @neat-span-columns 10;
-      @neat-shift 1;
+      lost-column: 10/12;
       box: horizontal;
 
       &.focused {

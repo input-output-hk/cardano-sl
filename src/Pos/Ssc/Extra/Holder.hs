@@ -5,7 +5,7 @@
 -- | Monad transformer which stores SSC data.
 
 module Pos.Ssc.Extra.Holder
-       ( SscHolder (..)
+       ( SscHolder
        , mkSscHolderState
        , mkStateAndRunSscHolder
        , runSscHolder
@@ -13,72 +13,25 @@ module Pos.Ssc.Extra.Holder
        ) where
 
 import qualified Control.Concurrent.STM    as STM
-import           Control.Lens              (iso)
-import           Control.Monad.Base        (MonadBase (..))
-import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Fix         (MonadFix)
-import           Control.Monad.Reader      (ReaderT (ReaderT))
-import           Control.Monad.Trans.Class (MonadTrans)
+import qualified Control.Monad.Ether.Implicit as Ether
 import           Mockable                  (ChannelT, Counter, Distribution, Gauge, Gauge,
-                                            MFunctor', Mockable (liftMockable), Promise,
-                                            SharedAtomicT, SharedExclusiveT,
-                                            SharedExclusiveT, ThreadId,
-                                            liftMockableWrappedM)
-import           Serokell.Util.Lens        (WrappedM (..))
-import           System.Wlog               (CanLog, HasLoggerName, WithLogger)
+                                            Promise, SharedAtomicT, SharedExclusiveT,
+                                            SharedExclusiveT, ThreadId)
+import           System.Wlog               (WithLogger)
 import           Universum
 
-import           Pos.Communication.Relay   (MonadRelayMem)
-import           Pos.Context               (WithNodeContext)
-import           Pos.DB                    (MonadDB, MonadDBCore)
-import           Pos.DB.Limits             (MonadDBLimits)
-import           Pos.DHT.MemState          (MonadDhtMem)
+import           Pos.DB                    (MonadDB)
 import           Pos.Lrc.Context           (LrcContext)
-import           Pos.Reporting             (MonadReportingMem)
-import           Pos.Shutdown              (MonadShutdownMem)
 import           Pos.Slotting.Class        (MonadSlots)
-import           Pos.Slotting.MemState     (MonadSlotsData)
 import           Pos.Ssc.Class.LocalData   (SscLocalDataClass (sscNewLocalData))
 import           Pos.Ssc.Class.Storage     (SscGStateClass (sscLoadGlobalState))
 import           Pos.Ssc.Extra.Class       (MonadSscMem (..))
 import           Pos.Ssc.Extra.Types       (SscState (..))
-import           Pos.Util.Context          (HasContext, MonadContext (..))
-import           Pos.Util.JsonLog          (MonadJL (..))
+import           Pos.Util.Context          (HasContext)
 
-newtype SscHolder ssc m a = SscHolder
-    { getSscHolder :: ReaderT (SscState ssc) m a
-    } deriving ( Functor
-               , Applicative
-               , Monad
-               , MonadTrans
-               , MonadThrow
-               , MonadSlotsData
-               , MonadSlots
-               , MonadCatch
-               , MonadIO
-               , MonadFail
-               , HasLoggerName
-               , WithNodeContext ssc
-               , MonadJL
-               , CanLog
-               , MonadMask
-               , MonadFix
-               , MonadDhtMem
-               , MonadReportingMem
-               , MonadRelayMem
-               , MonadShutdownMem
-               , MonadDB
-               , MonadDBCore
-               , MonadDBLimits
-               )
-
-instance MonadContext m => MonadContext (SscHolder ssc m) where
-    type ContextType (SscHolder ssc m) = ContextType m
+type SscHolder ssc = Ether.ReaderT (SscState ssc)
 
 type instance ThreadId (SscHolder ssc m) = ThreadId m
-
-instance MonadBase IO m => MonadBase IO (SscHolder ssc m) where
-    liftBase = lift . liftBase
 
 type instance ThreadId (SscHolder ssc m) = ThreadId m
 type instance Promise (SscHolder ssc m) = Promise m
@@ -89,18 +42,8 @@ type instance SharedExclusiveT (SscHolder ssc m) = SharedExclusiveT m
 type instance Gauge (SscHolder ssc m) = Gauge m
 type instance ChannelT (SscHolder ssc m) = ChannelT m
 
-instance ( Mockable d m
-         , MFunctor' d (ReaderT (SscState ssc) m) m
-         , MFunctor' d (SscHolder ssc m) (ReaderT (SscState ssc) m)
-         ) => Mockable d (SscHolder ssc m) where
-    liftMockable = liftMockableWrappedM
-
-instance Monad m => WrappedM (SscHolder ssc m) where
-    type UnwrappedM (SscHolder ssc m) = ReaderT (SscState ssc) m
-    _WrappedM = iso getSscHolder SscHolder
-
 instance Monad m => MonadSscMem ssc (SscHolder ssc m) where
-    askSscMem = SscHolder ask
+    askSscMem = Ether.ask
 
 -- | Run 'SscHolder' reading GState from DB (restoring from blocks)
 -- and using default (uninitialized) local state.
@@ -116,7 +59,7 @@ runSscHolder
     => SscState ssc
     -> SscHolder ssc m a
     -> m a
-runSscHolder st holder = runReaderT (getSscHolder holder) st
+runSscHolder st holder = Ether.runReaderT holder st
 
 mkStateAndRunSscHolder
     :: forall ssc m a.
@@ -150,4 +93,4 @@ mkSscHolderState = do
 
 ignoreSscHolder :: SscHolder ssc m a -> m a
 ignoreSscHolder holder =
-    runReaderT (getSscHolder holder) (error "SSC var: don't force me")
+    Ether.runReaderT holder (error "SSC var: don't force me")

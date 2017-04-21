@@ -55,6 +55,8 @@ instance MonadContext m => MonadContext (StateT s m) where
 instance MonadContext m => MonadContext (ExceptT s m) where
     type ContextType (ExceptT s m) = ContextType m
 
+instance MonadContext m => MonadContext (Ether.ReaderT t s m) where
+    type ContextType (Ether.ReaderT t s m) = ContextType m
 instance MonadContext m => MonadContext (Ether.StateT t s m) where
     type ContextType (Ether.StateT t s m) = ContextType m
 

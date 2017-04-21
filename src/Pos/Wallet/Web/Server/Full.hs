@@ -13,6 +13,7 @@ import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
 import           Mockable                      (runProduction)
 import           Network.Wai                   (Application)
+import           Pos.Ssc.Extra.Class           (MonadSscMem (..))
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import           System.Wlog                   (logInfo, usingLoggerName)
@@ -37,7 +38,7 @@ import           Pos.Slotting                  (NtpSlotting (..), NtpSlottingVar
                                                 SlottingHolder (..), SlottingVar,
                                                 runNtpSlotting, runSlottingHolder)
 import           Pos.Ssc.Class                 (SscConstraint)
-import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolder)
+import           Pos.Ssc.Extra                 (SscState, runSscHolder)
 import           Pos.Txp                       (GenericTxpLocalData, askTxpMem,
                                                 runTxpHolder)
 import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
@@ -74,11 +75,11 @@ type WebHandler ssc = WalletWebSockets (WalletWebDB (RawRealMode ssc))
 nat :: WebHandler ssc (WebHandler ssc :~> Handler)
 nat = do
     ws         <- getWalletWebState
-    kinst      <- lift . lift . lift $ getKademliaDHTInstance
+    kinst      <- getKademliaDHTInstance
     tlw        <- askTxpMem
-    ssc        <- lift . lift . lift . lift . lift . lift $ SscHolder ask
+    ssc        <- askSscMem
     delWrap    <- askDelegationState
-    psCtx      <- lift . lift $ getAllStates
+    psCtx      <- getAllStates
     nc         <- getNodeContext
     modernDB   <- getNodeDBs
     conn       <- getWalletWebSockets

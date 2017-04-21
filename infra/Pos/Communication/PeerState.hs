@@ -49,7 +49,10 @@ class WithPeerState m where
     clearPeerState :: PeerId -> m ()
     getAllStates   :: m PeerStateSnapshot
 
-instance (Monad m, WithPeerState m) => WithPeerState (ReaderT r m) where
+instance {-# OVERLAPPABLE #-}
+  (WithPeerState m, Monad m, MonadTrans t, Monad (t m),
+   SharedAtomicT m ~ SharedAtomicT (t m)) =>
+  WithPeerState (t m) where
     getPeerState = lift . getPeerState
     clearPeerState = lift . clearPeerState
     getAllStates = lift getAllStates

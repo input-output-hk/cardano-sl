@@ -35,16 +35,12 @@ import           Pos.DB                      (MonadDB)
 import qualified Pos.DB.Block                as DB
 import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
-import           Pos.Delegation              (DelegationT (..))
 import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
 import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Shutdown                (triggerShutdown)
-import           Pos.Slotting                (MonadSlots (..), NtpSlotting,
-                                              SlottingHolder, getLastKnownSlotDuration)
+import           Pos.Slotting                (MonadSlots (..), getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
-import           Pos.Ssc.Extra               (SscHolder (..))
-import           Pos.Txp                     (TxpHolder (..), filterUtxoByAddr,
-                                              runUtxoStateT)
+import           Pos.Txp                     (filterUtxoByAddr, runUtxoStateT)
 import           Pos.Types                   (BlockHeader, ChainDifficulty, difficultyL,
                                               flattenEpochOrSlot, flattenSlotId)
 import           Pos.Update                  (ConfirmedProposalState (..))
@@ -172,18 +168,9 @@ class Monad m => MonadUpdates m where
                             => m ()
     applyLastUpdate = lift applyLastUpdate
 
-instance MonadUpdates m => MonadUpdates (ReaderT r m)
-instance MonadUpdates m => MonadUpdates (StateT s m)
-instance MonadUpdates m => MonadUpdates (KademliaDHT m)
-instance MonadUpdates m => MonadUpdates (KeyStorage m)
-instance MonadUpdates m => MonadUpdates (PeerStateHolder m)
-instance MonadUpdates m => MonadUpdates (NtpSlotting m)
-instance MonadUpdates m => MonadUpdates (SlottingHolder m)
-
-deriving instance MonadUpdates m => MonadUpdates (TxpHolder __ m)
-deriving instance MonadUpdates m => MonadUpdates (SscHolder ssc m)
-deriving instance MonadUpdates m => MonadUpdates (DelegationT m)
-deriving instance MonadUpdates m => MonadUpdates (WalletWebDB m)
+instance {-# OVERLAPPABLE #-}
+  (MonadUpdates m, MonadTrans t, Monad (t m)) =>
+  MonadUpdates (t m)
 
 -- | Dummy instance for lite-wallet
 instance MonadIO m => MonadUpdates (WalletDB m) where

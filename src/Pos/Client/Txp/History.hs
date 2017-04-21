@@ -33,7 +33,6 @@ import qualified Data.DList                  as DL
 import           Data.Tagged                 (Tagged (..))
 import           System.Wlog                 (WithLogger)
 
-import           Pos.Communication.PeerState (PeerStateHolder)
 import           Pos.Constants               (blkSecurityParam)
 import qualified Pos.Context                 as PC
 import           Pos.Crypto                  (WithHash (..), withHash)
@@ -41,11 +40,8 @@ import           Pos.DB                      (MonadDB)
 import qualified Pos.DB.Block                as DB
 import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
-import           Pos.Delegation              (DelegationT (..))
-import           Pos.DHT.Real                (KademliaDHT (..))
-import           Pos.Slotting                (MonadSlots, NtpSlotting, SlottingHolder)
+import           Pos.Slotting                (MonadSlots)
 import           Pos.Ssc.Class               (SscHelpersClass)
-import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.WorkMode                (TxpExtra_TMP)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer                (eTxProcessTransaction)
@@ -181,16 +177,9 @@ class Monad m => MonadTxHistory m where
     default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()
     saveTx = lift . saveTx
 
-instance MonadTxHistory m => MonadTxHistory (ReaderT r m)
-instance MonadTxHistory m => MonadTxHistory (StateT s m)
-instance MonadTxHistory m => MonadTxHistory (KademliaDHT m)
-instance MonadTxHistory m => MonadTxHistory (PeerStateHolder m)
-instance MonadTxHistory m => MonadTxHistory (NtpSlotting m)
-instance MonadTxHistory m => MonadTxHistory (SlottingHolder m)
-
-deriving instance MonadTxHistory m => MonadTxHistory (PC.ContextHolder ssc m)
-deriving instance MonadTxHistory m => MonadTxHistory (SscHolder ssc m)
-deriving instance MonadTxHistory m => MonadTxHistory (DelegationT m)
+instance {-# OVERLAPPABLE #-}
+  (MonadTxHistory m, MonadTrans t, Monad (t m)) =>
+  MonadTxHistory (t m)
 
 instance ( MonadDB m
          , MonadThrow m

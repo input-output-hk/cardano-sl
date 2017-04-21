@@ -3,6 +3,7 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Util.Util
        (
@@ -58,7 +59,7 @@ import           Data.Time.Units            (Attosecond, Day, Femtosecond, Fortn
                                              Nanosecond, Picosecond, Second, Week,
                                              toMicroseconds)
 import qualified Language.Haskell.TH.Syntax       as TH
-import           Mockable.Class             (MFunctor'(..))
+import           Mockable.Class             (Mockable(..), MFunctor'(..))
 import qualified Prelude
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 import           System.Wlog                      (CanLog, HasLoggerName (..))
@@ -162,6 +163,11 @@ instance
 instance {-# OVERLAPPABLE #-}
   (Monad m, MFunctor t) => MFunctor' t m n where
     hoist' = hoist
+
+instance
+  (Mockable d (t m), MFunctor' d (Ether.TaggedTrans tag t m) (t m), Monad (t m)) =>
+  Mockable d (Ether.TaggedTrans tag t m) where
+    liftMockable dmt = Ether.pack $ liftMockable $ hoist' Ether.unpack dmt
 
 ----------------------------------------------------------------------------
 -- Not instances

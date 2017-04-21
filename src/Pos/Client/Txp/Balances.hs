@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Client.Txp.Balances
        ( MonadBalances(..)
@@ -10,14 +11,8 @@ import           Control.Monad.Trans         (MonadTrans)
 import qualified Data.HashMap.Strict         as HM
 
 import qualified Data.Map                    as M
-import           Pos.Communication.PeerState (PeerStateHolder)
-import qualified Pos.Context                 as PC
 import           Pos.DB                      (MonadDB)
 import qualified Pos.DB.GState               as GS
-import           Pos.Delegation              (DelegationT (..))
-import           Pos.DHT.Real                (KademliaDHT (..))
-import           Pos.Slotting                (NtpSlotting, SlottingHolder)
-import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp                     (TxOutAux (..), TxpHolder (..), Utxo,
                                               addrBelongsTo, getUtxoModifier, txOutValue)
 import           Pos.Types                   (Address, Coin, sumCoins,
@@ -36,16 +31,9 @@ class Monad m => MonadBalances m where
     default getOwnUtxo :: (MonadTrans t, MonadBalances m', t m' ~ m) => Address -> m Utxo
     getOwnUtxo = lift . getOwnUtxo
 
-instance MonadBalances m => MonadBalances (ReaderT r m)
-instance MonadBalances m => MonadBalances (StateT s m)
-instance MonadBalances m => MonadBalances (KademliaDHT m)
-instance MonadBalances m => MonadBalances (PeerStateHolder m)
-instance MonadBalances m => MonadBalances (NtpSlotting m)
-instance MonadBalances m => MonadBalances (SlottingHolder m)
-
-deriving instance MonadBalances m => MonadBalances (PC.ContextHolder ssc m)
-deriving instance MonadBalances m => MonadBalances (SscHolder ssc m)
-deriving instance MonadBalances m => MonadBalances (DelegationT m)
+instance {-# OVERLAPPABLE #-}
+  (MonadBalances m, MonadTrans t, Monad (t m)) =>
+  MonadBalances (t m)
 
 instance (MonadDB m, MonadMask m) => MonadBalances (TxpHolder __ m) where
     getOwnUtxo addr = do

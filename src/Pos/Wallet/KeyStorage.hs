@@ -34,7 +34,6 @@ import           Universum
 import           Pos.Binary.Crypto           ()
 import           Pos.Client.Txp.Balances     (MonadBalances)
 import           Pos.Client.Txp.History      (MonadTxHistory)
-import           Pos.Communication.PeerState (PeerStateHolder)
 import           Pos.Context                 (ContextHolder (..), NodeContext (..),
                                               WithNodeContext (..))
 import           Pos.Crypto                  (EncryptedSecretKey, PassPhrase, SecretKey,
@@ -42,13 +41,8 @@ import           Pos.Crypto                  (EncryptedSecretKey, PassPhrase, Se
 import           Pos.DB                      (MonadDB)
 import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.Delegation.Holder       (DelegationT (..))
-import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Reporting.MemState      (MonadReportingMem)
-import           Pos.Slotting                (MonadSlots, MonadSlotsData, NtpSlotting,
-                                              SlottingHolder)
-import           Pos.Ssc.Extra               (SscHolder (..))
-import           Pos.Txp                     (TxpHolder (..))
+import           Pos.Slotting                (MonadSlots, MonadSlotsData)
 import           Pos.Util                    ()
 import           Pos.Util.UserSecret         (UserSecret, peekUserSecret, usKeys,
                                               usPrimKey, writeUserSecret)
@@ -79,15 +73,9 @@ class Monad m => MonadKeys m where
     default deleteSecretKey :: (MonadTrans t, MonadKeys m', t m' ~ m) => Word -> m ()
     deleteSecretKey = lift . deleteSecretKey
 
--- | Instances for common transformers
-instance MonadKeys m => MonadKeys (ReaderT r m)
-instance MonadKeys m => MonadKeys (StateT s m)
-
--- | Instances for ancestor in the monadic stack
-instance MonadKeys m => MonadKeys (KademliaDHT m)
-instance MonadKeys m => MonadKeys (PeerStateHolder m)
-instance MonadKeys m => MonadKeys (NtpSlotting m)
-instance MonadKeys m => MonadKeys (SlottingHolder m)
+instance {-# OVERLAPPABLE #-}
+  (MonadKeys m, MonadTrans t, Monad (t m)) =>
+  MonadKeys (t m)
 
 -- | Helper for generating a new secret key
 newSecretKey :: (MonadIO m, MonadKeys m) => PassPhrase -> m EncryptedSecretKey
@@ -209,8 +197,3 @@ instance (MonadIO m, MonadThrow m) =>
         whenM (not . (`containsKey` sk) <$> use usKeys) $
             usKeys <>= [sk]
     deleteSecretKey (fromIntegral -> i) = usKeys %= deleteAt i
-
--- | Derived instances for ancestors in monad stack
-deriving instance MonadKeys m => MonadKeys (SscHolder ssc m)
-deriving instance MonadKeys m => MonadKeys (TxpHolder __ m)
-deriving instance MonadKeys m => MonadKeys (DelegationT m)

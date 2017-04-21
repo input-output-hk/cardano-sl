@@ -38,7 +38,6 @@ import           Pos.Aeson.ClientTypes          ()
 import           Pos.Communication.PeerState    (WithPeerState)
 import           Pos.DB                         (MonadDB)
 import           Pos.DB.Limits                  (MonadDBLimits)
-import           Pos.Delegation.Class           (MonadDelegation)
 import           Pos.DHT.Model                  (MonadDHT)
 import           Pos.Slotting                   (MonadSlots, MonadSlotsData)
 import           Pos.Txp                        (MonadTxpMem)
@@ -106,7 +105,7 @@ newtype WalletWebSockets m a = WalletWebSockets
                 MonadDHT, MonadSlots, MonadSlotsData,
                 CanLog, MonadKeys, MonadBalances, MonadUpdates,
                 MonadTxHistory, MonadBlockchainInfo, WithPeerState,
-                MonadDB, MonadTxpMem x, MonadDelegation,
+                MonadDB, MonadTxpMem x,
                 LiftLocal)
 
 instance Monad m => WrappedM (WalletWebSockets m) where

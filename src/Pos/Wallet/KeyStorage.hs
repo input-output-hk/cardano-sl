@@ -45,7 +45,6 @@ import           Pos.Crypto                       (EncryptedSecretKey, PassPhras
                                                    SecretKey, hash, safeKeyGen)
 import           Pos.DB                           (MonadDB)
 import           Pos.DB.Limits                    (MonadDBLimits)
-import           Pos.Delegation.Class             (MonadDelegation)
 import           Pos.Slotting                     (MonadSlots, MonadSlotsData)
 import           Pos.Util                         ()
 import           Pos.Util.Context                 (ContextTagK (..))
@@ -117,7 +116,7 @@ newtype KeyStorage m a = KeyStorage
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, CanLog, MonadMask,
                 MonadReader KeyData, MonadDB,
-                MonadDelegation, MonadTrans, MonadBase io, MonadFix,
+                MonadTrans, MonadBase io, MonadFix,
                 MonadDBLimits,
                 MonadTxHistory, MonadBalances, LiftLocal)
 

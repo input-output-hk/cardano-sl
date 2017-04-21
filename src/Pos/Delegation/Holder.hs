@@ -1,93 +1,29 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ConstraintKinds      #-}
 
 -- | Definitions for class of monads that capture logic of processing
 -- delegate certificates (proxy secret keys).
 
 module Pos.Delegation.Holder
-       ( DelegationT (..)
+       ( DelegationT
        , runDelegationT
        , runDelegationTFromTVar
        ) where
 
-import           Control.Lens                   (iso)
-import           Control.Monad.Fix              (MonadFix)
-import           Control.Monad.Trans.Class      (MonadTrans)
-import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
-                                                 MFunctor', Mockable (liftMockable),
-                                                 Promise, SharedAtomicT, SharedExclusiveT,
-                                                 ThreadId, liftMockableWrappedM)
-import           Serokell.Util.Lens             (WrappedM (..))
-import           System.Wlog                    (CanLog, HasLoggerName)
+import qualified Control.Monad.Ether.Implicit as Ether
+import           Pos.Delegation.Class           (DelegationWrap (..))
 import           Universum
 
-import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
-import           Pos.DB.Class                   (MonadDB, MonadDBCore)
-import           Pos.DB.Limits                  (MonadDBLimits)
-import           Pos.Delegation.Class           (DelegationWrap (..),
-                                                 MonadDelegation (..))
-import           Pos.Slotting.Class             (MonadSlots)
-import           Pos.Slotting.MemState          (MonadSlotsData)
-import           Pos.Ssc.Extra                  (MonadSscMem (..))
-import           Pos.Txp.MemState.Class         (MonadTxpMem (..))
-import           Pos.Util.JsonLog               (MonadJL (..))
-
-
-type ReaderTCtx = TVar DelegationWrap
 
 -- | Wrapper of @ReaderT (TVar DelegationWrap)@, nothing smart.
-newtype DelegationT m a = DelegationT
-    { getDelegationT :: ReaderT ReaderTCtx m a
-    } deriving ( Functor
-               , Applicative
-               , Monad
-               , MonadTrans
-               , MonadFix
-               , MonadThrow
-               , MonadSlots
-               , MonadCatch
-               , MonadIO
-               , MonadFail
-               , HasLoggerName
-               , MonadJL
-               , CanLog
-               , MonadMask
-               , MonadSscMem kek
-               , MonadSlotsData
-               , MonadTxpMem x
-               , MonadDB
-               , MonadDBLimits
-               , MonadDBCore
-               , LiftLocal
-               )
-
-instance (Monad m) => MonadDelegation (DelegationT m) where
-    askDelegationState = DelegationT ask
-
-instance Monad m => WrappedM (DelegationT m) where
-    type UnwrappedM (DelegationT m) = ReaderT ReaderTCtx m
-    _WrappedM = iso getDelegationT DelegationT
-
-type instance ThreadId (DelegationT m) = ThreadId m
-type instance Promise (DelegationT m) = Promise m
-type instance SharedAtomicT (DelegationT m) = SharedAtomicT m
-type instance Counter (DelegationT m) = Counter m
-type instance Distribution (DelegationT m) = Distribution m
-type instance SharedExclusiveT (DelegationT m) = SharedExclusiveT m
-type instance Gauge (DelegationT m) = Gauge m
-type instance ChannelT (DelegationT m) = ChannelT m
-
-instance ( Mockable d m
-         , MFunctor' d (ReaderT ReaderTCtx m) m
-         , MFunctor' d (DelegationT m) (ReaderT ReaderTCtx m)
-         ) => Mockable d (DelegationT m) where
-    liftMockable = liftMockableWrappedM
+type DelegationT = Ether.ReaderT (TVar DelegationWrap)
 
 -- | Executes delegationT transformer creating tvar from given wrap.
 runDelegationT :: MonadIO m => DelegationWrap -> DelegationT m a -> m a
 runDelegationT wrap action =
-    liftIO (newTVarIO wrap) >>= runReaderT (getDelegationT action)
+    liftIO (newTVarIO wrap) >>= Ether.runReaderT action
 
 -- | Executes delegation wrap using existing delegation wrap tvar.
 runDelegationTFromTVar :: TVar DelegationWrap -> DelegationT m a -> m a
-runDelegationTFromTVar var action = runReaderT (getDelegationT action) var
+runDelegationTFromTVar = flip Ether.runReaderT

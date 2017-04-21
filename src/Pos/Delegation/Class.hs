@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Definitions for class of monads that capture logic of processing
@@ -12,12 +13,13 @@ module Pos.Delegation.Class
        , dwProxySKPool
        , dwEpochId
        , dwThisEpochPosted
-       , MonadDelegation (..)
+       , MonadDelegation
+       , askDelegationState
        ) where
 
+import qualified Control.Monad.Ether.Implicit as Ether
 import           Control.Concurrent.STM    (TVar)
 import           Control.Lens              (makeLenses)
-import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Default              (Default (def))
 import qualified Data.HashMap.Strict       as HM
 import qualified Data.HashSet              as HS
@@ -64,14 +66,7 @@ instance Default DelegationWrap where
 -- we're locking on the whole delegation wrap at once. Locking on
 -- independent components is better in performance, so there's a place
 -- for optimization here.
-class (Monad m) => MonadDelegation m where
-    askDelegationState :: m (TVar DelegationWrap)
-    -- ^ Retrieves 'TVar' on 'DelegationWrap'
+type MonadDelegation = Ether.MonadReader (TVar DelegationWrap)
 
-    default askDelegationState
-        :: (MonadTrans t, MonadDelegation m', t m' ~ m) => m (TVar DelegationWrap)
-    askDelegationState = lift askDelegationState
-    -- ^ Default implementation for 'MonadTrans'
-
-instance {-# OVERLAPPABLE #-}
-  (MonadDelegation m, MonadTrans t, Monad (t m)) => MonadDelegation (t m)
+askDelegationState :: MonadDelegation m => m (TVar DelegationWrap)
+askDelegationState = Ether.ask

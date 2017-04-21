@@ -65,7 +65,7 @@ import qualified Pos.DB.Block                 as DB
 import qualified Pos.DB.DB                    as DB
 import qualified Pos.DB.GState                as GS
 import qualified Pos.DB.Misc                  as Misc
-import           Pos.Delegation.Class         (DelegationWrap, MonadDelegation (..),
+import           Pos.Delegation.Class         (DelegationWrap, MonadDelegation, askDelegationState,
                                                dwConfirmationCache, dwEpochId,
                                                dwMessageCache, dwProxySKPool,
                                                dwThisEpochPosted)

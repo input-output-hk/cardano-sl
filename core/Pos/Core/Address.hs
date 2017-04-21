@@ -34,7 +34,7 @@ import qualified Data.ByteString.Lazy   as BSL (fromStrict, toStrict)
 import           Data.Hashable          (Hashable (..))
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
-import           Formatting             (Format, bprint, build, later, (%))
+import           Formatting             (Format, bprint, build, int, later, (%))
 import           Serokell.Util.Base16   (base16F)
 import           Universum
 
@@ -44,7 +44,7 @@ import           Pos.Binary.Crypto      ()
 import           Pos.Core.Types         (AddrPkAttrs (..), Address (..), AddressHash,
                                          Script, StakeholderId)
 import           Pos.Crypto             (AbstractHash (AbstractHash), PublicKey,
-                                         RedeemPublicKey, SecretKey, toPublic)
+                                         RedeemPublicKey, SecretKey, hashHexF, toPublic)
 import           Pos.Crypto.HD          (HDAddressPayload, HDPassphrase,
                                          deriveHDPublicKey, deriveHDSecretKey,
                                          packHDAddressAttr)
@@ -158,13 +158,13 @@ instance Buildable AddrPkAttrs where
 addressDetailedF :: Format r (Address -> r)
 addressDetailedF = later $ \case
     PubKeyAddress x attrs ->
-        bprint ("PubKeyAddress "%build%" (attrs: "%build%")") x attrs
+        bprint ("PubKeyAddress "%hashHexF%" (attrs: "%build%")") x attrs
     ScriptAddress x ->
-        bprint ("ScriptAddress "%build) x
+        bprint ("ScriptAddress "%hashHexF) x
     RedeemAddress x ->
-        bprint ("RedeemAddress "%build) x
+        bprint ("RedeemAddress "%hashHexF) x
     UnknownAddressType t bs ->
-        bprint ("UnknownAddressType "%build%" "%base16F) t bs
+        bprint ("UnknownAddressType "%int%" "%base16F) t bs
 
 ----------------------------------------------------------------------------
 -- Hashing

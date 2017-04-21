@@ -648,7 +648,7 @@ instance FromHttpApiData CAddress where
     parseUrlPiece = fmap addressToCAddress . decodeTextAddress
 
 -- FIXME: unsafe (temporary, will be removed probably in future)
--- we are not checking is receaved Text really vald CTxId
+-- we are not checking whether received Text is really valid CTxId
 instance FromHttpApiData CTxId where
     parseUrlPiece = pure . mkCTxId
 

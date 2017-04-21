@@ -18,8 +18,8 @@ module Pos.Util.Context
 
 import           Universum
 
-import           Control.Lens                     (Getting)
-import qualified Control.Monad.Ether.Implicit     as Ether
+import           Control.Lens                 (Getting)
+import qualified Control.Monad.Ether.Implicit as Ether
 
 class ContextPart s a where
     contextPart :: Lens' s a

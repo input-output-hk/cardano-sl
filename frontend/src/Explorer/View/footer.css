@@ -11,6 +11,7 @@
   background-color: var(--color2);
 
   &__container {
+    lost-utility: clearfix;
   }
 
   &__top {
@@ -65,7 +66,7 @@
   &__bottom {
     @extend .outer-container;
     color: color(var(--color0) a(0.5));
-    padding: 24px 18px;
+    padding: 0 18px;
 
     .content {
       height: var(--height-footer-bottom);
@@ -117,7 +118,6 @@
         font-family: var(--fontFamily0-Regular);
         font-size: 8px;
         box-sizing: border-box;
-        padding: 20px 0;
         text-transform: uppercase;
         box-item: center;
       }

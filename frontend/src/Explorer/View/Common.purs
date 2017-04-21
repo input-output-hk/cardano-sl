@@ -16,6 +16,8 @@ module Explorer.View.Common (
     , mkEmptyViewProps
     , txEmptyContentView
     , noData
+    , logoView
+    , clickableLogoView
     ) where
 
 import Prelude
@@ -37,7 +39,7 @@ import Pos.Core.Types (Coin(..))
 import Pos.Explorer.Web.ClientTypes (CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, ctbId, ctbInputs, ctbOutputs, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
 import Pux.Html (Html, text, div, p, span, input) as P
-import Pux.Html.Attributes (className, value, disabled, type_, min, max) as P
+import Pux.Html.Attributes (className, href, value, disabled, type_, min, max) as P
 import Pux.Html.Events (onChange, onFocus, FormEvent, MouseEvent, Target, onClick) as P
 import Pux.Router (link) as P
 
@@ -286,6 +288,33 @@ txEmptyContentView :: Language -> P.Html Action
 txEmptyContentView lang = P.div
                         [ P.className "tx-empty__container" ]
                         [ P.text $ translate (I18nL.tx <<< I18nL.txEmpty) lang ]
+
+-- -----------------
+-- logo
+-- -----------------
+
+logoView' :: Maybe Route -> P.Html Action
+logoView' mRoute =
+    let logoContentTag = case mRoute of
+                              Just route -> P.link (toUrl route)
+                              Nothing -> P.div
+    in
+    P.div
+        [ P.className "logo__container"]
+        [ P.div
+            [ P.className "logo__wrapper"]
+            [ logoContentTag
+                [ P.className "logo__img bg-logo"
+                , P.href "/"]
+                []
+            ]
+        ]
+
+logoView :: P.Html Action
+logoView = logoView' Nothing
+
+clickableLogoView :: Route -> P.Html Action
+clickableLogoView = logoView' <<< Just
 
 -- -----------------
 -- helper

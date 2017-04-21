@@ -3,13 +3,13 @@ module Explorer.View.Header (headerView) where
 import Prelude
 import Data.Lens ((^.))
 import Explorer.Lenses.State (gViewMobileMenuOpenend, gViewTitle, globalViewState, viewStates)
-import Explorer.Routes (Route(Dashboard), toUrl)
+import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
+import Explorer.View.Common (clickableLogoView)
 import Pux.Html (Html, div, header, text) as P
-import Pux.Html.Attributes (className, href) as P
+import Pux.Html.Attributes (className) as P
 import Pux.Html.Events (onClick) as P
-import Pux.Router (link) as P
 
 headerView :: State -> P.Html Action
 headerView state =
@@ -22,16 +22,7 @@ headerView state =
             [ P.className "explorer-header__top"]
             [ P.div
                 [ P.className "explorer-header__container" ]
-                [ P.div
-                    [ P.className "logo__container"]
-                    [ P.div
-                        [ P.className "logo__wrapper"]
-                        [ P.link (toUrl Dashboard)
-                            [ P.className "logo__img bg-logo"
-                            , P.href "/"]
-                            []
-                        ]
-                    ]
+                [ clickableLogoView Dashboard
                 -- desktop views
                 , P.div
                     [ P.className "nav__container" ]

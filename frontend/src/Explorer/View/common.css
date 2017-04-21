@@ -297,3 +297,13 @@
 
   }
 }
+
+.logo__wrapper {
+  box: horizontal;
+}
+
+.logo__img {
+  box-item: center;
+  background-repeat: no-repeat;
+  background-position: center center;
+}

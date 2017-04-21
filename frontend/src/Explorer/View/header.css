@@ -10,6 +10,7 @@
   background-size: 100% var(--min-height-header-bg-image);
 
   &__container {
+    lost-utility: clearfix;
     padding: 0 18px;
   }
 
@@ -38,15 +39,11 @@
 
     .logo__wrapper {
       height: 100%;
-      box: horizontal;
     }
 
     .logo__img {
       width: 39px;
       height: 36px;
-      box-item: center;
-      background-repeat: no-repeat;
-      background-position: center center;
     }
 
     @media (--md) {

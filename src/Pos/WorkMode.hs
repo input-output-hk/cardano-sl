@@ -38,7 +38,7 @@ import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Delegation.Holder       (DelegationT (..))
 import           Pos.DHT.MemState            (MonadDhtMem)
 import           Pos.DHT.Model               (MonadDHT)
-import           Pos.DHT.Real                (KademliaDHT (..), WithKademliaDHTInstance)
+import           Pos.DHT.Real                (KademliaDHT, WithKademliaDHTInstance)
 import           Pos.Lrc.Context             (LrcContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)

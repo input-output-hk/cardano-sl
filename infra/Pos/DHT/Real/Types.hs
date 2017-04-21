@@ -2,7 +2,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.DHT.Real.Types
-       ( KademliaDHT (..)
+       ( KademliaDHT
+       , asksKademliaDHT
        , KademliaDHTInstance (..)
        , KademliaDHTInstanceConfig (..)
        , DHTHandle
@@ -12,26 +13,17 @@ module Pos.DHT.Real.Types
 import           Universum                 hiding (fromStrict, toStrict)
 
 import           Control.Concurrent.STM    (TVar)
-import           Control.Lens              (iso)
-import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Fix         (MonadFix)
-import           Control.Monad.Morph       (MFunctor)
+import qualified Control.Monad.Ether.Implicit as Ether
 import           Control.Monad.Trans.Class (MonadTrans)
 import qualified Data.ByteString           as BS
 import           Data.ByteString.Lazy      (fromStrict, toStrict)
-
 import           Mockable                  (ChannelT, Counter, Distribution, Gauge, Gauge,
-                                            MFunctor', Mockable (liftMockable), Promise,
-                                            SharedAtomicT, SharedExclusiveT,
-                                            SharedExclusiveT, ThreadId,
-                                            liftMockableWrappedM)
+                                            Promise, SharedAtomicT, SharedExclusiveT,
+                                            SharedExclusiveT, ThreadId)
 import qualified Network.Kademlia          as K
-import           Serokell.Util.Lens        (WrappedM (..))
-import           System.Wlog               (CanLog, HasLoggerName)
 
 import           Pos.Binary.Class          (Bi (..), decodeOrFail, encode)
 import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..))
-import           Pos.Util.Context          (MonadContext (..))
 
 toBSBinary :: Bi b => b -> BS.ByteString
 toBSBinary = toStrict . encode
@@ -72,13 +64,7 @@ data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
     } deriving (Show)
 
 -- | Node of /Kademlia DHT/ algorithm with access to 'KademliaDHTContext'.
-newtype KademliaDHT m a = KademliaDHT
-    { unKademliaDHT :: ReaderT KademliaDHTInstance m a
-    } deriving (Functor, Applicative, Monad, MonadFail, MonadThrow, MonadCatch, MonadIO,
-                MonadMask, CanLog, HasLoggerName, MonadTrans, MonadFix, MFunctor)
-
-instance MonadContext m => MonadContext (KademliaDHT m) where
-    type ContextType (KademliaDHT m) = ContextType m
+type KademliaDHT = Ether.ReaderT KademliaDHTInstance
 
 -- | Class for getting KademliaDHTInstance from 'KademliaDHT'
 class Monad m => WithKademliaDHTInstance m where
@@ -89,12 +75,18 @@ class Monad m => WithKademliaDHTInstance m where
       => m KademliaDHTInstance
     getKademliaDHTInstance = lift getKademliaDHTInstance
 
+asksKademliaDHT
+  :: WithKademliaDHTInstance m
+  => (KademliaDHTInstance -> a)
+  -> m a
+asksKademliaDHT g = g <$> getKademliaDHTInstance
+
 instance {-# OVERLAPPABLE #-}
   (WithKademliaDHTInstance m, MonadTrans t, Monad (t m)) =>
   WithKademliaDHTInstance (t m)
 
 instance Monad m => WithKademliaDHTInstance (KademliaDHT m) where
-    getKademliaDHTInstance = KademliaDHT ask
+    getKademliaDHTInstance = Ether.ask
 
 type instance ThreadId (KademliaDHT m) = ThreadId m
 type instance Promise (KademliaDHT m) = Promise m
@@ -104,13 +96,3 @@ type instance Distribution (KademliaDHT m) = Distribution m
 type instance SharedExclusiveT (KademliaDHT m) = SharedExclusiveT m
 type instance Gauge (KademliaDHT m) = Gauge m
 type instance ChannelT (KademliaDHT m) = ChannelT m
-
-instance ( Mockable d m
-         , MFunctor' d (ReaderT KademliaDHTInstance m) m
-         , MFunctor' d (KademliaDHT m) (ReaderT KademliaDHTInstance m)
-         ) => Mockable d (KademliaDHT m) where
-    liftMockable = liftMockableWrappedM
-
-instance Monad m => WrappedM (KademliaDHT m) where
-    type UnwrappedM (KademliaDHT m) = ReaderT KademliaDHTInstance m
-    _WrappedM = iso unKademliaDHT KademliaDHT

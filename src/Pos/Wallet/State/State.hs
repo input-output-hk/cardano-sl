@@ -27,7 +27,7 @@ import           Pos.Communication.PeerState (PeerStateHolder)
 import           Serokell.Data.Memory.Units  (Byte)
 import           Universum
 
-import           Pos.DHT.Real.Types          (KademliaDHT (..))
+import           Pos.DHT.Real.Types          (KademliaDHT)
 import           Pos.Txp                     (Tx, Utxo)
 import           Pos.Types                   (HeaderHash)
 

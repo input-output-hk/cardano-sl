@@ -10,6 +10,7 @@ module Pos.DHT.Real.Real
 import           Universum                 hiding (bracket, catchAll)
 
 import           Control.Concurrent.STM    (newTVar, readTVar, writeTVar)
+import qualified Control.Monad.Ether.Implicit as Ether
 import           Data.Binary               (decode)
 import qualified Data.ByteString.Char8     as B8 (unpack)
 import qualified Data.ByteString.Lazy      as BS
@@ -33,11 +34,14 @@ import           Pos.DHT.Model.Class       (DHTException (..), MonadDHT (..),
                                             withDhtLogger)
 import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..), randomDHTKey)
 import           Pos.DHT.Model.Util        (joinNetworkNoThrow)
-import           Pos.DHT.Real.Types        (DHTHandle, KademliaDHT (..),
+import           Pos.DHT.Real.Types        (DHTHandle, KademliaDHT,
+                                            WithKademliaDHTInstance(..),
+                                            asksKademliaDHT,
                                             KademliaDHTInstance (..),
                                             KademliaDHTInstanceConfig (..))
 import           Pos.Util.TimeLimit        (runWithRandomIntervals')
 import           Pos.Util.TimeWarp         (NetworkAddress)
+import           Pos.Util.Util             (ether)
 
 kademliaConfig :: K.KademliaConfig
 kademliaConfig = K.defaultConfig { K.k = 16 }
@@ -50,7 +54,7 @@ runKademliaDHT
        , WithLogger m
        )
     => KademliaDHTInstance -> KademliaDHT m a -> m a
-runKademliaDHT inst action = runReaderT (unKademliaDHT action') inst
+runKademliaDHT inst action = Ether.runReaderT action' inst
   where
     action' = bracket spawnR killThread (const action)
     spawnR = fork $ runWithRandomIntervals' (ms 500) (sec 5) rejoinNetwork
@@ -117,7 +121,7 @@ rejoinNetwork
        )
     => KademliaDHT m ()
 rejoinNetwork = withDhtLogger $ do
-    init <- KademliaDHT $ asks kdiInitialPeers
+    init <- asksKademliaDHT kdiInitialPeers
     peers <- getKnownPeers
     logDebug $ sformat ("rejoinNetwork: peers " % build) peers
     when (length peers < neighborsSendThreshold) $ do
@@ -138,9 +142,9 @@ getKnownPeersImpl
     => KademliaDHT m [DHTNode]
 getKnownPeersImpl = do
     myId <- currentNodeKey
-    (inst, initialPeers, explicitInitial) <-
-        KademliaDHT $
-        (,,) <$> ask <*> asks kdiInitialPeers <*> asks kdiExplicitInitial
+    inst <- getKademliaDHTInstance
+    initialPeers <- asksKademliaDHT kdiInitialPeers
+    explicitInitial <- asksKademliaDHT kdiExplicitInitial
     peers <- liftIO $ K.dumpPeers $ kdiHandle inst
     let initPeers = bool [] initialPeers explicitInitial
     filter ((/= myId) . dhtNodeId) <$> extendPeers inst myId initPeers peers
@@ -188,18 +192,18 @@ instance ( MonadIO m
          MonadDHT (KademliaDHT m) where
     joinNetwork [] = throw AllPeersUnavailable
     joinNetwork nodes = do
-        inst <- KademliaDHT $ asks kdiHandle
-        KademliaDHT $
+        inst <- asksKademliaDHT kdiHandle
+        ether $
             waitAnyUnexceptional (map (joinNetwork' inst) nodes) >>= handleRes
       where
         handleRes (Just _) = pure ()
         handleRes _        = throw AllPeersUnavailable
     discoverPeers = do
-        inst <- KademliaDHT $ asks kdiHandle
+        inst <- asksKademliaDHT kdiHandle
         _ <- liftIO $ K.lookupNode inst =<< randomDHTKey
         getKnownPeers
     getKnownPeers = getKnownPeersImpl
-    currentNodeKey = KademliaDHT $ asks kdiKey
+    currentNodeKey = asksKademliaDHT kdiKey
     dhtLoggerName _ = "kademlia"
 
 

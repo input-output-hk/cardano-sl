@@ -36,7 +36,7 @@ import qualified Pos.DB.Block                as DB
 import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
 import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
-import           Pos.DHT.Real                (KademliaDHT (..))
+import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Shutdown                (triggerShutdown)
 import           Pos.Slotting                (MonadSlots (..), getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)

@@ -38,7 +38,6 @@ import           System.Wlog                      (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Communication.Types.State
-import           Pos.Util.Context                 (MonadContext (..))
 
 type PeerStateCtx m = STM.Map PeerId (SharedAtomicT m PeerState)
 
@@ -90,9 +89,6 @@ instance MonadTrans PeerStateHolder where
 
 instance LiftLocal PeerStateHolder where
   liftLocal _ l f = hoist' (l f)
-
-instance MonadContext m => MonadContext (PeerStateHolder m) where
-    type ContextType (PeerStateHolder m) = ContextType m
 
 -- | Run 'PeerStateHolder' action.
 runPeerStateHolder :: PeerStateCtx m -> PeerStateHolder m a -> m a

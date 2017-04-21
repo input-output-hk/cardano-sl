@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ExistentialQuantification #-}
 
 -- | Runtime context of node.
@@ -17,6 +18,7 @@ import qualified Control.Concurrent.STM  as STM
 import           Data.Time.Clock         (UTCTime)
 import           System.Wlog             (LoggerConfig)
 import           Universum
+import           Control.Lens            (makeLensesFor)
 
 import           Pos.Communication.Relay (RelayInvQueue)
 import           Pos.Communication.Types (NodeId)
@@ -31,7 +33,7 @@ import           Pos.Types               (Address, BlockHeader, HeaderHash, Slot
 import           Pos.Update.Context      (UpdateContext)
 import           Pos.Update.Params       (UpdateParams)
 import           Pos.Util.Chrono         (NE, NewestFirst)
-import           Pos.Util.Context        (ExtractContext (..))
+import           Pos.Util.Context        (ContextPart (..))
 import           Pos.Util.UserSecret     (UserSecret)
 
 ----------------------------------------------------------------------------
@@ -95,14 +97,27 @@ data NodeContext ssc = NodeContext
     -- ^ Leaders of the first epoch
     }
 
-instance ExtractContext UpdateContext (NodeContext ssc) where
-    extractContext = ncUpdateContext
-instance ExtractContext LrcContext (NodeContext ssc) where
-    extractContext = ncLrcContext
-instance ExtractContext NodeParams (NodeContext ssc) where
-    extractContext = ncNodeParams
-instance ExtractContext UpdateParams (NodeContext ssc) where
-    extractContext = npUpdateParams . ncNodeParams
+makeLensesFor
+  [ ("ncUpdateContext", "ncUpdateContextL")
+  , ("ncLrcContext", "ncLrcContextL")
+  , ("ncNodeParams", "ncNodeParamsL") ]
+  ''NodeContext
+
+makeLensesFor
+  [ ("npUpdateParams", "npUpdateParamsL") ]
+  ''NodeParams
+
+instance ContextPart (NodeContext ssc) UpdateContext where
+    contextPart = ncUpdateContextL
+
+instance ContextPart (NodeContext ssc) LrcContext where
+    contextPart = ncLrcContextL
+
+instance ContextPart (NodeContext ssc) NodeParams where
+    contextPart = ncNodeParamsL
+
+instance ContextPart (NodeContext ssc) UpdateParams where
+    contextPart = ncNodeParamsL . npUpdateParamsL
 
 ----------------------------------------------------------------------------
 -- Helper functions

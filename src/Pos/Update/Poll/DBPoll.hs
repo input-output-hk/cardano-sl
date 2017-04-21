@@ -15,6 +15,7 @@ import           Control.Monad.Trans         (MonadTrans (lift))
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
                                               defaultLiftBaseWith, defaultRestoreM)
+import           Control.Monad.Trans.Lift.Local   (LiftLocal (..))
 import qualified Data.HashMap.Strict         as HM
 import           Mockable                    (ChannelT, Counter, Distribution, Gauge,
                                               MFunctor', Mockable (liftMockable), Promise,
@@ -34,7 +35,7 @@ import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Types                   (Coin)
 import qualified Pos.Update.DB               as GS
 import           Pos.Update.Poll.Class       (MonadPollRead (..))
-import           Pos.Util.Context            (HasContext, MonadContext (..))
+import           Pos.Util.Context            (HasContext) 
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 ----------------------------------------------------------------------------
@@ -62,8 +63,8 @@ newtype DBPoll m a = DBPoll
                , MonadDB
                )
 
-instance MonadContext m => MonadContext (DBPoll m) where
-    type ContextType (DBPoll m) = ContextType m
+instance LiftLocal DBPoll where
+  liftLocal _ l f = DBPoll . l f . runDBPoll
 
 ----------------------------------------------------------------------------
 -- Common instances used all over the code

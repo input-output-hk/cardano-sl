@@ -19,14 +19,13 @@ import           Universum                 hiding (catchAll)
 import           Mockable                  (Mockable, Catch, catchAll)
 
 import           Pos.Communication.Relay   (MonadRelayMem (..), RelayContext (..))
-import           Pos.Context.Class         (getNodeContext, NodeContextTagK(..))
+import           Pos.Context.Class         (NodeContextTagK(..))
 import           Pos.Context.Context       (NodeContext (..))
 import           Pos.DHT.MemState          (DhtContext (..), MonadDhtMem (..))
 import           Pos.Launcher.Param        (bpKademliaDump, npBaseParams, npPropagation,
                                             npReportServers)
 import           Pos.Reporting             (MonadReportingMem (..), ReportingContext (..))
 import           Pos.Shutdown              (MonadShutdownMem (..), ShutdownContext (..))
-import           Pos.Util.Context          (MonadContext (..))
 import           Pos.Util.JsonLog          (MonadJL (..), appendJL)
 import           Pos.Util.Util             (ether)
 
@@ -38,10 +37,6 @@ type ContextHolder' = Ether.TaggedTrans 'NodeContextTag
 -- | Run 'ContextHolder' action.
 runContextHolder :: NodeContext ssc -> ContextHolder ssc m a -> m a
 runContextHolder = flip (Ether.E.runReaderT (Proxy @'NodeContextTag))
-
-instance (Monad m) => MonadContext (ContextHolder ssc m) where
-    type ContextType (Ether.TaggedTrans 'NodeContextTag (ReaderT (NodeContext ssc)) m) = NodeContext ssc
-    getFullContext = getNodeContext
 
 instance (MonadIO m, Mockable Catch m, WithLogger m, t ~ ReaderT (NodeContext ssc)) =>
   MonadJL (ContextHolder' t m) where

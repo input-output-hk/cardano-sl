@@ -34,7 +34,6 @@ import           Pos.Slotting.Class             (MonadSlots)
 import           Pos.Slotting.MemState          (MonadSlotsData)
 import           Pos.Ssc.Extra                  (MonadSscMem (..))
 import           Pos.Txp.MemState.Class         (MonadTxpMem (..))
-import           Pos.Util.Context               (MonadContext (..))
 import           Pos.Util.JsonLog               (MonadJL (..))
 
 
@@ -69,9 +68,6 @@ newtype DelegationT m a = DelegationT
                , MonadDBCore
                , LiftLocal
                )
-
-instance MonadContext m => MonadContext (DelegationT m) where
-    type ContextType (DelegationT m) = ContextType m
 
 instance (Monad m) => MonadDelegation (DelegationT m) where
     askDelegationState = DelegationT ask

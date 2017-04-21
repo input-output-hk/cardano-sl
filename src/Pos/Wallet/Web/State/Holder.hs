@@ -32,7 +32,6 @@ import           Pos.Update                     (MonadPollRead)
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Pos.Wallet.Context             (WithWalletContext)
 import           Pos.Wallet.KeyStorage          (MonadKeys)
-import           Pos.Wallet.State               (MonadWalletDB)
 import           Pos.Wallet.Web.State.State     (MonadWalletWebDB (..), WalletState)
 
 -- | Holder for web wallet data
@@ -40,7 +39,7 @@ newtype WalletWebDB m a = WalletWebDB
     { getWalletWebDB :: ReaderT WalletState m a
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData, MonadDB,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName, WithPeerState,
-                MonadWalletDB, WithWalletContext, MonadDHT, MonadSlots, MonadTrans,
+                WithWalletContext, MonadDHT, MonadSlots, MonadTrans,
                 CanLog, MonadKeys, MonadPollRead,
                 MonadTxpMem __, MonadDelegation, MonadReportingMem, LiftLocal)
 

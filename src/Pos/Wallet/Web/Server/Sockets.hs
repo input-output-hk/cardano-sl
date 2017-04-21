@@ -46,7 +46,6 @@ import           Pos.Txp                        (MonadTxpMem)
 
 import           Pos.Wallet.Context             (WithWalletContext)
 import           Pos.Wallet.KeyStorage          (MonadKeys)
-import           Pos.Wallet.State               (MonadWalletDB)
 import           Pos.Wallet.WalletMode          (MonadBalances, MonadBlockchainInfo,
                                                  MonadTxHistory, MonadUpdates)
 import           Pos.Wallet.Web.ClientTypes     (NotifyEvent (ConnectionClosed, ConnectionOpened))
@@ -106,7 +105,7 @@ newtype WalletWebSockets m a = WalletWebSockets
     { getWalletWS :: ReaderT ConnectionsVar m a
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadWalletDB, MonadDBLimits, WithWalletContext,
+                MonadDBLimits, WithWalletContext,
                 MonadDHT, MonadSlots, MonadSlotsData,
                 CanLog, MonadKeys, MonadBalances, MonadUpdates,
                 MonadTxHistory, MonadBlockchainInfo, WithPeerState,

@@ -13,6 +13,7 @@ module Pos.Wallet.KeyStorage
        , runKeyStorageRaw
        ) where
 
+import           Control.Monad.Trans.Lift.Local   (LiftLocal (..))
 import qualified Control.Concurrent.STM           as STM
 import           Control.Lens                     (iso, lens, (%=), (<>=))
 import           Control.Monad.Base               (MonadBase (..))
@@ -51,7 +52,6 @@ import           Pos.Util                         ()
 import           Pos.Util.UserSecret              (UserSecret, peekUserSecret, usKeys,
                                                    usPrimKey, writeUserSecret)
 import           Pos.Wallet.Context               (WithWalletContext)
-import           Pos.Wallet.State.State           (MonadWalletDB)
 
 type KeyData = STM.TVar UserSecret
 
@@ -118,10 +118,10 @@ newtype KeyStorage m a = KeyStorage
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, CanLog, MonadMask,
                 MonadReader KeyData, MonadDB,
-                MonadWalletDB, WithWalletContext,
+                WithWalletContext,
                 MonadDelegation, MonadTrans, MonadBase io, MonadFix,
                 MonadDBLimits, MonadReportingMem,
-                MonadTxHistory, MonadBalances)
+                MonadTxHistory, MonadBalances, LiftLocal)
 
 instance Monad m => WrappedM (KeyStorage m) where
     type UnwrappedM (KeyStorage m) = ReaderT KeyData m

@@ -20,6 +20,7 @@ import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, readTVa
 import           Control.Lens                ((%=), (.=), _Just)
 import           Control.Monad               (forM_, forever, unless, void, when)
 import           Control.Monad.Catch         (Exception)
+import           Control.Monad.Catch         (bracketOnError)
 import           Control.Monad.State         (gets)
 import           Control.Monad.Trans         (MonadIO (..))
 import           Data.Binary                 (decodeOrFail, encode)
@@ -40,6 +41,7 @@ import           Prelude                     hiding (log)
 import           Serokell.Util.Concurrent    (modifyTVarS, threadDelay)
 import           System.Wlog                 (LoggerName, Severity (..), WithLogger,
                                               logMessage, modifyLoggerName)
+import           Universum                   (MonadMask, whenJust)
 
 import           Mockable.Class              (Mockable)
 import           Mockable.Concurrent         (Delay, Fork, delay, fork)
@@ -114,6 +116,7 @@ type NtpMonad m =
     , Mockable Fork m
     , Mockable Throw m
     , Mockable Catch m
+    , MonadMask m
     )
 
 log' :: NtpMonad m => NtpClientSettings m -> Severity -> Text -> m ()
@@ -284,8 +287,7 @@ stopNtpClient cli = do
     forM_ sockets $ \s -> liftIO (close s) `catchAll` (const $ pure ())
 
 startNtpClient :: NtpMonad m => NtpClientSettings m -> m (NtpStopButton m)
-startNtpClient settings = do
-    sock <- mkSockets settings
+startNtpClient settings = bracketOnError (mkSockets settings) closeSockets $ \sock -> do
     cli <- mkNtpClient settings sock
 
     addrs <- catMaybes <$> mapM (resolveHost cli $ socketsToBoolDescr sock) (ntpServers settings)
@@ -298,6 +300,7 @@ startNtpClient settings = do
 
     return $ NtpStopButton $ stopNtpClient cli
   where
+    closeSockets sockets = forM_ (socketsToList sockets) (liftIO . close)
     resolveHost cli sockDescr host = do
         maddr <- liftIO $ resolveNtpHost host sockDescr
         case maddr of
@@ -317,9 +320,6 @@ ntpSingleShot settings = do
     stopButton <- startNtpClient settings
     delay (ntpResponseTimeout settings)
     pressNtpStopButton stopButton
-
-whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
-whenJust val f = maybe (pure ()) f val
 
 -- Store created sockets.
 -- If system supports IPv6 and IPv4 we create socket for IPv4 and IPv6.

@@ -121,6 +121,7 @@ executable cardano-explorer
                      , cardano-sl-infra
                      , cardano-sl-explorer
                      , optparse-simple
+                     , formatting
                      , universum
                      , serokell-util
                      , log-warper

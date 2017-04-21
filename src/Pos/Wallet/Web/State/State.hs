@@ -34,7 +34,7 @@ module Pos.Wallet.Web.State.State
        , updateHistoryCache
        ) where
 
-import qualified Control.Monad.Ether.Implicit     as Ether
+import qualified Control.Monad.Ether.Implicit as Ether
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
                                                UpdateEvent)
 import           Mockable                     (MonadMockable)

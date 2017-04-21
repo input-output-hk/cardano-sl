@@ -4,106 +4,37 @@
 -- | Instance of MoandPollRead which uses DB.
 
 module Pos.Update.Poll.DBPoll
-       ( DBPoll (..)
+       ( DBPoll
+       , runDBPoll
        ) where
 
-import           Control.Lens                   (iso)
-import           Control.Monad.Base             (MonadBase (..))
-import           Control.Monad.Except           (MonadError)
-import           Control.Monad.Fix              (MonadFix)
-import           Control.Monad.Trans            (MonadTrans (lift))
-import           Control.Monad.Trans.Control    (ComposeSt, MonadBaseControl (..),
-                                                 MonadTransControl (..), StM,
-                                                 defaultLiftBaseWith, defaultRestoreM)
-import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
-import qualified Data.HashMap.Strict            as HM
-import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
-                                                 MFunctor', Mockable (liftMockable),
-                                                 Promise, SharedAtomicT, SharedExclusiveT,
-                                                 ThreadId, liftMockableWrappedM)
-import           Pos.Context                    (lrcActionOnEpochReason)
-import           Serokell.Util.Lens             (WrappedM (..))
-import           System.Wlog                    (CanLog, HasLoggerName, WithLogger)
+import           Control.Monad.Trans.Ether.Tagged (TaggedTrans (..))
+import           Control.Monad.Trans.Identity     (IdentityT (..))
+import           Data.Coerce                      (coerce)
+import qualified Data.HashMap.Strict              as HM
+import           Pos.Context                      (lrcActionOnEpochReason)
+import           System.Wlog                      (WithLogger)
 import           Universum
 
-import           Pos.DB.Class                   (MonadDB)
-import           Pos.Delegation.Class           (MonadDelegation)
-import           Pos.Lrc.Context                (LrcContext)
-import           Pos.Lrc.DB                     (getIssuersStakes, getRichmenUS)
-import           Pos.Lrc.Types                  (FullRichmenData)
-import           Pos.Ssc.Extra                  (MonadSscMem)
-import           Pos.Types                      (Coin)
-import qualified Pos.Update.DB                  as GS
-import           Pos.Update.Poll.Class          (MonadPollRead (..))
-import           Pos.Util.Context               (HasContext)
-import           Pos.Util.JsonLog               (MonadJL (..))
+import           Pos.DB.Class                     (MonadDB)
+import           Pos.Lrc.Context                  (LrcContext)
+import           Pos.Lrc.DB                       (getIssuersStakes, getRichmenUS)
+import           Pos.Lrc.Types                    (FullRichmenData)
+import           Pos.Types                        (Coin)
+import qualified Pos.Update.DB                    as GS
+import           Pos.Update.Poll.Class            (MonadPollRead (..))
+import           Pos.Util.Context                 (HasContext)
 
 ----------------------------------------------------------------------------
 -- Transformer
 ----------------------------------------------------------------------------
 
-newtype DBPoll m a = DBPoll
-    { runDBPoll :: m a
-    } deriving ( Functor
-               , Applicative
-               , Monad
-               , MonadThrow
-               , MonadCatch
-               , MonadIO
-               , MonadFail
-               , HasLoggerName
-               , MonadError e
-               , MonadJL
-               , CanLog
-               , MonadMask
-               , MonadSscMem peka
-               , MonadBase io
-               , MonadDelegation
-               , MonadFix
-               , MonadDB
-               )
+data DBPollTag
 
-instance LiftLocal DBPoll where
-  liftLocal _ l f = DBPoll . l f . runDBPoll
+type DBPoll = TaggedTrans DBPollTag IdentityT
 
-----------------------------------------------------------------------------
--- Common instances used all over the code
-----------------------------------------------------------------------------
-
-type instance ThreadId (DBPoll m) = ThreadId m
-type instance Promise (DBPoll m) = Promise m
-type instance SharedAtomicT (DBPoll m) = SharedAtomicT m
-type instance Counter (DBPoll m) = Counter m
-type instance Distribution (DBPoll m) = Distribution m
-type instance SharedExclusiveT (DBPoll m) = SharedExclusiveT m
-type instance Gauge (DBPoll m) = Gauge m
-type instance ChannelT (DBPoll m) = ChannelT m
-
-instance MonadTrans DBPoll where
-    lift = DBPoll
-
-instance ( Mockable d m
-         , MFunctor' d (DBPoll m) m
-         ) => Mockable d (DBPoll m) where
-    liftMockable = liftMockableWrappedM
-
-instance Monad m => WrappedM (DBPoll m) where
-    type UnwrappedM (DBPoll m) = m
-    _WrappedM = iso runDBPoll DBPoll
-
-instance MonadTransControl DBPoll where
-    type StT DBPoll a = a
-    liftWith f = DBPoll $ f $ runDBPoll
-    restoreT = DBPoll
-
-instance MonadBaseControl IO m => MonadBaseControl IO (DBPoll m) where
-    type StM (DBPoll m) a = ComposeSt DBPoll m a
-    liftBaseWith = defaultLiftBaseWith
-    restoreM     = defaultRestoreM
-
-----------------------------------------------------------------------------
--- MonadPoll
-----------------------------------------------------------------------------
+runDBPoll :: DBPoll m a -> m a
+runDBPoll = coerce
 
 instance (MonadDB m, WithLogger m, HasContext LrcContext m) =>
          MonadPollRead (DBPoll m) where

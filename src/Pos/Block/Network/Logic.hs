@@ -32,6 +32,7 @@ import           System.Wlog                (logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication   ()
+import           Pos.Binary.Txp             ()
 import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              ClassifyHeadersRes (..), classifyHeaders,
                                              classifyNewHeader, getHeadersOlderExp,

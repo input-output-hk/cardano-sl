@@ -1,5 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE TemplateHaskell           #-}
 
 -- | Runtime context of node.
 
@@ -15,10 +15,10 @@ module Pos.Context.Context
 
 import           Control.Concurrent.STM  (TBQueue)
 import qualified Control.Concurrent.STM  as STM
+import           Control.Lens            (makeLensesFor)
 import           Data.Time.Clock         (UTCTime)
 import           System.Wlog             (LoggerConfig)
 import           Universum
-import           Control.Lens            (makeLensesFor)
 
 import           Pos.Communication.Relay (RelayInvQueue)
 import           Pos.Communication.Types (NodeId)

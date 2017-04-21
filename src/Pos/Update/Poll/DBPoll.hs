@@ -7,36 +7,36 @@ module Pos.Update.Poll.DBPoll
        ( DBPoll (..)
        ) where
 
-import           Control.Lens                (iso)
-import           Control.Monad.Base          (MonadBase (..))
-import           Control.Monad.Except        (MonadError)
-import           Control.Monad.Fix           (MonadFix)
-import           Control.Monad.Trans         (MonadTrans (lift))
-import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
-                                              MonadTransControl (..), StM,
-                                              defaultLiftBaseWith, defaultRestoreM)
-import           Control.Monad.Trans.Lift.Local   (LiftLocal (..))
-import qualified Data.HashMap.Strict         as HM
-import           Mockable                    (ChannelT, Counter, Distribution, Gauge,
-                                              MFunctor', Mockable (liftMockable), Promise,
-                                              SharedAtomicT, SharedExclusiveT, ThreadId,
-                                              liftMockableWrappedM)
+import           Control.Lens                   (iso)
+import           Control.Monad.Base             (MonadBase (..))
+import           Control.Monad.Except           (MonadError)
+import           Control.Monad.Fix              (MonadFix)
+import           Control.Monad.Trans            (MonadTrans (lift))
+import           Control.Monad.Trans.Control    (ComposeSt, MonadBaseControl (..),
+                                                 MonadTransControl (..), StM,
+                                                 defaultLiftBaseWith, defaultRestoreM)
+import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
+import qualified Data.HashMap.Strict            as HM
+import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
+                                                 MFunctor', Mockable (liftMockable),
+                                                 Promise, SharedAtomicT, SharedExclusiveT,
+                                                 ThreadId, liftMockableWrappedM)
 import           Pos.Context                    (lrcActionOnEpochReason)
-import           Serokell.Util.Lens          (WrappedM (..))
-import           System.Wlog                 (CanLog, HasLoggerName, WithLogger)
+import           Serokell.Util.Lens             (WrappedM (..))
+import           System.Wlog                    (CanLog, HasLoggerName, WithLogger)
 import           Universum
 
-import           Pos.DB.Class                (MonadDB)
-import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.Lrc.Context             (LrcContext)
-import           Pos.Lrc.DB                  (getIssuersStakes, getRichmenUS)
-import           Pos.Lrc.Types               (FullRichmenData)
-import           Pos.Ssc.Extra               (MonadSscMem)
-import           Pos.Types                   (Coin)
-import qualified Pos.Update.DB               as GS
-import           Pos.Update.Poll.Class       (MonadPollRead (..))
-import           Pos.Util.Context            (HasContext) 
-import           Pos.Util.JsonLog            (MonadJL (..))
+import           Pos.DB.Class                   (MonadDB)
+import           Pos.Delegation.Class           (MonadDelegation)
+import           Pos.Lrc.Context                (LrcContext)
+import           Pos.Lrc.DB                     (getIssuersStakes, getRichmenUS)
+import           Pos.Lrc.Types                  (FullRichmenData)
+import           Pos.Ssc.Extra                  (MonadSscMem)
+import           Pos.Types                      (Coin)
+import qualified Pos.Update.DB                  as GS
+import           Pos.Update.Poll.Class          (MonadPollRead (..))
+import           Pos.Util.Context               (HasContext)
+import           Pos.Util.JsonLog               (MonadJL (..))
 
 ----------------------------------------------------------------------------
 -- Transformer

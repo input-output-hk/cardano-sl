@@ -2,48 +2,48 @@
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE PolyKinds            #-}
 {-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
 
 -- | Class which provides access to NodeContext.
 
 module Pos.Context.Class
        ( WithNodeContext
        , getNodeContext
-       , NodeContextTagK(..)
+       , ContextTagK(..)
        ) where
 
-import qualified Control.Monad.Ether as Ether.E
-import qualified Control.Monad.Trans.Ether.Tagged
+import qualified Control.Monad.Ether              as Ether.E
+import           Control.Monad.Trans.Ether.Tagged (TaggedTrans (..))
+import           Data.Coerce                      (coerce)
 import           Universum
-import           Data.Coerce (coerce)
 
-import           Pos.Context.Context (NodeContext)
-import           Pos.Util.Context (ContextPart(..))
+import           Pos.Context.Context              (NodeContext)
+import           Pos.Util.Context                 (ContextPart (..))
 
-data NodeContextTagK = NodeContextTag
+data ContextTagK = ContextTag
 
-instance (ContextPart ctx x, Monad m) =>
-  Ether.E.MonadReader x x (Ether.E.ReaderT 'NodeContextTag ctx m) where
+instance (ContextPart ctx x, Monad m, trans ~ ReaderT ctx) =>
+  Ether.E.MonadReader x x (TaggedTrans 'ContextTag trans m) where
     ask _ =
       (coerce :: forall a.
-        ReaderT ctx m a ->
-        Ether.E.ReaderT 'NodeContextTag ctx m a)
+        trans m a ->
+        Ether.E.ReaderT 'ContextTag ctx m a)
       (view contextPart)
     {-# INLINE ask #-}
 
     local _ f =
       (coerce :: forall a.
-        (ReaderT ctx m a ->
-         ReaderT ctx m a) ->
-        (Ether.E.ReaderT 'NodeContextTag ctx m a ->
-         Ether.E.ReaderT 'NodeContextTag ctx m a))
+        (trans m a ->
+         trans m a) ->
+        (Ether.E.ReaderT 'ContextTag ctx m a ->
+         Ether.E.ReaderT 'ContextTag ctx m a))
       (local (over contextPart f))
     {-# INLINE local #-}
 
 -- | Class for something that has 'NodeContext' inside.
-type WithNodeContext ssc = Ether.E.MonadReader 'NodeContextTag (NodeContext ssc)
+type WithNodeContext ssc = Ether.E.MonadReader 'ContextTag (NodeContext ssc)
 
 getNodeContext :: WithNodeContext ssc m => m (NodeContext ssc)
-getNodeContext = Ether.E.ask (Proxy @'NodeContextTag)
+getNodeContext = Ether.E.ask (Proxy @'ContextTag)

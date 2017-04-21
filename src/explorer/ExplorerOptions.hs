@@ -27,7 +27,8 @@ data Args = Args
     , rebuildDB        :: !Bool
     , keyfilePath      :: !FilePath
     , backupPhrase     :: !(Maybe BackupPhrase)
-    , ipPort           :: !NetworkAddress
+    , ipPort           :: !(Maybe NetworkAddress)
+    , publicHost       :: !(Maybe String)
     , dhtKey           :: !(Maybe DHTKey)
     , timeLord         :: !Bool
     , jlPath           :: !(Maybe FilePath)
@@ -39,7 +40,8 @@ data Args = Args
     , notifierPort     :: !Word16
     }
   deriving Show
-
+    
+-- FIXME: A monadid parser would be more understandable - https://github.com/input-output-hk/cardano-sl/blob/master/src/node/NodeOptions.hs#L64
 argsParser :: Parser Args
 argsParser =
     Args <$>
@@ -61,7 +63,11 @@ argsParser =
             long "backup-phrase" <>
             metavar "PHRASE" <>
             help (show backupPhraseWordsNum ++ "-word phrase to recover the wallet")) <*>
-    CLI.ipPortOption ("0.0.0.0", 3000) <*>
+    optional CLI.networkAddressOption <*>
+    (optional $ strOption $
+        long "pubhost" <>
+        metavar "HOST" <>
+        help "Public host if different from one in --listen") <*>
     optional
         (option (fromParsec CLI.dhtKeyParser) $
          long "dht-key" <> metavar "HOST_ID" <> help "DHT key in base64-url") <*>

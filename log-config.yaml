@@ -1,4 +1,4 @@
-severity: Info
+severity: Debug
 node:
     plugin:
         notifier:

@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Definitions for class of monads that capture logic of processing
 -- delegate certificates (proxy secret keys).
@@ -72,5 +73,5 @@ class (Monad m) => MonadDelegation m where
     askDelegationState = lift askDelegationState
     -- ^ Default implementation for 'MonadTrans'
 
-instance MonadDelegation m => MonadDelegation (ReaderT s m)
-instance MonadDelegation m => MonadDelegation (StateT s m)
+instance {-# OVERLAPPABLE #-}
+  (MonadDelegation m, MonadTrans t, Monad (t m)) => MonadDelegation (t m)

@@ -123,6 +123,7 @@ library
                       , time-units
                       , transformers
                       , transformers-base
+                      , mmorph
                       , universum
                       , unordered-containers
                       , wreq

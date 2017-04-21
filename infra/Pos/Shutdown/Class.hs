@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Shutdown.Class
        ( MonadShutdownMem (..)
@@ -16,6 +17,6 @@ class Monad m => MonadShutdownMem m where
        m ShutdownContext
     askShutdownMem = lift askShutdownMem
 
-instance MonadShutdownMem m => MonadShutdownMem (ReaderT s m) where
-instance MonadShutdownMem m => MonadShutdownMem (ExceptT s m) where
-instance MonadShutdownMem m => MonadShutdownMem (StateT s m) where
+instance {-# OVERLAPPABLE #-}
+  (MonadShutdownMem m, MonadTrans t, Monad (t m)) =>
+  MonadShutdownMem (t m)

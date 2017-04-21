@@ -46,6 +46,7 @@ module Pos.Util.Util
 
 import           Control.Lens               (ALens', Getter, Getting, cloneLens, to)
 import qualified Control.Monad.Ether              as Ether
+import           Control.Monad.Morph        (MFunctor(..))
 import           Control.Monad.Trans.Class (MonadTrans)
 import qualified Control.Monad.Trans.Ether.Tagged as Ether
 import           Control.Monad.Trans.Lift.Local   (LiftLocal(..))
@@ -57,6 +58,7 @@ import           Data.Time.Units            (Attosecond, Day, Femtosecond, Fortn
                                              Nanosecond, Picosecond, Second, Week,
                                              toMicroseconds)
 import qualified Language.Haskell.TH.Syntax       as TH
+import           Mockable.Class             (MFunctor'(..))
 import qualified Prelude
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 import           System.Wlog                      (CanLog, HasLoggerName (..))
@@ -156,6 +158,10 @@ instance
   HasLoggerName (Ether.TaggedTrans tag t m) where
     getLoggerName = lift getLoggerName
     modifyLoggerName = liftLocal getLoggerName modifyLoggerName
+
+instance {-# OVERLAPPABLE #-}
+  (Monad m, MFunctor t) => MFunctor' t m n where
+    hoist' = hoist
 
 ----------------------------------------------------------------------------
 -- Not instances

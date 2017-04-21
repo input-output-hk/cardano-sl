@@ -19,6 +19,7 @@ import qualified Control.Concurrent.STM      as STM
 import           Control.Lens                (iso, makeLenses)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Fix           (MonadFix)
+import           Control.Monad.Morph         (MFunctor)
 import           Control.Monad.Trans.Class   (MonadTrans)
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..), StM,
@@ -84,6 +85,7 @@ newtype NtpSlotting m a = NtpSlotting
                , MonadTrans
                , MonadIO
                , MonadFix
+               , MFunctor
 
                , MonadThrow
                , MonadCatch

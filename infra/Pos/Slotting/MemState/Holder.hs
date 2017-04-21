@@ -14,6 +14,7 @@ import           Universum
 import           Control.Lens                (iso)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Fix           (MonadFix)
+import           Control.Monad.Morph (MFunctor)
 import           Control.Monad.STM           (retry)
 import           Control.Monad.Trans.Class   (MonadTrans)
 import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
@@ -48,6 +49,7 @@ newtype SlottingHolder m a = SlottingHolder
                , MonadIO
                , MonadTrans
                , MonadFix
+               , MFunctor
 
                , MonadThrow
                , MonadCatch

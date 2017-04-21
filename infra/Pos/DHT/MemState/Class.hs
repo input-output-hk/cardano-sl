@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.DHT.MemState.Class
        ( MonadDhtMem (..)
@@ -16,6 +17,5 @@ class Monad m => MonadDhtMem m where
        m DhtContext
     askDhtMem = lift askDhtMem
 
-instance MonadDhtMem m => MonadDhtMem (ReaderT s m) where
-instance MonadDhtMem m => MonadDhtMem (ExceptT s m) where
-instance MonadDhtMem m => MonadDhtMem (StateT s m) where
+instance {-# OVERLAPPABLE #-}
+  (MonadDhtMem m, MonadTrans t, Monad (t m)) => MonadDhtMem (t m)

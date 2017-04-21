@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Communication.Relay.Class
        ( Relay (..)
@@ -62,6 +63,6 @@ class Monad m => MonadRelayMem m where
        m RelayContext
     askRelayMem = lift askRelayMem
 
-instance MonadRelayMem m => MonadRelayMem (ReaderT s m) where
-instance MonadRelayMem m => MonadRelayMem (ExceptT s m) where
-instance MonadRelayMem m => MonadRelayMem (StateT s m) where
+instance {-# OVERLAPPABLE #-}
+  (MonadRelayMem m, MonadTrans t, Monad (t m)) =>
+  MonadRelayMem (t m)

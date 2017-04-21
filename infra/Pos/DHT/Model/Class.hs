@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.DHT.Model.Class
        ( DHTException (..)
@@ -6,6 +7,7 @@ module Pos.DHT.Model.Class
        , withDhtLogger
        ) where
 
+import           Control.Monad.Trans.Class (MonadTrans(..))
 import           System.Wlog         (HasLoggerName (modifyLoggerName), LoggerName)
 import           Universum
 
@@ -39,14 +41,17 @@ withDhtLogger
 withDhtLogger action = do
     subName <- dhtLoggerNameM
     modifyLoggerName (<> subName) action
-instance MonadDHT m => MonadDHT (ReaderT r m) where
+
+instance {-# OVERLAPPABLE #-}
+  (MonadDHT m, MonadTrans t, Monad (t m)) =>
+  MonadDHT (t m) where
     joinNetwork = lift . joinNetwork
     discoverPeers = lift discoverPeers
     getKnownPeers = lift getKnownPeers
     currentNodeKey = lift currentNodeKey
     dhtLoggerName  = dhtLoggerName . fromRProxy
       where
-        fromRProxy :: Proxy (ReaderT r m) -> Proxy m
+        fromRProxy :: Proxy (t m) -> Proxy m
         fromRProxy _ = Proxy
 
 -- | Data type for DHT exceptions.

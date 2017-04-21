@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Reporting functionality abstracted.
 module Pos.Reporting.MemState
@@ -31,6 +32,6 @@ class (Monad m) => MonadReportingMem m where
        m ReportingContext
     askReportingContext = lift askReportingContext
 
-instance MonadReportingMem m => MonadReportingMem (ReaderT s m) where
-instance MonadReportingMem m => MonadReportingMem (ExceptT s m) where
-instance MonadReportingMem m => MonadReportingMem (StateT s m) where
+instance {-# OVERLAPPABLE #-}
+  (MonadReportingMem m, MonadTrans t, Monad (t m)) =>
+  MonadReportingMem (t m)

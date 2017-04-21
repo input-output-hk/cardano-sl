@@ -15,7 +15,6 @@ module Pos.DB.Class
 import           Universum
 
 import           Control.Lens                 (ASetter')
-import           Control.Monad.Morph        (MFunctor(..))
 import           Control.Monad.Trans          (MonadTrans)
 import qualified Database.RocksDB             as Rocks
 
@@ -23,6 +22,7 @@ import           Pos.Core                     (BlockVersionData)
 import           Pos.DB.Types                 (DB, NodeDBs, blockIndexDB, gStateDB, lrcDB,
                                                miscDB)
 import           Pos.Util.Iterator            (ListHolderT (..))
+import           Mockable.Class               (MFunctor'(..))
 
 -- TODO write a documentation. LensLike' is just a lens. Written using
 -- LensLike' to avoid rankntypes.
@@ -35,20 +35,20 @@ class (MonadIO m, MonadCatch m) => MonadDB m where
     getNodeDBs = lift getNodeDBs
 
     default usingReadOptions
-      :: (MFunctor t, MonadDB m', t m' ~ m)
+      :: (MFunctor' t m' m', MonadDB m', t m' ~ m)
       => Rocks.ReadOptions
       -> ASetter' NodeDBs DB
       -> m a
       -> m a
-    usingReadOptions how l = hoist (usingReadOptions how l)
+    usingReadOptions how l = hoist' (usingReadOptions how l)
 
     default usingWriteOptions
-      :: (MFunctor t, MonadDB m', t m' ~ m)
+      :: (MFunctor' t m' m', MonadDB m', t m' ~ m)
       => Rocks.WriteOptions
       -> ASetter' NodeDBs DB
       -> m a
       -> m a
-    usingWriteOptions how l = hoist (usingWriteOptions how l)
+    usingWriteOptions how l = hoist' (usingWriteOptions how l)
 
 getBlockIndexDB :: MonadDB m => m DB
 getBlockIndexDB = view blockIndexDB <$> getNodeDBs
@@ -63,7 +63,7 @@ getMiscDB :: MonadDB m => m DB
 getMiscDB = view miscDB <$> getNodeDBs
 
 instance {-# OVERLAPPABLE #-}
-    (MonadDB m, MFunctor t, MonadTrans t, MonadIO (t m), MonadCatch (t m)) =>
+    (MonadDB m, MFunctor' t m m, MonadTrans t, MonadIO (t m), MonadCatch (t m)) =>
     MonadDB (t m)
 
 deriving instance (MonadDB m) => MonadDB (ListHolderT s m)
@@ -77,5 +77,5 @@ class MonadDB m => MonadDBCore m where
     dbAdoptedBVData = lift dbAdoptedBVData
 
 instance {-# OVERLAPPABLE #-}
-  (MonadDBCore m, MFunctor t, MonadTrans t, MonadIO (t m), MonadCatch (t m)) =>
+  (MonadDBCore m, MFunctor' t m m, MonadTrans t, MonadIO (t m), MonadCatch (t m)) =>
   MonadDBCore (t m)

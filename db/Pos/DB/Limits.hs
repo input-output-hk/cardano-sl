@@ -8,9 +8,6 @@ module Pos.DB.Limits
        ( MonadDBLimits (..)
        ) where
 
-import           Control.Monad.Except       (ExceptT)
-import           Control.Monad.Reader       (ReaderT)
-import           Control.Monad.State        (StateT)
 import           Control.Monad.Trans        (MonadTrans)
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
@@ -42,6 +39,5 @@ class Monad m => MonadDBLimits m where
         => m Byte
     getMaxProposalSize = lift getMaxProposalSize
 
-instance MonadDBLimits m => MonadDBLimits (ReaderT r m)
-instance MonadDBLimits m => MonadDBLimits (StateT r m)
-instance MonadDBLimits m => MonadDBLimits (ExceptT r m)
+instance {-# OVERLAPPABLE #-}
+  (MonadDBLimits m, MonadTrans t, Monad (t m)) => MonadDBLimits (t m)

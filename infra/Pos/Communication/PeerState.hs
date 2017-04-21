@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 
 -- | Class which provides access to NodePeerState.
 
@@ -16,12 +18,12 @@ module Pos.Communication.PeerState
 import           Control.Lens                     (iso)
 import           Control.Monad.Base               (MonadBase (..))
 import           Control.Monad.Fix                (MonadFix)
-import           Control.Monad.Reader             (ReaderT (..))
+import           Control.Monad.Reader             (ReaderT (..), mapReaderT)
 import           Control.Monad.Trans.Class        (MonadTrans)
 import           Data.Default                     (Default (def))
 import qualified ListT                            as LT
 import           Mockable                         (ChannelT, Counter, Distribution, Gauge,
-                                                   Gauge, MFunctor',
+                                                   Gauge, MFunctor'(..),
                                                    Mockable (liftMockable), Promise,
                                                    SharedAtomic, SharedAtomicT,
                                                    SharedExclusiveT, SharedExclusiveT,
@@ -32,6 +34,7 @@ import           Serokell.Util.Lens               (WrappedM (..))
 import qualified STMContainers.Map                as STM
 import           System.Wlog                      (CanLog, HasLoggerName)
 import           Universum
+import           Data.Coerce                      (coerce)
 
 import           Pos.Communication.Types.State
 import           Pos.Util.Context                 (MonadContext (..))
@@ -67,6 +70,16 @@ newtype PeerStateHolder m a = PeerStateHolder
                 MonadThrow, MonadCatch, MonadMask, MonadIO, MonadFail,
                 HasLoggerName, CanLog,
                 MonadFix)
+
+instance m ~ m' => MFunctor' PeerStateHolder m m' where
+    hoist' =
+      -- ahh, deriving by hand.
+      (coerce :: forall a .
+          ((m a -> m a) ->
+            ReaderT (PeerStateCtx m) m a -> ReaderT (PeerStateCtx m) m a) ->
+          ((m a -> m a) ->
+            PeerStateHolder m a -> PeerStateHolder m a))
+      mapReaderT
 
 instance MonadTrans PeerStateHolder where
     lift = PeerStateHolder . lift

@@ -15,6 +15,7 @@ import           Control.Concurrent.STM    (TVar)
 import           Control.Lens              (iso)
 import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Fix         (MonadFix)
+import           Control.Monad.Morph       (MFunctor)
 import           Control.Monad.Trans.Class (MonadTrans)
 import qualified Data.ByteString           as BS
 import           Data.ByteString.Lazy      (fromStrict, toStrict)
@@ -74,25 +75,26 @@ data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
 newtype KademliaDHT m a = KademliaDHT
     { unKademliaDHT :: ReaderT KademliaDHTInstance m a
     } deriving (Functor, Applicative, Monad, MonadFail, MonadThrow, MonadCatch, MonadIO,
-                MonadMask, CanLog, HasLoggerName, MonadTrans, MonadFix)
+                MonadMask, CanLog, HasLoggerName, MonadTrans, MonadFix, MFunctor)
 
 instance MonadContext m => MonadContext (KademliaDHT m) where
     type ContextType (KademliaDHT m) = ContextType m
 
 -- | Class for getting KademliaDHTInstance from 'KademliaDHT'
-class WithKademliaDHTInstance m where
+class Monad m => WithKademliaDHTInstance m where
     getKademliaDHTInstance :: m KademliaDHTInstance
+
+    default getKademliaDHTInstance
+      :: (WithKademliaDHTInstance m', MonadTrans t, m ~ t m')
+      => m KademliaDHTInstance
+    getKademliaDHTInstance = lift getKademliaDHTInstance
+
+instance {-# OVERLAPPABLE #-}
+  (WithKademliaDHTInstance m, MonadTrans t, Monad (t m)) =>
+  WithKademliaDHTInstance (t m)
 
 instance Monad m => WithKademliaDHTInstance (KademliaDHT m) where
     getKademliaDHTInstance = KademliaDHT ask
-
-instance (Monad m, WithKademliaDHTInstance m) =>
-         WithKademliaDHTInstance (ReaderT a m) where
-    getKademliaDHTInstance = lift getKademliaDHTInstance
-
-instance (Monad m, WithKademliaDHTInstance m) =>
-         WithKademliaDHTInstance (StateT a m) where
-    getKademliaDHTInstance = lift getKademliaDHTInstance
 
 type instance ThreadId (KademliaDHT m) = ThreadId m
 type instance Promise (KademliaDHT m) = Promise m

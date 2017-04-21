@@ -7,11 +7,9 @@ module Pos.Ssc.Extra.Class
        ( MonadSscMem (..)
        ) where
 
-import           Control.Monad.Except (ExceptT)
 import           Control.Monad.Trans  (MonadTrans)
 import           Universum
 
-import           Pos.DHT.Real         (KademliaDHT)
 import           Pos.Ssc.Extra.Types  (SscState)
 
 class Monad m =>
@@ -21,7 +19,6 @@ class Monad m =>
         m (SscState ssc)
     askSscMem = lift askSscMem
 
-instance (MonadSscMem ssc m) => MonadSscMem ssc (ReaderT x m)
-instance (MonadSscMem ssc m) => MonadSscMem ssc (StateT x m)
-instance (MonadSscMem ssc m) => MonadSscMem ssc (ExceptT x m)
-instance (MonadSscMem ssc m) => MonadSscMem ssc (KademliaDHT m)
+instance {-# OVERLAPPABLE #-}
+  (MonadSscMem ssc m, MonadTrans t, Monad (t m)) =>
+  MonadSscMem ssc (t m)

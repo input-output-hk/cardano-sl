@@ -13,7 +13,7 @@ import qualified Data.Text                 as T
 import qualified Data.Text.IO              as T
 import           Data.Time.Units           (convertUnit, toMicroseconds)
 import           Data.Void                 (absurd)
-import           Formatting                (build, int, sformat, stext, (%))
+import           Formatting                (build, int, sformat, shown, stext, (%))
 import           Mockable                  (Mockable, SharedAtomic, SharedAtomicT,
                                             currentTime, fork, delay,
                                             modifySharedAtomic, newSharedAtomic,
@@ -131,18 +131,19 @@ runCmd sendActions (SendToAllGenesis amount delay_ sendMode tpsSentFile) = do
                     txOutAddress = makePubKeyAddress (toPublic key),
                     txOutValue = amount
                 }
+                let neighbours = case sendMode of
+                        SendNeighbours -> na
+                        SendRoundRobin -> [na !! (n `mod` nNeighbours)]
                 etx <-
                     lift $
                     submitTx
                         sendActions
                         (fakeSigner key)
-                        (case sendMode of
-                            SendNeighbours -> na
-                            SendRoundRobin -> [na !! (n `mod` nNeighbours)])
+                        neighbours
                         (NE.fromList [TxOutAux txOut []])
                 case etx of
-                    Left err -> addTxFailed tpsMVar >> putText (sformat ("Error: "%stext) err)
-                    Right tx -> addTxSubmit tpsMVar >> putText (sformat ("Submitted transaction: "%txaF) tx)
+                    Left err -> addTxFailed tpsMVar >> logError (sformat ("Error: "%stext%" while trying to send to "%shown) err neighbours)
+                    Right tx -> addTxSubmit tpsMVar >> logInfo (sformat ("Submitted transaction: "%txaF%" to "%shown) tx neighbours)
             delay $ ms delay_
     putStr $ unwords ["Sending", show (length skeys), "transactions"]
     either absurd id <$> race writeTPS sendTxs

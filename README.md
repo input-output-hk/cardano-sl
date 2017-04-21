@@ -34,7 +34,16 @@ stack exec cardano-explorer-mock
 
 ## Run it
 
+### Dev version
+
 - run `./scripts/build.sh`
 - run `./frontend/scripts/build.sh`
-- run `./full-launch.sh` if you have both `cardano-sl` and `cardano-sl-explorer` in the *same* folder.
-- run `./full-launch.sh ../{path-to-cardano-sl}` if you have both `cardano-sl` and `cardano-sl-explorer` in *different* folders.
+- run `./start-dev.sh` if you have both `cardano-sl` and `cardano-sl-explorer` in the *same* folder.
+- run `./start-dev.sh ../{path-to-cardano-sl}` if you have both `cardano-sl` and `cardano-sl-explorer` in *different* folders.
+
+### Prod version
+
+- run `./scripts/build.sh`
+- run `./frontend/scripts/build.sh`
+- run `./start-prod.sh` if you have both `cardano-sl` and `cardano-sl-explorer` in the *same* folder.
+- run `./start-prod.sh ../{path-to-cardano-sl}` if you have both `cardano-sl` and `cardano-sl-explorer` in *different* folders.

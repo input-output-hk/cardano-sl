@@ -275,7 +275,7 @@ mkNtpSlottingVar = do
         delay C.ntpMaxError
 
 runNtpSlotting :: NtpSlottingVar -> NtpSlotting m a -> m a
-runNtpSlotting var m = Ether.runReaderT m var
+runNtpSlotting = flip Ether.runReaderT
 
 ----------------------------------------------------------------------------
 -- Workers

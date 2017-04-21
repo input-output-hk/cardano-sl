@@ -34,8 +34,8 @@ import           Pos.DHT.Real.Real             (runKademliaDHT)
 import           Pos.DHT.Real.Types            (KademliaDHTInstance (..),
                                                 getKademliaDHTInstance)
 import           Pos.Genesis                   (genesisDevSecretKeys)
-import           Pos.Slotting                  (askNtpSlotting, NtpSlottingVar,
-                                                SlottingHolder (..), SlottingVar,
+import           Pos.Slotting                  (askNtpSlotting, askSlotting,
+                                                NtpSlottingVar, SlottingVar,
                                                 runNtpSlotting, runSlottingHolder)
 import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscState, runSscHolder)
@@ -83,7 +83,7 @@ nat = do
     nc         <- getNodeContext
     modernDB   <- getNodeDBs
     conn       <- getWalletWebSockets
-    slotVar    <- lift . lift . lift . lift . lift . lift . lift . lift $ SlottingHolder ask
+    slotVar    <- askSlotting
     ntpSlotVar <- askNtpSlotting
     pure $ NT (convertHandler kinst nc modernDB tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar)
 

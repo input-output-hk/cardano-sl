@@ -1,0 +1,128 @@
+
+.explorer-search {
+
+      &__container {
+        border: 1px solid color(var(--color0) a(0.3));
+        border-radius: 2px;
+        padding: 5px 5px 5px 0px;
+        lost-column: 10/12;
+        box: horizontal;
+
+        &.focused {
+          border: 1px solid var(--color0);
+        }
+      }
+      @media (--sm) {
+        &__container {
+          width:100%;
+          margin: 0;
+        }
+      }
+
+      &__wrapper {
+        width: 100%;
+        box: horizontal;
+      }
+
+      &__label {
+          color: color(var(--color3) a(0.5));
+          box-item: center;
+          padding-left: 15px;
+      }
+
+      &__input {
+        border: none;
+        color: color(var(--color0) a(0.3));
+        font-size: 13px;
+        font-family: var(--fontFamily0-Light);
+        padding: 0 5px;
+
+        background-color: transparent;
+
+        &.focused {
+          color: var(--color0);
+        }
+
+
+        &--address-tx {
+          width: 100%;
+          box-item: stretch;
+        }
+
+        &--epoch {
+          width: 55px;
+        }
+
+        @media (--lg) {
+          &--epoch {
+            width: 100px;
+          }
+        }
+
+        &--slot {
+          width: 55px;
+        }
+
+        @media (--lg) {
+          &--slot {
+            width: 100px;
+          }
+        }
+
+      }
+
+
+      @media (--lg) {
+        &__input {
+          padding: 0 15px;
+        }
+      }
+
+      &__btn {
+        box-item: right;
+        button: standard-button;
+        height: 30px;
+        width: 30px;
+
+        background-repeat: no-repeat;
+        background-position: center center;
+        background-size: 15px 15px;
+      }
+
+      &-nav {
+
+        &__container {
+          box: horizontal center;
+        }
+
+        &__item {
+          box: center;
+          padding-right: 5px;
+
+          input[type="radio"] {
+             @extend .hide;
+          }
+
+          &--label {
+            color: color(var(--color3) a(0.5));
+            font-size: 13px;
+            font-family: var(--fontFamily0-Light);
+            cursor: pointer;
+
+            &:hover,
+            &:active,
+            &.selected {
+              color: color(var(--color0));
+            }
+          }
+
+        }
+
+        @media (--lg) {
+          &__item {
+            padding-right: 15px;
+          }
+        }
+      }
+
+}

@@ -7,6 +7,7 @@ import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
 import Explorer.View.Common (clickableLogoView)
+import Explorer.View.Search (searchInputView)
 import Pux.Html (Html, div, header, text) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Html.Events (onClick) as P
@@ -19,23 +20,27 @@ headerView state =
     P.header
         [ P.className "explorer-header"]
         [ P.div
-            [ P.className "explorer-header__top"]
+            [ P.className "explorer-header__wrapper"]
             [ P.div
                 [ P.className "explorer-header__container" ]
                 [ clickableLogoView Dashboard
                 -- desktop views
                 , P.div
-                    [ P.className "nav__container" ]
-                    []
+                    [ P.className "middle-content__search"]
+                    [ P.div
+                        [ P.className "middle-content__search--wrapper"]
+                        [ searchInputView state
+                        ]
+                    ]
                 , P.div
-                    [P.className "currency__container"]
+                    [P.className "right-content__currency"]
                     []
                 -- mobile views
                 , P.div
-                    [ P.className "title__container" ]
+                    [ P.className "middle-content__title" ]
                     [ P.text $ state ^. (viewStates <<< globalViewState <<< gViewTitle) ]
                 , P.div
-                    [ P.className "hamburger__container" ]
+                    [ P.className "right-content__hamburger" ]
                     [ P.div
                         [ P.className
                               if mobileMenuOpenend
@@ -48,7 +53,4 @@ headerView state =
                 ]
 
             ]
-          , P.div
-            []
-            []
         ]

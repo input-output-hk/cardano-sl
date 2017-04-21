@@ -35,9 +35,9 @@ searchInputView state =
         searchTimeQuery = state ^. (viewStates <<< globalViewState <<< gViewSearchTimeQuery)
     in
     P.div
-        [ P.className $ "hero-search__container" <> focusedClazz ]
+        [ P.className $ "explorer-search__container" <> focusedClazz ]
         [ P.input
-            [ P.className $ "hero-search__input hero-search__input--address-tx"
+            [ P.className $ "explorer-search__input explorer-search__input--address-tx"
                           <> addrHiddenClazz
                           <> focusedClazz
             , P.type_ "text"
@@ -52,14 +52,14 @@ searchInputView state =
             ]
             []
         , P.div
-            [ P.className $ "hero-search__wrapper" <> epochHiddenClazz ]
+            [ P.className $ "explorer-search__wrapper" <> epochHiddenClazz ]
             [ P.label
-                [ P.className $ "hero-search__label"
+                [ P.className $ "explorer-search__label"
                 , P.htmlFor inputEpochName
                 ]
                 [ P.text $ translate (I18nL.common <<< I18nL.cEpoch) lang' ]
             , P.input
-                [ P.className $ "hero-search__input hero-search__input--epoch"
+                [ P.className $ "explorer-search__input explorer-search__input--epoch"
                               <> focusedClazz
                 , P.type_ "text"
                 , P.name inputEpochName
@@ -73,12 +73,12 @@ searchInputView state =
                 ]
                 []
             , P.label
-                [ P.className $ "hero-search__label"
+                [ P.className $ "explorer-search__label"
                 , P.htmlFor inputSlotName
                 ]
                 [ P.text $ translate (I18nL.common <<< I18nL.cSlot) lang' ]
             , P.input
-                [ P.className $ "hero-search__input hero-search__input--slot"
+                [ P.className $ "explorer-search__input explorer-search__input--slot"
                               <> focusedClazz
                 , P.type_ "text"
                 , P.name inputSlotName
@@ -94,11 +94,11 @@ searchInputView state =
                 []
             ]
         , P.ul
-            [ P.className "hero-search-nav__container"]
+            [ P.className "explorer-search-nav__container"]
             <<< map (\item -> searchItemView item selectedSearch)
                 $ mkSearchItems lang'
         , P.div
-            [ P.className $ "hero-search__btn" <> searchIconClazz <> focusedClazz
+            [ P.className $ "explorer-search__btn" <> searchIconClazz <> focusedClazz
             , P.onClick <<< const $ if selectedSearch == SearchTime
                                     then GlobalSearchTime
                                     else GlobalSearch
@@ -133,7 +133,7 @@ searchItemView item selectedSearch =
         selectedClass = if selected then " selected" else ""
     in
     P.li
-        [ P.className "hero-search-nav__item" ]
+        [ P.className "explorer-search-nav__item" ]
         [ P.input
             [ P.type_ "radio"
             , P.id_ $ show item.value
@@ -144,7 +144,7 @@ searchItemView item selectedSearch =
             ]
             []
         , P.label
-            [ P.className $ "hero-search-nav__item--label" <> selectedClass
+            [ P.className $ "explorer-search-nav__item--label" <> selectedClass
             , P.htmlFor $ show item.value ]
             [ P.text item.label ]
         ]

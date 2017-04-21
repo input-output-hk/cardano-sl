@@ -21,7 +21,7 @@
     }
   }
 
-  &__top {
+  &__wrapper {
     border-bottom: solid 1px color(var(--color3) a(0.5));
     font-size: 12px;
     height: var(--height-header-top-mobile);
@@ -33,6 +33,7 @@
 
     @media (--md) {
       .logo__container  {
+        lost-column: 2/12;
         height: var(--height-header-top);
       }
     }
@@ -53,61 +54,76 @@
       }
     }
 
-    .nav__container {
-      @extend .hide;
-    }
+    .middle-content {
+      &__search {
+        @extend .hide;
+      }
 
-    @media (--md) {
-      .nav__container  {
+      @media (--md) {
+        &__search {
+          @extend .show;
+          lost-column: 8/12;
+          height: var(--height-header-top);
+          box: horizontal;
+        }
+
+        &__search--wrapper {
+          height: 100%;
+          box: horizontal;
+
+          .explorer-search__container {
+            box-item: center;
+          }
+        }
+      }
+
+
+      &__title {
         @extend .show;
         lost-column: 7/12;
-        height: var(--height-header-top);
+        line-height: var(--height-header-top-mobile);
         text-align: center;
+        font-family: var(--fontFamily0-Light);
+        font-size: 15px;
+        color: var(--color0);
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      @media (--md) {
+        &__title {
+          @extend .hide;
+        }
       }
     }
 
-    .currency__container {
-      @extend .hide;
-    }
-
-    @media (--md) {
-      .currency__container  {
-        @extend .show;
-        lost-column: 2.5/12 3;
-        height: var(--height-header-top);
-        text-align: right;
-      }
-    }
-
-    .title__container {
-      @extend .show;
-      lost-column: 7/12;
-      line-height: var(--height-header-top-mobile);
-      text-align: center;
-      font-family: var(--fontFamily0-Light);
-      font-size: 15px;
-      color: var(--color0);
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-    }
-
-    @media (--md) {
-      .title__container {
+    .right-content {
+      &__currency {
         @extend .hide;
       }
-    }
 
-    .hamburger__container {
-      lost-column: 2.5/12;
-      height: var(--height-header-top-mobile);
-      box: horizontal right;
-    }
-
-    @media (--md) {
-      .hamburger__container {
-        @extend .hide;
+      @media (--md) {
+        &__currency  {
+          @extend .show;
+          lost-column: 2/12 3;
+          height: var(--height-header-top);
+          text-align: right;
+        }
       }
+
+      &__hamburger {
+        lost-column: 2.5/12;
+        height: var(--height-header-top-mobile);
+        box: horizontal right;
+      }
+
+      @media (--md) {
+        &__hamburger {
+          @extend .hide;
+        }
+      }
+
     }
 
     .hamburger__icon,
@@ -125,7 +141,7 @@
   }
 
   @media (--md) {
-    &__top {
+    &__wrapper {
       height: var(--height-header-top);
     }
   }

@@ -67,11 +67,15 @@ stack exec -- cardano-explorer-hs2purs --bridge-path ./frontend/src/Generated
 
 All of the following steps are required **only once**.
 
-Install executable of `purescript-derive-lenses`:
+Install executable of `purescript-derive-lenses`.
+
+_Important note:_ Don't install latest version of `purescript-derive-lenses`, which does not work with Explorer. We do need [`v0.10.5.1`](https://github.com/paf31/purescript-derive-lenses/releases/tag/v0.10.5.1) (commit [`02457e6`](https://github.com/paf31/purescript-derive-lenses/commit/02457e610789263326b936ebdfa72edbb6599094))
 
 ```bash
 git clone git@github.com:paf31/purescript-derive-lenses.git
 cd {/path/to/}purescript-derive-lenses
+## Checkout `v0.10.5.1`, which is based on commit `02457e6`
+git checkout 02457e610789263326b936ebdfa72edbb6599094
 stack build
 stack install purescript-derive-lenses
 ```
@@ -138,12 +142,10 @@ npm start
 
 ## How to provide live data locally?
 
-*1. Run `cardano-sl`*
+*1. Run `tmux` in a new window required for `cardano-sl` to run*
 
 ```bash
-cd {path/to/}cardano-sl
 tmux
-./util-scripts/start-dev.sh
 ```
 *1.1 Add wallet (**only once**)*
 
@@ -173,18 +175,19 @@ stack exec cardano-keygen -- --dump-dev-genesis-keys keys/{}.key
 
 *2. Run `cardano-sl-explorer` (in another terminal window)*
 
+This is for the *DEV* version.
 If you have `cardano-sl-explorer` and `cardano-sl` in the same folder:
 
 ```bash
 cd {path/to/}cardano-sl-explorer
-./full-launch.sh
+./start-dev.sh
 ```
 
 If you have `cardano-sl-explorer` and `cardano-sl` in different folders:
 
 ```bash
 cd {path/to/}cardano-sl-explorer
-./full-launch.sh {path/to/}cardano-sl
+./start-dev.sh {path/to/}cardano-sl
 ```
 
 *2.1 Solving issues*

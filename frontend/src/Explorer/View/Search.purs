@@ -1,5 +1,6 @@
 module Explorer.View.Search
-    (searchInputView
+    ( searchInputView
+    , searchItemViews
     ) where
 
 import Prelude
@@ -93,10 +94,7 @@ searchInputView state =
                 ]
                 []
             ]
-        , P.ul
-            [ P.className "explorer-search-nav__container"]
-            <<< map (\item -> searchItemView item selectedSearch)
-                $ mkSearchItems lang'
+        , searchItemViews state
         , P.div
             [ P.className $ "explorer-search__btn" <> searchIconClazz <> focusedClazz
             , P.onClick <<< const $ if selectedSearch == SearchTime
@@ -126,6 +124,17 @@ mkSearchItems lang =
       , label: translate (I18nL.hero <<< I18nL.hrTime) lang
       }
     ]
+
+searchItemViews :: State -> P.Html Action
+searchItemViews state =
+    let lang' = state ^. lang
+        selectedSearch = state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch)
+    in
+    P.ul
+        [ P.className "explorer-search-nav__container"]
+        <<< map (\item -> searchItemView item selectedSearch)
+            $ mkSearchItems lang'
+
 
 searchItemView :: SearchItem -> Search -> P.Html Action
 searchItemView item selectedSearch =

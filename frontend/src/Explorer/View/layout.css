@@ -29,9 +29,11 @@
   }
 }
 
-.explorer-route-dashboard {
-  .explorer-content {
-    padding-top: 0;
+@media (--md) {
+  .explorer-route-dashboard {
+    .explorer-content {
+      padding-top: 0;
+    }
   }
 }
 

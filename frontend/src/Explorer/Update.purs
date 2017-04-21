@@ -182,7 +182,10 @@ update (GlobalFocusSearchInput value) state = noEffects $
 
 update GlobalSearch state =
     let query = state ^. (viewStates <<< globalViewState <<< gViewSearchQuery) in
-    { state: set (viewStates <<< globalViewState <<< gViewSearchQuery) emptySearchQuery $ state
+    { state:
+          set (viewStates <<< globalViewState <<< gViewSearchQuery) emptySearchQuery $
+          set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) false $
+          state
     , effects: [
       -- set state of focus explicitly
       pure $ GlobalFocusSearchInput false
@@ -197,7 +200,10 @@ update GlobalSearch state =
 update GlobalSearchTime state =
     let query = state ^. (viewStates <<< globalViewState <<< gViewSearchTimeQuery)
     in
-    { state: set (viewStates <<< globalViewState <<< gViewSearchTimeQuery) emptySearchTimeQuery $ state
+    { state:
+          set (viewStates <<< globalViewState <<< gViewSearchTimeQuery) emptySearchTimeQuery $
+          set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) false $
+          state
     , effects: [
       -- set state of focus explicitly
       pure $ GlobalFocusSearchInput false

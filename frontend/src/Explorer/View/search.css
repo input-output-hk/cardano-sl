@@ -5,7 +5,6 @@
         border: 1px solid color(var(--color0) a(0.3));
         border-radius: 2px;
         padding: 5px 5px 5px 0px;
-        lost-column: 10/12;
         box: horizontal;
 
         &.focused {

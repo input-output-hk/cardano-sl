@@ -35,6 +35,12 @@
           width: 49px;
           height: 45px;
         }
+
+        .explorer-search {
+          &__container {
+            lost-column: 10/12;
+          }
+        }
       }
     }
 

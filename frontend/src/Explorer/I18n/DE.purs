@@ -55,7 +55,7 @@ translation =
         }
     , hero:
         { hrSubtitle: "Der effektivste Weg um das Netzwerk der Kryptowährung zu erforschen."
-        , hrSearch: "Suche nach Addressen, Transaktionen, Slots und Epochen"
+        , hrSearch: "Suche Addressen, Transaktionen, Slots und Epochen"
         , hrTime: "Zeit"
         }
     , dashboard:

@@ -34,7 +34,7 @@
   }
 
   .logo__container {
-    lost-column: 2.5/12;
+    lost-column: 2/12;
     height: var(--height-header-top-mobile);
   }
 
@@ -87,7 +87,7 @@
 
     &__title {
       @extend .show;
-      lost-column: 7/12;
+      lost-column: 8/12;
       line-height: var(--height-header-top-mobile);
       text-align: center;
       font-family: var(--fontFamily0-Light);
@@ -120,7 +120,7 @@
     }
 
     &__hamburger {
-      lost-column: 2.5/12;
+      lost-column: 2/12;
       height: var(--height-header-top-mobile);
       box: horizontal right;
     }
@@ -185,7 +185,7 @@
     &__wrapper--vtop {
       .explorer-search {
         &-nav__item {
-          padding-right: 15px;
+          padding-right: 10px;
         }
       }
     }
@@ -213,8 +213,16 @@
 
     &__wrapper--vbottom {
       @extend .show;
-      border-top: solid 1px color(var(--color3) a(0.5));
+      border-top: solid 1px color(var(--color3) a(0.3));
       height: var(--height-header-top-mobile);
+
+      box: horizontal center;
+      text-align: center;
+
+      .lang__select{
+        font-size: 15px;
+        padding-right: 15px;
+      }
     }
 
 

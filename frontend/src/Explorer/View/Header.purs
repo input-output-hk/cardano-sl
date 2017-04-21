@@ -6,7 +6,7 @@ import Explorer.Lenses.State (gViewMobileMenuOpenend, gViewTitle, globalViewStat
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
-import Explorer.View.Common (clickableLogoView)
+import Explorer.View.Common (clickableLogoView, langView)
 import Explorer.View.Search (searchInputView, searchItemViews)
 import Pux.Html (Html, div, header, text) as P
 import Pux.Html.Attributes (className) as P
@@ -64,5 +64,6 @@ headerView state =
               ]
           , P.div
               [ P.className "explorer-header__wrapper--vbottom"]
-              []
+              [ langView state    
+              ]
         ]

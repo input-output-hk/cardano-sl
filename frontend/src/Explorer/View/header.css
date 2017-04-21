@@ -144,3 +144,11 @@
     }
   }
 }
+
+.explorer-route-dashboard {
+    @media (--md) {
+      .explorer-header {
+        top: -var(--height-header-top);
+      }
+    }
+}

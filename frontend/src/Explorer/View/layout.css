@@ -29,6 +29,12 @@
   }
 }
 
+.explorer-route-dashboard {
+  .explorer-content {
+    padding-top: 0;
+  }
+}
+
 .label-count {
   color: var(--color1);
 }

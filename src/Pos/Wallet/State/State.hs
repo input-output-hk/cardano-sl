@@ -23,18 +23,18 @@ module Pos.Wallet.State.State
        ) where
 
 import qualified Control.Monad.Ether.Implicit as Ether
-import           Data.Acid                   (EventResult, EventState, QueryEvent)
-import           Data.Time.Units             (Millisecond)
-import           Serokell.Data.Memory.Units  (Byte)
+import           Data.Acid                    (EventResult, EventState, QueryEvent)
+import           Data.Time.Units              (Millisecond)
+import           Serokell.Data.Memory.Units   (Byte)
 import           Universum
 
-import           Pos.Txp                     (Tx, Utxo)
-import           Pos.Types                   (HeaderHash)
+import           Pos.Txp                      (Tx, Utxo)
+import           Pos.Types                    (HeaderHash)
 
-import           Pos.Wallet.State.Acidic     (WalletState, closeState, openMemState,
-                                              openState)
-import           Pos.Wallet.State.Acidic     as A
-import           Pos.Wallet.State.Storage    (Block', Storage)
+import           Pos.Wallet.State.Acidic      (WalletState, closeState, openMemState,
+                                               openState)
+import           Pos.Wallet.State.Acidic      as A
+import           Pos.Wallet.State.Storage     (Block', Storage)
 
 -- | MonadWalletDB stands for monad which is able to get web wallet state
 type MonadWalletDB = Ether.MonadReader WalletState

@@ -1,21 +1,16 @@
+{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.DHT.MemState.Class
-       ( MonadDhtMem (..)
+       ( MonadDhtMem
+       , askDhtMem
        ) where
 
-import           Control.Monad.Trans    (MonadTrans)
-import           Universum
+import qualified Control.Monad.Ether.Implicit as Ether
+import           Pos.DHT.MemState.Types       (DhtContext)
 
-import           Pos.DHT.MemState.Types (DhtContext)
+type MonadDhtMem = Ether.MonadReader DhtContext
 
-class Monad m => MonadDhtMem m where
-    askDhtMem :: m DhtContext
-
-    default askDhtMem :: (MonadTrans t, MonadDhtMem m', t m' ~ m) =>
-       m DhtContext
-    askDhtMem = lift askDhtMem
-
-instance {-# OVERLAPPABLE #-}
-  (MonadDhtMem m, MonadTrans t, Monad (t m)) => MonadDhtMem (t m)
+askDhtMem :: MonadDhtMem m => m DhtContext
+askDhtMem = Ether.ask

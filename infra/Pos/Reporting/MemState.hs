@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -7,12 +8,14 @@ module Pos.Reporting.MemState
        ( ReportingContext (..)
        , rcReportServers
        , rcLoggingConfig
-       , MonadReportingMem (..)
+       , MonadReportingMem
+       , askReportingContext
+       , runWithoutReportingContext
        ) where
 
-import           Control.Lens             (makeLenses)
-import           Control.Monad.Trans      (MonadTrans)
-import           System.Wlog.LoggerConfig (LoggerConfig)
+import           Control.Lens                 (makeLenses)
+import qualified Control.Monad.Ether.Implicit as Ether
+import           System.Wlog.LoggerConfig     (LoggerConfig)
 import           Universum
 
 -- | Context needed to provide remote reporting capabilities.
@@ -25,13 +28,11 @@ makeLenses ''ReportingContext
 
 -- | Monads are able to do remote error reporting. IO for making http
 -- requests, context for saving reporting-related data.
-class (Monad m) => MonadReportingMem m where
-    askReportingContext :: m ReportingContext
+type MonadReportingMem = Ether.MonadReader ReportingContext
 
-    default askReportingContext :: (MonadTrans t, MonadReportingMem m', t m' ~ m) =>
-       m ReportingContext
-    askReportingContext = lift askReportingContext
+askReportingContext :: MonadReportingMem m => m ReportingContext
+askReportingContext = Ether.ask
 
-instance {-# OVERLAPPABLE #-}
-  (MonadReportingMem m, MonadTrans t, Monad (t m)) =>
-  MonadReportingMem (t m)
+runWithoutReportingContext :: Ether.ReaderT ReportingContext m a -> m a
+runWithoutReportingContext m =
+  Ether.runReaderT m $ ReportingContext [] mempty

@@ -24,13 +24,11 @@ import           Pos.Communication.PeerState    (WithPeerState)
 import           Pos.DB                         (MonadDB)
 import           Pos.Delegation.Class           (MonadDelegation)
 import           Pos.DHT.Model                  (MonadDHT)
-import           Pos.Reporting.MemState         (MonadReportingMem)
 import           Pos.Slotting                   (MonadSlots, MonadSlotsData)
 import           Pos.Txp                        (MonadTxpMem)
 import           Pos.Update                     (MonadPollRead)
 
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
-import           Pos.Wallet.Context             (WithWalletContext)
 import           Pos.Wallet.KeyStorage          (MonadKeys)
 import           Pos.Wallet.Web.State.State     (MonadWalletWebDB (..), WalletState)
 
@@ -39,9 +37,9 @@ newtype WalletWebDB m a = WalletWebDB
     { getWalletWebDB :: ReaderT WalletState m a
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData, MonadDB,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName, WithPeerState,
-                WithWalletContext, MonadDHT, MonadSlots, MonadTrans,
+                MonadDHT, MonadSlots, MonadTrans,
                 CanLog, MonadKeys, MonadPollRead,
-                MonadTxpMem __, MonadDelegation, MonadReportingMem, LiftLocal)
+                MonadTxpMem __, MonadDelegation, LiftLocal)
 
 instance Monad m => WrappedM (WalletWebDB m) where
     type UnwrappedM (WalletWebDB m) = ReaderT WalletState m

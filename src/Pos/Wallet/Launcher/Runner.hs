@@ -20,9 +20,9 @@ import           Pos.DHT.Model               (getKnownPeers)
 import           Pos.DHT.Real                (runKademliaDHT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               RealModeResources (..), runServer_)
+import           Pos.Reporting.MemState      (runWithoutReportingContext)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Util.Util               ()
-import           Pos.Wallet.Context          (WalletContext (..), runContextHolder)
 import           Pos.Wallet.KeyStorage       (runKeyStorage)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
 import           Pos.Wallet.State            (closeState, openMemState, openState,
@@ -79,9 +79,8 @@ runRawRealWallet
     -> Production a
 runRawRealWallet res WalletParams {..} listeners (ActionSpec action, outs) =
     usingLoggerName lpRunnerTag . bracket openDB closeDB $ \db -> do
-        let walletContext = WalletContext {wcUnit = mempty}
         stateM <- liftIO SM.newIO
-        runContextHolder walletContext .
+        runWithoutReportingContext .
             runWalletDB db .
             runKeyStorage wpKeyFilePath .
             runKademliaDHT (rmDHT res) .

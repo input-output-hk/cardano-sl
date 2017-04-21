@@ -13,7 +13,6 @@ module Pos.Wallet.KeyStorage
        , runKeyStorageRaw
        ) where
 
-import           Control.Monad.Trans.Lift.Local   (LiftLocal (..))
 import qualified Control.Concurrent.STM           as STM
 import           Control.Lens                     (iso, lens, (%=), (<>=))
 import           Control.Monad.Base               (MonadBase (..))
@@ -27,6 +26,7 @@ import           Control.Monad.Trans.Control      (ComposeSt, MonadBaseControl (
                                                    defaultLiftBaseWith, defaultLiftWith,
                                                    defaultRestoreM, defaultRestoreT)
 import qualified Control.Monad.Trans.Ether.Tagged as Ether
+import           Control.Monad.Trans.Lift.Local   (LiftLocal (..))
 import           Mockable                         (ChannelT, Counter, Distribution, Gauge,
                                                    MFunctor', Mockable (liftMockable),
                                                    Promise, SharedAtomicT,
@@ -40,18 +40,17 @@ import           Pos.Binary.Crypto                ()
 import           Pos.Client.Txp.Balances          (MonadBalances)
 import           Pos.Client.Txp.History           (MonadTxHistory)
 import           Pos.Context                      (NodeContext (..))
-import           Pos.Context.Class                (ContextTagK (..), getNodeContext)
+import           Pos.Context.Class                (getNodeContext)
 import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
                                                    SecretKey, hash, safeKeyGen)
 import           Pos.DB                           (MonadDB)
 import           Pos.DB.Limits                    (MonadDBLimits)
 import           Pos.Delegation.Class             (MonadDelegation)
-import           Pos.Reporting.MemState           (MonadReportingMem)
 import           Pos.Slotting                     (MonadSlots, MonadSlotsData)
 import           Pos.Util                         ()
+import           Pos.Util.Context                 (ContextTagK (..))
 import           Pos.Util.UserSecret              (UserSecret, peekUserSecret, usKeys,
                                                    usPrimKey, writeUserSecret)
-import           Pos.Wallet.Context               (WithWalletContext)
 
 type KeyData = STM.TVar UserSecret
 
@@ -118,9 +117,8 @@ newtype KeyStorage m a = KeyStorage
                 MonadThrow, MonadSlots, MonadCatch, MonadIO, MonadFail,
                 HasLoggerName, CanLog, MonadMask,
                 MonadReader KeyData, MonadDB,
-                WithWalletContext,
                 MonadDelegation, MonadTrans, MonadBase io, MonadFix,
-                MonadDBLimits, MonadReportingMem,
+                MonadDBLimits,
                 MonadTxHistory, MonadBalances, LiftLocal)
 
 instance Monad m => WrappedM (KeyStorage m) where

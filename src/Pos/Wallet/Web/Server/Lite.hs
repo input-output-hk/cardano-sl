@@ -21,9 +21,8 @@ import           Pos.Communication.PeerState   (runPeerStateHolder)
 import           Pos.DHT.Real.Real             (runKademliaDHT)
 import           Pos.DHT.Real.Types            (KademliaDHTInstance (..),
                                                 getKademliaDHTInstance)
+import           Pos.Reporting.MemState        (runWithoutReportingContext)
 import           Pos.Ssc.Class                 (SscHelpersClass)
-import           Pos.Wallet.Context            (WalletContext, getWalletContext,
-                                                runContextHolder)
 import           Pos.Wallet.KeyStorage         (KeyData, runKeyStorageRaw)
 import           Pos.Wallet.State              (getWalletState, runWalletDB)
 import qualified Pos.Wallet.State              as WS
@@ -61,25 +60,23 @@ nat = do
     ws    <- getWalletWebState
     kd    <- lift . lift . lift . lift $ ask
     kinst <- lift . lift $ getKademliaDHTInstance
-    wc    <- getWalletContext
     mws   <- getWalletState
-    return $ NT (convertHandler kinst wc mws kd ws wsConn)
+    return $ NT (convertHandler kinst mws kd ws wsConn)
 
 convertHandler
     :: forall a .
        KademliaDHTInstance
-    -> WalletContext
     -> MainWalletState
     -> KeyData
     -> WalletState
     -> ConnectionsVar
     -> WebHandler a
     -> Handler a
-convertHandler kinst wc mws kd ws wsConn handler = do
+convertHandler kinst mws kd ws wsConn handler = do
     stateM <- liftIO SM.newIO
     liftIO ( runProduction
            . usingLoggerName "wallet-lite-api"
-           . runContextHolder wc
+           . runWithoutReportingContext
            . runWalletDB mws
            . flip runKeyStorageRaw kd
            . runKademliaDHT kinst

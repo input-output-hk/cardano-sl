@@ -72,7 +72,8 @@ import           Mockable                         (ChannelT, Counter, Distributi
                                                    ThreadId)
 import qualified Prelude
 import           Serokell.Data.Memory.Units       (Byte, fromBytes, toBytes)
-import           System.Wlog                      (CanLog, HasLoggerName (..))
+import           System.Wlog                      (CanLog, HasLoggerName (..),
+                                                   LoggerNameBox (..))
 import           Universum
 
 ----------------------------------------------------------------------------
@@ -175,6 +176,8 @@ instance
 instance (Monad m, HasLoggerName m) => HasLoggerName (IdentityT m) where
     getLoggerName = lift getLoggerName
     modifyLoggerName = liftLocal getLoggerName modifyLoggerName
+
+deriving instance LiftLocal LoggerNameBox
 
 instance {-# OVERLAPPABLE #-}
   (MonadResource m, MonadTrans t, Applicative (t m), MonadBase IO (t m), MonadIO (t m), MonadThrow (t m)) =>

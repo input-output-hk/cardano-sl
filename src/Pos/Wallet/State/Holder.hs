@@ -7,7 +7,7 @@ module Pos.Wallet.State.Holder
        ) where
 
 import qualified Control.Monad.Ether.Implicit as Ether
-import           Pos.Wallet.State.State      (WalletState)
+import           Pos.Wallet.State.State       (WalletState)
 import           Universum
 
 -- | Holder for web wallet data

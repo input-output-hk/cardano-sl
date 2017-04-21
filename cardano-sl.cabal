@@ -376,10 +376,6 @@ library
                         Pos.Wallet.State.Storage
                         Pos.Wallet.State.Storage.Block
                         Pos.Wallet.State.Storage.Tx
-                        Pos.Wallet.Context
-                        Pos.Wallet.Context.Class
-                        Pos.Wallet.Context.Context
-                        Pos.Wallet.Context.Holder
                         Pos.Wallet.Update
                         Pos.Wallet.SscType
   if (flag(with-wallet) && flag(with-web))

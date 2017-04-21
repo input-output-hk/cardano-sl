@@ -50,7 +50,8 @@ import           Pos.Communication.Protocol         (ConversationActions (..),
                                                      ListenerSpec, NodeId, OutSpecs,
                                                      SendActions (..), WorkerSpec,
                                                      listenerConv, mergeLs, worker)
-import           Pos.Communication.Relay.Class      (MonadRelayMem (..), Relay (..))
+import           Pos.Communication.Relay.Class      (MonadRelayMem, Relay (..),
+                                                     askRelayMem)
 import           Pos.Communication.Relay.Types      (RelayContext (..), RelayProxy (..),
                                                      SomeInvMsg (..))
 import           Pos.Communication.Relay.Util       (expectData, expectInv)

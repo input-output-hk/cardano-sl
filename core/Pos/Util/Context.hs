@@ -1,6 +1,8 @@
 {-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE KindSignatures       #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -8,7 +10,9 @@
 module Pos.Util.Context
        (
        -- * Context
-         ContextPart(..)
+         ContextTagK(..)
+       , ContextPart(..)
+       , ContextHolder'
        , HasContext
        , HasContexts
        , getContext
@@ -18,8 +22,33 @@ module Pos.Util.Context
 
 import           Universum
 
-import           Control.Lens                 (Getting)
-import qualified Control.Monad.Ether.Implicit as Ether
+import           Control.Lens                     (Getting)
+import qualified Control.Monad.Ether              as Ether.E
+import qualified Control.Monad.Ether.Implicit     as Ether
+import           Control.Monad.Trans.Ether.Tagged (TaggedTrans (..))
+import           Data.Coerce                      (coerce)
+
+data ContextTagK = ContextTag
+
+type ContextHolder' = TaggedTrans 'ContextTag
+
+instance (ContextPart ctx x, Monad m, trans ~ ReaderT ctx) =>
+  Ether.E.MonadReader x x (TaggedTrans 'ContextTag trans m) where
+    ask _ =
+      (coerce :: forall a.
+        trans m a ->
+        Ether.E.ReaderT 'ContextTag ctx m a)
+      (view contextPart)
+    {-# INLINE ask #-}
+
+    local _ f =
+      (coerce :: forall a.
+        (trans m a ->
+         trans m a) ->
+        (Ether.E.ReaderT 'ContextTag ctx m a ->
+         Ether.E.ReaderT 'ContextTag ctx m a))
+      (local (over contextPart f))
+    {-# INLINE local #-}
 
 class ContextPart s a where
     contextPart :: Lens' s a

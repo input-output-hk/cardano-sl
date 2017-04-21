@@ -1,22 +1,16 @@
+{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Shutdown.Class
-       ( MonadShutdownMem (..)
+       ( MonadShutdownMem
+       , askShutdownMem
        ) where
 
-import           Control.Monad.Trans (MonadTrans)
-import           Universum
+import qualified Control.Monad.Ether.Implicit as Ether
+import           Pos.Shutdown.Types           (ShutdownContext)
 
-import           Pos.Shutdown.Types  (ShutdownContext)
+type MonadShutdownMem = Ether.MonadReader ShutdownContext
 
-class Monad m => MonadShutdownMem m where
-    askShutdownMem :: m ShutdownContext
-
-    default askShutdownMem :: (MonadTrans t, MonadShutdownMem m', t m' ~ m) =>
-       m ShutdownContext
-    askShutdownMem = lift askShutdownMem
-
-instance {-# OVERLAPPABLE #-}
-  (MonadShutdownMem m, MonadTrans t, Monad (t m)) =>
-  MonadShutdownMem (t m)
+askShutdownMem :: MonadShutdownMem m => m ShutdownContext
+askShutdownMem = Ether.ask

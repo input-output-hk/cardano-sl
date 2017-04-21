@@ -46,8 +46,8 @@ import           Pos.Core.Constants       (protocolMagic)
 import           Pos.DHT.Model.Class      (MonadDHT, currentNodeKey, getKnownPeers)
 import           Pos.Exception            (CardanoFatalError)
 import           Pos.Reporting.Exceptions (ReportingError (..))
-import           Pos.Reporting.MemState   (MonadReportingMem (..), rcLoggingConfig,
-                                           rcReportServers)
+import           Pos.Reporting.MemState   (MonadReportingMem, askReportingContext,
+                                           rcLoggingConfig, rcReportServers)
 
 -- TODO From Pos.Util, remove after refactoring.
 -- | Concatenates two url part using regular slash '/'.

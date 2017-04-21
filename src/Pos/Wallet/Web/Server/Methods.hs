@@ -57,7 +57,8 @@ import           Pos.Crypto                    (PassPhrase, aesDecrypt, deriveAe
                                                 withSafeSigner)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (getKnownPeers)
-import           Pos.Reporting.MemState        (MonadReportingMem (..), rcReportServers)
+import           Pos.Reporting.MemState        (MonadReportingMem, askReportingContext,
+                                                rcReportServers)
 import           Pos.Reporting.Methods         (sendReport, sendReportNodeNologs)
 import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
 import           Pos.Util                      (maybeThrow)
@@ -65,7 +66,9 @@ import           Pos.Util.BackupPhrase         (BackupPhrase, safeKeysFromPhrase
 import           Pos.Util.UserSecret           (readUserSecret, usKeys)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
-import           Pos.Wallet.WalletMode         (WalletMode, MonadTxHistory, MonadBlockchainInfo, applyLastUpdate,
+import           Pos.Wallet.SscType            (WalletSscType)
+import           Pos.Wallet.WalletMode         (MonadBlockchainInfo, MonadTxHistory,
+                                                WalletMode, applyLastUpdate,
                                                 blockchainSlotDuration, connectedPeers,
                                                 getBalance, getTxHistory,
                                                 localChainDifficulty,
@@ -89,17 +92,17 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
                                                 getWalletWebSockets, initWSConnection,
                                                 notify, runWalletWS, upgradeApplicationWS)
-import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WebWalletModeDB, WalletWebDB,
-                                                addOnlyNewTxMeta, addUpdate, closeState,
-                                                createWallet, getHistoryCache,
-                                                getNextUpdate, getProfile, getTxMeta,
-                                                getWalletMeta, getWalletState, openState,
+import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
+                                                WebWalletModeDB, addOnlyNewTxMeta,
+                                                addUpdate, closeState, createWallet,
+                                                getHistoryCache, getNextUpdate,
+                                                getProfile, getTxMeta, getWalletMeta,
+                                                getWalletState, openState,
                                                 removeNextUpdate, removeWallet,
                                                 runWalletWebDB, setProfile, setWalletMeta,
                                                 setWalletTransactionMeta, testReset,
                                                 updateHistoryCache)
 import           Pos.Web.Server                (serveImpl)
-import           Pos.Wallet.SscType            (WalletSscType)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -406,8 +409,8 @@ getHistory cAddr skip limit = do
     paginate                            = take defaultLimit . drop defaultSkip
     defaultLimit                        = (fromIntegral $ fromMaybe 100 limit)
     defaultSkip                         = (fromIntegral $ fromMaybe 0 skip)
-    transCache Nothing                  = (Nothing, [])
-    transCache (Just (hh, utxo, txs))   = (Just (hh, utxo), txs)
+    transCache Nothing                = (Nothing, [])
+    transCache (Just (hh, utxo, txs)) = (Just (hh, utxo), txs)
 
 -- FIXME: is Word enough for length here?
 searchHistory

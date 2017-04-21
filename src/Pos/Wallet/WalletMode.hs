@@ -16,43 +16,44 @@ module Pos.Wallet.WalletMode
        , WalletRealMode
        ) where
 
-import           Control.Concurrent.STM      (TMVar, tryReadTMVar)
-import           Control.Monad.Trans         (MonadTrans)
-import           Control.Monad.Trans.Maybe   (MaybeT (..))
-import           Data.Tagged                 (Tagged (..))
-import           Data.Time.Units             (Millisecond)
-import           Mockable                    (Production)
-import           System.Wlog                 (LoggerNameBox, WithLogger)
+import           Control.Concurrent.STM       (TMVar, tryReadTMVar)
+import qualified Control.Monad.Ether.Implicit as Ether
+import           Control.Monad.Trans          (MonadTrans)
+import           Control.Monad.Trans.Maybe    (MaybeT (..))
+import           Data.Tagged                  (Tagged (..))
+import           Data.Time.Units              (Millisecond)
+import           Mockable                     (Production)
+import           Pos.Reporting.MemState       (ReportingContext)
+import           System.Wlog                  (LoggerNameBox, WithLogger)
 import           Universum
 
-import           Pos.Client.Txp.Balances     (MonadBalances (..))
-import           Pos.Client.Txp.History      (MonadTxHistory (..), deriveAddrHistory)
-import           Pos.Communication           (TxMode)
-import           Pos.Communication.PeerState (PeerStateHolder, WithPeerState)
-import           Pos.Constants               (blkSecurityParam)
-import qualified Pos.Context                 as PC
-import           Pos.DB                      (MonadDB)
-import qualified Pos.DB.Block                as DB
-import           Pos.DB.Error                (DBError (..))
-import qualified Pos.DB.GState               as GS
-import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
-import           Pos.DHT.Real                (KademliaDHT)
-import           Pos.Shutdown                (triggerShutdown)
-import           Pos.Slotting                (MonadSlots (..), getLastKnownSlotDuration)
-import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
-import           Pos.Txp                     (filterUtxoByAddr, runUtxoStateT)
-import           Pos.Types                   (BlockHeader, ChainDifficulty, difficultyL,
-                                              flattenEpochOrSlot, flattenSlotId)
-import           Pos.Update                  (ConfirmedProposalState (..))
-import           Pos.Update.Context          (UpdateContext (ucUpdateSemaphore))
-import           Pos.Util                    (maybeThrow)
-import           Pos.Util.Context            (askContext)
-import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
-import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
-import           Pos.Wallet.State            (WalletDB)
-import qualified Pos.Wallet.State            as WS
-import           Pos.Wallet.Web.State        (WalletWebDB (..))
-import           Pos.WorkMode                (RawRealMode)
+import           Pos.Client.Txp.Balances      (MonadBalances (..))
+import           Pos.Client.Txp.History       (MonadTxHistory (..), deriveAddrHistory)
+import           Pos.Communication            (TxMode)
+import           Pos.Communication.PeerState  (PeerStateHolder, WithPeerState)
+import           Pos.Constants                (blkSecurityParam)
+import qualified Pos.Context                  as PC
+import           Pos.DB                       (MonadDB)
+import qualified Pos.DB.Block                 as DB
+import           Pos.DB.Error                 (DBError (..))
+import qualified Pos.DB.GState                as GS
+import           Pos.DHT.Model                (MonadDHT, getKnownPeers)
+import           Pos.DHT.Real                 (KademliaDHT)
+import           Pos.Shutdown                 (triggerShutdown)
+import           Pos.Slotting                 (MonadSlots (..), getLastKnownSlotDuration)
+import           Pos.Ssc.Class                (Ssc, SscHelpersClass)
+import           Pos.Txp                      (filterUtxoByAddr, runUtxoStateT)
+import           Pos.Types                    (BlockHeader, ChainDifficulty, difficultyL,
+                                               flattenEpochOrSlot, flattenSlotId)
+import           Pos.Update                   (ConfirmedProposalState (..))
+import           Pos.Update.Context           (UpdateContext (ucUpdateSemaphore))
+import           Pos.Util                     (maybeThrow)
+import           Pos.Util.Context             (askContext)
+import           Pos.Wallet.KeyStorage        (KeyStorage, MonadKeys)
+import           Pos.Wallet.State             (WalletDB)
+import qualified Pos.Wallet.State             as WS
+import           Pos.Wallet.Web.State         (WalletWebDB (..))
+import           Pos.WorkMode                 (RawRealMode)
 
 deriving instance MonadBalances m => MonadBalances (WalletWebDB m)
 
@@ -193,7 +194,6 @@ type WalletMode ssc m
       , MonadKeys m
       , MonadBlockchainInfo m
       , MonadUpdates m
-      , WithWalletContext m
       , MonadDHT m
       , WithPeerState m
       )
@@ -205,7 +205,7 @@ type WalletMode ssc m
 type WalletRealMode = PeerStateHolder (KademliaDHT
                       (KeyStorage
                        (WalletDB
-                        (ContextHolder
+                        (Ether.ReaderT ReportingContext
                          (LoggerNameBox
                           Production
                            )))))

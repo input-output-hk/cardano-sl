@@ -13,28 +13,33 @@ module Pos.Context.Context
        , BaseParams(..)
        ) where
 
-import           Control.Concurrent.STM  (TBQueue)
-import qualified Control.Concurrent.STM  as STM
-import           Control.Lens            (makeLensesFor)
-import           Data.Time.Clock         (UTCTime)
-import           System.Wlog             (LoggerConfig)
+import           Control.Concurrent.STM        (TBQueue)
+import qualified Control.Concurrent.STM        as STM
+import           Control.Lens                  (lens, makeLensesFor)
+import           Data.Time.Clock               (UTCTime)
+import           System.Wlog                   (LoggerConfig)
 import           Universum
 
-import           Pos.Communication.Relay (RelayInvQueue)
-import           Pos.Communication.Types (NodeId)
-import           Pos.Crypto              (PublicKey, toPublic)
-import           Pos.Launcher.Param      (BaseParams (..), NodeParams (..))
-import           Pos.Lrc.Context         (LrcContext)
-import           Pos.Ssc.Class.Types     (Ssc (SscNodeContext))
-import           Pos.Txp.Settings        (TxpGlobalSettings)
-import           Pos.Txp.Toil.Types      (Utxo)
-import           Pos.Types               (Address, BlockHeader, HeaderHash, SlotLeaders,
-                                          Timestamp, makePubKeyAddress)
-import           Pos.Update.Context      (UpdateContext)
-import           Pos.Update.Params       (UpdateParams)
-import           Pos.Util.Chrono         (NE, NewestFirst)
-import           Pos.Util.Context        (ContextPart (..))
-import           Pos.Util.UserSecret     (UserSecret)
+import           Pos.Communication.Relay       (RelayInvQueue)
+import           Pos.Communication.Relay.Types (RelayContext (..))
+import           Pos.Communication.Types       (NodeId)
+import           Pos.Crypto                    (PublicKey, toPublic)
+import           Pos.DHT.MemState.Types        (DhtContext (..))
+import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..))
+import           Pos.Lrc.Context               (LrcContext)
+import           Pos.Reporting.MemState        (ReportingContext (..), rcLoggingConfig,
+                                                rcReportServers)
+import           Pos.Shutdown.Types            (ShutdownContext (..))
+import           Pos.Ssc.Class.Types           (Ssc (SscNodeContext))
+import           Pos.Txp.Settings              (TxpGlobalSettings)
+import           Pos.Txp.Toil.Types            (Utxo)
+import           Pos.Types                     (Address, BlockHeader, HeaderHash,
+                                                SlotLeaders, Timestamp, makePubKeyAddress)
+import           Pos.Update.Context            (UpdateContext)
+import           Pos.Update.Params             (UpdateParams)
+import           Pos.Util.Chrono               (NE, NewestFirst)
+import           Pos.Util.Context              (ContextPart (..))
+import           Pos.Util.UserSecret           (UserSecret)
 
 ----------------------------------------------------------------------------
 -- NodeContext
@@ -100,12 +105,23 @@ data NodeContext ssc = NodeContext
 makeLensesFor
   [ ("ncUpdateContext", "ncUpdateContextL")
   , ("ncLrcContext", "ncLrcContextL")
-  , ("ncNodeParams", "ncNodeParamsL") ]
+  , ("ncNodeParams", "ncNodeParamsL")
+  , ("ncInvPropagationQueue", "ncInvPropagationQueueL")
+  , ("ncShutdownFlag", "ncShutdownFlagL")
+  , ("ncLoggerConfig", "ncLoggerConfigL")
+  , ("ncShutdownNotifyQueue", "ncShutdownNotifyQueueL") ]
   ''NodeContext
 
 makeLensesFor
-  [ ("npUpdateParams", "npUpdateParamsL") ]
+  [ ("npUpdateParams", "npUpdateParamsL")
+  , ("npBaseParams", "npBaseParamsL")
+  , ("npReportServers", "npReportServersL")
+  , ("npPropagation", "npPropagationL") ]
   ''NodeParams
+
+makeLensesFor
+  [ ("bpKademliaDump", "bpKademliaDumpL") ]
+  ''BaseParams
 
 instance ContextPart (NodeContext ssc) UpdateContext where
     contextPart = ncUpdateContextL
@@ -118,6 +134,49 @@ instance ContextPart (NodeContext ssc) NodeParams where
 
 instance ContextPart (NodeContext ssc) UpdateParams where
     contextPart = ncNodeParamsL . npUpdateParamsL
+
+instance ContextPart (NodeContext ssc) ReportingContext where
+    contextPart = lens getter (flip setter)
+      where
+        getter nc =
+          ReportingContext
+            (nc ^. ncNodeParamsL . npReportServersL)
+            (nc ^. ncLoggerConfigL)
+        setter rc =
+          set (ncNodeParamsL . npReportServersL) (rc ^. rcReportServers) .
+          set ncLoggerConfigL (rc ^. rcLoggingConfig)
+
+instance ContextPart (NodeContext ssc) DhtContext where
+    contextPart = lens getter (flip setter)
+      where
+        getter nc =
+          DhtContext
+            (nc ^. ncNodeParamsL . npBaseParamsL . bpKademliaDumpL)
+        setter dc =
+          set (ncNodeParamsL . npBaseParamsL . bpKademliaDumpL)
+            (_dhtKademliadDump dc)
+
+instance ContextPart (NodeContext ssc) RelayContext where
+    contextPart = lens getter (flip setter)
+      where
+        getter nc =
+          RelayContext
+            (nc ^. ncNodeParamsL . npPropagationL)
+            (nc ^. ncInvPropagationQueueL)
+        setter rc =
+          set (ncNodeParamsL . npPropagationL) (_rlyIsPropagation rc) .
+          set ncInvPropagationQueueL (_rlyPropagationQueue rc)
+
+instance ContextPart (NodeContext ssc) ShutdownContext where
+    contextPart = lens getter (flip setter)
+      where
+        getter nc =
+          ShutdownContext
+            (nc ^. ncShutdownFlagL)
+            (nc ^. ncShutdownNotifyQueueL)
+        setter sc =
+          set ncShutdownFlagL (_shdnIsTriggered sc) .
+          set ncShutdownNotifyQueueL (_shdnNotifyQueue sc)
 
 ----------------------------------------------------------------------------
 -- Helper functions

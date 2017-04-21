@@ -40,11 +40,9 @@ import           Pos.DB                         (MonadDB)
 import           Pos.DB.Limits                  (MonadDBLimits)
 import           Pos.Delegation.Class           (MonadDelegation)
 import           Pos.DHT.Model                  (MonadDHT)
-import           Pos.Reporting.MemState         (MonadReportingMem)
 import           Pos.Slotting                   (MonadSlots, MonadSlotsData)
 import           Pos.Txp                        (MonadTxpMem)
 
-import           Pos.Wallet.Context             (WithWalletContext)
 import           Pos.Wallet.KeyStorage          (MonadKeys)
 import           Pos.Wallet.WalletMode          (MonadBalances, MonadBlockchainInfo,
                                                  MonadTxHistory, MonadUpdates)
@@ -105,12 +103,12 @@ newtype WalletWebSockets m a = WalletWebSockets
     { getWalletWS :: ReaderT ConnectionsVar m a
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadDBLimits, WithWalletContext,
+                MonadDBLimits,
                 MonadDHT, MonadSlots, MonadSlotsData,
                 CanLog, MonadKeys, MonadBalances, MonadUpdates,
                 MonadTxHistory, MonadBlockchainInfo, WithPeerState,
                 MonadDB, MonadTxpMem x, MonadWalletWebDB, MonadDelegation,
-                MonadReportingMem, LiftLocal)
+                LiftLocal)
 
 instance Monad m => WrappedM (WalletWebSockets m) where
     type UnwrappedM (WalletWebSockets m) = ReaderT ConnectionsVar m

@@ -114,9 +114,9 @@ getRelatedTxs
     => [Address]
     -> [(WithHash Tx, TxWitness, TxDistribution)]
     -> TxSelectorT m [TxHistoryEntry]
-getRelatedTxs addrs txs = fmap DL.toList $
+getRelatedTxs addrs txs =
     lift (MaybeT $ return $ topsortTxs (view _1) txs) >>=
-    fmap DL.fromList . mapM step
+    mapM step
   where
     addrsSet = S.fromList addrs
     step (WithHash tx txId, _wit, dist) = do

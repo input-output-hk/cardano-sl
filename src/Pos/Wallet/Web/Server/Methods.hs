@@ -477,61 +477,57 @@ sendExtended sendActions cpassphrase srcWallet dstAccount coin curr title desc =
     passphrase <- decodeCPassPhraseOrFail cpassphrase
     dstAddr <- decodeCAddressOrFail dstAccount
     allAccounts <- getWalletAccAddrsOrThrow srcWallet
-    -- TODO: spendings's snd is not used
     distr@(remaining, spendings) <- selectSrcAccounts coin allAccounts
     logDebug $ buildDistribution distr
-    mRemTx <-
-        if remaining == mkCoin 0
-            then return Nothing
-            else do
-                remCAddr <- caAddress <$> newAccount cpassphrase srcWallet
-                remAddr <- decodeCAddressOrFail $ caaAddress remCAddr
-                let remTx = TxOutAux (TxOut remAddr remaining) []
-                return $ Just (remTx, remCAddr)
-    let txs = TxOutAux (TxOut dstAddr coin) [] :|
-              maybe mempty (one . fst) mRemTx
-    na <- getKnownPeers
-    sendDo na passphrase (fst <$> spendings) txs
+    mRemTx <- mkRemainingTx remaining
+    let txs = TxOutAux (TxOut dstAddr coin) [] :| maybe mempty (one . fst) mRemTx
+    sendDo passphrase (fst <$> spendings) txs
   where
     selectSrcAccounts
         :: WalletWebMode ssc m
-        => Coin -> [CAccountAddress] -> m (Coin, NonEmpty (CAccountAddress, Coin))
-    selectSrcAccounts reqCoins accounts =
-        case accounts of
-            _
-                | reqCoins == mkCoin 0 ->
-                    throwM $ Internal "Spending non-positive amount of money!"
-            [] ->
-                throwM . Internal $
-                sformat ("Not enough money (need " %build % " more)") reqCoins
-            acc:accs -> do
-                balance <- getAccountBalance acc
-                case () of
-                    _
-                        | balance == mkCoin 0 || caaAddress acc == dstAccount ->
-                            selectSrcAccounts reqCoins accs
-                        | balance < reqCoins -> do
-                            let remCoins = reqCoins `unsafeSubCoin` balance
-                            ((acc, balance) :|) . toList <<$>>
-                                selectSrcAccounts remCoins accs
-                        | otherwise ->
-                            return
-                                ( balance `unsafeSubCoin` reqCoins
-                                , (acc, reqCoins) :| [])
+        => Coin
+        -> [CAccountAddress]
+        -> m (Coin, NonEmpty (CAccountAddress, Coin))
+    selectSrcAccounts reqCoins accounts
+        | reqCoins == mkCoin 0 =
+            throwM $ Internal "Spending non-positive amount of money!"
+        | [] <- accounts =
+            throwM . Internal $
+            sformat ("Not enough money (need " %build % " more)") reqCoins
+        | acc:accs <- accounts = do
+            balance <- getAccountBalance acc
+            if | balance == mkCoin 0 || caaAddress acc == dstAccount ->
+                   selectSrcAccounts reqCoins accs
+               | balance < reqCoins ->
+                   do let remCoins = reqCoins `unsafeSubCoin` balance
+                      ((acc, balance) :|) . toList <<$>>
+                          selectSrcAccounts remCoins accs
+               | otherwise ->
+                   return
+                       (balance `unsafeSubCoin` reqCoins, (acc, reqCoins) :| [])
 
-    withSafeSigners (sk :| []) passphrase action =
+    mkRemainingTx remaining
+        | remaining == mkCoin 0 = return Nothing
+        | otherwise = do
+            remCAddr <- caAddress <$> newAccount cpassphrase srcWallet
+            remAddr  <- decodeCAddressOrFail $ caaAddress remCAddr
+            let remTx = TxOutAux (TxOut remAddr remaining) []
+            return $ Just (remTx, remCAddr)
+
+    withSafeSigners (sk :| sks) passphrase action =
         withSafeSigner sk (return passphrase) $ \mss -> do
             ss <- mss `whenNothing` throwM (Internal "Passphrase doesn't match")
-            action (ss :| [])
-    withSafeSigners (sk :| sk' : sks) passphrase action =
-        withSafeSigner sk (return passphrase) $ \mss -> do
-            ss <- mss `whenNothing` throwM (Internal "Passphrase doesn't match")
-            withSafeSigners (sk' :| sks) passphrase $ action . (ss :|) . toList
+            case nonEmpty sks of
+                Nothing -> action (ss :| [])
+                Just sks' -> do
+                  let action' = action . (ss :|) . toList
+                  withSafeSigners sks' passphrase action'
 
-    sendDo na passphrase srcAccounts txs = do
+    sendDo passphrase srcAccounts txs = do
+        na <- getKnownPeers
         sks <- forM srcAccounts $ getSKByAccAddr passphrase
         srcAccAddrs <- forM srcAccounts $ decodeCAddressOrFail . caaAddress
-        let dstAddrs = toList txs <&> \(TxOutAux (TxOut addr _) _) -> addr
+        let dstAddrs = txOutAddress . toaOut <$> toList txs
         withSafeSigners sks passphrase $ \ss -> do
             etx <- submitMTx sendActions ss na txs
             case etx of
@@ -540,11 +536,11 @@ sendExtended sendActions cpassphrase srcWallet dstAccount coin curr title desc =
                     sformat ("Cannot send transaction: " %stext) err
                 Right (tx, _, _) -> do
                     logInfo $
-                        sformat
-                            ("Successfully spent money from " %listF ", "addressF %
-                             " addresses on " %listF ", " addressF)
-                            (toList srcAccAddrs)
-                            dstAddrs
+                        sformat ("Successfully spent money from "%
+                                 listF ", " addressF % " addresses on " %
+                                 listF ", " addressF)
+                        (toList srcAccAddrs)
+                        dstAddrs
                     -- TODO: this should be removed in production
                     let txHash = hash tx
                     mapM_ removeAccount srcAccounts
@@ -975,7 +971,7 @@ deriveAccountSK passphrase CWalletAddress{..} accIndex = do
     let accAddr = makePubKeyAddress $ encToPublic accKey
     return (accAddr, accKey)
 
-    -- TODO [CSM-175]: This is true way to generate keypair, since
+    -- TODO [CSM-175]: This is true way to finish generation of keypair, since
     -- public key should keep keypath in its attribute.
     -- But for some reason it makes tx sending from generated account fail
     --
@@ -1007,8 +1003,9 @@ instance FromHttpApiData CWalletAddress where
                 cwaIndex     <- maybe (Left "Invalid wallet index") Right $
                                 readMaybe $ toString part2
                 return CWalletAddress{..}
-            _ -> Left "Expected 2 parts separated by '#'"
+            _ -> Left "Expected 2 parts separated by '@'"
 
+-- TODO: this is not used, and perhaps won't be
 instance FromHttpApiData CAccountAddress where
     parseUrlPiece url =
         case T.splitOn "@" url of
@@ -1020,7 +1017,7 @@ instance FromHttpApiData CAccountAddress where
                                    readMaybe $ toString part3
                 caaAddress      <- parseUrlPiece part4
                 return CAccountAddress{..}
-            _ -> Left "Expected 4 parts separated by '#'"
+            _ -> Left "Expected 4 parts separated by '@'"
 
 -- FIXME: unsafe (temporary, will be removed probably in future)
 -- we are not checking is receaved Text really vald CTxId

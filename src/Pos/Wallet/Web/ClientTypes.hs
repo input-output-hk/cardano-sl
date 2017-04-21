@@ -111,14 +111,16 @@ data CCurrency
     deriving (Show, Read, Generic)
 
 -- | Client hash
-newtype CHash = CHash Text deriving (Show, Eq, Generic, Buildable)
+newtype CHash = CHash Text
+    deriving (Show, Eq, Generic, Buildable)
 
 instance Hashable CHash where
     hashWithSalt s (CHash h) = hashWithSalt s h
 
 -- | Client address
 -- @w@ is phantom type and stands for type of item this address belongs to.
-newtype CAddress w = CAddress CHash deriving (Show, Eq, Generic, Hashable, Buildable)
+newtype CAddress w = CAddress CHash
+    deriving (Show, Eq, Generic, Hashable, Buildable)
 
 -- | Marks address as belonging to wallet set.
 data WS = WS
@@ -139,7 +141,8 @@ cAddressToAddress :: CAddress w -> Either Text Address
 cAddressToAddress (CAddress (CHash h)) = decodeTextAddress h
 
 -- | Client transaction id
-newtype CTxId = CTxId CHash deriving (Show, Eq, Generic, Hashable)
+newtype CTxId = CTxId CHash
+    deriving (Show, Eq, Generic, Hashable)
 
 mkCTxId :: Text -> CTxId
 mkCTxId = CTxId . CHash
@@ -163,7 +166,8 @@ mkCTx diff THEntry {..} meta = CTx {..}
     ctInputAddrs = map addressToCAddress _thInputAddrs
     ctOutputAddrs = map addressToCAddress _thOutputAddrs
 
-newtype CPassPhrase = CPassPhrase Text deriving (Eq, Generic)
+newtype CPassPhrase = CPassPhrase Text
+    deriving (Eq, Generic)
 
 instance Show CPassPhrase where
     show _ = "<pass phrase>"

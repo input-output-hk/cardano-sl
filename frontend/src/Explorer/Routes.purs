@@ -2,6 +2,7 @@ module Explorer.Routes where
 
 import Prelude
 import Control.Alt ((<|>))
+import Data.Generic (class Generic, gEq)
 import Data.Lens ((^.))
 import Data.Maybe (fromMaybe)
 import Explorer.Util.Factory (mkCAddress, mkCHash, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
@@ -21,6 +22,10 @@ data Route
     | Block CHash
     | Playground
     | NotFound
+
+derive instance genericRoute :: Generic Route
+instance eqRoute :: Eq Route where
+  eq = gEq
 
 match :: String -> Route
 match url = fromMaybe NotFound $ router url $
@@ -56,6 +61,9 @@ toUrl NotFound = notFoundUrl
 
 litUrl :: String -> String
 litUrl lit = "/" <> lit <> "/"
+
+dashboardLit :: String
+dashboardLit = "dashboard"
 
 dashboardUrl :: String
 dashboardUrl = "/"
@@ -107,6 +115,7 @@ notFoundLit = "404"
 
 notFoundUrl :: String
 notFoundUrl = "/" <> notFoundLit
+
 
 class RouteParams a where
     paramToString :: a -> String

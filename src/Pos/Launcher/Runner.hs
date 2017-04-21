@@ -88,11 +88,11 @@ import           Pos.Ssc.Class               (SscConstraint, SscNodeContext, Ssc
                                               sscCreateNodeContext)
 import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
-import           Pos.Txp                     (mkTxpLocalData, runTxpHolder)
+import           Pos.Txp                     (mkTxpLocalData, runTxpHolder, txpSetGauge)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer                (explorerTxpGlobalSettings)
 #else
-import           Pos.Txp                     (txpGlobalSettings, txpSetGauge)
+import           Pos.Txp                     (txpGlobalSettings)
 #endif
 import           Pos.Update.Context          (UpdateContext (..))
 import qualified Pos.Update.DB               as GState
@@ -157,7 +157,7 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
 
        let startMonitoring node' = case lpEkgPort of
                Nothing   -> return Nothing
-               Just port -> Just <$> do 
+               Just port -> Just <$> do
                     server <- setupMonitor port runIO node'
                     gauge <- liftIO $ getGauge (pack "MemPoolSize") server
                     atomically $ writeTVar (txpSetGauge txpVar) $ \n -> do

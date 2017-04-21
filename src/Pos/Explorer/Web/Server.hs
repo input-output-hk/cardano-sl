@@ -29,6 +29,7 @@ import           Pos.Communication              (SendActions)
 import           Pos.Crypto                     (WithHash (..), hash, withHash)
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.GState                  as GS
+import qualified Pos.DB.GState.Balances         as GS
 
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class                  (SscHelpersClass)
@@ -203,7 +204,7 @@ getBlockTxs cHash (fromIntegral -> lim) (fromIntegral -> off) = do
 getAddressSummary :: ExplorerMode m => CAddress -> m CAddressSummary
 getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
     PubKeyAddress sid _ -> do
-        balance <- fromMaybe (mkCoin 0) <$> GS.getFtsStake sid
+        balance <- fromMaybe (mkCoin 0) <$> GS.getRealStake sid
         -- TODO: add number of coins when it's implemented
         -- TODO: retrieve transactions from something like an index
         txIds <- getNewestFirst <$> EX.getAddrHistory addr

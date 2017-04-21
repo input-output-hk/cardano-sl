@@ -5,15 +5,14 @@
 module Main where
 
 import           Data.Maybe          (fromJust)
-import           Data.Proxy          (Proxy (..))
-import           Mockable            (Production)
-import           Serokell.Util       (sec)
-import           System.Wlog         (CanLog, LoggerName, HasLoggerName)
+import           Mockable            (Production, currentTime)
+import           System.Wlog         (LoggerName, HasLoggerName, CanLog, logInfo)
+import           Formatting          ((%), sformat, shown)
 import           Universum
 
 import           Pos.Binary          ()
+import           Pos.Core.Types      (Timestamp (..))
 import qualified Pos.CLI             as CLI
-import           Pos.Constants       (staticSysStart)
 import           Pos.Crypto          (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 #ifndef DEV_MODE
 import           Pos.Genesis         (genesisStakeDistribution)
@@ -22,8 +21,7 @@ import           Pos.Genesis         (genesisUtxo)
 import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
                                       NodeParams (..), RealModeResources,
                                       bracketResources, runNodeProduction,
-                                      runTimeLordReal, runTimeSlaveReal, stakesDistr)
-import           Pos.Ssc.Class       (SscConstraint)
+                                      stakesDistr)
 import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
 import           Pos.Types           (Timestamp (Timestamp))
 import           Pos.Update          (UpdateParams (..))
@@ -35,23 +33,6 @@ import           Pos.Explorer.Socket (NotifierSettings (..))
 import           Pos.Explorer.Web    (explorerPlugin, notifierPlugin)
 
 import           ExplorerOptions     (Args (..), getExplorerOptions)
-
-
-getSystemStart
-    :: SscConstraint ssc
-    => Proxy ssc -> RealModeResources -> Args -> Production Timestamp
-getSystemStart sscProxy inst args
-    | noSystemStart args > 0 = pure $ Timestamp $ sec $ noSystemStart args
-    | otherwise =
-        case staticSysStart of
-            Nothing ->
-                if timeLord args
-                    then runTimeLordReal (loggingParams "time-lord" args)
-                    else runTimeSlaveReal
-                             sscProxy
-                             inst
-                             (baseParams "time-slave" args)
-            Just systemStart -> return systemStart
 
 loggingParams :: LoggerName -> Args -> LoggingParams
 loggingParams tag Args{..} =
@@ -66,7 +47,8 @@ baseParams :: LoggerName -> Args -> BaseParams
 baseParams loggingTag args@Args {..} =
     BaseParams
     { bpLoggingParams = loggingParams loggingTag args
-    , bpIpPort = ipPort
+    , bpBindAddress = ipPort
+    , bpPublicHost = publicHost
     , bpDHTPeers = CLI.dhtPeers commonArgs
     , bpDHTKey = dhtKey
     , bpDHTExplicitInitial = CLI.dhtExplicitInitial commonArgs
@@ -75,7 +57,11 @@ baseParams loggingTag args@Args {..} =
 
 action :: Args -> RealModeResources -> Production ()
 action args@Args {..} res = do
-    systemStart <- getSystemStart (Proxy :: Proxy SscGodTossing) res args
+    let systemStart = CLI.sysStart commonArgs
+    logInfo $ sformat ("System start time is " % shown) systemStart
+    t <- currentTime
+    logInfo $ sformat ("Current time is " % shown) (Timestamp t)
+
     currentParams <- getNodeParams args systemStart
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss

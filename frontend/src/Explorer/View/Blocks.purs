@@ -88,7 +88,8 @@ blocksView state =
 emptyBlocksView :: String -> P.Html Action
 emptyBlocksView message =
     P.div
-        [ P.dangerouslySetInnerHTML message ]
+        [ P.className "blocks-message"
+        , P.dangerouslySetInnerHTML message ]
         []
 
 failureView :: Language -> P.Html Action

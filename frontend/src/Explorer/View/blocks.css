@@ -107,6 +107,13 @@
   color: var(--color1);
 }
 
+.blocks-message {
+  padding: 0 18px;
+  font-size: 10px;
+  font-family: var(--fontFamily0-Regular);
+  color: var(--color13);
+}
+
 .blocks-body {
   padding-bottom: 24px;
 

@@ -88,7 +88,7 @@ import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA),
                                                 mkCTxId, toCUpdateInfo, txContainsTitle,
                                                 txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
-import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
+import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets, getWalletWebSockets,
                                                 WalletWebSockets, closeWSConnection,
                                                 getWalletWebSockets, initWSConnection,
                                                 notify, runWalletWS, upgradeApplicationWS)

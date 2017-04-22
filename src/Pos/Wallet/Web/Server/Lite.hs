@@ -31,7 +31,7 @@ import           Pos.Wallet.WalletMode         (WalletRealMode)
 import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeImpl,
                                                 walletServer, walletServerOuts)
 import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar,
-                                                MonadWalletWebSockets (..),
+                                                getWalletWebSockets,
                                                 WalletWebSockets, runWalletWS)
 import           Pos.Wallet.Web.State          (WalletState, WalletWebDB,
                                                 getWalletWebState, runWalletWebDB)

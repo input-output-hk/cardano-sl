@@ -13,7 +13,7 @@ import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
 import           Mockable                      (runProduction)
 import           Network.Wai                   (Application)
-import           Pos.Ssc.Extra.Class           (MonadSscMem (..))
+import           Pos.Ssc.Extra.Class           (askSscMem)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import           System.Wlog                   (logInfo, usingLoggerName)

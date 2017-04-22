@@ -11,24 +11,21 @@ module Pos.Ssc.Extra.Holder
        , ignoreSscHolder
        ) where
 
-import qualified Control.Concurrent.STM       as STM
-import qualified Control.Monad.Ether.Implicit as Ether
-import           System.Wlog                  (WithLogger)
+import qualified Control.Concurrent.STM  as STM
+import qualified Control.Monad.Ether     as Ether.E
+import           System.Wlog             (WithLogger)
 import           Universum
 
-import           Pos.DB                       (MonadDB)
-import           Pos.Lrc.Context              (LrcContext)
-import           Pos.Slotting.Class           (MonadSlots)
-import           Pos.Ssc.Class.LocalData      (SscLocalDataClass (sscNewLocalData))
-import           Pos.Ssc.Class.Storage        (SscGStateClass (sscLoadGlobalState))
-import           Pos.Ssc.Extra.Class          (MonadSscMem (..))
-import           Pos.Ssc.Extra.Types          (SscState (..))
-import           Pos.Util.Context             (HasContext)
+import           Pos.DB                  (MonadDB)
+import           Pos.Lrc.Context         (LrcContext)
+import           Pos.Slotting.Class      (MonadSlots)
+import           Pos.Ssc.Class.LocalData (SscLocalDataClass (sscNewLocalData))
+import           Pos.Ssc.Class.Storage   (SscGStateClass (sscLoadGlobalState))
+import           Pos.Ssc.Extra.Class     (SscMemTag)
+import           Pos.Ssc.Extra.Types     (SscState (..))
+import           Pos.Util.Context        (HasContext)
 
-type SscHolder ssc = Ether.ReaderT (SscState ssc)
-
-instance Monad m => MonadSscMem ssc (SscHolder ssc m) where
-    askSscMem = Ether.ask
+type SscHolder ssc = Ether.E.ReaderT SscMemTag (SscState ssc)
 
 -- | Run 'SscHolder' reading GState from DB (restoring from blocks)
 -- and using default (uninitialized) local state.
@@ -44,7 +41,7 @@ runSscHolder
     => SscState ssc
     -> SscHolder ssc m a
     -> m a
-runSscHolder st holder = Ether.runReaderT holder st
+runSscHolder st holder = Ether.E.runReaderT (Proxy @SscMemTag) holder st
 
 mkStateAndRunSscHolder
     :: forall ssc m a.
@@ -78,4 +75,5 @@ mkSscHolderState = do
 
 ignoreSscHolder :: SscHolder ssc m a -> m a
 ignoreSscHolder holder =
-    Ether.runReaderT holder (error "SSC var: don't force me")
+    Ether.E.runReaderT (Proxy @SscMemTag)
+        holder (error "SSC var: don't force me")

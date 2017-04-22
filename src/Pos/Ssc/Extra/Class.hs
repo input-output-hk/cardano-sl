@@ -3,22 +3,19 @@
 -- | Class for in-memory state of SSC. Doesn't depend on concrete SSC.
 
 module Pos.Ssc.Extra.Class
-       ( MonadSscMem (..)
+       ( MonadSscMem
+       , askSscMem
+       , SscMemTag
        ) where
 
-import           Control.Monad.Trans (MonadTrans)
+import qualified Control.Monad.Ether as Ether.E
 import           Universum
 
 import           Pos.Ssc.Extra.Types (SscState)
 
--- TODO: Port to Ether
-class Monad m =>
-      MonadSscMem ssc m | m -> ssc where
-    askSscMem :: m (SscState ssc)
-    default askSscMem :: (MonadTrans t, MonadSscMem ssc m', t m' ~ m) =>
-        m (SscState ssc)
-    askSscMem = lift askSscMem
+data SscMemTag
 
-instance {-# OVERLAPPABLE #-}
-    (MonadSscMem ssc m, MonadTrans t, Monad (t m)) =>
-        MonadSscMem ssc (t m)
+type MonadSscMem ssc = Ether.E.MonadReader SscMemTag (SscState ssc)
+
+askSscMem :: MonadSscMem ssc m => m (SscState ssc)
+askSscMem = Ether.E.ask (Proxy @SscMemTag)

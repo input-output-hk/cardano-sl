@@ -1,5 +1,5 @@
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 -- | Reporting functionality abstracted.
 module Pos.Reporting.MemState

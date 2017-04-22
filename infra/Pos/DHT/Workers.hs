@@ -14,8 +14,8 @@ import           System.Wlog                (WithLogger, logNotice)
 import           Universum
 
 import           Pos.Binary.Infra.DHTModel  ()
-import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker,
-                                             NodeId)
+import           Pos.Communication.Protocol (NodeId, OutSpecs, WorkerSpec,
+                                             localOnNewSlotWorker)
 import           Pos.Core.Slotting          (flattenSlotId)
 import           Pos.Core.Types             (slotIdF)
 import           Pos.DHT.Constants          (kademliaDumpInterval)

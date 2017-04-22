@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Default implementation of 'MonadSlotsData' based on 'TVar'.
 

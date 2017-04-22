@@ -25,7 +25,7 @@ import           Mockable.Production         (Production)
 import           System.Wlog                 (LoggerNameBox (..), WithLogger)
 import           Universum
 
-import           Pos.Communication.PeerState (PeerStateHolder (..), WithPeerState)
+import           Pos.Communication.PeerState (PeerStateHolder, WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (ContextHolder, NodeParams, WithNodeContext)
 import           Pos.DB.Class                (MonadDB)

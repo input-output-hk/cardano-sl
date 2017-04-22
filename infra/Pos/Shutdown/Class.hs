@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Pos.Shutdown.Class
        ( MonadShutdownMem

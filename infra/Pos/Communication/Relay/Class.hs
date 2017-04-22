@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Pos.Communication.Relay.Class
        ( Relay (..)

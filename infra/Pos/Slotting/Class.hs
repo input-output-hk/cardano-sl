@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Type class used for slotting functionality.
 

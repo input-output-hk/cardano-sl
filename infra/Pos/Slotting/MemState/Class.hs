@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Pos.Slotting.MemState.Class
        ( MonadSlotsData (..)

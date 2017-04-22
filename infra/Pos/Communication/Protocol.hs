@@ -43,7 +43,6 @@ import           Pos.Communication.BiP            (BiP)
 import           Pos.Communication.PeerState      (WithPeerState (..))
 import           Pos.Communication.Types.Protocol
 import           Pos.Core.Types                   (SlotId)
-import           Pos.DHT.Model.Class              (MonadDHT)
 import           Pos.Reporting                    (MonadReportingMem)
 import           Pos.Shutdown                     (MonadShutdownMem)
 import           Pos.Slotting                     (MonadSlots)
@@ -224,28 +223,27 @@ type OnNewSlotComm m =
     , Mockable Throw m
     , WithPeerState m
     , Mockable SharedAtomic m
-    , MonadDHT m
     , MonadReportingMem m
     , MonadShutdownMem m
     )
 
 onNewSlot'
     :: OnNewSlotComm m
-    => Bool -> Bool -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
-onNewSlot' withLog startImmediately (h, outs) =
+    => m (Set NodeId) -> Bool -> Bool -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
+onNewSlot' getPeers withLog startImmediately (h, outs) =
     (,outs) . ActionSpec $ \vI sA ->
-        onNewSlotImpl withLog startImmediately $
+        onNewSlotImpl getPeers withLog startImmediately $
             \slotId -> let ActionSpec h' = h slotId
                         in h' vI sA
 onNewSlotWorker
     :: OnNewSlotComm m
-    => Bool -> OutSpecs -> (SlotId -> Worker' m) -> (WorkerSpec m, OutSpecs)
-onNewSlotWorker b outs = onNewSlot' False b . workerHelper outs
+    => m (Set NodeId) -> Bool -> OutSpecs -> (SlotId -> Worker' m) -> (WorkerSpec m, OutSpecs)
+onNewSlotWorker getPeers b outs = onNewSlot' getPeers False b . workerHelper outs
 
 onNewSlotWithLoggingWorker
     :: OnNewSlotComm m
-    => Bool -> OutSpecs -> (SlotId -> Worker' m) -> (WorkerSpec m, OutSpecs)
-onNewSlotWithLoggingWorker b outs = onNewSlot' True b . workerHelper outs
+    => m (Set NodeId) -> Bool -> OutSpecs -> (SlotId -> Worker' m) -> (WorkerSpec m, OutSpecs)
+onNewSlotWithLoggingWorker getPeers b outs = onNewSlot' getPeers True b . workerHelper outs
 
 localOnNewSlotWorker
     :: ( MonadIO m
@@ -254,11 +252,10 @@ localOnNewSlotWorker
        , WithLogger m
        , Mockable Fork m
        , Mockable Delay m
-       , MonadDHT m
        , MonadReportingMem m
        , MonadShutdownMem m
-       ) => Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
-localOnNewSlotWorker b h = (ActionSpec $ \__vI __sA -> onNewSlot b h, mempty)
+       ) => m (Set NodeId) -> Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
+localOnNewSlotWorker getPeers b h = (ActionSpec $ \__vI __sA -> onNewSlot getPeers b h, mempty)
 
 localWorker :: m () -> (WorkerSpec m, OutSpecs)
 localWorker h = (ActionSpec $ \__vI __sA -> h, mempty)

@@ -26,7 +26,6 @@ import           Pos.Context               (WithNodeContext)
 import           Pos.DB.Class              (MonadDB, MonadDBCore)
 import           Pos.DB.Limits             (MonadDBLimits)
 import           Pos.Delegation.Class      (DelegationWrap (..), MonadDelegation (..))
-import           Pos.DHT.MemState          (MonadDhtMem)
 import           Pos.Reporting             (MonadReportingMem)
 import           Pos.Shutdown              (MonadShutdownMem)
 import           Pos.Slotting.Class        (MonadSlots)
@@ -60,7 +59,6 @@ newtype DelegationT m a = DelegationT
                , MonadSscMem kek
                , MonadSlotsData
                , MonadTxpMem x
-               , MonadDhtMem
                , MonadReportingMem
                , MonadRelayMem
                , MonadShutdownMem

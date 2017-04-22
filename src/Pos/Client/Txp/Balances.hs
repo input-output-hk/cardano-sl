@@ -20,7 +20,6 @@ import           Pos.DB                      (MonadDB)
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.GState.Balances      as GS
 import           Pos.Delegation              (DelegationT (..))
-import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Slotting                (NtpSlotting, SlottingHolder)
 import           Pos.Ssc.Extra               (SscHolder (..))
 import           Pos.Txp                     (GenericToilModifier (..), TxOutAux (..),
@@ -52,7 +51,6 @@ getBalanceFromUtxo addr =
 
 instance MonadBalances m => MonadBalances (ReaderT r m)
 instance MonadBalances m => MonadBalances (StateT s m)
-instance MonadBalances m => MonadBalances (KademliaDHT m)
 instance MonadBalances m => MonadBalances (PeerStateHolder m)
 instance MonadBalances m => MonadBalances (NtpSlotting m)
 instance MonadBalances m => MonadBalances (SlottingHolder m)

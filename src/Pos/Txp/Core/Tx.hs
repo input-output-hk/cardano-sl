@@ -29,7 +29,7 @@ data TopsortState a = TopsortState
 
 $(makeLenses ''TopsortState)
 
-{-# ANN topsortTxs "HLint: ignore Use ordNub" #-}
+{-# ANN topsortTxs ("HLint: ignore Use ordNub" :: Text) #-}
 -- | Does topological sort on things that contain transactions – e.g. can be
 -- used both for sorting @[Tx]@ and @[(Tx, TxWitness)]@.
 --

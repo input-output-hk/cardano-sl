@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | SafeCopy serialization of Pos.Types.* modules, required for wallet
 
@@ -7,8 +7,7 @@ module Pos.SafeCopy
        ) where
 
 import           Data.SafeCopy                   (SafeCopy (..), base, contain,
-                                                  deriveSafeCopySimple, safeGet,
-                                                  safePut)
+                                                  deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                  as Cereal (getWord8, putWord8)
 import           Universum
 
@@ -22,44 +21,34 @@ import           Pos.Crypto.HD                   (HDAddressPayload (..))
 import           Pos.Crypto.RedeemSigning        (RedeemPublicKey (..),
                                                   RedeemSecretKey (..),
                                                   RedeemSignature (..))
-import           Pos.Crypto.Signing              (ProxyCert (..),
-                                                  ProxySecretKey (..),
-                                                  ProxySignature (..),
-                                                  PublicKey (..),
-                                                  SecretKey (..),
-                                                  Signature (..), Signed (..))
+import           Pos.Crypto.Signing              (ProxyCert (..), ProxySecretKey (..),
+                                                  ProxySignature (..), PublicKey (..),
+                                                  SecretKey (..), Signature (..),
+                                                  Signed (..))
 import           Pos.Ssc.Class.Types             (Ssc (..))
 
-import           Pos.Core.Types                  (AddrPkAttrs (..),
-                                                  Address (..),
-                                                  ApplicationName (..),
-                                                  BlockVersion (..),
+import           Pos.Core.Types                  (AddrPkAttrs (..), Address (..),
+                                                  ApplicationName (..), BlockVersion (..),
                                                   BlockVersionData (..),
                                                   ChainDifficulty (..), Coin,
-                                                  CoinPortion (..),
-                                                  EpochIndex (..),
-                                                  EpochOrSlot (..),
-                                                  LocalSlotIndex (..),
+                                                  CoinPortion (..), EpochIndex (..),
+                                                  EpochOrSlot (..), LocalSlotIndex (..),
                                                   Script (..), SharedSeed (..),
-                                                  SlotId (..),
-                                                  SoftwareVersion (..))
-import           Pos.Ssc.GodTossing.Core.Types   (Commitment (..),
-                                                  CommitmentsMap,
-                                                  GtPayload (..), GtProof (..),
-                                                  Opening (..),
-                                                  VssCertificate (..))
-import           Pos.Txp.Core.Types              (Tx (..), TxDistribution (..),
-                                                  TxIn (..), TxInWitness (..),
-                                                  TxOut (..), TxOutAux (..),
-                                                  TxPayload (..), TxProof (..))
-import           Pos.Types.Block
-import           Pos.Merkle                      (MerkleTree(..), MerkleNode(..), MerkleRoot(..))
-import           Pos.Data.Attributes             (Attributes (..))
+                                                  SlotId (..), SoftwareVersion (..))
 import           Pos.Crypto.Hashing              (AbstractHash (..))
-import           Pos.Update.Core.Types           (SystemTag (..),
-                                                  UpdateData (..),
-                                                  UpdatePayload (..),
-                                                  UpdateProposal (..),
+import           Pos.Data.Attributes             (Attributes (..))
+import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (..),
+                                                  MerkleTree (..))
+import           Pos.Ssc.GodTossing.Core.Types   (Commitment (..), CommitmentsMap,
+                                                  GtPayload (..), GtProof (..),
+                                                  Opening (..), VssCertificate (..))
+import           Pos.Txp.Core.Types              (Tx (..), TxDistribution (..), TxIn (..),
+                                                  TxInWitness (..), TxOut (..),
+                                                  TxOutAux (..), TxPayload (..),
+                                                  TxProof (..))
+import           Pos.Types.Block
+import           Pos.Update.Core.Types           (SystemTag (..), UpdateData (..),
+                                                  UpdatePayload (..), UpdateProposal (..),
                                                   UpdateVote (..))
 
 

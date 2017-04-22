@@ -1,5 +1,4 @@
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Class which provides access to part of database which contains
 -- message length limits.

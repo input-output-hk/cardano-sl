@@ -12,6 +12,7 @@ module Pos.Util.Iterator
 
 import           Control.Monad.State (StateT (..))
 import           Control.Monad.Trans (MonadTrans)
+import           Control.Monad.Trans.Lift.Local   (LiftLocal (..))
 import           Universum
 
 -- | MonadIterator encapsulates iteration by collection elements of type @a@.
@@ -36,7 +37,7 @@ instance MonadIterator a m => MonadIterator a (StateT s m)
 
 -- | Encapsulation of list iterator.
 newtype ListHolderT s m a = ListHolderT (StateT [s] m a)
-    deriving (Functor, Applicative, Monad, MonadThrow, MonadIO, MonadCatch)
+    deriving (Functor, Applicative, Monad, MonadThrow, MonadIO, MonadCatch, MonadTrans, LiftLocal)
 
 type ListHolder s a = ListHolderT s Identity a
 

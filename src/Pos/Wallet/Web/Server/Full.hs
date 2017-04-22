@@ -100,8 +100,8 @@ convertHandler
 convertHandler nc modernDBs tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar handler = do
     liftIO ( runProduction
            . usingLoggerName "wallet-api"
-           . runDBHolder modernDBs
            . runContextHolder nc
+           . runDBHolder modernDBs
            . runSlottingHolder slotVar
            . runNtpSlotting ntpSlotVar
            . runSscHolder ssc

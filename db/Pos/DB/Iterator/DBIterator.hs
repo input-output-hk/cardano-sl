@@ -1,6 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Encapsulation of RocksDB iterator
 module Pos.DB.Iterator.DBIterator
@@ -25,7 +24,7 @@ import           Universum
 
 import qualified Control.Monad.Ether    as Ether.E
 import           Pos.Binary.Class       (Bi)
-import           Pos.DB.Class           (MonadDB (..))
+import           Pos.DB.Class           (MonadDB, getNodeDBs)
 import           Pos.DB.Error           (DBError (DBMalformed))
 import           Pos.DB.Functions       (rocksDecodeMaybe, rocksDecodeMaybeWP)
 import           Pos.DB.Holder          (DBHolder, runDBHolder)

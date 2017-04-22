@@ -27,13 +27,13 @@ library
 
   build-depends:       base
                      , bytestring
-                     , unordered-containers
                      , cardano-sl-core
                      , cardano-sl-db
                      , formatting
-                     , text-format
                      , lens
+                     , text-format
                      , universum
+                     , unordered-containers
 
   default-extensions:  DeriveDataTypeable
                        DeriveGeneric

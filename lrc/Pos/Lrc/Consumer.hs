@@ -13,7 +13,7 @@ import           Universum
 
 import           Pos.Core               (BlockVersionData, Coin, CoinPortion, EpochIndex,
                                          applyCoinPortion)
-import           Pos.DB.Class           (MonadDBCore (dbAdoptedBVData))
+import           Pos.DB.Class           (MonadDBCore, dbAdoptedBVData)
 import           Pos.Lrc.Class          (RichmenComponent (..))
 import           Pos.Lrc.DB.RichmenBase (getRichmen, putRichmen)
 import           Pos.Lrc.Types          (RichmenStake)

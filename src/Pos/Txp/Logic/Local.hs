@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP             #-}
+{-# LANGUAGE CPP #-}
 
 -- | Logic for local processing of transactions.
 -- Local transaction is transaction which hasn't been added in the blockchain yet.

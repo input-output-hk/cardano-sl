@@ -448,6 +448,7 @@ library
                       , log-warper >= 1.1.1
                       , lrucache
                       , memory
+                      , mmorph
                       , monad-control
                       , monad-loops
                       , mono-traversable
@@ -481,7 +482,6 @@ library
                       , transformers
                       , transformers-base
                       , transformers-lift
-                      , mmorph
                       , turtle
                       , universum >= 0.1.11
                       , unordered-containers

@@ -16,7 +16,7 @@ import           Universum
 import           Pos.Context.Class      (WithNodeContext, getNodeContext)
 import           Pos.Context.Context    (ncSystemStart)
 import           Pos.Context.Functions  (genesisUtxoM)
-import           Pos.DB.Class           (MonadDB (getNodeDBs, usingReadOptions))
+import           Pos.DB.Class           (MonadDB, getNodeDBs, usingReadOptions)
 import           Pos.DB.GState.Balances (getRealTotalStake)
 import           Pos.DB.GState.Common   (prepareGStateCommon)
 import           Pos.DB.Types           (DB (..), NodeDBs (..), Snapshot (..), gStateDB,

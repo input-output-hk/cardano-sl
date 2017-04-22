@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP                  #-}
+{-# LANGUAGE CPP #-}
 
 -- | Server which handles transactions.
 

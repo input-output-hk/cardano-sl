@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Module for websockets implementation of Daedalus API.
 -- This implements unidirectional sockets from server to client.

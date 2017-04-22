@@ -64,7 +64,7 @@ import           Pos.Context                 (ContextHolder, NodeContext (..),
                                               runContextHolder)
 import           Pos.Core                    (Timestamp ())
 import           Pos.Crypto                  (createProxySecretKey, encToPublic)
-import           Pos.DB                      (MonadDB (..), runDBHolder)
+import           Pos.DB                      (DBHolder, MonadDB, NodeDBs, runDBHolder)
 import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
 import           Pos.DB.GState               (getTip)
 import           Pos.DB.Misc                 (addProxySecretKey)
@@ -128,9 +128,9 @@ runRawRealMode peerId res np@NodeParams {..} sscnp listeners outSpecs (ActionSpe
     usingLoggerName lpRunnerTag $ do
        initNC <- untag @ssc sscCreateNodeContext sscnp
        modernDBs <- openNodeDBs npRebuildDb npDbPathM
-       let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc)
+       let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc) :: Int
        -- TODO [CSL-775] ideally initialization logic should be in scenario.
-       runDBHolder modernDBs . runCH @ssc allWorkersNum np initNC $ initNodeDBs
+       runCH @ssc allWorkersNum np initNC modernDBs $ initNodeDBs
        initTip <- runDBHolder modernDBs getTip
        stateM <- liftIO SM.newIO
        stateM_ <- liftIO SM.newIO
@@ -142,8 +142,7 @@ runRawRealMode peerId res np@NodeParams {..} sscnp listeners outSpecs (ActionSpe
        let runIO :: forall t . RawRealMode ssc t -> IO t
            runIO = runProduction .
                        usingLoggerName lpRunnerTag .
-                       runDBHolder modernDBs .
-                       runCH @ssc allWorkersNum np initNC .
+                       runCH @ssc allWorkersNum np initNC modernDBs .
                        runSlottingHolder slottingVar .
                        runNtpSlotting ntpSlottingVar .
                        ignoreSscHolder .
@@ -157,8 +156,7 @@ runRawRealMode peerId res np@NodeParams {..} sscnp listeners outSpecs (ActionSpe
 
        let stopMonitoring it = whenJust it stopMonitor
 
-       runDBHolder modernDBs .
-          runCH allWorkersNum np initNC .
+       runCH allWorkersNum np initNC modernDBs .
           runSlottingHolder slottingVar .
           runNtpSlotting ntpSlottingVar .
           (mkStateAndRunSscHolder @ssc) .
@@ -267,22 +265,22 @@ runStatsMode peerId res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
 -- Lower level runners
 ----------------------------------------------------------------------------
 
-runCH :: forall ssc m a . (SscConstraint ssc, MonadDB m, Mockable CurrentTime m)
-      => Int -> NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
-runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
+runCH :: forall ssc m a . (SscConstraint ssc, MonadIO m, MonadCatch m, Mockable CurrentTime m)
+      => Int -> NodeParams -> SscNodeContext ssc -> NodeDBs -> DBHolder (ContextHolder ssc m) a -> m a
+runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     ncJLFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     ncBlkSemaphore <- liftIO newEmptyMVar
     ucUpdateSemaphore <- liftIO newEmptyMVar
 
     -- TODO [CSL-775] lrc initialization logic is duplicated.
-    epochDef <- LrcDB.getEpochDefault
+    epochDef <- runDBHolder db LrcDB.getEpochDefault
     lcLrcSync <- liftIO $ newTVarIO (LrcSyncData True epochDef)
 
     let eternity = (minBound, maxBound)
         makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . encToPublic
         ownPSKs = npUserSecret ^.. usKeys._tail.each.to makeOwnPSK
-    forM_ ownPSKs addProxySecretKey
+    runDBHolder db $ forM_ ownPSKs addProxySecretKey
 
     ncUserSecret <- liftIO . newTVarIO $ npUserSecret
     ncBlockRetrievalQueue <- liftIO $
@@ -317,7 +315,7 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
             , ncTxpGlobalSettings = txpGlobalSettings
 #endif
             , .. }
-    runContextHolder ctx act
+    runContextHolder ctx (runDBHolder db act)
 
 ----------------------------------------------------------------------------
 -- Utilities

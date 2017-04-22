@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP                  #-}
+{-# LANGUAGE CPP #-}
 
 {-| 'WorkMode' constraint. It is widely used in almost every our code.
     Simple alias for bunch of useful constraints. This module also
@@ -108,8 +108,8 @@ type RawRealMode ssc =
     SscHolder ssc (
     NtpSlotting (
     SlottingHolder (
-    ContextHolder ssc (
     DBHolder (
+    ContextHolder ssc (
     LoggerNameBox Production
     ))))))))
 

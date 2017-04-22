@@ -34,7 +34,8 @@ library
                        Pos.Update.Context
                        Pos.Update.Params
 
-  build-depends:       aeson
+  build-depends:       QuickCheck
+                     , aeson
                      , base
                      , binary
                      , cardano-sl-core
@@ -51,7 +52,6 @@ library
                      , mtl
                      , node-sketch
                      , parsec
-                     , QuickCheck
                      , rocksdb
                      , safecopy
                      , serokell-util

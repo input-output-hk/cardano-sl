@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Higher-level DB functionality.
 
@@ -27,13 +28,13 @@ import           Pos.Context.Class                (WithNodeContext)
 import           Pos.Context.Functions            (genesisLeadersM)
 import           Pos.DB.Block                     (getBlock, loadBlundsByDepth,
                                                    loadBlundsWhile, prepareBlockDB)
-import           Pos.DB.Class                     (MonadDB, MonadDBCore (..))
+import           Pos.DB.Class                     (MonadDB, MonadDBCore(..))
 import           Pos.DB.Error                     (DBError (DBMalformed))
+import           Pos.DB.Holder                    (DBHolder)
 import           Pos.DB.Functions                 (openDB)
 import           Pos.DB.GState.BlockExtra         (prepareGStateBlockExtra)
 import           Pos.DB.GState.Common             (getTip)
 import           Pos.DB.GState.GState             (prepareGStateDB, sanityCheckGStateDB)
-import           Pos.DB.Holder                    (DBHolder)
 import           Pos.DB.Misc                      (prepareMiscDB)
 import           Pos.DB.Types                     (NodeDBs (..))
 import           Pos.Lrc.DB                       (prepareLrcDB)

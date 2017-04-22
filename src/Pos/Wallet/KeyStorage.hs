@@ -1,6 +1,6 @@
-{-# LANGUAGE DataKinds            #-}
-{-# LANGUAGE PolyKinds            #-}
-{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE DataKinds    #-}
+{-# LANGUAGE PolyKinds    #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Pos.Wallet.KeyStorage
        ( MonadKeys (..)

@@ -1,7 +1,7 @@
-{-# LANGUAGE CPP                  #-}
-{-# LANGUAGE InstanceSigs         #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE InstanceSigs        #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | 'WalletMode' constraint. Like `WorkMode`, but for wallet.
 

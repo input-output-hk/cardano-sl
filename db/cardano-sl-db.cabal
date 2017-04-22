@@ -35,14 +35,16 @@ library
                      , formatting
                      , lens
                      , log-warper
+                     , mmorph
                      , mtl
                      , node-sketch
                      , resourcet
                      , rocksdb
                      , serokell-util
                      , text-format
+                     , transformers
                      , transformers-base
-                     , mmorph
+                     , transformers-lift
                      , universum
 
   default-language:    Haskell2010
@@ -64,6 +66,8 @@ library
                        ViewPatterns
                        LambdaCase
                        MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
 
   ghc-options:         -Wall
                        -fno-warn-orphans

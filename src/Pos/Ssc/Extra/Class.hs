@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Class for in-memory state of SSC. Doesn't depend on concrete SSC.
 

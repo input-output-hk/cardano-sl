@@ -184,15 +184,11 @@ instance MonadPollRead m =>
         PollT $ pmConfirmedPropsL %= MM.insert (cpsSoftwareVersion cps) cps
     delConfirmedProposal sv = PollT $ pmConfirmedPropsL %= MM.delete sv
     insertActiveProposal ps = do
-        let up@UnsafeUpdateProposal{upSoftwareVersion = sv, ..} = psProposal ps
+        let up@UnsafeUpdateProposal{..} = psProposal ps
             upId = hash up
-            appName = svAppName sv
         whenNothingM_ (getProposal upId) $
             setEpochProposers =<< (HS.insert (addressHash upFrom) <$> getEpochProposers)
-        PollT $ do
-            let alterDel _ Nothing     = Nothing
-                alterDel val (Just hs) = Just $ HS.delete val hs
-            pmActivePropsL %= MM.insert upId ps
+        PollT $ pmActivePropsL %= MM.insert upId ps
     -- Deactivate proposal doesn't change epoch proposers.
     deactivateProposal id = do
         prop <- getProposal id
@@ -200,11 +196,6 @@ instance MonadPollRead m =>
             PollT $ do
                 let up = psProposal ps
                     upId = hash up
-                    sv = upSoftwareVersion up
-                    appName = svAppName sv
-
-                    alterIns val Nothing   = Just $ HS.singleton val
-                    alterIns val (Just hs) = Just $ HS.insert val hs
                 pmActivePropsL %= MM.delete upId
     setSlottingData sd = PollT $ pmSlottingDataL .= Just sd
     setEpochProposers ep = PollT $ pmEpochProposersL .= Just ep

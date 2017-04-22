@@ -82,7 +82,7 @@ unsafeIntegerToCoin n
 instance Buildable CoinPortion where
     build cp@(getCoinPortion -> x) =
         bprint
-            (int%"/"%int%" (≈ "%float%")")
+            (int%"/"%int%" (approx. "%float%")")
             x
             coinPortionDenominator
             (coinPortionToDouble cp)

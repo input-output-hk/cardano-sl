@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Runners in various modes.
 
@@ -34,8 +34,8 @@ import           Data.Tagged                 (untag)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (CurrentTime, Mockable, MonadMockable,
-                                              Production (..), Throw, bracket,
-                                              finally, throw)
+                                              Production (..), Throw, bracket, finally,
+                                              throw)
 import           Network.QDisc.Fair          (fairQDisc)
 import           Network.Transport.Abstract  (Transport, closeTransport)
 import           Network.Transport.Concrete  (concrete)
@@ -46,24 +46,18 @@ import           Node                        (Node, NodeAction (..),
 import           Node.Util.Monitor           (setupMonitor, stopMonitor)
 import qualified STMContainers.Map           as SM
 import           System.Random               (newStdGen)
-import           System.Wlog                 (LoggerConfig (..), WithLogger,
-                                              logError, logInfo, productionB,
-                                              releaseAllHandlers, setupLogging,
-                                              usingLoggerName)
+import           System.Wlog                 (LoggerConfig (..), WithLogger, logError,
+                                              logInfo, productionB, releaseAllHandlers,
+                                              setupLogging, usingLoggerName)
 import           Universum                   hiding (bracket, finally)
 
 import           Pos.Binary                  ()
 import           Pos.CLI                     (readLoggerConfig)
-import           Pos.Communication           (ActionSpec (..), BiP (..),
-                                              InSpecs (..),
-                                              ListenersWithOut, OutSpecs (..),
-                                              PeerId (..), NodeId,
-                                              SysStartResponse, VerInfo (..),
-                                              allListeners,
-                                              hoistListenerSpec,
-                                              mergeLs,
-                                              stubListenerOneMsg,
-                                              unpackLSpecs)
+import           Pos.Communication           (ActionSpec (..), BiP (..), InSpecs (..),
+                                              ListenersWithOut, NodeId, OutSpecs (..),
+                                              PeerId (..), SysStartResponse, VerInfo (..),
+                                              allListeners, hoistListenerSpec, mergeLs,
+                                              stubListenerOneMsg, unpackLSpecs)
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (ContextHolder, NodeContext (..),
@@ -75,12 +69,12 @@ import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
 import           Pos.DB.GState               (getTip)
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Holder       (runDelegationT)
-import           Pos.DHT.Model               (randomDHTKey, dhtNodeToNodeId)
+import           Pos.DHT.Model               (dhtNodeToNodeId, randomDHTKey)
 import           Pos.DHT.Real                (KademliaDHTInstance,
                                               KademliaDHTInstanceConfig (..),
-                                              startDHTInstance, lookupNode,
-                                              stopDHTInstance, KademliaParams (..),
-                                              kademliaGetKnownPeers, kdiHandle)
+                                              KademliaParams (..), kademliaGetKnownPeers,
+                                              kdiHandle, lookupNode, startDHTInstance,
+                                              stopDHTInstance)
 import           Pos.Genesis                 (genesisLeaders, genesisSeed)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
@@ -89,8 +83,8 @@ import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.Lrc.Fts                 (followTheSatoshiM)
 import           Pos.Slotting                (SlottingVar, mkNtpSlottingVar,
                                               runNtpSlotting, runSlottingHolder)
-import           Pos.Ssc.Class               (SscConstraint, SscNodeContext,
-                                              SscParams, sscCreateNodeContext)
+import           Pos.Ssc.Class               (SscConstraint, SscNodeContext, SscParams,
+                                              sscCreateNodeContext)
 import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp                     (mkTxpLocalData, runTxpHolder)
@@ -101,6 +95,7 @@ import           Pos.Explorer                (explorerTxpGlobalSettings)
 #else
 import           Pos.Txp                     (txpGlobalSettings)
 #endif
+import           Pos.Launcher.Resources      (RealModeResources (..), hoistResources)
 import           Pos.Update.Context          (UpdateContext (..))
 import qualified Pos.Update.DB               as GState
 import           Pos.Update.MemState         (newMemVar)
@@ -109,7 +104,6 @@ import           Pos.Util.UserSecret         (usKeys)
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (MinWorkMode, ProductionMode, RawRealMode,
                                               ServiceMode, StatsMode)
-import           Pos.Launcher.Resources      (RealModeResources (..), hoistResources)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}

@@ -13,11 +13,10 @@ module Pos.Crypto.Encryption
 import           Crypto.Cipher.AES   (AES256)
 import           Crypto.Cipher.Types (BlockCipher (..), cipherInit, ctrCombine, nullIV)
 import           Crypto.Error        (CryptoError, eitherCryptoError)
-import           Crypto.Hash         (Blake2b_256)
+import           Crypto.Hash         (Blake2b_256, Digest, hash)
+import           Data.ByteArray      (convert)
 import qualified Data.Text.Encoding  as TE
-import           Pos.Binary.Class    (Bi, encodeStrict)
 import           Pos.Binary.Crypto   ()
-import           Pos.Crypto.Hashing  (AbstractHash, unsafeAbstractHash)
 import           Universum
 
 
@@ -25,8 +24,8 @@ import           Universum
 -- Hashing
 ----------------------------------------------------------------------------
 
-blake2b :: Bi a => a -> AbstractHash Blake2b_256 b
-blake2b = unsafeAbstractHash
+blake2b :: ByteString -> ByteString
+blake2b = convert @(Digest Blake2b_256) . hash
 
 ----------------------------------------------------------------------------
 -- AES
@@ -41,7 +40,7 @@ deriveAesKey :: Text -> AesKey
 deriveAesKey = deriveAesKeyBS . TE.encodeUtf8
 
 deriveAesKeyBS :: ByteString -> AesKey
-deriveAesKeyBS = AesKey . encodeStrict . blake2b
+deriveAesKeyBS = AesKey . blake2b
 
 aesEncrypt :: ByteString -> AesKey -> Either CryptoError ByteString
 aesEncrypt input (fromAESKey -> sk) = ctrCombine <$> init <*> pure nullIV <*> pure input

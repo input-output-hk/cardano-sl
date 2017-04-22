@@ -54,7 +54,7 @@ import qualified Pos.Util.Modifier          as MM
 -- output) pairs.
 type Utxo = Map TxIn TxOutAux
 
--- | Format 'Utxo' map as json.
+-- | Format 'Utxo' map for showing
 formatUtxo :: Utxo -> Builder
 formatUtxo = mapBuilderJson . M.toList
 

@@ -8,16 +8,16 @@ module Pos.DHT.Real.Types
        , DHTHandle
        ) where
 
-import           Universum                    hiding (fromStrict, toStrict)
+import           Universum              hiding (fromStrict, toStrict)
 
-import           Control.Concurrent.STM    (TVar)
-import qualified Data.ByteString           as BS
-import           Data.ByteString.Lazy      (fromStrict, toStrict)
+import           Control.Concurrent.STM (TVar)
+import qualified Data.ByteString        as BS
+import           Data.ByteString.Lazy   (fromStrict, toStrict)
 
-import qualified Network.Kademlia          as K
+import qualified Network.Kademlia       as K
 
-import           Pos.Binary.Class          (Bi (..), decodeOrFail, encode)
-import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..))
+import           Pos.Binary.Class       (Bi (..), decodeOrFail, encode)
+import           Pos.DHT.Model.Types    (DHTData, DHTKey, DHTNode (..))
 
 toBSBinary :: Bi b => b -> BS.ByteString
 toBSBinary = toStrict . encode

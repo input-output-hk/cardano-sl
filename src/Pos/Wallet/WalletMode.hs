@@ -27,7 +27,7 @@ import           Pos.Reporting.MemState       (ReportingContext)
 import           System.Wlog                  (LoggerNameBox, WithLogger)
 import           Universum
 
-import           Pos.Client.Txp.Balances      (MonadBalances (..))
+import           Pos.Client.Txp.Balances      (MonadBalances (..), getBalanceFromUtxo)
 import           Pos.Client.Txp.History       (MonadTxHistory (..), deriveAddrHistory)
 import           Pos.Communication            (TxMode)
 import           Pos.Communication.PeerState  (PeerStateHolder, WithPeerState)
@@ -54,6 +54,7 @@ import           Pos.WorkMode                 (RawRealMode)
 
 instance MonadIO m => MonadBalances (WalletDB m) where
     getOwnUtxo addr = filterUtxoByAddr addr <$> WS.getUtxo
+    getBalance = getBalanceFromUtxo
 
 -- | Get tx history for Address
 instance MonadIO m => MonadTxHistory (WalletDB m) where

@@ -12,7 +12,7 @@ import qualified Control.Monad.Catch           as Catch
 import qualified Control.Monad.Ether.Implicit  as Ether
 import           Control.Monad.Except          (MonadError (throwError))
 import           Mockable                      (runProduction)
-import           Pos.Communication.Protocol    (SendActions, NodeId)
+import           Pos.Communication.Protocol    (NodeId, SendActions)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import qualified STMContainers.Map             as SM

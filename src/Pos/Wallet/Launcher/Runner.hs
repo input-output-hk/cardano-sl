@@ -7,14 +7,14 @@ module Pos.Wallet.Launcher.Runner
        ) where
 
 import           Data.Tagged                 (untag)
-import           Formatting                  (sformat, (%), shown)
+import           Formatting                  (sformat, shown, (%))
 import           Mockable                    (Production, bracket, fork, sleepForever)
 import qualified STMContainers.Map           as SM
 import           System.Wlog                 (logDebug, logInfo, usingLoggerName)
 import           Universum                   hiding (bracket)
 
 import           Pos.Communication           (ActionSpec (..), ListenersWithOut, OutSpecs,
-                                              WorkerSpec, PeerId, allStubListeners)
+                                              PeerId, WorkerSpec, allStubListeners)
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               RealModeResources (..), runServer_)

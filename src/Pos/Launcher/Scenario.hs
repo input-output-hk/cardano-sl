@@ -21,27 +21,28 @@ import           System.Exit            (ExitCode (..))
 import           System.Wlog            (getLoggerName, logError, logInfo)
 import           Universum
 
-import           Pos.Communication  (ActionSpec (..), OutSpecs, WorkerSpec,
-                                     wrapActionSpec, NodeId)
-import           Pos.Context        (NodeContext (..), getNodeContext, ncPubKeyAddress,
-                                     ncPublicKey)
-import           Pos.DB.Class       (MonadDBCore)
-import qualified Pos.DB.GState      as GS
-import           Pos.Delegation     (initDelegation)
-import           Pos.Lrc.Context    (LrcSyncData (..), lcLrcSync)
-import qualified Pos.Lrc.DB         as LrcDB
-import           Pos.Reporting      (reportMisbehaviourMasked)
-import           Pos.Shutdown       (waitForWorkers)
-import           Pos.Slotting       (getCurrentSlot, waitSystemStart)
-import           Pos.Ssc.Class      (SscConstraint)
-import           Pos.Types          (SlotId (..), addressHash)
-import           Pos.Update         (MemState (..), mvState)
-import           Pos.Update.Context (UpdateContext (ucMemState))
-import           Pos.Util           (inAssertMode, waitRandomInterval)
-import           Pos.Util.Context   (askContext)
-import           Pos.Worker         (allWorkers, allWorkersCount)
-import           Pos.WorkMode       (WorkMode)
+import           Pos.Communication      (ActionSpec (..), NodeId, OutSpecs, WorkerSpec,
+                                         wrapActionSpec)
+import           Pos.Context            (NodeContext (..), getNodeContext,
+                                         ncPubKeyAddress, ncPublicKey)
+import           Pos.DB.Class           (MonadDBCore)
+import qualified Pos.DB.GState          as GS
+import           Pos.Delegation         (initDelegation)
 import           Pos.Launcher.Resources (RealModeResources (..))
+import           Pos.Lrc.Context        (LrcSyncData (..), lcLrcSync)
+import qualified Pos.Lrc.DB             as LrcDB
+import           Pos.Reporting          (reportMisbehaviourMasked)
+import           Pos.Shutdown           (waitForWorkers)
+import           Pos.Slotting           (getCurrentSlot, waitSystemStart)
+import           Pos.Ssc.Class          (SscConstraint)
+import           Pos.Types              (SlotId (..), addressHash)
+import           Pos.Update             (MemState (..), mvState)
+import           Pos.Update.Context     (UpdateContext (ucMemState))
+import           Pos.Util               (inAssertMode, waitRandomInterval)
+import           Pos.Util.Context       (askContext)
+import           Pos.Util.LogSafe       (logInfoS)
+import           Pos.Worker             (allWorkers, allWorkersCount)
+import           Pos.WorkMode           (WorkMode)
 
 -- | Run full node in any WorkMode.
 runNode'
@@ -57,9 +58,10 @@ runNode' res plugins' = ActionSpec $ \vI sendActions -> do
     pk <- ncPublicKey <$> getNodeContext
     addr <- ncPubKeyAddress <$> getNodeContext
     let pkHash = addressHash pk
-    logInfo $ sformat ("My public key is: "%build%
-                       ", address: "%build%
-                       ", pk hash: "%build) pk addr pkHash
+
+    logInfoS $ sformat ("My public key is: "%build%
+                        ", address: "%build%
+                        ", pk hash: "%build) pk addr pkHash
     () <$ fork (waitForPeers (rmFindPeers res))
     initDelegation @ssc
     initLrc

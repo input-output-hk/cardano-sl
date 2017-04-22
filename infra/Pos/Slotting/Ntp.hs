@@ -247,7 +247,6 @@ mkNtpSlottingVar = do
     singleShot settings = unless C.isDevelopment $ do
         logInfo $ "Waiting for response from NTP servers"
         ntpSingleShot settings
-        delay C.ntpMaxError
 
 runNtpSlotting :: NtpSlottingVar -> NtpSlotting m a -> m a
 runNtpSlotting = flip Ether.runReaderT

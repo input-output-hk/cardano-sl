@@ -22,7 +22,7 @@ import           Universum
 import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState (..),
                                                 getAllStates, peerStateFromSnapshot,
                                                 runPeerStateHolder)
-import           Pos.Communication.Protocol    (SendActions, NodeId)
+import           Pos.Communication.Protocol    (NodeId, SendActions)
 import           Pos.Constants                 (isDevelopment)
 import           Pos.Context                   (NodeContext, getNodeContext,
                                                 runContextHolder)

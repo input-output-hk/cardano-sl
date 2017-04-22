@@ -16,38 +16,39 @@ module Pos.Reporting.Methods
 
 import           Universum
 
-import           Control.Exception        (ErrorCall (..), SomeException)
-import           Control.Lens             (each, to)
-import           Control.Monad.Catch      (try)
-import           Data.Aeson               (encode)
-import           Data.Bits                (Bits (..))
-import qualified Data.HashMap.Strict      as HM
-import           Data.List                (isSuffixOf)
-import qualified Data.List.NonEmpty       as NE
-import qualified Data.Text.IO             as TIO
-import           Data.Time.Clock          (getCurrentTime)
-import           Data.Version             (Version (..))
-import           Formatting               (sformat, shown, stext, (%))
-import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
-import           Network.Wreq             (partFile, partLBS, post)
-import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
-import           Serokell.Util.Exceptions (throwText)
-import           Serokell.Util.Text       (listBuilderJSON, listJson)
-import           System.Directory         (doesFileExist)
-import           System.FilePath          (takeFileName)
-import           System.Info              (arch, os)
-import           System.IO                (hClose)
-import           System.IO.Temp           (withSystemTempFile)
-import           System.Wlog              (CanLog, HasLoggerName, LoggerConfig (..),
-                                           hwFilePath, lcTree, logDebug, logError,
-                                           ltFiles, ltSubloggers, retrieveLogContent)
+import           Control.Exception                (ErrorCall (..), SomeException)
+import           Control.Lens                     (each, to)
+import           Control.Monad.Catch              (try)
+import           Data.Aeson                       (encode)
+import           Data.Bits                        (Bits (..))
+import qualified Data.HashMap.Strict              as HM
+import           Data.List                        (isSuffixOf)
+import qualified Data.List.NonEmpty               as NE
+import qualified Data.Text.IO                     as TIO
+import           Data.Time.Clock                  (getCurrentTime)
+import           Data.Version                     (Version (..))
+import           Formatting                       (sformat, shown, stext, (%))
+import           Network.Info                     (IPv4 (..), getNetworkInterfaces, ipv4)
+import           Network.Wreq                     (partFile, partLBS, post)
+import           Pos.ReportServer.Report          (ReportInfo (..), ReportType (..))
+import           Serokell.Util.Exceptions         (throwText)
+import           Serokell.Util.Text               (listBuilderJSON, listJson)
+import           System.Directory                 (doesFileExist)
+import           System.FilePath                  (takeFileName)
+import           System.Info                      (arch, os)
+import           System.IO                        (hClose)
+import           System.IO.Temp                   (withSystemTempFile)
+import           System.Wlog                      (CanLog, HasLoggerName,
+                                                   LoggerConfig (..), hwFilePath, lcTree,
+                                                   logDebug, logError, ltFiles,
+                                                   ltSubloggers, retrieveLogContent)
 
-import           Pos.Core.Constants       (protocolMagic)
-import           Pos.Exception            (CardanoFatalError)
-import           Pos.Reporting.Exceptions (ReportingError (..))
-import           Pos.Reporting.MemState   (MonadReportingMem, askReportingContext, rcLoggingConfig,
-                                           rcReportServers)
 import           Pos.Communication.Types.Protocol (NodeId)
+import           Pos.Core.Constants               (protocolMagic)
+import           Pos.Exception                    (CardanoFatalError)
+import           Pos.Reporting.Exceptions         (ReportingError (..))
+import           Pos.Reporting.MemState           (MonadReportingMem, askReportingContext,
+                                                   rcLoggingConfig, rcReportServers)
 
 -- TODO From Pos.Util, remove after refactoring.
 -- | Concatenates two url part using regular slash '/'.

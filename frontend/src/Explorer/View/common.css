@@ -297,3 +297,34 @@
 
   }
 }
+
+.logo__wrapper {
+  box: horizontal;
+}
+
+.logo__img {
+  box-item: center;
+  background-repeat: no-repeat;
+  background-position: center center;
+}
+
+
+.lang__select {
+  height: var(--height-footer-bottom);
+  font-family: var(--fontFamily0-Light);
+  font-size: 10px;
+  color: color(var(--color0) a(0.5));
+  border: none;
+  width: auto;
+  appearance: none;
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-position: right center;
+  background-size: 8px 8px;
+  padding-right: 10px;
+  box-item: center;
+
+  &:hover{
+    cursor: pointer;
+  }
+}

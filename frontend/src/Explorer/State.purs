@@ -24,13 +24,16 @@ initialState =
         { globalViewState:
             { gViewMobileMenuOpenend: false
             , gViewTitle: translate (I18nL.common <<< I18nL.cTitle) English
+            , gViewSearchInputFocused: false
+            , gViewSelectedSearch: SearchAddress
+            , gViewSearchQuery: emptySearchQuery
+            , gViewSearchTimeQuery: emptySearchTimeQuery
             }
         ,  dashboard:
             { dbViewBlocksExpanded: false
             , dbViewBlockPagination: minPagination
             , dbViewTxsExpanded: false
             , dbViewSelectedApiCode: Curl
-            , dbViewSearchInput: false
             }
         , addressDetail:
             { addressTxPagination: minPagination
@@ -53,9 +56,6 @@ initialState =
     , currentTxSummary: NotAsked
     , currentCAddress: mkCAddress ""
     , currentAddressSummary: NotAsked
-    , selectedSearch: SearchAddress
-    , searchQuery: emptySearchQuery
-    , searchTimeQuery: emptySearchTimeQuery
     , currentBlocksResult: NotAsked
     , errors: []
     , loading: false

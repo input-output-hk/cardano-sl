@@ -2,7 +2,7 @@ module Explorer.View.Layout where
 
 import Prelude
 import Data.Lens ((^.))
-import Explorer.Lenses.State (globalViewState, gViewMobileMenuOpenend, viewStates)
+import Explorer.Lenses.State (gViewMobileMenuOpenend, globalViewState, route, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
@@ -16,6 +16,7 @@ import Explorer.View.Header (headerView)
 import Explorer.View.NotFound (notFoundView)
 import Explorer.View.Playground (playgroundView)
 import Explorer.View.Transaction (transactionView)
+import Explorer.View.CSS (route) as CSS
 import Pux.Html (Html, div, main) as P
 import Pux.Html.Attributes (className) as P
 
@@ -24,9 +25,10 @@ view state =
     let mobileMenuClazz = if state ^. (viewStates <<< globalViewState <<< gViewMobileMenuOpenend)
                           then " mobile__menu--opened"
                           else ""
+        routeClazz = CSS.route $ state ^. route
     in
     P.div
-      [ P.className $ "explorer-container" <> mobileMenuClazz ]
+      [ P.className $ "explorer-container" <> mobileMenuClazz <> " " <> routeClazz ]
       [ P.div
           [ P.className "explorer-bg__container" ]
           []
@@ -34,7 +36,7 @@ view state =
               [ P.className "explorer-content__wrapper"]
               [ P.main
                   [ P.className "explorer-content" ]
-                  [ case state.route of
+                  [ case state ^. route of
                       Dashboard -> dashboardView state
                       (Tx id) -> transactionView state
                       (Address address) -> addressView state

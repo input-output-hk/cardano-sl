@@ -1,6 +1,7 @@
 /* cardano-sl explorer*/
 @import "global.css";
 @import "./Explorer/View/common.css";
+@import "./Explorer/View/search.css";
 @import "./Explorer/View/layout.css";
 @import "./Explorer/View/header.css";
 @import "./Explorer/View/footer.css";

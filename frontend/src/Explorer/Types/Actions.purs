@@ -47,21 +47,20 @@ data Action
     | ReceiveAddressSummary (Either Error CAddressSummary)
     | RequestSearchBlocks EpochIndex (Maybe LocalSlotIndex)
     | ReceiveSearchBlocks (Either Error CBlockEntries)
-    -- search
-    | DashboardSearch                       -- dasboard search for address + transaction
-    | DashboardSearchTime                   -- dasboard search for time
-    | UpdateSelectedSearch Search
-    | UpdateSearchValue String
-    | UpdateSearchEpochValue String
-    | UpdateSearchSlotValue String
     -- global view states
     | GlobalToggleMobileMenu Boolean
+    | GlobalSearch                          -- search for address + transaction
+    | GlobalSearchTime                      -- search for time
+    | GlobalUpdateSelectedSearch Search
+    | GlobalUpdateSearchValue String
+    | GlobalUpdateSearchEpochValue String
+    | GlobalUpdateSearchSlotValue String
+    | GlobalFocusSearchInput Boolean
     -- dashboard view
     | DashboardExpandBlocks Boolean         -- expand list of blocks
     | DashboardPaginateBlocks Int           -- pagination of blocks
     | DashboardExpandTransactions Boolean   -- expand dashboard transactions
     | DashboardShowAPICode DashboardAPICode -- toggle dashboard api
-    | DashboardFocusSearchInput Boolean
     -- address detail view
     | AddressPaginateTxs Int                -- current pagination of transactions
     -- block detail view

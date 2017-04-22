@@ -6,6 +6,7 @@ import Explorer.Routes.Test (testRoutes)
 import Explorer.Util.Factory.Test (testFactoryUtil)
 import Explorer.Util.String.Test (testStringUtil)
 import Explorer.Util.Time.Test (testPrettyDuration)
+import Explorer.View.CSS.Test (testCSS)
 import Test.Spec.Reporter.Console (consoleReporter)
 import Test.Spec.Runner (RunnerEffects, run)
 
@@ -15,3 +16,4 @@ main = run [consoleReporter] do
     testPrettyDuration
     testFactoryUtil
     testRoutes
+    testCSS

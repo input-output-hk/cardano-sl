@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module NTP.Util
     ( ntpPort
@@ -7,19 +7,20 @@ module NTP.Util
     , preferIPv6
     , selectIPv6
     , selectIPv4
+    , withSocketsDoLifted
     ) where
 
-import           Control.Monad.Catch   (catchAll)
-import           Control.Monad.Trans   (MonadIO (..))
-import           Data.List             (sortOn)
-import           Data.List             (find)
-import           Data.Time.Clock.POSIX (getPOSIXTime)
-import           Data.Time.Units       (Microsecond, fromMicroseconds)
-import           Network.Socket        (AddrInfo, AddrInfoFlag (AI_ADDRCONFIG),
-                                        Family (AF_INET, AF_INET6), PortNumber (..),
-                                        SockAddr (..), SocketType (Datagram), addrAddress,
-                                        addrFamily, addrFlags, addrSocketType,
-                                        defaultHints, getAddrInfo)
+import           Control.Monad.Catch         (catchAll)
+import           Control.Monad.Trans         (MonadIO (..))
+import           Control.Monad.Trans.Control (MonadBaseControl (..))
+import           Data.List                   (find, sortOn)
+import           Data.Time.Clock.POSIX       (getPOSIXTime)
+import           Data.Time.Units             (Microsecond, fromMicroseconds)
+import           Network.Socket              (AddrInfo, AddrInfoFlag (AI_ADDRCONFIG),
+                                              Family (AF_INET, AF_INET6), PortNumber (..),
+                                              SockAddr (..), SocketType (Datagram),
+                                              addrAddress, addrFamily, addrFlags,
+                                              addrSocketType, defaultHints, getAddrInfo)
 
 ntpPort :: PortNumber
 ntpPort = 123
@@ -64,3 +65,8 @@ selectIPv6 = find (\a -> addrFamily a == AF_INET6)
 
 selectIPv4 :: [AddrInfo] -> Maybe AddrInfo
 selectIPv4 = find (\a -> addrFamily a == AF_INET)
+
+-- | Lifted version of `withSocketsDo`.
+withSocketsDoLifted :: MonadBaseControl IO m => m () -> m ()
+withSocketsDoLifted action =
+    restoreM =<< (liftBaseWith $ \runInIO -> runInIO action)

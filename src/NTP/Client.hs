@@ -22,6 +22,7 @@ import           Control.Monad               (forM_, forever, unless, void, when
 import           Control.Monad.Catch         (Exception)
 import           Control.Monad.State         (gets)
 import           Control.Monad.Trans         (MonadIO (..))
+import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Data.Binary                 (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy        as LBS
 import           Data.Default                (Default (..))
@@ -50,7 +51,8 @@ import           Mockable.Concurrent         (Delay, Fork, delay, fork)
 import           Mockable.Exception          (Catch, Throw, catchAll, handleAll, throw)
 import           NTP.Packet                  (NtpPacket (..), evalClockOffset,
                                               mkCliNtpPacket, ntpPacketSize)
-import           NTP.Util                    (resolveNtpHost, selectIPv4, selectIPv6)
+import           NTP.Util                    (resolveNtpHost, selectIPv4, selectIPv6,
+                                              withSocketsDoLifted)
 
 data NtpClientSettings m = NtpClientSettings
     { ntpServers         :: [String]
@@ -115,6 +117,7 @@ instance Exception FailedToResolveHost
 
 type NtpMonad m =
     ( MonadIO m
+    , MonadBaseControl IO m
     , WithLogger m
     , Mockable Fork m
     , Mockable Throw m
@@ -281,10 +284,10 @@ startNtpClient settings = do
     sock <- mkSockets settings
     cli <- mkNtpClient settings sock
 
-    void . fork $ startReceive cli
+    void . fork . withSocketsDoLifted $ startReceive cli
 
     addrs <- mapM (resolveHost cli sock) (ntpServers settings)
-    void . fork $ startSend addrs cli
+    void . fork . withSocketsDoLifted $ startSend addrs cli
 
     log cli Info "Launched"
 

@@ -78,6 +78,7 @@ Library
                       , time
                       , time-units
                       , transformers
+                      , transformers-base
                       , unordered-containers
                       , semigroups
                       , ekg-core

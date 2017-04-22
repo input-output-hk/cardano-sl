@@ -95,6 +95,14 @@
   embedded svg
 ------------------------------ */
 
+@svg-load image-404 url('../static/images/image-404.svg');
+
+.bg-image-404 {
+  background-image: svg-inline(image-404);
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
 @svg-load logo-cardano-name url('../static/images/cardano-logo-name.svg');
 
 .bg-logo-cardano-name {

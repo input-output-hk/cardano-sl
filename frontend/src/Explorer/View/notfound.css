@@ -8,6 +8,25 @@
   &__container {
     @neat-outer-container;
     padding: 56px 48px 48px 48px;
+    box: vertical center;
+  }
+
+  .bg-image-404 {
+    padding-top: 222px;
+    padding-bottom: 222px;
+    width: 267.5px;
+    height: 152.5px;
+    box-item: center;
+  }
+
+  @media (--xs) {
+    .bg-image-404 {
+      padding-top: 222px;
+      padding-bottom: 222px;
+      width: 133.75px;
+      height: 76.25px;
+      box-item: center;
+    }
   }
 
   .description {

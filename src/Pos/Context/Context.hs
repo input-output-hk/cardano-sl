@@ -24,7 +24,6 @@ import           Pos.Communication.Relay       (RelayInvQueue)
 import           Pos.Communication.Relay.Types (RelayContext (..))
 import           Pos.Communication.Types       (NodeId)
 import           Pos.Crypto                    (PublicKey, toPublic)
-import           Pos.DHT.MemState.Types        (DhtContext (..))
 import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context               (LrcContext)
 import           Pos.Reporting.MemState        (ReportingContext (..), rcLoggingConfig,
@@ -100,6 +99,8 @@ data NodeContext ssc = NodeContext
     -- ^ Settings for global Txp.
     , ncGenesisLeaders      :: !SlotLeaders
     -- ^ Leaders of the first epoch
+    , ncConnectedPeers      :: !(STM.TVar (Set NodeId))
+    -- ^ Set of peers that we're connected to.
     }
 
 makeLensesFor
@@ -114,14 +115,9 @@ makeLensesFor
 
 makeLensesFor
   [ ("npUpdateParams", "npUpdateParamsL")
-  , ("npBaseParams", "npBaseParamsL")
   , ("npReportServers", "npReportServersL")
   , ("npPropagation", "npPropagationL") ]
   ''NodeParams
-
-makeLensesFor
-  [ ("bpKademliaDump", "bpKademliaDumpL") ]
-  ''BaseParams
 
 instance ContextPart (NodeContext ssc) UpdateContext where
     contextPart = ncUpdateContextL
@@ -145,16 +141,6 @@ instance ContextPart (NodeContext ssc) ReportingContext where
         setter rc =
           set (ncNodeParamsL . npReportServersL) (rc ^. rcReportServers) .
           set ncLoggerConfigL (rc ^. rcLoggingConfig)
-
-instance ContextPart (NodeContext ssc) DhtContext where
-    contextPart = lens getter (flip setter)
-      where
-        getter nc =
-          DhtContext
-            (nc ^. ncNodeParamsL . npBaseParamsL . bpKademliaDumpL)
-        setter dc =
-          set (ncNodeParamsL . npBaseParamsL . bpKademliaDumpL)
-            (_dhtKademliadDump dc)
 
 instance ContextPart (NodeContext ssc) RelayContext where
     contextPart = lens getter (flip setter)

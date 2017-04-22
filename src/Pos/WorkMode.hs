@@ -36,9 +36,6 @@ import           Pos.DB.Holder               (DBHolder)
 import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Delegation.Holder       (DelegationT)
-import           Pos.DHT.MemState            (MonadDhtMem)
-import           Pos.DHT.Model               (MonadDHT)
-import           Pos.DHT.Real                (KademliaDHT, WithKademliaDHTInstance)
 import           Pos.Lrc.Context             (LrcContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
@@ -75,7 +72,6 @@ type WorkMode ssc m
       , MonadDB m
       , MonadDBLimits m
       , MonadTxpMem TxpExtra_TMP m
-      , MonadDhtMem m
       , MonadRelayMem m
       , MonadDelegation m
       , MonadSscMem ssc m
@@ -90,7 +86,6 @@ type WorkMode ssc m
       , HasContext UpdateParams m
       , MonadStats m
       , MonadJL m
-      , WithKademliaDHTInstance m
       , WithPeerState m
       , MonadShutdownMem m
       )
@@ -99,7 +94,6 @@ type WorkMode ssc m
 type MinWorkMode m
     = ( WithLogger m
       , MonadMockable m
-      , MonadDHT m
       , MonadIO m
       , WithPeerState m
       )
@@ -111,7 +105,6 @@ type MinWorkMode m
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
 type RawRealMode ssc =
     PeerStateHolder (
-    KademliaDHT (
     DelegationT (
     TxpHolder TxpExtra_TMP (
     SscHolder ssc (
@@ -120,7 +113,7 @@ type RawRealMode ssc =
     ContextHolder ssc (
     DBHolder (
     LoggerNameBox Production
-    )))))))))
+    ))))))))
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.
@@ -130,4 +123,4 @@ type ProductionMode ssc = NoStatsT (RawRealMode ssc)
 type StatsMode ssc = StatsT (RawRealMode ssc)
 
 -- | ServiceMode is the mode in which support nodes work.
-type ServiceMode = PeerStateHolder (KademliaDHT (LoggerNameBox Production))
+type ServiceMode = PeerStateHolder (LoggerNameBox Production)

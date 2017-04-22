@@ -37,8 +37,6 @@ import           Pos.DB                       (MonadDB)
 import qualified Pos.DB.Block                 as DB
 import           Pos.DB.Error                 (DBError (..))
 import qualified Pos.DB.GState                as GS
-import           Pos.DHT.Model                (MonadDHT, getKnownPeers)
-import           Pos.DHT.Real                 (KademliaDHT)
 import           Pos.Shutdown                 (triggerShutdown)
 import           Pos.Slotting                 (MonadSlots (..), getLastKnownSlotDuration)
 import           Pos.Ssc.Class                (Ssc, SscHelpersClass)
@@ -147,7 +145,7 @@ instance forall ssc . SscHelpersClass ssc =>
         Just dh -> return $ dh ^. difficultyL
         Nothing -> view difficultyL <$> topHeader @ssc
 
-    connectedPeers = fromIntegral . length <$> getKnownPeers
+    connectedPeers = fromIntegral . length <$> getContextTVar PC.ncConnectedPeers
     blockchainSlotDuration = getLastKnownSlotDuration
 
 -- | Abstraction over getting update proposals
@@ -188,7 +186,6 @@ type WalletMode ssc m
       , MonadKeys m
       , MonadBlockchainInfo m
       , MonadUpdates m
-      , MonadDHT m
       , WithPeerState m
       )
 
@@ -196,10 +193,10 @@ type WalletMode ssc m
 -- Implementations of 'WalletMode'
 ---------------------------------------------------------------
 
-type WalletRealMode = PeerStateHolder (KademliaDHT
+type WalletRealMode = PeerStateHolder
                       (KeyStorage
                        (WalletDB
                         (Ether.ReaderT ReportingContext
                          (LoggerNameBox
                           Production
-                           )))))
+                           ))))

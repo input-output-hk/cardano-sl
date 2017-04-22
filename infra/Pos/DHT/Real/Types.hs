@@ -3,25 +3,21 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.DHT.Real.Types
-       ( KademliaDHT
-       , asksKademliaDHT
-       , KademliaDHTInstance (..)
+       ( KademliaDHTInstance (..)
        , KademliaDHTInstanceConfig (..)
        , DHTHandle
-       , WithKademliaDHTInstance
-       , getKademliaDHTInstance
        ) where
 
 import           Universum                    hiding (fromStrict, toStrict)
 
-import           Control.Concurrent.STM       (TVar)
-import qualified Control.Monad.Ether.Implicit as Ether
-import qualified Data.ByteString              as BS
-import           Data.ByteString.Lazy         (fromStrict, toStrict)
-import qualified Network.Kademlia             as K
+import           Control.Concurrent.STM    (TVar)
+import qualified Data.ByteString           as BS
+import           Data.ByteString.Lazy      (fromStrict, toStrict)
 
-import           Pos.Binary.Class             (Bi (..), decodeOrFail, encode)
-import           Pos.DHT.Model.Types          (DHTData, DHTKey, DHTNode (..))
+import qualified Network.Kademlia          as K
+
+import           Pos.Binary.Class          (Bi (..), decodeOrFail, encode)
+import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..))
 
 toBSBinary :: Bi b => b -> BS.ByteString
 toBSBinary = toStrict . encode
@@ -49,6 +45,7 @@ data KademliaDHTInstance = KademliaDHTInstance
     , kdiInitialPeers    :: ![DHTNode]
     , kdiExplicitInitial :: !Bool
     , kdiKnownPeersCache :: !(TVar [K.Node DHTKey])
+    , kdiDumpPath        :: !FilePath
     }
 
 -- | Instance of part of config.
@@ -59,19 +56,5 @@ data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
     , kdcInitialPeers    :: ![DHTNode]
     , kdcExplicitInitial :: !Bool
     , kdcDumpPath        :: !FilePath
-    } deriving (Show)
-
--- | Node of /Kademlia DHT/ algorithm with access to 'KademliaDHTContext'.
-type KademliaDHT = Ether.ReaderT KademliaDHTInstance
-
--- | Class for getting KademliaDHTInstance from 'KademliaDHT'
-type WithKademliaDHTInstance = Ether.MonadReader KademliaDHTInstance
-
-getKademliaDHTInstance :: WithKademliaDHTInstance m => m KademliaDHTInstance
-getKademliaDHTInstance = Ether.ask
-
-asksKademliaDHT
-  :: WithKademliaDHTInstance m
-  => (KademliaDHTInstance -> a)
-  -> m a
-asksKademliaDHT = Ether.asks
+    }
+    deriving (Show)

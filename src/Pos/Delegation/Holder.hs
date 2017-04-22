@@ -15,7 +15,6 @@ import qualified Control.Monad.Ether.Implicit as Ether
 import           Pos.Delegation.Class         (DelegationWrap (..))
 import           Universum
 
-
 -- | Wrapper of @ReaderT (TVar DelegationWrap)@, nothing smart.
 type DelegationT = Ether.ReaderT (TVar DelegationWrap)
 

@@ -10,12 +10,12 @@ module Pos.Ssc.GodTossing.Toss.Trans
        ) where
 
 import           Control.Lens                   (at, (%=), (.=))
+import           Control.Monad.Ether.Implicit   as Ether
 import qualified Data.HashMap.Strict            as HM
 import           Mockable                       (ChannelT, Promise, SharedAtomicT,
                                                  ThreadId)
 import           Universum
 
-import           Control.Monad.Ether.Implicit   as Ether
 import           Pos.Ssc.GodTossing.Core        (deleteSignedCommitment, getCertId,
                                                  insertSignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossRead (..))

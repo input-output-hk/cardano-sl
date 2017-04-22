@@ -176,8 +176,8 @@ class Monad m => MonadTxHistory m where
     saveTx = lift . saveTx
 
 instance {-# OVERLAPPABLE #-}
-  (MonadTxHistory m, MonadTrans t, Monad (t m)) =>
-  MonadTxHistory (t m)
+    (MonadTxHistory m, MonadTrans t, Monad (t m)) =>
+        MonadTxHistory (t m)
 
 instance ( MonadDB m
          , MonadThrow m

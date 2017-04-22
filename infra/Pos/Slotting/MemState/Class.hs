@@ -38,5 +38,5 @@ class Monad m => MonadSlotsData m where
     putSlottingData = lift . putSlottingData
 
 instance {-# OVERLAPPABLE #-}
-  (MonadSlotsData m, MonadTrans t, Monad (t m)) =>
-  MonadSlotsData (t m)
+    (MonadSlotsData m, MonadTrans t, Monad (t m)) =>
+        MonadSlotsData (t m)

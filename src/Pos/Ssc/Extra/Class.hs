@@ -11,6 +11,7 @@ import           Universum
 
 import           Pos.Ssc.Extra.Types (SscState)
 
+-- TODO: Port to Ether
 class Monad m =>
       MonadSscMem ssc m | m -> ssc where
     askSscMem :: m (SscState ssc)
@@ -19,5 +20,5 @@ class Monad m =>
     askSscMem = lift askSscMem
 
 instance {-# OVERLAPPABLE #-}
-  (MonadSscMem ssc m, MonadTrans t, Monad (t m)) =>
-  MonadSscMem ssc (t m)
+    (MonadSscMem ssc m, MonadTrans t, Monad (t m)) =>
+        MonadSscMem ssc (t m)

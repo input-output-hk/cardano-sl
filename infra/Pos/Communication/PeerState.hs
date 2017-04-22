@@ -49,9 +49,10 @@ class WithPeerState m where
     getAllStates   :: m PeerStateSnapshot
 
 instance {-# OVERLAPPABLE #-}
-  (WithPeerState m, Monad m, MonadTrans t, Monad (t m),
-   SharedAtomicT m ~ SharedAtomicT (t m)) =>
-  WithPeerState (t m) where
+    ( WithPeerState m, Monad m, MonadTrans t, Monad (t m)
+    , SharedAtomicT m ~ SharedAtomicT (t m) ) =>
+        WithPeerState (t m)
+  where
     getPeerState = lift . getPeerState
     clearPeerState = lift . clearPeerState
     getAllStates = lift getAllStates
@@ -73,21 +74,21 @@ newtype PeerStateHolder m a = PeerStateHolder
                 HasLoggerName, CanLog,
                 MonadFix)
 
+type HoistSig t m a = (m a -> m a) -> t m a -> t m a
+
 instance m ~ m' => MFunctor' PeerStateHolder m m' where
     hoist' =
-      -- ahh, deriving by hand.
-      (coerce :: forall a .
-          ((m a -> m a) ->
-            ReaderT (PeerStateCtx m) m a -> ReaderT (PeerStateCtx m) m a) ->
-          ((m a -> m a) ->
-            PeerStateHolder m a -> PeerStateHolder m a))
-      mapReaderT
+        -- ahh, deriving by hand.
+        (coerce :: forall a .
+            HoistSig (ReaderT (PeerStateCtx m)) m a ->
+            HoistSig PeerStateHolder            m a)
+        mapReaderT
 
 instance MonadTrans PeerStateHolder where
     lift = PeerStateHolder . lift
 
 instance LiftLocal PeerStateHolder where
-  liftLocal _ l f = hoist' (l f)
+    liftLocal _ l f = hoist' (l f)
 
 -- | Run 'PeerStateHolder' action.
 runPeerStateHolder :: PeerStateCtx m -> PeerStateHolder m a -> m a

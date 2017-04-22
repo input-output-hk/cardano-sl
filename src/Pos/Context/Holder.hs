@@ -30,10 +30,13 @@ type ContextHolderTrans ssc = ReaderT (NodeContext ssc)
 runContextHolder :: NodeContext ssc -> ContextHolder ssc m a -> m a
 runContextHolder = flip (Ether.E.runReaderT (Proxy @'ContextTag))
 
-instance (MonadIO m, Mockable Catch m, WithLogger m, ContextHolderTrans ssc ~ t) =>
-  MonadJL (ContextHolder' t m) where
+instance
+    (MonadIO m, Mockable Catch m, WithLogger m, ContextHolderTrans ssc ~ t) =>
+        MonadJL (ContextHolder' t m)
+  where
     jlLog ev = ether (asks ncJLFile) >>= maybe (pure ()) doLog
       where
         doLog logFileMV =
-          (liftIO . withMVar logFileMV $ flip appendJL ev)
-            `catchAll` \e -> logWarning $ sformat ("Can't write to json log: " % shown) e
+            (liftIO . withMVar logFileMV $ flip appendJL ev)
+            `catchAll` \e ->
+                logWarning $ sformat ("Can't write to json log: " % shown) e

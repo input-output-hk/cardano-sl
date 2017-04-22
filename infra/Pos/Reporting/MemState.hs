@@ -9,6 +9,7 @@ module Pos.Reporting.MemState
        , MonadReportingMem
        , askReportingContext
        , runWithoutReportingContext
+       , ReportingContextT
        ) where
 
 import           Control.Lens                 (makeLenses)
@@ -28,9 +29,11 @@ makeLenses ''ReportingContext
 -- requests, context for saving reporting-related data.
 type MonadReportingMem = Ether.MonadReader ReportingContext
 
+type ReportingContextT = Ether.ReaderT ReportingContext
+
 askReportingContext :: MonadReportingMem m => m ReportingContext
 askReportingContext = Ether.ask
 
-runWithoutReportingContext :: Ether.ReaderT ReportingContext m a -> m a
+runWithoutReportingContext :: ReportingContextT m a -> m a
 runWithoutReportingContext m =
   Ether.runReaderT m $ ReportingContext [] mempty

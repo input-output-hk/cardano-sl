@@ -39,4 +39,5 @@ class Monad m => MonadDBLimits m where
     getMaxProposalSize = lift getMaxProposalSize
 
 instance {-# OVERLAPPABLE #-}
-  (MonadDBLimits m, MonadTrans t, Monad (t m)) => MonadDBLimits (t m)
+    (MonadDBLimits m, MonadTrans t, Monad (t m)) =>
+        MonadDBLimits (t m)

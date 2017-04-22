@@ -143,8 +143,8 @@ class (Monad m, WithLogger m) => MonadPollRead m where
     getSlottingData = lift getSlottingData
 
 instance {-# OVERLAPPABLE #-}
-  (MonadPollRead m, MonadTrans t, Monad (t m), WithLogger (t m)) =>
-  MonadPollRead (t m)
+    (MonadPollRead m, MonadTrans t, Monad (t m), WithLogger (t m)) =>
+        MonadPollRead (t m)
 
 ----------------------------------------------------------------------------
 -- Writeable
@@ -222,5 +222,5 @@ class MonadPollRead m => MonadPoll m where
     setEpochProposers = lift . setEpochProposers
 
 instance {-# OVERLAPPABLE #-}
-  (MonadPoll m, MonadTrans t, Monad (t m), WithLogger (t m)) =>
-  MonadPoll (t m)
+    (MonadPoll m, MonadTrans t, Monad (t m), WithLogger (t m)) =>
+        MonadPoll (t m)

@@ -97,32 +97,36 @@ data DBMapIteratorTag i v
 -- Holds `DBIterator m a` and apply f for every `nextItem` and `curItem` call.
 -- If f :: a -> b then we iterate by collection elements of type b.
 type DBMapIterator i v =
-  Ether.E.ReaderT (DBMapIteratorTag i v) (IterType i -> v, Rocks.Iterator)
+    Ether.E.ReaderT
+        (DBMapIteratorTag i v)
+        (IterType i -> v, Rocks.Iterator)
 
 dbMapIterator
-  :: ((IterType i -> v) -> DBIterator i m a)
-  -> DBMapIterator i v m a
+    :: ((IterType i -> v) -> DBIterator i m a)
+    -> DBMapIterator i v m a
 dbMapIterator mkDbIter =
-  Ether.E.readerT Proxy $ \(f, ri) ->
-    Ether.E.runReaderT Proxy (mkDbIter f) ri
+    Ether.E.readerT Proxy $ \(f, ri) ->
+        Ether.E.runReaderT Proxy (mkDbIter f) ri
 
 unDbMapIterator
-  :: (IterType i -> v)
-  -> DBMapIterator i v m a
-  -> DBIterator i m a
+    :: (IterType i -> v)
+    -> DBMapIterator i v m a
+    -> DBIterator i m a
 unDbMapIterator f dmi =
-  Ether.E.readerT Proxy $ \ri ->
-    Ether.E.runReaderT Proxy dmi (f, ri)
+    Ether.E.readerT Proxy $ \ri ->
+        Ether.E.runReaderT Proxy dmi (f, ri)
 
 type DBKeyIterator   i v = DBMapIterator i (IterKey i) v
 type DBValueIterator i v = DBMapIterator i (IterValue i) v
 
 -- -- | Instance for DBMapIterator using DBIterator.
 -- -- Fetch every element from DBIterator and apply `f` for it.
-instance ( Monad m
-         , MonadIterator (IterKey i, IterValue i) (DBIterator i m)
-         , p ~ (IterType i -> v, Rocks.Iterator))
-         => MonadIterator v (Ether.E.ReaderT (DBMapIteratorTag i v) p m) where
+instance
+    ( MonadIterator (IterKey i, IterValue i) (DBIterator i m)
+    , p ~ (IterType i -> v, Rocks.Iterator)
+    , Monad m ) =>
+        MonadIterator v (Ether.E.ReaderT (DBMapIteratorTag i v) p m)
+  where
     nextItem = dbMapIterator (\f -> fmap f <$> nextItem)
     curItem = dbMapIterator (\f -> fmap f <$> curItem)
 

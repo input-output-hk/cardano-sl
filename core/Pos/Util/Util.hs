@@ -54,7 +54,7 @@ import           Control.Monad.Trans.Class        (MonadTrans)
 import qualified Control.Monad.Trans.Ether.Tagged as Ether
 import           Control.Monad.Trans.Identity     (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local   (LiftLocal (..))
-import           Control.Monad.Trans.Resource
+import           Control.Monad.Trans.Resource     (MonadResource(..))
 import           Data.Aeson                       (FromJSON (..), ToJSON (..))
 import           Data.HashSet                     (fromMap)
 import           Data.Text.Buildable              (build)
@@ -160,40 +160,49 @@ instance Buildable Microsecond where
 ----------------------------------------------------------------------------
 
 instance
-  (Monad m, MonadTrans t, Monad (t m), CanLog m) =>
-  CanLog (Ether.TaggedTrans tag t m)
+    (Monad m, MonadTrans t, Monad (t m), CanLog m) =>
+        CanLog (Ether.TaggedTrans tag t m)
 
 instance (Monad m, CanLog m) => CanLog (IdentityT m)
 
 instance
-  (LiftLocal t, Monad m, HasLoggerName m) =>
-  HasLoggerName (Ether.TaggedTrans tag t m) where
+    (LiftLocal t, Monad m, HasLoggerName m) =>
+        HasLoggerName (Ether.TaggedTrans tag t m)
+  where
     getLoggerName = lift getLoggerName
     modifyLoggerName = liftLocal getLoggerName modifyLoggerName
 
-instance (Monad m, HasLoggerName m) => HasLoggerName (IdentityT m) where
+instance
+    (Monad m, HasLoggerName m) => HasLoggerName (IdentityT m)
+  where
     getLoggerName = lift getLoggerName
     modifyLoggerName = liftLocal getLoggerName modifyLoggerName
 
 deriving instance LiftLocal LoggerNameBox
 
 instance {-# OVERLAPPABLE #-}
-  (MonadResource m, MonadTrans t, Applicative (t m), MonadBase IO (t m), MonadIO (t m), MonadThrow (t m)) =>
-  MonadResource (t m) where
+    (MonadResource m, MonadTrans t, Applicative (t m),
+     MonadBase IO (t m), MonadIO (t m), MonadThrow (t m)) =>
+        MonadResource (t m)
+  where
     liftResourceT = lift . liftResourceT
 
 instance {-# OVERLAPPABLE #-}
-  (Monad m, MFunctor t) => MFunctor' t m n where
+    (Monad m, MFunctor t) => MFunctor' t m n
+  where
     hoist' = hoist
 
 instance
-  (Mockable d m, MFunctor' d (IdentityT m) m) =>
-  Mockable d (IdentityT m) where
+    (Mockable d m, MFunctor' d (IdentityT m) m) =>
+        Mockable d (IdentityT m)
+  where
     liftMockable dmt = IdentityT $ liftMockable $ hoist' runIdentityT dmt
 
 instance
-  (Mockable d (t m), MFunctor' d (Ether.TaggedTrans tag t m) (t m), Monad (t m)) =>
-  Mockable d (Ether.TaggedTrans tag t m) where
+      (Mockable d (t m), Monad (t m),
+       MFunctor' d (Ether.TaggedTrans tag t m) (t m)) =>
+          Mockable d (Ether.TaggedTrans tag t m)
+  where
     liftMockable dmt = Ether.pack $ liftMockable $ hoist' Ether.unpack dmt
 
 type instance ThreadId (IdentityT m) = ThreadId m

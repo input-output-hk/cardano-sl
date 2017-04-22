@@ -60,8 +60,8 @@ class Monad m => MonadKeys m where
     deleteSecretKey = lift . deleteSecretKey
 
 instance {-# OVERLAPPABLE #-}
-  (MonadKeys m, MonadTrans t, Monad (t m)) =>
-  MonadKeys (t m)
+    (MonadKeys m, MonadTrans t, Monad (t m)) =>
+        MonadKeys (t m)
 
 -- | Helper for generating a new secret key
 newSecretKey :: (MonadIO m, MonadKeys m) => PassPhrase -> m EncryptedSecretKey
@@ -104,7 +104,9 @@ runKeyStorageRaw :: KeyStorage m a -> KeyData -> m a
 runKeyStorageRaw = Ether.runReaderT
 
 instance {-# OVERLAPPING #-}
-  (MonadIO m) => MonadState UserSecret (KeyStorage m) where
+    (MonadIO m) =>
+        MonadState UserSecret (KeyStorage m)
+  where
     get = ether getSecret
     put = ether . putSecret
 
@@ -131,18 +133,22 @@ usLens = lens ncUserSecret $ \c us -> c { ncUserSecret = us }
 
 instance {-# OVERLAPPING #-}
     (Monad m, t ~ ReaderT (NodeContext ssc)) =>
-        MonadReader KeyData (TaggedTrans 'ContextTag t m) where
+        MonadReader KeyData (TaggedTrans 'ContextTag t m)
+  where
     ask = ncUserSecret <$> getNodeContext
     local f = Ether.pack . local (usLens %~ f) . Ether.unpack
 
 instance {-# OVERLAPPING #-}
     (MonadIO m, t ~ ReaderT (NodeContext ssc)) =>
-         MonadState UserSecret (TaggedTrans 'ContextTag t m) where
+        MonadState UserSecret (TaggedTrans 'ContextTag t m)
+  where
     get = getSecret
     put = putSecret
 
-instance (MonadIO m, MonadThrow m, t ~ ReaderT (NodeContext ssc)) =>
-         MonadKeys (TaggedTrans 'ContextTag t m) where
+instance
+    (MonadIO m, MonadThrow m, t ~ ReaderT (NodeContext ssc)) =>
+        MonadKeys (TaggedTrans 'ContextTag t m)
+  where
     getPrimaryKey = use usPrimKey
     getSecretKeys = use usKeys
     addSecretKey sk =

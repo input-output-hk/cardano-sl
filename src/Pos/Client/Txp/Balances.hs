@@ -39,8 +39,8 @@ class Monad m => MonadBalances m where
     getBalance = lift . getBalance
 
 instance {-# OVERLAPPABLE #-}
-  (MonadBalances m, MonadTrans t, Monad (t m)) =>
-  MonadBalances (t m)
+    (MonadBalances m, MonadTrans t, Monad (t m)) =>
+        MonadBalances (t m)
 
 getBalanceFromUtxo :: MonadBalances m => Address -> m Coin
 getBalanceFromUtxo addr =

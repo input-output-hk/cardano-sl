@@ -34,7 +34,8 @@ class Monad m => MonadUtxoRead m where
     utxoGet = lift . utxoGet
 
 instance {-# OVERLAPPABLE #-}
-  (MonadUtxoRead m, MonadTrans t, Monad (t m)) => MonadUtxoRead (t m)
+    (MonadUtxoRead m, MonadTrans t, Monad (t m)) =>
+        MonadUtxoRead (t m)
 
 instance MonadUtxoRead ((->) Utxo) where
     utxoGet txIn utxo = utxo ^. at txIn
@@ -77,7 +78,8 @@ class Monad m => MonadBalancesRead m where
     getTotalStake = lift getTotalStake
 
 instance {-# OVERLAPPABLE #-}
-  (MonadBalancesRead m, MonadTrans t, Monad (t m)) => MonadBalancesRead (t m)
+    (MonadBalancesRead m, MonadTrans t, Monad (t m)) =>
+        MonadBalancesRead (t m)
 
 class MonadBalancesRead m => MonadBalances m where
     setStake :: StakeholderId -> Coin -> m ()
@@ -92,7 +94,8 @@ class MonadBalancesRead m => MonadBalances m where
     setTotalStake = lift . setTotalStake
 
 instance {-# OVERLAPPABLE #-}
-  (MonadBalances m, MonadTrans t, Monad (t m)) => MonadBalances (t m)
+    (MonadBalances m, MonadTrans t, Monad (t m)) =>
+        MonadBalances (t m)
 
 ----------------------------------------------------------------------------
 -- MonadToilEnv
@@ -108,7 +111,8 @@ class Monad m => MonadToilEnv m where
     getToilEnv = lift getToilEnv
 
 instance {-# OVERLAPPABLE #-}
-  (MonadToilEnv m, MonadTrans t, Monad (t m)) => MonadToilEnv (t m)
+    (MonadToilEnv m, MonadTrans t, Monad (t m)) =>
+        MonadToilEnv (t m)
 
 instance MonadToilEnv ((->) ToilEnv) where
     getToilEnv = identity
@@ -135,4 +139,5 @@ class Monad m => MonadTxPool m where
     putTxWithUndo id tx = lift . putTxWithUndo id tx
 
 instance {-# OVERLAPPABLE #-}
-  (MonadTxPool m, MonadTrans t, Monad (t m)) => MonadTxPool (t m)
+    (MonadTxPool m, MonadTrans t, Monad (t m)) =>
+        MonadTxPool (t m)

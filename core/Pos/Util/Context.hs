@@ -30,22 +30,24 @@ data ContextTagK = ContextTag
 
 type ContextHolder' = TaggedTrans 'ContextTag
 
-instance (ContextPart ctx x, Monad m, trans ~ ReaderT ctx) =>
-  Ether.E.MonadReader x x (TaggedTrans 'ContextTag trans m) where
+instance
+    (ContextPart ctx x, Monad m, trans ~ ReaderT ctx) =>
+        Ether.E.MonadReader x x (TaggedTrans 'ContextTag trans m)
+  where
     ask _ =
-      (coerce :: forall a.
-        trans m a ->
-        Ether.E.ReaderT 'ContextTag ctx m a)
-      (view contextPart)
+        (coerce :: forall a.
+            trans m a ->
+            Ether.E.ReaderT 'ContextTag ctx m a)
+        (view contextPart)
     {-# INLINE ask #-}
 
     local _ f =
-      (coerce :: forall a.
-        (trans m a ->
-         trans m a) ->
-        (Ether.E.ReaderT 'ContextTag ctx m a ->
-         Ether.E.ReaderT 'ContextTag ctx m a))
-      (local (over contextPart f))
+        (coerce :: forall a.
+            (trans m a ->
+             trans m a) ->
+            (Ether.E.ReaderT 'ContextTag ctx m a ->
+             Ether.E.ReaderT 'ContextTag ctx m a))
+        (local (over contextPart f))
     {-# INLINE local #-}
 
 class ContextPart s a where

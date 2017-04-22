@@ -15,13 +15,12 @@ module Pos.Wallet.WalletMode
        ) where
 
 import           Control.Concurrent.STM       (TMVar, tryReadTMVar)
-import qualified Control.Monad.Ether.Implicit as Ether
 import           Control.Monad.Trans          (MonadTrans)
 import           Control.Monad.Trans.Maybe    (MaybeT (..))
 import           Data.Tagged                  (Tagged (..))
 import           Data.Time.Units              (Millisecond)
 import           Mockable                     (Production)
-import           Pos.Reporting.MemState       (ReportingContext)
+import           Pos.Reporting.MemState       (ReportingContextT)
 import           System.Wlog                  (LoggerNameBox, WithLogger)
 import           Universum
 
@@ -88,8 +87,8 @@ class Monad m => MonadBlockchainInfo m where
     connectedPeers = lift connectedPeers
 
 instance {-# OVERLAPPABLE #-}
-  (MonadBlockchainInfo m, MonadTrans t, Monad (t m)) =>
-  MonadBlockchainInfo (t m)
+    (MonadBlockchainInfo m, MonadTrans t, Monad (t m)) =>
+        MonadBlockchainInfo (t m)
 
 -- | Stub instance for lite-wallet
 instance MonadBlockchainInfo WalletRealMode where
@@ -161,8 +160,8 @@ class Monad m => MonadUpdates m where
     applyLastUpdate = lift applyLastUpdate
 
 instance {-# OVERLAPPABLE #-}
-  (MonadUpdates m, MonadTrans t, Monad (t m)) =>
-  MonadUpdates (t m)
+    (MonadUpdates m, MonadTrans t, Monad (t m)) =>
+        MonadUpdates (t m)
 
 -- | Dummy instance for lite-wallet
 instance MonadIO m => MonadUpdates (WalletDB m) where
@@ -195,7 +194,7 @@ type WalletMode ssc m
 type WalletRealMode = PeerStateHolder
                       (KeyStorage
                        (WalletDB
-                        (Ether.ReaderT ReportingContext
+                        (ReportingContextT
                          (LoggerNameBox
                           Production
                            ))))

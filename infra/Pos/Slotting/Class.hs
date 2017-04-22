@@ -54,5 +54,5 @@ class MonadSlotsData m => MonadSlots m where
     getCurrentSlotInaccurate = lift getCurrentSlotInaccurate
 
 instance {-# OVERLAPPABLE #-}
-  (MonadSlots m, MonadTrans t, Monad (t m)) =>
-  MonadSlots (t m)
+    (MonadSlots m, MonadTrans t, Monad (t m)) =>
+        MonadSlots (t m)

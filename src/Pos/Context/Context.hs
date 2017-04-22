@@ -135,34 +135,34 @@ instance ContextPart (NodeContext ssc) ReportingContext where
     contextPart = lens getter (flip setter)
       where
         getter nc =
-          ReportingContext
-            (nc ^. ncNodeParamsL . npReportServersL)
-            (nc ^. ncLoggerConfigL)
+            ReportingContext
+                (nc ^. ncNodeParamsL . npReportServersL)
+                (nc ^. ncLoggerConfigL)
         setter rc =
-          set (ncNodeParamsL . npReportServersL) (rc ^. rcReportServers) .
-          set ncLoggerConfigL (rc ^. rcLoggingConfig)
+            set (ncNodeParamsL . npReportServersL) (rc ^. rcReportServers) .
+            set ncLoggerConfigL (rc ^. rcLoggingConfig)
 
 instance ContextPart (NodeContext ssc) RelayContext where
     contextPart = lens getter (flip setter)
       where
         getter nc =
-          RelayContext
-            (nc ^. ncNodeParamsL . npPropagationL)
-            (nc ^. ncInvPropagationQueueL)
+            RelayContext
+                (nc ^. ncNodeParamsL . npPropagationL)
+                (nc ^. ncInvPropagationQueueL)
         setter rc =
-          set (ncNodeParamsL . npPropagationL) (_rlyIsPropagation rc) .
-          set ncInvPropagationQueueL (_rlyPropagationQueue rc)
+            set (ncNodeParamsL . npPropagationL) (_rlyIsPropagation rc) .
+            set ncInvPropagationQueueL (_rlyPropagationQueue rc)
 
 instance ContextPart (NodeContext ssc) ShutdownContext where
     contextPart = lens getter (flip setter)
       where
         getter nc =
-          ShutdownContext
-            (nc ^. ncShutdownFlagL)
-            (nc ^. ncShutdownNotifyQueueL)
+            ShutdownContext
+                (nc ^. ncShutdownFlagL)
+                (nc ^. ncShutdownNotifyQueueL)
         setter sc =
-          set ncShutdownFlagL (_shdnIsTriggered sc) .
-          set ncShutdownNotifyQueueL (_shdnNotifyQueue sc)
+            set ncShutdownFlagL (_shdnIsTriggered sc) .
+            set ncShutdownNotifyQueueL (_shdnNotifyQueue sc)
 
 ----------------------------------------------------------------------------
 -- Helper functions

@@ -92,11 +92,11 @@ appendJL path ev = liftIO $ do
 
 -- | Monad for things that can log Json log events.
 class Monad m => MonadJL m where
-  jlLog :: JLEvent -> m ()
+    jlLog :: JLEvent -> m ()
 
-  default jlLog :: (MonadTrans t, MonadJL m', t m' ~ m) => JLEvent -> m ()
-  jlLog = lift . jlLog
+    default jlLog :: (MonadTrans t, MonadJL m', t m' ~ m) => JLEvent -> m ()
+    jlLog = lift . jlLog
 
 instance {-# OVERLAPPABLE #-}
-  (MonadJL m, MonadTrans t, Monad (t m)) =>
-  MonadJL (t m)
+    (MonadJL m, MonadTrans t, Monad (t m)) =>
+        MonadJL (t m)

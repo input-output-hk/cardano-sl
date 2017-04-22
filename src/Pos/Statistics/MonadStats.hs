@@ -46,8 +46,8 @@ class Monad m => MonadStats m where
     logStatM label action = action >>= statLog label
 
 instance {-# OVERLAPPABLE #-}
-  (MonadStats m, MonadTrans t, Monad (t m)) =>
-  MonadStats (t m)
+    (MonadStats m, MonadTrans t, Monad (t m)) =>
+        MonadStats (t m)
 
 data NoStatsTag
 

@@ -142,7 +142,10 @@ lrcDo getPeers epoch consumers tip = tip <$ do
         Nothing -> throwM UnknownBlocksForLrc
         Just (NewestFirst -> blunds) -> do
             seed <- sscCalculateSeed epoch >>= \case
-                Right s  -> return s
+                Right s -> do
+                    logInfo $ sformat
+                        ("Calculated seed for epoch "%build%" successfully") epoch
+                    return s
                 Left err -> do
                     logWarning $ sformat
                         ("SSC couldn't compute seed: " %build) err

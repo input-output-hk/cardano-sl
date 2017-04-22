@@ -21,7 +21,7 @@ import           Pos.Ssc.GodTossing.Core      (Commitment (..),
 import           Pos.Ssc.GodTossing.Error     (SeedError (..))
 import           Pos.Ssc.GodTossing.Functions (vssThreshold)
 import           Pos.Types                    (SharedSeed, StakeholderId, addressHash,
-                                               mkCoin, sumCoins)
+                                               mkCoin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Util                     (getKeys)
 
 
@@ -131,7 +131,11 @@ calculateSeed commitments' openings lShares richmen = do
     when (null secrets) $
         Left NoSecrets
     unless (secretsStake * 2 > totalStake) $
-        Left (NotEnoughParticipatingStake secretsStake totalStake)
+        Left $ NotEnoughParticipatingStake
+                   -- these coins come from inside another part of CSL so
+                   -- presumably they're safe to add
+                   (unsafeIntegerToCoin secretsStake)
+                   (unsafeIntegerToCoin totalStake)
 
     -- Now we just XOR all secrets together to obtain the shared seed
     return $ mconcat $ map secretToSharedSeed (toList secrets)

@@ -22,7 +22,7 @@ data SeedError
 
     -- | There was no majority of stake participating
     -- (first parameter – participating stake, second – total richmen stake)
-    | NotEnoughParticipatingStake !Integer !Integer
+    | NotEnoughParticipatingStake !Coin !Coin
     -- | There were no good secrets so a seed couldn't be generated
     | NoSecrets
 
@@ -48,6 +48,8 @@ instance Buildable SeedError where
         "ExtraShares " <> listBuilderJSON ks
     build (NonRichmenParticipants ks) =
         "NonRichmenParticipants " <> listBuilderJSON ks
+    build (NotEnoughParticipatingStake c s) =
+        "NotEnoughParticipatingStake " <> build c <> " " <> build s
     build NoSecrets =
         "NoSecrets"
     build (BrokenCommitment k) =

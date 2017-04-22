@@ -33,7 +33,6 @@ module Pos.Communication.Types.Protocol
        , nodeIdParser
        ) where
 
-import           Control.Arrow         ((&&&))
 import           Data.Hashable         (Hashable)
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.Text.Buildable   as B
@@ -47,10 +46,10 @@ import           Universum             hiding (show)
 import           Pos.Binary.Class      (Bi)
 import           Pos.Communication.BiP (BiP)
 import           Pos.Core.Types        (BlockVersion)
-import           Pos.Util.TimeWarp     (nodeIdToAddress, addressToNodeId, addrParser)
+import           Pos.Util.TimeWarp     (addrParser, addressToNodeId, nodeIdToAddress)
 import qualified Serokell.Util.Parse   as P
-import qualified Text.Parsec.String    as P
 import qualified Text.Parsec           as P
+import qualified Text.Parsec.String    as P
 
 type PeerData = (PeerId, VerInfo)
 
@@ -192,7 +191,7 @@ instance Monoid OutSpecs where
                     (name, h1) (name, h2)
 
 mergeLs :: [(ListenerSpec m, OutSpecs)] -> ([ListenerSpec m], OutSpecs)
-mergeLs = second mconcat . (map fst &&& map snd)
+mergeLs = second mconcat . unzip
 
 toOutSpecs :: [(MessageName, HandlerSpec)] -> OutSpecs
 toOutSpecs = OutSpecs . HM.fromList

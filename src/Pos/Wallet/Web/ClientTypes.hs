@@ -26,7 +26,7 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletInit (..)
       , CUpdateInfo (..)
       , CWalletRedeem (..)
-      , CPostVendWalletRedeem (..)
+      , CPaperVendWalletRedeem (..)
       , CCoin
       , mkCCoin
       , CElectronCrashReport (..)
@@ -221,7 +221,7 @@ data CWalletRedeem = CWalletRedeem
     } deriving (Show, Generic)
 
 -- | Query data for redeem
-data CPostVendWalletRedeem = CPostVendWalletRedeem
+data CPaperVendWalletRedeem = CPaperVendWalletRedeem
     { pvWalletId     :: !CAddress
     , pvSeed         :: !Text -- TODO: newtype!
     , pvBackupPhrase :: !BackupPhrase
@@ -240,6 +240,11 @@ type CPwHash = Text -- or Base64 or something else
 data CProfile = CProfile
     { cpLocale      :: Text
     } deriving (Show, Generic, Typeable)
+
+-- | Added default instance for `testReset`, we need an inital state for
+-- @CProfile@
+instance Default CProfile where
+    def = CProfile mempty
 
 ----------------------------------------------------------------------------
 -- Transactions

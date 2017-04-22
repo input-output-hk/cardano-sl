@@ -11,16 +11,13 @@ module Pos.Wallet.Web.Server.Lite
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
 import           Mockable                      (runProduction)
-import           Pos.Communication.Protocol    (SendActions)
+import           Pos.Communication.Protocol    (SendActions, NodeId)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import qualified STMContainers.Map             as SM
 import           Universum
 
 import           Pos.Communication.PeerState   (runPeerStateHolder)
-import           Pos.DHT.Real.Real             (runKademliaDHT)
-import           Pos.DHT.Real.Types            (KademliaDHTInstance (..),
-                                                getKademliaDHTInstance)
 import           Pos.Ssc.Class                 (SscHelpersClass)
 import           Pos.Wallet.Context            (WalletContext, getWalletContext,
                                                 runContextHolder)
@@ -47,42 +44,41 @@ walletServeWebLite
     :: forall ssc.
        SscHelpersClass ssc
     => Proxy ssc
+    -> WalletRealMode (Set NodeId)
     -> SendActions WalletRealMode
     -> FilePath
     -> Bool
     -> Word16
     -> WalletRealMode ()
-walletServeWebLite _ sendActions =
-    walletServeImpl $ walletApplication $ walletServer @ssc sendActions nat
+walletServeWebLite _ getPeers sendActions =
+    walletServeImpl $ walletApplication $ walletServer getPeers sendActions nat
 
 nat :: WebHandler (WebHandler :~> Handler)
 nat = do
     wsConn <- getWalletWebSockets
     ws    <- getWalletWebState
-    kd    <- lift . lift . lift . lift $ ask
-    kinst <- lift . lift $ getKademliaDHTInstance
+    kd    <- lift . lift . lift $ ask
     wc    <- getWalletContext
     mws   <- getWalletState
-    return $ NT (convertHandler kinst wc mws kd ws wsConn)
+    --return $ NT (convertHandler kinst wc mws kd ws wsConn)
+    return $ NT (convertHandler wc mws kd ws wsConn)
 
 convertHandler
     :: forall a .
-       KademliaDHTInstance
-    -> WalletContext
+       WalletContext
     -> MainWalletState
     -> KeyData
     -> WalletState
     -> ConnectionsVar
     -> WebHandler a
     -> Handler a
-convertHandler kinst wc mws kd ws wsConn handler = do
+convertHandler wc mws kd ws wsConn handler = do
     stateM <- liftIO SM.newIO
     liftIO ( runProduction
            . usingLoggerName "wallet-lite-api"
            . runContextHolder wc
            . runWalletDB mws
            . flip runKeyStorageRaw kd
-           . runKademliaDHT kinst
            . runPeerStateHolder stateM
            . runWalletWebDB ws
            . runWalletWS wsConn

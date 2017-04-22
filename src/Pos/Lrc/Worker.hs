@@ -22,7 +22,8 @@ import           Universum
 import           Pos.Binary.Communication   ()
 import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                              withBlkSemaphore_)
-import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
+import           Pos.Communication.Protocol (NodeId, OutSpecs, WorkerSpec,
+                                             localOnNewSlotWorker)
 import           Pos.Constants              (slotSecurityParam)
 import           Pos.Core                   (Coin)
 import           Pos.DB.Class               (MonadDBCore)
@@ -53,13 +54,14 @@ import           Pos.WorkMode               (WorkMode)
 
 lrcOnNewSlotWorker
     :: (SscWorkersClass ssc, WorkMode ssc m, MonadDBCore m)
-    => (WorkerSpec m, OutSpecs)
-lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
+    => m (Set NodeId)
+    -> (WorkerSpec m, OutSpecs)
+lrcOnNewSlotWorker getPeers = localOnNewSlotWorker getPeers True $ \SlotId {..} ->
     when (siSlot < slotSecurityParam) $
-    (lrcSingleShot siEpoch `catch` reportError) `catch` onLrcError
+    (lrcSingleShot getPeers siEpoch `catch` reportError) `catch` onLrcError
   where
     reportError (SomeException e) = do
-        reportMisbehaviourMasked version $ "Lrc worker failed with error: " <> show e
+        reportMisbehaviourMasked getPeers version $ "Lrc worker failed with error: " <> show e
         throwM e
     onLrcError UnknownBlocksForLrc =
         logInfo
@@ -70,19 +72,19 @@ lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
 -- block for this epoch is not known, LrcError will be thrown.
 lrcSingleShot
     :: (SscWorkersClass ssc, WorkMode ssc m, MonadDBCore m)
-    => EpochIndex -> m ()
-lrcSingleShot epoch = lrcSingleShotImpl True epoch allLrcConsumers
+    => m (Set NodeId) -> EpochIndex -> m ()
+lrcSingleShot getPeers epoch = lrcSingleShotImpl getPeers True epoch allLrcConsumers
 
 -- | Same, but doesn't take lock on the semaphore.
 lrcSingleShotNoLock
     :: (SscWorkersClass ssc, WorkMode ssc m, MonadDBCore m)
-    => EpochIndex -> m ()
-lrcSingleShotNoLock epoch = lrcSingleShotImpl False epoch allLrcConsumers
+    => m (Set NodeId) -> EpochIndex -> m ()
+lrcSingleShotNoLock getPeers epoch = lrcSingleShotImpl getPeers False epoch allLrcConsumers
 
 lrcSingleShotImpl
     :: (WorkMode ssc m, MonadDBCore m)
-    => Bool -> EpochIndex -> [LrcConsumer m] -> m ()
-lrcSingleShotImpl withSemaphore epoch consumers = do
+    => m (Set NodeId) -> Bool -> EpochIndex -> [LrcConsumer m] -> m ()
+lrcSingleShotImpl getPeers withSemaphore epoch consumers = do
     lock <- askContext @LrcContext lcLrcSync
     tryAcuireExclusiveLock epoch lock onAcquiredLock
   where
@@ -101,9 +103,9 @@ lrcSingleShotImpl withSemaphore epoch consumers = do
         when need $ do
             logInfo "LRC is starting"
             if withSemaphore
-                then withBlkSemaphore_ $ lrcDo epoch filteredConsumers
+                then withBlkSemaphore_ $ lrcDo getPeers epoch filteredConsumers
             -- we don't change/use it in lcdDo in fact
-                else void . lrcDo epoch filteredConsumers =<< GS.getTip
+                else void . lrcDo getPeers epoch filteredConsumers =<< GS.getTip
             logInfo "LRC has finished"
         putEpoch epoch
         logInfo "LRC has updated LRC DB"
@@ -129,8 +131,8 @@ tryAcuireExclusiveLock epoch lock action =
 lrcDo
     :: forall ssc m.
        WorkMode ssc m
-    => EpochIndex -> [LrcConsumer m] -> HeaderHash -> m HeaderHash
-lrcDo epoch consumers tip = tip <$ do
+    => m (Set NodeId) -> EpochIndex -> [LrcConsumer m] -> HeaderHash -> m HeaderHash
+lrcDo getPeers epoch consumers tip = tip <$ do
     blundsUpToGenesis <- DB.loadBlundsFromTipWhile @ssc upToGenesis
     -- If there are blocks from 'epoch' it means that we somehow accepted them
     -- before running LRC for 'epoch'. It's very bad.
@@ -144,12 +146,13 @@ lrcDo epoch consumers tip = tip <$ do
                 Left err -> do
                     logWarning $ sformat
                         ("SSC couldn't compute seed: " %build) err
+                    logWarning "Going to reuse seed for previous epoch"
                     getSeed (epoch - 1)
             putSeed epoch seed
-            rollbackBlocksUnsafe blunds
+            rollbackBlocksUnsafe getPeers blunds
             compute seed `finally` applyBack (toOldestFirst blunds)
   where
-    applyBack blunds = applyBlocksUnsafe blunds Nothing
+    applyBack blunds = applyBlocksUnsafe getPeers blunds Nothing
     upToGenesis b = b ^. epochIndexL >= epoch
     whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch

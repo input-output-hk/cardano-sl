@@ -1,5 +1,5 @@
 name:                cardano-sl-infra
-version:             0.3.0.0
+version:             0.4.1
 synopsis:            Cardano SL - infrastructural
 description:         Cardano SL - infrastructural
 license:             MIT
@@ -31,20 +31,20 @@ library
                         Pos.Slotting.Ntp
                         Pos.Slotting.Util
 
+                        Pos.Discovery
+                        Pos.Discovery.Constants
+                        Pos.Discovery.Neighbors
+
                         -- Pos.DHT
                         Pos.DHT
                         Pos.DHT.Constants
-                        Pos.DHT.MemState
-                        Pos.DHT.MemState.Class
-                        Pos.DHT.MemState.Types
                         Pos.DHT.Model
-                        Pos.DHT.Model.Neighbors
                         Pos.DHT.Model.Types
-                        Pos.DHT.Model.Util
-                        Pos.DHT.Model.Class
                         Pos.DHT.Real
                         Pos.DHT.Real.Real
                         Pos.DHT.Real.Types
+                        Pos.DHT.Real.Param
+                        Pos.DHT.Real.CLI
                         Pos.DHT.Workers
 
                         -- Pos.Communication
@@ -109,6 +109,7 @@ library
                       , network-info
                       , network-transport-tcp
                       , node-sketch
+                      , optparse-simple
                       , reflection
                       , serokell-util >= 0.1.3.4
                       , stm

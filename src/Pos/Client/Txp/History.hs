@@ -42,7 +42,6 @@ import qualified Pos.DB.Block                as DB
 import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
 import           Pos.Delegation              (DelegationT (..))
-import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Slotting                (MonadSlots, NtpSlotting, SlottingHolder)
 import           Pos.Ssc.Class               (SscHelpersClass)
 import           Pos.Ssc.Extra               (SscHolder (..))
@@ -182,7 +181,6 @@ class Monad m => MonadTxHistory m where
 
 instance MonadTxHistory m => MonadTxHistory (ReaderT r m)
 instance MonadTxHistory m => MonadTxHistory (StateT s m)
-instance MonadTxHistory m => MonadTxHistory (KademliaDHT m)
 instance MonadTxHistory m => MonadTxHistory (PeerStateHolder m)
 instance MonadTxHistory m => MonadTxHistory (NtpSlotting m)
 instance MonadTxHistory m => MonadTxHistory (SlottingHolder m)

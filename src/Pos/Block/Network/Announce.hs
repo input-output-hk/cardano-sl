@@ -27,7 +27,7 @@ import           Pos.Context                (getNodeContext, isRecoveryMode, ncN
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
-import           Pos.DHT.Model              (converseToNeighbors)
+import           Pos.Discovery              (converseToNeighbors)
 import           Pos.Security               (AttackType (..), NodeAttackedError (..),
                                              shouldIgnoreAddress)
 import           Pos.Types                  (MainBlockHeader, headerHash)
@@ -41,8 +41,8 @@ announceBlockOuts = toOutSpecs [convH (Proxy :: Proxy (MsgHeaders ssc))
 
 announceBlock
     :: WorkMode ssc m
-    => SendActions m -> MainBlockHeader ssc -> m ()
-announceBlock sendActions header = do
+    => m (Set NodeId) -> SendActions m -> MainBlockHeader ssc -> m ()
+announceBlock getPeers sendActions header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
     cont <- getNodeContext
     let throwOnIgnored (NodeId (_, nId)) =
@@ -62,8 +62,9 @@ announceBlock sendActions header = do
                                withConnectionTo sendActions nId handler
                      }
                 else sendActions
-    reifyMsgLimit (Proxy @MsgGetHeaders) $ \limitProxy ->
-        converseToNeighbors sendActions' $ announceBlockDo limitProxy
+    reifyMsgLimit (Proxy @MsgGetHeaders) $ \limitProxy -> do
+        peers <- getPeers
+        converseToNeighbors peers sendActions' $ announceBlockDo limitProxy
   where
     announceBlockDo limitProxy nodeId conv = do
         logDebug $

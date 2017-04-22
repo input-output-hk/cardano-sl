@@ -32,6 +32,7 @@ library
                      , cardano-sl-db
                      , formatting
                      , text-format
+                     , lens
                      , universum
 
   default-extensions:  DeriveDataTypeable

@@ -43,7 +43,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: b48bd9b099e47d8c39aa6ddce261aa76f8488d75
+    commit: 08855c3002d36a898bdb58754d7b184c200f4b17
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -79,7 +79,7 @@ extra-deps:
 - serokell-util-0.1.5.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-1.1.1      
+- log-warper-1.1.1
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.6.2
 - purescript-bridge-0.8.0.1

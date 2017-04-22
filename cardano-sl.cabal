@@ -132,6 +132,7 @@ library
 
                         -- Binary serialization
                         Pos.Binary.Block
+                        Pos.Binary.DB
                         Pos.Binary.Block.Types
                         Pos.Binary.Block.Block
                         Pos.Binary.Communication
@@ -198,6 +199,8 @@ library
                         -- DB
                         Pos.DB.GState.BlockExtra
                         Pos.DB.GState.GState
+                        Pos.DB.Block.Block
+                        Pos.DB.Block.Aux
                         Pos.DB.Misc
 
                         -- Genesis

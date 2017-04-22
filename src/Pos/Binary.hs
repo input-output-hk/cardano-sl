@@ -9,6 +9,7 @@ import           Pos.Binary.Class
 import           Pos.Binary.Communication ()
 import           Pos.Binary.Core          ()
 import           Pos.Binary.Crypto        ()
+import           Pos.Binary.DB            ()
 import           Pos.Binary.Genesis       ()
 import           Pos.Binary.Merkle        ()
 import           Pos.Binary.Relay         ()

@@ -13,7 +13,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Map            as M
 import           Pos.DB              (MonadDB)
 import qualified Pos.DB.GState       as GS
-import           Pos.Txp             (TxOutAux (..), TxpHolder (..), Utxo, addrBelongsTo,
+import           Pos.Txp             (TxOutAux (..), TxpHolder, Utxo, addrBelongsTo,
                                       getUtxoModifier, txOutValue)
 import           Pos.Types           (Address, Coin, sumCoins, unsafeIntegerToCoin)
 import qualified Pos.Util.Modifier   as MM

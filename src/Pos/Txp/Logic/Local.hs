@@ -21,7 +21,7 @@ import           Pos.Core             (HeaderHash)
 import           Pos.DB.Class         (MonadDB)
 import qualified Pos.DB.GState        as GS
 import           Pos.Txp.Core         (Tx (..), TxAux, TxId)
-import           Pos.Txp.MemState     (MonadTxpMem (..), TxpLocalDataPure, getLocalTxs,
+import           Pos.Txp.MemState     (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
                                        getUtxoModifier, modifyTxpLocalData,
                                        setTxpLocalData)
 import           Pos.Txp.Toil         (GenericToilModifier (..), MonadUtxoRead (..),

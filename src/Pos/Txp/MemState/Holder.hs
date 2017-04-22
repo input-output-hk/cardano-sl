@@ -1,41 +1,23 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ConstraintKinds      #-}
 
 -- | Monad transformer which implements MonadTxpMem based on ReaderT.
 
 module Pos.Txp.MemState.Holder
-       ( TxpHolder (..)
+       ( TxpHolder
        , mkTxpLocalData
        , runTxpHolder
        ) where
 
 import qualified Control.Concurrent.STM         as STM
-import           Control.Lens                   (iso)
-import           Control.Monad.Catch            (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Fix              (MonadFix)
-import           Control.Monad.Reader           (ReaderT (ReaderT))
-import           Control.Monad.Trans.Class      (MonadTrans)
-import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Data.Default                   (Default (def))
-import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
-                                                 Gauge, MFunctor',
-                                                 Mockable (liftMockable), Promise,
-                                                 SharedAtomicT, SharedExclusiveT,
-                                                 SharedExclusiveT, ThreadId,
-                                                 liftMockableWrappedM)
-import           Serokell.Util.Lens             (WrappedM (..))
-import           System.Wlog                    (CanLog, HasLoggerName)
+import qualified Control.Monad.Ether as Ether.E
 import           Universum
 
-import           Pos.DB.Class                   (MonadDB, MonadDBCore)
-import           Pos.DB.Limits                  (MonadDBLimits)
-import           Pos.Slotting.Class             (MonadSlots)
-import           Pos.Slotting.MemState          (MonadSlotsData)
-import           Pos.Ssc.Extra                  (MonadSscMem)
 import           Pos.Types                      (HeaderHash)
-import           Pos.Util.JsonLog               (MonadJL (..))
 
-import           Pos.Txp.MemState.Class         (MonadTxpMem (..))
+import           Pos.Txp.MemState.Class         (TxpHolderTag)
 import           Pos.Txp.MemState.Types         (GenericTxpLocalData (..))
 import           Pos.Txp.Toil.Types             (UtxoModifier)
 
@@ -43,55 +25,7 @@ import           Pos.Txp.Toil.Types             (UtxoModifier)
 -- Holder
 ----------------------------------------------------------------------------
 
-newtype TxpHolder ext m a = TxpHolder
-    { getTxpHolder :: ReaderT (GenericTxpLocalData ext) m a
-    } deriving ( Functor
-               , Applicative
-               , Monad
-               , MonadTrans
-               , MonadThrow
-               , MonadSlotsData
-               , MonadSlots
-               , MonadCatch
-               , MonadIO
-               , MonadFail
-               , HasLoggerName
-               , MonadJL
-               , CanLog
-               , MonadMask
-               , MonadSscMem ssc
-               , MonadFix
-               , MonadDB
-               , MonadDBCore
-               , MonadDBLimits
-               , LiftLocal
-               )
-
-type instance ThreadId (TxpHolder x m) = ThreadId m
-type instance Promise (TxpHolder x m) = Promise m
-type instance SharedAtomicT (TxpHolder x m) = SharedAtomicT m
-type instance Counter (TxpHolder x m) = Counter m
-type instance Distribution (TxpHolder x m) = Distribution m
-type instance SharedExclusiveT (TxpHolder x m) = SharedExclusiveT m
-type instance Gauge (TxpHolder x m) = Gauge m
-type instance ChannelT (TxpHolder x m) = ChannelT m
-
-instance ( Mockable d m
-         , MFunctor' d (ReaderT (GenericTxpLocalData e) m) m
-         , MFunctor' d (TxpHolder e m) (ReaderT (GenericTxpLocalData e) m)
-         ) => Mockable d (TxpHolder e m) where
-    liftMockable = liftMockableWrappedM
-
-----------------------------------------------------------------------------
--- Useful instances
-----------------------------------------------------------------------------
-
-instance Monad m => MonadTxpMem ext (TxpHolder ext m) where
-    askTxpMem = TxpHolder ask
-
-instance Monad m => WrappedM (TxpHolder ext m) where
-    type UnwrappedM (TxpHolder ext m) = ReaderT (GenericTxpLocalData ext) m
-    _WrappedM = iso getTxpHolder TxpHolder
+type TxpHolder ext = Ether.E.ReaderT TxpHolderTag (GenericTxpLocalData ext)
 
 mkTxpLocalData
     :: (Default e, MonadIO m)
@@ -104,4 +38,4 @@ mkTxpLocalData uv initTip = TxpLocalData
     <*> liftIO (STM.newTVarIO def)
 
 runTxpHolder :: GenericTxpLocalData ext -> TxpHolder ext m a -> m a
-runTxpHolder ld holder = runReaderT (getTxpHolder holder) ld
+runTxpHolder = flip (Ether.E.runReaderT (Proxy @TxpHolderTag))

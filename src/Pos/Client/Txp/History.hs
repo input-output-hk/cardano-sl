@@ -50,7 +50,7 @@ import           Pos.Txp                   (txProcessTransaction)
 #endif
 import           Pos.Txp                   (MonadUtxoRead, Tx (..), TxAux, TxDistribution,
                                             TxId, TxOutAux (..), TxWitness,
-                                            TxpHolder (..), Utxo, UtxoStateT,
+                                            TxpHolder, Utxo, UtxoStateT,
                                             applyTxToUtxo, evalUtxoStateT,
                                             filterUtxoByAddr, getLocalTxs, runUtxoStateT,
                                             topsortTxs, txOutAddress, utxoGet)

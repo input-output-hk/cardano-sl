@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
-for f in node*.log*; do
+# Regex is nodeN.log(.N)?
+for f in $(find . -regextype posix-extended -regex ".*/node[[:digit:]]+\.log(\.[[:digit:]]+)?"); do 
+     echo $f
      grep -n 'Created a new block' $f \
 	     | sed -r 's/^([0-9]+):\S*\s\S*\s.....(\S*)\s(\S*)\s\S*.\s.*$/\2_\3 \1/' \
 	| while read l; do

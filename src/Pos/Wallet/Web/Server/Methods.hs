@@ -43,6 +43,7 @@ import           Servant.Utils.Enter           ((:~>) (..), enter)
 import           System.Wlog                   (logDebug, logError, logInfo)
 
 import           Data.ByteString.Base58        (bitcoinAlphabet, decodeBase58)
+
 import           Pos.Aeson.ClientTypes         ()
 import           Pos.Client.Txp.History        (TxHistoryAnswer (..), TxHistoryEntry (..))
 import           Pos.Communication             (NodeId, OutSpecs, SendActions,

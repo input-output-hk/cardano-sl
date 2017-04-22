@@ -22,6 +22,9 @@ module Pos.Txp.DB.Utxo
        , runUtxoMapIterator
        , getFilteredUtxo
 
+       -- * Get utxo
+       , getAllPotentiallyHugeUtxo
+
        -- * Sanity checks
        , sanityCheckUtxo
        ) where
@@ -163,6 +166,16 @@ getFilteredUtxo' addr = filterUtxo @i $ \(_, out) -> out `addrBelongsTo` addr
 
 getFilteredUtxo :: MonadDB m => Address -> m Utxo
 getFilteredUtxo = getFilteredUtxo' @UtxoIter
+
+-- | Get full utxo. Use with care – the utxo can be very big (hundreds of
+-- megabytes).
+getAllPotentiallyHugeUtxo :: MonadDB m => m Utxo
+getAllPotentiallyHugeUtxo = runUtxoIterator @UtxoIter (step mempty)
+  where
+    -- this can probably be written better
+    step res = nextItem >>= \case
+        Nothing     -> pure res
+        Just (k, v) -> step (M.insert k v res)
 
 ----------------------------------------------------------------------------
 -- Sanity checks

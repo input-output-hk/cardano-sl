@@ -40,6 +40,7 @@ import           Pos.Update         (MemState (..), mvState)
 import           Pos.Update.Context (UpdateContext (ucMemState))
 import           Pos.Util           (inAssertMode, waitRandomInterval)
 import           Pos.Util.Context   (askContext)
+import           Pos.Util.LogSafe   (logInfoS)
 import           Pos.Worker         (allWorkers, allWorkersCount)
 import           Pos.WorkMode       (WorkMode)
 
@@ -54,9 +55,9 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     pk <- ncPublicKey <$> getNodeContext
     addr <- ncPubKeyAddress <$> getNodeContext
     let pkHash = addressHash pk
-    logInfo $ sformat ("My public key is: "%build%
-                       ", address: "%build%
-                       ", pk hash: "%build) pk addr pkHash
+    logInfoS $ sformat ("My public key is: "%build%
+                        ", address: "%build%
+                        ", pk hash: "%build) pk addr pkHash
     () <$ fork waitForPeers
     initDelegation @ssc
     initLrc

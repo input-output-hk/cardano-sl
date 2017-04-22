@@ -19,7 +19,7 @@ import           Pos.Binary.Ssc             ()
 import           Pos.Block.Network          (needRecovery, requestTipOuts,
                                              triggerRecovery)
 import           Pos.Communication.Protocol (OutSpecs, SendActions, WorkerSpec,
-                                             localWorker, worker)
+                                             localWorker, worker, NodeId)
 import           Pos.Constants              (blkSecurityParam, mdNoBlocksSlotThreshold,
                                              mdNoCommitmentsEpochThreshold)
 import           Pos.Context                (getNodeContext, getUptime, isRecoveryMode,
@@ -49,20 +49,20 @@ import           Pos.WorkMode               (WorkMode)
 
 
 instance SecurityWorkersClass SscGodTossing where
-    securityWorkers =
+    securityWorkers getPeers =
         Tagged $
-        merge [checkForReceivedBlocksWorker, checkForIgnoredCommitmentsWorker]
+        merge [checkForReceivedBlocksWorker getPeers, checkForIgnoredCommitmentsWorker getPeers]
       where
         merge = mconcatPair . map (first pure)
 
 instance SecurityWorkersClass SscNistBeacon where
-    securityWorkers = Tagged $ first pure checkForReceivedBlocksWorker
+    securityWorkers getPeers = Tagged $ first pure (checkForReceivedBlocksWorker getPeers)
 
 checkForReceivedBlocksWorker ::
     (SscWorkersClass ssc, WorkMode ssc m)
-    => (WorkerSpec m, OutSpecs)
-checkForReceivedBlocksWorker =
-    worker requestTipOuts checkForReceivedBlocksWorkerImpl
+    => m (Set NodeId) -> (WorkerSpec m, OutSpecs)
+checkForReceivedBlocksWorker getPeers =
+    worker requestTipOuts (checkForReceivedBlocksWorkerImpl getPeers)
 
 checkEclipsed
     :: (SscHelpersClass ssc, MonadDB m)
@@ -103,12 +103,12 @@ checkEclipsed ourPk slotId x = notEclipsed x
 checkForReceivedBlocksWorkerImpl
     :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions m -> m ()
-checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
-    repeatOnInterval (const (sec' 4)) . reportingFatal version $
+    => m (Set NodeId) -> SendActions m -> m ()
+checkForReceivedBlocksWorkerImpl getPeers sendActions = afterDelay $ do
+    repeatOnInterval (const (sec' 4)) . reportingFatal getPeers version $
         whenM (needRecovery $ Proxy @ssc) $
-            triggerRecovery sendActions
-    repeatOnInterval (min (sec' 20)) . reportingFatal version $ do
+            triggerRecovery getPeers sendActions
+    repeatOnInterval (min (sec' 20)) . reportingFatal getPeers version $ do
         ourPk <- ncPublicKey <$> getNodeContext
         let onSlotDefault slotId = do
                 header <- getTipBlockHeader @ssc
@@ -137,16 +137,17 @@ checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
                 "Eclipse attack was discovered, mdNoBlocksSlotThreshold: " <>
                 show (mdNoBlocksSlotThreshold :: Int)
         when (nonTrivialUptime && not isRecovery) $
-            reportMisbehaviourMasked version reason
+            reportMisbehaviourMasked getPeers version reason
 
 
 checkForIgnoredCommitmentsWorker
     :: forall m.
        WorkMode SscGodTossing m
-    => (WorkerSpec m, OutSpecs)
-checkForIgnoredCommitmentsWorker = localWorker $ do
+    => m (Set NodeId)
+    -> (WorkerSpec m, OutSpecs)
+checkForIgnoredCommitmentsWorker getPeers = localWorker $ do
     epochIdx <- atomically (newTVar 0)
-    void $ onNewSlot True (checkForIgnoredCommitmentsWorkerImpl epochIdx)
+    void $ onNewSlot getPeers True (checkForIgnoredCommitmentsWorkerImpl epochIdx)
 
 checkForIgnoredCommitmentsWorkerImpl
     :: forall m. (WorkMode SscGodTossing m)

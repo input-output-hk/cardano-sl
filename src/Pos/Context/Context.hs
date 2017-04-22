@@ -93,6 +93,8 @@ data NodeContext ssc = NodeContext
     -- ^ Settings for global Txp.
     , ncGenesisLeaders      :: !SlotLeaders
     -- ^ Leaders of the first epoch
+    , ncConnectedPeers      :: !(STM.TVar (Set NodeId))
+    -- ^ Set of peers that we're connected to.
     }
 
 instance ExtractContext UpdateContext (NodeContext ssc) where

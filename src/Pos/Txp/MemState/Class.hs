@@ -24,7 +24,6 @@ import           Control.Monad.Trans    (MonadTrans)
 import qualified Data.HashMap.Strict    as HM
 import           Universum
 
-import           Pos.DHT.Real           (KademliaDHT)
 import           Pos.Txp.Core.Types     (TxAux, TxId, TxOutAux)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),
                                          GenericTxpLocalDataPure)
@@ -43,7 +42,6 @@ class Monad m => MonadTxpMem extra m | m -> extra where
 instance MonadTxpMem x m => MonadTxpMem x (ReaderT s m)
 instance MonadTxpMem x m => MonadTxpMem x (StateT s m)
 instance MonadTxpMem x m => MonadTxpMem x (ExceptT s m)
-instance MonadTxpMem x m => MonadTxpMem x (KademliaDHT m)
 
 getTxpLocalData
     :: (MonadIO m, MonadTxpMem e m)

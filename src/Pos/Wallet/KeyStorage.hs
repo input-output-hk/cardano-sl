@@ -43,7 +43,6 @@ import           Pos.DB                      (MonadDB)
 import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Delegation.Holder       (DelegationT (..))
-import           Pos.DHT.Real                (KademliaDHT)
 import           Pos.Reporting.MemState      (MonadReportingMem)
 import           Pos.Slotting                (MonadSlots, MonadSlotsData, NtpSlotting,
                                               SlottingHolder)
@@ -84,7 +83,6 @@ instance MonadKeys m => MonadKeys (ReaderT r m)
 instance MonadKeys m => MonadKeys (StateT s m)
 
 -- | Instances for ancestor in the monadic stack
-instance MonadKeys m => MonadKeys (KademliaDHT m)
 instance MonadKeys m => MonadKeys (PeerStateHolder m)
 instance MonadKeys m => MonadKeys (NtpSlotting m)
 instance MonadKeys m => MonadKeys (SlottingHolder m)

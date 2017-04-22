@@ -20,12 +20,12 @@ module Pos.Wallet.Web.Server.Sockets
        ) where
 
 import           Control.Concurrent.STM.TVar    (readTVarIO)
+import qualified Control.Monad.Ether.Implicit   as Ether
 import           Data.Aeson                     (encode)
 import           Network.Wai                    (Application)
 import           Network.Wai.Handler.WebSockets (websocketsOr)
 import qualified Network.WebSockets             as WS
 import           Universum
-import qualified Control.Monad.Ether.Implicit     as Ether
 
 import           Pos.Aeson.ClientTypes          ()
 import           Pos.Wallet.Web.ClientTypes     (NotifyEvent (ConnectionClosed, ConnectionOpened))

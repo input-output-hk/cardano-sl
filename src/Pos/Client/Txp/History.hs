@@ -49,11 +49,11 @@ import           Pos.Explorer              (eTxProcessTransaction)
 import           Pos.Txp                   (txProcessTransaction)
 #endif
 import           Pos.Txp                   (MonadUtxoRead, Tx (..), TxAux, TxDistribution,
-                                            TxId, TxOutAux (..), TxWitness,
-                                            TxpHolder, Utxo, UtxoStateT,
-                                            applyTxToUtxo, evalUtxoStateT,
-                                            filterUtxoByAddr, getLocalTxs, runUtxoStateT,
-                                            topsortTxs, txOutAddress, utxoGet)
+                                            TxId, TxOutAux (..), TxWitness, TxpHolder,
+                                            Utxo, UtxoStateT, applyTxToUtxo,
+                                            evalUtxoStateT, filterUtxoByAddr, getLocalTxs,
+                                            runUtxoStateT, topsortTxs, txOutAddress,
+                                            utxoGet)
 import           Pos.Types                 (Address, Block, ChainDifficulty, HeaderHash,
                                             blockTxas, difficultyL, prevBlockL)
 import           Pos.Util                  (ether, maybeThrow)

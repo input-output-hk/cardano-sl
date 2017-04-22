@@ -1,6 +1,6 @@
+{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ConstraintKinds      #-}
 
 -- | Monad transformer which implements MonadTxpMem based on ReaderT.
 
@@ -10,16 +10,16 @@ module Pos.Txp.MemState.Holder
        , runTxpHolder
        ) where
 
-import qualified Control.Concurrent.STM         as STM
-import           Data.Default                   (Default (def))
-import qualified Control.Monad.Ether as Ether.E
+import qualified Control.Concurrent.STM as STM
+import qualified Control.Monad.Ether    as Ether.E
+import           Data.Default           (Default (def))
 import           Universum
 
-import           Pos.Types                      (HeaderHash)
+import           Pos.Types              (HeaderHash)
 
-import           Pos.Txp.MemState.Class         (TxpHolderTag)
-import           Pos.Txp.MemState.Types         (GenericTxpLocalData (..))
-import           Pos.Txp.Toil.Types             (UtxoModifier)
+import           Pos.Txp.MemState.Class (TxpHolderTag)
+import           Pos.Txp.MemState.Types (GenericTxpLocalData (..))
+import           Pos.Txp.Toil.Types     (UtxoModifier)
 
 ----------------------------------------------------------------------------
 -- Holder

@@ -3,7 +3,7 @@
 -- | Pure version of UTXO.
 
 module Pos.Txp.Toil.Utxo.Pure
-       ( UtxoReaderT (..)
+       ( UtxoReaderT
        , runUtxoReaderT
 
        , UtxoReader
@@ -23,17 +23,13 @@ module Pos.Txp.Toil.Utxo.Pure
        , verifyTxUtxoPure
        ) where
 
-import           Control.Lens                 (at)
 import qualified Control.Monad.Ether.Implicit as Ether
 import           Control.Monad.Except         (MonadError)
-import           Control.Monad.Reader         (runReaderT)
-import           Control.Monad.Trans          (MonadTrans (..))
 import           Universum
 
 import           Pos.Binary.Core              ()
 import           Pos.Crypto                   (WithHash (..))
 import           Pos.Txp.Core                 (Tx, TxAux, TxDistribution, TxUndo)
-import           Pos.Txp.Toil.Class           (MonadToilEnv, MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure         (ToilVerFailure)
 import           Pos.Txp.Toil.Types           (Utxo)
 import           Pos.Txp.Toil.Utxo.Functions  (VTxContext, applyTxToUtxo, verifyTxUtxo)
@@ -42,26 +38,15 @@ import           Pos.Txp.Toil.Utxo.Functions  (VTxContext, applyTxToUtxo, verify
 -- Reader
 ----------------------------------------------------------------------------
 
-newtype UtxoReaderT m a = UtxoReaderT
-    { getUtxoReaderT :: ReaderT Utxo m a
-    } deriving (Functor, Applicative, Monad, MonadReader Utxo, MonadError e, MonadIO, MonadToilEnv)
-
-instance Monad m => MonadUtxoRead (UtxoReaderT m) where
-    utxoGet id = UtxoReaderT $ view $ at id
-
-instance MonadTrans UtxoReaderT where
-    lift = UtxoReaderT . lift
+type UtxoReaderT = Ether.ReaderT Utxo
 
 runUtxoReaderT :: UtxoReaderT m a -> Utxo -> m a
-runUtxoReaderT = runReaderT . getUtxoReaderT
+runUtxoReaderT = Ether.runReaderT
 
 type UtxoReader = UtxoReaderT Identity
 
 runUtxoReader :: UtxoReader a -> Utxo -> a
-runUtxoReader r = runIdentity . runUtxoReaderT r
-
-instance MonadUtxoRead ((->) Utxo) where
-    utxoGet txIn utxo = utxo ^. at txIn
+runUtxoReader = Ether.runReader
 
 ----------------------------------------------------------------------------
 -- State

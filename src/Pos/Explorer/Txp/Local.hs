@@ -25,10 +25,10 @@ import           Pos.DB.Class                     (MonadDB)
 import qualified Pos.DB.GState                    as GS
 import           Pos.Slotting                     (MonadSlots (currentTimeSlotting))
 import           Pos.Txp.Core                     (Tx (..), TxAux, TxId)
-import           Pos.Txp.MemState                 (GenericTxpLocalDataPure,
-                                                   MonadTxpMem, getLocalTxsMap,
-                                                   getTxpExtra, getUtxoModifier,
-                                                   modifyTxpLocalData, setTxpLocalData)
+import           Pos.Txp.MemState                 (GenericTxpLocalDataPure, MonadTxpMem,
+                                                   getLocalTxsMap, getTxpExtra,
+                                                   getUtxoModifier, modifyTxpLocalData,
+                                                   setTxpLocalData)
 import           Pos.Txp.Toil                     (GenericToilModifier (..),
                                                    MonadUtxoRead (..), ToilEnv,
                                                    ToilVerFailure (..), Utxo, getToilEnv,

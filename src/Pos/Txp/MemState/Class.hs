@@ -1,7 +1,7 @@
+{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ConstraintKinds      #-}
 
 -- | Type class necessary for Transaction processing (Txp)
 -- and some useful getters and setters.
@@ -20,8 +20,8 @@ module Pos.Txp.MemState.Class
        , setTxpLocalData
        ) where
 
-import qualified Control.Monad.Ether as Ether.E
 import qualified Control.Concurrent.STM as STM
+import qualified Control.Monad.Ether    as Ether.E
 import qualified Data.HashMap.Strict    as HM
 import           Universum
 

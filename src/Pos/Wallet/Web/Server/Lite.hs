@@ -30,9 +30,8 @@ import qualified Pos.Wallet.State              as WS
 import           Pos.Wallet.WalletMode         (WalletRealMode)
 import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeImpl,
                                                 walletServer, walletServerOuts)
-import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar,
-                                                getWalletWebSockets,
-                                                WalletWebSockets, runWalletWS)
+import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, WalletWebSockets,
+                                                getWalletWebSockets, runWalletWS)
 import           Pos.Wallet.Web.State          (WalletState, WalletWebDB,
                                                 getWalletWebState, runWalletWebDB)
 import           System.Wlog                   (usingLoggerName)

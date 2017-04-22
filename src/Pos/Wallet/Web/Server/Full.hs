@@ -45,9 +45,8 @@ import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
                                                 walletServeImpl, walletServer,
                                                 walletServerOuts)
-import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar,
-                                                getWalletWebSockets,
-                                                WalletWebSockets, runWalletWS)
+import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, WalletWebSockets,
+                                                getWalletWebSockets, runWalletWS)
 import           Pos.Wallet.Web.State          (WalletState, WalletWebDB, runWalletWebDB)
 import           Pos.Wallet.Web.State.State    (getWalletWebState)
 import           Pos.WorkMode                  (RawRealMode, TxpExtra_TMP)

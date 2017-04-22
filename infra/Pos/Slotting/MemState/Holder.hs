@@ -1,6 +1,4 @@
-{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Default implementation of 'MonadSlotsData' based on 'TVar'.
 

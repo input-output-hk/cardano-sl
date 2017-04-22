@@ -3,7 +3,6 @@
 -- needed for stylish-haskell :(
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Types.Block.Instances
        ( BodyProof (..)

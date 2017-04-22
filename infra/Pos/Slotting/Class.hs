@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Type class used for slotting functionality.
 

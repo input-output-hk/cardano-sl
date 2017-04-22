@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies    #-}
 
 -- | All logic of Toil.  It operates in terms of MonadUtxo,

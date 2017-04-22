@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Arbitrary instances for Lrc types.
 

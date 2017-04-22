@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Type classes for Toil abstraction.
 -- * MonadUtxoRead and MonadUtxo for encapsulation of Utxo storage.

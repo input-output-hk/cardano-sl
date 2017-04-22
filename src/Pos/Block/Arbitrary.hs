@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Block.Arbitrary
        ( HeaderAndParams (..)

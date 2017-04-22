@@ -1,6 +1,4 @@
-{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Shutdown.Class
        ( MonadShutdownMem

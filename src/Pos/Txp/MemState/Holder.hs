@@ -1,6 +1,4 @@
-{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Monad transformer which implements MonadTxpMem based on ReaderT.
 

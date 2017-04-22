@@ -1,6 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Monad transformer which stores SSC data.
 

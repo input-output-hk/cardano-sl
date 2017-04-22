@@ -1,5 +1,3 @@
-{-# LANGUAGE ConstraintKinds #-}
-
 -- | Explorer's local Txp.
 
 module Pos.Explorer.Txp.Local

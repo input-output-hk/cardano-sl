@@ -1,9 +1,7 @@
 {-# LANGUAGE CPP                  #-}
-{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE InstanceSigs         #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | 'WalletMode' constraint. Like `WorkMode`, but for wallet.
 

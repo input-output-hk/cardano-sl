@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | TossT monad transformer. Single-threaded.
 

@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 

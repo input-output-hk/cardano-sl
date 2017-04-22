@@ -1,11 +1,9 @@
 {-# LANGUAGE CPP                  #-}
-{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE DeriveFunctor        #-}
 {-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE Rank2Types           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Communication.Limits.Types
        ( Limit (..)

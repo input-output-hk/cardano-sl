@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Methods of reporting different unhealthy behaviour to server.

@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Client.Txp.Balances
        ( MonadBalances(..)

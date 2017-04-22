@@ -1,6 +1,5 @@
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Monadic represantion of something that has @json@ journaled log
 -- of operations.

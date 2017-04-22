@@ -531,6 +531,8 @@ library
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

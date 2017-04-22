@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Slotting utilities.

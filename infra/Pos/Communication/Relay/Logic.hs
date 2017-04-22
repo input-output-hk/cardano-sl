@@ -1,6 +1,5 @@
 -- | Framework for Inv\/Req\/Data message handling
 
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}

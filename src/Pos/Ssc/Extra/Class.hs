@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Class for in-memory state of SSC. Doesn't depend on concrete SSC.
 

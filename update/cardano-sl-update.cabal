@@ -84,6 +84,8 @@ library
                        ViewPatterns
                        LambdaCase
                        MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
 
   ghc-options:         -Wall
                        -fno-warn-orphans

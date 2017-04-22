@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE Rank2Types      #-}
 
 -- | Global settings of Txp.

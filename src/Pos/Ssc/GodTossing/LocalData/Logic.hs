@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE Rank2Types      #-}
 
 -- | This module defines methods which operate on GtLocalData.

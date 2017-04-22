@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies    #-}
 
 module Pos.Wallet.State.State

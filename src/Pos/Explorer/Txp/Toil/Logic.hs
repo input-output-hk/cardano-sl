@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies    #-}
 
 -- | Explorer's version of Toil logic.

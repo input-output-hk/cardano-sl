@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE RankNTypes          #-}
 
 -- | Global state of generic Shared Seed Calculation implementation.

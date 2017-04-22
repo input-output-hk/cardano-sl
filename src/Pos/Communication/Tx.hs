@@ -1,5 +1,3 @@
-{-# LANGUAGE ConstraintKinds #-}
-
 -- | Functions for operating with transactions
 
 module Pos.Communication.Tx

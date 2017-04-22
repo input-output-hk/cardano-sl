@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP                  #-}
-{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE KindSignatures       #-}
 {-# LANGUAGE RankNTypes           #-}
@@ -7,7 +6,6 @@
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeOperators        #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Util.Config
        (

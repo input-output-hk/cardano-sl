@@ -1,7 +1,5 @@
-{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Reporting functionality abstracted.
 module Pos.Reporting.MemState

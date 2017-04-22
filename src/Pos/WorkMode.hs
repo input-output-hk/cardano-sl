@@ -1,6 +1,4 @@
 {-# LANGUAGE CPP                  #-}
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 {-| 'WorkMode' constraint. It is widely used in almost every our code.
     Simple alias for bunch of useful constraints. This module also

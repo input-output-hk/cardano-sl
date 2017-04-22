@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Pos.DHT.Workers

@@ -1,6 +1,5 @@
 {-# LANGUAGE CPP                  #-}
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Instances of MoandUtxoRead and MonadBalancesRead which use DB.
 

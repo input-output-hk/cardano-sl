@@ -52,6 +52,9 @@ library
                        ViewPatterns
                        LambdaCase
                        MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+
 
   default-language:    Haskell2010
 

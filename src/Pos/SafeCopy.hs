@@ -1,5 +1,4 @@
 {-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | SafeCopy serialization of Pos.Types.* modules, required for wallet
 

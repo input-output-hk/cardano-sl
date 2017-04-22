@@ -2,6 +2,6 @@
 cardano_path=${1:-../cardano-sl}
 
 ./scripts/run.sh ../cardano-sl/scripts/common.sh & PIDEX=$!
-$cardano_path/scripts/launch.sh & PIDNODE=$!
+$cardano_path/util-scripts/start-prod.sh & PIDNODE=$!
 wait $PIDEX
 wait $PIDNODE

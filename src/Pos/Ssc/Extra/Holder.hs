@@ -32,7 +32,6 @@ import           Pos.Communication.Relay   (MonadRelayMem)
 import           Pos.Context               (WithNodeContext)
 import           Pos.DB                    (MonadDB, MonadDBCore)
 import           Pos.DB.Limits             (MonadDBLimits)
-import           Pos.DHT.MemState          (MonadDhtMem)
 import           Pos.Lrc.Context           (LrcContext)
 import           Pos.Reporting             (MonadReportingMem)
 import           Pos.Shutdown              (MonadShutdownMem)
@@ -63,7 +62,6 @@ newtype SscHolder ssc m a = SscHolder
                , CanLog
                , MonadMask
                , MonadFix
-               , MonadDhtMem
                , MonadReportingMem
                , MonadRelayMem
                , MonadShutdownMem

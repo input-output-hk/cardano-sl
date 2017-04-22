@@ -39,9 +39,6 @@ import           Pos.Context.Class           (WithNodeContext)
 import           Pos.DB                      (MonadDB, MonadDBCore)
 import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.DHT.MemState            (MonadDhtMem)
-import           Pos.DHT.Model               (MonadDHT)
-import           Pos.DHT.Real                (KademliaDHT, WithKademliaDHTInstance)
 import           Pos.Reporting               (MonadReportingMem)
 import           Pos.Shutdown                (MonadShutdownMem)
 import           Pos.Slotting.Class          (MonadSlots)
@@ -69,7 +66,6 @@ class Monad m => MonadStats m where
     logStatM :: StatLabel l => l -> m (EntryType l) -> m ()
     logStatM label action = action >>= statLog label
 
-instance MonadStats m => MonadStats (KademliaDHT    m)
 instance MonadStats m => MonadStats (ReaderT      a m)
 instance MonadStats m => MonadStats (StateT       a m)
 instance MonadStats m => MonadStats (ExceptT      e m)
@@ -79,10 +75,10 @@ newtype NoStatsT m a = NoStatsT
     { getNoStatsT :: m a  -- ^ action inside wrapper without collecting statistics
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
+                MonadSlots, WithPeerState,
                 MonadJL, CanLog, MonadTxpMem x, MonadSscMem ssc,
                 WithNodeContext ssc, MonadDelegation,
-                MonadDhtMem, MonadReportingMem, MonadRelayMem, MonadShutdownMem,
+                MonadReportingMem, MonadRelayMem, MonadShutdownMem,
                 MonadDB, MonadDBLimits, MonadDBCore)
 
 instance MonadContext m => MonadContext (NoStatsT m) where
@@ -135,11 +131,11 @@ newtype StatsT m a = StatsT
     { getStatsT :: ReaderT StatsMap m a  -- ^ action inside wrapper with collected statistics
     } deriving (Functor, Applicative, Monad, MonadThrow,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadDHT, WithKademliaDHTInstance, MonadSlots, WithPeerState,
+                MonadSlots, WithPeerState,
                 MonadTrans, MonadJL, CanLog, MonadTxpMem x,
                 MonadSscMem ssc, MonadSlotsData,
                 WithNodeContext ssc, MonadDelegation,
-                MonadDhtMem, MonadReportingMem, MonadRelayMem, MonadShutdownMem,
+                MonadReportingMem, MonadRelayMem, MonadShutdownMem,
                 MonadDB, MonadDBLimits, MonadDBCore)
 
 instance MonadContext m => MonadContext (StatsT m) where

@@ -15,7 +15,7 @@ import           Universum
 import           Paths_cardano_sl    (version)
 
 import qualified Pos.CLI             as CLI
-import           Pos.Util.TimeWarp   (NetworkAddress)
+import           Pos.Communication   (NodeId)
 
 data GenOptions = GenOptions
     { goGenesisIdxs     :: ![Word]       -- ^ Index in genesis key pairs.
@@ -30,8 +30,9 @@ data GenOptions = GenOptions
     , goRecipientShare  :: !Double     -- ^ Which portion of neighbours to send on each round
     , goMOfNParams      :: !(Maybe (Int, Int)) -- ^ If this is provided, send M-of-N script transactions instead of P2PKH
     , goJLFile          :: !(Maybe FilePath)
-    , goCommonArgs      :: !CLI.CommonArgs -- ^ Common CLI arguments, including initial DHT nodes
-    , goIpPort          :: !NetworkAddress         -- ^ DHT/Blockchain ip/port
+    , goPeers           :: ![NodeId]
+      -- ^ The peers to contact.
+    , goCommonArgs      :: !CLI.CommonArgs -- ^ Common CLI arguments.
     }
 
 optionsParser :: Parser GenOptions
@@ -41,10 +42,6 @@ optionsParser = do
         long    "index" <>
         metavar "INT" <>
         help    "Index in list of genesis key pairs"
-    -- goRemoteAddr <- option (fromParsec addrParser) $
-    --     long    "peer" <>
-    --     metavar "HOST:PORT" <>
-    --     help    "Node address to ZERG RUSH"
     goRoundPeriodRate <- option auto $
         short 'R' <>
         long  "round-period-rate" <>
@@ -90,10 +87,9 @@ optionsParser = do
         help "If enabled, send M-of-N txs instead of regular ones"
     goJLFile <-
         CLI.optionalJSONPath
+    goPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer (host:port:peer_id)"
     goCommonArgs <-
-        CLI.commonArgsParser "Initial DHT peer (may be many)"
-    goIpPort <-
-        CLI.ipPortOption ("127.0.0.1", 24962)
+        CLI.commonArgsParser
     return GenOptions{..}
 
 optsInfo :: ParserInfo GenOptions

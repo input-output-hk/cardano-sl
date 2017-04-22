@@ -17,4 +17,4 @@ data TxExtra = TxExtra
     { teBlockchainPlace :: !(Maybe (HeaderHash, Word32))
     , teReceivedTime    :: !Timestamp
     , teInputOutputs    :: NonEmpty TxOutAux  -- non-strict on purpose, see `makeExtra` in Pos.Txp.Logic.Local
-    } deriving (Show, Generic)
+    } deriving (Show, Generic, Eq)

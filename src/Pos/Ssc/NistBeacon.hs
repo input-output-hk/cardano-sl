@@ -52,7 +52,7 @@ instance SscHelpersClass SscNistBeacon where
     sscVerifyPayload = Tagged $ const $ const $ Right ()
 
 instance SscWorkersClass SscNistBeacon where
-    sscWorkers = Tagged ([], mempty)
+    sscWorkers = const (Tagged ([], mempty))
     sscLrcConsumers = Tagged []
 
 instance SscListenersClass SscNistBeacon where

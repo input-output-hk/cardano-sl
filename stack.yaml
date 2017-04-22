@@ -13,6 +13,10 @@ packages:
 - lrc
 
 - location:
+    git: https://github.com/serokell/time-units.git
+    commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
+  extra-dep: true
+- location:
     git: https://github.com/serokell/acid-state.git
     commit: 95fce1dbada62020a0b2d6aa2dd7e88eadd7214b
   extra-dep: true
@@ -39,12 +43,12 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: b48bd9b099e47d8c39aa6ddce261aa76f8488d75
+    commit: e908273a5dfd89047d203725a39f7cc9c2f4ff05
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
     git: https://github.com/avieth/network-transport-tcp
-    commit: eb1ed2fe4d4419c860ce060cb1091f7c8959134f
+    commit: ca42a954a15792f5ea8dc203e56fac8175b99c33
   extra-dep: true
 - location:
     git: https://github.com/avieth/network-transport

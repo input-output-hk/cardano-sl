@@ -23,7 +23,6 @@ import           Pos.Communication.PeerState (WithPeerState)
 import           Pos.Context                 (WithNodeContext)
 import           Pos.DB                      (MonadDB)
 import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.DHT.Model               (MonadDHT)
 import           Pos.Reporting.MemState      (MonadReportingMem)
 import           Pos.Slotting                (MonadSlots, MonadSlotsData)
 import           Pos.Txp                     (MonadTxpMem)
@@ -39,7 +38,7 @@ newtype WalletWebDB m a = WalletWebDB
     { getWalletWebDB :: ReaderT WalletState m a
     } deriving (Functor, Applicative, Monad, MonadThrow, MonadSlotsData, MonadDB,
                 MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName, WithPeerState,
-                MonadWalletDB, WithWalletContext, MonadDHT, MonadSlots, MonadTrans,
+                MonadWalletDB, WithWalletContext, MonadSlots, MonadTrans,
                 CanLog, MonadKeys, WithNodeContext ssc, MonadPollRead,
                 MonadTxpMem __, MonadDelegation, MonadReportingMem)
 

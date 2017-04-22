@@ -21,7 +21,7 @@ import           Universum
 import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState (..),
                                                 getAllStates, peerStateFromSnapshot,
                                                 runPeerStateHolder)
-import           Pos.Communication.Protocol    (SendActions)
+import           Pos.Communication.Protocol    (SendActions, NodeId)
 import           Pos.Constants                 (isDevelopment)
 import           Pos.Context                   (NodeContext, getNodeContext,
                                                 runContextHolder)
@@ -29,9 +29,6 @@ import           Pos.Crypto                    (noPassEncrypt)
 import           Pos.DB                        (NodeDBs, getNodeDBs, runDBHolder)
 import           Pos.Delegation.Class          (DelegationWrap, askDelegationState)
 import           Pos.Delegation.Holder         (runDelegationTFromTVar)
-import           Pos.DHT.Real.Real             (runKademliaDHT)
-import           Pos.DHT.Real.Types            (KademliaDHTInstance (..),
-                                                getKademliaDHTInstance)
 import           Pos.Genesis                   (genesisDevSecretKeys)
 import           Pos.Slotting                  (NtpSlotting (..), NtpSlottingVar,
                                                 SlottingHolder (..), SlottingVar,
@@ -54,42 +51,46 @@ import           Pos.WorkMode                  (RawRealMode, TxpExtra_TMP)
 walletServeWebFull
     :: forall ssc.
        (SscConstraint ssc)
-    => SendActions (RawRealMode ssc)
+    => RawRealMode ssc (Set NodeId)
+    -> SendActions (RawRealMode ssc)
     -> Bool      -- whether to include genesis keys
     -> FilePath  -- to Daedalus acid-state
     -> Bool      -- Rebuild flag
     -> Word16
     -> RawRealMode ssc ()
-walletServeWebFull sendActions debug = walletServeImpl action
+walletServeWebFull getPeers sendActions debug = walletServeImpl action
   where
     action :: WalletWebHandler (RawRealMode ssc) Application
     action = do
         logInfo "DAEDALUS has STARTED!"
         when (isDevelopment && debug) $
             mapM_ (addSecretKey . noPassEncrypt) genesisDevSecretKeys
-        walletApplication $ walletServer sendActions nat
+        walletApplication $ walletServer getPeers sendActions nat
 
 type WebHandler ssc = WalletWebSockets (WalletWebDB (RawRealMode ssc))
 
 nat :: WebHandler ssc (WebHandler ssc :~> Handler)
 nat = do
     ws         <- getWalletWebState
-    kinst      <- lift . lift . lift $ getKademliaDHTInstance
     tlw        <- askTxpMem
-    ssc        <- lift . lift . lift . lift . lift . lift $ SscHolder ask
+    ssc        <- lift . lift . lift . lift . lift $ SscHolder ask
     delWrap    <- askDelegationState
     psCtx      <- lift . lift $ getAllStates
     nc         <- getNodeContext
     modernDB   <- getNodeDBs
     conn       <- getWalletWebSockets
+    {-
     slotVar    <- lift . lift . lift . lift . lift . lift . lift . lift $ SlottingHolder ask
     ntpSlotVar <- lift . lift . lift . lift . lift . lift . lift $ NtpSlotting ask
     pure $ NT (convertHandler kinst nc modernDB tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar)
+    -}
+    slotVar    <- lift . lift . lift . lift . lift . lift . lift $ SlottingHolder ask
+    ntpSlotVar <- lift . lift . lift . lift . lift . lift $ NtpSlotting ask
+    pure $ NT (convertHandler nc modernDB tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar)
 
 convertHandler
     :: forall ssc a .
-       KademliaDHTInstance
-    -> NodeContext ssc              -- (.. insert monad `m` here ..)
+       NodeContext ssc              -- (.. insert monad `m` here ..)
     -> NodeDBs
     -> GenericTxpLocalData TxpExtra_TMP
     -> SscState ssc
@@ -101,7 +102,7 @@ convertHandler
     -> NtpSlottingVar
     -> WebHandler ssc a
     -> Handler a
-convertHandler kinst nc modernDBs tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar handler = do
+convertHandler nc modernDBs tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar handler = do
     liftIO ( runProduction
            . usingLoggerName "wallet-api"
            . runDBHolder modernDBs
@@ -111,7 +112,6 @@ convertHandler kinst nc modernDBs tlw ssc ws delWrap psCtx conn slotVar ntpSlotV
            . runSscHolder ssc
            . runTxpHolder tlw
            . runDelegationTFromTVar delWrap
-           . runKademliaDHT kinst
            . (\m -> flip runPeerStateHolder m =<< peerStateFromSnapshot psCtx)
            . runWalletWebDB ws
            . runWalletWS conn

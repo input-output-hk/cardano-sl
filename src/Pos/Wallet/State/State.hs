@@ -27,7 +27,6 @@ import           Pos.Communication.PeerState (PeerStateHolder)
 import           Serokell.Data.Memory.Units  (Byte)
 import           Universum
 
-import           Pos.DHT.Real.Types          (KademliaDHT (..))
 import           Pos.Txp                     (Tx, Utxo)
 import           Pos.Types                   (HeaderHash)
 
@@ -48,9 +47,6 @@ instance MonadWalletDB m => MonadWalletDB (StateT s m) where
     getWalletState = lift getWalletState
 
 instance MonadWalletDB m => MonadWalletDB (PeerStateHolder m) where
-    getWalletState = lift getWalletState
-
-instance MonadWalletDB m => MonadWalletDB (KademliaDHT m) where
     getWalletState = lift getWalletState
 
 -- | Constraint for working with web wallet DB

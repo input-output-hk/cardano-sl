@@ -86,7 +86,7 @@ lrcSingleShotImpl
     => m (Set NodeId) -> Bool -> EpochIndex -> [LrcConsumer m] -> m ()
 lrcSingleShotImpl getPeers withSemaphore epoch consumers = do
     lock <- askContext @LrcContext lcLrcSync
-    tryAcuireExclusiveLock epoch lock onAcquiredLock
+    tryAcquireExclusiveLock epoch lock onAcquiredLock
   where
     onAcquiredLock = do
         (need, filteredConsumers) <-
@@ -110,10 +110,10 @@ lrcSingleShotImpl getPeers withSemaphore epoch consumers = do
         putEpoch epoch
         logInfo "LRC has updated LRC DB"
 
-tryAcuireExclusiveLock
+tryAcquireExclusiveLock
     :: (MonadMask m, MonadIO m)
     => EpochIndex -> TVar LrcSyncData -> m () -> m ()
-tryAcuireExclusiveLock epoch lock action =
+tryAcquireExclusiveLock epoch lock action =
     bracketOnError acquireLock (flip whenJust releaseLock) doAction
   where
     acquireLock = atomically $ do

@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Optional path for `cardano-sl`
 cardano_path=${1:-../cardano-sl}
 

@@ -776,12 +776,12 @@ nodeDispatcher node handlerIn handlerInOut =
               loop state
 
           -- End point failure is unrecoverable.
-          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode NT.EventEndPointFailed) _) ->
-              throw (InternalError "EndPoint failed")
+          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode NT.EventEndPointFailed) reason) ->
+              throw (InternalError $ "EndPoint failed: " ++ reason)
 
           -- Transport failure is unrecoverable.
-          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode NT.EventTransportFailed) _) ->
-              throw (InternalError "Transport failed")
+          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode NT.EventTransportFailed) reason) ->
+              throw (InternalError $ "Transport failed " ++ reason)
 
     -- EndPointClosed is the final event that we will receive. There may be
     -- connections which remain open! ConnectionClosed events may be

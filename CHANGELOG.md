@@ -4,7 +4,7 @@
 
 ### Features:
 
-* Use `cardano-sl` version `0.4.0`
+* Use `cardano-sl` version `0.4.3`
 * Dashboard to display last `epochs`, `slots` and `transactions`
 * Detail page of a `transaction`
 * Detail page of a `slot`

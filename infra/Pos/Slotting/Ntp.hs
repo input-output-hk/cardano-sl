@@ -36,6 +36,7 @@ import           Mockable                    (Catch, ChannelT, Counter, CurrentT
 import           NTP.Client                  (NtpClientSettings (..), ntpSingleShot,
                                               startNtpClient)
 import           NTP.Example                 ()
+import           Serokell.Util               (sec)
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName, WithLogger, logDebug,
                                               logInfo, logWarning)
@@ -301,7 +302,9 @@ mkNtpSlottingVar = do
     -- current time isn't quite valid value, but it doesn't matter (@pva701)
     let _nssLastSlot = unflattenSlotId 0
     res <- liftIO $ newTVarIO NtpSlottingState {..}
-    let settings = ntpSettings res
+    -- We don't want to wait too much at the very beginning,
+    -- 1 second should be enough.
+    let settings = (ntpSettings res) { ntpResponseTimeout = 1 & sec }
     res <$ singleShot settings
   where
     singleShot settings = unless C.isDevelopment $ do

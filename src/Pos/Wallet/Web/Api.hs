@@ -7,6 +7,31 @@
 module Pos.Wallet.Web.Api
        ( WalletApi
        , walletApi
+       , TestReset
+       , GetWallet 
+       , GetWallets
+       , UpdateWallet
+       , DeleteWallet
+       , ImportKey
+       , WalletRestore
+       , NewWallet
+       , IsValidAddress
+       , GetProfile
+       , UpdateProfile
+       , NewPayment
+       , NewPaymentExt
+       , UpdateTx
+       , GetHistory
+       , SearchHistory
+       , NextUpdate
+       , ApplyUpdate
+       , RedeemADA
+       , RedeemADAPaperVend
+       , ReportingInitialized
+       , ReportingElectroncrash
+       , GetSlotsDuration
+       , GetVersion
+       , GetSyncProgress
        ) where
 
 
@@ -23,197 +48,251 @@ import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CElectronCrash
                                              CWalletMeta, CWalletRedeem, SyncProgress)
 import           Pos.Wallet.Web.Error       (WalletError)
 
+-- | Common prefix for all endpoints.
+type API = "api"
+
+-- | All endpoints are defined as a separate types, for description in Swagger-based HTML-documentation.
+
+type TestReset = API
+    :> "test"
+    :> "reset"
+    :> Post '[JSON] (Either WalletError ())
+
+type GetWallet = API
+    :> "wallets"
+    :> Capture "walletId" CAddress
+    :> Get '[JSON] (Either WalletError CWallet)
+
+type GetWallets = API
+    :> "wallets"
+    :> Get '[JSON] (Either WalletError [CWallet])
+
+type UpdateWallet = API
+    :> "wallets"
+    :> Capture "walletId" CAddress
+    :> ReqBody '[JSON] CWalletMeta
+    :> Put '[JSON] (Either WalletError CWallet)
+
+type DeleteWallet = API
+    :> "wallets"
+    :> Capture "walletId" CAddress
+    :> Delete '[JSON] (Either WalletError ())
+
+type ImportKey = API
+    :> "wallets"
+    :> "keys"
+    :> ReqBody '[JSON] Text
+    :> Post '[JSON] (Either WalletError CWallet)
+
+type WalletRestore = API
+    :> "wallets"
+    :> "restore"
+    :> Capture "passphrase" CPassPhrase
+    :> ReqBody '[JSON] CWalletInit
+    :> Post '[JSON] (Either WalletError CWallet)
+
+type NewWallet = API
+    :> "wallets"
+    :> Capture "passphrase" CPassPhrase
+    :> ReqBody '[JSON] CWalletInit
+    :> Post '[JSON] (Either WalletError CWallet)
+
+type IsValidAddress = API
+    :> "addresses"
+    :> Capture "address" Text
+    :> "currencies"
+    :> Capture "currency" CCurrency
+    :> Get '[JSON] (Either WalletError Bool)
+
+type GetProfile = API
+    :> "profile"
+    :> Get '[JSON] (Either WalletError CProfile)
+
+type UpdateProfile = API
+    :> "profile"
+    :> ReqBody '[JSON] CProfile
+    :> Post '[JSON] (Either WalletError CProfile)
+
+type NewPayment = API
+    :> "txs"
+    :> "payments"
+    :> Capture "passphrase" CPassPhrase
+    :> Capture "from" CAddress
+    :> Capture "to" CAddress
+    :> Capture "amount" Coin
+    :> Post '[JSON] (Either WalletError CTx)
+
+type NewPaymentExt = API
+    :> "txs"
+    :> "payments"
+    :> Capture "passphrase" CPassPhrase
+    :> Capture "from" CAddress
+    :> Capture "to" CAddress
+    :> Capture "amount" Coin
+    :> Capture "currency" CCurrency
+    :> Capture "title" Text
+    :> Capture "description" Text
+    :> Post '[JSON] (Either WalletError CTx)
+
+type UpdateTx = API
+    :> "txs"
+    :> "payments"
+    :> Capture "address" CAddress
+    :> Capture "transaction" CTxId
+    :> ReqBody '[JSON] CTxMeta
+    :> Post '[JSON] (Either WalletError ())
+
+type GetHistory = API
+    :> "txs"
+    :> "histories"
+    :> Capture "address" CAddress
+    :> QueryParam "skip" Word
+    :> QueryParam "limit" Word
+    :> Get '[JSON] (Either WalletError ([CTx], Word))
+
+type SearchHistory = API
+    :> "txs"
+    :> "histories"
+    :> Capture "address" CAddress
+    :> Capture "search" Text
+    :> QueryParam "skip" Word
+    :> QueryParam "limit" Word
+    :> Get '[JSON] (Either WalletError ([CTx], Word))
+
+type NextUpdate = API
+    :> "update"
+    :> Get '[JSON] (Either WalletError CUpdateInfo)
+
+type ApplyUpdate = API
+    :> "update"
+    :> Post '[JSON] (Either WalletError ())
+
+type RedeemADA = API
+    :> "redemptions"
+    :> "ada"
+    :> ReqBody '[JSON] CWalletRedeem
+    :> Post '[JSON] (Either WalletError CTx)
+
+type RedeemADAPaperVend = API
+    :> "papervend"
+    :> "redemptions"
+    :> "ada"
+    :> ReqBody '[JSON] CPaperVendWalletRedeem
+    :> Post '[JSON] (Either WalletError CTx)
+
+type ReportingInitialized = API
+    :> "reporting"
+    :> "initialized"
+    :> ReqBody '[JSON] CInitialized
+    :> Post '[JSON] (Either WalletError ())
+
+type ReportingElectroncrash = API
+    :> "reporting"
+    :> "electroncrash"
+    :> MultipartForm CElectronCrashReport
+    :> Post '[JSON] (Either WalletError ())
+
+type GetSlotsDuration = API
+    :> "settings"
+    :> "slots"
+    :> "duration"
+    :> Get '[JSON] (Either WalletError Word)
+
+type GetVersion = API
+    :> "settings"
+    :> "version"
+    :> Get '[JSON] (Either WalletError SoftwareVersion)
+
+type GetSyncProgress = API
+    :> "settings"
+    :> "sync"
+    :> "progress"
+    :> Get '[JSON] (Either WalletError SyncProgress)
 
 -- | Servant API which provides access to wallet.
 -- TODO: Should be composed depending on the resource - wallets, txs, ... http://haskell-servant.github.io/tutorial/0.4/server.html#nested-apis
 type WalletApi =
      -- only works in development mode, gives 403 otherwise
-     "api"
-     :> "test"
-     :> "reset"
-     :> Post '[JSON] (Either WalletError ())
+     TestReset
     :<|>
      -------------------------------------------------------------------------
      -- Wallets
      -------------------------------------------------------------------------
-     "api"
-     :> "wallets"
-     :> Capture "walletId" CAddress
-     :> Get '[JSON] (Either WalletError CWallet)
+     GetWallet 
     :<|>
-     "api"
-     :> "wallets"
-     :> Get '[JSON] (Either WalletError [CWallet])
+     GetWallets
     :<|>
-     "api"
-     :> "wallets"
-     :> Capture "walletId" CAddress
-     :> ReqBody '[JSON] CWalletMeta
-     :> Put '[JSON] (Either WalletError CWallet)
+     UpdateWallet
     :<|>
-     "api"
-     :> "wallets"
-     :> Capture "walletId" CAddress
-     :> Delete '[JSON] (Either WalletError ())
+     DeleteWallet
     :<|>
-     "api"
-     :> "wallets"
-     :> "keys"
-     :> ReqBody '[JSON] Text
-     :> Post '[JSON] (Either WalletError CWallet)
+     ImportKey
     :<|>
-     "api"
-     :> "wallets"
-     :> "restore"
-     :> Capture "passphrase" CPassPhrase
-     :> ReqBody '[JSON] CWalletInit
-     :> Post '[JSON] (Either WalletError CWallet)
+     WalletRestore 
     :<|>
-     "api"
-     :> "wallets"
-     :> Capture "passphrase" CPassPhrase
-     :> ReqBody '[JSON] CWalletInit
-     :> Post '[JSON] (Either WalletError CWallet)
+     NewWallet
     :<|>
      -------------------------------------------------------------------------
      -- Addresses
      -------------------------------------------------------------------------
-     "api"
-     :> "addresses"
-     :> Capture "address" Text
-     :> "currencies"
-     :> Capture "currency" CCurrency
-     :> Get '[JSON] (Either WalletError Bool)
+     IsValidAddress
     :<|>
      -------------------------------------------------------------------------
      -- Profile(s)
      -------------------------------------------------------------------------
      -- TODO: A single profile? Should be possible in the future to have
      -- multiple profiles?
-     "api"
-     :> "profile"
-     :> Get '[JSON] (Either WalletError CProfile)
+     GetProfile
     :<|>
-     "api"
-     :> "profile"
-     :> ReqBody '[JSON] CProfile
-     :> Post '[JSON] (Either WalletError CProfile)
+     UpdateProfile
     :<|>
      -------------------------------------------------------------------------
      -- Transactons
      -------------------------------------------------------------------------
     -- TODO: for now we only support one2one sending. We should extend this
     -- to support many2many
-     "api"
-     :> "txs"
-     :> "payments"
-     :> Capture "passphrase" CPassPhrase
-     :> Capture "from" CAddress
-     :> Capture "to" CAddress
-     :> Capture "amount" Coin
-     :> Post '[JSON] (Either WalletError CTx)
+     NewPayment
     :<|>
     -- TODO: for now we only support one2one sending. We should extend this
     -- to support many2many
-     "api"
-     :> "txs"
-     :> "payments"
-     :> Capture "passphrase" CPassPhrase
-     :> Capture "from" CAddress
-     :> Capture "to" CAddress
-     :> Capture "amount" Coin
-     :> Capture "currency" CCurrency
-     :> Capture "title" Text
-     :> Capture "description" Text
-     :> Post '[JSON] (Either WalletError CTx)
+     NewPaymentExt
     :<|>
       -- FIXME: Should capture the URL parameters in the payload.
-      "api"
-      :> "txs"
-      :> "payments"
-      :> Capture "address" CAddress
-      :> Capture "transaction" CTxId
-      :> ReqBody '[JSON] CTxMeta
-      :> Post '[JSON] (Either WalletError ())
+     UpdateTx
     :<|>
-     "api"
-     :> "txs"
-     :> "histories"
-     :> Capture "address" CAddress
-     :> QueryParam "skip" Word
-     :> QueryParam "limit" Word
-     :> Get '[JSON] (Either WalletError ([CTx], Word))
+     GetHistory
     :<|>
-     "api"
-     :> "txs"
-     :> "histories"
-     :> Capture "address" CAddress
-     :> Capture "search" Text
-     :> QueryParam "skip" Word
-     :> QueryParam "limit" Word
-     :> Get '[JSON] (Either WalletError ([CTx], Word))
+     SearchHistory
     :<|>
      -------------------------------------------------------------------------
      -- Updates
      -------------------------------------------------------------------------
-     "api"
-     :> "update"
-     :> Get '[JSON] (Either WalletError CUpdateInfo)
+     NextUpdate 
     :<|>
-     "api"
-     :> "update"
-     :> Post '[JSON] (Either WalletError ())
+     ApplyUpdate
     :<|>
      -------------------------------------------------------------------------
      -- Redemptions
      -------------------------------------------------------------------------
-     "api"
-     :> "redemptions"
-     :> "ada"
-     :> ReqBody '[JSON] CWalletRedeem
-     :> Post '[JSON] (Either WalletError CTx)
+     RedeemADA
     :<|>
-     "api"
-     :> "papervend"
-     :> "redemptions"
-     :> "ada"
-     :> ReqBody '[JSON] CPaperVendWalletRedeem
-     :> Post '[JSON] (Either WalletError CTx)
+     RedeemADAPaperVend
     :<|>
      -------------------------------------------------------------------------
      -- Reporting
      -------------------------------------------------------------------------
-     "api"
-     :> "reporting"
-     :> "initialized"
-     :> ReqBody '[JSON] CInitialized
-     :> Post '[JSON] (Either WalletError ())
+     ReportingInitialized 
     :<|>
-     "api"
-     :> "reporting"
-     :> "electroncrash"
-     :> MultipartForm CElectronCrashReport
-     :> Post '[JSON] (Either WalletError ())
+     ReportingElectroncrash 
     :<|>
      -------------------------------------------------------------------------
      -- Settings
      -------------------------------------------------------------------------
-     "api"
-     :> "settings"
-     :> "slots"
-     :> "duration"
-     :> Get '[JSON] (Either WalletError Word)
+     GetSlotsDuration
     :<|>
-     "api"
-     :> "settings"
-     :> "version"
-     :> Get '[JSON] (Either WalletError SoftwareVersion)
+     GetVersion 
     :<|>
-     "api"
-     :> "settings"
-     :> "sync"
-     :> "progress"
-     :> Get '[JSON] (Either WalletError SyncProgress)
+     GetSyncProgress 
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

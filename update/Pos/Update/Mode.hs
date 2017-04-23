@@ -1,5 +1,3 @@
-{-# LANGUAGE ConstraintKinds #-}
-
 module Pos.Update.Mode
        ( UpdateMode
        ) where

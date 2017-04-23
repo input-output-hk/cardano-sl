@@ -1,5 +1,4 @@
-{-# LANGUAGE CPP                  #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE CPP #-}
 
 -- | Server which handles transactions.
 

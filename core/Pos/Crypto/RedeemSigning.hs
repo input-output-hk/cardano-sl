@@ -1,5 +1,4 @@
 {-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Crypto.RedeemSigning
        ( RedeemSecretKey (..)

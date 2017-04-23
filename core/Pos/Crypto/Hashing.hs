@@ -1,7 +1,6 @@
 {-# LANGUAGE BangPatterns         #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Hashing capabilities.
 

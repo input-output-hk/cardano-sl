@@ -96,6 +96,7 @@ library
                       , cardano-report-server
                       , data-default
                       , directory
+                      , ether
                       , exceptions
                       , filepath
                       , formatting
@@ -123,6 +124,8 @@ library
                       , time-units
                       , transformers
                       , transformers-base
+                      , transformers-lift
+                      , mmorph
                       , universum
                       , unordered-containers
                       , wreq
@@ -146,6 +149,8 @@ library
                        ViewPatterns
                        LambdaCase
                        MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
 
   ghc-options:         -Wall
                        -fno-warn-orphans

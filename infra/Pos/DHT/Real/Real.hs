@@ -1,5 +1,4 @@
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Pos.DHT.Real.Real
        ( foreverRejoinNetwork
@@ -9,7 +8,7 @@ module Pos.DHT.Real.Real
        , stopDHTInstance
        ) where
 
-import           Universum                 hiding (bracket, catchAll, catch)
+import           Universum                 hiding (bracket, catch, catchAll)
 
 import           Control.Concurrent.STM    (newTVar, readTVar, writeTVar)
 import           Data.Binary               (decode)
@@ -19,22 +18,21 @@ import qualified Data.HashMap.Strict       as HM
 import           Data.List                 (intersect, (\\))
 import           Formatting                (build, int, sformat, shown, (%))
 import           Mockable                  (Async, Catch, Mockable, MonadMockable,
-                                            Promise, Throw, catchAll,
-                                            throw, waitAnyUnexceptional,
-                                            catch, withAsync)
+                                            Promise, Throw, catch, catchAll, throw,
+                                            waitAnyUnexceptional, withAsync)
 import qualified Network.Kademlia          as K
 import           Serokell.Util             (ms, sec)
 import           System.Directory          (doesFileExist)
-import           System.Wlog               (WithLogger, logDebug, logError, logInfo,
-                                            logWarning, usingLoggerName,
-                                            HasLoggerName (modifyLoggerName))
+import           System.Wlog               (HasLoggerName (modifyLoggerName), WithLogger,
+                                            logDebug, logError, logInfo, logWarning,
+                                            usingLoggerName)
 
 import           Pos.Binary.Class          (Bi (..))
 import           Pos.Binary.Infra.DHTModel ()
 import           Pos.DHT.Constants         (enhancedMessageBroadcast,
                                             neighborsSendThreshold)
-import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..), randomDHTKey,
-                                            DHTException (..))
+import           Pos.DHT.Model.Types       (DHTData, DHTException (..), DHTKey,
+                                            DHTNode (..), randomDHTKey)
 import           Pos.DHT.Real.Types        (KademliaDHTInstance (..),
                                             KademliaDHTInstanceConfig (..))
 import           Pos.Util.TimeLimit        (runWithRandomIntervals')

@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
@@ -58,7 +57,8 @@ import           Pos.Crypto                    (PassPhrase, aesDecrypt, deriveAe
                                                 redeemDeterministicKeyGen, withSafeSigner,
                                                 withSafeSigner)
 import           Pos.DB.Limits                 (MonadDBLimits)
-import           Pos.Reporting.MemState        (MonadReportingMem (..), rcReportServers)
+import           Pos.Reporting.MemState        (MonadReportingMem, askReportingContext,
+                                                rcReportServers)
 import           Pos.Reporting.Methods         (sendReport, sendReportNodeNologs)
 import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
 import           Pos.Util                      (maybeThrow)
@@ -88,16 +88,15 @@ import           Pos.Wallet.Web.ClientTypes    (CAddress, CCurrency (ADA),
                                                 mkCTxId, toCUpdateInfo, txContainsTitle,
                                                 txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
-import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
-                                                WalletWebSockets, closeWSConnection,
+import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets, WalletWebSockets,
+                                                closeWSConnection, getWalletWebSockets,
                                                 getWalletWebSockets, initWSConnection,
                                                 notify, runWalletWS, upgradeApplicationWS)
-import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
-                                                WebWalletModeDB, addOnlyNewTxMeta,
-                                                addUpdate, closeState, createWallet,
-                                                getHistoryCache, getNextUpdate,
-                                                getProfile, getTxMeta, getWalletMeta,
-                                                getWalletState, openState,
+import           Pos.Wallet.Web.State          (WalletWebDB, WebWalletModeDB,
+                                                addOnlyNewTxMeta, addUpdate, closeState,
+                                                createWallet, getHistoryCache,
+                                                getNextUpdate, getProfile, getTxMeta,
+                                                getWalletMeta, getWalletState, openState,
                                                 removeNextUpdate, removeWallet,
                                                 runWalletWebDB, setProfile, setWalletMeta,
                                                 setWalletTransactionMeta, testReset,
@@ -112,7 +111,9 @@ type WalletWebHandler m = WalletWebSockets (WalletWebDB m)
 
 type WalletWebMode m
     = ( WalletMode WalletSscType m
-      , MonadWalletWebDB m
+      , MonadKeys m -- FIXME: Why isn't it implied by the
+                    -- WalletMode constraint above?
+      , WebWalletModeDB m
       , MonadDBLimits m
       , MonadWalletWebSockets m
       , MonadReportingMem m

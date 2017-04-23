@@ -1,5 +1,4 @@
 {-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Signing done with public/private keys.
 module Pos.Crypto.Signing

@@ -21,7 +21,7 @@ import           Pos.Communication.Limits         ()
 import           Pos.Communication.Message        ()
 import           Pos.Communication.Relay          (Relay (..), RelayProxy (..),
                                                    relayListeners, relayStubListeners)
-import           Pos.Context                      (WithNodeContext (getNodeContext))
+import           Pos.Context                      (getNodeContext)
 import           Pos.Security                     (shouldIgnorePkAddress)
 import           Pos.Ssc.Class.Listeners          (SscListenersClass (..))
 import           Pos.Ssc.Extra                    (sscRunLocalQuery)

@@ -1,5 +1,3 @@
-{-# LANGUAGE ConstraintKinds #-}
-
 -- | Functions for operating with transactions
 
 module Pos.Communication.Tx
@@ -21,7 +19,7 @@ import           Pos.Client.Txp.Balances    (MonadBalances (..))
 import           Pos.Client.Txp.History     (MonadTxHistory (..))
 import           Pos.Client.Txp.Util        (TxError, createRedemptionTx, createTx)
 import           Pos.Communication.Methods  (sendTx)
-import           Pos.Communication.Protocol (SendActions, NodeId)
+import           Pos.Communication.Protocol (NodeId, SendActions)
 import           Pos.Communication.Specs    (sendTxOuts)
 import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
                                              redeemToPublic, safeToPublic)

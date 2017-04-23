@@ -375,10 +375,6 @@ library
                         Pos.Wallet.State.Storage
                         Pos.Wallet.State.Storage.Block
                         Pos.Wallet.State.Storage.Tx
-                        Pos.Wallet.Context
-                        Pos.Wallet.Context.Class
-                        Pos.Wallet.Context.Context
-                        Pos.Wallet.Context.Holder
                         Pos.Wallet.Update
                         Pos.Wallet.SscType
   if (flag(with-wallet) && flag(with-web))
@@ -433,6 +429,7 @@ library
                       , directory
                       , dlist
                       , ed25519
+                      , ether
                       , exceptions
                       , file-embed >= 0.0.10
                       , filelock >= 0.1.0.1
@@ -484,6 +481,7 @@ library
                       , time-units
                       , transformers
                       , transformers-base
+                      , transformers-lift
                       , turtle
                       , universum >= 0.1.11
                       , unordered-containers
@@ -533,6 +531,8 @@ library
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -602,6 +602,8 @@ executable cardano-node
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -659,6 +661,8 @@ executable cardano-analyzer
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -724,6 +728,8 @@ executable cardano-wallet
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -777,6 +783,8 @@ executable cardano-wallet-hs2purs
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -857,6 +865,8 @@ executable cardano-smart-generator
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -923,6 +933,8 @@ executable cardano-dht-keygen
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -963,6 +975,8 @@ executable cardano-web-docs
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -1010,6 +1024,8 @@ executable cardano-wallet-web-docs
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -1148,6 +1164,8 @@ executable cardano-keygen
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
 
 executable cardano-launcher
   hs-source-dirs:      src/launcher
@@ -1286,6 +1304,8 @@ test-suite cardano-test
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -1342,6 +1362,8 @@ benchmark cardano-bench-criterion
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

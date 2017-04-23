@@ -27,7 +27,6 @@ import           Mockable                    (ChannelT, Counter, Distribution, G
                                               Gauge, Promise, SharedAtomicT,
                                               SharedExclusiveT, SharedExclusiveT,
                                               ThreadId)
-import qualified Prelude
 import           Serokell.Util.Lens          (WrappedM (..))
 import           System.Wlog                 (CanLog, HasLoggerName, logWarning)
 import           Universum
@@ -116,10 +115,10 @@ instance MonadPollRead m =>
     getEpochProposers = PollT $ do
         new <- use pmEpochProposersL
         maybe getEpochProposers pure new
-    getConfirmedBVStates =
+    getCompetingBVStates =
         PollT $
         filter (bvsIsConfirmed . snd) <$>
-        (MM.toListM getConfirmedBVStates =<< use pmBVsL)
+        (MM.toListM getCompetingBVStates =<< use pmBVsL)
     getAdoptedBVFull =
         PollT $ maybe getAdoptedBVFull pure =<< use pmAdoptedBVFullL
     getLastConfirmedSV appName =

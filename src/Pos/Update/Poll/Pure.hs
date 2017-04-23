@@ -12,7 +12,8 @@ import           Universum
 import           Control.Lens               (at, to, (%=), (.=))
 import qualified Data.HashMap.Strict        as HM
 import           System.Wlog                (CanLog, HasLoggerName (..), LogEvent,
-                                             NamedPureLogger, logWarning, runNamedPureLog)
+                                             NamedPureLogger, logDebug, logWarning,
+                                             runNamedPureLog)
 
 import           Pos.Crypto                 (hash)
 import           Pos.Types                  (SoftwareVersion (..))
@@ -21,7 +22,8 @@ import qualified Pos.Update.Poll.PollState  as Poll
 import           Pos.Update.Poll.Types      (BlockVersionState (..),
                                              DecidedProposalState (..),
                                              UndecidedProposalState (..),
-                                             cpsSoftwareVersion, propStateToEither)
+                                             cpsSoftwareVersion, propStateToEither,
+                                             psProposal)
 
 newtype PurePoll a = PurePoll
     { getPurePoll :: NamedPureLogger (State Poll.PollState) a
@@ -46,19 +48,19 @@ instance MonadPollRead PurePoll where
     getBVState bv = PurePoll $ use $ Poll.psBlockVersions . at bv
     getProposedBVs = PurePoll $ use $ Poll.psBlockVersions . to HM.keys
     getEpochProposers = PurePoll $ use $ Poll.psEpochProposers
-    getConfirmedBVStates = PurePoll $ use $ Poll.psBlockVersions . to HM.toList
+    getCompetingBVStates = PurePoll $ use $ Poll.psBlockVersions . to HM.toList
     getAdoptedBVFull = PurePoll $ use $ Poll.psAdoptedBV
-    getLastConfirmedSV an = PurePoll $ use $ Poll.psConfirmedBVs . at an
+    getLastConfirmedSV an = PurePoll $ use $ Poll.psConfirmedANs . at an
     getProposal ui = PurePoll $ use $ Poll.psActiveProposals . at ui
     getProposalsByApp an = PurePoll $ do
-        delActiveProposalsIndices <- use Poll.psActivePropsIdx
+        activeProposalsIndices <- use Poll.psActivePropsIdx
         activeProposals           <- use Poll.psActiveProposals
-        propGetByApp delActiveProposalsIndices activeProposals
+        propGetByApp activeProposalsIndices activeProposals
       where
         propGetByApp appHashmap upIdHashmap =
             case HM.lookup an appHashmap of
                 Nothing -> do
-                    logWarning $
+                    logDebug $
                         "getProposalsByApp: unknown application name " <> pretty an
                     pure []
                 Just hashset -> do
@@ -83,7 +85,7 @@ instance MonadPollRead PurePoll where
                                                       HM.elems)
     getDeepProposals cd =
         PurePoll $ use $ Poll.psActiveProposals .
-            to (filter ((> (Just cd)) . dpsDifficulty) .
+            to (filter (maybe False (<= cd) . dpsDifficulty) .
                 rights .
                 map propStateToEither .
                 HM.elems)
@@ -102,16 +104,15 @@ instance MonadPoll PurePoll where
                     "setAdoptedBV: unknown version " <> pretty bv -- can't happen actually
             Just (bvsData -> bvd) -> PurePoll $ Poll.psAdoptedBV .= (bv, bvd)
     setLastConfirmedSV SoftwareVersion {..} =
-        PurePoll $ Poll.psConfirmedBVs . at svAppName .= Just svNumber
-    delConfirmedSV an = PurePoll $ Poll.psConfirmedBVs . at an .= Nothing
+        PurePoll $ Poll.psConfirmedANs . at svAppName .= Just svNumber
+    delConfirmedSV an = PurePoll $ Poll.psConfirmedANs . at an .= Nothing
     addConfirmedProposal cps =
         PurePoll $ Poll.psConfirmedProposals . at (cpsSoftwareVersion cps) .= Just cps
     delConfirmedProposal sv = PurePoll $ Poll.psConfirmedProposals . at sv .= Nothing
     insertActiveProposal p = PurePoll $ Poll.psActiveProposals %= decideProp p
       where
-          decideProp ps = HM.insert (getUpId ps) ps
-          getUpId = either hashUProp (hashUProp . dpsUndecided) . propStateToEither
-          hashUProp = hash . upsProposal
+          decideProp ps = HM.insert (hashProposal ps) ps
+          hashProposal = hash . psProposal
     deactivateProposal ui = PurePoll $ Poll.psActiveProposals . at ui .= Nothing
     setSlottingData sd = PurePoll $ Poll.psSlottingData .= sd
     setEpochProposers hs = PurePoll $ Poll.psEpochProposers .= hs

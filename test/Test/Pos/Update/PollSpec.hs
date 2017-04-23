@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | Specification for submodules of Pos.Update.Poll
 
 module Test.Pos.Update.PollSpec
@@ -8,10 +10,11 @@ import           Universum
 
 import qualified Data.HashMap.Strict       as HM
 import qualified Data.HashSet              as HS
+import           Data.DeriveTH             (derive, makeArbitrary)
 import           Test.Hspec                (Spec, describe)
 import           Test.Hspec.QuickCheck     (prop)
 import           Test.QuickCheck           (Arbitrary (..), Property, (===), conjoin,
-                                            oneof)
+                                            choose)
 
 import           Pos.Crypto                (hash)
 import           Pos.Slotting.Types        (SlottingData)
@@ -124,22 +127,6 @@ applyActionToModifier (DeactivateProposal ui) = \p ->
 applyActionToModifier (SetSlottingData sd) = Poll.pmSlottingDataL .~ (Just sd)
 applyActionToModifier (SetEpochProposers hs) = Poll.pmEpochProposersL .~ (Just hs)
 
-instance Arbitrary PollAction where
-    arbitrary = oneof
-        [ PutBVState <$> arbitrary <*> arbitrary
-        , DelBVState <$> arbitrary
-        , SetAdoptedBV <$> arbitrary
-        , SetLastConfirmedSV <$> arbitrary
-        , DelConfirmedSV <$> arbitrary
-        , AddConfirmedProposal <$> arbitrary
-        , DelConfirmedProposal <$> arbitrary
-        , InsertActiveProposal <$> arbitrary
-        , DeactivateProposal <$> arbitrary
-        , SetSlottingData <$> arbitrary
-        , SetSlottingData <$> arbitrary
-        , SetEpochProposers <$> arbitrary
-        ]
-
 type PollActions = [PollAction]
 
 applyActions
@@ -152,3 +139,5 @@ applyActions ps actionList =
         resultPStates = ps : scanl Poll.execPurePollWithLogger ps pollSts
         newPollStates = scanl (flip Poll.modifyPollState) ps resultModifiers
     in conjoin $ zipWith (===) resultPStates newPollStates
+
+derive makeArbitrary ''PollAction

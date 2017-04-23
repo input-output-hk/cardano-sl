@@ -12,7 +12,7 @@ module Pos.Update.Poll.PollState
        , psBlockVersions
        , psAdoptedBV
        , psEpochProposers
-       , psConfirmedBVs
+       , psConfirmedANs
        , psConfirmedProposals
        , psActiveProposals
        , psActivePropsIdx
@@ -26,8 +26,9 @@ module Pos.Update.Poll.PollState
 
 import           Universum
 
+import           Control.Arrow                ((&&&))
 import           Control.Lens                 (makeLenses)
-import           Data.HashSet                 (HashSet)
+import qualified Data.HashSet                 as HS
 import qualified Data.HashMap.Strict          as HM
 
 import           Pos.Core.Types               (ApplicationName, BlockVersion,
@@ -40,7 +41,7 @@ import           Pos.Slotting.Types           (SlottingData)
 import           Pos.Update.Core              (UpId)
 import           Pos.Update.Poll.Types        (BlockVersionState, ConfirmedProposalState,
                                                PollModifier (..), ProposalState)
-import           Pos.Util.Modifier            (modifyHashMap)
+import           Pos.Util.Modifier            (deletions, insertions, modifyHashMap)
 
 data PollState = PollState
     { -- | All competing block versions with their states
@@ -50,7 +51,7 @@ data PollState = PollState
       -- | All stakeholders who made proposals in the current epoch
     , _psEpochProposers     :: !(HashSet StakeholderId)
       -- | All applications in use and their latest (confirmed) versions
-    , _psConfirmedBVs       :: !(HM.HashMap ApplicationName NumSoftwareVersion)
+    , _psConfirmedANs       :: !(HM.HashMap ApplicationName NumSoftwareVersion)
       -- | All confirmed software versions and their state
     , _psConfirmedProposals :: !(HM.HashMap SoftwareVersion ConfirmedProposalState)
       -- | All update proposals and their states
@@ -72,10 +73,16 @@ modifyPollState PollModifier {..} PollState {..} =
     PollState (modifyHashMap pmBVs _psBlockVersions)
               (fromMaybe _psAdoptedBV pmAdoptedBVFull)
               (fromMaybe _psEpochProposers pmEpochProposers)
-              (modifyHashMap pmConfirmed _psConfirmedBVs)
+              (modifyHashMap pmConfirmed _psConfirmedANs)
               (modifyHashMap pmConfirmedProps _psConfirmedProposals)
               (modifyHashMap pmActiveProps _psActiveProposals)
-              _psActivePropsIdx
+              newActivePropsIdx
               (fromMaybe _psSlottingData pmSlottingData)
               _psFullRichmenData
               _psIssuersStakes
+  where
+    (dels, ins) =
+        (HS.fromList . deletions) &&& (HS.fromList . map fst . insertions) $ pmActiveProps
+    newActivePropsIdx =
+        (fmap removeAndAddProps . (`HM.difference` pmDelActivePropsIdx)) _psActivePropsIdx
+    removeAndAddProps hashset = HS.union ins . (flip HS.difference dels) $ hashset

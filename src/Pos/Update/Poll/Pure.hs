@@ -9,30 +9,25 @@ module Pos.Update.Poll.Pure
 
 import           Universum
 
-import           Control.Lens               (at, to, (%=), (.=))
-import qualified Data.HashMap.Strict        as HM
-import           System.Wlog                (CanLog, HasLoggerName (..), LogEvent,
-                                             NamedPureLogger, logDebug, logWarning,
-                                             runNamedPureLog)
+import           Control.Lens              (at, to, (%=), (.=))
+import qualified Data.HashMap.Strict       as HM
+import           System.Wlog               (CanLog, HasLoggerName (..), LogEvent,
+                                            NamedPureLogger, logDebug, logWarning,
+                                            runNamedPureLog)
 
-import           Pos.Crypto                 (hash)
-import           Pos.Types                  (SoftwareVersion (..))
-import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
-import qualified Pos.Update.Poll.PollState  as Poll
-import           Pos.Update.Poll.Types      (BlockVersionState (..),
-                                             DecidedProposalState (..),
-                                             UndecidedProposalState (..),
-                                             cpsSoftwareVersion, propStateToEither,
-                                             psProposal)
+import           Pos.Crypto                (hash)
+import           Pos.Types                 (SoftwareVersion (..))
+import           Pos.Update.Poll.Class     (MonadPoll (..), MonadPollRead (..))
+import qualified Pos.Update.Poll.PollState as Poll
+import           Pos.Update.Poll.Types     (BlockVersionState (..),
+                                            DecidedProposalState (..),
+                                            UndecidedProposalState (..),
+                                            cpsSoftwareVersion, propStateToEither,
+                                            psProposal)
 
 newtype PurePoll a = PurePoll
     { getPurePoll :: NamedPureLogger (State Poll.PollState) a
     } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName)
-
-instance HasLoggerName Identity where
-    getLoggerName = mempty
-
-    modifyLoggerName = flip const
 
 runPurePollWithLogger :: Poll.PollState -> PurePoll a -> (a, Poll.PollState, [LogEvent])
 runPurePollWithLogger ps =

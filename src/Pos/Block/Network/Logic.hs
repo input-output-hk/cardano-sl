@@ -21,9 +21,11 @@ module Pos.Block.Network.Logic
 import           Control.Concurrent.STM     (isFullTBQueue, putTMVar, readTVar,
                                              tryReadTMVar, tryTakeTMVar, writeTBQueue,
                                              writeTVar)
+import           Control.Exception          (Exception (..))
 import           Control.Lens               (_Wrapped)
 import qualified Data.List.NonEmpty         as NE
-import           Formatting                 (build, sformat, shown, stext, (%))
+import qualified Data.Text.Buildable        as B
+import           Formatting                 (bprint, build, sformat, shown, stext, (%))
 import           Mockable                   (fork)
 import           Paths_cardano_sl           (version)
 import           Serokell.Util.Text         (listJson)
@@ -53,7 +55,9 @@ import           Pos.Context                (NodeContext (..), getNodeContext,
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Class               (MonadDBCore)
 import qualified Pos.DB.DB                  as DB
-import           Pos.DHT.Model              (converseToNeighbors)
+import           Pos.Discovery              (converseToNeighbors)
+import           Pos.Exception              (cardanoExceptionFromException,
+                                             cardanoExceptionToException)
 import           Pos.Reporting.Methods      (reportMisbehaviourMasked)
 import           Pos.Slotting               (getCurrentSlot)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
@@ -64,6 +68,27 @@ import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode               (WorkMode)
+
+
+----------------------------------------------------------------------------
+-- Exceptions
+----------------------------------------------------------------------------
+
+data BlockNetLogicException
+    = VerifyBlocksException Text
+      -- ^ Failed to verify blocks coming from node.
+    | DialogUnexpected Text
+      -- ^ Node's response in any network/block related logic was
+      -- unexpected.
+    deriving (Show)
+
+instance B.Buildable BlockNetLogicException where
+    build e = bprint ("BlockNetLogicException: "%shown) e
+
+instance Exception BlockNetLogicException where
+    toException = cardanoExceptionToException
+    fromException = cardanoExceptionFromException
+    displayException = toString . pretty
 
 ----------------------------------------------------------------------------
 -- Recovery
@@ -83,11 +108,12 @@ needRecovery _ = getCurrentSlot >>= maybe (pure True) needRecoveryCheck
 -- | Triggers recovery based on established communication.
 triggerRecovery :: forall ssc m.
     (SscWorkersClass ssc, WorkMode ssc m)
-    => SendActions m -> m ()
-triggerRecovery sendActions = unlessM isRecoveryMode $ do
+    => m (Set NodeId) -> SendActions m -> m ()
+triggerRecovery getPeers sendActions = unlessM isRecoveryMode $ do
     logDebug "Recovery triggered, requesting tips"
     reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limitProxy -> do
-        converseToNeighbors sendActions (requestTip limitProxy) `catch`
+        peers <- getPeers
+        converseToNeighbors peers sendActions (requestTip limitProxy) `catch`
             \(e :: SomeException) -> do
                logDebug ("Error happened in triggerRecovery" <> show e)
                throwM e
@@ -245,7 +271,10 @@ requestHeaders mgh peerId origTip _ conv = do
                 handleRequestedHeaders headers peerId origTip
             MRUnexpected msg -> handleUnexpected headers msg
   where
-    onNothing = logWarning "requestHeaders: received Nothing, waiting for MsgHeaders"
+    onNothing = do
+        logWarning "requestHeaders: received Nothing, waiting for MsgHeaders"
+        throwM $ DialogUnexpected $
+            sformat ("requestHeaders: received Nothing from "%build) peerId
     handleUnexpected hs msg = do
         -- TODO: ban node for sending unsolicited header in conversation
         logWarning $ sformat
@@ -254,6 +283,8 @@ requestHeaders mgh peerId origTip _ conv = do
             peerId msg
         logWarning $ sformat
             ("requestHeaders: unexpected or invalid headers: "%listJson) hs
+        throwM $ DialogUnexpected $
+            sformat ("requestHeaders: received unexpected headers from "%build) peerId
 
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders
@@ -357,17 +388,18 @@ mkBlocksRequest lcaChild wantedBlock =
 handleBlocks
     :: forall ssc m.
        (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
-    => NodeId
+    => m (Set NodeId)
+    -> NodeId
     -> OldestFirst NE (Block ssc)
     -> SendActions m
     -> m ()
-handleBlocks peerId blocks sendActions = do
+handleBlocks getPeers peerId blocks sendActions = do
     logDebug "handleBlocks: processing"
     inAssertMode $
         logInfo $
             sformat ("Processing sequence of blocks: " %listJson % "...") $
                     fmap headerHash blocks
-    maybe onNoLca (handleBlocksWithLca peerId sendActions blocks) =<<
+    maybe onNoLca (handleBlocksWithLca getPeers peerId sendActions blocks) =<<
         lcaWithMainChain (map (view blockHeader) blocks)
     inAssertMode $ logDebug $ "Finished processing sequence of blocks"
   where
@@ -378,17 +410,18 @@ handleBlocks peerId blocks sendActions = do
 handleBlocksWithLca
     :: forall ssc m.
        (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
-    => NodeId
+    => m (Set NodeId)
+    -> NodeId
     -> SendActions m
     -> OldestFirst NE (Block ssc)
     -> HeaderHash
     -> m ()
-handleBlocksWithLca peerId sendActions blocks lcaHash = do
+handleBlocksWithLca getPeers peerId sendActions blocks lcaHash = do
     logDebug $ sformat lcaFmt lcaHash
     -- Head blund in result is the youngest one.
     toRollback <- DB.loadBlundsFromTipWhile $ \blk -> headerHash blk /= lcaHash
-    maybe (applyWithoutRollback sendActions blocks)
-          (applyWithRollback peerId sendActions blocks lcaHash)
+    maybe (applyWithoutRollback getPeers sendActions blocks)
+          (applyWithRollback getPeers peerId sendActions blocks lcaHash)
           (_Wrapped nonEmpty toRollback)
   where
     lcaFmt = "Handling block w/ LCA, which is "%shortHashF
@@ -396,8 +429,11 @@ handleBlocksWithLca peerId sendActions blocks lcaHash = do
 applyWithoutRollback
     :: forall ssc m.
        (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
-    => SendActions m -> OldestFirst NE (Block ssc) -> m ()
-applyWithoutRollback sendActions blocks = do
+    => m (Set NodeId)
+    -> SendActions m
+    -> OldestFirst NE (Block ssc)
+    -> m ()
+applyWithoutRollback getPeers sendActions blocks = do
     logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
         fmap (view blockHeader) blocks
     withBlkSemaphore applyWithoutRollbackDo >>= \case
@@ -417,32 +453,33 @@ applyWithoutRollback sendActions blocks = do
                     & map (view blockHeader)
                 applied = NE.fromList $
                     getOldestFirst prefix <> one (toRelay ^. blockHeader)
-            relayBlock sendActions toRelay
+            relayBlock getPeers sendActions toRelay
             logInfo $ blocksAppliedMsg applied
   where
     newestTip = blocks ^. _Wrapped . _neLast . headerHashG
     applyWithoutRollbackDo
         :: HeaderHash -> m (Either Text HeaderHash, HeaderHash)
     applyWithoutRollbackDo curTip = do
-        res <- verifyAndApplyBlocks False blocks
+        res <- verifyAndApplyBlocks getPeers False blocks
         let newTip = either (const curTip) identity res
         pure (res, newTip)
 
 applyWithRollback
     :: forall ssc m.
        (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
-    => NodeId
+    => m (Set NodeId)
+    -> NodeId
     -> SendActions m
     -> OldestFirst NE (Block ssc)
     -> HeaderHash
     -> NewestFirst NE (Blund ssc)
     -> m ()
-applyWithRollback peerId sendActions toApply lca toRollback = do
+applyWithRollback getPeers peerId sendActions toApply lca toRollback = do
     logInfo $ sformat ("Trying to apply blocks w/ rollback: "%listJson)
         (map (view blockHeader) toApply)
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
     res <- withBlkSemaphore $ \curTip -> do
-        res <- L.applyWithRollback toRollback toApplyAfterLca
+        res <- L.applyWithRollback getPeers toRollback toApplyAfterLca
         pure (res, either (const curTip) identity res)
     case res of
         Left err -> logWarning $ "Couldn't apply blocks with rollback: " <> err
@@ -453,7 +490,7 @@ applyWithRollback peerId sendActions toApply lca toRollback = do
             reportRollback
             logInfo $ blocksRolledBackMsg (getNewestFirst toRollback)
             logInfo $ blocksAppliedMsg (getOldestFirst toApply)
-            relayBlock sendActions $ toApply ^. _Wrapped . _neLast
+            relayBlock getPeers sendActions $ toApply ^. _Wrapped . _neLast
   where
     toRollbackHashes = fmap headerHash toRollback
     toApplyHashes = fmap headerHash toApply
@@ -464,7 +501,7 @@ applyWithRollback peerId sendActions toApply lca toRollback = do
     reportRollback =
         unlessM isRecoveryMode $ do
             logDebug "Reporting rollback happened"
-            reportMisbehaviourMasked version $
+            reportMisbehaviourMasked getPeers version $
                 sformat reportF peerId toRollbackHashes toApplyHashes
     panicBrokenLca = error "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =
@@ -476,21 +513,18 @@ applyWithRollback peerId sendActions toApply lca toRollback = do
 relayBlock
     :: forall ssc m.
        (WorkMode ssc m)
-    => SendActions m -> Block ssc -> m ()
-relayBlock _ (Left _)                  = logDebug "Not relaying Genesis block"
-relayBlock sendActions (Right mainBlk) = do
+    => m (Set NodeId) -> SendActions m -> Block ssc -> m ()
+relayBlock _ _ (Left _)                  = logDebug "Not relaying Genesis block"
+relayBlock getPeers sendActions (Right mainBlk) = do
     isRecoveryMode >>= \case
         True -> logDebug "Not relaying block in recovery mode"
         False -> do
             logDebug $ sformat ("Calling announceBlock for "%build%".") (mainBlk ^. gbHeader)
-            void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
+            void $ fork $ announceBlock getPeers sendActions $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------
 -- Common logging / logic sink points
 ----------------------------------------------------------------------------
-
-data VerifyBlocksException = VerifyBlocksException Text deriving Show
-instance Exception VerifyBlocksException
 
 -- TODO: ban node for it!
 onFailedVerifyBlocks

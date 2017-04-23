@@ -1,5 +1,3 @@
-{-# LANGUAGE ConstraintKinds #-}
-
 -- | Re-exports of Pos.Ssc.Class.* modules.
 
 module Pos.Ssc.Class

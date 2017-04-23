@@ -22,10 +22,13 @@ newtype Timestamp = Timestamp
     } deriving (Num, Eq, Ord, Enum, Real, Integral, Typeable, Generic)
 
 instance Show Timestamp where
-    show = show . getTimestamp
+    -- If we try to 'show' Microsecond it adds an “µ”, which breaks things
+    -- sometimes when printed to the console, so we convert it to Integer
+    -- first so that there wouldn't be a “µ”.
+    show = show . toInteger . getTimestamp
 
 instance Read Timestamp where
-    readsPrec i = fmap (first Timestamp) . Prelude.readsPrec i
+    readsPrec i = fmap (first (Timestamp . fromInteger)) . Prelude.readsPrec i
 
 instance Buildable Timestamp where
     build = Buildable.build . toInteger

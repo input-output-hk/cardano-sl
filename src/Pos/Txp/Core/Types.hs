@@ -1,6 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Core types of Txp component, i. e. types which actually form
 -- block or are used by other components.
@@ -62,9 +61,8 @@ import           Universum
 import           Pos.Binary.Class     (Bi)
 import           Pos.Binary.Core      ()
 import           Pos.Binary.Crypto    ()
-import           Pos.Core.Address     ()
-import           Pos.Core.Types       (Address (..), Coin, Script, StakeholderId, coinF,
-                                       mkCoin)
+import           Pos.Core             (Address (..), Coin, Script, StakeholderId,
+                                       addressHash, coinF, mkCoin)
 import           Pos.Crypto           (Hash, PublicKey, RedeemPublicKey, RedeemSignature,
                                        Signature, hash, shortHashF)
 import           Pos.Data.Attributes  (Attributes, areAttributesKnown)
@@ -108,7 +106,8 @@ instance Hashable TxInWitness
 
 instance Buildable TxInWitness where
     build (PkWitness key sig) =
-        bprint ("PkWitness: key = "%build%", sig = "%build) key sig
+        bprint ("PkWitness: key = "%build%", key hash = "%shortHashF%
+                ", sig = "%build) key (addressHash key) sig
     build (ScriptWitness val red) =
         bprint ("ScriptWitness: "%
                 "validator hash = "%shortHashF%", "%

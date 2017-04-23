@@ -1,9 +1,8 @@
-{-# LANGUAGE CPP                  #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- needed for stylish-haskell :(
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 module Pos.Types.Block.Instances
        ( BodyProof (..)

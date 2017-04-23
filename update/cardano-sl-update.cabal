@@ -1,5 +1,5 @@
 name:                cardano-sl-update
-version:             0.3.0.0
+version:             0.4.1
 synopsis:            Cardano SL - update
 description:         Cardano SL - update
 license:             MIT
@@ -34,7 +34,8 @@ library
                        Pos.Update.Context
                        Pos.Update.Params
 
-  build-depends:       aeson
+  build-depends:       QuickCheck
+                     , aeson
                      , base
                      , binary
                      , cardano-sl-core
@@ -51,7 +52,6 @@ library
                      , mtl
                      , node-sketch
                      , parsec
-                     , QuickCheck
                      , rocksdb
                      , safecopy
                      , serokell-util
@@ -84,6 +84,8 @@ library
                        ViewPatterns
                        LambdaCase
                        MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
 
   ghc-options:         -Wall
                        -fno-warn-orphans

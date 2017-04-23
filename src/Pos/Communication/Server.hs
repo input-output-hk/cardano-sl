@@ -4,7 +4,6 @@ module Pos.Communication.Server
        ( allListeners
        , allStubListeners
        , serverLoggerName
-       , module Pos.Communication.Server.SysStart
        ) where
 
 import           Data.Tagged                       (Tagged, proxy, unproxy, untag)
@@ -13,8 +12,7 @@ import           Universum
 
 import           Pos.Binary.Communication          ()
 import           Pos.Block.Network.Listeners       (blockListeners, blockStubListeners)
-import           Pos.Communication.Protocol        (ListenerSpec (..), OutSpecs)
-import           Pos.Communication.Server.SysStart
+import           Pos.Communication.Protocol        (ListenerSpec (..), OutSpecs, NodeId)
 import           Pos.Communication.Util            (wrapListener)
 import           Pos.Delegation.Listeners          (delegationListeners,
                                                     delegationStubListeners)
@@ -29,12 +27,12 @@ import           Pos.WorkMode                      (WorkMode)
 -- | All listeners running on one node.
 allListeners
     :: (SscListenersClass ssc, SscWorkersClass ssc, WorkMode ssc m)
-    => m ([ListenerSpec m], OutSpecs)
-allListeners = mconcatPair <$> sequence
+    => m (Set NodeId) -> m ([ListenerSpec m], OutSpecs)
+allListeners getPeers = mconcatPair <$> sequence
         [ modifier "block"       <$> blockListeners
         , modifier "ssc" . untag <$> sscListeners
         , modifier "tx"          <$> txListeners
-        , modifier "delegation"  <$> pure delegationListeners
+        , modifier "delegation"  <$> pure (delegationListeners getPeers)
         , modifier "update"      <$> usListeners
         ]
   where

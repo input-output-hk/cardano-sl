@@ -23,7 +23,7 @@ import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Pure              (VerifyBlockParams (..), verifyBlock)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', WorkerSpec,
-                                              onNewSlotWorker)
+                                              onNewSlotWorker, NodeId)
 import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (getNodeContext, ncPublicKey)
 import           Pos.Core.Address            (addressHash)
@@ -54,26 +54,28 @@ import           Pos.Slotting                (getLastKnownSlotDuration)
 -- | All workers specific to block processing.
 blkWorkers
     :: (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
-    => ([WorkerSpec m], OutSpecs)
-blkWorkers =
-    merge $ [ blkOnNewSlot
-            , retrievalWorker
+    => m (Set NodeId)
+    -> ([WorkerSpec m], OutSpecs)
+blkWorkers getPeers =
+    merge $ [ blkOnNewSlot getPeers
+            , retrievalWorker getPeers
             ]
 #if defined(WITH_WALLET)
-            ++ [ queryBlocksWorker ]
+            ++ [ queryBlocksWorker getPeers ]
 #endif
   where
     merge = mconcatPair . map (first pure)
 
 -- Action which should be done when new slot starts.
-blkOnNewSlot :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
-blkOnNewSlot = onNewSlotWorker True announceBlockOuts blkOnNewSlotImpl
+blkOnNewSlot :: WorkMode ssc m => m (Set NodeId) -> (WorkerSpec m, OutSpecs)
+blkOnNewSlot getPeers = onNewSlotWorker getPeers True announceBlockOuts (blkOnNewSlotImpl getPeers)
 
 blkOnNewSlotImpl :: WorkMode ssc m =>
-                    SlotId -> SendActions m -> m ()
-blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
+                    m (Set NodeId) -> SlotId -> SendActions m -> m ()
+blkOnNewSlotImpl getPeers (slotId@SlotId {..}) sendActions = do
+
     -- First of all we create genesis block if necessary.
-    mGenBlock <- createGenesisBlock siEpoch
+    mGenBlock <- createGenesisBlock getPeers siEpoch
     whenJust mGenBlock $ \createdBlk -> do
         logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
         jlLog $ jlCreatedBlock (Left createdBlk)
@@ -123,19 +125,20 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
                  ("Not creating the block because it's delegated by psk: "%build)
                  heavyPskM
            | leader == ourPkHash ->
-                 onNewSlotWhenLeader slotId Nothing sendActions
+                 onNewSlotWhenLeader getPeers slotId Nothing sendActions
            | heavyWeAreDelegate ->
-                 onNewSlotWhenLeader slotId (Right <$> heavyPskM) sendActions
+                 onNewSlotWhenLeader getPeers slotId (Right <$> heavyPskM) sendActions
            | isJust validCert ->
-                 onNewSlotWhenLeader slotId  (Left <$> validCert) sendActions
+                 onNewSlotWhenLeader getPeers slotId  (Left <$> validCert) sendActions
            | otherwise -> pass
 
 onNewSlotWhenLeader
     :: WorkMode ssc m
-    => SlotId
+    => m (Set NodeId)
+    -> SlotId
     -> Maybe ProxySKEither
     -> Worker' m
-onNewSlotWhenLeader slotId pSk sendActions = do
+onNewSlotWhenLeader getPeers slotId pSk sendActions = do
     let logReason =
             sformat ("I have a right to create a block for the slot "%slotIdF%" ")
                     slotId
@@ -160,9 +163,9 @@ onNewSlotWhenLeader slotId pSk sendActions = do
                         sformat ("Created a new block:\n" %build) createdBlk
                     jlLog $ jlCreatedBlock (Right createdBlk)
                     verifyCreatedBlock createdBlk
-                    void $ fork $ announceBlock sendActions $ createdBlk ^. gbHeader
+                    void $ fork $ announceBlock getPeers sendActions $ createdBlk ^. gbHeader
             let whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
-            createdBlock <- createMainBlock slotId pSk
+            createdBlock <- createMainBlock getPeers slotId pSk
             either whenNotCreated whenCreated createdBlock
             logInfoS "onNewSlotWhenLeader: done"
     logWarningSWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
@@ -191,15 +194,19 @@ verifyCreatedBlock blk =
 --
 -- This worker just triggers every @max (slotDur / 4) 5@ seconds and asks for
 -- current tip. Does nothing when recovery is enabled.
+--
+-- FIXME there is a better way. Establish a long-running connection to every
+-- peer asking them to push new data on it. This works even for NAT, since it's
+-- the consumer which initiates contact.
 queryBlocksWorker
     :: (WorkMode ssc m, SscWorkersClass ssc)
-    => (WorkerSpec m, OutSpecs)
-queryBlocksWorker = worker requestTipOuts $ \sendActions -> do
+    => m (Set NodeId) -> (WorkerSpec m, OutSpecs)
+queryBlocksWorker getPeers = worker requestTipOuts $ \sendActions -> do
     slotDur <- getLastKnownSlotDuration
     let delayInterval = max (slotDur `div` 4) (convertUnit $ (5 :: Second))
         action = forever $ do
             logInfo "Querying blocks from behind NAT"
-            triggerRecovery sendActions
+            triggerRecovery getPeers sendActions
             delay $ delayInterval
         handler (e :: SomeException) = do
             logWarning $ "Exception arised in queryBlocksWorker: " <> show e

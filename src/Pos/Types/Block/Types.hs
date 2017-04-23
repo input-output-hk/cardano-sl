@@ -1,6 +1,4 @@
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Pos.Types.Block.Types
        ( MainBlockchain

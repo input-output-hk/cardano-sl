@@ -8,7 +8,7 @@ import           Control.Concurrent.STM (readTBQueue, readTVar, writeTBQueue, wr
 import           System.Wlog            (WithLogger, logDebug, logInfo)
 import           Universum
 
-import           Pos.Shutdown.Class     (MonadShutdownMem (..))
+import           Pos.Shutdown.Class     (MonadShutdownMem, askShutdownMem)
 import           Pos.Shutdown.Types     (ShutdownContext (..))
 
 runIfNotShutdown

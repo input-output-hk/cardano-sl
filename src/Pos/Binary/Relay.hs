@@ -1,5 +1,4 @@
-{-# LANGUAGE BangPatterns         #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE BangPatterns #-}
 
 -- | Pos.Communication.Relay serialization instances
 

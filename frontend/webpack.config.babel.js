@@ -109,8 +109,8 @@ module.exports = {
         ],
         // 2) Use ExtractTextPlugin in prod mode, only
         loader: isProd ? ExtractTextPlugin.extract({
-          fallbackLoader: 'style-loader',
-          loader: [
+          fallback: 'style-loader',
+          use: [
             'css-loader?importLoaders=1',
             'postcss-loader'
           ]

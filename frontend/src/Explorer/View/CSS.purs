@@ -14,10 +14,12 @@ module Explorer.View.CSS
   , blocksFailed
   , dashboardWrapper
   , dashboardContainer
+  , route
   )
   where
 
 import Prelude
+import Explorer.Routes (Route(..), addressLit, calculatorLit, dashboardLit, epochLit, notFoundLit, playgroundLit, slotLit, transactionLit)
 
 -----------------------------------------------------------
 -- BEM, meaning Block, Element, Modifier
@@ -96,3 +98,22 @@ blocksWaiting = "blocks-waiting"
 
 blocksFailed :: String
 blocksFailed = "blocks-failed"
+
+
+-----------------------------------------------------------
+-- Routes
+-----------------------------------------------------------
+
+routePrefix :: String
+routePrefix = "explorer-route-"
+
+route :: Route -> String
+route Dashboard = routePrefix <> dashboardLit
+route (Tx id) = routePrefix <> transactionLit
+route (Address address) = routePrefix <>  addressLit
+route (EpochSlot epoch slot) = routePrefix <> epochLit <> "-" <> slotLit
+route (Epoch epoch) = routePrefix <> epochLit
+route Calculator = routePrefix <> calculatorLit
+route (Block hash) = routePrefix <> slotLit
+route Playground = routePrefix <> playgroundLit
+route NotFound = routePrefix <> notFoundLit

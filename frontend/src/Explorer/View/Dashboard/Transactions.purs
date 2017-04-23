@@ -68,8 +68,8 @@ transactionsView state =
           }
       transactions = state ^. latestTransactions
       noTransactions = null transactions
-      visibleTxClazz = if noTransactions then " invisible" else ""
-      visibleWaitingClazz = if not noTransactions then " invisible" else ""
+      visibleTxClazz = if noTransactions then " hide" else ""
+      visibleWaitingClazz = if not noTransactions then " hide" else ""
       visibleBtnExpandClazz = if expandable then "" else " disabled"
 
       clickHandler :: P.MouseEvent -> Action

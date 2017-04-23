@@ -121,7 +121,7 @@ summaryRow item =
 textTxHeaderView :: String -> P.Html Action
 textTxHeaderView message =
     P.div
-        [ P.className "explorer-transaction__container" ]
+        [ P.className "explorer-transaction__message" ]
         [ P.div
             [ P.dangerouslySetInnerHTML message ]
             []

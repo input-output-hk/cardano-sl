@@ -20,7 +20,21 @@
 }
 
 .explorer-content {
-  padding-top: var(--height-header-top);
+  padding-top: var(--height-header-top-mobile);
+}
+
+@media (--md) {
+  .explorer-content {
+    padding-top: var(--height-header-top);
+  }
+}
+
+@media (--md) {
+  .explorer-route-dashboard {
+    .explorer-content {
+      padding-top: 0;
+    }
+  }
 }
 
 .label-count {

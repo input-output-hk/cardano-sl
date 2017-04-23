@@ -44,6 +44,7 @@ type Common =
     , cExpand :: String
     , cCollapse :: String
     , cNoData :: String
+    , cTitle :: String
     , cCopyright :: String
     , cUnknown :: String
     , cTotalOutput :: String
@@ -71,8 +72,7 @@ type Nav =
 -- translations of hero
 
 type Hero =
-    { hrTitle :: String
-    , hrSubtitle :: String
+    { hrSubtitle :: String
     , hrSearch :: String
     , hrTime :: String
     }
@@ -80,7 +80,8 @@ type Hero =
 -- translations of dashboard
 
 type Dashboard =
-    { dbLastBlocks :: String
+    { dbTitle :: String
+    , dbLastBlocks :: String
     , dbLastBlocksDescription :: String
     , dbPriceAverage :: String
     , dbPriceForOne :: String

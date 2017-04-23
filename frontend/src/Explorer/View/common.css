@@ -40,33 +40,55 @@
 
 
 .transaction-header {
-  @neat-outer-container;
+  lost-utility: clearfix;
+
   height: var(--transaction-header-height);
   background-color: var(--color6);
-  padding-left: 24px;
+  padding: 0 18px;
 
   font-family: var(--fontFamily0-Regular);
   font-size: 10px;
 
   .hash {
-    @neat-span-columns 8;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    lost-column: 1/1;
     color: var(--color8);
     line-height: var(--transaction-header-height);
     button: standard-button;
     button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
   }
 
+  @media (--md) {
+    .hash {
+      lost-column: 7/12;
+    }
+  }
+
   .date {
-    @neat-span-columns 2;
-    line-height: var(--transaction-header-height);
-    color: var(--color9);
+    @extend .hide;
+  }
+
+  @media (--md) {
+    .date {
+      @extend .show;
+      lost-column: 3/12;
+      line-height: var(--transaction-header-height);
+      color: var(--color9);
+    }
   }
 
   .amount-container {
-    @neat-span-columns 2;
-    height: 100%;
-    box: horizontal right;
-    padding-right: 12px;
+    @extend .hide;
+  }
+
+  @media (--md) {
+    .amount-container {
+      @extend .show-flex;
+      lost-column: 2/12;
+      height: 100%;
+      box: horizontal right;
+    }
   }
 
   .amount {
@@ -83,64 +105,124 @@
   }
 }
 
+@media (--md) {
+  .transaction-header{
+    padding: 0 24px;
+  }
+}
+
 .transaction-body {
-  @neat-outer-container;
+  lost-utility: clearfix;
+
   font-family: var(--fontFamily0-Regular);
   font-size: 10px;
   color: var(--color8);
-  padding: 0 24px 24px 24px;
-  box: horizontal;
+  padding: 0 18px;
 
   .from-hash-container {
-    @neat-span-columns 4;
     box-item: center;
+    overflow: hidden;
+  }
+
+  @media (--md) {
+    .from-hash-container {
+      lost-column: 5/12;
+    }
   }
 
   .from-hash {
+    overflow: hidden;
+    display: block;
+    text-overflow: ellipsis;
     button: standard-button;
     button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
     padding: 18px 0 12px 0;
   }
 
   .to-hash-container {
-    @neat-span-columns 5;
-
     background-repeat: no-repeat;
-    background-position: left center;
-
+    background-position: left top;
     background-size: 15px 15px;
-    padding: 18px 0 0 30px;
+    padding: 28px 0 0 0;
+  }
 
-    box-item: center;
+  @media (--md) {
+    .to-hash-container {
+      background-position: left center;
+      padding: 18px 0 0 30px;
+      box-item: center;
+      lost-column: 5/12;
+    }
   }
 
   .to-hash {
+    overflow: hidden;
+    text-overflow: ellipsis;
     button: standard-button;
     button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
     display: block;
     padding-bottom: 12px;
   }
 
-  .amount-container {
-    @neat-span-columns 3;
-    padding: 18px 0 0 0;
-    text-align: right;
-    box-item: center;
+  .amounts-container {
+    @extend .hide;
   }
 
+  @media (--md) {
+    .amounts-container {
+      @extend .show;
+      lost-column: 2/12 3;
+      padding: 18px 0 0 0;
+      text-align: right;
+      box-item: center;
+    }
+  }
   .amount-wrapper {
     padding-bottom: 12px;
     display: block;
   }
 
-  .amount {
+  .amount-container {
+    @extend .show;
+    padding: 18px 0;
+    text-align: right;
+    box-item: center;
+  }
+
+  @media (--md) {
+    .amount-container {
+      @extend .hide;
+    }
+  }
+
+  .plain-amount {
     padding-left: 10px;
     background-repeat: no-repeat;
     background-position: left center;
     background-size: 8px 7px;
   }
+
+  .amount {
+    display: inline-block;
+    box-item: center;
+
+    padding: 5px 10px 5px 20px;
+    color: var(--color0);
+    border-radius: 4px;
+
+    background-color: var(--color10);
+    background-repeat: no-repeat;
+    background-position: 7px center;
+    background-size: 8px 7px;
+  }
 }
 
+@media (--md) {
+  .transaction-body {
+    box: horizontal;
+    padding: 0 24px 24px 24px;
+  }
+}
 .transaction-pagination {
     text-align: center;
 }
@@ -213,5 +295,36 @@
     font-family: var(--fontFamily0-Regular);
     color: var(--color13);
 
+  }
+}
+
+.logo__wrapper {
+  box: horizontal;
+}
+
+.logo__img {
+  box-item: center;
+  background-repeat: no-repeat;
+  background-position: center center;
+}
+
+
+.lang__select {
+  height: var(--height-footer-bottom);
+  font-family: var(--fontFamily0-Light);
+  font-size: 10px;
+  color: color(var(--color0) a(0.5));
+  border: none;
+  width: auto;
+  appearance: none;
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-position: right center;
+  background-size: 8px 8px;
+  padding-right: 10px;
+  box-item: center;
+
+  &:hover{
+    cursor: pointer;
   }
 }

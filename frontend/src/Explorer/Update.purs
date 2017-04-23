@@ -16,14 +16,17 @@ import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksViewState, blsViewPagination, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dashboard, dbViewBlockPagination, dbViewBlocksExpanded, dbViewSearchInput, dbViewSelectedApiCode, dbViewTxsExpanded, errors, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, latestBlocks, latestTransactions, loading, searchQuery, searchTimeQuery, selectedSearch, socket, subscriptions, viewStates)
+import Explorer.I18n.Lang (translate)
+import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
+import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksViewState, blsViewPagination, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlocksExpanded, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, viewStates)
 import Explorer.Routes (Route(..), toUrl)
-import Explorer.State (emptySearchQuery, emptySearchTimeQuery, minPagination)
+import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), SocketSubscription(..), State)
 import Explorer.Util.DOM (scrollTop)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
+import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Network.HTTP.Affjax (AJAX)
 import Network.RemoteData (RemoteData(..), _Success)
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
@@ -126,15 +129,13 @@ update SocketReconnectSubscriptions state =
 -- Dashboard
 
 update (DashboardExpandBlocks expanded) state = noEffects $
-    set (viewStates <<< dashboard <<< dbViewBlocksExpanded) expanded state
+    set (dashboardViewState <<< dbViewBlocksExpanded) expanded state
 update (DashboardExpandTransactions expanded) state = noEffects $
-    set (viewStates <<< dashboard <<< dbViewTxsExpanded) expanded state
+    set (dashboardViewState <<< dbViewTxsExpanded) expanded state
 update (DashboardPaginateBlocks value) state = noEffects $
-    set (viewStates <<< dashboard <<< dbViewBlockPagination) value state
+    set (dashboardViewState <<< dbViewBlockPagination) value state
 update (DashboardShowAPICode code) state = noEffects $
-    set (viewStates <<< dashboard <<< dbViewSelectedApiCode) code state
-update (DashboardFocusSearchInput value) state = noEffects $
-    set (viewStates <<< dashboard <<< dbViewSearchInput) value state
+    set (dashboardViewState <<< dbViewSelectedApiCode) code state
 
 -- Address
 
@@ -168,19 +169,27 @@ update (SelectInputText input) state =
 update (GenerateQrCode address) state =
     { state
     , effects:
-        [ liftEff $ generateQrCode (address ^. _CAddress) "qr_image_id" *> pure NoOp
+        [ liftEff $ generateQrCode (address ^. _CAddress) addressQRImageId *> pure NoOp
         ]
     }
 
--- Search
+-- global state
+update (GlobalToggleMobileMenu toggled) state = noEffects $
+    set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) toggled state
 
-update DashboardSearch state =
-    let query = state ^. searchQuery in
-    { state: set searchQuery emptySearchQuery $ state
+update (GlobalFocusSearchInput value) state = noEffects $
+    set (viewStates <<< globalViewState <<< gViewSearchInputFocused) value state
+
+update GlobalSearch state =
+    let query = state ^. (viewStates <<< globalViewState <<< gViewSearchQuery) in
+    { state:
+          set (viewStates <<< globalViewState <<< gViewSearchQuery) emptySearchQuery $
+          set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) false $
+          state
     , effects: [
       -- set state of focus explicitly
-      pure $ DashboardFocusSearchInput false
-      , case state ^. selectedSearch of
+      pure $ GlobalFocusSearchInput false
+      , case state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch) of
           SearchAddress ->
               (liftEff <<< P.navigateTo <<< toUrl <<< Address $ mkCAddress query) *> pure NoOp
           SearchTx ->
@@ -188,12 +197,16 @@ update DashboardSearch state =
           _ -> pure NoOp  -- TODO (ks) maybe put up a message?
       ]
     }
-update DashboardSearchTime state =
-    let query = state ^. searchTimeQuery in
-    { state: set searchTimeQuery emptySearchTimeQuery $ state
+update GlobalSearchTime state =
+    let query = state ^. (viewStates <<< globalViewState <<< gViewSearchTimeQuery)
+    in
+    { state:
+          set (viewStates <<< globalViewState <<< gViewSearchTimeQuery) emptySearchTimeQuery $
+          set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) false $
+          state
     , effects: [
       -- set state of focus explicitly
-      pure $ DashboardFocusSearchInput false
+      pure $ GlobalFocusSearchInput false
       , case query of
             Tuple (Just epoch) (Just slot) ->
                 let epochIndex = mkEpochIndex epoch
@@ -211,23 +224,23 @@ update DashboardSearchTime state =
       ]
     }
 
-update (UpdateSelectedSearch search) state =
-    noEffects $ set selectedSearch search state
+update (GlobalUpdateSelectedSearch search) state =
+    noEffects $ set (viewStates <<< globalViewState <<< gViewSelectedSearch) search state
 
-update (UpdateSearchValue search) state =
-    noEffects $ set searchQuery search state
+update (GlobalUpdateSearchValue search) state =
+    noEffects $ set (viewStates <<< globalViewState <<< gViewSearchQuery) search state
 
-update (UpdateSearchEpochValue value) state =
-    let slot = snd $ state ^. searchTimeQuery
+update (GlobalUpdateSearchEpochValue value) state =
+    let slot = snd $ state ^. (viewStates <<< globalViewState <<< gViewSearchTimeQuery)
         epoch = fromString value
     in
-    noEffects $ set searchTimeQuery (Tuple epoch slot) state
+    noEffects $ set (viewStates <<< globalViewState <<< gViewSearchTimeQuery) (Tuple epoch slot) state
 
-update (UpdateSearchSlotValue value) state =
+update (GlobalUpdateSearchSlotValue value) state =
     let slot = fromString value
-        epoch = fst $ state ^. searchTimeQuery
+        epoch = fst $ state ^. (viewStates <<< globalViewState <<< gViewSearchTimeQuery)
     in
-    noEffects $ set searchTimeQuery (Tuple epoch slot) state
+    noEffects $ set (viewStates <<< globalViewState <<< gViewSearchTimeQuery) (Tuple epoch slot) state
 
 -- NoOp
 
@@ -357,7 +370,10 @@ update (UpdateView route) state = routeEffects route (state { route = route })
 routeEffects :: forall eff. Route -> State -> EffModel State Action (dom :: DOM
     , ajax :: AJAX | eff)
 routeEffects Dashboard state =
-    { state
+    { state:
+        set (viewStates <<< globalViewState <<< gViewTitle)
+            (translate (I18nL.common <<< I18nL.cTitle) $ state ^. lang)
+            state
     , effects:
         [ pure ScrollTop
         , pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock, SocketSubscription SubTx ]
@@ -372,7 +388,10 @@ routeEffects Dashboard state =
 
 routeEffects (Tx tx) state =
     { state:
-        set currentTxSummary Loading state
+        set currentTxSummary Loading $
+        set (viewStates <<< globalViewState <<< gViewTitle)
+            (translate (I18nL.common <<< I18nL.cTransaction) $ state ^. lang)
+            state
     , effects:
         [ pure ScrollTop
         , pure $ SocketUpdateSubscriptions []
@@ -384,8 +403,10 @@ routeEffects (Address cAddress) state =
     { state:
         set currentAddressSummary Loading $
         set currentCAddress cAddress $
-        set (viewStates <<< addressDetail <<< addressTxPagination)
-            minPagination state
+        set (viewStates <<< addressDetail <<< addressTxPagination) minPagination $
+        set (viewStates <<< globalViewState <<< gViewTitle)
+            (translate (I18nL.common <<< I18nL.cAddress) $ state ^. lang)
+            state
     , effects:
         [ pure ScrollTop
         , pure $ SocketUpdateSubscriptions []
@@ -395,9 +416,11 @@ routeEffects (Address cAddress) state =
 
 routeEffects (Epoch epochIndex) state =
     { state:
-          set (viewStates <<< blocksViewState <<< blsViewPagination)
-              minPagination $
-          state
+        set (viewStates <<< blocksViewState <<< blsViewPagination)
+            minPagination $
+        set (viewStates <<< globalViewState <<< gViewTitle)
+            (translate (I18nL.common <<< I18nL.cEpoch) $ state ^. lang)
+            state
     , effects:
         [ pure ScrollTop
         , pure $ RequestSearchBlocks epochIndex Nothing
@@ -405,7 +428,14 @@ routeEffects (Epoch epochIndex) state =
     }
 
 routeEffects (EpochSlot epochIndex slotIndex) state =
-    { state
+    let lang' = state ^. lang
+        epochTitle = translate (I18nL.common <<< I18nL.cEpoch) lang'
+        slotTitle = translate (I18nL.common <<< I18nL.cSlot) lang'
+    in
+    { state:
+        set (viewStates <<< globalViewState <<< gViewTitle)
+            (epochTitle <> " / " <> slotTitle)
+            state
     , effects:
         [ pure ScrollTop
         , pure $ RequestSearchBlocks epochIndex (Just slotIndex)
@@ -413,10 +443,20 @@ routeEffects (EpochSlot epochIndex slotIndex) state =
     }
 
 
-routeEffects Calculator state = { state, effects: [ pure ScrollTop ] }
+routeEffects Calculator state =
+    { state:
+        set (viewStates <<< globalViewState <<< gViewTitle)
+            (translate (I18nL.common <<< I18nL.cCalculator) $ state ^. lang)
+            state
+    , effects: [ pure ScrollTop ]
+    }
 
 routeEffects (Block hash) state =
-    { state: set currentBlockSummary Nothing state
+    { state:
+        set currentBlockSummary Nothing $
+        set (viewStates <<< globalViewState <<< gViewTitle)
+            (translate (I18nL.common <<< I18nL.cBlock) $ state ^. lang)
+            state
     , effects:
         [ pure ScrollTop
         , pure $ SocketUpdateSubscriptions []
@@ -434,7 +474,10 @@ routeEffects Playground state =
     }
 
 routeEffects NotFound state =
-    { state
+    { state:
+        set (viewStates <<< globalViewState <<< gViewTitle)
+            (translate (I18nL.notfound <<< I18nL.nfTitle) $ state ^. lang)
+            state
     , effects:
         [ pure ScrollTop
         , pure $ SocketUpdateSubscriptions []

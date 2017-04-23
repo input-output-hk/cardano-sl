@@ -16,6 +16,9 @@ module Explorer.View.Common (
     , mkEmptyViewProps
     , txEmptyContentView
     , noData
+    , logoView
+    , clickableLogoView
+    , langView
     ) where
 
 import Prelude
@@ -23,21 +26,22 @@ import Data.Int (ceil, fromString, toNumber)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
-import Explorer.I18n.Lang (Language, translate)
+import Explorer.I18n.Lang (Language(..), readLanguage, translate)
 import Explorer.I18n.Lenses (common, cDateFormat, tx, txEmpty) as I18nL
 import Explorer.Routes (Route(..), toUrl)
+import Explorer.State (initialState)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (CCurrency(..))
+import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkCoin, sumCoinOfInputsOutputs)
 import Explorer.Util.Time (prettyDate)
-import Explorer.View.Lenses (txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
+import Explorer.View.Lenses (txbAmount, txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
 import Exporer.View.Types (TxBodyViewProps(..), TxHeaderViewProps(..))
-import Pos.Core.Lenses.Types (_Coin, getCoin)
+import Pos.Core.Lenses.Types (getCoin)
 import Pos.Core.Types (Coin(..))
 import Pos.Explorer.Web.ClientTypes (CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, ctbId, ctbInputs, ctbOutputs, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
-import Pux.Html (Html, text, div, p, span, input) as P
-import Pux.Html.Attributes (className, value, disabled, type_, min, max) as P
+import Pux.Html (Html, text, div, p, span, input, option, select) as P
+import Pux.Html.Attributes (className, href, value, disabled, type_, min, max, selected) as P
 import Pux.Html.Events (onChange, onFocus, FormEvent, MouseEvent, Target, onClick) as P
 import Pux.Router (link) as P
 
@@ -96,12 +100,7 @@ txHeaderView lang (TxHeaderViewProps props) =
                                   in fromMaybe noData $ prettyDate format time
                               Nothing -> noData
               ]
-          , P.div
-              [ P.className "amount-container" ]
-              [ P.div
-                  [ P.className "amount bg-ada" ]
-                  [ P.text <<< show $ props ^. (txhAmount <<< _Coin <<< getCoin) ]
-              ]
+          , txAmountView $ props ^. txhAmount
           ]
 
 emptyTxHeaderView :: P.Html Action
@@ -110,6 +109,14 @@ emptyTxHeaderView =
         [ P.className "transaction-header"]
         [ ]
 
+txAmountView :: Coin -> P.Html Action
+txAmountView (Coin coin) =
+    P.div
+        [ P.className "amount-container" ]
+        [ P.div
+            [ P.className "amount bg-ada" ]
+            [ P.text <<< show $ coin ^. getCoin]
+        ]
 -- -----------------
 -- tx body
 -- -----------------
@@ -123,6 +130,7 @@ instance cTxSummaryTxBodyViewPropsFactory :: TxBodyViewPropsFactory CTxSummary w
     mkTxBodyViewProps (CTxSummary txSummary) = TxBodyViewProps
         { txbInputs: txSummary ^. ctsInputs
         , txbOutputs: txSummary ^. ctsOutputs
+        , txbAmount: txSummary ^. ctsTotalOutput
         }
 
 -- | Creates a TxBodyViewProps by a given CTxBrief
@@ -130,6 +138,7 @@ instance cTxBriefTxBodyViewPropsFactory :: TxBodyViewPropsFactory CTxBrief where
     mkTxBodyViewProps (CTxBrief txBrief) = TxBodyViewProps
         { txbInputs: txBrief ^. ctbInputs
         , txbOutputs: txBrief ^. ctbOutputs
+        , txbAmount: sumCoinOfInputsOutputs $ txBrief ^. ctbOutputs
         }
 
 -- | Creates a TxBodyViewProps by a given EmptyViewProps
@@ -137,6 +146,7 @@ instance emptyTxBodyViewPropsFactory :: TxBodyViewPropsFactory EmptyViewProps wh
     mkTxBodyViewProps _ = TxBodyViewProps
         { txbInputs: []
         , txbOutputs: []
+        , txbAmount: mkCoin 0
         }
 
 txBodyView :: TxBodyViewProps -> P.Html Action
@@ -150,8 +160,9 @@ txBodyView (TxBodyViewProps props) =
             [ P.className "to-hash-container bg-transaction-arrow" ]
             <<< map txToView $ props ^. txbOutputs
         , P.div
-              [ P.className "amount-container" ]
-              <<< map txAmountView $ props ^. txbOutputs
+              [ P.className "amounts-container" ]
+              <<< map txBodyAmountView $ props ^. txbOutputs
+        , txAmountView $ props ^. txbAmount
         ]
 
 emptyTxBodyView :: P.Html Action
@@ -172,12 +183,12 @@ txToView (Tuple (CAddress cAddress) _) =
           [ P.className "to-hash"]
           [ P.text cAddress ]
 
-txAmountView :: Tuple CAddress Coin -> P.Html Action
-txAmountView (Tuple _ (Coin coin)) =
+txBodyAmountView :: Tuple CAddress Coin -> P.Html Action
+txBodyAmountView (Tuple _ (Coin coin)) =
     P.div
         [ P.className "amount-wrapper" ]
         [ P.span
-            [ P.className "amount bg-ada-dark" ]
+            [ P.className "plain-amount bg-ada-dark" ]
             [ P.text <<< show $ coin ^. getCoin ]
         ]
 
@@ -279,6 +290,59 @@ txEmptyContentView :: Language -> P.Html Action
 txEmptyContentView lang = P.div
                         [ P.className "tx-empty__container" ]
                         [ P.text $ translate (I18nL.tx <<< I18nL.txEmpty) lang ]
+
+-- -----------------
+-- logo
+-- -----------------
+
+logoView' :: Maybe Route -> P.Html Action
+logoView' mRoute =
+    let logoContentTag = case mRoute of
+                              Just route -> P.link (toUrl route)
+                              Nothing -> P.div
+    in
+    P.div
+        [ P.className "logo__container"]
+        [ P.div
+            [ P.className "logo__wrapper"]
+            [ logoContentTag
+                [ P.className "logo__img bg-logo"
+                , P.href "/"]
+                []
+            ]
+        ]
+
+logoView :: P.Html Action
+logoView = logoView' Nothing
+
+clickableLogoView :: Route -> P.Html Action
+clickableLogoView = logoView' <<< Just
+
+-- -----------------
+-- lang
+-- -----------------
+
+-- currency
+
+langItems :: Array Language
+langItems =
+    [ English
+    , German
+    ]
+
+langView :: State -> P.Html Action
+langView state =
+  P.select
+      [ P.className "lang__select bg-arrow-up"
+      , P.onChange $ SetLanguage <<< fromMaybe (_.lang initialState) <<< readLanguage <<< _.value <<< _.target]
+      $ map (langItemView state) langItems
+
+langItemView :: State -> Language -> P.Html Action
+langItemView state lang =
+  P.option
+    [ P.value $ show lang
+    , P.selected $ state.lang == lang  ]
+    [ P.text $ show lang ]
 
 -- -----------------
 -- helper

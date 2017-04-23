@@ -22,7 +22,7 @@
       font-size: 10px;
       font-family: var(--fontFamily0-Regular);
       color: var(--color8);
-      padding: 10px 0 10px 24px;
+      padding: 10px 18px;
 
       &:nth-child(odd) {
         background-color: var(--color6);
@@ -32,7 +32,7 @@
 
     @media (--md) {
       &__row {
-        padding-right: 24px;
+        padding: 10px 24px;
       }
     }
 
@@ -40,6 +40,8 @@
 
       &.hash {
         lost-column: 1/1 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
         button: standard-button;
         button-color: var(--color8) var(--color5) var(--color5);
       }

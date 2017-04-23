@@ -11,7 +11,26 @@
 
   &__container {
     @neat-outer-container;
-    padding: 56px 48px 48px 48px;
+    padding: 24px 0;
+  }
+
+  @media (--md) {
+    &__container {
+      padding: 56px 48px 48px 48px;
+    }
+  }
+
+  &__message {
+    padding: 0 18px;
+    font-size: 10px;
+    font-family: var(--fontFamily0-Regular);
+    color: var(--color13);
+  }
+
+  @media (--md) {
+  &__message {
+      padding: 0 24px;
+    }
   }
 
   .table-summary {
@@ -36,8 +55,14 @@
       padding: 10px 10px 10px 0;
 
       &:first-child {
-        padding-left: 24px;
+        padding-left: 18px;
         width: 164px;
+      }
+
+      @media (--md) {
+        &:first-child {
+          padding-left: 24px;
+        }
       }
 
       &.ada {
@@ -51,9 +76,15 @@
   }
 
   .tx-failed {
-    padding: 0 24px 30px 24px;
+    padding: 0 18px 30px 18px;
     font-size: 10px;
     font-family: var(--fontFamily0-Regular);
     color: var(--color1);
+  }
+
+  @media (--md) {
+    .tx-failed {
+      padding: 0 24px 30px 24px;
+    }
   }
 }

@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -24,8 +23,8 @@ import           Universum         hiding (bracket, finally)
 
 import           Data.Time.Units   (Microsecond, Second, convertUnit)
 import           Formatting        (sformat, shown, stext, (%))
-import           Mockable          (Async, Bracket, Delay, Async, Mockable, async,
-                                    cancel, delay, finally, waitAny, withAsync)
+import           Mockable          (Async, Async, Bracket, Delay, Mockable, async, cancel,
+                                    delay, finally, waitAny, withAsync)
 import           System.Wlog       (WithLogger, logWarning)
 
 import           Pos.Crypto.Random (randomNumber)

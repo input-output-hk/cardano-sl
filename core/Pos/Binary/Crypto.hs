@@ -172,7 +172,10 @@ instance Bi CC.XSignature where
 deriving instance Bi (Signature a)
 deriving instance Bi PublicKey
 deriving instance Bi SecretKey
-deriving instance Bi EncryptedSecretKey
+
+instance Bi EncryptedSecretKey where
+    put (EncryptedSecretKey sk pph) = put sk >> put pph
+    get = label "EncryptedSecretKey" $ liftM2 EncryptedSecretKey get get
 
 instance Bi a => Bi (Signed a) where
     put (Signed v s) = put (v,s)

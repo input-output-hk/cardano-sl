@@ -1,3 +1,5 @@
+-- We use undefined in this file (unfortunately) so we can't have -Werror
+{-# OPTIONS_GHC -Wwarn #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -14,11 +16,10 @@ import           Universum
 
 import           Pos.Block.Worker        (blkWorkers)
 import           Pos.Communication       (OutSpecs, WorkerSpec, localWorker, relayWorkers,
-                                          wrapActionSpec)
+                                          wrapActionSpec, NodeId)
 import           Pos.Communication.Specs (allOutSpecs)
 import           Pos.DB                  (MonadDBCore)
 import           Pos.Delegation          (dlgWorkers)
-import           Pos.DHT.Workers         (dhtWorkers)
 import           Pos.Lrc.Worker          (lrcOnNewSlotWorker)
 import           Pos.Security.Workers    (SecurityWorkersClass, securityWorkers)
 import           Pos.Slotting.Class      (MonadSlots (slottingWorkers))
@@ -27,7 +28,6 @@ import           Pos.Ssc.Class.Workers   (SscWorkersClass, sscWorkers)
 import           Pos.Txp.Worker          (txpWorkers)
 import           Pos.Update              (usWorkers)
 import           Pos.Util                (mconcatPair)
-import           Pos.Worker.SysStart     (sysStartWorker)
 import           Pos.WorkMode            (WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
@@ -37,37 +37,37 @@ allWorkers
        , WorkMode ssc m
        , MonadDBCore m
        )
-    => ([WorkerSpec m], OutSpecs)
-allWorkers = mconcatPair
+    => m (Set NodeId) -> ([WorkerSpec m], OutSpecs)
+allWorkers getPeers = mconcatPair
     [
       -- Only workers of "onNewSlot" type
 
       -- TODO cannot have this DHT worker here. It assumes Kademlia.
-      wrap' "dht"        $ dhtWorkers
+      --wrap' "dht"        $ dhtWorkers
 
-    , wrap' "ssc"        $ untag sscWorkers
-    , wrap' "security"   $ untag securityWorkers
-    , wrap' "lrc"        $ first pure lrcOnNewSlotWorker
-    , wrap' "us"         $ usWorkers
-    , wrap' "sysStart"   $ first pure sysStartWorker
+      wrap' "ssc"        $ untag (sscWorkers getPeers)
+    , wrap' "security"   $ untag (securityWorkers getPeers)
+    , wrap' "lrc"        $ first pure (lrcOnNewSlotWorker getPeers)
+    , wrap' "us"         $ usWorkers getPeers
 
       -- Have custom loggers
-    , wrap' "block"      $ blkWorkers
-    , wrap' "txp"        $ txpWorkers
-    , wrap' "delegation" $ dlgWorkers
+    , wrap' "block"      $ blkWorkers getPeers
+    , wrap' "txp"        $ txpWorkers getPeers
+    , wrap' "delegation" $ dlgWorkers getPeers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
-    , wrap' "relay"      $ relayWorkers allOutSpecs
+    , wrap' "relay"      $ relayWorkers getPeers allOutSpecs
 
     -- I don't know, guys, I don't know :(
     -- , const ([], mempty) statsWorkers
     ]
   where
     properSlottingWorkers =
-        map (fst . localWorker) (logNewSlotWorker:slottingWorkers)
+        map (fst . localWorker) (logNewSlotWorker getPeers : slottingWorkers)
     wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)
 
+-- FIXME this shouldn't be needed.
 allWorkersCount
     :: forall ssc m.
        (MonadDBCore m, SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m)
     => Int
-allWorkersCount = length $ fst (allWorkers @ssc @m)
+allWorkersCount = length $ fst (allWorkers @ssc @m undefined)

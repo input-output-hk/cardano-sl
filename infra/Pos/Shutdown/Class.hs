@@ -1,21 +1,14 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module Pos.Shutdown.Class
-       ( MonadShutdownMem (..)
+       ( MonadShutdownMem
+       , askShutdownMem
        ) where
 
-import           Control.Monad.Trans (MonadTrans)
-import           Universum
+import qualified Control.Monad.Ether.Implicit as Ether
+import           Pos.Shutdown.Types           (ShutdownContext)
 
-import           Pos.Shutdown.Types  (ShutdownContext)
+type MonadShutdownMem = Ether.MonadReader ShutdownContext
 
-class Monad m => MonadShutdownMem m where
-    askShutdownMem :: m ShutdownContext
-
-    default askShutdownMem :: (MonadTrans t, MonadShutdownMem m', t m' ~ m) =>
-       m ShutdownContext
-    askShutdownMem = lift askShutdownMem
-
-instance MonadShutdownMem m => MonadShutdownMem (ReaderT s m) where
-instance MonadShutdownMem m => MonadShutdownMem (ExceptT s m) where
-instance MonadShutdownMem m => MonadShutdownMem (StateT s m) where
+askShutdownMem :: MonadShutdownMem m => m ShutdownContext
+askShutdownMem = Ether.ask

@@ -1,9 +1,7 @@
-{-# LANGUAGE CPP                  #-}
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE InstanceSigs         #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE InstanceSigs        #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | 'WalletMode' constraint. Like `WorkMode`, but for wallet.
 
@@ -22,6 +20,7 @@ import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import           Data.Tagged                 (Tagged (..))
 import           Data.Time.Units             (Millisecond)
 import           Mockable                    (Production)
+import           Pos.Reporting.MemState      (ReportingContextT)
 import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
 
@@ -35,36 +34,24 @@ import           Pos.DB                      (MonadDB)
 import qualified Pos.DB.Block                as DB
 import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
-import           Pos.Delegation              (DelegationT (..))
-import           Pos.DHT.Model               (MonadDHT, getKnownPeers)
-import           Pos.DHT.Real                (KademliaDHT (..))
 import           Pos.Shutdown                (triggerShutdown)
-import           Pos.Slotting                (MonadSlots (..), NtpSlotting,
-                                              SlottingHolder, getLastKnownSlotDuration)
+import           Pos.Slotting                (MonadSlots (..), getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
-import           Pos.Ssc.Extra               (SscHolder (..))
-import           Pos.Txp                     (TxpHolder (..), filterUtxoByAddr,
-                                              runUtxoStateT)
+import           Pos.Txp                     (filterUtxoByAddr, runUtxoStateT)
 import           Pos.Types                   (BlockHeader, ChainDifficulty, difficultyL,
                                               flattenEpochOrSlot, flattenSlotId)
 import           Pos.Update                  (ConfirmedProposalState (..))
 import           Pos.Update.Context          (UpdateContext (ucUpdateSemaphore))
 import           Pos.Util                    (maybeThrow)
 import           Pos.Util.Context            (askContext)
-import           Pos.Wallet.Context          (ContextHolder, WithWalletContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)
 import qualified Pos.Wallet.State            as WS
-import           Pos.Wallet.Web.State        (WalletWebDB (..))
 import           Pos.WorkMode                (RawRealMode)
-
-deriving instance MonadBalances m => MonadBalances (WalletWebDB m)
 
 instance MonadIO m => MonadBalances (WalletDB m) where
     getOwnUtxo addr = filterUtxoByAddr addr <$> WS.getUtxo
     getBalance = getBalanceFromUtxo
-
-deriving instance MonadTxHistory m => MonadTxHistory (WalletWebDB m)
 
 -- | Get tx history for Address
 instance MonadIO m => MonadTxHistory (WalletDB m) where
@@ -99,10 +86,9 @@ class Monad m => MonadBlockchainInfo m where
         :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m Word
     connectedPeers = lift connectedPeers
 
-instance MonadBlockchainInfo m => MonadBlockchainInfo (ReaderT r m)
-instance MonadBlockchainInfo m => MonadBlockchainInfo (StateT s m)
-
-deriving instance MonadBlockchainInfo m => MonadBlockchainInfo (WalletWebDB m)
+instance {-# OVERLAPPABLE #-}
+    (MonadBlockchainInfo m, MonadTrans t, Monad (t m)) =>
+        MonadBlockchainInfo (t m)
 
 -- | Stub instance for lite-wallet
 instance MonadBlockchainInfo WalletRealMode where
@@ -157,7 +143,7 @@ instance forall ssc . SscHelpersClass ssc =>
         Just dh -> return $ dh ^. difficultyL
         Nothing -> view difficultyL <$> topHeader @ssc
 
-    connectedPeers = fromIntegral . length <$> getKnownPeers
+    connectedPeers = fromIntegral . length <$> getContextTVar PC.ncConnectedPeers
     blockchainSlotDuration = getLastKnownSlotDuration
 
 -- | Abstraction over getting update proposals
@@ -173,18 +159,9 @@ class Monad m => MonadUpdates m where
                             => m ()
     applyLastUpdate = lift applyLastUpdate
 
-instance MonadUpdates m => MonadUpdates (ReaderT r m)
-instance MonadUpdates m => MonadUpdates (StateT s m)
-instance MonadUpdates m => MonadUpdates (KademliaDHT m)
-instance MonadUpdates m => MonadUpdates (KeyStorage m)
-instance MonadUpdates m => MonadUpdates (PeerStateHolder m)
-instance MonadUpdates m => MonadUpdates (NtpSlotting m)
-instance MonadUpdates m => MonadUpdates (SlottingHolder m)
-
-deriving instance MonadUpdates m => MonadUpdates (TxpHolder __ m)
-deriving instance MonadUpdates m => MonadUpdates (SscHolder ssc m)
-deriving instance MonadUpdates m => MonadUpdates (DelegationT m)
-deriving instance MonadUpdates m => MonadUpdates (WalletWebDB m)
+instance {-# OVERLAPPABLE #-}
+    (MonadUpdates m, MonadTrans t, Monad (t m)) =>
+        MonadUpdates (t m)
 
 -- | Dummy instance for lite-wallet
 instance MonadIO m => MonadUpdates (WalletDB m) where
@@ -207,8 +184,6 @@ type WalletMode ssc m
       , MonadKeys m
       , MonadBlockchainInfo m
       , MonadUpdates m
-      , WithWalletContext m
-      , MonadDHT m
       , WithPeerState m
       )
 
@@ -216,10 +191,10 @@ type WalletMode ssc m
 -- Implementations of 'WalletMode'
 ---------------------------------------------------------------
 
-type WalletRealMode = PeerStateHolder (KademliaDHT
+type WalletRealMode = PeerStateHolder
                       (KeyStorage
                        (WalletDB
-                        (ContextHolder
+                        (ReportingContextT
                          (LoggerNameBox
                           Production
-                           )))))
+                           ))))

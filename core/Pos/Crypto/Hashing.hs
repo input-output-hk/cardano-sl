@@ -1,7 +1,6 @@
 {-# LANGUAGE BangPatterns         #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Hashing capabilities.
 
@@ -40,7 +39,6 @@ import qualified Crypto.Hash          as Hash (hash, hashlazy)
 import qualified Data.ByteArray       as ByteArray
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Hashable        (Hashable (hashWithSalt), hashPtrWithSalt)
-import           Data.SafeCopy        (SafeCopy (..))
 import qualified Data.Text.Buildable  as Buildable
 import           Formatting           (Format, bprint, fitLeft, later, (%.))
 import qualified Serokell.Util.Base16 as B16
@@ -88,11 +86,6 @@ instance Hashable (AbstractHash algo a) where
         ByteArray.withByteArray h (\ptr -> hashPtrWithSalt ptr len s)
       where
         !len = ByteArray.length h
-
-instance Bi (AbstractHash algo a) =>
-         SafeCopy (AbstractHash algo a) where
-    putCopy = Bi.putCopyBi
-    getCopy = Bi.getCopyBi "AbstractHash"
 
 instance Buildable.Buildable (AbstractHash algo a) where
     build = bprint shortHashF

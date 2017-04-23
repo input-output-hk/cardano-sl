@@ -1,5 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
-
 -- | Types describing protocol messages related to Blocks.
 
 module Pos.Block.Network.Types

@@ -27,7 +27,7 @@ import           Pos.Context                (getNodeContext, isRecoveryMode, ncN
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
-import           Pos.DHT.Model              (converseToNeighbors)
+import           Pos.Discovery              (converseToNeighbors)
 import           Pos.Security               (AttackType (..), NodeAttackedError (..),
                                              shouldIgnoreAddress)
 import           Pos.Types                  (MainBlockHeader, headerHash)
@@ -41,8 +41,8 @@ announceBlockOuts = toOutSpecs [convH (Proxy :: Proxy (MsgHeaders ssc))
 
 announceBlock
     :: WorkMode ssc m
-    => SendActions m -> MainBlockHeader ssc -> m ()
-announceBlock sendActions header = do
+    => m (Set NodeId) -> SendActions m -> MainBlockHeader ssc -> m ()
+announceBlock getPeers sendActions header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
     cont <- getNodeContext
     let throwOnIgnored (NodeId (_, nId)) =
@@ -62,8 +62,9 @@ announceBlock sendActions header = do
                                withConnectionTo sendActions nId handler
                      }
                 else sendActions
-    reifyMsgLimit (Proxy @MsgGetHeaders) $ \limitProxy ->
-        converseToNeighbors sendActions' $ announceBlockDo limitProxy
+    reifyMsgLimit (Proxy @MsgGetHeaders) $ \limitProxy -> do
+        peers <- getPeers
+        converseToNeighbors peers sendActions' $ announceBlockDo limitProxy
   where
     announceBlockDo limitProxy nodeId conv = do
         logDebug $
@@ -85,10 +86,12 @@ handleHeadersCommunication conv _ = do
         logDebug $ sformat ("Got request on handleGetHeaders: "%build) mgh
         ifM isRecoveryMode onRecovery $ do
             headers <- case (mghFrom,mghTo) of
-                ([], Nothing) -> Just . one <$> DB.getTipBlockHeader @ssc
-                ([], Just h)  -> fmap one <$> DB.getBlockHeader @ssc h
+                ([], Nothing) -> Right . one <$> DB.getTipBlockHeader @ssc
+                ([], Just h)  ->
+                    maybeToRight "getBlockHeader returned Nothing" . fmap one <$>
+                    DB.getBlockHeader @ssc h
                 (c1:cxs, _)   -> getHeadersFromManyTo (c1:|cxs) mghTo
-            maybe onNoHeaders handleSuccess headers
+            either onNoHeaders handleSuccess headers
   where
     handleSuccess h = do
         onSuccess
@@ -98,5 +101,6 @@ handleHeadersCommunication conv _ = do
         logDebug "handleGetHeaders: responded successfully"
     onRecovery =
         logDebug "handleGetHeaders: not responding, we're in recovery mode"
-    onNoHeaders =
-        logDebug "getheadersFromManyTo returned Nothing, not replying to node"
+    onNoHeaders reason =
+        logDebug $ "getheadersFromManyTo returned Nothing, " <>
+                   "not replying to node, reason: " <> reason

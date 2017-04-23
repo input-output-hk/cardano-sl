@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Higher-level logic of SSC independent of concrete SSC.
@@ -47,7 +46,7 @@ import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage   (SscGStateClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
-import           Pos.Ssc.Extra.Class     (MonadSscMem (askSscMem))
+import           Pos.Ssc.Extra.Class     (MonadSscMem, askSscMem)
 import           Pos.Ssc.Extra.Types     (SscState (sscGlobal, sscLocal))
 import           Pos.Types               (Block, EpochIndex, HeaderHash, SharedSeed,
                                           SlotId, epochIndexL, headerHash)

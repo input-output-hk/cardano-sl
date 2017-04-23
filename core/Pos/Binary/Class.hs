@@ -4,7 +4,6 @@
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE DeriveFunctor        #-}
 {-# LANGUAGE TypeOperators        #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE BangPatterns         #-}
 {-# LANGUAGE RankNTypes           #-}
 

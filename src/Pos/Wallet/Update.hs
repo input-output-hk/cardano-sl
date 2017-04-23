@@ -13,10 +13,9 @@ import           Universum
 import           Pos.Binary                 ()
 
 import           Pos.Communication.Methods  (sendUpdateProposal, sendVote)
-import           Pos.Communication.Protocol (SendActions)
+import           Pos.Communication.Protocol (SendActions, NodeId)
 import           Pos.Communication.Specs    (sendProposalOuts, sendVoteOuts)
 import           Pos.DB.Limits              (MonadDBLimits)
-import           Pos.DHT.Model              (DHTNode)
 
 import           Pos.Crypto                 (SafeSigner, SignTag (SignUSVote), hash,
                                              safeSign, safeToPublic)
@@ -27,7 +26,7 @@ import           Pos.WorkMode               (MinWorkMode)
 submitVote
     :: (MinWorkMode m, MonadDBLimits m)
     => SendActions m
-    -> [DHTNode]
+    -> [NodeId]
     -> UpdateVote
     -> m ()
 submitVote sendActions na voteUpd = do
@@ -39,7 +38,7 @@ submitUpdateProposal
     :: (MinWorkMode m, MonadDBLimits m)
     => SendActions m
     -> SafeSigner
-    -> [DHTNode]
+    -> [NodeId]
     -> UpdateProposal
     -> m ()
 submitUpdateProposal sendActions ss na prop = do

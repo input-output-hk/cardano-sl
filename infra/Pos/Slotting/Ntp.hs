@@ -1,8 +1,6 @@
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE DataKinds            #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DataKinds       #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 -- | 'MonadSlots' implementation which uses Ntp servers.
 
@@ -10,47 +8,37 @@ module Pos.Slotting.Ntp
        ( NtpSlottingState
        , NtpSlottingVar
 
-       , NtpSlotting (..)
+       , NtpSlotting
+       , MonadNtpSlotting
+       , askNtpSlotting
        , mkNtpSlottingVar
        , runNtpSlotting
        ) where
 
-import qualified Control.Concurrent.STM      as STM
-import           Control.Lens                (iso, makeLenses)
-import           Control.Monad.Base          (MonadBase (..))
-import           Control.Monad.Fix           (MonadFix)
-import           Control.Monad.Trans.Class   (MonadTrans)
-import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
-                                              MonadTransControl (..), StM,
-                                              defaultLiftBaseWith, defaultLiftWith,
-                                              defaultRestoreM, defaultRestoreT)
-import           Data.List                   ((!!))
-import           Data.Time.Units             (Microsecond, convertUnit)
-import           Formatting                  (int, sformat, shown, stext, (%))
-import           Mockable                    (Catch, ChannelT, Counter, CurrentTime,
-                                              Delay, Distribution, Fork, Gauge, MFunctor',
-                                              Mockable (liftMockable), Mockables, Promise,
-                                              SharedAtomicT, SharedExclusiveT, ThreadId,
-                                              Throw, currentTime, delay,
-                                              liftMockableWrappedM)
-import           NTP.Client                  (NtpClientSettings (..), ntpSingleShot,
-                                              startNtpClient)
-import           NTP.Example                 ()
-import           Serokell.Util               (sec)
-import           Serokell.Util.Lens          (WrappedM (..))
-import           System.Wlog                 (CanLog, HasLoggerName, WithLogger, logDebug,
-                                              logInfo, logWarning)
+import qualified Control.Concurrent.STM       as STM
+import           Control.Lens                 (makeLenses)
+import qualified Control.Monad.Ether.Implicit as Ether
+import           Control.Monad.Trans.Control  (MonadBaseControl)
+import           Data.List                    ((!!))
+import           Data.Time.Units              (Microsecond, convertUnit)
+import           Formatting                   (int, sformat, shown, stext, (%))
+import           Mockable                     (Catch, CurrentTime, Delay, Fork, Mockables,
+                                               Throw, currentTime, delay)
+import           NTP.Client                   (NtpClientSettings (..), ntpSingleShot,
+                                               startNtpClient)
+import           NTP.Example                  ()
+import           Serokell.Util                (sec)
+import           System.Wlog                  (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
-import qualified Pos.Core.Constants          as C
-import           Pos.Core.Slotting           (flattenEpochIndex, unflattenSlotId)
-import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..))
+import qualified Pos.Core.Constants           as C
+import           Pos.Core.Slotting            (flattenEpochIndex, unflattenSlotId)
+import           Pos.Core.Types               (EpochIndex, SlotId (..), Timestamp (..))
 
-import           Pos.Slotting.Class          (MonadSlots (..))
-import qualified Pos.Slotting.Constants      as C
-import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
-import           Pos.Slotting.Types          (EpochSlottingData (..), SlottingData (..))
-import           Pos.Util.Context            (MonadContext (..))
+import           Pos.Slotting.Class           (MonadSlots (..))
+import qualified Pos.Slotting.Constants       as C
+import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
+import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData (..))
 
 ----------------------------------------------------------------------------
 -- State
@@ -77,61 +65,12 @@ makeLenses ''NtpSlottingState
 ----------------------------------------------------------------------------
 
 -- | Monad transformer which implements NTP-based solution for slotting.
-newtype NtpSlotting m a = NtpSlotting
-    { getNtpSlotting :: ReaderT NtpSlottingVar m a
-    } deriving ( Functor
-               , Applicative
-               , Monad
-               , MonadTrans
-               , MonadIO
-               , MonadFix
+type NtpSlotting = Ether.ReaderT NtpSlottingVar
 
-               , MonadThrow
-               , MonadCatch
-               , MonadMask
+type MonadNtpSlotting = Ether.MonadReader NtpSlottingVar
 
-               , MonadBase base
-
-               , HasLoggerName
-               , CanLog
-               , MonadSlotsData
-               )
-
-----------------------------------------------------------------------------
--- Common instances used all over the code
-----------------------------------------------------------------------------
-
-instance MonadContext m => MonadContext (NtpSlotting m) where
-    type ContextType (NtpSlotting m) = ContextType m
-
-type instance ThreadId (NtpSlotting m) = ThreadId m
-type instance Promise (NtpSlotting m) = Promise m
-type instance SharedAtomicT (NtpSlotting m) = SharedAtomicT m
-type instance Counter (NtpSlotting m) = Counter m
-type instance Distribution (NtpSlotting m) = Distribution m
-type instance SharedExclusiveT (NtpSlotting m) = SharedExclusiveT m
-type instance Gauge (NtpSlotting m) = Gauge m
-type instance ChannelT (NtpSlotting m) = ChannelT m
-
-instance ( Mockable d m
-         , MFunctor' d (NtpSlotting m) (ReaderT NtpSlottingVar m)
-         , MFunctor' d (ReaderT NtpSlottingVar m) m
-         ) => Mockable d (NtpSlotting m) where
-    liftMockable = liftMockableWrappedM
-
-instance Monad m => WrappedM (NtpSlotting m) where
-    type UnwrappedM (NtpSlotting m) = ReaderT NtpSlottingVar m
-    _WrappedM = iso getNtpSlotting NtpSlotting
-
-instance MonadTransControl NtpSlotting where
-    type StT (NtpSlotting) a = StT (ReaderT NtpSlottingVar) a
-    liftWith = defaultLiftWith NtpSlotting getNtpSlotting
-    restoreT = defaultRestoreT NtpSlotting
-
-instance MonadBaseControl IO m => MonadBaseControl IO (NtpSlotting m) where
-    type StM (NtpSlotting m) a = ComposeSt NtpSlotting m a
-    liftBaseWith = defaultLiftBaseWith
-    restoreM     = defaultRestoreM
+askNtpSlotting :: MonadNtpSlotting m => m NtpSlottingVar
+askNtpSlotting = Ether.ask
 
 ----------------------------------------------------------------------------
 -- MonadSlots implementation
@@ -143,6 +82,7 @@ type SlottingConstraint m =
     , WithLogger m
     , MonadSlotsData m
     , MonadCatch m
+    , MonadMask m
     , Mockables m
         [ Fork
         , Throw
@@ -195,7 +135,7 @@ ntpGetCurrentSlotInaccurate = do
     case res of
         CurrentSlot slot -> pure slot
         CantTrust _        -> do
-            var <- NtpSlotting ask
+            var <- askNtpSlotting
             _nssLastSlot <$> atomically (STM.readTVar var)
         OutdatedSlottingData penult -> do
             t <- ntpCurrentTime
@@ -212,7 +152,7 @@ ntpGetCurrentSlotInaccurate = do
 
 ntpGetCurrentSlotImpl :: SlottingConstraint m => NtpSlotting m SlotStatus
 ntpGetCurrentSlotImpl = do
-    var <- NtpSlotting ask
+    var <- askNtpSlotting
     NtpSlottingState {..} <- atomically $ STM.readTVar var
     t <- Timestamp . (+ _nssLastMargin) <$> currentTime
     case canWeTrustLocalTime _nssLastLocalTime t of
@@ -277,7 +217,7 @@ ntpCurrentTime
     :: SlottingConstraint m
     => NtpSlotting m Timestamp
 ntpCurrentTime = do
-    var <- NtpSlotting ask
+    var <- askNtpSlotting
     lastMargin <- view nssLastMargin <$> atomically (STM.readTVar var)
     Timestamp . (+ lastMargin) <$> currentTime
 
@@ -288,6 +228,7 @@ ntpCurrentTime = do
 mkNtpSlottingVar
     :: ( MonadIO m
        , MonadBaseControl IO m
+       , MonadMask m
        , WithLogger m
        , Mockables m
         [ CurrentTime
@@ -314,7 +255,7 @@ mkNtpSlottingVar = do
         ntpSingleShot settings
 
 runNtpSlotting :: NtpSlottingVar -> NtpSlotting m a -> m a
-runNtpSlotting var = usingReaderT var . getNtpSlotting
+runNtpSlotting = flip Ether.runReaderT
 
 ----------------------------------------------------------------------------
 -- Workers
@@ -324,7 +265,7 @@ runNtpSlotting var = usingReaderT var . getNtpSlotting
 ntpSyncWorker
     :: SlottingConstraint m
     => NtpSlotting m ()
-ntpSyncWorker = NtpSlotting ask >>= void . startNtpClient . ntpSettings
+ntpSyncWorker = askNtpSlotting >>= void . startNtpClient . ntpSettings
 
 ntpHandlerDo
     :: (MonadIO m, WithLogger m)

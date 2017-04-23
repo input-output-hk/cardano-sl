@@ -1,5 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
-
 -- | Server which handles update system.
 
 module Pos.Update.Network.Listeners

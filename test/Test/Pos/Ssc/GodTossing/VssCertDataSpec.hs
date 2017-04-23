@@ -11,16 +11,22 @@ import qualified Data.HashSet          as HS
 import qualified Data.Set              as S
 import           Data.Tuple            (swap)
 
-import           Pos.Ssc.GodTossing    (VssCertData (..), VssCertificate (..), delete,
-                                        empty, expiryEoS, filter, getCertId, insert, keys,
-                                        member, setLastKnownSlot)
+import           Pos.Core.Constants    (slotSecurityParam)
+import           Pos.Core.Slotting     (flattenEpochOrSlot, unflattenSlotId)
+import           Pos.Ssc.GodTossing    (GtGlobalState (..), MultiRichmenStake,
+                                        VssCertData (..), VssCertificate (..), delete,
+                                        empty, expiryEoS, filter, getCertId,
+                                        gsVssCertificates, insert, keys, lookup,
+                                        mkVssCertificate, member, rollbackGT, runPureToss,
+                                        setLastKnownSlot)
 import           Pos.Types             (EpochIndex (..), EpochOrSlot (..), SlotId,
                                         SlotId (..))
+import           Pos.Util.Chrono       (NewestFirst (..))
 
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Arbitrary (..), Property, choose, suchThat,
-                                        vectorOf, (==>))
+import           Test.QuickCheck       (Arbitrary (..), Gen, Property, choose, conjoin,
+                                        suchThat, vectorOf, (==>))
 
 spec :: Spec
 spec = describe "Ssc.GodTossing.VssCertData" $ do
@@ -34,6 +40,8 @@ spec = describe "Ssc.GodTossing.VssCertData" $ do
         prop description_verifySetLastKnownSlot verifySetLastKnownSlot
     describe "verifyDeleteAndFilter" $
         prop description_verifyDeleteAndFilter verifyDeleteAndFilter
+    describe "verifyRollback" $
+        prop description_verifyRollback verifyRollback
   where
     description_verifyInsertVssCertData =
         "successfully verifies if certificate is in certificate data\
@@ -46,7 +54,10 @@ spec = describe "Ssc.GodTossing.VssCertData" $ do
     description_verifySetLastKnownSlot =
         "successfully verifies if new last known slot is set properly"
     description_verifyDeleteAndFilter =
-        "successfully verifies if filter saves consintency"
+        "successfully verifies if filter saves consistency"
+    description_verifyRollback =
+        "successfully rollsback certificates older than slot to which state was rolled\
+        \ back to"
 
 ----------------------------------------------------------------------------
 -- Utility functions not present in VssCertData
@@ -70,13 +81,11 @@ instance Arbitrary CorrectVssCertData where
     arbitrary = (CorrectVssCertData <$>) $ do
         n <- choose (0, 100)
         certificatesToAdd <- choose (0, n)
-        lkeos               <- EpochOrSlot . Left . EpochIndex <$>
-                             choose (0, fromIntegral n)  -- boundaries can be chosen more wisely
+        lkeos             <- arbitrary :: Gen EpochOrSlot
         let notExpiredGen  = arbitrary `suchThat` (`expiresAfter` lkeos)
         vssCertificates   <- vectorOf @VssCertificate certificatesToAdd notExpiredGen
         let dataUpdaters   = map insert vssCertificates
-        pure $ foldl' (&) empty dataUpdaters
-
+        pure $ foldl' (&) (empty {lastKnownEoS = lkeos}) dataUpdaters
 ----------------------------------------------------------------------------
 -- Properties for VssCertData
 ----------------------------------------------------------------------------
@@ -151,3 +160,41 @@ verifyDeleteAndFilter (getVssCertData -> vcd@VssCertData{..}) =
         resultVcd           = filter (`HS.member` setFromHalf) vcd
         resultCorrectVcd    = CorrectVssCertData resultVcd
     in isConsistent resultCorrectVcd
+
+data RollbackData = Rollback MultiRichmenStake GtGlobalState EpochOrSlot [VssCertificate]
+    deriving (Show, Eq)
+
+instance Arbitrary RollbackData where
+    arbitrary = do
+        goodVssCertData@(VssCertData {..}) <- getVssCertData <$> arbitrary
+        certsToRollbackN <- choose (0, 100) >>= choose . (0,)
+        slotsToRollback <- choose (1, slotSecurityParam :: Word64)
+        let lastKEoSWord = flattenEpochOrSlot lastKnownEoS
+            rollbackFrom = slotsToRollback + lastKEoSWord
+            rollbackGen = do
+                sk <- arbitrary
+                binVssPK <- arbitrary
+                thisEpoch  <-
+                    siEpoch . unflattenSlotId <$>
+                        choose (succ lastKEoSWord, rollbackFrom)
+                return $ mkVssCertificate sk binVssPK thisEpoch
+        certsToRollback <- vectorOf @VssCertificate certsToRollbackN rollbackGen
+        return $ Rollback mempty
+                          (GtGlobalState mempty mempty mempty goodVssCertData)
+                          lastKnownEoS
+                          certsToRollback
+
+verifyRollback
+    :: RollbackData -> Property
+verifyRollback (Rollback mrs oldGtGlobalState rollbackEoS vssCerts) =
+    let certAdder vcd = foldl' (flip insert) vcd vssCerts
+        newGtGlobalState@(GtGlobalState _ _ _ newVssCertData) =
+            oldGtGlobalState & gsVssCertificates %~ certAdder
+        (_, GtGlobalState _ _ _ rolledVssCertData, _) =
+            runPureToss mrs newGtGlobalState $ rollbackGT rollbackEoS (NewestFirst [])
+    in conjoin $ fmap (\cert ->
+                          isJust (lookup (getCertId cert) newVssCertData) &&
+                          maybe True
+                                (/= cert)
+                                (lookup (getCertId cert) rolledVssCertData))
+                 vssCerts

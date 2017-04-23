@@ -116,10 +116,10 @@ sscCalculateSeed
        , MonadIO m
        , WithLogger m )
     => EpochIndex
+    -> RichmenStake
     -> m (Either (SscSeedError ssc) SharedSeed)
-sscCalculateSeed epoch = do
-    richmenData <- getRichmenFromLrc "sscCalculateSeed" epoch
-    sscRunGlobalQuery $ sscCalculateSeedQ @ssc epoch richmenData
+sscCalculateSeed epoch richmen = do
+    sscRunGlobalQuery $ sscCalculateSeedQ @ssc epoch richmen
 
 ----------------------------------------------------------------------------
 -- Local Data

@@ -1,7 +1,6 @@
--- | We want store each epoch's seed in the database. This module does that.
---
--- It's done so that we'd be able to reuse previous epoch's seed in case we
--- can't generate a seed for current epoch (see [CSL-50]).
+-- | We want to store each epoch's seed in the database. This module does
+-- that. It's done so that we'd be able to reuse previous epoch's seed in
+-- case we can't generate a seed for current epoch (see [CSL-50]).
 module Pos.Lrc.DB.Seed
        ( -- * Getters
          getSeed

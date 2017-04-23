@@ -140,30 +140,34 @@ lrcDo getPeers epoch consumers tip = tip <$ do
     NewestFirst blundsList <- DB.loadBlundsFromTipWhile whileAfterCrucial
     case nonEmpty blundsList of
         Nothing -> throwM UnknownBlocksForLrc
-        Just (NewestFirst -> blunds) -> do
-            seed <- sscCalculateSeed epoch >>= \case
-                Right s -> do
-                    logInfo $ sformat
-                        ("Calculated seed for epoch "%build%" successfully") epoch
-                    return s
-                Left err -> do
-                    logWarning $ sformat
-                        ("SSC couldn't compute seed: " %build) err
-                    logWarning "Going to reuse seed for previous epoch"
-                    getSeed (epoch - 1)
-            putSeed epoch seed
-            rollbackBlocksUnsafe getPeers blunds
-            compute seed `finally` applyBack (toOldestFirst blunds)
+        Just (NewestFirst -> blunds) ->
+            withBlocksRolledBack blunds $ do
+                -- We have to compute richmen before calculating the seed because
+                -- seed calculation relies on knowing richmen
+                issuersComputationDo epoch
+                richmenComputationDo epoch consumers
+                DB.sanityCheckDB
+                seed <- sscCalculateSeed epoch >>= \case
+                    Right s -> do
+                        logInfo $ sformat
+                            ("Calculated seed for epoch "%build%
+                             " successfully") epoch
+                        return s
+                    Left err -> do
+                        logWarning $ sformat
+                            ("SSC couldn't compute seed: " %build) err
+                        logWarning "Going to reuse seed for previous epoch"
+                        getSeed (epoch - 1)
+                putSeed epoch seed
+                leadersComputationDo epoch seed
   where
     applyBack blunds = applyBlocksUnsafe getPeers blunds Nothing
     upToGenesis b = b ^. epochIndexL >= epoch
     whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
-    compute seed = do
-        issuersComputationDo epoch
-        richmenComputationDo epoch consumers
-        DB.sanityCheckDB
-        leadersComputationDo epoch seed
+    withBlocksRolledBack blunds =
+        bracket_ (rollbackBlocksUnsafe getPeers blunds)
+                 (applyBack (toOldestFirst blunds))
 
 issuersComputationDo :: forall ssc m . WorkMode ssc m => EpochIndex -> m ()
 issuersComputationDo epochId = do

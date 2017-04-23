@@ -25,6 +25,9 @@ module Network.Transport.Abstract
   , NT.SendErrorCode(..)
   , NT.EventErrorCode(..)
   , EventError(..)
+  , hoistTransport
+  , hoistEndPoint
+  , hoistConnection
   ) where
 
 import Data.Typeable
@@ -43,6 +46,16 @@ data Transport m = Transport {
     newEndPoint :: m (Either (NT.TransportError NT.NewEndPointErrorCode) (EndPoint m))
     -- | Shutdown the transport completely
   , closeTransport :: m ()
+  }
+
+hoistTransport
+  :: ( Functor n )
+  => (forall t . m t -> n t)
+  -> Transport m
+  -> Transport n
+hoistTransport f transport = transport {
+    newEndPoint = (fmap . fmap) (hoistEndPoint f) (f (newEndPoint transport))
+  , closeTransport = f (closeTransport transport)
   }
 
 -- | Network endpoint over some monad.
@@ -66,6 +79,17 @@ data EndPoint m = EndPoint {
   , closeEndPoint :: m ()
   }
 
+hoistEndPoint
+  :: ( Functor n )
+  => (forall t . m t -> n t)
+  -> EndPoint m
+  -> EndPoint n
+hoistEndPoint f endPoint = endPoint {
+    receive = f (receive endPoint)
+  , connect = \addr reli hint -> (fmap . fmap) (hoistConnection f) (f (connect endPoint addr reli hint))
+  , closeEndPoint = f (closeEndPoint endPoint)
+  }
+
 -- | Lightweight connection to an endpoint.
 data Connection m = Connection {
     -- | Send a message on this connection.
@@ -78,6 +102,15 @@ data Connection m = Connection {
     -- | Close the connection.
   , close :: m ()
   , bundle :: NT.ConnectionBundle
+  }
+
+hoistConnection
+  :: (forall t . m t -> n t)
+  -> Connection m
+  -> Connection n
+hoistConnection f conn = conn {
+    send = f . send conn
+  , close = f (close conn)
   }
 
 -- | Event on an endpoint.

@@ -42,7 +42,7 @@ lightDlgConfirmationTimeout: 500
 applicationName: cardano-sl
 
 # Production start time
-productionNetworkStartTime: 1490824920
+productionNetworkStartTime: 1492428658
 
 # NTP
 ntpResponseTimeout: 10000000 # 10 sec

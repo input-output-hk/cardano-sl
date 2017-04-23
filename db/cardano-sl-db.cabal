@@ -34,6 +34,7 @@ library
                      , formatting
                      , lens
                      , log-warper
+                     , monad-control
                      , mtl
                      , node-sketch
                      , resourcet

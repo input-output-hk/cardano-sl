@@ -12,6 +12,10 @@ import           Control.Lens                 (iso)
 import           Control.Monad.Base           (MonadBase (..))
 import           Control.Monad.Fix            (MonadFix)
 import           Control.Monad.Trans          (MonadTrans)
+import           Control.Monad.Trans.Control  (ComposeSt, MonadBaseControl (..),
+                                               MonadTransControl (..), StM,
+                                               defaultLiftBaseWith, defaultLiftWith,
+                                               defaultRestoreM, defaultRestoreT)
 import           Control.Monad.Trans.Resource (MonadResource)
 import           Mockable                     (ChannelT, Counter, Distribution, Gauge,
                                                MFunctor', Mockable (liftMockable),
@@ -46,6 +50,16 @@ instance Monad m => WrappedM (DBHolder m) where
 
 instance MonadBase IO m => MonadBase IO (DBHolder m) where
     liftBase = lift . liftBase
+
+instance MonadTransControl DBHolder where
+    type StT DBHolder a = StT (ReaderT NodeDBs) a
+    liftWith = defaultLiftWith DBHolder getDBHolder
+    restoreT = defaultRestoreT DBHolder
+
+instance MonadBaseControl IO m => MonadBaseControl IO (DBHolder m) where
+    type StM (DBHolder m) a = ComposeSt DBHolder m a
+    liftBaseWith     = defaultLiftBaseWith
+    restoreM         = defaultRestoreM
 
 deriving instance MonadResource m => MonadResource (DBHolder m)
 

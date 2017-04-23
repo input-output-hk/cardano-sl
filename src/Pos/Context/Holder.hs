@@ -8,37 +8,43 @@ module Pos.Context.Holder
        , runContextHolder
        ) where
 
-import           Control.Concurrent.MVar   (withMVar)
-import           Control.Lens              (iso)
-import           Control.Monad.Base        (MonadBase (..))
-import           Control.Monad.Catch       (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Fix         (MonadFix)
-import           Control.Monad.Reader      (ReaderT (ReaderT), ask)
-import           Control.Monad.Trans.Class (MonadTrans)
-import           Formatting                (sformat, shown, (%))
-import           Mockable                  (Catch, ChannelT, Counter, Distribution, Gauge,
-                                            MFunctor', Mockable (liftMockable), Promise,
-                                            SharedAtomicT, SharedExclusiveT, ThreadId,
-                                            catchAll, liftMockableWrappedM)
-import           Serokell.Util.Lens        (WrappedM (..))
-import           System.Wlog               (CanLog, HasLoggerName, WithLogger, logWarning)
-import           Universum                 hiding (catchAll)
+import           Control.Concurrent.MVar     (withMVar)
+import           Control.Lens                (iso)
+import           Control.Monad.Base          (MonadBase (..))
+import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Fix           (MonadFix)
+import           Control.Monad.Reader        (ReaderT (ReaderT), ask)
+import           Control.Monad.Trans.Class   (MonadTrans)
+import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
+                                              MonadTransControl (..), defaultLiftBaseWith,
+                                              defaultLiftWith, defaultRestoreM,
+                                              defaultRestoreT)
+import           Formatting                  (sformat, shown, (%))
+import           Mockable                    (Catch, ChannelT, Counter, Distribution,
+                                              Gauge, MFunctor', Mockable (liftMockable),
+                                              Promise, SharedAtomicT, SharedExclusiveT,
+                                              ThreadId, catchAll, liftMockableWrappedM)
+import           Serokell.Util.Lens          (WrappedM (..))
+import           System.Wlog                 (CanLog, HasLoggerName, WithLogger,
+                                              logWarning)
+import           Universum                   hiding (catchAll)
 
-import           Pos.Communication.Relay   (MonadRelayMem (..), RelayContext (..))
-import           Pos.Context.Class         (WithNodeContext (..))
-import           Pos.Context.Context       (NodeContext (..))
-import           Pos.DB.Class              (MonadDB, MonadDBCore)
-import           Pos.DB.Limits             (MonadDBLimits)
-import           Pos.DHT.MemState          (DhtContext (..), MonadDhtMem (..))
-import           Pos.Launcher.Param        (bpKademliaDump, npBaseParams, npPropagation,
-                                            npReportServers)
-import           Pos.Reporting             (MonadReportingMem (..), ReportingContext (..))
-import           Pos.Shutdown              (MonadShutdownMem (..), ShutdownContext (..))
-import           Pos.Slotting.Class        (MonadSlots)
-import           Pos.Slotting.MemState     (MonadSlotsData)
-import           Pos.Txp.MemState.Class    (MonadTxpMem)
-import           Pos.Util.Context          (MonadContext (..))
-import           Pos.Util.JsonLog          (MonadJL (..), appendJL)
+import           Pos.Communication.Relay     (MonadRelayMem (..), RelayContext (..))
+import           Pos.Context.Class           (WithNodeContext (..))
+import           Pos.Context.Context         (NodeContext (..))
+import           Pos.DB.Class                (MonadDB, MonadDBCore)
+import           Pos.DB.Limits               (MonadDBLimits)
+import           Pos.DHT.MemState            (DhtContext (..), MonadDhtMem (..))
+import           Pos.Launcher.Param          (bpKademliaDump, npBaseParams, npPropagation,
+                                              npReportServers)
+import           Pos.Reporting               (MonadReportingMem (..),
+                                              ReportingContext (..))
+import           Pos.Shutdown                (MonadShutdownMem (..), ShutdownContext (..))
+import           Pos.Slotting.Class          (MonadSlots)
+import           Pos.Slotting.MemState       (MonadSlotsData)
+import           Pos.Txp.MemState.Class      (MonadTxpMem)
+import           Pos.Util.Context            (MonadContext (..))
+import           Pos.Util.JsonLog            (MonadJL (..), appendJL)
 
 -- | Wrapper for monadic action which brings 'NodeContext'.
 newtype ContextHolder ssc m a = ContextHolder
@@ -73,6 +79,16 @@ instance Monad m => WrappedM (ContextHolder ssc m) where
 
 instance MonadBase IO m => MonadBase IO (ContextHolder ssc m) where
     liftBase = lift . liftBase
+
+instance MonadTransControl (ContextHolder ssc) where
+    type StT (ContextHolder ssc) a = StT (ReaderT (NodeContext ssc)) a
+    liftWith = defaultLiftWith ContextHolder getContextHolder
+    restoreT = defaultRestoreT ContextHolder
+
+instance MonadBaseControl IO m => MonadBaseControl IO (ContextHolder ssc m) where
+    type StM (ContextHolder ssc m) a = ComposeSt (ContextHolder ssc) m a
+    liftBaseWith     = defaultLiftBaseWith
+    restoreM         = defaultRestoreM
 
 type instance ThreadId (ContextHolder ssc m) = ThreadId m
 type instance Promise (ContextHolder ssc m) = Promise m

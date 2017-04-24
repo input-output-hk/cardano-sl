@@ -362,7 +362,7 @@ getBlockchainTxs origOff origLim = do
 getBlkSlotStart :: MonadSlots m => MainBlock ssc -> m (Maybe Timestamp)
 getBlkSlotStart blk = getSlotStart $ blk ^. gbHeader . gbhConsensus . mcdSlot
 
-topsortTxsOrFail :: MonadThrow m => (a -> WithHash Tx) -> [a] -> m [a]
+topsortTxsOrFail :: (MonadThrow m, Eq a) => (a -> WithHash Tx) -> [a] -> m [a]
 topsortTxsOrFail f =
     maybeThrow (Internal "Dependency loop in txs set") .
     topsortTxs f

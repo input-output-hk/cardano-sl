@@ -70,6 +70,5 @@ instance SscGStateClass SscNistBeacon where
     sscCalculateSeedQ i _ = do
         let h :: ByteString
             h = ByteArray.convert $ Hash.hashlazy @SHA256 (encode i)
-        -- TODO: not sure that we don't have to cut it
         return $ Right (SharedSeed h)
 

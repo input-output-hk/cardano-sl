@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
 -- This module is to be moved later anywhere else, just to have a
@@ -62,8 +61,7 @@ import           Pos.Binary.Class       (decodeFull, encodeStrict)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core.Types         (ScriptVersion)
 import           Pos.Crypto             (PassPhrase, hashHexF)
-import           Pos.DB.Class           (MonadDB)
-import           Pos.Txp.Core.Types     (Tx (..), TxId, TxOut, TxOutAux (..), txOutAddress, txOutValue)
+import           Pos.Txp.Core.Types     (Tx (..), TxId, TxOut, txOutAddress, txOutValue)
 import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
                                          Coin, SoftwareVersion, decodeTextAddress,
                                          sumCoins, unsafeGetCoin, unsafeIntegerToCoin)
@@ -72,7 +70,6 @@ import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes
 import           Pos.Update.Poll        (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase  (BackupPhrase)
 
-import           Pos.Explorer           (TxExtra (..), getTxExtra)
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty
@@ -138,16 +135,15 @@ convertTxOutputs :: [TxOut] -> [(CAddress, CCoin)]
 convertTxOutputs = map (addressToCAddress . txOutAddress &&& mkCCoin . txOutValue)
 
 mkCTx
-    :: (MonadDB m)
-    => Address            -- ^ An address for which transaction info is forming
+    :: Address            -- ^ An address for which transaction info is forming
     -> ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
-    -> m CTx
-mkCTx addr diff THEntry {..} meta = do
-    maybeTxExtra <- getTxExtra _thTxId
-    let ctFrom = (convertTxOutputs . map toaOut . toList . teInputOutputs) <$> maybeTxExtra
-    pure $ CTx {..}
+    -> CTx
+mkCTx addr diff THEntry {..} meta =
+    -- placeholder, this functionality isn't implemented yet
+    let ctFrom = Nothing in
+    CTx {..}
   where
     ctId = txIdToCTxId _thTxId
     outputs = toList $ _txOutputs _thTx
@@ -288,7 +284,6 @@ ctTypeMeta f (CTOut meta) = CTOut <$> f meta
 data CTx = CTx
     { ctId            :: !CTxId
     , ctAmount        :: !CCoin -- contains what you'd expect in reasonable cases
-    -- `Maybe` is an implementation detail here
     , ctFrom          :: !(Maybe [(CAddress, CCoin)])
     , ctTo            :: ![(CAddress, CCoin)]
     , ctConfirmations :: !Word

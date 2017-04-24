@@ -71,7 +71,7 @@ updateDisk e = getWalletWebState >>= flip A.update e
 getWalletMetas :: WebWalletModeDB m => m [CWalletMeta]
 getWalletMetas = queryDisk A.GetWalletMetas
 
-getProfile :: WebWalletModeDB m => m (CProfile)
+getProfile :: WebWalletModeDB m => m CProfile
 getProfile = queryDisk A.GetProfile
 
 getWalletMeta :: WebWalletModeDB m => CAddress -> m (Maybe CWalletMeta)

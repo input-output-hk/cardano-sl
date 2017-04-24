@@ -438,7 +438,7 @@ searchHistory
 searchHistory cAddr search skip limit = first (filter $ txContainsTitle search) <$> getHistory cAddr skip limit
 
 addHistoryTx
-    :: (WebWalletModeDB m, MonadThrow m, MonadBlockchainInfo m, MonadIO m)
+    :: (WebWalletModeDB m, MonadThrow m, MonadBlockchainInfo m)
     => CAddress
     -> CCurrency
     -> Text
@@ -454,7 +454,7 @@ addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
     let cId = txIdToCTxId txId
     addOnlyNewTxMeta cAddr cId meta
     meta' <- maybe meta identity <$> getTxMeta cAddr cId
-    mkCTx addr diff wtx meta'
+    pure $ mkCTx addr diff wtx meta'
 
 newWallet :: WalletWebMode m => CPassPhrase -> CWalletInit -> m CWallet
 newWallet cPassphrase CWalletInit {..} = do

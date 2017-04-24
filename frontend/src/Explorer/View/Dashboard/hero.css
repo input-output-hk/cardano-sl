@@ -39,6 +39,7 @@
         .explorer-search {
           &__container {
             lost-column: 10/12;
+            lost-offset: 1/12;
           }
         }
       }

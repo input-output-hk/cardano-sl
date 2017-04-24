@@ -2,13 +2,15 @@ module Main where
 
 import Control.Bind ((=<<))
 import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.SocketIO.Client (SocketIO, connect, on)
 import DOM (DOM)
 import Data.Lens (set)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Socket (blocksUpdatedEventHandler, callYouEventHandler, callYouStringEventHandler, callYouCTxIdEventHandler, socketHost, connectEvent, closeEvent, connectHandler, closeHandler, txsUpdatedHandler) as Ex
-import Explorer.Lenses.State (connection, socket)
+import Explorer.I18n.Lang (Language(..), detectLocale)
+import Explorer.Lenses.State (connection, lang, socket)
 import Explorer.Routes (match)
 import Explorer.Types.Actions (Action(..)) as Ex
 import Explorer.Types.State (State) as Ex
@@ -43,7 +45,10 @@ config state = do
   on socket' (toEvent CallYouTxId) $ Ex.callYouCTxIdEventHandler actionChannel
 
   pure
-    { initialState: set (socket <<< connection) (Just socket') state
+    { initialState:
+        set (socket <<< connection) (Just socket') $
+        set lang (fromMaybe English $ unsafePerformEff detectLocale)
+        state
     , update: Ex.update :: Update Ex.State Ex.Action AppEffects
     , view: view
     , inputs: [socketSignal, routeSignal]

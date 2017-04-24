@@ -2,6 +2,7 @@ module Main where
 
 import Control.Bind ((=<<))
 import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Console (CONSOLE)
 import Control.SocketIO.Client (SocketIO, connect, on)
 import DOM (DOM)
 import Data.Lens (set)
@@ -22,8 +23,9 @@ import Pux.Devtool (Action, start) as Pux.Devtool
 import Pux.Router (sampleUrl)
 import Signal (Signal, (~>))
 import Signal.Channel (channel, subscribe)
+import Waypoints (WAYPOINT)
 
-type AppEffects = (dom :: DOM, ajax :: AJAX, socket :: SocketIO)
+type AppEffects = (dom :: DOM, ajax :: AJAX, socket :: SocketIO, waypoint :: WAYPOINT, console :: CONSOLE)
 
 config :: Ex.State -> Eff (CoreEffects AppEffects) (Config Ex.State Ex.Action AppEffects)
 config state = do

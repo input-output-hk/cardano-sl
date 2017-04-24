@@ -1,17 +1,16 @@
 module Explorer.Types.Actions where
 
-import           Control.Monad.Eff.Exception  (Error)
-import           Data.Either                  (Either)
-import           DOM.HTML.Types               (HTMLInputElement)
-import           Explorer.I18n.Lang           (Language)
-import           Explorer.Routes              (Route)
-import           Explorer.Types.State         (CBlockEntries, CTxBriefs, CTxEntries,
-                                               DashboardAPICode, SocketSubscription, Search)
-import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary,
-                                               CHash, CTxId, CTxSummary)
-import           Signal.Channel               (Channel)
-import           Data.Maybe (Maybe)
-import           Pos.Core.Types (EpochIndex, LocalSlotIndex)
+import Control.Monad.Eff.Exception (Error)
+import DOM.HTML.Types (HTMLInputElement)
+import Data.Either (Either)
+import Data.Maybe (Maybe)
+import Explorer.I18n.Lang (Language)
+import Explorer.Routes (Route)
+import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, SocketSubscription, Search)
+import Pos.Core.Types (EpochIndex, LocalSlotIndex)
+import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
+import Signal.Channel (Channel)
+import Waypoints (Waypoint, WaypointSelector)
 
 data Action
     = SetLanguage Language
@@ -20,6 +19,8 @@ data Action
     -- DOM
     | ScrollTop
     | SelectInputText HTMLInputElement
+    | AddWaypoint WaypointSelector
+    | StoreWaypoint Waypoint
     -- QR code
     | GenerateQrCode CAddress
     -- socket endpoints

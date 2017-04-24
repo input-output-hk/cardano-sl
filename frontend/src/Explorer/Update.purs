@@ -3,6 +3,7 @@ module Explorer.Update where
 import Prelude
 import Control.Monad.Aff (attempt)
 import Control.Monad.Eff.Class (liftEff)
+import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.SocketIO.Client (SocketIO, emit, emit')
 import DOM (DOM)
 import DOM.HTML.HTMLInputElement (select)
@@ -18,7 +19,7 @@ import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs,
 import Explorer.Api.Socket (toEvent)
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksViewState, blsViewPagination, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlocksExpanded, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksViewState, blsViewPagination, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlocksExpanded, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, gWaypoints, globalViewState, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
@@ -33,14 +34,21 @@ import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects)
 import Pux.Router (navigateTo) as P
+import Waypoints (WAYPOINT, WaypointSelector(..), waypoint)
 
+
+-- waypointHandler :: forall eff. Eff (waypoint :: WAYPOINT, console :: CONSOLE | eff) Unit
+-- waypointHandler = do
+--   log "handler"
+--   void
 
 update :: forall eff. Action -> State ->
     EffModel State Action
     (dom :: DOM
     , ajax :: AJAX
     , socket :: SocketIO
-    -- , console :: CONSOLE
+    , waypoint :: WAYPOINT
+    , console :: CONSOLE
     | eff
     )
 
@@ -172,6 +180,15 @@ update (GenerateQrCode address) state =
         [ liftEff $ generateQrCode (address ^. _CAddress) addressQRImageId *> pure NoOp
         ]
     }
+
+update (AddWaypoint selector) state =
+    { state
+    , effects:
+        [ liftEff (waypoint selector (pure $ log "waypoint callback") ) >>= \wp -> pure (StoreWaypoint wp)
+        ]
+    }
+update (StoreWaypoint wp) state = noEffects $
+    over (viewStates <<< globalViewState <<< gWaypoints) ((:) wp) state
 
 -- global state
 update (GlobalToggleMobileMenu toggled) state = noEffects $
@@ -377,6 +394,7 @@ routeEffects Dashboard state =
     , effects:
         [ pure ScrollTop
         , pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock, SocketSubscription SubTx ]
+        , pure <<< AddWaypoint $ WaypointSelector "to-be-defined"
         , if not $ state ^. initialBlocksRequested
           then pure RequestInitialBlocks
           else pure NoOp

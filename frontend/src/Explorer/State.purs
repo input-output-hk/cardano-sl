@@ -28,6 +28,7 @@ initialState =
             , gViewSelectedSearch: SearchAddress
             , gViewSearchQuery: emptySearchQuery
             , gViewSearchTimeQuery: emptySearchTimeQuery
+            , gWaypoints: []
             }
         ,  dashboard:
             { dbViewBlocksExpanded: false

@@ -30,7 +30,8 @@
   "dependencies": {
     "react": "^15.4.2",
     "react-dom": "^15.4.2",
-    "socket.io-client": "^1.7.3"
+    "socket.io-client": "^1.7.3",
+    "waypoints": "^4.0.1"
   },
   "devDependencies": {
     "autoprefixer": "^6.7.7",

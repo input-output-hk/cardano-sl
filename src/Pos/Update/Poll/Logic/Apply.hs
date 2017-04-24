@@ -1,5 +1,4 @@
 {-# LANGUAGE BangPatterns        #-}
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Logic of application and verification of data in Poll.
@@ -30,6 +29,7 @@ import           Pos.Core                      (ChainDifficulty, Coin, EpochInde
                                                 sumCoins, unflattenSlotId,
                                                 unsafeIntegerToCoin)
 import           Pos.Crypto                    (hash, shortHashF)
+import           Pos.Data.Attributes           (areAttributesKnown)
 import           Pos.Update.Core               (BlockVersionData (..), UpId,
                                                 UpdatePayload (..), UpdateProposal (..),
                                                 UpdateVote (..))
@@ -53,19 +53,23 @@ type ApplyMode m = (MonadError PollVerFailure m, MonadPoll m)
 -- | Verify UpdatePayload with respect to data provided by
 -- MonadPoll. If data is valid it is also applied.  Otherwise
 -- PollVerificationFailure is thrown using MonadError type class.
--- When first flag is true and proposal is present,
--- 'genesisUpdateProposalThd' is checked for it, otherwise it's not
--- checked.
--- When second argument is 'Left epoch', it means that temporary payload
--- for given slot is applied.
+--
+-- The first argument specifies whether we should perform unknown data
+-- checks.  Currently it means that if it's 'True', then proposal (if
+-- it exists) must not have unknown attributes.
+--
+-- When the second argument is 'Left epoch', it means that temporary payload
+-- for given slot is applied. In this case threshold for inclusion of proposal
+-- into block is intentionally not checked.
 -- When it is 'Right header', it means that payload from block with
--- given header is applied.
+-- given header is applied and in this case threshold for update proposal is
+-- checked.
 verifyAndApplyUSPayload
     :: ApplyMode m
     => Bool -> Either SlotId (Some IsMainHeader) -> UpdatePayload -> m ()
-verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = do
+verifyAndApplyUSPayload verifyAllIsKnown slotOrHeader UpdatePayload {..} = do
     -- First of all, we verify data from header.
-    either (const pass) verifyHeader slotOrHeader
+    whenRight slotOrHeader verifyHeader
     -- Then we split all votes into groups. One group consists of
     -- votes for proposal from payload. Each other group consists of
     -- votes for other proposals.
@@ -75,7 +79,7 @@ verifyAndApplyUSPayload considerPropThreshold slotOrHeader UpdatePayload {..} = 
     let otherGroups = NE.groupWith uvProposalId otherVotes
     -- When there is proposal in payload, it's verified and applied.
     whenJust upProposal $
-        verifyAndApplyProposal considerPropThreshold slotOrHeader curPropVotes
+        verifyAndApplyProposal verifyAllIsKnown slotOrHeader curPropVotes
     -- Then we also apply votes from other groups.
     -- ChainDifficulty is needed, because proposal may become approved
     -- and then we'll need to track whether it becomes confirmed.
@@ -134,8 +138,10 @@ resolveVoteStake epoch totalStake UpdateVote {..} = do
 --    script version dependencies. New dependency can be added.
 -- 4. Check that numeric software version of application is 1 more than
 --    of last confirmed proposal for this application.
--- 5. If 'considerThreshold' is true, also check that sum of positive votes
---    for this proposal is enough (at least 'genesisUpdateProposalThd').
+-- 5. If 'slotOrHeader' is 'Right', also check that sum of positive votes
+--    for this proposal is enough (at least 'updateProposalThd').
+-- 6. If 'verifyAllIsKnown' is 'True', check that proposal has
+--    no unknown attributes.
 --
 -- If all checks pass, proposal is added. It can be in undecided or decided
 -- state (if it has enough voted stake at once).
@@ -146,7 +152,8 @@ verifyAndApplyProposal
     -> [UpdateVote]
     -> UpdateProposal
     -> m ()
-verifyAndApplyProposal considerThreshold slotOrHeader votes up@UnsafeUpdateProposal {..} = do
+verifyAndApplyProposal verifyAllIsKnown slotOrHeader votes
+                           up@UnsafeUpdateProposal {..} = do
     let !upId = hash up
     let !upFromId = addressHash upFrom
     whenM (HS.member upFromId <$> getEpochProposers) $
@@ -154,6 +161,12 @@ verifyAndApplyProposal considerThreshold slotOrHeader votes up@UnsafeUpdatePropo
     let epoch = slotOrHeader ^. epochIndexL
     let proposalSize = biSize up
     proposalSizeLimit <- bvdMaxProposalSize <$> getAdoptedBVData
+    when (verifyAllIsKnown && areAttributesKnown upAttributes) $
+        throwError $
+        PollUnknownAttributesInProposal
+        { puapUpId = upId
+        , puapAttrs = upAttributes
+        }
     when (proposalSize > proposalSizeLimit) $
         throwError $
         PollTooLargeProposal
@@ -177,7 +190,8 @@ verifyAndApplyProposal considerThreshold slotOrHeader votes up@UnsafeUpdatePropo
         mapM (\v -> (v, ) <$> resolveVoteStake epoch totalStake v) votes
     -- When necessary, we also check that proposal itself has enough
     -- positive votes to be included into block.
-    when considerThreshold $ verifyProposalStake totalStake votesAndStakes upId
+    when (isRight slotOrHeader) $
+        verifyProposalStake totalStake votesAndStakes upId
     -- Finally we put it into context of MonadPoll together with votes for it.
     putNewProposal slotOrHeader totalStake votesAndStakes up
 

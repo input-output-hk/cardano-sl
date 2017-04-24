@@ -8,6 +8,7 @@
 
 module Pos.Data.Attributes
        ( Attributes (..)
+       , areAttributesKnown
        , getAttributes
        , putAttributes
        , mkAttributes
@@ -15,7 +16,6 @@ module Pos.Data.Attributes
 
 import           Universum
 
-import qualified Base
 import           Data.Binary.Get     (Get)
 import qualified Data.Binary.Get     as G
 import           Data.Binary.Put     (Put)
@@ -23,10 +23,10 @@ import qualified Data.ByteString     as BS
 import           Data.Default        (Default (..))
 import           Data.DeriveTH       (derive, makeNFData)
 import qualified Data.Map            as M
-import           Data.SafeCopy       (SafeCopy (..), contain, safeGet, safePut)
 import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, int, (%))
+import qualified Prelude
 
 import           Pos.Binary.Class    (getRemainingByteString, getWithLength,
                                       getWithLengthLimited, getWord8, putByteString,
@@ -42,37 +42,38 @@ data Attributes h = Attributes
       attrData   :: h
       -- | Unparsed ByteString
     , attrRemain :: ByteString
-    }
-  deriving (Eq, Ord, Generic, Typeable)
+    } deriving (Eq, Ord, Generic, Typeable)
 
 instance Default h => Default (Attributes h) where
     def = mkAttributes def
 
-instance Base.Show h => Base.Show (Attributes h) where
+instance Show h => Show (Attributes h) where
     show Attributes {..} =
         let remain | BS.null attrRemain = ""
                    | otherwise = ", remain: <" <> show (BS.length attrRemain) <> " bytes>"
         in mconcat [ "Attributes { data: ", show attrData, remain, " }"]
 
-instance Buildable h => Buildable (Attributes h) where
+instance {-# OVERLAPPABLE #-} Buildable h => Buildable (Attributes h) where
     build Attributes {..} =
         if BS.null attrRemain
         then Buildable.build attrData
         else bprint ("Attributes { data: "%build%", remain: <"%int%" bytes> }")
                attrData (BS.length attrRemain)
 
+instance Buildable (Attributes ()) where
+    build Attributes {..}
+        | null attrRemain = "<no attributes>"
+        | otherwise =
+            bprint
+                ("Attributes { data: (), remain: <"%int%" bytes> }")
+                (length attrRemain)
+
 instance Hashable h => Hashable (Attributes h)
 
-instance SafeCopy h => SafeCopy (Attributes h) where
-    getCopy =
-        contain $
-        do attrData <- safeGet
-           attrRemain <- safeGet
-           return $! Attributes {..}
-    putCopy Attributes {..} =
-        contain $
-        do safePut attrData
-           safePut attrRemain
+-- | Check whether all data from 'Attributes' is known, i. e. was
+-- successfully parsed into some structured data.
+areAttributesKnown :: Attributes __ -> Bool
+areAttributesKnown = null . attrRemain
 
 -- | Generate 'Attributes' reader given mapper from keys to 'Get',
 -- maximum input length and the attribute value 'h' itself.

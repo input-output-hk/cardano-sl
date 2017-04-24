@@ -26,7 +26,7 @@ import           Data.Time              (diffUTCTime, getCurrentTime)
 import           Data.Time.Units        (Microsecond, fromMicroseconds)
 import           Universum
 
-import           Pos.Context.Class      (WithNodeContext (..))
+import           Pos.Context.Class      (WithNodeContext, getNodeContext)
 import           Pos.Context.Context    (NodeContext (..), ncGenesisLeaders,
                                          ncGenesisUtxo, ncStartTime)
 import           Pos.Lrc.Context        (LrcContext (..), LrcSyncData (..))

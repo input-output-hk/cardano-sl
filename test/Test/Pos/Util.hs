@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.Pos.Util
@@ -42,7 +41,7 @@ import           Test.Hspec            (Expectation, Selector, Spec, describe,
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Arbitrary (arbitrary), Property, conjoin,
                                         counterexample, forAll, property, resize,
-                                        suchThat, vectorOf, (===), (.&&.))
+                                        suchThat, vectorOf, (.&&.), (===))
 
 import           Universum
 

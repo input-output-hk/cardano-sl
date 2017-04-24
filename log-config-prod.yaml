@@ -4,7 +4,6 @@ rotation:
 severity: Info
 node:
     severity: Debug
-    files: [node.log, node.log.pub]
     handlers:
       - file: node.pub
         round: 5

@@ -42,10 +42,10 @@ import           Pos.Types                  (BlockVersion (..), Coin, SoftwareVe
 import           Pos.Util.BackupPhrase      (BackupPhrase, mkBackupPhrase12)
 import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (CAddress (..), CCurrency (..), CHash (..),
-                                             CInitialized (..), CPassPhrase,
-                                             CPostVendWalletRedeem (..), CProfile (..),
-                                             CTType (..), CTx (..), CTxId, CTxMeta (..),
-                                             CUpdateInfo (..), CWallet (..),
+                                             CInitialized (..),
+                                             CPaperVendWalletRedeem (..), CPassPhrase,
+                                             CProfile (..), CTType (..), CTx (..), CTxId,
+                                             CTxMeta (..), CUpdateInfo (..), CWallet (..),
                                              CWalletAssurance (..), CWalletInit (..),
                                              CWalletMeta (..), CWalletRedeem (..),
                                              CWalletType (..), SyncProgress,
@@ -321,10 +321,10 @@ instance ToSample CWalletRedeem where
             , crSeed     = "1354644684681"
             }
 
-instance ToSample CPostVendWalletRedeem where
+instance ToSample CPaperVendWalletRedeem where
     toSamples Proxy = singleSample sample
       where
-        sample = CPostVendWalletRedeem
+        sample = CPaperVendWalletRedeem
             { pvWalletId         = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
             , pvSeed             = "1354644684681"
             , pvBackupPhrase     = mkBackupPhrase12 ["garlic", "swim", "arrow", "globe", "note", "gossip", "cabin", "wheel", "sibling", "cigar", "person", "clap"]

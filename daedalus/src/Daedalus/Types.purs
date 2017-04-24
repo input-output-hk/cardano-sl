@@ -20,7 +20,7 @@ module Daedalus.Types
        , showCCurrency
        , mkBackupPhrase
        , mkCWalletRedeem
-       , mkCPostVendWalletRedeem
+       , mkCPaperVendWalletRedeem
        , mkCInitialized
        , mkCPassPhrase
        , emptyCPassPhrase
@@ -38,7 +38,6 @@ import Pos.Util.BackupPhrase (BackupPhrase (..))
 import Pos.Util.BackupPhrase as BP
 
 import Control.Monad.Eff.Exception (error, Error)
-import Control.Apply ((<$>))
 import Data.Either (either, Either (..))
 import Data.Argonaut.Generic.Aeson (decodeJson)
 import Data.Argonaut.Core (fromString)
@@ -81,7 +80,7 @@ mkBackupPhraseIgnoreChecksum len mnemonic =
         then Left $ error "Invalid mnemonic: mnemonic should have at least 12 words"
         else Right $ BackupPhrase { bpToList: split space mnemonicCleaned }
   where
-    hasExactlyNwords len = (==) len <<< length <<< split space
+    hasExactlyNwords len' = (==) len' <<< length <<< split space
     mnemonicCleaned = cleanMnemonic mnemonic
 
 showCCurrency :: CT.CCurrency -> String
@@ -162,10 +161,10 @@ mkCWalletRedeem seed wId = do
                      , crSeed: seed
                      }
 
-mkCPostVendWalletRedeem :: String -> String -> String -> Either Error CT.CPostVendWalletRedeem
-mkCPostVendWalletRedeem seed mnemonic wId = do
+mkCPaperVendWalletRedeem :: String -> String -> String -> Either Error CT.CPaperVendWalletRedeem
+mkCPaperVendWalletRedeem seed mnemonic wId = do
     bp <- mkBackupPhrase paperVendMnemonicLen mnemonic
-    pure $ CT.CPostVendWalletRedeem { pvWalletId: mkCAddress wId
+    pure $ CT.CPaperVendWalletRedeem { pvWalletId: mkCAddress wId
                                     , pvBackupPhrase: bp
                                     , pvSeed: seed
                                     }

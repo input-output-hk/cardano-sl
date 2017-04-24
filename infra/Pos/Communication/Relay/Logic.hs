@@ -1,6 +1,5 @@
 -- | Framework for Inv\/Req\/Data message handling
 
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
@@ -50,7 +49,8 @@ import           Pos.Communication.Protocol         (ConversationActions (..),
                                                      ListenerSpec, NodeId, OutSpecs,
                                                      SendActions (..), WorkerSpec,
                                                      listenerConv, mergeLs, worker)
-import           Pos.Communication.Relay.Class      (MonadRelayMem (..), Relay (..))
+import           Pos.Communication.Relay.Class      (MonadRelayMem, Relay (..),
+                                                     askRelayMem)
 import           Pos.Communication.Relay.Types      (RelayContext (..), RelayProxy (..),
                                                      SomeInvMsg (..))
 import           Pos.Communication.Relay.Util       (expectData, expectInv)
@@ -58,8 +58,7 @@ import           Pos.Communication.Types.Relay      (DataMsg (..), InvMsg (..), 
                                                      MempoolMsg (..), ReqMsg (..))
 import           Pos.Communication.Util             (stubListenerConv)
 import           Pos.DB.Limits                      (MonadDBLimits)
-import           Pos.DHT.Model                      (DHTNode, MonadDHT (..),
-                                                     converseToNeighbors, converseToNode)
+import           Pos.Discovery.Neighbors            (converseToNeighbors)
 import           Pos.Reporting                      (MonadReportingMem, reportingFatal)
 
 import           Pos.Communication.Limits.Instances ()
@@ -67,7 +66,6 @@ import           Pos.Communication.Limits.Instances ()
 type MinRelayWorkMode m
     = ( WithLogger m
       , MonadMockable m
-      , MonadDHT m
       , MonadIO m
       , WithPeerState m
       )
@@ -169,7 +167,6 @@ handleDataL
       , Bi key
       , Bi tag
       , Bi (DataMsg contents)
-      , MonadDHT m
       , MessagePart tag
       , MessagePart contents
       , Relay m tag key contents
@@ -219,8 +216,7 @@ processMessage defaultRes name param verifier action = do
 
 relayListeners
   :: forall m key tag contents.
-     ( MonadDHT m
-     , Bi key
+     ( Bi key
      , Bi tag
      , Bi (InvMsg key tag)
      , Bi (DataMsg contents)
@@ -274,26 +270,30 @@ relayStubListeners p = mergeLs
     , stubListenerConv $ mempoolMsgProxy p
     ]
 
+-- For stub listeners (e.g. reqMsgProxy), the first parameter in the Proxy is
+-- “what the listener listens to” and the second is “what the listener sends
+-- back”.
+
 invCatchType :: RelayProxy key tag contents -> InvMsg key tag -> ()
 invCatchType _ _ = ()
 
 reqCatchType :: RelayProxy key tag contents -> ReqMsg key tag -> ()
 reqCatchType _ _ = ()
 reqMsgProxy :: RelayProxy key tag contents
-            -> Proxy (InvOrData tag key contents, ReqMsg key tag)
+            -> Proxy (ReqMsg key tag, InvOrData tag key contents)
 reqMsgProxy _ = Proxy
 
 mempoolCatchType :: RelayProxy key tag contents -> MempoolMsg tag -> ()
 mempoolCatchType _ _ = ()
 mempoolMsgProxy :: RelayProxy key tag contents
-                -> Proxy (InvOrData tag key contents, MempoolMsg tag)
+                -> Proxy (MempoolMsg tag, InvOrData tag key contents)
 mempoolMsgProxy _ = Proxy
 
 dataCatchType :: RelayProxy key tag contents -> DataMsg contents -> ()
 dataCatchType _ _ = ()
 
 invDataMsgProxy :: RelayProxy key tag contents
-                -> Proxy (ReqMsg key tag, InvOrData tag key contents)
+                -> Proxy (InvOrData tag key contents, ReqMsg key tag)
 invDataMsgProxy _ = Proxy
 
 
@@ -320,10 +320,10 @@ relayWorkers :: forall m .
              , MonadMask m
              , MonadReportingMem m
              )
-             => OutSpecs -> ([WorkerSpec m], OutSpecs)
-relayWorkers allOutSpecs =
+             => m (Set NodeId) -> OutSpecs -> ([WorkerSpec m], OutSpecs)
+relayWorkers getPeers allOutSpecs =
     first (:[]) $ worker allOutSpecs $ \sendActions ->
-        handleAll handleWE $ reportingFatal version $ action sendActions
+        handleAll handleWE $ reportingFatal getPeers version $ action sendActions
   where
     action sendActions = do
         queue <- _rlyPropagationQueue <$> askRelayMem
@@ -332,7 +332,8 @@ relayWorkers allOutSpecs =
                 logDebug $ sformat
                     ("Propagation data with key: "%build%
                      " and tag: "%build) imKey imTag
-                converseToNeighbors sendActions (convHandler i)
+                peers <- getPeers
+                converseToNeighbors peers sendActions (convHandler i)
             SomeInvMsg (Right _) ->
                 logWarning $ "DataMsg is contains in inv propagation queue"
 
@@ -362,10 +363,11 @@ invReqDataFlowNeighbors
     , Bi tag, Bi id
     , Bi (InvOrData tag id contents)
     , Bi (ReqMsg id tag))
-    => Text -> SendActions m -> tag -> id -> contents -> m ()
-invReqDataFlowNeighbors what sendActions tag id dt = handleAll handleE $
-    reifyMsgLimit (Proxy @(ReqMsg id tag)) $ \lim ->
-        converseToNeighbors sendActions (invReqDataFlowDo what tag id dt lim)
+    => m (Set NodeId) -> Text -> SendActions m -> tag -> id -> contents -> m ()
+invReqDataFlowNeighbors getPeers what sendActions tag id dt = handleAll handleE $
+    reifyMsgLimit (Proxy @(ReqMsg id tag)) $ \lim -> do
+        peers <- getPeers
+        converseToNeighbors peers sendActions (invReqDataFlowDo what tag id dt lim)
   where
     handleE e = logWarning $
         sformat ("Error sending "%stext%", id = "%build%" to neighbors: "%shown) what id e
@@ -380,10 +382,10 @@ invReqDataFlow
     , Bi tag, Bi id
     , Bi (InvOrData tag id contents)
     , Bi (ReqMsg id tag))
-    => Text -> SendActions m -> DHTNode -> tag -> id -> contents -> m ()
+    => Text -> SendActions m -> NodeId -> tag -> id -> contents -> m ()
 invReqDataFlow what sendActions addr tag id dt = handleAll handleE $
     reifyMsgLimit (Proxy @(ReqMsg id tag)) $ \lim ->
-        converseToNode sendActions addr (invReqDataFlowDo what tag id dt lim)
+        withConnectionTo sendActions addr (const (invReqDataFlowDo what tag id dt lim addr))
   where
     handleE e = logWarning $
         sformat ("Error sending "%stext%", id = "%build%" to "%shown%": "%shown) what id addr e

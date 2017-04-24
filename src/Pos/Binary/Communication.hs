@@ -11,6 +11,7 @@ import qualified Data.ByteString.Lazy             as BSL
 import           Formatting                       (int, sformat, (%))
 import           Node.Message                     (MessageName (..))
 
+import           Pos.Binary.Block                 ()
 import           Pos.Binary.Class                 (Bi (..), UnsignedVarInt (..),
                                                    decodeFull, encodeStrict,
                                                    getByteString, getRemainingByteString,

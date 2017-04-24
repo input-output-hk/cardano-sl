@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 -- | Monadic represantion of something that has @json@ journaled log
 -- of operations.
@@ -14,6 +15,7 @@ module Pos.Util.JsonLog
        , fromJLSlotId
        ) where
 
+import           Control.Monad.Trans    (MonadTrans (..))
 import           Data.Aeson             (encode)
 import           Data.Aeson.TH          (deriveJSON)
 import qualified Data.ByteString.Lazy   as LBS
@@ -21,6 +23,7 @@ import           Formatting             (sformat)
 import           Serokell.Aeson.Options (defaultOptions)
 import           Universum
 
+import           Pos.Binary.Block       ()
 import           Pos.Binary.Core        ()
 import           Pos.Crypto             (Hash, hash, hashHexF)
 import           Pos.Ssc.Class.Types    (Ssc)
@@ -90,10 +93,11 @@ appendJL path ev = liftIO $ do
 
 -- | Monad for things that can log Json log events.
 class Monad m => MonadJL m where
-  jlLog :: JLEvent -> m ()
+    jlLog :: JLEvent -> m ()
 
-instance MonadJL m => MonadJL (ReaderT s m) where
+    default jlLog :: (MonadTrans t, MonadJL m', t m' ~ m) => JLEvent -> m ()
     jlLog = lift . jlLog
 
-instance MonadJL m => MonadJL (StateT s m) where
-    jlLog = lift . jlLog
+instance {-# OVERLAPPABLE #-}
+    (MonadJL m, MonadTrans t, Monad (t m)) =>
+        MonadJL (t m)

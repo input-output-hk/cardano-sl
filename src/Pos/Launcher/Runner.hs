@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP                 #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Runners in various modes.
@@ -10,10 +11,6 @@ module Pos.Launcher.Runner
        , runStatsMode
        , runServiceMode
 
-       --  -- * Service runners
-       , runTimeSlaveReal
-       , runTimeLordReal
-
        -- * Exported for custom usage in CLI utils
        , addDevListeners
        , setupLoggers
@@ -21,92 +18,88 @@ module Pos.Launcher.Runner
        , runServer
        , runServer_
        , loggerBracket
-       , createTransport
+       , createTransportTCP
        , bracketTransport
        , bracketResources
+       , bracketResourcesKademlia
        , RealModeResources(..)
        ) where
 
 import           Control.Concurrent.STM      (newEmptyTMVarIO, newTBQueueIO)
 import           Control.Lens                (each, to, _tail)
 import           Control.Monad.Fix           (MonadFix)
-import qualified Data.ByteString.Char8       as BS8
 import           Data.Default                (def)
-import           Data.Tagged                 (proxy, untag)
+import qualified Data.Set                    as Set (fromList)
+import           Data.Tagged                 (untag)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (CurrentTime, Mockable, MonadMockable,
-                                              Production (..), Throw, bracket,
-                                              currentTime, delay, finally, fork,
-                                              killThread, throw)
+                                              Production (..), Throw, bracket, finally,
+                                              throw)
 import           Network.QDisc.Fair          (fairQDisc)
-import           Network.Transport           (Transport, closeTransport)
+import           Network.Transport.Abstract  (Transport, closeTransport)
 import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
 import           Node                        (Node, NodeAction (..),
                                               defaultNodeEnvironment, hoistSendActions,
                                               node, simpleNodeEndPoint)
 import           Node.Util.Monitor           (setupMonitor, stopMonitor)
-import           Serokell.Util               (sec)
 import qualified STMContainers.Map           as SM
 import           System.Random               (newStdGen)
 import           System.Wlog                 (LoggerConfig (..), WithLogger, logError,
-                                              logInfo, logWarning, mapperB, productionB,
-                                              releaseAllHandlers, setupLogging,
-                                              usingLoggerName)
+                                              logInfo, productionB, releaseAllHandlers,
+                                              setupLogging, usingLoggerName)
 import           Universum                   hiding (bracket, finally)
 
 import           Pos.Binary                  ()
 import           Pos.CLI                     (readLoggerConfig)
-import           Pos.Communication           (ActionSpec (..), BiP (..),
-                                              ConversationActions (..), InSpecs (..),
-                                              ListenersWithOut, OutSpecs (..),
-                                              PeerId (..), SysStartRequest (..),
-                                              SysStartResponse, VerInfo (..),
-                                              allListeners, allStubListeners, convH,
-                                              handleSysStartResp, hoistListenerSpec,
-                                              mergeLs, stubListenerConv,
-                                              stubListenerOneMsg, sysStartReqListener,
-                                              sysStartRespListener, toAction, toOutSpecs,
-                                              unpackLSpecs)
+import           Pos.Communication           (ActionSpec (..), BiP (..), InSpecs (..),
+                                              ListenersWithOut, NodeId, OutSpecs (..),
+                                              PeerId (..), SysStartResponse, VerInfo (..),
+                                              allListeners, hoistListenerSpec, mergeLs,
+                                              stubListenerOneMsg, unpackLSpecs)
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import qualified Pos.Constants               as Const
-import           Pos.Context                 (ContextHolder (..), NodeContext (..),
+import           Pos.Context                 (ContextHolder, NodeContext (..),
                                               runContextHolder)
-import           Pos.Core                    (Timestamp (Timestamp), timestampF)
+import           Pos.Core                    (Timestamp ())
 import           Pos.Crypto                  (createProxySecretKey, encToPublic)
-import           Pos.DB                      (MonadDB (..), runDBHolder)
+import           Pos.DB                      (DBHolder, MonadDB, NodeDBs, runDBHolder)
 import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
 import           Pos.DB.GState               (getTip)
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Holder       (runDelegationT)
-import           Pos.DHT.Model               (MonadDHT (..), converseToNeighbors,
-                                              getMeaningPart)
+import           Pos.DHT.Model               (dhtNodeToNodeId, randomDHTKey)
 import           Pos.DHT.Real                (KademliaDHTInstance,
                                               KademliaDHTInstanceConfig (..),
-                                              runKademliaDHT, startDHTInstance,
+                                              KademliaParams (..), kademliaGetKnownPeers,
+                                              kdiHandle, lookupNode, startDHTInstance,
                                               stopDHTInstance)
+import           Pos.Genesis                 (genesisLeaders, genesisSeed)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
 import           Pos.Lrc.Context             (LrcContext (..), LrcSyncData (..))
 import qualified Pos.Lrc.DB                  as LrcDB
+import           Pos.Lrc.Fts                 (followTheSatoshiM)
 import           Pos.Slotting                (SlottingVar, mkNtpSlottingVar,
                                               runNtpSlotting, runSlottingHolder)
-import           Pos.Ssc.Class               (SscConstraint, SscHelpersClass,
-                                              SscListenersClass, SscNodeContext,
-                                              SscParams, sscCreateNodeContext)
+import           Pos.Ssc.Class               (SscConstraint, SscNodeContext, SscParams,
+                                              sscCreateNodeContext)
 import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp                     (mkTxpLocalData, runTxpHolder)
+import           Pos.Txp.DB                  (genesisFakeTotalStake,
+                                              runBalanceIterBootstrap)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer                (explorerTxpGlobalSettings)
 #else
 import           Pos.Txp                     (txpGlobalSettings)
 #endif
+import           Pos.Launcher.Resources      (RealModeResources (..), hoistResources)
 import           Pos.Update.Context          (UpdateContext (..))
 import qualified Pos.Update.DB               as GState
 import           Pos.Update.MemState         (newMemVar)
-import           Pos.Util                    (mappendPair, runWithRandomIntervalsNow)
+import           Pos.Util                    (mappendPair)
 import           Pos.Util.UserSecret         (usKeys)
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (MinWorkMode, ProductionMode, RawRealMode,
@@ -114,63 +107,6 @@ import           Pos.WorkMode                (MinWorkMode, ProductionMode, RawRe
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
-
-data RealModeResources = RealModeResources
-    { rmTransport :: Transport
-    , rmDHT       :: KademliaDHTInstance
-    }
-
-----------------------------------------------------------------------------
--- Service node runners
-----------------------------------------------------------------------------
-
--- | Runs node as time-slave inside IO monad.
-runTimeSlaveReal
-    :: (SscListenersClass ssc, SscHelpersClass ssc)
-    => Proxy ssc -> RealModeResources -> BaseParams -> Production Timestamp
-runTimeSlaveReal sscProxy res bp = do
-    mvar <- liftIO newEmptyMVar
-    runServiceMode res bp (listeners mvar) outs . toAction $ \sendActions ->
-      case Const.isDevelopment of
-         True -> do
-           tId <- fork $ do
-             delay (sec 5)
-             runWithRandomIntervalsNow (sec 10) (sec 60) $ liftIO (tryReadMVar mvar) >>= \case
-                 Nothing -> do
-                    logInfo "Asking neighbors for system start"
-                    converseToNeighbors sendActions $ \peerId conv -> do
-                        send conv SysStartRequest
-                        mResp <- recv conv
-                        whenJust mResp $ handleSysStartResp' mvar peerId sendActions
-                 Just _ -> fail "Close thread"
-           t <- liftIO $ takeMVar mvar
-           killThread tId
-           t <$ logInfo (sformat ("[Time slave] adopted system start " % timestampF) t)
-         False -> logWarning "Time slave launched in Production" $>
-           error "Time slave in production, rly?"
-  where
-    outs = sysStartOuts
-              <> toOutSpecs [ convH (Proxy :: Proxy SysStartRequest)
-                                    (Proxy :: Proxy SysStartResponse)]
-    (handleSysStartResp', sysStartOuts) = handleSysStartResp
-    listeners mvar =
-      if Const.isDevelopment
-         then second (`mappend` sysStartOuts) $
-                proxy allStubListeners sscProxy `mappendPair`
-                  mergeLs [ stubListenerConv (Proxy :: Proxy (SysStartRequest, SysStartResponse))
-                          , sysStartRespListener mvar
-                          ]
-         else proxy allStubListeners sscProxy
-
--- | Runs time-lord to acquire system start.
-runTimeLordReal :: LoggingParams -> Production Timestamp
-runTimeLordReal LoggingParams{..} = do
-    t <- Timestamp <$> currentTime
-    usingLoggerName lpRunnerTag (doLog t) $> t
-  where
-    doLog t = do
-        realTime <- liftIO Time.getZonedTime
-        logInfo (sformat ("[Time lord] System start: " %timestampF%", i. e.: "%shown) t realTime)
 
 ----------------------------------------------------------------------------
 -- High level runners
@@ -180,20 +116,21 @@ runTimeLordReal LoggingParams{..} = do
 runRawRealMode
     :: forall ssc a.
        SscConstraint ssc
-    => RealModeResources
+    => PeerId
+    -> RealModeResources (RawRealMode ssc)
     -> NodeParams
     -> SscParams ssc
     -> RawRealMode ssc (ListenersWithOut (RawRealMode ssc))
     -> OutSpecs
     -> ActionSpec (RawRealMode ssc) a
     -> Production a
-runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec action) =
+runRawRealMode peerId res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec action) =
     usingLoggerName lpRunnerTag $ do
        initNC <- untag @ssc sscCreateNodeContext sscnp
        modernDBs <- openNodeDBs npRebuildDb npDbPathM
-       let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc)
+       let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc) :: Int
        -- TODO [CSL-775] ideally initialization logic should be in scenario.
-       runDBHolder modernDBs . runCH @ssc allWorkersNum np initNC $ initNodeDBs
+       runCH @ssc allWorkersNum np initNC modernDBs $ initNodeDBs
        initTip <- runDBHolder modernDBs getTip
        stateM <- liftIO SM.newIO
        stateM_ <- liftIO SM.newIO
@@ -205,14 +142,12 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
        let runIO :: forall t . RawRealMode ssc t -> IO t
            runIO = runProduction .
                        usingLoggerName lpRunnerTag .
-                       runDBHolder modernDBs .
-                       runCH @ssc allWorkersNum np initNC .
+                       runCH @ssc allWorkersNum np initNC modernDBs .
                        runSlottingHolder slottingVar .
                        runNtpSlotting ntpSlottingVar .
                        ignoreSscHolder .
                        runTxpHolder txpVar .
                        runDelegationT def .
-                       runKademliaDHT (rmDHT res) .
                        runPeerStateHolder stateM_
 
        let startMonitoring node' = case lpEkgPort of
@@ -221,16 +156,14 @@ runRawRealMode res np@NodeParams {..} sscnp listeners outSpecs (ActionSpec actio
 
        let stopMonitoring it = whenJust it stopMonitor
 
-       runDBHolder modernDBs .
-          runCH allWorkersNum np initNC .
+       runCH allWorkersNum np initNC modernDBs .
           runSlottingHolder slottingVar .
           runNtpSlotting ntpSlottingVar .
           (mkStateAndRunSscHolder @ssc) .
           runTxpHolder txpVar .
           runDelegationT def .
-          runKademliaDHT (rmDHT res) .
           runPeerStateHolder stateM .
-          runServer (rmTransport res) listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
+          runServer peerId (rmTransport res) listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
               \vI sa -> nodeStartMsg npBaseParams >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
@@ -243,31 +176,31 @@ mkSlottingVar sysStart = do
 
 -- | ServiceMode runner.
 runServiceMode
-    :: RealModeResources
+    :: PeerId
+    -> RealModeResources ServiceMode
     -> BaseParams
     -> ListenersWithOut ServiceMode
     -> OutSpecs
     -> ActionSpec ServiceMode a
     -> Production a
-runServiceMode res bp@BaseParams {..} listeners outSpecs (ActionSpec action) = do
+runServiceMode peerId res bp@BaseParams {..} listeners outSpecs (ActionSpec action) = do
     stateM <- liftIO SM.newIO
     usingLoggerName (lpRunnerTag bpLoggingParams) .
-        runKademliaDHT (rmDHT res) .
         runPeerStateHolder stateM .
-        runServer_ (rmTransport res) listeners outSpecs . ActionSpec $ \vI sa ->
+        runServer_ peerId (rmTransport res) listeners outSpecs . ActionSpec $ \vI sa ->
         nodeStartMsg bp >> action vI sa
 
 runServer
-    :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
-    => Transport
+    :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
+    => PeerId
+    -> Transport m
     -> m (ListenersWithOut m)
     -> OutSpecs
     -> (Node m -> m t)
     -> (t -> m ())
     -> ActionSpec m b
     -> m b
-runServer transport packedLS_M (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
-    ourPeerId <- PeerId . getMeaningPart <$> currentNodeKey
+runServer peerId transport packedLS_M (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
     packedLS  <- packedLS_M
     let (listeners', InSpecs ins, OutSpecs outs) = unpackLSpecs packedLS
         ourVerInfo =
@@ -275,16 +208,16 @@ runServer transport packedLS_M (OutSpecs wouts) withNode afterNode (ActionSpec a
         listeners = listeners' ourVerInfo
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo "%build) ourVerInfo
-    node (simpleNodeEndPoint (concrete transport)) stdGen BiP (ourPeerId, ourVerInfo) defaultNodeEnvironment $ \__node ->
+    node (simpleNodeEndPoint transport) stdGen BiP (peerId, ourVerInfo) defaultNodeEnvironment $ \__node ->
         NodeAction listeners $ \sendActions -> do
             t <- withNode __node
             action ourVerInfo sendActions `finally` afterNode t
 
 runServer_
-    :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m, MonadDHT m)
-    => Transport -> ListenersWithOut m -> OutSpecs -> ActionSpec m b -> m b
-runServer_ transport packedLS outSpecs =
-    runServer transport (pure packedLS) outSpecs acquire release
+    :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
+    => PeerId -> Transport m -> ListenersWithOut m -> OutSpecs -> ActionSpec m b -> m b
+runServer_ peerId transport packedLS outSpecs =
+    runServer peerId transport (pure packedLS) outSpecs acquire release
   where
     acquire = const pass
     release = const pass
@@ -293,18 +226,19 @@ runServer_ transport packedLS outSpecs =
 runProductionMode
     :: forall ssc a.
        (SscConstraint ssc)
-    => RealModeResources
+    => PeerId
+    -> RealModeResources (ProductionMode ssc)
     -> NodeParams
     -> SscParams ssc
     -> (ActionSpec (ProductionMode ssc) a, OutSpecs)
     -> Production a
-runProductionMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
-    runRawRealMode res np sscnp listeners outSpecs . ActionSpec $
+runProductionMode peerId res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
+    runRawRealMode peerId (hoistResources getNoStatsT res) np sscnp listeners outSpecs . ActionSpec $
         \vI sendActions -> getNoStatsT . action vI $ hoistSendActions lift getNoStatsT sendActions
   where
-    listeners = addDevListeners npSystemStart <$> commonListeners
+    listeners = addDevListeners <$> commonListeners
     commonListeners = getNoStatsT $
-        first (hoistListenerSpec getNoStatsT lift <$>) <$> allListeners
+        first (hoistListenerSpec getNoStatsT lift <$>) <$> allListeners (rmGetPeers res)
 
 -- | StatsMode runner.
 -- [CSL-169]: spawn here additional listener, which would accept stat queries
@@ -312,17 +246,18 @@ runProductionMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
 runStatsMode
     :: forall ssc a.
        (SscConstraint ssc)
-    => RealModeResources
+    => PeerId
+    -> RealModeResources (StatsMode ssc)
     -> NodeParams
     -> SscParams ssc
     -> (ActionSpec (StatsMode ssc) a, OutSpecs)
     -> Production a
-runStatsMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
+runStatsMode peerId res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
     statMap <- liftIO SM.newIO
-    let listeners = addDevListeners npSystemStart <$> commonListeners
+    let listeners = addDevListeners <$> commonListeners
         commonListeners = runStatsT' statMap $
-            first (hoistListenerSpec (runStatsT' statMap) lift <$>) <$> allListeners
-    runRawRealMode res np sscnp listeners outSpecs . ActionSpec $
+            first (hoistListenerSpec (runStatsT' statMap) lift <$>) <$> allListeners (rmGetPeers res)
+    runRawRealMode peerId (hoistResources (runStatsT' statMap) res) np sscnp listeners outSpecs . ActionSpec $
         \vI sendActions -> do
             runStatsT' statMap . action vI $ hoistSendActions lift (runStatsT' statMap) sendActions
 
@@ -330,22 +265,22 @@ runStatsMode res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
 -- Lower level runners
 ----------------------------------------------------------------------------
 
-runCH :: forall ssc m a . (SscConstraint ssc, MonadDB m, Mockable CurrentTime m)
-      => Int -> NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
-runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
+runCH :: forall ssc m a . (SscConstraint ssc, MonadIO m, MonadCatch m, Mockable CurrentTime m)
+      => Int -> NodeParams -> SscNodeContext ssc -> NodeDBs -> DBHolder (ContextHolder ssc m) a -> m a
+runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     ncJLFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     ncBlkSemaphore <- liftIO newEmptyMVar
     ucUpdateSemaphore <- liftIO newEmptyMVar
 
     -- TODO [CSL-775] lrc initialization logic is duplicated.
-    epochDef <- LrcDB.getEpochDefault
+    epochDef <- runDBHolder db LrcDB.getEpochDefault
     lcLrcSync <- liftIO $ newTVarIO (LrcSyncData True epochDef)
 
     let eternity = (minBound, maxBound)
         makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . encToPublic
         ownPSKs = npUserSecret ^.. usKeys._tail.each.to makeOwnPSK
-    forM_ ownPSKs addProxySecretKey
+    runDBHolder db $ forM_ ownPSKs addProxySecretKey
 
     ncUserSecret <- liftIO . newTVarIO $ npUserSecret
     ncBlockRetrievalQueue <- liftIO $
@@ -358,10 +293,18 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
     ncShutdownNotifyQueue <- liftIO $ newTBQueueIO allWorkersNum
     ncStartTime <- liftIO Time.getCurrentTime
     ncLastKnownHeader <- liftIO $ newTVarIO Nothing
+    ncGenesisLeaders <- if Const.isDevelopment
+                        then pure $ genesisLeaders npCustomUtxo
+                        else runBalanceIterBootstrap $
+                             followTheSatoshiM genesisSeed genesisFakeTotalStake
     ucMemState <- newMemVar
+    -- TODO synchronize the NodeContext peers var with whatever system populates
+    -- it.
+    peersVar <- liftIO . newTVarIO $ mempty
     let ctx =
             NodeContext
-            { ncSscContext = sscNodeContext
+            { ncConnectedPeers = peersVar
+            , ncSscContext = sscNodeContext
             , ncLrcContext = LrcContext {..}
             , ncUpdateContext = UpdateContext {..}
             , ncNodeParams = params
@@ -372,7 +315,7 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
             , ncTxpGlobalSettings = txpGlobalSettings
 #endif
             , .. }
-    runContextHolder ctx act
+    runContextHolder ctx (runDBHolder db act)
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -381,19 +324,15 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
 nodeStartMsg :: WithLogger m => BaseParams -> m ()
 nodeStartMsg BaseParams {..} = logInfo msg
   where
-    msg = sformat ("Started node, joining to DHT network " %build) bpDHTPeers
+    msg = sformat ("Started node.")
 
 getRealLoggerConfig :: MonadIO m => LoggingParams -> m LoggerConfig
 getRealLoggerConfig LoggingParams{..} = do
     -- TODO: introduce Maybe FilePath builder for filePrefix
     let cfgBuilder = productionB <>
-                     mapperB dhtMapper <>
                      (mempty { _lcFilePrefix = lpHandlerPrefix })
     cfg <- readLoggerConfig lpConfigPath
     pure $ cfg <> cfgBuilder
-  where
-    dhtMapper name | name == "dht" = dhtLoggerName (Proxy :: Proxy (RawRealMode ssc))
-                   | otherwise     = name
 
 setupLoggers :: MonadIO m => LoggingParams -> m ()
 setupLoggers params = setupLogging =<< getRealLoggerConfig params
@@ -403,61 +342,97 @@ loggerBracket :: LoggingParams -> IO a -> IO a
 loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 
 addDevListeners
-    :: MinWorkMode m => Timestamp
+    :: MinWorkMode m
+    => ListenersWithOut m
     -> ListenersWithOut m
-    -> ListenersWithOut m
-addDevListeners sysStart ls =
+addDevListeners ls =
     if Const.isDevelopment
     then mergeLs [ stubListenerOneMsg (Proxy :: Proxy SysStartResponse)
-                 , sysStartReqListener sysStart] `mappendPair` ls
+                 ] `mappendPair` ls
     else ls
 
 bracketDHTInstance
-    :: BaseParams -> (KademliaDHTInstance -> Production a) -> Production a
-bracketDHTInstance BaseParams {..} action = bracket acquire release action
+    :: BaseParams
+    -> KademliaParams
+    -> (KademliaDHTInstance -> Production a)
+    -> Production a
+bracketDHTInstance BaseParams {..} KademliaParams {..} action = bracket acquire release action
   where
     --withLog = usingLoggerName $ lpRunnerTag bpLoggingParams
     acquire = usingLoggerName (lpRunnerTag bpLoggingParams) (startDHTInstance instConfig)
     release = usingLoggerName (lpRunnerTag bpLoggingParams) . stopDHTInstance
     instConfig =
         KademliaDHTInstanceConfig
-        { kdcKey = bpDHTKey
-        , kdcPort = snd bpIpPort
-        , kdcInitialPeers = ordNub $ bpDHTPeers ++ Const.defaultPeers
-        , kdcExplicitInitial = bpDHTExplicitInitial
-        , kdcDumpPath = bpKademliaDump
+        { kdcKey = kpKey
+        , kdcHost = fst kpNetworkAddress
+        , kdcPort = snd kpNetworkAddress
+        , kdcInitialPeers = ordNub $ kpPeers ++ Const.defaultPeers
+        , kdcExplicitInitial = kpExplicitInitial
+        , kdcDumpPath = kpDump
         }
 
-createTransport
+createTransportTCP
     :: (MonadIO m, WithLogger m, Mockable Throw m)
-    => String -> Word16 -> m Transport
-createTransport ip port = do
+    => TCP.TCPAddr
+    -> m (Transport m)
+createTransportTCP addrInfo = do
     let tcpParams =
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =
                    Just $ fromIntegral Const.networkConnectionTimeout
              , TCP.tcpNewQDisc = fairQDisc $ \_ -> return Nothing
+             -- Will check the peer's claimed host against the observed host
+             -- when new connections are made. This prevents an easy denial
+             -- of service attack.
+             , TCP.tcpCheckPeerHost = True
              })
     transportE <-
-        liftIO $ TCP.createTransport "0.0.0.0" (show port) ((,) ip) tcpParams
+        liftIO $ TCP.createTransport addrInfo tcpParams
     case transportE of
         Left e -> do
             logError $ sformat ("Error creating TCP transport: " % shown) e
             throw e
-        Right transport -> return transport
+        Right transport -> return (concrete transport)
 
-bracketTransport :: BaseParams -> (Transport -> Production a) -> Production a
-bracketTransport BaseParams {..} =
-    bracket
-        (withLog $ createTransport (BS8.unpack $ fst bpIpPort) (snd bpIpPort))
-        (liftIO . closeTransport)
-  where
-    withLog = usingLoggerName $ lpRunnerTag bpLoggingParams
+bracketTransport
+    :: TCP.TCPAddr
+    -> (Transport Production -> Production a)
+    -> Production a
+bracketTransport tcpAddr =
+    bracket (createTransportTCP tcpAddr) (closeTransport)
 
-bracketResources :: BaseParams -> (RealModeResources -> Production a) -> IO a
-bracketResources bp action =
+-- | Bracket a transport and use a static set of peers for discovery.
+bracketResources
+    :: BaseParams
+    -> TCP.TCPAddr
+    -> Set NodeId
+    -> (RealModeResources Production -> Production a)
+    -> IO a
+bracketResources bp tcpAddr staticPeers action =
+    loggerBracket (bpLoggingParams bp) .
+    runProduction $
+        -- Both the DHT and Transport are problematic here:
+        -- 1. We assume you'll want a DHT.
+        -- 2. We assume your transport takes an IP/port.
+        let rmGetPeers = return staticPeers
+            rmFindPeers = return mempty
+        in  bracketTransport tcpAddr $ \rmTransport ->
+                action $ RealModeResources {..}
+
+-- | Bracket a transport and a Kademlia node, using the latter for discovery.
+bracketResourcesKademlia
+    :: BaseParams
+    -> TCP.TCPAddr
+    -> KademliaParams
+    -> (KademliaDHTInstance -> RealModeResources Production -> Production a)
+    -> IO a
+bracketResourcesKademlia bp tcpAddr kp action =
     loggerBracket (bpLoggingParams bp) .
     runProduction .
-    bracketDHTInstance bp $ \rmDHT ->
-    bracketTransport bp $ \rmTransport ->
-        action $ RealModeResources {..}
+    bracketDHTInstance bp kp $ \kademliaInstance ->
+        let rmGetPeers = fmap (Set.fromList . fmap dhtNodeToNodeId) (kademliaGetKnownPeers kademliaInstance)
+            rmFindPeers = do
+              _ <- liftIO (randomDHTKey >>= lookupNode (kdiHandle kademliaInstance))
+              rmGetPeers
+        in  bracketTransport tcpAddr $ \rmTransport ->
+                action kademliaInstance (RealModeResources {..})

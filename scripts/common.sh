@@ -76,7 +76,7 @@ function dht_key {
 
 function peer_config {
   local j=$1
-  echo -n " --peer 127.0.0.1:"`get_port $j`'/'`dht_key $j`
+  echo -n " --kademlia-peer 127.0.0.1:"`get_port $j`'/'`dht_key $j`
 }
 
 function dht_config {
@@ -98,18 +98,19 @@ function dht_config {
   fi
 
   if [[ "$i" != "rand" ]]; then
-    echo -n " --dht-key "`dht_key $i`
+    echo -n " --kademlia-id "`dht_key $i`
   fi
 }
 
 function node_cmd {
   local i=$1
-  local time_lord=$2
-  local dht_cmd=$3
-  local is_stat=$4
-  local stake_distr=$5
-  local wallet_args=$6
-  local kademlia_dump_path=$7
+  local dht_cmd=$2
+  local is_stat=$3
+  local stake_distr=$4
+  local wallet_args=$5
+  local kademlia_dump_path=$6
+  local system_start=$7
+  local peer_id=$8
   local st=''
   local reb=''
   local ssc_algo=''
@@ -122,9 +123,6 @@ function node_cmd {
       keys_args="--keyfile \"secrets/secret-$((i+1)).key\""
   fi
 
-  if [[ $time_lord != "" ]] && [[ $time_lord != 0 ]]; then
-    time_lord=" --time-lord"
-  fi
   if [[ "$SSC_ALGO" != "" ]]; then
     ssc_algo=" --ssc-algo $SSC_ALGO "
   fi
@@ -152,13 +150,17 @@ function node_cmd {
 
   # monitor_port=$((8000+$i))
 
+  echo -n " --address 127.0.0.1:"`get_port $i`
   echo -n " --listen 127.0.0.1:"`get_port $i`
+  echo -n " --kademlia-address 127.0.0.1:"`get_port $i`
   echo -n " $(logs node$i.log) $time_lord $stats"
   echo -n " $stake_distr $ssc_algo "
   echo -n " $web "
   echo -n " $report_server "
   echo -n " $wallet_args "
   echo -n " --kademlia-dump-path  $(dump_path $kademlia_dump_path)"
+  echo -n " --system-start $system_start"
+  echo -n " --peer-id $peer_id"
   # echo -n " --monitor-port $monitor_port +RTS -T -RTS "
   echo ''
 }

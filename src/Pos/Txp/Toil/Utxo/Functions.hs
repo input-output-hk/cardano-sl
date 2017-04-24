@@ -25,7 +25,7 @@ import           Pos.Core.Address          (addressDetailedF, checkPubKeyAddress
                                             checkUnknownAddressType)
 import           Pos.Crypto                (SignTag (SignTxIn), WithHash (..), checkSig,
                                             hash, redeemCheckSig)
-import           Pos.Data.Attributes       (Attributes (attrRemain))
+import           Pos.Data.Attributes       (Attributes (attrRemain), areAttributesKnown)
 import           Pos.Script                (Script (..), isKnownScriptVersion,
                                             txScriptCheck)
 import           Pos.Txp.Core              (Tx (..), TxAttributes, TxAux,
@@ -118,10 +118,13 @@ verifyOutputs VTxContext {..} (UnsafeTx {..}, _, distrs)=
         do (i, (TxOut{..}, d)) <-
                zip [0 :: Int ..] $ toList (NE.zip _txOutputs (getTxDistribution distrs))
            case txOutAddress of
-               PubKeyAddress{} ->
+               PubKeyAddress{..} ->
                    [ ( null d
                      , sformat ("output #"%int%" with pubkey address "%
-                                "has non-empty distribution") i)
+                                build%" has non-empty distribution") i txOutAddress)
+                   , ( areAttributesKnown addrPkAttributes
+                     , sformat ("output #"%int%" with pubkey address "%
+                                build%" has unknown attributes") i txOutAddress)
                    ]
                ScriptAddress{} -> checkDist i d txOutValue
                RedeemAddress{} -> checkDist i d txOutValue
@@ -232,9 +235,8 @@ verifyAttributesAreKnown
     :: (MonadError ToilVerFailure m)
     => TxAttributes -> m ()
 verifyAttributesAreKnown attrs =
-    unless (null remaining) $ throwError $ ToilUnknownAttributes remaining
-  where
-    remaining = attrRemain attrs
+    unless (areAttributesKnown attrs) $
+    throwError $ ToilUnknownAttributes (attrRemain attrs)
 
 -- | Remove unspent outputs used in given transaction, add new unspent
 -- outputs.

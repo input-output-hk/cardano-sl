@@ -1,9 +1,9 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Pos.Wallet.State.State
        ( WalletState
-       , MonadWalletDB (..)
+       , getWalletState
+       , MonadWalletDB
        , WalletModeDB
        , openState
        , openMemState
@@ -21,37 +21,25 @@ module Pos.Wallet.State.State
        , getMaxBlockSize
        ) where
 
-import           Data.Acid                   (EventResult, EventState, QueryEvent)
-import           Data.Time.Units             (Millisecond)
-import           Pos.Communication.PeerState (PeerStateHolder)
-import           Serokell.Data.Memory.Units  (Byte)
+import qualified Control.Monad.Ether.Implicit as Ether
+import           Data.Acid                    (EventResult, EventState, QueryEvent)
+import           Data.Time.Units              (Millisecond)
+import           Serokell.Data.Memory.Units   (Byte)
 import           Universum
 
-import           Pos.DHT.Real.Types          (KademliaDHT (..))
-import           Pos.Txp                     (Tx, Utxo)
-import           Pos.Types                   (HeaderHash)
+import           Pos.Txp                      (Tx, Utxo)
+import           Pos.Types                    (HeaderHash)
 
-import           Pos.Wallet.State.Acidic     (WalletState, closeState, openMemState,
-                                              openState)
-import           Pos.Wallet.State.Acidic     as A
-import           Pos.Wallet.State.Storage    (Block', Storage)
+import           Pos.Wallet.State.Acidic      (WalletState, closeState, openMemState,
+                                               openState)
+import           Pos.Wallet.State.Acidic      as A
+import           Pos.Wallet.State.Storage     (Block', Storage)
 
 -- | MonadWalletDB stands for monad which is able to get web wallet state
-class Monad m => MonadWalletDB m where
-    getWalletState :: m WalletState
+type MonadWalletDB = Ether.MonadReader WalletState
 
--- | Instances for common transformers
-instance MonadWalletDB m => MonadWalletDB (ReaderT r m) where
-    getWalletState = lift getWalletState
-
-instance MonadWalletDB m => MonadWalletDB (StateT s m) where
-    getWalletState = lift getWalletState
-
-instance MonadWalletDB m => MonadWalletDB (PeerStateHolder m) where
-    getWalletState = lift getWalletState
-
-instance MonadWalletDB m => MonadWalletDB (KademliaDHT m) where
-    getWalletState = lift getWalletState
+getWalletState :: MonadWalletDB m => m WalletState
+getWalletState = Ether.ask
 
 -- | Constraint for working with web wallet DB
 type WalletModeDB m = (MonadWalletDB m, MonadIO m)

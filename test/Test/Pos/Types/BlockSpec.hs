@@ -1,6 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 
--- | Specification of Pos.Types.Block.
+-- | Specification of Pos.Types.Block and Pos.Block.Pure.
 
 module Test.Pos.Types.BlockSpec
        ( spec
@@ -12,9 +12,10 @@ import           Universum
 
 import           Pos.Binary            (Bi)
 import           Pos.Block.Arbitrary   as T
+import qualified Pos.Block.Pure        as T
 import           Pos.Crypto            (ProxySecretKey (pskIssuerPk), SecretKey,
-                                        SignTag (SignMainBlock), createProxySecretKey,
-                                        proxySign, sign, toPublic)
+                                        SignTag (..), createProxySecretKey, proxySign,
+                                        sign, toPublic)
 import           Pos.Data.Attributes   (mkAttributes)
 import           Pos.Ssc.Class         (Ssc (..), SscHelpersClass)
 import           Pos.Ssc.GodTossing    (SscGodTossing)
@@ -117,8 +118,10 @@ mainHeaderFormation prevHeader slotId signer body extra =
                  else Left $ curried w
         in (delegateSK, Just $ proxy)
     difficulty = maybe 0 (succ . view T.difficultyL) prevHeader
-    makeSignature toSign (Left psk)  = T.BlockPSignatureEpoch $ proxySign sk psk toSign
-    makeSignature toSign (Right psk) = T.BlockPSignatureSimple $ proxySign sk psk toSign
+    makeSignature toSign (Left psk)  = T.BlockPSignatureEpoch $
+        proxySign SignMainBlockLight sk psk toSign
+    makeSignature toSign (Right psk) = T.BlockPSignatureSimple $
+        proxySign SignMainBlockHeavy sk psk toSign
     signature prevHash p =
         let toSign = T.MainToSign prevHash p slotId difficulty extra
         in maybe (T.BlockSignature (sign SignMainBlock sk toSign))

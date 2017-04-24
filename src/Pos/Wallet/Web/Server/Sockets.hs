@@ -1,6 +1,4 @@
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Module for websockets implementation of Daedalus API.
 -- This implements unidirectional sockets from server to client.
@@ -9,7 +7,8 @@
 module Pos.Wallet.Web.Server.Sockets
        ( WalletWebSockets
        , WebWalletSockets
-       , MonadWalletWebSockets (..)
+       , MonadWalletWebSockets
+       , getWalletWebSockets
        , ConnectionsVar
        , initWSConnection
        , closeWSConnection
@@ -19,38 +18,15 @@ module Pos.Wallet.Web.Server.Sockets
        ) where
 
 import           Control.Concurrent.STM.TVar    (readTVarIO)
-import           Control.Lens                   (iso)
-import           Control.Monad.Trans            (MonadTrans (..))
+import qualified Control.Monad.Ether.Implicit   as Ether
 import           Data.Aeson                     (encode)
-import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
-                                                 MFunctor', Mockable (liftMockable),
-                                                 Promise, SharedAtomicT, SharedExclusiveT,
-                                                 ThreadId, liftMockableWrappedM)
 import           Network.Wai                    (Application)
 import           Network.Wai.Handler.WebSockets (websocketsOr)
 import qualified Network.WebSockets             as WS
-import           Serokell.Util.Lens             (WrappedM (..))
-import           System.Wlog                    (CanLog, HasLoggerName)
 import           Universum
 
 import           Pos.Aeson.ClientTypes          ()
-import           Pos.Communication.PeerState    (WithPeerState)
-import           Pos.Context                    (WithNodeContext)
-import           Pos.DB                         (MonadDB)
-import           Pos.DB.Limits                  (MonadDBLimits)
-import           Pos.Delegation.Class           (MonadDelegation)
-import           Pos.DHT.Model                  (MonadDHT)
-import           Pos.Reporting.MemState         (MonadReportingMem)
-import           Pos.Slotting                   (MonadSlots, MonadSlotsData)
-import           Pos.Txp                        (MonadTxpMem)
-
-import           Pos.Wallet.Context             (WithWalletContext)
-import           Pos.Wallet.KeyStorage          (MonadKeys)
-import           Pos.Wallet.State               (MonadWalletDB)
-import           Pos.Wallet.WalletMode          (MonadBalances, MonadBlockchainInfo,
-                                                 MonadTxHistory, MonadUpdates)
 import           Pos.Wallet.Web.ClientTypes     (NotifyEvent (ConnectionClosed, ConnectionOpened))
-import           Pos.Wallet.Web.State           (MonadWalletWebDB)
 
 -- NODE: for now we are assuming only one client will be used. If there will be need for multiple clients we should extend and hold multiple connections here.
 -- We might add multiple clients when we add user profiles but I am not sure if we are planning on supporting more at all.
@@ -102,50 +78,18 @@ instance WS.WebSocketsData NotifyEvent where
 --------
 
 -- | Holder for web wallet data
-newtype WalletWebSockets m a = WalletWebSockets
-    { getWalletWS :: ReaderT ConnectionsVar m a
-    } deriving (Functor, Applicative, Monad, MonadThrow,
-                MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadWalletDB, MonadDBLimits, WithWalletContext,
-                MonadDHT, MonadSlots, MonadSlotsData,
-                CanLog, MonadKeys, MonadBalances, MonadUpdates,
-                MonadTxHistory, MonadBlockchainInfo, WithNodeContext ssc, WithPeerState,
-                MonadDB, MonadTxpMem x, MonadWalletWebDB, MonadDelegation,
-                MonadReportingMem)
-
-instance Monad m => WrappedM (WalletWebSockets m) where
-    type UnwrappedM (WalletWebSockets m) = ReaderT ConnectionsVar m
-    _WrappedM = iso getWalletWS WalletWebSockets
-
-instance MonadTrans WalletWebSockets where
-    lift = WalletWebSockets . lift
+type WalletWebSockets = Ether.ReaderT ConnectionsVar
 
 -- | MonadWalletWebSockets stands for monad which is able to get web wallet sockets
-class Monad m => MonadWalletWebSockets m where
-    getWalletWebSockets :: m ConnectionsVar
+type MonadWalletWebSockets = Ether.MonadReader ConnectionsVar
 
-instance Monad m => MonadWalletWebSockets (WalletWebSockets m) where
-    getWalletWebSockets = WalletWebSockets ask
-
-type instance ThreadId (WalletWebSockets m) = ThreadId m
-type instance Promise (WalletWebSockets m) = Promise m
-type instance SharedAtomicT (WalletWebSockets m) = SharedAtomicT m
-type instance Counter (WalletWebSockets m) = Counter m
-type instance Distribution (WalletWebSockets m) = Distribution m
-type instance SharedExclusiveT (WalletWebSockets m) = SharedExclusiveT m
-type instance Gauge (WalletWebSockets m) = Gauge m
-type instance ChannelT (WalletWebSockets m) = ChannelT m
-
-instance ( Mockable d m
-         , MFunctor' d (WalletWebSockets m) (ReaderT ConnectionsVar m)
-         , MFunctor' d (ReaderT ConnectionsVar m) m
-         ) => Mockable d (WalletWebSockets m) where
-    liftMockable = liftMockableWrappedM
-
-runWalletWS :: ConnectionsVar -> WalletWebSockets m a -> m a
-runWalletWS conn = flip runReaderT conn . getWalletWS
+getWalletWebSockets :: MonadWalletWebSockets m => m ConnectionsVar
+getWalletWebSockets = Ether.ask
 
 type WebWalletSockets m = (MonadWalletWebSockets m, MonadIO m)
+
+runWalletWS :: ConnectionsVar -> WalletWebSockets m a -> m a
+runWalletWS = flip Ether.runReaderT
 
 notify :: WebWalletSockets m => NotifyEvent -> m ()
 notify msg = getWalletWebSockets >>= flip sendWS msg

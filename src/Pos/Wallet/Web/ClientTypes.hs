@@ -142,7 +142,7 @@ mkCTx
     -> CTx
 mkCTx addr diff THEntry {..} meta =
     -- placeholder, this functionality isn't implemented yet
-    let ctFrom = Nothing in
+    let ctFrom = [] in
     CTx {..}
   where
     ctId = txIdToCTxId _thTxId
@@ -284,7 +284,7 @@ ctTypeMeta f (CTOut meta) = CTOut <$> f meta
 data CTx = CTx
     { ctId            :: !CTxId
     , ctAmount        :: !CCoin -- contains what you'd expect in reasonable cases
-    , ctFrom          :: !(Maybe [(CAddress, CCoin)])
+    , ctFrom          :: ![(CAddress, CCoin)]
     , ctTo            :: ![(CAddress, CCoin)]
     , ctConfirmations :: !Word
     , ctType          :: !CTType -- it includes all "meta data"

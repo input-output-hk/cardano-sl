@@ -400,7 +400,7 @@ instance ToSample CTx where
         sample = CTx
             { ctId            = mkCTxId "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
             , ctAmount        = sampleCoin
-            , ctFrom          = Just [(sampleAddress, sampleCoin)]
+            , ctFrom          = [(sampleAddress, sampleCoin)]
             , ctTo            = [(sampleAddress, sampleCoin)]
             , ctConfirmations = 10
             , ctType          = CTOut ctxMeta

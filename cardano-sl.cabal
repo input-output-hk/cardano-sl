@@ -1038,6 +1038,7 @@ executable cardano-wallet-web-docs
 executable cardano-swagger
   hs-source-dirs:      src/wallet-web-api-swagger
   main-is:             Main.hs
+  other-modules:       Description
   build-depends:       aeson
                      , base
                      , bytestring
@@ -1048,6 +1049,7 @@ executable cardano-swagger
                      , servant-multipart
                      , servant-swagger
                      , servant-swagger-ui
+                     , text
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts

@@ -46,7 +46,3 @@ derive instance eqLanguage :: Eq Language
 languageNativeName :: Language -> String
 languageNativeName English = "English"
 languageNativeName German = "Deutsch"
-
--- commonL :: Lens' Translation Common
--- common =
---   L._Game <<< L.boss <<< L._GameUnit <<< L.health

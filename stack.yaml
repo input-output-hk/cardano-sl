@@ -6,7 +6,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/input-output-hk/cardano-sl
-    commit: 6b595b3a37b7c23ece77edb9c2cf7d14011a4510
+    commit: be7cb65f71e7bd5b34778652009469c4513ecb79
   extra-dep: true
   subdirs:
       - '.'
@@ -15,6 +15,10 @@ packages:
       - infra
       - db
       - lrc
+- location:
+    git: https://github.com/serokell/time-units.git
+    commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
+  extra-dep: true
 - location:
     git: https://github.com/serokell/acid-state.git
     commit: 95fce1dbada62020a0b2d6aa2dd7e88eadd7214b

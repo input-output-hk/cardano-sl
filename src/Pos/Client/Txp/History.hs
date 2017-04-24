@@ -31,7 +31,7 @@ import           Control.Monad.Loops         (unfoldrM)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import qualified Data.DList                  as DL
-import qualified Data.Set                    as S
+import qualified Data.HashSet                as HS
 import           Data.Tagged                 (Tagged (..))
 import           System.Wlog                 (WithLogger)
 
@@ -55,12 +55,12 @@ import           Pos.Explorer                (eTxProcessTransaction)
 import           Pos.Txp                     (txProcessTransaction)
 #endif
 import           Pos.Txp                     (MonadUtxoRead, Tx (..), TxAux,
-                                              TxDistribution, TxId, TxOutAux (..),
-                                              TxWitness, TxpHolder (..), Utxo, UtxoStateT,
-                                              applyTxToUtxo, evalUtxoStateT,
-                                              filterUtxoByAddrs, getLocalTxs,
-                                              runUtxoStateT, topsortTxs, txOutAddress,
-                                              utxoGet)
+                                              TxDistribution, TxId, TxOut (..),
+                                              TxOutAux (..), TxWitness, TxpHolder (..),
+                                              Utxo, UtxoStateT, applyTxToUtxo,
+                                              evalUtxoStateT, filterUtxoByAddrs,
+                                              getLocalTxs, runUtxoStateT, topsortTxs,
+                                              txOutAddress, utxoGet)
 import           Pos.Types                   (Address, Block, ChainDifficulty, HeaderHash,
                                               blockTxas, difficultyL, prevBlockL)
 import           Pos.Util                    (maybeThrow)
@@ -79,19 +79,11 @@ data TxHistoryAnswer = TxHistoryAnswer
 -- Deduction of history
 ----------------------------------------------------------------------
 
--- | Check if given 'Address' is one of the receivers of 'Tx'
-hasReceiver :: Tx -> Set Address -> Set Address
-hasReceiver UnsafeTx {..} addrs =
-    addrs `S.intersection` (S.fromList $ toList (txOutAddress <$> _txOutputs))
-
--- | Given some 'Utxo', check if given 'Address' is one of the senders of 'Tx'
-hasSender :: MonadUtxoRead m => Tx -> Set Address -> m [Address]
-hasSender UnsafeTx {..} addrs =
-  catMaybes <$> mapM fetchWithCorrespondingOutput (toList _txInputs)
-  where fetchWithCorrespondingOutput txIn = runMaybeT $ do
-          inAddr <- MaybeT $ txOutAddress . toaOut <<$>> utxoGet txIn
-          guard (inAddr `S.member` addrs)
-          return inAddr
+-- | For given tx, gives list of source addresses of this tx, with respective 'TxIn's
+getSenders :: MonadUtxoRead m => Tx -> m [Address]
+getSenders UnsafeTx {..} = do
+    utxo <- catMaybes <$> mapM utxoGet (toList _txInputs)
+    return $ txOutAddress . toaOut <$> utxo
 
 -- | Datatype for returning info about tx history
 data TxHistoryEntry = THEntry
@@ -107,26 +99,26 @@ makeLenses ''TxHistoryEntry
 -- | Type of monad used to deduce history
 type TxSelectorT m = UtxoStateT (MaybeT m)
 
--- | Select transactions related to given addresses. `Bool` indicates
--- whether the transaction is outgoing (i. e. is sent from given address)
+-- | Select transactions related to given addresses
 getRelatedTxs
     :: Monad m
     => [Address]
     -> [(WithHash Tx, TxWitness, TxDistribution)]
     -> TxSelectorT m [TxHistoryEntry]
-getRelatedTxs addrs txs =
+getRelatedTxs (HS.fromList -> addrs) txs = do
     lift (MaybeT $ return $ topsortTxs (view _1) txs) >>=
-    mapM step
+        fmap catMaybes . mapM step
   where
-    addrsSet = S.fromList addrs
     step (WithHash tx txId, _wit, dist) = do
-        let incomings = toList (tx `hasReceiver` addrsSet)
-        outgoings <- tx `hasSender` addrsSet
+        incomings <- ordNub <$> getSenders tx
+        let outgoings = toList $ txOutAddress <$> _txOutputs tx
 
         applyTxToUtxo (WithHash tx txId) dist
-        identity %= filterUtxoByAddrs addrs
 
-        return $ THEntry txId tx Nothing incomings outgoings
+        return $ do
+            guard . not . null $
+                HS.fromList (incomings ++ outgoings) `HS.intersection` addrs
+            return $ THEntry txId tx Nothing incomings outgoings
 
 -- | Given a full blockchain, derive address history and Utxo
 -- TODO: Such functionality will still be useful for merging
@@ -196,7 +188,7 @@ instance ( MonadDB m
     getTxHistory = Tagged $ \addrs mInit -> do
         tip <- GS.getTip
 
-        let getGenUtxo = filterUtxoByAddrs addrs . PC.ncGenesisUtxo <$> PC.getNodeContext
+        let getGenUtxo = PC.ncGenesisUtxo <$> PC.getNodeContext
         (bot, genUtxo) <- maybe ((,) <$> GS.getBot <*> getGenUtxo) pure mInit
 
         -- Getting list of all hashes in main blockchain (excluding bottom block - it's genesis anyway)

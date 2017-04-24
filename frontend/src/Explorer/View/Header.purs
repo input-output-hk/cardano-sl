@@ -29,7 +29,7 @@ headerView state =
                     [ P.className "middle-content__search"]
                     [ P.div
                         [ P.className "middle-content__search--wrapper"]
-                        []
+                        [ searchInputView state ]
                     ]
                 , P.div
                     [P.className "right-content__currency"]
@@ -64,6 +64,6 @@ headerView state =
               ]
           , P.div
               [ P.className "explorer-header__wrapper--vbottom"]
-              [ langView state    
+              [ langView state
               ]
         ]

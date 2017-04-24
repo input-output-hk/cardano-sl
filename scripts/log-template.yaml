@@ -1,6 +1,6 @@
 rotation:
-    logLimit: 2097152 # 2MB
-    keepFiles: 7
+    logLimit: 104857600 # 100 MB
+    keepFiles: 20
 severity: Debug
 smart-wallet:
     severity: Error

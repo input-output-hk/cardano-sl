@@ -15,6 +15,7 @@ module Pos.Genesis
        , genesisUtxo
        , genesisDelegation
        , genesisAddresses
+       , genesisSeed
        , genesisBalances
        -- ** Genesis data used in development mode
        , genesisDevKeyPairs

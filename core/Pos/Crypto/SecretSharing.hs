@@ -1,5 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
-
 {-| An implementation of VSS (wrapping over pvss).
     For more details see <https://github.com/input-output-hk/pvss-haskell>.
 -}

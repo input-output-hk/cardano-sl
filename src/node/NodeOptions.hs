@@ -19,7 +19,11 @@ import           Universum                  hiding (show)
 import           Paths_cardano_sl           (version)
 import qualified Pos.CLI                    as CLI
 import           Pos.Constants              (isDevelopment)
-import           Pos.DHT.Model              (DHTKey)
+import           Pos.DHT.Model              (DHTNode, DHTKey)
+import           Pos.DHT.Real.CLI           (dhtNodeOption, dhtKeyOption,
+                                             dhtExplicitInitialOption,
+                                             dhtPeersFileOption,
+                                             dhtNetworkAddressOption)
 import           Pos.Security.CLI           (AttackTarget, AttackType)
 import           Pos.Util.BackupPhrase      (BackupPhrase, backupPhraseWordsNum)
 import           Pos.Util.TimeWarp          (NetworkAddress)
@@ -32,10 +36,20 @@ data Args = Args
     , devVssGenesisI            :: !(Maybe Int)
     , keyfilePath               :: !FilePath
     , backupPhrase              :: !(Maybe BackupPhrase)
-    , ipPort                    :: !NetworkAddress
+    , externalAddress           :: !NetworkAddress
+      -- ^ A node must be addressable on the network.
+    , bindAddress               :: !NetworkAddress
+      -- ^ A node may have a bind address which differs from its external
+      -- address.
     , supporterNode             :: !Bool
+    , dhtNetworkAddress         :: !NetworkAddress
     , dhtKey                    :: !(Maybe DHTKey)
-    , timeLord                  :: !Bool
+      -- ^ The Kademlia key to use. Randomly generated if Nothing is given.
+    , dhtPeersList              :: ![DHTNode]
+      -- ^ A list of initial Kademlia peers to useA.
+    , dhtPeersFile              :: !(Maybe FilePath)
+      -- ^ A file containing a list of Kademlia peers to use.
+    , dhtExplicitInitial        :: !Bool
     , enableStats               :: !Bool
     , jlPath                    :: !(Maybe FilePath)
     , maliciousEmulationAttacks :: ![AttackType]
@@ -92,17 +106,18 @@ argsParser = do
         metavar "PHRASE" <>
         help    (show backupPhraseWordsNum ++
                  "-word phrase to recover the wallet")
-    ipPort <-
-        CLI.ipPortOption ("127.0.0.1", 3000)
+    externalAddress <-
+        CLI.externalNetworkAddressOption Nothing
+    bindAddress <-
+        CLI.listenNetworkAddressOption (Just ("0.0.0.0", 0))
     supporterNode <- switch $
         long "supporter" <>
         help "Launch DHT supporter instead of full node"
-    dhtKey <- optional $ option (fromParsec CLI.dhtKeyParser) $
-        long    "dht-key" <>
-        metavar "HOST_ID" <>
-        help    "DHT key in base64-url"
-    timeLord <-
-        CLI.timeLordOption
+    dhtNetworkAddress <- dhtNetworkAddressOption
+    dhtKey <- optional dhtKeyOption
+    dhtPeersList <- many dhtNodeOption
+    dhtPeersFile <- optional dhtPeersFileOption
+    dhtExplicitInitial <- dhtExplicitInitialOption
     enableStats <- switch $
         long "stats" <>
         help "Enable stats logging"
@@ -149,8 +164,7 @@ argsParser = do
              \all the genesis keys in the set of secret keys)"
 #endif
 #endif
-    commonArgs <-
-        CLI.commonArgsParser peerHelpMsg
+    commonArgs <- CLI.commonArgsParser
     updateLatestPath <- strOption $
         long    "update-latest-path" <>
         metavar "FILEPATH" <>
@@ -166,10 +180,6 @@ argsParser = do
         help    "Run web monitor on this port"
 
     pure Args{..}
-  where
-    peerHelpMsg =
-        "Peer to connect to for initial peer discovery. Format\
-        \ example: \"localhost:1234/dYGuDj0BrJxCsTC9ntJE7ePT7wUoVdQMH3sKLzQD8bo=\""
 
 getNodeOptions :: IO Args
 getNodeOptions = do

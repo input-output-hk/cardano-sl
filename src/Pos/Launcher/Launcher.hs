@@ -13,6 +13,7 @@ module Pos.Launcher.Launcher
 
 import           Mockable                   (Production)
 
+import           Pos.Communication          (PeerId)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec)
 import           Pos.Launcher.Param         (NodeParams (..))
 import           Pos.Launcher.Runner        (RealModeResources, runProductionMode,
@@ -30,20 +31,24 @@ import           Pos.WorkMode               (ProductionMode, StatsMode)
 runNodeProduction
     :: forall ssc.
        SscConstraint ssc
-    => RealModeResources
+    => PeerId
+    -> RealModeResources (ProductionMode ssc)
     -> ([WorkerSpec (ProductionMode ssc)], OutSpecs)
     -> NodeParams
     -> SscParams ssc
     -> Production ()
-runNodeProduction inst plugins np sscnp = runProductionMode inst np sscnp (runNode @ssc plugins)
+runNodeProduction peerId res plugins np sscnp =
+  runProductionMode peerId res np sscnp (runNode @ssc res plugins)
 
 -- | Run full node in benchmarking node
 runNodeStats
     :: forall ssc.
        SscConstraint ssc
-    => RealModeResources
+    => PeerId
+    -> RealModeResources (StatsMode ssc)
     -> ([WorkerSpec (StatsMode ssc)], OutSpecs)
     -> NodeParams
     -> SscParams ssc
     -> Production ()
-runNodeStats inst plugins np sscnp = runStatsMode inst np sscnp (runNode @ssc plugins)
+runNodeStats peerId res plugins np sscnp =
+  runStatsMode peerId res np sscnp (runNode @ssc res plugins)

@@ -1,5 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
-
 -- | Keeps instance of `MonadDBLimits`.
 
 module Pos.Wallet.State.Limits () where

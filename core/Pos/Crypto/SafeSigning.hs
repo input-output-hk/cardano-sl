@@ -29,12 +29,16 @@ import           Universum
 
 import           Pos.Binary.Class      (Bi, Raw)
 import qualified Pos.Binary.Class      as Bi
+import           Pos.Crypto.Hashing    (Hash, hash)
 import           Pos.Crypto.Random     (secureRandomBS)
 import           Pos.Crypto.Signing    (PublicKey (..), SecretKey (..), Signature (..),
                                         sign, toPublic)
 import           Pos.Crypto.SignTag    (SignTag, signTag)
 
-newtype EncryptedSecretKey = EncryptedSecretKey CC.XPrv
+data EncryptedSecretKey = EncryptedSecretKey
+    { eskPayload :: !CC.XPrv
+    , eskHash    :: !(Hash PassPhrase)
+    }
 
 instance Show EncryptedSecretKey where
     show _ = "<encrypted key>"
@@ -55,20 +59,23 @@ instance Buildable PassPhrase where
 emptyPassphrase :: PassPhrase
 emptyPassphrase = PassPhrase mempty
 
+mkEncSecret :: Bi PassPhrase => PassPhrase -> CC.XPrv -> EncryptedSecretKey
+mkEncSecret pp payload = EncryptedSecretKey payload (hash pp)
+
 -- | Generate a public key using an encrypted secret key and passphrase
 encToPublic :: EncryptedSecretKey -> PublicKey
-encToPublic (EncryptedSecretKey sk) = PublicKey (CC.toXPub sk)
+encToPublic (EncryptedSecretKey sk _) = PublicKey (CC.toXPub sk)
 
 -- | Re-wrap unencrypted secret key as an encrypted one
-noPassEncrypt :: SecretKey -> EncryptedSecretKey
-noPassEncrypt (SecretKey k) = EncryptedSecretKey k
+noPassEncrypt :: Bi PassPhrase => SecretKey -> EncryptedSecretKey
+noPassEncrypt (SecretKey k) = mkEncSecret emptyPassphrase k
 
 signRaw' :: Maybe SignTag
          -> PassPhrase
          -> EncryptedSecretKey
          -> ByteString
          -> Signature Raw
-signRaw' mbTag (PassPhrase pp) (EncryptedSecretKey sk) x =
+signRaw' mbTag (PassPhrase pp) (EncryptedSecretKey sk _) x =
     Signature (CC.sign pp sk (tag <> x))
   where
     tag = maybe mempty signTag mbTag
@@ -86,20 +93,23 @@ safeCreateKeypairFromSeed seed (PassPhrase pp) = do
     prv <- CC.generate seed pp
     return (CC.toXPub prv, prv)
 
-safeKeyGen :: MonadIO m => PassPhrase -> m (PublicKey, EncryptedSecretKey)
+safeKeyGen
+    :: (MonadIO m, Bi PassPhrase)
+    => PassPhrase -> m (PublicKey, EncryptedSecretKey)
 safeKeyGen pp = liftIO $ do
     seed <- secureRandomBS 32
     case safeCreateKeypairFromSeed seed pp of
         Nothing -> error "Pos.Crypto.SafeSigning.safeKeyGen:\
                          \ creating keypair from seed failed"
-        Just (pk, sk) -> return (PublicKey pk, EncryptedSecretKey sk)
+        Just (pk, sk) -> return (PublicKey pk, mkEncSecret pp sk)
 
 safeDeterministicKeyGen
-    :: BS.ByteString
+    :: Bi PassPhrase
+    => BS.ByteString
     -> PassPhrase
     -> Maybe (PublicKey, EncryptedSecretKey)
 safeDeterministicKeyGen seed pp =
-    bimap PublicKey EncryptedSecretKey <$> safeCreateKeypairFromSeed seed pp
+    bimap PublicKey (mkEncSecret pp) <$> safeCreateKeypairFromSeed seed pp
 
 -- | SafeSigner datatype to encapsulate sensible data
 data SafeSigner = SafeSigner EncryptedSecretKey PassPhrase
@@ -117,12 +127,15 @@ safeToPublic (FakeSigner sk)   = toPublic sk
 -- we can manually cleanup all IO buffers we use to store passphrase
 -- (when we'll actually use them)
 withSafeSigner
-    :: MonadIO m
+    :: (MonadIO m, Bi PassPhrase)
     => EncryptedSecretKey
     -> m PassPhrase
-    -> (SafeSigner -> m a)
+    -> (Maybe SafeSigner -> m a)
     -> m a
-withSafeSigner sk ppGetter action = ppGetter >>= action . SafeSigner sk
+withSafeSigner sk ppGetter action = do
+    pp <- ppGetter
+    let mss = guard (hash pp == eskHash sk) $> SafeSigner sk pp
+    action mss
 
 -- | We need this to be able to perform signing with unencrypted `SecretKey`s,
 -- where `SafeSigner` is required

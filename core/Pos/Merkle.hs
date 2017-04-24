@@ -1,5 +1,4 @@
 {-# LANGUAGE NamedFieldPuns       #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Merkle tree implementation.
 --

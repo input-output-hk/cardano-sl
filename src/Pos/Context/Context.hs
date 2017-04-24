@@ -1,4 +1,5 @@
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE TemplateHaskell           #-}
 
 -- | Runtime context of node.
 
@@ -6,35 +7,38 @@ module Pos.Context.Context
        ( NodeContext (..)
        , ncPublicKey
        , ncPubKeyAddress
-       , ncGenesisLeaders
        , ncGenesisUtxo
        , ncSystemStart
        , NodeParams(..)
        , BaseParams(..)
        ) where
 
-import           Control.Concurrent.STM  (TBQueue)
-import qualified Control.Concurrent.STM  as STM
-import           Data.Time.Clock         (UTCTime)
-import           System.Wlog             (LoggerConfig)
+import           Control.Concurrent.STM        (TBQueue)
+import qualified Control.Concurrent.STM        as STM
+import           Control.Lens                  (lens, makeLensesFor)
+import           Data.Time.Clock               (UTCTime)
+import           System.Wlog                   (LoggerConfig)
 import           Universum
 
-import           Pos.Communication.Relay (RelayInvQueue)
-import           Pos.Communication.Types (NodeId)
-import           Pos.Crypto              (PublicKey, toPublic)
-import           Pos.Genesis             (genesisLeaders)
-import           Pos.Launcher.Param      (BaseParams (..), NodeParams (..))
-import           Pos.Lrc.Context         (LrcContext)
-import           Pos.Ssc.Class.Types     (Ssc (SscNodeContext))
-import           Pos.Txp.Settings        (TxpGlobalSettings)
-import           Pos.Txp.Toil.Types      (Utxo)
-import           Pos.Types               (Address, BlockHeader, HeaderHash, SlotLeaders,
-                                          Timestamp, makePubKeyAddress)
-import           Pos.Update.Context      (UpdateContext)
-import           Pos.Update.Params       (UpdateParams)
-import           Pos.Util.Chrono         (NE, NewestFirst)
-import           Pos.Util.Context        (ExtractContext (..))
-import           Pos.Util.UserSecret     (UserSecret)
+import           Pos.Communication.Relay       (RelayInvQueue)
+import           Pos.Communication.Relay.Types (RelayContext (..))
+import           Pos.Communication.Types       (NodeId)
+import           Pos.Crypto                    (PublicKey, toPublic)
+import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..))
+import           Pos.Lrc.Context               (LrcContext)
+import           Pos.Reporting.MemState        (ReportingContext (..), rcLoggingConfig,
+                                                rcReportServers)
+import           Pos.Shutdown.Types            (ShutdownContext (..))
+import           Pos.Ssc.Class.Types           (Ssc (SscNodeContext))
+import           Pos.Txp.Settings              (TxpGlobalSettings)
+import           Pos.Txp.Toil.Types            (Utxo)
+import           Pos.Types                     (Address, BlockHeader, HeaderHash,
+                                                SlotLeaders, Timestamp, makePubKeyAddress)
+import           Pos.Update.Context            (UpdateContext)
+import           Pos.Update.Params             (UpdateParams)
+import           Pos.Util.Chrono               (NE, NewestFirst)
+import           Pos.Util.Context              (ContextPart (..))
+import           Pos.Util.UserSecret           (UserSecret)
 
 ----------------------------------------------------------------------------
 -- NodeContext
@@ -93,16 +97,72 @@ data NodeContext ssc = NodeContext
     -- (status in Daedalus). It's easy to falsify this value.
     , ncTxpGlobalSettings   :: !TxpGlobalSettings
     -- ^ Settings for global Txp.
+    , ncGenesisLeaders      :: !SlotLeaders
+    -- ^ Leaders of the first epoch
+    , ncConnectedPeers      :: !(STM.TVar (Set NodeId))
+    -- ^ Set of peers that we're connected to.
     }
 
-instance ExtractContext UpdateContext (NodeContext ssc) where
-    extractContext = ncUpdateContext
-instance ExtractContext LrcContext (NodeContext ssc) where
-    extractContext = ncLrcContext
-instance ExtractContext NodeParams (NodeContext ssc) where
-    extractContext = ncNodeParams
-instance ExtractContext UpdateParams (NodeContext ssc) where
-    extractContext = npUpdateParams . ncNodeParams
+makeLensesFor
+  [ ("ncUpdateContext", "ncUpdateContextL")
+  , ("ncLrcContext", "ncLrcContextL")
+  , ("ncNodeParams", "ncNodeParamsL")
+  , ("ncInvPropagationQueue", "ncInvPropagationQueueL")
+  , ("ncShutdownFlag", "ncShutdownFlagL")
+  , ("ncLoggerConfig", "ncLoggerConfigL")
+  , ("ncShutdownNotifyQueue", "ncShutdownNotifyQueueL") ]
+  ''NodeContext
+
+makeLensesFor
+  [ ("npUpdateParams", "npUpdateParamsL")
+  , ("npReportServers", "npReportServersL")
+  , ("npPropagation", "npPropagationL") ]
+  ''NodeParams
+
+instance ContextPart (NodeContext ssc) UpdateContext where
+    contextPart = ncUpdateContextL
+
+instance ContextPart (NodeContext ssc) LrcContext where
+    contextPart = ncLrcContextL
+
+instance ContextPart (NodeContext ssc) NodeParams where
+    contextPart = ncNodeParamsL
+
+instance ContextPart (NodeContext ssc) UpdateParams where
+    contextPart = ncNodeParamsL . npUpdateParamsL
+
+instance ContextPart (NodeContext ssc) ReportingContext where
+    contextPart = lens getter (flip setter)
+      where
+        getter nc =
+            ReportingContext
+                (nc ^. ncNodeParamsL . npReportServersL)
+                (nc ^. ncLoggerConfigL)
+        setter rc =
+            set (ncNodeParamsL . npReportServersL) (rc ^. rcReportServers) .
+            set ncLoggerConfigL (rc ^. rcLoggingConfig)
+
+instance ContextPart (NodeContext ssc) RelayContext where
+    contextPart = lens getter (flip setter)
+      where
+        getter nc =
+            RelayContext
+                (nc ^. ncNodeParamsL . npPropagationL)
+                (nc ^. ncInvPropagationQueueL)
+        setter rc =
+            set (ncNodeParamsL . npPropagationL) (_rlyIsPropagation rc) .
+            set ncInvPropagationQueueL (_rlyPropagationQueue rc)
+
+instance ContextPart (NodeContext ssc) ShutdownContext where
+    contextPart = lens getter (flip setter)
+      where
+        getter nc =
+            ShutdownContext
+                (nc ^. ncShutdownFlagL)
+                (nc ^. ncShutdownNotifyQueueL)
+        setter sc =
+            set ncShutdownFlagL (_shdnIsTriggered sc) .
+            set ncShutdownNotifyQueueL (_shdnNotifyQueue sc)
 
 ----------------------------------------------------------------------------
 -- Helper functions
@@ -118,9 +178,6 @@ ncPubKeyAddress = makePubKeyAddress . ncPublicKey
 
 ncGenesisUtxo :: NodeContext ssc -> Utxo
 ncGenesisUtxo = npCustomUtxo . ncNodeParams
-
-ncGenesisLeaders :: NodeContext ssc -> SlotLeaders
-ncGenesisLeaders = genesisLeaders . ncGenesisUtxo
 
 ncSystemStart :: NodeContext __ -> Timestamp
 ncSystemStart = npSystemStart . ncNodeParams

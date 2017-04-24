@@ -77,7 +77,6 @@ import           Data.Data                  (Data)
 import           Data.Default               (Default (..))
 import           Data.Hashable              (Hashable)
 import           Data.Ix                    (Ix)
-import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import qualified Data.Text                  as T
 import qualified Data.Text.Buildable        as Buildable
 import           Data.Time.Units            (Millisecond)
@@ -418,11 +417,5 @@ instance Hashable Script
 instance Buildable Script where
     build Script{..} = bprint ("<script v"%int%">") scrVersion
 
-deriveSafeCopySimple 0 'base ''Script
-
 -- | Deserialized script (i.e. an AST), version 0.
 type Script_v0 = PLCore.Program
-
-deriveSafeCopySimple 0 'base ''ApplicationName
-deriveSafeCopySimple 0 'base ''BlockVersion
-deriveSafeCopySimple 0 'base ''SoftwareVersion

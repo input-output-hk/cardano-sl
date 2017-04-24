@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
 
@@ -86,9 +85,8 @@ serveImpl application host port =
 
 type WebHandler ssc =
     TxpHolder TxpExtra_TMP (
-    ContextHolder ssc (
-    DB.DBHolder
-    Production
+    DB.DBHolder (
+    ContextHolder ssc Production
     ))
 
 convertHandler
@@ -100,8 +98,8 @@ convertHandler
     -> Handler a
 convertHandler nc nodeDBs wrap handler =
     liftIO (runProduction .
-            DB.runDBHolder nodeDBs .
             runContextHolder nc .
+            DB.runDBHolder nodeDBs .
             runTxpHolder wrap $
             handler)
     `Catch.catches`

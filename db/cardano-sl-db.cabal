@@ -31,17 +31,20 @@ library
                      , cardano-sl-core
                      , concurrent-extra
                      , data-default
+                     , ether
                      , formatting
                      , lens
                      , log-warper
-                     , monad-control
+                     , mmorph
                      , mtl
                      , node-sketch
                      , resourcet
                      , rocksdb
                      , serokell-util
-                     , transformers-base
                      , text-format
+                     , transformers
+                     , transformers-base
+                     , transformers-lift
                      , universum
 
   default-language:    Haskell2010
@@ -63,6 +66,8 @@ library
                        ViewPatterns
                        LambdaCase
                        MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
 
   ghc-options:         -Wall
                        -fno-warn-orphans

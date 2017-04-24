@@ -10,7 +10,8 @@ import           Prelude                 ((!!))
 import           Test.Hspec              (Expectation, Spec, describe, it, shouldBe,
                                           specify)
 import           Test.Hspec.QuickCheck   (prop)
-import           Test.QuickCheck         (Arbitrary (..), Property, vector, (===), (==>))
+import           Test.QuickCheck         (Arbitrary (..), Property, ioProperty, property,
+                                          vector, (===), (==>))
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 import           Universum
 
@@ -68,6 +69,14 @@ spec = describe "Crypto" $ do
                     "12dd0a6a7d0e222a97926da03adb5a7768d31cc7c5c2bd6828e14a7d25fa3a60" -- Blake2b_256
 
     describe "Signing" $ do
+        describe "SafeSigning" $ do
+            prop
+                "passphrase matches"
+                matchingPassphraseWorks
+            prop
+                "passphrase doesn't match"
+                mismatchingPassphraseFails
+
         describe "Identity testing" $ do
             describe "Bi instances" $ do
                 binaryTest @Crypto.SecretKey
@@ -534,3 +543,17 @@ recoverSecBadThreshold SharedSecrets {..} rnd =
     -- badThreshold is in ]actualThreshold, actualThreshold * 2]
     badThreshold = maxThreshold + (succ . abs $ rnd `mod` maxThreshold)
     triplesList = zipWith (\(a,c) b -> (a,b,c)) ssShares ssVSSPKs
+
+matchingPassphraseWorks :: Crypto.PassPhrase -> Property
+matchingPassphraseWorks passphrase = ioProperty $ do
+    (_, key) <- Crypto.safeKeyGen passphrase
+    Crypto.withSafeSigner key (return passphrase) (return . isJust)
+
+mismatchingPassphraseFails
+    :: Crypto.PassPhrase
+    -> Crypto.PassPhrase
+    -> Property
+mismatchingPassphraseFails genPass signPass = ioProperty $ do
+    (_, key) <- Crypto.safeKeyGen genPass
+    Crypto.withSafeSigner key (return signPass) $ \signer ->
+        return $ genPass /= signPass ==> property (isNothing signer)

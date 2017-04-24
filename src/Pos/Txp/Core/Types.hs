@@ -1,6 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Core types of Txp component, i. e. types which actually form
 -- block or are used by other components.
@@ -206,18 +205,19 @@ type TxAux = (Tx, TxWitness, TxDistribution)
 
 instance Hashable Tx
 
-instance Buildable Tx where
-    build UnsafeTx {..} =
+instance Bi Tx => Buildable Tx where
+    build tx@(UnsafeTx{..}) =
         bprint
-            ("Transaction with inputs "%listJson%", outputs: "%listJson)
-            _txInputs _txOutputs
+            ("Tx "%build%
+             " with inputs "%listJson%", outputs: "%listJson)
+            (hash tx) _txInputs _txOutputs
 
 -- | Specialized formatter for 'Tx'.
-txF :: Format r (Tx -> r)
+txF :: Bi Tx => Format r (Tx -> r)
 txF = build
 
 -- | Specialized formatter for 'Tx' with auxiliary data
-txaF :: Format r (TxAux -> r)
+txaF :: Bi Tx => Format r (TxAux -> r)
 txaF = later $ \(tx, w, d) ->
     bprint (build%"\n"%
             "witnesses: "%listJsonIndent 4%"\n"%

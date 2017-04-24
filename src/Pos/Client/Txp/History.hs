@@ -1,10 +1,9 @@
-{-# LANGUAGE CPP                  #-}
-{-# LANGUAGE InstanceSigs         #-}
-{-# LANGUAGE RankNTypes           #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE InstanceSigs        #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 module Pos.Client.Txp.History
        ( TxHistoryEntry(..)
@@ -25,43 +24,38 @@ module Pos.Client.Txp.History
 
 import           Universum
 
-import           Control.Lens                (makeLenses, (%=))
-import           Control.Monad.Loops         (unfoldrM)
-import           Control.Monad.Trans         (MonadTrans)
-import           Control.Monad.Trans.Maybe   (MaybeT (..))
-import qualified Data.DList                  as DL
-import           Data.Tagged                 (Tagged (..))
-import           System.Wlog                 (WithLogger)
+import           Control.Lens              (makeLenses, (%=))
+import           Control.Monad.Loops       (unfoldrM)
+import           Control.Monad.Trans       (MonadTrans)
+import           Control.Monad.Trans.Maybe (MaybeT (..))
+import qualified Data.DList                as DL
+import           Data.Tagged               (Tagged (..))
+import           System.Wlog               (WithLogger)
 
-import           Pos.Communication.PeerState (PeerStateHolder)
-import           Pos.Constants               (blkSecurityParam)
-import qualified Pos.Context                 as PC
-import           Pos.Crypto                  (WithHash (..), withHash)
-import           Pos.DB                      (MonadDB)
-import qualified Pos.DB.Block                as DB
-import           Pos.DB.Error                (DBError (..))
-import qualified Pos.DB.GState               as GS
-import           Pos.Delegation              (DelegationT (..))
-import           Pos.DHT.Real                (KademliaDHT (..))
-import           Pos.Slotting                (MonadSlots, NtpSlotting, SlottingHolder)
-import           Pos.Ssc.Class               (SscHelpersClass)
-import           Pos.Ssc.Extra               (SscHolder (..))
-import           Pos.WorkMode                (TxpExtra_TMP)
+import           Pos.Constants             (blkSecurityParam)
+import qualified Pos.Context               as PC
+import           Pos.Crypto                (WithHash (..), withHash)
+import           Pos.DB                    (MonadDB)
+import qualified Pos.DB.Block              as DB
+import           Pos.DB.Error              (DBError (..))
+import qualified Pos.DB.GState             as GS
+import           Pos.Slotting              (MonadSlots)
+import           Pos.Ssc.Class             (SscHelpersClass)
+import           Pos.WorkMode              (TxpExtra_TMP)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer                (eTxProcessTransaction)
+import           Pos.Explorer              (eTxProcessTransaction)
 #else
-import           Pos.Txp                     (txProcessTransaction)
+import           Pos.Txp                   (txProcessTransaction)
 #endif
-import           Pos.Txp                     (MonadUtxoRead, Tx (..), TxAux,
-                                              TxDistribution, TxId, TxOutAux (..),
-                                              TxWitness, TxpHolder (..), Utxo, UtxoStateT,
-                                              applyTxToUtxo, evalUtxoStateT,
-                                              filterUtxoByAddr, getLocalTxs,
-                                              runUtxoStateT, topsortTxs, txOutAddress,
-                                              utxoGet)
-import           Pos.Types                   (Address, Block, ChainDifficulty, HeaderHash,
-                                              blockTxas, difficultyL, prevBlockL)
-import           Pos.Util                    (maybeThrow)
+import           Pos.Txp                   (MonadUtxoRead, Tx (..), TxAux, TxDistribution,
+                                            TxId, TxOutAux (..), TxWitness, TxpHolder,
+                                            Utxo, UtxoStateT, applyTxToUtxo,
+                                            evalUtxoStateT, filterUtxoByAddr, getLocalTxs,
+                                            runUtxoStateT, topsortTxs, txOutAddress,
+                                            utxoGet)
+import           Pos.Types                 (Address, Block, ChainDifficulty, HeaderHash,
+                                            blockTxas, difficultyL, prevBlockL)
+import           Pos.Util                  (ether, maybeThrow)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -125,7 +119,7 @@ getRelatedTxs addr txs = fmap DL.toList $
 
     handleRelatedTx (isOutgoing, isToItself) (tx, txId, dist) = do
         applyTxToUtxo (WithHash tx txId) dist
-        identity %= filterUtxoByAddr addr
+        ether $ identity %= filterUtxoByAddr addr
 
         -- Workaround to present A to A transactions as a pair of
         -- self-cancelling transactions in history
@@ -141,8 +135,9 @@ getRelatedTxs addr txs = fmap DL.toList $
 deriveAddrHistory
     -- :: (Monad m, Ssc ssc) => Address -> [Block ssc] -> TxSelectorT m [TxHistoryEntry]
     :: (Monad m) => Address -> [Block ssc] -> TxSelectorT m [TxHistoryEntry]
-deriveAddrHistory addr chain = identity %= filterUtxoByAddr addr >>
-                               deriveAddrHistoryPartial [] addr chain
+deriveAddrHistory addr chain = do
+    ether $ identity %= filterUtxoByAddr addr
+    deriveAddrHistoryPartial [] addr chain
 
 deriveAddrHistoryPartial
     :: (Monad m)
@@ -180,16 +175,9 @@ class Monad m => MonadTxHistory m where
     default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()
     saveTx = lift . saveTx
 
-instance MonadTxHistory m => MonadTxHistory (ReaderT r m)
-instance MonadTxHistory m => MonadTxHistory (StateT s m)
-instance MonadTxHistory m => MonadTxHistory (KademliaDHT m)
-instance MonadTxHistory m => MonadTxHistory (PeerStateHolder m)
-instance MonadTxHistory m => MonadTxHistory (NtpSlotting m)
-instance MonadTxHistory m => MonadTxHistory (SlottingHolder m)
-
-deriving instance MonadTxHistory m => MonadTxHistory (PC.ContextHolder ssc m)
-deriving instance MonadTxHistory m => MonadTxHistory (SscHolder ssc m)
-deriving instance MonadTxHistory m => MonadTxHistory (DelegationT m)
+instance {-# OVERLAPPABLE #-}
+    (MonadTxHistory m, MonadTrans t, Monad (t m)) =>
+        MonadTxHistory (t m)
 
 instance ( MonadDB m
          , MonadThrow m

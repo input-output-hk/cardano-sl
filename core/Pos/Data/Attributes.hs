@@ -23,7 +23,6 @@ import qualified Data.ByteString     as BS
 import           Data.Default        (Default (..))
 import           Data.DeriveTH       (derive, makeNFData)
 import qualified Data.Map            as M
-import           Data.SafeCopy       (SafeCopy (..), contain, safeGet, safePut)
 import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, int, (%))
@@ -62,17 +61,6 @@ instance Buildable h => Buildable (Attributes h) where
                attrData (BS.length attrRemain)
 
 instance Hashable h => Hashable (Attributes h)
-
-instance SafeCopy h => SafeCopy (Attributes h) where
-    getCopy =
-        contain $
-        do attrData <- safeGet
-           attrRemain <- safeGet
-           return $! Attributes {..}
-    putCopy Attributes {..} =
-        contain $
-        do safePut attrData
-           safePut attrRemain
 
 -- | Generate 'Attributes' reader given mapper from keys to 'Get',
 -- maximum input length and the attribute value 'h' itself.

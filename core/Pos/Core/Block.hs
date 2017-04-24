@@ -1,7 +1,5 @@
-{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Core.Block
        ( Blockchain (..)

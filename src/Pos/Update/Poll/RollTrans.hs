@@ -3,37 +3,29 @@
 -- rollback. Single-threaded.
 
 module Pos.Update.Poll.RollTrans
-       ( RollT (..)
+       ( RollT
        , runRollT
        , execRollT
        ) where
 
-import           Control.Lens              ((%=), (.=))
-import           Control.Monad.Except      (MonadError (..))
-import           Control.Monad.Trans.Class (MonadTrans)
-import           Data.Default              (def)
-import qualified Data.HashMap.Strict       as HM
-import qualified Data.List                 as List (find)
-import           System.Wlog               (CanLog, HasLoggerName)
+import           Control.Lens                 ((%=), (.=))
+import qualified Control.Monad.Ether.Implicit as Ether
+import           Data.Default                 (def)
+import qualified Data.HashMap.Strict          as HM
+import qualified Data.List                    as List (find)
 import           Universum
 
-import           Pos.Crypto                (hash)
+import           Pos.Core.Types               (SoftwareVersion (..))
+import           Pos.Crypto                   (hash)
+import           Pos.Update.Poll.Class        (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Types        (PrevValue, USUndo (..), cpsSoftwareVersion,
+                                               maybeToPrev, psProposal, unChangedBVL,
+                                               unChangedConfPropsL, unChangedPropsL,
+                                               unChangedSVL, unLastAdoptedBVL,
+                                               unPrevProposersL)
+import           Pos.Util                     (ether)
 
-import           Pos.Core.Types            (SoftwareVersion (..))
-import           Pos.Update.Poll.Class     (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types     (PrevValue, USUndo (..), cpsSoftwareVersion,
-                                            maybeToPrev, psProposal, unChangedBVL,
-                                            unChangedConfPropsL, unChangedPropsL,
-                                            unChangedSVL, unLastAdoptedBVL,
-                                            unPrevProposersL)
-
-newtype RollT m a = RollT
-    { getRollT :: StateT USUndo m a
-    } deriving ( Functor, Applicative, Monad, MonadThrow
-               , HasLoggerName, CanLog
-               , MonadTrans, MonadError e)
-
-instance MonadPollRead m => MonadPollRead (RollT m)
+type RollT m = Ether.StateT USUndo m
 
 -- | Monad transformer which stores USUndo and implements writable
 -- MonadPoll. Its purpose is to collect data necessary for rollback.
@@ -41,28 +33,28 @@ instance MonadPollRead m => MonadPollRead (RollT m)
 -- [WARNING] This transformer uses StateT and is intended for
 -- single-threaded usage only.
 instance MonadPoll m => MonadPoll (RollT m) where
-    putBVState bv sv = RollT $ do
+    putBVState bv sv = ether $ do
         insertIfNotExist bv unChangedBVL getBVState
         putBVState bv sv
 
-    delBVState bv = RollT $ do
+    delBVState bv = ether $ do
         insertIfNotExist bv unChangedBVL getBVState
         delBVState bv
 
-    setAdoptedBV pv = RollT $ do
+    setAdoptedBV pv = ether $ do
         prevBV <- getAdoptedBV
         whenNothingM_ (use unLastAdoptedBVL) $
             unLastAdoptedBVL .= Just prevBV
         setAdoptedBV pv
 
-    setLastConfirmedSV sv@SoftwareVersion{..} = RollT $ do
+    setLastConfirmedSV sv@SoftwareVersion{..} = ether $ do
         insertIfNotExist svAppName unChangedSVL getLastConfirmedSV
         setLastConfirmedSV sv
 
     -- can't be called during apply
     delConfirmedSV = lift . delConfirmedSV
 
-    addConfirmedProposal cps = RollT $ do
+    addConfirmedProposal cps = ether $ do
         confProps <- getConfirmedProposals
         insertIfNotExist (cpsSoftwareVersion cps) unChangedConfPropsL (getter confProps)
         addConfirmedProposal cps
@@ -72,20 +64,20 @@ instance MonadPoll m => MonadPoll (RollT m) where
     -- can't be called during apply
     delConfirmedProposal = lift . delConfirmedProposal
 
-    insertActiveProposal ps = RollT $ do
+    insertActiveProposal ps = ether $ do
         whenNothingM_ (use unPrevProposersL) $ do
             prev <- getEpochProposers
             unPrevProposersL .= Just prev
         insertIfNotExist (hash $ psProposal $ ps) unChangedPropsL getProposal
         insertActiveProposal ps
 
-    deactivateProposal id = RollT $ do
+    deactivateProposal id = ether $ do
         -- Proposer still can't propose new updates in the current epoch
         -- even if his update was deactivated in the same epoch
         insertIfNotExist id unChangedPropsL getProposal
         deactivateProposal id
 
-    setEpochProposers proposers = RollT $ do
+    setEpochProposers proposers = ether $ do
         whenNothingM_ (use unPrevProposersL) $ do
             prev <- getEpochProposers
             unPrevProposersL .= Just prev
@@ -106,7 +98,7 @@ insertIfNotExist id setter getter = do
         Just _  -> pass
 
 runRollT :: RollT m a -> m (a, USUndo)
-runRollT = flip runStateT def . getRollT
+runRollT = flip Ether.runStateT def
 
 execRollT :: Monad m => RollT m a -> m USUndo
-execRollT = flip execStateT def . getRollT
+execRollT = flip Ether.execStateT def

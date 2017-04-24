@@ -1,5 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
-
 module Pos.Core.Address
        ( Address (..)
        , AddrPkAttrs (..)

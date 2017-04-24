@@ -53,6 +53,10 @@ import qualified Pos.Binary.Class                 as Bi
 import           Pos.Block.Logic.Internal         (applyBlocksUnsafe,
                                                    rollbackBlocksUnsafe, toUpdateBlock,
                                                    withBlkSemaphore, withBlkSemaphore_)
+import           Pos.Block.Pure                   (VerifyHeaderParams (..), genesisHash,
+                                                   mkGenesisBlock, mkMainBlock,
+                                                   verifyHeader, verifyHeaders)
+import qualified Pos.Block.Pure                   as Pure
 import           Pos.Block.Types                  (Blund, Undo (..))
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.Constants                    (blkSecurityParam, curSoftwareVersion,
@@ -92,15 +96,12 @@ import           Pos.Types                        (Block, BlockHeader, EpochOrSl
                                                    MainExtraBodyData (..),
                                                    MainExtraHeaderData (..),
                                                    ProxySKEither, ProxySKHeavy,
-                                                   SlotId (..), SlotLeaders,
-                                                   VerifyHeaderParams (..), blockHeader,
+                                                   SlotId (..), SlotLeaders, blockHeader,
                                                    blockLeaders, difficultyL, epochIndexL,
                                                    epochOrSlot, flattenSlotId, gbBody,
-                                                   gbHeader, genesisHash, getEpochOrSlot,
-                                                   headerHash, headerHashG, headerSlot,
-                                                   mbTxPayload, mkGenesisBlock,
-                                                   mkMainBlock, prevBlockL, verifyHeader,
-                                                   verifyHeaders, vhpVerifyConsensus)
+                                                   gbHeader, getEpochOrSlot, headerHash,
+                                                   headerHashG, headerSlot, mbTxPayload,
+                                                   prevBlockL)
 import qualified Pos.Types                        as Types
 import           Pos.Update.Core                  (UpdatePayload (..))
 import qualified Pos.Update.DB                    as UDB
@@ -431,9 +432,6 @@ verifyBlocksPrefix blocks = runExceptT $ do
                 throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
     (adoptedBV, adoptedBVD) <- UDB.getAdoptedBVFull
-    verResToMonadError formatAllErrors $
-        Types.verifyBlocks curSlot adoptedBVD (Just leaders) blocks
-    _ <- withExceptT pretty $ sscVerifyBlocks blocks
     -- We verify that data in blocks is known if protocol version used
     -- by this software is greater than or equal to adopted
     -- version. That's because:
@@ -461,12 +459,16 @@ verifyBlocksPrefix blocks = runExceptT $ do
     let adoptedMajMin = toMajMin adoptedBV
     let dataMustBeKnown = lastKnownMajMin > adoptedMajMin
                        || lastKnownBlockVersion == adoptedBV
+    verResToMonadError formatAllErrors $
+        Pure.verifyBlocks curSlot dataMustBeKnown adoptedBVD
+        (Just leaders) blocks
+    _ <- withExceptT pretty $ sscVerifyBlocks blocks
     TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
     txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $
         map toTxpBlock blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $
-        usVerifyBlocks (map toUpdateBlock blocks)
+        usVerifyBlocks dataMustBeKnown (map toUpdateBlock blocks)
     when (length txUndo /= length pskUndo) $
         throwError "Internal error of verifyBlocksPrefix: lengths of undos don't match"
     pure ( OldestFirst $ neZipWith3 Undo
@@ -702,7 +704,7 @@ createGenesisBlockDo getPeers epoch leaders tip = do
         | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
             let blk = mkGenesisBlock (Just tipHeader) epoch leaders
             let newTip = headerHash blk
-            runExceptT (usVerifyBlocks (one (toUpdateBlock (Left blk)))) >>= \case
+            runExceptT (usVerifyBlocks False (one (toUpdateBlock (Left blk)))) >>= \case
                 Left err -> reportFatalError $ pretty err
                 Right (pModifier, usUndos) -> do
                     let undo = def {undoUS = usUndos ^. _Wrapped . _neHead}
@@ -790,9 +792,11 @@ createMainBlockFinish getPeers slotId pSk prevHeader = do
         Left err ->
             assertionFailed $ sformat ("We've created bad block: "%stext) err
         Right _ -> pass
-    (pModifier,verUndo) <- runExceptT (usVerifyBlocks (one (toUpdateBlock (Right blk)))) >>= \case
-        Left _ -> throwError "Couldn't get pModifier while creating MainBlock"
-        Right o -> pure o
+    (pModifier, verUndo) <-
+        runExceptT (usVerifyBlocks False (one (toUpdateBlock (Right blk)))) >>= \case
+            Left _ ->
+                throwError "Couldn't get pModifier while creating MainBlock"
+            Right o -> pure o
     let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs)
                          pskUndo
                          (verUndo ^. _Wrapped . _neHead)

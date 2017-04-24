@@ -17,6 +17,7 @@ import qualified Data.HashSet                 as HS
 import           System.Wlog                  (logWarning)
 import           Universum
 
+import           Pos.Binary.Update            ()
 import           Pos.Core                     (addressHash)
 import           Pos.Crypto                   (hash)
 import           Pos.Types                    (SoftwareVersion (..))

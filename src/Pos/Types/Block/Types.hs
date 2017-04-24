@@ -28,12 +28,15 @@ module Pos.Types.Block.Types
        , mehSoftwareVersion
        , mehAttributes
        , mebAttributes
+
+       , gehAttributes
+       , gebAttributes
        ) where
 
 import           Control.Lens        (makeLenses)
 import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, build, (%))
+import           Formatting          (bprint, build, builder, (%))
 import           Universum
 
 import           Pos.Binary.Class    (Bi)
@@ -45,9 +48,8 @@ import           Pos.Core.Types      (BlockVersion, ChainDifficulty, HeaderHash,
                                       ProxySigHeavy, ProxySigLight, SlotId (..),
                                       SoftwareVersion)
 import           Pos.Crypto          (Signature)
-import           Pos.Data.Attributes (Attributes)
+import           Pos.Data.Attributes (Attributes (attrRemain))
 import           Pos.Ssc.Class.Types (Ssc (..))
---import           Pos.Update.Version    ()
 
 ----------------------------------------------------------------------------
 -- MainBlock
@@ -110,9 +112,15 @@ instance Buildable MainExtraHeaderData where
     build MainExtraHeaderData {..} =
       bprint ( "    block: v"%build%"\n"
              % "    software: "%build%"\n"
+             % builder
              )
             _mehBlockVersion
             _mehSoftwareVersion
+            formattedExtra
+      where
+        formattedExtra
+            | null (attrRemain _mehAttributes) = mempty
+            | otherwise = bprint ("    attributes: "%build%"\n") _mehAttributes
 
 -- | Represents main block extra data
 newtype MainExtraBodyData = MainExtraBodyData
@@ -120,8 +128,9 @@ newtype MainExtraBodyData = MainExtraBodyData
     } deriving (Eq, Show, Generic, NFData)
 
 instance Buildable MainExtraBodyData where
-    -- Currently there is no extra data in block body, attributes are empty.
-    build _ = bprint "no extra data"
+    build (MainExtraBodyData attrs)
+        | null (attrRemain attrs) = "no extra data"
+        | otherwise = bprint ("extra data has attributes: "%build) attrs
 
 -- | Header of generic main block.
 type MainBlockHeader ssc = GenericBlockHeader (MainBlockchain ssc)
@@ -152,9 +161,9 @@ data GenesisExtraHeaderData = GenesisExtraHeaderData
 instance NFData GenesisExtraHeaderData
 
 instance Buildable GenesisExtraHeaderData where
-    -- Currently there is no extra data in genesis block header, attributes are empty.
-    build _ = bprint "no extra data"
-
+    build (GenesisExtraHeaderData attrs)
+        | null (attrRemain attrs) = "no extra data"
+        | otherwise = bprint ("extra data has attributes: "%build) attrs
 
 -- | Represents genesis block header attributes.
 type GenesisBodyAttributes = Attributes ()
@@ -168,8 +177,9 @@ data GenesisExtraBodyData = GenesisExtraBodyData
 instance NFData GenesisExtraBodyData
 
 instance Buildable GenesisExtraBodyData where
-    -- Currently there is no extra data in genesis block header, attributes are empty.
-    build _ = bprint "no extra data"
+    build (GenesisExtraBodyData attrs)
+        | null (attrRemain attrs) = "no extra data"
+        | otherwise = bprint ("extra data has attributes: "%build) attrs
 
 -- | Represents blockchain consisting of genesis blocks.  Genesis
 -- block doesn't have any special payload and is not strictly
@@ -202,3 +212,6 @@ type Block ssc = Either (GenesisBlock ssc) (MainBlock ssc)
 
 makeLenses ''MainExtraHeaderData
 makeLenses ''MainExtraBodyData
+
+makeLenses ''GenesisExtraHeaderData
+makeLenses ''GenesisExtraBodyData

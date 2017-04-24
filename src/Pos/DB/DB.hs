@@ -23,6 +23,7 @@ import           System.FilePath                  ((</>))
 import           System.Wlog                      (WithLogger)
 import           Universum
 
+import           Pos.Block.Pure                   (mkGenesisBlock)
 import           Pos.Block.Types                  (Blund)
 import           Pos.Context.Class                (WithNodeContext)
 import           Pos.Context.Functions            (genesisLeadersM)
@@ -40,7 +41,7 @@ import           Pos.DB.Types                     (NodeDBs (..))
 import           Pos.Lrc.DB                       (prepareLrcDB)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Types                        (Block, BlockHeader, getBlockHeader,
-                                                   headerHash, mkGenesisBlock)
+                                                   headerHash)
 import           Pos.Update.DB                    (getAdoptedBVData)
 import           Pos.Util                         (inAssertMode)
 import           Pos.Util.Chrono                  (NewestFirst)

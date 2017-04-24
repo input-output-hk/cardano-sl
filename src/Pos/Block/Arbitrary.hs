@@ -6,6 +6,9 @@ module Pos.Block.Arbitrary
        , SmallTxPayload (..)
        ) where
 
+import           Universum
+
+import           Control.Lens         (to)
 import           Data.Ix              (range)
 import qualified Data.List.NonEmpty   as NE
 import           Data.Text.Buildable  (Buildable)
@@ -15,11 +18,12 @@ import           Prelude              (Show (..))
 import           System.Random        (mkStdGen, randomR)
 import           Test.QuickCheck      (Arbitrary (..), Gen, choose, listOf, listOf, oneof,
                                        oneof, vectorOf)
-import           Universum
 
 import           Pos.Binary.Class     (Bi, Raw, biSize)
 import           Pos.Block.Network    as T
+import qualified Pos.Block.Pure       as T
 import           Pos.Constants        (epochSlots)
+import qualified Pos.Core             as Core
 import           Pos.Crypto           (ProxySecretKey, PublicKey, SecretKey,
                                        createProxySecretKey, toPublic)
 import           Pos.Data.Attributes  (Attributes (..), mkAttributes)
@@ -400,12 +404,19 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                                 else betweenXAndY s (epochSlots - 1)
                             rndSlot = T.SlotId rndEpoch rndSlotIdx
                         in Just rndSlot
+            hasUnknownAttributes =
+                not . null $
+                either
+                    (view $ Core.gbhExtra . T.gehAttributes . to attrRemain)
+                    (view $ Core.gbhExtra . T.mehAttributes . to attrRemain)
+                    header
             params = T.VerifyHeaderParams
                 { T.vhpVerifyConsensus = consensus
                 , T.vhpPrevHeader = prev
                 , T.vhpNextHeader = next
                 , T.vhpCurrentSlot = randomSlotBeforeThisHeader
                 , T.vhpLeaders = nonEmpty $ map T.addressHash thisHeadersEpoch
-                , T.vhpMaxSize = biSize header
+                , T.vhpMaxSize = Just (biSize header)
+                , T.vhpVerifyNoUnknown = not hasUnknownAttributes
                 }
         return . HAndP $ (params, header)

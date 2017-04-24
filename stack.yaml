@@ -12,7 +12,7 @@ packages:
     extra-dep: true
   - location:
       git: https://github.com/avieth/network-transport-tcp
-      commit: eb1ed2fe4d4419c860ce060cb1091f7c8959134f
+      commit: ca42a954a15792f5ea8dc203e56fac8175b99c33
     extra-dep: true
   - location:
       git: https://github.com/avieth/network-transport-inmemory

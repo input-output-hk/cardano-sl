@@ -46,7 +46,7 @@ import           Pos.Types                  (EpochIndex, EpochOrSlot (..),
                                              SharedSeed, SlotId (..), StakeholderId,
                                              crucialSlot, epochIndexL, getEpochOrSlot,
                                              getEpochOrSlot)
-import           Pos.Update.DB              (getConfirmedBVStates)
+import           Pos.Update.DB              (getCompetingBVStates)
 import           Pos.Update.Poll.Types      (BlockVersionState (..))
 import           Pos.Util                   (logWarningWaitLinear, maybeThrow)
 import           Pos.Util.Chrono            (NewestFirst (..), toOldestFirst)
@@ -173,7 +173,7 @@ issuersComputationDo :: forall ssc m . WorkMode ssc m => EpochIndex -> m ()
 issuersComputationDo epochId = do
     issuers <- unionHSs .
                map (bvsIssuersStable . snd) <$>
-               getConfirmedBVStates
+               getCompetingBVStates
     issuersStakes <- foldM putIsStake mempty issuers
     putIssuersStakes epochId issuersStakes
   where

@@ -24,6 +24,7 @@ library
                        -- Poll
                        Pos.Update.Poll.Types
                        Pos.Update.Poll.Modifier
+                       Pos.Update.Poll.PollState
 
                        -- MemState
                        Pos.Update.MemState

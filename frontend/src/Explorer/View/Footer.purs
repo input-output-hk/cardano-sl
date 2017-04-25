@@ -3,7 +3,7 @@ module Explorer.View.Footer (footerView) where
 import Prelude
 import Data.Lens ((^.))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (common, cApi, footer, fooLinks, fooRessources, fooFollow, fooIohkSupportP, fooDocumentation, fooGithub, fooLinkedin, fooTwitter, fooDaedalusWallet, fooWhyCardano, fooCardanoRoadmap, fooCardanoADAFaucet, fooCardanoSLDocumentation) as I18nL
+import Explorer.I18n.Lenses (common, cApi, footer, fooLinks, fooResources, fooFollow, fooIohkSupportP, fooDocumentation, fooGithub, fooLinkedin, fooTwitter, fooDaedalusWallet, fooWhyCardano, fooCardanoRoadmap, fooCardanoADAFaucet, fooCardanoSLDocumentation) as I18nL
 import Explorer.Lenses.State (lang)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
@@ -79,7 +79,7 @@ type NavRow =
 
 resourcesNavRow :: Language -> NavRow
 resourcesNavRow lang =
-    { header: translate (I18nL.footer <<< I18nL.fooRessources) lang
+    { header: translate (I18nL.footer <<< I18nL.fooResources) lang
     , items: navItemsRow0 lang }
 
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -22,6 +23,7 @@ import           Control.Monad.Except   (ExceptT)
 import           Control.Monad.State    (StateT)
 import           Control.Monad.Trans    (MonadTrans)
 import qualified Data.HashMap.Strict    as HM
+import           System.IO.Unsafe       (unsafePerformIO)
 import           Universum
 
 import           Pos.DHT.Real           (KademliaDHT)
@@ -79,12 +81,25 @@ getMemPool = getTxpLocalData (STM.readTVar . txpMemPool)
 getTxpExtra :: (MonadIO m, MonadTxpMem e m) => m e
 getTxpExtra = getTxpLocalData (STM.readTVar . txpExtra)
 
+txpLocalDataLock :: TVar Bool
+txpLocalDataLock = unsafePerformIO $ STM.newTVarIO True
+{-# NOINLINE txpLocalDataLock #-}
+
+withLocalDataLock :: STM.STM a -> STM.STM a
+withLocalDataLock m = do
+  STM.readTVar txpLocalDataLock >>= \case
+    False -> STM.retry
+    True -> STM.writeTVar txpLocalDataLock False
+  r <- m
+  STM.writeTVar txpLocalDataLock True
+  pure r
+
 modifyTxpLocalData
     :: (MonadIO m, MonadTxpMem ext m)
     => (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext)) -> m a
 modifyTxpLocalData f =
     askTxpMem >>= \TxpLocalData{..} -> do
-        (res, setGaugeIO) <- atomically $ do
+        (res, setGaugeIO) <- atomically . withLocalDataLock $ do
             curUM  <- STM.readTVar txpUtxoModifier
             curMP  <- STM.readTVar txpMemPool
             curUndos <- STM.readTVar txpUndos

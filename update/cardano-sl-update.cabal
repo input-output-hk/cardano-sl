@@ -86,6 +86,7 @@ library
                        MultiWayIf
                        ConstraintKinds
                        UndecidableInstances
+                       BangPatterns
 
   ghc-options:         -Wall
                        -fno-warn-orphans

@@ -533,6 +533,7 @@ library
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -604,6 +605,7 @@ executable cardano-node
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -663,6 +665,7 @@ executable cardano-analyzer
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -730,6 +733,7 @@ executable cardano-wallet
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -785,6 +789,7 @@ executable cardano-wallet-hs2purs
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -867,6 +872,7 @@ executable cardano-smart-generator
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -935,6 +941,7 @@ executable cardano-dht-keygen
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -977,6 +984,7 @@ executable cardano-web-docs
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -1026,6 +1034,7 @@ executable cardano-wallet-web-docs
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -1064,6 +1073,8 @@ executable cardano-swagger
     ld-options:        -fuse-ld=gold
 
   default-extensions:   NoImplicitPrelude
+                        BangPatterns
+
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
@@ -1086,6 +1097,7 @@ executable cardano-checks
     ld-options:        -fuse-ld=gold
 
   default-extensions:  OverloadedStrings
+                       BangPatterns
 
 executable cardano-genupdate
   hs-source-dirs:      src/genupdate
@@ -1111,6 +1123,7 @@ executable cardano-genupdate
 
   default-extensions:  OverloadedStrings
                        NoImplicitPrelude
+                       BangPatterns
 
 executable cardano-keygen
   hs-source-dirs:      src/keygen
@@ -1168,6 +1181,7 @@ executable cardano-keygen
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
 executable cardano-launcher
   hs-source-dirs:      src/launcher
@@ -1201,6 +1215,8 @@ executable cardano-launcher
   default-extensions:  OverloadedStrings
                        RecordWildCards
                        TupleSections
+                       BangPatterns
+
   if os(windows)
     LD-Options:     -mwindows
 
@@ -1308,6 +1324,7 @@ test-suite cardano-test
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -1366,6 +1383,7 @@ benchmark cardano-bench-criterion
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

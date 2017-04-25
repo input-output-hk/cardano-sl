@@ -83,10 +83,12 @@ instance SscGStateClass SscGodTossing where
     sscLoadGlobalState = loadGlobalState
     sscRollbackU = rollbackBlocks
     sscVerifyAndApplyBlocks = verifyAndApply
-    sscCalculateSeedQ _ = calculateSeed <$>
-        view gsCommitments <*>
-        view gsOpenings <*>
-        view gsShares
+    sscCalculateSeedQ _epoch richmen =
+        calculateSeed
+        <$> view gsCommitments
+        <*> view gsOpenings
+        <*> view gsShares
+        <*> pure richmen
 
 loadGlobalState
     :: ( HasContext LrcContext m

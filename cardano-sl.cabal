@@ -1,5 +1,5 @@
 name:                cardano-sl
-version:             0.4.1
+version:             0.4.3
 synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             MIT
@@ -40,6 +40,7 @@ library
                         Pos.Block.Arbitrary
                         Pos.Block.Logic
                         Pos.Block.Network
+                        Pos.Block.Pure
                         Pos.CLI
                         Pos.Context
                         Pos.CompileConfig
@@ -101,7 +102,6 @@ library
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block
                         Pos.Types.Block.Types
-                        Pos.Types.Block.Functions
                         Pos.Types.Block.Instances
 
                         -- Update system
@@ -534,6 +534,7 @@ library
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -605,6 +606,7 @@ executable cardano-node
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -664,6 +666,7 @@ executable cardano-analyzer
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -731,6 +734,7 @@ executable cardano-wallet
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -786,6 +790,7 @@ executable cardano-wallet-hs2purs
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -868,6 +873,7 @@ executable cardano-smart-generator
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -936,6 +942,7 @@ executable cardano-dht-keygen
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -978,6 +985,7 @@ executable cardano-web-docs
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -1027,6 +1035,7 @@ executable cardano-wallet-web-docs
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -1039,6 +1048,7 @@ executable cardano-wallet-web-docs
 executable cardano-swagger
   hs-source-dirs:      src/wallet-web-api-swagger
   main-is:             Main.hs
+  other-modules:       Description
   build-depends:       aeson
                      , base
                      , bytestring
@@ -1049,6 +1059,7 @@ executable cardano-swagger
                      , servant-multipart
                      , servant-swagger
                      , servant-swagger-ui
+                     , text
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
@@ -1063,6 +1074,8 @@ executable cardano-swagger
     ld-options:        -fuse-ld=gold
 
   default-extensions:   NoImplicitPrelude
+                        BangPatterns
+
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
@@ -1085,6 +1098,7 @@ executable cardano-checks
     ld-options:        -fuse-ld=gold
 
   default-extensions:  OverloadedStrings
+                       BangPatterns
 
 executable cardano-genupdate
   hs-source-dirs:      src/genupdate
@@ -1110,6 +1124,7 @@ executable cardano-genupdate
 
   default-extensions:  OverloadedStrings
                        NoImplicitPrelude
+                       BangPatterns
 
 executable cardano-keygen
   hs-source-dirs:      src/keygen
@@ -1167,6 +1182,7 @@ executable cardano-keygen
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
 executable cardano-launcher
   hs-source-dirs:      src/launcher
@@ -1200,6 +1216,8 @@ executable cardano-launcher
   default-extensions:  OverloadedStrings
                        RecordWildCards
                        TupleSections
+                       BangPatterns
+
   if os(windows)
     LD-Options:     -mwindows
 
@@ -1307,6 +1325,7 @@ test-suite cardano-test
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -1365,6 +1384,7 @@ benchmark cardano-bench-criterion
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

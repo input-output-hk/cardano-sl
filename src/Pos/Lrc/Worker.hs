@@ -8,6 +8,8 @@ module Pos.Lrc.Worker
        , lrcSingleShotNoLock
        ) where
 
+import           Universum
+
 import           Control.Monad.Catch        (bracketOnError)
 import           Control.Monad.STM          (retry)
 import qualified Data.HashMap.Strict        as HM
@@ -17,13 +19,12 @@ import           Mockable                   (forConcurrently)
 import           Paths_cardano_sl           (version)
 import           Serokell.Util.Exceptions   ()
 import           System.Wlog                (logInfo, logWarning)
-import           Universum
 
 import           Pos.Binary.Communication   ()
 import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                              withBlkSemaphore_)
-import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker,
-                                             NodeId)
+import           Pos.Communication.Protocol (NodeId, OutSpecs, WorkerSpec,
+                                             localOnNewSlotWorker)
 import           Pos.Constants              (slotSecurityParam)
 import           Pos.Core                   (Coin)
 import           Pos.DB.Class               (MonadDBCore)
@@ -32,8 +33,8 @@ import qualified Pos.DB.GState              as GS
 import           Pos.Lrc.Consumer           (LrcConsumer (..))
 import           Pos.Lrc.Consumers          (allLrcConsumers)
 import           Pos.Lrc.Context            (LrcContext (lcLrcSync), LrcSyncData (..))
-import           Pos.Lrc.DB                 (IssuersStakes, getLeaders, putEpoch,
-                                             putIssuersStakes, putLeaders)
+import           Pos.Lrc.DB                 (IssuersStakes, getLeaders, getSeed, putEpoch,
+                                             putIssuersStakes, putLeaders, putSeed)
 import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Fts                (followTheSatoshiM)
 import           Pos.Lrc.Logic              (findAllRichmenMaybe)
@@ -47,7 +48,7 @@ import           Pos.Types                  (EpochIndex, EpochOrSlot (..),
                                              getEpochOrSlot)
 import           Pos.Update.DB              (getCompetingBVStates)
 import           Pos.Update.Poll.Types      (BlockVersionState (..))
-import           Pos.Util                   (logWarningWaitLinear)
+import           Pos.Util                   (logWarningWaitLinear, maybeThrow)
 import           Pos.Util.Chrono            (NewestFirst (..), toOldestFirst)
 import           Pos.Util.Context           (askContext)
 import           Pos.WorkMode               (WorkMode)
@@ -86,7 +87,7 @@ lrcSingleShotImpl
     => m (Set NodeId) -> Bool -> EpochIndex -> [LrcConsumer m] -> m ()
 lrcSingleShotImpl getPeers withSemaphore epoch consumers = do
     lock <- askContext @LrcContext lcLrcSync
-    tryAcuireExclusiveLock epoch lock onAcquiredLock
+    tryAcquireExclusiveLock epoch lock onAcquiredLock
   where
     onAcquiredLock = do
         (need, filteredConsumers) <-
@@ -110,10 +111,10 @@ lrcSingleShotImpl getPeers withSemaphore epoch consumers = do
         putEpoch epoch
         logInfo "LRC has updated LRC DB"
 
-tryAcuireExclusiveLock
+tryAcquireExclusiveLock
     :: (MonadMask m, MonadIO m)
     => EpochIndex -> TVar LrcSyncData -> m () -> m ()
-tryAcuireExclusiveLock epoch lock action =
+tryAcquireExclusiveLock epoch lock action =
     bracketOnError acquireLock (flip whenJust releaseLock) doAction
   where
     acquireLock = atomically $ do
@@ -140,25 +141,33 @@ lrcDo getPeers epoch consumers tip = tip <$ do
     NewestFirst blundsList <- DB.loadBlundsFromTipWhile whileAfterCrucial
     case nonEmpty blundsList of
         Nothing -> throwM UnknownBlocksForLrc
-        Just (NewestFirst -> blunds) -> do
-            mbSeed <- sscCalculateSeed epoch
-            case mbSeed of
-                Left e ->
-                    -- FIXME: don't error, use previous seed!
-                    error $ sformat ("SSC couldn't compute seed: " %build) e
-                Right seed -> do
-                    rollbackBlocksUnsafe getPeers blunds
-                    compute seed `finally` applyBack (toOldestFirst blunds)
+        Just (NewestFirst -> blunds) ->
+            withBlocksRolledBack blunds $ do
+                issuersComputationDo epoch
+                richmenComputationDo epoch consumers
+                DB.sanityCheckDB
+                seed <- sscCalculateSeed epoch >>= \case
+                    Right s -> do
+                        logInfo $ sformat
+                            ("Calculated seed for epoch "%build%
+                             " successfully") epoch
+                        return s
+                    Left err -> do
+                        logWarning $ sformat
+                            ("SSC couldn't compute seed: "%build) err
+                        logWarning "Going to reuse seed for previous epoch"
+                        getSeed (epoch - 1) >>=
+                            maybeThrow (CanNotReuseSeedForLrc (epoch - 1))
+                putSeed epoch seed
+                leadersComputationDo epoch seed
   where
     applyBack blunds = applyBlocksUnsafe getPeers blunds Nothing
     upToGenesis b = b ^. epochIndexL >= epoch
     whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
-    compute seed = do
-        issuersComputationDo epoch
-        richmenComputationDo epoch consumers
-        DB.sanityCheckDB
-        leadersComputationDo epoch seed
+    withBlocksRolledBack blunds =
+        bracket_ (rollbackBlocksUnsafe getPeers blunds)
+                 (applyBack (toOldestFirst blunds))
 
 issuersComputationDo :: forall ssc m . WorkMode ssc m => EpochIndex -> m ()
 issuersComputationDo epochId = do

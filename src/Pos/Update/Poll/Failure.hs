@@ -15,7 +15,7 @@ import           Pos.Core.Types             (ApplicationName, BlockVersion, Coin
                                              EpochIndex, NumSoftwareVersion,
                                              ScriptVersion, StakeholderId)
 import           Pos.Crypto                 (shortHashF)
-import           Pos.Update.Core            (UpId)
+import           Pos.Update.Core            (UpAttributes, UpId)
 
 -- | PollVerFailure represents all possible errors which can
 -- appear in Poll data verification.
@@ -69,6 +69,9 @@ data PollVerFailure
                            }
     | PollMoreThanOneProposalPerEpoch { ptopFrom :: !StakeholderId
                                       , ptopUpId :: !UpId
+                                      }
+    | PollUnknownAttributesInProposal { puapUpId  :: !UpId
+                                      , puapAttrs :: !UpAttributes
                                       }
     | PollInternalError !Text
 
@@ -135,6 +138,11 @@ instance Buildable PollVerFailure where
                 int%" > "%int%")")
         ptlpUpId ptlpSize ptlpLimit
     build (PollMoreThanOneProposalPerEpoch {..}) =
-        bprint ("stakeholder "%shortHashF%" proposed second proposal "%shortHashF) ptopFrom ptopUpId
+        bprint ("stakeholder "%shortHashF%
+                " proposed second proposal "%shortHashF%" in epoch")
+        ptopFrom ptopUpId
+    build (PollUnknownAttributesInProposal {..}) =
+        bprint ("proposal "%shortHashF%" has unknown attributes "%build)
+        puapUpId puapAttrs
     build (PollInternalError msg) =
         bprint ("internal error: "%stext) msg

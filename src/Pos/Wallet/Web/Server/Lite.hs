@@ -12,6 +12,7 @@ import qualified Control.Monad.Catch           as Catch
 import qualified Control.Monad.Ether.Implicit  as Ether
 import           Control.Monad.Except          (MonadError (throwError))
 import           Mockable                      (runProduction)
+import           Network.Wai                   (Application)
 import           Pos.Communication.Protocol    (NodeId, SendActions)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
@@ -25,8 +26,9 @@ import           Pos.Wallet.KeyStorage         (KeyData, runKeyStorageRaw)
 import           Pos.Wallet.State              (getWalletState, runWalletDB)
 import qualified Pos.Wallet.State              as WS
 import           Pos.Wallet.WalletMode         (WalletRealMode)
-import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeImpl,
-                                                walletServer, walletServerOuts)
+import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
+                                                walletServeImpl, walletServer,
+                                                walletServerOuts)
 import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, WalletWebSockets,
                                                 getWalletWebSockets, runWalletWS)
 import           Pos.Wallet.Web.State          (WalletState, WalletWebDB,
@@ -48,8 +50,10 @@ walletServeWebLite
     -> Bool
     -> Word16
     -> WalletRealMode ()
-walletServeWebLite _ getPeers sendActions =
-    walletServeImpl $ walletApplication $ walletServer getPeers sendActions nat
+walletServeWebLite _ getPeers sendActions = walletServeImpl action
+  where
+    action :: WalletWebHandler WalletRealMode Application
+    action = walletApplication $ walletServer getPeers sendActions nat
 
 nat :: WebHandler (WebHandler :~> Handler)
 nat = do

@@ -1,6 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 
--- | Specification of Pos.Types.Block.
+-- | Specification of Pos.Types.Block and Pos.Block.Pure.
 
 module Test.Pos.Types.BlockSpec
        ( spec
@@ -12,6 +12,7 @@ import           Universum
 
 import           Pos.Binary            (Bi)
 import           Pos.Block.Arbitrary   as T
+import qualified Pos.Block.Pure        as T
 import           Pos.Crypto            (ProxySecretKey (pskIssuerPk), SecretKey,
                                         SignTag (..), createProxySecretKey, proxySign,
                                         sign, toPublic)

@@ -1,5 +1,3 @@
--- We use undefined in this file (unfortunately) so we can't have -Werror
-{-# OPTIONS_GHC -Wwarn #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -11,12 +9,13 @@ module Pos.Worker
        , allWorkersCount
        ) where
 
-import           Data.Tagged             (untag)
 import           Universum
 
+import           Data.Tagged             (untag)
+
 import           Pos.Block.Worker        (blkWorkers)
-import           Pos.Communication       (OutSpecs, WorkerSpec, localWorker, relayWorkers,
-                                          wrapActionSpec, NodeId)
+import           Pos.Communication       (NodeId, OutSpecs, WorkerSpec, localWorker,
+                                          relayWorkers, wrapActionSpec)
 import           Pos.Communication.Specs (allOutSpecs)
 import           Pos.DB                  (MonadDBCore)
 import           Pos.Delegation          (dlgWorkers)
@@ -70,4 +69,4 @@ allWorkersCount
     :: forall ssc m.
        (MonadDBCore m, SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m)
     => Int
-allWorkersCount = length $ fst (allWorkers @ssc @m undefined)
+allWorkersCount = length $ fst (allWorkers @ssc @m (error "Panic! allWorkersCount"))

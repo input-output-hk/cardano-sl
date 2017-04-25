@@ -1,5 +1,5 @@
 name:                cardano-sl-core
-version:             0.4.1
+version:             0.4.3
 synopsis:            Cardano SL - core
 description:         Cardano SL - core
 license:             MIT
@@ -158,6 +158,7 @@ library
                        MultiWayIf
                        ConstraintKinds
                        UndecidableInstances
+                       BangPatterns
 
   ghc-options:         -Wall
                        -fno-warn-orphans

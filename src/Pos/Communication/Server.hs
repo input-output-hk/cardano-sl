@@ -6,23 +6,23 @@ module Pos.Communication.Server
        , serverLoggerName
        ) where
 
-import           Data.Tagged                       (Tagged, proxy, unproxy, untag)
-import           System.Wlog                       (LoggerName, WithLogger)
 import           Universum
 
-import           Pos.Binary.Communication          ()
-import           Pos.Block.Network.Listeners       (blockListeners, blockStubListeners)
-import           Pos.Communication.Protocol        (ListenerSpec (..), OutSpecs, NodeId)
-import           Pos.Communication.Util            (wrapListener)
-import           Pos.Delegation.Listeners          (delegationListeners,
-                                                    delegationStubListeners)
-import           Pos.Ssc.Class                     (SscHelpersClass (..),
-                                                    SscListenersClass (..),
-                                                    SscWorkersClass)
-import           Pos.Txp                           (txListeners, txStubListeners)
-import           Pos.Update                        (usListeners, usStubListeners)
-import           Pos.Util                          (mconcatPair)
-import           Pos.WorkMode                      (WorkMode)
+import           Data.Tagged                 (Tagged, proxy, unproxy, untag)
+import           System.Wlog                 (LoggerName, WithLogger)
+
+import           Pos.Binary.Communication    ()
+import           Pos.Block.Network.Listeners (blockListeners, blockStubListeners)
+import           Pos.Communication.Protocol  (ListenerSpec (..), NodeId, OutSpecs)
+import           Pos.Communication.Util      (wrapListener)
+import           Pos.Delegation.Listeners    (delegationListeners,
+                                              delegationStubListeners)
+import           Pos.Ssc.Class               (SscHelpersClass (..),
+                                              SscListenersClass (..), SscWorkersClass)
+import           Pos.Txp                     (txListeners, txStubListeners)
+import           Pos.Update                  (usListeners, usStubListeners)
+import           Pos.Util                    (mconcatPair)
+import           Pos.WorkMode                (WorkMode)
 
 -- | All listeners running on one node.
 allListeners

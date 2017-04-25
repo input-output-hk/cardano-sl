@@ -21,6 +21,7 @@ import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
+import           Pos.Block.Pure              (VerifyBlockParams (..), verifyBlock)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', WorkerSpec,
                                               onNewSlotWorker, NodeId)
 import           Pos.Constants               (networkDiameter)
@@ -34,24 +35,21 @@ import           Pos.Exception               (assertionFailed)
 import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
-#if defined(WITH_WALLET)
-import           Data.Time.Units             (Second, convertUnit)
-import           Pos.Block.Network           (requestTipOuts, triggerRecovery)
-import           Pos.Communication           (worker)
-import           Pos.Slotting                (getLastKnownSlotDuration)
-#endif
 import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
 import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (..),
-                                              Timestamp (Timestamp),
-                                              VerifyBlockParams (..), gbHeader, slotIdF,
-                                              verifyBlock)
+                                              Timestamp (Timestamp), gbHeader, slotIdF)
 import           Pos.Util                    (inAssertMode, logWarningSWaitLinear,
                                               mconcatPair)
 import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
 import           Pos.Util.LogSafe            (logDebugS, logInfoS, logNoticeS,
                                               logWarningS)
 import           Pos.WorkMode                (WorkMode)
-
+#if defined(WITH_WALLET)
+import           Data.Time.Units             (Second, convertUnit)
+import           Pos.Block.Network           (requestTipOuts, triggerRecovery)
+import           Pos.Communication           (worker)
+import           Pos.Slotting                (getLastKnownSlotDuration)
+#endif
 
 -- | All workers specific to block processing.
 blkWorkers

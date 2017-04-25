@@ -65,19 +65,18 @@ usApplyBlocks
 usApplyBlocks blocks modifierMaybe = withUSLogger $
     case modifierMaybe of
         Nothing -> do
-            verdict <- runExceptT $ usVerifyBlocks blocks
+            verdict <- runExceptT $ usVerifyBlocks False blocks
             either onFailure (return . modifierToBatch . fst) verdict
         Just modifier -> do
             -- TODO: I suppose such sanity checks should be done at higher
             -- level.
             inAssertMode $ do
-                verdict <- runExceptT $ usVerifyBlocks blocks
+                verdict <- runExceptT $ usVerifyBlocks False blocks
                 either onFailure (const pass) verdict
             return $ modifierToBatch modifier
   where
     onFailure failure = do
         let msg = "usVerifyBlocks failed in 'apply': " <> pretty failure
-
         logError $ colorize Red msg
         throwM $ USInternalError msg
 
@@ -96,22 +95,30 @@ usRollbackBlocks blunds = withUSLogger $
 -- current GState DB.  This function doesn't make pure checks, they
 -- are assumed to be done earlier, most likely during objects
 -- construction.
+--
+-- If the first argument is 'True' it means that all data must be
+-- known. Currently it only means that 'UpdateProposal's must have
+-- only known attributes, but I can't guarantee this comment will
+-- always be up-to-date.
 usVerifyBlocks
     :: (USGlobalVerifyMode m)
-    => OldestFirst NE UpdateBlock -> m (PollModifier, OldestFirst NE USUndo)
-usVerifyBlocks blocks = withUSLogger $ swap <$> run (mapM verifyBlock blocks)
+    => Bool
+    -> OldestFirst NE UpdateBlock
+    -> m (PollModifier, OldestFirst NE USUndo)
+usVerifyBlocks verifyAllIsKnown blocks =
+    withUSLogger $ swap <$> run (mapM (verifyBlock verifyAllIsKnown) blocks)
   where
     run = runDBPoll . runPollT def
 
 verifyBlock
     :: (USGlobalVerifyMode m, MonadPoll m)
-    => UpdateBlock -> m USUndo
-verifyBlock (Left genBlk) =
+    => Bool -> UpdateBlock -> m USUndo
+verifyBlock _ (Left genBlk) =
     execRollT $ processGenesisBlock (genBlk ^. epochIndexL)
-verifyBlock (Right (header, payload)) =
+verifyBlock verifyAllIsKnown (Right (header, payload)) =
     execRollT $ do
         verifyAndApplyUSPayload
-            True
+            verifyAllIsKnown
             (Right header)
             payload
         -- Block issuance can't affect verification and application of US

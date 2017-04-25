@@ -38,7 +38,8 @@ instance Binary i => K.Serialize (KSerialize i) where
 
 -- | Configuration for a Kademlia node.
 data KademliaConfiguration i = KademliaConfiguration {
-      kademliaPort :: Word16
+      kademliaHost :: String
+    , kademliaPort :: Word16
       -- ^ The port on which to run the server (it's UDP)
     , kademliaId   :: i
       -- ^ Some value to use as the identifier for this node. To use it, it must
@@ -72,7 +73,7 @@ kademliaDiscovery configuration initialPeer myAddress = do
         port = fromIntegral (kademliaPort configuration)
     -- A Kademlia instance to do the DHT magic.
     kademliaInst :: K.KademliaInstance (KSerialize i) (KSerialize EndPointAddress)
-        <- liftIO $ K.create port kid
+        <- liftIO $ K.create (kademliaHost configuration) port kid
     -- A TVar to cache the set of known peers at the last use of 'discoverPeers'
     peersTVar :: TVar.TVar (M.Map (K.Node (KSerialize i)) EndPointAddress)
         <- liftIO . TVar.newTVarIO $ M.empty

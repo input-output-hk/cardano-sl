@@ -60,7 +60,7 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary 
                                                  CTxId (..), CTxSummary (..),
                                                  TxInternal (..), convertTxOutputs,
                                                  fromCAddress, fromCHash, fromCTxId,
-                                                 tiToTxEntry, toBlockEntry,
+                                                 mkCCoin, tiToTxEntry, toBlockEntry,
                                                  toBlockSummary, toPosixTime, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
@@ -204,7 +204,7 @@ getBlockTxs cHash (fromIntegral -> lim) (fromIntegral -> off) = do
 getAddressSummary :: ExplorerMode m => CAddress -> m CAddressSummary
 getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
     PubKeyAddress sid _ -> do
-        balance <- fromMaybe (mkCoin 0) <$> GS.getRealStake sid
+        balance <- mkCCoin . fromMaybe (mkCoin 0) <$> GS.getRealStake sid
         -- TODO: add number of coins when it's implemented
         -- TODO: retrieve transactions from something like an index
         txIds <- getNewestFirst <$> EX.getAddrHistory addr
@@ -229,7 +229,7 @@ getTxSummary cTxId = do
         inputOutputs = map toaOut $ NE.toList $ teInputOutputs txExtra
         receivedTime = teReceivedTime txExtra
 
-    (ctsBlockTimeIssued, ctsBlockHeight, ctsOutputs) <-
+    (ctsBlockTimeIssued, ctsBlockHeight, outputs) <-
         case blockchainPlace of
             Nothing -> do
                 -- Fetching transaction from MemPool.
@@ -249,16 +249,19 @@ getTxSummary cTxId = do
                 pure (ts, Just blockHeight, txOutputs)
 
     let ctsId = cTxId
+        ctsOutputs = map (second mkCCoin) outputs
         ctsTxTimeIssued = toPosixTime receivedTime
         ctsRelayedBy = Nothing
-        ctsTotalInput = unsafeIntegerToCoin $ sumCoins $ map txOutValue inputOutputs
-        ctsInputs = convertTxOutputs inputOutputs
-        ctsTotalOutput = unsafeIntegerToCoin $ sumCoins $ map snd ctsOutputs
+        ctsTotalInput = mkCCoin totalInput
+        totalInput = unsafeIntegerToCoin $ sumCoins $ map txOutValue inputOutputs
+        ctsInputs = map (second mkCCoin) $ convertTxOutputs inputOutputs
+        ctsTotalOutput = mkCCoin totalOutput
+        totalOutput = unsafeIntegerToCoin $ sumCoins $ map snd outputs
 
-    when (ctsTotalOutput > ctsTotalInput) $
+    when (totalOutput > totalInput) $
         throwM $ Internal "Detected tx with output greater than input"
 
-    let ctsFees = unsafeSubCoin ctsTotalInput ctsTotalOutput
+    let ctsFees = mkCCoin $ unsafeSubCoin totalInput totalOutput
     pure $ CTxSummary {..}
 
 --------------------------------------------------------------------------------

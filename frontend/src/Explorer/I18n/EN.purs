@@ -54,7 +54,7 @@ translation =
         , navTools: "Tools"
         }
     , hero:
-        { hrSubtitle: "most effective way to reasearch crypto currencies network"
+        { hrSubtitle: "most effective way to research cryptocurrencies network"
         , hrSearch: "Search for addresses, transactions, slots and epochs"
         , hrTime: "Time"
         }
@@ -86,7 +86,7 @@ translation =
         , dbGetApiKey: "Get API key"
         , dbMoreExamples: "See more examples"
         , dbAboutBlockchain: "About Blockchain"
-        , dbAboutBlockchainDescription: "Blockchain API makes it easy yo build cryptocurrensies applications and features. We are focused on providing a platform that enables developers to create fast, scalable, secure services.<br/><br/>This API is free and unlimited while we are in beta. We are just getting started, and will be rolling out more endpoints and features in the coming weeks. We want to build the API you need, so please send us requests, suggestions, or just say hello."
+        , dbAboutBlockchainDescription: "Blockchain API makes it easy yo build cryptocurrencies applications and features. We are focused on providing a platform that enables developers to create fast, scalable, secure services.<br/><br/>This API is free and unlimited while we are in beta. We are just getting started, and will be rolling out more endpoints and features in the coming weeks. We want to build the API you need, so please send us requests, suggestions, or just say hello."
         }
     , address:
         { addScan: "Scan this QR Code to copy address to clipboard"
@@ -110,7 +110,7 @@ translation =
         , blNotFound: "Epoch / slot do not exist."
         }
     , footer:
-        { fooRessources: "Ressources"
+        { fooResources: "Resources"
         , fooFollow: "Follow us"
         , fooLinks: "Links"
         , fooIohkSupportP: "IOHK supported project"

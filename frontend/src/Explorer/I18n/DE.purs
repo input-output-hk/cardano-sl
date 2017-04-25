@@ -110,7 +110,7 @@ translation =
         , blNotFound: "Epoche / Slot existiert nicht."
         }
     , footer:
-        { fooRessources: "Ressourcen"
+        { fooResources: "Ressourcen"
         , fooFollow: "Folgen Sie uns"
         , fooLinks: "Links"
         , fooIohkSupportP: "IOHK unterstütztes Projekt"

@@ -244,7 +244,7 @@ mkNtpSlottingVar = do
     _nssLastLocalTime <- Timestamp <$> currentTime
     -- current time isn't quite valid value, but it doesn't matter (@pva701)
     let _nssLastSlot = unflattenSlotId 0
-    res <- liftIO $ newTVarIO NtpSlottingState {..}
+    res <- newTVarIO NtpSlottingState {..}
     -- We don't want to wait too much at the very beginning,
     -- 1 second should be enough.
     let settings = (ntpSettings res) { ntpResponseTimeout = 1 & sec }

@@ -225,7 +225,7 @@ instance ( MonadDB m
                 (foldrM blockFetcher cachedTxs nonCachedHashes >>= localFetcher)
                 cachedUtxo
 
-            let lastCachedHash = maybe bot identity $ head cachedHashes
+            let lastCachedHash = fromMaybe bot $ head cachedHashes
             return $ TxHistoryAnswer lastCachedHash (length cachedTxs) cachedUtxo result
 
         maybe (error "deriveAddrHistory: Nothing") pure mres

@@ -11,7 +11,6 @@ module Pos.Util.BackupPhrase
        , safeKeysFromPhrase
        ) where
 
-import qualified Data.Text           as T
 import           Data.Text.Buildable (Buildable (..))
 import qualified Prelude
 import           Universum
@@ -47,16 +46,16 @@ mkBackupPhrase9 ls
     | otherwise = error "Invalid number of words in backup phrase! Expected 9 words."
 
 instance Show BackupPhrase where
-    show = toString . T.unwords . bpToList
+    show = toString . unwords . bpToList
 
 instance Buildable BackupPhrase where
-    build = build . T.unwords . bpToList
+    build = build . unwords . bpToList
 
 instance Read BackupPhrase where
-    readsPrec _ str = either fail (pure . (, mempty) .BackupPhrase . T.words) $ toMnemonic =<< fromMnemonic (toText str)
+    readsPrec _ str = either fail (pure . (, mempty) .BackupPhrase . words) $ toMnemonic =<< fromMnemonic (toText str)
 
 toSeed :: BackupPhrase -> Either Text ByteString
-toSeed = first toText . fromMnemonic . T.unwords . bpToList
+toSeed = first toText . fromMnemonic . unwords . bpToList
 
 toHashSeed :: BackupPhrase -> Either Text ByteString
 toHashSeed bp = encodeStrict . blake2b <$> toSeed bp

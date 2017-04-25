@@ -12,7 +12,7 @@ import qualified Data.HashMap.Strict   as M
 import           Data.IORef            (IORef, modifyIORef', newIORef, readIORef,
                                         writeIORef)
 import           Data.List             (intersect)
-import           Data.Maybe            (fromJust, maybeToList)
+import           Data.Maybe            (fromJust)
 import           Formatting            (build, sformat, (%))
 import           Mockable              (catchAll, delay)
 import           System.FilePath.Posix ((</>))
@@ -91,7 +91,7 @@ checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
                     verifiedPairedData = zip verified verifiedSentData
                     splitData = splitRound verifiedPairedData
 
-                forM_ (M.toList splitData) $ \(roundNum, df) ->
+                for_ (M.toList splitData) $ \(roundNum, df) ->
                     liftIO $ appendVerified (fromIntegral slStart) roundNum df logsPrefix
 
 checkWorker :: forall ssc . SscConstraint ssc

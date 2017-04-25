@@ -14,11 +14,8 @@ import           Data.ByteString.Lazy   (fromStrict, toStrict)
 
 import qualified Network.Kademlia       as K
 
-import           Pos.Binary.Class       (Bi (..), decodeOrFail, encode)
+import           Pos.Binary.Class       (Bi (..), decodeOrFail, encodeStrict)
 import           Pos.DHT.Model.Types    (DHTData, DHTKey, DHTNode (..))
-
-toBSBinary :: Bi b => b -> BS.ByteString
-toBSBinary = toStrict . encode
 
 fromBSBinary :: Bi b => BS.ByteString -> Either String (b, BS.ByteString)
 fromBSBinary bs =
@@ -27,11 +24,11 @@ fromBSBinary bs =
         Right (rest, _, res) -> Right (res, toStrict rest)
 
 instance Bi DHTData => K.Serialize DHTData where
-  toBS = toBSBinary
+  toBS = encodeStrict
   fromBS = fromBSBinary
 
 instance Bi DHTKey => K.Serialize DHTKey where
-  toBS = toBSBinary
+  toBS = encodeStrict
   fromBS = fromBSBinary
 
 type DHTHandle = K.KademliaInstance DHTKey DHTData

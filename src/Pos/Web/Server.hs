@@ -14,7 +14,6 @@ module Pos.Web.Server
        , applicationGT
        ) where
 
-import           Control.Concurrent.STM.TVar          (writeTVar)
 import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
 import           Mockable                             (Production (runProduction))

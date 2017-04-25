@@ -5,7 +5,6 @@ import qualified Control.Foldl        as Fold
 import           Crypto.Hash          (Digest, SHA512, hashlazy)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.List            ((\\))
-import qualified Data.Text            as T
 import           Filesystem.Path      (filename)
 import           Turtle               hiding (f, toText)
 import           Turtle.Prelude       (stat)
@@ -77,10 +76,10 @@ createUpdate oldDir newDir updPath = sh $ do
                              (map fpToText [oldFile, newFile, diffFile])
                              mempty
                     diffHash <- hashFile diffFile
-                    return (Just (T.unwords [oldHash, newHash, diffHash],
+                    return (Just (unwords [oldHash, newHash, diffHash],
                                   filename diffFile))
     -- write the MANIFEST file
-    liftIO $ writeTextFile (tempDir </> "MANIFEST") (T.unlines manifest)
+    liftIO $ writeTextFile (tempDir </> "MANIFEST") (unlines manifest)
     -- put diffs and a manifesto into a tar file
     liftIO $ Tar.create (fpToString updPath)
                         (fpToString tempDir)

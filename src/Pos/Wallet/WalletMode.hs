@@ -171,8 +171,7 @@ instance MonadIO m => MonadUpdates (WalletDB m) where
 -- | Instance for full node
 instance (Ssc ssc, MonadIO m, WithLogger m) =>
          MonadUpdates (PC.ContextHolder ssc m) where
-    waitForUpdate = liftIO . takeMVar =<<
-                        askContext @UpdateContext ucUpdateSemaphore
+    waitForUpdate = takeMVar =<< askContext @UpdateContext ucUpdateSemaphore
     applyLastUpdate = triggerShutdown
 
 ---------------------------------------------------------------

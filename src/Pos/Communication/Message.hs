@@ -2,15 +2,15 @@ module Pos.Communication.Message
        ( MessagePart (..)
        ) where
 
-import           Node.Message                     (Message (..), MessageName (..))
 import           Universum
+
+import           Node.Message                     (Message (..), MessageName (..))
 
 import           Pos.Binary.Class                 (UnsignedVarInt (..), encodeStrict)
 import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                                                    MsgHeaders)
 import           Pos.Communication.MessagePart    (MessagePart (..))
 import           Pos.Communication.Types.Relay    (DataMsg, InvOrData, MempoolMsg, ReqMsg)
-import           Pos.Communication.Types.SysStart (SysStartRequest, SysStartResponse)
 import           Pos.Delegation.Types             (ConfirmProxySK, SendProxySK)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents, GtTag)
 import           Pos.Txp.Network.Types            (TxMsgContents, TxMsgTag)
@@ -77,14 +77,6 @@ instance MessagePart GtTag where
 
 instance MessagePart GtMsgContents where
     pMessageName _ = varIntMName 3
-
-instance Message SysStartRequest where
-    messageName _ = varIntMName 1001
-    formatMessage _ = "SysStartRequest"
-
-instance Message SysStartResponse where
-    messageName _ = varIntMName 1002
-    formatMessage _ = "SysStartResponse"
 
 instance (MessagePart tag) =>
          Message (ReqMsg key tag) where

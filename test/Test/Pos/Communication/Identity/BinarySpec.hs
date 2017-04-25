@@ -16,8 +16,6 @@ import           Test.Pos.Util            (networkBinaryTest)
 spec :: Spec
 spec = describe "Communication" $ do
     describe "Bi instances" $ do
-        networkBinaryTest @C.SysStartRequest
-        networkBinaryTest @C.SysStartResponse
         networkBinaryTest @C.HandlerSpec
         networkBinaryTest @C.VerInfo
         networkBinaryTest @D.SendProxySK

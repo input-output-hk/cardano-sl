@@ -28,6 +28,8 @@ module Pos.CLI
        , nodeIdOption
        ) where
 
+import           Universum
+
 import           Control.Lens                         (zoom, (?=))
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
 import qualified Options.Applicative.Simple           as Opt
@@ -40,7 +42,6 @@ import           System.Wlog                          (LoggerConfig (..),
 import           Text.Parsec                          (try)
 import qualified Text.Parsec.Char                     as P
 import qualified Text.Parsec.String                   as P
-import           Universum
 
 import           Pos.Binary.Core                      ()
 import           Pos.Constants                        (isDevelopment, staticSysStart)

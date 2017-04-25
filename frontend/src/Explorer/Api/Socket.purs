@@ -3,7 +3,6 @@ module Explorer.Api.Socket where
 import Prelude
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (Error)
-import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.SocketIO.Client (Event, Host)
 import Data.Argonaut.Core (Json)
 import Data.Array (foldl, last)
@@ -15,6 +14,7 @@ import Data.String (Pattern(..), Replacement(..), replaceAll, split, trim)
 import Debug.Trace (traceAnyM, traceShowM)
 import Explorer.Api.Helper (decodeResult')
 import Explorer.Types.Actions (Action(..), ActionChannel)
+import Explorer.Util.Config (Protocol, protocolToString)
 import Pos.Explorer.Socket.Methods (ClientEvent, ServerEvent)
 import Pos.Explorer.Web.ClientTypes (CTxEntry, CTxId)
 import Signal.Channel (CHANNEL, send)
@@ -22,9 +22,9 @@ import Signal.Channel (CHANNEL, send)
 
 -- host
 
-mkSocketHost :: String -> String -> Host
+mkSocketHost :: Protocol -> String -> Host
 mkSocketHost protocol hostname =
-    protocol <> "://" <> hostname <> ":8110"
+    (protocolToString protocol) <> "://" <> hostname <> ":8110"
 
 -- events
 

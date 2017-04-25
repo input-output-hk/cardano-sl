@@ -18,8 +18,8 @@ else
 fi
 popd
 nix-shell --run "rm -rf .psci_modules/ .pulp-cache/ node_modules/ bower_components/ output/"
-nix-shell --run "npm install"
+nix-shell --run "yarn install"
 nix-shell --run ./scripts/generate-backend-lenses.sh
 nix-shell --run ./scripts/generate-frontend-lenses.sh
-nix-shell --run "npm run ${1:-build:prod}"
+nix-shell --run "yarn ${1:-build:prod}"
 echo "Done."

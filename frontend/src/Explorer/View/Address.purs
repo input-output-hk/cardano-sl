@@ -14,9 +14,8 @@ import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
 import Explorer.View.Common (currencyCSSClass, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
 import Network.RemoteData (RemoteData(..))
-import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, caAddress, caBalance, caTxList, caTxNum)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, _CAddress, caAddress, caBalance, caTxList, caTxNum, getCoin)
 import Pux.Html (Html, div, text, h3, p) as P
 import Pux.Html.Attributes (className, dangerouslySetInnerHTML, id_) as P
 import Pux.Router (link) as P
@@ -132,7 +131,7 @@ addressDetailRowItems (CAddressSummary address) lang =
       , currency: Nothing
     }
     , { label: translate (I18nL.address <<< I18nL.addFinalBalance) lang
-      , value: show $ address ^. (caBalance <<< _Coin <<< getCoin)
+      , value: address ^. (caBalance <<< _CCoin <<< getCoin)
       , currency: Just ADA
       }
     ]

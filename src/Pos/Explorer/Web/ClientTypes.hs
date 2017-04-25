@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 -- | Types for using in purescript-bridge
 
 module Pos.Explorer.Web.ClientTypes
@@ -12,10 +13,10 @@ module Pos.Explorer.Web.ClientTypes
        , CNetworkAddress (..)
        , CTxSummary (..)
        , TxInternal (..)
-       , Coin
+       , CCoin
        , EpochIndex (..)
        , LocalSlotIndex (..)
-       , mkCoin
+       , mkCCoin
        , toCHash
        , fromCHash
        , toCAddress
@@ -47,6 +48,7 @@ import qualified Pos.Binary             as Bi
 import           Pos.Crypto             (Hash, hash)
 import           Pos.DB                 (MonadDB (..))
 import qualified Pos.DB.GState          as GS
+import           Pos.Explorer           (TxExtra (..))
 import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
@@ -59,12 +61,8 @@ import           Pos.Types              (Address, Coin, EpochIndex,
                                          gbhConsensus, getEpochIndex,
                                          getSlotIndex, headerHash, mcdSlot,
                                          mkCoin, prevBlockL, sumCoins,
-                                         unsafeAddCoin, unsafeIntegerToCoin)
-import          Pos.Explorer             (TxExtra (..))
-
-
-
-
+                                         unsafeAddCoin, unsafeGetCoin,
+                                         unsafeIntegerToCoin, coinToInteger)
 
 -------------------------------------------------------------------------------------
 -- Hash types
@@ -113,6 +111,14 @@ fromCTxId (CTxId (CHash txId)) = decodeHashHex txId
 -- Composite types
 -------------------------------------------------------------------------------------
 
+
+newtype CCoin = CCoin
+    { getCoin :: Text
+    } deriving (Show, Generic)
+
+mkCCoin :: Coin -> CCoin
+mkCCoin = CCoin . show . unsafeGetCoin
+
 -- | List of block entries is returned from "get latest N blocks" endpoint
 data CBlockEntry = CBlockEntry
     { cbeEpoch      :: !Word64
@@ -120,7 +126,7 @@ data CBlockEntry = CBlockEntry
     , cbeBlkHash    :: !CHash
     , cbeTimeIssued :: !(Maybe POSIXTime)
     , cbeTxNum      :: !Word
-    , cbeTotalSent  :: !Coin
+    , cbeTotalSent  :: !CCoin
     , cbeSize       :: !Word64
     , cbeRelayedBy  :: !(Maybe Text)
     } deriving (Show, Generic)
@@ -142,7 +148,7 @@ toBlockEntry blk = do
         txs           = blk ^. blockTxs
         cbeTxNum      = fromIntegral $ length txs
         addCoins c    = unsafeAddCoin c . totalTxMoney
-        cbeTotalSent  = foldl' addCoins (mkCoin 0) txs
+        cbeTotalSent  = mkCCoin $ foldl' addCoins (mkCoin 0) txs
         -- TODO: is there a way to get it more efficiently?
         cbeSize       = fromIntegral . BSL.length $ Bi.encode blk
         cbeRelayedBy  = Nothing
@@ -153,7 +159,7 @@ toBlockEntry blk = do
 data CTxEntry = CTxEntry
     { cteId         :: !CTxId
     , cteTimeIssued :: !POSIXTime
-    , cteAmount     :: !Coin
+    , cteAmount     :: !CCoin
     } deriving (Show, Generic)
 
 totalTxMoney :: Tx -> Coin
@@ -164,7 +170,7 @@ toTxEntry :: Timestamp -> Tx -> CTxEntry
 toTxEntry ts tx = CTxEntry {..}
   where cteId = toCTxId $ hash tx
         cteTimeIssued = toPosixTime ts
-        cteAmount = totalTxMoney tx
+        cteAmount = mkCCoin $ totalTxMoney tx
 
 -- | Data displayed on block summary page
 data CBlockSummary = CBlockSummary
@@ -188,15 +194,17 @@ toBlockSummary blk = do
 data CAddressSummary = CAddressSummary
     { caAddress :: !CAddress
     , caTxNum   :: !Word
-    , caBalance :: !Coin
+    , caBalance :: !CCoin
     , caTxList  :: ![CTxBrief]
     } deriving (Show, Generic)
 
 data CTxBrief = CTxBrief
     { ctbId         :: !CTxId
     , ctbTimeIssued :: !POSIXTime
-    , ctbInputs     :: ![(CAddress, Coin)]
-    , ctbOutputs    :: ![(CAddress, Coin)]
+    , ctbInputs     :: ![(CAddress, CCoin)]
+    , ctbOutputs    :: ![(CAddress, CCoin)]
+    , ctbInputSum   :: !CCoin
+    , ctbOutputSum  :: !CCoin
     } deriving (Show, Generic)
 
 -- FIXME: newtype?
@@ -209,11 +217,11 @@ data CTxSummary = CTxSummary
     , ctsBlockTimeIssued :: !(Maybe POSIXTime)
     , ctsBlockHeight     :: !(Maybe Word)
     , ctsRelayedBy       :: !(Maybe CNetworkAddress)
-    , ctsTotalInput      :: !Coin
-    , ctsTotalOutput     :: !Coin
-    , ctsFees            :: !Coin
-    , ctsInputs          :: ![(CAddress, Coin)]
-    , ctsOutputs         :: ![(CAddress, Coin)]
+    , ctsTotalInput      :: !CCoin
+    , ctsTotalOutput     :: !CCoin
+    , ctsFees            :: !CCoin
+    , ctsInputs          :: ![(CAddress, CCoin)]
+    , ctsOutputs         :: ![(CAddress, CCoin)]
     } deriving (Show, Generic)
 
 --------------------------------------------------------------------------------
@@ -251,9 +259,27 @@ convertTxOutputs = map (toCAddress . txOutAddress &&& txOutValue)
 toTxBrief :: TxInternal -> TxExtra -> CTxBrief
 toTxBrief txi txe = CTxBrief {..}
   where
-    tx = tiTx txi
-    ts = tiTimestamp txi
-    ctbId = toCTxId $ hash tx
+    tx            = tiTx txi
+    ts            = tiTimestamp txi
+    ctbId         = toCTxId $ hash tx
     ctbTimeIssued = toPosixTime ts
-    ctbInputs = convertTxOutputs $ map toaOut $ NE.toList $ teInputOutputs txe
-    ctbOutputs = convertTxOutputs . NE.toList $ _txOutputs tx
+    ctbInputs     = map (second mkCCoin) txinputs
+    ctbOutputs    = map (second mkCCoin) txOutputs
+    ctbInputSum   = sumCoinOfInputsOutputs txinputs
+    ctbOutputSum  = sumCoinOfInputsOutputs txOutputs
+
+    txinputs      = convertTxOutputs $ map toaOut $ NE.toList $ teInputOutputs txe
+    txOutputs     = convertTxOutputs . NE.toList $ _txOutputs tx
+
+-- TODO (ks) : Needs to be refactored!
+sumCoinOfInputsOutputs :: [(CAddress, Coin)] -> CCoin
+sumCoinOfInputsOutputs addressList =
+    mkCCoin $ mkCoin $ fromIntegral $ sum addressCoinList
+      where
+        -- | Get total number of coins from an address
+        addressCoins :: (CAddress, Coin) -> Integer
+        addressCoins (_, coin) = coinToInteger coin
+
+        -- | Arbitrary precision, so we don't overflow
+        addressCoinList :: [Integer]
+        addressCoinList = addressCoins <$> addressList

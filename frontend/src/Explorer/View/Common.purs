@@ -32,14 +32,12 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (initialState)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
-import Explorer.Util.Factory (mkCAddress, mkCTxId, mkCoin, sumCoinOfInputsOutputs)
+import Explorer.Util.Factory (mkCAddress, mkCTxId, mkCoin)
 import Explorer.Util.Time (prettyDate)
 import Explorer.View.Lenses (txbAmount, txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
 import Exporer.View.Types (TxBodyViewProps(..), TxHeaderViewProps(..))
-import Pos.Core.Lenses.Types (getCoin)
-import Pos.Core.Types (Coin(..))
-import Pos.Explorer.Web.ClientTypes (CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, ctbId, ctbInputs, ctbOutputs, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
+import Pos.Explorer.Web.ClientTypes (CCoin(..), CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, _CHash, _CTxId, getCoin, ctbId, ctbInputs, ctbOutputs, ctbInputSum, ctbOutputSum, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
 import Pux.Html (Html, text, div, p, span, input, option, select) as P
 import Pux.Html.Attributes (className, href, value, disabled, type_, min, max, selected) as P
 import Pux.Html.Events (onChange, onFocus, FormEvent, MouseEvent, Target, onClick) as P
@@ -66,7 +64,7 @@ instance cTxBriefTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory CTxBrief w
     mkTxHeaderViewProps (CTxBrief txBrief) = TxHeaderViewProps
         { txhHash: txBrief ^. ctbId
         , txhTimeIssued: Just $ txBrief ^. ctbTimeIssued
-        , txhAmount: sumCoinOfInputsOutputs $ txBrief ^. ctbOutputs
+        , txhAmount: txBrief ^. ctbOutputSum
         }
 
 -- | Creates a TxHeaderViewProps by a given CTxSummary
@@ -109,13 +107,13 @@ emptyTxHeaderView =
         [ P.className "transaction-header"]
         [ ]
 
-txAmountView :: Coin -> P.Html Action
-txAmountView (Coin coin) =
+txAmountView :: CCoin -> P.Html Action
+txAmountView (CCoin coin) =
     P.div
         [ P.className "amount-container" ]
         [ P.div
             [ P.className "amount bg-ada" ]
-            [ P.text <<< show $ coin ^. getCoin]
+            [ P.text $ coin ^. getCoin]
         ]
 -- -----------------
 -- tx body
@@ -138,7 +136,7 @@ instance cTxBriefTxBodyViewPropsFactory :: TxBodyViewPropsFactory CTxBrief where
     mkTxBodyViewProps (CTxBrief txBrief) = TxBodyViewProps
         { txbInputs: txBrief ^. ctbInputs
         , txbOutputs: txBrief ^. ctbOutputs
-        , txbAmount: sumCoinOfInputsOutputs $ txBrief ^. ctbOutputs
+        , txbAmount: txBrief ^. ctbOutputSum
         }
 
 -- | Creates a TxBodyViewProps by a given EmptyViewProps
@@ -171,25 +169,25 @@ emptyTxBodyView =
         [ P.className "transaction-body" ]
         []
 
-txFromView :: Tuple CAddress Coin -> P.Html Action
+txFromView :: Tuple CAddress CCoin -> P.Html Action
 txFromView (Tuple (CAddress cAddress) _) =
     P.link (toUrl <<< Address $ mkCAddress cAddress)
         [ P.className "from-hash" ]
         [ P.text cAddress ]
 
-txToView :: Tuple CAddress Coin -> P.Html Action
+txToView :: Tuple CAddress CCoin -> P.Html Action
 txToView (Tuple (CAddress cAddress) _) =
     P.link (toUrl <<< Address $ mkCAddress cAddress)
           [ P.className "to-hash"]
           [ P.text cAddress ]
 
-txBodyAmountView :: Tuple CAddress Coin -> P.Html Action
-txBodyAmountView (Tuple _ (Coin coin)) =
+txBodyAmountView :: Tuple CAddress CCoin -> P.Html Action
+txBodyAmountView (Tuple _ (CCoin coin)) =
     P.div
         [ P.className "amount-wrapper" ]
         [ P.span
             [ P.className "plain-amount bg-ada-dark" ]
-            [ P.text <<< show $ coin ^. getCoin ]
+            [ P.text $ coin ^. getCoin ]
         ]
 
 -- -----------------

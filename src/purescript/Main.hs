@@ -33,7 +33,7 @@ main = do
       , mkSumType (Proxy @CT.CTxId)
       , mkSumType (Proxy @CT.CTxSummary)
       , mkSumType (Proxy @CE.ExplorerError)
-      , mkSumType (Proxy @CT.Coin)
+      , mkSumType (Proxy @CT.CCoin)
       , mkSumType (Proxy @PS.ClientEvent)
       , mkSumType (Proxy @PS.ServerEvent)
       , mkSumType (Proxy @PS.Subscription)

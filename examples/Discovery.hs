@@ -111,8 +111,9 @@ main = runProduction $ do
 
     when (number > 99 || number < 1) $ error "Give a number in [1,99]"
 
+    let params = TCP.defaultTCPParameters { TCP.tcpCheckPeerHost = True }
     Right transport_ <- liftIO $
-        TCP.createTransport "0.0.0.0" "10128" ((,) "127.0.0.1") TCP.defaultTCPParameters
+        TCP.createTransport (TCP.defaultTCPAddr "127.0.0.1" "10128") params
     let transport = concrete transport_
 
     liftIO . putStrLn $ "Spawning " ++ show number ++ " nodes"

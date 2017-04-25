@@ -57,6 +57,7 @@ import           Pos.Crypto                    (PassPhrase, aesDecrypt, deriveAe
                                                 redeemDeterministicKeyGen, withSafeSigner,
                                                 withSafeSigner)
 import           Pos.DB.Limits                 (MonadDBLimits)
+import           Pos.Explorer.Txp.Toil         (MonadTxExtraRead)
 import           Pos.Reporting.MemState        (MonadReportingMem, askReportingContext,
                                                 rcReportServers)
 import           Pos.Reporting.Methods         (sendReport, sendReportNodeNologs)
@@ -114,6 +115,7 @@ type WalletWebMode m
       , MonadKeys m -- FIXME: Why isn't it implied by the
                     -- WalletMode constraint above?
       , WebWalletModeDB m
+      , MonadTxExtraRead m
       , MonadDBLimits m
       , MonadWalletWebSockets m
       , MonadReportingMem m
@@ -405,7 +407,11 @@ sendExtended getPeers sendActions cpassphrase srcCAddr dstCAddr c curr title des
                 addHistoryTx srcCAddr curr title desc (THEntry txHash tx True Nothing)
 
 getHistory
-    :: (WebWalletModeDB m, MonadTxHistory m, MonadThrow m, MonadBlockchainInfo m)
+    :: (WebWalletModeDB m
+       , MonadTxHistory m
+       , MonadThrow m
+       , MonadBlockchainInfo m
+       , MonadTxExtraRead m)
     => CAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
 getHistory cAddr skip limit = do
     (minit, cachedTxs) <- transCache <$> getHistoryCache cAddr
@@ -438,7 +444,7 @@ searchHistory
 searchHistory cAddr search skip limit = first (filter $ txContainsTitle search) <$> getHistory cAddr skip limit
 
 addHistoryTx
-    :: (WebWalletModeDB m, MonadThrow m, MonadBlockchainInfo m)
+    :: (WebWalletModeDB m, MonadThrow m, MonadBlockchainInfo m, MonadTxExtraRead m)
     => CAddress
     -> CCurrency
     -> Text
@@ -454,7 +460,7 @@ addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
     let cId = txIdToCTxId txId
     addOnlyNewTxMeta cAddr cId meta
     meta' <- maybe meta identity <$> getTxMeta cAddr cId
-    pure $ mkCTx addr diff wtx meta'
+    mkCTx addr diff wtx meta'
 
 newWallet :: WalletWebMode m => CPassPhrase -> CWalletInit -> m CWallet
 newWallet cPassphrase CWalletInit {..} = do

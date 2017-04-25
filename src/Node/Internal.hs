@@ -64,6 +64,7 @@ import           Data.Monoid
 import           Data.Typeable
 import           Data.Time.Units               (Microsecond)
 import           Formatting                    (sformat, shown, (%))
+import           GHC.Generics                  (Generic)
 import qualified Mockable.Channel              as Channel
 import           Mockable.Class
 import           Mockable.Concurrent
@@ -80,7 +81,9 @@ import qualified Node.Message                  as Message
 
 -- | A 'NodeId' wraps a network-transport endpoint address
 newtype NodeId = NodeId NT.EndPointAddress
-  deriving (Eq, Ord, Show, Hashable)
+  deriving (Eq, Ord, Show, Hashable, Generic)
+
+instance Binary NodeId
 
 -- | The state of a Node, to be held in a shared atomic cell because other
 --   threads will mutate it in order to set up bidirectional connections.

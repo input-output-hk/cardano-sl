@@ -1,8 +1,8 @@
 module Main where
 
+import Prelude (($), (<$>), (<<<), bind, pure)
 import Control.Bind ((=<<))
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.SocketIO.Client (SocketIO, connect, on)
 import DOM (DOM)
 import Data.Lens (set)
@@ -18,7 +18,6 @@ import Explorer.Util.Config (hostname, isProduction, secureProtocol)
 import Explorer.View.Layout (view)
 import Network.HTTP.Affjax (AJAX)
 import Pos.Explorer.Socket.Methods (ServerEvent(..))
-import Prelude (($), (<<<), bind, pure)
 import Pux (App, Config, CoreEffects, Update, renderToDOM, start)
 import Pux.Devtool (Action, start) as Pux.Devtool
 import Pux.Router (sampleUrl)
@@ -35,7 +34,7 @@ config state = do
   -- socket
   actionChannel <- channel $ Ex.SocketConnected false
   let socketSignal = subscribe actionChannel :: Signal Ex.Action
-  let socketHost = Ex.mkSocketHost (secureProtocol isProduction) (unsafePerformEff hostname)
+  socketHost <- Ex.mkSocketHost (secureProtocol isProduction) <$> hostname
   socket' <- connect socketHost
   on socket' Ex.connectEvent $ Ex.connectHandler actionChannel
   on socket' Ex.closeEvent $ Ex.closeHandler actionChannel

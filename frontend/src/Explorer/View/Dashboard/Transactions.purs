@@ -16,7 +16,7 @@ import Explorer.View.Common (currencyCSSClass, noData)
 import Explorer.View.Dashboard.Lenses (dashboardTransactionsExpanded)
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
-import Pos.Core.Lenses.Types (_Coin, getCoin)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CTxEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (cteId, cteAmount, cteTimeIssued, _CTxId, _CHash)
 import Pux.Html (Html, div, text) as P
@@ -94,7 +94,7 @@ transactionRow state (CTxEntry entry) =
               [ P.className "transactions__column hash" ]
               [ P.text $ entry ^. (cteId <<< _CTxId <<< _CHash) ]
         , transactionColumn dateValue "date"
-        , transactionColumn (show $ entry ^. (cteAmount <<< _Coin <<< getCoin))
+        , transactionColumn (entry ^. (cteAmount <<< _CCoin <<< getCoin))
               <<< currencyCSSClass $ Just ADA
         ]
 

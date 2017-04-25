@@ -3,20 +3,19 @@ module Exporer.View.Types where
 import Data.Maybe (Maybe)
 import Data.Time.NominalDiffTime (NominalDiffTime)
 import Data.Tuple (Tuple)
-import Pos.Core.Types (Coin)
-import Pos.Explorer.Web.ClientTypes (CAddress, CTxId)
+import Pos.Explorer.Web.ClientTypes (CCoin, CAddress, CTxId)
 
 -- put all view related types here in this file to generate lenses from it
 
 newtype TxHeaderViewProps = TxHeaderViewProps
   { txhHash :: CTxId
   , txhTimeIssued :: Maybe NominalDiffTime
-  , txhAmount :: Coin
+  , txhAmount :: CCoin
   }
 
 
 newtype TxBodyViewProps = TxBodyViewProps
-  { txbInputs :: Array (Tuple CAddress Coin)
-  , txbOutputs :: Array (Tuple CAddress Coin)
-  , txbAmount :: Coin
+  { txbInputs :: Array (Tuple CAddress CCoin)
+  , txbOutputs :: Array (Tuple CAddress CCoin)
+  , txbAmount :: CCoin
   }

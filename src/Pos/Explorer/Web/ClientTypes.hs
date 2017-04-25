@@ -52,19 +52,17 @@ import           Pos.Explorer           (TxExtra (..))
 import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
-import           Pos.Txp                (Tx (..), TxId, TxOut (..), TxOutAux (..),
-                                         _txOutputs)
-import           Pos.Types              (Address, Coin, EpochIndex, LocalSlotIndex,
-                                         MainBlock, SlotId (..), Timestamp, addressF,
-                                         blockSlot, blockTxs, decodeTextAddress, gbHeader,
-                                         gbhConsensus, getEpochIndex, getSlotIndex,
-                                         headerHash, mcdSlot, mkCoin, prevBlockL,
-                                         sumCoins, unsafeAddCoin, unsafeGetCoin,
-                                         unsafeIntegerToCoin)
-
-
-
-
+import           Pos.Txp                (Tx (..), TxId, TxOut (..),
+                                         TxOutAux (..), _txOutputs)
+import           Pos.Types              (Address, Coin, EpochIndex,
+                                         LocalSlotIndex, MainBlock, SlotId (..),
+                                         Timestamp, addressF, blockSlot,
+                                         blockTxs, decodeTextAddress, gbHeader,
+                                         gbhConsensus, getEpochIndex,
+                                         getSlotIndex, headerHash, mcdSlot,
+                                         mkCoin, prevBlockL, sumCoins,
+                                         unsafeAddCoin, unsafeGetCoin,
+                                         unsafeIntegerToCoin, coinToInteger)
 
 -------------------------------------------------------------------------------------
 -- Hash types
@@ -205,6 +203,8 @@ data CTxBrief = CTxBrief
     , ctbTimeIssued :: !POSIXTime
     , ctbInputs     :: ![(CAddress, CCoin)]
     , ctbOutputs    :: ![(CAddress, CCoin)]
+    , ctbInputSum   :: !CCoin
+    , ctbOutputSum  :: !CCoin
     } deriving (Show, Generic)
 
 -- FIXME: newtype?
@@ -259,9 +259,27 @@ convertTxOutputs = map (toCAddress . txOutAddress &&& txOutValue)
 toTxBrief :: TxInternal -> TxExtra -> CTxBrief
 toTxBrief txi txe = CTxBrief {..}
   where
-    tx = tiTx txi
-    ts = tiTimestamp txi
-    ctbId = toCTxId $ hash tx
+    tx            = tiTx txi
+    ts            = tiTimestamp txi
+    ctbId         = toCTxId $ hash tx
     ctbTimeIssued = toPosixTime ts
-    ctbInputs = map (second mkCCoin) . convertTxOutputs $ map toaOut $ NE.toList $ teInputOutputs txe
-    ctbOutputs = map (second mkCCoin) . convertTxOutputs . NE.toList $ _txOutputs tx
+    ctbInputs     = map (second mkCCoin) txinputs
+    ctbOutputs    = map (second mkCCoin) txOutputs
+    ctbInputSum   = sumCoinOfInputsOutputs txinputs
+    ctbOutputSum  = sumCoinOfInputsOutputs txOutputs
+
+    txinputs      = convertTxOutputs $ map toaOut $ NE.toList $ teInputOutputs txe
+    txOutputs     = convertTxOutputs . NE.toList $ _txOutputs tx
+
+-- TODO (ks) : Needs to be refactored!
+sumCoinOfInputsOutputs :: [(CAddress, Coin)] -> CCoin
+sumCoinOfInputsOutputs addressList =
+    mkCCoin $ mkCoin $ fromIntegral $ sum addressCoinList
+      where
+        -- | Get total number of coins from an address
+        addressCoins :: (CAddress, Coin) -> Integer
+        addressCoins (_, coin) = coinToInteger coin
+
+        -- | Arbitrary precision, so we don't overflow
+        addressCoinList :: [Integer]
+        addressCoinList = addressCoins <$> addressList

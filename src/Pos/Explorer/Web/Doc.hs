@@ -195,6 +195,8 @@ instance ToSample CTxBrief where
             , ctbTimeIssued = posixTime
             , ctbInputs     = [(CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv", mkCCoin $ mkCoin 33333)]
             , ctbOutputs    = [(CAddress "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ", mkCCoin $ mkCoin 33333)]
+            , ctbInputSum   = mkCCoin $ mkCoin 33333
+            , ctbOutputSum  = mkCCoin $ mkCoin 33333
             }
 
 instance ToSample CTxSummary where

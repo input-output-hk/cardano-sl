@@ -27,7 +27,7 @@ import Explorer.Util.Time (prettyDuration)
 import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnRelayedBy, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
 import Explorer.View.Common (getMaxPaginationNumber, noData, paginationView)
 import Network.RemoteData (RemoteData(..))
-import Pos.Core.Lenses.Types (_Coin, getCoin)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeEpoch, cbeSlot, cbeRelayedBy, cbeSize, cbeTimeIssued, cbeTotalSent, cbeTxNum)
 import Pux.Html (Html, div, text, h3, p) as P
@@ -136,7 +136,7 @@ blockRow state (CBlockEntry entry) =
         , blockColumn { label: show $ entry ^. cbeTxNum
                       , clazz: CSS.blocksColumnTxs
                       }
-        , blockColumn { label: show $ entry ^. (cbeTotalSent <<< _Coin <<< getCoin)
+        , blockColumn { label: entry ^. (cbeTotalSent <<< _CCoin <<< getCoin)
                       , clazz: CSS.blocksColumnTotalSent
                       }
         , blockColumn { label: labelRelayed

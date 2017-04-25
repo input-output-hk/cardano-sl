@@ -1130,7 +1130,7 @@ executable cardano-keygen
                      , text
                      , lens
                      , optparse-applicative >= 0.12
-                     , unordered-containers >= 0.2
+                     , unordered-containers
                      , bytestring >= 0.10
                      , random >= 1.1
                      , filepath

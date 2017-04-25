@@ -37,11 +37,12 @@ spec = describe "Poll" $ do
             "applying two poll modifiers in sequence to the poll state is equivalent\
             \ to combining them and applying the resulting modifier"
             modifyPollStateWithModifiers
-        prop
-            "applying a series of modifications to a modifier and then applying it to\
-            \ a poll state is the same as applying the modifications directly to the\
-            \ poll state"
-            applyActions
+        describe "PurePoll" $ do
+            prop
+                "applying a series of modifications to a modifier and then applying it to\
+                \ a poll state is the same as applying the modifications directly to the\
+                \ poll state"
+                applyActions
 
 modifyPollFormsMonoid
     :: Poll.PollModifier

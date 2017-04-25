@@ -26,22 +26,22 @@ module Pos.Update.Poll.PollState
 
 import           Universum
 
-import           Control.Arrow                ((&&&))
 import           Control.Lens                 (makeLenses)
 import qualified Data.HashSet                 as HS
 import qualified Data.HashMap.Strict          as HM
 
 import           Pos.Core.Types               (ApplicationName, BlockVersion,
                                                BlockVersionData, EpochIndex,
-                                               NumSoftwareVersion, SoftwareVersion,
+                                               NumSoftwareVersion, SoftwareVersion (..),
                                                StakeholderId)
 import           Pos.Lrc.DB.Issuers           (IssuersStakes)
 import           Pos.Lrc.Types                (FullRichmenData)
 import           Pos.Slotting.Types           (SlottingData)
-import           Pos.Update.Core              (UpId)
+import           Pos.Update.Core              (UpId, UpdateProposal (..))
 import           Pos.Update.Poll.Types        (BlockVersionState, ConfirmedProposalState,
-                                               PollModifier (..), ProposalState)
-import           Pos.Util.Modifier            (deletions, insertions, modifyHashMap)
+                                               PollModifier (..), ProposalState,
+                                               psProposal)
+import           Pos.Util.Modifier            (foldlMapModWKey', modifyHashMap)
 
 data PollState = PollState
     { -- | All competing block versions with their states
@@ -76,13 +76,24 @@ modifyPollState PollModifier {..} PollState {..} =
               (modifyHashMap pmConfirmed _psConfirmedANs)
               (modifyHashMap pmConfirmedProps _psConfirmedProposals)
               (modifyHashMap pmActiveProps _psActiveProposals)
-              newActivePropsIdx
+              (resultActiveProposals . diffHMWithHSKeys $ _psActivePropsIdx)
               (fromMaybe _psSlottingData pmSlottingData)
               _psFullRichmenData
               _psIssuersStakes
   where
-    (dels, ins) =
-        (HS.fromList . deletions) &&& (HS.fromList . map fst . insertions) $ pmActiveProps
-    newActivePropsIdx =
-        (fmap removeAndAddProps . (`HM.difference` pmDelActivePropsIdx)) _psActivePropsIdx
-    removeAndAddProps hashset = HS.union ins . (flip HS.difference dels) $ hashset
+    diffHMWithHSKeys hm =
+        HM.differenceWith (\v w -> let diff = HS.difference v w
+                                   in bool Nothing (Just diff) (not $ null diff))
+                          hm
+                          pmDelActivePropsIdx
+
+    addUpIdsToAppNameHS hashMap upId Nothing =
+        fmap (HS.delete upId) hashMap
+    addUpIdsToAppNameHS hashMap upId (Just propSt) =
+        let appName = svAppName . upSoftwareVersion . psProposal $ propSt
+        in HM.insertWith HS.union appName (HS.singleton upId) hashMap
+
+    resultActiveProposals hm =
+        foldlMapModWKey' addUpIdsToAppNameHS
+                         hm
+                         pmActiveProps

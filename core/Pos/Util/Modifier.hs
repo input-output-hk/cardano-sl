@@ -22,6 +22,7 @@ module Pos.Util.Modifier
        , mapMaybeM
 
        , modifyHashMap
+       , foldlMapModWKey'
        ) where
 
 import           Universum           hiding (toList)
@@ -156,3 +157,11 @@ modifyHashMap pm hm =
   where
     inserts = insertions pm
     deletes = deletions pm
+
+foldlMapModWKey'
+    :: (Eq k, Hashable k)
+    => (a -> k -> Maybe v -> a)
+    -> a
+    -> MapModifier k v
+    -> a
+foldlMapModWKey' f acc = HM.foldlWithKey' f acc . getMapModifier

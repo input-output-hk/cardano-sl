@@ -69,6 +69,11 @@ packages:
 #    git: https://github.com/haskell-crypto/cryptonite.git
 #    commit: 2932df9e243aa7ae7eb2b25d7c60fa77a30c6fb5
 #  extra-dep: true
+- location:
+    git: https://github.com/tibbe/unordered-containers
+    commit: 76f3b971faef37e92390bc6f5a03f36154ebc1b2
+  extra-dep: true
+
 
 nix:
   shell-file: shell.nix

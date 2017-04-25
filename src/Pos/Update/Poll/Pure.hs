@@ -11,12 +11,15 @@ import           Universum
 
 import           Control.Lens              (at, to, (%=), (.=))
 import qualified Data.HashMap.Strict       as HM
+import qualified Data.HashSet              as HS
 import           System.Wlog               (CanLog, HasLoggerName (..), LogEvent,
                                             NamedPureLogger, logDebug, logWarning,
                                             runNamedPureLog)
 
+import           Pos.Binary                (Bi)
 import           Pos.Crypto                (hash)
 import           Pos.Types                 (SoftwareVersion (..))
+import           Pos.Update.Core           (UpdateProposal (..))
 import           Pos.Update.Poll.Class     (MonadPoll (..), MonadPollRead (..))
 import qualified Pos.Update.Poll.PollState as Poll
 import           Pos.Update.Poll.Types     (BlockVersionState (..),
@@ -49,7 +52,7 @@ instance MonadPollRead PurePoll where
     getProposal ui = PurePoll $ use $ Poll.psActiveProposals . at ui
     getProposalsByApp an = PurePoll $ do
         activeProposalsIndices <- use Poll.psActivePropsIdx
-        activeProposals           <- use Poll.psActiveProposals
+        activeProposals        <- use Poll.psActiveProposals
         propGetByApp activeProposalsIndices activeProposals
       where
         propGetByApp appHashmap upIdHashmap =
@@ -61,8 +64,7 @@ instance MonadPollRead PurePoll where
                 Just hashset -> do
                     let uidList = toList hashset
                         propStateList = map (\u -> (u, HM.lookup u upIdHashmap)) uidList
-                    -- 'sequence :: [Maybe ProposalState] -> Maybe [ProposalState]'
-                    fromMaybe [] . sequence . map snd <$> filterM filterFun propStateList
+                    fromMaybe [] . mapM snd <$> filterM filterFun propStateList
         filterFun (uid, Nothing) = do
             logWarning $ "getProposalsByApp: unknown update id " <> pretty uid
             pure False
@@ -88,7 +90,7 @@ instance MonadPollRead PurePoll where
         PurePoll $ use $ Poll.psIssuersStakes . to (HM.lookup si <=< HM.lookup ei)
     getSlottingData = PurePoll $ use Poll.psSlottingData
 
-instance MonadPoll PurePoll where
+instance Bi UpdateProposal => MonadPoll PurePoll where
     putBVState bv bvs = PurePoll $ Poll.psBlockVersions . at bv .= Just bvs
     delBVState bv = PurePoll $ Poll.psBlockVersions . at bv .= Nothing
     setAdoptedBV bv = do
@@ -104,10 +106,18 @@ instance MonadPoll PurePoll where
     addConfirmedProposal cps =
         PurePoll $ Poll.psConfirmedProposals . at (cpsSoftwareVersion cps) .= Just cps
     delConfirmedProposal sv = PurePoll $ Poll.psConfirmedProposals . at sv .= Nothing
-    insertActiveProposal p = PurePoll $ Poll.psActiveProposals %= decideProp p
+    insertActiveProposal p =
+        PurePoll $ (Poll.psActiveProposals %= decideProp) >>
+                   (Poll.psActivePropsIdx %= addUIdtoApp)
       where
-          decideProp ps = HM.insert (hashProposal ps) ps
-          hashProposal = hash . psProposal
-    deactivateProposal ui = PurePoll $ Poll.psActiveProposals . at ui .= Nothing
+          decideProp = HM.insert uId p
+          addUIdtoApp = HM.insertWith HS.union appName (HS.singleton uId)
+
+          uProp = psProposal p
+          uId = hash uProp
+          appName = svAppName . upSoftwareVersion $ uProp
+    deactivateProposal ui =
+        PurePoll $ (Poll.psActiveProposals . at ui .= Nothing) >>
+                   (Poll.psActivePropsIdx %= fmap (HS.delete ui))
     setSlottingData sd = PurePoll $ Poll.psSlottingData .= sd
     setEpochProposers hs = PurePoll $ Poll.psEpochProposers .= hs

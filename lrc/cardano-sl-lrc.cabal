@@ -56,7 +56,7 @@ library
                        MultiWayIf
                        ConstraintKinds
                        UndecidableInstances
-
+                       BangPatterns
 
   default-language:    Haskell2010
 

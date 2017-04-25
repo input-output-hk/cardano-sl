@@ -1,5 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
-
 -- | Pos.Communication.Relay serialization instances
 
 module Pos.Binary.Relay () where

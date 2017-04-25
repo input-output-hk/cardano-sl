@@ -4,7 +4,6 @@
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE DeriveFunctor        #-}
 {-# LANGUAGE TypeOperators        #-}
-{-# LANGUAGE BangPatterns         #-}
 {-# LANGUAGE RankNTypes           #-}
 
 #include "MachDeps.h"

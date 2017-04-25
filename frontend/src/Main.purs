@@ -2,17 +2,19 @@ module Main where
 
 import Control.Bind ((=<<))
 import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.SocketIO.Client (SocketIO, connect, on)
 import DOM (DOM)
 import Data.Lens (set)
 import Data.Maybe (Maybe(..))
 import Explorer.Api.Socket (toEvent)
-import Explorer.Api.Socket (blocksUpdatedEventHandler, callYouEventHandler, callYouStringEventHandler, callYouCTxIdEventHandler, socketHost, connectEvent, closeEvent, connectHandler, closeHandler, txsUpdatedHandler) as Ex
+import Explorer.Api.Socket (blocksUpdatedEventHandler, callYouEventHandler, callYouStringEventHandler, callYouCTxIdEventHandler, mkSocketHost, connectEvent, closeEvent, connectHandler, closeHandler, txsUpdatedHandler) as Ex
 import Explorer.Lenses.State (connection, socket)
 import Explorer.Routes (match)
 import Explorer.Types.Actions (Action(..)) as Ex
 import Explorer.Types.State (State) as Ex
 import Explorer.Update (update) as Ex
+import Explorer.Util.Config (hostname, isProduction, protocol)
 import Explorer.View.Layout (view)
 import Network.HTTP.Affjax (AJAX)
 import Pos.Explorer.Socket.Methods (ServerEvent(..))
@@ -33,7 +35,8 @@ config state = do
   -- socket
   actionChannel <- channel $ Ex.SocketConnected false
   let socketSignal = subscribe actionChannel :: Signal Ex.Action
-  socket' <- connect Ex.socketHost
+  let socketHost = Ex.mkSocketHost (protocol isProduction) (unsafePerformEff hostname)
+  socket' <- connect socketHost
   on socket' Ex.connectEvent $ Ex.connectHandler actionChannel
   on socket' Ex.closeEvent $ Ex.closeHandler actionChannel
   on socket' (toEvent TxsUpdated) $ Ex.txsUpdatedHandler actionChannel

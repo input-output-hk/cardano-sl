@@ -3,6 +3,7 @@ module Explorer.Api.Socket where
 import Prelude
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (Error)
+import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.SocketIO.Client (Event, Host)
 import Data.Argonaut.Core (Json)
 import Data.Array (foldl, last)
@@ -21,8 +22,9 @@ import Signal.Channel (CHANNEL, send)
 
 -- host
 
-socketHost :: Host
-socketHost = "http://localhost:8110"
+mkSocketHost :: String -> String -> Host
+mkSocketHost protocol hostname =
+    protocol <> "://" <> hostname <> ":8110"
 
 -- events
 

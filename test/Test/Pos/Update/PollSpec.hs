@@ -12,7 +12,7 @@ import qualified Data.HashMap.Strict       as HM
 import qualified Data.HashSet              as HS
 import           Data.DeriveTH             (derive, makeArbitrary)
 import           Test.Hspec                (Spec, describe)
-import           Test.Hspec.QuickCheck     (prop)
+import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
 import           Test.QuickCheck           (Arbitrary (..), Property, (===), conjoin,
                                             choose)
 
@@ -28,16 +28,17 @@ import           Test.Pos.Util             (formsMonoid)
 
 spec :: Spec
 spec = describe "Poll" $ do
-    describe "modifyPollModifier" $ do
+    let smaller n = modifyMaxSuccess (const n)
+    describe "modifyPollModifier" $ smaller 30 $ do
         prop
             "poll modifiers form a commutative monoid under 'modifyPollModifier'"
             modifyPollFormsMonoid
-    describe "PollState" $ do
+    describe "PollState" $ smaller 30 $ do
         prop
             "applying two poll modifiers in sequence to the poll state is equivalent\
             \ to combining them and applying the resulting modifier"
             modifyPollStateWithModifiers
-        describe "PurePoll" $ do
+        describe "PurePoll" $ smaller 30 $ do
             prop
                 "applying a series of modifications to a modifier and then applying it to\
                 \ a poll state is the same as applying the modifications directly to the\

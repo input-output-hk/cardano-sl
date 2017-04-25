@@ -1,8 +1,3 @@
-{-
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
--}
 {-# LANGUAGE TypeFamilies #-}
 
 -- | PollT monad transformer. Single-threaded.

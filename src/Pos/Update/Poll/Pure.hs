@@ -9,7 +9,7 @@ module Pos.Update.Poll.Pure
 
 import           Universum
 
-import           Control.Lens              (at, to, (%=), (.=))
+import           Control.Lens              (at, mapped, to, uses, (%=), (.=))
 import qualified Data.HashMap.Strict       as HM
 import qualified Data.HashSet              as HS
 import           System.Wlog               (CanLog, HasLoggerName (..), LogEvent,
@@ -64,30 +64,29 @@ instance MonadPollRead PurePoll where
                 Just hashset -> do
                     let uidList = toList hashset
                         propStateList = map (\u -> (u, HM.lookup u upIdHashmap)) uidList
-                    fromMaybe [] . mapM snd <$> filterM filterFun propStateList
+                    fromMaybe [] . traverse snd <$> filterM filterFun propStateList
         filterFun (uid, Nothing) = do
             logWarning $ "getProposalsByApp: unknown update id " <> pretty uid
             pure False
         filterFun (_, Just _) = pure True
     getConfirmedProposals = PurePoll $ use $ Poll.psConfirmedProposals . to HM.elems
     getEpochTotalStake ei =
-        PurePoll $ use $ Poll.psFullRichmenData . to ((Just . fst) <=< HM.lookup ei)
+        PurePoll $ uses Poll.psFullRichmenData $ (Just . fst) <=< HM.lookup ei
     getRichmanStake ei si =
-        PurePoll $ use $ Poll.psFullRichmenData .
-            to ((HM.lookup si . snd) <=< HM.lookup ei)
+        PurePoll $ uses Poll.psFullRichmenData $ (HM.lookup si . snd) <=< HM.lookup ei
     getOldProposals si =
-        PurePoll $ use $ Poll.psActiveProposals . to (filter ((<= si) . upsSlot) .
-                                                      lefts .
-                                                      map propStateToEither .
-                                                      HM.elems)
+        PurePoll $ uses Poll.psActiveProposals $ filter ((<= si) . upsSlot) .
+                                                 lefts .
+                                                 map propStateToEither .
+                                                 HM.elems
     getDeepProposals cd =
-        PurePoll $ use $ Poll.psActiveProposals .
-            to (filter (maybe False (<= cd) . dpsDifficulty) .
-                rights .
-                map propStateToEither .
-                HM.elems)
+        PurePoll $ uses Poll.psActiveProposals $
+            filter (maybe False (<= cd) . dpsDifficulty) .
+            rights .
+            map propStateToEither .
+            HM.elems
     getBlockIssuerStake ei si =
-        PurePoll $ use $ Poll.psIssuersStakes . to (HM.lookup si <=< HM.lookup ei)
+        PurePoll $ uses Poll.psIssuersStakes $ HM.lookup si <=< HM.lookup ei
     getSlottingData = PurePoll $ use Poll.psSlottingData
 
 instance Bi UpdateProposal => MonadPoll PurePoll where
@@ -118,6 +117,6 @@ instance Bi UpdateProposal => MonadPoll PurePoll where
           appName = svAppName . upSoftwareVersion $ uProp
     deactivateProposal ui =
         PurePoll $ (Poll.psActiveProposals . at ui .= Nothing) >>
-                   (Poll.psActivePropsIdx %= fmap (HS.delete ui))
+                   (Poll.psActivePropsIdx . mapped . at ui .= Nothing)
     setSlottingData sd = PurePoll $ Poll.psSlottingData .= sd
     setEpochProposers hs = PurePoll $ Poll.psEpochProposers .= hs

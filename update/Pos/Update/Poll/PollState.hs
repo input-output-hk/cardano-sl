@@ -76,19 +76,18 @@ modifyPollState PollModifier {..} PollState {..} =
               (modifyHashMap pmConfirmed _psConfirmedANs)
               (modifyHashMap pmConfirmedProps _psConfirmedProposals)
               (modifyHashMap pmActiveProps _psActiveProposals)
-              (resultActiveProposals . diffHMWithHSKeys $ _psActivePropsIdx)
+              (resultActiveProposals _psActivePropsIdx)
               (fromMaybe _psSlottingData pmSlottingData)
               _psFullRichmenData
               _psIssuersStakes
   where
-    diffHMWithHSKeys hm =
-        HM.differenceWith (\v w -> let diff = HS.difference v w
-                                   in bool Nothing (Just diff) (not $ null diff))
-                          hm
-                          pmDelActivePropsIdx
+    alterFun ui hs =
+        let resHS = HS.delete ui hs
+        in if null resHS then Nothing
+                         else Just resHS
 
     addUpIdsToAppNameHS hashMap upId Nothing =
-        fmap (HS.delete upId) hashMap
+        HM.mapMaybe (alterFun upId) hashMap
     addUpIdsToAppNameHS hashMap upId (Just propSt) =
         let appName = svAppName . upSoftwareVersion . psProposal $ propSt
         in HM.insertWith HS.union appName (HS.singleton upId) hashMap

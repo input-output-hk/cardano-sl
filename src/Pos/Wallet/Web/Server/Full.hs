@@ -39,6 +39,7 @@ import           Pos.Ssc.Extra                 (SscState, runSscHolder)
 import           Pos.Txp                       (GenericTxpLocalData, askTxpMem,
                                                 runTxpHolder)
 import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
+import           Pos.Wallet.WalletMode         ()
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
                                                 walletServeImpl, walletServer,
                                                 walletServerOuts)

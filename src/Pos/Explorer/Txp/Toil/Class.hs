@@ -9,19 +9,20 @@ module Pos.Explorer.Txp.Toil.Class
 
 import           Universum
 
-import           Control.Lens                (at, (%=), (.=))
-import           Control.Monad.Trans.Class   (MonadTrans)
+import           Control.Lens                 (at, (%=), (.=))
+import qualified Control.Monad.Ether.Implicit as Ether
+import           Control.Monad.Trans.Class    (MonadTrans)
 
-import           Pos.Core                    (Address)
-import           Pos.DB.Class                (MonadDB)
-import           Pos.Explorer.Core           (AddrHistory, TxExtra)
-import qualified Pos.Explorer.DB             as DB
-import           Pos.Explorer.Txp.Toil.Types (ExplorerExtra, eeAddrHistories,
-                                              eeLocalTxsExtra)
-import           Pos.Txp.Core                (TxId)
-import           Pos.Txp.Toil                (DBTxp, ToilT, UtxoReaderT, tmExtra)
-import           Pos.Util                    (ether)
-import qualified Pos.Util.Modifier           as MM
+import           Pos.Core                     (Address)
+import           Pos.DB.Class                 (MonadDB)
+import           Pos.Explorer.Core            (AddrHistory, TxExtra)
+import qualified Pos.Explorer.DB              as DB
+import           Pos.Explorer.Txp.Toil.Types  (ExplorerExtra, eeAddrHistories,
+                                               eeLocalTxsExtra)
+import           Pos.Txp.Core                 (TxId)
+import           Pos.Txp.Toil                 (DBTxp, ToilT, UtxoReaderT, tmExtra)
+import           Pos.Util                     (ether)
+import qualified Pos.Util.Modifier            as MM
 
 class Monad m => MonadTxExtraRead m where
     getTxExtra :: TxId -> m (Maybe TxExtra)
@@ -38,7 +39,7 @@ class Monad m => MonadTxExtraRead m where
 instance MonadTxExtraRead m => MonadTxExtraRead (ReaderT s m)
 instance MonadTxExtraRead m => MonadTxExtraRead (StateT s m)
 instance MonadTxExtraRead m => MonadTxExtraRead (ExceptT s m)
-instance MonadTxExtraRead m => MonadTxExtraRead (UtxoReaderT m)
+instance MonadTxExtraRead m => MonadTxExtraRead (Ether.ReaderT s m)
 
 class MonadTxExtraRead m => MonadTxExtra m where
     putTxExtra :: TxId -> TxExtra -> m ()

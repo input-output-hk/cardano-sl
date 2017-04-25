@@ -34,9 +34,11 @@ import           Pos.DB                      (MonadDB)
 import qualified Pos.DB.Block                as DB
 import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
+import           Pos.Explorer.DB             as ExtraDB
+import           Pos.Explorer.Txp.Toil       (MonadTxExtraRead (..))
 import           Pos.Shutdown                (triggerShutdown)
 import           Pos.Slotting                (MonadSlots (..), getLastKnownSlotDuration)
-import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
+import           Pos.Ssc.Class               (Ssc, SscConstraint, SscHelpersClass)
 import           Pos.Txp                     (filterUtxoByAddr, runUtxoStateT)
 import           Pos.Types                   (BlockHeader, ChainDifficulty, difficultyL,
                                               flattenEpochOrSlot, flattenSlotId)
@@ -174,6 +176,17 @@ instance (Ssc ssc, MonadIO m, WithLogger m) =>
     waitForUpdate = liftIO . takeMVar =<<
                         askContext @UpdateContext ucUpdateSemaphore
     applyLastUpdate = triggerShutdown
+
+-- | Instance for lite-wallet
+instance MonadTxExtraRead WalletRealMode where
+    getTxExtra = error "notImplemented"
+    getAddrHistory = error "notImplemented"
+
+-- | Instance for full node
+instance forall ssc . SscConstraint ssc =>
+         MonadTxExtraRead (RawRealMode ssc) where
+    getTxExtra = ExtraDB.getTxExtra
+    getAddrHistory = ExtraDB.getAddrHistory
 
 ---------------------------------------------------------------
 -- Composite restrictions

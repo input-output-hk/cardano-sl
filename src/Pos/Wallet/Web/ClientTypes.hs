@@ -61,14 +61,19 @@ import           Pos.Binary.Class       (decodeFull, encodeStrict)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core.Types         (ScriptVersion)
 import           Pos.Crypto             (PassPhrase, hashHexF)
-import           Pos.Txp.Core.Types     (Tx (..), TxId, TxOut, txOutAddress, txOutValue)
+import           Pos.Explorer           (TxExtra (..))
+import           Pos.Explorer.Txp.Toil  (MonadTxExtraRead (..))
+import           Pos.Txp.Core.Types     (Tx (..), TxId, TxOut, TxOutAux (..),
+                                         txOutAddress, txOutValue)
 import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
                                          Coin, SoftwareVersion, decodeTextAddress,
                                          sumCoins, unsafeGetCoin, unsafeIntegerToCoin)
 import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes,
                                          UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll        (ConfirmedProposalState (..))
+import           Pos.Util               (maybeThrow)
 import           Pos.Util.BackupPhrase  (BackupPhrase)
+import           Pos.Wallet.Web.Error   (WalletError (..))
 
 
 data SyncProgress = SyncProgress
@@ -135,15 +140,16 @@ convertTxOutputs :: [TxOut] -> [(CAddress, CCoin)]
 convertTxOutputs = map (addressToCAddress . txOutAddress &&& mkCCoin . txOutValue)
 
 mkCTx
-    :: Address            -- ^ An address for which transaction info is forming
+    :: (MonadThrow m, MonadTxExtraRead m)
+    => Address            -- ^ An address for which transaction info is forming
     -> ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
-    -> CTx
-mkCTx addr diff THEntry {..} meta =
-    -- placeholder, this functionality isn't implemented yet
-    let ctFrom = [] in
-    CTx {..}
+    -> m CTx
+mkCTx addr diff THEntry {..} meta = do
+    txExtra <- maybeThrow (Internal "Transaction is not in the DB") =<< getTxExtra _thTxId
+    let ctFrom = convertTxOutputs $ map toaOut $ toList $ teInputOutputs txExtra
+    pure CTx {..}
   where
     ctId = txIdToCTxId _thTxId
     outputs = toList $ _txOutputs _thTx

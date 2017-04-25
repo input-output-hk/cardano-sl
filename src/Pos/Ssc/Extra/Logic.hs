@@ -116,9 +116,13 @@ sscCalculateSeed
        , MonadIO m
        , WithLogger m )
     => EpochIndex
-    -> RichmenStake
     -> m (Either (SscSeedError ssc) SharedSeed)
-sscCalculateSeed epoch richmen = do
+sscCalculateSeed epoch = do
+    -- We take richmen for the previous epoch because during N-th epoch we
+    -- were using richmen for N-th epoch for everything – so, when we are
+    -- calculating the seed for N+1-th epoch, we should still use data from
+    -- N-th epoch.
+    richmen <- getRichmenFromLrc "sscCalculateSeed" (epoch - 1)
     sscRunGlobalQuery $ sscCalculateSeedQ @ssc epoch richmen
 
 ----------------------------------------------------------------------------

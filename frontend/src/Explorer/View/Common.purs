@@ -28,6 +28,7 @@ import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language(..), readLanguage, translate)
 import Explorer.I18n.Lenses (common, cDateFormat, tx, txEmpty) as I18nL
+import Explorer.Lenses.State (lang)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (initialState)
 import Explorer.Types.Actions (Action(..))
@@ -37,9 +38,9 @@ import Explorer.Util.Time (prettyDate)
 import Explorer.View.Lenses (txbAmount, txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
 import Exporer.View.Types (TxBodyViewProps(..), TxHeaderViewProps(..))
 import Pos.Explorer.Web.ClientTypes (CCoin(..), CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, _CHash, _CTxId, getCoin, ctbId, ctbInputs, ctbOutputs, ctbInputSum, ctbOutputSum, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, getCoin, ctbId, ctbInputs, ctbOutputs, ctbOutputSum, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
 import Pux.Html (Html, text, div, p, span, input, option, select) as P
-import Pux.Html.Attributes (className, href, value, disabled, type_, min, max, selected) as P
+import Pux.Html.Attributes (className, href, value, disabled, type_, min, max, defaultValue) as P
 import Pux.Html.Events (onChange, onFocus, FormEvent, MouseEvent, Target, onClick) as P
 import Pux.Router (link) as P
 
@@ -325,6 +326,7 @@ clickableLogoView = logoView' <<< Just
 langItems :: Array Language
 langItems =
     [ English
+    , Japanese
     , German
     ]
 
@@ -332,6 +334,7 @@ langView :: State -> P.Html Action
 langView state =
   P.select
       [ P.className "lang__select bg-arrow-up"
+      , P.defaultValue <<< show $ state ^. lang
       , P.onChange $ SetLanguage <<< fromMaybe (_.lang initialState) <<< readLanguage <<< _.value <<< _.target]
       $ map (langItemView state) langItems
 
@@ -339,7 +342,7 @@ langItemView :: State -> Language -> P.Html Action
 langItemView state lang =
   P.option
     [ P.value $ show lang
-    , P.selected $ state.lang == lang  ]
+    ]
     [ P.text $ show lang ]
 
 -- -----------------

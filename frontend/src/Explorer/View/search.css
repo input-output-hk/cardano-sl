@@ -107,6 +107,7 @@
             font-size: 13px;
             font-family: var(--fontFamily0-Light);
             cursor: pointer;
+            white-space: nowrap;
 
             &:hover,
             &:active,

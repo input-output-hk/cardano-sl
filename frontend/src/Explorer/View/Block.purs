@@ -11,10 +11,9 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.DOM (targetToHTMLInputElement)
-import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
-import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin)
+import Explorer.View.Common (currencyCSSClass, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, _CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
 import Pux.Html (Html, div, text, h3) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Router (link) as P

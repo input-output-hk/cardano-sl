@@ -1,7 +1,7 @@
 module Explorer.State where
 
 import Prelude
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromJust)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language(..), translate)
 import Explorer.I18n.Lenses (common, cTitle) as I18nL
@@ -11,7 +11,6 @@ import Explorer.Util.Factory (mkCAddress)
 import Network.RemoteData (RemoteData(..))
 import Data.DateTime.Instant       (instant, toDateTime)
 import Data.Time.Duration          (Milliseconds (..))
-import Data.Maybe (fromJust)
 import Partial.Unsafe (unsafePartial)
 
 

@@ -12,9 +12,8 @@ import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.Time (prettyDate)
 import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkTxBodyViewProps, mkTxHeaderViewProps, noData, txBodyView, txHeaderView)
-import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CTxSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CNetworkAddress, ctsBlockHeight, ctsFees, ctsRelayedBy, ctsTotalOutput, ctsTxTimeIssued)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, _CNetworkAddress, ctsBlockHeight, ctsFees, ctsRelayedBy, ctsTotalOutput, ctsTxTimeIssued)
 import Pux.Html (Html, div, text, h3, p, table, tr, td) as P
 import Pux.Html.Attributes (className, dangerouslySetInnerHTML) as P
 import Pux.Router (link) as P

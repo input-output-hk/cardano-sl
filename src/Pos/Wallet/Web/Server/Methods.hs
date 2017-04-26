@@ -401,8 +401,8 @@ sendExtended getPeers sendActions cpassphrase srcCAddr dstCAddr c curr title des
                     c idx dstAddr
                 -- TODO: this should be removed in production
                 let txHash = hash tx
-                () <$ addHistoryTx dstCAddr curr title desc (THEntry txHash tx False Nothing)
-                addHistoryTx srcCAddr curr title desc (THEntry txHash tx True Nothing)
+                () <$ addHistoryTx dstCAddr curr title desc (THEntry txHash tx False [TxOut srcAddr c] Nothing)
+                addHistoryTx srcCAddr curr title desc (THEntry txHash tx True [TxOut srcAddr c] Nothing)
 
 getHistory
     :: (WebWalletModeDB m, MonadTxHistory m, MonadThrow m, MonadBlockchainInfo m)
@@ -445,7 +445,7 @@ addHistoryTx
     -> Text
     -> TxHistoryEntry
     -> m CTx
-addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
+addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _ _) = do
     -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
             networkChainDifficulty
@@ -544,10 +544,10 @@ redeemAdaInternal getPeers sendActions walletId seedBs = do
     etx <- submitRedemptionTx sendActions redeemSK (toList na) dstAddr
     case etx of
         Left err -> throwM . Internal $ "Cannot send redemption transaction: " <> err
-        Right (tx, _, _) -> do
+        Right ((tx, _, _), redeemAddress, redeemBalance) -> do
             -- add redemption transaction to the history of new wallet
             addHistoryTx dstCAddr ADA "ADA redemption" ""
-              (THEntry (hash tx) tx False Nothing)
+              (THEntry (hash tx) tx False [TxOut redeemAddress redeemBalance] Nothing)
 
 
 reportingInitialized :: forall m. WalletWebMode m => CInitialized -> m ()

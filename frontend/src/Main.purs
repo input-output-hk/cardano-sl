@@ -11,7 +11,7 @@ import DOM (DOM)
 import Data.Lens (set)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Explorer.I18n.Lang (Language(..), detectLocale)
-import Explorer.Api.Socket (toEvent, blocksUpdatedEventHandler, callYouEventHandler, callYouStringEventHandler, callYouCTxIdEventHandler, mkSocketHost, connectEvent, closeEvent, connectHandler, closeHandler, txsUpdatedHandler) as Ex
+import Explorer.Api.Socket (blocksUpdatedEventHandler, callYouEventHandler, callYouStringEventHandler, callYouCTxIdEventHandler, mkSocketHost, connectEvent, closeEvent, connectHandler, closeHandler, toEvent, txsUpdatedHandler) as Ex
 import Explorer.Lenses.State (connection, lang, socket)
 import Explorer.Routes (match)
 import Explorer.Types.Actions (Action(..)) as Ex
@@ -43,11 +43,11 @@ config state = do
   socket' <- connect socketHost
   on socket' Ex.connectEvent $ Ex.connectHandler actionChannel
   on socket' Ex.closeEvent $ Ex.closeHandler actionChannel
-  on socket' (toEvent TxsUpdated) $ Ex.txsUpdatedHandler actionChannel
-  on socket' (toEvent BlocksUpdated) $ Ex.blocksUpdatedEventHandler actionChannel
-  on socket' (toEvent CallYou) $ Ex.callYouEventHandler actionChannel
-  on socket' (toEvent CallYouString) $ Ex.callYouStringEventHandler actionChannel
-  on socket' (toEvent CallYouTxId) $ Ex.callYouCTxIdEventHandler actionChannel
+  on socket' (Ex.toEvent TxsUpdated) $ Ex.txsUpdatedHandler actionChannel
+  on socket' (Ex.toEvent BlocksUpdated) $ Ex.blocksUpdatedEventHandler actionChannel
+  on socket' (Ex.toEvent CallYou) $ Ex.callYouEventHandler actionChannel
+  on socket' (Ex.toEvent CallYouString) $ Ex.callYouStringEventHandler actionChannel
+  on socket' (Ex.toEvent CallYouTxId) $ Ex.callYouCTxIdEventHandler actionChannel
   dt <- extract <$> nowDateTime
 
   pure

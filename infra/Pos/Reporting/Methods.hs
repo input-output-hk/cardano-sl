@@ -150,7 +150,7 @@ reportMisbehaviour getPeers version reason = do
   where
     misbehF = stext%", nodeInfo: "%stext
 
--- | Report misbehaveour, but catch all errors inside
+-- | Report misbehaviour, but catch all errors inside
 --
 --   FIXME very misleading name. Suggests reporting misbehaviours while
 --   asynchronous exceptions are masked.

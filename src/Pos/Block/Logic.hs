@@ -46,7 +46,7 @@ import           Serokell.Util.Text               (listJson)
 import           Serokell.Util.Verify             (VerificationRes (..), formatAllErrors,
                                                    isVerSuccess, verResToMonadError)
 import           System.Wlog                      (CanLog, HasLoggerName, logDebug,
-                                                   logInfo)
+                                                   logInfo, logWarning)
 import           Universum
 
 import qualified Pos.Binary.Class                 as Bi
@@ -75,20 +75,23 @@ import           Pos.DB                           (DBError (..), MonadDB, MonadD
 import qualified Pos.DB.Block                     as DB
 import qualified Pos.DB.DB                        as DB
 import qualified Pos.DB.GState                    as GS
-import           Pos.Delegation.Logic             (delegationVerifyBlocks,
+import           Pos.Delegation.Logic             (clearProxyMemPool,
+                                                   delegationVerifyBlocks,
                                                    getProxyMempool)
 import           Pos.Exception                    (assertionFailed, reportFatalError)
 import qualified Pos.Lrc.DB                       as LrcDB
 import           Pos.Lrc.Error                    (LrcError (..))
 import           Pos.Lrc.Worker                   (lrcSingleShotNoLock)
-import           Pos.Reporting                    (reportingFatal)
+import           Pos.Reporting                    (reportMisbehaviourMasked,
+                                                   reportingFatal)
 import           Pos.Slotting.Class               (getCurrentSlot)
 import           Pos.Ssc.Class                    (Ssc (..), SscHelpersClass,
                                                    SscWorkersClass (..))
-import           Pos.Ssc.Extra                    (sscGetLocalPayload, sscVerifyBlocks)
+import           Pos.Ssc.Extra                    (sscGetLocalPayload, sscResetLocal,
+                                                   sscVerifyBlocks)
 import           Pos.Txp.Core                     (TxAux, TxId, TxPayload, mkTxPayload,
                                                    topsortTxs)
-import           Pos.Txp.MemState                 (getLocalTxsNUndo)
+import           Pos.Txp.MemState                 (clearTxpMemPool, getLocalTxsNUndo)
 import           Pos.Txp.Settings                 (TxpBlock, TxpGlobalSettings (..))
 import           Pos.Types                        (Block, BlockHeader, EpochOrSlot (..),
                                                    GenesisBlock, IsGenesisHeader,
@@ -105,11 +108,11 @@ import           Pos.Types                        (Block, BlockHeader, EpochOrSl
 import qualified Pos.Types                        as Types
 import           Pos.Update.Core                  (UpdatePayload (..))
 import qualified Pos.Update.DB                    as UDB
-import           Pos.Update.Logic                 (usCanCreateBlock, usPreparePayload,
-                                                   usVerifyBlocks)
+import           Pos.Update.Logic                 (clearUSMemPool, usCanCreateBlock,
+                                                   usPreparePayload, usVerifyBlocks)
 import           Pos.Update.Poll                  (PollModifier)
-import           Pos.Util                         (Some (Some), inAssertMode, maybeThrow,
-                                                   neZipWith3, spanSafe, _neHead, _neLast)
+import           Pos.Util                         (Some (Some), maybeThrow, neZipWith3,
+                                                   spanSafe, _neHead, _neLast)
 import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..),
                                                    toNewestFirst, toOldestFirst)
 import           Pos.WorkMode                     (WorkMode)
@@ -773,7 +776,10 @@ createMainBlockFinish
     -> BlockHeader ssc
     -> ExceptT Text m (MainBlock ssc)
 createMainBlockFinish getPeers slotId pSk prevHeader = do
-    (block, undo, pModifier) <- createBlundFromMemPool
+    unchecked@(uncheckedBlock, _, _) <- createBlundFromMemPool
+    (block, undo, pModifier) <-
+        verifyCreatedBlock uncheckedBlock >>=
+        either fallbackCreateBlock (const $ pure unchecked)
     logDebug "Created main block/undos, applying"
     lift $ block <$ applyBlocksUnsafe getPeers (one (Right block, undo)) (Just pModifier)
   where
@@ -794,9 +800,6 @@ createMainBlockFinish getPeers slotId pSk prevHeader = do
         block <- createMainBlockPure
                      sizeLimit prevHeader sortedTxs pSk
                      slotId localPSKs sscData usPayload sk
-        lift $ inAssertMode $
-            verifyBlocksPrefix (one (Right block)) >>=
-            either (assertionFailed . sformat ("We've created bad block: "%stext)) (const pass)
         -- Create undo
         (pModifier, verUndo) <-
             runExceptT (usVerifyBlocks False (one (toUpdateBlock (Right block)))) >>=
@@ -810,6 +813,23 @@ createMainBlockFinish getPeers slotId pSk prevHeader = do
     onNoUS = "can't obtain US payload to create block"
     prependToUndo txUndo undos tx =
         fromMaybe (error "Undo for tx not found") (HM.lookup (fst tx) txUndo) : undos
+    verifyCreatedBlock block = lift $
+        verifyBlocksPrefix (one (Right block)) >>= traverse (const pass)
+    clearMempools = do
+        clearTxpMemPool
+        sscResetLocal
+        clearUSMemPool
+        clearProxyMemPool
+    fallbackCreateBlock :: Text -> ExceptT Text m (MainBlock ssc, Undo, PollModifier)
+    fallbackCreateBlock er = do
+        logWarning $ sformat ("We've created bad main block: "%stext) er
+        lift $ reportMisbehaviourMasked getPeers version $
+            sformat ("We've created bad main block: "%build) er
+        clearMempools
+        emptyBlund@(emptyBlock, _, _) <- createBlundFromMemPool
+        verifyCreatedBlock emptyBlock >>=
+            either (assertionFailed . sformat ("We couldn't create even block with empty payload: "%stext))
+            (const $ pure emptyBlund)
 
 createMainBlockPure
     :: (MonadError Text m, SscHelpersClass ssc)

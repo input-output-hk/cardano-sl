@@ -12,7 +12,7 @@ import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.Time (prettyDate)
 import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkTxBodyViewProps, mkTxHeaderViewProps, noData, txBodyView, txHeaderView)
-import Pos.Core.Lenses.Types (_Coin, getCoin)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CTxSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CNetworkAddress, ctsBlockHeight, ctsFees, ctsRelayedBy, ctsTotalOutput, ctsTxTimeIssued)
 import Pux.Html (Html, div, text, h3, p, table, tr, td) as P
@@ -94,11 +94,11 @@ summaryItems (CTxSummary txSummary) lang =
       , currency: Nothing
       }
     , { label: translate (I18nL.common <<< I18nL.cTotalOutput) lang
-      , value: show $ txSummary ^. (ctsTotalOutput <<< _Coin <<< getCoin)
+      , value: txSummary ^. (ctsTotalOutput <<< _CCoin <<< getCoin)
       , currency: Just ADA
       }
     , { label: translate (I18nL.common <<< I18nL.cTransactionFeed) lang
-      , value: show $ txSummary ^. (ctsFees <<< _Coin <<< getCoin)
+      , value: txSummary ^. (ctsFees <<< _CCoin <<< getCoin)
       , currency: Just ADA
       }
     ]

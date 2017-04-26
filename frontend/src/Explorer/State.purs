@@ -9,6 +9,11 @@ import Explorer.Routes (Route(..))
 import Explorer.Types.State (DashboardAPICode(..), Search(..), State, SearchEpochSlotQuery)
 import Explorer.Util.Factory (mkCAddress)
 import Network.RemoteData (RemoteData(..))
+import Data.DateTime.Instant       (instant, toDateTime)
+import Data.Time.Duration          (Milliseconds (..))
+import Data.Maybe (fromJust)
+import Partial.Unsafe (unsafePartial)
+
 
 
 initialState :: State
@@ -59,6 +64,7 @@ initialState =
     , currentBlocksResult: NotAsked
     , errors: []
     , loading: false
+    , now: toDateTime $ unsafePartial $ fromJust $ instant $ Milliseconds 0.0
     }
 
 -- all constants are following here:

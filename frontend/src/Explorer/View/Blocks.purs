@@ -14,6 +14,7 @@ import Data.Array (length, null, slice)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
+import Data.DateTime (diff)
 import Data.Time.Duration (Milliseconds(..))
 import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Explorer.I18n.Lang (Language, translate)
@@ -23,11 +24,11 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State, CBlockEntries)
 import Explorer.Util.DOM (targetToHTMLInputElement)
-import Explorer.Util.Time (prettyDuration)
+import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
 import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnRelayedBy, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
 import Explorer.View.Common (getMaxPaginationNumber, noData, paginationView)
 import Network.RemoteData (RemoteData(..))
-import Pos.Core.Lenses.Types (_Coin, getCoin)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeEpoch, cbeSlot, cbeRelayedBy, cbeSize, cbeTimeIssued, cbeTotalSent, cbeTxNum)
 import Pux.Html (Html, div, text, h3, p) as P
@@ -136,7 +137,7 @@ blockRow state (CBlockEntry entry) =
         , blockColumn { label: show $ entry ^. cbeTxNum
                       , clazz: CSS.blocksColumnTxs
                       }
-        , blockColumn { label: show $ entry ^. (cbeTotalSent <<< _Coin <<< getCoin)
+        , blockColumn { label: entry ^. (cbeTotalSent <<< _CCoin <<< getCoin)
                       , clazz: CSS.blocksColumnTotalSent
                       }
         , blockColumn { label: labelRelayed
@@ -148,10 +149,7 @@ blockRow state (CBlockEntry entry) =
         ]
     where
         language = state ^. lang
-        labelAge = case entry ^. cbeTimeIssued of
-                        Just time -> prettyDuration language (Milliseconds
-                            <<< unwrap $ time ^. _NominalDiffTime)
-                        Nothing -> noData
+        labelAge = fromMaybe noData $ (prettyDuration language :: Milliseconds -> String) <<< diff state.now <$> (nominalDiffTimeToDateTime  =<< entry.cbeTimeIssued)
         labelRelayed = fromMaybe (translate (I18nL.common <<< I18nL.cUnknown) language)
                             $ entry ^. cbeRelayedBy
 

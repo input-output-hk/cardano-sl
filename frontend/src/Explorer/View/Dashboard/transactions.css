@@ -25,7 +25,7 @@
       padding: 10px 18px;
 
       &:nth-child(odd) {
-        background-color: var(--color6);
+        background-color: var(--color7);
       }
 
     }

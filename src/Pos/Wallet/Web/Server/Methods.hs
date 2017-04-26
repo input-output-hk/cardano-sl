@@ -672,7 +672,7 @@ instance FromHttpApiData CTxId where
     parseUrlPiece = pure . mkCTxId
 
 instance FromHttpApiData CCurrency where
-    parseUrlPiece = first fromString . readEither . toString
+    parseUrlPiece = readEither . toString
 
 instance FromHttpApiData CPassPhrase where
     parseUrlPiece = pure . CPassPhrase

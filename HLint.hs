@@ -80,8 +80,10 @@ warn "Avoid 'both'" = both ==> Control.Lens.each
 warn = either (const True) (const False) ==> isLeft
 warn = either (const False) (const True) ==> isRight
 
-warn = Data.Map.toAscList (Data.Map.fromList x) ==> Universum.sortOn fst x
-warn = Data.Map.toDescList (Data.Map.fromList x) ==> Universum.sortOn (Down . fst) x
+warn = Data.Map.toAscList (Data.Map.fromList x) ==>
+           Universum.sortWith fst x
+warn = Data.Map.toDescList (Data.Map.fromList x) ==>
+           Universum.sortWith (Down . fst) x
 
 warn = forM_ ==> for_
 
@@ -104,11 +106,30 @@ warn = Data.Text.Lazy.fromStrict ==> Universum.toLText
 warn = Data.Text.pack (show x) ==> Universum.show x
 warn = Data.Text.Lazy.pack (show x) ==> Universum.show x
 
+warn = Control.Exception.evaluate ==> evaluateWHNF
+warn = Control.Exception.evaluate (force x) ==> evaluateNF x
+warn = Control.Exception.evaluate (x `deepseq` ()) ==> evaluateNF_ x
+
+warn = void (evaluateWHNF x) ==> evaluateWHNF_ x
+warn = void (evaluateNF x)   ==> evaluateNF_ x
+
 suggest = nub ==> Universum.ordNub
   where
     note = "'nub' is O(n^2), 'ordNub' is O(n log n)"
 
 warn = sortBy (comparing f) ==> Universum.sortOn f
+  where note = "If the function you are using for 'comparing' is fast \
+        \(e.g. 'fst'), use 'sortWith' instead of 'sortOn', because 'sortOn' \
+        \caches applications the function and 'sortWith' doesn't."
+
+warn = sortOn fst ==> Universum.sortWith fst
+  where note = "'sortWith' will be faster here because it doesn't do caching"
+warn = sortOn snd ==> Universum.sortWith snd
+  where note = "'sortWith' will be faster here because it doesn't do caching"
+warn = sortOn (Down . fst) ==> Universum.sortWith (Down . fst)
+  where note = "'sortWith' will be faster here because it doesn't do caching"
+warn = sortOn (Down . snd) ==> Universum.sortWith (Down . snd)
+  where note = "'sortWith' will be faster here because it doesn't do caching"
 
 warn = fmap concat (mapM f s) ==> Universum.concatMapM f s
 warn = concat <$> mapM f s ==> Universum.concatMapM f s
@@ -278,28 +299,75 @@ warn = (m >>= either (const (pass)     ) f) ==> Universum.whenRightM m f
 warn = mapMaybe leftToMaybe ==> lefts
 warn = mapMaybe rightToMaybe ==> rights
 
-warn "Use 'nonEmpty' from Universum" = Data.List.NonEmpty.nonEmpty ==> Universum.nonEmpty
+warn "Use 'nonEmpty' from Universum" =
+    Data.List.NonEmpty.nonEmpty ==> Universum.nonEmpty
 
-warn "Use 'newTVar' from Universum" = Control.Concurrent.STM.TVar.newTVar ==> Universum.newTVar
-warn "Use 'readTVar' from Universum" = Control.Concurrent.STM.TVar.readTVar ==> Universum.readTVar
-warn "Use 'writeTVar' from Universum" = Control.Concurrent.STM.TVar.writeTVar ==> Universum.writeTVar
-warn "Use 'modifyTVar'' from Universum" = Control.Concurrent.STM.TVar.modifyTVar' ==> Universum.modifyTVar'
+warn "Use 'newTVar' from Universum" =
+    Control.Concurrent.STM.TVar.newTVar ==> Universum.newTVar
+warn "Use 'readTVar' from Universum" =
+    Control.Concurrent.STM.TVar.readTVar ==> Universum.readTVar
+warn "Use 'writeTVar' from Universum" =
+    Control.Concurrent.STM.TVar.writeTVar ==> Universum.writeTVar
+warn "Use 'modifyTVar'' from Universum" =
+    Control.Concurrent.STM.TVar.modifyTVar' ==> Universum.modifyTVar'
+warn "Use 'newTVarIO' from Universum" =
+    Control.Concurrent.STM.TVar.newTVarIO ==> Universum.newTVarIO
+warn "Use 'readTVarIO' from Universum" =
+    Control.Concurrent.STM.TVar.readTVarIO ==> Universum.readTVarIO
 
-warn "Use 'lines' from Universum" = Data.Text.lines ==> Universum.lines
-warn "Use 'unlines' from Universum" = Data.Text.unlines ==> Universum.unlines
-warn "Use 'words' from Universum" = Data.Text.words ==> Universum.words
-warn "Use 'unwords' from Universum" = Data.Text.unwords ==> Universum.unwords
+warn "Use 'newIORef' from Universum" =
+    Data.IORef.newIORef ==> Universum.newIORef
+warn "Use 'readIORef' from Universum" =
+    Data.IORef.readIORef ==> Universum.readIORef
+warn "Use 'writeIORef' from Universum" =
+    Data.IORef.writeIORef ==> Universum.writeIORef
+warn "Use 'modifyIORef' from Universum" =
+    Data.IORef.modifyIORef ==> Universum.modifyIORef
+warn "Use 'modifyIORef'' from Universum" =
+    Data.IORef.modifyIORef' ==> Universum.modifyIORef'
+warn "Use 'atomicModifyIORef' from Universum" =
+    Data.IORef.atomicModifyIORef ==> Universum.atomicModifyIORef
+warn "Use 'atomicModifyIORef'' from Universum" =
+    Data.IORef.atomicModifyIORef' ==> Universum.atomicModifyIORef'
+warn "Use 'atomicWriteIORef' from Universum" =
+    Data.IORef.atomicWriteIORef ==> Universum.atomicWriteIORef
 
-warn "Use 'fromStrict' from Universum" = Data.Text.Lazy.fromStrict ==> Universum.fromStrict
-warn "Use 'toStrict' from Universum" = Data.Text.Lazy.toStrict ==> Universum.toStrict
+warn "Use 'lines' from Universum" =
+    Data.Text.lines ==> Universum.lines
+warn "Use 'unlines' from Universum" =
+    Data.Text.unlines ==> Universum.unlines
+warn "Use 'words' from Universum" =
+    Data.Text.words ==> Universum.words
+warn "Use 'unwords' from Universum" =
+    Data.Text.unwords ==> Universum.unwords
 
-warn "Use 'getLine' from Universum" = Data.Text.IO.getLine ==> Universum.getLine
-warn "Use 'readFile' from Universum" = Data.Text.IO.readFile ==> Universum.readFile
-warn "Use 'writeFile' from Universum" = Data.Text.IO.writeFile ==> Universum.writeFile
-warn "Use 'appendFile' from Universum" = Data.Text.IO.appendFile ==> Universum.appendFile
--- TODO: add interact and getContents (not sure whether strict or lazy) once
--- Universum 0.4 is out
+warn "Use 'fromStrict' from Universum" =
+    Data.Text.Lazy.fromStrict ==> Universum.fromStrict
+warn "Use 'toStrict' from Universum" =
+    Data.Text.Lazy.toStrict ==> Universum.toStrict
 
+warn "Use 'getLine' from Universum" =
+    Data.Text.IO.getLine ==> Universum.getLine
+warn "Use 'readFile' from Universum" =
+    Data.Text.IO.readFile ==> Universum.readFile
+warn "Use 'writeFile' from Universum" =
+    Data.Text.IO.writeFile ==> Universum.writeFile
+warn "Use 'appendFile' from Universum" =
+    Data.Text.IO.appendFile ==> Universum.appendFile
+warn "Use 'interact' from Universum" =
+    Data.Text.Lazy.IO.interact ==> Universum.interact
+warn "Use 'getContents' from Universum" =
+    Data.Text.Lazy.IO.getContents ==> Universum.getContents
+
+warn "Use '(&&&)' from Universum" =
+    (Control.Arrow.&&&) ==> (Universum.&&&)
+
+warn "Use 'MaybeT' from Universum" =
+    Control.Monad.Trans.Maybe.MaybeT ==> Universum.MaybeT
+warn "Use 'maybeToExceptT' from Universum" =
+    Control.Monad.Trans.Maybe.maybeToExceptT ==> Universum.maybeToExceptT
+warn "Use 'exceptToMaybeT' from Universum" =
+    Control.Monad.Trans.Maybe.exceptToMaybeT ==> Universum.exceptToMaybeT
 
 ----------------------------------------------------------------------------
 -- Lifted functions in Universum
@@ -351,8 +419,45 @@ warn "liftIO is not needed" = liftIO (newTVarIO x) ==> Universum.newTVarIO x
   where
     note = "If you import 'newTVarIO' from Universum, it's already lifted"
 
--- others
+warn "liftIO is not needed" = liftIO (readTVarIO x) ==> Universum.readTVarIO x
+  where
+    note = "If you import 'readTVarIO' from Universum, it's already lifted"
 
+-- IORef
+
+warn "liftIO is not needed" = liftIO (newIORef x) ==> Universum.newIORef x
+  where
+    note = "If you import 'newIORef' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (readIORef x) ==> Universum.readIORef x
+  where
+    note = "If you import 'readIORef' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (writeIORef x y) ==> Universum.writeIORef x y
+  where
+    note = "If you import 'writeIORef' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (modifyIORef x y) ==> Universum.modifyIORef x y
+  where
+    note = "If you import 'modifyIORef' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (modifyIORef' x y) ==> Universum.modifyIORef' x y
+  where
+    note = "If you import 'modifyIORef'' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (atomicModifyIORef x y) ==> Universum.atomicModifyIORef x y
+  where
+    note = "If you import 'atomicModifyIORef' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (atomicModifyIORef' x y) ==> Universum.atomicModifyIORef' x y
+  where
+    note = "If you import 'atomicModifyIORef'' from Universum, it's already lifted"
+
+warn "liftIO is not needed" = liftIO (atomicWriteIORef x y) ==> Universum.atomicWriteIORef x y
+  where
+    note = "If you import 'atomicWriteIORef' from Universum, it's already lifted"
+
+-- others
 
 warn "liftIO is not needed" = liftIO Universum.getContents ==> Universum.getContents
   where

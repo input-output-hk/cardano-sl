@@ -12,11 +12,9 @@ import Prelude
 import Control.Monad.Eff.Exception (Error)
 import Data.Array (length, null, slice)
 import Data.Lens ((^.))
-import Data.Maybe (Maybe(..), fromMaybe)
-import Data.Newtype (unwrap)
+import Data.Maybe (fromMaybe)
 import Data.DateTime (diff)
-import Data.Time.Duration (Milliseconds(..))
-import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
+import Data.Time.Duration (Milliseconds)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (block, blNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB) as I18nL
 import Explorer.Lenses.State (blocksViewState, blsViewPagination, currentBlocksResult, lang, viewStates)
@@ -28,9 +26,8 @@ import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
 import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnRelayedBy, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
 import Explorer.View.Common (getMaxPaginationNumber, noData, paginationView)
 import Network.RemoteData (RemoteData(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeEpoch, cbeSlot, cbeRelayedBy, cbeSize, cbeTimeIssued, cbeTotalSent, cbeTxNum)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, cbeBlkHash, cbeEpoch, cbeSlot, cbeRelayedBy, cbeSize, cbeTotalSent, cbeTxNum)
 import Pux.Html (Html, div, text, h3, p) as P
 import Pux.Html.Attributes (className, dangerouslySetInnerHTML) as P
 import Pux.Router (link) as P

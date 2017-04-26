@@ -48,7 +48,7 @@ assignToSlots = zip [0..]
 
 -- | Sort values by their local slot indices, then strip the indices.
 arrangeBySlots :: [(LocalSlotIndex, a)] -> [a]
-arrangeBySlots = map snd . sortOn fst
+arrangeBySlots = map snd . sortWith fst
 
 -- | The internal state for the 'followTheSatoshiM' algorithm.
 data FtsState = FtsState
@@ -212,7 +212,7 @@ followTheSatoshiM _ totalCoins
     | totalCoins == mkCoin 0 = error "followTheSatoshiM: nobody has any stake"
 followTheSatoshiM (SharedSeed seed) totalCoins = do
     ftsState <- ftsStateInit <$> nextStakeholder
-    let sortedCoinIndices = sortOn snd (assignToSlots coinIndices)
+    let sortedCoinIndices = sortWith snd (assignToSlots coinIndices)
     res <- evaluatingStateT ftsState $ findLeaders sortedCoinIndices
     pure . fromList . arrangeBySlots $ res
   where

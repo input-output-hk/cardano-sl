@@ -194,7 +194,7 @@ runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
       _ <- forConcurrently bambooPools sendThread
       finishT <- getPosixMs
 
-      realTxNumVal <- liftIO $ readTVarIO realTxNum
+      realTxNumVal <- readTVarIO realTxNum
 
       let globalTime, realTPS :: Double
           globalTime = (fromIntegral (finishT - startMeasurementsT)) / 1000

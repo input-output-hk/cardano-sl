@@ -67,8 +67,8 @@ checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
         Nothing -> pure ()
         Just (Left _) -> pure ()
         Just (Right block) -> do
-            st <- liftIO $ readIORef sentTimes
-            ls <- liftIO $ readIORef lastSlot
+            st <- readIORef sentTimes
+            ls <- readIORef lastSlot
             let curSlot = block^.blockSlot
             when (ls < curSlot) $ do
                 let toCheck = M.keys st
@@ -78,13 +78,14 @@ checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
 
                 -- Delete verified txs from hashmap
                 let newSt = foldr M.delete st verified
-                liftIO $ writeIORef sentTimes newSt
+                writeIORef sentTimes newSt
 
-                -- We don't know exact time when checked block has been created/adopted,
-                -- but we do know that it was not at `blkSecurityParam` depth a slot ago,
-                -- so we just take a beginning of current slot
+                -- We don't know exact time when checked block has been
+                -- created/adopted, but we do know that it was not at
+                -- `blkSecurityParam` depth a slot ago, so we just take a
+                -- beginning of current slot
                 slStart <- getSlotStartEmpatically =<< getCurrentSlotBlocking
-                liftIO $ writeIORef lastSlot curSlot
+                writeIORef lastSlot curSlot
 
                 let verifiedSentData = map (fromJust . flip M.lookup st) verified
                     verifiedPairedData = zip verified verifiedSentData

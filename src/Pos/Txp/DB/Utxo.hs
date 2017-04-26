@@ -38,6 +38,7 @@ import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
 import           Pos.Binary.Core      ()
+import           Pos.Core.Address     (AddressIgnoringAttributes (..))
 import           Pos.DB.Class         (MonadDB, getUtxoDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi,
@@ -161,7 +162,7 @@ getFilteredUtxo'
        )
     => [Address] -> m Utxo
 getFilteredUtxo' addrs = filterUtxo @i $ \(_, out) -> out `addrBelongsToSet` addrsSet
-  where addrsSet = HS.fromList addrs
+  where addrsSet = HS.fromList $ map AddressIA addrs
 
 getFilteredUtxo :: MonadDB m => [Address] -> m Utxo
 getFilteredUtxo = getFilteredUtxo' @UtxoIter

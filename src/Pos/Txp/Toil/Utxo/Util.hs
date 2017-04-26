@@ -13,6 +13,7 @@ import           Universum
 
 import           Pos.Binary.Core     ()
 import           Pos.Core            (Address, Coin, StakeholderId, unsafeAddCoin)
+import           Pos.Core.Address    (AddressIgnoringAttributes (..))
 import           Pos.Txp.Core        (addrBelongsTo, addrBelongsToSet, txOutStake)
 import           Pos.Txp.Toil.Types  (Utxo)
 
@@ -22,7 +23,9 @@ filterUtxoByAddr addr = M.filter (`addrBelongsTo` addr)
 
 -- | Select only TxOuts for given addresses
 filterUtxoByAddrs :: [Address] -> Utxo -> Utxo
-filterUtxoByAddrs (HS.fromList -> addrs) = M.filter (`addrBelongsToSet` addrs)
+filterUtxoByAddrs addrs =
+    let addrSet = HS.fromList $ map AddressIA addrs
+    in  M.filter (`addrBelongsToSet` addrSet)
 
 -- | Convert 'Utxo' to map from 'StakeholderId' to stake.
 utxoToStakes :: Utxo -> HashMap StakeholderId Coin

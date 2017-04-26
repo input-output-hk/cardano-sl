@@ -154,18 +154,15 @@ prepareInpOuts utxo addr outputs =
     prepareInpsOuts utxo (one addr) outputs <&>
     _1 . traversed %~ snd
 
--- | Make a multi-transaction using given secret key and info for outputs
-createMTx :: Utxo -> NonEmpty SafeSigner -> TxOutputs -> Either TxError TxAux
-createMTx utxo sss outputs =
-    uncurry (makeMPubKeyTx getSigner) <$>
-    prepareInpsOuts utxo (makePubKeyAddress . safeToPublic <$> sss) outputs
+-- | Make a multi-transaction using given secret key and info for outputs.
+-- Currently used for HD wallets only, thus `HDAddressPayload` is required
+createMTx :: Utxo -> NonEmpty (SafeSigner, Address) -> TxOutputs -> Either TxError TxAux
+createMTx utxo hwdSigner outputs =
+    let addr = map snd hwdSigner
+    in  uncurry (makeMPubKeyTx getSigner) <$>
+        prepareInpsOuts utxo addr outputs
   where
-    signers =
-
-        HM.fromList
-            [ (makePubKeyAddress $ safeToPublic ss, ss)
-            | ss <- toList sss
-            ]
+    signers = HM.fromList . toList $ map swap hwdSigner
     getSigner addr =
         fromMaybe (error "Requested signer for unknown address") $
         HM.lookup addr signers

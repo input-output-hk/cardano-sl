@@ -3,6 +3,7 @@
 module Pos.Core.Address
        ( Address (..)
        , AddrPkAttrs (..)
+       , AddressIgnoringAttributes (..)
        , addressF
        , addressDetailedF
        , checkPubKeyAddress
@@ -64,6 +65,21 @@ addrToBase58 = encodeBase58 addrAlphabet . BSL.toStrict . Bi.encode
 instance Bi Address => Buildable Address where
     build = Buildable.build . decodeUtf8 @Text . addrToBase58
 
+newtype AddressIgnoringAttributes = AddressIA Address
+
+instance Eq AddressIgnoringAttributes where
+    AddressIA (PubKeyAddress h1 _) == AddressIA (PubKeyAddress h2 _) = h1 == h2
+    AddressIA a1                   == AddressIA a2                   = a1 == a2
+
+instance Ord AddressIgnoringAttributes where
+    AddressIA (PubKeyAddress h1 _) `compare` AddressIA (PubKeyAddress h2 _) =
+        h1 `compare` h2
+    AddressIA a1 `compare` AddressIA a2 = compare a1 a2
+
+instance Bi Address => Hashable AddressIgnoringAttributes where
+    hashWithSalt s (AddressIA (PubKeyAddress h _)) = hashWithSalt s h
+    hashWithSalt s (AddressIA a)                   = hashWithSalt s a
+
 -- | A function which decodes base58 address from given ByteString
 decodeAddress :: Bi Address => ByteString -> Either String Address
 decodeAddress bs = do
@@ -85,10 +101,10 @@ makePubKeyAddress key =
 -- | A function for making an HDW address
 makePubKeyHdwAddress
     :: Bi PublicKey
-    => PublicKey
-    -> HDAddressPayload    -- ^ Derivation path
+    => HDAddressPayload    -- ^ Derivation path
+    -> PublicKey
     -> Address
-makePubKeyHdwAddress key path =
+makePubKeyHdwAddress path key =
     PubKeyAddress (addressHash key)
                   (mkAttributes (AddrPkAttrs (Just path)))
 
@@ -104,14 +120,14 @@ createHDAddressH passphrase walletPassphrase parent parentPath childIndex = do
     let derivedSK = deriveHDSecretKey passphrase parent childIndex
     let addressPayload = packHDAddressAttr walletPassphrase $ parentPath ++ [childIndex]
     let pk = encToPublic derivedSK
-    (makePubKeyHdwAddress pk addressPayload, derivedSK)
+    (makePubKeyHdwAddress addressPayload pk, derivedSK)
 
 -- | Create address from public key via non-hardened way.
 createHDAddressNH :: HDPassphrase -> PublicKey -> [Word32] -> Word32 -> (Address, PublicKey)
 createHDAddressNH passphrase parent parentPath childIndex = do
     let derivedPK = deriveHDPublicKey parent childIndex
     let addressPayload = packHDAddressAttr passphrase $ parentPath ++ [childIndex]
-    (makePubKeyHdwAddress derivedPK addressPayload, derivedPK)
+    (makePubKeyHdwAddress addressPayload derivedPK, derivedPK)
 
 -- | A function for making an address from a validation script
 makeScriptAddress :: Bi Script => Script -> Address

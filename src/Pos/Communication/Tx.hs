@@ -20,7 +20,8 @@ import           Universum
 import           Pos.Binary                 ()
 import           Pos.Client.Txp.Balances    (MonadBalances (..), getOwnUtxo)
 import           Pos.Client.Txp.History     (MonadTxHistory (..))
-import           Pos.Client.Txp.Util        (TxError, createMTx, createRedemptionTx)
+import           Pos.Client.Txp.Util        (TxError, createMTx, createRedemptionTx,
+                                             createTx)
 import           Pos.Communication.Methods  (sendTx)
 import           Pos.Communication.Protocol (SendActions)
 import           Pos.Communication.Specs    (sendTxOuts)
@@ -51,18 +52,19 @@ submitAndSave sendActions na txw = do
     lift $ saveTx (txId, txw)
     return txw
 
--- | Construct Tx using multiple secret keys and given list of desired outputs
+-- | Construct Tx using multiple secret keys and given list of desired outputs.
 submitMTx
     :: TxMode ssc m
     => SendActions m
-    -> NonEmpty SafeSigner
+    -> NonEmpty (SafeSigner, Address)
     -> [DHTNode]
     -> NonEmpty TxOutAux
     -> m (Either TxError TxAux)
-submitMTx sendActions ss na outputs = do
-    utxo <- getOwnUtxos $ makePubKeyAddress . safeToPublic <$> toList ss
+submitMTx sendActions hdwSigner na outputs = do
+    let addrs = map snd $ toList hdwSigner
+    utxo <- getOwnUtxos addrs
     runExceptT $ do
-        txw <- ExceptT $ return $ createMTx utxo ss outputs
+        txw <- ExceptT $ return $ createMTx utxo hdwSigner outputs
         submitAndSave sendActions na txw
 
 -- | Construct Tx using secret key and given list of desired outputs
@@ -73,7 +75,11 @@ submitTx
     -> [DHTNode]
     -> NonEmpty TxOutAux
     -> m (Either TxError TxAux)
-submitTx sa ss na outputs = submitMTx sa (one ss) na outputs
+submitTx sendActions ss na outputs = do
+    utxo <- getOwnUtxos . one $ makePubKeyAddress (safeToPublic ss)
+    runExceptT $ do
+        txw <- ExceptT $ return $ createTx utxo ss outputs
+        submitAndSave sendActions na txw
 
 -- | Construct redemption Tx using redemption secret key and a output address
 submitRedemptionTx

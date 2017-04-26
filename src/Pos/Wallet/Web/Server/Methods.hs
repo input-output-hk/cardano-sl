@@ -54,17 +54,18 @@ import           Pos.Communication             (OutSpecs, SendActions, hoistSend
                                                 submitTx)
 import           Pos.Constants                 (curSoftwareVersion, isDevelopment)
 import           Pos.Core                      (Address (..), Coin, addressF,
-                                                applyCoinPortion, decodeTextAddress,
-                                                makePubKeyAddress, makeRedeemAddress,
-                                                mkCoin, unsafeCoinPortionFromDouble,
+                                                applyCoinPortion, createHDAddressH,
+                                                decodeTextAddress, makePubKeyAddress,
+                                                makeRedeemAddress, mkCoin,
+                                                unsafeCoinPortionFromDouble,
                                                 unsafeSubCoin)
 import           Pos.Crypto                    (EncryptedSecretKey, PassPhrase,
                                                 aesDecrypt, deriveAesKeyBS,
-                                                deriveHDSecretKey, emptyPassphrase,
-                                                encToPublic, fakeSigner, hash,
-                                                noPassEncrypt, redeemDeterministicKeyGen,
-                                                redeemToPublic, withSafeSigner,
-                                                withSafeSigner)
+                                                deriveHDPassphrase, deriveHDSecretKey,
+                                                emptyPassphrase, encToPublic, fakeSigner,
+                                                hash, noPassEncrypt,
+                                                redeemDeterministicKeyGen, redeemToPublic,
+                                                withSafeSigner, withSafeSigner)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.DHT.Model                 (getKnownPeers)
 import           Pos.Genesis                   (genesisDevSecretKeys)
@@ -521,8 +522,8 @@ sendExtended sendActions cpassphrase srcWallet dstAccount coin curr title desc =
             case nonEmpty sks of
                 Nothing -> action (ss :| [])
                 Just sks' -> do
-                  let action' = action . (ss :|) . toList
-                  withSafeSigners sks' passphrase action'
+                    let action' = action . (ss :|) . toList
+                    withSafeSigners sks' passphrase action'
 
     sendDo passphrase srcAccounts txs = do
         na <- getKnownPeers
@@ -530,7 +531,8 @@ sendExtended sendActions cpassphrase srcWallet dstAccount coin curr title desc =
         srcAccAddrs <- forM srcAccounts $ decodeCAddressOrFail . caaAddress
         let dstAddrs = txOutAddress . toaOut <$> toList txs
         withSafeSigners sks passphrase $ \ss -> do
-            etx <- submitMTx sendActions ss na txs
+            let hdwSigner = NE.zip ss srcAccAddrs
+            etx <- submitMTx sendActions hdwSigner na txs
             case etx of
                 Left err ->
                     throwM . Internal $
@@ -835,7 +837,7 @@ addInitialRichAccount sendActions keyId =
         accounts <- getAccounts wAddr
         accAddr  <- maybeThrow noAccount . head $ caAddress <$> accounts
 
-        -- send all money from wallet set (corresponds to genesis address)
+        -- send some money from wallet set (corresponds to genesis address)
         -- to its account
         na          <- getKnownPeers
         let signer   = fakeSigner key
@@ -966,22 +968,10 @@ deriveAccountSK
     -> Word32
     -> m (Address, EncryptedSecretKey)
 deriveAccountSK passphrase CWalletAddress{..} accIndex = do
-    wsKey       <- getSKByAddr cwaWSAddress
-    let wKey     = deriveHDSecretKey passphrase wsKey cwaIndex
-    let accKey  = deriveHDSecretKey passphrase wKey accIndex
-    let accAddr = makePubKeyAddress $ encToPublic accKey
-    return (accAddr, accKey)
-
-    -- TODO [CSM-175]: This is true way to finish generation of keypair, since
-    -- public key should keep keypath in its attribute.
-    -- But for some reason it makes tx sending from generated account fail
-    --
-    -- Note: perhaps it's not the only place where `createHDAddressH` should be
-    -- actually used
-
-    -- let hdPass   = deriveHDPassphrase $ encToPublic wsKey
-    -- return $ createHDAddressH passphrase hdPass wKey [cwaIndex] accIndex
-
+    wsKey     <- getSKByAddr cwaWSAddress
+    let wKey   = deriveHDSecretKey passphrase wsKey cwaIndex
+    let hdPass = deriveHDPassphrase $ encToPublic wsKey
+    return $ createHDAddressH passphrase hdPass wKey [cwaIndex] accIndex
 
 ----------------------------------------------------------------------------
 -- Orphan instances

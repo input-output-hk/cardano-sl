@@ -14,6 +14,7 @@ import qualified Data.HashSet                as HS
 import qualified Data.Map                    as M
 import           Pos.Communication.PeerState (PeerStateHolder)
 import qualified Pos.Context                 as PC
+import           Pos.Core.Address            (AddressIgnoringAttributes (..))
 import           Pos.DB                      (MonadDB)
 import qualified Pos.DB.GState               as GS
 import           Pos.Delegation              (DelegationT (..))
@@ -57,8 +58,9 @@ instance (MonadDB m, MonadMask m) => MonadBalances (TxpHolder __ m) where
     getOwnUtxos addr = do
         utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoModifier
-        let addrsSet = HS.fromList addr
+        let addrsSet = HS.fromList $ AddressIA <$> addr
             toDel    = MM.deletions updates
-            toAdd    = HM.filter (`addrBelongsToSet` addrsSet) $ MM.insertionsMap updates
+            toAdd    = HM.filter (`addrBelongsToSet` addrsSet) $
+                       MM.insertionsMap updates
             utxo'    = foldr M.delete utxo toDel
         return $ HM.foldrWithKey M.insert utxo' toAdd

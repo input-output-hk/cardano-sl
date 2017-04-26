@@ -213,8 +213,12 @@ getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
             tx <- getTxMain id extra
             pure $ makeTxBrief tx extra
         return $ CAddressSummary cAddr 0 balance transactions
-    _ -> throwM $
-         Internal "Non-P2PKH addresses are not supported in Explorer yet"
+    ScriptAddress _ -> throwM $
+        Internal "ScriptAddresses are not supported in Explorer yet"
+    RedeemAddress _ -> throwM $
+        Internal "RedeemAddresses are not supported in Explorer yet"
+    UnknownAddressType _ _ -> throwM $
+        Internal "Unknown address type"
 
 getTxSummary :: ExplorerMode m => CTxId -> m CTxSummary
 getTxSummary cTxId = do

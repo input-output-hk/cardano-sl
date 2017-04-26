@@ -46,7 +46,7 @@ import           Serokell.Util.Text               (listJson)
 import           Serokell.Util.Verify             (VerificationRes (..), formatAllErrors,
                                                    isVerSuccess, verResToMonadError)
 import           System.Wlog                      (CanLog, HasLoggerName, logDebug,
-                                                   logInfo, logWarning)
+                                                   logError, logInfo)
 import           Universum
 
 import qualified Pos.Binary.Class                 as Bi
@@ -825,7 +825,7 @@ createMainBlockFinish getPeers slotId pSk prevHeader = do
         clearProxyMemPool
     fallbackCreateBlock :: Text -> ExceptT Text m (MainBlock ssc, Undo, PollModifier)
     fallbackCreateBlock er = do
-        logWarning $ sformat ("We've created bad main block: "%stext) er
+        logError $ sformat ("We've created bad main block: "%stext) er
         lift $ reportMisbehaviourMasked getPeers version $
             sformat ("We've created bad main block: "%build) er
         clearMempools

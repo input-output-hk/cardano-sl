@@ -189,11 +189,7 @@ clearProxyMemPool = do
     var <- askDelegationState
     atomically $ modifyTVar' var resetData
   where
-    resetData delegationWrap =
-        -- @volhovm is this correct or I must clear caches too?
-        delegationWrap {_dwProxySKPool = mempty,
-                        _dwThisEpochPosted = mempty
-                       }
+    resetData delegationWrap = delegationWrap {_dwProxySKPool = mempty}
 
 -- | Datatypes representing a verdict of heavy PSK processing.
 data PskHeavyVerdict

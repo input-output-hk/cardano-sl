@@ -10,18 +10,16 @@ module Pos.Block.Worker
        ) where
 
 import           Control.Lens                (ix)
-import           Data.Default                (def)
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
-import           Serokell.Util               (VerificationRes (..), listJson, pairF)
-import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
+import           Serokell.Util               (listJson, pairF)
+import           System.Wlog                 (logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
-import           Pos.Block.Pure              (VerifyBlockParams (..), verifyBlock)
 import           Pos.Communication.Protocol  (NodeId, OutSpecs, SendActions, Worker',
                                               WorkerSpec, onNewSlotWorker)
 import           Pos.Constants               (networkDiameter)
@@ -31,15 +29,13 @@ import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, psk
 import           Pos.DB.Class                (MonadDBCore)
 import           Pos.DB.GState               (getPSKByIssuerAddressHash)
 import           Pos.DB.Misc                 (getProxySecretKeys)
-import           Pos.Exception               (assertionFailed)
 import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
-import           Pos.Ssc.Class               (SscHelpersClass, SscWorkersClass)
-import           Pos.Types                   (MainBlock, ProxySKEither, SlotId (..),
+import           Pos.Ssc.Class               (SscWorkersClass)
+import           Pos.Types                   (ProxySKEither, SlotId (..),
                                               Timestamp (Timestamp), gbHeader, slotIdF)
-import           Pos.Util                    (inAssertMode, logWarningSWaitLinear,
-                                              mconcatPair)
+import           Pos.Util                    (logWarningSWaitLinear, mconcatPair)
 import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
 import           Pos.Util.LogSafe            (logDebugS, logInfoS, logNoticeS,
                                               logWarningS)
@@ -167,26 +163,8 @@ onNewSlotWhenLeader getPeers slotId pSk sendActions = do
             logInfoS $
                 sformat ("Created a new block:\n" %build) createdBlk
             jlLog $ jlCreatedBlock (Right createdBlk)
-            verifyCreatedBlock createdBlk
             void $ fork $ announceBlock getPeers sendActions $ createdBlk ^. gbHeader
     whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
-
-verifyCreatedBlock
-    :: (WithLogger m, SscHelpersClass ssc, MonadThrow m)
-    => MainBlock ssc -> m ()
-verifyCreatedBlock blk =
-    inAssertMode $
-    case verifyBlock vbp (Right blk) of
-        VerSuccess -> pass
-        VerFailure errors ->
-            assertionFailed $
-            sformat ("New block failed some checks: " %listJson) errors
-  where
-    vbp =
-        def
-        { vbpVerifyGeneric = True
-        , vbpVerifySsc = True
-        }
 
 #if defined(WITH_WALLET)
 -- | When we're behind NAT, other nodes can't send data to us and thus we

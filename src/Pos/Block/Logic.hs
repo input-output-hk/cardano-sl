@@ -766,6 +766,9 @@ canCreateBlock sId tipHeader
         si {siSlot = min (epochSlots - 1) (siSlot si + slotSecurityParam)}
     maxSlotId = addSafe $ epochOrSlot (`SlotId` 0) identity headSlot
 
+-- Create main block and apply it, if block passed checks,
+-- otherwise clear mem pools and try again.
+-- Returns valid block or fail.
 -- Here we assume that blkSemaphore has been taken.
 createMainBlockFinish
     :: forall ssc m.

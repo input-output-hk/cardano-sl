@@ -1,4 +1,4 @@
-resolver: lts-8.5
+resolver: lts-8.12
 
 flags: {}
 
@@ -69,11 +69,6 @@ packages:
 #    git: https://github.com/haskell-crypto/cryptonite.git
 #    commit: 2932df9e243aa7ae7eb2b25d7c60fa77a30c6fb5
 #  extra-dep: true
-- location:
-    git: https://github.com/tibbe/unordered-containers
-    commit: 76f3b971faef37e92390bc6f5a03f36154ebc1b2
-  extra-dep: true
-
 
 nix:
   shell-file: shell.nix
@@ -86,7 +81,6 @@ extra-deps:
 - base58-bytestring-0.1.0
 - log-warper-1.1.2
 - concurrent-extra-0.7.0.10       # not yet in lts-8
-- derive-2.6.2
 - purescript-bridge-0.8.0.1
 - cryptonite-0.22
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8

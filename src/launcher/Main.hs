@@ -257,7 +257,7 @@ spawnNode (path, args, mbLogPath) = do
                  , Process.std_out = Process.UseHandle logHandle
                  , Process.std_err = Process.UseHandle logHandle
                  }
-    phvar <- liftIO newEmptyMVar
+    phvar <- newEmptyMVar
     asc <- fork (system' phvar cr mempty)
     mbPh <- liftIO $ timeout 5000000 (takeMVar phvar)
     case mbPh of

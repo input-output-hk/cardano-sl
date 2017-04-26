@@ -74,16 +74,10 @@ putEpoch = putBi epochKey
 ----------------------------------------------------------------------------
 
 -- | Put missing initial common data into LRC DB.
-prepareLrcCommon
-    :: forall m.
-       MonadDB m
-    => m ()
-prepareLrcCommon = putIfEmpty getEpochMaybe (putEpoch 0)
-  where
-    putIfEmpty
-        :: forall a.
-           (m (Maybe a)) -> m () -> m ()
-    putIfEmpty getter putter = maybe putter (const pass) =<< getter
+prepareLrcCommon :: MonadDB m => m ()
+prepareLrcCommon =
+    whenNothingM_ getEpochMaybe $
+        putEpoch 0
 
 ----------------------------------------------------------------------------
 -- Keys

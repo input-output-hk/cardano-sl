@@ -46,9 +46,8 @@ runWalletRealMode
     -> WalletParams
     -> (ActionSpec WalletRealMode a, OutSpecs)
     -> Production a
-runWalletRealMode peerId res wp@WalletParams {..} = runRawRealWallet peerId res wp allListeners
-  -- where
-  --   listeners = addDevListeners wpSystemStart allListeners
+runWalletRealMode peerId res wp@WalletParams {..} =
+    runRawRealWallet peerId res wp allListeners
 
 runWalletReal
     :: PeerId

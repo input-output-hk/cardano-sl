@@ -42,13 +42,13 @@ import           Pos.Genesis.Parser (compileGenData)
 import           Pos.Genesis.Types  (GenesisData (..), StakeDistribution (..),
                                      getTotalStake)
 import           Pos.Lrc.FtsPure    (followTheSatoshi)
+import           Pos.Lrc.Genesis    (genesisSeed)
 import           Pos.Txp.Core.Types (TxIn (..), TxOut (..), TxOutAux (..),
                                      TxOutDistribution)
 import           Pos.Txp.Toil.Types (Utxo)
-import           Pos.Types          (Address (..), Coin, SharedSeed (SharedSeed),
-                                     SlotLeaders, applyCoinPortion, coinToInteger,
-                                     divCoin, makePubKeyAddress, mkCoin, unsafeAddCoin,
-                                     unsafeMulCoin)
+import           Pos.Types          (Address (..), Coin, SlotLeaders, applyCoinPortion,
+                                     coinToInteger, divCoin, makePubKeyAddress, mkCoin,
+                                     unsafeAddCoin, unsafeMulCoin)
 
 ----------------------------------------------------------------------------
 -- Static state
@@ -177,9 +177,6 @@ genesisDelegation = mempty
 ----------------------------------------------------------------------------
 -- Slot leaders
 ----------------------------------------------------------------------------
-
-genesisSeed :: SharedSeed
-genesisSeed = SharedSeed "vasa opasa skovoroda Ggurda boroda provoda"
 
 -- | Leaders of genesis. See 'followTheSatoshi'.
 genesisLeaders :: Utxo -> SlotLeaders

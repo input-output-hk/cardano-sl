@@ -33,8 +33,8 @@ class (Monad m, WithLogger m) => MonadPollRead m where
     -- ^ Retrieve all proposed block versions.
     getEpochProposers :: m (HashSet StakeholderId)
     -- ^ Retrieve all stakeholders who proposed proposals in the current epoch.
-    getConfirmedBVStates :: m [(BlockVersion, BlockVersionState)]
-    -- ^ Get all confirmed 'BlockVersion's and their states.
+    getCompetingBVStates :: m [(BlockVersion, BlockVersionState)]
+    -- ^ Get all competing 'BlockVersion's and their states.
     getAdoptedBVFull :: m (BlockVersion, BlockVersionData)
     -- ^ Retrieve last adopted block version and its state.
     getLastConfirmedSV :: ApplicationName -> m (Maybe NumSoftwareVersion)
@@ -46,7 +46,7 @@ class (Monad m, WithLogger m) => MonadPollRead m where
     getConfirmedProposals :: m [ConfirmedProposalState]
     -- ^ Get all known confirmed proposals.
     getEpochTotalStake :: EpochIndex -> m (Maybe Coin)
-    -- ^ Get total stake from distribution corresponding to give epoch
+    -- ^ Get total stake from distribution corresponding to given epoch
     getRichmanStake :: EpochIndex -> StakeholderId -> m (Maybe Coin)
     -- ^ Get stake of ricmhan corresponding to given epoch (if she is
     -- really rich)
@@ -84,10 +84,10 @@ class (Monad m, WithLogger m) => MonadPollRead m where
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m (HashSet StakeholderId)
     getEpochProposers = lift getEpochProposers
 
-    default getConfirmedBVStates
+    default getCompetingBVStates
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
         m [(BlockVersion, BlockVersionState)]
-    getConfirmedBVStates = lift getConfirmedBVStates
+    getCompetingBVStates = lift getCompetingBVStates
 
     default getAdoptedBVFull
         :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m (BlockVersion, BlockVersionData)

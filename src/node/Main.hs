@@ -303,7 +303,7 @@ updateTriggerWorker
     => ([WorkerSpec (RawRealMode ssc)], OutSpecs)
 updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     logInfo "Update trigger worker is locked"
-    void $ liftIO . takeMVar =<< askContext ucUpdateSemaphore
+    void $ takeMVar =<< askContext ucUpdateSemaphore
     triggerShutdown
 
 walletServe

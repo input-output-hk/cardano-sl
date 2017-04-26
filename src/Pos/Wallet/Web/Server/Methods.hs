@@ -229,7 +229,7 @@ launchNotifier nat =
     -- historyNotifier :: WalletWebMode ssc m => m ()
     -- historyNotifier = do
     --     cAddresses <- myCAddresses
-    --     forM_ cAddresses $ \cAddress -> do
+    --     for_ cAddresses $ \cAddress -> do
     --         -- TODO: is reading from acid RAM only (not reading from disk?)
     --         oldHistoryLength <- length . fromMaybe mempty <$> getWalletHistory cAddress
     --         newHistoryLength <- length <$> getHistory cAddress
@@ -453,8 +453,8 @@ addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
     meta <- CTxMeta curr title desc <$> liftIO getPOSIXTime
     let cId = txIdToCTxId txId
     addOnlyNewTxMeta cAddr cId meta
-    meta' <- maybe meta identity <$> getTxMeta cAddr cId
-    pure $ mkCTx addr diff wtx meta'
+    meta' <- fromMaybe meta <$> getTxMeta cAddr cId
+    return $ mkCTx addr diff wtx meta'
 
 newWallet :: WalletWebMode m => CPassPhrase -> CWalletInit -> m CWallet
 newWallet cPassphrase CWalletInit {..} = do
@@ -493,7 +493,7 @@ deleteWallet cAddr = do
 
 -- NOTE: later we will have `isValidAddress :: CCurrency -> CAddress -> m Bool` which should work for arbitrary crypto
 isValidAddress :: WalletWebMode m => Text -> CCurrency -> m Bool
-isValidAddress sAddr ADA = pure . either (const False) (const True) $ decodeTextAddress sAddr
+isValidAddress sAddr ADA = pure $ isRight (decodeTextAddress sAddr)
 isValidAddress _ _       = pure False
 
 -- | Get last update info
@@ -589,7 +589,7 @@ importKey
 importKey (toString -> fp) = do
     secret <- rewrapError $ readUserSecret fp
     let keys = secret ^. usKeys
-    forM_ keys $ \key -> do
+    for_ keys $ \key -> do
         addSecretKey key
         let addr = makePubKeyAddress $ encToPublic key
             cAddr = addressToCAddress addr

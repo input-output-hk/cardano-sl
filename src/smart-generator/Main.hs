@@ -1,13 +1,12 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RankNTypes #-}
 
 module Main where
 
 import           Control.Concurrent.STM.TVar (readTVarIO)
 import           Control.Monad.Trans.Class   (MonadTrans)
-import           Data.Maybe                  (fromMaybe)
-import qualified Data.Set                  as Set (fromList)
+import qualified Data.Set                    as Set (fromList)
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
 import           Data.Time.Units             (Microsecond, convertUnit)
 import           Formatting                  (float, int, sformat, (%))
@@ -21,18 +20,17 @@ import           Test.QuickCheck             (arbitrary, generate)
 import           Universum
 
 import qualified Pos.CLI                     as CLI
-import           Pos.Communication           (ActionSpec (..), SendActions,
-                                              convertSendActions, sendTxOuts, submitTxRaw,
-                                              wrapSendActions, PeerId, NodeId)
+import           Pos.Communication           (ActionSpec (..), NodeId, PeerId,
+                                              SendActions, convertSendActions, sendTxOuts,
+                                              submitTxRaw, wrapSendActions)
 import           Pos.Constants               (genesisN, genesisSlotDuration,
                                               neighborsSendThreshold, slotSecurityParam)
 import           Pos.Crypto                  (hash)
 import           Pos.Genesis                 (genesisUtxo)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               NodeParams (..), RealModeResources (..),
-                                              bracketResources, initLrc, runNode',
-                                              runProductionMode, stakesDistr,
-                                              hoistResources)
+                                              bracketResources, hoistResources, initLrc,
+                                              runNode', runProductionMode, stakesDistr)
 import           Pos.Ssc.Class               (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing          (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon          (SscNistBeacon)
@@ -45,13 +43,13 @@ import           Pos.Worker                  (allWorkers)
 import           Pos.WorkMode                (ProductionMode, RawRealMode)
 
 import           GenOptions                  (GenOptions (..), optsInfo)
+import qualified Network.Transport.TCP       as TCP (TCPAddr (..))
 import           TxAnalysis                  (checkWorker, createTxTimestamps,
                                               registerSentTx)
 import           TxGeneration                (BambooPool, createBambooPool, curBambooTx,
                                               initTransaction, isTxVerified, nextValidTx,
                                               resetBamboo)
 import           Util
-import qualified Network.Transport.TCP       as TCP (TCPAddr (..))
 
 
 -- | Resend initTx with 'slotDuration' period until it's verified
@@ -127,7 +125,7 @@ runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
          seedInitTx res sA goRecipientShare pool (initTx idx)
 
     -- Start writing tps file
-    liftIO $ writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
+    writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
 
     let phaseDurationMs :: Microsecond
         phaseDurationMs =
@@ -140,7 +138,7 @@ runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
     void $ forFold (goInitTps, goTpsIncreaseStep) [1 .. goRoundNumber] $
       \(goTPS', increaseStep) (roundNum :: Int) -> do
       -- Start writing verifications file
-      liftIO $ writeFile (logsFilePrefix </> verifyCsvFile roundNum) verifyCsvHeader
+      writeFile (logsFilePrefix </> verifyCsvFile roundNum) verifyCsvHeader
 
 
       let goTPS = goTPS' / fromIntegral (length bambooPools)
@@ -150,7 +148,7 @@ runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
       logInfo $ sformat ("Round "%int%" from "%int%": TPS "%float)
           roundNum goRoundNumber goTPS
 
-      realTxNum <- liftIO $ newTVarIO (0 :: Int)
+      realTxNum <- newTVarIO (0 :: Int)
 
       -- Make a pause between rounds
       delay (round $ goRoundPause * fromIntegral (sec 1) :: Microsecond)
@@ -161,7 +159,7 @@ runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
 
       let sendThread bambooPool = do
             logInfo $ sformat ("CURRENT TXNUM: "%int) txNum
-            forM_ [0 .. txNum - 1] $ \(idx :: Int) -> do
+            for_ [0 .. txNum - 1] $ \(idx :: Int) -> do
                 preStartT <- getPosixMs
                 -- prevent periods longer than we expected
                 unless (preStartT - beginT > round (roundDurationSec * 1000)) $ do
@@ -182,9 +180,10 @@ runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
                             logInfo $ sformat ("Sending transaction #"%int) idx
                             submitTxRaw sA na (transaction, witness, distr)
                             when (startT >= startMeasurementsT) $ liftIO $ do
-                                liftIO $ atomically $ modifyTVar' realTxNum (+1)
+                                atomically $ modifyTVar' realTxNum (+1)
                                 -- put timestamp to current txmap
-                                registerSentTx txTimestamps curTxId roundNum $ fromIntegral startT * 1000
+                                registerSentTx txTimestamps curTxId roundNum $
+                                    fromIntegral startT * 1000
 
                     endT <- getPosixMs
                     let runDelta = endT - startT
@@ -210,7 +209,7 @@ runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
       putText $ "So real tps was: " <> show realTPS
 
       -- We collect tables of really generated tps
-      liftIO $ appendFile (logsFilePrefix </> tpsCsvFile) $
+      appendFile (logsFilePrefix </> tpsCsvFile) $
           tpsCsvFormat (globalTime, (goTPS, length bambooPools), realTPS)
 
       -- Wait for 1 phase (to get all the last sent transactions)

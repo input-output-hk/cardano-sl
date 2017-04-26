@@ -35,11 +35,6 @@ newtype PureToss a = PureToss
     { getPureToss :: NamedPureLogger (RWS MultiRichmenStake () GtGlobalState) a
     } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName)
 
-instance HasLoggerName Identity where
-    getLoggerName = mempty
-
-    modifyLoggerName = flip const
-
 instance MonadTossRead PureToss where
     getCommitments = PureToss $ use gsCommitments
     getOpenings = PureToss $ use gsOpenings

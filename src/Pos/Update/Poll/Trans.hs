@@ -72,9 +72,9 @@ instance MonadPollRead m =>
     getEpochProposers = ether $ do
         new <- use pmEpochProposersL
         maybe getEpochProposers pure new
-    getConfirmedBVStates = ether $
+    getCompetingBVStates = ether $
         filter (bvsIsConfirmed . snd) <$>
-        (MM.toListM getConfirmedBVStates =<< use pmBVsL)
+        (MM.toListM getCompetingBVStates =<< use pmBVsL)
     getAdoptedBVFull = ether $
         maybe getAdoptedBVFull pure =<< use pmAdoptedBVFullL
     getLastConfirmedSV appName = ether $

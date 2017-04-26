@@ -14,16 +14,15 @@ module Pos.Merkle
        , mkLeaf
        ) where
 
-import           Data.Bits            (Bits (..))
-import           Data.ByteArray       (ByteArrayAccess, convert)
-import qualified Data.ByteString.Lazy as BL (toStrict)
-import           Data.Coerce          (coerce)
-import qualified Data.Foldable        as Foldable
-import           Prelude              (Show (..))
-import           Universum            hiding (show)
+import           Data.Bits        (Bits (..))
+import           Data.ByteArray   (ByteArrayAccess, convert)
+import           Data.Coerce      (coerce)
+import qualified Data.Foldable    as Foldable
+import           Prelude          (Show (..))
+import           Universum        hiding (show)
 
-import           Pos.Binary.Class     (Bi, Raw, encode)
-import           Pos.Crypto           (Hash, hashRaw)
+import           Pos.Binary.Class (Bi, Raw, encodeStrict)
+import           Pos.Crypto       (Hash, hashRaw)
 
 -- | Data type for root of merkle tree.
 newtype MerkleRoot a = MerkleRoot
@@ -70,7 +69,7 @@ mkLeaf a =
     MerkleLeaf
     { mVal  = a
     , mRoot = MerkleRoot $ coerce $
-              hashRaw (one 0 <> BL.toStrict (encode a))
+              hashRaw (one 0 <> encodeStrict a)
     }
 
 mkBranch :: MerkleNode a -> MerkleNode a -> MerkleNode a

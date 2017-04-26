@@ -18,6 +18,7 @@ module Pos.Slotting.Ntp
 import qualified Control.Concurrent.STM       as STM
 import           Control.Lens                 (makeLenses)
 import qualified Control.Monad.Ether.Implicit as Ether
+import           Control.Monad.Trans.Control  (MonadBaseControl)
 import           Data.List                    ((!!))
 import           Data.Time.Units              (Microsecond, convertUnit)
 import           Formatting                   (int, sformat, shown, stext, (%))
@@ -26,6 +27,7 @@ import           Mockable                     (Catch, CurrentTime, Delay, Fork, 
 import           NTP.Client                   (NtpClientSettings (..), ntpSingleShot,
                                                startNtpClient)
 import           NTP.Example                  ()
+import           Serokell.Util                (sec)
 import           System.Wlog                  (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
@@ -76,9 +78,11 @@ askNtpSlotting = Ether.ask
 
 type SlottingConstraint m =
     ( MonadIO m
+    , MonadBaseControl IO m
     , WithLogger m
     , MonadSlotsData m
     , MonadCatch m
+    , MonadMask m
     , Mockables m
         [ Fork
         , Throw
@@ -223,6 +227,8 @@ ntpCurrentTime = do
 
 mkNtpSlottingVar
     :: ( MonadIO m
+       , MonadMask m
+       , MonadBaseControl IO m
        , WithLogger m
        , Mockables m
         [ CurrentTime
@@ -238,8 +244,10 @@ mkNtpSlottingVar = do
     _nssLastLocalTime <- Timestamp <$> currentTime
     -- current time isn't quite valid value, but it doesn't matter (@pva701)
     let _nssLastSlot = unflattenSlotId 0
-    res <- liftIO $ newTVarIO NtpSlottingState {..}
-    let settings = ntpSettings res
+    res <- newTVarIO NtpSlottingState {..}
+    -- We don't want to wait too much at the very beginning,
+    -- 1 second should be enough.
+    let settings = (ntpSettings res) { ntpResponseTimeout = 1 & sec }
     res <$ singleShot settings
   where
     singleShot settings = unless C.isDevelopment $ do

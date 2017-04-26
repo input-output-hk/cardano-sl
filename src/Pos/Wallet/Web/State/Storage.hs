@@ -108,7 +108,7 @@ setWalletHistory cAddr ctxs = () <$ mapM (uncurry $ addWalletHistoryTx cAddr) ct
 
 -- FIXME: this will be removed later (temporary solution)
 addOnlyNewTxMeta :: CAddress -> CTxId -> CTxMeta -> Update ()
-addOnlyNewTxMeta cAddr ctxId ctxMeta = wsWalletMetas . at cAddr . _Just . _2 . at ctxId %= Just . maybe ctxMeta identity
+addOnlyNewTxMeta cAddr ctxId ctxMeta = wsWalletMetas . at cAddr . _Just . _2 . at ctxId %= Just . fromMaybe ctxMeta
 
 -- NOTE: sets transaction meta only for transactions ids that are already seen
 setWalletTransactionMeta :: CAddress -> CTxId -> CTxMeta -> Update ()

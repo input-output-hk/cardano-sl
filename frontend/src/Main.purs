@@ -1,9 +1,11 @@
 module Main where
 
-import Prelude (($), (<$>), (<<<), bind, pure)
+import Prelude (($), (<$>), (<<<), bind, pure, const)
 import Control.Bind ((=<<))
 import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Now (NOW, nowDateTime)
 import Control.SocketIO.Client (SocketIO, connect, on)
+import Control.Comonad (extract)
 import DOM (DOM)
 import Data.Lens (set)
 import Data.Maybe (Maybe(..))
@@ -22,15 +24,17 @@ import Pux (App, Config, CoreEffects, Update, renderToDOM, start)
 import Pux.Devtool (Action, start) as Pux.Devtool
 import Pux.Router (sampleUrl)
 import Signal (Signal, (~>))
+import Signal.Time (every, second)
 import Signal.Channel (channel, subscribe)
 
-type AppEffects = (dom :: DOM, ajax :: AJAX, socket :: SocketIO)
+type AppEffects = (dom :: DOM, ajax :: AJAX, socket :: SocketIO, now :: NOW)
 
 config :: Ex.State -> Eff (CoreEffects AppEffects) (Config Ex.State Ex.Action AppEffects)
 config state = do
   -- routing
   urlSignal <- sampleUrl
   let routeSignal = urlSignal ~> Ex.UpdateView <<< match
+  let clockSignal = every second ~> const Ex.UpdateClock
   -- socket
   actionChannel <- channel $ Ex.SocketConnected false
   let socketSignal = subscribe actionChannel :: Signal Ex.Action
@@ -43,12 +47,13 @@ config state = do
   on socket' (toEvent CallYou) $ Ex.callYouEventHandler actionChannel
   on socket' (toEvent CallYouString) $ Ex.callYouStringEventHandler actionChannel
   on socket' (toEvent CallYouTxId) $ Ex.callYouCTxIdEventHandler actionChannel
+  dt <- extract <$> nowDateTime
 
   pure
     { initialState: set (socket <<< connection) (Just socket') state
     , update: Ex.update :: Update Ex.State Ex.Action AppEffects
     , view: view
-    , inputs: [socketSignal, routeSignal]
+    , inputs: [clockSignal, socketSignal, routeSignal]
     }
 
 appSelector :: String

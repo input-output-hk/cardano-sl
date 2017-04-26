@@ -12,6 +12,7 @@ import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlock
 import           Signal.Channel               (Channel)
 import           Data.Maybe (Maybe)
 import           Pos.Core.Types (EpochIndex, LocalSlotIndex)
+import           Data.DateTime (DateTime)
 
 data Action
     = SetLanguage Language
@@ -67,6 +68,9 @@ data Action
     | BlockPaginateTxs Int                  -- current pagination of transactions
     -- blocks view
     | BlocksPaginateBlocks Int              -- current pagination of blocks
+    -- clock
+    | SetClock DateTime
+    | UpdateClock
     -- misc
     | NoOp
 

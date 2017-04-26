@@ -12,6 +12,7 @@ import Explorer.Routes (Route)
 import Network.RemoteData (RemoteData)
 import Pos.Explorer.Socket.Methods (Subscription)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry, CBlockSummary, CTxBrief, CTxEntry, CTxSummary)
+import Data.DateTime (DateTime)
 
 -- Add all State types here to generate lenses from it
 
@@ -34,6 +35,7 @@ type State =
     , currentBlocksResult :: RemoteData Error CBlockEntries
     , errors :: Errors
     , loading :: Boolean
+    , now :: DateTime
     }
 
 data Search

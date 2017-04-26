@@ -16,7 +16,7 @@ import Explorer.Routes (match)
 import Explorer.Types.Actions (Action(..)) as Ex
 import Explorer.Types.State (State) as Ex
 import Explorer.Update (update) as Ex
-import Explorer.Util.Config (hostname, isProduction, secureProtocol)
+import Explorer.Util.Config (hostname, secureProtocol)
 import Explorer.View.Layout (view)
 import Network.HTTP.Affjax (AJAX)
 import Pos.Explorer.Socket.Methods (ServerEvent(..))
@@ -38,7 +38,7 @@ config state = do
   -- socket
   actionChannel <- channel $ Ex.SocketConnected false
   let socketSignal = subscribe actionChannel :: Signal Ex.Action
-  socketHost <- Ex.mkSocketHost (secureProtocol isProduction) <$> hostname
+  socketHost <- Ex.mkSocketHost (secureProtocol false) <$> hostname
   socket' <- connect socketHost
   on socket' Ex.connectEvent $ Ex.connectHandler actionChannel
   on socket' Ex.closeEvent $ Ex.closeHandler actionChannel

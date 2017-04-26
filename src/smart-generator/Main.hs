@@ -4,51 +4,51 @@
 
 module Main where
 
-import           Control.Concurrent.STM.TVar (readTVarIO)
-import           Control.Monad.Trans.Class   (MonadTrans)
-import qualified Data.Set                    as Set (fromList)
-import           Data.Time.Clock.POSIX       (getPOSIXTime)
-import           Data.Time.Units             (Microsecond, convertUnit)
-import           Formatting                  (float, int, sformat, (%))
-import           Mockable                    (Production, delay, forConcurrently, fork)
-import           Options.Applicative         (execParser)
-import           Serokell.Util               (ms, sec)
-import           System.FilePath             ((</>))
-import           System.Random.Shuffle       (shuffleM)
-import           System.Wlog                 (logInfo)
-import           Test.QuickCheck             (arbitrary, generate)
 import           Universum
 
-import qualified Pos.CLI                     as CLI
-import           Pos.Communication           (ActionSpec (..), NodeId, PeerId,
-                                              SendActions, convertSendActions, sendTxOuts,
-                                              submitTxRaw, wrapSendActions)
-import           Pos.Constants               (genesisN, genesisSlotDuration,
-                                              neighborsSendThreshold, slotSecurityParam)
-import           Pos.Crypto                  (hash)
-import           Pos.Genesis                 (genesisUtxo)
-import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
-                                              NodeParams (..), RealModeResources (..),
-                                              bracketResources, hoistResources, initLrc,
-                                              runNode', runProductionMode, stakesDistr)
-import           Pos.Ssc.Class               (SscConstraint, SscParams)
-import           Pos.Ssc.GodTossing          (GtParams (..), SscGodTossing)
-import           Pos.Ssc.NistBeacon          (SscNistBeacon)
-import           Pos.Ssc.SscAlgo             (SscAlgo (..))
-import           Pos.Txp                     (TxAux)
-import           Pos.Update.Params           (UpdateParams (..))
-import           Pos.Util.JsonLog            ()
-import           Pos.Util.UserSecret         (simpleUserSecret)
-import           Pos.Worker                  (allWorkers)
-import           Pos.WorkMode                (ProductionMode, RawRealMode)
+import           Control.Monad.Trans.Class (MonadTrans)
+import qualified Data.Set                  as Set (fromList)
+import           Data.Time.Clock.POSIX     (getPOSIXTime)
+import           Data.Time.Units           (Microsecond, convertUnit)
+import           Formatting                (float, int, sformat, (%))
+import           Mockable                  (Production, delay, forConcurrently, fork)
+import           Options.Applicative       (execParser)
+import           Serokell.Util             (ms, sec)
+import           System.FilePath           ((</>))
+import           System.Random.Shuffle     (shuffleM)
+import           System.Wlog               (logInfo)
+import           Test.QuickCheck           (arbitrary, generate)
 
-import           GenOptions                  (GenOptions (..), optsInfo)
-import qualified Network.Transport.TCP       as TCP (TCPAddr (..))
-import           TxAnalysis                  (checkWorker, createTxTimestamps,
-                                              registerSentTx)
-import           TxGeneration                (BambooPool, createBambooPool, curBambooTx,
-                                              initTransaction, isTxVerified, nextValidTx,
-                                              resetBamboo)
+import qualified Pos.CLI                   as CLI
+import           Pos.Communication         (ActionSpec (..), NodeId, PeerId, SendActions,
+                                            convertSendActions, sendTxOuts, submitTxRaw,
+                                            wrapSendActions)
+import           Pos.Constants             (genesisN, genesisSlotDuration,
+                                            neighborsSendThreshold, slotSecurityParam)
+import           Pos.Crypto                (hash)
+import           Pos.Genesis               (genesisUtxo)
+import           Pos.Launcher              (BaseParams (..), LoggingParams (..),
+                                            NodeParams (..), RealModeResources (..),
+                                            bracketResources, hoistResources, initLrc,
+                                            runNode', runProductionMode, stakesDistr)
+import           Pos.Ssc.Class             (SscConstraint, SscParams)
+import           Pos.Ssc.GodTossing        (GtParams (..), SscGodTossing)
+import           Pos.Ssc.NistBeacon        (SscNistBeacon)
+import           Pos.Ssc.SscAlgo           (SscAlgo (..))
+import           Pos.Txp                   (TxAux)
+import           Pos.Update.Params         (UpdateParams (..))
+import           Pos.Util.JsonLog          ()
+import           Pos.Util.UserSecret       (simpleUserSecret)
+import           Pos.Worker                (allWorkers)
+import           Pos.WorkMode              (ProductionMode, RawRealMode)
+
+import           GenOptions                (GenOptions (..), optsInfo)
+import qualified Network.Transport.TCP     as TCP (TCPAddr (..))
+import           TxAnalysis                (checkWorker, createTxTimestamps,
+                                            registerSentTx)
+import           TxGeneration              (BambooPool, createBambooPool, curBambooTx,
+                                            initTransaction, isTxVerified, nextValidTx,
+                                            resetBamboo)
 import           Util
 
 
@@ -194,7 +194,7 @@ runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
       _ <- forConcurrently bambooPools sendThread
       finishT <- getPosixMs
 
-      realTxNumVal <- liftIO $ readTVarIO realTxNum
+      realTxNumVal <- readTVarIO realTxNum
 
       let globalTime, realTPS :: Double
           globalTime = (fromIntegral (finishT - startMeasurementsT)) / 1000

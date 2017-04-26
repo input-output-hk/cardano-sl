@@ -79,7 +79,7 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
-- universum-0.3
+- universum-0.4.1
 - time-units-1.0.0
 - serokell-util-0.1.5.0
 - pvss-0.1

@@ -22,8 +22,8 @@ import           Pos.Block.Logic             (createGenesisBlock, createMainBloc
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Pure              (VerifyBlockParams (..), verifyBlock)
-import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', WorkerSpec,
-                                              onNewSlotWorker, NodeId)
+import           Pos.Communication.Protocol  (NodeId, OutSpecs, SendActions, Worker',
+                                              WorkerSpec, onNewSlotWorker)
 import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (getNodeContext, ncPublicKey)
 import           Pos.Core.Address            (addressHash)
@@ -156,19 +156,20 @@ onNewSlotWhenLeader getPeers slotId pSk sendActions = do
     logInfoS $
         sformat ("Waiting for "%shown%" before creating block") timeToWait
     delay timeToWait
-    let onNewSlotWhenLeaderDo = do
-            logInfoS "It's time to create a block for current slot"
-            let whenCreated createdBlk = do
-                    logInfoS $
-                        sformat ("Created a new block:\n" %build) createdBlk
-                    jlLog $ jlCreatedBlock (Right createdBlk)
-                    verifyCreatedBlock createdBlk
-                    void $ fork $ announceBlock getPeers sendActions $ createdBlk ^. gbHeader
-            let whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
-            createdBlock <- createMainBlock getPeers slotId pSk
-            either whenNotCreated whenCreated createdBlock
-            logInfoS "onNewSlotWhenLeader: done"
     logWarningSWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
+  where
+    onNewSlotWhenLeaderDo = do
+        logInfoS "It's time to create a block for current slot"
+        createdBlock <- createMainBlock getPeers slotId pSk
+        either whenNotCreated whenCreated createdBlock
+        logInfoS "onNewSlotWhenLeader: done"
+    whenCreated createdBlk = do
+            logInfoS $
+                sformat ("Created a new block:\n" %build) createdBlk
+            jlLog $ jlCreatedBlock (Right createdBlk)
+            verifyCreatedBlock createdBlk
+            void $ fork $ announceBlock getPeers sendActions $ createdBlk ^. gbHeader
+    whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
 
 verifyCreatedBlock
     :: (WithLogger m, SscHelpersClass ssc, MonadThrow m)

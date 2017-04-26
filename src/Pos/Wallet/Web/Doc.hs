@@ -52,8 +52,8 @@ import           Pos.Wallet.Web.ClientTypes (Acc, CAccount (..), CAccountAddress
                                              CWalletInit (..), CWalletMeta (..),
                                              CWalletRedeem (..), CWalletSet (..),
                                              CWalletSetInit (..), CWalletSetInit (..),
-                                             SyncProgress, WS, addressToCAddress, mkCCoin,
-                                             mkCTxId)
+                                             CWalletSetMeta (..), SyncProgress, WS,
+                                             addressToCAddress, mkCCoin, mkCTxId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 
 
@@ -291,11 +291,15 @@ instance ToCapture (Capture "key" FilePath) where
         , _capDesc = "File path to the secret key"
         }
 
-instance ToCapture (Capture "passphrase" CPassPhrase) where
-    toCapture Proxy =
-        DocCapture
-        { _capSymbol = "passphrase"
-        , _capDesc = "Passphrase to wallet"
+instance ToParam (QueryParam "passphrase" CPassPhrase) where
+    toParam Proxy =
+        DocQueryParam
+        { _paramName    = "passphrase"
+        , _paramValues  =
+            [ replicate 64 '0'  -- "000.." string of length 32 in base16 form
+            ]
+        , _paramDesc    = "Passphrase to wallet"
+        , _paramKind    = Normal
         }
 
 
@@ -365,6 +369,22 @@ cWalletSetAddressSample =
     CAddress $
     CHash "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
 
+backupPhrase :: BackupPhrase
+backupPhrase = mkBackupPhrase12
+        [ "transfer"
+        , "uniform"
+        , "grunt"
+        , "excess"
+        , "six"
+        , "veteran"
+        , "vintage"
+        , "warm"
+        , "confirm"
+        , "vote"
+        , "nephew"
+        , "allow"
+        ]
+
 instance ToSample CWallet where
     toSamples Proxy = singleSample sample
       where
@@ -400,7 +420,7 @@ instance ToSample CWalletSet where
       where
         sample = CWalletSet
             { cwsAddress       = cWalletSetAddressSample
-            , cwsWSetMeta      = def
+            , cwsWSetMeta      = CWalletSetMeta "Personal Wallet Set" backupPhrase
             , cwsWalletsNumber = 3
             }
 
@@ -485,7 +505,7 @@ instance ToSample CProfile where
       where
         sample =
             CProfile
-            { cpLocale      = ""
+            { cpLocale = ""
             }
 
 instance ToSample Word where
@@ -494,7 +514,7 @@ instance ToSample Word where
 instance ToSample BackupPhrase where
     toSamples Proxy = singleSample sample
       where
-        sample = def
+        sample = backupPhrase
 
 instance ToSample SoftwareVersion where
     toSamples Proxy = singleSample curSoftwareVersion

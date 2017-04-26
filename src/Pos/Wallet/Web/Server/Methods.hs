@@ -98,8 +98,7 @@ import           Pos.Wallet.Web.ClientTypes    (Acc, CAccount (..), CAccountAddr
                                                 NotifyEvent (..), SyncProgress (..), WS,
                                                 addressToCAddress, cAddressToAddress,
                                                 cPassPhraseToPassPhrase, mkCCoin, mkCTx,
-                                                mkCTxId, passPhraseToCPassPhrase,
-                                                toCUpdateInfo, txContainsTitle,
+                                                mkCTxId, toCUpdateInfo, txContainsTitle,
                                                 txIdToCTxId, walletAddrByAccount)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
@@ -446,15 +445,17 @@ getWallets mCAddr = do
 getWSets :: WalletWebMode ssc m => m [CWalletSet]
 getWSets = getWSetAddresses >>= mapM getWSet
 
-decodeCPassPhraseOrFail :: WalletWebMode ssc m => CPassPhrase -> m PassPhrase
-decodeCPassPhraseOrFail cpass =
+decodeCPassPhraseOrFail
+    :: WalletWebMode ssc m => Maybe CPassPhrase -> m PassPhrase
+decodeCPassPhraseOrFail (Just cpass) =
     either (const . throwM $ Internal "Decoding of passphrase failed") return $
     cPassPhraseToPassPhrase cpass
+decodeCPassPhraseOrFail Nothing = return emptyPassphrase
 
 send
     :: (WalletWebMode ssc m)
     => SendActions m
-    -> CPassPhrase
+    -> Maybe CPassPhrase
     -> CWalletAddress
     -> CAddress Acc
     -> Coin
@@ -465,7 +466,7 @@ send sendActions cpass srcCAddr dstCAddr c =
 sendExtended
     :: (WalletWebMode ssc m)
     => SendActions m
-    -> CPassPhrase
+    -> Maybe CPassPhrase
     -> CWalletAddress
     -> CAddress Acc
     -> Coin
@@ -628,7 +629,7 @@ addHistoryTx cAddr curr title desc wtx@THEntry{..} = do
     meta' <- maybe meta identity <$> getTxMeta cAddr cId
     return $ mkCTx diff wtx meta'
 
-newAccount :: WalletWebMode ssc m => CPassPhrase -> CWalletAddress -> m CAccount
+newAccount :: WalletWebMode ssc m => Maybe CPassPhrase -> CWalletAddress -> m CAccount
 newAccount cPassphrase cWAddr = do
     -- check wallet exists
     _ <- getWallet cWAddr
@@ -638,7 +639,7 @@ newAccount cPassphrase cWAddr = do
     addAccount cAccAddr
     getAccount cAccAddr
 
-newWallet :: WalletWebMode ssc m => CPassPhrase -> CWalletInit -> m CWallet
+newWallet :: WalletWebMode ssc m => Maybe CPassPhrase -> CWalletInit -> m CWallet
 newWallet cPassphrase CWalletInit {..} = do
     -- check wallet set exists
     _ <- getWSet cwInitWSetId
@@ -658,7 +659,7 @@ createWSetSafe cAddr wsMeta = do
     createWSet cAddr wsMeta
     getWSet cAddr
 
-newWSet :: WalletWebMode ssc m => CPassPhrase -> CWalletSetInit -> m CWalletSet
+newWSet :: WalletWebMode ssc m => Maybe CPassPhrase -> CWalletSetInit -> m CWalletSet
 newWSet cPassphrase CWalletSetInit {..} = do
     passphrase <- decodeCPassPhraseOrFail cPassphrase
     let CWalletSetMeta {..} = cwsInitMeta
@@ -708,7 +709,7 @@ nextUpdate = getNextUpdate >>=
 applyUpdate :: WalletWebMode ssc m => m ()
 applyUpdate = removeNextUpdate >> applyLastUpdate
 
-redeemADA :: WalletWebMode ssc m => SendActions m -> CPassPhrase -> CWalletRedeem -> m CTx
+redeemADA :: WalletWebMode ssc m => SendActions m -> Maybe CPassPhrase -> CWalletRedeem -> m CTx
 redeemADA sendActions cpassphrase CWalletRedeem {..} = do
     seedBs <- maybe invalidBase64 pure
         -- NOTE: this is just safety measure
@@ -720,7 +721,7 @@ redeemADA sendActions cpassphrase CWalletRedeem {..} = do
 -- Decrypts certificate based on:
 --  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L205
 --  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L160
-postVendRedeemADA :: WalletWebMode ssc m => SendActions m -> CPassPhrase -> CPostVendWalletRedeem -> m CTx
+postVendRedeemADA :: WalletWebMode ssc m => SendActions m -> Maybe CPassPhrase -> CPostVendWalletRedeem -> m CTx
 postVendRedeemADA sendActions cpassphrase CPostVendWalletRedeem {..} = do
     seedEncBs <- maybe invalidBase58 pure
         $ decodeBase58 bitcoinAlphabet $ encodeUtf8 pvSeed
@@ -734,7 +735,7 @@ postVendRedeemADA sendActions cpassphrase CPostVendWalletRedeem {..} = do
     invalidMnemonic e = throwM . Internal $ "Invalid mnemonic: " <> toText e
     decryptionFailed e = throwM . Internal $ "Decryption failed: " <> show e
 
-redeemADAInternal :: WalletWebMode ssc m => SendActions m -> CPassPhrase -> CWalletAddress -> ByteString -> m CTx
+redeemADAInternal :: WalletWebMode ssc m => SendActions m -> Maybe CPassPhrase -> CWalletAddress -> ByteString -> m CTx
 redeemADAInternal sendActions cpassphrase walletId seedBs = do
     passphrase <- decodeCPassPhraseOrFail cpassphrase
     (_, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
@@ -822,7 +823,7 @@ addInitialRichAccount sendActions keyId =
         balance <- getBalance addr
         let coinsToSend = applyCoinPortion (unsafeCoinPortionFromDouble 0.5) balance
 
-        let cpass  = passPhraseToCPassPhrase emptyPassphrase
+        let cpass  = Nothing
             backup = mkBackupPhrase12 $ sformat build <$> "nyan-forever"
             wsMeta = CWalletSetMeta "Precreated wallet set full of money" backup
             wMeta  = def{ cwName = "Initial wallet" }

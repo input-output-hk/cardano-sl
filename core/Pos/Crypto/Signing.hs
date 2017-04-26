@@ -7,6 +7,7 @@ module Pos.Crypto.Signing
        -- * Keys
          PublicKey (..)
        , SecretKey (..)
+       , emptyPass
        , keyGen
        , deterministicKeyGen
        , toPublic
@@ -40,29 +41,29 @@ module Pos.Crypto.Signing
        , proxyVerify
        ) where
 
-import qualified Cardano.Crypto.Wallet           as CC
+import qualified Cardano.Crypto.Wallet  as CC
 -- import qualified Cardano.Crypto.Wallet.Encrypted as CC
 -- import qualified Crypto.ECC.Edwards25519         as Ed25519
-import           Data.ByteArray                  (ScrubbedBytes)
-import qualified Data.ByteString                 as BS
-import qualified Data.ByteString.Lazy            as BSL
-import           Data.Coerce                     (coerce)
-import           Data.Hashable                   (Hashable)
-import qualified Data.Text.Buildable             as B
-import           Data.Text.Lazy.Builder          (Builder)
-import           Formatting                      (Format, bprint, build, fitLeft, later,
-                                                  (%), (%.))
-import           Prelude                         (show)
-import qualified Serokell.Util.Base16            as B16
-import qualified Serokell.Util.Base64            as Base64 (decode, formatBase64)
-import           Serokell.Util.Text              (pairF)
-import           Universum                       hiding (show)
+import           Data.ByteArray         (ScrubbedBytes)
+import qualified Data.ByteArray         as BA
+import qualified Data.ByteString        as BS
+import qualified Data.ByteString.Lazy   as BSL
+import           Data.Coerce            (coerce)
+import           Data.Hashable          (Hashable)
+import qualified Data.Text.Buildable    as B
+import           Data.Text.Lazy.Builder (Builder)
+import           Formatting             (Format, bprint, build, fitLeft, later, (%), (%.))
+import           Prelude                (show)
+import qualified Serokell.Util.Base16   as B16
+import qualified Serokell.Util.Base64   as Base64 (decode, formatBase64)
+import           Serokell.Util.Text     (pairF)
+import           Universum              hiding (show)
 
-import           Pos.Binary.Class                (Bi, Raw)
-import qualified Pos.Binary.Class                as Bi
-import           Pos.Crypto.Hashing              (hash)
-import           Pos.Crypto.Random               (secureRandomBS)
-import           Pos.Crypto.SignTag              (SignTag, signTag)
+import           Pos.Binary.Class       (Bi, Raw)
+import qualified Pos.Binary.Class       as Bi
+import           Pos.Crypto.Hashing     (hash)
+import           Pos.Crypto.Random      (secureRandomBS)
+import           Pos.Crypto.SignTag     (SignTag, signTag)
 
 ----------------------------------------------------------------------------
 -- Keys, key generation & printing & decoding
@@ -120,7 +121,7 @@ parseFullPublicKey s = do
     pure a
 
 emptyPass :: ScrubbedBytes
-emptyPass = mempty
+emptyPass = BA.replicate 32 0
 
 -- TODO: this is just a placeholder for actual (not ready yet) derivation
 -- of keypair from seed in cardano-crypto API

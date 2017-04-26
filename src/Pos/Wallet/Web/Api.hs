@@ -50,14 +50,14 @@ type WalletApi =
      "api"
      :> "walletSets"
      :> "new"
-     :> Capture "passphrase" CPassPhrase
+     :> QueryParam "passphrase" CPassPhrase
      :> ReqBody '[JSON] CWalletSetInit
      :> Post '[JSON] (Either WalletError CWalletSet)
     :<|>
      "api"
      :> "walletSets"
      :> "restore"
-     :> Capture "passphrase" CPassPhrase
+     :> QueryParam "passphrase" CPassPhrase
      :> ReqBody '[JSON] CWalletSetInit
      :> Post '[JSON] (Either WalletError CWalletSet)
     :<|>
@@ -89,7 +89,7 @@ type WalletApi =
     :<|>
      "api"
      :> "wallets"
-     :> Capture "passphrase" CPassPhrase
+     :> QueryParam "passphrase" CPassPhrase
      :> ReqBody '[JSON] CWalletInit
      :> Post '[JSON] (Either WalletError CWallet)
     :<|>
@@ -103,7 +103,7 @@ type WalletApi =
      -------------------------------------------------------------------------
      "api"
      :> "account"
-     :> Capture "passphrase" CPassPhrase
+     :> QueryParam "passphrase" CPassPhrase
      :> ReqBody '[JSON] CWalletAddress
      :> Post '[JSON] (Either WalletError CAccount)
     :<|>
@@ -139,7 +139,7 @@ type WalletApi =
      "api"
      :> "txs"
      :> "payments"
-     :> Capture "passphrase" CPassPhrase
+     :> QueryParam "passphrase" CPassPhrase
      :> Capture "from" CWalletAddress
      :> Capture "to" (CAddress Acc)
      :> Capture "amount" Coin
@@ -150,7 +150,7 @@ type WalletApi =
      "api"
      :> "txs"
      :> "payments"
-     :> Capture "passphrase" CPassPhrase
+     :> QueryParam "passphrase" CPassPhrase
      :> Capture "from" CWalletAddress
      :> Capture "to" (CAddress Acc)
      :> Capture "amount" Coin
@@ -203,7 +203,7 @@ type WalletApi =
      "api"
      :> "redemptions"
      :> "ada"
-     :> Capture "passphrase" CPassPhrase
+     :> QueryParam "passphrase" CPassPhrase
      :> ReqBody '[JSON] CWalletRedeem
      :> Post '[JSON] (Either WalletError CTx)
     :<|>
@@ -211,7 +211,7 @@ type WalletApi =
      :> "postvend"
      :> "redemptions"
      :> "ada"
-     :> Capture "passphrase" CPassPhrase
+     :> QueryParam "passphrase" CPassPhrase
      :> ReqBody '[JSON] CPostVendWalletRedeem
      :> Post '[JSON] (Either WalletError CTx)
     :<|>

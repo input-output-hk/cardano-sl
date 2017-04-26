@@ -52,6 +52,7 @@ ntpPollDelay: 15000000 # 15 sec
 maxLocalTxs: 1000
 protocolMagic: 50987833
 enhancedMessageTimeout: 10
+enhancedMessageBroadcast: 2
 messageCacheTimeout: 30
 propagationQueueSize: 100
 blockRetrievalQueueSize: 100

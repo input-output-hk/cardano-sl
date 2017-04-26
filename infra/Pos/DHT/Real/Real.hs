@@ -8,13 +8,10 @@ module Pos.DHT.Real.Real
        , stopDHTInstance
        ) where
 
-import           Universum                 hiding (bracket, catchAll)
-
-import           Control.Concurrent.STM    (newTVar, writeTVar)
 import           Data.Binary               (decode)
 import qualified Data.ByteString.Lazy      as BS
 import qualified Data.HashMap.Strict       as HM
-import           Data.List                 (minimumBy)
+import           Data.List                 (sortBy)
 import           Formatting                (build, int, sformat, shown, (%))
 import           Mockable                  (Async, Catch, Mockable, MonadMockable,
                                             Promise, Throw, bracket, catchAll, fork,
@@ -24,10 +21,12 @@ import           Serokell.Util             (ms, sec)
 import           System.Directory          (doesFileExist)
 import           System.Wlog               (WithLogger, logDebug, logError, logInfo,
                                             logWarning, usingLoggerName)
+import           Universum                 hiding (bracket, catchAll)
 
 import           Pos.Binary.Class          (Bi (..))
 import           Pos.Binary.Infra.DHTModel ()
-import           Pos.DHT.Constants         (enhancedMessageTimeout,
+import           Pos.DHT.Constants         (enhancedMessageBroadcast,
+                                            enhancedMessageTimeout,
                                             neighborsSendThreshold)
 import           Pos.DHT.Model.Class       (DHTException (..), MonadDHT (..),
                                             withDhtLogger)
@@ -38,7 +37,6 @@ import           Pos.DHT.Real.Types        (DHTHandle, KademliaDHT (..),
                                             KademliaDHTInstanceConfig (..))
 import           Pos.Util.TimeLimit        (runWithRandomIntervals')
 import           Pos.Util.TimeWarp         (NetworkAddress)
-
 
 kademliaConfig :: K.KademliaConfig
 kademliaConfig = K.defaultConfig { K.k = 16 }
@@ -167,9 +165,13 @@ getKnownPeersImpl = do
         | otherwise =
             let peers = filter ((< enhancedMessageTimeout) . snd) bucket in
             if null peers then
-                [fst $ minimumBy (comparing snd) bucket]
+                map fst $ takeSafe enhancedMessageBroadcast $ sortBy (comparing snd) bucket
             else
                 map fst peers
+    takeSafe :: Int -> [a] -> [a]
+    takeSafe p a
+        | length a <= p = a
+        | otherwise = take p a
 
     updateCache :: MonadIO m1 => KademliaDHTInstance -> [K.Node DHTKey] -> m1 [K.Node DHTKey]
     updateCache inst peers =

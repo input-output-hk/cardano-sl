@@ -7,10 +7,10 @@ module Pos.Txp.Core.Tx
        ( topsortTxs
        ) where
 
-import           Control.Lens        (makeLenses, to, (%=), (.=))
+import           Control.Lens        (makeLenses, to, uses, (%=), (.=))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
-import           Data.List           (tail)
+import           Data.List           (nub, tail)
 import           Universum
 
 import           Pos.Crypto          (Hash, WithHash (..))
@@ -29,13 +29,14 @@ data TopsortState a = TopsortState
 
 $(makeLenses ''TopsortState)
 
+{-# ANN topsortTxs ("HLint: ignore Use ordNub" :: Text) #-}
 -- | Does topological sort on things that contain transactions – e.g. can be
 -- used both for sorting @[Tx]@ and @[(Tx, TxWitness)]@.
 --
 -- (Backwards dfs from every node with reverse visiting order
 -- recording. Returns nothing on loop encountered. Return order is
 -- head-first.)
-topsortTxs :: forall a. (a -> WithHash Tx) -> [a] -> Maybe [a]
+topsortTxs :: forall a. (Eq a) => (a -> WithHash Tx) -> [a] -> Maybe [a]
 topsortTxs toTx input =
     let res = execState dfs1 initState
     in guard (not $ res ^. tsLoop) >> pure (reverse $ res ^. tsResult)
@@ -53,21 +54,25 @@ topsortTxs toTx input =
             let tx = toTx a
             ifM (HS.member (whHash tx) <$> use tsVisited)
                 (tsUnprocessed %= tail)
-                (dfs2 HS.empty a tx)
+                (dfs2 HS.empty a)
             dfs1
     -- Does dfs putting vertices into tsResult in reversed order of
     -- visiting. visitedThis is map of visited vertices for _this_ dfs
-    -- (cycle detection).
-    dfs2 :: HashSet (Hash Tx) -> a -> WithHash Tx -> State (TopsortState a) ()
-    dfs2 visitedThis _ (WithHash _ txHash)
-        | txHash `HS.member` visitedThis = tsLoop .= True
-    dfs2 visitedThis a (WithHash tx txHash) = unlessM (use tsLoop) $ do
-        tsVisited %= HS.insert txHash
-        let visitedNew = HS.insert txHash visitedThis
-            dependsUnfiltered =
-                mapMaybe (\x -> HM.lookup (txInHash x) txHashes) (tx ^. txInputs . to toList)
-        depends <- filterM
-            (\x -> not . HS.member (whHash (toTx x)) <$> use tsVisited)
-            dependsUnfiltered
-        forM_ depends $ \a' -> dfs2 visitedNew a' (toTx a')
-        tsResult %= (a:)
+    -- (used for loop detection).
+    dfs2 :: HashSet (Hash Tx) -> a -> State (TopsortState a) ()
+    dfs2 visitedThis a | whHash (toTx a) `HS.member` visitedThis = tsLoop .= True
+    dfs2 visitedThis a = do
+        let (WithHash tx txHash) = toTx a
+        looped <- use tsLoop
+        visited <- uses tsVisited $ HS.member txHash
+        when (not looped && not visited) $ do
+            tsVisited %= HS.insert txHash
+            let visitedNew = HS.insert txHash visitedThis
+                dependsUnfiltered =
+                    nub $ mapMaybe (\x -> HM.lookup (txInHash x) txHashes)
+                                   (tx ^. txInputs . to toList)
+            depends <- filterM
+                (\x -> not . HS.member (whHash (toTx x)) <$> use tsVisited)
+                dependsUnfiltered
+            for_ depends $ \a' -> dfs2 visitedNew a'
+            tsResult %= (a:)

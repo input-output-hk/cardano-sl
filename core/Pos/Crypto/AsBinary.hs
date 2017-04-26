@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP                  #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | AsBinary wrappers for Pos.Crypto.SecretSharing types.
 

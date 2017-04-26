@@ -14,8 +14,7 @@ import           Pos.Slotting.MemState (MonadSlotsData)
 
 
 -- | Type class providing information about current slot.
-class MonadSlotsData m =>
-      MonadSlots m where
+class MonadSlotsData m => MonadSlots m where
 
     getCurrentSlot :: m (Maybe SlotId)
 
@@ -54,6 +53,6 @@ class MonadSlotsData m =>
         m SlotId
     getCurrentSlotInaccurate = lift getCurrentSlotInaccurate
 
-instance MonadSlots m => MonadSlots (ReaderT s m) where
-instance MonadSlots m => MonadSlots (ExceptT s m) where
-instance MonadSlots m => MonadSlots (StateT s m) where
+instance {-# OVERLAPPABLE #-}
+    (MonadSlots m, MonadTrans t, Monad (t m)) =>
+        MonadSlots (t m)

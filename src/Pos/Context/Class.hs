@@ -1,35 +1,24 @@
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE PolyKinds           #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Class which provides access to NodeContext.
 
 module Pos.Context.Class
-       ( WithNodeContext (..)
+       ( WithNodeContext
+       , getNodeContext
        ) where
 
-import           Control.Monad.Except         (ExceptT)
-import           Control.Monad.Trans          (MonadTrans)
-import           Control.Monad.Trans.Resource (ResourceT)
+import qualified Control.Monad.Ether as Ether.E
 import           Universum
 
-import           Pos.Context.Context          (NodeContext)
+import           Pos.Context.Context (NodeContext)
+import           Pos.Util.Context    (ContextTagK (..))
 
 -- | Class for something that has 'NodeContext' inside.
-class Monad m => WithNodeContext ssc m | m -> ssc where
-    getNodeContext :: m (NodeContext ssc)
+type WithNodeContext ssc = Ether.E.MonadReader 'ContextTag (NodeContext ssc)
 
-    default getNodeContext :: (MonadTrans t, WithNodeContext ssc m', t m' ~ m) =>
-        m (NodeContext ssc)
-    getNodeContext = lift getNodeContext
-
-instance (Monad m, WithNodeContext ssc m) =>
-         WithNodeContext ssc (ReaderT a m) where
-
-instance (Monad m, WithNodeContext ssc m) =>
-         WithNodeContext ssc (StateT a m) where
-
-instance (Monad m, WithNodeContext ssc m) =>
-         WithNodeContext ssc (ExceptT e m) where
-
-instance (Monad m, WithNodeContext ssc m) =>
-         WithNodeContext ssc (ResourceT m) where
+getNodeContext :: WithNodeContext ssc m => m (NodeContext ssc)
+getNodeContext = Ether.E.ask (Proxy @'ContextTag)

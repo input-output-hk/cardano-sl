@@ -6,15 +6,16 @@ module Pos.Aeson.Types
 
 import           Data.Aeson           (ToJSON (toJSON), object, (.=))
 import           Data.Aeson.TH        (defaultOptions, deriveToJSON)
-import           Formatting           (sformat)
+import           Formatting           (build, sformat)
 import           Serokell.Util.Base16 (base16F)
 import           Universum
 
 import           Pos.Aeson.Crypto     ()
 import           Pos.Data.Attributes  (Attributes (..))
+import           Pos.Txp              (TxOut (..))
 import           Pos.Types            (Address (..), ApplicationName (..),
                                        ChainDifficulty, Coin, EpochIndex, LocalSlotIndex,
-                                       SharedSeed, SlotId)
+                                       SharedSeed, SlotId, coinToInteger)
 import           Pos.Web.Types        (GodTossingStage)
 
 instance ToJSON SharedSeed where
@@ -37,6 +38,11 @@ instance ToJSON Address where
         "tag" .= ("UnknownAddressType" :: Text),
         "type" .= t,
         "content" .= sformat base16F bs ]
+
+instance ToJSON TxOut where
+    toJSON TxOut{..} = object [
+        "coin"    .= coinToInteger txOutValue,
+        "address" .= sformat build txOutAddress ]
 
 -- NOTE: some of these types are used on frontend (PureScript).
 -- We are automatically deriving instances there and they are

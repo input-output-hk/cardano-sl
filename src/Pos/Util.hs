@@ -59,7 +59,6 @@ module Pos.Util
 
 import           Universum                        hiding (bracket, finally)
 
-import           Control.Arrow                    ((***))
 import           Control.Concurrent.ReadWriteLock (RWLock, acquireRead, acquireWrite,
                                                    releaseRead, releaseWrite)
 import           Control.Lens                     (lensRules)
@@ -86,11 +85,14 @@ import           Pos.Util.TimeLimit
 import           Pos.Util.Undefined               ()
 import           Pos.Util.Util
 
+-- | Specialized version of 'mappend' for restricted to pair type.
 mappendPair :: (Monoid a, Monoid b) => (a, b) -> (a, b) -> (a, b)
-mappendPair = (uncurry (***)) . (mappend *** mappend)
+mappendPair = mappend
 
+-- | Specialized version of 'mconcat' (or 'Data.Foldable.fold')
+-- for restricting type to list of pairs.
 mconcatPair :: (Monoid a, Monoid b) => [(a, b)] -> (a, b)
-mconcatPair = foldr mappendPair (mempty, mempty)
+mconcatPair = mconcat
 
 -- | Concatenates two url part using regular slash '/'.
 -- E.g. @"./dir/" <//> "/file" = "./dir/file"@.
@@ -238,7 +240,7 @@ instance MonadFail m => MonadFail (ResourceT m) where
 ----------------------------------------------------------------------------
 
 clearMVar :: MonadIO m => MVar a -> m ()
-clearMVar = liftIO . void . tryTakeMVar
+clearMVar = void . tryTakeMVar
 
 forcePutMVar :: MonadIO m => MVar a -> a -> m ()
 forcePutMVar mvar val = do
@@ -250,12 +252,12 @@ forcePutMVar mvar val = do
 -- satisfies, it is returned.
 readMVarConditional :: (MonadIO m) => (x -> Bool) -> MVar x -> m x
 readMVarConditional predicate mvar = do
-    rData <- liftIO . readMVar $ mvar -- first we try to read for optimization only
+    rData <- readMVar mvar -- first we try to read for optimization only
     if predicate rData then pure rData
     else do
-        tData <- liftIO . takeMVar $ mvar -- now take data
-        if predicate tData then do -- check again
-            _ <- liftIO $ tryPutMVar mvar tData -- try to put taken value
+        tData <- takeMVar mvar         -- now take data
+        if predicate tData then do     -- check again
+            _ <- tryPutMVar mvar tData -- try to put taken value
             pure tData
         else
             readMVarConditional predicate mvar

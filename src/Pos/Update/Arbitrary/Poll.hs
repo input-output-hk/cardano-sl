@@ -13,6 +13,7 @@ import           Pos.Binary.Update         ()
 import           Pos.Slotting.Arbitrary    ()
 import           Pos.Types.Arbitrary       ()
 import           Pos.Update.Arbitrary.Core ()
+import           Pos.Update.Poll.PollState (PollState (..))
 import           Pos.Update.Poll.Types     (BlockVersionState (..),
                                             ConfirmedProposalState (..),
                                             DecidedProposalState (..), DpsExtra (..),
@@ -35,3 +36,5 @@ deriving instance (Eq k, Hashable k, Arbitrary k, Arbitrary v) =>
     Arbitrary (MapModifier k v)
 
 derive makeArbitrary ''PollModifier
+
+derive makeArbitrary ''PollState

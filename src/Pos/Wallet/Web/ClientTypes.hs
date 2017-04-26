@@ -26,7 +26,7 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletInit (..)
       , CUpdateInfo (..)
       , CWalletRedeem (..)
-      , CPostVendWalletRedeem (..)
+      , CPaperVendWalletRedeem (..)
       , CCoin
       , mkCCoin
       , CElectronCrashReport (..)
@@ -109,7 +109,7 @@ instance Hashable CHash where
 -- | Client address
 newtype CAddress = CAddress CHash deriving (Show, Eq, Generic, Hashable, Buildable)
 
--- TODO: this is not complitely safe. If someone changes
+-- TODO: this is not completely safe. If someone changes
 -- implementation of Buildable Address. It should be probably more
 -- safe to introduce `class PSSimplified` that would have the same
 -- implementation has it is with Buildable Address but then person
@@ -221,7 +221,7 @@ data CWalletRedeem = CWalletRedeem
     } deriving (Show, Generic)
 
 -- | Query data for redeem
-data CPostVendWalletRedeem = CPostVendWalletRedeem
+data CPaperVendWalletRedeem = CPaperVendWalletRedeem
     { pvWalletId     :: !CAddress
     , pvSeed         :: !Text -- TODO: newtype!
     , pvBackupPhrase :: !BackupPhrase
@@ -240,6 +240,11 @@ type CPwHash = Text -- or Base64 or something else
 data CProfile = CProfile
     { cpLocale      :: Text
     } deriving (Show, Generic, Typeable)
+
+-- | Added default instance for `testReset`, we need an inital state for
+-- @CProfile@
+instance Default CProfile where
+    def = CProfile mempty
 
 ----------------------------------------------------------------------------
 -- Transactions

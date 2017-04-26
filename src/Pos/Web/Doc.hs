@@ -8,6 +8,7 @@ module Pos.Web.Doc
        ) where
 
 import           Control.Lens        ((<>~))
+import qualified Data.ByteString     as BS
 import           Data.Default        (Default (def))
 import qualified Data.HashMap.Strict as HM
 import           Servant.API         (Capture, QueryParam)
@@ -23,8 +24,9 @@ import           Universum
 import           Pos.Aeson.Types     ()
 import           Pos.Crypto          (Hash, PublicKey, deterministicKeyGen, unsafeHash)
 import           Pos.Genesis         (genesisLeaders, genesisUtxo)
+import           Pos.Txp             (TxOut (..))
 import           Pos.Types           (EpochIndex, SharedSeed (..), SlotId (..),
-                                      SlotLeaders)
+                                      SlotLeaders, makePubKeyAddress, mkCoin)
 import           Pos.Web.Api         (baseNodeApi, gtNodeApi)
 import           Pos.Web.Types       (GodTossingStage (..))
 
@@ -111,12 +113,16 @@ instance ToSample SlotId where
 instance ToSample SlotLeaders where
     toSamples Proxy = singleSample $ genesisLeaders $ genesisUtxo def
 
+mkKey :: ByteString -> PublicKey
+mkKey x =
+    fst $
+    fromMaybe (error "Pos.Web.Doc: deterministicKeyGen failed") $
+    deterministicKeyGen $
+    BS.take 32 (x <> BS.replicate 32 0)
+
 instance ToSample PublicKey where
     toSamples Proxy =
-        singleSample $
-        fst $
-        fromMaybe (error "Pos.Web.Doc: deterministicKeyGen failed") $
-        deterministicKeyGen "I have to sleep on it, because. "
+        singleSample $ mkKey "I have to sleep on it, because."
 
 instance ToSample (Hash skovoroda) where
     toSamples Proxy = singleSample $ unsafeHash @Text "skovoroda"
@@ -139,3 +145,9 @@ instance ToSample GodTossingStage where
                       , ("Shares stage", SharesStage)
                       , ("Ordinary stage", OrdinaryStage)
                       ]
+
+instance ToSample TxOut where
+    toSamples _ =
+        [ ("No coins",  TxOut (makePubKeyAddress (mkKey "a")) (mkCoin 0))
+        , ("228 coins", TxOut (makePubKeyAddress (mkKey "b")) (mkCoin 228))
+        ]

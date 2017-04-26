@@ -85,18 +85,11 @@ instance RocksBatchOp CommonOp where
 ----------------------------------------------------------------------------
 
 -- | Put missing initial common data into GState DB.
-prepareGStateCommon
-    :: forall m.
-       MonadDB m
-    => HeaderHash -> m ()
+prepareGStateCommon :: MonadDB m => HeaderHash -> m ()
 prepareGStateCommon initialTip = do
-    putIfEmpty getTipMaybe putGenesisTip
-    putIfEmpty getBotMaybe putGenesisBot
+    whenNothingM_ getTipMaybe putGenesisTip
+    whenNothingM_ getBotMaybe putGenesisBot
   where
-    putIfEmpty
-        :: forall a.
-           (m (Maybe a)) -> m () -> m ()
-    putIfEmpty getter putter = maybe putter (const pass) =<< getter
     putGenesisTip = putTip initialTip
     putGenesisBot = putBot initialTip
 

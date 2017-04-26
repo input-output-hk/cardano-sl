@@ -24,8 +24,8 @@ import           Pos.Communication (ConversationActions (..), InvMsg (..), InvOr
                                     RelayProxy (..), ReqMsg (..), SendActions, SmartLimit,
                                     TxMsgContents, TxMsgTag (..), convH, expectData,
                                     handleDataL, handleInvL, reifyMsgLimit, toOutSpecs,
-                                    withLimitedLength, worker)
-import           Pos.DHT           (DHTNode, converseToNode, getKnownPeers)
+                                    withLimitedLength, worker, withConnectionTo,
+                                    NodeId)
 import           Pos.Slotting      (getLastKnownSlotDuration)
 import           Pos.Txp.Core      (TxId)
 #endif
@@ -33,11 +33,12 @@ import           Pos.Txp.Core      (TxId)
 -- | All workers specific to transaction processing.
 txpWorkers
     :: (SscWorkersClass ssc, WorkMode ssc m)
-    => ([WorkerSpec m], OutSpecs)
-txpWorkers =
+    => m (Set NodeId)
+    -> ([WorkerSpec m], OutSpecs)
+txpWorkers getPeers =
     merge $ []
 #if defined(WITH_WALLET)
-            ++ [ queryTxsWorker ]
+            ++ [ queryTxsWorker getPeers ]
 #endif
   where
     merge = mconcatPair . map (first pure)
@@ -52,15 +53,16 @@ txpWorkers =
 -- tx mempool.
 queryTxsWorker
     :: (WorkMode ssc m, SscWorkersClass ssc)
-    => (WorkerSpec m, OutSpecs)
-queryTxsWorker = worker queryTxsSpec $ \sendActions -> do
+    => m (Set NodeId)
+    -> (WorkerSpec m, OutSpecs)
+queryTxsWorker getPeers = worker queryTxsSpec $ \sendActions -> do
     slotDur <- getLastKnownSlotDuration
-    nodesRef <- liftIO . newIORef =<< getKnownPeers
+    nodesRef <- liftIO . newIORef . toList =<< getPeers
     let delayInterval = max (slotDur `div` 4) (convertUnit (5 :: Second))
         action = forever $ do
             -- If we ran out of nodes to query, refresh the list
             whenM (null <$> liftIO (readIORef nodesRef)) $
-                liftIO . writeIORef nodesRef =<< getKnownPeers
+                liftIO . writeIORef nodesRef . toList =<< getPeers
             -- If we managed to get any nodes (or if the list wasn't empty in
             -- the first place), we ask the first node for the tx mempool.
             liftIO (readIORef nodesRef) >>= \case
@@ -97,11 +99,11 @@ queryTxsSpec =
 -- transaction IDs.
 getTxMempoolInvs
     :: WorkMode ssc m
-    => SendActions m -> DHTNode -> m [TxId]
+    => SendActions m -> NodeId -> m [TxId]
 getTxMempoolInvs sendActions node = do
     logInfo ("Querying tx mempool from node " <> show node)
     reifyMsgLimit (Proxy @(InvOrData TxMsgTag TxId TxMsgContents)) $
-      \(_ :: Proxy s) -> converseToNode sendActions node $ \_
+      \(_ :: Proxy s) -> withConnectionTo sendActions node $ \_
         (ConversationActions{..}::(ConversationActions
                                   (MempoolMsg TxMsgTag)
                                   (SmartLimit s (InvOrData TxMsgTag TxId TxMsgContents))
@@ -124,7 +126,7 @@ getTxMempoolInvs sendActions node = do
 -- | Request several transactions.
 requestTxs
     :: WorkMode ssc m
-    => SendActions m -> DHTNode -> [TxId] -> m ()
+    => SendActions m -> NodeId -> [TxId] -> m ()
 requestTxs sendActions node txIds = do
     logInfo $ sformat
         ("Requesting "%int%" txs from node "%shown)
@@ -133,7 +135,7 @@ requestTxs sendActions node txIds = do
         ("First 5 (or less) transactions: "%listJson)
         (take 5 txIds)
     reifyMsgLimit (Proxy @(InvOrData TxMsgTag TxId TxMsgContents)) $
-      \(_ :: Proxy s) -> converseToNode sendActions node $ \_
+      \(_ :: Proxy s) -> withConnectionTo sendActions node $ \_
         (ConversationActions{..}::(ConversationActions
                                   (ReqMsg TxId TxMsgTag)
                                   (SmartLimit s (InvOrData TxMsgTag TxId TxMsgContents))

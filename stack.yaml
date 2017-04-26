@@ -13,6 +13,10 @@ packages:
 - lrc
 
 - location:
+    git: https://github.com/serokell/time-units.git
+    commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
+  extra-dep: true
+- location:
     git: https://github.com/serokell/acid-state.git
     commit: 95fce1dbada62020a0b2d6aa2dd7e88eadd7214b
   extra-dep: true
@@ -39,12 +43,12 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 9ef2a546c3e3c90ea84e81892f00c5a93271ffb1
+    commit: cef066e0553d6ec11bf30c45a49a946dcacd86b8
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
     git: https://github.com/avieth/network-transport-tcp
-    commit: eb1ed2fe4d4419c860ce060cb1091f7c8959134f
+    commit: ca42a954a15792f5ea8dc203e56fac8175b99c33
   extra-dep: true
 - location:
     git: https://github.com/avieth/network-transport
@@ -65,6 +69,11 @@ packages:
 #    git: https://github.com/haskell-crypto/cryptonite.git
 #    commit: 2932df9e243aa7ae7eb2b25d7c60fa77a30c6fb5
 #  extra-dep: true
+- location:
+    git: https://github.com/tibbe/unordered-containers
+    commit: 76f3b971faef37e92390bc6f5a03f36154ebc1b2
+  extra-dep: true
+
 
 nix:
   shell-file: shell.nix
@@ -75,7 +84,7 @@ extra-deps:
 - serokell-util-0.1.5.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-1.1.1
+- log-warper-1.1.2
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.6.2
 - purescript-bridge-0.8.0.1

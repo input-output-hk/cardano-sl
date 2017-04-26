@@ -56,9 +56,8 @@ prepareLrcRichmen = do
     mapM_ (prepareLrcRichmenDo genesisDistribution) components
   where
     prepareLrcRichmenDo distr (SomeRichmenComponent proxy) =
-        putIfEmpty
-            (getRichmenP proxy 0)
-            (putRichmenP proxy 0 $ computeInitial distr proxy)
+        whenNothingM_ (getRichmenP proxy 0) $
+            putRichmenP proxy 0 (computeInitial distr proxy)
 
 computeInitial
     :: RichmenComponent c
@@ -72,12 +71,6 @@ computeInitial initialDistr proxy =
     richmenType
         | rcConsiderDelegated proxy = RTDelegation genesisDelegation
         | otherwise = RTUsual
-
-putIfEmpty
-    :: forall a m.
-       Monad m
-    => (m (Maybe a)) -> m () -> m ()
-putIfEmpty getter putter = maybe putter (const pass) =<< getter
 
 ----------------------------------------------------------------------------
 -- Instances. They are here, because we want to have a DB schema in Pos.DB

@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
 -- This module is to be moved later anywhere else, just to have a
 -- starting point
@@ -25,6 +26,10 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletInit (..)
       , CUpdateInfo (..)
       , CWalletRedeem (..)
+      , CPaperVendWalletRedeem (..)
+      , CCoin
+      , mkCCoin
+      , CElectronCrashReport (..)
       , NotifyEvent (..)
       , addressToCAddress
       , cAddressToAddress
@@ -40,7 +45,6 @@ module Pos.Wallet.Web.ClientTypes
 
 import           Universum
 
-import           Control.Lens           (_Left)
 import qualified Data.ByteString.Lazy   as LBS
 import           Data.Default           (Default, def)
 import           Data.Hashable          (Hashable (..))
@@ -48,8 +52,10 @@ import           Data.Text              (Text, isInfixOf, toLower)
 import           Data.Time.Clock.POSIX  (POSIXTime)
 import           Data.Typeable          (Typeable)
 import           Formatting             (build, sformat)
-import           Prelude                (show)
+import qualified Prelude
 import qualified Serokell.Util.Base16   as Base16
+import           Servant.Multipart      (FileData, FromMultipart (..), lookupFile,
+                                         lookupInput)
 
 import           Pos.Aeson.Types        ()
 import           Pos.Binary.Class       (decodeFull, encodeStrict)
@@ -59,7 +65,7 @@ import           Pos.Crypto             (PassPhrase, hashHexF)
 import           Pos.Txp.Core.Types     (Tx (..), TxId, txOutAddress, txOutValue)
 import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
                                          Coin, SoftwareVersion, decodeTextAddress,
-                                         sumCoins, unsafeIntegerToCoin)
+                                         sumCoins, unsafeGetCoin, unsafeIntegerToCoin)
 import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes,
                                          UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll        (ConfirmedProposalState (..))
@@ -103,7 +109,7 @@ instance Hashable CHash where
 -- | Client address
 newtype CAddress = CAddress CHash deriving (Show, Eq, Generic, Hashable, Buildable)
 
--- TODO: this is not complitely safe. If someone changes
+-- TODO: this is not completely safe. If someone changes
 -- implementation of Buildable Address. It should be probably more
 -- safe to introduce `class PSSimplified` that would have the same
 -- implementation has it is with Buildable Address but then person
@@ -136,7 +142,7 @@ mkCTx addr diff THEntry {..} meta = CTx {..}
     ctId = txIdToCTxId _thTxId
     outputs = toList $ _txOutputs _thTx
     isToItself = all ((== addr) . txOutAddress) outputs
-    ctAmount = unsafeIntegerToCoin . sumCoins . map txOutValue $
+    ctAmount = mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
         filter ((|| isToItself) . xor _thIsOutput . (== addr) . txOutAddress) outputs
     ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
     ctType = if _thIsOutput
@@ -155,11 +161,18 @@ passPhraseToCPassPhrase passphrase =
 cPassPhraseToPassPhrase
     :: CPassPhrase -> Either Text PassPhrase
 cPassPhraseToPassPhrase (CPassPhrase text) =
-    (_Left %~ toText) . decodeFull . LBS.fromStrict =<< Base16.decode text
+    first toText . decodeFull . LBS.fromStrict =<< Base16.decode text
 
 ----------------------------------------------------------------------------
 -- Wallet
 ----------------------------------------------------------------------------
+
+newtype CCoin = CCoin
+    { getCoin :: Text
+    } deriving (Show, Generic)
+
+mkCCoin :: Coin -> CCoin
+mkCCoin = CCoin . show . unsafeGetCoin
 
 -- | A wallet can be used as personal or shared wallet
 data CWalletType
@@ -190,7 +203,7 @@ instance Default CWalletMeta where
 -- (Flow type: walletType)
 data CWallet = CWallet
     { cwAddress :: !CAddress
-    , cwAmount  :: !Coin
+    , cwAmount  :: !CCoin
     , cwMeta    :: !CWalletMeta
     } deriving (Show, Generic, Typeable)
 
@@ -207,6 +220,13 @@ data CWalletRedeem = CWalletRedeem
     , crSeed     :: !Text -- TODO: newtype!
     } deriving (Show, Generic)
 
+-- | Query data for redeem
+data CPaperVendWalletRedeem = CPaperVendWalletRedeem
+    { pvWalletId     :: !CAddress
+    , pvSeed         :: !Text -- TODO: newtype!
+    , pvBackupPhrase :: !BackupPhrase
+    } deriving (Show, Generic)
+
 ----------------------------------------------------------------------------
 -- Profile
 ----------------------------------------------------------------------------
@@ -220,6 +240,11 @@ type CPwHash = Text -- or Base64 or something else
 data CProfile = CProfile
     { cpLocale      :: Text
     } deriving (Show, Generic, Typeable)
+
+-- | Added default instance for `testReset`, we need an inital state for
+-- @CProfile@
+instance Default CProfile where
+    def = CProfile mempty
 
 ----------------------------------------------------------------------------
 -- Transactions
@@ -251,7 +276,7 @@ ctTypeMeta f (CTOut meta) = CTOut <$> f meta
 -- (Flow type: transactionType)
 data CTx = CTx
     { ctId            :: CTxId
-    , ctAmount        :: Coin
+    , ctAmount        :: CCoin
     , ctConfirmations :: Word
     , ctType          :: CTType -- it includes all "meta data"
     } deriving (Show, Generic, Typeable)
@@ -285,8 +310,8 @@ data CUpdateInfo = CUpdateInfo
 --    , cuiAdopted         :: !(Maybe HeaderHash)
     , cuiVotesFor        :: !Int
     , cuiVotesAgainst    :: !Int
-    , cuiPositiveStake   :: !Coin
-    , cuiNegativeStake   :: !Coin
+    , cuiPositiveStake   :: !CCoin
+    , cuiNegativeStake   :: !CCoin
     } deriving (Show, Generic, Typeable)
 
 -- | Return counts of negative and positive votes
@@ -309,8 +334,8 @@ toCUpdateInfo ConfirmedProposalState {..} =
 --        cuiConfirmed        = cpsConfirmed
 --        cuiAdopted          = cpsAdopted
         (cuiVotesFor, cuiVotesAgainst) = countVotes cpsVotes
-        cuiPositiveStake    = cpsPositiveStake
-        cuiNegativeStake    = cpsNegativeStake
+        cuiPositiveStake    = mkCCoin cpsPositiveStake
+        cuiNegativeStake    = mkCCoin cpsNegativeStake
     in CUpdateInfo {..}
 
 ----------------------------------------------------------------------------
@@ -325,3 +350,30 @@ data CInitialized = CInitialized
     , cPreInit   :: Word -- ^ Time passed from beginning to network
                             -- connection with peers established.
     } deriving (Show, Generic)
+
+
+data CElectronCrashReport = CElectronCrashReport
+    { cecVersion     :: Text
+    , cecPlatform    :: Text
+    , cecProcessType :: Text
+    , cecGuid        :: Text
+    , cecVersionJson :: Text
+    , cecProductName :: Text
+    , cecProd        :: Text
+    , cecCompanyName :: Text
+    , cecUploadDump  :: FileData
+    } deriving (Show, Generic)
+
+instance FromMultipart CElectronCrashReport where
+    fromMultipart form = do
+        let look t = lookupInput t form
+        CElectronCrashReport
+          <$> look "ver"
+          <*> look "platform"
+          <*> look "process_type"
+          <*> look "guid"
+          <*> look "_version"
+          <*> look "_productName"
+          <*> look "prod"
+          <*> look "_companyName"
+          <*> lookupFile "upload_file_minidump" form

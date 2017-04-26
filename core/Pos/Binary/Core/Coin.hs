@@ -1,6 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE ViewPatterns #-}
-
 module Pos.Binary.Core.Coin
        ( encode
        , decode

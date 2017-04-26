@@ -10,8 +10,6 @@ module TxGeneration
        ) where
 
 import           Control.Concurrent.STM.TArray (TArray)
-import           Control.Concurrent.STM.TVar   (TVar, modifyTVar', newTVar, readTVar,
-                                                writeTVar)
 import           Data.Array.MArray             (newListArray, readArray, writeArray)
 import           Data.List                     (tail, (!!))
 import qualified Data.List.NonEmpty            as NE

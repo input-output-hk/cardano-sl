@@ -13,6 +13,10 @@ packages:
 - lrc
 
 - location:
+    git: https://github.com/serokell/time-units.git
+    commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
+  extra-dep: true
+- location:
     git: https://github.com/serokell/acid-state.git
     commit: 95fce1dbada62020a0b2d6aa2dd7e88eadd7214b
   extra-dep: true
@@ -39,12 +43,12 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 39f3f3d524601da4ce3067943350dee74e1124ea
+    commit: 71b00994bba007c89c45c522bd8c1d8cdc340042
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
     git: https://github.com/avieth/network-transport-tcp
-    commit: 15847920ac1a32ada237e5a00ac4f56f3ca421a7
+    commit: ca42a954a15792f5ea8dc203e56fac8175b99c33
   extra-dep: true
 - location:
     git: https://github.com/avieth/network-transport
@@ -65,22 +69,32 @@ packages:
 #    git: https://github.com/haskell-crypto/cryptonite.git
 #    commit: 2932df9e243aa7ae7eb2b25d7c60fa77a30c6fb5
 #  extra-dep: true
+- location:
+    git: https://github.com/tibbe/unordered-containers
+    commit: 76f3b971faef37e92390bc6f5a03f36154ebc1b2
+  extra-dep: true
+
 
 nix:
   shell-file: shell.nix
 
 extra-deps:
-- universum-0.3
+- universum-0.4.1
 - time-units-1.0.0
 - serokell-util-0.1.5.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-1.0.4
+- log-warper-1.1.2
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.6.2
 - purescript-bridge-0.8.0.1
 - cryptonite-0.22
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
+- servant-0.10                    # servant-multipart supports version servant-10 only
+- servant-server-0.10             # so it triggers another dependencies to be v10
+- servant-swagger-1.1.2.1
+- servant-docs-0.10
+- servant-multipart-0.10
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

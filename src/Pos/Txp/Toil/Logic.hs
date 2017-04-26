@@ -1,5 +1,4 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | All logic of Toil.  It operates in terms of MonadUtxo,
 -- MonadToilEnv, MonadBalances and MonadTxPool.
@@ -48,10 +47,15 @@ type GlobalToilMode m = ( MonadUtxo m
 -- Note: transactions must be topsorted to pass check.
 -- Warning: this function may apply some transactions and fail
 -- eventually. Use it only on temporary data.
+--
+-- If the first argument is 'True', all data (script versions,
+-- witnesses, addresses, attributes) must be known. Otherwise unknown
+-- data is just ignored.
 verifyToil
     :: (GlobalToilMode m, MonadError ToilVerFailure m)
-    => [TxAux] -> m TxpUndo
-verifyToil = mapM (verifyAndApplyTx False . withTxId)
+    => Bool -> [TxAux] -> m TxpUndo
+verifyToil verifyAllIsKnown =
+    mapM (verifyAndApplyTx verifyAllIsKnown . withTxId)
 
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
@@ -79,7 +83,6 @@ type LocalToilMode m = ( MonadUtxo m
                       )
 
 -- CHECK: @processTx
--- #processWithPureChecks
 -- | Verify one transaction and also add it to mem pool and apply to utxo
 -- if transaction is valid.
 processTx

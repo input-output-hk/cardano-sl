@@ -19,7 +19,8 @@ import qualified Pos.Explorer.DB             as DB
 import           Pos.Explorer.Txp.Toil.Types (ExplorerExtra, eeAddrHistories,
                                               eeLocalTxsExtra)
 import           Pos.Txp.Core                (TxId)
-import           Pos.Txp.Toil                (DBTxp, ToilT (..), UtxoReaderT, tmExtra)
+import           Pos.Txp.Toil                (DBTxp, ToilT, UtxoReaderT, tmExtra)
+import           Pos.Util                    (ether)
 import qualified Pos.Util.Modifier           as MM
 
 class Monad m => MonadTxExtraRead m where
@@ -66,17 +67,17 @@ instance MonadTxExtra m => MonadTxExtra (UtxoReaderT m)
 ----------------------------------------------------------------------------
 
 instance MonadTxExtraRead m => MonadTxExtraRead (ToilT ExplorerExtra m) where
-    getTxExtra id = ToilT $
+    getTxExtra id = ether $
         MM.lookupM getTxExtra id =<< use (tmExtra . eeLocalTxsExtra)
-    getAddrHistory addr = ToilT $
+    getAddrHistory addr = ether $
         maybe (getAddrHistory addr) pure =<< use (tmExtra . eeAddrHistories . at addr)
 
 instance MonadTxExtraRead m => MonadTxExtra (ToilT ExplorerExtra m) where
-    putTxExtra id extra = ToilT $
+    putTxExtra id extra = ether $
         tmExtra . eeLocalTxsExtra %= MM.insert id extra
-    delTxExtra id = ToilT $
+    delTxExtra id = ether $
         tmExtra . eeLocalTxsExtra %= MM.delete id
-    updateAddrHistory addr hist = ToilT $
+    updateAddrHistory addr hist = ether $
         tmExtra . eeAddrHistories . at addr .= Just hist
 
 ----------------------------------------------------------------------------

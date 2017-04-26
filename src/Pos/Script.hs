@@ -20,6 +20,7 @@ import           Control.Exception          (ArithException (..), ArrayException
                                              ErrorCall (..), Handler (..),
                                              PatternMatchFail (..), SomeException (..),
                                              catches, displayException, throwIO)
+import qualified Data.ByteString.Lazy       as BSL
 import qualified Interface.Integration      as PL
 import qualified Interface.Prelude          as PL
 import           Language.Haskell.TH.Syntax (Lift (..), runIO)
@@ -30,8 +31,10 @@ import           Universum                  hiding (lift)
 import           Pos.Binary.Class           (Bi)
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Binary.Crypto          ()
+import           Pos.Binary.Txp             ()
 import           Pos.Core.Script            ()
 import           Pos.Core.Types             (Script (..), ScriptVersion, Script_v0)
+import           Pos.Crypto                 (SignTag (SignTxIn), signTag)
 import           Pos.Txp.Core.Types         (TxSigData)
 
 {- NOTE
@@ -120,7 +123,9 @@ txScriptCheck sigData validator redeemer = case spoon result of
             0 -> Bi.decodeFull (scrScript redeemer)
             v -> Left ("unknown script version of redeemer: " ++ show v)
         (script, env) <- PL.buildValidationScript stdlib valScr redScr
-        PL.checkValidationResult (Bi.encode sigData) (script, env)
+        let taggedSigData = BSL.fromStrict (signTag SignTxIn) <>
+                            Bi.encode sigData
+        PL.checkValidationResult taggedSigData (script, env)
 
 stdlib :: PLCore.Program
 stdlib = case PL.runElabInContexts [] (PL.loadProgram prelude) of

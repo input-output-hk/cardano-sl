@@ -9,13 +9,15 @@ import qualified Serokell.Util.Base64 as B64
 import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors,
                                        verifyGeneric)
 import           System.Random        (randomRIO)
+import           System.Wlog          (WithLogger)
 import           Universum
 
 import           Pos.Binary           (asBinary)
 import qualified Pos.Constants        as Const
-import           Pos.Crypto           (PublicKey, RedeemPublicKey, keyGen, noPassEncrypt,
-                                       redeemDeterministicKeyGen, secureRandomBS,
-                                       toPublic, toVssPublicKey, vssKeyGen)
+import           Pos.Crypto           (PublicKey, RedeemPublicKey, SecretKey, keyGen,
+                                       noPassEncrypt, redeemDeterministicKeyGen,
+                                       secureRandomBS, toPublic, toVssPublicKey,
+                                       vssKeyGen)
 import           Pos.Genesis          (StakeDistribution (..))
 import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
 import           Pos.Types            (coinPortionToDouble, unsafeIntegerToCoin)
@@ -24,17 +26,21 @@ import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usK
 
 import           KeygenOptions        (TestStakeOptions (..))
 
-rearrangeKeyfile :: FilePath -> IO ()
+rearrangeKeyfile :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
 rearrangeKeyfile fp = do
     us <- takeUserSecret fp
     let sk = maybeToList $ us ^. usPrimKey
     writeUserSecretRelease $
         us & usKeys %~ (++ map noPassEncrypt sk)
 
-generateKeyfile :: Bool -> FilePath -> IO (PublicKey, VssCertificate)
-generateKeyfile isPrim fp = do
+generateKeyfile
+    :: (MonadIO m, MonadFail m, WithLogger m)
+    => Bool -> Maybe SecretKey -> FilePath -> m (PublicKey, VssCertificate)
+generateKeyfile isPrim mbSk fp = do
     initializeUserSecret fp
-    sk <- snd <$> keyGen
+    sk <- case mbSk of
+        Just x  -> return x
+        Nothing -> snd <$> keyGen
     vss <- vssKeyGen
     us <- takeUserSecret fp
     writeUserSecretRelease $
@@ -42,14 +48,14 @@ generateKeyfile isPrim fp = do
               then usPrimKey .~ Just sk
               else usKeys %~ (noPassEncrypt sk :))
            & usVss .~ Just vss
-    expiry <-
+    expiry <- liftIO $
         fromIntegral <$>
         randomRIO @Int (Const.vssMinTTL - 1, Const.vssMaxTTL - 1)
     let vssPk = asBinary $ toVssPublicKey vss
         vssCert = mkVssCertificate sk vssPk expiry
     return (toPublic sk, vssCert)
 
-generateFakeAvvm :: FilePath -> IO RedeemPublicKey
+generateFakeAvvm :: MonadIO m => FilePath -> m RedeemPublicKey
 generateFakeAvvm fp = do
     seed <- secureRandomBS 32
     let (pk, _) = fromMaybe

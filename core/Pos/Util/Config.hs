@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP                  #-}
-{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE KindSignatures       #-}
 {-# LANGUAGE RankNTypes           #-}
@@ -7,7 +6,6 @@
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeOperators        #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Util.Config
        (
@@ -25,11 +23,6 @@ module Pos.Util.Config
        , getConfig
        , askConfig
        , viewConfig
-
-       -- * 'ConfigT'
-       , ConfigT(..)
-       , runConfigT
-       , usingConfigT
 
        -- * Multi-configs
        , ConfigSet(..)
@@ -180,23 +173,6 @@ askConfig f = f <$> getConfig
 viewConfig :: HasConfig a m => Getting x a x -> m x
 viewConfig f = view f <$> getConfig
 {-# INLINE viewConfig #-}
-
-----------------------------------------------------------------------------
--- ConfigT
-----------------------------------------------------------------------------
-
-{- |
-'ConfigT' is a specific transformer that can be used for 'MonadConfig'. It's
-isomorphic to 'ReaderT'.
--}
-newtype ConfigT config m a = ConfigT {getConfigT :: ReaderT config m a}
-    deriving (Functor, Applicative, Monad)
-
-runConfigT :: ConfigT config m a -> config -> m a
-runConfigT act cfg = runReaderT (getConfigT act) cfg
-
-usingConfigT :: config -> ConfigT config m a -> m a
-usingConfigT cfg act = runReaderT (getConfigT act) cfg
 
 ----------------------------------------------------------------------------
 -- ConfigSet

@@ -1,36 +1,56 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Class which provides access to database.
 
 module Pos.DB.Class
-       ( MonadDB (..)
-       , getBlockDB
+       ( MonadDB
+       , getNodeDBs
+       , usingReadOptions
+       , usingWriteOptions
+       , getBlockIndexDB
        , getUtxoDB
        , getLrcDB
        , getMiscDB
+       , MonadDBCore(..)
        ) where
 
-import           Control.Lens                 (ASetter')
-import           Control.Monad.Except         (ExceptT (..), mapExceptT)
-import           Control.Monad.Reader         (mapReaderT)
-import           Control.Monad.State          (StateT (..), mapStateT)
-import           Control.Monad.Trans.Resource (ResourceT, transResourceT)
-import qualified Database.RocksDB             as Rocks
 import           Universum
 
-import           Pos.DB.Types                 (DB, NodeDBs, blockDB, gStateDB, lrcDB,
-                                               miscDB)
-import           Pos.Util.Iterator            (ListHolderT (..))
+import           Control.Lens                   (ASetter')
+import qualified Control.Monad.Ether.Implicit   as Ether
+import           Control.Monad.Trans            (MonadTrans (..))
+import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
+import qualified Database.RocksDB               as Rocks
 
--- TODO write a documentation. LensLike' is just a lens. Written using
--- LensLike' to avoid rankntypes.
-class (MonadIO m, MonadThrow m) => MonadDB m where
-    getNodeDBs :: m NodeDBs
-    usingReadOptions :: Rocks.ReadOptions -> ASetter' NodeDBs DB -> m a -> m a
-    usingWriteOptions :: Rocks.WriteOptions -> ASetter' NodeDBs DB -> m a -> m a
+import           Pos.Core                       (BlockVersionData)
+import           Pos.DB.Types                   (DB (..), NodeDBs, blockIndexDB, gStateDB,
+                                                 lrcDB, miscDB)
 
-getBlockDB :: MonadDB m => m DB
-getBlockDB = view blockDB <$> getNodeDBs
+type MonadDB m = (Ether.MonadReader NodeDBs m, MonadIO m, MonadCatch m)
+
+getNodeDBs :: MonadDB m => m NodeDBs
+getNodeDBs = Ether.ask
+
+usingReadOptions
+    :: MonadDB m
+    => Rocks.ReadOptions
+    -> ASetter' NodeDBs DB
+    -> m a
+    -> m a
+usingReadOptions opts l =
+    Ether.local (over l (\db -> db {rocksReadOpts = opts}))
+
+usingWriteOptions
+    :: MonadDB m
+    => Rocks.WriteOptions
+    -> ASetter' NodeDBs DB
+    -> m a
+    -> m a
+usingWriteOptions opts l =
+    Ether.local (over l (\db -> db {rocksWriteOpts = opts}))
+
+getBlockIndexDB :: MonadDB m => m DB
+getBlockIndexDB = view blockIndexDB <$> getNodeDBs
 
 getUtxoDB :: MonadDB m => m DB
 getUtxoDB = view gStateDB <$> getNodeDBs
@@ -41,24 +61,13 @@ getLrcDB = view lrcDB <$> getNodeDBs
 getMiscDB :: MonadDB m => m DB
 getMiscDB = view miscDB <$> getNodeDBs
 
-instance (MonadDB m) => MonadDB (ReaderT a m) where
-    getNodeDBs = lift getNodeDBs
-    usingReadOptions how l = mapReaderT (usingReadOptions how l)
-    usingWriteOptions how l = mapReaderT (usingWriteOptions how l)
+-- | This type class provides functions to get core data from DB.
+class MonadDB m => MonadDBCore m where
+    dbAdoptedBVData :: m BlockVersionData
 
-instance (MonadDB m) => MonadDB (ExceptT e m) where
-    getNodeDBs = lift getNodeDBs
-    usingReadOptions how l = mapExceptT (usingReadOptions how l)
-    usingWriteOptions how l = mapExceptT (usingWriteOptions how l)
-
-instance (MonadDB m) => MonadDB (StateT a m) where
-    getNodeDBs = lift getNodeDBs
-    usingReadOptions how l = mapStateT (usingReadOptions how l)
-    usingWriteOptions how l = mapStateT (usingWriteOptions how l)
-
-instance (MonadDB m) => MonadDB (ResourceT m) where
-    getNodeDBs = lift getNodeDBs
-    usingReadOptions how l = transResourceT (usingReadOptions how l)
-    usingWriteOptions how l = transResourceT (usingWriteOptions how l)
-
-deriving instance (MonadDB m) => MonadDB (ListHolderT s m)
+instance {-# OVERLAPPABLE #-}
+    (MonadDBCore m, MonadTrans t, LiftLocal t,
+     MonadIO (t m), MonadCatch (t m)) =>
+        MonadDBCore (t m)
+  where
+    dbAdoptedBVData = lift dbAdoptedBVData

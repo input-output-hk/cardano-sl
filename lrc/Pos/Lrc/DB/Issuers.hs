@@ -15,7 +15,7 @@ module Pos.Lrc.DB.Issuers
 import           Universum
 
 import           Pos.Binary.Class  (encodeStrict)
-import           Pos.Core.Types    (Coin, EpochIndex, EpochIndex (..), StakeholderId)
+import           Pos.Core.Types    (Coin, EpochIndex (..), StakeholderId)
 import           Pos.DB.Class      (MonadDB)
 import           Pos.DB.Error      (DBError (DBMalformed))
 import           Pos.Lrc.DB.Common (getBi, putBi)

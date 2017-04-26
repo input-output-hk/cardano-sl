@@ -33,7 +33,7 @@ in the [IOHK website](https://iohk.io/research/papers/a-provably-secure-proof-of
 ### Where to start
 
 It is recommended to start by reading the documentation, which is available [here](https://cardano-docs.iohk.io/introduction/).
-Its repository is [here](https://github.com/input-output-hk/cardano-docs.iohk.io). 
+Its repository is [here](https://github.com/input-output-hk/cardano-docs.iohk.io).
 Developers are encouraged to contribute.
 
 Platform support
@@ -78,9 +78,11 @@ _Pending_
 Contributing
 ------------
 
+> **This project uses [`universum`](https://github.com/serokell/universum)
+> as default prelude**
+
 _Pending_
 
 #### References
 
 [1]: A. Kiayias, I. Konstantinou, A. Russell, B. David, R. Oliynykov, "[A Provably Secure Proof-of-Stake Blockchain Protocol](https://eprint.iacr.org/2016/889.pdf)"
-

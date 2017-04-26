@@ -24,7 +24,6 @@ module Pos.Types.Arbitrary
 import           Universum
 
 import qualified Data.ByteString            as BS (pack)
-import           Data.Char                  (chr)
 import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.List.NonEmpty         ((<|))
 import qualified Data.List.NonEmpty         as NE
@@ -47,8 +46,8 @@ import           Pos.Core.Types             (BlockVersion (..), Coin,
                                              SoftwareVersion (..),
                                              applicationNameMaxLength, mkApplicationName)
 import qualified Pos.Core.Types             as Types
-import           Pos.Crypto                 (Hash, PublicKey, SecretKey, Share, hash,
-                                             sign, toPublic)
+import           Pos.Crypto                 (Hash, PublicKey, SecretKey, Share,
+                                             SignTag (SignTxIn), hash, sign, toPublic)
 import           Pos.Crypto.Arbitrary       ()
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Merkle                 (MerkleRoot (..), MerkleTree, mkMerkleTree)
@@ -57,7 +56,7 @@ import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
 import           Pos.Txp.Core.Types         (Tx (..), TxDistribution (..), TxIn (..),
                                              TxInWitness (..), TxOut (..), TxOutAux (..),
-                                             TxProof (..), mkTx)
+                                             TxProof (..), TxSigData (..), mkTx)
 import           Pos.Types.Arbitrary.Unsafe ()
 import           Pos.Util                   (makeSmall)
 
@@ -81,6 +80,7 @@ deriving instance Arbitrary Types.ChainDifficulty
 
 derive makeArbitrary ''TxOut
 derive makeArbitrary ''TxOutAux
+derive makeArbitrary ''TxSigData
 
 instance Arbitrary Coin where
     arbitrary = Types.mkCoin <$> choose (1, Types.unsafeGetCoin maxBound)
@@ -331,7 +331,10 @@ buildProperTx triplesList (inCoin, outCoin) = fmap newTx txList
             witness =
                 PkWitness
                 { twKey = toPublic fromSk
-                , twSig = sign fromSk (txHash, 0, txOutsHash, distrHash)
+                , twSig = sign SignTxIn fromSk TxSigData{
+                             txSigInput = txIn,
+                             txSigOutsHash = txOutsHash,
+                             txSigDistrHash = distrHash }
                 }
         in ((tx, makeNullDistribution tx), txIn, (TxOutAux txOutput []), witness)
     makeTxOutput s c = TxOut (makePubKeyAddress $ toPublic s) c

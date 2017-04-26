@@ -2,7 +2,7 @@
 k: 60
 
 # Genesis constants
-genesisN: 12014
+genesisN: 30000
 genesisSlotDurationSec: 120
 genesisMaxBlockSize: 2000000
 genesisMaxHeaderSize: 200000
@@ -10,7 +10,7 @@ genesisMaxTxSize: 4096 # 4 Kb
 maxReqSize: 100 # 100 bytes
 maxMempoolMsgSize: 100 # 100 bytes
 maxInvSize: 100 # 100 bytes
-genesisMpcThd: 0.05 # 5% of stake
+genesisMpcThd: 0.02 # 2% of stake
 genesisHeavyDelThd: 0.0003 # 0.03% of stake
 genesisUpdateVoteThd: 0.001 # 0.1% of total stake
 genesisMaxUpdateProposalSize: 700 # 700 bytes
@@ -42,11 +42,12 @@ lightDlgConfirmationTimeout: 500
 applicationName: csl-daedalus
 
 # Production start time
-productionNetworkStartTime: 1489700040
+productionNetworkStartTime: 1490824920
 
 # NTP
-ntpResponseTimeout: 1000000 # 1 sec
-ntpPollDelay: 15000000 # 15 sec
+ntpResponseTimeout: 10000000 # 10 sec
+ntpPollDelay: 60000000 # 1 min
+ntpMaxError: 120000000 # 2 mins
 
 # Misc
 maxLocalTxs: 1000

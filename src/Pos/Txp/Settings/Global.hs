@@ -1,5 +1,4 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE Rank2Types      #-}
+{-# LANGUAGE Rank2Types #-}
 
 -- | Global settings of Txp.
 
@@ -47,8 +46,12 @@ type TxpBlund = (TxpBlock, TxpUndo)
 data TxpGlobalSettings = TxpGlobalSettings
     { -- | Verify a chain of payloads from blocks and return txp undos
       -- for each payload.
+      --
+      -- First argument determines whether it should be checked that
+      -- all data from transactions is known (script versions,
+      -- attributes, addresses, witnesses).
       tgsVerifyBlocks :: forall m. TxpGlobalVerifyMode m =>
-                         OldestFirst NE TxpBlock -> m (OldestFirst NE TxpUndo)
+                         Bool -> OldestFirst NE TxpBlock -> m (OldestFirst NE TxpUndo)
     , -- | Apply chain of /definitely/ valid blocks to Txp's GState.
       tgsApplyBlocks :: forall m . TxpGlobalApplyMode m =>
                         OldestFirst NE TxpBlund -> m SomeBatchOp

@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Methods of reporting different unhealthy behaviour to server.
@@ -12,41 +11,43 @@ module Pos.Reporting.Methods
        , reportingFatal
        , sendReport
        , retrieveLogFiles
-       , chooseLogFiles
        ) where
 
 import           Universum
 
-import           Control.Exception        (ErrorCall (..), SomeException)
-import           Control.Lens             (to)
-import           Control.Monad.Catch      (try)
-import           Data.Aeson               (encode)
-import           Data.Bits                (Bits (..))
-import qualified Data.HashMap.Strict      as HM
-import qualified Data.List.NonEmpty       as NE
-import qualified Data.Text.IO             as TIO
-import           Data.Time.Clock          (getCurrentTime)
-import           Data.Version             (Version (..))
-import           Formatting               (build, sformat, shown, stext, (%))
-import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
-import           Network.Wreq             (partFile, partLBS, post)
-import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
-import           Serokell.Util.Text       (listBuilderJSON, listJson)
-import           System.Directory         (doesFileExist, listDirectory)
-import           System.FilePath          (dropExtension, takeDirectory, takeExtension,
-                                           takeFileName, (<.>), (</>))
-import           System.Info              (arch, os)
-import           System.IO                (hClose)
-import           System.IO.Temp           (withSystemTempFile)
-import           System.Wlog              (CanLog, HasLoggerName, LoggerConfig (..),
-                                           lcFilePrefix, lcTree, logDebug, logError,
-                                           ltFiles, ltSubloggers, readMemoryLogs)
+import           Control.Exception                (ErrorCall (..), SomeException)
+import           Control.Lens                     (each, to)
+import           Control.Monad.Catch              (try)
+import           Data.Aeson                       (encode)
+import           Data.Bits                        (Bits (..))
+import qualified Data.HashMap.Strict              as HM
+import           Data.List                        (isSuffixOf)
+import qualified Data.List.NonEmpty               as NE
+import qualified Data.Text.IO                     as TIO
+import           Data.Time.Clock                  (getCurrentTime)
+import           Data.Version                     (Version (..))
+import           Formatting                       (sformat, shown, stext, (%))
+import           Network.Info                     (IPv4 (..), getNetworkInterfaces, ipv4)
+import           Network.Wreq                     (partFile, partLBS, post)
+import           Pos.ReportServer.Report          (ReportInfo (..), ReportType (..))
+import           Serokell.Util.Exceptions         (throwText)
+import           Serokell.Util.Text               (listBuilderJSON, listJson)
+import           System.Directory                 (doesFileExist)
+import           System.FilePath                  (takeFileName)
+import           System.Info                      (arch, os)
+import           System.IO                        (hClose)
+import           System.IO.Temp                   (withSystemTempFile)
+import           System.Wlog                      (CanLog, HasLoggerName,
+                                                   LoggerConfig (..), hwFilePath, lcTree,
+                                                   logDebug, logError, ltFiles,
+                                                   ltSubloggers, retrieveLogContent)
 
-import           Pos.Core.Constants       (protocolMagic)
-import           Pos.DHT.Model.Class      (MonadDHT, currentNodeKey, getKnownPeers)
-import           Pos.Exception            (CardanoFatalError)
-import           Pos.Reporting.Exceptions (ReportingError (..))
-import           Pos.Reporting.MemState   (MonadReportingMem (..), rcReportServers)
+import           Pos.Communication.Types.Protocol (NodeId)
+import           Pos.Core.Constants               (protocolMagic)
+import           Pos.Exception                    (CardanoFatalError)
+import           Pos.Reporting.Exceptions         (ReportingError (..))
+import           Pos.Reporting.MemState           (MonadReportingMem, askReportingContext,
+                                                   rcLoggingConfig, rcReportServers)
 
 -- TODO From Pos.Util, remove after refactoring.
 -- | Concatenates two url part using regular slash '/'.
@@ -69,8 +70,16 @@ sendReportNode
     :: (MonadIO m, MonadMask m, MonadReportingMem m)
     => Version -> ReportType -> m ()
 sendReportNode version reportType = do
-    memLogs <- takeGlobalSize charsConst <$> readMemoryLogs
-    sendReportNodeImpl (reverse memLogs) version reportType
+    logConfig <- view rcLoggingConfig <$> askReportingContext
+    let allFiles = map snd $ retrieveLogFiles logConfig
+    logFile <- maybe
+        (throwText "sendReportNode: can't find any .pub file in logconfig")
+        pure
+        (head $ filter (".pub" `isSuffixOf`) allFiles)
+    logContent <-
+        takeGlobalSize charsConst <$>
+        retrieveLogContent logFile (Just 5000)
+    sendReportNodeImpl (reverse logContent) version reportType
   where
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int
@@ -90,10 +99,10 @@ sendReportNodeNologs = sendReportNodeImpl []
 sendReportNodeImpl
     :: (MonadIO m, MonadMask m, MonadReportingMem m)
     => [Text] -> Version -> ReportType -> m ()
-sendReportNodeImpl memLogs version reportType = do
+sendReportNodeImpl rawLogs version reportType = do
     servers <- view rcReportServers <$> askReportingContext
     errors <- fmap lefts $ forM servers $ try .
-        sendReport [] memLogs reportType "cardano-node" version . toString
+        sendReport [] rawLogs reportType "cardano-node" version . toString
     whenNotNull errors $ throwSE . NE.head
   where
     throwSE (e :: SomeException) = throwM e
@@ -109,23 +118,21 @@ ipv4Local w =
 
 -- | Retrieves node info that we would like to know when analyzing
 -- malicious behavior of node.
-getNodeInfo :: (MonadDHT m, MonadIO m) => m Text
-getNodeInfo = do
-    peers <- getKnownPeers
-    key <- currentNodeKey
+getNodeInfo :: (MonadIO m) => m (Set NodeId) -> m Text
+getNodeInfo getPeers = do
+    peers <- getPeers
     (ips :: [Text]) <-
         map show . filter ipExternal . map ipv4 <$>
         liftIO getNetworkInterfaces
-    pure $ sformat outputF (pretty $ listBuilderJSON ips) key peers
+    pure $ sformat outputF (pretty $ listBuilderJSON ips) peers
   where
     ipExternal (IPv4 w) =
         not $ ipv4Local w || w == 0 || w == 16777343 -- the last is 127.0.0.1
-    outputF = ("{ nodeParams: '"%stext%":"%build%"', otherNodes: "%listJson%" }")
+    outputF = ("{ nodeParams: '"%stext%"', otherNodes: "%listJson%" }")
 
 type ReportingWorkMode m =
        ( MonadIO m
        , MonadMask m
-       , MonadDHT m
        , MonadReportingMem m
        , HasLoggerName m
        , CanLog m
@@ -135,20 +142,25 @@ type ReportingWorkMode m =
 -- for 'WorkMode' context.
 reportMisbehaviour
     :: forall m . ReportingWorkMode m
-    => Version -> Text -> m ()
-reportMisbehaviour version reason = do
-    logDebug $ "Reporting misbehaviour \"" <> reason <> "\""
-    nodeInfo <- getNodeInfo
+    => m (Set NodeId) -> Version -> Text -> m ()
+reportMisbehaviour getPeers version reason = do
+    logError $ "Reporting misbehaviour \"" <> reason <> "\""
+    nodeInfo <- getNodeInfo getPeers
     sendReportNode version $ RMisbehavior $ sformat misbehF reason nodeInfo
   where
     misbehF = stext%", nodeInfo: "%stext
 
 -- | Report misbehaveour, but catch all errors inside
+--
+--   FIXME very misleading name. Suggests reporting misbehaviours while
+--   asynchronous exceptions are masked.
+--
+--   FIXME catch and squelch *all* exceptions? Probably a bad idea.
 reportMisbehaviourMasked
     :: forall m . ReportingWorkMode m
-    => Version -> Text -> m ()
-reportMisbehaviourMasked version reason =
-    reportMisbehaviour version reason `catch` handler
+    => m (Set NodeId) -> Version -> Text -> m ()
+reportMisbehaviourMasked getPeers version reason =
+    reportMisbehaviour getPeers version reason `catch` handler
   where
     handler :: SomeException -> m ()
     handler e =
@@ -161,8 +173,8 @@ reportMisbehaviourMasked version reason =
 -- logged and ignored.
 reportingFatal
     :: forall m a . ReportingWorkMode m
-    => Version -> m a -> m a
-reportingFatal version action =
+    => m (Set NodeId) -> Version -> m a -> m a
+reportingFatal getPeers version action =
     action `catch` handler1 `catch` handler2
   where
     andThrow :: (Exception e, MonadThrow n) => (e -> n x) -> e -> n y
@@ -170,7 +182,7 @@ reportingFatal version action =
     report reason = do
         logDebug $ "Reporting error \"" <> reason <> "\""
         let errorF = stext%", nodeInfo: "%stext
-        nodeInfo <- getNodeInfo
+        nodeInfo <- getNodeInfo getPeers
         sendReportNode version (RError $ sformat errorF reason nodeInfo) `catch`
             handlerSend reason
     handlerSend reason (e :: SomeException) =
@@ -198,15 +210,21 @@ reportingFatal version action =
 -- parameter for that.
 sendReport
     :: (MonadIO m, MonadMask m)
-    => [FilePath] -> [Text] -> ReportType -> Text -> Version -> String -> m ()
+    => [FilePath]                 -- ^ Log files to read from
+    -> [Text]                     -- ^ Raw log text (optional)
+    -> ReportType
+    -> Text
+    -> Version
+    -> String
+    -> m ()
 sendReport logFiles rawLogs reportType appName appVersion reportServerUri = do
     curTime <- liftIO getCurrentTime
     existingFiles <- filterM (liftIO . doesFileExist) logFiles
     when (null existingFiles && not (null logFiles)) $
         throwM $ CantRetrieveLogs logFiles
     putText $ "Rawlogs size is: " <> show (length rawLogs)
-    withSystemTempFile "memlog.log" $ \tempFp tempHandle -> liftIO $ do
-        forM_ rawLogs $ TIO.hPutStrLn tempHandle
+    withSystemTempFile "main.log" $ \tempFp tempHandle -> liftIO $ do
+        for_ rawLogs $ TIO.hPutStrLn tempHandle
         hClose tempHandle
         let memlogFiles = bool [tempFp] [] (null rawLogs)
         let memlogPart = map partFile' memlogFiles
@@ -233,38 +251,12 @@ sendReport logFiles rawLogs reportType appName appVersion reportServerUri = do
         }
 
 -- | Given logger config, retrieves all (logger name, filepath) for
--- every logger that has file handle.
+-- every logger that has file handle. Filepath inside does __not__
+-- contain the common logger config prefix.
 retrieveLogFiles :: LoggerConfig -> [([Text], FilePath)]
-retrieveLogFiles lconfig =
-    map (second (prefix </>)) $ fromLogTree $ lconfig ^. lcTree
+retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
   where
-    prefix = lconfig ^. lcFilePrefix . to (fromMaybe ".")
     fromLogTree lt =
-        let curElems = map ([],) (lt ^. ltFiles)
+        let curElems = map ([],) (lt ^.. ltFiles . each . hwFilePath)
             addFoo (part, node) = map (first (part :)) $ fromLogTree node
         in curElems ++ concatMap addFoo (lt ^. ltSubloggers . to HM.toList)
-
--- | Retrieves real filepathes of logs given filepathes from log
--- description. Example: there's @component.log@ in config, but this
--- function will return @[component.log.122, component.log.123]@.
-chooseLogFiles :: (MonadIO m) => FilePath -> m [FilePath]
-chooseLogFiles filePath = liftIO $ do
-    dirContents <- map (dir </>) <$> listDirectory dir
-    dirFiles <- filterM doesFileExist dirContents
-    let fileMatches = fileName `elem` map takeFileName dirFiles
-    let samePrefix = filter (isPrefixOf fileName . takeFileName) dirFiles
-    let rotationLogs :: [(FilePath, Int)]
-        rotationLogs = flip mapMaybe samePrefix $ \candidate -> do
-            let fname = takeFileName candidate
-            let basename = dropExtension fname
-            let ext = drop 1 $ takeExtension fname
-            guard $ basename == fileName
-            guard $ fname == basename <.> ext
-            (candidate,) <$> readMaybe ext
-    pure $ if | not (null rotationLogs) ->
-                take 2 $ map fst $ reverse $ sortOn snd rotationLogs
-              | fileMatches -> [filePath]
-              | otherwise -> [] -- haven't found any logs
-  where
-    fileName = takeFileName filePath
-    dir = takeDirectory filePath

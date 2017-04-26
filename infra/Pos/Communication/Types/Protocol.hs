@@ -29,9 +29,10 @@ module Pos.Communication.Types.Protocol
        , ListenersWithOut
        , WorkerSpec
        , ActionSpec (..)
+       , peerIdParser
+       , nodeIdParser
        ) where
 
-import           Control.Arrow         ((&&&))
 import           Data.Hashable         (Hashable)
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.Text.Buildable   as B
@@ -40,12 +41,15 @@ import qualified Node                  as N
 import           Node.Message          (Message (..), MessageName (..))
 import           Serokell.Util.Base16  (base16F)
 import           Serokell.Util.Text    (listJson, mapJson)
-import           Universum             hiding (show)
+import           Universum
 
 import           Pos.Binary.Class      (Bi)
 import           Pos.Communication.BiP (BiP)
 import           Pos.Core.Types        (BlockVersion)
-import           Pos.Util.TimeWarp     (nodeIdToAddress)
+import           Pos.Util.TimeWarp     (addrParser, addressToNodeId, nodeIdToAddress)
+import qualified Serokell.Util.Parse   as P
+import qualified Text.Parsec           as P
+import qualified Text.Parsec.String    as P
 
 type PeerData = (PeerId, VerInfo)
 
@@ -187,9 +191,26 @@ instance Monoid OutSpecs where
                     (name, h1) (name, h2)
 
 mergeLs :: [(ListenerSpec m, OutSpecs)] -> ([ListenerSpec m], OutSpecs)
-mergeLs = second mconcat . (map fst &&& map snd)
+mergeLs = second mconcat . unzip
 
 toOutSpecs :: [(MessageName, HandlerSpec)] -> OutSpecs
 toOutSpecs = OutSpecs . HM.fromList
 
 type ListenersWithOut m = ([ListenerSpec m], OutSpecs)
+
+----------
+-- Parsers
+----------
+
+-- | Parser for PeerId. Any base64 string.
+peerIdParser :: P.Parser PeerId
+peerIdParser = fmap PeerId P.base64Url
+
+-- | Parser for NodeId
+--   host:port:peerId
+nodeIdParser :: P.Parser NodeId
+nodeIdParser = do
+    addr <- addrParser
+    _ <- P.char ':'
+    peerId <- peerIdParser
+    return $ NodeId (peerId, addressToNodeId addr)

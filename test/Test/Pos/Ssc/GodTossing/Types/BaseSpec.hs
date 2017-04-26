@@ -5,7 +5,8 @@ module Test.Pos.Ssc.GodTossing.Types.BaseSpec
        ) where
 
 import           Pos.Binary            ()
-import           Pos.Crypto            (SecretKey, sign, toPublic)
+import           Pos.Crypto            (SecretKey, SignTag (SignCommitment), sign,
+                                        toPublic)
 import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadCommitment (..),
                                         BadSignedCommitment (..), Commitment,
                                         CommitmentOpening (..), verifyCommitment,
@@ -52,7 +53,7 @@ notVerifiesBadComm (getBadComm -> badComm) =
 
 verifiesOkCommSig :: SecretKey -> Commitment -> EpochIndex -> Bool
 verifiesOkCommSig sk comm epoch =
-    let commSig = (toPublic sk, comm, sign sk (epoch, comm))
+    let commSig = (toPublic sk, comm, sign SignCommitment sk (epoch, comm))
     in verifyCommitmentSignature epoch commSig
 
 notVerifiesBadCommSig :: BadSignedCommitment -> EpochIndex -> Bool

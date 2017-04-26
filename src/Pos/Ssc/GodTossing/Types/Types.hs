@@ -19,7 +19,6 @@ module Pos.Ssc.GodTossing.Types.Types
        , createGtContext
        ) where
 
-import qualified Control.Concurrent.STM         as STM
 import           Control.Lens                   (makeLenses)
 import           Data.Default                   (Default, def)
 import qualified Data.HashMap.Strict            as HM
@@ -110,12 +109,12 @@ data GtContext = GtContext
       -- | Vss key pair used for MPC.
       gtcVssKeyPair     :: !VssKeyPair
     , -- | Flag which determines whether we want to participate in SSC.
-      gtcParticipateSsc :: !(STM.TVar Bool)
+      gtcParticipateSsc :: !(TVar Bool)
     }
 
 createGtContext :: MonadIO m => GtParams -> m GtContext
 createGtContext GtParams {..} =
-    GtContext gtpVssKeyPair <$> liftIO (newTVarIO gtpSscEnabled)
+    GtContext gtpVssKeyPair <$> newTVarIO gtpSscEnabled
 
 ----------------------------------------------------------------------------
 -- Secret storage

@@ -2,10 +2,11 @@
 
 module Pos.Communication.Relay.Class
        ( Relay (..)
-       , MonadRelayMem (..)
+       , MonadRelayMem
+       , askRelayMem
        ) where
 
-import           Control.Monad.Trans            (MonadTrans)
+import qualified Control.Monad.Ether.Implicit   as Ether
 import           Node.Message                   (Message)
 import           Serokell.Util.Verify           (VerificationRes)
 import           Universum
@@ -55,13 +56,7 @@ class ( Buildable tag
     -- | Handle data msg and return True if message is to be propagated
     handleData :: contents -> m Bool
 
-class Monad m => MonadRelayMem m where
-    askRelayMem :: m RelayContext
+type MonadRelayMem = Ether.MonadReader RelayContext
 
-    default askRelayMem :: (MonadTrans t, MonadRelayMem m', t m' ~ m) =>
-       m RelayContext
-    askRelayMem = lift askRelayMem
-
-instance MonadRelayMem m => MonadRelayMem (ReaderT s m) where
-instance MonadRelayMem m => MonadRelayMem (ExceptT s m) where
-instance MonadRelayMem m => MonadRelayMem (StateT s m) where
+askRelayMem :: MonadRelayMem m => m RelayContext
+askRelayMem = Ether.ask

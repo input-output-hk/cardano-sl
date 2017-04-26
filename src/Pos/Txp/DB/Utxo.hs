@@ -21,7 +21,9 @@ module Pos.Txp.DB.Utxo
        , runUtxoIterator
        , runUtxoMapIterator
        , getFilteredUtxo
-       , getFilteredGenUtxo
+
+       -- * Get utxo
+       , getAllPotentiallyHugeUtxo
 
        -- * Sanity checks
        , sanityCheckUtxo
@@ -69,7 +71,6 @@ getTxOutFromDB txIn = rocksGetBi (txInKey txIn)
 data UtxoOp
     = DelTxIn !TxIn
     | AddTxOut !TxIn !TxOutAux
-    | AddGenTxOut !TxIn !TxOutAux
 
 instance Buildable UtxoOp where
     build (DelTxIn txIn)           =
@@ -77,53 +78,37 @@ instance Buildable UtxoOp where
     build (AddTxOut txIn txOutAux) =
         bprint ("AddTxOut ("%build%", "%listJson%")")
         txIn (map (bprint pairF) $ txOutStake txOutAux)
-    build (AddGenTxOut txIn txOutAux) =
-        bprint ("AddGenTxOut ("%build%", "%listJson%")")
-        txIn (map (bprint pairF) $ txOutStake txOutAux)
 
 instance RocksBatchOp UtxoOp where
     toBatchOp (AddTxOut txIn txOut) =
         [Rocks.Put (txInKey txIn) (encodeStrict txOut)]
-    toBatchOp (AddGenTxOut txIn txOut) =
-        [Rocks.Put (genTxInKey txIn) (encodeStrict txOut)]
     toBatchOp (DelTxIn txIn) = [Rocks.Del $ txInKey txIn]
 
 ----------------------------------------------------------------------------
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareGStateUtxo
-    :: forall m.
-       MonadDB m
-    => Utxo -> m ()
+prepareGStateUtxo :: MonadDB m => Utxo -> m ()
 prepareGStateUtxo genesisUtxo =
-    putIfEmpty genUtxoExists putGenesisUtxo
-  where
-    putIfEmpty :: m Bool -> m () -> m ()
-    putIfEmpty exists putter = whenM (not <$> exists) $ putter
-    putGenesisUtxo = do
+    unlessM isUtxoInitialized $ do
+        -- put genesis utxo
         let utxoList = M.toList genesisUtxo
         writeBatchGState $ concatMap createBatchOp utxoList
-        gsPutBi genUtxoFlagKey True
+        gsPutBi initializationFlagKey True
+  where
     createBatchOp (txin, txout) =
-        [AddTxOut txin txout , AddGenTxOut txin txout]
+        [AddTxOut txin txout]
 
 ----------------------------------------------------------------------------
 -- Iteration
 ----------------------------------------------------------------------------
 
 data UtxoIter
-data GenUtxoIter
 
 instance DBIteratorClass UtxoIter where
     type IterKey UtxoIter = TxIn
     type IterValue UtxoIter = TxOutAux
     iterKeyPrefix _ = iterationUtxoPrefix
-
-instance DBIteratorClass GenUtxoIter where
-    type IterKey GenUtxoIter = TxIn
-    type IterValue GenUtxoIter = TxOutAux
-    iterKeyPrefix _ = iterationGenUtxoPrefix
 
 runUtxoIterator
     :: forall i m a .
@@ -177,8 +162,15 @@ getFilteredUtxo' addr = filterUtxo @i $ \(_, out) -> out `addrBelongsTo` addr
 getFilteredUtxo :: MonadDB m => Address -> m Utxo
 getFilteredUtxo = getFilteredUtxo' @UtxoIter
 
-getFilteredGenUtxo :: MonadDB m => Address -> m Utxo
-getFilteredGenUtxo = getFilteredUtxo' @GenUtxoIter
+-- | Get full utxo. Use with care – the utxo can be very big (hundreds of
+-- megabytes).
+getAllPotentiallyHugeUtxo :: MonadDB m => m Utxo
+getAllPotentiallyHugeUtxo = runUtxoIterator @UtxoIter (step mempty)
+  where
+    -- this can probably be written better
+    step res = nextItem >>= \case
+        Nothing     -> pure res
+        Just (k, v) -> step (M.insert k v res)
 
 ----------------------------------------------------------------------------
 -- Sanity checks
@@ -216,18 +208,12 @@ txInKey = encodeWithKeyPrefix @UtxoIter
 iterationUtxoPrefix :: ByteString
 iterationUtxoPrefix = "ut/t/"
 
-genTxInKey :: TxIn -> ByteString
-genTxInKey = encodeWithKeyPrefix @GenUtxoIter
-
-iterationGenUtxoPrefix :: ByteString
-iterationGenUtxoPrefix = "ut/gt/"
-
-genUtxoFlagKey :: ByteString
-genUtxoFlagKey = "ut/gutxo"
+initializationFlagKey :: ByteString
+initializationFlagKey = "ut/gutxo"
 
 ----------------------------------------------------------------------------
 -- Details
 ----------------------------------------------------------------------------
 
-genUtxoExists :: MonadDB m => m Bool
-genUtxoExists = isJust <$> (getUtxoDB >>= rocksGetBytes genUtxoFlagKey)
+isUtxoInitialized :: MonadDB m => m Bool
+isUtxoInitialized = isJust <$> (getUtxoDB >>= rocksGetBytes initializationFlagKey)

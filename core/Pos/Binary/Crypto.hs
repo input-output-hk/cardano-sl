@@ -50,7 +50,7 @@ instance Bi a => SafeCopy (WithHash a) where
 instance HashAlgorithm algo => Bi (AbstractHash algo a) where
     {-# SPECIALIZE instance Bi (Hash a) #-}
     get = label "AbstractHash" $ do
-        bs <- getByteString $ hashDigestSize @algo $
+        bs <- fmap BS.copy $ getByteString $ hashDigestSize @algo $
               error "Pos.Crypto.Hashing.get: HashAlgorithm value is evaluated!"
         case digestFromByteString bs of
             -- It's impossible because getByteString will already fail if
@@ -104,13 +104,12 @@ BiMacro(SecretProof, 64)
 ----------------------------------------------------------------------------
 
 secretKeyLength, publicKeyLength, signatureLength, chainCodeLength,
-    encryptedKeyLength, passphraseLength :: Int
+    encryptedKeyLength :: Int
 secretKeyLength = 32
 publicKeyLength = 32
 encryptedKeyLength = 96
 signatureLength = 64
 chainCodeLength = 32
-passphraseLength = 32
 
 putAssertLength :: Monad m => Text -> Int -> ByteString -> m ()
 putAssertLength typeName expectedLength bs =
@@ -173,7 +172,10 @@ instance Bi CC.XSignature where
 deriving instance Bi (Signature a)
 deriving instance Bi PublicKey
 deriving instance Bi SecretKey
-deriving instance Bi EncryptedSecretKey
+
+instance Bi EncryptedSecretKey where
+    put (EncryptedSecretKey sk pph) = put sk >> put pph
+    get = label "EncryptedSecretKey" $ liftM2 EncryptedSecretKey get get
 
 instance Bi a => Bi (Signed a) where
     put (Signed v s) = put (v,s)
@@ -195,11 +197,15 @@ instance (Bi w) => Bi (ProxySignature w a) where
 
 instance Bi PassPhrase where
     put pp = do
+        -- currently passphrase may be 32-byte long, or empty
+        -- (for unencrypted keys)
         let bs = BS.pack $ ByteArray.unpack pp
-        putAssertLength "PassPhrase" passphraseLength bs
+        when (all (/= BS.length bs) [0, 32]) $ error $
+            sformat ("put@PassPhrase: expected length 0 or 32, not "%int)
+                (BS.length bs)
         putByteString bs
     get = label "PassPhrase" $
-          ByteArray.pack . BS.unpack <$> getByteString passphraseLength
+          ByteArray.pack . BS.unpack <$> (getByteString 32 <|> getByteString 0)
 
 -------------------------------------------------------------------------------
 -- Hierarchical derivation

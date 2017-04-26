@@ -25,22 +25,29 @@ module Pos.DB.Block
 import           Control.Lens              (_Wrapped)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.ByteArray            (convert)
+import qualified Data.ByteString           as BS (readFile, writeFile)
+import qualified Data.ByteString.Lazy      as BSL
 import           Data.Default              (Default (def))
-import           Formatting                (sformat, (%))
+import           Formatting                (build, formatToString, sformat, (%))
+import           System.Directory          (removeFile)
+import           System.FilePath           ((</>))
+import           System.IO.Error           (isDoesNotExistError)
 import           Universum
 
 import           Pos.Binary.Block          ()
-import           Pos.Binary.Class          (Bi)
+import           Pos.Binary.Class          (Bi, decodeFull, encodeStrict)
+import           Pos.Block.Pure            (genesisHash)
 import           Pos.Block.Types           (Blund, Undo (..))
-import           Pos.Crypto                (shortHashF)
-import           Pos.DB.Class              (MonadDB, getBlockDB)
-import           Pos.DB.Error              (DBError (..))
+import           Pos.Core                  (HasDifficulty (difficultyL),
+                                            HasPrevBlock (prevBlockL), HeaderHash,
+                                            headerHash)
+import           Pos.Crypto                (hashHexF, shortHashF)
+import           Pos.DB.Class              (MonadDB, getBlockIndexDB, getNodeDBs)
+import           Pos.DB.Error              (DBError (DBMalformed))
 import           Pos.DB.Functions          (rocksDelete, rocksGetBi, rocksPutBi)
+import           Pos.DB.Types              (blockDataDir)
 import           Pos.Ssc.Class.Helpers     (SscHelpersClass)
-import           Pos.Types                 (Block, BlockHeader, GenesisBlock,
-                                            HasDifficulty (difficultyL), HasPrevBlock,
-                                            HeaderHash, genesisHash, headerHash,
-                                            prevBlockL)
+import           Pos.Types                 (Block, BlockHeader, GenesisBlock)
 import qualified Pos.Types                 as T
 import           Pos.Util                  (maybeThrow)
 import           Pos.Util.Chrono           (NewestFirst (..))
@@ -49,17 +56,17 @@ import           Pos.Util.Chrono           (NewestFirst (..))
 getBlock
     :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Maybe (Block ssc))
-getBlock = getBi . blockKey
+getBlock = blockDataPath >=> getData
 
 -- | Returns header of block that was requested from Block DB.
 getBlockHeader
     :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Maybe (BlockHeader ssc))
-getBlockHeader h = fmap T.getBlockHeader <$> getBlock h
+getBlockHeader = getBi . blockIndexKey
 
 -- | Get undo data for block with given hash from Block DB.
-getUndo :: MonadDB m => HeaderHash -> m (Maybe Undo)
-getUndo = getBi . undoKey
+getUndo :: (MonadDB m) => HeaderHash -> m (Maybe Undo)
+getUndo = undoDataPath >=> getData
 
 -- | Retrieves block and undo together.
 getBlockWithUndo
@@ -74,11 +81,15 @@ putBlock
     => Undo -> Block ssc -> m ()
 putBlock undo blk = do
     let h = headerHash blk
-    putBi (blockKey h) blk
-    putBi (undoKey h) undo
+    flip putData blk =<< blockDataPath h
+    flip putData undo =<< undoDataPath h
+    putBi (blockIndexKey h) (T.getBlockHeader blk)
 
 deleteBlock :: (MonadDB m) => HeaderHash -> m ()
-deleteBlock = delete . blockKey
+deleteBlock hh = do
+    delete (blockIndexKey hh)
+    deleteData =<< blockDataPath hh
+    deleteData =<< undoDataPath hh
 
 ----------------------------------------------------------------------------
 -- Load
@@ -194,11 +205,8 @@ prepareBlockDB = putBlock def . Left
 -- Keys
 ----------------------------------------------------------------------------
 
-blockKey :: HeaderHash -> ByteString
-blockKey h = "b" <> convert h
-
-undoKey :: HeaderHash -> ByteString
-undoKey h = "u" <> convert h
+blockIndexKey :: HeaderHash -> ByteString
+blockIndexKey h = "b" <> convert h
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -207,15 +215,45 @@ undoKey h = "u" <> convert h
 getBi
     :: (MonadDB m, Bi v)
     => ByteString -> m (Maybe v)
-getBi k = rocksGetBi k =<< getBlockDB
+getBi k = rocksGetBi k =<< getBlockIndexDB
 
 putBi
     :: (MonadDB m, Bi v)
     => ByteString -> v -> m ()
-putBi k v = rocksPutBi k v =<< getBlockDB
+putBi k v = rocksPutBi k v =<< getBlockIndexDB
 
 delete :: (MonadDB m) => ByteString -> m ()
-delete k = rocksDelete k =<< getBlockDB
+delete k = rocksDelete k =<< getBlockIndexDB
+
+getData ::  (MonadIO m, MonadCatch m, Bi v) => FilePath -> m (Maybe v)
+getData fp = flip catch handle $ liftIO $
+    either (\er -> throwM $ DBMalformed $
+             sformat ("Couldn't deserialize "%build%", reason: "%build) fp er) pure .
+    decodeFull .
+    BSL.fromStrict <$>
+    BS.readFile fp
+  where
+    handle e
+        | isDoesNotExistError e = pure Nothing
+        | otherwise = throwM e
+
+putData ::  (MonadIO m, Bi v) => FilePath -> v -> m ()
+putData fp = liftIO . BS.writeFile fp . encodeStrict
+
+deleteData :: (MonadIO m, MonadCatch m) => FilePath -> m ()
+deleteData fp = (liftIO $ removeFile fp) `catch` handle
+  where
+    handle e
+        | isDoesNotExistError e = pure ()
+        | otherwise = throwM e
+
+blockDataPath :: MonadDB m => HeaderHash -> m FilePath
+blockDataPath (formatToString (hashHexF%".block") -> fn) =
+    getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> fn
+
+undoDataPath :: MonadDB m => HeaderHash -> m FilePath
+undoDataPath (formatToString (hashHexF%".undo") -> fn) =
+    getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> fn
 
 ----------------------------------------------------------------------------
 -- Private functions

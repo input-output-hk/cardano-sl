@@ -4,6 +4,7 @@ module Test.Pos.Ssc.GodTossing.SeedSpec
        ( spec
        ) where
 
+import           Control.Lens             (each)
 import           Crypto.Random            (MonadRandom)
 import qualified Data.HashMap.Strict      as HM
 import           Data.List                (unzip, (\\))
@@ -14,21 +15,22 @@ import           Test.Hspec               (Spec, describe, pending)
 import           Test.Hspec.QuickCheck    (modifyMaxSize, modifyMaxSuccess, prop)
 import           Test.Pos.Util            (formsCommutativeMonoid)
 import           Test.QuickCheck          (Property, choose, counterexample, generate,
-                                           ioProperty, property, sized, (===), (.&&.))
+                                           ioProperty, property, sized, (.&&.), (===))
 import           Test.QuickCheck.Property (failed, succeeded)
 import           Universum
 import           Unsafe                   ()
 
 import           Pos.Binary               (AsBinaryClass (..))
 import           Pos.Core.Address         (AddressHash, addressHash)
-import           Pos.Crypto               (PublicKey, SecretKey, Share, Threshold,
+import           Pos.Crypto               (PublicKey, SecretKey, Share,
+                                           SignTag (SignCommitment), Threshold,
                                            VssKeyPair, decryptShare, sign, toPublic,
                                            toVssPublicKey)
 import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Opening (..),
                                            SeedError (..), calculateSeed,
-                                           genCommitmentAndOpening, mkCommitmentsMap,
-                                           secretToSharedSeed)
-import           Pos.Types                (SharedSeed (..))
+                                           genCommitmentAndOpening, getCommitmentsMap,
+                                           mkCommitmentsMap, secretToSharedSeed)
+import           Pos.Types                (SharedSeed (..), mkCoin)
 import           Pos.Util                 (nonrepeating, sublistN)
 
 getPubAddr :: SecretKey -> AddressHash PublicKey
@@ -132,6 +134,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
         (haveSentBoth ++) <$>
         sublistN (n_shares - n_overlap) (keys \\ haveSentOpening)
     let commitmentsMap = mkCommitmentsMap' keys comms
+    let richmen = getCommitmentsMap commitmentsMap & each .~ mkCoin 1000
     let openingsMap = HM.fromList
             [(getPubAddr k, o)
               | (k, o) <- zip keys opens
@@ -157,7 +160,7 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
              return (addr, receivedShares)
 
     let shouldSucceed = n_openings + n_shares - n_overlap >= n
-    let result = calculateSeed commitmentsMap openingsMap sharesMap
+    let result = calculateSeed commitmentsMap openingsMap sharesMap richmen
     let debugInfo = sformat ("n = "%int%", n_openings = "%int%", "%
                              "n_shares = "%int%", n_overlap = "%int%
                              "\n"%
@@ -218,7 +221,7 @@ mkCommitmentsMap' keys comms =
     mkCommitmentsMap $ do
         (sk, comm) <- zip keys comms
         let epochIdx = 0  -- we don't care here
-        let sig = sign sk (epochIdx, comm)
+        let sig = sign SignCommitment sk (epochIdx, comm)
         return (toPublic sk, comm, sig)
 
 getDecryptedShares

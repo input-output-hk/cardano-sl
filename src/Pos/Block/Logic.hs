@@ -28,82 +28,91 @@ module Pos.Block.Logic
        , createMainBlock
        ) where
 
-import           Control.Lens               ((-=), (.=), _Wrapped)
-import           Control.Monad.Catch        (try)
-import           Control.Monad.Except       (ExceptT (ExceptT), MonadError (throwError),
-                                             runExceptT, withExceptT)
-import           Control.Monad.Trans.Maybe  (MaybeT (MaybeT), runMaybeT)
-import           Data.Default               (Default (def))
-import qualified Data.HashMap.Strict        as HM
-import           Data.List.NonEmpty         ((<|))
-import qualified Data.List.NonEmpty         as NE
-import qualified Data.Text                  as T
-import           Formatting                 (build, int, ords, sformat, stext, (%))
-import           Paths_cardano_sl           (version)
-import           Serokell.Data.Memory.Units (toBytes)
-import           Serokell.Util.Text         (listJson)
-import           Serokell.Util.Verify       (VerificationRes (..), formatAllErrors,
-                                             isVerSuccess, verResToMonadError)
-import           System.Wlog                (CanLog, HasLoggerName, logDebug, logInfo)
+import           Control.Lens                     ((-=), (.=), _Wrapped)
+import           Control.Monad.Catch              (try)
+import           Control.Monad.Except             (ExceptT (ExceptT),
+                                                   MonadError (throwError), runExceptT,
+                                                   withExceptT)
+import           Control.Monad.Trans.Maybe        (MaybeT (MaybeT), runMaybeT)
+import           Data.Default                     (Default (def))
+import qualified Data.HashMap.Strict              as HM
+import           Data.List.NonEmpty               ((<|))
+import qualified Data.List.NonEmpty               as NE
+import qualified Data.Text                        as T
+import           Formatting                       (build, int, ords, sformat, stext, (%))
+import           Paths_cardano_sl                 (version)
+import           Serokell.Data.Memory.Units       (toBytes)
+import           Serokell.Util.Text               (listJson)
+import           Serokell.Util.Verify             (VerificationRes (..), formatAllErrors,
+                                                   isVerSuccess, verResToMonadError)
+import           System.Wlog                      (CanLog, HasLoggerName, logDebug,
+                                                   logInfo)
 import           Universum
 
-import qualified Pos.Binary.Class           as Bi
-import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe,
-                                             toUpdateBlock, withBlkSemaphore,
-                                             withBlkSemaphore_)
-import           Pos.Block.Types            (Blund, Undo (..))
-import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,
-                                             epochSlots, lastKnownBlockVersion,
-                                             recoveryHeadersMessage, slotSecurityParam)
-import           Pos.Context                (NodeContext (ncNodeParams, ncTxpGlobalSettings),
-                                             getNodeContext, lrcActionOnEpochReason,
-                                             npSecretKey)
-import           Pos.Crypto                 (SecretKey, WithHash (WithHash), hash,
-                                             shortHashF)
-import           Pos.Data.Attributes        (mkAttributes)
-import           Pos.DB                     (DBError (..), MonadDB)
-import qualified Pos.DB.Block               as DB
-import qualified Pos.DB.DB                  as DB
-import qualified Pos.DB.GState              as GS
-import           Pos.Delegation.Logic       (delegationVerifyBlocks, getProxyMempool)
-import           Pos.Exception              (assertionFailed, reportFatalError)
-import qualified Pos.Lrc.DB                 as LrcDB
-import           Pos.Lrc.Error              (LrcError (..))
-import           Pos.Lrc.Worker             (lrcSingleShotNoLock)
-import           Pos.Reporting              (reportingFatal)
-import           Pos.Slotting.Class         (getCurrentSlot)
-import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
-                                             SscWorkersClass (..))
-import           Pos.Ssc.Extra              (sscGetLocalPayload, sscVerifyBlocks)
-import           Pos.Txp.Core               (TxAux, TxId, TxPayload, mkTxPayload,
-                                             topsortTxs)
-import           Pos.Txp.MemState           (getLocalTxsNUndo)
-import           Pos.Txp.Settings           (TxpBlock, TxpGlobalSettings (..))
-import           Pos.Types                  (Block, BlockHeader, EpochIndex,
-                                             EpochOrSlot (..), GenesisBlock, HeaderHash,
-                                             IsGenesisHeader, IsMainHeader, MainBlock,
-                                             MainExtraBodyData (..),
-                                             MainExtraHeaderData (..), ProxySKEither,
-                                             ProxySKHeavy, SlotId (..), SlotLeaders,
-                                             VerifyHeaderParams (..), blockHeader,
-                                             blockLeaders, difficultyL, epochIndexL,
-                                             epochOrSlot, flattenSlotId, gbBody, gbHeader,
-                                             genesisHash, getEpochOrSlot, headerHash,
-                                             headerHashG, headerSlot, mbTxPayload,
-                                             mkGenesisBlock, mkMainBlock, prevBlockL,
-                                             verifyHeader, verifyHeaders,
-                                             vhpVerifyConsensus)
-import qualified Pos.Types                  as Types
-import           Pos.Update.Core            (UpdatePayload (..))
-import qualified Pos.Update.DB              as UDB
-import           Pos.Update.Logic           (usCanCreateBlock, usPreparePayload,
-                                             usVerifyBlocks)
-import           Pos.Update.Poll            (PollModifier)
-import           Pos.Util                   (Some (Some), inAssertMode, maybeThrow,
-                                             neZipWith3, spanSafe, _neHead, _neLast)
-import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
-                                             toNewestFirst, toOldestFirst)
-import           Pos.WorkMode               (WorkMode)
+import qualified Pos.Binary.Class                 as Bi
+import           Pos.Block.Logic.Internal         (applyBlocksUnsafe,
+                                                   rollbackBlocksUnsafe, toUpdateBlock,
+                                                   withBlkSemaphore, withBlkSemaphore_)
+import           Pos.Block.Pure                   (VerifyHeaderParams (..), genesisHash,
+                                                   mkGenesisBlock, mkMainBlock,
+                                                   verifyHeader, verifyHeaders)
+import qualified Pos.Block.Pure                   as Pure
+import           Pos.Block.Types                  (Blund, Undo (..))
+import           Pos.Communication.Types.Protocol (NodeId)
+import           Pos.Constants                    (blkSecurityParam, curSoftwareVersion,
+                                                   epochSlots, lastKnownBlockVersion,
+                                                   recoveryHeadersMessage,
+                                                   slotSecurityParam)
+import           Pos.Context                      (NodeContext (ncNodeParams, ncTxpGlobalSettings),
+                                                   getNodeContext, lrcActionOnEpochReason,
+                                                   npSecretKey)
+import           Pos.Core                         (BlockVersion (..), EpochIndex,
+                                                   HeaderHash)
+import           Pos.Crypto                       (SecretKey, WithHash (WithHash), hash,
+                                                   shortHashF)
+import           Pos.Data.Attributes              (mkAttributes)
+import           Pos.DB                           (DBError (..), MonadDB, MonadDBCore)
+import qualified Pos.DB.Block                     as DB
+import qualified Pos.DB.DB                        as DB
+import qualified Pos.DB.GState                    as GS
+import           Pos.Delegation.Logic             (delegationVerifyBlocks,
+                                                   getProxyMempool)
+import           Pos.Exception                    (assertionFailed, reportFatalError)
+import qualified Pos.Lrc.DB                       as LrcDB
+import           Pos.Lrc.Error                    (LrcError (..))
+import           Pos.Lrc.Worker                   (lrcSingleShotNoLock)
+import           Pos.Reporting                    (reportingFatal)
+import           Pos.Slotting.Class               (getCurrentSlot)
+import           Pos.Ssc.Class                    (Ssc (..), SscHelpersClass,
+                                                   SscWorkersClass (..))
+import           Pos.Ssc.Extra                    (sscGetLocalPayload, sscVerifyBlocks)
+import           Pos.Txp.Core                     (TxAux, TxId, TxPayload, mkTxPayload,
+                                                   topsortTxs)
+import           Pos.Txp.MemState                 (getLocalTxsNUndo)
+import           Pos.Txp.Settings                 (TxpBlock, TxpGlobalSettings (..))
+import           Pos.Types                        (Block, BlockHeader, EpochOrSlot (..),
+                                                   GenesisBlock, IsGenesisHeader,
+                                                   IsMainHeader, MainBlock,
+                                                   MainExtraBodyData (..),
+                                                   MainExtraHeaderData (..),
+                                                   ProxySKEither, ProxySKHeavy,
+                                                   SlotId (..), SlotLeaders, blockHeader,
+                                                   blockLeaders, difficultyL, epochIndexL,
+                                                   epochOrSlot, flattenSlotId, gbBody,
+                                                   gbHeader, getEpochOrSlot, headerHash,
+                                                   headerHashG, headerSlot, mbTxPayload,
+                                                   prevBlockL)
+import qualified Pos.Types                        as Types
+import           Pos.Update.Core                  (UpdatePayload (..))
+import qualified Pos.Update.DB                    as UDB
+import           Pos.Update.Logic                 (usCanCreateBlock, usPreparePayload,
+                                                   usVerifyBlocks)
+import           Pos.Update.Poll                  (PollModifier)
+import           Pos.Util                         (Some (Some), inAssertMode, maybeThrow,
+                                                   neZipWith3, spanSafe, _neHead, _neLast)
+import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..),
+                                                   toNewestFirst, toOldestFirst)
+import           Pos.WorkMode                     (WorkMode)
 
 ----------------------------------------------------------------------------
 -- Common
@@ -282,28 +291,29 @@ getHeadersFromManyTo
     => NonEmpty HeaderHash  -- ^ Checkpoints; not guaranteed to be
                             --   in any particular order
     -> Maybe HeaderHash
-    -> m (Maybe (NewestFirst NE (BlockHeader ssc)))
-getHeadersFromManyTo checkpoints startM = runMaybeT $ do
+    -> m (Either Text (NewestFirst NE (BlockHeader ssc)))
+getHeadersFromManyTo checkpoints startM = runExceptT $ do
     lift $ logDebug $
         sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
                 checkpoints startM
-    validCheckpoints <- MaybeT $
+    validCheckpoints <- toExceptT "Failed to retrieve checkpoints" $
         nonEmpty . catMaybes <$>
         mapM (DB.getBlockHeader @ssc) (toList checkpoints)
     tip <- lift GS.getTip
-    guard $ all ((/= tip) . headerHash) validCheckpoints
+    unless (all ((/= tip) . headerHash) validCheckpoints) $
+        throwError "Found checkpoint that is equal to our tip"
     let startFrom = fromMaybe tip startM
         parentIsCheckpoint bh =
             any (\c -> bh ^. prevBlockL == c ^. headerHashG) validCheckpoints
         whileCond bh = not (parentIsCheckpoint bh)
-    headers <- MaybeT . fmap (_Wrapped nonEmpty) $
+    headers <- toExceptT "Failed to load headers by depth" . fmap (_Wrapped nonEmpty) $
         DB.loadHeadersByDepthWhile whileCond recoveryHeadersMessage startFrom
     if parentIsCheckpoint $ headers ^. _Wrapped . _neHead
     then pure headers
     else do
         lift $ logDebug $ "getHeadersFromManyTo: giving headers in recovery mode"
         inMainCheckpoints <-
-            MaybeT $ nonEmpty <$>
+            toExceptT "Filtered set of valid checkpoints is empty" $ nonEmpty <$>
             filterM (GS.isBlockInMainChain . headerHash)
                     (toList validCheckpoints)
         lift $ logDebug $ "getHeadersFromManyTo: got checkpoints in main chain"
@@ -311,9 +321,13 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
                 maximumBy (comparing getEpochOrSlot) inMainCheckpoints
             loadUpCond _ h = h < recoveryHeadersMessage
         up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
-        res <- MaybeT $ pure $ _Wrapped nonEmpty (toNewestFirst $ over _Wrapped (drop 1) up)
+        res <- toExceptT "loadHeadersUpWhile returned empty list" $
+            pure $ _Wrapped nonEmpty (toNewestFirst $ over _Wrapped (drop 1) up)
         lift $ logDebug $ "getHeadersFromManyTo: loaded non-empty list of headers, returning"
         pure res
+  where
+    toExceptT :: (Monad n) => Text -> n (Maybe a) -> ExceptT Text n a
+    toExceptT r x = ExceptT $ maybeToRight r <$> x
 
 -- | Given a starting point hash (we take tip if it's not in storage)
 -- it returns not more than 'blkSecurityParam' blocks distributed
@@ -417,15 +431,44 @@ verifyBlocksPrefix blocks = runExceptT $ do
             when (block ^. blockLeaders /= leaders) $
                 throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
-    (bv, bvd) <- UDB.getAdoptedBVFull
+    (adoptedBV, adoptedBVD) <- UDB.getAdoptedBVFull
+    -- We verify that data in blocks is known if protocol version used
+    -- by this software is greater than or equal to adopted
+    -- version. That's because:
+    -- 1. Authors of this software are aware of adopted version.
+    -- 2. Each issued block must be formed with respect to adopted version.
+    --
+    -- Comparison is quite tricky here. Table below demonstrates it.
+    --
+    --   Our | Adopted | Check?
+    -- ————————————————————————
+    -- 1.2.3 |  1.2.3  | Yes
+    -- 1.2.3 |  1.2.4  | No
+    -- 1.2.3 |  1.2.2  | No
+    -- 1.2.3 |  1.3.2  | No
+    -- 1.2.3 |  1.1.1  | Yes
+    -- 2.2.8 |  1.9.9  | Yes
+    --
+    -- If `(major, minor)` of our version is greater than of adopted
+    -- one, then check is certainly done. If it's equal, then check is
+    -- done only if `alt` component is the same as adopted one. In
+    -- other cases (i. e. when our `(major, minor)` is less than from
+    -- adopted version) check is not done.
+    let toMajMin BlockVersion {..} = (bvMajor, bvMinor)
+    let lastKnownMajMin = toMajMin lastKnownBlockVersion
+    let adoptedMajMin = toMajMin adoptedBV
+    let dataMustBeKnown = lastKnownMajMin > adoptedMajMin
+                       || lastKnownBlockVersion == adoptedBV
     verResToMonadError formatAllErrors $
-        Types.verifyBlocks curSlot bvd (Just leaders) (Just bv) blocks
+        Pure.verifyBlocks curSlot dataMustBeKnown adoptedBVD
+        (Just leaders) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
     TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
-    txUndo <- withExceptT pretty $ tgsVerifyBlocks $ map toTxpBlock blocks
+    txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $
+        map toTxpBlock blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $
-        usVerifyBlocks (map toUpdateBlock blocks)
+        usVerifyBlocks dataMustBeKnown (map toUpdateBlock blocks)
     when (length txUndo /= length pskUndo) $
         throwError "Internal error of verifyBlocksPrefix: lengths of undos don't match"
     pure ( OldestFirst $ neZipWith3 Undo
@@ -458,18 +501,18 @@ toTxpBlock = bimap convertGenesis convertMain
 -- header hash of new tip. It's up to caller to log warning that
 -- partial application happened.
 verifyAndApplyBlocks
-    :: (WorkMode ssc m, SscWorkersClass ssc)
-    => Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
-verifyAndApplyBlocks rollback =
-    reportingFatal version . verifyAndApplyBlocksInternal True rollback
+    :: (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
+    => m (Set NodeId) -> Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
+verifyAndApplyBlocks getPeers rollback =
+    reportingFatal getPeers version . verifyAndApplyBlocksInternal getPeers True rollback
 
 -- See the description for verifyAndApplyBlocks. This method also
 -- parameterizes LRC calculation which can be turned on/off with the first
 -- flag.
 verifyAndApplyBlocksInternal
-    :: forall ssc m. (WorkMode ssc m, SscWorkersClass ssc)
-    => Bool -> Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
-verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
+    :: forall ssc m. (WorkMode ssc m, SscWorkersClass ssc, MonadDBCore m)
+    => m (Set NodeId) -> Bool -> Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
+verifyAndApplyBlocksInternal getPeers lrc rollback blocks = runExceptT $ do
     tip <- GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $ throwError $
@@ -490,7 +533,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         lift (verifyBlocksPrefix (one block)) >>= \case
             Left e' -> applyAMAP e' (OldestFirst []) nothingApplied
             Right (OldestFirst (undo :| []), pModifier) -> do
-                lift $ applyBlocksUnsafe (one (block, undo)) (Just pModifier)
+                lift $ applyBlocksUnsafe getPeers (one (block, undo)) (Just pModifier)
                 applyAMAP e (OldestFirst xs) False
             Right _ -> error "verifyAndApplyBlocksInternal: applyAMAP: \
                              \verification of one block produced more than one undo"
@@ -500,11 +543,11 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         -> [NewestFirst NE (Blund ssc)]
         -> ExceptT Text m HeaderHash
     failWithRollback e toRollback = do
-        lift $ mapM_ rollbackBlocks toRollback
+        lift $ mapM_ (rollbackBlocks getPeers) toRollback
         throwError e
     -- Calculates LRC if it's needed (no lock)
     calculateLrc epochIx =
-        when lrc $ lift $ lrcSingleShotNoLock epochIx
+        when lrc $ lift $ lrcSingleShotNoLock getPeers epochIx
     -- This function tries to apply a new portion of blocks (prefix
     -- and suffix). It also has aggregating parameter blunds which is
     -- collected to rollback blocks if correspondent flag is on. First
@@ -528,7 +571,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
             Right (undos, pModifier) -> do
                 let newBlunds = OldestFirst $ getOldestFirst prefix `NE.zip`
                                               getOldestFirst undos
-                lift $ applyBlocksUnsafe newBlunds (Just pModifier)
+                lift $ applyBlocksUnsafe getPeers newBlunds (Just pModifier)
                 case getOldestFirst suffix of
                     [] -> GS.getTip
                     (genesis:xs) -> do
@@ -541,18 +584,19 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
 -- and ensured that chain is based on our tip. Blocks will be applied
 -- per-epoch, calculating lrc when needed if flag is set.
 applyBlocks
-    :: forall ssc m . (WorkMode ssc m, SscWorkersClass ssc)
-    => Bool -> Maybe PollModifier -> OldestFirst NE (Blund ssc) -> m ()
-applyBlocks calculateLrc pModifier blunds = do
+    :: forall ssc m.
+       (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
+    => m (Set NodeId) -> Bool -> Maybe PollModifier -> OldestFirst NE (Blund ssc) -> m ()
+applyBlocks getPeers calculateLrc pModifier blunds = do
     when (isLeft prefixHead && calculateLrc) $
         -- Hopefully this lrc check is never triggered -- because
         -- caller most definitely should have computed lrc to verify
         -- the sequence beforehand.
-        lrcSingleShotNoLock (prefixHead ^. epochIndexL)
-    applyBlocksUnsafe prefix pModifier
+        lrcSingleShotNoLock getPeers (prefixHead ^. epochIndexL)
+    applyBlocksUnsafe getPeers prefix pModifier
     case getOldestFirst suffix of
         []           -> pass
-        (genesis:xs) -> applyBlocks calculateLrc pModifier (OldestFirst (genesis:|xs))
+        (genesis:xs) -> applyBlocks getPeers calculateLrc pModifier (OldestFirst (genesis:|xs))
   where
     prefixHead = prefix ^. _Wrapped . _neHead . _1
     (prefix, suffix) = spanEpoch blunds
@@ -567,30 +611,31 @@ applyBlocks calculateLrc pModifier blunds = do
 -- | Rollbacks blocks. Head must be the current tip.
 rollbackBlocks
     :: (WorkMode ssc m)
-    => NewestFirst NE (Blund ssc) -> m (Maybe Text)
-rollbackBlocks blunds = do
+    => m (Set NodeId) -> NewestFirst NE (Blund ssc) -> m (Maybe Text)
+rollbackBlocks getPeers blunds = do
     tip <- GS.getTip
     let firstToRollback = blunds ^. _Wrapped . _neHead . _1 . headerHashG
     if tip /= firstToRollback
     then pure $ Just $ tipMismatchMsg "rollback" tip firstToRollback
-    else rollbackBlocksUnsafe blunds $> Nothing
+    else rollbackBlocksUnsafe getPeers blunds $> Nothing
 
 -- | Rollbacks some blocks and then applies some blocks.
 applyWithRollback
-    :: (WorkMode ssc m, SscWorkersClass ssc)
-    => NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
+    :: (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
+    => m (Set NodeId)
+    -> NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
     -> OldestFirst NE (Block ssc)  -- ^ Blocks to apply
     -> m (Either Text HeaderHash)
-applyWithRollback toRollback toApply = reportingFatal version $ runExceptT $ do
+applyWithRollback getPeers toRollback toApply = reportingFatal getPeers version $ runExceptT $ do
     tip <- GS.getTip
     when (tip /= newestToRollback) $ do
         throwError (tipMismatchMsg "rollback in 'apply with rollback'" tip newestToRollback)
-    lift $ rollbackBlocksUnsafe toRollback
+    lift $ rollbackBlocksUnsafe getPeers toRollback
     tipAfterRollback <- GS.getTip
     when (tipAfterRollback /= expectedTipApply) $ do
         applyBack
         throwError (tipMismatchMsg "apply in 'apply with rollback'" tip newestToRollback)
-    lift (verifyAndApplyBlocks True toApply) >>= \case
+    lift (verifyAndApplyBlocks getPeers True toApply) >>= \case
         -- We didn't succeed to apply blocks, so will apply
         -- rollbacked back.
         Left err -> do
@@ -599,10 +644,9 @@ applyWithRollback toRollback toApply = reportingFatal version $ runExceptT $ do
         Right tipHash  -> pure tipHash
   where
     reApply = toOldestFirst toRollback
-    applyBack = lift $ applyBlocks True Nothing reApply
+    applyBack = lift $ applyBlocks getPeers True Nothing reApply
     expectedTipApply = toApply ^. _Wrapped . _neHead . prevBlockL
     newestToRollback = toRollback ^. _Wrapped . _neHead . _1 . headerHashG
-
 
 ----------------------------------------------------------------------------
 -- GenesisBlock creation
@@ -621,8 +665,8 @@ applyWithRollback toRollback toApply = reportingFatal version $ runExceptT $ do
 createGenesisBlock
     :: forall ssc m.
        WorkMode ssc m
-    => EpochIndex -> m (Maybe (GenesisBlock ssc))
-createGenesisBlock epoch = reportingFatal version $ do
+    => m (Set NodeId) -> EpochIndex -> m (Maybe (GenesisBlock ssc))
+createGenesisBlock getPeers epoch = reportingFatal getPeers version $ do
     leadersOrErr <-
         try $
         lrcActionOnEpochReason epoch "there are no leaders" LrcDB.getLeaders
@@ -630,7 +674,7 @@ createGenesisBlock epoch = reportingFatal version $ do
         Left UnknownBlocksForLrc ->
             Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
         Left err -> throwM err
-        Right leaders -> withBlkSemaphore (createGenesisBlockDo epoch leaders)
+        Right leaders -> withBlkSemaphore (createGenesisBlockDo getPeers epoch leaders)
 
 shouldCreateGenesisBlock :: EpochIndex -> EpochOrSlot -> Bool
 -- Genesis block for 0-th epoch is hardcoded.
@@ -644,11 +688,12 @@ shouldCreateGenesisBlock epoch headEpochOrSlot =
 createGenesisBlockDo
     :: forall ssc m.
        WorkMode ssc m
-    => EpochIndex
+    => m (Set NodeId)
+    -> EpochIndex
     -> SlotLeaders
     -> HeaderHash
     -> m (Maybe (GenesisBlock ssc), HeaderHash)
-createGenesisBlockDo epoch leaders tip = do
+createGenesisBlockDo getPeers epoch leaders tip = do
     let noHeaderMsg =
             "There is no header is DB corresponding to tip from semaphore"
     tipHeader <- maybeThrow (DBMalformed noHeaderMsg) =<< DB.getBlockHeader tip
@@ -659,11 +704,11 @@ createGenesisBlockDo epoch leaders tip = do
         | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
             let blk = mkGenesisBlock (Just tipHeader) epoch leaders
             let newTip = headerHash blk
-            runExceptT (usVerifyBlocks (one (toUpdateBlock (Left blk)))) >>= \case
+            runExceptT (usVerifyBlocks False (one (toUpdateBlock (Left blk)))) >>= \case
                 Left err -> reportFatalError $ pretty err
                 Right (pModifier, usUndos) -> do
                     let undo = def {undoUS = usUndos ^. _Wrapped . _neHead}
-                    applyBlocksUnsafe (one (Left blk, undo)) (Just pModifier) $>
+                    applyBlocksUnsafe getPeers (one (Left blk, undo)) (Just pModifier) $>
                         (Just blk, newTip)
         | otherwise = (Nothing, tip) <$ logShouldNot
     logShouldNot =
@@ -685,11 +730,12 @@ createGenesisBlockDo epoch leaders tip = do
 createMainBlock
     :: forall ssc m.
        (WorkMode ssc m)
-    => SlotId
+    => m (Set NodeId)
+    -> SlotId
     -> Maybe ProxySKEither
     -> m (Either Text (MainBlock ssc))
-createMainBlock sId pSk =
-    reportingFatal version $ withBlkSemaphore createMainBlockDo
+createMainBlock getPeers sId pSk =
+    reportingFatal getPeers version $ withBlkSemaphore createMainBlockDo
   where
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockDo tip = do
@@ -700,7 +746,7 @@ createMainBlock sId pSk =
             (_, False) ->
                 return (Left "this software can't create block", tip)
             (Nothing, True)  -> convertRes tip <$>
-                runExceptT (createMainBlockFinish sId pSk tipHeader)
+                runExceptT (createMainBlockFinish getPeers sId pSk tipHeader)
             (Just err, True) -> return (Left err, tip)
     convertRes oldTip (Left e) = (Left e, oldTip)
     convertRes _ (Right blk)   = (Right blk, headerHash blk)
@@ -721,11 +767,12 @@ canCreateBlock sId tipHeader
 createMainBlockFinish
     :: forall ssc m.
        (WorkMode ssc m)
-    => SlotId
+    => m (Set NodeId)
+    -> SlotId
     -> Maybe ProxySKEither
     -> BlockHeader ssc
     -> ExceptT Text m (MainBlock ssc)
-createMainBlockFinish slotId pSk prevHeader = do
+createMainBlockFinish getPeers slotId pSk prevHeader = do
     (localTxs, txUndo) <- getLocalTxsNUndo
     sscData <- sscGetLocalPayload @ssc slotId
     usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
@@ -745,15 +792,17 @@ createMainBlockFinish slotId pSk prevHeader = do
         Left err ->
             assertionFailed $ sformat ("We've created bad block: "%stext) err
         Right _ -> pass
-    (pModifier,verUndo) <- runExceptT (usVerifyBlocks (one (toUpdateBlock (Right blk)))) >>= \case
-        Left _ -> throwError "Couldn't get pModifier while creating MainBlock"
-        Right o -> pure o
-    let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs)
+    (pModifier, verUndo) <-
+        runExceptT (usVerifyBlocks False (one (toUpdateBlock (Right blk)))) >>= \case
+            Left _ ->
+                throwError "Couldn't get pModifier while creating MainBlock"
+            Right o -> pure o
+    let blockUndo = Undo (reverse $ foldl' prependToUndo [] sortedTxs)
                          pskUndo
                          (verUndo ^. _Wrapped . _neHead)
-    () <- (blockUndo `deepseq` blk) `deepseq` pure ()
+    evaluateNF_ (blockUndo, blk)
     logDebug "Created main block/undos, applying"
-    lift $ blk <$ applyBlocksUnsafe (one (Right blk, blockUndo)) (Just pModifier)
+    lift $ blk <$ applyBlocksUnsafe getPeers (one (Right blk, blockUndo)) (Just pModifier)
   where
     onBrokenTopo = throwError "Topology of local transactions is broken!"
     onNoUS = "can't obtain US payload to create block"

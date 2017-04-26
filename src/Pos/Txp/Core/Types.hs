@@ -1,6 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Core types of Txp component, i. e. types which actually form
 -- block or are used by other components.
@@ -13,7 +12,7 @@ module Pos.Txp.Core.Types
        , TxWitness
        , TxOutDistribution
        , TxDistribution (..)
-       , TxSigData
+       , TxSigData (..)
        , TxSig
 
        -- * Tx parts
@@ -51,8 +50,8 @@ import           Data.Hashable        (Hashable)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
-import           Formatting           (Format, bprint, build, formatToString, int, later,
-                                       sformat, (%))
+import           Formatting           (Format, bprint, build, builder, formatToString,
+                                       int, later, sformat, (%))
 import           Serokell.Util.Base16 (base16F)
 import           Serokell.Util.Text   (listBuilderJSON, listJson, listJsonIndent,
                                        pairBuilder)
@@ -62,12 +61,11 @@ import           Universum
 import           Pos.Binary.Class     (Bi)
 import           Pos.Binary.Core      ()
 import           Pos.Binary.Crypto    ()
-import           Pos.Core.Address     ()
-import           Pos.Core.Types       (Address (..), Coin, Script, StakeholderId, coinF,
-                                       mkCoin)
+import           Pos.Core             (Address (..), Coin, Script, StakeholderId,
+                                       addressHash, coinF, mkCoin)
 import           Pos.Crypto           (Hash, PublicKey, RedeemPublicKey, RedeemSignature,
                                        Signature, hash, shortHashF)
-import           Pos.Data.Attributes  (Attributes)
+import           Pos.Data.Attributes  (Attributes, areAttributesKnown)
 import           Pos.Merkle           (MerkleRoot, MerkleTree, mkMerkleTree)
 
 -- | Represents transaction identifier as 'Hash' of 'Tx'.
@@ -78,7 +76,17 @@ type TxId = Hash Tx
 ----------------------------------------------------------------------------
 
 -- | Data that is being signed when creating a TxSig.
-type TxSigData = (TxId, Word32, Hash (NonEmpty TxOut), Hash TxDistribution)
+data TxSigData = TxSigData
+    { -- | Input that we're signing (i.e. our signature certifies that we own
+      -- funds referenced by this input)
+      txSigInput     :: !TxIn
+      -- | Outputs of the transaction (i.e. our signature certifies that we
+      -- actually want the funds to go to these particular outputs)
+    , txSigOutsHash  :: !(Hash (NonEmpty TxOut))
+      -- | Distribution of the transaction
+    , txSigDistrHash :: !(Hash TxDistribution)
+    }
+    deriving (Eq, Show, Generic, Typeable)
 
 -- | 'Signature' of addrId.
 type TxSig = Signature TxSigData
@@ -98,7 +106,8 @@ instance Hashable TxInWitness
 
 instance Buildable TxInWitness where
     build (PkWitness key sig) =
-        bprint ("PkWitness: key = "%build%", sig = "%build) key sig
+        bprint ("PkWitness: key = "%build%", key hash = "%shortHashF%
+                ", sig = "%build) key (addressHash key) sig
     build (ScriptWitness val red) =
         bprint ("ScriptWitness: "%
                 "validator hash = "%shortHashF%", "%
@@ -196,18 +205,23 @@ type TxAux = (Tx, TxWitness, TxDistribution)
 
 instance Hashable Tx
 
-instance Buildable Tx where
-    build UnsafeTx {..} =
+instance Bi Tx => Buildable Tx where
+    build tx@(UnsafeTx{..}) =
         bprint
-            ("Transaction with inputs "%listJson%", outputs: "%listJson)
-            _txInputs _txOutputs
+            ("Tx "%build%
+             " with inputs "%listJson%", outputs: "%listJson % builder)
+            (hash tx) _txInputs _txOutputs attrsBuilder
+      where
+        attrs = _txAttributes
+        attrsBuilder | areAttributesKnown attrs = mempty
+                     | otherwise = bprint (", attributes: "%build) attrs
 
 -- | Specialized formatter for 'Tx'.
-txF :: Format r (Tx -> r)
+txF :: Bi Tx => Format r (Tx -> r)
 txF = build
 
 -- | Specialized formatter for 'Tx' with auxiliary data
-txaF :: Format r (TxAux -> r)
+txaF :: Bi Tx => Format r (TxAux -> r)
 txaF = later $ \(tx, w, d) ->
     bprint (build%"\n"%
             "witnesses: "%listJsonIndent 4%"\n"%

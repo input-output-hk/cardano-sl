@@ -1,15 +1,20 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | `Arbitrary` instances for using in tests and benchmarks
 
 module Pos.Crypto.Arbitrary
-       (
+       ( SharedSecrets (..)
        ) where
 
+import           Universum
+
+import           Control.Monad               (zipWithM)
 import qualified Data.ByteArray              as ByteArray
+import           Data.DeriveTH               (derive, makeArbitrary)
 import           Data.List.NonEmpty          (fromList)
 import           System.IO.Unsafe            (unsafePerformIO)
 import           Test.QuickCheck             (Arbitrary (..), choose, elements, generate,
                                               vector)
-import           Universum
 
 import           Pos.Binary.Class            (AsBinary (..), AsBinaryClass (..), Bi)
 import           Pos.Binary.Crypto           ()
@@ -21,13 +26,14 @@ import           Pos.Crypto.RedeemSigning    (RedeemPublicKey, RedeemSecretKey,
                                               RedeemSignature, redeemKeyGen, redeemSign)
 import           Pos.Crypto.SafeSigning      (PassPhrase)
 import           Pos.Crypto.SecretSharing    (EncShare, Secret, SecretProof,
-                                              SecretSharingExtra, Share, VssKeyPair,
-                                              VssPublicKey, decryptShare, genSharedSecret,
-                                              toVssPublicKey, vssKeyGen)
+                                              SecretSharingExtra, Share, Threshold,
+                                              VssKeyPair, VssPublicKey, decryptShare,
+                                              genSharedSecret, toVssPublicKey, vssKeyGen)
 import           Pos.Crypto.Signing          (ProxyCert, ProxySecretKey, ProxySignature,
                                               PublicKey, SecretKey, Signature, Signed,
                                               createProxyCert, createProxySecretKey,
                                               keyGen, mkSigned, proxySign, sign, toPublic)
+import           Pos.Crypto.SignTag          (SignTag (..))
 import           Pos.Util.Arbitrary          (Nonrepeating (..), arbitraryUnsafe,
                                               sublistN, unsafeMakePool)
 
@@ -41,6 +47,12 @@ the point of testing key generation when we use different generators in
 production and in tests?). So, we just generate lots of keys and seeds with
 'unsafePerformIO' and use them for everything.
 -}
+
+----------------------------------------------------------------------------
+-- SignTag
+----------------------------------------------------------------------------
+
+derive makeArbitrary ''SignTag
 
 ----------------------------------------------------------------------------
 -- Arbitrary signing keys
@@ -106,13 +118,13 @@ instance Nonrepeating VssPublicKey where
 ----------------------------------------------------------------------------
 
 instance (Bi a, Arbitrary a) => Arbitrary (Signature a) where
-    arbitrary = sign <$> arbitrary <*> arbitrary
+    arbitrary = sign <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance (Bi a, Arbitrary a) => Arbitrary (RedeemSignature a) where
     arbitrary = redeemSign <$> arbitrary <*> arbitrary
 
 instance (Bi a, Arbitrary a) => Arbitrary (Signed a) where
-    arbitrary = mkSigned <$> arbitrary <*> arbitrary
+    arbitrary = mkSigned <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance (Bi w, Arbitrary w) => Arbitrary (ProxyCert w) where
     arbitrary = liftA3 createProxyCert arbitrary arbitrary arbitrary
@@ -127,23 +139,39 @@ instance (Bi w, Arbitrary w, Bi a, Arbitrary a) =>
         issuerSk <- arbitrary
         w <- arbitrary
         let psk = createProxySecretKey issuerSk (toPublic delegateSk) w
-        proxySign delegateSk psk <$> arbitrary
+        proxySign SignProxySK delegateSk psk <$> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary secrets
 ----------------------------------------------------------------------------
 
-sharedSecrets :: [(SecretSharingExtra, Secret, SecretProof, [EncShare])]
+data SharedSecrets = SharedSecrets
+    { ssSecShare  :: SecretSharingExtra
+    , ssSecret    :: Secret
+    , ssSecProof  :: SecretProof
+    , ssShares    :: [(EncShare, Share)]
+    , ssThreshold :: Threshold
+    , ssVSSPKs    :: [VssPublicKey]
+    , ssPos       :: Int            -- This field is a valid, zero-based index in the
+                                    -- shares/keys lists.
+    } deriving (Show, Eq)
+
+sharedSecrets :: [SharedSecrets]
 sharedSecrets =
     unsafeMakePool "[generating shared secrets for tests...]" 50 $ do
         parties <- generate $ choose (1, length vssKeys)
         threshold <- generate $ choose (1, toInteger parties)
         vssKs <- generate $ sublistN parties vssKeys
-        genSharedSecret threshold (map toVssPublicKey $ fromList vssKs)
+        (ss, s, sp, encryptedShares) <-
+            genSharedSecret threshold (map toVssPublicKey $ fromList vssKs)
+        decryptedShares <- zipWithM decryptShare vssKs encryptedShares
+        let shares = zip encryptedShares decryptedShares
+            vssPKs = map toVssPublicKey vssKs
+        return $ SharedSecrets ss s sp shares threshold vssPKs (parties - 1)
 {-# NOINLINE sharedSecrets #-}
 
 instance Arbitrary SecretSharingExtra where
-    arbitrary = elements . fmap (view _1) $ sharedSecrets
+    arbitrary = elements . fmap ssSecShare $ sharedSecrets
 
 instance Arbitrary (AsBinary SecretSharingExtra) where
     arbitrary = asBinary @SecretSharingExtra <$> arbitrary
@@ -152,16 +180,16 @@ instance Arbitrary (AsBinary SecretProof) where
     arbitrary = asBinary @SecretProof <$> arbitrary
 
 instance Arbitrary Secret where
-    arbitrary = elements . fmap (view _2) $ sharedSecrets
+    arbitrary = elements . fmap ssSecret $ sharedSecrets
 
 instance Arbitrary (AsBinary Secret) where
     arbitrary = asBinary @Secret <$> arbitrary
 
 instance Arbitrary SecretProof where
-    arbitrary = elements . fmap (view _3) $ sharedSecrets
+    arbitrary = elements . fmap ssSecProof $ sharedSecrets
 
 instance Arbitrary EncShare where
-    arbitrary = elements . concatMap (view _4) $ sharedSecrets
+    arbitrary = elements . concatMap (fmap fst . ssShares) $ sharedSecrets
 
 instance Arbitrary (AsBinary EncShare) where
     arbitrary = asBinary @EncShare <$> arbitrary
@@ -171,6 +199,9 @@ instance Arbitrary Share where
 
 instance Arbitrary (AsBinary Share) where
     arbitrary = asBinary @Share <$> arbitrary
+
+instance Arbitrary SharedSecrets where
+    arbitrary = elements sharedSecrets
 
 ----------------------------------------------------------------------------
 -- Arbitrary hashes

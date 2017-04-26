@@ -15,9 +15,8 @@ module Pos.Lrc.Class
 import           Universum
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Core.Types   (Coin)
+import           Pos.Core.Types   (CoinPortion)
 import           Pos.Lrc.Types    (FullRichmenData)
-
 
 ----------------------------------------------------------------------------
 -- Class
@@ -32,8 +31,9 @@ class Bi (RichmenData a) => RichmenComponent a where
     rcToData :: FullRichmenData -> RichmenData a
     -- | Tag to identify component (short bytestring).
     rcTag :: Proxy a -> ByteString
-    -- | Threshold for the richman. Argument is total system stake.
-    rcThreshold :: Proxy a -> Coin -> Coin
+    -- | Threshold used to deliminate richmen initially. Argument is
+    -- the total system stake.
+    rcInitialThreshold :: Proxy a -> CoinPortion
     -- | Whether to consider delegated stake.
     rcConsiderDelegated :: Proxy a -> Bool
 
@@ -46,4 +46,4 @@ someRichmenComponent
     :: forall c.
        RichmenComponent c
     => SomeRichmenComponent
-someRichmenComponent = SomeRichmenComponent (Proxy :: Proxy c)
+someRichmenComponent = SomeRichmenComponent (Proxy @c)

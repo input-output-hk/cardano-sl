@@ -6,18 +6,23 @@ import           Criterion.Main     (Benchmark, bench, defaultConfig, defaultMai
                                      env, whnf)
 import           Criterion.Types    (Config (..))
 import           Data.List.NonEmpty (NonEmpty ((:|)))
-import           Data.Maybe
 import           Test.QuickCheck    (generate)
 import           Universum
 
-import           Pos.Crypto         (SecretKey, hash, sign)
-import           Pos.Txp            (TxDistribution (..), TxId, TxOut, TxSig)
+import           Pos.Crypto         (SecretKey, SignTag (SignTxIn), hash, sign)
+import           Pos.Txp            (TxDistribution (..), TxId, TxIn (..), TxOut, TxSig,
+                                     TxSigData (..))
 import           Pos.Util           (arbitraryUnsafe)
 
 signTx :: (SecretKey, TxId, Word32, NonEmpty TxOut) -> TxSig
-signTx (sk, thash, tidx, touts) = sign sk (thash, tidx, hash touts, hash distr)
+signTx (sk, thash, tidx, touts) = sign SignTxIn sk txSigData
   where
     distr = TxDistribution ([] :| replicate (length touts - 1) [])
+    txSigData = TxSigData
+        { txSigInput = TxIn thash tidx
+        , txSigOutsHash = hash touts
+        , txSigDistrHash = hash distr
+        }
 
 txSignBench :: Benchmark
 txSignBench = env genArgs $ bench "Transactions signing" . whnf signTx

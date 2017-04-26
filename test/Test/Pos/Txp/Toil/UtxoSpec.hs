@@ -11,7 +11,6 @@ import           Data.List             (zipWith3)
 import           Data.List.NonEmpty    (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty    as NE
 import qualified Data.Map              as M
-import           Data.Maybe            (isJust, isNothing)
 import qualified Data.Vector           as V (fromList, singleton, toList)
 import           Formatting            (build, int, sformat, shown, (%))
 import           Serokell.Util.Text    (listJsonIndent)
@@ -22,8 +21,8 @@ import           Test.QuickCheck       (arbitrary)
 import qualified Text.Regex.TDFA       as TDFA
 import qualified Text.Regex.TDFA.Text  as TDFA
 
-import           Pos.Crypto            (checkSig, fakeSigner, hash, toPublic, unsafeHash,
-                                        withHash)
+import           Pos.Crypto            (SignTag (SignTxIn), checkSig, fakeSigner, hash,
+                                        toPublic, unsafeHash, withHash)
 import           Pos.Data.Attributes   (mkAttributes)
 import           Pos.Script            (Script)
 import           Pos.Script.Examples   (alwaysSuccessValidator, badIntRedeemer,
@@ -35,7 +34,7 @@ import           Pos.Script.Examples   (alwaysSuccessValidator, badIntRedeemer,
 import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure (..),
                                         Tx (..), TxAux, TxDistribution (..), TxIn (..),
                                         TxInWitness (..), TxOut (..), TxOutAux (..),
-                                        TxSigData, TxWitness, Utxo, VTxContext (..),
+                                        TxSigData (..), TxWitness, Utxo, VTxContext (..),
                                         applyTxToUtxoPure, verifyTxUtxo, verifyTxUtxoPure)
 import           Pos.Types             (BadSigsTx (..), GoodTx (..), SmallBadSigsTx (..),
                                         SmallGoodTx (..), checkPubKeyAddress,
@@ -175,11 +174,16 @@ individualTxPropertyVerifier ((UnsafeTx {..}, dist), _, extendedInputs, txWits) 
     in hasGoodSum && hasGoodInputs
 
 signatureIsValid :: NonEmpty TxOutAux -> (Maybe (TxIn, TxOutAux), TxInWitness) -> Bool
-signatureIsValid outs (Just (TxIn {..}, (TxOutAux TxOut {..} _)), PkWitness {..}) =
-    let unwrapedOuts = map (\TxOutAux {..} -> (toaOut, toaDistr)) outs
-        (txOutputs, TxDistribution -> txDist) = NE.unzip unwrapedOuts
+signatureIsValid outs (Just (txIn, (TxOutAux TxOut {..} _)), PkWitness {..}) =
+    let unwrappedOuts = map (\TxOutAux {..} -> (toaOut, toaDistr)) outs
+        (txOutputs, TxDistribution -> txDist) = NE.unzip unwrappedOuts
+        txSigData = TxSigData
+            { txSigInput = txIn
+            , txSigOutsHash = hash txOutputs
+            , txSigDistrHash = hash txDist
+            }
     in checkPubKeyAddress twKey txOutAddress &&
-       checkSig twKey (txInHash, txInIndex, hash txOutputs, hash txDist) twSig
+       checkSig SignTxIn twKey txSigData twSig
 signatureIsValid _ _ = False
 
 signatureIsNotValid :: NonEmpty TxOutAux -> (Maybe (TxIn, TxOutAux), TxInWitness) -> Bool
@@ -424,7 +428,11 @@ scriptTxSpec = describe "script transactions" $ do
                 TxOut (makeScriptAddress val) (mkCoin 1)
             tx = UnsafeTx (one inp) (one randomPkOutput) $ mkAttributes ()
             txDistr = TxDistribution $ one mempty
-            txSigData = (txInHash inp, 0, hash (one randomPkOutput), hash txDistr)
+            txSigData = TxSigData
+                { txSigInput = TxIn (txInHash inp) 0
+                , txSigOutsHash = hash (one randomPkOutput)
+                , txSigDistrHash = hash txDistr
+                }
         in tryApplyTx utxo (tx, V.singleton (mkWit txSigData), txDistr)
 
 -- | Test that errors in a 'VerFailure' match given regexes.

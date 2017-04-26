@@ -140,13 +140,11 @@ mkCTx
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
     -> CTx
-mkCTx addr diff THEntry {..} meta =
-    -- placeholder, this functionality isn't implemented yet
-    let ctFrom = [] in
-    CTx {..}
+mkCTx addr diff THEntry {..} meta = CTx {..}
   where
     ctId = txIdToCTxId _thTxId
     outputs = toList $ _txOutputs _thTx
+    ctFrom = convertTxOutputs _thInputs
     ctTo = convertTxOutputs outputs
     isToItself = all ((== addr) . txOutAddress) outputs
     ctAmount = mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $

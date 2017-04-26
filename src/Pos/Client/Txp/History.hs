@@ -10,6 +10,7 @@ module Pos.Client.Txp.History
        , thTxId
        , thTx
        , thIsOutput
+       , thInputs
        , thDifficulty
 
        , TxHistoryAnswer(..)
@@ -48,8 +49,8 @@ import           Pos.Explorer              (eTxProcessTransaction)
 import           Pos.Txp                   (txProcessTransaction)
 #endif
 import           Pos.Txp                   (MonadUtxoRead, Tx (..), TxAux, TxDistribution,
-                                            TxId, TxOutAux (..), TxWitness, TxpHolder,
-                                            Utxo, UtxoStateT, applyTxToUtxo,
+                                            TxId, TxOut, TxOutAux (..), TxWitness,
+                                            TxpHolder, Utxo, UtxoStateT, applyTxToUtxo,
                                             evalUtxoStateT, filterUtxoByAddr, getLocalTxs,
                                             runUtxoStateT, topsortTxs, txOutAddress,
                                             utxoGet)
@@ -88,6 +89,7 @@ data TxHistoryEntry = THEntry
     { _thTxId       :: !TxId
     , _thTx         :: !Tx
     , _thIsOutput   :: !Bool
+    , _thInputs     :: ![TxOut]
     , _thDifficulty :: !(Maybe ChainDifficulty)
     } deriving (Show, Eq, Generic)
 
@@ -120,10 +122,11 @@ getRelatedTxs addr txs = fmap DL.toList $
     handleRelatedTx (isOutgoing, isToItself) (tx, txId, dist) = do
         applyTxToUtxo (WithHash tx txId) dist
         ether $ identity %= filterUtxoByAddr addr
+        inputs <- (map toaOut . catMaybes) <$> mapM utxoGet (toList $ _txInputs tx)
 
         -- Workaround to present A to A transactions as a pair of
         -- self-cancelling transactions in history
-        let resEntry = THEntry txId tx isOutgoing Nothing
+        let resEntry = THEntry txId tx isOutgoing inputs Nothing
         return $ if isToItself
             then DL.fromList [resEntry & thIsOutput .~ False, resEntry]
             else DL.singleton resEntry

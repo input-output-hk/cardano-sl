@@ -143,7 +143,7 @@ type Block =
 -- translations of footer
 
 type Footer =
-    { fooRessources :: String
+    { fooResources :: String
     , fooFollow :: String
     , fooLinks :: String
     , fooIohkSupportP :: String

@@ -175,13 +175,6 @@
       border-bottom: none;
     }
 
-    .middle-content {
-
-      &__search {
-        @extend .show;
-      }
-    }
-
     &__wrapper--vtop {
       .explorer-search {
         &-nav__item {

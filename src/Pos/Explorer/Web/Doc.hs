@@ -16,37 +16,30 @@ import           Control.Lens                   ((<>~))
 import qualified Data.ByteString.Char8          as BSC
 import qualified Data.HashMap.Strict            as HM
 import           Data.String                    as DS
-import           Data.Time                      (defaultTimeLocale,
-                                                 parseTimeOrError)
-import           Data.Time.Clock.POSIX          (POSIXTime,
-                                                 utcTimeToPOSIXSeconds)
+import           Data.Time                      (defaultTimeLocale, parseTimeOrError)
+import           Data.Time.Clock.POSIX          (POSIXTime, utcTimeToPOSIXSeconds)
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
-                                                 CAddressSummary (..),
-                                                 CBlockEntry (..),
-                                                 CBlockSummary (..), CHash (..),
-                                                 CTxBrief (..), CTxEntry (..),
-                                                 CTxId (..), CTxSummary (..),
-                                                 EpochIndex, mkCoin)
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
+                                                 CBlockEntry (..), CBlockSummary (..),
+                                                 CHash (..), CTxBrief (..), CTxEntry (..),
+                                                 CTxId (..), CTxSummary (..), EpochIndex,
+                                                 mkCCoin)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
+import           Pos.Types                      (mkCoin)
 import           Servant.API                    (Capture, QueryParam)
 import           Servant.Docs                   (API, Action, DocCapture (..),
                                                  DocIntro (..), DocNote (..),
                                                  DocQueryParam (..), Endpoint,
-                                                 ExtraInfo (..),
-                                                 ParamKind (Normal),
-                                                 ToCapture (toCapture),
-                                                 ToParam (toParam),
-                                                 ToSample (toSamples),
-                                                 apiEndpoints, apiIntros,
-                                                 capDesc, capSymbol, captures,
+                                                 ExtraInfo (..), ParamKind (Normal),
+                                                 ToCapture (toCapture), ToParam (toParam),
+                                                 ToSample (toSamples), apiEndpoints,
+                                                 apiIntros, capDesc, capSymbol, captures,
                                                  defAction, defEndpoint,
-                                                 defaultDocOptions, docsWith,
-                                                 introBody, introTitle,
-                                                 markdown, method, noteBody,
-                                                 notes, paramDesc, paramName,
-                                                 params, path, pretty)
+                                                 defaultDocOptions, docsWith, introBody,
+                                                 introTitle, markdown, method, noteBody,
+                                                 notes, paramDesc, paramName, params,
+                                                 path, pretty)
 import           Universum
 
 
@@ -144,7 +137,7 @@ sampleAddressSummary :: CAddressSummary
 sampleAddressSummary = CAddressSummary
     { caAddress = CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
     , caTxNum   = 0
-    , caBalance = mkCoin 0
+    , caBalance = mkCCoin $ mkCoin 0
     , caTxList  = []
     }
 --------------------------------------------------------------------------------
@@ -161,7 +154,7 @@ instance ToSample CBlockEntry where
             , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
             , cbeTimeIssued = Nothing
             , cbeTxNum      = 0
-            , cbeTotalSent  = mkCoin 0
+            , cbeTotalSent  = mkCCoin $ mkCoin 0
             , cbeSize       = 390
             , cbeRelayedBy  = Nothing
             }
@@ -176,7 +169,7 @@ instance ToSample CBlockSummary where
                                 , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
                                 , cbeTimeIssued = Nothing
                                 , cbeTxNum      = 0
-                                , cbeTotalSent  = mkCoin 0
+                                , cbeTotalSent  = mkCCoin $ mkCoin 0
                                 , cbeSize       = 390
                                 , cbeRelayedBy  = Nothing
                                 }
@@ -191,7 +184,7 @@ instance ToSample CTxEntry where
         sample = CTxEntry
             { cteId         = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
             , cteTimeIssued = posixTime
-            , cteAmount     = mkCoin 33333
+            , cteAmount     = mkCCoin $ mkCoin 33333
             }
 
 instance ToSample CTxBrief where
@@ -200,8 +193,10 @@ instance ToSample CTxBrief where
         sample = CTxBrief
             { ctbId         = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
             , ctbTimeIssued = posixTime
-            , ctbInputs     = [(CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv", mkCoin 33333)]
-            , ctbOutputs    = [(CAddress "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ", mkCoin 33333)]
+            , ctbInputs     = [(CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv", mkCCoin $ mkCoin 33333)]
+            , ctbOutputs    = [(CAddress "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ", mkCCoin $ mkCoin 33333)]
+            , ctbInputSum   = mkCCoin $ mkCoin 33333
+            , ctbOutputSum  = mkCCoin $ mkCoin 33333
             }
 
 instance ToSample CTxSummary where
@@ -213,11 +208,11 @@ instance ToSample CTxSummary where
             , ctsBlockTimeIssued = Nothing
             , ctsBlockHeight     = Just 11
             , ctsRelayedBy       = Nothing
-            , ctsTotalInput      = mkCoin 33333
-            , ctsTotalOutput     = mkCoin 33333
-            , ctsFees            = mkCoin 0
-            , ctsInputs          = [(CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv", mkCoin 33333)]
-            , ctsOutputs         = [(CAddress "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ", mkCoin 33333)]
+            , ctsTotalInput      = mkCCoin $ mkCoin 33333
+            , ctsTotalOutput     = mkCCoin $ mkCoin 33333
+            , ctsFees            = mkCCoin $ mkCoin 0
+            , ctsInputs          = [(CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv", mkCCoin $ mkCoin 33333)]
+            , ctsOutputs         = [(CAddress "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ", mkCCoin $ mkCoin 33333)]
             }
 
 instance ToSample CAddressSummary where

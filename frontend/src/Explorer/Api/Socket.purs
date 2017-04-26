@@ -14,6 +14,7 @@ import Data.String (Pattern(..), Replacement(..), replaceAll, split, trim)
 import Debug.Trace (traceAnyM, traceShowM)
 import Explorer.Api.Helper (decodeResult')
 import Explorer.Types.Actions (Action(..), ActionChannel)
+import Explorer.Util.Config (Protocol, protocolToString)
 import Pos.Explorer.Socket.Methods (ClientEvent, ServerEvent)
 import Pos.Explorer.Web.ClientTypes (CTxEntry, CTxId)
 import Signal.Channel (CHANNEL, send)
@@ -21,8 +22,9 @@ import Signal.Channel (CHANNEL, send)
 
 -- host
 
-socketHost :: Host
-socketHost = "http://localhost:8110"
+mkSocketHost :: Protocol -> String -> Host
+mkSocketHost protocol hostname =
+    (protocolToString protocol) <> "://" <> hostname <> ":8110"
 
 -- events
 

@@ -18,8 +18,7 @@ import           Data.Aeson                       (Value)
 import           Data.List                        (intersperse)
 import qualified Data.Set                         as S
 import           Data.Time.Units                  (Millisecond)
-import           Formatting                       (bprint, build, int, sformat, shown,
-                                                   string, (%))
+import           Formatting                       (bprint, build, int, sformat, (%))
 import qualified GHC.Exts                         as Exts
 import           Network.EngineIO                 (SocketId)
 import           Network.EngineIO.Snap            (snapAPI)

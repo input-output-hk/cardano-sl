@@ -5,14 +5,14 @@
 module Main where
 
 import           Data.Maybe          (fromJust)
+import           Formatting          (sformat, shown, (%))
 import           Mockable            (Production, currentTime)
-import           System.Wlog         (LoggerName, HasLoggerName, CanLog, logInfo)
-import           Formatting          ((%), sformat, shown)
+import           System.Wlog         (CanLog, HasLoggerName, LoggerName, logInfo)
 import           Universum
 
 import           Pos.Binary          ()
-import           Pos.Core.Types      (Timestamp (..))
 import qualified Pos.CLI             as CLI
+import           Pos.Core.Types      (Timestamp (..))
 import           Pos.Crypto          (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 #ifndef DEV_MODE
 import           Pos.Genesis         (genesisStakeDistribution)
@@ -20,8 +20,7 @@ import           Pos.Genesis         (genesisStakeDistribution)
 import           Pos.Genesis         (genesisUtxo)
 import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
                                       NodeParams (..), RealModeResources,
-                                      bracketResources, runNodeProduction,
-                                      stakesDistr)
+                                      bracketResources, runNodeProduction, stakesDistr)
 import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
 import           Pos.Types           (Timestamp (Timestamp))
 import           Pos.Update          (UpdateParams (..))

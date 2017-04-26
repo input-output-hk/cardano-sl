@@ -58,6 +58,5 @@ purescript-derive-lenses \
     --moduleImports "import Data.Time.NominalDiffTime (NominalDiffTime(..))" \
     --moduleImports "import Data.Maybe (Maybe)" \
     --moduleImports "import Data.Tuple (Tuple)" \
-    --moduleImports "import Pos.Core.Types (Coin)" \
-    --moduleImports "import Pos.Explorer.Web.ClientTypes (CAddress, CTxId)" \
+    --moduleImports "import Pos.Explorer.Web.ClientTypes (CCoin, CAddress, CTxId)" \
     > $DIR_VIEW_LENSES/View.purs

@@ -4,6 +4,7 @@ import Prelude
 import Control.Monad.Aff (attempt)
 import Control.Monad.Eff.Class (liftEff)
 import Control.SocketIO.Client (SocketIO, emit, emit')
+import Control.Comonad (extract)
 import DOM (DOM)
 import DOM.HTML.HTMLInputElement (select)
 import Data.Array (difference, (:))
@@ -31,8 +32,9 @@ import Network.HTTP.Affjax (AJAX)
 import Network.RemoteData (RemoteData(..), _Success)
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
-import Pux (EffModel, noEffects)
+import Pux (EffModel, noEffects, onlyEffects)
 import Pux.Router (navigateTo) as P
+import Control.Monad.Eff.Now (nowDateTime, NOW)
 
 
 update :: forall eff. Action -> State ->
@@ -40,6 +42,7 @@ update :: forall eff. Action -> State ->
     (dom :: DOM
     , ajax :: AJAX
     , socket :: SocketIO
+    , now :: NOW
     -- , console :: CONSOLE
     | eff
     )
@@ -362,6 +365,13 @@ update (ReceiveAddressSummary (Left error)) state =
     set loading false $
     set currentAddressSummary (Failure error) $
     over errors (\errors' -> (show error) : errors') state
+
+-- clock
+update UpdateClock state = onlyEffects state $
+    [ do
+         SetClock <<< extract <$> liftEff nowDateTime
+    ]
+update (SetClock date) state = noEffects $ state { now = date }
 
 -- routing
 

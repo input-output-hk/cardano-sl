@@ -16,6 +16,7 @@ module Pos.Delegation.Logic
 
        -- * Heavyweight psks handling
        , getProxyMempool
+       , clearProxyMemPool
        , PskHeavyVerdict (..)
        , processProxySKHeavy
        , delegationApplyBlocks
@@ -63,7 +64,7 @@ import qualified Pos.DB.Block                 as DB
 import qualified Pos.DB.DB                    as DB
 import qualified Pos.DB.GState                as GS
 import qualified Pos.DB.Misc                  as Misc
-import           Pos.Delegation.Class         (DelegationWrap, MonadDelegation,
+import           Pos.Delegation.Class         (DelegationWrap (..), MonadDelegation,
                                                askDelegationState, dwConfirmationCache,
                                                dwEpochId, dwMessageCache, dwProxySKPool,
                                                dwThisEpochPosted)
@@ -101,7 +102,7 @@ runDelegationStateAction action = do
     var <- askDelegationState
     atomically $ do
         startState <- readTVar var
-        (res,newState)<- Ether.runStateT action startState
+        (res, newState) <- Ether.runStateT action startState
         writeTVar var newState
         pure res
 
@@ -180,6 +181,19 @@ getProxyMempool = do
     let issuers = map pskIssuerPk sks
     toRollback <- catMaybes <$> mapM GS.getPSKByIssuer issuers
     pure (sks, toRollback)
+
+clearProxyMemPool
+    :: (MonadDB m, MonadDelegation m)
+    => m ()
+clearProxyMemPool = do
+    var <- askDelegationState
+    atomically $ modifyTVar' var resetData
+  where
+    resetData delegationWrap =
+        -- @volhovm is this correct or I must clear caches too?
+        delegationWrap {_dwProxySKPool = mempty,
+                        _dwThisEpochPosted = mempty
+                       }
 
 -- | Datatypes representing a verdict of heavy PSK processing.
 data PskHeavyVerdict

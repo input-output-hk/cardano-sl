@@ -28,6 +28,7 @@ module Pos.Wallet.Web.State.Acidic
        , GetHistoryCache (..)
        , CreateWallet (..)
        , AddAccount (..)
+       , AddRemovedAccount (..)
        , CreateWSet (..)
        , SetProfile (..)
        , SetWalletMeta (..)
@@ -99,6 +100,7 @@ makeAcidic ''WalletStorage
     , 'WS.createWallet
     , 'WS.createWSet
     , 'WS.addAccount
+    , 'WS.addRemovedAccount
     , 'WS.setProfile
     , 'WS.setWalletMeta
     , 'WS.setWSetMeta

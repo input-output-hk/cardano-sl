@@ -10,6 +10,7 @@ module Pos.Wallet.Web.State.State
        , closeState
 
        -- * Getters
+       , AccountLookupMode (..)
        , getProfile
        , getWalletAddresses
        , getWalletMetas
@@ -29,6 +30,7 @@ module Pos.Wallet.Web.State.State
        , testReset
        , createWallet
        , createWSet
+       , addRemovedAccount
        , addAccount
        , setProfile
        , setWalletMeta
@@ -59,7 +61,7 @@ import           Pos.Wallet.Web.ClientTypes   (CAccountAddress, CAddress, CProfi
 import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A
-import           Pos.Wallet.Web.State.Storage (WalletStorage)
+import           Pos.Wallet.Web.State.Storage (AccountLookupMode (..), WalletStorage)
 
 -- | MonadWalletWebDB stands for monad which is able to get web wallet state
 class Monad m => MonadWalletWebDB m where
@@ -106,11 +108,15 @@ getWSetMeta = queryDisk . A.GetWSetMeta
 getWSetMetas :: WebWalletModeDB m => m ([CWalletSetMeta])
 getWSetMetas = queryDisk A.GetWSetMetas
 
-getWalletAccounts :: WebWalletModeDB m => CWalletAddress -> m (Maybe [CAccountAddress])
-getWalletAccounts = queryDisk . A.GetWalletAccounts
+getWalletAccounts
+    :: WebWalletModeDB m
+    => AccountLookupMode -> CWalletAddress -> m (Maybe [CAccountAddress])
+getWalletAccounts mode = queryDisk . A.GetWalletAccounts mode
 
-doesAccountExist :: WebWalletModeDB m => CAccountAddress -> m Bool
-doesAccountExist = queryDisk . A.DoesAccountExist
+doesAccountExist
+    :: WebWalletModeDB m
+    => AccountLookupMode -> CAccountAddress -> m Bool
+doesAccountExist mode = queryDisk . A.DoesAccountExist mode
 
 getProfile :: WebWalletModeDB m => m (Maybe CProfile)
 getProfile = queryDisk A.GetProfile
@@ -138,6 +144,9 @@ createWSet addr = updateDisk . A.CreateWSet addr
 
 addAccount :: WebWalletModeDB m => CAccountAddress -> m ()
 addAccount addr = updateDisk $ A.AddAccount addr
+
+addRemovedAccount :: WebWalletModeDB m => CAccountAddress -> m ()
+addRemovedAccount addr = updateDisk $ A.AddAccount addr
 
 setWalletMeta :: WebWalletModeDB m => CWalletAddress -> CWalletMeta -> m ()
 setWalletMeta addr = updateDisk . A.SetWalletMeta addr

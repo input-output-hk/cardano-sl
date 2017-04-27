@@ -106,7 +106,8 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets (..),
                                                 WalletWebSockets, closeWSConnection,
                                                 getWalletWebSockets, initWSConnection,
                                                 notify, runWalletWS, upgradeApplicationWS)
-import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletWebDB,
+import           Pos.Wallet.Web.State          (AccountLookupMode (..),
+                                                MonadWalletWebDB (..), WalletWebDB,
                                                 addAccount, addOnlyNewTxMeta, addUpdate,
                                                 closeState, createWSet, createWallet,
                                                 doesAccountExist, getHistoryCache,
@@ -399,15 +400,15 @@ getAccount cAddr = do
 
 getWalletAccAddrsOrThrow
     :: WalletWebMode ssc m
-    => CWalletAddress -> m [CAccountAddress]
-getWalletAccAddrsOrThrow wCAddr =
-    getWalletAccounts wCAddr >>= maybeThrow noWallet
+    => AccountLookupMode -> CWalletAddress -> m [CAccountAddress]
+getWalletAccAddrsOrThrow mode wCAddr =
+    getWalletAccounts mode wCAddr >>= maybeThrow noWallet
   where
     noWallet =
         Internal $ sformat ("No wallet with address "%build%" found") wCAddr
 
 getAccounts :: WalletWebMode ssc m => CWalletAddress -> m [CAccount]
-getAccounts = getWalletAccAddrsOrThrow >=> mapM getAccount
+getAccounts = getWalletAccAddrsOrThrow Existing >=> mapM getAccount
 
 getWallet :: WalletWebMode ssc m => CWalletAddress -> m CWallet
 getWallet cAddr = do
@@ -478,7 +479,7 @@ sendExtended
 sendExtended sendActions cpassphrase srcWallet dstAccount coin curr title desc = do
     passphrase <- decodeCPassPhraseOrFail cpassphrase
     dstAddr <- decodeCAddressOrFail dstAccount
-    allAccounts <- getWalletAccAddrsOrThrow srcWallet
+    allAccounts <- getWalletAccAddrsOrThrow Existing srcWallet
     distr@(remaining, spendings) <- selectSrcAccounts coin allAccounts
     logDebug $ buildDistribution distr
     mRemTx <- mkRemainingTx remaining
@@ -569,7 +570,7 @@ getHistory
        (SscHelpersClass ssc, WalletWebMode ssc m)
     => CWalletAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
 getHistory wAddr skip limit = do
-    cAccAddrs <- getWalletAccAddrsOrThrow wAddr
+    cAccAddrs <- getWalletAccAddrsOrThrow Ever wAddr
     accAddrs <- forM cAccAddrs (decodeCAddressOrFail . caaAddress)
     cHistory <-
         do  (minit, cachedTxs) <- transCache <$> getHistoryCache wAddr
@@ -690,12 +691,11 @@ deleteWSet wsAddr = do
         sformat ("Error while deleting wallet set: "%stext) err
 
 deleteWallet :: WalletWebMode ssc m => CWalletAddress -> m ()
-deleteWallet wAddr = do
-    mapM_ deleteAccount =<< getWalletAccAddrsOrThrow wAddr
-    removeWallet wAddr
+deleteWallet = removeWallet
 
-deleteAccount :: WalletWebMode ssc m => CAccountAddress -> m ()
-deleteAccount = removeAccount
+-- TODO: to add when necessary
+-- deleteAccount :: WalletWebMode ssc m => CAccountAddress -> m ()
+-- deleteAccount = removeAccount
 
 -- NOTE: later we will have `isValidAddress :: CCurrency -> CAddress -> m Bool` which should work for arbitrary crypto
 isValidAddress :: WalletWebMode ssc m => Text -> CCurrency -> m Bool
@@ -952,7 +952,7 @@ genUniqueAccountAddress
     -> m CAccountAddress
 genUniqueAccountAddress passphrase wCAddr@CWalletAddress{..} =
     generateUnique (mkAccount . nonHardenedOnly)
-                   doesAccountExist
+                   (doesAccountExist Ever)
   where
     mkAccount caaAccountIndex = do
         (address, _) <- deriveAccountSK passphrase wCAddr caaAccountIndex

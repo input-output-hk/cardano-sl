@@ -103,6 +103,7 @@ import           Pos.Util                   (Some (Some), inAssertMode, maybeThr
                                              neZipWith3, spanSafe, _neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
                                              toNewestFirst, toOldestFirst)
+import           Pos.Util.LogSafe           (logDebugS, logInfoS)
 import           Pos.WorkMode               (WorkMode)
 
 ----------------------------------------------------------------------------
@@ -722,7 +723,7 @@ createMainBlock sId pSk =
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockDo tip = do
         tipHeader <- DB.getTipBlockHeader
-        logInfo $ sformat msgFmt tipHeader
+        logInfoS $ sformat msgFmt tipHeader
         canWrtUs <- usCanCreateBlock
         case (canCreateBlock sId tipHeader, canWrtUs) of
             (_, False) ->
@@ -780,7 +781,7 @@ createMainBlockFinish slotId pSk prevHeader = do
                          pskUndo
                          (verUndo ^. _Wrapped . _neHead)
     () <- (blockUndo `deepseq` blk) `deepseq` pure ()
-    logDebug "Created main block/undos, applying"
+    logDebugS "Created main block/undos, applying"
     lift $ blk <$ applyBlocksUnsafe (one (Right blk, blockUndo)) (Just pModifier)
   where
     onBrokenTopo = throwError "Topology of local transactions is broken!"

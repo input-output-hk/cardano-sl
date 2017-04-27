@@ -60,7 +60,8 @@ import           Pos.Core                      (Address (..), Coin, addressF,
                                                 unsafeCoinPortionFromDouble,
                                                 unsafeSubCoin)
 import           Pos.Crypto                    (EncryptedSecretKey, PassPhrase,
-                                                aesDecrypt, deriveAesKeyBS,
+                                                aesDecrypt, changeEncPassphrase,
+                                                checkPassMatches, deriveAesKeyBS,
                                                 deriveHDPassphrase, deriveHDSecretKey,
                                                 emptyPassphrase, encToPublic, fakeSigner,
                                                 hash, noPassEncrypt,
@@ -96,8 +97,9 @@ import           Pos.Wallet.Web.ClientTypes    (Acc, CAccount (..), CAccountAddr
                                                 CWalletInit (..), CWalletMeta (..),
                                                 CWalletRedeem (..), CWalletSet (..),
                                                 CWalletSetInit (..), CWalletSetMeta (..),
-                                                NotifyEvent (..), SyncProgress (..), WS,
-                                                addressToCAddress, cAddressToAddress,
+                                                MCPassPhrase, NotifyEvent (..),
+                                                SyncProgress (..), WS, addressToCAddress,
+                                                cAddressToAddress,
                                                 cPassPhraseToPassPhrase, mkCCoin, mkCTx,
                                                 mkCTxId, toCUpdateInfo, txContainsTitle,
                                                 txIdToCTxId, walletAddrByAccount)
@@ -113,11 +115,12 @@ import           Pos.Wallet.Web.State          (AccountLookupMode (..),
                                                 doesAccountExist, getHistoryCache,
                                                 getNextUpdate, getProfile, getTxMeta,
                                                 getWSetAddresses, getWSetMeta,
-                                                getWalletAccounts, getWalletAddresses,
-                                                getWalletMeta, getWalletState, openState,
-                                                removeAccount, removeNextUpdate,
-                                                removeWSet, removeWallet, runWalletWebDB,
-                                                setProfile, setWalletMeta,
+                                                getWSetPassLU, getWalletAccounts,
+                                                getWalletAddresses, getWalletMeta,
+                                                getWalletState, openState, removeAccount,
+                                                removeNextUpdate, removeWSet,
+                                                removeWallet, runWalletWebDB, setProfile,
+                                                setWSetPassLU, setWalletMeta,
                                                 setWalletTransactionMeta, testReset,
                                                 updateHistoryCache)
 import           Pos.Web.Server                (serveImpl)
@@ -191,7 +194,9 @@ walletServer sendActions nat = do
     (`enter` servantHandlers @ssc sendActions') <$> nat
   where
     insertAddressMeta cAddr = do
-        getWSetMeta cAddr >>= createWSet cAddr . fromMaybe def
+        curTime <- liftIO getPOSIXTime
+        meta    <- getWSetMeta cAddr
+        createWSet cAddr (fromMaybe def meta) curTime
     createUserProfile = pure $ CProfile mempty
 
 ----------------------------------------------------------------------------
@@ -285,6 +290,8 @@ servantHandlers sendActions =
     :<|>
      apiImportKey
     :<|>
+     apiChangeWSetPassphrase
+    :<|>
 
      apiGetWallet
     :<|>
@@ -347,6 +354,7 @@ servantHandlers sendActions =
     apiNewWSet                  = (\a -> catchWalletError . newWSet a)
     apiRestoreWSet              = (\a -> catchWalletError . newWSet a)
     apiImportKey                = catchWalletError . importKey
+    apiChangeWSetPassphrase     = (\a b -> catchWalletError . changeWSetPassphrase a b)
     apiGetWallet                = catchWalletError . getWallet
     apiGetWallets               = catchWalletError . getWallets
     apiUpdateWallet             = (\a -> catchWalletError . updateWallet a)
@@ -423,7 +431,9 @@ getWSet :: WalletWebMode ssc m => CAddress WS -> m CWalletSet
 getWSet cAddr = do
     meta       <- getWSetMeta cAddr >>= maybeThrow noWSet
     walletsNum <- length <$> getWallets (Just cAddr)
-    pure $ CWalletSet cAddr meta walletsNum
+    hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKByAddr cAddr
+    passLU     <- getWSetPassLU cAddr >>= maybeThrow noWSet
+    pure $ CWalletSet cAddr meta walletsNum hasPass passLU
   where
     noWSet = Internal $
         sformat ("No wallet set with address "%build%" found") cAddr
@@ -448,7 +458,7 @@ getWSets :: WalletWebMode ssc m => m [CWalletSet]
 getWSets = getWSetAddresses >>= mapM getWSet
 
 decodeCPassPhraseOrFail
-    :: WalletWebMode ssc m => Maybe CPassPhrase -> m PassPhrase
+    :: WalletWebMode ssc m => MCPassPhrase -> m PassPhrase
 decodeCPassPhraseOrFail (Just cpass) =
     either (const . throwM $ Internal "Decoding of passphrase failed") return $
     cPassPhraseToPassPhrase cpass
@@ -659,7 +669,8 @@ createWSetSafe cAddr wsMeta = do
     wSetExists <- isJust <$> getWSetMeta cAddr
     when wSetExists $
         throwM $ Internal "Wallet set with that mnemonics already exists"
-    createWSet cAddr wsMeta
+    curTime <- liftIO getPOSIXTime
+    createWSet cAddr wsMeta curTime
     getWSet cAddr
 
 newWSet :: WalletWebMode ssc m => Maybe CPassPhrase -> CWalletSetInit -> m CWalletSet
@@ -696,6 +707,20 @@ deleteWallet = removeWallet
 -- TODO: to add when necessary
 -- deleteAccount :: WalletWebMode ssc m => CAccountAddress -> m ()
 -- deleteAccount = removeAccount
+
+changeWSetPassphrase
+    :: WalletWebMode ssc m
+    => MCPassPhrase -> CAddress WS -> MCPassPhrase -> m ()
+changeWSetPassphrase oldCPass wsAddr newCPass = do
+    oldPass <- decodeCPassPhraseOrFail oldCPass
+    newPass <- decodeCPassPhraseOrFail newCPass
+    oldSK   <- getSKByAddr wsAddr
+    newSK   <- maybeThrow badPass $ changeEncPassphrase oldPass newPass oldSK
+    keyNo   <- getAddrIdx wsAddr
+    modifySecretKey (fromIntegral keyNo) newSK
+    setWSetPassLU wsAddr =<< liftIO getPOSIXTime
+  where
+    badPass = Internal "Invalid old passphrase given"
 
 -- NOTE: later we will have `isValidAddress :: CCurrency -> CAddress -> m Bool` which should work for arbitrary crypto
 isValidAddress :: WalletWebMode ssc m => Text -> CCurrency -> m Bool

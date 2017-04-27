@@ -67,6 +67,14 @@ type WalletApi =
      :> ReqBody '[JSON] Text
      :> Post '[JSON] (Either WalletError CWalletSet)
     :<|>
+     "api"
+     :> "walletSets"
+     :> "password"
+     :> QueryParam "old" CPassPhrase
+     :> ReqBody '[JSON] (CAddress WS)
+     :> QueryParam "new" CPassPhrase
+     :> Post '[JSON] (Either WalletError ())
+    :<|>
      -------------------------------------------------------------------------
      -- Wallets
      -------------------------------------------------------------------------

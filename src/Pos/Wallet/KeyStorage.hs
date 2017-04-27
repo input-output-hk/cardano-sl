@@ -12,7 +12,7 @@ module Pos.Wallet.KeyStorage
        ) where
 
 import qualified Control.Concurrent.STM      as STM
-import           Control.Lens                (iso, lens, (%=), (<>=))
+import           Control.Lens                (iso, ix, lens, (%=), (.=), (<>=))
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Fix           (MonadFix)
@@ -62,9 +62,10 @@ type KeyData = STM.TVar UserSecret
 ----------------------------------------------------------------------
 
 class Monad m => MonadKeys m where
-    getPrimaryKey :: m (Maybe SecretKey)
-    getSecretKeys :: m [EncryptedSecretKey]
-    addSecretKey :: EncryptedSecretKey -> m ()
+    getPrimaryKey   :: m (Maybe SecretKey)
+    getSecretKeys   :: m [EncryptedSecretKey]
+    addSecretKey    :: EncryptedSecretKey -> m ()
+    modifySecretKey :: Word -> EncryptedSecretKey -> m ()
     deleteSecretKey :: Word -> m ()
 
     default getPrimaryKey :: (MonadTrans t, MonadKeys m', t m' ~ m) => m (Maybe SecretKey)
@@ -75,6 +76,9 @@ class Monad m => MonadKeys m where
 
     default addSecretKey :: (MonadTrans t, MonadKeys m', t m' ~ m) => EncryptedSecretKey -> m ()
     addSecretKey = lift . addSecretKey
+
+    default modifySecretKey :: (MonadTrans t, MonadKeys m', t m' ~ m) => Word -> EncryptedSecretKey -> m ()
+    modifySecretKey a = lift . modifySecretKey a
 
     default deleteSecretKey :: (MonadTrans t, MonadKeys m', t m' ~ m) => Word -> m ()
     deleteSecretKey = lift . deleteSecretKey
@@ -177,6 +181,7 @@ instance (MonadIO m) => MonadKeys (KeyStorage m) where
     addSecretKey sk =
         whenM (not . (`containsKey` sk) <$> use usKeys) $
             usKeys <>= [sk]
+    modifySecretKey (fromIntegral -> pos) newSK = usKeys . ix pos .= newSK
     deleteSecretKey (fromIntegral -> i) = usKeys %= deleteAt i
 
 -------------------------------------------------------------------------
@@ -208,6 +213,7 @@ instance (MonadIO m, MonadThrow m) =>
     addSecretKey sk =
         whenM (not . (`containsKey` sk) <$> use usKeys) $
             usKeys <>= [sk]
+    modifySecretKey (fromIntegral -> pos) newSK = usKeys . ix pos .= newSK
     deleteSecretKey (fromIntegral -> i) = usKeys %= deleteAt i
 
 -- | Derived instances for ancestors in monad stack

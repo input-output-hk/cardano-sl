@@ -11,6 +11,7 @@ module Pos.Wallet.Web.ClientTypes
       , CCurrency (..)
       , CHash (..)
       , CPassPhrase (..)
+      , MCPassPhrase
       , CProfile (..)
       , CPwHash
       , CTx (..)
@@ -34,6 +35,7 @@ module Pos.Wallet.Web.ClientTypes
       , CPostVendWalletRedeem (..)
       , CCoin
       , mkCCoin
+      , PassPhraseLU
       , CElectronCrashReport (..)
       , NotifyEvent (..)
       , WithDerivationPath (..)
@@ -169,6 +171,10 @@ mkCTx diff THEntry {..} meta = CTx {..}
 newtype CPassPhrase = CPassPhrase Text
     deriving (Eq, Generic)
 
+-- | This is most common use case for 'CPassPhrase', as there is a default
+-- value for it
+type MCPassPhrase = Maybe CPassPhrase
+
 instance Show CPassPhrase where
     show _ = "<pass phrase>"
 
@@ -230,6 +236,9 @@ newtype CCoin = CCoin
 
 mkCCoin :: Coin -> CCoin
 mkCCoin = CCoin . show . unsafeGetCoin
+
+-- | Passphrase last update time
+type PassPhraseLU = POSIXTime
 
 -- | A wallet can be used as personal or shared wallet
 data CWalletType
@@ -306,11 +315,13 @@ instance Default BackupPhrase where
 instance Default CWalletSetMeta where
     def = CWalletSetMeta "Personal Wallet Set" def
 
--- | Client Wallet (CW)
+-- | Client Wallet Set (CW)
 data CWalletSet = CWalletSet
     { cwsAddress       :: !(CAddress WS)
     , cwsWSetMeta      :: !CWalletSetMeta
     , cwsWalletsNumber :: !Int
+    , cwsHasPassphrase :: !Bool
+    , cwsPassphraseLU  :: !PassPhraseLU  -- last update time
     } deriving (Eq, Show, Generic)
 
 -- | Query data for wallet set creation

@@ -8,6 +8,8 @@ module Pos.Crypto.SafeSigning
        , SafeSigner
        , emptyPassphrase
        , noPassEncrypt
+       , checkPassMatches
+       , changeEncPassphrase
        , encToPublic
        , safeSign
        , safeToPublic
@@ -69,6 +71,19 @@ encToPublic (EncryptedSecretKey sk _) = PublicKey (CC.toXPub sk)
 -- | Re-wrap unencrypted secret key as an encrypted one
 noPassEncrypt :: Bi PassPhrase => SecretKey -> EncryptedSecretKey
 noPassEncrypt (SecretKey k) = mkEncSecret emptyPassphrase k
+
+checkPassMatches :: (Bi PassPhrase, Alternative f) => PassPhrase -> EncryptedSecretKey -> f ()
+checkPassMatches pp (EncryptedSecretKey _ pph) = guard (hash pp == pph)
+
+changeEncPassphrase
+    :: Bi PassPhrase
+    => PassPhrase
+    -> PassPhrase
+    -> EncryptedSecretKey
+    -> Maybe EncryptedSecretKey
+changeEncPassphrase oldPass newPass esk@(EncryptedSecretKey sk _) = do
+    checkPassMatches oldPass esk
+    return $ mkEncSecret newPass (undefined sk) -- TODO: to be implemented in cardano-crypto
 
 signRaw' :: Maybe SignTag
          -> PassPhrase
@@ -134,7 +149,7 @@ withSafeSigner
     -> m a
 withSafeSigner sk ppGetter action = do
     pp <- ppGetter
-    let mss = guard (hash pp == eskHash sk) $> SafeSigner sk pp
+    let mss = checkPassMatches pp sk $> SafeSigner sk pp
     action mss
 
 -- | We need this to be able to perform signing with unencrypted `SecretKey`s,

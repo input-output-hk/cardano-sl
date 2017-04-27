@@ -18,6 +18,7 @@ module Pos.Wallet.Web.State.State
        , getWalletAccounts
        , getWSetMetas
        , getWSetMeta
+       , getWSetPassLU
        , getWSetAddresses
        , doesAccountExist
        , getTxMeta
@@ -35,6 +36,7 @@ module Pos.Wallet.Web.State.State
        , setProfile
        , setWalletMeta
        , setWSetMeta
+       , setWSetPassLU
        , setWalletTransactionMeta
        , setWalletHistory
        , addOnlyNewTxMeta
@@ -57,7 +59,8 @@ import           Pos.Txp                      (Utxo)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Wallet.Web.ClientTypes   (CAccountAddress, CAddress, CProfile, CTxId,
                                                CTxMeta, CUpdateInfo, CWalletAddress,
-                                               CWalletMeta, CWalletSetMeta, WS)
+                                               CWalletMeta, CWalletSetMeta, PassPhraseLU,
+                                               WS)
 import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A
@@ -108,6 +111,9 @@ getWSetMeta = queryDisk . A.GetWSetMeta
 getWSetMetas :: WebWalletModeDB m => m ([CWalletSetMeta])
 getWSetMetas = queryDisk A.GetWSetMetas
 
+getWSetPassLU :: WebWalletModeDB m => CAddress WS -> m (Maybe PassPhraseLU)
+getWSetPassLU = queryDisk . A.GetWSetPassLU
+
 getWalletAccounts
     :: WebWalletModeDB m
     => AccountLookupMode -> CWalletAddress -> m (Maybe [CAccountAddress])
@@ -139,20 +145,23 @@ getHistoryCache = queryDisk . A.GetHistoryCache
 createWallet :: WebWalletModeDB m => CWalletAddress -> CWalletMeta -> m ()
 createWallet addr = updateDisk . A.CreateWallet addr
 
-createWSet :: WebWalletModeDB m => CAddress WS -> CWalletSetMeta -> m ()
-createWSet addr = updateDisk . A.CreateWSet addr
+createWSet :: WebWalletModeDB m => CAddress WS -> CWalletSetMeta -> PassPhraseLU -> m ()
+createWSet addr passLU = updateDisk . A.CreateWSet addr passLU
 
 addAccount :: WebWalletModeDB m => CAccountAddress -> m ()
 addAccount addr = updateDisk $ A.AddAccount addr
 
 addRemovedAccount :: WebWalletModeDB m => CAccountAddress -> m ()
-addRemovedAccount addr = updateDisk $ A.AddAccount addr
+addRemovedAccount addr = updateDisk $ A.AddRemovedAccount addr
 
 setWalletMeta :: WebWalletModeDB m => CWalletAddress -> CWalletMeta -> m ()
 setWalletMeta addr = updateDisk . A.SetWalletMeta addr
 
 setWSetMeta :: WebWalletModeDB m => CAddress WS -> CWalletSetMeta -> m ()
 setWSetMeta addr = updateDisk . A.SetWSetMeta addr
+
+setWSetPassLU :: WebWalletModeDB m => CAddress WS -> PassPhraseLU -> m ()
+setWSetPassLU addr = updateDisk . A.SetWSetPassLU addr
 
 setProfile :: WebWalletModeDB m => CProfile -> m ()
 setProfile = updateDisk . A.SetProfile

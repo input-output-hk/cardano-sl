@@ -298,10 +298,23 @@ instance ToParam (QueryParam "passphrase" CPassPhrase) where
         , _paramValues  =
             [ replicate 64 '0'  -- "000.." string of length 32 in base16 form
             ]
-        , _paramDesc    = "Passphrase to wallet"
+        , _paramDesc    = "Passphrase to wallet set"
         , _paramKind    = Normal
         }
 
+instance ToParam (QueryParam "old" CPassPhrase) where
+    toParam Proxy =
+        let param = toParam $ Proxy @(QueryParam "passphrase" CPassPhrase)
+        in  param { _paramName = "old"
+                  , _paramDesc = "Current passphrase to wallet set"
+                  }
+
+instance ToParam (QueryParam "new" CPassPhrase) where
+    toParam Proxy =
+        let param = toParam $ Proxy @(QueryParam "passphrase" CPassPhrase)
+        in  param { _paramName = "new"
+                  , _paramDesc = "New passphrase to wallet set"
+                  }
 
 ----------------------------------------------------------------------------
 -- Sample data
@@ -422,6 +435,8 @@ instance ToSample CWalletSet where
             { cwsAddress       = cWalletSetAddressSample
             , cwsWSetMeta      = CWalletSetMeta "Personal Wallet Set" backupPhrase
             , cwsWalletsNumber = 3
+            , cwsHasPassphrase = True
+            , cwsPassphraseLU  = 1493331655090351
             }
 
 instance ToSample CAccount where

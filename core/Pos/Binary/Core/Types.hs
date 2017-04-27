@@ -51,6 +51,10 @@ instance Bi T.SlotId where
         unless (inRange (0, epochSlots - 1) siSlot) $ fail errMsg
         return $ T.SlotId {..}
 
+instance Bi T.EpochOrSlot where
+    put (T.EpochOrSlot x) = put x
+    get = T.EpochOrSlot <$> get
+
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
 

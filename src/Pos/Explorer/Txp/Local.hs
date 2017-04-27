@@ -62,6 +62,7 @@ newtype NoExtra m a = NoExtra
 instance Monad m => MonadTxExtraRead (NoExtra m) where
     getTxExtra _ = pure Nothing
     getAddrHistory _ = pure $ NewestFirst []
+    getAddrBalance _ = pure Nothing
 
 eTxProcessTransaction
     :: ETxpLocalWorkMode m

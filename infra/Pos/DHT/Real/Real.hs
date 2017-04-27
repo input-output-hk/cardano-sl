@@ -12,7 +12,6 @@ import           Data.Binary               (decode)
 import qualified Data.ByteString.Char8     as B8 (unpack)
 import qualified Data.ByteString.Lazy      as BS
 import qualified Data.HashMap.Strict       as HM
-import           Data.List                 (sortBy)
 import           Formatting                (build, int, sformat, shown, (%))
 import           Mockable                  (Async, Catch, Mockable, MonadMockable,
                                             Promise, Throw, catch, catchAll, throw,
@@ -174,10 +173,9 @@ kademliaGetKnownPeers inst = do
         | null bucket = []
         | otherwise =
             let peers = filter ((< enhancedMessageTimeout) . snd) bucket in
-            if null peers then
-                map fst $ takeSafe enhancedMessageBroadcast $ sortBy (comparing snd) bucket
-            else
-                map fst peers
+            map fst $
+            takeSafe enhancedMessageBroadcast $
+            bool peers (sortWith snd bucket) (null peers)
     takeSafe :: Int -> [a] -> [a]
     takeSafe p a
         | length a <= p = a

@@ -35,7 +35,7 @@ config state = do
   urlSignal <- sampleUrl
   let routeSignal = urlSignal ~> Ex.UpdateView <<< match
   let clockSignal = every second ~> const Ex.UpdateClock
-  let reloadSignal = every (10.0 * second) ~> const Ex.ReloadSignal
+  let reloadSignal = every (10.0 * second) ~> const Ex.Reload
   -- socket
 --  actionChannel <- channel $ Ex.SocketConnected false
 --  let socketSignal = subscribe actionChannel :: Signal Ex.Action

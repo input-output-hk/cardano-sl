@@ -391,12 +391,8 @@ routeEffects Dashboard state =
     , effects:
         [ pure ScrollTop
         , pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock, SocketSubscription SubTx ]
-        , if not $ state ^. initialBlocksRequested
-          then pure RequestInitialBlocks
-          else pure NoOp
-        , if not $ state ^. initialTxsRequested
-          then pure RequestInitialTxs
-          else pure NoOp
+        , pure RequestInitialBlocks
+        , pure RequestInitialTxs
         ]
     }
 

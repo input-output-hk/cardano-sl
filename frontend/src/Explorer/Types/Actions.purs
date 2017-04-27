@@ -71,6 +71,8 @@ data Action
     -- clock
     | SetClock DateTime
     | UpdateClock
+    -- socket-io workaround
+    | ReloadSignal
     -- misc
     | NoOp
 

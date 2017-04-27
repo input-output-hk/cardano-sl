@@ -373,6 +373,9 @@ update UpdateClock state = onlyEffects state $
     ]
 update (SetClock date) state = noEffects $ state { now = date }
 
+-- socket-io workaround
+update ReloadSignal state = update (UpdateView state.route) state
+
 -- routing
 
 update (UpdateView route) state = routeEffects route (state { route = route })

@@ -99,6 +99,7 @@ translation =
         , txIncluded: "Bestand im Slot"
         , txRelayed: "Weitergabe per IP"
         , txEmpty: "Keine Transaktionen"
+        , txFees: "Transaktionsgebühr"
         , txNotFound: "Transaktion existiert nicht."
         }
     , block:

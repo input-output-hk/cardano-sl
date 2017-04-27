@@ -99,6 +99,7 @@ translation =
         , txIncluded: "Included In Slots"
         , txRelayed: "Relayed by IP"
         , txEmpty: "No transactions"
+        , txFees: "Transaction fee"
         , txNotFound: "Transaction does not exist."
         }
     , block:

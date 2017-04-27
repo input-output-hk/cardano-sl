@@ -75,7 +75,7 @@ processGenesisBlock epoch = do
     let threshold = applyCoinPortion bvdUpdateSoftforkThd totalStake
     -- Then we take all confirmed BlockVersions and check softfork
     -- resolution rule for them.
-    confirmed <- getConfirmedBVStates
+    confirmed <- getCompetingBVStates
     logConfirmedBVStates confirmed
     toAdoptList <- catMaybes <$> mapM (checkThreshold threshold) confirmed
     logWhichCanBeAdopted $ map fst toAdoptList
@@ -103,7 +103,7 @@ processGenesisBlock epoch = do
             note (PollInternalError "no winning block") bvsLastBlockStable
         adoptBlockVersion winningBlock bv
         filterBVAfterAdopt (fst <$> allConfirmed)
-        mapM_ moveUnstable =<< getConfirmedBVStates
+        mapM_ moveUnstable =<< getCompetingBVStates
     logConfirmedBVStates [] =
         logInfo ("We are processing genesis block, currently we don't have " <>
                 "competing block versions")

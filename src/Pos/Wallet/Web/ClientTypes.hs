@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
 -- This module is to be moved later anywhere else, just to have a
@@ -38,13 +37,13 @@ module Pos.Wallet.Web.ClientTypes
       , mkCTx
       , mkCTxId
       , txIdToCTxId
-      , ctTypeMeta
       , txContainsTitle
       , toCUpdateInfo
       ) where
 
 import           Universum
 
+import           Control.Arrow          ((&&&))
 import qualified Data.ByteString.Lazy   as LBS
 import           Data.Default           (Default, def)
 import           Data.Hashable          (Hashable (..))
@@ -62,7 +61,7 @@ import           Pos.Binary.Class       (decodeFull, encodeStrict)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core.Types         (ScriptVersion)
 import           Pos.Crypto             (PassPhrase, hashHexF)
-import           Pos.Txp.Core.Types     (Tx (..), TxId, txOutAddress, txOutValue)
+import           Pos.Txp.Core.Types     (Tx (..), TxId, TxOut, txOutAddress, txOutValue)
 import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
                                          Coin, SoftwareVersion, decodeTextAddress,
                                          sumCoins, unsafeGetCoin, unsafeIntegerToCoin)
@@ -70,6 +69,7 @@ import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes
                                          UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll        (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase  (BackupPhrase)
+
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty
@@ -109,7 +109,7 @@ instance Hashable CHash where
 -- | Client address
 newtype CAddress = CAddress CHash deriving (Show, Eq, Generic, Hashable, Buildable)
 
--- TODO: this is not complitely safe. If someone changes
+-- TODO: this is not completely safe. If someone changes
 -- implementation of Buildable Address. It should be probably more
 -- safe to introduce `class PSSimplified` that would have the same
 -- implementation has it is with Buildable Address but then person
@@ -131,6 +131,9 @@ mkCTxId = CTxId . CHash
 txIdToCTxId :: TxId -> CTxId
 txIdToCTxId = mkCTxId . sformat hashHexF
 
+convertTxOutputs :: [TxOut] -> [(CAddress, CCoin)]
+convertTxOutputs = map (addressToCAddress . txOutAddress &&& mkCCoin . txOutValue)
+
 mkCTx
     :: Address            -- ^ An address for which transaction info is forming
     -> ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
@@ -141,6 +144,8 @@ mkCTx addr diff THEntry {..} meta = CTx {..}
   where
     ctId = txIdToCTxId _thTxId
     outputs = toList $ _txOutputs _thTx
+    ctFrom = convertTxOutputs _thInputs
+    ctTo = convertTxOutputs outputs
     isToItself = all ((== addr) . txOutAddress) outputs
     ctAmount = mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
         filter ((|| isToItself) . xor _thIsOutput . (== addr) . txOutAddress) outputs
@@ -275,14 +280,16 @@ ctTypeMeta f (CTOut meta) = CTOut <$> f meta
 -- It includes meta data which are not part of Cardano, too
 -- (Flow type: transactionType)
 data CTx = CTx
-    { ctId            :: CTxId
-    , ctAmount        :: CCoin
-    , ctConfirmations :: Word
-    , ctType          :: CTType -- it includes all "meta data"
+    { ctId            :: !CTxId
+    , ctAmount        :: !CCoin -- contains what you'd expect in reasonable cases
+    , ctFrom          :: ![(CAddress, CCoin)]
+    , ctTo            :: ![(CAddress, CCoin)]
+    , ctConfirmations :: !Word
+    , ctType          :: !CTType -- it includes all "meta data"
     } deriving (Show, Generic, Typeable)
 
 ctType' :: Lens' CTx CTType
-ctType' f (CTx id amount cf tp) = CTx id amount cf <$> f tp
+ctType' f (CTx id amount from to cf tp) = CTx id amount from to cf <$> f tp
 
 txContainsTitle :: Text -> CTx -> Bool
 txContainsTitle search = isInfixOf (toLower search) . toLower . ctmTitle . view (ctType' . ctTypeMeta)

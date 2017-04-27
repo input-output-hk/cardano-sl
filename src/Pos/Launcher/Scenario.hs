@@ -74,7 +74,7 @@ runNode' res plugins' = ActionSpec $ \vI sendActions -> do
 
     -- Instead of sleeping forever, we wait until graceful shutdown
     waitForWorkers (allWorkersCount @ssc @m)
-    liftIO $ exitWith (ExitFailure 20)
+    exitWith (ExitFailure 20)
   where
     -- FIXME shouldn't this kill the whole program?
     reportHandler (SomeException e) = do

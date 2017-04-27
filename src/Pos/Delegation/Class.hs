@@ -11,21 +11,22 @@ module Pos.Delegation.Class
        , dwProxySKPool
        , dwEpochId
        , dwThisEpochPosted
-       , MonadDelegation (..)
+       , MonadDelegation
+       , askDelegationState
        ) where
 
-import           Control.Concurrent.STM    (TVar)
-import           Control.Lens              (makeLenses)
-import           Control.Monad.Trans.Class (MonadTrans)
-import           Data.Default              (Default (def))
-import qualified Data.HashMap.Strict       as HM
-import qualified Data.HashSet              as HS
-import           Data.Time.Clock           (UTCTime)
+import           Control.Concurrent.STM       (TVar)
+import           Control.Lens                 (makeLenses)
+import qualified Control.Monad.Ether.Implicit as Ether
+import           Data.Default                 (Default (def))
+import qualified Data.HashMap.Strict          as HM
+import qualified Data.HashSet                 as HS
+import           Data.Time.Clock              (UTCTime)
 import           Universum
 
-import           Pos.Crypto                (PublicKey)
-import           Pos.Delegation.Types      (SendProxySK)
-import           Pos.Types                 (EpochIndex, ProxySKHeavy, ProxySKLight)
+import           Pos.Crypto                   (PublicKey)
+import           Pos.Delegation.Types         (SendProxySK)
+import           Pos.Types                    (EpochIndex, ProxySKHeavy, ProxySKLight)
 
 ---------------------------------------------------------------------------
 -- Delegation in-memory data
@@ -63,14 +64,7 @@ instance Default DelegationWrap where
 -- we're locking on the whole delegation wrap at once. Locking on
 -- independent components is better in performance, so there's a place
 -- for optimization here.
-class (Monad m) => MonadDelegation m where
-    askDelegationState :: m (TVar DelegationWrap)
-    -- ^ Retrieves 'TVar' on 'DelegationWrap'
+type MonadDelegation = Ether.MonadReader (TVar DelegationWrap)
 
-    default askDelegationState
-        :: (MonadTrans t, MonadDelegation m', t m' ~ m) => m (TVar DelegationWrap)
-    askDelegationState = lift askDelegationState
-    -- ^ Default implementation for 'MonadTrans'
-
-instance MonadDelegation m => MonadDelegation (ReaderT s m)
-instance MonadDelegation m => MonadDelegation (StateT s m)
+askDelegationState :: MonadDelegation m => m (TVar DelegationWrap)
+askDelegationState = Ether.ask

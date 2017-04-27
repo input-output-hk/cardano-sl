@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Runners in various modes.
 
@@ -12,7 +12,6 @@ module Pos.Launcher.Runner
        , runServiceMode
 
        -- * Exported for custom usage in CLI utils
-       , addDevListeners
        , setupLoggers
        , bracketDHTInstance
        , runServer
@@ -34,8 +33,8 @@ import           Data.Tagged                 (untag)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
 import           Mockable                    (CurrentTime, Mockable, MonadMockable,
-                                              Production (..), Throw, bracket,
-                                              finally, throw)
+                                              Production (..), Throw, bracket, finally,
+                                              throw)
 import           Network.QDisc.Fair          (fairQDisc)
 import           Network.Transport.Abstract  (Transport, closeTransport)
 import           Network.Transport.Concrete  (concrete)
@@ -46,41 +45,34 @@ import           Node                        (Node, NodeAction (..),
 import           Node.Util.Monitor           (setupMonitor, stopMonitor)
 import qualified STMContainers.Map           as SM
 import           System.Random               (newStdGen)
-import           System.Wlog                 (LoggerConfig (..), WithLogger,
-                                              logError, logInfo, productionB,
-                                              releaseAllHandlers, setupLogging,
-                                              usingLoggerName)
+import           System.Wlog                 (LoggerConfig (..), WithLogger, logError,
+                                              logInfo, productionB, releaseAllHandlers,
+                                              setupLogging, usingLoggerName)
 import           Universum                   hiding (bracket, finally)
 
 import           Pos.Binary                  ()
 import           Pos.CLI                     (readLoggerConfig)
-import           Pos.Communication           (ActionSpec (..), BiP (..),
-                                              InSpecs (..),
-                                              ListenersWithOut, OutSpecs (..),
-                                              PeerId (..), NodeId,
-                                              SysStartResponse, VerInfo (..),
-                                              allListeners,
-                                              hoistListenerSpec,
-                                              mergeLs,
-                                              stubListenerOneMsg,
-                                              unpackLSpecs)
+import           Pos.Communication           (ActionSpec (..), BiP (..), InSpecs (..),
+                                              ListenersWithOut, NodeId, OutSpecs (..),
+                                              PeerId (..), VerInfo (..), allListeners,
+                                              hoistListenerSpec, unpackLSpecs)
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import qualified Pos.Constants               as Const
-import           Pos.Context                 (ContextHolder (..), NodeContext (..),
+import           Pos.Context                 (ContextHolder, NodeContext (..),
                                               runContextHolder)
 import           Pos.Core                    (Timestamp ())
 import           Pos.Crypto                  (createProxySecretKey, encToPublic)
-import           Pos.DB                      (MonadDB (..), runDBHolder)
+import           Pos.DB                      (DBHolder, MonadDB, NodeDBs, runDBHolder)
 import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
 import           Pos.DB.GState               (getTip)
 import           Pos.DB.Misc                 (addProxySecretKey)
 import           Pos.Delegation.Holder       (runDelegationT)
-import           Pos.DHT.Model               (randomDHTKey, dhtNodeToNodeId)
+import           Pos.DHT.Model               (dhtNodeToNodeId, randomDHTKey)
 import           Pos.DHT.Real                (KademliaDHTInstance,
                                               KademliaDHTInstanceConfig (..),
-                                              startDHTInstance, lookupNode,
-                                              stopDHTInstance, KademliaParams (..),
-                                              kademliaGetKnownPeers, kdiHandle)
+                                              KademliaParams (..), kademliaGetKnownPeers,
+                                              kdiHandle, lookupNode, startDHTInstance,
+                                              stopDHTInstance)
 import           Pos.Genesis                 (genesisLeaders, genesisSeed)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
@@ -89,8 +81,8 @@ import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.Lrc.Fts                 (followTheSatoshiM)
 import           Pos.Slotting                (SlottingVar, mkNtpSlottingVar,
                                               runNtpSlotting, runSlottingHolder)
-import           Pos.Ssc.Class               (SscConstraint, SscNodeContext,
-                                              SscParams, sscCreateNodeContext)
+import           Pos.Ssc.Class               (SscConstraint, SscNodeContext, SscParams,
+                                              sscCreateNodeContext)
 import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp                     (mkTxpLocalData, runTxpHolder)
@@ -101,15 +93,14 @@ import           Pos.Explorer                (explorerTxpGlobalSettings)
 #else
 import           Pos.Txp                     (txpGlobalSettings)
 #endif
+import           Pos.Launcher.Resources      (RealModeResources (..), hoistResources)
 import           Pos.Update.Context          (UpdateContext (..))
 import qualified Pos.Update.DB               as GState
 import           Pos.Update.MemState         (newMemVar)
-import           Pos.Util                    (mappendPair)
 import           Pos.Util.UserSecret         (usKeys)
 import           Pos.Worker                  (allWorkersCount)
-import           Pos.WorkMode                (MinWorkMode, ProductionMode, RawRealMode,
-                                              ServiceMode, StatsMode)
-import           Pos.Launcher.Resources      (RealModeResources (..), hoistResources)
+import           Pos.WorkMode                (ProductionMode, RawRealMode, ServiceMode,
+                                              StatsMode)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -134,9 +125,9 @@ runRawRealMode peerId res np@NodeParams {..} sscnp listeners outSpecs (ActionSpe
     usingLoggerName lpRunnerTag $ do
        initNC <- untag @ssc sscCreateNodeContext sscnp
        modernDBs <- openNodeDBs npRebuildDb npDbPathM
-       let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc)
+       let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc) :: Int
        -- TODO [CSL-775] ideally initialization logic should be in scenario.
-       runDBHolder modernDBs . runCH @ssc allWorkersNum np initNC $ initNodeDBs
+       runCH @ssc allWorkersNum np initNC modernDBs $ initNodeDBs
        initTip <- runDBHolder modernDBs getTip
        stateM <- liftIO SM.newIO
        stateM_ <- liftIO SM.newIO
@@ -148,8 +139,7 @@ runRawRealMode peerId res np@NodeParams {..} sscnp listeners outSpecs (ActionSpe
        let runIO :: forall t . RawRealMode ssc t -> IO t
            runIO = runProduction .
                        usingLoggerName lpRunnerTag .
-                       runDBHolder modernDBs .
-                       runCH @ssc allWorkersNum np initNC .
+                       runCH @ssc allWorkersNum np initNC modernDBs .
                        runSlottingHolder slottingVar .
                        runNtpSlotting ntpSlottingVar .
                        ignoreSscHolder .
@@ -163,8 +153,7 @@ runRawRealMode peerId res np@NodeParams {..} sscnp listeners outSpecs (ActionSpe
 
        let stopMonitoring it = whenJust it stopMonitor
 
-       runDBHolder modernDBs .
-          runCH allWorkersNum np initNC .
+       runCH allWorkersNum np initNC modernDBs .
           runSlottingHolder slottingVar .
           runNtpSlotting ntpSlottingVar .
           (mkStateAndRunSscHolder @ssc) .
@@ -180,7 +169,7 @@ runRawRealMode peerId res np@NodeParams {..} sscnp listeners outSpecs (ActionSpe
 mkSlottingVar :: MonadDB m => Timestamp -> m SlottingVar
 mkSlottingVar sysStart = do
     sd <- GState.getSlottingData
-    (sysStart, ) <$> liftIO (newTVarIO sd)
+    (sysStart, ) <$> newTVarIO sd
 
 -- | ServiceMode runner.
 runServiceMode
@@ -241,11 +230,10 @@ runProductionMode
     -> (ActionSpec (ProductionMode ssc) a, OutSpecs)
     -> Production a
 runProductionMode peerId res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
-    runRawRealMode peerId (hoistResources getNoStatsT res) np sscnp listeners outSpecs . ActionSpec $
-        \vI sendActions -> getNoStatsT . action vI $ hoistSendActions lift getNoStatsT sendActions
+    runRawRealMode peerId (hoistResources getNoStatsT res) np sscnp listeners outSpecs $ ActionSpec
+        $ \vI sendActions -> getNoStatsT . action vI $ hoistSendActions lift getNoStatsT sendActions
   where
-    listeners = addDevListeners <$> commonListeners
-    commonListeners = getNoStatsT $
+    listeners = getNoStatsT $
         first (hoistListenerSpec getNoStatsT lift <$>) <$> allListeners (rmGetPeers res)
 
 -- | StatsMode runner.
@@ -262,53 +250,52 @@ runStatsMode
     -> Production a
 runStatsMode peerId res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
     statMap <- liftIO SM.newIO
-    let listeners = addDevListeners <$> commonListeners
-        commonListeners = runStatsT' statMap $
+    let listeners = runStatsT' statMap $
             first (hoistListenerSpec (runStatsT' statMap) lift <$>) <$> allListeners (rmGetPeers res)
     runRawRealMode peerId (hoistResources (runStatsT' statMap) res) np sscnp listeners outSpecs . ActionSpec $
-        \vI sendActions -> do
+        \vI sendActions ->
             runStatsT' statMap . action vI $ hoistSendActions lift (runStatsT' statMap) sendActions
 
 ----------------------------------------------------------------------------
 -- Lower level runners
 ----------------------------------------------------------------------------
 
-runCH :: forall ssc m a . (SscConstraint ssc, MonadDB m, Mockable CurrentTime m)
-      => Int -> NodeParams -> SscNodeContext ssc -> ContextHolder ssc m a -> m a
-runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
+runCH :: forall ssc m a . (SscConstraint ssc, MonadIO m, MonadCatch m, Mockable CurrentTime m)
+      => Int -> NodeParams -> SscNodeContext ssc -> NodeDBs -> DBHolder (ContextHolder ssc m) a -> m a
+runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     ncJLFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
-    ncBlkSemaphore <- liftIO newEmptyMVar
-    ucUpdateSemaphore <- liftIO newEmptyMVar
+    ncBlkSemaphore <- newEmptyMVar
+    ucUpdateSemaphore <- newEmptyMVar
 
     -- TODO [CSL-775] lrc initialization logic is duplicated.
-    epochDef <- LrcDB.getEpochDefault
-    lcLrcSync <- liftIO $ newTVarIO (LrcSyncData True epochDef)
+    epochDef <- runDBHolder db LrcDB.getEpochDefault
+    lcLrcSync <- newTVarIO (LrcSyncData True epochDef)
 
     let eternity = (minBound, maxBound)
         makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . encToPublic
         ownPSKs = npUserSecret ^.. usKeys._tail.each.to makeOwnPSK
-    forM_ ownPSKs addProxySecretKey
+    runDBHolder db $ for_ ownPSKs addProxySecretKey
 
-    ncUserSecret <- liftIO . newTVarIO $ npUserSecret
+    ncUserSecret <- newTVarIO $ npUserSecret
     ncBlockRetrievalQueue <- liftIO $
         newTBQueueIO Const.blockRetrievalQueueSize
     ncInvPropagationQueue <- liftIO $
         newTBQueueIO Const.propagationQueueSize
     ncRecoveryHeader <- liftIO newEmptyTMVarIO
     ncProgressHeader <- liftIO newEmptyTMVarIO
-    ncShutdownFlag <- liftIO $ newTVarIO False
+    ncShutdownFlag <- newTVarIO False
     ncShutdownNotifyQueue <- liftIO $ newTBQueueIO allWorkersNum
     ncStartTime <- liftIO Time.getCurrentTime
-    ncLastKnownHeader <- liftIO $ newTVarIO Nothing
+    ncLastKnownHeader <- newTVarIO Nothing
     ncGenesisLeaders <- if Const.isDevelopment
                         then pure $ genesisLeaders npCustomUtxo
                         else runBalanceIterBootstrap $
                              followTheSatoshiM genesisSeed genesisFakeTotalStake
     ucMemState <- newMemVar
-    -- TODO synchronize the NodeContext peers var with whatever system populates
-    -- it.
-    peersVar <- liftIO . newTVarIO $ mempty
+    -- TODO synchronize the NodeContext peers var with whatever system
+    -- populates it.
+    peersVar <- newTVarIO mempty
     let ctx =
             NodeContext
             { ncConnectedPeers = peersVar
@@ -323,7 +310,7 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
             , ncTxpGlobalSettings = txpGlobalSettings
 #endif
             , .. }
-    runContextHolder ctx act
+    runContextHolder ctx (runDBHolder db act)
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -348,16 +335,6 @@ setupLoggers params = setupLogging =<< getRealLoggerConfig params
 -- | RAII for node starter.
 loggerBracket :: LoggingParams -> IO a -> IO a
 loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
-
-addDevListeners
-    :: MinWorkMode m
-    => ListenersWithOut m
-    -> ListenersWithOut m
-addDevListeners ls =
-    if Const.isDevelopment
-    then mergeLs [ stubListenerOneMsg (Proxy :: Proxy SysStartResponse)
-                 ] `mappendPair` ls
-    else ls
 
 bracketDHTInstance
     :: BaseParams

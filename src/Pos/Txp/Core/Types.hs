@@ -1,6 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Core types of Txp component, i. e. types which actually form
 -- block or are used by other components.
@@ -51,8 +50,8 @@ import           Data.Hashable        (Hashable)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
-import           Formatting           (Format, bprint, build, formatToString, int, later,
-                                       sformat, (%))
+import           Formatting           (Format, bprint, build, builder, formatToString,
+                                       int, later, sformat, (%))
 import           Serokell.Util.Base16 (base16F)
 import           Serokell.Util.Text   (listBuilderJSON, listJson, listJsonIndent,
                                        pairBuilder)
@@ -66,7 +65,7 @@ import           Pos.Core             (Address (..), Coin, Script, StakeholderId
                                        addressHash, coinF, mkCoin)
 import           Pos.Crypto           (Hash, PublicKey, RedeemPublicKey, RedeemSignature,
                                        Signature, hash, shortHashF)
-import           Pos.Data.Attributes  (Attributes)
+import           Pos.Data.Attributes  (Attributes, areAttributesKnown)
 import           Pos.Merkle           (MerkleRoot, MerkleTree, mkMerkleTree)
 
 -- | Represents transaction identifier as 'Hash' of 'Tx'.
@@ -210,8 +209,12 @@ instance Bi Tx => Buildable Tx where
     build tx@(UnsafeTx{..}) =
         bprint
             ("Tx "%build%
-             " with inputs "%listJson%", outputs: "%listJson)
-            (hash tx) _txInputs _txOutputs
+             " with inputs "%listJson%", outputs: "%listJson % builder)
+            (hash tx) _txInputs _txOutputs attrsBuilder
+      where
+        attrs = _txAttributes
+        attrsBuilder | areAttributesKnown attrs = mempty
+                     | otherwise = bprint (", attributes: "%build) attrs
 
 -- | Specialized formatter for 'Tx'.
 txF :: Bi Tx => Format r (Tx -> r)

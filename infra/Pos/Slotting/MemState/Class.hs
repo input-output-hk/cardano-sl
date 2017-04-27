@@ -11,8 +11,8 @@ import           Pos.Core.Types      (EpochIndex, Timestamp)
 import           Pos.Slotting.Types  (SlottingData)
 
 -- | 'MonadSlotsData' provides access to data necessary for slotting to work.
-class Monad m =>
-      MonadSlotsData m where
+class Monad m => MonadSlotsData m where
+
     getSystemStart :: m Timestamp
 
     getSlottingData :: m SlottingData
@@ -37,6 +37,6 @@ class Monad m =>
         SlottingData -> m ()
     putSlottingData = lift . putSlottingData
 
-instance MonadSlotsData m => MonadSlotsData (ReaderT s m) where
-instance MonadSlotsData m => MonadSlotsData (ExceptT s m) where
-instance MonadSlotsData m => MonadSlotsData (StateT s m) where
+instance {-# OVERLAPPABLE #-}
+    (MonadSlotsData m, MonadTrans t, Monad (t m)) =>
+        MonadSlotsData (t m)

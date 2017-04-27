@@ -3,12 +3,9 @@
 -- | Applications of runners to scenarios.
 
 module Pos.Launcher.Launcher
-       (
-         -- * Node launchers.
+       ( -- * Node launchers.
          runNodeProduction
        , runNodeStats
-
-         -- * Utility launchers.
        ) where
 
 import           Mockable                   (Production)

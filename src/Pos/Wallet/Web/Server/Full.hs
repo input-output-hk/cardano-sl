@@ -13,6 +13,7 @@ import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
 import           Mockable                      (runProduction)
 import           Network.Wai                   (Application)
+import           Pos.Ssc.Extra.Class           (askSscMem)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import           System.Wlog                   (logInfo, usingLoggerName)
@@ -21,7 +22,7 @@ import           Universum
 import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState (..),
                                                 getAllStates, peerStateFromSnapshot,
                                                 runPeerStateHolder)
-import           Pos.Communication.Protocol    (SendActions, NodeId)
+import           Pos.Communication.Protocol    (NodeId, SendActions)
 import           Pos.Constants                 (isDevelopment)
 import           Pos.Context                   (NodeContext, getNodeContext,
                                                 runContextHolder)
@@ -30,22 +31,21 @@ import           Pos.DB                        (NodeDBs, getNodeDBs, runDBHolder
 import           Pos.Delegation.Class          (DelegationWrap, askDelegationState)
 import           Pos.Delegation.Holder         (runDelegationTFromTVar)
 import           Pos.Genesis                   (genesisDevSecretKeys)
-import           Pos.Slotting                  (NtpSlotting (..), NtpSlottingVar,
-                                                SlottingHolder (..), SlottingVar,
+import           Pos.Slotting                  (NtpSlottingVar, SlottingVar,
+                                                askNtpSlotting, askSlotting,
                                                 runNtpSlotting, runSlottingHolder)
 import           Pos.Ssc.Class                 (SscConstraint)
-import           Pos.Ssc.Extra                 (SscHolder (..), SscState, runSscHolder)
+import           Pos.Ssc.Extra                 (SscState, runSscHolder)
 import           Pos.Txp                       (GenericTxpLocalData, askTxpMem,
                                                 runTxpHolder)
 import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
                                                 walletServeImpl, walletServer,
                                                 walletServerOuts)
-import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar,
-                                                MonadWalletWebSockets (..),
-                                                WalletWebSockets, runWalletWS)
-import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletState,
-                                                WalletWebDB, runWalletWebDB)
+import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, WalletWebSockets,
+                                                getWalletWebSockets, runWalletWS)
+import           Pos.Wallet.Web.State          (WalletState, WalletWebDB, runWalletWebDB)
+import           Pos.Wallet.Web.State.State    (getWalletWebState)
 import           Pos.WorkMode                  (RawRealMode, TxpExtra_TMP)
 
 walletServeWebFull
@@ -73,19 +73,14 @@ nat :: WebHandler ssc (WebHandler ssc :~> Handler)
 nat = do
     ws         <- getWalletWebState
     tlw        <- askTxpMem
-    ssc        <- lift . lift . lift . lift . lift $ SscHolder ask
+    ssc        <- askSscMem
     delWrap    <- askDelegationState
-    psCtx      <- lift . lift $ getAllStates
+    psCtx      <- getAllStates
     nc         <- getNodeContext
     modernDB   <- getNodeDBs
     conn       <- getWalletWebSockets
-    {-
-    slotVar    <- lift . lift . lift . lift . lift . lift . lift . lift $ SlottingHolder ask
-    ntpSlotVar <- lift . lift . lift . lift . lift . lift . lift $ NtpSlotting ask
-    pure $ NT (convertHandler kinst nc modernDB tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar)
-    -}
-    slotVar    <- lift . lift . lift . lift . lift . lift . lift $ SlottingHolder ask
-    ntpSlotVar <- lift . lift . lift . lift . lift . lift $ NtpSlotting ask
+    slotVar    <- askSlotting
+    ntpSlotVar <- askNtpSlotting
     pure $ NT (convertHandler nc modernDB tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar)
 
 convertHandler
@@ -105,8 +100,8 @@ convertHandler
 convertHandler nc modernDBs tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar handler = do
     liftIO ( runProduction
            . usingLoggerName "wallet-api"
-           . runDBHolder modernDBs
            . runContextHolder nc
+           . runDBHolder modernDBs
            . runSlottingHolder slotVar
            . runNtpSlotting ntpSlotVar
            . runSscHolder ssc

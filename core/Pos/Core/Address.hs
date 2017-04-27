@@ -1,5 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
-
 module Pos.Core.Address
        ( Address (..)
        , AddrPkAttrs (..)
@@ -30,7 +28,7 @@ import qualified Crypto.Hash            as CryptoHash
 import           Data.ByteArray         (ByteArrayAccess)
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58,
                                          encodeBase58)
-import qualified Data.ByteString.Lazy   as BSL (fromStrict, toStrict)
+import qualified Data.ByteString.Lazy   as BSL (fromStrict)
 import           Data.Hashable          (Hashable (..))
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
@@ -59,7 +57,7 @@ addrAlphabet :: Alphabet
 addrAlphabet = bitcoinAlphabet
 
 addrToBase58 :: Bi Address => Address -> ByteString
-addrToBase58 = encodeBase58 addrAlphabet . BSL.toStrict . Bi.encode
+addrToBase58 = encodeBase58 addrAlphabet . Bi.encodeStrict
 
 instance Bi Address => Buildable Address where
     build = Buildable.build . decodeUtf8 @Text . addrToBase58

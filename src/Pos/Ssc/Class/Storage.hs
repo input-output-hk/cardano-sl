@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE RankNTypes          #-}
 
 -- | Global state of generic Shared Seed Calculation implementation.
@@ -56,4 +55,5 @@ class Ssc ssc =>
                             -> SscVerifier ssc ()
     -- | Calculate 'SharedSeed' for given epoch using 'SscGlobalState'.
     sscCalculateSeedQ :: EpochIndex
+                      -> RichmenStake
                       -> SscGlobalQuery ssc (Either (SscSeedError ssc) SharedSeed)

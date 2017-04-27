@@ -1,5 +1,5 @@
 name:                cardano-sl
-version:             0.4.1
+version:             0.4.3
 synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             MIT
@@ -40,6 +40,7 @@ library
                         Pos.Block.Arbitrary
                         Pos.Block.Logic
                         Pos.Block.Network
+                        Pos.Block.Pure
                         Pos.CLI
                         Pos.Context
                         Pos.CompileConfig
@@ -101,7 +102,6 @@ library
                         Pos.Types.Arbitrary.Unsafe
                         Pos.Types.Block
                         Pos.Types.Block.Types
-                        Pos.Types.Block.Functions
                         Pos.Types.Block.Instances
 
                         -- Update system
@@ -333,6 +333,7 @@ library
                         Pos.Update.Poll.Logic.Rollback
                         Pos.Update.Poll.Logic.Softfork
                         Pos.Update.Poll.Logic.Version
+                        Pos.Update.Poll.Pure
                         Pos.Update.Poll.RollTrans
                         Pos.Update.Poll.Trans
                         Pos.Update.Worker
@@ -375,10 +376,6 @@ library
                         Pos.Wallet.State.Storage
                         Pos.Wallet.State.Storage.Block
                         Pos.Wallet.State.Storage.Tx
-                        Pos.Wallet.Context
-                        Pos.Wallet.Context.Class
-                        Pos.Wallet.Context.Context
-                        Pos.Wallet.Context.Holder
                         Pos.Wallet.Update
                         Pos.Wallet.SscType
   if (flag(with-wallet) && flag(with-web))
@@ -433,6 +430,7 @@ library
                       , directory
                       , dlist
                       , ed25519
+                      , ether
                       , exceptions
                       , file-embed >= 0.0.10
                       , filelock >= 0.1.0.1
@@ -484,6 +482,7 @@ library
                       , time-units
                       , transformers
                       , transformers-base
+                      , transformers-lift
                       , turtle
                       , universum >= 0.1.11
                       , unordered-containers
@@ -533,6 +532,9 @@ library
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -602,6 +604,9 @@ executable cardano-node
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -659,6 +664,9 @@ executable cardano-analyzer
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -724,6 +732,9 @@ executable cardano-wallet
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -777,6 +788,9 @@ executable cardano-wallet-hs2purs
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -857,6 +871,9 @@ executable cardano-smart-generator
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -923,6 +940,9 @@ executable cardano-dht-keygen
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -963,6 +983,9 @@ executable cardano-web-docs
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -1010,6 +1033,9 @@ executable cardano-wallet-web-docs
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -1022,6 +1048,7 @@ executable cardano-wallet-web-docs
 executable cardano-swagger
   hs-source-dirs:      src/wallet-web-api-swagger
   main-is:             Main.hs
+  other-modules:       Description
   build-depends:       aeson
                      , base
                      , bytestring
@@ -1032,6 +1059,7 @@ executable cardano-swagger
                      , servant-multipart
                      , servant-swagger
                      , servant-swagger-ui
+                     , text
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
@@ -1046,6 +1074,8 @@ executable cardano-swagger
     ld-options:        -fuse-ld=gold
 
   default-extensions:   NoImplicitPrelude
+                        BangPatterns
+
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
@@ -1068,6 +1098,7 @@ executable cardano-checks
     ld-options:        -fuse-ld=gold
 
   default-extensions:  OverloadedStrings
+                       BangPatterns
 
 executable cardano-genupdate
   hs-source-dirs:      src/genupdate
@@ -1093,6 +1124,7 @@ executable cardano-genupdate
 
   default-extensions:  OverloadedStrings
                        NoImplicitPrelude
+                       BangPatterns
 
 executable cardano-keygen
   hs-source-dirs:      src/keygen
@@ -1113,7 +1145,7 @@ executable cardano-keygen
                      , text
                      , lens
                      , optparse-applicative >= 0.12
-                     , unordered-containers >= 0.2
+                     , unordered-containers
                      , bytestring >= 0.10
                      , random >= 1.1
                      , filepath
@@ -1148,6 +1180,9 @@ executable cardano-keygen
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
 
 executable cardano-launcher
   hs-source-dirs:      src/launcher
@@ -1181,6 +1216,8 @@ executable cardano-launcher
   default-extensions:  OverloadedStrings
                        RecordWildCards
                        TupleSections
+                       BangPatterns
+
   if os(windows)
     LD-Options:     -mwindows
 
@@ -1286,6 +1323,9 @@ test-suite cardano-test
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -1342,6 +1382,9 @@ benchmark cardano-bench-criterion
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

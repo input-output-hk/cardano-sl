@@ -1,5 +1,4 @@
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Pos.DHT.Real.Types
        ( KademliaDHTInstance (..)
@@ -7,19 +6,16 @@ module Pos.DHT.Real.Types
        , DHTHandle
        ) where
 
-import           Universum                 hiding (fromStrict, toStrict)
+import           Universum              hiding (fromStrict, toStrict)
 
-import           Control.Concurrent.STM    (TVar)
-import qualified Data.ByteString           as BS
-import           Data.ByteString.Lazy      (fromStrict, toStrict)
+import           Control.Concurrent.STM (TVar)
+import qualified Data.ByteString        as BS
+import           Data.ByteString.Lazy   (fromStrict, toStrict)
 
-import qualified Network.Kademlia          as K
+import qualified Network.Kademlia       as K
 
-import           Pos.Binary.Class          (Bi (..), decodeOrFail, encode)
-import           Pos.DHT.Model.Types       (DHTData, DHTKey, DHTNode (..))
-
-toBSBinary :: Bi b => b -> BS.ByteString
-toBSBinary = toStrict . encode
+import           Pos.Binary.Class       (Bi (..), decodeOrFail, encodeStrict)
+import           Pos.DHT.Model.Types    (DHTData, DHTKey, DHTNode (..))
 
 fromBSBinary :: Bi b => BS.ByteString -> Either String (b, BS.ByteString)
 fromBSBinary bs =
@@ -28,11 +24,11 @@ fromBSBinary bs =
         Right (rest, _, res) -> Right (res, toStrict rest)
 
 instance Bi DHTData => K.Serialize DHTData where
-  toBS = toBSBinary
+  toBS = encodeStrict
   fromBS = fromBSBinary
 
 instance Bi DHTKey => K.Serialize DHTKey where
-  toBS = toBSBinary
+  toBS = encodeStrict
   fromBS = fromBSBinary
 
 type DHTHandle = K.KademliaInstance DHTKey DHTData

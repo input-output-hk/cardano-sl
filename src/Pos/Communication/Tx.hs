@@ -1,5 +1,3 @@
-{-# LANGUAGE ConstraintKinds #-}
-
 -- | Functions for operating with transactions
 
 module Pos.Communication.Tx
@@ -21,13 +19,13 @@ import           Pos.Client.Txp.Balances    (MonadBalances (..))
 import           Pos.Client.Txp.History     (MonadTxHistory (..))
 import           Pos.Client.Txp.Util        (TxError, createRedemptionTx, createTx)
 import           Pos.Communication.Methods  (sendTx)
-import           Pos.Communication.Protocol (SendActions, NodeId)
+import           Pos.Communication.Protocol (NodeId, SendActions)
 import           Pos.Communication.Specs    (sendTxOuts)
 import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
                                              redeemToPublic, safeToPublic)
 import           Pos.DB.Limits              (MonadDBLimits)
 import           Pos.Txp.Core               (TxAux, TxOut (..), TxOutAux (..), txaF)
-import           Pos.Types                  (Address, makePubKeyAddress,
+import           Pos.Types                  (Address, Coin, makePubKeyAddress,
                                              makeRedeemAddress, mkCoin, unsafeAddCoin)
 import           Pos.WorkMode               (MinWorkMode)
 
@@ -70,9 +68,10 @@ submitRedemptionTx
     -> RedeemSecretKey
     -> [NodeId]
     -> Address
-    -> m (Either TxError TxAux)
+    -> m (Either TxError (TxAux, Address, Coin))
 submitRedemptionTx sendActions rsk na output = do
-    utxo <- getOwnUtxo $ makeRedeemAddress $ redeemToPublic rsk
+    let redeemAddress = makeRedeemAddress $ redeemToPublic rsk
+    utxo <- getOwnUtxo redeemAddress
     runExceptT $ do
         let addCoin c = unsafeAddCoin c . txOutValue . toaOut
             redeemBalance = foldl' addCoin (mkCoin 0) utxo
@@ -80,7 +79,8 @@ submitRedemptionTx sendActions rsk na output = do
                 one $
                 TxOutAux {toaOut = TxOut output redeemBalance, toaDistr = []}
         txw <- ExceptT $ return $ createRedemptionTx utxo rsk txouts
-        submitAndSave sendActions na txw
+        txAux <- submitAndSave sendActions na txw
+        pure (txAux, redeemAddress, redeemBalance)
 
 -- | Send the ready-to-use transaction
 submitTxRaw

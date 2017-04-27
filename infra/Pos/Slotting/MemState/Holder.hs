@@ -1,36 +1,25 @@
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Default implementation of 'MonadSlotsData' based on 'TVar'.
 
 module Pos.Slotting.MemState.Holder
-       ( SlottingHolder (..)
+       ( SlottingHolder
        , SlottingVar
        , runSlottingHolder
+       , MonadSlotting
+       , askSlotting
+       , askSlottingVar
+       , askSlottingTimestamp
        ) where
 
 import           Universum
 
-import           Control.Lens                (iso)
-import           Control.Monad.Base          (MonadBase (..))
-import           Control.Monad.Fix           (MonadFix)
-import           Control.Monad.STM           (retry)
-import           Control.Monad.Trans.Class   (MonadTrans)
-import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
-                                              MonadTransControl (..), StM,
-                                              defaultLiftBaseWith, defaultLiftWith,
-                                              defaultRestoreM, defaultRestoreT)
-import           Mockable                    (ChannelT, Counter, Distribution, Gauge,
-                                              MFunctor', Mockable (liftMockable), Promise,
-                                              SharedAtomicT, SharedExclusiveT, ThreadId,
-                                              liftMockableWrappedM)
-import           Pos.Core.Types              (Timestamp)
-import           Serokell.Util.Lens          (WrappedM (..))
-import           System.Wlog                 (CanLog, HasLoggerName)
+import qualified Control.Monad.Ether.Implicit as Ether
+import           Control.Monad.STM            (retry)
+import           Pos.Core.Types               (Timestamp)
 
-import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
-import           Pos.Slotting.Types          (SlottingData (sdPenultEpoch))
-import           Pos.Util.Context            (MonadContext (..))
+import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
+import           Pos.Slotting.Types           (SlottingData (sdPenultEpoch))
 
 ----------------------------------------------------------------------------
 -- Transformer
@@ -40,60 +29,18 @@ import           Pos.Util.Context            (MonadContext (..))
 type SlottingVar = (Timestamp, TVar SlottingData)
 
 -- | Monad transformer which provides 'SlottingData' using DB.
-newtype SlottingHolder m a = SlottingHolder
-    { getSlottingHolder :: ReaderT SlottingVar m a
-    } deriving ( Functor
-               , Applicative
-               , Monad
-               , MonadIO
-               , MonadTrans
-               , MonadFix
+type SlottingHolder = Ether.ReaderT SlottingVar
 
-               , MonadThrow
-               , MonadCatch
-               , MonadMask
+type MonadSlotting = Ether.MonadReader SlottingVar
 
-               , MonadBase base
+askSlotting :: MonadSlotting m => m SlottingVar
+askSlotting = Ether.ask
 
-               , HasLoggerName
-               , CanLog
-               )
+askSlottingVar :: MonadSlotting m => m (TVar SlottingData)
+askSlottingVar = snd <$> askSlotting
 
-----------------------------------------------------------------------------
--- Common instances used all over the code
-----------------------------------------------------------------------------
-
-instance MonadContext m => MonadContext (SlottingHolder m) where
-    type ContextType (SlottingHolder m) = ContextType m
-
-type instance ThreadId (SlottingHolder m) = ThreadId m
-type instance Promise (SlottingHolder m) = Promise m
-type instance SharedAtomicT (SlottingHolder m) = SharedAtomicT m
-type instance Counter (SlottingHolder m) = Counter m
-type instance Distribution (SlottingHolder m) = Distribution m
-type instance SharedExclusiveT (SlottingHolder m) = SharedExclusiveT m
-type instance Gauge (SlottingHolder m) = Gauge m
-type instance ChannelT (SlottingHolder m) = ChannelT m
-
-instance ( Mockable d m
-         , MFunctor' d (SlottingHolder m) (ReaderT SlottingVar m)
-         , MFunctor' d (ReaderT SlottingVar m) m
-         ) => Mockable d (SlottingHolder m) where
-    liftMockable = liftMockableWrappedM
-
-instance Monad m => WrappedM (SlottingHolder m) where
-    type UnwrappedM (SlottingHolder m) = ReaderT SlottingVar m
-    _WrappedM = iso getSlottingHolder SlottingHolder
-
-instance MonadTransControl SlottingHolder where
-    type StT SlottingHolder a = StT (ReaderT SlottingVar) a
-    liftWith = defaultLiftWith SlottingHolder getSlottingHolder
-    restoreT = defaultRestoreT SlottingHolder
-
-instance MonadBaseControl IO m => MonadBaseControl IO (SlottingHolder m) where
-    type StM (SlottingHolder m) a = ComposeSt SlottingHolder m a
-    liftBaseWith = defaultLiftBaseWith
-    restoreM     = defaultRestoreM
+askSlottingTimestamp :: MonadSlotting m => m Timestamp
+askSlottingTimestamp  = fst <$> askSlotting
 
 ----------------------------------------------------------------------------
 -- MonadSlotsData implementation
@@ -101,15 +48,15 @@ instance MonadBaseControl IO m => MonadBaseControl IO (SlottingHolder m) where
 
 instance MonadIO m =>
          MonadSlotsData (SlottingHolder m) where
-    getSystemStart = SlottingHolder (asks fst)
-    getSlottingData = atomically . readTVar =<< SlottingHolder (asks snd)
+    getSystemStart = askSlottingTimestamp
+    getSlottingData = atomically . readTVar =<< askSlottingVar
     waitPenultEpochEquals target = do
-        var <- SlottingHolder (asks snd)
+        var <- askSlottingVar
         atomically $ do
             penultEpoch <- sdPenultEpoch <$> readTVar var
             when (penultEpoch /= target) retry
     putSlottingData sd = do
-        var <- SlottingHolder (asks snd)
+        var <- askSlottingVar
         atomically $ do
             penultEpoch <- sdPenultEpoch <$> readTVar var
             when (penultEpoch < sdPenultEpoch sd) $ writeTVar var sd
@@ -120,4 +67,4 @@ instance MonadIO m =>
 
 -- | Run USHolder using existing 'SlottingVar'.
 runSlottingHolder :: SlottingVar -> SlottingHolder m a -> m a
-runSlottingHolder v = usingReaderT v . getSlottingHolder
+runSlottingHolder = flip Ether.runReaderT

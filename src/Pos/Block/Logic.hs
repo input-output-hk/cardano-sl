@@ -28,83 +28,91 @@ module Pos.Block.Logic
        , createMainBlock
        ) where
 
-import           Control.Lens               ((-=), (.=), _Wrapped)
-import           Control.Monad.Catch        (try)
-import           Control.Monad.Except       (ExceptT (ExceptT), MonadError (throwError),
-                                             runExceptT, withExceptT)
-import           Control.Monad.Trans.Maybe  (MaybeT (MaybeT), runMaybeT)
-import           Data.Default               (Default (def))
-import qualified Data.HashMap.Strict        as HM
-import           Data.List.NonEmpty         ((<|))
-import qualified Data.List.NonEmpty         as NE
-import qualified Data.Text                  as T
-import           Formatting                 (build, int, ords, sformat, stext, (%))
-import           Paths_cardano_sl           (version)
-import           Serokell.Data.Memory.Units (toBytes)
-import           Serokell.Util.Text         (listJson)
-import           Serokell.Util.Verify       (VerificationRes (..), formatAllErrors,
-                                             isVerSuccess, verResToMonadError)
-import           System.Wlog                (CanLog, HasLoggerName, logDebug, logInfo)
+import           Control.Lens                     ((-=), (.=), _Wrapped)
+import           Control.Monad.Catch              (try)
+import           Control.Monad.Except             (ExceptT (ExceptT),
+                                                   MonadError (throwError), runExceptT,
+                                                   withExceptT)
+import           Control.Monad.Trans.Maybe        (MaybeT (MaybeT), runMaybeT)
+import           Data.Default                     (Default (def))
+import qualified Data.HashMap.Strict              as HM
+import           Data.List.NonEmpty               ((<|))
+import qualified Data.List.NonEmpty               as NE
+import qualified Data.Text                        as T
+import           Formatting                       (build, int, ords, sformat, stext, (%))
+import           Paths_cardano_sl                 (version)
+import           Serokell.Data.Memory.Units       (toBytes)
+import           Serokell.Util.Text               (listJson)
+import           Serokell.Util.Verify             (VerificationRes (..), formatAllErrors,
+                                                   isVerSuccess, verResToMonadError)
+import           System.Wlog                      (CanLog, HasLoggerName, logDebug,
+                                                   logInfo)
 import           Universum
 
-import qualified Pos.Binary.Class           as Bi
-import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe,
-                                             toUpdateBlock, withBlkSemaphore,
-                                             withBlkSemaphore_)
-import           Pos.Block.Types            (Blund, Undo (..))
-import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,
-                                             epochSlots, lastKnownBlockVersion,
-                                             recoveryHeadersMessage, slotSecurityParam)
-import           Pos.Context                (NodeContext (ncNodeParams, ncTxpGlobalSettings),
-                                             getNodeContext, lrcActionOnEpochReason,
-                                             npSecretKey)
-import           Pos.Core                   (BlockVersion (..), EpochIndex, HeaderHash)
-import           Pos.Crypto                 (SecretKey, WithHash (WithHash), hash,
-                                             shortHashF)
-import           Pos.Data.Attributes        (mkAttributes)
-import           Pos.DB                     (DBError (..), MonadDB, MonadDBCore)
-import qualified Pos.DB.Block               as DB
-import qualified Pos.DB.DB                  as DB
-import qualified Pos.DB.GState              as GS
-import           Pos.Delegation.Logic       (delegationVerifyBlocks, getProxyMempool)
-import           Pos.Exception              (assertionFailed, reportFatalError)
-import qualified Pos.Lrc.DB                 as LrcDB
-import           Pos.Lrc.Error              (LrcError (..))
-import           Pos.Lrc.Worker             (lrcSingleShotNoLock)
-import           Pos.Reporting              (reportingFatal)
-import           Pos.Slotting.Class         (getCurrentSlot)
-import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
-                                             SscWorkersClass (..))
-import           Pos.Ssc.Extra              (sscGetLocalPayload, sscVerifyBlocks)
-import           Pos.Txp.Core               (TxAux, TxId, TxPayload, mkTxPayload,
-                                             topsortTxs)
-import           Pos.Txp.MemState           (getLocalTxsNUndo)
-import           Pos.Txp.Settings           (TxpBlock, TxpGlobalSettings (..))
-import           Pos.Types                  (Block, BlockHeader, EpochOrSlot (..),
-                                             GenesisBlock, IsGenesisHeader, IsMainHeader,
-                                             MainBlock, MainExtraBodyData (..),
-                                             MainExtraHeaderData (..), ProxySKEither,
-                                             ProxySKHeavy, SlotId (..), SlotLeaders,
-                                             VerifyHeaderParams (..), blockHeader,
-                                             blockLeaders, difficultyL, epochIndexL,
-                                             epochOrSlot, flattenSlotId, gbBody, gbHeader,
-                                             genesisHash, getEpochOrSlot, headerHash,
-                                             headerHashG, headerSlot, mbTxPayload,
-                                             mkGenesisBlock, mkMainBlock, prevBlockL,
-                                             verifyHeader, verifyHeaders,
-                                             vhpVerifyConsensus)
-import qualified Pos.Types                  as Types
-import           Pos.Update.Core            (UpdatePayload (..))
-import qualified Pos.Update.DB              as UDB
-import           Pos.Update.Logic           (usCanCreateBlock, usPreparePayload,
-                                             usVerifyBlocks)
-import           Pos.Update.Poll            (PollModifier)
-import           Pos.Util                   (Some (Some), inAssertMode, maybeThrow,
-                                             neZipWith3, spanSafe, _neHead, _neLast)
-import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
-                                             toNewestFirst, toOldestFirst)
-import           Pos.WorkMode               (WorkMode)
+import qualified Pos.Binary.Class                 as Bi
+import           Pos.Block.Logic.Internal         (applyBlocksUnsafe,
+                                                   rollbackBlocksUnsafe, toUpdateBlock,
+                                                   withBlkSemaphore, withBlkSemaphore_)
+import           Pos.Block.Pure                   (VerifyHeaderParams (..), genesisHash,
+                                                   mkGenesisBlock, mkMainBlock,
+                                                   verifyHeader, verifyHeaders)
+import qualified Pos.Block.Pure                   as Pure
+import           Pos.Block.Types                  (Blund, Undo (..))
 import           Pos.Communication.Types.Protocol (NodeId)
+import           Pos.Constants                    (blkSecurityParam, curSoftwareVersion,
+                                                   epochSlots, lastKnownBlockVersion,
+                                                   recoveryHeadersMessage,
+                                                   slotSecurityParam)
+import           Pos.Context                      (NodeContext (ncNodeParams, ncTxpGlobalSettings),
+                                                   getNodeContext, lrcActionOnEpochReason,
+                                                   npSecretKey)
+import           Pos.Core                         (BlockVersion (..), EpochIndex,
+                                                   HeaderHash)
+import           Pos.Crypto                       (SecretKey, WithHash (WithHash), hash,
+                                                   shortHashF)
+import           Pos.Data.Attributes              (mkAttributes)
+import           Pos.DB                           (DBError (..), MonadDB, MonadDBCore)
+import qualified Pos.DB.Block                     as DB
+import qualified Pos.DB.DB                        as DB
+import qualified Pos.DB.GState                    as GS
+import           Pos.Delegation.Logic             (delegationVerifyBlocks,
+                                                   getProxyMempool)
+import           Pos.Exception                    (assertionFailed, reportFatalError)
+import qualified Pos.Lrc.DB                       as LrcDB
+import           Pos.Lrc.Error                    (LrcError (..))
+import           Pos.Lrc.Worker                   (lrcSingleShotNoLock)
+import           Pos.Reporting                    (reportingFatal)
+import           Pos.Slotting.Class               (getCurrentSlot)
+import           Pos.Ssc.Class                    (Ssc (..), SscHelpersClass,
+                                                   SscWorkersClass (..))
+import           Pos.Ssc.Extra                    (sscGetLocalPayload, sscVerifyBlocks)
+import           Pos.Txp.Core                     (TxAux, TxId, TxPayload, mkTxPayload,
+                                                   topsortTxs)
+import           Pos.Txp.MemState                 (getLocalTxsNUndo)
+import           Pos.Txp.Settings                 (TxpBlock, TxpGlobalSettings (..))
+import           Pos.Types                        (Block, BlockHeader, EpochOrSlot (..),
+                                                   GenesisBlock, IsGenesisHeader,
+                                                   IsMainHeader, MainBlock,
+                                                   MainExtraBodyData (..),
+                                                   MainExtraHeaderData (..),
+                                                   ProxySKEither, ProxySKHeavy,
+                                                   SlotId (..), SlotLeaders, blockHeader,
+                                                   blockLeaders, difficultyL, epochIndexL,
+                                                   epochOrSlot, flattenSlotId, gbBody,
+                                                   gbHeader, getEpochOrSlot, headerHash,
+                                                   headerHashG, headerSlot, mbTxPayload,
+                                                   prevBlockL)
+import qualified Pos.Types                        as Types
+import           Pos.Update.Core                  (UpdatePayload (..))
+import qualified Pos.Update.DB                    as UDB
+import           Pos.Update.Logic                 (usCanCreateBlock, usPreparePayload,
+                                                   usVerifyBlocks)
+import           Pos.Update.Poll                  (PollModifier)
+import           Pos.Util                         (Some (Some), inAssertMode, maybeThrow,
+                                                   neZipWith3, spanSafe, _neHead, _neLast)
+import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..),
+                                                   toNewestFirst, toOldestFirst)
+import           Pos.WorkMode                     (WorkMode)
 
 ----------------------------------------------------------------------------
 -- Common
@@ -283,28 +291,29 @@ getHeadersFromManyTo
     => NonEmpty HeaderHash  -- ^ Checkpoints; not guaranteed to be
                             --   in any particular order
     -> Maybe HeaderHash
-    -> m (Maybe (NewestFirst NE (BlockHeader ssc)))
-getHeadersFromManyTo checkpoints startM = runMaybeT $ do
+    -> m (Either Text (NewestFirst NE (BlockHeader ssc)))
+getHeadersFromManyTo checkpoints startM = runExceptT $ do
     lift $ logDebug $
         sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
                 checkpoints startM
-    validCheckpoints <- MaybeT $
+    validCheckpoints <- toExceptT "Failed to retrieve checkpoints" $
         nonEmpty . catMaybes <$>
         mapM (DB.getBlockHeader @ssc) (toList checkpoints)
     tip <- lift GS.getTip
-    guard $ all ((/= tip) . headerHash) validCheckpoints
+    unless (all ((/= tip) . headerHash) validCheckpoints) $
+        throwError "Found checkpoint that is equal to our tip"
     let startFrom = fromMaybe tip startM
         parentIsCheckpoint bh =
             any (\c -> bh ^. prevBlockL == c ^. headerHashG) validCheckpoints
         whileCond bh = not (parentIsCheckpoint bh)
-    headers <- MaybeT . fmap (_Wrapped nonEmpty) $
+    headers <- toExceptT "Failed to load headers by depth" . fmap (_Wrapped nonEmpty) $
         DB.loadHeadersByDepthWhile whileCond recoveryHeadersMessage startFrom
     if parentIsCheckpoint $ headers ^. _Wrapped . _neHead
     then pure headers
     else do
         lift $ logDebug $ "getHeadersFromManyTo: giving headers in recovery mode"
         inMainCheckpoints <-
-            MaybeT $ nonEmpty <$>
+            toExceptT "Filtered set of valid checkpoints is empty" $ nonEmpty <$>
             filterM (GS.isBlockInMainChain . headerHash)
                     (toList validCheckpoints)
         lift $ logDebug $ "getHeadersFromManyTo: got checkpoints in main chain"
@@ -312,9 +321,13 @@ getHeadersFromManyTo checkpoints startM = runMaybeT $ do
                 maximumBy (comparing getEpochOrSlot) inMainCheckpoints
             loadUpCond _ h = h < recoveryHeadersMessage
         up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
-        res <- MaybeT $ pure $ _Wrapped nonEmpty (toNewestFirst $ over _Wrapped (drop 1) up)
+        res <- toExceptT "loadHeadersUpWhile returned empty list" $
+            pure $ _Wrapped nonEmpty (toNewestFirst $ over _Wrapped (drop 1) up)
         lift $ logDebug $ "getHeadersFromManyTo: loaded non-empty list of headers, returning"
         pure res
+  where
+    toExceptT :: (Monad n) => Text -> n (Maybe a) -> ExceptT Text n a
+    toExceptT r x = ExceptT $ maybeToRight r <$> x
 
 -- | Given a starting point hash (we take tip if it's not in storage)
 -- it returns not more than 'blkSecurityParam' blocks distributed
@@ -419,9 +432,6 @@ verifyBlocksPrefix blocks = runExceptT $ do
                 throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
     (adoptedBV, adoptedBVD) <- UDB.getAdoptedBVFull
-    verResToMonadError formatAllErrors $
-        Types.verifyBlocks curSlot adoptedBVD (Just leaders) blocks
-    _ <- withExceptT pretty $ sscVerifyBlocks blocks
     -- We verify that data in blocks is known if protocol version used
     -- by this software is greater than or equal to adopted
     -- version. That's because:
@@ -449,12 +459,16 @@ verifyBlocksPrefix blocks = runExceptT $ do
     let adoptedMajMin = toMajMin adoptedBV
     let dataMustBeKnown = lastKnownMajMin > adoptedMajMin
                        || lastKnownBlockVersion == adoptedBV
+    verResToMonadError formatAllErrors $
+        Pure.verifyBlocks curSlot dataMustBeKnown adoptedBVD
+        (Just leaders) blocks
+    _ <- withExceptT pretty $ sscVerifyBlocks blocks
     TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
     txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $
         map toTxpBlock blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $
-        usVerifyBlocks (map toUpdateBlock blocks)
+        usVerifyBlocks dataMustBeKnown (map toUpdateBlock blocks)
     when (length txUndo /= length pskUndo) $
         throwError "Internal error of verifyBlocksPrefix: lengths of undos don't match"
     pure ( OldestFirst $ neZipWith3 Undo
@@ -690,7 +704,7 @@ createGenesisBlockDo getPeers epoch leaders tip = do
         | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
             let blk = mkGenesisBlock (Just tipHeader) epoch leaders
             let newTip = headerHash blk
-            runExceptT (usVerifyBlocks (one (toUpdateBlock (Left blk)))) >>= \case
+            runExceptT (usVerifyBlocks False (one (toUpdateBlock (Left blk)))) >>= \case
                 Left err -> reportFatalError $ pretty err
                 Right (pModifier, usUndos) -> do
                     let undo = def {undoUS = usUndos ^. _Wrapped . _neHead}
@@ -778,13 +792,15 @@ createMainBlockFinish getPeers slotId pSk prevHeader = do
         Left err ->
             assertionFailed $ sformat ("We've created bad block: "%stext) err
         Right _ -> pass
-    (pModifier,verUndo) <- runExceptT (usVerifyBlocks (one (toUpdateBlock (Right blk)))) >>= \case
-        Left _ -> throwError "Couldn't get pModifier while creating MainBlock"
-        Right o -> pure o
-    let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs)
+    (pModifier, verUndo) <-
+        runExceptT (usVerifyBlocks False (one (toUpdateBlock (Right blk)))) >>= \case
+            Left _ ->
+                throwError "Couldn't get pModifier while creating MainBlock"
+            Right o -> pure o
+    let blockUndo = Undo (reverse $ foldl' prependToUndo [] sortedTxs)
                          pskUndo
                          (verUndo ^. _Wrapped . _neHead)
-    () <- (blockUndo `deepseq` blk) `deepseq` pure ()
+    evaluateNF_ (blockUndo, blk)
     logDebug "Created main block/undos, applying"
     lift $ blk <$ applyBlocksUnsafe getPeers (one (Right blk, blockUndo)) (Just pModifier)
   where

@@ -18,8 +18,9 @@ import           Universum
 import           Pos.Binary.Ssc             ()
 import           Pos.Block.Network          (needRecovery, requestTipOuts,
                                              triggerRecovery)
-import           Pos.Communication.Protocol (OutSpecs, SendActions, WorkerSpec,
-                                             localWorker, worker, NodeId)
+import           Pos.Block.Pure             (genesisHash)
+import           Pos.Communication.Protocol (NodeId, OutSpecs, SendActions, WorkerSpec,
+                                             localWorker, worker)
 import           Pos.Constants              (blkSecurityParam, mdNoBlocksSlotThreshold,
                                              mdNoCommitmentsEpochThreshold)
 import           Pos.Context                (getNodeContext, getUptime, isRecoveryMode,
@@ -41,8 +42,7 @@ import           Pos.Ssc.NistBeacon         (SscNistBeacon)
 import           Pos.Types                  (Block, BlockHeader, EpochIndex, MainBlock,
                                              SlotId (..), addressHash, blockMpc,
                                              blockSlot, flattenEpochOrSlot, flattenSlotId,
-                                             genesisHash, headerHash, headerLeaderKey,
-                                             prevBlockL)
+                                             headerHash, headerLeaderKey, prevBlockL)
 import           Pos.Util                   (mconcatPair)
 import           Pos.Util.Chrono            (NewestFirst (..))
 import           Pos.WorkMode               (WorkMode)
@@ -113,7 +113,7 @@ checkForReceivedBlocksWorkerImpl getPeers sendActions = afterDelay $ do
         let onSlotDefault slotId = do
                 header <- getTipBlockHeader @ssc
                 unlessM (checkEclipsed ourPk slotId header) onEclipsed
-        maybe (pure ()) onSlotDefault =<< getCurrentSlot
+        whenJustM getCurrentSlot onSlotDefault
   where
     sec' :: Int -> Millisecond
     sec' = convertUnit . sec
@@ -156,7 +156,7 @@ checkForIgnoredCommitmentsWorkerImpl tvar slotId = do
     -- Check prev blocks
     (kBlocks :: NewestFirst [] (Block SscGodTossing)) <-
         map fst <$> loadBlundsFromTipByDepth @SscGodTossing blkSecurityParam
-    forM_ kBlocks $ \blk -> whenRight blk checkCommitmentsInBlock
+    for_ kBlocks $ \blk -> whenRight blk checkCommitmentsInBlock
 
     -- Print warning
     lastCommitment <- atomically $ readTVar tvar

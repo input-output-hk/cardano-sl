@@ -3,13 +3,13 @@
 -- | Pure version of UTXO.
 
 module Pos.Txp.Toil.Utxo.Pure
-       ( UtxoReaderT (..)
+       ( UtxoReaderT
        , runUtxoReaderT
 
        , UtxoReader
        , runUtxoReader
 
-       , UtxoStateT (..)
+       , UtxoStateT
        , runUtxoStateT
        , evalUtxoStateT
        , execUtxoStateT
@@ -23,83 +23,56 @@ module Pos.Txp.Toil.Utxo.Pure
        , verifyTxUtxoPure
        ) where
 
-import           Control.Lens                (at, (.=))
-import           Control.Monad.Except        (MonadError)
-import           Control.Monad.Reader        (runReaderT)
-import           Control.Monad.Trans         (MonadTrans (..))
+import qualified Control.Monad.Ether.Implicit as Ether
+import           Control.Monad.Except         (MonadError)
 import           Universum
 
-import           Pos.Binary.Core             ()
-import           Pos.Crypto                  (WithHash (..))
-import           Pos.Txp.Core                (Tx, TxAux, TxDistribution, TxUndo)
-import           Pos.Txp.Toil.Class          (MonadToilEnv, MonadUtxo (..),
-                                              MonadUtxoRead (..))
-import           Pos.Txp.Toil.Failure        (ToilVerFailure)
-import           Pos.Txp.Toil.Types          (Utxo)
-import           Pos.Txp.Toil.Utxo.Functions (VTxContext, applyTxToUtxo, verifyTxUtxo)
+import           Pos.Binary.Core              ()
+import           Pos.Crypto                   (WithHash (..))
+import           Pos.Txp.Core                 (Tx, TxAux, TxDistribution, TxUndo)
+import           Pos.Txp.Toil.Failure         (ToilVerFailure)
+import           Pos.Txp.Toil.Types           (Utxo)
+import           Pos.Txp.Toil.Utxo.Functions  (VTxContext, applyTxToUtxo, verifyTxUtxo)
 
 ----------------------------------------------------------------------------
 -- Reader
 ----------------------------------------------------------------------------
 
-newtype UtxoReaderT m a = UtxoReaderT
-    { getUtxoReaderT :: ReaderT Utxo m a
-    } deriving (Functor, Applicative, Monad, MonadReader Utxo, MonadError e, MonadIO, MonadToilEnv)
-
-instance Monad m => MonadUtxoRead (UtxoReaderT m) where
-    utxoGet id = UtxoReaderT $ view $ at id
-
-instance MonadTrans UtxoReaderT where
-    lift = UtxoReaderT . lift
+type UtxoReaderT = Ether.ReaderT Utxo
 
 runUtxoReaderT :: UtxoReaderT m a -> Utxo -> m a
-runUtxoReaderT = runReaderT . getUtxoReaderT
+runUtxoReaderT = Ether.runReaderT
 
 type UtxoReader = UtxoReaderT Identity
 
 runUtxoReader :: UtxoReader a -> Utxo -> a
-runUtxoReader r = runIdentity . runUtxoReaderT r
-
-instance MonadUtxoRead ((->) Utxo) where
-    utxoGet txIn utxo = utxo ^. at txIn
+runUtxoReader = Ether.runReader
 
 ----------------------------------------------------------------------------
 -- State
 ----------------------------------------------------------------------------
 
-newtype UtxoStateT m a = UtxoStateT
-    { getUtxoStateT :: StateT Utxo m a
-    } deriving (Functor, Applicative, Monad, MonadState Utxo, MonadError e, MonadIO)
-
-instance Monad m => MonadUtxoRead (UtxoStateT m) where
-    utxoGet id = UtxoStateT $ use $ at id
-
-instance Monad m => MonadUtxo (UtxoStateT m) where
-    utxoPut id v = UtxoStateT $ at id .= Just v
-    utxoDel id = UtxoStateT $ at id .= Nothing
-
-instance MonadTrans UtxoStateT where
-    lift = UtxoStateT . lift
+type UtxoStateT = Ether.StateT Utxo
 
 runUtxoStateT :: UtxoStateT m a -> Utxo -> m (a, Utxo)
-runUtxoStateT = runStateT . getUtxoStateT
+runUtxoStateT = Ether.runStateT
 
 evalUtxoStateT :: Monad m => UtxoStateT m a -> Utxo -> m a
-evalUtxoStateT = evalStateT . getUtxoStateT
+evalUtxoStateT = Ether.evalStateT
 
 execUtxoStateT :: Monad m => UtxoStateT m a -> Utxo -> m Utxo
-execUtxoStateT = execStateT . getUtxoStateT
+execUtxoStateT = Ether.execStateT
 
 type UtxoState = UtxoStateT Identity
 
 runUtxoState :: UtxoState a -> Utxo -> (a, Utxo)
-runUtxoState r = runIdentity . runUtxoStateT r
+runUtxoState = Ether.runState
 
 evalUtxoState :: UtxoState a -> Utxo -> a
-evalUtxoState r = runIdentity . evalUtxoStateT r
+evalUtxoState = Ether.evalState
 
 execUtxoState :: UtxoState a -> Utxo -> Utxo
-execUtxoState r = runIdentity . execUtxoStateT r
+execUtxoState = Ether.execState
 
 ----------------------------------------------------------------------------
 -- Pure versions of functions

@@ -74,5 +74,5 @@ topsortTxs toTx input =
             depends <- filterM
                 (\x -> not . HS.member (whHash (toTx x)) <$> use tsVisited)
                 dependsUnfiltered
-            forM_ depends $ \a' -> dfs2 visitedNew a'
+            for_ depends $ \a' -> dfs2 visitedNew a'
             tsResult %= (a:)

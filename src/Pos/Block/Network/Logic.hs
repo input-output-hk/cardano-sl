@@ -21,9 +21,11 @@ module Pos.Block.Network.Logic
 import           Control.Concurrent.STM     (isFullTBQueue, putTMVar, readTVar,
                                              tryReadTMVar, tryTakeTMVar, writeTBQueue,
                                              writeTVar)
+import           Control.Exception          (Exception (..))
 import           Control.Lens               (_Wrapped)
 import qualified Data.List.NonEmpty         as NE
-import           Formatting                 (build, sformat, shown, stext, (%))
+import qualified Data.Text.Buildable        as B
+import           Formatting                 (bprint, build, sformat, shown, stext, (%))
 import           Mockable                   (fork)
 import           Paths_cardano_sl           (version)
 import           Serokell.Util.Text         (listJson)
@@ -42,6 +44,7 @@ import qualified Pos.Block.Logic            as L
 import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Block.Network.Types    (MsgGetBlocks (..), MsgGetHeaders (..),
                                              MsgHeaders (..))
+import           Pos.Block.Pure             (verifyHeaders)
 import           Pos.Block.Types            (Blund)
 import           Pos.Communication.Limits   (LimitedLength, recvLimited, reifyMsgLimit)
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs,
@@ -53,16 +56,39 @@ import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Class               (MonadDBCore)
 import qualified Pos.DB.DB                  as DB
 import           Pos.Discovery              (converseToNeighbors)
+import           Pos.Exception              (cardanoExceptionFromException,
+                                             cardanoExceptionToException)
 import           Pos.Reporting.Methods      (reportMisbehaviourMasked)
 import           Pos.Slotting               (getCurrentSlot)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
                                              HeaderHash, blockHeader, difficultyL,
                                              gbHeader, getEpochOrSlot, headerHashG,
-                                             prevBlockL, verifyHeaders)
+                                             prevBlockL)
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode               (WorkMode)
+
+
+----------------------------------------------------------------------------
+-- Exceptions
+----------------------------------------------------------------------------
+
+data BlockNetLogicException
+    = VerifyBlocksException Text
+      -- ^ Failed to verify blocks coming from node.
+    | DialogUnexpected Text
+      -- ^ Node's response in any network/block related logic was
+      -- unexpected.
+    deriving (Show)
+
+instance B.Buildable BlockNetLogicException where
+    build e = bprint ("BlockNetLogicException: "%shown) e
+
+instance Exception BlockNetLogicException where
+    toException = cardanoExceptionToException
+    fromException = cardanoExceptionFromException
+    displayException = toString . pretty
 
 ----------------------------------------------------------------------------
 -- Recovery
@@ -245,7 +271,10 @@ requestHeaders mgh peerId origTip _ conv = do
                 handleRequestedHeaders headers peerId origTip
             MRUnexpected msg -> handleUnexpected headers msg
   where
-    onNothing = logWarning "requestHeaders: received Nothing, waiting for MsgHeaders"
+    onNothing = do
+        logWarning "requestHeaders: received Nothing, waiting for MsgHeaders"
+        throwM $ DialogUnexpected $
+            sformat ("requestHeaders: received Nothing from "%build) peerId
     handleUnexpected hs msg = do
         -- TODO: ban node for sending unsolicited header in conversation
         logWarning $ sformat
@@ -254,6 +283,8 @@ requestHeaders mgh peerId origTip _ conv = do
             peerId msg
         logWarning $ sformat
             ("requestHeaders: unexpected or invalid headers: "%listJson) hs
+        throwM $ DialogUnexpected $
+            sformat ("requestHeaders: received unexpected headers from "%build) peerId
 
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders
@@ -494,9 +525,6 @@ relayBlock getPeers sendActions (Right mainBlk) = do
 ----------------------------------------------------------------------------
 -- Common logging / logic sink points
 ----------------------------------------------------------------------------
-
-data VerifyBlocksException = VerifyBlocksException Text deriving Show
-instance Exception VerifyBlocksException
 
 -- TODO: ban node for it!
 onFailedVerifyBlocks

@@ -1,5 +1,5 @@
 name:                cardano-sl-infra
-version:             0.4.1
+version:             0.4.3
 synopsis:            Cardano SL - infrastructural
 description:         Cardano SL - infrastructural
 license:             MIT
@@ -52,7 +52,6 @@ library
                         Pos.Communication.Types.Protocol
                         Pos.Communication.Types.State
                         Pos.Communication.Types.Relay
-                        Pos.Communication.Types.SysStart
                         Pos.Communication.BiP
                         Pos.Communication.Limits.Types
                         Pos.Communication.Limits.Instances
@@ -96,6 +95,7 @@ library
                       , cardano-report-server
                       , data-default
                       , directory
+                      , ether
                       , exceptions
                       , filepath
                       , formatting
@@ -123,6 +123,8 @@ library
                       , time-units
                       , transformers
                       , transformers-base
+                      , transformers-lift
+                      , mmorph
                       , universum
                       , unordered-containers
                       , wreq
@@ -146,6 +148,9 @@ library
                        ViewPatterns
                        LambdaCase
                        MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
 
   ghc-options:         -Wall
                        -fno-warn-orphans

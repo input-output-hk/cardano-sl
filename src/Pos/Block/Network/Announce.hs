@@ -86,10 +86,12 @@ handleHeadersCommunication conv _ = do
         logDebug $ sformat ("Got request on handleGetHeaders: "%build) mgh
         ifM isRecoveryMode onRecovery $ do
             headers <- case (mghFrom,mghTo) of
-                ([], Nothing) -> Just . one <$> DB.getTipBlockHeader @ssc
-                ([], Just h)  -> fmap one <$> DB.getBlockHeader @ssc h
+                ([], Nothing) -> Right . one <$> DB.getTipBlockHeader @ssc
+                ([], Just h)  ->
+                    maybeToRight "getBlockHeader returned Nothing" . fmap one <$>
+                    DB.getBlockHeader @ssc h
                 (c1:cxs, _)   -> getHeadersFromManyTo (c1:|cxs) mghTo
-            maybe onNoHeaders handleSuccess headers
+            either onNoHeaders handleSuccess headers
   where
     handleSuccess h = do
         onSuccess
@@ -99,5 +101,6 @@ handleHeadersCommunication conv _ = do
         logDebug "handleGetHeaders: responded successfully"
     onRecovery =
         logDebug "handleGetHeaders: not responding, we're in recovery mode"
-    onNoHeaders =
-        logDebug "getheadersFromManyTo returned Nothing, not replying to node"
+    onNoHeaders reason =
+        logDebug $ "getheadersFromManyTo returned Nothing, " <>
+                   "not replying to node, reason: " <> reason

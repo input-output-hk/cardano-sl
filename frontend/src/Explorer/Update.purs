@@ -160,7 +160,8 @@ update (BlocksPaginateBlocks value) state = noEffects $
 update ScrollTop state =
     { state
     , effects:
-        [ liftEff scrollTop >>= \_ -> pure NoOp
+        -- FIXME: scrollTop disabled as a workaround for socketio
+        [ -- liftEff scrollTop >>= \_ -> pure NoOp
         ]
     }
 update (SelectInputText input) state =

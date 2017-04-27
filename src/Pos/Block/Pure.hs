@@ -1,9 +1,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
--- | Functions related to blocks and headers.
+-- | Pure functions related to blocks and headers.
 
-module Pos.Types.Block.Functions
+module Pos.Block.Pure
        ( blockDifficultyIncrement
        , headerDifficultyIncrement
        , mkGenericBlock
@@ -43,14 +43,15 @@ import           Pos.Core                   (ChainDifficulty, EpochIndex, EpochO
                                              HasDifficulty (..), HasEpochIndex (..),
                                              HasEpochOrSlot (..), HasHeaderHash (..),
                                              HeaderHash, ProxySKEither, SlotId (..),
-                                             SlotLeaders, addressHash, prevBlockL)
+                                             SlotLeaders, addressHash, gbhExtra,
+                                             prevBlockL)
 import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
                                              GenericBlockHeader (..), gbBody, gbBodyProof,
-                                             gbHeader)
+                                             gbExtra, gbHeader)
 import           Pos.Crypto                 (Hash, SecretKey, SignTag (..), checkSig,
                                              proxySign, proxyVerify, pskIssuerPk,
                                              pskOmega, sign, toPublic, unsafeHash)
-import           Pos.Data.Attributes        (mkAttributes)
+import           Pos.Data.Attributes        (Attributes (attrRemain), mkAttributes)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Types.Block.Instances  (Body (..), ConsensusData (..), blockLeaders,
                                              blockMpc, blockProxySKs, getBlockHeader,
@@ -64,7 +65,8 @@ import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
                                              GenesisExtraHeaderData (..), MainBlock,
                                              MainBlockHeader, MainBlockchain,
                                              MainExtraBodyData (..), MainExtraHeaderData,
-                                             MainToSign (..))
+                                             MainToSign (..), gebAttributes,
+                                             gehAttributes, mebAttributes, mehAttributes)
 import           Pos.Update.Core            (BlockVersionData (..))
 import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
 
@@ -259,7 +261,9 @@ data VerifyHeaderParams ssc = VerifyHeaderParams
     , vhpNextHeader      :: !(Maybe (BlockHeader ssc))
     , vhpCurrentSlot     :: !(Maybe SlotId)
     , vhpLeaders         :: !(Maybe SlotLeaders)
-    , vhpMaxSize         :: !Byte
+    , vhpMaxSize         :: !(Maybe Byte)
+    , vhpVerifyNoUnknown :: !Bool
+    -- ^ Check that header has no unknown attributes.
     } deriving (Show, Eq)
 
 -- | By default nothing is checked.
@@ -271,7 +275,8 @@ instance Default (VerifyHeaderParams ssc) where
         , vhpNextHeader = Nothing
         , vhpCurrentSlot = Nothing
         , vhpLeaders = Nothing
-        , vhpMaxSize = 1000000000 -- TODO: get rid of this module
+        , vhpMaxSize = Nothing
+        , vhpVerifyNoUnknown = False
         }
 
 maybeEmpty :: Monoid m => (a -> m) -> Maybe a -> m
@@ -286,7 +291,7 @@ verifyHeader
     :: forall ssc . BiSsc ssc
     => VerifyHeaderParams ssc -> BlockHeader ssc -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
-   consensusRes <> verifyGeneric checks
+    consensusRes <> verifyGeneric checks
   where
     consensusRes | vhpVerifyConsensus = verifyConsensusLocal h
                  | otherwise = mempty
@@ -296,7 +301,8 @@ verifyHeader VerifyHeaderParams {..} h =
             , maybeEmpty relatedToNextHeader vhpNextHeader
             , maybeEmpty relatedToCurrentSlot vhpCurrentSlot
             , maybeEmpty relatedToLeaders vhpLeaders
-            , [checkSize]
+            , checkSize
+            , bool mempty (verifyNoUnknown h) vhpVerifyNoUnknown
             ]
     checkHash :: HeaderHash -> HeaderHash -> (Bool, Text)
     checkHash expectedHash actualHash =
@@ -326,9 +332,16 @@ verifyHeader VerifyHeaderParams {..} h =
               ("two adjacent blocks are from different epochs ("%build%" != "%build%")")
               oldEpoch newEpoch
         )
-    checkSize = (Bi.biSize h <= vhpMaxSize,
-                 sformat ("header's size exceeds limit ("%memory%" > "%memory%")")
-                 (Bi.biSize h) vhpMaxSize)
+    checkSize =
+        case vhpMaxSize of
+            Nothing -> mempty
+            Just maxSize ->
+                [ ( Bi.biSize h <= maxSize
+                  , sformat
+                        ("header's size exceeds limit ("%memory%" > "%memory%")")
+                        (Bi.biSize h)
+                        maxSize)
+                ]
 
     -- CHECK: Performs checks related to the previous header:
     --
@@ -381,18 +394,29 @@ verifyHeader VerifyHeaderParams {..} h =
                   , "block's leader is different from expected one")
                 ]
 
+    verifyNoUnknown (Left genH) =
+        let attrs = genH ^. gbhExtra . gehAttributes
+        in  [ ( null (attrRemain attrs)
+              , sformat ("genesis header has unknown attributes: "%build) attrs)
+            ]
+    verifyNoUnknown (Right mainH) =
+        let attrs = mainH ^. gbhExtra . mehAttributes
+        in [ ( null (attrRemain attrs)
+             , sformat ("main header has unknown attributes: "%build) attrs)
+           ]
+
 -- | Verifies a set of block headers.
 verifyHeaders
     :: BiSsc ssc
     => Bool -> NewestFirst [] (BlockHeader ssc) -> VerificationRes
 verifyHeaders _ (NewestFirst []) = mempty
-verifyHeaders checkConsensus (NewestFirst (headers@(_:xh))) =
-    mconcat verified
+verifyHeaders checkConsensus (NewestFirst (headers@(_:xh))) = mconcat verified
   where
     verified = zipWith (\cur prev -> verifyHeader (toVHP prev) cur)
                        headers (map Just xh ++ [Nothing])
     toVHP p = def { vhpVerifyConsensus = checkConsensus
                   , vhpPrevHeader = p }
+
 
 -- CHECK: @verifyGenericBlock
 -- | Perform cheap checks of GenericBlock, which can be done using
@@ -409,18 +433,21 @@ verifyGenericBlock blk =
 -- Note: to check that block references previous block and/or is referenced
 -- by next block, use header verification (via vbpVerifyHeader).
 data VerifyBlockParams ssc = VerifyBlockParams
-    { vbpVerifyHeader   :: !(Maybe (VerifyHeaderParams ssc))
+    { vbpVerifyHeader    :: !(Maybe (VerifyHeaderParams ssc))
       -- ^ Verifies header accordingly to params ('verifyHeader')
-    , vbpVerifyGeneric  :: !Bool
+    , vbpVerifyGeneric   :: !Bool
       -- ^ Checks 'verifyGenesisBlock' property.
-    , vbpVerifySsc      :: !Bool
+    , vbpVerifySsc       :: !Bool
       -- ^ Verifies ssc payload with 'sscVerifyPayload'.
-    , vbpVerifyProxySKs :: !Bool
+    , vbpVerifyProxySKs  :: !Bool
       -- ^ Check that's number of sks is limited (1000 for now).
-    , vbpMaxSize        :: !Byte
+    , vbpMaxSize         :: !(Maybe Byte)
     -- ^ Maximal block size.
+    , vbpVerifyNoUnknown :: !Bool
+    -- ^ Check that block has no unknown attributes.
     }
 
+-- TODO: get rid of this module
 -- | By default nothing is checked.
 instance Default (VerifyBlockParams ssc) where
     def =
@@ -429,7 +456,8 @@ instance Default (VerifyBlockParams ssc) where
         , vbpVerifyGeneric = False
         , vbpVerifySsc = False
         , vbpVerifyProxySKs = False
-        , vbpMaxSize = 1000000000 -- TODO: get rid of this module
+        , vbpMaxSize =  Nothing
+        , vbpVerifyNoUnknown = False
         }
 
 -- CHECK: @verifyBlock
@@ -445,7 +473,8 @@ verifyBlock VerifyBlockParams {..} blk =
         , maybeEmpty (flip verifyHeader (getBlockHeader blk)) vbpVerifyHeader
         , verifySsc
         , verifyProxySKs
-        , checkSize
+        , maybeEmpty checkSize vbpMaxSize
+        , bool mempty (verifyNoUnknown blk) vbpVerifyNoUnknown
         ]
   where
     toVerRes (Right _) = VerSuccess
@@ -482,11 +511,23 @@ verifyBlock VerifyBlockParams {..} blk =
               , "Block contains psk(s) that have non-matching epoch index")
             ]
         | otherwise = mempty
-    checkSize = verifyGeneric [
-      (Bi.biSize blk <= vbpMaxSize,
+    checkSize maxSize = verifyGeneric [
+      (Bi.biSize blk <= maxSize,
        sformat ("block's size exceeds limit ("%memory%" > "%memory%")")
-       (Bi.biSize blk) vbpMaxSize)
+       (Bi.biSize blk) maxSize)
       ]
+    verifyNoUnknown (Left genBlk) =
+        let attrs = genBlk ^. gbExtra . gebAttributes
+        in verifyGeneric
+               [ ( null (attrRemain attrs)
+                 , sformat ("genesis block has unknown attributes: "%build) attrs)
+               ]
+    verifyNoUnknown (Right mainBlk) =
+        let attrs = mainBlk ^. gbExtra . mebAttributes
+        in verifyGeneric
+               [ ( null (attrRemain attrs)
+                 , sformat ("main block has unknown attributes: "%build) attrs)
+               ]
 
 -- CHECK: @verifyBlocks
 -- Verifies a sequence of blocks.
@@ -505,11 +546,12 @@ verifyBlocks
        , NontrivialContainer t
        )
     => Maybe SlotId
+    -> Bool
     -> BlockVersionData
     -> Maybe SlotLeaders
     -> OldestFirst f (Block ssc)
     -> VerificationRes
-verifyBlocks curSlotId bvd initLeaders = view _3 . foldl' step start
+verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
   where
     start :: (Maybe SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)
     start = (initLeaders, Nothing, mempty)
@@ -529,7 +571,8 @@ verifyBlocks curSlotId bvd initLeaders = view _3 . foldl' step start
                 , vhpNextHeader = Nothing
                 , vhpLeaders = newLeaders
                 , vhpCurrentSlot = curSlotId
-                , vhpMaxSize = bvdMaxHeaderSize bvd
+                , vhpMaxSize = Just (bvdMaxHeaderSize bvd)
+                , vhpVerifyNoUnknown = verifyNoUnknown
                 }
             vbp =
                 VerifyBlockParams
@@ -537,6 +580,7 @@ verifyBlocks curSlotId bvd initLeaders = view _3 . foldl' step start
                 , vbpVerifyGeneric = True
                 , vbpVerifySsc = True
                 , vbpVerifyProxySKs = True
-                , vbpMaxSize = bvdMaxBlockSize bvd
+                , vbpMaxSize = Just (bvdMaxBlockSize bvd)
+                , vbpVerifyNoUnknown = verifyNoUnknown
                 }
         in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)

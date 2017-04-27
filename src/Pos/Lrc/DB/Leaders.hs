@@ -42,16 +42,10 @@ putLeaders epoch = putBi (leadersKey epoch)
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareLrcLeaders
-    :: forall ssc m.
-       (WithNodeContext ssc m, MonadDB m)
-    => m ()
-prepareLrcLeaders = putIfEmpty (getLeaders 0) (putLeaders 0 =<< genesisLeadersM)
-  where
-    putIfEmpty
-        :: forall a.
-           (m (Maybe a)) -> m () -> m ()
-    putIfEmpty getter putter = maybe putter (const pass) =<< getter
+prepareLrcLeaders :: (WithNodeContext ssc m, MonadDB m) => m ()
+prepareLrcLeaders =
+    whenNothingM_ (getLeaders 0) $
+        putLeaders 0 =<< genesisLeadersM
 
 ----------------------------------------------------------------------------
 -- Keys

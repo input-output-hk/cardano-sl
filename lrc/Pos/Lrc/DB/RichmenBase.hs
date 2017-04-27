@@ -58,16 +58,13 @@ putRichmenP
     :: forall c m.
        (RichmenComponent c, MonadDB m)
     => Proxy c -> EpochIndex -> FullRichmenData -> m ()
-putRichmenP Proxy = putRichmen @c
+putRichmenP _ = putRichmen @c
 
 richmenKey
     :: forall c.
        RichmenComponent c
     => EpochIndex -> ByteString
-richmenKey = richmenKeyP proxy
-  where
-    proxy :: Proxy c
-    proxy = Proxy
+richmenKey = richmenKeyP (Proxy @c)
 
 richmenKeyP
     :: forall c.

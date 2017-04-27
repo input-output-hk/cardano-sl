@@ -36,17 +36,18 @@ import           Universum
 
 import           Pos.Binary.Block          ()
 import           Pos.Binary.Class          (Bi, decodeFull, encodeStrict)
+import           Pos.Block.Pure            (genesisHash)
 import           Pos.Block.Types           (Blund, Undo (..))
+import           Pos.Core                  (HasDifficulty (difficultyL),
+                                            HasPrevBlock (prevBlockL), HeaderHash,
+                                            headerHash)
 import           Pos.Crypto                (hashHexF, shortHashF)
 import           Pos.DB.Class              (MonadDB, getBlockIndexDB, getNodeDBs)
 import           Pos.DB.Error              (DBError (DBMalformed))
 import           Pos.DB.Functions          (rocksDelete, rocksGetBi, rocksPutBi)
 import           Pos.DB.Types              (blockDataDir)
 import           Pos.Ssc.Class.Helpers     (SscHelpersClass)
-import           Pos.Types                 (Block, BlockHeader, GenesisBlock,
-                                            HasDifficulty (difficultyL), HasPrevBlock,
-                                            HeaderHash, genesisHash, headerHash,
-                                            prevBlockL)
+import           Pos.Types                 (Block, BlockHeader, GenesisBlock)
 import qualified Pos.Types                 as T
 import           Pos.Util                  (maybeThrow)
 import           Pos.Util.Chrono           (NewestFirst (..))

@@ -1,5 +1,4 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | All logic of Toil.  It operates in terms of MonadUtxo,
 -- MonadToilEnv, MonadBalances and MonadTxPool.

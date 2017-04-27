@@ -13,6 +13,7 @@ module Pos.Update.Poll.Types
        , ConfirmedProposalState (..)
        , cpsBlockVersion
        , cpsSoftwareVersion
+       , propStateToEither
        , psProposal
        , psVotes
        , mkUProposalState
@@ -137,6 +138,10 @@ data ProposalState
     = PSUndecided !UndecidedProposalState
     | PSDecided !DecidedProposalState
       deriving (Eq, Generic, Show)
+
+propStateToEither :: ProposalState -> Either UndecidedProposalState DecidedProposalState
+propStateToEither (PSUndecided ups) = Left ups
+propStateToEither (PSDecided dps) = Right dps
 
 psProposal :: ProposalState -> UpdateProposal
 psProposal (PSUndecided ups) = upsProposal ups

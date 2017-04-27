@@ -11,6 +11,7 @@ import qualified Data.ByteString.Lazy             as BSL
 import           Formatting                       (int, sformat, (%))
 import           Node.Message                     (MessageName (..))
 
+import           Pos.Binary.Block                 ()
 import           Pos.Binary.Class                 (Bi (..), UnsignedVarInt (..),
                                                    decodeFull, encodeStrict,
                                                    getByteString, getRemainingByteString,
@@ -20,8 +21,6 @@ import           Pos.Binary.Class                 (Bi (..), UnsignedVarInt (..),
                                                    putWord8)
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Types          (SysStartRequest (..),
-                                                   SysStartResponse (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), PeerId (..),
                                                    VerInfo (..))
 import           Pos.Delegation.Types             (ConfirmProxySK (..), SendProxySK (..))
@@ -32,23 +31,11 @@ import           Pos.Txp.Network.Types            (TxMsgTag (..))
 import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgTag (..))
 
 
+----------------------------------------------------------------------------
+-- MessageName
+----------------------------------------------------------------------------
+
 deriving instance Bi MessageName
-
-----------------------------------------------------------------------------
--- System start
-----------------------------------------------------------------------------
-
-instance Bi SysStartRequest where
-    put _ = putWord8 1
-    get = label "SysStartRequest" $ do
-        i <- getWord8
-        when (i /= 1) $
-           fail "SysStartRequest: 1 expected"
-        return SysStartRequest
-
-instance Bi SysStartResponse where
-    put (SysStartResponse t) = put t
-    get = label "SysStartResponse" $ SysStartResponse <$> get
 
 ----------------------------------------------------------------------------
 -- Blocks

@@ -1,5 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
-
 module Pos.Binary.Block.Types
        (
        ) where

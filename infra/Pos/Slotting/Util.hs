@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Slotting utilities.
@@ -22,26 +21,29 @@ module Pos.Slotting.Util
        , waitSystemStart
        ) where
 
-import           Data.Time.Units        (Millisecond, convertUnit)
-import           Formatting             (build, int, sformat, shown, (%))
-import           Mockable               (Delay, Fork, Mockable, delay, fork)
-import           Paths_cardano_sl_infra (version)
-import           Serokell.Util          (sec)
-import           System.Wlog            (WithLogger, logDebug, logError, logInfo,
-                                         logNotice, modifyLoggerName)
+import           Data.Time.Units                  (Millisecond, convertUnit)
+import           Formatting                       (build, int, sformat, shown, (%))
+import           Mockable                         (Delay, Fork, Mockable, delay, fork)
+import           Paths_cardano_sl_infra           (version)
+import           Serokell.Util                    (sec)
+import           System.Wlog                      (WithLogger, logDebug, logError,
+                                                   logInfo, logNotice, modifyLoggerName)
 import           Universum
 
-import           Pos.Core.Slotting      (flattenSlotId)
-import           Pos.Core.Types         (FlatSlotId, SlotId (..), Timestamp (..), slotIdF)
-import           Pos.DHT.Model.Class    (MonadDHT)
-import           Pos.Exception          (CardanoException)
-import           Pos.Reporting.MemState (MonadReportingMem)
-import           Pos.Reporting.Methods  (reportMisbehaviourMasked, reportingFatal)
-import           Pos.Shutdown           (MonadShutdownMem, runIfNotShutdown)
-import           Pos.Slotting.Class     (MonadSlots (..))
-import           Pos.Slotting.Error     (SlottingError (..))
-import           Pos.Slotting.MemState  (MonadSlotsData (..))
-import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData (..))
+import           Pos.Communication.Types.Protocol (NodeId)
+import           Pos.Core.Slotting                (flattenSlotId)
+import           Pos.Core.Types                   (FlatSlotId, SlotId (..),
+                                                   Timestamp (..), slotIdF)
+import           Pos.Exception                    (CardanoException)
+import           Pos.Reporting.MemState           (MonadReportingMem)
+import           Pos.Reporting.Methods            (reportMisbehaviourMasked,
+                                                   reportingFatal)
+import           Pos.Shutdown                     (MonadShutdownMem, runIfNotShutdown)
+import           Pos.Slotting.Class               (MonadSlots (..))
+import           Pos.Slotting.Error               (SlottingError (..))
+import           Pos.Slotting.MemState            (MonadSlotsData (..))
+import           Pos.Slotting.Types               (EpochSlottingData (..),
+                                                   SlottingData (..))
 
 -- TODO eliminate this copy-paste when would refactor Pos.Util
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
@@ -80,7 +82,6 @@ type OnNewSlot m =
     ( MonadIO m
     , MonadSlots m
     , MonadMask m
-    , MonadDHT m
     , WithLogger m
     , Mockable Fork m
     , Mockable Delay m
@@ -93,20 +94,20 @@ type OnNewSlot m =
 -- MonadSlots and Mockable implementations.
 onNewSlot
     :: OnNewSlot m
-    => Bool -> (SlotId -> m ()) -> m ()
-onNewSlot = onNewSlotImpl False
+    => m (Set NodeId) -> Bool -> (SlotId -> m ()) -> m ()
+onNewSlot getPeers = onNewSlotImpl getPeers False
 
 onNewSlotWithLogging
     :: OnNewSlot m
-    => Bool -> (SlotId -> m ()) -> m ()
-onNewSlotWithLogging = onNewSlotImpl True
+    => m (Set NodeId) -> Bool -> (SlotId -> m ()) -> m ()
+onNewSlotWithLogging getPeers = onNewSlotImpl getPeers True
 
 -- TODO [CSL-198]: think about exceptions more carefully.
 onNewSlotImpl
     :: forall m. OnNewSlot m
-    => Bool -> Bool -> (SlotId -> m ()) -> m ()
-onNewSlotImpl withLogging startImmediately action =
-    reportingFatal version impl `catch` workerHandler
+    => m (Set NodeId) -> Bool -> Bool -> (SlotId -> m ()) -> m ()
+onNewSlotImpl getPeers withLogging startImmediately action =
+    reportingFatal getPeers version impl `catch` workerHandler
   where
     impl = onNewSlotDo withLogging Nothing startImmediately actionWithCatch
     actionWithCatch s = action s `catch` actionHandler
@@ -119,9 +120,9 @@ onNewSlotImpl withLogging startImmediately action =
     workerHandler e = do
         let msg = sformat ("Error occurred in 'onNewSlot' worker itself: " %build) e
         logError $ msg
-        reportMisbehaviourMasked version msg
+        reportMisbehaviourMasked getPeers version msg
         delay =<< getLastKnownSlotDuration
-        onNewSlotImpl withLogging startImmediately action
+        onNewSlotImpl getPeers withLogging startImmediately action
 
 onNewSlotDo
     :: OnNewSlot m
@@ -157,9 +158,9 @@ onNewSlotDo withLogging expectedSlotId startImmediately action = runIfNotShutdow
 
 logNewSlotWorker
     :: OnNewSlot m
-    => m ()
-logNewSlotWorker =
-    onNewSlotWithLogging True $ \slotId -> do
+    => m (Set NodeId) -> m ()
+logNewSlotWorker getPeers =
+    onNewSlotWithLogging getPeers True $ \slotId -> do
         modifyLoggerName (<> "slotting") $
             logNotice $ sformat ("New slot has just started: " %slotIdF) slotId
 

@@ -90,6 +90,8 @@ instance HasEpochOrSlot EpochIndex where
     getEpochOrSlot = EpochOrSlot . Left
 instance HasEpochOrSlot SlotId where
     getEpochOrSlot = EpochOrSlot . Right
+instance HasEpochOrSlot EpochOrSlot where
+    getEpochOrSlot = identity
 
 ----------------------------------------------------------------------------
 -- Classes for headers

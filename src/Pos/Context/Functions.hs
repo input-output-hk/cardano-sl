@@ -26,7 +26,7 @@ import           Data.Time              (diffUTCTime, getCurrentTime)
 import           Data.Time.Units        (Microsecond, fromMicroseconds)
 import           Universum
 
-import           Pos.Context.Class      (WithNodeContext (..))
+import           Pos.Context.Class      (WithNodeContext, getNodeContext)
 import           Pos.Context.Context    (NodeContext (..), ncGenesisLeaders,
                                          ncGenesisUtxo, ncStartTime)
 import           Pos.Lrc.Context        (LrcContext (..), LrcSyncData (..))
@@ -53,17 +53,17 @@ genesisLeadersM = ncGenesisLeaders <$> getNodeContext
 takeBlkSemaphore
     :: (MonadIO m, WithNodeContext ssc m)
     => m HeaderHash
-takeBlkSemaphore = liftIO . takeMVar . ncBlkSemaphore =<< getNodeContext
+takeBlkSemaphore = takeMVar . ncBlkSemaphore =<< getNodeContext
 
 putBlkSemaphore
     :: (MonadIO m, WithNodeContext ssc m)
     => HeaderHash -> m ()
-putBlkSemaphore tip = liftIO . flip putMVar tip . ncBlkSemaphore =<< getNodeContext
+putBlkSemaphore tip = flip putMVar tip . ncBlkSemaphore =<< getNodeContext
 
 readBlkSemaphore
     :: (MonadIO m, WithNodeContext ssc m)
     => m HeaderHash
-readBlkSemaphore = liftIO . readMVar . ncBlkSemaphore =<< getNodeContext
+readBlkSemaphore = readMVar . ncBlkSemaphore =<< getNodeContext
 
 ----------------------------------------------------------------------------
 -- LRC synchronization

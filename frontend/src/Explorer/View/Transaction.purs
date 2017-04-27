@@ -5,7 +5,7 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Network.RemoteData (RemoteData(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (common, cBack2Dashboard, cDateFormat, cLoading, cTransaction, txNotFound, cTransactionFeed, cSummary, tx, cTotalOutput, txRelayed, txIncluded, txTime) as I18nL
+import Explorer.I18n.Lenses (common, cBack2Dashboard, cDateFormat, cLoading, cTransaction, txNotFound, txFees, cSummary, tx, cTotalOutput, txRelayed, txIncluded, txTime) as I18nL
 import Explorer.Lenses.State (currentTxSummary, lang)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action)
@@ -96,7 +96,7 @@ summaryItems (CTxSummary txSummary) lang =
       , value: txSummary ^. (ctsTotalOutput <<< _CCoin <<< getCoin)
       , currency: Just ADA
       }
-    , { label: translate (I18nL.common <<< I18nL.cTransactionFeed) lang
+    , { label: translate (I18nL.tx <<< I18nL.txFees) lang
       , value: txSummary ^. (ctsFees <<< _CCoin <<< getCoin)
       , currency: Just ADA
       }

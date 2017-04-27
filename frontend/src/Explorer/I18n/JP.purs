@@ -99,6 +99,7 @@ translation =
         , txIncluded: "含まれているスロット"
         , txRelayed: "中継IP"
         , txEmpty: "トランザクションなし"
+        , txFees: "トランザクション料"
         , txNotFound: "トランザクションは見つかりません"
         }
     , block:

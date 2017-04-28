@@ -20,11 +20,11 @@ import Explorer.I18n.Lenses (block, blNotFound, cBack2Dashboard, cLoading, cOf, 
 import Explorer.Lenses.State (blocksViewState, blsViewPagination, currentBlocksResult, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (State, CBlockEntries)
+import Explorer.Types.State (State, CBlockEntries, CCurrency (ADA))
 import Explorer.Util.DOM (targetToHTMLInputElement)
 import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
 import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnRelayedBy, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
-import Explorer.View.Common (getMaxPaginationNumber, noData, paginationView)
+import Explorer.View.Common (getMaxPaginationNumber, noData, paginationView, currencyCSSClass)
 import Network.RemoteData (RemoteData(..))
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, cbeBlkHash, cbeEpoch, cbeSlot, cbeRelayedBy, cbeSize, cbeTotalSent, cbeTxNum)
@@ -135,11 +135,11 @@ blockRow state (CBlockEntry entry) =
                       , clazz: CSS.blocksColumnTxs
                       }
         , blockColumn { label: entry ^. (cbeTotalSent <<< _CCoin <<< getCoin)
-                      , clazz: CSS.blocksColumnTotalSent
+                      , clazz: CSS.blocksColumnTotalSent <> " " <> currencyCSSClass (pure ADA)
                       }
-        , blockColumn { label: labelRelayed
-                      , clazz: CSS.blocksColumnRelayedBy
-                      }
+--        , blockColumn { label: labelRelayed
+--                      , clazz: CSS.blocksColumnRelayedBy
+--                      }
         , blockColumn { label: show $ entry ^. cbeSize
                       , clazz: CSS.blocksColumnSize
                       }
@@ -185,9 +185,9 @@ mkBlocksHeaderProps lang =
     , { label: translate (I18nL.common <<< I18nL.cTotalSent) lang
       , clazz: CSS.blocksColumnTotalSent
       }
-    , { label: translate (I18nL.common <<< I18nL.cRelayedBy) lang
-      , clazz: CSS.blocksColumnRelayedBy
-      }
+--    , { label: translate (I18nL.common <<< I18nL.cRelayedBy) lang
+--      , clazz: CSS.blocksColumnRelayedBy
+--      }
     , { label: translate (I18nL.common <<< I18nL.cSizeKB) lang
       , clazz: CSS.blocksColumnSize
       }

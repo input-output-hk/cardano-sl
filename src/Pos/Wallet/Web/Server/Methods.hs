@@ -979,12 +979,8 @@ genUniqueAccountAddress passphrase wCAddr@CWalletAddress{..} =
     generateUnique (mkAccount . nonHardenedOnly)
                    (doesAccountExist Ever)
   where
-    mkAccount caaAccountIndex = do
-        (address, _) <- deriveAccountSK passphrase wCAddr caaAccountIndex
-        let caaWSAddress   = cwaWSAddress
-            caaWalletIndex = cwaIndex
-            caaAddress     = addressToCAddress address
-        return CAccountAddress{..}
+    mkAccount caaAccountIndex =
+        deriveAccountAddress passphrase wCAddr caaAccountIndex
 
 deriveAccountSK
     :: WalletWebMode ssc m
@@ -997,6 +993,19 @@ deriveAccountSK passphrase CWalletAddress{..} accIndex = do
     let wKey   = deriveHDSecretKey passphrase wsKey cwaIndex
     let hdPass = deriveHDPassphrase $ encToPublic wsKey
     return $ createHDAddressH passphrase hdPass wKey [cwaIndex] accIndex
+
+deriveAccountAddress
+    :: WalletWebMode ssc m
+    => PassPhrase
+    -> CWalletAddress
+    -> Word32
+    -> m CAccountAddress
+deriveAccountAddress passphrase wAddr@CWalletAddress{..} caaAccountIndex = do
+    (accAddr, _) <- deriveAccountSK passphrase wAddr caaAccountIndex
+    let caaWSAddress   = cwaWSAddress
+        caaWalletIndex = cwaIndex
+        caaAddress     = addressToCAddress accAddr
+    return CAccountAddress{..}
 
 ----------------------------------------------------------------------------
 -- Orphan instances

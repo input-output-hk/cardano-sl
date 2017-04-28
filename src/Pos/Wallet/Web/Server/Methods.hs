@@ -840,7 +840,6 @@ addInitialRichAccount getPeers sendActions keyId =
     when isDevelopment . E.handleAll handler $ do
         key <- maybeThrow noKey (genesisDevSecretKeys ^? ix keyId)
         let enKey = noPassEncrypt key
-
         let addr = makePubKeyAddress $ encToPublic enKey
             wsAddr = addressToCAddress addr
 
@@ -852,10 +851,12 @@ addInitialRichAccount getPeers sendActions keyId =
             wsMeta = CWalletSetMeta "Precreated wallet set full of money" backup
             wMeta  = def{ cwName = "Initial wallet" }
 
-        deleteWSet wsAddr `catchAll` \_ -> return ()
-        _ <- createWSetSafe wsAddr wsMeta
         addSecretKey enKey
+        deleteWSet wsAddr `catchAll` \_ -> return ()
+        addSecretKey enKey
+        _ <- createWSetSafe wsAddr wsMeta
         wAddr    <- cwAddress <$> newWallet cpass (CWalletInit wMeta wsAddr)
+
         accounts <- getAccounts wAddr
         accAddr  <- maybeThrow noAccount . head $ caAddress <$> accounts
 
@@ -905,7 +906,7 @@ myRootAddresses =
 getAddrIdx :: WalletWebMode m => CAddress WS -> m Int
 getAddrIdx addr = elemIndex addr <$> myRootAddresses >>= maybeThrow notFound
   where notFound =
-          Internal $ sformat ("Address "%build%" is not found in wallet") addr
+          Internal $ sformat ("No wallet set with address "%build%" found") addr
 
 getSKByAddr
     :: WalletWebMode m

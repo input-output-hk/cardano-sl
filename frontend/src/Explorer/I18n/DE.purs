@@ -54,7 +54,7 @@ translation =
         , navTools: "Tools"
         }
     , hero:
-        { hrSubtitle: "Der effektivste Weg um das Netzwerk der Kryptowährung zu erforschen."
+        { hrSubtitle: "Suche Adressen, Transaktionen, Epochen und Slots im Cardano Netzwerk"
         , hrSearch: "Suche Addressen, Transaktionen, Slots und Epochen"
         , hrTime: "Zeit"
         }

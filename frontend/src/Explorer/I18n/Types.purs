@@ -126,6 +126,7 @@ type Transaction =
     , txIncluded :: String
     , txRelayed :: String
     , txEmpty :: String
+    , txFees :: String
     , txNotFound :: String
     }
 

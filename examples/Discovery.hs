@@ -89,7 +89,7 @@ makeNode transport i = do
             -- its initial peer appears to be down.
             then K.Node (K.Peer host (fromIntegral port)) anId
             else K.Node (K.Peer host (fromIntegral (port - 1))) (makeId (i - 1))
-    let kademliaConfig = K.KademliaConfiguration (fromIntegral port) anId
+    let kademliaConfig = K.KademliaConfiguration host (fromIntegral port) anId
     let prng1 = mkStdGen (2 * i)
     let prng2 = mkStdGen ((2 * i) + 1)
     liftIO . putStrLn $ "Starting node " ++ show i
@@ -111,8 +111,9 @@ main = runProduction $ do
 
     when (number > 99 || number < 1) $ error "Give a number in [1,99]"
 
+    let params = TCP.defaultTCPParameters { TCP.tcpCheckPeerHost = True }
     Right transport_ <- liftIO $
-        TCP.createTransport "0.0.0.0" "10128" ((,) "127.0.0.1") TCP.defaultTCPParameters
+        TCP.createTransport (TCP.defaultTCPAddr "127.0.0.1" "10128") params
     let transport = concrete transport_
 
     liftIO . putStrLn $ "Spawning " ++ show number ++ " nodes"

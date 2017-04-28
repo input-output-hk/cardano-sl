@@ -12,7 +12,7 @@ packages:
     extra-dep: true
   - location:
       git: https://github.com/avieth/network-transport-tcp
-      commit: 1739cc6d5c73257201e5551088f4ba56d5ede15c
+      commit: eb1ed2fe4d4419c860ce060cb1091f7c8959134f
     extra-dep: true
   - location:
       git: https://github.com/avieth/network-transport-inmemory
@@ -20,8 +20,7 @@ packages:
     extra-dep: true
 
 nix:
-  enable: false
-  packages: []
+  packages: [git, gmp, zlib]
 
 extra-deps:
   - serokell-util-0.1.3.5

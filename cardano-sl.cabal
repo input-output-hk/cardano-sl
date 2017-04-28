@@ -140,6 +140,7 @@ library
                         Pos.Binary.Relay
                         Pos.Binary.Ssc
                         Pos.Binary.Ssc.GodTossing.Core
+                        Pos.Binary.Ssc.GodTossing.Types
                         Pos.Binary.Txp
 
                         -- Block processing
@@ -234,6 +235,7 @@ library
                         Pos.Ssc.GodTossing.Core
                         Pos.Ssc.GodTossing.Core.Core
                         Pos.Ssc.GodTossing.Core.Types
+                        Pos.Ssc.GodTossing.DB
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
                         Pos.Ssc.GodTossing.Genesis

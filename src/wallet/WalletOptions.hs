@@ -93,7 +93,7 @@ optionsParser = do
         CLI.commonArgsParser
     woAction <-
         actionParser
-    woPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer (host:port:peer_id)"
+    woPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer (host:port/peer_id)"
 
     pure WalletOptions{..}
 

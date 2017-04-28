@@ -7,6 +7,7 @@
 module Pos.Util.JsonLog
        ( JLEvent(..)
        , JLBlock (..)
+       , JLTx (..)
        , JLTimedEvent (..)
        , jlCreatedBlock
        , jlAdoptedBlock
@@ -38,6 +39,7 @@ import           Universum
 
 import           Pos.Binary.Block         ()
 import           Pos.Binary.Core          ()
+import           Pos.Communication.Relay.Logic (InvReqDataFlowLog)
 import           Pos.Crypto               (Hash, hash, hashHexF)
 import           Pos.Ssc.Class.Types      (Ssc)
 import           Pos.Types                (BiSsc, Block, SlotId (..), blockHeader, blockTxs,
@@ -55,7 +57,14 @@ data JLBlock = JLBlock
     , jlPrevBlock :: BlockId
     , jlTxs       :: [TxId]
     , jlSlot      :: JLSlotId
-    } deriving (Show)
+    } deriving Show
+
+-- | Json log of one transaction sent from the (light) wallet.
+data JLTx = JLTx
+    { jlNodeId :: Text
+    , jlTxId   :: Text
+    , jlInvReq :: InvReqDataFlowLog
+    } deriving Show
 
 -- | Get 'SlotId' from 'JLSlotId'.
 fromJLSlotId :: JLSlotId -> SlotId
@@ -66,6 +75,7 @@ data JLEvent = JLCreatedBlock JLBlock
              | JLAdoptedBlock BlockId
              | JLTpsStat Int
              | JLMemPoolSize Int
+             | JLTxSent JLTx
   deriving Show
 
 -- | 'JLEvent' with 'Timestamp' -- corresponding time of this event.
@@ -75,6 +85,7 @@ data JLTimedEvent = JLTimedEvent
     } deriving (Show)
 
 $(deriveJSON defaultOptions ''JLBlock)
+$(deriveJSON defaultOptions ''JLTx)
 $(deriveJSON defaultOptions ''JLEvent)
 $(deriveJSON defaultOptions ''JLTimedEvent)
 

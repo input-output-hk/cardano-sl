@@ -207,10 +207,11 @@ peerIdParser :: P.Parser PeerId
 peerIdParser = fmap PeerId P.base64Url
 
 -- | Parser for NodeId
+--   host:port/peerId
 --   host:port:peerId
 nodeIdParser :: P.Parser NodeId
 nodeIdParser = do
     addr <- addrParser
-    _ <- P.char ':'
+    _ <- P.char '/' <|> P.char ':'
     peerId <- peerIdParser
     return $ NodeId (peerId, addressToNodeId addr)

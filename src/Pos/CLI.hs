@@ -164,7 +164,7 @@ networkAddressOption longOption helpMsg =
 nodeIdOption :: String -> String -> Opt.Parser NodeId
 nodeIdOption longOption helpMsg =
     Opt.option (fromParsec nodeIdParser) $
-        templateParser longOption "HOST:PORT:PEER_ID" helpMsg
+        templateParser longOption "HOST:PORT/PEER_ID" helpMsg
 
 optionalLogConfig :: Opt.Parser (Maybe FilePath)
 optionalLogConfig =

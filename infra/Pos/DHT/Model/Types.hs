@@ -108,7 +108,7 @@ dhtKeyParser = P.base64Url >>= toDHTKey
 
 -- | Parser for 'DHTNode'.
 dhtNodeParser :: P.Parser DHTNode
-dhtNodeParser = DHTNode <$> addrParser <*> ((P.char '/' <|> P.char ':') *> dhtKeyParser)
+dhtNodeParser = DHTNode <$> addrParser <*> (P.char '/' *> dhtKeyParser)
 
 -- | FIXME this is flimsy. It assumes that the node has a TCP server running
 --   at the same host/port of its Kademlia instance, and that its 0'th EndPoint

@@ -137,9 +137,9 @@ blockRow state (CBlockEntry entry) =
         , blockColumn { label: entry ^. (cbeTotalSent <<< _CCoin <<< getCoin)
                       , clazz: CSS.blocksColumnTotalSent
                       }
-        , blockColumn { label: labelRelayed
-                      , clazz: CSS.blocksColumnRelayedBy
-                      }
+--        , blockColumn { label: labelRelayed
+--                      , clazz: CSS.blocksColumnRelayedBy
+--                      }
         , blockColumn { label: show $ entry ^. cbeSize
                       , clazz: CSS.blocksColumnSize
                       }
@@ -185,9 +185,9 @@ mkBlocksHeaderProps lang =
     , { label: translate (I18nL.common <<< I18nL.cTotalSent) lang
       , clazz: CSS.blocksColumnTotalSent
       }
-    , { label: translate (I18nL.common <<< I18nL.cRelayedBy) lang
-      , clazz: CSS.blocksColumnRelayedBy
-      }
+--    , { label: translate (I18nL.common <<< I18nL.cRelayedBy) lang
+--      , clazz: CSS.blocksColumnRelayedBy
+--      }
     , { label: translate (I18nL.common <<< I18nL.cSizeKB) lang
       , clazz: CSS.blocksColumnSize
       }

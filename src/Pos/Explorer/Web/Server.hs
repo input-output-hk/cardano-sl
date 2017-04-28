@@ -212,7 +212,12 @@ getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
             extra <- getTxExtraOrFail id
             tx <- getTxMain id extra
             pure $ makeTxBrief tx extra
-        return $ CAddressSummary cAddr 0 balance transactions
+        pure CAddressSummary {
+            caAddress=cAddr,
+            caTxNum=fromIntegral $ length transactions,
+            caBalance=balance,
+            caTxList=transactions
+        }
     _ -> throwM $
          Internal "Non-P2PKH addresses are not supported in Explorer yet"
 

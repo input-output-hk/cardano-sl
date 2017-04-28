@@ -18,17 +18,17 @@ import           Universum
 
 
 import qualified Pos.CLI                as CLI
-import           Pos.Util.TimeWarp      (NetworkAddress)
+import           Pos.Communication      (NodeId)
 
 data WalletOptions = WalletOptions
-    { woDbPath         :: !FilePath
-    , woRebuildDb      :: !Bool
-    , woNetworkAddress :: !NetworkAddress -- ^ DHT/Blockchain port
-    , woKeyFilePath    :: !FilePath       -- ^ Path to file with secret keys
-    , woDebug          :: !Bool           -- ^ Run in debug mode (with genesis keys included)
-    , woJLFile         :: !(Maybe FilePath)
-    , woCommonArgs     :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
-    , woAction         :: !WalletAction
+    { woDbPath      :: !FilePath
+    , woRebuildDb   :: !Bool
+    , woKeyFilePath :: !FilePath       -- ^ Path to file with secret keys
+    , woDebug       :: !Bool           -- ^ Run in debug mode (with genesis keys included)
+    , woJLFile      :: !(Maybe FilePath)
+    , woCommonArgs  :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
+    , woAction      :: !WalletAction
+    , woPeers       :: ![NodeId]
     }
 
 data WalletAction = Repl
@@ -79,7 +79,6 @@ optionsParser = do
         long "rebuild-db" <>
         help "If the DB already exist, discard its contents and \
              \create new one from scratch"
-    woNetworkAddress <- CLI.networkAddressOption
     woKeyFilePath <- strOption $
         long    "keys-path" <>
         metavar "FILEPATH" <>
@@ -91,9 +90,11 @@ optionsParser = do
     woJLFile <-
         CLI.optionalJSONPath
     woCommonArgs <-
-        CLI.commonArgsParser "Initial DHT peer (may be many)"
+        CLI.commonArgsParser
     woAction <-
         actionParser
+
+    woPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer (host:port:peer_id)"
 
     pure WalletOptions{..}
 

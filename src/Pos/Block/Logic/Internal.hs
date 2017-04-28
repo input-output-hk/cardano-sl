@@ -53,6 +53,7 @@ import           Pos.Update.Poll      (PollModifier)
 import           Pos.Util             (Some (..), inAssertMode, spanSafe, _neLast)
 import           Pos.Util.Chrono      (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode         (WorkMode)
+import           Pos.Communication.Types.Protocol (NodeId)
 
 -- [CSL-780] Totally need something more elegant
 toUpdateBlock
@@ -91,9 +92,9 @@ withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
 -- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
     :: forall ssc m . WorkMode ssc m
-    => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
-applyBlocksUnsafe blunds0 pModifier =
-    reportingFatal version $
+    => m (Set NodeId) -> OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
+applyBlocksUnsafe getPeers blunds0 pModifier =
+    reportingFatal getPeers version $
     case blunds ^. _Wrapped of
         (b@(Left _,_):|[])     -> app' (b:|[])
         (b@(Left _,_):|(x:xs)) -> app' (b:|[]) >> app' (x:|xs)
@@ -144,8 +145,8 @@ applyBlocksUnsafeDo blunds pModifier = do
 -- taken.  application is taken already.
 rollbackBlocksUnsafe
     :: (WorkMode ssc m)
-    => NewestFirst NE (Blund ssc) -> m ()
-rollbackBlocksUnsafe toRollback = reportingFatal version $ do
+    => m (Set NodeId) -> NewestFirst NE (Blund ssc) -> m ()
+rollbackBlocksUnsafe getPeers toRollback = reportingFatal getPeers version $ do
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS

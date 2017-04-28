@@ -1,5 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
-
 -- | Specification of Pos.FollowTheSatoshi
 
 module Test.Pos.FollowTheSatoshiSpec

@@ -5,6 +5,7 @@ module Pos.DHT.Model.Types
        ( DHTData (..)
        , DHTKey (..)
        , DHTNode (..)
+       , DHTException (..)
        , bytesToDHTKey
        , randomDHTKey
        , getMeaningPart
@@ -13,6 +14,8 @@ module Pos.DHT.Model.Types
        -- * Parsers
        , dhtKeyParser
        , dhtNodeParser
+
+       , dhtNodeToNodeId
        ) where
 
 import qualified Control.Monad               as Monad (fail)
@@ -32,7 +35,15 @@ import qualified Text.Parsec.String          as P
 import           Universum
 
 import           Pos.Crypto.Random           (runSecureRandom)
-import           Pos.Util.TimeWarp           (NetworkAddress, addrParser)
+import           Pos.Communication.Protocol  (NodeId (..), PeerId (..))
+import           Pos.Util.TimeWarp           (NetworkAddress, addrParser,
+                                              addressToNodeId)
+
+-- | Data type for DHT exceptions.
+data DHTException = NodeDown | AllPeersUnavailable
+  deriving (Show, Typeable)
+
+instance Exception DHTException
 
 -- TODO export lengths from HashNodeId module
 meaningPartLength :: Int
@@ -98,3 +109,15 @@ dhtKeyParser = P.base64Url >>= toDHTKey
 -- | Parser for 'DHTNode'.
 dhtNodeParser :: P.Parser DHTNode
 dhtNodeParser = DHTNode <$> addrParser <*> (P.char '/' *> dhtKeyParser)
+
+-- | FIXME this is flimsy. It assumes that the node has a TCP server running
+--   at the same host/port of its Kademlia instance, and that its 0'th EndPoint
+--   is the desired target.
+--
+--   TBD would storing the opaque NodeId (a ByteString) as a value in the DHT,
+--   keyed on the Kademlia ID of its host, work well?
+dhtNodeToNodeId :: DHTNode -> NodeId
+dhtNodeToNodeId dhtNode =
+    let twNodeId = addressToNodeId . dhtAddr $ dhtNode
+        peerId = PeerId . getMeaningPart . dhtNodeId $ dhtNode
+    in  NodeId (peerId, twNodeId)

@@ -37,7 +37,7 @@ main =
       , mkSumType (Proxy @CT.SyncProgress)
       , mkSumType (Proxy @CT.CUpdateInfo)
       , mkSumType (Proxy @CT.CWalletRedeem)
-      , mkSumType (Proxy @CT.CPostVendWalletRedeem)
+      , mkSumType (Proxy @CT.CPaperVendWalletRedeem)
       , mkSumType (Proxy @CT.CInitialized)
       , mkSumType (Proxy @CT.CPassPhrase)
       , mkSumType (Proxy @CT.CWalletAssurance)

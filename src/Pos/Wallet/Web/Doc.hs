@@ -44,9 +44,9 @@ import           Pos.Wallet.Web.Api         (walletApi)
 import           Pos.Wallet.Web.ClientTypes (Acc, CAccount (..), CAccountAddress (..),
                                              CAccountAddress, CAddress (..),
                                              CCurrency (..), CHash (..),
-                                             CInitialized (..), CPassPhrase,
-                                             CPostVendWalletRedeem (..), CProfile (..),
-                                             CTx (..), CTxId, CTxMeta (..),
+                                             CInitialized (..),
+                                             CPaperVendWalletRedeem (..), CPassPhrase,
+                                             CProfile (..), CTx (..), CTxId, CTxMeta (..),
                                              CUpdateInfo (..), CWallet (..),
                                              CWalletAddress (..), CWalletAddress,
                                              CWalletInit (..), CWalletMeta (..),
@@ -347,10 +347,10 @@ instance ToSample CWalletRedeem where
             , crSeed = "1354644684681"
             }
 
-instance ToSample CPostVendWalletRedeem where
+instance ToSample CPaperVendWalletRedeem where
     toSamples Proxy = singleSample sample
       where
-        sample = CPostVendWalletRedeem
+        sample = CPaperVendWalletRedeem
             { pvWalletId         = CWalletAddress
                 { cwaWSAddress = cWalletSetAddressSample
                 , cwaIndex     = 1
@@ -503,12 +503,13 @@ instance ToSample CTx where
       where
         sample = CTx
             { ctId            = mkCTxId "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
-            , ctAmount        = mkCCoin $ mkCoin 0
+            , ctAmount        = sampleCoin
             , ctConfirmations = 10
             , ctMeta          = ctxMeta
             , ctInputAddrs    = one . CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
             , ctOutputAddrs   = one . CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
             }
+        sampleCoin = mkCCoin $ mkCoin 0
 
 instance ToSample CTxMeta where
     toSamples Proxy = singleSample sample

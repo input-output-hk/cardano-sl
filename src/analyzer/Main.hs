@@ -43,7 +43,7 @@ main = do
     let tpsLogs :: HM.HashMap FilePath [(UTCTime, Double)]
         tpsLogs = getTpsLog <$> logs
 
-    forM_ (HM.toList tpsLogs) $ \(file, ds) -> do
+    for_ (HM.toList tpsLogs) $ \(file, ds) -> do
         let csvFile = tpsCsvFilename file
         putText $ sformat ("Writing TPS stats to file: "%string) csvFile
         writeFile csvFile $ tpsToCsv ds

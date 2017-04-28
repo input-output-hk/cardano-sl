@@ -1,9 +1,6 @@
 module Daedalus.Crypto where
 
-import Prelude
-
 import Data.ArrayBuffer.Types (Uint8Array)
-
 import Control.Monad.Eff (Eff)
 
 foreign import data CRYPTO :: !
@@ -17,4 +14,3 @@ type DataB16 = String
 foreign import blake2b :: String -> Uint8Array
 
 foreign import bytesToB16 :: Uint8Array -> DataB16
-

@@ -1,9 +1,9 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Pos.Wallet.Web.State.State
        ( WalletState
-       , MonadWalletWebDB (..)
+       , MonadWalletWebDB
+       , getWalletWebState
        , WebWalletModeDB
        , openState
        , openMemState
@@ -48,13 +48,13 @@ module Pos.Wallet.Web.State.State
        , updateHistoryCache
        ) where
 
+import qualified Control.Monad.Ether.Implicit as Ether
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
                                                UpdateEvent)
 import           Mockable                     (MonadMockable)
 import           Universum
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
-import           Pos.Slotting                 (NtpSlotting)
 import           Pos.Txp                      (Utxo)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Wallet.Web.ClientTypes   (CAccountAddress, CAddress, CProfile, CTxId,
@@ -67,18 +67,10 @@ import           Pos.Wallet.Web.State.Acidic  as A
 import           Pos.Wallet.Web.State.Storage (AccountLookupMode (..), WalletStorage)
 
 -- | MonadWalletWebDB stands for monad which is able to get web wallet state
-class Monad m => MonadWalletWebDB m where
-    getWalletWebState :: m WalletState
+type MonadWalletWebDB = Ether.MonadReader WalletState
 
--- | Instances for common transformers
-instance MonadWalletWebDB m => MonadWalletWebDB (ReaderT r m) where
-    getWalletWebState = lift getWalletWebState
-
-instance MonadWalletWebDB m => MonadWalletWebDB (StateT s m) where
-    getWalletWebState = lift getWalletWebState
-
-instance MonadWalletWebDB m => MonadWalletWebDB (NtpSlotting m) where
-    getWalletWebState = lift getWalletWebState
+getWalletWebState :: MonadWalletWebDB m => m WalletState
+getWalletWebState = Ether.ask
 
 -- | Constraint for working with web wallet DB
 type WebWalletModeDB m = (MonadWalletWebDB m, MonadIO m, MonadMockable m)
@@ -124,7 +116,7 @@ doesAccountExist
     => AccountLookupMode -> CAccountAddress -> m Bool
 doesAccountExist mode = queryDisk . A.DoesAccountExist mode
 
-getProfile :: WebWalletModeDB m => m (Maybe CProfile)
+getProfile :: WebWalletModeDB m => m CProfile
 getProfile = queryDisk A.GetProfile
 
 getTxMeta :: WebWalletModeDB m => CWalletAddress -> CTxId -> m (Maybe CTxMeta)

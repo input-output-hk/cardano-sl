@@ -6,7 +6,6 @@ import           Criterion.Main  (Benchmark, bench, defaultConfig, defaultMainWi
                                   whnf)
 import           Criterion.Types (Config (..))
 import           Data.Map        (fromList)
-import           Data.Maybe
 import           Formatting      (int, sformat, (%))
 import           Test.QuickCheck (Arbitrary (..), Gen, generate, infiniteListOf)
 import           Universum

@@ -1,5 +1,4 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Explorer's version of Toil logic.
 
@@ -113,7 +112,7 @@ putTxExtraWithHistory
     -> m ()
 putTxExtraWithHistory id extra addrs = do
     putTxExtra id extra
-    forM_ addrs $ modifyAddrHistory $
+    for_ addrs $ modifyAddrHistory $
         NewestFirst . (id :) . getNewestFirst
 
 delTxExtraWithHistory
@@ -123,7 +122,7 @@ delTxExtraWithHistory
     -> m ()
 delTxExtraWithHistory id addrs = do
     delTxExtra id
-    forM_ addrs $ modifyAddrHistory $
+    for_ addrs $ modifyAddrHistory $
         NewestFirst . delete id . getNewestFirst
 
 getTxRelatedAddrs :: TxAux -> TxUndo -> NonEmpty Address

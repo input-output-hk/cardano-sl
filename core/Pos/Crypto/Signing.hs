@@ -1,5 +1,4 @@
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | Signing done with public/private keys.
 module Pos.Crypto.Signing
@@ -167,7 +166,7 @@ sign
     -> SecretKey
     -> a
     -> Signature a
-sign t k = coerce . signRaw (Just t) k . BSL.toStrict . Bi.encode
+sign t k = coerce . signRaw (Just t) k . Bi.encodeStrict
 
 -- | Sign a bytestring.
 signRaw
@@ -185,7 +184,7 @@ signRaw mbTag (SecretKey k) x = Signature (CC.sign emptyPass k (tag <> x))
 -- | Verify a signature.
 -- #verifyRaw
 checkSig :: Bi a => SignTag -> PublicKey -> a -> Signature a -> Bool
-checkSig t k x s = verifyRaw (Just t) k (BSL.toStrict (Bi.encode x)) (coerce s)
+checkSig t k x s = verifyRaw (Just t) k (Bi.encodeStrict x) (coerce s)
 
 -- CHECK: @verifyRaw
 -- | Verify raw 'ByteString'.
@@ -223,14 +222,14 @@ createProxyCert (SecretKey issuerSk) (PublicKey delegatePk) o =
     ProxyCert $
     CC.sign emptyPass issuerSk $
     mconcat
-        ["00", CC.unXPub delegatePk, BSL.toStrict $ Bi.encode o]
+        ["00", CC.unXPub delegatePk, Bi.encodeStrict o]
 
 -- | Checks if certificate is valid, given issuer pk, delegate pk and ω.
 verifyProxyCert :: (Bi w) => PublicKey -> PublicKey -> w -> ProxyCert w -> Bool
 verifyProxyCert (PublicKey issuerPk) (PublicKey delegatePk) o (ProxyCert sig) =
     CC.verify
         issuerPk
-        (mconcat ["00", CC.unXPub delegatePk, BSL.toStrict $ Bi.encode o])
+        (mconcat ["00", CC.unXPub delegatePk, Bi.encodeStrict o])
         sig
 
 -- | Convenient wrapper for secret key, that's basically ω plus
@@ -313,7 +312,7 @@ proxySign t sk@(SecretKey delegateSk) ProxySecretKey{..} m
         mconcat
             -- it's safe to put the tag after issuerPk because `CC.unXPub
             -- issuerPk` always takes 64 bytes
-            ["01", CC.unXPub issuerPk, signTag t, BSL.toStrict $ Bi.encode m]
+            ["01", CC.unXPub issuerPk, signTag t, Bi.encodeStrict m]
 
 -- CHECK: @proxyVerify
 -- | Verify delegated signature given issuer's pk, signature, message
@@ -334,6 +333,6 @@ proxyVerify t iPk@(PublicKey issuerPk) ProxySignature{..} omegaPred m =
                  [ "01"
                  , CC.unXPub issuerPk
                  , signTag t
-                 , BSL.toStrict $ Bi.encode m
+                 , Bi.encodeStrict m
                  ])
             pdSig

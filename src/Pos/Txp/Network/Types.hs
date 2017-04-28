@@ -11,6 +11,7 @@ import           Formatting              (bprint, build, (%))
 import           Universum
 
 import           Pos.Binary.Core.Address ()
+import           Pos.Binary.Txp          ()
 import           Pos.Txp.Core.Types      (Tx, TxDistribution, TxWitness)
 
 data TxMsgTag = TxMsgTag deriving (Eq, Show)

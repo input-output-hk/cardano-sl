@@ -1,15 +1,15 @@
-{-# LANGUAGE CPP                  #-}
-{-# LANGUAGE InstanceSigs         #-}
-{-# LANGUAGE RankNTypes           #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE InstanceSigs        #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 module Pos.Client.Txp.History
        ( TxHistoryEntry(..)
        , thTxId
        , thTx
+       , thInputs
        , thDifficulty
        , thInputAddrs
        , thOutputAddrs
@@ -26,44 +26,39 @@ module Pos.Client.Txp.History
 
 import           Universum
 
-import           Control.Lens                (makeLenses, (%=))
-import           Control.Monad.Loops         (unfoldrM)
-import           Control.Monad.Trans         (MonadTrans)
-import           Control.Monad.Trans.Maybe   (MaybeT (..))
-import qualified Data.DList                  as DL
-import qualified Data.HashSet                as HS
-import           Data.Tagged                 (Tagged (..))
-import           System.Wlog                 (WithLogger)
+import           Control.Lens              (makeLenses, (%=))
+import           Control.Monad.Loops       (unfoldrM)
+import           Control.Monad.Trans       (MonadTrans)
+import           Control.Monad.Trans.Maybe (MaybeT (..))
+import qualified Data.DList                as DL
+import qualified Data.HashSet              as HS
+import           Data.Tagged               (Tagged (..))
+import           System.Wlog               (WithLogger)
 
-import           Pos.Communication.PeerState (PeerStateHolder)
-import           Pos.Constants               (blkSecurityParam)
-import qualified Pos.Context                 as PC
-import           Pos.Crypto                  (WithHash (..), withHash)
-import           Pos.DB                      (MonadDB)
-import qualified Pos.DB.Block                as DB
-import           Pos.DB.Error                (DBError (..))
-import qualified Pos.DB.GState               as GS
-import           Pos.Delegation              (DelegationT (..))
-import           Pos.DHT.Real                (KademliaDHT (..))
-import           Pos.Slotting                (MonadSlots, NtpSlotting, SlottingHolder)
-import           Pos.Ssc.Class               (SscHelpersClass)
-import           Pos.Ssc.Extra               (SscHolder (..))
-import           Pos.WorkMode                (TxpExtra_TMP)
+import           Pos.Constants             (blkSecurityParam)
+import qualified Pos.Context               as PC
+import           Pos.Crypto                (WithHash (..), withHash)
+import           Pos.DB                    (MonadDB)
+import qualified Pos.DB.Block              as DB
+import           Pos.DB.Error              (DBError (..))
+import qualified Pos.DB.GState             as GS
+import           Pos.Slotting              (MonadSlots)
+import           Pos.Ssc.Class             (SscHelpersClass)
+import           Pos.WorkMode              (TxpExtra_TMP)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer                (eTxProcessTransaction)
+import           Pos.Explorer              (eTxProcessTransaction)
 #else
-import           Pos.Txp                     (txProcessTransaction)
+import           Pos.Txp                   (txProcessTransaction)
 #endif
-import           Pos.Txp                     (MonadUtxoRead, Tx (..), TxAux,
-                                              TxDistribution, TxId, TxOut (..),
-                                              TxOutAux (..), TxWitness, TxpHolder (..),
-                                              Utxo, UtxoStateT, applyTxToUtxo,
-                                              evalUtxoStateT, filterUtxoByAddrs,
-                                              getLocalTxs, runUtxoStateT, topsortTxs,
-                                              txOutAddress, utxoGet)
-import           Pos.Types                   (Address, Block, ChainDifficulty, HeaderHash,
-                                              blockTxas, difficultyL, prevBlockL)
-import           Pos.Util                    (maybeThrow)
+import           Pos.Txp                   (MonadUtxoRead, Tx (..), TxAux, TxDistribution,
+                                            TxId, TxOut (..), TxOutAux (..), TxWitness,
+                                            TxpHolder, Utxo, UtxoStateT, applyTxToUtxo,
+                                            evalUtxoStateT, filterUtxoByAddrs,
+                                            getLocalTxs, runUtxoStateT, topsortTxs,
+                                            txOutAddress, utxoGet)
+import           Pos.Types                 (Address, Block, ChainDifficulty, HeaderHash,
+                                            blockTxas, difficultyL, prevBlockL)
+import           Pos.Util                  (ether, maybeThrow)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -80,17 +75,18 @@ data TxHistoryAnswer = TxHistoryAnswer
 ----------------------------------------------------------------------
 
 -- | For given tx, gives list of source addresses of this tx, with respective 'TxIn's
-getSenders :: MonadUtxoRead m => Tx -> m [Address]
+getSenders :: MonadUtxoRead m => Tx -> m [TxOut]
 getSenders UnsafeTx {..} = do
     utxo <- catMaybes <$> mapM utxoGet (toList _txInputs)
-    return $ txOutAddress . toaOut <$> utxo
+    return $ toaOut <$> utxo
 
 -- | Datatype for returning info about tx history
 data TxHistoryEntry = THEntry
     { _thTxId        :: !TxId
     , _thTx          :: !Tx
+    , _thInputs      :: ![TxOut]
     , _thDifficulty  :: !(Maybe ChainDifficulty)
-    , _thInputAddrs  :: ![Address]
+    , _thInputAddrs  :: ![Address]  -- TODO: remove in favor of _thInputs
     , _thOutputAddrs :: ![Address]
     } deriving (Show, Eq, Generic)
 
@@ -110,15 +106,16 @@ getRelatedTxs (HS.fromList -> addrs) txs = do
         fmap catMaybes . mapM step
   where
     step (WithHash tx txId, _wit, dist) = do
-        incomings <- ordNub <$> getSenders tx
+        inputs <- getSenders tx
         let outgoings = toList $ txOutAddress <$> _txOutputs tx
+        let incomings = ordNub $ map txOutAddress inputs
 
         applyTxToUtxo (WithHash tx txId) dist
 
         return $ do
             guard . not . null $
                 HS.fromList (incomings ++ outgoings) `HS.intersection` addrs
-            return $ THEntry txId tx Nothing incomings outgoings
+            return $ THEntry txId tx inputs Nothing incomings outgoings
 
 -- | Given a full blockchain, derive address history and Utxo
 -- TODO: Such functionality will still be useful for merging
@@ -127,8 +124,9 @@ getRelatedTxs (HS.fromList -> addrs) txs = do
 deriveAddrHistory
     -- :: (Monad m, Ssc ssc) => Address -> [Block ssc] -> TxSelectorT m [TxHistoryEntry]
     :: (Monad m) => [Address] -> [Block ssc] -> TxSelectorT m [TxHistoryEntry]
-deriveAddrHistory addrs chain = identity %= filterUtxoByAddrs addrs >>
-                                deriveAddrHistoryPartial [] addrs chain
+deriveAddrHistory addr chain = do
+    ether $ identity %= filterUtxoByAddrs addr
+    deriveAddrHistoryPartial [] addr chain
 
 deriveAddrHistoryPartial
     :: (Monad m)
@@ -166,16 +164,9 @@ class Monad m => MonadTxHistory m where
     default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()
     saveTx = lift . saveTx
 
-instance MonadTxHistory m => MonadTxHistory (ReaderT r m)
-instance MonadTxHistory m => MonadTxHistory (StateT s m)
-instance MonadTxHistory m => MonadTxHistory (KademliaDHT m)
-instance MonadTxHistory m => MonadTxHistory (PeerStateHolder m)
-instance MonadTxHistory m => MonadTxHistory (NtpSlotting m)
-instance MonadTxHistory m => MonadTxHistory (SlottingHolder m)
-
-deriving instance MonadTxHistory m => MonadTxHistory (PC.ContextHolder ssc m)
-deriving instance MonadTxHistory m => MonadTxHistory (SscHolder ssc m)
-deriving instance MonadTxHistory m => MonadTxHistory (DelegationT m)
+instance {-# OVERLAPPABLE #-}
+    (MonadTxHistory m, MonadTrans t, Monad (t m)) =>
+        MonadTxHistory (t m)
 
 instance ( MonadDB m
          , MonadThrow m
@@ -223,7 +214,7 @@ instance ( MonadDB m
                 (foldrM blockFetcher cachedTxs nonCachedHashes >>= localFetcher)
                 cachedUtxo
 
-            let lastCachedHash = maybe bot identity $ head cachedHashes
+            let lastCachedHash = fromMaybe bot $ head cachedHashes
             return $ TxHistoryAnswer lastCachedHash (length cachedTxs) cachedUtxo result
 
         maybe (error "deriveAddrHistory: Nothing") pure mres

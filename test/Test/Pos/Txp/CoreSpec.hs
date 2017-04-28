@@ -33,7 +33,12 @@ spec = describe "Txp.Core" $ do
         prop "doesn't change the random set of transactions" $
             forAll (resize 10 $ arbitrary) $ \(NonNegative l) ->
             forAll (vectorOf l (txGen 10)) $ \txs ->
-            (sort <$> topsortTxs identity (map withHash txs)) === Just (sort $ map withHash txs)
+            let withHashTxs = map withHash txs in
+            (sort <$> topsortTxs identity withHashTxs) === Just (sort withHashTxs)
+        prop "doesn't change acyclic set of transactions" $
+            forAll (txAcyclicGen False 20) $ \(txs,_) ->
+            forAll (shuffle $ map withHash txs) $ \shuffled ->
+            (sort <$> topsortTxs identity shuffled) === Just (sort $ map withHash txs)
         prop "graph generator does not produce loops" $
             forAll (txAcyclicGen False 20) $ \(txs,_) ->
             forAll (shuffle $ map withHash txs) $ \shuffled ->

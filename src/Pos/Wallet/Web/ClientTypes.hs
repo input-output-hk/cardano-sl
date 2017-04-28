@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
 -- This module is to be moved later anywhere else, just to have a
@@ -32,7 +31,7 @@ module Pos.Wallet.Web.ClientTypes
       , CWalletSetInit (..)
       , CUpdateInfo (..)
       , CWalletRedeem (..)
-      , CPostVendWalletRedeem (..)
+      , CPaperVendWalletRedeem (..)
       , CCoin
       , mkCCoin
       , PassPhraseLU
@@ -55,6 +54,7 @@ module Pos.Wallet.Web.ClientTypes
 
 import           Universum
 
+import           Control.Arrow          ((&&&))
 import qualified Data.ByteString.Lazy   as LBS
 import           Data.Default           (Default, def)
 import           Data.Hashable          (Hashable (..))
@@ -74,7 +74,7 @@ import           Pos.Binary.Class       (decodeFull, encodeStrict)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core.Types         (ScriptVersion)
 import           Pos.Crypto             (PassPhrase, hashHexF)
-import           Pos.Txp.Core.Types     (Tx (..), TxId, txOutValue)
+import           Pos.Txp.Core.Types     (Tx (..), TxId, TxOut, txOutAddress, txOutValue)
 import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
                                          Coin, SoftwareVersion, decodeTextAddress,
                                          sumCoins, unsafeGetCoin, unsafeIntegerToCoin)
@@ -82,6 +82,7 @@ import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes
                                          UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll        (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase  (BackupPhrase, mkBackupPhrase12)
+
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty
@@ -130,7 +131,7 @@ data WS = WS
 -- | Marks address as belonging to account.
 data Acc = Acc
 
--- TODO: this is not complitely safe. If someone changes
+-- TODO: this is not completely safe. If someone changes
 -- implementation of Buildable Address. It should be probably more
 -- safe to introduce `class PSSimplified` that would have the same
 -- implementation has it is with Buildable Address but then person
@@ -152,6 +153,9 @@ mkCTxId = CTxId . CHash
 -- | transform TxId into CTxId
 txIdToCTxId :: TxId -> CTxId
 txIdToCTxId = mkCTxId . sformat hashHexF
+
+convertTxOutputs :: [TxOut] -> [(CAddress w, CCoin)]
+convertTxOutputs = map (addressToCAddress . txOutAddress &&& mkCCoin . txOutValue)
 
 mkCTx
     :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
@@ -342,7 +346,7 @@ instance WithDerivationPath CAccountAddress where
     getDerivationPath CAccountAddress{..} = [caaWalletIndex, caaAccountIndex]
 
 -- | Query data for redeem
-data CPostVendWalletRedeem = CPostVendWalletRedeem
+data CPaperVendWalletRedeem = CPaperVendWalletRedeem
     { pvWalletId     :: !CWalletAddress
     , pvSeed         :: !Text -- TODO: newtype!
     , pvBackupPhrase :: !BackupPhrase
@@ -361,6 +365,11 @@ type CPwHash = Text -- or Base64 or something else
 data CProfile = CProfile
     { cpLocale      :: Text
     } deriving (Show, Generic, Typeable)
+
+-- | Added default instance for `testReset`, we need an inital state for
+-- @CProfile@
+instance Default CProfile where
+    def = CProfile mempty
 
 ----------------------------------------------------------------------------
 -- Transactions

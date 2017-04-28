@@ -1,5 +1,3 @@
-{-# LANGUAGE ConstraintKinds #-}
-
 -- | Functions for operating with transactions
 
 module Pos.Communication.Tx
@@ -23,14 +21,13 @@ import           Pos.Client.Txp.History     (MonadTxHistory (..))
 import           Pos.Client.Txp.Util        (TxError, createMTx, createRedemptionTx,
                                              createTx)
 import           Pos.Communication.Methods  (sendTx)
-import           Pos.Communication.Protocol (SendActions)
+import           Pos.Communication.Protocol (NodeId, SendActions)
 import           Pos.Communication.Specs    (sendTxOuts)
 import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
                                              redeemToPublic, safeToPublic)
 import           Pos.DB.Limits              (MonadDBLimits)
-import           Pos.DHT.Model              (DHTNode)
 import           Pos.Txp.Core               (TxAux, TxOut (..), TxOutAux (..), txaF)
-import           Pos.Types                  (Address, makePubKeyAddress,
+import           Pos.Types                  (Address, Coin, makePubKeyAddress,
                                              makeRedeemAddress, mkCoin, unsafeAddCoin)
 import           Pos.WorkMode               (MinWorkMode)
 
@@ -45,7 +42,7 @@ type TxMode ssc m
 
 submitAndSave
     :: TxMode ssc m
-    => SendActions m -> [DHTNode] -> TxAux -> ExceptT TxError m TxAux
+    => SendActions m -> [NodeId] -> TxAux -> ExceptT TxError m TxAux
 submitAndSave sendActions na txw = do
     let txId = hash (txw ^. _1)
     lift $ submitTxRaw sendActions na txw
@@ -57,7 +54,7 @@ submitMTx
     :: TxMode ssc m
     => SendActions m
     -> NonEmpty (SafeSigner, Address)
-    -> [DHTNode]
+    -> [NodeId]
     -> NonEmpty TxOutAux
     -> m (Either TxError TxAux)
 submitMTx sendActions hdwSigner na outputs = do
@@ -72,7 +69,7 @@ submitTx
     :: TxMode ssc m
     => SendActions m
     -> SafeSigner
-    -> [DHTNode]
+    -> [NodeId]
     -> NonEmpty TxOutAux
     -> m (Either TxError TxAux)
 submitTx sendActions ss na outputs = do
@@ -86,11 +83,12 @@ submitRedemptionTx
     :: TxMode ssc m
     => SendActions m
     -> RedeemSecretKey
-    -> [DHTNode]
+    -> [NodeId]
     -> Address
-    -> m (Either TxError TxAux)
+    -> m (Either TxError (TxAux, Address, Coin))
 submitRedemptionTx sendActions rsk na output = do
-    utxo <- getOwnUtxo $ makeRedeemAddress $ redeemToPublic rsk
+    let redeemAddress = makeRedeemAddress $ redeemToPublic rsk
+    utxo <- getOwnUtxo redeemAddress
     runExceptT $ do
         let addCoin c = unsafeAddCoin c . txOutValue . toaOut
             redeemBalance = foldl' addCoin (mkCoin 0) utxo
@@ -98,12 +96,13 @@ submitRedemptionTx sendActions rsk na output = do
                 one $
                 TxOutAux {toaOut = TxOut output redeemBalance, toaDistr = []}
         txw <- ExceptT $ return $ createRedemptionTx utxo rsk txouts
-        submitAndSave sendActions na txw
+        txAux <- submitAndSave sendActions na txw
+        pure (txAux, redeemAddress, redeemBalance)
 
 -- | Send the ready-to-use transaction
 submitTxRaw
     :: (MinWorkMode m, MonadDBLimits m)
-    => SendActions m -> [DHTNode] -> TxAux -> m ()
+    => SendActions m -> [NodeId] -> TxAux -> m ()
 submitTxRaw sa na tx = do
     let txId = hash (tx ^. _1)
     logInfo $ sformat ("Submitting transaction: "%txaF) tx

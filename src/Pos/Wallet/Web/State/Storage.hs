@@ -86,7 +86,7 @@ makeLenses ''WalletInfo
 data WalletStorage = WalletStorage
     { _wsWSetInfos    :: !(HashMap (CAddress WS) WalletSetInfo)
     , _wsWalletInfos  :: !(HashMap CWalletAddress WalletInfo)
-    , _wsProfile      :: !(Maybe CProfile)
+    , _wsProfile      :: !CProfile
     , _wsReadyUpdates :: [CUpdateInfo]
     , _wsHistoryCache :: !(HashMap CWalletAddress (HeaderHash, Utxo, [TxHistoryEntry]))
     }
@@ -96,9 +96,9 @@ makeClassy ''WalletStorage
 instance Default WalletStorage where
     def =
         WalletStorage
-        { _wsWSetInfos = mempty
-        , _wsWalletInfos = mempty
-        , _wsProfile = mzero
+        { _wsWSetInfos    = mempty
+        , _wsWalletInfos  = mempty
+        , _wsProfile      = def
         , _wsReadyUpdates = mempty
         , _wsHistoryCache = mempty
         }
@@ -117,11 +117,11 @@ withAccLookupMode Existing existing _       = existing
 withAccLookupMode Deleted  _        deleted = deleted
 withAccLookupMode Ever     existing deleted = mappend <$> existing <*> deleted
 
-getProfile :: Query (Maybe CProfile)
+getProfile :: Query CProfile
 getProfile = view wsProfile
 
 setProfile :: CProfile -> Update ()
-setProfile profile = wsProfile ?= profile
+setProfile profile = wsProfile .= profile
 
 getWalletAddresses :: Query [CWalletAddress]
 getWalletAddresses = HM.keys <$> view wsWalletInfos

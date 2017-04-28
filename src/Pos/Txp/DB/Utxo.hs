@@ -22,6 +22,9 @@ module Pos.Txp.DB.Utxo
        , runUtxoMapIterator
        , getFilteredUtxo
 
+       -- * Get utxo
+       , getAllPotentiallyHugeUtxo
+
        -- * Sanity checks
        , sanityCheckUtxo
        ) where
@@ -87,19 +90,14 @@ instance RocksBatchOp UtxoOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareGStateUtxo
-    :: forall m.
-       MonadDB m
-    => Utxo -> m ()
+prepareGStateUtxo :: MonadDB m => Utxo -> m ()
 prepareGStateUtxo genesisUtxo =
-    putIfEmpty isUtxoInitialized putGenesisUtxo
-  where
-    putIfEmpty :: m Bool -> m () -> m ()
-    putIfEmpty exists putter = whenM (not <$> exists) $ putter
-    putGenesisUtxo = do
+    unlessM isUtxoInitialized $ do
+        -- put genesis utxo
         let utxoList = M.toList genesisUtxo
         writeBatchGState $ concatMap createBatchOp utxoList
         gsPutBi initializationFlagKey True
+  where
     createBatchOp (txin, txout) =
         [AddTxOut txin txout]
 
@@ -166,6 +164,16 @@ getFilteredUtxo' addrs = filterUtxo @i $ \(_, out) -> out `addrBelongsToSet` add
 
 getFilteredUtxo :: MonadDB m => [Address] -> m Utxo
 getFilteredUtxo = getFilteredUtxo' @UtxoIter
+
+-- | Get full utxo. Use with care – the utxo can be very big (hundreds of
+-- megabytes).
+getAllPotentiallyHugeUtxo :: MonadDB m => m Utxo
+getAllPotentiallyHugeUtxo = runUtxoIterator @UtxoIter (step mempty)
+  where
+    -- this can probably be written better
+    step res = nextItem >>= \case
+        Nothing     -> pure res
+        Just (k, v) -> step (M.insert k v res)
 
 ----------------------------------------------------------------------------
 -- Sanity checks

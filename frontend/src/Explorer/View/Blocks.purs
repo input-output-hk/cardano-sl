@@ -135,7 +135,7 @@ blockRow state (CBlockEntry entry) =
                       , clazz: CSS.blocksColumnTxs
                       }
         , blockColumn { label: entry ^. (cbeTotalSent <<< _CCoin <<< getCoin)
-                      , clazz: CSS.blocksColumnTotalSent <> " " <> currencyCSSClass (pure ADA)
+                      , clazz: CSS.blocksColumnTotalSent
                       }
 --        , blockColumn { label: labelRelayed
 --                      , clazz: CSS.blocksColumnRelayedBy

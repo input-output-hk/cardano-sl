@@ -22,6 +22,7 @@ import           Universum
 import           Pos.Communication.PeerState   (runPeerStateHolder)
 import           Pos.Reporting.MemState        (runWithoutReportingContext)
 import           Pos.Ssc.Class                 (SscHelpersClass)
+import           Pos.Util.JsonLog              (usingJsonLogFilePath)
 import           Pos.Wallet.KeyStorage         (KeyData, runKeyStorageRaw)
 import           Pos.Wallet.State              (getWalletState, runWalletDB)
 import qualified Pos.Wallet.State              as WS
@@ -74,6 +75,7 @@ convertHandler
 convertHandler mws kd ws wsConn handler = do
     stateM <- liftIO SM.newIO
     liftIO ( runProduction
+           . usingJsonLogFilePath Nothing
            . usingLoggerName "wallet-lite-api"
            . runWithoutReportingContext
            . runWalletDB mws

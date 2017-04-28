@@ -16,4 +16,5 @@ data WalletParams = WalletParams
     , wpGenesisKeys :: !Bool
     , wpBaseParams  :: !BaseParams
     , wpGenesisUtxo :: !Utxo -- ^ Genesis utxo
+    , wpJLFilePath  :: !(Maybe FilePath) -- ^ JSON log file path
     } deriving (Show)

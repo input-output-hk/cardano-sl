@@ -344,7 +344,7 @@ main = do
     bracketResources baseParams TCP.Unaddressable (Set.fromList allPeers) $ \res -> do
 
         let trans :: forall t . Production t -> WalletRealMode t
-            trans = lift . lift . lift . lift . lift
+            trans = lift . lift . lift . lift . lift . lift
             res' :: RealModeResources WalletRealMode
             res' = hoistResources trans res
 
@@ -367,6 +367,7 @@ main = do
                                            (CLI.richPoorDistr woCommonArgs)
                                            (CLI.expDistr woCommonArgs)
                           else genesisStakeDistribution
+                , wpJLFilePath = woJLFile
                 }
 
             plugins :: ([ WorkerSpec WalletRealMode ], OutSpecs)

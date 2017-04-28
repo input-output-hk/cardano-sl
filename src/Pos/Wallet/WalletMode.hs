@@ -43,6 +43,7 @@ import           Pos.Types                   (BlockHeader, ChainDifficulty, diff
 import           Pos.Update                  (ConfirmedProposalState (..))
 import           Pos.Update.Context          (UpdateContext (ucUpdateSemaphore))
 import           Pos.Util                    (maybeThrow)
+import           Pos.Util.JsonLog            (MonadJL (..), JsonLogFilePathBox)
 import           Pos.Util.Context            (askContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)
@@ -184,6 +185,7 @@ type WalletMode ssc m
       , MonadBlockchainInfo m
       , MonadUpdates m
       , WithPeerState m
+      , MonadJL m
       )
 
 ---------------------------------------------------------------
@@ -195,5 +197,5 @@ type WalletRealMode = PeerStateHolder
                        (WalletDB
                         (ReportingContextT
                          (LoggerNameBox
-                          Production
-                           ))))
+                          (JsonLogFilePathBox
+                           Production)))))

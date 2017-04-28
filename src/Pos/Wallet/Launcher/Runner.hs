@@ -20,6 +20,7 @@ import           Pos.Launcher                (BaseParams (..), LoggingParams (..
                                               RealModeResources (..), runServer_)
 import           Pos.Reporting.MemState      (runWithoutReportingContext)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
+import           Pos.Util.JsonLog            (usingJsonLogFilePath)
 import           Pos.Util.Util               ()
 import           Pos.Wallet.KeyStorage       (runKeyStorage)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
@@ -82,7 +83,7 @@ runRawRealWallet
     -> (ActionSpec WalletRealMode a, OutSpecs)
     -> Production a
 runRawRealWallet peerId res WalletParams {..} listeners (ActionSpec action, outs) =
-    usingLoggerName lpRunnerTag . bracket openDB closeDB $ \db -> do
+    usingJsonLogFilePath wpJLFilePath . usingLoggerName lpRunnerTag . bracket openDB closeDB $ \db -> do
         stateM <- liftIO SM.newIO
         runWithoutReportingContext .
             runWalletDB db .

@@ -13,24 +13,37 @@ module Pos.Util.JsonLog
        , MonadJL (..)
        , appendJL
        , fromJLSlotId
+       , JsonLogFilePathBox
+       , usingJsonLogFilePath
        ) where
 
-import           Control.Monad.Trans    (MonadTrans (..))
-import           Data.Aeson             (encode)
-import           Data.Aeson.TH          (deriveJSON)
-import qualified Data.ByteString.Lazy   as LBS
-import           Formatting             (sformat)
-import           Serokell.Aeson.Options (defaultOptions)
+import           Control.Lens             (iso)
+import           Control.Monad.Fix        (MonadFix)
+import           Control.Monad.Trans      (MonadTrans (..))
+import           Data.Aeson               (encode)
+import           Data.Aeson.TH            (deriveJSON)
+import qualified Data.ByteString.Lazy     as LBS
+import           Formatting               (sformat)
+import           Mockable                 (liftMockableWrappedM, MFunctor')
+import           Mockable.Channel         (ChannelT)
+import           Mockable.Class           (Mockable (..))
+import           Mockable.Concurrent      (ThreadId, Promise)
+import           Mockable.Metrics         (Counter, Distribution, Gauge)
+import           Mockable.SharedAtomic    (SharedAtomicT)
+import           Mockable.SharedExclusive (SharedExclusiveT)
+import           Serokell.Aeson.Options   (defaultOptions)
+import           Serokell.Util.Lens       (WrappedM (..))
+import           System.Wlog              (CanLog)
 import           Universum
 
-import           Pos.Binary.Block       ()
-import           Pos.Binary.Core        ()
-import           Pos.Crypto             (Hash, hash, hashHexF)
-import           Pos.Ssc.Class.Types    (Ssc)
-import           Pos.Types              (BiSsc, Block, SlotId (..), blockHeader, blockTxs,
-                                         epochIndexL, gbHeader, gbhPrevBlock, headerHash,
-                                         headerSlot)
-import           Pos.Util.TimeWarp      (currentTime)
+import           Pos.Binary.Block         ()
+import           Pos.Binary.Core          ()
+import           Pos.Crypto               (Hash, hash, hashHexF)
+import           Pos.Ssc.Class.Types      (Ssc)
+import           Pos.Types                (BiSsc, Block, SlotId (..), blockHeader, blockTxs,
+                                           epochIndexL, gbHeader, gbhPrevBlock, headerHash,
+                                           headerSlot)
+import           Pos.Util.TimeWarp        (currentTime)
 
 type BlockId = Text
 type TxId = Text
@@ -102,3 +115,46 @@ class Monad m => MonadJL m where
 instance {-# OVERLAPPABLE #-}
     (MonadJL m, MonadTrans t, Monad (t m)) =>
         MonadJL (t m)
+
+---------------------------------------------------------------
+-- JsonLogFilePathBox monad transformer
+---------------------------------------------------------------
+
+newtype JsonLogFilePathBox m a = JsonLogFilePathBox { jsonLogFilePathBoxEntry :: ReaderT (Maybe FilePath) m a }
+    deriving (Functor, Applicative, Monad, MonadTrans,
+              CanLog, MonadIO, MonadFix, MonadMask, MonadCatch, MonadThrow)
+
+type instance ThreadId (JsonLogFilePathBox m) = ThreadId m
+
+type instance Promise (JsonLogFilePathBox m) = Promise m
+
+type instance SharedAtomicT (JsonLogFilePathBox m) = SharedAtomicT m
+
+type instance SharedExclusiveT (JsonLogFilePathBox m) = SharedExclusiveT m
+
+type instance ChannelT (JsonLogFilePathBox m) = ChannelT m
+
+type instance Counter (JsonLogFilePathBox m) = Counter m
+
+type instance Distribution (JsonLogFilePathBox m) = Distribution m
+
+type instance Gauge (JsonLogFilePathBox m) = Gauge m
+
+instance Monad m => WrappedM (JsonLogFilePathBox m) where
+
+    type UnwrappedM (JsonLogFilePathBox m) = ReaderT (Maybe FilePath) m
+
+    _WrappedM = iso jsonLogFilePathBoxEntry JsonLogFilePathBox
+
+instance ( Mockable d m
+         , MFunctor' d (JsonLogFilePathBox m) (ReaderT (Maybe FilePath) m)
+         , MFunctor' d (ReaderT (Maybe FilePath) m) m
+         ) => Mockable d (JsonLogFilePathBox m) where
+    liftMockable = liftMockableWrappedM
+
+instance MonadIO m => MonadJL (JsonLogFilePathBox m) where
+
+    jlLog event = JsonLogFilePathBox $ whenJustM ask $ flip appendJL event
+        
+usingJsonLogFilePath :: Maybe FilePath -> JsonLogFilePathBox m a -> m a
+usingJsonLogFilePath path = flip runReaderT path . jsonLogFilePathBoxEntry

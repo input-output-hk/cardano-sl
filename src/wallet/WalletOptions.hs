@@ -23,10 +23,10 @@ import           Pos.Communication      (NodeId)
 data WalletOptions = WalletOptions
     { woDbPath      :: !FilePath
     , woRebuildDb   :: !Bool
-    , woKeyFilePath :: !FilePath       -- ^ Path to file with secret keys
-    , woDebug       :: !Bool           -- ^ Run in debug mode (with genesis keys included)
-    , woJLFile      :: !(Maybe FilePath)
-    , woCommonArgs  :: !CLI.CommonArgs -- ^ Common CLI args, including initial DHT nodes
+    , woKeyFilePath :: !FilePath         -- ^ Path to file with secret keys
+    , woDebug       :: !Bool             -- ^ Run in debug mode (with genesis keys included)
+    , woJLFile      :: !(Maybe FilePath) -- ^ JSON log file path
+    , woCommonArgs  :: !CLI.CommonArgs   -- ^ Common CLI args, including initial DHT nodes
     , woAction      :: !WalletAction
     , woPeers       :: ![NodeId]
     }
@@ -93,7 +93,6 @@ optionsParser = do
         CLI.commonArgsParser
     woAction <-
         actionParser
-
     woPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer (host:port:peer_id)"
 
     pure WalletOptions{..}

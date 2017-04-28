@@ -6,7 +6,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/input-output-hk/cardano-sl
-    commit: be7cb65f71e7bd5b34778652009469c4513ecb79
+    commit: e94dec0b7bc90c4dba16715e1170fe21d4315b34
   extra-dep: true
   subdirs:
       - '.'

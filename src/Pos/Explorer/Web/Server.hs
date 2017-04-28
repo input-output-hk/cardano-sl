@@ -29,7 +29,6 @@ import           Pos.Communication              (SendActions)
 import           Pos.Crypto                     (WithHash (..), hash, withHash)
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.GState                  as GS
-import qualified Pos.DB.GState.Balances         as GS
 
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class                  (SscHelpersClass)
@@ -51,7 +50,8 @@ import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer                   (TxExtra (..), getTxExtra)
-import qualified Pos.Explorer                   as EX (getAddrHistory, getTxExtra)
+import qualified Pos.Explorer                   as EX (getAddrBalance, getAddrHistory,
+                                                       getTxExtra)
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
@@ -203,10 +203,8 @@ getBlockTxs cHash (fromIntegral -> lim) (fromIntegral -> off) = do
 
 getAddressSummary :: ExplorerMode m => CAddress -> m CAddressSummary
 getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
-    PubKeyAddress sid _ -> do
-        balance <- mkCCoin . fromMaybe (mkCoin 0) <$> GS.getRealStake sid
-        -- TODO: add number of coins when it's implemented
-        -- TODO: retrieve transactions from something like an index
+    PubKeyAddress _ _ -> do
+        balance <- mkCCoin . fromMaybe (mkCoin 0) <$> EX.getAddrBalance addr
         txIds <- getNewestFirst <$> EX.getAddrHistory addr
         transactions <- forM txIds $ \id -> do
             extra <- getTxExtraOrFail id

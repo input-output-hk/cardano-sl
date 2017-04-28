@@ -238,7 +238,7 @@ paginationView props =
             , P.input
                 [ P.className "page-number"
                 , P.disabled true
-                , P.type_ "search"
+                , P.type_ "number"
                 , P.value $ show props.maxPage
                 ]
                 []

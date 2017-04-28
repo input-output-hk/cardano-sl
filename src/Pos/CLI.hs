@@ -313,4 +313,7 @@ peerIdOption :: Opt.Parser PeerId
 peerIdOption = Opt.option (fromParsec peerIdParser) $
     Opt.long    "peer-id" <>
     Opt.metavar "PEERID" <>
-    Opt.help    "Identifier for this node"
+    Opt.help helpMsg
+  where
+    helpMsg = "Identifier for this node. "
+        <> "Must be exactly 14 bytes, base64url encoded."

@@ -33,10 +33,12 @@ module Pos.Communication.Types.Protocol
        , nodeIdParser
        ) where
 
+import qualified Control.Monad         as Monad (fail)
 import           Control.Arrow         ((&&&))
 import           Data.Hashable         (Hashable)
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.Text.Buildable   as B
+import qualified Data.ByteString       as BS (length)
 import           Formatting            (bprint, build, hex, int, sformat, stext, (%))
 import qualified Node                  as N
 import           Node.Message          (Message (..), MessageName (..))
@@ -205,7 +207,10 @@ type ListenersWithOut m = ([ListenerSpec m], OutSpecs)
 
 -- | Parser for PeerId. Any base64 string.
 peerIdParser :: P.Parser PeerId
-peerIdParser = fmap PeerId P.base64Url
+peerIdParser = do
+    bytes <- P.base64Url
+    when (BS.length bytes /= 14) $ Monad.fail "PeerId must be exactly 14 bytes"
+    return $ PeerId bytes
 
 -- | Parser for NodeId
 --   host:port/peerId

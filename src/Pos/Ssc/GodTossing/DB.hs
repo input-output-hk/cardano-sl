@@ -35,7 +35,7 @@ prepareGtDB certs =
     whenNothingM_ (gsGetBi @_ @GtGlobalState gtKey) $
         gsPutBi gtKey (def {_gsVssCertificates = vcd})
   where
-    vcd = foldr' VCD.insert VCD.empty . toList $ certs
+    vcd = VCD.fromList . toList $ certs
 
 ----------------------------------------------------------------------------
 -- Operation

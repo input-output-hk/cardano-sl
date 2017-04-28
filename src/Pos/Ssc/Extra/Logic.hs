@@ -29,6 +29,7 @@ import           Control.Concurrent.STM  (readTVar, writeTVar)
 import           Control.Lens            (_Wrapped)
 import           Control.Monad.Except    (MonadError, runExceptT)
 import           Control.Monad.Morph     (generalize, hoist)
+import           Control.Monad.State     (get)
 import           Control.Monad.State     (put)
 import           Data.Tagged             (untag)
 import           Formatting              (build, int, sformat, (%))
@@ -260,8 +261,10 @@ onUnexpectedVerify hashes = assertionFailed msg
 sscRollbackBlocks
     :: forall ssc m.
        SscGlobalApplyMode ssc m
-    => NewestFirst NE (Block ssc) -> m ()
-sscRollbackBlocks = sscRunGlobalUpdate . sscRollbackU
+    => NewestFirst NE (Block ssc) -> m [SomeBatchOp]
+sscRollbackBlocks blocks = sscRunGlobalUpdate $ do
+    sscRollbackU blocks
+    untag @ssc . sscGlobalStateToBatch <$> get
 
 -- | Verify sequence of blocks and return global state which
 -- corresponds to application of given blocks. If blocks are invalid,

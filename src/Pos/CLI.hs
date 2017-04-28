@@ -46,14 +46,14 @@ import           Pos.Binary.Core                      ()
 import           Pos.Constants                        (isDevelopment, staticSysStart)
 import           Pos.Core                             (Address (..), AddressHash,
                                                        decodeTextAddress, Timestamp (..))
-import           Pos.Communication                    (PeerId (..), NodeId (..), nodeIdParser)
+import           Pos.Communication                    (PeerId (..), NodeId (..), nodeIdParser,
+                                                       peerIdParser)
 import           Pos.Crypto                           (PublicKey)
 import           Pos.Security.CLI                     (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Util                             ()
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
                                                        addrParserNoWildcard)
-import qualified Data.ByteString.Char8                as BSC (pack)
 
 -- | Decides which secret-sharing algorithm to use.
 sscAlgoParser :: P.Parser SscAlgo
@@ -310,7 +310,7 @@ sysStartOption = Opt.option (Timestamp . sec <$> Opt.auto) $
     Opt.value   staticSysStart
 
 peerIdOption :: Opt.Parser PeerId
-peerIdOption = fmap (PeerId . BSC.pack) $ Opt.strOption $
+peerIdOption = Opt.option (fromParsec peerIdParser) $
     Opt.long    "peer-id" <>
     Opt.metavar "PEERID" <>
     Opt.help    "Identifier for this node"

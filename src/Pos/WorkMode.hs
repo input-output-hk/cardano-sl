@@ -25,6 +25,7 @@ import           Mockable.Production         (Production)
 import           System.Wlog                 (LoggerNameBox (..), WithLogger)
 import           Universum
 
+import           Pos.Block.BListener         (MonadBListener (..))
 import           Pos.Communication.PeerState (PeerStateHolder, WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (ContextHolder, NodeParams, WithNodeContext)
@@ -86,6 +87,7 @@ type WorkMode ssc m
       , MonadJL m
       , WithPeerState m
       , MonadShutdownMem m
+      , MonadBListener m
       )
 
 -- | More relaxed version of 'WorkMode'.
@@ -122,3 +124,14 @@ type StatsMode ssc = StatsT (RawRealMode ssc)
 
 -- | ServiceMode is the mode in which support nodes work.
 type ServiceMode = PeerStateHolder (LoggerNameBox Production)
+
+-- Blockchain Listener is needed only for Wallet.
+-- Stub implementation for usual node.
+instance MonadBListener (RawRealMode ssc) where
+    onApplyBlocks = const pass
+    onRollbackBlocks = const pass
+instance MonadBListener ServiceMode where
+    onApplyBlocks = const pass
+    onRollbackBlocks = const pass
+instance MonadBListener (ProductionMode ssc) where
+instance MonadBListener (StatsMode ssc) where

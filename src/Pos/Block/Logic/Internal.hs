@@ -13,47 +13,53 @@ module Pos.Block.Logic.Internal
        , toUpdateBlock
        ) where
 
-import           Control.Arrow        ((&&&))
-import           Control.Lens         (each, _Wrapped)
-import           Control.Monad.Catch  (bracketOnError)
-import qualified Data.List.NonEmpty   as NE
-import           Paths_cardano_sl     (version)
-import           Serokell.Util        (Color (Red), colorize)
+import           Control.Arrow                    ((&&&))
+import           Control.Lens                     (each, _Wrapped)
+import           Control.Monad.Catch              (bracketOnError)
+import qualified Data.List.NonEmpty               as NE
+import           Paths_cardano_sl                 (version)
+import           Serokell.Util                    (Color (Red), colorize)
 import           Universum
 
-import           Pos.Block.Types      (Blund, Undo (undoTx, undoUS))
-import           Pos.Context          (getNodeContext, ncTxpGlobalSettings,
-                                       putBlkSemaphore, takeBlkSemaphore)
-import           Pos.Core             (IsGenesisHeader, IsMainHeader)
-import           Pos.DB               (SomeBatchOp (..))
-import qualified Pos.DB.Block         as DB
-import qualified Pos.DB.DB            as DB
-import qualified Pos.DB.GState        as GS
-import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollbackBlocks)
-import           Pos.Exception        (assertionFailed)
-import           Pos.Reporting        (reportingFatal)
-import           Pos.Slotting         (putSlottingData)
-import           Pos.Txp.Core         (TxPayload)
+import           Pos.Block.BListener              (MonadBListener (..))
+import           Pos.Block.Types                  (Blund, Undo (undoTx, undoUS))
+import           Pos.Context                      (getNodeContext, ncTxpGlobalSettings,
+                                                   putBlkSemaphore, takeBlkSemaphore)
+import           Pos.Core                         (IsGenesisHeader, IsMainHeader)
+import           Pos.DB                           (SomeBatchOp (..))
+import qualified Pos.DB.Block                     as DB
+import qualified Pos.DB.DB                        as DB
+import qualified Pos.DB.GState                    as GS
+import           Pos.Delegation.Logic             (delegationApplyBlocks,
+                                                   delegationRollbackBlocks)
+import           Pos.Exception                    (assertionFailed)
+import           Pos.Reporting                    (reportingFatal)
+import           Pos.Slotting                     (putSlottingData)
+import           Pos.Txp.Core                     (TxPayload)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer.Txp     (eTxNormalize)
+import           Pos.Explorer.Txp                 (eTxNormalize)
 #else
-import           Pos.Txp.Logic        (txNormalize)
+import           Pos.Txp.Logic                    (txNormalize)
 #endif
-import           Pos.Ssc.Class        (Ssc)
-import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
-import           Pos.Txp.Settings     (TxpBlund, TxpGlobalSettings (..))
-import           Pos.Types            (Block, GenesisBlock, HeaderHash, MainBlock,
-                                       epochIndexL, gbBody, gbHeader, headerHash,
-                                       headerHashG, mbTxPayload, mbUpdatePayload,
-                                       prevBlockL)
-import           Pos.Update.Core      (UpdateBlock, UpdatePayload)
-import qualified Pos.Update.DB        as UDB
-import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
-import           Pos.Update.Poll      (PollModifier)
-import           Pos.Util             (Some (..), inAssertMode, spanSafe, _neLast)
-import           Pos.Util.Chrono      (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.WorkMode         (WorkMode)
 import           Pos.Communication.Types.Protocol (NodeId)
+import           Pos.Ssc.Class                    (Ssc)
+import           Pos.Ssc.Extra                    (sscApplyBlocks, sscNormalize,
+                                                   sscRollbackBlocks)
+import           Pos.Txp.Settings                 (TxpBlund, TxpGlobalSettings (..))
+import           Pos.Types                        (Block, GenesisBlock, HeaderHash,
+                                                   MainBlock, epochIndexL, gbBody,
+                                                   gbHeader, headerHash, headerHashG,
+                                                   mbTxPayload, mbUpdatePayload,
+                                                   prevBlockL)
+import           Pos.Update.Core                  (UpdateBlock, UpdatePayload)
+import qualified Pos.Update.DB                    as UDB
+import           Pos.Update.Logic                 (usApplyBlocks, usNormalize,
+                                                   usRollbackBlocks)
+import           Pos.Update.Poll                  (PollModifier)
+import           Pos.Util                         (Some (..), inAssertMode, spanSafe,
+                                                   _neLast)
+import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.WorkMode                     (WorkMode)
 
 -- [CSL-780] Totally need something more elegant
 toUpdateBlock
@@ -131,6 +137,10 @@ applyBlocksUnsafeDo blunds pModifier = do
     usNormalize
     DB.sanityCheckDB
     putSlottingData =<< UDB.getSlottingData
+    -- Wallet tracking only can iterate from old blocks to new,
+    -- so if program is interrupted now,
+    -- we will load applied @blunds@ at the next launch.
+    onApplyBlocks blunds
   where
     -- hehe it's not unsafe yet TODO
     blocks = fmap fst blunds
@@ -147,6 +157,10 @@ rollbackBlocksUnsafe
     :: (WorkMode ssc m)
     => m (Set NodeId) -> NewestFirst NE (Blund ssc) -> m ()
 rollbackBlocksUnsafe getPeers toRollback = reportingFatal getPeers version $ do
+    -- Wallet tracking only can iterate from old blocks to new,
+    -- so if program is interrupted after call @onRollbackBlocks@
+    -- we will load not rolled yet @toRollback@ at the next launch.
+    onRollbackBlocks toRollback
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS

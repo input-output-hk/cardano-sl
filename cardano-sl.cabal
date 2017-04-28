@@ -38,6 +38,7 @@ library
   exposed-modules:      Pos.Aeson
                         Pos.Binary
                         Pos.Block.Arbitrary
+                        Pos.Block.BListener
                         Pos.Block.Logic
                         Pos.Block.Network
                         Pos.Block.Pure
@@ -382,6 +383,7 @@ library
     other-modules:      Pos.Aeson.ClientTypes
                         Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.Api
+                        Pos.Wallet.Web.BListener
                         Pos.Wallet.Web.Doc
                         Pos.Wallet.Web.Error
                         Pos.Wallet.Web.Server

@@ -66,6 +66,7 @@ import           Pos.Context                 (ContextHolder, NodeContext (..),
                                               runContextHolder)
 import           Pos.Core                    (Timestamp ())
 import           Pos.Crypto                  (createProxySecretKey, encToPublic)
+import           Pos.Crypto.Random           (randomNumber)
 import           Pos.DB                      (DBHolder, MonadDB, NodeDBs, runDBHolder)
 import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
 import           Pos.DB.GState               (getTip)
@@ -159,7 +160,8 @@ runRawRealMode peerId res np@NodeParams {..} sscnp listeners outSpecs (ActionSpe
                     gauge <- liftIO $ getGauge (pack "MemPoolSize") server
                     atomically $ writeTVar (txpSetGauge txpVar) $ \n -> do
                         Gauge.set gauge $ fromIntegral n
-                        runIO $ jlLog $ JLMemPoolSize n
+                        r <- randomNumber 20
+                        when (r == 0) (runIO $ jlLog $ JLMemPoolSize n)
                     return server
 
        let stopMonitoring it = whenJust it stopMonitor

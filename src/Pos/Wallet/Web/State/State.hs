@@ -19,6 +19,7 @@ module Pos.Wallet.Web.State.State
        , getWSetMetas
        , getWSetMeta
        , getWSetPassLU
+       , getWSetSyncTip
        , getWSetAddresses
        , doesAccountExist
        , getTxMeta
@@ -105,6 +106,9 @@ getWSetMetas = queryDisk A.GetWSetMetas
 
 getWSetPassLU :: WebWalletModeDB m => CAddress WS -> m (Maybe PassPhraseLU)
 getWSetPassLU = queryDisk . A.GetWSetPassLU
+
+getWSetSyncTip :: WebWalletModeDB m => CAddress WS -> m (Maybe HeaderHash)
+getWSetSyncTip = queryDisk . A.GetWSetSyncTip
 
 getWalletAccounts
     :: WebWalletModeDB m

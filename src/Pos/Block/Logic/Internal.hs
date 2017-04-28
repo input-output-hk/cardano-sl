@@ -117,6 +117,9 @@ applyBlocksUnsafeDo
 applyBlocksUnsafeDo blunds pModifier = do
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
+    -- If program is interrupted now, we will rollback all wallet sets
+    -- at the next launch.
+    onApplyBlocks blunds
     TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
@@ -137,10 +140,6 @@ applyBlocksUnsafeDo blunds pModifier = do
     usNormalize
     DB.sanityCheckDB
     putSlottingData =<< UDB.getSlottingData
-    -- Wallet tracking only can iterate from old blocks to new,
-    -- so if program is interrupted now,
-    -- we will load applied @blunds@ at the next launch.
-    onApplyBlocks blunds
   where
     -- hehe it's not unsafe yet TODO
     blocks = fmap fst blunds
@@ -157,9 +156,8 @@ rollbackBlocksUnsafe
     :: (WorkMode ssc m)
     => m (Set NodeId) -> NewestFirst NE (Blund ssc) -> m ()
 rollbackBlocksUnsafe getPeers toRollback = reportingFatal getPeers version $ do
-    -- Wallet tracking only can iterate from old blocks to new,
-    -- so if program is interrupted after call @onRollbackBlocks@
-    -- we will load not rolled yet @toRollback@ at the next launch.
+    -- If program is interrupted after call @onRollbackBlocks@,
+    -- we will load all wallet set not rolled yet at the next launch.
     onRollbackBlocks toRollback
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks

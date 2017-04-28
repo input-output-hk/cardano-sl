@@ -16,6 +16,7 @@ module Pos.Wallet.Web.State.Storage
        , getWSetMetas
        , getWSetMeta
        , getWSetPassLU
+       , getWSetSyncTip
        , getWSetAddresses
        , getWalletAccounts
        , doesAccountExist
@@ -52,6 +53,7 @@ import           Data.Default               (Default, def)
 import qualified Data.HashMap.Strict        as HM
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
 
+import           Pos.Block.Pure             (genesisHash)
 import           Pos.Client.Txp.History     (TxHistoryEntry)
 import           Pos.Txp                    (Utxo)
 import           Pos.Types                  (HeaderHash)
@@ -70,6 +72,7 @@ type CAccounts = HashSet CAccountAddress
 data WalletSetInfo = WalletSetInfo
     { _wsiMeta         :: CWalletSetMeta
     , _wsiPassphraseLU :: PassPhraseLU
+    , _wsiSyncTip      :: HeaderHash
     }
 
 makeLenses ''WalletSetInfo
@@ -141,6 +144,10 @@ getWSetMeta cAddr = preview (wsWSetInfos . ix cAddr . wsiMeta)
 getWSetPassLU :: CAddress WS -> Query (Maybe PassPhraseLU)
 getWSetPassLU cAddr = preview (wsWSetInfos . ix cAddr . wsiPassphraseLU)
 
+getWSetSyncTip :: CAddress WS -> Query (Maybe HeaderHash)
+getWSetSyncTip cAddr = preview (wsWSetInfos . ix cAddr . wsiSyncTip)
+
+
 getWSetAddresses :: Query [CAddress WS]
 getWSetAddresses = HM.keys <$> view wsWSetInfos
 
@@ -179,7 +186,7 @@ createWallet :: CWalletAddress -> CWalletMeta -> Update ()
 createWallet cAddr wMeta = wsWalletInfos . at cAddr ?= WalletInfo wMeta mempty mempty mempty
 
 createWSet :: CAddress WS -> CWalletSetMeta -> PassPhraseLU -> Update ()
-createWSet cAddr wSMeta passLU = wsWSetInfos . at cAddr ?= WalletSetInfo wSMeta passLU
+createWSet cAddr wSMeta passLU = wsWSetInfos . at cAddr ?= WalletSetInfo wSMeta passLU genesisHash
 
 addAccount :: CAccountAddress -> Update ()
 addAccount accAddr@CAccountAddress{..} = do

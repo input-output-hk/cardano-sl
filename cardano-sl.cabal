@@ -397,6 +397,7 @@ library
                         Pos.Wallet.Web.State.Limits
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
+                        Pos.Wallet.Web.Tracking
 
   build-depends:        IfElse
                       , QuickCheck

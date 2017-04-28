@@ -7,7 +7,7 @@ module Pos.Ssc.GodTossing.Functions
        , hasVssCertificate
 
        -- * GtPayload
-       , verifyGtPayload
+       , sanityChecksGtPayload
 
        -- * VSS
        , vssThreshold
@@ -57,7 +57,7 @@ hasVssCertificate id = VCD.member id . _gsVssCertificates
 -- GtPayload Part
 ----------------------------------------------------------------------------
 
--- CHECK: @verifyGtPayLoad
+-- CHECK: @sanityChecksGtPayload
 -- Verify payload using header containing this payload.
 --
 -- For each DS datum we check:
@@ -69,10 +69,10 @@ hasVssCertificate id = VCD.member id . _gsVssCertificates
 --      valid, etc.)
 --
 -- We also do some general sanity checks.
-verifyGtPayload
+sanityChecksGtPayload
     :: MonadError TossVerFailure m
     => Either EpochIndex (MainBlockHeader ssc) -> GtPayload -> m ()
-verifyGtPayload eoh payload = case payload of
+sanityChecksGtPayload eoh payload = case payload of
     CommitmentsPayload comms certs -> do
         whenMB eoh isComm
         commChecks comms

@@ -32,7 +32,6 @@ module Pos.Delegation.Logic
        , isProxySKConfirmed
        ) where
 
-import           Control.Concurrent.STM.TVar  (readTVar, writeTVar)
 import           Control.Exception            (Exception (..))
 import           Control.Lens                 (makeLenses, uses, (%=), (.=), _Wrapped)
 import qualified Control.Monad.Ether.Implicit as Ether
@@ -350,7 +349,7 @@ delegationApplyBlocks blocks = do
             batchOps = map (GS.DelPSK . pskIssuerPk) toDelete ++ map GS.AddPSK toReplace
         runDelegationStateAction $ ether $ do
             dwEpochId .= block ^. epochIndexL
-            forM_ issuers $ \i -> do
+            for_ issuers $ \i -> do
                 dwProxySKPool %= HM.delete i
                 dwThisEpochPosted %= HS.insert i
         pure $ SomeBatchOp batchOps

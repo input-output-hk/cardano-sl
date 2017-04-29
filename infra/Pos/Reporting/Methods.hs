@@ -224,7 +224,7 @@ sendReport logFiles rawLogs reportType appName appVersion reportServerUri = do
         throwM $ CantRetrieveLogs logFiles
     putText $ "Rawlogs size is: " <> show (length rawLogs)
     withSystemTempFile "main.log" $ \tempFp tempHandle -> liftIO $ do
-        forM_ rawLogs $ TIO.hPutStrLn tempHandle
+        for_ rawLogs $ TIO.hPutStrLn tempHandle
         hClose tempHandle
         let memlogFiles = bool [tempFp] [] (null rawLogs)
         let memlogPart = map partFile' memlogFiles

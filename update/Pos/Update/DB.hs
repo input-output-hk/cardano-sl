@@ -36,7 +36,7 @@ module Pos.Update.DB
 
        , BVIter
        , getProposedBVs
-       , getConfirmedBVStates
+       , getCompetingBVStates
        , getProposedBVStates
        ) where
 
@@ -319,11 +319,11 @@ getProposedBVStates = runDBnMapIterator @BVIter _gStateDB (step []) snd
     step res = nextItem >>= maybe (pure res) (onItem res)
     onItem res = step . (: res)
 
--- | Get all confirmed 'BlockVersion's and their states.
-getConfirmedBVStates
+-- | Get all competing 'BlockVersion's and their states.
+getCompetingBVStates
     :: MonadDB m
     => m [(BlockVersion, BlockVersionState)]
-getConfirmedBVStates = runDBnIterator @BVIter _gStateDB (step [])
+getCompetingBVStates = runDBnIterator @BVIter _gStateDB (step [])
   where
     step res = nextItem >>= maybe (pure res) (onItem res)
     onItem res (bv, bvs@BlockVersionState {..})

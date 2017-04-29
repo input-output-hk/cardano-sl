@@ -35,7 +35,7 @@ import           Pos.Util.UserSecret              (UserSecret, peekUserSecret, u
                                                    usPrimKey, writeUserSecret)
 import           Pos.Util.Util                    (ether)
 
-type KeyData = STM.TVar UserSecret
+type KeyData = TVar UserSecret
 
 ----------------------------------------------------------------------
 -- MonadKeys class

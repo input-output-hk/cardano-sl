@@ -13,7 +13,6 @@ import           Pos.Util            (mconcatPair)
 import           Pos.WorkMode        (WorkMode)
 
 #ifdef WITH_WALLET
-import           Data.IORef          (newIORef, readIORef, writeIORef)
 import           Data.Time.Units     (Second, convertUnit)
 import           Formatting          (build, int, sformat, shown, (%))
 import           Mockable            (delay, throw)

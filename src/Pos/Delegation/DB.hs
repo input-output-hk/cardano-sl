@@ -13,7 +13,6 @@ module Pos.Delegation.DB
        , runPskMapIterator
        ) where
 
-import           Data.Maybe       (isJust)
 import qualified Database.RocksDB as Rocks
 import           Universum
 

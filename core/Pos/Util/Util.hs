@@ -129,10 +129,10 @@ instance IsString s => MonadFail (Either s) where
     fail = Left . fromString
 
 instance NFData Millisecond where
-    rnf ms = deepseq (toInteger ms) ()
+    rnf ms = rnf (toInteger ms)
 
 instance NFData Microsecond where
-    rnf ms = deepseq (toInteger ms) ()
+    rnf ms = rnf (toInteger ms)
 
 ----------------------------------------------------------------------------
 -- Orphan Buildable instances for time-units

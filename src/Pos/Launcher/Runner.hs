@@ -166,7 +166,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
 mkSlottingVar :: MonadDB m => Timestamp -> m SlottingVar
 mkSlottingVar sysStart = do
     sd <- GState.getSlottingData
-    (sysStart, ) <$> liftIO (newTVarIO sd)
+    (sysStart, ) <$> newTVarIO sd
 
 -- | ServiceMode runner.
 runServiceMode
@@ -323,37 +323,37 @@ runCH
 runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     ncJLFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
-    ncBlkSemaphore <- liftIO newEmptyMVar
-    ucUpdateSemaphore <- liftIO newEmptyMVar
+    ncBlkSemaphore <- newEmptyMVar
+    ucUpdateSemaphore <- newEmptyMVar
 
     -- TODO [CSL-775] lrc initialization logic is duplicated.
     epochDef <- runDBHolder db LrcDB.getEpochDefault
-    lcLrcSync <- liftIO $ newTVarIO (LrcSyncData True epochDef)
+    lcLrcSync <- newTVarIO (LrcSyncData True epochDef)
 
     let eternity = (minBound, maxBound)
         makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . encToPublic
         ownPSKs = npUserSecret ^.. usKeys._tail.each.to makeOwnPSK
-    runDBHolder db $ forM_ ownPSKs addProxySecretKey
+    runDBHolder db $ for_ ownPSKs addProxySecretKey
 
-    ncUserSecret <- liftIO . newTVarIO $ npUserSecret
+    ncUserSecret <- newTVarIO $ npUserSecret
     ncBlockRetrievalQueue <- liftIO $
         newTBQueueIO Const.blockRetrievalQueueSize
     ncInvPropagationQueue <- liftIO $
         newTBQueueIO Const.propagationQueueSize
     ncRecoveryHeader <- liftIO newEmptyTMVarIO
     ncProgressHeader <- liftIO newEmptyTMVarIO
-    ncShutdownFlag <- liftIO $ newTVarIO False
+    ncShutdownFlag <- newTVarIO False
     ncShutdownNotifyQueue <- liftIO $ newTBQueueIO allWorkersNum
     ncStartTime <- liftIO Time.getCurrentTime
-    ncLastKnownHeader <- liftIO $ newTVarIO Nothing
+    ncLastKnownHeader <- newTVarIO Nothing
     ncGenesisLeaders <- if Const.isDevelopment
                         then pure $ genesisLeaders npCustomUtxo
                         else runBalanceIterBootstrap $
                              followTheSatoshiM genesisSeed genesisFakeTotalStake
     ucMemState <- newMemVar
-    -- TODO synchronize the NodeContext peers var with whatever system populates
-    -- it.
-    peersVar <- liftIO . newTVarIO $ mempty
+    -- TODO synchronize the NodeContext peers var with whatever system
+    -- populates it.
+    peersVar <- newTVarIO mempty
     let ctx =
             NodeContext
             { ncConnectedPeers = peersVar

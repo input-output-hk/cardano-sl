@@ -44,8 +44,8 @@ data CompileConfig = CompileConfig
       -- ^ VSS certificates min timeout to live (number of epochs)
     , ccLightDlgConfirmationTimeout   :: !Int
       -- ^ Timeout for holding light psks confirmations
-    , ccEnhancedMessageBroadcast      :: !Word
-      -- ^ True if we should enable enhanced bessage broadcast
+    , ccEnhancedMessageTimeout        :: !Word
+      -- ^ We consider node as known if it was pinged at most 10 sec ago.
     , ccRecoveryHeadersMessage        :: !Int
       -- ^ Numbers of headers put in message in recovery mode.
     , ccMessageCacheTimeout           :: !Int

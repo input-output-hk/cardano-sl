@@ -15,7 +15,6 @@ module Pos.Crypto.RedeemSigning
        ) where
 
 import qualified Data.ByteString      as BS
-import qualified Data.ByteString.Lazy as BSL
 import           Data.Coerce          (coerce)
 import           Data.Hashable        (Hashable)
 import qualified Data.Text.Buildable  as B
@@ -23,10 +22,10 @@ import           Formatting           (Format, bprint, fitLeft, later, (%), (%.)
 import           Serokell.Util.Base64 (formatBase64)
 import           Universum
 
+import qualified Crypto.Sign.Ed25519  as Ed25519
 import           Pos.Binary.Class     (Bi, Raw)
 import qualified Pos.Binary.Class     as Bi
 import           Pos.Crypto.Random    (secureRandomBS)
-import qualified Crypto.Sign.Ed25519  as Ed25519
 
 
 ----------------------------------------------------------------------------
@@ -121,7 +120,7 @@ redeemSignRaw (RedeemSecretKey k) x = RedeemSignature (Ed25519.dsign k x)
 -- CHECK: @redeemCheckSig
 -- | Verify a signature.
 redeemCheckSig :: Bi a => RedeemPublicKey -> a -> RedeemSignature a -> Bool
-redeemCheckSig k x s = redeemVerifyRaw k (BSL.toStrict (Bi.encode x)) (coerce s)
+redeemCheckSig k x s = redeemVerifyRaw k (Bi.encodeStrict x) (coerce s)
 
 -- CHECK: @redeemVerifyRaw
 -- | Verify raw 'ByteString'.

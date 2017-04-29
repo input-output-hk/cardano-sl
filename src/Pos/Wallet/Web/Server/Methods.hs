@@ -225,7 +225,7 @@ launchNotifier nat =
     -- historyNotifier :: WalletWebMode ssc m => m ()
     -- historyNotifier = do
     --     cAddresses <- myCAddresses
-    --     forM_ cAddresses $ \cAddress -> do
+    --     for_ cAddresses $ \cAddress -> do
     --         -- TODO: is reading from acid RAM only (not reading from disk?)
     --         oldHistoryLength <- length . fromMaybe mempty <$> getWalletHistory cAddress
     --         newHistoryLength <- length <$> getHistory cAddress
@@ -394,8 +394,8 @@ sendExtended sendActions cpassphrase srcCAddr dstCAddr c curr title desc = do
                     c idx dstAddr
                 -- TODO: this should be removed in production
                 let txHash = hash tx
-                () <$ addHistoryTx dstCAddr curr title desc (THEntry txHash tx False Nothing)
-                addHistoryTx srcCAddr curr title desc (THEntry txHash tx True Nothing)
+                () <$ addHistoryTx dstCAddr curr title desc (THEntry txHash tx False [TxOut srcAddr c] Nothing)
+                addHistoryTx srcCAddr curr title desc (THEntry txHash tx True [TxOut srcAddr c] Nothing)
 
 getHistory
     :: (WebWalletModeDB m, MonadTxHistory m, MonadThrow m, MonadBlockchainInfo m)
@@ -431,14 +431,14 @@ searchHistory
 searchHistory cAddr search skip limit = first (filter $ txContainsTitle search) <$> getHistory cAddr skip limit
 
 addHistoryTx
-    :: (WebWalletModeDB m, MonadThrow m, MonadBlockchainInfo m, MonadIO m)
+    :: (WebWalletModeDB m, MonadThrow m, MonadBlockchainInfo m)
     => CAddress
     -> CCurrency
     -> Text
     -> Text
     -> TxHistoryEntry
     -> m CTx
-addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
+addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _ _) = do
     -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
             networkChainDifficulty
@@ -446,7 +446,7 @@ addHistoryTx cAddr curr title desc wtx@(THEntry txId _ _ _) = do
     meta <- CTxMeta curr title desc <$> liftIO getPOSIXTime
     let cId = txIdToCTxId txId
     addOnlyNewTxMeta cAddr cId meta
-    meta' <- maybe meta identity <$> getTxMeta cAddr cId
+    meta' <- fromMaybe meta <$> getTxMeta cAddr cId
     return $ mkCTx addr diff wtx meta'
 
 newWallet :: WalletWebMode m => CPassPhrase -> CWalletInit -> m CWallet
@@ -486,7 +486,7 @@ deleteWallet cAddr = do
 
 -- NOTE: later we will have `isValidAddress :: CCurrency -> CAddress -> m Bool` which should work for arbitrary crypto
 isValidAddress :: WalletWebMode m => Text -> CCurrency -> m Bool
-isValidAddress sAddr ADA = pure . either (const False) (const True) $ decodeTextAddress sAddr
+isValidAddress sAddr ADA = pure $ isRight (decodeTextAddress sAddr)
 isValidAddress _ _       = pure False
 
 -- | Get last update info
@@ -537,10 +537,10 @@ redeemAdaInternal sendActions walletId seedBs = do
     etx <- submitRedemptionTx sendActions redeemSK (toList na) dstAddr
     case etx of
         Left err -> throwM . Internal $ "Cannot send redemption transaction: " <> err
-        Right (tx, _, _) -> do
+        Right ((tx, _, _), redeemAddress, redeemBalance) -> do
             -- add redemption transaction to the history of new wallet
             addHistoryTx dstCAddr ADA "ADA redemption" ""
-              (THEntry (hash tx) tx False Nothing)
+              (THEntry (hash tx) tx False [TxOut redeemAddress redeemBalance] Nothing)
 
 
 reportingInitialized :: forall m. WalletWebMode m => CInitialized -> m ()
@@ -582,7 +582,7 @@ importKey
 importKey (toString -> fp) = do
     secret <- rewrapError $ readUserSecret fp
     let keys = secret ^. usKeys
-    forM_ keys $ \key -> do
+    for_ keys $ \key -> do
         addSecretKey key
         let addr = makePubKeyAddress $ encToPublic key
             cAddr = addressToCAddress addr
@@ -665,7 +665,7 @@ instance FromHttpApiData CTxId where
     parseUrlPiece = pure . mkCTxId
 
 instance FromHttpApiData CCurrency where
-    parseUrlPiece = first fromString . readEither . toString
+    parseUrlPiece = readEither . toString
 
 instance FromHttpApiData CPassPhrase where
     parseUrlPiece = pure . CPassPhrase

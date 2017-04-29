@@ -4,13 +4,13 @@ module Pos.Ssc.Extra.Types
        ( SscState (..)
        ) where
 
-import qualified Control.Concurrent.STM as STM
+import           Universum
 
-import           Pos.Ssc.Class.Types    (Ssc (..))
+import           Pos.Ssc.Class.Types (Ssc (..))
 
 -- | Whole state of SSC. Stored only in-memory by design.
 data SscState ssc =
     SscState
-    { sscGlobal :: !(STM.TVar (SscGlobalState ssc))
-    , sscLocal  :: !(STM.TVar (SscLocalData ssc))
+    { sscGlobal :: !(TVar (SscGlobalState ssc))
+    , sscLocal  :: !(TVar (SscLocalData ssc))
     }

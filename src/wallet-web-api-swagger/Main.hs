@@ -11,7 +11,7 @@
 -- | This program builds Swagger specification for wallet web API and converts it to JSON.
 -- We run this program during CI build.
 -- Produced JSON will be used to create online
--- version of wallet web API description at http://cardano-docs.iohk.io
+-- version of wallet web API description at cardanodocs.com website
 -- (please see 'update_wallet_web_api_docs.sh' for technical details).
 
 module Main where

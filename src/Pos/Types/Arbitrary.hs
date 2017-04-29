@@ -24,7 +24,6 @@ module Pos.Types.Arbitrary
 import           Universum
 
 import qualified Data.ByteString            as BS (pack)
-import           Data.Char                  (chr)
 import           Data.DeriveTH              (derive, makeArbitrary)
 import           Data.List.NonEmpty         ((<|))
 import qualified Data.List.NonEmpty         as NE

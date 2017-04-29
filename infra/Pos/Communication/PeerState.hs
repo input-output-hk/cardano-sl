@@ -57,7 +57,7 @@ peerStateFromSnapshot
 peerStateFromSnapshot (PeerStateSnapshot snapshot) = do
     ctx <- forM snapshot $ mapM newSharedAtomic
     m   <- liftIO STM.newIO
-    liftIO . atomically $ forM_ ctx $ \(k, v) -> STM.insert v k m
+    atomically $ for_ ctx $ \(k, v) -> STM.insert v k m
     return m
 
 data PeerStateTag
@@ -76,18 +76,18 @@ instance
         WithPeerState (TaggedTrans PeerStateTag trans m)
   where
     getPeerState nodeId = ether (asks unPeerStateCtx) >>= \m -> do
-          mV <- liftIO . atomically $ nodeId `STM.lookup` m
+          mV <- atomically $ nodeId `STM.lookup` m
           case mV of
             Just v -> return v
             _ -> do
               st <- newSharedAtomic def
-              liftIO . atomically $ do
+              atomically $ do
                   mV' <- nodeId `STM.lookup` m
                   case mV' of
                     Just v -> return v
                     _      -> STM.insert st nodeId m $> st
 
-    clearPeerState nodeId = ether (asks unPeerStateCtx) >>= \m -> liftIO . atomically $ nodeId `STM.delete` m
+    clearPeerState nodeId = ether (asks unPeerStateCtx) >>= \m -> atomically $ nodeId `STM.delete` m
     getAllStates = ether (asks unPeerStateCtx) >>= \m -> do
-        stream <- liftIO . atomically $ LT.toList $ STM.stream m
+        stream <- atomically $ LT.toList $ STM.stream m
         PeerStateSnapshot <$> forM stream (mapM readSharedAtomic)

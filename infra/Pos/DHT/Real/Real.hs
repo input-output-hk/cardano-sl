@@ -8,14 +8,10 @@ module Pos.DHT.Real.Real
        , stopDHTInstance
        ) where
 
-import           Universum                 hiding (bracket, catch, catchAll)
-
-import           Control.Concurrent.STM    (newTVar, readTVar, writeTVar)
 import           Data.Binary               (decode)
 import qualified Data.ByteString.Char8     as B8 (unpack)
 import qualified Data.ByteString.Lazy      as BS
 import qualified Data.HashMap.Strict       as HM
-import           Data.List                 (intersect, (\\))
 import           Formatting                (build, int, sformat, shown, (%))
 import           Mockable                  (Async, Catch, Mockable, MonadMockable,
                                             Promise, Throw, catch, catchAll, throw,
@@ -26,10 +22,12 @@ import           System.Directory          (doesFileExist)
 import           System.Wlog               (HasLoggerName (modifyLoggerName), WithLogger,
                                             logDebug, logError, logInfo, logWarning,
                                             usingLoggerName)
+import           Universum                 hiding (bracket, catch, catchAll)
 
 import           Pos.Binary.Class          (Bi (..))
 import           Pos.Binary.Infra.DHTModel ()
 import           Pos.DHT.Constants         (enhancedMessageBroadcast,
+                                            enhancedMessageTimeout,
                                             neighborsSendThreshold)
 import           Pos.DHT.Model.Types       (DHTData, DHTException (..), DHTKey,
                                             DHTNode (..), randomDHTKey)
@@ -149,42 +147,43 @@ kademliaGetKnownPeers
     -> m [DHTNode]
 kademliaGetKnownPeers inst = do
     let myId = kdiKey inst
-    let initialPeers = kdiInitialPeers inst
     let explicitInitial = kdiExplicitInitial inst
-    peers <- liftIO $ K.dumpPeers $ kdiHandle inst
-    let initPeers = bool [] initialPeers explicitInitial
-    filter ((/= myId) . dhtNodeId) <$> extendPeers myId initPeers peers
+    let initPeers = bool [] (kdiInitialPeers inst) explicitInitial
+    buckets <- liftIO (K.viewBuckets $ kdiHandle inst)
+    filter ((/= myId) . dhtNodeId) <$> extendPeers myId initPeers buckets
   where
-    extendPeers myId initial peers =
+    extendPeers
+        :: MonadIO m1
+        => DHTKey
+        -> [DHTNode]
+        -> [[(K.Node DHTKey, Int64)]]
+        -> m1 [DHTNode]
+    extendPeers myId initial buckets =
         map snd .
         HM.toList .
         HM.delete myId .
         flip (foldr $ \n -> HM.insert (dhtNodeId n) n) initial .
         HM.fromList . map (\(toDHTNode -> n) -> (dhtNodeId n, n)) <$>
-        (updateCache =<< selectSufficientNodes myId peers)
-    selectSufficientNodes myId l =
-        if enhancedMessageBroadcast /= (0 :: Int)
-            then concatMapM (getPeersFromBucket enhancedMessageBroadcast)
-                     (splitToBuckets myId l)
-            else return l
-    bucketIndex origin x =
-        length . takeWhile (== False) <$> K.distance origin (K.nodeId x)
-    insertId origin i hm = do
-        bucket <- bucketIndex origin i
-        return $ HM.insertWith (++) bucket [i] hm
-    splitToBuckets origin peers =
-        flip K.usingKademliaInstance (kdiHandle inst) $
-        HM.elems <$> foldrM (insertId origin) HM.empty peers
-    getPeersFromBucket p bucket = do
-        cache <- atomically $ readTVar $ kdiKnownPeersCache inst
-        let fromCache = tryTake p $ intersect cache bucket
-        return $ fromCache ++ tryTake (p - length fromCache) (bucket \\ cache)
-    tryTake x l
-        | length l < x = l
-        | otherwise = take x l
-    updateCache peers = do
-        atomically $ writeTVar (kdiKnownPeersCache inst) peers
-        return peers
+        (updateCache $ concatMap getPeersFromBucket buckets)
+
+    getPeersFromBucket
+        :: [(K.Node DHTKey, Int64)]
+        -> [K.Node DHTKey]
+    getPeersFromBucket bucket
+        | null bucket = []
+        | otherwise =
+            let peers = filter ((< enhancedMessageTimeout) . snd) bucket in
+            map fst $
+            takeSafe enhancedMessageBroadcast $
+            bool peers (sortWith snd bucket) (null peers)
+    takeSafe :: Int -> [a] -> [a]
+    takeSafe p a
+        | length a <= p = a
+        | otherwise = take p a
+
+    updateCache :: MonadIO m1 => [K.Node DHTKey] -> m1 [K.Node DHTKey]
+    updateCache peers =
+        peers <$ (atomically $ writeTVar (kdiKnownPeersCache inst) peers)
 
 toDHTNode :: K.Node DHTKey -> DHTNode
 toDHTNode n = DHTNode (fromKPeer . K.peer $ n) $ K.nodeId n

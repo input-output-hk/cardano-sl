@@ -113,7 +113,7 @@ checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
         let onSlotDefault slotId = do
                 header <- getTipBlockHeader @ssc
                 unlessM (checkEclipsed ourPk slotId header) onEclipsed
-        maybe (pure ()) onSlotDefault =<< getCurrentSlot
+        whenJustM getCurrentSlot onSlotDefault
   where
     sec' :: Int -> Millisecond
     sec' = convertUnit . sec
@@ -155,7 +155,7 @@ checkForIgnoredCommitmentsWorkerImpl tvar slotId = do
     -- Check prev blocks
     (kBlocks :: NewestFirst [] (Block SscGodTossing)) <-
         map fst <$> loadBlundsFromTipByDepth @SscGodTossing blkSecurityParam
-    forM_ kBlocks $ \blk -> whenRight blk checkCommitmentsInBlock
+    for_ kBlocks $ \blk -> whenRight blk checkCommitmentsInBlock
 
     -- Print warning
     lastCommitment <- atomically $ readTVar tvar

@@ -91,12 +91,9 @@ insertIfNotExist
     -> (a -> m (Maybe b))
     -> m ()
 insertIfNotExist id setter getter = do
-    res <- HM.lookup id <$> use setter
-    case res of
-        Nothing -> do
-            prev <- getter id
-            setter %= HM.insert id (maybeToPrev prev)
-        Just _  -> pass
+    whenNothingM_ (HM.lookup id <$> use setter) $ do
+        prev <- getter id
+        setter %= HM.insert id (maybeToPrev prev)
 
 runRollT :: RollT m a -> m (a, USUndo)
 runRollT = flip Ether.runStateT def

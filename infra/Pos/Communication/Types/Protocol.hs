@@ -41,7 +41,7 @@ import qualified Node                  as N
 import           Node.Message          (Message (..), MessageName (..))
 import           Serokell.Util.Base16  (base16F)
 import           Serokell.Util.Text    (listJson, mapJson)
-import           Universum             hiding (show)
+import           Universum
 
 import           Pos.Binary.Class      (Bi)
 import           Pos.Communication.BiP (BiP)

@@ -1,4 +1,4 @@
-resolver: lts-8.5
+resolver: lts-8.12
 
 flags: {}
 
@@ -22,7 +22,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
-    commit: 21df94f41008f82ee023e8e0324c7e4a82c4fef2
+    commit: b4b0a6774368b9bbea96d7a03a1a451b6fc3cfea
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
@@ -43,7 +43,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: cef066e0553d6ec11bf30c45a49a946dcacd86b8
+    commit: 513c86b0570c9866f3b4a28653fb0756ebce8212
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -74,14 +74,13 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
-- universum-0.3
+- universum-0.4.1
 - time-units-1.0.0
 - serokell-util-0.1.5.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-1.1.1
+- log-warper-1.1.2
 - concurrent-extra-0.7.0.10       # not yet in lts-8
-- derive-2.6.2
 - purescript-bridge-0.8.0.1
 - cryptonite-0.22
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8

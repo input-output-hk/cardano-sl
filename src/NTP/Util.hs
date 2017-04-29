@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module NTP.Util
     ( ntpPort
@@ -9,22 +9,27 @@ module NTP.Util
 
     , createAndBindSock
     , udpLocalAddresses
+
+    , withSocketsDoLifted
     ) where
 
-import           Control.Monad.Catch   (catchAll)
-import           Control.Monad.Trans   (MonadIO (..))
-import           Data.List             (sortOn)
-import           Data.List             (find)
-import           Data.Time.Clock.POSIX (getPOSIXTime)
-import           Data.Time.Units       (Microsecond, fromMicroseconds)
-import           Network.Socket        (AddrInfo, AddrInfoFlag (AI_ADDRCONFIG),
-                                        AddrInfoFlag (AI_PASSIVE),
-                                        Family (AF_INET, AF_INET6), PortNumber (..),
-                                        SockAddr (..), Socket, SocketOption (ReuseAddr),
-                                        SocketType (Datagram), aNY_PORT, addrAddress,
-                                        addrFamily, addrFlags, addrSocketType, bind,
-                                        defaultHints, defaultProtocol, getAddrInfo,
-                                        setSocketOption, socket)
+import           Control.Monad.Catch         (catchAll)
+import           Control.Monad.Trans         (MonadIO (..))
+import           Control.Monad.Trans.Control (MonadBaseControl (..))
+import           Data.List                   (sortOn)
+import           Data.List                   (find)
+import           Data.Time.Clock.POSIX       (getPOSIXTime)
+import           Data.Time.Units             (Microsecond, fromMicroseconds)
+import           Network.Socket              (AddrInfo, AddrInfoFlag (AI_ADDRCONFIG),
+                                              AddrInfoFlag (AI_PASSIVE),
+                                              Family (AF_INET, AF_INET6), PortNumber (..),
+                                              SockAddr (..), Socket,
+                                              SocketOption (ReuseAddr),
+                                              SocketType (Datagram), aNY_PORT,
+                                              addrAddress, addrFamily, addrFlags,
+                                              addrSocketType, bind, defaultHints,
+                                              defaultProtocol, getAddrInfo,
+                                              setSocketOption, socket)
 
 ntpPort :: PortNumber
 ntpPort = 123
@@ -88,3 +93,7 @@ udpLocalAddresses = do
     --                          Hints        Host         Service
     getAddrInfo (Just hints) Nothing (Just $ show aNY_PORT)
 
+-- | Lifted version of `withSocketsDo`.
+withSocketsDoLifted :: MonadBaseControl IO m => m a -> m a
+withSocketsDoLifted action =
+    restoreM =<< (liftBaseWith $ \runInIO -> runInIO action)

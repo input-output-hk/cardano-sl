@@ -1,9 +1,9 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Main where
 
@@ -21,21 +21,24 @@ import qualified Network.Transport.TCP.Internal as TCP (encodeEndPointAddress)
 import           Options.Applicative.Simple     (simpleOptions)
 import           Serokell.Util.Concurrent       (threadDelay)
 import           System.Random                  (mkStdGen)
-import           System.Wlog                    (usingLoggerName, LoggerNameBox)
+import           System.Wlog                    (LoggerNameBox, usingLoggerName)
 
-import           Mockable                       (fork, realTime, delay, Production, runProduction)
+import           Mockable                       (Production, delay, fork, realTime,
+                                                 runProduction)
 import qualified Network.Transport.Abstract     as NT
 import           Network.Transport.Concrete     (concrete)
-import           Node                           (ListenerAction (..), NodeAction (..), node,
-                                                 nodeEndPoint, sendTo, Node(..),
-                                                 defaultNodeEnvironment, simpleNodeEndPoint)
+import           Node                           (ListenerAction (..), Node (..),
+                                                 NodeAction (..), defaultNodeEnvironment,
+                                                 node, nodeEndPoint, sendTo,
+                                                 simpleNodeEndPoint)
 import           Node.Internal                  (NodeId (..))
 import           Node.Message                   (BinaryP (..))
 
 
-import           Bench.Network.Commons      (MeasureEvent (..), Payload (..), Ping (..),
-                                             Pong (..), loadLogConfig, logMeasure)
-import           SenderOptions              (Args (..), argsParser)
+import           Bench.Network.Commons          (MeasureEvent (..), Payload (..),
+                                                 Ping (..), Pong (..), loadLogConfig,
+                                                 logMeasure)
+import           SenderOptions                  (Args (..), argsParser)
 
 data PingState = PingState
     { _lastResetMcs    :: !Microsecond

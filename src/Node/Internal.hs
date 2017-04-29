@@ -921,7 +921,7 @@ nodeDispatcher node handlerIn handlerInOut =
                     -- Protocol error. We got data from some other lightweight
                     -- connection before the peer data was parsed.
                     False -> do
-                        logWarning $ sformat ("peer-data protocol error")
+                        logWarning $ sformat ("peer data protocol error from " % shown) peer
                         return state
 
                     True -> case decoderContinuation (Just (BS.concat chunks)) of

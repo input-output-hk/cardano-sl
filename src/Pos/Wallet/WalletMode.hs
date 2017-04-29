@@ -12,6 +12,7 @@ module Pos.Wallet.WalletMode
        , MonadUpdates (..)
        , WalletMode
        , WalletRealMode
+       , WalletStaticPeersMode
        ) where
 
 import           Control.Concurrent.STM      (TMVar, tryReadTMVar)
@@ -34,6 +35,8 @@ import           Pos.DB                      (MonadDB)
 import qualified Pos.DB.Block                as DB
 import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
+import           Pos.Discovery               (DiscoveryConstT, DiscoveryKademliaT,
+                                              MonadDiscovery)
 import           Pos.Shutdown                (triggerShutdown)
 import           Pos.Slotting                (MonadSlots (..), getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
@@ -91,7 +94,7 @@ instance {-# OVERLAPPABLE #-}
         MonadBlockchainInfo (t m)
 
 -- | Stub instance for lite-wallet
-instance MonadBlockchainInfo WalletRealMode where
+instance MonadBlockchainInfo RawWalletMode where
     networkChainDifficulty = error "notImplemented"
     localChainDifficulty = error "notImplemented"
     blockchainSlotDuration = error "notImplemented"
@@ -185,16 +188,21 @@ type WalletMode ssc m
       , MonadBlockchainInfo m
       , MonadUpdates m
       , WithPeerState m
+      , MonadDiscovery m
       )
 
 ---------------------------------------------------------------
 -- Implementations of 'WalletMode'
 ---------------------------------------------------------------
 
-type WalletRealMode = PeerStateHolder
-                      (KeyStorage
-                       (WalletDB
-                        (ReportingContextT
-                         (LoggerNameBox
-                          Production
-                           ))))
+type RawWalletMode =
+    PeerStateHolder (
+    KeyStorage (
+    WalletDB (
+    ReportingContextT (
+    LoggerNameBox (
+    Production
+    )))))
+
+type WalletRealMode = DiscoveryKademliaT RawWalletMode
+type WalletStaticPeersMode = DiscoveryConstT RawWalletMode

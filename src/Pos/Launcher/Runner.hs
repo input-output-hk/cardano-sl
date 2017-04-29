@@ -10,6 +10,7 @@ module Pos.Launcher.Runner
        , runProductionMode
        , runStatsMode
        , runServiceMode
+       , runStaticMode
 
        -- * Exported for custom usage in CLI utils
        , setupLoggers
@@ -51,7 +52,7 @@ import           Universum                   hiding (bracket, finally)
 import           Pos.Binary                  ()
 import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication           (ActionSpec (..), BiP (..), InSpecs (..),
-                                              ListenersWithOut, OutSpecs (..),
+                                              ListenersWithOut, NodeId, OutSpecs (..),
                                               PeerId (..), VerInfo (..), allListeners,
                                               hoistListenerSpec, unpackLSpecs)
 import           Pos.Communication.PeerState (runPeerStateHolder)
@@ -69,7 +70,7 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
                                               KademliaDHTInstanceConfig (..),
                                               KademliaParams (..), startDHTInstance,
                                               stopDHTInstance)
-import           Pos.Discovery.Holders       (runDiscoveryKademliaT)
+import           Pos.Discovery.Holders       (runDiscoveryConstT, runDiscoveryKademliaT)
 import           Pos.Genesis                 (genesisLeaders, genesisSeed)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
@@ -96,7 +97,7 @@ import           Pos.Update.MemState         (newMemVar)
 import           Pos.Util.UserSecret         (usKeys)
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (ProductionMode, RawRealMode, ServiceMode,
-                                              StatsMode)
+                                              StaticMode, StatsMode)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -274,6 +275,34 @@ runStatsMode peerId transport kinst np@NodeParams{..} sscnp (ActionSpec action, 
         outSpecs .
         ActionSpec $ \vI sendActions ->
             hoistDown . action vI $ hoistSendActions hoistUp hoistDown sendActions
+
+runStaticMode
+    :: forall ssc a.
+       (SscConstraint ssc)
+    => PeerId
+    -> Transport (StaticMode ssc)
+    -> Set NodeId
+    -> NodeParams
+    -> SscParams ssc
+    -> (ActionSpec (StaticMode ssc) a, OutSpecs)
+    -> Production a
+runStaticMode peerId transport peers np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
+    runRawRealMode
+        peerId
+        (hoistTransport hoistDown transport)
+        np
+        sscnp
+        listeners
+        outSpecs $
+    ActionSpec $ \vI sendActions ->
+        hoistDown . action vI $ hoistSendActions hoistUp hoistDown sendActions
+  where
+    hoistUp = lift . lift
+    hoistDown = runDiscoveryConstT peers . getNoStatsT
+    listeners =
+        hoistDown $
+        first (hoistListenerSpec hoistDown hoistUp <$>) <$>
+        allListeners
 
 ----------------------------------------------------------------------------
 -- Lower level runners

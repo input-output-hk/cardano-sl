@@ -13,11 +13,12 @@ module Pos.WorkMode
        , TxpExtra_TMP
 
        -- * Actual modes
+       , RawRealModeK
        , ProductionMode
        , RawRealMode
        , ServiceMode
        , StatsMode
-       , EmulationMode
+       , StaticMode
        ) where
 
 
@@ -118,15 +119,18 @@ type RawRealMode ssc =
     LoggerNameBox Production
     ))))))))
 
+-- | RawRealMode + kademlia. Used in wallet too.
+type RawRealModeK ssc = DiscoveryKademliaT (RawRealMode ssc)
+
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.
-type ProductionMode ssc = NoStatsT $ DiscoveryKademliaT (RawRealMode ssc)
+type ProductionMode ssc = NoStatsT $ RawRealModeK ssc
 
 -- | StatsMode is used for remote benchmarking.
-type StatsMode ssc = StatsT $ DiscoveryKademliaT (RawRealMode ssc)
+type StatsMode ssc = StatsT $ RawRealModeK ssc
 
--- | EmulationMode is fixed peer discovery without stats.
-type EmulationMode ssc = NoStatsT $ DiscoveryConstT (RawRealMode ssc)
+-- | Fixed peer discovery without stats.
+type StaticMode ssc = NoStatsT $ DiscoveryConstT (RawRealMode ssc)
 
 -- | ServiceMode is the mode in which support nodes work.
 type ServiceMode = PeerStateHolder (LoggerNameBox Production)

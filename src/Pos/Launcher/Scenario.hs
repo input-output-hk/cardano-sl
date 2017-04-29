@@ -28,7 +28,7 @@ import           Pos.Context         (NodeContext (..), getNodeContext, ncPubKey
 import           Pos.DB.Class        (MonadDBCore)
 import qualified Pos.DB.GState       as GS
 import           Pos.Delegation      (initDelegation)
-import           Pos.Discovery.Class (findPeers, getPeers)
+import           Pos.Discovery.Class (findPeers)
 import           Pos.Lrc.Context     (LrcSyncData (..), lcLrcSync)
 import qualified Pos.Lrc.DB          as LrcDB
 import           Pos.Reporting       (reportMisbehaviourMasked)

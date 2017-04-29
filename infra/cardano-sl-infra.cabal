@@ -34,6 +34,7 @@ library
                         Pos.Discovery
                         Pos.Discovery.Broadcast
                         Pos.Discovery.Class
+                        Pos.Discovery.Holders
 
                         -- Pos.DHT
                         Pos.DHT
@@ -93,6 +94,7 @@ library
                       , cardano-sl-core
                       , cardano-sl-db
                       , cardano-report-server
+                      , containers
                       , data-default
                       , directory
                       , ether

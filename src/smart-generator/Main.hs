@@ -1,17 +1,17 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RankNTypes #-}
 
 module Main where
 
 import           Control.Concurrent.STM.TVar (readTVarIO)
-import           Control.Monad.Trans.Class   (MonadTrans)
 import           Data.Maybe                  (fromMaybe)
-import qualified Data.Set                  as Set (fromList)
+import qualified Data.Set                    as S (fromList)
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
 import           Data.Time.Units             (Microsecond, convertUnit)
 import           Formatting                  (float, int, sformat, (%))
 import           Mockable                    (Production, delay, forConcurrently, fork)
+import           Network.Transport.Abstract  (Transport, hoistTransport)
 import           Options.Applicative         (execParser)
 import           Serokell.Util               (ms, sec)
 import           System.FilePath             ((</>))
@@ -21,18 +21,17 @@ import           Test.QuickCheck             (arbitrary, generate)
 import           Universum
 
 import qualified Pos.CLI                     as CLI
-import           Pos.Communication           (ActionSpec (..), SendActions,
-                                              convertSendActions, sendTxOuts, submitTxRaw,
-                                              wrapSendActions, PeerId, NodeId)
+import           Pos.Communication           (ActionSpec (..), NodeId, PeerId,
+                                              SendActions, convertSendActions, sendTxOuts,
+                                              submitTxRaw, wrapSendActions)
 import           Pos.Constants               (genesisN, genesisSlotDuration,
                                               neighborsSendThreshold, slotSecurityParam)
 import           Pos.Crypto                  (hash)
+import           Pos.Discovery               (MonadDiscovery, findPeers, getPeers)
 import           Pos.Genesis                 (genesisUtxo)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
-                                              NodeParams (..), RealModeResources (..),
-                                              bracketResources, initLrc, runNode',
-                                              runProductionMode, stakesDistr,
-                                              hoistResources)
+                                              NodeParams (..), bracketResources, initLrc,
+                                              runNode', runStaticMode, stakesDistr)
 import           Pos.Ssc.Class               (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing          (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon          (SscNistBeacon)
@@ -42,28 +41,27 @@ import           Pos.Update.Params           (UpdateParams (..))
 import           Pos.Util.JsonLog            ()
 import           Pos.Util.UserSecret         (simpleUserSecret)
 import           Pos.Worker                  (allWorkers)
-import           Pos.WorkMode                (ProductionMode, RawRealMode)
+import           Pos.WorkMode                (StaticMode)
 
 import           GenOptions                  (GenOptions (..), optsInfo)
+import qualified Network.Transport.TCP       as TCP (TCPAddr (..))
 import           TxAnalysis                  (checkWorker, createTxTimestamps,
                                               registerSentTx)
 import           TxGeneration                (BambooPool, createBambooPool, curBambooTx,
                                               initTransaction, isTxVerified, nextValidTx,
                                               resetBamboo)
 import           Util
-import qualified Network.Transport.TCP       as TCP (TCPAddr (..))
 
 
 -- | Resend initTx with 'slotDuration' period until it's verified
 seedInitTx :: forall ssc . SscConstraint ssc
-           => RealModeResources (ProductionMode ssc)
-           -> SendActions (ProductionMode ssc)
+           => SendActions (StaticMode ssc)
            -> Double
            -> BambooPool
            -> TxAux
-           -> ProductionMode ssc ()
-seedInitTx res sendActions recipShare bp initTx = do
-    na <- getPeersShare res recipShare
+           -> StaticMode ssc ()
+seedInitTx sendActions recipShare bp initTx = do
+    na <- getPeersShare recipShare
     logInfo "Issuing seed transaction"
     submitTxRaw sendActions na initTx
     logInfo "Waiting for 1 slot before resending..."
@@ -73,29 +71,37 @@ seedInitTx res sendActions recipShare bp initTx = do
     isVer <- isTxVerified $ view _1 tx
     if isVer
         then pure ()
-        else seedInitTx res sendActions recipShare bp initTx
+        else seedInitTx sendActions recipShare bp initTx
 
 chooseSubset :: Double -> [a] -> [a]
 chooseSubset share ls = take n ls
-  where n = max 1 $ round $ share * fromIntegral (length ls)
+  where
+    n = max 1 $ round $ share * fromIntegral (length ls)
 
 getPeersShare
-    :: (MonadIO m)
-    => RealModeResources m
-    -> Double
+    :: (MonadIO m, MonadDiscovery m)
+    => Double
     -> m [NodeId]
-getPeersShare res share = do
+getPeersShare share = do
     peers <- do
-        ps <- fmap toList (rmGetPeers res)
+        ps <- toList <$> getPeers
         if length ps < neighborsSendThreshold
-           then fmap toList (rmFindPeers res)
-           else return ps
+           then toList <$> findPeers
+           else pure ps
     liftIO $ chooseSubset share <$> shuffleM peers
 
-runSmartGen :: forall ssc . SscConstraint ssc
-            => PeerId -> RealModeResources (ProductionMode ssc) -> NodeParams -> SscParams ssc -> GenOptions -> Production ()
-runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
-  runProductionMode peerId res np sscnp $ (,sendTxOuts <> wOuts) . ActionSpec $ \vI sendActions -> do
+runSmartGen
+    :: forall ssc.
+       SscConstraint ssc
+    => PeerId
+    -> Transport (StaticMode ssc)
+    -> (Set NodeId)
+    -> NodeParams
+    -> SscParams ssc
+    -> GenOptions
+    -> Production ()
+runSmartGen peerId transport peers np@NodeParams{..} sscnp opts@GenOptions{..} =
+  runStaticMode peerId transport peers np sscnp $ (,sendTxOuts <> wOuts) . ActionSpec $ \vI sendActions -> do
     initLrc
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         initTx = initTransaction opts
@@ -105,7 +111,7 @@ runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
 
     txTimestamps <- liftIO createTxTimestamps
 
-    let ActionSpec nodeAction = runNode' @ssc res workers'
+    let ActionSpec nodeAction = runNode' @ssc workers'
 
     -- | Run all the usual node workers in order to get
     -- access to blockchain
@@ -124,7 +130,7 @@ runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
     -- [CSL-220] Write MonadBaseControl instance for KademliaDHT
     -- Seeding init tx
     void $ forConcurrently (zip bambooPools goGenesisIdxs) $ \(pool, fromIntegral -> idx) ->
-         seedInitTx res sA goRecipientShare pool (initTx idx)
+         seedInitTx sA goRecipientShare pool (initTx idx)
 
     -- Start writing tps file
     liftIO $ writeFile (logsFilePrefix </> tpsCsvFile) tpsCsvHeader
@@ -168,7 +174,7 @@ runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
                     startT <- getPosixMs
 
                     -- Get a random subset of neighbours to send tx
-                    na <- getPeersShare res goRecipientShare
+                    na <- getPeersShare goRecipientShare
 
                     eTx <- nextValidTx bambooPool goTPS goPropThreshold
                     case eTx of
@@ -219,7 +225,7 @@ runSmartGen peerId res np@NodeParams{..} sscnp opts@GenOptions{..} =
 
       return (newTPS, newStep)
   where
-    (workers', wOuts) = allWorkers (rmGetPeers res)
+    (workers', wOuts) = allWorkers
 
 -----------------------------------------------------------------------------
 -- Main
@@ -239,6 +245,7 @@ main = do
     --filePeers <- maybe (return []) CLI.readPeersFile
     --                 (CLI.dhtPeersFile goCommonArgs)
     let allPeers = goPeers -- ++ filePeers
+    let peerSet = S.fromList allPeers
     let logParams =
             LoggingParams
             { lpRunnerTag     = "smart-gen"
@@ -251,11 +258,11 @@ main = do
             { bpLoggingParams = logParams
             }
 
-    bracketResources baseParams TCP.Unaddressable (Set.fromList allPeers) $ \res -> do
-        let trans :: forall m t . MonadTrans m => Production t -> (forall ssc . m (RawRealMode ssc) t)
-            trans = lift . lift . lift . lift . lift . lift . lift . lift . lift . lift
-            res' :: forall ssc . RealModeResources (ProductionMode ssc)
-            res' = hoistResources trans res
+    bracketResources baseParams TCP.Unaddressable $ \transport -> do
+        let powerLift :: forall ssc t . Production t -> StaticMode ssc t
+            powerLift = lift.lift.lift.lift.lift.lift.lift.lift.lift.lift.lift
+            transport' :: forall ssc . Transport (StaticMode ssc)
+            transport' = hoistTransport powerLift transport
 
         let peerId = CLI.peerId goCommonArgs
         let systemStart = CLI.sysStart goCommonArgs
@@ -292,7 +299,9 @@ main = do
                 }
 
         case CLI.sscAlgo goCommonArgs of
-            GodTossingAlgo -> putText "Using MPC coin tossing" *>
-                              runSmartGen @SscGodTossing peerId res' params gtParams opts
-            NistBeaconAlgo -> putText "Using NIST beacon" *>
-                              runSmartGen @SscNistBeacon peerId res' params () opts
+            GodTossingAlgo -> do
+                putText "Using MPC coin tossing"
+                runSmartGen @SscGodTossing peerId transport' peerSet params gtParams opts
+            NistBeaconAlgo -> do
+                putText "Using NIST beacon"
+                runSmartGen @SscNistBeacon peerId transport' peerSet params () opts

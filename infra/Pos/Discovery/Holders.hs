@@ -2,15 +2,16 @@
 -- | Transformer that carries peer discovery capabilities.
 
 module Pos.Discovery.Holders
-       ( DiscoveryConstT
+       ( DiscoveryTag
+       , DiscoveryConstT
        , runDiscoveryConstT
        , DiscoveryKademliaT
+       , askDHTInstance
        , runDiscoveryKademliaT
        ) where
 
 import qualified Control.Monad.Ether              as Ether
 import qualified Control.Monad.Ether              as Ether.E
-import           Data.Coerce                      (coerce)
 import qualified Data.Set                         as S (fromList)
 import           Mockable                         (Async, Catch, Mockables, Promise,
                                                    Throw)

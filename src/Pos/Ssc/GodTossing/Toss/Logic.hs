@@ -39,6 +39,10 @@ verifyAndApplyGtPayload
     :: (MonadToss m, MonadError TossVerFailure m)
     => Either EpochIndex (MainBlockHeader ssc) -> GtPayload -> m ()
 verifyAndApplyGtPayload eoh payload = do
+    -- We can't trust payload from mempool, so we must call @sanityChecksGtPayload@.
+    whenLeft eoh $ const $ sanityChecksGtPayload eoh payload
+    -- We perform @sanityChecksGtPayload@ for block when deserialize it (in the recreateMainBlock).
+    -- So this check just in case.
     inAssertMode $
         whenRight eoh $ const $ sanityChecksGtPayload eoh payload
     let blockCerts = _gpCertificates payload

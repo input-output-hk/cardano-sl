@@ -1,11 +1,10 @@
--- | Serialization of GotTossing types.
+-- | Serialization of GodTossing types.
 
 module Pos.Binary.Ssc.GodTossing.Types where
 
-import           Data.Binary.Get                (label)
 import           Universum
 
-import           Pos.Binary.Class               (Bi (..))
+import           Pos.Binary.Class               (Bi (..), label)
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..))
 import           Pos.Ssc.GodTossing.VssCertData (VssCertData (..))
 

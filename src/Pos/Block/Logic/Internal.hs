@@ -166,12 +166,20 @@ rollbackBlocksUnsafe getPeers toRollback = reportingFatal getPeers version $ do
                               & each._1 %~ toUpdateBlock)
     TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
     txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
-    sscRollbackBlocks $ fmap fst toRollback
+    sscBatch <- SomeBatchOp <$> sscRollbackBlocks (fmap fst toRollback)
     let putTip = SomeBatchOp $
                  GS.PutTip $
                  headerHash $
                  (NE.last $ getNewestFirst toRollback) ^. prevBlockL
-    GS.writeBatchGState [putTip, delRoll, usRoll, txRoll, forwardLinksBatch, inMainBatch]
+    GS.writeBatchGState
+        [ putTip
+        , delRoll
+        , usRoll
+        , txRoll
+        , forwardLinksBatch
+        , inMainBatch
+        , sscBatch
+        ]
     DB.sanityCheckDB
     inAssertMode $
         when (isGenesis0 (toRollback ^. _Wrapped . _neLast . _1)) $

@@ -23,6 +23,7 @@ import           Control.Monad.Catch         (Exception)
 import           Control.Monad.Catch         (bracketOnError)
 import           Control.Monad.State         (gets)
 import           Control.Monad.Trans         (MonadIO (..))
+import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Data.Binary                 (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy        as LBS
 import           Data.Default                (Default (..))
@@ -49,7 +50,8 @@ import           Mockable.Exception          (Catch, Throw, catchAll, handleAll,
 import           NTP.Packet                  (NtpPacket (..), evalClockOffset,
                                               mkCliNtpPacket, ntpPacketSize)
 import           NTP.Util                    (createAndBindSock, resolveNtpHost,
-                                              selectIPv4, selectIPv6, udpLocalAddresses)
+                                              selectIPv4, selectIPv6, udpLocalAddresses,
+                                              withSocketsDoLifted)
 
 data NtpClientSettings m = NtpClientSettings
     { ntpServers         :: [String]
@@ -112,6 +114,7 @@ instance Exception NoHostResolved
 
 type NtpMonad m =
     ( MonadIO m
+    , MonadBaseControl IO m
     , WithLogger m
     , Mockable Fork m
     , Mockable Throw m
@@ -287,18 +290,21 @@ stopNtpClient cli = do
     forM_ sockets $ \s -> liftIO (close s) `catchAll` (const $ pure ())
 
 startNtpClient :: NtpMonad m => NtpClientSettings m -> m (NtpStopButton m)
-startNtpClient settings = bracketOnError (mkSockets settings) closeSockets $ \sock -> do
-    cli <- mkNtpClient settings sock
+startNtpClient settings =
+    withSocketsDoLifted $
+    bracketOnError (mkSockets settings) closeSockets $ \sock -> do
+        cli <- mkNtpClient settings sock
 
-    addrs <- catMaybes <$> mapM (resolveHost cli $ socketsToBoolDescr sock) (ntpServers settings)
-    if null addrs then
-        throw NoHostResolved
-    else do
-        void . fork $ startReceive cli
-        void . fork $ startSend addrs cli
-        log cli Info "Launched"
+        addrs <- catMaybes <$> mapM (resolveHost cli $ socketsToBoolDescr sock)
+                                    (ntpServers settings)
+        if null addrs then
+            throw NoHostResolved
+        else do
+            void . fork . withSocketsDoLifted $ startReceive cli
+            void . fork . withSocketsDoLifted $ startSend addrs cli
+            log cli Info "Launched"
 
-    return $ NtpStopButton $ stopNtpClient cli
+        return $ NtpStopButton $ stopNtpClient cli
   where
     closeSockets sockets = forM_ (socketsToList sockets) (liftIO . close)
     resolveHost cli sockDescr host = do

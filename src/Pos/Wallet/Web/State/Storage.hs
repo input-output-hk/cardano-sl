@@ -31,6 +31,7 @@ module Pos.Wallet.Web.State.Storage
        , setWalletMeta
        , setWSetMeta
        , setWSetPassLU
+       , setWSetSyncTip
        , setWalletHistory
        , getWalletHistory
        , addOnlyNewTxMeta
@@ -207,6 +208,9 @@ setWSetMeta cAddr wSMeta = wsWSetInfos . ix cAddr . wsiMeta .= wSMeta
 
 setWSetPassLU :: CAddress WS -> PassPhraseLU -> Update ()
 setWSetPassLU cAddr passLU = wsWSetInfos . ix cAddr . wsiPassphraseLU .= passLU
+
+setWSetSyncTip :: CAddress WS -> HeaderHash -> Update ()
+setWSetSyncTip cAddr hh = wsWSetInfos . ix cAddr . wsiSyncTip .= hh
 
 addWalletHistoryTx :: CWalletAddress -> CTxId -> CTxMeta -> Update ()
 addWalletHistoryTx cAddr ctxId ctxMeta =

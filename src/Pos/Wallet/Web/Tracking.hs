@@ -5,6 +5,7 @@ module Pos.Wallet.Web.Tracking
        ( syncWalletSetWithTip
        , trackingApplyTxs
        , trackingRollbackTxs
+       , applyModifierToWSet
        ) where
 
 import           Data.List                  ((!!))
@@ -37,12 +38,17 @@ import           Pos.Types                  (BlockHeader, HeaderHash, blockTxas,
 import           Pos.Util.Chrono            (getNewestFirst)
 import qualified Pos.Util.Modifier          as MM
 
-import           Pos.Wallet.Web.ClientTypes (Acc, CAccountAddress (..), CAddress, WS,
+import           Pos.Wallet.Web.ClientTypes (CAccountAddress (..), CAddress, WS,
                                              addressToCAddress, encToCAddress)
 import           Pos.Wallet.Web.State       (WebWalletModeDB)
 import qualified Pos.Wallet.Web.State       as WS
 
-type CAccModifier = MM.MapModifier (CAddress Acc) CAccountAddress
+type CAccModifier = MM.MapModifier CAccountAddress ()
+
+----------------------------------------------------------------------------
+-- Unsafe operations
+----------------------------------------------------------------------------
+-- These operation aren't atomic and don't take a lock.
 
 syncWalletSetWithTip
     :: forall ssc m .
@@ -100,16 +106,14 @@ syncWalletSetWithTip encSK = do
     gbTxs = either (const []) (^. blockTxas)
 
     rollbackBlock :: Blund ssc -> CAccModifier
-    rollbackBlock (b, u)   = trackingRollbackTxs encSK $ zip (gbTxs b) (undoTx u)
+    rollbackBlock (b, u) = trackingRollbackTxs encSK $ zip (gbTxs b) (undoTx u)
 
     applyBlock :: (WithLogger m1, MonadUtxoRead m1)
                => Blund ssc -> ToilT () m1 CAccModifier
     applyBlock = trackingApplyTxs encSK . gbTxs . fst
 
 trackingApplyTxs
-    :: forall m .
-        ( WithLogger m
-        , MonadUtxo m )
+    :: forall m . MonadUtxo m
     => EncryptedSecretKey
     -> [TxAux]
     -> m CAccModifier
@@ -134,7 +138,7 @@ trackingRollbackTxs
     :: EncryptedSecretKey
     -> [(TxAux, TxUndo)]
     -> CAccModifier
-trackingRollbackTxs (getEncInfo -> encInfo) (reverse -> txs) =
+trackingRollbackTxs (getEncInfo -> encInfo) txs =
     foldl' rollbackTx mempty txs
   where
     rollbackTx :: CAccModifier -> (TxAux, TxUndo) -> CAccModifier
@@ -144,6 +148,17 @@ trackingRollbackTxs (getEncInfo -> encInfo) (reverse -> txs) =
         -- Rollback isn't needed, because we don't use @utxoGet@
         -- (undo contains all required information)
         deleteAndInsertMM ownOutputs ownInputs mapModifier
+
+applyModifierToWSet
+    :: WebWalletModeDB m
+    => CAddress WS
+    -> HeaderHash
+    -> CAccModifier
+    -> m ()
+applyModifierToWSet wsAddr newTip mapModifier = do
+    mapM_ WS.removeAccount (MM.deletions mapModifier)
+    mapM_ (WS.addAccount . fst) (MM.insertions mapModifier)
+    WS.setWSetSyncTip wsAddr newTip
 
 getEncInfo :: EncryptedSecretKey -> (HDPassphrase, CAddress WS)
 getEncInfo encSK = do
@@ -168,10 +183,10 @@ deleteAndInsertMM dels ins mapModifier =
     foldl' deleteAcc mapModifier dels
   where
     insertAcc :: CAccModifier -> CAccountAddress -> CAccModifier
-    insertAcc modifier acc = MM.insert (caaAddress acc) acc modifier
+    insertAcc modifier acc = MM.insert acc () modifier
 
     deleteAcc :: CAccModifier -> CAccountAddress -> CAccModifier
-    deleteAcc modifier acc = MM.delete (caaAddress acc) modifier
+    deleteAcc modifier acc = MM.delete acc modifier
 
 decryptAccount :: (HDPassphrase, CAddress WS) -> Address -> Maybe CAccountAddress
 decryptAccount (hdPass, wsCAddress) addr@(PubKeyAddress _ (Attributes (AddrPkAttrs (Just hdPayload)) _)) = do

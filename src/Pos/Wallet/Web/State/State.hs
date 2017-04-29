@@ -38,6 +38,7 @@ module Pos.Wallet.Web.State.State
        , setWalletMeta
        , setWSetMeta
        , setWSetPassLU
+       , setWSetSyncTip
        , setWalletTransactionMeta
        , setWalletHistory
        , addOnlyNewTxMeta
@@ -158,6 +159,9 @@ setWSetMeta addr = updateDisk . A.SetWSetMeta addr
 
 setWSetPassLU :: WebWalletModeDB m => CAddress WS -> PassPhraseLU -> m ()
 setWSetPassLU addr = updateDisk . A.SetWSetPassLU addr
+
+setWSetSyncTip :: WebWalletModeDB m => CAddress WS -> HeaderHash -> m ()
+setWSetSyncTip addr = updateDisk . A.SetWSetSyncTip addr
 
 setProfile :: WebWalletModeDB m => CProfile -> m ()
 setProfile = updateDisk . A.SetProfile

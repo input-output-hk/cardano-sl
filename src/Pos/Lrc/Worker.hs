@@ -23,8 +23,7 @@ import           System.Wlog                (logInfo, logWarning)
 import           Pos.Binary.Communication   ()
 import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                              withBlkSemaphore_)
-import           Pos.Communication.Protocol (NodeId, OutSpecs, WorkerSpec,
-                                             localOnNewSlotWorker)
+import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants              (slotSecurityParam)
 import           Pos.Core                   (Coin)
 import           Pos.DB.Class               (MonadDBCore)
@@ -55,14 +54,13 @@ import           Pos.WorkMode               (WorkMode)
 
 lrcOnNewSlotWorker
     :: (SscWorkersClass ssc, WorkMode ssc m, MonadDBCore m)
-    => m (Set NodeId)
-    -> (WorkerSpec m, OutSpecs)
-lrcOnNewSlotWorker getPeers = localOnNewSlotWorker getPeers True $ \SlotId {..} ->
+    => (WorkerSpec m, OutSpecs)
+lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     when (siSlot < slotSecurityParam) $
-    (lrcSingleShot getPeers siEpoch `catch` reportError) `catch` onLrcError
+    (lrcSingleShot siEpoch `catch` reportError) `catch` onLrcError
   where
     reportError (SomeException e) = do
-        reportMisbehaviourMasked getPeers version $ "Lrc worker failed with error: " <> show e
+        reportMisbehaviourMasked version $ "Lrc worker failed with error: " <> show e
         throwM e
     onLrcError UnknownBlocksForLrc =
         logInfo
@@ -73,19 +71,19 @@ lrcOnNewSlotWorker getPeers = localOnNewSlotWorker getPeers True $ \SlotId {..} 
 -- block for this epoch is not known, LrcError will be thrown.
 lrcSingleShot
     :: (SscWorkersClass ssc, WorkMode ssc m, MonadDBCore m)
-    => m (Set NodeId) -> EpochIndex -> m ()
-lrcSingleShot getPeers epoch = lrcSingleShotImpl getPeers True epoch allLrcConsumers
+    => EpochIndex -> m ()
+lrcSingleShot epoch = lrcSingleShotImpl True epoch allLrcConsumers
 
 -- | Same, but doesn't take lock on the semaphore.
 lrcSingleShotNoLock
     :: (SscWorkersClass ssc, WorkMode ssc m, MonadDBCore m)
-    => m (Set NodeId) -> EpochIndex -> m ()
-lrcSingleShotNoLock getPeers epoch = lrcSingleShotImpl getPeers False epoch allLrcConsumers
+    => EpochIndex -> m ()
+lrcSingleShotNoLock epoch = lrcSingleShotImpl False epoch allLrcConsumers
 
 lrcSingleShotImpl
     :: (WorkMode ssc m, MonadDBCore m)
-    => m (Set NodeId) -> Bool -> EpochIndex -> [LrcConsumer m] -> m ()
-lrcSingleShotImpl getPeers withSemaphore epoch consumers = do
+    => Bool -> EpochIndex -> [LrcConsumer m] -> m ()
+lrcSingleShotImpl withSemaphore epoch consumers = do
     lock <- askContext @LrcContext lcLrcSync
     tryAcquireExclusiveLock epoch lock onAcquiredLock
   where
@@ -104,9 +102,9 @@ lrcSingleShotImpl getPeers withSemaphore epoch consumers = do
         when need $ do
             logInfo "LRC is starting"
             if withSemaphore
-                then withBlkSemaphore_ $ lrcDo getPeers epoch filteredConsumers
+                then withBlkSemaphore_ $ lrcDo epoch filteredConsumers
             -- we don't change/use it in lcdDo in fact
-                else void . lrcDo getPeers epoch filteredConsumers =<< GS.getTip
+                else void . lrcDo epoch filteredConsumers =<< GS.getTip
             logInfo "LRC has finished"
         putEpoch epoch
         logInfo "LRC has updated LRC DB"
@@ -132,8 +130,8 @@ tryAcquireExclusiveLock epoch lock action =
 lrcDo
     :: forall ssc m.
        WorkMode ssc m
-    => m (Set NodeId) -> EpochIndex -> [LrcConsumer m] -> HeaderHash -> m HeaderHash
-lrcDo getPeers epoch consumers tip = tip <$ do
+    => EpochIndex -> [LrcConsumer m] -> HeaderHash -> m HeaderHash
+lrcDo epoch consumers tip = tip <$ do
     blundsUpToGenesis <- DB.loadBlundsFromTipWhile @ssc upToGenesis
     -- If there are blocks from 'epoch' it means that we somehow accepted them
     -- before running LRC for 'epoch'. It's very bad.
@@ -161,12 +159,12 @@ lrcDo getPeers epoch consumers tip = tip <$ do
                 putSeed epoch seed
                 leadersComputationDo epoch seed
   where
-    applyBack blunds = applyBlocksUnsafe getPeers blunds Nothing
+    applyBack blunds = applyBlocksUnsafe blunds Nothing
     upToGenesis b = b ^. epochIndexL >= epoch
     whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
     withBlocksRolledBack blunds =
-        bracket_ (rollbackBlocksUnsafe getPeers blunds)
+        bracket_ (rollbackBlocksUnsafe blunds)
                  (applyBack (toOldestFirst blunds))
 
 issuersComputationDo :: forall ssc m . WorkMode ssc m => EpochIndex -> m ()

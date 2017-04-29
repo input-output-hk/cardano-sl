@@ -31,6 +31,7 @@ data SscNistBeacon
 deriving instance Show SscNistBeacon
 deriving instance Eq SscNistBeacon
 
+-- FIXME Why is it here at all?
 instance Buildable () where
     build _ = "()"
 
@@ -45,13 +46,13 @@ instance Ssc SscNistBeacon where
     type SscVerifyError SscNistBeacon = ()
 
     mkSscProof = Tagged $ const ()
-    sscCreateNodeContext = Tagged $ const (return ())
+    sscCreateNodeContext = Tagged $ const pass
 
 instance SscHelpersClass SscNistBeacon where
     sscVerifyPayload = Tagged $ const $ const $ Right ()
 
 instance SscWorkersClass SscNistBeacon where
-    sscWorkers = const (Tagged ([], mempty))
+    sscWorkers = Tagged ([], mempty)
     sscLrcConsumers = Tagged []
 
 instance SscListenersClass SscNistBeacon where
@@ -59,16 +60,15 @@ instance SscListenersClass SscNistBeacon where
     sscStubListeners = Tagged ([], mempty)
 
 instance SscLocalDataClass SscNistBeacon where
-    sscGetLocalPayloadQ _ = pure ()
+    sscGetLocalPayloadQ _ = pass
     sscNormalizeU _ _ _ = pass
-    sscNewLocalData = pure ()
+    sscNewLocalData = pass
 
 instance SscGStateClass SscNistBeacon where
-    sscLoadGlobalState = pure ()
-    sscRollbackU _ = pure ()
+    sscLoadGlobalState = pass
+    sscRollbackU _ = pass
     sscVerifyAndApplyBlocks _ _ = pass
     sscCalculateSeedQ i _ = do
         let h :: ByteString
             h = ByteArray.convert $ Hash.hashlazy @SHA256 (encode i)
         return $ Right (SharedSeed h)
-

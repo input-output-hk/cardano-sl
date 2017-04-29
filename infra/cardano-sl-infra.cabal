@@ -32,8 +32,8 @@ library
                         Pos.Slotting.Util
 
                         Pos.Discovery
-                        Pos.Discovery.Constants
-                        Pos.Discovery.Neighbors
+                        Pos.Discovery.Broadcast
+                        Pos.Discovery.Class
 
                         -- Pos.DHT
                         Pos.DHT

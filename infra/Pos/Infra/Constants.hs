@@ -3,6 +3,7 @@
 module Pos.Infra.Constants
        ( InfraConstants (..)
        , infraConstants
+       , neighborsSendThreshold
        ) where
 
 import           Data.Aeson                 (FromJSON (..), genericParseJSON)
@@ -14,6 +15,10 @@ import           Universum
 import           Pos.Util.Config            (IsConfig (..), configParser,
                                              parseFromCslConfig)
 import           Pos.Util.Util              ()
+
+----------------------------------------------------------------------------
+-- Parsing
+----------------------------------------------------------------------------
 
 infraConstants :: InfraConstants
 infraConstants = case parseFromCslConfig configParser of
@@ -54,3 +59,12 @@ instance FromJSON InfraConstants where
 
 instance IsConfig InfraConstants where
     configPrefix = Tagged Nothing
+
+----------------------------------------------------------------------------
+-- Constants
+----------------------------------------------------------------------------
+
+-- | See 'Pos.CompileConfig.ccNeighboursSendThreshold'.
+neighborsSendThreshold :: Integral a => a
+neighborsSendThreshold =
+    fromIntegral . ccNeighboursSendThreshold $ infraConstants

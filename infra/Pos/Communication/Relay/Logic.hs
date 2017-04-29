@@ -58,7 +58,8 @@ import           Pos.Communication.Types.Relay      (DataMsg (..), InvMsg (..), 
                                                      MempoolMsg (..), ReqMsg (..))
 import           Pos.Communication.Util             (stubListenerConv)
 import           Pos.DB.Limits                      (MonadDBLimits)
-import           Pos.Discovery.Neighbors            (converseToNeighbors)
+import           Pos.Discovery.Broadcast            (converseToNeighbors)
+import           Pos.Discovery.Class                (MonadDiscovery)
 import           Pos.Reporting                      (MonadReportingMem, reportingFatal)
 
 import           Pos.Communication.Limits.Instances ()
@@ -314,16 +315,18 @@ addToRelayQueue inv = do
     else
         atomically $ writeTBQueue queue (SomeInvMsg inv)
 
-relayWorkers :: forall m .
-             ( Mockable Throw m
-             , RelayWorkMode m
-             , MonadMask m
-             , MonadReportingMem m
-             )
-             => m (Set NodeId) -> OutSpecs -> ([WorkerSpec m], OutSpecs)
-relayWorkers getPeers allOutSpecs =
+relayWorkers
+    :: forall m.
+       ( Mockable Throw m
+       , MonadDiscovery m
+       , RelayWorkMode m
+       , MonadMask m
+       , MonadReportingMem m
+       )
+    => OutSpecs -> ([WorkerSpec m], OutSpecs)
+relayWorkers allOutSpecs =
     first (:[]) $ worker allOutSpecs $ \sendActions ->
-        handleAll handleWE $ reportingFatal getPeers version $ action sendActions
+        handleAll handleWE $ reportingFatal version $ action sendActions
   where
     action sendActions = do
         queue <- _rlyPropagationQueue <$> askRelayMem
@@ -332,8 +335,7 @@ relayWorkers getPeers allOutSpecs =
                 logDebug $ sformat
                     ("Propagation data with key: "%build%
                      " and tag: "%build) imKey imTag
-                peers <- getPeers
-                converseToNeighbors peers sendActions (convHandler i)
+                converseToNeighbors sendActions (convHandler i)
             SomeInvMsg (Right _) ->
                 logWarning $ "DataMsg is contains in inv propagation queue"
 
@@ -358,16 +360,20 @@ invReqDataFlowNeighbors
     ( Message (InvOrData tag id contents)
     , Message (ReqMsg id tag)
     , Buildable id
+
     , MinRelayWorkMode m
     , MonadDBLimits m
-    , Bi tag, Bi id
+    , MonadDiscovery m
+
+    , Bi tag
+    , Bi id
     , Bi (InvOrData tag id contents)
-    , Bi (ReqMsg id tag))
-    => m (Set NodeId) -> Text -> SendActions m -> tag -> id -> contents -> m ()
-invReqDataFlowNeighbors getPeers what sendActions tag id dt = handleAll handleE $
+    , Bi (ReqMsg id tag)
+    )
+    => Text -> SendActions m -> tag -> id -> contents -> m ()
+invReqDataFlowNeighbors what sendActions tag id dt = handleAll handleE $
     reifyMsgLimit (Proxy @(ReqMsg id tag)) $ \lim -> do
-        peers <- getPeers
-        converseToNeighbors peers sendActions (invReqDataFlowDo what tag id dt lim)
+        converseToNeighbors sendActions (invReqDataFlowDo what tag id dt lim)
   where
     handleE e = logWarning $
         sformat ("Error sending "%stext%", id = "%build%" to neighbors: "%shown) what id e

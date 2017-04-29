@@ -8,6 +8,7 @@ module Pos.DB.GState.BlockExtra
        ( resolveForwardLink
        , isBlockInMainChain
        , BlockExtraOp (..)
+       , foldlUpWhileM
        , loadHeadersUpWhile
        , loadBlocksUpWhile
        , prepareGStateBlockExtra
@@ -83,6 +84,33 @@ instance RocksBatchOp BlockExtraOp where
 -- Loops on forward links
 ----------------------------------------------------------------------------
 
+foldlUpWhileM
+    :: forall a b ssc m r .
+    ( SscHelpersClass ssc
+    , MonadDB m
+    , HasHeaderHash a
+    )
+    => (Blund ssc -> m b)
+    -> a
+    -> (b -> Int -> Bool)
+    -> (r -> b -> m r)
+    -> r
+    -> m r
+foldlUpWhileM morphM start condition accM init =
+    loadUpWhileDo (headerHash start) 0 init
+  where
+    loadUpWhileDo :: HeaderHash -> Int -> r -> m r
+    loadUpWhileDo curH height !res = getBlockWithUndo curH >>= \case
+        Nothing -> pure res
+        Just x@(block,_) -> do
+            curB <- morphM x
+            mbNextLink <- fmap headerHash <$> resolveForwardLink block
+            if | not (condition curB height) -> pure res
+               | Just nextLink <- mbNextLink -> do
+                     newRes <- accM res curB
+                     loadUpWhileDo nextLink (succ height) newRes
+               | otherwise -> accM res curB
+
 -- Loads something from old to new.
 loadUpWhile
     :: forall a b ssc m . (SscHelpersClass ssc, MonadDB m, HasHeaderHash a)
@@ -90,19 +118,13 @@ loadUpWhile
     -> a
     -> (b -> Int -> Bool)
     -> m (OldestFirst [] b)
-loadUpWhile morph start condition =
-    OldestFirst <$> loadUpWhileDo (headerHash start) 0
-  where
-    loadUpWhileDo :: HeaderHash -> Int -> m [b]
-    loadUpWhileDo curH height = getBlockWithUndo curH >>= \case
-        Nothing -> pure []
-        Just x@(block,_) -> do
-            mbNextLink <- fmap headerHash <$> resolveForwardLink block
-            let curB = morph x
-            if | not (condition curB height) -> pure []
-               | Just nextLink <- mbNextLink ->
-                     (curB :) <$> loadUpWhileDo nextLink (succ height)
-               | otherwise -> pure [curB]
+loadUpWhile morph start condition = OldestFirst . reverse <$>
+    foldlUpWhileM
+        (pure . morph)
+        start
+        condition
+        (\l e -> pure (e : l))
+        []
 
 -- | Returns headers loaded up.
 loadHeadersUpWhile

@@ -316,6 +316,13 @@ instance ToParam (QueryParam "new" CPassPhrase) where
                   , _paramDesc = "New passphrase to wallet set"
                   }
 
+instance ToCapture (Capture "name" Text) where
+    toCapture Proxy =
+        DocCapture
+        { _capSymbol = "name"
+        , _capDesc = "New name assigned to item"
+        }
+
 ----------------------------------------------------------------------------
 -- Sample data
 ----------------------------------------------------------------------------

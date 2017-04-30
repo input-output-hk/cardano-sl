@@ -119,7 +119,7 @@ import           Pos.Wallet.Web.State          (AccountLookupMode (..), WalletWe
                                                 getWalletState, openState, removeAccount,
                                                 removeNextUpdate, removeWSet,
                                                 removeWallet, runWalletWebDB, setProfile,
-                                                setWSetPassLU, setWalletMeta,
+                                                setWSetMeta, setWSetPassLU, setWalletMeta,
                                                 setWalletTransactionMeta, testReset,
                                                 updateHistoryCache)
 import           Pos.Web.Server                (serveImpl)
@@ -284,6 +284,8 @@ servantHandlers getPeers sendActions =
     :<|>
      apiRestoreWSet
     :<|>
+     apiRenameWSet
+    :<|>
      apiImportKey
     :<|>
      apiChangeWSetPassphrase
@@ -348,6 +350,7 @@ servantHandlers getPeers sendActions =
     apiGetWSet                  = (catchWalletError . getWSet)
     apiGetWSets                 = catchWalletError getWSets
     apiNewWSet                  = (\a -> catchWalletError . newWSet a)
+    apiRenameWSet               = (\a -> catchWalletError . renameWSet a)
     apiRestoreWSet              = (\a -> catchWalletError . newWSet a)
     apiImportKey                = catchWalletError . importKey
     apiChangeWSetPassphrase     = (\a b -> catchWalletError . changeWSetPassphrase a b)
@@ -707,6 +710,12 @@ deleteWallet = removeWallet
 -- TODO: to add when necessary
 -- deleteAccount :: WalletWebMode m => CAccountAddress -> m ()
 -- deleteAccount = removeAccount
+
+renameWSet :: WalletWebMode m => CAddress WS -> Text -> m CWalletSet
+renameWSet addr newName = do
+    meta <- getWSetMeta addr >>= maybeThrow (Internal "No such wallet set")
+    setWSetMeta addr meta{ cwsName = newName }
+    getWSet addr
 
 changeWSetPassphrase
     :: WalletWebMode m

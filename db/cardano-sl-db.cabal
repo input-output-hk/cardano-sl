@@ -1,5 +1,5 @@
 name:                cardano-sl-db
-version:             0.4.1
+version:             0.4.3
 synopsis:            Cardano SL - basic DB interfaces
 description:         Cardano SL - basic DB interfaces
 license:             MIT
@@ -68,6 +68,7 @@ library
                        MultiWayIf
                        ConstraintKinds
                        UndecidableInstances
+                       BangPatterns
 
   ghc-options:         -Wall
                        -fno-warn-orphans

@@ -89,7 +89,7 @@ runCmd _ sendActions (Send idx outputs) = do
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
 runCmd _ sendActions (SendToAllGenesis amount delay_) = do
     (skeys, na) <- ask
-    forM_ skeys $ \key -> do
+    for_ skeys $ \key -> do
         let txOut = TxOut {
             txOutAddress = makePubKeyAddress (toPublic key),
             txOutValue = amount

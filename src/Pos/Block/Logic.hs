@@ -797,10 +797,10 @@ createMainBlockFinish getPeers slotId pSk prevHeader = do
             Left _ ->
                 throwError "Couldn't get pModifier while creating MainBlock"
             Right o -> pure o
-    let blockUndo = Undo (reverse $ foldl' prependToUndo [] localTxs)
+    let blockUndo = Undo (reverse $ foldl' prependToUndo [] sortedTxs)
                          pskUndo
                          (verUndo ^. _Wrapped . _neHead)
-    () <- (blockUndo `deepseq` blk) `deepseq` pure ()
+    evaluateNF_ (blockUndo, blk)
     logDebug "Created main block/undos, applying"
     lift $ blk <$ applyBlocksUnsafe getPeers (one (Right blk, blockUndo)) (Just pModifier)
   where

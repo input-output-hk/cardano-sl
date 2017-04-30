@@ -108,14 +108,10 @@ prepareGStateBalances
        MonadDB m
     => Utxo -> m ()
 prepareGStateBalances genesisUtxo = do
-    putIfEmpty getRealStakeSumMaybe putFtsStakes
-    putIfEmpty getRealStakeSumMaybe putGenesisTotalStake
+    whenNothingM_ getRealStakeSumMaybe putFtsStakes
+    whenNothingM_ getRealStakeSumMaybe putGenesisTotalStake
   where
     totalCoins = sumCoins $ map snd $ concatMap txOutStake $ toList genesisUtxo
-    putIfEmpty
-        :: forall a.
-           (m (Maybe a)) -> m () -> m ()
-    putIfEmpty getter putter = maybe putter (const pass) =<< getter
     -- Will 'panic' if the result doesn't fit into 'Coin' (which should never
     -- happen)
     putGenesisTotalStake = putTotalFtsStake (unsafeIntegerToCoin totalCoins)

@@ -1,6 +1,5 @@
-{-# LANGUAGE BangPatterns         #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Hashing capabilities.
 
@@ -32,7 +31,6 @@ module Pos.Crypto.Hashing
        , HashAlgorithm
        ) where
 
-import           Control.DeepSeq      (force)
 import           Control.Lens         (makeLensesFor)
 import           Crypto.Hash          (Blake2b_256, Digest, HashAlgorithm)
 import qualified Crypto.Hash          as Hash (hash, hashlazy)

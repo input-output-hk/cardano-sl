@@ -34,9 +34,8 @@ instance
     (MonadIO m, Mockable Catch m, WithLogger m, ContextHolderTrans ssc ~ t) =>
         MonadJL (ContextHolder' t m)
   where
-    jlLog ev = ether (asks ncJLFile) >>= maybe (pure ()) doLog
-      where
-        doLog logFileMV =
+    jlLog ev =
+        whenJustM (ether (asks ncJLFile)) $ \logFileMV ->
             (liftIO . withMVar logFileMV $ flip appendJL ev)
             `catchAll` \e ->
-                logWarning $ sformat ("Can't write to json log: " % shown) e
+                logWarning $ sformat ("Can't write to json log: "%shown) e

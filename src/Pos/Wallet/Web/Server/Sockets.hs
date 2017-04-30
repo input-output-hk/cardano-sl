@@ -17,13 +17,13 @@ module Pos.Wallet.Web.Server.Sockets
        , runWalletWS
        ) where
 
-import           Control.Concurrent.STM.TVar    (readTVarIO)
+import           Universum
+
 import qualified Control.Monad.Ether.Implicit   as Ether
 import           Data.Aeson                     (encode)
 import           Network.Wai                    (Application)
 import           Network.Wai.Handler.WebSockets (websocketsOr)
 import qualified Network.WebSockets             as WS
-import           Universum
 
 import           Pos.Aeson.ClientTypes          ()
 import           Pos.Wallet.Web.ClientTypes     (NotifyEvent (ConnectionClosed, ConnectionOpened))
@@ -33,13 +33,13 @@ import           Pos.Wallet.Web.ClientTypes     (NotifyEvent (ConnectionClosed, 
 type ConnectionsVar = TVar (Maybe WS.Connection)
 
 initWSConnection :: MonadIO m => m ConnectionsVar
-initWSConnection = liftIO $ newTVarIO Nothing
+initWSConnection = newTVarIO Nothing
 
 closeWSConnection :: MonadIO m => ConnectionsVar -> m ()
-closeWSConnection var = do
-    conn <- liftIO $ readTVarIO var
+closeWSConnection var = liftIO $ do
+    conn <- readTVarIO var
     atomically $ writeTVar var Nothing
-    liftIO $ maybe mempty (flip WS.sendClose ConnectionClosed) conn
+    maybe mempty (flip WS.sendClose ConnectionClosed) conn
 
 switchConnection :: ConnectionsVar -> WS.ServerApp
 switchConnection var pending = do

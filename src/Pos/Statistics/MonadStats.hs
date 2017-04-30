@@ -18,7 +18,6 @@ import qualified Control.Monad.Trans.Ether.Tagged as Ether
 import           Control.Monad.Trans.Identity     (IdentityT (..))
 import qualified Data.Binary                      as Binary
 import           Data.Coerce                      (coerce)
-import           Data.Maybe                       (fromMaybe)
 import           Focus                            (Decision (Remove), alterM)
 import           Serokell.Util                    (show')
 import qualified STMContainers.Map                as SM
@@ -80,7 +79,7 @@ getStatsMap = Ether.ask
 instance (MonadIO m, MonadJL m) => MonadStats (StatsT m) where
     statLog label entry = do
         statsMap <- ether ask
-        liftIO $ atomically $ SM.focus update (show' label) statsMap
+        atomically $ SM.focus update (show' label) statsMap
         return ()
       where
         update = alterM $ \v -> return $ fmap Binary.encode $
@@ -88,7 +87,7 @@ instance (MonadIO m, MonadJL m) => MonadStats (StatsT m) where
 
     resetStat label = do
         statsMap <- ether ask
-        mval <- liftIO $ atomically $ SM.focus reset (show' label) statsMap
+        mval <- atomically $ SM.focus reset (show' label) statsMap
         let val = fromMaybe mempty $ Binary.decode <$> mval
         lift $ jlLog $ toJLEvent label val
       where

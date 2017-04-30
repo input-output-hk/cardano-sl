@@ -18,7 +18,7 @@ import           Pos.Constants                   (slotSecurityParam)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (..), GtPayload (..),
                                                   getCommitmentsMap,
                                                   mkCommitmentsMapUnsafe, _gpCertificates)
-import           Pos.Ssc.GodTossing.Functions    (verifyGtPayload)
+import           Pos.Ssc.GodTossing.Functions    (sanityChecksGtPayload)
 import           Pos.Ssc.GodTossing.Toss.Base    (checkPayload)
 import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..))
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
@@ -29,6 +29,7 @@ import           Pos.Types                       (EpochIndex, EpochOrSlot (..),
                                                   MainBlockHeader, SlotId (siSlot),
                                                   epochIndexL, epochOrSlot,
                                                   getEpochOrSlot)
+import           Pos.Util                        (inAssertMode)
 import           Pos.Util.Chrono                 (NewestFirst (..))
 
 -- | Verify 'GtPayload' with respect to data provided by
@@ -38,7 +39,8 @@ verifyAndApplyGtPayload
     :: (MonadToss m, MonadError TossVerFailure m)
     => Either EpochIndex (MainBlockHeader ssc) -> GtPayload -> m ()
 verifyAndApplyGtPayload eoh payload = do
-    verifyGtPayload eoh payload  -- not necessary for blocks, but just in case
+    inAssertMode $
+        whenRight eoh $ const $ sanityChecksGtPayload eoh payload
     let blockCerts = _gpCertificates payload
     let curEpoch = either identity (^. epochIndexL) eoh
     checkPayload curEpoch payload

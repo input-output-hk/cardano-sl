@@ -2,7 +2,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Wallet.Web.Tracking
-       ( syncWalletSetWithTip
+       ( syncWalletSetsWithTipLock
+       , syncWalletSetWithTip
        , trackingApplyTxs
        , trackingRollbackTxs
        , applyModifierToWSet
@@ -14,6 +15,7 @@ import           Formatting                 (build, sformat, (%))
 import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
+import           Pos.Block.Logic            (withBlkSemaphore_)
 import           Pos.Block.Pure             (genesisHash)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Core                   (HasDifficulty (..))
@@ -37,6 +39,7 @@ import           Pos.Types                  (BlockHeader, HeaderHash, blockTxas,
                                              getBlockHeader, headerHash)
 import           Pos.Util.Chrono            (getNewestFirst)
 import qualified Pos.Util.Modifier          as MM
+import           Pos.WorkMode               (WorkMode)
 
 import           Pos.Wallet.Web.ClientTypes (CAccountAddress (..), CAddress, WS,
                                              addressToCAddress, encToCAddress)
@@ -44,6 +47,17 @@ import           Pos.Wallet.Web.State       (WebWalletModeDB)
 import qualified Pos.Wallet.Web.State       as WS
 
 type CAccModifier = MM.MapModifier CAccountAddress ()
+
+syncWalletSetsWithTipLock
+    :: forall ssc m .
+    ( WebWalletModeDB m
+    , WorkMode ssc m -- withBlkSemaphore_ requires
+    , SscHelpersClass ssc
+    )
+    => [EncryptedSecretKey]
+    -> m ()
+syncWalletSetsWithTipLock encSKs = withBlkSemaphore_ $ \tip ->
+    tip <$ mapM_ (syncWalletSetWithTip @ssc) encSKs
 
 ----------------------------------------------------------------------------
 -- Unsafe operations
@@ -57,7 +71,7 @@ syncWalletSetWithTip
     , WithLogger m
     , SscHelpersClass ssc)
     => EncryptedSecretKey
-    -> m CAccModifier
+    -> m ()
 syncWalletSetWithTip encSK = do
     tipHeader <- DB.getTipBlockHeader @ssc
     let wsAddr = encToCAddress encSK

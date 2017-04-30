@@ -67,6 +67,7 @@ import           Pos.Crypto                    (EncryptedSecretKey, PassPhrase,
                                                 hash, noPassEncrypt,
                                                 redeemDeterministicKeyGen, redeemToPublic,
                                                 withSafeSigner, withSafeSigner)
+import           Pos.DB.Class                  (MonadDB)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.Genesis                   (genesisDevSecretKeys)
 import           Pos.Reporting.MemState        (MonadReportingMem, askReportingContext,
@@ -99,9 +100,10 @@ import           Pos.Wallet.Web.ClientTypes    (Acc, CAccount (..), CAccountAddr
                                                 CWalletSetMeta (..), MCPassPhrase,
                                                 NotifyEvent (..), SyncProgress (..), WS,
                                                 addressToCAddress, cAddressToAddress,
-                                                cPassPhraseToPassPhrase, mkCCoin, mkCTx,
-                                                mkCTxId, toCUpdateInfo, txContainsTitle,
-                                                txIdToCTxId, walletAddrByAccount)
+                                                cPassPhraseToPassPhrase, encToCAddress,
+                                                mkCCoin, mkCTx, mkCTxId, toCUpdateInfo,
+                                                txContainsTitle, txIdToCTxId,
+                                                walletAddrByAccount)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets, WalletWebSockets,
                                                 closeWSConnection, getWalletWebSockets,
@@ -122,6 +124,7 @@ import           Pos.Wallet.Web.State          (AccountLookupMode (..), WalletWe
                                                 setWSetPassLU, setWalletMeta,
                                                 setWalletTransactionMeta, testReset,
                                                 updateHistoryCache)
+import           Pos.Wallet.Web.Tracking       (syncWalletSetWithTip)
 import           Pos.Web.Server                (serveImpl)
 
 ----------------------------------------------------------------------------
@@ -138,6 +141,7 @@ type WalletWebMode m
       , MonadDBLimits m
       , MonadWalletWebSockets m
       , MonadReportingMem m
+      , MonadDB m
       )
 
 makeLenses ''SyncProgress
@@ -185,7 +189,10 @@ walletServer getPeers sendActions nat = do
             (runWalletWebDB ws . runWalletWS socks)
             sendActions
     nat >>= launchNotifier
-    myRootAddresses >>= mapM_ insertAddressMeta
+    myAddresses <- myRootAddresses
+    mapM_ insertAddressMeta myAddresses
+    -- Sync wallets with GState.
+    mapM_ (syncWalletSetWithTip @WalletSscType <=< getSKByAddr) myAddresses
     addInitialRichAccount getPeers' sendActions' 0
     (`enter` servantHandlers getPeers' sendActions') <$> nat
   where
@@ -823,9 +830,11 @@ importKey (toString -> fp) = do
     let keys = secret ^. usKeys
     importedWSets <-
         forM keys $ \key -> do
-            let addr = makePubKeyAddress $ encToPublic key
-                wsAddr = addressToCAddress addr
+            let wsAddr = encToCAddress key
             createWSetSafe wsAddr def <* addSecretKey key
+    -- FIXME: use @syncWalletSetsWithTipLock@
+    --syncWalletSetsWithTipLock keys
+    mapM_ (syncWalletSetWithTip @WalletSscType) keys
     maybeThrow noKey $ head importedWSets
   where
     noKey = Internal $ sformat ("No spending key found at " %build) fp

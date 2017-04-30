@@ -50,10 +50,10 @@ walletServeWebLite
     -> Bool
     -> Word16
     -> WalletRealMode ()
-walletServeWebLite _ getPeers sendActions = walletServeImpl action
+walletServeWebLite _ getPeers sendActions = undefined --walletServeImpl action
   where
     action :: WalletWebHandler WalletRealMode Application
-    action = walletApplication $ walletServer getPeers sendActions nat
+    action = undefined --walletApplication $ walletServer getPeers sendActions nat
 
 nat :: WebHandler (WebHandler :~> Handler)
 nat = do

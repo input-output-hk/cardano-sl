@@ -68,7 +68,7 @@ retrievalWorkerImpl getPeers sendActions = handleAll handleTop $ do
     mainLoop = runIfNotShutdown $ reportingFatal getPeers version $ do
         queue <- ncBlockRetrievalQueue <$> getNodeContext
         recHeaderVar <- ncRecoveryHeader <$> getNodeContext
-        inRecovery <- needRecovery (Proxy @ssc)
+        inRecovery <- needRecovery @ssc
         unless inRecovery $
             whenJustM (atomically $ tryTakeTMVar recHeaderVar) $ const $ do
                 logDebug "Triggering recovery from main loop"

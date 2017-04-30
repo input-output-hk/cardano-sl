@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Network-related logic that's mostly methods and dialogs between
@@ -94,10 +95,8 @@ instance Exception BlockNetLogicException where
 -- Recovery
 ----------------------------------------------------------------------------
 
-needRecovery :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
-       => Proxy ssc -> m Bool
-needRecovery _ = getCurrentSlot >>= maybe (pure True) needRecoveryCheck
+needRecovery :: forall ssc m. (SscWorkersClass ssc, WorkMode ssc m) => m Bool
+needRecovery = getCurrentSlot >>= maybe (pure True) needRecoveryCheck
   where
     needRecoveryCheck slot = do
         header <- DB.getTipBlockHeader @ssc
@@ -260,7 +259,7 @@ requestHeaders mgh peerId origTip _ conv = do
     logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
     send conv mgh
     mHeaders <- recvLimited conv
-    inRecovery <- needRecovery (Proxy @ssc)
+    inRecovery <- needRecovery @ssc
     logDebug $ sformat ("requestHeaders: inRecovery = "%shown) inRecovery
     flip (maybe onNothing) mHeaders $ \(MsgHeaders headers) -> do
         logDebug $ sformat

@@ -6,21 +6,19 @@ module Pos.Ssc.GodTossing.DB
        , prepareGtDB
        ) where
 
-import           Data.Default                   (def)
 import qualified Data.Text.Buildable
-import qualified Database.RocksDB               as Rocks
+import qualified Database.RocksDB         as Rocks
 import           Universum
 
-import           Formatting                     (bprint, build, (%))
-import           Pos.Binary.Class               (encodeStrict)
-import           Pos.Binary.Ssc                 ()
-import           Pos.DB                         (MonadDB, RocksBatchOp (..))
-import           Pos.DB.Error                   (DBError (DBMalformed))
-import           Pos.DB.GState.Common           (gsGetBi, gsPutBi)
-import           Pos.Ssc.GodTossing.Core        (VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..))
-import qualified Pos.Ssc.GodTossing.VssCertData as VCD
-import           Pos.Util.Util                  (maybeThrow)
+import           Formatting               (bprint, build, (%))
+import           Pos.Binary.Class         (encodeStrict)
+import           Pos.Binary.Ssc           ()
+import           Pos.DB                   (MonadDB, RocksBatchOp (..))
+import           Pos.DB.Error             (DBError (DBMalformed))
+import           Pos.DB.GState.Common     (gsGetBi)
+import           Pos.Ssc.GodTossing.Core  (VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Types (GtGlobalState (..))
+import           Pos.Util.Util            (maybeThrow)
 
 getGtGlobalState :: MonadDB m => m GtGlobalState
 getGtGlobalState =
@@ -31,11 +29,7 @@ gtGlobalStateToBatch :: GtGlobalState -> GtOp
 gtGlobalStateToBatch = PutGlobalState
 
 prepareGtDB :: MonadDB m => VssCertificatesMap -> m ()
-prepareGtDB certs =
-    whenNothingM_ (gsGetBi @_ @GtGlobalState gtKey) $
-        gsPutBi gtKey (def {_gsVssCertificates = vcd})
-  where
-    vcd = VCD.fromList . toList $ certs
+prepareGtDB _ = pass
 
 ----------------------------------------------------------------------------
 -- Operation

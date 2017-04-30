@@ -19,10 +19,12 @@ import           System.Wlog          (WithLogger)
 import           Universum
 
 import           Pos.DB               (MonadDB, SomeBatchOp)
+import           Pos.Lrc.Context      (LrcContext)
 import           Pos.Lrc.Types        (RichmenStake)
 import           Pos.Ssc.Class.Types  (Ssc (..))
 import           Pos.Types            (Block, EpochIndex, SharedSeed)
 import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
+import           Pos.Util.Context     (HasContext)
 
 ----------------------------------------------------------------------------
 -- Modern
@@ -43,7 +45,7 @@ class Ssc ssc =>
       SscGStateClass ssc where
     -- | Load global state from DB by recreating it from recent blocks.
     sscLoadGlobalState
-        :: (MonadDB m, WithLogger m)
+        :: (HasContext LrcContext m, MonadDB m, WithLogger m)
         => m (SscGlobalState ssc)
     -- | Dump global state to DB.
     sscGlobalStateToBatch :: SscGlobalState ssc -> Tagged ssc [SomeBatchOp]

@@ -134,7 +134,6 @@ dropRecoveryHeader peerId = do
                    maybe "noth" show realPeer <> " vs " <> show peerId
     pure kicked
 
-{-# ANN dropRecoveryHeaderAndRepeat ("HLint: ignore Use whenM" :: Text) #-}
 dropRecoveryHeaderAndRepeat
     :: (SscWorkersClass ssc, WorkMode ssc m)
     => m (Set NodeId) -> SendActions m -> NodeId -> m ()
@@ -256,8 +255,8 @@ retrieveBlocks' i conv prevH endH = lift (recvLimited conv) >>= \case
             curH = headerHash block
         when (prevH' /= prevH) $ do
             throwError $ sformat
-                ("Received block #"%int%" with prev hash "%shortHashF%" while "%
-                 shortHashF%" was expected: "%build)
+                ("Received block #"%int%" with prev hash "%shortHashF%
+                 " while "%shortHashF%" was expected: "%build)
                 i prevH' prevH (block ^. blockHeader)
         progressHeaderVar <- ncProgressHeader <$> getNodeContext
         atomically $ do void $ tryTakeTMVar progressHeaderVar

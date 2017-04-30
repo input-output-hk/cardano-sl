@@ -114,7 +114,7 @@ triggerRecovery getPeers sendActions = unlessM isRecoveryMode $ do
         peers <- getPeers
         converseToNeighbors peers sendActions (requestTip limitProxy) `catch`
             \(e :: SomeException) -> do
-               logDebug ("Error happened in triggerRecovery" <> show e)
+               logDebug ("Error happened in triggerRecovery: " <> show e)
                throwM e
         logDebug "Recovery triggered ended"
 

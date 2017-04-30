@@ -108,12 +108,11 @@ needRecovery _ = getCurrentSlot >>= maybe (pure True) needRecoveryCheck
 -- | Triggers recovery based on established communication.
 triggerRecovery :: forall ssc m.
     (SscWorkersClass ssc, WorkMode ssc m)
-    => m (Set NodeId) -> SendActions m -> m ()
-triggerRecovery getPeers sendActions = unlessM isRecoveryMode $ do
+    => SendActions m -> m ()
+triggerRecovery sendActions = unlessM isRecoveryMode $ do
     logDebug "Recovery triggered, requesting tips"
     reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limitProxy -> do
-        peers <- getPeers
-        converseToNeighbors peers sendActions (requestTip limitProxy) `catch`
+        converseToNeighbors sendActions (requestTip limitProxy) `catch`
             \(e :: SomeException) -> do
                logDebug ("Error happened in triggerRecovery" <> show e)
                throwM e
@@ -388,18 +387,17 @@ mkBlocksRequest lcaChild wantedBlock =
 handleBlocks
     :: forall ssc m.
        (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
-    => m (Set NodeId)
-    -> NodeId
+    => NodeId
     -> OldestFirst NE (Block ssc)
     -> SendActions m
     -> m ()
-handleBlocks getPeers peerId blocks sendActions = do
+handleBlocks peerId blocks sendActions = do
     logDebug "handleBlocks: processing"
     inAssertMode $
         logInfo $
             sformat ("Processing sequence of blocks: " %listJson % "...") $
                     fmap headerHash blocks
-    maybe onNoLca (handleBlocksWithLca getPeers peerId sendActions blocks) =<<
+    maybe onNoLca (handleBlocksWithLca peerId sendActions blocks) =<<
         lcaWithMainChain (map (view blockHeader) blocks)
     inAssertMode $ logDebug $ "Finished processing sequence of blocks"
   where
@@ -410,18 +408,17 @@ handleBlocks getPeers peerId blocks sendActions = do
 handleBlocksWithLca
     :: forall ssc m.
        (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
-    => m (Set NodeId)
-    -> NodeId
+    => NodeId
     -> SendActions m
     -> OldestFirst NE (Block ssc)
     -> HeaderHash
     -> m ()
-handleBlocksWithLca getPeers peerId sendActions blocks lcaHash = do
+handleBlocksWithLca peerId sendActions blocks lcaHash = do
     logDebug $ sformat lcaFmt lcaHash
     -- Head blund in result is the youngest one.
     toRollback <- DB.loadBlundsFromTipWhile $ \blk -> headerHash blk /= lcaHash
-    maybe (applyWithoutRollback getPeers sendActions blocks)
-          (applyWithRollback getPeers peerId sendActions blocks lcaHash)
+    maybe (applyWithoutRollback sendActions blocks)
+          (applyWithRollback peerId sendActions blocks lcaHash)
           (_Wrapped nonEmpty toRollback)
   where
     lcaFmt = "Handling block w/ LCA, which is "%shortHashF
@@ -429,11 +426,10 @@ handleBlocksWithLca getPeers peerId sendActions blocks lcaHash = do
 applyWithoutRollback
     :: forall ssc m.
        (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
-    => m (Set NodeId)
-    -> SendActions m
+    => SendActions m
     -> OldestFirst NE (Block ssc)
     -> m ()
-applyWithoutRollback getPeers sendActions blocks = do
+applyWithoutRollback sendActions blocks = do
     logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
         fmap (view blockHeader) blocks
     withBlkSemaphore applyWithoutRollbackDo >>= \case
@@ -453,33 +449,32 @@ applyWithoutRollback getPeers sendActions blocks = do
                     & map (view blockHeader)
                 applied = NE.fromList $
                     getOldestFirst prefix <> one (toRelay ^. blockHeader)
-            relayBlock getPeers sendActions toRelay
+            relayBlock sendActions toRelay
             logInfo $ blocksAppliedMsg applied
   where
     newestTip = blocks ^. _Wrapped . _neLast . headerHashG
     applyWithoutRollbackDo
         :: HeaderHash -> m (Either Text HeaderHash, HeaderHash)
     applyWithoutRollbackDo curTip = do
-        res <- verifyAndApplyBlocks getPeers False blocks
+        res <- verifyAndApplyBlocks False blocks
         let newTip = either (const curTip) identity res
         pure (res, newTip)
 
 applyWithRollback
     :: forall ssc m.
        (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
-    => m (Set NodeId)
-    -> NodeId
+    => NodeId
     -> SendActions m
     -> OldestFirst NE (Block ssc)
     -> HeaderHash
     -> NewestFirst NE (Blund ssc)
     -> m ()
-applyWithRollback getPeers peerId sendActions toApply lca toRollback = do
+applyWithRollback peerId sendActions toApply lca toRollback = do
     logInfo $ sformat ("Trying to apply blocks w/ rollback: "%listJson)
         (map (view blockHeader) toApply)
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
     res <- withBlkSemaphore $ \curTip -> do
-        res <- L.applyWithRollback getPeers toRollback toApplyAfterLca
+        res <- L.applyWithRollback toRollback toApplyAfterLca
         pure (res, either (const curTip) identity res)
     case res of
         Left err -> logWarning $ "Couldn't apply blocks with rollback: " <> err
@@ -490,7 +485,7 @@ applyWithRollback getPeers peerId sendActions toApply lca toRollback = do
             reportRollback
             logInfo $ blocksRolledBackMsg (getNewestFirst toRollback)
             logInfo $ blocksAppliedMsg (getOldestFirst toApply)
-            relayBlock getPeers sendActions $ toApply ^. _Wrapped . _neLast
+            relayBlock sendActions $ toApply ^. _Wrapped . _neLast
   where
     toRollbackHashes = fmap headerHash toRollback
     toApplyHashes = fmap headerHash toApply
@@ -501,7 +496,7 @@ applyWithRollback getPeers peerId sendActions toApply lca toRollback = do
     reportRollback =
         unlessM isRecoveryMode $ do
             logDebug "Reporting rollback happened"
-            reportMisbehaviourMasked getPeers version $
+            reportMisbehaviourMasked version $
                 sformat reportF peerId toRollbackHashes toApplyHashes
     panicBrokenLca = error "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =
@@ -513,14 +508,14 @@ applyWithRollback getPeers peerId sendActions toApply lca toRollback = do
 relayBlock
     :: forall ssc m.
        (WorkMode ssc m)
-    => m (Set NodeId) -> SendActions m -> Block ssc -> m ()
-relayBlock _ _ (Left _)                  = logDebug "Not relaying Genesis block"
-relayBlock getPeers sendActions (Right mainBlk) = do
+    => SendActions m -> Block ssc -> m ()
+relayBlock _ (Left _)                  = logDebug "Not relaying Genesis block"
+relayBlock sendActions (Right mainBlk) = do
     isRecoveryMode >>= \case
         True -> logDebug "Not relaying block in recovery mode"
         False -> do
             logDebug $ sformat ("Calling announceBlock for "%build%".") (mainBlk ^. gbHeader)
-            void $ fork $ announceBlock getPeers sendActions $ mainBlk ^. gbHeader
+            void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------
 -- Common logging / logic sink points

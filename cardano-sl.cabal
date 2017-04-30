@@ -180,7 +180,6 @@ library
                         Pos.Delegation.Worker
 
                         -- Launcher
-                        Pos.Launcher.Resources
                         Pos.Launcher.Launcher
                         Pos.Launcher.Options
                         Pos.Launcher.Param

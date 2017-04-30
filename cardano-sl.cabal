@@ -382,6 +382,7 @@ library
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
                         Pos.Wallet.Web.ClientTypes
+                        Pos.Wallet.Web.Account
                         Pos.Wallet.Web.Api
                         Pos.Wallet.Web.BListener
                         Pos.Wallet.Web.Doc

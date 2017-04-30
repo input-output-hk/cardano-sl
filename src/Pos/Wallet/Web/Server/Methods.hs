@@ -21,9 +21,7 @@ import           Control.Lens                  (ix, makeLenses, (.=))
 import           Control.Monad.Catch           (SomeException, catches, try)
 import qualified Control.Monad.Catch           as E
 import           Control.Monad.State           (runStateT)
-import           Data.Bits                     (setBit)
 import           Data.Default                  (Default (def))
-import           Data.List                     (elemIndex, (!!))
 import qualified Data.List.NonEmpty            as NE
 import           Data.Tagged                   (untag)
 import qualified Data.Text                     as T
@@ -42,7 +40,6 @@ import           Servant.Multipart             (fdFilePath)
 import           Servant.Server                (Handler, Server, ServerT, err403,
                                                 runHandler, serve)
 import           Servant.Utils.Enter           ((:~>) (..), enter)
-import           System.Random                 (Random, randomIO)
 import           System.Wlog                   (logDebug, logError, logInfo)
 
 import           Data.ByteString.Base58        (bitcoinAlphabet, decodeBase58)
@@ -54,19 +51,17 @@ import           Pos.Communication             (NodeId, OutSpecs, SendActions,
                                                 submitRedemptionTx, submitTx)
 import           Pos.Constants                 (curSoftwareVersion, isDevelopment)
 import           Pos.Core                      (Address (..), Coin, addressF,
-                                                applyCoinPortion, createHDAddressH,
-                                                decodeTextAddress, makePubKeyAddress,
-                                                makeRedeemAddress, mkCoin,
-                                                unsafeCoinPortionFromDouble,
+                                                applyCoinPortion, decodeTextAddress,
+                                                makePubKeyAddress, makeRedeemAddress,
+                                                mkCoin, unsafeCoinPortionFromDouble,
                                                 unsafeSubCoin)
-import           Pos.Crypto                    (EncryptedSecretKey, PassPhrase,
-                                                aesDecrypt, changeEncPassphrase,
-                                                checkPassMatches, deriveAesKeyBS,
-                                                deriveHDPassphrase, deriveHDSecretKey,
-                                                emptyPassphrase, encToPublic, fakeSigner,
-                                                hash, noPassEncrypt,
-                                                redeemDeterministicKeyGen, redeemToPublic,
-                                                withSafeSigner, withSafeSigner)
+import           Pos.Crypto                    (PassPhrase, aesDecrypt,
+                                                changeEncPassphrase, checkPassMatches,
+                                                deriveAesKeyBS, emptyPassphrase,
+                                                encToPublic, fakeSigner, hash,
+                                                noPassEncrypt, redeemDeterministicKeyGen,
+                                                redeemToPublic, withSafeSigner,
+                                                withSafeSigner)
 import           Pos.DB.Class                  (MonadDB)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.Genesis                   (genesisDevSecretKeys)
@@ -75,8 +70,7 @@ import           Pos.Reporting.MemState        (MonadReportingMem, askReportingC
 import           Pos.Reporting.Methods         (sendReport, sendReportNodeNologs)
 import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
 import           Pos.Util                      (maybeThrow)
-import           Pos.Util.BackupPhrase         (BackupPhrase, mkBackupPhrase12,
-                                                safeKeysFromPhrase, toSeed)
+import           Pos.Util.BackupPhrase         (mkBackupPhrase12, toSeed)
 import           Pos.Util.UserSecret           (readUserSecret, usKeys)
 import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
                                                 addSecretKey)
@@ -86,6 +80,11 @@ import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
                                                 getBalance, getTxHistory,
                                                 localChainDifficulty,
                                                 networkChainDifficulty, waitForUpdate)
+import           Pos.Wallet.Web.Account        (genSaveRootAddress,
+                                                genUniqueAccountAddress,
+                                                genUniqueWalletAddress, getAddrIdx,
+                                                getSKByAccAddr, getSKByAddr,
+                                                myRootAddresses)
 import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes    (Acc, CAccount (..), CAccountAddress (..),
                                                 CAddress, CCurrency (ADA),
@@ -102,8 +101,7 @@ import           Pos.Wallet.Web.ClientTypes    (Acc, CAccount (..), CAccountAddr
                                                 addressToCAddress, cAddressToAddress,
                                                 cPassPhraseToPassPhrase, encToCAddress,
                                                 mkCCoin, mkCTx, mkCTxId, toCUpdateInfo,
-                                                txContainsTitle, txIdToCTxId,
-                                                walletAddrByAccount)
+                                                txContainsTitle, txIdToCTxId)
 import           Pos.Wallet.Web.Error          (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets, WalletWebSockets,
                                                 closeWSConnection, getWalletWebSockets,
@@ -112,8 +110,7 @@ import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets, WalletWeb
 import           Pos.Wallet.Web.State          (AccountLookupMode (..), WalletWebDB,
                                                 WebWalletModeDB, addAccount,
                                                 addOnlyNewTxMeta, addUpdate, closeState,
-                                                createWSet, createWallet,
-                                                doesAccountExist, getHistoryCache,
+                                                createWSet, createWallet, getHistoryCache,
                                                 getNextUpdate, getProfile, getTxMeta,
                                                 getWSetAddresses, getWSetMeta,
                                                 getWSetPassLU, getWalletAccounts,
@@ -902,116 +899,6 @@ testResetAll | isDevelopment = deleteAllKeys >> testReset
     deleteAllKeys = do
         keyNum <- length <$> getSecretKeys
         replicateM_ keyNum $ deleteSecretKey 0
-
----------------------------------------------------------------------------
--- Helpers
-----------------------------------------------------------------------------
-
-myRootAddresses :: MonadKeys m => m [CAddress WS]
-myRootAddresses =
-    addressToCAddress . makePubKeyAddress . encToPublic <<$>> getSecretKeys
-
-getAddrIdx :: WalletWebMode m => CAddress WS -> m Int
-getAddrIdx addr = elemIndex addr <$> myRootAddresses >>= maybeThrow notFound
-  where notFound =
-          Internal $ sformat ("Address "%build%" is not found in wallet") addr
-
-getSKByAddr
-    :: WalletWebMode m
-    => CAddress WS
-    -> m EncryptedSecretKey
-getSKByAddr cAddr = do
-    idx <- getAddrIdx cAddr
-    sks <- getSecretKeys
-    let sk = sks !! idx
-    return sk
-
-getSKByAccAddr
-    :: WalletWebMode m
-    => PassPhrase
-    -> CAccountAddress
-    -> m EncryptedSecretKey
-getSKByAccAddr passphrase accAddr@CAccountAddress {..} = do
-    (addr, accKey) <-
-        deriveAccountSK passphrase (walletAddrByAccount accAddr) caaAccountIndex
-    let accCAddr = addressToCAddress addr
-    if accCAddr /= caaAddress
-        then throwM . Internal $ "Account is contradictory!"
-        else return accKey
-
-genSaveRootAddress
-    :: WalletWebMode m
-    => PassPhrase
-    -> BackupPhrase
-    -> m (CAddress WS)
-genSaveRootAddress passphrase ph =
-    addressToCAddress . makePubKeyAddress . encToPublic <$> genSaveSK
-  where
-    genSaveSK = do
-        sk <- either keyFromPhraseFailed (pure . fst)
-            $ safeKeysFromPhrase passphrase ph
-        addSecretKey sk
-        return sk
-    keyFromPhraseFailed msg = throwM . Internal $ "Key creation from phrase failed: " <> msg
-
-generateUnique :: (MonadIO m, Random a) => (a -> m b) -> (b -> m Bool) -> m b
-generateUnique generator isDuplicate = loop
-  where
-    loop = do
-        rand  <- liftIO randomIO
-        value <- generator rand
-        bad   <- isDuplicate value
-        if bad
-            then loop
-            else return value
-
-nonHardenedOnly :: Word32 -> Word32
-nonHardenedOnly index = setBit index 31
-
-genUniqueWalletAddress
-    :: WalletWebMode m
-    => CAddress WS
-    -> m CWalletAddress
-genUniqueWalletAddress wsCAddr =
-    generateUnique (return . CWalletAddress wsCAddr . nonHardenedOnly)
-                   (fmap isJust . getWalletMeta)
-
-genUniqueAccountAddress
-    :: WalletWebMode m
-    => PassPhrase
-    -> CWalletAddress
-    -> m CAccountAddress
-genUniqueAccountAddress passphrase wCAddr@CWalletAddress{..} =
-    generateUnique (mkAccount . nonHardenedOnly)
-                   (doesAccountExist Ever)
-  where
-    mkAccount caaAccountIndex =
-        deriveAccountAddress passphrase wCAddr caaAccountIndex
-
-deriveAccountSK
-    :: WalletWebMode m
-    => PassPhrase
-    -> CWalletAddress
-    -> Word32
-    -> m (Address, EncryptedSecretKey)
-deriveAccountSK passphrase CWalletAddress{..} accIndex = do
-    wsKey     <- getSKByAddr cwaWSAddress
-    let wKey   = deriveHDSecretKey passphrase wsKey cwaIndex
-    let hdPass = deriveHDPassphrase $ encToPublic wsKey
-    return $ createHDAddressH passphrase hdPass wKey [cwaIndex] accIndex
-
-deriveAccountAddress
-    :: WalletWebMode m
-    => PassPhrase
-    -> CWalletAddress
-    -> Word32
-    -> m CAccountAddress
-deriveAccountAddress passphrase wAddr@CWalletAddress{..} caaAccountIndex = do
-    (accAddr, _) <- deriveAccountSK passphrase wAddr caaAccountIndex
-    let caaWSAddress   = cwaWSAddress
-        caaWalletIndex = cwaIndex
-        caaAddress     = addressToCAddress accAddr
-    return CAccountAddress{..}
 
 ----------------------------------------------------------------------------
 -- Orphan instances

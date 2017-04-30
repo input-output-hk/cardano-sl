@@ -7,6 +7,7 @@ module Pos.Wallet.Web.BListener
        ) where
 
 import           Mockable                   (MonadMockable)
+import           System.Wlog                (WithLogger, logDebug)
 import           Universum
 
 import qualified Data.List.NonEmpty         as NE
@@ -31,6 +32,7 @@ import           Pos.Wallet.Web.Tracking    (applyModifierToWSet, trackingApplyT
 instance ( MonadDB m
          , MonadMockable m
          , AccountMode m
+         , WithLogger m
          )
          => MonadBListener (WalletWebDB m) where
     onApplyBlocks = onApplyTracking
@@ -40,9 +42,11 @@ onApplyTracking
     :: forall ssc m .
     ( SscHelpersClass ssc
     , AccountMode m
+    , WithLogger m
     , MonadDB m)
     => OldestFirst NE (Blund ssc) -> m ()
 onApplyTracking blunds = do
+    logDebug "Wallet Tracking: OnApply Blockain Listener"
     let txs = concatMap (gbTxs . fst) $ getOldestFirst blunds
     let newTip = headerHash $ NE.last $ getOldestFirst blunds
     mapM_ (syncWalletSet newTip txs) =<< WS.getWSetAddresses
@@ -58,9 +62,11 @@ onRollbackTracking
     :: forall ssc m .
     ( SscHelpersClass ssc
     , AccountMode m
+    , WithLogger m
     )
     => NewestFirst NE (Blund ssc) -> m ()
 onRollbackTracking blunds = do
+    logDebug "Wallet Tracking: OnRollback Blockain Listener"
     let txs = concatMap (reverse . blundTxUn) $ getNewestFirst blunds
     let newTip = (NE.last $ getNewestFirst blunds) ^. prevBlockL
     mapM_ (syncWalletSet newTip txs) =<< WS.getWSetAddresses

@@ -7,8 +7,7 @@ module Pos.Update.Worker
 import           Mockable                   (fork)
 import           Universum
 
-import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker,
-                                             NodeId)
+import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants              (curSoftwareVersion)
 import           Pos.Types                  (SoftwareVersion (..))
 import           Pos.Update.DB              (getConfirmedProposals)
@@ -17,10 +16,10 @@ import           Pos.Update.Logic.Local     (processNewSlot)
 import           Pos.WorkMode               (WorkMode)
 
 -- | Update System related workers.
-usWorkers :: WorkMode ssc m => m (Set NodeId) -> ([WorkerSpec m], OutSpecs)
-usWorkers getPeers =
+usWorkers :: WorkMode ssc m => ([WorkerSpec m], OutSpecs)
+usWorkers =
     first pure $
-    localOnNewSlotWorker getPeers True $ \s ->
+    localOnNewSlotWorker True $ \s ->
         processNewSlot s >> void (fork checkForUpdate)
 
 checkForUpdate :: WorkMode ssc m => m ()

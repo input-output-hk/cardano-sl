@@ -67,7 +67,7 @@ import           Universum
 
 import           Formatting                  (formatToString, int, (%))
 import           Data.Bits                   (Bits (..))
-import qualified Data.Set                as S
+import qualified Data.Set                    as S
 import           Data.Binary                 (Get, Put)
 import qualified Data.Binary                 as Binary
 import           Data.Binary.Get             (ByteOffset, getByteString,

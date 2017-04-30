@@ -58,8 +58,8 @@ import           Pos.Communication           (ActionSpec (..), BiP (..), InSpecs
                                               hoistListenerSpec, unpackLSpecs)
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import qualified Pos.Constants               as Const
-import           Pos.Context                 (ContextHolder, NodeContext (..),
-                                              runContextHolder)
+import           Pos.Context                 (ContextHolder, JLContext, NodeContext (..),
+                                              runContextHolder, runJLContext)
 import           Pos.Core                    (Timestamp ())
 import           Pos.Crypto                  (createProxySecretKey, encToPublic)
 import           Pos.DB                      (DBHolder, MonadDB, NodeDBs, runDBHolder)
@@ -261,7 +261,7 @@ runStatsMode peerId res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
 ----------------------------------------------------------------------------
 
 runCH :: forall ssc m a . (SscConstraint ssc, MonadIO m, MonadCatch m, Mockable CurrentTime m)
-      => Int -> NodeParams -> SscNodeContext ssc -> NodeDBs -> DBHolder (ContextHolder ssc m) a -> m a
+      => Int -> NodeParams -> SscNodeContext ssc -> NodeDBs -> DBHolder (JLContext (ContextHolder ssc m)) a -> m a
 runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     ncJLFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
@@ -310,7 +310,7 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
             , ncTxpGlobalSettings = txpGlobalSettings
 #endif
             , .. }
-    runContextHolder ctx (runDBHolder db act)
+    runContextHolder ctx (runJLContext (runDBHolder db act))
 
 ----------------------------------------------------------------------------
 -- Utilities

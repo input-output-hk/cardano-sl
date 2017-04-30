@@ -23,22 +23,22 @@ module Pos.Txp.Toil.Utxo.Pure
        , verifyTxUtxoPure
        ) where
 
-import qualified Control.Monad.Ether.Implicit as Ether
-import           Control.Monad.Except         (MonadError)
+import           Control.Monad.Except        (MonadError)
+import qualified Ether
 import           Universum
 
-import           Pos.Binary.Core              ()
-import           Pos.Crypto                   (WithHash (..))
-import           Pos.Txp.Core                 (Tx, TxAux, TxDistribution, TxUndo)
-import           Pos.Txp.Toil.Failure         (ToilVerFailure)
-import           Pos.Txp.Toil.Types           (Utxo)
-import           Pos.Txp.Toil.Utxo.Functions  (VTxContext, applyTxToUtxo, verifyTxUtxo)
+import           Pos.Binary.Core             ()
+import           Pos.Crypto                  (WithHash (..))
+import           Pos.Txp.Core                (Tx, TxAux, TxDistribution, TxUndo)
+import           Pos.Txp.Toil.Failure        (ToilVerFailure)
+import           Pos.Txp.Toil.Types          (Utxo)
+import           Pos.Txp.Toil.Utxo.Functions (VTxContext, applyTxToUtxo, verifyTxUtxo)
 
 ----------------------------------------------------------------------------
 -- Reader
 ----------------------------------------------------------------------------
 
-type UtxoReaderT = Ether.ReaderT Utxo
+type UtxoReaderT = Ether.ReaderT' Utxo
 
 runUtxoReaderT :: UtxoReaderT m a -> Utxo -> m a
 runUtxoReaderT = Ether.runReaderT
@@ -52,7 +52,7 @@ runUtxoReader = Ether.runReader
 -- State
 ----------------------------------------------------------------------------
 
-type UtxoStateT = Ether.StateT Utxo
+type UtxoStateT = Ether.StateT' Utxo
 
 runUtxoStateT :: UtxoStateT m a -> Utxo -> m (a, Utxo)
 runUtxoStateT = Ether.runStateT

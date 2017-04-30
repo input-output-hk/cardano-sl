@@ -14,10 +14,10 @@ module Pos.Communication.PeerState
        , module Pos.Communication.Types.State
        ) where
 
-import qualified Control.Monad.Ether              as Ether.E
 import           Control.Monad.Reader             (ReaderT (..))
 import           Control.Monad.Trans.Class        (MonadTrans)
 import           Data.Default                     (Default (def))
+import qualified Ether
 import qualified ListT                            as LT
 import           Mockable                         (Mockable, SharedAtomic, SharedAtomicT,
                                                    newSharedAtomic, readSharedAtomic)
@@ -63,12 +63,12 @@ peerStateFromSnapshot (PeerStateSnapshot snapshot) = do
 data PeerStateTag
 
 -- | Wrapper for monadic action which brings 'NodePeerState'.
-type PeerStateHolder m = Ether.E.ReaderT PeerStateTag (PeerStateCtx' m) m
+type PeerStateHolder m = Ether.ReaderT PeerStateTag (PeerStateCtx' m) m
 
 -- | Run 'PeerStateHolder' action.
 runPeerStateHolder :: PeerStateCtx m -> PeerStateHolder m a -> m a
 runPeerStateHolder psc m =
-    Ether.E.runReaderT (Proxy @PeerStateTag) m (PeerStateCtx psc)
+    Ether.runReaderT @PeerStateTag m (PeerStateCtx psc)
 
 instance
     ( MonadIO m, Mockable SharedAtomic m

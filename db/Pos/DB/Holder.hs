@@ -7,13 +7,13 @@ module Pos.DB.Holder
        , runDBHolder
        ) where
 
-import qualified Control.Monad.Ether.Implicit as Ether
-import           Pos.DB.Types                 (NodeDBs)
-import           Pos.Util.Util                ()
+import qualified Ether
+import           Pos.DB.Types  (NodeDBs)
+import           Pos.Util.Util ()
 import           Universum
 
-type DBHolder = Ether.ReaderT NodeDBs
+type DBHolder = Ether.ReaderT' NodeDBs
 
 -- | Execute 'DBHolder' action with given 'NodeState'.
 runDBHolder :: NodeDBs -> DBHolder m a -> m a
-runDBHolder = flip Ether.runReaderT
+runDBHolder = flip Ether.runReaderT'

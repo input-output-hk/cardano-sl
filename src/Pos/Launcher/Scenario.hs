@@ -39,7 +39,6 @@ import           Pos.Types              (SlotId (..), addressHash)
 import           Pos.Update             (MemState (..), mvState)
 import           Pos.Update.Context     (UpdateContext (ucMemState))
 import           Pos.Util               (inAssertMode, waitRandomInterval)
-import           Pos.Util.Context       (askContext)
 import           Pos.Util.LogSafe       (logInfoS)
 import           Pos.Worker             (allWorkers, allWorkersCount)
 import           Pos.WorkMode           (WorkMode)
@@ -117,13 +116,13 @@ initSemaphore = do
 
 initLrc :: WorkMode ssc m => m ()
 initLrc = do
-    lrcSync <- askContext lcLrcSync
+    lrcSync <- Ether.asks' lcLrcSync
     epoch <- LrcDB.getEpoch
     atomically $ writeTVar lrcSync (LrcSyncData True epoch)
 
 initUSMemState :: WorkMode ssc m => m ()
 initUSMemState = do
     tip <- GS.getTip
-    tvar <- mvState <$> askContext @UpdateContext ucMemState
+    tvar <- mvState <$> Ether.asks' ucMemState
     slot <- fromMaybe (SlotId 0 0) <$> getCurrentSlot
     atomically $ writeTVar tvar (MemState slot tip def def)

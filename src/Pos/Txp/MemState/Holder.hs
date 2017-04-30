@@ -9,8 +9,8 @@ module Pos.Txp.MemState.Holder
        ) where
 
 import qualified Control.Concurrent.STM as STM
-import qualified Control.Monad.Ether    as Ether.E
 import           Data.Default           (Default (def))
+import qualified Ether
 import           Universum
 
 import           Pos.Types              (HeaderHash)
@@ -23,7 +23,7 @@ import           Pos.Txp.Toil.Types     (UtxoModifier)
 -- Holder
 ----------------------------------------------------------------------------
 
-type TxpHolder ext = Ether.E.ReaderT TxpHolderTag (GenericTxpLocalData ext)
+type TxpHolder ext = Ether.ReaderT TxpHolderTag (GenericTxpLocalData ext)
 
 mkTxpLocalData
     :: (Default e, MonadIO m)
@@ -36,4 +36,4 @@ mkTxpLocalData uv initTip = TxpLocalData
     <*> liftIO (STM.newTVarIO def)
 
 runTxpHolder :: GenericTxpLocalData ext -> TxpHolder ext m a -> m a
-runTxpHolder = flip (Ether.E.runReaderT (Proxy @TxpHolderTag))
+runTxpHolder = flip (Ether.runReaderT @TxpHolderTag)

@@ -25,6 +25,7 @@ import           Mockable.Production         (Production)
 import           System.Wlog                 (LoggerNameBox (..), WithLogger)
 import           Universum
 
+import qualified Ether
 import           Pos.Communication.PeerState (PeerStateHolder, WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (ContextHolder, NodeParams, WithNodeContext)
@@ -51,7 +52,6 @@ import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
 import           Pos.Txp.MemState            (MonadTxpMem, TxpHolder)
 import           Pos.Update.Context          (UpdateContext)
 import           Pos.Update.Params           (UpdateParams)
-import           Pos.Util.Context            (HasContext)
 import           Pos.Util.JsonLog            (MonadJL (..))
 
 -- Something extremely unpleasant.
@@ -78,10 +78,10 @@ type WorkMode ssc m
       , SscLocalDataClass ssc
       , SscHelpersClass ssc
       , WithNodeContext ssc m
-      , HasContext LrcContext m
-      , HasContext UpdateContext m
-      , HasContext NodeParams m
-      , HasContext UpdateParams m
+      , Ether.MonadReader' LrcContext m
+      , Ether.MonadReader' UpdateContext m
+      , Ether.MonadReader' NodeParams m
+      , Ether.MonadReader' UpdateParams m
       , MonadStats m
       , MonadJL m
       , WithPeerState m

@@ -1,10 +1,14 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TemplateHaskell           #-}
+{-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE TypeInType                #-}
+{-# LANGUAGE TypeOperators             #-}
 
 -- | Runtime context of node.
 
 module Pos.Context.Context
-       ( NodeContext (..)
+       ( NodeContextTag
+       , NodeContext (..)
        , ncPublicKey
        , ncPubKeyAddress
        , ncGenesisUtxo
@@ -16,7 +20,9 @@ module Pos.Context.Context
 import           Control.Concurrent.STM        (TBQueue)
 import qualified Control.Concurrent.STM        as STM
 import           Control.Lens                  (lens, makeLensesFor)
+import           Data.Kind                     (Type)
 import           Data.Time.Clock               (UTCTime)
+import           Ether.Internal                (HList (..), HasLens (..), Tags, TagsK)
 import           System.Wlog                   (LoggerConfig)
 import           Universum
 
@@ -37,12 +43,13 @@ import           Pos.Types                     (Address, BlockHeader, HeaderHash
 import           Pos.Update.Context            (UpdateContext)
 import           Pos.Update.Params             (UpdateParams)
 import           Pos.Util.Chrono               (NE, NewestFirst)
-import           Pos.Util.Context              (ContextPart (..))
 import           Pos.Util.UserSecret           (UserSecret)
 
 ----------------------------------------------------------------------------
 -- NodeContext
 ----------------------------------------------------------------------------
+
+data NodeContextTag
 
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext
@@ -119,20 +126,43 @@ makeLensesFor
   , ("npPropagation", "npPropagationL") ]
   ''NodeParams
 
-instance ContextPart (NodeContext ssc) UpdateContext where
-    contextPart = ncUpdateContextL
+type instance TagsK (NodeContext ssc) =
+  '[Type, Type, Type, Type, Type, Type, Type, Type]
 
-instance ContextPart (NodeContext ssc) LrcContext where
-    contextPart = ncLrcContextL
+return []
 
-instance ContextPart (NodeContext ssc) NodeParams where
-    contextPart = ncNodeParamsL
+type (:::) = 'HCons
 
-instance ContextPart (NodeContext ssc) UpdateParams where
-    contextPart = ncNodeParamsL . npUpdateParamsL
+infixr :::
 
-instance ContextPart (NodeContext ssc) ReportingContext where
-    contextPart = lens getter (flip setter)
+type instance Tags (NodeContext ssc) =
+  NodeContextTag :::
+  UpdateContext :::
+  LrcContext :::
+  NodeParams :::
+  UpdateParams :::
+  ReportingContext :::
+  RelayContext :::
+  ShutdownContext :::
+  'HNil
+
+instance HasLens NodeContextTag (NodeContext ssc) (NodeContext ssc) where
+    lensOf = identity
+
+instance HasLens UpdateContext (NodeContext ssc) UpdateContext where
+    lensOf = ncUpdateContextL
+
+instance HasLens LrcContext (NodeContext ssc) LrcContext where
+    lensOf = ncLrcContextL
+
+instance HasLens NodeParams (NodeContext ssc) NodeParams where
+    lensOf = ncNodeParamsL
+
+instance HasLens UpdateParams (NodeContext ssc) UpdateParams where
+    lensOf = ncNodeParamsL . npUpdateParamsL
+
+instance HasLens ReportingContext (NodeContext ssc) ReportingContext where
+    lensOf = lens getter (flip setter)
       where
         getter nc =
             ReportingContext
@@ -142,8 +172,8 @@ instance ContextPart (NodeContext ssc) ReportingContext where
             set (ncNodeParamsL . npReportServersL) (rc ^. rcReportServers) .
             set ncLoggerConfigL (rc ^. rcLoggingConfig)
 
-instance ContextPart (NodeContext ssc) RelayContext where
-    contextPart = lens getter (flip setter)
+instance HasLens RelayContext (NodeContext ssc) RelayContext where
+    lensOf = lens getter (flip setter)
       where
         getter nc =
             RelayContext
@@ -153,8 +183,8 @@ instance ContextPart (NodeContext ssc) RelayContext where
             set (ncNodeParamsL . npPropagationL) (_rlyIsPropagation rc) .
             set ncInvPropagationQueueL (_rlyPropagationQueue rc)
 
-instance ContextPart (NodeContext ssc) ShutdownContext where
-    contextPart = lens getter (flip setter)
+instance HasLens ShutdownContext (NodeContext ssc) ShutdownContext where
+    lensOf = lens getter (flip setter)
       where
         getter nc =
             ShutdownContext

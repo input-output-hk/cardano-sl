@@ -32,56 +32,55 @@ module Pos.Delegation.Logic
        , isProxySKConfirmed
        ) where
 
-import           Control.Exception            (Exception (..))
-import           Control.Lens                 (makeLenses, uses, (%=), (.=), _Wrapped)
-import qualified Control.Monad.Ether.Implicit as Ether
-import           Control.Monad.Trans.Except   (runExceptT, throwE)
-import qualified Data.HashMap.Strict          as HM
-import qualified Data.HashSet                 as HS
-import           Data.List                    (partition)
-import qualified Data.Text.Buildable          as B
-import           Data.Time.Clock              (UTCTime, addUTCTime, getCurrentTime)
-import           Formatting                   (bprint, build, sformat, stext, (%))
-import           System.Wlog                  (WithLogger)
+import           Control.Exception          (Exception (..))
+import           Control.Lens               (makeLenses, uses, (%=), (.=), _Wrapped)
+import           Control.Monad.Trans.Except (runExceptT, throwE)
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.HashSet               as HS
+import           Data.List                  (partition)
+import qualified Data.Text.Buildable        as B
+import           Data.Time.Clock            (UTCTime, addUTCTime, getCurrentTime)
+import qualified Ether
+import           Formatting                 (bprint, build, sformat, stext, (%))
+import           System.Wlog                (WithLogger)
 import           Universum
 
-import           Pos.Binary.Communication     ()
-import           Pos.Block.Types              (Blund, Undo (undoPsk))
-import           Pos.Constants                (lightDlgConfirmationTimeout,
-                                               messageCacheTimeout)
-import           Pos.Context                  (WithNodeContext, getNodeContext,
-                                               lrcActionOnEpochReason, ncNodeParams,
-                                               npSecretKey)
-import           Pos.Crypto                   (ProxySecretKey (..), PublicKey,
-                                               SignTag (SignProxySK), pdDelegatePk,
-                                               proxyVerify, shortHashF, toPublic,
-                                               verifyProxySecretKey)
-import           Pos.DB                       (DBError (DBMalformed), MonadDB,
-                                               SomeBatchOp (..))
-import qualified Pos.DB                       as DB
-import qualified Pos.DB.Block                 as DB
-import qualified Pos.DB.DB                    as DB
-import qualified Pos.DB.GState                as GS
-import qualified Pos.DB.Misc                  as Misc
-import           Pos.Delegation.Class         (DelegationWrap, MonadDelegation,
-                                               askDelegationState, dwConfirmationCache,
-                                               dwEpochId, dwMessageCache, dwProxySKPool,
-                                               dwThisEpochPosted)
-import           Pos.Delegation.Types         (SendProxySK (..))
-import           Pos.Exception                (cardanoExceptionFromException,
-                                               cardanoExceptionToException)
-import           Pos.Lrc.Context              (LrcContext)
-import qualified Pos.Lrc.DB                   as LrcDB
-import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
-import           Pos.Types                    (Block, HeaderHash, ProxySKHeavy,
-                                               ProxySKLight, ProxySigLight, addressHash,
-                                               blockProxySKs, epochIndexL, headerHash,
-                                               prevBlockL)
-import           Pos.Util                     (withReadLifted, withWriteLifted, _neHead,
-                                               _neLast)
-import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Util.Context             (HasContext)
-import           Pos.Util.Util                (ether)
+import           Pos.Binary.Communication   ()
+import           Pos.Block.Types            (Blund, Undo (undoPsk))
+import           Pos.Constants              (lightDlgConfirmationTimeout,
+                                             messageCacheTimeout)
+import           Pos.Context                (WithNodeContext, getNodeContext,
+                                             lrcActionOnEpochReason, ncNodeParams,
+                                             npSecretKey)
+import           Pos.Crypto                 (ProxySecretKey (..), PublicKey,
+                                             SignTag (SignProxySK), pdDelegatePk,
+                                             proxyVerify, shortHashF, toPublic,
+                                             verifyProxySecretKey)
+import           Pos.DB                     (DBError (DBMalformed), MonadDB,
+                                             SomeBatchOp (..))
+import qualified Pos.DB                     as DB
+import qualified Pos.DB.Block               as DB
+import qualified Pos.DB.DB                  as DB
+import qualified Pos.DB.GState              as GS
+import qualified Pos.DB.Misc                as Misc
+import           Pos.Delegation.Class       (DelegationWrap, MonadDelegation,
+                                             askDelegationState, dwConfirmationCache,
+                                             dwEpochId, dwMessageCache, dwProxySKPool,
+                                             dwThisEpochPosted)
+import           Pos.Delegation.Types       (SendProxySK (..))
+import           Pos.Exception              (cardanoExceptionFromException,
+                                             cardanoExceptionToException)
+import           Pos.Lrc.Context            (LrcContext)
+import qualified Pos.Lrc.DB                 as LrcDB
+import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
+import           Pos.Types                  (Block, HeaderHash, ProxySKHeavy,
+                                             ProxySKLight, ProxySigLight, addressHash,
+                                             blockProxySKs, epochIndexL, headerHash,
+                                             prevBlockL)
+import           Pos.Util                   (withReadLifted, withWriteLifted, _neHead,
+                                             _neLast)
+import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.Util              (ether)
 
 ----------------------------------------------------------------------------
 -- Different helpers to simplify logic
@@ -89,7 +88,7 @@ import           Pos.Util.Util                (ether)
 
 -- | Convenient monad to work in 'DelegationWrap' context while being
 -- in STM.
-type DelegationStateAction = Ether.StateT DelegationWrap STM
+type DelegationStateAction = Ether.StateT' DelegationWrap STM
 
 -- | Effectively takes a lock on ProxyCaches mvar in NodeContext and
 -- allows you to run some computation producing updated ProxyCaches
@@ -101,7 +100,7 @@ runDelegationStateAction action = do
     var <- askDelegationState
     atomically $ do
         startState <- readTVar var
-        (res,newState)<- Ether.runStateT action startState
+        (res,newState)<- Ether.runStateT' action startState
         writeTVar var newState
         pure res
 
@@ -199,7 +198,7 @@ processProxySKHeavy
        ( SscHelpersClass ssc
        , MonadDB m
        , MonadDelegation m
-       , HasContext LrcContext m
+       , Ether.MonadReader' LrcContext m
        )
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk = do
@@ -256,7 +255,7 @@ makeLenses ''DelVerState
 -- It's assumed blocks are correct from 'Pos.Types.Block#verifyBlocks'
 -- point of view.
 delegationVerifyBlocks
-    :: forall ssc m. (SscHelpersClass ssc, MonadDB m, HasContext LrcContext m)
+    :: forall ssc m. (SscHelpersClass ssc, MonadDB m, Ether.MonadReader' LrcContext m)
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE [ProxySKHeavy]))
 delegationVerifyBlocks blocks = do
@@ -363,7 +362,7 @@ delegationRollbackBlocks
        ( SscHelpersClass ssc
        , MonadDelegation m
        , MonadDB m
-       , HasContext LrcContext m
+       , Ether.MonadReader' LrcContext m
        )
     => NewestFirst NE (Blund ssc) -> m (NonEmpty SomeBatchOp)
 delegationRollbackBlocks blunds = do

@@ -14,12 +14,12 @@ module Pos.Slotting.MemState.Holder
 
 import           Universum
 
-import qualified Control.Monad.Ether.Implicit as Ether
-import           Control.Monad.STM            (retry)
-import           Pos.Core.Types               (Timestamp)
+import           Control.Monad.STM           (retry)
+import qualified Ether
+import           Pos.Core.Types              (Timestamp)
 
-import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
-import           Pos.Slotting.Types           (SlottingData (sdPenultEpoch))
+import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
+import           Pos.Slotting.Types          (SlottingData (sdPenultEpoch))
 
 ----------------------------------------------------------------------------
 -- Transformer
@@ -29,12 +29,12 @@ import           Pos.Slotting.Types           (SlottingData (sdPenultEpoch))
 type SlottingVar = (Timestamp, TVar SlottingData)
 
 -- | Monad transformer which provides 'SlottingData' using DB.
-type SlottingHolder = Ether.ReaderT SlottingVar
+type SlottingHolder = Ether.ReaderT' SlottingVar
 
-type MonadSlotting = Ether.MonadReader SlottingVar
+type MonadSlotting = Ether.MonadReader' SlottingVar
 
 askSlotting :: MonadSlotting m => m SlottingVar
-askSlotting = Ether.ask
+askSlotting = Ether.ask'
 
 askSlottingVar :: MonadSlotting m => m (TVar SlottingData)
 askSlottingVar = snd <$> askSlotting
@@ -67,4 +67,4 @@ instance MonadIO m =>
 
 -- | Run USHolder using existing 'SlottingVar'.
 runSlottingHolder :: SlottingVar -> SlottingHolder m a -> m a
-runSlottingHolder = flip Ether.runReaderT
+runSlottingHolder = flip Ether.runReaderT'

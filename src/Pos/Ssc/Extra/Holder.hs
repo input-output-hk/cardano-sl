@@ -12,7 +12,7 @@ module Pos.Ssc.Extra.Holder
        ) where
 
 import qualified Control.Concurrent.STM  as STM
-import qualified Control.Monad.Ether     as Ether.E
+import qualified Ether
 import           System.Wlog             (WithLogger)
 import           Universum
 
@@ -23,9 +23,8 @@ import           Pos.Ssc.Class.LocalData (SscLocalDataClass (sscNewLocalData))
 import           Pos.Ssc.Class.Storage   (SscGStateClass (sscLoadGlobalState))
 import           Pos.Ssc.Extra.Class     (SscMemTag)
 import           Pos.Ssc.Extra.Types     (SscState (..))
-import           Pos.Util.Context        (HasContext)
 
-type SscHolder ssc = Ether.E.ReaderT SscMemTag (SscState ssc)
+type SscHolder ssc = Ether.ReaderT SscMemTag (SscState ssc)
 
 -- | Run 'SscHolder' reading GState from DB (restoring from blocks)
 -- and using default (uninitialized) local state.
@@ -41,12 +40,12 @@ runSscHolder
     => SscState ssc
     -> SscHolder ssc m a
     -> m a
-runSscHolder st holder = Ether.E.runReaderT (Proxy @SscMemTag) holder st
+runSscHolder st holder = Ether.runReaderT @SscMemTag holder st
 
 mkStateAndRunSscHolder
     :: forall ssc m a.
        ( WithLogger m
-       , HasContext LrcContext m
+       , Ether.MonadReader' LrcContext m
        , SscGStateClass ssc
        , SscLocalDataClass ssc
        , MonadDB m
@@ -61,7 +60,7 @@ mkStateAndRunSscHolder holder = do
 mkSscHolderState
     :: forall ssc m .
        ( WithLogger m
-       , HasContext LrcContext m
+       , Ether.MonadReader' LrcContext m
        , SscGStateClass ssc
        , SscLocalDataClass ssc
        , MonadDB m
@@ -75,5 +74,5 @@ mkSscHolderState = do
 
 ignoreSscHolder :: SscHolder ssc m a -> m a
 ignoreSscHolder holder =
-    Ether.E.runReaderT (Proxy @SscMemTag)
+    Ether.runReaderT @SscMemTag
         holder (error "SSC var: don't force me")

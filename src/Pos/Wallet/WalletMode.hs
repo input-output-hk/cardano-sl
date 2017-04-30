@@ -12,17 +12,24 @@ module Pos.Wallet.WalletMode
        , MonadUpdates (..)
        , WalletMode
        , WalletRealMode
+       , BIRRContext
+       , runBIRRContext
+       , UPDContext
+       , runUPDContext
        ) where
+
+import           Universum
 
 import           Control.Concurrent.STM      (TMVar, tryReadTMVar)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
+import           Data.Coerce                 (coerce)
 import           Data.Tagged                 (Tagged (..))
 import           Data.Time.Units             (Millisecond)
+import qualified Ether
 import           Mockable                    (Production)
 import           Pos.Reporting.MemState      (ReportingContextT)
 import           System.Wlog                 (LoggerNameBox, WithLogger)
-import           Universum
 
 import           Pos.Client.Txp.Balances     (MonadBalances (..), getBalanceFromUtxo)
 import           Pos.Client.Txp.History      (MonadTxHistory (..), deriveAddrHistory)
@@ -34,7 +41,7 @@ import           Pos.DB                      (MonadDB)
 import qualified Pos.DB.Block                as DB
 import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
-import           Pos.Shutdown                (triggerShutdown)
+import           Pos.Shutdown                (MonadShutdownMem, triggerShutdown)
 import           Pos.Slotting                (MonadSlots (..), getLastKnownSlotDuration)
 import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
 import           Pos.Txp                     (filterUtxoByAddr, runUtxoStateT)
@@ -43,11 +50,9 @@ import           Pos.Types                   (BlockHeader, ChainDifficulty, diff
 import           Pos.Update                  (ConfirmedProposalState (..))
 import           Pos.Update.Context          (UpdateContext (ucUpdateSemaphore))
 import           Pos.Util                    (maybeThrow)
-import           Pos.Util.Context            (askContext)
 import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)
 import qualified Pos.Wallet.State            as WS
-import           Pos.WorkMode                (RawRealMode)
 
 instance MonadIO m => MonadBalances (WalletDB m) where
     getOwnUtxo addr = filterUtxoByAddr addr <$> WS.getUtxo
@@ -123,9 +128,23 @@ downloadHeader
     => m (Maybe (BlockHeader ssc))
 downloadHeader = getContextTMVar PC.ncProgressHeader
 
+data BIRRContextTag
+
+type BIRRContext = Ether.TaggedTrans BIRRContextTag Ether.IdentityT
+
+runBIRRContext :: BIRRContext m a -> m a
+runBIRRContext = coerce
+
 -- | Instance for full-node's ContextHolder
-instance forall ssc . SscHelpersClass ssc =>
-         MonadBlockchainInfo (RawRealMode ssc) where
+instance
+    ( SscHelpersClass ssc
+    , t ~ Ether.IdentityT
+    , PC.WithNodeContext ssc m
+    , MonadIO m
+    , MonadDB m
+    , MonadSlots m
+    ) => MonadBlockchainInfo (Ether.TaggedTrans BIRRContextTag t m)
+  where
     networkChainDifficulty = getContextTVar PC.ncLastKnownHeader >>= \case
         Just lh -> do
             thDiff <- view difficultyL <$> topHeader @ssc
@@ -168,10 +187,25 @@ instance MonadIO m => MonadUpdates (WalletDB m) where
     waitForUpdate = error "notImplemented"
     applyLastUpdate = pure ()
 
+data UPDContextTag
+
+type UPDContext = Ether.TaggedTrans UPDContextTag Ether.IdentityT
+
+runUPDContext :: UPDContext m a -> m a
+runUPDContext = coerce
+
 -- | Instance for full node
-instance (Ssc ssc, MonadIO m, WithLogger m) =>
-         MonadUpdates (PC.ContextHolder ssc m) where
-    waitForUpdate = takeMVar =<< askContext @UpdateContext ucUpdateSemaphore
+instance
+    ( Ssc ssc
+    , MonadIO m
+    , WithLogger m
+    , PC.WithNodeContext ssc m
+    , t ~ Ether.IdentityT
+    , MonadShutdownMem m
+    , Ether.MonadReader' UpdateContext m
+    ) => MonadUpdates (Ether.TaggedTrans UPDContextTag t m)
+  where
+    waitForUpdate = takeMVar =<< Ether.asks' ucUpdateSemaphore
     applyLastUpdate = triggerShutdown
 
 ---------------------------------------------------------------

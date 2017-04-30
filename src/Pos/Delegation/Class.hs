@@ -15,18 +15,18 @@ module Pos.Delegation.Class
        , askDelegationState
        ) where
 
-import           Control.Concurrent.STM       (TVar)
-import           Control.Lens                 (makeLenses)
-import qualified Control.Monad.Ether.Implicit as Ether
-import           Data.Default                 (Default (def))
-import qualified Data.HashMap.Strict          as HM
-import qualified Data.HashSet                 as HS
-import           Data.Time.Clock              (UTCTime)
+import           Control.Concurrent.STM (TVar)
+import           Control.Lens           (makeLenses)
+import           Data.Default           (Default (def))
+import qualified Data.HashMap.Strict    as HM
+import qualified Data.HashSet           as HS
+import           Data.Time.Clock        (UTCTime)
+import qualified Ether
 import           Universum
 
-import           Pos.Crypto                   (PublicKey)
-import           Pos.Delegation.Types         (SendProxySK)
-import           Pos.Types                    (EpochIndex, ProxySKHeavy, ProxySKLight)
+import           Pos.Crypto             (PublicKey)
+import           Pos.Delegation.Types   (SendProxySK)
+import           Pos.Types              (EpochIndex, ProxySKHeavy, ProxySKLight)
 
 ---------------------------------------------------------------------------
 -- Delegation in-memory data
@@ -64,7 +64,7 @@ instance Default DelegationWrap where
 -- we're locking on the whole delegation wrap at once. Locking on
 -- independent components is better in performance, so there's a place
 -- for optimization here.
-type MonadDelegation = Ether.MonadReader (TVar DelegationWrap)
+type MonadDelegation = Ether.MonadReader' (TVar DelegationWrap)
 
 askDelegationState :: MonadDelegation m => m (TVar DelegationWrap)
-askDelegationState = Ether.ask
+askDelegationState = Ether.ask'

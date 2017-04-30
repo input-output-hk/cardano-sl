@@ -45,6 +45,7 @@ library
                      , cardano-sl-lrc
                      , concurrent-extra
                      , data-default
+                     , ether
                      , exceptions
                      , formatting
                      , hashable

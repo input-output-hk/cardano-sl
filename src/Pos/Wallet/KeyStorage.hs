@@ -10,30 +10,30 @@ module Pos.Wallet.KeyStorage
        , KeyError (..)
        , runKeyStorage
        , runKeyStorageRaw
+       , KSContext
+       , runKSContext
        ) where
 
-import qualified Control.Concurrent.STM           as STM
-import           Control.Lens                     (lens, (%=), (<>=))
-import           Control.Monad.Catch              (MonadThrow)
-import qualified Control.Monad.Ether.Implicit     as Ether
-import           Control.Monad.Reader             (ReaderT (..), ask)
-import           Control.Monad.State              (MonadState (..))
-import           Control.Monad.Trans              (MonadTrans (..))
-import           Control.Monad.Trans.Ether.Tagged (TaggedTrans (..))
-import qualified Control.Monad.Trans.Ether.Tagged as Ether
-import           System.Wlog                      (WithLogger)
+import qualified Control.Concurrent.STM as STM
+import           Control.Lens           (lens, (%=), (<>=))
+import           Control.Monad.Catch    (MonadThrow)
+import           Control.Monad.Reader   (ask)
+import           Control.Monad.State    (MonadState (..))
+import           Control.Monad.Trans    (MonadTrans (..))
+import           Data.Coerce
+import qualified Ether
+import           System.Wlog            (WithLogger)
 import           Universum
 
-import           Pos.Binary.Crypto                ()
-import           Pos.Context                      (NodeContext (..))
-import           Pos.Context.Class                (getNodeContext)
-import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
-                                                   SecretKey, hash, safeKeyGen)
-import           Pos.Util                         ()
-import           Pos.Util.Context                 (ContextTagK (..))
-import           Pos.Util.UserSecret              (UserSecret, peekUserSecret, usKeys,
-                                                   usPrimKey, writeUserSecret)
-import           Pos.Util.Util                    (ether)
+import           Pos.Binary.Crypto      ()
+import           Pos.Context            (NodeContext (..), NodeContextTag)
+import           Pos.Context.Class      (WithNodeContext)
+import           Pos.Crypto             (EncryptedSecretKey, PassPhrase, SecretKey, hash,
+                                         safeKeyGen)
+import           Pos.Util               ()
+import           Pos.Util.UserSecret    (UserSecret, peekUserSecret, usKeys, usPrimKey,
+                                         writeUserSecret)
+import           Pos.Util.Util          (ether)
 
 type KeyData = TVar UserSecret
 
@@ -41,6 +41,7 @@ type KeyData = TVar UserSecret
 -- MonadKeys class
 ----------------------------------------------------------------------
 
+-- FIXME: replace this with a MonadReader.
 class Monad m => MonadKeys m where
     getPrimaryKey :: m (Maybe SecretKey)
     getSecretKeys :: m [EncryptedSecretKey]
@@ -94,7 +95,7 @@ containsKey ls k = hash k `elem` map hash ls
 -- KeyStorage transformer
 ------------------------------------------------------------------------
 
-type KeyStorage = Ether.ReaderT KeyData
+type KeyStorage = Ether.ReaderT' KeyData
 
 runKeyStorage :: (MonadIO m, WithLogger m) => FilePath -> KeyStorage m a -> m a
 runKeyStorage fp ks =
@@ -131,23 +132,30 @@ instance Exception KeyError
 usLens :: Lens' (NodeContext ssc) KeyData
 usLens = lens ncUserSecret $ \c us -> c { ncUserSecret = us }
 
-instance {-# OVERLAPPING #-}
-    (Monad m, t ~ ReaderT (NodeContext ssc)) =>
-        MonadReader KeyData (TaggedTrans 'ContextTag t m)
-  where
-    ask = ncUserSecret <$> getNodeContext
-    local f = Ether.pack . local (usLens %~ f) . Ether.unpack
+data KSContextTag
+
+type KSContext = Ether.TaggedTrans KSContextTag Ether.IdentityT
+
+runKSContext :: KSContext m a -> m a
+runKSContext = coerce
 
 instance {-# OVERLAPPING #-}
-    (MonadIO m, t ~ ReaderT (NodeContext ssc)) =>
-        MonadState UserSecret (TaggedTrans 'ContextTag t m)
+    (Monad m, t ~ Ether.IdentityT, WithNodeContext ssc m) =>
+        MonadReader KeyData (Ether.TaggedTrans KSContextTag t m)
+  where
+    ask = Ether.asks @NodeContextTag ncUserSecret
+    local f = Ether.local @NodeContextTag (over usLens f)
+
+instance {-# OVERLAPPING #-}
+    (MonadIO m, t ~ Ether.IdentityT, WithNodeContext ssc m) =>
+        MonadState UserSecret (Ether.TaggedTrans KSContextTag t m)
   where
     get = getSecret
     put = putSecret
 
 instance
-    (MonadIO m, MonadThrow m, t ~ ReaderT (NodeContext ssc)) =>
-        MonadKeys (TaggedTrans 'ContextTag t m)
+    (MonadIO m, MonadThrow m, t ~ Ether.IdentityT, WithNodeContext ssc m) =>
+        MonadKeys (Ether.TaggedTrans KSContextTag t m)
   where
     getPrimaryKey = use usPrimKey
     getSecretKeys = use usKeys

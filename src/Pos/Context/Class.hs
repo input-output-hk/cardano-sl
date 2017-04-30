@@ -11,14 +11,12 @@ module Pos.Context.Class
        , getNodeContext
        ) where
 
-import qualified Control.Monad.Ether as Ether.E
-import           Universum
+import qualified Ether
 
-import           Pos.Context.Context (NodeContext)
-import           Pos.Util.Context    (ContextTagK (..))
+import           Pos.Context.Context (NodeContext, NodeContextTag)
 
 -- | Class for something that has 'NodeContext' inside.
-type WithNodeContext ssc = Ether.E.MonadReader 'ContextTag (NodeContext ssc)
+type WithNodeContext ssc = Ether.MonadReader NodeContextTag (NodeContext ssc)
 
 getNodeContext :: WithNodeContext ssc m => m (NodeContext ssc)
-getNodeContext = Ether.E.ask (Proxy @'ContextTag)
+getNodeContext = Ether.ask @NodeContextTag

@@ -1,9 +1,9 @@
-{-# LANGUAGE GADTs                #-}
-{-# LANGUAGE PolyKinds            #-}
-{-# LANGUAGE RankNTypes           #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE PolyKinds           #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 module Pos.Util.Util
        (
@@ -46,32 +46,30 @@ module Pos.Util.Util
        -- *** HasLoggerName Ether.StateT
        ) where
 
-import           Control.Lens                     (ALens', Getter, Getting, cloneLens, to)
-import           Control.Monad.Base               (MonadBase)
-import qualified Control.Monad.Ether              as Ether
-import           Control.Monad.Morph              (MFunctor (..))
-import           Control.Monad.Trans.Class        (MonadTrans)
-import qualified Control.Monad.Trans.Ether.Tagged as Ether
-import           Control.Monad.Trans.Identity     (IdentityT (..))
-import           Control.Monad.Trans.Lift.Local   (LiftLocal (..))
-import           Control.Monad.Trans.Resource     (MonadResource(..))
-import           Data.Aeson                       (FromJSON (..), ToJSON (..))
-import           Data.HashSet                     (fromMap)
-import           Data.Text.Buildable              (build)
-import           Data.Time.Units                  (Attosecond, Day, Femtosecond,
-                                                   Fortnight, Hour, Microsecond,
-                                                   Millisecond, Minute, Nanosecond,
-                                                   Picosecond, Second, Week,
-                                                   toMicroseconds)
-import qualified Language.Haskell.TH.Syntax       as TH
-import           Mockable                         (ChannelT, Counter, Distribution, Gauge,
-                                                   MFunctor' (..), Mockable (..), Promise,
-                                                   SharedAtomicT, SharedExclusiveT,
-                                                   ThreadId)
+import           Control.Lens                   (ALens', Getter, Getting, cloneLens, to)
+import           Control.Monad.Base             (MonadBase)
+import           Control.Monad.Morph            (MFunctor (..))
+import           Control.Monad.Trans.Class      (MonadTrans)
+import           Control.Monad.Trans.Identity   (IdentityT (..))
+import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
+import           Control.Monad.Trans.Resource   (MonadResource (..))
+import           Data.Aeson                     (FromJSON (..), ToJSON (..))
+import           Data.HashSet                   (fromMap)
+import           Data.Text.Buildable            (build)
+import           Data.Time.Units                (Attosecond, Day, Femtosecond, Fortnight,
+                                                 Hour, Microsecond, Millisecond, Minute,
+                                                 Nanosecond, Picosecond, Second, Week,
+                                                 toMicroseconds)
+import qualified Ether
+import qualified Language.Haskell.TH.Syntax     as TH
+import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
+                                                 MFunctor' (..), Mockable (..), Promise,
+                                                 SharedAtomicT, SharedExclusiveT,
+                                                 ThreadId)
 import qualified Prelude
-import           Serokell.Data.Memory.Units       (Byte, fromBytes, toBytes)
-import           System.Wlog                      (CanLog, HasLoggerName (..),
-                                                   LoggerNameBox (..))
+import           Serokell.Data.Memory.Units     (Byte, fromBytes, toBytes)
+import           System.Wlog                    (CanLog, HasLoggerName (..),
+                                                 LoggerNameBox (..))
 import           Universum
 
 ----------------------------------------------------------------------------
@@ -198,12 +196,16 @@ instance
   where
     liftMockable dmt = IdentityT $ liftMockable $ hoist' runIdentityT dmt
 
+unTaggedTrans :: Ether.TaggedTrans tag t m a -> t m a
+unTaggedTrans (Ether.TaggedTrans tma) = tma
+
 instance
       (Mockable d (t m), Monad (t m),
        MFunctor' d (Ether.TaggedTrans tag t m) (t m)) =>
           Mockable d (Ether.TaggedTrans tag t m)
   where
-    liftMockable dmt = Ether.pack $ liftMockable $ hoist' Ether.unpack dmt
+    liftMockable dmt =
+      Ether.TaggedTrans $ liftMockable $ hoist' unTaggedTrans dmt
 
 type instance ThreadId (IdentityT m) = ThreadId m
 type instance Promise (IdentityT m) = Promise m
@@ -237,4 +239,4 @@ getKeys = fromMap . void
 -- | Make a Reader or State computation work in an Ether transformer. Useful
 -- to make lenses work with Ether.
 ether :: trans m a -> Ether.TaggedTrans tag trans m a
-ether = Ether.pack
+ether = Ether.TaggedTrans

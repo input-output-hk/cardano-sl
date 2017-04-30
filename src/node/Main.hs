@@ -52,7 +52,6 @@ import           Pos.WorkMode          (WorkMode)
 import           Pos.Wallet.Web        (walletServeWebFull, walletServerOuts)
 #endif
 #endif
-import           Pos.Util.Context      (askContext)
 
 import           NodeOptions           (Args (..), getNodeOptions)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..), TCPAddrInfo (..))
@@ -131,7 +130,6 @@ action kademliaInst args@Args {..} res = do
     putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
     putText $ "If stats is on: " <> show enableStats
     case (enableStats, CLI.sscAlgo commonArgs) of
-               
         (True, GodTossingAlgo) -> do
             let wrappedDhtWorkers :: ([WorkerSpec (StatsMode SscGodTossing)], OutSpecs)
                 wrappedDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers (rmGetPeers res') kademliaInst)
@@ -176,7 +174,7 @@ action kademliaInst args@Args {..} res = do
                 res' :: RealModeResources (ProductionMode SscNistBeacon)
                 res' = hoistResources lift res
             runNodeProduction @SscNistBeacon
-                (CLI.peerId commonArgs) 
+                (CLI.peerId commonArgs)
                 res'
                 allPlugins
                 currentParams ()
@@ -303,7 +301,7 @@ updateTriggerWorker
     => ([WorkerSpec (RawRealMode ssc)], OutSpecs)
 updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     logInfo "Update trigger worker is locked"
-    void $ takeMVar =<< askContext ucUpdateSemaphore
+    void $ takeMVar =<< Ether.asks' ucUpdateSemaphore
     triggerShutdown
 
 walletServe

@@ -15,30 +15,30 @@ module Pos.Slotting.Ntp
        , runNtpSlotting
        ) where
 
-import qualified Control.Concurrent.STM       as STM
-import           Control.Lens                 (makeLenses)
-import qualified Control.Monad.Ether.Implicit as Ether
-import           Control.Monad.Trans.Control  (MonadBaseControl)
-import           Data.List                    ((!!))
-import           Data.Time.Units              (Microsecond, convertUnit)
-import           Formatting                   (int, sformat, shown, stext, (%))
-import           Mockable                     (Catch, CurrentTime, Delay, Fork, Mockables,
-                                               Throw, currentTime, delay)
-import           NTP.Client                   (NtpClientSettings (..), ntpSingleShot,
-                                               startNtpClient)
-import           NTP.Example                  ()
-import           Serokell.Util                (sec)
-import           System.Wlog                  (WithLogger, logDebug, logInfo, logWarning)
+import qualified Control.Concurrent.STM      as STM
+import           Control.Lens                (makeLenses)
+import           Control.Monad.Trans.Control (MonadBaseControl)
+import           Data.List                   ((!!))
+import           Data.Time.Units             (Microsecond, convertUnit)
+import qualified Ether
+import           Formatting                  (int, sformat, shown, stext, (%))
+import           Mockable                    (Catch, CurrentTime, Delay, Fork, Mockables,
+                                              Throw, currentTime, delay)
+import           NTP.Client                  (NtpClientSettings (..), ntpSingleShot,
+                                              startNtpClient)
+import           NTP.Example                 ()
+import           Serokell.Util               (sec)
+import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
-import qualified Pos.Core.Constants           as C
-import           Pos.Core.Slotting            (flattenEpochIndex, unflattenSlotId)
-import           Pos.Core.Types               (EpochIndex, SlotId (..), Timestamp (..))
+import qualified Pos.Core.Constants          as C
+import           Pos.Core.Slotting           (flattenEpochIndex, unflattenSlotId)
+import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..))
 
-import           Pos.Slotting.Class           (MonadSlots (..))
-import qualified Pos.Slotting.Constants       as C
-import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
-import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData (..))
+import           Pos.Slotting.Class          (MonadSlots (..))
+import qualified Pos.Slotting.Constants      as C
+import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
+import           Pos.Slotting.Types          (EpochSlottingData (..), SlottingData (..))
 
 ----------------------------------------------------------------------------
 -- State
@@ -65,12 +65,12 @@ makeLenses ''NtpSlottingState
 ----------------------------------------------------------------------------
 
 -- | Monad transformer which implements NTP-based solution for slotting.
-type NtpSlotting = Ether.ReaderT NtpSlottingVar
+type NtpSlotting = Ether.ReaderT' NtpSlottingVar
 
-type MonadNtpSlotting = Ether.MonadReader NtpSlottingVar
+type MonadNtpSlotting = Ether.MonadReader' NtpSlottingVar
 
 askNtpSlotting :: MonadNtpSlotting m => m NtpSlottingVar
-askNtpSlotting = Ether.ask
+askNtpSlotting = Ether.ask'
 
 ----------------------------------------------------------------------------
 -- MonadSlots implementation
@@ -255,7 +255,7 @@ mkNtpSlottingVar = do
         ntpSingleShot settings
 
 runNtpSlotting :: NtpSlottingVar -> NtpSlotting m a -> m a
-runNtpSlotting = flip Ether.runReaderT
+runNtpSlotting = flip Ether.runReaderT'
 
 ----------------------------------------------------------------------------
 -- Workers

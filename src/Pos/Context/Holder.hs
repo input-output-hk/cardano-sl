@@ -7,35 +7,44 @@
 module Pos.Context.Holder
        ( ContextHolder
        , runContextHolder
+       , JLContext
+       , runJLContext
        ) where
 
 import           Control.Concurrent.MVar (withMVar)
-import qualified Control.Monad.Ether     as Ether.E
+import           Data.Coerce
+import qualified Ether
 import           Formatting              (sformat, shown, (%))
 import           Mockable                (Catch, Mockable, catchAll)
 import           System.Wlog             (WithLogger, logWarning)
 import           Universum               hiding (catchAll)
 
-import           Pos.Context.Context     (NodeContext (..))
-import           Pos.Util.Context        (ContextHolder', ContextTagK (..))
+import           Pos.Context.Class       (WithNodeContext)
+import           Pos.Context.Context     (NodeContext (..), NodeContextTag)
 import           Pos.Util.JsonLog        (MonadJL (..), appendJL)
-import           Pos.Util.Util           (ether)
 
--- | Wrapper for monadic action which brings 'NodeContext'.
-type ContextHolder ssc = ContextHolder' (ContextHolderTrans ssc)
+data JLContextTag
 
-type ContextHolderTrans ssc = ReaderT (NodeContext ssc)
+type JLContext = Ether.TaggedTrans JLContextTag Ether.IdentityT
 
--- | Run 'ContextHolder' action.
-runContextHolder :: NodeContext ssc -> ContextHolder ssc m a -> m a
-runContextHolder = flip (Ether.E.runReaderT (Proxy @'ContextTag))
+runJLContext :: JLContext m a -> m a
+runJLContext = coerce
 
 instance
-    (MonadIO m, Mockable Catch m, WithLogger m, ContextHolderTrans ssc ~ t) =>
-        MonadJL (ContextHolder' t m)
+    ( MonadIO m, Mockable Catch m, WithLogger m, t ~ Ether.IdentityT
+    , WithNodeContext ssc m ) =>
+        MonadJL (Ether.TaggedTrans JLContextTag t m)
   where
     jlLog ev =
-        whenJustM (ether (asks ncJLFile)) $ \logFileMV ->
+        whenJustM (Ether.asks @NodeContextTag ncJLFile) $ \logFileMV ->
             (liftIO . withMVar logFileMV $ flip appendJL ev)
             `catchAll` \e ->
                 logWarning $ sformat ("Can't write to json log: "%shown) e
+
+-- | Wrapper for monadic action which brings 'NodeContext'.
+type ContextHolder ssc = Ether.ReadersT (NodeContext ssc)
+
+-- | Run 'ContextHolder' action.
+runContextHolder :: NodeContext ssc -> ContextHolder ssc m a -> m a
+runContextHolder = flip Ether.runReadersT
+

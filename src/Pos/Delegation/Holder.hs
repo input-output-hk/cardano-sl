@@ -9,12 +9,12 @@ module Pos.Delegation.Holder
        , runDelegationTFromTVar
        ) where
 
-import qualified Control.Monad.Ether.Implicit as Ether
-import           Pos.Delegation.Class         (DelegationWrap (..))
+import qualified Ether
+import           Pos.Delegation.Class (DelegationWrap (..))
 import           Universum
 
 -- | Wrapper of @ReaderT (TVar DelegationWrap)@, nothing smart.
-type DelegationT = Ether.ReaderT (TVar DelegationWrap)
+type DelegationT = Ether.ReaderT' (TVar DelegationWrap)
 
 -- | Executes delegationT transformer creating tvar from given wrap.
 runDelegationT :: MonadIO m => DelegationWrap -> DelegationT m a -> m a

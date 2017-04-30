@@ -64,14 +64,17 @@ import           Pos.Reporting                      (MonadReportingMem, reportin
 
 import           Pos.Communication.Limits.Instances ()
 
-type MinRelayWorkMode m
-    = ( WithLogger m
-      , MonadMockable m
-      , MonadIO m
-      , WithPeerState m
-      )
+type MinRelayWorkMode m =
+    ( WithLogger m
+    , MonadMockable m
+    , MonadIO m
+    , WithPeerState m
+    )
 
-type RelayWorkMode m = ( MinRelayWorkMode m, MonadRelayMem m)
+type RelayWorkMode m =
+    ( MinRelayWorkMode m
+    , MonadRelayMem m
+    )
 
 -- Returns useful keys.
 handleInvL
@@ -162,17 +165,17 @@ handleMempoolL proxy = reifyMsgLimit (Proxy @(MempoolMsg tag)) $
 
 -- Returns True if we should propagate.
 handleDataL
-      :: forall tag key contents m .
-      ( Bi (InvMsg key tag)
-      , Bi (ReqMsg key tag)
-      , Bi key
-      , Bi tag
-      , Bi (DataMsg contents)
-      , MessagePart tag
-      , MessagePart contents
-      , Relay m tag key contents
-      , RelayWorkMode m
-      )
+    :: forall tag key contents m .
+       ( Bi (InvMsg key tag)
+       , Bi (ReqMsg key tag)
+       , Bi key
+       , Bi tag
+       , Bi (DataMsg contents)
+       , MessagePart tag
+       , MessagePart contents
+       , Relay m tag key contents
+       , RelayWorkMode m
+       )
     => RelayProxy key tag contents
     -> DataMsg contents
     -> m ()
@@ -298,15 +301,17 @@ invDataMsgProxy :: RelayProxy key tag contents
 invDataMsgProxy _ = Proxy
 
 
-addToRelayQueue :: forall tag key contents m .
-                ( Bi (InvOrData tag key contents)
-                , Bi (ReqMsg key tag)
-                , Message (InvOrData tag key contents)
-                , Message (ReqMsg key tag)
-                , Buildable tag, Buildable key
-                , RelayWorkMode m
-                )
-                => InvOrData tag key contents -> m ()
+addToRelayQueue
+    :: forall tag key contents m.
+       ( Bi (InvOrData tag key contents)
+       , Bi (ReqMsg key tag)
+       , Message (InvOrData tag key contents)
+       , Message (ReqMsg key tag)
+       , Buildable tag
+       , Buildable key
+       , RelayWorkMode m
+       )
+    => InvOrData tag key contents -> m ()
 addToRelayQueue inv = do
     queue <- _rlyPropagationQueue <$> askRelayMem
     isFull <- atomically $ isFullTBQueue queue
@@ -357,19 +362,19 @@ relayWorkers allOutSpecs =
 
 invReqDataFlowNeighbors
     :: forall tag id contents m.
-    ( Message (InvOrData tag id contents)
-    , Message (ReqMsg id tag)
-    , Buildable id
+       ( Message (InvOrData tag id contents)
+       , Message (ReqMsg id tag)
+       , Buildable id
 
-    , MinRelayWorkMode m
-    , MonadDBLimits m
-    , MonadDiscovery m
+       , MinRelayWorkMode m
+       , MonadDBLimits m
+       , MonadDiscovery m
 
-    , Bi tag
-    , Bi id
-    , Bi (InvOrData tag id contents)
-    , Bi (ReqMsg id tag)
-    )
+       , Bi tag
+       , Bi id
+       , Bi (InvOrData tag id contents)
+       , Bi (ReqMsg id tag)
+       )
     => Text -> SendActions m -> tag -> id -> contents -> m ()
 invReqDataFlowNeighbors what sendActions tag id dt = handleAll handleE $
     reifyMsgLimit (Proxy @(ReqMsg id tag)) $ \lim -> do
@@ -380,14 +385,16 @@ invReqDataFlowNeighbors what sendActions tag id dt = handleAll handleE $
 
 invReqDataFlow
     :: forall tag id contents m.
-    ( Message (InvOrData tag id contents)
-    , Message (ReqMsg id tag)
-    , Buildable id
-    , MinRelayWorkMode m
-    , MonadDBLimits m
-    , Bi tag, Bi id
-    , Bi (InvOrData tag id contents)
-    , Bi (ReqMsg id tag))
+       ( Message (InvOrData tag id contents)
+       , Message (ReqMsg id tag)
+       , Buildable id
+       , MinRelayWorkMode m
+       , MonadDBLimits m
+       , Bi tag
+       , Bi id
+       , Bi (InvOrData tag id contents)
+       , Bi (ReqMsg id tag)
+       )
     => Text -> SendActions m -> NodeId -> tag -> id -> contents -> m ()
 invReqDataFlow what sendActions addr tag id dt = handleAll handleE $
     reifyMsgLimit (Proxy @(ReqMsg id tag)) $ \lim ->
@@ -396,18 +403,24 @@ invReqDataFlow what sendActions addr tag id dt = handleAll handleE $
     handleE e = logWarning $
         sformat ("Error sending "%stext%", id = "%build%" to "%shown%": "%shown) what id addr e
 
-invReqDataFlowDo ::
-    ( Message (InvOrData tag id contents)
-    , Message (ReqMsg id tag)
-    , Buildable id
-    , MinRelayWorkMode m
-    , MonadDBLimits m
-    , Bi tag, Bi id
-    , Bi (InvOrData tag id contents)
-    , Bi (ReqMsg id tag))
-    => Text -> tag -> id -> contents -> Proxy s -> NodeId
-    -> ConversationActions (InvOrData tag id contents)
-        (LimitedLength s (ReqMsg id tag)) m
+invReqDataFlowDo
+    :: ( Message (InvOrData tag id contents)
+       , Message (ReqMsg id tag)
+       , Buildable id
+       , MinRelayWorkMode m
+       , MonadDBLimits m
+       , Bi tag
+       , Bi id
+       , Bi (InvOrData tag id contents)
+       , Bi (ReqMsg id tag)
+       )
+    => Text
+    -> tag
+    -> id
+    -> contents
+    -> Proxy s
+    -> NodeId
+    -> ConversationActions (InvOrData tag id contents) (LimitedLength s (ReqMsg id tag)) m
     -> m ()
 invReqDataFlowDo what tag id dt _ nodeId conv = do
     send conv $ Left $ InvMsg tag id

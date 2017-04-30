@@ -46,7 +46,7 @@ instance Ssc SscNistBeacon where
     type SscVerifyError SscNistBeacon = ()
 
     mkSscProof = Tagged $ const ()
-    sscCreateNodeContext = Tagged $ const pass
+    sscCreateNodeContext = Tagged $ const (pure ())
 
 instance SscHelpersClass SscNistBeacon where
     sscVerifyPayload = Tagged $ const $ const $ Right ()
@@ -60,9 +60,9 @@ instance SscListenersClass SscNistBeacon where
     sscStubListeners = Tagged ([], mempty)
 
 instance SscLocalDataClass SscNistBeacon where
-    sscGetLocalPayloadQ _ = pass
+    sscGetLocalPayloadQ _ = pure ()
     sscNormalizeU _ _ _ = pass
-    sscNewLocalData = pass
+    sscNewLocalData = pure ()
 
 instance SscGStateClass SscNistBeacon where
     sscLoadGlobalState = pass

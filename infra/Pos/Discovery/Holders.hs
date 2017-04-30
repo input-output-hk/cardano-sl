@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+
 -- | Transformer that carries peer discovery capabilities.
 
 module Pos.Discovery.Holders
@@ -10,13 +11,14 @@ module Pos.Discovery.Holders
        , runDiscoveryKademliaT
        ) where
 
+import           Universum
+
 import qualified Control.Monad.Ether              as Ether
 import qualified Control.Monad.Ether              as Ether.E
 import qualified Data.Set                         as S (fromList)
 import           Mockable                         (Async, Catch, Mockables, Promise,
                                                    Throw)
 import           System.Wlog                      (WithLogger)
-import           Universum
 
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.DHT.Model                    (dhtNodeToNodeId, randomDHTKey)
@@ -35,11 +37,13 @@ data DiscoveryTag -- loneliness is something we all know
 -- Constant peers
 ----------------------------------------------------------------------------
 
+-- | 'MonadDiscovery' capable transformer that uses a constant/static
+-- set of peers and doesn't do anything on 'findPeers' call.
 type DiscoveryConstT m = Ether.E.ReaderT DiscoveryTag (Set NodeId) m
 
 instance (Monad m) => MonadDiscovery (DiscoveryConstT m) where
     getPeers = Ether.E.ask (Proxy @DiscoveryTag)
-    findPeers = pure mempty
+    findPeers = getPeers
 
 runDiscoveryConstT :: (Set NodeId) -> DiscoveryConstT m a -> m a
 runDiscoveryConstT = flip (Ether.runReaderT (Proxy @DiscoveryTag))
@@ -48,6 +52,9 @@ runDiscoveryConstT = flip (Ether.runReaderT (Proxy @DiscoveryTag))
 -- Kademlia DHT
 ----------------------------------------------------------------------------
 
+-- | Transformer that captures the Kademlia DHT functionality
+-- inside. Its 'MonadDiscovery' instance performs a node lookup on
+-- 'findPeers'.
 type DiscoveryKademliaT m = Ether.E.ReaderT DiscoveryTag KademliaDHTInstance m
 
 askDHTInstance

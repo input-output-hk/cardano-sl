@@ -57,51 +57,82 @@ retrievalWorker getPeers = worker outs (retrievalWorkerImpl getPeers)
                              (Proxy :: Proxy (MsgBlock ssc))
                       ]
 
+-- | Worker that queries blocks. It has two jobs:
+--
+-- * If there are headers in 'ncBlockRetrievalQueue', this worker retrieves
+--   blocks according to that queue.
+--
+-- * If recovery is in progress, this worker keeps recovery going.
+--
+-- If both happen at the same time, 'ncBlockRetrievalQueue' takes precedence.
+--
 retrievalWorkerImpl
     :: forall ssc m.
        (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
     => m (Set NodeId) -> SendActions m -> m ()
-retrievalWorkerImpl getPeers sendActions = handleAll handleTop $ do
-    logDebug "Starting retrievalWorker loop"
-    mainLoop
+retrievalWorkerImpl getPeers sendActions =
+    handleAll mainLoopE $ do
+        logDebug "Starting retrievalWorker loop"
+        mainLoop
   where
     mainLoop = runIfNotShutdown $ reportingFatal getPeers version $ do
-        queue <- ncBlockRetrievalQueue <$> getNodeContext
-        recHeaderVar <- ncRecoveryHeader <$> getNodeContext
-        inRecovery <- needRecovery @ssc
-        unless inRecovery $
+        queue        <- ncBlockRetrievalQueue <$> getNodeContext
+        recHeaderVar <- ncRecoveryHeader      <$> getNodeContext
+        -- It is not our job to *start* recovery; if we actually need
+        -- recovery, the 'checkForReceivedBlocksWorker' worker in
+        -- Pos.Security.Workers will trigger it. What we do here is simply an
+        -- optimisation: if after doing recovery for some time we are now
+        -- less than K blocks behind, we have two choices:
+        --   a) ask for blocks up to 'ncRecoveryHeader', download them,
+        --      realise that we're still behind (because while recovery was
+        --      in progress new blocks have likely appeared), and then ask our
+        --      neighbors for tips and download another, final chunk of blocks
+        --   b) just clear 'ncRecoveryHeader', ask for tips and download all
+        --      missing blocks in one go
+        -- So, here we take the second approach because it lets us do just one
+        -- block request instead of two.
+        needRecovery_ <- needRecovery @ssc
+        unless needRecovery_ $
             whenJustM (atomically $ tryTakeTMVar recHeaderVar) $ const $ do
-                logDebug "Triggering recovery from main loop"
+                logDebug "Requesting tips from main loop with triggerRecovery"
                 triggerRecovery getPeers sendActions
-        logDebug "Waiting on the queue"
-        loopCont <- atomically $ do
-            qV <- tryReadTBQueue queue
-            rV <- if inRecovery
-                     then tryReadTMVar recHeaderVar
-                     else pure Nothing
-            case (qV, rV) of
+        -- Here we decide what we'll actually do next
+        logDebug "Waiting on the block queue or recovery header var"
+        thingToDoNext <- atomically $ do
+            mbQueuedHeadersChunk <- tryReadTBQueue queue
+            mbRecHeader <- if needRecovery_
+                               then tryReadTMVar recHeaderVar
+                               else pure Nothing
+            case (mbQueuedHeadersChunk, mbRecHeader) of
                 (Nothing, Nothing) -> retry
-                (Just v, _)        -> pure $ Left v
-                (Nothing, Just r)  -> pure $ Right r
-        either onLeft onRight loopCont
+                (Just chunk, _)    -> pure (handleBlockRetrieval chunk)
+                (_, Just rec')     -> pure (handleHeadersRecovery rec')
+        thingToDoNext
         mainLoop
-    onLeft ph =
-        handleAll (handleBlockRetrievalE ph) $
-        reportingFatal getPeers version $ workerHandle getPeers sendActions ph
-    onRight (peerId, rHeader) = do
-        logDebug "Queue is empty, we're in recovery mode -> querying more"
-        whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
-            handleAll (handleHeadersRecoveryE peerId) $
-            reportingFatal getPeers version $
-            reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
-            withConnectionTo sendActions peerId $ \_peerData ->
-                requestHeaders mghNext peerId (Just rHeader) limPx
+    mainLoopE e = do
+        logError $ sformat ("retrievalWorker: error caught "%shown) e
+        throw e
+    --
+    handleBlockRetrieval chunk =
+        handleAll (handleBlockRetrievalE chunk) $
+        reportingFatal getPeers version $
+        workerHandle getPeers sendActions chunk
     handleBlockRetrievalE (peerId, headers) e = do
         logWarning $ sformat
             ("Error handling peerId="%build%", headers="%listJson%": "%shown)
             peerId (fmap headerHash headers) e
         dropUpdateHeader
         dropRecoveryHeaderAndRepeat getPeers sendActions peerId
+    --
+    handleHeadersRecovery (peerId, rHeader) = do
+        logDebug "Block retrieval queue is empty and we're in recovery mode,\
+                 \ so we will request more headers"
+        whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
+            handleAll (handleHeadersRecoveryE peerId) $
+            reportingFatal getPeers version $
+            reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
+            withConnectionTo sendActions peerId $ \_peerData ->
+                requestHeaders mghNext peerId (Just rHeader) limPx
     handleHeadersRecoveryE peerId e = do
         logWarning $ sformat
             ("Failed while trying to get more headers "%
@@ -109,16 +140,17 @@ retrievalWorkerImpl getPeers sendActions = handleAll handleTop $ do
             peerId e
         dropUpdateHeader
         dropRecoveryHeaderAndRepeat getPeers sendActions peerId
-    handleTop e = do
-        logError $ sformat ("retrievalWorker: error caught "%shown) e
-        throw e
 
 dropUpdateHeader :: WorkMode ssc m => m ()
 dropUpdateHeader = do
     progressHeaderVar <- ncProgressHeader <$> getNodeContext
     void $ atomically $ tryTakeTMVar progressHeaderVar
 
-dropRecoveryHeader :: WorkMode ssc m => NodeId -> m Bool
+dropRecoveryHeader
+    :: WorkMode ssc m
+    => NodeId
+    -> m Bool           -- ^ Whether given peer was kicked and recovery was
+                        --   stopped
 dropRecoveryHeader peerId = do
     recHeaderVar <- ncRecoveryHeader <$> getNodeContext
     (kicked,realPeer) <- atomically $ do
@@ -150,9 +182,14 @@ dropRecoveryHeaderAndRepeat getPeers sendActions peerId = do
                    "recovery inside recoveryWorker: " <> show e
 
 
+-- | Request blocks corresponding to a chain of headers, if we need those
+-- blocks
 workerHandle
     :: (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
-    => m (Set NodeId) -> SendActions m -> (NodeId, NewestFirst NE (BlockHeader ssc)) -> m ()
+    => m (Set NodeId)
+    -> SendActions m
+    -> (NodeId, NewestFirst NE (BlockHeader ssc))
+    -> m ()
 workerHandle getPeers sendActions (peerId, headers) = do
     logDebug $ sformat
         ("retrievalWorker: handling peerId="%build%", headers="%listJson)
@@ -189,7 +226,12 @@ workerHandle getPeers sendActions (peerId, headers) = do
 handleCHsValid
     :: forall ssc m.
        (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
-    => m (Set NodeId) -> SendActions m -> NodeId -> (BlockHeader ssc) -> HeaderHash -> m ()
+    => m (Set NodeId)
+    -> SendActions m
+    -> NodeId
+    -> BlockHeader ssc
+    -> HeaderHash
+    -> m ()
 handleCHsValid getPeers sendActions peerId lcaChild newestHash = do
     let lcaChildHash = headerHash lcaChild
     logDebug $ sformat validFormat lcaChildHash newestHash
@@ -243,7 +285,7 @@ retrieveBlocks conv lcaChild endH = do
 
 retrieveBlocks'
     :: (SscWorkersClass ssc, WorkMode ssc m)
-    => Int
+    => Int        -- ^ Index of block we're requesting
     -> ConversationActions MsgGetBlocks (LimitedLength s (MsgBlock ssc)) m
     -> HeaderHash -- ^ We're expecting a child of this block
     -> HeaderHash -- ^ Block at which to stop

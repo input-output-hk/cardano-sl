@@ -22,8 +22,8 @@ import           Pos.Block.Logic             (createGenesisBlock, createMainBloc
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Pure              (VerifyBlockParams (..), verifyBlock)
-import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', WorkerSpec,
-                                              onNewSlotWorker, NodeId)
+import           Pos.Communication.Protocol  (NodeId, OutSpecs, SendActions, Worker',
+                                              WorkerSpec, onNewSlotWorker)
 import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (getNodeContext, ncPublicKey)
 import           Pos.Core.Address            (addressHash)
@@ -193,7 +193,8 @@ verifyCreatedBlock blk =
 -- out to other nodes by ourselves.
 --
 -- This worker just triggers every @max (slotDur / 4) 5@ seconds and asks for
--- current tip. Does nothing when recovery is enabled.
+-- current tip. Does nothing when recovery is enabled, because then we're
+-- receiving blocks anyway.
 --
 -- FIXME there is a better way. Establish a long-running connection to every
 -- peer asking them to push new data on it. This works even for NAT, since it's

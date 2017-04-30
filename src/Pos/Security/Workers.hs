@@ -23,8 +23,8 @@ import           Pos.Communication.Protocol (NodeId, OutSpecs, SendActions, Work
                                              localWorker, worker)
 import           Pos.Constants              (blkSecurityParam, mdNoBlocksSlotThreshold,
                                              mdNoCommitmentsEpochThreshold)
-import           Pos.Context                (getNodeContext, getUptime, isRecoveryMode,
-                                             ncPublicKey)
+import           Pos.Context                (getNodeContext, getUptime, ncPublicKey,
+                                             recoveryInProgress)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.DB                     (DBError (DBMalformed))
 import           Pos.DB.Block               (getBlockHeader)
@@ -132,7 +132,7 @@ checkForReceivedBlocksWorkerImpl getPeers sendActions = afterDelay $ do
     reportEclipse = do
         bootstrapMin <- (+ sec 10) . convertUnit <$> getLastKnownSlotDuration
         nonTrivialUptime <- (> bootstrapMin) <$> getUptime
-        isRecovery <- isRecoveryMode
+        isRecovery <- recoveryInProgress
         let reason =
                 "Eclipse attack was discovered, mdNoBlocksSlotThreshold: " <>
                 show (mdNoBlocksSlotThreshold :: Int)

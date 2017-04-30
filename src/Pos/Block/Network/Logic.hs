@@ -23,7 +23,7 @@ import           Control.Concurrent.STM     (isFullTBQueue, putTMVar, readTVar,
                                              tryReadTMVar, tryTakeTMVar, writeTBQueue,
                                              writeTVar)
 import           Control.Exception          (Exception (..))
-import           Control.Lens               (_Wrapped)
+import           Control.Lens               (enum, from, _Wrapped)
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text.Buildable        as B
 import           Formatting                 (bprint, build, sformat, shown, stext, (%))
@@ -52,7 +52,7 @@ import           Pos.Communication.Protocol (ConversationActions (..), NodeId, O
                                              SendActions (..), convH, toOutSpecs)
 import           Pos.Constants              (blkSecurityParam)
 import           Pos.Context                (NodeContext (..), getNodeContext,
-                                             isRecoveryMode)
+                                             recoveryInProgress)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Class               (MonadDBCore)
 import qualified Pos.DB.DB                  as DB
@@ -95,29 +95,55 @@ instance Exception BlockNetLogicException where
 -- Recovery
 ----------------------------------------------------------------------------
 
-needRecovery :: forall ssc m. (SscWorkersClass ssc, WorkMode ssc m) => m Bool
-needRecovery = getCurrentSlot >>= maybe (pure True) needRecoveryCheck
+-- | The phrase “we're in recovery mode” is confusing because it can mean two
+-- different things:
+--
+-- 1. Last known block is more than K slots away from the current slot, or
+--    current slot isn't known.
+--
+-- 2. We're actually in the process of requesting blocks because we have
+--    detected that #1 happened. (See 'ncRecoveryHeader' and
+--    'recoveryInProgress'.)
+--
+-- This function checks for #1. Note that even if we're doing recovery right
+-- now, 'needRecovery' will still return 'True'.
+--
+needRecovery
+    :: forall ssc m.
+       (SscWorkersClass ssc, WorkMode ssc m)
+    => m Bool
+needRecovery =
+    getCurrentSlot >>= \case
+        Nothing   -> pure True
+        Just slot -> isTooOld slot
   where
-    needRecoveryCheck slot = do
-        header <- DB.getTipBlockHeader @ssc
+    isTooOld slot = do
+        knownSlot <- getEpochOrSlot <$> DB.getTipBlockHeader @ssc
         pure $
-            toEnum (fromEnum (getEpochOrSlot header) + blkSecurityParam) <
+            (knownSlot & from enum %~ (+ blkSecurityParam)) <
             getEpochOrSlot slot
 
--- | Triggers recovery based on established communication.
+-- | Start recovery based on established communication. “Starting recovery”
+-- means simply sending all our neighbors a 'MsgGetHeaders' message (see
+-- 'requestTip'), so sometimes 'triggerRecovery' is used simply to ask for
+-- tips (e.g. in 'queryBlocksWorker').
+--
+-- Note that when recovery is in progress (see 'recoveryInProgress'),
+-- 'triggerRecovery' does nothing. It's okay because when recovery is in
+-- progress and 'ncRecoveryHeader' is full, we'll requesting blocks anyway
+-- and until we're finished we shouldn't be asking for new blocks.
 triggerRecovery :: forall ssc m.
     (SscWorkersClass ssc, WorkMode ssc m)
     => m (Set NodeId) -> SendActions m -> m ()
-triggerRecovery getPeers sendActions = unlessM isRecoveryMode $ do
-    logDebug "Recovery triggered, requesting tips"
+triggerRecovery getPeers sendActions = unlessM recoveryInProgress $ do
+    logDebug "Recovery started, requesting tips from neighbors"
     reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limitProxy -> do
         peers <- getPeers
         converseToNeighbors peers sendActions (requestTip limitProxy) `catch`
             \(e :: SomeException) -> do
                logDebug ("Error happened in triggerRecovery: " <> show e)
                throwM e
-        logDebug "Recovery triggered ended"
-
+        logDebug "Finished requesting tips for recovery"
 
 requestTipOuts :: OutSpecs
 requestTipOuts =
@@ -498,7 +524,7 @@ applyWithRollback getPeers peerId sendActions toApply lca toRollback = do
         ". Blocks rolled back: "%listJson%
         ", blocks applied: "%listJson
     reportRollback =
-        unlessM isRecoveryMode $ do
+        unlessM recoveryInProgress $ do
             logDebug "Reporting rollback happened"
             reportMisbehaviourMasked getPeers version $
                 sformat reportF peerId toRollbackHashes toApplyHashes
@@ -515,7 +541,7 @@ relayBlock
     => m (Set NodeId) -> SendActions m -> Block ssc -> m ()
 relayBlock _ _ (Left _)                  = logDebug "Not relaying Genesis block"
 relayBlock getPeers sendActions (Right mainBlk) = do
-    isRecoveryMode >>= \case
+    recoveryInProgress >>= \case
         True -> logDebug "Not relaying block in recovery mode"
         False -> do
             logDebug $ sformat ("Calling announceBlock for "%build%".") (mainBlk ^. gbHeader)

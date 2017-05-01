@@ -15,7 +15,7 @@ import           Pos.Ssc.Class.Helpers              (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types                (Ssc (..))
 import           Pos.Ssc.GodTossing.Core            (GtPayload, GtProof, mkGtProof)
 import           Pos.Ssc.GodTossing.Error           (SeedError)
-import           Pos.Ssc.GodTossing.Functions       (verifyGtPayload)
+import           Pos.Ssc.GodTossing.Functions       (sanityChecksGtPayload)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData)
 import           Pos.Ssc.GodTossing.Toss.Failure    (TossVerFailure)
 import           Pos.Ssc.GodTossing.Types.Types     (GtContext, GtGlobalState, GtParams,
@@ -42,4 +42,4 @@ instance Ssc SscGodTossing where
     sscCreateNodeContext = Tagged createGtContext
 
 instance SscHelpersClass SscGodTossing where
-    sscVerifyPayload = Tagged verifyGtPayload
+    sscVerifyPayload = Tagged sanityChecksGtPayload

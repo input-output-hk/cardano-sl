@@ -1,5 +1,6 @@
-{-# LANGUAGE Rank2Types   #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Instance of SscGStateClass.
 
@@ -15,6 +16,7 @@ import           Control.Lens                   (at, (.=), _Wrapped)
 import           Control.Monad.Except           (MonadError (throwError), runExceptT)
 import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
+import           Data.Tagged                    (Tagged (..))
 import           Formatting                     (build, sformat, (%))
 import           System.Wlog                    (WithLogger, logDebug, logInfo)
 import           Universum
@@ -22,7 +24,8 @@ import           Universum
 import           Pos.Binary.Ssc                 ()
 import           Pos.Constants                  (vssMaxTTL)
 import           Pos.Context                    (lrcActionOnEpoch)
-import           Pos.DB                         (DBError (DBMalformed), MonadDB)
+import           Pos.DB                         (DBError (DBMalformed), MonadDB,
+                                                 SomeBatchOp (..))
 import           Pos.DB.DB                      (getTipBlockHeader,
                                                  loadBlundsFromTipWhile)
 import           Pos.Lrc.Context                (LrcContext)
@@ -31,6 +34,7 @@ import           Pos.Lrc.Types                  (RichmenStake)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
 import           Pos.Ssc.Extra                  (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Core        (GtPayload (..), VssCertificatesMap)
+import qualified Pos.Ssc.GodTossing.DB          as DB
 import           Pos.Ssc.GodTossing.Functions   (getStableCertsPure)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
@@ -81,6 +85,7 @@ getStableCerts epoch =
 
 instance SscGStateClass SscGodTossing where
     sscLoadGlobalState = loadGlobalState
+    sscGlobalStateToBatch = Tagged . dumpGlobalState
     sscRollbackU = rollbackBlocks
     sscVerifyAndApplyBlocks = verifyAndApply
     sscCalculateSeedQ _ = calculateSeed <$>
@@ -89,12 +94,31 @@ instance SscGStateClass SscGodTossing where
         view gsShares
 
 loadGlobalState
+    :: forall m .
+    ( MonadDB m
+    , WithLogger m
+    , HasContext LrcContext m
+    ) => m GtGlobalState
+loadGlobalState = do
+    logDebug "Loading SSC global state"
+    gs <- DB.getGtGlobalState `catch` fallbackLoad
+    gs <$ logInfo (sformat ("Loaded GodTossing state: " %build) gs)
+  where
+    fallbackLoad :: DBError -> m GtGlobalState
+    fallbackLoad _ = do
+        logInfo $ "GtGlobalState dump isn't found, load blocks (workaround)"
+        loadGlobalStateOld
+
+dumpGlobalState :: GtGlobalState -> [SomeBatchOp]
+dumpGlobalState = one . SomeBatchOp . DB.gtGlobalStateToBatch
+
+loadGlobalStateOld
     :: ( HasContext LrcContext m
        , WithLogger m
        , MonadDB m
        )
     => m GtGlobalState
-loadGlobalState = do
+loadGlobalStateOld = do
     endEpoch <- view epochIndexL <$> getTipBlockHeader @SscGodTossing
     let startEpoch = safeSub endEpoch -- load blocks while >= endEpoch
         whileEpoch b = b ^. epochIndexL >= startEpoch

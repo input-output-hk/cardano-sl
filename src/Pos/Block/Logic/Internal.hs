@@ -114,13 +114,21 @@ applyBlocksUnsafeDo blunds pModifier = do
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
-    sscApplyBlocks blocks Nothing -- TODO: pass not only 'Nothing'
+    sscBatch <- SomeBatchOp <$> sscApplyBlocks blocks Nothing -- TODO: pass not only 'Nothing'
     let putTip = SomeBatchOp $
                  GS.PutTip $
                  headerHash $
                  NE.last $
                  getOldestFirst blunds
-    GS.writeBatchGState [putTip, delegateBatch, usBatch, txpBatch, forwardLinksBatch, inMainBatch]
+    GS.writeBatchGState
+        [ putTip
+        , delegateBatch
+        , usBatch
+        , txpBatch
+        , forwardLinksBatch
+        , inMainBatch
+        , sscBatch
+        ]
     sscNormalize
 #ifdef WITH_EXPLORER
     eTxNormalize
@@ -152,12 +160,20 @@ rollbackBlocksUnsafe toRollback = reportingFatal version $ do
                               & each._1 %~ toUpdateBlock)
     TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
     txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
-    sscRollbackBlocks $ fmap fst toRollback
+    sscBatch <- SomeBatchOp <$> sscRollbackBlocks (fmap fst toRollback)
     let putTip = SomeBatchOp $
                  GS.PutTip $
                  headerHash $
                  (NE.last $ getNewestFirst toRollback) ^. prevBlockL
-    GS.writeBatchGState [putTip, delRoll, usRoll, txRoll, forwardLinksBatch, inMainBatch]
+    GS.writeBatchGState
+        [ putTip
+        , delRoll
+        , usRoll
+        , txRoll
+        , forwardLinksBatch
+        , inMainBatch
+        , sscBatch
+        ]
     DB.sanityCheckDB
     inAssertMode $
         when (isGenesis0 (toRollback ^. _Wrapped . _neLast . _1)) $

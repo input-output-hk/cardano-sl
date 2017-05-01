@@ -19,6 +19,8 @@ import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
 import           Data.List                   (delete)
 import qualified Data.List.NonEmpty          as NE
+import           Formatting                  (build, sformat, (%))
+import           System.Wlog                 (WithLogger, logError)
 
 import           Pos.Core                    (Address, Coin, HeaderHash, Timestamp,
                                               mkCoin, unsafeAddCoin, unsafeSubCoin)
@@ -30,7 +32,6 @@ import           Pos.Txp.Core                (Tx (..), TxAux, TxId, TxOut (..),
 import           Pos.Txp.Toil                (ToilVerFailure (..))
 import qualified Pos.Txp.Toil                as Txp
 import           Pos.Util.Chrono             (NewestFirst (..))
-import           System.Wlog                 (WithLogger, logError)
 
 ----------------------------------------------------------------------------
 -- Global
@@ -192,10 +193,15 @@ updateAddrBalances (combineBalanceUpdates -> updates) = mapM_ updater updates
     updater (addr, (Minus, coin)) = do
         maybeBalance <- getAddrBalance addr
         case maybeBalance of
-            Nothing -> logError "updateAddrBalances: subtracting coins from unknown address"
+            Nothing ->
+                logError $
+                    sformat ("updateAddrBalances: attempted to subtract "%build%" coins from unknown address "%build)
+                    coin addr
             Just currentBalance
                 | currentBalance < coin ->
-                    logError "updateAddrBalances: address does not have enough coins"
+                    logError $
+                        sformat ("updateAddrBalances: attempted to subtract "%build%" coins from address "%build%" which only has "%build%" coins")
+                        coin addr currentBalance
                 | otherwise -> do
                     let newBalance = unsafeSubCoin currentBalance coin
                     if newBalance == mkCoin 0 then

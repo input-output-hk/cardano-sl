@@ -22,6 +22,7 @@ import           Pos.Types                  (HeaderHash, blockTxas, headerHash,
                                              prevBlockL)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 
+import           Pos.Wallet.KeyStorage      (MonadKeys (..))
 import           Pos.Wallet.Web.Account     (AccountMode, getSKByAddr)
 import           Pos.Wallet.Web.ClientTypes (CAddress, WS)
 import           Pos.Wallet.Web.State       (WalletWebDB)
@@ -31,7 +32,7 @@ import           Pos.Wallet.Web.Tracking    (applyModifierToWSet, trackingApplyT
 
 instance ( MonadDB m
          , MonadMockable m
-         , AccountMode m
+         , MonadKeys m
          , WithLogger m
          )
          => MonadBListener (WalletWebDB m) where

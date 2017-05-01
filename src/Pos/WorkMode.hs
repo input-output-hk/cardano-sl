@@ -133,5 +133,3 @@ instance MonadBListener (RawRealMode ssc) where
 instance MonadBListener ServiceMode where
     onApplyBlocks _ = pass --error "PATAK_ON_APPLY"
     onRollbackBlocks _ = pass --error "PATAK_ON_ROLL"
-instance MonadBListener (ProductionMode ssc) where
-instance MonadBListener (StatsMode ssc) where

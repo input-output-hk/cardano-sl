@@ -35,7 +35,3 @@ class Monad m => MonadBListener m where
     default onRollbackBlocks
         :: (MonadTrans t, MonadBListener m', t m' ~ m, SscHelpersClass ssc) => NewestFirst NE (Blund ssc) -> m ()
     onRollbackBlocks = lift . onRollbackBlocks
-
-instance {-# OVERLAPPABLE #-}
-    (MonadBListener m, MonadTrans t, Monad (t m)) =>
-        MonadBListener (t m)

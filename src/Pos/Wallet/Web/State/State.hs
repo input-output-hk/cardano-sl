@@ -3,6 +3,7 @@
 module Pos.Wallet.Web.State.State
        ( WalletState
        , MonadWalletWebDB
+       , WalletWebDBTag
        , getWalletWebState
        , WebWalletModeDB
        , openState
@@ -50,7 +51,7 @@ module Pos.Wallet.Web.State.State
        , updateHistoryCache
        ) where
 
-import qualified Control.Monad.Ether.Implicit as Ether
+import qualified Control.Monad.Ether          as Ether.E
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
                                                UpdateEvent)
 import           Mockable                     (MonadMockable)
@@ -68,11 +69,13 @@ import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemS
 import           Pos.Wallet.Web.State.Acidic  as A
 import           Pos.Wallet.Web.State.Storage (AccountLookupMode (..), WalletStorage)
 
+data WalletWebDBTag
+
 -- | MonadWalletWebDB stands for monad which is able to get web wallet state
-type MonadWalletWebDB = Ether.MonadReader WalletState
+type MonadWalletWebDB = Ether.E.MonadReader WalletWebDBTag WalletState
 
 getWalletWebState :: MonadWalletWebDB m => m WalletState
-getWalletWebState = Ether.ask
+getWalletWebState = Ether.E.ask (Proxy @WalletWebDBTag)
 
 -- | Constraint for working with web wallet DB
 type WebWalletModeDB m = (MonadWalletWebDB m, MonadIO m, MonadMockable m)

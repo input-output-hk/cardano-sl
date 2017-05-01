@@ -1,8 +1,12 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators       #-}
 
 module Main where
 
+import           Control.Monad.Trans   (MonadTrans)
 import           Data.List             ((!!))
 import           Data.Maybe            (fromJust)
 import           Data.Time.Clock.POSIX (getPOSIXTime)
@@ -10,52 +14,60 @@ import           Data.Time.Units       (toMicroseconds)
 import           Formatting            (sformat, shown, (%))
 import           Mockable              (Production, currentTime)
 import           Node                  (hoistSendActions)
-import           System.Wlog           (LoggerName, WithLogger, logInfo)
 import           Serokell.Util         (sec)
+import           System.Wlog           (LoggerName, WithLogger, logInfo)
 import           Universum
 
 import qualified Data.ByteString.Char8 as BS8 (unpack)
+
 import           Pos.Binary            ()
 import qualified Pos.CLI               as CLI
-import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec, worker,
-                                        wrapActionSpec)
+import           Pos.Communication     (ActionSpec (..), OutSpecs, PeerId, WorkerSpec,
+                                        worker, wrapActionSpec)
 import           Pos.Constants         (isDevelopment)
 import           Pos.Core.Types        (Timestamp (..))
 import           Pos.Crypto            (SecretKey, VssKeyPair, keyGen, vssKeyGen)
-import           Pos.DHT.Real          (KademliaParams (..), KademliaDHTInstance (..),
+import           Pos.DHT.Real          (KademliaDHTInstance (..), KademliaParams (..),
                                         foreverRejoinNetwork, readDhtPeersFile)
 import           Pos.DHT.Workers       (dhtWorkers)
 import           Pos.Genesis           (genesisDevSecretKeys, genesisStakeDistribution,
                                         genesisUtxo)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
                                         NodeParams (..), RealModeResources (..),
-                                        hoistResources, bracketResourcesKademlia,
-                                        runNodeProduction, runNodeStats, stakesDistr)
+                                        bracketResourcesKademlia, hoistResources, runNode,
+                                        runNodeProduction, runNodeStats, runRawBasedMode,
+                                        stakesDistr)
 import           Pos.Shutdown          (triggerShutdown)
-import           Pos.Ssc.Class         (SscConstraint)
+import           Pos.Ssc.Class         (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing,
                                         genesisDevVssKeyPairs)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import           Pos.Ssc.SscAlgo       (SscAlgo (..))
-import           Pos.Statistics        (getNoStatsT, getStatsMap, runStatsT')
+import           Pos.Statistics        (NoStatsT, StatsT, getNoStatsT, getStatsMap,
+                                        runStatsT')
+import           Pos.Statistics        (StatsMap)
 import           Pos.Update.Context    (ucUpdateSemaphore)
 import           Pos.Update.Params     (UpdateParams (..))
-import           Pos.Util              (inAssertMode, mappendPair)
+import           Pos.Util              (inAssertMode)
 import           Pos.Util.BackupPhrase (keysFromPhrase)
 import           Pos.Util.UserSecret   (UserSecret, peekUserSecret, usPrimKey, usVss,
                                         writeUserSecret)
 import           Pos.WorkMode          (ProductionMode, RawRealMode, StatsMode)
+import qualified STMContainers.Map     as SM
 #ifdef WITH_WEB
 import           Pos.Web               (serveWebBase, serveWebGT)
 import           Pos.WorkMode          (WorkMode)
 #ifdef WITH_WALLET
-import           Pos.Wallet.Web        (walletServeWebFull, walletServerOuts)
+import           Pos.Wallet.Web        (WSConnectionBox, WalletState, WalletWebHandler,
+                                        bracketWalletWS, bracketWalletWebDB, runWalletWS,
+                                        runWalletWebDB, walletServeWebFull,
+                                        walletServerOuts)
 #endif
 #endif
 import           Pos.Util.Context      (askContext)
 
-import           NodeOptions           (Args (..), getNodeOptions)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..), TCPAddrInfo (..))
+import           NodeOptions           (Args (..), getNodeOptions)
 
 loggingParams :: LoggerName -> Args -> LoggingParams
 loggingParams tag Args{..} =
@@ -109,77 +121,139 @@ action
     -> Args
     -> (forall ssc . RealModeResources (RawRealMode ssc))
     -> Production ()
-action kademliaInst args@Args {..} res = do
+action kademliaInst args@Args {..} transport = do
     systemStart <- getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)
     currentParams <- getNodeParams args systemStart
+    putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
+    putText $ "If stats is on: " <> show enableStats
+
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         gtParams = gtSscParams args vssSK
 #ifdef WITH_WEB
-        currentPlugins :: (SscConstraint ssc, WorkMode ssc m) => [m ()]
-        currentPlugins = plugins args
-        currentPluginsGT :: (WorkMode SscGodTossing m) => [m ()]
-        currentPluginsGT = pluginsGT args
-#else
-        currentPlugins :: [a]
-        currentPlugins = []
-        currentPluginsGT :: [a]
-        currentPluginsGT = []
+    if enableWallet then do
+        let currentPlugins :: (SscConstraint ssc, WorkMode ssc m) => [m ()]
+            currentPlugins = plugins args
+            currentPluginsGT :: (WorkMode SscGodTossing m) => [m ()]
+            currentPluginsGT = pluginsGT args
+
+        bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
+            bracketWalletWS $ \conn -> do
+                case (enableStats, CLI.sscAlgo commonArgs) of
+                    (True, GodTossingAlgo) -> do
+                        let liftedTransport = hoistResources liftWMode transport
+                            wDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht")
+                                                (dhtWorkers (rmGetPeers liftedTransport) kademliaInst)
+                        let allPlugins :: ([WorkerSpec (WalletStatsMode SscGodTossing)], OutSpecs)
+                            allPlugins = mconcat [ wDhtWorkers
+                                                 , convPlugins currentPluginsGT
+                                                 , walletStats args transport]
+                        runWStatsMode @SscGodTossing db conn
+                            (CLI.peerId commonArgs)
+                            liftedTransport
+                            currentParams gtParams
+                            (runNode @SscGodTossing liftedTransport allPlugins)
+                    (True, NistBeaconAlgo) -> do
+                        let liftedTransport = hoistResources liftWMode transport
+                            wDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht")
+                                                (dhtWorkers (rmGetPeers liftedTransport) kademliaInst)
+                        let allPlugins :: ([WorkerSpec (WalletStatsMode SscNistBeacon)], OutSpecs)
+                            allPlugins = mconcat [ wDhtWorkers
+                                                 , convPlugins currentPlugins
+                                                 , walletStats args transport ]
+                        runWStatsMode @SscNistBeacon db conn
+                            (CLI.peerId commonArgs)
+                            liftedTransport
+                            currentParams ()
+                            (runNode @SscNistBeacon liftedTransport allPlugins)
+                    (False, GodTossingAlgo) -> do
+                        let liftedTransport = hoistResources liftWMode transport
+                            wDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht")
+                                                (dhtWorkers (rmGetPeers liftedTransport) kademliaInst)
+                        let allPlugins :: ([WorkerSpec (WalletProductionMode SscGodTossing)], OutSpecs)
+                            allPlugins = mconcat [ wDhtWorkers
+                                                 , convPlugins currentPluginsGT
+                                                 , walletProd args transport ]
+                        runWProductionMode @SscGodTossing db conn
+                            (CLI.peerId commonArgs)
+                            liftedTransport
+                            currentParams gtParams
+                            (runNode @SscGodTossing liftedTransport allPlugins)
+                    (False, NistBeaconAlgo) -> do
+                        let liftedTransport = hoistResources liftWMode transport
+                            wDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht")
+                                                (dhtWorkers (rmGetPeers liftedTransport) kademliaInst)
+                        let allPlugins :: ([WorkerSpec (WalletProductionMode SscNistBeacon)], OutSpecs)
+                            allPlugins = mconcat [ wDhtWorkers
+                                                 , convPlugins currentPlugins
+                                                 , walletProd args transport ]
+                        runWProductionMode @SscNistBeacon db conn
+                            (CLI.peerId commonArgs)
+                            liftedTransport
+                            currentParams ()
+                            (runNode @SscNistBeacon liftedTransport allPlugins)
+    else do
 #endif
-    putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
-    putText $ "If stats is on: " <> show enableStats
-    case (enableStats, CLI.sscAlgo commonArgs) of
-               
-        (True, GodTossingAlgo) -> do
-            let wrappedDhtWorkers :: ([WorkerSpec (StatsMode SscGodTossing)], OutSpecs)
-                wrappedDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers (rmGetPeers res') kademliaInst)
-                allPlugins :: ([WorkerSpec (StatsMode SscGodTossing)], OutSpecs)
-                allPlugins = wrappedDhtWorkers `mappendPair` convPlugins currentPluginsGT `mappendPair` walletStats args res
-                res' :: RealModeResources (StatsMode SscGodTossing)
-                res' = hoistResources lift res
-            runNodeStats @SscGodTossing
-                (CLI.peerId commonArgs)
-                res'
-                allPlugins
-                currentParams gtParams
-        (True, NistBeaconAlgo) -> do
-            let wrappedDhtWorkers :: ([WorkerSpec (StatsMode SscNistBeacon)], OutSpecs)
-                wrappedDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers (rmGetPeers res') kademliaInst)
-                allPlugins :: ([WorkerSpec (StatsMode SscNistBeacon)], OutSpecs)
-                allPlugins = wrappedDhtWorkers `mappendPair` convPlugins currentPlugins `mappendPair` walletStats args res
-                res' :: RealModeResources (StatsMode SscNistBeacon)
-                res' = hoistResources lift res
-            runNodeStats @SscNistBeacon
-                (CLI.peerId commonArgs)
-                res'
-                allPlugins
-                currentParams ()
-        (False, GodTossingAlgo) -> do
-            let wrappedDhtWorkers :: ([WorkerSpec (ProductionMode SscGodTossing)], OutSpecs)
-                wrappedDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers (rmGetPeers res') kademliaInst)
-                allPlugins :: ([WorkerSpec (ProductionMode SscGodTossing)], OutSpecs)
-                allPlugins = wrappedDhtWorkers `mappendPair` convPlugins currentPluginsGT `mappendPair` walletProd args res
-                res' :: RealModeResources (ProductionMode SscGodTossing)
-                res' = hoistResources lift res
-            runNodeProduction @SscGodTossing
-                (CLI.peerId commonArgs)
-                res'
-                allPlugins
-                currentParams gtParams
-        (False, NistBeaconAlgo) -> do
-            let wrappedDhtWorkers :: ([WorkerSpec (ProductionMode SscNistBeacon)], OutSpecs)
-                wrappedDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers (rmGetPeers res') kademliaInst)
-                allPlugins :: ([WorkerSpec (ProductionMode SscNistBeacon)], OutSpecs)
-                allPlugins = wrappedDhtWorkers `mappendPair` convPlugins currentPlugins `mappendPair` walletProd args res
-                res' :: RealModeResources (ProductionMode SscNistBeacon)
-                res' = hoistResources lift res
-            runNodeProduction @SscNistBeacon
-                (CLI.peerId commonArgs) 
-                res'
-                allPlugins
-                currentParams ()
+        let currentPlugins :: [a]
+            currentPlugins = []
+            currentPluginsGT :: [a]
+            currentPluginsGT = []
+        case (enableStats, CLI.sscAlgo commonArgs) of
+            -- This is a terrible code duplication. Abstract it when possible.
+            (True, GodTossingAlgo) -> do
+                let liftedTransport = hoistResources lift transport
+                    wDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht")
+                                        (dhtWorkers (rmGetPeers liftedTransport) kademliaInst)
+                let allPlugins :: ([WorkerSpec (StatsMode SscGodTossing)], OutSpecs)
+                    allPlugins = mconcat [ wDhtWorkers
+                                         , convPlugins currentPluginsGT
+                                         , utwStats]
+                runNodeStats @SscGodTossing
+                    (CLI.peerId commonArgs)
+                    liftedTransport
+                    allPlugins
+                    currentParams gtParams
+            (True, NistBeaconAlgo) -> do
+                let liftedTransport = hoistResources lift transport
+                    wDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht")
+                                        (dhtWorkers (rmGetPeers liftedTransport) kademliaInst)
+                let allPlugins :: ([WorkerSpec (StatsMode SscNistBeacon)], OutSpecs)
+                    allPlugins = mconcat [ wDhtWorkers
+                                         , convPlugins currentPlugins
+                                         , utwStats]
+                runNodeStats @SscNistBeacon
+                    (CLI.peerId commonArgs)
+                    (hoistResources lift transport)
+                    allPlugins
+                    currentParams ()
+            (False, GodTossingAlgo) -> do
+                let liftedTransport = hoistResources lift transport
+                    wDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht")
+                                        (dhtWorkers (rmGetPeers liftedTransport) kademliaInst)
+                let allPlugins :: ([WorkerSpec (ProductionMode SscGodTossing)], OutSpecs)
+                    allPlugins = mconcat [ wDhtWorkers
+                                         , convPlugins currentPluginsGT
+                                         , utwProd]
+                runNodeProduction @SscGodTossing
+                    (CLI.peerId commonArgs)
+                    liftedTransport
+                    allPlugins
+                    currentParams gtParams
+            (False, NistBeaconAlgo) -> do
+                let liftedTransport = hoistResources lift transport
+                    wDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht")
+                                        (dhtWorkers (rmGetPeers liftedTransport) kademliaInst)
+                let allPlugins :: ([WorkerSpec (ProductionMode SscNistBeacon)], OutSpecs)
+                    allPlugins = mconcat [ wDhtWorkers
+                                         , convPlugins currentPlugins
+                                         , utwProd]
+                runNodeProduction @SscNistBeacon
+                    (CLI.peerId commonArgs)
+                    liftedTransport
+                    allPlugins
+                    currentParams ()
   where
     convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
 
@@ -298,6 +372,19 @@ pluginsGT Args {..}
     | otherwise = []
 #endif
 
+utwProd :: SscConstraint ssc =>([WorkerSpec (ProductionMode ssc)], OutSpecs)
+utwProd = first (map liftPlugin) updateTriggerWorker
+  where
+    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa ->
+        lift . p vI $ hoistSendActions getNoStatsT lift sa
+
+utwStats :: SscConstraint ssc => ([WorkerSpec (StatsMode ssc)], OutSpecs)
+utwStats = first (map liftPlugin) updateTriggerWorker
+  where
+    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
+        s <- getStatsMap
+        lift . p vI $ hoistSendActions (runStatsT' s) lift sa
+
 updateTriggerWorker
     :: SscConstraint ssc
     => ([WorkerSpec (RawRealMode ssc)], OutSpecs)
@@ -306,31 +393,75 @@ updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     void $ takeMVar =<< askContext ucUpdateSemaphore
     triggerShutdown
 
-walletServe
-    :: SscConstraint ssc
-    => Args
-    -> RealModeResources (RawRealMode ssc)
-    -> ([WorkerSpec (RawRealMode ssc)], OutSpecs)
-#if defined WITH_WEB && defined WITH_WALLET
-walletServe Args {..} res =
-    if enableWallet
-    then first pure $ worker walletServerOuts $ \sendActions ->
-            walletServeWebFull
-                (rmGetPeers res)
-                sendActions
-                walletDebug
-                walletDbPath
-                walletRebuildDb walletPort
-    else updateTriggerWorker
-#else
-walletServe _ = updateTriggerWorker
-#endif
+-- Related to [CSM-175] stuff.
+type WalletProductionMode ssc = NoStatsT $ WalletWebHandler (RawRealMode ssc)
+
+type WalletStatsMode ssc = StatsT $ WalletWebHandler (RawRealMode ssc)
+
+liftWMode
+    :: ( Each '[ MonadTrans] [ t1, t2, t3]
+       , Each '[ Monad] [ m, t3 m, t2 (t3 m)]
+       )
+    => m a -> (t1 $ t2 $ t3 m) a
+liftWMode = lift . lift . lift
+
+unwrapWPMode
+    :: WalletState
+    -> WSConnectionBox
+    -> WalletProductionMode ssc a
+    -> RawRealMode ssc a
+unwrapWPMode db conn = runWalletWebDB db . runWalletWS conn . getNoStatsT
+
+unwrapWSMode
+    :: WalletState
+    -> WSConnectionBox
+    -> StatsMap
+    -> WalletStatsMode ssc a
+    -> RawRealMode ssc a
+unwrapWSMode db conn statMap = runWalletWebDB db . runWalletWS conn . runStatsT' statMap
+
+-- | WalletProductionMode runner.
+runWProductionMode
+    :: forall ssc a  .
+       (SscConstraint ssc)
+    => WalletState
+    -> WSConnectionBox
+    -> PeerId
+    -> RealModeResources (WalletProductionMode ssc)
+    -> NodeParams
+    -> SscParams ssc
+    -> (ActionSpec (WalletProductionMode ssc) a, OutSpecs)
+    -> Production a
+runWProductionMode db conn = runRawBasedMode (unwrapWPMode db conn) liftWMode
+
+-- | WalletProductionMode runner.
+runWStatsMode
+    :: forall ssc a.
+       (SscConstraint ssc)
+    => WalletState
+    -> WSConnectionBox
+    -> PeerId
+    -> RealModeResources (WalletStatsMode ssc)
+    -> NodeParams
+    -> SscParams ssc
+    -> (ActionSpec (WalletStatsMode ssc) a, OutSpecs)
+    -> Production a
+runWStatsMode db conn peer res param sscp runAction = do
+    statMap <- liftIO SM.newIO
+    runRawBasedMode
+        (unwrapWSMode db conn statMap)
+        liftWMode
+        peer
+        res
+        param
+        sscp
+        runAction
 
 walletProd
     :: SscConstraint ssc
     => Args
     -> RealModeResources (RawRealMode ssc)
-    -> ([WorkerSpec (ProductionMode ssc)], OutSpecs)
+    -> ([WorkerSpec (WalletProductionMode ssc)], OutSpecs)
 walletProd args res = first (map liftPlugin) (walletServe args res)
   where
     liftPlugin (ActionSpec p) = ActionSpec $ \vI sa ->
@@ -340,12 +471,24 @@ walletStats
     :: SscConstraint ssc
     => Args
     -> RealModeResources (RawRealMode ssc)
-    -> ([WorkerSpec (StatsMode ssc)], OutSpecs)
+    -> ([WorkerSpec (WalletStatsMode ssc)], OutSpecs)
 walletStats args res = first (map liftPlugin) (walletServe args res)
   where
     liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
-        s <- getStatsMap
-        lift . p vI $ hoistSendActions (runStatsT' s) lift sa
+        sm <- getStatsMap
+        lift . p vI $ hoistSendActions (runStatsT' sm) lift sa
+
+walletServe
+    :: SscConstraint ssc
+    => Args
+    -> RealModeResources (RawRealMode ssc)
+    -> ([WorkerSpec (WalletWebHandler (RawRealMode ssc))], OutSpecs)
+walletServe Args {..} res = first pure $ worker walletServerOuts $ \sendActions ->
+    walletServeWebFull
+        (rmGetPeers res)
+        sendActions
+        walletDebug
+        walletPort
 
 printFlags :: IO ()
 printFlags = do

@@ -52,12 +52,10 @@ walletServeWebFull
     :: forall ssc.
        (SscConstraint ssc)
     => RawRealMode ssc (Set NodeId)
-    -> SendActions (RawRealMode ssc)
+    -> SendActions (WalletWebHandler (RawRealMode ssc))
     -> Bool      -- whether to include genesis keys
-    -> FilePath  -- to Daedalus acid-state
-    -> Bool      -- Rebuild flag
     -> Word16
-    -> RawRealMode ssc ()
+    -> WalletWebHandler (RawRealMode ssc) ()
 walletServeWebFull getPeers sendActions debug = walletServeImpl action
   where
     action :: WalletWebHandler (RawRealMode ssc) Application

@@ -12,117 +12,132 @@ module Pos.Wallet.Web.Server.Methods
        , walletServer
        , walletServeImpl
        , walletServerOuts
+
+       , WSConnectionBox
+       , bracketWalletWebDB
+       , bracketWalletWS
        ) where
 
 import           Universum
 
-import           Control.Concurrent            (forkFinally)
-import           Control.Lens                  (ix, makeLenses, (.=))
-import           Control.Monad.Catch           (SomeException, catches, try)
-import qualified Control.Monad.Catch           as E
-import           Control.Monad.State           (runStateT)
-import           Data.Default                  (Default (def))
-import qualified Data.List.NonEmpty            as NE
-import           Data.Tagged                   (untag)
-import qualified Data.Text                     as T
-import           Data.Time.Clock.POSIX         (getPOSIXTime)
-import           Data.Time.Units               (Microsecond, Second)
-import           Formatting                    (build, int, sformat, shown, stext, (%))
-import qualified Formatting                    as F
-import           Network.Wai                   (Application)
-import           Paths_cardano_sl              (version)
-import           Pos.ReportServer.Report       (ReportType (RInfo))
-import           Serokell.Util                 (threadDelay)
-import qualified Serokell.Util.Base64          as B64
-import           Servant.API                   ((:<|>) ((:<|>)),
-                                                FromHttpApiData (parseUrlPiece))
-import           Servant.Multipart             (fdFilePath)
-import           Servant.Server                (Handler, Server, ServerT, err403,
-                                                runHandler, serve)
-import           Servant.Utils.Enter           ((:~>) (..), enter)
-import           System.Wlog                   (logDebug, logError, logInfo)
+import           Control.Concurrent               (forkFinally)
+import           Control.Lens                     (ix, makeLenses, (.=))
+import           Control.Monad.Catch              (SomeException, catches, try)
+import qualified Control.Monad.Catch              as E
+import           Control.Monad.State              (runStateT)
+import           Data.Default                     (Default (def))
+import qualified Data.List.NonEmpty               as NE
+import           Data.Tagged                      (untag)
+import qualified Data.Text                        as T
+import           Data.Time.Clock.POSIX            (getPOSIXTime)
+import           Data.Time.Units                  (Microsecond, Second)
+import           Formatting                       (build, int, sformat, shown, stext, (%))
+import qualified Formatting                       as F
+import           Network.Wai                      (Application)
+import qualified Network.WebSockets.Connection    as WS
+import           Paths_cardano_sl                 (version)
+import           Pos.ReportServer.Report          (ReportType (RInfo))
+import           Serokell.AcidState.ExtendedState (ExtendedState)
+import           Serokell.Util                    (threadDelay)
+import qualified Serokell.Util.Base64             as B64
+import           Servant.API                      ((:<|>) ((:<|>)),
+                                                   FromHttpApiData (parseUrlPiece))
+import           Servant.Multipart                (fdFilePath)
+import           Servant.Server                   (Handler, Server, ServerT, err403,
+                                                   runHandler, serve)
+import           Servant.Utils.Enter              ((:~>) (..), enter)
+import           System.Wlog                      (logDebug, logError, logInfo)
 
-import           Data.ByteString.Base58        (bitcoinAlphabet, decodeBase58)
+import           Data.ByteString.Base58           (bitcoinAlphabet, decodeBase58)
 
-import           Pos.Aeson.ClientTypes         ()
-import           Pos.Client.Txp.History        (TxHistoryAnswer (..), TxHistoryEntry (..))
-import           Pos.Communication             (NodeId, OutSpecs, SendActions,
-                                                hoistSendActions, sendTxOuts, submitMTx,
-                                                submitRedemptionTx, submitTx)
-import           Pos.Constants                 (curSoftwareVersion, isDevelopment)
-import           Pos.Core                      (Address (..), Coin, addressF,
-                                                applyCoinPortion, decodeTextAddress,
-                                                makePubKeyAddress, makeRedeemAddress,
-                                                mkCoin, unsafeCoinPortionFromDouble,
-                                                unsafeSubCoin)
-import           Pos.Crypto                    (PassPhrase, aesDecrypt,
-                                                changeEncPassphrase, checkPassMatches,
-                                                deriveAesKeyBS, emptyPassphrase,
-                                                encToPublic, fakeSigner, hash,
-                                                noPassEncrypt, redeemDeterministicKeyGen,
-                                                redeemToPublic, withSafeSigner,
-                                                withSafeSigner)
-import           Pos.DB.Class                  (MonadDB)
-import           Pos.DB.Limits                 (MonadDBLimits)
-import           Pos.Genesis                   (genesisDevSecretKeys)
-import           Pos.Reporting.MemState        (MonadReportingMem, askReportingContext,
-                                                rcReportServers)
-import           Pos.Reporting.Methods         (sendReport, sendReportNodeNologs)
-import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
-import           Pos.Util                      (maybeThrow)
-import           Pos.Util.BackupPhrase         (mkBackupPhrase12, toSeed)
-import           Pos.Util.UserSecret           (readUserSecret, usKeys)
-import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
-                                                addSecretKey)
-import           Pos.Wallet.SscType            (WalletSscType)
-import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
-                                                blockchainSlotDuration, connectedPeers,
-                                                getBalance, getTxHistory,
-                                                localChainDifficulty,
-                                                networkChainDifficulty, waitForUpdate)
-import           Pos.Wallet.Web.Account        (genSaveRootAddress,
-                                                genUniqueAccountAddress,
-                                                genUniqueWalletAddress, getAddrIdx,
-                                                getSKByAccAddr, getSKByAddr,
-                                                myRootAddresses)
-import           Pos.Wallet.Web.Api            (WalletApi, walletApi)
-import           Pos.Wallet.Web.ClientTypes    (Acc, CAccount (..), CAccountAddress (..),
-                                                CAddress, CCurrency (ADA),
-                                                CElectronCrashReport (..), CInitialized,
-                                                CPaperVendWalletRedeem (..),
-                                                CPassPhrase (..), CProfile, CProfile (..),
-                                                CTx (..), CTxId, CTxMeta (..),
-                                                CUpdateInfo (..), CWallet (..),
-                                                CWalletAddress (..), CWalletInit (..),
-                                                CWalletMeta (..), CWalletRedeem (..),
-                                                CWalletSet (..), CWalletSetInit (..),
-                                                CWalletSetMeta (..), MCPassPhrase,
-                                                NotifyEvent (..), SyncProgress (..), WS,
-                                                addressToCAddress, cAddressToAddress,
-                                                cPassPhraseToPassPhrase, encToCAddress,
-                                                mkCCoin, mkCTx, mkCTxId, toCUpdateInfo,
-                                                txContainsTitle, txIdToCTxId)
-import           Pos.Wallet.Web.Error          (WalletError (..))
-import           Pos.Wallet.Web.Server.Sockets (MonadWalletWebSockets, WalletWebSockets,
-                                                closeWSConnection, getWalletWebSockets,
-                                                getWalletWebSockets, initWSConnection,
-                                                notify, runWalletWS, upgradeApplicationWS)
-import           Pos.Wallet.Web.State          (AccountLookupMode (..), WalletWebDB,
-                                                WebWalletModeDB, addAccount,
-                                                addOnlyNewTxMeta, addUpdate, closeState,
-                                                createWSet, createWallet, getHistoryCache,
-                                                getNextUpdate, getProfile, getTxMeta,
-                                                getWSetAddresses, getWSetMeta,
-                                                getWSetPassLU, getWalletAccounts,
-                                                getWalletAddresses, getWalletMeta,
-                                                getWalletState, openState, removeAccount,
-                                                removeNextUpdate, removeWSet,
-                                                removeWallet, runWalletWebDB, setProfile,
-                                                setWSetPassLU, setWalletMeta,
-                                                setWalletTransactionMeta, testReset,
-                                                updateHistoryCache)
-import           Pos.Wallet.Web.Tracking       (syncWalletSetWithTip)
-import           Pos.Web.Server                (serveImpl)
+import           Pos.Aeson.ClientTypes            ()
+import           Pos.Client.Txp.History           (TxHistoryAnswer (..),
+                                                   TxHistoryEntry (..))
+import           Pos.Communication                (NodeId, OutSpecs, SendActions,
+                                                   sendTxOuts, submitMTx,
+                                                   submitRedemptionTx, submitTx)
+import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
+import           Pos.Core                         (Address (..), Coin, addressF,
+                                                   applyCoinPortion, decodeTextAddress,
+                                                   makePubKeyAddress, makeRedeemAddress,
+                                                   mkCoin, unsafeCoinPortionFromDouble,
+                                                   unsafeSubCoin)
+import           Pos.Crypto                       (PassPhrase, aesDecrypt,
+                                                   changeEncPassphrase, checkPassMatches,
+                                                   deriveAesKeyBS, emptyPassphrase,
+                                                   encToPublic, fakeSigner, hash,
+                                                   noPassEncrypt,
+                                                   redeemDeterministicKeyGen,
+                                                   redeemToPublic, withSafeSigner,
+                                                   withSafeSigner)
+import           Pos.DB.Class                     (MonadDB)
+import           Pos.DB.Limits                    (MonadDBLimits)
+import           Pos.Genesis                      (genesisDevSecretKeys)
+import           Pos.Reporting.MemState           (MonadReportingMem, askReportingContext,
+                                                   rcReportServers)
+import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
+import           Pos.Txp.Core                     (TxOut (..), TxOutAux (..))
+import           Pos.Util                         (maybeThrow)
+import           Pos.Util.BackupPhrase            (mkBackupPhrase12, toSeed)
+import           Pos.Util.UserSecret              (readUserSecret, usKeys)
+import           Pos.Wallet.KeyStorage            (KeyError (..), MonadKeys (..),
+                                                   addSecretKey)
+import           Pos.Wallet.SscType               (WalletSscType)
+import           Pos.Wallet.WalletMode            (WalletMode, applyLastUpdate,
+                                                   blockchainSlotDuration, connectedPeers,
+                                                   getBalance, getTxHistory,
+                                                   localChainDifficulty,
+                                                   networkChainDifficulty, waitForUpdate)
+import           Pos.Wallet.Web.Account           (genSaveRootAddress,
+                                                   genUniqueAccountAddress,
+                                                   genUniqueWalletAddress, getAddrIdx,
+                                                   getSKByAccAddr, getSKByAddr,
+                                                   myRootAddresses)
+import           Pos.Wallet.Web.Api               (WalletApi, walletApi)
+import           Pos.Wallet.Web.ClientTypes       (Acc, CAccount (..),
+                                                   CAccountAddress (..), CAddress,
+                                                   CCurrency (ADA),
+                                                   CElectronCrashReport (..),
+                                                   CInitialized,
+                                                   CPaperVendWalletRedeem (..),
+                                                   CPassPhrase (..), CProfile,
+                                                   CProfile (..), CTx (..), CTxId,
+                                                   CTxMeta (..), CUpdateInfo (..),
+                                                   CWallet (..), CWalletAddress (..),
+                                                   CWalletInit (..), CWalletMeta (..),
+                                                   CWalletRedeem (..), CWalletSet (..),
+                                                   CWalletSetInit (..),
+                                                   CWalletSetMeta (..), MCPassPhrase,
+                                                   NotifyEvent (..), SyncProgress (..),
+                                                   WS, addressToCAddress,
+                                                   cAddressToAddress,
+                                                   cPassPhraseToPassPhrase, encToCAddress,
+                                                   mkCCoin, mkCTx, mkCTxId, toCUpdateInfo,
+                                                   txContainsTitle, txIdToCTxId)
+import           Pos.Wallet.Web.Error             (WalletError (..))
+import           Pos.Wallet.Web.Server.Sockets    (MonadWalletWebSockets,
+                                                   WalletWebSockets, closeWSConnection,
+                                                   getWalletWebSockets,
+                                                   getWalletWebSockets, initWSConnection,
+                                                   notify, upgradeApplicationWS)
+import           Pos.Wallet.Web.State             (AccountLookupMode (..), WalletWebDB,
+                                                   WebWalletModeDB, addAccount,
+                                                   addOnlyNewTxMeta, addUpdate,
+                                                   closeState, createWSet, createWallet,
+                                                   getHistoryCache, getNextUpdate,
+                                                   getProfile, getTxMeta,
+                                                   getWSetAddresses, getWSetMeta,
+                                                   getWSetPassLU, getWalletAccounts,
+                                                   getWalletAddresses, getWalletMeta,
+                                                   openState, removeAccount,
+                                                   removeNextUpdate, removeWSet,
+                                                   removeWallet, setProfile,
+                                                   setWSetPassLU, setWalletMeta,
+                                                   setWalletTransactionMeta, testReset,
+                                                   updateHistoryCache)
+import           Pos.Wallet.Web.State.Storage     (WalletStorage)
+import           Pos.Wallet.Web.Tracking          (syncWalletSetWithTip)
+import           Pos.Web.Server                   (serveImpl)
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -141,6 +156,8 @@ type WalletWebMode m
       , MonadDB m
       )
 
+type WSConnectionBox = TVar (Maybe WS.Connection)
+
 makeLenses ''SyncProgress
 
 walletServeImpl
@@ -148,20 +165,31 @@ walletServeImpl
        , MonadMask m
        , WalletWebMode (WalletWebHandler m))
     => WalletWebHandler m Application     -- ^ Application getter
-    -> FilePath                           -- ^ Path to wallet acid-state
-    -> Bool                               -- ^ Rebuild flag for acid-state
     -> Word16                             -- ^ Port to listen
-    -> m ()
-walletServeImpl app daedalusDbPath dbRebuild port =
-    bracket pre post $ \(db, conn) ->
-        serveImpl (runWalletWebDB db $ runWalletWS conn app) "127.0.0.1" port
+    -> WalletWebHandler m ()
+walletServeImpl app port =
+    serveImpl app "127.0.0.1" port
+
+bracketWalletWebDB
+    :: ( MonadIO m
+       , MonadMask m
+       )
+    => FilePath  -- ^ Path to wallet acid-state
+    -> Bool      -- ^ Rebuild flag for acid-state
+    -> (ExtendedState WalletStorage -> m a)
+    -> m a
+bracketWalletWebDB daedalusDbPath dbRebuild =
+    bracket (openState dbRebuild daedalusDbPath)
+            closeState
+
+bracketWalletWS
+    :: ( MonadIO m
+       , MonadMask m)
+    => (WSConnectionBox -> m a)
+    -> m a
+bracketWalletWS = bracket initWS closeWSConnection
   where
-    pre = (,) <$> openDB <*> initWS
-    post (db, conn) = closeDB db >> closeWS conn
-    openDB = openState dbRebuild daedalusDbPath
-    closeDB = closeState
     initWS = putText "walletServeImpl initWsConnection" >> initWSConnection
-    closeWS = closeWSConnection
 
 walletApplication
     :: WalletWebMode m
@@ -174,24 +202,18 @@ walletApplication serv = do
 walletServer
     :: (Monad m, MonadIO m, WalletWebMode (WalletWebHandler m))
     => m (Set NodeId)
-    -> SendActions m
+    -> SendActions (WalletWebHandler m)
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
 walletServer getPeers sendActions nat = do
-    ws    <- lift getWalletState
-    socks <- getWalletWebSockets
     let getPeers' = lift . lift $ getPeers
-    let sendActions' = hoistSendActions
-            (lift . lift)
-            (runWalletWebDB ws . runWalletWS socks)
-            sendActions
     nat >>= launchNotifier
     myAddresses <- myRootAddresses
     mapM_ insertAddressMeta myAddresses
     -- Sync wallets with GState.
     mapM_ (syncWalletSetWithTip @WalletSscType <=< getSKByAddr) myAddresses
-    addInitialRichAccount getPeers' sendActions' 0
-    (`enter` servantHandlers getPeers' sendActions') <$> nat
+    addInitialRichAccount getPeers' sendActions 0
+    (`enter` servantHandlers getPeers' sendActions) <$> nat
   where
     insertAddressMeta cAddr = do
         curTime <- liftIO getPOSIXTime

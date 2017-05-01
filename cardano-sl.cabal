@@ -570,12 +570,14 @@ executable cardano-node
                      , formatting
                      , lens
                      , log-warper
+                     , mtl
                      , network-transport
                      , node-sketch
                      , network-transport-tcp
                      , optparse-simple
                      , parsec
                      , serokell-util >= 0.1.3.4
+                     , stm-containers
                      , time
                      , time-units
                      , universum >= 0.1.11

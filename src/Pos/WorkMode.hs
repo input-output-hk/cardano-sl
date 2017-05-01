@@ -129,7 +129,7 @@ type ServiceMode = PeerStateHolder (LoggerNameBox Production)
 -- Stub implementation for usual node.
 instance MonadBListener (RawRealMode ssc) where
     onApplyBlocks _ = pass --error "PATAK_ON_APPLY"
-    onRollbackBlocks = pass --error "PATAK_ON_ROLL"
+    onRollbackBlocks _ = pass --error "PATAK_ON_ROLL"
 instance MonadBListener ServiceMode where
     onApplyBlocks _ = pass --error "PATAK_ON_APPLY"
     onRollbackBlocks _ = pass --error "PATAK_ON_ROLL"

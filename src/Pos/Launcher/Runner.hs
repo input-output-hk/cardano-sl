@@ -7,6 +7,7 @@
 module Pos.Launcher.Runner
        ( -- * High level runners
          runRawRealMode
+       , runRawBasedMode
        , runProductionMode
        , runStatsMode
        , runServiceMode
@@ -100,7 +101,7 @@ import           Pos.Update.MemState         (newMemVar)
 import           Pos.Util.UserSecret         (usKeys)
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (ProductionMode, RawRealMode, ServiceMode,
-                                              StatsMode)
+                                              StatsMode, WorkMode)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -220,6 +221,25 @@ runServer_ peerId transport packedLS outSpecs =
     release = const pass
 
 -- | ProductionMode runner.
+runRawBasedMode
+    :: forall ssc m a.
+       (SscConstraint ssc, WorkMode ssc m)
+    => (forall b. m b -> RawRealMode ssc b)
+    -> (forall b. RawRealMode ssc b -> m b)
+    -> PeerId
+    -> RealModeResources m
+    -> NodeParams
+    -> SscParams ssc
+    -> (ActionSpec m a, OutSpecs)
+    -> Production a
+runRawBasedMode unwrap wrap peerId res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
+    runRawRealMode peerId (hoistResources unwrap res) np sscnp listeners outSpecs $ ActionSpec
+        $ \vI sendActions -> unwrap . action vI $ hoistSendActions wrap unwrap sendActions
+  where
+    listeners = unwrap $
+        first (hoistListenerSpec unwrap wrap <$>) <$> allListeners (rmGetPeers res)
+
+-- | ProductionMode runner.
 runProductionMode
     :: forall ssc a.
        (SscConstraint ssc)
@@ -229,12 +249,7 @@ runProductionMode
     -> SscParams ssc
     -> (ActionSpec (ProductionMode ssc) a, OutSpecs)
     -> Production a
-runProductionMode peerId res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
-    runRawRealMode peerId (hoistResources getNoStatsT res) np sscnp listeners outSpecs $ ActionSpec
-        $ \vI sendActions -> getNoStatsT . action vI $ hoistSendActions lift getNoStatsT sendActions
-  where
-    listeners = getNoStatsT $
-        first (hoistListenerSpec getNoStatsT lift <$>) <$> allListeners (rmGetPeers res)
+runProductionMode = runRawBasedMode getNoStatsT lift
 
 -- | StatsMode runner.
 -- [CSL-169]: spawn here additional listener, which would accept stat queries
@@ -248,13 +263,9 @@ runStatsMode
     -> SscParams ssc
     -> (ActionSpec (StatsMode ssc) a, OutSpecs)
     -> Production a
-runStatsMode peerId res np@NodeParams {..} sscnp (ActionSpec action, outSpecs) = do
+runStatsMode peerId res np sscnp action = do
     statMap <- liftIO SM.newIO
-    let listeners = runStatsT' statMap $
-            first (hoistListenerSpec (runStatsT' statMap) lift <$>) <$> allListeners (rmGetPeers res)
-    runRawRealMode peerId (hoistResources (runStatsT' statMap) res) np sscnp listeners outSpecs . ActionSpec $
-        \vI sendActions ->
-            runStatsT' statMap . action vI $ hoistSendActions lift (runStatsT' statMap) sendActions
+    runRawBasedMode (runStatsT' statMap) lift peerId res np sscnp action
 
 ----------------------------------------------------------------------------
 -- Lower level runners

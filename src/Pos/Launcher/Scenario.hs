@@ -44,7 +44,8 @@ import           Pos.Util.LogSafe       (logInfoS)
 import           Pos.Worker             (allWorkers, allWorkersCount)
 import           Pos.WorkMode           (WorkMode)
 
--- | Run full node in any WorkMode.
+-- | Entry point of full node.
+-- Initialization, running of workers, running of plugins.
 runNode'
     :: forall ssc m.
        (SscConstraint ssc, WorkMode ssc m, MonadDBCore m)
@@ -84,7 +85,8 @@ runNode' res plugins' = ActionSpec $ \vI sendActions -> do
                     " failed with exception: "%shown)
             loggerName e
 
--- | Run full node in any WorkMode.
+-- | Entry point of full node.
+-- Initialization, running of workers, running of plugins.
 runNode
     :: (SscConstraint ssc, WorkMode ssc m, MonadDBCore m)
     => RealModeResources m

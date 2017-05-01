@@ -17,21 +17,22 @@ import qualified Ether
 import           System.Wlog           (logWarning)
 import           Universum
 
-import           Pos.Binary.Update     ()
-import           Pos.Core              (addressHash)
-import           Pos.Crypto            (hash)
-import           Pos.Types             (SoftwareVersion (..))
-import           Pos.Update.Core       (UpdateProposal (..))
-import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types (BlockVersionState (..), DecidedProposalState (..),
-                                        PollModifier (..), ProposalState (..),
-                                        UndecidedProposalState (..), cpsSoftwareVersion,
-                                        pmActivePropsL, pmAdoptedBVFullL, pmBVsL,
-                                        pmConfirmedL, pmConfirmedPropsL,
-                                        pmDelActivePropsIdxL, pmEpochProposersL,
-                                        pmSlottingDataL, psProposal)
-import           Pos.Util              (ether)
-import qualified Pos.Util.Modifier     as MM
+import           Pos.Binary.Update            ()
+import           Pos.Core                     (addressHash)
+import           Pos.Crypto                   (hash)
+import           Pos.Types                    (SoftwareVersion (..))
+import           Pos.Update.Core              (UpdateProposal (..))
+import           Pos.Update.Poll.Class        (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Types        (BlockVersionState (..),
+                                               DecidedProposalState (..),
+                                               PollModifier (..), ProposalState (..),
+                                               UndecidedProposalState (..),
+                                               cpsSoftwareVersion, pmActivePropsL,
+                                               pmAdoptedBVFullL, pmBVsL, pmConfirmedL,
+                                               pmConfirmedPropsL, pmEpochProposersL,
+                                               pmSlottingDataL, psProposal)
+import           Pos.Util                     (ether)
+import qualified Pos.Util.Modifier            as MM
 
 ----------------------------------------------------------------------------
 -- Tranformer
@@ -138,28 +139,17 @@ instance MonadPollRead m =>
     delConfirmedProposal sv = ether $
         pmConfirmedPropsL %= MM.delete sv
     insertActiveProposal ps = do
-        let up@UnsafeUpdateProposal{upSoftwareVersion = sv, ..} = psProposal ps
+        let up@UnsafeUpdateProposal{..} = psProposal ps
             upId = hash up
-            appName = svAppName sv
         whenNothingM_ (getProposal upId) $
             setEpochProposers =<< (HS.insert (addressHash upFrom) <$> getEpochProposers)
-        ether $ do
-            let alterDel _ Nothing     = Nothing
-                alterDel val (Just hs) = Just $ HS.delete val hs
-            pmActivePropsL %= MM.insert upId ps
-            pmDelActivePropsIdxL %= HM.alter (alterDel upId) appName
+        ether $ pmActivePropsL %= MM.insert upId ps
     -- Deactivate proposal doesn't change epoch proposers.
     deactivateProposal id = do
         prop <- getProposal id
         whenJust prop $ \ps -> ether $ do
             let up = psProposal ps
                 upId = hash up
-                sv = upSoftwareVersion up
-                appName = svAppName sv
-
-                alterIns val Nothing   = Just $ HS.singleton val
-                alterIns val (Just hs) = Just $ HS.insert val hs
             pmActivePropsL %= MM.delete upId
-            pmDelActivePropsIdxL %= HM.alter (alterIns upId) appName
     setSlottingData sd = ether $ pmSlottingDataL .= Just sd
     setEpochProposers ep = ether $ pmEpochProposersL .= Just ep

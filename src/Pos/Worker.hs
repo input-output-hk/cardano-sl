@@ -14,8 +14,8 @@ import           Universum
 import           Data.Tagged             (untag)
 
 import           Pos.Block.Worker        (blkWorkers)
-import           Pos.Communication       (NodeId, OutSpecs, WorkerSpec, localWorker,
-                                          relayWorkers, wrapActionSpec)
+import           Pos.Communication       (OutSpecs, WorkerSpec, localWorker, relayWorkers,
+                                          wrapActionSpec)
 import           Pos.Communication.Specs (allOutSpecs)
 import           Pos.DB                  (MonadDBCore)
 import           Pos.Delegation          (dlgWorkers)
@@ -36,32 +36,32 @@ allWorkers
        , WorkMode ssc m
        , MonadDBCore m
        )
-    => m (Set NodeId) -> ([WorkerSpec m], OutSpecs)
-allWorkers getPeers = mconcatPair
+    => ([WorkerSpec m], OutSpecs)
+allWorkers = mconcatPair
     [
       -- Only workers of "onNewSlot" type
 
       -- TODO cannot have this DHT worker here. It assumes Kademlia.
       --wrap' "dht"        $ dhtWorkers
 
-      wrap' "ssc"        $ untag (sscWorkers getPeers)
-    , wrap' "security"   $ untag (securityWorkers getPeers)
-    , wrap' "lrc"        $ first pure (lrcOnNewSlotWorker getPeers)
-    , wrap' "us"         $ usWorkers getPeers
+      wrap' "ssc"        $ untag sscWorkers
+    , wrap' "security"   $ untag securityWorkers
+    , wrap' "lrc"        $ first pure lrcOnNewSlotWorker
+    , wrap' "us"         $ usWorkers
 
       -- Have custom loggers
-    , wrap' "block"      $ blkWorkers getPeers
-    , wrap' "txp"        $ txpWorkers getPeers
-    , wrap' "delegation" $ dlgWorkers getPeers
+    , wrap' "block"      $ blkWorkers
+    , wrap' "txp"        $ txpWorkers
+    , wrap' "delegation" $ dlgWorkers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
-    , wrap' "relay"      $ relayWorkers getPeers allOutSpecs
+    , wrap' "relay"      $ relayWorkers allOutSpecs
 
     -- I don't know, guys, I don't know :(
     -- , const ([], mempty) statsWorkers
     ]
   where
     properSlottingWorkers =
-        map (fst . localWorker) (logNewSlotWorker getPeers : slottingWorkers)
+        map (fst . localWorker) (logNewSlotWorker : slottingWorkers)
     wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)
 
 -- FIXME this shouldn't be needed.
@@ -69,4 +69,4 @@ allWorkersCount
     :: forall ssc m.
        (MonadDBCore m, SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m)
     => Int
-allWorkersCount = length $ fst (allWorkers @ssc @m (error "Panic! allWorkersCount"))
+allWorkersCount = length $ fst (allWorkers @ssc @m)

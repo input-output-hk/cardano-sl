@@ -13,20 +13,20 @@ import           Serokell.Util              (sec)
 import           System.Wlog                (WithLogger, logError)
 import           Universum
 
-import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localWorker,
-                                             NodeId)
+import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localWorker)
 import           Pos.Context.Class          (WithNodeContext)
 import           Pos.Delegation.Class       (MonadDelegation)
 import           Pos.Delegation.Logic       (invalidateProxyCaches,
                                              runDelegationStateAction)
+import           Pos.Discovery.Class        (MonadDiscovery)
 import           Pos.Reporting              (MonadReportingMem)
 import           Pos.Reporting.Methods      (reportingFatal)
 import           Pos.Shutdown               (MonadShutdownMem, runIfNotShutdown)
 import           Pos.WorkMode               (WorkMode)
 
 -- | All workers specific to proxy sertificates processing.
-dlgWorkers :: (WorkMode ssc m) => m (Set NodeId) -> ([WorkerSpec m], OutSpecs)
-dlgWorkers getPeers = first pure $ localWorker (dlgInvalidateCaches getPeers)
+dlgWorkers :: (WorkMode ssc m) => ([WorkerSpec m], OutSpecs)
+dlgWorkers = first pure $ localWorker dlgInvalidateCaches
 
 -- | Runs proxy caches invalidating action every second.
 dlgInvalidateCaches
@@ -38,13 +38,14 @@ dlgInvalidateCaches
        , WithNodeContext ssc m
        , MonadReportingMem m
        , MonadShutdownMem m
+       , MonadDelegation m
+       , MonadDiscovery m
        )
-    => m (Set NodeId)
-    -> m ()
-dlgInvalidateCaches getPeers = runIfNotShutdown $ do
-    reportingFatal getPeers version invalidate `catch` handler
+    => m ()
+dlgInvalidateCaches = runIfNotShutdown $ do
+    reportingFatal version invalidate `catch` handler
     delay (sec 1)
-    dlgInvalidateCaches getPeers
+    dlgInvalidateCaches
   where
     handler :: WithLogger m => SomeException -> m ()
     handler =

@@ -5,7 +5,6 @@ module Pos.Update.Poll.Modifier
        ) where
 
 import           Data.Default          (Default (def))
-import qualified Data.HashMap.Strict   as HM
 import           Data.Semigroup        (Semigroup)
 import           Universum
 
@@ -19,7 +18,6 @@ instance Default PollModifier where
         , pmConfirmed = mempty
         , pmConfirmedProps = mempty
         , pmActiveProps = mempty
-        , pmDelActivePropsIdx = mempty
         , pmSlottingData = Nothing
         , pmEpochProposers = mempty
         }
@@ -33,12 +31,8 @@ modifyPollModifier pmOld pmNew = PollModifier
     (pmConfirmed pmOld <> pmConfirmed pmNew)
     (pmConfirmedProps pmOld <> pmConfirmedProps pmNew)
     (pmActiveProps pmOld <> pmActiveProps pmNew)
-    (unionHM pmDelActivePropsIdx)
     (pmSlottingData pmNew <|> pmSlottingData pmOld)
     (pmEpochProposers pmNew <|> pmEpochProposers pmOld)
-  where
-    unionHM :: (Hashable k, Eq k) => (PollModifier -> HashMap k v) -> HashMap k v
-    unionHM getter = getter pmNew `HM.union` getter pmOld
 
 instance Semigroup PollModifier where
 

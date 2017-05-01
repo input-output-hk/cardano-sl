@@ -38,7 +38,7 @@ import           Universum
 
 import           Pos.Context             (lrcActionOnEpochReason)
 import           Pos.DB                  (MonadDB)
-import           Pos.DB.DB               (getTipBlockHeader)
+import           Pos.DB.Block            (getTipBlockHeader)
 import           Pos.Exception           (assertionFailed)
 import           Pos.Lrc.Context         (LrcContext)
 import qualified Pos.Lrc.DB              as LrcDB

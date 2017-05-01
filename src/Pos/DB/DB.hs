@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Higher-level DB functionality.
@@ -25,8 +26,9 @@ import           Universum
 import           Pos.Block.Types                  (Blund)
 import           Pos.Context.Class                (WithNodeContext)
 import           Pos.Context.Functions            (genesisLeadersM)
-import           Pos.DB.Block                     (getBlock, loadBlundsByDepth,
-                                                   loadBlundsWhile, prepareBlockDB)
+import           Pos.DB.Block                     (getTipBlock, getTipBlockHeader,
+                                                   loadBlundsByDepth, loadBlundsWhile,
+                                                   prepareBlockDB)
 import           Pos.DB.Class                     (MonadDB, MonadDBCore (..))
 import           Pos.DB.Error                     (DBError (DBMalformed))
 import           Pos.DB.Functions                 (openDB)
@@ -43,6 +45,9 @@ import           Pos.Types                        (Block, BlockHeader, getBlockH
 import           Pos.Update.DB                    (getAdoptedBVData)
 import           Pos.Util                         (inAssertMode)
 import           Pos.Util.Chrono                  (NewestFirst)
+#ifdef WITH_EXPLORER
+import           Pos.Explorer                     (prepareExplorerDB)
+#endif
 
 -- | Open all DBs stored on disk.
 openNodeDBs
@@ -87,20 +92,9 @@ initNodeDBs = do
     prepareGStateBlockExtra initialTip
     prepareLrcDB
     prepareMiscDB
-
--- | Get block corresponding to tip.
-getTipBlock
-    :: (SscHelpersClass ssc, MonadDB m)
-    => m (Block ssc)
-getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
-  where
-    onFailure = throwM $ DBMalformed "there is no block corresponding to tip"
-
--- | Get BlockHeader corresponding to tip.
-getTipBlockHeader
-    :: (SscHelpersClass ssc, MonadDB m)
-    => m (BlockHeader ssc)
-getTipBlockHeader = getBlockHeader <$> getTipBlock
+#ifdef WITH_EXPLORER
+    prepareExplorerDB
+#endif
 
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.

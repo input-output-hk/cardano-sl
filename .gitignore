@@ -61,3 +61,5 @@ kademlia-abc.dump
 b
 lint
 .idea
+.ideaHaskellLib
+*.iml

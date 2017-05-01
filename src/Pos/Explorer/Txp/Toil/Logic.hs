@@ -9,6 +9,7 @@ module Pos.Explorer.Txp.Toil.Logic
        , eRollbackToil
        , eNormalizeToil
        , eProcessTx
+       , putGenesisBalances
        ) where
 
 import           Universum
@@ -19,6 +20,7 @@ import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
 import           Data.List                   (delete)
 import qualified Data.List.NonEmpty          as NE
+import qualified Data.Map.Strict             as M
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (WithLogger, logError)
 

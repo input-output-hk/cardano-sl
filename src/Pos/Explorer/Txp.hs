@@ -7,5 +7,6 @@ module Pos.Explorer.Txp
        ) where
 
 import           Pos.Explorer.Txp.Global
+import           Pos.Explorer.Txp.Init   (putGenesisBalances)
 import           Pos.Explorer.Txp.Local
 import           Pos.Explorer.Txp.Toil   (ExplorerExtra)

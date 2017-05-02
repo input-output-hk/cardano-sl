@@ -45,6 +45,11 @@ type ExplorerApi =
       :> Get '[JSON] (Either ExplorerError [CTxBrief])
     :<|>
       "api"
+      :> "blocks"
+      :> "total"
+      :> Get '[JSON] (Either ExplorerError Int)
+    :<|>
+      "api"
       :> "txs"
       :> "last"
       :> QueryParam "limit" Word

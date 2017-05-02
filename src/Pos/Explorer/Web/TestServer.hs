@@ -46,6 +46,8 @@ explorerHandlers =
     :<|>
       apiBlocksTxs
     :<|>
+      apiBlocksTotalNumber
+    :<|>
       apiTxsLast
     :<|>
       apiTxsSummary
@@ -57,6 +59,7 @@ explorerHandlers =
     apiBlocksLast       = testBlocksLast
     apiBlocksSummary    = testBlocksSummary
     apiBlocksTxs        = testBlocksTxs
+    apiBlocksTotalNumber= testBlocksTotalNumber
     apiTxsLast          = testTxsLast
     apiTxsSummary       = testTxsSummary
     apiAddressSummary   = testAddressSummary
@@ -126,6 +129,10 @@ testBlocksTxs _ _ _ = pure . pure $ [CTxBrief
     , ctbInputSum   = mkCCoin $ mkCoin 33333
     , ctbOutputSum  = mkCCoin $ mkCoin 33333
     }]
+
+testBlocksTotalNumber
+    :: Handler (Either ExplorerError Int)
+testBlocksTotalNumber = pure . pure $ 333
 
 testTxsLast
     :: Maybe Word

@@ -28,41 +28,54 @@ import           Universum
 import           Pos.Communication              (SendActions)
 import           Pos.Crypto                     (WithHash (..), hash, withHash)
 import qualified Pos.DB.Block                   as DB
+import qualified Pos.DB.DB                      as DB
 import qualified Pos.DB.GState                  as GS
 import qualified Pos.DB.GState.Balances         as GS
 
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class                  (SscHelpersClass)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (Tx (..), TxAux, TxId, TxOutAux (..),
-                                                 getLocalTxs, getMemPool, mpLocalTxs,
-                                                 topsortTxs, txOutValue, _txOutputs)
-import           Pos.Types                      (Address (..), Block, EpochIndex,
-                                                 HeaderHash, LocalSlotIndex (..),
-                                                 MainBlock, Timestamp, blockSlot,
-                                                 blockTxs, difficultyL, gbHeader,
-                                                 gbhConsensus, genesisHash, mcdSlot,
-                                                 mkCoin, prevBlockL, siEpoch, siSlot,
-                                                 sumCoins, unsafeIntegerToCoin,
+import           Pos.Txp                        (Tx (..), TxAux, TxId,
+                                                 TxOutAux (..), getLocalTxs,
+                                                 getMemPool, mpLocalTxs,
+                                                 topsortTxs, txOutValue,
+                                                 _txOutputs)
+import           Pos.Types                      (Address (..), Block,
+                                                 EpochIndex, HeaderHash,
+                                                 LocalSlotIndex (..), MainBlock,
+                                                 Timestamp, blockSlot, blockTxs,
+                                                 difficultyL, gbHeader,
+                                                 gbhConsensus, genesisHash,
+                                                 getChainDifficulty, mcdSlot,
+                                                 mkCoin, prevBlockL, siEpoch,
+                                                 siSlot, sumCoins,
+                                                 unsafeIntegerToCoin,
                                                  unsafeSubCoin)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (NewestFirst (..))
 import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
+import           Pos.DB.Class                   (MonadDB)
 
 import           Pos.Explorer                   (TxExtra (..), getTxExtra)
-import qualified Pos.Explorer                   as EX (getAddrHistory, getTxExtra)
+import qualified Pos.Explorer                   as EX (getAddrHistory,
+                                                       getTxExtra)
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
-                                                 CBlockEntry (..), CBlockSummary (..),
-                                                 CHash, CTxBrief (..), CTxEntry (..),
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
+                                                 CAddressSummary (..),
+                                                 CBlockEntry (..),
+                                                 CBlockSummary (..), CHash,
+                                                 CTxBrief (..), CTxEntry (..),
                                                  CTxId (..), CTxSummary (..),
-                                                 TxInternal (..), convertTxOutputs,
-                                                 fromCAddress, fromCHash, fromCTxId,
-                                                 mkCCoin, tiToTxEntry, toBlockEntry,
-                                                 toBlockSummary, toPosixTime, toTxBrief)
+                                                 TxInternal (..),
+                                                 convertTxOutputs, fromCAddress,
+                                                 fromCHash, fromCTxId, mkCCoin,
+                                                 tiToTxEntry, toBlockEntry,
+                                                 toBlockSummary, toPosixTime,
+                                                 toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
+
 
 
 
@@ -93,6 +106,8 @@ explorerHandlers _sendActions =
     :<|>
       apiBlocksTxs
     :<|>
+      apiBlocksTotalNumber
+    :<|>
       apiTxsLast
     :<|>
       apiTxsSummary
@@ -104,6 +119,7 @@ explorerHandlers _sendActions =
     apiBlocksLast       = getLastBlocksDefault
     apiBlocksSummary    = catchExplorerError . getBlockSummary
     apiBlocksTxs        = getBlockTxsDefault
+    apiBlocksTotalNumber= catchExplorerError $ getBlocksTotalNumber
     apiTxsLast          = getLastTxsDefault
     apiTxsSummary       = catchExplorerError . getTxSummary
     apiAddressSummary   = catchExplorerError . getAddressSummary
@@ -125,6 +141,24 @@ explorerHandlers _sendActions =
 
     defaultLimit limit = (fromIntegral $ fromMaybe 100 limit)
     defaultSkip  skip  = (fromIntegral $ fromMaybe 0 skip)
+
+-- | Get the total number of blocks/slots currently available.
+-- Total number of main blocks   = difficulty of the topmost (tip) header.
+-- Total number of anchor blocks = current epoch + 1
+getBlocksTotalNumber
+    :: (MonadDB m)
+    => m Int
+getBlocksTotalNumber = do
+    -- Get the tip block.
+    tipBlock <- DB.getTipBlock @SscGodTossing
+    -- -1 is for the genesis block I guess?
+    pure $ checkMaxBlocks $ maxBlocks tipBlock - 1
+  where
+    maxBlocks tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
+    -- This just makes sure that the values aren't negative at the start.
+    checkMaxBlocks x
+      | x >= 0    = x
+      | otherwise = 0
 
 -- | Search the blocks by epoch and slot. Slot is optional.
 epochSlotSearch

@@ -159,6 +159,9 @@ instance ToSample CBlockEntry where
             , cbeRelayedBy  = Nothing
             }
 
+instance ToSample Int where
+    toSamples Proxy = [("Sample Int", 1)]
+
 instance ToSample CBlockSummary where
     toSamples Proxy = [("Sample block summary", sample)]
       where

@@ -31,7 +31,7 @@ data SendMode = SendNeighbours | SendRoundRobin deriving Show
 data Command
     = Balance Address
     | Send Int (NonEmpty TxOut)
-    | SendToAllGenesis !Coin !Int !SendMode !FilePath
+    | SendToAllGenesis !Int !Int !SendMode !FilePath
     | Vote Int Bool UpId
     | ProposeUpdate
           { puIdx             :: Int           -- TODO: what is this? rename
@@ -109,7 +109,7 @@ sendMode = lexeme $ text "neighbours" $> SendNeighbours
                 <|> text "round-robin" $> SendRoundRobin
 
 sendToAllGenesis :: Parser Command
-sendToAllGenesis = SendToAllGenesis <$> coin <*> num <*> sendMode <*> lexeme (many1 anyChar)
+sendToAllGenesis = SendToAllGenesis <$> num <*> num <*> sendMode <*> lexeme (many1 anyChar)
 
 vote :: Parser Command
 vote = Vote <$> num <*> switch <*> hash

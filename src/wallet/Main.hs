@@ -40,7 +40,7 @@ import           Pos.Communication          (OutSpecs, SendActions, Worker', Wor
                                              sendTxOuts, submitTx, worker, NodeId)
 import           Pos.Constants              (genesisBlockVersionData, genesisSlotDuration,
                                              isDevelopment)
-import           Pos.Core.Types             (Timestamp (..))
+import           Pos.Core.Types             (Timestamp (..), mkCoin)
 import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignUSVote),
                                              emptyPassphrase, encToPublic, fakeSigner,
                                              hash, hashHexF, noPassEncrypt, safeSign,
@@ -107,7 +107,7 @@ runCmd _ sendActions (Send idx outputs) = do
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
-runCmd _ sendActions (SendToAllGenesis amount conc sendMode tpsSentFile) = do
+runCmd _ sendActions (SendToAllGenesis nTrans conc sendMode tpsSentFile) = do
     (skeys, na) <- ask
     let nNeighbours = length na
     let slotDuration = fromIntegral (toMicroseconds genesisSlotDuration) `div` 1000000 :: Int
@@ -121,10 +121,10 @@ runCmd _ sendActions (SendToAllGenesis amount conc sendMode tpsSentFile) = do
                                                , "startTime=" <> startTime]
     liftIO $ T.hPutStrLn h "time,txCount,txType"
     txQueue <- liftIO . atomically $ newTQueue
-    forM_ (zip skeys [0..]) $ \(key, n) -> do
+    forM_ (zip skeys [0 .. nTrans-1]) $ \(key, n) -> do
         let txOut = TxOut {
                 txOutAddress = makePubKeyAddress (toPublic key),
-                txOutValue = amount
+                txOutValue = mkCoin 1
                 }
         let neighbours = case sendMode of
                 SendNeighbours -> na

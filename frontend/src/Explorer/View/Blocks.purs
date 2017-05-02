@@ -11,20 +11,20 @@ module Explorer.View.Blocks
 import Prelude
 import Control.Monad.Eff.Exception (Error)
 import Data.Array (length, null, slice)
+import Data.DateTime (diff)
 import Data.Lens ((^.))
 import Data.Maybe (fromMaybe)
-import Data.DateTime (diff)
 import Data.Time.Duration (Milliseconds)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (block, blNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB) as I18nL
-import Explorer.Lenses.State (blocksViewState, blsViewPagination, currentBlocksResult, lang, viewStates)
+import Explorer.I18n.Lenses (block, blNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cSizeKB) as I18nL
+import Explorer.Lenses.State (blocksViewState, blsViewPagination, blsViewPaginationEditable, currentBlocksResult, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
+import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (State, CBlockEntries, CCurrency (ADA))
-import Explorer.Util.DOM (targetToHTMLInputElement)
+import Explorer.Types.State (State, CBlockEntries)
 import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
-import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnRelayedBy, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
-import Explorer.View.Common (getMaxPaginationNumber, noData, paginationView, currencyCSSClass)
+import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
+import Explorer.View.Common (getMaxPaginationNumber, noData, paginationView)
 import Network.RemoteData (RemoteData(..))
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, cbeBlkHash, cbeEpoch, cbeSlot, cbeRelayedBy, cbeSize, cbeTotalSent, cbeTxNum)
@@ -62,9 +62,12 @@ blocksView state =
                           let paginationViewProps =
                                   { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                                   , currentPage: state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
+                                  , minPage: minPagination
                                   , maxPage: getMaxPaginationNumber (length blocks) maxBlockRows
                                   , changePageAction: BlocksPaginateBlocks
-                                  , onFocusAction: SelectInputText <<< targetToHTMLInputElement
+                                  , editable: state ^. (viewStates <<< blocksViewState <<< blsViewPaginationEditable)
+                                  , editableAction: BlocksEditBlocksPageNumber
+                                  , invalidPageAction: BlocksInvalidBlocksPageNumber
                                   }
                           in
                           P.div

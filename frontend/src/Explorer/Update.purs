@@ -1,14 +1,13 @@
 module Explorer.Update where
 
 import Prelude
-import Control.Comonad (extract)
 import Control.Monad.Aff (attempt)
 import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Now (nowDateTime, NOW)
 import Control.SocketIO.Client (SocketIO, emit, emit')
+import Control.Comonad (extract)
 import DOM (DOM)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array (difference, union, unionBy, (:))
+import Data.Array (difference, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Int (fromString)
@@ -32,9 +31,10 @@ import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Network.HTTP.Affjax (AJAX)
 import Network.RemoteData (RemoteData(..), _Success)
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, _CBlockEntry, _CHash, _CTxEntry, _CTxId, caAddress, cbeBlkHash, cteId)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects, onlyEffects)
 import Pux.Router (navigateTo) as P
+import Control.Monad.Eff.Now (nowDateTime, NOW)
 
 
 update :: forall eff. Action -> State ->
@@ -160,8 +160,7 @@ update (BlocksPaginateBlocks value) state = noEffects $
 update ScrollTop state =
     { state
     , effects:
-        -- FIXME: scrollTop disabled as a workaround for socketio
-        [ -- liftEff scrollTop >>= \_ -> pure NoOp
+        [ liftEff scrollTop >>= \_ -> pure NoOp
         ]
     }
 update (SelectInputText input) state =
@@ -261,17 +260,8 @@ update (ReceiveInitialBlocks (Right blocks)) state =
     set loading false <<<
     set initialBlocksRequested true <<<
     set handleLatestBlocksSocketResult true $
-    over latestBlocks (\b -> case b of
-                                  (Success b') -> Success $ unionBlocks blocks b'
-                                  _ -> Success blocks
-                      )
+    set latestBlocks (Success blocks) $
     state
-    where
-      getHash block = block ^. (_CBlockEntry <<< cbeBlkHash <<< _CHash)
-      -- Note: Because we don't have an Eq instance of generated CBlockEntry
-      unionBlocks = unionBy (\b1 b2 -> getHash b1 == getHash b2)
-
-
 
 update (ReceiveInitialBlocks (Left error)) state =
     noEffects $
@@ -333,18 +323,12 @@ update RequestInitialTxs state =
     { state: set loading true state
     , effects: [ attempt fetchLatestTxs >>= pure <<< ReceiveInitialTxs ]
     }
-update (ReceiveInitialTxs (Right txs)) state =
+update (ReceiveInitialTxs (Right blocks)) state =
     noEffects $
     set loading false <<<
     set initialTxsRequested true <<<
     set handleLatestTxsSocketResult true $
-    over latestTransactions (\t -> unionTxs txs t)
-    state
-    where
-      getId tx = tx ^. (_CTxEntry <<< cteId <<< _CTxId <<< _CHash)
-      -- Note: Because we don't have an Eq instance of generated CTxEntry
-      unionTxs = unionBy (\tx1 tx2 -> getId tx1 == getId tx2)
-
+    over latestTransactions (\b -> blocks <> b) state
 update (ReceiveInitialTxs (Left error)) state = noEffects $
     set loading false <<<
     set initialTxsRequested true <<<
@@ -389,9 +373,6 @@ update UpdateClock state = onlyEffects state $
     ]
 update (SetClock date) state = noEffects $ state { now = date }
 
--- socket-io workaround
-update Reload state = update (UpdateView state.route) state
-
 -- routing
 
 update (UpdateView route) state = routeEffects route (state { route = route })
@@ -406,8 +387,12 @@ routeEffects Dashboard state =
     , effects:
         [ pure ScrollTop
         , pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock, SocketSubscription SubTx ]
-        , pure RequestInitialBlocks
-        , pure RequestInitialTxs
+        , if not $ state ^. initialBlocksRequested
+          then pure RequestInitialBlocks
+          else pure NoOp
+        , if not $ state ^. initialTxsRequested
+          then pure RequestInitialTxs
+          else pure NoOp
         ]
     }
 

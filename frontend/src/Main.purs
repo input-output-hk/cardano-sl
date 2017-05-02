@@ -1,6 +1,6 @@
 module Main where
 
-import Prelude (($), (<$>), (<<<), bind, pure, const, (*))
+import Prelude (($), (<$>), (<<<), bind, pure, const)
 import Control.Bind ((=<<))
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Now (NOW, nowDateTime)
@@ -35,26 +35,25 @@ config state = do
   urlSignal <- sampleUrl
   let routeSignal = urlSignal ~> Ex.UpdateView <<< match
   let clockSignal = every second ~> const Ex.UpdateClock
-  let reloadSignal = every (60.0 * second) ~> const Ex.Reload
   -- socket
---  actionChannel <- channel $ Ex.SocketConnected false
---  let socketSignal = subscribe actionChannel :: Signal Ex.Action
---  socketHost <- Ex.mkSocketHost (secureProtocol false) <$> hostname
---  socket' <- connect socketHost
---  on socket' Ex.connectEvent $ Ex.connectHandler actionChannel
---  on socket' Ex.closeEvent $ Ex.closeHandler actionChannel
---  on socket' (toEvent TxsUpdated) $ Ex.txsUpdatedHandler actionChannel
---  on socket' (toEvent BlocksUpdated) $ Ex.blocksUpdatedEventHandler actionChannel
---  on socket' (toEvent CallYou) $ Ex.callYouEventHandler actionChannel
---  on socket' (toEvent CallYouString) $ Ex.callYouStringEventHandler actionChannel
---  on socket' (toEvent CallYouTxId) $ Ex.callYouCTxIdEventHandler actionChannel
+  actionChannel <- channel $ Ex.SocketConnected false
+  let socketSignal = subscribe actionChannel :: Signal Ex.Action
+  socketHost <- Ex.mkSocketHost (secureProtocol false) <$> hostname
+  socket' <- connect socketHost
+  on socket' Ex.connectEvent $ Ex.connectHandler actionChannel
+  on socket' Ex.closeEvent $ Ex.closeHandler actionChannel
+  on socket' (toEvent TxsUpdated) $ Ex.txsUpdatedHandler actionChannel
+  on socket' (toEvent BlocksUpdated) $ Ex.blocksUpdatedEventHandler actionChannel
+  on socket' (toEvent CallYou) $ Ex.callYouEventHandler actionChannel
+  on socket' (toEvent CallYouString) $ Ex.callYouStringEventHandler actionChannel
+  on socket' (toEvent CallYouTxId) $ Ex.callYouCTxIdEventHandler actionChannel
   dt <- extract <$> nowDateTime
 
   pure
-    { initialState: set (socket <<< connection) Nothing state
+    { initialState: set (socket <<< connection) (Just socket') state
     , update: Ex.update :: Update Ex.State Ex.Action AppEffects
     , view: view
-    , inputs: [clockSignal, reloadSignal, routeSignal]
+    , inputs: [clockSignal, socketSignal, routeSignal]
     }
 
 appSelector :: String

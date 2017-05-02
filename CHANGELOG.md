@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 (April 24, 2017)
+## 0.1.0 (April 24, 2017)
 
 ### Features:
 

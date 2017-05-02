@@ -69,7 +69,7 @@ data Args = Args
     , updateLatestPath          :: !FilePath
     , updateWithPackage         :: !Bool
     , monitorPort               :: !(Maybe Int)
-    , useNTP                    :: !Bool
+    , noNTP                     :: !Bool
     }
   deriving Show
 
@@ -178,8 +178,8 @@ argsParser = do
         long    "monitor-port" <>
         metavar "INT" <>
         help    "Run web monitor on this port"
-    useNTP <- switch $
-        long "use-ntp" <>
+    noNTP <- switch $
+        long "no-ntp" <>
         help "Whether to use real NTP servers to synchronise time or rely on local time"
 
     pure Args{..}

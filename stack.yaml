@@ -56,7 +56,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
-    commit: 838b064d8a59286142aa2fe14434fe7601896ddb
+    commit: 96adbd5aa9a906859deddf170f8762a9ed85c0c9
   extra-dep: true
 # We're using forked version of 'swagger2' package because of bug in haddock package.
 # Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will

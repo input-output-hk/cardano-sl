@@ -118,7 +118,7 @@ type ChangeWalletSetPassphrase = API
     :> "walletSets"
     :> "password"
     :> QueryParam "old" CPassPhrase
-    :> ReqBody '[JSON] (CAddress WS)
+    :> Capture "walletSetId" (CAddress WS)
     :> QueryParam "new" CPassPhrase
     :> Post '[JSON] (Either WalletError ())
 

@@ -19,6 +19,9 @@ module Node (
       Node(..)
     , LL.NodeEnvironment(..)
     , LL.defaultNodeEnvironment
+    , LL.ReceiveDelay
+    , LL.noReceiveDelay
+    , LL.constantReceiveDelay
     , nodeEndPointAddress
     , NodeAction(..)
     , node
@@ -300,13 +303,14 @@ node
        , Serializable packing peerData
        )
     => (SharedAtomicT m (LL.NodeState peerData m) -> LL.NodeEndPoint m)
+    -> (SharedAtomicT m (LL.NodeState peerData m) -> LL.ReceiveDelay m)
     -> StdGen
     -> packing
     -> peerData
     -> LL.NodeEnvironment m
     -> (Node m -> NodeAction packing peerData m t)
     -> m t
-node mkEndPoint prng packing peerData nodeEnv k = do
+node mkEndPoint mkReceiveDelay prng packing peerData nodeEnv k = do
     rec { let nId = LL.nodeId llnode
         ; let endPoint = LL.nodeEndPoint llnode
         ; let nodeUnit = Node nId endPoint (LL.nodeStatistics llnode)
@@ -320,6 +324,7 @@ node mkEndPoint prng packing peerData nodeEnv k = do
               packing
               peerData
               (mkEndPoint . LL.nodeState)
+              (mkReceiveDelay . LL.nodeState)
               prng
               nodeEnv
               (handlerIn listenerIndex sendActions)

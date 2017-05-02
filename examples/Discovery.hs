@@ -93,7 +93,7 @@ makeNode transport i = do
     let prng1 = mkStdGen (2 * i)
     let prng2 = mkStdGen ((2 * i) + 1)
     liftIO . putStrLn $ "Starting node " ++ show i
-    fork $ node (simpleNodeEndPoint transport) prng1 BinaryP (B8.pack "my peer data!") defaultNodeEnvironment $ \node' ->
+    fork $ node (simpleNodeEndPoint transport) (const noReceiveDelay) prng1 BinaryP (B8.pack "my peer data!") defaultNodeEnvironment $ \node' ->
         NodeAction (listeners . nodeId $ node') $ \sactions -> do
             liftIO . putStrLn $ "Making discovery for node " ++ show i
             discovery <- K.kademliaDiscovery kademliaConfig initialPeer (nodeEndPointAddress node')

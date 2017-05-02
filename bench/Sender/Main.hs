@@ -30,7 +30,7 @@ import           Network.Transport.Concrete     (concrete)
 import           Node                           (ListenerAction (..), Node (..),
                                                  NodeAction (..), defaultNodeEnvironment,
                                                  node, nodeEndPoint, sendTo,
-                                                 simpleNodeEndPoint)
+                                                 simpleNodeEndPoint, noReceiveDelay)
 import           Node.Internal                  (NodeId (..))
 import           Node.Message                   (BinaryP (..))
 
@@ -80,7 +80,7 @@ main = do
             let pingWorkers = liftA2 (pingSender prngWork payloadBound startTime msgRate)
                                      tasksIds
                                      (zip [0, msgNum..] nodeIds)
-            node (simpleNodeEndPoint transport) prngNode BinaryP () defaultNodeEnvironment $ \node' ->
+            node (simpleNodeEndPoint transport) (const noReceiveDelay) prngNode BinaryP () defaultNodeEnvironment $ \node' ->
                 NodeAction [pongListener] $ \sactions -> do
                     drones <- forM nodeIds (startDrone node')
                     _ <- forM pingWorkers (fork . flip ($) sactions)

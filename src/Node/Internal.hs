@@ -22,6 +22,9 @@ module Node.Internal (
     defaultNodeEnvironment,
     NodeEndPoint(..),
     simpleNodeEndPoint,
+    ReceiveDelay,
+    noReceiveDelay,
+    constantReceiveDelay,
     NodeState(..),
     nodeId,
     nodeEndPointAddress,
@@ -170,6 +173,15 @@ defaultNodeEnvironment = NodeEnvironment {
       nodeAckTimeout = 30000000
     }
 
+-- | Computation in m of a delay (or no delay).
+type ReceiveDelay m = m (Maybe Microsecond)
+
+noReceiveDelay :: Applicative m => ReceiveDelay m
+noReceiveDelay = pure Nothing
+
+constantReceiveDelay :: Applicative m => Microsecond -> ReceiveDelay m
+constantReceiveDelay = pure . Just
+
 -- | A 'Node' is a network-transport 'EndPoint' with bidirectional connection
 --   state and a thread to dispatch network-transport events.
 data Node packingType peerData (m :: * -> *) = Node {
@@ -180,6 +192,12 @@ data Node packingType peerData (m :: * -> *) = Node {
      , nodeState            :: SharedAtomicT m (NodeState peerData m)
      , nodePackingType      :: packingType
      , nodePeerData         :: peerData
+       -- | How long to wait before dequeueing an event from the
+       --   network-transport receive queue, where Nothing means
+       --   instantaneous (different from a 0 delay).
+       --   The term is evaluated once for each dequeued event, immediately
+       --   before dequeueing it.
+     , nodeReceiveDelay     :: ReceiveDelay m
      }
 
 nodeId :: Node packingType peerData m -> NodeId
@@ -574,11 +592,16 @@ startNode
        , Ord (ThreadId m), Show (ThreadId m)
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
        , Mockable SharedExclusive m
+       , Mockable Delay m
        , Message.Serializable packingType peerData
        , MonadFix m, WithLogger m )
     => packingType
     -> peerData
     -> (Node packingType peerData m -> NodeEndPoint m)
+    -> (Node packingType peerData m -> m (Maybe Microsecond))
+    -- ^ Use the node (lazily) to determine a delay in microseconds to wait
+    --   before dequeueing the next network-transport event (see
+    --   nodeReceiveDelay).
     -> StdGen
     -- ^ A source of randomness, for generating nonces.
     -> NodeEnvironment m
@@ -587,9 +610,10 @@ startNode
     -> (peerData -> NodeId -> ChannelIn m -> ChannelOut m -> m ())
     -- ^ Handle incoming bidirectional connections.
     -> m (Node packingType peerData m)
-startNode packingType peerData mkNodeEndPoint prng nodeEnv handlerIn handlerOut = do
+startNode packingType peerData mkNodeEndPoint mkReceiveDelay prng nodeEnv handlerIn handlerOut = do
     rec { let nodeEndPoint = mkNodeEndPoint node
         ; mEndPoint <- newNodeEndPoint nodeEndPoint
+        ; let receiveDelay = mkReceiveDelay node
         ; node <- case mEndPoint of
               Left err -> throw err
               Right endPoint -> do
@@ -603,6 +627,7 @@ startNode packingType peerData mkNodeEndPoint prng nodeEnv handlerIn handlerOut 
                                 , nodeState            = sharedState
                                 , nodePackingType      = packingType
                                 , nodePeerData         = peerData
+                                , nodeReceiveDelay     = receiveDelay
                                 }
                       ; dispatcherThread <- async $
                             nodeDispatcher node handlerIn handlerOut
@@ -737,6 +762,7 @@ nodeDispatcher
        , Ord (ThreadId m), Mockable Bracket m, Mockable SharedExclusive m
        , Mockable Channel.Channel m, Mockable Throw m, Mockable Catch m
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
+       , Mockable Delay m
        , Message.Serializable packingType peerData
        , MonadFix m, WithLogger m, Show (ThreadId m) )
     => Node packingType peerData m
@@ -751,10 +777,14 @@ nodeDispatcher node handlerIn handlerInOut =
     nstate :: SharedAtomicT m (NodeState peerData m)
     nstate = nodeState node
 
+    receiveDelay :: ReceiveDelay m
+    receiveDelay = nodeReceiveDelay node
+
     endpoint = nodeEndPoint node
 
     loop :: DispatcherState peerData m -> m ()
     loop !state = do
+      _ <- receiveDelay >>= maybe (return ()) delay
       event <- NT.receive endpoint
       case event of
 

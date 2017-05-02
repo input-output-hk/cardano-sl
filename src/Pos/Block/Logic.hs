@@ -10,6 +10,7 @@ module Pos.Block.Logic
        , tipMismatchMsg
        , withBlkSemaphore
        , withBlkSemaphore_
+       , needRecovery
 
          -- * Headers
        , ClassifyHeaderRes (..)
@@ -28,7 +29,7 @@ module Pos.Block.Logic
        , createMainBlock
        ) where
 
-import           Control.Lens                     ((-=), (.=), _Wrapped)
+import           Control.Lens                     (enum, from, (-=), (.=), _Wrapped)
 import           Control.Monad.Catch              (try)
 import           Control.Monad.Except             (ExceptT (ExceptT),
                                                    MonadError (throwError), runExceptT,
@@ -98,9 +99,10 @@ import           Pos.Types                        (Block, BlockHeader, EpochOrSl
                                                    ProxySKEither, ProxySKHeavy,
                                                    SlotId (..), SlotLeaders, blockHeader,
                                                    blockLeaders, difficultyL, epochIndexL,
-                                                   epochOrSlot, flattenSlotId, gbBody,
-                                                   gbHeader, getEpochOrSlot, headerHash,
-                                                   headerHashG, headerSlot, mbTxPayload,
+                                                   epochOrSlot, epochOrSlotG,
+                                                   flattenSlotId, gbBody, gbHeader,
+                                                   getEpochOrSlot, headerHash,
+                                                   headerHashG, headerSlotL, mbTxPayload,
                                                    prevBlockL)
 import qualified Pos.Types                        as Types
 import           Pos.Update.Core                  (UpdatePayload (..))
@@ -147,6 +149,34 @@ lcaWithMainChain headers =
             ([], True)   -> pure $ Just h
             (x:xs, True) -> lcaProceed (Just h) (x :| xs)
 
+-- | The phrase “we're in recovery mode” is confusing because it can mean two
+-- different things:
+--
+-- 1. Last known block is more than K slots away from the current slot, or
+--    current slot isn't known.
+--
+-- 2. We're actually in the process of requesting blocks because we have
+--    detected that #1 happened. (See 'ncRecoveryHeader' and
+--    'recoveryInProgress'.)
+--
+-- This function checks for #1. Note that even if we're doing recovery right
+-- now, 'needRecovery' will still return 'True'.
+--
+needRecovery
+    :: forall ssc m.
+       (SscWorkersClass ssc, WorkMode ssc m)
+    => m Bool
+needRecovery =
+    getCurrentSlot >>= \case
+        Nothing   -> pure True
+        Just slot -> isTooOld slot
+  where
+    isTooOld slot = do
+        knownSlot <- getEpochOrSlot <$> DB.getTipBlockHeader @ssc
+        pure $
+            (knownSlot & from enum %~ (+ blkSecurityParam)) <
+            getEpochOrSlot slot
+
 ----------------------------------------------------------------------------
 -- Headers
 ----------------------------------------------------------------------------
@@ -184,7 +214,7 @@ classifyNewHeader (Right header) = do
     tipBlock <- DB.getTipBlock
     let tipEoS= getEpochOrSlot tipBlock
     let newHeaderEoS = getEpochOrSlot header
-    let newHeaderSlot = header ^. headerSlot
+    let newHeaderSlot = header ^. headerSlotL
     let tip = headerHash tipBlock
     -- First of all we check whether header is from current slot and
     -- ignore it if it's not.
@@ -222,37 +252,62 @@ classifyNewHeader (Right header) = do
 
 -- | Result of multiple headers classification.
 data ClassifyHeadersRes ssc
-    = CHsValid (BlockHeader ssc) -- ^ Header list can be applied, LCA child attached.
-    | CHsUseless !Text           -- ^ Header is useless.
-    | CHsInvalid !Text           -- ^ Header is invalid.
+    = CHsValid (BlockHeader ssc)   -- ^ Header list can be applied,
+                                   --    LCA child attached.
+    | CHsUseless !Text             -- ^ Header is useless.
+    | CHsInvalid !Text             -- ^ Header is invalid.
+    | CHsOld !EpochOrSlot !SlotId  -- ^ Newest header in the chain isn't
+                                   --    from current slot (and we're not
+                                   --    in recovery mode).
+                                   --   Fields:
+                                   --    * newest header's slot
+                                   --    * current slot
     deriving (Show)
 
 -- | Classify headers received in response to 'GetHeaders' message.
 --
 -- * If there are any errors in chain of headers, CHsInvalid is returned.
 -- * If chain of headers is a valid continuation or alternative branch,
--- lca child is returned.
+--    lca child is returned.
 -- * If chain of headers forks from our main chain too much, CHsUseless
--- is returned, because paper suggests doing so.
+--    is returned, because paper suggests doing so.
+-- * If we aren't too far behind the current slot (i.e. if 'needRecovery' is
+--    false), the newest header in the list has to be from current slot
+--    (see CSL-177), and CHsNotCurrentSlot is returned.
 classifyHeaders
     :: forall ssc m.
-       WorkMode ssc m
-    => NewestFirst NE (BlockHeader ssc) -> m (ClassifyHeadersRes ssc)
+       (SscWorkersClass ssc, WorkMode ssc m)
+    => NewestFirst NE (BlockHeader ssc)
+    -> m (ClassifyHeadersRes ssc)
 classifyHeaders headers = do
     tipHeader <- DB.getTipBlockHeader @ssc
     let tip = headerHash tipHeader
     haveOldestParent <- isJust <$> DB.getBlockHeader @ssc oldestParentHash
-    let headersValid = isVerSuccess $ verifyHeaders True (headers & _Wrapped %~ toList)
+    let headersValid = isVerSuccess $
+                       verifyHeaders True (headers & _Wrapped %~ toList)
+    needRecovery_ <- needRecovery
+    mbCurrentSlot <- getCurrentSlot
+    let newestHeaderConvertedSlot =
+            case newestHeader ^. epochOrSlotG of
+                EpochOrSlot (Left e)  -> SlotId e 0
+                EpochOrSlot (Right s) -> s
     if | not headersValid ->
-             pure $ CHsInvalid "Header chain is invalid"
+             pure $ CHsInvalid
+             "Header chain is invalid"
        | not haveOldestParent ->
              pure $ CHsInvalid $
              "Didn't manage to find block corresponding to parent " <>
              "of oldest element in chain (should be one of checkpoints)"
        | newestHash == headerHash tip ->
-             pure $ CHsUseless "Newest hash is the same as our tip"
+             pure $ CHsUseless
+             "Newest hash is the same as our tip"
        | newestHeader ^. difficultyL <= tipHeader ^. difficultyL ->
-             pure $ CHsUseless "Newest hash difficulty is not greater than our tip's"
+             pure $ CHsUseless
+             "Newest hash difficulty is not greater than our tip's"
+       | Just currentSlot <- mbCurrentSlot,
+         not needRecovery_,
+         newestHeaderConvertedSlot /= currentSlot ->
+             pure $ CHsOld (newestHeader ^. epochOrSlotG) currentSlot
        | otherwise -> fromMaybe uselessGeneral <$> processClassify tipHeader
   where
     newestHeader = headers ^. _Wrapped . _neHead

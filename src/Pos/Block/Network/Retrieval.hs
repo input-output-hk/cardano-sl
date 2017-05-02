@@ -22,11 +22,11 @@ import           Universum
 import           Pos.Binary.Communication   ()
 import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              ClassifyHeadersRes (..), classifyHeaders,
-                                             classifyNewHeader)
+                                             classifyNewHeader, needRecovery)
 import           Pos.Block.Network.Announce (announceBlockOuts)
 import           Pos.Block.Network.Logic    (handleBlocks, mkBlocksRequest,
-                                             mkHeadersRequest, needRecovery,
-                                             requestHeaders, triggerRecovery)
+                                             mkHeadersRequest, requestHeaders,
+                                             triggerRecovery)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
                                              MsgHeaders (..))
 import           Pos.Communication.Limits   (LimitedLength, recvLimited, reifyMsgLimit)
@@ -205,6 +205,8 @@ workerHandle getPeers sendActions (peerId, headers) = do
             logDebug $ sformat uselessFormat oldestHash newestHash reason
         CHsInvalid reason ->
             logWarning $ sformat invalidFormat oldestHash newestHash reason
+        CHsOld newestSlot curSlot ->
+            logWarning $ sformat oldFormat oldestHash newestHash newestSlot curSlot
   where
     classifyHeaders' (NewestFirst (header :| [])) = do
         classificationRes <- classifyNewHeader header
@@ -222,6 +224,11 @@ workerHandle getPeers sendActions (peerId, headers) = do
     uselessFormat =
         "Chain of headers from " %shortHashF % " to " %shortHashF %
         " is useless for the following reason: " %stext
+    oldFormat =
+        "Chain of headers from " %shortHashF % " to " %shortHashF %
+        " is invalid for the following reason: the newest header is from"%
+        " slot "%build%", but current slot is "%build%
+        " (and we're not in recovery mode)"
 
 handleCHsValid
     :: forall ssc m.

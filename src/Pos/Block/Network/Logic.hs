@@ -6,8 +6,7 @@
 -- loop logic.
 module Pos.Block.Network.Logic
        (
-         needRecovery
-       , triggerRecovery
+         triggerRecovery
        , requestTipOuts
        , requestTip
 
@@ -23,7 +22,7 @@ import           Control.Concurrent.STM     (isFullTBQueue, putTMVar, readTVar,
                                              tryReadTMVar, tryTakeTMVar, writeTBQueue,
                                              writeTVar)
 import           Control.Exception          (Exception (..))
-import           Control.Lens               (enum, from, _Wrapped)
+import           Control.Lens               (_Wrapped)
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text.Buildable        as B
 import           Formatting                 (bprint, build, sformat, shown, stext, (%))
@@ -39,8 +38,8 @@ import           Pos.Binary.Txp             ()
 import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              ClassifyHeadersRes (..), classifyHeaders,
                                              classifyNewHeader, getHeadersOlderExp,
-                                             lcaWithMainChain, verifyAndApplyBlocks,
-                                             withBlkSemaphore)
+                                             lcaWithMainChain, needRecovery,
+                                             verifyAndApplyBlocks, withBlkSemaphore)
 import qualified Pos.Block.Logic            as L
 import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Block.Network.Types    (MsgGetBlocks (..), MsgGetHeaders (..),
@@ -50,7 +49,6 @@ import           Pos.Block.Types            (Blund)
 import           Pos.Communication.Limits   (LimitedLength, recvLimited, reifyMsgLimit)
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs,
                                              SendActions (..), convH, toOutSpecs)
-import           Pos.Constants              (blkSecurityParam)
 import           Pos.Context                (NodeContext (..), getNodeContext,
                                              recoveryInProgress)
 import           Pos.Crypto                 (shortHashF)
@@ -60,12 +58,10 @@ import           Pos.Discovery              (converseToNeighbors)
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
 import           Pos.Reporting.Methods      (reportMisbehaviourMasked)
-import           Pos.Slotting               (getCurrentSlot)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
                                              HeaderHash, blockHeader, difficultyL,
-                                             gbHeader, getEpochOrSlot, headerHashG,
-                                             prevBlockL)
+                                             gbHeader, headerHashG, prevBlockL)
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode               (WorkMode)
@@ -94,34 +90,6 @@ instance Exception BlockNetLogicException where
 ----------------------------------------------------------------------------
 -- Recovery
 ----------------------------------------------------------------------------
-
--- | The phrase “we're in recovery mode” is confusing because it can mean two
--- different things:
---
--- 1. Last known block is more than K slots away from the current slot, or
---    current slot isn't known.
---
--- 2. We're actually in the process of requesting blocks because we have
---    detected that #1 happened. (See 'ncRecoveryHeader' and
---    'recoveryInProgress'.)
---
--- This function checks for #1. Note that even if we're doing recovery right
--- now, 'needRecovery' will still return 'True'.
---
-needRecovery
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
-    => m Bool
-needRecovery =
-    getCurrentSlot >>= \case
-        Nothing   -> pure True
-        Just slot -> isTooOld slot
-  where
-    isTooOld slot = do
-        knownSlot <- getEpochOrSlot <$> DB.getTipBlockHeader @ssc
-        pure $
-            (knownSlot & from enum %~ (+ blkSecurityParam)) <
-            getEpochOrSlot slot
 
 -- | Start recovery based on established communication. “Starting recovery”
 -- means simply sending all our neighbors a 'MsgGetHeaders' message (see
@@ -314,7 +282,7 @@ requestHeaders mgh peerId origTip _ conv = do
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders
     :: forall ssc m.
-       (WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => NewestFirst NE (BlockHeader ssc)
     -> NodeId
     -> Maybe (BlockHeader ssc)
@@ -342,6 +310,8 @@ handleRequestedHeaders headers peerId origTip = do
         CHsInvalid reason ->
              -- TODO: ban node for sending invalid block.
             logDebug $ sformat invalidFormat oldestHash newestHash reason
+        CHsOld newestSlot curSlot ->
+            logWarning $ sformat oldFormat oldestHash newestHash newestSlot curSlot
   where
     validFormat =
         "Received valid headers, can request blocks from " %shortHashF % " to " %shortHashF
@@ -350,6 +320,11 @@ handleRequestedHeaders headers peerId origTip = do
         " is "%what%" for the following reason: " %stext
     uselessFormat = genericFormat "useless"
     invalidFormat = genericFormat "invalid"
+    oldFormat =
+        "Chain of headers from " %shortHashF % " to " %shortHashF %
+        " is invalid for the following reason: the newest header is from"%
+        " slot "%build%", but current slot is "%build%
+        " (and we're not in recovery mode)"
 
 -- | Given nonempty list of valid blockheaders and nodeid, this
 -- function will put them into download queue and they will be

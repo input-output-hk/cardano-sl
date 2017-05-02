@@ -279,6 +279,7 @@ getNodeParams args@Args {..} systemStart = do
             , upUpdateWithPkg = updateWithPackage
             , upUpdateServers = CLI.updateServers commonArgs
             }
+        , npUseNTP = useNTP
         }
 
 gtSscParams :: Args -> VssKeyPair -> GtParams

@@ -122,9 +122,6 @@ instance SlottingConstraint m =>
                   (local' ntpCurrentTime)
     slottingWorkers = [ntpSyncWorker]
 
-boolM :: Monad m => m a -> m a -> m Bool -> m a
-boolM f t b = b >>= bool f t
-
 local' :: Monad m => RealNtpSlotting m a -> NtpSlotting m a
 local' (TaggedTrans tr) = TaggedTrans $ withReaderT snd tr
 
@@ -170,12 +167,6 @@ ntpGetCurrentSlotInaccurate = do
             _nssLastSlot <$> atomically (STM.readTVar var)
         OutdatedSlottingData penult ->
             ntpCurrentTime >>= approxSlotUsingOutdated penult
-  where
-    outdatedEpoch (Timestamp curTime) epoch EpochSlottingData {..} =
-        let duration = convertUnit esdSlotDuration
-            start = getTimestamp esdStart in
-        unflattenSlotId $
-        flattenEpochIndex epoch + fromIntegral ((curTime - start) `div` duration)
 
 ntpGetCurrentSlotImpl :: SlottingConstraint m => RealNtpSlotting m SlotStatus
 ntpGetCurrentSlotImpl = do

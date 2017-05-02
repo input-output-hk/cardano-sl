@@ -25,7 +25,7 @@ import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState
 import           Pos.Communication.Protocol    (SendActions)
 import           Pos.Constants                 (isDevelopment)
 import           Pos.Context                   (NodeContext, getNodeContext,
-                                                runContextHolder)
+                                                runContextHolder, runJLContext)
 import           Pos.Crypto                    (noPassEncrypt)
 import           Pos.DB                        (NodeDBs, getNodeDBs, runDBHolder)
 import           Pos.Delegation.Class          (DelegationWrap, askDelegationState)
@@ -40,7 +40,9 @@ import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscState, runSscHolder)
 import           Pos.Txp                       (GenericTxpLocalData, askTxpMem,
                                                 runTxpHolder)
+import           Pos.Wallet.KeyStorage         (runKSContext)
 import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
+import           Pos.Wallet.WalletMode         (runBIRRContext, runUPDContext)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
                                                 walletServeImpl, walletServer,
                                                 walletServerOuts)
@@ -107,6 +109,9 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
     liftIO ( runProduction
            . usingLoggerName "wallet-api"
            . runContextHolder nc
+           . runJLContext
+           . runKSContext
+           . runUPDContext
            . runDBHolder modernDBs
            . runSlottingHolder slotVar
            . runNtpSlotting ntpSlotVar
@@ -114,6 +119,7 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
            . runTxpHolder tlw
            . runDelegationTFromTVar delWrap
            . (\m -> flip runPeerStateHolder m =<< peerStateFromSnapshot psCtx)
+           . runBIRRContext
            . runDiscoveryKademliaT kinst
            . runWalletWebDB ws
            . runWalletWS conn

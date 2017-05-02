@@ -117,6 +117,7 @@ library
                         -- Worker, work mode
                         Pos.Worker
                         Pos.WorkMode
+                        Pos.WorkMode.Class
   -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:
                         Pos.Explorer
@@ -563,6 +564,7 @@ executable cardano-node
                      , cardano-sl
                      , data-default
                      , directory
+                     , ether
                      , filepath
                      , formatting
                      , lens

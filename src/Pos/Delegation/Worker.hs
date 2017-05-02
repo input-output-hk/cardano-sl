@@ -22,7 +22,7 @@ import           Pos.Discovery.Class        (MonadDiscovery)
 import           Pos.Reporting              (MonadReportingMem)
 import           Pos.Reporting.Methods      (reportingFatal)
 import           Pos.Shutdown               (MonadShutdownMem, runIfNotShutdown)
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode)
 
 -- | All workers specific to proxy sertificates processing.
 dlgWorkers :: (WorkMode ssc m) => ([WorkerSpec m], OutSpecs)

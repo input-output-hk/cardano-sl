@@ -260,7 +260,7 @@ main = do
 
     bracketResources baseParams TCP.Unaddressable $ \transport -> do
         let powerLift :: forall ssc t . Production t -> StaticMode ssc t
-            powerLift = lift.lift.lift.lift.lift.lift.lift.lift.lift.lift.lift
+            powerLift = lift.lift.lift.lift.lift.lift.lift.lift.lift.lift.lift.lift.lift.lift.lift
             transport' :: forall ssc . Transport (StaticMode ssc)
             transport' = hoistTransport powerLift transport
 

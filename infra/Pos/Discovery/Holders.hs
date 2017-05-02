@@ -13,9 +13,8 @@ module Pos.Discovery.Holders
 
 import           Universum
 
-import qualified Control.Monad.Ether              as Ether
-import qualified Control.Monad.Ether              as Ether.E
 import qualified Data.Set                         as S (fromList)
+import qualified Ether
 import           Mockable                         (Async, Catch, Mockables, Promise,
                                                    Throw)
 import           System.Wlog                      (WithLogger)
@@ -39,14 +38,14 @@ data DiscoveryTag -- loneliness is something we all know
 
 -- | 'MonadDiscovery' capable transformer that uses a constant/static
 -- set of peers and doesn't do anything on 'findPeers' call.
-type DiscoveryConstT m = Ether.E.ReaderT DiscoveryTag (Set NodeId) m
+type DiscoveryConstT m = Ether.ReaderT DiscoveryTag (Set NodeId) m
 
 instance (Monad m) => MonadDiscovery (DiscoveryConstT m) where
-    getPeers = Ether.E.ask (Proxy @DiscoveryTag)
+    getPeers = Ether.ask @DiscoveryTag
     findPeers = getPeers
 
 runDiscoveryConstT :: (Set NodeId) -> DiscoveryConstT m a -> m a
-runDiscoveryConstT = flip (Ether.runReaderT (Proxy @DiscoveryTag))
+runDiscoveryConstT = flip (Ether.runReaderT @DiscoveryTag)
 
 ----------------------------------------------------------------------------
 -- Kademlia DHT
@@ -55,12 +54,12 @@ runDiscoveryConstT = flip (Ether.runReaderT (Proxy @DiscoveryTag))
 -- | Transformer that captures the Kademlia DHT functionality
 -- inside. Its 'MonadDiscovery' instance performs a node lookup on
 -- 'findPeers'.
-type DiscoveryKademliaT m = Ether.E.ReaderT DiscoveryTag KademliaDHTInstance m
+type DiscoveryKademliaT m = Ether.ReaderT DiscoveryTag KademliaDHTInstance m
 
 askDHTInstance
-    :: (Ether.E.MonadReader DiscoveryTag KademliaDHTInstance m)
+    :: (Ether.MonadReader DiscoveryTag KademliaDHTInstance m)
     => m KademliaDHTInstance
-askDHTInstance = Ether.E.ask (Proxy @DiscoveryTag)
+askDHTInstance = Ether.ask @DiscoveryTag
 
 type DiscoveryKademliaEnv m =
     ( MonadIO m
@@ -83,4 +82,4 @@ instance (DiscoveryKademliaEnv m) => MonadDiscovery (DiscoveryKademliaT m) where
 runDiscoveryKademliaT
     :: (DiscoveryKademliaEnv m)
     => KademliaDHTInstance -> DiscoveryKademliaT m a -> m a
-runDiscoveryKademliaT = flip (Ether.runReaderT (Proxy @DiscoveryTag))
+runDiscoveryKademliaT = flip (Ether.runReaderT @DiscoveryTag)

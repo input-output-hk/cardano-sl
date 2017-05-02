@@ -73,7 +73,8 @@ runPeerStateHolder psc m =
 instance
     ( MonadIO m, Mockable SharedAtomic m
     , trans ~ ReaderT (PeerStateCtx' m) ) =>
-        WithPeerState (TaggedTrans PeerStateTag trans m)
+        WithPeerState (TaggedTrans
+            (Ether.TAGGED Ether.READER PeerStateTag) trans m)
   where
     getPeerState nodeId = ether (asks unPeerStateCtx) >>= \m -> do
           mV <- atomically $ nodeId `STM.lookup` m

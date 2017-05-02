@@ -5,9 +5,9 @@ module Pos.Update.Mode
 import           Universum
 
 import           Control.Monad.Catch         (MonadMask)
+import qualified Ether
 import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
-import qualified Ether
 
 import           Pos.Communication.PeerState (WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)

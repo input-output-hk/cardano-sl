@@ -86,6 +86,8 @@ import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp                     (mkTxpLocalData, runTxpHolder)
 import           Pos.Txp.DB                  (genesisFakeTotalStake,
                                               runBalanceIterBootstrap)
+import           Pos.Wallet.KeyStorage       (KSContext, runKSContext)
+import           Pos.Wallet.WalletMode       (UPDContext, runBIRRContext, runUPDContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer                (explorerTxpGlobalSettings)
 #else
@@ -142,7 +144,8 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                    ignoreSscHolder .
                    runTxpHolder txpVar .
                    runDelegationT def .
-                   runPeerStateHolder stateM_
+                   runPeerStateHolder stateM_ .
+                   runBIRRContext
 
        let startMonitoring node' = case lpEkgPort of
                Nothing   -> return Nothing
@@ -157,6 +160,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
           runTxpHolder txpVar .
           runDelegationT def .
           runPeerStateHolder stateM .
+          runBIRRContext .
           runServer peerId transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
               \vI sa -> nodeStartMsg npBaseParams >> action vI sa
   where
@@ -308,6 +312,14 @@ runStaticMode peerId transport peers np@NodeParams {..} sscnp (ActionSpec action
 -- Lower level runners
 ----------------------------------------------------------------------------
 
+type CH ssc m =
+    DBHolder (
+    UPDContext (
+    KSContext (
+    JLContext (
+    ContextHolder ssc m
+    ))))
+
 runCH
     :: forall ssc m a.
        ( SscConstraint ssc
@@ -318,7 +330,7 @@ runCH
     -> NodeParams
     -> SscNodeContext ssc
     -> NodeDBs
-    -> DBHolder (JLContext (ContextHolder ssc m)) a
+    -> CH ssc m a
     -> m a
 runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
@@ -368,7 +380,12 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
             , ncTxpGlobalSettings = txpGlobalSettings
 #endif
             , .. }
-    runContextHolder ctx (runJLContext (runDBHolder db act))
+    runContextHolder ctx .
+      runJLContext .
+      runKSContext .
+      runUPDContext .
+      runDBHolder db $
+      act
 
 ----------------------------------------------------------------------------
 -- Utilities

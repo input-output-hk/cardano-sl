@@ -13,7 +13,6 @@ import           Universum
 
 import           Control.Monad.Except (MonadError, runExceptT)
 import           Data.Default         (Default (def))
-import qualified Data.HashMap.Strict  as HM
 import qualified Ether
 import           Serokell.Util        (Color (Red), colorize)
 import           System.Wlog          (WithLogger, logError, modifyLoggerName)

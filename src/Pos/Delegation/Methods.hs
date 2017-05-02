@@ -22,7 +22,7 @@ import           Pos.Delegation.Types       (ConfirmProxySK (..), SendProxySK (.
 import           Pos.Discovery.Broadcast    (sendToNeighbors)
 import           Pos.Discovery.Class        (MonadDiscovery)
 import           Pos.Types                  (ProxySKHeavy, ProxySKLight)
-import           Pos.WorkMode               (MinWorkMode, WorkMode)
+import           Pos.WorkMode.Class         (MinWorkMode, WorkMode)
 
 -- | Sends epoch psk to neighbours
 sendProxySKLight

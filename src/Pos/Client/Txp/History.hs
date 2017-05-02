@@ -42,7 +42,7 @@ import           Pos.DB.Error              (DBError (..))
 import qualified Pos.DB.GState             as GS
 import           Pos.Slotting              (MonadSlots)
 import           Pos.Ssc.Class             (SscHelpersClass)
-import           Pos.WorkMode              (TxpExtra_TMP)
+import           Pos.WorkMode.Class        (TxpExtra_TMP)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer              (eTxProcessTransaction)
 #else

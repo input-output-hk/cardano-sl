@@ -36,7 +36,7 @@ import           Pos.Ssc.GodTossing.Toss          (GtTag (..), TossModifier,
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), msgContentsTag)
 import           Pos.Types                        (StakeholderId, addressHash)
-import           Pos.WorkMode                     (WorkMode)
+import           Pos.WorkMode.Class               (WorkMode)
 
 instance SscListenersClass SscGodTossing where
     sscListeners =

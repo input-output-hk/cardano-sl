@@ -17,22 +17,20 @@ import qualified Ether
 import           System.Wlog           (logWarning)
 import           Universum
 
-import           Pos.Binary.Update            ()
-import           Pos.Core                     (addressHash)
-import           Pos.Crypto                   (hash)
-import           Pos.Types                    (SoftwareVersion (..))
-import           Pos.Update.Core              (UpdateProposal (..))
-import           Pos.Update.Poll.Class        (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types        (BlockVersionState (..),
-                                               DecidedProposalState (..),
-                                               PollModifier (..), ProposalState (..),
-                                               UndecidedProposalState (..),
-                                               cpsSoftwareVersion, pmActivePropsL,
-                                               pmAdoptedBVFullL, pmBVsL, pmConfirmedL,
-                                               pmConfirmedPropsL, pmEpochProposersL,
-                                               pmSlottingDataL, psProposal)
-import           Pos.Util                     (ether)
-import qualified Pos.Util.Modifier            as MM
+import           Pos.Binary.Update     ()
+import           Pos.Core              (addressHash)
+import           Pos.Crypto            (hash)
+import           Pos.Types             (SoftwareVersion (..))
+import           Pos.Update.Core       (UpdateProposal (..))
+import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Types (BlockVersionState (..), DecidedProposalState (..),
+                                        PollModifier (..), ProposalState (..),
+                                        UndecidedProposalState (..), cpsSoftwareVersion,
+                                        pmActivePropsL, pmAdoptedBVFullL, pmBVsL,
+                                        pmConfirmedL, pmConfirmedPropsL,
+                                        pmEpochProposersL, pmSlottingDataL, psProposal)
+import           Pos.Util              (ether)
+import qualified Pos.Util.Modifier     as MM
 
 ----------------------------------------------------------------------------
 -- Tranformer

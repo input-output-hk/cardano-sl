@@ -45,7 +45,7 @@ import           Pos.Types                  (Block, BlockHeader, EpochIndex, Mai
                                              headerHash, headerLeaderKey, prevBlockL)
 import           Pos.Util                   (mconcatPair)
 import           Pos.Util.Chrono            (NewestFirst (..))
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode)
 
 
 instance SecurityWorkersClass SscGodTossing where

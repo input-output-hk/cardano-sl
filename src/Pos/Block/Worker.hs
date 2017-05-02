@@ -43,7 +43,7 @@ import           Pos.Util                    (inAssertMode, logWarningSWaitLinea
 import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
 import           Pos.Util.LogSafe            (logDebugS, logInfoS, logNoticeS,
                                               logWarningS)
-import           Pos.WorkMode                (WorkMode)
+import           Pos.WorkMode.Class          (WorkMode)
 #if defined(WITH_WALLET)
 import           Data.Time.Units             (Second, convertUnit)
 import           Pos.Block.Network           (requestTipOuts, triggerRecovery)

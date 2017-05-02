@@ -105,7 +105,7 @@ import           Pos.Util                   (Some (Some), inAssertMode, maybeThr
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
                                              toNewestFirst, toOldestFirst)
 import           Pos.Util.LogSafe           (logDebugS, logInfoS)
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode)
 
 ----------------------------------------------------------------------------
 -- Common

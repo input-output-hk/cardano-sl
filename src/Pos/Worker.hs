@@ -27,7 +27,7 @@ import           Pos.Ssc.Class.Workers   (SscWorkersClass, sscWorkers)
 import           Pos.Txp.Worker          (txpWorkers)
 import           Pos.Update              (usWorkers)
 import           Pos.Util                (mconcatPair)
-import           Pos.WorkMode            (WorkMode)
+import           Pos.WorkMode.Class      (WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers

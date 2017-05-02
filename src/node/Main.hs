@@ -7,6 +7,7 @@ import           Data.List                  ((!!))
 import           Data.Maybe                 (fromJust)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Data.Time.Units            (toMicroseconds)
+import qualified Ether
 import           Formatting                 (sformat, shown, (%))
 import           Mockable                   (Production, currentTime)
 import           Network.Transport.Abstract (Transport, hoistTransport)
@@ -138,10 +139,7 @@ action kademliaInst args@Args {..} transport = do
         wDhtWorkersProd =
             first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers kademliaInst)
     case (enableStats, CLI.sscAlgo commonArgs) of
-<<<<<<< HEAD
-=======
         -- This is a terrible code duplication. Abstract it when possible.
->>>>>>> master
         (True, GodTossingAlgo) -> do
             let allPlugins :: ([WorkerSpec (StatsMode SscGodTossing)], OutSpecs)
                 allPlugins = mconcat [ wDhtWorkersStats
@@ -182,12 +180,8 @@ action kademliaInst args@Args {..} transport = do
                                      , walletProd args ]
             runNodeProduction @SscNistBeacon
                 (CLI.peerId commonArgs)
-<<<<<<< HEAD
-                res'
-=======
                 (hoistTransport (lift . lift) transport)
                 kademliaInst
->>>>>>> master
                 allPlugins
                 currentParams ()
   where
@@ -379,6 +373,6 @@ main = do
     kademliaParams <- liftIO $ getKademliaParams args
     bracketResourcesKademlia baseParams tcpAddr kademliaParams $ \kademliaInstance transport ->
         let powerLift :: forall ssc t . Production t -> RawRealMode ssc t
-            powerLift = lift . lift . lift . lift . lift . lift . lift . lift . lift
+            powerLift = lift . lift . lift . lift . lift . lift . lift . lift . lift . lift . lift . lift . lift
             transport' = hoistTransport powerLift transport
         in  foreverRejoinNetwork kademliaInstance (action kademliaInstance args transport')

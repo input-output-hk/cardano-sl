@@ -32,7 +32,7 @@ import           Pos.Security               (AttackType (..), NodeAttackedError 
                                              shouldIgnoreAddress)
 import           Pos.Types                  (MainBlockHeader, headerHash)
 import           Pos.Util.TimeWarp          (nodeIdToAddress)
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode)
 
 announceBlockOuts :: OutSpecs
 announceBlockOuts = toOutSpecs [convH (Proxy :: Proxy (MsgHeaders ssc))

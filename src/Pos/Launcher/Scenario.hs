@@ -13,6 +13,7 @@ module Pos.Launcher.Scenario
 
 import           Data.Default        (def)
 import           Development.GitRev  (gitBranch, gitHash)
+import qualified Ether
 import           Formatting          (build, sformat, shown, (%))
 import           Mockable            (fork)
 import           Paths_cardano_sl    (version)
@@ -39,10 +40,9 @@ import           Pos.Types           (SlotId (..), addressHash)
 import           Pos.Update          (MemState (..), mvState)
 import           Pos.Update.Context  (UpdateContext (ucMemState))
 import           Pos.Util            (inAssertMode, waitRandomInterval)
-import           Pos.Util.Context    (askContext)
 import           Pos.Util.LogSafe    (logInfoS)
 import           Pos.Worker          (allWorkers, allWorkersCount)
-import           Pos.WorkMode        (WorkMode)
+import           Pos.WorkMode.Class  (WorkMode)
 
 -- | Run full node in any WorkMode.
 runNode'

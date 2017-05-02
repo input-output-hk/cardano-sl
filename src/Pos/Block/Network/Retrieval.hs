@@ -44,7 +44,7 @@ import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (
                                              prevBlockL)
 import           Pos.Util                   (_neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode)
 
 retrievalWorker
     :: forall ssc m.

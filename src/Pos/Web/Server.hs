@@ -41,7 +41,7 @@ import           Pos.Txp.MemState                     (GenericTxpLocalData, TxpH
                                                        askTxpMem, getLocalTxs,
                                                        runTxpHolder)
 import           Pos.Types                            (EpochIndex (..), SlotLeaders)
-import           Pos.WorkMode                         (TxpExtra_TMP, WorkMode)
+import           Pos.WorkMode.Class                   (TxpExtra_TMP, WorkMode)
 
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)

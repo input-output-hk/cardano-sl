@@ -32,7 +32,7 @@ import           Pos.Delegation.Methods     (sendProxyConfirmSK, sendProxyConfir
 import           Pos.Delegation.Types       (ConfirmProxySK (..), SendProxySK (..))
 import           Pos.Discovery              (sendToNeighbors)
 import           Pos.Types                  (ProxySKLight)
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode)
 
 -- | Listeners for requests related to delegation processing.
 delegationListeners

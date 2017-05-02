@@ -32,7 +32,7 @@ import qualified Pos.DB.Block               as DB
 import           Pos.DB.Error               (DBError (DBMalformed))
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Util.Chrono            (NewestFirst (..))
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode)
 
 blockListeners
     :: (SscWorkersClass ssc, WorkMode ssc m)

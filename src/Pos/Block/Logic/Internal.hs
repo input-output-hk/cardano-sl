@@ -53,7 +53,7 @@ import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlo
 import           Pos.Update.Poll      (PollModifier)
 import           Pos.Util             (Some (..), inAssertMode, spanSafe, _neLast)
 import           Pos.Util.Chrono      (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.WorkMode         (WorkMode)
+import           Pos.WorkMode.Class   (WorkMode)
 
 -- [CSL-780] Totally need something more elegant
 toUpdateBlock

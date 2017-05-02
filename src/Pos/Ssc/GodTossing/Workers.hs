@@ -75,7 +75,7 @@ import           Pos.Types                        (EpochIndex, LocalSlotIndex,
                                                    StakeholderId, Timestamp (..),
                                                    addressHash)
 import           Pos.Util                         (getKeys, inAssertMode)
-import           Pos.WorkMode                     (WorkMode)
+import           Pos.WorkMode.Class               (WorkMode)
 
 instance SscWorkersClass SscGodTossing where
     sscWorkers = Tagged $ first pure onNewSlotSsc

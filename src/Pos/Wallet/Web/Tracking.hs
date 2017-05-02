@@ -7,17 +7,20 @@ module Pos.Wallet.Web.Tracking
        , trackingApplyTxs
        , trackingRollbackTxs
        , applyModifierToWSet
+       , BlockLockMode
        ) where
 
+import           Control.Monad.Catch        (bracketOnError)
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, (%))
 import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
-import           Pos.Block.Logic            (withBlkSemaphore_)
 import           Pos.Block.Pure             (genesisHash)
 import           Pos.Block.Types            (Blund, undoTx)
+import           Pos.Context                (WithNodeContext, putBlkSemaphore,
+                                             takeBlkSemaphore)
 import           Pos.Core                   (HasDifficulty (..))
 import           Pos.Core.Address           (AddrPkAttrs (..), Address (..),
                                              makePubKeyAddress)
@@ -39,7 +42,8 @@ import           Pos.Types                  (BlockHeader, HeaderHash, blockTxas,
                                              getBlockHeader, headerHash)
 import           Pos.Util.Chrono            (getNewestFirst)
 import qualified Pos.Util.Modifier          as MM
-import           Pos.WorkMode               (WorkMode)
+
+
 
 import           Pos.Wallet.Web.ClientTypes (CAccountAddress (..), CAddress, WS,
                                              addressToCAddress, encToCAddress)
@@ -48,16 +52,30 @@ import qualified Pos.Wallet.Web.State       as WS
 
 type CAccModifier = MM.MapModifier CAccountAddress ()
 
+type BlockLockMode ssc m =
+    ( SscHelpersClass ssc
+    , WithLogger m
+    , WithNodeContext ssc m
+    , MonadDB m
+    , MonadMask m)
+
 syncWalletSetsWithTipLock
-    :: forall ssc m .
-    ( WebWalletModeDB m
-    , WorkMode ssc m -- withBlkSemaphore_ requires
-    , SscHelpersClass ssc
-    )
+    :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
     => [EncryptedSecretKey]
     -> m ()
-syncWalletSetsWithTipLock encSKs = withBlkSemaphore_ $ \tip ->
+syncWalletSetsWithTipLock encSKs = withBlkSemaphore $ \tip ->
     tip <$ mapM_ (syncWalletSetWithTip @ssc) encSKs
+
+-- | Run action acquiring lock on block application.
+-- Argument of action is an old tip, result is put as a new tip.
+-- Wallet version (without extra constraints)
+withBlkSemaphore
+    :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
+    => (HeaderHash -> m HeaderHash) -> m ()
+withBlkSemaphore action =
+    bracketOnError takeBlkSemaphore putBlkSemaphore doAction
+  where
+    doAction tip = action tip >>= putBlkSemaphore
 
 ----------------------------------------------------------------------------
 -- Unsafe operations

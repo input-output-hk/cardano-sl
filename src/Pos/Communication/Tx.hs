@@ -31,7 +31,7 @@ import           Pos.Types                  (Address, Coin, makePubKeyAddress,
                                              makeRedeemAddress, mkCoin, unsafeAddCoin)
 import           Pos.WorkMode               (MinWorkMode)
 
-type TxMode ssc m
+type TxMode m
     = ( MinWorkMode m
       , MonadBalances m
       , MonadTxHistory m
@@ -41,7 +41,7 @@ type TxMode ssc m
       )
 
 submitAndSave
-    :: TxMode ssc m
+    :: TxMode m
     => SendActions m -> [NodeId] -> TxAux -> ExceptT TxError m TxAux
 submitAndSave sendActions na txw = do
     let txId = hash (txw ^. _1)
@@ -51,7 +51,7 @@ submitAndSave sendActions na txw = do
 
 -- | Construct Tx using multiple secret keys and given list of desired outputs.
 submitMTx
-    :: TxMode ssc m
+    :: TxMode m
     => SendActions m
     -> NonEmpty (SafeSigner, Address)
     -> [NodeId]
@@ -66,7 +66,7 @@ submitMTx sendActions hdwSigner na outputs = do
 
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx
-    :: TxMode ssc m
+    :: TxMode m
     => SendActions m
     -> SafeSigner
     -> [NodeId]
@@ -80,7 +80,7 @@ submitTx sendActions ss na outputs = do
 
 -- | Construct redemption Tx using redemption secret key and a output address
 submitRedemptionTx
-    :: TxMode ssc m
+    :: TxMode m
     => SendActions m
     -> RedeemSecretKey
     -> [NodeId]

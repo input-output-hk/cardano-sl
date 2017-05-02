@@ -25,12 +25,12 @@ import           Pos.Wallet.KeyStorage       (runKeyStorage)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
 import           Pos.Wallet.State            (closeState, openMemState, openState,
                                               runWalletDB)
-import           Pos.Wallet.WalletMode       (WalletMode, WalletRealMode)
+import           Pos.Wallet.WalletMode       (WalletMode, WalletRealMode, runFakeSsc)
 
 -- TODO: Move to some `Pos.Wallet.Communication` and provide
 -- meaningful listeners
 allListeners
-    :: ListenersWithOut WalletRealMode
+    :: ListenersWithOut (WalletRealMode ssc)
 allListeners = untag @SscGodTossing allStubListeners
 
 -- TODO: Move to some `Pos.Wallet.Worker` and provide
@@ -42,23 +42,23 @@ allWorkers = ([], mempty)
 -- | WalletMode runner
 runWalletRealMode
     :: PeerId
-    -> RealModeResources WalletRealMode
+    -> RealModeResources (WalletRealMode ssc)
     -> WalletParams
-    -> (ActionSpec WalletRealMode a, OutSpecs)
+    -> (ActionSpec (WalletRealMode ssc) a, OutSpecs)
     -> Production a
 runWalletRealMode peerId res wp@WalletParams {..} =
     runRawRealWallet peerId res wp allListeners
 
 runWalletReal
     :: PeerId
-    -> RealModeResources WalletRealMode
+    -> RealModeResources (WalletRealMode ssc)
     -> WalletParams
-    -> ([WorkerSpec WalletRealMode], OutSpecs)
+    -> ([WorkerSpec (WalletRealMode ssc)], OutSpecs)
     -> Production ()
 runWalletReal peerId res wp = runWalletRealMode peerId res wp . runWallet res
 
 runWallet
-    :: WalletMode ssc m
+    :: WalletMode m
     => RealModeResources m
     -> ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
@@ -76,12 +76,12 @@ runWallet res (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
 
 runRawRealWallet
     :: PeerId
-    -> RealModeResources WalletRealMode
+    -> RealModeResources (WalletRealMode ssc)
     -> WalletParams
-    -> ListenersWithOut WalletRealMode
-    -> (ActionSpec WalletRealMode a, OutSpecs)
+    -> ListenersWithOut (WalletRealMode ssc)
+    -> (ActionSpec (WalletRealMode ssc) a, OutSpecs)
     -> Production a
-runRawRealWallet peerId res WalletParams {..} listeners (ActionSpec action, outs) =
+runRawRealWallet peerId res WalletParams {..} listeners (ActionSpec action, outs) = runFakeSsc $
     usingLoggerName lpRunnerTag . bracket openDB closeDB $ \db -> do
         stateM <- liftIO SM.newIO
         runWithoutReportingContext .

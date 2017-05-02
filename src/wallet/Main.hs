@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
@@ -12,11 +12,11 @@ import           Control.Monad.Trans.Maybe  (MaybeT (..))
 import qualified Data.ByteString            as BS
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
+import qualified Data.Set                   as Set (fromList)
 import qualified Data.Text                  as T
 import           Data.Time.Units            (convertUnit)
-import qualified Data.Set                   as Set (fromList)
 import           Formatting                 (build, int, sformat, stext, (%))
-import           Mockable                   (delay, Production)
+import           Mockable                   (Production, delay)
 import           Options.Applicative        (execParser)
 import           System.IO                  (hFlush, stdout)
 import           System.Wlog                (logDebug, logError, logInfo, logWarning)
@@ -29,8 +29,8 @@ import           Universum
 
 import           Pos.Binary                 (Raw)
 import qualified Pos.CLI                    as CLI
-import           Pos.Communication          (OutSpecs, SendActions, Worker', WorkerSpec,
-                                             sendTxOuts, submitTx, worker, NodeId)
+import           Pos.Communication          (NodeId, OutSpecs, SendActions, Worker',
+                                             WorkerSpec, sendTxOuts, submitTx, worker)
 import           Pos.Constants              (genesisBlockVersionData, isDevelopment)
 import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignUSVote),
                                              emptyPassphrase, encToPublic, fakeSigner,
@@ -41,10 +41,9 @@ import           Pos.Delegation             (sendProxySKHeavyOuts, sendProxySKLi
 import           Pos.Genesis                (genesisDevSecretKeys,
                                              genesisStakeDistribution, genesisUtxo)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
-                                             bracketResources, stakesDistr, RealModeResources (..),
-                                             hoistResources)
+                                             RealModeResources (..), bracketResources,
+                                             hoistResources, stakesDistr)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
-import           Pos.Ssc.NistBeacon         (SscNistBeacon)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Txp                    (TxOut (..), TxOutAux (..), txaF)
 import           Pos.Types                  (coinF, makePubKeyAddress)
@@ -62,13 +61,13 @@ import           Pos.Wallet.Web             (walletServeWebLite, walletServerOut
 #endif
 
 import           Command                    (Command (..), parseCommand)
+import qualified Network.Transport.TCP      as TCP (TCPAddr (..))
 import           WalletOptions              (WalletAction (..), WalletOptions (..),
                                              optsInfo)
-import qualified Network.Transport.TCP     as TCP (TCPAddr (..))
 
 type CmdRunner = ReaderT ([SecretKey], [NodeId])
 
-runCmd :: WalletMode ssc m => RealModeResources m -> SendActions m -> Command -> CmdRunner m ()
+runCmd :: WalletMode m => RealModeResources m -> SendActions m -> Command -> CmdRunner m ()
 runCmd _ _ (Balance addr) = lift (getBalance addr) >>=
                             putText . sformat ("Current balance: "%coinF)
 runCmd _ sendActions (Send idx outputs) = do
@@ -221,11 +220,11 @@ runCmdOuts = mconcat [ sendProxySKLightOuts
                      , sendProposalOuts
                      ]
 
-evalCmd :: WalletMode ssc m => RealModeResources m -> SendActions m -> Command -> CmdRunner m ()
-evalCmd _ _ Quit = pure ()
+evalCmd :: WalletMode m => RealModeResources m -> SendActions m -> Command -> CmdRunner m ()
+evalCmd _ _ Quit   = pure ()
 evalCmd res sa cmd = runCmd res sa cmd >> evalCommands res sa
 
-evalCommands :: WalletMode ssc m => RealModeResources m -> SendActions m -> CmdRunner m ()
+evalCommands :: WalletMode m => RealModeResources m -> SendActions m -> CmdRunner m ()
 evalCommands res sa = do
     putStr @Text "> "
     liftIO $ hFlush stdout
@@ -235,7 +234,7 @@ evalCommands res sa = do
         Left err  -> putStrLn err >> evalCommands res sa
         Right cmd -> evalCmd res sa cmd
 
-initialize :: WalletMode ssc m => RealModeResources m -> WalletOptions -> m [NodeId]
+initialize :: WalletMode m => RealModeResources m -> WalletOptions -> m [NodeId]
 initialize res WalletOptions{..} = do
     peers <- fmap toList (rmGetPeers res)
     bool (pure peers) getPeersUntilSome (null peers)
@@ -250,14 +249,14 @@ initialize res WalletOptions{..} = do
         then getPeersUntilSome
         else pure peers
 
-runWalletRepl :: WalletMode ssc m => RealModeResources m -> WalletOptions -> Worker' m
+runWalletRepl :: WalletMode m => RealModeResources m -> WalletOptions -> Worker' m
 runWalletRepl res wo sa = do
     na <- initialize res wo
     putText "Welcome to Wallet CLI Node"
     let keysPool = if isDevelopment then genesisDevSecretKeys else []
     runReaderT (evalCmd res sa Help) (keysPool, na)
 
-runWalletCmd :: WalletMode ssc m => RealModeResources m -> WalletOptions -> Text -> Worker' m
+runWalletCmd :: WalletMode m => RealModeResources m -> WalletOptions -> Text -> Worker' m
 runWalletCmd res wo str sa = do
     na <- initialize res wo
     let strs = T.splitOn "," str
@@ -292,9 +291,9 @@ main = do
 
     bracketResources baseParams TCP.Unaddressable (Set.fromList allPeers) $ \res -> do
 
-        let trans :: forall t . Production t -> WalletRealMode t
-            trans = lift . lift . lift . lift . lift
-            res' :: RealModeResources WalletRealMode
+        let trans :: forall ssc t . Production t -> WalletRealMode ssc t
+            trans = lift . lift . lift . lift . lift . lift
+            res' :: RealModeResources (WalletRealMode ssc)
             res' = hoistResources trans res
 
         let peerId = CLI.peerId woCommonArgs
@@ -318,17 +317,14 @@ main = do
                           else genesisStakeDistribution
                 }
 
-            plugins :: ([ WorkerSpec WalletRealMode ], OutSpecs)
+            plugins :: ([ WorkerSpec (WalletRealMode SscGodTossing) ], OutSpecs)
             plugins = first pure $ case woAction of
                 Repl                            -> worker runCmdOuts $ runWalletRepl res' opts
                 Cmd cmd                         -> worker runCmdOuts $ runWalletCmd res' opts cmd
 #ifdef WITH_WEB
                 Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
-                    case CLI.sscAlgo woCommonArgs of
-                        GodTossingAlgo -> walletServeWebLite (Proxy @SscGodTossing)
-                                              (rmGetPeers res') sendActions webDaedalusDbPath False webPort
-                        NistBeaconAlgo -> walletServeWebLite (Proxy @SscNistBeacon)
-                                              (rmGetPeers res') sendActions webDaedalusDbPath False webPort
+                    walletServeWebLite (Proxy @SscGodTossing)
+                                       (rmGetPeers res') sendActions webDaedalusDbPath False webPort
 #endif
 
         case CLI.sscAlgo woCommonArgs of

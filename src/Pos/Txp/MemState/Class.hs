@@ -73,25 +73,17 @@ getMemPool = getTxpLocalData (STM.readTVar . txpMemPool)
 getTxpExtra :: (MonadIO m, MonadTxpMem e m) => m e
 getTxpExtra = getTxpLocalData (STM.readTVar . txpExtra)
 
-txpLocalDataLock :: TVar Bool
-txpLocalDataLock = unsafePerformIO $ STM.newTVarIO True
+txpLocalDataLock :: MVar ()
+txpLocalDataLock = unsafePerformIO $ newMVar ()
 {-# NOINLINE txpLocalDataLock #-}
-
-withLocalDataLock :: STM.STM a -> STM.STM a
-withLocalDataLock m = do
-  STM.readTVar txpLocalDataLock >>= \case
-    False -> STM.retry
-    True -> STM.writeTVar txpLocalDataLock False
-  r <- m
-  STM.writeTVar txpLocalDataLock True
-  pure r
 
 modifyTxpLocalData
     :: (MonadIO m, MonadTxpMem ext m)
     => (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext)) -> m a
 modifyTxpLocalData f =
     askTxpMem >>= \TxpLocalData{..} -> do
-        (res, setGaugeIO) <- atomically . withLocalDataLock $ do
+        _ <- takeMVar txpLocalDataLock
+        (res, setGaugeIO) <- atomically $ do
             curUM  <- STM.readTVar txpUtxoModifier
             curMP  <- STM.readTVar txpMemPool
             curUndos <- STM.readTVar txpUndos
@@ -106,6 +98,7 @@ modifyTxpLocalData f =
             STM.writeTVar txpExtra newExtra
             setGauge <- STM.readTVar txpSetGauge
             pure (res, setGauge $ _mpLocalTxsSize newMP)
+        putMVar txpLocalDataLock ()
         liftIO setGaugeIO
         pure res
 

@@ -363,6 +363,7 @@ data InvReqDataFlowLog =
         { invReqStart    :: !Integer
         , invReqReceived :: !Integer
         , invReqSent     :: !Integer
+        , invReqClosed   :: !Integer
         }
     | InvReqRejected
         { invReqStart    :: !Integer
@@ -453,11 +454,15 @@ invReqDataFlowDo what tag id dt _ nodeId conv = do
     replyWithData startTS receivedTS (ReqMsg _ _) = do 
         send conv $ Right $ DataMsg dt
         sentTS <- currentTime'
+        _ <- recv conv -- waiting for peer to end conversation
+        closedTS <- currentTime'
         return InvReqAccepted
             { invReqStart    = startTS
             , invReqReceived = receivedTS
             , invReqSent     = sentTS
+            , invReqClosed   = closedTS
             }
+
     handleD startTS receivedTS = do
         logDebug $
             sformat ("InvReqDataFlow ("%stext%"): "%shown %" closed conversation on \

@@ -7,8 +7,9 @@ import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Now (nowDateTime, NOW)
 import Control.SocketIO.Client (SocketIO, emit, emit')
 import DOM (DOM)
+import DOM.HTML.HTMLElement (blur)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array (difference, union, unionBy, (:))
+import Data.Array (difference, unionBy, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Int (fromString)
@@ -20,12 +21,12 @@ import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs,
 import Explorer.Api.Socket (toEvent)
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksViewState, blsViewPagination, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlocksExpanded, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), SocketSubscription(..), State)
-import Explorer.Util.DOM (scrollTop)
+import Explorer.Util.DOM (targetToHTMLElement, targetToHTMLInputElement)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
@@ -133,10 +134,31 @@ update SocketReconnectSubscriptions state =
 
 update (DashboardExpandBlocks expanded) state = noEffects $
     set (dashboardViewState <<< dbViewBlocksExpanded) expanded state
+
 update (DashboardExpandTransactions expanded) state = noEffects $
     set (dashboardViewState <<< dbViewTxsExpanded) expanded state
+
 update (DashboardPaginateBlocks value) state = noEffects $
     set (dashboardViewState <<< dbViewBlockPagination) value state
+
+update (DashboardEditBlocksPageNumber target editable) state =
+    { state:
+          set (dashboardViewState <<< dbViewBlockPaginationEditable) editable state
+    , effects:
+          [ if editable
+            then pure $ SelectInputText $ targetToHTMLInputElement target
+            else pure NoOp
+          ]
+    }
+
+update (DashboardInvalidBlocksPageNumber target) state =
+    { state:
+          set (dashboardViewState <<< dbViewBlockPaginationEditable) false state
+    , effects:
+          [ pure $ BlurElement $ targetToHTMLElement target
+          ]
+    }
+
 update (DashboardShowAPICode code) state = noEffects $
     set (dashboardViewState <<< dbViewSelectedApiCode) code state
 
@@ -145,15 +167,69 @@ update (DashboardShowAPICode code) state = noEffects $
 update (AddressPaginateTxs value) state = noEffects $
     set (viewStates <<< addressDetail <<< addressTxPagination) value state
 
+update (AddressEditTxsPageNumber target editable) state =
+    { state:
+          set (viewStates <<< addressDetail <<< addressTxPaginationEditable) editable state
+    , effects:
+          [ if editable
+            then pure $ SelectInputText $ targetToHTMLInputElement target
+            else pure NoOp
+          ]
+    }
+
+update (AddressInvalidTxsPageNumber target) state =
+    { state:
+          set (viewStates <<< addressDetail <<< addressTxPaginationEditable) false state
+      , effects:
+          [ pure $ BlurElement $ targetToHTMLElement target
+          ]
+    }
+
 -- Block
 
 update (BlockPaginateTxs value) state = noEffects $
     set (viewStates <<< blockDetail <<< blockTxPagination) value state
 
+update (BlockEditTxsPageNumber target editable) state =
+    { state:
+          set (viewStates <<< blockDetail <<< blockTxPaginationEditable) editable state
+    , effects:
+          [ if editable
+            then pure $ SelectInputText $ targetToHTMLInputElement target
+            else pure NoOp
+          ]
+    }
+
+update (BlockInvalidTxsPageNumber target) state =
+    { state:
+          set (viewStates <<< blockDetail <<< blockTxPaginationEditable) false state
+      , effects:
+          [ pure $ BlurElement $ targetToHTMLElement target
+          ]
+    }
+
 -- Blocks
 
 update (BlocksPaginateBlocks value) state = noEffects $
     set (viewStates <<< blocksViewState <<< blsViewPagination) value state
+
+update (BlocksEditBlocksPageNumber target editable) state =
+    { state:
+          set (viewStates <<< blocksViewState <<< blsViewPaginationEditable) editable state
+    , effects:
+          [ if editable
+            then pure $ SelectInputText $ targetToHTMLInputElement target
+            else pure NoOp
+          ]
+    }
+
+update (BlocksInvalidBlocksPageNumber target) state =
+    { state:
+          set (viewStates <<< blocksViewState <<< blsViewPaginationEditable) false state
+      , effects:
+          [ pure $ BlurElement $ targetToHTMLElement target
+          ]
+    }
 
 -- DOM side effects
 
@@ -168,6 +244,12 @@ update (SelectInputText input) state =
     { state
     , effects:
         [ liftEff $ select input >>= \_ -> pure NoOp
+        ]
+    }
+update (BlurElement elem) state =
+    { state
+    , effects:
+        [ liftEff $ blur elem >>= \_ -> pure NoOp
         ]
     }
 update (GenerateQrCode address) state =

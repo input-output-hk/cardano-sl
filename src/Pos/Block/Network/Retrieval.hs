@@ -57,6 +57,9 @@ retrievalWorker getPeers = worker outs (retrievalWorkerImpl getPeers)
                              (Proxy :: Proxy (MsgBlock ssc))
                       ]
 
+-- I really don't like join
+{-# ANN retrievalWorkerImpl ("HLint: ignore Use join" :: Text) #-}
+
 -- | Worker that queries blocks. It has two jobs:
 --
 -- * If there are headers in 'ncBlockRetrievalQueue', this worker retrieves

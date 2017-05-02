@@ -679,6 +679,7 @@ executable cardano-wallet
   other-modules:       WalletOptions
                        Command
   build-depends:       QuickCheck
+                     , async
                      , base
                      , base58-bytestring
                      , binary
@@ -699,6 +700,7 @@ executable cardano-wallet
                      , optparse-applicative
                      , parsec
                      , serokell-util >= 0.1.3.4
+                     , stm
                      , text
                      , time
                      , time-units

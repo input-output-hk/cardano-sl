@@ -9,7 +9,6 @@ module Pos.Explorer.Txp.Toil.Logic
        , eRollbackToil
        , eNormalizeToil
        , eProcessTx
-       , putGenesisBalances
        ) where
 
 import           Universum
@@ -20,7 +19,6 @@ import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
 import           Data.List                   (delete)
 import qualified Data.List.NonEmpty          as NE
-import qualified Data.Map.Strict             as M
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (WithLogger, logError)
 
@@ -197,12 +195,12 @@ updateAddrBalances (combineBalanceUpdates -> updates) = mapM_ updater updates
         case maybeBalance of
             Nothing ->
                 logError $
-                    sformat ("updateAddrBalances: attempted to subtract "%build%" coins from unknown address "%build)
+                    sformat ("updateAddrBalances: attempted to subtract "%build%" from unknown address "%build)
                     coin addr
             Just currentBalance
                 | currentBalance < coin ->
                     logError $
-                        sformat ("updateAddrBalances: attempted to subtract "%build%" coins from address "%build%" which only has "%build%" coins")
+                        sformat ("updateAddrBalances: attempted to subtract "%build%" from address "%build%" which only has "%build)
                         coin addr currentBalance
                 | otherwise -> do
                     let newBalance = unsafeSubCoin currentBalance coin

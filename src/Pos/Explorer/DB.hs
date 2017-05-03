@@ -5,19 +5,25 @@ module Pos.Explorer.DB
        , getTxExtra
        , getAddrHistory
        , getAddrBalance
+       , prepareExplorerDB
        ) where
 
-import qualified Database.RocksDB     as Rocks
+import qualified Database.RocksDB      as Rocks
 import           Universum
 
-import           Pos.Binary.Class     (encodeStrict)
-import           Pos.Core.Types       (Address, Coin)
-import           Pos.DB.Class         (MonadDB)
-import           Pos.DB.Functions     (RocksBatchOp (..))
-import           Pos.DB.GState.Common (gsGetBi)
-import           Pos.Explorer.Core    (AddrHistory, TxExtra (..))
-import           Pos.Txp.Core         (TxId)
-import           Pos.Util.Chrono      (NewestFirst (..))
+import qualified Data.Map.Strict       as M
+
+import           Pos.Binary.Class      (encodeStrict)
+import           Pos.Context.Class     (WithNodeContext)
+import           Pos.Context.Functions (genesisUtxoM)
+import           Pos.Core.Types        (Address, Coin)
+import           Pos.DB.Class          (MonadDB, getUtxoDB)
+import           Pos.DB.Functions      (RocksBatchOp (..), rocksGetBytes)
+import           Pos.DB.GState.Common  (gsGetBi, gsPutBi, writeBatchGState)
+import           Pos.Explorer.Core     (AddrHistory, TxExtra (..))
+import           Pos.Txp.Core          (TxId, TxOut (..), TxOutAux (..))
+import           Pos.Txp.Toil          (Utxo)
+import           Pos.Util.Chrono       (NewestFirst (..))
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -32,6 +38,32 @@ getAddrHistory = fmap (NewestFirst . concat . maybeToList) .
 
 getAddrBalance :: MonadDB m => Address -> m (Maybe Coin)
 getAddrBalance = gsGetBi . addrBalancePrefix
+
+----------------------------------------------------------------------------
+-- Initialization
+----------------------------------------------------------------------------
+
+prepareExplorerDB :: (WithNodeContext ssc m, MonadDB m) => m ()
+prepareExplorerDB =
+    unlessM areBalancesInitialized $ do
+        genesisUtxo <- genesisUtxoM
+        putGenesisBalances genesisUtxo
+        putInitFlag
+
+balancesInitFlag :: ByteString
+balancesInitFlag = "e/init"
+
+areBalancesInitialized :: MonadDB m => m Bool
+areBalancesInitialized = isJust <$> (getUtxoDB >>= rocksGetBytes balancesInitFlag)
+
+putInitFlag :: MonadDB m => m ()
+putInitFlag = gsPutBi balancesInitFlag True
+
+putGenesisBalances :: MonadDB m => Utxo -> m ()
+putGenesisBalances genesisUtxo = do
+    let txOuts = map (toaOut . snd) . M.toList $ genesisUtxo
+    writeBatchGState $
+        map (\txOut -> PutAddrBalance (txOutAddress txOut) (txOutValue txOut)) txOuts
 
 ----------------------------------------------------------------------------
 -- Batch operations

@@ -31,7 +31,6 @@ import           Pos.Communication.PeerState (PeerStateHolder (..), WithPeerStat
 import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (ContextHolder, NodeParams, WithNodeContext)
 import           Pos.DB.Class                (MonadDB, MonadDBCore)
-import           Pos.DB.DB                   ()
 import           Pos.DB.Holder               (DBHolder)
 import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)

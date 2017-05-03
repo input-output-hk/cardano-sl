@@ -36,17 +36,22 @@ initialState =
         ,  dashboard:
             { dbViewBlocksExpanded: false
             , dbViewBlockPagination: minPagination
+            , dbViewNewBlockPagination: minPagination
+            , dbViewBlockPaginationEditable: false
             , dbViewTxsExpanded: false
             , dbViewSelectedApiCode: Curl
             }
         , addressDetail:
             { addressTxPagination: minPagination
+            , addressTxPaginationEditable: false
             }
         , blockDetail:
             { blockTxPagination: minPagination
+            , blockTxPaginationEditable: false
             }
         , blocksViewState:
             { blsViewPagination: minPagination
+            , blsViewPaginationEditable: false
             }
         }
     , latestBlocks: NotAsked

@@ -30,7 +30,7 @@ type State =
     , currentBlockSummary :: Maybe CBlockSummary
     , currentBlockTxs :: Maybe CTxBriefs
     , currentTxSummary :: RemoteData Error CTxSummary
-    , latestTransactions :: CTxEntries
+    , latestTransactions :: RemoteData Error CTxEntries
     , currentCAddress :: CAddress
     , currentAddressSummary :: RemoteData Error CAddressSummary
     , currentBlocksResult :: RemoteData Error CBlockEntries

@@ -1,7 +1,9 @@
 module Explorer.State where
 
 import Prelude
+import Data.DateTime.Instant (instant, toDateTime)
 import Data.Maybe (Maybe(..), fromJust)
+import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language(..), translate)
 import Explorer.I18n.Lenses (common, cTitle) as I18nL
@@ -9,8 +11,6 @@ import Explorer.Routes (Route(..))
 import Explorer.Types.State (DashboardAPICode(..), Search(..), State, SearchEpochSlotQuery)
 import Explorer.Util.Factory (mkCAddress)
 import Network.RemoteData (RemoteData(..))
-import Data.DateTime.Instant       (instant, toDateTime)
-import Data.Time.Duration          (Milliseconds (..))
 import Partial.Unsafe (unsafePartial)
 
 
@@ -62,7 +62,7 @@ initialState =
     , handleLatestTxsSocketResult: false
     , currentBlockSummary: Nothing
     , currentBlockTxs: Nothing
-    , latestTransactions: []
+    , latestTransactions: NotAsked
     , currentTxSummary: NotAsked
     , currentCAddress: mkCAddress ""
     , currentAddressSummary: NotAsked

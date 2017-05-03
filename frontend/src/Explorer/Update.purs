@@ -80,7 +80,7 @@ update (SocketBlocksUpdated (Left error)) state = noEffects $
     over errors (\errors' -> (show error) : errors') state
 update (SocketTxsUpdated (Right transactions)) state = noEffects $
     -- add incoming transactions ahead of previous transactions
-    over latestTransactions (\t -> transactions <> t) state
+    over (latestTransactions <<< _Success) (\t -> transactions <> t) state
 update (SocketTxsUpdated (Left error)) state = noEffects $
     -- add incoming errors ahead of previous errors
     over errors (\errors' -> (show error) : errors') state
@@ -463,11 +463,18 @@ update (ReceiveInitialTxs (Right txs)) state =
     set loading false <<<
     set initialTxsRequested true <<<
     set handleLatestTxsSocketResult true $
-    over latestTransactions (\t -> unionTxs txs t)
+    over latestTransactions (\currentTxs ->
+                                  if isSuccess currentTxs
+                                  -- union txs together
+                                  then Success $ unionTxs txs (currentTxs ^. _Success)
+                                  else Success txs
+                            )
     state
     where
       getId tx = tx ^. (_CTxEntry <<< cteId <<< _CTxId <<< _CHash)
-      -- Note: Because we don't have an Eq instance of generated CTxEntry
+      -- Note:  To "union" current with new `txs` we have to compare CTxEntry
+      --        Because we don't have an Eq instance of generated CTxEntry's
+      --        As a workaround we do have to compare CTxEntry by its id
       unionTxs = unionBy (\tx1 tx2 -> getId tx1 == getId tx2)
 
 update (ReceiveInitialTxs (Left error)) state = noEffects $
@@ -546,6 +553,10 @@ routeEffects Dashboard state =
         -- subscribe to `SubBlock` if `latestBlocks` has been loaded before
         <>  if isSuccess $ state ^. latestBlocks
             then [ pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock ] ]
+            else []
+        -- subscribe to `SubTx` if `latestTransactions` has been loaded before
+        <>  if isSuccess $ state ^. latestTransactions
+            then [ pure $ SocketUpdateSubscriptions [ SocketSubscription SubTx ] ]
             else []
     }
 

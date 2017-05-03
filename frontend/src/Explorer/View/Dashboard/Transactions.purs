@@ -1,7 +1,7 @@
 module Explorer.View.Dashboard.Transactions (transactionsView) where
 
 import Prelude
-import Data.Array (length, null, slice)
+import Data.Array (length, slice)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Explorer.I18n.Lang (translate)
@@ -15,6 +15,7 @@ import Explorer.View.Common (currencyCSSClass, noData)
 import Explorer.View.Dashboard.Lenses (dashboardTransactionsExpanded)
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
+import Network.RemoteData (RemoteData(..), isSuccess)
 import Pos.Explorer.Web.ClientTypes (CTxEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, cteId, cteAmount, cteTimeIssued, _CTxId, _CHash)
 import Pux.Html (Html, div, text) as P
@@ -64,10 +65,12 @@ transactionsView state =
                                     , action: NoOp
                                     }
           }
-      transactions = state ^. latestTransactions
-      noTransactions = null transactions
-      visibleTxClazz = if noTransactions then " hide" else ""
-      visibleWaitingClazz = if not noTransactions then " hide" else ""
+      transactions = case state ^. latestTransactions of
+                        Success txs -> txs
+                        _ -> []
+      successTxs = isSuccess $ state ^. latestTransactions
+      visibleTxClazz = if successTxs then "" else " hide"
+      visibleWaitingClazz = if successTxs then " hide" else ""
       visibleBtnExpandClazz = if expandable then "" else " disabled"
 
       clickHandler :: P.MouseEvent -> Action

@@ -98,7 +98,7 @@ instance Exception BlockNetLogicException where
 --
 -- Note that when recovery is in progress (see 'recoveryInProgress'),
 -- 'triggerRecovery' does nothing. It's okay because when recovery is in
--- progress and 'ncRecoveryHeader' is full, we'll requesting blocks anyway
+-- progress and 'ncRecoveryHeader' is full, we'll be requesting blocks anyway
 -- and until we're finished we shouldn't be asking for new blocks.
 triggerRecovery :: forall ssc m.
     (SscWorkersClass ssc, WorkMode ssc m)

@@ -29,7 +29,7 @@ module Pos.Block.Logic
        , createMainBlock
        ) where
 
-import           Control.Lens               (enum, from, (+~), (-=), (.=), _Wrapped)
+import           Control.Lens               ((-=), (.=), _Wrapped)
 import           Control.Monad.Catch        (try)
 import           Control.Monad.Except       (ExceptT (ExceptT), MonadError (throwError),
                                              runExceptT, withExceptT)
@@ -63,7 +63,8 @@ import           Pos.Constants              (blkSecurityParam, curSoftwareVersio
 import           Pos.Context                (NodeContext (ncNodeParams, ncTxpGlobalSettings),
                                              getNodeContext, lrcActionOnEpochReason,
                                              npSecretKey)
-import           Pos.Core                   (BlockVersion (..), EpochIndex, HeaderHash)
+import           Pos.Core                   (BlockVersion (..), EpochIndex, HeaderHash,
+                                             diffEpochOrSlot)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash), hash,
                                              shortHashF)
 import           Pos.Data.Attributes        (mkAttributes)
@@ -157,11 +158,11 @@ lcaWithMainChain headers =
 needRecovery :: forall ssc m. WorkMode ssc m => m Bool
 needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
   where
-    isTooOld slot = do
-        knownSlot <- getEpochOrSlot <$> DB.getTipBlockHeader @ssc
-        pure $
-            (knownSlot & from enum +~ slotSecurityParam) <
-            getEpochOrSlot slot
+    isTooOld currentSlot = do
+        lastKnownBlockSlot <- getEpochOrSlot <$> DB.getTipBlockHeader @ssc
+        let distance = getEpochOrSlot currentSlot `diffEpochOrSlot`
+                       lastKnownBlockSlot
+        pure (distance > slotSecurityParam)
 
 ----------------------------------------------------------------------------
 -- Headers

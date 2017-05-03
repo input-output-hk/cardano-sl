@@ -66,6 +66,9 @@ instance eqSocketSubscription :: Eq SocketSubscription where
   eq = gEq
 
 type CBlockEntries = Array CBlockEntry
+type CBlockEntriesLimit = Int
+type CBlockEntriesOffset = Int
+
 type CTxEntries = Array CTxEntry
 type CTxBriefs = Array CTxBrief
 
@@ -91,7 +94,6 @@ type GlobalViewState =
 type DashboardViewState =
     { dbViewBlocksExpanded :: Boolean
     , dbViewBlockPagination :: Int
-    , dbViewNewBlockPagination :: Int
     , dbViewBlockPaginationEditable :: Boolean
     , dbViewTxsExpanded :: Boolean
     , dbViewSelectedApiCode :: DashboardAPICode

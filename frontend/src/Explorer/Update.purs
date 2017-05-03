@@ -12,7 +12,7 @@ import DOM.HTML.HTMLInputElement (select)
 import Data.Array (difference, length, unionBy, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
-import Data.Int (fromString)
+import Data.Int (floor, fromString, toNumber)
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
@@ -25,13 +25,14 @@ import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPagin
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (Search(..), SocketSubscription(..), State)
+import Explorer.Types.State (Search(..), SocketSubscription(..), State, CBlockEntriesOffset)
 import Explorer.Util.DOM (targetToHTMLElement, targetToHTMLInputElement)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
+import Explorer.View.Blocks (maxBlockRows)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Network.HTTP.Affjax (AJAX)
-import Network.RemoteData (RemoteData(..), _Success, isNotAsked, isSuccess)
+import Network.RemoteData (RemoteData(..), _Success, isNotAsked, isSuccess, withDefault)
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, _CBlockEntry, _CHash, _CTxEntry, _CTxId, caAddress, cbeBlkHash, cteId)
 import Pux (EffModel, noEffects, onlyEffects)
@@ -71,7 +72,7 @@ update (SocketBlocksUpdated (Right blocks)) state =
     then  over (latestBlocks <<< _Success) (\b -> blocks <> b) $
           -- update total number of blocks
           if isSuccess $ state ^. totalBlocks
-          then over (totalBlocks <<< _Success) ((+) $ length blocks) state
+          then updateTotalBlocks state $ length blocks
           else state
     else state
 
@@ -153,8 +154,25 @@ update (DashboardExpandBlocks expanded) state = noEffects $
 update (DashboardExpandTransactions expanded) state = noEffects $
     set (dashboardViewState <<< dbViewTxsExpanded) expanded state
 
-update (DashboardPaginateBlocks value) state = noEffects $
-    set (dashboardViewState <<< dbViewBlockPagination) value state
+update (DashboardPaginateBlocks value) state =
+    { state:
+        if doRequest
+        -- Note: No state changes here,
+        -- because `dbViewBlockPagination` will be updated
+        -- after request has been done successfully
+        then state
+        else set (dashboardViewState <<< dbViewBlockPagination) value state
+    , effects:
+        if doRequest
+        then [ pure $ RequestInitialBlocks value ]
+        else []
+    }
+    where
+        lengthBlocks = length $ withDefault [] (state ^. latestBlocks)
+        totalBlocks' = withDefault 0 (state ^. totalBlocks)
+        doRequest = value > state ^. (dashboardViewState <<< dbViewBlockPagination)
+                    && lengthBlocks < (value * maxBlockRows)
+                    && lengthBlocks < totalBlocks'
 
 update (DashboardEditBlocksPageNumber target editable) state =
     { state:
@@ -363,7 +381,7 @@ update (ReceiveTotalBlocks (Right total)) state =
     , effects:
         -- request `latestBlocks` if needed
         if isNotAsked $ state ^. latestBlocks
-        then [ pure RequestInitialBlocks ]
+        then [ pure <<< RequestInitialBlocks $ initialBlocksOffset state ]
         else []
     }
 
@@ -372,9 +390,9 @@ update (ReceiveTotalBlocks (Left error)) state =
     set totalBlocks (Failure error)
     $ over errors (\errors' -> (show error) : errors') state
 
-update RequestInitialBlocks state =
+update (RequestInitialBlocks offset) state =
     { state: set loading true $ state
-    , effects: [ attempt fetchLatestBlocks >>= pure <<< ReceiveInitialBlocks ]
+    , effects: [ attempt (fetchLatestBlocks maxBlockRows offset) >>= pure <<< ReceiveInitialBlocks ]
     }
 
 update (ReceiveInitialBlocks (Right blocks)) state =
@@ -385,13 +403,11 @@ update (ReceiveInitialBlocks (Right blocks)) state =
                                             -- union blocks together
                                             then Success $ unionBlocks blocks (lBlocks ^. _Success)
                                             else Success blocks
-                            )
+                            ) $
           -- update total number of blocks
-          $ if isSuccess $ state ^. totalBlocks
-                then over (totalBlocks <<< _Success)
-                          ((+) $ length $ unionBlocks blocks (state ^. (latestBlocks <<< _Success)))
-                          state
-                else state
+          if isSuccess $ state ^. totalBlocks
+          then updateTotalBlocks state <<< length $ unionBlocks blocks (state ^. (latestBlocks <<< _Success))
+          else state
     , effects:
           -- add subscription of `SubBlock` if we are on `Dashboard` only
           if (state ^. route) == Dashboard
@@ -553,7 +569,7 @@ routeEffects Dashboard state =
             else []
         -- request `latestBlocks` only if `totalBlocks` has been loaded before
         <>  if (isSuccess $ state ^. totalBlocks) && (isNotAsked $ state ^. latestBlocks)
-            then [ pure RequestInitialBlocks ]
+            then [ pure <<< RequestInitialBlocks $ initialBlocksOffset state ]
             else []
         -- subscribe to `SubBlock` if `latestBlocks` has been loaded before
         <>  if isSuccess $ state ^. latestBlocks
@@ -662,3 +678,17 @@ routeEffects NotFound state =
         , pure $ SocketUpdateSubscriptions []
         ]
     }
+
+-- helper funcions
+
+-- | Updates all state dependencies if `totalBlocks` has been updated
+updateTotalBlocks :: State -> Int -> State
+updateTotalBlocks state blocksLength =
+    over (totalBlocks <<< _Success) ((+) blocksLength) $
+    over (dashboardViewState <<< dbViewBlockPagination) ((+) pageOffset) state
+    where
+        pageOffset = floor <<< toNumber $ (blocksLength / maxBlockRows)
+
+initialBlocksOffset :: State -> CBlockEntriesOffset
+initialBlocksOffset state =
+    (state ^. (dashboardViewState <<< dbViewBlockPagination)) - 1

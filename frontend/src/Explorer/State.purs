@@ -36,7 +36,6 @@ initialState =
         ,  dashboard:
             { dbViewBlocksExpanded: false
             , dbViewBlockPagination: minPagination
-            , dbViewNewBlockPagination: minPagination
             , dbViewBlockPaginationEditable: false
             , dbViewTxsExpanded: false
             , dbViewSelectedApiCode: Curl

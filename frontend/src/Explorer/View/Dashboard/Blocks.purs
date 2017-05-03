@@ -6,7 +6,7 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (cExpand, cOf, dashboard, dbLastBlocks, common, dbExploreBlocks, cNoData) as I18nL
-import Explorer.Lenses.State (dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, lang, latestBlocks)
+import Explorer.Lenses.State (dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, lang, latestBlocks, totalBlocks)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State, CBlockEntries)
@@ -16,7 +16,7 @@ import Explorer.View.Common (getMaxPaginationNumber, paginationView)
 import Explorer.View.Dashboard.Lenses (dashboardBlocksExpanded, dashboardViewState)
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
-import Network.RemoteData (RemoteData(..))
+import Network.RemoteData (RemoteData(..), withDefault)
 import Pux.Html (Html, div, text) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Html.Events (onClick) as P
@@ -76,7 +76,7 @@ blocksFooterView state =
         paginationView { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                         , currentPage: currentBlockPage
                         , minPage: minPagination
-                        , maxPage: getMaxPaginationNumber (length blocks) maxBlockRows
+                        , maxPage: getMaxPaginationNumber totalBlocks' maxBlockRows
                         , changePageAction: DashboardPaginateBlocks
                         , editable: state ^. (dashboardViewState <<< dbViewBlockPaginationEditable)
                         , editableAction: DashboardEditBlocksPageNumber
@@ -90,6 +90,8 @@ blocksFooterView state =
     where
         lang' = state ^. lang
         blocks = unwrapLatestBlocks $ state ^. latestBlocks
+        -- Note: A value of `0` will not be displayed, because paginator is hided in such a case
+        totalBlocks' = withDefault 0 $ state ^. totalBlocks
         expanded = state ^. (dashboardViewState <<< dbViewBlocksExpanded)
         expandable = length blocks > minBlockRows
         currentBlockPage = state ^. (dashboardViewState <<< dbViewBlockPagination)

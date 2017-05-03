@@ -459,17 +459,24 @@ update RequestInitialTxs state =
     , effects: [ attempt fetchLatestTxs >>= pure <<< ReceiveInitialTxs ]
     }
 update (ReceiveInitialTxs (Right txs)) state =
-    noEffects $
-    set loading false <<<
-    set initialTxsRequested true <<<
-    set handleLatestTxsSocketResult true $
-    over latestTransactions (\currentTxs ->
-                                  if isSuccess currentTxs
-                                  -- union txs together
-                                  then Success $ unionTxs txs (currentTxs ^. _Success)
-                                  else Success txs
-                            )
-    state
+    { state:
+          set loading false <<<
+          set initialTxsRequested true <<<
+          set handleLatestTxsSocketResult true $
+          over latestTransactions (\currentTxs ->
+                                        if isSuccess currentTxs
+                                        -- union txs together
+                                        then Success $ unionTxs txs (currentTxs ^. _Success)
+                                        else Success txs
+                                  )
+          state
+    , effects:
+          -- add subscription of `SubTx` if we are on `Dashboard` only
+          if (state ^. route) == Dashboard
+          then [ pure $ SocketUpdateSubscriptions [ SocketSubscription SubTx ] ]
+          else []
+
+    }
     where
       getId tx = tx ^. (_CTxEntry <<< cteId <<< _CTxId <<< _CHash)
       -- Note:  To "union" current with new `txs` we have to compare CTxEntry
@@ -537,9 +544,6 @@ routeEffects Dashboard state =
             state
     , effects:
         [ pure ScrollTop
-        , pure $ SocketUpdateSubscriptions
-                    [ SocketSubscription SubTx
-                    ]
         , pure RequestInitialTxs
         ]
         -- get `totalBlocks` only once

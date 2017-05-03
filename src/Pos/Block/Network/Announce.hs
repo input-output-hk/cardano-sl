@@ -41,8 +41,8 @@ announceBlockOuts = toOutSpecs [convH (Proxy :: Proxy (MsgHeaders ssc))
 
 announceBlock
     :: WorkMode ssc m
-    => m (Set NodeId) -> SendActions m -> MainBlockHeader ssc -> m ()
-announceBlock getPeers sendActions header = do
+    => SendActions m -> MainBlockHeader ssc -> m ()
+announceBlock sendActions header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
     cont <- getNodeContext
     let throwOnIgnored (NodeId (_, nId)) =
@@ -63,8 +63,7 @@ announceBlock getPeers sendActions header = do
                      }
                 else sendActions
     reifyMsgLimit (Proxy @MsgGetHeaders) $ \limitProxy -> do
-        peers <- getPeers
-        converseToNeighbors peers sendActions' $ announceBlockDo limitProxy
+        converseToNeighbors sendActions' $ announceBlockDo limitProxy
   where
     announceBlockDo limitProxy nodeId conv = do
         logDebug $

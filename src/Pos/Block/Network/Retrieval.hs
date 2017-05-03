@@ -49,8 +49,8 @@ import           Pos.WorkMode               (WorkMode)
 retrievalWorker
     :: forall ssc m.
        (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
-    => m (Set NodeId) -> (WorkerSpec m, OutSpecs)
-retrievalWorker getPeers = worker outs (retrievalWorkerImpl getPeers)
+    => (WorkerSpec m, OutSpecs)
+retrievalWorker = worker outs retrievalWorkerImpl
   where
     outs = announceBlockOuts <>
            toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
@@ -73,13 +73,13 @@ retrievalWorker getPeers = worker outs (retrievalWorkerImpl getPeers)
 retrievalWorkerImpl
     :: forall ssc m.
        (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
-    => m (Set NodeId) -> SendActions m -> m ()
-retrievalWorkerImpl getPeers sendActions =
+    => SendActions m -> m ()
+retrievalWorkerImpl sendActions =
     handleAll mainLoopE $ do
         logDebug "Starting retrievalWorker loop"
         mainLoop
   where
-    mainLoop = runIfNotShutdown $ reportingFatal getPeers version $ do
+    mainLoop = runIfNotShutdown $ reportingFatal version $ do
         queue        <- ncBlockRetrievalQueue <$> getNodeContext
         recHeaderVar <- ncRecoveryHeader      <$> getNodeContext
         -- It is not our job to *start* recovery; if we actually need
@@ -99,7 +99,7 @@ retrievalWorkerImpl getPeers sendActions =
         unless needRecovery_ $
             whenJustM (atomically $ tryTakeTMVar recHeaderVar) $ const $ do
                 logDebug "Requesting tips from main loop with triggerRecovery"
-                triggerRecovery getPeers sendActions
+                triggerRecovery sendActions
         -- Here we decide what we'll actually do next
         logDebug "Waiting on the block queue or recovery header var"
         thingToDoNext <- atomically $ do
@@ -119,21 +119,21 @@ retrievalWorkerImpl getPeers sendActions =
     --
     handleBlockRetrieval chunk =
         handleAll (handleBlockRetrievalE chunk) $
-        reportingFatal getPeers version $
-        workerHandle getPeers sendActions chunk
+        reportingFatal version $
+        workerHandle sendActions chunk
     handleBlockRetrievalE (peerId, headers) e = do
         logWarning $ sformat
             ("Error handling peerId="%build%", headers="%listJson%": "%shown)
             peerId (fmap headerHash headers) e
         dropUpdateHeader
-        dropRecoveryHeaderAndRepeat getPeers sendActions peerId
+        dropRecoveryHeaderAndRepeat sendActions peerId
     --
     handleHeadersRecovery (peerId, rHeader) = do
         logDebug "Block retrieval queue is empty and we're in recovery mode,\
                  \ so we will request more headers"
         whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
             handleAll (handleHeadersRecoveryE peerId) $
-            reportingFatal getPeers version $
+            reportingFatal version $
             reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
             withConnectionTo sendActions peerId $ \_peerData ->
                 requestHeaders mghNext peerId (Just rHeader) limPx
@@ -143,7 +143,7 @@ retrievalWorkerImpl getPeers sendActions =
              "for recovery from peerId="%build%", error: "%shown)
             peerId e
         dropUpdateHeader
-        dropRecoveryHeaderAndRepeat getPeers sendActions peerId
+        dropRecoveryHeaderAndRepeat sendActions peerId
 
 dropUpdateHeader :: WorkMode ssc m => m ()
 dropUpdateHeader = do
@@ -180,14 +180,14 @@ dropRecoveryHeader peerId = do
 
 dropRecoveryHeaderAndRepeat
     :: (SscWorkersClass ssc, WorkMode ssc m)
-    => m (Set NodeId) -> SendActions m -> NodeId -> m ()
-dropRecoveryHeaderAndRepeat getPeers sendActions peerId = do
+    => SendActions m -> NodeId -> m ()
+dropRecoveryHeaderAndRepeat sendActions peerId = do
     kicked <- dropRecoveryHeader peerId
     when kicked $ attemptRestartRecovery
   where
     attemptRestartRecovery = do
         logDebug "Attempting to restart recovery"
-        handleAll handleRecoveryTriggerE $ triggerRecovery getPeers sendActions
+        handleAll handleRecoveryTriggerE $ triggerRecovery sendActions
         logDebug "Attempting to restart recovery over"
     handleRecoveryTriggerE e =
         logError $ "Exception happened while trying to trigger " <>
@@ -198,11 +198,10 @@ dropRecoveryHeaderAndRepeat getPeers sendActions peerId = do
 -- blocks
 workerHandle
     :: (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
-    => m (Set NodeId)
-    -> SendActions m
+    => SendActions m
     -> (NodeId, NewestFirst NE (BlockHeader ssc))
     -> m ()
-workerHandle getPeers sendActions (peerId, headers) = do
+workerHandle sendActions (peerId, headers) = do
     logDebug $ sformat
         ("retrievalWorker: handling peerId="%build%", headers="%listJson)
         peerId (fmap headerHash headers)
@@ -212,7 +211,7 @@ workerHandle getPeers sendActions (peerId, headers) = do
         oldestHash = headerHash $ headers ^. _Wrapped . _neLast
     case classificationRes of
         CHsValid lcaChild ->
-            void $ handleCHsValid getPeers sendActions peerId lcaChild newestHash
+            void $ handleCHsValid sendActions peerId lcaChild newestHash
         CHsUseless reason ->
             logDebug $ sformat uselessFormat oldestHash newestHash reason
         CHsInvalid reason ->
@@ -238,13 +237,12 @@ workerHandle getPeers sendActions (peerId, headers) = do
 handleCHsValid
     :: forall ssc m.
        (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
-    => m (Set NodeId)
-    -> SendActions m
+    => SendActions m
     -> NodeId
     -> BlockHeader ssc
     -> HeaderHash
     -> m ()
-handleCHsValid getPeers sendActions peerId lcaChild newestHash = do
+handleCHsValid sendActions peerId lcaChild newestHash = do
     let lcaChildHash = headerHash lcaChild
     logDebug $ sformat validFormat lcaChildHash newestHash
     reifyMsgLimit (Proxy @(MsgBlock ssc)) $ \(_ :: Proxy s0) ->
@@ -260,12 +258,12 @@ handleCHsValid getPeers sendActions peerId lcaChild newestHash = do
                     ("Error retrieving blocks from "%shortHashF%
                      " to "%shortHashF%" from peer "%build%": "%stext)
                     lcaChildHash newestHash peerId e
-                dropRecoveryHeaderAndRepeat getPeers sendActions peerId
+                dropRecoveryHeaderAndRepeat sendActions peerId
             Right blocks -> do
                 logDebug $ sformat
                     ("retrievalWorker: retrieved blocks "%listJson)
                     (map (headerHash . view blockHeader) blocks)
-                handleBlocks getPeers peerId blocks sendActions
+                handleBlocks peerId blocks sendActions
                 dropUpdateHeader
                 -- If we've downloaded any block with bigger
                 -- difficulty than ncrecoveryheader, we're

@@ -132,7 +132,7 @@ testBlocksTxs _ _ _ = pure . pure $ [CTxBrief
 
 testBlocksTotalNumber
     :: Handler (Either ExplorerError Int)
-testBlocksTotalNumber = pure . pure $ 333
+testBlocksTotalNumber = pure $ pure 333
 
 testTxsLast
     :: Maybe Word

@@ -151,14 +151,11 @@ getBlocksTotalNumber
 getBlocksTotalNumber = do
     -- Get the tip block.
     tipBlock <- DB.getTipBlock @SscGodTossing
-    -- -1 is for the genesis block I guess?
-    pure $ checkMaxBlocks $ maxBlocks tipBlock - 1
+    -- -1 is for the genesis block which isn't visible and contains no
+    -- valuable information
+    pure $ max 0 (maxBlocks tipBlock - 1)
   where
     maxBlocks tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
-    -- This just makes sure that the values aren't negative at the start.
-    checkMaxBlocks x
-      | x >= 0    = x
-      | otherwise = 0
 
 -- | Search the blocks by epoch and slot. Slot is optional.
 epochSlotSearch

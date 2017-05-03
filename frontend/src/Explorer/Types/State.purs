@@ -23,10 +23,6 @@ type State =
     , viewStates :: ViewStates
     , latestBlocks :: RemoteData Error CBlockEntries
     , totalBlocks :: RemoteData Error Int
-    , initialBlocksRequested :: Boolean
-    , handleLatestBlocksSocketResult :: Boolean
-    , initialTxsRequested :: Boolean
-    , handleLatestTxsSocketResult :: Boolean
     , currentBlockSummary :: Maybe CBlockSummary
     , currentBlockTxs :: Maybe CTxBriefs
     , currentTxSummary :: RemoteData Error CTxSummary

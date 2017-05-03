@@ -56,10 +56,6 @@ initialState =
         }
     , latestBlocks: NotAsked
     , totalBlocks: NotAsked
-    , initialBlocksRequested: false
-    , handleLatestBlocksSocketResult: false
-    , initialTxsRequested: false
-    , handleLatestTxsSocketResult: false
     , currentBlockSummary: Nothing
     , currentBlockTxs: Nothing
     , latestTransactions: NotAsked

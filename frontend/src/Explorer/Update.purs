@@ -21,7 +21,7 @@ import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs,
 import Explorer.Api.Socket (toEvent)
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, totalBlocks, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, totalBlocks, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
@@ -64,8 +64,9 @@ update (SocketConnected connected') state =
           ]
     }
 
-update (SocketBlocksUpdated (Right blocks)) state = noEffects $
-    if state ^. handleLatestBlocksSocketResult
+update (SocketBlocksUpdated (Right blocks)) state =
+    noEffects $
+    if isSuccess $ state ^. latestBlocks
     -- add incoming blocks ahead of previous blocks
     then  over (latestBlocks <<< _Success) (\b -> blocks <> b) $
           -- update total number of blocks
@@ -78,12 +79,18 @@ update (SocketBlocksUpdated (Left error)) state = noEffects $
     set latestBlocks (Failure error) $
     -- add incoming errors ahead of previous errors
     over errors (\errors' -> (show error) : errors') state
-update (SocketTxsUpdated (Right transactions)) state = noEffects $
+
+update (SocketTxsUpdated (Right transactions)) state =
+    noEffects $
+    if isSuccess $ state ^. latestTransactions
     -- add incoming transactions ahead of previous transactions
-    over (latestTransactions <<< _Success) (\t -> transactions <> t) state
+    then over (latestTransactions <<< _Success) (\t -> transactions <> t) state
+    else state
+
 update (SocketTxsUpdated (Left error)) state = noEffects $
     -- add incoming errors ahead of previous errors
     over errors (\errors' -> (show error) : errors') state
+
 update SocketCallMe state =
     { state
     , effects : [ do
@@ -92,6 +99,7 @@ update SocketCallMe state =
               Nothing -> pure unit
           pure NoOp
     ]}
+
 update (SocketCallMeString str) state =
     { state
     , effects : [ do
@@ -100,6 +108,7 @@ update (SocketCallMeString str) state =
               Nothing -> pure unit
           pure NoOp
     ]}
+
 update (SocketCallMeCTxId id) state =
     { state
     , effects : [ do
@@ -371,8 +380,6 @@ update RequestInitialBlocks state =
 update (ReceiveInitialBlocks (Right blocks)) state =
     { state:
           set loading false <<<
-          set initialBlocksRequested true <<<
-          set handleLatestBlocksSocketResult true $
           -- add blocks
           over latestBlocks (\lBlocks -> if isSuccess lBlocks
                                             -- union blocks together
@@ -386,10 +393,10 @@ update (ReceiveInitialBlocks (Right blocks)) state =
                           state
                 else state
     , effects:
-        -- add subscription of `SubBlock` if we are on `Dashboard` only
-        if (state ^. route) == Dashboard
-        then [ pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock ] ]
-        else []
+          -- add subscription of `SubBlock` if we are on `Dashboard` only
+          if (state ^. route) == Dashboard
+          then [ pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock ] ]
+          else []
     }
     where
         getHash block = block ^. (_CBlockEntry <<< cbeBlkHash <<< _CHash)
@@ -401,8 +408,6 @@ update (ReceiveInitialBlocks (Right blocks)) state =
 update (ReceiveInitialBlocks (Left error)) state =
     noEffects $
     set loading false <<<
-    set initialBlocksRequested true <<<
-    set handleLatestBlocksSocketResult true $
     set latestBlocks (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
@@ -460,9 +465,7 @@ update RequestInitialTxs state =
     }
 update (ReceiveInitialTxs (Right txs)) state =
     { state:
-          set loading false <<<
-          set initialTxsRequested true <<<
-          set handleLatestTxsSocketResult true $
+          set loading false $
           over latestTransactions (\currentTxs ->
                                         if isSuccess currentTxs
                                         -- union txs together
@@ -485,9 +488,7 @@ update (ReceiveInitialTxs (Right txs)) state =
       unionTxs = unionBy (\tx1 tx2 -> getId tx1 == getId tx2)
 
 update (ReceiveInitialTxs (Left error)) state = noEffects $
-    set loading false <<<
-    set initialTxsRequested true <<<
-    set handleLatestTxsSocketResult true $
+    set loading false $
     over errors (\errors' -> (show error) : errors') state
 
 update (RequestTxSummary id) state =

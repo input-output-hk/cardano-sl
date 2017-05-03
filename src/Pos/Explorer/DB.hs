@@ -53,7 +53,7 @@ prepareExplorerDB =
         putInitFlag
 
 balancesInitFlag :: ByteString
-balancesInitFlag = "e/init"
+balancesInitFlag = "e/init/"
 
 areBalancesInitialized :: MonadDB m => m Bool
 areBalancesInitialized = isJust <$> (getUtxoDB >>= rocksGetBytes balancesInitFlag)

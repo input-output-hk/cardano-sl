@@ -212,7 +212,7 @@ iterationUtxoPrefix :: ByteString
 iterationUtxoPrefix = "ut/t/"
 
 initializationFlagKey :: ByteString
-initializationFlagKey = "ut/gutxo"
+initializationFlagKey = "ut/gutxo/"
 
 ----------------------------------------------------------------------------
 -- Details

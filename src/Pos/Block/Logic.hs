@@ -160,7 +160,7 @@ needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
     isTooOld slot = do
         knownSlot <- getEpochOrSlot <$> DB.getTipBlockHeader @ssc
         pure $
-            (knownSlot & from enum +~ blkSecurityParam) <
+            (knownSlot & from enum +~ slotSecurityParam) <
             getEpochOrSlot slot
 
 ----------------------------------------------------------------------------

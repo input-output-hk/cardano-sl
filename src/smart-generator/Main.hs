@@ -291,6 +291,7 @@ main = do
                     , upUpdateWithPkg = True
                     , upUpdateServers = []
                     }
+                , npUseNTP = True
                 }
             gtParams =
                 GtParams

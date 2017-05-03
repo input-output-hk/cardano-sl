@@ -29,7 +29,7 @@ module Pos.Block.Logic
        , createMainBlock
        ) where
 
-import           Control.Lens                     (enum, from, (-=), (.=), _Wrapped)
+import           Control.Lens                     (enum, from, (+~), (-=), (.=), _Wrapped)
 import           Control.Monad.Catch              (try)
 import           Control.Monad.Except             (ExceptT (ExceptT),
                                                    MonadError (throwError), runExceptT,
@@ -162,19 +162,13 @@ lcaWithMainChain headers =
 -- This function checks for #1. Note that even if we're doing recovery right
 -- now, 'needRecovery' will still return 'True'.
 --
-needRecovery
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
-    => m Bool
-needRecovery =
-    getCurrentSlot >>= \case
-        Nothing   -> pure True
-        Just slot -> isTooOld slot
+needRecovery :: forall ssc m. WorkMode ssc m => m Bool
+needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
   where
     isTooOld slot = do
         knownSlot <- getEpochOrSlot <$> DB.getTipBlockHeader @ssc
         pure $
-            (knownSlot & from enum %~ (+ blkSecurityParam)) <
+            (knownSlot & from enum +~ blkSecurityParam) <
             getEpochOrSlot slot
 
 ----------------------------------------------------------------------------
@@ -256,12 +250,6 @@ data ClassifyHeadersRes ssc
                                    --    LCA child attached.
     | CHsUseless !Text             -- ^ Header is useless.
     | CHsInvalid !Text             -- ^ Header is invalid.
-    | CHsOld !EpochOrSlot !SlotId  -- ^ Newest header in the chain isn't
-                                   --    from current slot (and we're not
-                                   --    in recovery mode).
-                                   --   Fields:
-                                   --    * newest header's slot
-                                   --    * current slot
     deriving (Show)
 
 -- | Classify headers received in response to 'GetHeaders' message.
@@ -271,12 +259,12 @@ data ClassifyHeadersRes ssc
 --    lca child is returned.
 -- * If chain of headers forks from our main chain too much, CHsUseless
 --    is returned, because paper suggests doing so.
--- * If we aren't too far behind the current slot (i.e. if 'needRecovery' is
---    false), the newest header in the list has to be from current slot
---    (see CSL-177), and CHsNotCurrentSlot is returned.
+-- * CHsUseless is also returned if we aren't too far behind the current slot
+--    (i.e. if 'needRecovery' is false) but the newest header in the list isn't
+--    from the current slot. See CSL-177.
 classifyHeaders
     :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+       WorkMode ssc m
     => NewestFirst NE (BlockHeader ssc)
     -> m (ClassifyHeadersRes ssc)
 classifyHeaders headers = do
@@ -292,22 +280,23 @@ classifyHeaders headers = do
                 EpochOrSlot (Left e)  -> SlotId e 0
                 EpochOrSlot (Right s) -> s
     if | not headersValid ->
-             pure $ CHsInvalid
-             "Header chain is invalid"
+             pure $ CHsInvalid "Header chain is invalid"
        | not haveOldestParent ->
-             pure $ CHsInvalid $
-             "Didn't manage to find block corresponding to parent " <>
-             "of oldest element in chain (should be one of checkpoints)"
+             pure $ CHsInvalid
+                 "Didn't manage to find block corresponding to parent \
+                 \of oldest element in chain (should be one of checkpoints)"
        | newestHash == headerHash tip ->
-             pure $ CHsUseless
-             "Newest hash is the same as our tip"
+             pure $ CHsUseless "Newest hash is the same as our tip"
        | newestHeader ^. difficultyL <= tipHeader ^. difficultyL ->
              pure $ CHsUseless
-             "Newest hash difficulty is not greater than our tip's"
+                 "Newest hash difficulty is not greater than our tip's"
        | Just currentSlot <- mbCurrentSlot,
          not needRecovery_,
          newestHeaderConvertedSlot /= currentSlot ->
-             pure $ CHsOld (newestHeader ^. epochOrSlotG) currentSlot
+             pure $ CHsUseless $ sformat
+                 ("Newest header is from slot "%build%", but current slot"%
+                  " is "%build%" (and we're not in recovery mode)")
+                 (newestHeader ^. epochOrSlotG) currentSlot
        | otherwise -> fromMaybe uselessGeneral <$> processClassify tipHeader
   where
     newestHeader = headers ^. _Wrapped . _neHead

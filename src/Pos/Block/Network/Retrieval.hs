@@ -65,7 +65,8 @@ retrievalWorker getPeers = worker outs (retrievalWorkerImpl getPeers)
 -- * If there are headers in 'ncBlockRetrievalQueue', this worker retrieves
 --   blocks according to that queue.
 --
--- * If recovery is in progress, this worker keeps recovery going.
+-- * If recovery is in progress, this worker keeps recovery going by asking
+--   headers and backing up to (1 ~ block retrieval) on next loop iteration.
 --
 -- If both happen at the same time, 'ncBlockRetrievalQueue' takes precedence.
 --
@@ -149,11 +150,19 @@ dropUpdateHeader = do
     progressHeaderVar <- ncProgressHeader <$> getNodeContext
     void $ atomically $ tryTakeTMVar progressHeaderVar
 
+-- | The returned 'Bool' signifies whether given peer was kicked and recovery
+-- was stopped.
+--
+-- NB. The reason @peerId@ is passed is that we want to avoid a race
+-- condition. If you work with peer P and header H, after failure you want to
+-- drop communication with P; however, if at the same time a new block
+-- arrives and another thread replaces peer and header to (P2, H2), you want
+-- to continue working with P2 and ignore the exception that happened with P.
+-- So, @peerId@ is used to check that the peer wasn't replaced mid-execution.
 dropRecoveryHeader
     :: WorkMode ssc m
     => NodeId
-    -> m Bool           -- ^ Whether given peer was kicked and recovery was
-                        --   stopped
+    -> m Bool
 dropRecoveryHeader peerId = do
     recHeaderVar <- ncRecoveryHeader <$> getNodeContext
     (kicked,realPeer) <- atomically $ do
@@ -208,8 +217,6 @@ workerHandle getPeers sendActions (peerId, headers) = do
             logDebug $ sformat uselessFormat oldestHash newestHash reason
         CHsInvalid reason ->
             logWarning $ sformat invalidFormat oldestHash newestHash reason
-        CHsOld newestSlot curSlot ->
-            logWarning $ sformat oldFormat oldestHash newestHash newestSlot curSlot
   where
     classifyHeaders' (NewestFirst (header :| [])) = do
         classificationRes <- classifyNewHeader header
@@ -227,11 +234,6 @@ workerHandle getPeers sendActions (peerId, headers) = do
     uselessFormat =
         "Chain of headers from " %shortHashF % " to " %shortHashF %
         " is useless for the following reason: " %stext
-    oldFormat =
-        "Chain of headers from " %shortHashF % " to " %shortHashF %
-        " is invalid for the following reason: the newest header is from"%
-        " slot "%build%", but current slot is "%build%
-        " (and we're not in recovery mode)"
 
 handleCHsValid
     :: forall ssc m.

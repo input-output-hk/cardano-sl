@@ -282,7 +282,7 @@ requestHeaders mgh peerId origTip _ conv = do
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders
     :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+       WorkMode ssc m
     => NewestFirst NE (BlockHeader ssc)
     -> NodeId
     -> Maybe (BlockHeader ssc)
@@ -310,8 +310,6 @@ handleRequestedHeaders headers peerId origTip = do
         CHsInvalid reason ->
              -- TODO: ban node for sending invalid block.
             logDebug $ sformat invalidFormat oldestHash newestHash reason
-        CHsOld newestSlot curSlot ->
-            logWarning $ sformat oldFormat oldestHash newestHash newestSlot curSlot
   where
     validFormat =
         "Received valid headers, can request blocks from " %shortHashF % " to " %shortHashF
@@ -320,11 +318,6 @@ handleRequestedHeaders headers peerId origTip = do
         " is "%what%" for the following reason: " %stext
     uselessFormat = genericFormat "useless"
     invalidFormat = genericFormat "invalid"
-    oldFormat =
-        "Chain of headers from " %shortHashF % " to " %shortHashF %
-        " is invalid for the following reason: the newest header is from"%
-        " slot "%build%", but current slot is "%build%
-        " (and we're not in recovery mode)"
 
 -- | Given nonempty list of valid blockheaders and nodeid, this
 -- function will put them into download queue and they will be

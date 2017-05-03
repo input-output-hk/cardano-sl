@@ -138,7 +138,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                    usingLoggerName lpRunnerTag .
                    runCH @ssc allWorkersNum np initNC modernDBs .
                    runSlottingHolder slottingVar .
-                   runNtpSlotting ntpSlottingVar .
+                   runNtpSlotting (npUseNTP, ntpSlottingVar) .
                    ignoreSscHolder .
                    runTxpHolder txpVar .
                    runDelegationT def .
@@ -152,7 +152,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
 
        runCH allWorkersNum np initNC modernDBs .
           runSlottingHolder slottingVar .
-          runNtpSlotting ntpSlottingVar .
+          runNtpSlotting (npUseNTP, ntpSlottingVar) .
           (mkStateAndRunSscHolder @ssc) .
           runTxpHolder txpVar .
           runDelegationT def .

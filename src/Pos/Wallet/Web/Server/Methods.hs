@@ -88,7 +88,7 @@ import           Pos.Wallet.WalletMode            (WalletMode, applyLastUpdate,
                                                    getBalance, getTxHistory,
                                                    localChainDifficulty,
                                                    networkChainDifficulty, waitForUpdate)
-import           Pos.Wallet.Web.Account           (genSaveRootAddress,
+import           Pos.Wallet.Web.Account           (GenSeed (..), genSaveRootAddress,
                                                    genUniqueAccountAddress,
                                                    genUniqueWalletAddress, getAddrIdx,
                                                    getSKByAccAddr, getSKByAddr,
@@ -383,9 +383,9 @@ servantHandlers getPeers sendActions =
     apiGetWallet                = catchWalletError . getWallet
     apiGetWallets               = catchWalletError . getWallets
     apiUpdateWallet             = (\a -> catchWalletError . updateWallet a)
-    apiNewWallet                = (\a -> catchWalletError . newWallet a)
+    apiNewWallet                = (\a -> catchWalletError . newWallet RandomSeed a)
     apiDeleteWallet             = catchWalletError . deleteWallet
-    apiNewAccount               = (\a -> catchWalletError . newAccount a)
+    apiNewAccount               = (\a -> catchWalletError . newAccount RandomSeed a)
     apiIsValidAddress           = (\a -> catchWalletError . isValidAddress a)
     apiGetUserProfile           = catchWalletError getUserProfile
     apiUpdateUserProfile        = catchWalletError . updateUserProfile
@@ -552,7 +552,7 @@ sendExtended getPeers sendActions cpassphrase srcWallet dstAccount coin curr tit
     mkRemainingTx remaining
         | remaining == mkCoin 0 = return Nothing
         | otherwise = do
-            remCAddr <- caAddress <$> newAccount cpassphrase srcWallet
+            remCAddr <- caAddress <$> newAccount RandomSeed cpassphrase srcWallet
             remAddr  <- decodeCAddressOrFail $ caaAddress remCAddr
             let remTx = TxOutAux (TxOut remAddr remaining) []
             return $ Just (remTx, remCAddr)
@@ -671,24 +671,30 @@ addHistoryTx cAddr curr title desc wtx@THEntry{..} = do
     meta' <- maybe meta identity <$> getTxMeta cAddr cId
     return $ mkCTx diff wtx meta'
 
-newAccount :: WalletWebMode ssc m => Maybe CPassPhrase -> CWalletAddress -> m CAccount
-newAccount cPassphrase cWAddr = do
+
+newAccount
+    :: WalletWebMode ssc m
+    => GenSeed
+    -> Maybe CPassPhrase
+    -> CWalletAddress
+    -> m CAccount
+newAccount addGenSeed cPassphrase cWAddr = do
     -- check wallet exists
     _ <- getWallet cWAddr
 
     passphrase <- decodeCPassPhraseOrFail cPassphrase
-    cAccAddr <- genUniqueAccountAddress passphrase cWAddr
+    cAccAddr <- genUniqueAccountAddress addGenSeed passphrase cWAddr
     addAccount cAccAddr
     getAccount cAccAddr
 
-newWallet :: WalletWebMode ssc m => Maybe CPassPhrase -> CWalletInit -> m CWallet
-newWallet cPassphrase CWalletInit {..} = do
+newWallet :: WalletWebMode ssc m => GenSeed -> Maybe CPassPhrase -> CWalletInit -> m CWallet
+newWallet addGenSeed cPassphrase CWalletInit {..} = do
     -- check wallet set exists
     _ <- getWSet cwInitWSetId
 
-    cAddr <- genUniqueWalletAddress cwInitWSetId
+    cAddr <- genUniqueWalletAddress addGenSeed cwInitWSetId
     createWallet cAddr cwInitMeta
-    () <$ newAccount cPassphrase cAddr
+    () <$ newAccount addGenSeed cPassphrase cAddr
     getWallet cAddr
 
 createWSetSafe
@@ -717,7 +723,9 @@ updateWallet cAddr wMeta = do
 updateTransaction :: WalletWebMode ssc m => CWalletAddress -> CTxId -> CTxMeta -> m ()
 updateTransaction = setWalletTransactionMeta
 
-deleteWSet :: WalletWebMode ssc m => CAddress WS -> m ()
+-- TODO: to add when necessary
+{-
+deleteWSet :: WalletWebMode m => CAddress WS -> m ()
 deleteWSet wsAddr = do
     wallets <- getWallets (Just wsAddr)
     mapM_ (deleteWallet . cwAddress) wallets
@@ -729,7 +737,7 @@ deleteWSet wsAddr = do
         deleteSecretKey (fromIntegral idx) `catch` deleteErrHandler
     deleteErrHandler (PrimaryKey err) = throwM . Internal $
         sformat ("Error while deleting wallet set: "%stext) err
-
+-}
 deleteWallet :: WalletWebMode ssc m => CWalletAddress -> m ()
 deleteWallet = removeWallet
 
@@ -777,7 +785,13 @@ redeemAda getPeers sendActions cpassphrase CWalletRedeem {..} = do
 -- Decrypts certificate based on:
 --  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L205
 --  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L160
-redeemAdaPaperVend :: WalletWebMode ssc m => m (Set NodeId) -> SendActions m -> MCPassPhrase -> CPaperVendWalletRedeem -> m CTx
+redeemAdaPaperVend
+    :: WalletWebMode ssc m
+    => m (Set NodeId)
+    -> SendActions m
+    -> MCPassPhrase
+    -> CPaperVendWalletRedeem
+    -> m CTx
 redeemAdaPaperVend getPeers sendActions cpassphrase CPaperVendWalletRedeem {..} = do
     seedEncBs <- maybe invalidBase58 pure
         $ decodeBase58 bitcoinAlphabet $ encodeUtf8 pvSeed
@@ -791,7 +805,14 @@ redeemAdaPaperVend getPeers sendActions cpassphrase CPaperVendWalletRedeem {..} 
     invalidMnemonic e = throwM . Internal $ "Invalid mnemonic: " <> toText e
     decryptionFailed e = throwM . Internal $ "Decryption failed: " <> show e
 
-redeemAdaInternal :: WalletWebMode ssc m => m (Set NodeId) -> SendActions m -> MCPassPhrase -> CWalletAddress -> ByteString -> m CTx
+redeemAdaInternal
+    :: WalletWebMode ssc m
+    => m (Set NodeId)
+    -> SendActions m
+    -> MCPassPhrase
+    -> CWalletAddress
+    -> ByteString
+    -> m CTx
 redeemAdaInternal getPeers sendActions cpassphrase walletId seedBs = do
     passphrase <- decodeCPassPhraseOrFail cpassphrase
     (_, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
@@ -800,7 +821,7 @@ redeemAdaInternal getPeers sendActions cpassphrase walletId seedBs = do
     _ <- getWallet walletId
 
     let srcAddr = makeRedeemAddress $ redeemToPublic redeemSK
-    dstCAddr <- genUniqueAccountAddress passphrase walletId
+    dstCAddr <- genUniqueAccountAddress RandomSeed passphrase walletId
     dstAddr <- decodeCAddressOrFail $ caaAddress dstCAddr
     na <- getPeers
     etx <- submitRedemptionTx sendActions redeemSK (toList na) dstAddr
@@ -811,6 +832,7 @@ redeemAdaInternal getPeers sendActions cpassphrase walletId seedBs = do
             let txInputs = [TxOut redeemAddress redeemBalance]
             addHistoryTx walletId ADA "ADA redemption" ""
                 (THEntry (hash tx) tx txInputs Nothing [srcAddr] [dstAddr])
+
 
 reportingInitialized :: WalletWebMode ssc m => CInitialized -> m ()
 reportingInitialized cinit = do
@@ -866,14 +888,11 @@ importKey (toString -> fp) = do
 -- account.
 addInitialRichAccount :: WalletWebMode ssc m => m (Set NodeId) -> SendActions m -> Int -> m ()
 addInitialRichAccount getPeers sendActions keyId =
-    when isDevelopment . E.handleAll handler $ do
+    when isDevelopment . E.handleAll errHandler $ do
         key <- maybeThrow noKey (genesisDevSecretKeys ^? ix keyId)
-        let enKey = noPassEncrypt key
-        let addr = makePubKeyAddress $ encToPublic enKey
-            wsAddr = addressToCAddress addr
-
-        balance <- getBalance addr
-        let coinsToSend = applyCoinPortion (unsafeCoinPortionFromDouble 0.5) balance
+        let enKey   = noPassEncrypt key
+        let wsAddr  = makePubKeyAddress $ encToPublic enKey
+            wsCAddr = addressToCAddress wsAddr
 
         let cpass  = Nothing
             backup = mkBackupPhrase12 $ sformat build <$> "nyan-forever"
@@ -881,33 +900,50 @@ addInitialRichAccount getPeers sendActions keyId =
             wMeta  = def{ cwName = "Initial wallet" }
 
         addSecretKey enKey
-        deleteWSet wsAddr `catchAll` \_ -> return ()
-        addSecretKey enKey
-        _ <- createWSetSafe wsAddr wsMeta
-        wAddr    <- cwAddress <$> newWallet cpass (CWalletInit wMeta wsAddr)
+        E.handleAll wSetExistsHandler $ do
+            void $ createWSetSafe wsCAddr wsMeta
 
-        accounts <- getAccounts wAddr
-        accAddr  <- maybeThrow noAccount . head $ caAddress <$> accounts
+            let wInit = CWalletInit wMeta wsCAddr
+            void $ newWallet (DeterminedSeed keyId) cpass wInit
 
-        -- send some money from wallet set (corresponds to genesis address)
-        -- to its account
-        na          <- getPeers
-        let signer   = fakeSigner key
-        let dstCAddr = caaAddress accAddr
-        dstAddr     <- decodeCAddressOrFail dstCAddr
-        let tx       = TxOutAux (TxOut dstAddr coinsToSend) []
-        etx         <- submitTx sendActions signer (toList na) (one tx)
-        case etx of
-            Left err ->
-                throwM . Internal $ sformat ("Cannot send transaction \
-                                    \for genesis account: "%stext) err
-            Right _  ->
-                logDebug $ sformat ("Spent "%build%" from genesis address #"
-                           %int) coinsToSend keyId
+        E.handleAll errHandler $ do
+            wallets  <- getWallets (Just wsCAddr)
+            let wAddr = fromMaybe (error "Init wallet should've been created along with wallet set!") $
+                        head $ cwAddress <$> wallets
+            accounts <- getAccounts wAddr
+            accAddr  <- maybeThrow noAccount . head $ caAddress <$> accounts
+
+            genesisBalance <- getBalance wsAddr
+            accBalance <- getBalance =<< decodeCAddressOrFail (caaAddress accAddr)
+            let coinsToSend =
+                    notExceeding (mkCoin 10000) accBalance $
+                    applyCoinPortion (unsafeCoinPortionFromDouble 0.5) genesisBalance
+
+            logError $ sformat ("Lil "%build) coinsToSend
+
+            -- send some money from wallet set (corresponds to genesis address)
+            -- to its account
+            na          <- getPeers
+            let signer   = fakeSigner key
+            let dstCAddr = caaAddress accAddr
+            dstAddr     <- decodeCAddressOrFail dstCAddr
+            let tx       = TxOutAux (TxOut dstAddr coinsToSend) []
+            etx         <- submitTx sendActions signer (toList na) (one tx)
+            case etx of
+                Left err ->
+                    throwM . Internal $ sformat ("Cannot send transaction \
+                                        \for genesis account: "%stext) err
+                Right _  ->
+                    logDebug $ sformat ("Spent "%build%" from genesis \
+                                        \address #"%int) coinsToSend keyId
   where
+    notExceeding limit curBalance =
+        min $ limit `unsafeSubCoin` min limit curBalance
     noKey = Internal $ sformat ("No genesis key #"%build) keyId
     noAccount = Internal "No account created with wallet creation!"
-    handler = logError . sformat ("Creation of init account failed: "%build)
+    errHandler = logError . sformat ("Creation of init account failed: "%build)
+    wSetExistsHandler =
+        logDebug . sformat ("Initial wallet set already exists ("%build%")")
 
 syncProgress :: WalletWebMode ssc m => m SyncProgress
 syncProgress = do

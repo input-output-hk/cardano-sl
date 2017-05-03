@@ -11,6 +11,7 @@ module Pos.Wallet.Web.Account
        , deriveAccountSK
        , deriveAccountAddress
        , AccountMode
+       , GenSeed (..)
        ) where
 
 import           Data.Bits                  (setBit)
@@ -83,8 +84,14 @@ genSaveRootAddress passphrase ph =
         return sk
     keyFromPhraseFailed msg = throwM . Internal $ "Key creation from phrase failed: " <> msg
 
-generateUnique :: (MonadIO m, Random a) => (a -> m b) -> (b -> m Bool) -> m b
-generateUnique generator isDuplicate = loop
+data GenSeed
+    = DeterminedSeed Int
+    | RandomSeed
+
+generateUnique
+    :: (MonadIO m, MonadThrow m, Integral a, Random a)
+    => GenSeed -> (a -> m b) -> (b -> m Bool) -> m b
+generateUnique RandomSeed generator isDuplicate = loop
   where
     loop = do
         rand  <- liftIO randomIO
@@ -93,25 +100,34 @@ generateUnique generator isDuplicate = loop
         if bad
             then loop
             else return value
+generateUnique (DeterminedSeed seed) generator isDuplicate = do
+    value <- generator (fromIntegral seed)
+    whenM (isDuplicate value) $
+        throwM $ Internal "This value is already taken"
+    return value
 
 nonHardenedOnly :: Word32 -> Word32
 nonHardenedOnly index = setBit index 31
 
 genUniqueWalletAddress
     :: AccountMode m
-    => CAddress WS
+    => GenSeed
+    -> CAddress WS
     -> m CWalletAddress
-genUniqueWalletAddress wsCAddr =
-    generateUnique (return . CWalletAddress wsCAddr . nonHardenedOnly)
+genUniqueWalletAddress genSeed wsCAddr =
+    generateUnique genSeed
+                   (return . CWalletAddress wsCAddr . nonHardenedOnly)
                    (fmap isJust . getWalletMeta)
 
 genUniqueAccountAddress
     :: AccountMode m
-    => PassPhrase
+    => GenSeed
+    -> PassPhrase
     -> CWalletAddress
     -> m CAccountAddress
-genUniqueAccountAddress passphrase wCAddr@CWalletAddress{..} =
-    generateUnique (mkAccount . nonHardenedOnly)
+genUniqueAccountAddress genSeed passphrase wCAddr@CWalletAddress{..} =
+    generateUnique genSeed
+                   (mkAccount . nonHardenedOnly)
                    (doesAccountExist Ever)
   where
     mkAccount caaAccountIndex =

@@ -4,28 +4,19 @@ sudo: true
 matrix:
   include:
     - os: osx
-      osx_image: xcode7.3
-    - os: osx
-      osx_image: xcode8
-  allow_failures:
-    - os: osx
-  # due to too long builds
-  # https://github.com/NixOS/nixpkgs/issues/21200
-  fast_finish: true
+      osx_image: xcode8.3
+    - env: HLINT=true
 env:
 - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/8bed8fb53227932886ab23e5f5f9eabe139f8e9f.tar.gz
 cache:
   directories:
-  #- "$HOME/.stack"
+  - "$HOME/.stack"
   #- "$HOME/build/input-output-hk/cardano-sl/.stack-work"
-  # TODO: https://github.com/npm/fs-write-stream-atomic/pull/14
-  #- daedalus/node_modules
-  #- daedalus/bower_components
 
 before_install:
 - echo $TRAVIS_OS_NAME
 - export CSL_SYSTEM_TAG=$TRAVIS_OS_NAME
-- mkdir -p ~/.local/bin
+- mkdir -p ~/.local/bin s3
 - export PATH=$HOME/.local/bin:$PATH
 - sudo mount -o remount,exec,size=4G,mode=755 /run/user || true
 # TODO: https://github.com/NixOS/nixpkgs/issues/21200
@@ -33,33 +24,12 @@ before_install:
   xz --strip-components=1 -C ~/.local/bin
 
 script:
-- nix-shell -p haskellPackages.hlint --run "util-scripts/lint.sh --nix"
-- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" ]];
-    then export EXTRA_STACK="--haddock";
-    else export EXTRA_STACK="--no-haddock-deps";
+- if [[ "$HLINT" == "true" ]]; then
+    nix-shell -p haskellPackages.hlint moreutils --run "util-scripts/lint.sh --nix | ts";
+  else
+    nix-shell -p moreutils --run "./util-scripts/travis.sh | ts";
   fi
-- if [[ "$TRAVIS_OS_NAME" == "linux" ]];
-    then export EXTRA_STACK="--test $EXTRA_STACK";
-  fi
-- if [[ "$TRAVIS_OS_NAME" == "osx" ]];
-    then export EXTRA_STACK="--flag cardano-sl:for-installer $EXTRA_STACK";
-  fi
-- stack --nix --no-terminal --local-bin-path daedalus/ install cardano-sl
-  $EXTRA_STACK --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --jobs=4
-  --flag cardano-sl:-asserts
-  --flag cardano-sl-core:-dev-mode
-- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" ]]; then ./update_wallet_web_api_docs.sh; fi
-- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" ]]; then ./update_haddock.sh; fi
-- stack exec --nix -- cardano-wallet-hs2purs
-- stack exec --nix -- cardano-wallet-web-docs
-- pushd daedalus
-- nix-shell --run "npm install && npm run build:prod"
-- echo $TRAVIS_BUILD_NUMBER > build-id
-- cp ../log-config-prod.yaml .
-- popd
-- mkdir s3
-# Replace TRAVIS_BRANCH slash not to fail on subdirectory missing
-- XZ_OPT=-1 tar cJf s3/daedalus-bridge-$TRAVIS_OS_NAME-${TRAVIS_BRANCH/\//-}.tar.xz daedalus/
+
 deploy:
   provider: s3
   access_key_id: AKIAJKSJR3FUN3CWKC5Q

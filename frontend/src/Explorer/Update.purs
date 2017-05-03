@@ -9,7 +9,7 @@ import Control.SocketIO.Client (SocketIO, emit, emit')
 import DOM (DOM)
 import DOM.HTML.HTMLElement (blur)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array (difference, unionBy, (:))
+import Data.Array (difference, length, unionBy, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Int (fromString)
@@ -21,7 +21,7 @@ import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs,
 import Explorer.Api.Socket (toEvent)
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, totalBlocks, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, totalBlocks, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
@@ -31,7 +31,7 @@ import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotInde
 import Explorer.Util.QrCode (generateQrCode)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Network.HTTP.Affjax (AJAX)
-import Network.RemoteData (RemoteData(..), _Success)
+import Network.RemoteData (RemoteData(..), _Success, isNotAsked, isSuccess)
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, _CBlockEntry, _CHash, _CTxEntry, _CTxId, caAddress, cbeBlkHash, cteId)
 import Pux (EffModel, noEffects, onlyEffects)
@@ -63,11 +63,17 @@ update (SocketConnected connected') state =
             else pure NoOp
           ]
     }
+
 update (SocketBlocksUpdated (Right blocks)) state = noEffects $
     if state ^. handleLatestBlocksSocketResult
     -- add incoming blocks ahead of previous blocks
-    then over (latestBlocks <<< _Success) (\b -> blocks <> b) state
+    then  over (latestBlocks <<< _Success) (\b -> blocks <> b) $
+          -- update total number of blocks
+          if isSuccess $ state ^. totalBlocks
+          then over (totalBlocks <<< _Success) ((+) $ length blocks) state
+          else state
     else state
+
 update (SocketBlocksUpdated (Left error)) state = noEffects $
     set latestBlocks (Failure error) $
     -- add incoming errors ahead of previous errors
@@ -343,8 +349,14 @@ update RequestTotalBlocks state =
     }
 
 update (ReceiveTotalBlocks (Right total)) state =
-    noEffects $
-    set totalBlocks (Success total) $ state
+    { state:
+          set totalBlocks (Success total) $ state
+    , effects:
+        -- request `latestBlocks` if needed
+        if isNotAsked $ state ^. latestBlocks
+        then [ pure RequestInitialBlocks ]
+        else []
+    }
 
 update (ReceiveTotalBlocks (Left error)) state =
     noEffects $
@@ -357,21 +369,34 @@ update RequestInitialBlocks state =
     }
 
 update (ReceiveInitialBlocks (Right blocks)) state =
-    noEffects $
-    set loading false <<<
-    set initialBlocksRequested true <<<
-    set handleLatestBlocksSocketResult true $
-    over latestBlocks (\b -> case b of
-                                  (Success b') -> Success $ unionBlocks blocks b'
-                                  _ -> Success blocks
-                      )
-    state
+    { state:
+          set loading false <<<
+          set initialBlocksRequested true <<<
+          set handleLatestBlocksSocketResult true $
+          -- add blocks
+          over latestBlocks (\lBlocks -> if isSuccess lBlocks
+                                            -- union blocks together
+                                            then Success $ unionBlocks blocks (lBlocks ^. _Success)
+                                            else Success blocks
+                            )
+          -- update total number of blocks
+          $ if isSuccess $ state ^. totalBlocks
+                then over (totalBlocks <<< _Success)
+                          ((+) $ length $ unionBlocks blocks (state ^. (latestBlocks <<< _Success)))
+                          state
+                else state
+    , effects:
+        -- add subscription of `SubBlock` if we are on `Dashboard` only
+        if (state ^. route) == Dashboard
+        then [ pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock ] ]
+        else []
+    }
     where
-      getHash block = block ^. (_CBlockEntry <<< cbeBlkHash <<< _CHash)
-      -- Note: Because we don't have an Eq instance of generated CBlockEntry
-      unionBlocks = unionBy (\b1 b2 -> getHash b1 == getHash b2)
-
-
+        getHash block = block ^. (_CBlockEntry <<< cbeBlkHash <<< _CHash)
+        -- Note:  To "union" current with new blocks we have to compare CBlockEntry
+        --        Because we don't have an Eq instance of generated CBlockEntry's
+        --        As a workaround we do have to compare CBlockEntry by its hash
+        unionBlocks = unionBy (\b1 b2 -> getHash b1 == getHash b2)
 
 update (ReceiveInitialBlocks (Left error)) state =
     noEffects $
@@ -505,13 +530,23 @@ routeEffects Dashboard state =
             state
     , effects:
         [ pure ScrollTop
-        , pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock, SocketSubscription SubTx ]
-        , pure RequestInitialBlocks
+        , pure $ SocketUpdateSubscriptions
+                    [ SocketSubscription SubTx
+                    ]
         , pure RequestInitialTxs
-        , case state ^. totalBlocks of
-              NotAsked -> pure RequestTotalBlocks
-              _ -> pure NoOp
         ]
+        -- get `totalBlocks` only once
+        <>  if isNotAsked $ state ^. totalBlocks
+            then [ pure RequestTotalBlocks ]
+            else []
+        -- request `latestBlocks` only if `totalBlocks` has been loaded before
+        <>  if (isSuccess $ state ^. totalBlocks) && (isNotAsked $ state ^. latestBlocks)
+            then [ pure RequestInitialBlocks ]
+            else []
+        -- subscribe to `SubBlock` if `latestBlocks` has been loaded before
+        <>  if isSuccess $ state ^. latestBlocks
+            then [ pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock ] ]
+            else []
     }
 
 routeEffects (Tx tx) state =

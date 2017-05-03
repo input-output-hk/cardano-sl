@@ -13,7 +13,6 @@ module Pos.Explorer.Txp.Toil.Logic
 
 import           Universum
 
-import           Control.Arrow               ((&&&))
 import           Control.Monad.Except        (MonadError (..))
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
@@ -28,7 +27,8 @@ import           Pos.Crypto                  (WithHash (..), hash)
 import           Pos.Explorer.Core           (AddrHistory, TxExtra (..))
 import           Pos.Explorer.Txp.Toil.Class (MonadTxExtra (..), MonadTxExtraRead (..))
 import           Pos.Txp.Core                (Tx (..), TxAux, TxId, TxOut (..),
-                                              TxOutAux (..), TxUndo, topsortTxs)
+                                              TxOutAux (..), TxUndo, topsortTxs,
+                                              unpackTxOut)
 import           Pos.Txp.Toil                (ToilVerFailure (..))
 import qualified Pos.Txp.Toil                as Txp
 import           Pos.Util.Chrono             (NewestFirst (..))
@@ -68,9 +68,10 @@ eRollbackToil txun = do
     Txp.rollbackToil txun
     mapM_ extraRollback txun
   where
-    extraRollback (txaux@(tx, _, _), txundo) = do
-        delTxExtraWithHistory (hash tx) $ getTxRelatedAddrs txaux txundo
-        let BalanceUpdate {..} = getBalanceUpdate txaux txundo
+    extraRollback :: EGlobalToilMode m => (TxAux, TxUndo) -> m ()
+    extraRollback (txAux@(tx, _, _), txUndo) = do
+        delTxExtraWithHistory (hash tx) $ getTxRelatedAddrs txAux txUndo
+        let BalanceUpdate {..} = getBalanceUpdate txAux txUndo
         updateAddrBalances BalanceUpdate {
             plusBalance = minusBalance,
             minusBalance = plusBalance
@@ -211,9 +212,6 @@ updateAddrBalances (combineBalanceUpdates -> updates) = mapM_ updater updates
 
 getBalanceUpdate :: TxAux -> TxUndo -> BalanceUpdate
 getBalanceUpdate (tx, _, _) txUndo =
-    let minusBalance = convertTxOutputs $ map toaOut $ toList txUndo
-        plusBalance = convertTxOutputs $ toList $ _txOutputs tx
+    let minusBalance = map (unpackTxOut . toaOut) $ toList txUndo
+        plusBalance = map unpackTxOut $ toList $ _txOutputs tx
     in BalanceUpdate {..}
-  where
-    convertTxOutputs :: [TxOut] -> [(Address, Coin)]
-    convertTxOutputs = map (txOutAddress &&& txOutValue)

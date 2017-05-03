@@ -11,17 +11,19 @@ module Pos.Explorer.DB
 import qualified Database.RocksDB      as Rocks
 import           Universum
 
+import qualified Data.HashMap.Strict   as HM
 import qualified Data.Map.Strict       as M
 
 import           Pos.Binary.Class      (encodeStrict)
 import           Pos.Context.Class     (WithNodeContext)
 import           Pos.Context.Functions (genesisUtxoM)
+import           Pos.Core              (unsafeAddCoin)
 import           Pos.Core.Types        (Address, Coin)
 import           Pos.DB.Class          (MonadDB, getUtxoDB)
 import           Pos.DB.Functions      (RocksBatchOp (..), rocksGetBytes)
 import           Pos.DB.GState.Common  (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core     (AddrHistory, TxExtra (..))
-import           Pos.Txp.Core          (TxId, TxOut (..), TxOutAux (..))
+import           Pos.Txp.Core          (TxId, TxOutAux (..), unpackTxOut)
 import           Pos.Txp.Toil          (Utxo)
 import           Pos.Util.Chrono       (NewestFirst (..))
 
@@ -61,9 +63,12 @@ putInitFlag = gsPutBi balancesInitFlag True
 
 putGenesisBalances :: MonadDB m => Utxo -> m ()
 putGenesisBalances genesisUtxo = do
-    let txOuts = map (toaOut . snd) . M.toList $ genesisUtxo
+    let txOuts = map (unpackTxOut . toaOut . snd) . M.toList $ genesisUtxo
     writeBatchGState $
-        map (\txOut -> PutAddrBalance (txOutAddress txOut) (txOutValue txOut)) txOuts
+        map (uncurry PutAddrBalance) $ combineWith unsafeAddCoin txOuts
+  where
+    combineWith :: (Eq a, Hashable a) => (b -> b -> b) -> [(a, b)] -> [(a, b)]
+    combineWith func = HM.toList . HM.fromListWith func
 
 ----------------------------------------------------------------------------
 -- Batch operations

@@ -19,6 +19,7 @@ module Pos.Txp.Core.Types
        -- * Tx parts
        , TxIn (..)
        , TxOut (..)
+       , unpackTxOut
        , TxOutAux (..)
        , TxAttributes
 
@@ -45,6 +46,7 @@ module Pos.Txp.Core.Types
        , TxpUndo
        ) where
 
+import           Control.Arrow        ((&&&))
 import           Control.Lens         (makeLenses)
 import           Data.DeriveTH        (derive, makeNFData)
 import           Data.Hashable        (Hashable)
@@ -167,6 +169,9 @@ instance Hashable TxOut
 instance Buildable TxOut where
     build TxOut {..} =
         bprint ("TxOut "%coinF%" -> "%build) txOutValue txOutAddress
+
+unpackTxOut :: TxOut -> (Address, Coin)
+unpackTxOut = txOutAddress &&& txOutValue
 
 -- | Transaction output and auxilary data corresponding to it.
 -- [CSL-366] Add more data.

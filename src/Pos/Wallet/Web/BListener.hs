@@ -6,11 +6,13 @@ module Pos.Wallet.Web.BListener
        ( -- BListener instance.
        ) where
 
+import qualified Data.List.NonEmpty         as NE
+import           Formatting                 (build, sformat, (%))
 import           Mockable                   (MonadMockable)
+import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug)
 import           Universum
 
-import qualified Data.List.NonEmpty         as NE
 import           Pos.Block.BListener        (MonadBListener (..))
 import           Pos.Block.Types            (Blund)
 import           Pos.Block.Types            (undoTx)
@@ -21,14 +23,15 @@ import           Pos.Txp.Toil               (evalToilTEmpty, runDBTxp)
 import           Pos.Types                  (HeaderHash, blockTxas, headerHash,
                                              prevBlockL)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
+import qualified Pos.Util.Modifier          as MM
 
 import           Pos.Wallet.KeyStorage      (MonadKeys (..))
 import           Pos.Wallet.Web.Account     (AccountMode, getSKByAddr)
 import           Pos.Wallet.Web.ClientTypes (CAddress, WS)
 import           Pos.Wallet.Web.State       (WalletWebDB)
 import qualified Pos.Wallet.Web.State       as WS
-import           Pos.Wallet.Web.Tracking    (applyModifierToWSet, trackingApplyTxs,
-                                             trackingRollbackTxs)
+import           Pos.Wallet.Web.Tracking    (CAccModifier, applyModifierToWSet,
+                                             trackingApplyTxs, trackingRollbackTxs)
 
 instance ( MonadDB m
          , MonadMockable m
@@ -47,7 +50,6 @@ onApplyTracking
     , MonadDB m)
     => OldestFirst NE (Blund ssc) -> m ()
 onApplyTracking blunds = do
-    logDebug "Wallet Tracking: OnApply Blockain Listener"
     let txs = concatMap (gbTxs . fst) $ getOldestFirst blunds
     let newTip = headerHash $ NE.last $ getOldestFirst blunds
     mapM_ (syncWalletSet newTip txs) =<< WS.getWSetAddresses
@@ -57,6 +59,7 @@ onApplyTracking blunds = do
         encSK <- getSKByAddr wsAddr
         mapModifier <- runDBTxp $ evalToilTEmpty $ trackingApplyTxs encSK txs
         applyModifierToWSet wsAddr newTip mapModifier
+        logMsg "applied" (getOldestFirst blunds) wsAddr mapModifier
     gbTxs = either (const []) (^. blockTxas)
 
 onRollbackTracking
@@ -67,7 +70,6 @@ onRollbackTracking
     )
     => NewestFirst NE (Blund ssc) -> m ()
 onRollbackTracking blunds = do
-    logDebug "Wallet Tracking: OnRollback Blockain Listener"
     let txs = concatMap (reverse . blundTxUn) $ getNewestFirst blunds
     let newTip = (NE.last $ getNewestFirst blunds) ^. prevBlockL
     mapM_ (syncWalletSet newTip txs) =<< WS.getWSetAddresses
@@ -77,5 +79,20 @@ onRollbackTracking blunds = do
         encSK <- getSKByAddr wsAddr
         let mapModifier = trackingRollbackTxs encSK txs
         applyModifierToWSet wsAddr newTip mapModifier
+        logMsg "rolled back" (getNewestFirst blunds) wsAddr mapModifier
     gbTxs = either (const []) (^. blockTxas)
     blundTxUn (b, u) = zip (gbTxs b) (undoTx u)
+
+logMsg
+    :: WithLogger m
+    => Text
+    -> NonEmpty (Blund ssc)
+    -> CAddress WS
+    -> CAccModifier
+    -> m ()
+logMsg action (NE.length -> bNums) wsAddr mm =
+    logDebug $
+        sformat ("Wallet Tracking: "%build%" "%build%" block(s) to walletset "%build
+                %", added accounts: "%listJson
+                %", deleted accounts: "%listJson)
+        action bNums wsAddr (map fst $ MM.insertions mm) (MM.deletions mm)

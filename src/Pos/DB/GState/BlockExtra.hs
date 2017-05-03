@@ -20,6 +20,7 @@ import           Formatting            (bprint, build, (%))
 import           Universum
 
 import           Pos.Binary.Class      (encodeStrict)
+import           Pos.Block.Pure             (genesisHash)
 import           Pos.Block.Types       (Blund)
 import           Pos.Crypto            (shortHashF)
 import           Pos.DB.Block          (getBlockWithUndo)
@@ -148,8 +149,10 @@ loadBlocksUpWhile start condition = loadUpWhile fst start condition
 ----------------------------------------------------------------------------
 
 prepareGStateBlockExtra :: MonadDB m => HeaderHash -> m ()
-prepareGStateBlockExtra firstGenesisHash =
-    rocksPutBi (mainChainKey firstGenesisHash) () =<< getUtxoDB
+prepareGStateBlockExtra firstGenesisHash = do
+    db <- getUtxoDB
+    rocksPutBi (mainChainKey firstGenesisHash) () db
+    rocksPutBi (forwardLinkKey genesisHash) firstGenesisHash db
 
 ----------------------------------------------------------------------------
 -- Keys

@@ -8,12 +8,14 @@ module Pos.Wallet.Web.Tracking
        , trackingRollbackTxs
        , applyModifierToWSet
        , BlockLockMode
+       , CAccModifier
        ) where
 
 import           Control.Monad.Catch        (bracketOnError)
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, (%))
+import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
@@ -26,7 +28,7 @@ import           Pos.Core.Address           (AddrPkAttrs (..), Address (..),
                                              makePubKeyAddress)
 import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
                                              deriveHDPassphrase, encToPublic, hash,
-                                             unpackHDAddressAttr)
+                                             shortHashF, unpackHDAddressAttr)
 import           Pos.Data.Attributes        (Attributes (..))
 import qualified Pos.DB.Block               as DB
 import           Pos.DB.Class               (MonadDB)
@@ -42,8 +44,6 @@ import           Pos.Types                  (BlockHeader, HeaderHash, blockTxas,
                                              getBlockHeader, headerHash)
 import           Pos.Util.Chrono            (getNewestFirst)
 import qualified Pos.Util.Modifier          as MM
-
-
 
 import           Pos.Wallet.Web.ClientTypes (CAccountAddress (..), CAddress, WS,
                                              addressToCAddress, encToCAddress)
@@ -94,7 +94,8 @@ syncWalletSetWithTip encSK = do
     tipHeader <- DB.getTipBlockHeader @ssc
     let wsAddr = encToCAddress encSK
     whenJustM (WS.getWSetSyncTip wsAddr) $ \wsTip ->
-        if | wsTip == genesisHash && headerHash tipHeader == genesisHash -> pass
+        if | wsTip == genesisHash && headerHash tipHeader == genesisHash ->
+               logDebug $ sformat ("Walletset "%build%" at genesis state, synced") wsAddr
            | wsTip == genesisHash ->
                whenJustM (resolveForwardLink wsTip) $ \nx-> sync wsAddr nx tipHeader
            | otherwise -> sync wsAddr wsTip tipHeader
@@ -103,15 +104,22 @@ syncWalletSetWithTip encSK = do
     sync wsAddr wsTip tipHeader = DB.getBlockHeader wsTip >>= \case
         Nothing ->
             logWarning $
-                sformat ("Couldn't get WalletSet "%build%" tip "%build) wsAddr wsTip
+                sformat ("Couldn't get block header of walletset "%build
+                         %" by last synced hh: "%build) wsAddr wsTip
         Just wsHeader -> do
             mapModifier <- compareHeaders wsAddr wsHeader tipHeader
             applyModifierToWSet wsAddr (headerHash tipHeader) mapModifier
+            logDebug $ sformat ("Walletset "%build
+                               %" has been synced with tip "%shortHashF%", added accounts: "%listJson
+                               %", deleted accounts: "%listJson)
+                       wsAddr wsTip
+                       (map fst $ MM.insertions mapModifier)
+                       (MM.deletions mapModifier)
 
     compareHeaders :: CAddress WS -> BlockHeader ssc -> BlockHeader ssc -> m CAccModifier
     compareHeaders wsAddr wsHeader tipHeader = do
         logDebug $
-            sformat ("Wallet Set "%build%" header: "%build%", current tip header: "%build)
+            sformat ("Walletset "%build%" header: "%build%", current tip header: "%build)
                     wsAddr wsHeader tipHeader
         if | diff tipHeader > diff wsHeader -> runDBTxp $ evalToilTEmpty $ do
             -- If wallet set sync tip before the current tip,
@@ -131,7 +139,7 @@ syncWalletSetWithTip encSK = do
                 blunds <- getNewestFirst <$>
                             DB.loadBlundsWhile (\b -> getBlockHeader b /= tipHeader) (headerHash wsHeader)
                 pure $ foldl' (\r b -> r <> rollbackBlock b) mempty blunds
-           | otherwise -> mempty <$ logInfo (sformat ("WalletSet "%build%" already synced") wsAddr)
+           | otherwise -> mempty <$ logInfo (sformat ("Walletset "%build%" is already synced") wsAddr)
     constTrue = \_ _ -> True
     mappendR r mm = pure (r <> mm)
     diff = (^. difficultyL)

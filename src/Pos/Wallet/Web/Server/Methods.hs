@@ -80,8 +80,7 @@ import           Pos.Txp.Core                     (TxOut (..), TxOutAux (..))
 import           Pos.Util                         (maybeThrow)
 import           Pos.Util.BackupPhrase            (mkBackupPhrase12, toSeed)
 import           Pos.Util.UserSecret              (readUserSecret, usKeys)
-import           Pos.Wallet.KeyStorage            (KeyError (..), MonadKeys (..),
-                                                   addSecretKey)
+import           Pos.Wallet.KeyStorage            (MonadKeys (..), addSecretKey)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.WalletMode            (WalletMode, applyLastUpdate,
                                                    blockchainSlotDuration, connectedPeers,
@@ -130,9 +129,9 @@ import           Pos.Wallet.Web.State             (AccountLookupMode (..), Walle
                                                    getWSetPassLU, getWalletAccounts,
                                                    getWalletAddresses, getWalletMeta,
                                                    openState, removeAccount,
-                                                   removeNextUpdate, removeWSet,
-                                                   removeWallet, setProfile,
-                                                   setWSetPassLU, setWalletMeta,
+                                                   removeNextUpdate, removeWallet,
+                                                   setProfile, setWSetPassLU,
+                                                   setWalletMeta,
                                                    setWalletTransactionMeta, testReset,
                                                    updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
@@ -193,7 +192,6 @@ walletServer getPeers sendActions nat = do
     mapM_ insertAddressMeta myAddresses
     addInitialRichAccount getPeers' sendActions 0
     -- Sync wallets with GState.
-    --mapM_ (syncWalletSetWithTip @WalletSscType <=< getSKByAddr) myAddresses
     syncWalletSetsWithTipLock =<< mapM getSKByAddr myAddresses
     (`enter` servantHandlers getPeers' sendActions) <$> nat
   where

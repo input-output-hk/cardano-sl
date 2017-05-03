@@ -60,6 +60,23 @@ type BlockLockMode ssc m =
     , MonadDB m
     , MonadMask m)
 
+
+-- To support actual wallet accounts we listen to applications and rollbacks
+-- of blocks, extract transactions from block and extract our
+-- accounts (such accounts which we can decrypt).
+-- We synchronise wallet-db (acidic-state) with node-db
+-- and support last seen tip for each walletset.
+-- There are severals cases when we must  synchronise wallet-db and node-db:
+-- • When we relaunch wallet. Desynchronization can be caused by interruption
+--   during blocks application/rollback at the previous launch,
+--   then wallet-db can fall behind from node-db (when interruption during rollback)
+--   or vice versa (when interruption during application)
+--   @syncWSetsWithGStateLock@ implements this functionality.
+-- • When a user wants to import a secret key. Then we must rely on
+--   Utxo (GStateDB), because blockchain can be large.
+
+-- Select our accounts from Utxo and put to wallet-db.
+-- Used for importing of a secret key.
 selectAccountsFromUtxoLock
     :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
     => [EncryptedSecretKey]
@@ -80,6 +97,7 @@ selectAccountsFromUtxoLock encSKs = withBlkSemaphore $ \tip -> do
         guard $ length derPath == 2
         pure $ CAccountAddress wsAddr (derPath !! 0) (derPath !! 1) (addressToCAddress addr)
 
+-- Iterate over blocks (using forward links) and actualize our accounts.
 syncWSetsWithGStateLock
     :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
     => [EncryptedSecretKey]
@@ -143,20 +161,18 @@ syncWSetsWithGState encSK = do
             sformat ("Walletset "%build%" header: "%build%", current tip header: "%build)
                     wsAddr wsHeader tipHeader
         if | diff tipHeader > diff wsHeader -> runDBTxp $ evalToilTEmpty $ do
-            -- If wallet set sync tip before the current tip,
-            -- then load wallets starting with @wsHeader@.
+            -- If walletset syncTip before the current tip,
+            -- then it loads wallets starting with @wsHeader@.
             -- Sync tip can be before the current tip
             -- when we call @syncWalletSetWithTip@ at the first time
             -- or if the application was interrupted during rollback.
-            -- We don't load blocks explicitly, because blockain can be long (at the first call).
+            -- We don't load blocks explicitly, because blockain can be long.
                 maybe (pure mempty)
                       (\wsNextHeader -> foldlUpWhileM applyBlock wsNextHeader constTrue mappendR mempty)
                       =<< resolveForwardLink wsHeader
            | diff tipHeader < diff wsHeader -> do
             -- This rollback can occur
             -- if the application was interrupted during blocks application.
-            -- We can load block explicitly because this code can be called only
-            -- when blocks application was interrupted (at the previous launch).
                 blunds <- getNewestFirst <$>
                             DB.loadBlundsWhile (\b -> getBlockHeader b /= tipHeader) (headerHash wsHeader)
                 pure $ foldl' (\r b -> r <> rollbackBlock b) mempty blunds
@@ -173,6 +189,10 @@ syncWSetsWithGState encSK = do
                => Blund ssc -> ToilT () m1 CAccModifier
     applyBlock = trackingApplyTxs encSK . gbTxs . fst
 
+-- Process transactions on block application,
+-- decrypt our addresses, and add/delete them to/from wallet-db.
+-- Addresses are used in TxIn's will be deleted,
+-- in TxOut's will be added.
 trackingApplyTxs
     :: forall m . MonadUtxo m
     => EncryptedSecretKey
@@ -195,6 +215,8 @@ trackingApplyTxs (getEncInfo -> encInfo) txs =
         mapM_ (applyTxOut txid . fst) ownOutputs -- add TxIn -> TxOutAux (like in the applyTxToUtxo)
         pure $ deleteAndInsertMM (map snd ownInputs) (map snd ownOutputs) mapModifier
 
+-- Process transactions on block rollback.
+-- Like @trackingApplyTx@, but vise versa.
 trackingRollbackTxs
     :: EncryptedSecretKey
     -> [(TxAux, TxUndo)]

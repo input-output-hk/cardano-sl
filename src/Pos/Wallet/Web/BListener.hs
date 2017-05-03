@@ -1,6 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Instance Blockchain Listener for WalletWebDB.
+-- Guaranteed that state of GStateDB and BlockDB isn't changed
+-- during @onApplyBlocks@ and @onRollbackBlocks@ callbacks.
 
 module Pos.Wallet.Web.BListener
        ( -- BListener instance.
@@ -42,6 +44,7 @@ instance ( MonadDB m
     onApplyBlocks = onApplyTracking
     onRollbackBlocks = onRollbackTracking
 
+-- Perform this action under block lock.
 onApplyTracking
     :: forall ssc m .
     ( SscHelpersClass ssc
@@ -62,6 +65,7 @@ onApplyTracking blunds = do
         logMsg "applied" (getOldestFirst blunds) wsAddr mapModifier
     gbTxs = either (const []) (^. blockTxas)
 
+-- Perform this action under block lock.
 onRollbackTracking
     :: forall ssc m .
     ( SscHelpersClass ssc

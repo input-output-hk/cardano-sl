@@ -19,6 +19,7 @@ module Pos.Util.JsonLog
        , usingJsonLogFilePath
        ) where
 
+import           Control.Concurrent.MVar  (withMVar)
 import           Control.Lens             (iso)
 import           Control.Monad.Fix        (MonadFix)
 import           Control.Monad.Trans      (MonadTrans (..))
@@ -35,6 +36,7 @@ import           Mockable.SharedAtomic    (SharedAtomicT)
 import           Mockable.SharedExclusive (SharedExclusiveT)
 import           Serokell.Aeson.Options   (defaultOptions)
 import           Serokell.Util.Lens       (WrappedM (..))
+import           System.IO                (hClose)
 import           System.Wlog              (CanLog)
 import           Universum
 
@@ -123,8 +125,14 @@ jlAdoptedBlock = JLAdoptedBlock . showHash . headerHash
 -- | Append event into log by given 'FilePath'.
 appendJL :: (MonadIO m) => FilePath -> JLEvent -> m ()
 appendJL path ev = liftIO $ do
-  time <- currentTime
-  LBS.appendFile path . encode $ JLTimedEvent (fromIntegral time) ev
+    tev <- mkTimedEvent ev
+    LBS.appendFile path tev 
+
+-- | Turn a Json log event into a ByteString with timestamp.
+mkTimedEvent :: MonadIO m => JLEvent -> m LBS.ByteString
+mkTimedEvent ev = do
+    time <- currentTime
+    return $ encode $ JLTimedEvent (fromIntegral time) ev
 
 -- | Monad for things that can log Json log events.
 class Monad m => MonadJL m where
@@ -141,7 +149,7 @@ instance {-# OVERLAPPABLE #-}
 -- JsonLogFilePathBox monad transformer
 ---------------------------------------------------------------
 
-newtype JsonLogFilePathBox m a = JsonLogFilePathBox { jsonLogFilePathBoxEntry :: ReaderT (Maybe FilePath) m a }
+newtype JsonLogFilePathBox m a = JsonLogFilePathBox { jsonLogFilePathBoxEntry :: ReaderT (Maybe (MVar Handle)) m a }
     deriving (Functor, Applicative, Monad, MonadTrans,
               CanLog, MonadIO, MonadFix, MonadMask, MonadCatch, MonadThrow)
 
@@ -163,19 +171,27 @@ type instance Gauge (JsonLogFilePathBox m) = Gauge m
 
 instance Monad m => WrappedM (JsonLogFilePathBox m) where
 
-    type UnwrappedM (JsonLogFilePathBox m) = ReaderT (Maybe FilePath) m
+    type UnwrappedM (JsonLogFilePathBox m) = ReaderT (Maybe (MVar Handle)) m
 
     _WrappedM = iso jsonLogFilePathBoxEntry JsonLogFilePathBox
 
 instance ( Mockable d m
-         , MFunctor' d (JsonLogFilePathBox m) (ReaderT (Maybe FilePath) m)
-         , MFunctor' d (ReaderT (Maybe FilePath) m) m
+         , MFunctor' d (JsonLogFilePathBox m) (ReaderT (Maybe (MVar Handle)) m)
+         , MFunctor' d (ReaderT (Maybe (MVar Handle)) m) m
          ) => Mockable d (JsonLogFilePathBox m) where
     liftMockable = liftMockableWrappedM
 
 instance MonadIO m => MonadJL (JsonLogFilePathBox m) where
 
-    jlLog event = JsonLogFilePathBox $ whenJustM ask $ flip appendJL event
+    jlLog event = JsonLogFilePathBox $ whenJustM ask $ \hMV -> do
+        timed <- mkTimedEvent event
+        liftIO $ withMVar hMV $ flip LBS.hPut timed
         
-usingJsonLogFilePath :: Maybe FilePath -> JsonLogFilePathBox m a -> m a
-usingJsonLogFilePath path = flip runReaderT path . jsonLogFilePathBoxEntry
+usingJsonLogFilePath :: (MonadIO m, MonadMask m) => Maybe FilePath -> JsonLogFilePathBox m a -> m a
+usingJsonLogFilePath mpath m =
+    let m' = jsonLogFilePathBoxEntry m
+    in  case mpath of
+            Nothing   -> runReaderT m' Nothing
+            Just path -> bracket (openFile path WriteMode) (liftIO . hClose) $ \h -> do
+                hMV <- newMVar h
+                runReaderT m' $ Just hMV

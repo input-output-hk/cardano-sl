@@ -27,8 +27,7 @@ import           Pos.Crypto                  (WithHash (..), hash)
 import           Pos.Explorer.Core           (AddrHistory, TxExtra (..))
 import           Pos.Explorer.Txp.Toil.Class (MonadTxExtra (..), MonadTxExtraRead (..))
 import           Pos.Txp.Core                (Tx (..), TxAux, TxId, TxOut (..),
-                                              TxOutAux (..), TxUndo, topsortTxs,
-                                              unpackTxOut)
+                                              TxOutAux (..), TxUndo, topsortTxs, _TxOut)
 import           Pos.Txp.Toil                (ToilVerFailure (..))
 import qualified Pos.Txp.Toil                as Txp
 import           Pos.Util.Chrono             (NewestFirst (..))
@@ -212,6 +211,6 @@ updateAddrBalances (combineBalanceUpdates -> updates) = mapM_ updater updates
 
 getBalanceUpdate :: TxAux -> TxUndo -> BalanceUpdate
 getBalanceUpdate (tx, _, _) txUndo =
-    let minusBalance = map (unpackTxOut . toaOut) $ toList txUndo
-        plusBalance = map unpackTxOut $ toList $ _txOutputs tx
+    let minusBalance = map ((view _TxOut) . toaOut) $ toList txUndo
+        plusBalance = map (view _TxOut) $ toList $ _txOutputs tx
     in BalanceUpdate {..}

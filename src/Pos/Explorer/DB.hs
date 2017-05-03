@@ -23,7 +23,7 @@ import           Pos.DB.Class          (MonadDB, getUtxoDB)
 import           Pos.DB.Functions      (RocksBatchOp (..), rocksGetBytes)
 import           Pos.DB.GState.Common  (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core     (AddrHistory, TxExtra (..))
-import           Pos.Txp.Core          (TxId, TxOutAux (..), unpackTxOut)
+import           Pos.Txp.Core          (TxId, TxOutAux (..), _TxOut)
 import           Pos.Txp.Toil          (Utxo)
 import           Pos.Util.Chrono       (NewestFirst (..))
 
@@ -63,7 +63,7 @@ putInitFlag = gsPutBi balancesInitFlag True
 
 putGenesisBalances :: MonadDB m => Utxo -> m ()
 putGenesisBalances genesisUtxo = do
-    let txOuts = map (unpackTxOut . toaOut . snd) . M.toList $ genesisUtxo
+    let txOuts = map (view _TxOut . toaOut . snd) . M.toList $ genesisUtxo
     writeBatchGState $
         map (uncurry PutAddrBalance) $ combineWith unsafeAddCoin txOuts
   where

@@ -34,6 +34,8 @@ data Action
     | SocketCallMeString String
     | SocketCallMeCTxId CTxId
     -- http endpoints
+    | RequestTotalBlocks
+    | ReceiveTotalBlocks (Either Error Int)
     | RequestInitialBlocks
     | ReceiveInitialBlocks (Either Error CBlockEntries)
     | RequestBlockSummary CHash
@@ -75,7 +77,7 @@ data Action
     -- blocks view
     | BlocksPaginateBlocks Int                      -- current pagination of blocks
     | BlocksEditBlocksPageNumber Target Boolean     -- toggle editable state of page numbers
-    | BlocksInvalidBlocksPageNumber Target          -- invalid page number 
+    | BlocksInvalidBlocksPageNumber Target          -- invalid page number
     -- clock
     | SetClock DateTime
     | UpdateClock

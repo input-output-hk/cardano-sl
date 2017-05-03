@@ -22,6 +22,7 @@ type State =
     , socket :: SocketState
     , viewStates :: ViewStates
     , latestBlocks :: RemoteData Error CBlockEntries
+    , totalBlocks :: RemoteData Error Int
     , initialBlocksRequested :: Boolean
     , handleLatestBlocksSocketResult :: Boolean
     , initialTxsRequested :: Boolean

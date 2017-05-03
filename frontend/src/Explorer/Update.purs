@@ -17,11 +17,11 @@ import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
-import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary, searchEpoch)
+import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTotalBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, totalBlocks, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
@@ -334,10 +334,28 @@ update NoOp state = noEffects state
 
 -- http endpoints
 
+update RequestTotalBlocks state =
+    { state:
+          set totalBlocks Loading $ state
+    , effects:
+          [ attempt fetchTotalBlocks >>= pure <<< ReceiveTotalBlocks
+          ]
+    }
+
+update (ReceiveTotalBlocks (Right total)) state =
+    noEffects $
+    set totalBlocks (Success total) $ state
+
+update (ReceiveTotalBlocks (Left error)) state =
+    noEffects $
+    set totalBlocks (Failure error)
+    $ over errors (\errors' -> (show error) : errors') state
+
 update RequestInitialBlocks state =
     { state: set loading true $ state
     , effects: [ attempt fetchLatestBlocks >>= pure <<< ReceiveInitialBlocks ]
     }
+
 update (ReceiveInitialBlocks (Right blocks)) state =
     noEffects $
     set loading false <<<
@@ -490,6 +508,9 @@ routeEffects Dashboard state =
         , pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock, SocketSubscription SubTx ]
         , pure RequestInitialBlocks
         , pure RequestInitialTxs
+        , case state ^. totalBlocks of
+              NotAsked -> pure RequestTotalBlocks
+              _ -> pure NoOp
         ]
     }
 

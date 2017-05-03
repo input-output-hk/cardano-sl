@@ -55,6 +55,7 @@ initialState =
             }
         }
     , latestBlocks: NotAsked
+    , totalBlocks: NotAsked
     , initialBlocksRequested: false
     , handleLatestBlocksSocketResult: false
     , initialTxsRequested: false

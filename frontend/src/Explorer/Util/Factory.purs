@@ -1,13 +1,9 @@
 module Explorer.Util.Factory where
 
 import Prelude
-import Data.Foldable (sum)
-import Data.Lens ((^.))
 import Data.Time.NominalDiffTime (mkTime)
-import Data.Tuple (Tuple(..))
 import Pos.Core.Types (EpochIndex(..), LocalSlotIndex(..))
 import Pos.Explorer.Web.ClientTypes (CCoin(..), CAddress(..), CAddressSummary(..), CHash(..), CTxEntry(..), CTxId(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin)
 
 
 mkCHash :: String -> CHash

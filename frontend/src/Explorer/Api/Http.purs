@@ -49,6 +49,9 @@ post = request $ defaultRequest { method = Left POST }
 -- api
 
 -- blocks
+fetchTotalBlocks :: forall eff. Aff (ajax::AJAX | eff) Int
+fetchTotalBlocks = get "blocks/total"
+
 fetchLatestBlocks :: forall eff. Aff (ajax::AJAX | eff) CBlockEntries
 fetchLatestBlocks = get "blocks/last"
 

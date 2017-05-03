@@ -136,7 +136,8 @@ import           Pos.Wallet.Web.State             (AccountLookupMode (..), Walle
                                                    updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
 import           Pos.Wallet.Web.Tracking          (BlockLockMode,
-                                                   syncWalletSetsWithTipLock)
+                                                   selectAccountsFromUtxoLock,
+                                                   syncWSetsWithGStateLock)
 import           Pos.Web.Server                   (serveImpl)
 
 ----------------------------------------------------------------------------
@@ -192,7 +193,7 @@ walletServer getPeers sendActions nat = do
     mapM_ insertAddressMeta myAddresses
     addInitialRichAccount getPeers' sendActions 0
     -- Sync wallets with GState.
-    syncWalletSetsWithTipLock =<< mapM getSKByAddr myAddresses
+    syncWSetsWithGStateLock =<< mapM getSKByAddr myAddresses
     (`enter` servantHandlers getPeers' sendActions) <$> nat
   where
     insertAddressMeta cAddr = do
@@ -874,7 +875,7 @@ importKey (toString -> fp) = do
         forM keys $ \key -> do
             let wsAddr = encToCAddress key
             createWSetSafe wsAddr def <* addSecretKey key
-    syncWalletSetsWithTipLock keys
+    selectAccountsFromUtxoLock keys
     maybeThrow noKey $ head importedWSets
   where
     noKey = Internal $ sformat ("No spending key found at " %build) fp

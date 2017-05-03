@@ -2,8 +2,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Wallet.Web.Tracking
-       ( syncWalletSetsWithTipLock
-       , syncWalletSetWithTip
+       ( syncWSetsWithGStateLock
+       , selectAccountsFromUtxoLock
        , trackingApplyTxs
        , trackingRollbackTxs
        , applyModifierToWSet
@@ -29,6 +29,7 @@ import           Pos.Core.Address           (AddrPkAttrs (..), Address (..),
 import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
                                              deriveHDPassphrase, encToPublic, hash,
                                              shortHashF, unpackHDAddressAttr)
+import           Pos.Crypto.HDDiscovery     (discoverHDAddresses)
 import           Pos.Data.Attributes        (Attributes (..))
 import qualified Pos.DB.Block               as DB
 import           Pos.DB.Class               (MonadDB)
@@ -59,12 +60,32 @@ type BlockLockMode ssc m =
     , MonadDB m
     , MonadMask m)
 
-syncWalletSetsWithTipLock
+selectAccountsFromUtxoLock
     :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
     => [EncryptedSecretKey]
     -> m ()
-syncWalletSetsWithTipLock encSKs = withBlkSemaphore $ \tip ->
-    tip <$ mapM_ (syncWalletSetWithTip @ssc) encSKs
+selectAccountsFromUtxoLock encSKs = withBlkSemaphore $ \tip -> do
+    let (hdPass, wsAddr) = unzip $ map getEncInfo encSKs
+    addresses <- discoverHDAddresses hdPass
+    let allAddreses = concatMap createAccounts $ zip wsAddr addresses
+    tip <$ mapM_ WS.addAccount allAddreses
+  where
+    createAccounts :: (CAddress WS, [(Address, [Word32])]) -> [CAccountAddress]
+    createAccounts (wsAddr, addresses) = do
+        let (ads, paths) = unzip addresses
+        mapMaybe createAccount $ zip3 (repeat wsAddr) ads paths
+
+    createAccount :: (CAddress WS, Address, [Word32]) -> Maybe CAccountAddress
+    createAccount (wsAddr, addr, derPath) = do
+        guard $ length derPath == 2
+        pure $ CAccountAddress wsAddr (derPath !! 0) (derPath !! 1) (addressToCAddress addr)
+
+syncWSetsWithGStateLock
+    :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
+    => [EncryptedSecretKey]
+    -> m ()
+syncWSetsWithGStateLock encSKs = withBlkSemaphore $ \tip ->
+    tip <$ mapM_ (syncWSetsWithGState @ssc) encSKs
 
 -- | Run action acquiring lock on block application.
 -- Argument of action is an old tip, result is put as a new tip.
@@ -78,11 +99,11 @@ withBlkSemaphore action =
     doAction tip = action tip >>= putBlkSemaphore
 
 ----------------------------------------------------------------------------
--- Unsafe operations
+-- Unsafe operations. Core logic.
 ----------------------------------------------------------------------------
 -- These operation aren't atomic and don't take a lock.
 
-syncWalletSetWithTip
+syncWSetsWithGState
     :: forall ssc m .
     ( WebWalletModeDB m
     , MonadDB m
@@ -90,7 +111,7 @@ syncWalletSetWithTip
     , SscHelpersClass ssc)
     => EncryptedSecretKey
     -> m ()
-syncWalletSetWithTip encSK = do
+syncWSetsWithGState encSK = do
     tipHeader <- DB.getTipBlockHeader @ssc
     let wsAddr = encToCAddress encSK
     whenJustM (WS.getWSetSyncTip wsAddr) $ \wsTip ->
@@ -196,6 +217,7 @@ applyModifierToWSet
     -> CAccModifier
     -> m ()
 applyModifierToWSet wsAddr newTip mapModifier = do
+    -- TODO maybe do it as one acid-state transaction.
     mapM_ WS.removeAccount (MM.deletions mapModifier)
     mapM_ (WS.addAccount . fst) (MM.insertions mapModifier)
     WS.setWSetSyncTip wsAddr newTip

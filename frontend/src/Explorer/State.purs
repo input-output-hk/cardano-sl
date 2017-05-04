@@ -54,6 +54,7 @@ initialState =
             }
         }
     , latestBlocks: NotAsked
+    , pullLatestBlocks: false -- TODO (jk) Remove it if socket-io is back
     , totalBlocks: NotAsked
     , currentBlockSummary: Nothing
     , currentBlockTxs: Nothing

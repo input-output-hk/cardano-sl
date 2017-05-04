@@ -12,16 +12,21 @@ module Pos.DB.DB
        , loadBlundsFromTipWhile
        , loadBlundsFromTipByDepth
        , sanityCheckDB
+       , DbCoreRedirect
+       , runDbCoreRedirect
        ) where
+
+import           Universum
 
 import qualified Control.Concurrent.ReadWriteLock as RWL
 import           Control.Monad.Catch              (MonadMask)
+import           Data.Coerce                      (coerce)
+import qualified Ether
 import           System.Directory                 (createDirectoryIfMissing,
                                                    doesDirectoryExist,
                                                    removeDirectoryRecursive)
 import           System.FilePath                  ((</>))
 import           System.Wlog                      (WithLogger)
-import           Universum
 
 import           Pos.Block.Pure                   (mkGenesisBlock)
 import           Pos.Block.Types                  (Blund)
@@ -35,7 +40,6 @@ import           Pos.DB.Functions                 (openDB)
 import           Pos.DB.GState.BlockExtra         (prepareGStateBlockExtra)
 import           Pos.DB.GState.Common             (getTip)
 import           Pos.DB.GState.GState             (prepareGStateDB, sanityCheckGStateDB)
-import           Pos.DB.Holder                    (DBHolder)
 import           Pos.DB.Misc                      (prepareMiscDB)
 import           Pos.DB.Types                     (NodeDBs (..))
 import           Pos.Lrc.DB                       (prepareLrcDB)
@@ -133,9 +137,19 @@ ensureDirectoryExists
 ensureDirectoryExists = liftIO . createDirectoryIfMissing True
 
 ----------------------------------------------------------------------------
--- MonadDB instance
+-- MonadDBCore instance
 ----------------------------------------------------------------------------
 
-instance (MonadIO m, MonadThrow m, MonadCatch m) =>
-         MonadDBCore (DBHolder m) where
+data DbCoreRedirectTag
+
+type DbCoreRedirect =
+    Ether.TaggedTrans DbCoreRedirectTag Ether.IdentityT
+
+runDbCoreRedirect :: DbCoreRedirect m a -> m a
+runDbCoreRedirect = coerce
+
+instance
+    (MonadDB m, t ~ Ether.IdentityT) =>
+        MonadDBCore (Ether.TaggedTrans DbCoreRedirectTag t m)
+  where
     dbAdoptedBVData = getAdoptedBVData

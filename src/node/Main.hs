@@ -47,6 +47,7 @@ import           Pos.Util                   (inAssertMode)
 import           Pos.Util.BackupPhrase      (keysFromPhrase)
 import           Pos.Util.UserSecret        (UserSecret, peekUserSecret, usPrimKey, usVss,
                                              writeUserSecret)
+import           Pos.Util.Util              (powerLift)
 import           Pos.WorkMode               (ProductionMode, RawRealMode, RawRealModeK,
                                              StatsMode)
 #ifdef WITH_WEB
@@ -373,7 +374,7 @@ main = do
                             (const (BS8.unpack externalHost, show $ externalPort))
     kademliaParams <- liftIO $ getKademliaParams args
     bracketResourcesKademlia baseParams tcpAddr kademliaParams $ \kademliaInstance transport ->
-        let powerLift :: forall ssc t . Production t -> RawRealMode ssc t
-            powerLift = lift . lift . lift . lift . lift . lift . lift . lift . lift . lift . lift . lift
-            transport' = hoistTransport powerLift transport
+        let transport' = hoistTransport
+                (powerLift :: forall ssc t . Production t -> RawRealMode ssc t)
+                transport
         in  foreverRejoinNetwork kademliaInstance (action kademliaInstance args transport')

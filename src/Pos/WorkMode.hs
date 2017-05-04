@@ -17,24 +17,29 @@ module Pos.WorkMode
        ) where
 
 
-import           Mockable.Production         (Production)
-import           System.Wlog                 (LoggerNameBox (..))
 import           Universum
 
-import           Pos.Communication.PeerState (PeerStateHolder)
-import           Pos.Context                 (ContextHolder)
-import           Pos.DB.DB                   ()
-import           Pos.DB.Holder               (DBHolder)
-import           Pos.Delegation.Holder       (DelegationT)
-import           Pos.Discovery.Holders       (DiscoveryConstT, DiscoveryKademliaT)
-import           Pos.Slotting.MemState       (SlottingHolder)
-import           Pos.Slotting.Ntp            (NtpSlotting)
-import           Pos.Ssc.Extra               (SscHolder)
-import           Pos.Statistics.MonadStats   (NoStatsT, StatsT)
-import           Pos.Txp.MemState            (TxpHolder)
-import           Pos.Wallet.KeyStorage       (KeyStorageRedirect)
-import           Pos.Wallet.WalletMode       (BlockchainInfoRedirect, UpdatesRedirect)
-import           Pos.WorkMode.Class          (MinWorkMode, TxpExtra_TMP, WorkMode)
+import           Data.Tagged                  (Tagged)
+import qualified Ether
+import           Mockable.Production          (Production)
+import           System.Wlog                  (LoggerNameBox (..))
+
+import           Pos.Communication.PeerState  (PeerStateHolder)
+import           Pos.Context                  (ContextHolder)
+import           Pos.DB                       (NodeDBs)
+import           Pos.DB.DB                    (DbCoreRedirect)
+import           Pos.Delegation.Holder        (DelegationT)
+import           Pos.Discovery.Holders        (DiscoveryConstT, DiscoveryKademliaT)
+import           Pos.Slotting.MemState        (SlottingVar)
+import           Pos.Slotting.MemState.Holder (SlotsDataRedirect)
+import           Pos.Slotting.Ntp             (NtpSlotting)
+import           Pos.Ssc.Extra                (SscHolder)
+import           Pos.Statistics.MonadStats    (NoStatsT, StatsT)
+import           Pos.Txp.MemState             (TxpHolder)
+import           Pos.Update.DB                (DbLimitsRedirect)
+import           Pos.Wallet.KeyStorage        (KeyStorageRedirect)
+import           Pos.Wallet.WalletMode        (BlockchainInfoRedirect, UpdatesRedirect)
+import           Pos.WorkMode.Class           (MinWorkMode, TxpExtra_TMP, WorkMode)
 
 
 ----------------------------------------------------------------------------
@@ -44,18 +49,23 @@ import           Pos.WorkMode.Class          (MinWorkMode, TxpExtra_TMP, WorkMod
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
 type RawRealMode ssc =
     BlockchainInfoRedirect (
+    UpdatesRedirect (
+    KeyStorageRedirect (
+    DbCoreRedirect (
+    DbLimitsRedirect (
     PeerStateHolder (
     DelegationT (
     TxpHolder TxpExtra_TMP (
     SscHolder ssc (
     NtpSlotting (
-    SlottingHolder (
-    DBHolder (
-    UpdatesRedirect (
-    KeyStorageRedirect (
+    SlotsDataRedirect (
+    Ether.ReadersT
+      ( Tagged NodeDBs NodeDBs
+      , Tagged SlottingVar SlottingVar
+      ) (
     ContextHolder ssc (
     LoggerNameBox Production
-    )))))))))))
+    )))))))))))))
 
 -- | RawRealMode + kademlia. Used in wallet too.
 type RawRealModeK ssc = DiscoveryKademliaT (RawRealMode ssc)

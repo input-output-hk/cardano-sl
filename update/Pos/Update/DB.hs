@@ -1,5 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Part of GState DB which stores data necessary for update system.
 
@@ -37,12 +37,19 @@ module Pos.Update.DB
        , getProposedBVs
        , getCompetingBVStates
        , getProposedBVStates
+
+       -- * Redirect DB limits
+       , DbLimitsRedirect
+       , runDbLimitsRedirect
        ) where
 
+import           Universum
+
+import           Data.Coerce                (coerce)
 import           Data.Time.Units            (convertUnit)
 import qualified Database.RocksDB           as Rocks
+import qualified Ether
 import           Serokell.Data.Memory.Units (Byte)
-import           Universum
 
 import           Pos.Binary.Class           (encodeStrict)
 import           Pos.Binary.Infra.Slotting  ()
@@ -58,7 +65,6 @@ import           Pos.DB.Error               (DBError (DBMalformed))
 import           Pos.DB.Functions           (RocksBatchOp (..), encodeWithKeyPrefix,
                                              rocksWriteBatch)
 import           Pos.DB.GState.Common       (gsGetBi)
-import           Pos.DB.Holder              (DBHolder)
 import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
                                              DBnMapIterator, IterType, runDBnIterator,
                                              runDBnMapIterator)
@@ -372,8 +378,17 @@ getAdoptedBVFullMaybe = gsGetBi adoptedBVKey
 -- Some instance
 ----------------------------------------------------------------------------
 
-instance (MonadIO m, MonadCatch m) =>
-         DBLimits.MonadDBLimits (DBHolder m) where
+data DbLimitsRedirectTag
+
+type DbLimitsRedirect =
+    Ether.TaggedTrans DbLimitsRedirectTag Ether.IdentityT
+
+runDbLimitsRedirect :: DbLimitsRedirect m a -> m a
+runDbLimitsRedirect = coerce
+
+instance
+    (MonadDB m, t ~ Ether.IdentityT) =>
+        DBLimits.MonadDBLimits (Ether.TaggedTrans DbLimitsRedirectTag t m) where
     getMaxBlockSize = getMaxBlockSize
     getMaxHeaderSize = bvdMaxHeaderSize <$> getAdoptedBVData
     getMaxTxSize = bvdMaxTxSize <$> getAdoptedBVData

@@ -3,18 +3,19 @@
 -- | Default implementation of 'MonadSlotsData' based on 'TVar'.
 
 module Pos.Slotting.MemState.Holder
-       ( SlottingHolder
-       , SlottingVar
-       , runSlottingHolder
+       ( SlottingVar
        , MonadSlotting
        , askSlotting
        , askSlottingVar
        , askSlottingTimestamp
+       , SlotsDataRedirect
+       , runSlotsDataRedirect
        ) where
 
 import           Universum
 
 import           Control.Monad.STM           (retry)
+import           Data.Coerce                 (coerce)
 import qualified Ether
 import           Pos.Core.Types              (Timestamp)
 
@@ -27,9 +28,6 @@ import           Pos.Slotting.Types          (SlottingData (sdPenultEpoch))
 
 -- | System start and slotting data
 type SlottingVar = (Timestamp, TVar SlottingData)
-
--- | Monad transformer which provides 'SlottingData' using DB.
-type SlottingHolder = Ether.ReaderT' SlottingVar
 
 type MonadSlotting = Ether.MonadReader' SlottingVar
 
@@ -46,8 +44,18 @@ askSlottingTimestamp  = fst <$> askSlotting
 -- MonadSlotsData implementation
 ----------------------------------------------------------------------------
 
-instance MonadIO m =>
-         MonadSlotsData (SlottingHolder m) where
+data SlotsDataRedirectTag
+
+type SlotsDataRedirect =
+    Ether.TaggedTrans SlotsDataRedirectTag Ether.IdentityT
+
+runSlotsDataRedirect :: SlotsDataRedirect m a -> m a
+runSlotsDataRedirect = coerce
+
+instance
+    (MonadSlotting m, MonadIO m, t ~ Ether.IdentityT) =>
+         MonadSlotsData (Ether.TaggedTrans SlotsDataRedirectTag t m)
+  where
     getSystemStart = askSlottingTimestamp
     getSlottingData = atomically . readTVar =<< askSlottingVar
     waitPenultEpochEquals target = do
@@ -60,11 +68,3 @@ instance MonadIO m =>
         atomically $ do
             penultEpoch <- sdPenultEpoch <$> readTVar var
             when (penultEpoch < sdPenultEpoch sd) $ writeTVar var sd
-
-----------------------------------------------------------------------------
--- Running
-----------------------------------------------------------------------------
-
--- | Run USHolder using existing 'SlottingVar'.
-runSlottingHolder :: SlottingVar -> SlottingHolder m a -> m a
-runSlottingHolder = flip Ether.runReaderT'

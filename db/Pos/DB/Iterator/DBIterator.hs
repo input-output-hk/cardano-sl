@@ -27,7 +27,6 @@ import           Pos.Binary.Class       (Bi)
 import           Pos.DB.Class           (MonadDB, getNodeDBs)
 import           Pos.DB.Error           (DBError (DBMalformed))
 import           Pos.DB.Functions       (rocksDecodeMaybe, rocksDecodeMaybeWP)
-import           Pos.DB.Holder          (DBHolder, runDBHolder)
 import           Pos.DB.Iterator.Class  (DBIteratorClass (..), IterType)
 import           Pos.DB.Types           (DB (..), NodeDBs (..))
 import           Pos.Util.Iterator      (MonadIterator (..))
@@ -160,10 +159,8 @@ mapIteratorIO
     => DBMapIterator i v IO a -> (IterType i -> v) -> DB -> m a
 mapIteratorIO dbIter f = runIteratorIO (unDbMapIterator f dbIter)
 
-type DBnIterator i      = DBHolder (DBIterator i IO)
-type DBnMapIterator i v = DBHolder (DBMapIterator i v IO)
-
-instance MonadIterator e m => MonadIterator e (DBHolder m)
+type DBnIterator i      = Ether.ReaderT' NodeDBs (DBIterator i IO)
+type DBnMapIterator i v = Ether.ReaderT' NodeDBs (DBMapIterator i v IO)
 
 runDBnIterator
     :: forall i m a . (MonadDB m, DBIteratorClass i)
@@ -171,7 +168,7 @@ runDBnIterator
 runDBnIterator getter dbi = do
     dbs <- getNodeDBs
     let db = getter dbs
-    flip (runIteratorIO @i) db $ runDBHolder dbs dbi
+    flip (runIteratorIO @i) db $ Ether.runReaderT' dbi dbs
 
 runDBnMapIterator
     :: forall i v m a.
@@ -180,5 +177,5 @@ runDBnMapIterator
 runDBnMapIterator getter dbi f = do
     dbs <- getNodeDBs
     let db = getter dbs
-    let it = runDBHolder dbs dbi
+    let it = Ether.runReaderT' dbi dbs
     mapIteratorIO @i @v it f db

@@ -16,6 +16,7 @@ module Pos.Web.Server
 
 import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
+import qualified Ether
 import           Mockable                             (Production (runProduction))
 import           Network.Wai                          (Application)
 import           Network.Wai.Handler.Warp             (defaultSettings, runSettings,
@@ -84,7 +85,7 @@ serveImpl application host port =
 
 type WebHandler ssc =
     TxpHolder TxpExtra_TMP (
-    DB.DBHolder (
+    Ether.ReaderT' DB.NodeDBs (
     ContextHolder ssc Production
     ))
 
@@ -98,7 +99,7 @@ convertHandler
 convertHandler nc nodeDBs wrap handler =
     liftIO (runProduction .
             runContextHolder nc .
-            DB.runDBHolder nodeDBs .
+            flip Ether.runReaderT' nodeDBs .
             runTxpHolder wrap $
             handler)
     `Catch.catches`

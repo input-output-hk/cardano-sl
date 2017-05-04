@@ -21,6 +21,9 @@ module Pos.Util.Util
        , ether
        , Ether.TaggedTrans
 
+       -- * Lifting monads
+       , PowerLift(..)
+
        -- * Instances
        -- ** Lift Byte
        -- ** FromJSON Byte
@@ -240,3 +243,12 @@ getKeys = fromMap . void
 -- to make lenses work with Ether.
 ether :: trans m a -> Ether.TaggedTrans tag trans m a
 ether = Ether.TaggedTrans
+
+class PowerLift m n where
+  powerLift :: m a -> n a
+
+instance {-# OVERLAPPING #-} PowerLift m m where
+  powerLift = identity
+
+instance (MonadTrans t, PowerLift m n, Monad n) => PowerLift m (t n) where
+  powerLift = lift . powerLift @m @n

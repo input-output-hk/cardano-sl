@@ -8,16 +8,19 @@ module Pos.Wallet.Web.Server.Full
        , walletServerOuts
        ) where
 
+import           Universum
+
 import           Control.Concurrent.STM        (TVar)
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
+import           Data.Tagged                   (Tagged (..))
+import qualified Ether
 import           Mockable                      (runProduction)
 import           Network.Wai                   (Application)
 import           Pos.Ssc.Extra.Class           (askSscMem)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import           System.Wlog                   (logInfo, usingLoggerName)
-import           Universum
 
 import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState (..),
                                                 getAllStates, peerStateFromSnapshot,
@@ -27,7 +30,8 @@ import           Pos.Constants                 (isDevelopment)
 import           Pos.Context                   (NodeContext, getNodeContext,
                                                 runContextHolder)
 import           Pos.Crypto                    (noPassEncrypt)
-import           Pos.DB                        (NodeDBs, getNodeDBs, runDBHolder)
+import           Pos.DB                        (NodeDBs, getNodeDBs)
+import           Pos.DB.DB                     (runDbCoreRedirect)
 import           Pos.Delegation.Class          (DelegationWrap, askDelegationState)
 import           Pos.Delegation.Holder         (runDelegationTFromTVar)
 import           Pos.DHT.Real                  (KademliaDHTInstance)
@@ -35,13 +39,14 @@ import           Pos.Discovery                 (askDHTInstance, runDiscoveryKade
 import           Pos.Genesis                   (genesisDevSecretKeys)
 import           Pos.Slotting                  (NtpSlottingVar, SlottingVar,
                                                 askFullNtpSlotting, askSlotting,
-                                                runNtpSlotting, runSlottingHolder)
+                                                runNtpSlotting, runSlotsDataRedirect)
 import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscState, runSscHolder)
 import           Pos.Txp                       (GenericTxpLocalData, askTxpMem,
                                                 runTxpHolder)
-import           Pos.Wallet.KeyStorage         (runKeyStorageRedirect)
-import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
+import           Pos.Update.DB                 (runDbLimitsRedirect)
+import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey,
+                                                runKeyStorageRedirect)
 import           Pos.Wallet.WalletMode         (runBlockchainInfoRedirect,
                                                 runUpdatesRedirect)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
@@ -110,15 +115,20 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
     liftIO ( runProduction
            . usingLoggerName "wallet-api"
            . runContextHolder nc
-           . runKeyStorageRedirect
-           . runUpdatesRedirect
-           . runDBHolder modernDBs
-           . runSlottingHolder slotVar
+           . flip Ether.runReadersT
+                 ( Tagged @NodeDBs modernDBs
+                 , Tagged @SlottingVar slotVar
+                 )
+           . runSlotsDataRedirect
            . runNtpSlotting ntpSlotVar
            . runSscHolder ssc
            . runTxpHolder tlw
            . runDelegationTFromTVar delWrap
            . (\m -> flip runPeerStateHolder m =<< peerStateFromSnapshot psCtx)
+           . runDbLimitsRedirect
+           . runDbCoreRedirect
+           . runKeyStorageRedirect
+           . runUpdatesRedirect
            . runBlockchainInfoRedirect
            . runDiscoveryKademliaT kinst
            . runWalletWebDB ws

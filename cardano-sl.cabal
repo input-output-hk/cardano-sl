@@ -380,8 +380,8 @@ library
                         Pos.Wallet.SscType
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
-                        Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.Api
+                        Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.Doc
                         Pos.Wallet.Web.Error
                         Pos.Wallet.Web.Server
@@ -395,6 +395,7 @@ library
                         Pos.Wallet.Web.State.Limits
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
+                        Pos.Wallet.Web.Util
 
   build-depends:        IfElse
                       , QuickCheck

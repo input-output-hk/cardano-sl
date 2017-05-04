@@ -17,38 +17,44 @@ module Pos.Genesis
        , genesisAddresses
        , genesisSeed
        , genesisBalances
+       , walletGenesisIndex
+       , accountGenesisIndex
        -- ** Genesis data used in development mode
        , genesisDevKeyPairs
        , genesisDevPublicKeys
        , genesisDevSecretKeys
+       , genesisDevHdwSecretKeys
 
        -- * Ssc
        , genesisLeaders
        ) where
 
-import           Data.Default       (Default (..))
-import           Data.List          (genericLength, genericReplicate)
-import qualified Data.Map.Strict    as M
-import qualified Data.Text          as T
-import           Formatting         (int, sformat, (%))
-import           Serokell.Util      (enumerate)
+import           Data.Default        (Default (..))
+import           Data.List           (genericLength, genericReplicate)
+import qualified Data.Map.Strict     as M
+import qualified Data.Text           as T
+import           Formatting          (int, sformat, (%))
+import           Serokell.Util       (enumerate)
 import           Universum
 
-import qualified Pos.Constants      as Const
-import           Pos.Core.Types     (StakeholderId)
-import           Pos.Crypto         (PublicKey, SecretKey, deterministicKeyGen,
-                                     unsafeHash)
-import           Pos.Genesis.Parser (compileGenData)
-import           Pos.Genesis.Types  (GenesisData (..), StakeDistribution (..),
-                                     getTotalStake)
-import           Pos.Lrc.FtsPure    (followTheSatoshi)
-import           Pos.Lrc.Genesis    (genesisSeed)
-import           Pos.Txp.Core.Types (TxIn (..), TxOut (..), TxOutAux (..),
-                                     TxOutDistribution)
-import           Pos.Txp.Toil.Types (Utxo)
-import           Pos.Types          (Address (..), Coin, SlotLeaders, applyCoinPortion,
-                                     coinToInteger, divCoin, makePubKeyAddress, mkCoin,
-                                     unsafeAddCoin, unsafeMulCoin)
+import qualified Pos.Constants       as Const
+import           Pos.Core.Types      (StakeholderId)
+import           Pos.Crypto          (EncryptedSecretKey, PublicKey, SecretKey,
+                                      deterministicKeyGen, emptyPassphrase, encToPublic,
+                                      firstNonHardened, safeDeterministicKeyGen,
+                                      unsafeHash)
+import           Pos.Genesis.Parser  (compileGenData)
+import           Pos.Genesis.Types   (GenesisData (..), StakeDistribution (..),
+                                      getTotalStake)
+import           Pos.Lrc.FtsPure     (followTheSatoshi)
+import           Pos.Lrc.Genesis     (genesisSeed)
+import           Pos.Txp.Core.Types  (TxIn (..), TxOut (..), TxOutAux (..),
+                                      TxOutDistribution)
+import           Pos.Txp.Toil.Types  (Utxo)
+import           Pos.Types           (Address (..), Coin, SlotLeaders, applyCoinPortion,
+                                      coinToInteger, divCoin, makePubKeyAddress, mkCoin,
+                                      unsafeAddCoin, unsafeMulCoin)
+import           Pos.Wallet.Web.Util (deriveLvl2KeyPair)
 
 ----------------------------------------------------------------------------
 -- Static state
@@ -88,6 +94,37 @@ genesisBalances :: HashMap StakeholderId Coin
 genesisBalances
     | Const.isDevelopment = mempty
     | otherwise           = gdBootstrapBalances compileGenData
+
+generateHdwGenesisSecretKey :: Int -> EncryptedSecretKey
+generateHdwGenesisSecretKey =
+    snd .
+    fromMaybe (error "safeDeterministicKeyGen failed in Genesis") .
+    flip safeDeterministicKeyGen emptyPassphrase .
+    encodeUtf8 .
+    T.take 32 . sformat ("My 32-byte hdw seed #" %int % "                  ")
+
+-- | List of 'SecretKey's in genesis for HD wallets.
+genesisDevHdwSecretKeys :: [EncryptedSecretKey]
+genesisDevHdwSecretKeys =
+    map generateHdwGenesisSecretKey [0 .. Const.genesisN - 1]
+
+-- | First index in derivation path for HD account, which is put to genesis utxo
+walletGenesisIndex :: Word32
+walletGenesisIndex = firstNonHardened
+
+-- | Second index in derivation path for HD account, which is put to genesis utxo
+accountGenesisIndex :: Word32
+accountGenesisIndex = firstNonHardened
+
+genesisDevHdwAccountSecretKeys :: [EncryptedSecretKey]
+genesisDevHdwAccountSecretKeys =
+    genesisDevHdwSecretKeys <&> \key ->
+        snd $
+        deriveLvl2KeyPair
+            emptyPassphrase
+            key
+            walletGenesisIndex
+            accountGenesisIndex
 
 instance Default StakeDistribution where
     def = FlatStakes Const.genesisN
@@ -161,8 +198,10 @@ bitcoinDistributionImpl ratio coins (coinIdx, coin) =
 -- | Genesis 'Utxo'.
 genesisUtxo :: StakeDistribution -> Utxo
 genesisUtxo sd =
-    M.fromList . zipWith zipF (stakeDistribution sd) $
-    genesisAddresses <> tailAddresses
+    M.fromList $
+        zipWith zipF (stakeDistribution sd)
+            (genesisAddresses <> tailAddresses)
+     <> map (zipF hwdDistr) hdwAddresses
   where
     zipF (coin, distr) addr =
         ( TxIn (unsafeHash addr) 0
@@ -170,6 +209,10 @@ genesisUtxo sd =
         )
     tailAddresses = map (makePubKeyAddress . fst . generateGenesisKeyPair)
         [Const.genesisN ..]
+    hdwAddresses =
+        take Const.genesisN $
+        makePubKeyAddress . encToPublic <$> genesisDevHdwAccountSecretKeys
+    hwdDistr = (mkCoin 50000, [])  -- TODO: manage
 
 genesisDelegation :: HashMap StakeholderId [StakeholderId]
 genesisDelegation = mempty

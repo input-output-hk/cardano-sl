@@ -12,6 +12,8 @@ module Pos.Util.Mnemonics
          -- * Entropy encoding and decoding
        , toMnemonic
        , fromMnemonic
+
+       , wl
        ) where
 
 import           Crypto.Hash     (Digest, SHA256, hash)

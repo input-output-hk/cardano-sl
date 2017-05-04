@@ -50,12 +50,17 @@ module Pos.Wallet.Web.ClientTypes
       , txContainsTitle
       , toCUpdateInfo
       , walletAddrByAccount
+      , mkDefCWSetMeta
+      , WalletUserSecret (..)
+      , readWalletUserSecret
+      , writeWalletUserSecret
       ) where
 
 import           Universum
 
 import           Control.Arrow          ((&&&))
 import qualified Data.ByteString.Lazy   as LBS
+import qualified Data.ByteString.Lazy   as BSL
 import           Data.Default           (Default, def)
 import           Data.Hashable          (Hashable (..))
 import           Data.Text              (Text, isInfixOf, toLower)
@@ -68,12 +73,14 @@ import qualified Prelude
 import qualified Serokell.Util.Base16   as Base16
 import           Servant.Multipart      (FileData, FromMultipart (..), lookupFile,
                                          lookupInput)
+import           System.IO              (withFile)
+import           System.Wlog            (WithLogger)
 
 import           Pos.Aeson.Types        ()
-import           Pos.Binary.Class       (decodeFull, encodeStrict)
+import           Pos.Binary.Class       (Bi (..), decodeFull, encode, encodeStrict, label)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core.Types         (ScriptVersion)
-import           Pos.Crypto             (PassPhrase, hashHexF)
+import           Pos.Crypto             (EncryptedSecretKey, PassPhrase, hashHexF)
 import           Pos.Txp.Core.Types     (Tx (..), TxId, TxOut, txOutAddress, txOutValue)
 import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
                                          Coin, SoftwareVersion, decodeTextAddress,
@@ -81,7 +88,8 @@ import           Pos.Types              (Address (..), BlockVersion, ChainDiffic
 import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes,
                                          UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll        (ConfirmedProposalState (..))
-import           Pos.Util.BackupPhrase  (BackupPhrase, mkBackupPhrase12)
+import           Pos.Util.BackupPhrase  (BackupPhrase)
+import           Pos.Util.UserSecret    (ensureModeIs600)
 
 
 data SyncProgress = SyncProgress
@@ -300,24 +308,8 @@ data CWalletSetMeta = CWalletSetMeta
     , cwsBackupPhrase :: !BackupPhrase
     } deriving (Show, Eq, Generic)
 
-instance Default BackupPhrase where
-    def = mkBackupPhrase12
-        [ "transfer"
-        , "uniform"
-        , "grunt"
-        , "excess"
-        , "six"
-        , "veteran"
-        , "vintage"
-        , "warm"
-        , "confirm"
-        , "vote"
-        , "nephew"
-        , "allow"
-        ]
-
-instance Default CWalletSetMeta where
-    def = CWalletSetMeta "Personal Wallet Set" def
+mkDefCWSetMeta :: BackupPhrase -> CWalletSetMeta
+mkDefCWSetMeta = CWalletSetMeta "Personal Wallet Set"
 
 -- | Client Wallet Set (CW)
 data CWalletSet = CWalletSet
@@ -449,6 +441,46 @@ toCUpdateInfo ConfirmedProposalState {..} =
         cuiPositiveStake    = mkCCoin cpsPositiveStake
         cuiNegativeStake    = mkCCoin cpsNegativeStake
     in CUpdateInfo {..}
+
+----------------------------------------------------------------------------
+-- UserSecret
+----------------------------------------------------------------------------
+
+-- | Describes HD wallets keyfile content
+data WalletUserSecret = WalletUserSecret
+    { wusRootKey      :: EncryptedSecretKey  -- ^ root key of wallet set
+    , wusWSetName     :: Text                -- ^ name of wallet set
+    , wusBackupPhrase :: BackupPhrase        -- ^ backup phrase of wallet set
+    , wusWallets      :: [(Word32, Text)]    -- ^ coordinates and names wallets
+    , wusAccounts     :: [(Word32, Word32)]  -- ^ coordinates of accounts
+    }
+
+instance Bi WalletUserSecret where
+    put WalletUserSecret{..} = do
+        put wusRootKey
+        put wusWSetName
+        put wusBackupPhrase
+        put wusWallets
+        put wusAccounts
+    get = label "WalletUserSecret" $ do
+        wusRootKey <- get
+        wusWSetName <- get
+        wusBackupPhrase <- get
+        wusWallets <- get
+        wusAccounts <- get
+        return WalletUserSecret{..}
+
+readWalletUserSecret
+    :: (MonadIO m, WithLogger m)
+    => FilePath -> m (Either Text WalletUserSecret)
+readWalletUserSecret path = do
+    ensureModeIs600 path
+    liftIO $ first toText . decodeFull <$> BSL.readFile path
+
+writeWalletUserSecret :: MonadIO m => FilePath -> WalletUserSecret -> m ()
+writeWalletUserSecret path secret = do
+    liftIO $ withFile path WriteMode $ \handle ->
+        BSL.hPut handle (encode secret)
 
 ----------------------------------------------------------------------------
 -- Reportin

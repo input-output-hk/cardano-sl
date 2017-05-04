@@ -53,7 +53,8 @@ import           Pos.Wallet.Web.ClientTypes (Acc, CAccount (..), CAccountAddress
                                              CWalletRedeem (..), CWalletSet (..),
                                              CWalletSetInit (..), CWalletSetInit (..),
                                              CWalletSetMeta (..), SyncProgress, WS,
-                                             addressToCAddress, mkCCoin, mkCTxId)
+                                             addressToCAddress, mkCCoin, mkCTxId,
+                                             mkDefCWSetMeta)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 
 
@@ -458,7 +459,7 @@ instance ToSample CWalletSetInit where
     toSamples Proxy = singleSample sample
       where
         sample = CWalletSetInit
-            { cwsInitMeta = def
+            { cwsInitMeta = mkDefCWSetMeta backupPhrase
             }
 
 instance ToSample CWalletAddress where

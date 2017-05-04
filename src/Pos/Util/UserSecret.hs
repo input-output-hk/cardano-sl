@@ -21,6 +21,8 @@ module Pos.Util.UserSecret
        , takeUserSecret
        , writeUserSecret
        , writeUserSecretRelease
+
+       , ensureModeIs600
        ) where
 
 import           Control.Exception    (onException)

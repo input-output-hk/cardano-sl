@@ -20,7 +20,9 @@ import           Pos.Binary           (decodeFull, encode)
 import           Pos.Core             (coinToInteger, mkCoin, unsafeAddCoin,
                                        unsafeIntegerToCoin)
 import           Pos.Genesis          (GenesisData (..), StakeDistribution (..),
-                                       genesisDevSecretKeys, getTotalStake)
+                                       generateGenesisBackupPhrase,
+                                       genesisDevHdwSecretKeys, genesisDevSecretKeys,
+                                       getTotalStake)
 import           Pos.Types            (addressDetailedF, addressHash, makePubKeyAddress,
                                        makeRedeemAddress)
 
@@ -30,7 +32,8 @@ import           KeygenOptions        (AvvmStakeOptions (..), FakeAvvmOptions (.
                                        KeygenOptions (..), TestStakeOptions (..),
                                        optsInfo)
 import           Testnet              (genTestnetStakes, generateFakeAvvm,
-                                       generateKeyfile, rearrangeKeyfile)
+                                       generateHdwKeyfile, generateKeyfile,
+                                       rearrangeKeyfile)
 
 replace :: FilePath -> FilePath -> FilePath -> FilePath
 replace a b = toString . (T.replace `on` toText) a b . toText
@@ -122,6 +125,9 @@ dumpKeys pat = do
     liftIO $ createDirectoryIfMissing True keysDir
     for_ (zip [1..] genesisDevSecretKeys) $ \(i :: Int, k) ->
         generateKeyfile False (Just k) $ applyPattern pat i
+    for_ (zip [1..] genesisDevHdwSecretKeys) $ \(i :: Int, k) ->
+        let bp = generateGenesisBackupPhrase i
+        in  generateHdwKeyfile k bp $ applyPattern (pat <> ".hd") i
 
 reassignBalances :: GenesisData -> GenesisData
 reassignBalances GenesisData{..} = GenesisData
@@ -172,4 +178,3 @@ genGenesisBin KeygenOptions{..} = do
             if length binGenesis < 10*1024
                 then putText "Printing GenesisData:\n\n" >> print genData
                 else putText "genesis.bin is bigger than 10k, won't print it\n"
-

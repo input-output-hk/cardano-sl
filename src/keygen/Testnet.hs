@@ -1,30 +1,34 @@
 module Testnet
        ( generateKeyfile
+       , generateHdwKeyfile
        , generateFakeAvvm
        , genTestnetStakes
        , rearrangeKeyfile
        ) where
 
-import qualified Serokell.Util.Base64 as B64
-import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors,
-                                       verifyGeneric)
-import           System.Random        (randomRIO)
-import           System.Wlog          (WithLogger)
+import qualified Serokell.Util.Base64  as B64
+import           Serokell.Util.Verify  (VerificationRes (..), formatAllErrors,
+                                        verifyGeneric)
+import           System.Random         (randomRIO)
+import           System.Wlog           (WithLogger)
 import           Universum
 
-import           Pos.Binary           (asBinary)
-import qualified Pos.Constants        as Const
-import           Pos.Crypto           (PublicKey, RedeemPublicKey, SecretKey, keyGen,
-                                       noPassEncrypt, redeemDeterministicKeyGen,
-                                       secureRandomBS, toPublic, toVssPublicKey,
-                                       vssKeyGen)
-import           Pos.Genesis          (StakeDistribution (..))
-import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
-import           Pos.Types            (coinPortionToDouble, unsafeIntegerToCoin)
-import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usKeys,
-                                       usPrimKey, usVss, writeUserSecretRelease)
+import           Pos.Binary            (asBinary)
+import qualified Pos.Constants         as Const
+import           Pos.Crypto            (EncryptedSecretKey, PublicKey, RedeemPublicKey,
+                                        SecretKey, keyGen, noPassEncrypt,
+                                        redeemDeterministicKeyGen, secureRandomBS,
+                                        toPublic, toVssPublicKey, vssKeyGen)
+import           Pos.Genesis           (StakeDistribution (..), accountGenesisIndex,
+                                        walletGenesisIndex)
+import           Pos.Ssc.GodTossing    (VssCertificate, mkVssCertificate)
+import           Pos.Types             (coinPortionToDouble, unsafeIntegerToCoin)
+import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.UserSecret   (initializeUserSecret, takeUserSecret, usKeys,
+                                        usPrimKey, usVss, writeUserSecretRelease)
+import           Pos.Wallet.Web        (WalletUserSecret (..), writeWalletUserSecret)
 
-import           KeygenOptions        (TestStakeOptions (..))
+import           KeygenOptions         (TestStakeOptions (..))
 
 rearrangeKeyfile :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
 rearrangeKeyfile fp = do
@@ -54,6 +58,15 @@ generateKeyfile isPrim mbSk fp = do
     let vssPk = asBinary $ toVssPublicKey vss
         vssCert = mkVssCertificate sk vssPk expiry
     return (toPublic sk, vssCert)
+
+generateHdwKeyfile
+    :: (MonadIO m, MonadFail m, WithLogger m)
+    => EncryptedSecretKey -> BackupPhrase -> FilePath -> m ()
+generateHdwKeyfile wusRootKey wusBackupPhrase fp = do
+    let wusWSetName = "Genesis wallet set"
+        wusWallets  = [(walletGenesisIndex, "Genesis wallet")]
+        wusAccounts = [(walletGenesisIndex, accountGenesisIndex)]
+    writeWalletUserSecret fp WalletUserSecret{..}
 
 generateFakeAvvm :: MonadIO m => FilePath -> m RedeemPublicKey
 generateFakeAvvm fp = do

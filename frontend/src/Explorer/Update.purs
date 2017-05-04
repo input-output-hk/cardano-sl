@@ -29,7 +29,7 @@ import Explorer.Types.State (CBlockEntriesOffset, Search(..), SocketSubscription
 import Explorer.Util.DOM (targetToHTMLElement, targetToHTMLInputElement)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
-import Explorer.Util.Sort (sortBlocksByTime')
+import Explorer.Util.Sort (sortBlocksByTime)
 import Explorer.View.Blocks (maxBlockRows)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Network.HTTP.Affjax (AJAX)
@@ -75,7 +75,7 @@ update (SocketBlocksUpdated (Right blocks)) state =
     else state
     where
         previousBlocks = withDefault [] $ state ^. latestBlocks
-        newBlocks = sortBlocksByTime' $ blocks <> previousBlocks
+        newBlocks = sortBlocksByTime $ blocks <> previousBlocks
         numberNewBlocks = (length newBlocks) - (length previousBlocks)
 
 update (SocketBlocksUpdated (Left error)) state = noEffects $
@@ -158,16 +158,10 @@ update (DashboardExpandTransactions expanded) state = noEffects $
 
 update (DashboardPaginateBlocks value) state =
     { state:
-        if doRequest
-        -- Note: No state changes here,
-        -- because `dbViewBlockPagination` will be updated
-        -- after request has been done successfully
-        then state
-        else set (dashboardViewState <<< dbViewBlockPagination) value state
+        set (dashboardViewState <<< dbViewBlockPagination) value state
     , effects:
         if doRequest
-        -- then [ pure $ RequestPaginatedBlocks value ]
-        then [ pure RequestInitialBlocks ]
+        then [ pure $ RequestPaginatedBlocks limit offset ]
         else []
     }
     where
@@ -176,6 +170,8 @@ update (DashboardPaginateBlocks value) state =
         doRequest = value > state ^. (dashboardViewState <<< dbViewBlockPagination)
                     && lengthBlocks < (value * maxBlockRows)
                     && lengthBlocks < totalBlocks'
+        offset = (value - (state ^. (dashboardViewState <<< dbViewBlockPagination))) * maxBlockRows
+        limit = value * maxBlockRows - lengthBlocks
 
 update (DashboardEditBlocksPageNumber target editable) state =
     { state:
@@ -402,7 +398,7 @@ update (ReceiveInitialBlocks (Right blocks)) state =
     { state:
           set loading false <<<
           -- add blocks
-          set latestBlocks (Success $ sortBlocksByTime' blocks) $
+          set latestBlocks (Success $ sortBlocksByTime blocks) $
           -- at this point we are ready to pull block updates
           set pullLatestBlocks true state
     , effects:
@@ -438,7 +434,7 @@ update (ReceiveBlocksUpdate (Right blocks)) state =
         --        As a workaround we do have to compare CBlockEntry by its hash
         unionBlocks = unionBy (\b1 b2 -> getHash b1 == getHash b2)
         previousBlocks = withDefault [] $ state ^. latestBlocks
-        newBlocks = sortBlocksByTime' $ unionBlocks blocks previousBlocks
+        newBlocks = sortBlocksByTime $ unionBlocks blocks previousBlocks
         numberNewBlocks = (length newBlocks) - (length previousBlocks)
 
 update (ReceiveBlocksUpdate (Left error)) state =
@@ -448,6 +444,25 @@ update (ReceiveBlocksUpdate (Left error)) state =
     over errors (\errors' -> (show error) : errors') state
 
 -- END #Pulling blocks
+
+update (RequestPaginatedBlocks limit offset) state =
+    { state: set loading true $ state
+    , effects: [ attempt (fetchLatestBlocks limit offset) >>= pure <<< ReceivePaginatedBlocks ]
+    }
+
+update (ReceivePaginatedBlocks (Right blocks)) state =
+    noEffects $
+    set loading false $
+    set latestBlocks (Success newBlocks) state
+    where
+        previousBlocks = withDefault [] $ state ^. latestBlocks
+        newBlocks = sortBlocksByTime $ previousBlocks <> blocks
+
+update (ReceivePaginatedBlocks (Left error)) state =
+    noEffects $
+    set loading false <<<
+    set latestBlocks (Failure error) $
+    over errors (\errors' -> (show error) : errors') state
 
 update (RequestBlockSummary hash) state =
     { state: set loading true $ state

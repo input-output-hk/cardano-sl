@@ -36,8 +36,12 @@ data Action
     -- http endpoints
     | RequestTotalBlocks
     | ReceiveTotalBlocks (Either Error Int)
-    | RequestInitialBlocks CBlockEntriesOffset
+    | RequestInitialBlocks
     | ReceiveInitialBlocks (Either Error CBlockEntries)
+    | RequestPaginatedBlocks CBlockEntriesLimit CBlockEntriesOffset
+    | ReceivePaginatedBlocks (Either Error CBlockEntries)
+    | RequestBlocksUpdate                               -- TODO (jk) Remove it if socket-io is back
+    | ReceiveBlocksUpdate (Either Error CBlockEntries)  -- TODO (jk) Remove it if socket-io is back
     | RequestBlockSummary CHash
     | ReceiveBlockSummary (Either Error CBlockSummary)
     | RequestBlockTxs CHash

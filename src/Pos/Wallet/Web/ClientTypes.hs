@@ -127,9 +127,11 @@ newtype CAddress w = CAddress CHash
 
 -- | Marks address as belonging to wallet set.
 data WS = WS
+    deriving (Show, Generic)
 
 -- | Marks address as belonging to account.
 data Acc = Acc
+    deriving (Show, Generic)
 
 -- TODO: this is not completely safe. If someone changes
 -- implementation of Buildable Address. It should be probably more
@@ -137,7 +139,7 @@ data Acc = Acc
 -- implementation has it is with Buildable Address but then person
 -- will know it will probably change something for purescript.
 -- | Transform Address into CAddress
-addressToCAddress :: Address -> (CAddress w)
+addressToCAddress :: Address -> CAddress w
 addressToCAddress = CAddress . CHash . sformat F.build
 
 cAddressToAddress :: CAddress w -> Either Text Address
@@ -328,6 +330,7 @@ data CWalletSet = CWalletSet
     , cwsPassphraseLU  :: !PassPhraseLU  -- last update time
     } deriving (Eq, Show, Generic)
 
+-- TODO: Newtype?
 -- | Query data for wallet set creation
 data CWalletSetInit = CWalletSetInit
     { cwsInitMeta     :: !CWalletSetMeta
@@ -362,6 +365,7 @@ type CPwHash = Text -- or Base64 or something else
 -- | Client profile (CP)
 -- all data of client are "meta data" - that is not provided by Cardano
 -- (Flow type: accountType)
+-- TODO: Newtype?
 data CProfile = CProfile
     { cpLocale      :: Text
     } deriving (Show, Generic, Typeable)

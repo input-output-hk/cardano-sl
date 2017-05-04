@@ -77,51 +77,64 @@ type TestReset = API
     :> "reset"
     :> Post '[JSON] (Either WalletError ())
 
+-------------------------------------------------------------------------
+-- Wallet sets
+-------------------------------------------------------------------------
 
 type GetWalletSet = API
-    :> "walletSets"
+    :> "wallets"
+    :> "sets"
     :> Capture "walletSetId" (CAddress WS)
     :> Get '[JSON] (Either WalletError CWalletSet)
 
 type GetWalletSets = API
-    :> "walletSets"
+    :> "wallets"
+    :> "sets"
     :> Get '[JSON] (Either WalletError [CWalletSet])
 
 type NewWalletSet = API
-    :> "walletSets"
+    :> "wallets"
+    :> "sets"
     :> "new"
     :> QueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletSetInit
     :> Post '[JSON] (Either WalletError CWalletSet)
 
 type RestoreWalletSet = API
-    :> "walletSets"
+    :> "wallets"
+    :> "sets"
     :> "restore"
     :> QueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletSetInit
     :> Post '[JSON] (Either WalletError CWalletSet)
 
 type RenameWalletSet = API
-    :> "walletSets"
+    :> "wallets"
+    :> "sets"
     :> "rename"
     :> Capture "walletSetId" (CAddress WS)
     :> Capture "name" Text
     :> Get '[JSON] (Either WalletError CWalletSet)
 
 type ImportKey = API
-    :> "walletSets"
+    :> "wallets"
+    :> "sets"
     :> "keys"
     :> ReqBody '[JSON] Text
     :> Post '[JSON] (Either WalletError CWalletSet)
 
 type ChangeWalletSetPassphrase = API
-    :> "walletSets"
+    :> "wallets"
+    :> "sets"
     :> "password"
     :> QueryParam "old" CPassPhrase
     :> Capture "walletSetId" (CAddress WS)
     :> QueryParam "new" CPassPhrase
     :> Post '[JSON] (Either WalletError ())
 
+-------------------------------------------------------------------------
+-- Wallets
+-------------------------------------------------------------------------
 
 type GetWallet = API
     :> "wallets"
@@ -130,7 +143,6 @@ type GetWallet = API
 
 type GetWallets = API
     :> "wallets"
-    :> "all"
     :> QueryParam "walletSetId" (CAddress WS)
     :> Get '[JSON] (Either WalletError [CWallet])
 
@@ -151,6 +163,9 @@ type DeleteWallet = API
     :> Capture "walletId" CWalletAddress
     :> Delete '[JSON] (Either WalletError ())
 
+-------------------------------------------------------------------------
+-- Accounts
+-------------------------------------------------------------------------
 
 type NewAccount = API
     :> "account"

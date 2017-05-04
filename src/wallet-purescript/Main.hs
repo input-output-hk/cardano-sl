@@ -2,17 +2,22 @@ module Main
        ( main
        ) where
 
-import           Language.PureScript.Bridge         (BridgePart, buildBridge,
-                                                     defaultBridge, mkSumType, typeName,
-                                                     writePSTypes, (<|>), (^==))
-import           Language.PureScript.Bridge.PSTypes (psInt)
+import           Language.PureScript.Bridge                (BridgePart,
+                                                            buildBridge,
+                                                            defaultBridge,
+                                                            mkSumType, typeName,
+                                                            writePSTypes, (<|>),
+                                                            (^==))
+import           Language.PureScript.Bridge.PSTypes        (psInt)
+import           Language.PureScript.Bridge.TypeParameters (A)
 import           Universum
 
-import qualified Pos.Types                          as PT
-import qualified Pos.Util.BackupPhrase              as BP
-import qualified Pos.Wallet.Web                     as CT
+import qualified Pos.Types                                 as PT
+import qualified Pos.Util.BackupPhrase                     as BP
+import qualified Pos.Wallet.Web                            as CT
 
-import           PSTypes                            (psHash, psPosixTime)
+import           PSTypes                                   (psHash, psPosixTime)
+
 
 main :: IO ()
 main =
@@ -25,11 +30,17 @@ main =
       , mkSumType (Proxy @CT.CWalletInit)
       , mkSumType (Proxy @CT.CWalletType)
       , mkSumType (Proxy @CT.CWallet)
+      , mkSumType (Proxy @CT.CWalletSet)
       , mkSumType (Proxy @CT.CProfile)
       , mkSumType (Proxy @CT.CTxMeta)
       , mkSumType (Proxy @CT.CTExMeta)
-      , mkSumType (Proxy @(CT.CAddress CT.WS))
-      , mkSumType (Proxy @(CT.CAddress CT.Acc))
+      , mkSumType (Proxy @CT.CWalletAddress)
+      , mkSumType (Proxy @CT.CWalletSetMeta)
+      , mkSumType (Proxy @CT.CAccount)
+      , mkSumType (Proxy @CT.CAccountAddress)
+      , mkSumType (Proxy @CT.WS)
+      , mkSumType (Proxy @CT.Acc)
+      , mkSumType (Proxy @(CT.CAddress A))
       , mkSumType (Proxy @CT.CHash)
       , mkSumType (Proxy @CT.CTxId)
       , mkSumType (Proxy @CT.CTx)

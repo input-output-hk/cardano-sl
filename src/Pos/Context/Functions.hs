@@ -18,7 +18,7 @@ module Pos.Context.Functions
 
          -- * Misc
        , getUptime
-       , isRecoveryMode
+       , recoveryInProgress
        ) where
 
 import qualified Control.Concurrent.STM as STM
@@ -110,8 +110,8 @@ getUptime = do
     pure $ fromMicroseconds $ round $ seconds * 1000 * 1000
 
 -- | Returns if 'ncRecoveryHeader' is 'Just' which is equivalent to
--- "we're in recovery mode".
-isRecoveryMode :: (MonadIO m, WithNodeContext ssc m) => m Bool
-isRecoveryMode = do
+-- “we're doing recovery”.
+recoveryInProgress :: (MonadIO m, WithNodeContext ssc m) => m Bool
+recoveryInProgress = do
     var <- ncRecoveryHeader <$> getNodeContext
     isJust <$> atomically (STM.tryReadTMVar var)

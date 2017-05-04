@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Network-related logic that's mostly methods and dialogs between
@@ -5,8 +6,7 @@
 -- loop logic.
 module Pos.Block.Network.Logic
        (
-         needRecovery
-       , triggerRecovery
+         triggerRecovery
        , requestTipOuts
        , requestTip
 
@@ -38,8 +38,8 @@ import           Pos.Binary.Txp             ()
 import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              ClassifyHeadersRes (..), classifyHeaders,
                                              classifyNewHeader, getHeadersOlderExp,
-                                             lcaWithMainChain, verifyAndApplyBlocks,
-                                             withBlkSemaphore)
+                                             lcaWithMainChain, needRecovery,
+                                             verifyAndApplyBlocks, withBlkSemaphore)
 import qualified Pos.Block.Logic            as L
 import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Block.Network.Types    (MsgGetBlocks (..), MsgGetHeaders (..),
@@ -49,9 +49,8 @@ import           Pos.Block.Types            (Blund)
 import           Pos.Communication.Limits   (LimitedLength, recvLimited, reifyMsgLimit)
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs,
                                              SendActions (..), convH, toOutSpecs)
-import           Pos.Constants              (blkSecurityParam)
 import           Pos.Context                (NodeContext (..), getNodeContext,
-                                             isRecoveryMode)
+                                             recoveryInProgress)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Class               (MonadDBCore)
 import qualified Pos.DB.DB                  as DB
@@ -59,12 +58,10 @@ import           Pos.Discovery              (converseToNeighbors)
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
 import           Pos.Reporting.Methods      (reportMisbehaviourMasked)
-import           Pos.Slotting               (getCurrentSlot)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
                                              HeaderHash, blockHeader, difficultyL,
-                                             gbHeader, getEpochOrSlot, headerHashG,
-                                             prevBlockL)
+                                             gbHeader, headerHashG, prevBlockL)
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode.Class         (WorkMode)
@@ -94,30 +91,26 @@ instance Exception BlockNetLogicException where
 -- Recovery
 ----------------------------------------------------------------------------
 
-needRecovery :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
-       => Proxy ssc -> m Bool
-needRecovery _ = getCurrentSlot >>= maybe (pure True) needRecoveryCheck
-  where
-    needRecoveryCheck slot = do
-        header <- DB.getTipBlockHeader @ssc
-        pure $
-            toEnum (fromEnum (getEpochOrSlot header) + blkSecurityParam) <
-            getEpochOrSlot slot
-
--- | Triggers recovery based on established communication.
+-- | Start recovery based on established communication. “Starting recovery”
+-- means simply sending all our neighbors a 'MsgGetHeaders' message (see
+-- 'requestTip'), so sometimes 'triggerRecovery' is used simply to ask for
+-- tips (e.g. in 'queryBlocksWorker').
+--
+-- Note that when recovery is in progress (see 'recoveryInProgress'),
+-- 'triggerRecovery' does nothing. It's okay because when recovery is in
+-- progress and 'ncRecoveryHeader' is full, we'll be requesting blocks anyway
+-- and until we're finished we shouldn't be asking for new blocks.
 triggerRecovery :: forall ssc m.
     (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m -> m ()
-triggerRecovery sendActions = unlessM isRecoveryMode $ do
-    logDebug "Recovery triggered, requesting tips"
+triggerRecovery sendActions = unlessM recoveryInProgress $ do
+    logDebug "Recovery started, requesting tips from neighbors"
     reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limitProxy -> do
         converseToNeighbors sendActions (requestTip limitProxy) `catch`
             \(e :: SomeException) -> do
-               logDebug ("Error happened in triggerRecovery" <> show e)
+               logDebug ("Error happened in triggerRecovery: " <> show e)
                throwM e
-        logDebug "Recovery triggered ended"
-
+        logDebug "Finished requesting tips for recovery"
 
 requestTipOuts :: OutSpecs
 requestTipOuts =
@@ -259,7 +252,7 @@ requestHeaders mgh peerId origTip _ conv = do
     logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
     send conv mgh
     mHeaders <- recvLimited conv
-    inRecovery <- needRecovery (Proxy @ssc)
+    inRecovery <- needRecovery @ssc
     logDebug $ sformat ("requestHeaders: inRecovery = "%shown) inRecovery
     flip (maybe onNothing) mHeaders $ \(MsgHeaders headers) -> do
         logDebug $ sformat
@@ -288,7 +281,7 @@ requestHeaders mgh peerId origTip _ conv = do
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders
     :: forall ssc m.
-       (WorkMode ssc m)
+       WorkMode ssc m
     => NewestFirst NE (BlockHeader ssc)
     -> NodeId
     -> Maybe (BlockHeader ssc)
@@ -494,7 +487,7 @@ applyWithRollback peerId sendActions toApply lca toRollback = do
         ". Blocks rolled back: "%listJson%
         ", blocks applied: "%listJson
     reportRollback =
-        unlessM isRecoveryMode $ do
+        unlessM recoveryInProgress $ do
             logDebug "Reporting rollback happened"
             reportMisbehaviourMasked version $
                 sformat reportF peerId toRollbackHashes toApplyHashes
@@ -511,7 +504,7 @@ relayBlock
     => SendActions m -> Block ssc -> m ()
 relayBlock _ (Left _)                  = logDebug "Not relaying Genesis block"
 relayBlock sendActions (Right mainBlk) = do
-    isRecoveryMode >>= \case
+    recoveryInProgress >>= \case
         True -> logDebug "Not relaying block in recovery mode"
         False -> do
             logDebug $ sformat ("Calling announceBlock for "%build%".") (mainBlk ^. gbHeader)

@@ -16,15 +16,15 @@ import           System.Wlog                (logWarning)
 import           Universum
 
 import           Pos.Binary.Ssc             ()
-import           Pos.Block.Network          (needRecovery, requestTipOuts,
-                                             triggerRecovery)
+import           Pos.Block.Logic            (needRecovery)
+import           Pos.Block.Network          (requestTipOuts, triggerRecovery)
 import           Pos.Block.Pure             (genesisHash)
 import           Pos.Communication.Protocol (OutSpecs, SendActions, WorkerSpec,
                                              localWorker, worker)
 import           Pos.Constants              (blkSecurityParam, mdNoBlocksSlotThreshold,
                                              mdNoCommitmentsEpochThreshold)
-import           Pos.Context                (getNodeContext, getUptime, isRecoveryMode,
-                                             ncPublicKey)
+import           Pos.Context                (getNodeContext, getUptime, ncPublicKey,
+                                             recoveryInProgress)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.DB                     (DBError (DBMalformed))
 import           Pos.DB.Block               (getBlockHeader)
@@ -106,7 +106,7 @@ checkForReceivedBlocksWorkerImpl
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
     repeatOnInterval (const (sec' 4)) . reportingFatal version $
-        whenM (needRecovery $ Proxy @ssc) $
+        whenM (needRecovery @ssc) $
             triggerRecovery sendActions
     repeatOnInterval (min (sec' 20)) . reportingFatal version $ do
         ourPk <- ncPublicKey <$> getNodeContext
@@ -132,7 +132,7 @@ checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
     reportEclipse = do
         bootstrapMin <- (+ sec 10) . convertUnit <$> getLastKnownSlotDuration
         nonTrivialUptime <- (> bootstrapMin) <$> getUptime
-        isRecovery <- isRecoveryMode
+        isRecovery <- recoveryInProgress
         let reason =
                 "Eclipse attack was discovered, mdNoBlocksSlotThreshold: " <>
                 show (mdNoBlocksSlotThreshold :: Int)

@@ -22,8 +22,8 @@ import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId (..),
                                              OutSpecs, SendActions (..), convH,
                                              toOutSpecs)
-import           Pos.Context                (getNodeContext, isRecoveryMode, ncNodeParams,
-                                             npAttackTypes)
+import           Pos.Context                (getNodeContext, ncNodeParams, npAttackTypes,
+                                             recoveryInProgress)
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
@@ -83,7 +83,7 @@ handleHeadersCommunication
 handleHeadersCommunication conv _ = do
     whenJustM (recvLimited conv) $ \mgh@(MsgGetHeaders {..}) -> do
         logDebug $ sformat ("Got request on handleGetHeaders: "%build) mgh
-        ifM isRecoveryMode onRecovery $ do
+        ifM recoveryInProgress onRecovery $ do
             headers <- case (mghFrom,mghTo) of
                 ([], Nothing) -> Right . one <$> DB.getTipBlockHeader @ssc
                 ([], Just h)  ->

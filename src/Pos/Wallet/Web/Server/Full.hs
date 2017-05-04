@@ -23,6 +23,8 @@ import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import           System.Wlog                   (logInfo, usingLoggerName)
 
+import           Pos.Client.Txp.Balances       (runBalancesRedirect)
+import           Pos.Client.Txp.History        (runTxHistoryRedirect)
 import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState (..),
                                                 getAllStates, peerStateFromSnapshot,
                                                 runPeerStateHolder)
@@ -42,9 +44,9 @@ import           Pos.Slotting                  (NtpSlottingVar, SlottingVar,
                                                 askFullNtpSlotting, askSlotting,
                                                 runSlotsDataRedirect)
 import           Pos.Ssc.Class                 (SscConstraint)
-import           Pos.Ssc.Extra                 (SscState, SscMemTag)
-import           Pos.Txp                       (GenericTxpLocalData, askTxpMem,
-                                                runTxpHolder)
+import           Pos.Ssc.Extra                 (SscMemTag, SscState)
+import           Pos.Txp                       (GenericTxpLocalData, TxpHolderTag,
+                                                askTxpMem)
 import           Pos.Update.DB                 (runDbLimitsRedirect)
 import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey,
                                                 runKeyStorageRedirect)
@@ -121,10 +123,12 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
                  , Tagged @SlottingVar slotVar
                  , Tagged @(Bool, NtpSlottingVar) ntpSlotVar
                  , Tagged @SscMemTag ssc
+                 , Tagged @TxpHolderTag tlw
                  )
            . runSlotsDataRedirect
            . runSlotsRedirect
-           . runTxpHolder tlw
+           . runBalancesRedirect
+           . runTxHistoryRedirect
            . runDelegationTFromTVar delWrap
            . (\m -> flip runPeerStateHolder m =<< peerStateFromSnapshot psCtx)
            . runDbLimitsRedirect

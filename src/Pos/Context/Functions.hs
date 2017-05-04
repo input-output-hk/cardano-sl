@@ -3,7 +3,8 @@
 module Pos.Context.Functions
        (
          -- * Genesis
-         genesisUtxoM
+         GenesisUtxo(..)
+       , genesisUtxoM
        , genesisLeadersM
 
          -- * Block semaphore.
@@ -28,8 +29,8 @@ import qualified Ether
 import           Universum
 
 import           Pos.Context.Class      (WithNodeContext, getNodeContext)
-import           Pos.Context.Context    (NodeContext (..), ncGenesisLeaders,
-                                         ncGenesisUtxo, ncStartTime)
+import           Pos.Context.Context    (GenesisUtxo (..), NodeContext (..),
+                                         ncGenesisLeaders, ncStartTime)
 import           Pos.Lrc.Context        (LrcContext (..), LrcSyncData (..))
 import           Pos.Lrc.Error          (LrcError (..))
 import           Pos.Txp.Toil.Types     (Utxo)
@@ -40,8 +41,8 @@ import           Pos.Util               (maybeThrow, readTVarConditional)
 -- Genesis
 ----------------------------------------------------------------------------
 
-genesisUtxoM :: (Functor m, WithNodeContext ssc m) => m Utxo
-genesisUtxoM = ncGenesisUtxo <$> getNodeContext
+genesisUtxoM :: (Functor m, Ether.MonadReader' GenesisUtxo m) => m Utxo
+genesisUtxoM = Ether.asks' unGenesisUtxo
 
 genesisLeadersM :: (Functor m, WithNodeContext ssc m) => m SlotLeaders
 genesisLeadersM = ncGenesisLeaders <$> getNodeContext

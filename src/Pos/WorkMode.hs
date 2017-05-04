@@ -24,6 +24,8 @@ import qualified Ether
 import           Mockable.Production          (Production)
 import           System.Wlog                  (LoggerNameBox (..))
 
+import           Pos.Client.Txp.Balances      (BalancesRedirect)
+import           Pos.Client.Txp.History       (TxHistoryRedirect)
 import           Pos.Communication.PeerState  (PeerStateHolder)
 import           Pos.Context                  (ContextHolder)
 import           Pos.DB                       (NodeDBs)
@@ -35,7 +37,7 @@ import           Pos.Slotting.MemState.Holder (SlotsDataRedirect)
 import           Pos.Slotting.Ntp             (NtpSlottingVar, SlotsRedirect)
 import           Pos.Ssc.Extra                (SscMemTag, SscState)
 import           Pos.Statistics.MonadStats    (NoStatsT, StatsT)
-import           Pos.Txp.MemState             (TxpHolder)
+import           Pos.Txp.MemState             (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Update.DB                (DbLimitsRedirect)
 import           Pos.Wallet.KeyStorage        (KeyStorageRedirect)
 import           Pos.Wallet.WalletMode        (BlockchainInfoRedirect, UpdatesRedirect)
@@ -55,7 +57,8 @@ type RawRealMode ssc =
     DbLimitsRedirect (
     PeerStateHolder (
     DelegationT (
-    TxpHolder TxpExtra_TMP (
+    TxHistoryRedirect (
+    BalancesRedirect (
     SlotsRedirect (
     SlotsDataRedirect (
     Ether.ReadersT
@@ -63,10 +66,11 @@ type RawRealMode ssc =
       , Tagged SlottingVar SlottingVar
       , Tagged (Bool, NtpSlottingVar) (Bool, NtpSlottingVar)
       , Tagged SscMemTag (SscState ssc)
+      , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
       ) (
     ContextHolder ssc (
     LoggerNameBox Production
-    ))))))))))))
+    )))))))))))))
 
 -- | RawRealMode + kademlia. Used in wallet too.
 type RawRealModeK ssc = DiscoveryKademliaT (RawRealMode ssc)

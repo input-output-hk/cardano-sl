@@ -52,6 +52,8 @@ import           Universum                    hiding (bracket, finally)
 
 import           Pos.Binary                   ()
 import           Pos.CLI                      (readLoggerConfig)
+import           Pos.Client.Txp.Balances      (runBalancesRedirect)
+import           Pos.Client.Txp.History       (runTxHistoryRedirect)
 import           Pos.Communication            (ActionSpec (..), BiP (..), InSpecs (..),
                                                ListenersWithOut, NodeId, OutSpecs (..),
                                                PeerId (..), VerInfo (..), allListeners,
@@ -85,11 +87,12 @@ import           Pos.Slotting.MemState.Holder (runSlotsDataRedirect)
 import           Pos.Slotting.Ntp             (runSlotsRedirect)
 import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
                                                sscCreateNodeContext)
-import           Pos.Ssc.Extra                (mkSscState, SscMemTag, bottomSscState)
+import           Pos.Ssc.Extra                (SscMemTag, bottomSscState, mkSscState)
 import           Pos.Statistics               (getNoStatsT, runStatsT')
-import           Pos.Txp                      (mkTxpLocalData, runTxpHolder)
+import           Pos.Txp                      (mkTxpLocalData)
 import           Pos.Txp.DB                   (genesisFakeTotalStake,
                                                runBalanceIterBootstrap)
+import           Pos.Txp.MemState             (TxpHolderTag)
 import           Pos.Update.DB                (runDbLimitsRedirect)
 import           Pos.Wallet.KeyStorage        (runKeyStorageRedirect)
 import           Pos.Wallet.WalletMode        (runBlockchainInfoRedirect,
@@ -152,10 +155,12 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                       , Tagged @SlottingVar slottingVar
                       , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
                       , Tagged @SscMemTag bottomSscState
+                      , Tagged @TxpHolderTag txpVar
                       ) .
                    runSlotsDataRedirect .
                    runSlotsRedirect .
-                   runTxpHolder txpVar .
+                   runBalancesRedirect .
+                   runTxHistoryRedirect .
                    runDelegationT def .
                    runPeerStateHolder stateM_ .
                    runDbLimitsRedirect .
@@ -187,10 +192,12 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
               , Tagged @SlottingVar slottingVar
               , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
               , Tagged @SscMemTag sscState
+              , Tagged @TxpHolderTag txpVar
               ) .
           runSlotsDataRedirect .
           runSlotsRedirect .
-          runTxpHolder txpVar .
+          runBalancesRedirect .
+          runTxHistoryRedirect .
           runDelegationT def .
           runPeerStateHolder stateM .
           runDbLimitsRedirect .

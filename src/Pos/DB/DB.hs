@@ -31,6 +31,7 @@ import           System.Wlog                      (WithLogger)
 import           Pos.Block.Pure                   (mkGenesisBlock)
 import           Pos.Block.Types                  (Blund)
 import           Pos.Context.Class                (WithNodeContext)
+import           Pos.Context.Context              (GenesisUtxo (..))
 import           Pos.Context.Functions            (genesisLeadersM)
 import           Pos.DB.Block                     (getBlock, loadBlundsByDepth,
                                                    loadBlundsWhile, prepareBlockDB)
@@ -82,6 +83,7 @@ initNodeDBs
     :: forall ssc m.
        ( SscHelpersClass ssc
        , WithNodeContext ssc m
+       , Ether.MonadReader' GenesisUtxo m
        , MonadDB m )
     => m ()
 initNodeDBs = do

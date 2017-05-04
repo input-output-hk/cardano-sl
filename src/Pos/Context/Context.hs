@@ -11,15 +11,15 @@ module Pos.Context.Context
        , NodeContext (..)
        , ncPublicKey
        , ncPubKeyAddress
-       , ncGenesisUtxo
        , ncSystemStart
        , NodeParams(..)
        , BaseParams(..)
+       , GenesisUtxo(..)
        ) where
 
 import           Control.Concurrent.STM        (TBQueue)
 import qualified Control.Concurrent.STM        as STM
-import           Control.Lens                  (lens, makeLensesFor)
+import           Control.Lens                  (coerced, lens, makeLensesFor)
 import           Data.Kind                     (Type)
 import           Data.Time.Clock               (UTCTime)
 import           Ether.Internal                (HList (..), HasLens (..), Tags, TagsK)
@@ -111,6 +111,10 @@ data NodeContext ssc = NodeContext
     -- ^ Set of peers that we're connected to.
     }
 
+newtype GenesisUtxo = GenesisUtxo
+    { unGenesisUtxo :: Utxo
+    }
+
 makeLensesFor
   [ ("ncUpdateContext", "ncUpdateContextL")
   , ("ncLrcContext", "ncLrcContextL")
@@ -125,11 +129,12 @@ makeLensesFor
 makeLensesFor
   [ ("npUpdateParams", "npUpdateParamsL")
   , ("npReportServers", "npReportServersL")
-  , ("npPropagation", "npPropagationL") ]
+  , ("npPropagation", "npPropagationL")
+  , ("npCustomUtxo", "npCustomUtxoL") ]
   ''NodeParams
 
 type instance TagsK (NodeContext ssc) =
-  '[Type, Type, Type, Type, Type, Type, Type, Type, Type]
+  '[Type, Type, Type, Type, Type, Type, Type, Type, Type, Type]
 
 return []
 
@@ -147,6 +152,7 @@ type instance Tags (NodeContext ssc) =
   RelayContext :::
   ShutdownContext :::
   JLFile :::
+  GenesisUtxo :::
   'HNil
 
 instance HasLens NodeContextTag (NodeContext ssc) (NodeContext ssc) where
@@ -200,6 +206,9 @@ instance HasLens ShutdownContext (NodeContext ssc) ShutdownContext where
 instance HasLens JLFile (NodeContext ssc) JLFile where
     lensOf = ncJLFileL
 
+instance HasLens GenesisUtxo (NodeContext ssc) GenesisUtxo where
+    lensOf = ncNodeParamsL . npCustomUtxoL . coerced
+
 ----------------------------------------------------------------------------
 -- Helper functions
 ----------------------------------------------------------------------------
@@ -211,9 +220,6 @@ ncPublicKey = toPublic . npSecretKey . ncNodeParams
 -- | Generate 'Address' from 'SecretKey' of 'NodeContext'
 ncPubKeyAddress :: NodeContext ssc -> Address
 ncPubKeyAddress = makePubKeyAddress . ncPublicKey
-
-ncGenesisUtxo :: NodeContext ssc -> Utxo
-ncGenesisUtxo = npCustomUtxo . ncNodeParams
 
 ncSystemStart :: NodeContext __ -> Timestamp
 ncSystemStart = npSystemStart . ncNodeParams

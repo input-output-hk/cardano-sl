@@ -14,8 +14,11 @@ module Pos.Web.Server
        , applicationGT
        ) where
 
+import           Universum
+
 import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
+import           Data.Tagged                          (Tagged (..))
 import qualified Ether
 import           Mockable                             (Production (runProduction))
 import           Network.Wai                          (Application)
@@ -26,7 +29,6 @@ import           Servant.API                          ((:<|>) ((:<|>)), FromHttp
 import           Servant.Server                       (Handler, ServantErr (errBody),
                                                        Server, ServerT, err404, serve)
 import           Servant.Utils.Enter                  ((:~>) (NT), enter)
-import           Universum
 
 import           Pos.Aeson.Types                      ()
 import           Pos.Context                          (ContextHolder, NodeContext,
@@ -38,9 +40,8 @@ import qualified Pos.Lrc.DB                           as LrcDB
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc)
 import           Pos.Txp                              (TxOut (..), toaOut)
-import           Pos.Txp.MemState                     (GenericTxpLocalData, TxpHolder,
-                                                       askTxpMem, getLocalTxs,
-                                                       runTxpHolder)
+import           Pos.Txp.MemState                     (GenericTxpLocalData, TxpHolderTag,
+                                                       askTxpMem, getLocalTxs)
 import           Pos.Types                            (EpochIndex (..), SlotLeaders)
 import           Pos.WorkMode.Class                   (TxpExtra_TMP, WorkMode)
 
@@ -84,10 +85,12 @@ serveImpl application host port =
 ----------------------------------------------------------------------------
 
 type WebHandler ssc =
-    TxpHolder TxpExtra_TMP (
-    Ether.ReaderT' DB.NodeDBs (
+    Ether.ReadersT
+      ( Tagged DB.NodeDBs DB.NodeDBs
+      , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
+      ) (
     ContextHolder ssc Production
-    ))
+    )
 
 convertHandler
     :: forall ssc a.
@@ -99,8 +102,10 @@ convertHandler
 convertHandler nc nodeDBs wrap handler =
     liftIO (runProduction .
             runContextHolder nc .
-            flip Ether.runReaderT' nodeDBs .
-            runTxpHolder wrap $
+            flip Ether.runReadersT
+              ( Tagged @DB.NodeDBs nodeDBs
+              , Tagged @TxpHolderTag wrap
+              ) $
             handler)
     `Catch.catches`
     excHandlers

@@ -21,7 +21,6 @@ import           Control.Lens                  (ix, makeLenses, (.=))
 import           Control.Monad.Catch           (SomeException, try)
 import qualified Control.Monad.Catch           as E
 import           Control.Monad.State           (runStateT)
-import           Data.Bits                     (setBit)
 import           Data.Default                  (Default (def))
 import           Data.List                     (elemIndex, (!!))
 import qualified Data.List.NonEmpty            as NE
@@ -62,7 +61,7 @@ import           Pos.Crypto                    (EncryptedSecretKey, PassPhrase,
                                                 aesDecrypt, changeEncPassphrase,
                                                 checkPassMatches, deriveAesKeyBS,
                                                 emptyPassphrase, encToPublic, fakeSigner,
-                                                hash, noPassEncrypt,
+                                                hash, isNonHardened, noPassEncrypt,
                                                 redeemDeterministicKeyGen, redeemToPublic,
                                                 withSafeSigner, withSafeSigner)
 import           Pos.DB.Limits                 (MonadDBLimits)
@@ -72,8 +71,7 @@ import           Pos.Reporting.MemState        (MonadReportingMem, askReportingC
 import           Pos.Reporting.Methods         (sendReport, sendReportNodeNologs)
 import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
 import           Pos.Util                      (maybeThrow)
-import           Pos.Util.BackupPhrase         (BackupPhrase, mkBackupPhrase12,
-                                                safeKeysFromPhrase, toSeed)
+import           Pos.Util.BackupPhrase         (BackupPhrase, safeKeysFromPhrase, toSeed)
 import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
 import           Pos.Wallet.SscType            (WalletSscType)
 import           Pos.Wallet.WalletMode         (WalletMode, applyLastUpdate,
@@ -825,13 +823,15 @@ importKey cpassphrase (toString -> fp) = do
     let key    = wusRootKey
         addr   = makePubKeyAddress $ encToPublic key
         wsAddr = addressToCAddress addr
-        wsMeta = CWalletSetMeta wusWSetName wusBackupPhrase
+        wsMeta = CWalletSetMeta wusWSetName
     addSecretKey key
     importedWSet <- createWSetSafe wsAddr wsMeta
 
     forM_ wusWallets $ \(walletIndex, walletName) -> do
-        let wInit = CWalletInit def{ cwName = walletName } wsAddr
-        newWallet (DeterminedSeed walletIndex) cpassphrase wInit
+        let wMeta = def{ cwName = walletName }
+            seedGen = DeterminedSeed walletIndex
+        cAddr <- genUniqueWalletAddress seedGen wsAddr
+        createWallet cAddr wMeta
 
     forM_ wusAccounts $ \(walletIndex, accountIndex) -> do
         let wAddr = CWalletAddress wsAddr walletIndex
@@ -856,8 +856,7 @@ addInitialRichAccount getPeers sendActions keyId =
             wsCAddr = addressToCAddress wsAddr
 
         let cpass  = Nothing
-            backup = mkBackupPhrase12 $ sformat build <$> "nyan-forever"
-            wsMeta = CWalletSetMeta "Precreated wallet set full of money" backup
+            wsMeta = CWalletSetMeta "Precreated wallet set full of money"
             wMeta  = def{ cwName = "Initial wallet" }
 
         addSecretKey enKey
@@ -980,24 +979,24 @@ type AddrGenSeed = GenSeed Word32   -- with derivation index
 
 generateUnique
     :: (MonadIO m, MonadThrow m, Integral a, Random a)
-    => GenSeed a -> (a -> m b) -> (b -> m Bool) -> m b
-generateUnique RandomSeed generator isDuplicate = loop
+    => Text -> GenSeed a -> (a -> m b) -> (a -> b -> m Bool) -> m b
+generateUnique desc RandomSeed generator fits = loop (100 :: Int)
   where
-    loop = do
+    loop 0 = throwM . Internal $
+             sformat (build%": generation of unique item seems too difficult")
+             desc
+    loop i = do
         rand  <- liftIO randomIO
         value <- generator rand
-        bad   <- isDuplicate value
+        bad   <- fits rand value
         if bad
-            then loop
+            then loop (i - 1)
             else return value
-generateUnique (DeterminedSeed seed) generator isDuplicate = do
+generateUnique desc (DeterminedSeed seed) generator fits = do
     value <- generator seed
-    whenM (isDuplicate value) $
-        throwM $ Internal "This value is already taken"
+    whenM (fits seed value) $
+        throwM . Internal $ sformat (build%": this item is already taken") desc
     return value
-
-nonHardenedOnly :: Word32 -> Word32
-nonHardenedOnly index = setBit index 31
 
 genUniqueWalletAddress
     :: WalletWebMode m
@@ -1005,9 +1004,15 @@ genUniqueWalletAddress
     -> CAddress WS
     -> m CWalletAddress
 genUniqueWalletAddress genSeed wsCAddr =
-    generateUnique genSeed
-                   (return . CWalletAddress wsCAddr . nonHardenedOnly)
-                   (fmap isJust . getWalletMeta)
+    generateUnique "wallet generation"
+                   genSeed
+                   (return . CWalletAddress wsCAddr)
+                   fits
+  where
+    fits idx addr = andM
+        [ pure $ isNonHardened idx
+        , isJust <$> getWalletMeta addr
+        ]
 
 genUniqueAccountAddress
     :: WalletWebMode m
@@ -1016,12 +1021,14 @@ genUniqueAccountAddress
     -> CWalletAddress
     -> m CAccountAddress
 genUniqueAccountAddress genSeed passphrase wCAddr@CWalletAddress{..} =
-    generateUnique genSeed
-                   (mkAccount . nonHardenedOnly)
-                   (doesAccountExist Ever)
+    generateUnique "account generation" genSeed mkAccount fits
   where
     mkAccount caaAccountIndex =
         deriveAccountAddress passphrase wCAddr caaAccountIndex
+    fits idx addr = andM
+        [ pure $ isNonHardened idx
+        , doesAccountExist Ever addr
+        ]
 
 deriveAccountKeyPair
     :: WalletWebMode m

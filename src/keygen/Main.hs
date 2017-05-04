@@ -20,7 +20,6 @@ import           Pos.Binary           (decodeFull, encode)
 import           Pos.Core             (coinToInteger, mkCoin, unsafeAddCoin,
                                        unsafeIntegerToCoin)
 import           Pos.Genesis          (GenesisData (..), StakeDistribution (..),
-                                       generateGenesisBackupPhrase,
                                        genesisDevHdwSecretKeys, genesisDevSecretKeys,
                                        getTotalStake)
 import           Pos.Types            (addressDetailedF, addressHash, makePubKeyAddress,
@@ -126,8 +125,7 @@ dumpKeys pat = do
     for_ (zip [1..] genesisDevSecretKeys) $ \(i :: Int, k) ->
         generateKeyfile False (Just k) $ applyPattern pat i
     for_ (zip [1..] genesisDevHdwSecretKeys) $ \(i :: Int, k) ->
-        let bp = generateGenesisBackupPhrase i
-        in  generateHdwKeyfile k bp $ applyPattern (pat <> ".hd") i
+        generateHdwKeyfile k $ applyPattern (pat <> ".hd") i
 
 reassignBalances :: GenesisData -> GenesisData
 reassignBalances GenesisData{..} = GenesisData

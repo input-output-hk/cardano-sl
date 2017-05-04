@@ -50,7 +50,6 @@ module Pos.Wallet.Web.ClientTypes
       , txContainsTitle
       , toCUpdateInfo
       , walletAddrByAccount
-      , mkDefCWSetMeta
       , WalletUserSecret (..)
       , readWalletUserSecret
       , writeWalletUserSecret
@@ -304,12 +303,12 @@ data CWalletRedeem = CWalletRedeem
 
 -- | Meta data of 'CWalletSet'
 data CWalletSetMeta = CWalletSetMeta
-    { cwsName         :: !Text
-    , cwsBackupPhrase :: !BackupPhrase
+    { cwsName :: !Text
     } deriving (Show, Eq, Generic)
 
-mkDefCWSetMeta :: BackupPhrase -> CWalletSetMeta
-mkDefCWSetMeta = CWalletSetMeta "Personal Wallet Set"
+
+instance Default CWalletSetMeta where
+  def = CWalletSetMeta "Personal Wallet Set"
 
 -- | Client Wallet Set (CW)
 data CWalletSet = CWalletSet
@@ -323,6 +322,7 @@ data CWalletSet = CWalletSet
 -- | Query data for wallet set creation
 data CWalletSetInit = CWalletSetInit
     { cwsInitMeta     :: !CWalletSetMeta
+    , cwsBackupPhrase :: !BackupPhrase
     } deriving (Eq, Show, Generic)
 
 class WithDerivationPath a where
@@ -448,24 +448,21 @@ toCUpdateInfo ConfirmedProposalState {..} =
 
 -- | Describes HD wallets keyfile content
 data WalletUserSecret = WalletUserSecret
-    { wusRootKey      :: EncryptedSecretKey  -- ^ root key of wallet set
-    , wusWSetName     :: Text                -- ^ name of wallet set
-    , wusBackupPhrase :: BackupPhrase        -- ^ backup phrase of wallet set
-    , wusWallets      :: [(Word32, Text)]    -- ^ coordinates and names wallets
-    , wusAccounts     :: [(Word32, Word32)]  -- ^ coordinates of accounts
+    { wusRootKey  :: EncryptedSecretKey  -- ^ root key of wallet set
+    , wusWSetName :: Text                -- ^ name of wallet set
+    , wusWallets  :: [(Word32, Text)]    -- ^ coordinates and names wallets
+    , wusAccounts :: [(Word32, Word32)]  -- ^ coordinates of accounts
     }
 
 instance Bi WalletUserSecret where
     put WalletUserSecret{..} = do
         put wusRootKey
         put wusWSetName
-        put wusBackupPhrase
         put wusWallets
         put wusAccounts
     get = label "WalletUserSecret" $ do
         wusRootKey <- get
         wusWSetName <- get
-        wusBackupPhrase <- get
         wusWallets <- get
         wusAccounts <- get
         return WalletUserSecret{..}

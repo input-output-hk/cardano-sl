@@ -32,7 +32,7 @@ import           Pos.Delegation.Holder        (DelegationT)
 import           Pos.Discovery.Holders        (DiscoveryConstT, DiscoveryKademliaT)
 import           Pos.Slotting.MemState        (SlottingVar)
 import           Pos.Slotting.MemState.Holder (SlotsDataRedirect)
-import           Pos.Slotting.Ntp             (NtpSlotting)
+import           Pos.Slotting.Ntp             (NtpSlottingVar, SlotsRedirect)
 import           Pos.Ssc.Extra                (SscHolder)
 import           Pos.Statistics.MonadStats    (NoStatsT, StatsT)
 import           Pos.Txp.MemState             (TxpHolder)
@@ -57,11 +57,12 @@ type RawRealMode ssc =
     DelegationT (
     TxpHolder TxpExtra_TMP (
     SscHolder ssc (
-    NtpSlotting (
+    SlotsRedirect (
     SlotsDataRedirect (
     Ether.ReadersT
       ( Tagged NodeDBs NodeDBs
       , Tagged SlottingVar SlottingVar
+      , Tagged (Bool, NtpSlottingVar) (Bool, NtpSlottingVar)
       ) (
     ContextHolder ssc (
     LoggerNameBox Production

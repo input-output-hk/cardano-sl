@@ -17,6 +17,7 @@ import           Data.Tagged                   (Tagged (..))
 import qualified Ether
 import           Mockable                      (runProduction)
 import           Network.Wai                   (Application)
+import           Pos.Slotting.Ntp              (runSlotsRedirect)
 import           Pos.Ssc.Extra.Class           (askSscMem)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
@@ -39,7 +40,7 @@ import           Pos.Discovery                 (askDHTInstance, runDiscoveryKade
 import           Pos.Genesis                   (genesisDevSecretKeys)
 import           Pos.Slotting                  (NtpSlottingVar, SlottingVar,
                                                 askFullNtpSlotting, askSlotting,
-                                                runNtpSlotting, runSlotsDataRedirect)
+                                                runSlotsDataRedirect)
 import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscState, runSscHolder)
 import           Pos.Txp                       (GenericTxpLocalData, askTxpMem,
@@ -118,9 +119,10 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
            . flip Ether.runReadersT
                  ( Tagged @NodeDBs modernDBs
                  , Tagged @SlottingVar slotVar
+                 , Tagged @(Bool, NtpSlottingVar) ntpSlotVar
                  )
            . runSlotsDataRedirect
-           . runNtpSlotting ntpSlotVar
+           . runSlotsRedirect
            . runSscHolder ssc
            . runTxpHolder tlw
            . runDelegationTFromTVar delWrap

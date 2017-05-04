@@ -79,9 +79,10 @@ import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (.
 import           Pos.Lrc.Context              (LrcContext (..), LrcSyncData (..))
 import qualified Pos.Lrc.DB                   as LrcDB
 import           Pos.Lrc.Fts                  (followTheSatoshiM)
-import           Pos.Slotting                 (SlottingVar, mkNtpSlottingVar,
-                                               runNtpSlotting)
+import           Pos.Slotting                 (NtpSlottingVar, SlottingVar,
+                                               mkNtpSlottingVar)
 import           Pos.Slotting.MemState.Holder (runSlotsDataRedirect)
+import           Pos.Slotting.Ntp             (runSlotsRedirect)
 import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
                                                sscCreateNodeContext)
 import           Pos.Ssc.Extra                (ignoreSscHolder, mkStateAndRunSscHolder)
@@ -149,9 +150,10 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                    flip Ether.runReadersT
                       ( Tagged @NodeDBs modernDBs
                       , Tagged @SlottingVar slottingVar
+                      , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
                       ) .
                    runSlotsDataRedirect .
-                   runNtpSlotting (npUseNTP, ntpSlottingVar) .
+                   runSlotsRedirect .
                    ignoreSscHolder .
                    runTxpHolder txpVar .
                    runDelegationT def .
@@ -172,9 +174,10 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
           flip Ether.runReadersT
               ( Tagged @NodeDBs modernDBs
               , Tagged @SlottingVar slottingVar
+              , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
               ) .
           runSlotsDataRedirect .
-          runNtpSlotting (npUseNTP, ntpSlottingVar) .
+          runSlotsRedirect .
           (mkStateAndRunSscHolder @ssc) .
           runTxpHolder txpVar .
           runDelegationT def .

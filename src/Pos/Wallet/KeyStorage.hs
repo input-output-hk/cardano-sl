@@ -10,8 +10,8 @@ module Pos.Wallet.KeyStorage
        , KeyError (..)
        , runKeyStorage
        , runKeyStorageRaw
-       , KSContext
-       , runKSContext
+       , KeyStorageRedirect
+       , runKeyStorageRedirect
        ) where
 
 import qualified Control.Concurrent.STM as STM
@@ -132,30 +132,30 @@ instance Exception KeyError
 usLens :: Lens' (NodeContext ssc) KeyData
 usLens = lens ncUserSecret $ \c us -> c { ncUserSecret = us }
 
-data KSContextTag
+data KeyStorageRedirectTag
 
-type KSContext = Ether.TaggedTrans KSContextTag Ether.IdentityT
+type KeyStorageRedirect = Ether.TaggedTrans KeyStorageRedirectTag Ether.IdentityT
 
-runKSContext :: KSContext m a -> m a
-runKSContext = coerce
+runKeyStorageRedirect :: KeyStorageRedirect m a -> m a
+runKeyStorageRedirect = coerce
 
 instance {-# OVERLAPPING #-}
     (Monad m, t ~ Ether.IdentityT, WithNodeContext ssc m) =>
-        MonadReader KeyData (Ether.TaggedTrans KSContextTag t m)
+        MonadReader KeyData (Ether.TaggedTrans KeyStorageRedirectTag t m)
   where
     ask = Ether.asks @NodeContextTag ncUserSecret
     local f = Ether.local @NodeContextTag (over usLens f)
 
 instance {-# OVERLAPPING #-}
     (MonadIO m, t ~ Ether.IdentityT, WithNodeContext ssc m) =>
-        MonadState UserSecret (Ether.TaggedTrans KSContextTag t m)
+        MonadState UserSecret (Ether.TaggedTrans KeyStorageRedirectTag t m)
   where
     get = getSecret
     put = putSecret
 
 instance
     (MonadIO m, MonadThrow m, t ~ Ether.IdentityT, WithNodeContext ssc m) =>
-        MonadKeys (Ether.TaggedTrans KSContextTag t m)
+        MonadKeys (Ether.TaggedTrans KeyStorageRedirectTag t m)
   where
     getPrimaryKey = use usPrimKey
     getSecretKeys = use usKeys

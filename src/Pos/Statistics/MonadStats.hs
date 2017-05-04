@@ -23,7 +23,7 @@ import qualified STMContainers.Map            as SM
 import           Universum
 
 import           Pos.Statistics.StatEntry     (StatLabel (..))
-import           Pos.Util.JsonLog             (MonadJL (..))
+import           Pos.Util.JsonLog             (MonadJL, jlLog)
 import           Pos.Util.Util                (ether)
 
 

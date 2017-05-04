@@ -22,7 +22,7 @@ import           System.Wlog                 (LoggerNameBox (..))
 import           Universum
 
 import           Pos.Communication.PeerState (PeerStateHolder)
-import           Pos.Context                 (ContextHolder, JLContext)
+import           Pos.Context                 (ContextHolder)
 import           Pos.DB.DB                   ()
 import           Pos.DB.Holder               (DBHolder)
 import           Pos.Delegation.Holder       (DelegationT)
@@ -32,8 +32,8 @@ import           Pos.Slotting.Ntp            (NtpSlotting)
 import           Pos.Ssc.Extra               (SscHolder)
 import           Pos.Statistics.MonadStats   (NoStatsT, StatsT)
 import           Pos.Txp.MemState            (TxpHolder)
-import           Pos.Wallet.KeyStorage       (KSContext)
-import           Pos.Wallet.WalletMode       (BIRRContext, UPDContext)
+import           Pos.Wallet.KeyStorage       (KeyStorageRedirect)
+import           Pos.Wallet.WalletMode       (BlockchainInfoRedirect, UpdatesRedirect)
 import           Pos.WorkMode.Class          (MinWorkMode, TxpExtra_TMP, WorkMode)
 
 
@@ -43,7 +43,7 @@ import           Pos.WorkMode.Class          (MinWorkMode, TxpExtra_TMP, WorkMod
 
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
 type RawRealMode ssc =
-    BIRRContext (
+    BlockchainInfoRedirect (
     PeerStateHolder (
     DelegationT (
     TxpHolder TxpExtra_TMP (
@@ -51,12 +51,11 @@ type RawRealMode ssc =
     NtpSlotting (
     SlottingHolder (
     DBHolder (
-    UPDContext (
-    KSContext (
-    JLContext (
+    UpdatesRedirect (
+    KeyStorageRedirect (
     ContextHolder ssc (
     LoggerNameBox Production
-    ))))))))))))
+    )))))))))))
 
 -- | RawRealMode + kademlia. Used in wallet too.
 type RawRealModeK ssc = DiscoveryKademliaT (RawRealMode ssc)

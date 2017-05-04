@@ -10,27 +10,32 @@ module Pos.Util.JsonLog
        , JLTimedEvent (..)
        , jlCreatedBlock
        , jlAdoptedBlock
-       , MonadJL (..)
+       , MonadJL
+       , jlLog
        , appendJL
        , fromJLSlotId
+       , JLFile(..)
        ) where
 
-import           Control.Monad.Trans    (MonadTrans (..))
-import           Data.Aeson             (encode)
-import           Data.Aeson.TH          (deriveJSON)
-import qualified Data.ByteString.Lazy   as LBS
-import           Formatting             (sformat)
-import           Serokell.Aeson.Options (defaultOptions)
-import           Universum
+import           Control.Concurrent.MVar (withMVar)
+import           Data.Aeson              (encode)
+import           Data.Aeson.TH           (deriveJSON)
+import qualified Data.ByteString.Lazy    as LBS
+import qualified Ether
+import           Formatting              (sformat, shown, (%))
+import           Mockable                (Catch, Mockable, catchAll)
+import           Serokell.Aeson.Options  (defaultOptions)
+import           System.Wlog             (CanLog, HasLoggerName, logWarning)
+import           Universum               hiding (catchAll)
 
-import           Pos.Binary.Block       ()
-import           Pos.Binary.Core        ()
-import           Pos.Crypto             (Hash, hash, hashHexF)
-import           Pos.Ssc.Class.Types    (Ssc)
-import           Pos.Types              (BiSsc, Block, SlotId (..), blockHeader, blockTxs,
-                                         epochIndexL, gbHeader, gbhPrevBlock, headerHash,
-                                         headerSlot)
-import           Pos.Util.TimeWarp      (currentTime)
+import           Pos.Binary.Block        ()
+import           Pos.Binary.Core         ()
+import           Pos.Crypto              (Hash, hash, hashHexF)
+import           Pos.Ssc.Class.Types     (Ssc)
+import           Pos.Types               (BiSsc, Block, SlotId (..), blockHeader,
+                                          blockTxs, epochIndexL, gbHeader, gbhPrevBlock,
+                                          headerHash, headerSlot)
+import           Pos.Util.TimeWarp       (currentTime)
 
 type BlockId = Text
 type TxId = Text
@@ -91,13 +96,20 @@ appendJL path ev = liftIO $ do
   time <- currentTime
   LBS.appendFile path . encode $ JLTimedEvent (fromIntegral time) ev
 
+newtype JLFile = JLFile (Maybe (MVar FilePath))
+
 -- | Monad for things that can log Json log events.
-class Monad m => MonadJL m where
-    jlLog :: JLEvent -> m ()
+type MonadJL m =
+    ( Ether.MonadReader' JLFile m
+    , MonadIO m
+    , Mockable Catch m
+    , HasLoggerName m
+    , CanLog m )
 
-    default jlLog :: (MonadTrans t, MonadJL m', t m' ~ m) => JLEvent -> m ()
-    jlLog = lift . jlLog
-
-instance {-# OVERLAPPABLE #-}
-    (MonadJL m, MonadTrans t, Monad (t m)) =>
-        MonadJL (t m)
+jlLog :: MonadJL m => JLEvent -> m ()
+jlLog ev = do
+    JLFile jlFileM <- Ether.ask'
+    whenJust jlFileM $ \logFileMV ->
+        (liftIO . withMVar logFileMV $ flip appendJL ev)
+        `catchAll` \e ->
+            logWarning $ sformat ("Can't write to json log: "%shown) e

@@ -374,6 +374,6 @@ main = do
     kademliaParams <- liftIO $ getKademliaParams args
     bracketResourcesKademlia baseParams tcpAddr kademliaParams $ \kademliaInstance transport ->
         let powerLift :: forall ssc t . Production t -> RawRealMode ssc t
-            powerLift = lift . lift . lift . lift . lift . lift . lift . lift . lift . lift . lift . lift . lift
+            powerLift = lift . lift . lift . lift . lift . lift . lift . lift . lift . lift . lift . lift
             transport' = hoistTransport powerLift transport
         in  foreverRejoinNetwork kademliaInstance (action kademliaInstance args transport')

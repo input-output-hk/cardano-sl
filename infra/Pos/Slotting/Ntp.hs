@@ -1,7 +1,7 @@
-{-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | 'MonadSlots' implementation which uses Ntp servers.
 
@@ -16,35 +16,32 @@ module Pos.Slotting.Ntp
        , runNtpSlotting
        ) where
 
-import qualified Control.Concurrent.STM           as STM
-import           Control.Lens                     (makeLenses)
-import           Control.Monad.Reader             (withReaderT)
-import           Control.Monad.Trans.Control      (MonadBaseControl)
-import           Data.Coerce                      (coerce)
-import           Data.List                        ((!!))
-import           Data.Time.Units                  (Microsecond, convertUnit)
+import qualified Control.Concurrent.STM      as STM
+import           Control.Lens                (makeLenses)
+import           Control.Monad.Reader        (withReaderT)
+import           Control.Monad.Trans.Control (MonadBaseControl)
+import           Data.Coerce                 (coerce)
+import           Data.List                   ((!!))
+import           Data.Time.Units             (Microsecond, convertUnit)
 import qualified Ether
-import           Formatting                       (int, sformat, shown, stext, (%))
-import           Mockable                         (Catch, CurrentTime, Delay, Fork,
-                                                   Mockables, Throw, currentTime, delay)
-import           NTP.Client                       (NtpClientSettings (..), ntpSingleShot,
-                                                   startNtpClient)
-import           NTP.Example                      ()
-import           Serokell.Util                    (sec)
-import           System.Wlog                      (WithLogger, logDebug, logInfo,
-                                                   logWarning)
+import           Formatting                  (int, sformat, shown, stext, (%))
+import           Mockable                    (Catch, CurrentTime, Delay, Fork, Mockables,
+                                              Throw, currentTime, delay)
+import           NTP.Client                  (NtpClientSettings (..), ntpSingleShot,
+                                              startNtpClient)
+import           NTP.Example                 ()
+import           Serokell.Util               (sec)
+import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
-import qualified Pos.Core.Constants               as C
-import           Pos.Core.Slotting                (flattenEpochIndex, unflattenSlotId)
-import           Pos.Core.Types                   (EpochIndex, SlotId (..),
-                                                   Timestamp (..))
+import qualified Pos.Core.Constants          as C
+import           Pos.Core.Slotting           (flattenEpochIndex, unflattenSlotId)
+import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..))
 
-import           Pos.Slotting.Class               (MonadSlots (..))
-import qualified Pos.Slotting.Constants           as C
-import           Pos.Slotting.MemState.Class      (MonadSlotsData (..))
-import           Pos.Slotting.Types               (EpochSlottingData (..),
-                                                   SlottingData (..))
+import           Pos.Slotting.Class          (MonadSlots (..))
+import qualified Pos.Slotting.Constants      as C
+import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
+import           Pos.Slotting.Types          (EpochSlottingData (..), SlottingData (..))
 ----------------------------------------------------------------------------
 -- State
 ----------------------------------------------------------------------------

@@ -13,10 +13,10 @@ module Pos.Wallet.WalletMode
        , WalletMode
        , WalletRealMode
        , WalletStaticPeersMode
-       , BIRRContext
-       , runBIRRContext
-       , UPDContext
-       , runUPDContext
+       , BlockchainInfoRedirect
+       , runBlockchainInfoRedirect
+       , UpdatesRedirect
+       , runUpdatesRedirect
        ) where
 
 import           Universum
@@ -131,12 +131,13 @@ downloadHeader
     => m (Maybe (BlockHeader ssc))
 downloadHeader = getContextTMVar PC.ncProgressHeader
 
-data BIRRContextTag
+data BlockchainInfoRedirectTag
 
-type BIRRContext = Ether.TaggedTrans BIRRContextTag Ether.IdentityT
+type BlockchainInfoRedirect =
+    Ether.TaggedTrans BlockchainInfoRedirectTag Ether.IdentityT
 
-runBIRRContext :: BIRRContext m a -> m a
-runBIRRContext = coerce
+runBlockchainInfoRedirect :: BlockchainInfoRedirect m a -> m a
+runBlockchainInfoRedirect = coerce
 
 -- | Instance for full-node's ContextHolder
 instance
@@ -146,7 +147,7 @@ instance
     , MonadIO m
     , MonadDB m
     , MonadSlots m
-    ) => MonadBlockchainInfo (Ether.TaggedTrans BIRRContextTag t m)
+    ) => MonadBlockchainInfo (Ether.TaggedTrans BlockchainInfoRedirectTag t m)
   where
     networkChainDifficulty = getContextTVar PC.ncLastKnownHeader >>= \case
         Just lh -> do
@@ -190,12 +191,12 @@ instance MonadIO m => MonadUpdates (WalletDB m) where
     waitForUpdate = error "notImplemented"
     applyLastUpdate = pure ()
 
-data UPDContextTag
+data UpdatesRedirectTag
 
-type UPDContext = Ether.TaggedTrans UPDContextTag Ether.IdentityT
+type UpdatesRedirect = Ether.TaggedTrans UpdatesRedirectTag Ether.IdentityT
 
-runUPDContext :: UPDContext m a -> m a
-runUPDContext = coerce
+runUpdatesRedirect :: UpdatesRedirect m a -> m a
+runUpdatesRedirect = coerce
 
 -- | Instance for full node
 instance
@@ -206,7 +207,7 @@ instance
     , t ~ Ether.IdentityT
     , MonadShutdownMem m
     , Ether.MonadReader' UpdateContext m
-    ) => MonadUpdates (Ether.TaggedTrans UPDContextTag t m)
+    ) => MonadUpdates (Ether.TaggedTrans UpdatesRedirectTag t m)
   where
     waitForUpdate = takeMVar =<< Ether.asks' ucUpdateSemaphore
     applyLastUpdate = triggerShutdown

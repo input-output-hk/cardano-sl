@@ -57,8 +57,8 @@ import           Pos.Communication           (ActionSpec (..), BiP (..), InSpecs
                                               hoistListenerSpec, unpackLSpecs)
 import           Pos.Communication.PeerState (runPeerStateHolder)
 import qualified Pos.Constants               as Const
-import           Pos.Context                 (ContextHolder, JLContext, NodeContext (..),
-                                              runContextHolder, runJLContext)
+import           Pos.Context                 (ContextHolder, NodeContext (..),
+                                              runContextHolder)
 import           Pos.Core                    (Timestamp ())
 import           Pos.Crypto                  (createProxySecretKey, encToPublic)
 import           Pos.DB                      (DBHolder, MonadDB, NodeDBs, runDBHolder)
@@ -86,8 +86,9 @@ import           Pos.Statistics              (getNoStatsT, runStatsT')
 import           Pos.Txp                     (mkTxpLocalData, runTxpHolder)
 import           Pos.Txp.DB                  (genesisFakeTotalStake,
                                               runBalanceIterBootstrap)
-import           Pos.Wallet.KeyStorage       (KSContext, runKSContext)
-import           Pos.Wallet.WalletMode       (UPDContext, runBIRRContext, runUPDContext)
+import           Pos.Wallet.KeyStorage       (KeyStorageRedirect, runKeyStorageRedirect)
+import           Pos.Wallet.WalletMode       (UpdatesRedirect, runBlockchainInfoRedirect,
+                                              runUpdatesRedirect)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer                (explorerTxpGlobalSettings)
 #else
@@ -96,6 +97,7 @@ import           Pos.Txp                     (txpGlobalSettings)
 import           Pos.Update.Context          (UpdateContext (..))
 import qualified Pos.Update.DB               as GState
 import           Pos.Update.MemState         (newMemVar)
+import           Pos.Util.JsonLog            (JLFile (..))
 import           Pos.Util.UserSecret         (usKeys)
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (ProductionMode, RawRealMode, ServiceMode,
@@ -145,7 +147,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                    runTxpHolder txpVar .
                    runDelegationT def .
                    runPeerStateHolder stateM_ .
-                   runBIRRContext
+                   runBlockchainInfoRedirect
 
        let startMonitoring node' = case lpEkgPort of
                Nothing   -> return Nothing
@@ -160,7 +162,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
           runTxpHolder txpVar .
           runDelegationT def .
           runPeerStateHolder stateM .
-          runBIRRContext .
+          runBlockchainInfoRedirect .
           runServer peerId transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
               \vI sa -> nodeStartMsg npBaseParams >> action vI sa
   where
@@ -314,11 +316,10 @@ runStaticMode peerId transport peers np@NodeParams {..} sscnp (ActionSpec action
 
 type CH ssc m =
     DBHolder (
-    UPDContext (
-    KSContext (
-    JLContext (
+    UpdatesRedirect (
+    KeyStorageRedirect (
     ContextHolder ssc m
-    ))))
+    )))
 
 runCH
     :: forall ssc m a.
@@ -334,7 +335,8 @@ runCH
     -> m a
 runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
-    ncJLFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
+    ncJLFile <- JLFile <$>
+        liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     ncBlkSemaphore <- newEmptyMVar
     ucUpdateSemaphore <- newEmptyMVar
 
@@ -381,9 +383,8 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
 #endif
             , .. }
     runContextHolder ctx .
-      runJLContext .
-      runKSContext .
-      runUPDContext .
+      runKeyStorageRedirect .
+      runUpdatesRedirect .
       runDBHolder db $
       act
 

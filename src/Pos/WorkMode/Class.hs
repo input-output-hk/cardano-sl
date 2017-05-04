@@ -41,7 +41,7 @@ import           Pos.Statistics.MonadStats   (MonadStats)
 import           Pos.Txp.MemState            (MonadTxpMem)
 import           Pos.Update.Context          (UpdateContext)
 import           Pos.Update.Params           (UpdateParams)
-import           Pos.Util.JsonLog            (MonadJL (..))
+import           Pos.Util.JsonLog            (MonadJL)
 
 -- Something extremely unpleasant.
 -- TODO: get rid of it after CSL-777 is done.

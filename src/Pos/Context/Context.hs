@@ -43,6 +43,7 @@ import           Pos.Types                     (Address, BlockHeader, HeaderHash
 import           Pos.Update.Context            (UpdateContext)
 import           Pos.Update.Params             (UpdateParams)
 import           Pos.Util.Chrono               (NE, NewestFirst)
+import           Pos.Util.JsonLog              (JLFile)
 import           Pos.Util.UserSecret           (UserSecret)
 
 ----------------------------------------------------------------------------
@@ -53,7 +54,7 @@ data NodeContextTag
 
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext
-    { ncJLFile              :: !(Maybe (MVar FilePath))
+    { ncJLFile              :: !JLFile
     -- @georgeee please add documentation when you see this comment
     , ncSscContext          :: !(SscNodeContext ssc)
     -- @georgeee please add documentation when you see this comment
@@ -117,6 +118,7 @@ makeLensesFor
   , ("ncInvPropagationQueue", "ncInvPropagationQueueL")
   , ("ncShutdownFlag", "ncShutdownFlagL")
   , ("ncLoggerConfig", "ncLoggerConfigL")
+  , ("ncJLFile", "ncJLFileL")
   , ("ncShutdownNotifyQueue", "ncShutdownNotifyQueueL") ]
   ''NodeContext
 
@@ -127,7 +129,7 @@ makeLensesFor
   ''NodeParams
 
 type instance TagsK (NodeContext ssc) =
-  '[Type, Type, Type, Type, Type, Type, Type, Type]
+  '[Type, Type, Type, Type, Type, Type, Type, Type, Type]
 
 return []
 
@@ -144,6 +146,7 @@ type instance Tags (NodeContext ssc) =
   ReportingContext :::
   RelayContext :::
   ShutdownContext :::
+  JLFile :::
   'HNil
 
 instance HasLens NodeContextTag (NodeContext ssc) (NodeContext ssc) where
@@ -193,6 +196,9 @@ instance HasLens ShutdownContext (NodeContext ssc) ShutdownContext where
         setter sc =
             set ncShutdownFlagL (_shdnIsTriggered sc) .
             set ncShutdownNotifyQueueL (_shdnNotifyQueue sc)
+
+instance HasLens JLFile (NodeContext ssc) JLFile where
+    lensOf = ncJLFileL
 
 ----------------------------------------------------------------------------
 -- Helper functions

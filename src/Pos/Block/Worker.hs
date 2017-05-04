@@ -192,7 +192,8 @@ verifyCreatedBlock blk =
 -- out to other nodes by ourselves.
 --
 -- This worker just triggers every @max (slotDur / 4) 5@ seconds and asks for
--- current tip. Does nothing when recovery is enabled.
+-- current tip. Does nothing when recovery is enabled, because then we're
+-- receiving blocks anyway.
 --
 -- FIXME there is a better way. Establish a long-running connection to every
 -- peer asking them to push new data on it. This works even for NAT, since it's

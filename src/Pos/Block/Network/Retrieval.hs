@@ -66,7 +66,7 @@ retrievalWorker = worker outs retrievalWorkerImpl
 --   blocks according to that queue.
 --
 -- * If recovery is in progress, this worker keeps recovery going by asking
---   headers and backing up to (1 ~ block retrieval) on next loop iteration.
+--   headers (and then switching to block retrieval on next loop iteration).
 --
 -- If both happen at the same time, 'ncBlockRetrievalQueue' takes precedence.
 --

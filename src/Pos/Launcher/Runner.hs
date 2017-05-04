@@ -85,7 +85,7 @@ import           Pos.Slotting.MemState.Holder (runSlotsDataRedirect)
 import           Pos.Slotting.Ntp             (runSlotsRedirect)
 import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
                                                sscCreateNodeContext)
-import           Pos.Ssc.Extra                (ignoreSscHolder, mkStateAndRunSscHolder)
+import           Pos.Ssc.Extra                (mkSscState, SscMemTag, bottomSscState)
 import           Pos.Statistics               (getNoStatsT, runStatsT')
 import           Pos.Txp                      (mkTxpLocalData, runTxpHolder)
 import           Pos.Txp.DB                   (genesisFakeTotalStake,
@@ -151,10 +151,10 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                       ( Tagged @NodeDBs modernDBs
                       , Tagged @SlottingVar slottingVar
                       , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
+                      , Tagged @SscMemTag bottomSscState
                       ) .
                    runSlotsDataRedirect .
                    runSlotsRedirect .
-                   ignoreSscHolder .
                    runTxpHolder txpVar .
                    runDelegationT def .
                    runPeerStateHolder stateM_ .
@@ -170,15 +170,26 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
 
        let stopMonitoring it = whenJust it stopMonitor
 
-       runCH allWorkersNum np initNC modernDBs .
+       sscState <-
+          -- TODO: Remove this via 'mfix' or something.
+          runCH @ssc allWorkersNum np initNC modernDBs .
           flip Ether.runReadersT
               ( Tagged @NodeDBs modernDBs
               , Tagged @SlottingVar slottingVar
               , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
               ) .
           runSlotsDataRedirect .
+          runSlotsRedirect $
+          mkSscState @ssc
+       runCH allWorkersNum np initNC modernDBs .
+          flip Ether.runReadersT
+              ( Tagged @NodeDBs modernDBs
+              , Tagged @SlottingVar slottingVar
+              , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
+              , Tagged @SscMemTag sscState
+              ) .
+          runSlotsDataRedirect .
           runSlotsRedirect .
-          (mkStateAndRunSscHolder @ssc) .
           runTxpHolder txpVar .
           runDelegationT def .
           runPeerStateHolder stateM .

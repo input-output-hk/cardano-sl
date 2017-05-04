@@ -42,7 +42,7 @@ import           Pos.Slotting                  (NtpSlottingVar, SlottingVar,
                                                 askFullNtpSlotting, askSlotting,
                                                 runSlotsDataRedirect)
 import           Pos.Ssc.Class                 (SscConstraint)
-import           Pos.Ssc.Extra                 (SscState, runSscHolder)
+import           Pos.Ssc.Extra                 (SscState, SscMemTag)
 import           Pos.Txp                       (GenericTxpLocalData, askTxpMem,
                                                 runTxpHolder)
 import           Pos.Update.DB                 (runDbLimitsRedirect)
@@ -120,10 +120,10 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
                  ( Tagged @NodeDBs modernDBs
                  , Tagged @SlottingVar slotVar
                  , Tagged @(Bool, NtpSlottingVar) ntpSlotVar
+                 , Tagged @SscMemTag ssc
                  )
            . runSlotsDataRedirect
            . runSlotsRedirect
-           . runSscHolder ssc
            . runTxpHolder tlw
            . runDelegationTFromTVar delWrap
            . (\m -> flip runPeerStateHolder m =<< peerStateFromSnapshot psCtx)

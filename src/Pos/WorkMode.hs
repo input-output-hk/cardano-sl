@@ -33,7 +33,7 @@ import           Pos.Discovery.Holders        (DiscoveryConstT, DiscoveryKademli
 import           Pos.Slotting.MemState        (SlottingVar)
 import           Pos.Slotting.MemState.Holder (SlotsDataRedirect)
 import           Pos.Slotting.Ntp             (NtpSlottingVar, SlotsRedirect)
-import           Pos.Ssc.Extra                (SscHolder)
+import           Pos.Ssc.Extra                (SscMemTag, SscState)
 import           Pos.Statistics.MonadStats    (NoStatsT, StatsT)
 import           Pos.Txp.MemState             (TxpHolder)
 import           Pos.Update.DB                (DbLimitsRedirect)
@@ -56,17 +56,17 @@ type RawRealMode ssc =
     PeerStateHolder (
     DelegationT (
     TxpHolder TxpExtra_TMP (
-    SscHolder ssc (
     SlotsRedirect (
     SlotsDataRedirect (
     Ether.ReadersT
       ( Tagged NodeDBs NodeDBs
       , Tagged SlottingVar SlottingVar
       , Tagged (Bool, NtpSlottingVar) (Bool, NtpSlottingVar)
+      , Tagged SscMemTag (SscState ssc)
       ) (
     ContextHolder ssc (
     LoggerNameBox Production
-    )))))))))))))
+    ))))))))))))
 
 -- | RawRealMode + kademlia. Used in wallet too.
 type RawRealModeK ssc = DiscoveryKademliaT (RawRealMode ssc)

@@ -25,6 +25,7 @@ import           Pos.Context                   (WithNodeContext)
 import           Pos.DB                        (NodeDBs)
 import           Pos.Reporting.MemState        (runWithoutReportingContext)
 import           Pos.Ssc.Class                 (SscHelpersClass)
+import           Pos.Wallet                    (WalletSscType)
 import           Pos.Wallet.KeyStorage         (KeyData, runKeyStorageRaw)
 import           Pos.Wallet.State              (getWalletState, runWalletDB)
 import qualified Pos.Wallet.State              as WS
@@ -40,31 +41,30 @@ import           Pos.Wallet.Web.State          (WalletState, WalletWebDB,
 import           System.Wlog                   (usingLoggerName)
 
 
-type WebHandler ssc = WalletWebSockets (WalletWebDB (WalletRealMode ssc))
+type WebHandler = WalletWebSockets (WalletWebDB (WalletRealMode WalletSscType))
 
 type MainWalletState = WS.WalletState
 
 walletServeWebLite
-    :: forall ssc.
-       SscHelpersClass ssc
-    => Proxy ssc
-    -> WalletRealMode ssc (Set NodeId)
-    -> SendActions (WalletRealMode ssc)
+    :: SscHelpersClass WalletSscType
+    => Proxy WalletSscType
+    -> WalletRealMode WalletSscType (Set NodeId)
+    -> SendActions (WalletRealMode WalletSscType)
     -> FilePath
     -> Bool
     -> Word16
-    -> WalletRealMode ssc ()
+    -> WalletRealMode WalletSscType ()
 walletServeWebLite _ getPeers sendActions dbPath dbRebuild port =
     bracketWalletWebDB dbPath dbRebuild $ \db ->
         bracketWalletWS $ \conn -> do
             let runner = runWalletWebDB db . runWalletWS conn
-            let hoistedSA :: SendActions (WalletWebHandler (WalletRealMode ssc))
+            let hoistedSA :: SendActions (WalletWebHandler (WalletRealMode WalletSscType))
                 hoistedSA = hoistSendActions (lift . lift) runner sendActions
-            let action :: WalletWebHandler (WalletRealMode ssc) Application
+            let action :: WalletWebHandler (WalletRealMode WalletSscType) Application
                 action = walletApplication $ walletServer getPeers hoistedSA nat
             runner $ walletServeImpl action port
 
-nat :: WebHandler ssc (WebHandler ssc :~> Handler)
+nat :: WebHandler (WebHandler :~> Handler)
 nat = do
     wsConn <- getWalletWebSockets
     ws    <- getWalletWebState
@@ -73,12 +73,11 @@ nat = do
     return $ NT (convertHandler mws kd ws wsConn)
 
 convertHandler
-    :: forall ssc a .
-       MainWalletState
+    :: MainWalletState
     -> KeyData
     -> WalletState
     -> ConnectionsVar
-    -> WebHandler ssc a
+    -> WebHandler a
     -> Handler a
 convertHandler mws kd ws wsConn handler = do
     stateM <- liftIO SM.newIO
@@ -102,4 +101,4 @@ instance Ether.MonadReader NodeDBs Production where
     --ask = undefined
     --local = undefined
 
-instance WithNodeContext ssc (FakeSsc ssc Production) where
+instance WithNodeContext WalletSscType (FakeSsc WalletSscType Production) where

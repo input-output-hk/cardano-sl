@@ -39,35 +39,35 @@ import           Pos.Ssc.Extra                 (SscState, runSscHolder)
 import           Pos.Txp                       (GenericTxpLocalData, askTxpMem,
                                                 runTxpHolder)
 import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
+import           Pos.Wallet.SscType            (WalletSscType)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
                                                 walletServeImpl, walletServer,
                                                 walletServerOuts)
 import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, WalletWebSockets,
                                                 getWalletWebSockets, runWalletWS)
-import           Pos.Wallet.Web.State          (WalletState, WalletWebDB, runWalletWebDB)
-import           Pos.Wallet.Web.State.State    (getWalletWebState)
+import           Pos.Wallet.Web.State          (WalletState, WalletWebDB,
+                                                getWalletWebState, runWalletWebDB)
 import           Pos.WorkMode                  (RawRealMode, TxpExtra_TMP)
 
 walletServeWebFull
-    :: forall ssc.
-       (SscConstraint ssc)
-    => RawRealMode ssc (Set NodeId)
-    -> SendActions (WalletWebHandler (RawRealMode ssc))
+    :: SscConstraint WalletSscType
+    => RawRealMode WalletSscType (Set NodeId)
+    -> SendActions (WalletWebHandler (RawRealMode WalletSscType))
     -> Bool      -- whether to include genesis keys
     -> Word16
-    -> WalletWebHandler (RawRealMode ssc) ()
+    -> WalletWebHandler (RawRealMode WalletSscType) ()
 walletServeWebFull getPeers sendActions debug = walletServeImpl action
   where
-    action :: WalletWebHandler (RawRealMode ssc) Application
+    action :: WalletWebHandler (RawRealMode WalletSscType) Application
     action = do
         logInfo "DAEDALUS has STARTED!"
         when (isDevelopment && debug) $
             mapM_ (addSecretKey . noPassEncrypt) genesisDevSecretKeys
         walletApplication $ walletServer getPeers sendActions nat
 
-type WebHandler ssc = WalletWebSockets (WalletWebDB (RawRealMode ssc))
+type WebHandler = WalletWebSockets (WalletWebDB (RawRealMode WalletSscType))
 
-nat :: WebHandler ssc (WebHandler ssc :~> Handler)
+nat :: WebHandler (WebHandler :~> Handler)
 nat = do
     ws         <- getWalletWebState
     tlw        <- askTxpMem
@@ -82,18 +82,17 @@ nat = do
     pure $ NT (convertHandler nc modernDB tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar)
 
 convertHandler
-    :: forall ssc a .
-       NodeContext ssc              -- (.. insert monad `m` here ..)
+    :: NodeContext WalletSscType              -- (.. insert monad `m` here ..)
     -> NodeDBs
     -> GenericTxpLocalData TxpExtra_TMP
-    -> SscState ssc
+    -> SscState WalletSscType
     -> WalletState
     -> (TVar DelegationWrap)
     -> PeerStateSnapshot
     -> ConnectionsVar
     -> SlottingVar
     -> NtpSlottingVar
-    -> WebHandler ssc a
+    -> WebHandler a
     -> Handler a
 convertHandler nc modernDBs tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar handler = do
     liftIO ( runProduction

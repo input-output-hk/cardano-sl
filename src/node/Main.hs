@@ -43,9 +43,8 @@ import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing,
                                         genesisDevVssKeyPairs)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import           Pos.Ssc.SscAlgo       (SscAlgo (..))
-import           Pos.Statistics        (NoStatsT, StatsT, getNoStatsT, getStatsMap,
-                                        runStatsT')
-import           Pos.Statistics        (StatsMap)
+import           Pos.Statistics        (NoStatsT, StatsMap, StatsT, getNoStatsT,
+                                        getStatsMap, runStatsT')
 import           Pos.Update.Context    (ucUpdateSemaphore)
 import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util              (inAssertMode)
@@ -134,7 +133,7 @@ action kademliaInst args@Args {..} transport = do
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         gtParams = gtSscParams args vssSK
 #ifdef WITH_WEB
-    if enableWallet then do
+    when enableWallet $ do
         let currentPluginsGT :: WorkMode SscGodTossing m => [m ()]
             currentPluginsGT = pluginsGT args
 
@@ -169,8 +168,8 @@ action kademliaInst args@Args {..} transport = do
                             (runNode @SscGodTossing liftedTransport allPlugins)
                     (_, NistBeaconAlgo) ->
                         logError "Wallet does not support NIST beacon!"
-    else do
 #endif
+    if not enableWallet then do
         let currentPlugins :: [a]
             currentPlugins = []
             currentPluginsGT :: [a]
@@ -229,6 +228,8 @@ action kademliaInst args@Args {..} transport = do
                     liftedTransport
                     allPlugins
                     currentParams ()
+    else
+        logError $ "You try to run wallet, but code wasn't compiled with wallet flag"
   where
     convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
 

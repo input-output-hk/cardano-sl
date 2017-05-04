@@ -667,7 +667,7 @@ addHistoryTx cAddr curr title desc wtx@THEntry{..} = do
     meta <- CTxMeta curr title desc <$> liftIO getPOSIXTime
     let cId = txIdToCTxId _thTxId
     addOnlyNewTxMeta cAddr cId meta
-    meta' <- maybe meta identity <$> getTxMeta cAddr cId
+    meta' <- fromMaybe meta <$> getTxMeta cAddr cId
     return $ mkCTx diff wtx meta'
 
 
@@ -767,7 +767,7 @@ changeWSetPassphrase oldCPass wsAddr newCPass = do
 -- NOTE: later we will have `isValidAddress :: CCurrency -> CAddress -> m Bool` which should work for arbitrary crypto
 isValidAddress :: WalletWebMode m => Text -> CCurrency -> m Bool
 isValidAddress sAddr ADA =
-    pure . either (const False) (const True) $ decodeTextAddress sAddr
+    pure . isRight $ decodeTextAddress sAddr
 isValidAddress _ _       = pure False
 
 -- | Get last update info

@@ -19,7 +19,7 @@ import           Pos.Util.Iterator   (MonadIterator (..))
 discoverHDAddress :: MonadDB m => HDPassphrase -> m [(Address, [Word32])]
 discoverHDAddress walletPassphrase = safeHead <$> discoverHDAddresses [walletPassphrase]
   where
-    safeHead (x:[]) = x
+    safeHead [x] = x
     safeHead _ = []
 
 discoverHDAddresses :: MonadDB m => [HDPassphrase] -> m [[(Address, [Word32])]]

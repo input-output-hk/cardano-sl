@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
 
@@ -9,10 +10,10 @@ module Pos.Wallet.Web.Server.Lite
        ) where
 
 import qualified Control.Monad.Catch           as Catch
+import qualified Control.Monad.Ether           as Ether.E
 import qualified Control.Monad.Ether.Implicit  as Ether
 import           Control.Monad.Except          (MonadError (throwError))
-import           Mockable                      (runProduction)
-import           Mockable                      (Production)
+import           Mockable                      (Production, runProduction)
 import           Network.Wai                   (Application)
 import           Pos.Communication.Protocol    (NodeId, SendActions, hoistSendActions)
 import           Servant.Server                (Handler)
@@ -21,10 +22,11 @@ import qualified STMContainers.Map             as SM
 import           Universum
 
 import           Pos.Communication.PeerState   (runPeerStateHolder)
-import           Pos.Context                   (WithNodeContext)
+import           Pos.Context                   (NodeContext)
 import           Pos.DB                        (NodeDBs)
 import           Pos.Reporting.MemState        (runWithoutReportingContext)
 import           Pos.Ssc.Class                 (SscHelpersClass)
+import           Pos.Util.Context              (ContextTagK (..))
 import           Pos.Wallet                    (WalletSscType)
 import           Pos.Wallet.KeyStorage         (KeyData, runKeyStorageRaw)
 import           Pos.Wallet.State              (getWalletState, runWalletDB)
@@ -97,8 +99,13 @@ convertHandler mws kd ws wsConn handler = do
     catchServant = throwError
 
 -- Stub implementations for lite wallet.
-instance Ether.MonadReader NodeDBs Production where
-    --ask = undefined
-    --local = undefined
+instance Ether.E.MonadReader NodeDBs NodeDBs Production where
+    ask = error "Stub implementation for Lite Wallet"
+    local = error "Stub implementation for Lite Wallet"
 
-instance WithNodeContext WalletSscType (FakeSsc WalletSscType Production) where
+instance Ether.E.MonadReader
+             'ContextTag
+             (NodeContext WalletSscType)
+             (FakeSsc WalletSscType Production) where
+    ask = error "Stub implementation for Lite Wallet"
+    local = error "Stub implementation for Lite Wallet"

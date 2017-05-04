@@ -16,8 +16,7 @@ import           System.Wlog                (WithLogger, logDebug)
 import           Universum
 
 import           Pos.Block.BListener        (MonadBListener (..))
-import           Pos.Block.Types            (Blund)
-import           Pos.Block.Types            (undoTx)
+import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.DB.Class               (MonadDB)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Txp.Core               (TxAux, TxUndo)

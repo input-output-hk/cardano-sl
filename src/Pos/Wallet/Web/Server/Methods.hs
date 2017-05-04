@@ -13,7 +13,6 @@ module Pos.Wallet.Web.Server.Methods
        , walletServeImpl
        , walletServerOuts
 
-       , WSConnectionBox
        , bracketWalletWebDB
        , bracketWalletWS
        ) where
@@ -34,7 +33,6 @@ import           Data.Time.Units                  (Microsecond, Second)
 import           Formatting                       (build, int, sformat, shown, stext, (%))
 import qualified Formatting                       as F
 import           Network.Wai                      (Application)
-import qualified Network.WebSockets.Connection    as WS
 import           Paths_cardano_sl                 (version)
 import           Pos.ReportServer.Report          (ReportType (RInfo))
 import           Serokell.AcidState.ExtendedState (ExtendedState)
@@ -114,7 +112,7 @@ import           Pos.Wallet.Web.ClientTypes       (Acc, CAccount (..),
                                                    mkCCoin, mkCTx, mkCTxId, toCUpdateInfo,
                                                    txContainsTitle, txIdToCTxId)
 import           Pos.Wallet.Web.Error             (WalletError (..))
-import           Pos.Wallet.Web.Server.Sockets    (MonadWalletWebSockets,
+import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWebSockets,
                                                    WalletWebSockets, closeWSConnection,
                                                    getWalletWebSockets,
                                                    getWalletWebSockets, initWSConnection,
@@ -157,8 +155,6 @@ type WalletWebMode ssc m
       , MonadDB m
       , BlockLockMode ssc m
       )
-
-type WSConnectionBox = TVar (Maybe WS.Connection)
 
 makeLenses ''SyncProgress
 
@@ -215,8 +211,9 @@ bracketWalletWebDB daedalusDbPath dbRebuild =
 
 bracketWalletWS
     :: ( MonadIO m
-       , MonadMask m)
-    => (WSConnectionBox -> m a)
+       , MonadMask m
+       )
+    => (ConnectionsVar -> m a)
     -> m a
 bracketWalletWS = bracket initWS closeWSConnection
   where

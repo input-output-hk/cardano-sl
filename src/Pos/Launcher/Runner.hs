@@ -220,7 +220,7 @@ runServer_ peerId transport packedLS outSpecs =
     acquire = const pass
     release = const pass
 
--- | ProductionMode runner.
+-- | Launch some mode, providing way to convert it to 'RawRealMode' and back.
 runRawBasedMode
     :: forall ssc m a.
        (SscConstraint ssc, WorkMode ssc m)

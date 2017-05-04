@@ -11,7 +11,6 @@ module Pos.Wallet.Web.Tracking
        , CAccModifier
        ) where
 
-import           Control.Monad.Catch        (bracketOnError)
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, (%))
@@ -19,10 +18,10 @@ import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
+import           Pos.Block.Logic            (withBlkSemaphore_)
 import           Pos.Block.Pure             (genesisHash)
 import           Pos.Block.Types            (Blund, undoTx)
-import           Pos.Context                (WithNodeContext, putBlkSemaphore,
-                                             takeBlkSemaphore)
+import           Pos.Context                (WithNodeContext)
 import           Pos.Core                   (HasDifficulty (..))
 import           Pos.Core.Address           (AddrPkAttrs (..), Address (..),
                                              makePubKeyAddress)
@@ -81,7 +80,7 @@ selectAccountsFromUtxoLock
     :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
     => [EncryptedSecretKey]
     -> m ()
-selectAccountsFromUtxoLock encSKs = withBlkSemaphore $ \tip -> do
+selectAccountsFromUtxoLock encSKs = withBlkSemaphore_ $ \tip -> do
     let (hdPass, wsAddr) = unzip $ map getEncInfo encSKs
     addresses <- discoverHDAddresses hdPass
     let allAddreses = concatMap createAccounts $ zip wsAddr addresses
@@ -102,19 +101,8 @@ syncWSetsWithGStateLock
     :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
     => [EncryptedSecretKey]
     -> m ()
-syncWSetsWithGStateLock encSKs = withBlkSemaphore $ \tip ->
+syncWSetsWithGStateLock encSKs = withBlkSemaphore_ $ \tip ->
     tip <$ mapM_ (syncWSetsWithGState @ssc) encSKs
-
--- | Run action acquiring lock on block application.
--- Argument of action is an old tip, result is put as a new tip.
--- Wallet version (without extra constraints)
-withBlkSemaphore
-    :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
-    => (HeaderHash -> m HeaderHash) -> m ()
-withBlkSemaphore action =
-    bracketOnError takeBlkSemaphore putBlkSemaphore doAction
-  where
-    doAction tip = action tip >>= putBlkSemaphore
 
 ----------------------------------------------------------------------------
 -- Unsafe operations. Core logic.

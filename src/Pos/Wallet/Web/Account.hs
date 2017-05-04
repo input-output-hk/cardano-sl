@@ -17,7 +17,6 @@ module Pos.Wallet.Web.Account
 import           Data.Bits                  (setBit)
 import           Data.List                  (elemIndex, (!!))
 import           Formatting                 (build, sformat, (%))
-import           Pos.Util                   (maybeThrow)
 import           System.Random              (Random, randomIO)
 import           Universum
 
@@ -26,6 +25,7 @@ import           Pos.Core                   (Address (..), createHDAddressH,
 import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase,
                                              deriveHDPassphrase, deriveHDSecretKey,
                                              encToPublic)
+import           Pos.Util                   (maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.KeyStorage      (MonadKeys (..))
 import           Pos.Wallet.Web.ClientTypes (CAccountAddress (..), CAddress,
@@ -157,5 +157,3 @@ deriveAccountAddress passphrase wAddr@CWalletAddress{..} caaAccountIndex = do
         caaWalletIndex = cwaIndex
         caaAddress     = addressToCAddress accAddr
     return CAccountAddress{..}
-
-

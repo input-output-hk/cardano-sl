@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP                 #-}
+{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Internal block logic. Mostly needed for use in 'Pos.Lrc' -- using
@@ -23,8 +24,9 @@ import           Universum
 
 import           Pos.Block.BListener              (MonadBListener (..))
 import           Pos.Block.Types                  (Blund, Undo (undoTx, undoUS))
-import           Pos.Context                      (getNodeContext, ncTxpGlobalSettings,
-                                                   putBlkSemaphore, takeBlkSemaphore)
+import           Pos.Context                      (WithNodeContext, getNodeContext,
+                                                   ncTxpGlobalSettings, putBlkSemaphore,
+                                                   takeBlkSemaphore)
 import           Pos.Core                         (IsGenesisHeader, IsMainHeader)
 import           Pos.DB                           (SomeBatchOp (..))
 import qualified Pos.DB.Block                     as DB
@@ -76,7 +78,7 @@ toUpdateBlock = bimap convertGenesis convertMain
 -- | Run action acquiring lock on block application. Argument of
 -- action is an old tip, result is put as a new tip.
 withBlkSemaphore
-    :: WorkMode ssc m
+    :: Each [MonadIO, MonadMask, WithNodeContext ssc] '[m]
     => (HeaderHash -> m (a, HeaderHash)) -> m a
 withBlkSemaphore action =
     bracketOnError takeBlkSemaphore putBlkSemaphore doAction
@@ -87,9 +89,9 @@ withBlkSemaphore action =
 
 -- | Version of withBlkSemaphore which doesn't have any result.
 withBlkSemaphore_
-    :: WorkMode ssc m
+    :: Each [MonadIO, MonadMask, WithNodeContext ssc] '[m]
     => (HeaderHash -> m HeaderHash) -> m ()
-withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
+withBlkSemaphore_ = withBlkSemaphore . (fmap pure .)
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,
 -- use it only if you understand what you're doing. That means you can break

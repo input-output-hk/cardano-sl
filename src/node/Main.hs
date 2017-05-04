@@ -58,7 +58,7 @@ import qualified STMContainers.Map     as SM
 import           Pos.Web               (serveWebBase, serveWebGT)
 import           Pos.WorkMode          (WorkMode)
 #ifdef WITH_WALLET
-import           Pos.Wallet.Web        (WSConnectionBox, WalletState, WalletWebHandler,
+import           Pos.Wallet.Web        (ConnectionsVar, WalletState, WalletWebHandler,
                                         bracketWalletWS, bracketWalletWebDB, runWalletWS,
                                         runWalletWebDB, walletServeWebFull,
                                         walletServerOuts)
@@ -407,14 +407,14 @@ liftWMode = lift . lift . lift
 
 unwrapWPMode
     :: WalletState
-    -> WSConnectionBox
+    -> ConnectionsVar
     -> WalletProductionMode ssc a
     -> RawRealMode ssc a
 unwrapWPMode db conn = runWalletWebDB db . runWalletWS conn . getNoStatsT
 
 unwrapWSMode
     :: WalletState
-    -> WSConnectionBox
+    -> ConnectionsVar
     -> StatsMap
     -> WalletStatsMode ssc a
     -> RawRealMode ssc a
@@ -425,7 +425,7 @@ runWProductionMode
     :: forall ssc a  .
        (SscConstraint ssc)
     => WalletState
-    -> WSConnectionBox
+    -> ConnectionsVar
     -> PeerId
     -> RealModeResources (WalletProductionMode ssc)
     -> NodeParams
@@ -439,7 +439,7 @@ runWStatsMode
     :: forall ssc a.
        (SscConstraint ssc)
     => WalletState
-    -> WSConnectionBox
+    -> ConnectionsVar
     -> PeerId
     -> RealModeResources (WalletStatsMode ssc)
     -> NodeParams

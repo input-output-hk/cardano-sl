@@ -4,6 +4,7 @@ import Prelude
 import Control.Monad.Eff (Eff)
 import Data.Time.Test (testNominalDiffTime)
 import Explorer.Routes.Test (testRoutes)
+import Explorer.Update.Test (testUpdate)
 import Explorer.Util.Sort.Test (testSortUtil)
 import Explorer.Util.String.Test (testStringUtil)
 import Explorer.Util.Time.Test (testPrettyDuration)
@@ -19,3 +20,4 @@ main = run [consoleReporter] do
     testSortUtil
     testStringUtil
     testRoutes
+    testUpdate

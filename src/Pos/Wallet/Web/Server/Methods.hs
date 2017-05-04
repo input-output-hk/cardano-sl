@@ -402,7 +402,7 @@ getAccountBalance cAccAddr =
 getAccount :: WalletWebMode m => CAccountAddress -> m CAccount
 getAccount cAddr = do
     balance <- mkCCoin <$> getAccountBalance cAddr
-    return $ CAccount cAddr balance
+    return $ CAccount (caaAddress cAddr) balance
 
 getWalletAccAddrsOrThrow
     :: (WebWalletModeDB m, MonadThrow m)
@@ -493,7 +493,7 @@ sendExtended getPeers sendActions cpassphrase srcWallet dstAccount coin curr tit
     distr@(remaining, spendings) <- selectSrcAccounts coin allAccounts
     logDebug $ buildDistribution distr
     mRemTx <- mkRemainingTx remaining
-    let txs = TxOutAux (TxOut dstAddr coin) [] :| maybe mempty (one . fst) mRemTx
+    let txs = TxOutAux (TxOut dstAddr coin) [] :| maybe mempty one mRemTx
     srcTxOuts <- forM (toList spendings) $ \(cAddr, c) -> do
         addr <- decodeCAddressOrFail $ caaAddress cAddr
         return (TxOut addr c)
@@ -526,9 +526,9 @@ sendExtended getPeers sendActions cpassphrase srcWallet dstAccount coin curr tit
         | remaining == mkCoin 0 = return Nothing
         | otherwise = do
             remCAddr <- caAddress <$> newAccount RandomSeed cpassphrase srcWallet
-            remAddr  <- decodeCAddressOrFail $ caaAddress remCAddr
+            remAddr  <- decodeCAddressOrFail remCAddr
             let remTx = TxOutAux (TxOut remAddr remaining) []
-            return $ Just (remTx, remCAddr)
+            return $ Just remTx
 
     withSafeSigners (sk :| sks) passphrase action =
         withSafeSigner sk (return passphrase) $ \mss -> do
@@ -873,7 +873,7 @@ addInitialRichAccount getPeers sendActions keyId =
             accAddr  <- maybeThrow noAccount . head $ caAddress <$> accounts
 
             genesisBalance <- getBalance wsAddr
-            accBalance <- getBalance =<< decodeCAddressOrFail (caaAddress accAddr)
+            accBalance <- getBalance =<< decodeCAddressOrFail accAddr
             let coinsToSend =
                     notExceeding (mkCoin 10000) accBalance $
                     applyCoinPortion (unsafeCoinPortionFromDouble 0.5) genesisBalance
@@ -884,7 +884,7 @@ addInitialRichAccount getPeers sendActions keyId =
             -- to its account
             na          <- getPeers
             let signer   = fakeSigner key
-            let dstCAddr = caaAddress accAddr
+            let dstCAddr = accAddr
             dstAddr     <- decodeCAddressOrFail dstCAddr
             let tx       = TxOutAux (TxOut dstAddr coinsToSend) []
             etx         <- submitTx sendActions signer (toList na) (one tx)

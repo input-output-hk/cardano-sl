@@ -416,7 +416,7 @@ instance ToSample CWallet where
             , cwMeta     = def
             , cwAccounts =
                 [ CAccount
-                    { caAddress = cAccountAddressSample
+                    { caAddress = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
                     , caAmount = mkCCoin $ mkCoin 0
                     }
                 ]
@@ -450,7 +450,7 @@ instance ToSample CAccount where
     toSamples Proxy = singleSample sample
       where
         sample = CAccount
-            { caAddress = cAccountAddressSample
+            { caAddress = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
             , caAmount  = mkCCoin $ mkCoin 5
             }
 

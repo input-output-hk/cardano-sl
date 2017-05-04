@@ -258,7 +258,7 @@ data CWalletAssurance
 
 -- | Single account in a wallet
 data CAccount = CAccount
-    { caAddress :: !CAccountAddress
+    { caAddress :: !(CAddress Acc)
     , caAmount  :: !CCoin
     } deriving (Show, Generic)
 

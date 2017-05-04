@@ -20,7 +20,7 @@ import           Formatting            (bprint, build, (%))
 import           Universum
 
 import           Pos.Binary.Class      (encodeStrict)
-import           Pos.Block.Pure             (genesisHash)
+import           Pos.Block.Pure        (genesisHash)
 import           Pos.Block.Types       (Blund)
 import           Pos.Crypto            (shortHashF)
 import           Pos.DB.Block          (getBlockWithUndo)

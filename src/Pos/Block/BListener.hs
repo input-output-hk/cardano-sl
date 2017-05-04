@@ -17,7 +17,7 @@ import           Pos.Util.Chrono       (NE, NewestFirst (..), OldestFirst (..))
 
 class Monad m => MonadBListener m where
     -- Callback will be called after putting blocks into BlocksDB
-    -- and before changing of UtxoDB.
+    -- and before changing of GStateDB.
     -- Callback action will be performed under block lock.
     onApplyBlocks
         :: forall ssc . SscHelpersClass ssc

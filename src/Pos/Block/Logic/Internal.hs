@@ -119,8 +119,8 @@ applyBlocksUnsafeDo
 applyBlocksUnsafeDo blunds pModifier = do
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
-    -- If program is interrupted now, we will rollback all wallet sets
-    -- at the next launch.
+    -- If the program is interrupted at this point (after putting on block),
+    -- we will rollback all wallet sets at the next launch.
     onApplyBlocks blunds
     TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier

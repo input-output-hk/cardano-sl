@@ -1,4 +1,5 @@
--- |
+-- | This module contains functions, which iterate over Utxo and receive
+-- addresses which correspond to specified HD passphrases.
 
 module Pos.Crypto.HDDiscovery
        ( discoverHDAddress

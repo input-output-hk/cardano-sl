@@ -34,8 +34,16 @@ before_install:
 
 script:
 - nix-shell -p haskellPackages.hlint --run "util-scripts/lint.sh --nix"
-- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" ]]; then export EXTRA_STACK="--haddock"; else export EXTRA_STACK="--no-haddock-deps"; fi
-- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export EXTRA_STACK="--test $EXTRA_STACK"; fi
+- if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" ]];
+    then export EXTRA_STACK="--haddock";
+    else export EXTRA_STACK="--no-haddock-deps";
+  fi
+- if [[ "$TRAVIS_OS_NAME" == "linux" ]];
+    then export EXTRA_STACK="--test $EXTRA_STACK";
+  fi
+- if [[ "$TRAVIS_OS_NAME" == "osx" ]];
+    then export EXTRA_STACK="--flag cardano-sl:for-installer $EXTRA_STACK";
+  fi
 - stack --nix --no-terminal --local-bin-path daedalus/ install cardano-sl
   $EXTRA_STACK --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --jobs=4
   --flag cardano-sl:-asserts

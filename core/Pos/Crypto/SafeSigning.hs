@@ -83,7 +83,7 @@ changeEncPassphrase
     -> Maybe EncryptedSecretKey
 changeEncPassphrase oldPass newPass esk@(EncryptedSecretKey sk _) = do
     checkPassMatches oldPass esk
-    return $ mkEncSecret newPass (undefined sk) -- TODO: to be implemented in cardano-crypto
+    return $ mkEncSecret newPass $ CC.xPrvChangePass oldPass newPass sk
 
 signRaw' :: Maybe SignTag
          -> PassPhrase

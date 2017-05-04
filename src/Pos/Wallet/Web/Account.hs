@@ -44,7 +44,7 @@ myRootAddresses =
 getAddrIdx :: AccountMode m => CAddress WS -> m Int
 getAddrIdx addr = elemIndex addr <$> myRootAddresses >>= maybeThrow notFound
   where notFound =
-          Internal $ sformat ("Address "%build%" is not found in wallet") addr
+          Internal $ sformat ("No wallet set with address "%build%" found") addr
 
 getSKByAddr
     :: AccountMode m

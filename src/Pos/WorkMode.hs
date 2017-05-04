@@ -128,8 +128,8 @@ type ServiceMode = PeerStateHolder (LoggerNameBox Production)
 -- Blockchain Listener is needed only for Wallet.
 -- Stub implementation for usual node.
 instance MonadBListener (RawRealMode ssc) where
-    onApplyBlocks _ = pass --error "PATAK_ON_APPLY"
-    onRollbackBlocks _ = pass --error "PATAK_ON_ROLL"
+    onApplyBlocks _ = pass
+    onRollbackBlocks _ = pass
 instance MonadBListener ServiceMode where
-    onApplyBlocks _ = pass --error "PATAK_ON_APPLY"
-    onRollbackBlocks _ = pass --error "PATAK_ON_ROLL"
+    onApplyBlocks _ = pass
+    onRollbackBlocks _ = pass

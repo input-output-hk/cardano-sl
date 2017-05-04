@@ -18,8 +18,10 @@ import           Control.Arrow                    ((&&&))
 import           Control.Lens                     (each, _Wrapped)
 import           Control.Monad.Catch              (bracketOnError)
 import qualified Data.List.NonEmpty               as NE
+import           Formatting                       (build, sformat, (%))
 import           Paths_cardano_sl                 (version)
 import           Serokell.Util                    (Color (Red), colorize)
+import           System.Wlog                      (logWarning)
 import           Universum
 
 import           Pos.Block.BListener              (MonadBListener (..))
@@ -121,7 +123,7 @@ applyBlocksUnsafeDo blunds pModifier = do
     mapM_ putToDB blunds
     -- If the program is interrupted at this point (after putting on block),
     -- we will rollback all wallet sets at the next launch.
-    onApplyBlocks blunds
+    onApplyBlocks blunds `catch` logWarn
     TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
@@ -150,17 +152,19 @@ applyBlocksUnsafeDo blunds pModifier = do
     inMainBatch = SomeBatchOp . getOldestFirst $
         fmap (GS.SetInMainChain True . view headerHashG . fst) blunds
     putToDB (blk, undo) = DB.putBlock undo blk
+    logWarn :: SomeException -> m ()
+    logWarn = logWarning . sformat ("onApplyBlocks raised exception: "%build)
 
 -- | Rollback sequence of blocks, head-newest order exepected with
 -- head being current tip. It's also assumed that lock on block db is
 -- taken.  application is taken already.
 rollbackBlocksUnsafe
-    :: (WorkMode ssc m)
+    :: forall ssc m . (WorkMode ssc m)
     => m (Set NodeId) -> NewestFirst NE (Blund ssc) -> m ()
 rollbackBlocksUnsafe getPeers toRollback = reportingFatal getPeers version $ do
     -- If program is interrupted after call @onRollbackBlocks@,
     -- we will load all wallet set not rolled yet at the next launch.
-    onRollbackBlocks toRollback
+    onRollbackBlocks toRollback `catch` logWarn
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS
@@ -187,6 +191,8 @@ rollbackBlocksUnsafe getPeers toRollback = reportingFatal getPeers version $ do
         fmap (GS.RemoveForwardLink . view prevBlockL . fst) toRollback
     isGenesis0 (Left genesisBlk) = genesisBlk ^. epochIndexL == 0
     isGenesis0 (Right _)         = False
+    logWarn :: SomeException -> m ()
+    logWarn = logWarning . sformat ("onRollbackBlocks raised exception: "%build)
 
 -- [CSL-780] Need something more elegant, at least eliminate copy-paste.
 -- Should be done soon™.

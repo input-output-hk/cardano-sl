@@ -29,6 +29,7 @@ makeLenses ''ReportingContext
 -- requests, context for saving reporting-related data.
 type MonadReportingMem = Ether.MonadReader' ReportingContext
 
+-- FIXME: Remove this.
 type ReportingContextT = Ether.ReaderT' ReportingContext
 
 askReportingContext :: MonadReportingMem m => m ReportingContext

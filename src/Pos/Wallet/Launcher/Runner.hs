@@ -5,18 +5,20 @@ module Pos.Wallet.Launcher.Runner
        , runWallet
        ) where
 
+import           Universum                   hiding (bracket)
+
 import           Data.Tagged                 (untag)
+import qualified Ether
 import           Formatting                  (sformat, shown, (%))
 import           Mockable                    (Production, bracket, fork, sleepForever)
 import           Network.Transport.Abstract  (Transport)
 import qualified STMContainers.Map           as SM
 import           System.Wlog                 (logDebug, logInfo, usingLoggerName)
-import           Universum                   hiding (bracket)
 
 import           Pos.Communication           (ActionSpec (..), ListenersWithOut, NodeId,
                                               OutSpecs, PeerId, WorkerSpec,
                                               allStubListeners)
-import           Pos.Communication.PeerState (runPeerStateHolder)
+import           Pos.Communication.PeerState (PeerStateTag, runPeerStateRedirect)
 import           Pos.Discovery               (findPeers, runDiscoveryConstT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               runServer_)
@@ -27,7 +29,8 @@ import           Pos.Wallet.KeyStorage       (runKeyStorage)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
 import           Pos.Wallet.State            (closeState, openMemState, openState,
                                               runWalletDB)
-import           Pos.Wallet.WalletMode       (WalletMode, WalletStaticPeersMode)
+import           Pos.Wallet.WalletMode       (WalletMode, WalletStaticPeersMode,
+                                              runBlockchainInfoNotImplemented)
 
 -- TODO: Move to some `Pos.Wallet.Communication` and provide
 -- meaningful listeners
@@ -93,7 +96,9 @@ runRawStaticPeersWallet peerId transport peers WalletParams {..}
         runWithoutReportingContext .
             runWalletDB db .
             runKeyStorage wpKeyFilePath .
-            runPeerStateHolder stateM .
+            flip (Ether.runReaderT @PeerStateTag) stateM .
+            runPeerStateRedirect .
+            runBlockchainInfoNotImplemented .
             runDiscoveryConstT peers .
             runServer_ peerId transport listeners outs . ActionSpec $ \vI sa ->
             logInfo "Started wallet, joining network" >> action vI sa

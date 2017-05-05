@@ -25,9 +25,10 @@ import           System.Wlog                   (logInfo, usingLoggerName)
 
 import           Pos.Client.Txp.Balances       (runBalancesRedirect)
 import           Pos.Client.Txp.History        (runTxHistoryRedirect)
-import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState (..),
-                                                getAllStates, peerStateFromSnapshot,
-                                                runPeerStateHolder)
+import           Pos.Communication.PeerState   (PeerStateSnapshot, PeerStateTag,
+                                                WithPeerState (..), getAllStates,
+                                                peerStateFromSnapshot,
+                                                runPeerStateRedirect)
 import           Pos.Communication.Protocol    (SendActions)
 import           Pos.Constants                 (isDevelopment)
 import           Pos.Context                   (NodeContext, getNodeContext)
@@ -116,19 +117,22 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
     liftIO ( runProduction
            . usingLoggerName "wallet-api"
            . flip Ether.runReadersT nc
-           . flip Ether.runReadersT
-                 ( Tagged @NodeDBs modernDBs
-                 , Tagged @SlottingVar slotVar
-                 , Tagged @(Bool, NtpSlottingVar) ntpSlotVar
-                 , Tagged @SscMemTag ssc
-                 , Tagged @TxpHolderTag tlw
-                 , Tagged @(TVar DelegationWrap) delWrap
-                 )
+           . (\m -> do
+               peerStateCtx <- peerStateFromSnapshot psCtx
+               Ether.runReadersT m
+                   ( Tagged @NodeDBs modernDBs
+                   , Tagged @SlottingVar slotVar
+                   , Tagged @(Bool, NtpSlottingVar) ntpSlotVar
+                   , Tagged @SscMemTag ssc
+                   , Tagged @TxpHolderTag tlw
+                   , Tagged @(TVar DelegationWrap) delWrap
+                   , Tagged @PeerStateTag peerStateCtx
+                   ))
            . runSlotsDataRedirect
            . runSlotsRedirect
            . runBalancesRedirect
            . runTxHistoryRedirect
-           . (\m -> flip runPeerStateHolder m =<< peerStateFromSnapshot psCtx)
+           . runPeerStateRedirect
            . runDbLimitsRedirect
            . runDbCoreRedirect
            . runKeyStorageRedirect

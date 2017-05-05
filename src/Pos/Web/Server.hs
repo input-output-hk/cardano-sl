@@ -31,9 +31,8 @@ import           Servant.Server                       (Handler, ServantErr (errB
 import           Servant.Utils.Enter                  ((:~>) (NT), enter)
 
 import           Pos.Aeson.Types                      ()
-import           Pos.Context                          (NodeContext,
-                                                       getNodeContext, ncPublicKey,
-                                                       ncSscContext)
+import           Pos.Context                          (NodeContext, getNodeContext,
+                                                       ncPublicKey, ncSscContext)
 import qualified Pos.DB                               as DB
 import qualified Pos.DB.GState                        as GS
 import qualified Pos.Lrc.DB                           as LrcDB

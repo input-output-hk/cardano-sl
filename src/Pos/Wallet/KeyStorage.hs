@@ -95,6 +95,7 @@ containsKey ls k = hash k `elem` map hash ls
 -- KeyStorage transformer
 ------------------------------------------------------------------------
 
+-- TODO: Remove this. Use the Redirect below.
 type KeyStorage = Ether.ReaderT' KeyData
 
 runKeyStorage :: (MonadIO m, WithLogger m) => FilePath -> KeyStorage m a -> m a
@@ -129,6 +130,7 @@ data KeyError =
 
 instance Exception KeyError
 
+-- FIXME: don't access full NodeContext
 usLens :: Lens' (NodeContext ssc) KeyData
 usLens = lens ncUserSecret $ \c us -> c { ncUserSecret = us }
 

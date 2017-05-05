@@ -20,14 +20,15 @@ import qualified STMContainers.Map             as SM
 import           Universum
 
 import           Pos.Communication             (NodeId)
-import           Pos.Communication.PeerState   (runPeerStateHolder)
+import           Pos.Communication.PeerState   (PeerStateTag, runPeerStateRedirect)
 import           Pos.Discovery                 (getPeers, runDiscoveryConstT)
 import           Pos.Reporting.MemState        (runWithoutReportingContext)
 import           Pos.Ssc.Class                 (SscHelpersClass)
 import           Pos.Wallet.KeyStorage         (KeyData, runKeyStorageRaw)
 import           Pos.Wallet.State              (getWalletState, runWalletDB)
 import qualified Pos.Wallet.State              as WS
-import           Pos.Wallet.WalletMode         (WalletStaticPeersMode)
+import           Pos.Wallet.WalletMode         (WalletStaticPeersMode,
+                                                runBlockchainInfoNotImplemented)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
                                                 walletServeImpl, walletServer,
                                                 walletServerOuts)
@@ -81,7 +82,9 @@ convertHandler mws kd ws wsConn peers handler = do
            . runWithoutReportingContext
            . runWalletDB mws
            . flip runKeyStorageRaw kd
-           . runPeerStateHolder stateM
+           . flip (Ether.runReaderT @PeerStateTag) stateM
+           . runPeerStateRedirect
+           . runBlockchainInfoNotImplemented
            . runDiscoveryConstT peers
            . runWalletWebDB ws
            . runWalletWS wsConn

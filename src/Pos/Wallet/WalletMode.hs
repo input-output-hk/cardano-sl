@@ -13,6 +13,8 @@ module Pos.Wallet.WalletMode
        , WalletMode
        , WalletRealMode
        , WalletStaticPeersMode
+       , BlockchainInfoNotImplemented
+       , runBlockchainInfoNotImplemented
        , BlockchainInfoRedirect
        , runBlockchainInfoRedirect
        , UpdatesRedirect
@@ -35,7 +37,8 @@ import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Pos.Client.Txp.Balances     (MonadBalances (..), getBalanceFromUtxo)
 import           Pos.Client.Txp.History      (MonadTxHistory (..), deriveAddrHistory)
 import           Pos.Communication           (TxMode)
-import           Pos.Communication.PeerState (PeerStateHolder, WithPeerState)
+import           Pos.Communication.PeerState (PeerStateCtx, PeerStateRedirect,
+                                              PeerStateTag, WithPeerState)
 import           Pos.Constants               (blkSecurityParam)
 import qualified Pos.Context                 as PC
 import           Pos.DB                      (MonadDB)
@@ -98,13 +101,6 @@ instance {-# OVERLAPPABLE #-}
     (MonadBlockchainInfo m, MonadTrans t, Monad (t m)) =>
         MonadBlockchainInfo (t m)
 
--- | Stub instance for lite-wallet
-instance MonadBlockchainInfo RawWalletMode where
-    networkChainDifficulty = error "notImplemented"
-    localChainDifficulty = error "notImplemented"
-    blockchainSlotDuration = error "notImplemented"
-    connectedPeers = error "notImplemented"
-
 -- | Helpers for avoiding copy-paste
 topHeader :: (SscHelpersClass ssc, MonadDB m) => m (BlockHeader ssc)
 topHeader = maybeThrow (DBMalformed "No block with tip hash!") =<<
@@ -130,6 +126,25 @@ downloadHeader
     :: (Ssc ssc, MonadIO m, PC.WithNodeContext ssc m)
     => m (Maybe (BlockHeader ssc))
 downloadHeader = getContextTMVar PC.ncProgressHeader
+
+-- | Stub instance for lite-wallet
+data BlockchainInfoNotImplementedTag
+
+type BlockchainInfoNotImplemented =
+    Ether.TaggedTrans BlockchainInfoNotImplementedTag Ether.IdentityT
+
+runBlockchainInfoNotImplemented :: BlockchainInfoNotImplemented m a -> m a
+runBlockchainInfoNotImplemented = coerce
+
+instance
+    (t ~ Ether.IdentityT, Monad m) =>
+        MonadBlockchainInfo (Ether.TaggedTrans BlockchainInfoNotImplementedTag t m)
+  where
+    networkChainDifficulty = error "notImplemented"
+    localChainDifficulty = error "notImplemented"
+    blockchainSlotDuration = error "notImplemented"
+    connectedPeers = error "notImplemented"
+
 
 data BlockchainInfoRedirectTag
 
@@ -230,13 +245,15 @@ type WalletMode ssc m
 ---------------------------------------------------------------
 
 type RawWalletMode =
-    PeerStateHolder (
+    BlockchainInfoNotImplemented (
+    PeerStateRedirect (
+    Ether.ReaderT PeerStateTag (PeerStateCtx Production) (
     KeyStorage (
     WalletDB (
     ReportingContextT (
     LoggerNameBox (
     Production
-    )))))
+    )))))))
 
 type WalletRealMode = DiscoveryKademliaT RawWalletMode
 type WalletStaticPeersMode = DiscoveryConstT RawWalletMode

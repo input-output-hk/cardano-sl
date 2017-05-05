@@ -9,6 +9,7 @@ import qualified Ether
 import           Pos.Wallet.State.State (WalletState)
 import           Universum
 
+-- FIXME: remove this, create a Redirect for instances.
 -- | Holder for web wallet data
 type WalletDB = Ether.ReaderT' WalletState
 

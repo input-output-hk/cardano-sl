@@ -58,7 +58,7 @@ import           Pos.Communication            (ActionSpec (..), BiP (..), InSpec
                                                ListenersWithOut, NodeId, OutSpecs (..),
                                                PeerId (..), VerInfo (..), allListeners,
                                                hoistListenerSpec, unpackLSpecs)
-import           Pos.Communication.PeerState  (runPeerStateHolder)
+import           Pos.Communication.PeerState  (PeerStateTag, runPeerStateRedirect)
 import qualified Pos.Constants                as Const
 import           Pos.Context                  (NodeContext (..))
 import           Pos.Core                     (Timestamp ())
@@ -158,12 +158,13 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                      , Tagged @SscMemTag bottomSscState
                      , Tagged @TxpHolderTag txpVar
                      , Tagged @(TVar DelegationWrap) deleg
+                     , Tagged @PeerStateTag stateM_
                      ) .
                   runSlotsDataRedirect .
                   runSlotsRedirect .
                   runBalancesRedirect .
                   runTxHistoryRedirect .
-                  runPeerStateHolder stateM_ .
+                  runPeerStateRedirect .
                   runDbLimitsRedirect .
                   runDbCoreRedirect .
                   runKeyStorageRedirect .
@@ -196,12 +197,13 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
               , Tagged @SscMemTag sscState
               , Tagged @TxpHolderTag txpVar
               , Tagged @(TVar DelegationWrap) deleg
+              , Tagged @PeerStateTag stateM
               ) .
           runSlotsDataRedirect .
           runSlotsRedirect .
           runBalancesRedirect .
           runTxHistoryRedirect .
-          runPeerStateHolder stateM .
+          runPeerStateRedirect .
           runDbLimitsRedirect .
           runDbCoreRedirect .
           runKeyStorageRedirect .
@@ -230,7 +232,8 @@ runServiceMode
 runServiceMode peerId transport bp@BaseParams {..} listeners outSpecs (ActionSpec action) = do
     stateM <- liftIO SM.newIO
     usingLoggerName (lpRunnerTag bpLoggingParams) .
-        runPeerStateHolder stateM .
+        flip (Ether.runReaderT @PeerStateTag) stateM .
+        runPeerStateRedirect .
         runServer_ peerId transport listeners outSpecs . ActionSpec $ \vI sa ->
         nodeStartMsg bp >> action vI sa
 

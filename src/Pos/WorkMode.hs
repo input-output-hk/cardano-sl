@@ -26,7 +26,8 @@ import           System.Wlog                  (LoggerNameBox (..))
 
 import           Pos.Client.Txp.Balances      (BalancesRedirect)
 import           Pos.Client.Txp.History       (TxHistoryRedirect)
-import           Pos.Communication.PeerState  (PeerStateHolder)
+import           Pos.Communication.PeerState  (PeerStateCtx, PeerStateRedirect,
+                                               PeerStateTag)
 import           Pos.Context                  (NodeContext)
 import           Pos.DB                       (NodeDBs)
 import           Pos.DB.DB                    (DbCoreRedirect)
@@ -55,7 +56,7 @@ type RawRealMode ssc =
     KeyStorageRedirect (
     DbCoreRedirect (
     DbLimitsRedirect (
-    PeerStateHolder (
+    PeerStateRedirect (
     TxHistoryRedirect (
     BalancesRedirect (
     SlotsRedirect (
@@ -67,6 +68,7 @@ type RawRealMode ssc =
         , Tagged SscMemTag (SscState ssc)
         , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
         , Tagged (TVar DelegationWrap) (TVar DelegationWrap)
+        , Tagged PeerStateTag (PeerStateCtx Production)
         ) (
     Ether.ReadersT (NodeContext ssc) (
     LoggerNameBox Production
@@ -86,4 +88,8 @@ type StatsMode ssc = StatsT $ RawRealModeK ssc
 type StaticMode ssc = NoStatsT $ DiscoveryConstT (RawRealMode ssc)
 
 -- | ServiceMode is the mode in which support nodes work.
-type ServiceMode = PeerStateHolder (LoggerNameBox Production)
+type ServiceMode =
+    PeerStateRedirect (
+    Ether.ReaderT PeerStateTag (PeerStateCtx Production) (
+    LoggerNameBox Production
+    ))

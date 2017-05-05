@@ -47,8 +47,8 @@ packages:
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
-    git: https://github.com/avieth/network-transport-tcp
-    commit: ca42a954a15792f5ea8dc203e56fac8175b99c33
+    git: https://github.com/serokell/network-transport-tcp
+    commit: 83aa8748f613e5309653c925fff43693b4f0c618
   extra-dep: true
 - location:
     git: https://github.com/avieth/network-transport
@@ -82,8 +82,11 @@ extra-deps:
 - log-warper-1.1.1
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.6.2
+- binary-0.8.5.1
 - purescript-bridge-0.8.0.1
-- cryptonite-0.22
+- foundation-0.0.8
+- memory-0.14.5
+- cryptonite-0.23
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
 - servant-0.10                    # servant-multipart supports version servant-10 only
 - servant-server-0.10             # so it triggers another dependencies to be v10

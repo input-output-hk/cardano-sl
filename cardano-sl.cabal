@@ -431,7 +431,7 @@ library
                       , concurrent-extra
                       , conduit >= 1.2.8
                       , containers
-                      , cryptonite >= 0.19 && <= 0.22
+                      , cryptonite >= 0.19 && <= 0.23
                       , cryptonite-openssl >= 0.5
                       , data-default
                       , deepseq
@@ -579,7 +579,8 @@ executable cardano-node
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
-                       -with-rtsopts=-N
+                       -- -N1 for improved CPU utilisation until we manage to reduce it, see [CSL-1004]
+                       -with-rtsopts=-N1
                        -O2
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric

@@ -89,7 +89,7 @@ library
                       -- this constraint, first check that all code in
                       -- Pos.Binary.Class that has been ripped from 'binary'
                       -- hasn't changed upstream.
-                     , binary == 0.8.3.*
+                     , binary == 0.8.5.*
                      , bytestring
                      , cardano-crypto
                      , cereal

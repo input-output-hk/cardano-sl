@@ -82,6 +82,7 @@ extra-deps:
 - log-warper-1.1.1
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.6.2
+- binary-0.8.5.1
 - purescript-bridge-0.8.0.1
 - foundation-0.0.8
 - memory-0.14.5

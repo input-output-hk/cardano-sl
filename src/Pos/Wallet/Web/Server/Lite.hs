@@ -24,7 +24,7 @@ import           Pos.Communication.PeerState   (PeerStateTag, runPeerStateRedire
 import           Pos.Discovery                 (getPeers, runDiscoveryConstT)
 import           Pos.Reporting.MemState        (runWithoutReportingContext)
 import           Pos.Ssc.Class                 (SscHelpersClass)
-import           Pos.Wallet.KeyStorage         (KeyData, runKeyStorageRaw)
+import           Pos.Wallet.KeyStorage         (KeyData)
 import           Pos.Wallet.State              (getWalletState, runWalletDB)
 import qualified Pos.Wallet.State              as WS
 import           Pos.Wallet.WalletMode         (WalletStaticPeersMode,
@@ -81,7 +81,7 @@ convertHandler mws kd ws wsConn peers handler = do
            . usingLoggerName "wallet-lite-api"
            . runWithoutReportingContext
            . runWalletDB mws
-           . flip runKeyStorageRaw kd
+           . flip Ether.runReaderT' kd
            . flip (Ether.runReaderT @PeerStateTag) stateM
            . runPeerStateRedirect
            . runBlockchainInfoNotImplemented

@@ -64,7 +64,7 @@ import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, safeKeysFromPhrase, toSeed)
 import           Pos.Util.UserSecret           (readUserSecret, usKeys)
-import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
+import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys, getSecretKeys, addSecretKey, deleteSecretKey,
                                                 addSecretKey)
 import           Pos.Wallet.SscType            (WalletSscType)
 import           Pos.Wallet.WalletMode         (MonadBlockchainInfo, MonadTxHistory,

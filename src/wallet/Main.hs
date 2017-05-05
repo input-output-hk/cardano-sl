@@ -54,7 +54,7 @@ import           Pos.Update                 (BlockVersionData (..), UpdateVote (
                                              skovorodaUpdateData)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys)
 import           Pos.Util.Util              (powerLift)
-import           Pos.Wallet                 (MonadKeys (addSecretKey, getSecretKeys),
+import           Pos.Wallet                 (addSecretKey, getSecretKeys,
                                              WalletMode, WalletParams (..),
                                              WalletStaticPeersMode, getBalance,
                                              runWalletStaticPeers, sendProposalOuts,

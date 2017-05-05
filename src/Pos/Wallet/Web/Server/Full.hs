@@ -47,8 +47,7 @@ import           Pos.Ssc.Extra                 (SscMemTag, SscState)
 import           Pos.Txp                       (GenericTxpLocalData, TxpHolderTag,
                                                 askTxpMem)
 import           Pos.Update.DB                 (runDbLimitsRedirect)
-import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey,
-                                                runKeyStorageRedirect)
+import           Pos.Wallet.KeyStorage         (addSecretKey)
 import           Pos.Wallet.WalletMode         (runBlockchainInfoRedirect,
                                                 runUpdatesRedirect)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
@@ -135,7 +134,6 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
            . runPeerStateRedirect
            . runDbLimitsRedirect
            . runDbCoreRedirect
-           . runKeyStorageRedirect
            . runUpdatesRedirect
            . runBlockchainInfoRedirect
            . runDiscoveryKademliaT kinst

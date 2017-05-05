@@ -25,7 +25,7 @@ import           Pos.Launcher                (BaseParams (..), LoggingParams (..
 import           Pos.Reporting.MemState      (runWithoutReportingContext)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Util.Util               ()
-import           Pos.Wallet.KeyStorage       (runKeyStorage)
+import           Pos.Wallet.KeyStorage       (keyDataFromFile)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
 import           Pos.Wallet.State            (closeState, openMemState, openState,
                                               runWalletDB)
@@ -93,9 +93,10 @@ runRawStaticPeersWallet peerId transport peers WalletParams {..}
                         listeners (ActionSpec action, outs) =
     usingLoggerName lpRunnerTag . bracket openDB closeDB $ \db -> do
         stateM <- liftIO SM.newIO
+        keyData <- keyDataFromFile wpKeyFilePath
         runWithoutReportingContext .
             runWalletDB db .
-            runKeyStorage wpKeyFilePath .
+            flip Ether.runReaderT' keyData .
             flip (Ether.runReaderT @PeerStateTag) stateM .
             runPeerStateRedirect .
             runBlockchainInfoNotImplemented .

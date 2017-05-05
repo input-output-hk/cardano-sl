@@ -56,7 +56,7 @@ import           Pos.Types                   (BlockHeader, ChainDifficulty, diff
 import           Pos.Update                  (ConfirmedProposalState (..))
 import           Pos.Update.Context          (UpdateContext (ucUpdateSemaphore))
 import           Pos.Util                    (maybeThrow)
-import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
+import           Pos.Wallet.KeyStorage       (KeyData, MonadKeys)
 import           Pos.Wallet.State            (WalletDB)
 import qualified Pos.Wallet.State            as WS
 
@@ -248,7 +248,7 @@ type RawWalletMode =
     BlockchainInfoNotImplemented (
     PeerStateRedirect (
     Ether.ReaderT PeerStateTag (PeerStateCtx Production) (
-    KeyStorage (
+    Ether.ReaderT KeyData KeyData (
     WalletDB (
     ReportingContextT (
     LoggerNameBox (

@@ -123,6 +123,7 @@ makeLensesFor
   , ("ncShutdownFlag", "ncShutdownFlagL")
   , ("ncLoggerConfig", "ncLoggerConfigL")
   , ("ncJLFile", "ncJLFileL")
+  , ("ncUserSecret", "ncUserSecretL")
   , ("ncShutdownNotifyQueue", "ncShutdownNotifyQueueL") ]
   ''NodeContext
 
@@ -134,7 +135,7 @@ makeLensesFor
   ''NodeParams
 
 type instance TagsK (NodeContext ssc) =
-  '[Type, Type, Type, Type, Type, Type, Type, Type, Type, Type]
+  '[Type, Type, Type, Type, Type, Type, Type, Type, Type, Type, Type]
 
 return []
 
@@ -153,6 +154,7 @@ type instance Tags (NodeContext ssc) =
   ShutdownContext :::
   JLFile :::
   GenesisUtxo :::
+  TVar UserSecret :::
   'HNil
 
 instance HasLens NodeContextTag (NodeContext ssc) (NodeContext ssc) where
@@ -208,6 +210,9 @@ instance HasLens JLFile (NodeContext ssc) JLFile where
 
 instance HasLens GenesisUtxo (NodeContext ssc) GenesisUtxo where
     lensOf = ncNodeParamsL . npCustomUtxoL . coerced
+
+instance HasLens (TVar UserSecret) (NodeContext ssc) (TVar UserSecret) where
+    lensOf = ncUserSecretL
 
 ----------------------------------------------------------------------------
 -- Helper functions

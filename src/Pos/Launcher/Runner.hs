@@ -93,7 +93,6 @@ import           Pos.Txp.DB                   (genesisFakeTotalStake,
                                                runBalanceIterBootstrap)
 import           Pos.Txp.MemState             (TxpHolderTag)
 import           Pos.Update.DB                (runDbLimitsRedirect)
-import           Pos.Wallet.KeyStorage        (runKeyStorageRedirect)
 import           Pos.Wallet.WalletMode        (runBlockchainInfoRedirect,
                                                runUpdatesRedirect)
 #ifdef WITH_EXPLORER
@@ -167,7 +166,6 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                   runPeerStateRedirect .
                   runDbLimitsRedirect .
                   runDbCoreRedirect .
-                  runKeyStorageRedirect .
                   runUpdatesRedirect .
                   runBlockchainInfoRedirect $
                   act
@@ -206,7 +204,6 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
           runPeerStateRedirect .
           runDbLimitsRedirect .
           runDbCoreRedirect .
-          runKeyStorageRedirect .
           runUpdatesRedirect .
           runBlockchainInfoRedirect .
           runServer peerId transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $

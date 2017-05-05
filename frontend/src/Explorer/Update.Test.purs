@@ -38,9 +38,9 @@ testUpdate =
                 in result `shouldEqual` 12
 
         describe "uses action ReceiveInitialBlocks" do
-            let blocks =  [ setEpochSlotOfBlock 0 1 mkCBlockEntry
+            let blocks =  [ setEpochSlotOfBlock 0 3 mkCBlockEntry
                           , setEpochSlotOfBlock 0 2 mkCBlockEntry
-                          , setEpochSlotOfBlock 0 3 mkCBlockEntry
+                          , setEpochSlotOfBlock 0 1 mkCBlockEntry
                           ]
                 effModel = update (ReceiveInitialBlocks (Right blocks)) initialState
                 state = _.state effModel
@@ -53,9 +53,9 @@ testUpdate =
         describe "uses action ReceiveBlocksUpdate" do
             -- Mock blocks with epoch, slots and hashes
             let blockA = setEpochSlotOfBlock 0 1 $ setHashOfBlock (mkCHash "A") mkCBlockEntry
-                blockB = setEpochSlotOfBlock 0 2 $setHashOfBlock (mkCHash "B") mkCBlockEntry
-                blockC = setEpochSlotOfBlock 1 0 $setHashOfBlock (mkCHash "C") mkCBlockEntry
-                blockD = setEpochSlotOfBlock 1 1 $setHashOfBlock (mkCHash "D") mkCBlockEntry
+                blockB = setEpochSlotOfBlock 0 2 $ setHashOfBlock (mkCHash "B") mkCBlockEntry
+                blockC = setEpochSlotOfBlock 1 0 $ setHashOfBlock (mkCHash "C") mkCBlockEntry
+                blockD = setEpochSlotOfBlock 1 1 $ setHashOfBlock (mkCHash "D") mkCBlockEntry
                 currentBlocks =
                     [ blockA
                     , blockB
@@ -74,12 +74,44 @@ testUpdate =
             it "to update latestBlocks w/o duplicates"
                 let result = withDefault [] $ state ^. latestBlocks
                     expected =
-                        [ blockA
-                        , blockB
+                        [ blockD
                         , blockC
-                        , blockD
+                        , blockB
+                        , blockA
                         ]
                 in (gShow result) `shouldEqual` (gShow expected)
             it "to count totalBlocks"
                 let result = withDefault 0 $ state ^. totalBlocks
                 in result `shouldEqual` 4
+
+        describe "uses action ReceivePaginatedBlocks" do
+            -- Mock blocks with epoch, slots and hashes
+            let blockA = setEpochSlotOfBlock 2 1 $ setHashOfBlock (mkCHash "A") mkCBlockEntry
+                blockB = setEpochSlotOfBlock 2 0 $ setHashOfBlock (mkCHash "B") mkCBlockEntry
+                blockC = setEpochSlotOfBlock 1 9 $ setHashOfBlock (mkCHash "C") mkCBlockEntry
+                blockD = setEpochSlotOfBlock 1 8 $ setHashOfBlock (mkCHash "D") mkCBlockEntry
+                blockE = setEpochSlotOfBlock 1 7 $ setHashOfBlock (mkCHash "E") mkCBlockEntry
+                currentBlocks =
+                    [ blockA
+                    , blockB
+                    ]
+                -- set `latestBlocks` to simulate that we have already blocks before
+                initialState' =
+                    set latestBlocks (Success currentBlocks) initialState
+                paginatedBlocks =
+                    [ blockC
+                    , blockD
+                    , blockE
+                    ]
+                effModel = update (ReceivePaginatedBlocks (Right paginatedBlocks)) initialState'
+                state = _.state effModel
+            it "to add blocks to latestBlocks"
+                let result = withDefault [] $ state ^. latestBlocks
+                    expected =
+                        [ blockA
+                        , blockB
+                        , blockC
+                        , blockD
+                        , blockE
+                        ]
+                in (gShow result) `shouldEqual` (gShow expected)

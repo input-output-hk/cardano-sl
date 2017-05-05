@@ -19,7 +19,7 @@ sortBlocksByTime blocks =
         time (CBlockEntry entry) =
             unwrapSeconds <<< fromMaybe (mkTime 0.0) $ entry ^. cbeTimeIssued
 
--- | Sort a list of CBlockEntry by time in an descending (down) order
+-- | Sort a list of CBlockEntry by time in a descending (down) order
 sortBlocksByTime' :: CBlockEntries -> CBlockEntries
 sortBlocksByTime' =
     reverse <<< sortBlocksByTime
@@ -33,6 +33,11 @@ sortBlocksByEpochSlot blocks =
         epochsAndSlots :: CBlockEntry -> Int
         epochsAndSlots (CBlockEntry entry) =
             ((entry ^. cbeEpoch) * maxSlotInEpoch) + (entry ^. cbeSlot)
+
+-- | Sort CBlockEntries by epochs and slots a descending (down) order
+sortBlocksByEpochSlot' :: CBlockEntries -> CBlockEntries
+sortBlocksByEpochSlot' =
+    reverse <<< sortBlocksByEpochSlot
 
 
 -- | Helper to remove duplicates of blocks by comparing its CHash

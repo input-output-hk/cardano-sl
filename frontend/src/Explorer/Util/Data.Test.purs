@@ -7,7 +7,7 @@ import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Time.NominalDiffTime (mkTime)
 import Explorer.Test.MockFactory (mkCBlockEntry, setEpochSlotOfBlock, setHashOfBlock, setTimeOfBlock)
-import Explorer.Util.Data (sortBlocksByEpochSlot, sortBlocksByTime, sortBlocksByTime', unionBlocks)
+import Explorer.Util.Data (sortBlocksByEpochSlot, sortBlocksByEpochSlot', sortBlocksByTime, sortBlocksByTime', unionBlocks)
 import Explorer.Util.Factory (mkCHash)
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
@@ -68,6 +68,21 @@ testDataUtil =
                         , blockD
                         ]
                 in (gShow $ sortBlocksByEpochSlot list) `shouldEqual` (gShow expected)
+            it "sort descending"
+                let list =
+                        [ blockD
+                        , blockA
+                        , blockC
+                        , blockB
+                        ]
+                    expected =
+                        [ blockD
+                        , blockC
+                        , blockB
+                        , blockA
+                        ]
+                in (gShow $ sortBlocksByEpochSlot' list) `shouldEqual` (gShow expected)
+
         describe "unionBlocks" do
             let blockA = setHashOfBlock (mkCHash "A") mkCBlockEntry
                 blockB = setHashOfBlock (mkCHash "B") mkCBlockEntry

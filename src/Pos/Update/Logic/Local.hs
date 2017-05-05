@@ -18,6 +18,8 @@ module Pos.Update.Logic.Local
        , usNormalize
        , processNewSlot
        , usPreparePayload
+
+       , clearUSMemPool
        ) where
 
 import           Universum
@@ -62,6 +64,14 @@ getMemPool
     => m MemPool
 getMemPool = msPool <$>
     (atomically . readTVar . mvState =<< Ether.asks' ucMemState)
+
+clearUSMemPool
+    :: (Ether.MonadReader' UpdateContext m, MonadIO m)
+    => m ()
+clearUSMemPool =
+    atomically . flip modifyTVar' resetData . mvState =<< Ether.asks' ucMemState
+  where
+    resetData memState = memState {msPool = def, msModifier = def}
 
 getPollModifier
     :: (Ether.MonadReader' UpdateContext m, MonadIO m)

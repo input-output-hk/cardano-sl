@@ -34,6 +34,17 @@ Flag with-explorer
 
   description: Build with explorer
 
+-- Note: for components that we don't want to build, we add both "buildable:
+-- False" *and* wrap build-depends into "if !flag(for-installer)". This is
+-- because stack doesn't seem to take "buildable: False" into account when
+-- calculating the build plan.
+Flag for-installer
+  default:     False
+  manual:      True
+
+  description: Build a reduced set of components (only what is needed for the
+               installer, plus tests)
+
 library
   exposed-modules:      Pos.Aeson
                         Pos.Binary
@@ -619,7 +630,8 @@ executable cardano-analyzer
   hs-source-dirs:      src/analyzer
   main-is:             Main.hs
   other-modules:       AnalyzerOptions
-  build-depends:       base
+  if !flag(for-installer)
+   build-depends:      base
                      , aeson
                      , attoparsec
                      , bytestring
@@ -670,12 +682,16 @@ executable cardano-analyzer
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
+  if flag(for-installer)
+    buildable: False
+
 executable cardano-wallet
   hs-source-dirs:      src/wallet
   main-is:             Main.hs
   other-modules:       WalletOptions
                        Command
-  build-depends:       QuickCheck
+  if !flag(for-installer)
+   build-depends:      QuickCheck
                      , base
                      , base58-bytestring
                      , binary
@@ -749,6 +765,9 @@ executable cardano-wallet
   if !os(windows)
     build-depends:     unix
 
+  if flag(for-installer)
+    buildable: False
+
 executable cardano-wallet-hs2purs
   hs-source-dirs:      src/wallet-purescript
   main-is:             Main.hs
@@ -809,7 +828,8 @@ executable cardano-smart-generator
                        TxGeneration
                        TxAnalysis
                        Util
-  build-depends:       QuickCheck
+  if !flag(for-installer)
+   build-depends:      QuickCheck
                      , base
                      , aeson
                      , array
@@ -882,10 +902,14 @@ executable cardano-smart-generator
   else
     buildable:         False
 
+  if flag(for-installer)
+    buildable: False
+
 executable cardano-dht-keygen
   hs-source-dirs:      src/dht-keygen
   main-is:             Main.hs
-  build-depends:       QuickCheck
+  if !flag(for-installer)
+   build-depends:      QuickCheck
                      , base
                      , aeson
                      , array
@@ -946,10 +970,14 @@ executable cardano-dht-keygen
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
+  if flag(for-installer)
+    buildable: False
+
 executable cardano-web-docs
   hs-source-dirs:      src/web-docs
   main-is:             Main.hs
-  build-depends:       base
+  if !flag(for-installer)
+   build-depends:      base
                      , cardano-sl-core
                      , cardano-sl
                      , universum >= 0.1.11
@@ -993,6 +1021,9 @@ executable cardano-web-docs
     buildable:         True
   else
     buildable:         False
+
+  if flag(for-installer)
+    buildable: False
 
 executable cardano-wallet-web-docs
   hs-source-dirs:      src/wallet-web-docs
@@ -1048,7 +1079,8 @@ executable cardano-swagger
   hs-source-dirs:      src/wallet-web-api-swagger
   main-is:             Main.hs
   other-modules:       Description
-  build-depends:       aeson
+  if !flag(for-installer)
+   build-depends:      aeson
                      , base
                      , bytestring
                      , cardano-sl
@@ -1078,10 +1110,14 @@ executable cardano-swagger
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
+  if flag(for-installer)
+    buildable: False
+
 executable cardano-checks
   hs-source-dirs:      src/checks
   main-is:             Main.hs
-  build-depends:       base
+  if !flag(for-installer)
+   build-depends:      base
                      , containers
                      , foldl
                      , text
@@ -1098,6 +1134,9 @@ executable cardano-checks
 
   default-extensions:  OverloadedStrings
                        BangPatterns
+
+  if flag(for-installer)
+    buildable: False
 
 executable cardano-genupdate
   hs-source-dirs:      src/genupdate
@@ -1131,7 +1170,8 @@ executable cardano-keygen
   other-modules:       KeygenOptions
                      , Avvm
                      , Testnet
-  build-depends:       QuickCheck >= 2.9
+  if !flag(for-installer)
+   build-depends:      QuickCheck >= 2.9
                      , Glob
                      , base
                      , aeson
@@ -1182,6 +1222,9 @@ executable cardano-keygen
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+
+  if flag(for-installer)
+    buildable: False
 
 executable cardano-launcher
   hs-source-dirs:      src/launcher

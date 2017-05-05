@@ -807,17 +807,20 @@ createMainBlockFinish getPeers slotId pSk prevHeader = do
         (pModifier, verUndo) <-
             runExceptT (usVerifyBlocks False (one (toUpdateBlock (Right block)))) >>=
             either (const $ throwError "Couldn't get pModifier while creating MainBlock") pure
-        let undo = Undo (reverse $ foldl' (prependToUndo txUndo) [] sortedTxs)
-                        pskUndo
-                        (verUndo ^. _Wrapped . _neHead)
+        undo <- Undo <$> (reverse <$> foldM (prependToUndo txUndo) [] sortedTxs)
+                     <*> pure pskUndo
+                     <*> pure (verUndo ^. _Wrapped . _neHead)
         () <- (undo `deepseq` block) `deepseq` pure ()
         pure (block, undo, pModifier)
     onBrokenTopo = throwError "Topology of local transactions is broken!"
+    onAbsentUndo = throwError "Undo for tx not found"
     onNoUS = "can't obtain US payload to create block"
     prependToUndo txUndo undos tx =
-        fromMaybe (error "Undo for tx not found") (HM.lookup (fst tx) txUndo) : undos
-    verifyCreatedBlock block = lift $
-        verifyBlocksPrefix (one (Right block)) >>= traverse (const pass)
+        case (:undos) <$> HM.lookup (fst tx) txUndo of
+            Just res -> pure res
+            Nothing  -> onAbsentUndo
+    verifyCreatedBlock :: MainBlock ssc -> ExceptT Text m (Either Text ())
+    verifyCreatedBlock block = lift $ void <$> verifyBlocksPrefix (one (Right block))
     clearMempools = do
         clearTxpMemPool
         sscResetLocal
@@ -828,6 +831,7 @@ createMainBlockFinish getPeers slotId pSk prevHeader = do
         logError $ sformat ("We've created bad main block: "%stext) er
         lift $ reportMisbehaviourMasked getPeers version $
             sformat ("We've created bad main block: "%build) er
+        logDebug $ "Creating empty block"
         clearMempools
         emptyBlund@(emptyBlock, _, _) <- createBlundFromMemPool
         verifyCreatedBlock emptyBlock >>=

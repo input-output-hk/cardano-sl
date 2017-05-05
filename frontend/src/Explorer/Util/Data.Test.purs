@@ -1,4 +1,4 @@
-module Explorer.Util.Sort.Test where
+module Explorer.Util.Data.Test where
 
 import Prelude
 import Control.Monad.Aff (Aff)
@@ -7,14 +7,14 @@ import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Time.NominalDiffTime (mkTime)
 import Explorer.Util.Factory (mkCBlockEntryByTime)
-import Explorer.Util.Sort (sortBlocksByTime, sortBlocksByTime')
+import Explorer.Util.Data (sortBlocksByTime, sortBlocksByTime')
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
 
-testSortUtil :: forall r. StateT (Array (Group (Aff r Unit))) Identity Unit
-testSortUtil =
-    describe "Explorer.Util.Sort" do
+testDataUtil :: forall r. StateT (Array (Group (Aff r Unit))) Identity Unit
+testDataUtil =
+    describe "Explorer.Util.Data" do
         describe "sortBlocksByTime" do
             let blockA = mkCBlockEntryByTime $ mkTime 0.1
                 blockB = mkCBlockEntryByTime $ mkTime 1.0

@@ -5,7 +5,7 @@ import Control.Monad.Eff (Eff)
 import Data.Time.Test (testNominalDiffTime)
 import Explorer.Routes.Test (testRoutes)
 import Explorer.Update.Test (testUpdate)
-import Explorer.Util.Sort.Test (testSortUtil)
+import Explorer.Util.Data.Test (testDataUtil)
 import Explorer.Util.String.Test (testStringUtil)
 import Explorer.Util.Time.Test (testPrettyDuration)
 import Explorer.View.CSS.Test (testCSS)
@@ -17,7 +17,7 @@ main = run [consoleReporter] do
     testCSS
     testNominalDiffTime
     testPrettyDuration
-    testSortUtil
+    testDataUtil
     testStringUtil
     testRoutes
     testUpdate

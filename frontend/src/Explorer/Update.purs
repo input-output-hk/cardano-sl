@@ -29,7 +29,7 @@ import Explorer.Types.State (CBlockEntriesOffset, Search(..), SocketSubscription
 import Explorer.Util.DOM (targetToHTMLElement, targetToHTMLInputElement)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
-import Explorer.Util.Sort (sortBlocksByTime)
+import Explorer.Util.Data (sortBlocksByTime)
 import Explorer.View.Blocks (maxBlockRows)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Network.HTTP.Affjax (AJAX)

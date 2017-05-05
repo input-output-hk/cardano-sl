@@ -1,4 +1,4 @@
-module Explorer.Util.Sort where
+module Explorer.Util.Data where
 
 import Prelude
 import Data.Array (reverse, sortBy)

@@ -16,6 +16,7 @@ module Pos.Communication.PeerState
        ) where
 
 import           Control.Monad.Trans.Class        (MonadTrans)
+import           Control.Monad.Trans.Identity     (IdentityT (..))
 import           Data.Coerce                      (coerce)
 import           Data.Default                     (Default (def))
 import qualified Ether
@@ -63,7 +64,7 @@ data PeerStateTag
 data PeerStateRedirectTag
 
 type PeerStateRedirect =
-    Ether.TaggedTrans PeerStateRedirectTag Ether.IdentityT
+    Ether.TaggedTrans PeerStateRedirectTag IdentityT
 
 runPeerStateRedirect :: PeerStateRedirect m a -> m a
 runPeerStateRedirect = coerce
@@ -71,7 +72,7 @@ runPeerStateRedirect = coerce
 instance
     ( MonadIO m, Mockable SharedAtomic m
     , Ether.MonadReader PeerStateTag (PeerStateCtx m) m
-    , t ~ Ether.IdentityT
+    , t ~ IdentityT
     ) => WithPeerState (Ether.TaggedTrans PeerStateRedirectTag t m)
   where
     getPeerState nodeId = Ether.ask @PeerStateTag >>= \m -> do

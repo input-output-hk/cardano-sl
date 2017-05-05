@@ -21,6 +21,7 @@ import           Universum
 
 import qualified Control.Concurrent.ReadWriteLock as RWL
 import           Control.Monad.Catch              (MonadMask)
+import           Control.Monad.Trans.Identity     (IdentityT (..))
 import           Data.Coerce                      (coerce)
 import qualified Ether
 import           System.Directory                 (createDirectoryIfMissing,
@@ -147,13 +148,13 @@ ensureDirectoryExists = liftIO . createDirectoryIfMissing True
 data DbCoreRedirectTag
 
 type DbCoreRedirect =
-    Ether.TaggedTrans DbCoreRedirectTag Ether.IdentityT
+    Ether.TaggedTrans DbCoreRedirectTag IdentityT
 
 runDbCoreRedirect :: DbCoreRedirect m a -> m a
 runDbCoreRedirect = coerce
 
 instance
-    (MonadDB m, t ~ Ether.IdentityT) =>
+    (MonadDB m, t ~ IdentityT) =>
         MonadDBCore (Ether.TaggedTrans DbCoreRedirectTag t m)
   where
     dbAdoptedBVData = getAdoptedBVData

@@ -12,11 +12,11 @@ module Pos.Block.Worker
 import           Universum
 
 import           Control.Lens                (ix)
+import qualified Ether
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
 import           Serokell.Util               (listJson, pairF)
 import           System.Wlog                 (logDebug, logInfo, logWarning)
-import qualified Ether
 
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)

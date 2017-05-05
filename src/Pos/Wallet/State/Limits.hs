@@ -9,24 +9,25 @@ module Pos.Wallet.State.Limits
 
 import           Universum
 
-import           Data.Coerce             (coerce)
+import           Control.Monad.Trans.Identity (IdentityT (..))
+import           Data.Coerce                  (coerce)
 import qualified Ether
 
-import qualified Pos.Constants           as Const
-import           Pos.DB.Limits           (MonadDBLimits (..))
-import           Pos.Wallet.State.Acidic (WalletState)
-import qualified Pos.Wallet.State.State  as DB
+import qualified Pos.Constants                as Const
+import           Pos.DB.Limits                (MonadDBLimits (..))
+import           Pos.Wallet.State.Acidic      (WalletState)
+import qualified Pos.Wallet.State.State       as DB
 
 data DbLimitsWalletRedirectTag
 
 type DbLimitsWalletRedirect =
-    Ether.TaggedTrans DbLimitsWalletRedirectTag Ether.IdentityT
+    Ether.TaggedTrans DbLimitsWalletRedirectTag IdentityT
 
 runDbLimitsWalletRedirect :: DbLimitsWalletRedirect m a -> m a
 runDbLimitsWalletRedirect = coerce
 
 instance
-    (MonadIO m, t ~ Ether.IdentityT, Ether.MonadReader' WalletState m) =>
+    (MonadIO m, t ~ IdentityT, Ether.MonadReader' WalletState m) =>
         MonadDBLimits (Ether.TaggedTrans DbLimitsWalletRedirectTag t m)
   where
     getMaxBlockSize = DB.getMaxBlockSize

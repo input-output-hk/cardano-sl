@@ -45,45 +45,47 @@ module Pos.Update.DB
 
 import           Universum
 
-import           Data.Coerce                (coerce)
-import           Data.Time.Units            (convertUnit)
-import qualified Database.RocksDB           as Rocks
+import           Control.Monad.Trans.Identity (IdentityT (..))
+import           Data.Coerce                  (coerce)
+import           Data.Time.Units              (convertUnit)
+import qualified Database.RocksDB             as Rocks
 import qualified Ether
-import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Data.Memory.Units   (Byte)
 
-import           Pos.Binary.Class           (encodeStrict)
-import           Pos.Binary.Infra.Slotting  ()
-import           Pos.Binary.Update          ()
-import           Pos.Core                   (ApplicationName, BlockVersion,
-                                             ChainDifficulty, NumSoftwareVersion, SlotId,
-                                             SoftwareVersion (..), StakeholderId,
-                                             Timestamp (..))
-import           Pos.Core.Constants         (epochSlots)
-import           Pos.Crypto                 (hash)
-import           Pos.DB.Class               (MonadDB, getUtxoDB)
-import           Pos.DB.Error               (DBError (DBMalformed))
-import           Pos.DB.Functions           (RocksBatchOp (..), encodeWithKeyPrefix,
-                                             rocksWriteBatch)
-import           Pos.DB.GState.Common       (gsGetBi)
-import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
-                                             DBnMapIterator, IterType, runDBnIterator,
-                                             runDBnMapIterator)
-import qualified Pos.DB.Limits              as DBLimits
-import           Pos.DB.Types               (NodeDBs (..))
-import           Pos.Slotting.Types         (EpochSlottingData (..), SlottingData (..))
-import           Pos.Update.Constants       (genesisBlockVersion, genesisBlockVersionData,
-                                             genesisSlotDuration, genesisSoftwareVersions,
-                                             ourAppName)
-import           Pos.Update.Core            (BlockVersionData (..), UpId,
-                                             UpdateProposal (..))
-import           Pos.Update.Poll.Types      (BlockVersionState (..),
-                                             ConfirmedProposalState,
-                                             DecidedProposalState (dpsDifficulty),
-                                             ProposalState (..),
-                                             UndecidedProposalState (upsSlot),
-                                             cpsSoftwareVersion, psProposal)
-import           Pos.Util.Iterator          (MonadIterator (..))
-import           Pos.Util.Util              (maybeThrow)
+import           Pos.Binary.Class             (encodeStrict)
+import           Pos.Binary.Infra.Slotting    ()
+import           Pos.Binary.Update            ()
+import           Pos.Core                     (ApplicationName, BlockVersion,
+                                               ChainDifficulty, NumSoftwareVersion,
+                                               SlotId, SoftwareVersion (..),
+                                               StakeholderId, Timestamp (..))
+import           Pos.Core.Constants           (epochSlots)
+import           Pos.Crypto                   (hash)
+import           Pos.DB.Class                 (MonadDB, getUtxoDB)
+import           Pos.DB.Error                 (DBError (DBMalformed))
+import           Pos.DB.Functions             (RocksBatchOp (..), encodeWithKeyPrefix,
+                                               rocksWriteBatch)
+import           Pos.DB.GState.Common         (gsGetBi)
+import           Pos.DB.Iterator              (DBIteratorClass (..), DBnIterator,
+                                               DBnMapIterator, IterType, runDBnIterator,
+                                               runDBnMapIterator)
+import qualified Pos.DB.Limits                as DBLimits
+import           Pos.DB.Types                 (NodeDBs (..))
+import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData (..))
+import           Pos.Update.Constants         (genesisBlockVersion,
+                                               genesisBlockVersionData,
+                                               genesisSlotDuration,
+                                               genesisSoftwareVersions, ourAppName)
+import           Pos.Update.Core              (BlockVersionData (..), UpId,
+                                               UpdateProposal (..))
+import           Pos.Update.Poll.Types        (BlockVersionState (..),
+                                               ConfirmedProposalState,
+                                               DecidedProposalState (dpsDifficulty),
+                                               ProposalState (..),
+                                               UndecidedProposalState (upsSlot),
+                                               cpsSoftwareVersion, psProposal)
+import           Pos.Util.Iterator            (MonadIterator (..))
+import           Pos.Util.Util                (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -381,13 +383,13 @@ getAdoptedBVFullMaybe = gsGetBi adoptedBVKey
 data DbLimitsRedirectTag
 
 type DbLimitsRedirect =
-    Ether.TaggedTrans DbLimitsRedirectTag Ether.IdentityT
+    Ether.TaggedTrans DbLimitsRedirectTag IdentityT
 
 runDbLimitsRedirect :: DbLimitsRedirect m a -> m a
 runDbLimitsRedirect = coerce
 
 instance
-    (MonadDB m, t ~ Ether.IdentityT) =>
+    (MonadDB m, t ~ IdentityT) =>
         DBLimits.MonadDBLimits (Ether.TaggedTrans DbLimitsRedirectTag t m) where
     getMaxBlockSize = getMaxBlockSize
     getMaxHeaderSize = bvdMaxHeaderSize <$> getAdoptedBVData

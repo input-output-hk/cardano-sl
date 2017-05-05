@@ -27,39 +27,42 @@ module Pos.Client.Txp.History
 
 import           Universum
 
-import           Control.Lens              (makeLenses, (%=))
-import           Control.Monad.Loops       (unfoldrM)
-import           Control.Monad.Trans       (MonadTrans)
-import           Control.Monad.Trans.Maybe (MaybeT (..))
-import           Data.Coerce               (coerce)
-import qualified Data.DList                as DL
-import           Data.Tagged               (Tagged (..))
+import           Control.Lens                 (makeLenses, (%=))
+import           Control.Monad.Loops          (unfoldrM)
+import           Control.Monad.Trans          (MonadTrans)
+import           Control.Monad.Trans.Identity (IdentityT (..))
+import           Control.Monad.Trans.Maybe    (MaybeT (..))
+import           Data.Coerce                  (coerce)
+import qualified Data.DList                   as DL
+import           Data.Tagged                  (Tagged (..))
 import qualified Ether
-import           System.Wlog               (WithLogger)
+import           System.Wlog                  (WithLogger)
 
-import           Pos.Constants             (blkSecurityParam)
-import           Pos.Context.Context       (GenesisUtxo (..))
-import           Pos.Crypto                (WithHash (..), withHash)
-import           Pos.DB                    (MonadDB)
-import qualified Pos.DB.Block              as DB
-import           Pos.DB.Error              (DBError (..))
-import qualified Pos.DB.GState             as GS
-import           Pos.Slotting              (MonadSlots)
-import           Pos.Ssc.Class             (SscHelpersClass)
-import           Pos.WorkMode.Class        (TxpExtra_TMP)
+import           Pos.Constants                (blkSecurityParam)
+import           Pos.Context.Context          (GenesisUtxo (..))
+import           Pos.Crypto                   (WithHash (..), withHash)
+import           Pos.DB                       (MonadDB)
+import qualified Pos.DB.Block                 as DB
+import           Pos.DB.Error                 (DBError (..))
+import qualified Pos.DB.GState                as GS
+import           Pos.Slotting                 (MonadSlots)
+import           Pos.Ssc.Class                (SscHelpersClass)
+import           Pos.WorkMode.Class           (TxpExtra_TMP)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer              (eTxProcessTransaction)
+import           Pos.Explorer                 (eTxProcessTransaction)
 #else
-import           Pos.Txp                   (MonadTxpMem, txProcessTransaction)
+import           Pos.Txp                      (MonadTxpMem, txProcessTransaction)
 #endif
-import           Pos.Txp                   (MonadUtxoRead, Tx (..), TxAux, TxDistribution,
-                                            TxId, TxOut, TxOutAux (..), TxWitness, Utxo,
-                                            UtxoStateT, applyTxToUtxo, evalUtxoStateT,
-                                            filterUtxoByAddr, getLocalTxs, runUtxoStateT,
-                                            topsortTxs, txOutAddress, utxoGet)
-import           Pos.Types                 (Address, Block, ChainDifficulty, HeaderHash,
-                                            blockTxas, difficultyL, prevBlockL)
-import           Pos.Util                  (ether, maybeThrow)
+import           Pos.Txp                      (MonadUtxoRead, Tx (..), TxAux,
+                                               TxDistribution, TxId, TxOut, TxOutAux (..),
+                                               TxWitness, Utxo, UtxoStateT, applyTxToUtxo,
+                                               evalUtxoStateT, filterUtxoByAddr,
+                                               getLocalTxs, runUtxoStateT, topsortTxs,
+                                               txOutAddress, utxoGet)
+import           Pos.Types                    (Address, Block, ChainDifficulty,
+                                               HeaderHash, blockTxas, difficultyL,
+                                               prevBlockL)
+import           Pos.Util                     (ether, maybeThrow)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -188,7 +191,7 @@ instance {-# OVERLAPPABLE #-}
 data TxHistoryRedirectTag
 
 type TxHistoryRedirect =
-    Ether.TaggedTrans TxHistoryRedirectTag Ether.IdentityT
+    Ether.TaggedTrans TxHistoryRedirectTag IdentityT
 
 runTxHistoryRedirect :: TxHistoryRedirect m a -> m a
 runTxHistoryRedirect = coerce
@@ -200,7 +203,7 @@ instance
     , MonadSlots m
     , Ether.MonadReader' GenesisUtxo m
     , MonadTxpMem TxpExtra_TMP m
-    , t ~ Ether.IdentityT
+    , t ~ IdentityT
     ) => MonadTxHistory (Ether.TaggedTrans TxHistoryRedirectTag t m)
   where
     getTxHistory :: forall ssc. SscHelpersClass ssc

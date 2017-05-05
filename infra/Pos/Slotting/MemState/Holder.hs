@@ -14,13 +14,14 @@ module Pos.Slotting.MemState.Holder
 
 import           Universum
 
-import           Control.Monad.STM           (retry)
-import           Data.Coerce                 (coerce)
+import           Control.Monad.STM            (retry)
+import           Control.Monad.Trans.Identity (IdentityT (..))
+import           Data.Coerce                  (coerce)
 import qualified Ether
-import           Pos.Core.Types              (Timestamp)
+import           Pos.Core.Types               (Timestamp)
 
-import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
-import           Pos.Slotting.Types          (SlottingData (sdPenultEpoch))
+import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
+import           Pos.Slotting.Types           (SlottingData (sdPenultEpoch))
 
 ----------------------------------------------------------------------------
 -- Transformer
@@ -47,13 +48,13 @@ askSlottingTimestamp  = fst <$> askSlotting
 data SlotsDataRedirectTag
 
 type SlotsDataRedirect =
-    Ether.TaggedTrans SlotsDataRedirectTag Ether.IdentityT
+    Ether.TaggedTrans SlotsDataRedirectTag IdentityT
 
 runSlotsDataRedirect :: SlotsDataRedirect m a -> m a
 runSlotsDataRedirect = coerce
 
 instance
-    (MonadSlotting m, MonadIO m, t ~ Ether.IdentityT) =>
+    (MonadSlotting m, MonadIO m, t ~ IdentityT) =>
          MonadSlotsData (Ether.TaggedTrans SlotsDataRedirectTag t m)
   where
     getSystemStart = askSlottingTimestamp

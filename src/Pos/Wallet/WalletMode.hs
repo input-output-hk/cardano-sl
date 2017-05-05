@@ -31,54 +31,55 @@ module Pos.Wallet.WalletMode
 
 import           Universum
 
-import           Control.Concurrent.STM      (tryReadTMVar)
-import           Control.Monad.Trans         (MonadTrans)
-import           Control.Monad.Trans.Maybe   (MaybeT (..))
-import           Data.Coerce                 (coerce)
-import           Data.Tagged                 (Tagged (..))
-import           Data.Time.Units             (Millisecond)
+import           Control.Concurrent.STM       (tryReadTMVar)
+import           Control.Monad.Trans          (MonadTrans)
+import           Control.Monad.Trans.Identity (IdentityT (..))
+import           Control.Monad.Trans.Maybe    (MaybeT (..))
+import           Data.Coerce                  (coerce)
+import           Data.Tagged                  (Tagged (..))
+import           Data.Time.Units              (Millisecond)
 import qualified Ether
-import           Mockable                    (Production)
-import           Pos.Reporting.MemState      (ReportingContext)
-import           System.Wlog                 (LoggerNameBox, WithLogger)
+import           Mockable                     (Production)
+import           Pos.Reporting.MemState       (ReportingContext)
+import           System.Wlog                  (LoggerNameBox, WithLogger)
 
-import           Pos.Client.Txp.Balances     (MonadBalances (..), getBalanceFromUtxo)
-import           Pos.Client.Txp.History      (MonadTxHistory (..), deriveAddrHistory)
-import           Pos.Communication           (TxMode)
-import           Pos.Communication.PeerState (PeerStateCtx, PeerStateRedirect,
-                                              PeerStateTag, WithPeerState)
-import           Pos.Constants               (blkSecurityParam)
-import qualified Pos.Context                 as PC
-import           Pos.DB                      (MonadDB)
-import qualified Pos.DB.Block                as DB
-import           Pos.DB.Error                (DBError (..))
-import qualified Pos.DB.GState               as GS
-import           Pos.Discovery               (DiscoveryConstT, DiscoveryKademliaT,
-                                              MonadDiscovery)
-import           Pos.Shutdown                (MonadShutdownMem, triggerShutdown)
-import           Pos.Slotting                (MonadSlots (..), getLastKnownSlotDuration)
-import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
-import           Pos.Txp                     (filterUtxoByAddr, runUtxoStateT)
-import           Pos.Types                   (BlockHeader, ChainDifficulty, difficultyL,
-                                              flattenEpochOrSlot, flattenSlotId)
-import           Pos.Update                  (ConfirmedProposalState (..))
-import           Pos.Update.Context          (UpdateContext (ucUpdateSemaphore))
-import           Pos.Util                    (maybeThrow)
-import           Pos.Wallet.KeyStorage       (KeyData, MonadKeys)
-import qualified Pos.Wallet.State            as WS
-import           Pos.Wallet.State.Acidic     (WalletState)
-import           Pos.Wallet.State.Limits     (DbLimitsWalletRedirect)
+import           Pos.Client.Txp.Balances      (MonadBalances (..), getBalanceFromUtxo)
+import           Pos.Client.Txp.History       (MonadTxHistory (..), deriveAddrHistory)
+import           Pos.Communication            (TxMode)
+import           Pos.Communication.PeerState  (PeerStateCtx, PeerStateRedirect,
+                                               PeerStateTag, WithPeerState)
+import           Pos.Constants                (blkSecurityParam)
+import qualified Pos.Context                  as PC
+import           Pos.DB                       (MonadDB)
+import qualified Pos.DB.Block                 as DB
+import           Pos.DB.Error                 (DBError (..))
+import qualified Pos.DB.GState                as GS
+import           Pos.Discovery                (DiscoveryConstT, DiscoveryKademliaT,
+                                               MonadDiscovery)
+import           Pos.Shutdown                 (MonadShutdownMem, triggerShutdown)
+import           Pos.Slotting                 (MonadSlots (..), getLastKnownSlotDuration)
+import           Pos.Ssc.Class                (Ssc, SscHelpersClass)
+import           Pos.Txp                      (filterUtxoByAddr, runUtxoStateT)
+import           Pos.Types                    (BlockHeader, ChainDifficulty, difficultyL,
+                                               flattenEpochOrSlot, flattenSlotId)
+import           Pos.Update                   (ConfirmedProposalState (..))
+import           Pos.Update.Context           (UpdateContext (ucUpdateSemaphore))
+import           Pos.Util                     (maybeThrow)
+import           Pos.Wallet.KeyStorage        (KeyData, MonadKeys)
+import qualified Pos.Wallet.State             as WS
+import           Pos.Wallet.State.Acidic      (WalletState)
+import           Pos.Wallet.State.Limits      (DbLimitsWalletRedirect)
 
 data BalancesWalletRedirectTag
 
 type BalancesWalletRedirect =
-    Ether.TaggedTrans BalancesWalletRedirectTag Ether.IdentityT
+    Ether.TaggedTrans BalancesWalletRedirectTag IdentityT
 
 runBalancesWalletRedirect :: BalancesWalletRedirect m a -> m a
 runBalancesWalletRedirect = coerce
 
 instance
-    (MonadIO m, t ~ Ether.IdentityT, Ether.MonadReader' WS.WalletState m) =>
+    (MonadIO m, t ~ IdentityT, Ether.MonadReader' WS.WalletState m) =>
         MonadBalances (Ether.TaggedTrans BalancesWalletRedirectTag t m)
   where
     getOwnUtxo addr = filterUtxoByAddr addr <$> WS.getUtxo
@@ -88,14 +89,14 @@ instance
 data TxHistoryWalletRedirectTag
 
 type TxHistoryWalletRedirect =
-    Ether.TaggedTrans TxHistoryWalletRedirectTag Ether.IdentityT
+    Ether.TaggedTrans TxHistoryWalletRedirectTag IdentityT
 
 runTxHistoryWalletRedirect :: TxHistoryWalletRedirect m a -> m a
 runTxHistoryWalletRedirect = coerce
 
 instance
     ( MonadIO m
-    , t ~ Ether.IdentityT
+    , t ~ IdentityT
     , Ether.MonadReader' WS.WalletState m
     ) => MonadTxHistory (Ether.TaggedTrans TxHistoryWalletRedirectTag t m)
   where
@@ -149,13 +150,13 @@ downloadHeader = do
 data BlockchainInfoNotImplementedTag
 
 type BlockchainInfoNotImplemented =
-    Ether.TaggedTrans BlockchainInfoNotImplementedTag Ether.IdentityT
+    Ether.TaggedTrans BlockchainInfoNotImplementedTag IdentityT
 
 runBlockchainInfoNotImplemented :: BlockchainInfoNotImplemented m a -> m a
 runBlockchainInfoNotImplemented = coerce
 
 instance
-    (t ~ Ether.IdentityT, Monad m) =>
+    (t ~ IdentityT, Monad m) =>
         MonadBlockchainInfo (Ether.TaggedTrans BlockchainInfoNotImplementedTag t m)
   where
     networkChainDifficulty = error "notImplemented"
@@ -167,7 +168,7 @@ instance
 data BlockchainInfoRedirectTag
 
 type BlockchainInfoRedirect =
-    Ether.TaggedTrans BlockchainInfoRedirectTag Ether.IdentityT
+    Ether.TaggedTrans BlockchainInfoRedirectTag IdentityT
 
 runBlockchainInfoRedirect :: BlockchainInfoRedirect m a -> m a
 runBlockchainInfoRedirect = coerce
@@ -181,7 +182,7 @@ getLastKnownHeader =
 -- | Instance for full-node's ContextHolder
 instance
     ( SscHelpersClass ssc
-    , t ~ Ether.IdentityT
+    , t ~ IdentityT
     , PC.MonadLastKnownHeader ssc m
     , PC.MonadProgressHeader ssc m
     , Ether.MonadReader' PC.ConnectedPeers m
@@ -234,13 +235,13 @@ instance {-# OVERLAPPABLE #-}
 data UpdatesNotImplementedTag
 
 type UpdatesNotImplemented =
-    Ether.TaggedTrans UpdatesNotImplementedTag Ether.IdentityT
+    Ether.TaggedTrans UpdatesNotImplementedTag IdentityT
 
 runUpdatesNotImplemented :: UpdatesNotImplemented m a -> m a
 runUpdatesNotImplemented = coerce
 
 instance
-    ( t ~ Ether.IdentityT
+    ( t ~ IdentityT
     , MonadIO m
     ) => MonadUpdates (Ether.TaggedTrans UpdatesNotImplementedTag t m)
   where
@@ -249,7 +250,7 @@ instance
 
 data UpdatesRedirectTag
 
-type UpdatesRedirect = Ether.TaggedTrans UpdatesRedirectTag Ether.IdentityT
+type UpdatesRedirect = Ether.TaggedTrans UpdatesRedirectTag IdentityT
 
 runUpdatesRedirect :: UpdatesRedirect m a -> m a
 runUpdatesRedirect = coerce
@@ -258,7 +259,7 @@ runUpdatesRedirect = coerce
 instance
     ( MonadIO m
     , WithLogger m
-    , t ~ Ether.IdentityT
+    , t ~ IdentityT
     , MonadShutdownMem m
     , Ether.MonadReader' UpdateContext m
     ) => MonadUpdates (Ether.TaggedTrans UpdatesRedirectTag t m)

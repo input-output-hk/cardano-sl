@@ -15,31 +15,32 @@ module Pos.Slotting.Ntp
        , runSlotsRedirect
        ) where
 
-import qualified Control.Concurrent.STM      as STM
-import           Control.Lens                (makeLenses)
-import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Data.Coerce                 (coerce)
-import           Data.List                   ((!!))
-import           Data.Time.Units             (Microsecond, convertUnit)
+import qualified Control.Concurrent.STM       as STM
+import           Control.Lens                 (makeLenses)
+import           Control.Monad.Trans.Control  (MonadBaseControl)
+import           Control.Monad.Trans.Identity (IdentityT (..))
+import           Data.Coerce                  (coerce)
+import           Data.List                    ((!!))
+import           Data.Time.Units              (Microsecond, convertUnit)
 import qualified Ether
-import           Formatting                  (int, sformat, shown, stext, (%))
-import           Mockable                    (Catch, CurrentTime, Delay, Fork, Mockables,
-                                              Throw, currentTime, delay)
-import           NTP.Client                  (NtpClientSettings (..), ntpSingleShot,
-                                              startNtpClient)
-import           NTP.Example                 ()
-import           Serokell.Util               (sec)
-import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
+import           Formatting                   (int, sformat, shown, stext, (%))
+import           Mockable                     (Catch, CurrentTime, Delay, Fork, Mockables,
+                                               Throw, currentTime, delay)
+import           NTP.Client                   (NtpClientSettings (..), ntpSingleShot,
+                                               startNtpClient)
+import           NTP.Example                  ()
+import           Serokell.Util                (sec)
+import           System.Wlog                  (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
-import qualified Pos.Core.Constants          as C
-import           Pos.Core.Slotting           (flattenEpochIndex, unflattenSlotId)
-import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..))
+import qualified Pos.Core.Constants           as C
+import           Pos.Core.Slotting            (flattenEpochIndex, unflattenSlotId)
+import           Pos.Core.Types               (EpochIndex, SlotId (..), Timestamp (..))
 
-import           Pos.Slotting.Class          (MonadSlots (..))
-import qualified Pos.Slotting.Constants      as C
-import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
-import           Pos.Slotting.Types          (EpochSlottingData (..), SlottingData (..))
+import           Pos.Slotting.Class           (MonadSlots (..))
+import qualified Pos.Slotting.Constants       as C
+import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
+import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData (..))
 ----------------------------------------------------------------------------
 -- State
 ----------------------------------------------------------------------------
@@ -97,13 +98,13 @@ type SlottingConstraint m =
 data SlotsRedirectTag
 
 type SlotsRedirect =
-    Ether.TaggedTrans SlotsRedirectTag Ether.IdentityT
+    Ether.TaggedTrans SlotsRedirectTag IdentityT
 
 runSlotsRedirect :: SlotsRedirect m a -> m a
 runSlotsRedirect = coerce
 
 instance
-    (MonadNtpSlotting m, SlottingConstraint m, MonadIO m, t ~ Ether.IdentityT) =>
+    (MonadNtpSlotting m, SlottingConstraint m, MonadIO m, t ~ IdentityT) =>
          MonadSlots (Ether.TaggedTrans SlotsRedirectTag t m)
   where
     getCurrentSlot =

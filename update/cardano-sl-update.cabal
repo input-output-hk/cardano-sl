@@ -64,6 +64,7 @@ library
                      , text-format
                      , th-lift-instances
                      , time-units
+                     , transformers
                      , universum
                      , unordered-containers
 

@@ -22,9 +22,9 @@ module Pos.Txp.MemState.Class
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
+import           Data.Default           (Default (def))
 import qualified Data.HashMap.Strict    as HM
 import qualified Ether
-import           Data.Default       (Default(def))
 
 import           Pos.Txp.Core.Types     (TxAux, TxId, TxOutAux)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),

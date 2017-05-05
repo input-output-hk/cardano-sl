@@ -46,7 +46,7 @@ setTimeOfBlock time block =
     set (_CBlockEntry <<< cbeTimeIssued) (Just time) block
 
 -- | Update slot / epoch of a slot
-setSlotEpochOfBlock :: Int -> Int -> CBlockEntry -> CBlockEntry
-setSlotEpochOfBlock slot epoch block =
-    set (_CBlockEntry <<< cbeSlot) slot $
-    set (_CBlockEntry <<< cbeEpoch) epoch block
+setEpochSlotOfBlock :: Int -> Int -> CBlockEntry -> CBlockEntry
+setEpochSlotOfBlock epoch slot block =
+    set (_CBlockEntry <<< cbeEpoch) epoch $
+    set (_CBlockEntry <<< cbeSlot) slot block

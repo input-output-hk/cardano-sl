@@ -29,7 +29,7 @@ import Explorer.Types.State (CBlockEntriesOffset, Search(..), SocketSubscription
 import Explorer.Util.DOM (targetToHTMLElement, targetToHTMLInputElement)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
-import Explorer.Util.Data (sortBlocksByTime)
+import Explorer.Util.Data (sortBlocksByEpochSlot)
 import Explorer.View.Blocks (maxBlockRows)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Network.HTTP.Affjax (AJAX)
@@ -75,7 +75,7 @@ update (SocketBlocksUpdated (Right blocks)) state =
     else state
     where
         previousBlocks = withDefault [] $ state ^. latestBlocks
-        newBlocks = sortBlocksByTime $ blocks <> previousBlocks
+        newBlocks = sortBlocksByEpochSlot $ blocks <> previousBlocks
         numberNewBlocks = (length newBlocks) - (length previousBlocks)
 
 update (SocketBlocksUpdated (Left error)) state = noEffects $
@@ -398,7 +398,7 @@ update (ReceiveInitialBlocks (Right blocks)) state =
     { state:
           set loading false <<<
           -- add blocks
-          set latestBlocks (Success $ sortBlocksByTime blocks) $
+          set latestBlocks (Success $ sortBlocksByEpochSlot blocks) $
           -- at this point we are ready to pull block updates
           set pullLatestBlocks true state
     , effects:
@@ -434,7 +434,7 @@ update (ReceiveBlocksUpdate (Right blocks)) state =
         --        As a workaround we do have to compare CBlockEntry by its hash
         unionBlocks = unionBy (\b1 b2 -> getHash b1 == getHash b2)
         previousBlocks = withDefault [] $ state ^. latestBlocks
-        newBlocks = sortBlocksByTime $ unionBlocks blocks previousBlocks
+        newBlocks = sortBlocksByEpochSlot $ unionBlocks blocks previousBlocks
         numberNewBlocks = (length newBlocks) - (length previousBlocks)
 
 update (ReceiveBlocksUpdate (Left error)) state =
@@ -456,7 +456,7 @@ update (ReceivePaginatedBlocks (Right blocks)) state =
     set latestBlocks (Success newBlocks) state
     where
         previousBlocks = withDefault [] $ state ^. latestBlocks
-        newBlocks = sortBlocksByTime $ previousBlocks <> blocks
+        newBlocks = sortBlocksByEpochSlot $ previousBlocks <> blocks
 
 update (ReceivePaginatedBlocks (Left error)) state =
     noEffects $

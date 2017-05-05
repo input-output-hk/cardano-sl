@@ -2,12 +2,13 @@ module Explorer.Util.Data where
 
 import Prelude
 import Data.Array (reverse, sortBy)
-import Data.Lens ((^.), set)
-import Data.Maybe (Maybe(..), fromMaybe)
-import Data.Time.NominalDiffTime (NominalDiffTime, mkTime, unwrapSeconds)
+import Data.Lens ((^.))
+import Data.Maybe (fromMaybe)
+import Data.Time.NominalDiffTime (mkTime, unwrapSeconds)
+import Explorer.State (maxSlotInEpoch)
 import Explorer.Types.State (CBlockEntries)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, cbeEpoch, cbeSlot, cbeTimeIssued)
+import Pos.Explorer.Web.Lenses.ClientTypes (cbeEpoch, cbeSlot, cbeTimeIssued)
 
 -- | Sort a list of CBlockEntry by time in an ascending (up) order
 sortBlocksByTime :: CBlockEntries -> CBlockEntries
@@ -31,4 +32,4 @@ sortBlocksByEpochSlot blocks =
     where
         epochsAndSlots :: CBlockEntry -> Int
         epochsAndSlots (CBlockEntry entry) =
-            (entry ^. cbeEpoch) + (entry ^. cbeSlot)
+            ((entry ^. cbeEpoch) * maxSlotInEpoch) + (entry ^. cbeSlot)

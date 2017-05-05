@@ -6,8 +6,8 @@ import Control.Monad.State (StateT)
 import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Time.NominalDiffTime (mkTime)
-import Explorer.Test.MockFactory (mkCBlockEntry, setTimeOfBlock)
-import Explorer.Util.Data (sortBlocksByTime, sortBlocksByTime')
+import Explorer.Test.MockFactory (mkCBlockEntry, setEpochSlotOfBlock, setTimeOfBlock)
+import Explorer.Util.Data (sortBlocksByEpochSlot, sortBlocksByTime, sortBlocksByTime')
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -48,3 +48,22 @@ testDataUtil =
                         , blockA
                         ]
                 in (gShow $ sortBlocksByTime' list) `shouldEqual` (gShow expected)
+        describe "sortBlocksByEpochSlot" do
+            let blockA = setEpochSlotOfBlock 0 1 mkCBlockEntry
+                blockB = setEpochSlotOfBlock 0 2 mkCBlockEntry
+                blockC = setEpochSlotOfBlock 1 2 mkCBlockEntry
+                blockD = setEpochSlotOfBlock 2 0 mkCBlockEntry
+            it "sort ascending (default)"
+                let list =
+                        [ blockD
+                        , blockA
+                        , blockC
+                        , blockB
+                        ]
+                    expected =
+                        [ blockA
+                        , blockB
+                        , blockC
+                        , blockD
+                        ]
+                in (gShow $ sortBlocksByEpochSlot list) `shouldEqual` (gShow expected)

@@ -9,7 +9,7 @@ import Control.SocketIO.Client (SocketIO, emit, emit')
 import DOM (DOM)
 import DOM.HTML.HTMLElement (blur)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array (difference, length, unionBy, (:))
+import Data.Array (difference, length, null, unionBy, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Int (fromString)
@@ -21,7 +21,7 @@ import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs,
 import Explorer.Api.Socket (toEvent)
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, pullLatestBlocks, route, socket, subscriptions, totalBlocks, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, pullLatestBlocks, route, socket, subscriptions, totalBlocks, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
@@ -68,11 +68,9 @@ update (SocketConnected connected') state =
 
 update (SocketBlocksUpdated (Right blocks)) state =
     noEffects $
-    if isSuccess $ state ^. latestBlocks
     -- add incoming blocks ahead of previous blocks
-    then  set latestBlocks (Success newBlocks) $
-          over (totalBlocks <<< _Success) ((+) numberNewBlocks) state
-    else state
+    set latestBlocks (Success newBlocks) $
+    over (totalBlocks <<< _Success) ((+) numberNewBlocks) state
     where
         previousBlocks = withDefault [] $ state ^. latestBlocks
         newBlocks = sortBlocksByEpochSlot' $ blocks <> previousBlocks
@@ -367,7 +365,7 @@ update NoOp state = noEffects state
 
 update RequestTotalBlocks state =
     { state:
-          set totalBlocks Loading $ state
+          set totalBlocks Loading state
     , effects:
           [ attempt fetchTotalBlocks >>= pure <<< ReceiveTotalBlocks
           ]
@@ -375,7 +373,7 @@ update RequestTotalBlocks state =
 
 update (ReceiveTotalBlocks (Right total)) state =
     { state:
-          set totalBlocks (Success total) $ state
+          set totalBlocks (Success total) state
     , effects:
         -- request `latestBlocks` if needed only
         if isNotAsked $ state ^. latestBlocks
@@ -389,7 +387,10 @@ update (ReceiveTotalBlocks (Left error)) state =
     $ over errors (\errors' -> (show error) : errors') state
 
 update RequestInitialBlocks state =
-    { state: set loading true $ state
+    { state:
+          set loading true $
+          set latestBlocks Loading
+          state
     , effects: [ attempt (fetchLatestBlocks maxBlockRows 0) >>= pure <<< ReceiveInitialBlocks ]
     }
 
@@ -417,7 +418,12 @@ update (ReceiveInitialBlocks (Left error)) state =
 -- Pulling blocks is just a workaround to avoid issues w/ socket-io
 -- TODO (jk) Remove this workaround if socket-io is back
 update RequestBlocksUpdate state =
-    { state: set loading true $ state
+    { state:
+          set loading true $
+          -- Important note: Don't use `set latestBlocks Loading` here,
+          -- we will empty `latestBlocks` in this case !!!
+          -- set latestBlocks Loading
+          state
     , effects: [ attempt (fetchLatestBlocks 10 0) >>= pure <<< ReceiveBlocksUpdate ]
     }
 
@@ -425,11 +431,12 @@ update (ReceiveBlocksUpdate (Right blocks)) state =
     noEffects $
     set loading false <<<
     set latestBlocks (Success newBlocks) $
-    set totalBlocks (Success $ length newBlocks) state
+    set totalBlocks (Success newTotalBlocks) state
     where
         previousBlocks = withDefault [] $ state ^. latestBlocks
         newBlocks = sortBlocksByEpochSlot' $ unionBlocks blocks previousBlocks
         previousTotalBlocks = withDefault 0 $ state ^. totalBlocks
+        newTotalBlocks = (length newBlocks) - (length previousBlocks) + previousTotalBlocks
 
 update (ReceiveBlocksUpdate (Left error)) state =
     noEffects $
@@ -440,7 +447,13 @@ update (ReceiveBlocksUpdate (Left error)) state =
 -- END #Pulling blocks
 
 update (RequestPaginatedBlocks limit offset) state =
-    { state: set loading true $ state
+    { state:
+          set loading true $
+          -- Important note: Don't use `set latestBlocks Loading` here,
+          -- we will empty `latestBlocks` in this case !!!
+          -- set latestBlocks Loading
+          set (dashboardViewState <<< dbViewLoadingBlockPagination) true
+          state
     , effects: [ attempt (fetchLatestBlocks limit offset) >>= pure <<< ReceivePaginatedBlocks ]
     }
 
@@ -448,6 +461,7 @@ update (ReceivePaginatedBlocks (Right blocks)) state =
     noEffects $
     set loading false $
     set (dashboardViewState <<< dbViewBlockPagination) (state ^. (dashboardViewState <<< dbViewNextBlockPagination)) $
+    set (dashboardViewState <<< dbViewLoadingBlockPagination) false $
     set latestBlocks (Success newBlocks) state
     where
         previousBlocks = withDefault [] $ state ^. latestBlocks
@@ -456,6 +470,7 @@ update (ReceivePaginatedBlocks (Right blocks)) state =
 update (ReceivePaginatedBlocks (Left error)) state =
     noEffects $
     set loading false <<<
+    set (dashboardViewState <<< dbViewLoadingBlockPagination) false $
     set latestBlocks (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
@@ -508,7 +523,10 @@ update (ReceiveBlockTxs (Left error)) state =
     set currentBlockTxs Nothing $
     over errors (\errors' -> (show error) : errors') state
 update RequestInitialTxs state =
-    { state: set loading true state
+    { state:
+          set loading true $
+          set latestTransactions Loading
+          state
     , effects: [ attempt fetchLatestTxs >>= pure <<< ReceiveInitialTxs ]
     }
 update (ReceiveInitialTxs (Right txs)) state =
@@ -540,7 +558,10 @@ update (ReceiveInitialTxs (Left error)) state = noEffects $
     over errors (\errors' -> (show error) : errors') state
 
 update (RequestTxSummary id) state =
-    { state: set loading true state
+    { state:
+          set loading true $
+          set currentTxSummary Loading
+          state
     , effects: [ attempt (fetchTxSummary id) >>= pure <<< ReceiveTxSummary ]
     }
 update (ReceiveTxSummary (Right tx)) state =
@@ -554,7 +575,10 @@ update (ReceiveTxSummary (Left error)) state =
     over errors (\errors' -> (show error) : errors') state
 
 update (RequestAddressSummary address) state =
-    { state: set loading true state
+    { state:
+          set loading true $
+          set currentAddressSummary Loading
+          state
     , effects: [ attempt (fetchAddressSummary address) >>= pure <<< ReceiveAddressSummary ]
     }
 update (ReceiveAddressSummary (Right address)) state =
@@ -611,7 +635,7 @@ routeEffects Dashboard state =
             then [ pure RequestBlocksUpdate ]
             else []
         -- subscribe to `SubBlock` if `latestBlocks` has been loaded before
-        <>  if isSuccess $ state ^. latestBlocks
+        <>  if not null <<< withDefault [] $ state ^. latestBlocks
             then [ pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock ] ]
             else []
         -- subscribe to `SubTx` if `latestTransactions` has been loaded before
@@ -622,7 +646,6 @@ routeEffects Dashboard state =
 
 routeEffects (Tx tx) state =
     { state:
-        set currentTxSummary Loading $
         set (viewStates <<< globalViewState <<< gViewTitle)
             (translate (I18nL.common <<< I18nL.cTransaction) $ state ^. lang)
             state
@@ -635,7 +658,6 @@ routeEffects (Tx tx) state =
 
 routeEffects (Address cAddress) state =
     { state:
-        set currentAddressSummary Loading $
         set currentCAddress cAddress $
         set (viewStates <<< addressDetail <<< addressTxPagination) minPagination $
         set (viewStates <<< globalViewState <<< gViewTitle)

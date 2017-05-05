@@ -37,6 +37,7 @@ initialState =
             { dbViewBlocksExpanded: false
             , dbViewBlockPagination: minPagination
             , dbViewNextBlockPagination: minPagination
+            , dbViewLoadingBlockPagination: false
             , dbViewBlockPaginationEditable: false
             , dbViewTxsExpanded: false
             , dbViewSelectedApiCode: Curl

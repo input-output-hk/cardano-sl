@@ -96,6 +96,7 @@ type DashboardViewState =
     { dbViewBlocksExpanded :: Boolean
     , dbViewBlockPagination :: Int
     , dbViewNextBlockPagination :: Int
+    , dbViewLoadingBlockPagination :: Boolean
     , dbViewBlockPaginationEditable :: Boolean
     , dbViewTxsExpanded :: Boolean
     , dbViewSelectedApiCode :: DashboardAPICode

@@ -788,8 +788,8 @@ createMainBlock sId pSk =
 canCreateBlock :: SlotId -> BlockHeader ssc -> Maybe Text
 canCreateBlock sId tipHeader
     | sId > maxSlotId = Just "slot id is too big, we don't know recent block"
-    | (EpochOrSlot $ Right sId) < headSlot =
-        Just "slot id is not bigger than one from last known block"
+    | (EpochOrSlot $ Right sId) <= headSlot =
+        Just "slot id is not greater than one from the tip block"
     | otherwise = Nothing
   where
     headSlot = getEpochOrSlot tipHeader

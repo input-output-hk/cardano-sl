@@ -80,6 +80,7 @@ import           Data.Binary.Put             (PutM, putByteString, putCharUtf8,
                                               putLazyByteString, putWord8, runPut,
                                               runPutM)
 import qualified Data.ByteString             as BS
+import qualified Data.ByteString.Internal    as BS.Internal
 import           Data.Char                   (isAscii)
 import qualified Data.ByteString.Lazy        as BSL
 import           Data.Hashable               (Hashable (..))
@@ -727,6 +728,24 @@ isolate64 n0 act
     go n (resume $! n0 - n - r)
 
 ----------------------------------------------------------------------------
+-- Better BS.append
+----------------------------------------------------------------------------
+
+nonCopyingAppend :: ByteString -> ByteString -> ByteString
+nonCopyingAppend (BS.Internal.PS _ _ 0) b = b
+nonCopyingAppend a (BS.Internal.PS _ _ 0) = a
+nonCopyingAppend a@(BS.Internal.PS fp1 off1 len1)
+                 b@(BS.Internal.PS fp2 off2 len2)
+    | fp1 == fp2 && off1 + len1 == off2 = BS.Internal.PS fp1 off1 (len1+len2)
+    | otherwise                         = copyingAppend a b
+{-# INLINE nonCopyingAppend #-}
+
+-- Wrapper just for profiling purposes, so that we get an explicit name in profiles.
+copyingAppend :: ByteString -> ByteString -> ByteString
+copyingAppend a b = a <> b
+{-# INLINE copyingAppend #-}
+
+----------------------------------------------------------------------------
 -- Guts of 'binary'
 ----------------------------------------------------------------------------
 
@@ -734,7 +753,7 @@ isolate64 n0 act
 -- do and then I'll submit some pull requests to 'binary' and hopefully all
 -- of this won't be needed. –@neongreen
 pushFront :: ByteString -> Get ()
-pushFront bs = unsafeCoerce (OurC (\ inp ks -> ks (BS.append bs inp) ()))
+pushFront bs = when (not $ BS.null bs) $ unsafeCoerce (OurC (\inp ks -> let !x = nonCopyingAppend bs inp in ks x ()))
 {-# INLINE pushFront #-}
 
 -- This ***has*** to correspond to the implementation of 'Get' in 'binary'
@@ -748,7 +767,7 @@ type OurSuccess a r = ByteString -> a -> Decoder r
 
 -- More functions from 'binary'.
 prompt :: ByteString -> Decoder a -> (ByteString -> Decoder a) -> Decoder a
-prompt inp kf ks = prompt' kf (\inp' -> ks (inp `BS.append` inp'))
+prompt inp kf ks = prompt' kf (\inp' -> ks $! inp `nonCopyingAppend` inp')
 
 -- And more.
 prompt' :: Decoder a -> (ByteString -> Decoder a) -> Decoder a

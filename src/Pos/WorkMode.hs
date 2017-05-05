@@ -27,10 +27,10 @@ import           System.Wlog                  (LoggerNameBox (..))
 import           Pos.Client.Txp.Balances      (BalancesRedirect)
 import           Pos.Client.Txp.History       (TxHistoryRedirect)
 import           Pos.Communication.PeerState  (PeerStateHolder)
-import           Pos.Context                  (ContextHolder)
+import           Pos.Context                  (NodeContext)
 import           Pos.DB                       (NodeDBs)
 import           Pos.DB.DB                    (DbCoreRedirect)
-import           Pos.Delegation.Holder        (DelegationT)
+import           Pos.Delegation.Class         (DelegationWrap)
 import           Pos.Discovery.Holders        (DiscoveryConstT, DiscoveryKademliaT)
 import           Pos.Slotting.MemState        (SlottingVar)
 import           Pos.Slotting.MemState.Holder (SlotsDataRedirect)
@@ -56,7 +56,6 @@ type RawRealMode ssc =
     DbCoreRedirect (
     DbLimitsRedirect (
     PeerStateHolder (
-    DelegationT (
     TxHistoryRedirect (
     BalancesRedirect (
     SlotsRedirect (
@@ -67,10 +66,11 @@ type RawRealMode ssc =
       , Tagged (Bool, NtpSlottingVar) (Bool, NtpSlottingVar)
       , Tagged SscMemTag (SscState ssc)
       , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
+      , Tagged (TVar DelegationWrap) (TVar DelegationWrap)
       ) (
-    ContextHolder ssc (
+    Ether.ReadersT (NodeContext ssc) (
     LoggerNameBox Production
-    )))))))))))))
+    ))))))))))))
 
 -- | RawRealMode + kademlia. Used in wallet too.
 type RawRealModeK ssc = DiscoveryKademliaT (RawRealMode ssc)

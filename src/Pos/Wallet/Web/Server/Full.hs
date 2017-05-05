@@ -36,7 +36,6 @@ import           Pos.Crypto                    (noPassEncrypt)
 import           Pos.DB                        (NodeDBs, getNodeDBs)
 import           Pos.DB.DB                     (runDbCoreRedirect)
 import           Pos.Delegation.Class          (DelegationWrap, askDelegationState)
-import           Pos.Delegation.Holder         (runDelegationTFromTVar)
 import           Pos.DHT.Real                  (KademliaDHTInstance)
 import           Pos.Discovery                 (askDHTInstance, runDiscoveryKademliaT)
 import           Pos.Genesis                   (genesisDevSecretKeys)
@@ -124,12 +123,12 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
                  , Tagged @(Bool, NtpSlottingVar) ntpSlotVar
                  , Tagged @SscMemTag ssc
                  , Tagged @TxpHolderTag tlw
+                 , Tagged @(TVar DelegationWrap) delWrap
                  )
            . runSlotsDataRedirect
            . runSlotsRedirect
            . runBalancesRedirect
            . runTxHistoryRedirect
-           . runDelegationTFromTVar delWrap
            . (\m -> flip runPeerStateHolder m =<< peerStateFromSnapshot psCtx)
            . runDbLimitsRedirect
            . runDbCoreRedirect

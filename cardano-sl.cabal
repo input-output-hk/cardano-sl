@@ -172,7 +172,6 @@ library
                         -- Heavy delegation
                         Pos.Delegation.Class
                         Pos.Delegation.DB
-                        Pos.Delegation.Holder
                         Pos.Delegation.Listeners
                         Pos.Delegation.Logic
                         Pos.Delegation.Lrc

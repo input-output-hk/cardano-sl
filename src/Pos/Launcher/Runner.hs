@@ -69,7 +69,7 @@ import           Pos.DB.DB                    (initNodeDBs, openNodeDBs)
 import           Pos.DB.DB                    (runDbCoreRedirect)
 import           Pos.DB.GState                (getTip)
 import           Pos.DB.Misc                  (addProxySecretKey)
-import           Pos.Delegation.Holder        (runDelegationT)
+import           Pos.Delegation.Class         (DelegationWrap)
 import           Pos.DHT.Real                 (KademliaDHTInstance,
                                                KademliaDHTInstanceConfig (..),
                                                KademliaParams (..), startDHTInstance,
@@ -147,27 +147,30 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
 
        -- TODO [CSL-775] need an effect-free way of running this into IO.
        let runIO :: forall t . RawRealMode ssc t -> IO t
-           runIO = runProduction .
-                   usingLoggerName lpRunnerTag .
-                   runCH @ssc allWorkersNum np initNC modernDBs .
-                   flip Ether.runReadersT
-                      ( Tagged @NodeDBs modernDBs
-                      , Tagged @SlottingVar slottingVar
-                      , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
-                      , Tagged @SscMemTag bottomSscState
-                      , Tagged @TxpHolderTag txpVar
-                      ) .
-                   runSlotsDataRedirect .
-                   runSlotsRedirect .
-                   runBalancesRedirect .
-                   runTxHistoryRedirect .
-                   runDelegationT def .
-                   runPeerStateHolder stateM_ .
-                   runDbLimitsRedirect .
-                   runDbCoreRedirect .
-                   runKeyStorageRedirect .
-                   runUpdatesRedirect .
-                   runBlockchainInfoRedirect
+           runIO act = do
+              deleg <- newTVarIO def
+              runProduction .
+                  usingLoggerName lpRunnerTag .
+                  runCH @ssc allWorkersNum np initNC modernDBs .
+                  flip Ether.runReadersT
+                     ( Tagged @NodeDBs modernDBs
+                     , Tagged @SlottingVar slottingVar
+                     , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
+                     , Tagged @SscMemTag bottomSscState
+                     , Tagged @TxpHolderTag txpVar
+                     , Tagged @(TVar DelegationWrap) deleg
+                     ) .
+                  runSlotsDataRedirect .
+                  runSlotsRedirect .
+                  runBalancesRedirect .
+                  runTxHistoryRedirect .
+                  runPeerStateHolder stateM_ .
+                  runDbLimitsRedirect .
+                  runDbCoreRedirect .
+                  runKeyStorageRedirect .
+                  runUpdatesRedirect .
+                  runBlockchainInfoRedirect $
+                  act
 
        let startMonitoring node' = case lpEkgPort of
                Nothing   -> return Nothing
@@ -176,7 +179,6 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
        let stopMonitoring it = whenJust it stopMonitor
 
        sscState <-
-          -- TODO: Remove this via 'mfix' or something.
           runCH @ssc allWorkersNum np initNC modernDBs .
           flip Ether.runReadersT
               ( Tagged @NodeDBs modernDBs
@@ -186,6 +188,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
           runSlotsDataRedirect .
           runSlotsRedirect $
           mkSscState @ssc
+       deleg <- newTVarIO def
        runCH allWorkersNum np initNC modernDBs .
           flip Ether.runReadersT
               ( Tagged @NodeDBs modernDBs
@@ -193,12 +196,12 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
               , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
               , Tagged @SscMemTag sscState
               , Tagged @TxpHolderTag txpVar
+              , Tagged @(TVar DelegationWrap) deleg
               ) .
           runSlotsDataRedirect .
           runSlotsRedirect .
           runBalancesRedirect .
           runTxHistoryRedirect .
-          runDelegationT def .
           runPeerStateHolder stateM .
           runDbLimitsRedirect .
           runDbCoreRedirect .

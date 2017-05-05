@@ -31,9 +31,9 @@ import           Servant.Server                       (Handler, ServantErr (errB
 import           Servant.Utils.Enter                  ((:~>) (NT), enter)
 
 import           Pos.Aeson.Types                      ()
-import           Pos.Context                          (ContextHolder, NodeContext,
+import           Pos.Context                          (NodeContext,
                                                        getNodeContext, ncPublicKey,
-                                                       ncSscContext, runContextHolder)
+                                                       ncSscContext)
 import qualified Pos.DB                               as DB
 import qualified Pos.DB.GState                        as GS
 import qualified Pos.Lrc.DB                           as LrcDB
@@ -89,7 +89,7 @@ type WebHandler ssc =
       ( Tagged DB.NodeDBs DB.NodeDBs
       , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
       ) (
-    ContextHolder ssc Production
+    Ether.ReadersT (NodeContext ssc) Production
     )
 
 convertHandler
@@ -101,7 +101,7 @@ convertHandler
     -> Handler a
 convertHandler nc nodeDBs wrap handler =
     liftIO (runProduction .
-            runContextHolder nc .
+            flip Ether.runReadersT nc .
             flip Ether.runReadersT
               ( Tagged @DB.NodeDBs nodeDBs
               , Tagged @TxpHolderTag wrap

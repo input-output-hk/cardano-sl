@@ -30,8 +30,7 @@ import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState
                                                 runPeerStateHolder)
 import           Pos.Communication.Protocol    (SendActions)
 import           Pos.Constants                 (isDevelopment)
-import           Pos.Context                   (NodeContext, getNodeContext,
-                                                runContextHolder)
+import           Pos.Context                   (NodeContext, getNodeContext)
 import           Pos.Crypto                    (noPassEncrypt)
 import           Pos.DB                        (NodeDBs, getNodeDBs)
 import           Pos.DB.DB                     (runDbCoreRedirect)
@@ -116,7 +115,7 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
                conn slotVar ntpSlotVar kinst handler = do
     liftIO ( runProduction
            . usingLoggerName "wallet-api"
-           . runContextHolder nc
+           . flip Ether.runReadersT nc
            . flip Ether.runReadersT
                  ( Tagged @NodeDBs modernDBs
                  , Tagged @SlottingVar slotVar

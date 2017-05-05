@@ -60,8 +60,7 @@ import           Pos.Communication            (ActionSpec (..), BiP (..), InSpec
                                                hoistListenerSpec, unpackLSpecs)
 import           Pos.Communication.PeerState  (runPeerStateHolder)
 import qualified Pos.Constants                as Const
-import           Pos.Context                  (ContextHolder, NodeContext (..),
-                                               runContextHolder)
+import           Pos.Context                  (NodeContext (..))
 import           Pos.Core                     (Timestamp ())
 import           Pos.Crypto                   (createProxySecretKey, encToPublic)
 import           Pos.DB                       (MonadDB, NodeDBs)
@@ -369,7 +368,7 @@ runCH
     -> NodeParams
     -> SscNodeContext ssc
     -> NodeDBs
-    -> ContextHolder ssc m a
+    -> Ether.ReadersT (NodeContext ssc) m a
     -> m a
 runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
@@ -420,7 +419,7 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
             , ncTxpGlobalSettings = txpGlobalSettings
 #endif
             , .. }
-    runContextHolder ctx act
+    Ether.runReadersT act ctx
 
 ----------------------------------------------------------------------------
 -- Utilities

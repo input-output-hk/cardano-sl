@@ -61,13 +61,13 @@ type RawRealMode ssc =
     SlotsRedirect (
     SlotsDataRedirect (
     Ether.ReadersT
-      ( Tagged NodeDBs NodeDBs
-      , Tagged SlottingVar SlottingVar
-      , Tagged (Bool, NtpSlottingVar) (Bool, NtpSlottingVar)
-      , Tagged SscMemTag (SscState ssc)
-      , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
-      , Tagged (TVar DelegationWrap) (TVar DelegationWrap)
-      ) (
+        ( Tagged NodeDBs NodeDBs
+        , Tagged SlottingVar SlottingVar
+        , Tagged (Bool, NtpSlottingVar) (Bool, NtpSlottingVar)
+        , Tagged SscMemTag (SscState ssc)
+        , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
+        , Tagged (TVar DelegationWrap) (TVar DelegationWrap)
+        ) (
     Ether.ReadersT (NodeContext ssc) (
     LoggerNameBox Production
     ))))))))))))

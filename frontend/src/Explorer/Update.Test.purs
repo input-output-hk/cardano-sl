@@ -160,13 +160,13 @@ testUpdate =
 
             it "if we want to go from page 1 to 2"
                 let state = set (dashboardViewState <<< dbViewBlockPagination) 1 initialState'
-                    result = limitPaginateBlocksRequest state 2 10 10
-                in result `shouldEqual` 18
+                    result = limitPaginateBlocksRequest state 2 10 2
+                in result `shouldEqual` 10
 
             it "if we want to jump from page 1 to 30"
                 let state = set (dashboardViewState <<< dbViewBlockPagination) 1 initialState'
-                    result = limitPaginateBlocksRequest state 30 10 10
-                in result `shouldEqual` 298
+                    result = limitPaginateBlocksRequest state 30 10 2
+                in result `shouldEqual` 290
 
         describe "offsetPaginateBlocksRequest" do
             let -- add 12 blocks

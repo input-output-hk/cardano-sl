@@ -95,6 +95,7 @@ type GlobalViewState =
 type DashboardViewState =
     { dbViewBlocksExpanded :: Boolean
     , dbViewBlockPagination :: Int
+    , dbViewNextBlockPagination :: Int
     , dbViewBlockPaginationEditable :: Boolean
     , dbViewTxsExpanded :: Boolean
     , dbViewSelectedApiCode :: DashboardAPICode

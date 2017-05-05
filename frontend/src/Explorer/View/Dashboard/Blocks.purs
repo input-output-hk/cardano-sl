@@ -36,6 +36,7 @@ dashBoardBlocksView state =
                       P.div
                           []
                           [ blocksHeaderView blocks lang'
+                          -- TODO (add empty area behind to avoid flickering)
                           , P.div
                               [ P.className CSS.blocksBody ]
                               $ map (blockRow state) (currentBlocks state)

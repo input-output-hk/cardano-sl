@@ -21,7 +21,7 @@ import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs,
 import Explorer.Api.Socket (toEvent)
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, pullLatestBlocks, route, socket, subscriptions, totalBlocks, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, pullLatestBlocks, route, socket, subscriptions, totalBlocks, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
@@ -158,7 +158,9 @@ update (DashboardExpandTransactions expanded) state = noEffects $
 
 update (DashboardPaginateBlocks newPage) state =
     { state:
-          set (dashboardViewState <<< dbViewBlockPagination) newPage state
+          if doRequest
+          then set (dashboardViewState <<< dbViewNextBlockPagination) newPage state
+          else set (dashboardViewState <<< dbViewBlockPagination) newPage state
     , effects:
           if doRequest
           then [ pure $ RequestPaginatedBlocks limit offset ]
@@ -166,8 +168,9 @@ update (DashboardPaginateBlocks newPage) state =
     }
     where
         doRequest = doPaginateBlocksRequest state newPage maxBlockRows
-        limit = limitPaginateBlocksRequest state newPage maxBlockRows 10
-        offset = offsetPaginateBlocksRequest state 10
+        buffer = maxBlockRows
+        limit = limitPaginateBlocksRequest state newPage maxBlockRows buffer
+        offset = offsetPaginateBlocksRequest state buffer
 
 update (DashboardEditBlocksPageNumber target editable) state =
     { state:
@@ -444,6 +447,7 @@ update (RequestPaginatedBlocks limit offset) state =
 update (ReceivePaginatedBlocks (Right blocks)) state =
     noEffects $
     set loading false $
+    set (dashboardViewState <<< dbViewBlockPagination) (state ^. (dashboardViewState <<< dbViewNextBlockPagination)) $
     set latestBlocks (Success newBlocks) state
     where
         previousBlocks = withDefault [] $ state ^. latestBlocks

@@ -113,6 +113,7 @@ function node_cmd {
   local peer_id=$8
   local st=''
   local reb=''
+  local no_ntp=''
   local ssc_algo=''
   local web=''
 
@@ -129,6 +130,9 @@ function node_cmd {
   if [[ $NO_REBUILD == "" ]]; then
     reb=" --rebuild-db "
   fi
+  if [[ $NO_NTP != "" ]]; then
+    no_ntp=" --no-ntp "
+  fi
   if [[ $is_stat != "" ]]; then
     stats=" --stats "
   fi
@@ -144,7 +148,7 @@ function node_cmd {
     rts_opts="+RTS -N -pa -A6G -qg -RTS"
   fi
 
-  echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i $rts_opts  $reb $keys_args"
+  echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i $rts_opts $reb $no_ntp $keys_args"
 
   $dht_cmd
 

@@ -39,6 +39,7 @@ import           Pos.Explorer.Txp     (eTxNormalize)
 #else
 import           Pos.Txp.Logic        (txNormalize)
 #endif
+
 import           Pos.Ssc.Class        (Ssc)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.Txp.Settings     (TxpBlund, TxpGlobalSettings (..))
@@ -53,7 +54,6 @@ import           Pos.Update.Poll      (PollModifier)
 import           Pos.Util             (Some (..), inAssertMode, spanSafe, _neLast)
 import           Pos.Util.Chrono      (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode         (WorkMode)
-import           Pos.Communication.Types.Protocol (NodeId)
 
 -- [CSL-780] Totally need something more elegant
 toUpdateBlock
@@ -92,9 +92,9 @@ withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
 -- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
     :: forall ssc m . WorkMode ssc m
-    => m (Set NodeId) -> OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
-applyBlocksUnsafe getPeers blunds0 pModifier =
-    reportingFatal getPeers version $
+    => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
+applyBlocksUnsafe blunds0 pModifier =
+    reportingFatal version $
     case blunds ^. _Wrapped of
         (b@(Left _,_):|[])     -> app' (b:|[])
         (b@(Left _,_):|(x:xs)) -> app' (b:|[]) >> app' (x:|xs)
@@ -115,13 +115,21 @@ applyBlocksUnsafeDo blunds pModifier = do
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
-    sscApplyBlocks blocks Nothing -- TODO: pass not only 'Nothing'
+    sscBatch <- SomeBatchOp <$> sscApplyBlocks blocks Nothing -- TODO: pass not only 'Nothing'
     let putTip = SomeBatchOp $
                  GS.PutTip $
                  headerHash $
                  NE.last $
                  getOldestFirst blunds
-    GS.writeBatchGState [putTip, delegateBatch, usBatch, txpBatch, forwardLinksBatch, inMainBatch]
+    GS.writeBatchGState
+        [ putTip
+        , delegateBatch
+        , usBatch
+        , txpBatch
+        , forwardLinksBatch
+        , inMainBatch
+        , sscBatch
+        ]
     sscNormalize
 #ifdef WITH_EXPLORER
     eTxNormalize
@@ -145,20 +153,28 @@ applyBlocksUnsafeDo blunds pModifier = do
 -- taken.  application is taken already.
 rollbackBlocksUnsafe
     :: (WorkMode ssc m)
-    => m (Set NodeId) -> NewestFirst NE (Blund ssc) -> m ()
-rollbackBlocksUnsafe getPeers toRollback = reportingFatal getPeers version $ do
+    => NewestFirst NE (Blund ssc) -> m ()
+rollbackBlocksUnsafe toRollback = reportingFatal version $ do
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS
                               & each._1 %~ toUpdateBlock)
     TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
     txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
-    sscRollbackBlocks $ fmap fst toRollback
+    sscBatch <- SomeBatchOp <$> sscRollbackBlocks (fmap fst toRollback)
     let putTip = SomeBatchOp $
                  GS.PutTip $
                  headerHash $
                  (NE.last $ getNewestFirst toRollback) ^. prevBlockL
-    GS.writeBatchGState [putTip, delRoll, usRoll, txRoll, forwardLinksBatch, inMainBatch]
+    GS.writeBatchGState
+        [ putTip
+        , delRoll
+        , usRoll
+        , txRoll
+        , forwardLinksBatch
+        , inMainBatch
+        , sscBatch
+        ]
     DB.sanityCheckDB
     inAssertMode $
         when (isGenesis0 (toRollback ^. _Wrapped . _neLast . _1)) $

@@ -6,14 +6,14 @@ module Pos.Launcher.Param
        , NodeParams (..)
        ) where
 
-import           System.Wlog         (LoggerName)
-import           Universum
 import           Pos.Crypto          (SecretKey)
 import           Pos.Security.CLI    (AttackTarget, AttackType)
 import           Pos.Txp.Toil.Types  (Utxo)
 import           Pos.Types           (Timestamp)
 import           Pos.Update.Params   (UpdateParams)
 import           Pos.Util.UserSecret (UserSecret)
+import           System.Wlog         (LoggerName)
+import           Universum
 
 -- | Contains all parameters required for hierarchical logger initialization.
 data LoggingParams = LoggingParams
@@ -43,4 +43,5 @@ data NodeParams = NodeParams
     , npPropagation   :: !Bool              -- ^ Whether to propagate txs, ssc data, blocks to neighbors
     , npReportServers :: ![Text]            -- ^ List of report server URLs
     , npUpdateParams  :: !UpdateParams      -- ^ Params for update system
+    , npUseNTP        :: !Bool
     } deriving (Show)

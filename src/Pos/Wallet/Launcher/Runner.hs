@@ -1,23 +1,25 @@
-
 module Pos.Wallet.Launcher.Runner
-       ( runRawRealWallet
-       , runWalletRealMode
-       , runWalletReal
+       ( runRawStaticPeersWallet
+       , runWalletStaticPeersMode
+       , runWalletStaticPeers
        , runWallet
        ) where
 
 import           Data.Tagged                 (untag)
 import           Formatting                  (sformat, shown, (%))
 import           Mockable                    (Production, bracket, fork, sleepForever)
+import           Network.Transport.Abstract  (Transport)
 import qualified STMContainers.Map           as SM
 import           System.Wlog                 (logDebug, logInfo, usingLoggerName)
 import           Universum                   hiding (bracket)
 
-import           Pos.Communication           (ActionSpec (..), ListenersWithOut, OutSpecs,
-                                              PeerId, WorkerSpec, allStubListeners)
+import           Pos.Communication           (ActionSpec (..), ListenersWithOut, NodeId,
+                                              OutSpecs, PeerId, WorkerSpec,
+                                              allStubListeners)
 import           Pos.Communication.PeerState (runPeerStateHolder)
+import           Pos.Discovery               (findPeers, runDiscoveryConstT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
-                                              RealModeResources (..), runServer_)
+                                              runServer_)
 import           Pos.Reporting.MemState      (runWithoutReportingContext)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Util.JsonLog            (usingJsonLogFilePath)
@@ -26,12 +28,12 @@ import           Pos.Wallet.KeyStorage       (runKeyStorage)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
 import           Pos.Wallet.State            (closeState, openMemState, openState,
                                               runWalletDB)
-import           Pos.Wallet.WalletMode       (WalletMode, WalletRealMode)
+import           Pos.Wallet.WalletMode       (WalletMode, WalletStaticPeersMode)
 
 -- TODO: Move to some `Pos.Wallet.Communication` and provide
 -- meaningful listeners
 allListeners
-    :: ListenersWithOut WalletRealMode
+    :: ListenersWithOut WalletStaticPeersMode
 allListeners = untag @SscGodTossing allStubListeners
 
 -- TODO: Move to some `Pos.Wallet.Worker` and provide
@@ -41,31 +43,33 @@ allWorkers :: Monoid b => ([a], b)
 allWorkers = ([], mempty)
 
 -- | WalletMode runner
-runWalletRealMode
+runWalletStaticPeersMode
     :: PeerId
-    -> RealModeResources WalletRealMode
+    -> Transport WalletStaticPeersMode
+    -> Set NodeId
     -> WalletParams
-    -> (ActionSpec WalletRealMode a, OutSpecs)
+    -> (ActionSpec WalletStaticPeersMode a, OutSpecs)
     -> Production a
-runWalletRealMode peerId res wp@WalletParams {..} =
-    runRawRealWallet peerId res wp allListeners
+runWalletStaticPeersMode peerId transport peers wp@WalletParams {..} =
+    runRawStaticPeersWallet peerId transport peers wp allListeners
 
-runWalletReal
+runWalletStaticPeers
     :: PeerId
-    -> RealModeResources WalletRealMode
+    -> Transport WalletStaticPeersMode
+    -> Set NodeId
     -> WalletParams
-    -> ([WorkerSpec WalletRealMode], OutSpecs)
+    -> ([WorkerSpec WalletStaticPeersMode], OutSpecs)
     -> Production ()
-runWalletReal peerId res wp = runWalletRealMode peerId res wp . runWallet res
+runWalletStaticPeers peerId transport peers wp =
+    runWalletStaticPeersMode peerId transport peers wp . runWallet
 
 runWallet
     :: WalletMode ssc m
-    => RealModeResources m
-    -> ([WorkerSpec m], OutSpecs)
+    => ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
-runWallet res (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
+runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
     logInfo "Wallet is initialized!"
-    peers <- rmFindPeers res
+    peers <- findPeers
     logInfo $ sformat ("Known peers: "%shown) (toList peers)
     let unpackPlugin (ActionSpec action) = action vI sendActions
     mapM_ (fork . unpackPlugin) $ plugins' ++ workers'
@@ -75,21 +79,24 @@ runWallet res (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
     (workers', wouts) = allWorkers
     outs = wouts <> pouts
 
-runRawRealWallet
+runRawStaticPeersWallet
     :: PeerId
-    -> RealModeResources WalletRealMode
+    -> Transport WalletStaticPeersMode
+    -> Set NodeId
     -> WalletParams
-    -> ListenersWithOut WalletRealMode
-    -> (ActionSpec WalletRealMode a, OutSpecs)
+    -> ListenersWithOut WalletStaticPeersMode
+    -> (ActionSpec WalletStaticPeersMode a, OutSpecs)
     -> Production a
-runRawRealWallet peerId res WalletParams {..} listeners (ActionSpec action, outs) =
+runRawStaticPeersWallet peerId transport peers WalletParams {..}
+                        listeners (ActionSpec action, outs) =
     usingJsonLogFilePath wpJLFilePath . usingLoggerName lpRunnerTag . bracket openDB closeDB $ \db -> do
         stateM <- liftIO SM.newIO
         runWithoutReportingContext .
             runWalletDB db .
             runKeyStorage wpKeyFilePath .
             runPeerStateHolder stateM .
-            runServer_ peerId (rmTransport res) listeners outs . ActionSpec $ \vI sa ->
+            runDiscoveryConstT peers .
+            runServer_ peerId transport listeners outs . ActionSpec $ \vI sa ->
             logInfo "Started wallet, joining network" >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams wpBaseParams

@@ -31,7 +31,7 @@ instance (MonadIO m) => CanLog (SecureLogWrapped m) where
         severity
         msg =
       let acceptable (HandlerFilelike p) = not $ ".pub" `isSuffixOf` p
-          acceptable _                   = False
+          acceptable _                   = True
       in liftIO $ logMCond name severity msg acceptable
 
 instance (Monad m, HasLoggerName m) => HasLoggerName (SecureLogWrapped m) where

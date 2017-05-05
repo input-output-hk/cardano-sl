@@ -13,20 +13,22 @@ import qualified Control.Monad.Ether.Implicit  as Ether
 import           Control.Monad.Except          (MonadError (throwError))
 import           Mockable                      (runProduction)
 import           Network.Wai                   (Application)
-import           Pos.Communication.Protocol    (NodeId, SendActions)
+import           Pos.Communication.Protocol    (SendActions)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import qualified STMContainers.Map             as SM
 import           Universum
 
+import           Pos.Communication             (NodeId)
 import           Pos.Communication.PeerState   (runPeerStateHolder)
+import           Pos.Discovery                 (getPeers, runDiscoveryConstT)
 import           Pos.Reporting.MemState        (runWithoutReportingContext)
 import           Pos.Ssc.Class                 (SscHelpersClass)
 import           Pos.Util.JsonLog              (usingJsonLogFilePath)
 import           Pos.Wallet.KeyStorage         (KeyData, runKeyStorageRaw)
 import           Pos.Wallet.State              (getWalletState, runWalletDB)
 import qualified Pos.Wallet.State              as WS
-import           Pos.Wallet.WalletMode         (WalletRealMode)
+import           Pos.Wallet.WalletMode         (WalletStaticPeersMode)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
                                                 walletServeImpl, walletServer,
                                                 walletServerOuts)
@@ -37,7 +39,7 @@ import           Pos.Wallet.Web.State          (WalletState, WalletWebDB,
 import           System.Wlog                   (usingLoggerName)
 
 
-type WebHandler = WalletWebSockets (WalletWebDB WalletRealMode)
+type WebHandler = WalletWebSockets (WalletWebDB WalletStaticPeersMode)
 
 type MainWalletState = WS.WalletState
 
@@ -45,24 +47,24 @@ walletServeWebLite
     :: forall ssc.
        SscHelpersClass ssc
     => Proxy ssc
-    -> WalletRealMode (Set NodeId)
-    -> SendActions WalletRealMode
+    -> SendActions WalletStaticPeersMode
     -> FilePath
     -> Bool
     -> Word16
-    -> WalletRealMode ()
-walletServeWebLite _ getPeers sendActions = walletServeImpl action
+    -> WalletStaticPeersMode ()
+walletServeWebLite _ sendActions = walletServeImpl action
   where
-    action :: WalletWebHandler WalletRealMode Application
-    action = walletApplication $ walletServer getPeers sendActions nat
+    action :: WalletWebHandler WalletStaticPeersMode Application
+    action = walletApplication $ walletServer sendActions nat
 
 nat :: WebHandler (WebHandler :~> Handler)
 nat = do
     wsConn <- getWalletWebSockets
-    ws    <- getWalletWebState
-    kd    <- Ether.ask
-    mws   <- getWalletState
-    return $ NT (convertHandler mws kd ws wsConn)
+    ws     <- getWalletWebState
+    kd     <- Ether.ask
+    mws    <- getWalletState
+    peers  <- getPeers
+    pure $ NT (convertHandler mws kd ws wsConn peers)
 
 convertHandler
     :: forall a .
@@ -70,9 +72,10 @@ convertHandler
     -> KeyData
     -> WalletState
     -> ConnectionsVar
+    -> Set NodeId
     -> WebHandler a
     -> Handler a
-convertHandler mws kd ws wsConn handler = do
+convertHandler mws kd ws wsConn peers handler = do
     stateM <- liftIO SM.newIO
     liftIO ( runProduction
            . usingJsonLogFilePath Nothing
@@ -81,6 +84,7 @@ convertHandler mws kd ws wsConn handler = do
            . runWalletDB mws
            . flip runKeyStorageRaw kd
            . runPeerStateHolder stateM
+           . runDiscoveryConstT peers
            . runWalletWebDB ws
            . runWalletWS wsConn
            $ handler

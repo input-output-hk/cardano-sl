@@ -374,6 +374,7 @@ createTransport addrInfo = do
                    Just $ fromIntegral Const.networkConnectionTimeout
              , TCP.tcpNewQDisc = fairQDisc $ \_ -> return Nothing
              , TCP.tcpCheckPeerHost = True
+             , TCP.tcpNoDelay = True
              })
     transportE <-
         liftIO $ TCP.createTransport addrInfo tcpParams

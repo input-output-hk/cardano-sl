@@ -8,9 +8,10 @@ module Pos.Block.BListener
        ( MonadBListener (..)
        ) where
 
+import           Control.Monad.Trans   (MonadTrans (..))
+import           Mockable              (SharedAtomicT)
 import           Universum
 
-import           Control.Monad.Trans   (MonadTrans (..))
 import           Pos.Block.Types       (Blund)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Util.Chrono       (NE, NewestFirst (..), OldestFirst (..))
@@ -28,10 +29,10 @@ class Monad m => MonadBListener m where
         :: forall ssc . SscHelpersClass ssc
         => NewestFirst NE (Blund ssc) -> m ()
 
-    default onApplyBlocks
-        :: (MonadTrans t, MonadBListener m', t m' ~ m, SscHelpersClass ssc) => OldestFirst NE (Blund ssc) -> m ()
+instance {-# OVERLAPPABLE #-}
+    ( MonadBListener m, Monad m, MonadTrans t, Monad (t m)
+    , SharedAtomicT m ~ SharedAtomicT (t m) ) =>
+        MonadBListener (t m)
+  where
     onApplyBlocks = lift . onApplyBlocks
-
-    default onRollbackBlocks
-        :: (MonadTrans t, MonadBListener m', t m' ~ m, SscHelpersClass ssc) => NewestFirst NE (Blund ssc) -> m ()
     onRollbackBlocks = lift . onRollbackBlocks

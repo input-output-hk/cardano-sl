@@ -1,4 +1,5 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP           #-}
+{-# LANGUAGE TypeOperators #-}
 
 {-| 'WorkMode' constraint. It is widely used in almost every our code.
     Simple alias for bunch of useful constraints. This module also
@@ -12,10 +13,12 @@ module Pos.WorkMode
        , TxpExtra_TMP
 
        -- * Actual modes
+       , RawRealModeK
        , ProductionMode
        , RawRealMode
        , ServiceMode
        , StatsMode
+       , StaticMode
        ) where
 
 
@@ -35,6 +38,8 @@ import           Pos.DB.Holder               (DBHolder)
 import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Delegation.Holder       (DelegationT)
+import           Pos.Discovery.Class         (MonadDiscovery)
+import           Pos.Discovery.Holders       (DiscoveryConstT, DiscoveryKademliaT)
 import           Pos.Lrc.Context             (LrcContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
@@ -88,6 +93,7 @@ type WorkMode ssc m
       , WithPeerState m
       , MonadShutdownMem m
       , MonadBListener m
+      , MonadDiscovery m
       )
 
 -- | More relaxed version of 'WorkMode'.
@@ -115,12 +121,18 @@ type RawRealMode ssc =
     LoggerNameBox Production
     ))))))))
 
+-- | RawRealMode + kademlia. Used in wallet too.
+type RawRealModeK ssc = DiscoveryKademliaT (RawRealMode ssc)
+
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.
-type ProductionMode ssc = NoStatsT (RawRealMode ssc)
+type ProductionMode ssc = NoStatsT $ RawRealModeK ssc
 
 -- | StatsMode is used for remote benchmarking.
-type StatsMode ssc = StatsT (RawRealMode ssc)
+type StatsMode ssc = StatsT $ RawRealModeK ssc
+
+-- | Fixed peer discovery without stats.
+type StaticMode ssc = NoStatsT $ DiscoveryConstT (RawRealMode ssc)
 
 -- | ServiceMode is the mode in which support nodes work.
 type ServiceMode = PeerStateHolder (LoggerNameBox Production)

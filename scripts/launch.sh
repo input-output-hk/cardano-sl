@@ -48,11 +48,9 @@ while [[ $i -lt $panesCnt ]]; do
   im=$((i%4))
   ir=$((i/4))
 
-  # Make up a random 14-byte peer id.
-  # We want it to be printable, so we'll base64 encode it.
-  # 9 bytes gives us a 12-byte base64 code, and we can just pad
-  # it with "==".
-  peer_id=`cat /dev/urandom | head -c 9 | base64`"=="
+  # Make up a random 14-byte peer id and base64-encode it.
+  # Then use sed to make it base64url
+  peer_id=`cat /dev/urandom | head -c 14 | base64 | sed 's/\//_/g' | sed 's/\+/-/g'`
 
   if [[ $im == 0 ]]; then
     tmux new-window -n "demo-"`date +%H%M%S`-"$ir"

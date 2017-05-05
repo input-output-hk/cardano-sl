@@ -19,11 +19,10 @@ import           Universum                  hiding (show)
 import           Paths_cardano_sl           (version)
 import qualified Pos.CLI                    as CLI
 import           Pos.Constants              (isDevelopment)
-import           Pos.DHT.Model              (DHTNode, DHTKey)
-import           Pos.DHT.Real.CLI           (dhtNodeOption, dhtKeyOption,
-                                             dhtExplicitInitialOption,
-                                             dhtPeersFileOption,
-                                             dhtNetworkAddressOption)
+import           Pos.DHT.Model              (DHTKey, DHTNode)
+import           Pos.DHT.Real.CLI           (dhtExplicitInitialOption, dhtKeyOption,
+                                             dhtNetworkAddressOption, dhtNodeOption,
+                                             dhtPeersFileOption)
 import           Pos.Security.CLI           (AttackTarget, AttackType)
 import           Pos.Util.BackupPhrase      (BackupPhrase, backupPhraseWordsNum)
 import           Pos.Util.TimeWarp          (NetworkAddress)
@@ -70,6 +69,7 @@ data Args = Args
     , updateLatestPath          :: !FilePath
     , updateWithPackage         :: !Bool
     , monitorPort               :: !(Maybe Int)
+    , noNTP                     :: !Bool
     }
   deriving Show
 
@@ -178,6 +178,9 @@ argsParser = do
         long    "monitor-port" <>
         metavar "INT" <>
         help    "Run web monitor on this port"
+    noNTP <- switch $
+        long "no-ntp" <>
+        help "Whether to use real NTP servers to synchronise time or rely on local time"
 
     pure Args{..}
 

@@ -22,7 +22,7 @@ import           Universum
 import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState (..),
                                                 getAllStates, peerStateFromSnapshot,
                                                 runPeerStateHolder)
-import           Pos.Communication.Protocol    (NodeId, SendActions)
+import           Pos.Communication.Protocol    (SendActions)
 import           Pos.Constants                 (isDevelopment)
 import           Pos.Context                   (NodeContext, getNodeContext,
                                                 runContextHolder)
@@ -30,9 +30,11 @@ import           Pos.Crypto                    (noPassEncrypt)
 import           Pos.DB                        (NodeDBs, getNodeDBs, runDBHolder)
 import           Pos.Delegation.Class          (DelegationWrap, askDelegationState)
 import           Pos.Delegation.Holder         (runDelegationTFromTVar)
+import           Pos.DHT.Real                  (KademliaDHTInstance)
+import           Pos.Discovery                 (askDHTInstance, runDiscoveryKademliaT)
 import           Pos.Genesis                   (genesisDevSecretKeys)
 import           Pos.Slotting                  (NtpSlottingVar, SlottingVar,
-                                                askNtpSlotting, askSlotting,
+                                                askFullNtpSlotting, askSlotting,
                                                 runNtpSlotting, runSlottingHolder)
 import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscState, runSscHolder)
@@ -47,25 +49,24 @@ import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, WalletWebSockets
                                                 getWalletWebSockets, runWalletWS)
 import           Pos.Wallet.Web.State          (WalletState, WalletWebDB,
                                                 getWalletWebState, runWalletWebDB)
-import           Pos.WorkMode                  (RawRealMode, TxpExtra_TMP)
+import           Pos.WorkMode                  (RawRealModeK, TxpExtra_TMP)
 
 walletServeWebFull
     :: SscConstraint WalletSscType
-    => RawRealMode WalletSscType (Set NodeId)
-    -> SendActions (WalletWebHandler (RawRealMode WalletSscType))
+    => SendActions (WalletWebHandler (RawRealModeK WalletSscType))
     -> Bool      -- whether to include genesis keys
     -> Word16
-    -> WalletWebHandler (RawRealMode WalletSscType) ()
-walletServeWebFull getPeers sendActions debug = walletServeImpl action
+    -> WalletWebHandler (RawRealModeK WalletSscType) ()
+walletServeWebFull sendActions debug = walletServeImpl action
   where
-    action :: WalletWebHandler (RawRealMode WalletSscType) Application
+    action :: WalletWebHandler (RawRealModeK WalletSscType) Application
     action = do
         logInfo "DAEDALUS has STARTED!"
         when (isDevelopment && debug) $
             mapM_ (addSecretKey . noPassEncrypt) genesisDevSecretKeys
-        walletApplication $ walletServer getPeers sendActions nat
+        walletApplication $ walletServer sendActions nat
 
-type WebHandler = WalletWebSockets (WalletWebDB (RawRealMode WalletSscType))
+type WebHandler = WalletWebSockets (WalletWebDB (RawRealModeK WalletSscType))
 
 nat :: WebHandler (WebHandler :~> Handler)
 nat = do
@@ -78,8 +79,10 @@ nat = do
     modernDB   <- getNodeDBs
     conn       <- getWalletWebSockets
     slotVar    <- askSlotting
-    ntpSlotVar <- askNtpSlotting
-    pure $ NT (convertHandler nc modernDB tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar)
+    ntpSlotVar <- askFullNtpSlotting
+    kinst      <- askDHTInstance
+    pure $ NT (convertHandler nc modernDB tlw ssc ws delWrap
+                              psCtx conn slotVar ntpSlotVar kinst)
 
 convertHandler
     :: NodeContext WalletSscType              -- (.. insert monad `m` here ..)
@@ -91,10 +94,12 @@ convertHandler
     -> PeerStateSnapshot
     -> ConnectionsVar
     -> SlottingVar
-    -> NtpSlottingVar
+    -> (Bool, NtpSlottingVar)
+    -> KademliaDHTInstance
     -> WebHandler a
     -> Handler a
-convertHandler nc modernDBs tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar handler = do
+convertHandler nc modernDBs tlw ssc ws delWrap psCtx
+               conn slotVar ntpSlotVar kinst handler = do
     liftIO ( runProduction
            . usingLoggerName "wallet-api"
            . runContextHolder nc
@@ -105,6 +110,7 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx conn slotVar ntpSlotVar han
            . runTxpHolder tlw
            . runDelegationTFromTVar delWrap
            . (\m -> flip runPeerStateHolder m =<< peerStateFromSnapshot psCtx)
+           . runDiscoveryKademliaT kinst
            . runWalletWebDB ws
            . runWalletWS conn
            $ handler

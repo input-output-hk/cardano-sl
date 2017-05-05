@@ -15,15 +15,17 @@ import qualified Control.Monad.Ether.Implicit  as Ether
 import           Control.Monad.Except          (MonadError (throwError))
 import           Mockable                      (Production, runProduction)
 import           Network.Wai                   (Application)
-import           Pos.Communication.Protocol    (NodeId, SendActions, hoistSendActions)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import qualified STMContainers.Map             as SM
 import           Universum
 
+import           Pos.Communication             (NodeId)
 import           Pos.Communication.PeerState   (runPeerStateHolder)
+import           Pos.Communication.Protocol    (SendActions, hoistSendActions)
 import           Pos.Context                   (NodeContext)
 import           Pos.DB                        (NodeDBs)
+import           Pos.Discovery                 (getPeers, runDiscoveryConstT)
 import           Pos.Reporting.MemState        (runWithoutReportingContext)
 import           Pos.Ssc.Class                 (SscHelpersClass)
 import           Pos.Util.Context              (ContextTagK (..))
@@ -31,7 +33,8 @@ import           Pos.Wallet                    (WalletSscType)
 import           Pos.Wallet.KeyStorage         (KeyData, runKeyStorageRaw)
 import           Pos.Wallet.State              (getWalletState, runWalletDB)
 import qualified Pos.Wallet.State              as WS
-import           Pos.Wallet.WalletMode         (FakeSsc, WalletRealMode, runFakeSsc)
+import           Pos.Wallet.WalletMode         (FakeSsc, WalletStaticPeersMode,
+                                                runFakeSsc)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, bracketWalletWS,
                                                 bracketWalletWebDB, walletApplication,
                                                 walletServeImpl, walletServer,
@@ -43,45 +46,46 @@ import           Pos.Wallet.Web.State          (WalletState, WalletWebDB,
 import           System.Wlog                   (usingLoggerName)
 
 
-type WebHandler = WalletWebSockets (WalletWebDB (WalletRealMode WalletSscType))
+type WebHandler = WalletWebSockets (WalletWebDB (WalletStaticPeersMode WalletSscType))
 
 type MainWalletState = WS.WalletState
 
 walletServeWebLite
     :: SscHelpersClass WalletSscType
     => Proxy WalletSscType
-    -> WalletRealMode WalletSscType (Set NodeId)
-    -> SendActions (WalletRealMode WalletSscType)
+    -> SendActions (WalletStaticPeersMode WalletSscType)
     -> FilePath
     -> Bool
     -> Word16
-    -> WalletRealMode WalletSscType ()
-walletServeWebLite _ getPeers sendActions dbPath dbRebuild port =
+    -> WalletStaticPeersMode WalletSscType ()
+walletServeWebLite _ sendActions dbPath dbRebuild port =
     bracketWalletWebDB dbPath dbRebuild $ \db ->
         bracketWalletWS $ \conn -> do
             let runner = runWalletWebDB db . runWalletWS conn
-            let hoistedSA :: SendActions (WalletWebHandler (WalletRealMode WalletSscType))
+            let hoistedSA :: SendActions (WalletWebHandler (WalletStaticPeersMode WalletSscType))
                 hoistedSA = hoistSendActions (lift . lift) runner sendActions
-            let action :: WalletWebHandler (WalletRealMode WalletSscType) Application
-                action = walletApplication $ walletServer getPeers hoistedSA nat
+            let action :: WalletWebHandler (WalletStaticPeersMode WalletSscType) Application
+                action = walletApplication $ walletServer hoistedSA nat
             runner $ walletServeImpl action port
 
 nat :: WebHandler (WebHandler :~> Handler)
 nat = do
     wsConn <- getWalletWebSockets
-    ws    <- getWalletWebState
-    kd    <- Ether.ask
-    mws   <- getWalletState
-    return $ NT (convertHandler mws kd ws wsConn)
+    ws     <- getWalletWebState
+    kd     <- Ether.ask
+    mws    <- getWalletState
+    peers  <- getPeers
+    pure $ NT (convertHandler mws kd ws wsConn peers)
 
 convertHandler
     :: MainWalletState
     -> KeyData
     -> WalletState
     -> ConnectionsVar
+    -> Set NodeId
     -> WebHandler a
     -> Handler a
-convertHandler mws kd ws wsConn handler = do
+convertHandler mws kd ws wsConn peers handler = do
     stateM <- liftIO SM.newIO
     liftIO ( runProduction
            . runFakeSsc
@@ -90,6 +94,7 @@ convertHandler mws kd ws wsConn handler = do
            . runWalletDB mws
            . flip runKeyStorageRaw kd
            . runPeerStateHolder stateM
+           . runDiscoveryConstT peers
            . runWalletWebDB ws
            . runWalletWS wsConn
            $ handler

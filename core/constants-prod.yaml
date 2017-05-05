@@ -52,6 +52,7 @@ ntpMaxError: 120000000 # 2 mins
 # Misc
 maxLocalTxs: 1000
 protocolMagic: 50987833
+enhancedMessageTimeout: 10
 enhancedMessageBroadcast: 2
 messageCacheTimeout: 30
 propagationQueueSize: 100

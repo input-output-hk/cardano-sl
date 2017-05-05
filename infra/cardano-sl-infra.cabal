@@ -1,5 +1,5 @@
 name:                cardano-sl-infra
-version:             0.4.3
+version:             0.4.4
 synopsis:            Cardano SL - infrastructural
 description:         Cardano SL - infrastructural
 license:             MIT
@@ -32,8 +32,9 @@ library
                         Pos.Slotting.Util
 
                         Pos.Discovery
-                        Pos.Discovery.Constants
-                        Pos.Discovery.Neighbors
+                        Pos.Discovery.Broadcast
+                        Pos.Discovery.Class
+                        Pos.Discovery.Holders
 
                         -- Pos.DHT
                         Pos.DHT
@@ -93,6 +94,7 @@ library
                       , cardano-sl-core
                       , cardano-sl-db
                       , cardano-report-server
+                      , containers
                       , data-default
                       , directory
                       , ether

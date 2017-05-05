@@ -12,6 +12,7 @@ module Pos.Wallet.WalletMode
        , MonadUpdates (..)
        , WalletMode
        , WalletRealMode
+       , WalletStaticPeersMode
        , FakeSsc
        , runFakeSsc
        ) where
@@ -38,6 +39,8 @@ import           Pos.DB                           (MonadDB)
 import qualified Pos.DB.Block                     as DB
 import           Pos.DB.Error                     (DBError (..))
 import qualified Pos.DB.GState                    as GS
+import           Pos.Discovery                    (DiscoveryConstT, DiscoveryKademliaT,
+                                                   MonadDiscovery)
 import           Pos.Shutdown                     (triggerShutdown)
 import           Pos.Slotting                     (MonadSlots (..),
                                                    getLastKnownSlotDuration)
@@ -97,7 +100,7 @@ instance {-# OVERLAPPABLE #-}
         MonadBlockchainInfo (t m)
 
 -- | Stub instance for lite-wallet
-instance MonadBlockchainInfo (WalletRealMode ssc) where
+instance MonadBlockchainInfo (RawWalletMode ssc) where
     networkChainDifficulty = error "notImplemented"
     localChainDifficulty = error "notImplemented"
     blockchainSlotDuration = error "notImplemented"
@@ -190,6 +193,7 @@ type WalletMode m
       , MonadBlockchainInfo m
       , MonadUpdates m
       , WithPeerState m
+      , MonadDiscovery m
       )
 
 ---------------------------------------------------------------
@@ -197,15 +201,19 @@ type WalletMode m
 ---------------------------------------------------------------
 
 type FakeSsc ssc = TaggedTrans ssc IdentityT
+
 runFakeSsc :: FakeSsc ssc m a -> m a
 runFakeSsc = runIdentityT . unpack
 
-type WalletRealMode ssc =
-            PeerStateHolder
-                (KeyStorage
-                    (WalletDB
-                        (ReportingContextT
-                            (LoggerNameBox
-                                (FakeSsc ssc
-                                    Production
-                )))))
+type RawWalletMode ssc =
+    PeerStateHolder (
+    KeyStorage (
+    WalletDB (
+    ReportingContextT (
+    LoggerNameBox (
+    FakeSsc ssc
+    Production
+    )))))
+
+type WalletRealMode ssc = DiscoveryKademliaT (RawWalletMode ssc)
+type WalletStaticPeersMode ssc = DiscoveryConstT (RawWalletMode ssc)

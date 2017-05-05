@@ -12,11 +12,12 @@ import           Control.Monad.Trans.Maybe  (MaybeT (..))
 import qualified Data.ByteString            as BS
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
-import qualified Data.Set                   as Set (fromList)
+import qualified Data.Set                   as S (fromList, toList)
 import qualified Data.Text                  as T
 import           Data.Time.Units            (convertUnit)
 import           Formatting                 (build, int, sformat, stext, (%))
 import           Mockable                   (Production, delay)
+import           Network.Transport.Abstract (Transport, hoistTransport)
 import           Options.Applicative        (execParser)
 import           System.IO                  (hFlush, stdout)
 import           System.Wlog                (logDebug, logError, logInfo, logWarning)
@@ -38,11 +39,11 @@ import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignUSVot
                                              toPublic, unsafeHash, withSafeSigner)
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Delegation             (sendProxySKHeavyOuts, sendProxySKLightOuts)
+import           Pos.Discovery              (findPeers, getPeers)
 import           Pos.Genesis                (genesisDevSecretKeys,
                                              genesisStakeDistribution, genesisUtxo)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
-                                             RealModeResources (..), bracketResources,
-                                             hoistResources, stakesDistr)
+                                             bracketResources, stakesDistr)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Txp                    (TxOut (..), TxOutAux (..), txaF)
@@ -53,9 +54,10 @@ import           Pos.Update                 (BlockVersionData (..), UpdateVote (
 import           Pos.Util.UserSecret        (readUserSecret, usKeys)
 import           Pos.Wallet                 (MonadKeys (addSecretKey, getSecretKeys),
                                              WalletMode, WalletParams (..),
-                                             WalletRealMode, getBalance, runWalletReal,
-                                             sendProposalOuts, sendVoteOuts,
-                                             submitUpdateProposal, submitVote)
+                                             WalletStaticPeersMode, getBalance,
+                                             runWalletStaticPeers, sendProposalOuts,
+                                             sendVoteOuts, submitUpdateProposal,
+                                             submitVote)
 #ifdef WITH_WEB
 import           Pos.Wallet.Web             (walletServeWebLite, walletServerOuts)
 #endif
@@ -67,10 +69,10 @@ import           WalletOptions              (WalletAction (..), WalletOptions (.
 
 type CmdRunner = ReaderT ([SecretKey], [NodeId])
 
-runCmd :: WalletMode m => RealModeResources m -> SendActions m -> Command -> CmdRunner m ()
-runCmd _ _ (Balance addr) = lift (getBalance addr) >>=
-                            putText . sformat ("Current balance: "%coinF)
-runCmd _ sendActions (Send idx outputs) = do
+runCmd :: WalletMode m => SendActions m -> Command -> CmdRunner m ()
+runCmd _ (Balance addr) = lift (getBalance addr) >>=
+                          putText . sformat ("Current balance: "%coinF)
+runCmd sendActions (Send idx outputs) = do
     (_, na) <- ask
     skeys <- getSecretKeys
     etx <-
@@ -86,7 +88,7 @@ runCmd _ sendActions (Send idx outputs) = do
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
-runCmd _ sendActions (SendToAllGenesis amount delay_) = do
+runCmd sendActions (SendToAllGenesis amount delay_) = do
     (skeys, na) <- ask
     for_ skeys $ \key -> do
         let txOut = TxOut {
@@ -104,7 +106,7 @@ runCmd _ sendActions (SendToAllGenesis amount delay_) = do
             Left err -> putText $ sformat ("Error: "%stext) err
             Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
         delay $ ms delay_
-runCmd _ sendActions v@(Vote idx decision upid) = do
+runCmd sendActions v@(Vote idx decision upid) = do
     logDebug $ "Submitting a vote :" <> show v
     (_, na) <- ask
     skeys <- getSecretKeys
@@ -125,7 +127,7 @@ runCmd _ sendActions v@(Vote idx decision upid) = do
                 else do
                     lift $ submitVote sendActions na voteUpd
                     putText "Submitted vote"
-runCmd _ sendActions ProposeUpdate{..} = do
+runCmd sendActions ProposeUpdate{..} = do
     logDebug "Proposing update..."
     (_, na) <- ask
     skeys <- getSecretKeys
@@ -161,7 +163,7 @@ runCmd _ sendActions ProposeUpdate{..} = do
                     let id = hash updateProposal
                     putText $
                       sformat ("Update proposal submitted, upId: "%hashHexF) id
-runCmd _ _ Help = do
+runCmd _ Help = do
     putText $
         unlines
             [ "Avaliable commands:"
@@ -183,19 +185,19 @@ runCmd _ _ Help = do
             , "   help                           -- show this message"
             , "   quit                           -- shutdown node wallet"
             ]
-runCmd _ _ ListAddresses = do
+runCmd _ ListAddresses = do
    addrs <- map (makePubKeyAddress . encToPublic) <$> getSecretKeys
    putText "Available addresses:"
    for_ (zip [0 :: Int ..] addrs) $
        putText . uncurry (sformat $ "    #"%int%":   "%build)
-runCmd _ __sendActions (DelegateLight __i __j) = error "Not implemented"
+runCmd __sendActions (DelegateLight __i __j) = error "Not implemented"
 --   (skeys, _) <- ask
 --   let issuerSk = skeys !! i
 --       delegatePk = undefined
 --       psk = createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
 --   lift $ sendProxySKLight psk sendActions
 --   putText "Sent lightweight cert"
-runCmd _ __sendActions (DelegateHeavy __i __j __epochMaybe) = error "Not implemented"
+runCmd __sendActions (DelegateHeavy __i __j __epochMaybe) = error "Not implemented"
 --   (skeys, _) <- ask
 --   let issuerSk = skeys !! i
 --       delegatePk = undefined
@@ -203,14 +205,14 @@ runCmd _ __sendActions (DelegateHeavy __i __j __epochMaybe) = error "Not impleme
 --       psk = createProxySecretKey issuerSk delegatePk epoch
 --   lift $ sendProxySKHeavy psk sendActions
 --   putText "Sent heavyweight cert"
-runCmd _ _ (AddKeyFromPool i) = do
+runCmd _ (AddKeyFromPool i) = do
    (skeys, _) <- ask
    let key = skeys !! i
    addSecretKey $ noPassEncrypt key
-runCmd _ _ (AddKeyFromFile f) = do
+runCmd _ (AddKeyFromFile f) = do
     secret <- readUserSecret f
     mapM_ addSecretKey $ secret ^. usKeys
-runCmd _ _ Quit = pure ()
+runCmd _ Quit = pure ()
 
 runCmdOuts :: OutSpecs
 runCmdOuts = mconcat [ sendProxySKLightOuts
@@ -220,23 +222,23 @@ runCmdOuts = mconcat [ sendProxySKLightOuts
                      , sendProposalOuts
                      ]
 
-evalCmd :: WalletMode m => RealModeResources m -> SendActions m -> Command -> CmdRunner m ()
-evalCmd _ _ Quit   = pure ()
-evalCmd res sa cmd = runCmd res sa cmd >> evalCommands res sa
+evalCmd :: WalletMode m => SendActions m -> Command -> CmdRunner m ()
+evalCmd _ Quit = pure ()
+evalCmd sa cmd = runCmd sa cmd >> evalCommands sa
 
-evalCommands :: WalletMode m => RealModeResources m -> SendActions m -> CmdRunner m ()
-evalCommands res sa = do
+evalCommands :: WalletMode m => SendActions m -> CmdRunner m ()
+evalCommands sa = do
     putStr @Text "> "
     liftIO $ hFlush stdout
     line <- getLine
     let cmd = parseCommand line
     case cmd of
-        Left err  -> putStrLn err >> evalCommands res sa
-        Right cmd -> evalCmd res sa cmd
+        Left err  -> putStrLn err >> evalCommands sa
+        Right cmd -> evalCmd sa cmd
 
-initialize :: WalletMode m => RealModeResources m -> WalletOptions -> m [NodeId]
-initialize res WalletOptions{..} = do
-    peers <- fmap toList (rmGetPeers res)
+initialize :: WalletMode m => WalletOptions -> m [NodeId]
+initialize WalletOptions{..} = do
+    peers <- S.toList <$> getPeers
     bool (pure peers) getPeersUntilSome (null peers)
   where
     -- FIXME this is dangerous. If rmFindPeers doesn't block, for instance
@@ -244,28 +246,28 @@ initialize res WalletOptions{..} = do
     getPeersUntilSome = do
         liftIO $ hFlush stdout
         logWarning "Discovering peers, because current peer list is empty"
-        peers <- fmap toList (rmFindPeers res)
+        peers <- S.toList <$> findPeers
         if null peers
         then getPeersUntilSome
         else pure peers
 
-runWalletRepl :: WalletMode m => RealModeResources m -> WalletOptions -> Worker' m
-runWalletRepl res wo sa = do
-    na <- initialize res wo
+runWalletRepl :: WalletMode m => WalletOptions -> Worker' m
+runWalletRepl wo sa = do
+    na <- initialize wo
     putText "Welcome to Wallet CLI Node"
     let keysPool = if isDevelopment then genesisDevSecretKeys else []
-    runReaderT (evalCmd res sa Help) (keysPool, na)
+    runReaderT (evalCmd sa Help) (keysPool, na)
 
-runWalletCmd :: WalletMode m => RealModeResources m -> WalletOptions -> Text -> Worker' m
-runWalletCmd res wo str sa = do
-    na <- initialize res wo
+runWalletCmd :: WalletMode m => WalletOptions -> Text -> Worker' m
+runWalletCmd wo str sa = do
+    na <- initialize wo
     let strs = T.splitOn "," str
     let keysPool = if isDevelopment then genesisDevSecretKeys else []
     flip runReaderT (keysPool, na) $ for_ strs $ \scmd -> do
         let mcmd = parseCommand scmd
         case mcmd of
             Left err   -> putStrLn err
-            Right cmd' -> runCmd res sa cmd'
+            Right cmd' -> runCmd sa cmd'
     putText "Command execution finished"
     putText " " -- for exit by SIGPIPE
     liftIO $ hFlush stdout
@@ -289,12 +291,12 @@ main = do
             }
         baseParams = BaseParams { bpLoggingParams = logParams }
 
-    bracketResources baseParams TCP.Unaddressable (Set.fromList allPeers) $ \res -> do
+    bracketResources baseParams TCP.Unaddressable $ \transport -> do
 
-        let trans :: forall ssc t . Production t -> WalletRealMode ssc t
-            trans = lift . lift . lift . lift . lift . lift
-            res' :: RealModeResources (WalletRealMode ssc)
-            res' = hoistResources trans res
+        let powerLift :: forall ssc t . Production t -> WalletStaticPeersMode ssc t
+            powerLift = lift . lift . lift . lift . lift . lift . lift
+            transport' :: Transport (WalletStaticPeersMode ssc)
+            transport' = hoistTransport powerLift transport
 
         let peerId = CLI.peerId woCommonArgs
         let sysStart = CLI.sysStart woCommonArgs
@@ -317,20 +319,20 @@ main = do
                           else genesisStakeDistribution
                 }
 
-            plugins :: ([ WorkerSpec (WalletRealMode SscGodTossing) ], OutSpecs)
+            plugins :: ([ WorkerSpec (WalletStaticPeersMode SscGodTossing) ], OutSpecs)
             plugins = first pure $ case woAction of
-                Repl                            -> worker runCmdOuts $ runWalletRepl res' opts
-                Cmd cmd                         -> worker runCmdOuts $ runWalletCmd res' opts cmd
+                Repl    -> worker runCmdOuts $ runWalletRepl opts
+                Cmd cmd -> worker runCmdOuts $ runWalletCmd opts cmd
 #ifdef WITH_WEB
                 Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
                     walletServeWebLite (Proxy @SscGodTossing)
-                                       (rmGetPeers res') sendActions webDaedalusDbPath False webPort
+                                       sendActions webDaedalusDbPath False webPort
 #endif
 
         case CLI.sscAlgo woCommonArgs of
             GodTossingAlgo -> do
                 logInfo "Using MPC coin tossing"
                 liftIO $ hFlush stdout
-                runWalletReal peerId res' params plugins
+                runWalletStaticPeers peerId transport' (S.fromList allPeers) params plugins
             NistBeaconAlgo ->
                 logError "Wallet does not support NIST beacon!"

@@ -24,7 +24,6 @@ import           Serokell.Util                    (show')
 import qualified STMContainers.Map                as SM
 import           Universum
 
-import           Pos.Block.BListener              (MonadBListener)
 import           Pos.Statistics.StatEntry         (StatLabel (..))
 import           Pos.Util.JsonLog                 (MonadJL (..))
 import           Pos.Util.Util                    (ether)
@@ -63,8 +62,6 @@ instance Monad m => MonadStats (NoStatsT m) where
     resetStat _ = pure ()
     logStatM _ _ = pure ()
 
-instance MonadBListener m => MonadBListener (NoStatsT m)
-
 type StatsMap = SM.Map Text LByteString
 
 -- | Statistics wrapper around some monadic action to collect statistics
@@ -96,5 +93,3 @@ instance (MonadIO m, MonadJL m) => MonadStats (StatsT m) where
         lift $ jlLog $ toJLEvent label val
       where
         reset old = return (old, Remove)
-
-instance MonadBListener m => MonadBListener (StatsT m)

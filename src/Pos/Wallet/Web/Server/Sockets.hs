@@ -26,7 +26,6 @@ import           Network.Wai.Handler.WebSockets (websocketsOr)
 import qualified Network.WebSockets             as WS
 
 import           Pos.Aeson.ClientTypes          ()
-import           Pos.Block.BListener            (MonadBListener)
 import           Pos.Wallet.Web.ClientTypes     (NotifyEvent (ConnectionClosed, ConnectionOpened))
 
 -- NODE: for now we are assuming only one client will be used. If there will be need for multiple clients we should extend and hold multiple connections here.
@@ -94,5 +93,3 @@ runWalletWS = flip Ether.runReaderT
 
 notify :: WebWalletSockets m => NotifyEvent -> m ()
 notify msg = getWalletWebSockets >>= flip sendWS msg
-
-instance MonadBListener m => MonadBListener (WalletWebSockets m)

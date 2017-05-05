@@ -22,7 +22,7 @@ import           Pos.Communication.PeerState (PeerStateTag, runPeerStateRedirect
 import           Pos.Discovery               (findPeers, runDiscoveryConstT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               runServer_)
-import           Pos.Reporting.MemState      (runWithoutReportingContext)
+import           Pos.Reporting.MemState      (emptyReportingContext)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Util.Util               ()
 import           Pos.Wallet.KeyStorage       (keyDataFromFile)
@@ -94,7 +94,7 @@ runRawStaticPeersWallet peerId transport peers WalletParams {..}
     usingLoggerName lpRunnerTag . bracket openDB closeDB $ \db -> do
         stateM <- liftIO SM.newIO
         keyData <- keyDataFromFile wpKeyFilePath
-        runWithoutReportingContext .
+        flip Ether.runReaderT' emptyReportingContext .
             runWalletDB db .
             flip Ether.runReaderT' keyData .
             flip (Ether.runReaderT @PeerStateTag) stateM .

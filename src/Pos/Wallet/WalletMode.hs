@@ -31,7 +31,7 @@ import           Data.Tagged                 (Tagged (..))
 import           Data.Time.Units             (Millisecond)
 import qualified Ether
 import           Mockable                    (Production)
-import           Pos.Reporting.MemState      (ReportingContextT)
+import           Pos.Reporting.MemState      (ReportingContext)
 import           System.Wlog                 (LoggerNameBox, WithLogger)
 
 import           Pos.Client.Txp.Balances     (MonadBalances (..), getBalanceFromUtxo)
@@ -250,7 +250,7 @@ type RawWalletMode =
     Ether.ReaderT PeerStateTag (PeerStateCtx Production) (
     Ether.ReaderT KeyData KeyData (
     WalletDB (
-    ReportingContextT (
+    Ether.ReaderT ReportingContext ReportingContext (
     LoggerNameBox (
     Production
     )))))))

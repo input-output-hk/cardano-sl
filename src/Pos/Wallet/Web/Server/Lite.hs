@@ -22,7 +22,7 @@ import           Universum
 import           Pos.Communication             (NodeId)
 import           Pos.Communication.PeerState   (PeerStateTag, runPeerStateRedirect)
 import           Pos.Discovery                 (getPeers, runDiscoveryConstT)
-import           Pos.Reporting.MemState        (runWithoutReportingContext)
+import           Pos.Reporting.MemState        (emptyReportingContext)
 import           Pos.Ssc.Class                 (SscHelpersClass)
 import           Pos.Wallet.KeyStorage         (KeyData)
 import           Pos.Wallet.State              (getWalletState, runWalletDB)
@@ -79,7 +79,7 @@ convertHandler mws kd ws wsConn peers handler = do
     stateM <- liftIO SM.newIO
     liftIO ( runProduction
            . usingLoggerName "wallet-lite-api"
-           . runWithoutReportingContext
+           . flip Ether.runReaderT emptyReportingContext
            . runWalletDB mws
            . flip Ether.runReaderT' kd
            . flip (Ether.runReaderT @PeerStateTag) stateM

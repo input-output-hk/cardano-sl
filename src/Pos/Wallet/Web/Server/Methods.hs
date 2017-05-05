@@ -16,6 +16,7 @@ module Pos.Wallet.Web.Server.Methods
 
 import           Universum
 
+import qualified Ether
 import           Control.Concurrent            (forkFinally)
 import           Control.Lens                  (ix, makeLenses, (.=))
 import           Control.Monad.Catch           (SomeException, catches, try)
@@ -57,8 +58,7 @@ import           Pos.Crypto                    (PassPhrase, aesDecrypt, deriveAe
                                                 withSafeSigner)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.Discovery                 (getPeers)
-import           Pos.Reporting.MemState        (MonadReportingMem, askReportingContext,
-                                                rcReportServers)
+import           Pos.Reporting.MemState        (MonadReportingMem, rcReportServers)
 import           Pos.Reporting.Methods         (sendReport, sendReportNodeNologs)
 import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
 import           Pos.Util                      (maybeThrow)
@@ -555,7 +555,7 @@ reportingInitialized cinit = do
 
 reportingElectroncrash :: forall m. WalletWebMode m => CElectronCrashReport -> m ()
 reportingElectroncrash celcrash = do
-    servers <- view rcReportServers <$> askReportingContext
+    servers <- Ether.asks' (view rcReportServers)
     errors <- fmap lefts $ forM servers $ \serv ->
         try $ sendReport [fdFilePath $ cecUploadDump celcrash]
                          []

@@ -15,6 +15,7 @@ module Pos.Reporting.Methods
 
 import           Universum
 
+import qualified Ether
 import           Control.Exception        (ErrorCall (..), SomeException)
 import           Control.Lens             (each, to)
 import           Control.Monad.Catch      (try)
@@ -45,8 +46,7 @@ import           Pos.Core.Constants       (protocolMagic)
 import           Pos.Discovery.Class      (MonadDiscovery, getPeers)
 import           Pos.Exception            (CardanoFatalError)
 import           Pos.Reporting.Exceptions (ReportingError (..))
-import           Pos.Reporting.MemState   (MonadReportingMem, askReportingContext,
-                                           rcLoggingConfig, rcReportServers)
+import           Pos.Reporting.MemState   (MonadReportingMem, rcLoggingConfig, rcReportServers)
 
 -- TODO From Pos.Util, remove after refactoring.
 -- | Concatenates two url part using regular slash '/'.
@@ -69,7 +69,7 @@ sendReportNode
     :: (MonadIO m, MonadMask m, MonadReportingMem m)
     => Version -> ReportType -> m ()
 sendReportNode version reportType = do
-    logConfig <- view rcLoggingConfig <$> askReportingContext
+    logConfig <- Ether.asks' (view rcLoggingConfig)
     let allFiles = map snd $ retrieveLogFiles logConfig
     logFile <- maybe
         (throwText "sendReportNode: can't find any .pub file in logconfig")
@@ -99,7 +99,7 @@ sendReportNodeImpl
     :: (MonadIO m, MonadMask m, MonadReportingMem m)
     => [Text] -> Version -> ReportType -> m ()
 sendReportNodeImpl rawLogs version reportType = do
-    servers <- view rcReportServers <$> askReportingContext
+    servers <- Ether.asks' (view rcReportServers)
     errors <- fmap lefts $ forM servers $ try .
         sendReport [] rawLogs reportType "cardano-node" version . toString
     whenNotNull errors $ throwSE . NE.head

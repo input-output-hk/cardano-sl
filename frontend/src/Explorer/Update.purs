@@ -7,7 +7,7 @@ import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Now (nowDateTime, NOW)
 import Control.SocketIO.Client (SocketIO, emit, emit')
 import DOM (DOM)
-import DOM.HTML.HTMLElement (blur, offsetHeight)
+import DOM.HTML.HTMLElement (blur)
 import DOM.HTML.HTMLInputElement (select)
 import Data.Array (difference, length, unionBy, (:))
 import Data.Either (Either(..))
@@ -158,15 +158,16 @@ update (DashboardExpandTransactions expanded) state = noEffects $
 
 update (DashboardPaginateBlocks newPage) state =
     { state:
-        set (dashboardViewState <<< dbViewBlockPagination) newPage state
+          set (dashboardViewState <<< dbViewBlockPagination) newPage state
     , effects:
-        if doPaginateBlocksRequest state newPage maxBlockRows
-        then [ pure $ RequestPaginatedBlocks limit offset ]
-        else []
+          if doRequest
+          then [ pure $ RequestPaginatedBlocks limit offset ]
+          else []
     }
     where
-        offset = offsetPaginateBlocksRequest state newPage maxBlockRows
-        limit = limitPaginateBlocksRequest state newPage maxBlockRows
+        doRequest = doPaginateBlocksRequest state newPage maxBlockRows
+        limit = limitPaginateBlocksRequest state newPage maxBlockRows 10
+        offset = offsetPaginateBlocksRequest state 10
 
 update (DashboardEditBlocksPageNumber target editable) state =
     { state:
@@ -729,16 +730,20 @@ doPaginateBlocksRequest state nextPage blockRows =
     where
         lengthBlocks = length $ withDefault [] (state ^. latestBlocks)
 
--- | Determines the limit of blocks for pagination
-limitPaginateBlocksRequest :: State -> Int -> Int -> Int
-limitPaginateBlocksRequest state nextPage blockRows =
-    nextPage * blockRows - length latestBlocks'
+-- | Determines the `limit` to request pagination of blocks
+-- | _Note_: We add some extra "buffer" to get more blocks as needed,
+-- | just to avoid to lost any data
+limitPaginateBlocksRequest :: State -> Int -> Int -> Int -> Int
+limitPaginateBlocksRequest state nextPage blockRows buffer =
+    (nextPage * blockRows - length latestBlocks') + buffer
     where
         latestBlocks' = withDefault [] (state ^. latestBlocks)
 
--- | Determines the offset to paginate blocks
-offsetPaginateBlocksRequest :: State -> Int -> Int -> Int
-offsetPaginateBlocksRequest state nextPage blockRows =
-    (nextPage - currentPage) * blockRows
+-- | Determines the `offset` to request pagination of blocks
+-- | _Note_: We add some extra "buffer" to get more blocks as needed,
+-- | just to avoid to lost any data
+offsetPaginateBlocksRequest :: State -> Int -> Int
+offsetPaginateBlocksRequest state buffer =
+    (length latestBlocks') + buffer
     where
-        currentPage = state ^. (dashboardViewState <<< dbViewBlockPagination)
+        latestBlocks' = withDefault [] (state ^. latestBlocks)

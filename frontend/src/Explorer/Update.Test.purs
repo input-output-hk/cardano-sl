@@ -3,18 +3,19 @@ module Explorer.Update.Test where
 import Prelude
 import Control.Monad.Aff (Aff)
 import Control.Monad.State (StateT)
+import Data.Array (length)
 import Data.Either (Either(..))
 import Data.Generic (gShow)
 import Data.Identity (Identity)
-import Data.Lens ((^.))
-import Debug.Trace (traceAnyM)
+import Data.Lens ((^.), set)
 import Explorer.I18n.Lang (Language(..))
 import Explorer.Lenses.State (lang, latestBlocks, pullLatestBlocks, totalBlocks)
 import Explorer.State (initialState)
-import Explorer.Test.MockFactory (mkCBlockEntry, setEpochSlotOfBlock)
+import Explorer.Test.MockFactory (mkCBlockEntry, setEpochSlotOfBlock, setHashOfBlock)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Update (update)
-import Network.RemoteData (withDefault)
+import Explorer.Util.Factory (mkCHash)
+import Network.RemoteData (RemoteData(..), withDefault)
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -45,9 +46,40 @@ testUpdate =
                 state = _.state effModel
                 latestBlocks' = withDefault [] $ state ^. latestBlocks
             it "to update latestBlocks" do
-                traceAnyM "BLOCKS..."
-                traceAnyM (gShow blocks)
-                traceAnyM (gShow latestBlocks')
                 (gShow latestBlocks') `shouldEqual` (gShow blocks)
             it "to update pullLatestBlocks" do
                 (state ^. pullLatestBlocks) `shouldEqual` true
+
+        describe "uses action ReceiveBlocksUpdate" do
+            -- Mock blocks with epoch, slots and hashes
+            let blockA = setEpochSlotOfBlock 0 1 $ setHashOfBlock (mkCHash "A") mkCBlockEntry
+                blockB = setEpochSlotOfBlock 0 2 $setHashOfBlock (mkCHash "B") mkCBlockEntry
+                blockC = setEpochSlotOfBlock 1 0 $setHashOfBlock (mkCHash "C") mkCBlockEntry
+                blockD = setEpochSlotOfBlock 1 1 $setHashOfBlock (mkCHash "D") mkCBlockEntry
+                currentBlocks =
+                    [ blockA
+                    , blockB
+                    ]
+                -- set `latestBlocks` + `totalBlocks` to simulate that we have already blocks before
+                initialState' =
+                    set latestBlocks (Success currentBlocks) $
+                    set totalBlocks (Success $ length currentBlocks) initialState
+                newBlocks =
+                    [ blockB
+                    , blockC
+                    , blockD
+                    ]
+                effModel = update (ReceiveBlocksUpdate (Right newBlocks)) initialState'
+                state = _.state effModel
+            it "to update latestBlocks w/o duplicates"
+                let result = withDefault [] $ state ^. latestBlocks
+                    expected =
+                        [ blockA
+                        , blockB
+                        , blockC
+                        , blockD
+                        ]
+                in (gShow result) `shouldEqual` (gShow expected)
+            it "to count totalBlocks"
+                let result = withDefault 0 $ state ^. totalBlocks
+                in result `shouldEqual` 4

@@ -27,15 +27,15 @@ import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery,
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CBlockEntriesOffset, Search(..), SocketSubscription(..), State)
 import Explorer.Util.DOM (targetToHTMLElement, targetToHTMLInputElement)
+import Explorer.Util.Data (sortBlocksByEpochSlot, unionBlocks)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
-import Explorer.Util.Data (sortBlocksByEpochSlot)
 import Explorer.View.Blocks (maxBlockRows)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Network.HTTP.Affjax (AJAX)
 import Network.RemoteData (RemoteData(..), _Success, isNotAsked, isSuccess, withDefault)
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, _CBlockEntry, _CHash, _CTxEntry, _CTxId, caAddress, cbeBlkHash, cteId)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, _CHash, _CTxEntry, _CTxId, caAddress, cteId)
 import Pux (EffModel, noEffects, onlyEffects)
 import Pux.Router (navigateTo) as P
 
@@ -426,16 +426,11 @@ update (ReceiveBlocksUpdate (Right blocks)) state =
     noEffects $
     set loading false <<<
     set latestBlocks (Success newBlocks) $
-    over (totalBlocks <<< _Success) ((+) numberNewBlocks) state
+    set totalBlocks (Success $ length newBlocks) state
     where
-        getHash block = block ^. (_CBlockEntry <<< cbeBlkHash <<< _CHash)
-        -- Note:  To "union" current with new blocks we have to compare CBlockEntry
-        --        Because we don't have an Eq instance of generated CBlockEntry's
-        --        As a workaround we do have to compare CBlockEntry by its hash
-        unionBlocks = unionBy (\b1 b2 -> getHash b1 == getHash b2)
         previousBlocks = withDefault [] $ state ^. latestBlocks
         newBlocks = sortBlocksByEpochSlot $ unionBlocks blocks previousBlocks
-        numberNewBlocks = (length newBlocks) - (length previousBlocks)
+        previousTotalBlocks = withDefault 0 $ state ^. totalBlocks
 
 update (ReceiveBlocksUpdate (Left error)) state =
     noEffects $

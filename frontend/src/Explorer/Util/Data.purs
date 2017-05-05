@@ -1,14 +1,14 @@
 module Explorer.Util.Data where
 
 import Prelude
-import Data.Array (reverse, sortBy)
+import Data.Array (reverse, sortBy, unionBy)
 import Data.Lens ((^.))
 import Data.Maybe (fromMaybe)
 import Data.Time.NominalDiffTime (mkTime, unwrapSeconds)
 import Explorer.State (maxSlotInEpoch)
 import Explorer.Types.State (CBlockEntries)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (cbeEpoch, cbeSlot, cbeTimeIssued)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CHash, cbeBlkHash, cbeEpoch, cbeSlot, cbeTimeIssued)
 
 -- | Sort a list of CBlockEntry by time in an ascending (up) order
 sortBlocksByTime :: CBlockEntries -> CBlockEntries
@@ -33,3 +33,16 @@ sortBlocksByEpochSlot blocks =
         epochsAndSlots :: CBlockEntry -> Int
         epochsAndSlots (CBlockEntry entry) =
             ((entry ^. cbeEpoch) * maxSlotInEpoch) + (entry ^. cbeSlot)
+
+
+-- | Helper to remove duplicates of blocks by comparing its CHash
+-- |
+-- | _Note:_  To "union" current with new blocks we have to compare CBlockEntry
+-- | Because we don't have an Eq instance of generated CBlockEntry's
+-- | As a workaround we do have to compare CBlockEntry by its hash
+unionBlocks :: CBlockEntries -> CBlockEntries -> CBlockEntries
+unionBlocks blocksA blocksB =
+    unionBy (\b1 b2 -> getHash b1 == getHash b2) blocksA blocksB
+    where
+        getHash :: CBlockEntry -> String
+        getHash block = block ^. (_CBlockEntry <<< cbeBlkHash <<< _CHash)

@@ -6,8 +6,9 @@ import Control.Monad.State (StateT)
 import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Time.NominalDiffTime (mkTime)
-import Explorer.Test.MockFactory (mkCBlockEntry, setEpochSlotOfBlock, setTimeOfBlock)
-import Explorer.Util.Data (sortBlocksByEpochSlot, sortBlocksByTime, sortBlocksByTime')
+import Explorer.Test.MockFactory (mkCBlockEntry, setEpochSlotOfBlock, setHashOfBlock, setTimeOfBlock)
+import Explorer.Util.Data (sortBlocksByEpochSlot, sortBlocksByTime, sortBlocksByTime', unionBlocks)
+import Explorer.Util.Factory (mkCHash)
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -67,3 +68,27 @@ testDataUtil =
                         , blockD
                         ]
                 in (gShow $ sortBlocksByEpochSlot list) `shouldEqual` (gShow expected)
+        describe "unionBlocks" do
+            let blockA = setHashOfBlock (mkCHash "A") mkCBlockEntry
+                blockB = setHashOfBlock (mkCHash "B") mkCBlockEntry
+                blockC = setHashOfBlock (mkCHash "C") mkCBlockEntry
+                blockD = setHashOfBlock (mkCHash "D") mkCBlockEntry
+            it "to remove duplicates"
+                let listA =
+                        [ blockA
+                        , blockB
+                        , blockC
+                        ]
+                    listB =
+                        [ blockD
+                        , blockA
+                        , blockA
+                        , blockB
+                        ]
+                    expected =
+                        [ blockA
+                        , blockB
+                        , blockC
+                        , blockD
+                        ]
+                in (gShow $ unionBlocks listA listB) `shouldEqual` (gShow expected)

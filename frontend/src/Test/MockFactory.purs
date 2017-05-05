@@ -9,8 +9,8 @@ import Data.Lens (set)
 import Data.Maybe (Maybe(..))
 import Data.Time.NominalDiffTime (NominalDiffTime, mkTime)
 import Explorer.Util.Factory (mkCAddress, mkCHash, mkCTxId, mkCoin)
-import Pos.Explorer.Web.ClientTypes (CAddressSummary(..), CBlockEntry(..), CTxEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, cbeEpoch, cbeSlot, cbeTimeIssued)
+import Pos.Explorer.Web.ClientTypes (CAddressSummary(..), CBlockEntry(..), CHash(..), CTxEntry(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, cbeBlkHash, cbeEpoch, cbeSlot, cbeTimeIssued)
 
 mkEmptyCTxEntry :: CTxEntry
 mkEmptyCTxEntry = CTxEntry
@@ -50,3 +50,8 @@ setEpochSlotOfBlock :: Int -> Int -> CBlockEntry -> CBlockEntry
 setEpochSlotOfBlock epoch slot block =
     set (_CBlockEntry <<< cbeEpoch) epoch $
     set (_CBlockEntry <<< cbeSlot) slot block
+
+-- | Update hash of a slot
+setHashOfBlock :: CHash -> CBlockEntry -> CBlockEntry
+setHashOfBlock hash block =
+    set (_CBlockEntry <<< cbeBlkHash) hash block

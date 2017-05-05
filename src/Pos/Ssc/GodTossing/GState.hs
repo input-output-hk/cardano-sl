@@ -11,28 +11,22 @@ module Pos.Ssc.GodTossing.GState
        , getStableCerts
        ) where
 
-import           Control.Lens                   (at, (.=), _Wrapped)
+import           Control.Lens                   ((.=), _Wrapped)
 import           Control.Monad.Except           (MonadError (throwError), runExceptT)
-import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
+import           Data.Tagged                    (Tagged (..))
 import           Formatting                     (build, sformat, (%))
 import           System.Wlog                    (WithLogger, logDebug, logInfo)
 import           Universum
 
 import           Pos.Binary.Ssc                 ()
-import           Pos.Constants                  (vssMaxTTL)
-import           Pos.Context                    (lrcActionOnEpoch)
-import           Pos.DB                         (DBError (DBMalformed), MonadDB)
-import           Pos.DB.DB                      (getTipBlockHeader,
-                                                 loadBlundsFromTipWhile)
-import           Pos.Lrc.Context                (LrcContext)
-import qualified Pos.Lrc.DB                     as LrcDB
+import           Pos.DB                         (MonadDB, SomeBatchOp (..))
 import           Pos.Lrc.Types                  (RichmenStake)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
 import           Pos.Ssc.Extra                  (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Core        (GtPayload (..), VssCertificatesMap)
+import qualified Pos.Ssc.GodTossing.DB          as DB
 import           Pos.Ssc.GodTossing.Functions   (getStableCertsPure)
-import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
 import           Pos.Ssc.GodTossing.Toss        (MultiRichmenStake, PureToss,
                                                  TossVerFailure (..), applyGenesisBlock,
@@ -45,10 +39,8 @@ import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Types                      (Block, EpochIndex (..), SlotId (..),
                                                  blockMpc, epochIndexL, epochOrSlotG,
                                                  gbHeader)
-import           Pos.Util                       (maybeThrow, _neHead, _neLast)
-import           Pos.Util.Chrono                (NE, NewestFirst (..), OldestFirst (..),
-                                                 toOldestFirst)
-import           Pos.Util.Context               (HasContext)
+import           Pos.Util                       (_neHead, _neLast)
+import           Pos.Util.Chrono                (NE, NewestFirst (..), OldestFirst (..))
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -81,6 +73,7 @@ getStableCerts epoch =
 
 instance SscGStateClass SscGodTossing where
     sscLoadGlobalState = loadGlobalState
+    sscGlobalStateToBatch = Tagged . dumpGlobalState
     sscRollbackU = rollbackBlocks
     sscVerifyAndApplyBlocks = verifyAndApply
     sscCalculateSeedQ _epoch richmen =
@@ -90,46 +83,14 @@ instance SscGStateClass SscGodTossing where
         <*> view gsShares
         <*> pure richmen
 
-loadGlobalState
-    :: ( HasContext LrcContext m
-       , WithLogger m
-       , MonadDB m
-       )
-    => m GtGlobalState
+loadGlobalState :: (MonadDB m, WithLogger m) => m GtGlobalState
 loadGlobalState = do
-    endEpoch <- view epochIndexL <$> getTipBlockHeader @SscGodTossing
-    let startEpoch = safeSub endEpoch -- load blocks while >= endEpoch
-        whileEpoch b = b ^. epochIndexL >= startEpoch
-    logDebug $ sformat ("mpcLoadGlobalState: start epoch is " %build) startEpoch
-    nfBlocks <- fmap fst <$> loadBlundsFromTipWhile whileEpoch
-    blocks <-
-        toOldestFirst <$>
-        maybeThrow
-            (DBMalformed "No blocks during mpc load global state")
-            (_Wrapped nonEmpty nfBlocks)
-    let (beforeEndEpoch, forEndEpoch) =
-            break ((== endEpoch) . view epochIndexL) $ toList blocks
-    let initGState
-            | startEpoch == 0 = over gsVssCertificates unionGenCerts def
-            | otherwise = def
-    multiRichmen <- foldM loadRichmenStep mempty [startEpoch .. endEpoch]
-    let action = do
-            whenNotNull beforeEndEpoch $
-                verifyAndApplyMultiRichmen True multiRichmen . OldestFirst
-            whenNotNull forEndEpoch $
-                verifyAndApplyMultiRichmen False multiRichmen . OldestFirst
-    let errMsg e = "invalid blocks, can't load GodTossing state: " <> pretty e
-    runExceptT (execStateT action initGState) >>= \case
-        Left e -> throwM $ DBMalformed $ errMsg e
-        Right res ->
-            res <$ (logInfo $ sformat ("Loaded GodTossing state: " %build) res)
-  where
-    safeSub epoch = epoch - min epoch vssMaxTTL
-    unionGenCerts gs = foldr' VCD.insert gs . toList $ genesisCertificates
-    loadRichmenStep resMap epoch =
-        loadRichmenStepDo resMap epoch <$>
-        lrcActionOnEpoch epoch LrcDB.getRichmenSsc
-    loadRichmenStepDo resMap epoch richmen = resMap & at epoch .~ Just richmen
+    logDebug "Loading SSC global state"
+    gs <- DB.getGtGlobalState
+    gs <$ logInfo (sformat ("Loaded GodTossing state: " %build) gs)
+
+dumpGlobalState :: GtGlobalState -> [SomeBatchOp]
+dumpGlobalState = one . SomeBatchOp . DB.gtGlobalStateToBatch
 
 type GSUpdate a = forall m . (MonadState GtGlobalState m, WithLogger m) => m a
 

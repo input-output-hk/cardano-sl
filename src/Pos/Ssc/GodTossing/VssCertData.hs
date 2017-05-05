@@ -10,6 +10,7 @@ module Pos.Ssc.GodTossing.VssCertData
        , member
        , expiryEpoch
        , expiryEoS
+       , fromList
 
        -- * Functions which delete certificates. Be careful
        , delete
@@ -123,6 +124,9 @@ member id VssCertData{..} = HM.member id certs
 -- deleted certificates. Use carefully.
 difference :: VssCertData -> HM.HashMap StakeholderId a -> VssCertData
 difference mp hm = foldl' (flip delete) mp . HM.keys $ hm
+
+fromList :: [VssCertificate] -> VssCertData
+fromList = foldr' insert empty
 
 ----------------------------------------------------------------------------
 -- Helpers

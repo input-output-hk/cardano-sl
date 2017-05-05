@@ -11,47 +11,46 @@ module Pos.Launcher.Scenario
        , runNode'
        ) where
 
-import           Data.Default           (def)
-import           Development.GitRev     (gitBranch, gitHash)
-import           Formatting             (build, sformat, shown, (%))
-import           Mockable               (fork)
-import           Paths_cardano_sl       (version)
-import           Serokell.Util          (sec)
-import           System.Exit            (ExitCode (..))
-import           System.Wlog            (getLoggerName, logError, logInfo)
+import           Data.Default        (def)
+import           Development.GitRev  (gitBranch, gitHash)
+import           Formatting          (build, sformat, shown, (%))
+import           Mockable            (fork)
+import           Paths_cardano_sl    (version)
+import           Serokell.Util       (sec)
+import           System.Exit         (ExitCode (..))
+import           System.Wlog         (getLoggerName, logError, logInfo)
 import           Universum
 
-import           Pos.Communication      (ActionSpec (..), NodeId, OutSpecs, WorkerSpec,
-                                         wrapActionSpec)
-import           Pos.Context            (NodeContext (..), getNodeContext,
-                                         ncPubKeyAddress, ncPublicKey)
-import           Pos.DB.Class           (MonadDBCore)
-import qualified Pos.DB.GState          as GS
-import           Pos.Delegation         (initDelegation)
-import           Pos.Launcher.Resources (RealModeResources (..))
-import           Pos.Lrc.Context        (LrcSyncData (..), lcLrcSync)
-import qualified Pos.Lrc.DB             as LrcDB
-import           Pos.Reporting          (reportMisbehaviourMasked)
-import           Pos.Shutdown           (waitForWorkers)
-import           Pos.Slotting           (getCurrentSlot, waitSystemStart)
-import           Pos.Ssc.Class          (SscConstraint)
-import           Pos.Types              (SlotId (..), addressHash)
-import           Pos.Update             (MemState (..), mvState)
-import           Pos.Update.Context     (UpdateContext (ucMemState))
-import           Pos.Util               (inAssertMode, waitRandomInterval)
-import           Pos.Util.Context       (askContext)
-import           Pos.Util.LogSafe       (logInfoS)
-import           Pos.Worker             (allWorkers, allWorkersCount)
-import           Pos.WorkMode           (WorkMode)
+import           Pos.Communication   (ActionSpec (..), NodeId, OutSpecs, WorkerSpec,
+                                      wrapActionSpec)
+import           Pos.Context         (NodeContext (..), getNodeContext, ncPubKeyAddress,
+                                      ncPublicKey)
+import           Pos.DB.Class        (MonadDBCore)
+import qualified Pos.DB.GState       as GS
+import           Pos.Delegation      (initDelegation)
+import           Pos.Discovery.Class (findPeers)
+import           Pos.Lrc.Context     (LrcSyncData (..), lcLrcSync)
+import qualified Pos.Lrc.DB          as LrcDB
+import           Pos.Reporting       (reportMisbehaviourMasked)
+import           Pos.Shutdown        (waitForWorkers)
+import           Pos.Slotting        (getCurrentSlot, waitSystemStart)
+import           Pos.Ssc.Class       (SscConstraint)
+import           Pos.Types           (SlotId (..), addressHash)
+import           Pos.Update          (MemState (..), mvState)
+import           Pos.Update.Context  (UpdateContext (ucMemState))
+import           Pos.Util            (inAssertMode, waitRandomInterval)
+import           Pos.Util.Context    (askContext)
+import           Pos.Util.LogSafe    (logInfoS)
+import           Pos.Worker          (allWorkers, allWorkersCount)
+import           Pos.WorkMode        (WorkMode)
 
 -- | Run full node in any WorkMode.
 runNode'
     :: forall ssc m.
        (SscConstraint ssc, WorkMode ssc m, MonadDBCore m)
-    => RealModeResources m
-    -> [WorkerSpec m]
+    => [WorkerSpec m]
     -> WorkerSpec m
-runNode' res plugins' = ActionSpec $ \vI sendActions -> do
+runNode' plugins' = ActionSpec $ \vI sendActions -> do
 
     logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     inAssertMode $ logInfo "Assert mode on"
@@ -62,7 +61,7 @@ runNode' res plugins' = ActionSpec $ \vI sendActions -> do
     logInfoS $ sformat ("My public key is: "%build%
                         ", address: "%build%
                         ", pk hash: "%build) pk addr pkHash
-    () <$ fork (waitForPeers (rmFindPeers res))
+    void $ fork $ waitForPeers =<< findPeers
     initDelegation @ssc
     initLrc
     initUSMemState
@@ -79,7 +78,7 @@ runNode' res plugins' = ActionSpec $ \vI sendActions -> do
     -- FIXME shouldn't this kill the whole program?
     reportHandler (SomeException e) = do
         loggerName <- getLoggerName
-        reportMisbehaviourMasked (rmGetPeers res) version $
+        reportMisbehaviourMasked version $
             sformat ("Worker/plugin with logger name "%shown%
                     " failed with exception: "%shown)
             loggerName e
@@ -87,12 +86,11 @@ runNode' res plugins' = ActionSpec $ \vI sendActions -> do
 -- | Run full node in any WorkMode.
 runNode
     :: (SscConstraint ssc, WorkMode ssc m, MonadDBCore m)
-    => RealModeResources m
-    -> ([WorkerSpec m], OutSpecs)
+    => ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
-runNode res (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' res $ workers' ++ plugins''
+runNode (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' $ workers' ++ plugins''
   where
-    (workers', wOuts) = allWorkers (rmGetPeers res)
+    (workers', wOuts) = allWorkers
     plugins'' = map (wrapActionSpec "plugin") plugins'
 
 -- | Try to discover peers repeatedly until at least one live peer is found
@@ -100,12 +98,13 @@ runNode res (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' res $ workers' ++
 -- FIXME seems an interrupt-style system would be better. The discovery
 -- system can call you back when a new node comes in.
 -- Would that be a good model? Run some IO for every peer?
-waitForPeers :: WorkMode ssc m => m (Set NodeId) -> m ()
-waitForPeers discoverPeers = discoverPeers >>= \s -> case toList s of
-    ps@(_:_) -> () <$ logInfo (sformat ("Known peers: "%shown) ps)
-    []       -> logInfo "Couldn't connect to any peer, trying again..." >>
-                waitRandomInterval (sec 3) (sec 10) >>
-                waitForPeers discoverPeers
+waitForPeers :: WorkMode ssc m => Set NodeId -> m ()
+waitForPeers peers = case toList peers of
+    ps@(_:_) -> logInfo (sformat ("Known peers: "%shown) ps)
+    []       -> do
+        logInfo "Couldn't connect to any peer, trying again..."
+        waitRandomInterval (sec 3) (sec 10)
+        waitForPeers peers
 
 initSemaphore :: (WorkMode ssc m) => m ()
 initSemaphore = do

@@ -20,7 +20,10 @@ import           Universum
 import qualified Ether
 import           Pos.Communication.PeerState (WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
-import           Pos.Context                 (NodeParams, WithNodeContext)
+import           Pos.Context                 (BlkSemaphore, MonadBlockRetrievalQueue,
+                                              MonadLastKnownHeader, MonadProgressHeader,
+                                              MonadRecoveryHeader, NodeParams, StartTime,
+                                              WithNodeContext)
 import           Pos.DB.Class                (MonadDB)
 import           Pos.DB.DB                   ()
 import           Pos.DB.Limits               (MonadDBLimits)
@@ -67,6 +70,12 @@ type WorkMode ssc m
       , SscLocalDataClass ssc
       , SscHelpersClass ssc
       , WithNodeContext ssc m
+      , MonadBlockRetrievalQueue ssc m
+      , MonadRecoveryHeader ssc m
+      , MonadProgressHeader ssc m
+      , MonadLastKnownHeader ssc m
+      , Ether.MonadReader' StartTime m
+      , Ether.MonadReader' BlkSemaphore m
       , Ether.MonadReader' LrcContext m
       , Ether.MonadReader' UpdateContext m
       , Ether.MonadReader' NodeParams m

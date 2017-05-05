@@ -60,7 +60,8 @@ import           Pos.Communication            (ActionSpec (..), BiP (..), InSpec
                                                hoistListenerSpec, unpackLSpecs)
 import           Pos.Communication.PeerState  (PeerStateTag, runPeerStateRedirect)
 import qualified Pos.Constants                as Const
-import           Pos.Context                  (NodeContext (..), ConnectedPeers(..))
+import           Pos.Context                  (BlkSemaphore (..), ConnectedPeers (..),
+                                               NodeContext (..), StartTime (..))
 import           Pos.Core                     (Timestamp ())
 import           Pos.Crypto                   (createProxySecretKey, encToPublic)
 import           Pos.DB                       (MonadDB, NodeDBs)
@@ -374,7 +375,7 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     ncJLFile <- JLFile <$>
         liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
-    ncBlkSemaphore <- newEmptyMVar
+    ncBlkSemaphore <- BlkSemaphore <$> newEmptyMVar
     ucUpdateSemaphore <- newEmptyMVar
 
     -- TODO [CSL-775] lrc initialization logic is duplicated.
@@ -395,7 +396,7 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ncProgressHeader <- liftIO newEmptyTMVarIO
     ncShutdownFlag <- newTVarIO False
     ncShutdownNotifyQueue <- liftIO $ newTBQueueIO allWorkersNum
-    ncStartTime <- liftIO Time.getCurrentTime
+    ncStartTime <- StartTime <$> liftIO Time.getCurrentTime
     ncLastKnownHeader <- newTVarIO Nothing
     ncGenesisLeaders <- if Const.isDevelopment
                         then pure $ genesisLeaders npCustomUtxo

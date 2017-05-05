@@ -15,6 +15,7 @@ import qualified Data.HashMap.Strict              as HM
 import qualified Data.List.NonEmpty               as NE
 import           Data.Tagged                      (Tagged (..))
 import           Data.Time.Units                  (Microsecond, Millisecond, convertUnit)
+import qualified Ether
 import           Formatting                       (build, ords, sformat, shown, (%))
 import           Mockable                         (currentTime, delay)
 import           Serokell.Util.Exceptions         ()
@@ -36,8 +37,7 @@ import           Pos.Communication.Relay          (DataMsg, InvOrData, ReqMsg,
 import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
                                                    vssMaxTTL)
 import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
-                                                   ncNodeParams, ncPublicKey,
-                                                   ncSscContext, npSecretKey)
+                                                   ncPublicKey, ncSscContext, npSecretKey)
 import           Pos.Crypto                       (SecretKey, VssKeyPair, VssPublicKey,
                                                    randomNumber, runSecureRandom)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
@@ -153,7 +153,7 @@ checkNSendOurCert sendActions = do
         case HM.lookup ourId certs of
             Just c -> return c
             Nothing -> do
-                ourSk <- npSecretKey . ncNodeParams <$> getNodeContext
+                ourSk <- Ether.asks' npSecretKey
                 ourVssKeyPair <- getOurVssKeyPair
                 let vssKey = asBinary $ toVssPublicKey ourVssKeyPair
                     createOurCert =
@@ -191,7 +191,7 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
                 Nothing   -> onNewSlotCommDo ourId
   where
     onNewSlotCommDo ourId = do
-        ourSk <- npSecretKey . ncNodeParams <$> getNodeContext
+        ourSk <- Ether.asks' npSecretKey
         logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
         generated <- generateAndSetNewSecret ourSk slotId
         case generated of

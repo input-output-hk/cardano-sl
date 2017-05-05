@@ -12,6 +12,7 @@ import           Control.Lens               (_Wrapped)
 import           Control.Monad.Except       (ExceptT, runExceptT, throwError)
 import           Control.Monad.STM          (retry)
 import           Data.List.NonEmpty         ((<|))
+import qualified Ether
 import           Formatting                 (build, int, sformat, shown, stext, (%))
 import           Mockable                   (handleAll, throw)
 import           Paths_cardano_sl           (version)
@@ -33,7 +34,8 @@ import           Pos.Communication.Limits   (LimitedLength, recvLimited, reifyMs
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs,
                                              SendActions (..), WorkerSpec, convH,
                                              toOutSpecs, worker)
-import           Pos.Context                (NodeContext (..), getNodeContext)
+import           Pos.Context                (BlockRetrievalQueueTag, ProgressHeaderTag,
+                                             RecoveryHeaderTag)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Class               (MonadDBCore)
 import           Pos.Reporting.Methods      (reportingFatal)
@@ -62,13 +64,13 @@ retrievalWorker = worker outs retrievalWorkerImpl
 
 -- | Worker that queries blocks. It has two jobs:
 --
--- * If there are headers in 'ncBlockRetrievalQueue', this worker retrieves
+-- * If there are headers in 'BlockRetrievalQueue', this worker retrieves
 --   blocks according to that queue.
 --
 -- * If recovery is in progress, this worker keeps recovery going by asking
 --   headers (and then switching to block retrieval on next loop iteration).
 --
--- If both happen at the same time, 'ncBlockRetrievalQueue' takes precedence.
+-- If both happen at the same time, 'BlockRetrievalQueue' takes precedence.
 --
 retrievalWorkerImpl
     :: forall ssc m.
@@ -80,8 +82,8 @@ retrievalWorkerImpl sendActions =
         mainLoop
   where
     mainLoop = runIfNotShutdown $ reportingFatal version $ do
-        queue        <- ncBlockRetrievalQueue <$> getNodeContext
-        recHeaderVar <- ncRecoveryHeader      <$> getNodeContext
+        queue        <- Ether.ask @BlockRetrievalQueueTag
+        recHeaderVar <- Ether.ask @RecoveryHeaderTag
         -- It is not our job to *start* recovery; if we actually need
         -- recovery, the 'checkForReceivedBlocksWorker' worker in
         -- Pos.Security.Workers will trigger it. What we do here is simply an
@@ -147,7 +149,7 @@ retrievalWorkerImpl sendActions =
 
 dropUpdateHeader :: WorkMode ssc m => m ()
 dropUpdateHeader = do
-    progressHeaderVar <- ncProgressHeader <$> getNodeContext
+    progressHeaderVar <- Ether.ask @ProgressHeaderTag
     void $ atomically $ tryTakeTMVar progressHeaderVar
 
 -- | The returned 'Bool' signifies whether given peer was kicked and recovery
@@ -164,7 +166,7 @@ dropRecoveryHeader
     => NodeId
     -> m Bool
 dropRecoveryHeader peerId = do
-    recHeaderVar <- ncRecoveryHeader <$> getNodeContext
+    recHeaderVar <- Ether.ask @RecoveryHeaderTag
     (kicked,realPeer) <- atomically $ do
         let processKick (peer,_) = do
                 let p = peer == peerId
@@ -251,7 +253,7 @@ handleCHsValid sendActions peerId lcaChild newestHash = do
             (LimitedLength s0 (MsgBlock ssc)) m) -> do
         send conv $ mkBlocksRequest lcaChildHash newestHash
         chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
-        recHeaderVar <- ncRecoveryHeader <$> getNodeContext
+        recHeaderVar <- Ether.ask @RecoveryHeaderTag
         case chainE of
             Left e -> do
                 logWarning $ sformat
@@ -310,7 +312,7 @@ retrieveBlocks' i conv prevH endH = lift (recvLimited conv) >>= \case
                 ("Received block #"%int%" with prev hash "%shortHashF%
                  " while "%shortHashF%" was expected: "%build)
                 i prevH' prevH (block ^. blockHeader)
-        progressHeaderVar <- ncProgressHeader <$> getNodeContext
+        progressHeaderVar <- Ether.ask @ProgressHeaderTag
         atomically $ do void $ tryTakeTMVar progressHeaderVar
                         putTMVar progressHeaderVar $ block ^. blockHeader
         if curH == endH

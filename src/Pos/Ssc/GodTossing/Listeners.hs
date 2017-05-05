@@ -6,12 +6,14 @@ module Pos.Ssc.GodTossing.Listeners
          -- ** instance SscListenersClass SscGodTossing
        ) where
 
+import           Universum
+
 import           Control.Lens                     (at, to)
 import           Data.Tagged                      (Tagged (..))
+import qualified Ether
 import           Formatting                       (build, sformat, (%))
 import           Serokell.Util.Verify             (VerificationRes (..))
 import           System.Wlog                      (logDebug)
-import           Universum
 
 import           Pos.Binary.Communication         ()
 import           Pos.Binary.Crypto                ()
@@ -21,7 +23,7 @@ import           Pos.Communication.Limits         ()
 import           Pos.Communication.Message        ()
 import           Pos.Communication.Relay          (Relay (..), RelayProxy (..),
                                                    relayListeners, relayStubListeners)
-import           Pos.Context                      (getNodeContext)
+import           Pos.Context                      (NodeParams)
 import           Pos.Security                     (shouldIgnorePkAddress)
 import           Pos.Ssc.Class.Listeners          (SscListenersClass (..))
 import           Pos.Ssc.Extra                    (sscRunLocalQuery)
@@ -70,7 +72,7 @@ instance WorkMode SscGodTossing m =>
         addr <- contentsToKey dat
         -- [CSL-685] TODO: Add here malicious emulation for network addresses
         -- when TW will support getting peer address properly
-        handleDataDo addr =<< flip shouldIgnorePkAddress addr <$> getNodeContext
+        handleDataDo addr =<< flip shouldIgnorePkAddress addr <$> Ether.ask @NodeParams
       where
         ignoreFmt =
             "Malicious emulation: data " %build % " for id " %build %

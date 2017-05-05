@@ -24,7 +24,7 @@ import           Universum
 
 import           Pos.Communication   (ActionSpec (..), NodeId, OutSpecs, WorkerSpec,
                                       wrapActionSpec)
-import           Pos.Context         (NodeContext (..), getNodeContext, ncPubKeyAddress,
+import           Pos.Context         (BlkSemaphore (..), getNodeContext, ncPubKeyAddress,
                                       ncPublicKey)
 import           Pos.DB.Class        (MonadDBCore)
 import qualified Pos.DB.GState       as GS
@@ -108,7 +108,7 @@ waitForPeers peers = case toList peers of
 
 initSemaphore :: (WorkMode ssc m) => m ()
 initSemaphore = do
-    semaphore <- ncBlkSemaphore <$> getNodeContext
+    semaphore <- Ether.asks' unBlkSemaphore
     whenJustM (tryReadMVar semaphore) $ const $
         logError "ncBlkSemaphore is not empty at the very beginning"
     tip <- GS.getTip

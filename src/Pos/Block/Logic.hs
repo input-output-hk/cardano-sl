@@ -39,6 +39,7 @@ import qualified Data.HashMap.Strict        as HM
 import           Data.List.NonEmpty         ((<|))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text                  as T
+import qualified Ether
 import           Formatting                 (build, int, ords, sformat, stext, (%))
 import           Paths_cardano_sl           (version)
 import           Serokell.Data.Memory.Units (toBytes)
@@ -46,6 +47,7 @@ import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (VerificationRes (..), formatAllErrors,
                                              isVerSuccess, verResToMonadError)
 import           System.Wlog                (CanLog, HasLoggerName, logDebug, logInfo)
+
 import           Universum
 
 import qualified Pos.Binary.Class           as Bi
@@ -60,7 +62,7 @@ import           Pos.Block.Types            (Blund, Undo (..))
 import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,
                                              epochSlots, lastKnownBlockVersion,
                                              recoveryHeadersMessage, slotSecurityParam)
-import           Pos.Context                (NodeContext (ncNodeParams, ncTxpGlobalSettings),
+import           Pos.Context                (NodeContext (ncTxpGlobalSettings),
                                              getNodeContext, lrcActionOnEpochReason,
                                              npSecretKey)
 import           Pos.Core                   (BlockVersion (..), EpochIndex, HeaderHash,
@@ -812,7 +814,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     (localPSKs, pskUndo) <- lift getProxyMempool
     let convertTx (txId, (tx, _, _)) = WithHash tx txId
     sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
-    sk <- npSecretKey . ncNodeParams <$> getNodeContext
+    sk <- Ether.asks' npSecretKey
     -- for now let's be cautious and not generate blocks that are larger than
     -- maxBlockSize/4
     sizeLimit <- fromIntegral . toBytes . (`div` 4) <$> UDB.getMaxBlockSize

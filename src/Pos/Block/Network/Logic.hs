@@ -18,6 +18,8 @@ module Pos.Block.Network.Logic
        , handleBlocks
        ) where
 
+import           Universum
+
 import           Control.Concurrent.STM     (isFullTBQueue, putTMVar, readTVar,
                                              tryReadTMVar, tryTakeTMVar, writeTBQueue,
                                              writeTVar)
@@ -25,13 +27,13 @@ import           Control.Exception          (Exception (..))
 import           Control.Lens               (_Wrapped)
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text.Buildable        as B
+import qualified Ether
 import           Formatting                 (bprint, build, sformat, shown, stext, (%))
 import           Mockable                   (fork)
 import           Paths_cardano_sl           (version)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (VerificationRes (..), formatFirstError)
 import           System.Wlog                (logDebug, logInfo, logWarning)
-import           Universum
 
 import           Pos.Binary.Communication   ()
 import           Pos.Binary.Txp             ()
@@ -49,8 +51,8 @@ import           Pos.Block.Types            (Blund)
 import           Pos.Communication.Limits   (LimitedLength, recvLimited, reifyMsgLimit)
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs,
                                              SendActions (..), convH, toOutSpecs)
-import           Pos.Context                (NodeContext (..), getNodeContext,
-                                             recoveryInProgress)
+import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHeaderTag,
+                                             RecoveryHeaderTag, recoveryInProgress)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Class               (MonadDBCore)
 import qualified Pos.DB.DB                  as DB
@@ -331,9 +333,9 @@ addToBlockRequestQueue
     -> Maybe (BlockHeader ssc)
     -> m ()
 addToBlockRequestQueue headers peerId mrecoveryTip = do
-    queue <- ncBlockRetrievalQueue <$> getNodeContext
-    recHeaderVar <- ncRecoveryHeader <$> getNodeContext
-    lastKnownH <- ncLastKnownHeader <$> getNodeContext
+    queue <- Ether.ask @BlockRetrievalQueueTag
+    recHeaderVar <- Ether.ask @RecoveryHeaderTag
+    lastKnownH <- Ether.ask @LastKnownHeaderTag
     let updateRecoveryHeader (Just recoveryTip) = do
             oldV <- readTVar lastKnownH
             when (maybe True (recoveryTip `isMoreDifficult`) oldV) $

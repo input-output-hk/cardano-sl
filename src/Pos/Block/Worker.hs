@@ -9,13 +9,15 @@ module Pos.Block.Worker
        , blkWorkers
        ) where
 
+import           Universum
+
 import           Control.Lens                (ix)
 import           Data.Default                (def)
+import qualified Ether
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
 import           Serokell.Util               (VerificationRes (..), listJson, pairF)
 import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
-import           Universum
 
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
@@ -25,7 +27,7 @@ import           Pos.Block.Pure              (VerifyBlockParams (..), verifyBloc
 import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', WorkerSpec,
                                               onNewSlotWorker)
 import           Pos.Constants               (networkDiameter)
-import           Pos.Context                 (getNodeContext, ncPublicKey)
+import           Pos.Context                 (npPublicKey)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.Class                (MonadDBCore)
@@ -102,7 +104,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
     logLeadersF = if siSlot == 0 then logInfo else logDebug
     logLeadersFS = if siSlot == 0 then logInfoS else logDebugS
     onKnownLeader leaders leader = do
-        ourPk <- ncPublicKey <$> getNodeContext
+        ourPk <- Ether.asks' npPublicKey
         let ourPkHash = addressHash ourPk
         proxyCerts <- getProxySecretKeys
         let validCerts =

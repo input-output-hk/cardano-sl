@@ -15,7 +15,6 @@ import qualified Database.RocksDB           as Rocks
 import qualified Ether
 import           System.Wlog                (WithLogger)
 
-import           Pos.Context.Class          (WithNodeContext)
 import           Pos.Context.Context        (GenesisUtxo (..), NodeParams (..))
 import           Pos.Context.Functions      (genesisUtxoM)
 import           Pos.DB.Class               (MonadDB, getNodeDBs, usingReadOptions)
@@ -32,9 +31,8 @@ import           Pos.Update.DB              (prepareGStateUS)
 
 -- | Put missing initial data into GState DB.
 prepareGStateDB
-    :: forall ssc m.
-       ( WithNodeContext ssc m
-       , Ether.MonadReader' NodeParams m
+    :: forall m.
+       ( Ether.MonadReader' NodeParams m
        , Ether.MonadReader' GenesisUtxo m
        , MonadDB m )
     => HeaderHash -> m ()

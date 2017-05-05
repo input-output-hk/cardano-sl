@@ -8,11 +8,15 @@
 
 module Pos.Context.Context
        ( NodeContextTag
+       , MonadNodeContext
+       , SscContextTag
+       , MonadSscContext
        , NodeContext (..)
-       , ncPublicKey
-       , ncPubKeyAddress
        , NodeParams(..)
+       , npPublicKey
+       , npPubKeyAddress
        , BaseParams(..)
+       , TxpGlobalSettings
        , GenesisUtxo(..)
        , GenesisLeaders(..)
        , StartTime(..)
@@ -69,6 +73,9 @@ import           Pos.Util.UserSecret           (UserSecret)
 
 data NodeContextTag
 
+type MonadNodeContext ssc =
+    Ether.MonadReader NodeContextTag (NodeContext ssc)
+
 data LastKnownHeaderTag
 
 type LastKnownHeader ssc = TVar (Maybe (BlockHeader ssc))
@@ -98,6 +105,11 @@ type RecoveryHeader ssc =
 
 type MonadRecoveryHeader ssc =
     Ether.MonadReader RecoveryHeaderTag (RecoveryHeader ssc)
+
+data SscContextTag
+
+type MonadSscContext ssc =
+    Ether.MonadReader SscContextTag (SscNodeContext ssc)
 
 newtype GenesisUtxo = GenesisUtxo
     { unGenesisUtxo :: Utxo
@@ -181,6 +193,7 @@ data NodeContext ssc = NodeContext
 makeLensesFor
     [ ("ncUpdateContext", "ncUpdateContextL")
     , ("ncLrcContext", "ncLrcContextL")
+    , ("ncSscContext", "ncSscContextL")
     , ("ncNodeParams", "ncNodeParamsL")
     , ("ncInvPropagationQueue", "ncInvPropagationQueueL")
     , ("ncShutdownFlag", "ncShutdownFlagL")
@@ -195,6 +208,7 @@ makeLensesFor
     , ("ncBlkSemaphore", "ncBlkSemaphoreL")
     , ("ncGenesisLeaders", "ncGenesisLeadersL")
     , ("ncStartTime", "ncStartTimeL")
+    , ("ncTxpGlobalSettings", "ncTxpGlobalSettingsL")
     , ("ncShutdownNotifyQueue", "ncShutdownNotifyQueueL") ]
     ''NodeContext
 
@@ -225,6 +239,8 @@ type instance TagsK (NodeContext ssc) =
   Type ':
   Type ':
   Type ':
+  Type ':
+  Type ':
   '[]
 
 return []
@@ -235,6 +251,7 @@ infixr :::
 
 type instance Tags (NodeContext ssc) =
   NodeContextTag         :::
+  SscContextTag      :::
   UpdateContext          :::
   LrcContext             :::
   NodeParams             :::
@@ -242,6 +259,7 @@ type instance Tags (NodeContext ssc) =
   ReportingContext       :::
   RelayContext           :::
   ShutdownContext        :::
+  TxpGlobalSettings      :::
   JLFile                 :::
   GenesisUtxo            :::
   GenesisLeaders         :::
@@ -257,6 +275,9 @@ type instance Tags (NodeContext ssc) =
 
 instance HasLens NodeContextTag (NodeContext ssc) (NodeContext ssc) where
     lensOf = identity
+
+instance r ~ SscNodeContext ssc => HasLens SscContextTag (NodeContext ssc) r where
+    lensOf = ncSscContextL
 
 instance HasLens UpdateContext (NodeContext ssc) UpdateContext where
     lensOf = ncUpdateContextL
@@ -336,14 +357,17 @@ instance HasLens BlkSemaphore (NodeContext ssc) BlkSemaphore where
 instance HasLens StartTime (NodeContext ssc) StartTime where
     lensOf = ncStartTimeL
 
+instance HasLens TxpGlobalSettings (NodeContext ssc) TxpGlobalSettings where
+    lensOf = ncTxpGlobalSettingsL
+
 ----------------------------------------------------------------------------
 -- Helper functions
 ----------------------------------------------------------------------------
 
--- | Generate 'PublicKey' from 'SecretKey' of 'NodeContext'.
-ncPublicKey :: NodeContext ssc -> PublicKey
-ncPublicKey = toPublic . npSecretKey . ncNodeParams
+-- | Generate 'PublicKey' from 'SecretKey' of 'NodeParams'.
+npPublicKey :: NodeParams -> PublicKey
+npPublicKey = toPublic . npSecretKey
 
 -- | Generate 'Address' from 'SecretKey' of 'NodeContext'
-ncPubKeyAddress :: NodeContext ssc -> Address
-ncPubKeyAddress = makePubKeyAddress . ncPublicKey
+npPubKeyAddress :: NodeParams -> Address
+npPubKeyAddress = makePubKeyAddress . npPublicKey

@@ -62,9 +62,7 @@ import           Pos.Block.Types            (Blund, Undo (..))
 import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,
                                              epochSlots, lastKnownBlockVersion,
                                              recoveryHeadersMessage, slotSecurityParam)
-import           Pos.Context                (NodeContext (ncTxpGlobalSettings),
-                                             getNodeContext, lrcActionOnEpochReason,
-                                             npSecretKey)
+import           Pos.Context                (lrcActionOnEpochReason, npSecretKey)
 import           Pos.Core                   (BlockVersion (..), EpochIndex, HeaderHash,
                                              diffEpochOrSlot)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash), hash,
@@ -502,7 +500,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         Pure.verifyBlocks curSlot dataMustBeKnown adoptedBVD
         (Just leaders) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
-    TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
+    TxpGlobalSettings {..} <- Ether.ask'
     txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $
         map toTxpBlock blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks

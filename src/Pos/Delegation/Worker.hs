@@ -14,7 +14,6 @@ import           System.Wlog                (WithLogger, logError)
 import           Universum
 
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localWorker)
-import           Pos.Context.Class          (WithNodeContext)
 import           Pos.Delegation.Class       (MonadDelegation)
 import           Pos.Delegation.Logic       (invalidateProxyCaches,
                                              runDelegationStateAction)
@@ -35,7 +34,6 @@ dlgInvalidateCaches
        , MonadMask m
        , WithLogger m
        , Mockable Delay m
-       , WithNodeContext ssc m
        , MonadReportingMem m
        , MonadShutdownMem m
        , MonadDelegation m

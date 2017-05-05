@@ -23,6 +23,7 @@ import qualified Pos.CLI                    as CLI
 import           Pos.Communication          (ActionSpec (..), OutSpecs, WorkerSpec,
                                              worker, wrapActionSpec)
 import           Pos.Constants              (isDevelopment)
+import           Pos.Context                (MonadNodeContext)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.Crypto                 (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.DHT.Real               (KademliaDHTInstance (..),
@@ -121,9 +122,9 @@ action kademliaInst args@Args {..} transport = do
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         gtParams = gtSscParams args vssSK
 #ifdef WITH_WEB
-        currentPlugins :: (SscConstraint ssc, WorkMode ssc m) => [m ()]
+        currentPlugins :: (SscConstraint ssc, WorkMode ssc m, MonadNodeContext ssc m) => [m ()]
         currentPlugins = plugins args
-        currentPluginsGT :: (WorkMode SscGodTossing m) => [m ()]
+        currentPluginsGT :: (WorkMode SscGodTossing m, MonadNodeContext SscGodTossing m) => [m ()]
         currentPluginsGT = pluginsGT args
 #else
         currentPlugins :: [a]
@@ -291,14 +292,21 @@ gtSscParams Args {..} vssSK =
     }
 
 #ifdef WITH_WEB
-plugins :: (SscConstraint ssc, WorkMode ssc m) => Args -> [m ()]
+plugins ::
+    ( SscConstraint ssc
+    , WorkMode ssc m
+    , MonadNodeContext ssc m
+    ) => Args -> [m ()]
 plugins Args {..}
     | enableWeb = [serveWebBase webPort]
     | otherwise = []
 #endif
 
 #ifdef WITH_WEB
-pluginsGT :: (WorkMode SscGodTossing m) => Args -> [m ()]
+pluginsGT ::
+    ( WorkMode SscGodTossing m
+    , MonadNodeContext SscGodTossing m
+    ) => Args -> [m ()]
 pluginsGT Args {..}
     | enableWeb = [serveWebGT webPort]
     | otherwise = []

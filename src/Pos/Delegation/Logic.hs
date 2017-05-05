@@ -49,8 +49,7 @@ import           Pos.Binary.Communication   ()
 import           Pos.Block.Types            (Blund, Undo (undoPsk))
 import           Pos.Constants              (lightDlgConfirmationTimeout,
                                              messageCacheTimeout)
-import           Pos.Context                (NodeParams (..), WithNodeContext,
-                                             lrcActionOnEpochReason)
+import           Pos.Context                (NodeParams (..), lrcActionOnEpochReason)
 import           Pos.Crypto                 (ProxySecretKey (..), PublicKey,
                                              SignTag (SignProxySK), pdDelegatePk,
                                              proxyVerify, shortHashF, toPublic,
@@ -424,7 +423,7 @@ data PskLightVerdict
 -- | Processes proxy secret key (understands do we need it,
 -- adds/caches on decision, returns this decision).
 processProxySKLight
-    :: (MonadDelegation m, WithNodeContext ssc m, Ether.MonadReader' NodeParams m, MonadDB m, MonadMask m)
+    :: (MonadDelegation m, Ether.MonadReader' NodeParams m, MonadDB m, MonadMask m)
     => ProxySKLight -> m PskLightVerdict
 processProxySKLight psk = do
     sk <- Ether.asks' npSecretKey

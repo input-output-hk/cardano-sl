@@ -31,7 +31,7 @@ import           Pos.Communication.PeerState   (PeerStateSnapshot, PeerStateTag,
                                                 runPeerStateRedirect)
 import           Pos.Communication.Protocol    (SendActions)
 import           Pos.Constants                 (isDevelopment)
-import           Pos.Context                   (NodeContext, getNodeContext)
+import           Pos.Context                   (NodeContext, NodeContextTag)
 import           Pos.Crypto                    (noPassEncrypt)
 import           Pos.DB                        (NodeDBs, getNodeDBs)
 import           Pos.DB.DB                     (runDbCoreRedirect)
@@ -87,7 +87,7 @@ nat = do
     ssc        <- askSscMem
     delWrap    <- askDelegationState
     psCtx      <- getAllStates
-    nc         <- getNodeContext
+    nc         <- Ether.ask @NodeContextTag
     modernDB   <- getNodeDBs
     conn       <- getWalletWebSockets
     slotVar    <- askSlotting

@@ -36,8 +36,8 @@ import           Pos.Communication.Relay          (DataMsg, InvOrData, ReqMsg,
                                                    invReqDataFlowNeighbors)
 import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
                                                    vssMaxTTL)
-import           Pos.Context                      (getNodeContext, lrcActionOnEpochReason,
-                                                   ncPublicKey, ncSscContext, npSecretKey)
+import           Pos.Context                      (SscContextTag, lrcActionOnEpochReason,
+                                                   npPublicKey, npSecretKey)
 import           Pos.Crypto                       (SecretKey, VssKeyPair, VssPublicKey,
                                                    randomNumber, runSecureRandom)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
@@ -91,9 +91,9 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions -> do
         "couldn't get SSC richmen"
         getRichmenSsc
     localOnNewSlot slotId
-    participationEnabled <- getNodeContext >>=
-        atomically . readTVar . gtcParticipateSsc . ncSscContext
-    ourId <- addressHash . ncPublicKey <$> getNodeContext
+    participationEnabled <- Ether.ask @SscContextTag >>=
+        atomically . readTVar . gtcParticipateSsc
+    ourId <- Ether.asks' (addressHash . npPublicKey)
     let enoughStake = ourId `HM.member` richmen
     when (participationEnabled && not enoughStake) $
         logDebug "Not enough stake to participate in MPC"
@@ -165,11 +165,11 @@ getOurPkAndId
     :: WorkMode SscGodTossing m
     => m (PublicKey, StakeholderId)
 getOurPkAndId = do
-    ourPk <- ncPublicKey <$> getNodeContext
+    ourPk <- Ether.asks' npPublicKey
     return (ourPk, addressHash ourPk)
 
 getOurVssKeyPair :: WorkMode SscGodTossing m => m VssKeyPair
-getOurVssKeyPair = gtcVssKeyPair . ncSscContext <$> getNodeContext
+getOurVssKeyPair = Ether.asks @SscContextTag gtcVssKeyPair
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
@@ -178,7 +178,7 @@ onNewSlotCommitment
 onNewSlotCommitment slotId@SlotId {..} sendActions
     | not (isCommitmentIdx siSlot) = pass
     | otherwise = do
-        ourId <- addressHash . ncPublicKey <$> getNodeContext
+        ourId <- Ether.asks' (addressHash . npPublicKey)
         shouldSendCommitment <- andM
             [ not . hasCommitment ourId <$> gtGetGlobalState
             , HM.member ourId <$> getStableCerts siEpoch]
@@ -212,7 +212,7 @@ onNewSlotOpening
 onNewSlotOpening SlotId {..} sendActions
     | not $ isOpeningIdx siSlot = pass
     | otherwise = do
-        ourId <- addressHash . ncPublicKey <$> getNodeContext
+        ourId <- Ether.asks' (addressHash . npPublicKey)
         globalData <- gtGetGlobalState
         unless (hasOpening ourId globalData) $
             case globalData ^. gsCommitments . to getCommitmentsMap . at ourId of
@@ -235,13 +235,13 @@ onNewSlotShares
     :: (WorkMode SscGodTossing m)
     => SlotId -> Worker' m
 onNewSlotShares SlotId {..} sendActions = do
-    ourId <- addressHash . ncPublicKey <$> getNodeContext
+    ourId <- Ether.asks' (addressHash . npPublicKey)
     -- Send decrypted shares that others have sent us
     shouldSendShares <- do
         sharesInBlockchain <- hasShares ourId <$> gtGetGlobalState
         return $ isSharesIdx siSlot && not sharesInBlockchain
     when shouldSendShares $ do
-        ourVss <- gtcVssKeyPair . ncSscContext <$> getNodeContext
+        ourVss <- Ether.asks @SscContextTag gtcVssKeyPair
         shares <- getOurShares ourVss
         let lShares = fmap (NE.map asBinary) shares
         unless (HM.null shares) $ do

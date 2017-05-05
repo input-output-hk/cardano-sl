@@ -27,7 +27,6 @@ import           System.Wlog                        (WithLogger, logWarning)
 import           Universum
 
 import           Pos.Binary.Ssc                     ()
-import           Pos.Context                        (WithNodeContext)
 import           Pos.Core.Types                     (EpochIndex, SlotId (..),
                                                      StakeholderId)
 import           Pos.DB                             (MonadDB)
@@ -126,7 +125,6 @@ normalize epoch richmen gs = do
 sscIsDataUseful
     :: ( WithLogger m
        , MonadDB m
-       , WithNodeContext kek m
        , MonadSlots m
        , MonadSscMem SscGodTossing m
        )
@@ -144,7 +142,6 @@ sscIsDataUseful tag id =
     evalTossInMem
         :: ( WithLogger m
            , MonadDB m
-           , WithNodeContext kek m
            , MonadSscMem SscGodTossing m
            )
         => TossT PureToss a -> m a
@@ -162,7 +159,6 @@ sscIsDataUseful tag id =
 type GtDataProcessingMode m =
     ( WithLogger m
     , MonadDB m  -- to get richmen
-    , WithNodeContext SscGodTossing m  -- to get richmen
     , MonadSlots m
     , MonadSscMem SscGodTossing m
     , MonadError TossVerFailure m

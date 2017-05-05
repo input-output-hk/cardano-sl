@@ -160,7 +160,6 @@ library
                         Pos.CompileConfig.Type
 
                         -- NodeContext
-                        Pos.Context.Class
                         Pos.Context.Context
                         Pos.Context.Functions
 

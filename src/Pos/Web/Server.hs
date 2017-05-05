@@ -31,8 +31,9 @@ import           Servant.Server                       (Handler, ServantErr (errB
 import           Servant.Utils.Enter                  ((:~>) (NT), enter)
 
 import           Pos.Aeson.Types                      ()
-import           Pos.Context                          (NodeContext, getNodeContext,
-                                                       ncPublicKey, ncSscContext)
+import           Pos.Context                          (MonadNodeContext, NodeContext,
+                                                       NodeContextTag, SscContextTag,
+                                                       npPublicKey)
 import qualified Pos.DB                               as DB
 import qualified Pos.DB.GState                        as GS
 import qualified Pos.Lrc.DB                           as LrcDB
@@ -53,7 +54,11 @@ import           Pos.Web.Api                          (BaseNodeApi, GodTossingAp
 ----------------------------------------------------------------------------
 
 -- [CSL-152]: I want SscConstraint to be part of WorkMode.
-type MyWorkMode ssc m = (WorkMode ssc m, SscConstraint ssc)
+type MyWorkMode ssc m =
+    ( WorkMode ssc m
+    , SscConstraint ssc
+    , MonadNodeContext ssc m -- for ConvertHandler
+    )
 
 serveWebBase :: MyWorkMode ssc m => Word16 -> m ()
 serveWebBase = serveImpl applicationBase "127.0.0.1"
@@ -85,9 +90,9 @@ serveImpl application host port =
 
 type WebHandler ssc =
     Ether.ReadersT
-      ( Tagged DB.NodeDBs DB.NodeDBs
-      , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
-      ) (
+        ( Tagged DB.NodeDBs DB.NodeDBs
+        , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
+        ) (
     Ether.ReadersT (NodeContext ssc) Production
     )
 
@@ -112,10 +117,9 @@ convertHandler nc nodeDBs wrap handler =
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError
 
-nat :: forall ssc m . (MyWorkMode ssc m)
-    => m (WebHandler ssc :~> Handler)
+nat :: forall ssc m . MyWorkMode ssc m => m (WebHandler ssc :~> Handler)
 nat = do
-    nc <- getNodeContext
+    nc <- Ether.ask @NodeContextTag
     nodeDBs <- DB.getNodeDBs
     txpLocalData <- askTxpMem
     return $ NT (convertHandler nc nodeDBs txpLocalData)
@@ -137,7 +141,7 @@ baseServantHandlers =
     :<|>
     getUtxo
     :<|>
-    (ncPublicKey <$> getNodeContext)
+    (Ether.asks' npPublicKey)
     :<|>
     GS.getTip
     :<|>
@@ -169,8 +173,8 @@ gtServantHandlers =
 
 toggleGtParticipation :: Bool -> GtWebHandler ()
 toggleGtParticipation enable =
-    getNodeContext >>=
-    atomically . flip writeTVar enable . gtcParticipateSsc . ncSscContext
+    Ether.ask @SscContextTag >>=
+    atomically . flip writeTVar enable . gtcParticipateSsc
 
 -- gtHasSecret :: GtWebHandler Bool
 -- gtHasSecret = isJust <$> getSecret

@@ -4,16 +4,18 @@ module Pos.Security.Workers
        ( SecurityWorkersClass (..)
        ) where
 
+import           Universum
+
 import           Control.Concurrent.STM     (TVar, newTVar, readTVar, writeTVar)
 import qualified Data.HashMap.Strict        as HM
 import           Data.Tagged                (Tagged (..))
 import           Data.Time.Units            (Millisecond, convertUnit)
+import qualified Ether
 import           Formatting                 (build, int, sformat, (%))
 import           Mockable                   (delay)
 import           Paths_cardano_sl           (version)
 import           Serokell.Util              (sec)
 import           System.Wlog                (logWarning)
-import           Universum
 
 import           Pos.Binary.Ssc             ()
 import           Pos.Block.Logic            (needRecovery)
@@ -23,8 +25,7 @@ import           Pos.Communication.Protocol (OutSpecs, SendActions, WorkerSpec,
                                              localWorker, worker)
 import           Pos.Constants              (blkSecurityParam, mdNoBlocksSlotThreshold,
                                              mdNoCommitmentsEpochThreshold)
-import           Pos.Context                (getNodeContext, getUptime, ncPublicKey,
-                                             recoveryInProgress)
+import           Pos.Context                (getUptime, npPublicKey, recoveryInProgress)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.DB                     (DBError (DBMalformed))
 import           Pos.DB.Block               (getBlockHeader)
@@ -109,7 +110,7 @@ checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
         whenM (needRecovery @ssc) $
             triggerRecovery sendActions
     repeatOnInterval (min (sec' 20)) . reportingFatal version $ do
-        ourPk <- ncPublicKey <$> getNodeContext
+        ourPk <- Ether.asks' npPublicKey
         let onSlotDefault slotId = do
                 header <- getTipBlockHeader @ssc
                 unlessM (checkEclipsed ourPk slotId header) onEclipsed
@@ -168,7 +169,7 @@ checkForIgnoredCommitmentsWorkerImpl tvar slotId = do
   where
     checkCommitmentsInBlock :: MainBlock SscGodTossing -> m ()
     checkCommitmentsInBlock block = do
-        ourId <- addressHash . ncPublicKey <$> getNodeContext
+        ourId <- Ether.asks' (addressHash . npPublicKey)
         let commitmentInBlockchain = isCommitmentInPayload ourId (block ^. blockMpc)
         when commitmentInBlockchain $
             atomically $ writeTVar tvar $ siEpoch $ block ^. blockSlot

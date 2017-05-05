@@ -131,84 +131,84 @@ runRawRealMode
     -> Production a
 runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec action) =
     usingLoggerName lpRunnerTag $ do
-       initNC <- untag @ssc sscCreateNodeContext sscnp
-       modernDBs <- openNodeDBs npRebuildDb npDbPathM
-       let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc) :: Int
-       -- TODO [CSL-775] ideally initialization logic should be in scenario.
-       runCH @ssc allWorkersNum np initNC modernDBs $
-        flip Ether.runReaderT' modernDBs $ initNodeDBs
-       initTip <- Ether.runReaderT' getTip modernDBs
-       stateM <- liftIO SM.newIO
-       stateM_ <- liftIO SM.newIO
-       slottingVar <- Ether.runReaderT' (mkSlottingVar npSystemStart) modernDBs
-       txpVar <- mkTxpLocalData mempty initTip
-       ntpSlottingVar <- mkNtpSlottingVar
+        initNC <- untag @ssc sscCreateNodeContext sscnp
+        modernDBs <- openNodeDBs npRebuildDb npDbPathM
+        let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc) :: Int
+        -- TODO [CSL-775] ideally initialization logic should be in scenario.
+        runCH @ssc allWorkersNum np initNC modernDBs $
+            flip Ether.runReaderT' modernDBs $ initNodeDBs @ssc
+        initTip <- Ether.runReaderT' getTip modernDBs
+        stateM <- liftIO SM.newIO
+        stateM_ <- liftIO SM.newIO
+        slottingVar <- Ether.runReaderT' (mkSlottingVar npSystemStart) modernDBs
+        txpVar <- mkTxpLocalData mempty initTip
+        ntpSlottingVar <- mkNtpSlottingVar
 
-       -- TODO [CSL-775] need an effect-free way of running this into IO.
-       let runIO :: forall t . RawRealMode ssc t -> IO t
-           runIO act = do
-              deleg <- newTVarIO def
-              runProduction .
-                  usingLoggerName lpRunnerTag .
-                  runCH @ssc allWorkersNum np initNC modernDBs .
-                  flip Ether.runReadersT
-                     ( Tagged @NodeDBs modernDBs
-                     , Tagged @SlottingVar slottingVar
-                     , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
-                     , Tagged @SscMemTag bottomSscState
-                     , Tagged @TxpHolderTag txpVar
-                     , Tagged @(TVar DelegationWrap) deleg
-                     , Tagged @PeerStateTag stateM_
-                     ) .
-                  runSlotsDataRedirect .
-                  runSlotsRedirect .
-                  runBalancesRedirect .
-                  runTxHistoryRedirect .
-                  runPeerStateRedirect .
-                  runDbLimitsRedirect .
-                  runDbCoreRedirect .
-                  runUpdatesRedirect .
-                  runBlockchainInfoRedirect $
-                  act
+        -- TODO [CSL-775] need an effect-free way of running this into IO.
+        let runIO :: forall t . RawRealMode ssc t -> IO t
+            runIO act = do
+               deleg <- newTVarIO def
+               runProduction .
+                   usingLoggerName lpRunnerTag .
+                   runCH @ssc allWorkersNum np initNC modernDBs .
+                   flip Ether.runReadersT
+                      ( Tagged @NodeDBs modernDBs
+                      , Tagged @SlottingVar slottingVar
+                      , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
+                      , Tagged @SscMemTag bottomSscState
+                      , Tagged @TxpHolderTag txpVar
+                      , Tagged @(TVar DelegationWrap) deleg
+                      , Tagged @PeerStateTag stateM_
+                      ) .
+                   runSlotsDataRedirect .
+                   runSlotsRedirect .
+                   runBalancesRedirect .
+                   runTxHistoryRedirect .
+                   runPeerStateRedirect .
+                   runDbLimitsRedirect .
+                   runDbCoreRedirect .
+                   runUpdatesRedirect .
+                   runBlockchainInfoRedirect $
+                   act
 
-       let startMonitoring node' = case lpEkgPort of
-               Nothing   -> return Nothing
-               Just port -> Just <$> setupMonitor port runIO node'
+        let startMonitoring node' = case lpEkgPort of
+                Nothing   -> return Nothing
+                Just port -> Just <$> setupMonitor port runIO node'
 
-       let stopMonitoring it = whenJust it stopMonitor
+        let stopMonitoring it = whenJust it stopMonitor
 
-       sscState <-
-          runCH @ssc allWorkersNum np initNC modernDBs .
-          flip Ether.runReadersT
-              ( Tagged @NodeDBs modernDBs
-              , Tagged @SlottingVar slottingVar
-              , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
-              ) .
-          runSlotsDataRedirect .
-          runSlotsRedirect $
-          mkSscState @ssc
-       deleg <- newTVarIO def
-       runCH allWorkersNum np initNC modernDBs .
-          flip Ether.runReadersT
-              ( Tagged @NodeDBs modernDBs
-              , Tagged @SlottingVar slottingVar
-              , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
-              , Tagged @SscMemTag sscState
-              , Tagged @TxpHolderTag txpVar
-              , Tagged @(TVar DelegationWrap) deleg
-              , Tagged @PeerStateTag stateM
-              ) .
-          runSlotsDataRedirect .
-          runSlotsRedirect .
-          runBalancesRedirect .
-          runTxHistoryRedirect .
-          runPeerStateRedirect .
-          runDbLimitsRedirect .
-          runDbCoreRedirect .
-          runUpdatesRedirect .
-          runBlockchainInfoRedirect .
-          runServer peerId transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
-              \vI sa -> nodeStartMsg npBaseParams >> action vI sa
+        sscState <-
+           runCH @ssc allWorkersNum np initNC modernDBs .
+           flip Ether.runReadersT
+               ( Tagged @NodeDBs modernDBs
+               , Tagged @SlottingVar slottingVar
+               , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
+               ) .
+           runSlotsDataRedirect .
+           runSlotsRedirect $
+           mkSscState @ssc
+        deleg <- newTVarIO def
+        runCH allWorkersNum np initNC modernDBs .
+           flip Ether.runReadersT
+               ( Tagged @NodeDBs modernDBs
+               , Tagged @SlottingVar slottingVar
+               , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
+               , Tagged @SscMemTag sscState
+               , Tagged @TxpHolderTag txpVar
+               , Tagged @(TVar DelegationWrap) deleg
+               , Tagged @PeerStateTag stateM
+               ) .
+           runSlotsDataRedirect .
+           runSlotsRedirect .
+           runBalancesRedirect .
+           runTxHistoryRedirect .
+           runPeerStateRedirect .
+           runDbLimitsRedirect .
+           runDbCoreRedirect .
+           runUpdatesRedirect .
+           runBlockchainInfoRedirect .
+           runServer peerId transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
+               \vI sa -> nodeStartMsg npBaseParams >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
 

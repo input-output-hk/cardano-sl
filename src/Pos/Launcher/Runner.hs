@@ -33,9 +33,9 @@ import           Data.Tagged                 (untag)
 import           Data.Text                   (pack)
 import qualified Data.Time                   as Time
 import           Formatting                  (build, sformat, shown, (%))
-import           Mockable                    (CurrentTime, Mockable, MonadMockable,
-                                              Production (..), Throw, bracket, finally,
-                                              throw)
+import           Mockable                    (CurrentTime, Mockable, MonadMockable, 
+                                              Bracket, Production (..), Throw, 
+                                              bracket, finally, throw)
 import           Network.QDisc.Fair          (fairQDisc)
 import           Network.Transport.Abstract  (Transport, closeTransport, hoistTransport)
 import           Network.Transport.Concrete  (concrete)
@@ -45,6 +45,7 @@ import           Node                        (Node, NodeAction (..),
                                               node, simpleNodeEndPoint)
 import           Node.Util.Monitor           (setupMonitor, stopMonitor)
 import qualified STMContainers.Map           as SM
+import           System.IO                   (hClose)
 import qualified System.Metrics.Gauge        as Gauge
 import           System.Random               (newStdGen)
 import           System.Remote.Monitoring    (getGauge)
@@ -321,21 +322,21 @@ runStaticMode peerId transport peers np@NodeParams {..} sscnp (ActionSpec action
 -- Lower level runners
 ----------------------------------------------------------------------------
 
-runCH
-    :: forall ssc m a.
-       ( SscConstraint ssc
-       , MonadIO m
-       , MonadCatch m
-       , Mockable CurrentTime m)
-    => Int
-    -> NodeParams
-    -> SscNodeContext ssc
-    -> NodeDBs
-    -> DBHolder (ContextHolder ssc m) a
-    -> m a
+runCH :: forall ssc m a . 
+         ( SscConstraint ssc
+         , MonadIO m
+         , MonadMask m
+         , Mockable CurrentTime m
+         , Mockable Bracket m
+         )
+      => Int 
+      -> NodeParams 
+      -> SscNodeContext ssc 
+      -> NodeDBs 
+      -> DBHolder (ContextHolder ssc m) a 
+      -> m a
 runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
-    ncJLFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     ncBlkSemaphore <- newEmptyMVar
     ucUpdateSemaphore <- newEmptyMVar
 
@@ -367,21 +368,32 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty
-    let ctx =
-            NodeContext
-            { ncConnectedPeers = peersVar
-            , ncSscContext = sscNodeContext
-            , ncLrcContext = LrcContext {..}
-            , ncUpdateContext = UpdateContext {..}
-            , ncNodeParams = params
-            , ncSendLock = Nothing
+    withFile' npJLFile WriteMode $ \mh -> do
+        ncJLFile <- case mh of
+            Nothing     -> pure Nothing
+            Just handle -> liftIO $ Just <$> newMVar handle
+        let ctx =
+                NodeContext
+                { ncConnectedPeers = peersVar
+                , ncSscContext = sscNodeContext
+                , ncLrcContext = LrcContext {..}
+                , ncUpdateContext = UpdateContext {..}
+                , ncNodeParams = params
+                , ncSendLock = Nothing
 #ifdef WITH_EXPLORER
-            , ncTxpGlobalSettings = explorerTxpGlobalSettings
+                , ncTxpGlobalSettings = explorerTxpGlobalSettings
 #else
-            , ncTxpGlobalSettings = txpGlobalSettings
+                , ncTxpGlobalSettings = txpGlobalSettings
 #endif
-            , .. }
-    runContextHolder ctx (runDBHolder db act)
+                , .. }
+        runContextHolder ctx (runDBHolder db act)
+
+withFile' :: (Mockable Bracket m, MonadIO m) => Maybe FilePath -> IOMode -> (Maybe Handle -> m a) -> m a
+withFile' Nothing _ m        = m Nothing
+withFile' (Just path) mode m = bracket 
+    (openFile path mode)
+    (liftIO . hClose)
+    (m . Just)
 
 ----------------------------------------------------------------------------
 -- Utilities

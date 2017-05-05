@@ -122,17 +122,11 @@ showHash = sformat hashHexF
 jlAdoptedBlock :: Ssc ssc => Block ssc -> JLEvent
 jlAdoptedBlock = JLAdoptedBlock . showHash . headerHash
 
--- | Append event into log by given 'FilePath'.
-appendJL :: (MonadIO m) => FilePath -> JLEvent -> m ()
-appendJL path ev = liftIO $ do
-    tev <- mkTimedEvent ev
-    LBS.appendFile path tev 
-
--- | Turn a Json log event into a ByteString with timestamp.
-mkTimedEvent :: MonadIO m => JLEvent -> m LBS.ByteString
-mkTimedEvent ev = do
+-- | Append event into log by given 'Handle'
+appendJL :: (MonadIO m) => Maybe (MVar Handle) -> JLEvent -> m ()
+appendJL mv ev = whenJust mv $ \v -> do
     time <- currentTime
-    return $ encode $ JLTimedEvent (fromIntegral time) ev
+    liftIO $ withMVar v $ flip LBS.hPut $ encode $ JLTimedEvent (fromIntegral time) ev
 
 -- | Monad for things that can log Json log events.
 class Monad m => MonadJL m where
@@ -183,9 +177,7 @@ instance ( Mockable d m
 
 instance MonadIO m => MonadJL (JsonLogFilePathBox m) where
 
-    jlLog event = JsonLogFilePathBox $ whenJustM ask $ \hMV -> do
-        timed <- mkTimedEvent event
-        liftIO $ withMVar hMV $ flip LBS.hPut timed
+    jlLog event = JsonLogFilePathBox $ ask >>= flip appendJL event
         
 usingJsonLogFilePath :: (MonadIO m, MonadMask m) => Maybe FilePath -> JsonLogFilePathBox m a -> m a
 usingJsonLogFilePath mpath m =

@@ -46,8 +46,8 @@ import           Pos.Util.UserSecret           (UserSecret)
 
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext
-    { ncJLFile              :: !(Maybe (MVar FilePath))
-    -- @georgeee please add documentation when you see this comment
+    { ncJLFile              :: !(Maybe (MVar Handle))
+    -- ^ Handle to the JSON log file if JSON logging is enabled.
     , ncSscContext          :: !(SscNodeContext ssc)
     -- @georgeee please add documentation when you see this comment
     , ncUpdateContext       :: !UpdateContext

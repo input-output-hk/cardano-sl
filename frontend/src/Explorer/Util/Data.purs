@@ -2,14 +2,14 @@ module Explorer.Util.Data where
 
 import Prelude
 import Data.Array (reverse, sortBy)
-import Data.Lens ((^.))
-import Data.Maybe (fromMaybe)
-import Data.Time.NominalDiffTime (mkTime, unwrapSeconds)
+import Data.Lens ((^.), set)
+import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Time.NominalDiffTime (NominalDiffTime, mkTime, unwrapSeconds)
 import Explorer.Types.State (CBlockEntries)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (cbeTimeIssued)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, cbeEpoch, cbeSlot, cbeTimeIssued)
 
--- | Sort a list of CBlockEntry in an ascending (up) order
+-- | Sort a list of CBlockEntry by time in an ascending (up) order
 sortBlocksByTime :: CBlockEntries -> CBlockEntries
 sortBlocksByTime blocks =
     sortBy (comparing time) blocks
@@ -18,7 +18,17 @@ sortBlocksByTime blocks =
         time (CBlockEntry entry) =
             unwrapSeconds <<< fromMaybe (mkTime 0.0) $ entry ^. cbeTimeIssued
 
--- | Sort a list of CBlockEntry in an descending (down) order
+-- | Sort a list of CBlockEntry by time in an descending (down) order
 sortBlocksByTime' :: CBlockEntries -> CBlockEntries
 sortBlocksByTime' =
     reverse <<< sortBlocksByTime
+
+
+-- | Sort CBlockEntries by epochs and slots an ascending (up) order
+sortBlocksByEpochSlot :: CBlockEntries -> CBlockEntries
+sortBlocksByEpochSlot blocks =
+    sortBy (comparing epochsAndSlots) blocks
+    where
+        epochsAndSlots :: CBlockEntry -> Int
+        epochsAndSlots (CBlockEntry entry) =
+            (entry ^. cbeEpoch) + (entry ^. cbeSlot)

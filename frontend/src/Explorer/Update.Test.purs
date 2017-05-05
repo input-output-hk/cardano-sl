@@ -11,9 +11,9 @@ import Data.Time.NominalDiffTime (mkTime)
 import Explorer.I18n.Lang (Language(..))
 import Explorer.Lenses.State (lang, latestBlocks, pullLatestBlocks, totalBlocks)
 import Explorer.State (initialState)
+import Explorer.Test.MockFactory (mkCBlockEntry, setTimeOfBlock)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Update (update)
-import Explorer.Util.Factory (mkCBlockEntryByTime)
 import Network.RemoteData (withDefault)
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
@@ -37,9 +37,9 @@ testUpdate =
                 in result `shouldEqual` 12
 
         describe "uses action ReceiveInitialBlocks" do
-            let blocks =  [ mkCBlockEntryByTime $ mkTime 1.0
-                          , mkCBlockEntryByTime $ mkTime 2.0
-                          , mkCBlockEntryByTime $ mkTime 3.0
+            let blocks =  [ setTimeOfBlock (mkTime 1.0) mkCBlockEntry
+                          , setTimeOfBlock (mkTime 2.0) mkCBlockEntry
+                          , setTimeOfBlock (mkTime 3.0) mkCBlockEntry
                           ]
                 effModel = update (ReceiveInitialBlocks (Right blocks)) initialState
                 state = _.state effModel

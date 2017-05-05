@@ -60,7 +60,7 @@ import           Pos.Communication            (ActionSpec (..), BiP (..), InSpec
                                                hoistListenerSpec, unpackLSpecs)
 import           Pos.Communication.PeerState  (PeerStateTag, runPeerStateRedirect)
 import qualified Pos.Constants                as Const
-import           Pos.Context                  (NodeContext (..))
+import           Pos.Context                  (NodeContext (..), ConnectedPeers(..))
 import           Pos.Core                     (Timestamp ())
 import           Pos.Crypto                   (createProxySecretKey, encToPublic)
 import           Pos.DB                       (MonadDB, NodeDBs)
@@ -407,7 +407,7 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     peersVar <- newTVarIO mempty
     let ctx =
             NodeContext
-            { ncConnectedPeers = peersVar
+            { ncConnectedPeers = ConnectedPeers peersVar
             , ncSscContext = sscNodeContext
             , ncLrcContext = LrcContext {..}
             , ncUpdateContext = UpdateContext {..}

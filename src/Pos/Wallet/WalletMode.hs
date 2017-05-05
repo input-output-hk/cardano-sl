@@ -31,7 +31,7 @@ module Pos.Wallet.WalletMode
 
 import           Universum
 
-import           Control.Concurrent.STM      (TMVar, tryReadTMVar)
+import           Control.Concurrent.STM      (tryReadTMVar)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import           Data.Coerce                 (coerce)
@@ -139,26 +139,11 @@ topHeader :: (SscHelpersClass ssc, MonadDB m) => m (BlockHeader ssc)
 topHeader = maybeThrow (DBMalformed "No block with tip hash!") =<<
             DB.getBlockHeader =<< GS.getTip
 
-getContextTVar
-    :: (Ssc ssc, MonadIO m, PC.WithNodeContext ssc m)
-    => (PC.NodeContext ssc -> TVar a)
-    -> m a
-getContextTVar getter =
-    PC.getNodeContext >>=
-    atomically . readTVar . getter
-
-getContextTMVar
-    :: (Ssc ssc, MonadIO m, PC.WithNodeContext ssc m)
-    => (PC.NodeContext ssc -> TMVar a)
-    -> m (Maybe a)
-getContextTMVar getter =
-    PC.getNodeContext >>=
-    atomically . tryReadTMVar . getter
-
 downloadHeader
-    :: (Ssc ssc, MonadIO m, PC.WithNodeContext ssc m)
+    :: (Ssc ssc, MonadIO m, PC.MonadProgressHeader ssc m)
     => m (Maybe (BlockHeader ssc))
-downloadHeader = getContextTMVar PC.ncProgressHeader
+downloadHeader = do
+    atomically . tryReadTMVar =<< Ether.ask @PC.ProgressHeaderTag
 
 -- | Stub instance for lite-wallet
 data BlockchainInfoNotImplementedTag
@@ -187,17 +172,25 @@ type BlockchainInfoRedirect =
 runBlockchainInfoRedirect :: BlockchainInfoRedirect m a -> m a
 runBlockchainInfoRedirect = coerce
 
+getLastKnownHeader
+  :: (PC.MonadLastKnownHeader ssc m, MonadIO m)
+  => m (Maybe (BlockHeader ssc))
+getLastKnownHeader =
+    atomically . readTVar =<< Ether.ask @PC.LastKnownHeaderTag
+
 -- | Instance for full-node's ContextHolder
 instance
     ( SscHelpersClass ssc
     , t ~ Ether.IdentityT
-    , PC.WithNodeContext ssc m
+    , PC.MonadLastKnownHeader ssc m
+    , PC.MonadProgressHeader ssc m
+    , Ether.MonadReader' PC.ConnectedPeers m
     , MonadIO m
     , MonadDB m
     , MonadSlots m
     ) => MonadBlockchainInfo (Ether.TaggedTrans BlockchainInfoRedirectTag t m)
   where
-    networkChainDifficulty = getContextTVar PC.ncLastKnownHeader >>= \case
+    networkChainDifficulty = getLastKnownHeader >>= \case
         Just lh -> do
             thDiff <- view difficultyL <$> topHeader @ssc
             let lhDiff = lh ^. difficultyL
@@ -214,7 +207,10 @@ instance
         Just dh -> return $ dh ^. difficultyL
         Nothing -> view difficultyL <$> topHeader @ssc
 
-    connectedPeers = fromIntegral . length <$> getContextTVar PC.ncConnectedPeers
+    connectedPeers = fromIntegral . length <$> do
+        PC.ConnectedPeers cp <- Ether.ask'
+        atomically (readTVar cp)
+
     blockchainSlotDuration = getLastKnownSlotDuration
 
 -- | Abstraction over getting update proposals
@@ -260,10 +256,8 @@ runUpdatesRedirect = coerce
 
 -- | Instance for full node
 instance
-    ( Ssc ssc
-    , MonadIO m
+    ( MonadIO m
     , WithLogger m
-    , PC.WithNodeContext ssc m
     , t ~ Ether.IdentityT
     , MonadShutdownMem m
     , Ether.MonadReader' UpdateContext m

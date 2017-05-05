@@ -164,7 +164,6 @@ wrapListener
      , Mockable Delay m
      , MonadIO m
      , WithLogger m
---     , WithNodeContext ssc m
      )
   => LoggerName -> Listener m -> Listener m
 wrapListener lname =
@@ -184,7 +183,6 @@ wrapActionSpec
      , Mockable Delay m
      , MonadIO m
      , WithLogger m
---     , WithNodeContext ssc m
      )
   => LoggerName -> ActionSpec m a -> ActionSpec m a
 wrapActionSpec lname =
@@ -204,7 +202,6 @@ wrapSendActions
      , Mockable Delay m
      , MonadIO m
      , WithLogger m
---    , WithNodeContext ssc m
      )
   => N.SendActions BiP PeerData m
   -> N.SendActions BiP PeerData m

@@ -9,12 +9,14 @@ import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Lens ((^.), set)
 import Explorer.I18n.Lang (Language(..))
-import Explorer.Lenses.State (lang, latestBlocks, pullLatestBlocks, totalBlocks)
+import Explorer.Lenses.State (dbViewBlockPagination, lang, latestBlocks, pullLatestBlocks, totalBlocks)
 import Explorer.State (initialState)
 import Explorer.Test.MockFactory (mkCBlockEntry, setEpochSlotOfBlock, setHashOfBlock)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Update (update)
+import Explorer.Update (doPaginateBlocksRequest, limitPaginateBlocksRequest, offsetPaginateBlocksRequest, update)
 import Explorer.Util.Factory (mkCHash)
+import Explorer.View.Blocks (maxBlockRows)
+import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Network.RemoteData (RemoteData(..), withDefault)
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
@@ -115,3 +117,78 @@ testUpdate =
                         , blockE
                         ]
                 in (gShow result) `shouldEqual` (gShow expected)
+
+        describe "doPaginateBlocksRequest" do
+            let currentBlocks =
+                    [ mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    ]
+                state =
+                    set latestBlocks (Success currentBlocks) $
+                    set totalBlocks (Success 100) $
+                    set (dashboardViewState <<< dbViewBlockPagination) 1 initialState
+
+            it "should return true if we are on page 1, but were not at another page before"
+                let result = doPaginateBlocksRequest state 2 maxBlockRows
+                in result `shouldEqual` true
+
+        describe "limitPaginateBlocksRequest" do
+            let -- add 12 blocks
+                currentBlocks =
+                    [ mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    ]
+                initialState' =
+                    set latestBlocks (Success currentBlocks) initialState
+
+            it "if we want to go from page 1 to 2"
+                let state = set (dashboardViewState <<< dbViewBlockPagination) 1 initialState'
+                    result = limitPaginateBlocksRequest state 2 10
+                in result `shouldEqual` 8
+
+            it "if we want to jump from page 1 to 30"
+                let state = set (dashboardViewState <<< dbViewBlockPagination) 1 initialState'
+                    result = limitPaginateBlocksRequest state 30 10
+                in result `shouldEqual` 288
+
+        describe "offsetPaginateBlocksRequest" do
+            let -- add 12 blocks
+                currentBlocks =
+                    [ mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    , mkCBlockEntry
+                    ]
+                initialState' =
+                    set latestBlocks (Success currentBlocks) initialState
+
+            it "if we want to go from page 1 to 2"
+                let state = set (dashboardViewState <<< dbViewBlockPagination) 1 initialState'
+                    result = offsetPaginateBlocksRequest state 2 10
+                in result `shouldEqual` 10
+
+            it "if we want to go from page 1 to 30"
+                let state = set (dashboardViewState <<< dbViewBlockPagination) 1 initialState'
+                    result = offsetPaginateBlocksRequest state 30 10
+                in result `shouldEqual` 290

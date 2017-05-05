@@ -90,5 +90,4 @@ data Action
     -- misc
     | NoOp
 
-
 type ActionChannel = Channel Action

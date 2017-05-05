@@ -7,7 +7,7 @@ import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Now (nowDateTime, NOW)
 import Control.SocketIO.Client (SocketIO, emit, emit')
 import DOM (DOM)
-import DOM.HTML.HTMLElement (blur)
+import DOM.HTML.HTMLElement (blur, offsetHeight)
 import DOM.HTML.HTMLInputElement (select)
 import Data.Array (difference, length, unionBy, (:))
 import Data.Either (Either(..))
@@ -156,22 +156,17 @@ update (DashboardExpandBlocks expanded) state = noEffects $
 update (DashboardExpandTransactions expanded) state = noEffects $
     set (dashboardViewState <<< dbViewTxsExpanded) expanded state
 
-update (DashboardPaginateBlocks value) state =
+update (DashboardPaginateBlocks newPage) state =
     { state:
-        set (dashboardViewState <<< dbViewBlockPagination) value state
+        set (dashboardViewState <<< dbViewBlockPagination) newPage state
     , effects:
-        if doRequest
+        if doPaginateBlocksRequest state newPage maxBlockRows
         then [ pure $ RequestPaginatedBlocks limit offset ]
         else []
     }
     where
-        lengthBlocks = length $ withDefault [] (state ^. latestBlocks)
-        totalBlocks' = withDefault 0 (state ^. totalBlocks)
-        doRequest = value > state ^. (dashboardViewState <<< dbViewBlockPagination)
-                    && lengthBlocks < (value * maxBlockRows)
-                    && lengthBlocks < totalBlocks'
-        offset = (value - (state ^. (dashboardViewState <<< dbViewBlockPagination))) * maxBlockRows
-        limit = value * maxBlockRows - lengthBlocks
+        offset = offsetPaginateBlocksRequest state newPage maxBlockRows
+        limit = limitPaginateBlocksRequest state newPage maxBlockRows
 
 update (DashboardEditBlocksPageNumber target editable) state =
     { state:
@@ -724,3 +719,26 @@ routeEffects NotFound state =
 initialBlocksOffset :: State -> CBlockEntriesOffset
 initialBlocksOffset state =
     (state ^. (dashboardViewState <<< dbViewBlockPagination)) - 1
+
+-- | Checks if we do need to make a request to get data of next block pagination or not
+doPaginateBlocksRequest :: State -> Int -> Int -> Boolean
+doPaginateBlocksRequest state nextPage blockRows =
+    nextPage > state ^. (dashboardViewState <<< dbViewBlockPagination)
+    && lengthBlocks < (nextPage * blockRows)
+    && lengthBlocks < (withDefault 0 $ state ^. totalBlocks)
+    where
+        lengthBlocks = length $ withDefault [] (state ^. latestBlocks)
+
+-- | Determines the limit of blocks for pagination
+limitPaginateBlocksRequest :: State -> Int -> Int -> Int
+limitPaginateBlocksRequest state nextPage blockRows =
+    nextPage * blockRows - length latestBlocks'
+    where
+        latestBlocks' = withDefault [] (state ^. latestBlocks)
+
+-- | Determines the offset to paginate blocks
+offsetPaginateBlocksRequest :: State -> Int -> Int -> Int
+offsetPaginateBlocksRequest state nextPage blockRows =
+    (nextPage - currentPage) * blockRows
+    where
+        currentPage = state ^. (dashboardViewState <<< dbViewBlockPagination)

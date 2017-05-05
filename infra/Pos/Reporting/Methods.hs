@@ -15,7 +15,6 @@ module Pos.Reporting.Methods
 
 import           Universum
 
-import qualified Ether
 import           Control.Exception        (ErrorCall (..), SomeException)
 import           Control.Lens             (each, to)
 import           Control.Monad.Catch      (try)
@@ -27,6 +26,7 @@ import qualified Data.List.NonEmpty       as NE
 import qualified Data.Text.IO             as TIO
 import           Data.Time.Clock          (getCurrentTime)
 import           Data.Version             (Version (..))
+import qualified Ether
 import           Formatting               (sformat, shown, stext, (%))
 import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Network.Wreq             (partFile, partLBS, post)
@@ -46,7 +46,8 @@ import           Pos.Core.Constants       (protocolMagic)
 import           Pos.Discovery.Class      (MonadDiscovery, getPeers)
 import           Pos.Exception            (CardanoFatalError)
 import           Pos.Reporting.Exceptions (ReportingError (..))
-import           Pos.Reporting.MemState   (MonadReportingMem, rcLoggingConfig, rcReportServers)
+import           Pos.Reporting.MemState   (MonadReportingMem, rcLoggingConfig,
+                                           rcReportServers)
 
 -- TODO From Pos.Util, remove after refactoring.
 -- | Concatenates two url part using regular slash '/'.

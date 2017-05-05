@@ -13,10 +13,18 @@ module Pos.Wallet.WalletMode
        , WalletMode
        , WalletRealMode
        , WalletStaticPeersMode
+
+       -- * Monadic redirect
+       , BalancesWalletRedirect
+       , runBalancesWalletRedirect
+       , TxHistoryWalletRedirect
+       , runTxHistoryWalletRedirect
        , BlockchainInfoNotImplemented
        , runBlockchainInfoNotImplemented
        , BlockchainInfoRedirect
        , runBlockchainInfoRedirect
+       , UpdatesNotImplemented
+       , runUpdatesNotImplemented
        , UpdatesRedirect
        , runUpdatesRedirect
        ) where
@@ -57,15 +65,40 @@ import           Pos.Update                  (ConfirmedProposalState (..))
 import           Pos.Update.Context          (UpdateContext (ucUpdateSemaphore))
 import           Pos.Util                    (maybeThrow)
 import           Pos.Wallet.KeyStorage       (KeyData, MonadKeys)
-import           Pos.Wallet.State            (WalletDB)
 import qualified Pos.Wallet.State            as WS
+import           Pos.Wallet.State.Acidic     (WalletState)
+import           Pos.Wallet.State.Limits     (DbLimitsWalletRedirect)
 
-instance MonadIO m => MonadBalances (WalletDB m) where
+data BalancesWalletRedirectTag
+
+type BalancesWalletRedirect =
+    Ether.TaggedTrans BalancesWalletRedirectTag Ether.IdentityT
+
+runBalancesWalletRedirect :: BalancesWalletRedirect m a -> m a
+runBalancesWalletRedirect = coerce
+
+instance
+    (MonadIO m, t ~ Ether.IdentityT, Ether.MonadReader' WS.WalletState m) =>
+        MonadBalances (Ether.TaggedTrans BalancesWalletRedirectTag t m)
+  where
     getOwnUtxo addr = filterUtxoByAddr addr <$> WS.getUtxo
     getBalance = getBalanceFromUtxo
 
 -- | Get tx history for Address
-instance MonadIO m => MonadTxHistory (WalletDB m) where
+data TxHistoryWalletRedirectTag
+
+type TxHistoryWalletRedirect =
+    Ether.TaggedTrans TxHistoryWalletRedirectTag Ether.IdentityT
+
+runTxHistoryWalletRedirect :: TxHistoryWalletRedirect m a -> m a
+runTxHistoryWalletRedirect = coerce
+
+instance
+    ( MonadIO m
+    , t ~ Ether.IdentityT
+    , Ether.MonadReader' WS.WalletState m
+    ) => MonadTxHistory (Ether.TaggedTrans TxHistoryWalletRedirectTag t m)
+  where
     getTxHistory = Tagged $ \addr _ -> do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
@@ -202,7 +235,19 @@ instance {-# OVERLAPPABLE #-}
         MonadUpdates (t m)
 
 -- | Dummy instance for lite-wallet
-instance MonadIO m => MonadUpdates (WalletDB m) where
+data UpdatesNotImplementedTag
+
+type UpdatesNotImplemented =
+    Ether.TaggedTrans UpdatesNotImplementedTag Ether.IdentityT
+
+runUpdatesNotImplemented :: UpdatesNotImplemented m a -> m a
+runUpdatesNotImplemented = coerce
+
+instance
+    ( t ~ Ether.IdentityT
+    , MonadIO m
+    ) => MonadUpdates (Ether.TaggedTrans UpdatesNotImplementedTag t m)
+  where
     waitForUpdate = error "notImplemented"
     applyLastUpdate = pure ()
 
@@ -246,14 +291,20 @@ type WalletMode ssc m
 
 type RawWalletMode =
     BlockchainInfoNotImplemented (
+    UpdatesNotImplemented (
     PeerStateRedirect (
-    Ether.ReaderT PeerStateTag (PeerStateCtx Production) (
-    Ether.ReaderT KeyData KeyData (
-    WalletDB (
-    Ether.ReaderT ReportingContext ReportingContext (
+    DbLimitsWalletRedirect (
+    BalancesWalletRedirect (
+    TxHistoryWalletRedirect (
+    Ether.ReadersT
+        ( Tagged PeerStateTag (PeerStateCtx Production)
+        , Tagged KeyData KeyData
+        , Tagged WalletState WalletState
+        , Tagged ReportingContext ReportingContext
+        ) (
     LoggerNameBox (
     Production
-    )))))))
+    ))))))))
 
 type WalletRealMode = DiscoveryKademliaT RawWalletMode
 type WalletStaticPeersMode = DiscoveryConstT RawWalletMode

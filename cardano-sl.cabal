@@ -370,7 +370,6 @@ library
                         Pos.Wallet.KeyStorage
                         Pos.Wallet.State
                         Pos.Wallet.State.Acidic
-                        Pos.Wallet.State.Holder
                         Pos.Wallet.State.Limits
                         Pos.Wallet.State.State
                         Pos.Wallet.State.Storage

@@ -16,7 +16,6 @@ module Pos.Wallet.Web.Server.Methods
 
 import           Universum
 
-import qualified Ether
 import           Control.Concurrent            (forkFinally)
 import           Control.Lens                  (ix, makeLenses, (.=))
 import           Control.Monad.Catch           (SomeException, catches, try)
@@ -28,6 +27,7 @@ import qualified Data.List.NonEmpty            as NE
 import           Data.Tagged                   (untag)
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
 import           Data.Time.Units               (Microsecond, Second)
+import qualified Ether
 import           Formatting                    (build, ords, sformat, shown, stext, (%))
 import           Network.Wai                   (Application)
 import           Paths_cardano_sl              (version)
@@ -64,8 +64,9 @@ import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, safeKeysFromPhrase, toSeed)
 import           Pos.Util.UserSecret           (readUserSecret, usKeys)
-import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys, getSecretKeys, addSecretKey, deleteSecretKey,
-                                                addSecretKey)
+import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys, addSecretKey,
+                                                addSecretKey, deleteSecretKey,
+                                                getSecretKeys)
 import           Pos.Wallet.SscType            (WalletSscType)
 import           Pos.Wallet.WalletMode         (MonadBlockchainInfo, MonadTxHistory,
                                                 WalletMode, applyLastUpdate,

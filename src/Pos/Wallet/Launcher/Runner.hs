@@ -7,7 +7,7 @@ module Pos.Wallet.Launcher.Runner
 
 import           Universum                   hiding (bracket)
 
-import           Data.Tagged                 (untag)
+import           Data.Tagged                 (Tagged (..), untag)
 import qualified Ether
 import           Formatting                  (sformat, shown, (%))
 import           Mockable                    (Production, bracket, fork, sleepForever)
@@ -22,15 +22,19 @@ import           Pos.Communication.PeerState (PeerStateTag, runPeerStateRedirect
 import           Pos.Discovery               (findPeers, runDiscoveryConstT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               runServer_)
-import           Pos.Reporting.MemState      (emptyReportingContext)
+import           Pos.Reporting.MemState      (ReportingContext, emptyReportingContext)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Util.Util               ()
-import           Pos.Wallet.KeyStorage       (keyDataFromFile)
+import           Pos.Wallet.KeyStorage       (KeyData, keyDataFromFile)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
-import           Pos.Wallet.State            (closeState, openMemState, openState,
-                                              runWalletDB)
+import           Pos.Wallet.State            (closeState, openMemState, openState)
+import           Pos.Wallet.State.Acidic     (WalletState)
+import           Pos.Wallet.State.Limits     (runDbLimitsWalletRedirect)
 import           Pos.Wallet.WalletMode       (WalletMode, WalletStaticPeersMode,
-                                              runBlockchainInfoNotImplemented)
+                                              runBalancesWalletRedirect,
+                                              runBlockchainInfoNotImplemented,
+                                              runTxHistoryWalletRedirect,
+                                              runUpdatesNotImplemented)
 
 -- TODO: Move to some `Pos.Wallet.Communication` and provide
 -- meaningful listeners
@@ -94,11 +98,16 @@ runRawStaticPeersWallet peerId transport peers WalletParams {..}
     usingLoggerName lpRunnerTag . bracket openDB closeDB $ \db -> do
         stateM <- liftIO SM.newIO
         keyData <- keyDataFromFile wpKeyFilePath
-        flip Ether.runReaderT' emptyReportingContext .
-            runWalletDB db .
-            flip Ether.runReaderT' keyData .
-            flip (Ether.runReaderT @PeerStateTag) stateM .
+        flip Ether.runReadersT
+            ( Tagged @PeerStateTag stateM
+            , Tagged @KeyData keyData
+            , Tagged @WalletState db
+            , Tagged @ReportingContext emptyReportingContext ) .
+            runTxHistoryWalletRedirect .
+            runBalancesWalletRedirect .
+            runDbLimitsWalletRedirect .
             runPeerStateRedirect .
+            runUpdatesNotImplemented .
             runBlockchainInfoNotImplemented .
             runDiscoveryConstT peers .
             runServer_ peerId transport listeners outs . ActionSpec $ \vI sa ->

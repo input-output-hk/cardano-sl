@@ -82,9 +82,11 @@ selectAccountsFromUtxoLock
     -> m ()
 selectAccountsFromUtxoLock encSKs = withBlkSemaphore_ $ \tip -> do
     let (hdPass, wsAddr) = unzip $ map getEncInfo encSKs
+    logDebug $ sformat ("Select accounts from Utxo: tip "%build%" for "%listJson) tip wsAddr
     addresses <- discoverHDAddresses hdPass
     let allAddreses = concatMap createAccounts $ zip wsAddr addresses
-    tip <$ mapM_ WS.addAccount allAddreses
+    mapM_ WS.addAccount allAddreses
+    tip <$  logDebug (sformat ("After selection from Utxo addresses was added: "%listJson) allAddreses)
   where
     createAccounts :: (CAddress WS, [(Address, [Word32])]) -> [CAccountAddress]
     createAccounts (wsAddr, addresses) = do

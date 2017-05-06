@@ -7,7 +7,7 @@ import Data.Either (Either)
 import Data.Maybe (Maybe)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
-import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, SocketSubscription, Search)
+import Explorer.Types.State (CBlockEntries, CBlockEntriesOffset, CTxBriefs, CTxEntries, DashboardAPICode, Search, SocketSubscription, CBlockEntriesLimit)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
 import Pux.Html.Events (Target)
@@ -34,8 +34,14 @@ data Action
     | SocketCallMeString String
     | SocketCallMeCTxId CTxId
     -- http endpoints
+    | RequestTotalBlocks
+    | ReceiveTotalBlocks (Either Error Int)
     | RequestInitialBlocks
     | ReceiveInitialBlocks (Either Error CBlockEntries)
+    | RequestPaginatedBlocks CBlockEntriesLimit CBlockEntriesOffset
+    | ReceivePaginatedBlocks (Either Error CBlockEntries)
+    | RequestBlocksUpdate                               -- TODO (jk) Remove it if socket-io is back
+    | ReceiveBlocksUpdate (Either Error CBlockEntries)  -- TODO (jk) Remove it if socket-io is back
     | RequestBlockSummary CHash
     | ReceiveBlockSummary (Either Error CBlockSummary)
     | RequestBlockTxs CHash
@@ -75,7 +81,7 @@ data Action
     -- blocks view
     | BlocksPaginateBlocks Int                      -- current pagination of blocks
     | BlocksEditBlocksPageNumber Target Boolean     -- toggle editable state of page numbers
-    | BlocksInvalidBlocksPageNumber Target          -- invalid page number 
+    | BlocksInvalidBlocksPageNumber Target          -- invalid page number
     -- clock
     | SetClock DateTime
     | UpdateClock
@@ -83,6 +89,5 @@ data Action
     | Reload
     -- misc
     | NoOp
-
 
 type ActionChannel = Channel Action

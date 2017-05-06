@@ -5,7 +5,6 @@ module Explorer.View.Blocks
     , blockHeaderItemView
     , maxBlockRows
     , minBlockRows
-    , unwrapLatestBlocks
     ) where
 
 import Prelude
@@ -25,7 +24,7 @@ import Explorer.Types.State (State, CBlockEntries)
 import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
 import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
 import Explorer.View.Common (getMaxPaginationNumber, noData, paginationView)
-import Network.RemoteData (RemoteData(..))
+import Network.RemoteData (RemoteData(..), withDefault)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, cbeBlkHash, cbeEpoch, cbeSlot, cbeRelayedBy, cbeSize, cbeTotalSent, cbeTxNum)
 import Pux.Html (Html, div, text, h3, p) as P
@@ -105,19 +104,11 @@ failureView lang =
             [ P.text $ translate (I18nL.common <<< I18nL.cBack2Dashboard) lang ]
         ]
 
-
-
-unwrapLatestBlocks :: RemoteData Error CBlockEntries -> CBlockEntries
-unwrapLatestBlocks blocks =
-    case blocks of
-            Success blocks' -> blocks'
-            _ -> []
-
 currentBlocks :: State -> CBlockEntries
 currentBlocks state =
     slice minBlockIndex (minBlockIndex + maxBlockRows) blocks
     where
-        blocks = unwrapLatestBlocks $ state ^. currentBlocksResult
+        blocks = withDefault [] $ state ^. currentBlocksResult
         currentBlockPage = state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
         minBlockIndex = (currentBlockPage - 1) * maxBlockRows
 

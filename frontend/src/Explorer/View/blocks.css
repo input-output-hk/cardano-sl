@@ -117,6 +117,30 @@
 .blocks-body {
   padding-bottom: 24px;
 
+  &__wrapper {
+    position: relative;
+  }
+
+  &__cover {
+    @extend .hide;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: color(var(--color3) a(0.5));
+  }
+
+  &__cover-label {
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: center;
+    font-size: 10px;
+    font-family: var(--fontFamily0-Regular);
+    color: var(--color8);
+  }
+
   &__row {
     lost-utility: clearfix;
     display: block;

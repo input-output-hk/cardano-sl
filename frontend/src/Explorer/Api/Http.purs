@@ -12,7 +12,7 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.Api.Helper (decodeResult)
 import Explorer.Api.Types (EndpointError(..), Endpoint)
-import Explorer.Types.State (CBlockEntries, CTxEntries, CTxBriefs)
+import Explorer.Types.State (CBlockEntries, CBlockEntriesOffset, CTxBriefs, CTxEntries, CBlockEntriesLimit)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
@@ -49,8 +49,11 @@ post = request $ defaultRequest { method = Left POST }
 -- api
 
 -- blocks
-fetchLatestBlocks :: forall eff. Aff (ajax::AJAX | eff) CBlockEntries
-fetchLatestBlocks = get "blocks/last"
+fetchTotalBlocks :: forall eff. Aff (ajax::AJAX | eff) Int
+fetchTotalBlocks = get "blocks/total"
+
+fetchLatestBlocks :: forall eff. CBlockEntriesLimit -> CBlockEntriesOffset -> Aff (ajax::AJAX | eff) CBlockEntries
+fetchLatestBlocks limit offset = get $ "blocks/last/?limit=" <> show limit <> "&offset=" <> show offset
 
 fetchBlockSummary :: forall eff. CHash -> Aff (ajax::AJAX | eff) CBlockSummary
 fetchBlockSummary (CHash hash) = get $ "blocks/summary/" <> hash

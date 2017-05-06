@@ -1,5 +1,8 @@
 module Explorer.View.CSS
   ( blocksBody
+  , blocksBodyWrapper
+  , blocksBodyCover
+  , blocksBodyCoverLabel
   , blocksBodyRow
   , blocksHeader
   , blocksColumnEpoch
@@ -20,6 +23,7 @@ module Explorer.View.CSS
 
 import Prelude
 import Explorer.Routes (Route(..), addressLit, calculatorLit, dashboardLit, epochLit, notFoundLit, playgroundLit, slotLit, transactionLit)
+
 
 -----------------------------------------------------------
 -- BEM, meaning Block, Element, Modifier
@@ -55,6 +59,15 @@ blocksHeader = "blocks-header"
 
 blocksBody :: String
 blocksBody = "blocks-body"
+  --
+blocksBodyWrapper :: String
+blocksBodyWrapper = blocksBody <> element <> "wrapper"
+
+blocksBodyCover :: String
+blocksBodyCover = blocksBody <> element <> "cover"
+
+blocksBodyCoverLabel :: String
+blocksBodyCoverLabel = blocksBody <> element <> "cover-label"
 
 blocksBodyRow :: String
 blocksBodyRow = blocksBody <> element <> "row"

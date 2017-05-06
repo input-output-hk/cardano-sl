@@ -22,14 +22,12 @@ type State =
     , socket :: SocketState
     , viewStates :: ViewStates
     , latestBlocks :: RemoteData Error CBlockEntries
-    , initialBlocksRequested :: Boolean
-    , handleLatestBlocksSocketResult :: Boolean
-    , initialTxsRequested :: Boolean
-    , handleLatestTxsSocketResult :: Boolean
+    , pullLatestBlocks :: Boolean -- TODO (jk) Remove it if socket-io is back
+    , totalBlocks :: RemoteData Error Int
     , currentBlockSummary :: Maybe CBlockSummary
     , currentBlockTxs :: Maybe CTxBriefs
     , currentTxSummary :: RemoteData Error CTxSummary
-    , latestTransactions :: CTxEntries
+    , latestTransactions :: RemoteData Error CTxEntries
     , currentCAddress :: CAddress
     , currentAddressSummary :: RemoteData Error CAddressSummary
     , currentBlocksResult :: RemoteData Error CBlockEntries
@@ -69,6 +67,9 @@ instance eqSocketSubscription :: Eq SocketSubscription where
   eq = gEq
 
 type CBlockEntries = Array CBlockEntry
+type CBlockEntriesLimit = Int
+type CBlockEntriesOffset = Int
+
 type CTxEntries = Array CTxEntry
 type CTxBriefs = Array CTxBrief
 
@@ -94,7 +95,8 @@ type GlobalViewState =
 type DashboardViewState =
     { dbViewBlocksExpanded :: Boolean
     , dbViewBlockPagination :: Int
-    , dbViewNewBlockPagination :: Int
+    , dbViewNextBlockPagination :: Int
+    , dbViewLoadingBlockPagination :: Boolean
     , dbViewBlockPaginationEditable :: Boolean
     , dbViewTxsExpanded :: Boolean
     , dbViewSelectedApiCode :: DashboardAPICode

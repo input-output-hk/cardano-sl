@@ -18,10 +18,12 @@ module Pos.Txp.MemState.Class
        , getTxpExtra
        , modifyTxpLocalData
        , setTxpLocalData
+       , clearTxpMemPool
        ) where
 
 import qualified Control.Concurrent.STM as STM
 import qualified Control.Monad.Ether    as Ether.E
+import           Data.Default           (Default (..))
 import qualified Data.HashMap.Strict    as HM
 import           System.IO.Unsafe       (unsafePerformIO)
 import           Universum
@@ -106,3 +108,8 @@ setTxpLocalData
     :: (MonadIO m, MonadTxpMem ext m)
     => GenericTxpLocalDataPure ext -> m ()
 setTxpLocalData x = modifyTxpLocalData (const ((), x))
+
+clearTxpMemPool :: (MonadIO m, MonadTxpMem ext m, Default ext) => m ()
+clearTxpMemPool = modifyTxpLocalData clearF
+  where
+    clearF (_, _, _, tip, _) = ((), (mempty, def, mempty, tip, def))

@@ -922,23 +922,22 @@ addInitialRichAccount sendActions keyId =
                     notExceeding (mkCoin 10000) accBalance $
                     applyCoinPortion (unsafeCoinPortionFromDouble 0.5) genesisBalance
 
-            logError $ sformat ("Lil "%build) coinsToSend
-
             -- send some money from wallet set (corresponds to genesis address)
             -- to its account
-            na          <- getPeers
-            let signer   = fakeSigner key
-            let dstCAddr = accAddr
-            dstAddr     <- decodeCAddressOrFail dstCAddr
-            let tx       = TxOutAux (TxOut dstAddr coinsToSend) []
-            etx         <- submitTx sendActions signer (toList na) (one tx)
-            case etx of
-                Left err ->
-                    throwM . Internal $ sformat ("Cannot send transaction \
-                                        \for genesis account: "%stext) err
-                Right _  ->
-                    logDebug $ sformat ("Spent "%build%" from genesis \
-                                        \address #"%int) coinsToSend keyId
+            unless (coinsToSend == mkCoin 0) $ do
+                na          <- getPeers
+                let signer   = fakeSigner key
+                let dstCAddr = accAddr
+                dstAddr     <- decodeCAddressOrFail dstCAddr
+                let tx       = TxOutAux (TxOut dstAddr coinsToSend) []
+                etx         <- submitTx sendActions signer (toList na) (one tx)
+                case etx of
+                    Left err ->
+                        throwM . Internal $ sformat ("Cannot send transaction \
+                                            \for genesis account: "%stext) err
+                    Right _  ->
+                        logDebug $ sformat ("Spent "%build%" from genesis \
+                                            \address #"%int) coinsToSend keyId
   where
     notExceeding limit curBalance =
         min $ limit `unsafeSubCoin` min limit curBalance

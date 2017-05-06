@@ -393,10 +393,10 @@ library
                         Pos.Wallet.SscType
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
-                        Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.Account
                         Pos.Wallet.Web.Api
                         Pos.Wallet.Web.BListener
+                        Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.Doc
                         Pos.Wallet.Web.Error
                         Pos.Wallet.Web.Server
@@ -411,6 +411,7 @@ library
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
                         Pos.Wallet.Web.Tracking
+                        Pos.Wallet.Web.Util
 
   build-depends:        IfElse
                       , QuickCheck

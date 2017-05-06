@@ -11,6 +11,9 @@ module Pos.Crypto.HD
        , decryptChaChaPoly
        , encryptChaChaPoly
        , toEither
+
+       , firstNonHardened
+       , isNonHardened
        ) where
 
 import           Cardano.Crypto.Wallet        (deriveXPrv, deriveXPrvHardened, deriveXPub,
@@ -65,9 +68,17 @@ deriveHDPassphrase (PublicKey pk) = HDPassphrase $
     passLen = 32
 
 -- Direct children of node are numbered from 0 to 2^32-1.
--- Child with index less or equal @maxHardened@ is a hardened child.
+-- Child with index greater or equal than @firstNonHardened@ is a non-hardened
+-- child.
+firstNonHardened :: Word32
+firstNonHardened = 2 ^ (31 :: Word32)
+
+-- Child with index less or equal than @maxHardened@ is a hardened child.
 maxHardened :: Word32
-maxHardened = 2 ^ (31 :: Word32) - 1
+maxHardened = firstNonHardened - 1
+
+isNonHardened :: Word32 -> Bool
+isNonHardened = ( >= firstNonHardened)
 
 -- | Derive public key from public key in non-hardened (normal) way.
 -- If you try to pass index more than @maxHardened@, error will be called.

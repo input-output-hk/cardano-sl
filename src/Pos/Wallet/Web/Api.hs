@@ -111,6 +111,7 @@ type RenameWalletSet = API
 type ImportKey = API
     :> "walletSets"
     :> "keys"
+    :> QueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] Text
     :> Post '[JSON] (Either WalletError CWalletSet)
 

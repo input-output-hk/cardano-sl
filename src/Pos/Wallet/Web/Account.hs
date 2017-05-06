@@ -12,34 +12,32 @@ module Pos.Wallet.Web.Account
        , deriveAccountAddress
        , AccountMode
        , GenSeed (..)
+       , AddrGenSeed
        ) where
 
-import           Data.Bits                  (setBit)
 import           Data.List                  (elemIndex, (!!))
 import           Formatting                 (build, sformat, (%))
 import           System.Random              (Random, randomIO)
 import           Universum
 
-import           Pos.Core                   (Address (..), createHDAddressH,
-                                             makePubKeyAddress)
+import           Pos.Core                   (Address (..))
 import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase,
-                                             deriveHDPassphrase, deriveHDSecretKey,
-                                             encToPublic)
+                                             isNonHardened)
 import           Pos.Util                   (maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.KeyStorage      (MonadKeys (..))
 import           Pos.Wallet.Web.ClientTypes (CAccountAddress (..), CAddress,
                                              CWalletAddress (..), WS, addressToCAddress,
-                                             walletAddrByAccount)
+                                             encToCAddress, walletAddrByAccount)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AccountLookupMode (..), WebWalletModeDB,
                                              doesAccountExist, getWalletMeta)
+import           Pos.Wallet.Web.Util        (deriveLvl2KeyPair)
 
 type AccountMode m = (MonadKeys m, WebWalletModeDB m, MonadThrow m)
 
 myRootAddresses :: MonadKeys m => m [CAddress WS]
-myRootAddresses =
-    addressToCAddress . makePubKeyAddress . encToPublic <<$>> getSecretKeys
+myRootAddresses = encToCAddress <<$>> getSecretKeys
 
 getAddrIdx :: AccountMode m => CAddress WS -> m Int
 getAddrIdx addr = elemIndex addr <$> myRootAddresses >>= maybeThrow notFound
@@ -74,8 +72,7 @@ genSaveRootAddress
     => PassPhrase
     -> BackupPhrase
     -> m (CAddress WS)
-genSaveRootAddress passphrase ph =
-    addressToCAddress . makePubKeyAddress . encToPublic <$> genSaveSK
+genSaveRootAddress passphrase ph = encToCAddress <$> genSaveSK
   where
     genSaveSK = do
         sk <- either keyFromPhraseFailed (pure . fst)
@@ -84,54 +81,65 @@ genSaveRootAddress passphrase ph =
         return sk
     keyFromPhraseFailed msg = throwM . Internal $ "Key creation from phrase failed: " <> msg
 
-data GenSeed
-    = DeterminedSeed Int
+data GenSeed a
+    = DeterminedSeed a
     | RandomSeed
+
+type AddrGenSeed = GenSeed Word32   -- with derivation index
 
 generateUnique
     :: (MonadIO m, MonadThrow m, Integral a, Random a)
-    => GenSeed -> (a -> m b) -> (b -> m Bool) -> m b
-generateUnique RandomSeed generator isDuplicate = loop
+    => Text -> GenSeed a -> (a -> m b) -> (a -> b -> m Bool) -> m b
+generateUnique desc RandomSeed generator isDuplicate = loop (100 :: Int)
   where
-    loop = do
+    loop 0 = throwM . Internal $
+             sformat (build%": generation of unique item seems too difficult, \
+                      \you are approaching the limit") desc
+    loop i = do
         rand  <- liftIO randomIO
         value <- generator rand
-        bad   <- isDuplicate value
+        bad   <- isDuplicate rand value
         if bad
-            then loop
+            then loop (i - 1)
             else return value
-generateUnique (DeterminedSeed seed) generator isDuplicate = do
+generateUnique desc (DeterminedSeed seed) generator notFit = do
     value <- generator (fromIntegral seed)
-    whenM (isDuplicate value) $
-        throwM $ Internal "This value is already taken"
+    whenM (notFit seed value) $
+        throwM . Internal $ sformat (build%": this value is already taken")
+                            desc
     return value
-
-nonHardenedOnly :: Word32 -> Word32
-nonHardenedOnly index = setBit index 31
 
 genUniqueWalletAddress
     :: AccountMode m
-    => GenSeed
+    => AddrGenSeed
     -> CAddress WS
     -> m CWalletAddress
 genUniqueWalletAddress genSeed wsCAddr =
-    generateUnique genSeed
-                   (return . CWalletAddress wsCAddr . nonHardenedOnly)
-                   (fmap isJust . getWalletMeta)
+    generateUnique "wallet generation"
+                   genSeed
+                   (return . CWalletAddress wsCAddr)
+                   notFit
+  where
+    notFit idx addr = andM
+        [ pure $ isNonHardened idx
+        , isJust <$> getWalletMeta addr
+        ]
 
 genUniqueAccountAddress
     :: AccountMode m
-    => GenSeed
+    => AddrGenSeed
     -> PassPhrase
     -> CWalletAddress
     -> m CAccountAddress
 genUniqueAccountAddress genSeed passphrase wCAddr@CWalletAddress{..} =
-    generateUnique genSeed
-                   (mkAccount . nonHardenedOnly)
-                   (doesAccountExist Ever)
+    generateUnique "account generation" genSeed mkAccount notFit
   where
     mkAccount caaAccountIndex =
         deriveAccountAddress passphrase wCAddr caaAccountIndex
+    notFit idx addr = andM
+        [ pure $ isNonHardened idx
+        , doesAccountExist Ever addr
+        ]
 
 deriveAccountSK
     :: AccountMode m
@@ -140,10 +148,8 @@ deriveAccountSK
     -> Word32
     -> m (Address, EncryptedSecretKey)
 deriveAccountSK passphrase CWalletAddress{..} accIndex = do
-    wsKey     <- getSKByAddr cwaWSAddress
-    let wKey   = deriveHDSecretKey passphrase wsKey cwaIndex
-    let hdPass = deriveHDPassphrase $ encToPublic wsKey
-    return $ createHDAddressH passphrase hdPass wKey [cwaIndex] accIndex
+    key <- getSKByAddr cwaWSAddress
+    return $ deriveLvl2KeyPair passphrase key cwaIndex accIndex
 
 deriveAccountAddress
     :: AccountMode m

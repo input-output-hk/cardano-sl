@@ -21,7 +21,7 @@ import           Universum
 
 import           Control.Concurrent               (forkFinally)
 import           Control.Lens                     (ix, makeLenses, (.=))
-import           Control.Monad.Catch              (SomeException, catches, try)
+import           Control.Monad.Catch              (SomeException, try)
 import qualified Control.Monad.Catch              as E
 import           Control.Monad.State              (runStateT)
 import           Data.Default                     (Default (def))
@@ -77,8 +77,7 @@ import           Pos.Reporting.MemState           (MonadReportingMem, askReporti
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
 import           Pos.Txp.Core                     (TxOut (..), TxOutAux (..))
 import           Pos.Util                         (maybeThrow)
-import           Pos.Util.BackupPhrase            (mkBackupPhrase12, toSeed)
-import           Pos.Util.UserSecret              (readUserSecret, usKeys)
+import           Pos.Util.BackupPhrase            (toSeed)
 import           Pos.Wallet.KeyStorage            (MonadKeys (..), addSecretKey)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.WalletMode            (WalletMode, applyLastUpdate,
@@ -86,7 +85,8 @@ import           Pos.Wallet.WalletMode            (WalletMode, applyLastUpdate,
                                                    getBalance, getTxHistory,
                                                    localChainDifficulty,
                                                    networkChainDifficulty, waitForUpdate)
-import           Pos.Wallet.Web.Account           (GenSeed (..), genSaveRootAddress,
+import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
+                                                   genSaveRootAddress,
                                                    genUniqueAccountAddress,
                                                    genUniqueWalletAddress, getAddrIdx,
                                                    getSKByAccAddr, getSKByAddr,
@@ -107,11 +107,12 @@ import           Pos.Wallet.Web.ClientTypes       (Acc, CAccount (..),
                                                    CWalletSetInit (..),
                                                    CWalletSetMeta (..), MCPassPhrase,
                                                    NotifyEvent (..), SyncProgress (..),
-                                                   WS, addressToCAddress,
-                                                   cAddressToAddress,
-                                                   cPassPhraseToPassPhrase, encToCAddress,
-                                                   mkCCoin, mkCTx, mkCTxId, toCUpdateInfo,
-                                                   txContainsTitle, txIdToCTxId)
+                                                   WS, WalletUserSecret (..),
+                                                   addressToCAddress, cAddressToAddress,
+                                                   cPassPhraseToPassPhrase, mkCCoin,
+                                                   mkCTx, mkCTxId, readWalletUserSecret,
+                                                   toCUpdateInfo, txContainsTitle,
+                                                   txIdToCTxId)
 import           Pos.Wallet.Web.Error             (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWebSockets,
                                                    WalletWebSockets, closeWSConnection,
@@ -184,17 +185,9 @@ walletServer
     -> WalletWebHandler m (Server WalletApi)
 walletServer sendActions nat = do
     nat >>= launchNotifier
-    myAddresses <- myRootAddresses
-    mapM_ insertAddressMeta myAddresses
     addInitialRichAccount sendActions 0
-    -- Sync wallets with GState.
-    syncWSetsWithGStateLock =<< mapM getSKByAddr myAddresses
+    syncWSetsWithGStateLock =<< mapM getSKByAddr =<< myRootAddresses
     (`enter` servantHandlers sendActions) <$> nat
-  where
-    insertAddressMeta cAddr = do
-        curTime <- liftIO getPOSIXTime
-        meta    <- getWSetMeta cAddr
-        createWSet cAddr (fromMaybe def meta) curTime
 
 bracketWalletWebDB
     :: ( MonadIO m
@@ -375,7 +368,7 @@ servantHandlers sendActions =
     apiNewWSet                  = (\a -> catchWalletError . newWSet a)
     apiRenameWSet               = (\a -> catchWalletError . renameWSet a)
     apiRestoreWSet              = (\a -> catchWalletError . newWSet a)
-    apiImportKey                = catchWalletError . importKey
+    apiImportKey                = (\a -> catchWalletError . importKey a)
     apiChangeWSetPassphrase     = (\a b -> catchWalletError . changeWSetPassphrase a b)
     apiGetWallet                = catchWalletError . getWallet
     apiGetWallets               = catchWalletError . getWallets
@@ -669,7 +662,7 @@ addHistoryTx cAddr curr title desc wtx@THEntry{..} = do
 
 newAccount
     :: WalletWebMode m
-    => GenSeed
+    => AddrGenSeed
     -> MCPassPhrase
     -> CWalletAddress
     -> m CAccount
@@ -682,7 +675,7 @@ newAccount addGenSeed cPassphrase cWAddr = do
     addAccount cAccAddr
     getAccount cAccAddr
 
-newWallet :: WalletWebMode m => GenSeed -> MCPassPhrase -> CWalletInit -> m CWallet
+newWallet :: WalletWebMode m => AddrGenSeed -> MCPassPhrase -> CWalletInit -> m CWallet
 newWallet addGenSeed cPassphrase CWalletInit {..} = do
     -- check wallet set exists
     _ <- getWSet cwInitWSetId
@@ -858,27 +851,39 @@ reportingElectroncrash celcrash = do
     handler :: SomeException -> m ()
     handler e = logError $ sformat fmt celcrash e
 
-rewrapError :: WalletWebMode m => m a -> m a
-rewrapError = flip catches
-    [ E.Handler $ \e@(Internal _)    -> throwM e
-    , E.Handler $ \(SomeException e) -> throwM . Internal $ show e
-    ]
-
 importKey
     :: WalletWebMode m
-    => Text
+    => MCPassPhrase
+    -> Text
     -> m CWalletSet
-importKey (toString -> fp) = do
-    secret <- rewrapError $ readUserSecret fp
-    let keys = secret ^. usKeys
-    importedWSets <-
-        forM keys $ \key -> do
-            let wsAddr = encToCAddress key
-            createWSetSafe wsAddr def <* addSecretKey key
-    selectAccountsFromUtxoLock keys
-    maybeThrow noKey $ head importedWSets
+importKey cpassphrase (toString -> fp) = do
+    WalletUserSecret{..} <-
+        either secretReadError pure =<<
+        readWalletUserSecret fp
+
+    let key    = wusRootKey
+        addr   = makePubKeyAddress $ encToPublic key
+        wsAddr = addressToCAddress addr
+        wsMeta = CWalletSetMeta wusWSetName
+    addSecretKey key
+    importedWSet <- createWSetSafe wsAddr wsMeta
+
+    forM_ wusWallets $ \(walletIndex, walletName) -> do
+        let wMeta = def{ cwName = walletName }
+            seedGen = DeterminedSeed walletIndex
+        cAddr <- genUniqueWalletAddress seedGen wsAddr
+        createWallet cAddr wMeta
+
+    forM_ wusAccounts $ \(walletIndex, accountIndex) -> do
+        let wAddr = CWalletAddress wsAddr walletIndex
+        newAccount (DeterminedSeed accountIndex) cpassphrase wAddr
+
+    selectAccountsFromUtxoLock [key]
+
+    return importedWSet
   where
-    noKey = Internal $ sformat ("No spending key found at " %build) fp
+    secretReadError =
+        throwM . Internal . sformat ("Failed to read secret: "%build)
 
 -- This method is a temporal hack.
 -- We spend money from /accounts/, which have randomly generated addresses.
@@ -894,8 +899,7 @@ addInitialRichAccount sendActions keyId =
             wsCAddr = addressToCAddress wsAddr
 
         let cpass  = Nothing
-            backup = mkBackupPhrase12 $ sformat build <$> "nyan-forever"
-            wsMeta = CWalletSetMeta "Precreated wallet set full of money" backup
+            wsMeta = CWalletSetMeta "Precreated wallet set full of money"
             wMeta  = def{ cwName = "Initial wallet" }
 
         addSecretKey enKey
@@ -903,7 +907,7 @@ addInitialRichAccount sendActions keyId =
             void $ createWSetSafe wsCAddr wsMeta
 
             let wInit = CWalletInit wMeta wsCAddr
-            void $ newWallet (DeterminedSeed keyId) cpass wInit
+            void $ newWallet (DeterminedSeed $ fromIntegral keyId) cpass wInit
 
         E.handleAll errHandler $ do
             wallets  <- getWallets (Just wsCAddr)

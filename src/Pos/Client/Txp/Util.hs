@@ -26,6 +26,7 @@ import qualified Data.Vector         as V
 import           Universum
 
 import           Pos.Binary          ()
+import           Pos.Core.Address    (AddressIgnoringAttributes (AddressIA))
 import           Pos.Core.Coin       (unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto          (PublicKey, RedeemSecretKey, SafeSigner,
                                       SignTag (SignTxIn), hash, redeemSign,
@@ -162,10 +163,10 @@ createMTx utxo hwdSigner outputs =
     in  uncurry (makeMPubKeyTx getSigner) <$>
         prepareInpsOuts utxo addr outputs
   where
-    signers = HM.fromList . toList $ map swap hwdSigner
+    signers = HM.fromList . toList $ map (swap . second AddressIA) hwdSigner
     getSigner addr =
         fromMaybe (error "Requested signer for unknown address") $
-        HM.lookup addr signers
+        HM.lookup (AddressIA addr) signers
 
 -- | Make a multi-transaction using given secret key and info for outputs
 createTx :: Utxo -> SafeSigner -> TxOutputs -> Either TxError TxAux

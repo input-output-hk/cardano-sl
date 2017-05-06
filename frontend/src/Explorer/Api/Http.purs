@@ -22,7 +22,6 @@ import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CBlockSummar
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId)
 
 endpointPrefix :: String
--- endpointPrefix = "http://localhost:8100/api/"
 endpointPrefix = "/api/"
 
 -- result helper

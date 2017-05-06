@@ -28,9 +28,5 @@ hostname = window >>= location >>= L.hostname
 data Protocol = Http | Https
 
 secureProtocol :: Boolean -> Protocol
-secureProtocol true = Https
+secureProtocol true  = Https
 secureProtocol false = Http
-
-protocolToString :: Protocol -> String
-protocolToString Https = "https"
-protocolToString Http = "http"

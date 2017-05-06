@@ -14,17 +14,18 @@ import Data.String (Pattern(..), Replacement(..), replaceAll, split, trim)
 import Debug.Trace (traceAnyM, traceShowM)
 import Explorer.Api.Helper (decodeResult')
 import Explorer.Types.Actions (Action(..), ActionChannel)
-import Explorer.Util.Config (Protocol, protocolToString)
+import Explorer.Util.Config (Protocol(..))
 import Pos.Explorer.Socket.Methods (ClientEvent, ServerEvent)
 import Pos.Explorer.Web.ClientTypes (CTxEntry, CTxId)
 import Signal.Channel (CHANNEL, send)
 
 
--- host
-
+-- | We need to have socket.io on port 8110 when testing (without `https`).
+-- When we deploy on production we use nginx forwarding, so we send it to the
+-- default port (443) and nginx forwards it to 8110 on the server.
 mkSocketHost :: Protocol -> String -> Host
-mkSocketHost protocol hostname =
-    (protocolToString protocol) <> "://" <> hostname <> ":8110"
+mkSocketHost Http  hostname = "http://"  <> hostname <> ":8110"
+mkSocketHost Https hostname = "https://" <> hostname
 
 -- events
 

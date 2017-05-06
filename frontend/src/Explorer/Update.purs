@@ -601,10 +601,6 @@ update UpdateClock state = onlyEffects state $
     ]
 update (SetClock date) state = noEffects $ state { now = date }
 
--- socket-io workaround
--- TODO (jk) Remove it if socket-io is back
-update Reload state = update (UpdateView state.route) state
-
 -- routing
 
 update (UpdateView route) state = routeEffects route (state { route = route })

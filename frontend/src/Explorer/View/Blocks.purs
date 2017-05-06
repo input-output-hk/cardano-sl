@@ -145,7 +145,6 @@ blockRow state (CBlockEntry entry) =
                             $ entry ^. cbeRelayedBy
 
 
-
 type BlockColumnProps =
     { label :: String
     , clazz :: String
@@ -179,9 +178,9 @@ mkBlocksHeaderProps lang =
     , { label: translate (I18nL.common <<< I18nL.cTotalSent) lang
       , clazz: CSS.blocksColumnTotalSent
       }
---    , { label: translate (I18nL.common <<< I18nL.cRelayedBy) lang
---      , clazz: CSS.blocksColumnRelayedBy
---      }
+    -- , { label: translate (I18nL.common <<< I18nL.cRelayedBy) lang
+    --   , clazz: CSS.blocksColumnRelayedBy
+    --   }
     , { label: translate (I18nL.common <<< I18nL.cSizeKB) lang
       , clazz: CSS.blocksColumnSize
       }

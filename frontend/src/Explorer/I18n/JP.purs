@@ -54,7 +54,7 @@ translation =
         , navTools: "ツール"
         }
     , hero:
-        {  hrSubtitle: "カルダノネットワーク上のアドレス、トランザクション、エポック、スロットを検索"
+        {  hrSubtitle: "暗号通貨を検索するための最も効果的な方法"
         , hrSearch: "スロット、エポック、トランザクションを検索"
         , hrTime: "タイム"
         }

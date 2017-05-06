@@ -42,6 +42,7 @@ module Pos.Wallet.Web.ClientTypes
       , Acc (..)
       , addressToCAddress
       , cAddressToAddress
+      , encToCAddress
       , passPhraseToCPassPhrase
       , cPassPhraseToPassPhrase
       , mkCTx
@@ -73,11 +74,13 @@ import           Pos.Aeson.Types        ()
 import           Pos.Binary.Class       (decodeFull, encodeStrict)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core.Types         (ScriptVersion)
-import           Pos.Crypto             (PassPhrase, hashHexF)
+import           Pos.Crypto             (EncryptedSecretKey, PassPhrase, encToPublic,
+                                         hashHexF)
 import           Pos.Txp.Core.Types     (Tx (..), TxId, TxOut, txOutAddress, txOutValue)
 import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
                                          Coin, SoftwareVersion, decodeTextAddress,
-                                         sumCoins, unsafeGetCoin, unsafeIntegerToCoin)
+                                         makePubKeyAddress, sumCoins, unsafeGetCoin,
+                                         unsafeIntegerToCoin)
 import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes,
                                          UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll        (ConfirmedProposalState (..))
@@ -137,11 +140,14 @@ data Acc = Acc
 -- implementation has it is with Buildable Address but then person
 -- will know it will probably change something for purescript.
 -- | Transform Address into CAddress
-addressToCAddress :: Address -> (CAddress w)
+addressToCAddress :: Address -> CAddress w
 addressToCAddress = CAddress . CHash . sformat F.build
 
 cAddressToAddress :: CAddress w -> Either Text Address
 cAddressToAddress (CAddress (CHash h)) = decodeTextAddress h
+
+encToCAddress :: EncryptedSecretKey -> CAddress WS
+encToCAddress = addressToCAddress . makePubKeyAddress . encToPublic
 
 -- | Client transaction id
 newtype CTxId = CTxId CHash

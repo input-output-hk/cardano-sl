@@ -6,6 +6,7 @@ module Pos.Txp.Toil.Trans
        , runToilTLocal
        , execToilTLocal
        , runToilTLocalExtra
+       , evalToilTEmpty
        ) where
 
 import           Control.Lens                 (at, to, (%=), (+=), (.=))
@@ -90,6 +91,12 @@ runToilTLocal
 runToilTLocal um mp undo txpt =
     Ether.runStateT txpt (def {_tmUtxo = um, _tmMemPool = mp, _tmUndos = undo})
 
+evalToilTEmpty
+    :: Monad m
+    => ToilT () m a
+    -> m a
+evalToilTEmpty txpt = Ether.evalStateT txpt def
+
 -- | Execute ToilT using empty balances modifier. Should be used for
 -- local transaction processing.
 execToilTLocal
@@ -98,7 +105,7 @@ execToilTLocal
     -> MemPool
     -> UndoMap
     -> ToilT () m a
-    -> m (ToilModifier)
+    -> m ToilModifier
 execToilTLocal um mp undo = fmap snd . runToilTLocal um mp undo
 
 -- | Like 'runToilTLocal', but takes extra data as argument.

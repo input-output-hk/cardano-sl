@@ -7,6 +7,7 @@ module Pos.Statistics.MonadStats
        , NoStatsT
        , getNoStatsT
        , StatsT
+       , StatsMap
        , runStatsT
        , runStatsT'
        , getStatsMap

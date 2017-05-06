@@ -25,8 +25,7 @@ import           Data.ByteString.Char8        as B
 import qualified Data.ByteString.Lazy         as BSL
 import           Universum
 
-import           Pos.Binary.Class             (Bi)
-import           Pos.Binary.Class             (decodeFull, encodeStrict)
+import           Pos.Binary.Class             (Bi, decodeFull, encodeStrict)
 import           Pos.Crypto.Hashing           (hash)
 import           Pos.Crypto.SafeSigning       (EncryptedSecretKey (..), PassPhrase)
 import           Pos.Crypto.Signing           (PublicKey (..))

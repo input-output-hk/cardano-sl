@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP                 #-}
+{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Internal block logic. Mostly needed for use in 'Pos.Lrc' -- using
@@ -17,13 +18,17 @@ import           Control.Arrow        ((&&&))
 import           Control.Lens         (each, _Wrapped)
 import           Control.Monad.Catch  (bracketOnError)
 import qualified Data.List.NonEmpty   as NE
+import           Formatting           (build, sformat, (%))
 import           Paths_cardano_sl     (version)
 import           Serokell.Util        (Color (Red), colorize)
+import           System.Wlog          (logWarning)
 import           Universum
 
+import           Pos.Block.BListener  (MonadBListener (..))
 import           Pos.Block.Types      (Blund, Undo (undoTx, undoUS))
-import           Pos.Context          (getNodeContext, ncTxpGlobalSettings,
-                                       putBlkSemaphore, takeBlkSemaphore)
+import           Pos.Context          (WithNodeContext, getNodeContext,
+                                       ncTxpGlobalSettings, putBlkSemaphore,
+                                       takeBlkSemaphore)
 import           Pos.Core             (IsGenesisHeader, IsMainHeader)
 import           Pos.DB               (SomeBatchOp (..))
 import qualified Pos.DB.Block         as DB
@@ -53,7 +58,6 @@ import           Pos.Update.Poll      (PollModifier)
 import           Pos.Util             (Some (..), inAssertMode, spanSafe, _neLast)
 import           Pos.Util.Chrono      (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode         (WorkMode)
-import           Pos.Communication.Types.Protocol (NodeId)
 
 -- [CSL-780] Totally need something more elegant
 toUpdateBlock
@@ -70,7 +74,7 @@ toUpdateBlock = bimap convertGenesis convertMain
 -- | Run action acquiring lock on block application. Argument of
 -- action is an old tip, result is put as a new tip.
 withBlkSemaphore
-    :: WorkMode ssc m
+    :: Each [MonadIO, MonadMask, WithNodeContext ssc] '[m]
     => (HeaderHash -> m (a, HeaderHash)) -> m a
 withBlkSemaphore action =
     bracketOnError takeBlkSemaphore putBlkSemaphore doAction
@@ -81,9 +85,9 @@ withBlkSemaphore action =
 
 -- | Version of withBlkSemaphore which doesn't have any result.
 withBlkSemaphore_
-    :: WorkMode ssc m
+    :: Each [MonadIO, MonadMask, WithNodeContext ssc] '[m]
     => (HeaderHash -> m HeaderHash) -> m ()
-withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
+withBlkSemaphore_ = withBlkSemaphore . (fmap pure .)
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,
 -- use it only if you understand what you're doing. That means you can break
@@ -92,9 +96,9 @@ withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
 -- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
     :: forall ssc m . WorkMode ssc m
-    => m (Set NodeId) -> OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
-applyBlocksUnsafe getPeers blunds0 pModifier =
-    reportingFatal getPeers version $
+    => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
+applyBlocksUnsafe blunds0 pModifier =
+    reportingFatal version $
     case blunds ^. _Wrapped of
         (b@(Left _,_):|[])     -> app' (b:|[])
         (b@(Left _,_):|(x:xs)) -> app' (b:|[]) >> app' (x:|xs)
@@ -111,17 +115,28 @@ applyBlocksUnsafeDo
 applyBlocksUnsafeDo blunds pModifier = do
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
+    -- If the program is interrupted at this point (after putting on block),
+    -- we will rollback all wallet sets at the next launch.
+    onApplyBlocks blunds `catch` logWarn
     TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
-    sscApplyBlocks blocks Nothing -- TODO: pass not only 'Nothing'
+    sscBatch <- SomeBatchOp <$> sscApplyBlocks blocks Nothing -- TODO: pass not only 'Nothing'
     let putTip = SomeBatchOp $
                  GS.PutTip $
                  headerHash $
                  NE.last $
                  getOldestFirst blunds
-    GS.writeBatchGState [putTip, delegateBatch, usBatch, txpBatch, forwardLinksBatch, inMainBatch]
+    GS.writeBatchGState
+        [ putTip
+        , delegateBatch
+        , usBatch
+        , txpBatch
+        , forwardLinksBatch
+        , inMainBatch
+        , sscBatch
+        ]
     sscNormalize
 #ifdef WITH_EXPLORER
     eTxNormalize
@@ -139,26 +154,39 @@ applyBlocksUnsafeDo blunds pModifier = do
     inMainBatch = SomeBatchOp . getOldestFirst $
         fmap (GS.SetInMainChain True . view headerHashG . fst) blunds
     putToDB (blk, undo) = DB.putBlock undo blk
+    logWarn :: SomeException -> m ()
+    logWarn = logWarning . sformat ("onApplyBlocks raised exception: "%build)
 
 -- | Rollback sequence of blocks, head-newest order exepected with
 -- head being current tip. It's also assumed that lock on block db is
 -- taken.  application is taken already.
 rollbackBlocksUnsafe
-    :: (WorkMode ssc m)
-    => m (Set NodeId) -> NewestFirst NE (Blund ssc) -> m ()
-rollbackBlocksUnsafe getPeers toRollback = reportingFatal getPeers version $ do
+    :: forall ssc m .(WorkMode ssc m)
+    => NewestFirst NE (Blund ssc) -> m ()
+rollbackBlocksUnsafe toRollback = reportingFatal version $ do
+    -- If program is interrupted after call @onRollbackBlocks@,
+    -- we will load all wallet set not rolled yet at the next launch.
+    onRollbackBlocks toRollback `catch` logWarn
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS
                               & each._1 %~ toUpdateBlock)
     TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
     txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
-    sscRollbackBlocks $ fmap fst toRollback
+    sscBatch <- SomeBatchOp <$> sscRollbackBlocks (fmap fst toRollback)
     let putTip = SomeBatchOp $
                  GS.PutTip $
                  headerHash $
                  (NE.last $ getNewestFirst toRollback) ^. prevBlockL
-    GS.writeBatchGState [putTip, delRoll, usRoll, txRoll, forwardLinksBatch, inMainBatch]
+    GS.writeBatchGState
+        [ putTip
+        , delRoll
+        , usRoll
+        , txRoll
+        , forwardLinksBatch
+        , inMainBatch
+        , sscBatch
+        ]
     DB.sanityCheckDB
     inAssertMode $
         when (isGenesis0 (toRollback ^. _Wrapped . _neLast . _1)) $
@@ -173,6 +201,8 @@ rollbackBlocksUnsafe getPeers toRollback = reportingFatal getPeers version $ do
         fmap (GS.RemoveForwardLink . view prevBlockL . fst) toRollback
     isGenesis0 (Left genesisBlk) = genesisBlk ^. epochIndexL == 0
     isGenesis0 (Right _)         = False
+    logWarn :: SomeException -> m ()
+    logWarn = logWarning . sformat ("onRollbackBlocks raised exception: "%build)
 
 -- [CSL-780] Need something more elegant, at least eliminate copy-paste.
 -- Should be done soon™.

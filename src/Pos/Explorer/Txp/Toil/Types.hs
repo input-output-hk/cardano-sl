@@ -8,6 +8,7 @@ module Pos.Explorer.Txp.Toil.Types
        , eeLocalTxsExtra
        , eeAddrHistories
        , eeAddrBalances
+       , ExplorerExtraTxp (..)
        ) where
 
 import           Universum
@@ -42,3 +43,9 @@ instance Default ExplorerExtra where
         }
 
 type EToilModifier = GenericToilModifier ExplorerExtra
+
+data ExplorerExtraTxp = ExplorerExtraTxp
+    { eetTxExtra       :: !(HashMap TxId TxExtra)
+    , eetAddrHistories :: !(HashMap Address AddrHistory)
+    , eetAddrBalances  :: !(HashMap Address Coin)
+    }

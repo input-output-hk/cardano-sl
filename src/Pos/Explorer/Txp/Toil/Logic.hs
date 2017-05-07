@@ -211,6 +211,6 @@ updateAddrBalances (combineBalanceUpdates -> updates) = mapM_ updater updates
 
 getBalanceUpdate :: TxAux -> TxUndo -> BalanceUpdate
 getBalanceUpdate (tx, _, _) txUndo =
-    let minusBalance = map ((view _TxOut) . toaOut) $ toList txUndo
+    let minusBalance = map (view _TxOut . toaOut) $ toList txUndo
         plusBalance = map (view _TxOut) $ toList $ _txOutputs tx
     in BalanceUpdate {..}

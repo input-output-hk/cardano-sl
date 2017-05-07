@@ -63,7 +63,7 @@ putInitFlag = gsPutBi balancesInitFlag True
 
 putGenesisBalances :: MonadDB m => Utxo -> m ()
 putGenesisBalances genesisUtxo = do
-    let txOuts = map (view _TxOut . toaOut . snd) . M.toList $ genesisUtxo
+    let txOuts = map (view _TxOut . toaOut) . M.elems $ genesisUtxo
     writeBatchGState $
         map (uncurry PutAddrBalance) $ combineWith unsafeAddCoin txOuts
   where

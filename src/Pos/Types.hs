@@ -21,7 +21,7 @@ import           Pos.Core.Coin
 import           Pos.Core.Slotting
 import           Pos.Core.Types
 import           Pos.Core.Version
-import           Pos.SafeCopy.Types   ()
+import           Pos.SafeCopy         ()
 import           Pos.Types.Arbitrary
 import           Pos.Types.Block
 import           Pos.Types.SharedSeed ()

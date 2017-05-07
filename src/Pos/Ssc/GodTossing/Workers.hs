@@ -109,7 +109,10 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions -> do
 
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
-checkNSendOurCert :: forall m . (WorkMode SscGodTossing m) => Worker' m
+checkNSendOurCert
+    :: forall m.
+       (WorkMode SscGodTossing m)
+    => Worker' m
 checkNSendOurCert sendActions = do
     (_, ourId) <- getOurPkAndId
     let sendCert resend slot = do
@@ -264,7 +267,13 @@ sendOurData ::
     ( WorkMode SscGodTossing m
     , MessagePart contents
     , Bi (DataMsg contents))
-    => SendActions m -> GtTag -> StakeholderId -> contents -> EpochIndex -> LocalSlotIndex -> m ()
+    => SendActions m
+    -> GtTag
+    -> StakeholderId
+    -> contents
+    -> EpochIndex
+    -> LocalSlotIndex
+    -> m ()
 sendOurData sendActions msgTag ourId dt epoch slMultiplier = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one

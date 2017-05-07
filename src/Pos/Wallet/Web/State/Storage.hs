@@ -38,16 +38,16 @@ import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import           Pos.Client.Txp.History     (TxHistoryEntry)
 import           Pos.Txp                    (Utxo)
 import           Pos.Types                  (HeaderHash)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CHash, CProfile, CTxId,
-                                             CTxMeta, CUpdateInfo, CWalletAssurance,
-                                             CWalletMeta, CWalletType)
+import           Pos.Wallet.Web.ClientTypes (CAddress, CCoin, CCurrency, CHash, CProfile,
+                                             CTxId, CTxMeta, CUpdateInfo,
+                                             CWalletAssurance, CWalletMeta, CWalletType)
 
 type TransactionHistory = HashMap CTxId CTxMeta
 
 data WalletStorage = WalletStorage
     {
       _wsWalletMetas  :: !(HashMap CAddress (CWalletMeta, TransactionHistory))
-    , _wsProfile      :: !(Maybe CProfile)
+    , _wsProfile      :: !CProfile
     , _wsReadyUpdates :: [CUpdateInfo]
     , _wsHistoryCache :: !(HashMap CAddress (HeaderHash, Utxo, [TxHistoryEntry]))
     }
@@ -58,8 +58,8 @@ instance Default WalletStorage where
     def =
         WalletStorage
         {
-          _wsWalletMetas = mempty
-        , _wsProfile = mzero
+          _wsWalletMetas  = mempty
+        , _wsProfile      = def
         , _wsReadyUpdates = mempty
         , _wsHistoryCache = mempty
         }
@@ -67,11 +67,11 @@ instance Default WalletStorage where
 type Query a = forall m. (MonadReader WalletStorage m) => m a
 type Update a = forall m. ({-MonadThrow m, -}MonadState WalletStorage m) => m a
 
-getProfile :: Query (Maybe CProfile)
+getProfile :: Query CProfile
 getProfile = view wsProfile
 
 setProfile :: CProfile -> Update ()
-setProfile profile = wsProfile .= Just profile
+setProfile profile = wsProfile .= profile
 
 getWalletMetas :: Query [CWalletMeta]
 getWalletMetas = toList . map fst <$> view wsWalletMetas
@@ -108,7 +108,7 @@ setWalletHistory cAddr ctxs = () <$ mapM (uncurry $ addWalletHistoryTx cAddr) ct
 
 -- FIXME: this will be removed later (temporary solution)
 addOnlyNewTxMeta :: CAddress -> CTxId -> CTxMeta -> Update ()
-addOnlyNewTxMeta cAddr ctxId ctxMeta = wsWalletMetas . at cAddr . _Just . _2 . at ctxId %= Just . maybe ctxMeta identity
+addOnlyNewTxMeta cAddr ctxId ctxMeta = wsWalletMetas . at cAddr . _Just . _2 . at ctxId %= Just . fromMaybe ctxMeta
 
 -- NOTE: sets transaction meta only for transactions ids that are already seen
 setWalletTransactionMeta :: CAddress -> CTxId -> CTxMeta -> Update ()
@@ -129,6 +129,7 @@ testReset = put def
 updateHistoryCache :: CAddress -> HeaderHash -> Utxo -> [TxHistoryEntry] -> Update ()
 updateHistoryCache cAddr cHash utxo cTxs = wsHistoryCache . at cAddr .= Just (cHash, utxo, cTxs)
 
+deriveSafeCopySimple 0 'base ''CCoin
 deriveSafeCopySimple 0 'base ''CProfile
 deriveSafeCopySimple 0 'base ''CHash
 deriveSafeCopySimple 0 'base ''CAddress

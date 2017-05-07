@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Methods of reporting different unhealthy behaviour to server.
@@ -27,7 +26,7 @@ import qualified Data.List.NonEmpty       as NE
 import qualified Data.Text.IO             as TIO
 import           Data.Time.Clock          (getCurrentTime)
 import           Data.Version             (Version (..))
-import           Formatting               (build, sformat, shown, stext, (%))
+import           Formatting               (sformat, shown, stext, (%))
 import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Network.Wreq             (partFile, partLBS, post)
 import           Pos.ReportServer.Report  (ReportInfo (..), ReportType (..))
@@ -43,11 +42,11 @@ import           System.Wlog              (CanLog, HasLoggerName, LoggerConfig (
                                            ltFiles, ltSubloggers, retrieveLogContent)
 
 import           Pos.Core.Constants       (protocolMagic)
-import           Pos.DHT.Model.Class      (MonadDHT, currentNodeKey, getKnownPeers)
+import           Pos.Discovery.Class      (MonadDiscovery, getPeers)
 import           Pos.Exception            (CardanoFatalError)
 import           Pos.Reporting.Exceptions (ReportingError (..))
-import           Pos.Reporting.MemState   (MonadReportingMem (..), rcLoggingConfig,
-                                           rcReportServers)
+import           Pos.Reporting.MemState   (MonadReportingMem, askReportingContext,
+                                           rcLoggingConfig, rcReportServers)
 
 -- TODO From Pos.Util, remove after refactoring.
 -- | Concatenates two url part using regular slash '/'.
@@ -118,25 +117,24 @@ ipv4Local w =
 
 -- | Retrieves node info that we would like to know when analyzing
 -- malicious behavior of node.
-getNodeInfo :: (MonadDHT m, MonadIO m) => m Text
+getNodeInfo :: (MonadIO m, MonadDiscovery m) => m Text
 getNodeInfo = do
-    peers <- getKnownPeers
-    key <- currentNodeKey
+    peers <- getPeers
     (ips :: [Text]) <-
         map show . filter ipExternal . map ipv4 <$>
         liftIO getNetworkInterfaces
-    pure $ sformat outputF (pretty $ listBuilderJSON ips) key peers
+    pure $ sformat outputF (pretty $ listBuilderJSON ips) peers
   where
     ipExternal (IPv4 w) =
         not $ ipv4Local w || w == 0 || w == 16777343 -- the last is 127.0.0.1
-    outputF = ("{ nodeParams: '"%stext%":"%build%"', otherNodes: "%listJson%" }")
+    outputF = ("{ nodeParams: '"%stext%"', otherNodes: "%listJson%" }")
 
 type ReportingWorkMode m =
        ( MonadIO m
        , MonadMask m
-       , MonadDHT m
        , MonadReportingMem m
        , HasLoggerName m
+       , MonadDiscovery m
        , CanLog m
        )
 
@@ -152,7 +150,12 @@ reportMisbehaviour version reason = do
   where
     misbehF = stext%", nodeInfo: "%stext
 
--- | Report misbehaveour, but catch all errors inside
+-- | Report misbehaviour, but catch all errors inside
+--
+--   FIXME very misleading name. Suggests reporting misbehaviours while
+--   asynchronous exceptions are masked.
+--
+--   FIXME catch and squelch *all* exceptions? Probably a bad idea.
 reportMisbehaviourMasked
     :: forall m . ReportingWorkMode m
     => Version -> Text -> m ()
@@ -221,7 +224,7 @@ sendReport logFiles rawLogs reportType appName appVersion reportServerUri = do
         throwM $ CantRetrieveLogs logFiles
     putText $ "Rawlogs size is: " <> show (length rawLogs)
     withSystemTempFile "main.log" $ \tempFp tempHandle -> liftIO $ do
-        forM_ rawLogs $ TIO.hPutStrLn tempHandle
+        for_ rawLogs $ TIO.hPutStrLn tempHandle
         hClose tempHandle
         let memlogFiles = bool [tempFp] [] (null rawLogs)
         let memlogPart = map partFile' memlogFiles

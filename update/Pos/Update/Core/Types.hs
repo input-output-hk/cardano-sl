@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveLift           #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | This module contains all basic types for @cardano-sl@ update system.
 
@@ -69,10 +68,11 @@ import           Pos.Binary.Crypto          ()
 import           Pos.Core                   (BlockVersion, BlockVersionData (..),
                                              IsGenesisHeader, IsMainHeader, ScriptVersion,
                                              SoftwareVersion, addressHash)
-import           Pos.Crypto                 (Hash, PublicKey, SecretKey, Signature,
-                                             checkSig, hash, shortHashF, sign, toPublic,
-                                             unsafeHash)
-import           Pos.Data.Attributes        (Attributes)
+import           Pos.Crypto                 (Hash, PublicKey, SafeSigner,
+                                             SignTag (SignUSProposal), Signature,
+                                             checkSig, hash, safeSign, safeToPublic,
+                                             shortHashF, unsafeHash)
+import           Pos.Data.Attributes        (Attributes (attrRemain))
 import           Pos.Util.Util              (Some)
 
 ----------------------------------------------------------------------------
@@ -151,7 +151,7 @@ mkUpdateProposal
                     upSoftwareVersion
                     upData
                     upAttributes
-        unless (checkSig upFrom toSign upSignature) $
+        unless (checkSig SignUSProposal upFrom toSign upSignature) $
             fail $ "UpdateProposal: signature is invalid"
         pure UnsafeUpdateProposal{..}
 
@@ -162,7 +162,7 @@ mkUpdateProposalWSign
     -> SoftwareVersion
     -> HM.HashMap SystemTag UpdateData
     -> UpAttributes
-    -> SecretKey
+    -> SafeSigner
     -> m UpdateProposal
 mkUpdateProposalWSign
     upBlockVersion
@@ -170,7 +170,7 @@ mkUpdateProposalWSign
     upSoftwareVersion
     upData
     upAttributes
-    skey = do
+    ss = do
         when (HM.null upData) $ -- Check if proposal data is non-empty
             fail "UpdateProposal: empty proposal data"
         let toSign =
@@ -180,8 +180,8 @@ mkUpdateProposalWSign
                     upSoftwareVersion
                     upData
                     upAttributes
-        let upFrom = toPublic skey
-        let upSignature = sign skey toSign
+        let upFrom = safeToPublic ss
+        let upSignature = safeSign SignUSProposal ss toSign
         pure UnsafeUpdateProposal{..}
 
 instance Bi UpdateProposal => Buildable UpdateProposal where
@@ -191,13 +191,19 @@ instance Bi UpdateProposal => Buildable UpdateProposal where
               ", UpId: "%build%
               ", "%build%
               ", tags: "%listJson%
-              ", no attributes "%
+              ", "%builder%
               " }")
         upSoftwareVersion
         upBlockVersion
         (hash up)
         upBlockVersionData
         (HM.keys upData)
+        attrsBuilder
+      where
+        attrs = upAttributes
+        attrsBuilder
+            | null (attrRemain upAttributes) = "no attributes"
+            | otherwise = bprint ("attributes: " %build) attrs
 
 instance (Bi UpdateProposal) =>
          Buildable (UpdateProposal, [UpdateVote]) where

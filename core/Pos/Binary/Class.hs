@@ -4,8 +4,6 @@
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE DeriveFunctor        #-}
 {-# LANGUAGE TypeOperators        #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE BangPatterns         #-}
 {-# LANGUAGE RankNTypes           #-}
 
 #include "MachDeps.h"
@@ -69,6 +67,7 @@ import           Universum
 
 import           Formatting                  (formatToString, int, (%))
 import           Data.Bits                   (Bits (..))
+import qualified Data.Set                    as S
 import           Data.Binary                 (Get, Put)
 import qualified Data.Binary                 as Binary
 import           Data.Binary.Get             (ByteOffset, getByteString,
@@ -613,6 +612,10 @@ instance (Hashable k, Eq k, Bi k, Bi v) => Bi (HM.HashMap k v) where
 instance (Hashable k, Eq k, Bi k) => Bi (HashSet k) where
     get = fmap HS.fromList get
     put = put . HS.toList
+
+instance (Ord k, Bi k) => Bi (Set k) where
+    get = S.fromList <$> get
+    put = put . S.toList
 
 -- Copy-pasted w/ modifications, license:
 -- https://github.com/bos/vector-binary-instances/blob/master/LICENSE

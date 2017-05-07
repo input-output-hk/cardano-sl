@@ -10,20 +10,20 @@ module Pos.Lrc.Logic
        , RichmenType (..)
        ) where
 
-import qualified Data.HashMap.Strict    as HM
-import qualified Data.HashSet           as HS
+import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet        as HS
 import           Universum
 
-import           Pos.Crypto.Signing     (pskDelegatePk)
-import           Pos.DB.Class           (MonadDB)
-import           Pos.DB.GState          (isIssuerByAddressHash, runPskMapIterator)
-import           Pos.DB.GState.Balances (getFtsStake)
-import           Pos.Lrc.Core           (findDelegationStakes, findRichmenStake)
-import           Pos.Lrc.Types          (FullRichmenData, RichmenStake)
-import           Pos.Types              (Coin, StakeholderId, addressHash, sumCoins,
-                                         unsafeIntegerToCoin)
-import           Pos.Util.Iterator      (MonadIterator (nextItem), runListHolder,
-                                         runListHolderT)
+import           Pos.Crypto.Signing  (pskDelegatePk)
+import           Pos.DB.Class        (MonadDB)
+import           Pos.DB.GState       (getEffectiveStake, isIssuerByAddressHash,
+                                      runPskMapIterator)
+import           Pos.Lrc.Core        (findDelegationStakes, findRichmenStake)
+import           Pos.Lrc.Types       (FullRichmenData, RichmenStake)
+import           Pos.Types           (Coin, StakeholderId, addressHash, sumCoins,
+                                      unsafeIntegerToCoin)
+import           Pos.Util.Iterator   (MonadIterator (nextItem), runListHolder,
+                                      runListHolderT)
 
 -- | Find delegated richmen using precomputed usual richmen.
 -- Do it using one pass by delegation DB.
@@ -34,7 +34,7 @@ findDelRichUsingPrecomp
 findDelRichUsingPrecomp precomputed t = do
     delIssMap <- computeDelIssMap
     (old, new) <- runListHolderT @(StakeholderId, [StakeholderId])
-                      (findDelegationStakes isIssuerByAddressHash getFtsStake t)
+                      (findDelegationStakes isIssuerByAddressHash getEffectiveStake t)
                       (HM.toList delIssMap)
     -- attention: order of new and precomputed is important
     -- we want to use new balances (computed from delegated) of precomputed richmen

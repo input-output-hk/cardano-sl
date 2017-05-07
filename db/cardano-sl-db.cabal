@@ -1,5 +1,5 @@
 name:                cardano-sl-db
-version:             0.3.0.0
+version:             0.4.4
 synopsis:            Cardano SL - basic DB interfaces
 description:         Cardano SL - basic DB interfaces
 license:             MIT
@@ -31,16 +31,20 @@ library
                      , cardano-sl-core
                      , concurrent-extra
                      , data-default
+                     , ether
                      , formatting
                      , lens
                      , log-warper
+                     , mmorph
                      , mtl
                      , node-sketch
                      , resourcet
                      , rocksdb
                      , serokell-util
-                     , transformers-base
                      , text-format
+                     , transformers
+                     , transformers-base
+                     , transformers-lift
                      , universum
 
   default-language:    Haskell2010
@@ -62,6 +66,9 @@ library
                        ViewPatterns
                        LambdaCase
                        MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
 
   ghc-options:         -Wall
                        -fno-warn-orphans

@@ -32,8 +32,8 @@ in the [IOHK website](https://iohk.io/research/papers/a-provably-secure-proof-of
 
 ### Where to start
 
-It is recommended to start by reading the documentation, which is available [here](https://cardano-docs.iohk.io/introduction/).
-Its repository is [here](https://github.com/input-output-hk/cardano-docs.iohk.io). 
+It is recommended to start by reading the documentation, which is available [here](https://cardanodocs.com/introduction/).
+Its repository is [here](https://github.com/input-output-hk/cardanodocs.com).
 Developers are encouraged to contribute.
 
 Platform support
@@ -46,7 +46,7 @@ a [wallet](https://github.com/input-output-hk/daedalus).
 Build from source
 -----------------
 
-To build from source, please refer to [this](https://cardano-docs.iohk.io/for-contributors/building-from-source/#cardano-sl-and-daedalus-bridge)
+To build from source, please refer to [this](https://cardanodocs.com/for-contributors/building-from-source/#cardano-sl-and-daedalus-bridge)
  page of the documentation.
 
 Note that the [`stack` system](https://docs.haskellstack.org/en/stable/README/) is
@@ -60,7 +60,7 @@ byproducts of compilation.
 Running the nodes
 -----------------
 
-If you wish to launch and run nodes locally please refer to [this](https://cardano-docs.iohk.io/for-contributors/building-from-source/#cardano-node)
+If you wish to launch and run nodes locally please refer to [this](https://cardanodocs.com/for-contributors/building-from-source/#cardano-node)
 page of the documentation.
 
 Generating the wallet documentation
@@ -78,9 +78,11 @@ _Pending_
 Contributing
 ------------
 
+> **This project uses [`universum`](https://github.com/serokell/universum)
+> as default prelude**
+
 _Pending_
 
 #### References
 
 [1]: A. Kiayias, I. Konstantinou, A. Russell, B. David, R. Oliynykov, "[A Provably Secure Proof-of-Stake Blockchain Protocol](https://eprint.iacr.org/2016/889.pdf)"
-

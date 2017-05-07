@@ -59,7 +59,6 @@ module Pos.Util
 
 import           Universum                        hiding (bracket, finally)
 
-import           Control.Arrow                    ((***))
 import           Control.Concurrent.ReadWriteLock (RWLock, acquireRead, acquireWrite,
                                                    releaseRead, releaseWrite)
 import           Control.Lens                     (lensRules)
@@ -71,8 +70,6 @@ import qualified Data.Cache.LRU                   as LRU
 import           Data.Hashable                    (Hashable)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (span, zipWith3)
-import           Data.SafeCopy                    (SafeCopy (..), base, contain,
-                                                   deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text                        as T
 import qualified Language.Haskell.TH              as TH
 import           Mockable                         (Mockable, Throw, throw)
@@ -88,11 +85,14 @@ import           Pos.Util.TimeLimit
 import           Pos.Util.Undefined               ()
 import           Pos.Util.Util
 
+-- | Specialized version of 'mappend' for restricted to pair type.
 mappendPair :: (Monoid a, Monoid b) => (a, b) -> (a, b) -> (a, b)
-mappendPair = (uncurry (***)) . (mappend *** mappend)
+mappendPair = mappend
 
+-- | Specialized version of 'mconcat' (or 'Data.Foldable.fold')
+-- for restricting type to list of pairs.
 mconcatPair :: (Monoid a, Monoid b) => [(a, b)] -> (a, b)
-mconcatPair = foldr mappendPair (mempty, mempty)
+mconcatPair = mconcat
 
 -- | Concatenates two url part using regular slash '/'.
 -- E.g. @"./dir/" <//> "/file" = "./dir/file"@.
@@ -108,8 +108,6 @@ readerToState
     :: MonadState s m
     => Reader s a -> m a
 readerToState = gets . runReader
-
-deriveSafeCopySimple 0 'base ''VerificationRes
 
 -- | A helper for simple error handling in executables
 eitherPanic :: Show a => Text -> Either a b -> b
@@ -219,16 +217,6 @@ _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
 clearLRU :: Ord k => LRU.LRU k v -> LRU.LRU k v
 clearLRU = LRU.newLRU . LRU.maxSize
 
--- [SRK-51]: Probably this instance should be in @safecopy@ library
-instance (Ord k, SafeCopy k, SafeCopy v) =>
-         SafeCopy (LRU.LRU k v) where
-    getCopy = contain $ LRU.fromList <$> safeGet <*> safeGet
-    putCopy lru =
-        contain $
-        do safePut $ LRU.maxSize lru
-           safePut $ LRU.toList lru
-    errorTypeName _ = "LRU"
-
 ----------------------------------------------------------------------------
 -- Deserialized wrapper
 ----------------------------------------------------------------------------
@@ -252,7 +240,7 @@ instance MonadFail m => MonadFail (ResourceT m) where
 ----------------------------------------------------------------------------
 
 clearMVar :: MonadIO m => MVar a -> m ()
-clearMVar = liftIO . void . tryTakeMVar
+clearMVar = void . tryTakeMVar
 
 forcePutMVar :: MonadIO m => MVar a -> a -> m ()
 forcePutMVar mvar val = do
@@ -264,12 +252,12 @@ forcePutMVar mvar val = do
 -- satisfies, it is returned.
 readMVarConditional :: (MonadIO m) => (x -> Bool) -> MVar x -> m x
 readMVarConditional predicate mvar = do
-    rData <- liftIO . readMVar $ mvar -- first we try to read for optimization only
+    rData <- readMVar mvar -- first we try to read for optimization only
     if predicate rData then pure rData
     else do
-        tData <- liftIO . takeMVar $ mvar -- now take data
-        if predicate tData then do -- check again
-            _ <- liftIO $ tryPutMVar mvar tData -- try to put taken value
+        tData <- takeMVar mvar         -- now take data
+        if predicate tData then do     -- check again
+            _ <- tryPutMVar mvar tData -- try to put taken value
             pure tData
         else
             readMVarConditional predicate mvar

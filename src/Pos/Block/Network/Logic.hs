@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Network-related logic that's mostly methods and dialogs between
@@ -5,8 +6,7 @@
 -- loop logic.
 module Pos.Block.Network.Logic
        (
-         needRecovery
-       , triggerRecovery
+         triggerRecovery
        , requestTipOuts
        , requestTip
 
@@ -21,76 +21,96 @@ module Pos.Block.Network.Logic
 import           Control.Concurrent.STM     (isFullTBQueue, putTMVar, readTVar,
                                              tryReadTMVar, tryTakeTMVar, writeTBQueue,
                                              writeTVar)
+import           Control.Exception          (Exception (..))
 import           Control.Lens               (_Wrapped)
 import qualified Data.List.NonEmpty         as NE
-import           Formatting                 (build, sformat, shown, stext, (%))
+import qualified Data.Text.Buildable        as B
+import           Formatting                 (bprint, build, sformat, shown, stext, (%))
 import           Mockable                   (fork)
 import           Paths_cardano_sl           (version)
 import           Serokell.Util.Text         (listJson)
-import           Serokell.Util.Verify       (isVerSuccess)
+import           Serokell.Util.Verify       (VerificationRes (..), formatFirstError)
 import           System.Wlog                (logDebug, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication   ()
+import           Pos.Binary.Txp             ()
 import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              ClassifyHeadersRes (..), classifyHeaders,
                                              classifyNewHeader, getHeadersOlderExp,
-                                             lcaWithMainChain, verifyAndApplyBlocks,
-                                             withBlkSemaphore)
+                                             lcaWithMainChain, needRecovery,
+                                             verifyAndApplyBlocks, withBlkSemaphore)
 import qualified Pos.Block.Logic            as L
 import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Block.Network.Types    (MsgGetBlocks (..), MsgGetHeaders (..),
                                              MsgHeaders (..))
+import           Pos.Block.Pure             (verifyHeaders)
 import           Pos.Block.Types            (Blund)
 import           Pos.Communication.Limits   (LimitedLength, recvLimited, reifyMsgLimit)
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs,
                                              SendActions (..), convH, toOutSpecs)
-import           Pos.Constants              (blkSecurityParam)
 import           Pos.Context                (NodeContext (..), getNodeContext,
-                                             isRecoveryMode)
+                                             recoveryInProgress)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Class               (MonadDBCore)
 import qualified Pos.DB.DB                  as DB
-import           Pos.DHT.Model              (converseToNeighbors)
+import           Pos.Discovery              (converseToNeighbors)
+import           Pos.Exception              (cardanoExceptionFromException,
+                                             cardanoExceptionToException)
 import           Pos.Reporting.Methods      (reportMisbehaviourMasked)
-import           Pos.Slotting               (getCurrentSlot)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
 import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
                                              HeaderHash, blockHeader, difficultyL,
-                                             gbHeader, getEpochOrSlot, headerHashG,
-                                             prevBlockL, verifyHeaders)
+                                             gbHeader, headerHashG, prevBlockL)
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode               (WorkMode)
+
+
+----------------------------------------------------------------------------
+-- Exceptions
+----------------------------------------------------------------------------
+
+data BlockNetLogicException
+    = VerifyBlocksException Text
+      -- ^ Failed to verify blocks coming from node.
+    | DialogUnexpected Text
+      -- ^ Node's response in any network/block related logic was
+      -- unexpected.
+    deriving (Show)
+
+instance B.Buildable BlockNetLogicException where
+    build e = bprint ("BlockNetLogicException: "%shown) e
+
+instance Exception BlockNetLogicException where
+    toException = cardanoExceptionToException
+    fromException = cardanoExceptionFromException
+    displayException = toString . pretty
 
 ----------------------------------------------------------------------------
 -- Recovery
 ----------------------------------------------------------------------------
 
-needRecovery :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
-       => Proxy ssc -> m Bool
-needRecovery _ = getCurrentSlot >>= maybe (pure True) needRecoveryCheck
-  where
-    needRecoveryCheck slot = do
-        header <- DB.getTipBlockHeader @ssc
-        pure $
-            toEnum (fromEnum (getEpochOrSlot header) + blkSecurityParam) <
-            getEpochOrSlot slot
-
--- | Triggers recovery based on established communication.
+-- | Start recovery based on established communication. “Starting recovery”
+-- means simply sending all our neighbors a 'MsgGetHeaders' message (see
+-- 'requestTip'), so sometimes 'triggerRecovery' is used simply to ask for
+-- tips (e.g. in 'queryBlocksWorker').
+--
+-- Note that when recovery is in progress (see 'recoveryInProgress'),
+-- 'triggerRecovery' does nothing. It's okay because when recovery is in
+-- progress and 'ncRecoveryHeader' is full, we'll be requesting blocks anyway
+-- and until we're finished we shouldn't be asking for new blocks.
 triggerRecovery :: forall ssc m.
     (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m -> m ()
-triggerRecovery sendActions = unlessM isRecoveryMode $ do
-    logDebug "Recovery triggered, requesting tips"
+triggerRecovery sendActions = unlessM recoveryInProgress $ do
+    logDebug "Recovery started, requesting tips from neighbors"
     reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limitProxy -> do
         converseToNeighbors sendActions (requestTip limitProxy) `catch`
             \(e :: SomeException) -> do
-               logDebug ("Error happened in triggerRecovery" <> show e)
+               logDebug ("Error happened in triggerRecovery: " <> show e)
                throwM e
-        logDebug "Recovery triggered ended"
-
+        logDebug "Finished requesting tips for recovery"
 
 requestTipOuts :: OutSpecs
 requestTipOuts =
@@ -191,30 +211,31 @@ data MatchReqHeadersRes
     = MRGood
       -- ^ Headers were indeed requested and precisely match our
       -- request
-    | MRUnexpected
-      -- ^ Headers don't represent valid response to our request.
+    | MRUnexpected Text
+      -- ^ Headers don't represent valid response to our
+      -- request. Reason is attached.
     deriving (Show)
 
 matchRequestedHeaders
     :: (Ssc ssc)
     => NewestFirst NE (BlockHeader ssc) -> MsgGetHeaders -> Bool -> MatchReqHeadersRes
-matchRequestedHeaders headers MsgGetHeaders{..} inRecovery =
-    let newTip      = headers ^. _Wrapped . _neHead
+matchRequestedHeaders headers MsgGetHeaders {..} inRecovery =
+    let newTip = headers ^. _Wrapped . _neHead
         startHeader = headers ^. _Wrapped . _neLast
         startMatches =
             or [ (startHeader ^. headerHashG) `elem` mghFrom
-               , (startHeader ^. prevBlockL) `elem` mghFrom]
+               , (startHeader ^. prevBlockL) `elem` mghFrom
+               ]
         mghToMatches
             | inRecovery = True
             | isNothing mghTo = True
             | otherwise = Just (headerHash newTip) == mghTo
-        boolMatch = and [startMatches, mghToMatches, formChain]
-     in if boolMatch
-           then MRGood
-           else MRUnexpected
-  where
-    formChain = isVerSuccess $
-        verifyHeaders True (headers & _Wrapped %~ toList)
+        verRes = verifyHeaders True (headers & _Wrapped %~ toList)
+    in if | not startMatches -> MRUnexpected "start (from) doesn't match"
+          | not mghToMatches -> MRUnexpected "finish (to) doesn't match"
+          | VerFailure errs <- verRes ->
+              MRUnexpected $ "headers are bad: " <> formatFirstError errs
+          | otherwise -> MRGood
 
 -- Second argument is mghTo block header (not hash). Don't pass it
 -- only if you don't know it.
@@ -231,29 +252,36 @@ requestHeaders mgh peerId origTip _ conv = do
     logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
     send conv mgh
     mHeaders <- recvLimited conv
-    inRecovery <- needRecovery (Proxy @ssc)
+    inRecovery <- needRecovery @ssc
     logDebug $ sformat ("requestHeaders: inRecovery = "%shown) inRecovery
     flip (maybe onNothing) mHeaders $ \(MsgHeaders headers) -> do
         logDebug $ sformat
             ("requestHeaders: withConnection: received "%listJson)
             (map headerHash headers)
         case matchRequestedHeaders headers mgh inRecovery of
-            MRGood       -> do
+            MRGood           -> do
                 handleRequestedHeaders headers peerId origTip
-            MRUnexpected -> handleUnexpected headers peerId
+            MRUnexpected msg -> handleUnexpected headers msg
   where
-    onNothing = logWarning "requestHeaders: received Nothing, waiting for MsgHeaders"
-    handleUnexpected hs _ = do
+    onNothing = do
+        logWarning "requestHeaders: received Nothing, waiting for MsgHeaders"
+        throwM $ DialogUnexpected $
+            sformat ("requestHeaders: received Nothing from "%build) peerId
+    handleUnexpected hs msg = do
         -- TODO: ban node for sending unsolicited header in conversation
         logWarning $ sformat
-            ("requestHeaders: headers received were not requested, address: " % build)
-            peerId
-        logWarning $ sformat ("requestHeaders: unexpected headers: "%listJson) hs
+            ("requestHeaders: headers received were not requested or are invalid"%
+             ", peer id: "%build%", reason:"%stext)
+            peerId msg
+        logWarning $ sformat
+            ("requestHeaders: unexpected or invalid headers: "%listJson) hs
+        throwM $ DialogUnexpected $
+            sformat ("requestHeaders: received unexpected headers from "%build) peerId
 
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders
     :: forall ssc m.
-       (WorkMode ssc m)
+       WorkMode ssc m
     => NewestFirst NE (BlockHeader ssc)
     -> NodeId
     -> Maybe (BlockHeader ssc)
@@ -391,7 +419,9 @@ handleBlocksWithLca peerId sendActions blocks lcaHash = do
 applyWithoutRollback
     :: forall ssc m.
        (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
-    => SendActions m -> OldestFirst NE (Block ssc) -> m ()
+    => SendActions m
+    -> OldestFirst NE (Block ssc)
+    -> m ()
 applyWithoutRollback sendActions blocks = do
     logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
         fmap (view blockHeader) blocks
@@ -457,7 +487,7 @@ applyWithRollback peerId sendActions toApply lca toRollback = do
         ". Blocks rolled back: "%listJson%
         ", blocks applied: "%listJson
     reportRollback =
-        unlessM isRecoveryMode $ do
+        unlessM recoveryInProgress $ do
             logDebug "Reporting rollback happened"
             reportMisbehaviourMasked version $
                 sformat reportF peerId toRollbackHashes toApplyHashes
@@ -474,18 +504,15 @@ relayBlock
     => SendActions m -> Block ssc -> m ()
 relayBlock _ (Left _)                  = logDebug "Not relaying Genesis block"
 relayBlock sendActions (Right mainBlk) = do
-    isRecoveryMode >>= \case
+    recoveryInProgress >>= \case
         True -> logDebug "Not relaying block in recovery mode"
         False -> do
-            logDebug $ sformat ("Calling announceBlock for "%shown%".") (mainBlk ^. gbHeader)
+            logDebug $ sformat ("Calling announceBlock for "%build%".") (mainBlk ^. gbHeader)
             void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------
 -- Common logging / logic sink points
 ----------------------------------------------------------------------------
-
-data VerifyBlocksException = VerifyBlocksException Text deriving Show
-instance Exception VerifyBlocksException
 
 -- TODO: ban node for it!
 onFailedVerifyBlocks

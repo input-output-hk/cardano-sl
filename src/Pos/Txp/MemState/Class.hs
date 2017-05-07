@@ -1,12 +1,13 @@
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Type class necessary for Transaction processing (Txp)
 -- and some useful getters and setters.
 
 module Pos.Txp.MemState.Class
-       ( MonadTxpMem (..)
+       ( MonadTxpMem
+       , askTxpMem
+       , TxpHolderTag
        , getUtxoModifier
        , getLocalTxsNUndo
        , getMemPool
@@ -15,35 +16,27 @@ module Pos.Txp.MemState.Class
        , getTxpExtra
        , modifyTxpLocalData
        , setTxpLocalData
+       , clearTxpMemPool
        ) where
 
 import qualified Control.Concurrent.STM as STM
-import           Control.Monad.Except   (ExceptT)
-import           Control.Monad.State    (StateT)
-import           Control.Monad.Trans    (MonadTrans)
+import qualified Control.Monad.Ether    as Ether.E
+import           Data.Default           (Default (..))
 import qualified Data.HashMap.Strict    as HM
 import           Universum
 
-import           Pos.DHT.Real           (KademliaDHT)
 import           Pos.Txp.Core.Types     (TxAux, TxId, TxOutAux)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),
                                          GenericTxpLocalDataPure)
 import           Pos.Txp.Toil.Types     (MemPool (_mpLocalTxs), UtxoModifier)
 
+data TxpHolderTag
+
 -- | Reduced equivalent of @MonadReader (GenericTxpLocalData mw) m@.
-class Monad m => MonadTxpMem extra m | m -> extra where
-    askTxpMem :: m (GenericTxpLocalData extra)
-    -- ^ Retrieve 'GenericTxpLocalData'.
+type MonadTxpMem ext = Ether.E.MonadReader TxpHolderTag (GenericTxpLocalData ext)
 
-    -- | Default implementation for 'MonadTrans'.
-    default askTxpMem :: (MonadTrans t, MonadTxpMem extra m', t m' ~ m) =>
-        m (GenericTxpLocalData extra)
-    askTxpMem = lift askTxpMem
-
-instance MonadTxpMem x m => MonadTxpMem x (ReaderT s m)
-instance MonadTxpMem x m => MonadTxpMem x (StateT s m)
-instance MonadTxpMem x m => MonadTxpMem x (ExceptT s m)
-instance MonadTxpMem x m => MonadTxpMem x (KademliaDHT m)
+askTxpMem :: MonadTxpMem ext m => m (GenericTxpLocalData ext)
+askTxpMem = Ether.E.ask (Proxy @TxpHolderTag)
 
 getTxpLocalData
     :: (MonadIO m, MonadTxpMem e m)
@@ -102,3 +95,8 @@ setTxpLocalData
     :: (MonadIO m, MonadTxpMem ext m)
     => GenericTxpLocalDataPure ext -> m ()
 setTxpLocalData x = modifyTxpLocalData (const ((), x))
+
+clearTxpMemPool :: (MonadIO m, MonadTxpMem ext m, Default ext) => m ()
+clearTxpMemPool = modifyTxpLocalData clearF
+  where
+    clearF (_, _, _, tip, _) = ((), (mempty, def, mempty, tip, def))

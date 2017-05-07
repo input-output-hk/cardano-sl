@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.Pos.Util
@@ -34,7 +33,7 @@ import           Data.Typeable         (typeRep)
 import           Formatting            (formatToString, int, (%))
 import           Prelude               (read)
 
-import           Pos.Binary            (AsBinaryClass (..), Bi (..), encode)
+import           Pos.Binary            (AsBinaryClass (..), Bi (..), encode, encodeStrict)
 import           Pos.Communication     (Limit (..), MessageLimitedPure (..))
 
 import           Test.Hspec            (Expectation, Selector, Spec, describe,
@@ -42,7 +41,7 @@ import           Test.Hspec            (Expectation, Selector, Spec, describe,
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Arbitrary (arbitrary), Property, conjoin,
                                         counterexample, forAll, property, resize,
-                                        suchThat, vectorOf, (===), (.&&.))
+                                        suchThat, vectorOf, (.&&.), (===))
 
 import           Universum
 
@@ -72,7 +71,7 @@ networkBinaryEncodeDecode a = stage1 $ runGetIncremental get
     stage1 (Fail _ _ why)    =
         failText $ "parse error: " ++ why
     stage1 (Partial continue)   =
-        stage2 $ continue $ Just (LBS.toStrict $ encode a)
+        stage2 $ continue $ Just (encodeStrict a)
 
     -- all data has been put
     stage2 (Done remaining _ b) =

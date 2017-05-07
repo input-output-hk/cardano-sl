@@ -34,7 +34,9 @@ instance Bi StakeDistribution where
     put (CombinedStakes st1 st2)   = putWord8 5 >> put st1 >> put st2
 
 instance Bi GenesisData where
-    get = label "GenesisData" $ GenesisData <$> get <*> get <*> get
+    get = label "GenesisData" $ GenesisData <$> get <*> get <*> get <*> get
     put GenesisData {..} = put gdAddresses >>
                            put gdDistribution >>
-                           put gdVssCertificates
+                           put gdVssCertificates >>
+                           put gdBootstrapBalances
+

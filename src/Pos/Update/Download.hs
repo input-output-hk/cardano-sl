@@ -73,7 +73,7 @@ downloadUpdate cst@ConfirmedProposalState {..} = do
         liftIO $ BSL.writeFile updPath file
         logInfo "Update was downloaded"
         sm <- askContext @UpdateContext ucUpdateSemaphore
-        liftIO $ putMVar sm cst
+        putMVar sm cst
         logInfo "Update MVar filled, wallet is notified"
 
     whenLeft res logWarning

@@ -23,13 +23,15 @@ module Pos.Util.Modifier
 
        , mapMaybeM
        , mapMaybe
+       , modifyHashMap
+       , foldlMapModWKey'
        ) where
 
-import           Data.Hashable             (Hashable)
-import qualified Data.HashMap.Strict       as HM
 import           Universum                 hiding (filter, mapMaybe, toList)
 import qualified Universum                 (filter, mapMaybe)
 
+import           Data.Hashable             (Hashable)
+import qualified Data.HashMap.Strict       as HM
 import           Test.QuickCheck           (Arbitrary)
 import           Test.QuickCheck.Instances ()
 
@@ -168,3 +170,19 @@ mapMaybe
     :: (Eq k, Hashable k)
     => [(k, v2)] -> (v1 -> Maybe v2) -> MapModifier k v1 -> [(k, v2)]
 mapMaybe getter f = runIdentity . mapMaybeM (Identity getter) f
+
+-- | Applies a map modifier to a hashmap, returning the result
+modifyHashMap :: (Eq k, Hashable k) => MapModifier k v -> HashMap k v -> HashMap k v
+modifyHashMap pm hm =
+    foldl' (flip (uncurry HM.insert)) (foldl' (flip HM.delete) hm deletes) inserts
+  where
+    inserts = insertions pm
+    deletes = deletions pm
+
+foldlMapModWKey'
+    :: (Eq k, Hashable k)
+    => (a -> k -> Maybe v -> a)
+    -> a
+    -> MapModifier k v
+    -> a
+foldlMapModWKey' f acc = HM.foldlWithKey' f acc . getMapModifier

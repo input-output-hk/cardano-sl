@@ -13,12 +13,12 @@ import           Universum
 import           Pos.Binary                 ()
 
 import           Pos.Communication.Methods  (sendUpdateProposal, sendVote)
-import           Pos.Communication.Protocol (SendActions)
+import           Pos.Communication.Protocol (SendActions, NodeId)
 import           Pos.Communication.Specs    (sendProposalOuts, sendVoteOuts)
 import           Pos.DB.Limits              (MonadDBLimits)
-import           Pos.DHT.Model              (DHTNode)
 
-import           Pos.Crypto                 (SecretKey, hash, sign, toPublic)
+import           Pos.Crypto                 (SafeSigner, SignTag (SignUSVote), hash,
+                                             safeSign, safeToPublic)
 import           Pos.Update                 (UpdateProposal, UpdateVote (..))
 import           Pos.WorkMode               (MinWorkMode)
 
@@ -26,7 +26,7 @@ import           Pos.WorkMode               (MinWorkMode)
 submitVote
     :: (MinWorkMode m, MonadDBLimits m)
     => SendActions m
-    -> [DHTNode]
+    -> [NodeId]
     -> UpdateVote
     -> m ()
 submitVote sendActions na voteUpd = do
@@ -37,17 +37,17 @@ submitVote sendActions na voteUpd = do
 submitUpdateProposal
     :: (MinWorkMode m, MonadDBLimits m)
     => SendActions m
-    -> SecretKey
-    -> [DHTNode]
+    -> SafeSigner
+    -> [NodeId]
     -> UpdateProposal
     -> m ()
-submitUpdateProposal sendActions sk na prop = do
+submitUpdateProposal sendActions ss na prop = do
     let upid = hash prop
     let initUpdVote = UpdateVote
-            { uvKey        = toPublic sk
+            { uvKey        = safeToPublic ss
             , uvProposalId = upid
             , uvDecision   = True
-            , uvSignature  = sign sk (upid, True)
+            , uvSignature  = safeSign SignUSVote ss (upid, True)
             }
     void $ forConcurrently na $
         \addr -> sendUpdateProposal sendActions addr upid prop [initUpdVote]

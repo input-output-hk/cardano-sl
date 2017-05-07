@@ -6,10 +6,11 @@ build: off
 environment:
   global:
     # Avoid long paths on Windows
-    STACK_ROOT: "c:\\sr"
+    STACK_ROOT: "c:\\s"
     STACK_WORK: ".w"
     CSL_SYSTEM_TAG: "win64"
-    CACHE_DIR: "c:\\cache"
+    CACHE_DIR: "c:\\c"
+    WORK_DIR: "c:\\w"
 
 init:
   - SET BRANCH_CACHE_DIR=%CACHE_DIR%\%APPVEYOR_REPO_BRANCH:/=_%
@@ -40,6 +41,10 @@ cache:
   # Add more "%CACHE_DIR%\\<branch_name>" directories as needed
 
 before_test:
+# Avoid long paths not to each MAX_PATH of 260 chars
+- xcopy /q /s /e /r /k /i /v /h /y C:\projects\cardano-sl "%WORK_DIR%"
+- cd "%WORK_DIR%"
+# Setup cache dirs
 - Echo %APPVEYOR_BUILD_VERSION% > build-id
 - Echo BRANCH_CACHE_DIR = %BRANCH_CACHE_DIR%
 - IF EXIST %CACHE_DIR% dir %CACHE_DIR%
@@ -57,19 +62,33 @@ before_test:
 - 7z x rocksdb.zip
 
 test_script:
+  - cd "%WORK_DIR%"
   - stack setup --no-reinstall
   # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
   - scripts\appveyor-retry call stack --no-terminal --local-bin-path daedalus
       install -j 2 --test --no-haddock-deps --bench --no-run-benchmarks
       --work-dir %STACK_WORK%
+      --flag cardano-sl:for-installer
       --flag cardano-sl:with-web
       --flag cardano-sl:with-wallet
       --flag cardano-sl:-asserts
       --flag cardano-sl-core:-dev-mode
       --extra-include-dirs="C:\OpenSSL-Win64\include"
       --extra-lib-dirs="C:\OpenSSL-Win64"
-      --extra-include-dirs="C:\projects\cardano-sl\rocksdb\include"
-      --extra-lib-dirs="C:\projects\cardano-sl"
+      --extra-include-dirs="%WORK_DIR%\rocksdb\include"
+      --extra-lib-dirs="%WORK_DIR%"
+  # - scripts\appveyor-retry call stack --no-terminal --local-bin-path daedalus
+  #     install -j 2 --no-haddock-deps
+  #     --work-dir %STACK_WORK%
+  #     --flag cardano-sl:for-installer
+  #     --flag cardano-sl:with-web
+  #     --flag cardano-sl:with-wallet
+  #     --flag cardano-sl:-asserts
+  #     --flag cardano-sl-core:-dev-mode
+  #     --extra-include-dirs="C:\OpenSSL-Win64\include"
+  #     --extra-lib-dirs="C:\OpenSSL-Win64"
+  #     --extra-include-dirs="C:\projects\cardano-sl\rocksdb\include"
+  #     --extra-lib-dirs="C:\projects\cardano-sl"
   - stack exec --work-dir %STACK_WORK% -- cardano-wallet-hs2purs
   - copy log-config-prod.yaml daedalus\log-config-prod.yaml
   - cd daedalus
@@ -81,6 +100,7 @@ test_script:
 after_test:
  - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %STACK_ROOT% %CACHED_STACK_ROOT%
  - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_WORK% xcopy /q /s /e /r /k /i /v /h /y %STACK_WORK% %CACHED_STACK_WORK%
+ - xcopy /q /s /e /r /k /i /v /h /y "%WORK_DIR%\daedalus" C:\projects\cardano-sl\daedalus
 
 artifacts:
   - path: daedalus/

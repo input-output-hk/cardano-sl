@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Logic of local data processing in Update System.
@@ -19,6 +18,8 @@ module Pos.Update.Logic.Local
        , usNormalize
        , processNewSlot
        , usPreparePayload
+
+       , clearUSMemPool
        ) where
 
 import           Control.Concurrent.STM (modifyTVar', readTVar, writeTVar)
@@ -61,6 +62,14 @@ getMemPool
     => m MemPool
 getMemPool = msPool <$>
     (atomically . readTVar . mvState =<< askContext ucMemState)
+
+clearUSMemPool
+    :: (HasContext UpdateContext m, MonadIO m)
+    => m ()
+clearUSMemPool =
+    atomically . flip modifyTVar' resetData . mvState =<< askContext ucMemState
+  where
+    resetData memState = memState {msPool = def, msModifier = def}
 
 getPollModifier
     :: (HasContext UpdateContext m, MonadIO m)
@@ -179,7 +188,7 @@ processSkeleton
 processSkeleton payload = withUSLock $ runExceptT $ withCurrentTip $ \ms@MemState{..} -> do
     modifier <-
         runDBPoll . evalPollT msModifier . execPollT def $
-        verifyAndApplyUSPayload False (Left msSlot) payload
+        verifyAndApplyUSPayload True (Left msSlot) payload
     let newModifier = modifyPollModifier msModifier modifier
     let newPool = addToMemPool payload msPool
     pure $ ms {msModifier = newModifier, msPool = newPool}

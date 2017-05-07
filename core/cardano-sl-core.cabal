@@ -1,5 +1,5 @@
 name:                cardano-sl-core
-version:             0.3.0.0
+version:             0.4.4
 synopsis:            Cardano SL - core
 description:         Cardano SL - core
 license:             MIT
@@ -42,12 +42,14 @@ library
                        Pos.Core.Version
 
                        Pos.Crypto
+                       Pos.Crypto.Encryption
                        Pos.Crypto.AsBinary
                        Pos.Crypto.HD
                        Pos.Crypto.Random
                        Pos.Crypto.Hashing
                        Pos.Crypto.SafeSigning
                        Pos.Crypto.Signing
+                       Pos.Crypto.SignTag
                        Pos.Crypto.SecretSharing
                        Pos.Crypto.RedeemSigning
 
@@ -71,15 +73,23 @@ library
                        Pos.Util.Iterator
                        Pos.Util.Modifier
                        Pos.Util.Util
+                       Pos.Util.Mnemonics
 
   other-modules:       Pos.Util.Config.Path
 
   build-depends:      QuickCheck
-                     , aeson
-                     , autoexporter
-                     , base
-                     , base58-bytestring
-                     , log-warper >= 1.0.3
+                    , aeson
+                    , autoexporter
+                    , base
+                    , base58-bytestring
+                    , ether
+                    , ether
+                    , log-warper >= 1.0.3
+                    , transformers
+                    , transformers-base
+                    , transformers-lift
+                    , mmorph
+                    , resourcet
                       -- This constraint on 'binary' is so strict because
                       -- we're relying on the internal representation of
                       -- 'Get' in Pos.Binary.Class. So, if you need to bump
@@ -146,6 +156,9 @@ library
                        ViewPatterns
                        LambdaCase
                        MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
 
   ghc-options:         -Wall
                        -fno-warn-orphans

@@ -16,14 +16,15 @@ import           System.Wlog                (logWarning)
 import           Universum
 
 import           Pos.Binary.Ssc             ()
-import           Pos.Block.Network          (needRecovery, requestTipOuts,
-                                             triggerRecovery)
+import           Pos.Block.Logic            (needRecovery)
+import           Pos.Block.Network          (requestTipOuts, triggerRecovery)
+import           Pos.Block.Pure             (genesisHash)
 import           Pos.Communication.Protocol (OutSpecs, SendActions, WorkerSpec,
                                              localWorker, worker)
 import           Pos.Constants              (blkSecurityParam, mdNoBlocksSlotThreshold,
                                              mdNoCommitmentsEpochThreshold)
-import           Pos.Context                (getNodeContext, getUptime, isRecoveryMode,
-                                             ncPublicKey)
+import           Pos.Context                (getNodeContext, getUptime, ncPublicKey,
+                                             recoveryInProgress)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.DB                     (DBError (DBMalformed))
 import           Pos.DB.Block               (getBlockHeader)
@@ -38,12 +39,12 @@ import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
                                              getCommitmentsMap)
 import           Pos.Ssc.NistBeacon         (SscNistBeacon)
-import           Pos.Types                  (BlockHeader, EpochIndex, MainBlock,
+import           Pos.Types                  (Block, BlockHeader, EpochIndex, MainBlock,
                                              SlotId (..), addressHash, blockMpc,
-                                             flattenEpochOrSlot, flattenSlotId,
-                                             genesisHash, headerHash, headerLeaderKey,
-                                             prevBlockL)
+                                             blockSlot, flattenEpochOrSlot, flattenSlotId,
+                                             headerHash, headerLeaderKey, prevBlockL)
 import           Pos.Util                   (mconcatPair)
+import           Pos.Util.Chrono            (NewestFirst (..))
 import           Pos.WorkMode               (WorkMode)
 
 
@@ -105,14 +106,14 @@ checkForReceivedBlocksWorkerImpl
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
     repeatOnInterval (const (sec' 4)) . reportingFatal version $
-        whenM (needRecovery $ Proxy @ssc) $ do
+        whenM (needRecovery @ssc) $
             triggerRecovery sendActions
     repeatOnInterval (min (sec' 20)) . reportingFatal version $ do
         ourPk <- ncPublicKey <$> getNodeContext
         let onSlotDefault slotId = do
                 header <- getTipBlockHeader @ssc
                 unlessM (checkEclipsed ourPk slotId header) onEclipsed
-        maybe (pure ()) onSlotDefault =<< getCurrentSlot
+        whenJustM getCurrentSlot onSlotDefault
   where
     sec' :: Int -> Millisecond
     sec' = convertUnit . sec
@@ -131,7 +132,7 @@ checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
     reportEclipse = do
         bootstrapMin <- (+ sec 10) . convertUnit <$> getLastKnownSlotDuration
         nonTrivialUptime <- (> bootstrapMin) <$> getUptime
-        isRecovery <- isRecoveryMode
+        isRecovery <- recoveryInProgress
         let reason =
                 "Eclipse attack was discovered, mdNoBlocksSlotThreshold: " <>
                 show (mdNoBlocksSlotThreshold :: Int)
@@ -145,42 +146,32 @@ checkForIgnoredCommitmentsWorker
     => (WorkerSpec m, OutSpecs)
 checkForIgnoredCommitmentsWorker = localWorker $ do
     epochIdx <- atomically (newTVar 0)
-    _ <- runReaderT (onNewSlot True checkForIgnoredCommitmentsWorkerImpl) epochIdx
-    return ()
+    void $ onNewSlot True (checkForIgnoredCommitmentsWorkerImpl epochIdx)
 
 checkForIgnoredCommitmentsWorkerImpl
-    :: forall m. WorkMode SscGodTossing m
-    => SlotId -> ReaderT (TVar EpochIndex) m ()
-checkForIgnoredCommitmentsWorkerImpl slotId = do
-    checkCommitmentsInPreviousBlocks slotId
-    tvar <- ask
-    lastCommitment <- lift $ atomically $ readTVar tvar
+    :: forall m. (WorkMode SscGodTossing m)
+    => TVar EpochIndex -> SlotId -> m ()
+checkForIgnoredCommitmentsWorkerImpl tvar slotId = do
+    -- Check prev blocks
+    (kBlocks :: NewestFirst [] (Block SscGodTossing)) <-
+        map fst <$> loadBlundsFromTipByDepth @SscGodTossing blkSecurityParam
+    for_ kBlocks $ \blk -> whenRight blk checkCommitmentsInBlock
+
+    -- Print warning
+    lastCommitment <- atomically $ readTVar tvar
     when (siEpoch slotId - lastCommitment > mdNoCommitmentsEpochThreshold) $
         logWarning $ sformat
             ("Our neighbors are likely trying to carry out an eclipse attack! "%
              "Last commitment was at epoch "%int%", "%
              "which is more than 'mdNoCommitmentsEpochThreshold' epochs ago")
             lastCommitment
-
-checkCommitmentsInPreviousBlocks
-    :: forall m. WorkMode SscGodTossing m
-    => SlotId -> ReaderT (TVar EpochIndex) m ()
-checkCommitmentsInPreviousBlocks slotId = do
-    kBlocks <- map fst <$> loadBlundsFromTipByDepth blkSecurityParam
-    forM_ kBlocks $ \case
-        Right blk -> checkCommitmentsInBlock slotId blk
-        _         -> return ()
-
-checkCommitmentsInBlock
-    :: forall m. WorkMode SscGodTossing m
-    => SlotId -> MainBlock SscGodTossing -> ReaderT (TVar EpochIndex) m ()
-checkCommitmentsInBlock slotId block = do
-    ourId <- addressHash . ncPublicKey <$> getNodeContext
-    let commitmentInBlockchain = isCommitmentInPayload ourId (block ^. blockMpc)
-    when commitmentInBlockchain $ do
-        tvar <- ask
-        lift $ atomically $ writeTVar tvar $ siEpoch slotId
   where
+    checkCommitmentsInBlock :: MainBlock SscGodTossing -> m ()
+    checkCommitmentsInBlock block = do
+        ourId <- addressHash . ncPublicKey <$> getNodeContext
+        let commitmentInBlockchain = isCommitmentInPayload ourId (block ^. blockMpc)
+        when commitmentInBlockchain $
+            atomically $ writeTVar tvar $ siEpoch $ block ^. blockSlot
     isCommitmentInPayload addr (CommitmentsPayload commitments _) =
         HM.member addr $ getCommitmentsMap commitments
     isCommitmentInPayload _ _ = False

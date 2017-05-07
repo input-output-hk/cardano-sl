@@ -3,20 +3,19 @@
 -- | Applications of runners to scenarios.
 
 module Pos.Launcher.Launcher
-       (
-         -- * Node launchers.
+       ( -- * Node launchers.
          runNodeProduction
        , runNodeStats
-
-         -- * Utility launchers.
        ) where
 
 import           Mockable                   (Production)
+import           Network.Transport.Abstract (Transport)
 
+import           Pos.Communication          (PeerId)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec)
+import           Pos.DHT.Real               (KademliaDHTInstance)
 import           Pos.Launcher.Param         (NodeParams (..))
-import           Pos.Launcher.Runner        (RealModeResources, runProductionMode,
-                                             runStatsMode)
+import           Pos.Launcher.Runner        (runProductionMode, runStatsMode)
 import           Pos.Launcher.Scenario      (runNode)
 import           Pos.Ssc.Class              (SscConstraint)
 import           Pos.Ssc.Class.Types        (SscParams)
@@ -30,20 +29,26 @@ import           Pos.WorkMode               (ProductionMode, StatsMode)
 runNodeProduction
     :: forall ssc.
        SscConstraint ssc
-    => RealModeResources
+    => PeerId
+    -> Transport (ProductionMode ssc)
+    -> KademliaDHTInstance
     -> ([WorkerSpec (ProductionMode ssc)], OutSpecs)
     -> NodeParams
     -> SscParams ssc
     -> Production ()
-runNodeProduction inst plugins np sscnp = runProductionMode inst np sscnp (runNode @ssc plugins)
+runNodeProduction peerId transport kinst plugins np sscnp =
+    runProductionMode peerId transport kinst np sscnp (runNode @ssc plugins)
 
 -- | Run full node in benchmarking node
 runNodeStats
     :: forall ssc.
        SscConstraint ssc
-    => RealModeResources
+    => PeerId
+    -> Transport (StatsMode ssc)
+    -> KademliaDHTInstance
     -> ([WorkerSpec (StatsMode ssc)], OutSpecs)
     -> NodeParams
     -> SscParams ssc
     -> Production ()
-runNodeStats inst plugins np sscnp = runStatsMode inst np sscnp (runNode @ssc plugins)
+runNodeStats peerId transport kinst plugins np sscnp =
+    runStatsMode peerId transport kinst np sscnp (runNode @ssc plugins)

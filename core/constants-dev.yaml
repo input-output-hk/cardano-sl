@@ -45,12 +45,14 @@ applicationName: cardano-sl
 productionNetworkStartTime: 0
 
 # NTP
-ntpResponseTimeout: 1000000 # 1 sec
+ntpResponseTimeout: 7000000 # 7 sec
 ntpPollDelay: 300000000 # 300 sec
+ntpMaxError: 120000000 # 2 mins
 
 # Misc
 maxLocalTxs: 10000
 protocolMagic: 0
+enhancedMessageTimeout: 10
 enhancedMessageBroadcast: 2
 messageCacheTimeout: 30
 blockRetrievalQueueSize: 100

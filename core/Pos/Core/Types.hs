@@ -69,16 +69,17 @@ module Pos.Core.Types
        , ScriptVersion
        ) where
 
+import           Universum
+
 import           Crypto.Hash                (Blake2b_224)
 import           Data.Char                  (isAscii)
 import           Data.Data                  (Data)
 import           Data.Default               (Default (..))
 import           Data.Hashable              (Hashable)
 import           Data.Ix                    (Ix)
-import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import qualified Data.Text                  as T
 import qualified Data.Text.Buildable        as Buildable
-import           Data.Time.Units            (Microsecond, Millisecond)
+import           Data.Time.Units            (Millisecond)
 import           Formatting                 (Format, bprint, build, formatToString, int,
                                              ords, shown, stext, (%))
 import qualified PlutusCore.Program         as PLCore
@@ -86,20 +87,12 @@ import qualified Prelude
 import           Serokell.AcidState         ()
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16       (formatBase16)
-import           Universum
 
+import           Pos.Core.Timestamp         (Timestamp (..))
 import           Pos.Crypto                 (AbstractHash, HDAddressPayload, Hash,
                                              ProxySecretKey, ProxySignature, PublicKey,
                                              RedeemPublicKey)
 import           Pos.Data.Attributes        (Attributes)
-
--- | Timestamp is a number which represents some point in time. It is
--- used in MonadSlots and its meaning is up to implementation of this
--- type class. The only necessary knowledge is that difference between
--- timestamps is microsecond. Hence underlying type is Microsecond.
-newtype Timestamp = Timestamp
-    { getTimestamp :: Microsecond
-    } deriving (Num, Eq, Ord, Enum, Real, Integral, Typeable, Generic)
 
 ----------------------------------------------------------------------------
 -- Address
@@ -236,7 +229,7 @@ headerHashF = build
 ----------------------------------------------------------------------------
 
 -- | Proxy signature used in csl -- holds a pair of epoch
--- indices. Block is valid if it's epoch index is inside this range.
+-- indices. Block is valid if its epoch index is inside this range.
 type ProxySigLight a = ProxySignature (EpochIndex, EpochIndex) a
 
 -- | Same alias for the proxy secret key (see 'ProxySigLight').
@@ -424,11 +417,5 @@ instance Hashable Script
 instance Buildable Script where
     build Script{..} = bprint ("<script v"%int%">") scrVersion
 
-deriveSafeCopySimple 0 'base ''Script
-
 -- | Deserialized script (i.e. an AST), version 0.
 type Script_v0 = PLCore.Program
-
-deriveSafeCopySimple 0 'base ''ApplicationName
-deriveSafeCopySimple 0 'base ''BlockVersion
-deriveSafeCopySimple 0 'base ''SoftwareVersion

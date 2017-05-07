@@ -16,7 +16,6 @@ import qualified Data.ByteString      as BS
 import qualified Data.HashMap.Strict  as HM
 import           Data.List            ((\\))
 import qualified Data.Text            as T
-import qualified Data.Text.IO         as TIO
 import qualified Serokell.Util.Base64 as B64
 import           System.Random        (randomRIO)
 import           Test.QuickCheck      (arbitrary)
@@ -33,9 +32,12 @@ import           Pos.Types            (Address, Coin, StakeholderId, addressHash
                                        unsafeIntegerToCoin)
 import           Pos.Util             (runGen)
 import           Pos.Util.UserSecret  (readUserSecret, usPrimKey)
+import           System.Wlog          (WithLogger)
 
 
 -- | Read the text into a redeeming public key.
+--
+-- There's also a copy of this function in cardano-addr-convert.
 fromAvvmPk :: (MonadFail m, Monad m) => Text -> m RedeemPublicKey
 fromAvvmPk addrText = do
     let base64rify = T.replace "-" "+" . T.replace "_" "/"
@@ -89,6 +91,7 @@ genGenesis avvm genCerts holder = GenesisData
     { gdAddresses = HM.keys balances
     , gdDistribution = ExplicitStakes balances
     , gdVssCertificates = if genCerts then randCerts else mempty
+    , gdBootstrapBalances = mempty
     }
   where
     distr = pure . (holder, )
@@ -117,7 +120,7 @@ genGenesis avvm genCerts holder = GenesisData
 applyBlacklisted :: Maybe FilePath -> AvvmData -> IO AvvmData
 applyBlacklisted Nothing r = r <$ putText "Blacklisting: file not specified, skipping"
 applyBlacklisted (Just blacklistPath) AvvmData{..} = do
-    addrTexts <- T.lines <$> TIO.readFile blacklistPath
+    addrTexts <- lines <$> readFile blacklistPath
     blacklisted <- mapM fromAvvmPk addrTexts
     let filteredBad = filter ((`elem` blacklisted) . aePublicKey) utxo
     let filtered = utxo \\ filteredBad
@@ -126,18 +129,18 @@ applyBlacklisted (Just blacklistPath) AvvmData{..} = do
         show (length blacklisted) <> " total entries in the blacklist)"
     pure $ AvvmData filtered
 
-getHolderId :: Maybe FilePath -> IO StakeholderId
+getHolderId :: (MonadIO m, WithLogger m) => Maybe FilePath -> m StakeholderId
 getHolderId (Just fileName) = do
     mSk <- view usPrimKey <$> readUserSecret fileName
     let sk = fromMaybe (error "No secret key is found in file") mSk
     pure $ addressHash $ toPublic sk
 getHolderId Nothing = do
-    skPath <- ("redeemingHolderKey" <>) . show <$> randomRIO (0,100000::Int)
+    skPath <- liftIO $ ("redeemingHolderKey" <>) . show <$> randomRIO (0,100000::Int)
     (pk,sk) <- keyGen
     putText $ "USING RANDOM STAKEHOLDER ID, WRITING KEY TO " <> fromString skPath
     putText "NOT FOR PRODUCTION USAGE, ONLY FOR TESTING"
     putText "IF YOU INTEND TO GENERATE GENESIS.BIN FOR PRODUCTION, \
             \STOP RIGHT HERE AND USE `--fileholder <path to secret>` OPTION. \
             \THIS IS SERIOUS."
-    BS.writeFile skPath $ Bi.encodeStrict sk
+    liftIO $ BS.writeFile skPath $ Bi.encodeStrict sk
     pure $ addressHash pk

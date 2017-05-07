@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Slotting utilities.
@@ -33,7 +32,7 @@ import           Universum
 
 import           Pos.Core.Slotting      (flattenSlotId)
 import           Pos.Core.Types         (FlatSlotId, SlotId (..), Timestamp (..), slotIdF)
-import           Pos.DHT.Model.Class    (MonadDHT)
+import           Pos.Discovery.Class    (MonadDiscovery)
 import           Pos.Exception          (CardanoException)
 import           Pos.Reporting.MemState (MonadReportingMem)
 import           Pos.Reporting.Methods  (reportMisbehaviourMasked, reportingFatal)
@@ -80,12 +79,12 @@ type OnNewSlot m =
     ( MonadIO m
     , MonadSlots m
     , MonadMask m
-    , MonadDHT m
     , WithLogger m
     , Mockable Fork m
     , Mockable Delay m
     , MonadReportingMem m
     , MonadShutdownMem m
+    , MonadDiscovery m
     )
 
 -- | Run given action as soon as new slot starts, passing SlotId to
@@ -155,9 +154,7 @@ onNewSlotDo withLogging expectedSlotId startImmediately action = runIfNotShutdow
     logTTW timeToWait = modifyLoggerName (<> "slotting") $ logDebug $
                  sformat ("Waiting for "%shown%" before new slot") timeToWait
 
-logNewSlotWorker
-    :: OnNewSlot m
-    => m ()
+logNewSlotWorker :: OnNewSlot m => m ()
 logNewSlotWorker =
     onNewSlotWithLogging True $ \slotId -> do
         modifyLoggerName (<> "slotting") $

@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP                  #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | AsBinary wrappers for Pos.Crypto.SecretSharing types.
 
@@ -13,7 +12,7 @@ import           Data.Text.Buildable      (Buildable)
 import qualified Data.Text.Buildable      as Buildable
 import           Formatting               (bprint, int, sformat, stext, (%))
 
-import           Pos.Binary.Class         (Bi, AsBinary (..), AsBinaryClass (..),
+import           Pos.Binary.Class         (AsBinary (..), AsBinaryClass (..), Bi,
                                            decodeFull, encode, encodeStrict)
 import           Pos.Crypto.Hashing       (hash, shortHashF)
 import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),

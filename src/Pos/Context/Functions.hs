@@ -18,7 +18,7 @@ module Pos.Context.Functions
 
          -- * Misc
        , getUptime
-       , isRecoveryMode
+       , recoveryInProgress
        ) where
 
 import qualified Control.Concurrent.STM as STM
@@ -26,7 +26,7 @@ import           Data.Time              (diffUTCTime, getCurrentTime)
 import           Data.Time.Units        (Microsecond, fromMicroseconds)
 import           Universum
 
-import           Pos.Context.Class      (WithNodeContext (..))
+import           Pos.Context.Class      (WithNodeContext, getNodeContext)
 import           Pos.Context.Context    (NodeContext (..), ncGenesisLeaders,
                                          ncGenesisUtxo, ncStartTime)
 import           Pos.Lrc.Context        (LrcContext (..), LrcSyncData (..))
@@ -53,17 +53,17 @@ genesisLeadersM = ncGenesisLeaders <$> getNodeContext
 takeBlkSemaphore
     :: (MonadIO m, WithNodeContext ssc m)
     => m HeaderHash
-takeBlkSemaphore = liftIO . takeMVar . ncBlkSemaphore =<< getNodeContext
+takeBlkSemaphore = takeMVar . ncBlkSemaphore =<< getNodeContext
 
 putBlkSemaphore
     :: (MonadIO m, WithNodeContext ssc m)
     => HeaderHash -> m ()
-putBlkSemaphore tip = liftIO . flip putMVar tip . ncBlkSemaphore =<< getNodeContext
+putBlkSemaphore tip = flip putMVar tip . ncBlkSemaphore =<< getNodeContext
 
 readBlkSemaphore
     :: (MonadIO m, WithNodeContext ssc m)
     => m HeaderHash
-readBlkSemaphore = liftIO . readMVar . ncBlkSemaphore =<< getNodeContext
+readBlkSemaphore = readMVar . ncBlkSemaphore =<< getNodeContext
 
 ----------------------------------------------------------------------------
 -- LRC synchronization
@@ -110,8 +110,8 @@ getUptime = do
     pure $ fromMicroseconds $ round $ seconds * 1000 * 1000
 
 -- | Returns if 'ncRecoveryHeader' is 'Just' which is equivalent to
--- "we're in recovery mode".
-isRecoveryMode :: (MonadIO m, WithNodeContext ssc m) => m Bool
-isRecoveryMode = do
+-- “we're doing recovery”.
+recoveryInProgress :: (MonadIO m, WithNodeContext ssc m) => m Bool
+recoveryInProgress = do
     var <- ncRecoveryHeader <$> getNodeContext
     isJust <$> atomically (STM.tryReadTMVar var)

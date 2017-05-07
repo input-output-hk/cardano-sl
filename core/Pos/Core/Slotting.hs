@@ -5,6 +5,7 @@ module Pos.Core.Slotting
        , flattenEpochIndex
        , flattenEpochOrSlot
        , unflattenSlotId
+       , diffEpochOrSlot
        , crucialSlot
        ) where
 
@@ -34,6 +35,14 @@ unflattenSlotId n =
     let (fromIntegral -> siEpoch, fromIntegral -> siSlot) =
             n `divMod` epochSlots
     in SlotId {..}
+
+-- | Distance (in slots) between two slots. The first slot is newer, the
+-- second slot is older. An epoch is considered the same as the 0th slot of
+-- that epoch.
+diffEpochOrSlot :: EpochOrSlot -> EpochOrSlot -> Int64
+diffEpochOrSlot a b =
+    fromInteger $
+    toInteger (flattenEpochOrSlot a) - toInteger (flattenEpochOrSlot b)
 
 instance Enum SlotId where
     toEnum = unflattenSlotId . fromIntegral

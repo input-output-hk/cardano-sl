@@ -94,9 +94,11 @@ importWalletSet = mkEffFn2 \filePath spendingPassword -> fromAff <<< map encodeJ
 -- Example in nodejs:
 --
 changeWalletSetPass :: forall eff. EffFn3 (ajax :: AJAX | eff) String String String (Promise Json)
-importWalletSetPass = mkEffFn3 \wSetId oldPass newPass -> fromAff <<< map encodeJson $ B.changeWalletSetPass (mkCPassPhrase oldPass) (mkCPassPhrase newPass)
+changeWalletSetPass = mkEffFn3 \wSetId oldPass newPass -> fromAff <<< map encodeJson $ B.changeWalletSetPass (mkCAddress wSetId) (mkCPassPhrase oldPass) (mkCPassPhrase newPass)
 
 
+--------------------------------------------------------------------------------
+-- Wallets ---------------------------------------------------------------------
 --
 --
 -- getLocale :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)

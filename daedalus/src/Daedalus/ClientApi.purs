@@ -88,6 +88,14 @@ renameWalletSet = mkEffFn2 \wSetId name -> fromAff <<< map encodeJson $ B.rename
 importWalletSet :: forall eff. EffFn2 (ajax :: AJAX | eff) String String (Promise Json)
 importWalletSet = mkEffFn2 \filePath spendingPassword -> fromAff <<< map encodeJson $ B.importWalletSet (mkCPassPhrase spendingPassword) filePath
 
+-- | Rename a wallet set.
+-- Arguments: wallet set id/hash, old spending password (set to empty string if there is no password), new spending password (set to empty string if you want to remove password)
+-- Returns json representation of renamed wallet set
+-- Example in nodejs:
+--
+changeWalletSetPass :: forall eff. EffFn3 (ajax :: AJAX | eff) String String String (Promise Json)
+importWalletSetPass = mkEffFn3 \wSetId oldPass newPass -> fromAff <<< map encodeJson $ B.changeWalletSetPass (mkCPassPhrase oldPass) (mkCPassPhrase newPass)
+
 
 --
 --

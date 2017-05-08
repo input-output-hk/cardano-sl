@@ -741,8 +741,8 @@ renameWSet addr newName = do
 
 changeWSetPassphrase
     :: WalletWebMode m
-    => MCPassPhrase -> CAddress WS -> MCPassPhrase -> m ()
-changeWSetPassphrase oldCPass wsAddr newCPass = do
+    => CAddress WS -> MCPassPhrase -> MCPassPhrase -> m ()
+changeWSetPassphrase wsAddr oldCPass newCPass = do
     oldPass <- decodeCPassPhraseOrFail oldCPass
     newPass <- decodeCPassPhraseOrFail newCPass
     oldSK   <- getSKByAddr wsAddr

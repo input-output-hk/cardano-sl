@@ -302,7 +302,7 @@ servantHandlers sendActions =
     :<|>
      apiRenameWSet
     :<|>
-     apiImportWalletSet
+     apiImportWSet
     :<|>
      apiChangeWSetPassphrase
     :<|>
@@ -368,7 +368,7 @@ servantHandlers sendActions =
     apiNewWSet                  = (\a -> catchWalletError . newWSet a)
     apiRenameWSet               = (\a -> catchWalletError . renameWSet a)
     apiRestoreWSet              = (\a -> catchWalletError . newWSet a)
-    apiImportWalletSet          = (\a -> catchWalletError . importWalletSet a)
+    apiImportWSet               = (\a -> catchWalletError . importWSet a)
     apiChangeWSetPassphrase     = (\a b -> catchWalletError . changeWSetPassphrase a b)
     apiGetWallet                = catchWalletError . getWallet
     apiGetWallets               = catchWalletError . getWallets
@@ -851,12 +851,12 @@ reportingElectroncrash celcrash = do
     handler :: SomeException -> m ()
     handler e = logError $ sformat fmt celcrash e
 
-importWalletSet
+importWSet
     :: WalletWebMode m
     => MCPassPhrase
     -> Text
     -> m CWalletSet
-importWalletSet cpassphrase (toString -> fp) = do
+importWSet cpassphrase (toString -> fp) = do
     WalletUserSecret{..} <-
         either secretReadError pure =<<
         readWalletUserSecret fp

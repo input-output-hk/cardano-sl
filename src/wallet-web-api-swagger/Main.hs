@@ -147,7 +147,7 @@ swaggerSpecForWalletApi = toSwagger W.walletApi
     & newWSet                . description ?~ D.newWSetDescription
     & restoreWSet            . description ?~ D.restoreWSetDescription
     & renameWSet             . description ?~ D.renameWSetDescription
-    & importKey              . description ?~ D.importKeyDescription
+    & importWSet             . description ?~ D.importWSetDescription
     & changeWSetPassphrase   . description ?~ D.changeWSetPassphraseDescription
 
     & getWallet              . description ?~ D.getWalletDescription
@@ -191,7 +191,7 @@ swaggerSpecForWalletApi = toSwagger W.walletApi
     newWSet                = subOperations (Proxy @W.NewWalletSet) W.walletApi :: Op
     restoreWSet            = subOperations (Proxy @W.RestoreWalletSet) W.walletApi :: Op
     renameWSet             = subOperations (Proxy @W.RenameWalletSet) W.walletApi :: Op
-    importKey              = subOperations (Proxy @W.ImportKey) W.walletApi :: Op
+    importWSet             = subOperations (Proxy @W.ImportWalletSet) W.walletApi :: Op
     changeWSetPassphrase   = subOperations (Proxy @W.ChangeWalletSetPassphrase) W.walletApi :: Op
 
     getWallet              = subOperations (Proxy @W.GetWallet) W.walletApi :: Op

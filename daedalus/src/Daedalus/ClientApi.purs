@@ -15,7 +15,7 @@ import Data.String.Base64 as B64
 import Data.Base58 as B58
 import Data.Array as A
 import Data.String (length, stripSuffix, Pattern (..))
-import Data.Maybe (isJust, maybe)
+import Data.Maybe (isJust, maybe, Maybe (..))
 import Data.Function.Eff (EffFn1, mkEffFn1, EffFn2, mkEffFn2, EffFn4, mkEffFn4, EffFn5, mkEffFn5, EffFn3, mkEffFn3, EffFn6, mkEffFn6, EffFn7, mkEffFn7)
 import Network.HTTP.Affjax (AJAX)
 import WebSocket (WEBSOCKET)
@@ -50,8 +50,8 @@ getWalletSet = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWalletSet <<< mkCA
 -- Returns json representation of all wallet sets
 -- Example in nodejs:
 --
-getWallets :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
-getWallets = fromAff $ map encodeJson B.getWalletSets
+getWalletSets :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
+getWalletSets = fromAff $ map encodeJson B.getWalletSets
 
 -- | Creates a new wallet set.
 -- Arguments: wallet set name, mnemonics, spending password (set to empty string if you don't want to set password)
@@ -104,9 +104,12 @@ changeWalletSetPass = mkEffFn3 \wSetId oldPass newPass -> fromAff <<< map encode
 getWallet :: forall eff. EffFn1 (ajax :: AJAX | eff) Json (Promise Json)
 getWallet = mkEffFn1 $ fromAff <<< map encodeJson <<< either (throwError <<< error) B.getWallet <<< decodeJson
 
---getWallets :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
---getWallets = fromAff $ map encodeJson B.getWallets
---
+getWallets :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
+getWallets = fromAff $ map encodeJson $ B.getWallets Nothing
+
+getSetWallets :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
+getSetWallets = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWallets <<< Just <<< mkCAddress
+
 
 --
 --

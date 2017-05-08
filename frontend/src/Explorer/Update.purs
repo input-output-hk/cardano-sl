@@ -39,7 +39,6 @@ import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, _CHash,
 import Pux (EffModel, noEffects, onlyEffects)
 import Pux.Router (navigateTo) as P
 
-
 update :: forall eff. Action -> State ->
     EffModel State Action
     (dom :: DOM
@@ -404,7 +403,7 @@ update (ReceiveInitialBlocks (Right blocks)) state =
     , effects:
           -- add subscription of `SubBlock` if we are on `Dashboard` only
           if (state ^. route) == Dashboard
-          then  [ pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock ] ]
+          then  [ pure $ SocketUpdateSubscriptions dashboardSocketSubscriptions ]
           else []
     }
 
@@ -510,7 +509,7 @@ update (ReceiveInitialTxs (Right txs)) state =
     , effects:
           -- add subscription of `SubTx` if we are on `Dashboard` only
           if (state ^. route) == Dashboard
-          then [ pure $ SocketUpdateSubscriptions [ SocketSubscription SubTx ] ]
+          then [ pure $ SocketUpdateSubscriptions dashboardSocketSubscriptions ]
           else []
 
     }
@@ -593,13 +592,13 @@ routeEffects Dashboard state =
                 (isNotAsked $ state ^. latestBlocks)
             then [ pure RequestInitialBlocks ]
             else []
-        -- subscribe to `SubBlock` if `latestBlocks` has been loaded successfully before
+        -- subscribe to `SubBlock` + `SubTx` if `latestBlocks` has been loaded successfully before
         <>  if isSuccess $ state ^. latestBlocks
-            then [ pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock ] ]
+            then [ pure $ SocketUpdateSubscriptions dashboardSocketSubscriptions ]
             else []
-        -- subscribe to `SubTx` if `latestTransactions` has been loaded successfully before
+        -- subscribe to `SubTx` + `SubBlock` if `latestTransactions` has been loaded successfully before
         <>  if isSuccess $ state ^. latestTransactions
-            then [ pure $ SocketUpdateSubscriptions [ SocketSubscription SubTx ] ]
+            then [ pure $ SocketUpdateSubscriptions dashboardSocketSubscriptions ]
             else []
     }
 
@@ -728,3 +727,10 @@ limitPaginateBlocksRequest state nextPage blockRows buffer =
 offsetPaginateBlocksRequest :: State -> Int
 offsetPaginateBlocksRequest state =
     length $ withDefault [] (state ^. latestBlocks)
+
+-- | list of all dashboard subscriptions
+dashboardSocketSubscriptions :: Array SocketSubscription
+dashboardSocketSubscriptions =
+    [ SocketSubscription SubBlock
+    , SocketSubscription SubTx
+    ]

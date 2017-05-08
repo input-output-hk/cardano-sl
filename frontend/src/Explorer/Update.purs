@@ -9,7 +9,7 @@ import Control.SocketIO.Client (SocketIO, emit, emit')
 import DOM (DOM)
 import DOM.HTML.HTMLElement (blur)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array (difference, length, unionBy, (:))
+import Data.Array (difference, length, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Int (fromString)
@@ -27,7 +27,7 @@ import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery,
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CBlockEntriesOffset, Search(..), SocketSubscription(..), State)
 import Explorer.Util.DOM (scrollTop, targetToHTMLElement, targetToHTMLInputElement)
-import Explorer.Util.Data (sortBlocksByEpochSlot', unionBlocks)
+import Explorer.Util.Data (sortBlocksByEpochSlot', unionBlocks, unionTxs)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
 import Explorer.View.Blocks (maxBlockRows)
@@ -35,7 +35,7 @@ import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Network.HTTP.Affjax (AJAX)
 import Network.RemoteData (RemoteData(..), _Success, isNotAsked, isSuccess, withDefault)
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, _CHash, _CTxEntry, _CTxId, caAddress, cteId)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects, onlyEffects)
 import Pux.Router (navigateTo) as P
 
@@ -513,12 +513,6 @@ update (ReceiveInitialTxs (Right txs)) state =
           else []
 
     }
-    where
-      getId tx = tx ^. (_CTxEntry <<< cteId <<< _CTxId <<< _CHash)
-      -- Note:  To "union" current with new `txs` we have to compare CTxEntry
-      --        Because we don't have an Eq instance of generated CTxEntry's
-      --        As a workaround we do have to compare CTxEntry by its id
-      unionTxs = unionBy (\tx1 tx2 -> getId tx1 == getId tx2)
 
 update (ReceiveInitialTxs (Left error)) state = noEffects $
     set loading false $

@@ -6,9 +6,9 @@ import Data.Lens ((^.))
 import Data.Maybe (fromMaybe)
 import Data.Time.NominalDiffTime (mkTime, unwrapSeconds)
 import Explorer.State (maxSlotInEpoch)
-import Explorer.Types.State (CBlockEntries)
+import Explorer.Types.State (CBlockEntries, CTxEntries)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CHash, cbeBlkHash, cbeEpoch, cbeSlot, cbeTimeIssued)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CHash, _CTxEntry, _CTxId, cbeBlkHash, cbeEpoch, cbeSlot, cbeTimeIssued, cteId)
 
 -- | Sort a list of CBlockEntry by time in an ascending (up) order
 sortBlocksByTime :: CBlockEntries -> CBlockEntries
@@ -51,3 +51,14 @@ unionBlocks blocksA blocksB =
     where
         getHash :: CBlockEntry -> String
         getHash block = block ^. (_CBlockEntry <<< cbeBlkHash <<< _CHash)
+
+-- | Helper to remove duplicates of blocks by comparing its CHash
+-- |
+-- | Note:  To "union" current with new `txs` we have to compare CTxEntry
+-- | Because we don't have an Eq instance of generated CTxEntry's
+-- | As a workaround we do have to compare CTxEntry by its id
+unionTxs :: CTxEntries -> CTxEntries -> CTxEntries
+unionTxs =
+    unionBy (\tx1 tx2 -> getId tx1 == getId tx2)
+    where
+      getId tx = tx ^. (_CTxEntry <<< cteId <<< _CTxId <<< _CHash)

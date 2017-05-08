@@ -9,15 +9,21 @@ import Data.Lens (set)
 import Data.Maybe (Maybe(..))
 import Data.Time.NominalDiffTime (NominalDiffTime, mkTime)
 import Explorer.Util.Factory (mkCAddress, mkCHash, mkCTxId, mkCoin)
-import Pos.Explorer.Web.ClientTypes (CAddressSummary(..), CBlockEntry(..), CHash(..), CTxEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, cbeBlkHash, cbeEpoch, cbeSlot, cbeTimeIssued)
+import Pos.Explorer.Web.ClientTypes (CAddressSummary(..), CBlockEntry(..), CHash, CTxEntry(..), CTxId)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CTxEntry, cbeBlkHash, cbeEpoch, cbeSlot, cbeTimeIssued, cteId)
 
+-- | Creates a `CTxEntry` with "empty" data
 mkEmptyCTxEntry :: CTxEntry
 mkEmptyCTxEntry = CTxEntry
     { cteId: mkCTxId "--"
     , cteTimeIssued: mkTime 0.0
     , cteAmount: mkCoin 0
     }
+
+-- | Update hash of a transcation
+setIdOfTx :: CTxId -> CTxEntry -> CTxEntry
+setIdOfTx txId tx =
+    set (_CTxEntry <<< cteId) txId tx
 
 mkEmptyCAddressSummary :: CAddressSummary
 mkEmptyCAddressSummary = CAddressSummary

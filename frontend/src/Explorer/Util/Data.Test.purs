@@ -6,9 +6,9 @@ import Control.Monad.State (StateT)
 import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Time.NominalDiffTime (mkTime)
-import Explorer.Test.MockFactory (mkCBlockEntry, setEpochSlotOfBlock, setHashOfBlock, setTimeOfBlock)
-import Explorer.Util.Data (sortBlocksByEpochSlot, sortBlocksByEpochSlot', sortBlocksByTime, sortBlocksByTime', unionBlocks)
-import Explorer.Util.Factory (mkCHash)
+import Explorer.Test.MockFactory (mkCBlockEntry, mkEmptyCTxEntry, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfBlock)
+import Explorer.Util.Data (sortBlocksByEpochSlot, sortBlocksByEpochSlot', sortBlocksByTime, sortBlocksByTime', unionBlocks, unionTxs)
+import Explorer.Util.Factory (mkCHash, mkCTxId)
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -107,3 +107,28 @@ testDataUtil =
                         , blockD
                         ]
                 in (gShow $ unionBlocks listA listB) `shouldEqual` (gShow expected)
+
+        describe "unionTxs" do
+            let txA = setIdOfTx (mkCTxId "A") mkEmptyCTxEntry
+                txB = setIdOfTx (mkCTxId "B") mkEmptyCTxEntry
+                txC = setIdOfTx (mkCTxId "C") mkEmptyCTxEntry
+                txD = setIdOfTx (mkCTxId "D") mkEmptyCTxEntry
+            it "to remove duplicates"
+                let listA =
+                        [ txA
+                        , txB
+                        , txC
+                        ]
+                    listB =
+                        [ txD
+                        , txA
+                        , txA
+                        , txB
+                        ]
+                    expected =
+                        [ txA
+                        , txB
+                        , txC
+                        , txD
+                        ]
+                in (gShow $ unionTxs listA listB) `shouldEqual` (gShow expected)

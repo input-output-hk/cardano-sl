@@ -1,18 +1,17 @@
 module Explorer.Types.State where
 
-import Prelude (class Eq, class Ord, class Show)
 import Control.Monad.Eff.Exception (Error)
 import Control.SocketIO.Client (Socket)
-import Data.Generic (class Generic, gEq, gShow)
+import Data.DateTime (DateTime)
+import Data.Generic (class Generic, gShow)
 import Data.Maybe (Maybe)
-import Data.Newtype (class Newtype)
 import Data.Tuple (Tuple)
+import Explorer.Api.Types (SocketSubscription)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Network.RemoteData (RemoteData)
-import Pos.Explorer.Socket.Methods (Subscription)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry, CBlockSummary, CTxBrief, CTxEntry, CTxSummary)
-import Data.DateTime (DateTime)
+import Prelude (class Eq, class Ord, class Show)
 
 -- Add all State types here to generate lenses from it
 
@@ -56,14 +55,6 @@ type SocketState =
 data DashboardAPICode = Curl | Node | JQuery
 derive instance eqDashboardAPICode :: Eq DashboardAPICode
 derive instance ordDashboardAPICode :: Ord DashboardAPICode
-
--- Wrapper of 'Subscription' built by 'purescript bridge'
--- needed to derive generice instances of it
-newtype SocketSubscription = SocketSubscription Subscription
-derive instance gSocketSubscription :: Generic SocketSubscription
-derive instance newtypeSocketSubscription :: Newtype SocketSubscription _
-instance eqSocketSubscription :: Eq SocketSubscription where
-  eq = gEq
 
 type CBlockEntries = Array CBlockEntry
 

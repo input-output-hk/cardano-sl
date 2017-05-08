@@ -5,10 +5,10 @@ import DOM.HTML.Types (HTMLElement, HTMLInputElement)
 import Data.DateTime (DateTime)
 import Data.Either (Either)
 import Data.Maybe (Maybe)
-import Explorer.Api.Types (RequestLimit(..), RequestOffset(..))
+import Explorer.Api.Types (RequestLimit, RequestOffset, SocketSubscription, SocketSubscriptionAction)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
-import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, Search, SocketSubscription)
+import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, Search)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
 import Pux.Html.Events (Target)
@@ -28,7 +28,7 @@ data Action
     | SocketConnected Boolean
     | SocketBlocksUpdated (Either Error CBlockEntries)
     | SocketTxsUpdated (Either Error CTxEntries)
-    | SocketUpdateSubscriptions (Array SocketSubscription)
+    | SocketUpdateSubscriptions (Array SocketSubscription) SocketSubscriptionAction
     | SocketReconnectSubscriptions
     -- socket endpoints for debugging only
     | SocketCallMe

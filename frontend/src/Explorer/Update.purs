@@ -19,14 +19,14 @@ import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTotalBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
-import Explorer.Api.Types (RequestLimit(..), RequestOffset(..))
+import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketSubscription(..), SocketSubscriptionAction(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
 import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, totalBlocks, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (Search(..), SocketSubscription(..), State)
+import Explorer.Types.State (Search(..), State)
 import Explorer.Util.DOM (scrollTop, targetToHTMLElement, targetToHTMLInputElement)
 import Explorer.Util.Data (sortBlocksByEpochSlot', sortTxsByTime', unionBlocks, unionTxs)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
@@ -127,21 +127,30 @@ update (SocketCallMeCTxId id) state =
           pure NoOp
     ]}
 
-update (SocketUpdateSubscriptions nextSubs) state =
-    let currentSubs = state ^. socket <<< subscriptions in
+update (SocketUpdateSubscriptions nextSubs subAction ) state =
     { state: set (socket <<< subscriptions) nextSubs state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
               Just socket' -> do
-                -- 1. unsubscribe all not used events
-                let diffNextFromCurrentSubs = difference currentSubs nextSubs
-                traverse_ (liftEff <<< emit' socket' <<< toEvent <<< Unsubscribe <<< unwrap) diffNextFromCurrentSubs
-                -- 2. subscribe all new subscriptions
-                let diffCurrentFromNextSubs = difference nextSubs currentSubs
-                traverse_ (liftEff <<< emit' socket' <<< toEvent <<< Subscribe <<< unwrap) diffCurrentFromNextSubs
+                case subAction of
+                    UnsubscribePrevSubscriptions -> do
+                        unsubPrevSubscriptions socket'
+                        subNextSubscriptions socket'
+                    KeepPrevSubscriptions ->
+                        subNextSubscriptions socket'
               Nothing -> pure unit
           pure NoOp
     ]}
+        where
+            currentSubs = state ^. socket <<< subscriptions
+            diffNextFromCurrentSubs = difference currentSubs nextSubs
+            unsubPrevSubscriptions socket'' =
+                traverse_ (liftEff <<< emit' socket'' <<< toEvent <<< Unsubscribe <<< unwrap) diffNextFromCurrentSubs
+            diffCurrentFromNextSubs = difference nextSubs currentSubs
+            subNextSubscriptions socket'' =
+                traverse_ (liftEff <<< emit' socket'' <<< toEvent <<< Subscribe <<< unwrap) diffCurrentFromNextSubs
+
+
 
 update SocketReconnectSubscriptions state =
     let currentSubs = state ^. socket <<< subscriptions in
@@ -412,7 +421,10 @@ update (ReceiveInitialBlocks (Right blocks)) state =
     , effects:
           -- add subscription of `SubBlock` if we are on `Dashboard` only
           if (state ^. route) == Dashboard
-          then  [ pure $ SocketUpdateSubscriptions dashboardSocketSubscriptions ]
+          then  [ pure $ SocketUpdateSubscriptions
+                            [ SocketSubscription SubBlock ]
+                            KeepPrevSubscriptions
+                ]
           else []
     }
 
@@ -522,7 +534,10 @@ update (ReceiveInitialTxs (Right txs)) state =
     , effects:
           -- add subscription of `SubTx` if we are on `Dashboard` only
           if (state ^. route) == Dashboard
-          then [ pure $ SocketUpdateSubscriptions dashboardSocketSubscriptions ]
+          then [ pure $ SocketUpdateSubscriptions
+                            [ SocketSubscription SubTx]
+                            KeepPrevSubscriptions
+                ]
           else []
 
     }
@@ -588,25 +603,32 @@ routeEffects Dashboard state =
             state
     , effects:
         [ pure ScrollTop
-        , pure RequestInitialTxs
         ]
         -- get `totalBlocks` only once
-        <>  if isNotAsked $ state ^. totalBlocks
-            then [ pure RequestTotalBlocks ]
-            else []
-        -- request `latestBlocks` only if `totalBlocks` has been loaded before
-        <>  if  (isSuccess $ state ^. totalBlocks) &&
-                (isNotAsked $ state ^. latestBlocks)
-            then [ pure RequestInitialBlocks ]
-            else []
-        -- subscribe to `SubBlock` + `SubTx` if `latestBlocks` has been loaded successfully before
-        <>  if isSuccess $ state ^. latestBlocks
-            then [ pure $ SocketUpdateSubscriptions dashboardSocketSubscriptions ]
-            else []
-        -- subscribe to `SubTx` + `SubBlock` if `latestTransactions` has been loaded successfully before
-        <>  if isSuccess $ state ^. latestTransactions
-            then [ pure $ SocketUpdateSubscriptions dashboardSocketSubscriptions ]
-            else []
+        <>  ( if isNotAsked $ state ^. totalBlocks
+              then [ pure RequestTotalBlocks ]
+              else []
+            )
+        -- request `latestBlocks` if needed
+        <>  ( if  (isSuccess $ state ^. totalBlocks) && (isNotAsked $ state ^. latestBlocks)
+              then [ pure RequestInitialBlocks ]
+              else []
+            )
+        -- request `latestTransactions` if needed
+        <>  ( if isNotAsked $ state ^. latestTransactions
+              then [ pure RequestInitialTxs ]
+              else []
+            )
+        -- subscribe to `SubBlock` and `SubTx `if needed
+        <>  ( if  (isSuccess $ state ^. latestBlocks) &&
+                (isSuccess $ state ^. latestTransactions)
+              then [ pure $ SocketUpdateSubscriptions
+                              [ SocketSubscription SubBlock
+                              , SocketSubscription SubTx
+                              ] UnsubscribePrevSubscriptions
+                  ]
+              else []
+            )
     }
 
 routeEffects (Tx tx) state =
@@ -616,7 +638,7 @@ routeEffects (Tx tx) state =
             state
     , effects:
         [ pure ScrollTop
-        , pure $ SocketUpdateSubscriptions []
+        , pure $ SocketUpdateSubscriptions [] UnsubscribePrevSubscriptions
         , pure $ RequestTxSummary tx
         ]
     }
@@ -630,7 +652,7 @@ routeEffects (Address cAddress) state =
             state
     , effects:
         [ pure ScrollTop
-        , pure $ SocketUpdateSubscriptions []
+        , pure $ SocketUpdateSubscriptions [] UnsubscribePrevSubscriptions
         , pure $ RequestAddressSummary cAddress
         ]
     }
@@ -680,7 +702,7 @@ routeEffects (Block hash) state =
             state
     , effects:
         [ pure ScrollTop
-        , pure $ SocketUpdateSubscriptions []
+        , pure $ SocketUpdateSubscriptions [] UnsubscribePrevSubscriptions
         , pure $ RequestBlockSummary hash
         , pure $ RequestBlockTxs hash
         ]
@@ -690,7 +712,7 @@ routeEffects Playground state =
     { state
     , effects:
         [ pure ScrollTop
-        , pure $ SocketUpdateSubscriptions []
+        , pure $ SocketUpdateSubscriptions [] UnsubscribePrevSubscriptions
         ]
     }
 
@@ -701,7 +723,7 @@ routeEffects NotFound state =
             state
     , effects:
         [ pure ScrollTop
-        , pure $ SocketUpdateSubscriptions []
+        , pure $ SocketUpdateSubscriptions [] UnsubscribePrevSubscriptions
         ]
     }
 
@@ -729,10 +751,3 @@ limitPaginateBlocksRequest state nextPage blockRows buffer =
 offsetPaginateBlocksRequest :: State -> Int
 offsetPaginateBlocksRequest state =
     length $ withDefault [] (state ^. latestBlocks)
-
--- | list of all dashboard subscriptions
-dashboardSocketSubscriptions :: Array SocketSubscription
-dashboardSocketSubscriptions =
-    [ SocketSubscription SubBlock
-    , SocketSubscription SubTx
-    ]

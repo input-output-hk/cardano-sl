@@ -8,7 +8,6 @@ module Explorer.View.Blocks
     ) where
 
 import Prelude
-import Control.Monad.Eff.Exception (Error)
 import Data.Array (length, null, slice)
 import Data.DateTime (diff)
 import Data.Lens ((^.))

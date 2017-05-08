@@ -26,7 +26,7 @@ import           Pos.Types                  (Address (..), BlockVersion, Coin, E
                                              SoftwareVersion, decodeTextAddress, mkCoin)
 import           Pos.Update                 (UpId)
 
-data SendMode = SendNeighbours | SendRoundRobin deriving Show
+data SendMode = SendNeighbours | SendRoundRobin | SendRandom deriving Show
 
 data Command
     = Balance Address
@@ -107,6 +107,7 @@ send = Send <$> num <*> (NE.fromList <$> many1 txout)
 sendMode :: Parser SendMode
 sendMode = lexeme $ text "neighbours" $> SendNeighbours
                 <|> text "round-robin" $> SendRoundRobin
+                <|> text "send-random" $> SendRandom
 
 sendToAllGenesis :: Parser Command
 sendToAllGenesis = SendToAllGenesis <$> num <*> num <*> sendMode <*> lexeme (many1 anyChar)

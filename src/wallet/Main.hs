@@ -73,6 +73,7 @@ import           Pos.Wallet.Web             (walletServeWebLite, walletServerOut
 #endif
 
 import           Prelude                    (id) -- TODO: this should be exported from Universum.
+import           System.Random              (randomRIO)
 import           Command                    (Command (..), SendMode (..), parseCommand)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..))
 import           WalletOptions              (WalletAction (..), WalletOptions (..),
@@ -128,9 +129,13 @@ runCmd sendActions (SendToAllGenesis nTrans conc sendMode tpsSentFile) = do
                 txOutAddress = makePubKeyAddress (toPublic key),
                 txOutValue = mkCoin 1
                 }
-        let neighbours = case sendMode of
-                SendNeighbours -> na
-                SendRoundRobin -> [na !! (n `mod` nNeighbours)]
+        neighbours <- case sendMode of
+                SendNeighbours -> return na
+                SendRoundRobin -> return [na !! (n `mod` nNeighbours)]
+                SendRandom -> do
+                    i <- liftIO $ randomRIO (0, nNeighbours - 1)
+                    return [na !! i]
+
         liftIO . atomically $ writeTQueue txQueue (key, txOut, neighbours)
 
 

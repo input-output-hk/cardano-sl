@@ -45,7 +45,8 @@ import           Node                        (Node, NodeAction (..),
                                               node, simpleNodeEndPoint)
 import           Node.Util.Monitor           (setupMonitor, stopMonitor)
 import qualified STMContainers.Map           as SM
-import           System.IO                   (hClose)
+import           System.IO                   (hClose, hSetBuffering,
+                                              BufferMode (NoBuffering))
 import qualified System.Metrics.Gauge        as Gauge
 import           System.Random               (newStdGen)
 import           System.Remote.Monitoring    (getGauge)
@@ -127,52 +128,55 @@ runRawRealMode
     -> Production a
 runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec action) =
     usingLoggerName lpRunnerTag $ do
-       initNC <- untag @ssc sscCreateNodeContext sscnp
-       modernDBs <- openNodeDBs npRebuildDb npDbPathM
-       let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc) :: Int
-       -- TODO [CSL-775] ideally initialization logic should be in scenario.
-       runCH @ssc allWorkersNum np initNC modernDBs $ initNodeDBs
-       initTip <- runDBHolder modernDBs getTip
-       stateM <- liftIO SM.newIO
-       stateM_ <- liftIO SM.newIO
-       slottingVar <- runDBHolder  modernDBs $ mkSlottingVar npSystemStart
-       txpVar <- mkTxpLocalData mempty initTip
-       ntpSlottingVar <- mkNtpSlottingVar
+        withMaybeFile npJLFile WriteMode $ \mh -> do
+            whenJust mh $ \h -> liftIO $ hSetBuffering h NoBuffering
+            jlVar     <- maybe (pure Nothing) (fmap Just . newMVar) mh
+            initNC    <- untag @ssc sscCreateNodeContext sscnp
+            modernDBs <- openNodeDBs npRebuildDb npDbPathM
+            let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc) :: Int
+            -- TODO [CSL-775] ideally initialization logic should be in scenario.
+            runCH @ssc jlVar allWorkersNum np initNC modernDBs $ initNodeDBs
+            initTip <- runDBHolder modernDBs getTip
+            stateM <- liftIO SM.newIO
+            stateM_ <- liftIO SM.newIO
+            slottingVar <- runDBHolder  modernDBs $ mkSlottingVar npSystemStart
+            txpVar <- mkTxpLocalData mempty initTip
+            ntpSlottingVar <- mkNtpSlottingVar
 
-       -- TODO [CSL-775] need an effect-free way of running this into IO.
-       let runIO :: forall t . RawRealMode ssc t -> IO t
-           runIO = runProduction .
-                   usingLoggerName lpRunnerTag .
-                   runCH @ssc allWorkersNum np initNC modernDBs .
-                   runSlottingHolder slottingVar .
-                   runNtpSlotting (npUseNTP, ntpSlottingVar) .
-                   ignoreSscHolder .
-                   runTxpHolder txpVar .
-                   runDelegationT def .
-                   runPeerStateHolder stateM_
+            -- TODO [CSL-775] need an effect-free way of running this into IO.
+            let runIO :: forall t . RawRealMode ssc t -> IO t
+                runIO = runProduction .
+                        usingLoggerName lpRunnerTag .
+                        runCH @ssc jlVar allWorkersNum np initNC modernDBs .
+                        runSlottingHolder slottingVar .
+                        runNtpSlotting (npUseNTP, ntpSlottingVar) .
+                        ignoreSscHolder .
+                        runTxpHolder txpVar .
+                        runDelegationT def .
+                        runPeerStateHolder stateM_
 
-       let startMonitoring node' = case lpEkgPort of
-               Nothing   -> return Nothing
-               Just port -> Just <$> do
-                    server <- setupMonitor port runIO node'
-                    gauge <- liftIO $ getGauge (pack "MemPoolSize") server
-                    atomically $ writeTVar (txpSetGauge txpVar) $ \n -> do
-                        Gauge.set gauge $ fromIntegral n
-                        r <- randomNumber 20
-                        when (r == 0) (runIO $ jlLog $ JLMemPoolSize n)
-                    return server
+            let startMonitoring node' = case lpEkgPort of
+                    Nothing   -> return Nothing
+                    Just port -> Just <$> do
+                         server <- setupMonitor port runIO node'
+                         gauge <- liftIO $ getGauge (pack "MemPoolSize") server
+                         atomically $ writeTVar (txpSetGauge txpVar) $ \n -> do
+                             Gauge.set gauge $ fromIntegral n
+                             r <- randomNumber 20
+                             when (r == 0) (runIO $ jlLog $ JLMemPoolSize n)
+                         return server
 
-       let stopMonitoring it = whenJust it stopMonitor
+            let stopMonitoring it = whenJust it stopMonitor
 
-       runCH allWorkersNum np initNC modernDBs .
-          runSlottingHolder slottingVar .
-          runNtpSlotting (npUseNTP, ntpSlottingVar) .
-          (mkStateAndRunSscHolder @ssc) .
-          runTxpHolder txpVar .
-          runDelegationT def .
-          runPeerStateHolder stateM .
-          runServer peerId transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
-              \vI sa -> nodeStartMsg npBaseParams >> action vI sa
+            runCH jlVar allWorkersNum np initNC modernDBs .
+                runSlottingHolder slottingVar .
+                runNtpSlotting (npUseNTP, ntpSlottingVar) .
+                (mkStateAndRunSscHolder @ssc) .
+                runTxpHolder txpVar .
+                runDelegationT def .
+                runPeerStateHolder stateM .
+                runServer peerId transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
+                    \vI sa -> nodeStartMsg npBaseParams >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
 
@@ -329,13 +333,14 @@ runCH :: forall ssc m a .
          , Mockable CurrentTime m
          , Mockable Bracket m
          )
-      => Int 
+      => Maybe (MVar Handle)
+      -> Int 
       -> NodeParams 
       -> SscNodeContext ssc 
       -> NodeDBs 
       -> DBHolder (ContextHolder ssc m) a 
       -> m a
-runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
+runCH mJLHandle allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     ncBlkSemaphore <- newEmptyMVar
     ucUpdateSemaphore <- newEmptyMVar
@@ -368,29 +373,26 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty
-    withFile' npJLFile WriteMode $ \mh -> do
-        ncJLFile <- case mh of
-            Nothing     -> pure Nothing
-            Just handle -> liftIO $ Just <$> newMVar handle
-        let ctx =
-                NodeContext
-                { ncConnectedPeers = peersVar
-                , ncSscContext = sscNodeContext
-                , ncLrcContext = LrcContext {..}
-                , ncUpdateContext = UpdateContext {..}
-                , ncNodeParams = params
-                , ncSendLock = Nothing
+    let ncJLFile = mJLHandle 
+        ctx      =
+            NodeContext
+            { ncConnectedPeers = peersVar
+            , ncSscContext = sscNodeContext
+            , ncLrcContext = LrcContext {..}
+            , ncUpdateContext = UpdateContext {..}
+            , ncNodeParams = params
+            , ncSendLock = Nothing
 #ifdef WITH_EXPLORER
-                , ncTxpGlobalSettings = explorerTxpGlobalSettings
+            , ncTxpGlobalSettings = explorerTxpGlobalSettings
 #else
-                , ncTxpGlobalSettings = txpGlobalSettings
+            , ncTxpGlobalSettings = txpGlobalSettings
 #endif
-                , .. }
-        runContextHolder ctx (runDBHolder db act)
+            , .. }
+    runContextHolder ctx (runDBHolder db act)
 
-withFile' :: (Mockable Bracket m, MonadIO m) => Maybe FilePath -> IOMode -> (Maybe Handle -> m a) -> m a
-withFile' Nothing _ m        = m Nothing
-withFile' (Just path) mode m = bracket 
+withMaybeFile :: (Mockable Bracket m, MonadIO m) => Maybe FilePath -> IOMode -> (Maybe Handle -> m a) -> m a
+withMaybeFile Nothing _ m        = m Nothing
+withMaybeFile (Just path) mode m = bracket 
     (openFile path mode)
     (liftIO . hClose)
     (m . Just)

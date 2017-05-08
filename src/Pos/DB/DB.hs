@@ -99,6 +99,7 @@ getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
     onFailure = throwM $ DBMalformed "there is no block corresponding to tip"
 
 -- | Get BlockHeader corresponding to tip.
+-- TODO don't load tip block, fix it.
 getTipBlockHeader
     :: (SscHelpersClass ssc, MonadDB m)
     => m (BlockHeader ssc)

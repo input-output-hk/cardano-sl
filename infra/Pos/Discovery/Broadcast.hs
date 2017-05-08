@@ -1,6 +1,6 @@
--- FIXME rename this. It's *not* about discovery, it's about broadcast.
-
-module Pos.Discovery.Neighbors
+-- | This module implements the capabilities of broadcasting info to
+-- neighbors.
+module Pos.Discovery.Broadcast
        ( sendToNeighbors
        , converseToNeighbors
        ) where
@@ -14,16 +14,22 @@ import           Universum                  hiding (catchAll)
 import           Pos.Binary.Class           (Bi)
 import           Pos.Communication.Protocol (ConversationActions, Message, NodeId (..),
                                              SendActions (..))
-import           Pos.Discovery.Constants    (neighborsSendThreshold)
+import           Pos.Discovery.Class        (MonadDiscovery, getPeers)
+import           Pos.Infra.Constants        (neighborsSendThreshold)
 
 -- | Send default message to neighbours in parallel.
 -- It's a broadcasting to the neighbours without sessions
 -- (i.e. we don't have to wait for reply from the listeners).
 sendToNeighbors
-    :: (MonadMockable m, Bi body, WithLogger m, Message body)
-    => Set NodeId -> SendActions m -> body -> m ()
-sendToNeighbors nodes_ sendActions msg = do
-    nodes <- check nodes_
+    :: ( MonadMockable m
+       , WithLogger m
+       , MonadDiscovery m
+       , Message body
+       , Bi body
+       )
+    => SendActions m -> body -> m ()
+sendToNeighbors sendActions msg = do
+    nodes <- check =<< getPeers
     void $
         forConcurrently nodes $ \node ->
             handleAll (logSendErr node) $ sendTo sendActions node msg
@@ -41,18 +47,18 @@ check nodes = do
 
 converseToNeighbors
     :: ( MonadMockable m
+       , MonadDiscovery m
        , WithLogger m
        , Bi rcv
        , Bi snd
        , Message snd
        , Message rcv
        )
-    => Set NodeId
-    -> SendActions m
+    => SendActions m
     -> (NodeId -> ConversationActions snd rcv m -> m ())
     -> m ()
-converseToNeighbors nodes_ sendActions convHandler = do
-    nodes <- check nodes_
+converseToNeighbors sendActions convHandler = do
+    nodes <- check =<< getPeers
     logDebug $ "converseToNeighbors: sending to nodes: " <> show nodes
     void $ forConcurrently nodes $ \node -> do
         handleAll (logErr node) $ withConnectionTo sendActions node (\_ -> convHandler node)

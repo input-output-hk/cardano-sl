@@ -13,7 +13,7 @@ import           System.Wlog                 (LoggerName, WithLogger)
 
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Network.Listeners (blockListeners, blockStubListeners)
-import           Pos.Communication.Protocol  (ListenerSpec (..), NodeId, OutSpecs)
+import           Pos.Communication.Protocol  (ListenerSpec (..), OutSpecs)
 import           Pos.Communication.Util      (wrapListener)
 import           Pos.Delegation.Listeners    (delegationListeners,
                                               delegationStubListeners)
@@ -27,12 +27,12 @@ import           Pos.WorkMode                (WorkMode)
 -- | All listeners running on one node.
 allListeners
     :: (SscListenersClass ssc, SscWorkersClass ssc, WorkMode ssc m)
-    => m (Set NodeId) -> m ([ListenerSpec m], OutSpecs)
-allListeners getPeers = mconcatPair <$> sequence
+    => m ([ListenerSpec m], OutSpecs)
+allListeners = mconcatPair <$> sequence
         [ modifier "block"       <$> blockListeners
         , modifier "ssc" . untag <$> sscListeners
         , modifier "tx"          <$> txListeners
-        , modifier "delegation"  <$> pure (delegationListeners getPeers)
+        , modifier "delegation"  <$> pure delegationListeners
         , modifier "update"      <$> usListeners
         ]
   where

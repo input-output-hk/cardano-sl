@@ -416,7 +416,7 @@ instance ToSample CWallet where
             , cwMeta     = def
             , cwAccounts =
                 [ CAccount
-                    { caAddress = cAccountAddressSample
+                    { caAddress = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
                     , caAmount = mkCCoin $ mkCoin 0
                     }
                 ]
@@ -440,7 +440,7 @@ instance ToSample CWalletSet where
       where
         sample = CWalletSet
             { cwsAddress       = cWalletSetAddressSample
-            , cwsWSetMeta      = CWalletSetMeta "Personal Wallet Set" backupPhrase
+            , cwsWSetMeta      = CWalletSetMeta "Personal Wallet Set"
             , cwsWalletsNumber = 3
             , cwsHasPassphrase = True
             , cwsPassphraseLU  = 1493331655090351
@@ -450,7 +450,7 @@ instance ToSample CAccount where
     toSamples Proxy = singleSample sample
       where
         sample = CAccount
-            { caAddress = cAccountAddressSample
+            { caAddress = CAddress $ CHash "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ"
             , caAmount  = mkCCoin $ mkCoin 5
             }
 
@@ -458,7 +458,8 @@ instance ToSample CWalletSetInit where
     toSamples Proxy = singleSample sample
       where
         sample = CWalletSetInit
-            { cwsInitMeta = def
+            { cwsInitMeta     = def
+            , cwsBackupPhrase = backupPhrase
             }
 
 instance ToSample CWalletAddress where

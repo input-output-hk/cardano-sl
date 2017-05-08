@@ -120,6 +120,7 @@ type ImportKey = API
     :> "wallets"
     :> "sets"
     :> "keys"
+    :> QueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] Text
     :> Post '[JSON] (Either WalletError CWalletSet)
 

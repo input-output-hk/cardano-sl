@@ -22,8 +22,8 @@ import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId (..),
                                              OutSpecs, SendActions (..), convH,
                                              toOutSpecs)
-import           Pos.Context                (getNodeContext, isRecoveryMode, ncNodeParams,
-                                             npAttackTypes)
+import           Pos.Context                (getNodeContext, ncNodeParams, npAttackTypes,
+                                             recoveryInProgress)
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
@@ -41,8 +41,8 @@ announceBlockOuts = toOutSpecs [convH (Proxy :: Proxy (MsgHeaders ssc))
 
 announceBlock
     :: WorkMode ssc m
-    => m (Set NodeId) -> SendActions m -> MainBlockHeader ssc -> m ()
-announceBlock getPeers sendActions header = do
+    => SendActions m -> MainBlockHeader ssc -> m ()
+announceBlock sendActions header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
     cont <- getNodeContext
     let throwOnIgnored (NodeId (_, nId)) =
@@ -63,8 +63,7 @@ announceBlock getPeers sendActions header = do
                      }
                 else sendActions
     reifyMsgLimit (Proxy @MsgGetHeaders) $ \limitProxy -> do
-        peers <- getPeers
-        converseToNeighbors peers sendActions' $ announceBlockDo limitProxy
+        converseToNeighbors sendActions' $ announceBlockDo limitProxy
   where
     announceBlockDo limitProxy nodeId conv = do
         logDebug $
@@ -84,7 +83,7 @@ handleHeadersCommunication
 handleHeadersCommunication conv _ = do
     whenJustM (recvLimited conv) $ \mgh@(MsgGetHeaders {..}) -> do
         logDebug $ sformat ("Got request on handleGetHeaders: "%build) mgh
-        ifM isRecoveryMode onRecovery $ do
+        ifM recoveryInProgress onRecovery $ do
             headers <- case (mghFrom,mghTo) of
                 ([], Nothing) -> Right . one <$> DB.getTipBlockHeader @ssc
                 ([], Just h)  ->

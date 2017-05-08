@@ -7,38 +7,38 @@ module Pos.Txp.Worker
 
 import           Universum
 
-import           Pos.Communication (OutSpecs, WorkerSpec)
-import           Pos.Ssc.Class     (SscWorkersClass)
-import           Pos.Util          (mconcatPair)
-import           Pos.WorkMode      (WorkMode)
+import           Pos.Communication   (OutSpecs, WorkerSpec)
+import           Pos.Ssc.Class       (SscWorkersClass)
+import           Pos.Util            (mconcatPair)
+import           Pos.WorkMode        (WorkMode)
 
 #ifdef WITH_WALLET
-import           Data.Time.Units   (Second, convertUnit)
-import           Formatting        (build, int, sformat, shown, (%))
-import           Mockable          (delay, throw)
-import           Serokell.Util     (listJson)
-import           System.Wlog       (logDebug, logInfo, logWarning)
+import           Data.Time.Units     (Second, convertUnit)
+import           Formatting          (build, int, sformat, shown, (%))
+import           Mockable            (delay, throw)
+import           Serokell.Util       (listJson)
+import           System.Wlog         (logDebug, logInfo, logWarning)
 
-import           Pos.Communication (ConversationActions (..), InvMsg (..), InvOrData,
-                                    MempoolMsg (..), RelayError (UnexpectedData),
-                                    RelayProxy (..), ReqMsg (..), SendActions, SmartLimit,
-                                    TxMsgContents, TxMsgTag (..), convH, expectData,
-                                    handleDataL, handleInvL, reifyMsgLimit, toOutSpecs,
-                                    withLimitedLength, worker, withConnectionTo,
-                                    NodeId)
-import           Pos.Slotting      (getLastKnownSlotDuration)
-import           Pos.Txp.Core      (TxId)
+import           Pos.Communication   (ConversationActions (..), InvMsg (..), InvOrData,
+                                      MempoolMsg (..), NodeId,
+                                      RelayError (UnexpectedData), RelayProxy (..),
+                                      ReqMsg (..), SendActions, SmartLimit, TxMsgContents,
+                                      TxMsgTag (..), convH, expectData, handleDataL,
+                                      handleInvL, reifyMsgLimit, toOutSpecs,
+                                      withConnectionTo, withLimitedLength, worker)
+import           Pos.Discovery.Class (getPeers)
+import           Pos.Slotting        (getLastKnownSlotDuration)
+import           Pos.Txp.Core        (TxId)
 #endif
 
 -- | All workers specific to transaction processing.
 txpWorkers
     :: (SscWorkersClass ssc, WorkMode ssc m)
-    => m (Set NodeId)
-    -> ([WorkerSpec m], OutSpecs)
-txpWorkers getPeers =
+    => ([WorkerSpec m], OutSpecs)
+txpWorkers =
     merge $ []
 #if defined(WITH_WALLET)
-            ++ [ queryTxsWorker getPeers ]
+            ++ [ queryTxsWorker ]
 #endif
   where
     merge = mconcatPair . map (first pure)
@@ -53,9 +53,8 @@ txpWorkers getPeers =
 -- tx mempool.
 queryTxsWorker
     :: (WorkMode ssc m, SscWorkersClass ssc)
-    => m (Set NodeId)
-    -> (WorkerSpec m, OutSpecs)
-queryTxsWorker getPeers = worker queryTxsSpec $ \sendActions -> do
+    => (WorkerSpec m, OutSpecs)
+queryTxsWorker = worker queryTxsSpec $ \sendActions -> do
     slotDur <- getLastKnownSlotDuration
     nodesRef <- liftIO . newIORef . toList =<< getPeers
     let delayInterval = max (slotDur `div` 4) (convertUnit (5 :: Second))

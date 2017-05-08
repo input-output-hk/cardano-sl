@@ -68,13 +68,13 @@ update (SocketConnected connected') state =
 
 update (SocketBlocksUpdated (Right blocks)) state =
     noEffects $
-    -- add incoming blocks ahead of previous blocks
     set latestBlocks (Success newBlocks) $
-    over (totalBlocks <<< _Success) ((+) numberNewBlocks) state
+    set totalBlocks (Success newTotalBlocks) state
     where
         previousBlocks = withDefault [] $ state ^. latestBlocks
-        newBlocks = sortBlocksByEpochSlot' $ blocks <> previousBlocks
-        numberNewBlocks = (length newBlocks) - (length previousBlocks)
+        newBlocks = sortBlocksByEpochSlot' $ unionBlocks blocks previousBlocks
+        previousTotalBlocks = withDefault 0 $ state ^. totalBlocks
+        newTotalBlocks = (length newBlocks) - (length previousBlocks) + previousTotalBlocks
 
 update (SocketBlocksUpdated (Left error)) state = noEffects $
     set latestBlocks (Failure error) $

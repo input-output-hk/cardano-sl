@@ -19,6 +19,7 @@ import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTotalBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
+import Explorer.Api.Types (RequestLimit(..), RequestOffset(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
 import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, totalBlocks, viewStates)
@@ -494,12 +495,15 @@ update (ReceiveBlockTxs (Left error)) state =
     set loading false $
     set currentBlockTxs Nothing $
     over errors (\errors' -> (show error) : errors') state
-update RequestInitialTxs state =
+update (RequestInitialTxs) state =
     { state:
           set loading true $
           set latestTransactions Loading
           state
-    , effects: [ attempt fetchLatestTxs >>= pure <<< ReceiveInitialTxs ]
+    , effects:
+        [ attempt (fetchLatestTxs (RequestLimit maxTransactionRows) (RequestOffset 0)) >>=
+              pure <<< ReceiveInitialTxs
+        ]
     }
 update (ReceiveInitialTxs (Right txs)) state =
     { state:

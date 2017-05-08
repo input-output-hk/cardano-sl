@@ -20,3 +20,6 @@ instance showEndpointError :: Show EndpointError where
         "JSONDecodingError: " <> gShow e
     show (ServerError e) =
         "ServerError: " <> gShow e
+
+newtype RequestLimit = RequestLimit Int
+newtype RequestOffset = RequestOffset Int

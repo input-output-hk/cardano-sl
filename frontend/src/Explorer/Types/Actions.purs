@@ -5,9 +5,10 @@ import DOM.HTML.Types (HTMLElement, HTMLInputElement)
 import Data.DateTime (DateTime)
 import Data.Either (Either)
 import Data.Maybe (Maybe)
+import Explorer.Api.Types (RequestLimit(..), RequestOffset(..))
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
-import Explorer.Types.State (CBlockEntries, CBlockEntriesOffset, CTxBriefs, CTxEntries, DashboardAPICode, Search, SocketSubscription, CBlockEntriesLimit)
+import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, Search, SocketSubscription)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
 import Pux.Html.Events (Target)
@@ -38,7 +39,7 @@ data Action
     | ReceiveTotalBlocks (Either Error Int)
     | RequestInitialBlocks
     | ReceiveInitialBlocks (Either Error CBlockEntries)
-    | RequestPaginatedBlocks CBlockEntriesLimit CBlockEntriesOffset
+    | RequestPaginatedBlocks RequestLimit RequestOffset
     | ReceivePaginatedBlocks (Either Error CBlockEntries)
     | RequestBlockSummary CHash
     | ReceiveBlockSummary (Either Error CBlockSummary)

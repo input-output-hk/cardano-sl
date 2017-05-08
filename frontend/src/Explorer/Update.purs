@@ -26,7 +26,7 @@ import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPagin
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (CBlockEntriesOffset, Search(..), SocketSubscription(..), State)
+import Explorer.Types.State (Search(..), SocketSubscription(..), State)
 import Explorer.Util.DOM (scrollTop, targetToHTMLElement, targetToHTMLInputElement)
 import Explorer.Util.Data (sortBlocksByEpochSlot', sortTxsByTime', unionBlocks, unionTxs)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
@@ -169,7 +169,7 @@ update (DashboardPaginateBlocks newPage) state =
           else set (dashboardViewState <<< dbViewBlockPagination) newPage state
     , effects:
           if doRequest
-          then [ pure $ RequestPaginatedBlocks limit offset ]
+          then [ pure $ RequestPaginatedBlocks (RequestLimit limit) (RequestOffset offset) ]
           else []
     }
     where
@@ -398,7 +398,10 @@ update RequestInitialBlocks state =
           set loading true $
           set latestBlocks Loading
           state
-    , effects: [ attempt (fetchLatestBlocks maxBlockRows 0) >>= pure <<< ReceiveInitialBlocks ]
+    , effects:
+        [ attempt (fetchLatestBlocks (RequestLimit maxBlockRows) (RequestOffset 0)) >>=
+            pure <<< ReceiveInitialBlocks
+        ]
     }
 
 update (ReceiveInitialBlocks (Right blocks)) state =
@@ -703,11 +706,6 @@ routeEffects NotFound state =
     }
 
 -- helper functions
-
--- | Returns an offset of blocks at initial start of application
-initialBlocksOffset :: State -> CBlockEntriesOffset
-initialBlocksOffset state =
-    (state ^. (dashboardViewState <<< dbViewBlockPagination)) - 1
 
 -- | Checks if we do need to make a request to get data of next block pagination or not
 doPaginateBlocksRequest :: State -> Int -> Int -> Boolean

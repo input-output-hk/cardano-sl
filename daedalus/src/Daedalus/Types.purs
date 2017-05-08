@@ -40,6 +40,7 @@ import Pos.Util.BackupPhrase as BP
 
 import Control.Monad.Eff.Exception (error, Error)
 import Data.Either (either, Either (..))
+import Data.Maybe (Maybe (..))
 import Data.Argonaut.Generic.Aeson (decodeJson)
 import Data.Argonaut.Core (fromString)
 import Data.Generic (gShow)
@@ -107,8 +108,9 @@ _passPhrase (CPassPhrase p) = p
 emptyCPassPhrase :: CPassPhrase
 emptyCPassPhrase = CPassPhrase ""
 
-mkCPassPhrase :: String -> CPassPhrase
-mkCPassPhrase = CPassPhrase <<< bytesToB16 <<< blake2b
+mkCPassPhrase :: String -> Maybe CPassPhrase
+mkCPassPhrase "" = Nothing
+mkCPassPhrase pass = Just <<< CPassPhrase <<< bytesToB16 $ blake2b pass
 
 mkCAddress :: forall a. String -> CAddress a
 mkCAddress = CAddress <<< CHash

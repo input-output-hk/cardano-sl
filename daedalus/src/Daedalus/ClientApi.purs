@@ -8,7 +8,6 @@ import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
 import Daedalus.Types (getProfileLocale, mkCAddress, mkCCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkBackupPhrase, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCWalletSetInit)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
-import Data.Maybe (Maybe (..))
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.String.Base64 as B64
@@ -54,42 +53,24 @@ getWallets :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 getWallets = fromAff $ map encodeJson B.getWalletSets
 
 -- | Creates a new wallet set.
--- Arguments: wallet set name, mnemonics, spending password
+-- Arguments: wallet set name, mnemonics, spending password (set to empty string if you don't want to set password)
 -- Returns json representation of created wallet set
 -- Example in nodejs:
 --
 newWalletSet :: forall eff . EffFn3 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String String
   (Promise Json)
 newWalletSet = mkEffFn3 \wSetName mnemonic spendingPassword -> fromAff <<< map encodeJson <<<
-    either throwError (B.newWalletSet $ Just $ mkCPassPhrase spendingPassword) $ mkCWalletSetInit wSetName mnemonic
-
--- | Creates a new wallet set.
--- Arguments: wallet set name, mnemonics
--- Returns json representation of created wallet set
--- Example in nodejs:
---
-newWalletSetNoPass :: forall eff . EffFn2 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String
-  (Promise Json)
-newWalletSetNoPass = mkEffFn2 \wSetName mnemonic -> fromAff <<< map encodeJson <<<
-    either throwError (B.newWalletSet Nothing) $ mkCWalletSetInit wSetName mnemonic
+    either throwError (B.newWalletSet $ mkCPassPhrase spendingPassword) $ mkCWalletSetInit wSetName mnemonic
 
 -- TODO: note that restoreWalletSet and newWalletSet are the same. They will be unified in future
 
 -- | Restores a new wallet set.
--- Arguments: wallet set name, mnemonics, spending password
+-- Arguments: wallet set name, mnemonics, spending password (set to empty string if you don't want to set password
 -- Returns json representation of restored wallet set
 -- Example in nodejs:
 --
 restoreWalletSet :: forall eff. EffFn3 (ajax :: AJAX | eff) String String String (Promise Json)
-restoreWalletSet = mkEffFn3 \wSetName mnemonic spendingPassword -> fromAff <<< map encodeJson <<< either throwError (B.restoreWalletSet $ Just $ mkCPassPhrase spendingPassword) $ mkCWalletSetInit wSetName mnemonic
-
--- | Restores a wallet set.
--- Arguments: wallet set name, mnemonics
--- Returns json representation of restored wallet set
--- Example in nodejs:
---
-restoreWalletSetNoPass :: forall eff. EffFn2 (ajax :: AJAX | eff) String String (Promise Json)
-restoreWalletSetNoPass = mkEffFn2 \wSetName mnemonic -> fromAff <<< map encodeJson <<< either throwError (B.restoreWalletSet Nothing) $ mkCWalletSetInit wSetName mnemonic
+restoreWalletSet = mkEffFn3 \wSetName mnemonic spendingPassword -> fromAff <<< map encodeJson <<< either throwError (B.restoreWalletSet $ mkCPassPhrase spendingPassword) $ mkCWalletSetInit wSetName mnemonic
 
 -- | Rename a wallet set.
 -- Arguments: wallet set id/hash, name
@@ -100,20 +81,12 @@ renameWalletSet :: forall eff. EffFn2 (ajax :: AJAX | eff) String String (Promis
 renameWalletSet = mkEffFn2 \wSetId name -> fromAff <<< map encodeJson $ B.renameWalletSet (mkCAddress wSetId) name
 
 -- | Import a wallet set.
--- Arguments: file path to the wallet set on a filesystem, spending password
+-- Arguments: file path to the wallet set on a filesystem, spending password (set to empty string if you don't want to set password)
 -- Returns json representation of imported wallet set
 -- Example in nodejs:
 --
 importWalletSet :: forall eff. EffFn2 (ajax :: AJAX | eff) String String (Promise Json)
-importWalletSet = mkEffFn2 \filePath spendingPassword -> fromAff <<< map encodeJson $ B.importWalletSet (Just $ mkCPassPhrase spendingPassword) filePath
-
--- | Import a wallet set.
--- Arguments: file path to the wallet set on a filesystem
--- Returns json representation of imported wallet set
--- Example in nodejs:
---
-importWalletSetNoPass :: forall eff. EffFn1 (ajax :: AJAX | eff) String String (Promise Json)
-importWalletSetNoPass = mkEffFn1 \filePath -> fromAff <<< map encodeJson $ B.importWalletSet Nothing filePath
+importWalletSet = mkEffFn2 \filePath spendingPassword -> fromAff <<< map encodeJson $ B.importWalletSet (mkCPassPhrase spendingPassword) filePath
 
 
 --

@@ -2,11 +2,9 @@ module Main
        ( main
        ) where
 
-import           Language.PureScript.Bridge                (BridgePart,
-                                                            buildBridge,
-                                                            defaultBridge,
-                                                            mkSumType, typeName,
-                                                            writePSTypes, (<|>),
+import           Language.PureScript.Bridge                (BridgePart, buildBridge,
+                                                            defaultBridge, mkSumType,
+                                                            typeName, writePSTypes, (<|>),
                                                             (^==))
 import           Language.PureScript.Bridge.PSTypes        (psInt)
 import           Language.PureScript.Bridge.TypeParameters (A)
@@ -31,6 +29,7 @@ main =
       , mkSumType (Proxy @CT.CWalletType)
       , mkSumType (Proxy @CT.CWallet)
       , mkSumType (Proxy @CT.CWalletSet)
+      , mkSumType (Proxy @CT.CWalletSetInit)
       , mkSumType (Proxy @CT.CProfile)
       , mkSumType (Proxy @CT.CTxMeta)
       , mkSumType (Proxy @CT.CTExMeta)

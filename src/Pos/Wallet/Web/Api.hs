@@ -114,7 +114,7 @@ type RenameWalletSet = API
     :> "rename"
     :> Capture "walletSetId" (CAddress WS)
     :> Capture "name" Text
-    :> Get '[JSON] (Either WalletError CWalletSet)
+    :> Post '[JSON] (Either WalletError CWalletSet)
 
 type ImportKey = API
     :> "wallets"
@@ -128,8 +128,8 @@ type ChangeWalletSetPassphrase = API
     :> "wallets"
     :> "sets"
     :> "password"
-    :> QueryParam "old" CPassPhrase
     :> Capture "walletSetId" (CAddress WS)
+    :> QueryParam "old" CPassPhrase
     :> QueryParam "new" CPassPhrase
     :> Post '[JSON] (Either WalletError ())
 

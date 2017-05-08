@@ -2,6 +2,7 @@ module Daedalus.ClientApi where
 
 import Prelude
 import Daedalus.BackendApi as B
+import Control.Monad.Eff.Exception (error)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (newRef, REF)
@@ -9,7 +10,7 @@ import Control.Promise (Promise, fromAff)
 import Daedalus.Types (getProfileLocale, mkCAddress, mkCCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkBackupPhrase, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCWalletSetInit)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
-import Data.Argonaut.Generic.Aeson (encodeJson)
+import Data.Argonaut.Generic.Aeson (encodeJson, decodeJson)
 import Data.String.Base64 as B64
 import Data.Base58 as B58
 import Data.Array as A
@@ -99,6 +100,14 @@ changeWalletSetPass = mkEffFn3 \wSetId oldPass newPass -> fromAff <<< map encode
 
 --------------------------------------------------------------------------------
 -- Wallets ---------------------------------------------------------------------
+
+getWallet :: forall eff. EffFn1 (ajax :: AJAX | eff) Json (Promise Json)
+getWallet = mkEffFn1 $ fromAff <<< map encodeJson <<< either (throwError <<< error) B.getWallet <<< decodeJson
+
+--getWallets :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
+--getWallets = fromAff $ map encodeJson B.getWallets
+--
+
 --
 --
 -- getLocale :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)

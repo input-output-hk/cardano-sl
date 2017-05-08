@@ -7,7 +7,6 @@ module Pos.Util.Modifier
        , lookupM
        , lookup
        , filter
-       , member
        , keysM
        , keys
        , valuesM
@@ -72,9 +71,6 @@ lookup getter k = runIdentity . lookupM (Identity . getter) k
 
 filter :: (Eq k, Hashable k) => (Maybe v -> Bool) -> MapModifier k v -> MapModifier k v
 filter fil = MapModifier . HM.filter fil . getMapModifier
-
-member :: (Eq k, Hashable k) => k -> MapModifier k v -> Bool
-member k = HM.member k . getMapModifier
 
 -- | Get keys of something map-like in Functor context taking
 -- 'MapModifier' into account.
@@ -152,8 +148,8 @@ delete
     => k -> MapModifier k v -> MapModifier k v
 delete k (MapModifier m) = MapModifier $ HM.insert k Nothing m
 
--- | Transform this modifer by applying a function to every insertion
--- and retaining only some of them. Underlying map should be already
+-- | Transform this modifier in Functor context by applying a function to every
+-- insertion and retaining only some of them. Underlying map should be already
 -- transformed.
 mapMaybeM
     :: (Functor m, Eq k, Hashable k)
@@ -164,8 +160,8 @@ mapMaybeM getter f mm@(MapModifier m) = mapMaybeDo <$> getter
         Universum.mapMaybe (\(k, v) -> (k, ) <$> f v) (insertions mm) <>
         Universum.filter (not . flip HM.member m . fst) kvs
 
-
--- | Get contents of something map-like taking 'MapModifier' into account.
+-- | Transform this modifier by applying a function to every insertion and retaining
+-- only some of them. Underlying map should be already transformed.
 mapMaybe
     :: (Eq k, Hashable k)
     => [(k, v2)] -> (v1 -> Maybe v2) -> MapModifier k v1 -> [(k, v2)]

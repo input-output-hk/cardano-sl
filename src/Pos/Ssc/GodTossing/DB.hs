@@ -6,11 +6,12 @@ module Pos.Ssc.GodTossing.DB
        , prepareGtDB
        ) where
 
+import           Universum
+
 import           Data.Default                   (def)
+import qualified Data.Store as Store
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB               as Rocks
-import qualified Data.Store as Store
-import           Universum
 
 import           Formatting                     (bprint, build, (%))
 import           Pos.DB                         (MonadDB, RocksBatchOp (..))

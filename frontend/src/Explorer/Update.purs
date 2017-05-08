@@ -9,7 +9,7 @@ import Control.SocketIO.Client (SocketIO, emit, emit')
 import DOM (DOM)
 import DOM.HTML.HTMLElement (blur)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array (difference, length, (:))
+import Data.Array (difference, length, take, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Int (fromString)
@@ -27,13 +27,14 @@ import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery,
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CBlockEntriesOffset, Search(..), SocketSubscription(..), State)
 import Explorer.Util.DOM (scrollTop, targetToHTMLElement, targetToHTMLInputElement)
-import Explorer.Util.Data (sortBlocksByEpochSlot', unionBlocks, unionTxs)
+import Explorer.Util.Data (sortBlocksByEpochSlot', sortTxsByTime', unionBlocks, unionTxs)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
 import Explorer.View.Blocks (maxBlockRows)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
+import Explorer.View.Dashboard.Transactions (maxTransactionRows)
 import Network.HTTP.Affjax (AJAX)
-import Network.RemoteData (RemoteData(..), _Success, isNotAsked, isSuccess, withDefault)
+import Network.RemoteData (RemoteData(..), isNotAsked, isSuccess, withDefault)
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects, onlyEffects)
@@ -83,12 +84,16 @@ update (SocketBlocksUpdated (Left error)) state = noEffects $
     -- and in the UI. So just add incoming errors ahead of previous errors.
     over errors (\errors' -> (show error) : errors') state
 
-update (SocketTxsUpdated (Right transactions)) state =
+update (SocketTxsUpdated (Right txs)) state =
     noEffects $
-    if isSuccess $ state ^. latestTransactions
-    -- add incoming transactions ahead of previous transactions
-    then over (latestTransactions <<< _Success) (\t -> transactions <> t) state
-    else state
+    over latestTransactions
+        (\currentTxs -> Success <<<
+                            sortTxsByTime' <<<
+                            take maxTransactionRows $
+                                unionTxs txs $
+                                    withDefault [] currentTxs
+        )
+    state
 
 update (SocketTxsUpdated (Left error)) state = noEffects $
     -- add incoming errors ahead of previous errors
@@ -499,12 +504,13 @@ update RequestInitialTxs state =
 update (ReceiveInitialTxs (Right txs)) state =
     { state:
           set loading false $
-          over latestTransactions (\currentTxs ->
-                                        if isSuccess currentTxs
-                                        -- union txs together
-                                        then Success $ unionTxs txs (currentTxs ^. _Success)
-                                        else Success txs
-                                  )
+          over latestTransactions
+              (\currentTxs -> Success <<<
+                                  sortTxsByTime' <<<
+                                  take maxTransactionRows $
+                                      unionTxs txs $
+                                          withDefault [] currentTxs
+              )
           state
     , effects:
           -- add subscription of `SubTx` if we are on `Dashboard` only

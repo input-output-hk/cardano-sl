@@ -6,8 +6,8 @@ import Control.Monad.State (StateT)
 import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Time.NominalDiffTime (mkTime)
-import Explorer.Test.MockFactory (mkCBlockEntry, mkEmptyCTxEntry, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfBlock)
-import Explorer.Util.Data (sortBlocksByEpochSlot, sortBlocksByEpochSlot', sortBlocksByTime, sortBlocksByTime', unionBlocks, unionTxs)
+import Explorer.Test.MockFactory (mkCBlockEntry, mkEmptyCTxEntry, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfBlock, setTimeOfTx)
+import Explorer.Util.Data (sortBlocksByEpochSlot, sortBlocksByEpochSlot', sortBlocksByTime, sortBlocksByTime', sortTxsByTime, sortTxsByTime', unionBlocks, unionTxs)
 import Explorer.Util.Factory (mkCHash, mkCTxId)
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
@@ -132,3 +132,37 @@ testDataUtil =
                         , txD
                         ]
                 in (gShow $ unionTxs listA listB) `shouldEqual` (gShow expected)
+
+        describe "sortTxsByTime" do
+            let txA = setTimeOfTx (mkTime 0.1) mkEmptyCTxEntry
+                txB = setTimeOfTx (mkTime 1.0) mkEmptyCTxEntry
+                txC = setTimeOfTx (mkTime 1.1) mkEmptyCTxEntry
+                txD = setTimeOfTx (mkTime 2.0) mkEmptyCTxEntry
+            it "sort ascending"
+                let list =
+                        [ txD
+                        , txB
+                        , txA
+                        , txC
+                        ]
+                    expected =
+                        [ txA
+                        , txB
+                        , txC
+                        , txD
+                        ]
+                in (gShow $ sortTxsByTime list) `shouldEqual` (gShow expected)
+            it "sort descending"
+                let list =
+                        [ txD
+                        , txB
+                        , txA
+                        , txC
+                        ]
+                    expected =
+                        [ txD
+                        , txC
+                        , txB
+                        , txA
+                        ]
+                in (gShow $ sortTxsByTime' list) `shouldEqual` (gShow expected)

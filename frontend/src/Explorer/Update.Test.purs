@@ -8,13 +8,14 @@ import Data.Either (Either(..))
 import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Lens ((^.), set)
+import Data.Time.NominalDiffTime (mkTime)
 import Explorer.I18n.Lang (Language(..))
-import Explorer.Lenses.State (dbViewBlockPagination, lang, latestBlocks, totalBlocks)
+import Explorer.Lenses.State (dbViewBlockPagination, lang, latestBlocks, latestTransactions, totalBlocks)
 import Explorer.State (initialState)
-import Explorer.Test.MockFactory (mkCBlockEntry, setEpochSlotOfBlock, setHashOfBlock)
+import Explorer.Test.MockFactory (mkCBlockEntry, mkEmptyCTxEntry, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Update (doPaginateBlocksRequest, limitPaginateBlocksRequest, offsetPaginateBlocksRequest, update)
-import Explorer.Util.Factory (mkCHash)
+import Explorer.Util.Factory (mkCHash, mkCTxId)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Network.RemoteData (RemoteData(..), withDefault)
 import Test.Spec (Group, describe, it)
@@ -189,3 +190,54 @@ testUpdate =
                 let state = set (dashboardViewState <<< dbViewBlockPagination) 1 initialState'
                     result = offsetPaginateBlocksRequest state
                 in result `shouldEqual` 12
+
+        describe "uses action SocketTxsUpdated" do
+            -- Mock txs
+            let txA = setTimeOfTx (mkTime 0.1) $ setIdOfTx (mkCTxId "A") mkEmptyCTxEntry
+                txB = setTimeOfTx (mkTime 0.2) $ setIdOfTx (mkCTxId "B") mkEmptyCTxEntry
+                txC = setTimeOfTx (mkTime 1.0) $ setIdOfTx (mkCTxId "C") mkEmptyCTxEntry
+                txD = setTimeOfTx (mkTime 2.1) $ setIdOfTx (mkCTxId "D") mkEmptyCTxEntry
+                currentTxs =
+                    [ txA
+                    , txB
+                    ]
+                -- set `latestTransactions` to simulate that we have already txs before
+                initialState' =
+                    set latestTransactions (Success currentTxs) initialState
+                newTxs =
+                    [ txA
+                    , txC
+                    , txD
+                    ]
+                effModel = update (SocketTxsUpdated (Right newTxs)) initialState'
+                state = _.state effModel
+            it "to update latestTransactions w/o duplicates and sorted by time"
+                let result = withDefault [] $ state ^. latestTransactions
+                    expected =
+                        [ txD
+                        , txC
+                        , txB
+                        , txA
+                        ]
+                in (gShow result) `shouldEqual` (gShow expected)
+
+        describe "handles ReceiveInitialTxs action" do
+            -- Mock txs
+            let txA = setTimeOfTx (mkTime 0.1) $ setIdOfTx (mkCTxId "A") mkEmptyCTxEntry
+                txB = setTimeOfTx (mkTime 0.2) $ setIdOfTx (mkCTxId "B") mkEmptyCTxEntry
+                txC = setTimeOfTx (mkTime 1.0) $ setIdOfTx (mkCTxId "C") mkEmptyCTxEntry
+                newTxs =
+                    [ txA
+                    , txC
+                    , txB
+                    ]
+                effModel = update (SocketTxsUpdated (Right newTxs)) initialState
+                state = _.state effModel
+            it "to update latestTransactions sorted by time"
+                let result = withDefault [] $ state ^. latestTransactions
+                    expected =
+                        [ txC
+                        , txB
+                        , txA
+                        ]
+                in (gShow result) `shouldEqual` (gShow expected)

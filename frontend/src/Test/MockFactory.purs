@@ -10,7 +10,7 @@ import Data.Maybe (Maybe(..))
 import Data.Time.NominalDiffTime (NominalDiffTime, mkTime)
 import Explorer.Util.Factory (mkCAddress, mkCHash, mkCTxId, mkCoin)
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..), CBlockEntry(..), CHash, CTxEntry(..), CTxId)
-import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CTxEntry, cbeBlkHash, cbeEpoch, cbeSlot, cbeTimeIssued, cteId)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CTxEntry, cbeBlkHash, cbeEpoch, cbeSlot, cbeTimeIssued, cteId, cteTimeIssued)
 
 -- | Creates a `CTxEntry` with "empty" data
 mkEmptyCTxEntry :: CTxEntry
@@ -24,6 +24,11 @@ mkEmptyCTxEntry = CTxEntry
 setIdOfTx :: CTxId -> CTxEntry -> CTxEntry
 setIdOfTx txId tx =
     set (_CTxEntry <<< cteId) txId tx
+
+-- | Update time of a transaction
+setTimeOfTx :: NominalDiffTime -> CTxEntry -> CTxEntry
+setTimeOfTx time tx =
+    set (_CTxEntry <<< cteTimeIssued) time tx
 
 mkEmptyCAddressSummary :: CAddressSummary
 mkEmptyCAddressSummary = CAddressSummary

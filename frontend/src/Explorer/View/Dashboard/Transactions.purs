@@ -1,4 +1,7 @@
-module Explorer.View.Dashboard.Transactions (transactionsView) where
+module Explorer.View.Dashboard.Transactions
+    ( transactionsView
+    , maxTransactionRows
+    ) where
 
 import Prelude
 import Data.Array (length, slice)

@@ -7,8 +7,8 @@ import Data.Maybe (fromMaybe)
 import Data.Time.NominalDiffTime (mkTime, unwrapSeconds)
 import Explorer.State (maxSlotInEpoch)
 import Explorer.Types.State (CBlockEntries, CTxEntries)
-import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CHash, _CTxEntry, _CTxId, cbeBlkHash, cbeEpoch, cbeSlot, cbeTimeIssued, cteId)
+import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CTxEntry(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CHash, _CTxEntry, _CTxId, cbeBlkHash, cbeEpoch, cbeSlot, cbeTimeIssued, cteId, cteTimeIssued)
 
 -- | Sort a list of CBlockEntry by time in an ascending (up) order
 sortBlocksByTime :: CBlockEntries -> CBlockEntries
@@ -51,6 +51,22 @@ unionBlocks blocksA blocksB =
     where
         getHash :: CBlockEntry -> String
         getHash block = block ^. (_CBlockEntry <<< cbeBlkHash <<< _CHash)
+
+
+
+-- | Sort a list of `CTxEntries` by time in an ascending (up) order
+sortTxsByTime :: CTxEntries -> CTxEntries
+sortTxsByTime txs =
+    sortBy (comparing time) txs
+    where
+        time :: CTxEntry -> Number
+        time (CTxEntry entry) =
+            unwrapSeconds $ entry ^. cteTimeIssued
+
+-- | Sort a list of `CTxEntry` by time in a descending (down) order
+sortTxsByTime' :: CTxEntries -> CTxEntries
+sortTxsByTime' =
+    reverse <<< sortTxsByTime
 
 -- | Helper to remove duplicates of blocks by comparing its CHash
 -- |

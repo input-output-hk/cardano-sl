@@ -171,7 +171,7 @@ update (DashboardPaginateBlocks newPage) state =
         doRequest = doPaginateBlocksRequest state newPage maxBlockRows
         buffer = maxBlockRows
         limit = limitPaginateBlocksRequest state newPage maxBlockRows buffer
-        offset = offsetPaginateBlocksRequest state buffer
+        offset = offsetPaginateBlocksRequest state
 
 update (DashboardEditBlocksPageNumber target editable) state =
     { state:
@@ -726,10 +726,6 @@ limitPaginateBlocksRequest state nextPage blockRows buffer =
         latestBlocks' = withDefault [] (state ^. latestBlocks)
 
 -- | Determines the `offset` to request pagination of blocks
--- | _Note_: We add some extra "buffer" to get more blocks as needed,
--- | just to avoid to lost any data
-offsetPaginateBlocksRequest :: State -> Int -> Int
-offsetPaginateBlocksRequest state buffer =
-    (length latestBlocks') + buffer
-    where
-        latestBlocks' = withDefault [] (state ^. latestBlocks)
+offsetPaginateBlocksRequest :: State -> Int
+offsetPaginateBlocksRequest state =
+    length $ withDefault [] (state ^. latestBlocks)

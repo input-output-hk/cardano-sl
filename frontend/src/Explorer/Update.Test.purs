@@ -187,5 +187,5 @@ testUpdate =
 
             it "if we want to go from page 1 to 2"
                 let state = set (dashboardViewState <<< dbViewBlockPagination) 1 initialState'
-                    result = offsetPaginateBlocksRequest state 10
-                in result `shouldEqual` 22
+                    result = offsetPaginateBlocksRequest state
+                in result `shouldEqual` 12

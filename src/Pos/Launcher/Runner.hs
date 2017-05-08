@@ -41,7 +41,9 @@ import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
 import           Node                        (Node, NodeAction (..),
                                               defaultNodeEnvironment, hoistSendActions,
-                                              node, simpleNodeEndPoint)
+                                              node, simpleNodeEndPoint,
+                                              NodeEndPoint, Statistics,
+                                              ReceiveDelay, noReceiveDelay)
 import           Node.Util.Monitor           (setupMonitor, stopMonitor)
 import qualified STMContainers.Map           as SM
 import           System.IO                   (hClose, hSetBuffering,
@@ -149,11 +151,6 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
             -- gauge and distribution can be sampled by the server dispatcher
             -- and used to inform a policy for delaying the next receive event.
             --
-            -- TODO implement this. Requires time-warp-nt commit
-            --   275c16b38a715264b0b12f32c2f22ab478db29e9
-            -- in addition to the non-master
-            --   fdef06b1ace22e9d91c5a81f7902eb5d4b6eb44f
-            -- for flexible EKG setup.
             ekgStore <- liftIO $ Metrics.newStore
             ekgMemPoolGauge <- liftIO $ Metrics.createGauge (pack "MemPoolSize") ekgStore
             ekgMemPoolDistr <- liftIO $ Metrics.createDistribution (pack "MemPoolTime") ekgStore
@@ -192,6 +189,9 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
 
             let stopMonitoring it = whenJust it stopMonitor
 
+            let mkTransport = simpleNodeEndPoint transport
+            let mkReceiveDelay _ = return Nothing
+
             runCH jlVar allWorkersNum np initNC modernDBs .
                 runSlottingHolder slottingVar .
                 runNtpSlotting (npUseNTP, ntpSlottingVar) .
@@ -199,7 +199,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                 runTxpHolder txpVar txpMetrics .
                 runDelegationT def .
                 runPeerStateHolder stateM .
-                runServer peerId transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
+                runServer peerId mkTransport mkReceiveDelay listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
                     \vI sa -> nodeStartMsg npBaseParams >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
@@ -229,14 +229,15 @@ runServiceMode peerId transport bp@BaseParams {..} listeners outSpecs (ActionSpe
 runServer
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
     => PeerId
-    -> Transport m
+    -> (m (Statistics m) -> NodeEndPoint m)
+    -> (m (Statistics m) -> ReceiveDelay m)
     -> m (ListenersWithOut m)
     -> OutSpecs
     -> (Node m -> m t)
     -> (t -> m ())
     -> ActionSpec m b
     -> m b
-runServer peerId transport packedLS_M (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
+runServer peerId mkTransport mkReceiveDelay packedLS_M (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
     packedLS  <- packedLS_M
     let (listeners', InSpecs ins, OutSpecs outs) = unpackLSpecs packedLS
         ourVerInfo =
@@ -244,7 +245,7 @@ runServer peerId transport packedLS_M (OutSpecs wouts) withNode afterNode (Actio
         listeners = listeners' ourVerInfo
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo "%build) ourVerInfo
-    node (simpleNodeEndPoint transport) stdGen BiP (peerId, ourVerInfo) defaultNodeEnvironment $ \__node ->
+    node mkTransport mkReceiveDelay stdGen BiP (peerId, ourVerInfo) defaultNodeEnvironment $ \__node ->
         NodeAction listeners $ \sendActions -> do
             t <- withNode __node
             action ourVerInfo sendActions `finally` afterNode t
@@ -253,7 +254,7 @@ runServer_
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
     => PeerId -> Transport m -> ListenersWithOut m -> OutSpecs -> ActionSpec m b -> m b
 runServer_ peerId transport packedLS outSpecs =
-    runServer peerId transport (pure packedLS) outSpecs acquire release
+    runServer peerId (simpleNodeEndPoint transport) (const noReceiveDelay) (pure packedLS) outSpecs acquire release
   where
     acquire = const pass
     release = const pass

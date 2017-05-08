@@ -26,7 +26,7 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CBlockEntriesOffset, Search(..), SocketSubscription(..), State)
-import Explorer.Util.DOM (targetToHTMLElement, targetToHTMLInputElement)
+import Explorer.Util.DOM (scrollTop, targetToHTMLElement, targetToHTMLInputElement)
 import Explorer.Util.Data (sortBlocksByEpochSlot', unionBlocks)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
@@ -268,8 +268,7 @@ update (BlocksInvalidBlocksPageNumber target) state =
 update ScrollTop state =
     { state
     , effects:
-        -- FIXME: scrollTop disabled as a workaround for socketio
-        [ -- liftEff scrollTop >>= \_ -> pure NoOp
+        [ liftEff scrollTop >>= \_ -> pure NoOp
         ]
     }
 update (SelectInputText input) state =

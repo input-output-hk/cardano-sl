@@ -25,11 +25,12 @@ module Daedalus.Types
        , emptyCPassPhrase
        , getProfileLocale
        , walletAddressToUrl
+       , mkCWalletSetInit
        ) where
 
 import Prelude
 
-import Pos.Wallet.Web.ClientTypes (CAddress (..), CHash (..), CPassPhrase (..), CCoin (..), WS (..), CWalletAddress (..))
+import Pos.Wallet.Web.ClientTypes (CAddress (..), CHash (..), CPassPhrase (..), CCoin (..), WS (..), CWalletAddress (..), CWalletSetMeta (..))
 
 import Pos.Wallet.Web.ClientTypes as CT
 import Pos.Core.Types as C
@@ -145,13 +146,17 @@ mkCInitialized total preInit =
 
 mkCWalletInit :: String -> String -> String -> CAddress WS -> CT.CWalletInit
 mkCWalletInit wType wCurrency wName wSetId =
-    mkCWalletInit' wType wCurrency wName wSetId
-
-mkCWalletInit' :: String -> String -> String -> CAddress WS -> CT.CWalletInit
-mkCWalletInit' wType wCurrency wName wSetId =
     CT.CWalletInit { cwInitWSetId: wSetId
                    , cwInitMeta: mkCWalletMeta wType wCurrency wName "CWANormal" 0 -- FIXME: don't use string!
                    }
+
+mkCWalletSetInit :: String -> String -> Either Error CT.CWalletSetInit
+mkCWalletSetInit wSetName mnemonic = do
+    bp <- mkBackupPhrase backupMnemonicLen mnemonic
+    pure $ CT.CWalletSetInit { cwsInitMeta: CWalletSetMeta {cwsName: wSetName }
+                             , cwsBackupPhrase: bp
+                             }
+
 
 mkCWalletRedeem :: String -> CWalletAddress -> CT.CWalletRedeem
 mkCWalletRedeem seed wAddress = do

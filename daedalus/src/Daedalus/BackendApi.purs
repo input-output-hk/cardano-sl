@@ -122,8 +122,8 @@ restoreWalletSet pass = postRBody $ queryParams ["wallets", "sets", "restore"] [
 renameWalletSet :: forall eff. CAddress WS -> String -> Aff (ajax :: AJAX | eff) CWalletSet
 renameWalletSet wSetId name = postR $ noQueryParam ["wallets", "sets", "rename", _address wSetId, name]
 
-importKey :: forall eff. Maybe CPassPhrase -> FilePath -> Aff (ajax :: AJAX | eff) CWalletSet
-importKey pass = postRBody $ queryParams ["wallets", "sets", "keys"] [qParam "passphrase" $ _passPhrase <$> pass]
+importWalletSet :: forall eff. Maybe CPassPhrase -> FilePath -> Aff (ajax :: AJAX | eff) CWalletSet
+importWalletSet pass = postRBody $ queryParams ["wallets", "sets", "keys"] [qParam "passphrase" $ _passPhrase <$> pass]
 
 changeWalletSetPassphrase :: forall eff. CAddress WS -> Maybe CPassPhrase -> Maybe CPassPhrase -> Aff (ajax :: AJAX | eff) CWalletSet
 changeWalletSetPassphrase wSetId old new = postR $ queryParams ["wallets", "sets", "password", _address wSetId] [qParam "old" $ _passPhrase <$> old, qParam "new" $ _passPhrase <$> new]

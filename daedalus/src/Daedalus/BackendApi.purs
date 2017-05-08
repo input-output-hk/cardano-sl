@@ -152,8 +152,12 @@ deleteWallet wId = deleteR $ noQueryParam ["wallets", walletAddressToUrl wId]
 newAccount :: forall eff. Maybe CPassPhrase -> CWalletAddress -> Aff (ajax :: AJAX | eff) CAccount
 newAccount pass = postRBody $ queryParams ["account"] [qParam "passphrase" $ _passPhrase <$> pass]
 
--- isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
--- isValidAddress cCurrency addr = getR ["addresses", addr, "currencies", showCCurrency cCurrency]
+--------------------------------------------------------------------------------
+-- Addresses ------------------------------------------------------------------
+
+isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
+isValidAddress cCurrency addr = getR $ noQueryParam ["addresses", addr, "currencies", showCCurrency cCurrency]
+
 -- --------------------------------------------------------------------------------
 -- -- PROFILES --------------------------------------------------------------------
 -- getProfile :: forall eff. Aff (ajax :: AJAX | eff) CProfile

@@ -22,7 +22,6 @@ type State =
     , socket :: SocketState
     , viewStates :: ViewStates
     , latestBlocks :: RemoteData Error CBlockEntries
-    , pullLatestBlocks :: Boolean -- TODO (jk) Remove it if socket-io is back
     , totalBlocks :: RemoteData Error Int
     , currentBlockSummary :: Maybe CBlockSummary
     , currentBlockTxs :: Maybe CTxBriefs

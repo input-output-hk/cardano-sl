@@ -9,7 +9,7 @@ import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Lens ((^.), set)
 import Explorer.I18n.Lang (Language(..))
-import Explorer.Lenses.State (dbViewBlockPagination, lang, latestBlocks, pullLatestBlocks, totalBlocks)
+import Explorer.Lenses.State (dbViewBlockPagination, lang, latestBlocks, totalBlocks)
 import Explorer.State (initialState)
 import Explorer.Test.MockFactory (mkCBlockEntry, setEpochSlotOfBlock, setHashOfBlock)
 import Explorer.Types.Actions (Action(..))
@@ -48,10 +48,8 @@ testUpdate =
                 latestBlocks' = withDefault [] $ state ^. latestBlocks
             it "to update latestBlocks" do
                 (gShow latestBlocks') `shouldEqual` (gShow blocks)
-            it "to update pullLatestBlocks" do
-                (state ^. pullLatestBlocks) `shouldEqual` true
 
-        describe "uses action ReceiveBlocksUpdate" do
+        describe "uses action SocketBlocksUpdated" do
             -- Mock blocks with epoch, slots and hashes
             let blockA = setEpochSlotOfBlock 0 1 $ setHashOfBlock (mkCHash "A") mkCBlockEntry
                 blockB = setEpochSlotOfBlock 0 2 $ setHashOfBlock (mkCHash "B") mkCBlockEntry
@@ -70,7 +68,7 @@ testUpdate =
                     , blockC
                     , blockD
                     ]
-                effModel = update (ReceiveBlocksUpdate (Right newBlocks)) initialState'
+                effModel = update (SocketBlocksUpdated (Right newBlocks)) initialState'
                 state = _.state effModel
             it "to update latestBlocks w/o duplicates"
                 let result = withDefault [] $ state ^. latestBlocks

@@ -9,7 +9,7 @@ import Control.SocketIO.Client (SocketIO, emit, emit')
 import DOM (DOM)
 import DOM.HTML.HTMLElement (blur)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array (difference, length, null, unionBy, (:))
+import Data.Array (difference, length, unionBy, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Int (fromString)
@@ -21,7 +21,7 @@ import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs,
 import Explorer.Api.Socket (toEvent)
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, pullLatestBlocks, route, socket, subscriptions, totalBlocks, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, totalBlocks, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
@@ -78,7 +78,10 @@ update (SocketBlocksUpdated (Right blocks)) state =
 
 update (SocketBlocksUpdated (Left error)) state = noEffects $
     set latestBlocks (Failure error) $
-    -- add incoming errors ahead of previous errors
+    -- Important note:
+    -- Don't set `latestBlocks` to (Failure error) here
+    -- because we would lost all the previous (valid) data in `latestBlocks`
+    -- and in the UI. So just add incoming errors ahead of previous errors.
     over errors (\errors' -> (show error) : errors') state
 
 update (SocketTxsUpdated (Right transactions)) state =
@@ -396,11 +399,9 @@ update RequestInitialBlocks state =
 
 update (ReceiveInitialBlocks (Right blocks)) state =
     { state:
-          set loading false <<<
+          set loading false $
           -- add blocks
-          set latestBlocks (Success $ sortBlocksByEpochSlot' blocks) $
-          -- at this point we are ready to pull block updates
-          set pullLatestBlocks true state
+          set latestBlocks (Success $ sortBlocksByEpochSlot' blocks) state
     , effects:
           -- add subscription of `SubBlock` if we are on `Dashboard` only
           if (state ^. route) == Dashboard
@@ -413,38 +414,6 @@ update (ReceiveInitialBlocks (Left error)) state =
     set loading false <<<
     set latestBlocks (Failure error) $
     over errors (\errors' -> (show error) : errors') state
-
--- START #Pulling blocks
--- Pulling blocks is just a workaround to avoid issues w/ socket-io
--- TODO (jk) Remove this workaround if socket-io is back
-update RequestBlocksUpdate state =
-    { state:
-          set loading true $
-          -- Important note: Don't use `set latestBlocks Loading` here,
-          -- we will empty `latestBlocks` in this case !!!
-          -- set latestBlocks Loading
-          state
-    , effects: [ attempt (fetchLatestBlocks 10 0) >>= pure <<< ReceiveBlocksUpdate ]
-    }
-
-update (ReceiveBlocksUpdate (Right blocks)) state =
-    noEffects $
-    set loading false <<<
-    set latestBlocks (Success newBlocks) $
-    set totalBlocks (Success newTotalBlocks) state
-    where
-        previousBlocks = withDefault [] $ state ^. latestBlocks
-        newBlocks = sortBlocksByEpochSlot' $ unionBlocks blocks previousBlocks
-        previousTotalBlocks = withDefault 0 $ state ^. totalBlocks
-        newTotalBlocks = (length newBlocks) - (length previousBlocks) + previousTotalBlocks
-
-update (ReceiveBlocksUpdate (Left error)) state =
-    noEffects $
-    set loading false <<<
-    set latestBlocks (Failure error) $
-    over errors (\errors' -> (show error) : errors') state
-
--- END #Pulling blocks
 
 update (RequestPaginatedBlocks limit offset) state =
     { state:
@@ -622,19 +591,14 @@ routeEffects Dashboard state =
             else []
         -- request `latestBlocks` only if `totalBlocks` has been loaded before
         <>  if  (isSuccess $ state ^. totalBlocks) &&
-                (isNotAsked $ state ^. latestBlocks) &&
-                (not $ state ^. pullLatestBlocks)
+                (isNotAsked $ state ^. latestBlocks)
             then [ pure RequestInitialBlocks ]
             else []
-        -- pull latest blocks if neededMai
-        <>  if state ^. pullLatestBlocks
-            then [ pure RequestBlocksUpdate ]
-            else []
-        -- subscribe to `SubBlock` if `latestBlocks` has been loaded before
-        <>  if not null <<< withDefault [] $ state ^. latestBlocks
+        -- subscribe to `SubBlock` if `latestBlocks` has been loaded successfully before
+        <>  if isSuccess $ state ^. latestBlocks
             then [ pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock ] ]
             else []
-        -- subscribe to `SubTx` if `latestTransactions` has been loaded before
+        -- subscribe to `SubTx` if `latestTransactions` has been loaded successfully before
         <>  if isSuccess $ state ^. latestTransactions
             then [ pure $ SocketUpdateSubscriptions [ SocketSubscription SubTx ] ]
             else []

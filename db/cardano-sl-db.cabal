@@ -46,6 +46,7 @@ library
                      , transformers-base
                      , transformers-lift
                      , universum
+                     , store
 
   default-language:    Haskell2010
 

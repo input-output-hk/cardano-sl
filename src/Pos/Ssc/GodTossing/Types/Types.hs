@@ -1,4 +1,7 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Some types related to GodTossing necessary for Ssc instance.
 
@@ -29,12 +32,20 @@ import           Formatting                     (sformat, (%))
 import           Serokell.Util                  (listJson)
 import           Universum
 
-import           Pos.Crypto                     (VssKeyPair)
-import           Pos.Ssc.GodTossing.Core        (CommitmentsMap (getCommitmentsMap),
-                                                 Opening, OpeningsMap, SharesMap,
-                                                 SignedCommitment)
+import           Crypto.ECC.Edwards25519        (PointCompressed)
+import           Data.Store                     (Store)
+import           Data.Store.TH                  ()
+import           TH.Derive                      (Deriving, derive)
+
+import           Cardano.Crypto.Wallet          (ChainCode, XPub, XSignature)
+import           Pos.Binary.Class               (AsBinary)
+import           Pos.Crypto                     (PublicKey, Signature, VssKeyPair)
+import           Pos.Ssc.GodTossing.Core        (Commitment, CommitmentsMap, Opening,
+                                                 OpeningsMap, SharesMap, SignedCommitment,
+                                                 VssCertificate, getCommitmentsMap)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
-import           Pos.Types                      (EpochIndex)
+import           Pos.Types                      (EpochIndex, EpochOrSlot, LocalSlotIndex,
+                                                 SlotId)
 
 ----------------------------------------------------------------------------
 -- SscGlobalState
@@ -128,3 +139,23 @@ data GtSecretStorage = GtSecretStorage
     , -- | Epoch for which this secret were generated
       gssEpoch      :: !EpochIndex
     } deriving (Show, Eq)
+
+$($(derive [d|
+    instance Deriving (Store PointCompressed)
+    instance Deriving (Store ChainCode)
+    instance Deriving (Store SlotId)
+    instance Deriving (Store LocalSlotIndex)
+    instance Deriving (Store Commitment)
+    instance Deriving (Store CommitmentsMap)
+    instance Deriving (Store Opening)
+    instance Deriving (Store PublicKey)
+    instance Deriving (Store XSignature)
+    instance Deriving (Store XPub)
+    instance Deriving (Store EpochIndex)
+    instance Deriving (Store EpochOrSlot)
+    instance Deriving (Store (Signature a))
+    instance Deriving (Store (AsBinary a))
+    instance Deriving (Store VCD.VssCertData)
+    instance Deriving (Store VssCertificate)
+    instance Deriving (Store GtGlobalState)
+    |]))

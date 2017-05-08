@@ -14,6 +14,8 @@ module Pos.DB.GState.Common
          -- * Helpers
        , gsGetBi
        , gsPutBi
+       , gsGetStore
+       , gsPutStore
        , gsDelete
        , writeBatchGState
 
@@ -21,6 +23,7 @@ module Pos.DB.GState.Common
        , CommonOp (..)
        ) where
 
+import           Data.Store          (Store)
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB    as Rocks
 import           Formatting          (bprint, (%))
@@ -33,7 +36,8 @@ import           Pos.Crypto          (shortHashF)
 import           Pos.DB.Class        (MonadDB, getUtxoDB)
 import           Pos.DB.Error        (DBError (DBMalformed))
 import           Pos.DB.Functions    (RocksBatchOp (..), rocksDelete, rocksGetBi,
-                                      rocksPutBi, rocksWriteBatch)
+                                      rocksGetStore, rocksPutBi, rocksPutStore,
+                                      rocksWriteBatch)
 import           Pos.Util.Util       (maybeThrow)
 
 ----------------------------------------------------------------------------
@@ -49,6 +53,16 @@ gsPutBi
     :: (MonadDB m, Bi v)
     => ByteString -> v -> m ()
 gsPutBi k v = rocksPutBi k v =<< getUtxoDB
+
+gsGetStore
+    :: (MonadDB m, Store v)
+    => ByteString -> m (Maybe v)
+gsGetStore k = rocksGetStore k =<< getUtxoDB
+
+gsPutStore
+    :: (MonadDB m, Store v)
+    => ByteString -> v -> m ()
+gsPutStore k v = rocksPutStore k v =<< getUtxoDB
 
 gsDelete :: (MonadDB m) => ByteString -> m ()
 gsDelete k = rocksDelete k =<< getUtxoDB

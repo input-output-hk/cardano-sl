@@ -5,27 +5,25 @@ module Explorer.View.Blocks
     , blockHeaderItemView
     , maxBlockRows
     , minBlockRows
-    , unwrapLatestBlocks
     ) where
 
 import Prelude
-import Control.Monad.Eff.Exception (Error)
 import Data.Array (length, null, slice)
+import Data.DateTime (diff)
 import Data.Lens ((^.))
 import Data.Maybe (fromMaybe)
-import Data.DateTime (diff)
 import Data.Time.Duration (Milliseconds)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (block, blNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cRelayedBy, cSizeKB) as I18nL
-import Explorer.Lenses.State (blocksViewState, blsViewPagination, currentBlocksResult, lang, viewStates)
+import Explorer.I18n.Lenses (block, blNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cSizeKB) as I18nL
+import Explorer.Lenses.State (blocksViewState, blsViewPagination, blsViewPaginationEditable, currentBlocksResult, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
+import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State, CBlockEntries)
-import Explorer.Util.DOM (targetToHTMLInputElement)
 import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
-import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnRelayedBy, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
+import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
 import Explorer.View.Common (getMaxPaginationNumber, noData, paginationView)
-import Network.RemoteData (RemoteData(..))
+import Network.RemoteData (RemoteData(..), withDefault)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, cbeBlkHash, cbeEpoch, cbeSlot, cbeRelayedBy, cbeSize, cbeTotalSent, cbeTxNum)
 import Pux.Html (Html, div, text, h3, p) as P
@@ -62,9 +60,12 @@ blocksView state =
                           let paginationViewProps =
                                   { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                                   , currentPage: state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
+                                  , minPage: minPagination
                                   , maxPage: getMaxPaginationNumber (length blocks) maxBlockRows
                                   , changePageAction: BlocksPaginateBlocks
-                                  , onFocusAction: SelectInputText <<< targetToHTMLInputElement
+                                  , editable: state ^. (viewStates <<< blocksViewState <<< blsViewPaginationEditable)
+                                  , editableAction: BlocksEditBlocksPageNumber
+                                  , invalidPageAction: BlocksInvalidBlocksPageNumber
                                   }
                           in
                           P.div
@@ -102,19 +103,11 @@ failureView lang =
             [ P.text $ translate (I18nL.common <<< I18nL.cBack2Dashboard) lang ]
         ]
 
-
-
-unwrapLatestBlocks :: RemoteData Error CBlockEntries -> CBlockEntries
-unwrapLatestBlocks blocks =
-    case blocks of
-            Success blocks' -> blocks'
-            _ -> []
-
 currentBlocks :: State -> CBlockEntries
 currentBlocks state =
     slice minBlockIndex (minBlockIndex + maxBlockRows) blocks
     where
-        blocks = unwrapLatestBlocks $ state ^. currentBlocksResult
+        blocks = withDefault [] $ state ^. currentBlocksResult
         currentBlockPage = state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
         minBlockIndex = (currentBlockPage - 1) * maxBlockRows
 
@@ -137,9 +130,9 @@ blockRow state (CBlockEntry entry) =
         , blockColumn { label: entry ^. (cbeTotalSent <<< _CCoin <<< getCoin)
                       , clazz: CSS.blocksColumnTotalSent
                       }
-        , blockColumn { label: labelRelayed
-                      , clazz: CSS.blocksColumnRelayedBy
-                      }
+--        , blockColumn { label: labelRelayed
+--                      , clazz: CSS.blocksColumnRelayedBy
+--                      }
         , blockColumn { label: show $ entry ^. cbeSize
                       , clazz: CSS.blocksColumnSize
                       }
@@ -149,7 +142,6 @@ blockRow state (CBlockEntry entry) =
         labelAge = fromMaybe noData $ (prettyDuration language :: Milliseconds -> String) <<< diff state.now <$> (nominalDiffTimeToDateTime  =<< entry.cbeTimeIssued)
         labelRelayed = fromMaybe (translate (I18nL.common <<< I18nL.cUnknown) language)
                             $ entry ^. cbeRelayedBy
-
 
 
 type BlockColumnProps =
@@ -185,9 +177,9 @@ mkBlocksHeaderProps lang =
     , { label: translate (I18nL.common <<< I18nL.cTotalSent) lang
       , clazz: CSS.blocksColumnTotalSent
       }
-    , { label: translate (I18nL.common <<< I18nL.cRelayedBy) lang
-      , clazz: CSS.blocksColumnRelayedBy
-      }
+    -- , { label: translate (I18nL.common <<< I18nL.cRelayedBy) lang
+    --   , clazz: CSS.blocksColumnRelayedBy
+    --   }
     , { label: translate (I18nL.common <<< I18nL.cSizeKB) lang
       , clazz: CSS.blocksColumnSize
       }

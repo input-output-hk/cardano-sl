@@ -1,13 +1,15 @@
 module Explorer.Update where
 
 import Prelude
+import Control.Comonad (extract)
 import Control.Monad.Aff (attempt)
 import Control.Monad.Eff.Class (liftEff)
+import Control.Monad.Eff.Now (nowDateTime, NOW)
 import Control.SocketIO.Client (SocketIO, emit, emit')
-import Control.Comonad (extract)
 import DOM (DOM)
+import DOM.HTML.HTMLElement (blur)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array (difference, (:))
+import Data.Array (difference, length, take, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Int (fromString)
@@ -15,27 +17,29 @@ import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
-import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTxSummary, searchEpoch)
+import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTotalBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
+import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketSubscription(..), SocketSubscriptionAction(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, blockDetail, blockTxPagination, blocksViewState, blsViewPagination, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlocksExpanded, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, handleLatestBlocksSocketResult, handleLatestTxsSocketResult, initialBlocksRequested, initialTxsRequested, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, totalBlocks, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (Search(..), SocketSubscription(..), State)
-import Explorer.Util.DOM (scrollTop)
+import Explorer.Types.State (Search(..), State)
+import Explorer.Util.DOM (scrollTop, targetToHTMLElement, targetToHTMLInputElement)
+import Explorer.Util.Data (sortBlocksByEpochSlot', sortTxsByTime', unionBlocks, unionTxs)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
+import Explorer.View.Blocks (maxBlockRows)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
+import Explorer.View.Dashboard.Transactions (maxTransactionRows)
 import Network.HTTP.Affjax (AJAX)
-import Network.RemoteData (RemoteData(..), _Success)
+import Network.RemoteData (RemoteData(..), isNotAsked, isSuccess, withDefault)
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects, onlyEffects)
 import Pux.Router (navigateTo) as P
-import Control.Monad.Eff.Now (nowDateTime, NOW)
-
 
 update :: forall eff. Action -> State ->
     EffModel State Action
@@ -62,21 +66,40 @@ update (SocketConnected connected') state =
             else pure NoOp
           ]
     }
-update (SocketBlocksUpdated (Right blocks)) state = noEffects $
-    if state ^. handleLatestBlocksSocketResult
-    -- add incoming blocks ahead of previous blocks
-    then over (latestBlocks <<< _Success) (\b -> blocks <> b) state
-    else state
+
+update (SocketBlocksUpdated (Right blocks)) state =
+    noEffects $
+    set latestBlocks (Success newBlocks) $
+    set totalBlocks (Success newTotalBlocks) state
+    where
+        previousBlocks = withDefault [] $ state ^. latestBlocks
+        newBlocks = sortBlocksByEpochSlot' $ unionBlocks blocks previousBlocks
+        previousTotalBlocks = withDefault 0 $ state ^. totalBlocks
+        newTotalBlocks = (length newBlocks) - (length previousBlocks) + previousTotalBlocks
+
 update (SocketBlocksUpdated (Left error)) state = noEffects $
     set latestBlocks (Failure error) $
-    -- add incoming errors ahead of previous errors
+    -- Important note:
+    -- Don't set `latestBlocks` to (Failure error) here
+    -- because we would lost all the previous (valid) data in `latestBlocks`
+    -- and in the UI. So just add incoming errors ahead of previous errors.
     over errors (\errors' -> (show error) : errors') state
-update (SocketTxsUpdated (Right transactions)) state = noEffects $
-    -- add incoming transactions ahead of previous transactions
-    over latestTransactions (\t -> transactions <> t) state
+
+update (SocketTxsUpdated (Right txs)) state =
+    noEffects $
+    over latestTransactions
+        (\currentTxs -> Success <<<
+                            sortTxsByTime' <<<
+                            take maxTransactionRows $
+                                unionTxs txs $
+                                    withDefault [] currentTxs
+        )
+    state
+
 update (SocketTxsUpdated (Left error)) state = noEffects $
     -- add incoming errors ahead of previous errors
     over errors (\errors' -> (show error) : errors') state
+
 update SocketCallMe state =
     { state
     , effects : [ do
@@ -85,6 +108,7 @@ update SocketCallMe state =
               Nothing -> pure unit
           pure NoOp
     ]}
+
 update (SocketCallMeString str) state =
     { state
     , effects : [ do
@@ -93,6 +117,7 @@ update (SocketCallMeString str) state =
               Nothing -> pure unit
           pure NoOp
     ]}
+
 update (SocketCallMeCTxId id) state =
     { state
     , effects : [ do
@@ -102,21 +127,30 @@ update (SocketCallMeCTxId id) state =
           pure NoOp
     ]}
 
-update (SocketUpdateSubscriptions nextSubs) state =
-    let currentSubs = state ^. socket <<< subscriptions in
+update (SocketUpdateSubscriptions nextSubs subAction ) state =
     { state: set (socket <<< subscriptions) nextSubs state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
               Just socket' -> do
-                -- 1. unsubscribe all not used events
-                let diffNextFromCurrentSubs = difference currentSubs nextSubs
-                traverse_ (liftEff <<< emit' socket' <<< toEvent <<< Unsubscribe <<< unwrap) diffNextFromCurrentSubs
-                -- 2. subscribe all new subscriptions
-                let diffCurrentFromNextSubs = difference nextSubs currentSubs
-                traverse_ (liftEff <<< emit' socket' <<< toEvent <<< Subscribe <<< unwrap) diffCurrentFromNextSubs
+                case subAction of
+                    UnsubscribePrevSubscriptions -> do
+                        unsubPrevSubscriptions socket'
+                        subNextSubscriptions socket'
+                    KeepPrevSubscriptions ->
+                        subNextSubscriptions socket'
               Nothing -> pure unit
           pure NoOp
     ]}
+        where
+            currentSubs = state ^. socket <<< subscriptions
+            diffNextFromCurrentSubs = difference currentSubs nextSubs
+            unsubPrevSubscriptions socket'' =
+                traverse_ (liftEff <<< emit' socket'' <<< toEvent <<< Unsubscribe <<< unwrap) diffNextFromCurrentSubs
+            diffCurrentFromNextSubs = difference nextSubs currentSubs
+            subNextSubscriptions socket'' =
+                traverse_ (liftEff <<< emit' socket'' <<< toEvent <<< Subscribe <<< unwrap) diffCurrentFromNextSubs
+
+
 
 update SocketReconnectSubscriptions state =
     let currentSubs = state ^. socket <<< subscriptions in
@@ -133,10 +167,44 @@ update SocketReconnectSubscriptions state =
 
 update (DashboardExpandBlocks expanded) state = noEffects $
     set (dashboardViewState <<< dbViewBlocksExpanded) expanded state
+
 update (DashboardExpandTransactions expanded) state = noEffects $
     set (dashboardViewState <<< dbViewTxsExpanded) expanded state
-update (DashboardPaginateBlocks value) state = noEffects $
-    set (dashboardViewState <<< dbViewBlockPagination) value state
+
+update (DashboardPaginateBlocks newPage) state =
+    { state:
+          if doRequest
+          then set (dashboardViewState <<< dbViewNextBlockPagination) newPage state
+          else set (dashboardViewState <<< dbViewBlockPagination) newPage state
+    , effects:
+          if doRequest
+          then [ pure $ RequestPaginatedBlocks (RequestLimit limit) (RequestOffset offset) ]
+          else []
+    }
+    where
+        doRequest = doPaginateBlocksRequest state newPage maxBlockRows
+        buffer = maxBlockRows
+        limit = limitPaginateBlocksRequest state newPage maxBlockRows buffer
+        offset = offsetPaginateBlocksRequest state
+
+update (DashboardEditBlocksPageNumber target editable) state =
+    { state:
+          set (dashboardViewState <<< dbViewBlockPaginationEditable) editable state
+    , effects:
+          [ if editable
+            then pure $ SelectInputText $ targetToHTMLInputElement target
+            else pure NoOp
+          ]
+    }
+
+update (DashboardInvalidBlocksPageNumber target) state =
+    { state:
+          set (dashboardViewState <<< dbViewBlockPaginationEditable) false state
+    , effects:
+          [ pure $ BlurElement $ targetToHTMLElement target
+          ]
+    }
+
 update (DashboardShowAPICode code) state = noEffects $
     set (dashboardViewState <<< dbViewSelectedApiCode) code state
 
@@ -145,15 +213,69 @@ update (DashboardShowAPICode code) state = noEffects $
 update (AddressPaginateTxs value) state = noEffects $
     set (viewStates <<< addressDetail <<< addressTxPagination) value state
 
+update (AddressEditTxsPageNumber target editable) state =
+    { state:
+          set (viewStates <<< addressDetail <<< addressTxPaginationEditable) editable state
+    , effects:
+          [ if editable
+            then pure $ SelectInputText $ targetToHTMLInputElement target
+            else pure NoOp
+          ]
+    }
+
+update (AddressInvalidTxsPageNumber target) state =
+    { state:
+          set (viewStates <<< addressDetail <<< addressTxPaginationEditable) false state
+      , effects:
+          [ pure $ BlurElement $ targetToHTMLElement target
+          ]
+    }
+
 -- Block
 
 update (BlockPaginateTxs value) state = noEffects $
     set (viewStates <<< blockDetail <<< blockTxPagination) value state
 
+update (BlockEditTxsPageNumber target editable) state =
+    { state:
+          set (viewStates <<< blockDetail <<< blockTxPaginationEditable) editable state
+    , effects:
+          [ if editable
+            then pure $ SelectInputText $ targetToHTMLInputElement target
+            else pure NoOp
+          ]
+    }
+
+update (BlockInvalidTxsPageNumber target) state =
+    { state:
+          set (viewStates <<< blockDetail <<< blockTxPaginationEditable) false state
+      , effects:
+          [ pure $ BlurElement $ targetToHTMLElement target
+          ]
+    }
+
 -- Blocks
 
 update (BlocksPaginateBlocks value) state = noEffects $
     set (viewStates <<< blocksViewState <<< blsViewPagination) value state
+
+update (BlocksEditBlocksPageNumber target editable) state =
+    { state:
+          set (viewStates <<< blocksViewState <<< blsViewPaginationEditable) editable state
+    , effects:
+          [ if editable
+            then pure $ SelectInputText $ targetToHTMLInputElement target
+            else pure NoOp
+          ]
+    }
+
+update (BlocksInvalidBlocksPageNumber target) state =
+    { state:
+          set (viewStates <<< blocksViewState <<< blsViewPaginationEditable) false state
+      , effects:
+          [ pure $ BlurElement $ targetToHTMLElement target
+          ]
+    }
 
 -- DOM side effects
 
@@ -167,6 +289,12 @@ update (SelectInputText input) state =
     { state
     , effects:
         [ liftEff $ select input >>= \_ -> pure NoOp
+        ]
+    }
+update (BlurElement elem) state =
+    { state
+    , effects:
+        [ liftEff $ blur elem >>= \_ -> pure NoOp
         ]
     }
 update (GenerateQrCode address) state =
@@ -251,23 +379,86 @@ update NoOp state = noEffects state
 
 -- http endpoints
 
-update RequestInitialBlocks state =
-    { state: set loading true $ state
-    , effects: [ attempt fetchLatestBlocks >>= pure <<< ReceiveInitialBlocks ]
+update RequestTotalBlocks state =
+    { state:
+          set totalBlocks Loading state
+    , effects:
+          [ attempt fetchTotalBlocks >>= pure <<< ReceiveTotalBlocks
+          ]
     }
-update (ReceiveInitialBlocks (Right blocks)) state =
+
+update (ReceiveTotalBlocks (Right total)) state =
+    { state:
+          set totalBlocks (Success total) state
+    , effects:
+        -- request `latestBlocks` if needed only
+        if isNotAsked $ state ^. latestBlocks
+        then [ pure RequestInitialBlocks ]
+        else []
+    }
+
+update (ReceiveTotalBlocks (Left error)) state =
     noEffects $
-    set loading false <<<
-    set initialBlocksRequested true <<<
-    set handleLatestBlocksSocketResult true $
-    set latestBlocks (Success blocks) $
-    state
+    set totalBlocks (Failure error)
+    $ over errors (\errors' -> (show error) : errors') state
+
+update RequestInitialBlocks state =
+    { state:
+          set loading true $
+          set latestBlocks Loading
+          state
+    , effects:
+        [ attempt (fetchLatestBlocks (RequestLimit maxBlockRows) (RequestOffset 0)) >>=
+            pure <<< ReceiveInitialBlocks
+        ]
+    }
+
+update (ReceiveInitialBlocks (Right blocks)) state =
+    { state:
+          set loading false $
+          -- add blocks
+          set latestBlocks (Success $ sortBlocksByEpochSlot' blocks) state
+    , effects:
+          -- add subscription of `SubBlock` if we are on `Dashboard` only
+          if (state ^. route) == Dashboard
+          then  [ pure $ SocketUpdateSubscriptions
+                            [ SocketSubscription SubBlock ]
+                            KeepPrevSubscriptions
+                ]
+          else []
+    }
 
 update (ReceiveInitialBlocks (Left error)) state =
     noEffects $
     set loading false <<<
-    set initialBlocksRequested true <<<
-    set handleLatestBlocksSocketResult true $
+    set latestBlocks (Failure error) $
+    over errors (\errors' -> (show error) : errors') state
+
+update (RequestPaginatedBlocks limit offset) state =
+    { state:
+          set loading true $
+          -- Important note: Don't use `set latestBlocks Loading` here,
+          -- we will empty `latestBlocks` in this case !!!
+          -- set latestBlocks Loading
+          set (dashboardViewState <<< dbViewLoadingBlockPagination) true
+          state
+    , effects: [ attempt (fetchLatestBlocks limit offset) >>= pure <<< ReceivePaginatedBlocks ]
+    }
+
+update (ReceivePaginatedBlocks (Right blocks)) state =
+    noEffects $
+    set loading false $
+    set (dashboardViewState <<< dbViewBlockPagination) (state ^. (dashboardViewState <<< dbViewNextBlockPagination)) $
+    set (dashboardViewState <<< dbViewLoadingBlockPagination) false $
+    set latestBlocks (Success newBlocks) state
+    where
+        previousBlocks = withDefault [] $ state ^. latestBlocks
+        newBlocks = sortBlocksByEpochSlot' $ unionBlocks blocks previousBlocks
+
+update (ReceivePaginatedBlocks (Left error)) state =
+    noEffects $
+    set loading false <<<
+    set (dashboardViewState <<< dbViewLoadingBlockPagination) false $
     set latestBlocks (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
@@ -319,24 +510,47 @@ update (ReceiveBlockTxs (Left error)) state =
     set loading false $
     set currentBlockTxs Nothing $
     over errors (\errors' -> (show error) : errors') state
-update RequestInitialTxs state =
-    { state: set loading true state
-    , effects: [ attempt fetchLatestTxs >>= pure <<< ReceiveInitialTxs ]
+update (RequestInitialTxs) state =
+    { state:
+          set loading true $
+          set latestTransactions Loading
+          state
+    , effects:
+        [ attempt (fetchLatestTxs (RequestLimit maxTransactionRows) (RequestOffset 0)) >>=
+              pure <<< ReceiveInitialTxs
+        ]
     }
-update (ReceiveInitialTxs (Right blocks)) state =
-    noEffects $
-    set loading false <<<
-    set initialTxsRequested true <<<
-    set handleLatestTxsSocketResult true $
-    over latestTransactions (\b -> blocks <> b) state
+update (ReceiveInitialTxs (Right txs)) state =
+    { state:
+          set loading false $
+          over latestTransactions
+              (\currentTxs -> Success <<<
+                                  sortTxsByTime' <<<
+                                  take maxTransactionRows $
+                                      unionTxs txs $
+                                          withDefault [] currentTxs
+              )
+          state
+    , effects:
+          -- add subscription of `SubTx` if we are on `Dashboard` only
+          if (state ^. route) == Dashboard
+          then [ pure $ SocketUpdateSubscriptions
+                            [ SocketSubscription SubTx]
+                            KeepPrevSubscriptions
+                ]
+          else []
+
+    }
+
 update (ReceiveInitialTxs (Left error)) state = noEffects $
-    set loading false <<<
-    set initialTxsRequested true <<<
-    set handleLatestTxsSocketResult true $
+    set loading false $
     over errors (\errors' -> (show error) : errors') state
 
 update (RequestTxSummary id) state =
-    { state: set loading true state
+    { state:
+          set loading true $
+          set currentTxSummary Loading
+          state
     , effects: [ attempt (fetchTxSummary id) >>= pure <<< ReceiveTxSummary ]
     }
 update (ReceiveTxSummary (Right tx)) state =
@@ -350,7 +564,10 @@ update (ReceiveTxSummary (Left error)) state =
     over errors (\errors' -> (show error) : errors') state
 
 update (RequestAddressSummary address) state =
-    { state: set loading true state
+    { state:
+          set loading true $
+          set currentAddressSummary Loading
+          state
     , effects: [ attempt (fetchAddressSummary address) >>= pure <<< ReceiveAddressSummary ]
     }
 update (ReceiveAddressSummary (Right address)) state =
@@ -386,32 +603,48 @@ routeEffects Dashboard state =
             state
     , effects:
         [ pure ScrollTop
-        , pure $ SocketUpdateSubscriptions [ SocketSubscription SubBlock, SocketSubscription SubTx ]
-        , if not $ state ^. initialBlocksRequested
-          then pure RequestInitialBlocks
-          else pure NoOp
-        , if not $ state ^. initialTxsRequested
-          then pure RequestInitialTxs
-          else pure NoOp
         ]
+        -- get `totalBlocks` only once
+        <>  ( if isNotAsked $ state ^. totalBlocks
+              then [ pure RequestTotalBlocks ]
+              else []
+            )
+        -- request `latestBlocks` if needed
+        <>  ( if  (isSuccess $ state ^. totalBlocks) && (isNotAsked $ state ^. latestBlocks)
+              then [ pure RequestInitialBlocks ]
+              else []
+            )
+        -- request `latestTransactions` if needed
+        <>  ( if isNotAsked $ state ^. latestTransactions
+              then [ pure RequestInitialTxs ]
+              else []
+            )
+        -- subscribe to `SubBlock` and `SubTx `if needed
+        <>  ( if  (isSuccess $ state ^. latestBlocks) &&
+                (isSuccess $ state ^. latestTransactions)
+              then [ pure $ SocketUpdateSubscriptions
+                              [ SocketSubscription SubBlock
+                              , SocketSubscription SubTx
+                              ] UnsubscribePrevSubscriptions
+                  ]
+              else []
+            )
     }
 
 routeEffects (Tx tx) state =
     { state:
-        set currentTxSummary Loading $
         set (viewStates <<< globalViewState <<< gViewTitle)
             (translate (I18nL.common <<< I18nL.cTransaction) $ state ^. lang)
             state
     , effects:
         [ pure ScrollTop
-        , pure $ SocketUpdateSubscriptions []
+        , pure $ SocketUpdateSubscriptions [] UnsubscribePrevSubscriptions
         , pure $ RequestTxSummary tx
         ]
     }
 
 routeEffects (Address cAddress) state =
     { state:
-        set currentAddressSummary Loading $
         set currentCAddress cAddress $
         set (viewStates <<< addressDetail <<< addressTxPagination) minPagination $
         set (viewStates <<< globalViewState <<< gViewTitle)
@@ -419,7 +652,7 @@ routeEffects (Address cAddress) state =
             state
     , effects:
         [ pure ScrollTop
-        , pure $ SocketUpdateSubscriptions []
+        , pure $ SocketUpdateSubscriptions [] UnsubscribePrevSubscriptions
         , pure $ RequestAddressSummary cAddress
         ]
     }
@@ -469,7 +702,7 @@ routeEffects (Block hash) state =
             state
     , effects:
         [ pure ScrollTop
-        , pure $ SocketUpdateSubscriptions []
+        , pure $ SocketUpdateSubscriptions [] UnsubscribePrevSubscriptions
         , pure $ RequestBlockSummary hash
         , pure $ RequestBlockTxs hash
         ]
@@ -479,7 +712,7 @@ routeEffects Playground state =
     { state
     , effects:
         [ pure ScrollTop
-        , pure $ SocketUpdateSubscriptions []
+        , pure $ SocketUpdateSubscriptions [] UnsubscribePrevSubscriptions
         ]
     }
 
@@ -490,6 +723,31 @@ routeEffects NotFound state =
             state
     , effects:
         [ pure ScrollTop
-        , pure $ SocketUpdateSubscriptions []
+        , pure $ SocketUpdateSubscriptions [] UnsubscribePrevSubscriptions
         ]
     }
+
+-- helper functions
+
+-- | Checks if we do need to make a request to get data of next block pagination or not
+doPaginateBlocksRequest :: State -> Int -> Int -> Boolean
+doPaginateBlocksRequest state nextPage blockRows =
+    nextPage > state ^. (dashboardViewState <<< dbViewBlockPagination)
+    && lengthBlocks < (nextPage * blockRows)
+    && lengthBlocks < (withDefault 0 $ state ^. totalBlocks)
+    where
+        lengthBlocks = length $ withDefault [] (state ^. latestBlocks)
+
+-- | Determines the `limit` to request pagination of blocks
+-- | _Note_: We add some extra "buffer" to get more blocks as needed,
+-- | just to avoid to lost any data
+limitPaginateBlocksRequest :: State -> Int -> Int -> Int -> Int
+limitPaginateBlocksRequest state nextPage blockRows buffer =
+    (nextPage * blockRows - length latestBlocks') + buffer
+    where
+        latestBlocks' = withDefault [] (state ^. latestBlocks)
+
+-- | Determines the `offset` to request pagination of blocks
+offsetPaginateBlocksRequest :: State -> Int
+offsetPaginateBlocksRequest state =
+    length $ withDefault [] (state ^. latestBlocks)

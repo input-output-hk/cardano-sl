@@ -44,9 +44,9 @@ config state = do
   on socket' Ex.closeEvent $ Ex.closeHandler actionChannel
   on socket' (toEvent TxsUpdated) $ Ex.txsUpdatedHandler actionChannel
   on socket' (toEvent BlocksUpdated) $ Ex.blocksUpdatedEventHandler actionChannel
-  on socket' (toEvent CallYou) $ Ex.callYouEventHandler actionChannel
-  on socket' (toEvent CallYouString) $ Ex.callYouStringEventHandler actionChannel
-  on socket' (toEvent CallYouTxId) $ Ex.callYouCTxIdEventHandler actionChannel
+  -- on socket' (toEvent CallYou) $ Ex.callYouEventHandler actionChannel
+  -- on socket' (toEvent CallYouString) $ Ex.callYouStringEventHandler actionChannel
+  -- on socket' (toEvent CallYouTxId) $ Ex.callYouCTxIdEventHandler actionChannel
   dt <- extract <$> nowDateTime
 
   pure

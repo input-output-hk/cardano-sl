@@ -174,6 +174,9 @@ type NewAccount = API
     :> ReqBody '[JSON] CWalletAddress
     :> Post '[JSON] (Either WalletError CAccount)
 
+-------------------------------------------------------------------------
+-- Addresses
+-------------------------------------------------------------------------
 
 type IsValidAddress = API
     :> "addresses"
@@ -182,6 +185,9 @@ type IsValidAddress = API
     :> Capture "currency" CCurrency
     :> Get '[JSON] (Either WalletError Bool)
 
+-------------------------------------------------------------------------
+-- Profile(s)
+-------------------------------------------------------------------------
 
 type GetProfile = API
     :> "profile"
@@ -192,6 +198,10 @@ type UpdateProfile = API
     :> ReqBody '[JSON] CProfile
     :> Post '[JSON] (Either WalletError CProfile)
 
+
+-------------------------------------------------------------------------
+-- Transactions
+-------------------------------------------------------------------------
 
 type NewPayment = API
     :> "txs"
@@ -241,6 +251,11 @@ type SearchHistory = API
     :> QueryParam "limit" Word
     :> Get '[JSON] (Either WalletError ([CTx], Word))
 
+
+-------------------------------------------------------------------------
+-- Updates
+-------------------------------------------------------------------------
+
 type NextUpdate = API
     :> "update"
     :> Get '[JSON] (Either WalletError CUpdateInfo)
@@ -249,6 +264,10 @@ type ApplyUpdate = API
     :> "update"
     :> Post '[JSON] (Either WalletError ())
 
+
+-------------------------------------------------------------------------
+-- Redemptions
+-------------------------------------------------------------------------
 
 type RedeemADA = API
     :> "redemptions"
@@ -266,6 +285,10 @@ type RedeemADAPaperVend = API
     :> Post '[JSON] (Either WalletError CTx)
 
 
+-------------------------------------------------------------------------
+-- Reporting
+-------------------------------------------------------------------------
+
 type ReportingInitialized = API
     :> "reporting"
     :> "initialized"
@@ -278,6 +301,10 @@ type ReportingElectroncrash = API
     :> MultipartForm CElectronCrashReport
     :> Post '[JSON] (Either WalletError ())
 
+
+-------------------------------------------------------------------------
+-- Settings
+-------------------------------------------------------------------------
 
 type GetSlotsDuration = API
     :> "settings"

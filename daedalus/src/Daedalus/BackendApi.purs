@@ -5,7 +5,7 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Exception (error, Error)
 import Control.Monad.Error.Class (throwError)
 import Daedalus.Constants (backendPrefix)
-import Daedalus.Types (CAddress, _address, _ccoin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPaperVendWalletRedeem, WS, CWalletSet, CWalletSetInit, walletAddressToUrl, CWalletAddress)
+import Daedalus.Types (CAddress, _address, _ccoin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPaperVendWalletRedeem, WS, CWalletSet, CWalletSetInit, walletAddressToUrl, CWalletAddress, CAccount)
 import Data.Array (last, catMaybes)
 import Data.Monoid (mempty)
 import Data.Bifunctor (lmap)
@@ -102,11 +102,11 @@ deleteR = makeRequest $ defaultRequest { method = Left DELETE }
 
 -- REQUESTS
 --------------------------------------------------------------------------------
--- TEST ------------------------------------------------------------------------
+-- Test ------------------------------------------------------------------------
 testReset :: forall eff. Aff (ajax :: AJAX | eff) Unit
 testReset = postR $ noQueryParam ["test", "reset"]
 --------------------------------------------------------------------------------
--- WALLET SETS ---------------------------------------------------------------------
+-- Wallet Sets ---------------------------------------------------------------------
 getWalletSet :: forall eff. CAddress WS -> Aff (ajax :: AJAX | eff) CWalletSet
 getWalletSet addr = getR $ noQueryParam ["wallets", "sets", _address addr]
 
@@ -129,7 +129,7 @@ changeWalletSetPassphrase :: forall eff. CAddress WS -> Maybe CPassPhrase -> May
 changeWalletSetPassphrase wSetId old new = postR $ queryParams ["wallets", "sets", "password", _address wSetId] [qParam "old" $ _passPhrase <$> old, qParam "new" $ _passPhrase <$> new]
 
 --------------------------------------------------------------------------------
--- WALLETS ---------------------------------------------------------------------
+-- Wallets ---------------------------------------------------------------------
 
 getWallet :: forall eff. CWalletAddress -> Aff (ajax :: AJAX | eff) CWallet
 getWallet wId = getR $ noQueryParam ["wallets", walletAddressToUrl wId]
@@ -146,13 +146,12 @@ newWallet pass = postRBody $ queryParams ["wallets"] [qParam "passphrase" $ _pas
 deleteWallet :: forall eff. CWalletAddress -> Aff (ajax :: AJAX | eff) Unit
 deleteWallet wId = deleteR $ noQueryParam ["wallets", walletAddressToUrl wId]
 
--- importKey :: forall eff. String -> Aff (ajax :: AJAX | eff) CWallet
--- importKey = postRBody ["wallets", "keys"]
---
--- restoreWallet :: forall eff. CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
--- restoreWallet pass = postRBody ["wallets", "restore", _passPhrase pass]
--- --------------------------------------------------------------------------------
--- -- ADDRESSSES ------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Accounts ------------------------------------------------------------------
+
+newAccount :: forall eff. Maybe CPassPhrase -> CWalletAddress -> Aff (ajax :: AJAX | eff) CAccount
+newAccount pass = postRBody $ queryParams ["account"] [qParam "passphrase" $ _passPhrase <$> pass]
+
 -- isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
 -- isValidAddress cCurrency addr = getR ["addresses", addr, "currencies", showCCurrency cCurrency]
 -- --------------------------------------------------------------------------------

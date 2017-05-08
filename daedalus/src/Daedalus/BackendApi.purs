@@ -181,32 +181,33 @@ getHistory addr skip limit = getR $ queryParams ["txs", "histories", walletAddre
 
 searchHistory :: forall eff. CWalletAddress -> String -> Maybe (CAddress Acc) -> Maybe Int -> Maybe Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
 searchHistory addr search account skip limit = getR $ queryParams ["txs", "histories", walletAddressToUrl addr, search] [qParam "account" $ _address <$> account, qParam "skip" $ show <$> skip, qParam "limit" $ show <$> limit]
--- --------------------------------------------------------------------------------
--- -- UPDATES ---------------------------------------------------------------------
--- nextUpdate :: forall eff. Aff (ajax :: AJAX | eff) CUpdateInfo
--- nextUpdate = getR ["update"]
---
--- applyUpdate :: forall eff. Aff (ajax :: AJAX | eff) Unit
--- applyUpdate = postR ["update"]
--- --------------------------------------------------------------------------------
--- -- REDEMPTIONS -----------------------------------------------------------------
--- redeemAda :: forall eff. CWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
--- redeemAda = postRBody ["redemptions", "ada"]
---
--- redeemAdaPaperVend :: forall eff. CPaperVendWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
--- redeemAdaPaperVend = postRBody ["papervend", "redemptions", "ada"]
--- --------------------------------------------------------------------------------
--- -- REPORTING ---------------------------------------------------------------------
--- reportInit :: forall eff. CInitialized -> Aff (ajax :: AJAX | eff) Unit
--- reportInit = postRBody ["reporting", "initialized"]
--- --------------------------------------------------------------------------------
--- -- SETTINGS ---------------------------------------------------------------------
--- blockchainSlotDuration :: forall eff. Aff (ajax :: AJAX | eff) Int
--- blockchainSlotDuration = getR ["settings", "slots", "duration"]
---
--- systemVersion :: forall eff. Aff (ajax :: AJAX | eff) SoftwareVersion
--- systemVersion = getR ["settings", "version"]
---
--- syncProgress :: forall eff. Aff (ajax :: AJAX | eff) SyncProgress
--- syncProgress = getR ["settings", "sync", "progress"]
--- --------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Updates ---------------------------------------------------------------------
+nextUpdate :: forall eff. Aff (ajax :: AJAX | eff) CUpdateInfo
+nextUpdate = getR $ noQueryParam ["update"]
+
+applyUpdate :: forall eff. Aff (ajax :: AJAX | eff) Unit
+applyUpdate = postR $ noQueryParam ["update"]
+--------------------------------------------------------------------------------
+-- Redemptions -----------------------------------------------------------------
+redeemAda :: forall eff. Maybe CPassPhrase -> CWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
+redeemAda pass = postRBody $ queryParams ["redemptions", "ada"] [qParam "passphrase" $ _passPhrase <$> pass]
+
+redeemAdaPaperVend :: forall eff. Maybe CPassPhrase -> CPaperVendWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
+redeemAdaPaperVend pass = postRBody $ queryParams ["papervend", "redemptions", "ada"] [qParam "passphrase" $ _passPhrase <$> pass]
+--------------------------------------------------------------------------------
+-- REPORTING ---------------------------------------------------------------------
+reportInit :: forall eff. CInitialized -> Aff (ajax :: AJAX | eff) Unit
+reportInit = postRBody $ noQueryParam ["reporting", "initialized"]
+
+--------------------------------------------------------------------------------
+-- SETTINGS ---------------------------------------------------------------------
+blockchainSlotDuration :: forall eff. Aff (ajax :: AJAX | eff) Int
+blockchainSlotDuration = getR $ noQueryParam ["settings", "slots", "duration"]
+
+systemVersion :: forall eff. Aff (ajax :: AJAX | eff) SoftwareVersion
+systemVersion = getR $ noQueryParam ["settings", "version"]
+
+syncProgress :: forall eff. Aff (ajax :: AJAX | eff) SyncProgress
+syncProgress = getR $ noQueryParam ["settings", "sync", "progress"]
+--------------------------------------------------------------------------------

@@ -30,8 +30,9 @@ import           Pos.Core                   (HasDifficulty (..))
 import           Pos.Core.Address           (AddrPkAttrs (..), Address (..),
                                              makePubKeyAddress)
 import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
-                                             deriveHDPassphrase, encToPublic, hash,
-                                             shortHashF, unpackHDAddressAttr)
+                                             WithHash (..), deriveHDPassphrase,
+                                             encToPublic, hash, shortHashF,
+                                             unpackHDAddressAttr)
 import           Pos.Crypto.HDDiscovery     (discoverHDAddresses)
 import           Pos.Data.Attributes        (Attributes (..))
 import qualified Pos.DB.Block               as DB
@@ -41,7 +42,8 @@ import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
 import           Pos.Ssc.Class              (SscHelpersClass)
 import           Pos.Txp.Core               (Tx (..), TxAux, TxIn (..), TxOutAux (..),
                                              TxUndo, getTxDistribution, toaOut,
-                                             txOutAddress)
+                                             topsortTxs, txOutAddress)
+import           Pos.Txp.MemState.Class     (MonadTxpMem, getLocalTxs)
 import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..), ToilT,
                                              evalToilTEmpty, runDBTxp)
 import           Pos.Types                  (BlockHeader, HeaderHash, blockTxas,
@@ -67,7 +69,7 @@ type BlockLockMode ssc m =
 class Monad m => MonadWalletTracking m where
     syncWSetsAtStart :: [EncryptedSecretKey] -> m ()
     syncOnImport :: EncryptedSecretKey -> m ()
-    txMempoolToModifier :: m CAccModifier
+    txMempoolToModifier :: EncryptedSecretKey -> m CAccModifier
 
 
 instance {-# OVERLAPPABLE #-}
@@ -77,13 +79,19 @@ instance {-# OVERLAPPABLE #-}
   where
     syncWSetsAtStart = lift . syncWSetsAtStart
     syncOnImport = lift . syncOnImport
-    txMempoolToModifier = lift txMempoolToModifier
+    txMempoolToModifier = lift . txMempoolToModifier
 
-instance (BlockLockMode WalletSscType m, MonadMockable m)
+instance (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m)
          => MonadWalletTracking (WalletWebDB m) where
     syncWSetsAtStart = syncWSetsWithGStateLock
     syncOnImport = selectAccountsFromUtxoLock . pure
-    txMempoolToModifier = error "Not implemented yet"
+    txMempoolToModifier encSK = do
+        let wHash (i, (t, _, _)) = WithHash t i
+        txs <- getLocalTxs
+        case topsortTxs wHash txs of
+            Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
+            Just (map snd -> ordered) ->
+                runDBTxp $ evalToilTEmpty $ trackingApplyTxs encSK ordered
 
 ----------------------------------------------------------------------------
 -- Logic

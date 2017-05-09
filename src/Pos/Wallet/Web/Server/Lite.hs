@@ -50,7 +50,7 @@ type MainWalletState = WS.WalletState
 instance Monad m => MonadWalletTracking (WalletWebSockets m) where
     syncWSetsAtStart = const pass
     syncOnImport = const pass
-    txMempoolToModifier = pure mempty
+    txMempoolToModifier = const (pure mempty)
 
 walletServeWebLite
     :: SscHelpersClass WalletSscType

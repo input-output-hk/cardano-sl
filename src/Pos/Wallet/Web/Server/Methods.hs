@@ -26,6 +26,7 @@ import qualified Control.Monad.Catch              as E
 import           Control.Monad.State              (runStateT)
 import           Data.Default                     (Default (def))
 import qualified Data.List.NonEmpty               as NE
+import qualified Data.Set                         as S
 import           Data.Tagged                      (untag)
 import qualified Data.Text                        as T
 import           Data.Time.Clock.POSIX            (getPOSIXTime)
@@ -77,6 +78,7 @@ import           Pos.Reporting.Methods            (sendReport, sendReportNodeNol
 import           Pos.Txp.Core                     (TxOut (..), TxOutAux (..))
 import           Pos.Util                         (maybeThrow)
 import           Pos.Util.BackupPhrase            (toSeed)
+import qualified Pos.Util.Modifier                as MM
 import           Pos.Wallet.KeyStorage            (MonadKeys (..), addSecretKey)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.WalletMode            (WalletMode, applyLastUpdate,
@@ -431,9 +433,16 @@ getAccounts = getWalletAccAddrsOrThrow Existing >=> mapM getAccount
 
 getWallet :: WalletWebMode m => CWalletAddress -> m CWallet
 getWallet cAddr = do
+    encSK <- getSKByAddr (cwaWSAddress cAddr)
     accounts <- getAccounts cAddr
-    meta     <- getWalletMeta cAddr >>= maybeThrow noWallet
-    pure $ CWallet cAddr meta accounts
+    modifier <- txMempoolToModifier encSK
+    let insertions = map fst (MM.insertions modifier)
+    let modAccs = S.fromList $ map caaAddress $ insertions ++ MM.deletions modifier
+    let filteredAccs = filter (flip S.notMember modAccs . caAddress) accounts
+    mempoolAccs <- mapM getAccount insertions
+    let mergedAccs = filteredAccs ++ mempoolAccs
+    meta <- getWalletMeta cAddr >>= maybeThrow noWallet
+    pure $ CWallet cAddr meta mergedAccs
   where
     noWallet =
         Internal $ sformat ("No wallet with address "%build%" found") cAddr

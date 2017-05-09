@@ -79,7 +79,9 @@ import           Pos.DHT.Real                (KademliaDHTInstance,
                                               KademliaDHTInstanceConfig (..),
                                               KademliaParams (..), startDHTInstance,
                                               stopDHTInstance)
-import           Pos.Discovery.Holders       (runDiscoveryConstT, runDiscoveryKademliaT)
+import           Pos.Discovery.Holders       (DiscoveryKademliaT, DiscoveryConstT,
+                                              runDiscoveryConstT,
+                                              runDiscoveryKademliaT)
 import           Pos.Genesis                 (genesisLeaders, genesisSeed)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
@@ -91,7 +93,7 @@ import           Pos.Slotting                (SlottingVar, mkNtpSlottingVar,
 import           Pos.Ssc.Class               (SscConstraint, SscNodeContext, SscParams,
                                               sscCreateNodeContext)
 import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
-import           Pos.Statistics              (getNoStatsT, runStatsT')
+import           Pos.Statistics              (StatsT, NoStatsT, getNoStatsT, runStatsT')
 import           Pos.Txp                     (mkTxpLocalData, runTxpHolder,
                                               TxpMetrics (..))
 import           Pos.Txp.DB                  (genesisFakeTotalStake,
@@ -282,6 +284,7 @@ runProductionMode peerId transport kinst np@NodeParams {..} sscnp (ActionSpec ac
         hoistDown . action vI $ hoistSendActions hoistUp hoistDown sendActions
   where
     hoistUp = lift . lift
+    hoistDown :: forall t . NoStatsT (DiscoveryKademliaT (RawRealMode ssc)) t -> RawRealMode ssc t
     hoistDown = runDiscoveryKademliaT kinst . getNoStatsT
     listeners =
         hoistDown $
@@ -304,7 +307,8 @@ runStatsMode
 runStatsMode peerId transport kinst np@NodeParams{..} sscnp (ActionSpec action, outSpecs) = do
     statMap <- liftIO SM.newIO
     let hoistUp = lift . lift
-    let hoistDown = runDiscoveryKademliaT kinst . runStatsT' statMap
+    let hoistDown :: forall t . StatsT (DiscoveryKademliaT (RawRealMode ssc)) t -> RawRealMode ssc t
+        hoistDown = runDiscoveryKademliaT kinst . runStatsT' statMap
     let listeners =
             hoistDown $
             first (hoistListenerSpec hoistDown hoistUp <$>) <$>
@@ -341,6 +345,7 @@ runStaticMode peerId transport peers np@NodeParams {..} sscnp (ActionSpec action
         hoistDown . action vI $ hoistSendActions hoistUp hoistDown sendActions
   where
     hoistUp = lift . lift
+    hoistDown :: forall m t . NoStatsT (DiscoveryConstT m) t -> m t
     hoistDown = runDiscoveryConstT peers . getNoStatsT
     listeners =
         hoistDown $

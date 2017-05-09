@@ -30,7 +30,7 @@ import           Pos.Delegation.Methods     (sendProxyConfirmSK, sendProxyConfir
                                              sendProxySKHeavy, sendProxySKHeavyOuts,
                                              sendProxySKLight, sendProxySKLightOuts)
 import           Pos.Delegation.Types       (ConfirmProxySK (..), SendProxySK (..))
-import           Pos.DHT.Model              (sendToNeighbors)
+import           Pos.Discovery              (sendToNeighbors)
 import           Pos.Types                  (ProxySKLight)
 import           Pos.WorkMode               (WorkMode)
 
@@ -74,7 +74,7 @@ handleSendProxySK = listenerOneMsg outSpecs $
                -- We're probably updating state over epoch, so leaders
                -- can be calculated incorrectly.
                blkSemaphore <- ncBlkSemaphore <$> getNodeContext
-               void $ liftIO $ readMVar blkSemaphore
+               void $ readMVar blkSemaphore
                handleDo sendActions req
            | verdict == PHAdded && doPropagate -> do
                logDebug $ sformat ("Propagating heavyweight PSK: "%build) pSk
@@ -131,18 +131,17 @@ handleConfirmProxySK = listenerOneMsg outSpecs $
     outSpecs = toOutSpecs [oneMsgH (Proxy :: Proxy ConfirmProxySK)]
 
     propagateConfirmProxySK
-        :: forall ssc1 m1. (WorkMode ssc1 m1)
-        => ConfirmPskLightVerdict
+        :: ConfirmPskLightVerdict
         -> ConfirmProxySK
-        -> SendActions m1
-        -> m1 ()
+        -> SendActions m
+        -> m ()
     propagateConfirmProxySK CPValid
                             confPSK@(ConfirmProxySK pSk _)
                             sendActions = do
         whenM (npPropagation . ncNodeParams <$> getNodeContext) $ do
             logDebug $ sformat ("Propagating psk confirmation for psk: "%build) pSk
             sendToNeighbors sendActions confPSK
-    propagateConfirmProxySK _ _ _ = pure ()
+    propagateConfirmProxySK _ _ _ = pass
 
 --handleCheckProxySKConfirmed
 --    :: forall ssc m.

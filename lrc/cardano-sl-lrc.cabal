@@ -1,5 +1,5 @@
 name:                cardano-sl-lrc
-version:             0.3.0.0
+version:             0.4.4
 synopsis:            Cardano SL - Leaders and Richmen computation
 description:         Cardano SL - Leaders and Richmen computation
 license:             MIT
@@ -18,21 +18,24 @@ library
                        Pos.Lrc.Core
                        Pos.Lrc.Consumer
                        Pos.Lrc.Class
+                       Pos.Lrc.Genesis
 
                        Pos.Lrc.Context
 
                        Pos.Lrc.DB.Common
                        Pos.Lrc.DB.Issuers
+                       Pos.Lrc.DB.Seed
                        Pos.Lrc.DB.RichmenBase
 
   build-depends:       base
                      , bytestring
-                     , unordered-containers
                      , cardano-sl-core
                      , cardano-sl-db
                      , formatting
+                     , lens
                      , text-format
                      , universum
+                     , unordered-containers
 
   default-extensions:  DeriveDataTypeable
                        DeriveGeneric
@@ -51,6 +54,9 @@ library
                        ViewPatterns
                        LambdaCase
                        MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
 
   default-language:    Haskell2010
 

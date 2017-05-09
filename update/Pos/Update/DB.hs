@@ -1,7 +1,5 @@
-{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Part of GState DB which stores data necessary for update system.
 
@@ -13,7 +11,6 @@ module Pos.Update.DB
        , getAdoptedBVFull
        , getBVState
        , getProposalState
-       , getAppProposal
        , getProposalsByApp
        , getConfirmedSV
        , getMaxBlockSize
@@ -38,7 +35,7 @@ module Pos.Update.DB
 
        , BVIter
        , getProposedBVs
-       , getConfirmedBVStates
+       , getCompetingBVStates
        , getProposedBVStates
        ) where
 
@@ -113,10 +110,6 @@ getBVState = gsGetBi . bvStateKey
 getProposalState :: MonadDB m => UpId -> m (Maybe ProposalState)
 getProposalState = gsGetBi . proposalKey
 
--- | Get UpId of current proposal for given appName
-getAppProposal :: MonadDB m => ApplicationName -> m (Maybe UpId)
-getAppProposal = gsGetBi . proposalAppKey
-
 -- | Get states of all active 'UpdateProposal's for given 'ApplicationName'.
 getProposalsByApp :: MonadDB m => ApplicationName -> m [ProposalState]
 getProposalsByApp appName = runProposalMapIterator (step []) snd
@@ -149,7 +142,7 @@ getEpochProposers = maybeThrow (DBMalformed msg) =<< gsGetBi epochProposersKey
 
 data UpdateOp
     = PutProposal !ProposalState
-    | DeleteProposal !UpId !ApplicationName
+    | DeleteProposal !UpId
     | ConfirmVersion !SoftwareVersion
     | DelConfirmedVersion !ApplicationName
     | AddConfirmedProposal !ConfirmedProposalState
@@ -162,15 +155,12 @@ data UpdateOp
 
 instance RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
-        [ Rocks.Put (proposalKey upId) (encodeStrict ps)
-        , Rocks.Put (proposalAppKey appName) (encodeStrict upId)
-        ]
+        [ Rocks.Put (proposalKey upId) (encodeStrict ps)]
       where
         up = psProposal ps
         upId = hash up
-        appName = svAppName $ upSoftwareVersion up
-    toBatchOp (DeleteProposal upId appName) =
-        [Rocks.Del (proposalAppKey appName), Rocks.Del (proposalKey upId)]
+    toBatchOp (DeleteProposal upId) =
+        [Rocks.Del (proposalKey upId)]
     toBatchOp (ConfirmVersion sv) =
         [Rocks.Put (confirmedVersionKey $ svAppName sv) (encodeStrict $ svNumber sv)]
     toBatchOp (DelConfirmedVersion app) =
@@ -321,11 +311,11 @@ getProposedBVStates = runDBnMapIterator @BVIter _gStateDB (step []) snd
     step res = nextItem >>= maybe (pure res) (onItem res)
     onItem res = step . (: res)
 
--- | Get all confirmed 'BlockVersion's and their states.
-getConfirmedBVStates
+-- | Get all competing 'BlockVersion's and their states.
+getCompetingBVStates
     :: MonadDB m
     => m [(BlockVersion, BlockVersionState)]
-getConfirmedBVStates = runDBnIterator @BVIter _gStateDB (step [])
+getCompetingBVStates = runDBnIterator @BVIter _gStateDB (step [])
   where
     step res = nextItem >>= maybe (pure res) (onItem res)
     onItem res (bv, bvs@BlockVersionState {..})
@@ -347,9 +337,6 @@ bvStateIterationPrefix = "us/bvs/"
 
 proposalKey :: UpId -> ByteString
 proposalKey = encodeWithKeyPrefix @PropIter
-
-proposalAppKey :: ApplicationName -> ByteString
-proposalAppKey = mappend "us/an/" . encodeStrict
 
 confirmedVersionKey :: ApplicationName -> ByteString
 confirmedVersionKey = mappend "us/cv/" . encodeStrict

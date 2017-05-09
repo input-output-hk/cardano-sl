@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveLift           #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | This module contains all basic types for @cardano-sl@ update system.
 
@@ -73,7 +72,7 @@ import           Pos.Crypto                 (Hash, PublicKey, SafeSigner,
                                              SignTag (SignUSProposal), Signature,
                                              checkSig, hash, safeSign, safeToPublic,
                                              shortHashF, unsafeHash)
-import           Pos.Data.Attributes        (Attributes)
+import           Pos.Data.Attributes        (Attributes (attrRemain))
 import           Pos.Util.Util              (Some)
 
 ----------------------------------------------------------------------------
@@ -192,13 +191,19 @@ instance Bi UpdateProposal => Buildable UpdateProposal where
               ", UpId: "%build%
               ", "%build%
               ", tags: "%listJson%
-              ", no attributes "%
+              ", "%builder%
               " }")
         upSoftwareVersion
         upBlockVersion
         (hash up)
         upBlockVersionData
         (HM.keys upData)
+        attrsBuilder
+      where
+        attrs = upAttributes
+        attrsBuilder
+            | null (attrRemain upAttributes) = "no attributes"
+            | otherwise = bprint ("attributes: " %build) attrs
 
 instance (Bi UpdateProposal) =>
          Buildable (UpdateProposal, [UpdateVote]) where

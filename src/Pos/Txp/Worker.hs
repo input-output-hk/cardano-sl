@@ -7,28 +7,28 @@ module Pos.Txp.Worker
 
 import           Universum
 
-import           Pos.Communication (OutSpecs, WorkerSpec)
-import           Pos.Ssc.Class     (SscWorkersClass)
-import           Pos.Util          (mconcatPair)
-import           Pos.WorkMode      (WorkMode)
+import           Pos.Communication   (OutSpecs, WorkerSpec)
+import           Pos.Ssc.Class       (SscWorkersClass)
+import           Pos.Util            (mconcatPair)
+import           Pos.WorkMode        (WorkMode)
 
 #ifdef WITH_WALLET
-import           Data.IORef        (newIORef, readIORef, writeIORef)
-import           Data.Time.Units   (Second, convertUnit)
-import           Formatting        (build, int, sformat, shown, (%))
-import           Mockable          (delay, throw)
-import           Serokell.Util     (listJson)
-import           System.Wlog       (logDebug, logInfo, logWarning)
+import           Data.Time.Units     (Second, convertUnit)
+import           Formatting          (build, int, sformat, shown, (%))
+import           Mockable            (delay, throw)
+import           Serokell.Util       (listJson)
+import           System.Wlog         (logDebug, logInfo, logWarning)
 
-import           Pos.Communication (ConversationActions (..), InvMsg (..), InvOrData,
-                                    MempoolMsg (..), RelayError (UnexpectedData),
-                                    RelayProxy (..), ReqMsg (..), SendActions, SmartLimit,
-                                    TxMsgContents, TxMsgTag (..), convH, expectData,
-                                    handleDataL, handleInvL, reifyMsgLimit, toOutSpecs,
-                                    withLimitedLength, worker)
-import           Pos.DHT           (DHTNode, converseToNode, getKnownPeers)
-import           Pos.Slotting      (getLastKnownSlotDuration)
-import           Pos.Txp.Core      (TxId)
+import           Pos.Communication   (ConversationActions (..), InvMsg (..), InvOrData,
+                                      MempoolMsg (..), NodeId,
+                                      RelayError (UnexpectedData), RelayProxy (..),
+                                      ReqMsg (..), SendActions, SmartLimit, TxMsgContents,
+                                      TxMsgTag (..), convH, expectData, handleDataL,
+                                      handleInvL, reifyMsgLimit, toOutSpecs,
+                                      withConnectionTo, withLimitedLength, worker)
+import           Pos.Discovery.Class (getPeers)
+import           Pos.Slotting        (getLastKnownSlotDuration)
+import           Pos.Txp.Core        (TxId)
 #endif
 
 -- | All workers specific to transaction processing.
@@ -56,12 +56,12 @@ queryTxsWorker
     => (WorkerSpec m, OutSpecs)
 queryTxsWorker = worker queryTxsSpec $ \sendActions -> do
     slotDur <- getLastKnownSlotDuration
-    nodesRef <- liftIO . newIORef =<< getKnownPeers
+    nodesRef <- liftIO . newIORef . toList =<< getPeers
     let delayInterval = max (slotDur `div` 4) (convertUnit (5 :: Second))
         action = forever $ do
             -- If we ran out of nodes to query, refresh the list
             whenM (null <$> liftIO (readIORef nodesRef)) $
-                liftIO . writeIORef nodesRef =<< getKnownPeers
+                liftIO . writeIORef nodesRef . toList =<< getPeers
             -- If we managed to get any nodes (or if the list wasn't empty in
             -- the first place), we ask the first node for the tx mempool.
             liftIO (readIORef nodesRef) >>= \case
@@ -98,11 +98,11 @@ queryTxsSpec =
 -- transaction IDs.
 getTxMempoolInvs
     :: WorkMode ssc m
-    => SendActions m -> DHTNode -> m [TxId]
+    => SendActions m -> NodeId -> m [TxId]
 getTxMempoolInvs sendActions node = do
     logInfo ("Querying tx mempool from node " <> show node)
     reifyMsgLimit (Proxy @(InvOrData TxMsgTag TxId TxMsgContents)) $
-      \(_ :: Proxy s) -> converseToNode sendActions node $ \_
+      \(_ :: Proxy s) -> withConnectionTo sendActions node $ \_
         (ConversationActions{..}::(ConversationActions
                                   (MempoolMsg TxMsgTag)
                                   (SmartLimit s (InvOrData TxMsgTag TxId TxMsgContents))
@@ -125,7 +125,7 @@ getTxMempoolInvs sendActions node = do
 -- | Request several transactions.
 requestTxs
     :: WorkMode ssc m
-    => SendActions m -> DHTNode -> [TxId] -> m ()
+    => SendActions m -> NodeId -> [TxId] -> m ()
 requestTxs sendActions node txIds = do
     logInfo $ sformat
         ("Requesting "%int%" txs from node "%shown)
@@ -134,7 +134,7 @@ requestTxs sendActions node txIds = do
         ("First 5 (or less) transactions: "%listJson)
         (take 5 txIds)
     reifyMsgLimit (Proxy @(InvOrData TxMsgTag TxId TxMsgContents)) $
-      \(_ :: Proxy s) -> converseToNode sendActions node $ \_
+      \(_ :: Proxy s) -> withConnectionTo sendActions node $ \_
         (ConversationActions{..}::(ConversationActions
                                   (ReqMsg TxId TxMsgTag)
                                   (SmartLimit s (InvOrData TxMsgTag TxId TxMsgContents))

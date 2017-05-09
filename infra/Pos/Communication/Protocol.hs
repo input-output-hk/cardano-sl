@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -27,7 +26,6 @@ module Pos.Communication.Protocol
        , convertSendActions
        ) where
 
-import           Control.Arrow                    ((&&&))
 import qualified Data.HashMap.Strict              as HM
 import           Formatting                       (build, sformat, shown, stext, (%))
 import           Mockable                         (Delay, Fork, Mockable, SharedAtomic,
@@ -43,7 +41,7 @@ import           Pos.Communication.BiP            (BiP)
 import           Pos.Communication.PeerState      (WithPeerState (..))
 import           Pos.Communication.Types.Protocol
 import           Pos.Core.Types                   (SlotId)
-import           Pos.DHT.Model.Class              (MonadDHT)
+import           Pos.Discovery.Class              (MonadDiscovery)
 import           Pos.Reporting                    (MonadReportingMem)
 import           Pos.Shutdown                     (MonadShutdownMem)
 import           Pos.Slotting                     (MonadSlots)
@@ -179,10 +177,7 @@ unpackLSpecs =
   where
     lsToPair (ListenerSpec h spec) = (h, spec)
     convert :: Monoid out => ([(l, i)], out) -> ([l], [i], out)
-    convert = uncurry (uncurry (,,))
-                . first squashPL
-    squashPL :: [(a, b)] -> ([a], [b])
-    squashPL = map fst &&& map snd
+    convert (xs, out) = (map fst xs, map snd xs, out)
 
 
 type WorkerConstr m =
@@ -224,9 +219,9 @@ type OnNewSlotComm m =
     , Mockable Throw m
     , WithPeerState m
     , Mockable SharedAtomic m
-    , MonadDHT m
     , MonadReportingMem m
     , MonadShutdownMem m
+    , MonadDiscovery m
     )
 
 onNewSlot'
@@ -254,9 +249,9 @@ localOnNewSlotWorker
        , WithLogger m
        , Mockable Fork m
        , Mockable Delay m
-       , MonadDHT m
        , MonadReportingMem m
        , MonadShutdownMem m
+       , MonadDiscovery m
        ) => Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
 localOnNewSlotWorker b h = (ActionSpec $ \__vI __sA -> onNewSlot b h, mempty)
 

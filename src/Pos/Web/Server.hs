@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
 
@@ -15,7 +14,6 @@ module Pos.Web.Server
        , applicationGT
        ) where
 
-import           Control.Concurrent.STM.TVar          (writeTVar)
 import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
 import           Mockable                             (Production (runProduction))
@@ -38,6 +36,7 @@ import qualified Pos.DB.GState                        as GS
 import qualified Pos.Lrc.DB                           as LrcDB
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc)
+import           Pos.Txp                              (TxOut (..), toaOut)
 import           Pos.Txp.MemState                     (GenericTxpLocalData, TxpHolder,
                                                        askTxpMem, getLocalTxs,
                                                        runTxpHolder)
@@ -86,9 +85,8 @@ serveImpl application host port walletTLSCert walletTLSKey =
 
 type WebHandler ssc =
     TxpHolder TxpExtra_TMP (
-    ContextHolder ssc (
-    DB.DBHolder
-    Production
+    DB.DBHolder (
+    ContextHolder ssc Production
     ))
 
 convertHandler
@@ -100,8 +98,8 @@ convertHandler
     -> Handler a
 convertHandler nc nodeDBs wrap handler =
     liftIO (runProduction .
-            DB.runDBHolder nodeDBs .
             runContextHolder nc .
+            DB.runDBHolder nodeDBs .
             runTxpHolder wrap $
             handler)
     `Catch.catches`
@@ -131,8 +129,15 @@ servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
 
 baseServantHandlers :: ServerT (BaseNodeApi ssc) (WebHandler ssc)
 baseServantHandlers =
-    getLeaders :<|> (ncPublicKey <$> getNodeContext) :<|>
-    GS.getTip :<|> getLocalTxsNum
+    getLeaders
+    :<|>
+    getUtxo
+    :<|>
+    (ncPublicKey <$> getNodeContext)
+    :<|>
+    GS.getTip
+    :<|>
+    getLocalTxsNum
 
 getLeaders :: Maybe EpochIndex -> WebHandler ssc SlotLeaders
 getLeaders maybeEpoch = do
@@ -141,6 +146,9 @@ getLeaders maybeEpoch = do
     maybe (throwM err) pure =<< LrcDB.getLeaders epoch
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
+
+getUtxo :: WebHandler ssc [TxOut]
+getUtxo = map toaOut . toList <$> GS.getAllPotentiallyHugeUtxo
 
 getLocalTxsNum :: WebHandler ssc Word
 getLocalTxsNum = fromIntegral . length <$> getLocalTxs

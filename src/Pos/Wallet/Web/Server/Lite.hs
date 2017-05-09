@@ -9,37 +9,36 @@ module Pos.Wallet.Web.Server.Lite
        ) where
 
 import qualified Control.Monad.Catch           as Catch
+import qualified Control.Monad.Ether.Implicit  as Ether
 import           Control.Monad.Except          (MonadError (throwError))
 import           Mockable                      (runProduction)
+import           Network.Wai                   (Application)
 import           Pos.Communication.Protocol    (SendActions)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import qualified STMContainers.Map             as SM
 import           Universum
 
+import           Pos.Communication             (NodeId)
 import           Pos.Communication.PeerState   (runPeerStateHolder)
-import           Pos.DHT.Real.Real             (runKademliaDHT)
-import           Pos.DHT.Real.Types            (KademliaDHTInstance (..),
-                                                getKademliaDHTInstance)
+import           Pos.Discovery                 (getPeers, runDiscoveryConstT)
+import           Pos.Reporting.MemState        (runWithoutReportingContext)
 import           Pos.Ssc.Class                 (SscHelpersClass)
-import           Pos.Wallet.Context            (WalletContext, getWalletContext,
-                                                runContextHolder)
 import           Pos.Wallet.KeyStorage         (KeyData, runKeyStorageRaw)
 import           Pos.Wallet.State              (getWalletState, runWalletDB)
 import qualified Pos.Wallet.State              as WS
-import           Pos.Wallet.WalletMode         (WalletRealMode)
-import           Pos.Wallet.Web.Server.Methods (walletApplication, walletServeImpl,
-                                                walletServer, walletServerOuts)
-import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar,
-                                                MonadWalletWebSockets (..),
-                                                WalletWebSockets, runWalletWS)
-import           Pos.Wallet.Web.State          (MonadWalletWebDB (..), WalletState,
-                                                WalletWebDB, getWalletWebState,
-                                                runWalletWebDB)
+import           Pos.Wallet.WalletMode         (WalletStaticPeersMode)
+import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
+                                                walletServeImpl, walletServer,
+                                                walletServerOuts)
+import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, WalletWebSockets,
+                                                getWalletWebSockets, runWalletWS)
+import           Pos.Wallet.Web.State          (WalletState, WalletWebDB,
+                                                getWalletWebState, runWalletWebDB)
 import           System.Wlog                   (usingLoggerName)
 
 
-type WebHandler = WalletWebSockets (WalletWebDB WalletRealMode)
+type WebHandler = WalletWebSockets (WalletWebDB WalletStaticPeersMode)
 
 type MainWalletState = WS.WalletState
 
@@ -47,45 +46,45 @@ walletServeWebLite
     :: forall ssc.
        SscHelpersClass ssc
     => Proxy ssc
-    -> SendActions WalletRealMode  -- ^ whether to include genesis keys
-    -> FilePath                    -- ^ to Daedalus acid-state
-    -> Bool                        -- ^ Rebuild flag
-    -> Word16                      -- ^ Port to listen
-    -> FilePath                    -- ^ TLS Certificate path
-    -> FilePath                    -- ^ TLS Key file
-    -> WalletRealMode ()
-walletServeWebLite _ sendActions =
-    walletServeImpl $ walletApplication $ walletServer @ssc sendActions nat
+    -> SendActions WalletStaticPeersMode  -- ^ whether to include genesis keys
+    -> FilePath                           -- ^ to Daedalus acid-state
+    -> Bool                               -- ^ Rebuild flag
+    -> Word16                             -- ^ Port to listen
+    -> FilePath                           -- ^ TLS Certificate path
+    -> FilePath                           -- ^ TLS Key file
+    -> WalletStaticPeersMode ()
+walletServeWebLite _ sendActions = walletServeImpl action
+  where
+    action :: WalletWebHandler WalletStaticPeersMode Application
+    action = walletApplication $ walletServer sendActions nat
 
 nat :: WebHandler (WebHandler :~> Handler)
 nat = do
     wsConn <- getWalletWebSockets
-    ws    <- getWalletWebState
-    kd    <- lift . lift . lift . lift $ ask
-    kinst <- lift . lift $ getKademliaDHTInstance
-    wc    <- getWalletContext
-    mws   <- getWalletState
-    return $ NT (convertHandler kinst wc mws kd ws wsConn)
+    ws     <- getWalletWebState
+    kd     <- Ether.ask
+    mws    <- getWalletState
+    peers  <- getPeers
+    pure $ NT (convertHandler mws kd ws wsConn peers)
 
 convertHandler
     :: forall a .
-       KademliaDHTInstance
-    -> WalletContext
-    -> MainWalletState
+       MainWalletState
     -> KeyData
     -> WalletState
     -> ConnectionsVar
+    -> Set NodeId
     -> WebHandler a
     -> Handler a
-convertHandler kinst wc mws kd ws wsConn handler = do
+convertHandler mws kd ws wsConn peers handler = do
     stateM <- liftIO SM.newIO
     liftIO ( runProduction
            . usingLoggerName "wallet-lite-api"
-           . runContextHolder wc
+           . runWithoutReportingContext
            . runWalletDB mws
            . flip runKeyStorageRaw kd
-           . runKademliaDHT kinst
            . runPeerStateHolder stateM
+           . runDiscoveryConstT peers
            . runWalletWebDB ws
            . runWalletWS wsConn
            $ handler

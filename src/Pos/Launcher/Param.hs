@@ -6,17 +6,14 @@ module Pos.Launcher.Param
        , NodeParams (..)
        ) where
 
-import           Pos.Util.TimeWarp   (NetworkAddress)
-import           System.Wlog         (LoggerName)
-import           Universum
-
 import           Pos.Crypto          (SecretKey)
-import           Pos.DHT.Model.Types (DHTKey, DHTNode)
 import           Pos.Security.CLI    (AttackTarget, AttackType)
 import           Pos.Txp.Toil.Types  (Utxo)
 import           Pos.Types           (Timestamp)
 import           Pos.Update.Params   (UpdateParams)
 import           Pos.Util.UserSecret (UserSecret)
+import           System.Wlog         (LoggerName)
+import           Universum
 
 -- | Contains all parameters required for hierarchical logger initialization.
 data LoggingParams = LoggingParams
@@ -28,13 +25,7 @@ data LoggingParams = LoggingParams
 
 -- | Contains basic & networking parameters for running node.
 data BaseParams = BaseParams
-    { bpBindAddress        :: !(Maybe NetworkAddress) -- ^ Host/port to bind to
-    , bpPublicHost         :: !(Maybe String)         -- ^ Public host if different from `bpBindAddress` host
-    , bpDHTPeers           :: ![DHTNode]              -- ^ Peers passed from CLI
-    , bpDHTKey             :: !(Maybe DHTKey)         -- ^ DHT key
-    , bpDHTExplicitInitial :: !Bool
-    , bpLoggingParams      :: !LoggingParams          -- ^ Logger parameters
-    , bpKademliaDump       :: !FilePath               -- ^ Path to kademlia dump file
+    { bpLoggingParams :: !LoggingParams  -- ^ Logger parameters
     } deriving (Show)
 
 -- | Contains algorithm specific & storage parameters for Node.
@@ -46,11 +37,11 @@ data NodeParams = NodeParams
     , npUserSecret    :: !UserSecret        -- ^ All node secret keys
     , npBaseParams    :: !BaseParams        -- ^ See 'BaseParams'
     , npCustomUtxo    :: !Utxo              -- ^ predefined custom utxo
-    , npTimeLord      :: !Bool              -- ^ @True@ if node started as time-lord
     , npJLFile        :: !(Maybe FilePath)  -- @georgeee please write comment to this field when you see this sign, i made it very long on purpose so it won't fit even in your huge monitor
     , npAttackTypes   :: ![AttackType]      -- ^ List of attack types used by malicious emulation
     , npAttackTargets :: ![AttackTarget]    -- ^ List of targets to attack by malicious emulation
     , npPropagation   :: !Bool              -- ^ Whether to propagate txs, ssc data, blocks to neighbors
     , npReportServers :: ![Text]            -- ^ List of report server URLs
     , npUpdateParams  :: !UpdateParams      -- ^ Params for update system
+    , npUseNTP        :: !Bool
     } deriving (Show)

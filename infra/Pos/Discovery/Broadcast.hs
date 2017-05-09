@@ -1,9 +1,8 @@
-
-module Pos.DHT.Model.Neighbors
+-- | This module implements the capabilities of broadcasting info to
+-- neighbors.
+module Pos.Discovery.Broadcast
        ( sendToNeighbors
-       , sendToNode
        , converseToNeighbors
-       , converseToNode
        ) where
 
 
@@ -14,68 +13,41 @@ import           Universum                  hiding (catchAll)
 
 import           Pos.Binary.Class           (Bi)
 import           Pos.Communication.Protocol (ConversationActions, Message, NodeId (..),
-                                             PeerId (..), SendActions (..))
-import           Pos.DHT.Constants          (neighborsSendThreshold)
-import           Pos.DHT.Model.Class        (MonadDHT (..))
-import           Pos.DHT.Model.Types        (DHTNode (..), getMeaningPart)
-import           Pos.Util.TimeWarp          (addressToNodeId')
+                                             SendActions (..))
+import           Pos.Discovery.Class        (MonadDiscovery, getPeers)
+import           Pos.Infra.Constants        (neighborsSendThreshold)
 
 -- | Send default message to neighbours in parallel.
 -- It's a broadcasting to the neighbours without sessions
 -- (i.e. we don't have to wait for reply from the listeners).
 sendToNeighbors
-    :: (MonadDHT m, MonadMockable m, Bi body, WithLogger m, Message body)
+    :: ( MonadMockable m
+       , WithLogger m
+       , MonadDiscovery m
+       , Message body
+       , Bi body
+       )
     => SendActions m -> body -> m ()
 sendToNeighbors sendActions msg = do
-    nodes <- getNodesWithCheck
+    nodes <- check =<< getPeers
     void $
         forConcurrently nodes $ \node ->
-            handleAll (logSendErr node) $ sendToNode sendActions node msg
+            handleAll (logSendErr node) $ sendTo sendActions node msg
   where
     logSendErr node e =
         logWarning $ sformat ("Error sending to " %shown % ": " %shown) node e
 
-getNodesWithCheck :: (MonadDHT m, WithLogger m) => m [DHTNode]
-getNodesWithCheck = do
-    nodes <- do
-        nodes_ <- getKnownPeers
-        if length nodes_ < neighborsSendThreshold
-           then discoverPeers
-           else return nodes_
+check :: (WithLogger m) => Set NodeId -> m [NodeId]
+check nodes = do
     when (length nodes < neighborsSendThreshold) $
         logWarning $ sformat
             ("Send to only " % int % " nodes, threshold is " % int)
             (length nodes) (neighborsSendThreshold :: Int)
-    return nodes
-
-sendToNode
-    :: (MonadMockable m, Bi body, Message body)
-    => SendActions m -> DHTNode -> body -> m ()
-sendToNode sendActions node msg = trySend 0
- where
-   trySend i = sendTo sendActions (toNodeId i node) msg
-
-converseToNode
-    :: (MonadMockable m, Bi rcv, Bi snd, Message snd, Message rcv)
-    => SendActions m
-    -> DHTNode
-    -> (NodeId -> ConversationActions snd rcv m -> m t)
-    -> m t
-converseToNode sendActions node handler = tryConnect 0
-  where
-    tryConnect i =
-        let nodeId = toNodeId i node
-        in withConnectionTo sendActions nodeId $ \_peerData -> handler nodeId
-
-toNodeId :: Word32 -> DHTNode -> NodeId
-toNodeId i DHTNode {..} = NodeId $ (peerId, addressToNodeId' i dhtAddr)
-  where
-    peerId = PeerId $ getMeaningPart dhtNodeId
-
+    return (toList nodes)
 
 converseToNeighbors
-    :: ( MonadDHT m
-       , MonadMockable m
+    :: ( MonadMockable m
+       , MonadDiscovery m
        , WithLogger m
        , Bi rcv
        , Bi snd
@@ -86,10 +58,10 @@ converseToNeighbors
     -> (NodeId -> ConversationActions snd rcv m -> m ())
     -> m ()
 converseToNeighbors sendActions convHandler = do
-    nodes <- getNodesWithCheck
+    nodes <- check =<< getPeers
     logDebug $ "converseToNeighbors: sending to nodes: " <> show nodes
     void $ forConcurrently nodes $ \node -> do
-        handleAll (logErr node) $ converseToNode sendActions node convHandler
+        handleAll (logErr node) $ withConnectionTo sendActions node (\_ -> convHandler node)
         logDebug $ "converseToNeighbors: DONE conversing to node " <> show node
     logDebug "converseToNeighbors: sending to nodes done"
   where

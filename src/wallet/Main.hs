@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE CPP                 #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
@@ -11,10 +12,12 @@ import           Control.Monad.Trans.Maybe  (MaybeT (..))
 import qualified Data.ByteString            as BS
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
+import qualified Data.Set                   as S (fromList, toList)
 import qualified Data.Text                  as T
 import           Data.Time.Units            (convertUnit)
 import           Formatting                 (build, int, sformat, stext, (%))
-import           Mockable                   (delay)
+import           Mockable                   (Production, delay)
+import           Network.Transport.Abstract (Transport, hoistTransport)
 import           Options.Applicative        (execParser)
 import           System.IO                  (hFlush, stdout)
 import           System.Wlog                (logDebug, logError, logInfo, logWarning)
@@ -27,8 +30,8 @@ import           Universum
 
 import           Pos.Binary                 (Raw)
 import qualified Pos.CLI                    as CLI
-import           Pos.Communication          (OutSpecs, SendActions, Worker', WorkerSpec,
-                                             sendTxOuts, submitTx, worker)
+import           Pos.Communication          (NodeId, OutSpecs, SendActions, Worker',
+                                             WorkerSpec, sendTxOuts, submitTx, worker)
 import           Pos.Constants              (genesisBlockVersionData, isDevelopment)
 import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignUSVote),
                                              emptyPassphrase, encToPublic, fakeSigner,
@@ -36,7 +39,7 @@ import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignUSVot
                                              toPublic, unsafeHash, withSafeSigner)
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Delegation             (sendProxySKHeavyOuts, sendProxySKLightOuts)
-import           Pos.DHT.Model              (DHTNode, discoverPeers, getKnownPeers)
+import           Pos.Discovery              (findPeers, getPeers)
 import           Pos.Genesis                (genesisDevSecretKeys,
                                              genesisStakeDistribution, genesisUtxo)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
@@ -52,22 +55,24 @@ import           Pos.Update                 (BlockVersionData (..), UpdateVote (
 import           Pos.Util.UserSecret        (readUserSecret, usKeys)
 import           Pos.Wallet                 (MonadKeys (addSecretKey, getSecretKeys),
                                              WalletMode, WalletParams (..),
-                                             WalletRealMode, getBalance, runWalletReal,
-                                             sendProposalOuts, sendVoteOuts,
-                                             submitUpdateProposal, submitVote)
+                                             WalletStaticPeersMode, getBalance,
+                                             runWalletStaticPeers, sendProposalOuts,
+                                             sendVoteOuts, submitUpdateProposal,
+                                             submitVote)
 #ifdef WITH_WEB
 import           Pos.Wallet.Web             (walletServeWebLite, walletServerOuts)
 #endif
 
 import           Command                    (Command (..), parseCommand)
+import qualified Network.Transport.TCP      as TCP (TCPAddr (..))
 import           WalletOptions              (WalletAction (..), WalletOptions (..),
                                              optsInfo)
 
-type CmdRunner = ReaderT ([SecretKey], [DHTNode])
+type CmdRunner = ReaderT ([SecretKey], [NodeId])
 
 runCmd :: WalletMode ssc m => SendActions m -> Command -> CmdRunner m ()
 runCmd _ (Balance addr) = lift (getBalance addr) >>=
-                         putText . sformat ("Current balance: "%coinF)
+                          putText . sformat ("Current balance: "%coinF)
 runCmd sendActions (Send idx outputs) = do
     (_, na) <- ask
     skeys <- getSecretKeys
@@ -86,7 +91,7 @@ runCmd sendActions (Send idx outputs) = do
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
 runCmd sendActions (SendToAllGenesis amount delay_) = do
     (skeys, na) <- ask
-    forM_ skeys $ \key -> do
+    for_ skeys $ \key -> do
         let txOut = TxOut {
             txOutAddress = makePubKeyAddress (toPublic key),
             txOutValue = amount
@@ -232,15 +237,17 @@ evalCommands sa = do
         Left err  -> putStrLn err >> evalCommands sa
         Right cmd -> evalCmd sa cmd
 
-initialize :: WalletMode ssc m => WalletOptions -> m [DHTNode]
+initialize :: WalletMode ssc m => WalletOptions -> m [NodeId]
 initialize WalletOptions{..} = do
-    peers <- getKnownPeers
+    peers <- S.toList <$> getPeers
     bool (pure peers) getPeersUntilSome (null peers)
   where
+    -- FIXME this is dangerous. If rmFindPeers doesn't block, for instance
+    -- because it's a constant empty set of peers, we'll spin forever.
     getPeersUntilSome = do
         liftIO $ hFlush stdout
         logWarning "Discovering peers, because current peer list is empty"
-        peers <- discoverPeers
+        peers <- S.toList <$> findPeers
         if null peers
         then getPeersUntilSome
         else pure peers
@@ -273,9 +280,9 @@ runWalletCmd wo str sa = do
 main :: IO ()
 main = do
     opts@WalletOptions {..} <- execParser optsInfo
-    filePeers <- maybe (return []) CLI.readPeersFile
-                     (CLI.dhtPeersFile woCommonArgs)
-    let allPeers = CLI.dhtPeers woCommonArgs ++ filePeers
+    --filePeers <- maybe (return []) CLI.readPeersFile
+    --                   (CLI.dhtPeersFile woCommonArgs)
+    let allPeers = woPeers -- ++ filePeers
     let logParams =
             LoggingParams
             { lpRunnerTag     = "smart-wallet"
@@ -283,32 +290,24 @@ main = do
             , lpConfigPath    = CLI.logConfig woCommonArgs
             , lpEkgPort       = Nothing
             }
-        baseParams =
-            BaseParams
-            { bpLoggingParams      = logParams
-            , bpBindAddress        = Nothing
-            , bpPublicHost         = Nothing
-            , bpDHTPeers           = allPeers
-            , bpDHTKey             = Nothing
-            , bpDHTExplicitInitial = CLI.dhtExplicitInitial woCommonArgs
-            , bpKademliaDump       = "kademlia.dump"
-            }
-    bracketResources baseParams $ \res -> do
-        -- let timeSlaveParams =
-        --         baseParams
-        --         { bpLoggingParams = logParams { lpRunnerTag = "time-slave" }
-        --         }
+        baseParams = BaseParams { bpLoggingParams = logParams }
 
-        -- systemStart <- case CLI.sscAlgo woCommonArgs of
-        --     GodTossingAlgo -> runTimeSlaveReal (Proxy @SscGodTossing) res timeSlaveParams
-        --     NistBeaconAlgo -> runTimeSlaveReal (Proxy @SscNistBeacon) res timeSlaveParams
+    bracketResources baseParams TCP.Unaddressable $ \transport -> do
+
+        let powerLift :: forall t . Production t -> WalletStaticPeersMode t
+            powerLift = lift . lift . lift . lift . lift . lift
+            transport' :: Transport WalletStaticPeersMode
+            transport' = hoistTransport powerLift transport
+
+        let peerId = CLI.peerId woCommonArgs
+        let sysStart = CLI.sysStart woCommonArgs
 
         let params =
                 WalletParams
                 { wpDbPath      = Just woDbPath
                 , wpRebuildDb   = woRebuildDb
                 , wpKeyFilePath = woKeyFilePath
-                , wpSystemStart = error "light wallet doesn't know system start"
+                , wpSystemStart = sysStart
                 , wpGenesisKeys = woDebug
                 , wpBaseParams  = baseParams
                 , wpGenesisUtxo =
@@ -321,10 +320,10 @@ main = do
                           else genesisStakeDistribution
                 }
 
-            plugins :: ([ WorkerSpec WalletRealMode ], OutSpecs)
+            plugins :: ([ WorkerSpec WalletStaticPeersMode ], OutSpecs)
             plugins = first pure $ case woAction of
-                Repl                            -> worker runCmdOuts $ runWalletRepl opts
-                Cmd cmd                         -> worker runCmdOuts $ runWalletCmd opts cmd
+                Repl    -> worker runCmdOuts $ runWalletRepl opts
+                Cmd cmd -> worker runCmdOuts $ runWalletCmd opts cmd
 #ifdef WITH_WEB
                 Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
                     case CLI.sscAlgo woCommonArgs of
@@ -340,6 +339,6 @@ main = do
             GodTossingAlgo -> do
                 logInfo "Using MPC coin tossing"
                 liftIO $ hFlush stdout
-                runWalletReal res params plugins
+                runWalletStaticPeers peerId transport' (S.fromList allPeers) params plugins
             NistBeaconAlgo ->
                 logError "Wallet does not support NIST beacon!"

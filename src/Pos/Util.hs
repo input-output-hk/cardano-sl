@@ -255,8 +255,8 @@ readMVarConditional predicate mvar = do
     rData <- readMVar mvar -- first we try to read for optimization only
     if predicate rData then pure rData
     else do
-        tData <- takeMVar mvar -- now take data
-        if predicate tData then do -- check again
+        tData <- takeMVar mvar         -- now take data
+        if predicate tData then do     -- check again
             _ <- tryPutMVar mvar tData -- try to put taken value
             pure tData
         else

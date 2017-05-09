@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 -- | Hierarchical derivation interface.
 
 module Pos.Crypto.HD

@@ -111,7 +111,7 @@ import           Pos.Wallet.Web.ClientTypes       (Acc, CAccount (..),
                                                    cPassPhraseToPassPhrase, mkCCoin,
                                                    mkCTx, mkCTxId, readWalletUserSecret,
                                                    toCUpdateInfo, txContainsTitle,
-                                                   txIdToCTxId)
+                                                   txIdToCTxId, walletAddrByAccount)
 import           Pos.Wallet.Web.Error             (WalletError (..))
 import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWebSockets,
                                                    WalletWebSockets, closeWSConnection,
@@ -500,10 +500,37 @@ sendExtended
     -> Text
     -> Text
     -> m CTx
-sendExtended sendActions cpassphrase srcWallet dstAccount coin curr title desc = do
+sendExtended sa cpassphrase srcWallet dstAccount coin curr title desc =
+    sendMoney sa cpassphrase (WalletMoneySource srcWallet) dstAccount coin curr title desc
+
+data MoneySource
+    = WalletMoneySource CWalletAddress
+    | AccountMoneySource CAccountAddress
+    deriving (Show, Eq)
+
+moneySourceToAccounts :: WalletWebMode m => MoneySource -> (CWalletAddress -> m [CAccountAddress]) -> m [CAccountAddress]
+moneySourceToAccounts (AccountMoneySource accAddr) _ = return $ one accAddr
+moneySourceToAccounts (WalletMoneySource wAddr)    f = f wAddr
+
+getMoneySourceWallet :: MoneySource -> CWalletAddress
+getMoneySourceWallet (AccountMoneySource accAddr) = walletAddrByAccount accAddr
+getMoneySourceWallet (WalletMoneySource wAddr)    = wAddr
+
+sendMoney
+    :: WalletWebMode m
+    => SendActions m
+    -> Maybe CPassPhrase
+    -> MoneySource
+    -> CAddress Acc
+    -> Coin
+    -> CCurrency
+    -> Text
+    -> Text
+    -> m CTx
+sendMoney sendActions cpassphrase moneySource dstAccount coin curr title desc = do
     passphrase <- decodeCPassPhraseOrFail cpassphrase
     dstAddr <- decodeCAddressOrFail dstAccount
-    allAccounts <- getWalletAccAddrsOrThrow Existing srcWallet
+    allAccounts <- moneySourceToAccounts moneySource $ getWalletAccAddrsOrThrow Existing
     distr@(remaining, spendings) <- selectSrcAccounts coin allAccounts
     logDebug $ buildDistribution distr
     mRemTx <- mkRemainingTx remaining
@@ -539,8 +566,9 @@ sendExtended sendActions cpassphrase srcWallet dstAccount coin curr title desc =
     mkRemainingTx remaining
         | remaining == mkCoin 0 = return Nothing
         | otherwise = do
-            remCAddr <- caAddress <$> newAccount RandomSeed cpassphrase srcWallet
-            remAddr  <- decodeCAddressOrFail remCAddr
+            let relatedWallet = getMoneySourceWallet moneySource
+            account <- newAccount RandomSeed cpassphrase relatedWallet
+            remAddr <- decodeCAddressOrFail (caAddress account)
             let remTx = TxOutAux (TxOut remAddr remaining) []
             return $ Just remTx
 
@@ -573,7 +601,8 @@ sendExtended sendActions cpassphrase srcWallet dstAccount coin curr title desc =
                         (toList srcAccAddrs)
                         dstAddrs
                     -- TODO: this should be removed in production
-                    let txHash = hash tx
+                    let txHash    = hash tx
+                        srcWallet = getMoneySourceWallet moneySource
                     mapM_ removeAccount srcAccounts
                     addHistoryTx srcWallet curr title desc $
                         THEntry txHash tx srcTxOuts Nothing (toList srcAccAddrs) dstAddrs

@@ -14,6 +14,7 @@ module Explorer.View.Common (
     , txPaginationView
     , EmptyViewProps
     , mkEmptyViewProps
+    , mkEmptyViewProps
     , txEmptyContentView
     , noData
     , logoView
@@ -244,7 +245,7 @@ paginationView props =
             , P.input
                 [ P.className "page-number"
                 , P.disabled true
-                , P.type_ "number"
+                , P.type_ "search"
                 , P.value $ show props.maxPage
                 ]
                 []

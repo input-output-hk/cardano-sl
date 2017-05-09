@@ -14,7 +14,7 @@ import Data.Lens ((^.))
 import Data.Maybe (fromMaybe)
 import Data.Time.Duration (Milliseconds)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (block, blNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cSizeKB) as I18nL
+import Explorer.I18n.Lenses (block, blNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cSize) as I18nL
 import Explorer.Lenses.State (blocksViewState, blsViewPagination, blsViewPaginationEditable, currentBlocksResult, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
@@ -180,7 +180,7 @@ mkBlocksHeaderProps lang =
     -- , { label: translate (I18nL.common <<< I18nL.cRelayedBy) lang
     --   , clazz: CSS.blocksColumnRelayedBy
     --   }
-    , { label: translate (I18nL.common <<< I18nL.cSizeKB) lang
+    , { label: translate (I18nL.common <<< I18nL.cSize) lang
       , clazz: CSS.blocksColumnSize
       }
     ]

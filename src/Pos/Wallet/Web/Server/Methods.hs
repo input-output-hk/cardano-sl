@@ -30,7 +30,7 @@ import           Data.Tagged                      (untag)
 import qualified Data.Text                        as T
 import           Data.Time.Clock.POSIX            (getPOSIXTime)
 import           Data.Time.Units                  (Microsecond, Second)
-import           Formatting                       (build, int, sformat, shown, stext, (%))
+import           Formatting                       (build, sformat, shown, stext, (%))
 import qualified Formatting                       as F
 import           Network.Wai                      (Application)
 import           Paths_cardano_sl                 (version)
@@ -52,26 +52,25 @@ import           Pos.Aeson.ClientTypes            ()
 import           Pos.Client.Txp.History           (TxHistoryAnswer (..),
                                                    TxHistoryEntry (..))
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
-                                                   submitMTx, submitRedemptionTx,
-                                                   submitTx)
+                                                   submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
 import           Pos.Core                         (Address (..), Coin, addressF,
-                                                   applyCoinPortion, decodeTextAddress,
-                                                   makePubKeyAddress, makeRedeemAddress,
-                                                   mkCoin, unsafeCoinPortionFromDouble,
+                                                   decodeTextAddress, makePubKeyAddress,
+                                                   makeRedeemAddress, mkCoin,
                                                    unsafeSubCoin)
 import           Pos.Crypto                       (PassPhrase, aesDecrypt,
                                                    changeEncPassphrase, checkPassMatches,
                                                    deriveAesKeyBS, emptyPassphrase,
-                                                   encToPublic, fakeSigner, hash,
-                                                   noPassEncrypt,
+                                                   encToPublic, hash,
                                                    redeemDeterministicKeyGen,
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
 import           Pos.DB.Class                     (MonadDB)
 import           Pos.DB.Limits                    (MonadDBLimits)
 import           Pos.Discovery                    (getPeers)
-import           Pos.Genesis                      (genesisDevSecretKeys)
+import           Pos.Genesis                      (accountGenesisIndex,
+                                                   genesisDevHdwSecretKeys,
+                                                   walletGenesisIndex)
 import           Pos.Reporting.MemState           (MonadReportingMem, askReportingContext,
                                                    rcReportServers)
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
@@ -185,7 +184,7 @@ walletServer
     -> WalletWebHandler m (Server WalletApi)
 walletServer sendActions nat = do
     nat >>= launchNotifier
-    addInitialRichAccount sendActions 0
+    addInitialRichAccount 0
     syncWSetsWithGStateLock =<< mapM getSKByAddr =<< myRootAddresses
     (`enter` servantHandlers sendActions) <$> nat
 
@@ -856,11 +855,20 @@ importKey
     => MCPassPhrase
     -> Text
     -> m CWalletSet
-importKey cpassphrase (toString -> fp) = do
-    WalletUserSecret{..} <-
-        either secretReadError pure =<<
-        readWalletUserSecret fp
+importKey cpassphrase (toString -> fp) =
+    readWalletUserSecret fp >>=
+        either secretReadError pure >>=
+            importWSetSecret cpassphrase
+  where
+    secretReadError =
+        throwM . Internal . sformat ("Failed to read secret: "%build)
 
+importWSetSecret
+    :: WalletWebMode m
+    => MCPassPhrase
+    -> WalletUserSecret
+    -> m CWalletSet
+importWSetSecret cpassphrase WalletUserSecret{..} = do
     let key    = wusRootKey
         addr   = makePubKeyAddress $ encToPublic key
         wsAddr = addressToCAddress addr
@@ -881,69 +889,18 @@ importKey cpassphrase (toString -> fp) = do
     selectAccountsFromUtxoLock [key]
 
     return importedWSet
+
+-- | Creates walletset with given genesis hd-wallet key.
+addInitialRichAccount :: WalletWebMode m => Int -> m ()
+addInitialRichAccount keyId =
+    when isDevelopment . E.handleAll wSetExistsHandler $ do
+        wusRootKey <- maybeThrow noKey (genesisDevHdwSecretKeys ^? ix keyId)
+        let wusWSetName = "Precreated wallet set full of money"
+            wusWallets  = [(walletGenesisIndex, "Initial wallet")]
+            wusAccounts = [(walletGenesisIndex, accountGenesisIndex)]
+        void $ importWSetSecret Nothing WalletUserSecret{..}
   where
-    secretReadError =
-        throwM . Internal . sformat ("Failed to read secret: "%build)
-
--- This method is a temporal hack.
--- We spend money from /accounts/, which have randomly generated addresses.
--- To create account with some initial amount of money, we create wallet set
--- with @key = some genesis key@, and send half of savings to newly created
--- account.
-addInitialRichAccount :: WalletWebMode m => SendActions m -> Int -> m ()
-addInitialRichAccount sendActions keyId =
-    when isDevelopment . E.handleAll errHandler $ do
-        key <- maybeThrow noKey (genesisDevSecretKeys ^? ix keyId)
-        let enKey   = noPassEncrypt key
-        let wsAddr  = makePubKeyAddress $ encToPublic enKey
-            wsCAddr = addressToCAddress wsAddr
-
-        let cpass  = Nothing
-            wsMeta = CWalletSetMeta "Precreated wallet set full of money"
-            wMeta  = def{ cwName = "Initial wallet" }
-
-        addSecretKey enKey
-        E.handleAll wSetExistsHandler $ do
-            void $ createWSetSafe wsCAddr wsMeta
-
-            let wInit = CWalletInit wMeta wsCAddr
-            void $ newWallet (DeterminedSeed $ fromIntegral keyId) cpass wInit
-
-        E.handleAll errHandler $ do
-            wallets  <- getWallets (Just wsCAddr)
-            let wAddr = fromMaybe (error "Init wallet should've been created along with wallet set!") $
-                        head $ cwAddress <$> wallets
-            accounts <- getAccounts wAddr
-            accAddr  <- maybeThrow noAccount . head $ caAddress <$> accounts
-
-            genesisBalance <- getBalance wsAddr
-            accBalance <- getBalance =<< decodeCAddressOrFail accAddr
-            let coinsToSend =
-                    notExceeding (mkCoin 10000) accBalance $
-                    applyCoinPortion (unsafeCoinPortionFromDouble 0.5) genesisBalance
-
-            -- send some money from wallet set (corresponds to genesis address)
-            -- to its account
-            unless (coinsToSend == mkCoin 0) $ do
-                na          <- getPeers
-                let signer   = fakeSigner key
-                let dstCAddr = accAddr
-                dstAddr     <- decodeCAddressOrFail dstCAddr
-                let tx       = TxOutAux (TxOut dstAddr coinsToSend) []
-                etx         <- submitTx sendActions signer (toList na) (one tx)
-                case etx of
-                    Left err ->
-                        throwM . Internal $ sformat ("Cannot send transaction \
-                                            \for genesis account: "%stext) err
-                    Right _  ->
-                        logDebug $ sformat ("Spent "%build%" from genesis \
-                                            \address #"%int) coinsToSend keyId
-  where
-    notExceeding limit curBalance =
-        min $ limit `unsafeSubCoin` min limit curBalance
     noKey = Internal $ sformat ("No genesis key #"%build) keyId
-    noAccount = Internal "No account created with wallet creation!"
-    errHandler = logError . sformat ("Creation of init account failed: "%build)
     wSetExistsHandler =
         logDebug . sformat ("Initial wallet set already exists ("%build%")")
 

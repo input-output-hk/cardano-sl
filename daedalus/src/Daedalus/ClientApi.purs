@@ -101,18 +101,59 @@ changeWalletSetPass = mkEffFn3 \wSetId oldPass newPass -> fromAff <<< map encode
 --------------------------------------------------------------------------------
 -- Wallets ---------------------------------------------------------------------
 
+-- | Get a wallet.
+-- Arguments: wallet object/identifier
+-- Returns json representation of a wallet
+-- Example in nodejs:
+--
 getWallet :: forall eff. EffFn1 (ajax :: AJAX | eff) Json (Promise Json)
 getWallet = mkEffFn1 $ fromAff <<< map encodeJson <<< either (throwError <<< error) B.getWallet <<< decodeJson
 
+-- | Get all wallets.
+-- Arguments:
+-- Returns json representation of all wallet sets
+-- Example in nodejs:
+--
 getWallets :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 getWallets = fromAff $ map encodeJson $ B.getWallets Nothing
 
+-- | Get wallets from specific wallet set.
+-- Arguments: address/hash/id of a wallet set
+-- Returns json representation of wallets within given wallet set id
+-- Example in nodejs:
+--
 getSetWallets :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
 getSetWallets = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWallets <<< Just <<< mkCAddress
 
+-- | Get meta information from given wallet
+-- Arguments: wallet object/identifier, type, currency, name, assurance, unit
+-- Returns json representation of wallets within given wallet id
+-- Example in nodejs:
+--
+updateWallet :: forall eff. EffFn6 (ajax :: AJAX | eff) Json String String String String Int (Promise Json)
+updateWallet = mkEffFn6 \wId wType wCurrency wName wAssurance wUnit -> fromAff <<< map encodeJson <<<
+    either (throwError <<< error)
+        (flip B.updateWallet $ mkCWalletMeta wType wCurrency wName wAssurance wUnit)
+        $ decodeJson wId
 
+-- | Creates a new wallet.
+-- Arguments: address/hash/id of a wallet set, type, currency, name, mnemonics, spending password (if empty string is given, wallet will be created with no spending password)
+-- Returns json representation of newly created wallet
+-- Example in nodejs:
 --
+newWallet :: forall eff . EffFn6 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String String String String String
+  (Promise Json)
+newWallet = mkEffFn6 \wSetId wType wCurrency wName mnemonic spendingPassword -> fromAff <<< map encodeJson <<<
+    B.newWallet (mkCPassPhrase spendingPassword) $ mkCWalletInit wType wCurrency wName (mkCAddress wSetId)
+
+-- | Deletes a wallet.
+-- Arguments: wallet object/identifier
+-- Returns:
+-- Example in nodejs:
 --
+deleteWallet :: forall eff. EffFn1 (ajax :: AJAX | eff) Json (Promise Unit)
+deleteWallet = mkEffFn1 $ fromAff <<< either (throwError <<< error) B.deleteWallet <<< decodeJson
+
 -- getLocale :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 -- getLocale = fromAff $ map encodeJson (getProfileLocale <$> B.getProfile)
 --

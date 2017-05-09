@@ -13,50 +13,44 @@ module Pos.Wallet.WalletMode
        , WalletMode
        , WalletRealMode
        , WalletStaticPeersMode
-       , FakeSsc
-       , runFakeSsc
        ) where
 
-import           Control.Concurrent.STM           (TMVar, tryReadTMVar)
-import           Control.Monad.Trans              (MonadTrans)
-import           Control.Monad.Trans.Ether.Tagged (TaggedTrans (..), unpack)
-import           Control.Monad.Trans.Identity     (IdentityT (..), runIdentityT)
-import           Control.Monad.Trans.Maybe        (MaybeT (..))
-import           Data.Tagged                      (Tagged (..))
-import           Data.Time.Units                  (Millisecond)
-import           Mockable                         (Production)
-import           Pos.Reporting.MemState           (ReportingContextT)
-import           System.Wlog                      (LoggerNameBox, WithLogger)
+import           Control.Concurrent.STM      (TMVar, tryReadTMVar)
+import           Control.Monad.Trans         (MonadTrans)
+import           Control.Monad.Trans.Maybe   (MaybeT (..))
+import           Data.Tagged                 (Tagged (..))
+import           Data.Time.Units             (Millisecond)
+import           Mockable                    (Production)
+import           Pos.Reporting.MemState      (ReportingContextT)
+import           System.Wlog                 (LoggerNameBox, WithLogger)
 import           Universum
 
-import           Pos.Client.Txp.Balances          (MonadBalances (..), getBalanceFromUtxo)
-import           Pos.Client.Txp.History           (MonadTxHistory (..), deriveAddrHistory)
-import           Pos.Communication                (TxMode)
-import           Pos.Communication.PeerState      (PeerStateHolder, WithPeerState)
-import           Pos.Constants                    (blkSecurityParam)
-import qualified Pos.Context                      as PC
-import           Pos.DB                           (MonadDB)
-import qualified Pos.DB.Block                     as DB
-import           Pos.DB.Error                     (DBError (..))
-import qualified Pos.DB.GState                    as GS
-import           Pos.Discovery                    (DiscoveryConstT, DiscoveryKademliaT,
-                                                   MonadDiscovery)
-import           Pos.Shutdown                     (triggerShutdown)
-import           Pos.Slotting                     (MonadSlots (..),
-                                                   getLastKnownSlotDuration)
-import           Pos.Ssc.Class                    (Ssc, SscHelpersClass)
-import           Pos.Txp                          (filterUtxoByAddrs, runUtxoStateT)
-import           Pos.Types                        (BlockHeader, ChainDifficulty,
-                                                   difficultyL, flattenEpochOrSlot,
-                                                   flattenSlotId)
-import           Pos.Update                       (ConfirmedProposalState (..))
-import           Pos.Update.Context               (UpdateContext (ucUpdateSemaphore))
-import           Pos.Util                         (maybeThrow)
-import           Pos.Util.Context                 (askContext)
-import           Pos.Wallet.KeyStorage            (KeyStorage, MonadKeys)
-import           Pos.Wallet.State                 (WalletDB)
-import qualified Pos.Wallet.State                 as WS
-import           Pos.WorkMode                     (RawRealMode)
+import           Pos.Client.Txp.Balances     (MonadBalances (..), getBalanceFromUtxo)
+import           Pos.Client.Txp.History      (MonadTxHistory (..), deriveAddrHistory)
+import           Pos.Communication           (TxMode)
+import           Pos.Communication.PeerState (PeerStateHolder, WithPeerState)
+import           Pos.Constants               (blkSecurityParam)
+import qualified Pos.Context                 as PC
+import           Pos.DB                      (MonadDB)
+import qualified Pos.DB.Block                as DB
+import           Pos.DB.Error                (DBError (..))
+import qualified Pos.DB.GState               as GS
+import           Pos.Discovery               (DiscoveryConstT, DiscoveryKademliaT,
+                                              MonadDiscovery)
+import           Pos.Shutdown                (triggerShutdown)
+import           Pos.Slotting                (MonadSlots (..), getLastKnownSlotDuration)
+import           Pos.Ssc.Class               (Ssc, SscHelpersClass)
+import           Pos.Txp                     (filterUtxoByAddrs, runUtxoStateT)
+import           Pos.Types                   (BlockHeader, ChainDifficulty, difficultyL,
+                                              flattenEpochOrSlot, flattenSlotId)
+import           Pos.Update                  (ConfirmedProposalState (..))
+import           Pos.Update.Context          (UpdateContext (ucUpdateSemaphore))
+import           Pos.Util                    (maybeThrow)
+import           Pos.Util.Context            (askContext)
+import           Pos.Wallet.KeyStorage       (KeyStorage, MonadKeys)
+import           Pos.Wallet.State            (WalletDB)
+import qualified Pos.Wallet.State            as WS
+import           Pos.WorkMode                (RawRealMode)
 
 instance MonadIO m => MonadBalances (WalletDB m) where
     getOwnUtxos addrs = filterUtxoByAddrs addrs <$> WS.getUtxo
@@ -100,7 +94,7 @@ instance {-# OVERLAPPABLE #-}
         MonadBlockchainInfo (t m)
 
 -- | Stub instance for lite-wallet
-instance MonadBlockchainInfo (RawWalletMode ssc) where
+instance MonadBlockchainInfo RawWalletMode where
     networkChainDifficulty = error "notImplemented"
     localChainDifficulty = error "notImplemented"
     blockchainSlotDuration = error "notImplemented"
@@ -200,20 +194,14 @@ type WalletMode m
 -- Implementations of 'WalletMode'
 ---------------------------------------------------------------
 
-type FakeSsc ssc = TaggedTrans ssc IdentityT
-
-runFakeSsc :: FakeSsc ssc m a -> m a
-runFakeSsc = runIdentityT . unpack
-
-type RawWalletMode ssc =
+type RawWalletMode =
     PeerStateHolder (
     KeyStorage (
     WalletDB (
     ReportingContextT (
     LoggerNameBox (
-    FakeSsc ssc
     Production
     )))))
 
-type WalletRealMode ssc = DiscoveryKademliaT (RawWalletMode ssc)
-type WalletStaticPeersMode ssc = DiscoveryConstT (RawWalletMode ssc)
+type WalletRealMode = DiscoveryKademliaT RawWalletMode
+type WalletStaticPeersMode = DiscoveryConstT RawWalletMode

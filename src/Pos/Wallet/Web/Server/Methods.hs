@@ -68,7 +68,6 @@ import           Pos.Crypto                       (PassPhrase, aesDecrypt,
                                                    redeemDeterministicKeyGen,
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
-import           Pos.DB.Class                     (MonadDB)
 import           Pos.DB.Limits                    (MonadDBLimits)
 import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevSecretKeys)
@@ -135,9 +134,7 @@ import           Pos.Wallet.Web.State             (AccountLookupMode (..), Walle
                                                    setWalletTransactionMeta, testReset,
                                                    updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
-import           Pos.Wallet.Web.Tracking          (BlockLockMode,
-                                                   selectAccountsFromUtxoLock,
-                                                   syncWSetsWithGStateLock)
+import           Pos.Wallet.Web.Tracking          (MonadWalletTracking (..))
 import           Pos.Web.Server                   (serveImpl)
 
 ----------------------------------------------------------------------------
@@ -154,8 +151,7 @@ type WalletWebMode m
       , MonadDBLimits m
       , MonadWalletWebSockets m
       , MonadReportingMem m
-      , MonadDB m
-      , BlockLockMode WalletSscType m
+      , MonadWalletTracking m
       )
 
 makeLenses ''SyncProgress
@@ -179,14 +175,14 @@ walletApplication serv = do
     upgradeApplicationWS wsConn . serve walletApi <$> serv
 
 walletServer
-    :: (Monad m, MonadIO m, WalletWebMode (WalletWebHandler m))
+    :: (MonadIO m, WalletWebMode (WalletWebHandler m))
     => SendActions (WalletWebHandler m)
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
 walletServer sendActions nat = do
     nat >>= launchNotifier
     addInitialRichAccount sendActions 0
-    syncWSetsWithGStateLock =<< mapM getSKByAddr =<< myRootAddresses
+    syncWSetsAtStart =<< mapM getSKByAddr =<< myRootAddresses
     (`enter` servantHandlers sendActions) <$> nat
 
 bracketWalletWebDB
@@ -877,10 +873,7 @@ importKey cpassphrase (toString -> fp) = do
     forM_ wusAccounts $ \(walletIndex, accountIndex) -> do
         let wAddr = CWalletAddress wsAddr walletIndex
         newAccount (DeterminedSeed accountIndex) cpassphrase wAddr
-
-    selectAccountsFromUtxoLock [key]
-
-    return importedWSet
+    importedWSet <$ syncOnImport key
   where
     secretReadError =
         throwM . Internal . sformat ("Failed to read secret: "%build)

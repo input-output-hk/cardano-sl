@@ -27,13 +27,12 @@ import           Pos.Wallet.KeyStorage       (runKeyStorage)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
 import           Pos.Wallet.State            (closeState, openMemState, openState,
                                               runWalletDB)
-import           Pos.Wallet.WalletMode       (WalletMode, WalletStaticPeersMode,
-                                              runFakeSsc)
+import           Pos.Wallet.WalletMode       (WalletMode, WalletStaticPeersMode)
 
 -- TODO: Move to some `Pos.Wallet.Communication` and provide
 -- meaningful listeners
 allListeners
-    :: ListenersWithOut (WalletStaticPeersMode ssc)
+    :: ListenersWithOut WalletStaticPeersMode
 allListeners = untag @SscGodTossing allStubListeners
 
 -- TODO: Move to some `Pos.Wallet.Worker` and provide
@@ -45,20 +44,20 @@ allWorkers = ([], mempty)
 -- | WalletMode runner
 runWalletStaticPeersMode
     :: PeerId
-    -> Transport (WalletStaticPeersMode ssc)
+    -> Transport WalletStaticPeersMode
     -> Set NodeId
     -> WalletParams
-    -> (ActionSpec (WalletStaticPeersMode ssc) a, OutSpecs)
+    -> (ActionSpec WalletStaticPeersMode a, OutSpecs)
     -> Production a
 runWalletStaticPeersMode peerId transport peers wp@WalletParams {..} =
     runRawStaticPeersWallet peerId transport peers wp allListeners
 
 runWalletStaticPeers
     :: PeerId
-    -> Transport (WalletStaticPeersMode ssc)
+    -> Transport WalletStaticPeersMode
     -> Set NodeId
     -> WalletParams
-    -> ([WorkerSpec (WalletStaticPeersMode ssc)], OutSpecs)
+    -> ([WorkerSpec WalletStaticPeersMode], OutSpecs)
     -> Production ()
 runWalletStaticPeers peerId transport peers wp =
     runWalletStaticPeersMode peerId transport peers wp . runWallet
@@ -81,14 +80,14 @@ runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
 
 runRawStaticPeersWallet
     :: PeerId
-    -> Transport (WalletStaticPeersMode ssc)
+    -> Transport WalletStaticPeersMode
     -> Set NodeId
     -> WalletParams
-    -> ListenersWithOut (WalletStaticPeersMode ssc)
-    -> (ActionSpec (WalletStaticPeersMode ssc) a, OutSpecs)
+    -> ListenersWithOut WalletStaticPeersMode
+    -> (ActionSpec WalletStaticPeersMode a, OutSpecs)
     -> Production a
 runRawStaticPeersWallet peerId transport peers WalletParams {..}
-                        listeners (ActionSpec action, outs) = runFakeSsc $
+                        listeners (ActionSpec action, outs) =
     usingLoggerName lpRunnerTag . bracket openDB closeDB $ \db -> do
         stateM <- liftIO SM.newIO
         runWithoutReportingContext .

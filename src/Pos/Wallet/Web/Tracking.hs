@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 module Pos.Wallet.Web.Tracking
        ( syncWSetsWithGStateLock
@@ -9,11 +10,14 @@ module Pos.Wallet.Web.Tracking
        , applyModifierToWSet
        , BlockLockMode
        , CAccModifier
+       , MonadWalletTracking (..)
        ) where
 
+import           Control.Monad.Trans        (MonadTrans)
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, (%))
+import           Mockable                   (MonadMockable, SharedAtomicT)
 import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
@@ -45,9 +49,10 @@ import           Pos.Types                  (BlockHeader, HeaderHash, blockTxas,
 import           Pos.Util.Chrono            (getNewestFirst)
 import qualified Pos.Util.Modifier          as MM
 
+import           Pos.Wallet.SscType         (WalletSscType)
 import           Pos.Wallet.Web.ClientTypes (CAccountAddress (..), CAddress, WS,
                                              addressToCAddress, encToCAddress)
-import           Pos.Wallet.Web.State       (WebWalletModeDB)
+import           Pos.Wallet.Web.State       (WalletWebDB, WebWalletModeDB)
 import qualified Pos.Wallet.Web.State       as WS
 
 type CAccModifier = MM.MapModifier CAccountAddress ()
@@ -59,6 +64,30 @@ type BlockLockMode ssc m =
     , MonadDB m
     , MonadMask m)
 
+class Monad m => MonadWalletTracking m where
+    syncWSetsAtStart :: [EncryptedSecretKey] -> m ()
+    syncOnImport :: EncryptedSecretKey -> m ()
+    txMempoolToModifier :: m CAccModifier
+
+
+instance {-# OVERLAPPABLE #-}
+    ( MonadWalletTracking m, Monad m, MonadTrans t, Monad (t m)
+    , SharedAtomicT m ~ SharedAtomicT (t m) ) =>
+        MonadWalletTracking (t m)
+  where
+    syncWSetsAtStart = lift . syncWSetsAtStart
+    syncOnImport = lift . syncOnImport
+    txMempoolToModifier = lift txMempoolToModifier
+
+instance (BlockLockMode WalletSscType m, MonadMockable m)
+         => MonadWalletTracking (WalletWebDB m) where
+    syncWSetsAtStart = syncWSetsWithGStateLock
+    syncOnImport = selectAccountsFromUtxoLock . pure
+    txMempoolToModifier = error "Not implemented yet"
+
+----------------------------------------------------------------------------
+-- Logic
+----------------------------------------------------------------------------
 
 -- To support actual wallet accounts we listen to applications and rollbacks
 -- of blocks, extract transactions from block and extract our

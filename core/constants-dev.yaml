@@ -2,7 +2,7 @@
 k: 2
 
 # Genesis constants
-genesisN: 50000
+genesisN: 12
 genesisSlotDurationSec: 7
 genesisMaxBlockSize: 2000000
 genesisMaxHeaderSize: 200000

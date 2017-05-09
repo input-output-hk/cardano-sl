@@ -31,6 +31,7 @@ import           Control.Lens                    (each, to, _tail)
 import           Control.Monad.Fix               (MonadFix)
 import           Data.Default                    (def)
 import           Data.Tagged                     (Tagged (..), untag)
+import           Data.Text                       (pack)
 import qualified Data.Time                       as Time
 import qualified Ether
 import           Formatting                      (build, sformat, shown, (%))
@@ -50,6 +51,8 @@ import           Node                            (Node, NodeAction (..), NodeEnd
 import           Node.Util.Monitor               (setupMonitor, stopMonitor)
 import qualified STMContainers.Map               as SM
 import qualified System.Metrics                  as Metrics
+import qualified System.Metrics.Distribution     as Metrics.Distr
+import qualified System.Metrics.Gauge            as Metrics.Gauge
 import           System.Random                   (newStdGen)
 import qualified System.Remote.Monitoring        as Monitoring
 import qualified System.Remote.Monitoring.Statsd as Monitoring
@@ -102,7 +105,7 @@ import           Pos.Statistics                  (EkgParams (..), StatsdParams (
 import           Pos.Txp                         (mkTxpLocalData)
 import           Pos.Txp.DB                      (genesisFakeTotalStake,
                                                   runBalanceIterBootstrap)
-import           Pos.Txp.MemState                (TxpHolderTag)
+import           Pos.Txp.MemState                (TxpHolderTag, TxpMetrics(..))
 #ifdef WITH_EXPLORER
 import           Pos.Explorer                    (explorerTxpGlobalSettings)
 #else
@@ -201,6 +204,31 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
         ntpSlottingVar <- mkNtpSlottingVar
         dlgVar <- RWV.new def
 
+        -- EKG monitoring stuff.
+        --
+        -- Relevant even if monitoring is turned off (no port given). The
+        -- gauge and distribution can be sampled by the server dispatcher
+        -- and used to inform a policy for delaying the next receive event.
+        --
+        -- TODO implement this. Requires time-warp-nt commit
+        --   275c16b38a715264b0b12f32c2f22ab478db29e9
+        -- in addition to the non-master
+        --   fdef06b1ace22e9d91c5a81f7902eb5d4b6eb44f
+        -- for flexible EKG setup.
+        ekgStore <- liftIO $ Metrics.newStore
+        ekgMemPoolGauge <- liftIO $ Metrics.createGauge (pack "MemPoolSize") ekgStore
+        ekgMemPoolDistr <- liftIO $ Metrics.createDistribution (pack "MemPoolTime") ekgStore
+        let txpMetrics = TxpMetrics
+                { txpMetricsMemPoolSize =
+                      ( fromIntegral <$> Metrics.Gauge.read ekgMemPoolGauge
+                      , Metrics.Gauge.set ekgMemPoolGauge . fromIntegral
+                      )
+                , txpMetricsModifyTime =
+                      ( round . Metrics.Distr.mean <$> Metrics.Distr.read ekgMemPoolDistr
+                      , Metrics.Distr.add ekgMemPoolDistr . fromIntegral
+                      )
+                }
+
         -- TODO [CSL-775] need an effect-free way of running this into IO.
         let runIO :: forall t . RealMode ssc t -> IO t
             runIO (RealMode act) =
@@ -213,7 +241,7 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
                       , Tagged @SlottingVar slottingVar
                       , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
                       , Tagged @SscMemTag bottomSscState
-                      , Tagged @TxpHolderTag txpVar
+                      , Tagged @TxpHolderTag (txpVar, txpMetrics)
                       , Tagged @DelegationVar dlgVar
                       , Tagged @PeerStateTag stateM_
                       ) .
@@ -243,7 +271,7 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
                , Tagged @SlottingVar slottingVar
                , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
                , Tagged @SscMemTag sscState
-               , Tagged @TxpHolderTag txpVar
+               , Tagged @TxpHolderTag (txpVar, txpMetrics)
                , Tagged @DelegationVar dlgVar
                , Tagged @PeerStateTag stateM
                ) .
@@ -256,17 +284,15 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
            runGStateCoreRedirect .
            runBListenerStub .
             (\(RealMode m) -> m) .
-            runServer (simpleNodeEndPoint transport) (const noReceiveDelay) listeners outSpecs (startMonitoring runIO) stopMonitoring . ActionSpec $
+            runServer (simpleNodeEndPoint transport) (const noReceiveDelay) listeners outSpecs (startMonitoring ekgStore runIO) stopMonitoring . ActionSpec $
                \vI sa -> nodeStartMsg npBaseParams >> action vI sa
-
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
 
-    startMonitoring (runIO :: forall t . RealMode ssc t -> IO t) node' =
+    startMonitoring ekgStore (runIO :: forall t . RealMode ssc t -> IO t) node' =
         case npEnableMetrics of
             False -> return Nothing
             True -> Just <$> do
-                ekgStore <- liftIO $ Metrics.newStore
                 ekgStore' <- setupMonitor runIO node' ekgStore
                 liftIO $ Metrics.registerGcMetrics ekgStore'
                 mEkgServer <- case npEkgParams of

@@ -66,6 +66,7 @@ instance SscLocalDataClass SscNistBeacon where
 
 instance SscGStateClass SscNistBeacon where
     sscLoadGlobalState = pure ()
+    sscGlobalStateToBatch _ = Tagged []
     sscRollbackU _ = pure ()
     sscVerifyAndApplyBlocks _ _ = pass
     sscCalculateSeedQ =

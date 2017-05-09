@@ -384,11 +384,11 @@ checkPayload epoch payload = do
     let payloadCerts = _gpCertificates payload
     case payload of
         CommitmentsPayload  comms  _ ->
-            checkCommitmentsPayload epoch comms
+            unless (null comms) $ checkCommitmentsPayload epoch comms
         OpeningsPayload     opens  _ ->
-            checkOpeningsPayload opens
+            unless (null opens) $ checkOpeningsPayload opens
         SharesPayload       shares _ ->
-            checkSharesPayload epoch shares
+            unless (null shares) $ checkSharesPayload epoch shares
         CertificatesPayload        _ ->
             pass
     checkCertificatesPayload epoch payloadCerts

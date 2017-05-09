@@ -182,14 +182,106 @@ isValidAddress = mkEffFn2 \currency -> fromAff <<< B.isValidAddress (mkCCurrency
 --------------------------------------------------------------------------------
 -- Profiles --------------------------------------------------------------------
 
-getLocale :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
-getLocale = fromAff $ map encodeJson (getProfileLocale <$> B.getProfile)
+-- | Gets user locale.
+-- Arguments:
+-- Returns users locale
+-- Example in nodejs:
+--
+getLocale :: forall eff. Eff (ajax :: AJAX | eff) (Promise String)
+getLocale = fromAff $ getProfileLocale <$> B.getProfile
 
-updateLocale :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
-updateLocale = mkEffFn1 \locale -> fromAff <<< map encodeJson <<< B.updateProfile $ mkCProfile locale
+-- | Sets user locale.
+-- Arguments: new user locale
+-- Returns users locale
+-- Example in nodejs:
+--
+updateLocale :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise String)
+updateLocale = mkEffFn1 \locale -> fromAff <<< map getProfileLocale <<< B.updateProfile $ mkCProfile locale
 
 --------------------------------------------------------------------------------
 -- Transactions ----------------------------------------------------------------
+
+-- | Creates a new payment.
+-- Arguments: wallet object/id, address id/hash, amount to send, spending password (leave empty string if you don't want to use spending password)
+-- Returns a created transaction
+-- Example in nodejs:
+--
+newPayment :: forall eff. EffFn4 (ajax :: AJAX | eff) Json String String String (Promise Json)
+newPayment = mkEffFn4 \wFrom addrTo amount spendingPassword -> fromAff <<< map encodeJson $ either (throwError <<< error) id
+    $ B.newPayment
+    <$> (pure $ mkCPassPhrase spendingPassword)
+    <*> (decodeJson wFrom)
+    <*> (pure $ mkCAddress addrTo)
+    <*> (pure $ mkCCoin amount)
+
+-- | Creates a new payment.
+-- Arguments: wallet object/id, address id/hash, amount to send, currency, title, description, spending password (leave empty string if you don't want to use spending password)
+-- Returns a created transaction
+-- Example in nodejs:
+--
+newPaymentExtended :: forall eff. EffFn7 (ajax :: AJAX | eff) Json String String String String String String (Promise Json)
+newPaymentExtended = mkEffFn7 \wFrom addrTo amount curr title desc spendingPassword -> fromAff <<< map encodeJson $ either (throwError <<< error) id
+    $ B.newPaymentExtended
+    <$> (pure $ mkCPassPhrase spendingPassword)
+    <*> (decodeJson wFrom)
+    <*> (pure $ mkCAddress addrTo)
+    <*> (pure $ mkCCoin amount)
+    <*> (pure $ mkCCurrency curr)
+    <*> (pure title)
+    <*> (pure desc)
+
+-- | Updates transaction meta data.
+-- Arguments: wallet object/id, transaction id/hash, currency, title, description, date
+-- Returns
+-- Example in nodejs:
+--
+updateTransaction :: forall eff. EffFn6 (ajax :: AJAX | eff) Json String String String String Number (Promise Unit)
+updateTransaction = mkEffFn6 \wId ctxId ctmCurrency ctmTitle ctmDescription ctmDate -> fromAff <<< either (throwError <<< error) id
+    $ B.updateTransaction
+    <$> (decodeJson wId)
+    <*> (pure $ mkCTxId ctxId)
+    <*> (pure $ mkCTxMeta ctmCurrency ctmTitle ctmDescription ctmDate)
+
+-- | Get transactions of specified wallet
+-- Arguments: wallet object/id, skip, limit
+-- Returns a pair of transacts retrieved from the history and total number of transactions in specified wallet
+-- Example in nodejs:
+--
+getHistory :: forall eff. EffFn3 (ajax :: AJAX | eff) Json Int Int (Promise Json)
+getHistory = mkEffFn3 \wId skip limit -> fromAff <<< map encodeJson $ either (throwError <<< error) id
+    $ B.getHistory
+    <$> (decodeJson wId)
+    <*> (pure $ Just skip)
+    <*> (pure $ Just limit)
+
+-- | Gets transactions that match some search criteria
+-- Arguments: wallet object/id, search string, skip, limit
+-- Returns a pair of transacts retrieved from the history and total number of transactions in specified wallet
+-- Example in nodejs:
+--
+searchHistory :: forall eff. EffFn4 (ajax :: AJAX | eff) Json String Int Int (Promise Json)
+searchHistory = mkEffFn4 \wId search skip limit -> fromAff <<< map encodeJson $ either (throwError <<< error) id
+    $ B.searchHistory
+    <$> (decodeJson wId)
+    <*> pure Nothing
+    <*> (pure search)
+    <*> (pure $ Just skip)
+    <*> (pure $ Just limit)
+
+-- | Gets transactions that match some search criteria
+-- Arguments: wallet object/id, narrow the search to account hash/id, search string, skip, limit
+-- Returns a pair of transacts retrieved from the history and total number of transactions in specified wallet/account
+-- Example in nodejs:
+--
+searchAccountHistory :: forall eff. EffFn5 (ajax :: AJAX | eff) Json Json String Int Int (Promise Json)
+searchAccountHistory = mkEffFn5 \wId account search skip limit -> fromAff <<< map encodeJson $ either (throwError <<< error) id
+    $ B.searchHistory
+    <$> (decodeJson wId)
+    <*> (pure $ Just $ mkCAddress account)
+    <*> (pure search)
+    <*> (pure $ Just skip)
+    <*> (pure $ Just limit)
+
 
 -- getWallets :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 -- getWallets = fromAff $ map encodeJson B.getWallets

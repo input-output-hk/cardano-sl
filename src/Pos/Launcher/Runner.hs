@@ -44,10 +44,10 @@ import           Node                        (Node, NodeAction (..),
 import           Node.Util.Monitor           (setupMonitor, stopMonitor)
 import qualified STMContainers.Map           as SM
 import           System.Random               (newStdGen)
-import           System.Wlog                 (LoggerConfig (..), WithLogger, logError,
-                                              logInfo, mapperB, productionB,
-                                              releaseAllHandlers, setupLogging,
-                                              usingLoggerName)
+import           System.Wlog                 (LoggerConfig (..), WithLogger,
+                                              getLoggerName, logError, logInfo, mapperB,
+                                              productionB, releaseAllHandlers,
+                                              setupLogging, usingLoggerName)
 import           Universum                   hiding (bracket, finally)
 
 import           Pos.Binary                  ()
@@ -368,6 +368,7 @@ createTransport
     :: (MonadIO m, WithLogger m, Mockable Throw m)
     => TCP.TCPAddr -> m Transport
 createTransport addrInfo = do
+    loggerName <- getLoggerName
     let tcpParams =
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =
@@ -375,6 +376,9 @@ createTransport addrInfo = do
              , TCP.tcpNewQDisc = fairQDisc $ \_ -> return Nothing
              , TCP.tcpCheckPeerHost = True
              , TCP.tcpNoDelay = True
+             , TCP.tcpServerExceptionHandler = \e ->
+                     usingLoggerName (loggerName <> "transport") $
+                         logError $ sformat ("Exception in tcp server: " % shown) e
              })
     transportE <-
         liftIO $ TCP.createTransport addrInfo tcpParams

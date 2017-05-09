@@ -39,7 +39,7 @@ import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcPartici
 import           Pos.Txp                              (TxOut (..), toaOut)
 import           Pos.Txp.MemState                     (GenericTxpLocalData, TxpHolder,
                                                        askTxpMem, getLocalTxs,
-                                                       runTxpHolder)
+                                                       runTxpHolder, ignoreTxpMetrics)
 import           Pos.Types                            (EpochIndex (..), SlotLeaders)
 import           Pos.WorkMode                         (TxpExtra_TMP, WorkMode)
 
@@ -99,7 +99,7 @@ convertHandler nc nodeDBs wrap handler =
     liftIO (runProduction .
             runContextHolder nc .
             DB.runDBHolder nodeDBs .
-            runTxpHolder wrap $
+            runTxpHolder wrap ignoreTxpMetrics $
             handler)
     `Catch.catches`
     excHandlers

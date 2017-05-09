@@ -5,10 +5,13 @@ module Pos.Txp.MemState.Types
        , GenericTxpLocalDataPure
        , TxpLocalData
        , TxpLocalDataPure
+       , TxpMetrics (..)
+       , ignoreTxpMetrics
        ) where
 
 import           GHC.Base               (Int, IO)
 import           Universum
+import           Data.Time.Units        (Microsecond)
 
 import           Pos.Core.Types     (HeaderHash)
 import           Pos.Txp.Toil.Types (MemPool, UndoMap, UtxoModifier)
@@ -31,7 +34,6 @@ data GenericTxpLocalData extra = TxpLocalData
     , txpUndos        :: !(TVar UndoMap)
     , txpTip          :: !(TVar HeaderHash)
     , txpExtra        :: !(TVar extra)
-    , txpSetGauge     :: !(TVar (Int -> IO ()))
     }
 
 -- | Pure version of GenericTxpLocalData.
@@ -42,3 +44,22 @@ type TxpLocalData = GenericTxpLocalData ()
 
 -- | Pure version of TxpLocalData.
 type TxpLocalDataPure = GenericTxpLocalDataPure ()
+
+-- | Effectful getters and setters for metrics related to the Txp data.
+--   TODO this should not be fixed at IO, if being able to mock features
+--   remains a goal. But we can't free it up right now because the current
+--   mockable system doesn't work well with ether.
+data TxpMetrics = TxpMetrics
+    { txpMetricsMemPoolSize :: !(IO Int, Int -> IO ())
+      -- | How long is spent trying to modify the mempool.
+      --   Reading should give an estimator of the next modify time.
+    , txpMetricsModifyTime  :: !(IO Microsecond, Microsecond -> IO ())
+    }
+
+-- | A TxpMetrics which always give 0 and never does any writes. Use it if
+--   you don't care about metrics.
+ignoreTxpMetrics :: TxpMetrics
+ignoreTxpMetrics = TxpMetrics
+    { txpMetricsMemPoolSize = (pure 0, const (pure ()))
+    , txpMetricsModifyTime  = (pure 0, const (pure ()))
+    }

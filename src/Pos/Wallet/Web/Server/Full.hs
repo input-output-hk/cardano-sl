@@ -39,7 +39,7 @@ import           Pos.Slotting                  (NtpSlottingVar, SlottingVar,
 import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscState, runSscHolder)
 import           Pos.Txp                       (GenericTxpLocalData, askTxpMem,
-                                                runTxpHolder)
+                                                runTxpHolder, ignoreTxpMetrics)
 import           Pos.Wallet.KeyStorage         (MonadKeys (..), addSecretKey)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
                                                 walletServeImpl, walletServer,
@@ -111,7 +111,7 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
            . runSlottingHolder slotVar
            . runNtpSlotting ntpSlotVar
            . runSscHolder ssc
-           . runTxpHolder tlw
+           . runTxpHolder tlw ignoreTxpMetrics
            . runDelegationTFromTVar delWrap
            . (\m -> flip runPeerStateHolder m =<< peerStateFromSnapshot psCtx)
            . runDiscoveryKademliaT kinst

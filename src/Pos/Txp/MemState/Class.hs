@@ -32,7 +32,8 @@ import           Universum
 
 import           Pos.Txp.Core.Types     (TxAux, TxId, TxOutAux)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),
-                                         GenericTxpLocalDataPure)
+                                         GenericTxpLocalDataPure,
+                                         TxpMetrics (..))
 import           Pos.Txp.Toil.Types     (MemPool (..), UtxoModifier)
 import           Pos.Util.TimeWarp      (currentTime)
 
@@ -40,12 +41,15 @@ data TxpHolderTag
 
 -- | Reduced equivalent of @MonadReader (GenericTxpLocalData mw) m@.
 type MonadTxpMem ext m =
-    ( Ether.E.MonadReader TxpHolderTag (GenericTxpLocalData ext) m
+    ( Ether.E.MonadReader TxpHolderTag (GenericTxpLocalData ext, TxpMetrics) m
     , WithLogger m
     )
 
 askTxpMem :: MonadTxpMem ext m => m (GenericTxpLocalData ext)
-askTxpMem = Ether.E.ask (Proxy @TxpHolderTag)
+askTxpMem = fst <$> Ether.E.ask (Proxy @TxpHolderTag)
+
+askTxpMemAndMetrics :: MonadTxpMem ext m => m (GenericTxpLocalData ext, TxpMetrics)
+askTxpMemAndMetrics = Ether.E.ask (Proxy @TxpHolderTag)
 
 getTxpLocalData
     :: (MonadIO m, MonadTxpMem e m)
@@ -95,10 +99,10 @@ modifyTxpLocalData
     :: (MonadIO m, MonadTxpMem ext m)
     => (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext)) -> m a
 modifyTxpLocalData f =
-    askTxpMem >>= \TxpLocalData{..} -> do
+    askTxpMemAndMetrics >>= \(TxpLocalData{..}, TxpMetrics{..}) -> do
         _ <- takeMVar txpLocalDataLock
         beginTime <- currentTime
-        (res, setGaugeIO) <- atomically $ do
+        (res, newSize) <- atomically $ do
             curUM  <- STM.readTVar txpUtxoModifier
             curMP  <- STM.readTVar txpMemPool
             curUndos <- STM.readTVar txpUndos
@@ -111,13 +115,13 @@ modifyTxpLocalData f =
             STM.writeTVar txpUndos newUndos
             STM.writeTVar txpTip newTip
             STM.writeTVar txpExtra newExtra
-            setGauge <- STM.readTVar txpSetGauge
-            pure (res, setGauge $ _mpLocalTxsSize newMP)
+            pure (res, _mpLocalTxsSize newMP)
         endTime <- currentTime
-        putMVar txpLocalDataLock ()
         let duration = endTime - beginTime
         logDebug $ sformat ("modifyTxpLocalData took " % shown) duration
-        liftIO setGaugeIO
+        liftIO $ snd txpMetricsMemPoolSize newSize
+        liftIO $ snd txpMetricsModifyTime duration
+        putMVar txpLocalDataLock ()
         pure res
 
 setTxpLocalData

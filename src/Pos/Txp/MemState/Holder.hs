@@ -16,14 +16,14 @@ import           Universum
 import           Pos.Types              (HeaderHash)
 
 import           Pos.Txp.MemState.Class (TxpHolderTag)
-import           Pos.Txp.MemState.Types (GenericTxpLocalData (..))
+import           Pos.Txp.MemState.Types (GenericTxpLocalData (..), TxpMetrics (..))
 import           Pos.Txp.Toil.Types     (UtxoModifier)
 
 ----------------------------------------------------------------------------
 -- Holder
 ----------------------------------------------------------------------------
 
-type TxpHolder ext = Ether.E.ReaderT TxpHolderTag (GenericTxpLocalData ext)
+type TxpHolder ext = Ether.E.ReaderT TxpHolderTag (GenericTxpLocalData ext, TxpMetrics)
 
 mkTxpLocalData
     :: (Default e, MonadIO m)
@@ -34,7 +34,6 @@ mkTxpLocalData uv initTip = TxpLocalData
     <*> liftIO (STM.newTVarIO mempty)
     <*> liftIO (STM.newTVarIO initTip)
     <*> liftIO (STM.newTVarIO def)
-    <*> liftIO (STM.newTVarIO $ const $ return ())
 
-runTxpHolder :: GenericTxpLocalData ext -> TxpHolder ext m a -> m a
-runTxpHolder = flip (Ether.E.runReaderT (Proxy @TxpHolderTag))
+runTxpHolder :: GenericTxpLocalData ext -> TxpMetrics -> TxpHolder ext m a -> m a
+runTxpHolder dat met = flip (Ether.E.runReaderT (Proxy @TxpHolderTag)) (dat, met)

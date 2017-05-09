@@ -25,7 +25,6 @@ module Pos.Launcher.Runner
        ) where
 
 import           Control.Concurrent.STM      (newEmptyTMVarIO, newTBQueueIO)
-import           Control.Concurrent.STM.TVar (writeTVar)
 import           Control.Lens                (each, to, _tail)
 import           Control.Monad.Fix           (MonadFix)
 import           Data.Default                (def)
@@ -47,9 +46,11 @@ import           Node.Util.Monitor           (setupMonitor, stopMonitor)
 import qualified STMContainers.Map           as SM
 import           System.IO                   (hClose, hSetBuffering,
                                               BufferMode (NoBuffering))
-import qualified System.Metrics.Gauge        as Gauge
 import           System.Random               (newStdGen)
-import           System.Remote.Monitoring    (getGauge)
+import qualified System.Remote.Monitoring    as Monitoring
+import qualified System.Metrics              as Metrics
+import qualified System.Metrics.Distribution as Metrics.Distr
+import qualified System.Metrics.Gauge        as Metrics.Gauge
 import           System.Wlog                 (LoggerConfig (..), WithLogger, logError,
                                               logInfo, productionB, releaseAllHandlers,
                                               setupLogging, usingLoggerName)
@@ -67,7 +68,6 @@ import           Pos.Context                 (ContextHolder, NodeContext (..),
                                               runContextHolder)
 import           Pos.Core                    (Timestamp ())
 import           Pos.Crypto                  (createProxySecretKey, encToPublic)
-import           Pos.Crypto.Random           (randomNumber)
 import           Pos.DB                      (DBHolder, MonadDB, NodeDBs, runDBHolder)
 import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
 import           Pos.DB.GState               (getTip)
@@ -90,7 +90,8 @@ import           Pos.Ssc.Class               (SscConstraint, SscNodeContext, Ssc
                                               sscCreateNodeContext)
 import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
 import           Pos.Statistics              (getNoStatsT, runStatsT')
-import           Pos.Txp                     (mkTxpLocalData, runTxpHolder, txpSetGauge)
+import           Pos.Txp                     (mkTxpLocalData, runTxpHolder,
+                                              TxpMetrics (..))
 import           Pos.Txp.DB                  (genesisFakeTotalStake,
                                               runBalanceIterBootstrap)
 #ifdef WITH_EXPLORER
@@ -101,7 +102,6 @@ import           Pos.Txp                     (txpGlobalSettings)
 import           Pos.Update.Context          (UpdateContext (..))
 import qualified Pos.Update.DB               as GState
 import           Pos.Update.MemState         (newMemVar)
-import           Pos.Util.JsonLog            (jlLog, JLEvent (JLMemPoolSize))
 import           Pos.Util.UserSecret         (usKeys)
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (ProductionMode, RawRealMode, ServiceMode,
@@ -143,6 +143,32 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
             txpVar <- mkTxpLocalData mempty initTip
             ntpSlottingVar <- mkNtpSlottingVar
 
+            -- EKG monitoring stuff.
+            --
+            -- Relevant even if monitoring is turned off (no port given). The
+            -- gauge and distribution can be sampled by the server dispatcher
+            -- and used to inform a policy for delaying the next receive event.
+            --
+            -- TODO implement this. Requires time-warp-nt commit
+            --   275c16b38a715264b0b12f32c2f22ab478db29e9
+            -- in addition to the non-master
+            --   fdef06b1ace22e9d91c5a81f7902eb5d4b6eb44f
+            -- for flexible EKG setup.
+            ekgStore <- liftIO $ Metrics.newStore
+            ekgMemPoolGauge <- liftIO $ Metrics.createGauge (pack "MemPoolSize") ekgStore
+            ekgMemPoolDistr <- liftIO $ Metrics.createDistribution (pack "MemPoolTime") ekgStore
+
+            let txpMetrics = TxpMetrics
+                    { txpMetricsMemPoolSize =
+                          ( fromIntegral <$> Metrics.Gauge.read ekgMemPoolGauge
+                          , Metrics.Gauge.set ekgMemPoolGauge . fromIntegral
+                          )
+                    , txpMetricsModifyTime =
+                          ( round . Metrics.Distr.mean <$> Metrics.Distr.read ekgMemPoolDistr
+                          , Metrics.Distr.add ekgMemPoolDistr . fromIntegral
+                          )
+                    }
+
             -- TODO [CSL-775] need an effect-free way of running this into IO.
             let runIO :: forall t . RawRealMode ssc t -> IO t
                 runIO = runProduction .
@@ -151,20 +177,18 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                         runSlottingHolder slottingVar .
                         runNtpSlotting (npUseNTP, ntpSlottingVar) .
                         ignoreSscHolder .
-                        runTxpHolder txpVar .
+                        runTxpHolder txpVar txpMetrics .
                         runDelegationT def .
                         runPeerStateHolder stateM_
 
+            -- To start monitoring, add the time-warp metrics and the GC
+            -- metrics then spin up the server.
             let startMonitoring node' = case lpEkgPort of
                     Nothing   -> return Nothing
                     Just port -> Just <$> do
-                         server <- setupMonitor port runIO node'
-                         gauge <- liftIO $ getGauge (pack "MemPoolSize") server
-                         atomically $ writeTVar (txpSetGauge txpVar) $ \n -> do
-                             Gauge.set gauge $ fromIntegral n
-                             r <- randomNumber 20
-                             when (r == 0) (runIO $ jlLog $ JLMemPoolSize n)
-                         return server
+                         ekgStore' <- setupMonitor runIO node' ekgStore
+                         liftIO $ Metrics.registerGcMetrics ekgStore'
+                         liftIO $ Monitoring.forkServerWith ekgStore' "127.0.0.1" port
 
             let stopMonitoring it = whenJust it stopMonitor
 
@@ -172,7 +196,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                 runSlottingHolder slottingVar .
                 runNtpSlotting (npUseNTP, ntpSlottingVar) .
                 (mkStateAndRunSscHolder @ssc) .
-                runTxpHolder txpVar .
+                runTxpHolder txpVar txpMetrics .
                 runDelegationT def .
                 runPeerStateHolder stateM .
                 runServer peerId transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $

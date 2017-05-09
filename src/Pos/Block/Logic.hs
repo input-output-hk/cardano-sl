@@ -829,12 +829,11 @@ createMainBlockFinish slotId pSk prevHeader = do
         let convertTx (txId, (tx, _, _)) = WithHash tx txId
         sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
         sk <- npSecretKey . ncNodeParams <$> getNodeContext
-        -- for now let's be cautious and not generate blocks that are larger than
-        -- maxBlockSize/4
-        sizeLimit <- fromIntegral . toBytes . (`div` 4) <$> UDB.getMaxBlockSize
+        sizeLimit <- fromIntegral . toBytes <$> UDB.getMaxBlockSize
         block <- createMainBlockPure
-                     sizeLimit prevHeader sortedTxs pSk
-                     slotId localPSKs sscData usPayload sk
+            sizeLimit prevHeader sortedTxs pSk
+            slotId localPSKs sscData usPayload sk
+        lift $ logInfo $ "Created main block of size: " <> show (length $ Bi.encode block)
         -- Create undo
         (pModifier, verUndo) <-
             runExceptT (usVerifyBlocks False (one (toUpdateBlock (Right block)))) >>=
@@ -872,7 +871,7 @@ createMainBlockFinish slotId pSk prevHeader = do
 
 createMainBlockPure
     :: (MonadError Text m, SscHelpersClass ssc)
-    => Word64                   -- ^ Block size limit (TODO: imprecise)
+    => Word64                   -- ^ Block size limit (real max.value)
     -> BlockHeader ssc
     -> [(TxId, TxAux)]
     -> Maybe ProxySKEither
@@ -893,6 +892,9 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         musthaveBlock <-
             either throwError pure $
             mkMainBlock (Just prevHeader) sId sk pSk musthaveBody extraH extraB
+        let mhbSize = length $ Bi.encode musthaveBlock
+        when (mhbSize > fromIntegral limit) $ throwError $
+            "Musthave block size is more than limit: " <> show mhbSize
         count musthaveBlock
         -- include delegation certificates and US payload
         let prioritizeUS = even (flattenSlotId sId)
@@ -910,8 +912,8 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         -- return the resulting block
         txPayload <- either throwError pure $ mkTxPayload txs'
         let body = Types.MainBody txPayload sscData psks' usPayload'
-        maybe (error "Coudln't create block") return $
-              mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
+        let finalBlock = mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
+        maybe (error "Coudln't create block") pure finalBlock
   where
     count x = identity -= fromIntegral (length (Bi.encode x))
     -- take from a list until the limit is exhausted or the list ends

@@ -78,8 +78,8 @@ getLocalPayload SlotId {..} = do
             ")"
     let warningMsg = sformat warningFmt siEpoch expectedEpoch
     isExpected <-
-        if | expectedEpoch == siEpoch -> return True
-           | otherwise -> False <$ logWarning warningMsg
+        if expectedEpoch == siEpoch then pure True
+        else False <$ logWarning warningMsg
     magnify' ldModifier $ getPayload isExpected <*> getCertificates isExpected
   where
     getPayload isExpected

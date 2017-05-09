@@ -109,20 +109,21 @@ type OpeningsMap = HashMap StakeholderId Opening
 -- Shares
 ----------------------------------------------------------------------------
 
--- | Each node generates several 'SharedSeed's, breaks every 'SharedSeed' into 'Share's,
--- and sends those encrypted shares to other nodes
--- (for i-th commitment at i-th element of NonEmpty list)
--- In a 'SharesMap', for each node we collect shares which said node has
--- received and decrypted.
---
--- Specifically, if node identified by 'Address' X has received NonEmpty list of shares
--- from node identified by key Y,
--- this NonEmpty list will be at @sharesMap ! X ! Y@.
-
+-- | Each node generates several 'SharedSeed's, breaks every
+-- 'SharedSeed' into 'Share's, and sends those encrypted shares to
+-- other nodes (for i-th commitment at i-th element of NonEmpty
+-- list). That's exactly what forms 'InnerSharesList'.
 type InnerSharesMap = HashMap StakeholderId (NonEmpty (AsBinary Share))
 
+-- | In a 'SharesMap', for each node we collect shares which said node
+-- has received and decrypted. Specifically, if node identified by
+-- 'Address' X has received NonEmpty list of shares from node
+-- identified by key Y, this NonEmpty list will be at @sharesMap ! X !
+-- Y@.
 type SharesMap = HashMap StakeholderId InnerSharesMap
 
+-- | This maps shareholders to amount of shares she should
+-- issue. Depends on the stake distribution.
 type SharesDistribution = HashMap StakeholderId Word16
 
 instance Buildable (StakeholderId, Word16) where

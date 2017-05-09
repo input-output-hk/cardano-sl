@@ -41,6 +41,7 @@ import           Pos.Types.Block                 (MainBlockHeader, headerSlot)
 ----------------------------------------------------------------------------
 -- Simple predicates for GodTossing.Types.Base
 ----------------------------------------------------------------------------
+
 hasCommitment :: StakeholderId -> GtGlobalState -> Bool
 hasCommitment id = HM.member id . getCommitmentsMap . _gsCommitments
 

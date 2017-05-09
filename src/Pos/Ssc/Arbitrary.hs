@@ -15,4 +15,3 @@ newtype SscPayloadDependsOnSlot ssc = SscPayloadDependsOnSlot
 
 instance Arbitrary (SscPayloadDependsOnSlot SscNistBeacon) where
     arbitrary = pure $ SscPayloadDependsOnSlot (\_ -> arbitrary)
-

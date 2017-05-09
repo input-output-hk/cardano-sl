@@ -90,12 +90,12 @@ newtype Secret = Secret
     { getSecret :: Pvss.Secret
     } deriving (Show, Eq)
 
--- | Shares can be used to reconstruct Secret.
+-- | Shares can be used to reconstruct `Secret`.
 newtype Share = Share
     { getShare :: DecryptedShare
     } deriving (Show, Eq)
 
--- | Encrypted share which needs to be decrypted using VssKeyPair first.
+-- | Encrypted share which needs to be decrypted using `VssKeyPair` first.
 newtype EncShare = EncShare
     { getEncShare :: EncryptedShare
     } deriving (Show, Eq)
@@ -106,7 +106,7 @@ data SecretSharingExtra =
                        ![Commitment]
     deriving (Show, Eq, Generic)
 
--- | SecretProof may be used to commit Secret without revealing it.
+-- | SecretProof may be used to commit `Secret` without revealing it.
 newtype SecretProof =
     SecretProof Proof
     deriving (Show, Eq, Generic)

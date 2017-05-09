@@ -28,7 +28,7 @@ translation =
         , cAge: "Seit"
         , cTotalSent: "Insgesamt gesendet"
         , cRelayedBy: "Weitergegeben durch"
-        , cSizeKB: "Größe (kB)"
+        , cSize: "Größe (bytes)"
         , cExpand: "Aufklappen"
         , cCollapse: "Zuklappen"
         , cNoData: "Keine Daten"
@@ -54,7 +54,7 @@ translation =
         , navTools: "Tools"
         }
     , hero:
-        { hrSubtitle: "Der effektivste Weg um das Netzwerk der Kryptowährung zu erforschen."
+        { hrSubtitle: "Suche Adressen, Transaktionen, Epochen und Slots im Cardano Netzwerk"
         , hrSearch: "Suche Addressen, Transaktionen, Slots und Epochen"
         , hrTime: "Zeit"
         }

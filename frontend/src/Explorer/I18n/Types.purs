@@ -40,7 +40,7 @@ type Common =
     , cAge :: String
     , cTotalSent :: String
     , cRelayedBy :: String
-    , cSizeKB :: String
+    , cSize :: String
     , cExpand :: String
     , cCollapse :: String
     , cNoData :: String

@@ -143,7 +143,7 @@ navItemsRow2 lang =
       , link: "https://tada.iohk.io/"
       }
     , { label: translate (I18nL.footer <<< I18nL.fooCardanoSLDocumentation) lang
-      , link: "https://cardano-docs.iohk.io/introduction/"
+      , link: "https://cardanodocs.com/introduction/"
       }
     ]
 

@@ -141,7 +141,7 @@ updateWallet = mkEffFn6 \wId wType wCurrency wName wAssurance wUnit -> fromAff <
 -- Returns json representation of newly created wallet
 -- Example in nodejs:
 --
-newWallet :: forall eff . EffFn6 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String String String String String
+newWallet :: forall eff . EffFn6 (ajax :: AJAX | eff) String String String String String String
   (Promise Json)
 newWallet = mkEffFn6 \wSetId wType wCurrency wName mnemonic spendingPassword -> fromAff <<< map encodeJson <<<
     B.newWallet (mkCPassPhrase spendingPassword) $ mkCWalletInit wType wCurrency wName (mkCAddress wSetId)
@@ -154,12 +154,43 @@ newWallet = mkEffFn6 \wSetId wType wCurrency wName mnemonic spendingPassword -> 
 deleteWallet :: forall eff. EffFn1 (ajax :: AJAX | eff) Json (Promise Unit)
 deleteWallet = mkEffFn1 $ fromAff <<< either (throwError <<< error) B.deleteWallet <<< decodeJson
 
--- getLocale :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
--- getLocale = fromAff $ map encodeJson (getProfileLocale <$> B.getProfile)
+--------------------------------------------------------------------------------
+-- Accounts ------------------------------------------------------------------
+
+-- | Creates a new wallet.
+-- Arguments: wallet set, type, currency, name, mnemonics, spending password (if empty string is given, wallet will be created with no spending password)
+-- Returns json representation of newly created wallet
+-- Example in nodejs:
 --
--- updateLocale :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
--- updateLocale = mkEffFn1 \locale -> fromAff <<< map encodeJson <<< B.updateProfile $ mkCProfile locale
+newAccount :: forall eff . EffFn2 (ajax :: AJAX | eff) Json String
+  (Promise Json)
+newAccount = mkEffFn2 \wId spendingPassword -> fromAff <<< map encodeJson <<<
+    either (throwError <<< error) (B.newAccount $ mkCPassPhrase spendingPassword) $ decodeJson wId
+
+--------------------------------------------------------------------------------
+-- Addresses ------------------------------------------------------------------
+
+-- | Checks is some string correct representation of a valid address
+-- Arguments: currency for which we are checking address, string representation of an address to check
+-- Returns true if address is valid in specific currency or false otherwise
+-- Example in nodejs:
 --
+isValidAddress :: forall eff. EffFn2 (ajax :: AJAX | eff) String String (Promise Boolean)
+isValidAddress = mkEffFn2 \currency -> fromAff <<< B.isValidAddress (mkCCurrency currency)
+
+
+--------------------------------------------------------------------------------
+-- Profiles --------------------------------------------------------------------
+
+getLocale :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
+getLocale = fromAff $ map encodeJson (getProfileLocale <$> B.getProfile)
+
+updateLocale :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
+updateLocale = mkEffFn1 \locale -> fromAff <<< map encodeJson <<< B.updateProfile $ mkCProfile locale
+
+--------------------------------------------------------------------------------
+-- Transactions ----------------------------------------------------------------
+
 -- getWallets :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 -- getWallets = fromAff $ map encodeJson B.getWallets
 --

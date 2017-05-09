@@ -3,6 +3,7 @@ module Main where
 import Prelude (($), (<$>), (<<<), bind, pure, const)
 import Control.Bind ((=<<))
 import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.Eff.Now (NOW, nowDateTime)
 import Control.SocketIO.Client (SocketIO, connect, on)
 import Control.Comonad (extract)
@@ -51,7 +52,10 @@ config state = do
   dt <- extract <$> nowDateTime
 
   pure
-    { initialState: set (socket <<< connection) (Just socket') state
+    {initialState:
+        set (socket <<< connection) (Just socket') $
+        set lang (fromMaybe English $ unsafePerformEff detectLocale)
+        state
     , update: Ex.update :: Update Ex.State Ex.Action AppEffects
     , view: view
     , inputs: [clockSignal, socketSignal, routeSignal]

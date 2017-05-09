@@ -9,14 +9,18 @@ module Pos.Txp.MemState.Types
        , TxpLocalDataPure
        , TransactionProvenance (..)
        , MemPoolModifyReason (..)
+       , TxpMetrics (..)
+       , ignoreTxpMetrics
        ) where
 
 import           Data.Aeson.TH      (deriveJSON, defaultOptions)
 import           Universum
+import           Data.Time.Units        (Microsecond)
 
 import           Pos.Core.Types     (HeaderHash)
 import           Pos.Communication.Types.Protocol (PeerId)
 import           Pos.Txp.Toil.Types (MemPool, UndoMap, UtxoModifier)
+import           Serokell.Data.Memory.Units (Byte)
 
 -- | LocalData of transactions processing.
 -- There are two invariants which must hold for local data
@@ -65,3 +69,22 @@ data MemPoolModifyReason =
     deriving Show
 
 $(deriveJSON defaultOptions ''MemPoolModifyReason)
+
+-- | Effectful getters and setters for metrics related to the Txp data.
+--   TODO this should not be fixed at IO, if being able to mock features
+--   remains a goal. But we can't free it up right now because the current
+--   mockable system doesn't work well with ether.
+data TxpMetrics = TxpMetrics
+    { txpMetricsMemPoolSize :: !(IO Byte, Byte -> IO ())
+      -- | How long is spent trying to modify the mempool.
+      --   Reading should give an estimator of the next modify time.
+    , txpMetricsModifyTime  :: !(IO Microsecond, Microsecond -> IO ())
+    }
+
+-- | A TxpMetrics which always give 0 and never does any writes. Use it if
+--   you don't care about metrics.
+ignoreTxpMetrics :: TxpMetrics
+ignoreTxpMetrics = TxpMetrics
+    { txpMetricsMemPoolSize = (pure 0, const (pure ()))
+    , txpMetricsModifyTime  = (pure 0, const (pure ()))
+    }

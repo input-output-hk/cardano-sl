@@ -270,7 +270,7 @@ data NodeAction packing peerData m t = NodeAction [Listener packing peerData m] 
 
 simpleNodeEndPoint
     :: NT.Transport m
-    -> SharedAtomicT m (LL.NodeState peerData m)
+    -> m (LL.Statistics m)
     -> LL.NodeEndPoint m
 simpleNodeEndPoint transport _ = LL.NodeEndPoint {
       newNodeEndPoint = NT.newEndPoint transport
@@ -302,8 +302,8 @@ node
        , MonadFix m, Serializable packing MessageName, WithLogger m
        , Serializable packing peerData
        )
-    => (SharedAtomicT m (LL.NodeState peerData m) -> LL.NodeEndPoint m)
-    -> (SharedAtomicT m (LL.NodeState peerData m) -> LL.ReceiveDelay m)
+    => (m (LL.Statistics m) -> LL.NodeEndPoint m)
+    -> (m (LL.Statistics m) -> LL.ReceiveDelay m)
     -> StdGen
     -> packing
     -> peerData
@@ -323,8 +323,8 @@ node mkEndPoint mkReceiveDelay prng packing peerData nodeEnv k = do
         ; llnode <- LL.startNode
               packing
               peerData
-              (mkEndPoint . LL.nodeState)
-              (mkReceiveDelay . LL.nodeState)
+              (mkEndPoint . LL.nodeStatistics)
+              (mkReceiveDelay . LL.nodeStatistics)
               prng
               nodeEnv
               (handlerIn listenerIndex sendActions)

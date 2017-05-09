@@ -6,6 +6,7 @@
 module Node.Util.Monitor (
 
       setupMonitor
+    , startMonitor
     , stopMonitor
 
     ) where
@@ -21,6 +22,9 @@ import qualified System.Metrics.Gauge as Monitoring.Gauge
 import qualified System.Metrics.Counter as Monitoring.Counter
 import Node
 
+-- | Put time-warp related metrics into an EKG store.
+--   You must indicate how to run the monad into IO, so that EKG can produce
+--   the metrics (it works in IO).
 setupMonitor
     :: ( Mockable Metrics.Metrics m
        , Metrics.Distribution m ~ Monitoring.Distribution.Distribution
@@ -28,12 +32,11 @@ setupMonitor
        , Metrics.Counter m ~ Monitoring.Counter.Counter
        , MonadIO m
        )
-    => Int
-    -> (forall t . m t -> IO t)
+    => (forall t . m t -> IO t)
     -> Node m
-    -> m Monitoring.Server
-setupMonitor port lowerIO node = do
-    store <- liftIO Monitoring.newStore
+    -> Monitoring.Store
+    -> m Monitoring.Store
+setupMonitor lowerIO node store = do
     liftIO $ flip (Monitoring.registerGauge "Remotely-initated handlers") store $ lowerIO $ do
         stats <- nodeStatistics node
         Metrics.readGauge (stRunningHandlersRemote stats)
@@ -46,7 +49,23 @@ setupMonitor port lowerIO node = do
     liftIO $ flip (Monitoring.registerDistribution "Handler elapsed time (exceptional)") store $ lowerIO $ do
         stats <- nodeStatistics node
         liftIO $ Monitoring.Distribution.read (stHandlersFinishedExceptionally stats)
-    liftIO $ Monitoring.registerGcMetrics store
+    return store
+
+startMonitor
+    :: ( Mockable Metrics.Metrics m
+       , Metrics.Distribution m ~ Monitoring.Distribution.Distribution
+       , Metrics.Gauge m ~ Monitoring.Gauge.Gauge
+       , Metrics.Counter m ~ Monitoring.Counter.Counter
+       , MonadIO m
+       )
+    => Int
+    -> (forall t . m t -> IO t)
+    -> Node m
+    -> m Monitoring.Server
+startMonitor port lowerIO node = do
+    store <- liftIO Monitoring.newStore
+    store' <- setupMonitor lowerIO node store
+    liftIO $ Monitoring.registerGcMetrics store'
     server <- liftIO $ Monitoring.forkServerWith store "127.0.0.1" port
     liftIO . putStrLn $ "Forked EKG server on port " ++ show port
     return server

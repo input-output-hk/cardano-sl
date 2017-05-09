@@ -16,7 +16,7 @@ import qualified Network.Transport.TCP as TCP
 import qualified Network.Transport.Concrete.TCP as TCP
 import           Node
 import           Node.Message
-import           Node.Util.Monitor (setupMonitor)
+import           Node.Util.Monitor (startMonitor)
 import           System.Environment (getArgs)
 import           System.Random (mkStdGen)
 import           Data.Time.Units
@@ -92,7 +92,7 @@ server port qdiscChoice = do
     node transport prng BinaryP () $ \node -> do
         -- Set up the EKG monitor.
         NodeAction [listener totalBytes] $ \saction -> do
-            setupMonitor 8000 runProduction node
+            startMonitor 8000 runProduction node
             -- Just wait for user interrupt
             liftIO . putStrLn $ "Server running. Press any key to stop."
             liftIO getChar

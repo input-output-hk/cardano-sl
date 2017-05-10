@@ -125,8 +125,8 @@ setMode600 path = liftIO $ PSX.setFileMode path mode600
 #endif
 
 ensureModeIs600 :: (MonadIO m, WithLogger m) => FilePath -> m ()
-ensureModeIs600 path = do
 #ifdef POSIX
+ensureModeIs600 path = do
     accessMode <- getAccessMode path
     unless (accessMode == mode600) $ do
         logWarning $
@@ -134,6 +134,7 @@ ensureModeIs600 path = do
             path accessMode
         setMode600 path
 #else
+ensureModeIs600 _ = do
     pure ()
 #endif
 

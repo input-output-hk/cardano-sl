@@ -89,6 +89,7 @@ data Action
     | SetClock DateTime
     | UpdateClock
     -- misc
+    | Reload -- Reload pages - TODO (jk) Remove it if socket-io will be fixed
     | NoOp
 
 type ActionChannel = Channel Action

@@ -27,7 +27,7 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), State)
-import Explorer.Util.Config (syncByPolling, syncBySocket)
+import Explorer.Util.Config (SyncAction(..), syncByPolling, syncBySocket)
 import Explorer.Util.DOM (scrollTop, targetToHTMLElement, targetToHTMLInputElement)
 import Explorer.Util.Data (sortBlocksByEpochSlot', sortTxsByTime', unionBlocks, unionTxs)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
@@ -283,8 +283,11 @@ update (BlocksInvalidBlocksPageNumber target) state =
 update ScrollTop state =
     { state
     , effects:
-        [ liftEff scrollTop >>= \_ -> pure NoOp
-        ]
+        case state ^. syncAction of
+            -- Don't scroll if we are doing polling
+            -- TODO (jk) Remove this workaround if socket-io will be fixed 
+            SyncByPolling -> [ pure NoOp ]
+            SyncBySocket -> [ liftEff scrollTop >>= \_ -> pure NoOp ]
     }
 update (SelectInputText input) state =
     { state
@@ -662,6 +665,10 @@ update UpdateClock state = onlyEffects state $
          SetClock <<< extract <$> liftEff nowDateTime
     ]
 update (SetClock date) state = noEffects $ state { now = date }
+
+--- Reload pages
+-- TODO (jk) Remove it if socket-io is back
+update Reload state = update (UpdateView state.route) state
 
 -- routing
 

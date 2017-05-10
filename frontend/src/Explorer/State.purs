@@ -25,7 +25,8 @@ initialState =
         , connection: Nothing
         , subscriptions: []
         }
-    , syncAction: SyncBySocket
+    -- , syncAction: SyncBySocket
+    , syncAction: SyncByPolling
     , viewStates:
         { globalViewState:
             { gViewMobileMenuOpenend: false

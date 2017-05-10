@@ -1,7 +1,11 @@
-severity: Debug
+rotation:
+    logLimit: 2097152 # 2MB
+    keepFiles: 20
+severity: Error
 node:
     plugin:
         notifier:
             severity: Debug
             socket-io:
                 severity: Debug
+                file: socket-io.log

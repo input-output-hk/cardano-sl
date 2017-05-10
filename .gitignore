@@ -22,4 +22,5 @@ node-db/*
 *.key
 *.lock
 *.dump
+*.log
 wallet-db/*

@@ -48,6 +48,8 @@ type ETxpLocalWorkMode m =
 
 type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra
 
+-- | A monad transformer whose purpose is to avoid overlapping instances
+-- of MonadTxExtraRead (ReaderT ExplorerExtraTxp m).
 newtype ExplorerReaderWrapper m a = ExplorerReaderWrapper
     { runExplorerReaderWrapper :: m a
     } deriving ( Functor

@@ -10,7 +10,7 @@ import           Universum
 import           Pos.Communication   (OutSpecs, WorkerSpec)
 import           Pos.Ssc.Class       (SscWorkersClass)
 import           Pos.Util            (mconcatPair)
-import           Pos.WorkMode        (WorkMode)
+import           Pos.WorkMode.Class  (WorkMode)
 
 #ifdef WITH_WALLET
 import           Data.Time.Units     (Second, convertUnit)

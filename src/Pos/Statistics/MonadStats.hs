@@ -12,20 +12,19 @@ module Pos.Statistics.MonadStats
        , getStatsMap
        ) where
 
-import qualified Control.Monad.Ether.Implicit     as Ether
-import           Control.Monad.Trans              (MonadTrans)
-import qualified Control.Monad.Trans.Ether.Tagged as Ether
-import           Control.Monad.Trans.Identity     (IdentityT (..))
-import qualified Data.Binary                      as Binary
-import           Data.Coerce                      (coerce)
-import           Focus                            (Decision (Remove), alterM)
-import           Serokell.Util                    (show')
-import qualified STMContainers.Map                as SM
+import           Control.Monad.Trans          (MonadTrans)
+import           Control.Monad.Trans.Identity (IdentityT (..))
+import qualified Data.Binary                  as Binary
+import           Data.Coerce                  (coerce)
+import qualified Ether
+import           Focus                        (Decision (Remove), alterM)
+import           Serokell.Util                (show')
+import qualified STMContainers.Map            as SM
 import           Universum
 
-import           Pos.Statistics.StatEntry         (StatLabel (..))
-import           Pos.Util.JsonLog                 (MonadJL (..))
-import           Pos.Util.Util                    (ether)
+import           Pos.Statistics.StatEntry     (StatLabel (..))
+import           Pos.Util.JsonLog             (MonadJL, jlLog)
+import           Pos.Util.Util                (ether)
 
 
 -- | `MonadStats` is a monad which has methods for stats collecting
@@ -65,7 +64,7 @@ type StatsMap = SM.Map Text LByteString
 
 -- | Statistics wrapper around some monadic action to collect statistics
 -- during execution of this action. Used in benchmarks.
-type StatsT = Ether.ReaderT StatsMap
+type StatsT = Ether.ReaderT' StatsMap
 
 runStatsT :: MonadIO m => StatsT m a -> m a
 runStatsT action = liftIO SM.newIO >>= flip runStatsT' action
@@ -74,7 +73,7 @@ runStatsT' :: StatsMap -> StatsT m a -> m a
 runStatsT' = flip Ether.runReaderT
 
 getStatsMap :: Monad m => StatsT m StatsMap
-getStatsMap = Ether.ask
+getStatsMap = Ether.ask'
 
 instance (MonadIO m, MonadJL m) => MonadStats (StatsT m) where
     statLog label entry = do

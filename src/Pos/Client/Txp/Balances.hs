@@ -3,27 +3,33 @@
 module Pos.Client.Txp.Balances
        ( MonadBalances(..)
        , getBalanceFromUtxo
+       , BalancesRedirect
+       , runBalancesRedirect
        ) where
 
 import           Universum
 
-import           Control.Monad.Trans    (MonadTrans)
-import qualified Data.HashMap.Strict    as HM
-import qualified Data.Map               as M
-import           Formatting             (sformat, stext, (%))
-import           System.Wlog            (WithLogger, logWarning)
+import           Control.Monad.Trans          (MonadTrans)
+import           Control.Monad.Trans.Identity (IdentityT (..))
+import           Data.Coerce                  (coerce)
+import qualified Data.HashMap.Strict          as HM
+import qualified Data.Map                     as M
+import qualified Ether
+import           Formatting                   (sformat, stext, (%))
+import           System.Wlog                  (WithLogger, logWarning)
 
-import           Pos.Crypto             (WithHash (..), shortHashF)
-import           Pos.DB                 (MonadDB)
-import qualified Pos.DB.GState          as GS
-import qualified Pos.DB.GState.Balances as GS
-import           Pos.Txp                (GenericToilModifier (..), TxOutAux (..),
-                                         TxpHolder, Utxo, addrBelongsTo, applyToil,
-                                         getLocalTxsNUndo, getUtxoModifier, runToilAction,
-                                         topsortTxs, txOutValue, _bvStakes)
-import           Pos.Types              (Address (..), Coin, mkCoin, sumCoins,
-                                         unsafeIntegerToCoin)
-import qualified Pos.Util.Modifier      as MM
+import           Pos.Crypto                   (WithHash (..), shortHashF)
+import           Pos.DB                       (MonadDB)
+import qualified Pos.DB.GState                as GS
+import qualified Pos.DB.GState.Balances       as GS
+import           Pos.Txp                      (GenericToilModifier (..), MonadTxpMem,
+                                               TxOutAux (..), Utxo, addrBelongsTo,
+                                               applyToil, getLocalTxsNUndo,
+                                               getUtxoModifier, runToilAction, topsortTxs,
+                                               txOutValue, _bvStakes)
+import           Pos.Types                    (Address (..), Coin, mkCoin, sumCoins,
+                                               unsafeIntegerToCoin)
+import qualified Pos.Util.Modifier            as MM
 
 -- | A class which have the methods to get state of address' balance
 class Monad m => MonadBalances m where
@@ -47,7 +53,18 @@ getBalanceFromUtxo addr =
     unsafeIntegerToCoin . sumCoins .
     map (txOutValue . toaOut) . toList <$> getOwnUtxo addr
 
-instance (MonadDB m, MonadMask m, WithLogger m) => MonadBalances (TxpHolder __ m) where
+data BalancesRedirectTag
+
+type BalancesRedirect =
+    Ether.TaggedTrans BalancesRedirectTag IdentityT
+
+runBalancesRedirect :: BalancesRedirect m a -> m a
+runBalancesRedirect = coerce
+
+instance
+    (MonadDB m, MonadMask m, WithLogger m, MonadTxpMem ext m, t ~ IdentityT) =>
+        MonadBalances (Ether.TaggedTrans BalancesRedirectTag t m)
+  where
     getOwnUtxo addr = do
         utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoModifier

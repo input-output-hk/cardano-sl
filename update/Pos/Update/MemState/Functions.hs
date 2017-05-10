@@ -8,6 +8,7 @@ module Pos.Update.MemState.Functions
 import qualified Control.Concurrent.Lock   as Lock
 import           Control.Monad.Catch       (MonadMask, bracket_)
 import qualified Data.HashMap.Strict       as HM
+import qualified Ether
 import           Universum
 
 import           Pos.Binary.Class          (Bi)
@@ -16,15 +17,14 @@ import           Pos.Update.Context        (UpdateContext (ucMemState))
 import           Pos.Update.Core.Types     (LocalVotes, UpdatePayload (..),
                                             UpdateProposal, UpdateVote (..))
 import           Pos.Update.MemState.Types (MemPool (..), MemVar (..))
-import           Pos.Util.Context          (HasContext, askContext)
 
 type UpdateVotes = HashMap PublicKey UpdateVote
 
 withUSLock
-    :: (HasContext UpdateContext m, MonadIO m, MonadMask m)
+    :: (Ether.MonadReader' UpdateContext m, MonadIO m, MonadMask m)
     => m a -> m a
 withUSLock action = do
-    lock <- mvLock <$> askContext ucMemState
+    lock <- mvLock <$> Ether.asks' ucMemState
     bracket_ (liftIO $ Lock.acquire lock) (liftIO $ Lock.release lock) action
 
 -- | Add given payload to MemPool.

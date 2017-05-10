@@ -30,6 +30,7 @@ import           Control.Monad.Except    (MonadError, runExceptT)
 import           Control.Monad.Morph     (generalize, hoist)
 import           Control.Monad.State     (get, put)
 import           Data.Tagged             (untag)
+import qualified Ether
 import           Formatting              (build, int, sformat, (%))
 import           Serokell.Util           (listJson)
 import           System.Wlog             (NamedPureLogger, WithLogger, launchNamedPureLog,
@@ -54,7 +55,6 @@ import           Pos.Types               (Block, EpochIndex, HeaderHash, SharedS
                                           SlotId, epochIndexL, headerHash)
 import           Pos.Util                (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono         (NE, NewestFirst, OldestFirst)
-import           Pos.Util.Context        (HasContext)
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -112,7 +112,7 @@ sscCalculateSeed
        ( MonadSscMem ssc m
        , MonadDB m
        , SscGStateClass ssc
-       , HasContext LrcContext m
+       , Ether.MonadReader' LrcContext m
        , MonadIO m
        , WithLogger m )
     => EpochIndex
@@ -146,7 +146,7 @@ sscNormalize
        ( MonadDB m
        , MonadSscMem ssc m
        , SscLocalDataClass ssc
-       , HasContext LrcContext m
+       , Ether.MonadReader' LrcContext m
        , SscHelpersClass ssc
        , WithLogger m
        )
@@ -184,10 +184,10 @@ sscResetLocal = do
 -- We can try to eliminate these constraints later.
 type SscGlobalApplyMode ssc m =
     (MonadSscMem ssc m, SscGStateClass ssc, WithLogger m,
-     MonadDB m, HasContext LrcContext m)
+     MonadDB m, Ether.MonadReader' LrcContext m)
 type SscGlobalVerifyMode ssc m =
     (MonadSscMem ssc m, SscGStateClass ssc, WithLogger m,
-     MonadDB m, HasContext LrcContext m,
+     MonadDB m, Ether.MonadReader' LrcContext m,
      MonadError (SscVerifyError ssc) m)
 
 sscRunGlobalUpdate
@@ -301,7 +301,7 @@ sscVerifyBlocks blocks = do
 ----------------------------------------------------------------------------
 
 getRichmenFromLrc
-    :: (MonadDB m, HasContext LrcContext m)
+    :: (MonadDB m, Ether.MonadReader' LrcContext m)
     => Text -> EpochIndex -> m RichmenStake
 getRichmenFromLrc fname epoch =
     lrcActionOnEpochReason

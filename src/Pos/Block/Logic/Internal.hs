@@ -13,17 +13,18 @@ module Pos.Block.Logic.Internal
        , toUpdateBlock
        ) where
 
+import           Universum
+
 import           Control.Arrow        ((&&&))
 import           Control.Lens         (each, _Wrapped)
 import           Control.Monad.Catch  (bracketOnError)
 import qualified Data.List.NonEmpty   as NE
+import qualified Ether
 import           Paths_cardano_sl     (version)
 import           Serokell.Util        (Color (Red), colorize)
-import           Universum
 
 import           Pos.Block.Types      (Blund, Undo (undoTx, undoUS))
-import           Pos.Context          (getNodeContext, ncTxpGlobalSettings,
-                                       putBlkSemaphore, takeBlkSemaphore)
+import           Pos.Context          (putBlkSemaphore, takeBlkSemaphore)
 import           Pos.Core             (IsGenesisHeader, IsMainHeader)
 import           Pos.DB               (SomeBatchOp (..))
 import qualified Pos.DB.Block         as DB
@@ -53,7 +54,7 @@ import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlo
 import           Pos.Update.Poll      (PollModifier)
 import           Pos.Util             (Some (..), inAssertMode, spanSafe, _neLast)
 import           Pos.Util.Chrono      (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.WorkMode         (WorkMode)
+import           Pos.WorkMode.Class   (WorkMode)
 
 -- [CSL-780] Totally need something more elegant
 toUpdateBlock
@@ -111,7 +112,7 @@ applyBlocksUnsafeDo
 applyBlocksUnsafeDo blunds pModifier = do
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
-    TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
+    TxpGlobalSettings {..} <- Ether.ask'
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
@@ -159,7 +160,7 @@ rollbackBlocksUnsafe toRollback = reportingFatal version $ do
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS
                               & each._1 %~ toUpdateBlock)
-    TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
+    TxpGlobalSettings {..} <- Ether.ask'
     txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
     sscBatch <- SomeBatchOp <$> sscRollbackBlocks (fmap fst toRollback)
     let putTip = SomeBatchOp $

@@ -16,9 +16,11 @@ module Pos.Lrc.DB.Leaders
 
 import           Universum
 
+import qualified Ether
+
 import           Pos.Binary.Class      (encodeStrict)
 import           Pos.Binary.Core       ()
-import           Pos.Context.Class     (WithNodeContext)
+import           Pos.Context.Context   (GenesisLeaders)
 import           Pos.Context.Functions (genesisLeadersM)
 import           Pos.DB.Class          (MonadDB)
 import           Pos.Lrc.DB.Common     (getBi, putBi)
@@ -42,7 +44,7 @@ putLeaders epoch = putBi (leadersKey epoch)
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareLrcLeaders :: (WithNodeContext ssc m, MonadDB m) => m ()
+prepareLrcLeaders :: (Ether.MonadReader' GenesisLeaders m, MonadDB m) => m ()
 prepareLrcLeaders =
     whenNothingM_ (getLeaders 0) $
         putLeaders 0 =<< genesisLeadersM

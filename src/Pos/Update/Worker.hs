@@ -13,7 +13,7 @@ import           Pos.Types                  (SoftwareVersion (..))
 import           Pos.Update.DB              (getConfirmedProposals)
 import           Pos.Update.Download        (downloadUpdate)
 import           Pos.Update.Logic.Local     (processNewSlot)
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode)
 
 -- | Update System related workers.
 usWorkers :: WorkMode ssc m => ([WorkerSpec m], OutSpecs)

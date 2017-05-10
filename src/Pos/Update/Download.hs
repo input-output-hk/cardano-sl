@@ -9,6 +9,7 @@ import           Control.Monad.Except    (ExceptT (..), throwError)
 import qualified Data.ByteArray          as BA
 import qualified Data.ByteString.Lazy    as BSL
 import qualified Data.HashMap.Strict     as HM
+import qualified Ether
 import           Formatting              (build, sformat, stext, (%))
 import           Network.HTTP.Client     (Manager, newManager)
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
@@ -30,7 +31,6 @@ import           Pos.Update.Mode         (UpdateMode)
 import           Pos.Update.Params       (UpdateParams (..))
 import           Pos.Update.Poll.Types   (ConfirmedProposalState (..))
 import           Pos.Util                ((<//>))
-import           Pos.Util.Context        (askContext)
 
 showHash :: Hash a -> FilePath
 showHash = toString . B16.encode . BA.convert
@@ -45,8 +45,8 @@ versionIsNew ver = svAppName ver /= svAppName curSoftwareVersion
 downloadUpdate :: UpdateMode m => ConfirmedProposalState -> m ()
 downloadUpdate cst@ConfirmedProposalState {..} = do
     logDebug "Update downloading triggered"
-    useInstaller <- askContext @UpdateParams upUpdateWithPkg
-    updateServers <- askContext @UpdateParams upUpdateServers
+    useInstaller <- Ether.asks' upUpdateWithPkg
+    updateServers <- Ether.asks' upUpdateServers
 
     let dataHash = if useInstaller then udPkgHash else udAppDiffHash
         mupdHash = castHash . dataHash <$>
@@ -61,7 +61,7 @@ downloadUpdate cst@ConfirmedProposalState {..} = do
                                   \current software version is newer than \
                                   \update version") updHash
 
-        updPath <- askContext @UpdateParams upUpdatePath
+        updPath <- Ether.asks' upUpdatePath
         whenM (liftIO $ doesFileExist updPath) $
             throwError "There's unapplied update already downloaded"
 
@@ -72,7 +72,7 @@ downloadUpdate cst@ConfirmedProposalState {..} = do
 
         liftIO $ BSL.writeFile updPath file
         logInfo "Update was downloaded"
-        sm <- askContext @UpdateContext ucUpdateSemaphore
+        sm <- Ether.asks' ucUpdateSemaphore
         putMVar sm cst
         logInfo "Update MVar filled, wallet is notified"
 

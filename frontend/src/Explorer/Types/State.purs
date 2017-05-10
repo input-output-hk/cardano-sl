@@ -9,6 +9,7 @@ import Data.Tuple (Tuple)
 import Explorer.Api.Types (SocketSubscription)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
+import Explorer.Util.Config (SyncAction)
 import Network.RemoteData (RemoteData)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry, CBlockSummary, CTxBrief, CTxEntry, CTxSummary)
 import Prelude (class Eq, class Ord, class Show)
@@ -19,13 +20,16 @@ type State =
     { lang :: Language
     , route :: Route
     , socket :: SocketState
+    , syncAction :: SyncAction
     , viewStates :: ViewStates
     , latestBlocks :: RemoteData Error CBlockEntries
+    , pullLatestBlocks :: Boolean         -- TODO (jk) Remove it if socket-io will be fixed
     , totalBlocks :: RemoteData Error Int
     , currentBlockSummary :: Maybe CBlockSummary
     , currentBlockTxs :: Maybe CTxBriefs
     , currentTxSummary :: RemoteData Error CTxSummary
     , latestTransactions :: RemoteData Error CTxEntries
+    , pullLatestTxs :: Boolean            -- TODO (jk) Remove it if socket-io will be fixed
     , currentCAddress :: CAddress
     , currentAddressSummary :: RemoteData Error CAddressSummary
     , currentBlocksResult :: RemoteData Error CBlockEntries

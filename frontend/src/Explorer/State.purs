@@ -9,6 +9,7 @@ import Explorer.I18n.Lang (Language(..), translate)
 import Explorer.I18n.Lenses (common, cTitle) as I18nL
 import Explorer.Routes (Route(..))
 import Explorer.Types.State (DashboardAPICode(..), Search(..), State, SearchEpochSlotQuery)
+import Explorer.Util.Config (SyncAction(..))
 import Explorer.Util.Factory (mkCAddress)
 import Network.RemoteData (RemoteData(..))
 import Partial.Unsafe (unsafePartial)
@@ -24,6 +25,7 @@ initialState =
         , connection: Nothing
         , subscriptions: []
         }
+    , syncAction: SyncBySocket
     , viewStates:
         { globalViewState:
             { gViewMobileMenuOpenend: false
@@ -56,10 +58,12 @@ initialState =
             }
         }
     , latestBlocks: NotAsked
+    , pullLatestBlocks: false -- TODO (jk) Remove it if socket-io will be fixed
     , totalBlocks: NotAsked
     , currentBlockSummary: Nothing
     , currentBlockTxs: Nothing
     , latestTransactions: NotAsked
+    , pullLatestTxs: false    -- TODO (jk) Remove it if socket-io will be fixed
     , currentTxSummary: NotAsked
     , currentCAddress: mkCAddress ""
     , currentAddressSummary: NotAsked

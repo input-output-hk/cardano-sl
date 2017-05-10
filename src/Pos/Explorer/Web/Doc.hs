@@ -21,10 +21,10 @@ import           Data.Time.Clock.POSIX          (POSIXTime, utcTimeToPOSIXSecond
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
-                                                 CBlockEntry (..), CBlockSummary (..),
-                                                 CHash (..), CTxBrief (..), CTxEntry (..),
-                                                 CTxId (..), CTxSummary (..), EpochIndex,
-                                                 mkCCoin)
+                                                 CAddressType (..), CBlockEntry (..),
+                                                 CBlockSummary (..), CHash (..),
+                                                 CTxBrief (..), CTxEntry (..), CTxId (..),
+                                                 CTxSummary (..), EpochIndex, mkCCoin)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 import           Pos.Types                      (mkCoin)
 import           Servant.API                    (Capture, QueryParam)
@@ -136,6 +136,7 @@ posixTime = utcTimeToPOSIXSeconds (parseTimeOrError True defaultTimeLocale "%F" 
 sampleAddressSummary :: CAddressSummary
 sampleAddressSummary = CAddressSummary
     { caAddress = CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
+    , caType    = CPubKeyAddress
     , caTxNum   = 0
     , caBalance = mkCCoin $ mkCoin 0
     , caTxList  = []

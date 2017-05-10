@@ -8,6 +8,7 @@ module Pos.Explorer.Web.ClientTypes
        , CBlockEntry (..)
        , CTxEntry (..)
        , CBlockSummary (..)
+       , CAddressType (..)
        , CAddressSummary (..)
        , CTxBrief (..)
        , CNetworkAddress (..)
@@ -52,17 +53,15 @@ import           Pos.Explorer           (TxExtra (..))
 import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
-import           Pos.Txp                (Tx (..), TxId, TxOut (..),
-                                         TxOutAux (..), _txOutputs)
-import           Pos.Types              (Address, Coin, EpochIndex,
-                                         LocalSlotIndex, MainBlock, SlotId (..),
-                                         Timestamp, addressF, blockSlot,
-                                         blockTxs, decodeTextAddress, gbHeader,
-                                         gbhConsensus, getEpochIndex,
-                                         getSlotIndex, headerHash, mcdSlot,
-                                         mkCoin, prevBlockL, sumCoins,
-                                         unsafeAddCoin, unsafeGetCoin,
-                                         unsafeIntegerToCoin, coinToInteger)
+import           Pos.Txp                (Tx (..), TxId, TxOut (..), TxOutAux (..),
+                                         _txOutputs)
+import           Pos.Types              (Address, Coin, EpochIndex, LocalSlotIndex,
+                                         MainBlock, SlotId (..), Timestamp, addressF,
+                                         blockSlot, blockTxs, coinToInteger,
+                                         decodeTextAddress, gbHeader, gbhConsensus,
+                                         getEpochIndex, getSlotIndex, headerHash, mcdSlot,
+                                         mkCoin, prevBlockL, sumCoins, unsafeAddCoin,
+                                         unsafeGetCoin, unsafeIntegerToCoin)
 
 -------------------------------------------------------------------------------------
 -- Hash types
@@ -191,8 +190,16 @@ toBlockSummary blk = do
         cbsMerkleRoot = toCHash . getMerkleRoot . mtRoot $ blk ^. blockTxs
     return CBlockSummary {..}
 
+data CAddressType =
+      CPubKeyAddress
+    | CScriptAddress
+    | CRedeemAddress
+    | CUnknownAddress
+    deriving (Show, Generic)
+
 data CAddressSummary = CAddressSummary
     { caAddress :: !CAddress
+    , caType    :: !CAddressType
     , caTxNum   :: !Word
     , caBalance :: !CCoin
     , caTxList  :: ![CTxBrief]

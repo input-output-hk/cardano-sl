@@ -55,12 +55,13 @@ import qualified Pos.Explorer                   as EX (getAddrBalance, getAddrHi
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
-                                                 CBlockEntry (..), CBlockSummary (..),
-                                                 CHash, CTxBrief (..), CTxEntry (..),
-                                                 CTxId (..), CTxSummary (..),
-                                                 TxInternal (..), convertTxOutputs,
-                                                 fromCAddress, fromCHash, fromCTxId,
-                                                 mkCCoin, tiToTxEntry, toBlockEntry,
+                                                 CAddressType (..), CBlockEntry (..),
+                                                 CBlockSummary (..), CHash, CTxBrief (..),
+                                                 CTxEntry (..), CTxId (..),
+                                                 CTxSummary (..), TxInternal (..),
+                                                 convertTxOutputs, fromCAddress,
+                                                 fromCHash, fromCTxId, mkCCoin,
+                                                 tiToTxEntry, toBlockEntry,
                                                  toBlockSummary, toPosixTime, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
@@ -214,11 +215,23 @@ getAddressSummary cAddr = do
         extra <- getTxExtraOrFail id
         tx <- getTxMain id extra
         pure $ makeTxBrief tx extra
-    return $ CAddressSummary cAddr 0 balance transactions
+    return CAddressSummary {
+        caAddress = cAddr,
+        caType = getAddressType addr,
+        caTxNum = fromIntegral $ length transactions,
+        caBalance = balance,
+        caTxList = transactions
+    }
   where
     isAddressUnknown = \case
         UnknownAddressType _ _ -> True
         _ -> False
+    getAddressType :: Address -> CAddressType
+    getAddressType = \case
+        PubKeyAddress _ _ -> CPubKeyAddress
+        ScriptAddress _ -> CScriptAddress
+        RedeemAddress _ -> CRedeemAddress
+        UnknownAddressType _ _ -> CUnknownAddress
 
 getTxSummary :: ExplorerMode m => CTxId -> m CTxSummary
 getTxSummary cTxId = do

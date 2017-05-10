@@ -122,15 +122,19 @@ getAccessMode path = do
 -- | Set mode 600 on a given file, regardless of its current mode.
 setMode600 :: (MonadIO m) => FilePath -> m ()
 setMode600 path = liftIO $ PSX.setFileMode path mode600
+#endif
 
 ensureModeIs600 :: (MonadIO m, WithLogger m) => FilePath -> m ()
 ensureModeIs600 path = do
+#ifdef POSIX
     accessMode <- getAccessMode path
     unless (accessMode == mode600) $ do
         logWarning $
             sformat ("Key file at "%build%" has access mode "%oct%" instead of 600. Fixing it automatically.")
             path accessMode
         setMode600 path
+#else
+    pure ()
 #endif
 
 -- | Create user secret file at the given path, but only when one doesn't

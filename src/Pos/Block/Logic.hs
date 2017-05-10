@@ -27,6 +27,7 @@ module Pos.Block.Logic
        , applyWithRollback
        , createGenesisBlock
        , createMainBlock
+       , createMainBlockPure
        ) where
 
 import           Control.Lens               ((-=), (.=), _Wrapped)
@@ -831,7 +832,7 @@ createMainBlockFinish slotId pSk prevHeader = do
         sk <- npSecretKey . ncNodeParams <$> getNodeContext
         sizeLimit <- fromIntegral . toBytes <$> UDB.getMaxBlockSize
         block <- createMainBlockPure
-            sizeLimit prevHeader sortedTxs pSk
+            sizeLimit prevHeader (map snd sortedTxs) pSk
             slotId localPSKs sscData usPayload sk
         lift $ logInfo $ "Created main block of size: " <> show (length $ Bi.encode block)
         -- Create undo
@@ -873,7 +874,7 @@ createMainBlockPure
     :: (MonadError Text m, SscHelpersClass ssc)
     => Word64                   -- ^ Block size limit (real max.value)
     -> BlockHeader ssc
-    -> [(TxId, TxAux)]
+    -> [TxAux]
     -> Maybe ProxySKEither
     -> SlotId
     -> [ProxySKHeavy]
@@ -908,7 +909,7 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
                 usPayload' <- includeUSPayload
                 return (psks', usPayload')
         -- include transactions
-        txs' <- takeSome (map snd txs)
+        txs' <- takeSome txs
         -- return the resulting block
         txPayload <- either throwError pure $ mkTxPayload txs'
         let body = Types.MainBody txPayload sscData psks' usPayload'

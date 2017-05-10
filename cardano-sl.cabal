@@ -1318,6 +1318,7 @@ test-suite cardano-test
                        Test.Pos.Arbitrary.Infra.Communication
                        Test.Pos.Arbitrary.Infra.DHT
                        Test.Pos.BinarySpec
+                       Test.Pos.Block.BlockSpec
                        Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
                        Test.Pos.Communication.Identity.BinarySpec
@@ -1355,7 +1356,7 @@ test-suite cardano-test
                      , binary
                      , bytestring
                      , cardano-sl-core
-                     , cardano-sl-infra >= 0.1
+                     , cardano-sl-infra
                      , cardano-sl-update
                      , cardano-sl
                      , cereal

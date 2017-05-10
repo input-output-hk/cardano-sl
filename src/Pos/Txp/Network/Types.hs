@@ -1,4 +1,3 @@
-
 -- | Types used for communication about Blocks.
 
 module Pos.Txp.Network.Types

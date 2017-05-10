@@ -1,13 +1,13 @@
-Running command: stack exec cardano-keygen -- --genesis-file genesis.bin -f secrets/secret-{}.key -m 14 -n 12000 --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file /home/georgeee/work/serokell/cardano-sl/util-scripts/../util-scripts/avvm-files/utxo-dump-last-new.json --randcerts --blacklisted /home/georgeee/work/serokell/cardano-sl/util-scripts/../util-scripts/avvm-files/full_blacklist.js --fake-avvm-seed-pattern avvm/fake-{}.seed --fake-avvm-entries 100
-USING RANDOM STAKEHOLDER ID, WRITING KEY TO redeemingHolderKey3843
+Running command: stack exec cardano-keygen -- --genesis-file genesis.bin -f secrets/secret-{}.key -m 4 -n 120 --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file /home/denis/cardano-sl/util-scripts/../util-scripts/avvm-files/utxo-dump-last-new.json --randcerts --blacklisted /home/denis/cardano-sl/util-scripts/../util-scripts/avvm-files/full_blacklist.js --fake-avvm-seed-pattern avvm/fake-{}.seed --fake-avvm-entries 100
+USING RANDOM STAKEHOLDER ID, WRITING KEY TO redeemingHolderKey23076
 NOT FOR PRODUCTION USAGE, ONLY FOR TESTING
 IF YOU INTEND TO GENERATE GENESIS.BIN FOR PRODUCTION, STOP RIGHT HERE AND USE `--fileholder <path to secret>` OPTION. THIS IS SERIOUS.
 Removing 101 entries from utxo (out of 188 total entries in the blacklist)
 Total avvm stake after applying blacklist: 25927070538000000
-12014 keyfiles are generated
-Total testnet genesis stake: RichPoorStakes {sdRichmen = 14, sdRichStake = Coin {getCoin = 1280610239591429}, sdPoor = 12000, sdPoorStake = Coin {getCoin = 95364592309}}
+124 keyfiles are generated
+Total testnet genesis stake: RichPoorStakes {sdRichmen = 4, sdRichStake = Coin {getCoin = 4482135838570000}, sdPoor = 120, sdPoorStake = Coin {getCoin = 9536459231000}}
 100 fake avvm seeds are generated
-testnet genesis created successfully. First 30 addresses: [PubKeyAddress 757e6e7e (attrs: {}), PubKeyAddress 0dacfcb7 (attrs: {}), PubKeyAddress d1432ca0 (attrs: {}), PubKeyAddress 8048f9b2 (attrs: {}), PubKeyAddress 9d1e9ded (attrs: {}), PubKeyAddress 97383d8b (attrs: {}), PubKeyAddress 7bd6d6f1 (attrs: {}), PubKeyAddress 1ebbcb15 (attrs: {}), PubKeyAddress c9de0c57 (attrs: {}), PubKeyAddress 3d4989fe (attrs: {})] distr: Just (RichPoorStakes {sdRichmen = 14, sdRichStake = Coin {getCoin = 1280610239591429}, sdPoor = 12000, sdPoorStake = Coin {getCoin = 95364592309}})
+testnet genesis created successfully. First 30 addresses: [PubKeyAddress 2dbe025f13982d6c374bde328af85f81f3e3f9fba2ea3f42fbdb161d (attrs: {}), PubKeyAddress dc558dac802525bdfa579c3f297dd48f50fcaa24fa3ddbcd3ddb727a (attrs: {}), PubKeyAddress fad200ad43f23965d2f1d230080ca817d5fcd77bf6335b707b7899e5 (attrs: {}), PubKeyAddress 801eb4db153a796f7c57cafbf4d0a4c6db208ddcf278b12d8b0ce345 (attrs: {}), PubKeyAddress 67f55c7b61c6c84d91be66688d1da8c401c76ba38e0952e608a558be (attrs: {}), PubKeyAddress bcc82d18edd4a52bd391b273ef3ef0ac86c71e80273b12a8c76626ea (attrs: {}), PubKeyAddress dd46355c5e4da4dc39781f385411f40f8cc93c5c9929dda39327476b (attrs: {}), PubKeyAddress b2ad30ce8229d7f58629c307f451ae53a499c0acd0fffd85bdfa9ab8 (attrs: {}), PubKeyAddress 2c2d86bc059d271635f811b707804a53d8edbf07e61a6dc0b815096d (attrs: {}), PubKeyAddress 1a5fe4702686e78fa9f7d30d4ffb659e32a210beb905cb8a78947eb8 (attrs: {})] distr: Just (RichPoorStakes {sdRichmen = 4, sdRichStake = Coin {getCoin = 4482135838570000}, sdPoor = 120, sdPoorStake = Coin {getCoin = 9536459231000}})
 [generating VSS keys for tests...]
 [generating keys for tests...]
 genesis.bin generated successfully
@@ -16,14 +16,4 @@ genesis.bin generated successfully
 'secrets/secret-2.key.primary' -> 'nodes/key2'
 'secrets/secret-3.key.primary' -> 'nodes/key3'
 'secrets/secret-4.key.primary' -> 'nodes/key4'
-'secrets/secret-5.key.primary' -> 'nodes/key5'
-'secrets/secret-6.key.primary' -> 'nodes/key6'
-'secrets/secret-7.key.primary' -> 'nodes/key7'
-'secrets/secret-8.key.primary' -> 'nodes/key8'
-'secrets/secret-9.key.primary' -> 'nodes/key9'
-'secrets/secret-10.key.primary' -> 'nodes/key10'
-'secrets/secret-11.key.primary' -> 'nodes/key11'
-'secrets/secret-12.key.primary' -> 'nodes/key12'
-'secrets/secret-13.key.primary' -> 'nodes/key13'
-'secrets/secret-14.key.primary' -> 'nodes/key14'
-'redeemingHolderKey3843' -> 'nodes/key0'
+'redeemingHolderKey23076' -> 'nodes/key0'

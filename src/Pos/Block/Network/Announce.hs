@@ -26,7 +26,6 @@ import           Pos.Context                (getNodeContext, isRecoveryMode, ncN
                                              npAttackTypes)
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB.Block               as DB
-import qualified Pos.DB.DB                  as DB
 import           Pos.DHT.Model              (converseToNeighbors)
 import           Pos.Security               (AttackType (..), NodeAttackedError (..),
                                              shouldIgnoreAddress)

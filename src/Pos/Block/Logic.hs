@@ -64,7 +64,6 @@ import           Pos.Crypto                 (SecretKey, WithHash (WithHash), has
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.DB                     (DBError (..), MonadDB, MonadDBCore)
 import qualified Pos.DB.Block               as DB
-import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
 import           Pos.Delegation.Logic       (delegationVerifyBlocks, getProxyMempool)
 import           Pos.Exception              (assertionFailed, reportFatalError)

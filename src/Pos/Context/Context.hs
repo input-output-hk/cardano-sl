@@ -251,7 +251,7 @@ infixr :::
 
 type instance Tags (NodeContext ssc) =
   NodeContextTag         :::
-  SscContextTag      :::
+  SscContextTag          :::
   UpdateContext          :::
   LrcContext             :::
   NodeParams             :::

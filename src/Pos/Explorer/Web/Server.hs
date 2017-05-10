@@ -202,21 +202,23 @@ getBlockTxs cHash (fromIntegral -> lim) (fromIntegral -> off) = do
         pure $ makeTxBrief tx extra
 
 getAddressSummary :: ExplorerMode m => CAddress -> m CAddressSummary
-getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
-    PubKeyAddress _ _ -> do
-        balance <- mkCCoin . fromMaybe (mkCoin 0) <$> EX.getAddrBalance addr
-        txIds <- getNewestFirst <$> EX.getAddrHistory addr
-        transactions <- forM txIds $ \id -> do
-            extra <- getTxExtraOrFail id
-            tx <- getTxMain id extra
-            pure $ makeTxBrief tx extra
-        return $ CAddressSummary cAddr 0 balance transactions
-    ScriptAddress _ -> throwM $
-        Internal "ScriptAddresses are not supported in Explorer yet"
-    RedeemAddress _ -> throwM $
-        Internal "RedeemAddresses are not supported in Explorer yet"
-    UnknownAddressType _ _ -> throwM $
-        Internal "Unknown address type"
+getAddressSummary cAddr = do
+    addr <- cAddrToAddr cAddr
+
+    when (isAddressUnknown addr) $
+        throwM $ Internal "Unknown address type"
+
+    balance <- mkCCoin . fromMaybe (mkCoin 0) <$> EX.getAddrBalance addr
+    txIds <- getNewestFirst <$> EX.getAddrHistory addr
+    transactions <- forM txIds $ \id -> do
+        extra <- getTxExtraOrFail id
+        tx <- getTxMain id extra
+        pure $ makeTxBrief tx extra
+    return $ CAddressSummary cAddr 0 balance transactions
+  where
+    isAddressUnknown = \case
+        UnknownAddressType _ _ -> True
+        _ -> False
 
 getTxSummary :: ExplorerMode m => CTxId -> m CTxSummary
 getTxSummary cTxId = do

@@ -758,7 +758,7 @@ copyingAppend a b = a <> b
 -- do and then I'll submit some pull requests to 'binary' and hopefully all
 -- of this won't be needed. –@neongreen
 pushFront :: ByteString -> Get ()
-pushFront bs = when (not $ BS.null bs) $ unsafeCoerce (OurC (\inp ks -> let !x = nonCopyingAppend bs inp in ks x ()))
+pushFront bs = unless (BS.null bs) $ unsafeCoerce (OurC (\inp ks -> let !x = nonCopyingAppend bs inp in ks x ()))
 {-# INLINE pushFront #-}
 
 -- This ***has*** to correspond to the implementation of 'Get' in 'binary'

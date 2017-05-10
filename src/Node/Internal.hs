@@ -611,6 +611,7 @@ startNode packingType peerData mkNodeEndPoint prng nodeEnv handlerIn handlerOut 
                       }
                   return node
         }
+    logDebug $ sformat ("startNode, we are " % shown % "") (nodeId node)
     return node
 
 -- | Stop a 'Node', closing its network transport and end point.

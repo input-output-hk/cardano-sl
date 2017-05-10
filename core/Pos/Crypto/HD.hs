@@ -92,15 +92,14 @@ deriveHDPublicKey (PublicKey xpub) childIndex
 -- If @childIndex <= maxHardened@ key will be deriving hardened way, otherwise non-hardened.
 deriveHDSecretKey
     :: Bi PassPhrase
-    => PassPhrase -> EncryptedSecretKey -> Word32 -> EncryptedSecretKey
+    => PassPhrase -> EncryptedSecretKey -> Word32 -> Maybe EncryptedSecretKey
 deriveHDSecretKey passPhrase (EncryptedSecretKey xprv pph) childIndex
-    | hash passPhrase /= pph =
-        error "deriveHDSecretKey: passphrase doesn't match"
-    | childIndex <= maxHardened =
+    | hash passPhrase /= pph = Nothing
+    | childIndex <= maxHardened = Just $
         EncryptedSecretKey
             (deriveXPrvHardened passPhrase xprv childIndex)
             pph
-    | otherwise =
+    | otherwise = Just $
         EncryptedSecretKey
             (deriveXPrv passPhrase xprv (childIndex - maxHardened - 1))
             pph

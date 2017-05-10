@@ -19,8 +19,8 @@ deriveLvl2KeyPair
     -> EncryptedSecretKey  -- ^ key of wallet set
     -> Word32              -- ^ wallet derivation index
     -> Word32              -- ^ account derivation index
-    -> (Address, EncryptedSecretKey)
-deriveLvl2KeyPair passphrase wsKey walletIndex accIndex =
-    let wKey   = deriveHDSecretKey passphrase wsKey walletIndex
-        hdPass = deriveHDPassphrase $ encToPublic wsKey
-    in  createHDAddressH passphrase hdPass wKey [walletIndex] accIndex
+    -> Maybe (Address, EncryptedSecretKey)
+deriveLvl2KeyPair passphrase wsKey walletIndex accIndex = do
+    wKey <- deriveHDSecretKey passphrase wsKey walletIndex
+    let hdPass = deriveHDPassphrase $ encToPublic wsKey
+    createHDAddressH passphrase hdPass wKey [walletIndex] accIndex

@@ -149,7 +149,10 @@ deriveAccountSK
     -> m (Address, EncryptedSecretKey)
 deriveAccountSK passphrase CWalletAddress{..} accIndex = do
     key <- getSKByAddr cwaWSAddress
-    return $ deriveLvl2KeyPair passphrase key cwaIndex accIndex
+    maybeThrow badPass $
+        deriveLvl2KeyPair passphrase key cwaIndex accIndex
+  where
+    badPass = Internal "deriveAccountSK: passphrase doesn't match"
 
 deriveAccountAddress
     :: AccountMode m

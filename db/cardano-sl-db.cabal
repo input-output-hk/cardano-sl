@@ -30,7 +30,7 @@ library
                      , cardano-sl-core
                      , concurrent-extra
                      , data-default
-                     , ether
+                     , ether >= 0.5
                      , formatting
                      , lens
                      , log-warper

@@ -4,11 +4,12 @@ module Test.Pos.Block.BlockSpec
        ( spec
        ) where
 
+import           Data.Default          (def)
 import qualified Data.HashMap.Strict   as HM
-import           Test.Hspec            (Spec, describe, hspec)
+import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, Testable, arbitrary, choose,
-                                        counterexample, forAll, listOf1)
+                                        counterexample, forAll, listOf1, property)
 import           Universum
 
 import qualified Pos.Binary.Class      as Bi
@@ -28,34 +29,39 @@ import           Pos.Update.Core       (UpdatePayload (..))
 
 spec :: Spec
 spec = describe "Block.Logic" $ do
-    describe "Costruction limits" $ do
-        prop "createMainBLockPure doesn't create blocks bigger than the limit" $
+    describe "createMainBlockPure" $ do
+        prop "doesn't create blocks bigger than the limit" $
+            -- 400b is minimum bound for empty block
             forAll (choose (400, 4000)) $ \(limit :: Word64) ->
+            forAll arbitrary $ \(prevHeader, sk, updatePayload, proxyCerts) ->
             forAll (listOf1 genTx) $ \txs ->
-            prodBlockProp limit txs $
-            either (\t -> counterexample (toString t) False)
-                   (\b -> let s = length (Bi.encode b)
-                          in counterexample ("Real block size: " <> show s) $
-                             s <= fromIntegral limit)
---        prop "Blocks w/o ssc truncate transactions correctly" $
---            -- 400 bytes is empty block size
---            forAll (choose (400, 4000)) $ \(limit :: Word64) ->
---            forAll (listOf1 genTx) $ \txs ->
---            prodBlockProp limit [] $ \blk0 ->
---            prodBlockProp limit txs $ \blk1 ->
---                traceShow limit $
---                counterexample (show blk) (isRight blk)
+            let blk = noSscBlock limit txs prevHeader sk updatePayload proxyCerts
+            in leftToCounter blk $ \b ->
+                let s = length (Bi.encode b)
+                in counterexample ("Real block size: " <> show s) $
+                   s <= fromIntegral limit
+        prop "Removes transactions when necessary" $
+            forAll arbitrary $ \(prevHeader, sk) ->
+            forAll (listOf1 genTx) $ \txs ->
+            let infLimit = (10 :: Word64) ^ (9 :: Word64)
+                blk0 = noSscBlock infLimit [] prevHeader sk def []
+            in leftToCounter blk0 $ \b ->
+                let s = fromIntegral $ length $ Bi.encode b
+                    blk1 = noSscBlock s txs prevHeader sk def []
+                in counterexample ("Block size was: " <> show s) $
+                   leftToCounter blk1 (const True)
   where
+    neutralSId = SlotId 0 (blkSecurityParam * 2)
+    emptySscPayload = CertificatesPayload HM.empty
+
+    leftToCounter :: (ToString s, Testable p) => Either s a -> (a -> p) -> Property
+    leftToCounter x c = either (\t -> counterexample (toString t) False) (property . c) x
+
     genTx = goodTxToTxAux . getSmallGoodTx <$> arbitrary
-    prodBlockProp
-        :: (Testable p)
-        => Word64 -> [TxAux] -> (Either Text (MainBlock SscGodTossing) -> p) -> Property
-    prodBlockProp limit txs cont =
-        forAll arbitrary $ \(prevHeader, sk, updatePayload, proxyCerts) ->
-            let slotId = SlotId 0 (blkSecurityParam * 2)
-            in cont $ producePureBlock
-                       limit prevHeader txs Nothing slotId proxyCerts
-                       (CertificatesPayload HM.empty) updatePayload sk
+    noSscBlock limit txs prevHeader sk updatePayload proxyCerts =
+        producePureBlock
+            limit prevHeader txs Nothing neutralSId proxyCerts
+            emptySscPayload updatePayload sk
     producePureBlock
         :: Word64
         -> BlockHeader SscGodTossing

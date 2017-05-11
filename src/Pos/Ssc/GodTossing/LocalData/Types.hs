@@ -7,7 +7,6 @@ module Pos.Ssc.GodTossing.LocalData.Types
        ) where
 
 import           Control.Lens                  (makeLenses)
--- import           Universum
 
 import           Pos.Ssc.GodTossing.Toss.Types (TossModifier)
 import           Pos.Types                     (EpochIndex)

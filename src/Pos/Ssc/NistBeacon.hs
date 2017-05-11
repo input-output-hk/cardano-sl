@@ -60,7 +60,7 @@ instance SscListenersClass SscNistBeacon where
     sscStubListeners = Tagged ([], mempty)
 
 instance SscLocalDataClass SscNistBeacon where
-    sscGetLocalPayloadQ _ = pure ()
+    sscGetLocalPayloadQ _ _ = pure ()
     sscNormalizeU _ _ _ = pass
     sscNewLocalData = pure ()
 

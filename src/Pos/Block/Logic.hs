@@ -86,8 +86,7 @@ import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
                                              SscWorkersClass (..))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscResetLocal,
                                              sscVerifyBlocks)
-import           Pos.Txp.Core               (TxAux, TxId, TxPayload, mkTxPayload,
-                                             topsortTxs)
+import           Pos.Txp.Core               (TxAux, TxPayload, mkTxPayload, topsortTxs)
 import           Pos.Txp.MemState           (clearTxpMemPool, getLocalTxsNUndo)
 import           Pos.Txp.Settings           (TxpBlock, TxpGlobalSettings (..))
 import           Pos.Types                  (Block, BlockHeader, EpochOrSlot (..),
@@ -823,7 +822,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     createBlundFromMemPool = do
         -- Get MemPool
         (localTxs, txUndo) <- getLocalTxsNUndo
-        sscData <- sscGetLocalPayload @ssc slotId
+        sscData <- sscGetLocalPayload @ssc Nothing slotId
         usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
         (localPSKs, pskUndo) <- lift getProxyMempool
         -- Create block

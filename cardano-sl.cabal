@@ -121,6 +121,7 @@ library
 
                         -- Utilities/helpers
                         Pos.Util
+                        Pos.Util.Limits
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
                         Pos.Util.UserSecret

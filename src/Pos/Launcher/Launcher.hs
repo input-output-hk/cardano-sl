@@ -7,6 +7,7 @@ module Pos.Launcher.Launcher
          runNodeReal
        ) where
 
+import           Universum
 import           Mockable                   (Production)
 import           Network.Transport.Abstract (Transport)
 
@@ -35,4 +36,4 @@ runNodeReal
     -> SscParams ssc
     -> Production ()
 runNodeReal discCtx transport plugins np sscnp =
-    runRealMode discCtx transport np sscnp (runNode @ssc plugins)
+    runRealMode discCtx transport np sscnp (runNode @ssc Nothing plugins)

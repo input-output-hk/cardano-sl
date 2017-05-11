@@ -34,8 +34,7 @@ import           Pos.Communication          (ActionSpec (..), NodeId, OutSpecs,
 import           Pos.Constants              (isDevelopment)
 import           Pos.Context                (MonadNodeContext, recoveryCommGuard)
 import           Pos.Core.Types             (Timestamp (..))
-import           Pos.DHT.Real               (KademliaDHTInstance (..),
-                                             foreverRejoinNetwork)
+import           Pos.DHT.Real               (KademliaDHTInstance (..))
 import           Pos.DHT.Workers            (dhtWorkers)
 import           Pos.Discovery              (DiscoveryContextSum (..))
 import           Pos.Launcher               (NodeParams (..), bracketResources,
@@ -111,7 +110,7 @@ action peerHolder args@Args {..} transport = do
                     NistBeaconAlgo -> logError "Wallet does not support NIST beacon!"
                     GodTossingAlgo ->
                         runWRealMode db conn discoveryCtx transportW currentParams gtParams
-                            (runNode @SscGodTossing $ allPlugins)
+                            (runNode @SscGodTossing Nothing allPlugins)
 #endif
 #ifdef WITH_WALLET
     let userWantsWallet = enableWallet
@@ -240,4 +239,4 @@ main = do
             let transport' = hoistTransport
                     (powerLift :: forall ssc t . Production t -> RealMode ssc t)
                     transport
-            in  foreverRejoinNetwork kademliaInstance (action (Left kademliaInstance) args transport')
+            in action (Left kademliaInstance) args transport'

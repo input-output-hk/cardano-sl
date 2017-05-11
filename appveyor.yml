@@ -67,7 +67,7 @@ test_script:
   - stack install happy --local-bin-path %SYSTEMROOT%\system32
   # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
   - scripts\appveyor-retry call stack --no-terminal --local-bin-path daedalus
-      install -j 2 --test --no-haddock-deps --bench --no-run-benchmarks
+      install cardano-sl -j 2 --test --no-haddock-deps --bench --no-run-benchmarks
       --work-dir %STACK_WORK%
       --flag cardano-sl:for-installer
       --flag cardano-sl:with-web

@@ -65,6 +65,11 @@ test_script:
   - cd "%WORK_DIR%"
   - stack setup --no-reinstall
   - stack install happy --local-bin-path %SYSTEMROOT%\system32
+      --work-dir %STACK_WORK%
+      --extra-include-dirs="C:\OpenSSL-Win64\include"
+      --extra-lib-dirs="C:\OpenSSL-Win64"
+      --extra-include-dirs="%WORK_DIR%\rocksdb\include"
+      --extra-lib-dirs="%WORK_DIR%"
   # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
   - scripts\appveyor-retry call stack --no-terminal --local-bin-path daedalus
       install cardano-sl -j 2 --test --no-haddock-deps --bench --no-run-benchmarks

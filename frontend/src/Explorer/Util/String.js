@@ -9,3 +9,9 @@ exports.substituteImpl = function(str) {
     });
   };
 };
+
+exports.take = function (n) {
+  return function (s) {
+    return s.substr(0, n);
+  };
+};

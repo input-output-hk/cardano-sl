@@ -1,4 +1,4 @@
-resolver: lts-8.12
+resolver: lts-8.13
 
 flags: {}
 
@@ -90,10 +90,7 @@ extra-deps:
 - servant-docs-0.10
 - servant-multipart-0.10
 - ether-0.5.0.0
-- transformers-0.5.4.0
-- transformers-lift-0.2.0.0
-- writer-cps-transformers-0.1.1.3
-- writer-cps-mtl-0.1.1.4
+- transformers-lift-0.2.0.1
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

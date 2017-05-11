@@ -41,12 +41,16 @@ data Action
     | ReceiveInitialBlocks (Either Error CBlockEntries)
     | RequestPaginatedBlocks RequestLimit RequestOffset
     | ReceivePaginatedBlocks (Either Error CBlockEntries)
+    | RequestBlocksUpdate                               -- TODO (jk) Remove it if socket-io will be fixed
+    | ReceiveBlocksUpdate (Either Error CBlockEntries)  -- TODO (jk) Remove it if socket-io will be fixed
     | RequestBlockSummary CHash
     | ReceiveBlockSummary (Either Error CBlockSummary)
     | RequestBlockTxs CHash
     | ReceiveBlockTxs (Either Error CTxBriefs)
     | RequestInitialTxs
     | ReceiveInitialTxs (Either Error CTxEntries)
+    | RequestTxsUpdate                                -- TODO (jk) Remove it if socket-io will be fixed
+    | ReceiveTxsUpdate (Either Error CTxEntries)      -- TODO (jk) Remove it if socket-io will be fixed
     | RequestTxSummary CTxId
     | ReceiveTxSummary (Either Error CTxSummary)
     | RequestAddressSummary CAddress
@@ -85,6 +89,7 @@ data Action
     | SetClock DateTime
     | UpdateClock
     -- misc
+    | Reload -- Reload pages - TODO (jk) Remove it if socket-io will be fixed
     | NoOp
 
 type ActionChannel = Channel Action

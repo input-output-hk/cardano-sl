@@ -22,11 +22,12 @@ import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketSubscription(..), SocketSubscriptionAction(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, totalBlocks, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, pullLatestBlocks, pullLatestTxs, route, socket, subscriptions, syncAction, totalBlocks, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), State)
+import Explorer.Util.Config (SyncAction(..), syncByPolling, syncBySocket)
 import Explorer.Util.DOM (scrollTop, targetToHTMLElement, targetToHTMLInputElement)
 import Explorer.Util.Data (sortBlocksByEpochSlot', sortTxsByTime', unionBlocks, unionTxs)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
@@ -282,8 +283,11 @@ update (BlocksInvalidBlocksPageNumber target) state =
 update ScrollTop state =
     { state
     , effects:
-        [ liftEff scrollTop >>= \_ -> pure NoOp
-        ]
+        case state ^. syncAction of
+            -- Don't scroll if we are doing polling
+            -- TODO (jk) Remove this workaround if socket-io will be fixed 
+            SyncByPolling -> [ pure NoOp ]
+            SyncBySocket -> [ liftEff scrollTop >>= \_ -> pure NoOp ]
     }
 update (SelectInputText input) state =
     { state
@@ -417,7 +421,9 @@ update (ReceiveInitialBlocks (Right blocks)) state =
     { state:
           set loading false $
           -- add blocks
-          set latestBlocks (Success $ sortBlocksByEpochSlot' blocks) state
+          set latestBlocks (Success $ sortBlocksByEpochSlot' blocks) $
+          set pullLatestBlocks (syncByPolling $ state ^. syncAction)
+          state
     , effects:
           -- add subscription of `SubBlock` if we are on `Dashboard` only
           if (state ^. route) == Dashboard
@@ -432,7 +438,41 @@ update (ReceiveInitialBlocks (Left error)) state =
     noEffects $
     set loading false <<<
     set latestBlocks (Failure error) $
+    set pullLatestBlocks (syncByPolling $ state ^. syncAction) $
     over errors (\errors' -> (show error) : errors') state
+
+-- START #Pulling blocks
+-- Pulling blocks is just a workaround to avoid issues w/ socket-io
+-- TODO (jk) Remove this workaround if socket-io is back
+update RequestBlocksUpdate state =
+     { state:
+           set loading true $
+           -- _Important note_:
+           -- Don't do `set latestBlocks Loading` here,
+           -- we will empty `latestBlocks` in this case !!!
+           state
+     , effects: [ attempt (fetchLatestBlocks (RequestLimit 10) (RequestOffset 0)) >>= pure <<< ReceiveBlocksUpdate ]
+     }
+
+update (ReceiveBlocksUpdate (Right blocks)) state =
+    noEffects $
+    set loading false <<<
+    set latestBlocks (Success newBlocks) $
+    set totalBlocks (Success newTotalBlocks) state
+    where
+        previousBlocks = withDefault [] $ state ^. latestBlocks
+        newBlocks = sortBlocksByEpochSlot' $ unionBlocks blocks previousBlocks
+        previousTotalBlocks = withDefault 0 $ state ^. totalBlocks
+        newTotalBlocks = (length newBlocks) - (length previousBlocks) + previousTotalBlocks
+
+update (ReceiveBlocksUpdate (Left error)) state =
+    noEffects $
+    set loading false <<<
+    set latestBlocks (Failure error) $
+    over errors (\errors' -> (show error) : errors') state
+
+-- END #Pulling blocks
+
 
 update (RequestPaginatedBlocks limit offset) state =
     { state:
@@ -510,6 +550,7 @@ update (ReceiveBlockTxs (Left error)) state =
     set loading false $
     set currentBlockTxs Nothing $
     over errors (\errors' -> (show error) : errors') state
+
 update (RequestInitialTxs) state =
     { state:
           set loading true $
@@ -520,9 +561,11 @@ update (RequestInitialTxs) state =
               pure <<< ReceiveInitialTxs
         ]
     }
+
 update (ReceiveInitialTxs (Right txs)) state =
     { state:
           set loading false $
+          set pullLatestTxs (syncByPolling $ state ^. syncAction) $
           over latestTransactions
               (\currentTxs -> Success <<<
                                   sortTxsByTime' <<<
@@ -543,6 +586,39 @@ update (ReceiveInitialTxs (Right txs)) state =
     }
 
 update (ReceiveInitialTxs (Left error)) state = noEffects $
+    set loading false $
+    set pullLatestTxs (syncByPolling $ state ^. syncAction) $
+    over errors (\errors' -> (show error) : errors') state
+
+-- START #Pulling txs
+-- It is just a workaround to avoid issues w/ socket-io
+-- TODO (jk) Remove this workaround if socket-io will be fixed
+update RequestTxsUpdate state =
+     { state:
+           set loading true
+           -- _Important note_:
+           -- Don't do `set latestTransactions Loading` here,
+           -- we will have an empty `latestTransactions` in this case !!!
+           state
+     , effects:
+          [ attempt (fetchLatestTxs (RequestLimit 10) (RequestOffset 0)) >>=
+                pure <<< ReceiveTxsUpdate
+          ]
+     }
+
+update (ReceiveTxsUpdate (Right txs)) state =
+    noEffects $
+    set loading false $
+    over latestTransactions
+        (\currentTxs -> Success <<<
+                            sortTxsByTime' <<<
+                            take maxTransactionRows $
+                                unionTxs txs $
+                                    withDefault [] currentTxs
+        )
+    state
+
+update (ReceiveTxsUpdate (Left error)) state = noEffects $
     set loading false $
     over errors (\errors' -> (show error) : errors') state
 
@@ -590,6 +666,10 @@ update UpdateClock state = onlyEffects state $
     ]
 update (SetClock date) state = noEffects $ state { now = date }
 
+--- Reload pages
+-- TODO (jk) Remove it if socket-io is back
+update Reload state = update (UpdateView state.route) state
+
 -- routing
 
 update (UpdateView route) state = routeEffects route (state { route = route })
@@ -610,18 +690,34 @@ routeEffects Dashboard state =
               else []
             )
         -- request `latestBlocks` if needed
-        <>  ( if  (isSuccess $ state ^. totalBlocks) && (isNotAsked $ state ^. latestBlocks)
+        <>  ( if  (isSuccess $ state ^. totalBlocks) &&
+                  (isNotAsked $ state ^. latestBlocks) &&
+                  (not $ state ^. pullLatestBlocks)
               then [ pure RequestInitialBlocks ]
               else []
             )
+        -- pull latest blocks if needed
+        <>  ( if  (syncByPolling $ state ^. syncAction) &&
+                  (state ^. pullLatestBlocks)
+              then [ pure RequestBlocksUpdate ]
+              else []
+            )
         -- request `latestTransactions` if needed
-        <>  ( if isNotAsked $ state ^. latestTransactions
+        <>  ( if (isNotAsked $ state ^. latestTransactions) &&
+                  (not $ state ^. pullLatestTxs)
               then [ pure RequestInitialTxs ]
               else []
             )
+        -- pull latest txs if needed
+        <>  ( if  (syncByPolling $ state ^. syncAction) &&
+                  (state ^. pullLatestTxs)
+              then [ pure RequestTxsUpdate ]
+              else []
+            )
         -- subscribe to `SubBlock` and `SubTx `if needed
-        <>  ( if  (isSuccess $ state ^. latestBlocks) &&
-                (isSuccess $ state ^. latestTransactions)
+        <>  ( if  (syncBySocket $ state ^. syncAction) &&
+                  (isSuccess $ state ^. latestBlocks) &&
+                  (isSuccess $ state ^. latestTransactions)
               then [ pure $ SocketUpdateSubscriptions
                               [ SocketSubscription SubBlock
                               , SocketSubscription SubTx

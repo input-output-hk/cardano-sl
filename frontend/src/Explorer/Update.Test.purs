@@ -50,6 +50,40 @@ testUpdate =
             it "to update latestBlocks" do
                 (gShow latestBlocks') `shouldEqual` (gShow blocks)
 
+        describe "uses action ReceiveBlocksUpdate" do
+            -- Mock blocks with epoch, slots and hashes
+            let blockA = setEpochSlotOfBlock 0 1 $ setHashOfBlock (mkCHash "A") mkCBlockEntry
+                blockB = setEpochSlotOfBlock 0 2 $ setHashOfBlock (mkCHash "B") mkCBlockEntry
+                blockC = setEpochSlotOfBlock 1 0 $ setHashOfBlock (mkCHash "C") mkCBlockEntry
+                blockD = setEpochSlotOfBlock 1 1 $ setHashOfBlock (mkCHash "D") mkCBlockEntry
+                currentBlocks =
+                    [ blockA
+                    , blockB
+                    ]
+                -- set `latestBlocks` + `totalBlocks` to simulate that we have already blocks before
+                initialState' =
+                    set latestBlocks (Success currentBlocks) $
+                    set totalBlocks (Success $ length currentBlocks) initialState
+                newBlocks =
+                    [ blockB
+                    , blockC
+                    , blockD
+                    ]
+                effModel = update (ReceiveBlocksUpdate (Right newBlocks)) initialState'
+                state = _.state effModel
+            it "to update latestBlocks w/o duplicates"
+                let result = withDefault [] $ state ^. latestBlocks
+                    expected =
+                        [ blockD
+                        , blockC
+                        , blockB
+                        , blockA
+                        ]
+                in (gShow result) `shouldEqual` (gShow expected)
+            it "to count totalBlocks"
+                let result = withDefault 0 $ state ^. totalBlocks
+                in result `shouldEqual` 4
+
         describe "uses action SocketBlocksUpdated" do
             -- Mock blocks with epoch, slots and hashes
             let blockA = setEpochSlotOfBlock 0 1 $ setHashOfBlock (mkCHash "A") mkCBlockEntry

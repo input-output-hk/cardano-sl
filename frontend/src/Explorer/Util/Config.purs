@@ -6,6 +6,8 @@ import DOM (DOM)
 import DOM.HTML (window)
 import DOM.HTML.Location (hostname) as L
 import DOM.HTML.Window (location)
+import Data.Generic (class Generic, gEq, gShow)
+import Prelude (class Eq, class Show, (==))
 
 foreign import versionImpl :: Int
 
@@ -30,3 +32,16 @@ data Protocol = Http | Https
 secureProtocol :: Boolean -> Protocol
 secureProtocol true  = Https
 secureProtocol false = Http
+
+data SyncAction = SyncByPolling | SyncBySocket
+derive instance gSyncAction :: Generic SyncAction
+instance eqSyncAction :: Eq SyncAction where
+    eq = gEq
+instance showSyncAction :: Show SyncAction where
+    show = gShow
+
+syncBySocket :: SyncAction -> Boolean
+syncBySocket = (==) SyncBySocket
+
+syncByPolling :: SyncAction -> Boolean
+syncByPolling = (==) SyncByPolling

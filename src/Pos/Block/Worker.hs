@@ -40,12 +40,10 @@ import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
 import           Pos.Util.LogSafe            (logDebugS, logInfoS, logNoticeS,
                                               logWarningS)
 import           Pos.WorkMode                (WorkMode)
-#if defined(WITH_WALLET)
 import           Data.Time.Units             (Second, convertUnit)
 import           Pos.Block.Network           (requestTipOuts, triggerRecovery)
 import           Pos.Communication           (worker)
 import           Pos.Slotting                (getLastKnownSlotDuration)
-#endif
 
 -- | All workers specific to block processing.
 blkWorkers
@@ -55,9 +53,6 @@ blkWorkers =
     merge $ [ blkOnNewSlot
             , retrievalWorker
             ]
-#if defined(WITH_WALLET)
-            ++ [ queryBlocksWorker ]
-#endif
   where
     merge = mconcatPair . map (first pure)
 
@@ -164,32 +159,3 @@ onNewSlotWhenLeader slotId pSk sendActions = do
             jlLog $ jlCreatedBlock (Right createdBlk)
             void $ fork $ announceBlock sendActions $ createdBlk ^. gbHeader
     whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
-
-#if defined(WITH_WALLET)
--- | When we're behind NAT, other nodes can't send data to us and thus we
--- won't get blocks that are broadcast through the network – we have to reach
--- out to other nodes by ourselves.
---
--- This worker just triggers every @max (slotDur / 4) 5@ seconds and asks for
--- current tip. Does nothing when recovery is enabled, because then we're
--- receiving blocks anyway.
---
--- FIXME there is a better way. Establish a long-running connection to every
--- peer asking them to push new data on it. This works even for NAT, since it's
--- the consumer which initiates contact.
-queryBlocksWorker
-    :: (WorkMode ssc m, SscWorkersClass ssc)
-    => (WorkerSpec m, OutSpecs)
-queryBlocksWorker = worker requestTipOuts $ \sendActions -> do
-    slotDur <- getLastKnownSlotDuration
-    let delayInterval = max (slotDur `div` 4) (convertUnit $ (5 :: Second))
-        action = forever $ do
-            logInfo "Querying blocks from behind NAT"
-            triggerRecovery sendActions
-            delay $ delayInterval
-        handler (e :: SomeException) = do
-            logWarning $ "Exception arised in queryBlocksWorker: " <> show e
-            delay $ delayInterval * 2
-            action `catch` handler
-    action `catch` handler
-#endif

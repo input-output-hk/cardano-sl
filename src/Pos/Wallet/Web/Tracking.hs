@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 module Pos.Wallet.Web.Tracking
        ( syncWSetsWithGStateLock
@@ -9,11 +10,14 @@ module Pos.Wallet.Web.Tracking
        , applyModifierToWSet
        , BlockLockMode
        , CAccModifier
+       , MonadWalletTracking (..)
        ) where
 
+import           Control.Monad.Trans        (MonadTrans)
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, (%))
+import           Mockable                   (MonadMockable, SharedAtomicT)
 import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
@@ -26,8 +30,9 @@ import           Pos.Core                   (HasDifficulty (..))
 import           Pos.Core.Address           (AddrPkAttrs (..), Address (..),
                                              makePubKeyAddress)
 import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
-                                             deriveHDPassphrase, encToPublic, hash,
-                                             shortHashF, unpackHDAddressAttr)
+                                             WithHash (..), deriveHDPassphrase,
+                                             encToPublic, hash, shortHashF,
+                                             unpackHDAddressAttr)
 import           Pos.Crypto.HDDiscovery     (discoverHDAddresses)
 import           Pos.Data.Attributes        (Attributes (..))
 import qualified Pos.DB.Block               as DB
@@ -37,7 +42,8 @@ import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
 import           Pos.Ssc.Class              (SscHelpersClass)
 import           Pos.Txp.Core               (Tx (..), TxAux, TxIn (..), TxOutAux (..),
                                              TxUndo, getTxDistribution, toaOut,
-                                             txOutAddress)
+                                             topsortTxs, txOutAddress)
+import           Pos.Txp.MemState.Class     (MonadTxpMem, getLocalTxs)
 import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..), ToilT,
                                              evalToilTEmpty, runDBTxp)
 import           Pos.Types                  (BlockHeader, HeaderHash, blockTxas,
@@ -45,9 +51,10 @@ import           Pos.Types                  (BlockHeader, HeaderHash, blockTxas,
 import           Pos.Util.Chrono            (getNewestFirst)
 import qualified Pos.Util.Modifier          as MM
 
+import           Pos.Wallet.SscType         (WalletSscType)
 import           Pos.Wallet.Web.ClientTypes (CAccountAddress (..), CAddress, WS,
                                              addressToCAddress, encToCAddress)
-import           Pos.Wallet.Web.State       (WebWalletModeDB)
+import           Pos.Wallet.Web.State       (WalletWebDB, WebWalletModeDB)
 import qualified Pos.Wallet.Web.State       as WS
 
 type CAccModifier = MM.MapModifier CAccountAddress ()
@@ -59,6 +66,36 @@ type BlockLockMode ssc m =
     , MonadDB m
     , MonadMask m)
 
+class Monad m => MonadWalletTracking m where
+    syncWSetsAtStart :: [EncryptedSecretKey] -> m ()
+    syncOnImport :: EncryptedSecretKey -> m ()
+    txMempoolToModifier :: EncryptedSecretKey -> m CAccModifier
+
+
+instance {-# OVERLAPPABLE #-}
+    ( MonadWalletTracking m, Monad m, MonadTrans t, Monad (t m)
+    , SharedAtomicT m ~ SharedAtomicT (t m) ) =>
+        MonadWalletTracking (t m)
+  where
+    syncWSetsAtStart = lift . syncWSetsAtStart
+    syncOnImport = lift . syncOnImport
+    txMempoolToModifier = lift . txMempoolToModifier
+
+instance (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m)
+         => MonadWalletTracking (WalletWebDB m) where
+    syncWSetsAtStart = syncWSetsWithGStateLock
+    syncOnImport = selectAccountsFromUtxoLock . pure
+    txMempoolToModifier encSK = do
+        let wHash (i, (t, _, _)) = WithHash t i
+        txs <- getLocalTxs
+        case topsortTxs wHash txs of
+            Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
+            Just (map snd -> ordered) ->
+                runDBTxp $ evalToilTEmpty $ trackingApplyTxs encSK ordered
+
+----------------------------------------------------------------------------
+-- Logic
+----------------------------------------------------------------------------
 
 -- To support actual wallet accounts we listen to applications and rollbacks
 -- of blocks, extract transactions from block and extract our

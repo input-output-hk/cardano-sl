@@ -293,9 +293,9 @@ main = do
 
     bracketResources baseParams TCP.Unaddressable $ \transport -> do
 
-        let powerLift :: forall ssc t . Production t -> WalletStaticPeersMode ssc t
-            powerLift = lift . lift . lift . lift . lift . lift . lift
-            transport' :: Transport (WalletStaticPeersMode ssc)
+        let powerLift :: forall t . Production t -> WalletStaticPeersMode t
+            powerLift = lift . lift . lift . lift . lift . lift
+            transport' :: Transport WalletStaticPeersMode
             transport' = hoistTransport powerLift transport
 
         let peerId = CLI.peerId woCommonArgs
@@ -319,7 +319,7 @@ main = do
                           else genesisStakeDistribution
                 }
 
-            plugins :: ([ WorkerSpec (WalletStaticPeersMode SscGodTossing) ], OutSpecs)
+            plugins :: ([ WorkerSpec WalletStaticPeersMode ], OutSpecs)
             plugins = first pure $ case woAction of
                 Repl    -> worker runCmdOuts $ runWalletRepl opts
                 Cmd cmd -> worker runCmdOuts $ runWalletCmd opts cmd

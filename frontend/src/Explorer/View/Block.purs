@@ -3,7 +3,7 @@ module Explorer.View.Block (blockView) where
 import Prelude
 import Data.Array (length, null, (!!))
 import Data.Lens ((^.))
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), isJust)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cBlock, common, cOf, cNotAvailable, block, blFees, blRoot, blNextBlock, blPrevBlock, blEstVolume, cHash, cSummary, cTotalOutput, cHashes, cSlot, cTransactions) as I18nL
 import Explorer.Lenses.State (blockDetail, blockTxPagination, blockTxPaginationEditable, currentBlockSummary, currentBlockTxs, lang, viewStates)
@@ -11,10 +11,10 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
-import Explorer.View.Common (currencyCSSClass, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
+import Explorer.View.Common (currencyCSSClass', mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, _CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
-import Pux.Html (Html, div, text, h3) as P
+import Pux.Html (Html, div, text, h3, span) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Router (link) as P
 
@@ -79,7 +79,7 @@ blockView state =
 type SummaryRowItem =
     { label :: String
     , amount :: String
-    , currency :: Maybe CCurrency
+    , mCurrency :: Maybe CCurrency
     }
 
 type SummaryItems = Array SummaryRowItem
@@ -88,23 +88,23 @@ mkSummaryItems :: Language -> CBlockEntry -> SummaryItems
 mkSummaryItems lang (CBlockEntry entry) =
     [ { label: translate (I18nL.common <<< I18nL.cTransactions) lang
       , amount: show $ entry ^. cbeTxNum
-      , currency: Nothing
+      , mCurrency: Nothing
       }
     , { label: translate (I18nL.common <<< I18nL.cTotalOutput) lang
       , amount: entry ^. (cbeTotalSent <<< _CCoin <<< getCoin)
-      , currency: Just ADA
+      , mCurrency: Just ADA
       }
     , { label: translate (I18nL.block <<< I18nL.blEstVolume) lang
       , amount: "0"
-      , currency: Just ADA
+      , mCurrency: Just ADA
       }
     , { label: translate (I18nL.block <<< I18nL.blFees) lang
       , amount: "0"
-      , currency: Just ADA
+      , mCurrency: Just ADA
       }
     , { label: translate (I18nL.common <<< I18nL.cSlot) lang
       , amount: show $ entry ^. cbeSlot
-      , currency: Nothing
+      , mCurrency: Nothing
       }
     ]
 
@@ -116,8 +116,15 @@ summaryRow item =
             [ P.className "column column__label" ]
             [ P.text item.label ]
         , P.div
-              [ P.className $ "column column__amount" <> currencyCSSClass item.currency ]
-              [ P.text item.amount ]
+              [ P.className $ "column column__amount" ]
+              if isJust item.mCurrency
+              then
+                  [ P.span
+                        [ P.className $ currencyCSSClass' item.mCurrency ]
+                        [ P.text item.amount ]
+                  ]
+              else
+                  [ P.text item.amount ]
         ]
 
 blockSummaryView :: Maybe CBlockSummary -> Language -> P.Html Action

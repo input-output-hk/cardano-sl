@@ -67,9 +67,9 @@
 
   .row__summary {
     .ada {
-      padding-left: 10px;
+      padding-right: 10px;
       background-repeat: no-repeat;
-      background-position: left center;
+      background-position: right center;
       background-size: 8px 7px;
     }
   }

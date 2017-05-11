@@ -318,8 +318,8 @@ nodeStartMsg BaseParams {..} = do
     logInfo msg1
     logInfo msg2
   where
-    msg1 = sformat ("Application: " %build% ":" %build% ", last known version " %build)
-                   Const.ourAppName Const.curSoftwareVersion Const.lastKnownBlockVersion
+    msg1 = sformat ("Application: " %build% ", last known block version " %build)
+                   Const.curSoftwareVersion Const.lastKnownBlockVersion
     msg2 = sformat ("Started node, joining to DHT network " %build) bpDHTPeers
 
 getRealLoggerConfig :: MonadIO m => LoggingParams -> m LoggerConfig

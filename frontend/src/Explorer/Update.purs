@@ -9,7 +9,7 @@ import Control.SocketIO.Client (SocketIO, emit, emit')
 import DOM (DOM)
 import DOM.HTML.HTMLElement (blur)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array (difference, length, take, (:))
+import Data.Array (difference, drop, length, take, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Int (fromString)
@@ -73,10 +73,14 @@ update (SocketBlocksUpdated (Right blocks)) state =
     set latestBlocks (Success newBlocks) $
     set totalBlocks (Success newTotalBlocks) state
     where
-        previousBlocks = withDefault [] $ state ^. latestBlocks
-        newBlocks = sortBlocksByEpochSlot' $ unionBlocks blocks previousBlocks
+        prevBlocks = withDefault [] $ state ^. latestBlocks
+        numberOfBlocksToCompare = 50
+        prevBlocksToCompare = take numberOfBlocksToCompare prevBlocks
+        prevBlocksRest = drop numberOfBlocksToCompare prevBlocks
+        blocksToAdd = sortBlocksByEpochSlot' $ unionBlocks blocks prevBlocksToCompare
+        newBlocks = blocksToAdd <> prevBlocksRest
         previousTotalBlocks = withDefault 0 $ state ^. totalBlocks
-        newTotalBlocks = (length newBlocks) - (length previousBlocks) + previousTotalBlocks
+        newTotalBlocks = (length newBlocks) - (length prevBlocks) + previousTotalBlocks
 
 update (SocketBlocksUpdated (Left error)) state = noEffects $
     set latestBlocks (Failure error) $
@@ -285,7 +289,7 @@ update ScrollTop state =
     , effects:
         case state ^. syncAction of
             -- Don't scroll if we are doing polling
-            -- TODO (jk) Remove this workaround if socket-io will be fixed 
+            -- TODO (jk) Remove this workaround if socket-io will be fixed
             SyncByPolling -> [ pure NoOp ]
             SyncBySocket -> [ liftEff scrollTop >>= \_ -> pure NoOp ]
     }
@@ -460,10 +464,14 @@ update (ReceiveBlocksUpdate (Right blocks)) state =
     set latestBlocks (Success newBlocks) $
     set totalBlocks (Success newTotalBlocks) state
     where
-        previousBlocks = withDefault [] $ state ^. latestBlocks
-        newBlocks = sortBlocksByEpochSlot' $ unionBlocks blocks previousBlocks
+        prevBlocks = withDefault [] $ state ^. latestBlocks
+        numberOfBlocksToCompare = 50
+        prevBlocksToCompare = take numberOfBlocksToCompare prevBlocks
+        prevBlocksRest = drop numberOfBlocksToCompare prevBlocks
+        blocksToAdd = sortBlocksByEpochSlot' $ unionBlocks blocks prevBlocksToCompare
+        newBlocks = blocksToAdd <> prevBlocksRest
         previousTotalBlocks = withDefault 0 $ state ^. totalBlocks
-        newTotalBlocks = (length newBlocks) - (length previousBlocks) + previousTotalBlocks
+        newTotalBlocks = (length newBlocks) - (length prevBlocks) + previousTotalBlocks
 
 update (ReceiveBlocksUpdate (Left error)) state =
     noEffects $

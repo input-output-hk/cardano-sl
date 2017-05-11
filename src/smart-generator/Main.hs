@@ -110,7 +110,7 @@ runSmartGen peerId transport peers np@NodeParams{..} sscnp opts@GenOptions{..} =
 
     txTimestamps <- liftIO createTxTimestamps
 
-    let ActionSpec nodeAction = runNode' @ssc workers'
+    let ActionSpec nodeAction = runNode' @ssc Nothing workers'
 
     -- | Run all the usual node workers in order to get
     -- access to blockchain

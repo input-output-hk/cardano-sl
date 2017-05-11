@@ -25,7 +25,7 @@ import           Pos.Constants              (isDevelopment)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.Crypto                 (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.DHT.Real               (KademliaDHTInstance (..),
-                                             KademliaParams (..), foreverRejoinNetwork,
+                                             KademliaParams (..),
                                              readDhtPeersFile)
 import           Pos.DHT.Workers            (dhtWorkers)
 import           Pos.Genesis                (genesisDevSecretKeys,
@@ -376,4 +376,4 @@ main = do
         let powerLift :: forall ssc t . Production t -> RawRealMode ssc t
             powerLift = lift . lift . lift . lift . lift . lift . lift . lift . lift
             transport' = hoistTransport powerLift transport
-        in  foreverRejoinNetwork kademliaInstance (action kademliaInstance args transport')
+        in  action kademliaInstance args transport'

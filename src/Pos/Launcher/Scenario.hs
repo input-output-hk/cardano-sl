@@ -29,6 +29,8 @@ import           Pos.DB.Class        (MonadDBCore)
 import qualified Pos.DB.GState       as GS
 import           Pos.Delegation      (initDelegation)
 import           Pos.Discovery.Class (findPeers)
+import           Pos.Discovery       (DiscoveryKademliaEnv)
+import           Pos.DHT.Real        (KademliaDHTInstance, foreverRejoinNetwork)
 import           Pos.Lrc.Context     (LrcSyncData (..), lcLrcSync)
 import qualified Pos.Lrc.DB          as LrcDB
 import           Pos.Reporting       (reportMisbehaviourMasked)
@@ -47,10 +49,11 @@ import           Pos.WorkMode        (WorkMode)
 -- | Run full node in any WorkMode.
 runNode'
     :: forall ssc m.
-       (SscConstraint ssc, WorkMode ssc m, MonadDBCore m)
-    => [WorkerSpec m]
+       (SscConstraint ssc, WorkMode ssc m, MonadDBCore m, DiscoveryKademliaEnv m)
+    => Maybe KademliaDHTInstance
+    -> [WorkerSpec m]
     -> WorkerSpec m
-runNode' plugins' = ActionSpec $ \vI sendActions -> do
+runNode' mKademliaInst plugins' = ActionSpec $ \vI sendActions -> do
 
     logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     inAssertMode $ logInfo "Assert mode on"
@@ -70,10 +73,12 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     let unpackPlugin (ActionSpec action) =
             action vI sendActions `catch` reportHandler
     mapM_ (fork . unpackPlugin) plugins'
-
-    -- Instead of sleeping forever, we wait until graceful shutdown
-    waitForWorkers (allWorkersCount @ssc @m)
-    exitWith (ExitFailure 20)
+    -- If a Kademlia instance is given, make a thread to rejoin the network
+    -- at intervals
+    -- FIXME why rejoin at intervals? Will it not suffice to join exactly once?
+    maybe identity foreverRejoinNetwork mKademliaInst $ do
+        waitForWorkers (allWorkersCount @ssc @m)
+        exitWith (ExitFailure 20)
   where
     -- FIXME shouldn't this kill the whole program?
     reportHandler (SomeException e) = do
@@ -85,10 +90,12 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
 
 -- | Run full node in any WorkMode.
 runNode
-    :: (SscConstraint ssc, WorkMode ssc m, MonadDBCore m)
-    => ([WorkerSpec m], OutSpecs)
+    :: (SscConstraint ssc, WorkMode ssc m, MonadDBCore m, DiscoveryKademliaEnv m)
+    => Maybe KademliaDHTInstance
+    -> ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
-runNode (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' $ workers' ++ plugins''
+runNode mKademliaInst (plugins', plOuts) =
+    (,plOuts <> wOuts) $ runNode' mKademliaInst $ workers' ++ plugins''
   where
     (workers', wOuts) = allWorkers
     plugins'' = map (wrapActionSpec "plugin") plugins'

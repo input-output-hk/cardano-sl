@@ -8,6 +8,7 @@ module Pos.Launcher.Launcher
        , runNodeStats
        ) where
 
+import           Universum
 import           Mockable                   (Production)
 import           Network.Transport.Abstract (Transport)
 
@@ -28,7 +29,7 @@ import           Pos.WorkMode               (ProductionMode, StatsMode)
 -- | Run full node in real mode.
 runNodeProduction
     :: forall ssc.
-       SscConstraint ssc
+       ( SscConstraint ssc )
     => PeerId
     -> Transport (ProductionMode ssc)
     -> KademliaDHTInstance
@@ -37,12 +38,12 @@ runNodeProduction
     -> SscParams ssc
     -> Production ()
 runNodeProduction peerId transport kinst plugins np sscnp =
-    runProductionMode peerId transport kinst np sscnp (runNode @ssc plugins)
+    runProductionMode peerId transport kinst np sscnp (runNode @ssc (Just kinst) plugins)
 
 -- | Run full node in benchmarking node
 runNodeStats
     :: forall ssc.
-       SscConstraint ssc
+       ( SscConstraint ssc )
     => PeerId
     -> Transport (StatsMode ssc)
     -> KademliaDHTInstance
@@ -51,4 +52,4 @@ runNodeStats
     -> SscParams ssc
     -> Production ()
 runNodeStats peerId transport kinst plugins np sscnp =
-    runStatsMode peerId transport kinst np sscnp (runNode @ssc plugins)
+    runStatsMode peerId transport kinst np sscnp (runNode @ssc (Just kinst) plugins)

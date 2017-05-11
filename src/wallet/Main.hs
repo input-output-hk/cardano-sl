@@ -32,7 +32,7 @@ import           System.Wlog                (logDebug, logError, logInfo, logWar
 import           System.Exit                (ExitCode (ExitSuccess))
 import           System.Posix.Process       (exitImmediately)
 #endif
-import           Serokell.Util              (sec)
+import           Serokell.Util              (sec, ms)
 import           Universum
 
 import           Pos.Binary                 (Raw)
@@ -110,7 +110,7 @@ runCmd sendActions (Send idx outputs) = do
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
-runCmd sendActions (SendToAllGenesis nTrans conc sendMode tpsSentFile) = do
+runCmd sendActions (SendToAllGenesis nTrans conc delay_ cooldown sendMode tpsSentFile) = do
     (skeys, na) <- ask
     let nNeighbours = length na
     let slotDuration = fromIntegral (toMicroseconds genesisSlotDuration) `div` 1000000 :: Int
@@ -121,7 +121,9 @@ runCmd sendActions (SendToAllGenesis nTrans conc sendMode tpsSentFile) = do
     liftIO . T.hPutStrLn h $ T.intercalate "," [ "slotDuration=" <> (T.pack . show) slotDuration
                                                , "sendMode=" <> (T.pack . show) sendMode
                                                , "conc=" <> (T.pack . show) conc
-                                               , "startTime=" <> startTime]
+                                               , "startTime=" <> startTime
+                                               , "delay=" <> (T.pack . show) delay_
+                                               , "cooldown=" <> (T.pack . show) cooldown]
     liftIO $ T.hPutStrLn h "time,txCount,txType"
     txQueue <- liftIO . atomically $ newTQueue
     forM_ (zip skeys [0 .. nTrans-1]) $ \(key, n) -> do
@@ -165,11 +167,14 @@ runCmd sendActions (SendToAllGenesis nTrans conc sendMode tpsSentFile) = do
                 case etx of
                     Left err -> addTxFailed tpsMVar >> logError (sformat ("Error: "%stext%" while trying to send to "%shown) err neighbours)
                     Right tx -> addTxSubmit tpsMVar >> logInfo (sformat ("Submitted transaction: "%txaF%" to "%shown) tx neighbours)
+                delay $ ms delay_
                 sendTxs
             Nothing -> return ()
     putStr $ unwords ["Sending", show (length skeys), "transactions"]
     let sendTxsConcurrently = void $ forConcurrently [1..conc] (const sendTxs)
-    either absurd id <$> race writeTPS sendTxsConcurrently
+    either absurd id <$> race
+        writeTPS
+        (sendTxsConcurrently >> delay (sec $ cooldown * slotDuration))
     liftIO $ hClose h
 runCmd sendActions v@(Vote idx decision upid) = do
     logDebug $ "Submitting a vote :" <> show v
@@ -235,7 +240,7 @@ runCmd _ Help = do
             , "   balance <address>              -- check balance on given address (may be any address)"
             , "   send <N> [<address> <coins>]+  -- create and send transaction with given outputs"
             , "                                     from own address #N"
-            , "   send-to-all-genesis <coins> <delay>  -- create and send transactions from all genesis addresses, delay in ms"
+            , "   send-to-all-genesis <nTrans> <conc> <delay> <cooldown> <sendmode> -- create and send nTrans transactions from all genesis addresses, delay in ms.  conc is the number of threads that send transactions concurrently. sendmode can be one of \"neighbours\", \"round-robin\", and \"send-random\".  After all transactions are being sent, wait for cooldown slots to give the system time to cool down."
             , "                                     to themselves with the given amount of coins"
             , "   vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base64) and"
             , "                                     decision, from own address #N"

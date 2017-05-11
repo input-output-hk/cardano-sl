@@ -8,14 +8,13 @@ module Pos.Ssc.Extra.Class
        , SscMemTag
        ) where
 
-import qualified Control.Monad.Ether as Ether.E
-import           Universum
+import qualified Ether
 
 import           Pos.Ssc.Extra.Types (SscState)
 
 data SscMemTag
 
-type MonadSscMem ssc = Ether.E.MonadReader SscMemTag (SscState ssc)
+type MonadSscMem ssc = Ether.MonadReader SscMemTag (SscState ssc)
 
 askSscMem :: MonadSscMem ssc m => m (SscState ssc)
-askSscMem = Ether.E.ask (Proxy @SscMemTag)
+askSscMem = Ether.ask @SscMemTag

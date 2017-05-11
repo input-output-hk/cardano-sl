@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
@@ -12,20 +13,27 @@ module Pos.DB.DB
        , loadBlundsFromTipWhile
        , loadBlundsFromTipByDepth
        , sanityCheckDB
+       , DbCoreRedirect
+       , runDbCoreRedirect
        ) where
+
+import           Universum
 
 import qualified Control.Concurrent.ReadWriteLock as RWL
 import           Control.Monad.Catch              (MonadMask)
+import           Control.Monad.Trans.Identity     (IdentityT (..))
+import           Data.Coerce                      (coerce)
+import qualified Ether
 import           System.Directory                 (createDirectoryIfMissing,
                                                    doesDirectoryExist,
                                                    removeDirectoryRecursive)
 import           System.FilePath                  ((</>))
 import           System.Wlog                      (WithLogger)
-import           Universum
 
 import           Pos.Block.Pure                   (mkGenesisBlock)
 import           Pos.Block.Types                  (Blund)
-import           Pos.Context.Class                (WithNodeContext)
+import           Pos.Context.Context              (GenesisLeaders, GenesisUtxo,
+                                                   NodeParams)
 import           Pos.Context.Functions            (genesisLeadersM)
 import           Pos.DB.Block                     (getBlock, loadBlundsByDepth,
                                                    loadBlundsWhile, prepareBlockDB)
@@ -35,7 +43,6 @@ import           Pos.DB.Functions                 (openDB)
 import           Pos.DB.GState.BlockExtra         (prepareGStateBlockExtra)
 import           Pos.DB.GState.Common             (getTip)
 import           Pos.DB.GState.GState             (prepareGStateDB, sanityCheckGStateDB)
-import           Pos.DB.Holder                    (DBHolder)
 import           Pos.DB.Misc                      (prepareMiscDB)
 import           Pos.DB.Types                     (NodeDBs (..))
 import           Pos.Lrc.DB                       (prepareLrcDB)
@@ -77,7 +84,9 @@ openNodeDBs recreate fp = do
 initNodeDBs
     :: forall ssc m.
        ( SscHelpersClass ssc
-       , WithNodeContext ssc m
+       , Ether.MonadReader' GenesisUtxo m
+       , Ether.MonadReader' GenesisLeaders m
+       , Ether.MonadReader' NodeParams m
        , MonadDB m )
     => m ()
 initNodeDBs = do
@@ -133,9 +142,19 @@ ensureDirectoryExists
 ensureDirectoryExists = liftIO . createDirectoryIfMissing True
 
 ----------------------------------------------------------------------------
--- MonadDB instance
+-- MonadDBCore instance
 ----------------------------------------------------------------------------
 
-instance (MonadIO m, MonadThrow m, MonadCatch m) =>
-         MonadDBCore (DBHolder m) where
+data DbCoreRedirectTag
+
+type DbCoreRedirect =
+    Ether.TaggedTrans DbCoreRedirectTag IdentityT
+
+runDbCoreRedirect :: DbCoreRedirect m a -> m a
+runDbCoreRedirect = coerce
+
+instance
+    (MonadDB m, t ~ IdentityT) =>
+        MonadDBCore (Ether.TaggedTrans DbCoreRedirectTag t m)
+  where
     dbAdoptedBVData = getAdoptedBVData

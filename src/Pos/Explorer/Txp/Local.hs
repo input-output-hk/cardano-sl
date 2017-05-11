@@ -7,38 +7,38 @@ module Pos.Explorer.Txp.Local
 
 import           Universum
 
-import           Control.Monad.Except             (MonadError (..))
-import           Control.Monad.Trans.Ether.Tagged (TaggedTrans (..))
-import           Control.Monad.Trans.Identity     (IdentityT (..))
-import           Data.Coerce                      (coerce)
-import           Data.Default                     (def)
-import qualified Data.HashMap.Strict              as HM
-import qualified Data.List.NonEmpty               as NE
-import qualified Data.Map                         as M (fromList)
-import           Formatting                       (build, sformat, (%))
-import           System.Wlog                      (WithLogger, logDebug)
+import           Control.Monad.Except         (MonadError (..))
+import           Control.Monad.Trans.Identity (IdentityT (..))
+import           Data.Coerce                  (coerce)
+import           Data.Default                 (def)
+import qualified Data.HashMap.Strict          as HM
+import qualified Data.List.NonEmpty           as NE
+import qualified Data.Map                     as M (fromList)
+import qualified Ether
+import           Formatting                   (build, sformat, (%))
+import           System.Wlog                  (WithLogger, logDebug)
 
-import           Pos.Core                         (HeaderHash, Timestamp)
-import           Pos.DB.Class                     (MonadDB)
-import qualified Pos.DB.GState                    as GS
-import           Pos.Slotting                     (MonadSlots (currentTimeSlotting))
-import           Pos.Txp.Core                     (Tx (..), TxAux, TxId)
-import           Pos.Txp.MemState                 (GenericTxpLocalDataPure, MonadTxpMem,
-                                                   getLocalTxsMap, getTxpExtra,
-                                                   getUtxoModifier, modifyTxpLocalData,
-                                                   setTxpLocalData)
-import           Pos.Txp.Toil                     (GenericToilModifier (..),
-                                                   MonadUtxoRead (..), ToilEnv,
-                                                   ToilVerFailure (..), Utxo, getToilEnv,
-                                                   runDBTxp, runToilTLocalExtra,
-                                                   runUtxoReaderT, utxoGet)
-import           Pos.Util.Chrono                  (NewestFirst (..))
-import qualified Pos.Util.Modifier                as MM
+import           Pos.Core                     (HeaderHash, Timestamp)
+import           Pos.DB.Class                 (MonadDB)
+import qualified Pos.DB.GState                as GS
+import           Pos.Slotting                 (MonadSlots (currentTimeSlotting))
+import           Pos.Txp.Core                 (Tx (..), TxAux, TxId)
+import           Pos.Txp.MemState             (GenericTxpLocalDataPure, MonadTxpMem,
+                                               getLocalTxsMap, getTxpExtra,
+                                               getUtxoModifier, modifyTxpLocalData,
+                                               setTxpLocalData)
+import           Pos.Txp.Toil                 (GenericToilModifier (..),
+                                               MonadUtxoRead (..), ToilEnv,
+                                               ToilVerFailure (..), Utxo, getToilEnv,
+                                               runDBTxp, runToilTLocalExtra,
+                                               runUtxoReaderT, utxoGet)
+import           Pos.Util.Chrono              (NewestFirst (..))
+import qualified Pos.Util.Modifier            as MM
 
-import           Pos.Explorer.Core                (TxExtra (..))
-import           Pos.Explorer.Txp.Toil            (ExplorerExtra, MonadTxExtraRead (..),
-                                                   eNormalizeToil, eProcessTx,
-                                                   eeLocalTxsExtra)
+import           Pos.Explorer.Core            (TxExtra (..))
+import           Pos.Explorer.Txp.Toil        (ExplorerExtra, MonadTxExtraRead (..),
+                                               eNormalizeToil, eProcessTx,
+                                               eeLocalTxsExtra)
 
 type ETxpLocalWorkMode m =
     ( MonadDB m
@@ -55,7 +55,7 @@ data NoExtraTag
 -- A simple monad transformer, the only purpose of which is to provide
 -- 'MonadTxExtraRead' instance corresponding to absence of any extra
 -- data used by explorer.
-type NoExtra = TaggedTrans NoExtraTag IdentityT
+type NoExtra = Ether.TaggedTrans NoExtraTag IdentityT
 
 runNoExtra :: NoExtra m a -> m a
 runNoExtra = coerce

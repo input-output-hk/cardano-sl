@@ -68,7 +68,6 @@ library
 
                        Pos.Util.Chrono
                        Pos.Util.Config
-                       Pos.Util.Context
                        Pos.Util.HVect
                        Pos.Util.Iterator
                        Pos.Util.Modifier
@@ -82,8 +81,7 @@ library
                     , autoexporter
                     , base
                     , base58-bytestring
-                    , ether
-                    , ether
+                    , ether >= 0.5
                     , log-warper >= 1.0.3
                     , transformers
                     , transformers-base

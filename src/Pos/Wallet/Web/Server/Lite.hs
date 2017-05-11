@@ -9,8 +9,9 @@ module Pos.Wallet.Web.Server.Lite
        ) where
 
 import qualified Control.Monad.Catch           as Catch
-import qualified Control.Monad.Ether.Implicit  as Ether
 import           Control.Monad.Except          (MonadError (throwError))
+import           Data.Tagged                   (Tagged (..))
+import qualified Ether
 import           Mockable                      (runProduction)
 import           Network.Wai                   (Application)
 import           Pos.Communication.Protocol    (SendActions)
@@ -20,14 +21,19 @@ import qualified STMContainers.Map             as SM
 import           Universum
 
 import           Pos.Communication             (NodeId)
-import           Pos.Communication.PeerState   (runPeerStateHolder)
+import           Pos.Communication.PeerState   (PeerStateTag, runPeerStateRedirect)
 import           Pos.Discovery                 (getPeers, runDiscoveryConstT)
-import           Pos.Reporting.MemState        (runWithoutReportingContext)
+import           Pos.Reporting.MemState        (ReportingContext, emptyReportingContext)
 import           Pos.Ssc.Class                 (SscHelpersClass)
-import           Pos.Wallet.KeyStorage         (KeyData, runKeyStorageRaw)
-import           Pos.Wallet.State              (getWalletState, runWalletDB)
+import           Pos.Wallet.KeyStorage         (KeyData)
+import           Pos.Wallet.State              (getWalletState)
 import qualified Pos.Wallet.State              as WS
-import           Pos.Wallet.WalletMode         (WalletStaticPeersMode)
+import           Pos.Wallet.State.Limits       (runDbLimitsWalletRedirect)
+import           Pos.Wallet.WalletMode         (WalletStaticPeersMode,
+                                                runBalancesWalletRedirect,
+                                                runBlockchainInfoNotImplemented,
+                                                runTxHistoryWalletRedirect,
+                                                runUpdatesNotImplemented)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
                                                 walletServeImpl, walletServer,
                                                 walletServerOuts)
@@ -60,7 +66,7 @@ nat :: WebHandler (WebHandler :~> Handler)
 nat = do
     wsConn <- getWalletWebSockets
     ws     <- getWalletWebState
-    kd     <- Ether.ask
+    kd     <- Ether.ask'
     mws    <- getWalletState
     peers  <- getPeers
     pure $ NT (convertHandler mws kd ws wsConn peers)
@@ -78,10 +84,17 @@ convertHandler mws kd ws wsConn peers handler = do
     stateM <- liftIO SM.newIO
     liftIO ( runProduction
            . usingLoggerName "wallet-lite-api"
-           . runWithoutReportingContext
-           . runWalletDB mws
-           . flip runKeyStorageRaw kd
-           . runPeerStateHolder stateM
+           . flip Ether.runReadersT
+                ( Tagged @PeerStateTag stateM
+                , Tagged @KeyData kd
+                , Tagged @MainWalletState mws
+                , Tagged @ReportingContext emptyReportingContext )
+           . runTxHistoryWalletRedirect
+           . runBalancesWalletRedirect
+           . runDbLimitsWalletRedirect
+           . runPeerStateRedirect
+           . runUpdatesNotImplemented
+           . runBlockchainInfoNotImplemented
            . runDiscoveryConstT peers
            . runWalletWebDB ws
            . runWalletWS wsConn

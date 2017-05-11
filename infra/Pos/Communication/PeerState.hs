@@ -6,18 +6,20 @@
 
 module Pos.Communication.PeerState
        ( WithPeerState (..)
-       , runPeerStateHolder
-       , PeerStateHolder
+       , PeerStateTag
        , PeerStateCtx
        , PeerStateSnapshot
        , peerStateFromSnapshot
        , module Pos.Communication.Types.State
+       , PeerStateRedirect
+       , runPeerStateRedirect
        ) where
 
-import qualified Control.Monad.Ether              as Ether.E
-import           Control.Monad.Reader             (ReaderT (..))
 import           Control.Monad.Trans.Class        (MonadTrans)
+import           Control.Monad.Trans.Identity     (IdentityT (..))
+import           Data.Coerce                      (coerce)
 import           Data.Default                     (Default (def))
+import qualified Ether
 import qualified ListT                            as LT
 import           Mockable                         (Mockable, SharedAtomic, SharedAtomicT,
                                                    newSharedAtomic, readSharedAtomic)
@@ -26,13 +28,9 @@ import qualified STMContainers.Map                as STM
 import           Universum
 
 import           Pos.Communication.Types.State
-import           Pos.Util.Util                    (TaggedTrans, ether)
+import           Pos.Util.Util                    ()
 
 type PeerStateCtx m = STM.Map PeerId (SharedAtomicT m PeerState)
-
-newtype PeerStateCtx' m = PeerStateCtx
-    { unPeerStateCtx :: PeerStateCtx m
-    }
 
 -- | PeerStateCtx with no dependency on `m` type.
 newtype PeerStateSnapshot = PeerStateSnapshot [(PeerId, PeerState)]
@@ -63,19 +61,21 @@ peerStateFromSnapshot (PeerStateSnapshot snapshot) = do
 data PeerStateTag
 
 -- | Wrapper for monadic action which brings 'NodePeerState'.
-type PeerStateHolder m = Ether.E.ReaderT PeerStateTag (PeerStateCtx' m) m
+data PeerStateRedirectTag
 
--- | Run 'PeerStateHolder' action.
-runPeerStateHolder :: PeerStateCtx m -> PeerStateHolder m a -> m a
-runPeerStateHolder psc m =
-    Ether.E.runReaderT (Proxy @PeerStateTag) m (PeerStateCtx psc)
+type PeerStateRedirect =
+    Ether.TaggedTrans PeerStateRedirectTag IdentityT
+
+runPeerStateRedirect :: PeerStateRedirect m a -> m a
+runPeerStateRedirect = coerce
 
 instance
     ( MonadIO m, Mockable SharedAtomic m
-    , trans ~ ReaderT (PeerStateCtx' m) ) =>
-        WithPeerState (TaggedTrans PeerStateTag trans m)
+    , Ether.MonadReader PeerStateTag (PeerStateCtx m) m
+    , t ~ IdentityT
+    ) => WithPeerState (Ether.TaggedTrans PeerStateRedirectTag t m)
   where
-    getPeerState nodeId = ether (asks unPeerStateCtx) >>= \m -> do
+    getPeerState nodeId = Ether.ask @PeerStateTag >>= \m -> do
           mV <- atomically $ nodeId `STM.lookup` m
           case mV of
             Just v -> return v
@@ -87,7 +87,7 @@ instance
                     Just v -> return v
                     _      -> STM.insert st nodeId m $> st
 
-    clearPeerState nodeId = ether (asks unPeerStateCtx) >>= \m -> atomically $ nodeId `STM.delete` m
-    getAllStates = ether (asks unPeerStateCtx) >>= \m -> do
+    clearPeerState nodeId = Ether.ask @PeerStateTag >>= \m -> atomically $ nodeId `STM.delete` m
+    getAllStates = Ether.ask @PeerStateTag >>= \m -> do
         stream <- atomically $ LT.toList $ STM.stream m
         PeerStateSnapshot <$> forM stream (mapM readSharedAtomic)

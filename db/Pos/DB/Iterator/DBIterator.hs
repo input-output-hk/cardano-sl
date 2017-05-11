@@ -19,15 +19,14 @@ module Pos.DB.Iterator.DBIterator
 import qualified Control.Exception.Base as CE (bracket)
 import qualified Data.ByteString        as BS (isPrefixOf)
 import qualified Database.RocksDB       as Rocks
+import qualified Ether
 import           Formatting             (sformat, shown, string, (%))
 import           Universum
 
-import qualified Control.Monad.Ether    as Ether.E
 import           Pos.Binary.Class       (Bi)
 import           Pos.DB.Class           (MonadDB, getNodeDBs)
 import           Pos.DB.Error           (DBError (DBMalformed))
 import           Pos.DB.Functions       (rocksDecodeMaybe, rocksDecodeMaybeWP)
-import           Pos.DB.Holder          (DBHolder, runDBHolder)
 import           Pos.DB.Iterator.Class  (DBIteratorClass (..), IterType)
 import           Pos.DB.Types           (DB (..), NodeDBs (..))
 import           Pos.Util.Iterator      (MonadIterator (..))
@@ -39,7 +38,7 @@ import           Pos.Util.Util          (ether)
 
 data DBIteratorTag i
 
-type DBIterator i = Ether.E.ReaderT (DBIteratorTag i) Rocks.Iterator
+type DBIterator i = Ether.ReaderT (DBIteratorTag i) Rocks.Iterator
 
 -- | Iterator by keys of type @k@ and values of type @v@.
 instance ( Bi k, Bi v
@@ -85,7 +84,7 @@ runIterator dbIter DB {..} =
   where
     run it = do
         Rocks.iterSeek it (iterKeyPrefix @i Proxy)
-        Ether.E.runReaderT Proxy dbIter it
+        Ether.runReaderT dbIter it
 
 ----------------------------------------------------------------------------
 -- DBMapIterator
@@ -97,7 +96,7 @@ data DBMapIteratorTag i v
 -- Holds `DBIterator m a` and apply f for every `nextItem` and `curItem` call.
 -- If f :: a -> b then we iterate by collection elements of type b.
 type DBMapIterator i v =
-    Ether.E.ReaderT
+    Ether.ReaderT
         (DBMapIteratorTag i v)
         (IterType i -> v, Rocks.Iterator)
 
@@ -105,16 +104,16 @@ dbMapIterator
     :: ((IterType i -> v) -> DBIterator i m a)
     -> DBMapIterator i v m a
 dbMapIterator mkDbIter =
-    Ether.E.readerT Proxy $ \(f, ri) ->
-        Ether.E.runReaderT Proxy (mkDbIter f) ri
+    Ether.readerT $ \(f, ri) ->
+        Ether.runReaderT (mkDbIter f) ri
 
 unDbMapIterator
     :: (IterType i -> v)
     -> DBMapIterator i v m a
     -> DBIterator i m a
 unDbMapIterator f dmi =
-    Ether.E.readerT Proxy $ \ri ->
-        Ether.E.runReaderT Proxy dmi (f, ri)
+    Ether.readerT $ \ri ->
+        Ether.runReaderT dmi (f, ri)
 
 type DBKeyIterator   i v = DBMapIterator i (IterKey i) v
 type DBValueIterator i v = DBMapIterator i (IterValue i) v
@@ -125,7 +124,7 @@ instance
     ( MonadIterator (IterKey i, IterValue i) (DBIterator i m)
     , p ~ (IterType i -> v, Rocks.Iterator)
     , Monad m ) =>
-        MonadIterator v (Ether.E.ReaderT (DBMapIteratorTag i v) p m)
+        MonadIterator v (Ether.ReaderT (DBMapIteratorTag i v) p m)
   where
     nextItem = dbMapIterator (\f -> fmap f <$> nextItem)
     curItem = dbMapIterator (\f -> fmap f <$> curItem)
@@ -151,7 +150,7 @@ runIteratorIO dbIter DB {..} = liftIO $
   where
     run it = do
         Rocks.iterSeek it (iterKeyPrefix @i Proxy)
-        Ether.E.runReaderT Proxy dbIter it
+        Ether.runReaderT dbIter it
 
 -- | Run DBMapIterator by `DB` in IO.
 mapIteratorIO
@@ -160,10 +159,8 @@ mapIteratorIO
     => DBMapIterator i v IO a -> (IterType i -> v) -> DB -> m a
 mapIteratorIO dbIter f = runIteratorIO (unDbMapIterator f dbIter)
 
-type DBnIterator i      = DBHolder (DBIterator i IO)
-type DBnMapIterator i v = DBHolder (DBMapIterator i v IO)
-
-instance MonadIterator e m => MonadIterator e (DBHolder m)
+type DBnIterator i      = Ether.ReaderT' NodeDBs (DBIterator i IO)
+type DBnMapIterator i v = Ether.ReaderT' NodeDBs (DBMapIterator i v IO)
 
 runDBnIterator
     :: forall i m a . (MonadDB m, DBIteratorClass i)
@@ -171,7 +168,7 @@ runDBnIterator
 runDBnIterator getter dbi = do
     dbs <- getNodeDBs
     let db = getter dbs
-    flip (runIteratorIO @i) db $ runDBHolder dbs dbi
+    flip (runIteratorIO @i) db $ Ether.runReaderT' dbi dbs
 
 runDBnMapIterator
     :: forall i v m a.
@@ -180,5 +177,5 @@ runDBnMapIterator
 runDBnMapIterator getter dbi f = do
     dbs <- getNodeDBs
     let db = getter dbs
-    let it = runDBHolder dbs dbi
+    let it = Ether.runReaderT' dbi dbs
     mapIteratorIO @i @v it f db

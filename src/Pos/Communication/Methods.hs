@@ -15,7 +15,7 @@ import           Pos.Binary.Communication   ()
 import           Pos.Binary.Core            ()
 import           Pos.Binary.Relay           ()
 import           Pos.Communication.Message  ()
-import           Pos.Communication.Protocol (SendActions, NodeId)
+import           Pos.Communication.Protocol (NodeId, SendActions)
 import           Pos.Communication.Relay    (invReqDataFlow)
 import           Pos.Crypto                 (hash, hashHexF)
 import           Pos.DB.Limits              (MonadDBLimits)
@@ -23,7 +23,7 @@ import           Pos.Txp.Core.Types         (TxAux)
 import           Pos.Txp.Network.Types      (TxMsgContents (..), TxMsgTag (..))
 import           Pos.Update                 (ProposalMsgTag (..), UpId, UpdateProposal,
                                              UpdateVote, VoteMsgTag (..), mkVoteId)
-import           Pos.WorkMode               (MinWorkMode)
+import           Pos.WorkMode.Class         (MinWorkMode)
 
 
 -- | Send Tx to given address.

@@ -5,6 +5,7 @@ module Pos.Update.Mode
 import           Universum
 
 import           Control.Monad.Catch         (MonadMask)
+import qualified Ether
 import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
 
@@ -15,7 +16,6 @@ import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Lrc.Context             (LrcContext)
 import           Pos.Update.Context          (UpdateContext)
 import           Pos.Update.Params           (UpdateParams)
-import           Pos.Util.Context            (HasContext)
 
 type UpdateMode m
     = ( WithLogger m
@@ -26,7 +26,7 @@ type UpdateMode m
       , MonadDB m
       , MonadDBLimits m
       , MonadRelayMem m
-      , HasContext UpdateContext m
-      , HasContext LrcContext m
-      , HasContext UpdateParams m
+      , Ether.MonadReader' UpdateContext m
+      , Ether.MonadReader' LrcContext m
+      , Ether.MonadReader' UpdateParams m
       )

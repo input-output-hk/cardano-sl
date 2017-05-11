@@ -15,7 +15,7 @@ import           Universum
 
 
 import           Pos.Statistics             (StatProcessTx (..), resetStat)
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode)
 
 txStatsRefreshInterval :: Microsecond
 txStatsRefreshInterval = sec 1

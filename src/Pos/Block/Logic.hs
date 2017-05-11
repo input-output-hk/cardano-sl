@@ -39,6 +39,7 @@ import qualified Data.HashMap.Strict        as HM
 import           Data.List.NonEmpty         ((<|))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text                  as T
+import qualified Ether
 import           Formatting                 (build, int, ords, sformat, stext, (%))
 import           Paths_cardano_sl           (version)
 import           Serokell.Data.Memory.Units (toBytes)
@@ -61,9 +62,7 @@ import           Pos.Block.Types            (Blund, Undo (..))
 import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,
                                              epochSlots, lastKnownBlockVersion,
                                              recoveryHeadersMessage, slotSecurityParam)
-import           Pos.Context                (NodeContext (ncNodeParams, ncTxpGlobalSettings),
-                                             getNodeContext, lrcActionOnEpochReason,
-                                             npSecretKey)
+import           Pos.Context                (lrcActionOnEpochReason, npSecretKey)
 import           Pos.Core                   (BlockVersion (..), EpochIndex, HeaderHash,
                                              diffEpochOrSlot)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash), hash,
@@ -109,7 +108,7 @@ import           Pos.Util                   (Some (Some), maybeThrow, neZipWith3
                                              spanSafe, _neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
                                              toNewestFirst, toOldestFirst)
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode)
 
 ----------------------------------------------------------------------------
 -- Common
@@ -502,7 +501,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         Pure.verifyBlocks curSlot dataMustBeKnown adoptedBVD
         (Just leaders) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
-    TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
+    TxpGlobalSettings {..} <- Ether.ask'
     txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $
         map toTxpBlock blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
@@ -828,7 +827,7 @@ createMainBlockFinish slotId pSk prevHeader = do
         -- Create block
         let convertTx (txId, (tx, _, _)) = WithHash tx txId
         sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
-        sk <- npSecretKey . ncNodeParams <$> getNodeContext
+        sk <- Ether.asks' npSecretKey
         -- for now let's be cautious and not generate blocks that are larger than
         -- maxBlockSize/4
         sizeLimit <- fromIntegral . toBytes . (`div` 4) <$> UDB.getMaxBlockSize

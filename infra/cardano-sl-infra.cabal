@@ -97,7 +97,7 @@ library
                       , containers
                       , data-default
                       , directory
-                      , ether
+                      , ether >= 0.5
                       , exceptions
                       , filepath
                       , formatting

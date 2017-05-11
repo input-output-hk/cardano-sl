@@ -1,5 +1,5 @@
 # Fundamental constants for core protocol
-k: 2
+k: 60
 
 # Genesis constants
 genesisN: 50000

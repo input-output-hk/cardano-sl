@@ -14,14 +14,14 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State, CTxEntries)
 import Explorer.Util.Time (prettyDate)
-import Explorer.View.Common (currencyCSSClass, noData)
+import Explorer.View.Common (currencyCSSClass', noData)
 import Explorer.View.Dashboard.Lenses (dashboardTransactionsExpanded)
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
 import Network.RemoteData (RemoteData(..), isSuccess)
 import Pos.Explorer.Web.ClientTypes (CTxEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, cteId, cteAmount, cteTimeIssued, _CTxId, _CHash)
-import Pux.Html (Html, div, text) as P
+import Pux.Html (Html, div, text, span) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Html.Events (onClick, MouseEvent) as P
 import Pux.Router (link) as P
@@ -95,15 +95,15 @@ transactionRow state (CTxEntry entry) =
     P.div
         [ P.className "transactions__row" ]
         [ P.link (toUrl <<< Tx $ entry ^. cteId)
-              [ P.className "transactions__column hash" ]
+              [ P.className "transactions__column--hash" ]
               [ P.text $ entry ^. (cteId <<< _CTxId <<< _CHash) ]
-        , transactionColumn dateValue "date"
-        , transactionColumn (entry ^. (cteAmount <<< _CCoin <<< getCoin))
-              <<< currencyCSSClass $ Just ADA
+        , P.div
+              [ P.className $ "transactions__column--date" ]
+              [ P.text dateValue ]
+        , P.div
+              [ P.className $ "transactions__column--currency" ]
+              [ P.span
+                  [ P.className <<< currencyCSSClass' $ Just ADA ]
+                  [ P.text $ entry ^. (cteAmount <<< _CCoin <<< getCoin) ]
+              ]
         ]
-
-transactionColumn :: String -> String -> P.Html Action
-transactionColumn value clazzName =
-    P.div
-        [ P.className $ "transactions__column " <> clazzName ]
-        [ P.text value ]

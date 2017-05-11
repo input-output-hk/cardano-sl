@@ -10,6 +10,7 @@ module Explorer.View.Common (
     , mkTxBodyViewProps
     , class TxBodyViewPropsFactory
     , currencyCSSClass
+    , currencyCSSClass'
     , paginationView
     , txPaginationView
     , EmptyViewProps
@@ -366,11 +367,20 @@ mkEmptyViewProps = EmptyViewProps {}
 noData :: String
 noData = "--"
 
+-- TODO (jk) Deprecated in the future - DELETE it.
 currencyCSSClass :: Maybe CCurrency -> String
 currencyCSSClass mCurrency =
   case mCurrency of
       Just ADA -> " currency ada bg-ada-dark"
       Just USD -> " currency usd bg-usd-dark"
+      _ -> ""
+
+-- | Helper to add currency classes
+currencyCSSClass' :: Maybe CCurrency -> String
+currencyCSSClass' mCurrency =
+  case mCurrency of
+      Just ADA -> "ada bg-ada-dark"
+      Just USD -> "usd bg-usd-dark"
       _ -> ""
 
 -- TODO (jk) Remove placeholderView if all views are implemented

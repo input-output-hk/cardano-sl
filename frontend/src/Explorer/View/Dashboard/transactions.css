@@ -38,7 +38,7 @@
 
     &__column {
 
-      &.hash {
+      &--hash {
         lost-column: 1/1 1;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -46,43 +46,46 @@
         button-color: var(--color8) var(--color5) var(--color5);
       }
 
-      &.currency {
+      &--currency {
+        @extend .hide;
+
+        text-align: right;
+
+        .ada,
+        .usd {
+          padding-right: 10px;
+          background-repeat: no-repeat;
+          background-position: right center;
+        }
+
+        .ada {
+          background-size: 8px 7px;
+        }
+
+        .usd {
+          background-size: 6px 10px;
+        }
+      }
+
+      &--date {
         @extend .hide;
       }
 
-      &.date {
-        @extend .hide;
-      }
-
-      &.ada,
-      &.usd {
-        padding-left: 10px;
-        background-repeat: no-repeat;
-        background-position: left center;
-      }
-
-      &.ada {
-        background-size: 8px 7px;
-      }
-
-      &.usd {
-        background-size: 6px 10px;
-      }
     }
 
     @media (--md) {
       &__column {
 
-        &.hash {
-          lost-column: 7/12;
+        &--hash {
+          lost-column: 8/12;
         }
 
-        &.date {
+        &--date {
           @extend .show;
-          lost-column: 3/12;
+          lost-column: 2/12;
         }
 
-        &.currency {
+        &--currency {
           @extend .show;
           lost-column: 2/12;
         }

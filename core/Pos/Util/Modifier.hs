@@ -3,9 +3,10 @@
 -- | Wrapper for modifier pattern which is used intensively in code
 
 module Pos.Util.Modifier
-       ( MapModifier (..)
+       ( MapModifier
        , lookupM
        , lookup
+       , filter
        , keysM
        , keys
        , valuesM
@@ -20,21 +21,27 @@ module Pos.Util.Modifier
        , delete
 
        , mapMaybeM
-
+       , mapMaybe
        , modifyHashMap
        , foldlMapModWKey'
        ) where
 
-import           Universum           hiding (toList)
+import           Universum                 hiding (filter, mapMaybe, toList)
+import qualified Universum                 (filter, mapMaybe)
 
-import           Data.Hashable       (Hashable)
-import qualified Data.HashMap.Strict as HM
+import           Data.Hashable             (Hashable)
+import qualified Data.HashMap.Strict       as HM
+import           Test.QuickCheck           (Arbitrary)
+import           Test.QuickCheck.Instances ()
 
 -- | 'MapModifier' is a type which collects modifications (insertions
 -- and deletions) of something map-like.
 newtype MapModifier k v = MapModifier
     { getMapModifier :: HashMap k (Maybe v)
     } deriving (Eq, Show)
+
+deriving instance (Eq k, Hashable k, Arbitrary k, Arbitrary v) =>
+    Arbitrary (MapModifier k v)
 
 instance (Eq k, Hashable k) =>
          Monoid (MapModifier k v) where
@@ -62,6 +69,9 @@ lookup
     => (k -> Maybe v) -> k -> MapModifier k v -> Maybe v
 lookup getter k = runIdentity . lookupM (Identity . getter) k
 
+filter :: (Eq k, Hashable k) => (Maybe v -> Bool) -> MapModifier k v -> MapModifier k v
+filter fil = MapModifier . HM.filter fil . getMapModifier
+
 -- | Get keys of something map-like in Functor context taking
 -- 'MapModifier' into account.
 keysM
@@ -70,7 +80,7 @@ keysM
 keysM getter (MapModifier m) = keysDo <$> getter
   where
     keysDo ks =
-        HM.keys (HM.filter isJust m) <> filter (not . flip HM.member m) ks
+        HM.keys (HM.filter isJust m) <> Universum.filter (not . flip HM.member m) ks
 
 -- | Get keys of something map-like taking 'MapModifier' into account.
 keys
@@ -87,7 +97,7 @@ valuesM getter (MapModifier m) = valuesDo <$> getter
   where
     valuesDo vs =
         HM.elems (HM.mapMaybe identity m) <>
-        map snd (filter (not . flip HM.member m . fst) vs)
+        map snd (Universum.filter (not . flip HM.member m . fst) vs)
 
 -- | Get values of something map-like taking 'MapModifier' into account.
 values
@@ -102,7 +112,7 @@ toListM
     => m [(k, v)] -> MapModifier k v -> m [(k, v)]
 toListM getter mm@(MapModifier m) = toListDo <$> getter
   where
-    toListDo kvs = insertions mm <> filter (not . flip HM.member m . fst) kvs
+    toListDo kvs = insertions mm <> Universum.filter (not . flip HM.member m . fst) kvs
 
 -- | Get contents of something map-like taking 'MapModifier' into account.
 toList
@@ -138,8 +148,8 @@ delete
     => k -> MapModifier k v -> MapModifier k v
 delete k (MapModifier m) = MapModifier $ HM.insert k Nothing m
 
--- | Transform this modifer by applying a function to every insertion
--- and retaining only some of them. Underlying map should be already
+-- | Transform this modifier in Functor context by applying a function to every
+-- insertion and retaining only some of them. Underlying map should be already
 -- transformed.
 mapMaybeM
     :: (Functor m, Eq k, Hashable k)
@@ -147,8 +157,15 @@ mapMaybeM
 mapMaybeM getter f mm@(MapModifier m) = mapMaybeDo <$> getter
   where
     mapMaybeDo kvs =
-        mapMaybe (\(k, v) -> (k, ) <$> f v) (insertions mm) <>
-        filter (not . flip HM.member m . fst) kvs
+        Universum.mapMaybe (\(k, v) -> (k, ) <$> f v) (insertions mm) <>
+        Universum.filter (not . flip HM.member m . fst) kvs
+
+-- | Transform this modifier by applying a function to every insertion and retaining
+-- only some of them. Underlying map should be already transformed.
+mapMaybe
+    :: (Eq k, Hashable k)
+    => [(k, v2)] -> (v1 -> Maybe v2) -> MapModifier k v1 -> [(k, v2)]
+mapMaybe getter f = runIdentity . mapMaybeM (Identity getter) f
 
 -- | Applies a map modifier to a hashmap, returning the result
 modifyHashMap :: (Eq k, Hashable k) => MapModifier k v -> HashMap k v -> HashMap k v

@@ -3,8 +3,8 @@ k: 60
 
 # Genesis constants
 genesisN: 50000
-genesisSlotDurationSec: 20
-genesisMaxBlockSize: 2000000
+genesisSlotDurationSec: 40
+genesisMaxBlockSize: 6000000
 genesisMaxHeaderSize: 200000
 genesisMaxTxSize: 4096 # 4 Kb
 maxReqSize: 100 # 100 bytes

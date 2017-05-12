@@ -93,10 +93,8 @@ prepareGStateUtxo
        MonadDB m
     => Utxo -> m ()
 prepareGStateUtxo genesisUtxo =
-    putIfEmpty isUtxoInitialized putGenesisUtxo
+    unlessM isUtxoInitialized putGenesisUtxo
   where
-    putIfEmpty :: m Bool -> m () -> m ()
-    putIfEmpty exists putter = whenM (not <$> exists) $ putter
     putGenesisUtxo = do
         let utxoList = M.toList genesisUtxo
         writeBatchGState $ concatMap createBatchOp utxoList
@@ -214,7 +212,7 @@ iterationUtxoPrefix :: ByteString
 iterationUtxoPrefix = "ut/t/"
 
 initializationFlagKey :: ByteString
-initializationFlagKey = "ut/gutxo"
+initializationFlagKey = "ut/gutxo/"
 
 ----------------------------------------------------------------------------
 -- Details

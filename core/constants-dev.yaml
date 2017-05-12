@@ -1,9 +1,9 @@
 # Fundamental constants for core protocol
-k: 60
+k: 9
 
 # Genesis constants
 genesisN: 50000
-genesisSlotDurationSec: 40
+genesisSlotDurationSec: 20
 genesisMaxBlockSize: 6000000
 genesisMaxHeaderSize: 200000
 genesisMaxTxSize: 4096 # 4 Kb
@@ -22,7 +22,7 @@ genesisUpdateSoftforkThd: 0.75 # 75% of total stake
 defaultPeers: []
 kademliaDumpInterval: 4
 neighboursSendThreshold: 2
-networkDiameter: 3
+networkDiameter: 15
 networkConnectionTimeout: 2000
 networkReceiveTimeout: 5000
 

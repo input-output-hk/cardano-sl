@@ -7,6 +7,8 @@ module Pos.DB.Block
        , getBlockHeader
        , getUndo
        , getBlockWithUndo
+       , getTipBlock
+       , getTipBlockHeader
 
        , deleteBlock
        , putBlock
@@ -41,6 +43,7 @@ import           Pos.Crypto                (hashHexF, shortHashF)
 import           Pos.DB.Class              (MonadDB, getBlockIndexDB, getNodeDBs)
 import           Pos.DB.Error              (DBError (DBMalformed))
 import           Pos.DB.Functions          (rocksDelete, rocksGetBi, rocksPutBi)
+import           Pos.DB.GState.Common      (getTip)
 import           Pos.DB.Types              (blockDataDir)
 import           Pos.Ssc.Class.Helpers     (SscHelpersClass)
 import           Pos.Types                 (Block, BlockHeader, GenesisBlock,
@@ -62,6 +65,20 @@ getBlockHeader
     :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Maybe (BlockHeader ssc))
 getBlockHeader = getBi . blockIndexKey
+
+-- | Get block corresponding to tip.
+getTipBlock
+    :: (SscHelpersClass ssc, MonadDB m)
+    => m (Block ssc)
+getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
+  where
+    onFailure = throwM $ DBMalformed "there is no block corresponding to tip"
+
+-- | Get BlockHeader corresponding to tip.
+getTipBlockHeader
+    :: (SscHelpersClass ssc, MonadDB m)
+    => m (BlockHeader ssc)
+getTipBlockHeader = T.getBlockHeader <$> getTipBlock
 
 -- | Get undo data for block with given hash from Block DB.
 getUndo :: (MonadDB m) => HeaderHash -> m (Maybe Undo)
@@ -265,20 +282,18 @@ getBlundThrow hash =
     maybeThrow (DBMalformed $ sformat errFmt hash) =<<
     (liftA2 (,) <$> getBlock hash <*> getUndo hash)
   where
-    errFmt = ("getBlockThrow: no blund with HeaderHash: " %shortHashF)
+    errFmt = "getBlockThrow: no blund with HeaderHash: " %shortHashF
 
 getBlockThrow
     :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Block ssc)
 getBlockThrow hash = maybeThrow (DBMalformed $ sformat errFmt hash) =<< getBlock hash
   where
-    errFmt =
-        ("getBlockThrow: no block with HeaderHash: "%shortHashF)
+    errFmt = "getBlockThrow: no block with HeaderHash: "%shortHashF
 
 getHeaderThrow
     :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (BlockHeader ssc)
 getHeaderThrow hash = maybeThrow (DBMalformed $ sformat errFmt hash) =<< getBlockHeader hash
   where
-    errFmt =
-        ("getBlockThrow: no block header with hash: "%shortHashF)
+    errFmt = "getBlockThrow: no block header with hash: "%shortHashF

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Higher-level DB functionality.
@@ -25,10 +26,10 @@ import           Universum
 import           Pos.Block.Types                  (Blund)
 import           Pos.Context.Class                (WithNodeContext)
 import           Pos.Context.Functions            (genesisLeadersM)
-import           Pos.DB.Block                     (getBlock, loadBlundsByDepth,
-                                                   loadBlundsWhile, prepareBlockDB)
+import           Pos.DB.Block                     (getTipBlock, getTipBlockHeader,
+                                                   loadBlundsByDepth, loadBlundsWhile,
+                                                   prepareBlockDB)
 import           Pos.DB.Class                     (MonadDB, MonadDBCore (..))
-import           Pos.DB.Error                     (DBError (DBMalformed))
 import           Pos.DB.Functions                 (openDB)
 import           Pos.DB.GState.BlockExtra         (prepareGStateBlockExtra)
 import           Pos.DB.GState.Common             (getTip)
@@ -38,8 +39,7 @@ import           Pos.DB.Misc                      (prepareMiscDB)
 import           Pos.DB.Types                     (NodeDBs (..))
 import           Pos.Lrc.DB                       (prepareLrcDB)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
-import           Pos.Types                        (Block, BlockHeader, getBlockHeader,
-                                                   headerHash, mkGenesisBlock)
+import           Pos.Types                        (Block, headerHash, mkGenesisBlock)
 import           Pos.Update.DB                    (getAdoptedBVData)
 import           Pos.Util                         (inAssertMode)
 import           Pos.Util.Chrono                  (NewestFirst)
@@ -87,20 +87,6 @@ initNodeDBs = do
     prepareGStateBlockExtra initialTip
     prepareLrcDB
     prepareMiscDB
-
--- | Get block corresponding to tip.
-getTipBlock
-    :: (SscHelpersClass ssc, MonadDB m)
-    => m (Block ssc)
-getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
-  where
-    onFailure = throwM $ DBMalformed "there is no block corresponding to tip"
-
--- | Get BlockHeader corresponding to tip.
-getTipBlockHeader
-    :: (SscHelpersClass ssc, MonadDB m)
-    => m (BlockHeader ssc)
-getTipBlockHeader = getBlockHeader <$> getTipBlock
 
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.

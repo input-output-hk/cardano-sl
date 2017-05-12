@@ -2,19 +2,23 @@
 
 set -e
 
-export EXTRA_STACK="--no-haddock-deps"
+EXTRA_STACK="--no-haddock-deps"
 
-if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+case "$TRAVIS_OS_NAME" in
+  linux )
     if [[ "$TRAVIS_BRANCH" == "master" ]]; then
-      export EXTRA_STACK="--haddock";
+      EXTRA_STACK="--haddock";
     fi
 
-    export EXTRA_STACK="--test $EXTRA_STACK";
-fi
+    EXTRA_STACK="--test $EXTRA_STACK";;
+  osx )
+    EXTRA_STACK="--flag cardano-sl:for-installer $EXTRA_STACK";;
+  * )
+    echo "FATAL: unexpected value of \$TRAVIS_OS_NAME: '$TRAVIS_OS_NAME'"
+    exit 1;;
+esac
 
-if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-  export EXTRA_STACK="--flag cardano-sl:for-installer $EXTRA_STACK"
-fi
+export EXTRA_STACK
 
 stack --nix --no-terminal --local-bin-path daedalus/ install cardano-sl \
   $EXTRA_STACK --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --jobs=4 \

@@ -282,20 +282,18 @@ getBlundThrow hash =
     maybeThrow (DBMalformed $ sformat errFmt hash) =<<
     (liftA2 (,) <$> getBlock hash <*> getUndo hash)
   where
-    errFmt = ("getBlockThrow: no blund with HeaderHash: " %shortHashF)
+    errFmt = "getBlockThrow: no blund with HeaderHash: " %shortHashF
 
 getBlockThrow
     :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Block ssc)
 getBlockThrow hash = maybeThrow (DBMalformed $ sformat errFmt hash) =<< getBlock hash
   where
-    errFmt =
-        ("getBlockThrow: no block with HeaderHash: "%shortHashF)
+    errFmt = "getBlockThrow: no block with HeaderHash: "%shortHashF
 
 getHeaderThrow
     :: (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (BlockHeader ssc)
 getHeaderThrow hash = maybeThrow (DBMalformed $ sformat errFmt hash) =<< getBlockHeader hash
   where
-    errFmt =
-        ("getBlockThrow: no block header with hash: "%shortHashF)
+    errFmt = "getBlockThrow: no block header with hash: "%shortHashF

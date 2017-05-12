@@ -24,8 +24,6 @@ TAGS
 .DS_Store
 *~
 *#
-.hindent.yaml
-.stylish-haskell.yaml
 .dir-locals.el
 node-db*
 pos-db*
@@ -35,8 +33,6 @@ pos-keys
 nohup.out
 logs
 stats-node-*
-.ipynb_checkpoints
-*.ipynb
 testRun
 *.csv
 my-log-template.yaml
@@ -60,6 +56,16 @@ db-abc/
 kademlia-abc.dump
 b
 lint
+
+# IPython notebooks
+.ipynb_checkpoints
+*.ipynb
+
+# Config files
+.hindent.yaml
+.stylish-haskell.yaml
+
+# Intellij Idea & intellij-haskell
 .idea
 .ideaHaskellLib
 *.iml

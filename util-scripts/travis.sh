@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 export EXTRA_STACK="--no-haddock-deps"
 
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then

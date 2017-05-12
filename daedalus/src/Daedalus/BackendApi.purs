@@ -125,7 +125,7 @@ renameWalletSet wSetId name = postR $ noQueryParam ["wallets", "sets", "rename",
 importWalletSet :: forall eff. Maybe CPassPhrase -> FilePath -> Aff (ajax :: AJAX | eff) CWalletSet
 importWalletSet pass = postRBody $ queryParams ["wallets", "sets", "keys"] [qParam "passphrase" $ _passPhrase <$> pass]
 
-changeWalletSetPass :: forall eff. CAddress WS -> Maybe CPassPhrase -> Maybe CPassPhrase -> Aff (ajax :: AJAX | eff) CWalletSet
+changeWalletSetPass :: forall eff. CAddress WS -> Maybe CPassPhrase -> Maybe CPassPhrase -> Aff (ajax :: AJAX | eff) Unit
 changeWalletSetPass wSetId old new = postR $ queryParams ["wallets", "sets", "password", _address wSetId] [qParam "old" $ _passPhrase <$> old, qParam "new" $ _passPhrase <$> new]
 
 --------------------------------------------------------------------------------

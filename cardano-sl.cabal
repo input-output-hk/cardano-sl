@@ -430,7 +430,7 @@ library
                       , conduit >= 1.2.8
                       , containers
                       , cryptonite >= 0.19 && <= 0.22
-                      , cryptonite-openssl >= 0.5
+                      , cryptonite-openssl >= 0.6
                       , data-default
                       , deepseq
                       , derive

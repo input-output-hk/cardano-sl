@@ -65,7 +65,7 @@ mcOpeningLenLimit = 62
 
 mcSharesMsgLenLimit :: Limit GtMsgContents
 mcSharesMsgLenLimit =
-    MCShares <$> msgLenLimit <+> multiMap commitmentsNumLimit
+    MCShares <$> msgLenLimit 🐱 multiMap commitmentsNumLimit
 
 mcVssCertificateLenLimit :: Limit GtMsgContents
 mcVssCertificateLenLimit = 169
@@ -81,7 +81,7 @@ instance MessageLimited (MsgBlock ssc) where
 instance MessageLimited MsgGetHeaders where
     type LimitType MsgGetHeaders = Limit MsgGetHeaders
     getMsgLenLimit _ = return $
-        MsgGetHeaders <$> vector maxGetHeadersNum <+> msgLenLimit
+        MsgGetHeaders <$> vector maxGetHeadersNum 🐱 msgLenLimit
       where
         maxGetHeadersNum = ceiling $
             log ((fromIntegral :: Int -> Double) Const.blkSecurityParam) + 5
@@ -109,7 +109,7 @@ instance MessageLimited (DataMsg (UpdateProposal, [UpdateVote])) where
     getMsgLenLimit _ = do
         proposalLimit <- Limit <$> DB.getMaxProposalSize
         return $
-            DataMsg <$> ((,) <$> proposalLimit <+> vector updateVoteNumLimit)
+            DataMsg <$> ((,) <$> proposalLimit 🐱 vector updateVoteNumLimit)
 
 instance MessageLimited (DataMsg GtMsgContents) where
     type LimitType (DataMsg GtMsgContents) =
@@ -128,17 +128,17 @@ instance MessageLimited (DataMsg GtMsgContents) where
 
 instance MessageLimitedPure Commitment where
     msgLenLimit =
-        Commitment <$> msgLenLimit <+> msgLenLimit
-                   <+> multiMap commitmentsNumLimit
+        Commitment <$> msgLenLimit 🐱 msgLenLimit
+                   🐱 multiMap commitmentsNumLimit
 
 instance MessageLimitedPure SecretSharingExtra where
     msgLenLimit =
-        SecretSharingExtra <$> msgLenLimit <+> vector commitmentsNumLimit
+        SecretSharingExtra <$> msgLenLimit 🐱 vector commitmentsNumLimit
 
 instance MessageLimitedPure UpdateVote where
     msgLenLimit =
-        UpdateVote <$> msgLenLimit <+> msgLenLimit <+> msgLenLimit
-                   <+> msgLenLimit
+        UpdateVote <$> msgLenLimit 🐱 msgLenLimit 🐱 msgLenLimit
+                   🐱 msgLenLimit
 
 instance MessageLimitedPure (DataMsg UpdateVote) where
     msgLenLimit = DataMsg <$> msgLenLimit
@@ -250,7 +250,7 @@ multiMap
     => Int -> Limit l
 multiMap k =
     -- max message length is reached when each key has single value
-    vectorOf k $ (,) <$> msgLenLimit <+> vector 1
+    vectorOf k $ (,) <$> msgLenLimit 🐱 vector 1
 
 coerce :: Limit a -> Limit b
 coerce (Limit x) = Limit x

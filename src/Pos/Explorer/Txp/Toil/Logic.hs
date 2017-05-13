@@ -57,7 +57,8 @@ eApplyToil curTime txun hh = do
         let id = hash tx
             newExtra = TxExtra (Just (hh, i)) curTime txUndo
         extra <- fromMaybe newExtra <$> getTxExtra id
-        putTxExtraWithHistory id extra $ getTxRelatedAddrs txAux txUndo
+        putTxExtra id extra
+        putNewHistory id $ getTxRelatedAddrs txAux txUndo
         let balanceUpdate = getBalanceUpdate txAux txUndo
         updateAddrBalances balanceUpdate
 
@@ -69,7 +70,8 @@ eRollbackToil txun = do
   where
     extraRollback :: EGlobalToilMode m => (TxAux, TxUndo) -> m ()
     extraRollback (txAux@(tx, _, _), txUndo) = do
-        delTxExtraWithHistory (hash tx) $ getTxRelatedAddrs txAux txUndo
+        delTxExtra (hash tx)
+        delNewHistory (hash tx) $ getTxRelatedAddrs txAux txUndo
         let BalanceUpdate {..} = getBalanceUpdate txAux txUndo
         updateAddrBalances BalanceUpdate {
             plusBalance = minusBalance,
@@ -91,7 +93,10 @@ eProcessTx
     => (TxId, TxAux) -> TxExtra -> m ()
 eProcessTx tx@(id, aux) extra = do
     undo <- Txp.processTx tx
-    putTxExtraWithHistory id extra $ getTxRelatedAddrs aux undo
+    putTxExtra id extra
+    putNewHistory id $ getTxRelatedAddrs aux undo
+    -- let balanceUpdate = getBalanceUpdate aux undo
+    -- updateAddrBalances balanceUpdate
 
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.
@@ -125,24 +130,13 @@ modifyAddrHistory
 modifyAddrHistory f addr =
     updateAddrHistory addr . f =<< getAddrHistory addr
 
-putTxExtraWithHistory
-    :: MonadTxExtra m
-    => TxId
-    -> TxExtra
-    -> NonEmpty Address
-    -> m ()
-putTxExtraWithHistory id extra addrs = do
-    putTxExtra id extra
+putNewHistory :: MonadTxExtra m => TxId -> NonEmpty Address -> m ()
+putNewHistory id addrs =
     forM_ addrs $ modifyAddrHistory $
         NewestFirst . (id :) . getNewestFirst
 
-delTxExtraWithHistory
-    :: MonadTxExtra m
-    => TxId
-    -> NonEmpty Address
-    -> m ()
-delTxExtraWithHistory id addrs = do
-    delTxExtra id
+delNewHistory :: MonadTxExtra m => TxId -> NonEmpty Address -> m ()
+delNewHistory id addrs =
     forM_ addrs $ modifyAddrHistory $
         NewestFirst . delete id . getNewestFirst
 
@@ -156,7 +150,6 @@ getTxRelatedAddrs (UnsafeTx {..}, _, _) undo =
 
 combineBalanceUpdates :: BalanceUpdate -> [(Address, (Sign, Coin))]
 combineBalanceUpdates BalanceUpdate {..} =
-    -- need to do an extra map because unionWith does not support changing type
     let plusCombined  = HM.fromListWith unsafeAddCoin plusBalance
         minusCombined = HM.fromListWith unsafeAddCoin minusBalance
         bothCombined = outerJoin plusCombined minusCombined
@@ -169,6 +162,7 @@ combineBalanceUpdates BalanceUpdate {..} =
         -> HM.HashMap k v2
         -> HM.HashMap k (Maybe v1, Maybe v2)
     outerJoin hm1 hm2 =
+        -- need to do an extra map because unionWith does not support changing type
         let hm1' = HM.map (\x -> (Just x, Nothing)) hm1
             hm2' = HM.map (\x -> (Nothing, Just x)) hm2
         in HM.unionWith joiner hm1' hm2'

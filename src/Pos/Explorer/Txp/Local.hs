@@ -90,6 +90,10 @@ eTxProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
         allAddrs = ordNub $ txInAddrs <> txOutAddrs
     hmHistories <- buildMap allAddrs <$> mapM (fmap Just . ExDB.getAddrHistory) allAddrs
     hmBalances <- buildMap allAddrs <$> mapM ExDB.getAddrBalance allAddrs
+    -- `eet` is passed to `processTxDo` where it is used in a ReaderT environment
+    -- to provide underlying functions (`modifyAddrHistory` and `modifyAddrBalance`)
+    -- with data to update. In case of `TxExtra` data is only added, but never updated,
+    -- hence `mempty` here.
     let eet = ExplorerExtraTxp mempty hmHistories hmBalances
     pRes <- modifyTxpLocalData $
             processTxDo resolved toilEnv tipBefore itw curTime eet
@@ -98,7 +102,7 @@ eTxProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
             logDebug $ sformat ("Transaction processing failed: "%build) txId
             throwError er
         Right _   ->
-            logDebug (sformat ("Transaction is processed successfully: "%build) txId)
+            logDebug $ sformat ("Transaction is processed successfully: "%build) txId
   where
     processTxDo
         :: Utxo
@@ -114,13 +118,16 @@ eTxProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
         | otherwise =
             let execToil action =
                     snd <$> runToilTLocalExtra uv mp undo extra action
+                -- NE.fromList is safe here, because if `resolved` is empty, `processTx`
+                -- wouldn't save extra value, thus wouldn't reduce it to NF
+                txUndo = NE.fromList $ toList resolved
                 res =
                     (runExceptT $
                      flip runUtxoReaderT resolved $
                      flip runReaderT eet $
                      runExplorerReaderWrapper $
                      execToil $
-                     eProcessTx tx (makeExtra resolved curTime))
+                     eProcessTx tx (TxExtra Nothing curTime txUndo))
                         toilEnv
             in
             case res of
@@ -128,10 +135,6 @@ eTxProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
                 Right ToilModifier{..} ->
                     (Right (), (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra))
     runUM um = runToilTLocalExtra um def mempty (def @ExplorerExtra)
-    makeExtra :: Utxo -> Timestamp -> TxExtra
-    -- NE.fromList is safe here, because if `resolved` is empty, `processTx`
-    -- wouldn't save extra value, thus wouldn't reduce it to NF
-    makeExtra resolved curTime = TxExtra Nothing curTime $ NE.fromList $ toList resolved
     buildMap :: (Eq a, Hashable a) => [a] -> [Maybe b] -> HM.HashMap a b
     buildMap keys maybeValues =
         HM.fromList $ catMaybes $ toList $

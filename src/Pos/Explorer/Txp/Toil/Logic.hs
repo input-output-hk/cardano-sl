@@ -19,7 +19,8 @@ import qualified Data.HashSet                as HS
 import           Data.List                   (delete)
 import qualified Data.List.NonEmpty          as NE
 import           Formatting                  (build, sformat, (%))
-import           System.Wlog                 (WithLogger, logError)
+import           System.Wlog                 (WithLogger, logError, runNamedPureLog,
+                                              usingLoggerName)
 
 import           Pos.Core                    (Address, Coin, HeaderHash, Timestamp,
                                               mkCoin, unsafeAddCoin, unsafeSubCoin)
@@ -95,8 +96,9 @@ eProcessTx tx@(id, aux) extra = do
     undo <- Txp.processTx tx
     putTxExtra id extra
     putNewHistory id $ getTxRelatedAddrs aux undo
-    -- let balanceUpdate = getBalanceUpdate aux undo
-    -- updateAddrBalances balanceUpdate
+    let balanceUpdate = getBalanceUpdate aux undo
+    fmap fst $ usingLoggerName "eProcessTx" $ runNamedPureLog $
+        updateAddrBalances balanceUpdate
 
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.

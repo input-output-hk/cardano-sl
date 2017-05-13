@@ -11,6 +11,7 @@ import           Universum
 
 import           Control.Lens                (at, (%=), (.=))
 import           Control.Monad.Trans.Class   (MonadTrans)
+import           System.Wlog                 (LoggerNameBox, NamedPureLogger)
 
 import           Pos.Core                    (Address, Coin)
 import           Pos.DB.Class                (MonadDB)
@@ -44,6 +45,9 @@ instance MonadTxExtraRead m => MonadTxExtraRead (StateT s m)
 instance MonadTxExtraRead m => MonadTxExtraRead (ExceptT s m)
 instance MonadTxExtraRead m => MonadTxExtraRead (UtxoReaderT m)
 
+instance MonadTxExtraRead m => MonadTxExtraRead (NamedPureLogger m)
+instance MonadTxExtraRead m => MonadTxExtraRead (LoggerNameBox m)
+
 class MonadTxExtraRead m => MonadTxExtra m where
     putTxExtra :: TxId -> TxExtra -> m ()
     delTxExtra :: TxId -> m ()
@@ -75,6 +79,9 @@ instance MonadTxExtra m => MonadTxExtra (ReaderT s m)
 instance MonadTxExtra m => MonadTxExtra (StateT s m)
 instance MonadTxExtra m => MonadTxExtra (ExceptT s m)
 instance MonadTxExtra m => MonadTxExtra (UtxoReaderT m)
+
+instance MonadTxExtra m => MonadTxExtra (NamedPureLogger m)
+instance MonadTxExtra m => MonadTxExtra (LoggerNameBox m)
 
 ----------------------------------------------------------------------------
 -- ToilT instances

@@ -6,6 +6,7 @@ module Pos.Binary.Update
 import           Universum
 
 import           Data.Binary             (Binary)
+import qualified Data.Binary              as Binary
 
 import           Pos.Binary.Class        (Bi (..), getAsciiString1b, getWord8, label,
                                           putAsciiString1b, putWord8)
@@ -82,8 +83,17 @@ instance Bi U.UpdatePayload where
 -- These types are used only for DB. But it still makes sense to
 -- define serialization manually I suppose.
 -- [CSL-124]
-instance Binary U.VoteState
-instance Bi U.VoteState
+instance Binary U.VoteState where
+  get = Binary.get
+  {-# INLINE get #-}
+  put = Binary.put
+  {-# INLINE put #-}
+
+instance Bi U.VoteState where
+  get = Binary.get
+  {-# INLINE get #-}
+  put = Binary.put
+  {-# INLINE put #-}
 
 instance Bi a => Bi (U.PrevValue a) where
     put (U.PrevValue v) = putWord8 2 >> put v

@@ -212,8 +212,17 @@ instance Bi PassPhrase where
 -- Hierarchical derivation
 -------------------------------------------------------------------------------
 
-instance Binary.Binary HDAddressPayload
-instance Bi HDAddressPayload
+instance Binary.Binary HDAddressPayload where
+  get = Binary.get
+  {-# INLINE get #-}
+  put = Binary.put
+  {-# INLINE put #-}
+
+instance Bi HDAddressPayload where
+  get = Binary.get
+  {-# INLINE get #-}
+  put = Binary.put
+  {-# INLINE put #-}
 
 -------------------------------------------------------------------------------
 -- Standard Ed25519 instances for ADA redeem keys

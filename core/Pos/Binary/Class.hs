@@ -110,14 +110,7 @@ import           Unsafe.Coerce               (unsafeCoerce)
 -- want to use the 'Binary' instance for your type.
 class Bi t where
     put :: t -> Put
-    default put :: Binary.Binary t => t -> Put
-    put = Binary.put
-    {-# INLINE put #-}
-
     get :: Get t
-    default get :: Binary.Binary t => Get t
-    get = Binary.get
-    {-# INLINE get #-}
 
 --instance Serializable t => B.Binary t where
 --    get = get
@@ -514,16 +507,53 @@ instance Bi Char where
 
 -- These instances just copy 'Binary'
 
-instance Bi Integer            -- TODO: write how Integer is serialized
+instance Bi Integer where
+  get = Binary.get
+  {-# INLINE get #-}
+  put = Binary.put
+  {-# INLINE put #-}
 
-instance Bi Int16              -- 2 bytes, big endian
-instance Bi Int32              -- 4 bytes, big endian
-instance Bi Int64              -- 8 bytes, big endian
+instance Bi Int16 where             -- 2 bytes, big endian
+  get = Binary.get
+  {-# INLINE get #-}
+  put = Binary.put
+  {-# INLINE put #-}
 
-instance Bi Word8              -- single byte
-instance Bi Word16             -- 2 bytes, big endian
-instance Bi Word32             -- 4 bytes, big endian
-instance Bi Word64             -- 8 bytes, big endian
+instance Bi Int32 where             -- 4 bytes, big endian
+  get = Binary.get
+  {-# INLINE get #-}
+  put = Binary.put
+  {-# INLINE put #-}
+
+instance Bi Int64 where             -- 8 bytes, big endian
+  get = Binary.get
+  {-# INLINE get #-}
+  put = Binary.put
+  {-# INLINE put #-}
+
+instance Bi Word8 where             -- single byte
+  get = Binary.get
+  {-# INLINE get #-}
+  put = Binary.put
+  {-# INLINE put #-}
+
+instance Bi Word16 where            -- 2 bytes, big endian
+  get = Binary.get
+  {-# INLINE get #-}
+  put = Binary.put
+  {-# INLINE put #-}
+
+instance Bi Word32 where            -- 4 bytes, big endian
+  get = Binary.get
+  {-# INLINE get #-}
+  put = Binary.put
+  {-# INLINE put #-}
+
+instance Bi Word64 where            -- 8 bytes, big endian
+  get = Binary.get
+  {-# INLINE get #-}
+  put = Binary.put
+  {-# INLINE put #-}
 
 ----------------------------------------------------------------------------
 -- Tagged

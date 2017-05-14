@@ -59,8 +59,6 @@ data CompileConfig = CompileConfig
 ----------------------------------------------------------------------------
 -- Hardware/system
 ----------------------------------------------------------------------------
-    , ccMaxLocalTxs                   :: !Word
-      -- ^ Max number of transactions in Storage
     , ccMemPoolLimitRatio             :: !Word
       -- ^ This ratio affects mempool size limit.
     } deriving (Show)

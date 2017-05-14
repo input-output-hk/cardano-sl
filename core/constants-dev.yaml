@@ -66,4 +66,3 @@ recoveryHeadersMessage: 20 # should be greater than k
 
 # These constants mostly depend on hardware capabilities
 memPoolLimitRatio: 2 # mem pool will be limited by this value muliplied by block size limit
-maxLocalTxs: 10000

@@ -11,7 +11,7 @@ module Pos.Txp.Toil.Types
 
        , MemPool (..)
        , mpLocalTxs
-       , mpLocalTxsSize
+       , mpSize
        , TxMap
        , BalancesView (..)
        , bvStakes
@@ -30,15 +30,15 @@ module Pos.Txp.Toil.Types
        , ToilEnv (..)
        ) where
 
+import           Universum
+
 import           Control.Lens               (makeLenses)
 import           Data.Default               (Default, def)
-import qualified Data.HashMap.Strict        as HM
 import qualified Data.Map                   as M (toList)
 import           Data.Text.Lazy.Builder     (Builder)
 import           Formatting                 (Format, later)
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Text         (mapBuilderJson)
-import           Universum
 
 import           Pos.Core                   (Coin, StakeholderId)
 import           Pos.Txp.Core               (TxAux, TxId, TxIn, TxOutAux, TxUndo)
@@ -82,13 +82,10 @@ instance Default BalancesView where
 
 type TxMap = HashMap TxId TxAux
 
-instance Default TxMap where
-    def = mempty
-
 data MemPool = MemPool
-    { _mpLocalTxs     :: !TxMap
-      -- | @length@ is @O(n)@ for 'HM.HashMap' so we store it explicitly.
-    , _mpLocalTxsSize :: !Int
+    { _mpLocalTxs :: !TxMap
+      -- | Approximate size of encoded memory pool.
+    , _mpSize     :: !Byte
     }
 
 makeLenses ''MemPool
@@ -96,8 +93,8 @@ makeLenses ''MemPool
 instance Default MemPool where
     def =
         MemPool
-        { _mpLocalTxs      = HM.empty
-        , _mpLocalTxsSize  = 0
+        { _mpLocalTxs = mempty
+        , _mpSize     = 1
         }
 
 ----------------------------------------------------------------------------
@@ -131,5 +128,6 @@ makeLenses ''GenericToilModifier
 
 -- | Environment used by Toil.
 data ToilEnv = ToilEnv
-    { teMaxTxSize :: !Byte
+    { teMaxTxSize    :: !Byte
+    , teMaxBlockSize :: !Byte
     }

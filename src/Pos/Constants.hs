@@ -46,7 +46,6 @@ module Pos.Constants
        , appSystemTag
 
        -- * Hardware/system constants
-       , maxLocalTxs
        , memPoolLimitRatio
        ) where
 
@@ -195,18 +194,3 @@ appSystemTag = $(do
 -- size limit.
 memPoolLimitRatio :: Integral i => i
 memPoolLimitRatio = fromIntegral . ccMemPoolLimitRatio $ compileConfig
-
--- | Maximum amount of transactions we have in storage
--- (i.e. we can accept without putting them in block).
--- There're next kind of storages in our implementation:
---
--- * temporary storage of transactions
---
--- * utxo map that corresponds to it
---
--- * utxo of blocks in history
---
--- This constant is size of first set.
--- Also see 'Pos.CompileConfig.ccMaxLocalTxs'.
-maxLocalTxs :: Integral i => i
-maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig

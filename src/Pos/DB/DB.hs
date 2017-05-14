@@ -43,6 +43,9 @@ import           Pos.Types                        (Block, headerHash, mkGenesisB
 import           Pos.Update.DB                    (getAdoptedBVData)
 import           Pos.Util                         (inAssertMode)
 import           Pos.Util.Chrono                  (NewestFirst)
+#ifdef WITH_EXPLORER
+import           Pos.Explorer                     (prepareExplorerDB)
+#endif
 
 -- | Open all DBs stored on disk.
 openNodeDBs
@@ -87,6 +90,9 @@ initNodeDBs = do
     prepareGStateBlockExtra initialTip
     prepareLrcDB
     prepareMiscDB
+#ifdef WITH_EXPLORER
+    prepareExplorerDB
+#endif
 
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.

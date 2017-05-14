@@ -21,7 +21,7 @@ import           Pos.Core              (HeaderHash, Timestamp)
 import           Pos.DB.Class          (MonadDB)
 import qualified Pos.DB.GState         as GS
 import           Pos.Slotting          (MonadSlots (currentTimeSlotting))
-import           Pos.Txp.Core          (Tx (..), TxAux, TxId)
+import           Pos.Txp.Core          (Tx (..), TxAux, TxId, toaOut, txOutAddress)
 import           Pos.Txp.MemState      (GenericTxpLocalDataPure, MonadTxpMem (..),
                                         getLocalTxsMap, getTxpExtra, getUtxoModifier,
                                         modifyTxpLocalData, setTxpLocalData)
@@ -33,8 +33,10 @@ import           Pos.Util.Chrono       (NewestFirst (..))
 import qualified Pos.Util.Modifier     as MM
 
 import           Pos.Explorer.Core     (TxExtra (..))
-import           Pos.Explorer.Txp.Toil (ExplorerExtra, MonadTxExtraRead (..),
-                                        eNormalizeToil, eProcessTx, eeLocalTxsExtra)
+import qualified Pos.Explorer.DB       as ExDB (getAddrBalance, getAddrHistory)
+import           Pos.Explorer.Txp.Toil (ExplorerExtra, ExplorerExtraTxp (..),
+                                        MonadTxExtraRead (..), eNormalizeToil, eProcessTx,
+                                        eeLocalTxsExtra)
 
 type ETxpLocalWorkMode m =
     ( MonadDB m
@@ -46,11 +48,10 @@ type ETxpLocalWorkMode m =
 
 type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra
 
--- A simple monad transformer, the only purpose of which is to provide
--- 'MonadTxExtraRead' instance corresponding to absence of any extra
--- data used by explorer.
-newtype NoExtra m a = NoExtra
-    { runNoExtra :: m a
+-- | A monad transformer whose purpose is to avoid overlapping instances
+-- of MonadTxExtraRead (ReaderT ExplorerExtraTxp m).
+newtype ExplorerReaderWrapper m a = ExplorerReaderWrapper
+    { runExplorerReaderWrapper :: m a
     } deriving ( Functor
                , Applicative
                , Monad
@@ -59,9 +60,10 @@ newtype NoExtra m a = NoExtra
                , MonadToilEnv
                )
 
-instance Monad m => MonadTxExtraRead (NoExtra m) where
-    getTxExtra _ = pure Nothing
-    getAddrHistory _ = pure $ NewestFirst []
+instance Monad m => MonadTxExtraRead (ExplorerReaderWrapper (ReaderT ExplorerExtraTxp m)) where
+    getTxExtra txId = HM.lookup txId . eetTxExtra <$> ExplorerReaderWrapper ask
+    getAddrHistory addr = HM.lookupDefault (NewestFirst []) addr . eetAddrHistories <$> ExplorerReaderWrapper ask
+    getAddrBalance addr = HM.lookup addr . eetAddrBalances <$> ExplorerReaderWrapper ask
 
 eTxProcessTransaction
     :: ETxpLocalWorkMode m
@@ -83,14 +85,24 @@ eTxProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
                    toList $
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
     curTime <- currentTimeSlotting
+    let txInAddrs = map (txOutAddress . toaOut) $ catMaybes $ toList resolvedOuts
+        txOutAddrs = toList $ map txOutAddress _txOutputs
+        allAddrs = ordNub $ txInAddrs <> txOutAddrs
+    hmHistories <- buildMap allAddrs <$> mapM (fmap Just . ExDB.getAddrHistory) allAddrs
+    hmBalances <- buildMap allAddrs <$> mapM ExDB.getAddrBalance allAddrs
+    -- `eet` is passed to `processTxDo` where it is used in a ReaderT environment
+    -- to provide underlying functions (`modifyAddrHistory` and `modifyAddrBalance`)
+    -- with data to update. In case of `TxExtra` data is only added, but never updated,
+    -- hence `mempty` here.
+    let eet = ExplorerExtraTxp mempty hmHistories hmBalances
     pRes <- modifyTxpLocalData $
-            processTxDo resolved toilEnv tipBefore itw curTime
+            processTxDo resolved toilEnv tipBefore itw curTime eet
     case pRes of
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: "%build) txId
             throwError er
         Right _   ->
-            logDebug (sformat ("Transaction is processed successfully: "%build) txId)
+            logDebug $ sformat ("Transaction is processed successfully: "%build) txId
   where
     processTxDo
         :: Utxo
@@ -98,18 +110,24 @@ eTxProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
         -> HeaderHash
         -> (TxId, TxAux)
         -> Timestamp
+        -> ExplorerExtraTxp
         -> ETxpLocalDataPure
         -> (Either ToilVerFailure (), ETxpLocalDataPure)
-    processTxDo resolved toilEnv tipBefore tx curTime txld@(uv, mp, undo, tip, extra)
+    processTxDo resolved toilEnv tipBefore tx curTime eet txld@(uv, mp, undo, tip, extra)
         | tipBefore /= tip = (Left $ ToilTipsMismatch tipBefore tip, txld)
         | otherwise =
             let execToil action =
                     snd <$> runToilTLocalExtra uv mp undo extra action
+                -- NE.fromList is safe here, because if `resolved` is empty, `processTx`
+                -- wouldn't save extra value, thus wouldn't reduce it to NF
+                txUndo = NE.fromList $ toList resolved
                 res =
                     (runExceptT $
                      flip runUtxoReaderT resolved $
-                     runNoExtra $
-                     execToil $ eProcessTx tx (makeExtra resolved curTime))
+                     flip runReaderT eet $
+                     runExplorerReaderWrapper $
+                     execToil $
+                     eProcessTx tx (TxExtra Nothing curTime txUndo))
                         toilEnv
             in
             case res of
@@ -117,10 +135,10 @@ eTxProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
                 Right ToilModifier{..} ->
                     (Right (), (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra))
     runUM um = runToilTLocalExtra um def mempty (def @ExplorerExtra)
-    makeExtra :: Utxo -> Timestamp -> TxExtra
-    -- NE.fromList is safe here, because if `resolved` is empty, `processTx`
-    -- wouldn't save extra value, thus wouldn't reduce it to NF
-    makeExtra resolved curTime = TxExtra Nothing curTime $ NE.fromList $ toList resolved
+    buildMap :: (Eq a, Hashable a) => [a] -> [Maybe b] -> HM.HashMap a b
+    buildMap keys maybeValues =
+        HM.fromList $ catMaybes $ toList $
+            zipWith (liftM2 (,) . Just) keys maybeValues
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Remove invalid transactions from MemPool

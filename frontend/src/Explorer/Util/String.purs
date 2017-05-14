@@ -1,4 +1,4 @@
-module Explorer.Util.String (substitute, parseSearchEpoch, take) where
+module Explorer.Util.String (substitute, parseSearchEpoch) where
 
 import Control.Alt ((<|>))
 import Data.Array (many)
@@ -49,6 +49,3 @@ parseEpochOrEpochSlot = try parseSearchEpochSlotQuery <|> parseSearchEpochQuery
 -- | Run the actual parser
 parseSearchEpoch :: String -> Either ParseError SearchEpochSlotQuery
 parseSearchEpoch input = runParser input parseEpochOrEpochSlot
-
--- | Returns the first `n` characters of the string.
-foreign import take :: Int -> String -> String

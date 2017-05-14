@@ -27,7 +27,7 @@ translation =
         , cSlots: "Slots"
         , cAge: "Seit"
         , cTotalSent: "Insgesamt gesendet"
-        , cRelayedBy: "Weitergegeben durch"
+        , cBlockLead: "Weitergegeben durch"
         , cSize: "Größe (bytes)"
         , cExpand: "Aufklappen"
         , cCollapse: "Zuklappen"

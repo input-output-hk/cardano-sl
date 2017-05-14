@@ -53,7 +53,7 @@
   &__totalSend {
     @extend .hide;
   }
-  &__relayedBy {
+  &__lead {
     @extend .hide;
   }
   &__size {
@@ -80,7 +80,7 @@
       @extend .show;
       lost-column: 2/12;
     }
-    &__relayedBy {
+    &__lead {
       @extend .show;
       lost-column: 2/12;
     }

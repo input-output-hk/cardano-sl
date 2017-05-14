@@ -27,7 +27,7 @@ translation =
         , cSlots: "スロット"
         , cAge: "経過時間"
         , cTotalSent: "総送信額"
-        , cRelayedBy: "スロットリーダー"
+        , cBlockLead: "スロットリーダー"
         , cSize: "サイズ (bytes)"
         , cExpand: "開く"
         , cCollapse: "閉じる"

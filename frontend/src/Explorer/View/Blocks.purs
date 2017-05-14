@@ -14,15 +14,15 @@ import Data.Lens ((^.))
 import Data.Maybe (fromMaybe)
 import Data.Time.Duration (Milliseconds)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (block, blNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cRelayedBy, cSize) as I18nL
+import Explorer.I18n.Lenses (block, blNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cBlockLead, cSize) as I18nL
 import Explorer.Lenses.State (blocksViewState, blsViewPagination, blsViewPaginationEditable, currentBlocksResult, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State, CBlockEntries)
 import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
-import Explorer.Util.String (take)
-import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnRelayedBy, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
+import Data.String (take)
+import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnLead, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
 import Explorer.View.Common (getMaxPaginationNumber, noData, paginationView)
 import Network.RemoteData (RemoteData(..), withDefault)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
@@ -132,7 +132,7 @@ blockRow state (CBlockEntry entry) =
                       , clazz: CSS.blocksColumnTotalSent
                       }
         , blockColumn { label: labelBlockLead
-                      , clazz: CSS.blocksColumnRelayedBy
+                      , clazz: CSS.blocksColumnLead
                       }
         , blockColumn { label: show $ entry ^. cbeSize
                       , clazz: CSS.blocksColumnSize
@@ -178,8 +178,8 @@ mkBlocksHeaderProps lang =
     , { label: translate (I18nL.common <<< I18nL.cTotalSent) lang
       , clazz: CSS.blocksColumnTotalSent
       }
-    , { label: translate (I18nL.common <<< I18nL.cRelayedBy) lang
-      , clazz: CSS.blocksColumnRelayedBy
+    , { label: translate (I18nL.common <<< I18nL.cBlockLead) lang
+      , clazz: CSS.blocksColumnLead
       }
     , { label: translate (I18nL.common <<< I18nL.cSize) lang
       , clazz: CSS.blocksColumnSize

@@ -39,7 +39,7 @@ type Common =
     , cSlots :: String
     , cAge :: String
     , cTotalSent :: String
-    , cRelayedBy :: String
+    , cBlockLead :: String
     , cSize :: String
     , cExpand :: String
     , cCollapse :: String

@@ -26,8 +26,6 @@ data CompileConfig = CompileConfig
 ----------------------------------------------------------------------------
     , ccNetworkDiameter               :: !Int
       -- ^ Estimated time for broadcasting messages
-    , ccMaxLocalTxs                   :: !Word
-      -- ^ Max number of transactions in Storage
     , ccDefaultPeers                  :: ![String]
       -- ^ List of default peers
     , ccMpcSendInterval               :: !Word
@@ -57,4 +55,12 @@ data CompileConfig = CompileConfig
       -- ^ Block retrieval queue capacity
     , ccPropagationQueueSize          :: !Int
       -- ^ InvMsg propagation queue capacity
+
+----------------------------------------------------------------------------
+-- Hardware/system
+----------------------------------------------------------------------------
+    , ccMaxLocalTxs                   :: !Word
+      -- ^ Max number of transactions in Storage
+    , ccMemPoolLimitRatio             :: !Word
+      -- ^ This ratio affects mempool size limit.
     } deriving (Show)

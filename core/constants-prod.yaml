@@ -56,7 +56,6 @@ ntpPollDelay: 60000000 # 1 min
 ntpMaxError: 120000000 # 2 mins
 
 # Misc
-maxLocalTxs: 1000
 protocolMagic: 50987833
 enhancedMessageTimeout: 10
 enhancedMessageBroadcast: 2
@@ -64,3 +63,7 @@ messageCacheTimeout: 30
 propagationQueueSize: 100
 blockRetrievalQueueSize: 100
 recoveryHeadersMessage: 100 # should be greater than k
+
+# These constants mostly depend on hardware capabilities
+memPoolLimitRatio: 2 # mem pool will be limited by this value muliplied by block size limit
+maxLocalTxs: 10000

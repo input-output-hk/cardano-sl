@@ -51,9 +51,11 @@ import           Universum
 import           Pos.Binary.Class         (biSize)
 import           Pos.Binary.Communication ()
 import           Pos.Block.Types          (Blund, Undo (undoPsk))
-import           Pos.Constants            (lightDlgConfirmationTimeout,
+import           Pos.Constants            (lightDlgConfirmationTimeout, memPoolLimitRatio,
                                            messageCacheTimeout)
 import           Pos.Context              (NodeParams (..), lrcActionOnEpochReason)
+import           Pos.Core                 (HeaderHash, addressHash, bvdMaxBlockSize,
+                                           epochIndexL, headerHash, prevBlockL)
 import           Pos.Crypto               (ProxySecretKey (..), PublicKey,
                                            SignTag (SignProxySK), pdDelegatePk,
                                            proxyVerify, shortHashF, toPublic,
@@ -75,9 +77,8 @@ import           Pos.Exception            (cardanoExceptionFromException,
 import           Pos.Lrc.Context          (LrcContext)
 import qualified Pos.Lrc.DB               as LrcDB
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
-import           Pos.Types                (Block, HeaderHash, ProxySKHeavy, ProxySKLight,
-                                           ProxySigLight, addressHash, blockProxySKs,
-                                           epochIndexL, headerHash, prevBlockL)
+import           Pos.Types                (Block, ProxySKHeavy, ProxySKLight,
+                                           ProxySigLight, blockProxySKs)
 import           Pos.Util                 (withReadLifted, withWriteLifted, _neHead,
                                            _neLast)
 import           Pos.Util.Chrono          (NE, NewestFirst (..), OldestFirst (..))
@@ -193,6 +194,7 @@ clearDlgMemPoolAction = do
 
 -- Put value into Proxy SK Pool. Value must not exist in pool.
 -- Caller must ensure it.
+-- Caller must also ensure that size limit allows to put more data.
 putToDlgMemPool :: PublicKey -> ProxySKHeavy -> DelegationStateAction ()
 putToDlgMemPool pk psk = do
     dwProxySKPool . at pk .= Just psk
@@ -206,6 +208,8 @@ deleteFromDlgMemPool pk =
             dwProxySKPool . at pk .= Nothing
             dwPoolSize -= biSize pk + biSize psk
 
+-- Caller must ensure that there won't be too much data (more than limit) as
+-- a result of transformation.
 modifyDlgMemPool :: (DlgMemPool -> DlgMemPool) -> DelegationStateAction ()
 modifyDlgMemPool f = do
     memPool <- use dwProxySKPool
@@ -221,6 +225,7 @@ data PskHeavyVerdict
     | PHBroken       -- ^ Broken (signature, most probably attack, we can ban for this)
     | PHCached       -- ^ Message is cached
     | PHIncoherent   -- ^ Verdict can't be made at the moment (we're updating)
+    | PHExhausted    -- ^ Memory pool is exhausted and can't accept more data
     | PHAdded        -- ^ Successfully processed/added to psk mempool
     deriving (Show,Eq)
 
@@ -231,6 +236,7 @@ processProxySKHeavy
     :: forall ssc m.
        ( SscHelpersClass ssc
        , MonadDB m
+       , DB.MonadDBCore m
        , MonadDelegation m
        , Ether.MonadReader' LrcContext m
        )
@@ -244,17 +250,23 @@ processProxySKHeavy psk = do
         headEpoch
         "Delegation.Logic#processProxySKHeavy: there are no richmen for current epoch"
         LrcDB.getRichmenDlg
+    maxBlockSize <- bvdMaxBlockSize <$> DB.dbAdoptedBVData
     let msg = SendProxySKHeavy psk
         consistent = verifyProxySecretKey psk
         issuer = pskIssuerPk psk
         enoughStake = addressHash issuer `elem` richmen
         omegaCorrect = headEpoch == pskOmega psk
     runDelegationStateAction $ do
+        memPoolSize <- use dwPoolSize
         exists <- uses dwProxySKPool (\m -> HM.lookup issuer m == Just psk)
         cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache
         alreadyPosted <- uses dwThisEpochPosted $ HS.member issuer
         epochMatches <- (headEpoch ==) <$> use dwEpochId
         dwMessageCache %= LRU.insert msg curTime
+        let maxMemPoolSize = memPoolLimitRatio * maxBlockSize
+            -- Here it would be good to add size of data we want to insert
+            -- but it's negligible.
+            exhausted = memPoolSize >= maxMemPoolSize
         let res = if | not consistent -> PHBroken
                      | not epochMatches -> PHIncoherent
                      | not omegaCorrect -> PHInvalid "PSK epoch is different from current"
@@ -262,6 +274,7 @@ processProxySKHeavy psk = do
                      | not enoughStake -> PHInvalid "issuer doesn't have enough stake"
                      | cached -> PHCached
                      | exists -> PHExists
+                     | exhausted -> PHExhausted
                      | otherwise -> PHAdded
         when (res == PHAdded) $ putToDlgMemPool issuer psk
         pure res
@@ -386,7 +399,6 @@ delegationApplyBlocks blocks = do
                 deleteFromDlgMemPool i
                 dwThisEpochPosted %= HS.insert i
         pure $ SomeBatchOp batchOps
-
 
 -- | Rollbacks block list. Erases mempool of certificates. Better to
 -- restore them after the rollback (see Txp#normalizeTxpLD). You can

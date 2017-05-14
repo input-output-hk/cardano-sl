@@ -21,6 +21,7 @@ import Network.HTTP.Affjax (AffjaxResponse, affjax, defaultRequest, AJAX, URL, A
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.RequestHeader (RequestHeader(ContentType))
 import Network.HTTP.StatusCode (StatusCode(..))
+import Daedalus.TLS (TLSOptions)
 
 -- HELPERS
 
@@ -91,83 +92,83 @@ deleteR = makeRequest $ defaultRequest { method = Left DELETE }
 -- REQUESTS
 --------------------------------------------------------------------------------
 -- TEST ------------------------------------------------------------------------
-testReset :: forall eff. Aff (ajax :: AJAX | eff) Unit
-testReset = postR ["test", "reset"]
+testReset :: forall eff. TLSOptions -> Aff (ajax :: AJAX | eff) Unit
+testReset _ = postR ["test", "reset"]
 --------------------------------------------------------------------------------
 -- WALLETS ---------------------------------------------------------------------
-getWallets :: forall eff. Aff (ajax :: AJAX | eff) (Array CWallet)
-getWallets = getR ["wallets"]
+getWallets :: forall eff. TLSOptions -> Aff (ajax :: AJAX | eff) (Array CWallet)
+getWallets _ = getR ["wallets"]
 
-getWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) CWallet
-getWallet addr = getR ["wallets", _address addr]
+getWallet :: forall eff. TLSOptions -> CAddress -> Aff (ajax :: AJAX | eff) CWallet
+getWallet _ addr = getR ["wallets", _address addr]
 
-updateWallet :: forall eff. CAddress -> CWalletMeta -> Aff (ajax :: AJAX | eff) CWallet
-updateWallet addr = putRBody ["wallets", _address addr]
+updateWallet :: forall eff. TLSOptions -> CAddress -> CWalletMeta -> Aff (ajax :: AJAX | eff) CWallet
+updateWallet _ addr = putRBody ["wallets", _address addr]
 
-newWallet :: forall eff. CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
-newWallet pass = postRBody ["wallets", _passPhrase pass]
+newWallet :: forall eff. TLSOptions -> CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
+newWallet _ pass = postRBody ["wallets", _passPhrase pass]
 
-deleteWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) Unit
-deleteWallet addr = deleteR ["wallets", _address addr]
+deleteWallet :: forall eff. TLSOptions -> CAddress -> Aff (ajax :: AJAX | eff) Unit
+deleteWallet _ addr = deleteR ["wallets", _address addr]
 
-importKey :: forall eff. String -> Aff (ajax :: AJAX | eff) CWallet
-importKey = postRBody ["wallets", "keys"]
+importKey :: forall eff. TLSOptions -> String -> Aff (ajax :: AJAX | eff) CWallet
+importKey _ = postRBody ["wallets", "keys"]
 
-restoreWallet :: forall eff. CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
-restoreWallet pass = postRBody ["wallets", "restore", _passPhrase pass]
+restoreWallet :: forall eff. TLSOptions -> CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
+restoreWallet _ pass = postRBody ["wallets", "restore", _passPhrase pass]
 --------------------------------------------------------------------------------
 -- ADDRESSSES ------------------------------------------------------------------
-isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
-isValidAddress cCurrency addr = getR ["addresses", addr, "currencies", showCCurrency cCurrency]
+isValidAddress :: forall eff. TLSOptions -> CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
+isValidAddress _ cCurrency addr = getR ["addresses", addr, "currencies", showCCurrency cCurrency]
 --------------------------------------------------------------------------------
 -- PROFILES --------------------------------------------------------------------
-getProfile :: forall eff. Aff (ajax :: AJAX | eff) CProfile
-getProfile = getR ["profile"]
+getProfile :: forall eff. TLSOptions -> Aff (ajax :: AJAX | eff) CProfile
+getProfile _ = getR ["profile"]
 
-updateProfile :: forall eff. CProfile -> Aff (ajax :: AJAX | eff) CProfile
-updateProfile = postRBody ["profile"]
+updateProfile :: forall eff. TLSOptions -> CProfile -> Aff (ajax :: AJAX | eff) CProfile
+updateProfile _ = postRBody ["profile"]
 --------------------------------------------------------------------------------
 -- TRANSACTIONS ----------------------------------------------------------------
-send :: forall eff. CPassPhrase -> CAddress -> CAddress -> CCoin -> Aff (ajax :: AJAX | eff) CTx
-send pass addrFrom addrTo amount = postR ["txs", "payments", _passPhrase pass, _address addrFrom, _address addrTo, _ccoin amount]
+send :: forall eff. TLSOptions -> CPassPhrase -> CAddress -> CAddress -> CCoin -> Aff (ajax :: AJAX | eff) CTx
+send _ pass addrFrom addrTo amount = postR ["txs", "payments", _passPhrase pass, _address addrFrom, _address addrTo, _ccoin amount]
 
-sendExtended :: forall eff. CPassPhrase -> CAddress -> CAddress -> CCoin -> CCurrency -> String -> String -> Aff (ajax :: AJAX | eff) CTx
-sendExtended pass addrFrom addrTo amount curr title desc = postR ["txs", "payments", _passPhrase pass, _address addrFrom, _address addrTo, _ccoin amount, showCCurrency curr, title, desc]
+sendExtended :: forall eff. TLSOptions -> CPassPhrase -> CAddress -> CAddress -> CCoin -> CCurrency -> String -> String -> Aff (ajax :: AJAX | eff) CTx
+sendExtended _ pass addrFrom addrTo amount curr title desc = postR ["txs", "payments", _passPhrase pass, _address addrFrom, _address addrTo, _ccoin amount, showCCurrency curr, title, desc]
 
-updateTransaction :: forall eff. CAddress -> CTxId -> CTxMeta -> Aff (ajax :: AJAX | eff) Unit
-updateTransaction addr ctxId = postRBody ["txs", "payments", _address addr, _ctxIdValue ctxId]
+updateTransaction :: forall eff. TLSOptions -> CAddress -> CTxId -> CTxMeta -> Aff (ajax :: AJAX | eff) Unit
+updateTransaction _ addr ctxId = postRBody ["txs", "payments", _address addr, _ctxIdValue ctxId]
 
-getHistory :: forall eff. CAddress -> Int -> Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
-getHistory addr skip limit = getR ["txs", "histories", _address addr <> "?skip=" <> show skip <> "&limit=" <> show limit]
+getHistory :: forall eff. TLSOptions -> CAddress -> Int -> Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
+getHistory _ addr skip limit = getR ["txs", "histories", _address addr <> "?skip=" <> show skip <> "&limit=" <> show limit]
 
-searchHistory :: forall eff. CAddress -> String -> Int -> Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
-searchHistory addr search skip limit = getR ["txs", "histories", _address addr, search <> "?skip=" <> show skip <> "&limit=" <> show limit]
+searchHistory :: forall eff. TLSOptions -> CAddress -> String -> Int -> Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
+searchHistory _ addr search skip limit = getR ["txs", "histories", _address addr, search <> "?skip=" <> show skip <> "&limit=" <> show limit]
 --------------------------------------------------------------------------------
 -- UPDATES ---------------------------------------------------------------------
-nextUpdate :: forall eff. Aff (ajax :: AJAX | eff) CUpdateInfo
-nextUpdate = getR ["update"]
+nextUpdate :: forall eff. TLSOptions -> Aff (ajax :: AJAX | eff) CUpdateInfo
+nextUpdate _ = getR ["update"]
 
-applyUpdate :: forall eff. Aff (ajax :: AJAX | eff) Unit
-applyUpdate = postR ["update"]
+applyUpdate :: forall eff. TLSOptions -> Aff (ajax :: AJAX | eff) Unit
+applyUpdate _ = postR ["update"]
 --------------------------------------------------------------------------------
 -- REDEMPTIONS -----------------------------------------------------------------
-redeemAda :: forall eff. CWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
-redeemAda = postRBody ["redemptions", "ada"]
+redeemAda :: forall eff. TLSOptions -> CWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
+redeemAda _ = postRBody ["redemptions", "ada"]
 
-redeemAdaPaperVend :: forall eff. CPaperVendWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
-redeemAdaPaperVend = postRBody ["papervend", "redemptions", "ada"]
+redeemAdaPaperVend :: forall eff. TLSOptions -> CPaperVendWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
+redeemAdaPaperVend _ = postRBody ["papervend", "redemptions", "ada"]
 --------------------------------------------------------------------------------
 -- REPORTING ---------------------------------------------------------------------
-reportInit :: forall eff. CInitialized -> Aff (ajax :: AJAX | eff) Unit
-reportInit = postRBody ["reporting", "initialized"]
+reportInit :: forall eff. TLSOptions -> CInitialized -> Aff (ajax :: AJAX | eff) Unit
+reportInit _ = postRBody ["reporting", "initialized"]
 --------------------------------------------------------------------------------
 -- SETTINGS ---------------------------------------------------------------------
-blockchainSlotDuration :: forall eff. Aff (ajax :: AJAX | eff) Int
-blockchainSlotDuration = getR ["settings", "slots", "duration"]
+blockchainSlotDuration :: forall eff. TLSOptions -> Aff (ajax :: AJAX | eff) Int
+blockchainSlotDuration _ = getR ["settings", "slots", "duration"]
 
-systemVersion :: forall eff. Aff (ajax :: AJAX | eff) SoftwareVersion
-systemVersion = getR ["settings", "version"]
+systemVersion :: forall eff. TLSOptions -> Aff (ajax :: AJAX | eff) SoftwareVersion
+systemVersion _ = getR ["settings", "version"]
 
-syncProgress :: forall eff. Aff (ajax :: AJAX | eff) SyncProgress
-syncProgress = getR ["settings", "sync", "progress"]
+syncProgress :: forall eff. TLSOptions -> Aff (ajax :: AJAX | eff) SyncProgress
+syncProgress _ = getR ["settings", "sync", "progress"]
 --------------------------------------------------------------------------------

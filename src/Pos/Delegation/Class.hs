@@ -17,6 +17,7 @@ module Pos.Delegation.Class
 
 import           Control.Concurrent.STM (TVar)
 import           Control.Lens           (makeLenses)
+import qualified Data.Cache.LRU         as LRU
 import           Data.Default           (Default (def))
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.HashSet           as HS
@@ -24,6 +25,7 @@ import           Data.Time.Clock        (UTCTime)
 import qualified Ether
 import           Universum
 
+import           Pos.Constants          (dlgCacheParam)
 import           Pos.Crypto             (PublicKey)
 import           Pos.Delegation.Types   (SendProxySK)
 import           Pos.Types              (EpochIndex, ProxySKHeavy, ProxySKLight)
@@ -32,14 +34,19 @@ import           Pos.Types              (EpochIndex, ProxySKHeavy, ProxySKLight)
 -- Delegation in-memory data
 ----------------------------------------------------------------------------
 
--- | In-memory storage needed for delegation logic
--- Maybe ncProxyCache should be LRU instead of hashmap, but that's not
--- urgent optimization idea.
+-- | In-memory storage needed for delegation logic.
+-- Size of this storage is limited for the following reasons:
+-- • both caches are limited by setting limit on LRU;
+-- • heavyweight PSKs pool is limited because only richmen can issue a valid
+--   heavyweight PSK and there can't be more than one heavyweight PSK from one
+--   richman in epoch, so the limit is '1 / threshold';
+-- • set of issuers for the current epoch is limited for the same reason;
+-- • everything else has a constant size.
 data DelegationWrap = DelegationWrap
-    { _dwMessageCache      :: HashMap SendProxySK UTCTime
+    { _dwMessageCache      :: LRU.LRU SendProxySK UTCTime
       -- ^ Message cache to prevent infinite propagation of useless
       -- certs.
-    , _dwConfirmationCache :: HashMap ProxySKLight UTCTime
+    , _dwConfirmationCache :: LRU.LRU ProxySKLight UTCTime
       -- ^ Confirmation cache for lightweight PSKs.
     , _dwProxySKPool       :: HashMap PublicKey ProxySKHeavy
       -- ^ Memory pool of hardweight proxy secret keys. Keys of this
@@ -54,7 +61,17 @@ data DelegationWrap = DelegationWrap
 makeLenses ''DelegationWrap
 
 instance Default DelegationWrap where
-    def = DelegationWrap HM.empty HM.empty HM.empty 0 HS.empty
+    def =
+        DelegationWrap
+        { _dwMessageCache = LRU.newLRU msgCacheLimit
+        , _dwConfirmationCache = LRU.newLRU confCacheLimit
+        , _dwProxySKPool = HM.empty
+        , _dwEpochId = 0
+        , _dwThisEpochPosted = HS.empty
+        }
+      where
+        msgCacheLimit = Just dlgCacheParam
+        confCacheLimit = Just (dlgCacheParam `div` 5)
 
 ----------------------------------------------------------------------------
 -- Class definition

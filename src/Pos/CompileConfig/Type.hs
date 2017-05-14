@@ -42,6 +42,8 @@ data CompileConfig = CompileConfig
       -- ^ VSS certificates min timeout to live (number of epochs)
     , ccLightDlgConfirmationTimeout   :: !Int
       -- ^ Timeout for holding light psks confirmations
+    , ccDlgCacheParam                 :: !Int
+      -- ^ This value parameterizes size of cache used in Delegation.
     , ccEnhancedMessageTimeout        :: !Word
       -- ^ We consider node as known if it was pinged at most 10 sec ago.
     , ccRecoveryHeadersMessage        :: !Int

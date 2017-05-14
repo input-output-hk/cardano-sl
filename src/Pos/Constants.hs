@@ -37,6 +37,7 @@ module Pos.Constants
 
        -- * Delegation
        , lightDlgConfirmationTimeout
+       , dlgCacheParam
 
        -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
@@ -161,6 +162,10 @@ messageCacheTimeout = fromIntegral . ccMessageCacheTimeout $ compileConfig
 -- | Amount of time we hold confirmations for light PSKs.
 lightDlgConfirmationTimeout :: (Integral a) => a
 lightDlgConfirmationTimeout = fromIntegral . ccLightDlgConfirmationTimeout $ compileConfig
+
+-- | This value parameterizes size of cache used in Delegation.
+dlgCacheParam :: Integral n => n
+dlgCacheParam = fromIntegral . ccDlgCacheParam $ compileConfig
 
 ----------------------------------------------------------------------------
 -- Malicious activity

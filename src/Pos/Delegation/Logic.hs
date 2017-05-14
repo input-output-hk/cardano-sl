@@ -34,8 +34,10 @@ module Pos.Delegation.Logic
        ) where
 
 import           Control.Exception          (Exception (..))
-import           Control.Lens               (makeLenses, uses, (%=), (.=), _Wrapped)
+import           Control.Lens               (makeLenses, uses, (%%=), (%=), (.=),
+                                             _Wrapped)
 import           Control.Monad.Trans.Except (runExceptT, throwE)
+import qualified Data.Cache.LRU             as LRU
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.HashSet               as HS
 import           Data.List                  (partition)
@@ -79,6 +81,7 @@ import           Pos.Types                  (Block, HeaderHash, ProxySKHeavy,
 import           Pos.Util                   (withReadLifted, withWriteLifted, _neHead,
                                              _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.LRU               (filterLRU)
 import           Pos.Util.Util              (ether)
 
 ----------------------------------------------------------------------------
@@ -107,9 +110,9 @@ runDelegationStateAction action = do
 invalidateProxyCaches :: UTCTime -> DelegationStateAction ()
 invalidateProxyCaches curTime = ether $ do
     dwMessageCache %=
-        HM.filter (\t -> addUTCTime (toDiffTime messageCacheTimeout) t > curTime)
+        filterLRU (\t -> addUTCTime (toDiffTime messageCacheTimeout) t > curTime)
     dwConfirmationCache %=
-        HM.filter (\t -> addUTCTime (toDiffTime lightDlgConfirmationTimeout) t > curTime)
+        filterLRU (\t -> addUTCTime (toDiffTime lightDlgConfirmationTimeout) t > curTime)
   where
     toDiffTime (t :: Integer) = fromIntegral t
 
@@ -225,10 +228,10 @@ processProxySKHeavy psk = do
         omegaCorrect = headEpoch == pskOmega psk
     runDelegationStateAction $ ether $ do
         exists <- uses dwProxySKPool (\m -> HM.lookup issuer m == Just psk)
-        cached <- HM.member msg <$> use dwMessageCache
+        cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache
         alreadyPosted <- uses dwThisEpochPosted $ HS.member issuer
         epochMatches <- (headEpoch ==) <$> use dwEpochId
-        dwMessageCache %= HM.insert msg curTime
+        dwMessageCache %= LRU.insert msg curTime
         let res = if | not consistent -> PHBroken
                      | not epochMatches -> PHIncoherent
                      | not omegaCorrect -> PHInvalid "PSK epoch is different from current"
@@ -446,8 +449,8 @@ processProxySKLight psk = do
             msg = SendProxySKLight psk
             valid = verifyProxySecretKey psk
             selfSigned = pskDelegatePk psk == pskIssuerPk psk
-        cached <- HM.member msg <$> use dwMessageCache
-        dwMessageCache %= HM.insert msg curTime
+        cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache
+        dwMessageCache %= LRU.insert msg curTime
         pure $ if | not valid -> PLInvalid
                   | cached -> PLCached
                   | exists -> PLExists
@@ -485,12 +488,14 @@ processConfirmProxySk psk proof = do
                       proof
                       (const True)
                       psk
-        cached <- HM.member psk <$> use dwConfirmationCache
-        when valid $ dwConfirmationCache %= HM.insert psk curTime
+        cached <- isJust . snd . LRU.lookup psk <$> use dwConfirmationCache
+        when valid $ dwConfirmationCache %= LRU.insert psk curTime
         pure $ if | cached    -> CPCached
                   | valid     -> CPValid
                   | otherwise -> CPInvalid
 
 -- | Checks if we hold a confirmation for given PSK.
 isProxySKConfirmed :: ProxySKLight -> DelegationStateAction Bool
-isProxySKConfirmed psk = ether $ HM.member psk <$> use dwConfirmationCache
+isProxySKConfirmed psk =
+    ether $
+    isJust <$> (dwConfirmationCache %%= swap . LRU.lookup psk)

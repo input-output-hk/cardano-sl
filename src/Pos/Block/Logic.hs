@@ -72,7 +72,7 @@ import           Pos.DB                     (DBError (..), MonadDB, MonadDBCore)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
-import           Pos.Delegation.Logic       (clearProxyMemPool, delegationVerifyBlocks,
+import           Pos.Delegation.Logic       (clearDlgMemPool, delegationVerifyBlocks,
                                              getProxyMempool)
 import           Pos.Exception              (assertionFailed, reportFatalError)
 import qualified Pos.Lrc.DB                 as LrcDB
@@ -856,7 +856,7 @@ createMainBlockFinish slotId pSk prevHeader = do
         clearTxpMemPool
         sscResetLocal
         clearUSMemPool
-        clearProxyMemPool
+        clearDlgMemPool
     fallbackCreateBlock :: Text -> ExceptT Text m (MainBlock ssc, Undo, PollModifier)
     fallbackCreateBlock er = do
         logError $ sformat ("We've created bad main block: "%stext) er

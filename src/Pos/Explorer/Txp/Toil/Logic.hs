@@ -97,6 +97,7 @@ eProcessTx tx@(id, aux) extra = do
     putTxExtra id extra
     putNewHistory id $ getTxRelatedAddrs aux undo
     let balanceUpdate = getBalanceUpdate aux undo
+    -- TODO: [CSM-245] do not discard logged errors
     fmap fst $ usingLoggerName "eProcessTx" $ runNamedPureLog $
         updateAddrBalances balanceUpdate
 

@@ -58,6 +58,3 @@ messageCacheTimeout: 30
 blockRetrievalQueueSize: 100
 propagationQueueSize: 100
 recoveryHeadersMessage: 20 # should be greater than k
-
-# Time slave/lord
-sysTimeBroadcastSlots: 6

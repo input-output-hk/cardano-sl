@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
+
 -- API server logic
 
 module Pos.Explorer.Web.Server
@@ -116,16 +117,16 @@ explorerHandlers _sendActions =
     :<|>
       apiEpochSlotSearch
   where
-    apiBlocksLast       = getLastBlocksDefault
-    apiBlocksSummary    = catchExplorerError . getBlockSummary
-    apiBlocksTxs        = getBlockTxsDefault
-    apiBlocksTotalNumber= catchExplorerError $ getBlocksTotalNumber
-    apiTxsLast          = getLastTxsDefault
-    apiTxsSummary       = catchExplorerError . getTxSummary
-    apiAddressSummary   = catchExplorerError . getAddressSummary
-    apiEpochSlotSearch  = tryEpochSlotSearch
+    apiBlocksLast        = getLastBlocksDefault
+    apiBlocksSummary     = catchExplorerError . getBlockSummary
+    apiBlocksTxs         = getBlockTxsDefault
+    apiBlocksTotalNumber = catchExplorerError $ getBlocksTotalNumber
+    apiTxsLast           = getLastTxsDefault
+    apiTxsSummary        = catchExplorerError . getTxSummary
+    apiAddressSummary    = catchExplorerError . getAddressSummary
+    apiEpochSlotSearch   = tryEpochSlotSearch
 
-    catchExplorerError = try
+    catchExplorerError   = try
 
     getLastBlocksDefault      limit skip =
       catchExplorerError $ getLastBlocks (defaultLimit limit) (defaultSkip skip)
@@ -139,8 +140,8 @@ explorerHandlers _sendActions =
     tryEpochSlotSearch   epoch maybeSlot =
       catchExplorerError $ epochSlotSearch epoch maybeSlot
 
-    defaultLimit limit = (fromIntegral $ fromMaybe 100 limit)
-    defaultSkip  skip  = (fromIntegral $ fromMaybe 0 skip)
+    defaultLimit limit   = (fromIntegral $ fromMaybe 100 limit)
+    defaultSkip  skip    = (fromIntegral $ fromMaybe 0 skip)
 
 -- | Get the total number of blocks/slots currently available.
 -- Total number of main blocks   = difficulty of the topmost (tip) header.

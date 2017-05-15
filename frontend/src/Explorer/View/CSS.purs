@@ -10,7 +10,7 @@ module Explorer.View.CSS
   , blocksColumnAge
   , blocksColumnTxs
   , blocksColumnTotalSent
-  , blocksColumnRelayedBy
+  , blocksColumnLead
   , blocksColumnSize
   , blocksFooter
   , blocksWaiting
@@ -93,8 +93,8 @@ blocksColumnTxs = blocksColumn <> element <> "txs"
 blocksColumnTotalSent :: String
 blocksColumnTotalSent = blocksColumn <> element <> "totalSend"
 
-blocksColumnRelayedBy :: String
-blocksColumnRelayedBy = blocksColumn <> element <> "relayedBy"
+blocksColumnLead :: String
+blocksColumnLead = blocksColumn <> element <> "lead"
 
 blocksColumnSize :: String
 blocksColumnSize = blocksColumn <> element <> "size"

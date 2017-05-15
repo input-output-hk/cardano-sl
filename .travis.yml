@@ -7,7 +7,7 @@ install:
 script:
 - pushd frontend
 - "./scripts/build.sh"
-- nix-shell --run "npm test"
+- nix-shell --run "yarn test"
 - popd
 - nix-shell --run "stack exec --nix -- cardano-explorer-docs"
 notifications:

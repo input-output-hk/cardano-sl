@@ -12,20 +12,21 @@ import Data.Array (length, null, slice)
 import Data.DateTime (diff)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe, isJust)
+import Data.String (take)
 import Data.Time.Duration (Milliseconds)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (block, blNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cSize) as I18nL
+import Explorer.I18n.Lenses (block, blNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cBlockLead, cSize) as I18nL
 import Explorer.Lenses.State (blocksViewState, blsViewPagination, blsViewPaginationEditable, currentBlocksResult, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CBlockEntries, CCurrency(..), State)
 import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
-import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
+import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnLead, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
 import Explorer.View.Common (currencyCSSClass, getMaxPaginationNumber, noData, paginationView)
 import Network.RemoteData (RemoteData(..), withDefault)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, cbeBlkHash, cbeEpoch, cbeSlot, cbeRelayedBy, cbeSize, cbeTotalSent, cbeTxNum)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, cbeBlkHash, cbeEpoch, cbeSlot, cbeBlockLead, cbeSize, cbeTotalSent, cbeTxNum)
 import Pux.Html (Html, div, text, span, h3, p) as P
 import Pux.Html.Attributes (className, dangerouslySetInnerHTML) as P
 import Pux.Router (link) as P
@@ -135,10 +136,10 @@ blockRow state (CBlockEntry entry) =
                       , clazz: CSS.blocksColumnTotalSent
                       , mCurrency: Just ADA
                       }
---        , blockColumn { label: labelRelayed
---                      , clazz: CSS.blocksColumnRelayedBy
---                      , mCurrency: Nothing
---                      }
+        , blockColumn { label: labelBlockLead
+                      , clazz: CSS.blocksColumnLead
+                      , mCurrency: Nothing
+                      }
         , blockColumn { label: show $ entry ^. cbeSize
                       , clazz: CSS.blocksColumnSize
                       , mCurrency: Nothing
@@ -147,8 +148,8 @@ blockRow state (CBlockEntry entry) =
     where
         language = state ^. lang
         labelAge = fromMaybe noData $ (prettyDuration language :: Milliseconds -> String) <<< diff state.now <$> (nominalDiffTimeToDateTime  =<< entry.cbeTimeIssued)
-        labelRelayed = fromMaybe (translate (I18nL.common <<< I18nL.cUnknown) language)
-                            $ entry ^. cbeRelayedBy
+        labelBlockLead = fromMaybe (translate (I18nL.common <<< I18nL.cUnknown) language)
+                            $ take 7 <$> (entry ^. cbeBlockLead)
 
 
 type BlockColumnProps =
@@ -192,9 +193,9 @@ mkBlocksHeaderProps lang =
     , { label: translate (I18nL.common <<< I18nL.cTotalSent) lang
       , clazz: CSS.blocksColumnTotalSent
       }
-    -- , { label: translate (I18nL.common <<< I18nL.cRelayedBy) lang
-    --   , clazz: CSS.blocksColumnRelayedBy
-    --   }
+    , { label: translate (I18nL.common <<< I18nL.cBlockLead) lang
+      , clazz: CSS.blocksColumnLead
+      }
     , { label: translate (I18nL.common <<< I18nL.cSize) lang
       , clazz: CSS.blocksColumnSize
       }

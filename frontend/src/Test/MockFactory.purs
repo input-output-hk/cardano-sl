@@ -47,7 +47,7 @@ mkCBlockEntry = CBlockEntry
     , cbeTxNum: 0
     , cbeTotalSent: mkCoin 0
     , cbeSize: 0
-    , cbeRelayedBy: Nothing
+    , cbeBlockLead: Nothing
     }
 
 

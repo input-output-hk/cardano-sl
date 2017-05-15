@@ -27,7 +27,7 @@ translation =
         , cSlots: "Slots"
         , cAge: "Since"
         , cTotalSent: "Total Sent"
-        , cRelayedBy: "Slot leader"
+        , cBlockLead: "Slot leader"
         , cSize: "Size (bytes)"
         , cExpand: "Expand"
         , cCollapse: "Collapse"

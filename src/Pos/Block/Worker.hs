@@ -40,10 +40,6 @@ import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
 import           Pos.Util.LogSafe            (logDebugS, logInfoS, logNoticeS,
                                               logWarningS)
 import           Pos.WorkMode                (WorkMode)
-import           Data.Time.Units             (Second, convertUnit)
-import           Pos.Block.Network           (requestTipOuts, triggerRecovery)
-import           Pos.Communication           (worker)
-import           Pos.Slotting                (getLastKnownSlotDuration)
 
 -- | All workers specific to block processing.
 blkWorkers

@@ -102,86 +102,86 @@ putRBody tls urlPath = flip bodyRequest urlPath $ tls <> method  := (show PUT)
 deleteR :: forall eff a. Generic a => TLSOptions -> URLPath -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
 deleteR tls = plainRequest $ tls <> method := (show DELETE)
 
--- -- REQUESTS
--- --------------------------------------------------------------------------------
--- -- TEST ------------------------------------------------------------------------
--- testReset :: forall eff. TLSOptions -> Aff (ajax :: AJAX | eff) Unit
--- testReset _ = postR ["test", "reset"]
--- --------------------------------------------------------------------------------
--- -- WALLETS ---------------------------------------------------------------------
--- getWallets :: forall eff. TLSOptions -> Aff (ajax :: AJAX | eff) (Array CWallet)
--- getWallets _ = getR ["wallets"]
---
--- getWallet :: forall eff. TLSOptions -> CAddress -> Aff (ajax :: AJAX | eff) CWallet
--- getWallet _ addr = getR ["wallets", _address addr]
---
--- updateWallet :: forall eff. TLSOptions -> CAddress -> CWalletMeta -> Aff (ajax :: AJAX | eff) CWallet
--- updateWallet _ addr = putRBody ["wallets", _address addr]
---
--- newWallet :: forall eff. TLSOptions -> CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
--- newWallet _ pass = postRBody ["wallets", _passPhrase pass]
---
--- deleteWallet :: forall eff. TLSOptions -> CAddress -> Aff (ajax :: AJAX | eff) Unit
--- deleteWallet _ addr = deleteR ["wallets", _address addr]
---
--- importKey :: forall eff. TLSOptions -> String -> Aff (ajax :: AJAX | eff) CWallet
--- importKey _ = postRBody ["wallets", "keys"]
---
--- restoreWallet :: forall eff. TLSOptions -> CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
--- restoreWallet _ pass = postRBody ["wallets", "restore", _passPhrase pass]
--- --------------------------------------------------------------------------------
--- -- ADDRESSSES ------------------------------------------------------------------
--- isValidAddress :: forall eff. TLSOptions -> CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
--- isValidAddress _ cCurrency addr = getR ["addresses", addr, "currencies", showCCurrency cCurrency]
--- --------------------------------------------------------------------------------
--- -- PROFILES --------------------------------------------------------------------
--- getProfile :: forall eff. TLSOptions -> Aff (ajax :: AJAX | eff) CProfile
--- getProfile _ = getR ["profile"]
---
--- updateProfile :: forall eff. TLSOptions -> CProfile -> Aff (ajax :: AJAX | eff) CProfile
--- updateProfile _ = postRBody ["profile"]
--- --------------------------------------------------------------------------------
--- -- TRANSACTIONS ----------------------------------------------------------------
--- send :: forall eff. TLSOptions -> CPassPhrase -> CAddress -> CAddress -> CCoin -> Aff (ajax :: AJAX | eff) CTx
--- send _ pass addrFrom addrTo amount = postR ["txs", "payments", _passPhrase pass, _address addrFrom, _address addrTo, _ccoin amount]
---
--- sendExtended :: forall eff. TLSOptions -> CPassPhrase -> CAddress -> CAddress -> CCoin -> CCurrency -> String -> String -> Aff (ajax :: AJAX | eff) CTx
--- sendExtended _ pass addrFrom addrTo amount curr title desc = postR ["txs", "payments", _passPhrase pass, _address addrFrom, _address addrTo, _ccoin amount, showCCurrency curr, title, desc]
---
--- updateTransaction :: forall eff. TLSOptions -> CAddress -> CTxId -> CTxMeta -> Aff (ajax :: AJAX | eff) Unit
--- updateTransaction _ addr ctxId = postRBody ["txs", "payments", _address addr, _ctxIdValue ctxId]
---
--- getHistory :: forall eff. TLSOptions -> CAddress -> Int -> Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
--- getHistory _ addr skip limit = getR ["txs", "histories", _address addr <> "?skip=" <> show skip <> "&limit=" <> show limit]
---
--- searchHistory :: forall eff. TLSOptions -> CAddress -> String -> Int -> Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
--- searchHistory _ addr search skip limit = getR ["txs", "histories", _address addr, search <> "?skip=" <> show skip <> "&limit=" <> show limit]
--- --------------------------------------------------------------------------------
--- -- UPDATES ---------------------------------------------------------------------
--- nextUpdate :: forall eff. TLSOptions -> Aff (ajax :: AJAX | eff) CUpdateInfo
--- nextUpdate _ = getR ["update"]
---
--- applyUpdate :: forall eff. TLSOptions -> Aff (ajax :: AJAX | eff) Unit
--- applyUpdate _ = postR ["update"]
--- --------------------------------------------------------------------------------
--- -- REDEMPTIONS -----------------------------------------------------------------
--- redeemAda :: forall eff. TLSOptions -> CWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
--- redeemAda _ = postRBody ["redemptions", "ada"]
---
--- redeemAdaPaperVend :: forall eff. TLSOptions -> CPaperVendWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
--- redeemAdaPaperVend _ = postRBody ["papervend", "redemptions", "ada"]
--- --------------------------------------------------------------------------------
--- -- REPORTING ---------------------------------------------------------------------
--- reportInit :: forall eff. TLSOptions -> CInitialized -> Aff (ajax :: AJAX | eff) Unit
--- reportInit _ = postRBody ["reporting", "initialized"]
--- --------------------------------------------------------------------------------
--- -- SETTINGS ---------------------------------------------------------------------
--- blockchainSlotDuration :: forall eff. TLSOptions -> Aff (ajax :: AJAX | eff) Int
--- blockchainSlotDuration _ = getR ["settings", "slots", "duration"]
---
--- systemVersion :: forall eff. TLSOptions -> Aff (ajax :: AJAX | eff) SoftwareVersion
--- systemVersion _ = getR ["settings", "version"]
---
--- syncProgress :: forall eff. TLSOptions -> Aff (ajax :: AJAX | eff) SyncProgress
--- syncProgress _ = getR ["settings", "sync", "progress"]
--- --------------------------------------------------------------------------------
+-- REQUESTS
+--------------------------------------------------------------------------------
+-- TEST ------------------------------------------------------------------------
+testReset :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
+testReset tls = postR tls ["test", "reset"]
+--------------------------------------------------------------------------------
+-- WALLETS ---------------------------------------------------------------------
+getWallets :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) (Array CWallet)
+getWallets tls = getR tls ["wallets"]
+
+getWallet :: forall eff. TLSOptions -> CAddress -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
+getWallet tls addr = getR tls ["wallets", _address addr]
+
+updateWallet :: forall eff. TLSOptions -> CAddress -> CWalletMeta -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
+updateWallet tls addr = putRBody tls ["wallets", _address addr]
+
+newWallet :: forall eff. TLSOptions -> CPassPhrase -> CWalletInit -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
+newWallet tls pass = postRBody tls ["wallets", _passPhrase pass]
+
+deleteWallet :: forall eff. TLSOptions -> CAddress -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
+deleteWallet tls addr = deleteR tls ["wallets", _address addr]
+
+importKey :: forall eff. TLSOptions -> String -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
+importKey tls = postRBody tls ["wallets", "keys"]
+
+restoreWallet :: forall eff. TLSOptions -> CPassPhrase -> CWalletInit -> Aff (http :: HTTP, err :: EXCEPTION | eff) CWallet
+restoreWallet tls pass = postRBody tls ["wallets", "restore", _passPhrase pass]
+--------------------------------------------------------------------------------
+-- ADDRESSSES ------------------------------------------------------------------
+isValidAddress :: forall eff. TLSOptions -> CCurrency -> String -> Aff (http :: HTTP, err :: EXCEPTION | eff) Boolean
+isValidAddress tls cCurrency addr = getR tls ["addresses", addr, "currencies", showCCurrency cCurrency]
+--------------------------------------------------------------------------------
+-- PROFILES --------------------------------------------------------------------
+getProfile :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) CProfile
+getProfile tls = getR tls ["profile"]
+
+updateProfile :: forall eff. TLSOptions -> CProfile -> Aff (http :: HTTP, err :: EXCEPTION | eff) CProfile
+updateProfile tls = postRBody tls ["profile"]
+--------------------------------------------------------------------------------
+-- TRANSACTIONS ----------------------------------------------------------------
+send :: forall eff. TLSOptions -> CPassPhrase -> CAddress -> CAddress -> CCoin -> Aff (http :: HTTP, err :: EXCEPTION | eff) CTx
+send tls pass addrFrom addrTo amount = postR tls ["txs", "payments", _passPhrase pass, _address addrFrom, _address addrTo, _ccoin amount]
+
+sendExtended :: forall eff. TLSOptions -> CPassPhrase -> CAddress -> CAddress -> CCoin -> CCurrency -> String -> String -> Aff (http :: HTTP, err :: EXCEPTION | eff) CTx
+sendExtended tls pass addrFrom addrTo amount curr title desc = postR tls ["txs", "payments", _passPhrase pass, _address addrFrom, _address addrTo, _ccoin amount, showCCurrency curr, title, desc]
+
+updateTransaction :: forall eff. TLSOptions -> CAddress -> CTxId -> CTxMeta -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
+updateTransaction tls addr ctxId = postRBody tls ["txs", "payments", _address addr, _ctxIdValue ctxId]
+
+getHistory :: forall eff. TLSOptions -> CAddress -> Int -> Int -> Aff (http :: HTTP, err :: EXCEPTION | eff) (Tuple (Array CTx) Int)
+getHistory tls addr skip limit = getR tls ["txs", "histories", _address addr <> "?skip=" <> show skip <> "&limit=" <> show limit]
+
+searchHistory :: forall eff. TLSOptions -> CAddress -> String -> Int -> Int -> Aff (http :: HTTP, err :: EXCEPTION | eff) (Tuple (Array CTx) Int)
+searchHistory tls addr search skip limit = getR tls ["txs", "histories", _address addr, search <> "?skip=" <> show skip <> "&limit=" <> show limit]
+--------------------------------------------------------------------------------
+-- UPDATES ---------------------------------------------------------------------
+nextUpdate :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) CUpdateInfo
+nextUpdate tls = getR tls ["update"]
+
+applyUpdate :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
+applyUpdate tls = postR tls ["update"]
+--------------------------------------------------------------------------------
+-- REDEMPTIONS -----------------------------------------------------------------
+redeemAda :: forall eff. TLSOptions -> CWalletRedeem -> Aff (http :: HTTP, err :: EXCEPTION | eff) CTx
+redeemAda tls = postRBody tls ["redemptions", "ada"]
+
+redeemAdaPaperVend :: forall eff. TLSOptions -> CPaperVendWalletRedeem -> Aff (http :: HTTP, err :: EXCEPTION | eff) CTx
+redeemAdaPaperVend tls = postRBody tls ["papervend", "redemptions", "ada"]
+--------------------------------------------------------------------------------
+-- REPORTING ---------------------------------------------------------------------
+reportInit :: forall eff. TLSOptions -> CInitialized -> Aff (http :: HTTP, err :: EXCEPTION | eff) Unit
+reportInit tls = postRBody tls ["reporting", "initialized"]
+--------------------------------------------------------------------------------
+-- SETTINGS ---------------------------------------------------------------------
+blockchainSlotDuration :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) Int
+blockchainSlotDuration tls = getR tls ["settings", "slots", "duration"]
+
+systemVersion :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) SoftwareVersion
+systemVersion tls = getR tls ["settings", "version"]
+
+syncProgress :: forall eff. TLSOptions -> Aff (http :: HTTP, err :: EXCEPTION | eff) SyncProgress
+syncProgress tls = getR tls ["settings", "sync", "progress"]
+--------------------------------------------------------------------------------

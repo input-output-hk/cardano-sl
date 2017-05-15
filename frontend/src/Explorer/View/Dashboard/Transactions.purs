@@ -14,7 +14,7 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State, CTxEntries)
 import Explorer.Util.Time (prettyDate)
-import Explorer.View.Common (currencyCSSClass', noData)
+import Explorer.View.Common (currencyCSSClass, noData)
 import Explorer.View.Dashboard.Lenses (dashboardTransactionsExpanded)
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
@@ -103,7 +103,7 @@ transactionRow state (CTxEntry entry) =
         , P.div
               [ P.className $ "transactions__column--currency" ]
               [ P.span
-                  [ P.className <<< currencyCSSClass' $ Just ADA ]
+                  [ P.className <<< currencyCSSClass $ Just ADA ]
                   [ P.text $ entry ^. (cteAmount <<< _CCoin <<< getCoin) ]
               ]
         ]

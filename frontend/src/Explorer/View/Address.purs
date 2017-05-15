@@ -11,7 +11,7 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
-import Explorer.View.Common (currencyCSSClass', mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
+import Explorer.View.Common (currencyCSSClass, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
 import Network.RemoteData (RemoteData(..))
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, _CAddress, caAddress, caBalance, caTxList, caTxNum, getCoin)
@@ -150,7 +150,7 @@ addressDetailRow item =
               if isJust item.mCurrency
               then
               [ P.span
-                [ P.className $ currencyCSSClass' item.mCurrency ]
+                [ P.className $ currencyCSSClass item.mCurrency ]
                 [ P.text item.value ]
               ]
               else

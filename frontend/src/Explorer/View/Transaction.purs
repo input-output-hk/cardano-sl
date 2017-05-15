@@ -10,7 +10,7 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.Time (prettyDate)
-import Explorer.View.Common (currencyCSSClass', emptyTxHeaderView, mkTxBodyViewProps, mkTxHeaderViewProps, noData, txBodyView, txHeaderView)
+import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkTxBodyViewProps, mkTxHeaderViewProps, noData, txBodyView, txHeaderView)
 import Network.RemoteData (RemoteData(..))
 import Pos.Explorer.Web.ClientTypes (CTxSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, _CNetworkAddress, ctsBlockHeight, ctsFees, ctsRelayedBy, ctsTotalOutput, ctsTxTimeIssued)
@@ -117,7 +117,7 @@ summaryRow item =
             if isJust item.mCurrency
             then
             [ P.span
-              [ P.className $ currencyCSSClass' item.mCurrency ]
+              [ P.className $ currencyCSSClass item.mCurrency ]
               [ P.text item.value ]
             ]
             else

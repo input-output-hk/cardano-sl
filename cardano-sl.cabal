@@ -1321,6 +1321,7 @@ executable cardano-post-mortem
   main-is:             Main.hs
   other-modules:       JSONLog 
                      , Statistics
+                     , Statistics.Tx
                      , Util.Aeson
                      , Util.Pipes
                      , Util.Safe
@@ -1331,6 +1332,7 @@ executable cardano-post-mortem
                      , containers
                      , directory
                      , filepath
+                     , foldl
                      , pipes
                      , pipes-bytestring
                      , pipes-interleave

@@ -1,9 +1,12 @@
 module Util.Pipes
     ( parseP
+    , fold'
     ) where
 
-import Data.Attoparsec.ByteString (Parser, parse, Result, IResult (..))
-import Pipes
+import           Control.Foldl              (Fold (..))
+import           Data.Attoparsec.ByteString (Parser, parse, Result, IResult (..))
+import           Pipes
+import qualified Pipes.Prelude              as P
 
 import Universum
 
@@ -18,3 +21,6 @@ parseP p = go (parse p)
         Fail _ _ e    -> error $ toText e
         Done chunk' a -> yield a >> consume (parse p) chunk'
         Partial p''   -> go p''
+
+fold' :: Monad m => Fold a b -> Producer a m () -> m b
+fold' (Fold step begin extract) = P.fold step begin extract

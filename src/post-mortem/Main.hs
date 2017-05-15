@@ -14,8 +14,7 @@ main = do
 
 test :: FilePath -> IO ([Integer], Int)
 test logDir = do
-    d <- runFoldTxData logDir
-    let m = transformTxData f d
+    m <- runJSONFold logDir $ transformTxData f <$> txDataF
     return $ M.foldl' g ([], 0) m
     
   where

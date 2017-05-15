@@ -88,9 +88,12 @@ txHeaderView :: Language -> TxHeaderViewProps -> P.Html Action
 txHeaderView lang (TxHeaderViewProps props) =
     P.div
           [ P.className "transaction-header"]
-          [ P.link (toUrl <<< Tx $ props ^. txhHash)
-              [ P.className "hash" ]
-              [ P.text $ props ^. (txhHash <<< _CTxId <<< _CHash) ]
+          [ P.div
+              [ P.className "hash-container" ]
+              [ P.link (toUrl <<< Tx $ props ^. txhHash)
+                [ P.className "hash"]
+                [ P.text $ props ^. (txhHash <<< _CTxId <<< _CHash) ]
+              ]
           , P.div
               [ P.className "date"]
               [ P.text $ case props ^. txhTimeIssued of
@@ -157,7 +160,10 @@ txBodyView (TxBodyViewProps props) =
             <<< map txFromView $ props ^. txbInputs
         , P.div
             [ P.className "to-hash-container bg-transaction-arrow" ]
-            <<< map txToView $ props ^. txbOutputs
+            [ P.div
+                [ P.className "to-hash-wrapper"]
+                <<< map txToView $ props ^. txbOutputs
+            ]
         , P.div
               [ P.className "amounts-container" ]
               <<< map txBodyAmountView $ props ^. txbOutputs

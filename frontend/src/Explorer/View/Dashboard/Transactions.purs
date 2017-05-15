@@ -94,9 +94,12 @@ transactionRow state (CTxEntry entry) =
     in
     P.div
         [ P.className "transactions__row" ]
-        [ P.link (toUrl <<< Tx $ entry ^. cteId)
-              [ P.className "transactions__column--hash" ]
-              [ P.text $ entry ^. (cteId <<< _CTxId <<< _CHash) ]
+        [ P.div
+              [ P.className "transactions__column--hash-container" ]
+              [ P.link (toUrl <<< Tx $ entry ^. cteId)
+                [ P.className "hash"]
+                [ P.text $ entry ^. (cteId <<< _CTxId <<< _CHash) ]
+              ]
         , P.div
               [ P.className $ "transactions__column--date" ]
               [ P.text dateValue ]

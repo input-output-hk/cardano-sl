@@ -38,12 +38,15 @@
 
     &__column {
 
-      &--hash {
+      &--hash-container {
         lost-column: 1/1 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        button: standard-button;
-        button-color: var(--color8) var(--color5) var(--color5);
+
+        .hash {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          button: standard-button;
+          button-color: var(--color8) var(--color5) var(--color5);
+        }
       }
 
       &--currency {
@@ -76,7 +79,7 @@
     @media (--md) {
       &__column {
 
-        &--hash {
+        &--hash-container {
           lost-column: 8/12;
         }
 

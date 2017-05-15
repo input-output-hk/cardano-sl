@@ -21,6 +21,7 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CBlockEntries, CCurrency(..), State)
+import Explorer.Util.Factory (mkEpochIndex)
 import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
 import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnLead, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
 import Explorer.View.Common (currencyCSSClass, getMaxPaginationNumber, noData, paginationView)
@@ -114,33 +115,40 @@ currentBlocks state =
 
 blockRow :: State -> CBlockEntry -> P.Html Action
 blockRow state (CBlockEntry entry) =
-    P.link (toUrl <<< Block $ entry ^. cbeBlkHash)
+    P.div
         [ P.className CSS.blocksBodyRow ]
         [ blockColumn { label: show $ entry ^. cbeEpoch
+                      , mRoute: Just <<< Epoch <<< mkEpochIndex $ entry ^. cbeEpoch
                       , clazz: CSS.blocksColumnEpoch
                       , mCurrency: Nothing
                       }
         , blockColumn { label: show $ entry ^. cbeSlot
+                      , mRoute: Just <<< Block $ entry ^. cbeBlkHash
                       , clazz: CSS.blocksColumnSlot
                       , mCurrency: Nothing
                       }
         , blockColumn { label: labelAge
+                      , mRoute: Nothing
                       , clazz: CSS.blocksColumnAge
                       , mCurrency: Nothing
                       }
         , blockColumn { label: show $ entry ^. cbeTxNum
+                      , mRoute: Nothing
                       , clazz: CSS.blocksColumnTxs
                       , mCurrency: Nothing
                       }
         , blockColumn { label: entry ^. (cbeTotalSent <<< _CCoin <<< getCoin)
+                      , mRoute: Nothing
                       , clazz: CSS.blocksColumnTotalSent
                       , mCurrency: Just ADA
                       }
         , blockColumn { label: labelBlockLead
+                      , mRoute: Nothing
                       , clazz: CSS.blocksColumnLead
                       , mCurrency: Nothing
                       }
         , blockColumn { label: show $ entry ^. cbeSize
+                      , mRoute: Nothing
                       , clazz: CSS.blocksColumnSize
                       , mCurrency: Nothing
                       }
@@ -156,11 +164,16 @@ type BlockColumnProps =
     { label :: String
     , clazz :: String
     , mCurrency :: Maybe CCurrency
+    , mRoute :: Maybe Route
     }
 
 blockColumn :: BlockColumnProps -> P.Html Action
 blockColumn props =
-    P.div
+    let tag = case props.mRoute of
+                  Just route -> P.link (toUrl route)
+                  Nothing -> P.div
+    in
+    tag
         [ P.className props.clazz ]
         if isJust props.mCurrency
         then

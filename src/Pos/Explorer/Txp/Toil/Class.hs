@@ -19,7 +19,7 @@ import qualified Pos.Explorer.DB             as DB
 import           Pos.Explorer.Txp.Toil.Types (ExplorerExtra, eeAddrHistories,
                                               eeLocalTxsExtra)
 import           Pos.Txp.Core                (TxId)
-import           Pos.Txp.Toil                (DBTxp, ToilT, UtxoReaderT, tmExtra)
+import           Pos.Txp.Toil                (DBTxp, ToilT, tmExtra)
 import           Pos.Util                    (ether)
 import qualified Pos.Util.Modifier           as MM
 
@@ -35,10 +35,9 @@ class Monad m => MonadTxExtraRead m where
         :: (MonadTrans t, MonadTxExtraRead m', t m' ~ m) => Address -> m AddrHistory
     getAddrHistory = lift . getAddrHistory
 
-instance MonadTxExtraRead m => MonadTxExtraRead (ReaderT s m)
-instance MonadTxExtraRead m => MonadTxExtraRead (StateT s m)
-instance MonadTxExtraRead m => MonadTxExtraRead (ExceptT s m)
-instance MonadTxExtraRead m => MonadTxExtraRead (UtxoReaderT m)
+instance {-# OVERLAPPABLE #-}
+    (MonadTxExtraRead m, MonadTrans t, Monad (t m)) =>
+        MonadTxExtraRead (t m)
 
 class MonadTxExtraRead m => MonadTxExtra m where
     putTxExtra :: TxId -> TxExtra -> m ()
@@ -57,10 +56,9 @@ class MonadTxExtraRead m => MonadTxExtra m where
         :: (MonadTrans t, MonadTxExtra m', t m' ~ m) => Address -> AddrHistory -> m ()
     updateAddrHistory addr = lift . updateAddrHistory addr
 
-instance MonadTxExtra m => MonadTxExtra (ReaderT s m)
-instance MonadTxExtra m => MonadTxExtra (StateT s m)
-instance MonadTxExtra m => MonadTxExtra (ExceptT s m)
-instance MonadTxExtra m => MonadTxExtra (UtxoReaderT m)
+instance {-# OVERLAPPABLE #-}
+    (MonadTxExtra m, MonadTrans t, Monad (t m)) =>
+        MonadTxExtra (t m)
 
 ----------------------------------------------------------------------------
 -- ToilT instances

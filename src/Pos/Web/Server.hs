@@ -14,8 +14,12 @@ module Pos.Web.Server
        , applicationGT
        ) where
 
+import           Universum
+
 import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
+import           Data.Tagged                          (Tagged (..))
+import qualified Ether
 import           Mockable                             (Production (runProduction))
 import           Network.Wai                          (Application)
 import           Network.Wai.Handler.Warp             (defaultSettings, setHost, setPort)
@@ -25,23 +29,21 @@ import           Servant.API                          ((:<|>) ((:<|>)), FromHttp
 import           Servant.Server                       (Handler, ServantErr (errBody),
                                                        Server, ServerT, err404, serve)
 import           Servant.Utils.Enter                  ((:~>) (NT), enter)
-import           Universum
 
 import           Pos.Aeson.Types                      ()
-import           Pos.Context                          (ContextHolder, NodeContext,
-                                                       getNodeContext, ncPublicKey,
-                                                       ncSscContext, runContextHolder)
+import           Pos.Context                          (MonadNodeContext, NodeContext,
+                                                       NodeContextTag, SscContextTag,
+                                                       npPublicKey)
 import qualified Pos.DB                               as DB
 import qualified Pos.DB.GState                        as GS
 import qualified Pos.Lrc.DB                           as LrcDB
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc)
 import           Pos.Txp                              (TxOut (..), toaOut)
-import           Pos.Txp.MemState                     (GenericTxpLocalData, TxpHolder,
-                                                       askTxpMem, getLocalTxs,
-                                                       runTxpHolder)
+import           Pos.Txp.MemState                     (GenericTxpLocalData, TxpHolderTag,
+                                                       askTxpMem, getLocalTxs)
 import           Pos.Types                            (EpochIndex (..), SlotLeaders)
-import           Pos.WorkMode                         (TxpExtra_TMP, WorkMode)
+import           Pos.WorkMode.Class                   (TxpExtra_TMP, WorkMode)
 
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
                                                        GtNodeApi, baseNodeApi, gtNodeApi)
@@ -52,7 +54,11 @@ import           Pos.Web.Api                          (BaseNodeApi, GodTossingAp
 ----------------------------------------------------------------------------
 
 -- [CSL-152]: I want SscConstraint to be part of WorkMode.
-type MyWorkMode ssc m = (WorkMode ssc m, SscConstraint ssc)
+type MyWorkMode ssc m =
+    ( WorkMode ssc m
+    , SscConstraint ssc
+    , MonadNodeContext ssc m -- for ConvertHandler
+    )
 
 serveWebBase :: MyWorkMode ssc m => Word16 -> FilePath -> FilePath -> m ()
 serveWebBase = serveImpl applicationBase "127.0.0.1"
@@ -84,10 +90,12 @@ serveImpl application host port walletTLSCert walletTLSKey =
 ----------------------------------------------------------------------------
 
 type WebHandler ssc =
-    TxpHolder TxpExtra_TMP (
-    DB.DBHolder (
-    ContextHolder ssc Production
-    ))
+    Ether.ReadersT
+        ( Tagged DB.NodeDBs DB.NodeDBs
+        , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
+        ) (
+    Ether.ReadersT (NodeContext ssc) Production
+    )
 
 convertHandler
     :: forall ssc a.
@@ -98,9 +106,11 @@ convertHandler
     -> Handler a
 convertHandler nc nodeDBs wrap handler =
     liftIO (runProduction .
-            runContextHolder nc .
-            DB.runDBHolder nodeDBs .
-            runTxpHolder wrap $
+            flip Ether.runReadersT nc .
+            flip Ether.runReadersT
+              ( Tagged @DB.NodeDBs nodeDBs
+              , Tagged @TxpHolderTag wrap
+              ) $
             handler)
     `Catch.catches`
     excHandlers
@@ -108,10 +118,9 @@ convertHandler nc nodeDBs wrap handler =
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError
 
-nat :: forall ssc m . (MyWorkMode ssc m)
-    => m (WebHandler ssc :~> Handler)
+nat :: forall ssc m . MyWorkMode ssc m => m (WebHandler ssc :~> Handler)
 nat = do
-    nc <- getNodeContext
+    nc <- Ether.ask @NodeContextTag
     nodeDBs <- DB.getNodeDBs
     txpLocalData <- askTxpMem
     return $ NT (convertHandler nc nodeDBs txpLocalData)
@@ -133,7 +142,7 @@ baseServantHandlers =
     :<|>
     getUtxo
     :<|>
-    (ncPublicKey <$> getNodeContext)
+    (Ether.asks' npPublicKey)
     :<|>
     GS.getTip
     :<|>
@@ -165,8 +174,8 @@ gtServantHandlers =
 
 toggleGtParticipation :: Bool -> GtWebHandler ()
 toggleGtParticipation enable =
-    getNodeContext >>=
-    atomically . flip writeTVar enable . gtcParticipateSsc . ncSscContext
+    Ether.ask @SscContextTag >>=
+    atomically . flip writeTVar enable . gtcParticipateSsc
 
 -- gtHasSecret :: GtWebHandler Bool
 -- gtHasSecret = isJust <$> getSecret

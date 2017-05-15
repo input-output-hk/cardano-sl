@@ -9,12 +9,14 @@ module Pos.Block.Worker
        , blkWorkers
        ) where
 
+import           Universum
+
 import           Control.Lens                (ix)
+import qualified Ether
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
 import           Serokell.Util               (listJson, pairF)
 import           System.Wlog                 (logDebug, logInfo, logWarning)
-import           Universum
 
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
@@ -23,7 +25,7 @@ import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', WorkerSpec,
                                               onNewSlotWorker)
 import           Pos.Constants               (networkDiameter)
-import           Pos.Context                 (getNodeContext, ncPublicKey)
+import           Pos.Context                 (npPublicKey)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.Class                (MonadDBCore)
@@ -39,7 +41,7 @@ import           Pos.Util                    (logWarningSWaitLinear, mconcatPair
 import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
 import           Pos.Util.LogSafe            (logDebugS, logInfoS, logNoticeS,
                                               logWarningS)
-import           Pos.WorkMode                (WorkMode)
+import           Pos.WorkMode.Class          (WorkMode)
 #if defined(WITH_WALLET)
 import           Data.Time.Units             (Second, convertUnit)
 import           Pos.Block.Network           (requestTipOuts, triggerRecovery)
@@ -98,7 +100,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
     logLeadersF = if siSlot == 0 then logInfo else logDebug
     logLeadersFS = if siSlot == 0 then logInfoS else logDebugS
     onKnownLeader leaders leader = do
-        ourPk <- ncPublicKey <$> getNodeContext
+        ourPk <- Ether.asks' npPublicKey
         let ourPkHash = addressHash ourPk
         proxyCerts <- getProxySecretKeys
         let validCerts =

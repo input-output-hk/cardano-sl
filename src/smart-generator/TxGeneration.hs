@@ -30,7 +30,7 @@ import           Pos.Txp                       (Tx (..), TxAux, TxId, TxIn (..),
                                                 TxOut (..), TxOutAux (..))
 import           Pos.Types                     (makePubKeyAddress, makeScriptAddress,
                                                 mkCoin)
-import           Pos.WorkMode                  (WorkMode)
+import           Pos.WorkMode.Class            (WorkMode)
 
 import           GenOptions                    (GenOptions (..))
 

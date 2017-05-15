@@ -9,11 +9,13 @@ module Pos.Update.Logic.Global
        , usVerifyBlocks
        ) where
 
+import           Universum
+
 import           Control.Monad.Except (MonadError, runExceptT)
 import           Data.Default         (Default (def))
+import qualified Ether
 import           Serokell.Util        (Color (Red), colorize)
 import           System.Wlog          (WithLogger, logError, modifyLoggerName)
-import           Universum
 
 import           Pos.Constants        (lastKnownBlockVersion)
 import           Pos.Core             (ApplicationName, BlockVersion, NumSoftwareVersion,
@@ -34,16 +36,15 @@ import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState
                                        runPollT, verifyAndApplyUSPayload)
 import           Pos.Util             (inAssertMode)
 import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
-import           Pos.Util.Context     (HasContext)
 import qualified Pos.Util.Modifier    as MM
 
 type USGlobalApplyMode m = ( WithLogger m
                            , DB.MonadDB m
-                           , HasContext LrcContext m
+                           , Ether.MonadReader' LrcContext m
                            )
 type USGlobalVerifyMode m = ( WithLogger m
                             , DB.MonadDB m
-                            , HasContext LrcContext m
+                            , Ether.MonadReader' LrcContext m
                             , MonadError PollVerFailure m
                             )
 
@@ -134,7 +135,7 @@ verifyBlock verifyAllIsKnown (Right (header, payload)) =
 -- | Checks whether our software can create block according to current
 -- global state.
 usCanCreateBlock
-    :: (WithLogger m, DB.MonadDB m, HasContext LrcContext m)
+    :: (WithLogger m, DB.MonadDB m, Ether.MonadReader' LrcContext m)
     => m Bool
 usCanCreateBlock =
     withUSLogger $ runDBPoll $ canCreateBlockBV lastKnownBlockVersion

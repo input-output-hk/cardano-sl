@@ -53,9 +53,10 @@ import           Pos.Update                 (BlockVersionData (..), UpdateVote (
                                              mkUpdateProposalWSign, patakUpdateData,
                                              skovorodaUpdateData)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys)
-import           Pos.Wallet                 (MonadKeys (addSecretKey, getSecretKeys),
-                                             WalletMode, WalletParams (..),
-                                             WalletStaticPeersMode, getBalance,
+import           Pos.Util.Util              (powerLift)
+import           Pos.Wallet                 (WalletMode, WalletParams (..),
+                                             WalletStaticPeersMode, addSecretKey,
+                                             getBalance, getSecretKeys,
                                              runWalletStaticPeers, sendProposalOuts,
                                              sendVoteOuts, submitUpdateProposal,
                                              submitVote)
@@ -294,10 +295,10 @@ main = do
 
     bracketResources baseParams TCP.Unaddressable $ \transport -> do
 
-        let powerLift :: forall t . Production t -> WalletStaticPeersMode t
-            powerLift = lift . lift . lift . lift . lift . lift
-            transport' :: Transport WalletStaticPeersMode
-            transport' = hoistTransport powerLift transport
+        let transport' :: Transport WalletStaticPeersMode
+            transport' = hoistTransport
+                (powerLift :: forall t . Production t -> WalletStaticPeersMode t)
+                transport
 
         let peerId = CLI.peerId woCommonArgs
         let sysStart = CLI.sysStart woCommonArgs

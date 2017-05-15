@@ -10,8 +10,8 @@ module Pos.Ssc.GodTossing.Toss.Trans
        ) where
 
 import           Control.Lens                   (at, (%=), (.=))
-import           Control.Monad.Ether.Implicit   as Ether
 import qualified Data.HashMap.Strict            as HM
+import qualified Ether
 import           Mockable                       (ChannelT, Promise, SharedAtomicT,
                                                  ThreadId)
 import           Universum
@@ -33,20 +33,20 @@ import           Pos.Util                       (ether)
 --
 -- [WARNING] This transformer uses StateT and is intended for
 -- single-threaded usage only.
-type TossT = Ether.StateT TossModifier
+type TossT = Ether.LazyStateT' TossModifier
 
 ----------------------------------------------------------------------------
 -- Runners
 ----------------------------------------------------------------------------
 
 runTossT :: TossModifier -> TossT m a -> m (a, TossModifier)
-runTossT = flip Ether.runStateT
+runTossT = flip Ether.runLazyStateT
 
 evalTossT :: Monad m => TossModifier -> TossT m a -> m a
-evalTossT = flip Ether.evalStateT
+evalTossT = flip Ether.evalLazyStateT
 
 execTossT :: Monad m => TossModifier -> TossT m a -> m TossModifier
-execTossT = flip Ether.execStateT
+execTossT = flip Ether.execLazyStateT
 
 ----------------------------------------------------------------------------
 -- MonadToss

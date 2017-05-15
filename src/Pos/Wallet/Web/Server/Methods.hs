@@ -27,6 +27,7 @@ import qualified Data.List.NonEmpty            as NE
 import           Data.Tagged                   (untag)
 import           Data.Time.Clock.POSIX         (getPOSIXTime)
 import           Data.Time.Units               (Microsecond, Second)
+import qualified Ether
 import           Formatting                    (build, ords, sformat, shown, stext, (%))
 import           Network.Wai                   (Application)
 import           Paths_cardano_sl              (version)
@@ -57,15 +58,15 @@ import           Pos.Crypto                    (PassPhrase, aesDecrypt, deriveAe
                                                 withSafeSigner)
 import           Pos.DB.Limits                 (MonadDBLimits)
 import           Pos.Discovery                 (getPeers)
-import           Pos.Reporting.MemState        (MonadReportingMem, askReportingContext,
-                                                rcReportServers)
+import           Pos.Reporting.MemState        (MonadReportingMem, rcReportServers)
 import           Pos.Reporting.Methods         (sendReport, sendReportNodeNologs)
 import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, safeKeysFromPhrase, toSeed)
 import           Pos.Util.UserSecret           (readUserSecret, usKeys)
-import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys (..),
-                                                addSecretKey)
+import           Pos.Wallet.KeyStorage         (KeyError (..), MonadKeys, addSecretKey,
+                                                addSecretKey, deleteSecretKey,
+                                                getSecretKeys)
 import           Pos.Wallet.SscType            (WalletSscType)
 import           Pos.Wallet.WalletMode         (MonadBlockchainInfo, MonadTxHistory,
                                                 WalletMode, applyLastUpdate,
@@ -562,7 +563,7 @@ reportingInitialized cinit = do
 
 reportingElectroncrash :: forall m. WalletWebMode m => CElectronCrashReport -> m ()
 reportingElectroncrash celcrash = do
-    servers <- view rcReportServers <$> askReportingContext
+    servers <- Ether.asks' (view rcReportServers)
     errors <- fmap lefts $ forM servers $ \serv ->
         try $ sendReport [fdFilePath $ cecUploadDump celcrash]
                          []

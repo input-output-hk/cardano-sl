@@ -19,8 +19,8 @@ module Pos.Wallet.Web.Server.Sockets
 
 import           Universum
 
-import qualified Control.Monad.Ether.Implicit   as Ether
 import           Data.Aeson                     (encode)
+import qualified Ether
 import           Network.Wai                    (Application)
 import           Network.Wai.Handler.WebSockets (websocketsOr)
 import qualified Network.WebSockets             as WS
@@ -78,13 +78,13 @@ instance WS.WebSocketsData NotifyEvent where
 --------
 
 -- | Holder for web wallet data
-type WalletWebSockets = Ether.ReaderT ConnectionsVar
+type WalletWebSockets = Ether.ReaderT' ConnectionsVar
 
 -- | MonadWalletWebSockets stands for monad which is able to get web wallet sockets
-type MonadWalletWebSockets = Ether.MonadReader ConnectionsVar
+type MonadWalletWebSockets = Ether.MonadReader' ConnectionsVar
 
 getWalletWebSockets :: MonadWalletWebSockets m => m ConnectionsVar
-getWalletWebSockets = Ether.ask
+getWalletWebSockets = Ether.ask'
 
 type WebWalletSockets m = (MonadWalletWebSockets m, MonadIO m)
 

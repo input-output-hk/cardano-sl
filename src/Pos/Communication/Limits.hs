@@ -75,11 +75,9 @@ mcVssCertificateLenLimit = 169
 ----------------------------------------------------------------------------
 
 instance MessageLimited (MsgBlock ssc) where
-    type LimitType (MsgBlock ssc) = Limit (MsgBlock ssc)
     getMsgLenLimit _ = Limit <$> DB.getMaxBlockSize
 
 instance MessageLimited MsgGetHeaders where
-    type LimitType MsgGetHeaders = Limit MsgGetHeaders
     getMsgLenLimit _ = return $
         MsgGetHeaders <$> vector maxGetHeadersNum <+> msgLenLimit
       where
@@ -87,25 +85,20 @@ instance MessageLimited MsgGetHeaders where
             log ((fromIntegral :: Int -> Double) Const.blkSecurityParam) + 5
 
 instance MessageLimited (MsgHeaders ssc) where
-    type LimitType (MsgHeaders ssc) = Limit (MsgHeaders ssc)
     getMsgLenLimit _ = do
         headerLimit <- Limit <$> DB.getMaxHeaderSize
         return $
             MsgHeaders <$> vectorOf Const.recoveryHeadersMessage headerLimit
 
 instance MessageLimited (DataMsg TxMsgContents) where
-    type LimitType (DataMsg TxMsgContents) = Limit (DataMsg TxMsgContents)
     getMsgLenLimit _ = do
         txLimit <- Limit <$> DB.getMaxTxSize
         return $ DataMsg <$> txLimit
 
 instance MessageLimited (DataMsg UpdateVote) where
-    type LimitType (DataMsg UpdateVote) = Limit (DataMsg UpdateVote)
     getMsgLenLimit _ = return msgLenLimit
 
 instance MessageLimited (DataMsg (UpdateProposal, [UpdateVote])) where
-    type LimitType (DataMsg (UpdateProposal, [UpdateVote])) =
-        Limit (DataMsg (UpdateProposal, [UpdateVote]))
     getMsgLenLimit _ = do
         proposalLimit <- Limit <$> DB.getMaxProposalSize
         return $

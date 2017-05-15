@@ -55,9 +55,18 @@ instance Limiter (Limit t) where
 -- | Specifies limit on message length.
 -- Deserialization would fail if incoming data size exceeded this limit.
 -- At serialisation stage message size is __not__ checked.
-class Limiter (LimitType a) => MessageLimited a where
+class Limiter (LimitType a) =>
+      MessageLimited a where
     type LimitType a :: *
+    type LimitType a = Limit a
+
     getMsgLenLimit :: DB.MonadDBLimits m => Proxy a -> m (LimitType a)
+
+    default getMsgLenLimit :: ( LimitType a ~ Limit a
+                              , MessageLimitedPure a
+                              , DB.MonadDBLimits m
+                              ) => Proxy a -> m (LimitType a)
+    getMsgLenLimit _ = pure msgLenLimit
 
 -- | Pure analogy to `MessageLimited`. Allows to easily get message length
 -- limit for simple types.

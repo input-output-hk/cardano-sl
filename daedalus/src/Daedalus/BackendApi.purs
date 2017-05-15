@@ -147,13 +147,13 @@ deleteWallet :: forall eff. CWalletAddress -> Aff (ajax :: AJAX | eff) Unit
 deleteWallet wId = deleteR $ noQueryParam ["wallets", walletAddressToUrl wId]
 
 --------------------------------------------------------------------------------
--- Accounts ------------------------------------------------------------------
+-- Accounts --------------------------------------------------------------------
 
 newAccount :: forall eff. Maybe CPassPhrase -> CWalletAddress -> Aff (ajax :: AJAX | eff) CAccount
 newAccount pass = postRBody $ queryParams ["account"] [qParam "passphrase" $ _passPhrase <$> pass]
 
 --------------------------------------------------------------------------------
--- Addresses ------------------------------------------------------------------
+-- Addresses -------------------------------------------------------------------
 
 isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
 isValidAddress cCurrency addr = getR $ noQueryParam ["addresses", addr, "currencies", showCCurrency cCurrency]

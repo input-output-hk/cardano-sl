@@ -16,7 +16,6 @@ import Data.Array as A
 import Data.String (length, stripSuffix, Pattern (..))
 import Data.Maybe (isJust, maybe)
 import Data.Function.Eff (EffFn1, mkEffFn1, EffFn2, mkEffFn2, EffFn4, mkEffFn4, EffFn5, mkEffFn5, EffFn3, mkEffFn3, EffFn6, mkEffFn6, EffFn7, mkEffFn7, EffFn8, mkEffFn8)
-import Network.HTTP.Affjax (AJAX)
 import WebSocket (WEBSOCKET)
 import Control.Monad.Error.Class (throwError)
 import Data.Either (either)

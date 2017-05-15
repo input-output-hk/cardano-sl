@@ -82,7 +82,7 @@
   }
 
   .column {
-    lost-column: 3/12;
+    lost-column: 2.5/12;
     padding: 10px 0;
     font-family: var(--fontFamily0-Regular);
     color: var(--color8);
@@ -91,7 +91,7 @@
     overflow: hidden;
 
     &:last-child {
-      lost-column: 9/12;
+      lost-column: 9.5/12;
     }
 
     &__hash,

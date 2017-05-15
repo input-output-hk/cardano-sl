@@ -11,7 +11,8 @@ import Prelude
 import Data.Array (length, null, slice)
 import Data.DateTime (diff)
 import Data.Lens ((^.))
-import Data.Maybe (fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe)
+import Data.String (take)
 import Data.Time.Duration (Milliseconds)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (block, blNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cBlockLead, cSize) as I18nL
@@ -20,8 +21,8 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State, CBlockEntries)
+import Explorer.Util.Factory (mkEpochIndex)
 import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
-import Data.String (take)
 import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnLead, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
 import Explorer.View.Common (getMaxPaginationNumber, noData, paginationView)
 import Network.RemoteData (RemoteData(..), withDefault)
@@ -114,27 +115,34 @@ currentBlocks state =
 
 blockRow :: State -> CBlockEntry -> P.Html Action
 blockRow state (CBlockEntry entry) =
-    P.link (toUrl <<< Block $ entry ^. cbeBlkHash)
+    P.div
         [ P.className CSS.blocksBodyRow ]
         [ blockColumn { label: show $ entry ^. cbeEpoch
+                      , mRoute: Just <<< Epoch <<< mkEpochIndex $ entry ^. cbeEpoch
                       , clazz: CSS.blocksColumnEpoch
                       }
         , blockColumn { label: show $ entry ^. cbeSlot
+                      , mRoute: Just <<< Block $ entry ^. cbeBlkHash
                       , clazz: CSS.blocksColumnSlot
                       }
         , blockColumn { label: labelAge
+                      , mRoute: Nothing
                       , clazz: CSS.blocksColumnAge
                       }
         , blockColumn { label: show $ entry ^. cbeTxNum
+                      , mRoute: Nothing
                       , clazz: CSS.blocksColumnTxs
                       }
         , blockColumn { label: entry ^. (cbeTotalSent <<< _CCoin <<< getCoin)
+                      , mRoute: Nothing
                       , clazz: CSS.blocksColumnTotalSent
                       }
         , blockColumn { label: labelBlockLead
+                      , mRoute: Nothing
                       , clazz: CSS.blocksColumnLead
                       }
         , blockColumn { label: show $ entry ^. cbeSize
+                      , mRoute: Nothing
                       , clazz: CSS.blocksColumnSize
                       }
         ]
@@ -148,11 +156,16 @@ blockRow state (CBlockEntry entry) =
 type BlockColumnProps =
     { label :: String
     , clazz :: String
+    , mRoute :: Maybe Route
     }
 
 blockColumn :: BlockColumnProps -> P.Html Action
 blockColumn props =
-    P.div
+    let tag = case props.mRoute of
+                  Just route -> P.link (toUrl route)
+                  Nothing -> P.div
+    in
+    tag
         [ P.className props.clazz ]
         [ P.text props.label ]
 

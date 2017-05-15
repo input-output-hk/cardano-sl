@@ -9,6 +9,7 @@ import Data.Maybe (Maybe(..))
 import Data.String (take)
 import Explorer.I18n.DE (translation) as DE
 import Explorer.I18n.EN (translation) as EN
+import Explorer.I18n.JP (translation) as JP
 import Explorer.I18n.Types (Translation)
 
 foreign import detectLocaleImpl :: forall e. Eff (dom :: DOM | e) String
@@ -25,16 +26,20 @@ translate lens = view lens <<< getTranslation
 readLanguage :: String -> Maybe Language
 readLanguage "en" = Just English
 readLanguage "English" = Just English
+readLanguage "jp" = Just Japanese
+readLanguage "日本語" = Just Japanese
 readLanguage "de" = Just German
 readLanguage "Deutsch" = Just German
 readLanguage _ = Nothing
 
 getTranslation :: Language -> Translation
 getTranslation English = EN.translation
+getTranslation Japanese = JP.translation
 getTranslation German = DE.translation
 
 data Language
     = English
+    | Japanese
     | German
 
 instance showLanguage :: Show Language where
@@ -45,4 +50,5 @@ derive instance eqLanguage :: Eq Language
 -- | ISO 639 https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
 languageNativeName :: Language -> String
 languageNativeName English = "English"
+languageNativeName Japanese = "日本語"
 languageNativeName German = "Deutsch"

@@ -13,7 +13,8 @@
     "server:prod": "npm run clean:output && NODE_ENV=production npm run server:webpack",
     "build:prod": "./node_modules/.bin/rimraf dist && mkdir dist && NODE_ENV=production ./node_modules/.bin/webpack --config webpack.config.babel.js",
     "test": "npm run clean:output && npm run test:all",
-    "test:all": "psc -o output 'bower_components/purescript-*/src/**/*.purs' 'src/**/*.purs' && NODE_PATH=./output node -e 'require(\"Main.Test\").main();'"
+    "test:rename-placeholders": "node 'test/rename-placeholders.js'",
+    "test:all": "psc -o output 'bower_components/purescript-*/src/**/*.purs' 'src/**/*.purs' && npm run test:rename-placeholders && NODE_PATH=./output node -e 'require(\"./test/setup\").setup(); require(\"Main.Test\").main();'"
   },
   "repository": {
     "type": "git",
@@ -48,6 +49,7 @@
     "file-loader": "^0.11.1",
     "git-revision-webpack-plugin": "^2.4.1",
     "html-webpack-plugin": "^2.28.0",
+    "jsdom": "^10.1.0",
     "lost": "^8.0.0",
     "postcss-button": "^0.1.16",
     "postcss-color-function": "^3.0.0",
@@ -66,6 +68,7 @@
     "postcss-svgo": "^2.1.6",
     "purescript-psa": "^0.4.0",
     "purs-loader": "^2.4.1",
+    "replace-in-file": "^2.5.0",
     "rimraf": "^2.6.1",
     "source-map-loader": "^0.2.1",
     "style-loader": "^0.16.1",

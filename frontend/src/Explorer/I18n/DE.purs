@@ -27,8 +27,8 @@ translation =
         , cSlots: "Slots"
         , cAge: "Seit"
         , cTotalSent: "Insgesamt gesendet"
-        , cRelayedBy: "Weitergegeben durch"
-        , cSizeKB: "Größe (kB)"
+        , cBlockLead: "Weitergegeben durch"
+        , cSize: "Größe (bytes)"
         , cExpand: "Aufklappen"
         , cCollapse: "Zuklappen"
         , cNoData: "Keine Daten"
@@ -54,7 +54,7 @@ translation =
         , navTools: "Tools"
         }
     , hero:
-        { hrSubtitle: "Der effektivste Weg um das Netzwerk der Kryptowährung zu erforschen."
+        { hrSubtitle: "Suche Adressen, Transaktionen, Epochen und Slots im Cardano Netzwerk"
         , hrSearch: "Suche Addressen, Transaktionen, Slots und Epochen"
         , hrTime: "Zeit"
         }
@@ -99,6 +99,7 @@ translation =
         , txIncluded: "Bestand im Slot"
         , txRelayed: "Weitergabe per IP"
         , txEmpty: "Keine Transaktionen"
+        , txFees: "Transaktionsgebühr"
         , txNotFound: "Transaktion existiert nicht."
         }
     , block:

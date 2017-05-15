@@ -42,8 +42,12 @@ main = do
       ]
   where
       customBridge =
-          defaultBridge <|> posixTimeBridge <|> wordBridge <|>
-          word8Bridge <|> word16Bridge <|> word32Bridge <|>
+          defaultBridge     <|> 
+          posixTimeBridge   <|> 
+          wordBridge        <|>
+          word8Bridge       <|> 
+          word16Bridge      <|> 
+          word32Bridge      <|>
           word64Bridge
 
 posixTimeBridge :: BridgePart

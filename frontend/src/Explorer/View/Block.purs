@@ -6,15 +6,14 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cBlock, common, cOf, cNotAvailable, block, blFees, blRoot, blNextBlock, blPrevBlock, blEstVolume, cHash, cSummary, cTotalOutput, cHashes, cSlot, cTransactions) as I18nL
-import Explorer.Lenses.State (blockDetail, blockTxPagination, currentBlockSummary, currentBlockTxs, lang, viewStates)
+import Explorer.Lenses.State (blockDetail, blockTxPagination, blockTxPaginationEditable, currentBlockSummary, currentBlockTxs, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
+import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
-import Explorer.Util.DOM (targetToHTMLInputElement)
-import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
-import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin)
+import Explorer.View.Common (currencyCSSClass, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, _CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
 import Pux.Html (Html, div, text, h3) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Router (link) as P
@@ -63,9 +62,12 @@ blockView state =
                                                       Just txBrief -> mkTxBodyViewProps txBrief
                                   , txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                                                       , currentPage: txPagination
+                                                      , minPage: minPagination
                                                       , maxPage: length blockTxs
                                                       , changePageAction: BlockPaginateTxs
-                                                      , onFocusAction: SelectInputText <<< targetToHTMLInputElement
+                                                      , editable: state ^. (viewStates <<< blockDetail <<< blockTxPaginationEditable)
+                                                      , editableAction: BlockEditTxsPageNumber
+                                                      , invalidPageAction: BlockInvalidTxsPageNumber
                                                       }
                                   ]
                 ]

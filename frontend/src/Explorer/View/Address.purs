@@ -6,12 +6,11 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (addNotFound, cAddress, cBack2Dashboard, common, cLoading, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, currentAddressSummary, lang, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, currentAddressSummary, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
-import Explorer.State (addressQRImageId)
+import Explorer.State (addressQRImageId, minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
-import Explorer.Util.DOM (targetToHTMLInputElement)
 import Explorer.View.Common (currencyCSSClass, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
 import Network.RemoteData (RemoteData(..))
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
@@ -64,9 +63,12 @@ addressView state =
                                             , txPaginationView
                                                   { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                                                   , currentPage: txPagination
+                                                  , minPage: minPagination
                                                   , maxPage: length txList
                                                   , changePageAction: AddressPaginateTxs
-                                                  , onFocusAction: SelectInputText <<< targetToHTMLInputElement
+                                                  , editable: state ^. (viewStates <<< addressDetail <<< addressTxPaginationEditable)
+                                                  , editableAction: AddressEditTxsPageNumber
+                                                  , invalidPageAction: AddressInvalidTxsPageNumber
                                                   }
                                             ]
                                     ]

@@ -1,5 +1,8 @@
 module Explorer.View.CSS
   ( blocksBody
+  , blocksBodyWrapper
+  , blocksBodyCover
+  , blocksBodyCoverLabel
   , blocksBodyRow
   , blocksHeader
   , blocksColumnEpoch
@@ -7,7 +10,7 @@ module Explorer.View.CSS
   , blocksColumnAge
   , blocksColumnTxs
   , blocksColumnTotalSent
-  , blocksColumnRelayedBy
+  , blocksColumnLead
   , blocksColumnSize
   , blocksFooter
   , blocksWaiting
@@ -20,6 +23,7 @@ module Explorer.View.CSS
 
 import Prelude
 import Explorer.Routes (Route(..), addressLit, calculatorLit, dashboardLit, epochLit, notFoundLit, playgroundLit, slotLit, transactionLit)
+
 
 -----------------------------------------------------------
 -- BEM, meaning Block, Element, Modifier
@@ -55,6 +59,15 @@ blocksHeader = "blocks-header"
 
 blocksBody :: String
 blocksBody = "blocks-body"
+  --
+blocksBodyWrapper :: String
+blocksBodyWrapper = blocksBody <> element <> "wrapper"
+
+blocksBodyCover :: String
+blocksBodyCover = blocksBody <> element <> "cover"
+
+blocksBodyCoverLabel :: String
+blocksBodyCoverLabel = blocksBody <> element <> "cover-label"
 
 blocksBodyRow :: String
 blocksBodyRow = blocksBody <> element <> "row"
@@ -80,8 +93,8 @@ blocksColumnTxs = blocksColumn <> element <> "txs"
 blocksColumnTotalSent :: String
 blocksColumnTotalSent = blocksColumn <> element <> "totalSend"
 
-blocksColumnRelayedBy :: String
-blocksColumnRelayedBy = blocksColumn <> element <> "relayedBy"
+blocksColumnLead :: String
+blocksColumnLead = blocksColumn <> element <> "lead"
 
 blocksColumnSize :: String
 blocksColumnSize = blocksColumn <> element <> "size"

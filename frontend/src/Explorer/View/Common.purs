@@ -14,6 +14,7 @@ module Explorer.View.Common (
     , txPaginationView
     , EmptyViewProps
     , mkEmptyViewProps
+    , mkEmptyViewProps
     , txEmptyContentView
     , noData
     , logoView
@@ -28,6 +29,7 @@ import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language(..), readLanguage, translate)
 import Explorer.I18n.Lenses (common, cDateFormat, tx, txEmpty) as I18nL
+import Explorer.Lenses.State (lang)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (initialState)
 import Explorer.Types.Actions (Action(..))
@@ -37,10 +39,10 @@ import Explorer.Util.Time (prettyDate)
 import Explorer.View.Lenses (txbAmount, txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
 import Exporer.View.Types (TxBodyViewProps(..), TxHeaderViewProps(..))
 import Pos.Explorer.Web.ClientTypes (CCoin(..), CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, _CHash, _CTxId, getCoin, ctbId, ctbInputs, ctbOutputs, ctbInputSum, ctbOutputSum, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, getCoin, ctbId, ctbInputs, ctbOutputs, ctbOutputSum, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
 import Pux.Html (Html, text, div, p, span, input, option, select) as P
-import Pux.Html.Attributes (className, href, value, disabled, type_, min, max, selected) as P
-import Pux.Html.Events (onChange, onFocus, FormEvent, MouseEvent, Target, onClick) as P
+import Pux.Html.Attributes (className, href, value, disabled, type_, min, max, defaultValue) as P
+import Pux.Html.Events (onBlur, onChange, onFocus, onKey, KeyboardEvent, MouseEvent, Target, onClick) as P
 import Pux.Router (link) as P
 
 -- -----------------
@@ -197,9 +199,12 @@ txBodyAmountView (Tuple _ (CCoin coin)) =
 type PaginationViewProps =
     { label :: String
     , currentPage :: Int
+    , minPage :: Int
     , maxPage :: Int
+    , editable :: Boolean
     , changePageAction :: (Int -> Action)
-    , onFocusAction :: (P.Target -> Action)
+    , editableAction :: (P.Target -> Boolean -> Action)
+    , invalidPageAction :: (P.Target -> Action)
     }
 
 txPaginationView :: PaginationViewProps -> P.Html Action
@@ -222,14 +227,17 @@ paginationView props =
                     []
                 ]
             , P.input
-                [ P.className "page-number"
-                , P.value <<< show $ props.currentPage
-                , P.disabled $ props.maxPage == minPage
-                , P.min $ show minPage
+                ([ P.className "page-number"
+                , P.disabled $ props.maxPage == props.minPage
+                , P.min $ show props.minPage
                 , P.max $ show props.maxPage
-                , P.onChange changeHandler
-                , P.onFocus $ props.onFocusAction <<< _.target
+                , P.onFocus \event -> props.editableAction (_.target event) true
+                , P.onBlur \event -> props.editableAction (_.target event) false
                 ]
+                <>  if props.editable
+                    then [ P.onKey "enter" onEnterHandler ]
+                    else [ P.value <<< show $ props.currentPage ]
+                )
                 []
             , P.p
                 [ P.className "label" ]
@@ -237,7 +245,7 @@ paginationView props =
             , P.input
                 [ P.className "page-number"
                 , P.disabled true
-                , P.type_ "number"
+                , P.type_ "search"
                 , P.value $ show props.maxPage
                 ]
                 []
@@ -251,11 +259,10 @@ paginationView props =
             ]
         ]
         where
-          minPage = 1
-          disablePrevBtnClazz = if props.currentPage == minPage then " disabled" else ""
+          disablePrevBtnClazz = if props.currentPage == props.minPage then " disabled" else ""
           disableNextBtnClazz = if props.currentPage == props.maxPage then " disabled" else ""
           nextClickHandler :: P.MouseEvent -> Action
-          nextClickHandler _ =
+          nextClickHandler event =
               if props.currentPage < props.maxPage then
               props.changePageAction $ props.currentPage + 1
               else
@@ -263,17 +270,20 @@ paginationView props =
 
           prevClickHandler :: P.MouseEvent -> Action
           prevClickHandler _ =
-              if props.currentPage > minPage then
+              if props.currentPage > props.minPage then
               props.changePageAction $ props.currentPage - 1
               else
               NoOp
 
-          changeHandler :: P.FormEvent -> Action
-          changeHandler ev =
-              let value = fromMaybe props.currentPage <<< fromString <<< _.value $ _.target ev in
-              if value >= minPage && value <= props.maxPage
-              then props.changePageAction value
-              else NoOp
+          onEnterHandler :: P.KeyboardEvent -> Action
+          onEnterHandler event =
+              if page >= props.minPage && page <= props.maxPage
+              then props.changePageAction page
+              else props.invalidPageAction target
+              where
+                  target = _.target event
+                  page = fromMaybe props.currentPage $ fromString $ _.value target
+
 
 
 getMaxPaginationNumber :: Int -> Int -> Int
@@ -325,6 +335,7 @@ clickableLogoView = logoView' <<< Just
 langItems :: Array Language
 langItems =
     [ English
+    , Japanese
     , German
     ]
 
@@ -332,6 +343,7 @@ langView :: State -> P.Html Action
 langView state =
   P.select
       [ P.className "lang__select bg-arrow-up"
+      , P.defaultValue <<< show $ state ^. lang
       , P.onChange $ SetLanguage <<< fromMaybe (_.lang initialState) <<< readLanguage <<< _.value <<< _.target]
       $ map (langItemView state) langItems
 
@@ -339,7 +351,7 @@ langItemView :: State -> Language -> P.Html Action
 langItemView state lang =
   P.option
     [ P.value $ show lang
-    , P.selected $ state.lang == lang  ]
+    ]
     [ P.text $ show lang ]
 
 -- -----------------

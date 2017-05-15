@@ -71,7 +71,7 @@ toSnapConfig NotifierSettings{..} loggerName = Config.defaultConfig
   where
     logHandler severity =
         Just . Config.ConfigIoLog $
-            usingLoggerName (loggerName <> "socket-io") .
+            usingLoggerName (loggerName <> "requests") .
             logMessage severity . decodeUtf8
 
 notifierHandler
@@ -175,7 +175,7 @@ notifierApp
     :: forall ssc m.
        (ExplorerMode m, SscHelpersClass ssc)
     => NotifierSettings -> m ()
-notifierApp settings = modifyLoggerName (<> "notifier") $ do
+notifierApp settings = modifyLoggerName (<> "notifier.socket-io") $ do
     logInfo "Starting"
     connVar <- liftIO $ STM.newTVarIO mkConnectionsState
     forkAccompanion (periodicPollChanges @ssc connVar)

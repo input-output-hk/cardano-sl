@@ -39,8 +39,8 @@ type Common =
     , cSlots :: String
     , cAge :: String
     , cTotalSent :: String
-    , cRelayedBy :: String
-    , cSizeKB :: String
+    , cBlockLead :: String
+    , cSize :: String
     , cExpand :: String
     , cCollapse :: String
     , cNoData :: String
@@ -126,6 +126,7 @@ type Transaction =
     , txIncluded :: String
     , txRelayed :: String
     , txEmpty :: String
+    , txFees :: String
     , txNotFound :: String
     }
 

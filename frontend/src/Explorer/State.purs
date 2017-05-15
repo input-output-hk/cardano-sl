@@ -1,17 +1,17 @@
 module Explorer.State where
 
 import Prelude
-import Data.Maybe (Maybe(..))
+import Data.DateTime.Instant (instant, toDateTime)
+import Data.Maybe (Maybe(..), fromJust)
+import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language(..), translate)
 import Explorer.I18n.Lenses (common, cTitle) as I18nL
 import Explorer.Routes (Route(..))
 import Explorer.Types.State (DashboardAPICode(..), Search(..), State, SearchEpochSlotQuery)
+import Explorer.Util.Config (SyncAction(..))
 import Explorer.Util.Factory (mkCAddress)
 import Network.RemoteData (RemoteData(..))
-import Data.DateTime.Instant       (instant, toDateTime)
-import Data.Time.Duration          (Milliseconds (..))
-import Data.Maybe (fromJust)
 import Partial.Unsafe (unsafePartial)
 
 
@@ -25,6 +25,8 @@ initialState =
         , connection: Nothing
         , subscriptions: []
         }
+    -- , syncAction: SyncBySocket
+    , syncAction: SyncByPolling
     , viewStates:
         { globalViewState:
             { gViewMobileMenuOpenend: false
@@ -37,27 +39,32 @@ initialState =
         ,  dashboard:
             { dbViewBlocksExpanded: false
             , dbViewBlockPagination: minPagination
+            , dbViewNextBlockPagination: minPagination
+            , dbViewLoadingBlockPagination: false
+            , dbViewBlockPaginationEditable: false
             , dbViewTxsExpanded: false
             , dbViewSelectedApiCode: Curl
             }
         , addressDetail:
             { addressTxPagination: minPagination
+            , addressTxPaginationEditable: false
             }
         , blockDetail:
             { blockTxPagination: minPagination
+            , blockTxPaginationEditable: false
             }
         , blocksViewState:
             { blsViewPagination: minPagination
+            , blsViewPaginationEditable: false
             }
         }
     , latestBlocks: NotAsked
-    , initialBlocksRequested: false
-    , handleLatestBlocksSocketResult: false
-    , initialTxsRequested: false
-    , handleLatestTxsSocketResult: false
+    , pullLatestBlocks: false -- TODO (jk) Remove it if socket-io will be fixed
+    , totalBlocks: NotAsked
     , currentBlockSummary: Nothing
     , currentBlockTxs: Nothing
-    , latestTransactions: []
+    , latestTransactions: NotAsked
+    , pullLatestTxs: false    -- TODO (jk) Remove it if socket-io will be fixed
     , currentTxSummary: NotAsked
     , currentCAddress: mkCAddress ""
     , currentAddressSummary: NotAsked

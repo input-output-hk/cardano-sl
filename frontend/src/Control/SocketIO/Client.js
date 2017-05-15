@@ -7,7 +7,7 @@ exports.connectImpl = function (url) {
 }
 
 exports.emitImpl = function(socket, eventName, data) {
-  console.log("emit eventName ", eventName);
+  // console.log("emit eventName ", eventName);
   return function() {
     if (data !== undefined) {
       socket.emit(eventName, data);
@@ -18,7 +18,7 @@ exports.emitImpl = function(socket, eventName, data) {
 }
 
 exports.onImpl = function(socket, eventName, callback) {
-  console.log("on eventName ", eventName);
+  // console.log("on eventName ", eventName);
   return function() {
     socket.on(eventName, function(data) {
       callback(data)();

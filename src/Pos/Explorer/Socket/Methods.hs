@@ -232,7 +232,7 @@ notifyAddrSubscribers addr cTxEntries = do
 
 notifyBlocksSubscribers
     :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m,
-        MonadSlots m, SscHelpersClass ssc)
+        MonadSlots m, MonadDB m, SscHelpersClass ssc)
     => [Block ssc] -> m ()
 notifyBlocksSubscribers blocks = do
     recipients <- view csBlocksSubscribers

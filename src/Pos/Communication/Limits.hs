@@ -33,7 +33,7 @@ import qualified Pos.Constants                      as Const
 import           Pos.Crypto                         (AbstractHash, EncShare, PublicKey,
                                                      SecretProof, SecretSharingExtra (..),
                                                      Share, Signature, VssPublicKey)
-import qualified Pos.DB.Limits                      as DB
+import qualified Pos.DB.Class                       as DB
 import           Pos.Ssc.GodTossing.Arbitrary       ()
 import           Pos.Ssc.GodTossing.Core.Types      (Commitment (..))
 import           Pos.Ssc.GodTossing.Types.Message   (GtMsgContents (..))
@@ -75,7 +75,7 @@ mcVssCertificateLenLimit = 169
 ----------------------------------------------------------------------------
 
 instance MessageLimited (MsgBlock ssc) where
-    getMsgLenLimit _ = Limit <$> DB.getMaxBlockSize
+    getMsgLenLimit _ = Limit <$> DB.gsMaxBlockSize
 
 instance MessageLimited MsgGetHeaders where
     getMsgLenLimit _ = return $
@@ -86,13 +86,13 @@ instance MessageLimited MsgGetHeaders where
 
 instance MessageLimited (MsgHeaders ssc) where
     getMsgLenLimit _ = do
-        headerLimit <- Limit <$> DB.getMaxHeaderSize
+        headerLimit <- Limit <$> DB.gsMaxHeaderSize
         return $
             MsgHeaders <$> vectorOf Const.recoveryHeadersMessage headerLimit
 
 instance MessageLimited (DataMsg TxMsgContents) where
     getMsgLenLimit _ = do
-        txLimit <- Limit <$> DB.getMaxTxSize
+        txLimit <- Limit <$> DB.gsMaxTxSize
         return $ DataMsg <$> txLimit
 
 instance MessageLimited (DataMsg UpdateVote) where
@@ -100,7 +100,7 @@ instance MessageLimited (DataMsg UpdateVote) where
 
 instance MessageLimited (DataMsg (UpdateProposal, [UpdateVote])) where
     getMsgLenLimit _ = do
-        proposalLimit <- Limit <$> DB.getMaxProposalSize
+        proposalLimit <- Limit <$> DB.gsMaxProposalSize
         return $
             DataMsg <$> ((,) <$> proposalLimit <+> vector updateVoteNumLimit)
 

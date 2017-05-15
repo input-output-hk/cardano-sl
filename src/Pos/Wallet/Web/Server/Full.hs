@@ -34,7 +34,7 @@ import           Pos.Constants                 (isDevelopment)
 import           Pos.Context                   (NodeContext, NodeContextTag)
 import           Pos.Crypto                    (noPassEncrypt)
 import           Pos.DB                        (NodeDBs, getNodeDBs)
-import           Pos.DB.DB                     (runDbCoreRedirect)
+import           Pos.DB.DB                     (runGStateCoreRedirect)
 import           Pos.Delegation.Class          (DelegationWrap, askDelegationState)
 import           Pos.DHT.Real                  (KademliaDHTInstance)
 import           Pos.Discovery                 (askDHTInstance, runDiscoveryKademliaT)
@@ -46,7 +46,6 @@ import           Pos.Ssc.Class                 (SscConstraint)
 import           Pos.Ssc.Extra                 (SscMemTag, SscState)
 import           Pos.Txp                       (GenericTxpLocalData, TxpHolderTag,
                                                 askTxpMem)
-import           Pos.Update.DB                 (runDbLimitsRedirect)
 import           Pos.Wallet.KeyStorage         (addSecretKey)
 import           Pos.Wallet.WalletMode         (runBlockchainInfoRedirect,
                                                 runUpdatesRedirect)
@@ -132,8 +131,7 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
            . runBalancesRedirect
            . runTxHistoryRedirect
            . runPeerStateRedirect
-           . runDbLimitsRedirect
-           . runDbCoreRedirect
+           . runGStateCoreRedirect
            . runUpdatesRedirect
            . runBlockchainInfoRedirect
            . runDiscoveryKademliaT kinst

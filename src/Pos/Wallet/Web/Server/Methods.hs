@@ -56,7 +56,7 @@ import           Pos.Crypto                    (PassPhrase, aesDecrypt, deriveAe
                                                 encToPublic, hash,
                                                 redeemDeterministicKeyGen, withSafeSigner,
                                                 withSafeSigner)
-import           Pos.DB.Limits                 (MonadDBLimits)
+import           Pos.DB.Class                  (MonadGStateCore)
 import           Pos.Discovery                 (getPeers)
 import           Pos.Reporting.MemState        (MonadReportingMem, rcReportServers)
 import           Pos.Reporting.Methods         (sendReport, sendReportNodeNologs)
@@ -113,7 +113,7 @@ type WalletWebHandler m = WalletWebSockets (WalletWebDB m)
 type WalletWebMode m
     = ( WalletMode WalletSscType m
       , WebWalletModeDB m
-      , MonadDBLimits m
+      , MonadGStateCore m
       , MonadWalletWebSockets m
       , MonadReportingMem m
       )

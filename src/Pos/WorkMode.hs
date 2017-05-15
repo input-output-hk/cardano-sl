@@ -30,7 +30,7 @@ import           Pos.Communication.PeerState  (PeerStateCtx, PeerStateRedirect,
                                                PeerStateTag)
 import           Pos.Context                  (NodeContext)
 import           Pos.DB                       (NodeDBs)
-import           Pos.DB.DB                    (DbCoreRedirect)
+import           Pos.DB.DB                    (GStateCoreRedirect)
 import           Pos.Delegation.Class         (DelegationWrap)
 import           Pos.Discovery.Holders        (DiscoveryConstT, DiscoveryKademliaT)
 import           Pos.Slotting.MemState        (SlottingVar)
@@ -39,7 +39,6 @@ import           Pos.Slotting.Ntp             (NtpSlottingVar, SlotsRedirect)
 import           Pos.Ssc.Extra                (SscMemTag, SscState)
 import           Pos.Statistics.MonadStats    (NoStatsT, StatsT)
 import           Pos.Txp.MemState             (GenericTxpLocalData, TxpHolderTag)
-import           Pos.Update.DB                (DbLimitsRedirect)
 import           Pos.Wallet.WalletMode        (BlockchainInfoRedirect, UpdatesRedirect)
 import           Pos.WorkMode.Class           (MinWorkMode, TxpExtra_TMP, WorkMode)
 
@@ -52,8 +51,7 @@ import           Pos.WorkMode.Class           (MinWorkMode, TxpExtra_TMP, WorkMo
 type RawRealMode ssc =
     BlockchainInfoRedirect (
     UpdatesRedirect (
-    DbCoreRedirect (
-    DbLimitsRedirect (
+    GStateCoreRedirect (
     PeerStateRedirect (
     TxHistoryRedirect (
     BalancesRedirect (
@@ -70,7 +68,7 @@ type RawRealMode ssc =
         ) (
     Ether.ReadersT (NodeContext ssc) (
     LoggerNameBox Production
-    )))))))))))
+    ))))))))))
 
 -- | RawRealMode + kademlia. Used in wallet too.
 type RawRealModeK ssc = DiscoveryKademliaT (RawRealMode ssc)

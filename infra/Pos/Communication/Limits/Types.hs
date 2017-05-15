@@ -21,15 +21,16 @@ module Pos.Communication.Limits.Types
        , (<+>)
        ) where
 
+import           Universum
+
 import           Data.Binary                (Get)
 import           Data.Reflection            (Reifies (..), reify)
 import           Serokell.Data.Memory.Units (Byte)
-import           Universum
 
 import           Pos.Binary.Class           (Bi (..))
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Communication.Protocol (ConversationActions (..), Message)
-import qualified Pos.DB.Limits              as DB
+import qualified Pos.DB.Class               as DB
 
 -- | Specifies limit for given type @t@.
 newtype Limit t = Limit Byte
@@ -60,11 +61,11 @@ class Limiter (LimitType a) =>
     type LimitType a :: *
     type LimitType a = Limit a
 
-    getMsgLenLimit :: DB.MonadDBLimits m => Proxy a -> m (LimitType a)
+    getMsgLenLimit :: DB.MonadGStateCore m => Proxy a -> m (LimitType a)
 
     default getMsgLenLimit :: ( LimitType a ~ Limit a
                               , MessageLimitedPure a
-                              , DB.MonadDBLimits m
+                              , DB.MonadGStateCore m
                               ) => Proxy a -> m (LimitType a)
     getMsgLenLimit _ = pure msgLenLimit
 
@@ -128,7 +129,7 @@ type SmartLimit s a = LimitedLengthExt s (LimitType a) a
 -- | Used to provide type @s@, which carries limit on length
 -- of message @a@ (via Data.Reflection).
 reifyMsgLimit
-    :: forall a m b. (DB.MonadDBLimits m, MessageLimited a)
+    :: forall a m b. (DB.MonadGStateCore m, MessageLimited a)
     => Proxy a
     -> (forall s. Reifies s (LimitType a) => Proxy s -> m b)
     -> m b

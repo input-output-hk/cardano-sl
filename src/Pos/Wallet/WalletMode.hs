@@ -68,7 +68,7 @@ import           Pos.Util                     (maybeThrow)
 import           Pos.Wallet.KeyStorage        (KeyData, MonadKeys)
 import qualified Pos.Wallet.State             as WS
 import           Pos.Wallet.State.Acidic      (WalletState)
-import           Pos.Wallet.State.Limits      (DbLimitsWalletRedirect)
+import           Pos.Wallet.State.Core        (GStateCoreWalletRedirect)
 
 data BalancesWalletRedirectTag
 
@@ -288,7 +288,7 @@ type RawWalletMode =
     BlockchainInfoNotImplemented (
     UpdatesNotImplemented (
     PeerStateRedirect (
-    DbLimitsWalletRedirect (
+    GStateCoreWalletRedirect (
     BalancesWalletRedirect (
     TxHistoryWalletRedirect (
     Ether.ReadersT

@@ -7,24 +7,23 @@ module Pos.Wallet.Update
        , sendProposalOuts
        ) where
 
-import           Mockable                   (forConcurrently)
 import           Universum
 
-import           Pos.Binary                 ()
+import           Mockable                   (forConcurrently)
 
+import           Pos.Binary                 ()
 import           Pos.Communication.Methods  (sendUpdateProposal, sendVote)
 import           Pos.Communication.Protocol (NodeId, SendActions)
 import           Pos.Communication.Specs    (sendProposalOuts, sendVoteOuts)
-import           Pos.DB.Limits              (MonadDBLimits)
-
 import           Pos.Crypto                 (SafeSigner, SignTag (SignUSVote), hash,
                                              safeSign, safeToPublic)
+import           Pos.DB.Class               (MonadGStateCore)
 import           Pos.Update                 (UpdateProposal, UpdateVote (..))
 import           Pos.WorkMode.Class         (MinWorkMode)
 
 -- | Send UpdateVote to given addresses
 submitVote
-    :: (MinWorkMode m, MonadDBLimits m)
+    :: (MinWorkMode m, MonadGStateCore m)
     => SendActions m
     -> [NodeId]
     -> UpdateVote
@@ -35,7 +34,7 @@ submitVote sendActions na voteUpd = do
 
 -- | Send UpdateProposal with one positive vote to given addresses
 submitUpdateProposal
-    :: (MinWorkMode m, MonadDBLimits m)
+    :: (MinWorkMode m, MonadGStateCore m)
     => SendActions m
     -> SafeSigner
     -> [NodeId]

@@ -1,6 +1,7 @@
 module JSONLog
     ( jsonLogs
     , parseLogP
+    , IndexedJLTimedEvent (..)
     , runParseLogs
     ) where
 

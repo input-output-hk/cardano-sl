@@ -1320,6 +1320,7 @@ executable cardano-post-mortem
   hs-source-dirs:      src/post-mortem
   main-is:             Main.hs
   other-modules:       JSONLog 
+                     , Statistics
                      , Util.Aeson
                      , Util.Pipes
                      , Util.Safe
@@ -1327,12 +1328,14 @@ executable cardano-post-mortem
                      , aeson
                      , attoparsec
                      , cardano-sl
+                     , containers
                      , directory
                      , filepath
                      , pipes
                      , pipes-bytestring
                      , pipes-interleave
                      , pipes-safe
+                     , text
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded
@@ -1363,6 +1366,7 @@ executable cardano-post-mortem
                         ConstraintKinds
                         UndecidableInstances
                         ScopedTypeVariables
+                        BangPatterns
 
 test-suite cardano-test
   main-is:             Test.hs

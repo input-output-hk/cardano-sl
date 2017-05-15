@@ -108,36 +108,42 @@ cd ./frontend
 #### 3. Install dependencies of `Node.js`
 
 ```bash
-npm install
+yarn install
 ```
 
-#### 3.1. Build in `development` mode
+#### 4. Build in `development` mode and run w/ `webpack-dev-server` locally
 
 (w/o minified files, with source-map, watching of file changes)
 
 ```bash
-npm start # alias of `npm run server:dev`
+yarn start # alias of `yarn server:dev`
 ```
 
-#### 3.2. Build in `production` mode
+#### OR build in `production` mode and run w/ `webpack-dev-server` locally
 
 (w/ minified files)
 
 ```bash
-npm run server:prod
+yarn server:prod
 ```
 
-#### 4. Run in browser
+#### 5. Run in browser
 
 Open http://localhost:3100/
 
+
+## Build for deployment (`production` mode)
+
+```bash
+yarn build:prod
+```
 
 ## Mocking socket data
 
 ```bash
 cd ./frontend/debug/socket
-npm install
-npm start
+yarn install
+yarn start
 ```
 
 ## How to provide live data locally?
@@ -272,5 +278,5 @@ All PureScript test files are suffixed with `*.Test.purs` and located side by si
 To start test run:
 
 ```bash
-npm test
+yarn test
 ```

@@ -314,9 +314,13 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
 ----------------------------------------------------------------------------
 
 nodeStartMsg :: WithLogger m => BaseParams -> m ()
-nodeStartMsg BaseParams {..} = logInfo msg
+nodeStartMsg BaseParams {..} = do
+    logInfo msg1
+    logInfo msg2
   where
-    msg = sformat ("Started node, joining to DHT network " %build) bpDHTPeers
+    msg1 = sformat ("Application: " %build% ", last known block version " %build)
+                   Const.curSoftwareVersion Const.lastKnownBlockVersion
+    msg2 = sformat ("Started node, joining to DHT network " %build) bpDHTPeers
 
 getRealLoggerConfig :: MonadIO m => LoggingParams -> m LoggerConfig
 getRealLoggerConfig LoggingParams{..} = do

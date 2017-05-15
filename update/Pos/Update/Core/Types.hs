@@ -17,8 +17,6 @@ module Pos.Update.Core.Types
        , mkUpdateProposalWSign
        , mkSystemTag
        , systemTagMaxLength
-       , patakUpdateData
-       , skovorodaUpdateData
        , upScriptVersion
        , upSlotDuration
        , upMaxBlockSize
@@ -72,7 +70,7 @@ import           Pos.Core                   (BlockVersion, BlockVersionData (..)
 import           Pos.Crypto                 (Hash, PublicKey, SafeSigner,
                                              SignTag (SignUSProposal), Signature,
                                              checkSig, hash, safeSign, safeToPublic,
-                                             shortHashF, unsafeHash)
+                                             shortHashF)
 import           Pos.Data.Attributes        (Attributes)
 import           Pos.Util.Util              (Some)
 
@@ -235,17 +233,6 @@ data UpdateData = UpdateData
     -- (maybe). Anyway, we can always use `unsafeHash`.
     } deriving (Eq, Show, Generic, Typeable)
 
-
-patakUpdateData :: HM.HashMap SystemTag UpdateData
-patakUpdateData =
-    let b = "linux64"
-        h = unsafeHash b
-    in  HM.fromList [(SystemTag b, UpdateData h h h h)]
-
-skovorodaUpdateData :: Hash Raw -> HM.HashMap SystemTag UpdateData
-skovorodaUpdateData h =
-    let b = "linux64"
-    in  HM.fromList [(SystemTag b, UpdateData h h h h)]
 
 instance NFData SystemTag
 instance NFData UpdateProposal

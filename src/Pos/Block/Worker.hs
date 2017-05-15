@@ -7,9 +7,6 @@
 module Pos.Block.Worker
        ( blkOnNewSlot
        , blkWorkers
-#if defined(WITH_WALLET)
-       , queryBlocksWorker
-#endif
        ) where
 
 import           Control.Lens                (ix)

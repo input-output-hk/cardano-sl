@@ -31,7 +31,7 @@ import           Pos.Update.Poll.Logic.Apply (verifyAndApplyProposal,
 import           Pos.Update.Poll.Types       (DecidedProposalState (..),
                                               ProposalState (..),
                                               UndecidedProposalState (..))
-import           Pos.Util                    (getKeys)
+import           Pos.Util                    (getKeys, sortWithMDesc)
 
 -- | Normalize given proposals and votes with respect to current Poll
 -- state, i. e. apply all valid data and discard invalid data.  This
@@ -57,7 +57,7 @@ refreshPoll
     -> LocalVotes
     -> m (UpdateProposals, LocalVotes)
 refreshPoll slot proposals votes = do
-    proposalsSorted <- sortWithM evaluatePropStake $ toList proposals
+    proposalsSorted <- sortWithMDesc evaluatePropStake $ toList proposals
     -- When mempool is exhausted we leave only half of all proposals we have.
     -- We take proposals which have the greatest stake voted for it.
     let bestProposalsNum = length proposals `div` 2
@@ -75,7 +75,7 @@ refreshPoll slot proposals votes = do
             filter (not . flip HS.member bestProposalsSet . fst) $
             HM.toList votes
     -- Again, we sort them by stake and take those having the greatest stake.
-    otherVotesSorted <- sortWithM evaluateVoteStake otherVotes
+    otherVotesSorted <- sortWithMDesc evaluateVoteStake otherVotes
     let otherVotesNum = length otherVotes `div` 2
     let bestVotes =
             votesForBest <> groupVotes (take otherVotesNum otherVotesSorted)
@@ -99,11 +99,6 @@ refreshPoll slot proposals votes = do
     groupVotesStep :: LocalVotes -> UpdateVote -> LocalVotes
     groupVotesStep curVotes uv@UpdateVote {..} =
         curVotes & at uvProposalId . non mempty . at uvKey .~ Just uv
-
-sortWithM :: (Monad m, Ord b) => (a -> m b) -> [a] -> m [a]
-sortWithM f = fmap (map fst . sortWith (Down . snd)) . mapM f'
-  where
-    f' x = (x, ) <$> f x
 
 -- Apply proposals which can be applied and put them in result.
 -- Disregard other proposals.

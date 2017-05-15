@@ -36,6 +36,7 @@ spec = describe "GodTossing" $ do
         binaryTest @(R.MempoolMsg GT.GtTag)
         binaryTest @(R.DataMsg GT.GtMsgContents)
         binaryTest @GT.GtSecretStorage
+        binaryTest @GT.TossModifier
     describe "Message length limit" $ do
         -- TODO: move somewhere
         msgLenLimitedTest @PublicKey

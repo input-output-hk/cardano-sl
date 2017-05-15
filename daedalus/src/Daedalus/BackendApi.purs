@@ -1,6 +1,7 @@
 module Daedalus.BackendApi where
 
 import Prelude
+import Control.Monad.Eff (Eff)
 import Control.Monad.Aff (Aff, makeAff)
 import Control.Monad.Eff.Exception (error, Error, throwException)
 import Control.Monad.Eff.Exception (EXCEPTION)
@@ -14,25 +15,23 @@ import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Bifunctor (bimap, lmap)
 import Data.Either (either, Either(Left))
 import Data.Generic (class Generic, gShow)
-import Data.HTTP.Method (Method(POST, PUT, DELETE))
+import Data.HTTP.Method (Method(GET, POST, PUT, DELETE))
 import Data.Maybe (Maybe(Just))
 import Data.MediaType.Common (applicationJSON)
 import Data.String (joinWith)
-import Data.Tuple (Tuple)
-import Network.HTTP.Affjax (AffjaxResponse, affjax, defaultRequest, AJAX, URL, AffjaxRequest)
-import Network.HTTP.Affjax.Request (class Requestable)
-import Network.HTTP.RequestHeader (RequestHeader(ContentType))
-import Network.HTTP.StatusCode (StatusCode(..))
+import Data.Tuple (Tuple (..))
+import Data.StrMap (fromFoldable)
 import Daedalus.TLS (TLSOptions)
-import Node.HTTP.Client (method, path, request, statusCode, statusMessage, Response, responseAsStream)
+import Node.HTTP.Client (method, path, request, statusCode, statusMessage, Response, responseAsStream, headers, RequestHeaders (..), Request, requestAsStream)
 import Data.Options ((:=))
 import Node.Encoding (Encoding (UTF8))
-import Node.Stream (onDataString)
+import Node.Stream (onDataString, writeString, end)
 import Node.HTTP (HTTP)
 
 -- HELPERS
 
 type URLPath = Array String
+type URL = String
 
 mkUrl :: URLPath -> URL
 mkUrl = joinWith "/"
@@ -64,10 +63,10 @@ decodeResult = either (Left <<< mkJSONError) (lmap mkServerError) <<< decodeJson
     mkJSONError = error <<< show <<< JSONDecodingError
     mkServerError = error <<< show <<< ServerError
 
-makeRequest :: forall eff a r. (Generic a) => TLSOptions -> URLPath -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
-makeRequest tls urlPath = do
+makeRequest :: forall eff a. (Generic a) => (Request -> Eff (http :: HTTP, err :: EXCEPTION | eff) Unit) -> TLSOptions -> URLPath -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
+makeRequest withReq tls urlPath = do
     -- FIXME: exceptin shouldn't happen here?
-    res <- makeAff $ const $ void <<< request (tls <> path := backendApi urlPath)
+    res <- makeAff $ const $ withReq <=< request (tls <> path := backendApi urlPath)
     when (isHttpError res) $
         throwError <<< error <<< show $ HTTPStatusError res
     rawData <- makeAff $ const $ onDataString (responseAsStream res) UTF8
@@ -75,29 +74,34 @@ makeRequest tls urlPath = do
   where
     isHttpError res = statusCode res >= 400
 
-getR :: forall eff a. Generic a => TLSOptions -> URLPath -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
-getR tls = makeRequest $ tls <> method := "GET" -- use Data.HTTP.Method
+plainRequest :: forall eff a r. (Generic a) => TLSOptions -> URLPath -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
+plainRequest = makeRequest $ void <<< pure
 
--- postR :: forall eff a. Generic a => URLPath -> Aff (ajax :: AJAX | eff) a
--- postR = makeRequest $ defaultRequest { method = Left POST }
---
--- postRBody :: forall eff a b. (Generic a, Generic b) => URLPath -> b -> Aff (ajax :: AJAX | eff) a
--- postRBody urlPath content = flip makeRequest urlPath $
---     defaultRequest { method = Left POST
---                    , content = Just <<< show $ encodeJson content
---                    , headers = [ContentType applicationJSON]
---                    }
---
--- putRBody :: forall eff a b. (Generic a, Generic b) => URLPath -> b -> Aff (ajax :: AJAX | eff) a
--- putRBody urlPath content = flip makeRequest urlPath $
---     defaultRequest { method = Left PUT
---                    , content = Just <<< show $ encodeJson content
---                    , headers = [ContentType applicationJSON]
---                    }
---
--- deleteR :: forall eff a. Generic a => URLPath -> Aff (ajax :: AJAX | eff) a
--- deleteR = makeRequest $ defaultRequest { method = Left DELETE }
---
+bodyRequest :: forall eff a b. (Generic a, Generic b) => TLSOptions -> URLPath -> b -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
+bodyRequest tls urlPath body = makeRequest flushBody (tls <> headers := reqHeaders) urlPath
+  where
+    flushBody req = do
+        let writeStream = requestAsStream req
+        writeString writeStream UTF8 (show $ encodeJson body) $ pure unit
+        end writeStream $ pure unit
+    -- TODO: use Data.MediaType.Common here
+    reqHeaders = RequestHeaders $ fromFoldable [Tuple "Content-Type" "application/json"]
+
+getR :: forall eff a. Generic a => TLSOptions -> URLPath -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
+getR tls = plainRequest $ tls <> method := (show GET)
+
+postR :: forall eff a. Generic a => TLSOptions -> URLPath -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
+postR tls = plainRequest $ tls <> method := (show POST)
+
+postRBody :: forall eff a b. (Generic a, Generic b) => TLSOptions -> URLPath -> b -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
+postRBody tls urlPath = flip bodyRequest urlPath $ tls <> method  := (show POST)
+
+putRBody :: forall eff a b. (Generic a, Generic b) => TLSOptions -> URLPath -> b -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
+putRBody tls urlPath = flip bodyRequest urlPath $ tls <> method  := (show PUT)
+
+deleteR :: forall eff a. Generic a => TLSOptions -> URLPath -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
+deleteR tls = plainRequest $ tls <> method := (show DELETE)
+
 -- -- REQUESTS
 -- --------------------------------------------------------------------------------
 -- -- TEST ------------------------------------------------------------------------

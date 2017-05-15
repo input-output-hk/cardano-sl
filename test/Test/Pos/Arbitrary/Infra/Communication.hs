@@ -24,7 +24,6 @@ instance (Arbitrary key, Arbitrary tag) => Arbitrary (InvMsg key tag) where
 instance Arbitrary HandlerSpec where
     arbitrary = oneof
         [ ConvHandler <$> arbitrary
-        , pure OneMsgHandler
         , UnknownHandler <$> choose (128, 255) <*> arbitrary
         ]
 

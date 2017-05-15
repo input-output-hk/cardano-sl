@@ -16,8 +16,7 @@ import qualified STMContainers.Map           as SM
 import           System.Wlog                 (logDebug, logInfo, usingLoggerName)
 
 import           Pos.Communication           (ActionSpec (..), ListenersWithOut, NodeId,
-                                              OutSpecs, PeerId, WorkerSpec,
-                                              allStubListeners)
+                                              OutSpecs, WorkerSpec, allStubListeners)
 import           Pos.Communication.PeerState (PeerStateTag, runPeerStateRedirect)
 import           Pos.Discovery               (findPeers, runDiscoveryConstT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
@@ -50,24 +49,22 @@ allWorkers = ([], mempty)
 
 -- | WalletMode runner
 runWalletStaticPeersMode
-    :: PeerId
-    -> Transport WalletStaticPeersMode
+    :: Transport WalletStaticPeersMode
     -> Set NodeId
     -> WalletParams
     -> (ActionSpec WalletStaticPeersMode a, OutSpecs)
     -> Production a
-runWalletStaticPeersMode peerId transport peers wp@WalletParams {..} =
-    runRawStaticPeersWallet peerId transport peers wp allListeners
+runWalletStaticPeersMode transport peers wp@WalletParams {..} =
+    runRawStaticPeersWallet transport peers wp allListeners
 
 runWalletStaticPeers
-    :: PeerId
-    -> Transport WalletStaticPeersMode
+    :: Transport WalletStaticPeersMode
     -> Set NodeId
     -> WalletParams
     -> ([WorkerSpec WalletStaticPeersMode], OutSpecs)
     -> Production ()
-runWalletStaticPeers peerId transport peers wp =
-    runWalletStaticPeersMode peerId transport peers wp . runWallet
+runWalletStaticPeers transport peers wp =
+    runWalletStaticPeersMode transport peers wp . runWallet
 
 runWallet
     :: WalletMode ssc m
@@ -86,14 +83,13 @@ runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
     outs = wouts <> pouts
 
 runRawStaticPeersWallet
-    :: PeerId
-    -> Transport WalletStaticPeersMode
+    :: Transport WalletStaticPeersMode
     -> Set NodeId
     -> WalletParams
     -> ListenersWithOut WalletStaticPeersMode
     -> (ActionSpec WalletStaticPeersMode a, OutSpecs)
     -> Production a
-runRawStaticPeersWallet peerId transport peers WalletParams {..}
+runRawStaticPeersWallet transport peers WalletParams {..}
                         listeners (ActionSpec action, outs) =
     usingLoggerName lpRunnerTag . bracket openDB closeDB $ \db -> do
         stateM <- liftIO SM.newIO
@@ -110,7 +106,7 @@ runRawStaticPeersWallet peerId transport peers WalletParams {..}
             runUpdatesNotImplemented .
             runBlockchainInfoNotImplemented .
             runDiscoveryConstT peers .
-            runServer_ peerId transport listeners outs . ActionSpec $ \vI sa ->
+            runServer_ transport listeners outs . ActionSpec $ \vI sa ->
             logInfo "Started wallet, joining network" >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams wpBaseParams

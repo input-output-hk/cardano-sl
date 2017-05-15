@@ -1,8 +1,7 @@
 -- | Communication-specific utility functions.
 
 module Pos.Communication.Util
-       ( stubListenerOneMsg
-       , stubListenerConv
+       ( stubListenerConv
        , wrapListener
        , wrapActionSpec
        , wrapSendActions
@@ -25,24 +24,9 @@ import           Pos.Communication.Constants (networkReceiveTimeout)
 import           Pos.Communication.Protocol  (ActionSpec (..), HandlerSpec (..), Listener,
                                               ListenerSpec (..), Message (..),
                                               MessageName (..), OutSpecs, PeerData,
-                                              mapActionSpec, mapListener, mapListener',
-                                              messageName')
+                                              mapActionSpec, mapListener, mapListener')
 import           Pos.Util.TimeLimit          (CanLogInParallel, execWithTimeLimit,
                                               logWarningWaitLinear)
-
-stubListenerOneMsg
-    :: (WithLogger m, Message r, Bi r)
-    => Proxy r -> (ListenerSpec m, OutSpecs)
-stubListenerOneMsg p = (ListenerSpec listener (rcvName, OneMsgHandler), mempty)
-  where
-    rcvName = messageName p
-    listener _ = N.ListenerActionOneMsg $
-      \_d __nId __sA m ->
-        let _ = m `asProxyTypeOf` p
-         in modifyLoggerName (<> "stub") $
-              logDebug $ sformat
-                  ("Stub listener (one msg) for "%build%": received message")
-                  rcvName
 
 stubListenerConv
     :: (WithLogger m, Message snd, Message rcv, Bi rcv, Bi snd)
@@ -70,15 +54,13 @@ sendActionsWithWaitLog :: ( CanLogInParallel m )
             => N.SendActions BiP PeerData m
             -> N.SendActions BiP PeerData m
 sendActionsWithWaitLog sendActions = sendActions
-    { N.sendTo = \nodeId msg ->
-                  let MessageName mName = messageName' msg
-                   in logWarningWaitLinear 4
-                        (sformat ("Send "%base16F%" to "%shown) mName nodeId) $
-                          N.sendTo sendActions nodeId msg
-    , N.withConnectionTo =
-        \nodeId action ->
+    { N.withConnectionTo =
+        \nodeId mkConv ->
           N.withConnectionTo sendActions nodeId $ \peerData ->
-              action peerData . convWithWaitLog nodeId
+              case mkConv peerData of
+                  N.Conversation l ->
+                      N.Conversation $ \cA ->
+                          l $ convWithWaitLog nodeId cA
     }
 
 convWithWaitLog
@@ -147,14 +129,13 @@ sendActionsWithTimeLimit
     -> N.SendActions BiP PeerData m
     -> N.SendActions BiP PeerData m
 sendActionsWithTimeLimit timeout sendActions = sendActions
-    { N.withConnectionTo = \nodeId action ->
-        N.withConnectionTo sendActions nodeId $ \peerData ->
-            action peerData . convWithTimeLimit timeout nodeId
-    , N.sendTo = \nodeId msg -> do
-                    res <- execWithTimeLimit timeout $ N.sendTo sendActions nodeId msg
-                    whenNothing res . logWarning $
-                        sformat ("Send to "%shown%" (one msg) - timeout expired")
-                            nodeId
+    { N.withConnectionTo =
+        \nodeId mkConv ->
+          N.withConnectionTo sendActions nodeId $ \peerData ->
+              case mkConv peerData of
+                  N.Conversation l ->
+                      N.Conversation $ \cA ->
+                          l $ convWithTimeLimit timeout nodeId cA
     }
 
 wrapListener

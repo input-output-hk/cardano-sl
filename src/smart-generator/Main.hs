@@ -20,7 +20,7 @@ import           System.Wlog                (logInfo)
 import           Test.QuickCheck            (arbitrary, generate)
 
 import qualified Pos.CLI                    as CLI
-import           Pos.Communication          (ActionSpec (..), NodeId, PeerId, SendActions,
+import           Pos.Communication          (ActionSpec (..), NodeId, SendActions,
                                              convertSendActions, sendTxOuts, submitTxRaw,
                                              wrapSendActions)
 import           Pos.Constants              (genesisN, genesisSlotDuration,
@@ -93,15 +93,14 @@ getPeersShare share = do
 runSmartGen
     :: forall ssc.
        SscConstraint ssc
-    => PeerId
-    -> Transport (StaticMode ssc)
+    => Transport (StaticMode ssc)
     -> (Set NodeId)
     -> NodeParams
     -> SscParams ssc
     -> GenOptions
     -> Production ()
-runSmartGen peerId transport peers np@NodeParams{..} sscnp opts@GenOptions{..} =
-  runStaticMode peerId transport peers np sscnp $ (,sendTxOuts <> wOuts) . ActionSpec $ \vI sendActions -> do
+runSmartGen transport peers np@NodeParams{..} sscnp opts@GenOptions{..} =
+  runStaticMode transport peers np sscnp $ (,sendTxOuts <> wOuts) . ActionSpec $ \vI sendActions -> do
     initLrc
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         initTx = initTransaction opts
@@ -265,7 +264,6 @@ main = do
                 (powerLift :: forall t . Production t -> StaticMode ssc t)
                 transport
 
-        let peerId = CLI.peerId goCommonArgs
         let systemStart = CLI.sysStart goCommonArgs
 
         let params =
@@ -303,7 +301,7 @@ main = do
         case CLI.sscAlgo goCommonArgs of
             GodTossingAlgo -> do
                 putText "Using MPC coin tossing"
-                runSmartGen @SscGodTossing peerId transport' peerSet params gtParams opts
+                runSmartGen @SscGodTossing transport' peerSet params gtParams opts
             NistBeaconAlgo -> do
                 putText "Using NIST beacon"
-                runSmartGen @SscNistBeacon peerId transport' peerSet params () opts
+                runSmartGen @SscNistBeacon transport' peerSet params () opts

@@ -19,8 +19,8 @@ import           Mockable            (delay, throw)
 import           Serokell.Util       (listJson)
 import           System.Wlog         (logDebug, logInfo, logWarning)
 
-import           Pos.Communication   (ConversationActions (..), InvMsg (..), InvOrData,
-                                      MempoolMsg (..), NodeId,
+import           Pos.Communication   (Conversation (..), ConversationActions (..),
+                                      InvMsg (..), InvOrData, MempoolMsg (..), NodeId,
                                       RelayError (UnexpectedData), RelayProxy (..),
                                       ReqMsg (..), SendActions, SmartLimit, TxMsgContents,
                                       TxMsgTag (..), convH, expectData, handleDataL,
@@ -102,16 +102,16 @@ getTxMempoolInvs
 getTxMempoolInvs sendActions node = do
     logInfo ("Querying tx mempool from node " <> show node)
     reifyMsgLimit (Proxy @(InvOrData TxMsgTag TxId TxMsgContents)) $
-      \(_ :: Proxy s) -> withConnectionTo sendActions node $ \_
-        (ConversationActions{..}::(ConversationActions
+      \(_ :: Proxy s) -> withConnectionTo sendActions node $ \_ -> pure $ Conversation $
+        \(conv :: (ConversationActions
                                   (MempoolMsg TxMsgTag)
                                   (SmartLimit s (InvOrData TxMsgTag TxId TxMsgContents))
                                   m)
         ) -> do
             let txProxy = RelayProxy :: RelayProxy TxId TxMsgTag TxMsgContents
-            send $ MempoolMsg TxMsgTag
+            send conv $ MempoolMsg TxMsgTag
             let getInvs = do
-                  inv' <- recv
+                  inv' <- recv conv
                   case withLimitedLength <$> inv' of
                       Nothing -> return []
                       Just (Right _) -> throw UnexpectedData
@@ -134,8 +134,8 @@ requestTxs sendActions node txIds = do
         ("First 5 (or less) transactions: "%listJson)
         (take 5 txIds)
     reifyMsgLimit (Proxy @(InvOrData TxMsgTag TxId TxMsgContents)) $
-      \(_ :: Proxy s) -> withConnectionTo sendActions node $ \_
-        (ConversationActions{..}::(ConversationActions
+      \(_ :: Proxy s) -> withConnectionTo sendActions node $ \_ -> pure $ Conversation $
+        \(conv :: (ConversationActions
                                   (ReqMsg TxId TxMsgTag)
                                   (SmartLimit s (InvOrData TxMsgTag TxId TxMsgContents))
                                   m)
@@ -143,8 +143,8 @@ requestTxs sendActions node txIds = do
             let txProxy = RelayProxy :: RelayProxy TxId TxMsgTag TxMsgContents
             let getTx id = do
                     logDebug $ sformat ("Requesting transaction "%build) id
-                    send $ ReqMsg TxMsgTag id
-                    dt' <- recv
+                    send conv $ ReqMsg TxMsgTag id
+                    dt' <- recv conv
                     case withLimitedLength <$> dt' of
                         Nothing -> error "didn't get an answer to Req"
                         Just x  -> expectData (handleDataL txProxy) x

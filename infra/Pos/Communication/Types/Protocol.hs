@@ -1,3 +1,4 @@
+{-# LANGUAGE GADTs      #-}
 {-# LANGUAGE RankNTypes #-}
 
 -- | Protocol/versioning related communication types.
@@ -11,33 +12,27 @@ module Pos.Communication.Types.Protocol
        , ListenerSpec (..)
        , InSpecs (..)
        , OutSpecs (..)
-       , PeerId (..)
        , Listener
        , Worker
        , Action
-       , NodeId (..)
        , SendActions (..)
-       , ConversationActions (..)
+       , N.ConversationActions (..)
+       , Conversation (..)
        , Action'
        , Worker'
        , NSendActions
        , PeerData
        , mergeLs
        , toOutSpecs
-       , oneMsgH
        , convH
        , ListenersWithOut
        , WorkerSpec
        , ActionSpec (..)
-       , peerIdParser
-       , nodeIdParser
+       , N.NodeId
        ) where
 
-import qualified Control.Monad         as Monad (fail)
-import           Data.Hashable         (Hashable)
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.Text.Buildable   as B
-import qualified Data.ByteString       as BS (length)
 import           Formatting            (bprint, build, hex, int, sformat, stext, (%))
 import qualified Node                  as N
 import           Node.Message          (Message (..), MessageName (..))
@@ -48,12 +43,9 @@ import           Universum
 import           Pos.Binary.Class      (Bi)
 import           Pos.Communication.BiP (BiP)
 import           Pos.Core.Types        (BlockVersion)
-import           Pos.Util.TimeWarp     (addrParser, addressToNodeId, nodeIdToAddress)
-import qualified Serokell.Util.Parse   as P
-import qualified Text.Parsec           as P
-import qualified Text.Parsec.String    as P
+import           Pos.Util.TimeWarp     (nodeIdToAddress)
 
-type PeerData = (PeerId, VerInfo)
+type PeerData = VerInfo
 
 type Listener = N.Listener BiP PeerData
 type Worker m = Action m ()
@@ -64,64 +56,37 @@ type NSendActions = N.SendActions BiP PeerData
 newtype ActionSpec m a = ActionSpec (VerInfo -> Action m a)
 type WorkerSpec m = ActionSpec m ()
 
-newtype NodeId = NodeId (PeerId, N.NodeId)
-  deriving (Show, Eq, Ord, Hashable)
-
--- TODO Implement Buildable N.NodeId and get rid of this ugly shit
-instance Buildable NodeId where
-    build (NodeId (peerId, nNodeId)) =
-        let addr = maybe "<unknown host:port>" (uncurry $ sformat (stext%":"%int)) $
+-- TODO move to time-warp-nt
+instance Buildable N.NodeId where
+    build nNodeId =
+        maybe "<unknown host:port>" (uncurry $ bprint (stext%":"%int)) $
                    first decodeUtf8 <$>
                    nodeIdToAddress nNodeId
-        in bprint (stext%"/"%build) addr peerId
 
 data SendActions m = SendActions {
-       -- | Send a isolated (sessionless) message to a node
-       sendTo :: forall msg .
-              ( Bi msg, Message msg )
-              => NodeId
-              -> msg
-              -> m (),
-
        -- | Establish a bi-direction conversation session with a node.
        withConnectionTo
-           :: forall snd rcv t .
-            ( Bi snd, Message snd, Bi rcv, Message rcv )
-           => NodeId
-           -> (m PeerData -> ConversationActions snd rcv m -> m t)
+           :: forall t .
+              N.NodeId
+           -> (PeerData -> NonEmpty (Conversation m t))
            -> m t
 }
 
-data ConversationActions body rcv m = ConversationActions {
-       -- | Send a message within the context of this conversation
-       send :: body -> m ()
-
-       -- | Receive a message within the context of this conversation.
-       --   'Nothing' means end of input (peer ended conversation).
-     , recv :: m (Maybe rcv)
-}
-
-newtype PeerId = PeerId ByteString
-  deriving (Eq, Ord, Show, Generic, Hashable)
-
-instance Buildable PeerId where
-    build (PeerId bs) = bprint base16F bs
+data Conversation m t where
+    Conversation
+        :: ( Bi snd, Message snd, Bi rcv, Message rcv )
+        => (N.ConversationActions snd rcv m -> m t)
+        -> Conversation m t
 
 data HandlerSpec
     = ConvHandler { hsReplyType :: MessageName}
-    | OneMsgHandler
     | UnknownHandler Word8 ByteString
     deriving (Show, Generic, Eq)
 
 convH :: (Message snd, Message rcv) => Proxy snd -> Proxy rcv -> (MessageName, HandlerSpec)
 convH pSnd pReply = (messageName pSnd, ConvHandler $ messageName pReply)
 
-oneMsgH :: Message snd => Proxy snd -> (MessageName, HandlerSpec)
-oneMsgH pSnd = (messageName pSnd, OneMsgHandler)
-
 instance Buildable HandlerSpec where
-    build OneMsgHandler =
-        "OneMsg"
     build (ConvHandler (MessageName replyType)) =
         bprint ("Conv "%base16F) replyType
     build (UnknownHandler htype hcontent) =
@@ -199,23 +164,3 @@ toOutSpecs :: [(MessageName, HandlerSpec)] -> OutSpecs
 toOutSpecs = OutSpecs . HM.fromList
 
 type ListenersWithOut m = ([ListenerSpec m], OutSpecs)
-
-----------
--- Parsers
-----------
-
--- | Parser for PeerId. Any base64 string.
-peerIdParser :: P.Parser PeerId
-peerIdParser = do
-    bytes <- P.base64Url
-    when (BS.length bytes /= 14) $ Monad.fail "PeerId must be exactly 14 bytes"
-    return $ PeerId bytes
-
--- | Parser for NodeId
---   host:port/peerId
-nodeIdParser :: P.Parser NodeId
-nodeIdParser = do
-    addr <- addrParser
-    _ <- P.char '/'
-    peerId <- peerIdParser
-    return $ NodeId (peerId, addressToNodeId addr)

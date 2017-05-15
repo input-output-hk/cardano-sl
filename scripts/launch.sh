@@ -48,10 +48,6 @@ while [[ $i -lt $panesCnt ]]; do
   im=$((i%4))
   ir=$((i/4))
 
-  # Make up a random 14-byte peer id and base64-encode it.
-  # Then use sed to make it base64url
-  peer_id=`cat /dev/urandom | head -c 14 | base64 | sed 's/\//_/g' | sed 's/\+/-/g'`
-
   if [[ $im == 0 ]]; then
     tmux new-window -n "demo-"`date +%H%M%S`-"$ir"
     tmux split-window -h
@@ -60,7 +56,7 @@ while [[ $i -lt $panesCnt ]]; do
     tmux split-window -v
   fi
 
-  echo "Launching node $i in tab $im of window $ir with peer id $peer_id"
+  echo "Launching node $i in tab $im of window $ir"
   tmux select-pane -t $im
 
   if [[ "$mode" == "no_dht" ]]; then
@@ -87,7 +83,7 @@ while [[ $i -lt $panesCnt ]]; do
   fi
 
   if [[ $i -lt $n ]]; then
-    tmux send-keys "$(node_cmd $i "$dht_conf" "$stats" "$stake_distr" "$wallet_args" "$kademlia_dump_path" "$system_start" "$peer_id")" C-m
+    tmux send-keys "$(node_cmd $i "$dht_conf" "$stats" "$stake_distr" "$wallet_args" "$kademlia_dump_path" "$system_start")" C-m
   else
     tmux send-keys "NODE_COUNT=$n $base/bench/runSmartGen.sh 0 -R 1 -N 2 -t $TPS -S 3 --init-money 100000 --recipients-share 0" C-m
   fi

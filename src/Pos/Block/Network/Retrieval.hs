@@ -31,9 +31,9 @@ import           Pos.Block.Network.Logic    (handleBlocks, mkBlocksRequest,
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
                                              MsgHeaders (..))
 import           Pos.Communication.Limits   (LimitedLength, recvLimited, reifyMsgLimit)
-import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs,
-                                             SendActions (..), WorkerSpec, convH,
-                                             toOutSpecs, worker)
+import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
+                                             NodeId, OutSpecs, SendActions (..),
+                                             WorkerSpec, convH, toOutSpecs, worker)
 import           Pos.Context                (BlockRetrievalQueueTag, ProgressHeaderTag,
                                              RecoveryHeaderTag)
 import           Pos.Crypto                 (shortHashF)
@@ -137,7 +137,7 @@ retrievalWorkerImpl sendActions =
             handleAll (handleHeadersRecoveryE peerId) $
             reportingFatal version $
             reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
-            withConnectionTo sendActions peerId $ \_peerData ->
+            withConnectionTo sendActions peerId $ \_ -> pure $ Conversation $
                 requestHeaders mghNext peerId (Just rHeader) limPx
     handleHeadersRecoveryE peerId e = do
         logWarning $ sformat
@@ -249,8 +249,9 @@ handleCHsValid sendActions peerId lcaChild newestHash = do
     logDebug $ sformat validFormat lcaChildHash newestHash
     reifyMsgLimit (Proxy @(MsgBlock ssc)) $ \(_ :: Proxy s0) ->
       withConnectionTo sendActions peerId $
-      \_peerData (conv :: ConversationActions MsgGetBlocks
-            (LimitedLength s0 (MsgBlock ssc)) m) -> do
+      \_ -> pure $ Conversation $
+          \(conv :: ConversationActions MsgGetBlocks
+             (LimitedLength s0 (MsgBlock ssc)) m) -> do
         send conv $ mkBlocksRequest lcaChildHash newestHash
         chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
         recHeaderVar <- Ether.ask @RecoveryHeaderTag

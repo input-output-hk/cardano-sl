@@ -148,7 +148,6 @@ action kademliaInst args@Args {..} transport = do
                                      , convPlugins currentPluginsGT
                                      , walletStats args]
             runNodeStats @SscGodTossing
-                (CLI.peerId commonArgs)
                 (hoistTransport (lift . lift) transport)
                 kademliaInst
                 allPlugins
@@ -159,7 +158,6 @@ action kademliaInst args@Args {..} transport = do
                                      , convPlugins currentPlugins
                                      , walletStats args ]
             runNodeStats @SscNistBeacon
-                (CLI.peerId commonArgs)
                 (hoistTransport (lift . lift) transport)
                 kademliaInst
                 allPlugins
@@ -170,7 +168,6 @@ action kademliaInst args@Args {..} transport = do
                                      , convPlugins currentPluginsGT
                                      , walletProd args ]
             runNodeProduction @SscGodTossing
-                (CLI.peerId commonArgs)
                 (hoistTransport (lift . lift) transport)
                 kademliaInst
                 allPlugins
@@ -181,7 +178,6 @@ action kademliaInst args@Args {..} transport = do
                                      , convPlugins currentPlugins
                                      , walletProd args ]
             runNodeProduction @SscNistBeacon
-                (CLI.peerId commonArgs)
                 (hoistTransport (lift . lift) transport)
                 kademliaInst
                 allPlugins

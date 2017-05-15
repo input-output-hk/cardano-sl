@@ -300,7 +300,6 @@ main = do
                 (powerLift :: forall t . Production t -> WalletStaticPeersMode t)
                 transport
 
-        let peerId = CLI.peerId woCommonArgs
         let sysStart = CLI.sysStart woCommonArgs
 
         let params =
@@ -338,6 +337,6 @@ main = do
             GodTossingAlgo -> do
                 logInfo "Using MPC coin tossing"
                 liftIO $ hFlush stdout
-                runWalletStaticPeers peerId transport' (S.fromList allPeers) params plugins
+                runWalletStaticPeers transport' (S.fromList allPeers) params plugins
             NistBeaconAlgo ->
                 logError "Wallet does not support NIST beacon!"

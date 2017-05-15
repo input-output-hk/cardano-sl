@@ -49,8 +49,9 @@ import           Pos.Block.Network.Types    (MsgGetBlocks (..), MsgGetHeaders (.
 import           Pos.Block.Pure             (verifyHeaders)
 import           Pos.Block.Types            (Blund)
 import           Pos.Communication.Limits   (LimitedLength, recvLimited, reifyMsgLimit)
-import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs,
-                                             SendActions (..), convH, toOutSpecs)
+import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
+                                             NodeId, OutSpecs, SendActions (..), convH,
+                                             toOutSpecs)
 import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHeaderTag,
                                              RecoveryHeaderTag, recoveryInProgress)
 import           Pos.Crypto                 (shortHashF)
@@ -108,7 +109,7 @@ triggerRecovery :: forall ssc m.
 triggerRecovery sendActions = unlessM recoveryInProgress $ do
     logDebug "Recovery started, requesting tips from neighbors"
     reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limitProxy -> do
-        converseToNeighbors sendActions (requestTip limitProxy) `catch`
+        converseToNeighbors sendActions (pure . Conversation . requestTip limitProxy) `catch`
             \(e :: SomeException) -> do
                logDebug ("Error happened in triggerRecovery: " <> show e)
                throwM e

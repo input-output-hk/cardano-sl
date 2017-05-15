@@ -11,7 +11,6 @@ module Pos.Launcher.Launcher
 import           Mockable                   (Production)
 import           Network.Transport.Abstract (Transport)
 
-import           Pos.Communication          (PeerId)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec)
 import           Pos.DHT.Real               (KademliaDHTInstance)
 import           Pos.Launcher.Param         (NodeParams (..))
@@ -29,26 +28,24 @@ import           Pos.WorkMode               (ProductionMode, StatsMode)
 runNodeProduction
     :: forall ssc.
        SscConstraint ssc
-    => PeerId
-    -> Transport (ProductionMode ssc)
+    => Transport (ProductionMode ssc)
     -> KademliaDHTInstance
     -> ([WorkerSpec (ProductionMode ssc)], OutSpecs)
     -> NodeParams
     -> SscParams ssc
     -> Production ()
-runNodeProduction peerId transport kinst plugins np sscnp =
-    runProductionMode peerId transport kinst np sscnp (runNode @ssc plugins)
+runNodeProduction transport kinst plugins np sscnp =
+    runProductionMode transport kinst np sscnp (runNode @ssc plugins)
 
 -- | Run full node in benchmarking node
 runNodeStats
     :: forall ssc.
        SscConstraint ssc
-    => PeerId
-    -> Transport (StatsMode ssc)
+    => Transport (StatsMode ssc)
     -> KademliaDHTInstance
     -> ([WorkerSpec (StatsMode ssc)], OutSpecs)
     -> NodeParams
     -> SscParams ssc
     -> Production ()
-runNodeStats peerId transport kinst plugins np sscnp =
-    runStatsMode peerId transport kinst np sscnp (runNode @ssc plugins)
+runNodeStats transport kinst plugins np sscnp =
+    runStatsMode transport kinst np sscnp (runNode @ssc plugins)

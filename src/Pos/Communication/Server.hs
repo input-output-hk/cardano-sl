@@ -22,7 +22,7 @@ import           Pos.Ssc.Class               (SscHelpersClass (..),
 import           Pos.Txp                     (txListeners, txStubListeners)
 import           Pos.Update                  (usListeners, usStubListeners)
 import           Pos.Util                    (mconcatPair)
-import           Pos.WorkMode                (WorkMode)
+import           Pos.WorkMode.Class          (WorkMode)
 
 -- | All listeners running on one node.
 allListeners

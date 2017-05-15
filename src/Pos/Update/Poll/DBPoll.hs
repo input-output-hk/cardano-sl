@@ -7,22 +7,21 @@ module Pos.Update.Poll.DBPoll
        , runDBPoll
        ) where
 
-import           Control.Monad.Trans.Ether.Tagged (TaggedTrans (..))
-import           Control.Monad.Trans.Identity     (IdentityT (..))
-import           Data.Coerce                      (coerce)
-import qualified Data.HashMap.Strict              as HM
-import           Pos.Context                      (lrcActionOnEpochReason)
-import           System.Wlog                      (WithLogger)
+import           Control.Monad.Trans.Identity (IdentityT (..))
+import           Data.Coerce                  (coerce)
+import qualified Data.HashMap.Strict          as HM
+import qualified Ether
+import           Pos.Context                  (lrcActionOnEpochReason)
+import           System.Wlog                  (WithLogger)
 import           Universum
 
-import           Pos.DB.Class                     (MonadDB)
-import           Pos.Lrc.Context                  (LrcContext)
-import           Pos.Lrc.DB                       (getIssuersStakes, getRichmenUS)
-import           Pos.Lrc.Types                    (FullRichmenData)
-import           Pos.Types                        (Coin)
-import qualified Pos.Update.DB                    as GS
-import           Pos.Update.Poll.Class            (MonadPollRead (..))
-import           Pos.Util.Context                 (HasContext)
+import           Pos.DB.Class                 (MonadDB)
+import           Pos.Lrc.Context              (LrcContext)
+import           Pos.Lrc.DB                   (getIssuersStakes, getRichmenUS)
+import           Pos.Lrc.Types                (FullRichmenData)
+import           Pos.Types                    (Coin)
+import qualified Pos.Update.DB                as GS
+import           Pos.Update.Poll.Class        (MonadPollRead (..))
 
 ----------------------------------------------------------------------------
 -- Transformer
@@ -30,12 +29,12 @@ import           Pos.Util.Context                 (HasContext)
 
 data DBPollTag
 
-type DBPoll = TaggedTrans DBPollTag IdentityT
+type DBPoll = Ether.TaggedTrans DBPollTag IdentityT
 
 runDBPoll :: DBPoll m a -> m a
 runDBPoll = coerce
 
-instance (MonadDB m, WithLogger m, HasContext LrcContext m) =>
+instance (MonadDB m, WithLogger m, Ether.MonadReader' LrcContext m) =>
          MonadPollRead (DBPoll m) where
     getBVState = GS.getBVState
     getProposedBVs = GS.getProposedBVs

@@ -1,11 +1,6 @@
 {-# LANGUAGE CPP           #-}
 {-# LANGUAGE TypeOperators #-}
 
-{-| 'WorkMode' constraint. It is widely used in almost every our code.
-    Simple alias for bunch of useful constraints. This module also
-    contains new monads to extend functional capabilities inside do-block.
--}
-
 module Pos.WorkMode
        ( WorkMode
        , MinWorkMode
@@ -22,87 +17,33 @@ module Pos.WorkMode
        ) where
 
 
-import           Control.Monad.Catch         (MonadMask)
-import           Mockable                    (MonadMockable)
-import           Mockable.Production         (Production)
-import           System.Wlog                 (LoggerNameBox (..), WithLogger)
 import           Universum
 
-import           Pos.Block.BListener         (MonadBListener (..))
-import           Pos.Communication.PeerState (PeerStateHolder, WithPeerState)
-import           Pos.Communication.Relay     (MonadRelayMem)
-import           Pos.Context                 (ContextHolder, NodeParams, WithNodeContext)
-import           Pos.DB.Class                (MonadDB)
-import           Pos.DB.DB                   ()
-import           Pos.DB.Holder               (DBHolder)
-import           Pos.DB.Limits               (MonadDBLimits)
-import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.Delegation.Holder       (DelegationT)
-import           Pos.Discovery.Class         (MonadDiscovery)
-import           Pos.Discovery.Holders       (DiscoveryConstT, DiscoveryKademliaT)
-import           Pos.Lrc.Context             (LrcContext)
-#ifdef WITH_EXPLORER
-import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
-#endif
-import           Pos.Reporting               (MonadReportingMem)
-import           Pos.Shutdown                (MonadShutdownMem)
-import           Pos.Slotting.Class          (MonadSlots)
-import           Pos.Slotting.MemState       (SlottingHolder)
-import           Pos.Slotting.Ntp            (NtpSlotting)
-import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
-import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
-import           Pos.Ssc.Class.Storage       (SscGStateClass)
-import           Pos.Ssc.Extra               (MonadSscMem, SscHolder)
-import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
-import           Pos.Txp.MemState            (MonadTxpMem, TxpHolder)
-import           Pos.Update.Context          (UpdateContext)
-import           Pos.Update.Params           (UpdateParams)
-import           Pos.Util.Context            (HasContext)
-import           Pos.Util.JsonLog            (MonadJL (..))
+import           Data.Tagged                  (Tagged)
+import qualified Ether
+import           Mockable.Production          (Production)
+import           System.Wlog                  (LoggerNameBox (..))
 
--- Something extremely unpleasant.
--- TODO: get rid of it after CSL-777 is done.
-#ifdef WITH_EXPLORER
-type TxpExtra_TMP = ExplorerExtra
-#else
-type TxpExtra_TMP = ()
-#endif
+import           Pos.Block.BListener          (BListenerStub)
+import           Pos.Client.Txp.Balances      (BalancesRedirect)
+import           Pos.Client.Txp.History       (TxHistoryRedirect)
+import           Pos.Communication.PeerState  (PeerStateCtx, PeerStateRedirect,
+                                               PeerStateTag)
+import           Pos.Context                  (NodeContext)
+import           Pos.DB                       (NodeDBs)
+import           Pos.DB.DB                    (DbCoreRedirect)
+import           Pos.Delegation.Class         (DelegationWrap)
+import           Pos.Discovery.Holders        (DiscoveryConstT, DiscoveryKademliaT)
+import           Pos.Slotting.MemState        (SlottingVar)
+import           Pos.Slotting.MemState.Holder (SlotsDataRedirect)
+import           Pos.Slotting.Ntp             (NtpSlottingVar, SlotsRedirect)
+import           Pos.Ssc.Extra                (SscMemTag, SscState)
+import           Pos.Statistics.MonadStats    (NoStatsT, StatsT)
+import           Pos.Txp.MemState             (GenericTxpLocalData, TxpHolderTag)
+import           Pos.Update.DB                (DbLimitsRedirect)
+import           Pos.Wallet.WalletMode        (BlockchainInfoRedirect, UpdatesRedirect)
+import           Pos.WorkMode.Class           (MinWorkMode, TxpExtra_TMP, WorkMode)
 
--- | Bunch of constraints to perform work for real world distributed system.
-type WorkMode ssc m
-    = ( MinWorkMode m
-      , MonadMask m
-      , MonadSlots m
-      , MonadDB m
-      , MonadDBLimits m
-      , MonadTxpMem TxpExtra_TMP m
-      , MonadRelayMem m
-      , MonadDelegation m
-      , MonadSscMem ssc m
-      , MonadReportingMem m
-      , SscGStateClass ssc
-      , SscLocalDataClass ssc
-      , SscHelpersClass ssc
-      , WithNodeContext ssc m
-      , HasContext LrcContext m
-      , HasContext UpdateContext m
-      , HasContext NodeParams m
-      , HasContext UpdateParams m
-      , MonadStats m
-      , MonadJL m
-      , WithPeerState m
-      , MonadShutdownMem m
-      , MonadBListener m
-      , MonadDiscovery m
-      )
-
--- | More relaxed version of 'WorkMode'.
-type MinWorkMode m
-    = ( WithLogger m
-      , MonadMockable m
-      , MonadIO m
-      , WithPeerState m
-      )
 
 ----------------------------------------------------------------------------
 -- Concrete types
@@ -110,16 +51,28 @@ type MinWorkMode m
 
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
 type RawRealMode ssc =
-    PeerStateHolder (
-    DelegationT (
-    TxpHolder TxpExtra_TMP (
-    SscHolder ssc (
-    NtpSlotting (
-    SlottingHolder (
-    DBHolder (
-    ContextHolder ssc (
+    BListenerStub (
+    BlockchainInfoRedirect (
+    UpdatesRedirect (
+    DbCoreRedirect (
+    DbLimitsRedirect (
+    PeerStateRedirect (
+    TxHistoryRedirect (
+    BalancesRedirect (
+    SlotsRedirect (
+    SlotsDataRedirect (
+    Ether.ReadersT
+        ( Tagged NodeDBs NodeDBs
+        , Tagged SlottingVar SlottingVar
+        , Tagged (Bool, NtpSlottingVar) (Bool, NtpSlottingVar)
+        , Tagged SscMemTag (SscState ssc)
+        , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
+        , Tagged (TVar DelegationWrap) (TVar DelegationWrap)
+        , Tagged PeerStateTag (PeerStateCtx Production)
+        ) (
+    Ether.ReadersT (NodeContext ssc) (
     LoggerNameBox Production
-    ))))))))
+    ))))))))))))
 
 -- | RawRealMode + kademlia. Used in wallet too.
 type RawRealModeK ssc = DiscoveryKademliaT (RawRealMode ssc)
@@ -135,13 +88,8 @@ type StatsMode ssc = StatsT $ RawRealModeK ssc
 type StaticMode ssc = NoStatsT $ DiscoveryConstT (RawRealMode ssc)
 
 -- | ServiceMode is the mode in which support nodes work.
-type ServiceMode = PeerStateHolder (LoggerNameBox Production)
-
--- Blockchain Listener is needed only for Wallet.
--- Stub implementation for usual node.
-instance MonadBListener (RawRealMode ssc) where
-    onApplyBlocks _ = pass
-    onRollbackBlocks _ = pass
-instance MonadBListener ServiceMode where
-    onApplyBlocks _ = pass
-    onRollbackBlocks _ = pass
+type ServiceMode =
+    PeerStateRedirect (
+    Ether.ReaderT PeerStateTag (PeerStateCtx Production) (
+    LoggerNameBox Production
+    ))

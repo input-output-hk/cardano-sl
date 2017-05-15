@@ -25,81 +25,93 @@ module Pos.Launcher.Runner
        , bracketResourcesKademlia
        ) where
 
-import           Control.Concurrent.STM      (newEmptyTMVarIO, newTBQueueIO)
-import           Control.Lens                (each, to, _tail)
-import           Control.Monad.Fix           (MonadFix)
-import           Data.Default                (def)
-import           Data.Tagged                 (untag)
-import qualified Data.Time                   as Time
-import           Formatting                  (build, sformat, shown, (%))
-import           Mockable                    (CurrentTime, Mockable, MonadMockable,
-                                              Production (..), Throw, bracket, finally,
-                                              throw)
-import           Network.QDisc.Fair          (fairQDisc)
-import           Network.Transport.Abstract  (Transport, closeTransport, hoistTransport)
-import           Network.Transport.Concrete  (concrete)
-import qualified Network.Transport.TCP       as TCP
-import           Node                        (Node, NodeAction (..),
-                                              defaultNodeEnvironment, hoistSendActions,
-                                              node, simpleNodeEndPoint)
-import           Node.Util.Monitor           (setupMonitor, stopMonitor)
-import qualified STMContainers.Map           as SM
-import           System.Random               (newStdGen)
-import           System.Wlog                 (LoggerConfig (..), WithLogger, logError,
-                                              logInfo, productionB, releaseAllHandlers,
-                                              setupLogging, usingLoggerName)
-import           Universum                   hiding (bracket, finally)
+import           Control.Concurrent.STM       (newEmptyTMVarIO, newTBQueueIO)
+import           Control.Lens                 (each, to, _tail)
+import           Control.Monad.Fix            (MonadFix)
+import           Data.Default                 (def)
+import           Data.Tagged                  (Tagged (..), untag)
+import qualified Data.Time                    as Time
+import qualified Ether
+import           Formatting                   (build, sformat, shown, (%))
+import           Mockable                     (CurrentTime, Mockable, MonadMockable,
+                                               Production (..), Throw, bracket, finally,
+                                               throw)
+import           Network.QDisc.Fair           (fairQDisc)
+import           Network.Transport.Abstract   (Transport, closeTransport, hoistTransport)
+import           Network.Transport.Concrete   (concrete)
+import qualified Network.Transport.TCP        as TCP
+import           Node                         (Node, NodeAction (..),
+                                               defaultNodeEnvironment, hoistSendActions,
+                                               node, simpleNodeEndPoint)
+import           Node.Util.Monitor            (setupMonitor, stopMonitor)
+import qualified STMContainers.Map            as SM
+import           System.Random                (newStdGen)
+import           System.Wlog                  (LoggerConfig (..), WithLogger, logError,
+                                               logInfo, productionB, releaseAllHandlers,
+                                               setupLogging, usingLoggerName)
+import           Universum                    hiding (bracket, finally)
 
-import           Pos.Binary                  ()
-import           Pos.CLI                     (readLoggerConfig)
-import           Pos.Communication           (ActionSpec (..), BiP (..), InSpecs (..),
-                                              ListenersWithOut, NodeId, OutSpecs (..),
-                                              PeerId (..), VerInfo (..), allListeners,
-                                              hoistListenerSpec, unpackLSpecs)
-import           Pos.Communication.PeerState (runPeerStateHolder)
-import qualified Pos.Constants               as Const
-import           Pos.Context                 (ContextHolder, NodeContext (..),
-                                              runContextHolder)
-import           Pos.Core                    (Timestamp ())
-import           Pos.Crypto                  (createProxySecretKey, encToPublic)
-import           Pos.DB                      (DBHolder, MonadDB, NodeDBs, runDBHolder)
-import           Pos.DB.DB                   (initNodeDBs, openNodeDBs)
-import           Pos.DB.GState               (getTip)
-import           Pos.DB.Misc                 (addProxySecretKey)
-import           Pos.Delegation.Holder       (runDelegationT)
-import           Pos.DHT.Real                (KademliaDHTInstance,
-                                              KademliaDHTInstanceConfig (..),
-                                              KademliaParams (..), startDHTInstance,
-                                              stopDHTInstance)
-import           Pos.Discovery.Holders       (runDiscoveryConstT, runDiscoveryKademliaT)
-import           Pos.Genesis                 (genesisLeaders, genesisSeed)
-import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
-                                              NodeParams (..))
-import           Pos.Lrc.Context             (LrcContext (..), LrcSyncData (..))
-import qualified Pos.Lrc.DB                  as LrcDB
-import           Pos.Lrc.Fts                 (followTheSatoshiM)
-import           Pos.Slotting                (SlottingVar, mkNtpSlottingVar,
-                                              runNtpSlotting, runSlottingHolder)
-import           Pos.Ssc.Class               (SscConstraint, SscNodeContext, SscParams,
-                                              sscCreateNodeContext)
-import           Pos.Ssc.Extra               (ignoreSscHolder, mkStateAndRunSscHolder)
-import           Pos.Statistics              (getNoStatsT, runStatsT')
-import           Pos.Txp                     (mkTxpLocalData, runTxpHolder)
-import           Pos.Txp.DB                  (genesisFakeTotalStake,
-                                              runBalanceIterBootstrap)
+import           Pos.Binary                   ()
+import           Pos.Block.BListener          (runBListenerStub)
+import           Pos.CLI                      (readLoggerConfig)
+import           Pos.Client.Txp.Balances      (runBalancesRedirect)
+import           Pos.Client.Txp.History       (runTxHistoryRedirect)
+import           Pos.Communication            (ActionSpec (..), BiP (..), InSpecs (..),
+                                               ListenersWithOut, NodeId, OutSpecs (..),
+                                               PeerId (..), VerInfo (..), allListeners,
+                                               hoistListenerSpec, unpackLSpecs)
+import           Pos.Communication.PeerState  (PeerStateTag, runPeerStateRedirect)
+import qualified Pos.Constants                as Const
+import           Pos.Context                  (BlkSemaphore (..), ConnectedPeers (..),
+                                               NodeContext (..), StartTime (..))
+import           Pos.Core                     (Timestamp ())
+import           Pos.Crypto                   (createProxySecretKey, encToPublic)
+import           Pos.DB                       (MonadDB, NodeDBs)
+import           Pos.DB.DB                    (initNodeDBs, openNodeDBs)
+import           Pos.DB.DB                    (runDbCoreRedirect)
+import           Pos.DB.GState                (getTip)
+import           Pos.DB.Misc                  (addProxySecretKey)
+import           Pos.Delegation.Class         (DelegationWrap)
+import           Pos.DHT.Real                 (KademliaDHTInstance,
+                                               KademliaDHTInstanceConfig (..),
+                                               KademliaParams (..), startDHTInstance,
+                                               stopDHTInstance)
+import           Pos.Discovery.Holders        (runDiscoveryConstT, runDiscoveryKademliaT)
+import           Pos.Genesis                  (genesisLeaders, genesisSeed)
+import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (..),
+                                               NodeParams (..))
+import           Pos.Lrc.Context              (LrcContext (..), LrcSyncData (..))
+import qualified Pos.Lrc.DB                   as LrcDB
+import           Pos.Lrc.Fts                  (followTheSatoshiM)
+import           Pos.Slotting                 (NtpSlottingVar, SlottingVar,
+                                               mkNtpSlottingVar)
+import           Pos.Slotting.MemState.Holder (runSlotsDataRedirect)
+import           Pos.Slotting.Ntp             (runSlotsRedirect)
+import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
+                                               sscCreateNodeContext)
+import           Pos.Ssc.Extra                (SscMemTag, bottomSscState, mkSscState)
+import           Pos.Statistics               (getNoStatsT, runStatsT')
+import           Pos.Txp                      (mkTxpLocalData)
+import           Pos.Txp.DB                   (genesisFakeTotalStake,
+                                               runBalanceIterBootstrap)
+import           Pos.Txp.MemState             (TxpHolderTag)
+import           Pos.Update.DB                (runDbLimitsRedirect)
+import           Pos.Wallet.WalletMode        (runBlockchainInfoRedirect,
+                                               runUpdatesRedirect)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer                (explorerTxpGlobalSettings)
+import           Pos.Explorer                 (explorerTxpGlobalSettings)
 #else
-import           Pos.Txp                     (txpGlobalSettings)
+import           Pos.Txp                      (txpGlobalSettings)
 #endif
-import           Pos.Update.Context          (UpdateContext (..))
-import qualified Pos.Update.DB               as GState
-import           Pos.Update.MemState         (newMemVar)
-import           Pos.Util.UserSecret         (usKeys)
-import           Pos.Worker                  (allWorkersCount)
-import           Pos.WorkMode                (ProductionMode, RawRealMode, RawRealModeK,
-                                              ServiceMode, StaticMode, StatsMode,
-                                              WorkMode)
+import           Pos.Update.Context           (UpdateContext (..))
+import qualified Pos.Update.DB                as GState
+import           Pos.Update.MemState          (newMemVar)
+import           Pos.Util.JsonLog             (JLFile (..))
+import           Pos.Util.UserSecret          (usKeys)
+import           Pos.Worker                   (allWorkersCount)
+import           Pos.WorkMode                 (ProductionMode, RawRealMode, RawRealModeK,
+                                               ServiceMode, StaticMode, StatsMode,
+                                               WorkMode)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -122,45 +134,86 @@ runRawRealMode
     -> Production a
 runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec action) =
     usingLoggerName lpRunnerTag $ do
-       initNC <- untag @ssc sscCreateNodeContext sscnp
-       modernDBs <- openNodeDBs npRebuildDb npDbPathM
-       let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc) :: Int
-       -- TODO [CSL-775] ideally initialization logic should be in scenario.
-       runCH @ssc allWorkersNum np initNC modernDBs $ initNodeDBs
-       initTip <- runDBHolder modernDBs getTip
-       stateM <- liftIO SM.newIO
-       stateM_ <- liftIO SM.newIO
-       slottingVar <- runDBHolder  modernDBs $ mkSlottingVar npSystemStart
-       txpVar <- mkTxpLocalData mempty initTip
-       ntpSlottingVar <- mkNtpSlottingVar
+        initNC <- untag @ssc sscCreateNodeContext sscnp
+        modernDBs <- openNodeDBs npRebuildDb npDbPathM
+        let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc) :: Int
+        -- TODO [CSL-775] ideally initialization logic should be in scenario.
+        runCH @ssc allWorkersNum np initNC modernDBs $
+            flip Ether.runReaderT' modernDBs $ initNodeDBs @ssc
+        initTip <- Ether.runReaderT' getTip modernDBs
+        stateM <- liftIO SM.newIO
+        stateM_ <- liftIO SM.newIO
+        slottingVar <- Ether.runReaderT' (mkSlottingVar npSystemStart) modernDBs
+        txpVar <- mkTxpLocalData mempty initTip
+        ntpSlottingVar <- mkNtpSlottingVar
 
-       -- TODO [CSL-775] need an effect-free way of running this into IO.
-       let runIO :: forall t . RawRealMode ssc t -> IO t
-           runIO = runProduction .
+        -- TODO [CSL-775] need an effect-free way of running this into IO.
+        let runIO :: forall t . RawRealMode ssc t -> IO t
+            runIO act = do
+               deleg <- newTVarIO def
+               runProduction .
                    usingLoggerName lpRunnerTag .
                    runCH @ssc allWorkersNum np initNC modernDBs .
-                   runSlottingHolder slottingVar .
-                   runNtpSlotting (npUseNTP, ntpSlottingVar) .
-                   ignoreSscHolder .
-                   runTxpHolder txpVar .
-                   runDelegationT def .
-                   runPeerStateHolder stateM_
+                   flip Ether.runReadersT
+                      ( Tagged @NodeDBs modernDBs
+                      , Tagged @SlottingVar slottingVar
+                      , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
+                      , Tagged @SscMemTag bottomSscState
+                      , Tagged @TxpHolderTag txpVar
+                      , Tagged @(TVar DelegationWrap) deleg
+                      , Tagged @PeerStateTag stateM_
+                      ) .
+                   runSlotsDataRedirect .
+                   runSlotsRedirect .
+                   runBalancesRedirect .
+                   runTxHistoryRedirect .
+                   runPeerStateRedirect .
+                   runDbLimitsRedirect .
+                   runDbCoreRedirect .
+                   runUpdatesRedirect .
+                   runBlockchainInfoRedirect .
+                   runBListenerStub $
+                   act
 
-       let startMonitoring node' = case lpEkgPort of
-               Nothing   -> return Nothing
-               Just port -> Just <$> setupMonitor port runIO node'
+        let startMonitoring node' = case lpEkgPort of
+                Nothing   -> return Nothing
+                Just port -> Just <$> setupMonitor port runIO node'
 
-       let stopMonitoring it = whenJust it stopMonitor
+        let stopMonitoring it = whenJust it stopMonitor
 
-       runCH allWorkersNum np initNC modernDBs .
-          runSlottingHolder slottingVar .
-          runNtpSlotting (npUseNTP, ntpSlottingVar) .
-          (mkStateAndRunSscHolder @ssc) .
-          runTxpHolder txpVar .
-          runDelegationT def .
-          runPeerStateHolder stateM .
-          runServer peerId transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
-              \vI sa -> nodeStartMsg npBaseParams >> action vI sa
+        sscState <-
+           runCH @ssc allWorkersNum np initNC modernDBs .
+           flip Ether.runReadersT
+               ( Tagged @NodeDBs modernDBs
+               , Tagged @SlottingVar slottingVar
+               , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
+               ) .
+           runSlotsDataRedirect .
+           runSlotsRedirect $
+           mkSscState @ssc
+        deleg <- newTVarIO def
+        runCH allWorkersNum np initNC modernDBs .
+           flip Ether.runReadersT
+               ( Tagged @NodeDBs modernDBs
+               , Tagged @SlottingVar slottingVar
+               , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
+               , Tagged @SscMemTag sscState
+               , Tagged @TxpHolderTag txpVar
+               , Tagged @(TVar DelegationWrap) deleg
+               , Tagged @PeerStateTag stateM
+               ) .
+           runSlotsDataRedirect .
+           runSlotsRedirect .
+           runBalancesRedirect .
+           runTxHistoryRedirect .
+           runPeerStateRedirect .
+           runDbLimitsRedirect .
+           runDbCoreRedirect .
+           runUpdatesRedirect .
+           runBlockchainInfoRedirect .
+           runBListenerStub .
+           runServer peerId transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
+               \vI sa -> nodeStartMsg npBaseParams >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
 
@@ -182,7 +235,8 @@ runServiceMode
 runServiceMode peerId transport bp@BaseParams {..} listeners outSpecs (ActionSpec action) = do
     stateM <- liftIO SM.newIO
     usingLoggerName (lpRunnerTag bpLoggingParams) .
-        runPeerStateHolder stateM .
+        flip (Ether.runReaderT @PeerStateTag) stateM .
+        runPeerStateRedirect .
         runServer_ peerId transport listeners outSpecs . ActionSpec $ \vI sa ->
         nodeStartMsg bp >> action vI sa
 
@@ -321,22 +375,23 @@ runCH
     -> NodeParams
     -> SscNodeContext ssc
     -> NodeDBs
-    -> DBHolder (ContextHolder ssc m) a
+    -> Ether.ReadersT (NodeContext ssc) m a
     -> m a
 runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
-    ncJLFile <- liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
-    ncBlkSemaphore <- newEmptyMVar
+    ncJLFile <- JLFile <$>
+        liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
+    ncBlkSemaphore <- BlkSemaphore <$> newEmptyMVar
     ucUpdateSemaphore <- newEmptyMVar
 
     -- TODO [CSL-775] lrc initialization logic is duplicated.
-    epochDef <- runDBHolder db LrcDB.getEpochDefault
+    epochDef <- Ether.runReaderT' LrcDB.getEpochDefault db
     lcLrcSync <- newTVarIO (LrcSyncData True epochDef)
 
     let eternity = (minBound, maxBound)
         makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . encToPublic
         ownPSKs = npUserSecret ^.. usKeys._tail.each.to makeOwnPSK
-    runDBHolder db $ for_ ownPSKs addProxySecretKey
+    Ether.runReaderT' (for_ ownPSKs addProxySecretKey) db
 
     ncUserSecret <- newTVarIO $ npUserSecret
     ncBlockRetrievalQueue <- liftIO $
@@ -347,7 +402,7 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ncProgressHeader <- liftIO newEmptyTMVarIO
     ncShutdownFlag <- newTVarIO False
     ncShutdownNotifyQueue <- liftIO $ newTBQueueIO allWorkersNum
-    ncStartTime <- liftIO Time.getCurrentTime
+    ncStartTime <- StartTime <$> liftIO Time.getCurrentTime
     ncLastKnownHeader <- newTVarIO Nothing
     ncGenesisLeaders <- if Const.isDevelopment
                         then pure $ genesisLeaders npCustomUtxo
@@ -359,7 +414,7 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     peersVar <- newTVarIO mempty
     let ctx =
             NodeContext
-            { ncConnectedPeers = peersVar
+            { ncConnectedPeers = ConnectedPeers peersVar
             , ncSscContext = sscNodeContext
             , ncLrcContext = LrcContext {..}
             , ncUpdateContext = UpdateContext {..}
@@ -371,7 +426,7 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
             , ncTxpGlobalSettings = txpGlobalSettings
 #endif
             , .. }
-    runContextHolder ctx (runDBHolder db act)
+    Ether.runReadersT act ctx
 
 ----------------------------------------------------------------------------
 -- Utilities

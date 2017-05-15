@@ -21,8 +21,9 @@ import           Universum
 import           Pos.Block.Logic            (withBlkSemaphore_)
 import           Pos.Block.Pure             (genesisHash)
 import           Pos.Block.Types            (Blund, undoTx)
-import           Pos.Context                (WithNodeContext)
+import Pos.Context (BlkSemaphore)
 import           Pos.Core                   (HasDifficulty (..))
+import qualified Ether
 import           Pos.Core.Address           (AddrPkAttrs (..), Address (..),
                                              makePubKeyAddress)
 import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
@@ -55,7 +56,7 @@ type CAccModifier = MM.MapModifier CAccountAddress ()
 type BlockLockMode ssc m =
     ( SscHelpersClass ssc
     , WithLogger m
-    , WithNodeContext ssc m
+    , Ether.MonadReader' BlkSemaphore m
     , MonadDB m
     , MonadMask m)
 

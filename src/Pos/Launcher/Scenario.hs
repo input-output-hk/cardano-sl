@@ -13,6 +13,7 @@ module Pos.Launcher.Scenario
 
 import           Data.Default        (def)
 import           Development.GitRev  (gitBranch, gitHash)
+import qualified Ether
 import           Formatting          (build, sformat, shown, (%))
 import           Mockable            (fork)
 import           Paths_cardano_sl    (version)
@@ -23,8 +24,7 @@ import           Universum
 
 import           Pos.Communication   (ActionSpec (..), NodeId, OutSpecs, WorkerSpec,
                                       wrapActionSpec)
-import           Pos.Context         (NodeContext (..), getNodeContext, ncPubKeyAddress,
-                                      ncPublicKey)
+import           Pos.Context         (BlkSemaphore (..), npPubKeyAddress, npPublicKey)
 import           Pos.DB.Class        (MonadDBCore)
 import qualified Pos.DB.GState       as GS
 import           Pos.Delegation      (initDelegation)
@@ -39,10 +39,9 @@ import           Pos.Types           (SlotId (..), addressHash)
 import           Pos.Update          (MemState (..), mvState)
 import           Pos.Update.Context  (UpdateContext (ucMemState))
 import           Pos.Util            (inAssertMode, waitRandomInterval)
-import           Pos.Util.Context    (askContext)
 import           Pos.Util.LogSafe    (logInfoS)
 import           Pos.Worker          (allWorkers, allWorkersCount)
-import           Pos.WorkMode        (WorkMode)
+import           Pos.WorkMode.Class  (WorkMode)
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
@@ -55,8 +54,8 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
 
     logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     inAssertMode $ logInfo "Assert mode on"
-    pk <- ncPublicKey <$> getNodeContext
-    addr <- ncPubKeyAddress <$> getNodeContext
+    pk <- Ether.asks' npPublicKey
+    addr <- Ether.asks' npPubKeyAddress
     let pkHash = addressHash pk
 
     logInfoS $ sformat ("My public key is: "%build%
@@ -110,7 +109,7 @@ waitForPeers peers = case toList peers of
 
 initSemaphore :: (WorkMode ssc m) => m ()
 initSemaphore = do
-    semaphore <- ncBlkSemaphore <$> getNodeContext
+    semaphore <- Ether.asks' unBlkSemaphore
     whenJustM (tryReadMVar semaphore) $ const $
         logError "ncBlkSemaphore is not empty at the very beginning"
     tip <- GS.getTip
@@ -118,13 +117,13 @@ initSemaphore = do
 
 initLrc :: WorkMode ssc m => m ()
 initLrc = do
-    lrcSync <- askContext lcLrcSync
+    lrcSync <- Ether.asks' lcLrcSync
     epoch <- LrcDB.getEpoch
     atomically $ writeTVar lrcSync (LrcSyncData True epoch)
 
 initUSMemState :: WorkMode ssc m => m ()
 initUSMemState = do
     tip <- GS.getTip
-    tvar <- mvState <$> askContext @UpdateContext ucMemState
+    tvar <- mvState <$> Ether.asks' ucMemState
     slot <- fromMaybe (SlotId 0 0) <$> getCurrentSlot
     atomically $ writeTVar tvar (MemState slot tip def def)

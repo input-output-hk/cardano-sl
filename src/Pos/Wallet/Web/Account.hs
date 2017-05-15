@@ -25,7 +25,7 @@ import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase,
                                              isNonHardened)
 import           Pos.Util                   (maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
-import           Pos.Wallet.KeyStorage      (MonadKeys (..))
+import           Pos.Wallet.KeyStorage      (MonadKeys, addSecretKey, getSecretKeys)
 import           Pos.Wallet.Web.ClientTypes (CAccountAddress (..), CAddress,
                                              CWalletAddress (..), WS, addressToCAddress,
                                              encToCAddress, walletAddrByAccount)

@@ -8,25 +8,24 @@ module Pos.Update.Poll.RollTrans
        , execRollT
        ) where
 
-import           Control.Lens                 ((%=), (.=))
-import qualified Control.Monad.Ether.Implicit as Ether
-import           Data.Default                 (def)
-import qualified Data.HashMap.Strict          as HM
-import qualified Data.List                    as List (find)
+import           Control.Lens          ((%=), (.=))
+import           Data.Default          (def)
+import qualified Data.HashMap.Strict   as HM
+import qualified Data.List             as List (find)
+import qualified Ether
 import           Universum
 
-import           Pos.Binary.Update            ()
-import           Pos.Core.Types               (SoftwareVersion (..))
-import           Pos.Crypto                   (hash)
-import           Pos.Update.Poll.Class        (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types        (PrevValue, USUndo (..), cpsSoftwareVersion,
-                                               maybeToPrev, psProposal, unChangedBVL,
-                                               unChangedConfPropsL, unChangedPropsL,
-                                               unChangedSVL, unLastAdoptedBVL,
-                                               unPrevProposersL)
-import           Pos.Util                     (ether)
+import           Pos.Binary.Update     ()
+import           Pos.Core.Types        (SoftwareVersion (..))
+import           Pos.Crypto            (hash)
+import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Types (PrevValue, USUndo (..), cpsSoftwareVersion,
+                                        maybeToPrev, psProposal, unChangedBVL,
+                                        unChangedConfPropsL, unChangedPropsL,
+                                        unChangedSVL, unLastAdoptedBVL, unPrevProposersL)
+import           Pos.Util              (ether)
 
-type RollT m = Ether.StateT USUndo m
+type RollT m = Ether.LazyStateT' USUndo m
 
 -- | Monad transformer which stores USUndo and implements writable
 -- MonadPoll. Its purpose is to collect data necessary for rollback.
@@ -96,7 +95,7 @@ insertIfNotExist id setter getter = do
         setter %= HM.insert id (maybeToPrev prev)
 
 runRollT :: RollT m a -> m (a, USUndo)
-runRollT = flip Ether.runStateT def
+runRollT = flip Ether.runLazyStateT def
 
 execRollT :: Monad m => RollT m a -> m USUndo
-execRollT = flip Ether.execStateT def
+execRollT = flip Ether.execLazyStateT def

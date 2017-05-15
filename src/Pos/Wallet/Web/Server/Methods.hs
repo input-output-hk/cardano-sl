@@ -25,6 +25,7 @@ import           Control.Monad.Catch              (SomeException, try)
 import qualified Control.Monad.Catch              as E
 import           Control.Monad.State              (runStateT)
 import           Data.Default                     (Default (def))
+import qualified Ether 
 import qualified Data.List.NonEmpty               as NE
 import           Data.Tagged                      (untag)
 import qualified Data.Text                        as T
@@ -71,13 +72,13 @@ import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (accountGenesisIndex,
                                                    genesisDevHdwSecretKeys,
                                                    walletGenesisIndex)
-import           Pos.Reporting.MemState           (MonadReportingMem, askReportingContext,
+import           Pos.Reporting.MemState           (MonadReportingMem, 
                                                    rcReportServers)
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
 import           Pos.Txp.Core                     (TxOut (..), TxOutAux (..))
 import           Pos.Util                         (maybeThrow)
 import           Pos.Util.BackupPhrase            (toSeed)
-import           Pos.Wallet.KeyStorage            (KeyError (..), MonadKeys (..),
+import           Pos.Wallet.KeyStorage            (KeyError (..), MonadKeys, deleteSecretKey, getSecretKeys,
                                                    addSecretKey)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.WalletMode            (WalletMode, applyLastUpdate,
@@ -188,7 +189,7 @@ walletServer
 walletServer sendActions nat = do
     nat >>= launchNotifier
     addInitialRichAccount 0
-    syncWSetsWithGStateLock =<< mapM getSKByAddr =<< myRootAddresses
+    syncWSetsWithGStateLock @WalletSscType =<< mapM getSKByAddr =<< myRootAddresses
     (`enter` servantHandlers sendActions) <$> nat
 
 bracketWalletWebDB
@@ -936,7 +937,7 @@ reportingInitialized cinit = do
 
 reportingElectroncrash :: forall m. WalletWebMode m => CElectronCrashReport -> m ()
 reportingElectroncrash celcrash = do
-    servers <- view rcReportServers <$> askReportingContext
+    servers <- Ether.asks' (view rcReportServers)
     errors <- fmap lefts $ forM servers $ \serv ->
         try $ sendReport [fdFilePath $ cecUploadDump celcrash]
                          []
@@ -986,7 +987,7 @@ importWSetSecret cpassphrase WalletUserSecret{..} = do
         let wAddr = CWalletAddress wsAddr walletIndex
         newAccount (DeterminedSeed accountIndex) cpassphrase wAddr
 
-    selectAccountsFromUtxoLock [key]
+    selectAccountsFromUtxoLock @WalletSscType [key]
 
     return importedWSet
 

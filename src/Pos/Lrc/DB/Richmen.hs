@@ -28,11 +28,12 @@ module Pos.Lrc.DB.Richmen
 
 import           Universum
 
+import qualified Ether
+
 import           Pos.Binary.Core        ()
 import           Pos.Constants          (genesisHeavyDelThd, genesisMpcThd,
                                          genesisUpdateVoteThd)
-import           Pos.Context.Class      (WithNodeContext)
-import           Pos.Context.Functions  (genesisUtxoM)
+import           Pos.Context.Functions  (GenesisUtxo (..), genesisUtxoM)
 import           Pos.DB.Class           (MonadDB)
 import           Pos.Genesis            (genesisDelegation)
 import           Pos.Lrc.Class          (RichmenComponent (..), SomeRichmenComponent (..),
@@ -49,7 +50,7 @@ import           Pos.Types              (EpochIndex, applyCoinPortion)
 ----------------------------------------------------------------------------
 
 prepareLrcRichmen
-    :: (WithNodeContext ssc m, MonadDB m)
+    :: (Ether.MonadReader' GenesisUtxo m, MonadDB m)
     => m ()
 prepareLrcRichmen = do
     genesisDistribution <- concatMap txOutStake . toList <$> genesisUtxoM

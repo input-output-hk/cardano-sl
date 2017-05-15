@@ -29,7 +29,7 @@ import           Pos.DB.Limits              (MonadDBLimits)
 import           Pos.Txp.Core               (TxAux, TxOut (..), TxOutAux (..), txaF)
 import           Pos.Types                  (Address, Coin, makePubKeyAddress,
                                              makeRedeemAddress, mkCoin, unsafeAddCoin)
-import           Pos.WorkMode               (MinWorkMode)
+import           Pos.WorkMode.Class         (MinWorkMode)
 
 type TxMode m
     = ( MinWorkMode m

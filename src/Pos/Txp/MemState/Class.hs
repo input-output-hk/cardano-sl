@@ -16,12 +16,15 @@ module Pos.Txp.MemState.Class
        , getTxpExtra
        , modifyTxpLocalData
        , setTxpLocalData
+       , clearTxpMemPool
        ) where
 
-import qualified Control.Concurrent.STM as STM
-import qualified Control.Monad.Ether    as Ether.E
-import qualified Data.HashMap.Strict    as HM
 import           Universum
+
+import qualified Control.Concurrent.STM as STM
+import           Data.Default           (Default (def))
+import qualified Data.HashMap.Strict    as HM
+import qualified Ether
 
 import           Pos.Txp.Core.Types     (TxAux, TxId, TxOutAux)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),
@@ -31,10 +34,10 @@ import           Pos.Txp.Toil.Types     (MemPool (_mpLocalTxs), UtxoModifier)
 data TxpHolderTag
 
 -- | Reduced equivalent of @MonadReader (GenericTxpLocalData mw) m@.
-type MonadTxpMem ext = Ether.E.MonadReader TxpHolderTag (GenericTxpLocalData ext)
+type MonadTxpMem ext = Ether.MonadReader TxpHolderTag (GenericTxpLocalData ext)
 
 askTxpMem :: MonadTxpMem ext m => m (GenericTxpLocalData ext)
-askTxpMem = Ether.E.ask (Proxy @TxpHolderTag)
+askTxpMem = Ether.ask @TxpHolderTag
 
 getTxpLocalData
     :: (MonadIO m, MonadTxpMem e m)
@@ -93,3 +96,8 @@ setTxpLocalData
     :: (MonadIO m, MonadTxpMem ext m)
     => GenericTxpLocalDataPure ext -> m ()
 setTxpLocalData x = modifyTxpLocalData (const ((), x))
+
+clearTxpMemPool :: (MonadIO m, MonadTxpMem ext m, Default ext) => m ()
+clearTxpMemPool = modifyTxpLocalData clearF
+  where
+    clearF (_, _, _, tip, _) = ((), (mempty, def, mempty, tip, def))

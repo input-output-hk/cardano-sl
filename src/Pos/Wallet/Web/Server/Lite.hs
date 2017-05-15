@@ -10,43 +10,49 @@ module Pos.Wallet.Web.Server.Lite
        ) where
 
 import qualified Control.Monad.Catch           as Catch
-import qualified Control.Monad.Ether           as Ether.E
-import qualified Control.Monad.Ether.Implicit  as Ether
 import           Control.Monad.Except          (MonadError (throwError))
-import           Mockable                      (Production, runProduction)
+import           Data.Tagged                   (Tagged (..))
+import           Ether                         (ask, local)
+import qualified Ether
+import           Mockable                      (runProduction)
+import           Mockable                      (Production)
 import           Network.Wai                   (Application)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import qualified STMContainers.Map             as SM
 import           Universum
 
+import           Pos.Block.BListener           (runBListenerStub)
 import           Pos.Communication             (NodeId)
-import           Pos.Communication.PeerState   (runPeerStateHolder)
+import           Pos.Communication.PeerState   (PeerStateTag, runPeerStateRedirect)
 import           Pos.Communication.Protocol    (SendActions, hoistSendActions)
-import           Pos.Context                   (NodeContext)
+import           Pos.Context                   (BlkSemaphore, NodeContext, NodeContextTag)
 import           Pos.DB                        (NodeDBs)
 import           Pos.Discovery                 (getPeers, runDiscoveryConstT)
-import           Pos.Reporting.MemState        (runWithoutReportingContext)
+import           Pos.Reporting.MemState        (ReportingContext, emptyReportingContext)
 import           Pos.Ssc.Class                 (SscHelpersClass)
-import           Pos.Util.Context              (ContextTagK (..))
-import           Pos.Wallet                    (WalletSscType)
-import           Pos.Wallet.KeyStorage         (KeyData, runKeyStorageRaw)
-import           Pos.Wallet.State              (getWalletState, runWalletDB)
+import           Pos.Wallet.KeyStorage         (KeyData)
+import           Pos.Wallet.SscType            (WalletSscType)
+import           Pos.Wallet.State              (getWalletState)
 import qualified Pos.Wallet.State              as WS
+import           Pos.Wallet.State.Limits       (runDbLimitsWalletRedirect)
 import           Pos.Wallet.WalletMode         (FakeSsc, WalletStaticPeersMode,
-                                                runFakeSsc)
+                                                runBalancesWalletRedirect,
+                                                runBlockchainInfoNotImplemented,
+                                                runFakeSsc, runTxHistoryWalletRedirect,
+                                                runUpdatesNotImplemented)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, bracketWalletWS,
                                                 bracketWalletWebDB, walletApplication,
                                                 walletServeImpl, walletServer,
                                                 walletServerOuts)
-import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, WalletWebSockets,
-                                                getWalletWebSockets, runWalletWS)
-import           Pos.Wallet.Web.State          (WalletState, WalletWebDB,
-                                                getWalletWebState, runWalletWebDB)
+import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, getWalletWebSockets,
+                                                runWalletWS)
+import           Pos.Wallet.Web.State          (WalletState, getWalletWebState,
+                                                runWalletWebDB)
 import           System.Wlog                   (usingLoggerName)
 
 
-type WebHandler = WalletWebSockets (WalletWebDB (WalletStaticPeersMode WalletSscType))
+type WebHandler = WalletWebHandler (WalletStaticPeersMode WalletSscType)
 
 type MainWalletState = WS.WalletState
 
@@ -72,7 +78,7 @@ nat :: WebHandler (WebHandler :~> Handler)
 nat = do
     wsConn <- getWalletWebSockets
     ws     <- getWalletWebState
-    kd     <- Ether.ask
+    kd     <- Ether.ask'
     mws    <- getWalletState
     peers  <- getPeers
     pure $ NT (convertHandler mws kd ws wsConn peers)
@@ -90,10 +96,18 @@ convertHandler mws kd ws wsConn peers handler = do
     liftIO ( runProduction
            . runFakeSsc
            . usingLoggerName "wallet-lite-api"
-           . runWithoutReportingContext
-           . runWalletDB mws
-           . flip runKeyStorageRaw kd
-           . runPeerStateHolder stateM
+           . flip Ether.runReadersT
+                ( Tagged @PeerStateTag stateM
+                , Tagged @KeyData kd
+                , Tagged @MainWalletState mws
+                , Tagged @ReportingContext emptyReportingContext )
+           . runTxHistoryWalletRedirect
+           . runBalancesWalletRedirect
+           . runDbLimitsWalletRedirect
+           . runPeerStateRedirect
+           . runUpdatesNotImplemented
+           . runBlockchainInfoNotImplemented
+           . runBListenerStub
            . runDiscoveryConstT peers
            . runWalletWebDB ws
            . runWalletWS wsConn
@@ -104,12 +118,19 @@ convertHandler mws kd ws wsConn peers handler = do
     catchServant = throwError
 
 -- Stub implementations for lite wallet.
-instance Ether.E.MonadReader NodeDBs NodeDBs Production where
+instance Ether.MonadReader NodeDBs NodeDBs Production where
     ask = error "Stub implementation for Lite Wallet"
     local = error "Stub implementation for Lite Wallet"
 
-instance Ether.E.MonadReader
-             'ContextTag
+instance Ether.MonadReader
+             BlkSemaphore
+             BlkSemaphore
+             (FakeSsc WalletSscType Production) where
+    ask = error "Stub implementation for Lite Wallet"
+    local = error "Stub implementation for Lite Wallet"
+
+instance Ether.MonadReader
+             NodeContextTag
              (NodeContext WalletSscType)
              (FakeSsc WalletSscType Production) where
     ask = error "Stub implementation for Lite Wallet"

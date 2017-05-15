@@ -14,7 +14,6 @@ import           System.Wlog                (WithLogger, logError)
 import           Universum
 
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localWorker)
-import           Pos.Context.Class          (WithNodeContext)
 import           Pos.Delegation.Class       (MonadDelegation)
 import           Pos.Delegation.Logic       (invalidateProxyCaches,
                                              runDelegationStateAction)
@@ -22,7 +21,7 @@ import           Pos.Discovery.Class        (MonadDiscovery)
 import           Pos.Reporting              (MonadReportingMem)
 import           Pos.Reporting.Methods      (reportingFatal)
 import           Pos.Shutdown               (MonadShutdownMem, runIfNotShutdown)
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode)
 
 -- | All workers specific to proxy sertificates processing.
 dlgWorkers :: (WorkMode ssc m) => ([WorkerSpec m], OutSpecs)
@@ -35,7 +34,6 @@ dlgInvalidateCaches
        , MonadMask m
        , WithLogger m
        , Mockable Delay m
-       , WithNodeContext ssc m
        , MonadReportingMem m
        , MonadShutdownMem m
        , MonadDelegation m

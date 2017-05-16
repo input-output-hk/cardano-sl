@@ -9,14 +9,17 @@ import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Lens ((^.), set)
 import Data.Time.NominalDiffTime (mkTime)
+import Explorer.Api.Types (RequestLimit(..), RequestOffset(..))
 import Explorer.I18n.Lang (Language(..))
-import Explorer.Lenses.State (lang, latestBlocks, latestTransactions, totalBlocks)
+import Explorer.Lenses.State (dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewLoadingTotalBlocks, dbViewNextBlockPagination, lang, latestBlocks, latestTransactions, loading, pullLatestBlocks, syncAction, totalBlocks)
 import Explorer.State (initialState)
 import Explorer.Test.MockFactory (mkCBlockEntry, mkEmptyCTxEntry, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Update (update)
+import Explorer.Util.Config (SyncAction(..))
 import Explorer.Util.Factory (mkCHash, mkCTxId)
-import Network.RemoteData (RemoteData(..), withDefault)
+import Explorer.View.Dashboard.Lenses (dashboardViewState)
+import Network.RemoteData (RemoteData(..), isNotAsked, withDefault)
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -65,6 +68,48 @@ testUpdate =
                 let result = withDefault 0 $ state ^. totalBlocks
                 in result `shouldEqual` 4
 
+
+        describe "handles RequestTotalBlocksToPaginateBlocks action" do
+            let effModel = update RequestTotalBlocksToPaginateBlocks initialState
+                state = _.state effModel
+            it "to update pullLatestBlocks"
+                let result = state ^. pullLatestBlocks
+                in result `shouldEqual` false
+            it "to update dbViewLoadingTotalBlocks"
+                let result = state ^. (dashboardViewState <<< dbViewLoadingTotalBlocks)
+                in result `shouldEqual` true
+
+        describe "handles ReceiveTotalBlocksToPaginateBlocks action" do
+            let total = 101
+            it "to update totalBlocks"
+                let effModel = update (ReceiveTotalBlocksToPaginateBlocks $ Right total) initialState
+                    state = _.state effModel
+                    result = withDefault 0 $ state ^. totalBlocks
+                in
+                result `shouldEqual` total
+            it "to enable pullLatestBlocks"
+                let initialState' = set syncAction SyncByPolling initialState
+                    effModel = update (ReceiveTotalBlocksToPaginateBlocks $ Right total) initialState'
+                    state = _.state effModel
+                    result = state ^. pullLatestBlocks
+                in
+                result `shouldEqual` true
+            it "to disable pullLatestBlocks"
+                let initialState' = set syncAction SyncBySocket initialState
+                    effModel = update (ReceiveTotalBlocksToPaginateBlocks $ Right total) initialState'
+                    state = _.state effModel
+                    result = state ^. pullLatestBlocks
+                in
+                result `shouldEqual` false
+
+        describe "handles RequestPaginatedBlocks action" do
+            let effModel = update (RequestPaginatedBlocks (RequestLimit 1) (RequestOffset 0)) initialState
+                state = _.state effModel
+            it "to set dbViewLoadingBlockPagination to true" do
+                (state ^. (dashboardViewState <<< dbViewLoadingBlockPagination)) `shouldEqual` true
+            it "to not update state of latestBlocks" do
+                (isNotAsked $ state ^. latestBlocks) `shouldEqual` true
+
         describe "uses action ReceivePaginatedBlocks" do
             -- Mock blocks with epoch, slots and hashes
             let blockA = setEpochSlotOfBlock 2 1 $ setHashOfBlock (mkCHash "A") mkCBlockEntry
@@ -77,9 +122,12 @@ testUpdate =
                     , blockB
                     , blockC
                     ]
+                newPage = 2
                 -- set `latestBlocks` to simulate that we have already blocks before
                 initialState' =
-                    set latestBlocks (Success currentBlocks) initialState
+                    set latestBlocks (Success currentBlocks) $
+                    set (dashboardViewState <<< dbViewNextBlockPagination) newPage
+                    initialState
                 paginatedBlocks =
                     [ blockC
                     , blockD
@@ -90,6 +138,14 @@ testUpdate =
             it "to add blocks to latestBlocks"
                 let result = withDefault [] $ state ^. latestBlocks
                 in (gShow result) `shouldEqual` (gShow paginatedBlocks)
+            it "to set loading to false" do
+                (state ^. loading) `shouldEqual` false
+            it "to update dbViewBlockPagination by using dbViewNextBlockPagination" do
+                (state ^. (dashboardViewState <<< dbViewBlockPagination))
+                    `shouldEqual` newPage
+            it "to set dbViewLoadingBlockPagination to false" do
+                (state ^. (dashboardViewState <<< dbViewLoadingBlockPagination))
+                    `shouldEqual` false
 
         describe "uses action SocketTxsUpdated" do
             -- Mock txs
@@ -141,3 +197,11 @@ testUpdate =
                         , txA
                         ]
                 in (gShow result) `shouldEqual` (gShow expected)
+
+        describe "handles DashboardPaginateBlocks action" do
+            let newPage = 4
+                effModel = update (DashboardPaginateBlocks newPage) initialState
+                state = _.state effModel
+            it "to set dbViewNextBlockPagination"
+                let result = state ^. (dashboardViewState <<< dbViewNextBlockPagination)
+                in result `shouldEqual` newPage

@@ -2,9 +2,8 @@ module Daedalus.ClientApi where
 
 import Prelude
 import Daedalus.BackendApi as B
-import Control.Monad.Eff.Exception (error)
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Exception (EXCEPTION)
+import Control.Monad.Eff.Exception (EXCEPTION, error)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
 import Daedalus.Types (getProfileLocale, mkCAddress, mkCCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkBackupPhrase, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCWalletSetInit)
@@ -98,7 +97,13 @@ newWalletSet = mkEffFn3 \wSetName mnemonic spendingPassword -> fromAff <<< map e
 -- Arguments: wallet set name, mnemonics, spending password (set to empty string if you don't want to set password
 -- Returns json representation of restored wallet set
 -- Example in nodejs:
---
+-- | > api.restoreWalletSet('test', 'transfer uniform grunt excess six veteran vintage warm confirm vote nephew allow', 'pass').then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > { cwsWalletsNumber: 0,
+-- |   cwsWSetMeta: { cwsName: 'test' },
+-- |   cwsPassphraseLU: 1494846878.0783634,
+-- |   cwsHasPassphrase: true,
+-- |   cwsAddress: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW' }
 restoreWalletSet :: forall eff. EffFn3 (ajax :: AJAX | eff) String String String (Promise Json)
 restoreWalletSet = mkEffFn3 \wSetName mnemonic spendingPassword -> fromAff <<< map encodeJson <<< either throwError (B.restoreWalletSet $ mkCPassPhrase spendingPassword) $ mkCWalletSetInit wSetName mnemonic
 
@@ -122,7 +127,13 @@ renameWalletSet = mkEffFn2 \wSetId name -> fromAff <<< map encodeJson $ B.rename
 -- Arguments: file path to the wallet set on a filesystem, spending password (set to empty string if you don't want to set password)
 -- Returns json representation of imported wallet set
 -- Example in nodejs:
---
+-- | > api.importWalletSet('/home/ksaric/projects/haskell/cardano-sl/keys/1.key.hd', '').then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > { cwsWalletsNumber: 0,
+-- |   cwsWSetMeta: { cwsName: 'Genesis wallet set' },
+-- |   cwsPassphraseLU: 1494847007.8911605,
+-- |   cwsHasPassphrase: false,
+-- |   cwsAddress: '1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f' }
 importWalletSet :: forall eff. EffFn2 (ajax :: AJAX | eff) String String (Promise Json)
 importWalletSet = mkEffFn2 \filePath spendingPassword -> fromAff <<< map encodeJson $ B.importWalletSet (mkCPassPhrase spendingPassword) filePath
 
@@ -138,7 +149,6 @@ importWalletSet = mkEffFn2 \filePath spendingPassword -> fromAff <<< map encodeJ
 changeWalletSetPass :: forall eff. EffFn3 (ajax :: AJAX | eff) String String String (Promise Unit)
 changeWalletSetPass = mkEffFn3 \wSetId oldPass newPass -> fromAff $ B.changeWalletSetPass (mkCAddress wSetId) (mkCPassPhrase oldPass) (mkCPassPhrase newPass)
 
-
 --------------------------------------------------------------------------------
 -- Wallets ---------------------------------------------------------------------
 
@@ -146,7 +156,20 @@ changeWalletSetPass = mkEffFn3 \wSetId oldPass newPass -> fromAff $ B.changeWall
 -- Arguments: wallet object/identifier
 -- Returns json representation of a wallet
 -- Example in nodejs:
---
+-- | > api.getWallet({"cwaWSAddress": "1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW","cwaIndex": 1759060325}).then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > { cwMeta:
+-- |    { cwUnit: 0,
+-- |      cwType: 'CWTPersonal',
+-- |      cwName: 'drugs',
+-- |      cwCurrency: 'ADA',
+-- |      cwAssurance: 'CWANormal' },
+-- |   cwAddress:
+-- |    { cwaWSAddress: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW',
+-- |      cwaIndex: 1759060325 },
+-- |   cwAccounts:
+-- |    [ { caAmount: [Object],
+-- |        caAddress: '19LniCeNbAxec4FkyxPHCHDzUSnnf4ZymZChq2s9JmYjyr9senVjp4PnbNJ5DPXB8WrWhHCV6Dv2Qv9jdUR5bfNfhdt2vs' } ] }
 getWallet :: forall eff. EffFn1 (ajax :: AJAX | eff) Json (Promise Json)
 getWallet = mkEffFn1 $ fromAff <<< map encodeJson <<< either (throwError <<< error) B.getWallet <<< decodeJson
 
@@ -154,7 +177,18 @@ getWallet = mkEffFn1 $ fromAff <<< map encodeJson <<< either (throwError <<< err
 -- Arguments:
 -- Returns json representation of all wallet sets
 -- Example in nodejs:
---
+-- | > api.getWallets().then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > [ { cwMeta:
+-- |      { cwUnit: 0,
+-- |        cwType: 'CWTPersonal',
+-- |        cwName: 'drugs',
+-- |        cwCurrency: 'ADA',
+-- |        cwAssurance: 'CWANormal' },
+-- |     cwAddress:
+-- |      { cwaWSAddress: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW',
+-- |        cwaIndex: 1759060325 },
+-- |     cwAccounts: [ [Object] ] } ]
 getWallets :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 getWallets = fromAff $ map encodeJson $ B.getWallets Nothing
 
@@ -162,7 +196,20 @@ getWallets = fromAff $ map encodeJson $ B.getWallets Nothing
 -- Arguments: address/hash/id of a wallet set
 -- Returns json representation of wallets within given wallet set id
 -- Example in nodejs:
---
+-- | ```js
+-- | > api.getSetWallets('1fbPUqmdG1PdYpKxhw8qYc5hC342W3STosbcZNMqsadodxL').then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > [ { cwMeta:
+-- |      { cwUnit: 0,
+-- |        cwType: 'CWTPersonal',
+-- |        cwName: 'Initial wallet',
+-- |        cwCurrency: 'ADA',
+-- |        cwAssurance: 'CWANormal' },
+-- |     cwAddress:
+-- |      { cwaWSAddress: '1fbPUqmdG1PdYpKxhw8qYc5hC342W3STosbcZNMqsadodxL',
+-- |        cwaIndex: 0 },
+-- |     cwAccounts: [ [Object] ] } ]
+-- | ```
 getSetWallets :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
 getSetWallets = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWallets <<< Just <<< mkCAddress
 
@@ -170,7 +217,20 @@ getSetWallets = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWallets <<< Just 
 -- Arguments: wallet object/identifier, type, currency, name, assurance, unit
 -- Returns json representation of wallets within given wallet id
 -- Example in nodejs:
---
+-- | > api.updateWallet({"cwaWSAddress": "1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW","cwaIndex": 1759060325},'CWTPersonal','ADA','Initial wallet','CWANormal',0).then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > { cwMeta:
+-- |    { cwUnit: 0,
+-- |      cwType: 'CWTPersonal',
+-- |      cwName: 'Initial wallet',
+-- |      cwCurrency: 'ADA',
+-- |      cwAssurance: 'CWANormal' },
+-- |   cwAddress:
+-- |    { cwaWSAddress: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW',
+-- |      cwaIndex: 1759060325 },
+-- |   cwAccounts:
+-- |    [ { caAmount: [Object],
+-- |        caAddress: '19LniCeNbAxec4FkyxPHCHDzUSnnf4ZymZChq2s9JmYjyr9senVjp4PnbNJ5DPXB8WrWhHCV6Dv2Qv9jdUR5bfNfhdt2vs' } ] }
 updateWallet :: forall eff. EffFn6 (ajax :: AJAX | eff) Json String String String String Int (Promise Json)
 updateWallet = mkEffFn6 \wId wType wCurrency wName wAssurance wUnit -> fromAff <<< map encodeJson <<<
     either (throwError <<< error)
@@ -181,7 +241,20 @@ updateWallet = mkEffFn6 \wId wType wCurrency wName wAssurance wUnit -> fromAff <
 -- Arguments: address/hash/id of a wallet set, type, currency, name, mnemonics, spending password (if empty string is given, wallet will be created with no spending password)
 -- Returns json representation of newly created wallet
 -- Example in nodejs:
---
+-- | > api.newWallet('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW', 'CWTPersonal', 'ADA', 'drugs', 'pass').then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > { cwMeta:
+-- |    { cwUnit: 0,
+-- |      cwType: 'CWTPersonal',
+-- |      cwName: 'drugs',
+-- |      cwCurrency: 'ADA',
+-- |      cwAssurance: 'CWANormal' },
+-- |   cwAddress:
+-- |    { cwaWSAddress: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW',
+-- |      cwaIndex: 293230236 },
+-- |   cwAccounts:
+-- |    [ { caAmount: [Object],
+-- |        caAddress: '19J7gniLEvSDAsHmjTeRUb5wAp8ssFLhUdchabk8FjVBqgDET6LdNa8ZbeZo6tsht4o52hwQ259CLSSoc3iXyEWsZXaEG1' } ] }
 newWallet :: forall eff. EffFn5 (ajax :: AJAX | eff) String String String String String
   (Promise Json)
 newWallet = mkEffFn5 \wSetId wType wCurrency wName spendingPassword -> fromAff <<< map encodeJson <<<
@@ -191,7 +264,9 @@ newWallet = mkEffFn5 \wSetId wType wCurrency wName spendingPassword -> fromAff <
 -- Arguments: wallet object/identifier
 -- Returns:
 -- Example in nodejs:
---
+-- | > api.deleteWallet({"cwaWSAddress": "1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW","cwaIndex": 293230236}).then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > {}
 deleteWallet :: forall eff. EffFn1 (ajax :: AJAX | eff) Json (Promise Unit)
 deleteWallet = mkEffFn1 $ fromAff <<< either (throwError <<< error) B.deleteWallet <<< decodeJson
 
@@ -199,10 +274,13 @@ deleteWallet = mkEffFn1 $ fromAff <<< either (throwError <<< error) B.deleteWall
 -- Accounts ------------------------------------------------------------------
 
 -- | Creates a new wallet.
--- Arguments: wallet set, type, currency, name, mnemonics, spending password (if empty string is given, wallet will be created with no spending password)
--- Returns json representation of newly created wallet
+-- Arguments: wallet id, spending password
+-- Returns json representation of newly created account
 -- Example in nodejs:
---
+-- | > api.newAccount({"cwaWSAddress": "1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW","cwaIndex": 1759060325}, 'pass').then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > { caAmount: { getCoin: '0' },
+-- |   caAddress: '19HWBLraiv8SKtGD3GnTuQZwND8YL5UTTXogPUnpcGzJbNcYHYxm321ovX7NxRsrr1E947AFVFjS4YXtdbgZe8iUgdZCNa' }
 newAccount :: forall eff . EffFn2 (ajax :: AJAX | eff) Json String
   (Promise Json)
 newAccount = mkEffFn2 \wId spendingPassword -> fromAff <<< map encodeJson <<<
@@ -215,10 +293,11 @@ newAccount = mkEffFn2 \wId spendingPassword -> fromAff <<< map encodeJson <<<
 -- Arguments: currency for which we are checking address, string representation of an address to check
 -- Returns true if address is valid in specific currency or false otherwise
 -- Example in nodejs:
---
+-- | >  api.isValidAddress('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW').then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > false
 isValidAddress :: forall eff. EffFn2 (ajax :: AJAX | eff) String String (Promise Boolean)
 isValidAddress = mkEffFn2 \currency -> fromAff <<< B.isValidAddress (mkCCurrency currency)
-
 
 --------------------------------------------------------------------------------
 -- Profiles --------------------------------------------------------------------
@@ -227,7 +306,9 @@ isValidAddress = mkEffFn2 \currency -> fromAff <<< B.isValidAddress (mkCCurrency
 -- Arguments:
 -- Returns users locale
 -- Example in nodejs:
---
+-- | > api.getLocale().then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > en-US
 getLocale :: forall eff. Eff (ajax :: AJAX | eff) (Promise String)
 getLocale = fromAff $ getProfileLocale <$> B.getProfile
 
@@ -235,7 +316,9 @@ getLocale = fromAff $ getProfileLocale <$> B.getProfile
 -- Arguments: new user locale
 -- Returns users locale
 -- Example in nodejs:
---
+-- | > api.updateLocale('en-US').then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > en-US
 updateLocale :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise String)
 updateLocale = mkEffFn1 \locale -> fromAff <<< map getProfileLocale <<< B.updateProfile $ mkCProfile locale
 

@@ -873,13 +873,13 @@ importWSet cpassphrase (toString -> fp) = do
     addSecretKey key
     importedWSet <- createWSetSafe wsAddr wsMeta
 
-    forM_ wusWallets $ \(walletIndex, walletName) -> do
+    for_ wusWallets $ \(walletIndex, walletName) -> do
         let wMeta = def{ cwName = walletName }
             seedGen = DeterminedSeed walletIndex
         cAddr <- genUniqueWalletAddress seedGen wsAddr
         createWallet cAddr wMeta
 
-    forM_ wusAccounts $ \(walletIndex, accountIndex) -> do
+    for_ wusAccounts $ \(walletIndex, accountIndex) -> do
         let wAddr = CWalletAddress wsAddr walletIndex
         newAccount (DeterminedSeed accountIndex) cpassphrase wAddr
     importedWSet <$ syncOnImport key

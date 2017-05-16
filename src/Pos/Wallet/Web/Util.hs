@@ -7,9 +7,8 @@ module Pos.Wallet.Web.Util
 import           Universum
 
 import           Pos.Core   (Address, createHDAddressH)
-import           Pos.Crypto (PassPhrase, deriveHDPassphrase, deriveHDSecretKey,
-                             encToPublic)
-import           Pos.Crypto (EncryptedSecretKey)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, deriveHDPassphrase,
+                             deriveHDSecretKey, encToPublic)
 
 -- TODO: move more here from Methods.hs
 

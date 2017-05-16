@@ -21,7 +21,7 @@ import qualified Crypto.PVSS                        as PVSS
 import           GHC.Exts                           (IsList (..))
 
 import           Pos.Binary.Class                   (AsBinary (..))
-import           Pos.Block.Network.Types            (MsgBlock, MsgGetHeaders (..),
+import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetHeaders (..),
                                                      MsgHeaders (..))
 import           Pos.Communication.Types.Relay      (DataMsg (..))
 import qualified Pos.Constants                      as Const
@@ -36,7 +36,9 @@ import           Pos.Ssc.GodTossing.Core.Types      (Commitment (..), InnerShare
                                                      Opening, SignedCommitment,
                                                      VssCertificate)
 import           Pos.Ssc.GodTossing.Types.Message   (GtMsgContents (..))
-import           Pos.Txp.Network.Types              (TxMsgContents)
+import           Pos.Txp.Core                       (TxAux)
+import           Pos.Txp.Network.Types              (TxMsgContents (..))
+import           Pos.Types                          (Block, BlockHeader)
 import           Pos.Update.Core.Types              (UpdateProposal (..), UpdateVote (..))
 
 -- Reexports
@@ -158,10 +160,13 @@ instance MessageLimited (DataMsg GtMsgContents) where
 ---- Txp
 ----------------------------------------------------------------------------
 
+instance MessageLimited TxAux where
+    getMsgLenLimit _ = Limit <$> DB.gsMaxTxSize
+
 instance MessageLimited (DataMsg TxMsgContents) where
     getMsgLenLimit _ = do
-        txLimit <- Limit <$> DB.gsMaxTxSize
-        return $ DataMsg <$> txLimit
+        txLimit <- getMsgLenLimit (Proxy @TxAux)
+        return $ DataMsg . TxMsgContents <$> txLimit
 
 ----------------------------------------------------------------------------
 ---- Update System
@@ -184,9 +189,12 @@ instance MessageLimitedPure (DataMsg UpdateVote) where
 
 instance MessageLimited (DataMsg UpdateVote)
 
+instance MessageLimited UpdateProposal where
+    getMsgLenLimit _ = Limit <$> DB.gsMaxProposalSize
+
 instance MessageLimited (DataMsg (UpdateProposal, [UpdateVote])) where
     getMsgLenLimit _ = do
-        proposalLimit <- Limit <$> DB.gsMaxProposalSize
+        proposalLimit <- getMsgLenLimit (Proxy @UpdateProposal)
         voteNumLimit <- updateVoteNumLimit
         return $
             DataMsg <$> ((,) <$> proposalLimit <+> vector voteNumLimit)
@@ -195,8 +203,16 @@ instance MessageLimited (DataMsg (UpdateProposal, [UpdateVote])) where
 ---- Blocks/headers
 ----------------------------------------------------------------------------
 
-instance MessageLimited (MsgBlock ssc) where
+instance MessageLimited (BlockHeader ssc) where
+    getMsgLenLimit _ = Limit <$> DB.gsMaxHeaderSize
+
+instance MessageLimited (Block ssc) where
     getMsgLenLimit _ = Limit <$> DB.gsMaxBlockSize
+
+instance MessageLimited (MsgBlock ssc) where
+    getMsgLenLimit _ = do
+        blkLimit <- getMsgLenLimit (Proxy @(Block ssc))
+        return $ MsgBlock <$> blkLimit
 
 instance MessageLimitedPure MsgGetHeaders where
     msgLenLimit = MsgGetHeaders <$> vector maxGetHeadersNum <+> msgLenLimit
@@ -209,7 +225,7 @@ instance MessageLimited MsgGetHeaders
 
 instance MessageLimited (MsgHeaders ssc) where
     getMsgLenLimit _ = do
-        headerLimit <- Limit <$> DB.gsMaxHeaderSize
+        headerLimit <- getMsgLenLimit (Proxy @(BlockHeader ssc))
         return $
             MsgHeaders <$> vectorOf Const.recoveryHeadersMessage headerLimit
 

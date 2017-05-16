@@ -1,17 +1,16 @@
 import qualified Data.GraphViz.Commands.IO as G
 import qualified Data.Map.Strict           as M
-import           System.IO                 (hPutStrLn, IOMode (WriteMode))
+import           System.IO                 (hPutStrLn)
 
 import           Options
 import           Statistics
 import           Universum
 
-
 main :: IO ()
 main = do
     Options{..} <- parseOptions
     err $ "logs directory: " ++ show logDir
-    err $ "times csv file: " ++ show timesCSV
+    err $ "times svg file: " ++ show timesSVG
     err $ "graph dot file: " ++ show graphDOT
     (rc, g) <- runJSONFold logDir $ (,) <$> receivedCreatedF <*> graphF
     let total    = M.size rc
@@ -20,10 +19,7 @@ main = do
     err $ "total number of received transactions: " ++ show total
     err $ "included in blockchain: " ++ show (length included)
     err $ "lost transactions: " ++ show lost
-    withFile timesCSV WriteMode $ \h -> do
-        hPutStrLn h "tx,time"
-        for_ (M.toList rc) $ \(tx, mts) ->
-            hPutStrLn h $ toString tx ++ "," ++ maybe "" show mts
+    chart rc timesSVG
     void $ G.writeDotFile graphDOT g
   where
     err :: String -> IO ()

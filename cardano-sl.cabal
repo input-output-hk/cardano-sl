@@ -1323,6 +1323,7 @@ executable cardano-post-mortem
                      , Options
                      , Statistics
                      , Statistics.Block
+                     , Statistics.Chart
                      , Statistics.Graph
                      , Statistics.Tx
                      , Types
@@ -1333,6 +1334,8 @@ executable cardano-post-mortem
                      , aeson
                      , attoparsec
                      , cardano-sl
+                     , Chart
+                     , Chart-diagrams
                      , containers
                      , directory
                      , filepath

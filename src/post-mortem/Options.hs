@@ -9,7 +9,7 @@ import Universum
 
 data Options = Options
     { logDir   :: FilePath
-    , timesCSV :: FilePath
+    , timesSVG :: FilePath
     , graphDOT :: FilePath
     } deriving Show
 
@@ -22,7 +22,7 @@ options = Options <$> strOption (  long "logdir"
                   <*> strOption (  long "times"
                                 <> short 't'
                                 <> metavar "TIMES"
-                                <> help "target for the times csv file"
+                                <> help "target for the times svg file"
                                 )
                   <*> strOption (  long "graph"
                                 <> short 'g'

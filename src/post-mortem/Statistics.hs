@@ -3,6 +3,7 @@ module Statistics
     , receivedCreatedF
     , module Statistics.Tx
     , module Statistics.Block
+    , module Statistics.Chart
     , module Statistics.Graph
     ) where
 
@@ -12,6 +13,7 @@ import qualified Data.Map.Strict as M
 
 import JSONLog
 import Statistics.Block
+import Statistics.Chart
 import Statistics.Graph
 import Statistics.Tx
 import Types

@@ -798,11 +798,11 @@ rederiveAccountAddress
     => EncryptedSecretKey -> MCPassPhrase -> CAccountAddress -> m CAccountAddress
 rederiveAccountAddress newSK newCPass oldAcc = do
     newPass <- decodeCPassPhraseOrFail newCPass
-    (_, accSK) <- maybeThrow badPass $
+    (accAddr, _) <- maybeThrow badPass $
         deriveLvl2KeyPair newPass newSK (caaWalletIndex oldAcc) (caaAccountIndex oldAcc)
     return oldAcc
         { caaWSAddress = encToCAddress newSK
-        , caaAddress   = encToCAddress accSK
+        , caaAddress   = addressToCAddress accAddr
         }
   where
     badPass = Internal "rederiveAccountAddress: passphrase doesn't match"
@@ -896,8 +896,9 @@ changeWSetPassphrase sa oldCPass wsAddr newCPass = do
             `E.onException` do
                 logError "Failed to clone walletset"
         moveMoneyToClone sa oldCPass wsAddr (asExisting oldAccs) (asExisting newAccs)
-            `E.onException` logError "Money transmition failed in progress \
-                                     \everything is bad"  -- TODO: rollback ?
+            `E.onException`
+            logError "Money transmition failed in progress \
+                      \everything is bad"  -- TODO: rollback ?
         return oldAccs
     mapM_ totallyRemoveAccount $ asDeleted <> asExisting $ oldAccs
     deleteSK oldPass
@@ -907,7 +908,6 @@ changeWSetPassphrase sa oldCPass wsAddr newCPass = do
         let nice k = encToCAddress k == wsAddr && isJust (checkPassMatches passphrase k)
         midx <- findIndex nice <$> getSecretKeys
         idx  <- midx `whenNothing` throwM (Internal "No key with such address and pass found")
-        logDebug $ sformat ("lol"%build) idx
         deleteSecretKey (fromIntegral idx)
 
 -- NOTE: later we will have `isValidAddress :: CCurrency -> CAddress -> m Bool` which should work for arbitrary crypto

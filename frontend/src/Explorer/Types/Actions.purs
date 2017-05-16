@@ -30,6 +30,8 @@ data Action
     | SocketTxsUpdated (Either Error CTxEntries)
     | SocketUpdateSubscriptions (Array SocketSubscription) SocketSubscriptionAction
     | SocketReconnectSubscriptions
+    | SocketSubscribePaginatedBlocks Int
+    | SocketUnsubscribePaginatedBlocks Int
     -- socket endpoints for debugging only
     | SocketCallMe
     | SocketCallMeString String

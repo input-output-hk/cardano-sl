@@ -68,6 +68,34 @@ update (SocketConnected connected') state =
           ]
     }
 
+update (SocketSubscribePaginatedBlocks offset) state =
+    { state
+    , effects : [ do
+          _ <- case state ^. (socket <<< connection) of
+              Just socket' ->
+                  -- FIXME (jk)
+                  -- `SubBlock` has to be changed with another event type
+                  -- We do need a new type on backend side
+                  -- which accept an `offset :: Int`
+                  liftEff <<< emit' socket' <<< toEvent $ Subscribe SubBlock
+              Nothing -> pure unit
+          pure NoOp
+    ]}
+
+update (SocketUnsubscribePaginatedBlocks offset) state =
+    { state
+    , effects : [ do
+          _ <- case state ^. (socket <<< connection) of
+              Just socket' ->
+                  -- FIXME (jk)
+                  -- `SubBlock` has to be changed with another event type
+                  -- We do need a new type on backend side
+                  -- which accept an `offset :: Int`
+                  liftEff <<< emit' socket' <<< toEvent $ Unsubscribe SubBlock
+              Nothing -> pure unit
+          pure NoOp
+    ]}
+
 update (SocketBlocksUpdated (Right blocks)) state =
     noEffects $
     set latestBlocks (Success newBlocks) $
@@ -182,14 +210,18 @@ update (DashboardPaginateBlocks newPage) state =
     , effects:
           if (syncByPolling $ state ^. syncAction)
           then
-          -- get total blocks first if we are doing polling
+          -- get total blocks first before we do a request to get blocks
           [ pure RequestTotalBlocksToPaginateBlocks ]
           else
-          [ pure $ RequestPaginatedBlocks
+          [ pure $ SocketUnsubscribePaginatedBlocks offset
+          , pure $ RequestPaginatedBlocks
                       (RequestLimit maxBlockRows)
-                      (RequestOffset $ (newPage - 1) * maxBlockRows)
+                      (RequestOffset $ (newPage - minPagination) * maxBlockRows)
           ]
     }
+    where
+        currentPage = state ^. (dashboardViewState <<< dbViewBlockPagination)
+        offset = (currentPage - minPagination) * maxBlockRows
 
 update (DashboardEditBlocksPageNumber target editable) state =
     { state:
@@ -409,7 +441,7 @@ update (ReceiveTotalBlocksToPaginateBlocks (Right total)) state =
     }
     where
         newPage = state ^. (dashboardViewState <<< dbViewNextBlockPagination)
-        offset = (newPage - 1) * maxBlockRows
+        offset = (newPage - minPagination) * maxBlockRows
 
 update (ReceiveTotalBlocksToPaginateBlocks (Left error)) state =
     noEffects $
@@ -432,11 +464,19 @@ update (RequestPaginatedBlocks limit offset) state =
     }
 
 update (ReceivePaginatedBlocks (Right blocks)) state =
-    noEffects $
-    set loading false $
-    set (dashboardViewState <<< dbViewBlockPagination) (state ^. (dashboardViewState <<< dbViewNextBlockPagination)) $
-    set (dashboardViewState <<< dbViewLoadingBlockPagination) false $
-    set latestBlocks (Success $ sortBlocksByEpochSlot' blocks) state
+    { state:
+          set loading false $
+          set (dashboardViewState <<< dbViewBlockPagination) newPage $
+          set (dashboardViewState <<< dbViewLoadingBlockPagination) false $
+          set latestBlocks (Success $ sortBlocksByEpochSlot' blocks) state
+    , effects:
+        if (syncBySocket $ state ^. syncAction)
+        then [ pure $ SocketSubscribePaginatedBlocks offset ]
+        else []
+    }
+    where
+        newPage = state ^. (dashboardViewState <<< dbViewNextBlockPagination)
+        offset = (newPage - minPagination) * maxBlockRows
 
 update (ReceivePaginatedBlocks (Left error)) state =
     noEffects $
@@ -627,12 +667,12 @@ routeEffects Dashboard state =
     , effects:
         [ pure ScrollTop
         ]
-        -- get initial data of `totalBlocks` + `latestBlocks`
+        -- get first blocks page (with first visit to Dashboard only)
         <>  ( if isNotAsked $ state ^. totalBlocks
               then [ pure $ DashboardPaginateBlocks minPagination ]
               else []
             )
-        -- update `totalBlocks` + `latestBlocks` (with `syncByPolling` only)
+        -- update current blocks page (by using `syncByPolling` only)
         <>  ( if  (isSuccess $ state ^. totalBlocks) &&
                   (syncByPolling $ state ^. syncAction) &&
                   (state ^. pullLatestBlocks)
@@ -651,14 +691,12 @@ routeEffects Dashboard state =
               then [ pure RequestTxsUpdate ]
               else []
             )
-        -- subscribe to `SubBlock` and `SubTx `if needed
+        -- subscribe to `SubTx `if needed
         <>  ( if  (syncBySocket $ state ^. syncAction) &&
-                  (isSuccess $ state ^. latestBlocks) &&
                   (isSuccess $ state ^. latestTransactions)
               then [ pure $ SocketUpdateSubscriptions
-                              [ SocketSubscription SubBlock
-                              , SocketSubscription SubTx
-                              ] UnsubscribePrevSubscriptions
+                              [ SocketSubscription SubTx
+                              ] KeepPrevSubscriptions
                   ]
               else []
             )

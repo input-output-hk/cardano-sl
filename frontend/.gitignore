@@ -8,7 +8,7 @@ npm-debug.log
 .psc-ide-port
 .psci_modules
 # generated backend types + lenses
-src/Generated/*
+#src/Generated/*
 # generated lenses
 src/Data/Time/Lenses/*
 src/Explorer/I18n/Lenses.purs

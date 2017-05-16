@@ -1,5 +1,6 @@
 module Statistics.Block
-    ( blockHeadersF
+    ( BlockHeader (..)
+    , blockHeadersF
     , blockChain
     , blockChainF
     , txBlocksF

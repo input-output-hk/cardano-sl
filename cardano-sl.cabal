@@ -1322,6 +1322,7 @@ executable cardano-post-mortem
   other-modules:       JSONLog 
                      , Statistics
                      , Statistics.Block
+                     , Statistics.Graph
                      , Statistics.Tx
                      , Types
                      , Util.Aeson
@@ -1334,6 +1335,8 @@ executable cardano-post-mortem
                      , containers
                      , directory
                      , filepath
+                     , fgl
+                     , graphviz
                      , foldl
                      , pipes
                      , pipes-bytestring

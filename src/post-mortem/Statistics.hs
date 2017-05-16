@@ -3,6 +3,7 @@ module Statistics
     , receivedCreatedF
     , module Statistics.Tx
     , module Statistics.Block
+    , module Statistics.Graph
     ) where
 
 import           Control.Foldl   (Fold (..))
@@ -11,6 +12,7 @@ import qualified Data.Map.Strict as M
 
 import JSONLog
 import Statistics.Block
+import Statistics.Graph
 import Statistics.Tx
 import Types
 import Universum

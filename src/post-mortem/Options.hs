@@ -10,7 +10,7 @@ import Universum
 data Options = Options
     { logDir   :: FilePath
     , timesSVG :: FilePath
-    , graphDOT :: FilePath
+    , graphPNG :: FilePath
     } deriving Show
 
 options :: Parser Options
@@ -27,7 +27,7 @@ options = Options <$> strOption (  long "logdir"
                   <*> strOption (  long "graph"
                                 <> short 'g'
                                 <> metavar "GRAPH"
-                                <> help "target for the graph dot file"
+                                <> help "target for the graph png file"
                                 )
 
 parseOptions :: IO Options

@@ -1348,6 +1348,7 @@ executable cardano-post-mortem
                      , pipes-interleave
                      , pipes-safe
                      , text
+                     , turtle
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded

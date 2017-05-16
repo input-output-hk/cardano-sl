@@ -1,11 +1,13 @@
 module Statistics.Graph
     ( graphF
+    , writeGraph
     ) where
 
 import           Control.Foldl                     (Fold (..))
 import           Data.GraphViz                     (DotGraph)
 import qualified Data.GraphViz                     as G
 import qualified Data.GraphViz.Attributes.Complete as A
+import           Data.GraphViz.Commands.IO         (hPutDot)
 import           Data.Graph.Inductive.Graph        (Graph (mkGraph))
 import           Data.Graph.Inductive.PatriciaTree (Gr)
 import           Data.Map.Strict                   (Map)
@@ -14,6 +16,8 @@ import           Data.Set                          (Set)
 import qualified Data.Set                          as S
 import qualified Data.Text                         as T
 import qualified Data.Text.Lazy                    as L
+import           Turtle                            hiding (FilePath, f, g, toText)
+import qualified Turtle.Prelude                    as T
 
 import           JSONLog                           (IndexedJLTimedEvent)
 import           Prelude                           (unlines)
@@ -53,3 +57,13 @@ graphF = f <$> blockHeadersF
                      , show (bhNode bh)
                      , show (bhSlot bh)
                      ]
+
+writeGraph :: FilePath -> DotGraph Int -> IO ()
+writeGraph f g = with (T.mktempfile "." "graph.dot") $ \tmp -> do
+    with (T.writeonly tmp) $ flip hPutDot g
+    with (T.readonly tmp) $ \h -> do
+        ex <- T.shell (toText $ "/usr/bin/dot -Tpng -o'" ++ f ++ "'")
+                      (T.inhandle h)
+        case ex of
+            ExitSuccess -> return ()
+            _           -> throwM ex

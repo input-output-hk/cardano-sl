@@ -15,7 +15,7 @@ module Pos.Wallet.Web.Api
        , NewWalletSet
        , RestoreWalletSet
        , RenameWalletSet
-       , ImportKey
+       , ImportWalletSet
        , ChangeWalletSetPassphrase
 
        , GetWallet
@@ -77,52 +77,65 @@ type TestReset = API
     :> "reset"
     :> Post '[JSON] (Either WalletError ())
 
+-------------------------------------------------------------------------
+-- Wallet sets
+-------------------------------------------------------------------------
 
 type GetWalletSet = API
-    :> "walletSets"
+    :> "wallets"
+    :> "sets"
     :> Capture "walletSetId" (CAddress WS)
     :> Get '[JSON] (Either WalletError CWalletSet)
 
 type GetWalletSets = API
-    :> "walletSets"
+    :> "wallets"
+    :> "sets"
     :> Get '[JSON] (Either WalletError [CWalletSet])
 
 type NewWalletSet = API
-    :> "walletSets"
+    :> "wallets"
+    :> "sets"
     :> "new"
     :> QueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletSetInit
     :> Post '[JSON] (Either WalletError CWalletSet)
 
 type RestoreWalletSet = API
-    :> "walletSets"
+    :> "wallets"
+    :> "sets"
     :> "restore"
     :> QueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletSetInit
     :> Post '[JSON] (Either WalletError CWalletSet)
 
 type RenameWalletSet = API
-    :> "walletSets"
+    :> "wallets"
+    :> "sets"
     :> "rename"
     :> Capture "walletSetId" (CAddress WS)
     :> Capture "name" Text
-    :> Get '[JSON] (Either WalletError CWalletSet)
+    :> Post '[JSON] (Either WalletError CWalletSet)
 
-type ImportKey = API
-    :> "walletSets"
+type ImportWalletSet = API
+    :> "wallets"
+    :> "sets"
     :> "keys"
     :> QueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] Text
     :> Post '[JSON] (Either WalletError CWalletSet)
 
 type ChangeWalletSetPassphrase = API
-    :> "walletSets"
+    :> "wallets"
+    :> "sets"
     :> "password"
-    :> QueryParam "old" CPassPhrase
     :> Capture "walletSetId" (CAddress WS)
+    :> QueryParam "old" CPassPhrase
     :> QueryParam "new" CPassPhrase
     :> Post '[JSON] (Either WalletError ())
 
+-------------------------------------------------------------------------
+-- Wallets
+-------------------------------------------------------------------------
 
 type GetWallet = API
     :> "wallets"
@@ -131,7 +144,6 @@ type GetWallet = API
 
 type GetWallets = API
     :> "wallets"
-    :> "all"
     :> QueryParam "walletSetId" (CAddress WS)
     :> Get '[JSON] (Either WalletError [CWallet])
 
@@ -152,6 +164,9 @@ type DeleteWallet = API
     :> Capture "walletId" CWalletAddress
     :> Delete '[JSON] (Either WalletError ())
 
+-------------------------------------------------------------------------
+-- Accounts
+-------------------------------------------------------------------------
 
 type NewAccount = API
     :> "account"
@@ -159,6 +174,9 @@ type NewAccount = API
     :> ReqBody '[JSON] CWalletAddress
     :> Post '[JSON] (Either WalletError CAccount)
 
+-------------------------------------------------------------------------
+-- Addresses
+-------------------------------------------------------------------------
 
 type IsValidAddress = API
     :> "addresses"
@@ -167,6 +185,9 @@ type IsValidAddress = API
     :> Capture "currency" CCurrency
     :> Get '[JSON] (Either WalletError Bool)
 
+-------------------------------------------------------------------------
+-- Profile(s)
+-------------------------------------------------------------------------
 
 type GetProfile = API
     :> "profile"
@@ -177,6 +198,10 @@ type UpdateProfile = API
     :> ReqBody '[JSON] CProfile
     :> Post '[JSON] (Either WalletError CProfile)
 
+
+-------------------------------------------------------------------------
+-- Transactions
+-------------------------------------------------------------------------
 
 type NewPayment = API
     :> "txs"
@@ -226,6 +251,11 @@ type SearchHistory = API
     :> QueryParam "limit" Word
     :> Get '[JSON] (Either WalletError ([CTx], Word))
 
+
+-------------------------------------------------------------------------
+-- Updates
+-------------------------------------------------------------------------
+
 type NextUpdate = API
     :> "update"
     :> Get '[JSON] (Either WalletError CUpdateInfo)
@@ -234,6 +264,10 @@ type ApplyUpdate = API
     :> "update"
     :> Post '[JSON] (Either WalletError ())
 
+
+-------------------------------------------------------------------------
+-- Redemptions
+-------------------------------------------------------------------------
 
 type RedeemADA = API
     :> "redemptions"
@@ -251,6 +285,10 @@ type RedeemADAPaperVend = API
     :> Post '[JSON] (Either WalletError CTx)
 
 
+-------------------------------------------------------------------------
+-- Reporting
+-------------------------------------------------------------------------
+
 type ReportingInitialized = API
     :> "reporting"
     :> "initialized"
@@ -263,6 +301,10 @@ type ReportingElectroncrash = API
     :> MultipartForm CElectronCrashReport
     :> Post '[JSON] (Either WalletError ())
 
+
+-------------------------------------------------------------------------
+-- Settings
+-------------------------------------------------------------------------
 
 type GetSlotsDuration = API
     :> "settings"
@@ -300,7 +342,7 @@ type WalletApi =
     :<|>
      RenameWalletSet
     :<|>
-     ImportKey
+     ImportWalletSet
     :<|>
      ChangeWalletSetPassphrase
     :<|>

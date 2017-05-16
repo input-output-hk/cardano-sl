@@ -2,17 +2,20 @@ module Main
        ( main
        ) where
 
-import           Language.PureScript.Bridge         (BridgePart, buildBridge,
-                                                     defaultBridge, mkSumType, typeName,
-                                                     writePSTypes, (<|>), (^==))
-import           Language.PureScript.Bridge.PSTypes (psInt)
+import           Language.PureScript.Bridge                (BridgePart, buildBridge,
+                                                            defaultBridge, mkSumType,
+                                                            typeName, writePSTypes, (<|>),
+                                                            (^==))
+import           Language.PureScript.Bridge.PSTypes        (psInt)
+import           Language.PureScript.Bridge.TypeParameters (A)
 import           Universum
 
-import qualified Pos.Types                          as PT
-import qualified Pos.Util.BackupPhrase              as BP
-import qualified Pos.Wallet.Web                     as CT
+import qualified Pos.Types                                 as PT
+import qualified Pos.Util.BackupPhrase                     as BP
+import qualified Pos.Wallet.Web                            as CT
 
-import           PSTypes                            (psHash, psPosixTime)
+import           PSTypes                                   (psInt53, psPosixTime)
+
 
 main :: IO ()
 main =
@@ -25,11 +28,18 @@ main =
       , mkSumType (Proxy @CT.CWalletInit)
       , mkSumType (Proxy @CT.CWalletType)
       , mkSumType (Proxy @CT.CWallet)
+      , mkSumType (Proxy @CT.CWalletSet)
+      , mkSumType (Proxy @CT.CWalletSetInit)
       , mkSumType (Proxy @CT.CProfile)
       , mkSumType (Proxy @CT.CTxMeta)
       , mkSumType (Proxy @CT.CTExMeta)
-      , mkSumType (Proxy @(CT.CAddress CT.WS))
-      , mkSumType (Proxy @(CT.CAddress CT.Acc))
+      , mkSumType (Proxy @CT.CWalletAddress)
+      , mkSumType (Proxy @CT.CWalletSetMeta)
+      , mkSumType (Proxy @CT.CAccount)
+      , mkSumType (Proxy @CT.CAccountAddress)
+      , mkSumType (Proxy @CT.WS)
+      , mkSumType (Proxy @CT.Acc)
+      , mkSumType (Proxy @(CT.CAddress A))
       , mkSumType (Proxy @CT.CHash)
       , mkSumType (Proxy @CT.CTxId)
       , mkSumType (Proxy @CT.CTx)
@@ -53,13 +63,13 @@ main =
       customBridge =
           defaultBridge <|> posixTimeBridge <|> wordBridge <|>
           word8Bridge <|> word16Bridge <|> word32Bridge <|>
-          word64Bridge <|> hashBridge
+          word64Bridge
 
 posixTimeBridge :: BridgePart
 posixTimeBridge = typeName ^== "NominalDiffTime" >> pure psPosixTime
 
 wordBridge :: BridgePart
-wordBridge = typeName ^== "Word" >> pure psInt
+wordBridge = typeName ^== "Word" >> pure psInt53
 
 word8Bridge :: BridgePart
 word8Bridge = typeName ^== "Word8" >> pure psInt
@@ -68,10 +78,10 @@ word16Bridge :: BridgePart
 word16Bridge = typeName ^== "Word16" >> pure psInt
 
 word32Bridge :: BridgePart
-word32Bridge = typeName ^== "Word32" >> pure psInt
+word32Bridge = typeName ^== "Word32" >> pure psInt53
 
+-- FIXME: this is not actually correct, but we don't
+-- use >= Int53 except for Coin, and Coin is representat
+-- as String in `0.4` branch
 word64Bridge :: BridgePart
-word64Bridge = typeName ^== "Word64" >> pure psInt
-
-hashBridge :: BridgePart
-hashBridge = typeName ^== "Hash" >> pure psHash
+word64Bridge = typeName ^== "Word64" >> pure psInt53

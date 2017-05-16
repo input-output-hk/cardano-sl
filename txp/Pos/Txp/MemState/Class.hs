@@ -28,7 +28,7 @@ import           Data.Default           (Default (def))
 import qualified Data.HashMap.Strict    as HM
 import qualified Ether
 import           System.IO.Unsafe       (unsafePerformIO)
-import           System.Wlog            (WithLogger)
+import           System.Wlog            (WithLogger, usingLoggerName, getLoggerName)
 
 import           Pos.Txp.Core.Types     (TxAux, TxId, TxOutAux)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),
@@ -91,14 +91,18 @@ txpLocalDataLock = unsafePerformIO $ newMVar ()
 
 modifyTxpLocalData
     :: (MonadIO m, MonadBaseControl IO m, MonadTxpMem ext m)
-    => (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext)) -> m a
-modifyTxpLocalData f =
+    => String
+    -> (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext))
+    -> m a
+modifyTxpLocalData reason f =
     askTxpMemAndMetrics >>= \(TxpLocalData{..}, TxpMetrics{..}) -> do
+        lname <- getLoggerName
+        liftIO . usingLoggerName lname $ txpMetricsWait reason
         timeBeginWait <- currentTime
-        liftIO txpMetricsWait
         withLock $ do
             timeEndWait <- currentTime
-            liftIO $ txpMetricsAcquire (timeEndWait - timeBeginWait)
+            liftIO . usingLoggerName lname $
+                txpMetricsAcquire (timeEndWait - timeBeginWait)
             timeBeginModify <- currentTime
             (res, newSize) <- atomically $ do
                 curUM  <- STM.readTVar txpUtxoModifier
@@ -115,17 +119,23 @@ modifyTxpLocalData f =
                 STM.writeTVar txpExtra newExtra
                 pure (res, _mpSize newMP)
             timeEndModify <- currentTime
-            liftIO $ txpMetricsRelease (timeEndModify - timeBeginModify) newSize
+            liftIO . usingLoggerName lname $
+                txpMetricsRelease (timeEndModify - timeBeginModify) newSize
             pure res
  where
    withLock = L.bracket_ (takeMVar txpLocalDataLock) (putMVar txpLocalDataLock ())
 
 setTxpLocalData
     :: (MonadIO m, MonadBaseControl IO m, MonadTxpMem ext m)
-    => GenericTxpLocalDataPure ext -> m ()
-setTxpLocalData x = modifyTxpLocalData (const ((), x))
+    => String
+    -> GenericTxpLocalDataPure ext
+    -> m ()
+setTxpLocalData reason x = modifyTxpLocalData reason (const ((), x))
 
-clearTxpMemPool :: (MonadIO m, MonadBaseControl IO m, MonadTxpMem ext m, Default ext) => m ()
-clearTxpMemPool = modifyTxpLocalData clearF
+clearTxpMemPool
+  :: (MonadIO m, MonadBaseControl IO m, MonadTxpMem ext m, Default ext)
+  => String
+  -> m ()
+clearTxpMemPool reason = modifyTxpLocalData reason clearF
   where
     clearF (_, _, _, tip, _) = ((), (mempty, def, mempty, tip, def))

@@ -12,9 +12,10 @@ module Pos.Txp.MemState.Types
 import           GHC.Base               (Int, IO)
 import           Universum
 import           Data.Time.Units        (Microsecond)
+import           System.Wlog            (LoggerNameBox)
 
-import           Pos.Core.Types     (HeaderHash)
-import           Pos.Txp.Toil.Types (MemPool, UndoMap, UtxoModifier)
+import           Pos.Core.Types         (HeaderHash)
+import           Pos.Txp.Toil.Types     (MemPool, UndoMap, UtxoModifier)
 
 -- | LocalData of transactions processing.
 -- There are two invariants which must hold for local data
@@ -51,20 +52,21 @@ type TxpLocalDataPure = GenericTxpLocalDataPure ()
 --   mockable system doesn't work well with ether.
 data TxpMetrics = TxpMetrics
     { -- | Called when a thread begins to wait to modify the mempool.
-      txpMetricsWait :: !(IO ())
+      --   Parameter is the reason for modifying the mempool.
+      txpMetricsWait :: !(String -> LoggerNameBox IO ())
       -- | Called when a thread is granted the lock on the mempool. Parameter
       --   indicates how long it waited.
-    , txpMetricsAcquire :: !(Microsecond -> IO ())
+    , txpMetricsAcquire :: !(Microsecond -> LoggerNameBox IO ())
       -- | Called when a thread is finished modifying the mempool and has
       --   released the lock. Parameters indicates time elapsed since acquiring
       --   the lock, and new mempool size.
-    , txpMetricsRelease :: !(Microsecond -> Int -> IO ())
+    , txpMetricsRelease :: !(Microsecond -> Int -> LoggerNameBox IO ())
     }
 
 -- | A TxpMetrics never does any writes. Use it if you don't care about metrics.
 ignoreTxpMetrics :: TxpMetrics
 ignoreTxpMetrics = TxpMetrics
-    { txpMetricsWait = (pure ())
+    { txpMetricsWait = (const (pure ()))
     , txpMetricsAcquire = (const (pure ()))
     , txpMetricsRelease = (const (const (pure ())))
     }

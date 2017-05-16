@@ -84,7 +84,7 @@ eTxProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
                    toList $
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
     curTime <- currentTimeSlotting
-    pRes <- modifyTxpLocalData $
+    pRes <- modifyTxpLocalData "eTxProcessTransaction" $
             processTxDo resolved toilEnv tipBefore itw curTime
     case pRes of
         Left er -> do
@@ -137,4 +137,4 @@ eTxNormalize = do
         runDBTxp $
         snd <$>
         runToilTLocalExtra mempty def mempty def (eNormalizeToil toNormalize)
-    setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
+    setTxpLocalData "eTxNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)

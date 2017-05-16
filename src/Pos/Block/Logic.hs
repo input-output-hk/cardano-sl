@@ -854,7 +854,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     verifyCreatedBlock :: MainBlock ssc -> ExceptT Text m (Either Text ())
     verifyCreatedBlock block = lift $ void <$> verifyBlocksPrefix (one (Right block))
     clearMempools = do
-        clearTxpMemPool
+        clearTxpMemPool "createMainBlockFinish"
         sscResetLocal
         clearUSMemPool
         clearProxyMemPool
